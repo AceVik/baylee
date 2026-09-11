@@ -93,16 +93,40 @@ impl Default for Ambient {
 pub struct Feel {
     /// The colour the button rests at.
     pub base: Color,
+    /// Where the pointer takes it, when lifting [`Self::base`] towards white
+    /// is not the answer.
+    ///
+    /// [`shade`] mixes the channels towards white and **keeps the alpha**, so
+    /// a control that rests at `Color::NONE` is lifted to a brighter nothing
+    /// and never answers the pointer at all. That is not a hypothetical: a
+    /// step tile the standing orders skip has no ground, and its hover is the
+    /// ground a click would give it. So the hot end is stated where it cannot
+    /// be derived, and derived everywhere else.
+    pub hot: Option<Color>,
     /// How far into the hovered state it currently is, 0 to 1. Negative
     /// values are the pressed side, so one number carries both.
     pub warmth: f32,
 }
 
 impl Feel {
-    /// A button resting at `base`.
+    /// A button resting at `base`, hovering a shade lighter.
     #[must_use]
     pub fn new(base: Color) -> Self {
-        Self { base, warmth: 0.0 }
+        Self {
+            base,
+            hot: None,
+            warmth: 0.0,
+        }
+    }
+
+    /// A button resting at `base` and hovering all the way to `hot`.
+    #[must_use]
+    pub fn rising_to(base: Color, hot: Color) -> Self {
+        Self {
+            base,
+            hot: Some(hot),
+            warmth: 0.0,
+        }
     }
 }
 
@@ -208,7 +232,14 @@ fn feel(
         let cold = (-feel.warmth).max(0.0);
         let scale = 1.0 + (HOVER_SCALE - 1.0) * hot + (PRESS_SCALE - 1.0) * cold;
         transform.scale = Vec2::splat(scale);
-        colour.0 = shade(feel.base, HOVER_LIFT * hot - PRESS_SINK * cold);
+        // The press is a shade either way; only the hover has two readings,
+        // and a stated hot end is interpolated in all four channels so an
+        // alpha of zero can rise out of nothing.
+        let resting = match feel.hot {
+            Some(target) => blend(feel.base, target, hot),
+            None => shade(feel.base, HOVER_LIFT * hot),
+        };
+        colour.0 = shade(resting, -PRESS_SINK * cold);
     }
 }
 
@@ -226,6 +257,22 @@ fn shade(base: Color, by: f32) -> Color {
     rgba.green += (towards - rgba.green) * amount;
     rgba.blue += (towards - rgba.blue) * amount;
     rgba.into()
+}
+
+/// `from` at `t` of the way to `to`, **alpha included**.
+///
+/// The one difference from [`shade`] that matters: a control resting at
+/// `Color::NONE` has to be able to rise out of nothing, and an interpolation
+/// that kept the alpha could never do it.
+fn blend(from: Color, to: Color, t: f32) -> Color {
+    let (a, b) = (from.to_srgba(), to.to_srgba());
+    Srgba {
+        red: a.red + (b.red - a.red) * t,
+        green: a.green + (b.green - a.green) * t,
+        blue: a.blue + (b.blue - a.blue) * t,
+        alpha: a.alpha + (b.alpha - a.alpha) * t,
+    }
+    .into()
 }
 
 /// Spawns a full-bleed ambient surface, returning it for the caller to place.

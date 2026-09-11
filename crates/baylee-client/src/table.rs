@@ -2954,10 +2954,25 @@ mod camera_tests {
     /// is the shape of the whole ladder now: the two-row bar wants 585 px of
     /// length, which a 1024-wide window already gives it, so from there up
     /// what decides the form is whether the shelf is deep enough to write two
-    /// rows on — 34 px of ink against the 30.7 and 36.2 above. The 800-wide
-    /// window is the one that fails on both counts, 548 long and 21.1 deep.
-    /// A window of the shape here gains the phase line at about 1150, and it
-    /// is its *height* that buys it.
+    /// rows on. The 800-wide window is the one that fails on both counts,
+    /// 548 long and 21.1 deep.
+    ///
+    /// Measured across the band, near seat then far, when the identity row
+    /// grew from 14 px to 18 and took the split bar's ink from 34 to 40:
+    ///
+    /// | window | near      | far       |
+    /// |--------|-----------|-----------|
+    /// | 1024   | 30.7 deep | 28.1 deep |
+    /// | 1152   | 36.2      | 33.0      |
+    /// | 1280   | 41.8      | 37.9      |
+    /// | 1366   | 45.5      | 41.2      |
+    /// | 1728   | 61.1      | 55.0      |
+    ///
+    /// So a window of this shape gains the phase line at about **1280** on
+    /// the near seat and **1366** on both, where it used to be 1150 and 1250.
+    /// A row eleven pixels taller costs four hundred pixels of window, which
+    /// is the price of the identity row being readable at the size it is
+    /// written in rather than shrunk to fit under the tiles.
     ///
     /// This list used to start at the compact bar at 1280 and reach the
     /// two-row one at 1728, and every number in it moved when the shelf
@@ -2967,15 +2982,16 @@ mod camera_tests {
     /// could always hold and not a change of mind about what it should.
     ///
     /// The far seat's shelf stays about a tenth shallower than the near one
-    /// (55.0 against 61.1 at 1728), so there is still a band — around 1150 to
-    /// 1250 — where a duel draws its local bar on two rows and its
+    /// (55.0 against 61.1 at 1728), so there is still a band — now around
+    /// 1280 to 1366 — where a duel draws its local bar on two rows and its
     /// opponent's on one. That is the same per-seat answer the ladder gives a
     /// four-seat table, and the list deliberately does not try to pin its
     /// edges: they move with every constant here.
-    const DUEL_BARS: [(f32, baylee_client_core::seatbar::Density); 4] = [
+    const DUEL_BARS: [(f32, baylee_client_core::seatbar::Density); 5] = [
         (800.0, baylee_client_core::seatbar::Density::Pip),
         (1024.0, baylee_client_core::seatbar::Density::Compact),
-        (1152.0, baylee_client_core::seatbar::Density::Split),
+        (1152.0, baylee_client_core::seatbar::Density::Compact),
+        (1366.0, baylee_client_core::seatbar::Density::Split),
         (1920.0, baylee_client_core::seatbar::Density::Split),
     ];
 

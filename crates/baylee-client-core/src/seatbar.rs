@@ -225,20 +225,31 @@ const MAIN_SPAN: f32 = 2.0;
 /// Nothing at all, and deliberately less than [`CELL_GAP`]: the rows are one
 /// bar about one seat, and a gap wide enough to read as a division would make
 /// the phase line look like it belonged to the table rather than to the mat it
-/// is written on. The tile halo is the only air there is between them.
-const SPLIT_ROW_GAP: f32 = 0.0;
+/// is written on. It was zero, with the tile's halo ring as the only air
+/// between them; the halo is gone, so the air is stated instead of borrowed.
+const SPLIT_ROW_GAP: f32 = 2.0;
 
 /// How tall the identity row of a [`Density::Split`] bar is drawn.
 ///
 /// It carries no tiles — only text and a three-pixel swatch — so it is sized
 /// for the tallest numeral on it rather than for a control, which is what
 /// makes the two rows fit on a shelf a single full-size row nearly fills.
-const SPLIT_IDENTITY_H: f32 = 14.0;
-
-/// How far outside a tile the now-ring stands, and how thick it is.
 ///
-/// It is the outermost ink on a bar, so it is what the shelf has to be deep
-/// enough to hold — see [`Density::ink_height`].
+/// Fourteen made it a *caption*: [`Cell::fits`] cut the name and the life
+/// total to 12 pt to keep their descenders inside, so the half of the bar
+/// that says **who** was drawn smaller than the half that says *when*, pinned
+/// under it with no gap. Eighteen gives both their own size back. The shelf
+/// was never the constraint — a duel projects 55 and 61 px of ledge against
+/// an ink height that goes 34 → 40.
+const SPLIT_IDENTITY_H: f32 = 18.0;
+
+/// How far outside a tile the outermost ink on a bar stands.
+///
+/// It is what the shelf has to be deep enough to hold — see
+/// [`Density::ink_height`]. It was the now-ring's offset; the ring is gone
+/// and the under-tick that marks "the game is here, and here is not a
+/// control" sits at the same offset, so the number is unchanged and what it
+/// measures is not.
 pub const HALO_OUT: f32 = 2.0;
 
 /// How many steps a turn has, and therefore how many tiles a bar carries.

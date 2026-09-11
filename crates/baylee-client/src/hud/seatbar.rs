@@ -525,14 +525,27 @@ fn spawn_bar(
                 Pickable::IGNORE,
             ))
             .id();
+        let mut strutted = false;
         for cell in cells {
-            // The hinge closes the identity row of a split bar rather than
-            // following the counts, so the row is anchored at both ends
-            // instead of running out a third of the way along and leaving the
-            // rest of the shelf blank. One strut does it: everything before
-            // it keeps its own width, and the turn number lands under the last
-            // of the twelve tiles it belongs to.
-            if density.is_split() && matches!(cell, Cell::Hinge) {
+            // The identity row of a split bar is **a nameplate at one end and
+            // a tally at the other**, and the gap between them is deliberate.
+            // It used to be the whole row bunched into the left third with the
+            // turn number alone at the right, which is a row anchored by a
+            // caret on one side and nothing on the other. The strut used to
+            // sit before the hinge alone, which anchored the ends and left
+            // every count in the left-hand cluster. Moving it in front of the
+            // first count takes the four of them with it: who and how much
+            // life at the left, what is in each zone and what turn it is at
+            // the right, and the empty stretch where the eye passes over it.
+            //
+            // Not aligned to the phase groups above, which was the other
+            // candidate: the tiles' widths follow the shelf while these cells
+            // are fixed by rule, and a life total standing under "combat"
+            // reads as being *about* combat. Two rows about two things do not
+            // borrow each other's grid.
+            let opens_the_tally = matches!(cell, Cell::Count(_) | Cell::Hinge);
+            if density.is_split() && !strutted && opens_the_tally {
+                strutted = true;
                 let strut = commands
                     .spawn((
                         Node {
@@ -594,6 +607,27 @@ fn row_height(density: Density, index: usize) -> f32 {
 /// How faint the ink on a lost seat's bar is drawn. It says nothing any more,
 /// and a bar that said nothing at full strength would go on drawing the eye.
 const DEAD_INK: f32 = 0.28;
+
+/// How faint a step the standing orders skip is written.
+///
+/// Measured over the ledge, which is (26, 55, 39): half-alpha parchment
+/// composites to (132, 141, 122), **3.75:1**. That is above the 3:1 a
+/// graphical object needs to be made out and below what a paragraph wants,
+/// which is the right side of both lines for a label the player is not being
+/// asked to read — a skip is the step the game will pass straight through.
+const SKIP_INK: f32 = 0.50;
+
+/// The ground under a step a standing order stops at.
+///
+/// Faint enough to be a *ground* rather than a chip — it composites to
+/// (56, 79, 62) on the ledge — and that is the whole signal: a lit label on a
+/// raised ground beside dim labels on bare cloth. A luminance difference
+/// rather than a hue one, which is what a green felt makes of any attempt to
+/// say go/stop in colour.
+const STOP_GROUND: Color = Color::srgba(0.929, 0.890, 0.800, 0.14);
+
+/// The corner a step tile is cut with.
+const TILE_RADIUS: f32 = 3.0;
 
 /// The ink a seat's bar is written in.
 fn ink_of(seat: &SeatView) -> Color {
@@ -1016,7 +1050,6 @@ fn steps(
                     skipped: skipped(step),
                     live: step.grants_priority(),
                     now: step == current,
-                    behind: is_active_seat && step.index() < current.index(),
                     gold: is_active_seat,
                     selected: orders.selected() == Some((side, step)),
                     lost: seat.has_lost,
@@ -1050,8 +1083,6 @@ struct TileState {
     live: bool,
     /// Whether the game is in this step.
     now: bool,
-    /// Whether the game has already passed it this turn.
-    behind: bool,
     /// Whether "now" on this bar is gold — that is, whether this is the
     /// active seat's own bar.
     gold: bool,
@@ -1061,18 +1092,46 @@ struct TileState {
     lost: bool,
 }
 
-/// One step tile.
+/// One step tile: **ink on a shelf, not a chip on it**.
 ///
-/// Three channels and they never share: **the frame is the standing order**,
-/// the ring is where the game is, and the ink's alpha is time. So they stack
-/// without fighting, and a tile carrying all three is still legible.
+/// The bar shipped with its hierarchy upside down. A *skip* is what most
+/// steps are — the standing orders stop at four or five of the twelve — and
+/// the skip wore [`palette::DANGER`], so the alarm colour was painted on the
+/// ordinary case while the deliberate one got a quiet parchment frame. Every
+/// live tile was framed and filled either way, which is twelve stadiums
+/// across a 1127 px shelf: a browser toolbar laid on a card table. It also
+/// made the bar *opaque*, and the ledge is crossed by things the table draws
+/// — a combat line to the far seat, a card lifting under the pointer, a
+/// permanent falling in from `ENTRANCE_RISE` — so twelve solid chips floated
+/// over all of them.
 ///
-/// The frame carries go/skip rather than the fill because of what the ground
-/// is. On the dark panel the rail stood on, a green fill and a red one were
-/// two colours; on baize a 22% green fill against the skip fill is 2.5:1 —
-/// hue and not luminance, which is the red/green failure to avoid. The frames
-/// measure 4:1 and 3.2:1 on the felt, and the diagonal struck through a
-/// skipped glyph is the second channel.
+/// So the rare state is the marked one, and the channels are:
+///
+/// - **The ground is the standing order.** A stop is `PARCHMENT` at 0.14
+///   with its glyph at full ink (6.99:1 on that ground); a skip is ink at
+///   half alpha on bare cloth (3.75:1 — above the 3:1 a graphical object
+///   needs, below what text wants, which is right for a label nobody is
+///   being asked to read). That is a *luminance* difference rather than a
+///   hue one, which is the red/green failure the old comment here set out to
+///   avoid and then walked into from the other side.
+/// - **A solid fill is "here, now"**, on the active seat's bar only, with
+///   [`palette::PARCHMENT_INK`] on it — the same solid-warm-with-dark-ink the
+///   prompt slip's own button uses. The two-ring halo went with it: the rings
+///   existed because a shadow drawn through a 10% fill lit the whole tile,
+///   and a solid fill has no such problem.
+/// - **A frame is keyboard focus, and nothing else.** A frame is the shape of
+///   a control, so it now appears exactly when one is being operated.
+/// - **A dead step** (untap, cleanup — CR 502.4, CR 514.3a) is the dimmest
+///   ink there is and has no ground at all. Its 4% ground was added when it
+///   was the only bare word on a row of chips; the whole row is bare words
+///   now, so the two dead ones are simply the faintest, at the two ends,
+///   which is what they are.
+///
+/// Time as a fourth channel is **dropped**. Position already carries it — the
+/// row reads left to right at every seat because the bar rotates with the
+/// mat, and the gold tile says where the game is, so "behind" is "left of the
+/// gold one". Keeping it would have collided with the skip alpha: a skipped
+/// step ahead and a stop behind would both have been half-lit.
 #[allow(clippy::too_many_lines)] // one tile, three channels, one flat build
 fn spawn_tile(
     commands: &mut Commands,
@@ -1082,51 +1141,35 @@ fn spawn_tile(
     state: TileState,
 ) -> Entity {
     let (icon, short) = row_visual(state.row);
-    // Time, as alpha: full ahead of the game, half behind it, and a quarter
-    // on a step no stop can be arranged in.
-    let alpha = if !state.live || state.lost {
-        DEAD_INK
-    } else if state.behind {
-        0.5
+    let dead = !state.live || state.lost;
+    let here = state.now && state.gold && state.live;
+    let ink = if here {
+        palette::PARCHMENT_INK
+    } else if dead {
+        palette::PARCHMENT.with_alpha(DEAD_INK)
+    } else if state.skipped {
+        palette::PARCHMENT.with_alpha(SKIP_INK)
     } else {
-        1.0
+        palette::PARCHMENT
     };
-    let ink = if state.now && state.gold && state.live {
+    let fill = if here {
         palette::ACTIVE
-    } else {
-        palette::PARCHMENT.with_alpha(alpha)
-    };
-    // No frame at all is what says dead. Not a grey frame — a frame is the
-    // shape of a control, and a control that can never do anything should not
-    // have one.
-    let frame = if !state.live {
+    } else if dead || state.skipped {
         Color::NONE
-    } else if state.now && state.gold {
-        palette::ACTIVE
-    } else if state.selected {
+    } else {
+        STOP_GROUND
+    };
+    // A frame is the shape of a control, so it is drawn exactly when one is
+    // being operated. Everything else a tile has to say is said by its ground.
+    let frame = if state.selected && state.live {
         palette::ACCENT
-    } else if state.skipped {
-        palette::DANGER.with_alpha(0.8 * alpha)
     } else {
-        palette::PARCHMENT.with_alpha(0.55 * alpha)
+        Color::NONE
     };
-    // A dead step keeps the *silhouette* of its neighbours and loses every
-    // other channel. It used to have no ground at all, which left untap and
-    // cleanup as two bare words at the extreme ends of the row — read as
-    // stranded text rather than as the first and last things a turn does. A
-    // ground this faint claims nothing (a fill is not a frame, and a frame is
-    // what says "control") and says only that a place is held here.
-    let fill = if !state.live {
-        palette::PARCHMENT.with_alpha(0.04)
-    } else if state.skipped {
-        Color::srgba(0.227, 0.071, 0.071, 0.70 * alpha)
-    } else {
-        palette::PARCHMENT.with_alpha(0.10 * alpha)
-    };
-    let border = if state.now && state.gold && state.live {
-        2.0
-    } else {
+    let border = if state.selected && state.live {
         1.0
+    } else {
+        0.0
     };
 
     let tile = commands
@@ -1145,7 +1188,10 @@ fn spawn_tile(
                 justify_content: JustifyContent::Center,
                 column_gap: px(3),
                 border: UiRect::all(px(border)),
-                border_radius: btn_radius(),
+                // Three, not `btn_radius`'s six: on a 16 px tile six is a
+                // stadium, and a stadium is the browser chip this row was
+                // being read as. Three is a tab on a ruler.
+                border_radius: BorderRadius::all(px(TILE_RADIUS)),
                 ..default()
             },
             BackgroundColor(fill),
@@ -1177,42 +1223,27 @@ fn spawn_tile(
     }
 
     if state.live {
+        // A skipped tile rests on nothing, and `Feel` mixes towards white
+        // while *keeping alpha* — so a base of `Color::NONE` is a control
+        // that does not answer the pointer at all. Its hover is therefore
+        // stated rather than derived, and what it shows is the ground a
+        // click would put there: hovering a skip previews the stop.
+        let feel = if fill == Color::NONE {
+            Feel::rising_to(fill, STOP_GROUND)
+        } else {
+            Feel::new(fill)
+        };
         commands.entity(tile).insert((
             SeatStep {
                 side: state.side,
                 row: state.row,
             },
-            Feel::new(fill),
+            feel,
         ));
     } else {
         commands.entity(tile).insert(Pickable::IGNORE);
     }
 
-    // The now-light is **two crisp rings, not a shadow**. The fill is ten per
-    // cent opaque, and a `BoxShadow` under a near-transparent fill is drawn
-    // *through* it — the whole tile interior would glow gold, which
-    // `docs/client.md` already names as the hole-with-a-shadow-in-it
-    // rendering. A second ring standing two pixels outside the first is a
-    // halo the ledge shows through.
-    if state.now && state.gold && state.live {
-        let halo = commands
-            .spawn((
-                Node {
-                    position_type: PositionType::Absolute,
-                    left: px(-HALO_OUT),
-                    top: px(-HALO_OUT),
-                    right: px(-HALO_OUT),
-                    bottom: px(-HALO_OUT),
-                    border: UiRect::all(px(1)),
-                    border_radius: BorderRadius::all(px(8)),
-                    ..default()
-                },
-                BorderColor::all(palette::ACTIVE.with_alpha(0.35)),
-                Pickable::IGNORE,
-            ))
-            .id();
-        commands.entity(tile).add_child(halo);
-    }
     // Every turn passes through untap and cleanup, so "the game is in a step
     // no stop can be arranged in" happens twice a turn and is not an edge
     // case. It is marked with an under-tick rather than a frame, because the

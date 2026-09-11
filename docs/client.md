@@ -1898,9 +1898,16 @@ It reaches a duel and stops there, and what stops it is **length**.
 `a_duel_is_written_on_two_rows` is the test, and it reports both shelves
 rather than the first, because the number that decides the ledge is the
 *shallower* of the two. Those two are about a tenth apart (55.0 against 61.1
-at 1728), so there is a band of window sizes — roughly 1150 to 1250 at this
+at 1728), so there is a band of window sizes — roughly 1280 to 1366 at this
 aspect — where a duel writes its local bar on two rows and its opponent's on
-one. That is the per-seat answer the ladder already gives a four-seat table,
+one. It was 1150 to 1250 until the identity row grew from 14 px to 18 and took
+the form's ink from 34 to 40: fourteen made that row a *caption*, cutting the
+name and the life total to 12 pt to keep their descenders inside, so the half
+of the bar that says **who** was drawn smaller than the half that says *when*,
+with no gap between them. Eleven more pixels of row cost four hundred pixels
+of window, and `camera_tests::DUEL_BARS` carries the measurement either side
+of it. That band is the per-seat answer the ladder already gives a four-seat
+table,
 where a side seat and the seat across get different forms; a duel showing two
 is the same rule and not an exception to it.
 
@@ -1950,9 +1957,15 @@ where a hinge belongs on a bar written on one line; on two it made both rows
 worse — the tiles began a turn-number's width in from the shelf's edge, and
 the identity row ran out after the counts with four fifths of itself empty.
 The turn number now sits at the far end of the row beneath the tiles, which
-anchors that row at both ends and gives the twelve tiles the whole ledge. It
-is still touching what it hinges: `SPLIT_ROW_GAP` is nothing at all, so the
-two rows meet.
+anchors that row at both ends and gives the twelve tiles the whole ledge —
+and the four zone counts travel with it, so the row is a **nameplate at one
+end and a tally at the other**: caret, colour, name and life on the left,
+hand, library, graveyard, exile and the turn number on the right, with the
+empty stretch in the middle where the eye passes over it. The strut that used
+to sit in front of the hinge alone now sits in front of the first count.
+The two rows are not aligned to one another's grid and must not be: the
+tiles' widths follow the shelf while these cells are fixed by rule, and a
+life total standing under "combat" reads as being *about* combat.
 
 **The tiles follow the shelf, and the gap between phases has a floor.** A bar
 is rebuilt when its *density* changes and re-placed every frame, which is
@@ -1975,21 +1988,50 @@ times the tile gap now rather than three — a floor only this form reaches,
 and one the near seat never notices, since its slack put it at 24.5 either
 way.
 
-Three channels on a step tile, and they answer three different questions.
-The **frame** is the standing order — none at all for a dead step, gold for
-the step the game is in, accent for a stop, danger for a skip. The **ring** is
-where the game is: two crisp rings at `HALO_OUT` outside the tile rather than
-a `BoxShadow`, because a shadow under a ten-per-cent fill is drawn *through*
-it and the whole tile interior would glow. The **ink alpha** is time — which
-turn's row this is. Untap and cleanup get no frame at all and are
-`Pickable::IGNORE`: a control that can never do anything should not look like
-one, and both are stepped over by the keyboard for the same reason
-(`RailRow::grants_priority`, CR 502.4 and CR 514.3a). They do keep a 4%
-ground — a fill is not a frame, so it claims nothing, and with no ground at
-all the two of them were bare words at the extreme ends of the row, reading as
-stranded text rather than as the first and last things a turn does. When the
-game is in one of them it gets an under-tick instead of a frame — the game
-being somewhere does not make it a control.
+**A step tile is ink on the shelf, not a chip on it**, and the bar shipped
+with that hierarchy upside down. A *skip* is what most steps are, and the
+skip wore `DANGER`, so the alarm colour was painted on the ordinary case
+while the deliberate one got a quiet parchment frame; every live tile was
+framed and filled either way, which is twelve stadiums across a 1127 px
+shelf. It also made the bar opaque, and the ledge is crossed by things the
+table draws — a combat line to the far seat, a card lifting under the
+pointer, a permanent falling in from `ENTRANCE_RISE`. Twelve solid chips
+floating over all of them is most of what "it floats over stuff" was.
+
+So the rare state is the marked one:
+
+- **The ground is the standing order.** A stop is `PARCHMENT` at 0.14 with
+  its glyph at full ink (6.99:1 on that ground); a skip is ink at half alpha
+  on bare cloth (3.75:1 over the measured ledge, which is above the 3:1 a
+  graphical object needs and below what a paragraph wants — right for a label
+  nobody is being asked to read). A *luminance* difference rather than a hue
+  one, which is what a green felt makes of any attempt to say go/stop in
+  colour.
+- **A solid fill is "here, now"**, on the active seat's bar only, with
+  `PARCHMENT_INK` on it — the same solid-warm-with-dark-ink the prompt slip's
+  own button uses. The two-ring halo went with it: the rings existed because
+  a shadow drawn through a ten-per-cent fill lit the whole tile, and a solid
+  fill has no such problem. `HALO_OUT` stays as the offset of the *under-tick*
+  that marks the game standing in a step that is not a control.
+- **A frame is keyboard focus and nothing else**, so it appears exactly when
+  a control is being operated.
+- **A dead step** (untap, cleanup — `RailRow::grants_priority`, CR 502.4 and
+  CR 514.3a) is the dimmest ink there is, keeps no ground at all and is
+  `Pickable::IGNORE`. Its 4% ground was added when it was the only bare word
+  on a row of chips; the whole row is bare words now.
+- The tile's corner is 3 px rather than `btn_radius`'s 6: on a 16 px tile six
+  is a stadium, and a stadium is the browser chip the row was being read as.
+
+**Time as a fourth channel is dropped.** Position already carries it — the row
+reads left to right at every seat, and the gold tile says where the game is,
+so "behind" is "left of the gold one". Keeping it collided with the skip
+alpha: a skipped step ahead and a stop behind would both have been half-lit.
+
+`Feel` had to learn a second colour for this. It mixes towards white and
+*keeps the alpha*, so a tile resting at `Color::NONE` was lifted to a
+brighter nothing and never answered the pointer at all; `Feel::rising_to`
+states the hot end, and what a skipped tile's hover shows is the ground a
+click would give it.
 
 The bar is its **own retained tree**, `SeatBarRoot`, a sibling of `HudRoot`
 with its own `BarRevision`. `HudRevision` carries `hovered`, so the overlay
