@@ -1,4 +1,4 @@
-//! Ondu Cleric — {1}{W} — Creature — Human Cleric Ally
+//! Ondu Cleric — {1}{W} — Creature — Kor Cleric Ally
 //! Oracle: Whenever this creature or another Ally you control enters, you may gain life equal to the number of Allies you control.
 //! Set: ZEN #30 — Zendikar | Scryfall ID: ced43447-fefc-482a-b8fa-33b9616aa532 | Oracle ID: f4232466-dd6a-49bf-be6c-95905c3ded17
 // IMPLEMENTED — rally: ETB of self or another Ally you control → gain 1 life.
@@ -20,7 +20,7 @@ card! {
         mana_cost: baylee_core::mana!("{1}{W}"),
         types: TypeSet::CREATURE,
         subtypes: &[
-            subtypes::creature::HUMAN,
+            subtypes::creature::KOR,
             subtypes::creature::CLERIC,
             subtypes::creature::ALLY,
         ],

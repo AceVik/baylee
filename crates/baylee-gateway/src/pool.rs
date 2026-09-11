@@ -293,12 +293,15 @@ mod tests {
 
     /// The type line is what a player reads to know what a card *is*, so the
     /// subtypes have to survive the trip out of the registry.
+    ///
+    /// It said Human until `validate` learned to ask the printing, and Ondu
+    /// Cleric is a **Kor** Cleric Ally. This test was written from the card
+    /// rather than from the printing, so it pinned the wrong word — the same
+    /// way `triome_cycling_from_hand_draws` pinned a `{2}` cycling cost the
+    /// card never had.
     #[test]
     fn a_type_line_reads_as_printed() {
-        assert_eq!(
-            find("Ondu Cleric").type_line,
-            "Creature — Human Cleric Ally"
-        );
+        assert_eq!(find("Ondu Cleric").type_line, "Creature — Kor Cleric Ally");
         assert_eq!(find("Ondu Cleric").kinds, vec!["Creature"]);
         assert_eq!(find("Forest").kinds, vec!["Land"]);
         assert_eq!(find("Forest").type_line, "Basic Land — Forest");

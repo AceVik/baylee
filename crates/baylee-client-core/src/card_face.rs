@@ -446,20 +446,25 @@ mod tests {
         }
     }
 
+    /// The fixture names a real card, so it has to name it as the printing
+    /// does: Ondu Cleric is a **Kor** Cleric Ally, and said Human here for as
+    /// long as the card's own file did. Nothing failed — the fixture supplies
+    /// both halves of its own comparison — which is exactly why a wrong word
+    /// could sit in it. `xtask validate` now asks the printing.
     #[test]
     fn a_plain_creature_reads_like_its_printed_card() {
         let mut obj = token(1, 0, "Ondu Cleric", 1, 1);
         obj.supertypes = SupertypeSet::EMPTY;
         obj.subtypes = SubtypeSet::from_slice(&[
-            subtypes::creature::HUMAN,
+            subtypes::creature::KOR,
             subtypes::creature::CLERIC,
             subtypes::creature::ALLY,
         ]);
-        let t = text("Ondu Cleric", "Creature — Human Cleric Ally", "Whenever...");
+        let t = text("Ondu Cleric", "Creature — Kor Cleric Ally", "Whenever...");
         let face = CardFace::from_object(&obj, Some(&baylee_core::mana!("{1}{W}")), Some(&t));
 
         assert_eq!(face.name, "Ondu Cleric");
-        assert_eq!(face.type_line, "Creature — Human Cleric Ally");
+        assert_eq!(face.type_line, "Creature — Kor Cleric Ally");
         assert_eq!(face.cost.len(), 2);
         assert!(!face.text_pending);
         assert_eq!(

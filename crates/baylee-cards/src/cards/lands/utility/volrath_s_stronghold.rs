@@ -1,4 +1,4 @@
-//! Volrath's Stronghold — (no cost) — Land
+//! Volrath's Stronghold — (no cost) — Legendary Land
 //! Oracle: {T}: Add {C}.
 //! Oracle: {1}{B}, {T}: Put target creature card from your graveyard on top of your library.
 //! Set: TPR #248 — Tempest Remastered | Scryfall ID: f465ae5f-61f0-42c4-978f-841ba1226f56 | Oracle ID: 73b8cf90-3c71-4f8b-a29f-61894b7f27c9
@@ -13,6 +13,7 @@ card! {
     faces: &[face! {
         name: "Volrath's Stronghold",
         types: TypeSet::LAND,
+        supertypes: SupertypeSet::LEGENDARY,
     }],
     color_identity: ColorSet::from_slice(&[Color::Black]),
     coverage: Coverage::Implemented,

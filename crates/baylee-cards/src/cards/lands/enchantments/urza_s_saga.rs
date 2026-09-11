@@ -10,7 +10,7 @@
 // 1-cost artifact to the battlefield.
 
 use baylee_cards_dsl::prelude::*;
-use baylee_core::generated::subtypes::enchantment;
+use baylee_core::generated::subtypes::{enchantment, land};
 
 use crate::tokens::CONSTRUCT_0_0 as CONSTRUCT;
 static ARTIFACT_CMC1: Filter = Filter::And(&[Filter::ARTIFACT, Filter::CmcAtMost(1)]);
@@ -23,7 +23,7 @@ card! {
     faces: &[face! {
         name: "Urza's Saga",
         types: TypeSet::LAND.union(TypeSet::ENCHANTMENT),
-        subtypes: &[enchantment::SAGA],
+        subtypes: &[land::URZA_S, enchantment::SAGA],
     }],
     coverage: Coverage::Implemented,
     abilities: &[

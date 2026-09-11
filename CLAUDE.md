@@ -239,6 +239,16 @@ can say. The header is derived data, so `xtask refresh-oracle` writes it and
 nobody retypes it; the first run of the pair found 145 disagreements, two of
 which were cards built from their own wrong header (Volrath's Stronghold's
 `{1}{B}` and Mirrorhall Mimic's disturb cost).
+It also asks the printing what the card **is**: `pool::type_line(face)` —
+supertypes, types and subtypes in printed order, the same string the
+deckbuilder shows a player — against the `type_line` Scryfall prints, face by
+face. That was the one printed characteristic nothing compared, and it is
+where a hand-written card drifts in silence, because the `//!` header is held
+against the *code*: Ondu Cleric said Human in both for as long as it existed
+and the printing says Kor. Comparing the one renderer rather than a set built
+for the check is what makes it cheap and what makes it reach past subtypes —
+Karakas and Volrath's Stronghold print `Legendary Land` and were plain `Land`
+in the code, so the legend rule (CR 704.5j) did not apply to either of them.
 A mechanic the DSL cannot express gets `Coverage::Partial("reason")` and a
 `// NOT SUPPORTED:` comment; extend the DSL rather than working around it.
 `docs/card-dsl.md` is the authoring contract, `docs/llm-learnings.md` gets
@@ -370,12 +380,21 @@ the same card from the forge script and the two shapes are compared. It is a
 **report** and a disagreement is not a defect — a hand-written card is allowed
 to say more than one rule can. Two depths, because transcoding needs every
 clause claimed and a hand-written card exists precisely because a reader could
-not write it: 22 of 207 transcode in full, and counting the parser's own line
-kinds reaches 141 more. Both obey the transcoder's honesty rule — one unread
-clause and the script is not counted, so a keyword hiding an ability inside an
-`SVar` chain is a *named* skip rather than a finding invented out of a blind
-spot. The population is bounded on both sides for the reason above: the
-retyped marker made it larger, not smaller, and a floor alone passed it.
+not write it: counting the parser's own line kinds reaches 141 of the 207, and
+22 of those also transcode in full. Both obey the transcoder's honesty rule —
+one unread clause and the script is not counted, so a keyword hiding an
+ability inside an `SVar` chain is a *named* skip rather than a finding
+invented out of a blind spot. The population is bounded on both sides for the
+reason above: the retyped marker made it larger, not smaller, and a floor
+alone passed it.
+
+What it compares is **shape**, and reading the report is half the tool. It
+pointed at one card — Raffine's Tower, which claimed `Coverage::Implemented`
+with no basic land types and no cycling ability at all — and reading the three
+neighbours in that cycle by hand found all three cycling for `{2}` against the
+`{3}` their own `//! Oracle:` header prints. `cross-read` cannot see a wrong
+cost and never could; what it can do is put a person in front of the right
+four files.
 
 A card file is written with the macros in `baylee-cards-dsl/src/build.rs` and
 opens with one import, `use baylee_cards_dsl::prelude::*;`. `card!` and

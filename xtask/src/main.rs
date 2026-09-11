@@ -95,9 +95,10 @@ enum Cmd {
     /// which a hand-written card's script almost never offers — it is
     /// hand-written *because* a reader could not write it, so only 22 of the
     /// 207 overlap and that number shrinks as the transcoder grows. Counting
-    /// the parser's own line kinds is the shallow one and reaches 141 more:
-    /// a script stopped on one unclaimed parameter still says plainly how
-    /// many abilities it has and of what kind.
+    /// the parser's own line kinds is the shallow one and reaches 141 of the
+    /// 207 — those same 22 and 119 more: a script stopped on one unclaimed
+    /// parameter still says plainly how many abilities it has and of what
+    /// kind.
     ///
     /// Both depths obey the transcoder's honesty rule — **one unread clause
     /// and the script is not counted** — because the alternative is a tool
@@ -107,15 +108,19 @@ enum Cmd {
     /// `K:ETBReplacement` hides an ability inside an `SVar` chain, and five
     /// only because `keyword_const` has no row for daybound.
     ///
-    /// What it caught on its first honest run is the whole argument for it:
-    /// the four hand-written Triomes were all wrong and the six generated
-    /// ones were all right. Raffine's Tower had no basic land types and no
-    /// cycling ability at all while claiming `Coverage::Implemented`, and
-    /// Indatha, Raugrin and Zagoth cycled for `{2}` against the `{3}` their
-    /// own `//! Oracle:` header prints. Every other check in the repo agreed
-    /// with all four, which is exactly the hole this fills: `validate` pins
-    /// a header to its printing and the sweeps pin behaviour to the
-    /// `CardDef`, and neither can see a `CardDef` a person typed wrong.
+    /// What it caught on its first honest run is the whole argument for it,
+    /// and it is worth stating exactly, because the tool compares **shape**
+    /// and nothing else. It pointed at *one* card: Raffine's Tower, which
+    /// claimed `Coverage::Implemented` with no basic land types and no
+    /// cycling ability at all. Reading the three neighbours in that cycle by
+    /// hand — which is what a report is for — found Indatha, Raugrin and
+    /// Zagoth cycling for `{2}` against the `{3}` their own `//! Oracle:`
+    /// header prints. A wrong cost is invisible here by construction, so
+    /// three of the four are this command's credit only in the sense that it
+    /// put a person in front of the right file. Every other check in the repo
+    /// agreed with all four, which is the hole this fills: `validate` pins a
+    /// header to its printing and the sweeps pin behaviour to the `CardDef`,
+    /// and neither can see a `CardDef` a person typed wrong.
     CrossRead {
         /// Path to the forge-reference cardsfolder.
         #[arg(
@@ -1501,6 +1506,8 @@ struct PrintingTally {
     targets: usize,
     /// Cards whose `Set:` header line was held against the printing.
     printings: usize,
+    /// Faces whose type line was held against the printed one.
+    type_lines: usize,
 }
 
 /// The floor under each count in [`PrintingTally`].
@@ -1512,25 +1519,39 @@ struct PrintingTally {
 /// The shape is `baylee_cards::lints`' own — "the sweep is not reaching the
 /// pool" — and it exists for the same reason: a checker that silently stops
 /// checking reports a clean pool.
-/// Measured 2026-09-09 over a pool of 1365: **1365** payloads, 7 loyalty,
-/// 1365 identity, 49 keyword, 361 mana, **1365** oracle, 1370 cost. Payloads,
+/// Measured 2026-09-09 over a pool of 1365 and re-measured 2026-09-11 over
+/// the same 1365: **1365** payloads, 7 loyalty, 1365 identity, 49 keyword,
+/// 379 mana (was 361), **1365** oracle, 1472 cost (was 1370). Payloads,
 /// identity and oracle are now every card in the pool rather than the 1263
 /// the lookup used to find, so the floor under them is a real bound and not a
 /// record of a gap: nothing but a card leaving the pool can move it down.
 ///
-/// Cost is 1370 rather than 1365 + 109, and the arithmetic is exact: seven
-/// back faces in the pool print a mana cost, two of those cards (Emeritus of
-/// Woe and Twining Twins, both adventures) are one `FaceDef` here against
-/// Scryfall's two and are skipped whole, so 1363 fronts + 7 backs = 1370.
-/// The other 102 back faces are transform sides that print no cost at all —
-/// a `FaceDef` there carries whatever the face is really cast for, and
-/// comparing it to an empty string would fail every one of them.
+/// Cost is **1472** and the arithmetic is exact, re-derived 2026-09-11 with
+/// the subtype count below because the two read the same faces: the pool
+/// prints 1475 (1255 cards of one face, 110 of two), Emeritus of Woe is the
+/// one card Scryfall writes as two faces and this pool as one — an adventure
+/// — so its two are skipped whole, and Mirrorhall Mimic's disturb back is the
+/// single face whose printed cost is empty against a `FaceDef` that carries
+/// the disturb cost. 1475 − 2 − 1 = 1472. The sentence here used to name
+/// Twining Twins beside Emeritus and to reach 1370; the card has since been
+/// re-modelled as the two faces it prints, and a stale explanation of a count
+/// is how a real drop in reach gets read as the number it was always going to
+/// be.
 ///
 /// The two that did not move are the two the new cards had nothing to add
 /// to. Loyalty is 7 and the pool holds exactly seven planeswalker faces, so
-/// that check was already whole. Mana is 361 because 97 of the pool's 109
-/// multi-faced files are still `// GENERATED STUB`, and a stub writes no
-/// mana ability for the check to read.
+/// that check was already whole. Mana is 379, and 97 of the pool's 109
+/// multi-faced files still being `// GENERATED STUB` is why it is not higher
+/// — a stub writes no mana ability for the check to read.
+///
+/// Type line is **1473** and that number is exact rather than measured: the
+/// pool prints 1475 faces (1255 cards of one face and 110 of two), and the
+/// only card whose printed and code face counts disagree is Emeritus of Woe,
+/// an adventure Scryfall writes as two faces and this pool as one. Its two
+/// are the two that are skipped, so the check reaches every face it can.
+/// Nothing is skipped for an unknown subtype word today — every word the
+/// pool's 1475 type lines print is in the catalog — which is the number to
+/// watch if it ever drops below 1473 without a card leaving the pool.
 const PRINTING_FLOOR: PrintingTally = PrintingTally {
     payloads: 1300,
     loyalty: 6,
@@ -1541,6 +1562,7 @@ const PRINTING_FLOOR: PrintingTally = PrintingTally {
     costs: 1340,
     targets: 10,
     printings: 1300,
+    type_lines: 1400,
 };
 
 /// Keyword bits that have a printed spelling to look for.
@@ -1730,6 +1752,119 @@ fn check_card_matches_the_printing(
     // "({T}: Add {R} or {G}.)", so stripping it leaves a land that taps for
     // two colors and says nothing at all.
     check_mana_matches_the_printing(slug, def, &whole, tally, problems);
+}
+
+/// Each face's type line, against the one the printing puts on the card.
+///
+/// This is the cheapest check in the family and it was the missing one: what
+/// a card *is* was the one printed characteristic nothing ever asked the
+/// printing about. `validate` holds the `//!` header against the **code**,
+/// the sweeps hold the engine's object against the `CardDef`, and a card
+/// whose header and code agree on the wrong thing walks through both — Ondu
+/// Cleric said Human in its header and in its `subtypes` for as long as it
+/// had existed, and the printing says Kor. Raffine's Tower is the extreme of
+/// the same class: a `TypeSet::LAND` with no subtypes at all, so it made no
+/// mana (CR 305.6), and it took a second reader of the forge script to find.
+///
+/// What is compared is [`baylee_cards::pool::type_line`], the **one**
+/// renderer there is, rather than a set built here for the purpose. That is
+/// the whole trick: it is the string the deckbuilder shows a player, so a
+/// pass says the pool prints what the cards print, and it carries supertypes
+/// and types along with the subtypes for free — Karakas and Volrath's
+/// Stronghold are `Legendary Land` on the card and were plain `Land` in the
+/// code, which is the legend rule (CR 704.5j) not applying to two of them.
+/// A second table of type words in this file would have been a second
+/// classifier to keep in step, which is the mistake `forge-report` already
+/// made once.
+///
+/// Order is part of the comparison because it is part of the card: the words
+/// on a type line are printed in a fixed order, which is why `TypeSet::words`
+/// and `SupertypeSet::words` each carry a hand-kept `PRINTED_ORDER` table to
+/// reproduce it, and why a `FaceDef`'s `subtypes` is a slice printed in the
+/// order it is written rather than a set. Holding the rendered string against
+/// the printed one compares that order for free, and against the only
+/// authority there is for it — the card. No rule here says what the order
+/// *is*, so nothing here can be wrong about it.
+///
+/// Two tolerances, and both are about *this repo's* limits rather than the
+/// cards'. A face count that disagrees skips the card, exactly as
+/// [`check_card_matches_the_printing`]'s cost check does — a split card and
+/// an adventure print two faces Scryfall's way and are one `FaceDef` here, so
+/// a positional pairing would hold a creature's line against an instant's.
+/// And a subtype word the catalog does not know skips the face: the catalogs
+/// are what `codegen` builds the constants from, so an unknown word is this
+/// command's own gap and never a fact about the card.
+fn check_type_line_matches_the_printing(
+    slug: &str,
+    def: &'static baylee_cards::dsl::CardDef,
+    payload: &serde_json::Value,
+    tally: &mut PrintingTally,
+    problems: &mut usize,
+) {
+    let printed_lines: Vec<&str> = match payload
+        .get("card_faces")
+        .and_then(serde_json::Value::as_array)
+    {
+        Some(faces) => faces
+            .iter()
+            .filter_map(|f| f.get("type_line").and_then(serde_json::Value::as_str))
+            .collect(),
+        None => payload
+            .get("type_line")
+            .and_then(serde_json::Value::as_str)
+            .into_iter()
+            .collect(),
+    };
+    if printed_lines.len() != def.faces.len() {
+        return;
+    }
+    for (at, (line, face)) in printed_lines.iter().zip(def.faces).enumerate() {
+        if printed_subtypes(line).is_none() {
+            continue;
+        }
+        tally.type_lines += 1;
+        let code = baylee_cards::pool::type_line(face);
+        if code != line.trim() {
+            let where_ = if def.faces.len() > 1 {
+                format!("face {at} of {slug}")
+            } else {
+                slug.to_string()
+            };
+            println!("{where_}: the printing's type line is {line:?} and the code's is {code:?}");
+            *problems += 1;
+        }
+    }
+}
+
+/// The subtypes one printed type line names, or `None` if a word is unknown.
+///
+/// Everything after the em dash, longest match first, because "Time Lord" is
+/// the one subtype in the whole catalog written as two words and a plain
+/// whitespace split would read it as two subtypes that do not exist. A line
+/// with no dash prints no subtypes and is an empty list rather than a skip:
+/// that a card has none is a fact worth comparing, and it is the half of
+/// this check that Raffine's Tower needed.
+fn printed_subtypes(type_line: &str) -> Option<Vec<baylee_core::ids::SubtypeId>> {
+    use baylee_core::generated::subtypes;
+    let Some((_, tail)) = type_line.split_once('\u{2014}') else {
+        return Some(Vec::new());
+    };
+    let words: Vec<&str> = tail.split_whitespace().collect();
+    let mut out = Vec::new();
+    let mut at = 0;
+    while at < words.len() {
+        if at + 1 < words.len() {
+            let pair = format!("{} {}", words[at], words[at + 1]);
+            if let Some(id) = subtypes::by_name(&pair) {
+                out.push(id);
+                at += 2;
+                continue;
+            }
+        }
+        out.push(subtypes::by_name(words[at])?);
+        at += 1;
+    }
+    Some(out)
 }
 
 /// What the card's mana abilities make, against what its text offers to add.
@@ -2305,6 +2440,7 @@ fn validate(root: &Path) -> anyhow::Result<()> {
         if let Some(def) = def {
             check_scope_matches_the_text(&slug, def.name(), def, &payload, &mut problems);
             check_card_matches_the_printing(&slug, def, &payload, &mut tally, &mut problems);
+            check_type_line_matches_the_printing(&slug, def, &payload, &mut tally, &mut problems);
         }
         check_code_matches_the_printing(&slug, &content, &payload, &mut tally, &mut problems);
         check_oracle_matches_the_printing(&slug, &content, &payload, &mut tally, &mut problems);
@@ -2321,7 +2457,8 @@ fn validate(root: &Path) -> anyhow::Result<()> {
     // beside the counts that failed it.
     println!(
         "validate: against the printings \u{2014} {} payloads, {} loyalty, {} identity, \
-         {} keyword, {} mana, {} oracle, {} cost, {} target count, {} printing",
+         {} keyword, {} mana, {} oracle, {} cost, {} target count, {} printing, \
+         {} type line",
         tally.payloads,
         tally.loyalty,
         tally.identity,
@@ -2330,7 +2467,8 @@ fn validate(root: &Path) -> anyhow::Result<()> {
         tally.oracle,
         tally.costs,
         tally.targets,
-        tally.printings
+        tally.printings,
+        tally.type_lines
     );
     check_printing_floors(&tally, &mut problems);
     if problems > 0 {
@@ -2358,6 +2496,7 @@ fn check_printing_floors(tally: &PrintingTally, problems: &mut usize) {
         ("face cost", tally.costs, PRINTING_FLOOR.costs),
         ("target count", tally.targets, PRINTING_FLOOR.targets),
         ("printing", tally.printings, PRINTING_FLOOR.printings),
+        ("type line", tally.type_lines, PRINTING_FLOOR.type_lines),
     ] {
         if seen < floor {
             println!(
@@ -3491,4 +3630,50 @@ fn cross_read(root: &Path, forge_dir: &Path, samples: usize) -> anyhow::Result<(
         );
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::printed_subtypes;
+    use baylee_core::generated::subtypes;
+
+    /// The branch the pool does not reach, and the reason it is written.
+    ///
+    /// [`printed_subtypes`] is the honesty gate on
+    /// [`check_type_line_matches_the_printing`]: a word the catalog does not
+    /// know skips the face, so what counts as "known" decides which faces are
+    /// compared at all. "Time Lord" is the one subtype in the whole catalog
+    /// spelled as two words, no card in this pool prints it, and deleting the
+    /// longest-match pass therefore changes nothing `validate` says today —
+    /// which is exactly why the pass needs a test rather than a mutant. The
+    /// first Doctor Who card in the pool would otherwise read as two words
+    /// that name no subtype, and the whole face would go unchecked.
+    #[test]
+    fn a_two_word_subtype_is_one_subtype() {
+        assert_eq!(
+            printed_subtypes("Legendary Creature \u{2014} Time Lord"),
+            Some(vec![subtypes::creature::TIME_LORD]),
+        );
+    }
+
+    /// A type line with no dash prints no subtypes, and that is an answer.
+    ///
+    /// Not a refusal: "this card has none" is a line worth comparing, and it
+    /// is the half Raffine's Tower needed — a `TypeSet::LAND` with an empty
+    /// subtype list against a printing that names three.
+    #[test]
+    fn a_type_line_with_no_dash_names_no_subtypes() {
+        assert_eq!(printed_subtypes("Artifact"), Some(Vec::new()));
+    }
+
+    /// A word the catalog does not know refuses the whole line.
+    ///
+    /// The catalogs are what `codegen` builds the constants from, so an
+    /// unknown word is this command's own gap and never a fact about the
+    /// card. `PrintingTally::type_lines` is what keeps a refusal from being
+    /// silent.
+    #[test]
+    fn an_unknown_word_refuses_the_line_rather_than_guessing() {
+        assert_eq!(printed_subtypes("Creature \u{2014} Wizard Nonesuch"), None);
+    }
 }

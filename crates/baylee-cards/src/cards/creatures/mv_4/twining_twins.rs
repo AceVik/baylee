@@ -9,7 +9,7 @@
 // ETB from a different card).
 
 use baylee_cards_dsl::prelude::*;
-use baylee_core::generated::subtypes::creature;
+use baylee_core::generated::subtypes::{creature, spell};
 
 static NONTOKEN_CREATURE: Filter = Filter::And(&[Filter::CREATURE, Filter::Not(&Filter::IsToken)]);
 static BACK_ABILITIES: &[AbilityDef] = &[
@@ -33,6 +33,7 @@ card! {
             name: "Swift Spiral",
             mana_cost: baylee_core::mana!("{1}{W}"),
             types: TypeSet::INSTANT,
+            subtypes: &[spell::ADVENTURE],
             abilities: BACK_ABILITIES,
             adventure: true,
         },
