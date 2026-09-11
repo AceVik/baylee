@@ -2321,6 +2321,9 @@ fn aang_and_katara() -> baylee_core::ids::CardIndex {
 fn wartime_protestors() -> baylee_core::ids::CardIndex {
     card_index("6557813b-4ee7-4881-a37c-10c8ea097360")
 }
+fn aminatou() -> baylee_core::ids::CardIndex {
+    card_index("3a30089d-cd2d-49be-9b06-7a2454117692")
+}
 
 /// The tokens `seat` controls, in arrival order.
 fn tokens_of(engine: &Engine<RegistryLookup>, seat: PlayerId) -> Vec<baylee_core::ids::ObjectId> {
@@ -2430,5 +2433,75 @@ fn a_rally_trigger_fires_once_for_every_ally_that_entered() {
             .get(baylee_cards_dsl::CounterKind::P1P1),
         0,
         "the trigger says `another Ally`",
+    );
+}
+
+/// Aminatou's −1 exiles a permanent you own and returns it — the flicker
+/// the owner reported. A tapped land came back tapped.
+///
+/// CR 400.7: what comes back is a new object with no memory of the old
+/// one, and nothing cleared the old one's status, so the tapped bit rode
+/// through the exile zone and back. The fix is in
+/// [`crate::state::GameState::move_object`], which is the door every zone
+/// change goes through, so a bounced creature and a reanimated one are
+/// covered by the same three lines.
+#[test]
+fn a_blinked_permanent_comes_back_untapped() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(41, forest())
+        .battlefield(0, &[aminatou(), forest(), plains(), island()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    // Tap the land the only way a player can: use it.
+    tap_all_mana(&mut engine, p0);
+    let land = on_battlefield(&engine, p0, forest()).expect("the forest is on the battlefield");
+    assert!(
+        engine
+            .state()
+            .object(land)
+            .expect("the land is there")
+            .status
+            .contains(crate::object::Status::TAPPED),
+        "the land is tapped before the flicker",
+    );
+
+    activate(&mut engine, p0, aminatou(), 1);
+    let Pending::ChooseTargets {
+        player, options, ..
+    } = engine.pending().clone()
+    else {
+        panic!("expected a target choice, got {:?}", engine.pending())
+    };
+    assert_eq!(player, p0);
+    assert!(options.contains(&land), "the tapped land is a legal target");
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![land],
+                players: vec![],
+            },
+        )
+        .expect("the land is targeted");
+
+    pass_until(&mut engine, |e| {
+        e.state()
+            .object(land)
+            .is_some_and(|o| o.zone == crate::zone::Zone::Battlefield)
+            && e.state()
+                .zones
+                .list(crate::zone::ZoneLocation::Stack)
+                .is_empty()
+    });
+    assert!(
+        !engine
+            .state()
+            .object(land)
+            .expect("the land came back")
+            .status
+            .contains(crate::object::Status::TAPPED),
+        "a permanent that changed zones is a new object and enters untapped",
     );
 }

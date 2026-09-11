@@ -423,10 +423,12 @@ pub fn destroy(state: &mut GameState, id: baylee_core::ids::ObjectId) {
 /// none of those.
 pub fn put_into_graveyard(state: &mut GameState, id: baylee_core::ids::ObjectId) {
     let owner = state.object(id).map_or(PlayerId::new(0), |o| o.owner);
+    // Only the kind. The marked damage and the deathtouch flag used to be
+    // cleared here too, which was this one caller doing by hand what every
+    // permanent leaving the battlefield needs; `GameState::move_object` is
+    // the one door for that now, so the two cannot drift.
     if let Some(obj) = state.object_mut(id) {
         obj.kind = ObjectKind::Card;
-        obj.damage = 0;
-        obj.deathtouched = false;
     }
     let _ = state.move_object(
         id,

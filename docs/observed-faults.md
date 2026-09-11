@@ -1862,3 +1862,71 @@ assertion is a **count** in both directions: each of the three tokens carries
 exactly one +1/+1 counter. Zero fails the old code; anything above one would
 fail the other way this loop can be written wrong, which is firing per
 permanent *and* per event and giving N² triggers for N tokens.
+
+### 36. A permanent that changed zones kept what it remembered — FIXED
+
+Reported in the same session: "flicker a tapped creature makes it enter
+tapped", and then "I flickered a land and it came back tapped as well".
+
+CR 400.7 makes an object that changes zones a new object with no memory of its
+previous existence, and `GameState::move_object` — the one door every zone
+change goes through — cleared the layer cache and the copiable base and
+nothing else. The tapped bit, the marked damage, the deathtouch flag, the
+counters and what the permanent was attached to all rode into the exile zone
+and back out again.
+
+So this is not a flicker fault. Aminatou's −1 and Ephemerate were how it was
+noticed; a creature bounced and recast, and anything reanimated out of a
+graveyard, had the same hole.
+
+The reset is in `move_object`, conditioned on `from_zone == Zone::Battlefield`
+rather than on the arrival. That direction is load-bearing: several effects
+write these fields *before* the move, and `SearchDest::Battlefield` is the
+clearest — it taps the land it fetched and then moves it onto the battlefield,
+so a reset on the way in would undo the half of "put it onto the battlefield
+tapped" that does the work. "Enters tapped" as a printed characteristic is
+applied by `apply_enter_modifiers` afterwards and is untouched either way.
+
+`riders` deliberately stay: a card exiled from the battlefield is linked to
+whatever exiled it (Skyclave Apparition reads its own exiled card's mana value
+from one), which is among the exceptions CR 400.7 is written around. So do the
+spell-shaped fields — `x_value`, `kicked`, `targets` — which a permanent
+resolving off the stack still needs and which no permanent ever writes.
+
+`sba::put_into_graveyard` had been clearing damage and the deathtouch flag by
+hand, which was one caller doing what every permanent leaving the battlefield
+needs. Those two lines are gone, so the two cannot drift.
+
+Before clearing `counters` and `attached_to` there: every dies- and
+leaves-the-battlefield trigger in the pool was read, because `matches` and
+every dies-effect read the object *after* the move and there is no LKI
+snapshot. All four (Solemn Simulacrum, Soulherder, Skyclave Apparition,
+Reveillark) read the graveyard, the exile rider or nothing at all — none reads
+the dead object's counters, tapped-ness, attachment or projected power. A card
+that did would be an LKI fault of its own, not a reason to leave this.
+
+The test is `a_blinked_permanent_comes_back_untapped`: a land tapped the only
+way a player can tap it — by using it — then Aminatou's −1, then the land is
+untapped.
+
+### 37. A blinked permanent is the same object — RECORDED
+
+`Effect::Blink` moves the permanent to exile and back **under its own
+`ObjectId`**, so everything that names an object by id survives a flicker. The
+`version` field is documented as "bumped on every zone change (CR 400.7)" and
+`move_object` does bump it, but nothing in the engine ever compares it — it
+reaches only the snapshot hash.
+
+What that predicts, none of it checked yet: a removal spell targeting a
+creature still resolves on it after the creature is blinked in response, where
+it should be countered for having no legal target; an `EffectFilter::ObjectIs`
+pump written for the old permanent still applies to the new one; and an
+Equipment stays attached across the blink (fault 36 clears the blinked
+permanent's own `attached_to`, which is the other side of the same wire).
+
+The fix shape is a new object rather than a moved one — the same thing
+`create_token_copies` already does with a set of copiable values — or, much
+cheaper, a `version` comparison at the two or three places that resolve a
+stored `ObjectId` back into a target. One test proves it either way: Path to
+Exile on Llanowar Elves, blink in response, the Elves are still on the
+battlefield and Path was countered.

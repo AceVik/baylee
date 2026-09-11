@@ -1219,6 +1219,33 @@ impl GameState {
             // anthem would otherwise sit in the graveyard still pumped,
             // and every filter reading its power would agree.
             obj.cache.clear();
+            // And the rest of what the old object remembered, for the half
+            // of it that only a *permanent* can have. Nothing cleared this,
+            // so a permanent that left the battlefield carried its tapped
+            // bit, its marked damage, its counters and what it was attached
+            // to into the next zone and back out again: Ephemerate on a
+            // tapped land returned it tapped, and a creature blinked with
+            // three +1/+1 counters came back with them.
+            //
+            // `from_zone` and not "entering the battlefield", because these
+            // fields are written *before* the arrival in more than one
+            // place — `SearchDest::Battlefield` taps the land it fetched
+            // and then moves it, so a reset on the way in would undo the
+            // half of "put it onto the battlefield tapped" that does the
+            // work.
+            //
+            // What stays: `riders` (a card exiled from the battlefield is
+            // linked to whatever exiled it, which is the exception this
+            // rule is written around), and the spell-shaped fields
+            // (`x_value`, `kicked`, `targets`), which a permanent resolving
+            // off the stack still needs and which no permanent writes.
+            if from_zone == Zone::Battlefield {
+                obj.status = crate::object::Status::NONE;
+                obj.damage = 0;
+                obj.deathtouched = false;
+                obj.counters = crate::object::Counters::default();
+                obj.attached_to = None;
+            }
             // The same rule for the other thing a copy replaced. Copiable
             // values are fixed while the copy exists (CR 707.2a) and the
             // new object has none of them: the card in the graveyard is
