@@ -809,10 +809,29 @@ fn move_pointer(
         }
         _ => window.cursor_position().ok_or("no x/y and no cursor")?,
     };
+    Ok((at, button_deed(body)?))
+}
+
+/// What a `/pointer` body asks the button to do, or `None` for a bare move.
+///
+/// Its own function because it is the half a test can reach: `move_pointer`
+/// needs a window and two message writers, so the decision inside it had no
+/// way of being asserted except by driving a whole app.
+///
+/// `hold` and `release` each imply the press they are a stage of, and that is
+/// the fix for a trap rather than a convenience. `{"hold":true}` alone used
+/// to fall through to the bare-move return and answer `{"ok":true,
+/// "clicked":false}` — a `200` that reads like a press that happened, on a
+/// route whose whole purpose is photographing what lives between a press and
+/// a release. It cost a live proof of `docs/observed-faults.md` 35 one whole
+/// gesture, which is the second time this harness has answered a caller's
+/// obvious spelling with something that looks like the client doing nothing;
+/// `harness_alias` is the first.
+fn button_deed(body: &str) -> Result<Option<ButtonDeed>, String> {
     let hold = flag(body, "hold");
     let let_go = flag(body, "release");
-    if !flag(body, "press") && !let_go {
-        return Ok((at, None));
+    if !flag(body, "press") && !let_go && !hold {
+        return Ok(None);
     }
     let button = match field(body, "button").unwrap_or("left") {
         "left" => MouseButton::Left,
@@ -830,15 +849,12 @@ fn move_pointer(
     } else {
         (ClickStage::Press, false, "clicked")
     };
-    Ok((
-        at,
-        Some(ButtonDeed {
-            button,
-            stage,
-            hold,
-            word,
-        }),
-    ))
+    Ok(Some(ButtonDeed {
+        button,
+        stage,
+        hold,
+        word,
+    }))
 }
 
 /// What a `/pointer` call does with the button once the cursor has moved.
@@ -1417,6 +1433,35 @@ mod tests {
         for name in ["", "KeyY", "Yes", "-", "Space"] {
             assert_eq!(super::harness_alias(name), None, "{name}");
         }
+    }
+
+    /// A press that is held does not have to say `press` as well.
+    ///
+    /// The counter-halves are the point again: a bare move must stay a bare
+    /// move, or every `/pointer` call that only aims the cursor would press
+    /// the button under it — and `release` must keep winning over `press`,
+    /// because a call that sends both cannot mean "press and then hold".
+    #[test]
+    fn a_held_press_does_not_have_to_say_press_as_well() {
+        let word = |body: &str| {
+            super::button_deed(body)
+                .expect("a well-formed body")
+                .map(|deed| deed.word)
+        };
+        assert_eq!(word(r#"{"x":1,"y":2}"#), None, "a move is only a move");
+        assert_eq!(word(r#"{"x":1,"y":2,"press":true}"#), Some("clicked"));
+        assert_eq!(word(r#"{"hold":true}"#), Some("held"), "hold implies press");
+        assert_eq!(word(r#"{"press":true,"hold":true}"#), Some("held"));
+        assert_eq!(word(r#"{"release":true}"#), Some("released"));
+        assert_eq!(
+            word(r#"{"press":true,"release":true}"#),
+            Some("released"),
+            "release wins over press"
+        );
+        assert!(
+            super::button_deed(r#"{"press":true,"button":"thumb"}"#).is_err(),
+            "an unknown button is still refused"
+        );
     }
 
     /// Every string in the dump is JSON, apostrophes and em dashes included.

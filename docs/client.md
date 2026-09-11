@@ -2646,7 +2646,15 @@ sequence as a test.
 **A press can also be held, and that is a different tool.** `{"hold":true}`
 presses and stops there; `{"release":true}` is the call that lets go, and the
 answer says which of the three it did (`"clicked"`, `"held"`, `"released"`) so
-a script cannot mistake one for another. It is the pointer's half of the pair
+a script cannot mistake one for another. Each of those two implies the press
+it is a stage of, which this paragraph claimed before it was true: a body that
+said only `hold` fell through to the bare-move return and answered
+`{"ok":true,"clicked":false}`, a `200` that reads like a press that happened
+— on the one route whose purpose is photographing what lives *between* a
+press and a release. `devctl::button_deed` is where that is decided now, and
+`a_held_press_does_not_have_to_say_press_as_well` holds it along with the two
+halves that make it safe: a bare move stays a bare move, and `release` still
+wins over `press`. It is the pointer's half of the pair
 `/key` has always had, and it exists because press and release in one call
 cannot photograph anything that lives *between* them: a drag, which this
 document used to record as unprovable through the harness, and a card giving
