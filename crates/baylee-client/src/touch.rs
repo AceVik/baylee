@@ -49,6 +49,18 @@ pub struct Touched {
     /// dragged off one card and released over another has to lift the *first*
     /// one. Without it a card could be left pressed for ever.
     under_the_finger: Option<ObjectId>,
+    /// The finger has come off the card it was on and nothing has answered.
+    ///
+    /// A release over the same card is left to the click that follows it,
+    /// which is where the answer is known — but bevy raises a
+    /// `Pointer<Click>` only when the press and the release land on the same
+    /// **entity**, and this hand is rebuilt on every hover change and on
+    /// every view that arrives. A tree rebuilt between the two swallows the
+    /// click, nothing is ever written back, and the card would stay sunk and
+    /// dark until the next press anywhere. [`settle`] runs after
+    /// [`crate::input::pointer`], so a flag still standing by then is exactly
+    /// that case and it lifts the finger itself.
+    let_go: bool,
 }
 
 impl Touched {
@@ -70,6 +82,7 @@ impl Touched {
 
     /// Answers the tap the finger is making, if it is making one.
     fn release(&mut self, answer: Answer) {
+        self.let_go = false;
         if let Some(object) = self.under_the_finger.take()
             && let Some(touch) = self.cards.get_mut(&object)
         {
@@ -77,8 +90,24 @@ impl Touched {
         }
     }
 
+    /// The finger came off over `card` — `None` for the felt, or for a node
+    /// that is not a card in the row.
+    ///
+    /// Coming off the card it was on is not an answer and is not a refusal
+    /// either: it is the half of a tap whose other half is the click. So it
+    /// is recorded and not acted on, and [`Self::let_go`] says what happens
+    /// when the click never comes.
+    fn release_over(&mut self, card: Option<ObjectId>) {
+        if card.is_some() && card == self.under_the_finger {
+            self.let_go = true;
+        } else {
+            self.lift_the_finger();
+        }
+    }
+
     /// Takes the finger off whatever it was on without answering anything.
     fn lift_the_finger(&mut self) {
+        self.let_go = false;
         if let Some(object) = self.under_the_finger.take()
             && let Some(touch) = self.cards.get_mut(&object)
         {
@@ -96,7 +125,7 @@ impl Touched {
 pub fn watch_the_finger(
     mut downs: MessageReader<Pointer<Press>>,
     mut ups: MessageReader<Pointer<Release>>,
-    hand_cards: Query<&crate::hud::HandCardVisual>,
+    hand_cards: Query<&crate::hud::HandCardVisual, With<crate::hud::HandRowCard>>,
     parents: Query<&ChildOf>,
     mut touched: ResMut<Touched>,
 ) {
@@ -112,9 +141,7 @@ pub fn watch_the_finger(
     // same frame. Everything else is a press that asked nothing.
     for up in ups.read() {
         let landed = crate::input::find_in_lineage(up.entity, &hand_cards, &parents);
-        if landed.map(|c| c.object) != touched.under_the_finger {
-            touched.lift_the_finger();
-        }
+        touched.release_over(landed.map(|c| c.object));
     }
 }
 
@@ -147,13 +174,34 @@ pub fn settle(
     duel: Res<crate::Duel>,
     prefs: Option<Res<crate::prefs::Prefs>>,
     mut touched: ResMut<Touched>,
-    mut nodes: Query<(&crate::hud::HandCardVisual, &mut Node)>,
+    mut nodes: Query<(&crate::hud::HandCardVisual, &mut Node), With<crate::hud::HandRowCard>>,
     mut shades: Query<(&Shade, &mut BackgroundColor)>,
 ) {
     let still = prefs.is_some_and(|p| p.all().reduce_motion);
     let dt = time.delta_secs();
     let armed = duel.armed.as_ref().map(|a| a.object);
     let touched = &mut *touched;
+
+    // The click that would have answered the tap arrives on the same frame as
+    // the release and `pointer` has already run, so a finger still let go
+    // here was never answered at all — see [`Touched::let_go`]. The card
+    // comes back at the ordinary rate rather than heavily, because nothing
+    // refused it: the question never reached the branch that answers.
+    if touched.let_go {
+        touched.lift_the_finger();
+    }
+
+    // A card the *keyboard* armed has never been touched, so it has no entry
+    // and would simply appear eight pixels out of the row. Making the entry
+    // here is what lets it travel, and disarming travel back; it is made only
+    // for a card the hand is actually drawing, so an armed permanent on the
+    // felt puts nothing in this map.
+    if let Some(armed) = armed
+        && nodes.iter().any(|(card, _)| card.object == armed)
+    {
+        touched.cards.entry(armed).or_default();
+    }
+
     for (object, touch) in &mut touched.cards {
         let rest = if armed == Some(*object) {
             -crate::hud::ARMED_RAISE
@@ -163,13 +211,6 @@ pub fn settle(
         touch.rests_at(rest);
         touch.advance(dt, still);
     }
-    // A card that has come to rest is forgotten, and one still under the
-    // finger never is — the finger is the reason the entry exists.
-    let held = touched.under_the_finger;
-    touched
-        .cards
-        .retain(|object, touch| Some(*object) == held || !touch.is_settled());
-
     for (card, mut node) in &mut nodes {
         if let Some(touch) = touched.cards.get(&card.object) {
             node.top = Val::Px(touch.lift());
@@ -179,6 +220,22 @@ pub fn settle(
         let alpha = touched.cards.get(&shade.object).map_or(0.0, Touch::shade);
         colour.0 = Color::srgba(0.0, 0.0, 0.0, alpha);
     }
+
+    // A card that has come to rest is forgotten, and two are never: the one
+    // under the finger, because the finger is the reason the entry exists,
+    // and the armed one, because an armed card comes to rest *out* of the row
+    // and forgetting it there would hand the next press a `Touch` starting
+    // from zero — a card that dropped eight pixels to meet a finger that had
+    // not moved.
+    //
+    // After the drawing and not before it: an entry is forgotten on the frame
+    // it settles, and a node born this frame carries whatever the *previous*
+    // frame's pose was, so pruning first leaves that stale pose on the screen
+    // until something else rebuilds the row.
+    let held = touched.under_the_finger;
+    touched.cards.retain(|object, touch| {
+        Some(*object) == held || Some(*object) == armed || !touch.is_settled()
+    });
 }
 
 /// The systems, *run* — a press that is declared and never wired is a bug
@@ -209,22 +266,31 @@ mod running {
         window.resolution.set(1728.0, 1052.0);
         app.world_mut().spawn((window, PrimaryWindow));
         let object = ObjectId::new(7, 0);
-        let card = app
-            .world_mut()
-            .spawn((
-                crate::hud::HandCardVisual { object },
-                Node {
-                    top: Val::Px(0.0),
-                    ..default()
-                },
-            ))
-            .id();
+        let card = hand_card(&mut app, object, 0.0);
         let shade = app
             .world_mut()
             .spawn((Shade { object }, BackgroundColor(Color::NONE)))
             .id();
         app.world_mut().entity_mut(card).add_children(&[shade]);
         (app, object, card, shade)
+    }
+
+    /// One node in the hand row, born where the card already is.
+    ///
+    /// Both components, because that is what `spawn_hand_bar` puts on it and
+    /// the pair is the point: the wider one is what a click and a hover are
+    /// resolved through, the marker is what says this node is the row's.
+    fn hand_card(app: &mut App, object: ObjectId, top: f32) -> Entity {
+        app.world_mut()
+            .spawn((
+                crate::hud::HandCardVisual { object },
+                crate::hud::HandRowCard,
+                Node {
+                    top: Val::Px(top),
+                    ..default()
+                },
+            ))
+            .id()
     }
 
     /// Where the pointer is, as the picking backend would report it.
@@ -263,6 +329,14 @@ mod running {
         };
         app.world_mut()
             .write_message(Pointer::new(PointerId::Mouse, location, event, entity));
+    }
+
+    /// Arms `object` the way a key does — with no finger anywhere near it.
+    fn arm(app: &mut App, object: ObjectId) {
+        app.world_mut().resource_mut::<crate::Duel>().armed = Some(crate::Armed {
+            object,
+            deed: crate::Deed::Play,
+        });
     }
 
     /// Runs one frame `seconds` long.
@@ -368,16 +442,7 @@ mod running {
         // Spawned where the card is, which is what `spawn_hand_bar` asks the
         // resource for.
         let lift = app.world().resource::<Touched>().lift_of(object, 0.0);
-        let fresh = app
-            .world_mut()
-            .spawn((
-                crate::hud::HandCardVisual { object },
-                Node {
-                    top: Val::Px(lift),
-                    ..default()
-                },
-            ))
-            .id();
+        let fresh = hand_card(&mut app, object, lift);
         tick(&mut app, 1.0 / 60.0);
         assert!(
             top_of(&app, fresh) >= before,
@@ -385,5 +450,156 @@ mod running {
             top_of(&app, fresh)
         );
         let _ = shade;
+    }
+
+    /// The same rebuild, across the *whole* tap — and the card must come back.
+    ///
+    /// Bevy raises a `Pointer<Click>` only when the press and the release
+    /// land on the same **entity**. A hand rebuilt between the two therefore
+    /// answers nothing at all, and nothing is what the card was left holding:
+    /// sunk and dark until the player pressed something else. Sitting between
+    /// this and the test above is the whole of the bug — one of them wants
+    /// the entry kept across the rebuild and the other wants the finger let
+    /// go of despite it.
+    #[test]
+    fn a_rebuild_across_the_whole_tap_does_not_leave_the_card_pressed() {
+        let (mut app, object, card, _) = harness();
+        press(&mut app, card);
+        tick(&mut app, 0.030);
+        assert!(top_of(&app, card) > 0.0, "the press was seen");
+
+        // The rebuild takes the shade pane with it, as a rebuild does: the
+        // pane is the card node's child.
+        app.world_mut().entity_mut(card).despawn();
+        let lift = app.world().resource::<Touched>().lift_of(object, 0.0);
+        let fresh = hand_card(&mut app, object, lift);
+        let shade = app
+            .world_mut()
+            .spawn((Shade { object }, BackgroundColor(Color::NONE)))
+            .id();
+        app.world_mut().entity_mut(fresh).add_children(&[shade]);
+        // The finger comes up over the same card, on the node that replaced
+        // the one it went down on. No click follows.
+        release(&mut app, fresh);
+        tick(&mut app, 1.0);
+
+        assert!(
+            top_of(&app, fresh).abs() < 0.05,
+            "the card is still {} px down",
+            top_of(&app, fresh)
+        );
+        assert!(
+            alpha_of(&app, shade).abs() < 0.005,
+            "the card is still {} dark",
+            alpha_of(&app, shade)
+        );
+    }
+
+    /// A card armed from the keyboard travels out of the row instead of
+    /// appearing out of it.
+    ///
+    /// It is the case the hand-written `Default` was written for, and until
+    /// the entry was made here the reason on it was fiction: nothing ever
+    /// gave an untouched card a rest to travel to.
+    #[test]
+    fn a_card_the_keyboard_armed_travels_out_of_the_row() {
+        let (mut app, object, card, _) = harness();
+        arm(&mut app, object);
+        tick(&mut app, 1.0 / 60.0);
+        let first = top_of(&app, card);
+        assert!(
+            first < 0.0 && first > -crate::hud::ARMED_RAISE,
+            "one frame in, the card is at {first} and not yet home"
+        );
+        tick(&mut app, 1.0);
+        assert!(
+            (top_of(&app, card) + crate::hud::ARMED_RAISE).abs() < 0.05,
+            "it arrived at {}",
+            top_of(&app, card)
+        );
+    }
+
+    /// The second tap on an armed card gives way from where the card *is*.
+    ///
+    /// An armed card at rest is settled, so the entry it travelled on is
+    /// forgotten — and a press that then made a fresh one would start it at
+    /// the row, dropping the card the whole armed raise in one frame to meet
+    /// a finger that had not moved.
+    #[test]
+    fn a_press_on_a_resting_armed_card_does_not_drop_it_to_the_row() {
+        let (mut app, object, card, _) = harness();
+        arm(&mut app, object);
+        tick(&mut app, 1.0);
+        tick(&mut app, 1.0);
+        assert!(
+            (top_of(&app, card) + crate::hud::ARMED_RAISE).abs() < 0.05,
+            "armed and at rest at {}",
+            top_of(&app, card)
+        );
+
+        press(&mut app, card);
+        tick(&mut app, 1.0 / 60.0);
+        let sunk = top_of(&app, card);
+        assert!(
+            sunk < -crate::hud::ARMED_RAISE + Touch::SINK + 0.5,
+            "the card jumped to {sunk} instead of giving way from -{}",
+            crate::hud::ARMED_RAISE
+        );
+    }
+
+    /// One slot in the stack panel: the wider component and not the marker.
+    fn stack_slot(app: &mut App, object: ObjectId) -> Entity {
+        app.world_mut()
+            .spawn((
+                crate::hud::HandCardVisual { object },
+                Node {
+                    top: Val::Px(0.0),
+                    ..default()
+                },
+            ))
+            .id()
+    }
+
+    /// Casting a card moves it from the hand to the stack, and the touch it
+    /// was given in the hand must not follow it there.
+    ///
+    /// The stack panel's slots carry `HandCardVisual` too — that is what makes
+    /// a spell on the stack hover and preview like any other card — and an
+    /// `ObjectId` survives the zone change, so the card that was pressed a
+    /// tenth of a second ago is drawn by a slot with the same id on it.
+    #[test]
+    fn a_stack_slot_is_not_moved_by_a_finger_that_was_in_the_hand() {
+        let (mut app, object, card, _) = harness();
+        press(&mut app, card);
+        tick(&mut app, 0.030);
+        assert!(top_of(&app, card) > 0.0, "the press was seen");
+
+        app.world_mut().entity_mut(card).despawn();
+        let slot = stack_slot(&mut app, object);
+        tick(&mut app, 1.0 / 60.0);
+        assert!(
+            top_of(&app, slot).abs() < f32::EPSILON,
+            "the stack slot moved to {}",
+            top_of(&app, slot)
+        );
+    }
+
+    /// And a press on a stack slot is not a finger in the hand.
+    ///
+    /// Asserted through `lift_of`, which is the question `spawn_hand_bar`
+    /// asks — so what it says is what the row would be built from.
+    #[test]
+    fn a_press_on_a_stack_slot_puts_no_finger_on_anything() {
+        let (mut app, _, card, _) = harness();
+        let onstack = ObjectId::new(9, 0);
+        let slot = stack_slot(&mut app, onstack);
+        press(&mut app, slot);
+        tick(&mut app, 0.060);
+        let lift = app.world().resource::<Touched>().lift_of(onstack, 0.0);
+        assert!(lift.abs() < f32::EPSILON, "the slot was pressed to {lift}");
+        assert!(
+            top_of(&app, card).abs() < f32::EPSILON,
+            "and it was not the hand card that gave way either"
+        );
     }
 }

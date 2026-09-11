@@ -184,6 +184,7 @@ pub(super) fn spawn_hand_bar(
         let entity = commands
             .spawn((
                 HandCardVisual { object: card.id },
+                crate::hud::HandRowCard,
                 Node {
                     position_type: PositionType::Absolute,
                     left: px(left),

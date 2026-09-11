@@ -51,9 +51,15 @@ pub struct TrayWidgets<'w, 's> {
 
 /// Finds a component on the clicked entity or one of its ancestors —
 /// a click on a button's icon or text belongs to the button.
-pub(crate) fn find_in_lineage<'a, T: Component>(
+///
+/// The query carries its own filter, which every caller but one leaves empty.
+/// The exception is [`crate::touch`], and it is why the parameter is here:
+/// [`HandCardVisual`] speaks for every card the *HUD* draws, the stack
+/// panel's slots included, so a system that is about the hand **row** has to
+/// say so — and the query is where saying it also narrows the walk.
+pub(crate) fn find_in_lineage<'a, T: Component, F: bevy::ecs::query::QueryFilter>(
     entity: Entity,
-    query: &'a Query<&T>,
+    query: &'a Query<'_, '_, &T, F>,
     parents: &Query<&ChildOf>,
 ) -> Option<&'a T> {
     lineage_bearer(entity, query, parents).map(|(_, found)| found)
@@ -64,9 +70,9 @@ pub(crate) fn find_in_lineage<'a, T: Component>(
 /// The entity is what a caller needs to ask a second question about the card
 /// — where it is on the screen, for one, which is a `GlobalTransform` on that
 /// same entity and not on whichever child the pointer happened to land on.
-fn lineage_bearer<'a, T: Component>(
+fn lineage_bearer<'a, T: Component, F: bevy::ecs::query::QueryFilter>(
     entity: Entity,
-    query: &'a Query<&T>,
+    query: &'a Query<'_, '_, &T, F>,
     parents: &Query<&ChildOf>,
 ) -> Option<(Entity, &'a T)> {
     let mut current = Some(entity);

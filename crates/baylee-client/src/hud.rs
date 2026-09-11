@@ -150,6 +150,19 @@ pub struct HandCardVisual {
     pub object: ObjectId,
 }
 
+/// A card that is actually standing in the player's own hand row.
+///
+/// [`HandCardVisual`] is deliberately wider than that — it means "a card the
+/// HUD draws rather than the felt", and the stack panel puts it on every slot
+/// so a spell on the stack hovers and previews like any other card. That is
+/// right for hover and for clicks and wrong for anything that *writes* to the
+/// node: [`crate::touch::settle`] sets a card's `top`, and with only the
+/// wider component to go on it set the stack slots' too, for as long as a
+/// card cast out of the hand still had a touch left to spend. So the row says
+/// that it is the row, and the two questions stop being one.
+#[derive(Component)]
+pub struct HandRowCard;
+
 /// A seat's bar: click inspects that seat's board.
 ///
 /// It was a tab in a strip along the top of the window and is the bar on that
