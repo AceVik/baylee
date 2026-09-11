@@ -2795,7 +2795,7 @@ what `touch`'s own tests are.
 
 ## Ninth pass, 2026-09-11 — found while teaching `/state` to say where things are
 
-### 41. A yes/no question can only be answered with the pointer — WITHDRAWN, not a fault
+### 44. A yes/no question can only be answered with the pointer — WITHDRAWN, not a fault
 
 Kept rather than deleted, because the entry was wrong in the way an entry here
 can most easily be wrong: every observation in it was real and the conclusion
@@ -2844,7 +2844,7 @@ the skill has been corrected along with this.
 
 ## Tenth pass, 2026-09-11 — found while writing the ninth pass down
 
-### 42. `host::house_duel` is dead code, and its doc promises it cannot drift — CONFIRMED
+### 45. `host::house_duel` is dead code, and its doc promises it cannot drift — CONFIRMED
 
 `crates/baylee-client/src/host.rs` builds a solo duel against the house AI and
 says of it: *"Everything the standalone binary needs for offline play, and the
