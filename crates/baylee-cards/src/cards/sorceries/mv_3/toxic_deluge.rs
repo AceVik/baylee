@@ -21,6 +21,7 @@ card! {
     coverage: Coverage::Implemented,
     abilities: &[spell!(&[Effect::PumpFilter {
             filter: &Filter::CREATURE,
+            controlled_by: None,
             power: Amount::NegX,
             toughness: Amount::NegX,
             keywords: KeywordSet::EMPTY,

@@ -675,8 +675,8 @@ impl Tx<'_> {
         p.take("IsCurse");
         Some(match p.take("Defined").as_deref() {
             Some("Self") => vec![format!(
-                "Effect::PumpFilter {{ filter: &Filter::This, power: {power}, \
-                 toughness: {toughness}, keywords: {keywords}, \
+                "Effect::PumpFilter {{ filter: &Filter::This, controlled_by: None, \
+                 power: {power}, toughness: {toughness}, keywords: {keywords}, \
                  duration: Duration::UntilEndOfTurn }}"
             )],
             None | Some("Targeted") => {

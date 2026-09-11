@@ -2143,37 +2143,53 @@ which touches a target looks the object up and does nothing when it is gone, so
 the one visible symptom would be an `Amount` reading zero rather than a spell
 resolving that should have been countered. Recorded as entry 40.
 
-### 39. Primaris Eliminator's second mode debuffs the whole board — RECORDED
+### 39. Primaris Eliminator's second mode debuffs the whole board — FIXED
 
 Found while making entry 34's modal triggers fire, which is what made this
 card's text reachable in the first place.
 
 The printing says "Hyperfrag Round — Creatures target player controls get
--2/-2 until end of turn." The card says:
+-2/-2 until end of turn." The card said:
 
 ```rust
 mode!(DEBUFF_EFFECTS)                        // no targets
 Effect::PumpFilter { filter: &Filter::CREATURE, … }
 ```
 
-No target, and a filter that matches every creature on the battlefield —
+No target, and a filter matching every creature on the battlefield —
 including the caster's own, and including Primaris Eliminator itself. A 3/2
-choosing its own second mode kills itself and everything it was standing
+choosing its own second mode killed itself and everything it was standing
 beside.
 
-Two things are missing and they are one sentence of the card. The target is
-already sayable: `TargetSpec::AnyPlayer` is the choice, and `PlayerRel::Chosen`
-is what reads it back. The **filter** is not — `Filter` has
-`ControlledByYou` and `ControlledByOpponent` and nothing that means "the player
-this spell chose", so the DSL cannot say "creatures that player controls" at
-all today. That makes this a DSL gap first and a card fix second, and until the
-variant exists the honest shape is `Coverage::Partial` with a
-`// NOT SUPPORTED:` line, not a filter that means something else.
+Two things were missing and they are one sentence of the card. The target was
+already sayable: `TargetSpec::AnyPlayer` is the choice, `PlayerRel::Chosen`
+reads it back, and the trigger path has offered `player_options` beside its
+object ones since triggers could target at all. The **set** was not — `Filter`
+has `ControlledByYou` and `ControlledByOpponent` and nothing meaning "the
+player this spell chose", so the DSL could not say "creatures that player
+controls".
 
-This is a **card** fault and not an engine one: the mechanism around it is
-right, which is why it only became visible now. It is also the answer to why
-it was never noticed — the mode could not be chosen, because the trigger
-carrying it was never collected.
+It stays unsayable *as a filter*, and that is the fix rather than a gap left
+open. A filter is evaluated against an object and is told two things, `you`
+and `this` — the ability's controller and its source — and a seat a spell
+chose is neither, any more than a player is an object with characteristics to
+match (the argument `TargetSpec::AnyTarget` already makes). So the seat rides
+on the **effect**: `Effect::PumpFilter` takes `controlled_by: Option<PlayerRel>`
+beside its filter, `None` being "all creatures" and `Some(Chosen)` being "that
+player's", and `resolve::bound_now` narrows the set it binds (entry 44) to
+those seats. A relation that names nobody — a trigger whose target is gone —
+shrinks nothing at all, which is the whole sentence declining rather than half
+of it landing.
+
+The test is `primaris_eliminators_hyperfrag_shrinks_only_the_player_it_named`,
+and it asserts all three ways of being wrong: the named seat's creature dies,
+the caster's does not, and the Eliminator is still standing. The mutant drops
+`controlled_by` on the floor, and the assertion it fails is the entry's own
+sentence — a 3/2 killing itself with its own second mode.
+
+This was a **card** fault and not an engine one, which is why it only became
+visible when entry 34 made the mode reachable: until then the trigger carrying
+it was never collected.
 
 ### 40. A spell whose targets have all gone still resolves — RECORDED
 

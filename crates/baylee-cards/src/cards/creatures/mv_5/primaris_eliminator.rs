@@ -3,8 +3,9 @@
 //! Oracle: • Executioner Round — Destroy target creature.
 //! Oracle: • Hyperfrag Round — Creatures target player controls get -2/-2 until end of turn.
 //! Set: 40K #50 — Warhammer 40,000 Commander | Scryfall ID: db7ab081-d6cd-4323-98bf-536e4df95115 | Oracle ID: 7d679591-f8ea-4c4c-ab98-7b9e3438cf57
-// IMPLEMENTED — modal ETB with both rounds (Hyperfrag's -2/-2 uses X = 2
-// chosen automatically as the only value; X-driven pump via NegX).
+// IMPLEMENTED — modal ETB with both rounds. Hyperfrag targets a player and
+// shrinks the creatures *that* player controls; the -2/-2 is a fixed amount
+// written as NegXFixed.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes::creature;
@@ -14,6 +15,7 @@ static DESTROY_EFFECTS: &[Effect] = &[Effect::Destroy {
 }];
 static DEBUFF_EFFECTS: &[Effect] = &[Effect::PumpFilter {
     filter: &Filter::CREATURE,
+    controlled_by: Some(PlayerRel::Chosen),
     power: Amount::NegXFixed(2),
     toughness: Amount::NegXFixed(2),
     keywords: KeywordSet::EMPTY,
@@ -38,7 +40,7 @@ card! {
         trigger: Trigger::EntersBattlefield(&Filter::This),
         modes: &[
             mode!(DESTROY_EFFECTS, targets: Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE)))),
-            mode!(DEBUFF_EFFECTS),
+            mode!(DEBUFF_EFFECTS, targets: Some(TargetReq::one(TargetSpec::AnyPlayer))),
         ],
         once_per_turn: false,
     }],

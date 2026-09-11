@@ -48,6 +48,7 @@ card! {
                 parts: &[],
             }, &[Effect::PumpFilter {
                 filter: &ALLIES_YOU_CONTROL,
+                controlled_by: None,
                 power: Amount::DistinctColorsAmong(&ALLIES_YOU_CONTROL),
                 toughness: Amount::DistinctColorsAmong(&ALLIES_YOU_CONTROL),
                 keywords: KeywordSet::EMPTY,

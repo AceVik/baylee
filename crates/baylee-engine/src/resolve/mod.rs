@@ -368,15 +368,28 @@ pub(super) fn amount2(amount: &Amount, state: &GameState, you: PlayerId, res: &R
 /// [`EffectFilter`](crate::effects::EffectFilter) names exactly one — the
 /// same shape `Effect::PumpTarget` already registers for a spell with two
 /// targets.
+/// `only` narrows the set to the seats it lists, which is the half no
+/// `Filter` can do: "creatures **target player** controls" depends on a
+/// choice, and a filter is told the ability's controller and its source and
+/// nothing else. The seat is known here, so the set is bound here — which is
+/// where CR 611.2c wants it bound anyway. A narrowed effect that could not
+/// lock would have nowhere to put the seat, and no card asks for one: only
+/// `Effect::PumpFilter` passes `only`, and `Modifier::ModifyPT` always
+/// locks.
 pub(super) fn bound_now(
     state: &GameState,
     filter: &'static baylee_cards_dsl::Filter,
     modifier: &baylee_cards_dsl::Modifier,
     you: PlayerId,
     this: ObjectId,
+    only: Option<&[PlayerId]>,
 ) -> SmallVec<[crate::effects::EffectFilter; 4]> {
     if !crate::effects::locks_its_set(modifier) || crate::state::filter_reaches_other_zones(filter)
     {
+        debug_assert!(
+            only.is_none(),
+            "a dynamic effect cannot carry the seat its card named",
+        );
         return smallvec::smallvec![crate::effects::EffectFilter::Dsl(filter)];
     }
     state
@@ -384,9 +397,10 @@ pub(super) fn bound_now(
         .list(ZoneLocation::Battlefield)
         .iter()
         .filter(|id| {
-            state
-                .object(**id)
-                .is_some_and(|o| eval::matches(filter, state, o, you, this))
+            state.object(**id).is_some_and(|o| {
+                only.is_none_or(|seats| seats.contains(&o.controller))
+                    && eval::matches(filter, state, o, you, this)
+            })
         })
         .map(|id| crate::effects::EffectFilter::ObjectIs(*id))
         .collect()
@@ -1542,7 +1556,7 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
                 let this = this_object(res)?;
                 smallvec::smallvec![crate::effects::EffectFilter::ObjectIs(this)]
             } else {
-                bound_now(state, filter, &modifier, you, res.source)
+                bound_now(state, filter, &modifier, you, res.source, None)
             };
             let timestamp = state.next_timestamp();
             for filter in filters {

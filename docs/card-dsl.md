@@ -537,7 +537,10 @@ Zones: `SearchLibrary`, `OptionalBasicLandSearchFor`, `GraveyardToTop`,
 Interlude), `BottomCardFromHand`, `WishToHand` (Karn's −2: a card you own
 from outside the game or face-up in your exile).
 Continuous: `CreateContinuousEffect` (any layer+filter+modifier+duration),
-`PumpFilter` (a filter, where `Filter::This` is the *source*), `PumpTarget`
+`PumpFilter` (a filter, where `Filter::This` is the *source*, plus
+`controlled_by: Option<PlayerRel>` for a sentence that names a player rather
+than the board — "creatures **target player** controls get -2/-2", where the
+seat is a choice no `Filter` can be told about), `PumpTarget`
 (the spell's or ability's targets, all of them — Giant Growth), both of which
 carry a `KeywordSet` so "+2/+2 and gains trample" is one effect,
 `SetPTFilter`, `ChangeController`, `AllCreaturesToOwner`,

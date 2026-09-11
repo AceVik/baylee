@@ -931,6 +931,18 @@ pub enum Effect {
     PumpFilter {
         /// Which objects are pumped.
         filter: &'static Filter,
+        /// Whose permanents, when the printed sentence names a player
+        /// rather than the board — "creatures **target player** controls
+        /// get -2/-2".
+        ///
+        /// `None` is every object the filter matches, which is what "all
+        /// creatures" means. It is a field here rather than a [`Filter`]
+        /// variant because a filter is evaluated against an object and the
+        /// two things it is told, `you` and `this`, are the ability's
+        /// controller and its source: the seat a spell *chose* is neither,
+        /// and is not a characteristic of anything. The same argument
+        /// [`TargetSpec::AnyTarget`] already makes about players.
+        controlled_by: Option<PlayerRel>,
         /// Power modifier (may be negative/X-driven).
         power: Amount,
         /// Toughness modifier (may be negative/X-driven).

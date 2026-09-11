@@ -115,7 +115,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             let filters = if matches!(filter, baylee_cards_dsl::Filter::This) {
                 smallvec::smallvec![crate::effects::EffectFilter::ObjectIs(this)]
             } else {
-                super::bound_now(state, filter, &modifier, you, res.source)
+                super::bound_now(state, filter, &modifier, you, res.source, None)
             };
             for filter in filters {
                 state.effects.register(crate::effects::ContinuousEffect {
@@ -133,6 +133,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
         }
         Effect::PumpFilter {
             filter,
+            controlled_by,
             power,
             toughness,
             keywords,
@@ -148,12 +149,20 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             };
             let p = signed(&power);
             let t = signed(&toughness);
+            // "Creatures target player controls get -2/-2": the seat is
+            // read here, where the resolution knows what it chose, and the
+            // set is the one it names on the battlefield now — the same
+            // moment CR 611.2c fixes it at. A relation naming nobody (a
+            // trigger that lost its target) shrinks nothing, which is the
+            // whole sentence doing nothing rather than half of it.
+            let seats = controlled_by.map(|rel| super::players_of(rel, state, you, res));
             let filters = super::bound_now(
                 state,
                 filter,
                 &baylee_cards_dsl::Modifier::ModifyPT(p, t),
                 you,
                 res.source,
+                seats.as_deref(),
             );
             pump(state, res, you, &filters, (p, t), keywords, duration);
             None
