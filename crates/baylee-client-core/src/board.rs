@@ -354,6 +354,26 @@ pub struct ThreatSummary {
     pub air_defence: u32,
 }
 
+/// One card of a pile's hover fan.
+///
+/// Not a [`CardGroup`], for the reason a [`ZonePile`] is not one: a card
+/// lying in a graveyard has no interaction state at all. What a fan wants of
+/// it is a face, a name for a reader, and the id the ordinary hover preview
+/// is addressed by.
+#[derive(Clone, PartialEq, Eq, Debug)]
+pub struct FannedCard {
+    /// The object, so hovering one card of the fan previews *that* card
+    /// through the machinery the battlefield already uses.
+    pub object: ObjectId,
+    /// Its picture, or `None` for a token — which has no printing to draw.
+    /// The slot is still a card of the fan: a token in a graveyard is really
+    /// there until a state-based action removes it (CR 111.7), and a fan that
+    /// skipped it would say the pile is shallower than it is.
+    pub art: Option<ImageKey>,
+    /// Its projected name, for the badge and for a reader.
+    pub name: String,
+}
+
 /// One of the four piles beside a seat's ground, as it is to be drawn.
 ///
 /// Deliberately **not** a [`CardGroup`]: a pile has no interaction state, is
@@ -377,9 +397,26 @@ pub struct ZonePile {
     /// The object the top card is, so hovering the pile previews that card
     /// through the machinery the battlefield already uses.
     pub top: Option<ObjectId>,
+    /// The cards a hover spreads out of the pile, **top of the pile first**,
+    /// at most [`Self::FAN_MAX`] of them.
+    ///
+    /// Always empty for a library, and that is the whole of CR 401.2 in this
+    /// model: not a rule the renderer is asked to obey but a list that cannot
+    /// be filled, because `PlayerView` carries a library as a count and has
+    /// no cards in it to put here. A library still fans — [`Self::fan_len`]
+    /// says how many backs — and the backs say nothing.
+    ///
+    /// Top first rather than bottom first so that a fan drawn shorter than
+    /// the model offers keeps the cards that matter: the last card to die is
+    /// the one a player is looking for.
+    pub fan: Vec<FannedCard>,
 }
 
 impl ZonePile {
+    /// How many cards a hover spreads out of a pile at most — the fan's own
+    /// [`crate::layout::FAN_MAX`], which is where the rest of its shape is.
+    pub const FAN_MAX: usize = crate::layout::FAN_MAX;
+
     /// A pile of this kind with nothing in it — a place, and no cards.
     #[must_use]
     pub const fn empty(kind: PileKind) -> Self {
@@ -389,7 +426,21 @@ impl ZonePile {
             art: None,
             name: None,
             top: None,
+            fan: Vec::new(),
         }
+    }
+
+    /// How many cards the fan draws — never more than the pile holds, and
+    /// never more than [`Self::FAN_MAX`].
+    ///
+    /// This is the count of *slabs*, which is why it is arithmetic on
+    /// [`Self::count`] and not `self.fan.len()`: a library has the cards and
+    /// not the faces, so the two disagree there by design.
+    #[must_use]
+    pub fn fan_len(&self) -> usize {
+        usize::try_from(self.count)
+            .unwrap_or(Self::FAN_MAX)
+            .min(Self::FAN_MAX)
     }
 
     /// Whether clicking this pile can open anything.
@@ -846,6 +897,20 @@ impl BoardModel {
             // and it is very often a card nothing else is drawing — the last
             // creature to die is in no lane by definition.
             keys.extend(pod.piles.iter().filter_map(|p| p.art));
+            // And the rest of what a hover spreads out of it, for the same
+            // reason and at the same size: a fan is a hover, and a hover has
+            // no frame to spare for a fetch. The top card is already in the
+            // line above, so what this adds is at most six more per pile —
+            // 26 MB of `Small` textures if all eight seats fill a graveyard
+            // *and* an exile pile past seven, against a 96 MB budget on the
+            // smallest client. A duel, which is what is actually played,
+            // costs 6.5 MB, and the least-recently-used budget is what
+            // decides the rest.
+            keys.extend(
+                pod.piles
+                    .iter()
+                    .flat_map(|p| p.fan.iter().filter_map(|c| c.art)),
+            );
         }
         keys.extend(self.hand.iter().map(|h| h.art));
         keys.extend(self.stack.iter().filter_map(|s| s.art));
@@ -1134,6 +1199,27 @@ fn zone_piles(view: &PlayerView, player: PlayerId) -> Vec<ZonePile> {
                 (_, Some(objects)) => u32::try_from(objects.len()).unwrap_or(u32::MAX),
                 _ => list.map_or(0, |l| u32::try_from(l.len()).unwrap_or(u32::MAX)),
             };
+            // Top of the pile first — which is the end both lists put last —
+            // and never more than the fan draws. A library reaches neither
+            // arm with anything in it: `list` is `None` there because a view
+            // carries a library as a count, so this is empty without being
+            // made empty, which is the point.
+            let fan: Vec<FannedCard> = match &command {
+                Some(objects) => objects
+                    .iter()
+                    .rev()
+                    .take(ZonePile::FAN_MAX)
+                    .copied()
+                    .map(fanned)
+                    .collect(),
+                None => list
+                    .unwrap_or_default()
+                    .iter()
+                    .rev()
+                    .take(ZonePile::FAN_MAX)
+                    .map(fanned)
+                    .collect(),
+            };
             ZonePile {
                 kind,
                 count,
@@ -1142,9 +1228,26 @@ fn zone_piles(view: &PlayerView, player: PlayerId) -> Vec<ZonePile> {
                     .map(|c| ImageKey::new(c.print, c.face, ArtSize::Small)),
                 name: top.map(|o| o.name.clone()),
                 top: top.map(|o| o.id),
+                fan,
             }
         })
         .collect()
+}
+
+/// One card of a pile, as the fan wants it.
+///
+/// The picture is read off `card` exactly as the pile's own top card is, and
+/// not through [`art_of`]: a card nobody may look at has no `card` at all —
+/// the view is what withholds it — so the blank slot here is the view's
+/// answer and not a second rule.
+fn fanned(object: &PublicObject) -> FannedCard {
+    FannedCard {
+        object: object.id,
+        art: object
+            .card
+            .map(|c| ImageKey::new(c.print, c.face, ArtSize::Small)),
+        name: object.name.clone(),
+    }
 }
 
 /// Resolves a target handle into something drawable.
@@ -1451,6 +1554,151 @@ mod tests {
         assert!(!graveyard.is_browsable(), "an empty pile opens nothing");
         graveyard.count = 1;
         assert!(graveyard.is_browsable());
+    }
+
+    /// What a hover spreads out of a pile, and what it may never spread out
+    /// of a library.
+    mod fan {
+        use super::*;
+
+        fn pile(view: &baylee_view::PlayerView, kind: PileKind) -> ZonePile {
+            zone_piles(view, PlayerId::new(0))
+                .into_iter()
+                .find(|p| p.kind == kind)
+                .expect("the seat has this pile")
+        }
+
+        /// Top of the pile first, and never more than seven — a graveyard of
+        /// ten fans its last seven, newest first.
+        ///
+        /// `ZonePosition::Top` pushes, so the object listed *last* is the one
+        /// lying on top; the fan reverses that, which is the whole of the
+        /// ordering claim. It is asserted against the names rather than
+        /// against a length, because a fan that took the first seven would
+        /// also be seven cards long and would be the wrong seven.
+        #[test]
+        fn a_graveyard_fans_its_newest_seven_newest_first() {
+            let dead: Vec<_> = (0..10)
+                .map(|i| printed(i, 0, &format!("card {i}"), u16::try_from(i).unwrap() + 1))
+                .collect();
+            let view = ViewBuilder::new(2).with_graveyard(0, dead).build();
+            let graveyard = pile(&view, PileKind::Graveyard);
+
+            assert_eq!(graveyard.count, 10);
+            assert_eq!(graveyard.fan_len(), ZonePile::FAN_MAX);
+            assert_eq!(
+                graveyard
+                    .fan
+                    .iter()
+                    .map(|c| c.name.as_str())
+                    .collect::<Vec<_>>(),
+                [
+                    "card 9", "card 8", "card 7", "card 6", "card 5", "card 4", "card 3"
+                ],
+                "the fan is not the newest seven, newest first"
+            );
+            assert_eq!(
+                graveyard.fan.first().map(|c| c.object),
+                graveyard.top,
+                "the card on top of the pile is the card at the top of the fan"
+            );
+        }
+
+        /// A pile shallower than the fan fans what it has, and an empty one
+        /// fans nothing at all.
+        #[test]
+        fn a_short_pile_fans_what_it_has() {
+            let view = ViewBuilder::new(2)
+                .with_exile(0, vec![printed(1, 0, "Oblivion Ring", 4)])
+                .build();
+            let exile = pile(&view, PileKind::Exile);
+            assert_eq!(exile.fan_len(), 1);
+            assert_eq!(exile.fan.len(), 1);
+
+            let empty = ZonePile::empty(PileKind::Graveyard);
+            assert_eq!(empty.fan_len(), 0);
+            assert!(empty.fan.is_empty());
+        }
+
+        /// The second reading of CR 401.2, and the one this model enforces by
+        /// construction: a library fans, and has nothing to fan.
+        ///
+        /// [`ZonePile::fan`] is empty for a library not because a rule here
+        /// empties it but because a `PlayerView` carries a library as a
+        /// *count* — there are no cards in it to put in the list. What the
+        /// fan draws there is [`ZonePile::fan_len`] card backs, which say how
+        /// deep the pile is and nothing else. The counter-test is the
+        /// graveyard above: same code, same seat, seven faces.
+        #[test]
+        fn a_library_fans_backs_and_never_faces() {
+            let view = ViewBuilder::new(2).build();
+            let library = pile(&view, PileKind::Library);
+
+            assert_eq!(library.count, 80, "the builder deals a full library");
+            assert_eq!(
+                library.fan_len(),
+                ZonePile::FAN_MAX,
+                "a library fans like any other pile"
+            );
+            assert!(
+                library.fan.is_empty(),
+                "a library handed the fan a face to draw"
+            );
+            assert!(library.art.is_none() && library.top.is_none());
+        }
+
+        /// A token in a graveyard is a slot in the fan with no picture, not a
+        /// card the fan skips.
+        ///
+        /// It is really lying there — a token that has left the battlefield
+        /// ceases to exist only when state-based actions are next checked
+        /// (CR 111.7) — and a fan that dropped it would say the pile is
+        /// shallower than it is, on exactly the frame a player is looking to
+        /// see what just died.
+        #[test]
+        fn a_token_in_the_graveyard_is_a_blank_slot_and_not_a_gap() {
+            let view = ViewBuilder::new(2)
+                .with_graveyard(
+                    0,
+                    vec![printed(1, 0, "Llanowar Elves", 3), token(2, 0, "Elf", 1, 1)],
+                )
+                .build();
+            let graveyard = pile(&view, PileKind::Graveyard);
+
+            assert_eq!(graveyard.fan.len(), 2, "the token was dropped from the fan");
+            assert_eq!(graveyard.fan[0].name, "Elf");
+            assert!(graveyard.fan[0].art.is_none(), "a token has no printing");
+            assert!(graveyard.fan[1].art.is_some());
+        }
+
+        /// Every face the fan will draw is resident before the hover, and
+        /// each is asked for once.
+        ///
+        /// A fan is a hover and a hover has no frame to spare for a fetch,
+        /// which is the same reason the pile's own top card is in this list.
+        /// The dedup is the second half: the top card is in the fan *and* in
+        /// `ZonePile::art`, so a list that did not dedup would ask for it
+        /// twice.
+        #[test]
+        fn the_whole_fan_is_resident_before_the_hover() {
+            let dead: Vec<_> = (0..3)
+                .map(|i| printed(i, 0, &format!("card {i}"), u16::try_from(i).unwrap() + 1))
+                .collect();
+            let view = ViewBuilder::new(2).with_graveyard(0, dead).build();
+            let keys = model(&view).required_images();
+            let graveyard = pile(&view, PileKind::Graveyard);
+
+            for card in &graveyard.fan {
+                let key = card.art.expect("every one of these is a printed card");
+                assert_eq!(
+                    keys.iter().filter(|k| **k == key).count(),
+                    1,
+                    "{} is not asked for exactly once",
+                    card.name
+                );
+            }
+            assert_eq!(keys.len(), 3);
+        }
     }
 
     /// The command zone is one zone drawn as one place per commander, and a

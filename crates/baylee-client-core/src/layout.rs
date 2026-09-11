@@ -237,6 +237,77 @@ pub const PILE_REACH: f32 = 1.45;
 /// through, and the camera pays for it by drawing every card smaller.
 const PILE_STRIP: f32 = PILE_REACH + CARD_WIDTH * 0.5;
 
+/// How many cards a hover spreads out of a pile at most.
+///
+/// The owner's number. A fan is a *glance* — the click-to-browse panel is
+/// where a whole zone is read — and seven is about where a spread stops being
+/// countable at one look. It stands here with the rest of the fan's shape and
+/// is reached as [`crate::ZonePile::FAN_MAX`] everywhere else.
+pub const FAN_MAX: usize = 7;
+
+/// How high the lowest card of a hover fan floats above the pile.
+///
+/// The fan opens **upwards**, and that is forced rather than chosen. Seven
+/// cards laid flat and spread sideways want `CARD_WIDTH + 6·visible` inside a
+/// strip [`PILE_STRIP`] wide, which leaves 0.16 of a card showing — a border
+/// stripe, not a glance — and anything wider spills onto the mat, where a
+/// card reads as a permanent in play. That is the one ambiguity a graveyard
+/// may never have. Height has no such competition: nothing else on this table
+/// stands or floats, so a card in the air is unmistakably not in play.
+pub const FAN_FLOAT: f32 = 0.18;
+
+/// How much higher each card of the fan stands than the one under it.
+///
+/// Seven cards reach `FAN_FLOAT + 6·FAN_RISE` = 1.50 — about a card's height
+/// off the felt, and still well under the camera.
+pub const FAN_RISE: f32 = 0.22;
+
+/// How far each card of the fan steps towards the camera along the seat's own
+/// depth axis.
+///
+/// Along that axis and never across it: the sideways offset stays exactly
+/// [`PILE_REACH`], because across is where the mat is. The step is what makes
+/// a fan out of a column — seven cards at one place are one card with six
+/// hidden under it — and it passes *over* whichever pile stands next in the
+/// column, which at this height reads as held up rather than as lying on it.
+pub const FAN_STEP: f32 = 0.12;
+
+/// How far the fan's cards are tipped up to face the camera, in radians.
+///
+/// About the seat's own horizontal axis, which is the axis a card already
+/// lies flat on, so the card stays the right way up for its owner. A seat at
+/// the *side* of the ring gets very little from it — that axis runs across
+/// the screen there — and its fan is read by lift and overlap alone, the same
+/// way [`SeatSlot::ledge_is_outer`] has no "above" to offer a side seat.
+pub const FAN_TILT: f32 = 0.55;
+
+/// How far each card of the fan is turned in its own plane, in radians.
+///
+/// Measured from the middle of the fan, so its two ends are turned
+/// `±3·FAN_YAW` opposite ways and it reads as a hand of cards rather than as
+/// a staircase. It is the only curve in the shape: the cards themselves stand
+/// on a straight line, because what the eye reads is the lift.
+pub const FAN_YAW: f32 = 0.035;
+
+/// Where one card of a pile's hover fan stands, in table space.
+///
+/// Renderer-free like the rest of this module: a pose is four numbers, and
+/// turning them into a transform is the renderer's business.
+#[derive(Clone, Copy, PartialEq, Debug)]
+pub struct FanPose {
+    /// Centre, in table space.
+    pub at: Vec2,
+    /// Height above the felt.
+    pub lift: f32,
+    /// Tip towards the camera about the seat's own horizontal axis. Signed
+    /// for the *viewer*, so a seat across the table leans towards the one
+    /// screen there is rather than away from it.
+    pub tilt: f32,
+    /// Turn in the card's own plane: one way at one end of the fan and the
+    /// other way at the other.
+    pub yaw: f32,
+}
+
 /// How far a seat has to lean past the side of the ring before its bar
 /// changes edges.
 ///
@@ -426,6 +497,61 @@ impl SeatSlot {
         let side = Vec2::new(self.facing.cos(), -self.facing.sin());
         let out = pile.side() * (self.half_extent.x + PILE_REACH);
         self.lane_center(pile.row()) + side * out
+    }
+
+    /// Which way along this seat's own depth axis the camera lies: `-1.0` for
+    /// the seat's near edge, `1.0` for the table centre.
+    ///
+    /// `away.y` is the whole test, as it is in
+    /// [`ledge_is_outer`](Self::ledge_is_outer), and for the same reason:
+    /// table `+y` runs away from the camera, so a seat whose inward normal
+    /// points up the table has the camera behind it and a seat across the
+    /// table has the camera in front. Same tolerance too, because the two
+    /// flanks of a ring have to answer alike.
+    ///
+    /// The **tie** is the one place this differs, and deliberately. A side
+    /// seat's depth axis runs across the screen, so neither end of it is
+    /// nearer the camera and the question has no answer; the answer that is
+    /// never *wrong* is inwards, over the table, rather than out past its
+    /// edge.
+    fn camera_lies(&self) -> f32 {
+        if self.facing.cos() > SIDE_SEAT_TILT {
+            -1.0
+        } else {
+            1.0
+        }
+    }
+
+    /// Where one card of a pile's hover fan stands.
+    ///
+    /// `index` counts from the **top of the pile** — it is the index into
+    /// [`crate::ZonePile::fan`] — and `len` is how many cards the fan draws.
+    /// The rung it stands on is therefore `len - 1 - index`, so the top card
+    /// is the highest and the nearest the camera: it is the card a player is
+    /// looking for, and the older ones recede underneath it.
+    ///
+    /// An `index` at or past `len` is clamped rather than refused; a fan is a
+    /// drawing and the worst a clamp does is stack two cards.
+    #[must_use]
+    pub fn fan_pose(&self, pile: PileKind, index: usize, len: usize) -> FanPose {
+        let last = len.saturating_sub(1);
+        let rung = (last - index.min(last)) as f32;
+        let toward = self.camera_lies();
+        // The seat's own depth axis, pointing at the table centre — the same
+        // vector `lane_center` measures the lanes along.
+        let away = Vec2::new(self.facing.sin(), self.facing.cos());
+        FanPose {
+            at: self.pile_center(pile) + away * (toward * FAN_STEP * rung),
+            lift: FAN_FLOAT + FAN_RISE * rung,
+            // A card lies flat facing its owner, and tipping it about that
+            // axis raises the edge furthest from the owner. That is towards
+            // the camera for the near half of the ring and away from it for
+            // the far half, which is why the sign is the viewer's and not the
+            // seat's — and why it is the *opposite* of the step's: the step
+            // walks along the axis, the tilt turns about it.
+            tilt: -toward * FAN_TILT,
+            yaw: FAN_YAW * (rung - last as f32 / 2.0),
+        }
     }
 
     /// The seat's whole footprint: the ground, plus the piles standing beside
@@ -1270,6 +1396,144 @@ mod tests {
                 }
             }
         }
+    }
+
+    /// A hover fan opens straight up out of the pile's own column, at every
+    /// seat of every table.
+    ///
+    /// The claim that matters is the one [`FAN_STEP`]'s doc makes: the fan
+    /// steps *along* the seat's depth axis and never across it, because
+    /// across is where the mat is and a card on the mat reads as a permanent
+    /// in play. So this is the same measurement
+    /// `a_pile_stands_beside_the_ground_and_never_on_it` takes, repeated for
+    /// every rung of the fan, and it has to come back with the pile's own
+    /// number to the last bit.
+    #[test]
+    fn a_fan_opens_up_the_column_and_never_across_it() {
+        for n in [2, 3, 4, 6, 8] {
+            let layout = TableLayout::new(&seats(n), 2.0, None);
+            for slot in &layout.slots {
+                let side = Vec2::new(slot.facing.cos(), -slot.facing.sin());
+                for pile in PileKind::ALL {
+                    let column = (slot.pile_center(pile) - slot.center).dot(side);
+                    for rung in 0..FAN_MAX {
+                        let pose = slot.fan_pose(pile, rung, FAN_MAX);
+                        let across = (pose.at - slot.center).dot(side);
+                        assert!(
+                            (across - column).abs() < 1e-4,
+                            "{n} seats: card {rung} of the {} fan is {across} out \
+                             where the pile is {column} — it has stepped across the \
+                             column and onto the mat",
+                            pile.label()
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    /// The top of the pile is the top of the fan: highest, nearest the
+    /// camera, and leaning towards it.
+    ///
+    /// Three claims measured in *table* space, where `+y` runs away from the
+    /// camera, and the reason they are one test is that all three hang on the
+    /// same sign. Index 0 is the top of the pile, so the rung it stands on is
+    /// `len - 1 - index` — pinned here because it is the kind of inversion a
+    /// later reader tidies away.
+    ///
+    /// The side seats are exempt from the leaning half and only from that
+    /// half. Their depth axis runs across the screen, so tipping a card about
+    /// it barely turns the face towards the camera at all; `cos(facing)` is
+    /// what that projection is, and it is what the exemption is written
+    /// against rather than a list of seat numbers.
+    #[test]
+    fn the_top_of_the_pile_is_the_top_of_the_fan() {
+        for n in [2, 3, 4, 6, 8] {
+            let layout = TableLayout::new(&seats(n), 2.0, None);
+            for slot in &layout.slots {
+                let top = slot.fan_pose(PileKind::Graveyard, 0, FAN_MAX);
+                let bottom = slot.fan_pose(PileKind::Graveyard, FAN_MAX - 1, FAN_MAX);
+
+                assert!(
+                    top.lift > bottom.lift,
+                    "{n} seats, seat {}: the top card is the lower of the two",
+                    slot.ring_index
+                );
+                assert!(
+                    (bottom.lift - FAN_FLOAT).abs() < 1e-6,
+                    "the bottom of the fan does not start at the float"
+                );
+                if slot.facing.cos().abs() > SIDE_SEAT_TILT {
+                    assert!(
+                        top.at.y < bottom.at.y - 1e-4,
+                        "{n} seats, seat {}: the top card stepped away from the camera",
+                        slot.ring_index
+                    );
+                    // The card's normal once it has been laid flat and
+                    // tipped: `cos(facing) · sin(tilt)` is how much of it
+                    // points at the camera, and it has to be positive.
+                    assert!(
+                        slot.facing.cos() * top.tilt.sin() > 0.0,
+                        "{n} seats, seat {}: the fan leans away from the camera",
+                        slot.ring_index
+                    );
+                } else {
+                    // A side seat has no answer to "which end is nearer the
+                    // camera" — its depth axis runs across the screen — and
+                    // takes the one that is never wrong instead: the fan
+                    // steps in over the table rather than out past its edge.
+                    let away = Vec2::new(slot.facing.sin(), slot.facing.cos());
+                    let inwards = (top.at - slot.pile_center(PileKind::Graveyard)).dot(away);
+                    assert!(
+                        inwards > 0.0,
+                        "{n} seats, seat {}: the side seat's fan stepped off the table",
+                        slot.ring_index
+                    );
+                }
+            }
+        }
+    }
+
+    /// A fan is a hand of cards and not a staircase: its two ends are turned
+    /// opposite ways by the same amount, and its middle is not turned at all.
+    #[test]
+    fn a_fan_is_turned_symmetrically_about_its_middle() {
+        let layout = TableLayout::new(&seats(2), 2.0, None);
+        let slot = layout.local().expect("a local seat");
+        for len in 1..=FAN_MAX {
+            let yaws: Vec<f32> = (0..len)
+                .map(|i| slot.fan_pose(PileKind::Exile, i, len).yaw)
+                .collect();
+            let sum: f32 = yaws.iter().sum();
+            assert!(
+                sum.abs() < 1e-5,
+                "a fan of {len} is turned {sum} out of true overall: {yaws:?}"
+            );
+            if len > 1 {
+                assert!(
+                    (yaws[0] + yaws[len - 1]).abs() < 1e-6,
+                    "a fan of {len} turns its two ends by different amounts"
+                );
+                assert!(yaws[0] > 0.0, "the top card is turned the wrong way");
+            }
+        }
+    }
+
+    /// An index past the end of the fan is clamped onto the last rung rather
+    /// than refused — a fan is a drawing, and the worst a clamp does is put
+    /// two cards in one place.
+    #[test]
+    fn a_card_past_the_end_of_the_fan_lands_on_the_bottom_rung() {
+        let layout = TableLayout::new(&seats(2), 2.0, None);
+        let slot = layout.local().expect("a local seat");
+        let bottom = slot.fan_pose(PileKind::Graveyard, 2, 3);
+        for beyond in [3, 4, 99] {
+            assert_eq!(slot.fan_pose(PileKind::Graveyard, beyond, 3), bottom);
+        }
+        // And a fan of nothing is the pile itself, floated.
+        let none = slot.fan_pose(PileKind::Graveyard, 0, 0);
+        assert_eq!(none.at, slot.pile_center(PileKind::Graveyard));
+        assert!((none.lift - FAN_FLOAT).abs() < 1e-6);
     }
 
     /// The two flanks of a table have to answer alike, and a seat across it
