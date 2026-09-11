@@ -2793,9 +2793,9 @@ only answer: it is this module's promise that a card never stays sunk, held
 for a schedule that draws the hand without running the input path — which is
 what `touch`'s own tests are.
 
-## Ninth pass, 2026-09-11 — found while teaching `/state` to say where things are
+## Eleventh pass, 2026-09-11 — found while teaching `/state` to say where things are
 
-### 44. A yes/no question can only be answered with the pointer — WITHDRAWN, not a fault
+### 52. A yes/no question can only be answered with the pointer — WITHDRAWN, not a fault
 
 Kept rather than deleted, because the entry was wrong in the way an entry here
 can most easily be wrong: every observation in it was real and the conclusion
@@ -2842,9 +2842,9 @@ this question and is useful anyway — a pointer harness needs button positions
 whatever the keyboard can do. Its *justification* in `docs/client.md` and in
 the skill has been corrected along with this.
 
-## Tenth pass, 2026-09-11 — found while writing the ninth pass down
+## Twelfth pass, 2026-09-11 — found while writing the eleventh pass down
 
-### 45. `host::house_duel` is dead code, and its doc promises it cannot drift — CONFIRMED
+### 53. `host::house_duel` is dead code, and its doc promises it cannot drift — CONFIRMED
 
 `crates/baylee-client/src/host.rs` builds a solo duel against the house AI and
 says of it: *"Everything the standalone binary needs for offline play, and the
@@ -2883,7 +2883,9 @@ should have one, `house_duel` is what it would call. Until that is settled the
 doc promises a caller that does not exist and the test name says it does, and
 both are cheap to correct without deciding anything.
 
-### 51. Printed symbols were drawn as the letters they are written with — FIXED
+## Thirteenth pass, 2026-09-11 — from the owner's play report, the client half
+
+### 54. Printed symbols were drawn as the letters they are written with — FIXED
 
 Reported as: `{T}` and the mana symbols must be real symbols everywhere,
 including the ability text on the fallback card view; and "Tap for WUBRG" is
