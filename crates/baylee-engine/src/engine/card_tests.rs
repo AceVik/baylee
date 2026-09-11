@@ -3163,3 +3163,37 @@ fn answering_a_granted_triggers_target_takes_only_itself_off_the_queue() {
         "the granted trigger put its own counter down",
     );
 }
+
+/// A two-card draw is two draws, and a draw-watcher fires for both.
+///
+/// `draw_cards` records one `CardsDrawn { count }` for the whole draw, so an
+/// ability that watches draws saw one event and fired once — entry 35's
+/// defect in the shape its fix could not see, a batch that is a field rather
+/// than a list of events.
+///
+/// Wizard Class's own level-up draws two cards and Sheoldred, the Apocalypse
+/// takes 2 life per card an opponent draws, so the assertion is a **count**
+/// in both directions: 2 life is the old bug, 6 would be firing per card and
+/// per event both, and 4 is the card.
+#[test]
+fn a_two_card_draw_fires_a_draw_watcher_twice() {
+    let (p0, _p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(21, quiet_artifact())
+        .battlefield(0, &[wizard_class(), island(), island(), island()])
+        .battlefield(1, &[sheoldred_the_apocalypse()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let class = on_battlefield(&engine, p0, wizard_class()).expect("the Class is out");
+    tap_mana_except(&mut engine, p0, class);
+    let before = engine.state().players[0].life;
+    activate(&mut engine, p0, wizard_class(), 1);
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(
+        engine.state().players[0].life,
+        before - 4,
+        "two cards drawn, so Sheoldred took 2 life twice",
+    );
+}

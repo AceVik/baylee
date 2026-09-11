@@ -2281,7 +2281,7 @@ defect surviving in the one place its fix could not see — a batch that is a
 *field* rather than a list of events — and it is entry 42.
 
 
-### 42. "Draw two cards" fires a draw-watcher once — RECORDED
+### 42. "Draw two cards" fires a draw-watcher once — FIXED
 
 Entry 35's defect, surviving where its fix could not reach.
 
@@ -2290,16 +2290,13 @@ matching events. This is the other kind of batch: `GameState::draw_cards`
 moves the cards one at a time and then records a single
 `GameEvent::CardsDrawn { player, count }` for the lot. `trigger::matches`
 takes `(&Trigger, &GameEvent)` and answers yes or no; `collect_for_objects`
-pushes `trigger_count(…)` triggers for each matching event, and
+pushed `trigger_count(…)` triggers for each matching event, and
 `trigger_count` counts Panharmonicon-style multipliers and nothing else. The
-`count` field is read by no trigger path at all.
+`count` field was read by no trigger path at all.
 
-So Sheoldred, the Apocalypse takes 2 life from a Divination and should take 4
-— a player draws cards one at a time, and "draw two cards" is two draws, not
-one draw of two. `Trigger::DrawsExceptFirst` (Orcish Bowmasters) is wrong the
-same way and for a second reason: it asks whether `per_turn.draws` has passed
-one, which is a count of cards and not of events, so a two-card batch clears
-the gate once instead of contributing twice.
+So Sheoldred, the Apocalypse took 2 life from a Divination where 4 is right —
+a player draws cards one at a time, and "draw two cards" is two draws, not one
+draw of two.
 
 Seen from the test that found it: Wizard Class's own level-up draws two cards,
 and Sheoldred across the table took 2.
@@ -2319,7 +2316,49 @@ Two fix shapes, and the choice is not obvious.
   event will have to put it again.
 
 The first is the one that matches what the rules say happened; the second is
-the one that changes no journal. Whichever is taken, the test wants a *count*
-in both directions the way entry 35's does — 4 life and not 2, and not 6 from
-firing per card and per event both.
+the one that changes no journal.
+
+**The second was taken, and the journal is why.** A seven-card opening hand
+as seven entries is not the cost that decided it —
+`engine::claim_tests`'s sweep is. It holds a card's printed sentence against
+the journal's own number (*"Draw two cards"* against a `CardsDrawn` reading 2),
+and its deliberate mutant is that very count written `+ 1`. Splitting the
+event turns every draw-two card in the pool into a claim of 2 against a
+journal of 1 and 1, which would have to be answered by teaching the sweep to
+add up consecutive entries — a comparison that agrees with itself more easily
+than the one that is there now.
+
+So `trigger::repeats(&GameEvent) -> u32` says how many times what an entry
+records actually happened: 1 for everything, `count` for `CardsDrawn`. It is
+multiplied with `trigger_count` at each of the three collection sites that ask
+`matches` — the two are different questions and stay separate names, one being
+Panharmonicon asking how often an ability triggers for one happening and the
+other being how many happenings there were. `.max(1)` is belt and braces
+rather than a live case — `draw_cards` records inside `if !drawn.is_empty()`
+— and it is there because a zero would fail *silently in the suppressing
+direction*, eating a trigger that matched.
+
+The opening hand is the arrangement that would make this visible and cannot:
+seven cards are one `CardsDrawn { count: 7 }`, but `Engine::new` sets
+`trigger_scan_seq` to `state.journal.last_seq()` **after** `from_preset`, so
+setup's draws are already behind the scan and no trigger is ever collected
+for them. A mulligan redraw *is* inside the scan, so a draw-watcher already
+on the battlefield would now see seven draws instead of one — reachable only
+from a preset with a `starting_battlefield`, which is a testkit board and a
+dev ticket, never a real game.
+
+The test is `a_two_card_draw_fires_a_draw_watcher_twice`: Wizard Class levels
+itself up, draws two, and Sheoldred takes 4 — a count in both directions the
+way entry 35's is, since 2 is the old bug and 6 would be firing per card and
+per event both. The mutant is `repeats` returning 1 for `CardsDrawn`, and it
+fails that test and no other.
+
+One thing this does **not** fix, recorded rather than left to be discovered
+again: `Trigger::DrawsExceptFirst` (Orcish Bowmasters) asks whether
+`state.per_turn.draws` has passed one, which is a count of *cards this turn*
+read at collection time rather than a question about the draw in front of it.
+A batch now fires it `count` times, which is right whenever the whole batch is
+past the first draw and wrong for the one arrangement where a batch straddles
+it — a draw step whose own draw is inside a multi-card event. No card in the
+pool draws that way today.
 

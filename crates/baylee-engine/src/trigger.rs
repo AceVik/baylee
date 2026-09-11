@@ -103,7 +103,8 @@ pub fn collect(state: &GameState, lookup: &impl CardLookup, from_seq: u64) -> Ve
                 };
                 for entry in events {
                     if matches(trigger, &entry.event, state, emblem, obj.controller) {
-                        let times = trigger_count(state, trigger, emblem, obj.controller);
+                        let times = trigger_count(state, trigger, emblem, obj.controller)
+                            * repeats(&entry.event);
                         let event_object = event_object_of(&entry.event);
                         for _ in 0..times {
                             triggers.push(PendingTrigger {
@@ -274,17 +275,19 @@ fn collect_for_objects(
             for entry in events {
                 if matches(trigger, &entry.event, state, permanent, obj.controller) {
                     let event_object = event_object_of(&entry.event);
-                    triggers.push(PendingTrigger {
-                        source: permanent,
-                        ability_index: baylee_core::ids::AbilityRef::SYNTHETIC,
-                        controller: obj.controller,
-                        timestamp: obj.timestamp,
-                        event_object,
-                        synthetic_effects: Some(effects),
-                        synthetic_target: *target,
-                        once_per_turn: false,
-                        chosen_mode: None,
-                    });
+                    for _ in 0..repeats(&entry.event) {
+                        triggers.push(PendingTrigger {
+                            source: permanent,
+                            ability_index: baylee_core::ids::AbilityRef::SYNTHETIC,
+                            controller: obj.controller,
+                            timestamp: obj.timestamp,
+                            event_object,
+                            synthetic_effects: Some(effects),
+                            synthetic_target: *target,
+                            once_per_turn: false,
+                            chosen_mode: None,
+                        });
+                    }
                     // Once per matching event, as below.
                 }
             }
@@ -338,7 +341,8 @@ fn collect_for_objects(
             }
             for entry in events {
                 if matches(trigger, &entry.event, state, permanent, obj.controller) {
-                    let times = trigger_count(state, trigger, permanent, obj.controller);
+                    let times = trigger_count(state, trigger, permanent, obj.controller)
+                        * repeats(&entry.event);
                     let event_object = event_object_of(&entry.event);
                     for _ in 0..times {
                         triggers.push(PendingTrigger {
@@ -378,6 +382,36 @@ fn collect_for_objects(
 
 /// How often a trigger fires: trigger multipliers (Panharmonicon) add,
 /// suppressors (Elesh Norn) zero it out.
+/// How many times the thing a journal entry records actually happened.
+///
+/// A journal entry is one happening and this returns 1 for all but one of
+/// them. `GameEvent::CardsDrawn` is the exception: `GameState::draw_cards`
+/// moves the cards one at a time and then records a *single* entry carrying
+/// the count, and a player draws cards one at a time (so "draw two cards" is
+/// two draws), which makes "whenever you draw a card" fire twice for it.
+///
+/// This is entry 35's defect in the one shape its fix could not see. That one
+/// was a `break` firing an ability once for a whole *list* of matching
+/// events; this is a batch that is a field, and no amount of not-breaking
+/// finds it. The knowledge lives here rather than in the three collection
+/// loops so that the next event to carry a count adds an arm to one `match`
+/// instead of a multiplication to each of them.
+///
+/// The number is multiplied with [`trigger_count`], not confused with it:
+/// that one is Panharmonicon asking how many times an ability triggers for
+/// one happening, this one is how many happenings there were.
+fn repeats(event: &GameEvent) -> u32 {
+    match event {
+        // `.max(1)` is belt and braces, not a live case: `draw_cards`
+        // records inside `if !drawn.is_empty()`, so a count of zero is
+        // unreachable today. It is here because the failure it guards
+        // against is silent in the wrong direction — a zero would
+        // *suppress* a trigger that matched rather than over-fire it.
+        GameEvent::CardsDrawn { count, .. } => u32::from(*count).max(1),
+        _ => 1,
+    }
+}
+
 fn trigger_count(
     state: &GameState,
     trigger: &Trigger,
