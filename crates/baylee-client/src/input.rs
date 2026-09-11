@@ -1642,6 +1642,31 @@ pub fn pointer(
         duel.hovered = None;
         duel.hovered_at = None;
     }
+
+    // The tap nobody heard, sent here — `docs/observed-faults.md` 35.
+    //
+    // Bevy raises a `Pointer<Click>` only when the press and the release land
+    // on the same **entity**, and this hand row is rebuilt on every hover
+    // change and on every view that arrives. A finger that is down while any
+    // of that happens comes up on a node born after the press, no click is
+    // raised, and the tap the player made simply did not happen: the card
+    // gave way under the finger, came back, and played nothing. A view
+    // arrives on every engine message, so this is not exotic — and the same
+    // shape covers a press that drifts from a card's art onto its text, which
+    // is two entities on one card and no rebuild at all.
+    //
+    // After the loop and not before it, which is the whole of the ordering:
+    // an ordinary tap raises its click on the same frame as the release, and
+    // that click clears the flag as it answers. Reading first would send
+    // every tap twice — a land played and played again, a deed armed and then
+    // fired.
+    if let Some(object) = touched.swallowed_tap() {
+        // What the loop takes from every click, taken once here for the same
+        // reason: a half-pressed concession survives no tap either.
+        duel.concede_armed = false;
+        let answer = activate_card(&mut duel, object);
+        crate::touch::answer(&mut touched, answer);
+    }
 }
 
 /// Tracks the card under the pointer — the same cursor the WASD keys
@@ -2227,6 +2252,236 @@ mod tests {
             pressing(mulligan, KeyCode::KeyB),
             [PlayerAction::MulliganTake],
             "B takes a mulligan"
+        );
+    }
+
+    /// The finger, the hand row and the real `pointer`, with a land to play.
+    ///
+    /// Everything a tap travels through except the tree that gets rebuilt
+    /// underneath it — which is the point: the rebuild is done by hand in the
+    /// tests below, because that is what the client does to itself on every
+    /// hover change and every arriving view.
+    fn hand_app() -> bevy::app::App {
+        use bevy::picking::events::{Click, Pointer, Press, Release};
+        use bevy::prelude::*;
+
+        // Spelled out, because `bevy::prelude` brings a `bevy_ui::Interaction`
+        // of its own and shadows the one this client means.
+        let duel = crate::Duel {
+            interaction: Some(baylee_client_core::interaction::Interaction::new(
+                Pending::Priority {
+                    player: PlayerId::new(0),
+                    legal: Box::new(LegalActions {
+                        can_pass: true,
+                        lands: vec![obj(3)],
+                        castable: vec![],
+                        mana_abilities: vec![],
+                        abilities: vec![],
+                        suspendable: vec![],
+                    }),
+                },
+                PlayerId::new(0),
+            )),
+            ..Default::default()
+        };
+
+        let mut app = App::new();
+        app.init_resource::<crate::prefs::Prefs>()
+            .init_resource::<crate::table::CameraRig>()
+            .init_resource::<crate::touch::Touched>()
+            .add_message::<Pointer<Press>>()
+            .add_message::<Pointer<Release>>()
+            .add_message::<Pointer<Click>>()
+            .insert_resource(duel)
+            .add_systems(
+                Update,
+                (crate::touch::watch_the_finger, super::pointer).chain(),
+            );
+        let mut window = Window::default();
+        window.resolution.set(1728.0, 1052.0);
+        app.world_mut().spawn((window, bevy::window::PrimaryWindow));
+        app
+    }
+
+    /// One node in the hand row, as `spawn_hand_bar` builds one.
+    ///
+    /// Both components, because the pair is what the two systems ask for:
+    /// the wider one is what a press and a click resolve through, the marker
+    /// is what says this node is the row's and not the stack panel's.
+    fn row_card(app: &mut bevy::app::App, object: ObjectId) -> bevy::prelude::Entity {
+        app.world_mut()
+            .spawn((
+                crate::hud::HandCardVisual { object },
+                crate::hud::HandRowCard,
+            ))
+            .id()
+    }
+
+    /// Where the pointer is, as the picking backend would report it.
+    fn pointer_at(app: &mut bevy::app::App) -> bevy::picking::pointer::Location {
+        use bevy::camera::NormalizedRenderTarget;
+        use bevy::prelude::*;
+        use bevy::window::{PrimaryWindow, WindowRef};
+
+        let window = app
+            .world_mut()
+            .query_filtered::<Entity, With<PrimaryWindow>>()
+            .single(app.world())
+            .expect("the harness made a window");
+        let target = WindowRef::Entity(window)
+            .normalize(Some(window))
+            .expect("a window is a render target");
+        bevy::picking::pointer::Location {
+            target: NormalizedRenderTarget::Window(target),
+            position: Vec2::ZERO,
+        }
+    }
+
+    fn finger_down(app: &mut bevy::app::App, entity: bevy::prelude::Entity) {
+        use bevy::picking::events::{Pointer, Press};
+        use bevy::picking::pointer::PointerId;
+
+        let location = pointer_at(app);
+        let event = Press {
+            button: bevy::picking::pointer::PointerButton::Primary,
+            hit: bevy::picking::backend::HitData::new(entity, 0.0, None, None),
+            count: 1,
+        };
+        app.world_mut()
+            .write_message(Pointer::new(PointerId::Mouse, location, event, entity));
+    }
+
+    fn finger_up(app: &mut bevy::app::App, entity: bevy::prelude::Entity) {
+        use bevy::picking::events::{Pointer, Release};
+        use bevy::picking::pointer::PointerId;
+
+        let location = pointer_at(app);
+        let event = Release {
+            button: bevy::picking::pointer::PointerButton::Primary,
+            hit: bevy::picking::backend::HitData::new(entity, 0.0, None, None),
+        };
+        app.world_mut()
+            .write_message(Pointer::new(PointerId::Mouse, location, event, entity));
+    }
+
+    /// The click bevy raises when the press and the release agree on an
+    /// entity — the half that goes missing when the tree is rebuilt.
+    fn the_click(app: &mut bevy::app::App, entity: bevy::prelude::Entity) {
+        use bevy::picking::events::{Click, Pointer};
+        use bevy::picking::pointer::PointerId;
+
+        let location = pointer_at(app);
+        let event = Click {
+            button: bevy::picking::pointer::PointerButton::Primary,
+            hit: bevy::picking::backend::HitData::new(entity, 0.0, None, None),
+            duration: std::time::Duration::from_millis(10),
+            count: 1,
+        };
+        app.world_mut()
+            .write_message(Pointer::new(PointerId::Mouse, location, event, entity));
+    }
+
+    /// A tap the tree ate still plays the card.
+    ///
+    /// `docs/observed-faults.md` 35. Bevy raises a `Pointer<Click>` only when
+    /// the press and the release land on the same **entity**, and the hand
+    /// row is rebuilt on every hover change and on every arriving view — so
+    /// a finger that is down across one of those comes up on a node born
+    /// after the press and no click is ever raised. The card sank, came back
+    /// and played nothing.
+    #[test]
+    fn a_tap_that_spans_a_rebuild_still_plays_the_card() {
+        let mut app = hand_app();
+        let before = row_card(&mut app, obj(3));
+        finger_down(&mut app, before);
+        app.update();
+
+        // The rebuild: the node the finger went down on is despawned and the
+        // same card comes back as a different entity.
+        app.world_mut().entity_mut(before).despawn();
+        let after = row_card(&mut app, obj(3));
+        finger_up(&mut app, after);
+        app.update();
+
+        assert_eq!(
+            app.world().resource::<crate::Duel>().outbox(),
+            [PlayerAction::PlayLand { card: obj(3) }],
+            "the tap reached the card it was made on"
+        );
+    }
+
+    /// The other half of the fault text, and no rebuild in it at all.
+    ///
+    /// A card's art, its text and its rail are separate pickable children, so
+    /// a press that drifts across that seam is two entities and bevy raises
+    /// no click either. It rides on the same lineage walk a click does, which
+    /// is why one fix covers both.
+    #[test]
+    fn a_press_that_drifts_across_one_card_is_still_a_tap() {
+        use bevy::prelude::*;
+
+        let mut app = hand_app();
+        let card = row_card(&mut app, obj(3));
+        let art = app.world_mut().spawn(ChildOf(card)).id();
+        let text = app.world_mut().spawn(ChildOf(card)).id();
+
+        finger_down(&mut app, art);
+        finger_up(&mut app, text);
+        app.update();
+
+        assert_eq!(
+            app.world().resource::<crate::Duel>().outbox(),
+            [PlayerAction::PlayLand { card: obj(3) }],
+            "the art and the text are one card"
+        );
+    }
+
+    /// A tap the tree *did* hear is sent once, not twice.
+    ///
+    /// The counter-test the fix above is worth nothing without: the flag is
+    /// raised by every release over the card the finger is on, including the
+    /// ordinary ones, and is meant to be taken down again by the click that
+    /// answers them. Read before the clicks instead of after, this plays the
+    /// land and then plays it again.
+    #[test]
+    fn a_tap_the_tree_heard_is_sent_once() {
+        let mut app = hand_app();
+        let card = row_card(&mut app, obj(3));
+        finger_down(&mut app, card);
+        app.update();
+
+        // Press and release on the same entity, so bevy raises the click too
+        // — all three on the frame the release lands, as they arrive live.
+        finger_up(&mut app, card);
+        the_click(&mut app, card);
+        app.update();
+
+        assert_eq!(
+            app.world().resource::<crate::Duel>().outbox(),
+            [PlayerAction::PlayLand { card: obj(3) }],
+            "one tap is one land"
+        );
+    }
+
+    /// A press dragged off its card and let go over another one asks nothing.
+    ///
+    /// The second counter-test: a flag raised on every release, rather than
+    /// only on a release over the card the finger went down on, would turn
+    /// every dragged-off press into a tap on whatever it started on.
+    #[test]
+    fn a_press_let_go_over_another_card_sends_nothing() {
+        let mut app = hand_app();
+        let land = row_card(&mut app, obj(3));
+        let other = row_card(&mut app, obj(5));
+        finger_down(&mut app, land);
+        app.update();
+        finger_up(&mut app, other);
+        app.update();
+
+        assert_eq!(
+            app.world().resource::<crate::Duel>().outbox(),
+            [],
+            "a press that moved on is not a tap"
         );
     }
 

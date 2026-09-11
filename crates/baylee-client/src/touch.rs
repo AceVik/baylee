@@ -56,10 +56,15 @@ pub struct Touched {
     /// `Pointer<Click>` only when the press and the release land on the same
     /// **entity**, and this hand is rebuilt on every hover change and on
     /// every view that arrives. A tree rebuilt between the two swallows the
-    /// click, nothing is ever written back, and the card would stay sunk and
-    /// dark until the next press anywhere. [`settle`] runs after
-    /// [`crate::input::pointer`], so a flag still standing by then is exactly
-    /// that case and it lifts the finger itself.
+    /// click, nothing is ever written back, and the tap the player made never
+    /// happened at all.
+    ///
+    /// [`Self::swallowed_tap`] is what that costs now: the end of
+    /// [`crate::input::pointer`] reads it, once the frame's clicks are spent,
+    /// and sends the tap through the same branch a click would have gone
+    /// through. [`settle`] keeps a lift of its own for a flag that somehow
+    /// outlives all of that, which is this module's own promise — a card
+    /// never stays sunk — rather than the tap's.
     let_go: bool,
 }
 
@@ -103,6 +108,18 @@ impl Touched {
         } else {
             self.lift_the_finger();
         }
+    }
+
+    /// The card whose tap nobody heard, if there is one.
+    ///
+    /// A finger that went down on a card and came up on the same card with no
+    /// `Pointer<Click>` in between is a tap the player made and the tree ate.
+    /// It has to be read *after* the frame's clicks and not before them: a tap
+    /// that **was** heard sets this too, until the click clears it, so acting
+    /// on it first would play every land twice.
+    #[must_use]
+    pub fn swallowed_tap(&self) -> Option<ObjectId> {
+        self.let_go.then_some(self.under_the_finger).flatten()
     }
 
     /// Takes the finger off whatever it was on without answering anything.
@@ -182,11 +199,13 @@ pub fn settle(
     let armed = duel.armed.as_ref().map(|a| a.object);
     let touched = &mut *touched;
 
-    // The click that would have answered the tap arrives on the same frame as
-    // the release and `pointer` has already run, so a finger still let go
-    // here was never answered at all — see [`Touched::let_go`]. The card
-    // comes back at the ordinary rate rather than heavily, because nothing
-    // refused it: the question never reached the branch that answers.
+    // A backstop, and it is meant to be one. `input::pointer` ends by reading
+    // `Touched::swallowed_tap` and answering it, so in the wired client the
+    // flag is always down by the time this runs; what is left here is this
+    // module's own promise — a card never stays sunk — held for a schedule
+    // that draws the hand without running the input path, which is exactly
+    // what the tests below are. The ordinary rate rather than the heavy one,
+    // because a card that got this far was never refused: nothing asked.
     if touched.let_go {
         touched.lift_the_finger();
     }

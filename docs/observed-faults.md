@@ -2715,18 +2715,18 @@ for.
 
 ## Tenth pass, 2026-09-11 — found while proving the hand's click animation
 
-### 51. A tap that spans a HUD rebuild activates nothing — CONFIRMED, unfixed
+### 51. A tap that spans a HUD rebuild activates nothing — FIXED
 
 `42fc634` fixed the *drawing* of this: a card left holding a press now lifts
-itself when no click arrives. What it did not fix is the half underneath — the
-tap does not happen at all.
+itself when no click arrives. What it did not fix was the half underneath —
+the tap did not happen at all.
 
 Bevy raises `Pointer<Click>` only when the press and the release land on the
 same **entity**, and the hand row is rebuilt on every hover change and on every
 arriving view. A finger that is down while any of that happens is released over
-a node born after the press, and `input::pointer` — which reads
-`Pointer<Click>` and nothing else — never hears about it. The player taps a
-card and the card does nothing.
+a node born after the press, and `input::pointer` — which read
+`Pointer<Click>` and nothing else — never heard about it. The player tapped a
+card and the card did nothing.
 
 Measured live (`dev-control`, an offline duel holding a `DiscardChoice`;
 pointer coordinates logical, screenshots physical at scale 2). Card 1's top
@@ -2734,20 +2734,43 @@ edge: **1785** at rest, **1791** with the finger down (six physical pixels =
 three logical = `Touch::SINK`), **1791** with the pointer moved onto card 3 and
 back while still held — two rebuilds, the whole frame differing by a mean of
 14.4 per channel because the hover preview swapped — and **1785** after the
-release. `interaction.selected` is 1 before the press and 1 after it: the
+release. `interaction.selected` was 1 before the press and 1 after it: the
 discard selection never moved, so nothing was activated.
 
 The rebuild is not exotic. A view arrives on every engine message, so a tap
-that outlives one of those is swallowed; and the same shape reaches a press
+that outlives one of those was swallowed; and the same shape reached a press
 that drifts from a card's art onto its text, because the art, the text and the
 rail are separate pickable children and that is two entities again.
 
-The fix has a shape already. `Touched::let_go` is exactly "the finger came off
-the card it was on and no click was handled"; today `touch::settle` reads it to
-lift the card, and something in the **Input** set — before `input::pointer`,
-while the frame's `Pointer<Click>` messages can still be read — could read it
-to *send the tap*. Not attempted here, because it moves an animation change
-into the input path and wants its own commit.
+`Touched::let_go` was already exactly "the finger came off the card it was on
+and no click was handled" — `touch::settle` read it to lift the card and
+nothing read it to send the tap. `Touched::swallowed_tap` is that reading, and
+it happens at the **end of `input::pointer`**, after the loop that spends the
+frame's clicks: the card goes through `activate_card` and then
+`touch::answer`, which is the same pair of calls the click branch makes, so a
+swallowed tap arms what a heard one arms and plays what a heard one plays.
+
+*After* the loop and not before it is the whole of the ordering, and the guess
+written down here was the wrong half. The flag is raised by **every** release
+over the card the finger is on, the ordinary ones included; it is the click
+that takes it down again as it answers. Read first, every tap is sent twice —
+a land played and played again, a deed armed and then fired. That is
+`input::tests::a_tap_the_tree_heard_is_sent_once`, and moving the block above
+the loop is what makes it fail, with two `PlayLand`s in the outbox.
+
+Four tests, because the counter-halves are what make the first one mean
+anything: a tap across a rebuild plays the land; a press that drifts from a
+card's art to its text plays it too (the second half of this entry, and it
+needs no rebuild at all — it rides on the same `find_in_lineage` walk a click
+does); a tap the tree *did* hear is sent once; a press let go over a
+**different** card sends nothing. Each fails on its own mutant — the reading
+removed, the reading moved above the loop, `release_over` raising the flag for
+any release, and `swallowed_tap` ignoring the flag.
+
+`touch::settle` keeps its own lift, and it is a backstop now rather than the
+only answer: it is this module's promise that a card never stays sunk, held
+for a schedule that draws the hand without running the input path — which is
+what `touch`'s own tests are.
 
 ## Eighth pass, 2026-09-11 — found while teaching `/state` to say where things are
 
