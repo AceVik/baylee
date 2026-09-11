@@ -94,9 +94,46 @@ out of mana already floating. A land in play is not mana, so an ability costing
 the cursor onto each and press the take key. An empty `abilities` on a
 permanent that obviously has one is nearly always this and not a client fault.
 
-To act on a card, find its screen position rather than guessing: `/state.view`
-gives you the object, the board gives you the lane, and a screenshot gives you
-the pixels. Clicking blind wastes more turns than measuring once.
+To act on a card, read `/state.cards` — every card drawn on the table, by
+`object` and by `name`, with `at_x`/`at_y` already in the logical pixels
+`/pointer` takes and `w`/`h` for the box it covers:
+
+```bash
+card() { curl -s localhost:28770/state \
+  | python3 -c 'import json,sys
+for c in json.load(sys.stdin)["cards"]: print(c["name"], c["at_x"], c["at_y"])'; }
+```
+
+The numbers are this frame's, measured from where `glide` has each card right
+now, so a card still travelling reports where it is rather than where it is
+going — read them again after the board moves rather than keeping them. Do not
+go back to finding a card by eye on a screenshot: that is three lookups, the
+last of them on a half-size image, and it has to be redone every time a lane
+repacks.
+
+`/state.buttons` is the same answer for the HUD: the prompt bar's answers by
+name (`Yes`, `No`, `Keep`, `Mulligan`, `Confirm`, `DeclareNothing`) and the
+ability and choice rows by index. Press one by name rather than by eye:
+
+```bash
+btn() { curl -s localhost:28770/state \
+  | python3 -c "import json,sys
+for b in json.load(sys.stdin)['buttons']:
+    if b['label'] == '$1': print(b['at_x'], b['at_y']); break"; }
+```
+
+Some of them have **no keyboard path at all** — `Yes` and `No` are pointer-only
+(`docs/observed-faults.md` 36), so a run that hits a shockland's "pay 2 life?"
+stops there unless the button is clicked.
+
+Two fields beside those answer a "nothing happened" that is really "something
+happened quietly". `armed` is the tap that has been made and not sent — the
+first tap on anything irreversible only arms it, and the second fires it
+(`{"object":58,"deed":"Play"}`, then null). And in combat `selected` is
+**empty** by design: an attack and a block are *pairs*, and they are in
+`interaction.assignments`, beside the `focus` they are aimed at. Watching
+`selected` through a declaration shows nothing moving while the whole thing is
+being built.
 
 ## The six things that go wrong
 

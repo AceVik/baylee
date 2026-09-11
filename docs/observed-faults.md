@@ -2748,3 +2748,32 @@ lift the card, and something in the **Input** set — before `input::pointer`,
 while the frame's `Pointer<Click>` messages can still be read — could read it
 to *send the tap*. Not attempted here, because it moves an animation change
 into the input path and wants its own commit.
+
+## Eighth pass, 2026-09-11 — found while teaching `/state` to say where things are
+
+### 36. A yes/no question can only be answered with the pointer — CONFIRMED, unfixed
+
+`PromptAction::Yes` and `PromptAction::No` are reached from exactly one place,
+`input::pointer`'s `prompt_buttons` branch. No action in the keymap fires
+either, so while the engine holds a `Pending::YesNo` the keyboard does
+nothing at all: `Confirm`, `Primary`, `Cancel` and every number key leave the
+question standing.
+
+Measured live: an offline duel on turn 3 asking `PayLifeOrEnterTapped` for a
+shockland. `Space` (Confirm), `Enter` (Primary), `N`, `Y` and `Digit1` were
+each sent and read back; `interaction.pending` was the same `YesNo` after all
+five, and `last_error` stayed null — so nothing was even refused, the keys
+simply reach no handler.
+
+This is the shape `CLAUDE.md` already names a trap for the ability chooser: "a
+menu the pointer can answer and the keyboard cannot is not a menu, it is a
+trap". It is invisible to `duel_flow`, which answers through `Interaction`
+directly and never presses anything.
+
+`Keep`/`Mulligan` are the same branch and so is `DeclareNothing`; they are
+worth checking with the same test. The fix is a binding and a reader, and the
+question it raises is which keys — a generic yes/no wants two, and the rest of
+the bar is already reachable through `Confirm`.
+
+Not attempted here: it is an input change with a keymap decision inside it,
+and the owner has opinions about the keyboard map.

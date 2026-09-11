@@ -2719,6 +2719,39 @@ put the drawn ledge at 560..611 and the bar's ink at 591..620 — so the drawing
 follows the model to the pixel, and it is the projection that disagrees with
 the mat under it.
 
+`cards` is the sixth, and it exists because of what driving this client
+actually costs: **finding a card to click**. It is every card drawn on the
+table, with its object, the name the board model gives it, and
+`at_x`/`at_y`/`w`/`h` in the same logical pixels `/pointer` takes. The box is
+measured from the transform `glide` has the card at *this* frame, and through
+the card's own four corners put through that transform — so a card mid-flight
+reports where it is rather than where it is going, and a tapped permanent
+reports the wider, shorter box it really covers. The height a card is drawn at
+is not part of it: `CARD_LIFT` moves a card 0.14 px at a duel, which is why
+aiming at the felt underneath has worked all along. Before this, a click meant
+three lookups — the object out of the view, the lane out of the board, the
+pixels off a downscaled screenshot — and all three again after the lane
+repacked.
+
+`buttons` is the same answer for the HUD's controls: the prompt bar's answers
+by name (`Yes`, `No`, `Keep`, `Confirm`, `DeclareNothing`, `Step(1)`) and the
+ability and choice rows by index, which is the handle those two carry
+themselves because both are rebuilt from the current `LegalActions` when
+pressed. It is not a convenience. `PromptAction::Yes` and `No` are reachable
+*only* through a pointer click — no key in the map fires either
+(`docs/observed-faults.md` 36) — so a driven client without these coordinates
+stops dead at the first shockland asking whether to pay two life.
+
+`armed` and `interaction.assignments` are the last two, and both answer a
+question that looks like silence. `armed` is the tap that has been made and
+not sent: there is no undo in the engine, so the first tap on anything
+irreversible only arms it, and a caller that does not know that reads the
+*second* tap as the one that did nothing. `assignments` is the pairs a combat
+declaration is being built from, beside the `focus` they are aimed at —
+necessary because `selected` is **empty** in both combat modes, an attack and
+a block being pairs rather than a set. A caller watching `selected` watches a
+whole declaration go together and sees nothing move.
+
 ## Editing a shader without stopping the game
 
 `--features dev-reload` puts bevy's embedded-asset watcher behind the seven

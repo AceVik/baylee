@@ -47,7 +47,7 @@ use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
 /// z-fight with the felt.
 const TABLE_Y: f32 = 0.0;
 /// Vertical gap between the felt and a card.
-const CARD_LIFT: f32 = 0.01;
+pub(crate) const CARD_LIFT: f32 = 0.01;
 /// Where a seat's mat sits: above the felt, below everything played on it.
 const ZONE_LIFT: f32 = 0.002;
 /// Where the glow under a mat sits — below the mat, above the felt.
@@ -840,7 +840,22 @@ impl Lens {
     /// Where a point on the felt is drawn, or `None` if it is behind the eye.
     #[must_use]
     pub fn project(&self, table: Vec2) -> Option<Vec2> {
-        let clip = self.clip_from_world * to_world(table, TABLE_Y).extend(1.0);
+        self.project_world(to_world(table, TABLE_Y))
+    }
+
+    /// Where a point in the world is drawn, or `None` if it is behind the eye.
+    ///
+    /// The felt is the common case and [`Self::project`] is the name for it.
+    /// This is for what is not a point on the felt: a card is a quad standing
+    /// `CARD_LIFT` above it and turned by its own rotation, and its corners
+    /// are world points with no table-space spelling. The lift itself turns
+    /// out to be worth almost nothing on screen — 0.14 px at a duel, measured
+    /// while writing `devctl::card_rect` — because the camera is near enough
+    /// overhead that raising something a hundredth of a card barely moves it.
+    /// It is the rotation that this is needed for.
+    #[must_use]
+    pub fn project_world(&self, world: Vec3) -> Option<Vec2> {
+        let clip = self.clip_from_world * world.extend(1.0);
         if clip.w <= 1e-4 {
             return None;
         }

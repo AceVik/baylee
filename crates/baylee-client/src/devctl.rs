@@ -26,6 +26,11 @@
 //! offering?") and can be asserted against. Screenshots answer the questions
 //! it cannot: layout, colour, whether anything is drawn at all.
 //!
+//! The one thing it also has to answer is **where** — `cards` gives every
+//! drawn card's box in the logical pixels `/pointer` takes, because the
+//! alternative is finding a card by eye on a downscaled screenshot and doing
+//! it again every time a lane repacks. See [`cards_json`].
+//!
 //! # Protocol
 //!
 //! ```text
@@ -454,10 +459,7 @@ fn pump(
     mut typing: MessageWriter<KeyboardInput>,
     mut wheels: MessageWriter<bevy::input::mouse::MouseWheel>,
     mut windows: Query<(Entity, &mut Window), With<PrimaryWindow>>,
-    duel: Option<Res<Duel>>,
-    settings: Option<Res<ClientSettings>>,
-    leaving: Query<&crate::table::Departing>,
-    shelves: Option<Res<crate::hud::Shelves>>,
+    believed: Believed,
     mut clock: ResMut<Time<Virtual>>,
 ) {
     control.frame += 1;
@@ -490,12 +492,12 @@ fn pump(
                 });
                 health(control.frame, size, &clock)
             }
-            "/state" => state_dump(
-                duel.as_deref(),
-                settings.as_deref(),
-                leaving.iter().count(),
-                shelves.as_deref(),
-            ),
+            "/state" => {
+                let size = windows
+                    .single()
+                    .map_or(Vec2::ZERO, |(_, w)| Vec2::new(w.width(), w.height()));
+                state_dump(&believed, size)
+            }
             "/key" => {
                 let pressed = press_chord(&job.body, &mut keys, &mut typing, window);
                 match pressed {
@@ -887,21 +889,92 @@ fn write_screenshot(
     }
 }
 
+/// Everything `/state` reads, in one parameter.
+///
+/// A bundle rather than six more arguments on [`pump`], which is already at
+/// bevy's sixteen-parameter ceiling — and the grouping is honest: these are
+/// the things the client *believes*, as against the input queues and the
+/// clock around them.
+#[derive(bevy::ecs::system::SystemParam)]
+struct Believed<'w, 's> {
+    duel: Option<Res<'w, Duel>>,
+    settings: Option<Res<'w, ClientSettings>>,
+    /// Cards playing their way off the table; only the count is reported.
+    leaving: Query<'w, 's, &'static crate::table::Departing>,
+    shelves: Option<Res<'w, crate::hud::Shelves>>,
+    /// Where the camera stood at the end of the last frame, which is the
+    /// camera the last rendered frame was drawn with — so a rect measured
+    /// here answers for the picture a `/screenshot` would return.
+    rig: Option<Res<'w, crate::table::ShownRig>>,
+    /// Every card drawn on the table, with the transform `glide` has it at
+    /// right now rather than the one it is heading for.
+    cards: Query<'w, 's, (&'static crate::table::CardVisual, &'static Transform)>,
+    /// Every card standing in the player's own hand row.
+    ///
+    /// A different kind of thing entirely — the hand is `bevy_ui` and the
+    /// table is a 3D scene — but the same question is being asked of it, and
+    /// a caller that has to find a hand card by eye is no better off for the
+    /// table's cards being free. `HandRowCard` and not the wider
+    /// `HandCardVisual`, which the stack panel also puts on its slots.
+    hand: Query<
+        'w,
+        's,
+        (
+            &'static crate::hud::HandCardVisual,
+            &'static bevy::ui::ComputedNode,
+            &'static bevy::ui::UiGlobalTransform,
+        ),
+        With<crate::hud::HandRowCard>,
+    >,
+    /// The prompt bar's answers, and the two choosers under it.
+    ///
+    /// Added for the same reason and by the same road as the cards: a
+    /// shockland asked `PayLifeOrEnterTapped` and there was no way to answer
+    /// it. `PromptAction::Yes` and `No` are reachable *only* through a
+    /// pointer click — no key binding fires either — so a harness that cannot
+    /// find the button cannot get past the question at all.
+    prompts: Query<
+        'w,
+        's,
+        (
+            &'static crate::hud::PromptButton,
+            &'static bevy::ui::ComputedNode,
+            &'static bevy::ui::UiGlobalTransform,
+        ),
+    >,
+    abilities: Query<
+        'w,
+        's,
+        (
+            &'static crate::hud::AbilityButton,
+            &'static bevy::ui::ComputedNode,
+            &'static bevy::ui::UiGlobalTransform,
+        ),
+    >,
+    choices: Query<
+        'w,
+        's,
+        (
+            &'static crate::hud::ChoiceButton,
+            &'static bevy::ui::ComputedNode,
+            &'static bevy::ui::UiGlobalTransform,
+        ),
+    >,
+}
+
 /// What the client believes, as JSON.
 ///
 /// Deliberately the *client's* answer and not the engine's: this is the thing
 /// under test. `view` is what the host last sent, `interaction` is what the
 /// client made of it, and a disagreement between them is exactly the class of
 /// bug this endpoint exists to show.
-fn state_dump(
-    duel: Option<&Duel>,
-    settings: Option<&ClientSettings>,
-    departing: usize,
-    shelves: Option<&crate::hud::Shelves>,
-) -> String {
-    let Some(duel) = duel else {
+fn state_dump(believed: &Believed, window: Vec2) -> String {
+    let Some(duel) = believed.duel.as_deref() else {
         return "{\"duel\":null}".to_string();
     };
+    let settings = believed.settings.as_deref();
+    let departing = believed.leaving.iter().count();
+    let shelves = believed.shelves.as_deref();
     let view = duel
         .view
         .as_ref()
@@ -915,37 +988,68 @@ fn state_dump(
         || "null".to_string(),
         |i| {
             let pending = serde_json::to_string(i.pending()).unwrap_or_else(|_| "null".to_string());
+            // `selected` is empty in both combat modes — an attack and a
+            // block are *pairs*, and they live in `assignments` instead. A
+            // caller reading only the count therefore watches a declaration
+            // being built and sees nothing happen, which is a morning this
+            // harness has already cost once.
+            let pairs: Vec<String> = i
+                .assignments()
+                .into_iter()
+                .map(|(creature, at)| {
+                    format!(
+                        "{{\"creature\":{},\"at\":{}}}",
+                        creature.slot(),
+                        quoted(&format!("{at:?}"))
+                    )
+                })
+                .collect();
             format!(
-                "{{\"pending\":{pending},\"selected\":{selected},\"selected_players\":{seats}}}",
+                "{{\"pending\":{pending},\"selected\":{selected},\"selected_players\":{seats},\
+                 \"assignments\":[{pairs}],\"focus\":{focus}}}",
                 selected = i.selected().count(),
                 seats = i.selected_players().count(),
+                pairs = pairs.join(","),
+                focus = quoted(&format!("{:?}", i.combat_focus())),
+            )
+        },
+    );
+    // The two-stage arm: the first tap on anything irreversible only arms it,
+    // and a caller that does not know a tap armed rather than fired reads the
+    // second tap as the one that did nothing.
+    let armed = duel.armed.as_ref().map_or_else(
+        || "null".to_string(),
+        |armed| {
+            format!(
+                "{{\"object\":{},\"deed\":{}}}",
+                armed.object.slot(),
+                quoted(&format!("{:?}", armed.deed))
             )
         },
     );
     let error = duel
         .last_error
         .as_deref()
-        .map_or_else(|| "null".to_string(), |e| format!("\"{e}\""));
-    let lang = settings.map_or_else(
-        || "null".to_string(),
-        |s| format!("\"{}\"", s.lang.escape_default()),
-    );
+        .map_or_else(|| "null".to_string(), quoted);
+    let lang = settings.map_or_else(|| "null".to_string(), |s| quoted(&s.lang));
     format!(
         "{{\"view\":{view},\"interaction\":{interaction},\"hovered\":{hovered},\
          \"autopilot\":{autopilot},\"last_error\":{error},\"lang\":{lang},\
-         \"reachable\":{reachable},\"activatable\":{activatable},\
+         \"reachable\":{reachable},\"activatable\":{activatable},\"armed\":{armed},\
          \"outbox\":{outbox},\"mana_run\":{mana_run},\"ability_menu\":{menu},\
-         \"departing\":{departing},\"shelves\":{shelves}}}",
+         \"departing\":{departing},\"cards\":{cards},\"buttons\":{buttons},\"shelves\":{shelves}}}",
+        cards = cards_json(believed, duel, window),
+        buttons = buttons_json(believed),
         shelves = shelves_json(
             shelves,
             duel.view.as_ref().is_some_and(|v| v.day_night.is_some())
         ),
         hovered = duel
             .hovered
-            .map_or_else(|| "null".to_string(), |h| format!("\"{h:?}\"")),
+            .map_or_else(|| "null".to_string(), |h| quoted(&format!("{h:?}"))),
         autopilot = duel
             .autopilot
-            .map_or_else(|| "null".to_string(), |a| format!("\"{a:?}\"")),
+            .map_or_else(|| "null".to_string(), |a| quoted(&format!("{a:?}"))),
         reachable = duel.reachable.len(),
         activatable = duel.activatable.len(),
         // Four states that answer silently and are all but invisible in a
@@ -959,8 +1063,241 @@ fn state_dump(
         mana_run = duel.mana_run.is_some(),
         menu = duel
             .ability_menu
-            .map_or_else(|| "null".to_string(), |m| format!("\"{m:?}\"")),
+            .map_or_else(|| "null".to_string(), |m| quoted(&format!("{m:?}"))),
     )
+}
+
+/// Where every drawn card is on screen, and which card it is.
+///
+/// This is the endpoint's answer to the thing that has cost this harness the
+/// most time by a distance: **finding a card to click**. The advice was to
+/// read the object out of the view, the lane out of the board and the pixels
+/// out of a screenshot — three lookups, the last of them by eye on a
+/// downscaled image, and every one of them repeated after the lane repacked.
+/// `at_x`/`at_y` are logical pixels and go straight into `/pointer`.
+///
+/// **Both halves of the question**, because a caller that can find a
+/// permanent but not a card in hand still cannot play a game: `zone` is
+/// `table` for the 3D scene and `hand` for the row, and both answer in the
+/// same logical pixels, so a caller need not know which kind of thing it is
+/// clicking.
+///
+/// Two things it is careful about. A table card's rect is measured from the
+/// **live** `Transform`, so a card mid-glide reports where it is rather than
+/// where it is going. And the box is the card's own four corners put through
+/// that transform, so a tapped card reports the wider, shorter box it
+/// actually covers rather than an upright one around its middle. The height a
+/// card is drawn at is *not* one of the careful parts: `CARD_LIFT` moves a
+/// card 0.14 px at a duel, which is why aiming at the felt under one has
+/// worked all along.
+fn cards_json(believed: &Believed, duel: &Duel, window: Vec2) -> String {
+    let Some(rig) = believed.rig.as_deref().and_then(|shown| shown.rig()) else {
+        return "null".to_string();
+    };
+    if window.x <= 0.0 || window.y <= 0.0 {
+        return "null".to_string();
+    }
+    let lens = crate::table::Lens::new(rig, window);
+    let on_the_table = believed.cards.iter().filter_map(|(visual, at)| {
+        let (mid, size) = card_rect(&lens, at)?;
+        Some(card_row(
+            duel,
+            "table",
+            visual.object,
+            visual.count,
+            mid,
+            size,
+        ))
+    });
+    // The hand is `bevy_ui` and needs no projection at all: the layout has
+    // already put the node somewhere, in *physical* pixels, and
+    // `inverse_scale_factor` is the way back to the logical ones `/pointer`
+    // speaks. Reading the computed node rather than recomputing the row's
+    // arithmetic is also what carries the scroll offset and whatever `touch`
+    // has the card doing under the finger.
+    let in_the_hand = believed.hand.iter().map(|(visual, computed, place)| {
+        let scale = computed.inverse_scale_factor;
+        card_row(
+            duel,
+            "hand",
+            visual.object,
+            1,
+            place.translation * scale,
+            computed.size() * scale,
+        )
+    });
+    // By zone and then by object, so two runs of the same board answer in the
+    // same order and a diff between them is about the table rather than about
+    // the ECS.
+    let mut rows: Vec<(&str, u32, String)> = on_the_table.chain(in_the_hand).collect();
+    rows.sort_unstable_by_key(|(zone, object, _)| (*zone, *object));
+    let rows: Vec<String> = rows.into_iter().map(|(_, _, row)| row).collect();
+    format!("[{}]", rows.join(","))
+}
+
+/// Where the answers are: the prompt bar's buttons and the two choosers.
+///
+/// `kind` says which list a button came from and `label` which one it is —
+/// the prompt action by name (`Yes`, `No`, `Confirm`, `DeclareNothing`,
+/// `Step(1)`), and a position for the ability and choice rows, which is what
+/// those carry themselves: both are rebuilt from the current `LegalActions`
+/// when pressed, so an index is the only stable handle there is.
+///
+/// This exists because the keyboard does not reach all of it. `Yes` and `No`
+/// have no binding at all — see `docs/observed-faults.md` — so without these
+/// coordinates a driven client stops dead at the first shockland.
+fn buttons_json(believed: &Believed) -> String {
+    let mut rows: Vec<String> = Vec::new();
+    let mut push = |kind: &str, label: String, node: &bevy::ui::ComputedNode, at: Vec2| {
+        let scale = node.inverse_scale_factor;
+        let size = node.size() * scale;
+        let mid = at * scale;
+        rows.push(format!(
+            "{{\"kind\":\"{kind}\",\"label\":{label},\"at_x\":{x:.1},\"at_y\":{y:.1},\
+             \"w\":{w:.1},\"h\":{h:.1}}}",
+            label = quoted(&label),
+            x = mid.x,
+            y = mid.y,
+            w = size.x,
+            h = size.y,
+        ));
+    };
+    for (button, node, place) in &believed.prompts {
+        push(
+            "prompt",
+            format!("{:?}", button.action),
+            node,
+            place.translation,
+        );
+    }
+    for (button, node, place) in &believed.abilities {
+        push("ability", button.index.to_string(), node, place.translation);
+    }
+    for (button, node, place) in &believed.choices {
+        push("choice", button.index.to_string(), node, place.translation);
+    }
+    rows.sort_unstable();
+    format!("[{}]", rows.join(","))
+}
+
+/// One card of the answer, wherever it is drawn.
+fn card_row(
+    duel: &Duel,
+    zone: &'static str,
+    object: baylee_core::ids::ObjectId,
+    count: usize,
+    mid: Vec2,
+    size: Vec2,
+) -> (&'static str, u32, String) {
+    (
+        zone,
+        object.slot(),
+        format!(
+            "{{\"object\":{object},\"zone\":\"{zone}\",\"count\":{count},\"name\":{name},\
+             \"at_x\":{x:.1},\"at_y\":{y:.1},\"w\":{w:.1},\"h\":{h:.1}}}",
+            object = object.slot(),
+            name = name_of(duel, object),
+            x = mid.x,
+            y = mid.y,
+            w = size.x,
+            h = size.y,
+        ),
+    )
+}
+
+/// The screen box one card covers, as its centre and its size in logical
+/// pixels.
+///
+/// The centre is the card's own projected origin rather than the middle of
+/// the box: under perspective those differ, and the one worth clicking is the
+/// card's.
+fn card_rect(lens: &crate::table::Lens, at: &Transform) -> Option<(Vec2, Vec2)> {
+    let half = Vec2::new(
+        baylee_client_core::layout::CARD_WIDTH,
+        baylee_client_core::layout::CARD_HEIGHT,
+    ) / 2.0;
+    let mut min = Vec2::splat(f32::MAX);
+    let mut max = Vec2::splat(f32::MIN);
+    for corner in [
+        Vec2::new(-half.x, -half.y),
+        Vec2::new(half.x, -half.y),
+        Vec2::new(half.x, half.y),
+        Vec2::new(-half.x, half.y),
+    ] {
+        let drawn = lens.project_world(at.transform_point(corner.extend(0.0)))?;
+        min = min.min(drawn);
+        max = max.max(drawn);
+    }
+    Some((lens.project_world(at.translation)?, max - min))
+}
+
+/// One string, as JSON.
+///
+/// `str::escape_default` is the obvious thing and is **not** JSON: it writes
+/// an apostrophe as `\'` and anything outside ASCII as `\u{2014}`, neither of
+/// which a JSON parser accepts. `Earth King's Lieutenant` is in the dev
+/// board, so the first card name carrying an apostrophe made the whole dump
+/// unreadable — every field in it, not just the name. Only the quote, the
+/// backslash and the control characters need escaping; UTF-8 is already JSON.
+fn quoted(text: &str) -> String {
+    let mut out = String::with_capacity(text.len() + 2);
+    out.push('"');
+    for ch in text.chars() {
+        match ch {
+            '"' => out.push_str("\\\""),
+            '\\' => out.push_str("\\\\"),
+            '\n' => out.push_str("\\n"),
+            '\r' => out.push_str("\\r"),
+            '\t' => out.push_str("\\t"),
+            c if c < ' ' => {
+                use std::fmt::Write as _;
+                let _ = write!(out, "\\u{:04x}", c as u32);
+            }
+            c => out.push(c),
+        }
+    }
+    out.push('"');
+    out
+}
+
+/// What the board model calls this object, if it is drawing it.
+///
+/// The board's name and not the view's: it is the name on the card the player
+/// is looking at, and for a group of identical permanents it is the one name
+/// that stands for all of them. The lanes, the piles and the hand are all
+/// searched, because every one of them draws a card a caller may want to
+/// click and the handle has to be the same in each.
+///
+/// `null` is a real answer rather than a failure: a library is face down to
+/// everybody, its owner included (CR 401.2), so it has no name to give. The
+/// object is still there and still clickable.
+fn name_of(duel: &Duel, object: baylee_core::ids::ObjectId) -> String {
+    let Some(board) = duel.board.as_ref() else {
+        return "null".to_string();
+    };
+    board
+        .pods
+        .iter()
+        .flat_map(|pod| pod.lanes.iter())
+        .flat_map(|lane| lane.groups.iter())
+        .find(|group| group.representative == object)
+        .map(|group| group.name.clone())
+        .or_else(|| {
+            board
+                .pods
+                .iter()
+                .flat_map(|pod| pod.piles.iter())
+                .find(|pile| pile.top == Some(object))
+                .and_then(|pile| pile.name.clone())
+        })
+        .or_else(|| {
+            board
+                .hand
+                .iter()
+                .find(|held| held.id == object)
+                .map(|held| held.name.clone())
+        })
+        .map_or_else(|| "null".to_string(), |name| quoted(&name))
 }
 
 /// Where each seat's bar is drawn, and what it was allowed to be.
@@ -1017,6 +1354,98 @@ mod tests {
         assert!(!flag(body, "shift"));
         assert!(!flag(body, "ctrl"), "a missing flag is not a set one");
         assert_eq!(field(body, "path"), None);
+    }
+
+    /// A lens onto a duel at a plausible window, and the local seat it looks
+    /// at — everything the rect tests need and nothing else.
+    fn a_table() -> (crate::table::Lens, baylee_client_core::layout::SeatSlot) {
+        use crate::table::Canvas;
+        use baylee_client_core::layout::TableLayout;
+        let canvas = Canvas::hud(Vec2::new(1728.0, 1052.0));
+        let seats: Vec<_> = (0..2).map(baylee_core::ids::PlayerId::new).collect();
+        let table = TableLayout::new(&seats, canvas.aspect(), None);
+        let lens =
+            crate::table::Lens::new(crate::table::CameraRig::home(&table, canvas), canvas.window);
+        let slot = *table.local().expect("a local seat");
+        (lens, slot)
+    }
+
+    /// Every string in the dump is JSON, apostrophes and em dashes included.
+    ///
+    /// Against `serde_json` rather than against a written-out expectation,
+    /// because the claim is that a parser accepts it and not that it looks a
+    /// particular way. `str::escape_default` passes neither test: it writes
+    /// `\'` and `\u{2014}`, and the dev board's `Earth King's Lieutenant` was
+    /// enough to make the whole `/state` answer unreadable — every field in
+    /// it, not only the name.
+    #[test]
+    fn a_name_with_an_apostrophe_in_it_is_still_json() {
+        for text in [
+            "Earth King's Lieutenant",
+            "a \"quoted\" name",
+            "a back\\slash",
+            "an em — dash",
+            "a\nnewline",
+        ] {
+            let json = format!("{{\"name\":{}}}", quoted(text));
+            let back: serde_json::Value =
+                serde_json::from_str(&json).unwrap_or_else(|e| panic!("{json} is not JSON: {e}"));
+            assert_eq!(back["name"], text, "it came back changed: {json}");
+        }
+    }
+
+    /// A card's box is as big as a card is drawn.
+    ///
+    /// Against a scale measured from the felt itself — two points a table
+    /// unit apart, projected — rather than against a number written down
+    /// here, because the camera's distance is computed from the window and
+    /// any constant would be a copy of it. A rect built from a unit quad, or
+    /// from extents instead of half-extents, misses by a factor and fails.
+    #[test]
+    fn a_cards_box_is_the_size_a_card_is_drawn() {
+        use baylee_client_core::layout::{CARD_HEIGHT, CARD_WIDTH};
+        let (lens, slot) = a_table();
+        let at = slot.lane_center(baylee_client_core::layout::LaneKind::Creatures);
+        let middle = lens.project(at).expect("the lane is in front of the eye");
+        let across = (lens.project(at + Vec2::X).expect("and so is a unit east") - middle).length();
+        let along = (lens.project(at + Vec2::Y).expect("and a unit north") - middle).length();
+
+        let card = Transform::from_translation(crate::table::to_world(at, crate::table::CARD_LIFT))
+            .with_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2));
+        let (_, size) = card_rect(&lens, &card).expect("a card on it");
+
+        let want = Vec2::new(CARD_WIDTH * across, CARD_HEIGHT * along);
+        assert!(
+            (size.x - want.x).abs() < want.x * 0.05 && (size.y - want.y).abs() < want.y * 0.05,
+            "a card covers {size:?}, and a card's worth of felt covers {want:?}"
+        );
+    }
+
+    /// A tapped card covers a wider, shorter box, and the rect says so.
+    ///
+    /// The claim is that the corners are turned by the card's own transform
+    /// rather than assumed to be axis-aligned around it: a tapped permanent
+    /// is the commonest thing on a board and it is a quarter turn over.
+    #[test]
+    fn a_tapped_card_reports_the_box_it_actually_covers() {
+        let (lens, slot) = a_table();
+        let at = slot.lane_center(baylee_client_core::layout::LaneKind::Creatures);
+        let world = crate::table::to_world(at, crate::table::CARD_LIFT);
+        let flat = Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2);
+        let upright = Transform::from_translation(world).with_rotation(flat);
+        let tapped = Transform::from_translation(world)
+            .with_rotation(flat * Quat::from_rotation_z(-std::f32::consts::FRAC_PI_2));
+
+        let (_, standing) = card_rect(&lens, &upright).expect("a card in front of the eye");
+        let (_, turned) = card_rect(&lens, &tapped).expect("the same card, tapped");
+        assert!(
+            standing.y > standing.x,
+            "an untapped card is taller than it is wide: {standing:?}"
+        );
+        assert!(
+            turned.x > turned.y,
+            "a tapped one is wider than it is tall: {turned:?}"
+        );
     }
 
     /// Builds an app carrying only what `pump` reads, plus the job channel.
