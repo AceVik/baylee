@@ -231,6 +231,70 @@ pub fn demo_duel(deck_file: &str, seed: u64) -> Option<GamePreset> {
     Some(preset)
 }
 
+/// A board dealt by hand, for proving something about a *permanent*.
+///
+/// `BAYLEE_DEV_SEAT_BOARD` is a **semicolon**-separated list of card names,
+/// each optionally prefixed with a seat and a colon:
+/// `Kazandu Blademaster; 1:Baleful Strix` puts the first on the player's side
+/// and the second on the house's. The separator is a semicolon because a comma
+/// is part of a card's name far too often — "Sokka, Tenacious Tactician" —
+/// and a colon only counts as a seat prefix when what precedes it is a number,
+/// for the same reason.
+///
+/// The cards arrive on the battlefield before turn one, through the same
+/// `SeatSpec::starting_battlefield` the duel-flow tests use, so the engine
+/// treats them exactly as it treats a boss board or a puzzle.
+///
+/// It exists because the alternative is playing a duel into position, and a
+/// singleton in a ninety-card deck is not something a game reaches on request:
+/// ten turns of the offline duel put four lands and no creature on the table,
+/// which proves nothing about a rail of keyword marks that only a creature
+/// wears. Anything about how a permanent is *drawn* needs that permanent, and
+/// needs it in under a second.
+///
+/// Behind the `dev-control` feature with the rest of the harness, because a
+/// shipped binary that seats cards from the environment is a cheat, and loud
+/// on a name it cannot find — a typo that quietly dealt nothing would turn
+/// "this mark does not animate" into a conclusion about the shader.
+///
+/// # Panics
+///
+/// On a card name no printing in the registry answers to, or a seat this game
+/// does not have. Deliberately, and see above: the alternative is a harness
+/// that reports a measurement of a board it never dealt.
+#[cfg(all(feature = "dev-control", not(target_arch = "wasm32")))]
+pub fn deal_the_dev_board(preset: &mut GamePreset) {
+    let Ok(spec) = std::env::var("BAYLEE_DEV_SEAT_BOARD") else {
+        return;
+    };
+    for wanted in spec.split(';').map(str::trim).filter(|s| !s.is_empty()) {
+        let (seat, name) = match wanted.split_once(':') {
+            Some((before, after)) if before.trim().parse::<usize>().is_ok() => (
+                before.trim().parse::<usize>().unwrap_or_default(),
+                after.trim(),
+            ),
+            _ => (0, wanted),
+        };
+        let card = baylee_cards::all()
+            .find(|def| {
+                def.faces
+                    .first()
+                    .is_some_and(|face| face.name.eq_ignore_ascii_case(name))
+            })
+            .unwrap_or_else(|| panic!("BAYLEE_DEV_SEAT_BOARD: no card named `{name}`"));
+        let chair = preset
+            .seats
+            .get_mut(seat)
+            .unwrap_or_else(|| panic!("BAYLEE_DEV_SEAT_BOARD: this game has no seat {seat}"));
+        chair
+            .starting_battlefield
+            .push(baylee_core::preset::DeckEntry {
+                card: card.index,
+                print: baylee_core::ids::PrintRef::new(0),
+            });
+    }
+}
+
 /// The acceptance deck file, wherever this build can find it.
 ///
 /// Looked for beside the working directory first and then beside the source

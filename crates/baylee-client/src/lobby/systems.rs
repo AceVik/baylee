@@ -61,6 +61,15 @@ pub(super) fn poll(
             .as_mut()
             .and_then(super::offline::Offline::take_started)
             .and_then(|preset| {
+                // The one place an offline duel becomes a host, and therefore
+                // the only place a hand-dealt board can be spliced in.
+                // `host::house_duel` reads like the other half of this and is
+                // not: nothing calls it, and the preset it builds is not this
+                // one.
+                #[allow(unused_mut)]
+                let mut preset = preset;
+                #[cfg(all(feature = "dev-control", not(target_arch = "wasm32")))]
+                crate::host::deal_the_dev_board(&mut preset);
                 let names = super::offline::seat_names(&preset);
                 let refs: Vec<&str> = names.iter().map(String::as_str).collect();
                 crate::host::LocalHost::new(&preset, PlayerId::new(0), &refs)
