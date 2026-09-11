@@ -69,6 +69,7 @@ pub mod softkeys;
 pub mod table;
 pub mod textures;
 pub mod tokenart;
+pub mod touch;
 
 use baylee_client_core::automation::{self, AutoPilot, Situation};
 use baylee_client_core::board::BoardModel;
@@ -643,6 +644,10 @@ fn add_present_systems(app: &mut App) {
                 hud::light_the_current_step,
                 hud::flash_the_designation,
                 hud::ease_the_stack_in.after(hud::sync_overlay),
+                // After the rebuild for the reason `ease_the_stack_in` is:
+                // a hand card spawned this frame is spawned where the card
+                // already was, and this is what moves it from there.
+                touch::settle.after(hud::sync_overlay),
                 // The seat bars are ink pinned to a rectangle of felt, so
                 // they are measured from the rig the camera was just set
                 // from and placed in the same schedule. `bevy_ui` runs its
@@ -721,6 +726,7 @@ impl Plugin for DuelPlugin {
             .init_resource::<table::HomeRig>()
             .init_resource::<Reconnect>()
             .init_resource::<sheen::Sheen>()
+            .init_resource::<touch::Touched>()
             .init_resource::<hud::HudRevision>()
             .init_resource::<hud::StackMotion>()
             .init_resource::<hud::DesignationFlash>()
@@ -768,6 +774,11 @@ impl Plugin for DuelPlugin {
                     // entered twice.
                     input::browser_softkeys,
                     input::keyboard,
+                    // Before the click, and it has to be: a press and the
+                    // click it turns into arrive on the same frame, so a
+                    // finger put down *after* its own tap had been answered
+                    // would leave the card pressed with nothing to lift it.
+                    touch::watch_the_finger.before(input::pointer),
                     input::pointer,
                     input::pointer_hover,
                     input::camera_controls,

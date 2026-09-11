@@ -59,6 +59,7 @@ pub mod sky;
 pub mod tabletop;
 pub mod textbuf;
 pub mod timing;
+pub mod touch;
 pub mod zones;
 
 /// View builders for tests.

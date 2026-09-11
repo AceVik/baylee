@@ -896,6 +896,22 @@ fn ability_options(
     (!options.is_empty()).then_some(options)
 }
 
+/// The two resources that say how a card is moving right now.
+///
+/// One `SystemParam` and not two parameters, and the reason is a ceiling
+/// rather than taste: bevy implements `IntoSystemSet` for system functions of
+/// up to sixteen parameters, and [`sync_overlay`] already had sixteen. A
+/// seventeenth does not fail where it is written — it fails at every
+/// `.before()` and `.after()` that names the system, with an error about the
+/// *ordering*, which is a long way from the line that caused it.
+#[derive(bevy::ecs::system::SystemParam)]
+pub struct CardMotion<'w> {
+    /// When each card last caught the light.
+    pub(crate) sheen: Res<'w, crate::sheen::Sheen>,
+    /// Which card is under the finger, and where that has put it.
+    pub(crate) touch: Res<'w, crate::touch::Touched>,
+}
+
 mod card;
 mod hand;
 mod overlay;
@@ -916,7 +932,7 @@ use rail::{combat_line, incoming_line};
 use stack::spawn_stack_panel;
 
 pub use hand::apply_hand_scroll;
-pub use hand::{HAND_BAR_H, OVERLAY_CARD_H, OVERLAY_CARD_W};
+pub use hand::{ARMED_RAISE, HAND_BAR_H, OVERLAY_CARD_H, OVERLAY_CARD_W};
 pub use overlay::{despawn_overlay, sync_overlay};
 pub use rail::same_team;
 pub use rail::{DesignationFlash, flash_the_designation, light_the_current_step};

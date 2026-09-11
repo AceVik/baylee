@@ -88,7 +88,7 @@ pub fn sync_overlay(
     prefs: Res<crate::prefs::Prefs>,
     texts: Res<crate::cardtext::CardTexts>,
     mode: Res<crate::face::FaceMode>,
-    sheen: Res<crate::sheen::Sheen>,
+    motion: super::CardMotion,
     // Both come from the render plugins. A headless app has neither, and
     // every card below falls back to a plain image rather than growing a
     // second code path for it.
@@ -990,7 +990,8 @@ pub fn sync_overlay(
             &assets,
             &fonts,
             &faces,
-            &sheen,
+            &motion.sheen,
+            &motion.touch,
             cards.as_mut(),
         );
         commands.entity(root).add_child(hand_bar);
@@ -1099,7 +1100,8 @@ pub fn sync_overlay(
                     // having *opened*: the permanent may have been on the
                     // table since turn one, and the thing that is new is the
                     // player looking at it.
-                    let sweep = hovered.and_then(|id| sheen.of(id, crate::sheen::Surface::Preview));
+                    let sweep =
+                        hovered.and_then(|id| motion.sheen.of(id, crate::sheen::Surface::Preview));
                     match shown {
                         Some(shown) => CardLook::art(
                             shown,

@@ -26,6 +26,7 @@ pub(super) fn spawn_hand_bar(
     fonts: &UiFonts,
     faces: &FaceCtx<'_>,
     sheen: &crate::sheen::Sheen,
+    touch: &crate::touch::Touched,
     mut cards: Option<&mut UiCards<'_>>,
 ) -> Entity {
     let bar = commands
@@ -191,7 +192,16 @@ pub(super) fn spawn_hand_bar(
                     // much headroom inside its own clip (`HAND_BAR_H` is the
                     // card plus twice ten, and the strip starts at ten), so
                     // the raise never cuts the card's top edge off.
-                    top: px(if offer.armed { -ARMED_RAISE } else { 0.0 }),
+                    //
+                    // Spawned where the card *is* rather than where it
+                    // belongs, because this tree is rebuilt on every hover
+                    // change: a node born at its resting pose would snap a
+                    // travelling card into place whenever the pointer crossed
+                    // the row, which is the jump `touch` exists to remove.
+                    // [`crate::touch::settle`] writes it from here on, and a
+                    // card nothing has touched is answered with exactly the
+                    // pose this line used to hold on its own.
+                    top: px(touch.lift_of(card.id, if offer.armed { -ARMED_RAISE } else { 0.0 })),
                     width: px(HAND_CARD_W),
                     height: px(HAND_CARD_H),
                     border_radius: card_radius(HAND_CARD_W),
@@ -202,6 +212,27 @@ pub(super) fn spawn_hand_bar(
             ))
             .id();
         commands.entity(entity).add_child(visual);
+        // The pane the press is darkened with, over the art and under
+        // nothing. `Pickable::IGNORE` because a node in front of the card is
+        // a node the pointer would report instead of it — the mistake a
+        // button's own label made once, and this one covers the whole face.
+        let shade = commands
+            .spawn((
+                crate::touch::Shade { object: card.id },
+                Node {
+                    position_type: PositionType::Absolute,
+                    left: px(0),
+                    top: px(0),
+                    width: px(HAND_CARD_W),
+                    height: px(HAND_CARD_H),
+                    border_radius: card_radius(HAND_CARD_W),
+                    ..default()
+                },
+                BackgroundColor(Color::NONE),
+                Pickable::IGNORE,
+            ))
+            .id();
+        commands.entity(entity).add_child(shade);
         commands.entity(strip).add_child(entity);
     }
     commands.entity(bar).add_child(strip);
@@ -735,4 +766,15 @@ pub const HAND_FOOTROOM: f32 = 10.0;
 /// than the other way round: a raise that has to fit inside a gap and a gap
 /// sized to hold a raise are the same statement, written in the direction
 /// that cannot silently go wrong.
-pub(super) const ARMED_RAISE: f32 = 8.0;
+pub const ARMED_RAISE: f32 = 8.0;
+
+/// The press is spent out of room that already exists, in both directions.
+///
+/// A pressed card sinks by [`Touch::SINK`] and an armed one rises by
+/// [`ARMED_RAISE`]; a card that is both does the two at once and reaches
+/// neither edge. Stated here rather than in `client-core`, because the two
+/// halves of it live in two crates and this is the one that knows the clip —
+/// and stated at compile time, because the failure it guards is a card's edge
+/// sliced off by an invisible line, which no test would think to look at.
+const _: () = assert!(baylee_client_core::touch::Touch::SINK <= HAND_FOOTROOM);
+const _: () = assert!(baylee_client_core::touch::Touch::SINK < ARMED_RAISE);

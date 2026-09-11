@@ -28,6 +28,7 @@ use baylee_client_core::automation::AutoPilot;
 use baylee_client_core::browser::Placement;
 use baylee_client_core::interaction::{Interaction, Prompt, SelectionOutcome};
 use baylee_client_core::prefs::Action;
+use baylee_client_core::touch::Answer;
 use baylee_core::ids::ObjectId;
 use baylee_engine::choice::PlayerAction;
 use bevy::input::keyboard::{Key, KeyboardInput};
@@ -50,7 +51,7 @@ pub struct TrayWidgets<'w, 's> {
 
 /// Finds a component on the clicked entity or one of its ancestors —
 /// a click on a button's icon or text belongs to the button.
-fn find_in_lineage<'a, T: Component>(
+pub(crate) fn find_in_lineage<'a, T: Component>(
     entity: Entity,
     query: &'a Query<&T>,
     parents: &Query<&ChildOf>,
@@ -143,12 +144,20 @@ fn card_on_screen(
 /// do — it is a card that wants two lands tapped first, which is what a player
 /// at a table would do without thinking about it. [`crate::mana_for`] works
 /// out which lands; the run in [`crate::ManaRun`] taps them and then casts.
-pub fn activate_card(duel: &mut Duel, object: ObjectId) {
+///
+/// It answers whether the tap **did** anything, because the drawing needs to
+/// know and this is the one place that can say. A tap nothing claimed is not
+/// an error and is not rare — on an opponent's turn most of a hand is
+/// sorceries — but it was indistinguishable from a dead button, and
+/// reconstructing the answer from what changed in `Duel` would be a second
+/// reading of these branches, kept in step with them by hand. See
+/// [`baylee_client_core::touch`].
+pub fn activate_card(duel: &mut Duel, object: ObjectId) -> Answer {
     // A second tap on the same card is the send. A tap on a different one is
     // a change of mind and not a confirmation, so it disarms and arms afresh.
     if duel.armed.as_ref().is_some_and(|a| a.object == object) {
         fire_armed(duel);
-        return;
+        return Answer::Took;
     }
     duel.armed = None;
     if let Some(action) = duel.interaction.as_ref().and_then(|i| i.play_card(object)) {
@@ -163,7 +172,7 @@ pub fn activate_card(duel: &mut Duel, object: ObjectId) {
         } else {
             arm(duel, object, Deed::Play);
         }
-        return;
+        return Answer::Took;
     }
     if duel.reachable.contains(&object)
         && let Some(plan) = crate::mana_for(duel, object)
@@ -177,7 +186,7 @@ pub fn activate_card(duel: &mut Duel, object: ObjectId) {
                 then: crate::RunEnd::Cast,
             },
         );
-        return;
+        return Answer::Took;
     }
     // Suspending is the fourth thing a card in hand can do, and it was the
     // one nothing could reach: `legal.suspendable` was read by the automation
@@ -198,7 +207,7 @@ pub fn activate_card(duel: &mut Duel, object: ObjectId) {
         .is_some_and(|i| i.suspend(object).is_some())
     {
         arm(duel, object, Deed::Suspend);
-        return;
+        return Answer::Took;
     }
     if duel.suspend_reach.contains(&object)
         && let Some(plan) = crate::suspend_mana_for(duel, object)
@@ -212,7 +221,7 @@ pub fn activate_card(duel: &mut Duel, object: ObjectId) {
                 then: crate::RunEnd::Suspend,
             },
         );
-        return;
+        return Answer::Took;
     }
     // A permanent with something to do does it. One ability goes straight
     // through — a menu of one only ever wastes a tap — and several open the
@@ -224,12 +233,12 @@ pub fn activate_card(duel: &mut Duel, object: ObjectId) {
             1 => {
                 duel.ability_menu = None;
                 arm_ability(duel, object, &options[0]);
-                return;
+                return Answer::Took;
             }
             _ => {
                 duel.ability_menu = Some(object);
                 duel.ability_pick = 0;
-                return;
+                return Answer::Took;
             }
         }
     }
@@ -238,8 +247,10 @@ pub fn activate_card(duel: &mut Duel, object: ObjectId) {
         .interaction
         .as_mut()
         .is_some_and(|i| i.toggle(object) != SelectionOutcome::Rejected);
-    if !answered {
-        open_pile(duel, object);
+    if answered || open_pile(duel, object) {
+        Answer::Took
+    } else {
+        Answer::Refused
     }
 }
 
@@ -251,9 +262,12 @@ pub fn activate_card(duel: &mut Duel, object: ObjectId) {
 /// their graveyard, a tap on the top of it must *answer the question*, not
 /// drop a panel over the board they are answering it from. Only a tap that
 /// nothing else claimed is a request to look through the pile.
-fn open_pile(duel: &mut Duel, object: ObjectId) {
+///
+/// Answers whether it opened anything, which is the last word on whether the
+/// tap did: everything above this has already said no.
+fn open_pile(duel: &mut Duel, object: ObjectId) -> bool {
     let Some(board) = duel.board.as_ref() else {
-        return;
+        return false;
     };
     let opening = board.pods.iter().find_map(|pod| {
         pod.piles
@@ -263,7 +277,9 @@ fn open_pile(duel: &mut Duel, object: ObjectId) {
     });
     if let Some(zone) = opening {
         duel.browser.open_at(zone);
+        return true;
     }
+    false
 }
 
 /// Arms a deed. The prompt bar draws what is armed, and the way out of it.
@@ -1496,6 +1512,7 @@ pub fn pointer(
     mut duel: ResMut<Duel>,
     mut prefs: ResMut<crate::prefs::Prefs>,
     mut rig: ResMut<crate::table::CameraRig>,
+    mut touched: ResMut<crate::touch::Touched>,
 ) {
     for click in clicks.read() {
         let e = click.entity;
@@ -1508,7 +1525,14 @@ pub fn pointer(
             .map(|v| v.object)
             .or_else(|| find_in_lineage(e, &hand_cards, &parents).map(|h| h.object))
         {
-            activate_card(&mut duel, object);
+            // The card under the finger is answered here and nowhere else:
+            // this is the branch that knows both which card was tapped and
+            // what the tap did, and a hand card that gave way under the press
+            // has to be told which way to come back. A card on the *table*
+            // wears no touch, and the call is harmless there because the
+            // release has already taken the finger off nothing.
+            let answer = activate_card(&mut duel, object);
+            crate::touch::answer(&mut touched, answer);
             continue;
         }
         if let Some(tab) = find_in_lineage(e, &tabs, &parents) {
@@ -2088,6 +2112,7 @@ mod tests {
         let mut app = App::new();
         app.init_resource::<crate::prefs::Prefs>()
             .init_resource::<crate::table::CameraRig>()
+            .init_resource::<crate::touch::Touched>()
             .add_message::<bevy::picking::events::Pointer<bevy::picking::events::Click>>()
             .insert_resource(duel)
             .add_systems(Update, super::pointer);
