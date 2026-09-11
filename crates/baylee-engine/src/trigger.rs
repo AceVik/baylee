@@ -88,7 +88,7 @@ pub fn collect(state: &GameState, lookup: &impl CardLookup, from_seq: u64) -> Ve
                                 synthetic_target: None,
                             });
                         }
-                        break;
+                        // Once per matching event, as below.
                     }
                 }
             }
@@ -210,7 +210,9 @@ fn collect_for_objects(
                         once_per_turn: false,
                         synthetic_target: None,
                     });
-                    break;
+                    // Once per spell, not once per window: two noncreature
+                    // spells can land in one of these (a spell cast during
+                    // another's resolution), and prowess counts both.
                 }
             }
         }
@@ -251,7 +253,7 @@ fn collect_for_objects(
                         synthetic_target: *target,
                         once_per_turn: false,
                     });
-                    break;
+                    // Once per matching event, as below.
                 }
             }
         }
@@ -322,7 +324,23 @@ fn collect_for_objects(
                             synthetic_target: None,
                         });
                     }
-                    break; // one trigger per event per ability — next event
+                    // No `break`. An ability triggers once per event that
+                    // matches it, and there used to be one here, so a
+                    // window carrying six of them fired it once: Aang and
+                    // Katara made six Allies, Wartime Protestors' rally
+                    // gave a counter and haste to the first one and the
+                    // other five entered unnoticed. Ondu Cleric gained one
+                    // life for six Allies for the same reason.
+                    //
+                    // The carve-out that made the old shape look right is
+                    // an ability worded "whenever one or more …", which
+                    // does fire once for a whole batch — Storm the Vault.
+                    // That is a trigger of its own and not the default:
+                    // Storm the Vault is an unimplemented stub, no card in
+                    // the pool encodes it, and the transcoder refuses
+                    // Forge's batch modes outright, so nothing was relying
+                    // on the accident. Giving it a `Trigger` variant is
+                    // what the card will want, not this line.
                 }
             }
         }

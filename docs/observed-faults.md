@@ -1802,3 +1802,63 @@ whether the mode is chosen at the moment the trigger is put on the stack (a
 spell chooses its modes as it is cast, and a triggered ability is not cast, so
 the two are separate sentences in the rules), and whether `trigger_count` and
 `once_per_turn` need anything the modal variant does not already carry.
+
+### 35. A triggered ability fired once for a whole batch of events — FIXED
+
+Reported from a live game: Aang and Katara made six Ally tokens, which was
+right, and then "four of them disappeared and only one of the two was handled
+correctly — haste and 2× +1/+1; the other should have got it too."
+
+Two different things, and only one of them is a rules defect.
+
+The tokens did not disappear. Five of the six were identical 1/1 Allies and
+the client draws identical permanents as one pile (`CardGroup`), so a board of
+six read as two. That is a legibility problem in the client — the pile does
+not say how many it holds — and it is on the UX backlog, not here.
+
+The rules defect is why one token differed from the other five. Wartime
+Protestors says "whenever another Ally you control enters, put a +1/+1 counter
+on that creature and it gains haste until end of turn", and the ability fired
+**once** for six simultaneous arrivals. `trigger::collect_for_objects` scanned
+the new journal entries for each ability and then did this:
+
+```rust
+for entry in events {
+    if matches(trigger, &entry.event, state, permanent, obj.controller) {
+        …push `times` triggers…
+        break; // one trigger per event per ability — next event
+    }
+}
+```
+
+The comment describes the intended rule correctly and the `break` implements a
+different one: it leaves the *event* loop, so the ability fires at most once
+per collection window however many matching events that window holds. The
+first Ally to arrive was answered and the other five entered unnoticed.
+
+Panharmonicon was not involved and was not wrong: `trigger_count` doubled the
+one trigger that did fire, which is exactly the 2× +1/+1 that was reported.
+
+Four copies of the same `break` were there — the emblem scan, prowess, granted
+triggered abilities and the ordinary one. All four are gone.
+
+**What made the old shape look defensible**, and the check that had to come
+before removing it: an ability worded "whenever **one or more** … " does fire
+once for a whole batch. Storm the Vault is the only card in the pool whose
+printed text is worded that way, it is an unimplemented stub, and `forgegen`'s
+trigger table reads exactly four Forge modes (`ChangesZone`, `Phase`,
+`Attacks`, `Taps`) and refuses the batch ones outright, so no machine-owned
+card encodes batch semantics either. Nothing was relying on the accident. When
+Storm the Vault is written it wants a `Trigger` variant of its own, not this
+line back.
+
+Also fixed by the same change, and worth naming because neither had ever been
+seen to be wrong: Ondu Cleric's rally gained life once for a batch of Allies
+instead of once per Ally, and prowess counted one spell per window rather than
+every noncreature spell cast in it.
+
+The test is `a_rally_trigger_fires_once_for_every_ally_that_entered`, and its
+assertion is a **count** in both directions: each of the three tokens carries
+exactly one +1/+1 counter. Zero fails the old code; anything above one would
+fail the other way this loop can be written wrong, which is firing per
+permanent *and* per event and giving N² triggers for N tokens.
