@@ -73,6 +73,34 @@ enum Cmd {
         #[arg(long)]
         stubs: bool,
     },
+    /// Read every hand-written card a second way and report the disagreements.
+    ///
+    /// A hand-written card is the one surface in the pool that no program
+    /// checks against another program. `validate` pins its header to the
+    /// printing and the engine sweeps pin its behaviour to the `CardDef` it
+    /// builds — but the `CardDef` itself was typed by a person reading the
+    /// card, and a person who read a clause wrong produces a card every one
+    /// of those checks agrees with. The transcoder is a second reader of the
+    /// same card from a different source, so where it reads a script **in
+    /// full** and comes out with a different shape, one of the two is wrong.
+    ///
+    /// It reports and never fails, deliberately. A disagreement is not a
+    /// defect: the transcoder writes what one rule can say, and a
+    /// hand-written card is allowed to say more (a mode, a ward, a saga
+    /// chapter). What it is, is the shortest list of cards worth a second
+    /// pair of eyes, and the list is ranked by nothing — every line on it
+    /// names a card and what the two readers disagreed about.
+    CrossRead {
+        /// Path to the forge-reference cardsfolder.
+        #[arg(
+            long,
+            default_value = "../mtg/forge-reference/forge-gui/res/cardsfolder"
+        )]
+        forge: PathBuf,
+        /// Print this many disagreeing cards with the script that caused it.
+        #[arg(long, default_value_t = 0)]
+        samples: usize,
+    },
     /// Rank the land sentences `landgen` cannot read yet.
     ///
     /// The counterpart to `forge-report`, and worth its own command for the
@@ -250,6 +278,7 @@ fn main() -> anyhow::Result<()> {
             stubs,
             reason,
         } => forge_report(&root, &forge, samples, stubs, reason.as_deref()),
+        Cmd::CrossRead { forge, samples } => cross_read(&root, &forge, samples),
         Cmd::LandReport {
             samples,
             worklist,
@@ -2932,4 +2961,276 @@ fn refusal_cause(script: &forgegen::ForgeScript, cats: &catalog::SubtypeCatalogs
         }
     }
     "refused with no reason recorded".to_string()
+}
+
+// ---------------------------------------------------------------------------
+// cross-read: the transcoder as a second reader of a hand-written card
+// ---------------------------------------------------------------------------
+
+/// What a card's abilities look like, in the coarsest vocabulary both
+/// readers can speak.
+///
+/// The transcoder produces Rust *source*, not a `CardDef`, so the two sides
+/// cannot be compared field by field without compiling one of them. What
+/// they can both state is the **shape**: how many abilities of each kind a
+/// card has. That is coarse on purpose — it is the level at which a
+/// disagreement is always worth reading, and below which it never is. A
+/// filter written two equivalent ways would differ textually and mean the
+/// same thing; a card with a triggered ability one reader never saw is a
+/// card to open.
+#[derive(Default, PartialEq, Eq)]
+struct Shape {
+    spell: usize,
+    activated: usize,
+    mana: usize,
+    triggered: usize,
+    statics: usize,
+    /// Everything the transcoder has no rule for at all. Counted on the
+    /// hand-written side only, and never compared — it is the measure of
+    /// what this report structurally cannot see.
+    beyond: usize,
+}
+
+impl Shape {
+    /// The shape the hand-written card actually builds.
+    fn of_card(def: &baylee_cards::dsl::CardDef) -> Self {
+        use baylee_cards::dsl::AbilityDef as A;
+        let mut out = Self::default();
+        for ability in def.abilities_for_face(0) {
+            match ability {
+                A::Spell { .. } => out.spell += 1,
+                // `ActivatedConditional` is the same ability with a
+                // condition on when it may be activated, and the transcoder
+                // has one macro for both. Folding them is what keeps this
+                // from reporting every equipment in the pool.
+                A::Activated { mana_ability, .. } => {
+                    if *mana_ability {
+                        out.mana += 1;
+                    } else {
+                        out.activated += 1;
+                    }
+                }
+                A::ActivatedConditional { .. } => out.activated += 1,
+                A::Triggered { .. } => out.triggered += 1,
+                A::Static(_) => out.statics += 1,
+                _ => out.beyond += 1,
+            }
+        }
+        out
+    }
+
+    /// The shape the transcoder would have written, read off the expressions
+    /// it emits rather than off a parse of them: each one begins with the
+    /// macro or path that names its kind.
+    fn of_body(body: &baylee_cards_codegen::body::CardBody) -> Self {
+        let mut out = Self::default();
+        for expr in &body.abilities {
+            if expr.starts_with("mana_ability!") {
+                out.mana += 1;
+            } else if expr.starts_with("activated!") {
+                out.activated += 1;
+            } else if expr.starts_with("triggered!") {
+                out.triggered += 1;
+            } else if expr.starts_with("spell!") {
+                out.spell += 1;
+            } else if expr.starts_with("AbilityDef::Static") {
+                out.statics += 1;
+            } else {
+                out.beyond += 1;
+            }
+        }
+        out
+    }
+
+    /// The five counts, for a message.
+    fn tell(&self) -> String {
+        format!(
+            "{} spell, {} activated, {} mana, {} triggered, {} static",
+            self.spell, self.activated, self.mana, self.triggered, self.statics
+        )
+    }
+
+    /// Whether the five comparable counts agree. `beyond` is excluded: the
+    /// hand-written side is allowed to say things the transcoder cannot.
+    fn agrees_with(&self, other: &Self) -> bool {
+        (
+            self.spell,
+            self.activated,
+            self.mana,
+            self.triggered,
+            self.statics,
+        ) == (
+            other.spell,
+            other.activated,
+            other.mana,
+            other.triggered,
+            other.statics,
+        )
+    }
+}
+
+/// The keyword bit a `KeywordSet::FLYING`-shaped constant names.
+///
+/// Read off [`KEYWORD_WORDS`] rather than written a second time: that table
+/// already pairs every bit with its printed spelling, and a constant's name
+/// is that spelling shouted. Two tables of the same thing is how one of them
+/// goes stale.
+fn keyword_bit(const_name: &str) -> Option<baylee_cards::dsl::KeywordSet> {
+    let want = const_name.strip_prefix("KeywordSet::")?;
+    KEYWORD_WORDS
+        .iter()
+        .find(|(_, word)| word.to_uppercase().replace(' ', "_") == want)
+        .map(|(bit, _)| *bit)
+}
+
+/// Reads every hand-written card a second way and prints the disagreements.
+#[allow(clippy::too_many_lines)] // one paragraph per skip bucket; splitting hides the census
+fn cross_read(root: &Path, forge_dir: &Path, samples: usize) -> anyhow::Result<()> {
+    let cache = root.join("data/scryfall-cache");
+    let agent = ureq::Agent::new_with_defaults();
+    let mut cats = catalog::SubtypeCatalogs {
+        creature: scryfall::fetch_catalog("creature-types", &agent, &cache)?,
+        artifact: scryfall::fetch_catalog("artifact-types", &agent, &cache)?,
+        enchantment: scryfall::fetch_catalog("enchantment-types", &agent, &cache)?,
+        land: scryfall::fetch_catalog("land-types", &agent, &cache)?,
+        planeswalker: scryfall::fetch_catalog("planeswalker-types", &agent, &cache)?,
+        spell: scryfall::fetch_catalog("spell-types", &agent, &cache)?,
+    };
+    cats.normalize();
+
+    let index_path = root.join("data/forge_index.json");
+    let forge_index: BTreeMap<String, String> =
+        serde_json::from_str(&fs::read_to_string(&index_path).unwrap_or_default())
+            .unwrap_or_default();
+    if forge_index.is_empty() {
+        println!("note: data/forge_index.json is missing or empty; run `cargo xtask codegen`");
+        return Ok(());
+    }
+
+    let files = card_files(&root.join("crates/baylee-cards/src/cards"))?;
+    let (mut machine, mut not_implemented, mut no_script, mut refused) = (0, 0, 0, 0);
+    let (mut compared, mut agreed) = (0usize, 0usize);
+    let mut disagreements: Vec<String> = Vec::new();
+    let mut shown = 0usize;
+
+    for path in files.values() {
+        let text = fs::read_to_string(path)?;
+        // A file carrying either marker is a rule's output, and comparing a
+        // rule against itself says nothing. The predicate is `stubgen`'s own
+        // and not a pair of retyped literals: the first draft of this line
+        // spelled the ownership marker without the backticks it is written
+        // with, so all 383 machine-owned cards were read as hand-written and
+        // the report's loudest finding — eleven artifact "bridges" whose
+        // indestructible the transcoder had itself just written — was the
+        // transcoder agreeing with itself.
+        if baylee_cards_codegen::stubgen::is_machine_owned(&text) {
+            machine += 1;
+            continue;
+        }
+        let Some(oracle_id) = text
+            .split_once("oracle_id: \"")
+            .and_then(|(_, rest)| rest.split_once('"'))
+            .map(|(id, _)| id)
+        else {
+            continue;
+        };
+        let Some(def) = baylee_cards::by_oracle_id(oracle_id) else {
+            continue;
+        };
+        if !matches!(def.coverage, baylee_cards::dsl::Coverage::Implemented) {
+            not_implemented += 1;
+            continue;
+        }
+        let Some(rel) = forge_index.get(def.name()) else {
+            no_script += 1;
+            continue;
+        };
+        let script_path = root.join(forge_dir).join(rel);
+        let Ok(script_text) = fs::read_to_string(&script_path) else {
+            no_script += 1;
+            continue;
+        };
+        let script = forgegen::parse(&script_text);
+        // The transcoder's own honesty rule is what makes this comparison
+        // worth making: it produces a card only when it read every clause,
+        // so a refusal is silence rather than a weaker reading.
+        let Some(body) = forgegen::transcode(&script, &cats) else {
+            refused += 1;
+            continue;
+        };
+        compared += 1;
+
+        let mut found: Vec<String> = Vec::new();
+        let (mine, theirs) = (Shape::of_card(def), Shape::of_body(&body));
+        if !mine.agrees_with(&theirs) {
+            found.push(format!(
+                "the card builds {} and the script reads {}",
+                mine.tell(),
+                theirs.tell()
+            ));
+        }
+        // Keywords are the half that *is* comparable exactly: both sides
+        // name a bit, and a bit is a bit.
+        let mut script_bits = baylee_cards::dsl::KeywordSet::EMPTY;
+        for name in &body.keywords {
+            if let Some(bit) = keyword_bit(name) {
+                script_bits = script_bits.union(bit);
+            }
+        }
+        // `faces[0].keywords` is the *override*, empty on every single-faced
+        // card, which states its keywords once at card level. Reading it
+        // directly said "the card claims it nowhere" about eleven bridges
+        // that claim indestructible on their first line.
+        let card_bits = def.keywords_for_face(0);
+        for (bit, word) in KEYWORD_WORDS {
+            let card_has = card_bits.contains(*bit);
+            let script_has = script_bits.contains(*bit);
+            if card_has != script_has {
+                found.push(if card_has {
+                    format!("the card claims {word} and the script does not print it")
+                } else {
+                    format!("the script prints {word} and the card claims it nowhere")
+                });
+            }
+        }
+        if body.enter_modifiers.len() != def.faces[0].enter_modifiers.len() {
+            found.push(format!(
+                "the card enters under {} modifier(s) and the script under {}",
+                def.faces[0].enter_modifiers.len(),
+                body.enter_modifiers.len()
+            ));
+        }
+
+        if found.is_empty() {
+            agreed += 1;
+            continue;
+        }
+        for line in &found {
+            disagreements.push(format!("{}: {line}", def.name()));
+        }
+        if shown < samples {
+            shown += 1;
+            println!(
+                "--- {} ({})\n{script_text}",
+                def.name(),
+                script_path.display()
+            );
+        }
+    }
+
+    disagreements.sort();
+    for line in &disagreements {
+        println!("{line}");
+    }
+    println!(
+        "cross-read: {compared} hand-written cards read twice, {agreed} agreed, {} \
+         disagreed on {} point(s)",
+        compared.saturating_sub(agreed),
+        disagreements.len()
+    );
+    println!(
+        "  skipped: {machine} machine-owned, {not_implemented} not implemented, \
+         {no_script} with no forge script, {refused} the transcoder refused"
+    );
+    Ok(())
 }
