@@ -1,4 +1,4 @@
-//! Hallowed Fountain — (no cost) — Land — PLAINS ISLAND
+//! Hallowed Fountain — (no cost) — Land — Plains Island
 //! Oracle: ({T}: Add {W} or {U}.)
 //! Oracle: As this land enters, you may pay 2 life. If you don't, it enters tapped.
 //! Hallowed Fountain enters the battlefield tapped unless you pay 2 life.

@@ -1,4 +1,4 @@
-//! Zagoth Triome — (no cost) — Land — SWAMP FOREST ISLAND
+//! Zagoth Triome — (no cost) — Land — Swamp Forest Island
 //! Oracle: ({T}: Add {B}, {G}, or {U}.)
 //! Oracle: This land enters tapped.
 //! Oracle: Cycling {3} ({3}, Discard this card: Draw a card.)

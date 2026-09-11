@@ -1,4 +1,4 @@
-//! Underground Sea — (no cost) — Land — ISLAND SWAMP
+//! Underground Sea — (no cost) — Land — Island Swamp
 //! Oracle: ({T}: Add {U} or {B}.)
 //! Set: VMA #323 — Vintage Masters | Scryfall ID: 26cee543-6eab-494e-a803-33a5d48d7d74 | Oracle ID: 4b22be3a-8ce1-47d1-b82e-6c3ccfb0548b
 // IMPLEMENTED — two-color mana choice.

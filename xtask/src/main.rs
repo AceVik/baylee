@@ -1565,6 +1565,15 @@ const PRINTING_FLOOR: PrintingTally = PrintingTally {
     type_lines: 1400,
 };
 
+/// What [`check_header_matches_code`]'s type segment reached, less a margin.
+///
+/// It is the whole pool and nothing is skipped: every name in the acceptance
+/// list resolves to a compiled `CardDef`, so the count is 1365 — and unlike
+/// every floor above it this one needs no printing, which is why it is not a
+/// field of [`PrintingTally`]. A card that stopped resolving would be a gap
+/// in this command rather than in the pool, and would otherwise be silent.
+const HEADER_TYPE_FLOOR: usize = 1360;
+
 /// Keyword bits that have a printed spelling to look for.
 ///
 /// Not every bit does, and the missing ones are deliberate rather than
@@ -1978,7 +1987,36 @@ fn field_number(face: &str, field: &str) -> Option<String> {
     Some(rest[..end].to_string())
 }
 
-fn check_header_matches_code(slug: &str, content: &str, problems: &mut usize) {
+/// The `//!` header, against the `CardDef` the file builds below it.
+///
+/// Name, cost and the two ids were the whole of it, and the type segment was
+/// the gap: thirteen lands said `Land — SWAMP MOUNTAIN` in the constants'
+/// spelling rather than the card's, two said `Land` where the card prints
+/// `Legendary Land`, and nothing read any of it.
+///
+/// It closes a triangle rather than adding a check.
+/// [`check_type_line_matches_the_printing`] holds the code against the
+/// printing, so holding the header against the **code** is what makes the
+/// header right about the *card*. Before that check existed this comparison
+/// would only have said that a person typed the same thing twice, which is
+/// precisely what Ondu Cleric did for as long as it existed — so the order
+/// the two checks were written in is the reason either means anything.
+///
+/// The code's side is [`baylee_cards::pool::type_line`] joined with `" // "`,
+/// for the same reason the printing check uses it: one renderer, and it is
+/// the one the deckbuilder shows a player. A header names the faces the
+/// *file* has rather than the ones Scryfall writes, so the join is exact at
+/// both ends of that difference — Conqueror's Galleon prints
+/// `Artifact — Vehicle // Land` and renders it, and Emeritus of Woe, the
+/// adventure this pool models as one face, compares its one line and passes
+/// where the printing check has to skip it.
+fn check_header_matches_code(
+    slug: &str,
+    content: &str,
+    def: Option<&'static baylee_cards::dsl::CardDef>,
+    header_types: &mut usize,
+    problems: &mut usize,
+) {
     // First header line: `//! <Name> — <cost or "(no cost)"> — <types>`.
     let Some(header) = content.lines().find(|l| l.starts_with("//! ")) else {
         println!("{slug}: no header line");
@@ -1986,8 +2024,14 @@ fn check_header_matches_code(slug: &str, content: &str, problems: &mut usize) {
         return;
     };
     let header = &header[4..];
+    // Three, and the third keeps whatever is left: a double-faced card's
+    // segment is `Artifact — Vehicle // Land` and has a dash of its own.
     let mut parts = header.splitn(3, " — ");
-    let (head_name, head_cost) = (parts.next().unwrap_or(""), parts.next().unwrap_or(""));
+    let (head_name, head_cost, head_types) = (
+        parts.next().unwrap_or(""),
+        parts.next().unwrap_or(""),
+        parts.next().unwrap_or(""),
+    );
 
     // The first face's name (token statics can appear before CARD, so
     // anchor on the `faces` field). MDFC headers read "Front // Back":
@@ -2012,6 +2056,20 @@ fn check_header_matches_code(slug: &str, content: &str, problems: &mut usize) {
     if !costs.is_empty() && !costs.iter().any(|c| c == head_cost_norm) {
         println!("{slug}: header cost {head_cost:?} matches none of the code costs {costs:?}");
         *problems += 1;
+    }
+    // The type segment, through the one renderer there is.
+    if let Some(def) = def {
+        let code_types = def
+            .faces
+            .iter()
+            .map(baylee_cards::pool::type_line)
+            .collect::<Vec<_>>()
+            .join(" // ");
+        *header_types += 1;
+        if head_types != code_types {
+            println!("{slug}: header type line {head_types:?} != code {code_types:?}");
+            *problems += 1;
+        }
     }
     for (label, key) in [
         ("Scryfall ID", "scryfall_id: \""),
@@ -2384,6 +2442,13 @@ fn validate(root: &Path) -> anyhow::Result<()> {
     let mut problems = 0usize;
     let mut stubs = 0usize;
     let mut tally = PrintingTally::default();
+    // Cards whose header type segment was held against the code's. It is not
+    // in `PrintingTally` because it is not a comparison against a printing —
+    // it holds two things a person wrote against each other — but it is
+    // counted for the reason all of those are: the check skips a card whose
+    // name resolves to no `CardDef`, and a silent skip that grows is how a
+    // sweep stops reaching the pool without saying so.
+    let mut header_types = 0usize;
     // Who owns each finished card, which is the number to watch: a machine-
     // owned card is a reader's output and is corrected by fixing the reader,
     // a hand-owned one is somebody's and codegen never touches it.
@@ -2426,9 +2491,15 @@ fn validate(root: &Path) -> anyhow::Result<()> {
                 problems += 1;
             }
         }
-        check_header_matches_code(&slug, &content, &mut problems);
         check_search_tapped_matches_text(&slug, &content, &mut problems);
         let def = by_name.get(name.split(" // ").next().unwrap_or(name));
+        check_header_matches_code(
+            &slug,
+            &content,
+            def.copied(),
+            &mut header_types,
+            &mut problems,
+        );
         // One read for the three checks that need it, and the tally counts
         // the card here rather than inside one of them: "the payload was
         // found" is a fact about the card, not about whichever check
@@ -2453,8 +2524,28 @@ fn validate(root: &Path) -> anyhow::Result<()> {
             &mut problems,
         );
     }
-    // Before the bail, not after it: a floor that failed is only readable
-    // beside the counts that failed it.
+    report_what_the_sweeps_reached(&tally, header_types, &mut problems);
+    if problems > 0 {
+        anyhow::bail!("{problems} convention problem(s) found");
+    }
+    println!(
+        "validate: {} cards conform ({} finished \u{2014} {} hand-owned, {machine} \
+         machine-owned \u{2014} and {stubs} stubs)",
+        names.len(),
+        names.len() - stubs,
+        names.len() - stubs - machine
+    );
+    Ok(())
+}
+
+/// Every count, then every floor — before the bail rather than after it,
+/// because a floor that failed is only readable beside the counts that
+/// failed it.
+fn report_what_the_sweeps_reached(
+    tally: &PrintingTally,
+    header_types: usize,
+    problems: &mut usize,
+) {
     println!(
         "validate: against the printings \u{2014} {} payloads, {} loyalty, {} identity, \
          {} keyword, {} mana, {} oracle, {} cost, {} target count, {} printing, \
@@ -2470,18 +2561,15 @@ fn validate(root: &Path) -> anyhow::Result<()> {
         tally.printings,
         tally.type_lines
     );
-    check_printing_floors(&tally, &mut problems);
-    if problems > 0 {
-        anyhow::bail!("{problems} convention problem(s) found");
+    check_printing_floors(tally, problems);
+    println!("validate: {header_types} header type lines against the code");
+    if header_types < HEADER_TYPE_FLOOR {
+        println!(
+            "only {header_types} header type lines were held against the code and the floor \
+             is {HEADER_TYPE_FLOOR}; the check is not reaching the pool"
+        );
+        *problems += 1;
     }
-    println!(
-        "validate: {} cards conform ({} finished \u{2014} {} hand-owned, {machine} \
-         machine-owned \u{2014} and {stubs} stubs)",
-        names.len(),
-        names.len() - stubs,
-        names.len() - stubs - machine
-    );
-    Ok(())
 }
 
 /// Holds every printing check to what it reached last time.

@@ -1,4 +1,4 @@
-//! Indatha Triome — (no cost) — Land — PLAINS SWAMP FOREST
+//! Indatha Triome — (no cost) — Land — Plains Swamp Forest
 //! Oracle: ({T}: Add {W}, {B}, or {G}.)
 //! Oracle: This land enters tapped.
 //! Oracle: Cycling {3} ({3}, Discard this card: Draw a card.)

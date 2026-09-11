@@ -1,4 +1,4 @@
-//! Temple Garden — (no cost) — Land — FOREST PLAINS
+//! Temple Garden — (no cost) — Land — Forest Plains
 //! Oracle: ({T}: Add {G} or {W}.)
 //! Oracle: As this land enters, you may pay 2 life. If you don't, it enters tapped.
 //! Temple Garden enters the battlefield tapped unless you pay 2 life.

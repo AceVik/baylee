@@ -1,4 +1,4 @@
-//! Scrubland — (no cost) — Land — PLAINS SWAMP
+//! Scrubland — (no cost) — Land — Plains Swamp
 //! Oracle: ({T}: Add {W} or {B}.)
 //! Set: VMA #313 — Vintage Masters | Scryfall ID: 9d471e36-a3ab-4a96-ba4b-8eca921ea37a | Oracle ID: c8d95ca8-7d12-4072-aeaf-e20f248c7e39
 // IMPLEMENTED — two-color mana choice.

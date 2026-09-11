@@ -1,4 +1,4 @@
-//! Watery Grave — (no cost) — Land — ISLAND SWAMP
+//! Watery Grave — (no cost) — Land — Island Swamp
 //! Oracle: ({T}: Add {U} or {B}.)
 //! Oracle: As this land enters, you may pay 2 life. If you don't, it enters tapped.
 //! Watery Grave enters the battlefield tapped unless you pay 2 life.

@@ -1,4 +1,4 @@
-//! Savannah — (no cost) — Land — FOREST PLAINS
+//! Savannah — (no cost) — Land — Forest Plains
 //! Oracle: ({T}: Add {G} or {W}.)
 //! Set: VMA #311 — Vintage Masters | Scryfall ID: b0d161fc-4a2a-4f1d-82b4-a746552552df | Oracle ID: 703243f0-8cb3-420f-958f-5fd4bde30293
 // IMPLEMENTED — two-color mana choice.

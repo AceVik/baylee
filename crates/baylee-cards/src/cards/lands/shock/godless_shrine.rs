@@ -1,4 +1,4 @@
-//! Godless Shrine — (no cost) — Land — PLAINS SWAMP
+//! Godless Shrine — (no cost) — Land — Plains Swamp
 //! Oracle: ({T}: Add {W} or {B}.)
 //! Oracle: As this land enters, you may pay 2 life. If you don't, it enters tapped.
 //! Godless Shrine enters the battlefield tapped unless you pay 2 life.

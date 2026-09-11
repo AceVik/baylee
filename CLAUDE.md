@@ -249,6 +249,14 @@ and the printing says Kor. Comparing the one renderer rather than a set built
 for the check is what makes it cheap and what makes it reach past subtypes —
 Karakas and Volrath's Stronghold print `Legendary Land` and were plain `Land`
 in the code, so the legend rule (CR 704.5j) did not apply to either of them.
+With that in place the header's own type segment is worth comparing, and the
+two together close a triangle: the code is held against the printing, the
+header against the **code** — the same `pool::type_line`, joined with `" // "`
+for a card with two faces — so the header is right about the card rather than
+merely agreeing with the file it sits in. On its own it would have said only
+that a person typed the same thing twice, which is exactly what Ondu Cleric
+did; it found thirteen lands headed `Land — SWAMP MOUNTAIN` in the constants'
+spelling instead of the card's.
 A mechanic the DSL cannot express gets `Coverage::Partial("reason")` and a
 `// NOT SUPPORTED:` comment; extend the DSL rather than working around it.
 `docs/card-dsl.md` is the authoring contract, `docs/llm-learnings.md` gets

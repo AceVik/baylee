@@ -1,4 +1,4 @@
-//! Raugrin Triome — (no cost) — Land — ISLAND MOUNTAIN PLAINS
+//! Raugrin Triome — (no cost) — Land — Island Mountain Plains
 //! Oracle: ({T}: Add {U}, {R}, or {W}.)
 //! Oracle: This land enters tapped.
 //! Oracle: Cycling {3} ({3}, Discard this card: Draw a card.)
