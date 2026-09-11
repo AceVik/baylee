@@ -2137,6 +2137,99 @@ mod tests {
         );
     }
 
+    /// Presses a key at the real system and answers the outbox.
+    ///
+    /// Shares [`the_primary_key_plays_the_land_under_the_cursor`]'s shape
+    /// rather than its body: the point of both is that nothing is hand-built
+    /// between a `KeyCode` and a `PlayerAction`.
+    fn pressing(pending: Pending, key: bevy::prelude::KeyCode) -> Vec<PlayerAction> {
+        use bevy::input::ButtonInput;
+        use bevy::input::keyboard::KeyboardInput;
+        use bevy::prelude::*;
+
+        let duel = crate::Duel {
+            interaction: Some(baylee_client_core::interaction::Interaction::new(
+                pending,
+                PlayerId::new(0),
+            )),
+            ..Default::default()
+        };
+
+        let mut app = App::new();
+        app.init_resource::<ButtonInput<KeyCode>>()
+            .init_resource::<crate::prefs::Prefs>()
+            .init_resource::<crate::table::CameraRig>()
+            .init_resource::<crate::settings::ClientSettings>()
+            .add_message::<KeyboardInput>()
+            .insert_resource(duel)
+            .add_systems(Update, super::keyboard);
+        app.world_mut()
+            .resource_mut::<ButtonInput<KeyCode>>()
+            .press(key);
+        app.update();
+        app.world().resource::<crate::Duel>().outbox().to_vec()
+    }
+
+    /// Every straight answer to a question, through the keyboard.
+    ///
+    /// Written to settle entry 36 of `docs/observed-faults.md`, which says a
+    /// yes/no question is answerable only with the pointer. Half of that is
+    /// wrong on its face: `Action::AnswerYes` and `AnswerNo` exist,
+    /// `Keymap::standard` binds them to `Y` and `N`, and
+    /// `answer_the_question` reads both — so a live run in which `Y` did
+    /// nothing was stopped by something else, and an entry naming the wrong
+    /// mechanism sends the fix to the wrong file.
+    ///
+    /// The mulligan pair is here for the same reason: the entry names it as
+    /// the same branch, and a claim about two branches wants both pressed.
+    #[test]
+    fn a_question_is_answered_from_the_keyboard() {
+        use baylee_engine::choice::YesNoPrompt;
+        use bevy::prelude::KeyCode;
+
+        let yes_no = |prompt| Pending::YesNo {
+            player: PlayerId::new(0),
+            prompt,
+            source: None,
+        };
+        assert_eq!(
+            pressing(yes_no(YesNoPrompt::Generic), KeyCode::KeyY),
+            [PlayerAction::YesNo(true)],
+            "Y answers a generic yes/no"
+        );
+        assert_eq!(
+            pressing(yes_no(YesNoPrompt::Generic), KeyCode::KeyN),
+            [PlayerAction::YesNo(false)],
+            "N answers a generic yes/no"
+        );
+        // The prompt the live run actually stalled on, in case the shape of
+        // the question ever starts deciding whether it can be answered.
+        assert_eq!(
+            pressing(
+                yes_no(YesNoPrompt::PayLifeOrEnterTapped { amount: 2 }),
+                KeyCode::KeyY
+            ),
+            [PlayerAction::YesNo(true)],
+            "Y pays the shockland"
+        );
+
+        let mulligan = Pending::Mulligan {
+            player: PlayerId::new(0),
+            taken: 0,
+            next_is_free: true,
+        };
+        assert_eq!(
+            pressing(mulligan.clone(), KeyCode::KeyK),
+            [PlayerAction::MulliganKeep],
+            "K keeps the hand"
+        );
+        assert_eq!(
+            pressing(mulligan, KeyCode::KeyB),
+            [PlayerAction::MulliganTake],
+            "B takes a mulligan"
+        );
+    }
+
     /// Builds the app the two menu-button tests share: the real `pointer`
     /// system, and a click helper that goes through the real message.
     fn menu_app(

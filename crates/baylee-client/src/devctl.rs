@@ -654,6 +654,32 @@ fn modifier_code(name: &str) -> Option<KeyCode> {
     })
 }
 
+/// `Y` for `KeyY`, `1` for `Digit1`.
+///
+/// The keymap's own table spells a letter `KeyY`, because that is the name a
+/// stored keymap has to survive being read by; a caller writing a script by
+/// hand reaches for the letter. A refused key answers `200` with an error in
+/// it, so `{"name":"Y"}` looked exactly like a key that reached the client and
+/// did nothing — which is how `docs/observed-faults.md` came to carry an entry
+/// claiming a yes/no question has no keyboard answer at all, since withdrawn.
+/// The alias fixes the trap rather than that one morning: a harness that
+/// refuses the obvious spelling of a key will be handed it again.
+fn harness_alias(name: &str) -> Option<KeyCode> {
+    let mut chars = name.chars();
+    let only = chars.next()?;
+    if chars.next().is_some() {
+        return None;
+    }
+    let spelled = if only.is_ascii_alphabetic() {
+        format!("Key{}", only.to_ascii_uppercase())
+    } else if only.is_ascii_digit() {
+        format!("Digit{only}")
+    } else {
+        return None;
+    };
+    crate::keys::key_code(&spelled)
+}
+
 /// The logical key a named physical key produces.
 ///
 /// A real keyboard reports both, and the client reads both: shortcuts go
@@ -696,6 +722,7 @@ fn press_chord(
     let name = field(body, "name").ok_or("no key name")?;
     let key = crate::keys::key_code(name)
         .or_else(|| modifier_code(name))
+        .or_else(|| harness_alias(name))
         .ok_or_else(|| format!("unknown key: {name}"))?;
     // `hold` keeps the key down until a matching `release`, because some of
     // the client is about a key *being* held rather than pressed: shift turns
@@ -1368,6 +1395,28 @@ mod tests {
             crate::table::Lens::new(crate::table::CameraRig::home(&table, canvas), canvas.window);
         let slot = *table.local().expect("a local seat");
         (lens, slot)
+    }
+
+    /// A key spelled the way a caller spells it.
+    ///
+    /// The counter-half is what makes this worth a test: an alias that
+    /// accepted anything would turn a typo into a key press somewhere else on
+    /// the board, and the whole reason this exists is that a *refused* key
+    /// and a key that did nothing are indistinguishable from outside.
+    #[test]
+    fn a_bare_letter_is_the_key_it_obviously_means() {
+        use bevy::prelude::KeyCode;
+        for (name, want) in [
+            ("Y", KeyCode::KeyY),
+            ("y", KeyCode::KeyY),
+            ("N", KeyCode::KeyN),
+            ("1", KeyCode::Digit1),
+        ] {
+            assert_eq!(super::harness_alias(name), Some(want), "{name}");
+        }
+        for name in ["", "KeyY", "Yes", "-", "Space"] {
+            assert_eq!(super::harness_alias(name), None, "{name}");
+        }
     }
 
     /// Every string in the dump is JSON, apostrophes and em dashes included.

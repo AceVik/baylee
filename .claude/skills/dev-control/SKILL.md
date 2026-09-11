@@ -67,11 +67,15 @@ not understood. Every route answers `{"ok":true,…}` or
 an error in it, so `curl -f` will not catch it.
 
 `name` for `/key` is whatever `crates/baylee-client/src/keys.rs` accepts, plus
-the modifiers — and those are **physical** key names, `KeyK` and not the `K`
-`docs/keyboard-map.md` prints. Keys go into `ButtonInput<KeyCode>`, so they
-travel through the account's `Keymap` exactly as a real press does, which is
-the part most worth exercising and why the keyboard map is the list of what to
-send.
+the modifiers — those are **physical** key names, `KeyK` rather than the `K`
+`docs/keyboard-map.md` prints — plus, for a letter or a digit, the bare
+character: `Y` and `1` resolve to `KeyY` and `Digit1`. That alias exists
+because this paragraph was here and a whole morning was still lost to
+`{"name":"Y"}` being refused and read as a key that did nothing; see
+`docs/observed-faults.md` 36, which is the withdrawn entry that came out of
+it. Keys go into `ButtonInput<KeyCode>`, so they travel through the account's
+`Keymap` exactly as a real press does, which is the part most worth exercising
+and why the keyboard map is the list of what to send.
 
 ## Playing a duel through it
 
@@ -122,9 +126,11 @@ for b in json.load(sys.stdin)['buttons']:
     if b['label'] == '$1': print(b['at_x'], b['at_y']); break"; }
 ```
 
-Some of them have **no keyboard path at all** — `Yes` and `No` are pointer-only
-(`docs/observed-faults.md` 36), so a run that hits a shockland's "pay 2 life?"
-stops there unless the button is clicked.
+Use it when a pointer is what you want. Every answer in that bar also has a
+key: a shockland's "pay 2 life?" is `Y` or `N`, a mulligan is `K` or `B`,
+`Confirm` is `Space`. The entry that used to say otherwise
+(`docs/observed-faults.md` 36) was withdrawn — the keys were being sent under
+names `/key` refuses.
 
 Two fields beside those answer a "nothing happened" that is really "something
 happened quietly". `armed` is the tap that has been made and not sent — the
@@ -135,7 +141,7 @@ first tap on anything irreversible only arms it, and the second fires it
 `selected` through a declaration shows nothing moving while the whole thing is
 being built.
 
-## The six things that go wrong
+## The seven things that go wrong
 
 **A click is three frames.** `/pointer` writes a `CursorMoved`, then the press,
 then the release, mirrored into `WindowEvent` the way `bevy_winit` does,
@@ -179,6 +185,14 @@ keys: `KeyE` on the hovered object toggles it into `interaction.selected`, and
 answers "no targets", silently and legally — which is how a Spark Double
 resolves as a 0/0 and dies to a state-based action with nothing in
 `last_error` to say why.
+
+**A key that was refused looks exactly like a key that did nothing.** Both
+leave the game where it was, `last_error` null and `pending` unchanged, and
+the difference is only in the answer `/key` already gave you:
+`{"ok":true,"pressed":1}` or `{"error":"unknown key: …"}`. Before writing down
+that a handler is unwired, check that the press was accepted — a helper that
+throws the body away is a helper that will sooner or later hand you a fault
+that is not there. It has: `docs/observed-faults.md` 36.
 
 **A held key is not a tapped one.** `{"hold":true}` presses and leaves the key
 down; `{"release":true}` lifts it. Part of the client is about a key *being*

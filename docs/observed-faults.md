@@ -2751,29 +2751,49 @@ into the input path and wants its own commit.
 
 ## Eighth pass, 2026-09-11 — found while teaching `/state` to say where things are
 
-### 36. A yes/no question can only be answered with the pointer — CONFIRMED, unfixed
+### 36. A yes/no question can only be answered with the pointer — WITHDRAWN, not a fault
 
-`PromptAction::Yes` and `PromptAction::No` are reached from exactly one place,
-`input::pointer`'s `prompt_buttons` branch. No action in the keymap fires
-either, so while the engine holds a `Pending::YesNo` the keyboard does
-nothing at all: `Confirm`, `Primary`, `Cancel` and every number key leave the
-question standing.
+Kept rather than deleted, because the entry was wrong in the way an entry here
+can most easily be wrong: every observation in it was real and the conclusion
+drawn from them was not.
 
-Measured live: an offline duel on turn 3 asking `PayLifeOrEnterTapped` for a
-shockland. `Space` (Confirm), `Enter` (Primary), `N`, `Y` and `Digit1` were
-each sent and read back; `interaction.pending` was the same `YesNo` after all
-five, and `last_error` stayed null — so nothing was even refused, the keys
-simply reach no handler.
+What it claimed: that `PromptAction::Yes` and `No` are reachable only from
+`input::pointer`, that no action in the keymap fires either, and that the
+keyboard therefore does nothing at all while the engine holds a
+`Pending::YesNo`. Measured live at the time: `Space`, `Enter`, `N`, `Y` and
+`Digit1` sent at a shockland's `PayLifeOrEnterTapped`, with `pending`
+unchanged after all five and `last_error` null.
 
-This is the shape `CLAUDE.md` already names a trap for the ability chooser: "a
-menu the pointer can answer and the keyboard cannot is not a menu, it is a
-trap". It is invisible to `duel_flow`, which answers through `Interaction`
-directly and never presses anything.
+What is actually there: `Action::AnswerYes` and `Action::AnswerNo` exist,
+`Keymap::standard` binds them to `Y` and `N`, and `input::answer_the_question`
+resolves both through `Interaction::answer_yes_no` — the same function the
+pointer's branch calls. The grep that found "exactly one place" was for
+`PromptAction::Yes`, which is the *button's* name for the answer and is not
+what a key path mentions.
 
-`Keep`/`Mulligan` are the same branch and so is `DeclareNothing`; they are
-worth checking with the same test. The fix is a binding and a reader, and the
-question it raises is which keys — a generic yes/no wants two, and the rest of
-the bar is already reachable through `Confirm`.
+Three of the five keys did nothing because they are supposed to: a `YesNo`
+offers no `Interaction::confirm`, so `Space` has nothing to send, `Enter` is
+"the card under the cursor, else pass" with neither available, and `Digit1` is
+bound to no action in the standard map. The other two never arrived. The
+harness spells a letter the way a stored keymap spells it — `KeyY`, not `Y` —
+and `POST /key {"name":"Y"}` answers `200` with `{"error":"unknown key: Y"}`,
+which is exactly the trap `.claude/skills/dev-control/SKILL.md` already warned
+about in writing: *read the answer; a refused request is a 200 with an error
+in it.*
 
-Not attempted here: it is an input change with a keymap decision inside it,
-and the owner has opinions about the keyboard map.
+What now holds the real claim:
+
+- `input::tests::a_question_is_answered_from_the_keyboard` presses `KeyY`,
+  `KeyN`, `KeyK` and `KeyB` at the real `keyboard` system and reads the
+  outbox — a generic yes/no, the shockland's `PayLifeOrEnterTapped`, and both
+  halves of the mulligan the entry named as "the same branch".
+- Live: a fresh offline duel was driven from turn 1 to turn 57 and on, every
+  question answered by key alone — mulligan, priority, discard, attackers,
+  blockers — with nothing ever left standing.
+- `devctl::harness_alias` now accepts `Y` for `KeyY` and `1` for `Digit1`, so
+  the spelling that produced this entry cannot produce another one.
+
+The one thing worth keeping from it: `/state.buttons` was built to get past
+this question and is useful anyway — a pointer harness needs button positions
+whatever the keyboard can do. Its *justification* in `docs/client.md` and in
+the skill has been corrected along with this.

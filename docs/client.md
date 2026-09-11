@@ -2737,10 +2737,17 @@ repacked.
 by name (`Yes`, `No`, `Keep`, `Confirm`, `DeclareNothing`, `Step(1)`) and the
 ability and choice rows by index, which is the handle those two carry
 themselves because both are rebuilt from the current `LegalActions` when
-pressed. It is not a convenience. `PromptAction::Yes` and `No` are reachable
-*only* through a pointer click — no key in the map fires either
-(`docs/observed-faults.md` 36) — so a driven client without these coordinates
-stops dead at the first shockland asking whether to pay two life.
+pressed. A pointer harness needs a button's position the way a keyboard one
+needs its action, and reading it back beats measuring it off a screenshot for
+the same reason `cards` does.
+
+It was built, though, on a claim that turned out to be false — that a yes/no
+question has no keyboard answer at all, `docs/observed-faults.md` 36, since
+withdrawn. `Y` and `N` answer one. What did not answer was `POST /key
+{"name":"Y"}`: the harness spells a letter `KeyY`, and a refused key is a
+`200` with an error in it. The field is kept because it earns its place
+either way, and the story is kept because the next tool built to get past a
+wall is worth asking that question about first.
 
 `armed` and `interaction.assignments` are the last two, and both answer a
 question that looks like silence. `armed` is the tap that has been made and
@@ -2754,8 +2761,9 @@ whole declaration go together and sees nothing move.
 
 ## Editing a shader without stopping the game
 
-`--features dev-reload` puts bevy's embedded-asset watcher behind the seven
-shaders in `src/shaders/`, so saving `felt.wgsl` repaints the table in the
+`--features dev-reload` puts bevy's embedded-asset watcher behind every shader
+registered with `embedded_asset!` — all eight in `src/shaders/`, `arrow.wgsl`
+included — so saving `felt.wgsl` repaints the table in the
 client already on screen — no rebuild, no restart, no reconnect, and the game
 keeps its position. Together with `/pause` it is how a look is worked on: stop
 the picture, edit, look, edit again.
