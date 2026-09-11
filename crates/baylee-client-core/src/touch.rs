@@ -41,7 +41,10 @@
 ///
 /// Two states and not three, because a *send* is not a third answer here: the
 /// card leaves the hand, and drawing its departure is the other end of an
-/// event whose first end is this one.
+/// event whose first end is this one. That other end is [`crate::depart`],
+/// and it is started by the view rather than by the tap — a card armed is
+/// not a card sent, and a mana run taps lands for several frames before the
+/// spell goes anywhere.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Answer {
     /// Something happened — a deed armed, an action sent, a menu opened, a

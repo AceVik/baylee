@@ -43,6 +43,7 @@ pub mod cardmat;
 pub mod cardtext;
 pub mod choices;
 pub mod combatlines;
+pub mod depart;
 /// The dev-control harness. Native dev builds only; see the module docs for
 /// why it is a compile-time feature rather than a runtime switch.
 #[cfg(all(feature = "dev-control", not(target_arch = "wasm32")))]
@@ -648,7 +649,12 @@ fn add_present_systems(app: &mut App) {
             combatlines::sync_focus_ring.after(table::glide),
             table::frame_table,
             table::apply_camera_rig,
-            hud::sync_overlay,
+            // One entry and not two, because the tuple is at its twenty: a card
+            // that has left the hand is taken out of the row before the row
+            // is rebuilt, and chaining is what says so. The commands of the
+            // first are queued before the commands of the second, so the
+            // node is out of the hand bar when the hand bar is despawned.
+            (depart::send_off, hud::sync_overlay).chain(),
             hud::apply_hand_scroll,
             (
                 hud::light_the_current_step,
@@ -658,6 +664,12 @@ fn add_present_systems(app: &mut App) {
                 // a hand card spawned this frame is spawned where the card
                 // already was, and this is what moves it from there.
                 touch::settle.after(hud::sync_overlay),
+                // After the rebuild too, and for the mirror of that reason:
+                // a card taken out of the row this frame is written to its
+                // window position by `send_off` and moved from there by
+                // this, and a flight advanced before the hand had let go of
+                // it would spend its first frame twice.
+                depart::fly.after(hud::sync_overlay),
                 // The seat bars are ink pinned to a rectangle of felt, so
                 // they are measured from the rig the camera was just set
                 // from and placed in the same schedule. `bevy_ui` runs its

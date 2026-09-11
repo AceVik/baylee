@@ -43,6 +43,7 @@ pub mod cardrail;
 pub mod combat;
 pub mod commanderdamage;
 pub mod deckbuilder;
+pub mod depart;
 pub mod i18n;
 pub mod images;
 pub mod interaction;
