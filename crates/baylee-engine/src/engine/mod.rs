@@ -177,6 +177,13 @@ enum PlanKind {
         source: ObjectId,
         /// Ability index.
         ability_index: u32,
+        /// The mode already chosen, for a modal trigger (CR 603.3c).
+        ///
+        /// Carried on the plan rather than read back off the queue when the
+        /// answer arrives: the queue's front is what this plan is *about*,
+        /// but nothing in the type says so, and a mode read off the wrong
+        /// entry resolves the wrong half of a card.
+        mode: Option<u8>,
     },
     /// A shockland entry choice (pay life or enter tapped).
     EntryTap {

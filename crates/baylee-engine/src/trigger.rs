@@ -33,6 +33,40 @@ pub struct PendingTrigger {
     pub synthetic_target: Option<baylee_cards_dsl::TargetSpec>,
     /// Fires at most once each turn (marked by the engine after stacking).
     pub once_per_turn: bool,
+    /// The mode a modal trigger's controller picked, once they have.
+    ///
+    /// `None` on every trigger as it is collected, including a modal one:
+    /// CR 603.3c has the controller announce the mode *as the ability is
+    /// put on the stack*, which is later than this. It is written back onto
+    /// the queued trigger when the question is answered, and the entry then
+    /// walks the same path as any other trigger — the mode's own
+    /// `TargetReq` is read through it, and the shared tail records
+    /// `once_per_turn` and stacks it.
+    pub chosen_mode: Option<u8>,
+}
+
+/// The trigger condition and the once-a-turn clause of an ability that has
+/// them, whatever shape it is written in.
+///
+/// `AbilityDef::ModalTriggered` is a triggered ability — the modes are what
+/// it *does*, not whether it fires — and reading only `Triggered` here is
+/// what made five cards in the pool resolve to nothing at all (entry 34 in
+/// `docs/observed-faults.md`). Both collection loops ask through this
+/// function so the pair cannot drift again.
+const fn triggered_parts(ability: &'static AbilityDef) -> Option<(&'static Trigger, bool)> {
+    match ability {
+        AbilityDef::Triggered {
+            trigger,
+            once_per_turn,
+            ..
+        }
+        | AbilityDef::ModalTriggered {
+            trigger,
+            once_per_turn,
+            ..
+        } => Some((trigger, *once_per_turn)),
+        _ => None,
+    }
 }
 
 /// Matches new journal entries (from `from_seq` onward) against all
@@ -64,12 +98,7 @@ pub fn collect(state: &GameState, lookup: &impl CardLookup, from_seq: u64) -> Ve
                 continue;
             };
             for (index, ability) in abilities.iter().enumerate() {
-                let AbilityDef::Triggered {
-                    trigger,
-                    once_per_turn,
-                    ..
-                } = ability
-                else {
+                let Some((trigger, once_per_turn)) = triggered_parts(ability) else {
                     continue;
                 };
                 for entry in events {
@@ -84,8 +113,9 @@ pub fn collect(state: &GameState, lookup: &impl CardLookup, from_seq: u64) -> Ve
                                 timestamp: obj.timestamp,
                                 event_object,
                                 synthetic_effects: None,
-                                once_per_turn: *once_per_turn,
+                                once_per_turn,
                                 synthetic_target: None,
+                                chosen_mode: None,
                             });
                         }
                         // Once per matching event, as below.
@@ -209,6 +239,7 @@ fn collect_for_objects(
                         synthetic_effects: Some(PROWESS_PUMP),
                         once_per_turn: false,
                         synthetic_target: None,
+                        chosen_mode: None,
                     });
                     // Once per spell, not once per window: two noncreature
                     // spells can land in one of these (a spell cast during
@@ -252,6 +283,7 @@ fn collect_for_objects(
                         synthetic_effects: Some(effects),
                         synthetic_target: *target,
                         once_per_turn: false,
+                        chosen_mode: None,
                     });
                     // Once per matching event, as below.
                 }
@@ -292,17 +324,13 @@ fn collect_for_objects(
                         synthetic_effects: Some(synthetic),
                         once_per_turn: false,
                         synthetic_target: None,
+                        chosen_mode: None,
                     });
                 }
             }
         }
         for (index, ability) in abilities.iter().enumerate() {
-            let AbilityDef::Triggered {
-                trigger,
-                once_per_turn,
-                ..
-            } = ability
-            else {
+            let Some((trigger, once_per_turn)) = triggered_parts(ability) else {
                 continue;
             };
             if !all_kinds && !matches!(trigger, Trigger::LeavesBattlefield(_) | Trigger::Dies(_)) {
@@ -320,8 +348,9 @@ fn collect_for_objects(
                             timestamp: obj.timestamp,
                             event_object,
                             synthetic_effects: None,
-                            once_per_turn: *once_per_turn,
+                            once_per_turn,
                             synthetic_target: None,
+                            chosen_mode: None,
                         });
                     }
                     // No `break`. An ability triggers once per event that

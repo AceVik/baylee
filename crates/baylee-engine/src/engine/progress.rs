@@ -11,6 +11,7 @@ use crate::choice::{
 use crate::state::Side;
 use crate::turn::DayNight;
 use crate::win::Victor;
+use baylee_cards_dsl::SpellMode;
 use baylee_core::ids::AbilityRef;
 use baylee_core::preset::LoopPolicy;
 
@@ -1172,6 +1173,66 @@ impl<L: CardLookup> Engine<L> {
         }
     }
 
+    /// Writes the chosen mode onto the ability just put on the stack.
+    ///
+    /// The same shape as the `event_object` write beside every one of these
+    /// calls, and for the same reason: `push_ability_to_stack` takes the
+    /// handle and the targets, and everything else a stack object carries is
+    /// written onto it afterwards rather than threaded through a signature
+    /// most callers pass empty. Every trigger push site calls this —
+    /// `resolve_stack_top` reads the mode back with an `expect`, so a site
+    /// that forgot would panic rather than silently resolve mode 0, which is
+    /// the failure entry 34 is.
+    pub(crate) fn set_top_mode(&mut self, mode: Option<u8>) {
+        let Some(mode) = mode else {
+            return;
+        };
+        if let Some(top) = self.state.zones.list(ZoneLocation::Stack).last().copied()
+            && let Some(obj) = self.state.object_mut(top)
+        {
+            obj.mode_index = Some(mode);
+        }
+    }
+
+    /// The modes of `ability_index` on `source`, if it is a modal trigger.
+    fn modal_trigger_modes(
+        &self,
+        source: ObjectId,
+        ability_index: u32,
+    ) -> Option<&'static [baylee_cards_dsl::SpellMode]> {
+        self.state
+            .object(source)
+            .map(|o| o.abilities(&self.lookup))
+            .and_then(|abilities| abilities.get(ability_index as usize))
+            .and_then(|a| match a {
+                AbilityDef::ModalTriggered { modes, .. } => Some(*modes),
+                _ => None,
+            })
+    }
+
+    /// Whether `mode` can legally be chosen for `t` right now (CR 603.3c).
+    ///
+    /// A mode that needs targets it cannot find is off the list. The count
+    /// is the same sum the target question below uses — objects and players
+    /// together, because "any target" offers both at once (CR 115.4) — so a
+    /// mode that survives this test is one the question can actually be
+    /// answered for.
+    fn mode_is_choosable(&self, t: &crate::trigger::PendingTrigger, mode: &SpellMode) -> bool {
+        let Some(req) = mode.targets else {
+            return true;
+        };
+        if req.min == 0 {
+            // "Up to one target": choosable with nothing to point at.
+            return true;
+        }
+        if matches!(req.spec, baylee_cards_dsl::TargetSpec::EventObject) {
+            return t.event_object.is_some();
+        }
+        let objects = eval::target_options(&req.spec, &self.state, t.controller, t.source).len();
+        let players = eval::target_player_options(&self.state, &req.spec, t.controller).len();
+        objects + players >= req.min as usize
+    }
+
     #[allow(clippy::too_many_lines)] // the trigger queue processor is a flat state machine
     pub(crate) fn collect_triggers(&mut self) {
         if self.breaking_loop {
@@ -1202,27 +1263,39 @@ impl<L: CardLookup> Engine<L> {
                 self.trigger_queue.pop_front();
                 continue;
             }
-            // Modal triggers: offer the mode choice first.
+            // Modal triggers: offer the mode choice first (CR 603.3c — the
+            // controller announces it as the ability goes on the stack, and
+            // this is that moment). Only while `chosen_mode` is still empty:
+            // the answer writes it back onto this same queue entry and the
+            // engine comes round again, at which point the trigger takes the
+            // ordinary path below with its mode's own target requirement.
             if t.ability_index != baylee_core::ids::AbilityRef::SYNTHETIC
-                && let Some(modes) = self
-                    .state
-                    .object(t.source)
-                    .map(|o| o.abilities(&self.lookup))
-                    .and_then(|abilities| abilities.get(t.ability_index as usize))
-                    .and_then(|a| match a {
-                        AbilityDef::ModalTriggered { modes, .. } => Some(*modes),
-                        _ => None,
-                    })
+                && t.chosen_mode.is_none()
+                && let Some(modes) = self.modal_trigger_modes(t.source, t.ability_index)
             {
+                // "If one of the modes would be illegal (due to an inability
+                // to choose legal targets, for example), that mode can't be
+                // chosen" — so a mode is offered only if its own requirement
+                // can be met. The option's `kind` carries the mode number
+                // because this filtering breaks the identity between a
+                // position in the list and the mode it names.
                 let options: Vec<CastModeDesc> = modes
                     .iter()
                     .enumerate()
-                    .map(|(i, _)| CastModeDesc {
-                        index: i as u8,
-                        kind: CastModeKind::Mode(i),
+                    .filter(|(_, mode)| self.mode_is_choosable(&t, mode))
+                    .enumerate()
+                    .map(|(position, (mode_index, _))| CastModeDesc {
+                        index: position as u8,
+                        kind: CastModeKind::Mode(mode_index),
                         cost: baylee_core::mana::ManaCost::ZERO,
                     })
                     .collect();
+                if options.is_empty() {
+                    // "If no mode is chosen, the ability is removed from the
+                    // stack." Nothing to ask and nothing to resolve.
+                    self.trigger_queue.pop_front();
+                    continue;
+                }
                 self.pending_plan = Some(PlanKind::ModalTrigger {
                     source: t.source,
                     ability_index: t.ability_index,
@@ -1242,6 +1315,13 @@ impl<L: CardLookup> Engine<L> {
                 .and_then(|a| match a {
                     AbilityDef::Triggered { targets, .. }
                     | AbilityDef::SagaChapter { targets, .. } => *targets,
+                    // A modal trigger's target requirement belongs to the
+                    // mode, not to the ability: Aether Channeler's bounce
+                    // takes one and its Bird token takes none.
+                    AbilityDef::ModalTriggered { modes, .. } => t
+                        .chosen_mode
+                        .and_then(|m| modes.get(m as usize))
+                        .and_then(|m| m.targets),
                     _ => None,
                 });
             if let Some(req) = req {
@@ -1254,6 +1334,7 @@ impl<L: CardLookup> Engine<L> {
                             .insert((t.source, t.ability_index), 1);
                     }
                     self.push_ability_to_stack(t.controller, t.source, t.ability_index, targets);
+                    self.set_top_mode(t.chosen_mode);
                     if let Some(event_object) = t.event_object {
                         let top = self.state.zones.list(ZoneLocation::Stack).last().copied();
                         if let Some(top) = top
@@ -1304,6 +1385,7 @@ impl<L: CardLookup> Engine<L> {
                     self.pending_plan = Some(PlanKind::Trigger {
                         source: t.source,
                         ability_index: t.ability_index,
+                        mode: t.chosen_mode,
                     });
                     let max = req.max.min(offered as u8);
                     self.pending = Pending::ChooseTargets {
@@ -1401,6 +1483,7 @@ impl<L: CardLookup> Engine<L> {
                     t.ability_index,
                     SmallVec::new(),
                 );
+                self.set_top_mode(t.chosen_mode);
                 // Carry the event object onto the fresh stack object.
                 if let Some(event_object) = t.event_object {
                     let top = self.state.zones.list(ZoneLocation::Stack).last().copied();
@@ -1463,7 +1546,17 @@ impl<L: CardLookup> Engine<L> {
                         | AbilityDef::SagaChapter { effects, .. },
                     ) => *effects,
                     Some(AbilityDef::ModalTriggered { modes, .. }) => {
-                        let idx = obj.mode_index.map_or(0, |i| i as usize);
+                        // `expect` and not "mode 0 if nobody said": the mode
+                        // is announced as the ability is put on the stack
+                        // (CR 603.3c), so an ability that reached resolution
+                        // without one came off a push site that forgot to
+                        // carry it — and falling back to the first mode is
+                        // how a card resolves the wrong half of itself in
+                        // silence, which is the fault entry 34 is about.
+                        let idx = obj
+                            .mode_index
+                            .expect("a modal trigger on the stack has its mode")
+                            as usize;
                         modes
                             .get(idx)
                             .map(|m| m.effects)
@@ -1488,7 +1581,11 @@ impl<L: CardLookup> Engine<L> {
                     | AbilityDef::SagaChapter { targets, .. },
                 ) => targets.is_some(),
                 Some(AbilityDef::ModalTriggered { modes, .. }) => modes
-                    .get(obj.mode_index.map_or(0, |i| i as usize))
+                    .get(
+                        obj.mode_index
+                            .expect("a modal trigger on the stack has its mode")
+                            as usize,
+                    )
                     .is_some_and(|m| m.targets.is_some()),
                 _ => false,
             };
@@ -2340,6 +2437,7 @@ impl<L: CardLookup> Engine<L> {
                     synthetic_effects: None,
                     once_per_turn: false,
                     synthetic_target: None,
+                    chosen_mode: None,
                 });
         }
         !hits.is_empty()

@@ -1783,7 +1783,7 @@ the measured value is exactly what let two games sit unexamined.
 
 ## Sixth pass, 2026-09-10 — found while building a deck to photograph a copy
 
-### 34. A modal triggered ability never triggers — CONFIRMED, cause found
+### 34. A modal triggered ability never triggers — FIXED
 
 Found by accident. A scratch deck for the copy-of-a-token proof opened with
 Aether Channeler, whose ETB is "choose one — Bird token / bounce a nonland
@@ -1815,11 +1815,92 @@ and Primaris Eliminator. That is the part to fix first — a card the
 deckbuilder offers as playable whose printed ability cannot fire is worse than
 a stub, because a stub says so.
 
-Not investigated, and both wanting a rule looked up rather than recalled:
-whether the mode is chosen at the moment the trigger is put on the stack (a
-spell chooses its modes as it is cast, and a triggered ability is not cast, so
-the two are separate sentences in the rules), and whether `trigger_count` and
-`once_per_turn` need anything the modal variant does not already carry.
+Both open questions are answered by **CR 603.3c**, which turns out to carry
+three sentences and not one. The mode *is* chosen as the ability is put on the
+stack, which is exactly where `collect_triggers` asks it. A mode that cannot
+be chosen legally — "due to an inability to choose legal targets, for example"
+— may not be offered at all, and if that leaves no mode, the ability is
+removed from the stack. And `trigger_count` and `once_per_turn` needed nothing
+of their own, because of the shape the fix takes.
+
+That shape is the fix's whole point: **the answer is written back onto the
+queued trigger, not stacked where it is given.** `PendingTrigger` gains
+`chosen_mode`, the modal question only asks while it is empty, and the engine
+comes round to `collect_triggers` again with a mode already picked — so the
+trigger takes the same path every other trigger takes. That path is what asks
+for targets, and it reads the `TargetReq` off the **mode** rather than the
+ability, because that is where a modal trigger keeps it. The old handler
+pushed straight to the stack with `SmallVec::new()`, which is why Aether
+Channeler's bounce would have returned nothing even once the ability fired.
+Coming round also means `once_per_turn` is recorded by the shared tail and
+`trigger_count` applies from the collection loop, without a second copy of
+either.
+
+The `once_per_turn` half of that wants one qualification, because it is only
+three quarters true and was before this change as well. The untagged tail
+records the fire, and so does the `EventObject` branch; the *targeted* path
+does not — it returns to ask the question, and neither it nor the
+`PlanKind::Trigger` handler that answers it ever writes `ability_fires`, so a
+once-a-turn trigger that targets by any other spec would fire on every event
+it saw. Nothing in the pool is that shape: Jin-Gitaxias, Progress Tyrant is
+the only `once_per_turn: true` there is, and both of its abilities target
+`EventObject`. A line the targeted path is owed, then, rather than a fault
+anyone can reach.
+
+Both collection loops now ask `trigger::triggered_parts`, which reads
+`Triggered` and `ModalTriggered` alike — one function so the pair cannot drift
+apart again, which is the whole of the
+`activated-conditional-is-a-forgotten-twin` lesson.
+
+Two more faults fell out of the same seam, both of them the reason the far
+half looked finished:
+
+- **Two `take`s in a row is one condition and two takes.** The
+  `ChooseCastMode` handler opened with
+  `if let Some(PlanKind::PlayLandFace{..}) = self.pending_plan.take()`, which
+  consumes the plan *whatever it holds*, so the modal-trigger branch beneath
+  it could only ever see `None`. It is one `take` and one `match` now.
+- **`obj.mode_index.map_or(0, …)` at resolution.** A modal trigger that
+  reached the stack without a mode resolved its **first** mode in silence,
+  which is the same failure shape as the one this entry is about. Both reads
+  are `expect`s, and every push site carries the mode through
+  `Engine::set_top_mode`.
+
+Six tests, in `card_tests`: the question is asked with every legal mode on
+it; the untargeted mode resolves (one Bird with flying); the targeted mode
+asks for *its* target and the creature goes back to its owner's hand; a mode
+with no legal target is not offered; Ertai Resurrected's destroy mode, which
+is the only place in the pool where
+`Effect::DrawCardsFor { who: PlayerRel::ControllerOfTarget }` can run at all;
+and Panharmonicon beside Aether Channeler, which asks `ChooseCastMode`
+**twice** and takes a different answer each time — the mode is a property of
+the trigger *instance*, so the `trigger_count` arm and the write-back are
+proved in one shot. Three mutants were run: skipping `ModalTriggered` in
+`triggered_parts` kills all six, offering every mode regardless of legality
+kills two, and dropping the mode's own target requirement kills two. The
+sixth test is the one no narrow mutant isolates — only the first reaches it —
+which is what a test of a *path* rather than of a predicate looks like.
+
+Two claims in all of this belong to the pool rather than to the rule, and are
+worth pinning down before they read as tested. The third sentence of CR
+603.3c — no mode can be chosen, so the ability is removed from the stack — is
+**unreachable today**: all five cards carry a mode that needs no target or
+takes up to one (Inspirit Flagship Vessel's two are both `up_to_one`, Ertai's
+third is an empty `mode!(&[])`), so the option list can never come back empty.
+The branch is written and is not exercised, because no card can exercise it.
+And Ertai's counter mode is the one mode whose *target* path nothing tests:
+`TargetSpec::SpellOrAbility` does enumerate the stack (`eval.rs`), so that
+mode is filtered out for the honest reason rather than for want of an arm, but
+proving it takes a spell held on the stack while Ertai flashes in, and the
+destroy-mode test proves `DrawCardsFor` instead.
+
+The mode filtering is load-bearing in a way that is easy to miss, and the
+Ertai test found it by failing: with an empty stack Ertai's counter mode is
+not offered, so **the position answered is not the mode number**. The answer
+handler maps position through `options[index].kind` and refuses an index the
+list does not hold, which is a bounds check the wizard path has always had and
+this one never did — an out-of-range answer reached the resolution `expect`
+and panicked the game.
 
 ## Seventh pass, 2026-09-11 — from the owner's play session
 
@@ -2018,3 +2099,35 @@ than printed — a Llanowar Elves with a +1/+1 counter on it, which asserts 2 li
 and fails at 1 today. Its mutant is the counter removed: the assertion has to
 drop to 1 with it, or it is reading the printed number and agreeing by
 accident.
+
+### 39. Primaris Eliminator's second mode debuffs the whole board — RECORDED
+
+Found while making entry 34's modal triggers fire, which is what made this
+card's text reachable in the first place.
+
+The printing says "Hyperfrag Round — Creatures target player controls get
+-2/-2 until end of turn." The card says:
+
+```rust
+mode!(DEBUFF_EFFECTS)                        // no targets
+Effect::PumpFilter { filter: &Filter::CREATURE, … }
+```
+
+No target, and a filter that matches every creature on the battlefield —
+including the caster's own, and including Primaris Eliminator itself. A 3/2
+choosing its own second mode kills itself and everything it was standing
+beside.
+
+Two things are missing and they are one sentence of the card. The target is
+already sayable: `TargetSpec::AnyPlayer` is the choice, and `PlayerRel::Chosen`
+is what reads it back. The **filter** is not — `Filter` has
+`ControlledByYou` and `ControlledByOpponent` and nothing that means "the player
+this spell chose", so the DSL cannot say "creatures that player controls" at
+all today. That makes this a DSL gap first and a card fix second, and until the
+variant exists the honest shape is `Coverage::Partial` with a
+`// NOT SUPPORTED:` line, not a filter that means something else.
+
+This is a **card** fault and not an engine one: the mechanism around it is
+right, which is why it only became visible now. It is also the answer to why
+it was never noticed — the mode could not be chosen, because the trigger
+carrying it was never collected.

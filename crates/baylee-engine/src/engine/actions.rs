@@ -4,6 +4,7 @@ use super::{
     SmallVec, Status, Zone, ZoneLocation, ZonePosition, cast_wizard, casting, combat, mana_pay,
     resolve, sba,
 };
+use crate::choice::CastModeKind;
 
 impl<L: CardLookup> Engine<L> {
     /// Asks a commander's owner whether it goes to the command zone rather
@@ -227,40 +228,61 @@ impl<L: CardLookup> Engine<L> {
             (Pending::ChooseCastMode { player: p, .. }, PlayerAction::ChooseMode(index))
                 if *p == player =>
             {
-                // MDFC land-face choice (pathways).
-                if let Some(PlanKind::PlayLandFace { card }) = self.pending_plan.take() {
-                    let def = self
-                        .state
-                        .object(card)
-                        .and_then(|o| o.card)
-                        .and_then(|c| self.lookup.card(c.index))
-                        .expect("land card known");
-                    self.state.switch_face(card, def, index);
-                    casting::play_land(&mut self.state, player, card)?;
-                    self.after_action(player);
-                    return Ok(());
-                }
-                // Modal trigger mode choice.
-                if let Some(PlanKind::ModalTrigger {
-                    source,
-                    ability_index,
-                }) = self.pending_plan.take()
-                {
-                    self.trigger_queue.pop_front();
-                    let controller = self.state.object(source).map_or(player, |o| o.controller);
-                    self.push_ability_to_stack(controller, source, ability_index, SmallVec::new());
-                    // Set the chosen mode on the fresh stack object.
-                    let top = self
-                        .state
-                        .zones
-                        .list(ZoneLocation::Stack)
-                        .last()
-                        .copied()
-                        .expect("just pushed");
-                    if let Some(obj) = self.state.object_mut(top) {
-                        obj.mode_index = Some(index as u8);
+                // `take` once. Two `if let Some(…) = self.pending_plan.take()`
+                // in a row is one condition and two takes: the first arm
+                // *consumes* the plan whatever it holds, so the second could
+                // only ever see `None`. The modal-trigger branch below was
+                // unreachable for that reason as well as for the one entry 34
+                // names, and one fault was hiding the other.
+                let plan = self.pending_plan.take();
+                // What the option at this position actually names. A modal
+                // trigger drops the modes it cannot legally choose
+                // (CR 603.3c), so the position answered is not the mode
+                // number — and the answer has to be inside the list that was
+                // offered, which no arm here used to check.
+                let kind = match &self.pending {
+                    Pending::ChooseCastMode { options, .. } => options.get(index).map(|o| o.kind),
+                    _ => None,
+                };
+                match plan {
+                    // MDFC land-face choice (pathways).
+                    Some(PlanKind::PlayLandFace { card }) => {
+                        let def = self
+                            .state
+                            .object(card)
+                            .and_then(|o| o.card)
+                            .and_then(|c| self.lookup.card(c.index))
+                            .expect("land card known");
+                        self.state.switch_face(card, def, index);
+                        casting::play_land(&mut self.state, player, card)?;
+                        self.after_action(player);
+                        return Ok(());
                     }
-                    return Ok(());
+                    // Modal trigger mode choice (CR 603.3c). The mode is
+                    // written back onto the queued trigger rather than
+                    // stacked here: `collect_triggers` runs again on the way
+                    // out of `apply`, sees a mode it does not have to ask
+                    // about, and takes the ordinary path — which is what asks
+                    // for the *mode's* targets, records `once_per_turn` and
+                    // stacks it. Stacking it here skipped all three.
+                    Some(PlanKind::ModalTrigger {
+                        source,
+                        ability_index,
+                    }) => {
+                        let Some(CastModeKind::Mode(mode)) = kind else {
+                            return Err(EngineError::IllegalAction("no such cast mode"));
+                        };
+                        let Some(front) = self.trigger_queue.front_mut() else {
+                            return Err(EngineError::IllegalAction("no trigger awaiting a mode"));
+                        };
+                        debug_assert!(
+                            front.source == source && front.ability_index == ability_index,
+                            "the modal plan and the queue's front are the same trigger",
+                        );
+                        front.chosen_mode = Some(mode as u8);
+                        return Ok(());
+                    }
+                    _ => {}
                 }
                 let mut wizard = self.cast_wizard.take().expect("wizard active");
                 let Some(option) = wizard.options.get(index).map(|o| o.kind) else {
@@ -481,6 +503,7 @@ impl<L: CardLookup> Engine<L> {
                     PlanKind::Trigger {
                         source,
                         ability_index,
+                        mode,
                     } => {
                         // Consume the queued trigger before stacking it.
                         self.trigger_queue.pop_front();
@@ -495,6 +518,7 @@ impl<L: CardLookup> Engine<L> {
                         }
                         let controller = self.state.object(source).map_or(player, |o| o.controller);
                         self.push_ability_to_stack(controller, source, ability_index, targets);
+                        self.set_top_mode(mode);
                         // Player targets ride beside the object ones. The
                         // ability is on the stack now, so the seats are
                         // written onto it directly rather than threaded

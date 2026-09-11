@@ -2505,3 +2505,329 @@ fn a_blinked_permanent_comes_back_untapped() {
         "a permanent that changed zones is a new object and enters untapped",
     );
 }
+
+fn aether_channeler() -> baylee_core::ids::CardIndex {
+    card_index("fb220f46-f8b8-4804-baa4-e7d50b4871f7")
+}
+
+/// Casts Aether Channeler off three Islands and hands the engine back
+/// standing on its modal trigger's question.
+///
+/// Four tests share it because the four things worth proving about a modal
+/// trigger are one question, two answers and a mode that is not offered —
+/// and until the collection arm existed, *none of them was reachable*.
+/// `AbilityDef::ModalTriggered` was skipped by both loops in `trigger.rs`,
+/// so the ability never became a `PendingTrigger`, never reached the stack
+/// and was never asked about: the card resolved, nothing happened, and no
+/// error was reported (entry 34).
+#[track_caller]
+fn a_modal_trigger_asks(
+    seed: u64,
+    opponent_board: &[baylee_core::ids::CardIndex],
+) -> Engine<RegistryLookup> {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(seed, island())
+        .battlefield(0, &[island(), island(), island()])
+        .battlefield(1, opponent_board)
+        .hand(0, &[aether_channeler()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    cast_from_hand(&mut engine, p0, aether_channeler());
+    // Priority passes until the spell resolves and its ETB trigger asks.
+    for _ in 0..20 {
+        if matches!(engine.pending(), Pending::ChooseCastMode { .. }) {
+            return engine;
+        }
+        let Pending::Priority { player, .. } = engine.pending().clone() else {
+            panic!(
+                "a modal trigger asked nothing and the game moved on — got {:?}. \
+                 That is entry 34: the ability is never collected, so the card \
+                 resolves and does nothing at all.",
+                engine.pending()
+            )
+        };
+        engine.apply(player, PlayerAction::PassPriority).unwrap();
+    }
+    panic!("the modal trigger never asked for its mode")
+}
+
+/// The question: all three of Aether Channeler's modes, offered to its
+/// controller as the trigger goes on the stack (CR 603.3c).
+#[test]
+fn a_modal_trigger_offers_every_mode_it_can_legally_choose() {
+    let p0 = PlayerId::new(0);
+    let engine = a_modal_trigger_asks(53, &[quiet_creature()]);
+    let Pending::ChooseCastMode { player, options } = engine.pending().clone() else {
+        unreachable!("the helper returns standing on the question")
+    };
+    assert_eq!(player, p0, "the trigger's controller chooses the mode");
+    let modes: Vec<usize> = options
+        .iter()
+        .filter_map(|o| match o.kind {
+            crate::choice::CastModeKind::Mode(m) => Some(m),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(
+        modes,
+        vec![0, 1, 2],
+        "a Bird, a bounce and a draw — the bounce is legal because the \
+         opponent has a nonland permanent to point it at",
+    );
+}
+
+/// The first answer: the mode with no targets resolves on its own.
+#[test]
+fn a_modal_trigger_resolves_the_mode_that_was_chosen() {
+    let p0 = PlayerId::new(0);
+    let mut engine = a_modal_trigger_asks(59, &[quiet_creature()]);
+    let before = tokens_of(&engine, p0).len();
+    engine.apply(p0, PlayerAction::ChooseMode(0)).unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    let tokens = tokens_of(&engine, p0);
+    assert_eq!(tokens.len(), before + 1, "mode 0 makes one Bird token");
+    assert!(
+        engine
+            .state()
+            .object(*tokens.last().expect("the Bird"))
+            .expect("the token exists")
+            .characteristics()
+            .keywords
+            .contains(baylee_cards_dsl::KeywordSet::FLYING),
+        "a 1/1 white Bird with flying",
+    );
+}
+
+/// The second answer, and the half that `actions.rs` used to skip: a mode
+/// that targets asks for *its own* target, not the ability's.
+#[test]
+fn a_modal_trigger_asks_for_the_targets_of_its_chosen_mode() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = a_modal_trigger_asks(61, &[quiet_creature()]);
+    let elves = on_battlefield(&engine, p1, quiet_creature()).expect("the opponent's creature");
+    engine.apply(p0, PlayerAction::ChooseMode(1)).unwrap();
+    let Pending::ChooseTargets {
+        player, options, ..
+    } = engine.pending().clone()
+    else {
+        panic!(
+            "the bounce mode asked for no target — got {:?}. The mode carries \
+             the `TargetReq`, and reading it off the ability finds none.",
+            engine.pending()
+        )
+    };
+    assert_eq!(player, p0);
+    assert!(
+        options.contains(&elves),
+        "the opponent's creature is a legal target"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![elves],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    assert!(
+        in_hand(&engine, p1, quiet_creature()).is_some(),
+        "\"return another target nonland permanent to its owner's hand\"",
+    );
+}
+
+/// The mode that cannot be chosen: with nothing else on the battlefield the
+/// bounce has no legal target, so CR 603.3c takes it off the list rather
+/// than offering a choice that resolves to nothing.
+#[test]
+fn a_mode_with_no_legal_target_is_not_offered() {
+    let engine = a_modal_trigger_asks(67, &[]);
+    let Pending::ChooseCastMode { options, .. } = engine.pending().clone() else {
+        unreachable!("the helper returns standing on the question")
+    };
+    let modes: Vec<usize> = options
+        .iter()
+        .filter_map(|o| match o.kind {
+            crate::choice::CastModeKind::Mode(m) => Some(m),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(
+        modes,
+        vec![0, 2],
+        "the Bird and the draw; \"another target nonland permanent\" finds \
+         nothing on a board of three Islands and the Channeler itself",
+    );
+}
+
+fn ertai_resurrected() -> baylee_core::ids::CardIndex {
+    card_index("3d038f7c-95fa-4b71-8f74-b9b4dd45cde0")
+}
+
+/// Ertai Resurrected's second mode, which is the mutant for the collection
+/// arm: it is the only place in the pool where
+/// `Effect::DrawCardsFor { who: PlayerRel::ControllerOfTarget }` can run at
+/// all, and a modal trigger that never fires is a card whose whole printed
+/// text is unreachable. "Destroy another target creature or planeswalker.
+/// Its controller draws a card."
+#[test]
+fn ertais_chosen_mode_destroys_and_lets_its_victim_draw() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(71, island())
+        .battlefield(0, &[island(), island(), swamp(), swamp()])
+        .battlefield(1, &[quiet_creature()])
+        .hand(0, &[ertai_resurrected()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let elves = on_battlefield(&engine, p1, quiet_creature()).expect("the opponent's creature");
+    let hand_before = engine
+        .state()
+        .zones
+        .list(crate::zone::ZoneLocation::Hand(p1))
+        .len();
+    cast_from_hand(&mut engine, p0, ertai_resurrected());
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseCastMode { .. })
+    });
+    // Answered by *position*, and the position is not the mode number here:
+    // with an empty stack Ertai's first mode has no spell or ability to
+    // counter, so CR 603.3c takes it off the list and "destroy" is offered
+    // first. A test that sent `ChooseMode(1)` picked the decline instead —
+    // which is what it did before this line existed, and it failed loudly
+    // rather than quietly, because the destroy asked for no target.
+    let Pending::ChooseCastMode { options, .. } = engine.pending().clone() else {
+        unreachable!("just checked")
+    };
+    let modes: Vec<usize> = options
+        .iter()
+        .filter_map(|o| match o.kind {
+            crate::choice::CastModeKind::Mode(m) => Some(m),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(
+        modes,
+        vec![1, 2],
+        "destroy and decline; \"counter target spell, activated ability, or \
+         triggered ability\" has nothing on an empty stack",
+    );
+    let destroy = modes
+        .iter()
+        .position(|m| *m == 1)
+        .expect("the destroy mode is offered");
+    engine.apply(p0, PlayerAction::ChooseMode(destroy)).unwrap();
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!(
+            "the destroy mode asked for no target — got {:?}",
+            engine.pending()
+        )
+    };
+    assert!(
+        options.contains(&elves),
+        "another creature is a legal target"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![elves],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    assert!(
+        in_graveyard(&engine, p1, quiet_creature()).is_some(),
+        "the targeted creature was destroyed",
+    );
+    assert_eq!(
+        engine
+            .state()
+            .zones
+            .list(crate::zone::ZoneLocation::Hand(p1))
+            .len(),
+        hand_before + 1,
+        "\"its controller draws a card\" — the *target's* controller, not \
+         Ertai's; `PlayerRel::ControllerOfTarget` has never resolved for a \
+         trigger before, because no modal trigger ever reached the stack",
+    );
+}
+
+fn panharmonicon() -> baylee_core::ids::CardIndex {
+    card_index("76678885-3674-443d-b9a2-2a460cf6aac0")
+}
+
+/// Panharmonicon doubles a modal trigger, and each of the two chooses its
+/// own mode.
+///
+/// The two halves of this pass in one assertion. `trigger_count` reaches
+/// `ModalTriggered` because both collection loops read it through
+/// `triggered_parts`, so the ability fires twice; and the mode is asked per
+/// queue entry rather than per ability, so the two questions can be answered
+/// differently — a Bird and a draw, off one Aether Channeler.
+#[test]
+fn panharmonicon_doubles_a_modal_trigger_and_each_copy_picks_its_own_mode() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(73, island())
+        .battlefield(0, &[island(), island(), island(), panharmonicon()])
+        .hand(0, &[aether_channeler()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let hand_before = engine
+        .state()
+        .zones
+        .list(crate::zone::ZoneLocation::Hand(p0))
+        .len();
+    cast_from_hand(&mut engine, p0, aether_channeler());
+    let tokens_before = tokens_of(&engine, p0).len();
+
+    // `ChooseMode` is answered by *position*, and the list holds only the
+    // modes that can be chosen legally (CR 603.3c), so the position of a
+    // mode is looked up rather than assumed — the bounce is on this list,
+    // because Panharmonicon is itself a nonland permanent it can point at.
+    let mode_at = |engine: &Engine<RegistryLookup>, mode: usize| {
+        let Pending::ChooseCastMode { options, .. } = engine.pending() else {
+            unreachable!("standing on the mode question")
+        };
+        options
+            .iter()
+            .position(|o| matches!(o.kind, crate::choice::CastModeKind::Mode(m) if m == mode))
+            .expect("the mode is offered")
+    };
+
+    // The first copy: a Bird.
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseCastMode { .. })
+    });
+    let token_mode = mode_at(&engine, 0);
+    engine
+        .apply(p0, PlayerAction::ChooseMode(token_mode))
+        .unwrap();
+    // The second copy: a draw. Its question is a *separate* one — if the
+    // mode were asked once for the ability, this would never appear.
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseCastMode { .. })
+    });
+    let draw_mode = mode_at(&engine, 2);
+    engine
+        .apply(p0, PlayerAction::ChooseMode(draw_mode))
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(
+        tokens_of(&engine, p0).len(),
+        tokens_before + 1,
+        "one Bird, from the copy that chose the token mode",
+    );
+    assert_eq!(
+        engine
+            .state()
+            .zones
+            .list(crate::zone::ZoneLocation::Hand(p0))
+            .len(),
+        hand_before,
+        "the Channeler left the hand and the draw put one card back",
+    );
+}
