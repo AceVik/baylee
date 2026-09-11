@@ -244,6 +244,18 @@ impl Tx<'_> {
         }
     }
 
+    /// Refuses, saying why.
+    ///
+    /// The spelling that makes a silent `?` visible at the point it happens.
+    /// Every refusal that reaches [`refusal_reason`] with nothing recorded is
+    /// reported as "no reason recorded", which is a worklist entry naming no
+    /// work — the same fault [`crate::forgegen`]'s own report was written to
+    /// fix one level up.
+    fn deny<T>(&self, what: String) -> Option<T> {
+        self.note(what);
+        None
+    }
+
     /// A Forge valid-string (`Creature.YouCtrl+nonToken`) as a `Filter`.
     fn filter_expr(&self, valid: &str) -> Option<String> {
         let mut alternatives = Vec::new();
@@ -381,12 +393,16 @@ impl Tx<'_> {
 
     /// One effect and everything its `SubAbility$` chain adds.
     fn chain(&mut self, spec: &str, chain: &mut Chain) -> Option<()> {
-        let (api, mut p) = Params::parse(spec)?;
+        let Some((api, mut p)) = Params::parse(spec) else {
+            return self.deny("an ability spec with no `$` in it".to_string());
+        };
         p.drop_prose();
         if let Some(valid) = p.take("ValidTgts") {
-            let spec = self.target_spec(&valid, &api)?;
+            let Some(spec) = self.target_spec(&valid, &api) else {
+                return self.deny(format!("target `{valid}`"));
+            };
             if chain.target.get_or_insert(spec.clone()) != &spec {
-                return None; // two different targets in one chain
+                return self.deny("two different targets in one chain".to_string());
             }
         }
         let sub = p.take("SubAbility");
@@ -424,7 +440,9 @@ impl Tx<'_> {
         chain.effects.extend(effects);
         match sub {
             Some(name) => {
-                let body = self.svars.get(&name)?.clone();
+                let Some(body) = self.svars.get(&name).cloned() else {
+                    return self.deny(format!("`SubAbility$ {name}` names no SVar"));
+                };
                 self.chain(&body, chain)
             }
             None => Some(()),
@@ -887,7 +905,12 @@ impl Tx<'_> {
     }
 
     /// A `Cost$` value as a `Cost` expression, plus whether it taps.
-    fn cost_expr(raw: &str) -> Option<String> {
+    ///
+    /// Takes `&self` only so that an unreadable token can name itself. A cost
+    /// is where the widest variety of Forge's syntax shows up — `Discard<…>`,
+    /// `Exile<…>`, `tapXType<…>` — and a report saying "a cost" would send
+    /// the reader back to the script to find out which.
+    fn cost_expr(&self, raw: &str) -> Option<String> {
         let mut mana = String::new();
         let mut parts: Vec<String> = Vec::new();
         for token in raw.split_whitespace() {
@@ -910,7 +933,8 @@ impl Tx<'_> {
                 mana.push_str(token);
                 mana.push('}');
             } else {
-                return None;
+                let head = token.split('<').next().unwrap_or(token);
+                return self.deny(format!("cost `{head}`"));
             }
         }
         if mana.is_empty() && parts == ["CostPart::TapSelf"] {
@@ -932,9 +956,13 @@ impl Tx<'_> {
         p.take("TriggerZones");
         match mode {
             "ChangesZone" => {
-                let origin = p.take("Origin")?;
-                let dest = p.take("Destination")?;
-                let valid = p.take("ValidCard")?;
+                let origin = p.take("Origin");
+                let dest = p.take("Destination");
+                let valid = p.take("ValidCard");
+                let (Some(origin), Some(dest), Some(valid)) = (origin, dest, valid) else {
+                    return self
+                        .deny("a `ChangesZone` trigger missing one of its three keys".to_string());
+                };
                 let filter = if valid == "Card.Self" {
                     "&Filter::This".to_string()
                 } else {
@@ -944,24 +972,35 @@ impl Tx<'_> {
                 match (origin.as_str(), dest.as_str()) {
                     ("Any", "Battlefield") => Some(format!("Trigger::EntersBattlefield({filter})")),
                     ("Battlefield", "Graveyard") => Some(format!("Trigger::Dies({filter})")),
-                    _ => None,
+                    _ => self.deny(format!("trigger on a move from {origin} to {dest}")),
                 }
             }
             "Phase" => {
-                let step = match p.take("Phase")?.as_str() {
+                let Some(phase) = p.take("Phase") else {
+                    return self.deny("a `Phase` trigger with no `Phase$`".to_string());
+                };
+                let step = match phase.as_str() {
                     "Upkeep" => "StepKind::Upkeep",
                     "Draw" => "StepKind::Draw",
                     "BeginCombat" => "StepKind::CombatBegin",
                     "End of Turn" => "StepKind::End",
-                    _ => return None,
+                    other => return self.deny(format!("trigger at step `{other}`")),
                 };
-                let whose = Self::player_rel(p.take("ValidPlayer").as_deref())?;
+                let valid = p.take("ValidPlayer");
+                let Some(whose) = Self::player_rel(valid.as_deref()) else {
+                    return self.deny(format!(
+                        "trigger for player `{}`",
+                        valid.unwrap_or_default()
+                    ));
+                };
                 Some(format!(
                     "Trigger::StepBegin {{ step: {step}, whose: {whose} }}"
                 ))
             }
             "Attacks" => {
-                let valid = p.take("ValidCard")?;
+                let Some(valid) = p.take("ValidCard") else {
+                    return self.deny("an `Attacks` trigger with no `ValidCard$`".to_string());
+                };
                 let filter = if valid == "Card.Self" {
                     "&Filter::This".to_string()
                 } else {
@@ -971,10 +1010,14 @@ impl Tx<'_> {
                 Some(format!("Trigger::Attacks({filter})"))
             }
             "Taps" => {
-                let valid = p.take("ValidCard")?;
-                (valid == "Card.Self").then(|| "Trigger::BecomesTapped(&Filter::This)".to_string())
+                let valid = p.take("ValidCard").unwrap_or_default();
+                if valid == "Card.Self" {
+                    Some("Trigger::BecomesTapped(&Filter::This)".to_string())
+                } else {
+                    self.deny(format!("a `Taps` trigger on `{valid}` rather than itself"))
+                }
             }
-            _ => None,
+            other => self.deny(format!("trigger mode `{other}`")),
         }
     }
 
@@ -984,7 +1027,7 @@ impl Tx<'_> {
             'T' => self.triggered(spec),
             'S' => self.static_ability(spec),
             'R' => self.replacement(spec),
-            _ => None,
+            other => self.deny(format!("rules line kind `{other}:`")),
         }
     }
 
@@ -996,7 +1039,9 @@ impl Tx<'_> {
     /// stops the land from being tapped a moment after it arrives untapped.
     /// Every other `Moved` replacement is a rule of its own and refuses.
     fn replacement(&mut self, spec: &str) -> Option<()> {
-        let (event, mut p) = Params::parse(spec)?;
+        let Some((event, mut p)) = Params::parse(spec) else {
+            return self.deny("an `R:` line with no `$` in it".to_string());
+        };
         if event != "Moved" {
             self.note(format!("replacement `R: Event$ {event}`"));
             return None;
@@ -1009,12 +1054,16 @@ impl Tx<'_> {
         // `Updated` means the event still happens, changed. `Prevented` and
         // the rest replace it with something else entirely.
         let updated = p.take("ReplacementResult").as_deref() == Some("Updated");
-        let with = p.take("ReplaceWith")?;
+        let Some(with) = p.take("ReplaceWith") else {
+            return self.deny("replacement `Moved` with no `ReplaceWith$`".to_string());
+        };
         if !about_self || !entering || !updated || !p.exhausted() {
             self.note("replacement `Moved` this rule cannot read".to_string());
             return None;
         }
-        let (api, mut body) = Params::parse(self.svars.get(&with)?)?;
+        let Some((api, mut body)) = self.svars.get(&with).and_then(|s| Params::parse(s)) else {
+            return self.deny(format!("`ReplaceWith$ {with}` names no readable SVar"));
+        };
         body.drop_prose();
         // `DB$ Tap | Defined$ Self | ETB$ True`: the tap has to be of this
         // card, as it enters, or it is not this modifier.
@@ -1062,7 +1111,9 @@ impl Tx<'_> {
     /// on one line, so this emits one `StaticAbility` per layer touched
     /// rather than trying to fold them into one.
     fn static_ability(&mut self, spec: &str) -> Option<()> {
-        let (mode, mut p) = Params::parse(spec)?;
+        let Some((mode, mut p)) = Params::parse(spec) else {
+            return self.deny("an `S:` line with no `$` in it".to_string());
+        };
         if mode != "Continuous" {
             self.note(format!("static ability `S: Mode$ {mode}`"));
             return None;
@@ -1086,7 +1137,10 @@ impl Tx<'_> {
             self.note(format!("static ability reaching `AffectedZone$ {zone}`"));
             return None;
         }
-        let filter = self.filter_expr(&p.take("Affected")?)?;
+        let Some(affected) = p.take("Affected") else {
+            return self.deny("a continuous static with no `Affected$`".to_string());
+        };
+        let filter = self.filter_expr(&affected)?;
         let mut out = Vec::new();
         self.pt_modifiers(&mut p, &filter, &mut out)?;
         self.keyword_modifiers(&mut p, &filter, &mut out)?;
@@ -1097,6 +1151,8 @@ impl Tx<'_> {
         if !p.exhausted() || out.is_empty() {
             if let Some(key) = p.first_key() {
                 self.note(format!("unclaimed parameter `Continuous.{key}`"));
+            } else {
+                self.note("a continuous static that changes nothing".to_string());
             }
             return None;
         }
@@ -1264,7 +1320,9 @@ impl Tx<'_> {
 
     fn activated_or_spell(&mut self, spec: &str) -> Option<()> {
         let is_activated = spec.starts_with("AB$");
-        let (_, mut probe) = Params::parse(spec)?;
+        let Some((_, mut probe)) = Params::parse(spec) else {
+            return self.deny("an `A:` line with no `$` in it".to_string());
+        };
         probe.drop_prose();
         let cost = probe.take("Cost");
         let mut chain = Chain::default();
@@ -1276,11 +1334,14 @@ impl Tx<'_> {
             .collect();
         self.chain(&stripped.join(" | "), &mut chain)?;
         if chain.effects.is_empty() {
-            return None;
+            return self.deny("an ability that reads as no effect at all".to_string());
         }
         let effects = format!("&[{}]", chain.effects.join(", "));
         if is_activated {
-            let cost = Self::cost_expr(&cost?)?;
+            let Some(cost) = cost else {
+                return self.deny("an activated ability with no `Cost$`".to_string());
+            };
+            let cost = self.cost_expr(&cost)?;
             let mana_ability = chain.effects.iter().all(|e| e.contains("Effect::mana"));
             let macro_name = if mana_ability {
                 "mana_ability!"
@@ -1307,18 +1368,27 @@ impl Tx<'_> {
     }
 
     fn triggered(&mut self, spec: &str) -> Option<()> {
-        let (mode, mut p) = Params::parse(spec)?;
+        let Some((mode, mut p)) = Params::parse(spec) else {
+            return self.deny("a `T:` line with no `$` in it".to_string());
+        };
         p.drop_prose();
         let trigger = self.trigger_expr(&mut p, &mode)?;
-        let execute = p.take("Execute")?;
+        let Some(execute) = p.take("Execute") else {
+            return self.deny(format!("a `{mode}` trigger with no `Execute$`"));
+        };
         if !p.exhausted() {
+            if let Some(key) = p.first_key() {
+                return self.deny(format!("unclaimed parameter `{mode}.{key}`"));
+            }
             return None;
         }
-        let body = self.svars.get(&execute)?.clone();
+        let Some(body) = self.svars.get(&execute).cloned() else {
+            return self.deny(format!("`Execute$ {execute}` names no SVar"));
+        };
         let mut chain = Chain::default();
         self.chain(&body, &mut chain)?;
         if chain.effects.is_empty() {
-            return None;
+            return self.deny("a trigger that reads as no effect at all".to_string());
         }
         let targets = chain
             .target
@@ -1451,12 +1521,24 @@ pub fn refusal_reason(script: &ForgeScript, cats: &SubtypeCatalogs) -> Option<St
         unclaimed: std::cell::RefCell::new(None),
     };
     for line in &script.keywords {
-        keyword_const(line)?;
+        if keyword_const(line).is_none() {
+            let head = line.split(':').next().unwrap_or(line);
+            let head = head.split(' ').next().unwrap_or(head);
+            return Some(format!("keyword `{head}`"));
+        }
     }
     for (kind, spec) in &script.rules {
         if tx.rule(*kind, spec).is_none() {
             return tx.unclaimed.into_inner();
         }
+    }
+    // [`transcode`]'s last refusal, mirrored. A script that is read in full
+    // and yields nothing is a card whose rules text this transcoder has no
+    // rule for at all — usually a vanilla body, and never a defect — but it
+    // is a *reason*, and leaving it out filed every one of them under "no
+    // reason recorded".
+    if tx.body.is_empty() {
+        return Some("a script that reads as an empty card".to_string());
     }
     None
 }
@@ -2069,6 +2151,106 @@ mod tests {
             refusal_reason(&script, &cats()).as_deref(),
             Some("static ability `S: Mode$ CantBlockBy`")
         );
+    }
+
+    /// Every refusal names one, and the counter-test is the same set read
+    /// the other way round.
+    ///
+    /// A report whose largest bucket is "refused with no reason recorded" is
+    /// a worklist naming no work — the fault `refusal_cause` was written to
+    /// fix one level up, and it had simply moved down here: `?` is silent,
+    /// so a rule that met a cost, a trigger mode or a missing `SVar` it
+    /// could not read refused without saying which. Over the 33666 scripts
+    /// of the forge corpus that bucket is now empty, and this is the part of
+    /// that measurement a build can make.
+    #[test]
+    fn a_refused_script_always_says_why() {
+        // One per refusal point that used to be silent. The expected string
+        // is spelled out rather than merely asserted non-empty, because
+        // "some reason" is what a fallback produces too.
+        let cases: &[(&str, &str)] = &[
+            (
+                "Name:X\nTypes:Creature\nA:AB$ Draw | Cost$ Discard<1/Card> | NumCards$ 1",
+                "cost `Discard`",
+            ),
+            (
+                "Name:X\nTypes:Creature\nA:AB$ Draw | NumCards$ 1",
+                "an activated ability with no `Cost$`",
+            ),
+            (
+                "Name:X\nTypes:Creature\nT:Mode$ Championed | Execute$ TrigDraw\n\
+                 SVar:TrigDraw:DB$ Draw | NumCards$ 1",
+                "trigger mode `Championed`",
+            ),
+            (
+                "Name:X\nTypes:Creature\n\
+                 T:Mode$ Phase | Phase$ Main1 | ValidPlayer$ You | Execute$ TrigDraw\n\
+                 SVar:TrigDraw:DB$ Draw | NumCards$ 1",
+                "trigger at step `Main1`",
+            ),
+            (
+                "Name:X\nTypes:Creature\n\
+                 T:Mode$ ChangesZone | Origin$ Battlefield | Destination$ Exile | \
+                 ValidCard$ Card.Self | Execute$ TrigDraw\n\
+                 SVar:TrigDraw:DB$ Draw | NumCards$ 1",
+                "trigger on a move from Battlefield to Exile",
+            ),
+            (
+                "Name:X\nTypes:Creature\n\
+                 T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | \
+                 ValidCard$ Card.Self | Execute$ NoSuchSVar",
+                "`Execute$ NoSuchSVar` names no SVar",
+            ),
+            (
+                "Name:X\nTypes:Instant\nA:SP$ Draw | NumCards$ 1 | SubAbility$ NoSuchSVar",
+                "`SubAbility$ NoSuchSVar` names no SVar",
+            ),
+            (
+                "Name:X\nTypes:Instant\n\
+                 A:SP$ DealDamage | ValidTgts$ Creature | NumDmg$ 1 | SubAbility$ Second\n\
+                 SVar:Second:DB$ DealDamage | ValidTgts$ Player | NumDmg$ 1",
+                "two different targets in one chain",
+            ),
+            // The one `transcode` refuses after every rule has been read.
+            (
+                "Name:X\nTypes:Creature",
+                "a script that reads as an empty card",
+            ),
+        ];
+        for (script, why) in cases {
+            let parsed = parse(script);
+            assert!(
+                transcode(&parsed, &cats()).is_none(),
+                "this case is supposed to be refused: {script}"
+            );
+            assert_eq!(
+                refusal_reason(&parsed, &cats()).as_deref(),
+                Some(*why),
+                "the reason given for: {script}"
+            );
+        }
+
+        // The counter-test, and the reason the list above is not enough on
+        // its own: a `deny` that named the wrong thing would still pass a
+        // non-empty check. Each of these is one clause away from a case
+        // above and is read in full.
+        for script in [
+            "Name:X\nTypes:Creature\nA:AB$ Draw | Cost$ T | NumCards$ 1",
+            "Name:X\nTypes:Creature\n\
+             T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | Execute$ TrigDraw\n\
+             SVar:TrigDraw:DB$ Draw | NumCards$ 1",
+            "Name:X\nTypes:Creature\n\
+             T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | \
+             ValidCard$ Card.Self | Execute$ TrigDraw\n\
+             SVar:TrigDraw:DB$ Draw | NumCards$ 1",
+        ] {
+            let parsed = parse(script);
+            assert!(
+                transcode(&parsed, &cats()).is_some(),
+                "the near miss is supposed to be read: {script}"
+            );
+            assert_eq!(refusal_reason(&parsed, &cats()), None, "{script}");
+        }
     }
 
     #[test]
