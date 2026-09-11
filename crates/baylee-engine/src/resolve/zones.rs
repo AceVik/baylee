@@ -134,7 +134,10 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             None
         }
         Effect::ExileGraveyard { player } => {
-            for player in eval::players(player, state, you) {
+            // Bojuka Bog says "target player's graveyard" — `Chosen`, which
+            // `eval::players` answers with nothing at all. It shipped as a
+            // Swamp that costs a land drop.
+            for player in players_of(player, state, you, res) {
                 let cards: Vec<ObjectId> =
                     state.zones.list(ZoneLocation::Graveyard(player)).clone();
                 for card in cards {
@@ -219,7 +222,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             None
         }
         Effect::BottomCardFromHand { player, filter } => {
-            let player = eval::players(player, state, you).first().copied()?;
+            let player = players_of(player, state, you, res).first().copied()?;
             let options: Vec<ObjectId> = state
                 .zones
                 .list(ZoneLocation::Hand(player))
@@ -359,7 +362,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             None
         }
         Effect::ExileLibraryAndShuffleHand { player } => {
-            for player in eval::players(player, state, you) {
+            for player in players_of(player, state, you, res) {
                 let lib: Vec<ObjectId> = state.zones.list(ZoneLocation::Library(player)).clone();
                 for card in lib {
                     let _ = state.move_object(
@@ -413,7 +416,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
         Effect::DestroyChosenForPlayers { who, filter } => {
             // Same per-player choice chain as SacrificeFilter, destroying
             // instead (The True Scriptures I).
-            let mut players = eval::players(who, state, you);
+            let mut players = players_of(who, state, you, res);
             players.retain(|p| {
                 state
                     .zones
@@ -451,7 +454,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             })
         }
         Effect::SacrificeFilter { who, filter } => {
-            let mut players = eval::players(who, state, you);
+            let mut players = players_of(who, state, you, res);
             players.retain(|p| {
                 state
                     .zones
@@ -489,7 +492,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             })
         }
         Effect::DiscardForPlayers { who, count } => {
-            let players = eval::players(who, state, you);
+            let players = players_of(who, state, you, res);
             let mut remaining: Vec<PlayerId> = players
                 .iter()
                 .copied()

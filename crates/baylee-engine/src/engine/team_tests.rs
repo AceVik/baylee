@@ -151,9 +151,11 @@ fn a_teammate_is_not_an_opponent() {
 
     // "Each opponent" is the set the rule names, so it is two seats at this
     // table and not three minus yourself.
-    let opponents = crate::eval::players(baylee_cards_dsl::PlayerRel::EachOpponent, state, a);
+    let opponents = crate::eval::players(baylee_cards_dsl::PlayerRel::EachOpponent, state, a)
+        .expect("a state-only relation");
     assert_eq!(opponents, vec![c]);
-    let everyone = crate::eval::players(baylee_cards_dsl::PlayerRel::EachPlayer, state, a);
+    let everyone = crate::eval::players(baylee_cards_dsl::PlayerRel::EachPlayer, state, a)
+        .expect("a state-only relation");
     assert_eq!(everyone, vec![a, b, c]);
 }
 

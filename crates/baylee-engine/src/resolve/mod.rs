@@ -290,12 +290,16 @@ pub(super) fn amount2(
 /// The seats a [`PlayerRel`] names *during a resolution*.
 ///
 /// [`eval::players`] answers the half that the state alone can answer, and
-/// deliberately returns nothing for the two relations that need the
+/// deliberately answers `None` for the two relations that need the
 /// resolution's own context: `Chosen` is the player this spell or ability
 /// targeted, `ControllerOfTarget` is read off its first object target. An
 /// effect that reaches for `eval::players` directly therefore does *nothing*
 /// on a card that says "target opponent" — which is exactly how Abraded
-/// Bluffs shipped as a land that deals no damage.
+/// Bluffs shipped as a land that deals no damage. **Every effect inside a
+/// resolution asks this function**, whatever relation the card names; the
+/// `other` arm below is the only place in the module that may unwrap the
+/// state-only half, and its `expect` is unreachable because the two context
+/// relations are matched above it.
 pub(super) fn players_of(
     rel: PlayerRel,
     state: &GameState,
@@ -309,7 +313,8 @@ pub(super) fn players_of(
             .first()
             .and_then(|t| state.object(*t))
             .map_or_else(Vec::new, |o| vec![o.controller]),
-        other => eval::players(other, state, you),
+        other => eval::players(other, state, you)
+            .expect("the two context relations are matched above this arm"),
     }
 }
 
@@ -938,11 +943,7 @@ fn exec_choice(state: &mut GameState, res: &mut Resolution, op: Effect) -> Optio
             })
         }
         Effect::ScryFor { player, amount } => {
-            let players = match player {
-                PlayerRel::Chosen => res.chosen_player.into_iter().collect::<Vec<_>>(),
-                other => eval::players(other, state, you),
-            };
-            let player = players.first().copied()?;
+            let player = players_of(player, state, you, res).first().copied()?;
             let n = eval::amount(&amount, state, player, res.source, res.x) as usize;
             let looked: Vec<ObjectId> = state
                 .zones
@@ -1010,7 +1011,9 @@ fn exec_choice(state: &mut GameState, res: &mut Resolution, op: Effect) -> Optio
             mana,
             effect,
         } => {
-            let player = eval::players(player, state, you).first().copied()?;
+            // `players_of`, not `eval::players`: ward names the *caster*
+            // (`ControllerOfTarget`), which the state alone cannot answer.
+            let player = players_of(player, state, you, res).first().copied()?;
             // Evaluated here rather than written into the card, because
             // Esper Sentinel's tax is its own power and a creature's power
             // is not known until the ability resolves. `u16` is what the
@@ -1060,7 +1063,7 @@ fn exec_choice(state: &mut GameState, res: &mut Resolution, op: Effect) -> Optio
             }) {
                 return None;
             }
-            let player = eval::players(player, state, you).first().copied()?;
+            let player = players_of(player, state, you, res).first().copied()?;
             let options: Vec<ObjectId> = state
                 .zones
                 .list(ZoneLocation::Library(player))
@@ -1334,11 +1337,7 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
         }
         Effect::DrawCardsFor { amount, who } => {
             let n = amount2(&amount, state, you, res.source, res.x, &res.targets) as usize;
-            let players = match who {
-                PlayerRel::Chosen => res.chosen_player.into_iter().collect(),
-                other => eval::players(other, state, you),
-            };
-            for player in players {
+            for player in players_of(who, state, you, res) {
                 state.draw_cards(player, n);
             }
             None

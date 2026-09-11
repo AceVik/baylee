@@ -109,10 +109,20 @@ pub fn matches_projected(
     }
 }
 
-/// Resolves a relative player reference to concrete players.
+/// Resolves a relative player reference to concrete players — or `None` for
+/// the two relations the game state alone cannot answer.
+///
+/// `Chosen` is the player a spell or ability targeted and `ControllerOfTarget`
+/// is read off its first object target, so both need the *resolution's* own
+/// context and only [`crate::resolve::players_of`] has it. The `None` is the
+/// whole point of the signature: this used to answer `vec![]` there, which
+/// reads exactly like "no seats matched" and is what shipped Abraded Bluffs
+/// as a land that deals no damage, Twining Twins' ward as a keyword that never
+/// asks for its tax, Path to Exile without its ramp and Bojuka Bog as a swamp.
+/// A caller that has a `Resolution` must not be able to swallow that silently.
 #[must_use]
-pub fn players(rel: PlayerRel, state: &GameState, you: PlayerId) -> Vec<PlayerId> {
-    match rel {
+pub fn players(rel: PlayerRel, state: &GameState, you: PlayerId) -> Option<Vec<PlayerId>> {
+    Some(match rel {
         PlayerRel::You => vec![you],
         PlayerRel::Opponent | PlayerRel::EachOpponent => state
             .players
@@ -126,10 +136,43 @@ pub fn players(rel: PlayerRel, state: &GameState, you: PlayerId) -> Vec<PlayerId
             .filter(|p| !p.has_lost)
             .map(|p| p.id)
             .collect(),
-        PlayerRel::ControllerOfTarget | PlayerRel::Chosen => {
-            vec![] // resolved in resolve.rs (needs the target/player context)
-        }
+        PlayerRel::ControllerOfTarget | PlayerRel::Chosen => return None,
+    })
+}
+
+/// The graveyard cards a `CardInGraveyard` spec may point at.
+///
+/// Legality is enumerated *before* any resolution exists, so the two context
+/// relations have no answer here and an empty list is the honest one — this
+/// is one of exactly two callers allowed to read [`players`]' `None` as
+/// "nobody". Every `CardInGraveyard` in the pool names `You` or `EachPlayer`;
+/// one naming `Chosen` would be a bug in the card.
+fn graveyard_options(
+    filter: &Filter,
+    rel: PlayerRel,
+    state: &GameState,
+    you: PlayerId,
+    this: ObjectId,
+) -> Vec<ObjectId> {
+    let Some(seats) = players(rel, state, you) else {
+        return Vec::new();
+    };
+    let mut out = Vec::new();
+    for player in seats {
+        out.extend(
+            state
+                .zones
+                .list(ZoneLocation::Graveyard(player))
+                .iter()
+                .filter(|id| {
+                    state
+                        .object(**id)
+                        .is_some_and(|o| matches(filter, state, o, you, this))
+                })
+                .copied(),
+        );
     }
+    out
 }
 
 /// Evaluates an [`Amount`].
@@ -345,22 +388,7 @@ pub fn target_options(
             .copied()
             .collect(),
         TargetSpec::CardInGraveyard(filter, rel) => {
-            let mut out = Vec::new();
-            for player in players(*rel, state, you) {
-                out.extend(
-                    state
-                        .zones
-                        .list(ZoneLocation::Graveyard(player))
-                        .iter()
-                        .filter(|id| {
-                            state
-                                .object(**id)
-                                .is_some_and(|o| matches(filter, state, o, you, this))
-                        })
-                        .copied(),
-                );
-            }
-            out
+            graveyard_options(filter, *rel, state, you, this)
         }
         TargetSpec::StackOrBattlefield(filter) => {
             let mut out: Vec<ObjectId> = state

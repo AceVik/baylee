@@ -337,6 +337,65 @@ pub fn tap_mana_except(
     }
 }
 
+/// Taps everything `seat` can tap for mana, then casts `card` from their hand.
+///
+/// The two halves are one step because they are one decision in a test: a
+/// spell is cast off an open board, and a test that tapped nothing would be
+/// refused by `LegalActions` for a reason that has nothing to do with what it
+/// was written to prove.
+#[track_caller]
+pub fn cast_from_hand(engine: &mut Engine<RegistryLookup>, seat: PlayerId, card: CardIndex) {
+    let spell = in_hand(engine, seat, card).expect("the spell is in hand");
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    for source in legal.mana_abilities.clone() {
+        engine
+            .apply(seat, PlayerAction::ActivateManaAbility { source })
+            .unwrap();
+    }
+    engine
+        .apply(seat, PlayerAction::CastSpell { card: spell })
+        .unwrap();
+}
+
+/// Puts the top `n` cards of `seat`'s library into their graveyard.
+///
+/// `SeatSpec` has fields for an opening hand and a starting battlefield and
+/// none for a graveyard, so every card that reads one — Bojuka Bog, anything
+/// that reanimates — would otherwise need a spell cast first just to put
+/// something there. This is the harness' own dev capability doing what the
+/// capability is for.
+#[track_caller]
+pub fn seed_graveyard(engine: &mut Engine<RegistryLookup>, seat: PlayerId, n: usize) {
+    let state = engine
+        .dev_state_mut(seat)
+        .expect("the harness may set boards up");
+    let cards: Vec<baylee_core::ids::ObjectId> = state
+        .zones
+        .list(crate::zone::ZoneLocation::Library(seat))
+        .iter()
+        .rev()
+        .take(n)
+        .copied()
+        .collect();
+    assert_eq!(
+        cards.len(),
+        n,
+        "the library is shorter than the seed asked for"
+    );
+    for card in cards {
+        state
+            .move_object(
+                card,
+                crate::zone::ZoneLocation::Graveyard(seat),
+                crate::zone::ZonePosition::Top,
+                crate::event::Cause::Effect,
+            )
+            .expect("the harness moves a card");
+    }
+}
+
 /// Advances until `seat` holds priority in their first main phase, however
 /// many turns away that is.
 ///

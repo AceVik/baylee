@@ -1580,7 +1580,7 @@ about the table itself rather than the rules, and both are fixed.
 
 ## Fourth pass, 2026-09-10 — found while making a card-less ability say so
 
-### 30. Ward never fires — CONFIRMED, unreported
+### 30. Ward never fires — FIXED, and the cause written here was wrong
 
 `AbilityDef::Ward { mana }` is read by `trigger.rs` and the whole path
 exists: three synthetic effect lists, a scan that looks for a `SpellCast` or
@@ -1589,13 +1589,58 @@ the tax is declined. It fires for nothing. Measured on Twining Twins
 (ward {1}), targeted by an opponent's Path to Exile: the Path resolves with
 no question asked, and the same is true of a token copy of it.
 
-The shape of the hole is a timing one, and it is why the test suite has no
-ward test at all — not one, in either direction. The scan reads
-`state.object(target_obj).targets.contains(&permanent)`, which is a fact
-about the *spell on the stack*, from a window of journal entries starting at
-`from_seq`. `SpellCast` is journaled when the cast begins, and targets are
-chosen after that: by the time the spell has targets, the event that would
-have found them is behind the window.
+**The timing diagnosis that stood here was wrong**, and it is worth keeping
+the correction visible: it read that the scan's window opens before the
+spell has targets, because `SpellCast` is journalled when the cast begins.
+`cast_wizard` writes `obj.targets` and records `SpellCast` *after* it
+(`cast_wizard.rs` ~977, then ~1046), so the scan sees exactly what it is
+looking for. A probe in `trigger.rs` on the failing case printed the window
+entry `SpellCast { object: ObjectId(123#0), player: PlayerId(1) }` with
+`targets_this=true`, and then the `AbilityTriggered` the scan queues. The
+trigger is collected, goes on the stack above the spell, and is resolved.
+
+It dies in resolution, one line lower down. `Effect::PlayerMayPayOr` asked
+`eval::players` which seat owes the tax; ward says `PlayerRel::
+ControllerOfTarget` — the caster — and `eval::players` answered `vec![]` for
+it, because that relation and `Chosen` need the resolution's own context and
+only `resolve::players_of` has it. The `.first().copied()?` then returned out
+of the effect entirely: no question, and not even the
+`CounterTargetSpellOrAbility` fallback that a declined tax runs.
+`players_of`'s own doc comment already named the trap — it is how Abraded
+Bluffs shipped as a land that deals no damage — and **ten** sites were
+reaching past it.
+
+**The same seam, four more victims**, found by sweeping the pool for both
+relations rather than for ward:
+
+- **Path to Exile** — `OptionalBasicLandSearchFor { ControllerOfTarget }`.
+  Entry 7 above read this card's ramp half off its source and said it
+  implements exactly what it prints. It does, and it did nothing.
+- **Bojuka Bog** — `ExileGraveyard { Chosen }`: a land that costs a land drop
+  and exiles no graveyard.
+- **Jace, the Mind Sculptor −12** — `ExileLibraryAndShuffleHand { Chosen }`.
+- **Ertai Resurrected**'s two halves — `DrawCardsFor { ControllerOfTarget }`,
+  which fault 34 hides: a `ModalTriggered` is never collected at all, so the
+  draws are not reachable to be wrong yet.
+
+Fixed by routing all ten sites through `players_of`, and by changing
+`eval::players` to return `Option<Vec<PlayerId>>` — `None` for the two
+context relations. The `Option` is the half that matters. `vec![]` reads
+exactly like "no seats matched", so a new caller swallows the trap without
+noticing; a `None` cannot be consumed without a visible decision, which is
+the same convention-into-a-build-failure idiom the card tests use. Two
+callers legitimately have no resolution to ask — `eval::target_options`
+enumerates legality *before* one exists — and now say so in a sentence
+instead of by accident.
+
+Three tests, one per victim the pool can reach today:
+`keyword_tests::ward_taxes_the_opponent_who_targeted_it`,
+`card_tests::path_to_exile_offers_the_ramp_to_the_creatures_controller` and
+`card_tests::bojuka_bog_exiles_only_the_graveyard_it_targeted`. Each asserts
+the **seat** and not merely that a question was asked, because offering
+Path's search to the caster would be just as wrong and would pass a test
+that only counted a `ChooseCards`. Each was mutated by reverting its own
+site alone: each failed, and only that one.
 
 Prowess is the same branch and is *not* the same fault — it reads the
 `SpellCast` event alone and needs nothing from the spell's targets. It is
@@ -1612,10 +1657,11 @@ creature. It was grepped for the printed word `Prowess` under `cards/`
 rather than for `KeywordSet::PROWESS`, which is how a keyword is spelled
 where it counts — the pool-wide-claim lesson, once more.)
 
-Not fixed here. The change that found it made the card-less half of an
-ability handle honest, which is what let a copy of a warded creature be
-*queued* a trigger at all; that it then fires for nobody is a second fault
-underneath the first.
+The fault that found this one is still worth recording as a pair: the change
+that surfaced it made the card-less half of an ability handle honest, which
+is what let a copy of a warded creature be *queued* a trigger at all. That it
+then fired for nobody was a second fault underneath the first, and it turned
+out to be the larger of the two.
 
 ## Fifth pass, 2026-09-10 — from the owner's UX report
 

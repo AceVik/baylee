@@ -2091,3 +2091,226 @@ fn the_strix_takes_its_keywords_back_when_the_tidebinder_leaves() {
         "the tidebinder is gone and the strix is still stripped: {keywords:?}"
     );
 }
+
+fn path_to_exile() -> baylee_core::ids::CardIndex {
+    card_index("d683d985-9888-4d21-8b5f-69e69ce4a03b")
+}
+
+/// Every land `seat` controls, in battlefield order.
+fn lands_of(engine: &Engine<RegistryLookup>, seat: PlayerId) -> Vec<baylee_core::ids::ObjectId> {
+    engine
+        .state()
+        .zones
+        .list(crate::zone::ZoneLocation::Battlefield)
+        .iter()
+        .copied()
+        .filter(|id| {
+            engine.state().object(*id).is_some_and(|o| {
+                o.controller == seat && o.characteristics().types.contains(TypeSet::LAND)
+            })
+        })
+        .collect()
+}
+
+/// Path to Exile: "Exile target creature. **Its controller** may search their
+/// library for a basic land card…"
+///
+/// The ramp is the half of the card that is not the removal, and it is asked
+/// of the seat whose creature just died — never of the seat who cast the
+/// spell. `PlayerRel::ControllerOfTarget` is how the card says that, and a
+/// site that resolved it through `eval::players` got no seats at all and
+/// returned early, so the card shipped as a strictly better Swords to
+/// Plowshares that also gave the opponent nothing.
+///
+/// The assertion therefore names the seat, not just the question: an
+/// implementation that offered the search to the *caster* would be exactly as
+/// wrong and would pass a test that only counted a `ChooseCards`.
+#[test]
+fn path_to_exile_offers_the_ramp_to_the_creatures_controller() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(11, forest())
+        .battlefield(0, &[quiet_creature()])
+        .battlefield(1, &[plains()])
+        .hand(1, &[path_to_exile()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_their_main_phase(&mut engine, p1);
+
+    let victim = on_battlefield(&engine, p0, quiet_creature()).expect("p0's creature");
+    let lands_before = lands_of(&engine, p0).len();
+
+    cast_from_hand(&mut engine, p1, path_to_exile());
+    let Pending::ChooseTargets { player, .. } = engine.pending().clone() else {
+        panic!("Path asks for a target, got {:?}", engine.pending())
+    };
+    assert_eq!(player, p1, "their spell, their target");
+    engine
+        .apply(
+            p1,
+            PlayerAction::ChooseObjects {
+                objects: vec![victim],
+            },
+        )
+        .expect("Path points at the creature");
+
+    for _ in 0..8 {
+        if matches!(engine.pending(), Pending::ChooseCards { .. }) {
+            break;
+        }
+        let Pending::Priority { player, .. } = engine.pending().clone() else {
+            panic!(
+                "the ramp never asked — got {:?}. `OptionalBasicLandSearchFor` \
+                 resolves `ControllerOfTarget`, which only `players_of` can \
+                 answer.",
+                engine.pending()
+            )
+        };
+        engine.apply(player, PlayerAction::PassPriority).unwrap();
+    }
+    let Pending::ChooseCards {
+        player,
+        options,
+        min,
+        max,
+        ..
+    } = engine.pending().clone()
+    else {
+        panic!("expected the basic-land search, got {:?}", engine.pending())
+    };
+    assert_eq!(
+        player, p0,
+        "the search belongs to the creature's controller, not to the caster"
+    );
+    assert_eq!((min, max), (0, 1), "\"may search\" — one card at most");
+    assert!(
+        !options.is_empty(),
+        "p0's library is sixty Forests and every one of them is basic"
+    );
+
+    // The removal half happened too, and on the right card.
+    assert_eq!(
+        engine.state().object(victim).map(|o| o.zone),
+        Some(crate::zone::Zone::Exile),
+        "the creature is exiled, not destroyed"
+    );
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![options[0]],
+            },
+        )
+        .expect("p0 takes the land");
+    pass_until(&mut engine, |e| lands_of(e, p0).len() > lands_before);
+    let fetched = *lands_of(&engine, p0).first().expect("the fetched land");
+    assert!(
+        engine
+            .state()
+            .object(fetched)
+            .is_some_and(|o| o.status.contains(Status::TAPPED)),
+        "\"put that card onto the battlefield tapped\""
+    );
+}
+
+fn bojuka_bog() -> baylee_core::ids::CardIndex {
+    card_index("04b7362d-0490-4cb0-b5d7-2a7732f659ce")
+}
+
+/// Bojuka Bog: "When this land enters, exile **target player's** graveyard."
+///
+/// `PlayerRel::Chosen` — the seat the trigger pointed at — is the other half
+/// of the relation `eval::players` cannot answer, and it fails the same
+/// silent way: the loop ran over an empty list, the trigger resolved, and the
+/// land was a Swamp that cost a land drop.
+///
+/// Both graveyards are seeded and only one is named, because a fix that
+/// resolved `Chosen` as "each player" would empty the caster's own graveyard
+/// too and would otherwise pass unnoticed.
+#[test]
+fn bojuka_bog_exiles_only_the_graveyard_it_targeted() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(29, forest()).hand(0, &[bojuka_bog()]).start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    seed_graveyard(&mut engine, p0, 3);
+    seed_graveyard(&mut engine, p1, 3);
+    let mine_before = engine
+        .state()
+        .zones
+        .list(crate::zone::ZoneLocation::Graveyard(p0))
+        .len();
+    assert_eq!(
+        mine_before, 3,
+        "both graveyards start with something in them"
+    );
+    assert_eq!(
+        engine
+            .state()
+            .zones
+            .list(crate::zone::ZoneLocation::Graveyard(p1))
+            .len(),
+        3
+    );
+
+    let land = in_hand(&engine, p0, bojuka_bog()).expect("the bog is in hand");
+    engine
+        .apply(p0, PlayerAction::PlayLand { card: land })
+        .unwrap();
+
+    for _ in 0..8 {
+        if matches!(engine.pending(), Pending::ChooseTargets { .. }) {
+            break;
+        }
+        let Pending::Priority { player, .. } = engine.pending().clone() else {
+            panic!(
+                "the enters trigger never asked for a player: {:?}",
+                engine.pending()
+            )
+        };
+        engine.apply(player, PlayerAction::PassPriority).unwrap();
+    }
+    let Pending::ChooseTargets { player_options, .. } = engine.pending().clone() else {
+        panic!("expected a player choice, got {:?}", engine.pending())
+    };
+    assert_eq!(
+        player_options,
+        vec![p0, p1],
+        "\"target player\" is anyone at the table (CR 115.1), the caster included"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![],
+                players: vec![p1],
+            },
+        )
+        .expect("the bog points at the opponent");
+
+    pass_until(&mut engine, |e| {
+        e.state()
+            .zones
+            .list(crate::zone::ZoneLocation::Graveyard(p1))
+            .is_empty()
+    });
+    assert_eq!(
+        engine
+            .state()
+            .zones
+            .list(crate::zone::ZoneLocation::Exile(p1))
+            .len(),
+        3,
+        "the cards are exiled, not merely gone"
+    );
+    assert_eq!(
+        engine
+            .state()
+            .zones
+            .list(crate::zone::ZoneLocation::Graveyard(p0))
+            .len(),
+        mine_before,
+        "one graveyard was named and only that one is emptied"
+    );
+}

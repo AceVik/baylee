@@ -184,3 +184,91 @@ fn no_token_claims_a_keyword_the_engine_ignores() {
         );
     }
 }
+
+/// Twining Twins — {2}{U}{U}, flying, vigilance, **ward {1}**.
+fn twining_twins() -> baylee_core::ids::CardIndex {
+    card_index("105aea98-8eb9-4fb2-a0cb-7c7513317c5b")
+}
+/// Path to Exile — {W}, "exile target creature": the cheapest spell in the
+/// pool that points at a creature and nothing else.
+fn path_to_exile() -> baylee_core::ids::CardIndex {
+    card_index("d683d985-9888-4d21-8b5f-69e69ce4a03b")
+}
+
+/// Ward {1} (CR 702.21a): an opponent's spell that targets the permanent is
+/// countered unless **that opponent** pays the tax.
+///
+/// The tax is asked of the caster, not of the ward's controller, which is
+/// the half of the rule a `PlayerRel` can get backwards without anything
+/// noticing — so the assertion names the seat as well as the number.
+#[test]
+fn ward_taxes_the_opponent_who_targeted_it() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(17, plains())
+        .battlefield(0, &[twining_twins()])
+        // Two, because the tax is only ever *asked* of a seat that could pay
+        // it: `PlayerMayPayOr` runs its fallback outright off an empty pool,
+        // and a board with one Plains on it would prove the rule by countering
+        // the spell for the wrong reason.
+        .battlefield(1, &[plains(), plains()])
+        .hand(1, &[path_to_exile()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_their_main_phase(&mut engine, p1);
+
+    let twins = on_battlefield(&engine, p0, twining_twins()).expect("the warded creature");
+    cast_from_hand(&mut engine, p1, path_to_exile());
+    let Pending::ChooseTargets {
+        player, options, ..
+    } = engine.pending().clone()
+    else {
+        panic!("Path asks for a target, got {:?}", engine.pending())
+    };
+    assert_eq!(player, p1, "their spell, their choice");
+    assert!(
+        options.contains(&twins),
+        "ward does not make a creature untargetable (CR 702.21a): {options:?}"
+    );
+    engine
+        .apply(
+            p1,
+            PlayerAction::ChooseObjects {
+                objects: vec![twins],
+            },
+        )
+        .expect("Path points at the warded creature");
+
+    // The trigger goes on the stack above the spell and asks before it.
+    for _ in 0..20 {
+        if let Pending::YesNo {
+            player,
+            prompt: crate::choice::YesNoPrompt::PayTax { mana },
+            ..
+        } = engine.pending()
+        {
+            assert_eq!(*mana, 1, "Twining Twins prints ward {{1}}");
+            assert_eq!(
+                *player, p1,
+                "the tax is paid by the spell's controller, not by the \
+                 creature's (CR 702.21a)"
+            );
+            return;
+        }
+        // Anything that is not priority means the tax was never asked and
+        // Path has already resolved. Naming the finding here matters: the
+        // fault this test was written for showed up as `ChooseAttackers`,
+        // which reads like a harness mistake rather than a missing question.
+        let Pending::Priority { player, .. } = engine.pending().clone() else {
+            panic!(
+                "ward asked for nothing and the spell resolved — got {:?}. \
+                 The trigger is collected and does reach the stack; it dies \
+                 in resolution if `PlayerMayPayOr` resolves its `PlayerRel` \
+                 through `eval::players`, which has no answer for \
+                 `ControllerOfTarget`.",
+                engine.pending()
+            )
+        };
+        engine.apply(player, PlayerAction::PassPriority).unwrap();
+    }
+    panic!("ward never asked for its tax");
+}
