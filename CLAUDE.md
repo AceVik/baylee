@@ -870,11 +870,14 @@ both directions of an upgrade.
 **Every seat reads itself off its own mat.** One long edge of each mat is a
 `tabletop::MAT_LEDGE` shelf — a fourth band, dimmer than the quietest lane, so
 the ink on it is the brightest thing on a seat's ground — and the seat's bar
-is written along it. *Which* edge is the viewer's question rather than the
-seat's: `SeatSlot::ledge_is_outer` asks whether `facing.cos()` leans past
-`SIDE_SEAT_TILT` towards the camera, so a bar is always drawn above the board
-it describes on the one screen there is — the centre-facing edge for the near
-half of the ring, the outer edge for a seat across the table, and the
+is written along it. *Which* edge `SeatSlot::ledge_is_outer` answers, and it
+is two rules with `is_local` as the seam. **The local seat's bar is on the
+near edge of its own mat — the bottom of the screen, always.** That is the
+owner's decision and it costs the table one symmetry: what a player reads
+about themselves now sits between their board and their hand, where their
+eyes already are. Every *other* seat's bar is drawn above the board it
+describes on the one screen there is, which is `facing.cos()` leaning past
+`SIDE_SEAT_TILT` — the outer edge for a seat across the table, the
 centre-facing edge for a side seat, where the mat runs up and down the screen
 and neither edge is above anything. That last case is why the test has a
 tolerance and is not a comparison against zero: `cos(FRAC_PI_2)` is -4.4e-8 in
@@ -883,7 +886,10 @@ four-seat table to one edge and the right flank to the other, and the two
 flanks of a table have to answer alike. Only the
 shelf changes ends: the three lanes run from the centre-facing edge outwards
 at every seat, so `MatParams::ledge_outer` is a flag and not a flipped `uv.y`,
-which would carry the lane veils along with it. The bar carries
+which would carry the lane veils along with it. What *does* follow the shelf
+is where those three lanes start — a seat whose shelf is on its near edge
+gives that strip up and its board sits a `MAT_LEDGE` nearer the hearth, so no
+card is ever drawn where the bar is. The bar carries
 the priority caret, the seat's colour, its name, life,
 its four zone counts, the turn number with the day/night designation on its
 hinge, then the twelve steps of that turn. It is a **second retained tree**

@@ -1811,29 +1811,49 @@ for its glyph edges — WCAG's 7.0 for text and 3.0 for graphical objects, and
 felt of (21, 63, 40) rather than against the linear `FELT_*` constant, because
 the shader's lamp and the sky's tint are multiplies `tabletop` cannot see.
 
-**Which of the two long edges is the viewer's question, not the seat's.**
-`SeatSlot::ledge_is_outer` is `facing.cos() < 0.0`, and the whole of it is
-that a bar is drawn *above the board it describes on the one screen there
-is*: table `+y` runs away from the camera, so a seat whose inward normal
-points up the table keeps the centre-facing edge and a seat across the table
-takes the outer one, behind its land row. A seat exactly at the side of the
-ring is a tie — its mat runs up and down the screen and neither edge is above
-anything — and keeps the centre-facing edge it had.
+**Which of the two long edges is two questions, and `is_local` is the seam.**
 
-It shipped the other way round for one commit, at the centre-facing edge for
+The local seat's bar is on the **near** edge of its own mat — the bottom of
+the screen, always. That is the owner's decision and it is not derived from
+anything: what a player reads about themselves belongs between their board
+and their hand, where their eyes already are, and the table gives up the
+symmetry of one rule for every seat to put it there.
+
+Every other seat's is the viewer's question, not the seat's:
+`SeatSlot::ledge_is_outer` falls through to `facing.cos() < -SIDE_SEAT_TILT`,
+and the whole of that is that a bar is drawn *above the board it describes on
+the one screen there is*. Table `+y` runs away from the camera, so a seat
+across the table takes the outer edge, behind its land row. A seat exactly at
+the side of the ring is a tie — its mat runs up and down the screen and
+neither edge is above anything — and keeps the centre-facing edge it had.
+
+Both halves used to be the other way round, at the centre-facing edge for
 every seat, so a bar always stood between its owner's board and the hearth.
 That is the reading from each seat's own chair and it is perfectly coherent;
 it is not what anybody sees. Two players put their bars back-to-back across
 the middle of the table and the opponent's sat *under* their creatures, which
 is not "above the battlefield line" for the one person at the table with a
-screen.
+screen. Then the local seat left the rule again, the other way: above its own
+creatures is still the deepest point on the screen that belongs to it, and
+the bottom of the screen is not.
 
-**What moves is the shelf, and only the shelf.** The three lanes run from the
-centre-facing edge outwards at every seat — creatures nearest the middle of
-the table, lands at the back — because that is where the cards stand and a
-card does not turn round because the ink did. So `MatParams::ledge_outer` is
-a flag rather than a flipped `uv.y`: flipping the uv would move the lane
-veils with the shelf and put the brightest of the three behind the lands.
+`the_local_bar_is_the_nearest_ink_at_its_own_seat` measures the duel rather
+than restating the rule: every one of the local seat's three lane centres is
+further from the camera than its own shelf, every one of the opponent's is
+nearer than theirs, and the two shelves are at opposite ends of the table.
+
+**The lanes keep their order; only where they start follows the shelf.** The
+three run from the centre-facing edge outwards at every seat — creatures
+nearest the middle of the table, lands at the back — because that is where
+the cards stand and a card does not turn round because the ink did. So
+`MatParams::ledge_outer` is a flag rather than a flipped `uv.y`: flipping the
+uv would move the lane veils with the shelf and put the brightest of the
+three behind the lands. What the flag *does* change is `lane_center`'s
+`front`: a seat whose shelf sits on the centre-facing edge starts its lanes a
+`MAT_LEDGE` past it, and a seat whose shelf sits on the near edge — which is
+now every local seat — starts them at the edge itself and gives the near
+strip up instead. Either way a lane is exactly as tall as it was before the
+bar existed, and no card is drawn where the ink is.
 `seat_mat` takes the same flag and
 `a_flipped_shelf_takes_the_other_end_and_leaves_the_lanes_alone` reads both
 mats — it has to read the shelf's *fence* rather than its veil, because a

@@ -432,30 +432,52 @@ impl SeatSlot {
     /// `true` for the **outer** edge — the one away from the middle of the
     /// table, behind the land row — and `false` for the centre-facing edge.
     ///
-    /// The rule is one sentence and it is the viewer's, not the seat's: a
-    /// bar is drawn *above* the board it describes, on the screen the local
-    /// player is looking at. For the local seat and its near-side
-    /// neighbours the edge that reads as "above" is the centre-facing one;
-    /// for a seat across the table it is the outer one, because that seat's
-    /// board is drawn upside-down from here and its centre-facing edge is at
-    /// the bottom of it.
+    /// **The local seat's bar is on its near edge; every other seat's bar is
+    /// above its own board.** Two rules rather than one, and the seam
+    /// between them is [`is_local`](Self::is_local).
     ///
-    /// This was the other way round once — the centre-facing edge for
-    /// **every** seat, so a bar always stood between its owner's board and
-    /// the hearth. That is the reading from each seat's own chair, and it is
-    /// coherent; it is not what anybody sees. Two seats put their bars
-    /// back-to-back across the middle of the table and the opponent's sat
-    /// under their creatures, which is not "above the battlefield line" for
-    /// the one person at the table with a screen.
+    /// The second half is the viewer's rule and has not changed: a bar is
+    /// drawn above the board it describes, on the screen the local player is
+    /// looking at. A seat across the table has its board drawn upside-down
+    /// from here, so its centre-facing edge is at the bottom of it and the
+    /// outer edge is the one that reads as "above". A seat exactly at the
+    /// side of the ring is a tie — its mat runs up and down the screen and
+    /// neither edge is above anything — and keeps the centre-facing edge,
+    /// which is the one nearer the hearth and the one it had before.
     ///
-    /// `away.y` is the whole test. Table `+y` is away from the camera, so a
-    /// seat whose inward normal points up the table has its centre-facing
-    /// edge higher on screen. A seat exactly at the side of the ring is a
-    /// tie — its mat runs up and down the screen and neither edge is above
-    /// anything — and keeps the centre-facing edge, which is the one nearer
-    /// the hearth and the one it had before.
+    /// The first half used to be part of the second, and did put the local
+    /// bar above its own creatures: on the centre-facing edge, the deepest
+    /// point on the screen that still belongs to this seat. The owner asked
+    /// for it at the **bottom** instead, always, and that is a decision
+    /// rather than a correction — what a player reads about themselves now
+    /// sits between their board and their hand, where their eyes already
+    /// are, and the table gives up the symmetry of one rule for every seat.
+    /// The three lanes follow it (see [`lane_center`](Self::lane_center)):
+    /// the shelf takes the near strip and the board moves a
+    /// [`MAT_LEDGE`](crate::tabletop::MAT_LEDGE) towards the hearth, so no
+    /// card is ever drawn where the bar is.
+    ///
+    /// Before either, both halves were the *other* way round — the
+    /// centre-facing edge for **every** seat, so a bar always stood between
+    /// its owner's board and the hearth. That is the reading from each
+    /// seat's own chair, and it is coherent; it is not what anybody sees.
+    /// Two seats put their bars back-to-back across the middle of the table
+    /// and the opponent's sat under their creatures, which is not "above the
+    /// battlefield line" for the one person at the table with a screen.
+    ///
+    /// `away.y` is the whole test for everyone but the local seat. Table
+    /// `+y` is away from the camera, so a seat whose inward normal points up
+    /// the table has its centre-facing edge higher on screen.
     #[must_use]
     pub fn ledge_is_outer(&self) -> bool {
+        // Asked of the seat and not of the geometry, because the geometry
+        // would answer the old way: the camera sits behind this seat by
+        // construction, so its `facing.cos()` is the +1 end of the very
+        // comparison below. The near edge of its mat is the bottom of the
+        // screen, which is where the bar was asked for.
+        if self.is_local {
+            return true;
+        }
         // With a **tolerance**, and it is load-bearing rather than tidy.
         // `cos(FRAC_PI_2)` is -4.4e-8 in f32 and `cos(3·FRAC_PI_2)` is
         // +1.2e-8, so a bare `< 0.0` sends the left side seat of a four-seat
@@ -1678,6 +1700,39 @@ mod tests {
         assert!((none.lift - FAN_FLOAT).abs() < 1e-6);
     }
 
+    /// The owner's rule, measured rather than restated: in a duel both bars
+    /// are at the ends of the screen and the boards are between them. The
+    /// local seat's shelf is the *nearest* ink it has and its opponent's is
+    /// the furthest, which is what "immer unten" means once there are two
+    /// seats facing each other.
+    ///
+    /// Table `+y` runs away from the camera, so "nearer" is smaller `y`.
+    #[test]
+    fn the_local_bar_is_the_nearest_ink_at_its_own_seat() {
+        let layout = TableLayout::new(&seats(2), 1.78, None);
+        let local = layout.local().expect("a local seat");
+        let across = &layout.slots[1];
+
+        let shelf_y = |slot: &SeatSlot| slot.ledge_corners()[0].y;
+        for lane in LaneKind::ALL {
+            assert!(
+                shelf_y(local) < local.lane_center(lane).y,
+                "the local bar is nearer the camera than its own {lane:?} lane"
+            );
+            assert!(
+                shelf_y(across) > across.lane_center(lane).y,
+                "the opponent's bar stays above its own {lane:?} lane"
+            );
+        }
+        // And the boards are between the two bars, not stacked against one
+        // of them: the whole point of moving the local shelf is that it took
+        // the near strip with it.
+        assert!(
+            shelf_y(local) < across.lane_center(LaneKind::ALL[0]).y,
+            "the two shelves are at opposite ends of the table"
+        );
+    }
+
     /// The two flanks of a table have to answer alike, and a seat across it
     /// has to answer differently — with room to spare between the two, or
     /// the tolerance that settles the flanks would start deciding real
@@ -1687,9 +1742,9 @@ mod tests {
         let table = TableLayout::new(&seats(4), 1.78, None);
         let local = table.local().expect("a local seat");
         assert!(
-            !local.ledge_is_outer(),
-            "the seat the camera sits behind reads its own bar above its own \
-             creatures, on the edge facing the middle of the table"
+            local.ledge_is_outer(),
+            "the seat the camera sits behind reads its own bar at the bottom \
+             of the screen, on the near edge of its own mat"
         );
 
         for slot in &TableLayout::new(&seats(3), 1.78, None).slots[1..] {
