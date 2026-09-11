@@ -37,6 +37,7 @@
 
 pub mod abilities;
 pub mod ambience;
+pub mod arrowmat;
 pub mod buildui;
 pub mod cardart;
 pub mod cardmat;
@@ -708,6 +709,7 @@ impl Plugin for DuelPlugin {
         app.add_plugins(cardmat::CardMaterialPlugin)
             .add_plugins(feltmat::FeltMaterialPlugin)
             .add_plugins(matmat::MatMaterialPlugin)
+            .add_plugins(arrowmat::ArrowMaterialPlugin)
             .add_plugins(sky::SkyPlugin)
             // Without this nothing on the 3D table can be pointed at, ever.
             //

@@ -93,6 +93,41 @@ pub struct Line {
     pub standing: bool,
 }
 
+impl Line {
+    /// The end the arrowhead is on.
+    ///
+    /// An arrow is not a line and the difference is a claim: a line joins two
+    /// things and an arrow says which way the fight runs. The owner's sentence
+    /// is the specification — "arrows point from an attacker to the player or
+    /// planeswalker it attacks, and then onto its blockers" — so an attack
+    /// points at what it was aimed at, and a block points at the **blocker**,
+    /// because what the arrow is drawing there is the attack running into it.
+    ///
+    /// That is the opposite of [`from`](Self::from) for a block, and both are
+    /// right: `from` is the creature that was *declared*, which is what
+    /// [`Combat::staged`] and [`Combat::line_from`] mean by it, and this is
+    /// where the ink ends up. Deciding it here rather than in the renderer is
+    /// the whole point — "draw this kind backwards" is a rule about combat
+    /// wearing a renderer's clothes, and no test would ever reach it.
+    #[must_use]
+    pub const fn points_at(self) -> LineEnd {
+        match self.kind {
+            LineKind::Attack => self.to,
+            LineKind::Block => LineEnd::Object(self.from),
+        }
+    }
+
+    /// The end the arrow leaves, which is whatever [`points_at`](Self::points_at)
+    /// is not.
+    #[must_use]
+    pub const fn points_from(self) -> LineEnd {
+        match self.kind {
+            LineKind::Attack => LineEnd::Object(self.from),
+            LineKind::Block => self.to,
+        }
+    }
+}
+
 /// What is coming at one defender.
 ///
 /// Sums of projected power, nothing more. `unblocked` is the part with no
@@ -399,6 +434,56 @@ mod tests {
         assert!(
             !combat.staged(obj(2)),
             "the bear that stayed home has nothing to do with this"
+        );
+    }
+
+    /// The arrow runs the way the fight does, which for a block is backwards
+    /// from the declaration.
+    ///
+    /// The attack points at the seat it was aimed at. The block points at the
+    /// **blocker** — the attack running into it — so its head is on the
+    /// creature that was declared and its tail on the attacker, which is the
+    /// one place in this module where `from` is not where the ink starts.
+    #[test]
+    fn an_attack_points_at_its_defender_and_a_block_points_at_the_blocker() {
+        let view = ViewBuilder::new(2)
+            .with_battlefield(0, vec![token(9, 0, "Wall", 0, 4)])
+            .with_battlefield(1, vec![token(1, 1, "Bear", 2, 2)])
+            .with_combat(
+                vec![AttackerView {
+                    creature: obj(1),
+                    defending: Defender::Player(seat(0)),
+                }],
+                vec![BlockerView {
+                    blocker: obj(9),
+                    attacker: obj(1),
+                }],
+            )
+            .build();
+
+        let combat = Combat::read(&view, None);
+        let attack = combat
+            .lines
+            .iter()
+            .find(|l| l.kind == LineKind::Attack)
+            .expect("an attack");
+        assert_eq!(attack.points_from(), LineEnd::Object(obj(1)));
+        assert_eq!(attack.points_at(), LineEnd::Seat(seat(0)));
+
+        let block = combat
+            .lines
+            .iter()
+            .find(|l| l.kind == LineKind::Block)
+            .expect("a block");
+        assert_eq!(
+            block.points_from(),
+            LineEnd::Object(obj(1)),
+            "the arrow leaves the attacker"
+        );
+        assert_eq!(
+            block.points_at(),
+            LineEnd::Object(obj(9)),
+            "and lands on the blocker, which is the end `from` names"
         );
     }
 

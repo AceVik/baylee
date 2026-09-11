@@ -1,30 +1,41 @@
-//! The lines between the things that are fighting.
+//! The arrows between the things that are fighting.
 //!
-//! `baylee_client_core::combat` decides *which* lines exist; this draws them.
-//! Three things about the drawing are decisions rather than details:
+//! `baylee_client_core::combat` decides *which* arrows exist and which way
+//! each one points; this draws them. Four things about the drawing are
+//! decisions rather than details:
 //!
 //! **A mesh, not a gizmo.** Bevy's gizmos would be the obvious tool and are
 //! not available: the workspace takes bevy with `default-features = false`
 //! and `bevy_gizmos` is not in the list. Everything else on this table is an
-//! unlit quad, so a line is one too — a unit `Rectangle` laid flat, turned to
-//! face along the segment and stretched to its length.
+//! unlit quad, so an arrow is one too — a unit `Rectangle` laid flat, turned
+//! to face along the chord and stretched to cover the curve.
+//!
+//! **A curve with a head, and both are load-bearing.** These were straight
+//! stretched rectangles, and a straight line has two ends and no direction:
+//! which end was the attacker was something the player had to know already.
+//! Worse, everything attacking one seat ends at the same point, so the lines
+//! lay on top of each other near it. A bow separates them — two arcs leave a
+//! shared end at different angles — and a head says which way to read one.
+//! The arithmetic is `shaders/arrow.wgsl`; this file decides where the ends
+//! are and hands over lengths in table units.
 //!
 //! **Recomputed from where the cards *are*, not from where they are going.**
-//! Every card on this table moves through `Motion` and `glide`, so a line
+//! Every card on this table moves through `Motion` and `glide`, so an arrow
 //! built from `Motion::target` would snap to the card's destination while the
 //! card was still travelling, and a player declaring an attack would watch the
-//! line arrive before the attacker did. Reading the live `Transform` costs one
-//! query and keeps the line welded to both ends throughout the glide.
+//! arrow arrive before the attacker did. Reading the live `Transform` costs one
+//! query and keeps the arrow welded to both ends throughout the glide.
 //!
 //! **Drawn between the felt and the cards.** `LINE_Y` sits above the
-//! medallion and below `CARD_LIFT`, so a line never z-fights the table and
+//! medallion and below `CARD_LIFT`, so an arrow never z-fights the table and
 //! never crosses a card it passes under.
 
 use crate::Duel;
+use crate::arrowmat::{ArrowMaterial, ArrowParams};
 use crate::hud::palette;
 use crate::table::{CardVisual, DuelStage, to_world};
 use baylee_client_core::combat::{Combat, Line, LineEnd, LineKind};
-use baylee_client_core::layout::{CARD_WIDTH, SeatSlot};
+use baylee_client_core::layout::{CARD_HEIGHT, CARD_WIDTH, SeatSlot};
 use bevy::prelude::*;
 
 /// How high above the table top a line lies.
@@ -32,8 +43,67 @@ use bevy::prelude::*;
 /// Between the medallion (0.0015) and `CARD_LIFT` (0.01).
 const LINE_Y: f32 = 0.005;
 
-/// How wide a line is, in table units — a twentieth of a card.
-const LINE_WIDTH: f32 = CARD_WIDTH * 0.05;
+/// Half the width of an arrow's shaft, in table units — a fortieth of a card.
+const SHAFT: f32 = CARD_WIDTH * 0.025;
+
+/// Half the width of the head where it is widest.
+///
+/// Four times the shaft. A head only reads as a head if it is plainly wider
+/// than the thing it is on the end of, and at this camera the shaft is about
+/// three physical pixels.
+const HEAD_WIDTH: f32 = SHAFT * 4.0;
+
+/// How much of the curve the head takes.
+///
+/// A fraction rather than a length, so a long arrow across the table and a
+/// short one between neighbours both look like arrows. The cost is that a
+/// very long arrow gets a very long head; `bow` caps the curvature for the
+/// same reason and by the same argument.
+const HEAD_FRAC: f32 = 0.13;
+
+/// How far an arrow bows off its own chord, as a fraction of that chord.
+const BOW: f32 = 0.14;
+
+/// The most it may bow, in table units.
+///
+/// A cap, because the fraction is what separates two arrows sharing an end
+/// and a whole-table arc would sail over everybody's board on the way. One
+/// card wide is enough to tell two arcs apart and small enough to stay in the
+/// gap between two mats.
+const BOW_CAP: f32 = CARD_WIDTH;
+
+/// How far short of a card an arrow stops, when it is pointing at one.
+///
+/// A little over half a card's height, so the head sits outside the card at
+/// any approach angle. Without it an arrow ends at the card's *centre* — and
+/// the arrows are drawn under the cards on purpose, between the medallion and
+/// `CARD_LIFT`, so the head of a block arrow was being drawn underneath the
+/// blocker it was pointing at and could not be seen at all. The tail is left
+/// alone: an arrow coming out from under the card that owns it reads as
+/// leaving that card, which is what it is doing.
+///
+/// A seat's end needs none of this. [`seat_anchor`] is already the near edge
+/// of that seat's mat, and nothing stands on it.
+const CLEAR: f32 = CARD_HEIGHT * 0.52;
+
+/// The most of a short arrow the clearance may eat, at each end.
+///
+/// A blocker standing right in front of the attacker it blocks is two cards
+/// apart, which is less than twice the clearance, and an arrow that had its
+/// whole length taken off it would leave a head lying on the felt pointing at
+/// nothing.
+const CLEAR_SHARE: f32 = 0.3;
+
+/// How many dashes the current is cut into over a whole arrow.
+const DASHES: f32 = 7.0;
+
+/// How many of them pass a fixed point each second.
+///
+/// The table's own tempo, and the same number `BEAT` is — one dash per beat.
+/// `docs/design.md` §1.6 is why it is not a rate of its own: the current is
+/// on the felt beside the keyword rail and the focus ring, and a third clock
+/// among them is the fairground that section exists to prevent.
+const CURRENT: f32 = BEAT;
 
 /// Opacity of a declaration the engine has accepted.
 const STANDING: f32 = 0.85;
@@ -45,32 +115,27 @@ const STANDING: f32 = 0.85;
 /// undo once it is sent.
 const PROPOSED: f32 = 0.40;
 
-/// One drawn line, and the declaration it stands for.
+/// One drawn arrow, the declaration it stands for, and the uniform it was
+/// last written with.
 ///
-/// The declaration is kept so the material is only swapped when the line
-/// actually changes kind or firms up, rather than on every frame.
+/// The uniform is kept so that a frame which changes nothing writes nothing:
+/// the current runs off `globals.time` inside the shader, so a standing arrow
+/// between two cards that are not moving needs no upload at all, and the
+/// comparison is what turns that into a fact rather than a hope.
 #[derive(Component)]
 pub struct CombatLine {
     line: Line,
+    params: ArrowParams,
 }
 
-/// The quad and the four materials every line shares.
+/// The one quad every arrow is drawn on.
+///
+/// There is no material here, unlike every other cached-asset resource in
+/// this client: an arrow's geometry *is* its uniform, so two arrows are never
+/// the same material and there is nothing to share.
 #[derive(Resource, Default)]
 pub struct LineAssets {
     quad: Option<Handle<Mesh>>,
-    /// Indexed by [`shade`] — an array rather than a map, so the lookup has
-    /// no ordering to be wrong about.
-    materials: [Option<Handle<StandardMaterial>>; 4],
-}
-
-/// Which of the four materials a line uses.
-const fn shade(kind: LineKind, standing: bool) -> usize {
-    match (kind, standing) {
-        (LineKind::Attack, true) => 0,
-        (LineKind::Attack, false) => 1,
-        (LineKind::Block, true) => 2,
-        (LineKind::Block, false) => 3,
-    }
 }
 
 /// The colour a line is drawn in.
@@ -96,29 +161,35 @@ fn seat_anchor(slot: &SeatSlot) -> Vec2 {
     slot.center - inward * (slot.mat_depth() / 2.0)
 }
 
-/// Brings the drawn lines in line with the combat the model reports.
+/// Brings the drawn arrows in line with the combat the model reports.
+#[expect(
+    clippy::too_many_arguments,
+    reason = "the quad, the two asset tables, the preference and the two disjoint queries"
+)]
 pub fn sync_combat_lines(
     mut commands: Commands,
     duel: Res<Duel>,
+    prefs: Res<crate::prefs::Prefs>,
     mut assets: ResMut<LineAssets>,
     mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut materials: ResMut<Assets<ArrowMaterial>>,
     cards: Query<(&CardVisual, &Transform), Without<CombatLine>>,
     mut drawn: Query<
         (
             Entity,
             &mut CombatLine,
             &mut Transform,
-            &mut MeshMaterial3d<StandardMaterial>,
+            &MeshMaterial3d<ArrowMaterial>,
         ),
         With<CombatLine>,
     >,
 ) {
     let wanted = wanted_lines(&duel, &cards);
+    let motion = crate::cardmat::motion_of(prefs.all().reduce_motion);
 
     // Reused in a stable order. Query iteration follows archetype order,
     // which is stable within a frame but says nothing across frames, so the
-    // pool is sorted — otherwise a line could swap ends with another one
+    // pool is sorted — otherwise an arrow could swap ends with another one
     // between frames and slide across the table for no reason.
     let mut pool: Vec<Entity> = drawn.iter().map(|(e, ..)| e).collect();
     pool.sort_unstable();
@@ -129,23 +200,32 @@ pub fn sync_combat_lines(
         .clone();
 
     for (index, (line, from, to)) in wanted.iter().enumerate() {
-        let material = material_for(&mut assets, &mut materials, line.kind, line.standing);
-        let transform = span(*from, *to);
+        let (transform, params) = arrow(*line, *from, *to, motion);
         if let Some(entity) = pool.get(index).copied() {
-            let Ok((_, mut existing, mut at, mut mat)) = drawn.get_mut(entity) else {
+            let Ok((_, mut existing, mut at, mat)) = drawn.get_mut(entity) else {
                 continue;
             };
             *at = transform;
-            if existing.line != *line {
-                existing.line = *line;
-                *mat = MeshMaterial3d(material);
+            existing.line = *line;
+            // Only when it moved. `get_mut` on an asset marks it changed
+            // whatever is written, so the comparison has to happen out here
+            // or every arrow re-uploads its uniform sixty times a second for
+            // as long as combat lasts.
+            if existing.params != params
+                && let Some(mut material) = materials.get_mut(&mat.0)
+            {
+                existing.params = params;
+                material.params = params;
             }
         } else {
             commands.spawn((
                 DuelStage,
-                CombatLine { line: *line },
+                CombatLine {
+                    line: *line,
+                    params,
+                },
                 Mesh3d(quad.clone()),
-                MeshMaterial3d(material),
+                MeshMaterial3d(materials.add(ArrowMaterial { params })),
                 transform,
             ));
         }
@@ -156,11 +236,16 @@ pub fn sync_combat_lines(
     }
 }
 
-/// Every line that can be drawn right now, with both of its ends resolved.
+/// Every arrow that can be drawn right now, tail first and head second.
 ///
-/// A line whose ends are not both on the table is dropped rather than guessed
-/// at: a planeswalker in a zone this seat cannot see has no position, and a
-/// line to nowhere is worse than no line.
+/// The two ends come from [`Line::points_from`] and [`Line::points_at`] and
+/// not from `from`/`to`, because a block's arrow runs the other way: the
+/// declaration's near end is the blocker and the *arrow* leaves the attacker
+/// and lands on it. That decision is in the model, where a test reaches it.
+///
+/// An arrow whose ends are not both on the table is dropped rather than
+/// guessed at: a planeswalker in a zone this seat cannot see has no position,
+/// and an arrow to nowhere is worse than no arrow.
 fn wanted_lines(
     duel: &Duel,
     cards: &Query<(&CardVisual, &Transform), Without<CombatLine>>,
@@ -192,48 +277,74 @@ fn wanted_lines(
         .lines
         .iter()
         .filter_map(|line| {
-            let from = at_object(line.from)?;
-            let to = at_end(line.to)?;
-            Some((*line, from, to))
+            let tail = at_end(line.points_from())?;
+            let head = at_end(line.points_at())?;
+            Some((*line, tail, head))
         })
         .collect()
 }
 
-/// The transform of a unit quad stretched between two points on the table.
+/// How far this arrow bows off its chord.
+///
+/// A fraction of the chord up to a cap. Two arrows that share an end need to
+/// leave it at different angles or they lie on top of each other, and a
+/// fraction is what gives a short arrow any curvature at all; the cap is what
+/// stops a long one from arcing over somebody's board on the way.
+fn bow(chord: f32) -> f32 {
+    (chord * BOW).min(BOW_CAP)
+}
+
+/// The quad an arrow is drawn on, and the uniform that draws it.
 ///
 /// The quad is laid flat first and then turned about `y`, the same order
 /// `card_transform` uses, so "flat" means the same thing for both. Its local
-/// `+x` is the length axis after the lay-flat rotation, which is why the yaw
-/// solves `R_y(θ)·x̂ = d̂` and the scale goes on `x`.
-fn span(from: Vec3, to: Vec3) -> Transform {
-    let delta = to - from;
-    let length = delta.length();
-    let yaw = (-delta.z).atan2(delta.x);
-    Transform {
-        translation: from.lerp(to, 0.5),
-        rotation: Quat::from_rotation_y(yaw) * Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2),
-        scale: Vec3::new(length.max(f32::EPSILON), LINE_WIDTH, 1.0),
-    }
-}
+/// `+x` is the chord after the lay-flat rotation, which is why the yaw solves
+/// `R_y(θ)·x̂ = d̂`.
+///
+/// It is sized to the whole *curve* and not to the chord: the box is longer
+/// than the chord by the head's own half-width at each end and deep enough for
+/// the bow plus that head, because a distance field clipped by its own quad
+/// loses exactly the part that was furthest from the straight line — which is
+/// the part the bow exists for.
+fn arrow(line: Line, tail: Vec3, head: Vec3, motion: f32) -> (Transform, ArrowParams) {
+    let reach = head - tail;
+    let span = reach.length();
+    // Stop short of the card at the pointed-at end, so the head is not drawn
+    // underneath it. Guarded against a zero span: two cards at the same place
+    // are a frame of a glide, not a geometry error.
+    let head = if line.points_at().object().is_some() && span > f32::EPSILON {
+        head - reach / span * CLEAR.min(span * CLEAR_SHARE)
+    } else {
+        head
+    };
 
-/// The shared material for one kind of line, made on first use.
-fn material_for(
-    assets: &mut LineAssets,
-    materials: &mut Assets<StandardMaterial>,
-    kind: LineKind,
-    standing: bool,
-) -> Handle<StandardMaterial> {
-    let index = shade(kind, standing);
-    assets.materials[index]
-        .get_or_insert_with(|| {
-            materials.add(StandardMaterial {
-                base_color: tint(kind, standing),
-                alpha_mode: AlphaMode::Blend,
-                unlit: true,
-                ..default()
-            })
-        })
-        .clone()
+    let delta = head - tail;
+    let chord = delta.length();
+    let yaw = (-delta.z).atan2(delta.x);
+    let bulge = bow(chord);
+    let margin = HEAD_WIDTH + SHAFT;
+    let box_size = Vec2::new(chord + margin * 2.0, (bulge + margin) * 2.0);
+    let colour = tint(line.kind, line.standing).to_linear();
+    (
+        Transform {
+            translation: tail.lerp(head, 0.5),
+            rotation: Quat::from_rotation_y(yaw)
+                * Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2),
+            scale: Vec3::new(box_size.x.max(f32::EPSILON), box_size.y, 1.0),
+        },
+        ArrowParams {
+            color: Vec4::new(colour.red, colour.green, colour.blue, colour.alpha),
+            box_size,
+            chord,
+            bulge,
+            width: SHAFT,
+            head_width: HEAD_WIDTH,
+            head_frac: HEAD_FRAC,
+            dashes: DASHES,
+            speed: CURRENT,
+            motion,
+        },
+    )
 }
 
 /// The ring marking what a declaration made right now would be aimed at.
@@ -373,34 +484,179 @@ mod tests {
         );
     }
 
+    /// The shader has no clock of its own, and stops when the table does.
+    ///
+    /// Two rules in one text assertion, because both are invisible from Rust:
+    /// `docs/design.md` §1.6 allows this table one tempo, and every animation
+    /// here has to land on `reduce_motion`. `globals.time` reaching a fragment
+    /// unmultiplied would break the second silently — the arrow would keep
+    /// running for a player who asked the table to hold still, and no test
+    /// that could not read the WGSL would ever notice.
     #[test]
-    fn a_line_reaches_from_one_end_to_the_other() {
-        // Geometry gets a geometry test: this client once shipped a card quad
-        // that drew as a bowtie while every transform assertion passed.
-        let from = Vec3::new(-2.0, LINE_Y, 1.0);
-        let to = Vec3::new(3.0, LINE_Y, -1.5);
-        let t = span(from, to);
-
-        // The quad's own ends, pushed through the transform it was given.
-        let head = t.transform_point(Vec3::new(0.5, 0.0, 0.0));
-        let tail = t.transform_point(Vec3::new(-0.5, 0.0, 0.0));
+    fn the_arrow_has_no_clock_of_its_own_and_stops_when_the_table_does() {
+        let src = include_str!("shaders/arrow.wgsl");
+        let uses: Vec<&str> = src
+            .lines()
+            .filter(|line| !line.trim_start().starts_with("//"))
+            .filter(|line| line.contains("globals.time"))
+            .collect();
+        assert_eq!(
+            uses.len(),
+            1,
+            "one reading of the clock, and it is the one handed in: {uses:?}"
+        );
         assert!(
-            head.distance(to) < 1e-4 && tail.distance(from) < 1e-4,
-            "the drawn quad spans exactly the two points it was given: \
-             {tail:?}..{head:?} for {from:?}..{to:?}"
+            uses[0].contains("params.motion"),
+            "the clock is multiplied by the motion preference: {}",
+            uses[0]
+        );
+        assert!(
+            uses[0].contains("params.speed"),
+            "and by the rate this file hands it, not one of its own: {}",
+            uses[0]
         );
     }
 
+    fn a_line(kind: LineKind) -> Line {
+        use baylee_core::ids::{ObjectId, PlayerId};
+        Line {
+            from: ObjectId::new(1, 0),
+            to: LineEnd::Seat(PlayerId::new(1)),
+            kind,
+            standing: true,
+        }
+    }
+
+    /// The curve leaves the card it belongs to and reaches the seat it names.
+    ///
+    /// Geometry gets a geometry test: this client once shipped a card quad
+    /// that drew as a bowtie while every transform assertion passed. What
+    /// spans the two points is the *curve*, not the quad — the quad is
+    /// longer, because a head needs room past the tip — so the ends are
+    /// measured where the shader puts them, at ±chord/2 of the box.
     #[test]
-    fn a_line_lies_flat_and_keeps_its_width() {
-        let t = span(Vec3::new(0.0, LINE_Y, 0.0), Vec3::new(0.0, LINE_Y, -4.0));
+    fn an_arrow_reaches_from_one_end_to_the_other() {
+        let tail = Vec3::new(-2.0, LINE_Y, 1.0);
+        let head = Vec3::new(3.0, LINE_Y, -1.5);
+        let (t, params) = arrow(a_line(LineKind::Attack), tail, head, 1.0);
+
+        let end = curve_end(&t, &params);
+        assert!(
+            end(1.0).distance(head) < 1e-4 && end(-1.0).distance(tail) < 1e-4,
+            "an arrow at a seat reaches it exactly, and leaves its own card: \
+             {:?}..{:?} for {tail:?}..{head:?}",
+            end(-1.0),
+            end(1.0)
+        );
+    }
+
+    /// An arrow pointing at a *card* stops short of it.
+    ///
+    /// The arrows are drawn under the cards on purpose, so a head that landed
+    /// on a card's centre was drawn beneath that card and was not there at
+    /// all. This is the one thing about the picture that a person looking at
+    /// it could miss and a test cannot.
+    #[test]
+    fn an_arrow_pointing_at_a_card_stops_in_front_of_it() {
+        use baylee_core::ids::ObjectId;
+        let mut line = a_line(LineKind::Block);
+        line.to = LineEnd::Object(ObjectId::new(7, 0));
+        // A block leaves `to` (the attacker) and lands on `from` (the
+        // blocker), so both ends of this one are cards.
+        let tail = Vec3::new(0.0, LINE_Y, 0.0);
+        let head = Vec3::new(0.0, LINE_Y, -6.0);
+        let (t, params) = arrow(line, tail, head, 1.0);
+
+        let end = curve_end(&t, &params);
+        assert!(
+            (end(-1.0).distance(tail)) < 1e-4,
+            "it still comes out from under the card it leaves"
+        );
+        // Measured against the *card*, not against `CLEAR`. Comparing the gap
+        // to the constant that produced it is a test that agrees with any
+        // value the constant happens to have, including zero — which is the
+        // bug. What has to be true is that the head is outside the card, and
+        // half a card's width is the shortest distance from a card's middle
+        // to its own edge.
+        let gap = end(1.0).distance(head);
+        assert!(
+            gap >= CARD_WIDTH * 0.5,
+            "the head stops {gap} from the card's middle, which is on top of it"
+        );
+    }
+
+    /// Two cards standing next to each other still get a whole arrow.
+    #[test]
+    fn a_short_arrow_keeps_most_of_its_length() {
+        use baylee_core::ids::ObjectId;
+        let mut line = a_line(LineKind::Block);
+        line.to = LineEnd::Object(ObjectId::new(7, 0));
+        let tail = Vec3::new(0.0, LINE_Y, 0.0);
+        let head = Vec3::new(0.0, LINE_Y, -1.0);
+        let (_, params) = arrow(line, tail, head, 1.0);
+        // A literal, for the same reason the gap above is measured against
+        // the card: `1.0 - CLEAR_SHARE` would agree with any share at all.
+        assert!(
+            params.chord >= 0.6,
+            "a one-unit arrow kept {} of itself, which is not an arrow any more",
+            params.chord
+        );
+    }
+
+    /// The two ends of the drawn curve, in table space.
+    fn curve_end<'a>(t: &'a Transform, params: &'a ArrowParams) -> impl Fn(f32) -> Vec3 + 'a {
+        move |sign| {
+            t.transform_point(Vec3::new(
+                sign * params.chord / (2.0 * params.box_size.x),
+                0.0,
+                0.0,
+            ))
+        }
+    }
+
+    /// The quad holds the whole curve, head and all.
+    ///
+    /// A distance field clipped by its own quad loses the part furthest from
+    /// the chord — which is exactly the bow, the thing the curve exists for —
+    /// and it does it silently: the arrow simply comes out flat-topped.
+    #[test]
+    fn an_arrow_lies_flat_and_its_box_holds_the_whole_curve() {
+        let (t, params) = arrow(
+            a_line(LineKind::Block),
+            Vec3::new(0.0, LINE_Y, 0.0),
+            Vec3::new(0.0, LINE_Y, -4.0),
+            1.0,
+        );
         let across = t.transform_point(Vec3::new(0.0, 0.5, 0.0))
             - t.transform_point(Vec3::new(0.0, -0.5, 0.0));
         assert!(
             across.y.abs() < 1e-5,
-            "the width axis stays in the table plane, not standing up out of it"
+            "the across axis stays in the table plane, not standing up out of it"
         );
-        assert!((across.length() - LINE_WIDTH).abs() < 1e-5);
+        assert!(
+            params.box_size.y >= 2.0 * (params.bulge + params.head_width),
+            "the box is {} deep for a bow of {} and a head of {}",
+            params.box_size.y,
+            params.bulge,
+            params.head_width
+        );
+        assert!(
+            params.box_size.x >= params.chord + 2.0 * params.head_width,
+            "and long enough for the head to finish inside it"
+        );
+    }
+
+    /// A player who has asked the table to hold still gets a still arrow.
+    #[test]
+    fn reduce_motion_reaches_the_current() {
+        let still = arrow(
+            a_line(LineKind::Attack),
+            Vec3::ZERO,
+            Vec3::new(2.0, 0.0, 0.0),
+            crate::cardmat::STILL,
+        )
+        .1;
+        assert!((still.motion - crate::cardmat::STILL).abs() < f32::EPSILON);
     }
 
     #[test]
@@ -492,6 +748,7 @@ mod running {
         .init_resource::<Prefs>()
         .insert_resource(Assets::<Mesh>::default())
         .insert_resource(Assets::<StandardMaterial>::default())
+        .insert_resource(Assets::<crate::arrowmat::ArrowMaterial>::default())
         .add_systems(Update, (sync_combat_lines, sync_focus_ring));
 
         for (index, slot) in [1_u32, 2].into_iter().enumerate() {
