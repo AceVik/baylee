@@ -348,6 +348,50 @@ pub(super) fn amount2(amount: &Amount, state: &GameState, you: PlayerId, res: &R
     }
 }
 
+/// The filters a continuous effect created by a **resolution** is registered
+/// with (CR 611.2c).
+///
+/// A static ability's effect is dynamic — an anthem lifts a creature that
+/// enters ten turns later, because the ability keeps applying for as long as
+/// its source is there. A spell or ability that *resolves* is the opposite:
+/// it happens once, and if what it does is modify characteristics or change
+/// control, the objects it affects are the ones it found. So the filter is
+/// read here, at the moment the effect begins, and the effect is registered
+/// against the objects it named rather than against the question.
+///
+/// The one it cannot answer is a filter that reaches past the battlefield:
+/// enumerating it would mean walking every zone the filter could mean, and a
+/// narrowing to the battlefield alone would silently drop the rest. Those
+/// stay dynamic, which is what they were.
+///
+/// One effect per object rather than one effect naming several, because an
+/// [`EffectFilter`](crate::effects::EffectFilter) names exactly one — the
+/// same shape `Effect::PumpTarget` already registers for a spell with two
+/// targets.
+pub(super) fn bound_now(
+    state: &GameState,
+    filter: &'static baylee_cards_dsl::Filter,
+    modifier: &baylee_cards_dsl::Modifier,
+    you: PlayerId,
+    this: ObjectId,
+) -> SmallVec<[crate::effects::EffectFilter; 4]> {
+    if !crate::effects::locks_its_set(modifier) || crate::state::filter_reaches_other_zones(filter)
+    {
+        return smallvec::smallvec![crate::effects::EffectFilter::Dsl(filter)];
+    }
+    state
+        .zones
+        .list(ZoneLocation::Battlefield)
+        .iter()
+        .filter(|id| {
+            state
+                .object(**id)
+                .is_some_and(|o| eval::matches(filter, state, o, you, this))
+        })
+        .map(|id| crate::effects::EffectFilter::ObjectIs(*id))
+        .collect()
+}
+
 /// The seats a [`PlayerRel`] names *during a resolution*.
 ///
 /// [`eval::players`] answers the half that the state alone can answer, and
@@ -1491,26 +1535,28 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
             modifier,
             duration,
         } => {
-            let filter = if matches!(filter, baylee_cards_dsl::Filter::This) {
+            let filters = if matches!(filter, baylee_cards_dsl::Filter::This) {
                 // Nothing to become anything: the ability said "target" and
                 // was activated with none, so this half of its sentence has
                 // no subject and registers nothing.
                 let this = this_object(res)?;
-                crate::effects::EffectFilter::ObjectIs(this)
+                smallvec::smallvec![crate::effects::EffectFilter::ObjectIs(this)]
             } else {
-                crate::effects::EffectFilter::Dsl(filter)
+                bound_now(state, filter, &modifier, you, res.source)
             };
             let timestamp = state.next_timestamp();
-            state.effects.register(crate::effects::ContinuousEffect {
-                id: baylee_core::ids::EffectId::new(0),
-                source: Some(res.source),
-                controller: you,
-                layer,
-                timestamp,
-                duration,
-                filter,
-                modifier,
-            });
+            for filter in filters {
+                state.effects.register(crate::effects::ContinuousEffect {
+                    id: baylee_core::ids::EffectId::new(0),
+                    source: Some(res.source),
+                    controller: you,
+                    layer,
+                    timestamp,
+                    duration,
+                    filter,
+                    modifier,
+                });
+            }
             None
         }
         Effect::BecomeMonarch => {

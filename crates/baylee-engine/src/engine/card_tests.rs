@@ -3197,3 +3197,119 @@ fn a_two_card_draw_fires_a_draw_watcher_twice() {
         "two cards drawn, so Sheoldred took 2 life twice",
     );
 }
+
+fn toxic_deluge() -> baylee_core::ids::CardIndex {
+    card_index("afaef788-34d1-460b-b884-9d7ae6ddeb18")
+}
+
+/// A creature cast after a board-wide debuff resolved is not on its list.
+///
+/// CR 611.2c: a continuous effect created by a resolving spell or ability
+/// that modifies characteristics affects the objects it found when it began,
+/// and the set does not change afterwards. Toxic Deluge registered a *live
+/// filter* instead — "every creature", asked again on every projection —
+/// so a creature cast one priority later entered as a 0/0 and was swept up
+/// by the next state-based check, killed by a spell that had already
+/// finished resolving.
+///
+/// Both halves are asserted, because either alone can be passed by a
+/// mistake: the opponent's Llanowar Elves was there when the Deluge
+/// resolved and dies, and the one cast afterwards stands there at 1/1.
+#[test]
+fn a_creature_cast_after_a_mass_debuff_is_not_shrunk_by_it() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(31, forest())
+        .battlefield(0, &[swamp(), swamp(), swamp(), forest()])
+        .battlefield(1, &[quiet_creature()])
+        .hand(0, &[toxic_deluge(), quiet_creature()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    // Only the swamps: the forest is kept back for the creature, so the
+    // test does not depend on which land the payment happens to spend.
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    for source in legal.mana_abilities.clone() {
+        if engine
+            .state()
+            .object(source)
+            .is_some_and(|o| o.card.is_some_and(|c| c.index == swamp()))
+        {
+            engine
+                .apply(p0, PlayerAction::ActivateManaAbility { source })
+                .unwrap();
+        }
+    }
+    let deluge = in_hand(&engine, p0, toxic_deluge()).expect("the Deluge is in hand");
+    engine
+        .apply(p0, PlayerAction::CastSpell { card: deluge })
+        .unwrap();
+    let Pending::ChooseNumber { .. } = engine.pending().clone() else {
+        panic!("expected the X choice, got {:?}", engine.pending())
+    };
+    engine.apply(p0, PlayerAction::ChooseNumber(1)).unwrap();
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        on_battlefield(&engine, p1, quiet_creature()).is_none(),
+        "the 1/1 that was there when the Deluge resolved took -1/-1 and died",
+    );
+
+    cast_from_hand(&mut engine, p0, quiet_creature());
+    pass_until(&mut engine, |e| {
+        on_battlefield(e, p0, quiet_creature()).is_some()
+    });
+    let mine = on_battlefield(&engine, p0, quiet_creature())
+        .expect("a creature cast after the Deluge survives its arrival");
+    assert_eq!(
+        pt(&engine, mine),
+        (1, 1),
+        "the Deluge had already resolved, so it is not one of its creatures",
+    );
+}
+
+fn darksteel_forge() -> baylee_core::ids::CardIndex {
+    card_index("9b3bec05-441f-4fdf-8b51-69fa8613fcd4")
+}
+
+/// A permanent that enters under a static grant is projected against it.
+///
+/// The projection cache is keyed on the *effect table's* generation, and a
+/// permanent arriving changes no effect: so the refresh pass at the top of
+/// the machine took its early exit, and the newcomer kept the cleared cache
+/// `move_object` left it — which reads as the printed card. Darksteel Forge
+/// says artifacts you control have indestructible, and a Sol Ring cast into
+/// that board had none of it.
+///
+/// The board is the smaller half of the claim: the Forge is on the
+/// battlefield before the game starts, so its static is registered and the
+/// generation has been still ever since. Nothing but the arrival is left to
+/// account for the difference.
+#[test]
+fn a_permanent_that_enters_under_a_static_grant_is_projected_against_it() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(37, forest())
+        .battlefield(0, &[darksteel_forge(), forest()])
+        .hand(0, &[quiet_artifact()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    cast_from_hand(&mut engine, p0, quiet_artifact());
+    pass_until(&mut engine, |e| {
+        on_battlefield(e, p0, quiet_artifact()).is_some()
+    });
+    let ring = on_battlefield(&engine, p0, quiet_artifact()).expect("the Ring resolved");
+    assert!(
+        engine
+            .state()
+            .object(ring)
+            .expect("the Ring is an object")
+            .characteristics()
+            .keywords
+            .contains(baylee_cards_dsl::KeywordSet::INDESTRUCTIBLE),
+        "the Forge grants indestructible to artifacts that arrive after it too",
+    );
+}

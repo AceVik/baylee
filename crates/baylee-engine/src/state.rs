@@ -1303,6 +1303,29 @@ impl GameState {
                 self.per_turn.creatures_died = self.per_turn.creatures_died.saturating_add(1);
             }
         }
+        // The projected set just changed, and the generation compare that
+        // guards a refresh counts *effects* — so nothing would have
+        // recomputed this object, or the ones that count it.
+        //
+        // Both directions, and both zones. An arrival keeps its cleared
+        // cache, which reads as the printed card: a creature cast into a
+        // board that already had an anthem on it stood there at its printed
+        // power, and — the way this was found — a creature cast after a
+        // Toxic Deluge resolved was the one creature on the battlefield the
+        // Deluge did not shrink. A departure is the other half, because a
+        // projection may count the board: `Modifier::ModifyPTPerCount` is
+        // "+1/+1 for each artifact you control", so a permanent leaving
+        // changes what a permanent that stayed projects to.
+        //
+        // Only the battlefield and the stack, which is exactly what the
+        // refresh pass revisits — a card drawn changes no projection unless
+        // a cross-zone effect is registered, and that pass projects every
+        // zone anyway.
+        if matches!(from_zone, Zone::Battlefield | Zone::Stack)
+            || matches!(to.zone(), Zone::Battlefield | Zone::Stack)
+        {
+            self.invalidate_projections();
+        }
         self.journal.record(GameEvent::ZoneChanged {
             object: id,
             from: from_zone,
@@ -1922,7 +1945,7 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
 
 /// Whether a DSL filter mentions non-battlefield zones (then its effect
 /// needs cross-zone projection).
-fn filter_reaches_other_zones(filter: &baylee_cards_dsl::Filter) -> bool {
+pub(crate) fn filter_reaches_other_zones(filter: &baylee_cards_dsl::Filter) -> bool {
     use baylee_cards_dsl::{Filter, ZoneRef};
     match filter {
         Filter::InZone(z) => !matches!(z, ZoneRef::Battlefield),

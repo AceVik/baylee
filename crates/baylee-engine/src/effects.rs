@@ -19,6 +19,70 @@ pub enum EffectFilter {
     ObjectIs(ObjectId),
 }
 
+/// Whether a continuous effect carrying this modifier fixes the set of
+/// objects it applies to at the moment it begins (CR 611.2c).
+///
+/// The rule draws its line at what the effect *does*: one that modifies
+/// characteristics or changes control affects the objects that were there
+/// when it began and no others, so "all creatures get -2/-2 until end of
+/// turn" leaves a creature that arrives afterwards alone. One that does
+/// neither — a prevention shield, a rule about what players may do — keeps
+/// applying to whatever comes along, which is why this cannot be answered
+/// by the effect's `Layer`: the layer says where an effect is applied and
+/// every variant here names one, including the modifiers that change no
+/// characteristic at all.
+///
+/// Exhaustive deliberately, the way [`crate::layers`]'s dependency table is:
+/// a `_ => false` arm would answer "keeps matching for ever" for every
+/// modifier added from here on, which is the direction that is silent —
+/// the effect simply goes on catching permanents nobody cast it at.
+#[must_use]
+pub fn locks_its_set(modifier: &Modifier) -> bool {
+    match modifier {
+        // Characteristics: types, colors, abilities, P/T — and control,
+        // which the rule names beside them.
+        Modifier::AddType(_)
+        | Modifier::RemoveType(_)
+        | Modifier::AddSubtype(_)
+        | Modifier::AllCreatureTypes
+        | Modifier::AllBasicLandTypes
+        | Modifier::AddColor(_)
+        | Modifier::SetColor(_)
+        | Modifier::AddKeyword(_)
+        | Modifier::RemoveKeyword(_)
+        | Modifier::LoseKeywords
+        | Modifier::ProtectionFrom(_)
+        | Modifier::BecomeCopyOf(_)
+        | Modifier::GrantsFlashback
+        | Modifier::GainControl
+        | Modifier::AddTypeIfCountersAtLeast { .. }
+        | Modifier::AddKeywordIfCountersAtLeast { .. }
+        | Modifier::GrantActivated { .. }
+        | Modifier::GrantTriggered { .. }
+        | Modifier::ModifyPTPerCount { .. }
+        | Modifier::ModifyPT(..)
+        | Modifier::SetPT(..)
+        | Modifier::SwitchPT => true,
+        // Neither: a shield that prevents damage, and the rules a player
+        // plays under. Teferi's `SorceriesHaveFlash` is the clearest of
+        // them — it is about its controller's spells, and a set of objects
+        // fixed at resolution would mean the cards in hand at that moment.
+        Modifier::LegendRuleOff
+        | Modifier::CantActivateArtifacts
+        | Modifier::OpponentsCastAsSorcery
+        | Modifier::PlayersCantLose
+        | Modifier::CantLoseLife
+        | Modifier::PreventDamageToIt
+        | Modifier::PreventDamageFromIt
+        | Modifier::OpponentsCantSearch
+        | Modifier::NoMaxHandSize
+        | Modifier::PlayerHexproof
+        | Modifier::SorceriesHaveFlash
+        | Modifier::ManaIsAnyColor
+        | Modifier::SearchTakeover => false,
+    }
+}
+
 /// A registered continuous effect.
 #[derive(Clone, Debug)]
 pub struct ContinuousEffect {

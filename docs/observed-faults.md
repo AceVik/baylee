@@ -2344,8 +2344,8 @@ seven cards are one `CardsDrawn { count: 7 }`, but `Engine::new` sets
 setup's draws are already behind the scan and no trigger is ever collected
 for them. A mulligan redraw *is* inside the scan, so a draw-watcher already
 on the battlefield would now see seven draws instead of one — reachable only
-from a preset with a `starting_battlefield`, which is a testkit board and a
-dev ticket, never a real game.
+from a preset with a `starting_battlefield`, which nothing but a test builds:
+the gateway names the field nowhere, so a dev ticket cannot ask for one.
 
 The test is `a_two_card_draw_fires_a_draw_watcher_twice`: Wizard Class levels
 itself up, draws two, and Sheoldred takes 4 — a count in both directions the
@@ -2362,3 +2362,118 @@ past the first draw and wrong for the one arrangement where a batch straddles
 it — a draw step whose own draw is inside a multi-card event. No card in the
 pool draws that way today.
 
+
+### 43. A permanent that arrives is never projected against what is already there — FIXED
+
+Found while writing entry 44's test, which passed against the engine it was
+written to fail against — the two faults hide each other, and the one that
+does the hiding is this one.
+
+`GameState::refresh_characteristics` is guarded by one integer compare:
+
+```rust
+if self.characteristics_generation == self.effects.generation {
+    return;
+}
+```
+
+That generation counts **effects**, and a permanent entering the battlefield
+adds none. So the pass took its early exit, and the newcomer kept the cache
+`move_object` had just cleared — which reads as the printed card, because
+`GameObject::characteristics` falls back to `base`. A Sol Ring cast onto a
+board with a Darksteel Forge on it had no indestructible. A creature cast
+under an anthem stood there at its printed power. Nothing announced any of
+it: the permanent looks right, it is simply the card rather than the card in
+this game.
+
+The cache's own doc comment says what was supposed to happen — *"Anything
+that writes a counter, or puts a new permanent on the battlefield, calls
+this"* — and `invalidate_projections` has seven callers, none of them the
+zone change. Counters got it (an amass token dying to its own 0/0 is
+recorded in that comment), a copy-on-enter got it, tokens got it. The
+ordinary arrival, which is how almost every permanent gets there, did not.
+
+The fix is in `move_object`, where the projected set actually changes:
+
+```rust
+if matches!(from_zone, Zone::Battlefield | Zone::Stack)
+    || matches!(to.zone(), Zone::Battlefield | Zone::Stack)
+{
+    self.invalidate_projections();
+}
+```
+
+Both directions, because a projection may **count the board**:
+`Modifier::ModifyPTPerCount` is "+1/+1 for each artifact you control", so a
+permanent leaving changes what a permanent that stayed projects to. Only
+those two zones, which is exactly the set the refresh pass revisits — a card
+drawn changes no projection unless a cross-zone effect is registered, and
+that pass walks every zone when one is.
+
+The test is `a_permanent_that_enters_under_a_static_grant_is_projected_
+against_it`: the Forge starts on the battlefield, so its static was
+registered before the game began and the generation has been still ever
+since; the Sol Ring is cast, and the assertion is that it has
+indestructible. The mutant is the `if` above disabled, and it fails that
+test and no other.
+
+Two things recorded rather than claimed. The **departure** half has no test:
+the only projection in the pool that reads the board's contents is the
+Construct token's `ModifyPTPerCount`, and reaching one takes an Urza's Saga
+through three chapters. And the refresh still cannot see *anything else* a
+filter reads — `Filter::Attacking` is the sharp one, because combat
+declarations change no effect and no zone — which is the same class of
+staleness one level down, and is why the generation compare deserves a
+second look when something else turns up wrong here.
+
+### 44. A board-wide debuff kept shrinking creatures that arrived later — FIXED
+
+CR 611.2c: a continuous effect created by the resolution of a spell or
+ability that modifies characteristics or changes control affects the set of
+objects it found when it began, and that set does not change afterwards. A
+static ability is the opposite — an anthem lifts a creature that enters ten
+turns later, because the ability keeps applying for as long as its source is
+on the battlefield.
+
+The engine made no distinction. `resolve::counters`' `PumpFilter` and
+`SetPTFilter` and `resolve`'s `CreateContinuousEffect` all registered
+`EffectFilter::Dsl(filter)` — a live question, asked again on every
+projection. So Toxic Deluge's "all creatures get -X/-X until end of turn"
+went on shrinking the board for the rest of the turn: a creature cast one
+priority later entered as a 0/0 and was swept up by the next state-based
+check, killed by a spell that had finished resolving before it existed.
+Venser's `-1` and Elspeth's flying grant are the same shape one keyword
+over.
+
+`resolve::bound_now` is the answer: it reads the filter **once**, at the
+moment the effect begins, and registers one effect per object it named — the
+shape `Effect::PumpTarget` already used for a spell with two targets, since
+an `EffectFilter` names exactly one object. Two things it declines to lock,
+and both are the rule rather than caution:
+
+- **A modifier that changes no characteristic.** `effects::locks_its_set` is
+  exhaustive over `Modifier` for the reason `layers::could_change_match` is:
+  the quiet direction is "keeps matching for ever". Teferi's
+  `SorceriesHaveFlash` and Reliquary Tower's `NoMaxHandSize` are about their
+  controller's hand and spells, and a set of objects fixed at resolution
+  would mean something else entirely; a prevention shield is the same. The
+  effect's `Layer` cannot answer this — every variant of `Layer` names a
+  characteristic layer, including the ones these modifiers ride in.
+- **A filter that reaches past the battlefield.** Enumerating it means
+  walking every zone the filter could mean, and narrowing it to the
+  battlefield would silently drop the rest. Those stay dynamic, which is
+  what they were.
+
+The test is `a_creature_cast_after_a_mass_debuff_is_not_shrunk_by_it`, and
+it asserts both halves, because either alone passes under a mistake: the
+opponent's Llanowar Elves was on the battlefield when the Deluge resolved
+and dies, and the one cast afterwards stands at 1/1. The mutant is
+`bound_now` returning the dynamic filter unconditionally.
+
+That mutant **survived** until entry 43 was fixed, which is the useful part
+of this pair. The newly cast creature was 1/1 either way — not because the
+Deluge spared it, but because nothing had projected it at all; a fresh
+`layers::recompute` beside the cached one said 0/0, and that disagreement is
+what found 43. A mutant that survives is worth reading twice: the first
+reading is "the test is weak", and the second is that something else is
+already wrong.

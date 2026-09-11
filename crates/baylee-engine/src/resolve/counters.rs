@@ -100,31 +100,35 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             let p = signed(&power);
             let t = signed(&toughness);
             let ts = state.next_timestamp();
-            state.effects.register(crate::effects::ContinuousEffect {
-                id: baylee_core::ids::EffectId::new(0),
-                source: Some(res.source),
-                controller: you,
-                layer: baylee_cards_dsl::Layer::PtSet,
-                timestamp: ts,
-                duration,
-                // `This` means the target here, exactly as it does in
-                // `CreateContinuousEffect` — the two are written as one
-                // sentence on a card ("becomes a creature with power and
-                // toughness equal to its mana value") and had to be able to
-                // name the same object. Without this arm the only way to
-                // write the P/T half was a filter describing the *kind* of
-                // permanent, which then set the P/T of every permanent of
-                // that kind on every battlefield. Karn's +1 on an artifact
-                // land is what found it: the land's mana value is nought, so
-                // every noncreature artifact in the game became a 0/0 and
-                // was put into a graveyard by the next state-based check.
-                filter: if matches!(filter, baylee_cards_dsl::Filter::This) {
-                    crate::effects::EffectFilter::ObjectIs(this)
-                } else {
-                    crate::effects::EffectFilter::Dsl(filter)
-                },
-                modifier: baylee_cards_dsl::Modifier::SetPT(p, t),
-            });
+            let modifier = baylee_cards_dsl::Modifier::SetPT(p, t);
+            // `This` means the target here, exactly as it does in
+            // `CreateContinuousEffect` — the two are written as one
+            // sentence on a card ("becomes a creature with power and
+            // toughness equal to its mana value") and had to be able to
+            // name the same object. Without this arm the only way to
+            // write the P/T half was a filter describing the *kind* of
+            // permanent, which then set the P/T of every permanent of
+            // that kind on every battlefield. Karn's +1 on an artifact
+            // land is what found it: the land's mana value is nought, so
+            // every noncreature artifact in the game became a 0/0 and
+            // was put into a graveyard by the next state-based check.
+            let filters = if matches!(filter, baylee_cards_dsl::Filter::This) {
+                smallvec::smallvec![crate::effects::EffectFilter::ObjectIs(this)]
+            } else {
+                super::bound_now(state, filter, &modifier, you, res.source)
+            };
+            for filter in filters {
+                state.effects.register(crate::effects::ContinuousEffect {
+                    id: baylee_core::ids::EffectId::new(0),
+                    source: Some(res.source),
+                    controller: you,
+                    layer: baylee_cards_dsl::Layer::PtSet,
+                    timestamp: ts,
+                    duration,
+                    filter,
+                    modifier,
+                });
+            }
             None
         }
         Effect::PumpFilter {
@@ -144,15 +148,14 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             };
             let p = signed(&power);
             let t = signed(&toughness);
-            pump(
+            let filters = super::bound_now(
                 state,
-                res,
+                filter,
+                &baylee_cards_dsl::Modifier::ModifyPT(p, t),
                 you,
-                crate::effects::EffectFilter::Dsl(filter),
-                (p, t),
-                keywords,
-                duration,
+                res.source,
             );
+            pump(state, res, you, &filters, (p, t), keywords, duration);
             None
         }
         Effect::PumpTarget {
@@ -174,17 +177,12 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             // Every target, not just the first: a spell that pumps two
             // creatures is one effect per creature, because an
             // `EffectFilter` names exactly one object.
-            for target in res.targets.clone() {
-                pump(
-                    state,
-                    res,
-                    you,
-                    crate::effects::EffectFilter::ObjectIs(target),
-                    (p, t),
-                    keywords,
-                    duration,
-                );
-            }
+            let filters: SmallVec<[crate::effects::EffectFilter; 4]> = res
+                .targets
+                .iter()
+                .map(|target| crate::effects::EffectFilter::ObjectIs(*target))
+                .collect();
+            pump(state, res, you, &filters, (p, t), keywords, duration);
             None
         }
         _ => unreachable!("not a counter/P-T effect"),
@@ -202,30 +200,32 @@ fn pump(
     state: &mut GameState,
     res: &Resolution,
     you: baylee_core::ids::PlayerId,
-    filter: crate::effects::EffectFilter,
+    filters: &[crate::effects::EffectFilter],
     pt: (i16, i16),
     keywords: baylee_cards_dsl::KeywordSet,
     duration: baylee_cards_dsl::Duration,
 ) {
     let timestamp = state.next_timestamp();
-    let mut fx = crate::effects::ContinuousEffect {
-        id: baylee_core::ids::EffectId::new(0),
-        source: Some(res.source),
-        controller: you,
-        layer: baylee_cards_dsl::Layer::PtModify,
-        timestamp,
-        duration,
-        filter,
-        modifier: baylee_cards_dsl::Modifier::ModifyPT(pt.0, pt.1),
-    };
-    // A pump of +0/+0 with keywords is Rush of Blood's shape, not a bug:
-    // register the P/T half only when it moves something.
-    if pt != (0, 0) {
-        state.effects.register(fx.clone());
-    }
-    if !keywords.is_empty() {
-        fx.layer = baylee_cards_dsl::Layer::Ability;
-        fx.modifier = baylee_cards_dsl::Modifier::AddKeyword(keywords);
-        state.effects.register(fx);
+    for filter in filters {
+        let mut fx = crate::effects::ContinuousEffect {
+            id: baylee_core::ids::EffectId::new(0),
+            source: Some(res.source),
+            controller: you,
+            layer: baylee_cards_dsl::Layer::PtModify,
+            timestamp,
+            duration,
+            filter: *filter,
+            modifier: baylee_cards_dsl::Modifier::ModifyPT(pt.0, pt.1),
+        };
+        // A pump of +0/+0 with keywords is Rush of Blood's shape, not a bug:
+        // register the P/T half only when it moves something.
+        if pt != (0, 0) {
+            state.effects.register(fx.clone());
+        }
+        if !keywords.is_empty() {
+            fx.layer = baylee_cards_dsl::Layer::Ability;
+            fx.modifier = baylee_cards_dsl::Modifier::AddKeyword(keywords);
+            state.effects.register(fx);
+        }
     }
 }
