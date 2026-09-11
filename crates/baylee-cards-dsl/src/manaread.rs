@@ -52,6 +52,38 @@ pub fn simple_mana(cost: &Cost, effects: &[Effect]) -> Option<SimpleMana> {
 /// tell apart and one of them is the reason the land is in the deck.
 #[must_use]
 pub fn mana_made(cost: &Cost, effects: &[Effect]) -> Option<(SimpleMana, bool)> {
+    let (source, amount, restricted) = mana_shape(cost, effects)?;
+    let colors = match source {
+        ManaSource::Fixed(color) => vec![color],
+        ManaSource::Choice(colors) => colors.to_vec(),
+        // Both depend on the rest of the board — a commander's identity, or
+        // what someone else's lands can make — so neither has an answer
+        // here, where there is no board to read. A caller that *has* one
+        // takes [`mana_shape`] and resolves them itself.
+        ManaSource::CommanderIdentity | ManaSource::LandColor { .. } => return None,
+    };
+    Some((SimpleMana { colors, amount }, restricted))
+}
+
+/// The same reading one step earlier: the ability's own words, before any
+/// board is consulted.
+///
+/// [`mana_made`] answers "which colours", and for two of the four sources
+/// there is no answer without a game — a Command Tower's colours are its
+/// controller's commanders' identity (CR 903.4), an Exotic Orchard's are
+/// read off somebody else's lands. Both used to end the reading, so a client
+/// holding a `PlayerView` — which carries a seat's commanders, and is the
+/// same thing the engine reads — had no way to ask the question it *could*
+/// answer. It got no source at all, and a five-colour deck's Command Tower
+/// counted for nothing in the mana plan.
+///
+/// This is the reading it needs, and the split is the same one the module
+/// header describes: the shape is the card's, the resolution is the board's,
+/// and the two are not the same job. Everything that makes the bar high —
+/// a free cost, one effect, a fixed amount — is still enforced here, so a
+/// caller resolving the source itself cannot slip past any of it.
+#[must_use]
+pub fn mana_shape(cost: &Cost, effects: &[Effect]) -> Option<(ManaSource, u8, bool)> {
     if cost.mana != ManaCost::ZERO {
         return None;
     }
@@ -66,18 +98,9 @@ pub fn mana_made(cost: &Cost, effects: &[Effect]) -> Option<(SimpleMana, bool)> 
     else {
         return None;
     };
-    let colors = match source {
-        ManaSource::Fixed(color) => vec![*color],
-        ManaSource::Choice(colors) => colors.to_vec(),
-        // Both depend on the rest of the board — a commander's identity, or
-        // what someone else's lands can make. The engine knows; this does not.
-        ManaSource::CommanderIdentity | ManaSource::LandColor { .. } => return None,
-    };
     Some((
-        SimpleMana {
-            colors,
-            amount: u8::try_from(*amount).unwrap_or(u8::MAX),
-        },
+        *source,
+        u8::try_from(*amount).unwrap_or(u8::MAX),
         restriction.is_some(),
     ))
 }
@@ -149,5 +172,37 @@ mod tests {
         let effects = [Effect::mana(ManaColor::Blue, 1)];
         assert_eq!(simple_mana(&cost, &effects), None);
         assert_eq!(mana_made(&cost, &effects), None);
+        assert_eq!(mana_shape(&cost, &effects), None, "the bar is in the shape");
+    }
+
+    /// Command Tower: the two colour-answering doors have nothing to say,
+    /// and the third hands the source back so a caller with a board can.
+    #[test]
+    fn a_commanders_identity_is_a_shape_without_being_a_colour() {
+        let effects = [Effect::mana_commander_identity()];
+        assert_eq!(simple_mana(&tap(), &effects), None);
+        assert_eq!(mana_made(&tap(), &effects), None);
+        assert_eq!(
+            mana_shape(&tap(), &effects),
+            Some((ManaSource::CommanderIdentity, 1, false)),
+            "one unrestricted mana, of colours only a board can name"
+        );
+    }
+
+    /// And the shape is not a way around the bar: Exotic Orchard's source
+    /// comes back too, so a caller that cannot resolve it has to refuse it
+    /// rather than never being told it was there.
+    #[test]
+    fn the_shape_names_the_source_it_cannot_answer_for() {
+        let effects = [Effect::AddMana {
+            source: ManaSource::LandColor { mine: false },
+            amount: Amount::Fixed(1),
+            combination: false,
+            restriction: None,
+        }];
+        assert_eq!(
+            mana_shape(&tap(), &effects),
+            Some((ManaSource::LandColor { mine: false }, 1, false))
+        );
     }
 }
