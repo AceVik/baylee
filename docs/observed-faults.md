@@ -1803,6 +1803,8 @@ spell chooses its modes as it is cast, and a triggered ability is not cast, so
 the two are separate sentences in the rules), and whether `trigger_count` and
 `once_per_turn` need anything the modal variant does not already carry.
 
+## Seventh pass, 2026-09-11 — from the owner's play session
+
 ### 35. A triggered ability fired once for a whole batch of events — FIXED
 
 Reported from a live game: Aang and Katara made six Ally tokens, which was
