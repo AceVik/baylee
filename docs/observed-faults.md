@@ -2767,6 +2767,27 @@ does); a tap the tree *did* hear is sent once; a press let go over a
 removed, the reading moved above the loop, `release_over` raising the flag for
 any release, and `swallowed_tap` ignoring the flag.
 
+Proved live on the fixed binary, with the fault's own gesture and its
+counter-half. The same offline duel, held at a `DiscardChoice` with
+`interaction.selected` at **0**: the finger put down on Crib Swap, dragged
+onto Mox Opal and back — two hover changes, so the row is rebuilt twice under
+it and the release cannot land on the entity the press did — and let go.
+`selected` **1**. Then the counter-half, down on the Forest beside it and up
+over Command Tower three cards away: `selected` **1** before and **1** after,
+because a release over a different card still asks for nothing. Both re-taken
+after `100c211` on a binary rebuilt `--features dev-control` — `cargo test`
+overwrites that one — where Nesting Dovehawk went 0 → 1 across the same two
+rebuilds.
+
+The first attempt at that gesture measured nothing, and it is entry 36's trap
+again rather than a coincidence: `POST /pointer {"hold":true}` fell through to
+the bare-move branch and answered `{"ok":true,"clicked":false}` — a `200` that
+reads like a press that happened, on the one route whose whole purpose is
+photographing what lives between a press and a release. The card came up
+unselected, which is indistinguishable from the fault still being there.
+`devctl::button_deed` makes `hold` and `release` imply the press they are a
+stage of now (`100c211`), so that spelling cannot lie again.
+
 `touch::settle` keeps its own lift, and it is a backstop now rather than the
 only answer: it is this module's promise that a card never stays sunk, held
 for a schedule that draws the hand without running the input path — which is
@@ -2820,3 +2841,44 @@ The one thing worth keeping from it: `/state.buttons` was built to get past
 this question and is useful anyway — a pointer harness needs button positions
 whatever the keyboard can do. Its *justification* in `docs/client.md` and in
 the skill has been corrected along with this.
+
+## Ninth pass, 2026-09-11 — found while writing the eighth pass down
+
+### 37. `host::house_duel` is dead code, and its doc promises it cannot drift — CONFIRMED
+
+`crates/baylee-client/src/host.rs` builds a solo duel against the house AI and
+says of it: *"Everything the standalone binary needs for offline play, and the
+same thing the lobby's 'play the house' button installs — so the two cannot
+drift."* Nothing calls it. The workspace mentions the name exactly twice: the
+definition, and a comment in `lobby/systems.rs` that already knows better —
+*"reads like the other half of this and is not: nothing calls it, and the
+preset it builds is not this one."*
+
+Two comments in one crate, contradicting each other, and the second is right.
+Offline play goes through `lobby::offline`: the start button builds and
+validates a preset, `Offline::take_started` hands it over, and `dev-control`
+splices `deal_the_dev_board` into it there. `house_duel` builds something else
+— `demo_duel(acceptance_text(), fresh_seed())`, the fixed Allytifact-against-
+Victory duel that offline play *was* before it became a lobby.
+
+It is not merely uncalled, it is not in the program. `nm` on today's
+`target/debug/baylee-client` finds **0** symbols for `house_duel` and **0**
+for `demo_duel`, against **23** for `deal_the_dev_board` beside it. That is
+also how it was found (`97cef26`): `strings` reported a newly added
+environment variable missing from a binary that had just been rebuilt, because
+the splice had been written into the function that reads like the door and is
+not one.
+
+What makes this an entry rather than a `git rm` is the third thing holding it
+up: `host::tests::the_demo_duel_that_the_binary_launches_actually_builds`. The
+binary launches no such duel. It is a green test whose *name* is the doc's
+claim, guarding a path no player reaches — the same shape that kept the combat
+path broken for weeks (`Interaction::toggle` wrote to `selected` while
+`confirm` read `pairs`) and the shape `cardrail.rs`'s own note about
+`badge_at` is written to avoid.
+
+Deleting it is a decision about whether a one-tap house duel comes back: the
+standalone binary has no offline front door of its own any more, and if it
+should have one, `house_duel` is what it would call. Until that is settled the
+doc promises a caller that does not exist and the test name says it does, and
+both are cheap to correct without deciding anything.

@@ -201,10 +201,10 @@ harness that could only tap cannot reach it.
 
 **The pointer takes the same pair, and a press is not a click.**
 `{"hold":true}` presses and stops there — `press` need not be said as well,
-and until `0cb32a1`'s follow-up it did, with a body that only said `hold`
-falling through to a bare cursor move and answering `{"ok":true,
-"clicked":false}`. A later `{"release":true}` lets go; the answer says
-`"clicked"`, `"held"` or `"released"`, so a script cannot confuse them. Everything that exists only
+and until `100c211` it did, with a body that only said `hold` falling through
+to a bare cursor move and answering `{"ok":true,"clicked":false}`. A later
+`{"release":true}` lets go; the answer says `"clicked"`, `"held"` or
+`"released"`, so a script cannot confuse them. Everything that exists only
 *between* the two needs it — a drag, and a card giving way under the finger —
 because a screenshot cannot be asked for in the middle of one call.
 Photograph the rest state, hold, photograph, release, photograph: the third
