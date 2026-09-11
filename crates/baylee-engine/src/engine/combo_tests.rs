@@ -4430,3 +4430,308 @@ fn a_spark_double_under_a_doubling_season_enters_with_two_of_each_counter() {
     assert_eq!(doubled, (3, 3), "two +1/+1 counters under the Season");
     assert_eq!(doubled_loyalty, 2, "and two loyalty counters");
 }
+
+/// Maskwood Nexus makes a *spell* every creature type, so Reflections of
+/// Littjara copies it whatever the card is printed as.
+///
+/// Reported from live play: with the Nexus and Reflections (Ally) on the
+/// battlefield, Jin-Gitaxias — printed a Praetor and no Ally at all — was
+/// cast and not copied, while General Tazri's search under the same Nexus
+/// did offer non-Ally creature *cards*. The difference is the zone. A card
+/// in a library has been sitting in the projected set since the Nexus
+/// arrived; a spell is put on the stack a moment before the cast trigger
+/// asks what it is, and nothing re-projected it there (entry 43), so the
+/// trigger read the printed types and found no Ally.
+///
+/// Llanowar Elves stands in for Jin-Gitaxias: an Elf Druid, no Ally, one
+/// mana, and the test is about the type the Nexus grants rather than the
+/// card that has it.
+#[test]
+fn the_nexus_makes_a_spell_the_chosen_type_for_littjara() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(113, forest())
+        .battlefield(
+            0,
+            &[
+                maskwood_nexus(),
+                island(),
+                island(),
+                island(),
+                island(),
+                island(),
+                forest(),
+            ],
+        )
+        .hand(0, &[reflections_of_littjara(), llanowar_elves()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    cast_from_hand(&mut engine, p0, reflections_of_littjara());
+    settle(&mut engine);
+    let Pending::ChooseSubtype { player, options } = engine.pending().clone() else {
+        panic!(
+            "the enchantment names a creature type as it enters: {:?}",
+            engine.pending()
+        )
+    };
+    let ally = baylee_core::generated::subtypes::creature::ALLY;
+    assert!(options.contains(&ally), "Ally is a creature type");
+    engine
+        .apply(player, PlayerAction::ChooseSubtype(ally))
+        .unwrap();
+    settle(&mut engine);
+
+    cast_from_hand(&mut engine, p0, llanowar_elves());
+    settle(&mut engine);
+    assert_eq!(
+        permanents_of(&engine, p0, llanowar_elves()),
+        2,
+        "the Elf is an Ally while it is a spell, so Reflections copied it",
+    );
+}
+
+/// Nesting Dovehawk grows on the token its own populate made.
+///
+/// Reported from live play: the combat trigger interrupts the turn, the
+/// Shapeshifter token is chosen, the copy arrives — and the Dovehawk does
+/// not grow, though it grows for a token that arrives any other way. Both
+/// steps are asserted here, so a failure says which of the two is wrong.
+#[test]
+fn the_dovehawk_grows_on_the_token_its_own_populate_made() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(127, forest())
+        .battlefield(
+            0,
+            &[
+                nesting_dovehawk(),
+                maskwood_nexus(),
+                forest(),
+                forest(),
+                forest(),
+            ],
+        )
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let hawk = on_battlefield(&engine, p0, nesting_dovehawk()).expect("the Dovehawk");
+    assert_eq!(pt(&engine, hawk), (2, 2), "a printed 2/2");
+
+    // A creature token from somewhere else: the Nexus' own {3}, {T}.
+    let nexus = on_battlefield(&engine, p0, maskwood_nexus()).expect("the Nexus");
+    activate(&mut engine, p0, nexus);
+    settle(&mut engine);
+    assert_eq!(
+        pt(&engine, hawk),
+        (3, 3),
+        "a creature token entered, so the Dovehawk grew",
+    );
+
+    // And now its own populate, at the beginning of combat.
+    for _ in 0..40 {
+        if matches!(engine.pending(), Pending::ChooseTargets { .. }) {
+            break;
+        }
+        match engine.pending().clone() {
+            Pending::Priority { player, .. } => {
+                engine.apply(player, PlayerAction::PassPriority).unwrap();
+            }
+            other => panic!("unexpected on the way to combat: {other:?}"),
+        }
+    }
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!(
+            "the populate trigger asked for no token: {:?}",
+            engine.pending()
+        )
+    };
+    let token = *options
+        .first()
+        .expect("the Shapeshifter is a creature token it controls");
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![token],
+            },
+        )
+        .unwrap();
+    settle(&mut engine);
+
+    assert_eq!(
+        pt(&engine, hawk),
+        (4, 4),
+        "the populated copy is a creature token entering too",
+    );
+}
+
+fn elspeth_storm_slayer() -> baylee_core::ids::CardIndex {
+    card_index("f78af825-023a-42e9-8374-5c52303a1417")
+}
+
+/// The same populate with Elspeth, Storm Slayer on the battlefield.
+///
+/// The live report's board had her on it, and she is a replacement on token
+/// *creation*: populate then makes two copies, so the Dovehawk's "whenever
+/// a creature token you control enters" fires twice.
+#[test]
+fn a_doubled_populate_grows_the_dovehawk_twice() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(131, forest())
+        .battlefield(
+            0,
+            &[
+                nesting_dovehawk(),
+                maskwood_nexus(),
+                elspeth_storm_slayer(),
+                forest(),
+                forest(),
+                forest(),
+            ],
+        )
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let hawk = on_battlefield(&engine, p0, nesting_dovehawk()).expect("the Dovehawk");
+
+    let nexus = on_battlefield(&engine, p0, maskwood_nexus()).expect("the Nexus");
+    activate(&mut engine, p0, nexus);
+    settle(&mut engine);
+    assert_eq!(
+        pt(&engine, hawk),
+        (4, 4),
+        "the Nexus' one token is doubled, so two tokens entered",
+    );
+
+    for _ in 0..40 {
+        if matches!(engine.pending(), Pending::ChooseTargets { .. }) {
+            break;
+        }
+        match engine.pending().clone() {
+            Pending::Priority { player, .. } => {
+                engine.apply(player, PlayerAction::PassPriority).unwrap();
+            }
+            other => panic!("unexpected on the way to combat: {other:?}"),
+        }
+    }
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!(
+            "the populate trigger asked for no token: {:?}",
+            engine.pending()
+        )
+    };
+    let token = *options.first().expect("a creature token it controls");
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![token],
+            },
+        )
+        .unwrap();
+    settle(&mut engine);
+
+    assert_eq!(
+        pt(&engine, hawk),
+        (6, 6),
+        "and the populated copy is doubled too",
+    );
+}
+
+/// Populate is a choice and it is mandatory (CR 701.36).
+///
+/// The card said "up to one target" (`min: 0`), so the Dovehawk's combat
+/// trigger could be answered with the empty list and resolve into nothing
+/// while a copyable token stood on the battlefield — and with no token at
+/// all it went on the stack anyway and resolved into nothing there too,
+/// which is the trigger the owner watched fire and do nothing.
+#[test]
+fn the_dovehawks_populate_cannot_be_declined() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(137, forest())
+        .battlefield(
+            0,
+            &[
+                nesting_dovehawk(),
+                maskwood_nexus(),
+                forest(),
+                forest(),
+                forest(),
+            ],
+        )
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let nexus = on_battlefield(&engine, p0, maskwood_nexus()).expect("the Nexus");
+    activate(&mut engine, p0, nexus);
+    settle(&mut engine);
+
+    for _ in 0..40 {
+        if matches!(engine.pending(), Pending::ChooseTargets { .. }) {
+            break;
+        }
+        let Pending::Priority { player, .. } = engine.pending().clone() else {
+            panic!("unexpected on the way to combat: {:?}", engine.pending())
+        };
+        engine.apply(player, PlayerAction::PassPriority).unwrap();
+    }
+    let Pending::ChooseTargets { min, options, .. } = engine.pending().clone() else {
+        panic!("populate asked nothing: {:?}", engine.pending())
+    };
+    assert_eq!(
+        min, 1,
+        "a token is there to copy, so populate must be answered"
+    );
+    assert!(
+        engine
+            .apply(p0, PlayerAction::ChooseObjects { objects: vec![] })
+            .is_err(),
+        "the empty answer is what let the trigger resolve into nothing",
+    );
+    let token = *options.first().expect("the Shapeshifter token");
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![token],
+            },
+        )
+        .unwrap();
+    settle(&mut engine);
+    assert_eq!(
+        counters_on_the_dovehawk(&engine, p0),
+        2,
+        "one counter for the Nexus' token and one for the copy populate made",
+    );
+}
+
+/// The counter-test: with no creature token to copy, the trigger never
+/// reaches the stack at all.
+#[test]
+fn a_populate_with_nothing_to_copy_never_reaches_the_stack() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(139, forest())
+        .battlefield(0, &[nesting_dovehawk(), forest(), forest()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    for _ in 0..40 {
+        // Combat arriving with the question never asked is the whole
+        // assertion: the trigger was dropped instead of stacked.
+        if matches!(engine.pending(), Pending::ChooseAttackers { .. }) {
+            return;
+        }
+        let Pending::Priority { player, .. } = engine.pending().clone() else {
+            panic!("populate asked something: {:?}", engine.pending())
+        };
+        assert!(
+            stack_is_empty(&engine),
+            "a populate with nothing to copy was put on the stack in {:?}",
+            engine.state().turn.step,
+        );
+        engine.apply(player, PlayerAction::PassPriority).unwrap();
+    }
+    panic!("combat never arrived");
+}

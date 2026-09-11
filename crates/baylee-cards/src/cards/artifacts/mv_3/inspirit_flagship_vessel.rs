@@ -27,6 +27,10 @@ card! {
         types: TypeSet::ARTIFACT,
         supertypes: SupertypeSet::LEGENDARY,
         subtypes: &[artifact::SPACECRAFT],
+        // Printed on the card and used only at 8+, exactly as a Vehicle's
+        // numbers are used only once it crews.
+        power: Some(5),
+        toughness: Some(5),
     }],
     color_identity: ColorSet::from_slice(&[Color::White, Color::Blue, Color::Red]),
     coverage: Coverage::Implemented,

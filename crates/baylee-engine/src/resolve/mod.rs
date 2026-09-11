@@ -709,6 +709,18 @@ pub fn resume(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]) 
                     cards: chosen.to_vec(),
                 });
             }
+            // The shuffle comes **before** the cards are placed, and that is
+            // the whole of what Mystical Tutor prints: "search your library
+            // for an instant or sorcery card, reveal it, then shuffle and put
+            // that card on top." Shuffling afterwards put the found card on
+            // top and then shuffled it straight back in, so the tutor
+            // returned a random card to the top of the library — which is
+            // every tutor-to-top in the pool.
+            //
+            // For a find that leaves the library (Cultivate's battlefield and
+            // hand) the order is unobservable: the card is gone either way,
+            // and the rest is a shuffled library in both readings.
+            state.shuffle_library(res.controller);
             // Positional: the first card found takes the first destination.
             // Cultivate names the battlefield first and the hand second, and
             // finding only one card then puts that one onto the battlefield —
@@ -748,7 +760,6 @@ pub fn resume(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]) 
                     }
                 }
             }
-            state.shuffle_library(res.controller);
         }
         AwaitingOp::Scry { .. } => {
             // Chosen cards go to the bottom in chosen order; the rest stays

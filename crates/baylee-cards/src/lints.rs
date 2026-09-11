@@ -383,14 +383,27 @@ fn identity_gap(def: &CardDef) -> ColorSet {
 fn pt_fault(face: &FaceDef) -> Option<&'static str> {
     let creature = face.types.contains(TypeSet::CREATURE);
     let numbered = face.power.is_some() || face.toughness.is_some();
-    let vehicle = face
-        .subtypes
-        .contains(&baylee_core::generated::subtypes::artifact::VEHICLE);
+    // Two subtypes print a body they are not yet entitled to use: a Vehicle
+    // is not a creature until it crews (CR 301.7) and a Spacecraft is not
+    // one until it is stationed to 8+. Both print the numbers on the card,
+    // and a Spacecraft left without them became a creature with no body at
+    // all: Inspirit, Flagship Vessel reached 8 charge counters, turned into
+    // an artifact creature and was put into its owner's graveyard by the
+    // next state-based check.
+    let printed_body = [
+        baylee_core::generated::subtypes::artifact::VEHICLE,
+        baylee_core::generated::subtypes::artifact::SPACECRAFT,
+    ]
+    .iter()
+    .any(|s| face.subtypes.contains(s));
     if creature && !(face.power.is_some() && face.toughness.is_some()) {
         return Some("is a creature with no power/toughness");
     }
-    if numbered && !creature && !vehicle {
-        return Some("has power/toughness and is neither a creature nor a Vehicle");
+    if numbered && !creature && !printed_body {
+        return Some("has power/toughness and is neither a creature nor a Vehicle or Spacecraft");
+    }
+    if printed_body && !(face.power.is_some() && face.toughness.is_some()) {
+        return Some("prints a body on the card and carries none in the code");
     }
     None
 }

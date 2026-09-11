@@ -2493,3 +2493,129 @@ Deluge spared it, but because nothing had projected it at all; a fresh
 what found 43. A mutant that survives is worth reading twice: the first
 reading is "the test is weak", and the second is that something else is
 already wrong.
+
+## Eighth pass, 2026-09-11 — from the owner's play report
+
+Six rules bugs reported from one live game, and five faults behind them —
+two of the reports are one fault seen twice, which is entry 46. Four are
+fixed here; the first was already fixed by entry 43 the same morning and is
+written down because the report is the evidence that it was real, and
+because a bug reported and silently already-gone is the one that comes
+back.
+
+### 45. Maskwood Nexus did not make a creature spell an Ally — FIXED BY 43
+
+Reported as: with Maskwood Nexus and Reflections of Littjara out and Ally
+named, casting Jin-Gitaxias did not copy the spell, though General Tazri
+behaved correctly.
+
+It is entry 43 wearing a different hat. Maskwood Nexus' grant ("each creature
+you control and each creature card you own that isn't on the battlefield is
+every creature type") is a static ability, so its effect is dynamic and
+reaches a spell that arrives afterwards — but *reaching* it and *projecting*
+it are two things, and a spell put on the stack never invalidated the
+projection cache. Littjara's trigger then asked a Jin-Gitaxias whose
+characteristics had been computed before the Nexus could be consulted, was
+told it is a Phyrexian and nothing else, and declined to copy. The explanation that fits the
+working half is that Tazri was already on the battlefield when the Nexus
+arrived: the arrival of the *Nexus* is itself a zone change, so it
+invalidated the cache and everything already down was projected against it.
+
+`the_nexus_makes_a_spell_the_chosen_type_for_littjara` is the regression
+test, and it is a test about the report rather than about the fix: it passes
+on `87597237` and fails with that commit's `move_object` invalidation
+removed. What it holds is the arm, and the reason the arm names the stack at
+all: a spell arriving there is a zone change like any other, and it is the
+one nobody was thinking about when the arm was written.
+
+### 46. Populate could be declined, and fired with nothing to copy — FIXED
+
+Reported as: Nesting Dovehawk sometimes triggers at the attack phase and then
+resolves doing nothing, which started when Elspeth, Storm Slayer joined the
+board.
+
+Populate is a **choice** and it is mandatory (CR 701.36: "choose a creature
+token you control and create a token that's a copy of that creature token").
+The card said `min: 0` — "up to one target" — which is two wrong answers at
+once. With a copyable token on the battlefield the trigger could be answered
+with the empty list and resolve into nothing; with no token at all the
+`offered == 0` branch in `progress.rs` stacked it anyway, so the player
+watched a trigger go on the stack and do nothing there too. Elspeth is the
+reason it was noticed rather than a party to it: she is what put tokens on
+the board, so the trigger started mattering.
+
+The client is the other half of why a player met it. `Interaction::can_confirm`
+is true with nothing selected whenever `min` is 0 — that is its own test,
+`an_up_to_choice_can_be_confirmed_with_nothing_selected` — so a confirm
+pressed on the populate prompt sent the empty list. That is also the whole of
+the report's other Dovehawk item, "it does not grow on the token its own
+populate made": nothing was created, so nothing entered.
+
+`min: 1` is the closer of the two approximations a target-only DSL allows,
+and the card says so: populate is mandatory, so the empty answer must be
+refused, and a Dovehawk with nothing to copy is better dropped by the target
+path's CR 603.3d than left resolving into nothing. What it still cannot say
+is a creature token of your own with shroud, which populate may copy and a
+target may not.
+
+Two tests, because each passes under half a mistake:
+`the_dovehawks_populate_cannot_be_declined` asserts the question comes back
+with `min: 1` and that the empty answer is refused, and
+`a_populate_with_nothing_to_copy_never_reaches_the_stack` walks a Dovehawk
+with no tokens into combat and asserts the stack stayed empty the whole way.
+The mutant is `min: 0`, and it fails both.
+
+### 47. Halimar Excavator milled whoever the engine picked — FIXED
+
+Reported as: the ETB always mills the opponent, but the controller has to
+*target* a player and may name themselves.
+
+The card read `target: PlayerRel::Opponent` with no `targets` requirement at
+all, so "target player mills X cards" was a sentence with the word target in
+it and no target in the game: heads-up it picked the one opponent, at a
+multiplayer table it picked whichever the relation resolved first, and the
+controller could never mill themselves. `PlayerRel::Chosen` plus
+`TargetReq::one(TargetSpec::AnyPlayer)` is the whole fix — the same pair
+entry 39 needed — and it carries the three things the report asks for at
+once: every player is offered including the caster, hexproof is filtered out
+by `eval::target_player_options`, and `min: 1` makes it mandatory, so a
+controller with no legal opponent must point it at themselves.
+
+`halimar_excavator_mills_the_player_it_targeted` chooses the caster's own
+seat, which is the choice the old code could not express.
+
+### 48. A tutor put the card on top and then shuffled it back in — FIXED
+
+Reported as: Mystical Tutor did not leave the card on top.
+
+`AwaitingOp::SearchLibrary` shuffled after placing. Mystical Tutor prints the
+order — "search your library for an instant or sorcery card, reveal it, then
+shuffle and put that card on top" — so the shuffle happens while the card is
+still out of the library, and doing it afterwards folded the found card back
+into a random position. Every tutor-to-top in the pool had it.
+
+The fix is one statement moved above the placement loop. For a find that
+leaves the library entirely (Cultivate's battlefield and hand) the order is
+unobservable, which is why nothing else changed and why nothing else caught
+it. `a_tutor_to_the_top_leaves_its_card_on_top` names the card it searched
+for and reads the top of the library back.
+
+### 49. A stationed Spacecraft became a creature with no body — FIXED
+
+Reported as: Inspirit, Flagship Vessel goes to the graveyard when charged,
+instead of arriving as a creature.
+
+A Spacecraft prints power and toughness it may not use until it is stationed
+to 8 or more, exactly as a Vehicle prints them and may not use them until it
+crews (CR 301.7). The face carried neither, so the moment the eighth charge
+counter turned it into an artifact creature it was a creature with no power
+and no toughness, and the next state-based check put it into the graveyard.
+
+`lints::pt_fault` is the half that matters more than the card. It knew about
+Vehicles and had one direction of the test — numbers without a creature type
+are allowed on a Vehicle — and no direction at all for the reverse, so a
+Spacecraft printing a body and carrying none passed. It now reads a
+`printed_body` list of both subtypes and fails a face in that list with no
+numbers, which is the shape of the fault rather than the instance of it.
+`a_stationed_spacecraft_becomes_the_creature_it_prints` stations the Vessel
+to 8 and asserts it is standing there as a 5/5.

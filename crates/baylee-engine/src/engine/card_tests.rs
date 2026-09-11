@@ -3400,3 +3400,176 @@ fn primaris_eliminators_hyperfrag_shrinks_only_the_player_it_named() {
         "and a 3/2 does not kill itself with its own second mode",
     );
 }
+
+fn mystical_tutor() -> baylee_core::ids::CardIndex {
+    card_index("fb81f95c-70f8-4eb7-8d15-15d0ae23ec03")
+}
+
+/// A tutor to the top of the library leaves the card it found on top.
+///
+/// Mystical Tutor prints "search your library for an instant or sorcery
+/// card, reveal it, then shuffle **and put that card on top**", and the
+/// search resolution shuffled *after* placing — so the card went on top and
+/// was immediately shuffled back into sixty others. Every tutor-to-top in
+/// the pool returned a random card.
+#[test]
+fn a_tutor_to_the_top_leaves_its_card_on_top() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(47, counterspell())
+        .battlefield(0, &[island()])
+        .hand(0, &[mystical_tutor()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    cast_from_hand(&mut engine, p0, mystical_tutor());
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseCards { .. })
+    });
+    let Pending::ChooseCards { options, .. } = engine.pending().clone() else {
+        unreachable!("just checked")
+    };
+    let found = *options
+        .first()
+        .expect("the library is full of Counterspells");
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![found],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(
+        engine
+            .state()
+            .zones
+            .list(crate::zone::ZoneLocation::Library(p0))
+            .last()
+            .copied(),
+        Some(found),
+        "the card the tutor found is the one on top",
+    );
+}
+
+/// A Spacecraft that stations to 8+ becomes a 5/5, not a corpse.
+///
+/// "It's an artifact creature at 8+" turns the type on, and the card def
+/// carried no power or toughness at all — so the Vessel became a creature
+/// with no body and the next state-based check put it into the graveyard.
+/// A Spacecraft prints its numbers exactly as a Vehicle does and uses them
+/// only once it is stationed.
+#[test]
+fn a_stationed_spacecraft_becomes_the_creature_it_prints() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(51, island())
+        .battlefield(0, &[inspirit_flagship_vessel()])
+        .start();
+    keep_mulligans(&mut engine);
+    let vessel = on_battlefield(&engine, p0, inspirit_flagship_vessel()).expect("the Vessel");
+    assert!(
+        !engine
+            .state()
+            .object(vessel)
+            .expect("the Vessel is an object")
+            .characteristics()
+            .types
+            .contains(baylee_core::types::TypeSet::CREATURE),
+        "an unstationed Spacecraft is no creature",
+    );
+
+    let state = engine
+        .dev_state_mut(p0)
+        .expect("the harness may set boards up");
+    crate::replacement::put_counters(state, vessel, baylee_cards_dsl::CounterKind::Charge, 8);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    assert!(
+        on_battlefield(&engine, p0, inspirit_flagship_vessel()).is_some(),
+        "a stationed Spacecraft is still on the battlefield",
+    );
+    let chars = engine
+        .state()
+        .object(vessel)
+        .expect("the Vessel is an object")
+        .characteristics();
+    assert!(
+        chars.types.contains(baylee_core::types::TypeSet::CREATURE),
+        "at 8+ it is an artifact creature",
+    );
+    assert_eq!(
+        (chars.power, chars.toughness),
+        (Some(5), Some(5)),
+        "and the body it prints is the body it gets",
+    );
+}
+
+fn halimar_excavator() -> baylee_core::ids::CardIndex {
+    card_index("fd3e37c9-93bf-4f3e-a279-22afbffd8d43")
+}
+
+/// Halimar Excavator's rally mills a player the controller *chose*.
+///
+/// It was written as `PlayerRel::Opponent` with no target requirement at
+/// all, so it milled the opponent by construction: the controller could
+/// never mill themselves, and a player who could not legally be targeted
+/// was milled anyway. The printed line is "target player mills X", and it
+/// is not optional — with nobody else legal the controller has to point it
+/// at themselves, which is why the requirement's `min` is one.
+#[test]
+fn halimar_excavator_mills_the_player_it_targeted() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(57, island())
+        .battlefield(0, &[island(), island()])
+        .hand(0, &[halimar_excavator()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+    let graveyard_before = engine
+        .state()
+        .zones
+        .list(crate::zone::ZoneLocation::Graveyard(p0))
+        .len();
+
+    cast_from_hand(&mut engine, p0, halimar_excavator());
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    let Pending::ChooseTargets {
+        player_options,
+        min,
+        ..
+    } = engine.pending().clone()
+    else {
+        unreachable!("just checked")
+    };
+    assert!(
+        player_options.contains(&p0) && player_options.contains(&p1),
+        "either player may be targeted, the controller included",
+    );
+    assert_eq!(min, 1, "\"target player mills X\" is not optional");
+
+    // Aimed at the controller, which is the half the old card could not do.
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![],
+                players: vec![p0],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(
+        engine
+            .state()
+            .zones
+            .list(crate::zone::ZoneLocation::Graveyard(p0))
+            .len(),
+        graveyard_before + 1,
+        "one Ally on the battlefield, so the player it named mills one card",
+    );
+}
