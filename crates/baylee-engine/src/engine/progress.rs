@@ -1413,7 +1413,11 @@ impl<L: CardLookup> Engine<L> {
             {
                 let options = eval::target_options(&spec, &self.state, t.controller, t.source);
                 if options.is_empty() {
-                    self.trigger_queue.pop_front(); // fizzles (no legal target)
+                    // No legal target, so the trigger is removed (CR 603.3d)
+                    // — and it is *already* removed: the pop above took this
+                    // queue entry off before the synthetic target was asked
+                    // about. Popping again here took the trigger queued
+                    // behind it as well, unread and unresolved.
                     continue;
                 }
                 let plan_t = t.clone();

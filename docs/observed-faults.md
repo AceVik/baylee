@@ -2217,3 +2217,109 @@ replacement and any effect. It belongs in `resolve_stack_top`, beside the
 `targeted` read that is already there, and it needs `res.targeted` to tell a
 spell that printed the word "target" from one that never did.
 
+
+### 41. A trigger that found no target ate the trigger behind it — FIXED
+
+Found while writing entry 40, in the one branch of `collect_triggers` that had
+never been reached by a test.
+
+The loop peeks (`trigger_queue.front().cloned()`) and each path pops what it
+took. The ordinary tail pops the entry and *then* asks a synthetic trigger —
+a granted triggered ability, the only kind whose target requirement does not
+live on a printed ability index — for its own target. That branch read
+
+```rust
+if options.is_empty() {
+    self.trigger_queue.pop_front(); // fizzles (no legal target)
+    continue;
+}
+```
+
+and the entry it is talking about had already been popped four lines above. So
+the second pop took the **next** trigger in the queue: removed from the game
+without being put on the stack, without being asked about, and without
+anything recording that it happened.
+
+Reaching it takes a granted trigger that targets, and the pool has exactly one:
+Wizard Class at level 3, "whenever you draw a card, put a +1/+1 counter on
+target creature you control". A Class is an enchantment, so its controller can
+hold it while controlling no creature at all — and then every draw queues a
+trigger with no legal target, which is the fizzle branch. Anything queued
+behind it on that same draw is what gets eaten. Across the table, Sheoldred,
+the Apocalypse triggers on the same event ("whenever an opponent draws a card,
+they lose 2 life"), and APNAP puts the active player's trigger in front of
+hers, so the life loss simply did not happen:
+`a_trigger_that_finds_no_target_takes_only_itself_off_the_queue` asserts 18
+against the 16 that is right, and fails by exactly the 2 life Sheoldred was
+never allowed to take.
+
+**The same pop is in the answer path, and that is the half a player reaches.**
+`PlanKind::SyntheticTriggerTarget` in `actions.rs` opens with
+`self.trigger_queue.pop_front()` too — copied, reasonably enough, from
+`PlanKind::Trigger` four arms above it, where it is *right*: the ordinary
+targeted path publishes its question and returns before `collect_triggers`
+reaches the pop at the end of its loop body, so nothing has taken that entry
+yet. The synthetic path is asked after it. So a Wizard Class controller with a
+creature to point at was asked for the target, answered it, got the counter —
+and the trigger behind it disappeared just the same.
+`answering_a_granted_triggers_target_takes_only_itself_off_the_queue` is that
+one, and it asserts both halves: Sheoldred still takes her 2 life, and the
+Elves still get their counter.
+
+The fix is the deletion of two lines, one at each site. What it leaves behind
+is a comment saying which pop owns the entry, because the shape that made this
+invisible is the peek-then-pop-in-several-places loop, not the rule
+(CR 603.3d) it implements — the rule was right everywhere. Two mutants, one
+line each: restoring either pop fails exactly its own test and no other, so
+the two sites are separated rather than covered by one scenario twice.
+
+One thing the second test showed on the way and is **not** this fault. Wizard
+Class's own level-up draws two cards and Sheoldred took 2 life, not 4:
+`GameState::draw_cards` records one `CardsDrawn { count }` for the whole draw
+and `trigger::matches` reads the event, not the count. That is entry 35's
+defect surviving in the one place its fix could not see — a batch that is a
+*field* rather than a list of events — and it is entry 42.
+
+
+### 42. "Draw two cards" fires a draw-watcher once — RECORDED
+
+Entry 35's defect, surviving where its fix could not reach.
+
+35 removed a `break` that let an ability fire once for a whole *list* of
+matching events. This is the other kind of batch: `GameState::draw_cards`
+moves the cards one at a time and then records a single
+`GameEvent::CardsDrawn { player, count }` for the lot. `trigger::matches`
+takes `(&Trigger, &GameEvent)` and answers yes or no; `collect_for_objects`
+pushes `trigger_count(…)` triggers for each matching event, and
+`trigger_count` counts Panharmonicon-style multipliers and nothing else. The
+`count` field is read by no trigger path at all.
+
+So Sheoldred, the Apocalypse takes 2 life from a Divination and should take 4
+— a player draws cards one at a time, and "draw two cards" is two draws, not
+one draw of two. `Trigger::DrawsExceptFirst` (Orcish Bowmasters) is wrong the
+same way and for a second reason: it asks whether `per_turn.draws` has passed
+one, which is a count of cards and not of events, so a two-card batch clears
+the gate once instead of contributing twice.
+
+Seen from the test that found it: Wizard Class's own level-up draws two cards,
+and Sheoldred across the table took 2.
+
+Two fix shapes, and the choice is not obvious.
+
+- **Record one event per card.** `draw_cards` already has the loop; the event
+  would become `CardsDrawn { player, count: 1 }` per card, or lose its count
+  field entirely. Everything downstream then reads a list of draws, which is
+  what the rules describe, and entry 35's fix covers this case with no new
+  code. The cost is the journal shape: a seven-card opening hand becomes seven
+  entries, and anything that reads `count` — `DrawsExceptFirst`, the view, a
+  replay — reads differently.
+- **Multiply at collection.** `collect_for_objects` would read `count` off the
+  event and push that many. Cheaper and contained, but it puts the knowledge
+  "this event means n happenings" in the collector, where the next batched
+  event will have to put it again.
+
+The first is the one that matches what the rules say happened; the second is
+the one that changes no journal. Whichever is taken, the test wants a *count*
+in both directions the way entry 35's does — 4 life and not 2, and not 6 from
+firing per card and per event both.
+

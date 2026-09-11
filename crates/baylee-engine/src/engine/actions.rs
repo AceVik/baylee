@@ -561,7 +561,13 @@ impl<L: CardLookup> Engine<L> {
                         }
                     }
                     PlanKind::SyntheticTriggerTarget { trigger } => {
-                        self.trigger_queue.pop_front();
+                        // No pop, unlike `PlanKind::Trigger` above. The
+                        // ordinary targeted path publishes its question and
+                        // returns *before* `collect_triggers` reaches the pop
+                        // at the end of its loop body; the synthetic one is
+                        // asked after it, so this entry is already off the
+                        // queue and popping again would take the trigger
+                        // behind it.
                         self.push_synthetic_trigger_with_targets(&trigger, targets);
                     }
                     PlanKind::ChooseSubtype { .. } => {

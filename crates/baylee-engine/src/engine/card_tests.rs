@@ -3060,3 +3060,106 @@ fn stationing_a_creature_reads_the_power_it_still_has() {
         "the Raptor's power on the battlefield, counter and all",
     );
 }
+
+fn sheoldred_the_apocalypse() -> baylee_core::ids::CardIndex {
+    card_index("34f34409-326d-4994-a0ea-1a69aa278f03")
+}
+
+/// A trigger that can find no legal target takes *itself* off the queue and
+/// nothing else.
+///
+/// `collect_triggers` pops the entry it is working on before it asks a
+/// synthetic trigger for its target, so the branch that drops a granted
+/// trigger with no legal target (CR 603.3d) was popping a second time — and
+/// the second pop took whatever was queued behind it, unread and unresolved.
+///
+/// Wizard Class at level 3 is the only card in the pool that grants a
+/// *targeted* trigger, and a Class is an enchantment, so its controller can
+/// hold it with no creature anywhere to put the counter on. The draw that
+/// fires it fires Sheoldred across the table on the same event, and
+/// Sheoldred's is the trigger that was being eaten: the life it takes is the
+/// whole assertion.
+#[test]
+fn a_trigger_that_finds_no_target_takes_only_itself_off_the_queue() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut board = vec![island(); 8];
+    board.push(wizard_class());
+    let mut engine = Duel::new(9, quiet_artifact())
+        .battlefield(0, &board)
+        .battlefield(1, &[sheoldred_the_apocalypse()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    // Both levels in one main phase: eight Islands is {2}{U} and {4}{U}
+    // exactly, and a mana pool empties at the end of a step, not on a pass.
+    let class = on_battlefield(&engine, p0, wizard_class()).expect("the Class is out");
+    tap_mana_except(&mut engine, p0, class);
+    activate(&mut engine, p0, wizard_class(), 1);
+    pass_until(&mut engine, stack_is_empty);
+    activate(&mut engine, p0, wizard_class(), 2);
+    pass_until(&mut engine, stack_is_empty);
+
+    let before = engine.state().players[0].life;
+    reach_their_main_phase(&mut engine, p1);
+    reach_their_main_phase(&mut engine, p0);
+
+    assert_eq!(
+        engine.state().players[0].life,
+        before - 2,
+        "Sheoldred's trigger was queued behind one that fizzled, and still resolved",
+    );
+}
+
+/// And the same trigger *answered* takes only itself off the queue.
+///
+/// The fizzle branch and the answer path are two pops for one queue entry,
+/// both of them after the tail pop that already removed it. This is the half
+/// a player actually reaches: a creature on the board means the granted
+/// trigger has a target, the question is asked, and it was the answer that
+/// ate the trigger behind it — so the more a board has going on, the more
+/// there is to lose.
+#[test]
+fn answering_a_granted_triggers_target_takes_only_itself_off_the_queue() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut board = vec![island(); 8];
+    board.push(wizard_class());
+    board.push(quiet_creature());
+    let mut engine = Duel::new(9, quiet_artifact())
+        .battlefield(0, &board)
+        .battlefield(1, &[sheoldred_the_apocalypse()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let class = on_battlefield(&engine, p0, wizard_class()).expect("the Class is out");
+    tap_mana_except(&mut engine, p0, class);
+    activate(&mut engine, p0, wizard_class(), 1);
+    pass_until(&mut engine, stack_is_empty);
+    activate(&mut engine, p0, wizard_class(), 2);
+    pass_until(&mut engine, stack_is_empty);
+
+    let elves = on_battlefield(&engine, p0, quiet_creature()).expect("the Elves are out");
+    let before = engine.state().players[0].life;
+    reach_their_main_phase(&mut engine, p1);
+    // `walk_to_own_main` and not `reach_their_main_phase`: the draw step on
+    // the way asks for the counter's target, which passing cannot answer.
+    assert!(
+        walk_to_own_main(&mut engine, p0),
+        "the turn came back round"
+    );
+
+    assert_eq!(
+        engine.state().players[0].life,
+        before - 2,
+        "Sheoldred's trigger was queued behind one that was answered, and still resolved",
+    );
+    assert_eq!(
+        engine
+            .state()
+            .object(elves)
+            .map(|o| o.counters.get(baylee_cards_dsl::CounterKind::P1P1)),
+        Some(1),
+        "the granted trigger put its own counter down",
+    );
+}
