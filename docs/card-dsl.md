@@ -22,6 +22,14 @@ human-verification surface):
 use baylee_cards_dsl::prelude::*;
 ```
 
+The first line's three segments are all checked, so none of them is prose.
+The name and the cost must be some face's, and the type segment is
+`pool::type_line` for each face the *file* has, joined with `" // "` — the
+card's spelling and not the constants' (`Land — Swamp Mountain`, never
+`Land — SWAMP MOUNTAIN`), supertypes included (`Legendary Land`). `xtask
+refresh-oracle` writes the `//! Oracle:` block and the `//! Set:` line and
+never this one, so it is the one line of the header a person keeps true.
+
 One import, and it is the only one most cards need — the prelude carries the
 whole vocabulary plus the macros below. Add a second `use` line only for
 something outside it: a subtype module
