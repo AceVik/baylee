@@ -818,14 +818,17 @@ fn katara_bounced(answer: bool) -> (Engine<RegistryLookup>, ObjectId) {
     engine
         .apply(p1, PlayerAction::CastSpell { card: rift })
         .unwrap();
-    let Pending::ChooseCastMode { options, .. } = engine.pending().clone() else {
-        panic!("expected the mode choice, got {:?}", engine.pending())
-    };
-    let normal = options
-        .iter()
-        .position(|o| matches!(o.kind, crate::choice::CastModeKind::Mode(0)))
-        .expect("the printed mode");
-    engine.apply(p1, PlayerAction::ChooseMode(normal)).unwrap();
+    // Two islands pay the printed mode and not the overload, and a modal
+    // spell is offered no mode-less cast, so there is exactly one option
+    // here and the wizard takes it without asking. The choice is still made
+    // when both modes are affordable — `rift_table`'s seat 2 is asked.
+    if let Pending::ChooseCastMode { options, .. } = engine.pending().clone() {
+        let normal = options
+            .iter()
+            .position(|o| matches!(o.kind, crate::choice::CastModeKind::Mode(0)))
+            .expect("the printed mode");
+        engine.apply(p1, PlayerAction::ChooseMode(normal)).unwrap();
+    }
     engine
         .apply(
             p1,

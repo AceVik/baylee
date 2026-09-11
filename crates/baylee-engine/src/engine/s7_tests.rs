@@ -498,6 +498,84 @@ fn cyclonic_rift_overload_mode_bounces_everything() {
     );
 }
 
+/// A spell whose only spell ability is `AbilityDef::ModalSpell` is never
+/// offered a mode-less way to cast it.
+///
+/// Every effect such a card prints sits under a mode, so resolution finds no
+/// `AbilityDef::Spell` and — with no mode chosen — no `mode_index` either:
+/// the spell went hand → stack → graveyard and did nothing. A claim sweep
+/// found it on Damn ("Destroy target creature", and nothing in the journal is
+/// a destruction); the four cards in the pool that print `ModalSpell` all had
+/// it. Nothing becomes uncastable, which is what the second half asserts — a
+/// mode's cost defaults to the face's, so `Mode(0)` is the option `Normal`
+/// was pretending to be.
+#[test]
+fn a_modal_spell_is_not_offered_a_mode_less_cast() {
+    let mut engine = Engine::new(
+        &preset(
+            33,
+            vec![cyclonic_rift()],
+            vec![island(); 7],
+            vec![],
+            vec![ondu_cleric()],
+        ),
+        RegistryLookup,
+    )
+    .unwrap();
+    keep_mulligans(&mut engine);
+    let p0 = PlayerId::new(0);
+
+    let mut guard = 0;
+    while !matches!(engine.state().turn.phase, Phase::FirstMain) || engine.state().turn.active != p0
+    {
+        let Pending::Priority { player, .. } = engine.pending().clone() else {
+            panic!("expected priority, got {:?}", engine.pending())
+        };
+        engine.apply(player, PlayerAction::PassPriority).unwrap();
+        guard += 1;
+        assert!(guard < 20);
+    }
+    let sources = match engine.pending().clone() {
+        Pending::Priority { legal, .. } => legal.mana_abilities,
+        other => panic!("expected priority, got {other:?}"),
+    };
+    for source in sources {
+        engine
+            .apply(p0, PlayerAction::ActivateManaAbility { source })
+            .unwrap();
+    }
+    let rift = engine.state().zones.list(ZoneLocation::Hand(p0))[0];
+    engine
+        .apply(p0, PlayerAction::CastSpell { card: rift })
+        .unwrap();
+
+    let Pending::ChooseCastMode { options, .. } = engine.pending().clone() else {
+        panic!("expected modes, got {:?}", engine.pending())
+    };
+    let kinds: Vec<_> = options.iter().map(|o| o.kind).collect();
+    assert!(
+        !kinds.iter().any(|k| matches!(k, CastModeKind::Normal)),
+        "a mode-less cast was offered: {kinds:?}"
+    );
+    assert!(
+        kinds.iter().any(|k| matches!(k, CastModeKind::Mode(0))),
+        "the printed mode is gone too: {kinds:?}"
+    );
+    let normal = engine
+        .state()
+        .object(rift)
+        .and_then(|o| o.card)
+        .and_then(|c| baylee_cards::by_index(c.index))
+        .expect("the rift is card-backed")
+        .faces[0]
+        .mana_cost;
+    let plain = options
+        .iter()
+        .find(|o| matches!(o.kind, CastModeKind::Mode(0)))
+        .expect("the printed mode");
+    assert_eq!(plain.cost, normal, "the mode is not the printed cost");
+}
+
 #[test]
 fn toxic_deluge_pays_x_life_and_debuffs() {
     let mut engine = Engine::new(

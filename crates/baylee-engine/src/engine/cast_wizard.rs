@@ -309,12 +309,39 @@ impl<L: CardLookup> Engine<L> {
         let normal_cost =
             face.mana_cost
                 .with_less_generic(casting::printed_reduction(&self.state, face, player));
+        // A modal spell (CR 700.2) has no "no mode" way to be cast: every one
+        // of its effects sits under a mode, so a `Normal` option resolves to
+        // nothing at all. `progress` looks for an `AbilityDef::Spell` first
+        // and falls back to the object's `mode_index`, and a card whose only
+        // spell ability is `ModalSpell` cast as `Normal` has neither — it went
+        // hand → stack → graveyard and did nothing, which is how Damn was
+        // found. The four cards this reaches (damn, cyclonic_rift,
+        // heliod_s_intervention, sheoldred_s_edict) stay castable: a mode's
+        // cost defaults to the face's, so `Mode(0)` carries exactly the cost
+        // `Normal` was offering. `casting::face_has_a_legal_target` already
+        // asks this same question of `abilities_for_face`, in the same
+        // direction and for the same reason. The two clauses beside it hold
+        // the guard to exactly "casting with no mode chosen does nothing": a
+        // permanent spell arrives on the battlefield whether a mode was
+        // picked or not, and a plain `Spell` printed beside the modes is what
+        // `progress` finds first.
+        let abilities = def.abilities_for_face(0);
+        let modal_only = abilities
+            .iter()
+            .any(|a| matches!(a, baylee_cards_dsl::AbilityDef::ModalSpell { .. }))
+            && !abilities
+                .iter()
+                .any(|a| matches!(a, baylee_cards_dsl::AbilityDef::Spell { .. }))
+            && !face.types.is_permanent();
         // Normal cost (X probed with 0; the real check happens at payment).
         // Guarded by the same CR 202.1a question `can_cast` asks, and for the
         // reason every probe in this function is paired with one there: an
         // option offered here that the offer does not know about is a mode a
         // player can pick and be refused for.
-        if casting::has_a_printed_cost(&face.mana_cost) && afford(&normal_cost.with_x(0)) {
+        if !modal_only
+            && casting::has_a_printed_cost(&face.mana_cost)
+            && afford(&normal_cost.with_x(0))
+        {
             options.push(CastModeDesc {
                 index: 0,
                 kind: CastModeKind::Normal,
