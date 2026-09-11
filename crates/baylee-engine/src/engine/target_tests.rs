@@ -74,6 +74,14 @@
 //! target list with the whole enumeration in `actions.rs` — one line, and
 //! exactly the shape of the bug `lints::target_reuse` looks for — fails this
 //! sweep with 120 named offenders across the pool.
+//!
+//! Those 120 are also the evidence for the paragraph above, which would
+//! otherwise be an argument about what a journal *would* have missed. They
+//! name five fields: 33 `zone`, 26 `status`, 16 `keywords`, 8 `power`, 4
+//! `toughness`. The last three are 28 lines a journal-based sweep could not
+//! have printed at all — Rogue's Passage handing its keyword to every
+//! creature on the table, Skarrg pumping all of them +1/+0 and granting
+//! trample — because a continuous effect is registered, not recorded.
 
 use super::testkit::{
     Duel, RegistryLookup, Rest, answer_one, at_rest, basic_forest, basics, is_permanent,
