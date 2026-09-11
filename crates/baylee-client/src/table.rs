@@ -26,9 +26,10 @@ use crate::face;
 use crate::feltmat::FeltMaterial;
 use crate::textures::CardTextures;
 use baylee_client_core::board::CardGroup;
+use baylee_client_core::combat::Combat;
 use baylee_client_core::images::{FinishTreatment, ImageKey};
 use baylee_client_core::layout::{
-    CARD_HEIGHT, CARD_WIDTH, PileKind, SeatSlot, TableLayout, pack_lane,
+    CARD_HEIGHT, CARD_WIDTH, PileKind, STAGE_STEP, SeatSlot, TableLayout, pack_lane,
 };
 use baylee_client_core::tabletop;
 use baylee_client_core::zones::{self, Place, Tracker};
@@ -2474,6 +2475,14 @@ fn placements(duel: &Duel) -> Vec<Placement> {
     // whole table: at most one pile is ever open, because the pointer is over
     // at most one card.
     let fanned = board.fanned_pile(duel.hovered);
+    // Who is in the fight. The same `Combat::read` the lines are drawn from,
+    // so a card that has stepped out of its row and the line leaving it can
+    // never disagree about whether the declaration exists — they are two
+    // readings of one answer rather than two answers.
+    let combat = duel
+        .view
+        .as_ref()
+        .map(|view| Combat::read(view, duel.interaction.as_ref()));
     let mut out = Vec::new();
     for pod in &board.pods {
         let Some(slot) = layout.slot(pod.player) else {
@@ -2486,10 +2495,21 @@ fn placements(duel: &Duel) -> Vec<Placement> {
             let steps = lane.groups.len().saturating_sub(1).max(1) as f32;
             for (i, (group, offset)) in lane.groups.iter().zip(packing.offsets.iter()).enumerate() {
                 let along = Vec2::new(slot.facing.cos(), -slot.facing.sin());
+                // A group is one card standing for several, and combat is
+                // declared per creature — so the step is asked of the members
+                // and not of the representative. It cannot normally differ:
+                // a declared attacker is taken out of its group by the board
+                // model for exactly this reason. `any` rather than `all`
+                // because if that ever stops being true, a fighting card
+                // stepping forward is the better failure.
+                let staged = combat
+                    .as_ref()
+                    .is_some_and(|c| group.members.iter().any(|m| c.staged(*m)));
+                let stage = if staged { STAGE_STEP } else { 0.0 };
                 out.push(Placement {
                     object: group.representative,
                     slot: *slot,
-                    position: center + along * *offset,
+                    position: center + along * *offset + slot.forward() * stage,
                     // Later in the row is higher, so a fanned lane shingles
                     // the way a hand of cards does — each card over the one
                     // before it, and never in bands of both.

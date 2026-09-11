@@ -212,6 +212,35 @@ impl Combat {
     pub fn tally_at(&self, end: LineEnd) -> Option<&Tally> {
         self.tallies.iter().find(|t| t.at == end)
     }
+
+    /// Whether this creature stands forward of its row.
+    ///
+    /// Every creature that has been *declared* does: an attacker steps across
+    /// the line and a blocker steps up to meet it, which at a real table is
+    /// one gesture with one meaning — this card is in the fight. So the
+    /// question the table asks is not "is it attacking" but "is it the near
+    /// end of a line", and that is what [`Line::from`] already is for both
+    /// kinds.
+    ///
+    /// It follows that an attacker coming at *this* seat is staged too,
+    /// because `view.combat` is where its line comes from. That is the right
+    /// answer and it is worth saying out loud: the two boards lean towards
+    /// each other, and the shape of the fight is readable before a single
+    /// line is.
+    ///
+    /// A proposal counts. A blocker this seat has chosen and not yet sent
+    /// steps forward at once, because the step is how the client says it
+    /// heard the click — and it steps back if the choice is taken back, since
+    /// the proposal leaves `lines` with it.
+    ///
+    /// How *far* forward is [`crate::layout::STAGE_STEP`] and which way is
+    /// [`crate::layout::SeatSlot::forward`]. Neither belongs here: this is the
+    /// half that knows about combat, and those two are the half that knows
+    /// about the table.
+    #[must_use]
+    pub fn staged(&self, creature: ObjectId) -> bool {
+        self.lines.iter().any(|l| l.from == creature)
+    }
 }
 
 /// Sums the attacks at each defender, counting a block from either source.
@@ -261,6 +290,7 @@ fn tally(view: &PlayerView, lines: &[Line]) -> Vec<Tally> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::interaction::SelectionOutcome;
     use crate::test_support::{ViewBuilder, token};
     use baylee_engine::choice::{BlockOption, Pending};
     use baylee_view::{AttackerView, BlockerView};
@@ -335,6 +365,93 @@ mod tests {
             "nothing has been sent, so the line is a proposal"
         );
         assert_eq!(combat.lines[0].to, LineEnd::Seat(seat(1)));
+    }
+
+    /// Everyone in the fight steps out of their row, from both sources.
+    ///
+    /// Three claims in one test because they are one claim: an attacker of
+    /// *this* seat, an attacker of the *other* seat, and a blocker are all
+    /// "the near end of a line", and a version of this that only asked about
+    /// attackers would pass while the blockers stood still.
+    #[test]
+    fn everything_in_the_fight_stands_forward_and_nothing_else_does() {
+        let view = ViewBuilder::new(2)
+            .with_battlefield(0, vec![token(9, 0, "Wall", 0, 4)])
+            .with_battlefield(
+                1,
+                vec![token(1, 1, "Bear", 2, 2), token(2, 1, "Bear", 2, 2)],
+            )
+            .with_combat(
+                vec![AttackerView {
+                    creature: obj(1),
+                    defending: Defender::Player(seat(0)),
+                }],
+                vec![BlockerView {
+                    blocker: obj(9),
+                    attacker: obj(1),
+                }],
+            )
+            .build();
+
+        let combat = Combat::read(&view, None);
+        assert!(combat.staged(obj(1)), "the attacker is in the fight");
+        assert!(combat.staged(obj(9)), "so is the blocker in front of it");
+        assert!(
+            !combat.staged(obj(2)),
+            "the bear that stayed home has nothing to do with this"
+        );
+    }
+
+    /// A blocker chosen and not yet sent stands forward at once, and steps
+    /// back when the choice is taken back.
+    ///
+    /// The step is how the client says it heard the click, so it has to
+    /// answer to the proposal and not only to the view — and it has to be
+    /// reversible, because arming is two-stage everywhere else on this table
+    /// and a card that walked forward and stayed there would be the one place
+    /// a taken-back choice left a mark.
+    #[test]
+    fn a_proposed_blocker_steps_forward_and_steps_back() {
+        let view = ViewBuilder::new(2)
+            .with_battlefield(0, vec![token(9, 0, "Wall", 0, 4)])
+            .with_battlefield(1, vec![token(1, 1, "Bear", 2, 2)])
+            .with_combat(
+                vec![AttackerView {
+                    creature: obj(1),
+                    defending: Defender::Player(seat(0)),
+                }],
+                Vec::new(),
+            )
+            .build();
+        let mut i = Interaction::new(
+            Pending::ChooseBlockers {
+                player: seat(0),
+                attacker: seat(1),
+                blockers: vec![BlockOption {
+                    blocker: obj(9),
+                    attackers: vec![obj(1)],
+                }],
+            },
+            seat(0),
+        );
+
+        assert!(
+            !Combat::read(&view, Some(&i)).staged(obj(9)),
+            "nothing has been chosen yet"
+        );
+        // Through `toggle`, which is the path a click takes. A test that
+        // called `declare_blocker` would prove the model and not the button.
+        assert_eq!(i.toggle(obj(9)), SelectionOutcome::Added);
+        assert!(Combat::read(&view, Some(&i)).staged(obj(9)));
+        assert_eq!(
+            i.toggle(obj(9)),
+            SelectionOutcome::Removed,
+            "the same tap takes it back"
+        );
+        assert!(
+            !Combat::read(&view, Some(&i)).staged(obj(9)),
+            "the proposal is gone, so the wall goes back in its row"
+        );
     }
 
     #[test]

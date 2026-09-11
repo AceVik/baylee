@@ -49,6 +49,21 @@ pub const CARD_HEIGHT: f32 = 1.397;
 /// UI that sizes a card from one dimension needs the other, and a material
 /// node — unlike an image node — carries no intrinsic size to fall back on.
 pub const CARD_ASPECT: f32 = CARD_WIDTH / CARD_HEIGHT;
+/// How far a creature that is fighting stands out of its row, in table units.
+///
+/// Half a card, along [`SeatSlot::forward`]. It is the gesture a player makes
+/// at a real table — the attacker is pushed across the line and the blocker is
+/// pushed up to meet it — and the reason it is a *step out of the row* rather
+/// than a tilt or a light is that a row with one card out of it can be read
+/// from across the table, which is where the player is sitting.
+///
+/// Half a card and not more, because the step has to say "forward" while the
+/// card is still plainly on its own side of the felt. There is room for far
+/// more: the narrowest table is a duel, and a creature there can travel 3.53
+/// units before its leading edge touches the opponent's ground.
+/// `a_staged_creature_never_reaches_another_seats_ground` is that measurement,
+/// taken at every seat count, and it is what this number is bounded by.
+pub const STAGE_STEP: f32 = CARD_HEIGHT * 0.5;
 /// The room one card needs along a lane, however it is turned.
 ///
 /// A card taps by rotating a quarter turn about its own centre (CR 701.21),
@@ -473,6 +488,27 @@ impl SeatSlot {
         let offset_from_front = front + (index + 0.5) * h - self.half_extent.y;
         let away = Vec2::new(self.facing.sin(), self.facing.cos());
         self.center - away * offset_from_front
+    }
+
+    /// The direction this seat's cards advance in: out of the rows and
+    /// towards the middle of the table.
+    ///
+    /// The same unit vector [`lane_center`](Self::lane_center) measures its
+    /// three lanes along, which is what makes "forward" mean the same thing
+    /// to a staged attacker as it does to the row it stepped out of. It is
+    /// spelled out here rather than left inline there because a second reader
+    /// of that vector is a second chance to get its sign wrong, and the sign
+    /// is not obvious from the arithmetic: `lane_center` *subtracts* it and
+    /// the creature lane's offset is negative, so the two minus signs cancel
+    /// and the creature row ends up towards the centre.
+    ///
+    /// `the_creature_lane_is_forward_of_the_land_lane` is the test, and it is
+    /// written as a comparison between the two lanes rather than against a
+    /// hand-derived angle: what forward *means* on this table is "the way the
+    /// creatures are", at every seat of every ring.
+    #[must_use]
+    pub fn forward(&self) -> Vec2 {
+        Vec2::new(self.facing.sin(), self.facing.cos())
     }
 
     /// The four corners of this seat's ledge, in table space.
@@ -1887,6 +1923,91 @@ mod tests {
         // Angles increase monotonically.
         for w in layout.slots.windows(2) {
             assert!(w[1].angle > w[0].angle);
+        }
+    }
+
+    /// Forward is the way the creatures are, at every seat of every ring.
+    ///
+    /// Written as a comparison between two lanes and not against an angle,
+    /// because the sign of [`SeatSlot::forward`] is the thing that can be
+    /// wrong and a hand-derived angle would be derived the same wrong way.
+    /// A seat on a flank is the case that catches it: its `facing` is near a
+    /// quarter turn and a sign error there moves a card sideways rather than
+    /// backwards, which is the kind of wrong that looks almost right.
+    #[test]
+    fn the_creature_lane_is_forward_of_the_land_lane() {
+        for n in 2..=8u8 {
+            let layout = TableLayout::new(&seats(n), 1.78, None);
+            for slot in &layout.slots {
+                let creatures = slot.lane_center(LaneKind::Creatures);
+                let lands = slot.lane_center(LaneKind::Lands);
+                let advance = (creatures - lands).dot(slot.forward());
+                assert!(
+                    advance > 0.0,
+                    "{n} seats, seat {:?}: the creature lane is {advance} forward of the \
+                     land lane — forward points the wrong way",
+                    slot.player
+                );
+                // And forward is a direction, so it has unit length: the step
+                // is a distance in table units at every seat or it is not a
+                // distance at all.
+                assert!((slot.forward().length() - 1.0).abs() < 1e-5);
+            }
+        }
+    }
+
+    /// A creature that steps out to fight stays on its own side of the felt.
+    ///
+    /// The bound is the *other* seat's ground, and the reason it is measured
+    /// here rather than reasoned about is that the room in front of a
+    /// creature lane is different at every seat count and different again
+    /// with teams: a duel's two pods face each other across the shortest gap
+    /// there is, and a ring of eight has almost none of its neighbours in
+    /// front of it at all. The duel is the one that binds — 3.53 units of
+    /// room against a [`STAGE_STEP`] of 0.70 — and this is what would fail if
+    /// the step, the mat depth or the ring ever grew into each other.
+    #[test]
+    fn a_staged_creature_never_reaches_another_seats_ground() {
+        for n in 2..=8u8 {
+            for paired in [false, true] {
+                let table: Vec<Seat> = seats(n)
+                    .into_iter()
+                    .enumerate()
+                    .map(|(i, player)| {
+                        if paired {
+                            Seat {
+                                player,
+                                team: Some(i as u8 / 2 + 1),
+                            }
+                        } else {
+                            Seat::alone(player)
+                        }
+                    })
+                    .collect();
+                let layout = TableLayout::seated(&table, 1.78, None);
+                for slot in &layout.slots {
+                    // The leading edge of a staged card, which is what
+                    // arrives first and is therefore what has to clear.
+                    let edge = slot.lane_center(LaneKind::Creatures)
+                        + slot.forward() * (STAGE_STEP + CARD_HEIGHT * 0.5);
+                    for other in &layout.slots {
+                        if other.player == slot.player {
+                            continue;
+                        }
+                        let across = Vec2::new(other.facing.cos(), -other.facing.sin());
+                        let depth = other.forward();
+                        let d = edge - other.center;
+                        let on_ground = d.dot(across).abs() <= other.half_extent.x
+                            && d.dot(depth).abs() <= other.half_extent.y;
+                        assert!(
+                            !on_ground,
+                            "{n} seats (paired {paired}): a staged creature of seat {:?} \
+                             stands on seat {:?}'s ground",
+                            slot.player, other.player
+                        );
+                    }
+                }
+            }
         }
     }
 
