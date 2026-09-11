@@ -210,13 +210,22 @@ fn checkland_condition_is_evaluated() {
 #[test]
 fn triome_cycling_from_hand_draws() {
     let mut engine = Engine::new(
-        &preset_with_hand(45, vec![indatha_triome(), forest(), forest()], vec![]),
+        &preset_with_hand(
+            45,
+            vec![indatha_triome(), forest(), forest(), forest()],
+            vec![],
+        ),
         RegistryLookup,
     )
     .unwrap();
     keep_mulligans(&mut engine);
     let p0 = PlayerId::new(0);
-    // Play 2 forests, tap, cycle the triome from hand.
+    // Play 3 forests, tap, cycle the triome from hand. It was 2, and that is
+    // not a detail of the harness: Indatha Triome cycles for `{3}`, its own
+    // `//! Oracle:` header says so, and the card was built at `{2}`. This
+    // test was written against the card rather than against the printing, so
+    // it passed on the wrong number and pinned it there — which is how a
+    // second reader (`xtask cross-read`) found the fault and this did not.
     let mut guard = 0;
     loop {
         match engine.pending().clone() {
@@ -305,7 +314,8 @@ fn triome_cycling_from_hand_draws() {
             other => panic!("unexpected: {other:?}"),
         }
         guard += 1;
-        assert!(guard < 60, "triome never cycled");
+        // 60 was enough for two land drops and is not enough for three.
+        assert!(guard < 150, "triome never cycled");
     }
 }
 

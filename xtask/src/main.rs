@@ -84,12 +84,38 @@ enum Cmd {
     /// same card from a different source, so where it reads a script **in
     /// full** and comes out with a different shape, one of the two is wrong.
     ///
-    /// It reports and never fails, deliberately. A disagreement is not a
-    /// defect: the transcoder writes what one rule can say, and a
-    /// hand-written card is allowed to say more (a mode, a ward, a saga
-    /// chapter). What it is, is the shortest list of cards worth a second
-    /// pair of eyes, and the list is ranked by nothing — every line on it
-    /// names a card and what the two readers disagreed about.
+    /// A disagreement never fails it. The transcoder writes what one rule
+    /// can say, and a hand-written card is allowed to say more (a mode, a
+    /// ward, a saga chapter). What the list is, is the shortest set of cards
+    /// worth a second pair of eyes, and it is ranked by nothing — every line
+    /// on it names a card and what the two readers disagreed about.
+    ///
+    /// The second reader is read at whichever of **two depths** the script
+    /// reaches. Transcoding is the deep one and needs every clause claimed,
+    /// which a hand-written card's script almost never offers — it is
+    /// hand-written *because* a reader could not write it, so only 22 of the
+    /// 207 overlap and that number shrinks as the transcoder grows. Counting
+    /// the parser's own line kinds is the shallow one and reaches 141 more:
+    /// a script stopped on one unclaimed parameter still says plainly how
+    /// many abilities it has and of what kind.
+    ///
+    /// Both depths obey the transcoder's honesty rule — **one unread clause
+    /// and the script is not counted** — because the alternative is a tool
+    /// that reports its own blind spots as defects in the cards. The skips
+    /// are counted and *named* for the same reason, so the tail of the
+    /// report is a worklist: thirteen cards are unreadable only because
+    /// `K:ETBReplacement` hides an ability inside an `SVar` chain, and five
+    /// only because `keyword_const` has no row for daybound.
+    ///
+    /// What it caught on its first honest run is the whole argument for it:
+    /// the four hand-written Triomes were all wrong and the six generated
+    /// ones were all right. Raffine's Tower had no basic land types and no
+    /// cycling ability at all while claiming `Coverage::Implemented`, and
+    /// Indatha, Raugrin and Zagoth cycled for `{2}` against the `{3}` their
+    /// own `//! Oracle:` header prints. Every other check in the repo agreed
+    /// with all four, which is exactly the hole this fills: `validate` pins
+    /// a header to its printing and the sweeps pin behaviour to the
+    /// `CardDef`, and neither can see a `CardDef` a person typed wrong.
     CrossRead {
         /// Path to the forge-reference cardsfolder.
         #[arg(
@@ -2978,94 +3004,240 @@ fn refusal_cause(script: &forgegen::ForgeScript, cats: &catalog::SubtypeCatalogs
 /// filter written two equivalent ways would differ textually and mean the
 /// same thing; a card with a triggered ability one reader never saw is a
 /// card to open.
-#[derive(Default, PartialEq, Eq)]
+#[derive(PartialEq, Eq)]
 struct Shape {
     spell: usize,
     activated: usize,
     mana: usize,
     triggered: usize,
     statics: usize,
+    /// Whether the static count means anything on this side.
+    ///
+    /// False where the script has an `R:` line. A replacement effect comes
+    /// from a static ability (CR 614.1) and is one on the card side, but at
+    /// this depth an `R:` is equally likely to be "enters tapped", which is
+    /// no ability at all — one prefix over two different things, and no
+    /// count of the prefix can separate them.
+    statics_known: bool,
     /// Everything the transcoder has no rule for at all. Counted on the
     /// hand-written side only, and never compared — it is the measure of
     /// what this report structurally cannot see.
     beyond: usize,
 }
 
+impl Default for Shape {
+    fn default() -> Self {
+        Self {
+            spell: 0,
+            activated: 0,
+            mana: 0,
+            triggered: 0,
+            statics: 0,
+            statics_known: true,
+            beyond: 0,
+        }
+    }
+}
+
 impl Shape {
     /// The shape the hand-written card actually builds.
+    ///
+    /// Read over **every** face. A script is one file per card and carries
+    /// both halves of a modal double-faced land, so asking face 0 alone
+    /// reported all three Pathways for building one mana ability against a
+    /// script that has two.
     fn of_card(def: &baylee_cards::dsl::CardDef) -> Self {
         use baylee_cards::dsl::AbilityDef as A;
         let mut out = Self::default();
-        for ability in def.abilities_for_face(0) {
+        for ability in (0..def.faces.len()).flat_map(|f| def.abilities_for_face(f)) {
             match ability {
-                A::Spell { .. } => out.spell += 1,
+                // A modal spell and a modal triggered ability are one spell
+                // and one trigger that offer a choice, not a shape of their
+                // own — Forge writes both as a single `Charm` line. That is
+                // the class this report exists for: the four cards whose
+                // only spell ability is `ModalSpell` were being offered a
+                // cast with no mode at all, and `beyond` is where that hid.
+                A::Spell { .. } | A::ModalSpell { .. } => out.spell += 1,
+                A::Triggered { .. } | A::ModalTriggered { .. } => out.triggered += 1,
                 // `ActivatedConditional` is the same ability with a
                 // condition on when it may be activated, and the transcoder
                 // has one macro for both. Folding them is what keeps this
-                // from reporting every equipment in the pool.
-                A::Activated { mana_ability, .. } => {
+                // from reporting every equipment in the pool — and the
+                // `mana_ability` flag has to travel with it, or Mox Opal's
+                // metalcraft mana and a verge land's second colour read as
+                // activations.
+                A::Activated { mana_ability, .. }
+                | A::ActivatedConditional { mana_ability, .. } => {
                     if *mana_ability {
                         out.mana += 1;
                     } else {
                         out.activated += 1;
                     }
                 }
-                A::ActivatedConditional { .. } => out.activated += 1,
-                A::Triggered { .. } => out.triggered += 1,
-                A::Static(_) => out.statics += 1,
+                // CR 614.1: a replacement effect is generated by a static
+                // ability, and Forge writes one as the `S:` line it is.
+                A::Static(_) | A::Replacement(_) => out.statics += 1,
+                // A loyalty ability *is* an activated ability (CR 606.1),
+                // and Forge writes one as an `A:AB$` line whose cost adds or
+                // removes loyalty counters. Leaving it in `beyond` reported
+                // every planeswalker in the pool as a card that builds
+                // nothing.
+                A::Loyalty { .. } => out.activated += 1,
                 _ => out.beyond += 1,
+            }
+        }
+        // CR 305.6: a land with a basic land type has the matching mana
+        // ability intrinsically, and it is printed nowhere — Taiga's text
+        // box holds reminder text and Forge writes no `A:` line for it. The
+        // DSL has no intrinsic anything, so the card spells the ability out
+        // and every dual, shock and basic in the pool disagreed with a
+        // script that is silent by design. One such ability per face is what
+        // a type line grants, however many types it names.
+        for face in def.faces {
+            use baylee_core::generated::subtypes::land;
+            const BASIC: [baylee_core::ids::SubtypeId; 5] = [
+                land::PLAINS,
+                land::ISLAND,
+                land::SWAMP,
+                land::MOUNTAIN,
+                land::FOREST,
+            ];
+            if face.subtypes.iter().any(|s| BASIC.contains(s)) {
+                out.mana = out.mana.saturating_sub(1);
             }
         }
         out
     }
 
-    /// The shape the transcoder would have written, read off the expressions
-    /// it emits rather than off a parse of them: each one begins with the
-    /// macro or path that names its kind.
-    fn of_body(body: &baylee_cards_codegen::body::CardBody) -> Self {
+    /// The shape the **script** has, read off the parser's own line kinds.
+    ///
+    /// This is the second reading depth and the one that reaches the whole
+    /// hand-written pool. [`Self::of_body`] needs the transcoder to have
+    /// read every clause, which by construction it almost never has here —
+    /// a card is hand-written precisely *because* a reader could not write
+    /// it, so only 22 of 207 overlap and that number shrinks as the
+    /// transcoder grows. Counting lines needs no such thing: a script that
+    /// is refused for one unclaimed parameter still says plainly how many
+    /// abilities it has and of what kind.
+    ///
+    /// Every classification here is the parser's or the transcoder's own —
+    /// `rules` is already typed `A`/`T`/`S`/`R`, `AB$` versus `SP$` is the
+    /// same test [`forgegen`] makes to pick between `activated!` and
+    /// `spell!`, and mana-ness comes from [`forgegen::apis_used`] following
+    /// the `SubAbility$` chain. Nothing is re-derived with a regex: a second
+    /// classifier living here is exactly how `forge-report` came to rank its
+    /// refusal causes wrongly.
+    /// `None` where the script cannot be counted at all — see the rule under
+    /// "one unread clause" below.
+    fn of_script(script: &baylee_cards_codegen::forgegen::ForgeScript) -> Result<Self, String> {
+        use baylee_cards_codegen::forgegen;
         let mut out = Self::default();
-        for expr in &body.abilities {
-            if expr.starts_with("mana_ability!") {
-                out.mana += 1;
-            } else if expr.starts_with("activated!") {
-                out.activated += 1;
-            } else if expr.starts_with("triggered!") {
-                out.triggered += 1;
-            } else if expr.starts_with("spell!") {
-                out.spell += 1;
-            } else if expr.starts_with("AbilityDef::Static") {
-                out.statics += 1;
-            } else {
-                out.beyond += 1;
+        for (kind, body) in &script.rules {
+            match kind {
+                'A' if body.starts_with("AB$") => {
+                    // CR 605.1a: a mana ability is one that could add mana
+                    // and does nothing else, which is exactly "the chain
+                    // reaches no API but `Mana`". That makes the answer
+                    // depend on every API in the chain being one the
+                    // transcoder has a rule for: Exotic Orchard's
+                    // `ManaReflected` is a mana ability nothing here can
+                    // recognise as one, and guessing would have reported the
+                    // card for building the ability it prints.
+                    let apis = forgegen::apis_used(body, &script.svars);
+                    if apis.is_empty() {
+                        return Err("api:<unparsed>".to_string());
+                    }
+                    if let Some(api) = apis.iter().find(|api| !forgegen::is_supported_api(api)) {
+                        return Err(format!("api:{api}"));
+                    }
+                    if apis.iter().all(|api| api == "Mana") {
+                        out.mana += 1;
+                    } else {
+                        out.activated += 1;
+                    }
+                }
+                'A' if body.starts_with("SP$") => out.spell += 1,
+                'T' => out.triggered += 1,
+                // Two `S:` modes are costs rather than abilities, and the
+                // DSL carries both on the face — `alternative_costs` for the
+                // first (Force of Will's pitch) and `mandatory_additional_
+                // costs`/`additional_costs` for the second (Spirit Water
+                // Revival's waterbend). Without this the five free spells in
+                // the pool all reported a static they do not have.
+                'S' if body.starts_with("Mode$ AlternativeCost")
+                    || body.starts_with("Mode$ OptionalCost") => {}
+                'S' => out.statics += 1,
+                'R' => out.statics_known = false,
+                // `A:ST$ …`, a bare `A:Mode$ …`: a line shape this does not
+                // model, and an uncounted line is an uncountable script.
+                _ => {
+                    let head = body.split(['$', ' ']).next().unwrap_or("?");
+                    return Err(format!("line:{kind}:{head}"));
+                }
             }
         }
-        out
+        for keyword in &script.keywords {
+            let word = keyword.split([' ', ':']).next().unwrap_or_default();
+            match word {
+                // Two keywords are activated abilities wearing a keyword's
+                // clothes: equip (CR 702.6a) and cycling (CR 702.29a). The
+                // DSL has no bit for either, so a hand-written card spells
+                // them as the activations they are, and without this every
+                // equipment in the pool disagreed.
+                "Equip" | "Cycling" => out.activated += 1,
+                // **One unread clause and the script is not counted.** This
+                // is the transcoder's own honesty rule at a shallower depth,
+                // and it is what separates a report from a guess. Forge
+                // folds whole abilities into keywords whose payload is an
+                // `SVar` chain — `K:ETBReplacement:Copy:DBCopy` is where
+                // Progenitor Mimic's granted upkeep trigger lives, and no
+                // count of `T:` lines can see it. A card whose script says
+                // something this cannot read is a counted skip, never a
+                // finding: reporting Progenitor Mimic for building a trigger
+                // its script "does not have" would be this tool inventing a
+                // defect out of its own blind spot.
+                _ if forgegen::keyword_const_of(keyword).is_none() => {
+                    return Err(format!("kw:{word}"));
+                }
+                _ => {}
+            }
+        }
+        Ok(out)
     }
 
     /// The five counts, for a message.
     fn tell(&self) -> String {
+        let statics = if self.statics_known {
+            format!("{} static", self.statics)
+        } else {
+            "an uncounted number of statics".to_string()
+        };
         format!(
-            "{} spell, {} activated, {} mana, {} triggered, {} static",
-            self.spell, self.activated, self.mana, self.triggered, self.statics
+            "{} spell, {} activated, {} mana, {} triggered, {statics}",
+            self.spell, self.activated, self.mana, self.triggered
         )
     }
 
-    /// Whether the five comparable counts agree. `beyond` is excluded: the
-    /// hand-written side is allowed to say things the transcoder cannot.
+    /// Whether the comparable counts agree.
+    ///
+    /// `beyond` is excluded: the hand-written side is allowed to say things
+    /// the transcoder cannot. Statics are compared as **presence** and never
+    /// as a count, because the two sides do not count the same unit — a
+    /// printed sentence is usually several layers (CR 613.1), so Sword of
+    /// Hearth and Home's one "gets +2/+2 and has protection from green and
+    /// from white" is one `S:` line and three `AbilityDef::Static`s, and a
+    /// count comparison reports every equipment and every anthem in the pool
+    /// forever. A report nobody can read past is worth nothing.
     fn agrees_with(&self, other: &Self) -> bool {
-        (
-            self.spell,
-            self.activated,
-            self.mana,
-            self.triggered,
-            self.statics,
-        ) == (
-            other.spell,
-            other.activated,
-            other.mana,
-            other.triggered,
-            other.statics,
-        )
+        if (self.spell, self.activated, self.mana, self.triggered)
+            != (other.spell, other.activated, other.mana, other.triggered)
+        {
+            return false;
+        }
+        if !self.statics_known || !other.statics_known {
+            return true;
+        }
+        (self.statics > 0) == (other.statics > 0)
     }
 }
 
@@ -3086,6 +3258,27 @@ fn keyword_bit(const_name: &str) -> Option<baylee_cards::dsl::KeywordSet> {
 /// Reads every hand-written card a second way and prints the disagreements.
 #[allow(clippy::too_many_lines)] // one paragraph per skip bucket; splitting hides the census
 fn cross_read(root: &Path, forge_dir: &Path, samples: usize) -> anyhow::Result<()> {
+    // A disagreement never fails this command — that is the tier's whole
+    // stance. What *does* fail it is the reader losing sight of which cards
+    // it is reading, because that is the failure this command has already
+    // had twice in one afternoon: a retyped ownership marker read 383
+    // machine-owned cards as hand-written, and `faces[0].keywords` read every
+    // single-faced card as claiming no keywords at all. Both left a report
+    // that ran, printed, and said nothing true.
+    //
+    // The population is bounded on **both** sides for exactly that reason.
+    // Floors alone would have caught neither: the marker bug made the
+    // hand-written population *larger* (336 rather than 207), so a minimum
+    // passed it while the report filled with a rule disagreeing with itself.
+    // These are the reach measured on 2026-09-11 — 204 cards read, 141 of
+    // them counted, 22 transcoded in full — with room either way for
+    // ordinary movement in the pool and none for a whole population
+    // appearing or vanishing.
+    const READ_FLOOR: usize = 190;
+    const READ_CEILING: usize = 240;
+    const COUNTED_FLOOR: usize = 128;
+    const IN_FULL_FLOOR: usize = 18;
+
     let cache = root.join("data/scryfall-cache");
     let agent = ureq::Agent::new_with_defaults();
     let mut cats = catalog::SubtypeCatalogs {
@@ -3108,8 +3301,10 @@ fn cross_read(root: &Path, forge_dir: &Path, samples: usize) -> anyhow::Result<(
     }
 
     let files = card_files(&root.join("crates/baylee-cards/src/cards"))?;
-    let (mut machine, mut not_implemented, mut no_script, mut refused) = (0, 0, 0, 0);
-    let (mut compared, mut agreed) = (0usize, 0usize);
+    let (mut machine, mut not_implemented, mut no_script) = (0, 0, 0);
+    let (mut compared, mut agreed, mut in_full) = (0usize, 0usize, 0usize);
+    let (mut shapes, mut uncountable) = (0usize, 0usize);
+    let mut unreadable: BTreeMap<String, usize> = BTreeMap::new();
     let mut disagreements: Vec<String> = Vec::new();
     let mut shown = 0usize;
 
@@ -3151,49 +3346,88 @@ fn cross_read(root: &Path, forge_dir: &Path, samples: usize) -> anyhow::Result<(
             continue;
         };
         let script = forgegen::parse(&script_text);
-        // The transcoder's own honesty rule is what makes this comparison
-        // worth making: it produces a card only when it read every clause,
-        // so a refusal is silence rather than a weaker reading.
-        let Some(body) = forgegen::transcode(&script, &cats) else {
-            refused += 1;
-            continue;
-        };
+        // The transcoder is read at whichever of its two depths this script
+        // reaches. Transcoding is the deeper one and needs every clause
+        // claimed, which a hand-written card's script almost never offers —
+        // it is hand-written *because* a reader could not write it. Parsing
+        // is the shallower one and never refuses: a script stopped on one
+        // unclaimed parameter still says how many abilities it has.
+        let body = forgegen::transcode(&script, &cats);
         compared += 1;
+        in_full += usize::from(body.is_some());
 
         let mut found: Vec<String> = Vec::new();
-        let (mine, theirs) = (Shape::of_card(def), Shape::of_body(&body));
-        if !mine.agrees_with(&theirs) {
-            found.push(format!(
-                "the card builds {} and the script reads {}",
-                mine.tell(),
-                theirs.tell()
-            ));
+        let mine = Shape::of_card(def);
+        match Shape::of_script(&script) {
+            Ok(theirs) => {
+                shapes += 1;
+                if !mine.agrees_with(&theirs) {
+                    found.push(format!(
+                        "the card builds {} and the script reads {}",
+                        mine.tell(),
+                        theirs.tell()
+                    ));
+                }
+            }
+            // A skip is counted *and named*. The reason is what makes this
+            // half a worklist rather than a shrug: teaching `keyword_const`
+            // one more row, or the transcoder one more API, is a number of
+            // cards this report can then read.
+            Err(reason) => {
+                uncountable += 1;
+                *unreadable.entry(reason).or_insert(0usize) += 1;
+            }
         }
         // Keywords are the half that *is* comparable exactly: both sides
-        // name a bit, and a bit is a bit.
+        // name a bit, and a bit is a bit. `keyword_const_of` is the
+        // transcoder's own `K:` reader, and the two directions are not
+        // symmetric. A bit the script prints and the card does not claim is
+        // always a finding. A bit the card claims is one only if the script
+        // was read *whole*: `keyword_const` has no row for daybound, so five
+        // werewolves were reported for claiming the keyword their script
+        // prints on its own line.
         let mut script_bits = baylee_cards::dsl::KeywordSet::EMPTY;
-        for name in &body.keywords {
-            if let Some(bit) = keyword_bit(name) {
-                script_bits = script_bits.union(bit);
+        let mut every_keyword_read = true;
+        for line in &script.keywords {
+            match forgegen::keyword_const_of(line).and_then(keyword_bit) {
+                Some(bit) => script_bits = script_bits.union(bit),
+                None => every_keyword_read = false,
             }
         }
         // `faces[0].keywords` is the *override*, empty on every single-faced
         // card, which states its keywords once at card level. Reading it
         // directly said "the card claims it nowhere" about eleven bridges
         // that claim indestructible on their first line.
-        let card_bits = def.keywords_for_face(0);
+        // A script is one file per card and prints a transforming card's back
+        // keywords in the same `K:` block, so the card side is the union too.
+        let card_bits = (0..def.faces.len()).map(|f| def.keywords_for_face(f)).fold(
+            baylee_cards::dsl::KeywordSet::EMPTY,
+            baylee_cards::dsl::KeywordSet::union,
+        );
         for (bit, word) in KEYWORD_WORDS {
             let card_has = card_bits.contains(*bit);
             let script_has = script_bits.contains(*bit);
-            if card_has != script_has {
-                found.push(if card_has {
-                    format!("the card claims {word} and the script does not print it")
-                } else {
-                    format!("the script prints {word} and the card claims it nowhere")
-                });
+            match (card_has, script_has) {
+                (false, true) => {
+                    found.push(format!(
+                        "the script prints {word} and the card claims it nowhere"
+                    ));
+                }
+                (true, false) if every_keyword_read => {
+                    found.push(format!(
+                        "the card claims {word} and the script does not print it"
+                    ));
+                }
+                _ => {}
             }
         }
-        if body.enter_modifiers.len() != def.faces[0].enter_modifiers.len() {
+        // How a permanent enters is the one check that stays on the deep
+        // path. It is written as an `R:` replacement whose payload is an
+        // `SVar` chain, so counting the line says nothing at all about what
+        // the line does — only a transcoding does.
+        if let Some(body) = &body
+            && body.enter_modifiers.len() != def.faces[0].enter_modifiers.len()
+        {
             found.push(format!(
                 "the card enters under {} modifier(s) and the script under {}",
                 def.faces[0].enter_modifiers.len(),
@@ -3229,8 +3463,32 @@ fn cross_read(root: &Path, forge_dir: &Path, samples: usize) -> anyhow::Result<(
         disagreements.len()
     );
     println!(
-        "  skipped: {machine} machine-owned, {not_implemented} not implemented, \
-         {no_script} with no forge script, {refused} the transcoder refused"
+        "  depth: {shapes} scripts counted line by line, {in_full} of those also \
+         transcoded in full; {uncountable} say something no count can read"
     );
+    let mut ranked: Vec<(&String, &usize)> = unreadable.iter().collect();
+    ranked.sort_by(|a, b| b.1.cmp(a.1).then(a.0.cmp(b.0)));
+    for (reason, count) in ranked.iter().take(8) {
+        println!("    {count:>3}  {reason}");
+    }
+    println!(
+        "  skipped: {machine} machine-owned, {not_implemented} not implemented, \
+         {no_script} with no forge script"
+    );
+
+    if !(READ_FLOOR..=READ_CEILING).contains(&compared)
+        || shapes < COUNTED_FLOOR
+        || in_full < IN_FULL_FLOOR
+    {
+        anyhow::bail!(
+            "cross-read read a different pool than it can: {compared} cards read \
+             (expected {READ_FLOOR}..={READ_CEILING}), {shapes} counted (floor \
+             {COUNTED_FLOOR}), {in_full} transcoded in full (floor {IN_FULL_FLOOR}). \
+             This is a fault in the reader, not in the cards — a comparison that skips \
+             a population says nothing about it and still exits green, and one that \
+             takes in a population it should not skip fills up with a rule disagreeing \
+             with itself."
+        );
+    }
     Ok(())
 }

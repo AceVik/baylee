@@ -2,10 +2,8 @@
 //! Oracle: ({T}: Add {B}, {G}, or {U}.)
 //! Oracle: This land enters tapped.
 //! Oracle: Cycling {3} ({3}, Discard this card: Draw a card.)
-//! Zagoth Triome enters the battlefield tapped.
-//! Cycling {2}
 //! Set: IKO #259 — Ikoria: Lair of Behemoths | Scryfall ID: cc520518-2063-4b57-a0d4-10cf62a7175e | Oracle ID: fdd46004-eaba-4024-8687-39b23dc6a58c
-// IMPLEMENTED — triome (3 land types → intrinsic mana, ETB tapped, cycling {2}).
+// IMPLEMENTED — triome (3 land types → intrinsic mana, ETB tapped, cycling {3}).
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes::{self};
@@ -33,7 +31,7 @@ card! {
                 ManaColor::Green,
             ])]),
         activated!(Cost {
-                mana: baylee_core::mana!("{2}"),
+                mana: baylee_core::mana!("{3}"),
                 parts: &[CostPart::DiscardSelf],
             }, &[Effect::DrawCards {
                 amount: Amount::Fixed(1),

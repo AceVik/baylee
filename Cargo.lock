@@ -7794,6 +7794,7 @@ dependencies = [
  "anyhow",
  "baylee-cards",
  "baylee-cards-codegen",
+ "baylee-core",
  "clap",
  "serde_json",
  "ureq 3.4.1",

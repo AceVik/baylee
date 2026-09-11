@@ -2,10 +2,8 @@
 //! Oracle: ({T}: Add {U}, {R}, or {W}.)
 //! Oracle: This land enters tapped.
 //! Oracle: Cycling {3} ({3}, Discard this card: Draw a card.)
-//! Raugrin Triome enters the battlefield tapped.
-//! Cycling {2}
 //! Set: IKO #251 — Ikoria: Lair of Behemoths | Scryfall ID: 02138fbb-3962-4348-8d31-faaefba0b8b2 | Oracle ID: c7fa1dda-9312-4ec8-82cd-a1ba7bc33497
-// IMPLEMENTED — triome (3 land types → intrinsic mana, ETB tapped, cycling {2}).
+// IMPLEMENTED — triome (3 land types → intrinsic mana, ETB tapped, cycling {3}).
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes::{self};
@@ -33,7 +31,7 @@ card! {
                 ManaColor::White,
             ])]),
         activated!(Cost {
-                mana: baylee_core::mana!("{2}"),
+                mana: baylee_core::mana!("{3}"),
                 parts: &[CostPart::DiscardSelf],
             }, &[Effect::DrawCards {
                 amount: Amount::Fixed(1),

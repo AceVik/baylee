@@ -11,6 +11,7 @@ workspace = true
 
 [dependencies]
 baylee-cards.workspace = true
+baylee-core.workspace = true
 baylee-cards-codegen.workspace = true
 anyhow.workspace = true
 clap.workspace = true
