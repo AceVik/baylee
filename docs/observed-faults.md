@@ -2712,3 +2712,39 @@ ticked to 6, one attacked down to 1, and a card in a graveyard at its printed
 carries a better number — and a client built against 16 renders it without
 knowing anything happened, which is exactly the case the version is *not*
 for.
+
+## Tenth pass, 2026-09-11 — found while proving the hand's click animation
+
+### 51. A tap that spans a HUD rebuild activates nothing — CONFIRMED, unfixed
+
+`42fc634` fixed the *drawing* of this: a card left holding a press now lifts
+itself when no click arrives. What it did not fix is the half underneath — the
+tap does not happen at all.
+
+Bevy raises `Pointer<Click>` only when the press and the release land on the
+same **entity**, and the hand row is rebuilt on every hover change and on every
+arriving view. A finger that is down while any of that happens is released over
+a node born after the press, and `input::pointer` — which reads
+`Pointer<Click>` and nothing else — never hears about it. The player taps a
+card and the card does nothing.
+
+Measured live (`dev-control`, an offline duel holding a `DiscardChoice`;
+pointer coordinates logical, screenshots physical at scale 2). Card 1's top
+edge: **1785** at rest, **1791** with the finger down (six physical pixels =
+three logical = `Touch::SINK`), **1791** with the pointer moved onto card 3 and
+back while still held — two rebuilds, the whole frame differing by a mean of
+14.4 per channel because the hover preview swapped — and **1785** after the
+release. `interaction.selected` is 1 before the press and 1 after it: the
+discard selection never moved, so nothing was activated.
+
+The rebuild is not exotic. A view arrives on every engine message, so a tap
+that outlives one of those is swallowed; and the same shape reaches a press
+that drifts from a card's art onto its text, because the art, the text and the
+rail are separate pickable children and that is two entities again.
+
+The fix has a shape already. `Touched::let_go` is exactly "the finger came off
+the card it was on and no click was handled"; today `touch::settle` reads it to
+lift the card, and something in the **Input** set — before `input::pointer`,
+while the frame's `Pointer<Click>` messages can still be read — could read it
+to *send the tap*. Not attempted here, because it moves an animation change
+into the input path and wants its own commit.
