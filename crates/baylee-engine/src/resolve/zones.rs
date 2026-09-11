@@ -386,7 +386,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             None
         }
         Effect::Mill { amount, target } => {
-            let n = amount2(&amount, state, you, res.source, res.x, &res.targets) as usize;
+            let n = amount2(&amount, state, you, res) as usize;
             for player in super::players_of(target, state, you, res) {
                 let top: Vec<ObjectId> = state
                     .zones

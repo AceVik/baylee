@@ -50,7 +50,7 @@ fn add_mana(
     restriction: Option<ManaRestriction>,
 ) -> Option<Pending> {
     let you = res.controller;
-    let n = amount2(amount, state, you, res.source, res.x, &res.targets) as u16;
+    let n = amount2(amount, state, you, res) as u16;
     if n == 0 {
         return None;
     }

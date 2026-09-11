@@ -87,6 +87,38 @@ pub struct Resolution {
     /// is what makes the pair independent of the order the card lists them
     /// in.
     pub countered_source: Option<ObjectId>,
+    /// What this resolution's targets looked like when it began.
+    ///
+    /// CR 608.2g: an effect that needs information about an object which is
+    /// no longer in the zone it was expected to be in uses that object's
+    /// *last known information*. A resolution expects its targets where they
+    /// were when it started, so that is when the snapshot is taken — by
+    /// [`run`], once, on the first pass, which is why the field is an
+    /// `Option` and not an empty `Vec` that a re-entry after a player choice
+    /// would refill from the wrong moment.
+    ///
+    /// It is `None` at every construction site for the same reason: nothing
+    /// but `run` may decide when "the resolution began" was.
+    pub target_lki: Option<Vec<TargetLki>>,
+}
+
+/// One target as it last existed where the resolution expected it.
+///
+/// The `version` is the discriminator and the whole of the fix: `version`
+/// is bumped in exactly one place, `GameState::move_object`, so "the object
+/// has a different version than when this resolution started" *is* "the
+/// object is no longer in the zone the effect expected it in". A reader that
+/// took the snapshot unconditionally would answer with stale information for
+/// the opposite shape — an effect list that changes a permanent and then
+/// reads it, still on the battlefield, which Inspirit Flagship Vessel does.
+#[derive(Clone, Debug)]
+pub struct TargetLki {
+    /// The target this describes.
+    pub id: ObjectId,
+    /// Its `version` when the resolution began.
+    pub version: u32,
+    /// Its characteristics when the resolution began.
+    pub chars: crate::object::Characteristics,
 }
 
 /// What [`Filter::This`](baylee_cards_dsl::Filter::This) names right now.
@@ -264,26 +296,55 @@ fn reveals(
             .any(|f| matches!(f.dest, SearchDest::Hand | SearchDest::TopOfLibrary))
 }
 
+/// The first target's characteristics, as the effect asking is entitled to
+/// see them (CR 608.2g).
+///
+/// Live while the object is still where the resolution left it, and the
+/// snapshot [`run`] took once it is not. Swords to Plowshares is the card
+/// that needs the second half: it exiles the creature and *then* reads its
+/// power, and an object outside the battlefield reads its printed `base`,
+/// because `move_object` clears the projection cache and the refresh pass
+/// revisits only the battlefield and the stack. A Llanowar Elves with a
+/// +1/+1 counter on it gained its controller one life instead of two — for
+/// as long as the card has existed, the cache clear being older than every
+/// entry that touches it.
+fn target_chars<'a>(
+    res: &'a Resolution,
+    state: &'a GameState,
+) -> Option<&'a crate::object::Characteristics> {
+    let id = res.targets.first().copied()?;
+    let obj = state.object(id);
+    let known = res
+        .target_lki
+        .as_ref()
+        .and_then(|lki| lki.iter().find(|l| l.id == id));
+    match (obj, known) {
+        // Still the same object in the same zone: nothing is lost by asking
+        // it, and an effect list that changed it wants the change.
+        (Some(obj), Some(known)) if obj.version == known.version => Some(obj.characteristics()),
+        (_, Some(known)) => Some(&known.chars),
+        (Some(obj), None) => Some(obj.characteristics()),
+        (None, None) => None,
+    }
+}
+
 /// Amount evaluation with target context ([`Amount::TargetPower`]).
-pub(super) fn amount2(
-    amount: &Amount,
-    state: &GameState,
-    you: PlayerId,
-    this: ObjectId,
-    x: Option<u32>,
-    targets: &[ObjectId],
-) -> u32 {
+pub(super) fn amount2(amount: &Amount, state: &GameState, you: PlayerId, res: &Resolution) -> u32 {
     match amount {
-        Amount::TargetPower => targets
-            .first()
-            .and_then(|t| state.object(*t))
-            .and_then(|o| o.characteristics().power)
+        Amount::TargetPower => target_chars(res, state)
+            .and_then(|c| c.power)
             .map_or(0, |p| p.max(0) as u32),
-        Amount::TargetCmc => targets
+        // Deliberately *not* through `target_chars`: the one card that reads
+        // this is Reanimate, whose target is a creature card in a graveyard
+        // and whose mana value is the printed one. A card that never was a
+        // permanent has no last known information on the battlefield to
+        // prefer.
+        Amount::TargetCmc => res
+            .targets
             .first()
             .and_then(|t| state.object(*t))
             .map_or(0, |o| o.characteristics().mana_cost.cmc()),
-        other => eval::amount(other, state, you, this, x),
+        other => eval::amount(other, state, you, res.source, res.x),
     }
 }
 
@@ -350,6 +411,23 @@ pub enum Flow {
 /// Runs a resolution until it completes or suspends on a choice.
 #[must_use]
 pub fn run(state: &mut GameState, res: &mut Resolution) -> Flow {
+    // The moment CR 608.2g measures from. `run` is re-entered after every
+    // suspended choice, so this has to be the *first* entry and not any
+    // entry, which is what the `Option` says.
+    if res.target_lki.is_none() {
+        res.target_lki = Some(
+            res.targets
+                .iter()
+                .filter_map(|&id| {
+                    state.object(id).map(|o| TargetLki {
+                        id,
+                        version: o.version,
+                        chars: o.characteristics().clone(),
+                    })
+                })
+                .collect(),
+        );
+    }
     while res.pc < res.effects.len() {
         let op = res.effects[res.pc];
         if let Some(pending) = exec(state, res, op) {
@@ -541,6 +619,7 @@ pub fn resume_tax_choice(state: &mut GameState, res: &mut Resolution, paid: bool
         awaiting: None,
         mana_ability: false,
         countered_source: res.countered_source,
+        target_lki: None,
     };
     let mut fallback = fallback;
     match run(state, &mut fallback) {
@@ -1019,8 +1098,7 @@ fn exec_choice(state: &mut GameState, res: &mut Resolution, op: Effect) -> Optio
             // is not known until the ability resolves. `u16` is what the
             // prompt and the suspended op carry; the clamp is a formality
             // (no power in the pool is near it) and not a rules choice.
-            let mana = u16::try_from(amount2(&mana, state, you, res.source, res.x, &res.targets))
-                .unwrap_or(u16::MAX);
+            let mana = u16::try_from(amount2(&mana, state, you, res)).unwrap_or(u16::MAX);
             // If they can't pay, the fallback fires immediately.
             let can_pay = state.players[player.get() as usize].mana_pool.total() >= u32::from(mana);
             if !can_pay {
@@ -1168,6 +1246,7 @@ fn run_nested_with(
         awaiting: None,
         mana_ability: false,
         countered_source: res.countered_source,
+        target_lki: None,
     };
     match run(state, &mut nested) {
         Flow::Complete => None,
@@ -1331,12 +1410,12 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
         }
         // --- Cards drawn -------------------------------------------------
         Effect::DrawCards { amount } => {
-            let n = amount2(&amount, state, you, res.source, res.x, &res.targets) as usize;
+            let n = amount2(&amount, state, you, res) as usize;
             state.draw_cards(you, n);
             None
         }
         Effect::DrawCardsFor { amount, who } => {
-            let n = amount2(&amount, state, you, res.source, res.x, &res.targets) as usize;
+            let n = amount2(&amount, state, you, res) as usize;
             for player in players_of(who, state, you, res) {
                 state.draw_cards(player, n);
             }

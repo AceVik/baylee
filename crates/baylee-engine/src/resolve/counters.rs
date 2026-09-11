@@ -10,7 +10,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
     let you = res.controller;
     match op {
         Effect::AddCounter { kind, amount } => {
-            let n = amount2(&amount, state, you, res.source, res.x, &res.targets) as u16;
+            let n = amount2(&amount, state, you, res) as u16;
             // No subject: the ability said "target" and got none.
             let target_id = this_object(res)?;
             crate::replacement::put_counters(state, target_id, kind, n);
@@ -21,7 +21,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             kind,
             amount,
         } => {
-            let n = amount2(&amount, state, you, res.source, res.x, &res.targets) as u16;
+            let n = amount2(&amount, state, you, res) as u16;
             let objects: Vec<ObjectId> = state
                 .zones
                 .list(ZoneLocation::Battlefield)
@@ -83,7 +83,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             duration,
         } => {
             let signed = |a: &Amount| -> i16 {
-                let v = amount2(a, state, you, res.source, res.x, &res.targets) as i16;
+                let v = amount2(a, state, you, res) as i16;
                 if matches!(a, Amount::NegX | Amount::NegXFixed(_)) {
                     -v
                 } else {
@@ -135,7 +135,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             duration,
         } => {
             let signed = |a: &Amount| -> i16 {
-                let v = amount2(a, state, you, res.source, res.x, &res.targets) as i16;
+                let v = amount2(a, state, you, res) as i16;
                 if matches!(a, Amount::NegX | Amount::NegXFixed(_)) {
                     -v
                 } else {
@@ -162,7 +162,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             duration,
         } => {
             let signed = |a: &Amount| -> i16 {
-                let v = amount2(a, state, you, res.source, res.x, &res.targets) as i16;
+                let v = amount2(a, state, you, res) as i16;
                 if matches!(a, Amount::NegX | Amount::NegXFixed(_)) {
                     -v
                 } else {

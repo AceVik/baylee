@@ -135,7 +135,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             None
         }
         Effect::CreateTokenN { token, amount } => {
-            let count = amount2(&amount, state, you, res.source, res.x, &res.targets);
+            let count = amount2(&amount, state, you, res);
             create_tokens(state, you, token, None, count);
             None
         }

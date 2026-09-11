@@ -2831,3 +2831,232 @@ fn panharmonicon_doubles_a_modal_trigger_and_each_copy_picks_its_own_mode() {
         "the Channeler left the hand and the draw put one card back",
     );
 }
+
+fn umara_raptor() -> baylee_core::ids::CardIndex {
+    card_index("a58ee84f-1d9c-4924-b7b1-14a9b2ba3b98")
+}
+
+fn solitude() -> baylee_core::ids::CardIndex {
+    card_index("dcb9c2a7-ae54-4ddc-a567-640bf4bf4366")
+}
+
+/// Every battlefield permanent a seat controls that was printed from `card`.
+///
+/// [`on_battlefield`] answers the first; this answers all of them, which is
+/// what taps *some* of a seat's lands and leaves the rest untapped.
+fn all_on_battlefield(
+    engine: &Engine<RegistryLookup>,
+    seat: PlayerId,
+    card: baylee_core::ids::CardIndex,
+) -> Vec<baylee_core::ids::ObjectId> {
+    engine
+        .state()
+        .zones
+        .list(crate::zone::ZoneLocation::Battlefield)
+        .iter()
+        .copied()
+        .filter(|id| {
+            engine
+                .state()
+                .object(*id)
+                .is_some_and(|o| o.controller == seat && o.card.is_some_and(|c| c.index == card))
+        })
+        .collect()
+}
+
+/// A 1/1 Umara Raptor that put its own rally counter on itself, so the
+/// creature standing on the battlefield is a 2/2 and the card it was
+/// printed from is not.
+///
+/// Both tests below need exactly that: a target whose projected power and
+/// whose printed power disagree, so the life gained says which of the two
+/// the effect read. Only the Islands are tapped for the Raptor — a pool of
+/// eight mana pays `{2}` with whatever it likes, and it spent the white the
+/// second spell needs.
+fn a_two_two_raptor(
+    seed: u64,
+    spell: baylee_core::ids::CardIndex,
+    extra: &[baylee_core::ids::CardIndex],
+) -> Engine<RegistryLookup> {
+    let p0 = PlayerId::new(0);
+    let mut board = vec![
+        island(),
+        island(),
+        island(),
+        plains(),
+        plains(),
+        plains(),
+        plains(),
+        plains(),
+    ];
+    board.extend_from_slice(extra);
+    let mut engine = Duel::new(seed, island())
+        .battlefield(0, &board)
+        .hand(0, &[umara_raptor(), spell])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    for source in all_on_battlefield(&engine, p0, island()) {
+        engine
+            .apply(p0, PlayerAction::ActivateManaAbility { source })
+            .unwrap();
+    }
+    let raptor = in_hand(&engine, p0, umara_raptor()).expect("the Raptor is in hand");
+    engine
+        .apply(p0, PlayerAction::CastSpell { card: raptor })
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    let bird = on_battlefield(&engine, p0, umara_raptor()).expect("the Raptor resolved");
+    assert_eq!(
+        engine
+            .state()
+            .object(bird)
+            .and_then(|o| o.characteristics().power),
+        Some(2),
+        "the rally trigger put a +1/+1 counter on it",
+    );
+    for source in all_on_battlefield(&engine, p0, plains()) {
+        engine
+            .apply(p0, PlayerAction::ActivateManaAbility { source })
+            .unwrap();
+    }
+    engine
+}
+
+/// CR 608.2g: an effect that needs information about an object no longer in
+/// the zone it was expected to be in uses that object's last known
+/// information.
+///
+/// Swords to Plowshares is two effects in one sentence — exile the creature,
+/// *then* read its power — so the second half asks about an object the first
+/// half moved. It read the printed card and paid one life for a 2/2.
+#[test]
+fn swords_reads_the_creature_it_exiled_as_it_last_stood() {
+    let p0 = PlayerId::new(0);
+    let mut engine = a_two_two_raptor(41, swords_to_plowshares(), &[]);
+    let bird = on_battlefield(&engine, p0, umara_raptor()).expect("the Raptor is out");
+    let life_before = engine.state().players[0].life;
+
+    let swords = in_hand(&engine, p0, swords_to_plowshares()).expect("the sword is in hand");
+    engine
+        .apply(p0, PlayerAction::CastSpell { card: swords })
+        .unwrap();
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![bird],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        on_battlefield(&engine, p0, umara_raptor()).is_none(),
+        "the Raptor was exiled",
+    );
+    assert_eq!(
+        engine.state().players[0].life,
+        life_before + 2,
+        "the power it had on the battlefield, not the 1 its card prints",
+    );
+}
+
+/// The same sentence on a creature, and the reason the sweep named two cards
+/// and not one: Solitude exiles and reads through a *trigger* rather than a
+/// spell, which is a second resolution path to the same `Amount`.
+#[test]
+fn solitudes_trigger_reads_the_creature_it_exiled_as_it_last_stood() {
+    let p0 = PlayerId::new(0);
+    let mut engine = a_two_two_raptor(42, solitude(), &[]);
+    let bird = on_battlefield(&engine, p0, umara_raptor()).expect("the Raptor is out");
+    let life_before = engine.state().players[0].life;
+
+    let incarnation = in_hand(&engine, p0, solitude()).expect("Solitude is in hand");
+    engine
+        .apply(p0, PlayerAction::CastSpell { card: incarnation })
+        .unwrap();
+    // Solitude itself targets nothing; the first target question belongs to
+    // its enters trigger, and the Raptor is the only other creature.
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![bird],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        on_battlefield(&engine, p0, umara_raptor()).is_none(),
+        "the Raptor was exiled",
+    );
+    assert_eq!(
+        engine.state().players[0].life,
+        life_before + 2,
+        "the power it had on the battlefield, not the 1 its card prints",
+    );
+}
+
+fn inspirit_flagship_vessel() -> baylee_core::ids::CardIndex {
+    card_index("554df866-3dbb-4811-8573-6033481591aa")
+}
+
+/// The other half of CR 608.2g's question, and the one with no mutant: an
+/// effect that changes its target and then reads it, while the target is
+/// still exactly where the resolution left it.
+///
+/// Inspirit Flagship Vessel stations a creature — tap it, then take its
+/// power in charge counters — and the target never leaves the battlefield,
+/// so the read has to be the *live* one. Nothing in the pool tells the two
+/// answers apart (a tap changes no power, and these three cards are every
+/// reader of `Amount::TargetPower` there is), so this test proves the branch
+/// runs rather than that it is the only right one.
+#[test]
+fn stationing_a_creature_reads_the_power_it_still_has() {
+    let p0 = PlayerId::new(0);
+    let mut engine = a_two_two_raptor(43, plains(), &[inspirit_flagship_vessel()]);
+    let bird = on_battlefield(&engine, p0, umara_raptor()).expect("the Raptor is out");
+    let vessel = on_battlefield(&engine, p0, inspirit_flagship_vessel()).expect("the ship is out");
+
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    let (source, ability_index) = legal
+        .abilities
+        .iter()
+        .copied()
+        .find(|(src, _)| *src == vessel)
+        .expect("the station ability is offered");
+    engine
+        .apply(
+            p0,
+            PlayerAction::ActivateAbility {
+                source,
+                ability_index,
+            },
+        )
+        .unwrap();
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![bird],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(
+        engine
+            .state()
+            .object(vessel)
+            .map(|o| o.counters.get(baylee_cards_dsl::CounterKind::Charge)),
+        Some(2),
+        "the Raptor's power on the battlefield, counter and all",
+    );
+}

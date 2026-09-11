@@ -9,12 +9,12 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
     let you = res.controller;
     match op {
         Effect::GainLife { amount } => {
-            let n = amount2(&amount, state, you, res.source, res.x, &res.targets) as i32;
+            let n = amount2(&amount, state, you, res) as i32;
             gain_life(state, you, n);
             None
         }
         Effect::GainLifeFor { amount, who } => {
-            let n = amount2(&amount, state, you, res.source, res.x, &res.targets) as i32;
+            let n = amount2(&amount, state, you, res) as i32;
             let players = super::players_of(who, state, you, res);
             for player in players {
                 gain_life(state, player, n);
@@ -27,7 +27,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             None
         }
         Effect::LoseLife { amount, target } => {
-            let n = amount2(&amount, state, you, res.source, res.x, &res.targets) as i32;
+            let n = amount2(&amount, state, you, res) as i32;
             for player in super::players_of(target, state, you, res) {
                 // Everybody Lives: the controller can't lose life this turn.
                 let cant = state.effects.iter().any(|fx| {
@@ -51,7 +51,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             None
         }
         Effect::DealDamage { amount, target } => {
-            let n = amount2(&amount, state, you, res.source, res.x, &res.targets) as i16;
+            let n = amount2(&amount, state, you, res) as i16;
             match target {
                 TargetSpec::Player(rel) => {
                     for player in super::players_of(rel, state, you, res) {
@@ -104,7 +104,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
         Effect::DealDamageToTargetController { amount } => {
             if let Some(&target_id) = res.targets.first() {
                 let controller = state.object(target_id).map_or(you, |o| o.controller);
-                let n = amount2(&amount, state, you, res.source, res.x, &res.targets) as i16;
+                let n = amount2(&amount, state, you, res) as i16;
                 deal_to_player(state, res.source, controller, n);
             }
             None

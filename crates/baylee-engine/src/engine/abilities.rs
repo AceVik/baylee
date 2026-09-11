@@ -804,6 +804,7 @@ impl<L: CardLookup> Engine<L> {
                 awaiting: None,
                 mana_ability: true,
                 countered_source: None,
+                target_lki: None,
             };
             match crate::resolve::run(&mut self.state, &mut res) {
                 crate::resolve::Flow::Complete => {}
@@ -1038,6 +1039,7 @@ impl<L: CardLookup> Engine<L> {
                 awaiting: None,
                 mana_ability: true,
                 countered_source: None,
+                target_lki: None,
             };
             match resolve::run(&mut self.state, &mut res) {
                 resolve::Flow::Complete => {}

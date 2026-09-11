@@ -1837,7 +1837,7 @@ Coming round also means `once_per_turn` is recorded by the shared tail and
 either.
 
 The `once_per_turn` half of that wants one qualification, because it is only
-three quarters true and was before this change as well. The untagged tail
+three quarters true and was before this change as well. The untargeted tail
 records the fire, and so does the `EventObject` branch; the *targeted* path
 does not — it returns to ask the question, and neither it nor the
 `PlanKind::Trigger` handler that answers it ever writes `ability_fires`, so a
@@ -2052,16 +2052,16 @@ stored `ObjectId` back into a target. One test proves it either way: Path to
 Exile on Llanowar Elves, blink in response, the Elves are still on the
 battlefield and Path was countered.
 
-### 38. An effect that reads an object it just moved reads the printed card — RECORDED
+### 38. An effect that reads an object it just moved reads the printed card — FIXED
 
 Found by the sweep entry 36 asks for, and **older than 36**: the cause is a
 line `move_object` has had all along.
 
 CR 608.2g: an effect that needs information about an object which is no longer
 in the zone it was expected to be in uses that object's *last known
-information*. This engine keeps no such snapshot. `Amount::TargetPower` is
+information*. This engine kept no such snapshot. `Amount::TargetPower` is
 documented as "the power of the first target (last known characteristics)" and
-is evaluated as `state.object(target).characteristics().power` — and
+was evaluated as `state.object(target).characteristics().power` — and
 `characteristics()` is the layer cache if it is valid and the printed `base` if
 it is not. `move_object` clears that cache (CR 400.7, and the comment above the
 line says why: a creature that died under an anthem must not sit in the
@@ -2079,26 +2079,69 @@ effect list:
   `GainLifeFor { amount: Amount::TargetPower }`.
 - **Solitude** — the same pair on its enters-the-battlefield trigger.
 
-Both gain the creature's **printed** power. A 1/1 Llanowar Elves with three
-+1/+1 counters is a 4/4 and gains its controller 1 life; under a lord it is the
-same. The two amounts that look like this and are not affected:
+Both gained the creature's **printed** power. A 1/1 Llanowar Elves with three
++1/+1 counters is a 4/4 and gained its controller 1 life; under a lord it was
+the same. The two amounts that look like this and are not affected:
 `Amount::SourcePower` already documents reading zero for a source that has
 left, and `Amount::TargetCmc` (Reanimate) reads a mana cost, which is printed
 and which no layer in this pool touches.
 
-The fix shape is a last-known-information snapshot taken at the moment
-`move_object` clears the cache — the projected `Characteristics` the object had
-while it was still a permanent, stored beside the object and read by
-`resolve::amount2` when the target is no longer where the effect expected it.
-That is the same snapshot fault 36's deliberate omission will want if a card
-ever reads a dead permanent's counters, and the same one a dies-trigger reading
-projected power would need, so it is one piece of work and not three.
+The snapshot is taken **per resolution**, not per object, and that is the
+difference between this and the fix shape the entry first proposed. A snapshot
+hung off the object would have no way to say *when* it was still current: 608.2g
+is not "the last time this object moved", it is "the zone the effect expected
+it in", and a resolution expects its targets where they were when it started.
+So `Resolution` carries `target_lki` — one `TargetLki { id, version, chars }`
+per target, filled by `resolve::run` on its first pass and only its first, since
+`run` is re-entered after every suspended player choice and a second fill would
+measure from the wrong moment.
 
-The test is Swords to Plowshares on a creature whose power is projected rather
-than printed — a Llanowar Elves with a +1/+1 counter on it, which asserts 2 life
-and fails at 1 today. Its mutant is the counter removed: the assertion has to
-drop to 1 with it, or it is reading the printed number and agreeing by
-accident.
+The **discriminator is the fix**, and the snapshot is only what it reads.
+`version` is written in exactly one place in the whole engine,
+`GameState::move_object`, so "this object's version differs from the one this
+resolution started with" *is* "this object is no longer in the zone the effect
+expected". Reading the snapshot unconditionally would be the same bug pointing
+the other way: an effect list that changes a permanent and then reads it, still
+on the battlefield, would get the value from before its own change. Inspirit
+Flagship Vessel is that shape — station a creature, tap it, then take its power
+in charge counters.
+
+`Amount::TargetCmc` stays where it was, deliberately: its one reader is
+Reanimate, whose target is a creature *card* in a graveyard and whose mana value
+is the printed one. A card that never was a permanent has no last known
+information on the battlefield to prefer.
+
+Three tests, all in `card_tests`, all built on one helper that casts an Umara
+Raptor so its own rally trigger makes it a 2/2 — a target whose projected power
+and whose printed power disagree, which is the whole requirement:
+
+- Swords to Plowshares exiles it: 2 life, not 1.
+- Solitude's enters trigger exiles it: 2 life, not 1 — a *trigger* resolving
+  rather than a spell, which is the second path to the same `Amount` and the
+  reason the sweep named two cards.
+- Inspirit Flagship Vessel stations it: 2 charge counters, the live branch.
+
+Two mutants and one honest gap. Never reading the snapshot kills the first two
+(21 life where 22 is right — exactly the printed 1). Returning nothing from the
+live arm kills the third and neither of the others, so the two branches are
+separated rather than merely both written. The gap: reading the snapshot
+**unconditionally** passes all 349 tests, because the three cards above are
+every reader of `Amount::TargetPower` in the pool and a tap changes no power.
+The live branch is exercised and is not *distinguished*, and no card can
+distinguish it today.
+
+One boundary this does not move. The snapshot is taken when the resolution
+begins, so a target that left its zone *before* that — between the spell being
+put on the stack and its resolution — is still read as printed. That is a
+different 608.2g case and it wants a snapshot taken at a different moment. The
+rule that would hide it is CR 608.2b — a spell or ability whose targets are all
+illegal as it begins to resolve doesn't resolve at all — and this engine does
+**not** perform that check: nothing between `resolve_stack_top` and
+`resolve::run` re-reads target legality, and `608.2b` appears nowhere in
+`crates/baylee-engine`. What has kept it quiet instead is that every effect
+which touches a target looks the object up and does nothing when it is gone, so
+the one visible symptom would be an `Amount` reading zero rather than a spell
+resolving that should have been countered. Recorded as entry 40.
 
 ### 39. Primaris Eliminator's second mode debuffs the whole board — RECORDED
 
@@ -2131,3 +2174,46 @@ This is a **card** fault and not an engine one: the mechanism around it is
 right, which is why it only became visible now. It is also the answer to why
 it was never noticed — the mode could not be chosen, because the trigger
 carrying it was never collected.
+
+### 40. A spell whose targets have all gone still resolves — RECORDED
+
+Found while writing entry 38's boundary, and it is the reason that boundary is
+reachable at all.
+
+CR 608.2b: as a spell or ability begins to resolve, its targets are checked
+once more, and if every one of them is illegal the spell or ability doesn't
+resolve — none of its effects happen, and it is put into its owner's graveyard.
+Nothing in `crates/baylee-engine` does this. `resolve_stack_top` reads the
+object, builds a `Resolution` and calls `resolve::run`; no step between them
+re-reads target legality, and the string `608.2b` appears in no file. The
+*trigger* half of the rule is there — `progress.rs`'s trigger queue drops a
+trigger that can find no legal target — but that is CR 603.3d at collection
+time, a different check at a different moment, and it says nothing about a
+target that was legal when the trigger went on the stack and is not when it
+resolves.
+
+What has kept it quiet is that every effect looks its target up and does
+nothing when the object is gone, so a bolt aimed at a creature that died in
+response does nothing either way. Three things it is nonetheless wrong about,
+in rising order of how visible they are:
+
+- **A partly-illegal spell.** 608.2b counters only when *all* targets are
+  illegal; a spell with two targets, one gone, resolves and affects the other.
+  This engine gets that case right by accident, so the fix must not be
+  "skip the resolution when any target is missing".
+- **Effects that read rather than touch.** Entry 38's `Amount::TargetPower` is
+  exactly this: with 608.2b in place, a Swords whose creature left in response
+  would never reach the life gain. Without it, the amount is read — which is
+  why entry 38's snapshot boundary is a real case and not a hypothetical one.
+- **The journal.** `GameEvent::StackObjectResolved` is recorded for a spell
+  that should not have resolved, so anything counting resolutions — a future
+  storm count, a "whenever you cast" ledger, a replay — counts one too many.
+
+The fix has a shape but wants care about *which* legality. "Illegal" in 608.2b
+is the target's own legality against the spell's `TargetReq`, re-evaluated now
+(shroud gained, type changed, protection, or simply gone), not merely
+`state.object(id).is_none()` — and the check runs before any cost, any
+replacement and any effect. It belongs in `resolve_stack_top`, beside the
+`targeted` read that is already there, and it needs `res.targeted` to tell a
+spell that printed the word "target" from one that never did.
+
