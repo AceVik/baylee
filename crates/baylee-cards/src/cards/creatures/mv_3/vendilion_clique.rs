@@ -6,6 +6,9 @@
 // IMPLEMENTED — flash/flying + hand-attack (choose a nonland card from
 // the target player's hand, bottom it, draw). The hand reveal is a
 // protocol presentation item; the choice itself is engine-complete.
+// "Target *player*" and not "target opponent": pointing this at yourself to
+// bottom a card you drew and draw again is the reason the card is played at
+// all, and `AnyPlayer` is what says so.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes::creature;
@@ -29,12 +32,12 @@ card! {
     coverage: Coverage::Implemented,
     abilities: &[triggered!(Trigger::EntersBattlefield(&Filter::This), &[
             Effect::BottomCardFromHand {
-                player: PlayerRel::Opponent,
+                player: PlayerRel::Chosen,
                 filter: &Filter::NONLAND,
             },
             Effect::DrawCardsFor {
                 amount: Amount::Fixed(1),
-                who: PlayerRel::Opponent,
+                who: PlayerRel::Chosen,
             },
-        ])],
+        ], targets: Some(TargetReq::one(TargetSpec::AnyPlayer)))],
 }

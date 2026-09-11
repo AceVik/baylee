@@ -237,9 +237,18 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             if options.is_empty() {
                 return None;
             }
+            // Two different seats, and they used to be one. The hand is the
+            // target's and the card goes under *their* library, which is what
+            // the continuation carries; the **choice** is the ability's
+            // controller's — Vendilion Clique reads "look at target player's
+            // hand. *You* may choose a nonland card from it", and the whole
+            // point of the card is that you see someone else's hand and
+            // decide. Asking the owner to pick which of their own cards to
+            // bury inverted it: a seat attacked by the Clique chose their
+            // worst card and thanked you for the draw.
             res.awaiting = Some(AwaitingOp::BottomFromHand { player });
             Some(Pending::ChooseCards {
-                player,
+                player: you,
                 options,
                 min: 0,
                 max: 1,

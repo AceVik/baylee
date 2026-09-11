@@ -1,8 +1,12 @@
 //! Hagra Diabolist — {4}{B} — Creature — Ogre Shaman Ally
 //! Oracle: Whenever this creature or another Ally you control enters, you may have target player lose life equal to the number of Allies you control.
 //! Set: ZEN #95 — Zendikar | Scryfall ID: c303e7e2-cb22-4dea-889f-d03e2494ed0f | Oracle ID: 5e2c1e0e-0a10-416a-9b50-96ee0cbbc24e
-// IMPLEMENTED — rally life loss per Ally (opponent heads-up; target player
-// choice for multiplayer is a protocol M3 item).
+// IMPLEMENTED — rally life loss per Ally, at a player the controller names.
+// The "you may" is the target count, which is how Sun Titan's "you may
+// return target …" is written here too: declining the target declines the
+// effect. What that costs is the *moment* of the decision — CR 603.3d puts
+// choosing a target on announcement and the "may" on resolution, so a player
+// who would rather see what happens first has to commit one step early.
 
 use crate::filters::YOUR_ALLIES;
 use baylee_cards_dsl::prelude::*;
@@ -30,6 +34,6 @@ card! {
                 filter: &ALLIES_YOU,
                 zone: ZoneSel::Battlefield,
             },
-            target: PlayerRel::Opponent,
-        }])],
+            target: PlayerRel::Chosen,
+        }], targets: Some(TargetReq::up_to_one(TargetSpec::AnyPlayer)))],
 }

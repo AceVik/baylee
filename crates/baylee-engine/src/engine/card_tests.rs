@@ -3573,3 +3573,333 @@ fn halimar_excavator_mills_the_player_it_targeted() {
         "one Ally on the battlefield, so the player it named mills one card",
     );
 }
+
+fn hagra_diabolist() -> baylee_core::ids::CardIndex {
+    card_index("5e2c1e0e-0a10-416a-9b50-96ee0cbbc24e")
+}
+fn vendilion_clique() -> baylee_core::ids::CardIndex {
+    card_index("244d4807-0802-41bc-9460-55ac38a28a72")
+}
+fn loran_of_the_third_path() -> baylee_core::ids::CardIndex {
+    card_index("b3d81980-76f2-44e2-b1c9-01e30c726312")
+}
+
+/// Hagra Diabolist: "you **may** have target player lose life equal to the
+/// number of Allies you control."
+///
+/// Three cards in the pool said `PlayerRel::Opponent` where their printing
+/// says "target player", and this is one of them. That relation is
+/// `EachOpponent` in `eval::players`, so the ability drained every opponent
+/// at once and could never be pointed at the controller — both invisible in
+/// a duel, where "each of them" and "the one you chose" are the same seat.
+///
+/// The "may" is the target count, the way Sun Titan's "you may return
+/// target …" is written here: `min` of nought is the decline.
+///
+/// Two tests and not two arms of one, because the second cast would want
+/// five untapped Swamps a second time and `walk_to_own_main` returns at once
+/// when it is already there — a whole turn of passing to prove a second
+/// thing the first game has nothing to do with.
+#[test]
+fn hagra_diabolist_drains_the_player_it_named() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = hagra_on_the_table();
+    let (life0, life1) = (
+        engine.state().players[0].life,
+        engine.state().players[1].life,
+    );
+    let Pending::ChooseTargets {
+        player_options,
+        min,
+        max,
+        ..
+    } = engine.pending().clone()
+    else {
+        unreachable!("the builder stops at the target choice")
+    };
+    assert!(
+        player_options.contains(&p0) && player_options.contains(&p1),
+        "\"target player\" is every seat, the controller included",
+    );
+    assert_eq!((min, max), (0, 1), "\"you may\" is the nought in the min");
+
+    // Pointed at the controller's own seat, which the card could not do at
+    // all before: `PlayerRel::Opponent` is every opponent and never you.
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![],
+                players: vec![p0],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+
+    let allies = engine
+        .state()
+        .zones
+        .list(crate::zone::ZoneLocation::Battlefield)
+        .iter()
+        .filter(|id| {
+            engine.state().object(**id).is_some_and(|o| {
+                o.controller == p0
+                    && o.characteristics()
+                        .subtypes
+                        .contains(baylee_core::generated::subtypes::creature::ALLY)
+            })
+        })
+        .count();
+    assert!(allies > 0, "the Diabolist counts itself");
+    assert_eq!(
+        engine.state().players[0].life,
+        life0 - allies as i32,
+        "the seat it named lost one life per Ally",
+    );
+    assert_eq!(
+        engine.state().players[1].life,
+        life1,
+        "and the seat it did not name lost nothing",
+    );
+}
+
+/// The other half of the "may": declining the target declines the effect.
+#[test]
+fn hagra_diabolist_may_be_declined() {
+    let mut engine = hagra_on_the_table();
+    let p0 = PlayerId::new(0);
+    let (life0, life1) = (
+        engine.state().players[0].life,
+        engine.state().players[1].life,
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![],
+                players: vec![],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        (
+            engine.state().players[0].life,
+            engine.state().players[1].life
+        ),
+        (life0, life1),
+        "nobody was named, so nobody lost anything",
+    );
+}
+
+/// A Hagra Diabolist cast and its rally trigger waiting on a target.
+fn hagra_on_the_table() -> Engine<RegistryLookup> {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(19, swamp())
+        .battlefield(0, &[swamp(), swamp(), swamp(), swamp(), swamp()])
+        .hand(0, &[hagra_diabolist()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+    cast_from_hand(&mut engine, p0, hagra_diabolist());
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    engine
+}
+
+/// Vendilion Clique: "look at **target player's** hand", which is the whole
+/// reason the card is played — you point it at yourself to bottom the card
+/// you would rather not have drawn and draw again.
+///
+/// It was written as `PlayerRel::Opponent` with no target at all, so the one
+/// thing it is famous for was the one thing it could not do.
+#[test]
+fn vendilion_clique_may_be_pointed_at_its_own_controller() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(29, island())
+        .battlefield(0, &[island(), island(), island()])
+        .hand(0, &[vendilion_clique(), counterspell(), counterspell()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    cast_from_hand(&mut engine, p0, vendilion_clique());
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    let Pending::ChooseTargets {
+        player_options,
+        min,
+        ..
+    } = engine.pending().clone()
+    else {
+        unreachable!("just checked")
+    };
+    assert!(
+        player_options.contains(&p0),
+        "the controller is a legal target: {player_options:?}",
+    );
+    assert!(player_options.contains(&p1), "and so is the opponent");
+    assert_eq!(min, 1, "the trigger is not optional; the card choice is");
+
+    let hand_before = engine
+        .state()
+        .zones
+        .list(crate::zone::ZoneLocation::Hand(p0))
+        .len();
+    let library_before = engine
+        .state()
+        .zones
+        .list(crate::zone::ZoneLocation::Library(p0))
+        .len();
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![],
+                players: vec![p0],
+            },
+        )
+        .unwrap();
+
+    // The trigger is on the stack with its target chosen; it resolves when
+    // the round of priority after it does.
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseCards { .. })
+    });
+
+    // The choice is the *controller's*, whoever's hand it is — "look at
+    // target player's hand. **You** may choose a nonland card from it."
+    let Pending::ChooseCards {
+        player: chooser,
+        options,
+        ..
+    } = engine.pending().clone()
+    else {
+        panic!("expected the bottom choice, got {:?}", engine.pending())
+    };
+    assert_eq!(chooser, p0, "the Clique's controller picks the card");
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![options[0]],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+
+    // One card left the hand for the bottom of the library and one was
+    // drawn, so the hand is the size it was and the library is too — and
+    // the opponent, who used to be the only seat this could reach, is
+    // untouched.
+    assert_eq!(
+        engine
+            .state()
+            .zones
+            .list(crate::zone::ZoneLocation::Hand(p0))
+            .len(),
+        hand_before,
+        "bottomed one and drew one",
+    );
+    assert_eq!(
+        engine
+            .state()
+            .zones
+            .list(crate::zone::ZoneLocation::Library(p0))
+            .len(),
+        library_before,
+        "the card went under the library the draw came off",
+    );
+}
+
+/// Loran of the Third Path: "{T}: You and **target opponent** each draw a
+/// card." An opponent, so the controller is not on offer — and *one* of
+/// them, which `PlayerRel::Opponent` could not say.
+#[test]
+fn loran_draws_for_the_one_opponent_she_named() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(31, plains())
+        .battlefield(0, &[loran_of_the_third_path()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    let loran = on_battlefield(&engine, p0, loran_of_the_third_path()).expect("Loran deployed");
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    let (source, ability_index) = legal
+        .abilities
+        .iter()
+        .copied()
+        .find(|(id, _)| *id == loran)
+        .expect("Loran's tap ability is offered");
+    let (hand0, hand1) = (
+        engine
+            .state()
+            .zones
+            .list(crate::zone::ZoneLocation::Hand(p0))
+            .len(),
+        engine
+            .state()
+            .zones
+            .list(crate::zone::ZoneLocation::Hand(p1))
+            .len(),
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ActivateAbility {
+                source,
+                ability_index,
+            },
+        )
+        .unwrap();
+
+    let Pending::ChooseTargets {
+        player_options,
+        min,
+        max,
+        ..
+    } = engine.pending().clone()
+    else {
+        panic!("expected a target choice, got {:?}", engine.pending())
+    };
+    assert_eq!(
+        player_options,
+        vec![p1],
+        "\"target opponent\" leaves the controller out (CR 115.1)",
+    );
+    assert_eq!((min, max), (1, 1));
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![],
+                players: vec![p1],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        engine
+            .state()
+            .zones
+            .list(crate::zone::ZoneLocation::Hand(p0))
+            .len(),
+        hand0 + 1,
+        "you draw",
+    );
+    assert_eq!(
+        engine
+            .state()
+            .zones
+            .list(crate::zone::ZoneLocation::Hand(p1))
+            .len(),
+        hand1 + 1,
+        "and so does the opponent you named",
+    );
+}

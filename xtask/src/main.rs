@@ -1423,6 +1423,68 @@ fn check_target_counts_match_the_printing(
     *problems += 1;
 }
 
+/// A card whose printing names a **player** as a target has to be able to
+/// name one.
+///
+/// The fault this closes is the one the owner reported from a live game and
+/// it has a shape: `PlayerRel::Opponent` written where the card says "target
+/// player", which is `EachOpponent` in `eval::players` — so Halimar
+/// Excavator milled every opponent at once, and Primaris Eliminator's
+/// Hyperfrag Round shrank every creature on the table including its own
+/// side. Both read correctly in a duel, which is why both survived every
+/// other check in this file and a whole test suite: with one opponent,
+/// "each of them" and "the one you chose" are the same seat.
+///
+/// It is decidable without a second reader, because the card prints it. The
+/// printed text says "target player" or "target opponent"; the code either
+/// names a player-shaped [`TargetSpec`] or it does not. There is no
+/// interpretation in between.
+///
+/// Three rules keep it from inventing findings:
+///
+/// - **Reminder text is stripped**, through the [`strip_reminders`] that
+///   `check_scope_matches_the_text` already reads with. It is about a
+///   keyword, not about this card — the same reading `claim_tests` had to
+///   learn — and "target player" inside a parenthesis is somebody else's
+///   sentence.
+/// - **A stub claims nothing**, and a `Partial` card has already said in
+///   writing that it diverges. Both are skipped, exactly as the target-count
+///   check above skips them.
+/// - It reads the **printing**, not the `//! Oracle:` header, so a card whose
+///   header drifted cannot hide the gap by agreeing with its own code.
+fn check_player_targets_match_the_printing(
+    slug: &str,
+    content: &str,
+    payload: &serde_json::Value,
+    tally: &mut PrintingTally,
+    problems: &mut usize,
+) {
+    if content.contains(stubgen::STUB_MARKER) || content.contains("Coverage::Partial") {
+        return;
+    }
+    let printed = printed_text(payload).to_lowercase();
+    let bare = strip_reminders(&printed);
+    let Some(phrase) = ["target player", "target opponent"]
+        .into_iter()
+        .find(|p| bare.contains(p))
+    else {
+        return;
+    };
+    tally.player_targets += 1;
+    if [
+        "TargetSpec::AnyPlayer",
+        "TargetSpec::AnyOpponent",
+        "TargetSpec::AnyTarget",
+    ]
+    .iter()
+    .any(|spec| content.contains(spec))
+    {
+        return;
+    }
+    println!("{slug}: the printing says \"{phrase}\" and the code names no player to target");
+    *problems += 1;
+}
+
 /// The printed phrase that states a target count of "up to", if there is one.
 ///
 /// Read by scanning rather than by matching a list of whole phrases, because
@@ -1502,6 +1564,8 @@ struct PrintingTally {
     oracle: usize,
     /// Face costs compared against the printing, over the whole pool.
     costs: usize,
+    /// Cards whose printing names a player or an opponent as a target.
+    player_targets: usize,
     /// Cards whose printing states a target count of "up to".
     targets: usize,
     /// Cards whose `Set:` header line was held against the printing.
@@ -1560,6 +1624,7 @@ const PRINTING_FLOOR: PrintingTally = PrintingTally {
     mana: 340,
     oracle: 1300,
     costs: 1340,
+    player_targets: 20,
     targets: 10,
     printings: 1300,
     type_lines: 1400,
@@ -2523,6 +2588,13 @@ fn validate(root: &Path) -> anyhow::Result<()> {
             &mut tally,
             &mut problems,
         );
+        check_player_targets_match_the_printing(
+            &slug,
+            &content,
+            &payload,
+            &mut tally,
+            &mut problems,
+        );
     }
     report_what_the_sweeps_reached(&tally, header_types, &mut problems);
     if problems > 0 {
@@ -2548,8 +2620,8 @@ fn report_what_the_sweeps_reached(
 ) {
     println!(
         "validate: against the printings \u{2014} {} payloads, {} loyalty, {} identity, \
-         {} keyword, {} mana, {} oracle, {} cost, {} target count, {} printing, \
-         {} type line",
+         {} keyword, {} mana, {} oracle, {} cost, {} player target, {} target count, \
+         {} printing, {} type line",
         tally.payloads,
         tally.loyalty,
         tally.identity,
@@ -2557,6 +2629,7 @@ fn report_what_the_sweeps_reached(
         tally.mana,
         tally.oracle,
         tally.costs,
+        tally.player_targets,
         tally.targets,
         tally.printings,
         tally.type_lines
@@ -2582,6 +2655,11 @@ fn check_printing_floors(tally: &PrintingTally, problems: &mut usize) {
         ("mana", tally.mana, PRINTING_FLOOR.mana),
         ("oracle text", tally.oracle, PRINTING_FLOOR.oracle),
         ("face cost", tally.costs, PRINTING_FLOOR.costs),
+        (
+            "player target",
+            tally.player_targets,
+            PRINTING_FLOOR.player_targets,
+        ),
         ("target count", tally.targets, PRINTING_FLOOR.targets),
         ("printing", tally.printings, PRINTING_FLOOR.printings),
         ("type line", tally.type_lines, PRINTING_FLOOR.type_lines),

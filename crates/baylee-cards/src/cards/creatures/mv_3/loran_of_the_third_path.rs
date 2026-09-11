@@ -3,7 +3,10 @@
 //! Oracle: When Loran enters, destroy up to one target artifact or enchantment.
 //! Oracle: {T}: You and target opponent each draw a card.
 //! Set: MKC #71 — Murders at Karlov Manor Commander | Scryfall ID: 9e83a0ef-4fea-45ba-86c0-130d6687f7fe | Oracle ID: b3d81980-76f2-44e2-b1c9-01e30c726312
-// IMPLEMENTED — vigilance, ETB destroy, tap-draw for you and an opponent.
+// IMPLEMENTED — vigilance, ETB destroy, tap-draw for you and one named
+// opponent. `AnyOpponent` and not `AnyPlayer`: the card says "target
+// opponent", and the draw for *you* is the first effect rather than a second
+// seat this ability could be pointed at.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes::creature;
@@ -39,8 +42,8 @@ card! {
                 },
                 Effect::DrawCardsFor {
                     amount: Amount::Fixed(1),
-                    who: PlayerRel::Opponent,
+                    who: PlayerRel::Chosen,
                 },
-            ]),
+            ], target: Some(TargetSpec::AnyOpponent)),
     ],
 }
