@@ -304,14 +304,88 @@ fn sd_tri(p: vec2<f32>, a: vec2<f32>, b: vec2<f32>, c: vec2<f32>) -> f32 {
 // ---- the twelve marks
 //
 // Cell coordinates run -0.5..0.5 with **y downward**, the way the card's UV
-// does. Every mark stays inside a radius of about 0.36 so that neighbouring
-// slots never touch, and every stroke is 0.055 wide so the row reads as one
-// alphabet rather than twelve drawings.
+// does. Every stroke is 0.055 wide so the row reads as one alphabet rather
+// than twelve drawings, and nothing reaches past 0.48 from the centre —
+// `mark_layer` guillotines a mark at its own slot rather than letting it
+// crowd the neighbour, so a shape that grew past 0.5 would be cut off flat
+// rather than collide with anything.
+//
+// # What a motion has to be, at ten pixels
+//
+// A card on the felt is 86 physical pixels wide and a slot is `RAIL_SLOT` of
+// that, so **one cell is ten pixels**, and one cell unit is those ten pixels.
+// That number is the whole of this design, and it was arrived at by
+// photographing a table rather than by reading this file.
+//
+// The rail shipped with nine marks carrying a `sin(ph)` term of 0.012 to
+// 0.03 cell units: between an eighth and a third of a pixel. Measured live,
+// with the clock walked by `/step` and each cell photographed, a mark that
+// ignores `ph` altogether swings 20 levels out of 255 — the
+// `0.90 + 0.10 * sin(phase)` ink pulse, alone — and menace's 0.12-pixel sway
+// swings 23. Three levels is what a third of a pixel buys. Vigilance, which
+// changes *shape*, swings 147. Prowess, which travels 1.7 pixels, swings 89.
+//
+// The mechanism is in the antialiasing. `e = max(aa / slot, 0.02)`, and
+// `fwidth(p.x)` is 0.0116 width units on an 86-pixel card, so the ink ramp
+// is exactly one pixel wide and a one-pixel stroke never reaches full ink at
+// all. Displacing it by a third of a pixel moves no pixel and changes no
+// total ink: it redistributes intensity between two of them, which is a
+// second brightness pulse in the one channel the ink pulse already owns.
+//
+// So **rest is the row's state and motion is an event**, and an event has to
+// turn pixels over — a hole closing, a gap widening, an angle changing — by
+// about a stroke's width, which is vigilance's magnitude and roughly a third
+// of the mark's own extent. Whole-glyph translation is one verb, and every
+// mark that used it said the same thing; shape is many verbs, which is why
+// flying flaps, reach climbs, menace looms and trample opens the ground
+// under itself. Translation is kept for the two strikes, where a thrust is
+// the meaning.
+//
+// # And rarely
+//
+// A row of twelve symbols that all move is not a row of symbols. Every
+// impulse below runs `mark_event` over `fract(ph * K)`, and `fract` has
+// period **one**: with `ph` advancing at `BEAT` radians a second, a rate `K`
+// wraps every `1 / (BEAT * K)` seconds, which is 0.8696 / K and not the
+// 5.464 / K it would be if the term were a `sin`. Reading it as a `sin`
+// makes every period on this list a factor of tau too slow, and that is the
+// mistake this paragraph exists to stop. The calibration standard is
+// vigilance: `fract(ph * 0.06)` wraps every 14.5 seconds and the eye closes
+// over the last 0.06 of that, 0.87 seconds. Photographed: 0.87.
+//
+// The rates are chosen so that no two are simple multiples, or the row would
+// phase-lock into a ripple running down it:
+//
+//     haste     0.0896   9.7 s      reach        0.0521  16.7 s
+//     trample   0.0731  11.9 s      deathtouch   0.0458  19.0 s
+//     flying    0.0664  13.1 s      the strikes  0.0398  21.9 s
+//     vigilance 0.0600  14.5 s      menace       0.0361  24.1 s
+//
+// with lifelink alone left on the beat, because a heart is the one keyword
+// whose meaning *is* a period. An event lasts one to two seconds, so a mark
+// is still for nine tenths of its life and a full rail of eleven has, on
+// average, nine tenths of one mark moving.
 
-/// Flying: a chevron lifted off the ground it no longer touches.
+/// The envelope every impulse on the rail shares: up over `a`, held until
+/// `h`, down over `r`, and flat zero through the rest of the period — which
+/// is most of it. All three are fractions of that mark's own period, so the
+/// numbers at each call site are read against the table above.
+fn mark_event(f: f32, a: f32, h: f32, r: f32) -> f32 {
+    return smoothstep(0.0, a, f) - smoothstep(h, h + r, f);
+}
+
+/// Flying: a chevron that flaps, over ground it no longer touches.
+///
+/// The flap is a compression toward the chevron's own apex and not a lift:
+/// at ten pixels a lift moves the whole glyph, which says nothing reach's
+/// climb does not already say, while a chevron folding to half its height is
+/// a wing. Three beats of it, then twenty-five seconds of glide.
 fn mark_flying(p: vec2<f32>, ph: f32) -> f32 {
-    let lift = vec2<f32>(0.0, -0.025 * (0.5 + 0.5 * sin(ph)));
-    let q = p - lift;
+    let ev = mark_event(fract(ph * 0.0664), 0.0115, 0.0878, 0.0267);
+    // Fast enough for three strokes inside the event, which is a bird and
+    // not a twitch; the envelope is what makes it rare.
+    let flap = 0.5 * pow(0.5 + 0.5 * sin(ph * 11.0), 2.0) * ev;
+    let q = vec2<f32>(p.x, (p.y + 0.20) / (1.0 - flap) - 0.20);
     let wing = min(
         sd_segment(q, vec2<f32>(-0.30, 0.02), vec2<f32>(0.0, -0.20)),
         sd_segment(q, vec2<f32>(0.0, -0.20), vec2<f32>(0.30, 0.02)),
@@ -320,23 +394,80 @@ fn mark_flying(p: vec2<f32>, ph: f32) -> f32 {
     return min(wing, ground);
 }
 
-/// First strike: one blade, with the flash that arrives before the others.
+/// The two strikes share a clock: one beat in four, landing a tenth of a
+/// beat early.
+///
+/// A rate of `1 / (4 * 2 * pi)` is a whole beat every fourth one — the only
+/// place on the rail where a period is *meant* to line up with the ink
+/// pulse, because first strike's claim is about arriving before something,
+/// and earliness is only legible against a reference. Do not expect a player
+/// to feel it; it costs nothing and is right when lifelink is on the same
+/// rail to be early *against*.
+fn strike_clock(ph: f32) -> f32 {
+    return fract(ph * 0.03979 - 0.0375);
+}
+
+/// First strike: one blade, swung — the flash that arrives before the others.
+///
+/// The blade turns 0.41 radians about its own guard, from 15 degrees off
+/// vertical to 39: the drawn tip travels 0.12 of a cell, 1.2 pixels, and the
+/// hilt travels the other way. Written with a real `sin`/`cos` pair because
+/// the small-angle form is 8% out at this angle, which is a pixel of the 1.2.
 fn mark_first_strike(p: vec2<f32>, ph: f32) -> f32 {
-    let blade = sd_segment(p, vec2<f32>(-0.06, 0.30), vec2<f32>(0.10, -0.28)) - 0.052;
+    let hit = mark_event(strike_clock(ph), 0.005, 0.055, 0.030);
+    let a = 0.41 * hit;
+    let c = cos(a);
+    let s = sin(a);
+    // About (0, -0.01), which is where the guard crosses the blade.
+    let q = p + vec2<f32>(0.0, 0.01);
+    let r = vec2<f32>(q.x * c + q.y * s, -q.x * s + q.y * c) - vec2<f32>(0.0, 0.01);
+    let blade = sd_segment(r, vec2<f32>(-0.06, 0.30), vec2<f32>(0.10, -0.28)) - 0.052;
     let guard = sd_segment(p, vec2<f32>(-0.20, 0.02), vec2<f32>(0.20, -0.04)) - 0.032;
     return min(blade, guard);
 }
 
-/// Double strike: the same blade twice, because that is what it is.
+/// Double strike: the same blade twice, thrust one after the other.
+///
+/// Each blade lunges 0.14 of a cell along its own axis, the second a third of
+/// a second behind the first, so what the eye is given is the *gap* between
+/// their tips opening and closing — one, two.
+///
+/// It is the weakest motion on the row and knowingly so: a stroke sliding
+/// along itself turns over pixels only at its ends, and it measures 0.47
+/// against vigilance's 0.67 in the offline cell model. The glyph already
+/// says "two" by being two, so this is honest redundancy; if the rail ever
+/// reads as busy, this is the first thing to take out after defender, which
+/// was never put in.
 fn mark_double_strike(p: vec2<f32>, ph: f32) -> f32 {
-    let a = sd_segment(p, vec2<f32>(-0.20, 0.30), vec2<f32>(-0.04, -0.28)) - 0.045;
-    let b = sd_segment(p, vec2<f32>(0.04, 0.30), vec2<f32>(0.20, -0.28)) - 0.045;
+    let f = strike_clock(ph);
+    let h1 = mark_event(f, 0.005, 0.016, 0.008);
+    let h2 = mark_event(f, 0.028, 0.039, 0.030);
+    let ra = p - vec2<f32>(0.266, -0.964) * 0.14 * h1;
+    let rb = p - vec2<f32>(0.266, -0.964) * 0.14 * h2;
+    let a = sd_segment(ra, vec2<f32>(-0.20, 0.30), vec2<f32>(-0.04, -0.28)) - 0.045;
+    let b = sd_segment(rb, vec2<f32>(0.04, 0.30), vec2<f32>(0.20, -0.28)) - 0.045;
     return min(a, b);
 }
 
-/// Deathtouch: a drop of something that only has to land once.
+/// Deathtouch: a drop of something that only has to land once — gathering,
+/// and then gone.
+///
+/// Two seconds of swelling to 1.28, a tenth of a second snapping to 0.80,
+/// and a slow return: the bulb goes from 4.2 pixels across to 5.4 and then
+/// to 3.4, which is the event. The drop is the *snap*, not a fall — a drop
+/// that fell out of the cell would be guillotined at the boundary and leave
+/// a stub of its own tip behind, which is not a drop landing, it is a
+/// drawing being cut in half.
+///
+/// The honest objection, worth leaving written down: deathtouch is a
+/// property and not an event. Nothing happens to a poisoned blade over time.
+/// The drip is idiom, and it is the third mark that should go still if the
+/// row ever needs quieting.
 fn mark_deathtouch(p: vec2<f32>, ph: f32) -> f32 {
-    let swell = 1.0 + 0.06 * sin(ph);
+    let f = fract(ph * 0.0458 + 0.37);
+    let gather = smoothstep(0.0, 0.100, f) - smoothstep(0.118, 0.150, f);
+    let plip = smoothstep(0.100, 0.105, f) - smoothstep(0.112, 0.145, f);
+    let swell = 1.0 + 0.28 * gather - 0.48 * plip;
     let q = p / swell;
     let bulb = sd_circle(q - vec2<f32>(0.0, 0.11), 0.21);
     let tip = sd_tri(
@@ -348,10 +479,17 @@ fn mark_deathtouch(p: vec2<f32>, ph: f32) -> f32 {
     return min(bulb, tip) * swell;
 }
 
-/// Haste: a head with the trail it has already left behind.
+/// Haste: a head with the trail it has already left behind, surging.
+///
+/// The cell is stretched in x about the tails of the trail, so the head
+/// travels 1.2 pixels forward *and* draws as an ellipse while it does —
+/// which is what a thing moving too fast to photograph looks like — and the
+/// three trails lengthen by a fifth behind it. It fires more often than
+/// anything else on the rail, at ten seconds, because haste is the impatient
+/// keyword and that is the one place the rate carries meaning.
 fn mark_haste(p: vec2<f32>, ph: f32) -> f32 {
-    let run = 0.03 * sin(ph);
-    let q = p - vec2<f32>(run, 0.0);
+    let ev = mark_event(fract(ph * 0.0896 + 0.11), 0.0206, 0.0772, 0.0257);
+    let q = vec2<f32>(-0.32 + (p.x + 0.32) / (1.0 + 0.22 * ev), p.y);
     let head = sd_circle(q - vec2<f32>(0.16, 0.0), 0.115);
     let t1 = sd_segment(q, vec2<f32>(-0.30, -0.13), vec2<f32>(0.04, -0.10)) - 0.036;
     let t2 = sd_segment(q, vec2<f32>(-0.34, 0.02), vec2<f32>(0.02, 0.0)) - 0.036;
@@ -359,10 +497,21 @@ fn mark_haste(p: vec2<f32>, ph: f32) -> f32 {
     return min(head, min(t1, min(t2, t3)));
 }
 
-/// Lifelink: a heart, on a beat that thumps twice and rests.
+/// Lifelink: a heart, on a beat that thumps and rests.
+///
+/// The one mark left on `BEAT` itself, and the only one that should be: a
+/// heart is the keyword whose meaning *is* a period, and it is the reference
+/// the strikes are early against. The thump is +0.30 rather than the +0.09
+/// it shipped with, a pixel of travel per side instead of a seventh of one.
+///
+/// The objection, which motion does not answer: this heart is six pixels
+/// across with three-pixel lobes and it struggles to read as a heart while
+/// standing still. If it needs help it needs bigger geometry, not a bigger
+/// thump.
 fn mark_lifelink(p: vec2<f32>, ph: f32) -> f32 {
     let beat = pow(0.5 + 0.5 * sin(ph), 6.0);
-    let q = p / (1.0 + 0.09 * beat);
+    let s = 1.0 + 0.30 * beat;
+    let q = p / s;
     let l = sd_circle(q - vec2<f32>(-0.14, -0.07), 0.16);
     let r = sd_circle(q - vec2<f32>(0.14, -0.07), 0.16);
     let v = sd_tri(
@@ -371,45 +520,86 @@ fn mark_lifelink(p: vec2<f32>, ph: f32) -> f32 {
         vec2<f32>(-0.29, -0.06),
         vec2<f32>(0.29, -0.06),
     );
-    return min(min(l, r), v);
+    // Back into the cell's own units, the way deathtouch and menace do it.
+    // At the +0.09 this shipped with, leaving it out cost 9% of the edge
+    // ramp and nobody could have seen it; at +0.30 it is a third of the
+    // antialiasing width, which is a soft heart on every thump.
+    return min(min(l, r), v) * s;
 }
 
-/// Menace: two rings, because one of them is never enough.
+/// Menace: two rings, because one of them is never enough — looming.
+///
+/// Both rings grow 28% about the origin over a second and a half, hold, and
+/// ease back: the pair's outer edge goes from 0.34 of a cell to 0.435, a
+/// pixel of travel on each side.
+///
+/// It looms rather than narrowing, and that is a decision about *vigilance*.
+/// Menace and vigilance are the two eyes on this rail, and any narrowing of
+/// these rings borrows the eye's mechanism onto a two-eyed glyph — two
+/// keywords blurred into one verb. Looming is menace's own. It does collide
+/// mildly with deathtouch's gather, two slow swells on one row; the drip's
+/// snap and hollow-against-solid keep them apart, and that is the weakest
+/// separation on the rail. If loom cannot be told from gather at ten pixels,
+/// menace is the one that goes still.
 fn mark_menace(p: vec2<f32>, ph: f32) -> f32 {
-    let sway = 0.012 * sin(ph);
-    let l = abs(sd_circle(p - vec2<f32>(-0.12 - sway, 0.0), 0.17)) - 0.050;
-    let r = abs(sd_circle(p - vec2<f32>(0.12 + sway, 0.0), 0.17)) - 0.050;
-    return min(l, r);
+    let ev = mark_event(fract(ph * 0.0361 + 0.63), 0.0332, 0.0623, 0.0228);
+    let s = 1.0 + 0.28 * ev;
+    let q = p / s;
+    let l = abs(sd_circle(q - vec2<f32>(-0.12, 0.0), 0.17)) - 0.050;
+    let r = abs(sd_circle(q - vec2<f32>(0.12, 0.0), 0.17)) - 0.050;
+    return min(l, r) * s;
 }
 
 /// Reach: the same chevron flying wears, on a stem that never leaves the
-/// ground — it does not fly, it gets there.
+/// ground — it does not fly, it climbs.
+///
+/// The head rises 0.12 of a cell, 1.2 pixels, **and the stem's top endpoint
+/// rises with it**, or the chevron detaches and floats away from its own
+/// pole. The foot stays where it is, which is the difference from flying:
+/// one of them leaves the ground and the other is still standing on it.
 fn mark_reach(p: vec2<f32>, ph: f32) -> f32 {
-    let tip = 0.02 * sin(ph);
+    let ev = mark_event(fract(ph * 0.0521 + 0.79), 0.0210, 0.0779, 0.0240);
+    let climb = 0.12 * ev;
     let head = min(
-        sd_segment(p, vec2<f32>(-0.22, -0.04 - tip), vec2<f32>(0.0, -0.26 - tip)),
-        sd_segment(p, vec2<f32>(0.0, -0.26 - tip), vec2<f32>(0.22, -0.04 - tip)),
+        sd_segment(p, vec2<f32>(-0.22, -0.04 - climb), vec2<f32>(0.0, -0.26 - climb)),
+        sd_segment(p, vec2<f32>(0.0, -0.26 - climb), vec2<f32>(0.22, -0.04 - climb)),
     ) - 0.052;
-    let stem = sd_segment(p, vec2<f32>(0.0, -0.20), vec2<f32>(0.0, 0.24)) - 0.050;
+    let stem = sd_segment(p, vec2<f32>(0.0, -0.20 - climb), vec2<f32>(0.0, 0.24)) - 0.050;
     let foot = sd_segment(p, vec2<f32>(-0.16, 0.28), vec2<f32>(0.16, 0.28)) - 0.030;
     return min(head, min(stem, foot));
 }
 
-/// Trample: a wedge coming down on ground that has already given way.
+/// Trample: a wedge coming down on ground that gives way under it.
+///
+/// The wedge drops 0.10 of a cell until its point kisses the ground line —
+/// and the ground's two inner ends retreat from it, the gap opening from 1.8
+/// pixels to 3.4. The drop on its own is a one-pixel jolt of a whole glyph;
+/// the gap widening is the part that turns pixels over, and it is the only
+/// place on the rail where a mark's two halves answer each other.
 fn mark_trample(p: vec2<f32>, ph: f32) -> f32 {
-    let stomp = 0.03 * pow(0.5 + 0.5 * sin(ph), 4.0);
+    let ev = mark_event(fract(ph * 0.0731 + 0.47), 0.0101, 0.0857, 0.0294);
+    let stomp = 0.10 * ev;
+    let gap = 0.09 + 0.08 * ev;
     let wedge = sd_tri(
         p - vec2<f32>(0.0, stomp),
         vec2<f32>(0.0, 0.16),
         vec2<f32>(-0.26, -0.24),
         vec2<f32>(0.26, -0.24),
     );
-    let l = sd_segment(p, vec2<f32>(-0.30, 0.30), vec2<f32>(-0.09, 0.30)) - 0.032;
-    let r = sd_segment(p, vec2<f32>(0.09, 0.30), vec2<f32>(0.30, 0.30)) - 0.032;
+    let l = sd_segment(p, vec2<f32>(-0.30, 0.30), vec2<f32>(-gap, 0.30)) - 0.032;
+    let r = sd_segment(p, vec2<f32>(gap, 0.30), vec2<f32>(0.30, 0.30)) - 0.032;
     return min(wedge, min(l, r));
 }
 
 /// Vigilance: an open eye, which blinks rarely and briefly.
+///
+/// Untouched, and the standard every rate and amplitude above is measured
+/// against — it was the one motion on this rail a player ever reported
+/// seeing. The numbers, because they are easy to misread: `fract(ph * 0.06)`
+/// wraps every `1 / (BEAT * 0.06)` = **14.5 s**, the lid falls from f = 0.94
+/// to the wrap, which is 0.06 of the period or **0.87 s**, and the eye snaps
+/// open at the wrap rather than easing. Photographed live at 0.87 s, with a
+/// per-pixel swing of 147 levels out of 255 against a floor of 20.
 fn mark_vigilance(p: vec2<f32>, ph: f32) -> f32 {
     let blink = smoothstep(0.94, 0.99, fract(ph * 0.06));
     let open = 1.0 - 0.85 * blink;
@@ -424,6 +614,22 @@ fn mark_vigilance(p: vec2<f32>, ph: f32) -> f32 {
 }
 
 /// Defender: a shield, and the only mark that does not move.
+///
+/// STILL: a shield has one verb available to it at ten pixels — thickening —
+/// and a one-pixel wall going to two is the mark going *bold*, which is
+/// indistinguishable from the `0.90 + 0.10 * sin(phase)` ink pulse every
+/// mark already carries. Every other verb is a lie: a shield that flexes,
+/// braces or shudders is a shield doing something, and defender is the
+/// keyword for a creature that does not.
+///
+/// So the stillness is the drawing. On a row where things occasionally move,
+/// the one that never does is the clearest statement "cannot attack" has
+/// available, and it only works while everything around it is an event
+/// rather than a wriggle — which is the whole of the design above.
+///
+/// `ph` is taken and not used, deliberately; `the_rail_declares_every_mark_
+/// that_does_not_move` reads this comment for the marker and fails if the
+/// list of still marks grows without one.
 fn mark_defender(p: vec2<f32>, ph: f32) -> f32 {
     let outer = max(
         sd_box(p - vec2<f32>(0.0, -0.10), vec2<f32>(0.25, 0.19)),

@@ -1841,6 +1841,77 @@ pub(crate) mod tests {
         assert_eq!(glow_bits(six.bits()) & !glow::MARK_MASK, 0);
     }
 
+    /// A mark that takes the phase and never uses it has to say why.
+    ///
+    /// Three did. First strike, double strike and defender all took `ph` and
+    /// ignored it, and nothing in the file said whether that was a decision
+    /// or an omission — two were omissions, the third is the design, and no
+    /// reader could tell them apart. The rail is the one place in this
+    /// client where "it does not animate" is both a legitimate answer and
+    /// the signature of unfinished work.
+    ///
+    /// So a still mark declares itself with `STILL:` in its own doc comment.
+    /// This is the build-time half of a claim that otherwise needs a camera:
+    /// it cannot say a motion is *visible*, which is what the measurement in
+    /// that file's header is for, but it can say that nobody added a twelfth
+    /// mark and quietly left the phase on the floor.
+    #[test]
+    fn the_rail_declares_every_mark_that_does_not_move() {
+        let src = include_str!("shaders/card_common.wgsl");
+
+        // `ph` as a token and not as a substring: `graph` is not a phase.
+        let uses_phase = |body: &str| {
+            body.match_indices("ph").any(|(i, _)| {
+                let before = body[..i].chars().next_back();
+                let after = body[i + 2..].chars().next();
+                let word = |c: char| c.is_alphanumeric() || c == '_';
+                !before.is_some_and(word) && !after.is_some_and(word)
+            })
+        };
+
+        let mut seen = 0;
+        let mut still = Vec::new();
+        for (at, _) in src.match_indices("\nfn mark_") {
+            let head = &src[at + 1..];
+            let name = &head["fn ".len()..head.find('(').expect("a signature")];
+            // `mark_layer`, `mark_sdf` and `mark_color` are the dispatchers
+            // rather than marks, and `mark_event` is the shared envelope: a
+            // mark is the one shape that takes a cell and a phase and
+            // answers a distance.
+            if !head.starts_with(&format!("fn {name}(p: vec2<f32>, ph: f32) -> f32 {{")) {
+                continue;
+            }
+            seen += 1;
+            // From the opening brace, not from `fn`: the signature names the
+            // parameter, so a body measured from the start of the line finds
+            // `ph` in every mark there is.
+            let open = head.find('{').expect("an opening brace") + 1;
+            let rest = &head[open..];
+            let body = &rest[..rest.find("\n}").expect("a brace at column zero")];
+            if uses_phase(body) {
+                continue;
+            }
+            // The doc comment is the run of `///` lines above the signature.
+            let doc = src[..at]
+                .rsplit('\n')
+                .take_while(|line| line.starts_with("///"))
+                .collect::<Vec<_>>()
+                .join("\n");
+            assert!(
+                doc.contains("STILL:"),
+                "{name} ignores its phase and does not say why"
+            );
+            still.push(name);
+        }
+
+        assert_eq!(seen, 12, "twelve marks on the rail, twelve signatures");
+        assert_eq!(
+            still,
+            ["mark_defender"],
+            "which marks hold still is a decision, and this is the list of it"
+        );
+    }
+
     /// The table shader, parsed and validated.
     ///
     /// A WGSL error is otherwise found when a real pipeline is built — which

@@ -19,9 +19,9 @@
 //! which is `table::Departing` said in `bevy_ui`: the entity keeps its
 //! material, its halo, its corner radius and its constructed face, and loses
 //! the two components that made it a card in a hand. It cannot be left where
-//! it is, because the hand bar clips its children to eight pixels of headroom
-//! and a departure that stayed inside that clip would be a card sliding under
-//! an invisible line.
+//! it is, because the hand bar clips its children to `HAND_HEADROOM` — under
+//! thirty pixels, `ARMED_RAISE` plus `HALO_REACH` — and a departure that
+//! stayed inside that clip would be a card sliding under an invisible line.
 //!
 //! # Z-order, and the one thing it costs
 //!
@@ -334,9 +334,9 @@ mod running {
         );
     }
 
-    /// It is taken out of the hand bar, which clips to eight pixels of
-    /// headroom — so a card that stayed a child of the row would leave under
-    /// an invisible line.
+    /// It is taken out of the hand bar, which clips to `HAND_HEADROOM` — under
+    /// thirty pixels, not the eight an armed card is raised by — so a card
+    /// that stayed a child of the row would leave under an invisible line.
     #[test]
     fn a_departing_card_is_flown_in_a_root_of_its_own() {
         let mut app = harness(&[1]);
