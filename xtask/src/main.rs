@@ -3038,7 +3038,7 @@ fn forge_report(
     let mut files = Vec::new();
     collect_scripts(&dir, &mut files)?;
     files.sort();
-    let wanted: Option<BTreeSet<String>> = if stubs {
+    let wanted: Option<(BTreeSet<String>, usize)> = if stubs {
         Some(stub_names(&root.join("crates/baylee-cards/src/cards"))?)
     } else {
         None
@@ -3046,9 +3046,15 @@ fn forge_report(
     let (mut read, mut refused) = (0usize, 0usize);
     let mut causes: BTreeMap<String, usize> = BTreeMap::new();
     let mut shown = 0usize;
+    // Which stubs a script was actually found for. Reported rather than
+    // assumed: the set above holds two spellings for a double-faced card and
+    // exactly one of them can match, so a hit is a card — and a worklist
+    // that silently covers 671 of 775 stubs is one whose largest entry is
+    // invisible, which is what happened.
+    let mut hit: BTreeSet<String> = BTreeSet::new();
     for path in &files {
         let text = fs::read_to_string(path)?;
-        if let Some(wanted) = &wanted {
+        if let Some((wanted, _)) = &wanted {
             let name = text
                 .lines()
                 .find_map(|l| l.strip_prefix("Name:"))
@@ -3057,6 +3063,7 @@ fn forge_report(
             if !wanted.contains(name) {
                 continue;
             }
+            hit.insert(name.to_string());
         }
         let script = forgegen::parse(&text);
         if forgegen::transcode(&script, &cats).is_some() {
@@ -3077,6 +3084,12 @@ fn forge_report(
         "forge transcoder: {read} / {total} scripts read in full ({}%)",
         (read * 100).checked_div(total).unwrap_or(0)
     );
+    if let Some((_, cards)) = &wanted {
+        println!(
+            "  over our own stubs: {} of {cards} have a forge script",
+            hit.len()
+        );
+    }
     let mut ranked: Vec<(&String, &usize)> = causes.iter().collect();
     ranked.sort_by(|a, b| b.1.cmp(a.1));
     println!("what the refused scripts need next:");
@@ -3226,8 +3239,9 @@ fn coverage_set(root: &Path, forge_dir: &Path, count: usize, max_new: usize) -> 
 /// what `codegen` itself honours: a file that has lost it is hand-owned and
 /// will not be rewritten, so ranking it as work would be ranking work
 /// nobody can do.
-fn stub_names(cards_dir: &Path) -> anyhow::Result<BTreeSet<String>> {
+fn stub_names(cards_dir: &Path) -> anyhow::Result<(BTreeSet<String>, usize)> {
     let mut out = BTreeSet::new();
+    let mut cards = 0usize;
     // Through `card_files` and never `read_dir`: `cards/` is a tree now, and
     // a non-recursive walk over it would find nothing at all and report an
     // empty worklist as an answer rather than as a failure.
@@ -3236,13 +3250,23 @@ fn stub_names(cards_dir: &Path) -> anyhow::Result<BTreeSet<String>> {
         if !text.contains("// GENERATED STUB") {
             continue;
         }
-        // The header's first line is `//! <name> — <cost> — <types>`.
+        cards += 1;
+        // The header's first line is `//! <name> — <cost> — <types>`, and a
+        // double-faced card's name there is `<front> // <back>` — while the
+        // forge script for the pair is headed `Name:<front>` and holds the
+        // back face after an `ALTERNATE` line. Matching only the joined name
+        // made this worklist blind to every one of them: 104 of the 775
+        // stubs, including all 81 that are not lands, and with them the
+        // largest single entry the report could have had.
         if let Some(head) = text.lines().next().and_then(|l| l.strip_prefix("//! ")) {
             let name = head.split(" \u{2014} ").next().unwrap_or(head).trim();
             out.insert(name.to_string());
+            if let Some((front, _)) = name.split_once(" // ") {
+                out.insert(front.to_string());
+            }
         }
     }
-    Ok(out)
+    Ok((out, cards))
 }
 
 fn collect_scripts(dir: &Path, out: &mut Vec<PathBuf>) -> anyhow::Result<()> {
