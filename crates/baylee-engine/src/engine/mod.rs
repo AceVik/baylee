@@ -488,6 +488,8 @@ mod card_tests;
 #[cfg(test)]
 mod cast_face_tests;
 #[cfg(test)]
+mod claim_tests;
+#[cfg(test)]
 mod combat_choice_tests;
 #[cfg(test)]
 mod combo_tests;
