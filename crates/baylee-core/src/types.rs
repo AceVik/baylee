@@ -147,16 +147,27 @@ impl TypeSet {
     }
 
     /// Whether this describes a permanent type (CR 110.4).
+    ///
+    /// An instant or a sorcery is never one, whatever else it has become.
+    /// CR 304.4 and CR 307.4 say so in as many words — such a card cannot
+    /// enter the battlefield and stays where it was — and the clause is
+    /// load-bearing rather than defensive, because a type-adding continuous
+    /// effect reaches cards off the battlefield: Mycosynth Lattice made every
+    /// instant in the game an artifact, the resolution branch in `progress`
+    /// asks exactly this question, and Brainstorm went to the battlefield and
+    /// stayed there. A permanent type gained is still a permanent type
+    /// gained, so the answer belongs here and not at the one call site.
     #[must_use]
     pub const fn is_permanent(self) -> bool {
-        self.intersects(
-            Self::ARTIFACT
-                .union(Self::CREATURE)
-                .union(Self::ENCHANTMENT)
-                .union(Self::LAND)
-                .union(Self::PLANESWALKER)
-                .union(Self::BATTLE),
-        )
+        !self.is_instant_or_sorcery()
+            && self.intersects(
+                Self::ARTIFACT
+                    .union(Self::CREATURE)
+                    .union(Self::ENCHANTMENT)
+                    .union(Self::LAND)
+                    .union(Self::PLANESWALKER)
+                    .union(Self::BATTLE),
+            )
     }
 
     /// Whether this describes a spell type (instant/sorcery/kindred spells).
@@ -515,6 +526,11 @@ mod tests {
         assert_eq!(TypeSet::from_word("Creature"), Some(TypeSet::CREATURE));
         assert!(TypeSet::CREATURE.is_permanent());
         assert!(!TypeSet::INSTANT.is_permanent());
+        // CR 304.4 / 307.4: gaining a permanent type does not make an
+        // instant one. Mycosynth Lattice is what asks.
+        assert!(!TypeSet::INSTANT.union(TypeSet::ARTIFACT).is_permanent());
+        assert!(!TypeSet::SORCERY.union(TypeSet::ARTIFACT).is_permanent());
+        assert!(TypeSet::ARTIFACT.union(TypeSet::CREATURE).is_permanent());
         assert!(SupertypeSet::from_word("Legendary").is_some());
     }
 

@@ -4207,3 +4207,159 @@ fn an_ally_returning_at_the_end_step_still_rallies_the_board() {
         "and the same trigger grants haste until end of turn"
     );
 }
+
+/// The types an object has after the layer system has run — the only
+/// reading that can see a type a continuous effect added.
+fn types(
+    engine: &Engine<RegistryLookup>,
+    object: baylee_core::ids::ObjectId,
+) -> baylee_core::types::TypeSet {
+    engine
+        .state()
+        .object(object)
+        .expect("object exists")
+        .characteristics()
+        .types
+}
+
+fn mycosynth_lattice() -> baylee_core::ids::CardIndex {
+    card_index("ae1f2ab5-c6a5-4d49-a746-3cb4668bf805")
+}
+fn brainstorm() -> baylee_core::ids::CardIndex {
+    card_index("36cd2364-d113-47d1-b2c4-b088d9eb88dd")
+}
+fn enlightened_tutor() -> baylee_core::ids::CardIndex {
+    card_index("c5229c17-b7be-4b05-b683-f2277edc4849")
+}
+
+/// Mycosynth Lattice says "all **permanents** are artifacts", and an instant
+/// is not one. It read `Filter::Any` and so reached the stack, where a
+/// Brainstorm became an artifact spell — an artifact spell is a permanent
+/// spell, and `finalize_spell` put it onto the battlefield and left it
+/// there. CR 304.4: an instant cannot enter the battlefield at all.
+///
+/// Three cards went to the owner's battlefield this way in one game, and
+/// Ephemerate's rebound was eaten with them: the card never reached the
+/// resolution path that exiles it.
+#[test]
+fn an_instant_does_not_land_on_the_battlefield_under_mycosynth_lattice() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(41, forest())
+        .battlefield(0, &[island(), mycosynth_lattice()])
+        .hand(0, &[brainstorm()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let lattice = on_battlefield(&engine, p0, mycosynth_lattice()).expect("lattice deployed");
+    let land = on_battlefield(&engine, p0, island()).expect("island deployed");
+    assert!(
+        types(&engine, land).intersects(baylee_core::types::TypeSet::ARTIFACT),
+        "a permanent still is an artifact — the card's own rules text"
+    );
+    assert!(types(&engine, lattice).intersects(baylee_core::types::TypeSet::ARTIFACT));
+
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    for source in legal.mana_abilities.clone() {
+        engine
+            .apply(p0, PlayerAction::ActivateManaAbility { source })
+            .unwrap();
+    }
+    let bolt = engine
+        .state()
+        .zones
+        .list(crate::zone::ZoneLocation::Hand(p0))[0];
+    engine
+        .apply(p0, PlayerAction::CastSpell { card: bolt })
+        .unwrap();
+    // Sampled with the spell still on the stack and the layer pass behind
+    // it — p0 has passed, p1 holds priority. "All permanents" does not reach
+    // a spell, and this is the reading `finalize_spell` goes on to make.
+    engine.apply(p0, PlayerAction::PassPriority).unwrap();
+    assert_eq!(
+        engine
+            .state()
+            .zones
+            .list(crate::zone::ZoneLocation::Stack)
+            .len(),
+        1,
+        "the spell should still be on the stack here"
+    );
+    assert!(
+        !types(&engine, bolt).intersects(baylee_core::types::TypeSet::ARTIFACT),
+        "the Lattice reached the stack: an instant spell became an artifact spell"
+    );
+
+    let rest = drive_to_rest(&mut engine, p0);
+    assert!(matches!(rest, Rest::Reached), "the duel stalled: {rest:?}");
+    assert!(
+        on_battlefield(&engine, p0, brainstorm()).is_none(),
+        "CR 304.4: an instant card cannot enter the battlefield"
+    );
+    assert!(
+        in_graveyard(&engine, p0, brainstorm()).is_some(),
+        "a resolved instant goes to its owner's graveyard"
+    );
+}
+
+/// The other half of the same sentence, and the reason the fix is not only
+/// in the card: no type-adding effect may make an instant a permanent, so
+/// `TypeSet::is_permanent` answers the question once for every future
+/// Lattice. Enlightened Tutor is what noticed — it searches for "an artifact
+/// or enchantment card", and every card in the library matched.
+#[test]
+fn a_library_card_is_not_an_artifact_under_mycosynth_lattice() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(42, forest())
+        .battlefield(0, &[plains(), mycosynth_lattice()])
+        .hand(0, &[enlightened_tutor()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    for source in legal.mana_abilities.clone() {
+        engine
+            .apply(p0, PlayerAction::ActivateManaAbility { source })
+            .unwrap();
+    }
+    let tutor = engine
+        .state()
+        .zones
+        .list(crate::zone::ZoneLocation::Hand(p0))[0];
+    engine
+        .apply(p0, PlayerAction::CastSpell { card: tutor })
+        .unwrap();
+    engine.apply(p0, PlayerAction::PassPriority).unwrap();
+    engine
+        .apply(PlayerId::new(1), PlayerAction::PassPriority)
+        .unwrap();
+
+    // The library is nothing but Forests (the filler), so a correct search
+    // finds nothing and the engine asks nothing. Under the old reading every
+    // card in it was an artifact and the whole library was on the list.
+    assert!(
+        !matches!(engine.pending(), Pending::ChooseCards { .. }),
+        "the tutor offered a search among Forests: {:?}",
+        engine.pending()
+    );
+    let land = on_battlefield(&engine, p0, plains()).expect("plains deployed");
+    assert!(
+        types(&engine, land).intersects(baylee_core::types::TypeSet::ARTIFACT),
+        "a permanent is still an artifact"
+    );
+    for &id in engine
+        .state()
+        .zones
+        .list(crate::zone::ZoneLocation::Library(p0))
+    {
+        assert!(
+            !types(&engine, id).intersects(baylee_core::types::TypeSet::ARTIFACT),
+            "a card in the library is not a permanent and gains nothing"
+        );
+    }
+}

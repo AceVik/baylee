@@ -8,6 +8,24 @@
 
 use baylee_cards_dsl::prelude::*;
 
+/// "All **permanents**" — the battlefield and nothing else. The zone is in
+/// the filter because that is the only place the engine reads it from
+/// (`state::filter_reaches_other_zones`), and because a bare `Filter::Any`
+/// here also caught every *spell* on the stack: Brainstorm became an
+/// artifact spell, an artifact spell is a permanent spell, and it resolved
+/// onto the battlefield and stayed there.
+static PERMANENTS: Filter = Filter::InZone(ZoneRef::Battlefield);
+
+/// "All **cards that aren't on the battlefield, spells, and permanents**" —
+/// which is every object in the game, and is written as the union of the two
+/// halves the card prints rather than as `Filter::Any`, so the projection
+/// pass can see that this one does reach the other zones. `OutsideGame` is
+/// excluded by `NotBattlefield` itself: a sideboard has no colour to change.
+static EVERYTHING: Filter = Filter::Or(&[
+    Filter::InZone(ZoneRef::Battlefield),
+    Filter::InZone(ZoneRef::NotBattlefield),
+]);
+
 card! {
     index: 100,
     oracle_id: "ae1f2ab5-c6a5-4d49-a746-3cb4668bf805",
@@ -21,13 +39,13 @@ card! {
     abilities: &[
         AbilityDef::Static(StaticAbility {
             layer: Layer::Type,
-            filter: Filter::Any,
+            filter: PERMANENTS,
             modifier: Modifier::AddType(TypeSet::ARTIFACT),
             cross_zone: true,
         }),
         AbilityDef::Static(StaticAbility {
             layer: Layer::Color,
-            filter: Filter::Any,
+            filter: EVERYTHING,
             modifier: Modifier::SetColor(ColorSet::EMPTY),
             cross_zone: true,
         }),
