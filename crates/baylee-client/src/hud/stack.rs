@@ -418,11 +418,18 @@ pub(super) fn spawn_stack_panel(
         ))
         .id();
 
+    // One row and not two. The title and the note about whose answer the
+    // table is waiting for are one line of information, and stacking them
+    // spent a second line of a panel that has to fit `STACK_COMPACT_ROWS`
+    // entries under it — and read as a second heading rather than as a note
+    // beside the first.
     let head = commands
         .spawn((
             Node {
-                flex_direction: FlexDirection::Column,
-                row_gap: px(2),
+                flex_direction: FlexDirection::Row,
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::SpaceBetween,
+                column_gap: px(8),
                 ..default()
             },
             Pickable::IGNORE,
