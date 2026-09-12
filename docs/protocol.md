@@ -582,9 +582,11 @@ months later still lands in the language the player signed up in.
 
 ## From an account to a seat
 
-The websocket below is opened with a *seat token*, and there is exactly one
-way to get one. The client walks it itself now (`crates/baylee-client/src/lobby.rs`),
-which is what turned this from a curl recipe into a contract:
+The websocket below is opened with a *seat token*. There is one way to be
+given a chair and one way to be given a chair's ticket *again*, and the
+difference is the whole of "I closed my laptop". The client walks all of it
+itself now (`crates/baylee-client/src/lobby.rs`), which is what turned this
+from a curl recipe into a contract:
 
 | step | call | answer |
 | --- | --- | --- |
@@ -606,6 +608,7 @@ which is what turned this from a curl recipe into a contract:
 | the same, pushed | `GET /lobby/ws?token=…&q=&offset=&limit=` (websocket) | that page again, on every lobby change |
 | open one | `POST /lobby/games` `{deck_id, mode:"ai"\|"open", seats, name}` | `{game_id, seat, seat_token}` |
 | sit down | `POST /lobby/games/{id}/join` `{deck_id, seat?}` | `{game_id, seat, seat_token}` |
+| take the chair you are in | `POST /lobby/games/{id}/seat` | `{game_id, seat, seat_token}` |
 | arrange a chair | `POST /lobby/games/{id}/seats/{seat}` `{kind?, ai?, deck_id?, team?}` | the seat |
 | stand up | `POST /lobby/games/{id}/leave` | `204` |
 
@@ -613,6 +616,26 @@ Everything but the two auth calls, `/auth/config`, `/pool` and `/printings`
 takes `Authorization: Bearer <token>`. A refusal is `{"error":"…"}` with a
 status, and the string is written to be shown to a player as-is — the lobby
 does.
+
+**`POST /lobby/games/{id}/seat` is the way back to a chair you are already
+in**, and it is not a join. It names no deck, moves nobody, and changes
+nothing another player can see; it asks one question — is this account
+sitting here — and answers the same `{game_id, seat, seat_token}` a join
+does, so everything downstream of a seat ticket is untouched. It answers in
+`waiting` **and** in `playing`, refusing only a game that is `over`, because
+a running game is when it matters: the gateway keeps only a seat token's
+hash, so a client that restarts has lost its ticket for good, `join` then
+refuses with "you are already at this table", and the player is left watching
+their own table run without them. Everything else about reconnecting was
+already built and all of it hung on that one secret — the engine holds the
+chair open (`Deadline::StandIn`, `Session::stand_in`, `SeatAttached`) and the
+client re-dials on a schedule (`baylee-client-core/src/reconnect.rs`).
+
+Asking replaces the chair's secret rather than handing out a second one. That
+is the right way round: the seat's ticket is whatever was issued last, so a
+copy kept by some older client cannot go on answering for a seat its owner
+has taken back. The cost is that a player with the table open in two places
+keeps only the newer one, which is the same rule a password reset follows.
 
 `/pool` is the deck builder's card list, and one of the two routes with no
 account behind it: it is reference data about what this build can play, the

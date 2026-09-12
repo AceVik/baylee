@@ -550,3 +550,114 @@ async fn sides_are_the_hosts_to_arrange_and_a_table_needs_two_of_them() {
     );
     assert_eq!(status, 200, "start: {body}");
 }
+
+#[tokio::test]
+async fn a_player_who_lost_their_client_is_given_their_seat_back() {
+    let gw = spawn_gateway("reseat");
+    let port = gw.port;
+    let _agent = attach_agent(&gw).await;
+
+    let host = login(port, "back-host@example.com", "host");
+    let guest = login(port, "back-guest@example.com", "guest");
+    let stranger = login(port, "back-nobody@example.com", "nobody");
+    let host_deck = make_deck(port, &host, "host-deck");
+    let guest_deck = make_deck(port, &guest, "guest-deck");
+
+    let create = format!("{{\"deck_id\":\"{host_deck}\",\"seats\":2,\"name\":\"Friendly\"}}");
+    let (status, body) = http(port, "POST", "/lobby/games", Some(&host), &create);
+    assert_eq!(status, 200, "create room: {body}");
+    let game_id = json_field(&body, "game_id").to_string();
+
+    let join = format!("{{\"deck_id\":\"{guest_deck}\"}}");
+    let (status, body) = http(
+        port,
+        "POST",
+        &format!("/lobby/games/{game_id}/join"),
+        Some(&guest),
+        &join,
+    );
+    assert_eq!(status, 200, "join: {body}");
+    let first = json_field(&body, "seat_token").to_string();
+
+    // The guest's client dies here. Everything it knew is gone, and asking to
+    // join again is refused — which is how a player ended up watching their
+    // own table run without them.
+    let (status, body) = http(
+        port,
+        "POST",
+        &format!("/lobby/games/{game_id}/join"),
+        Some(&guest),
+        &join,
+    );
+    assert_eq!(status, 409, "already at this table: {body}");
+
+    // Asking for the chair they are already in answers a fresh ticket for the
+    // same seat, and no deck is named anywhere in the asking.
+    let (status, body) = http(
+        port,
+        "POST",
+        &format!("/lobby/games/{game_id}/seat"),
+        Some(&guest),
+        "{}",
+    );
+    assert_eq!(status, 200, "take seat: {body}");
+    assert!(body.contains("\"seat\":1"), "the same chair: {body}");
+    let second = json_field(&body, "seat_token").to_string();
+    assert_ne!(second, first, "a fresh secret, not the old one again");
+
+    // Somebody who is not at this table is not given a chair by asking.
+    let (status, body) = http(
+        port,
+        "POST",
+        &format!("/lobby/games/{game_id}/seat"),
+        Some(&stranger),
+        "{}",
+    );
+    assert_eq!(status, 403, "not your table: {body}");
+
+    say_ready(port, &host, &game_id);
+    say_ready(port, &guest, &game_id);
+    let (status, body) = http(
+        port,
+        "POST",
+        &format!("/lobby/games/{game_id}/start"),
+        Some(&host),
+        "",
+    );
+    assert_eq!(status, 200, "start: {body}");
+
+    // And the whole point: a running game is exactly when this is needed, so
+    // it answers there too.
+    let (status, body) = http(
+        port,
+        "POST",
+        &format!("/lobby/games/{game_id}/seat"),
+        Some(&guest),
+        "{}",
+    );
+    assert_eq!(status, 200, "take seat while playing: {body}");
+    let third = json_field(&body, "seat_token").to_string();
+    assert_ne!(third, second);
+
+    // The seat's secret is whatever was handed out last. `/cosmetics` is the
+    // other route a seat token opens and is plain HTTP, so it is what this
+    // asks: the newest ticket is admitted and every older one is not.
+    let (status, body) = http(
+        port,
+        "GET",
+        &format!("/games/{game_id}/cosmetics?token={third}"),
+        None,
+        "",
+    );
+    assert_eq!(status, 200, "the ticket just issued: {body}");
+    for stale in [&first, &second] {
+        let (status, body) = http(
+            port,
+            "GET",
+            &format!("/games/{game_id}/cosmetics?token={stale}"),
+            None,
+            "",
+        );
+        assert_eq!(status, 401, "a ticket that was replaced: {body}");
+    }
+}

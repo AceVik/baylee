@@ -182,6 +182,7 @@ async fn main() {
         .route("/automation", get(list_automation).put(set_automation))
         .route("/settings", get(get_settings).put(put_settings))
         .route("/lobby/games/{id}/join", post(join_game))
+        .route("/lobby/games/{id}/seat", post(take_seat))
         .route("/lobby/games/{id}/seats/{seat}", post(set_seat))
         .route("/lobby/games/{id}/ready", post(set_ready))
         .route("/lobby/games/{id}/start", post(start_room))
@@ -1512,6 +1513,61 @@ async fn join_game(
         chair.seat
     };
     state.lobby_moved();
+    Ok(Json(serde_json::json!({
+        "game_id": id,
+        "seat": seat,
+        "seat_token": seat_token,
+    })))
+}
+
+/// `POST /lobby/games/{id}/seat` — hand this account its chair back.
+///
+/// A seat token is issued once, at the join, and the gateway keeps only its
+/// hash. A client that restarts has lost it for good, and every other route
+/// answers the wrong question: `join` refuses ("you are already at this
+/// table", and "game already started" once it is running), and the listing
+/// shows the player their own table with no way into it. Everything else
+/// about reconnecting is already built — the engine holds the chair open
+/// (`Deadline::StandIn`, `Session::stand_in`, `SeatAttached`) and the client
+/// knows how to re-dial (`reconnect.rs`, twelve attempts) — and all of it
+/// hung on a secret only the dead process knew.
+///
+/// So this is deliberately *not* a join: no deck is chosen, no chair changes
+/// hands, nothing another player can see moves. It asks one question — is
+/// this account already sitting here — and a table that is **playing** is
+/// exactly when the answer matters most.
+///
+/// Reissuing invalidates the old token, which is the right way round: the
+/// chair's secret is whatever was handed out last, so a copy kept by some
+/// older client cannot go on answering for a seat its owner has taken back.
+async fn take_seat(
+    State(state): State<Shared>,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorBody>)> {
+    let account_id = authed(&state, &headers)?;
+    let seat_token = auth::new_token();
+    let seat = {
+        let mut lobby = state.lobby.lock();
+        let game = lobby
+            .games
+            .get_mut(&id)
+            .ok_or_else(|| err(StatusCode::NOT_FOUND, "no such game"))?;
+        // A finished game has nothing left to answer for. The other two
+        // states both do: before the start the seat screen waits for the
+        // room, after it there is a game to catch up on.
+        if game.state == LobbyState::Over {
+            return Err(err(StatusCode::CONFLICT, "that game is over"));
+        }
+        let chair = game
+            .seats
+            .iter_mut()
+            .find(|s| s.account_id.as_ref() == Some(&account_id))
+            .ok_or_else(|| err(StatusCode::FORBIDDEN, "you are not at this table"))?;
+        chair.seat_token_hash = Some(auth::token_hash(&seat_token));
+        chair.seat
+    };
+    // No `lobby_moved()`: the arrangement of the table is exactly as it was.
     Ok(Json(serde_json::json!({
         "game_id": id,
         "seat": seat,
