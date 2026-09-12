@@ -4108,3 +4108,102 @@ fn jace_looks_at_a_targets_library_and_the_controller_decides() {
         "and no card crossed between the two libraries"
     );
 }
+
+fn venser_the_sojourner() -> baylee_core::ids::CardIndex {
+    card_index("a8bf8ff8-d924-4fd2-b5ed-05b38f55325a")
+}
+
+/// The owner's report: Venser's +2 flickered a Great Divide Guide, and when
+/// it came back at the beginning of the end step the Wartime Protestors
+/// standing beside it — "whenever **another Ally** you control enters, put a
+/// +1/+1 counter on that creature and it gains haste" — said nothing.
+///
+/// A permanent returning from exile is a permanent *entering the
+/// battlefield* (CR 400.7 makes it a new object, and CR 603.6a has the
+/// leaves/enters pair), so every watcher on the board is owed its trigger —
+/// the one that returned it is not a private arrangement between two
+/// objects. Aminatou's immediate flicker is the same claim on the other
+/// path and is held by `a_blinked_permanent_comes_back_untapped`; this is
+/// the *delayed* one, which runs out of `Engine::process_delayed` rather
+/// than out of an effect.
+#[test]
+fn an_ally_returning_at_the_end_step_still_rallies_the_board() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(53, forest())
+        .battlefield(
+            0,
+            &[
+                venser_the_sojourner(),
+                wartime_protestors(),
+                great_divide_guide(),
+                forest(),
+                plains(),
+            ],
+        )
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let guide = on_battlefield(&engine, p0, great_divide_guide()).expect("the guide is out");
+    assert_eq!(
+        engine
+            .state()
+            .object(guide)
+            .expect("the guide is on the battlefield")
+            .counters
+            .get(baylee_cards_dsl::CounterKind::P1P1),
+        0,
+        "nothing has rallied yet"
+    );
+
+    activate(&mut engine, p0, venser_the_sojourner(), 0);
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!("expected a target choice, got {:?}", engine.pending())
+    };
+    assert!(options.contains(&guide), "the guide is a legal target");
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![guide],
+                players: vec![],
+            },
+        )
+        .expect("the guide is targeted");
+
+    // Out to exile first: the return is a separate, delayed thing, and a
+    // test that only watched the end result could not tell the two apart.
+    pass_until(&mut engine, |e| {
+        e.state()
+            .object(guide)
+            .is_some_and(|o| o.zone == crate::zone::Zone::Exile)
+    });
+
+    // Then the end step brings it back, and everything the return sets off
+    // has to finish before the assertion.
+    pass_until(&mut engine, |e| {
+        e.state()
+            .object(guide)
+            .is_some_and(|o| o.zone == crate::zone::Zone::Battlefield)
+            && e.state()
+                .zones
+                .list(crate::zone::ZoneLocation::Stack)
+                .is_empty()
+            && matches!(e.pending(), Pending::Priority { .. })
+    });
+
+    assert_eq!(
+        engine
+            .state()
+            .object(guide)
+            .expect("the guide came back")
+            .counters
+            .get(baylee_cards_dsl::CounterKind::P1P1),
+        1,
+        "the Protestors' rally trigger did not see the Ally come back"
+    );
+    assert!(
+        keywords(&engine, guide).contains(baylee_cards_dsl::KeywordSet::HASTE),
+        "and the same trigger grants haste until end of turn"
+    );
+}

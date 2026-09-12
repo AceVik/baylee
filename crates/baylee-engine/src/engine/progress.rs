@@ -215,8 +215,23 @@ impl<L: CardLookup> Engine<L> {
                 return; // a trigger's target choice is pending
             }
             // 3b. Delayed actions queued by upkeep processing.
-            if self.process_delayed() {
-                return; // a delayed action produced a pending choice
+            //
+            // The `continue` is the whole point and was missing. A delayed
+            // action *does things* — Venser's +2 returns a permanent to the
+            // battlefield — and what it does is owed its triggers before
+            // anybody receives priority (CR 603.3b), and its state-based
+            // actions too (CR 117.5). Falling through to step 5 handed the
+            // player priority with the entry still sitting unread in the
+            // journal, so a board full of Allies watching for "another Ally
+            // you control enters" said nothing until the next pass. The
+            // owner reported it as the triggers never firing at all, which
+            // is what it looks like from a chair: the turn ends, and the
+            // answer arrives after the question is gone.
+            if !self.delayed_queue.is_empty() {
+                if self.process_delayed() {
+                    return; // a delayed action produced a pending choice
+                }
+                continue;
             }
             // 4. Resolve the top of the stack after all passed.
             if self.resolve_next {
