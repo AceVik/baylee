@@ -275,6 +275,10 @@ impl Offline {
             | LobbyRequest::LogIn { .. }
             | LobbyRequest::JoinGame { .. }
             | LobbyRequest::HandOver { .. }
+            // Nothing here can be handed back: the table lives in this
+            // process, so a client that restarts has lost the game itself and
+            // not merely the ticket to it.
+            | LobbyRequest::TakeSeat { .. }
             | LobbyRequest::Rematch { .. } => {
                 LobbyEvent::Failed("offline play has no gateway to ask".to_string())
             }

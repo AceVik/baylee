@@ -473,6 +473,19 @@ pub enum LobbyRequest {
         /// The room's password, for a locked room.
         password: String,
     },
+    /// `POST /lobby/games/{id}/seat` — the ticket for a chair this player is
+    /// already sitting in.
+    ///
+    /// Not a join: it brings no deck and takes no chair, because the chair is
+    /// already theirs. A seat token is issued once and the gateway keeps only
+    /// its hash, so a client that restarts has lost it — and `join` then
+    /// refuses, which is how a player came to watch their own table run
+    /// without them. Its reply is a [`LobbyEvent::Seated`] like any other, so
+    /// everything downstream of a seat ticket is already written.
+    TakeSeat {
+        /// The table this player has a chair at.
+        game_id: String,
+    },
     /// `POST /lobby/games/{id}/seats/{seat}` — arrange one chair.
     SetSeat {
         /// The table.
@@ -671,6 +684,16 @@ pub struct Lobby {
     lang: crate::i18n::Lang,
     /// A table of ours that is open and has nobody in the other chair yet.
     awaiting: Option<SeatHandover>,
+    /// The tables whose chairs we have already asked to be handed back.
+    ///
+    /// One request per table, not one per listing: the ask fires off a
+    /// listing, so without this a refusal — a table that turned `over`
+    /// between two pages, a gateway older than this client that has no such
+    /// route — would be re-sent every time the lobby refreshed. A list rather
+    /// than one id because a player may hold chairs at several rooms, and
+    /// remembering only the last would let two of them ask about each other
+    /// for ever.
+    reclaimed: Vec<String>,
     /// What the seat now being granted was asked for.
     asked_for: Option<GameMode>,
     /// A game the player has asked to play again, not yet asked for.
@@ -1276,6 +1299,41 @@ impl Lobby {
         Some(LobbyRequest::ListGames(self.query()))
     }
 
+    /// Asks for the ticket to a chair this player is in and holds nothing for.
+    ///
+    /// Three things have to be true at once and each is a different reason.
+    /// The chair is **theirs** — `you`, which the gateway answers per account,
+    /// so it survives a restart in a way nothing on this side does. The table
+    /// is not `over`, because a finished game has no seat to hand back. And
+    /// nothing is in flight for it already: `awaiting` is a ticket we hold,
+    /// `reclaimed` one we have asked for.
+    ///
+    /// A **rematch** room is left alone. Its chair is reserved rather than
+    /// taken and only `POST …/rematch` claims one, so asking here would mint
+    /// a ticket for a table the player has not yet said they want to play.
+    ///
+    /// Only from [`Screen::Table`]: the lobby is where a player is looking
+    /// for their table. Somebody in the deck builder did not ask to be moved,
+    /// and the sign-in screen has no account to ask with.
+    fn reclaim_a_seat(&mut self) -> Option<LobbyRequest> {
+        if !matches!(self.screen, Screen::Table) || self.awaiting.is_some() {
+            return None;
+        }
+        let game_id = self
+            .games
+            .iter()
+            .find(|g| {
+                g.seated()
+                    && !g.rematch
+                    && g.state != "over"
+                    && !self.reclaimed.iter().any(|id| id == &g.id)
+            })
+            .map(|g| g.id.clone())?;
+        self.reclaimed.push(game_id.clone());
+        self.busy = true;
+        Some(LobbyRequest::TakeSeat { game_id })
+    }
+
     /// Reads the list again for what the search box now says.
     ///
     /// From the first page: a search is a different list, and the row that
@@ -1736,7 +1794,13 @@ impl Lobby {
                     self.offset = 0;
                     return self.list();
                 }
-                None
+                // A chair this player is *in* with no ticket for it is a
+                // client that restarted: the seat token was issued once and
+                // died with the process, and `join` refuses a table you are
+                // already at. The listing is what notices, because it is the
+                // only thing holding both halves of the question — that chair
+                // is mine, and I have nothing for it.
+                self.reclaim_a_seat()
             }
             LobbyEvent::Seated(handover) => {
                 // **A seat is not a game**, and this used to ask only whether
@@ -1777,13 +1841,32 @@ impl Lobby {
                         self.awaiting = Some(handover);
                         self.list()
                     }
-                    // Somebody else's room, or a rematch — both hand back a
-                    // seat at a table that has not started, and the player's
-                    // next move is in the lobby rather than at the table.
+                    // Somebody else's room, a rematch, or a chair handed back
+                    // to a client that restarted. The first two are seats at
+                    // a table that has not started, and the player's next
+                    // move is in the lobby rather than at the table.
+                    //
+                    // The third is not: a ticket for a game that is **already
+                    // playing** has a game behind it right now, so there is
+                    // nothing to wait for and telling that player to go and
+                    // press Bereit would be advice about a button that is no
+                    // longer there. The listing we are holding is what knows
+                    // the difference, and it is fresh — asking for the ticket
+                    // is what it answered.
                     None => {
-                        self.note(Phrase::YouAreSeated);
-                        self.awaiting = Some(handover);
-                        self.list()
+                        let live = self
+                            .games
+                            .iter()
+                            .any(|g| g.id == handover.game_id && g.state == "playing");
+                        if live {
+                            self.note(Phrase::TakingTheSeat);
+                            self.screen = Screen::Seated(handover);
+                            None
+                        } else {
+                            self.note(Phrase::YouAreSeated);
+                            self.awaiting = Some(handover);
+                            self.list()
+                        }
                     }
                 }
             }
@@ -2369,6 +2452,106 @@ mod tests {
         }])));
         assert_eq!(*lobby.screen(), Screen::Seated(handover));
         assert_eq!(lobby.awaiting(), None);
+    }
+
+    /// The owner's client was restarted while they held a chair, and they
+    /// then watched their own table turn `"playing"` from the lobby with no
+    /// way into it: the seat token had died with the process, and `join`
+    /// refuses a table you are already at.
+    ///
+    /// Nothing on this side remembers a seat across a restart, so the listing
+    /// is what notices — it is the only thing holding both halves of the
+    /// question, that the chair is theirs and that we have nothing for it.
+    #[test]
+    fn a_restarted_client_asks_for_the_chair_it_is_still_sitting_in() {
+        let mut lobby = seated_lobby();
+        let mine = |state: &str| {
+            GameListing::of(vec![GameSummary {
+                id: "g1".to_string(),
+                state: state.to_string(),
+                seats: vec![
+                    GameSeat {
+                        seat: 0,
+                        taken: true,
+                        ready: true,
+                        ..GameSeat::default()
+                    },
+                    GameSeat {
+                        seat: 1,
+                        taken: true,
+                        ready: true,
+                        you: true,
+                        ..GameSeat::default()
+                    },
+                ],
+                ..GameSummary::default()
+            }])
+        };
+
+        // A fresh lobby, holding no ticket, reading a table it is sitting at.
+        assert_eq!(
+            lobby.apply(LobbyEvent::Games(mine("playing"))),
+            Some(LobbyRequest::TakeSeat {
+                game_id: "g1".to_string()
+            })
+        );
+        assert!(lobby.busy(), "and it is a request, not a note");
+
+        // The gateway answers a ticket like any other. This one has a game
+        // behind it *now*, so there is nothing to wait for — telling this
+        // player to go and press Bereit would be advice about a button that
+        // is no longer on the screen.
+        let handover = SeatHandover {
+            game_id: "g1".to_string(),
+            seat: 1,
+            seat_token: "fresh".to_string(),
+            local: false,
+        };
+        assert_eq!(lobby.apply(LobbyEvent::Seated(handover.clone())), None);
+        assert_eq!(*lobby.screen(), Screen::Seated(handover));
+        assert_eq!(lobby.awaiting(), None, "nothing is being waited for");
+    }
+
+    /// The ask fires off a listing and its answer is another listing, so a
+    /// refusal that came back per page would be re-sent for ever. A rematch
+    /// room is left out of it entirely: that chair is reserved rather than
+    /// taken, and only `POST …/rematch` claims one.
+    #[test]
+    fn a_chair_is_asked_for_once_however_often_the_lobby_is_read() {
+        let mut lobby = seated_lobby();
+        let mut mine = GameSummary {
+            id: "g1".to_string(),
+            state: "waiting".to_string(),
+            seats: vec![GameSeat {
+                seat: 0,
+                taken: true,
+                you: true,
+                ..GameSeat::default()
+            }],
+            ..GameSummary::default()
+        };
+        let listing = |g: &GameSummary| GameListing::of(vec![g.clone()]);
+
+        assert_eq!(
+            lobby.apply(LobbyEvent::Games(listing(&mine))),
+            Some(LobbyRequest::TakeSeat {
+                game_id: "g1".to_string()
+            }),
+            "a chair held at a room that has not started is worth a ticket too"
+        );
+        // The gateway refuses — an older one with no such route, say.
+        lobby.apply(LobbyEvent::Failed("no such route".to_string()));
+        assert_eq!(
+            lobby.apply(LobbyEvent::Games(listing(&mine))),
+            None,
+            "asked once, not once per page"
+        );
+
+        // The same chair at a rematch room asks nothing at all.
+        let mut lobby = seated_lobby();
+        mine.id = "g2".to_string();
+        mine.rematch = true;
+        assert_eq!(lobby.apply(LobbyEvent::Games(listing(&mine))), None);
     }
 
     /// The press to play again is recorded on one side of the unseating and

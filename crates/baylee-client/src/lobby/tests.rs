@@ -853,11 +853,15 @@ fn a_table_we_are_waiting_at_is_announced_and_not_sat_at() {
 #[test]
 fn a_reply_that_lands_after_the_seat_was_taken_does_not_dial_again() {
     let mut app = headless();
+    stocked(&mut app);
     {
         let mut state = app.world_mut().resource_mut::<LobbyState>();
-        state.lobby.apply(LobbyEvent::LoggedIn {
-            token: "tok".to_string(),
-        });
+        // Against the house, which is the one seat that is playable the
+        // moment it is granted: `mode:"ai"` orders an engine before the
+        // gateway answers. A chair at a *room* is held rather than played,
+        // so asking for one of those would set up a different situation
+        // altogether — the seat screen would still be waiting.
+        state.lobby.host(GameMode::Ai);
         state.lobby.apply(LobbyEvent::Seated(SeatHandover {
             game_id: "g1".to_string(),
             seat: 0,
@@ -906,6 +910,8 @@ fn playing_again_is_asked_for_from_the_button_over_a_finished_game() {
     stocked(&mut app);
     {
         let mut state = app.world_mut().resource_mut::<LobbyState>();
+        // A table against the house, for the reason the test above gives.
+        state.lobby.host(GameMode::Ai);
         state.lobby.apply(LobbyEvent::Seated(SeatHandover {
             game_id: "g1".to_string(),
             seat: 0,
@@ -934,6 +940,12 @@ fn playing_again_is_asked_for_from_the_button_over_a_finished_game() {
     );
 
     // The reply is an ordinary ticket, to a table that is not the one played.
+    // A rematch room is a *room*: `POST …/rematch` marks the presser ready
+    // and tries to start, so it is running only once the other player has
+    // pressed too. Whoever presses first holds a good ticket to a table that
+    // has not begun, which is why the ticket alone does not open a duel —
+    // doing that is how a player came to be sitting in front of an empty
+    // table with no way back to the lobby.
     app.world_mut().resource_mut::<LobbyState>().connected = true;
     app.world()
         .resource::<Mailbox>()
@@ -946,6 +958,36 @@ fn playing_again_is_asked_for_from_the_button_over_a_finished_game() {
             seat_token: "st2".to_string(),
             local: false,
         })));
+    app.update();
+    assert!(
+        matches!(
+            app.world().resource::<LobbyState>().lobby.screen(),
+            Screen::Table
+        ),
+        "the seat is held while the room is still waiting"
+    );
+
+    // And the listing is what says the other player has pressed theirs.
+    app.world()
+        .resource::<Mailbox>()
+        .0
+        .lock()
+        .expect("mailbox")
+        .push(Reply::Event(LobbyEvent::Games(GameListing::of(vec![
+            GameSummary {
+                id: "g2".to_string(),
+                state: "playing".to_string(),
+                rematch: true,
+                seats: vec![GameSeat {
+                    seat: 1,
+                    taken: true,
+                    you: true,
+                    ready: true,
+                    ..GameSeat::default()
+                }],
+                ..GameSummary::default()
+            },
+        ]))));
     app.update();
     let Screen::Seated(handover) = app.world().resource::<LobbyState>().lobby.screen() else {
         panic!("the ticket seats the player again");

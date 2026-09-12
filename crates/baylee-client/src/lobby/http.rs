@@ -173,6 +173,15 @@ pub(super) fn build(
             ),
             Expect::Seat,
         ),
+        // A ticket for a chair already held, answered exactly as a join is —
+        // which is the whole reason nothing downstream had to learn about it.
+        LobbyRequest::TakeSeat { game_id } => (
+            json_post(
+                &format!("{base}/lobby/games/{game_id}/seat"),
+                &serde_json::json!({}),
+            ),
+            Expect::Seat,
+        ),
         LobbyRequest::SetSeat {
             game_id,
             seat,
