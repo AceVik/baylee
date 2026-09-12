@@ -420,6 +420,7 @@ mod tests {
                 vec![AttackerView {
                     creature: obj(1),
                     defending: Defender::Player(seat(0)),
+                    blocked: true,
                 }],
                 vec![BlockerView {
                     blocker: obj(9),
@@ -453,6 +454,7 @@ mod tests {
                 vec![AttackerView {
                     creature: obj(1),
                     defending: Defender::Player(seat(0)),
+                    blocked: true,
                 }],
                 vec![BlockerView {
                     blocker: obj(9),
@@ -504,6 +506,7 @@ mod tests {
                 vec![AttackerView {
                     creature: obj(1),
                     defending: Defender::Player(seat(0)),
+                    blocked: false,
                 }],
                 Vec::new(),
             )
