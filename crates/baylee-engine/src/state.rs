@@ -419,6 +419,29 @@ pub struct GameState {
     /// a list that is empty in almost every game state costs one `Vec`
     /// header on the state itself.
     pub pending_copied_faces: Vec<(ObjectId, CardIndex, u8)>,
+    /// What a copy could do as it left the battlefield (CR 603.10a).
+    ///
+    /// The look-back scan for leaves-the-battlefield and dies triggers reads
+    /// an object that has already arrived in its graveyard, and the rule is
+    /// explicit about what it must see there: the game looks back "using the
+    /// existence of those abilities and the appearance of objects immediately
+    /// prior to the event". Not only the appearance. [`Self::move_object`]
+    /// has by then given the copy back — CR 707.2a, the card in the graveyard
+    /// is the printed card — so the scan was asking a Phyrexian Metamorph
+    /// whether it had a dies trigger, and it does not: the copy of Solemn
+    /// Simulacrum died and drew nobody a card.
+    ///
+    /// One entry per object at most, written on every departure and removed
+    /// on every other move, so it describes the last one and no earlier one.
+    /// A card that was never a copy is not in here at all, because its
+    /// printed list did not change and the object answers for itself.
+    ///
+    /// On the state and not on the object, for the reason
+    /// [`Self::pending_copied_faces`] gives: sixteen bytes on a `GameObject`
+    /// is a `tests/footprint.rs` budget and a memcpy per object per ply,
+    /// while a list that is empty in almost every game state is a `Vec`
+    /// header once.
+    pub ltb_abilities: Vec<(ObjectId, &'static [baylee_cards_dsl::AbilityDef])>,
     /// Each seat's commanders (CR 903.3), by seat index.
     ///
     /// The list is the marker, and it has to be: commander-ness belongs to
@@ -585,6 +608,7 @@ impl GameState {
             commander_casts: vec![0; preset.seats.len()],
             commander_redirect: Vec::new(),
             pending_copied_faces: Vec::new(),
+            ltb_abilities: Vec::new(),
             commanders: vec![Vec::new(); preset.seats.len()],
             monarch: None,
             day_night: None,
@@ -1207,6 +1231,21 @@ impl GameState {
         self.zones.remove(id, from_loc);
         self.timestamp += 1;
         let ts = self.timestamp;
+        // What the object could *do* one moment ago, read before the block
+        // below gives the copy back (CR 603.10a). A leaves-the-battlefield or
+        // dies trigger fires from the zone the permanent has arrived in, and
+        // the game looks back at "the existence of those abilities …
+        // immediately prior to the event" — which is here, and not two
+        // statements later. Cleared on every move and written again only on a
+        // departure from the battlefield, so `ltb_abilities` describes the
+        // last one and no earlier one.
+        let departing = self.object(id).and_then(|o| o.own_abilities);
+        self.ltb_abilities.retain(|(other, _)| *other != id);
+        if from_zone == Zone::Battlefield
+            && let Some(abilities) = departing
+        {
+            self.ltb_abilities.push((id, abilities));
+        }
         {
             let obj = self.object_mut(id).expect("checked above");
             obj.zone = to.zone();

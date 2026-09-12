@@ -4735,3 +4735,96 @@ fn a_populate_with_nothing_to_copy_never_reaches_the_stack() {
     }
     panic!("combat never arrived");
 }
+
+fn phyrexian_metamorph() -> baylee_core::ids::CardIndex {
+    card_index("340bbe8b-e987-4c3e-ab4e-9dee63e57d4f")
+}
+fn solemn_simulacrum() -> baylee_core::ids::CardIndex {
+    card_index("00c0543c-2a1f-4425-8283-4062d74a1637")
+}
+
+/// CR 603.10a: a copy that dies keeps the dies trigger it copied.
+///
+/// The owner's Phyrexian Metamorph had entered as a copy of Solemn
+/// Simulacrum, died in combat, and drew nobody a card. Three steps and the
+/// ability was gone before anything could see it: `move_object` gives a
+/// card-backed object its printed rules text back on the way off the
+/// battlefield (CR 707.2a — the card in the graveyard is the printed card),
+/// the look-back scan then reads the object *as it is now*, and what it finds
+/// there is a Metamorph, whose one ability is "enter as a copy" and whose
+/// index 1 does not exist at all.
+///
+/// The rule is explicit about which of those two things it wants: the game
+/// looks back "using the existence of those abilities and the appearance of
+/// objects immediately prior to the event". Not only the appearance.
+///
+/// The copy is of **their** Golem, so the ability under test is one this seat
+/// only ever had as a copy: with the original on my own side of the table a
+/// draw would prove nothing, because the original would still be standing
+/// there with a dies trigger of its own.
+///
+/// Counter-test: put `obj.abilities(lookup)` back in `collect_for_objects`'s
+/// look-back branch and the hand does not grow.
+#[test]
+fn a_copy_that_dies_keeps_the_trigger_it_copied() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(77, forest())
+        .battlefield(0, &[island(), island(), island(), island(), island()])
+        .hand(0, &[phyrexian_metamorph()])
+        .battlefield(
+            1,
+            &[solemn_simulacrum(), plains(), plains(), swamp(), swamp()],
+        )
+        .hand(1, &[vindicate()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    cast_from_hand(&mut engine, p0, phyrexian_metamorph());
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    let original = on_battlefield(&engine, p1, solemn_simulacrum()).expect("their Golem");
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![original],
+            },
+        )
+        .unwrap();
+    // The copy brings the *enters* trigger with it as well, which is the same
+    // rule read forwards and is asked here before anything else can happen.
+    // Declined — the search is "you may", and a fetched Forest would only add
+    // a card to the board the measurement below has to explain.
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseCards { .. })
+    });
+    engine
+        .apply(p0, PlayerAction::ChooseObjects { objects: vec![] })
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    let copy = on_battlefield(&engine, p0, phyrexian_metamorph()).expect("the copy arrived");
+
+    reach_their_main_phase(&mut engine, p1);
+    let before = engine
+        .state()
+        .zones
+        .list(crate::zone::ZoneLocation::Hand(p0))
+        .len();
+    assert!(
+        !vindicated(&mut engine, p1, copy),
+        "the copy is an ordinary creature and their removal destroys it"
+    );
+    let after = engine
+        .state()
+        .zones
+        .list(crate::zone::ZoneLocation::Hand(p0))
+        .len();
+
+    assert_eq!(
+        after,
+        before + 1,
+        "the Golem it had become dies and draws its controller a card"
+    );
+}

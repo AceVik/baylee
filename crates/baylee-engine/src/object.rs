@@ -576,6 +576,13 @@ pub struct GameObject {
     ///
     /// [`Engine::cleanup_step`]: crate::engine::Engine
     pub own_abilities_until_eot: bool,
+    /// What this object could do as it *left* the battlefield is not here but
+    /// on the state, in [`GameState::ltb_abilities`], for the reason the
+    /// paragraph above gives about a second `Option<&[_]>`: it is `Some` for
+    /// the handful of copies that have died and would cost sixteen bytes on
+    /// every object in every ply of the AI's search.
+    ///
+    /// [`GameState::ltb_abilities`]: crate::state::GameState::ltb_abilities
     /// The definition this object was created from, if a token created it.
     ///
     /// The only thing that says *which* token a card-less permanent is, and

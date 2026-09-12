@@ -99,7 +99,9 @@ pub struct Engine<L: CardLookup> {
     /// nothing to buys nothing. It is taken at the top of that function, so
     /// an activation refused after `apply` set it cannot hand it on.
     activation_target_players: Vec<PlayerId>,
-    /// The activating source's ability list, read before its cost is paid.
+    /// The ability list the next push to the stack should use instead of
+    /// asking the source — read before its cost is paid, or carried on a
+    /// trigger that is looking back in time.
     ///
     /// CR 602.2a puts an activated ability on the stack *before* its costs
     /// are paid; this engine pays first and pushes after, which is invisible
@@ -110,9 +112,16 @@ pub struct Engine<L: CardLookup> {
     /// than threaded through four resumption points, the way
     /// [`Engine::loyalty_player_choice`] already is.
     ///
+    /// The other filler is [`Engine::hand_over_trigger_abilities`]: a
+    /// leaves-the-battlefield or dies trigger of a copy is collected after
+    /// the copy has been given back (CR 603.10a), so the list has to travel
+    /// with the trigger and be laid down here on the way to the stack.
+    ///
     /// Keyed by the source it was read from, so an activation that is refused
     /// after setting it cannot lend its list to the next ability anything
     /// pushes.
+    ///
+    /// [`Engine::hand_over_trigger_abilities`]: crate::engine::Engine
     activating_abilities: Option<(ObjectId, &'static [baylee_cards_dsl::AbilityDef])>,
     /// What each seat may do beyond answering its own choices.
     ///

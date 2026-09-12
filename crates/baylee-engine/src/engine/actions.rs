@@ -504,8 +504,14 @@ impl<L: CardLookup> Engine<L> {
                         ability_index,
                         mode,
                     } => {
-                        // Consume the queued trigger before stacking it.
-                        self.trigger_queue.pop_front();
+                        // Consume the queued trigger before stacking it — and
+                        // keep it, because it is carrying the ability list its
+                        // index points into when the source has stopped
+                        // answering with it (CR 603.10a). This is the third of
+                        // the three doors to the stack, and the one where the
+                        // trigger has been out of reach across a player's
+                        // answer.
+                        let queued = self.trigger_queue.pop_front();
                         if self.breaking_loop {
                             // The house rule broke an endless loop: the
                             // trigger feeding it is answered but never
@@ -516,6 +522,9 @@ impl<L: CardLookup> Engine<L> {
                             return Ok(());
                         }
                         let controller = self.state.object(source).map_or(player, |o| o.controller);
+                        if let Some(t) = queued.as_ref() {
+                            self.hand_over_trigger_abilities(t);
+                        }
                         self.push_ability_to_stack(controller, source, ability_index, targets);
                         self.set_top_mode(mode);
                         // Player targets ride beside the object ones. The

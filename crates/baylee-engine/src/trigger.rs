@@ -20,6 +20,18 @@ pub struct PendingTrigger {
     pub source: ObjectId,
     /// Index into the source card's abilities.
     pub ability_index: u32,
+    /// The list `ability_index` points into, when it is no longer the one the
+    /// source would answer with (CR 603.10a).
+    ///
+    /// `None` for every trigger collected from the battlefield, where asking
+    /// the source is right by definition. It is the look-back scan that needs
+    /// it: a copy has given its rules text back by the time its dies trigger
+    /// is collected, so the index would be read against the printed card —
+    /// a different ability, or none at all. Carried on the trigger rather
+    /// than looked up again at each of the four places that resolve it,
+    /// because they run at four different moments and the object underneath
+    /// is free to change between them.
+    pub abilities: Option<&'static [AbilityDef]>,
     /// Controller of the trigger.
     pub controller: PlayerId,
     /// Timestamp of the source (stable same-controller ordering).
@@ -110,6 +122,7 @@ pub fn collect(state: &GameState, lookup: &impl CardLookup, from_seq: u64) -> Ve
                             triggers.push(PendingTrigger {
                                 source: emblem,
                                 ability_index: index as u32,
+                                abilities: Some(abilities),
                                 controller: obj.controller,
                                 timestamp: obj.timestamp,
                                 event_object,
@@ -211,10 +224,27 @@ fn collect_for_objects(
         let Some(obj) = state.object(permanent) else {
             continue;
         };
+        // CR 603.10a: the look-back scan asks an object that has already
+        // arrived somewhere else, and what it must see is the abilities that
+        // existed "immediately prior to the event". A copy gives its rules
+        // text back on the way out (CR 707.2a), so `abilities` would answer
+        // with the printed card — which is how a Phyrexian Metamorph that had
+        // copied Solemn Simulacrum died without drawing anybody a card.
+        // `None` on everything that was never a copy: the printed list did
+        // not change, so asking the object is asking the same question.
+        let looked_back = if all_kinds {
+            None
+        } else {
+            state
+                .ltb_abilities
+                .iter()
+                .find(|(id, _)| *id == permanent)
+                .map(|(_, abilities)| *abilities)
+        };
         // Not `obj.card`: a token has none, and bailing out here is how every
         // token on the battlefield used to be invisible to triggers —
         // including its own.
-        let abilities = obj.abilities(lookup);
+        let abilities = looked_back.unwrap_or_else(|| obj.abilities(lookup));
         // Prowess (engine-level keyword trigger, CR 702.108).
         if obj
             .characteristics()
@@ -237,6 +267,7 @@ fn collect_for_objects(
                         controller: obj.controller,
                         timestamp: obj.timestamp,
                         event_object: Some(permanent),
+                        abilities: None,
                         synthetic_effects: Some(PROWESS_PUMP),
                         once_per_turn: false,
                         synthetic_target: None,
@@ -282,6 +313,7 @@ fn collect_for_objects(
                             controller: obj.controller,
                             timestamp: obj.timestamp,
                             event_object,
+                            abilities: None,
                             synthetic_effects: Some(effects),
                             synthetic_target: *target,
                             once_per_turn: false,
@@ -324,6 +356,7 @@ fn collect_for_objects(
                         controller: obj.controller,
                         timestamp: obj.timestamp,
                         event_object: Some(target_obj),
+                        abilities: None,
                         synthetic_effects: Some(synthetic),
                         once_per_turn: false,
                         synthetic_target: None,
@@ -348,6 +381,7 @@ fn collect_for_objects(
                         triggers.push(PendingTrigger {
                             source: permanent,
                             ability_index: index as u32,
+                            abilities: looked_back,
                             controller: obj.controller,
                             timestamp: obj.timestamp,
                             event_object,

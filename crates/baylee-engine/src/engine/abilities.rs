@@ -1424,9 +1424,16 @@ impl<L: CardLookup> Engine<L> {
         // (CR 400.7), and the index would then be read against the printed
         // card, which is a different ability or none at all.
         //
-        // An activation captured its list before paying a cost that may
-        // already have moved the source; a trigger has no such window and
-        // reads it here.
+        // The slot holds the list for the *next* push, and two callers fill
+        // it: an activation, which captured its list before paying a cost
+        // that may already have moved the source, and a look-back trigger
+        // (CR 603.10a), whose source stopped being a copy on the way off the
+        // battlefield. That second one is the hazard the paragraph above
+        // describes, and it happened — Phyrexian Metamorph copying Solemn
+        // Simulacrum died and drew nobody a card, because the list read back
+        // here was the printed Metamorph's and has no dies trigger in it.
+        // Everything else still reads the source, which is right by
+        // definition while it is still standing there.
         let captured = self
             .activating_abilities
             .take()

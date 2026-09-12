@@ -1214,16 +1214,48 @@ impl<L: CardLookup> Engine<L> {
         }
     }
 
-    /// The modes of `ability_index` on `source`, if it is a modal trigger.
+    /// The ability list a queued trigger's index points into.
+    ///
+    /// The source answers for itself in every ordinary case, and the trigger
+    /// carries its own list in exactly one: a look-back trigger (CR 603.10a)
+    /// whose source has stopped being a copy on the way off the battlefield.
+    /// Four places read an ability out of a queued trigger — the modes, the
+    /// target requirement, and two of the three doors to the stack — at four
+    /// different moments, and the object underneath is free to change between
+    /// them, so all four ask here.
+    fn trigger_abilities(
+        &self,
+        t: &crate::trigger::PendingTrigger,
+    ) -> &'static [baylee_cards_dsl::AbilityDef] {
+        t.abilities.unwrap_or_else(|| {
+            self.state
+                .object(t.source)
+                .map_or(&[][..], |o| o.abilities(&self.lookup))
+        })
+    }
+
+    /// Puts a look-back trigger's own ability list in the slot
+    /// [`Self::push_ability_to_stack`] captures from (CR 608.2).
+    ///
+    /// The ability on the stack takes the list its index points into with it,
+    /// and reads it off the source unless something has left it there. An
+    /// activation leaves it there because paying the cost may already have
+    /// moved the source; a look-back trigger leaves it there because the
+    /// source stopped being a copy on the way to the graveyard — the hazard
+    /// the capture's own comment names, met by the one case that meets it.
+    pub(crate) fn hand_over_trigger_abilities(&mut self, t: &crate::trigger::PendingTrigger) {
+        if let Some(abilities) = t.abilities {
+            self.activating_abilities = Some((t.source, abilities));
+        }
+    }
+
+    /// The modes of a queued trigger, if it is a modal one.
     fn modal_trigger_modes(
         &self,
-        source: ObjectId,
-        ability_index: u32,
+        t: &crate::trigger::PendingTrigger,
     ) -> Option<&'static [baylee_cards_dsl::SpellMode]> {
-        self.state
-            .object(source)
-            .map(|o| o.abilities(&self.lookup))
-            .and_then(|abilities| abilities.get(ability_index as usize))
+        self.trigger_abilities(t)
+            .get(t.ability_index as usize)
             .and_then(|a| match a {
                 AbilityDef::ModalTriggered { modes, .. } => Some(*modes),
                 _ => None,
@@ -1291,7 +1323,7 @@ impl<L: CardLookup> Engine<L> {
             // ordinary path below with its mode's own target requirement.
             if t.ability_index != baylee_core::ids::AbilityRef::SYNTHETIC
                 && t.chosen_mode.is_none()
-                && let Some(modes) = self.modal_trigger_modes(t.source, t.ability_index)
+                && let Some(modes) = self.modal_trigger_modes(&t)
             {
                 // "If one of the modes would be illegal (due to an inability
                 // to choose legal targets, for example), that mode can't be
@@ -1328,10 +1360,8 @@ impl<L: CardLookup> Engine<L> {
                 return;
             }
             let req = self
-                .state
-                .object(t.source)
-                .map(|o| o.abilities(&self.lookup))
-                .and_then(|abilities| abilities.get(t.ability_index as usize))
+                .trigger_abilities(&t)
+                .get(t.ability_index as usize)
                 .and_then(|a| match a {
                     AbilityDef::Triggered { targets, .. }
                     | AbilityDef::SagaChapter { targets, .. } => *targets,
@@ -1353,6 +1383,7 @@ impl<L: CardLookup> Engine<L> {
                             .ability_fires
                             .insert((t.source, t.ability_index), 1);
                     }
+                    self.hand_over_trigger_abilities(&t);
                     self.push_ability_to_stack(t.controller, t.source, t.ability_index, targets);
                     self.set_top_mode(t.chosen_mode);
                     if let Some(event_object) = t.event_object {
@@ -1501,6 +1532,7 @@ impl<L: CardLookup> Engine<L> {
                     controller: t.controller,
                 });
             } else {
+                self.hand_over_trigger_abilities(&t);
                 self.push_ability_to_stack(
                     t.controller,
                     t.source,
@@ -2458,6 +2490,7 @@ impl<L: CardLookup> Engine<L> {
                 .push_back(crate::trigger::PendingTrigger {
                     source: id,
                     ability_index: *ability_index,
+                    abilities: None,
                     controller,
                     timestamp,
                     event_object: None,
