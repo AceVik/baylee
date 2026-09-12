@@ -284,6 +284,11 @@ fn yes_no_line(lang: Lang, question: YesNoPrompt) -> String {
         }
         .text(lang)
         .to_string(),
+        // The line says *that* it is optional and not what the clause does:
+        // the ability's own text belongs on the stack entry beside it, and
+        // a second rendering of it here would be a translation of a
+        // translation.
+        YesNoPrompt::MayDo => Phrase::UseTheOptionalAbility.text(lang).to_string(),
         YesNoPrompt::Generic => Phrase::YesOrNo.text(lang).to_string(),
     }
 }

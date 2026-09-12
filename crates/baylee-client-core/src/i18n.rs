@@ -910,6 +910,11 @@ messages! {
         en: "Your commander would go into your library. Command zone instead?",
         de: "Dein Kommandeur käme in die Bibliothek. Stattdessen in die Kommandozone?",
     },
+    /// Use the optional part of this ability? ("you may …")
+    UseTheOptionalAbility {
+        en: "This ability is optional. Use it?",
+        de: "Diese Fähigkeit ist optional. Einsetzen?",
+    },
     /// Yes or no?
     YesOrNo { en: "Yes or no?", de: "Ja oder nein?" },
     /// Offer a draw

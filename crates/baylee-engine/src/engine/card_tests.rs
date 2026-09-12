@@ -3903,3 +3903,106 @@ fn loran_draws_for_the_one_opponent_she_named() {
         "and so does the opponent you named",
     );
 }
+
+fn luminarch_ascension() -> baylee_core::ids::CardIndex {
+    card_index("90076bf5-aa9a-4a6e-9035-9aa97fd5561e")
+}
+
+/// An Ondu Cleric cast, with its rally trigger asking whether to take the
+/// life it offers.
+///
+/// Two tests over one builder rather than two arms of one, for the reason
+/// the Hagra pair has: the second answer wants the same open board the
+/// first one spent.
+fn a_cleric_asking() -> Engine<RegistryLookup> {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(41, plains())
+        .battlefield(0, &[plains(), plains()])
+        .hand(0, &[ondu_cleric()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+    cast_from_hand(&mut engine, p0, ondu_cleric());
+    pass_until(&mut engine, |e| {
+        matches!(
+            e.pending(),
+            Pending::YesNo {
+                prompt: crate::choice::YesNoPrompt::MayDo,
+                ..
+            }
+        )
+    });
+    engine
+}
+
+/// "You may gain life equal to the number of Allies you control" — taken,
+/// that is one Ally and one life.
+#[test]
+fn an_optional_rally_trigger_pays_when_it_is_taken() {
+    let p0 = PlayerId::new(0);
+    let mut engine = a_cleric_asking();
+    let before = engine.state().players[0].life;
+    engine.apply(p0, PlayerAction::YesNo(true)).unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        engine.state().players[0].life,
+        before + 1,
+        "one Ally on the battlefield is one life"
+    );
+}
+
+/// The other half of the printed "may", and the half the card was written
+/// without: declining costs the player nothing and gains them nothing.
+#[test]
+fn an_optional_rally_trigger_may_be_declined() {
+    let p0 = PlayerId::new(0);
+    let mut engine = a_cleric_asking();
+    let before = engine.state().players[0].life;
+    engine.apply(p0, PlayerAction::YesNo(false)).unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        engine.state().players[0].life,
+        before,
+        "a declined 'may' does nothing at all"
+    );
+}
+
+/// Luminarch Ascension: a "may" *inside* an intervening-if clause
+/// (CR 603.4), which is the shape that put a suspending effect inside a
+/// nested branch for the first time.
+///
+/// The assertion that matters is the count. Running the branch a second
+/// time on resume would have asked twice and taken two quest counters —
+/// four end steps would have finished the card in two — and nothing in the
+/// engine would have complained.
+#[test]
+fn an_optional_clause_inside_a_condition_is_offered_once_and_taken_once() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(42, plains())
+        .battlefield(0, &[luminarch_ascension()])
+        .start();
+    keep_mulligans(&mut engine);
+    let ascension =
+        on_battlefield(&engine, p0, luminarch_ascension()).expect("the enchantment is out");
+    pass_until(&mut engine, |e| {
+        matches!(
+            e.pending(),
+            Pending::YesNo {
+                prompt: crate::choice::YesNoPrompt::MayDo,
+                ..
+            }
+        )
+    });
+    engine.apply(p0, PlayerAction::YesNo(true)).unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        engine
+            .state()
+            .object(ascension)
+            .expect("still on the battlefield")
+            .counters
+            .get(crate::object::CounterKind::Custom(1)),
+        1,
+        "one offer, one counter"
+    );
+}

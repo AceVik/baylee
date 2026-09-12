@@ -172,6 +172,15 @@ fn drive_until(
                     )
                     .unwrap();
             }
+            // The rally trigger is a "may" now; these tests count how many
+            // times it fires, so every offer is taken.
+            Pending::YesNo {
+                player,
+                prompt: crate::choice::YesNoPrompt::MayDo,
+                ..
+            } => {
+                engine.apply(player, PlayerAction::YesNo(true)).unwrap();
+            }
             other => panic!("unexpected: {other:?}"),
         }
     }

@@ -508,6 +508,66 @@ fn a_declined_commander_stays_where_it_died_and_is_not_asked_again() {
     );
 }
 
+/// The same question, answered once and for good.
+///
+/// `AbilityRef::COMMANDER_ZONE` exists so that "always put Katara back" can
+/// be said a single time, and [`crate::choice::YesNoPrompt::automatable`]
+/// is what decides whether the engine ever consults what was said. That
+/// gate was written to keep a stored yes away from a *cost* — a kicker, a
+/// shockland's two life — and the first draft of it listed one variant, so
+/// the answer below would have been stored, replayed into every new game by
+/// the gateway, and then asked about anyway: the one failure the seat
+/// thought it had bought its way out of.
+///
+/// Nothing here answers by hand. `pass_until` panics on a prompt it does
+/// not recognise, so a `CommanderZone` left off that list fails this test
+/// by *arriving*, and the zone below catches the case where it arrives on
+/// an already-empty stack.
+#[test]
+fn a_standing_answer_sends_a_commander_home_without_asking() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(8, forest())
+        .commander(0, &[katara()])
+        .battlefield(0, &[forest(), plains(), island()])
+        .battlefield(1, &[plains(), plains(), island(), island(), island()])
+        .hand(1, &[supreme_verdict()])
+        .start();
+    keep_mulligans(&mut engine);
+    engine
+        .apply(
+            p0,
+            PlayerAction::SetStandingAnswer {
+                ability: baylee_core::ids::AbilityRef::new(
+                    katara(),
+                    baylee_core::ids::AbilityRef::COMMANDER_ZONE,
+                ),
+                answer: Some(crate::choice::StandingAnswer::Yes),
+            },
+        )
+        .expect("setting a standing answer is always legal");
+    reach_main_phase(&mut engine, p0);
+
+    let card = commander_of(&engine, p0);
+    tap_all_mana(&mut engine, p0);
+    engine.apply(p0, PlayerAction::CastSpell { card }).unwrap();
+    pass_until(&mut engine, |e| resolved_and_back_to(e, p0, katara()));
+
+    pass_until(&mut engine, |e| own_main_phase(e, p1));
+    let verdict = in_hand(&engine, p1, supreme_verdict());
+    tap_all_mana(&mut engine, p1);
+    engine
+        .apply(p1, PlayerAction::CastSpell { card: verdict })
+        .unwrap();
+
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        zone_of(&engine, card),
+        crate::zone::Zone::Command,
+        "the stored yes answered CR 903.9a without the seat being asked"
+    );
+}
+
 /// Exile is the other half of CR 903.9a's sentence, and a `matches!` with
 /// two arms is a test with two cases. Swords to Plowshares does it for {W}.
 #[test]

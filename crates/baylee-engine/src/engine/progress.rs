@@ -97,11 +97,16 @@ impl<L: CardLookup> Engine<L> {
                 };
                 pass.then_some((*player, PlayerAction::PassPriority))
             }
+            // Two conditions, and the second is the one that is easy to
+            // leave out: the question has to be *of a kind* a standing
+            // answer may cover. A handle alone is not enough, because a
+            // kicker, a shockland's two life and a tax trigger all carry
+            // one — see [`YesNoPrompt::automatable`].
             Pending::YesNo {
                 player,
+                prompt,
                 source: Some(ability),
-                ..
-            } => self
+            } if prompt.automatable() => self
                 .automation(*player)
                 .standing_answer(*ability)
                 .map(|a| (*player, PlayerAction::YesNo(a.as_bool()))),

@@ -562,6 +562,26 @@ pub enum Effect {
     /// Shuffle your graveyard into your library (Spirit Water Revival's
     /// waterbend outcome).
     ShuffleGraveyardIntoLibrary,
+    /// "You may …": the controller is asked, and `effects` run only on a
+    /// yes — a choice an effect offers, announced while the effect is
+    /// applied (CR 608.2d).
+    ///
+    /// A block rather than a flag on each effect, because the printed word
+    /// covers a whole clause — Ondu Cleric's "you may gain life equal to
+    /// the number of Allies you control" is one decision, not one per
+    /// operation the clause expands into.
+    ///
+    /// It is not decoration. Every card here that printed it was written as
+    /// if the ability were mandatory, and each has a board where the
+    /// automatic answer is the wrong one: a +1/+1 counter on a creature
+    /// about to be sacrificed for having the greatest power, life gained
+    /// while a "whenever you gain life" trigger is pointed the other way.
+    /// The whole point of a "may" is that the player is allowed to decline,
+    /// so the engine has to ask.
+    MayDo {
+        /// What happens on a yes.
+        effects: &'static [Effect],
+    },
     /// Branch on whether the spell was kicked (paid its additional cost).
     IfKicked {
         /// Effects when kicked.

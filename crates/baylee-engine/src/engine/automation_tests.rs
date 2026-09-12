@@ -6,7 +6,10 @@
 //! responds to what it is letting through, and must never have a
 //! game-losing decision made for it.
 
-use super::testkit::{Duel, RegistryLookup, card_index, keep_mulligans, on_battlefield};
+use super::testkit::{
+    Duel, RegistryLookup, card_index, cast_from_hand, keep_mulligans, on_battlefield, pass_until,
+    stack_is_empty, walk_to_own_main,
+};
 use super::*;
 use crate::choice::{PriorityHold, StandingAnswer};
 use baylee_core::ids::{AbilityRef, CardIndex};
@@ -17,6 +20,10 @@ fn forest() -> CardIndex {
 
 fn ondu_cleric() -> CardIndex {
     card_index("f4232466-dd6a-49bf-be6c-95905c3ded17")
+}
+
+fn plains() -> CardIndex {
+    card_index("bc71ebf6-2056-41f7-be35-b2e5c34afa99")
 }
 
 fn started(builder: Duel) -> Engine<RegistryLookup> {
@@ -253,11 +260,15 @@ fn automation_is_part_of_the_engine_snapshot() {
 /// Ondu Cleric's rally trigger: with a standing answer stored for it, the
 /// trigger resolves without the seat being asked. The card is the one the
 /// feature was asked for by name.
+///
+/// Played rather than asserted about, because the whole claim is that a
+/// question *does not arrive* — and the only way to be sure of that is to
+/// walk the game to where it would have.
 #[test]
 fn a_standing_answer_covers_a_recurring_trigger() {
     let mut engine = started(
-        Duel::new(31, forest())
-            .battlefield(0, &[ondu_cleric()])
+        Duel::new(31, plains())
+            .battlefield(0, &[plains(), plains()])
             .hand(0, &[ondu_cleric()]),
     );
     engine
@@ -272,12 +283,82 @@ fn a_standing_answer_covers_a_recurring_trigger() {
     // The setting is remembered and addressed by a handle that says
     // nothing about this particular game — which is what lets the gateway
     // store it against an account.
-    assert!(on_battlefield(&engine, P0, ondu_cleric()).is_some());
     assert_eq!(
         engine
             .automation(P0)
             .standing_answer(AbilityRef::new(ondu_cleric(), 0)),
         Some(StandingAnswer::Yes)
+    );
+
+    let before = engine.state().players[0].life;
+    assert!(walk_to_own_main(&mut engine, P0), "p0 reaches its own main");
+    cast_from_hand(&mut engine, P0, ondu_cleric());
+    pass_until(&mut engine, stack_is_empty);
+    assert!(
+        on_battlefield(&engine, P0, ondu_cleric()).is_some(),
+        "the Cleric resolved"
+    );
+    assert_eq!(
+        engine.state().players[0].life,
+        before + 1,
+        "the rally trigger took its life without the seat being asked"
+    );
+}
+
+/// The same standing answer, on the question it must never reach.
+///
+/// Rite of Replication's kicker is a **cost**, and a cost decision is not
+/// something a seat delegated by saying "always take Ondu Cleric's life".
+/// The gate is [`crate::choice::YesNoPrompt::automatable`]; before it
+/// existed, `auto_answer` matched on nothing but "the prompt names an
+/// ability", and kicker, a shockland's two life, a tax trigger and a
+/// miracle all name one — so the first standing answer a player ever stored
+/// would have spent nine mana on their behalf.
+#[test]
+fn a_standing_answer_never_reaches_a_cost_decision() {
+    fn island() -> CardIndex {
+        card_index("b2c6aa39-2d2a-459c-a555-fb48ba993373")
+    }
+    fn rite_of_replication() -> CardIndex {
+        card_index("fb60739e-1dc3-481d-a056-ad72e665c680")
+    }
+    let kicker = AbilityRef::new(rite_of_replication(), AbilityRef::ADDITIONAL_COST);
+    let mut engine = started(
+        Duel::new(32, island())
+            .battlefield(0, &[island(), island(), island(), island(), island()])
+            .battlefield(1, &[ondu_cleric()])
+            .hand(0, &[rite_of_replication()]),
+    );
+    engine
+        .apply(
+            P0,
+            PlayerAction::SetStandingAnswer {
+                ability: kicker,
+                answer: Some(StandingAnswer::Yes),
+            },
+        )
+        .unwrap();
+    assert!(walk_to_own_main(&mut engine, P0), "p0 reaches its own main");
+    cast_from_hand(&mut engine, P0, rite_of_replication());
+    // The wizard asks for the target before the additional cost.
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!("expected the target question, got {:?}", engine.pending())
+    };
+    engine
+        .apply(P0, PlayerAction::ChooseObjects { objects: options })
+        .unwrap();
+    assert!(
+        matches!(
+            engine.pending(),
+            Pending::YesNo {
+                prompt: crate::choice::YesNoPrompt::Kicker,
+                source: Some(named),
+                ..
+            } if *named == kicker
+        ),
+        "the kicker is asked despite a stored yes under its own handle, \
+         got {:?}",
+        engine.pending()
     );
 }
 

@@ -164,6 +164,12 @@ pub enum AwaitingOp {
         /// How many cards were looked at.
         looked: u8,
     },
+    /// The controller decides whether to take an optional clause
+    /// ([`Effect::MayDo`]).
+    MayDo {
+        /// What runs on a yes.
+        effects: &'static [Effect],
+    },
     /// A player decides whether to pay for a tax effect.
     PlayerMayPay {
         /// The player deciding.
@@ -633,6 +639,29 @@ pub fn resume_yes_no(state: &mut GameState, res: &mut Resolution, answer: bool) 
     run(state, res)
 }
 
+/// Resumes an optional clause ([`Effect::MayDo`]): `yes` means the
+/// controller takes it.
+///
+/// A no is not a failure and runs no fallback — the clause simply does not
+/// happen and the rest of the ability carries on, which is what makes this
+/// different from [`resume_tax_choice`], where declining *is* an outcome
+/// the card prints.
+///
+/// # Panics
+/// When the suspended operation is not an optional clause.
+#[must_use]
+pub fn resume_may_do(state: &mut GameState, res: &mut Resolution, yes: bool) -> Flow {
+    let AwaitingOp::MayDo { effects } = res.awaiting.take().expect("resume without awaiting op")
+    else {
+        panic!("resume_may_do on a choice that is not an optional clause");
+    };
+    if yes && let Some(pending) = run_nested(state, res, effects) {
+        return Flow::Wait(pending);
+    }
+    res.pc += 1;
+    run(state, res)
+}
+
 /// Resumes a tax choice (Rhystic Study & co.): `paid` means the player
 /// chose to pay the mana.
 ///
@@ -684,7 +713,10 @@ pub fn resume_tax_choice(state: &mut GameState, res: &mut Resolution, paid: bool
         Flow::Complete => {}
         Flow::Wait(pending) => {
             res.awaiting = fallback.awaiting;
-            res.effects.splice(res.pc..res.pc, fallback.effects);
+            // Replaces the tax op and starts at the fallback's own program
+            // counter, for [`run_nested_with`]'s reasons.
+            let tail = fallback.effects.split_off(fallback.pc);
+            res.effects.splice(res.pc..=res.pc, tail);
             return Flow::Wait(pending);
         }
     }
@@ -992,6 +1024,7 @@ pub fn resume(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]) 
         }
         AwaitingOp::ManaChoice { .. }
         | AwaitingOp::PayLifeOrTapSelf { .. }
+        | AwaitingOp::MayDo { .. }
         | AwaitingOp::CommanderReplace { .. } => {
             unreachable!("color/yes-no choices resume via their own functions")
         }
@@ -1014,6 +1047,7 @@ fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> Option<Pendi
         | Effect::PlayerMayPayOr { .. }
         | Effect::ReorderTopLibrary { .. }
         | Effect::AddMana { .. }
+        | Effect::MayDo { .. }
         | Effect::PayLifeOrEnterTapped { .. } => exec_choice(state, res, op),
         _ => exec_immediate(state, res, op),
     }
@@ -1244,6 +1278,14 @@ fn exec_choice(state: &mut GameState, res: &mut Resolution, op: Effect) -> Optio
             })
         }
         Effect::AddMana { .. } => mana::exec(state, res, op),
+        Effect::MayDo { effects } => {
+            res.awaiting = Some(AwaitingOp::MayDo { effects });
+            Some(Pending::YesNo {
+                player: you,
+                prompt: YesNoPrompt::MayDo,
+                source: resolving_ability(state, res),
+            })
+        }
         Effect::PayLifeOrEnterTapped { amount } => {
             // Not payable at all → no choice, enters tapped (CR 614.1c).
             if !state.can_pay_life(you, i32::from(amount)) {
@@ -1294,6 +1336,16 @@ pub fn resolving_ability(
 /// Runs a nested branch (If*/kicked-style conditional effects) inline;
 /// a suspension inside the branch splices its remaining ops into the
 /// parent's program and propagates the choice.
+///
+/// The splice *replaces* the parent's op and starts at the nested program
+/// counter, and both halves of that are load-bearing. Inserting in front of
+/// the parent's op instead left the branch itself standing in the program,
+/// so resuming ran back into it and asked the same question a second time —
+/// Luminarch Ascension offered its quest counter twice and took two. And
+/// splicing the whole nested program rather than its tail would re-run the
+/// ops the branch had already finished before it suspended. Neither could
+/// be seen until an effect that suspends was put inside a branch, which is
+/// what [`Effect::MayDo`] did.
 fn run_nested_with(
     state: &mut GameState,
     res: &mut Resolution,
@@ -1321,7 +1373,8 @@ fn run_nested_with(
         Flow::Complete => None,
         Flow::Wait(pending) => {
             res.awaiting = nested.awaiting;
-            res.effects.splice(res.pc..res.pc, nested.effects);
+            let tail = nested.effects.split_off(nested.pc);
+            res.effects.splice(res.pc..=res.pc, tail);
             Some(pending)
         }
     }
@@ -1849,6 +1902,7 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
         | Effect::PlayerMayPayOr { .. }
         | Effect::ReorderTopLibrary { .. }
         | Effect::AddMana { .. }
+        | Effect::MayDo { .. }
         | Effect::PayLifeOrEnterTapped { .. } => {
             unreachable!("choice ops dispatch to exec_choice")
         }

@@ -745,6 +745,24 @@ impl<L: CardLookup> Engine<L> {
                     }
                     return Ok(());
                 }
+                // An optional clause inside a resolving ability ("you may
+                // gain life equal to …").
+                if self.resolution.as_ref().is_some_and(|r| {
+                    matches!(r.awaiting, Some(crate::resolve::AwaitingOp::MayDo { .. }))
+                }) {
+                    let mut res = self.resolution.take().expect("resolution suspended");
+                    match resolve::resume_may_do(&mut self.state, &mut res, answer) {
+                        resolve::Flow::Wait(pending) => {
+                            self.resolution = Some(res);
+                            self.pending = pending;
+                            self.awaiting_answer = true;
+                        }
+                        resolve::Flow::Complete => {
+                            self.finish_resolution(&res);
+                        }
+                    }
+                    return Ok(());
+                }
                 // Tax choice (Rhystic Study & co.).
                 if self.resolution.as_ref().is_some_and(|r| {
                     matches!(

@@ -410,7 +410,7 @@ impl HeuristicAgent {
                 // cheaper than the deck's whole plan being milled or
                 // exiled — a seat that would rather reanimate it needs the
                 // evaluator this agent does not have yet.
-                YesNoPrompt::CommanderZone { .. } | YesNoPrompt::Generic => {
+                YesNoPrompt::MayDo | YesNoPrompt::CommanderZone { .. } | YesNoPrompt::Generic => {
                     PlayerAction::YesNo(true)
                 }
                 // CR 903.9b answers itself from the destination, which is

@@ -381,6 +381,15 @@ fn ephemerate_rebounds_for_free_at_next_upkeep() {
                     .apply(player, PlayerAction::DeclareBlockers { blockers: vec![] })
                     .unwrap();
             }
+            // The blinked Cleric's rally trigger asks now; this test is
+            // about the rebound, so it takes the offer and moves on.
+            Pending::YesNo {
+                player,
+                prompt: crate::choice::YesNoPrompt::MayDo,
+                ..
+            } => {
+                engine.apply(player, PlayerAction::YesNo(true)).unwrap();
+            }
             other => panic!("unexpected: {other:?}"),
         }
         guard += 1;

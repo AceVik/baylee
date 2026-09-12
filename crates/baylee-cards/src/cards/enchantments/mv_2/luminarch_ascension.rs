@@ -26,9 +26,15 @@ card! {
                 step: StepKind::End,
                 whose: PlayerRel::Opponent,
             }, &[Effect::IfNotLostLifeThisTurn {
-                then: &[Effect::AddCounter {
-                    kind: CounterKind::Custom(1),
-                    amount: Amount::Fixed(1),
+                // The "may" sits *inside* the intervening-if: a turn where
+                // you did lose life asks nothing at all, because the
+                // condition is checked on resolution and the ability simply
+                // does nothing (CR 603.4).
+                then: &[Effect::MayDo {
+                    effects: &[Effect::AddCounter {
+                        kind: CounterKind::Custom(1),
+                        amount: Amount::Fixed(1),
+                    }],
                 }],
             }]),
         AbilityDef::ActivatedConditional {

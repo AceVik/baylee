@@ -116,6 +116,9 @@ fn consumes(cost: &Cost) -> bool {
 fn gains(effect: &Effect) -> bool {
     match effect {
         Effect::Sequence(inner) => inner.iter().any(gains),
+        // An optional clause is a gain the seat can still decline, so what
+        // it *may* do is what it is worth.
+        Effect::MayDo { effects } => effects.iter().any(gains),
         e => matches!(
             e,
             Effect::SearchLibrary { .. }
@@ -138,6 +141,7 @@ fn gains(effect: &Effect) -> bool {
 fn harmless(effect: &Effect) -> bool {
     match effect {
         Effect::Sequence(inner) => inner.iter().all(harmless),
+        Effect::MayDo { effects } => effects.iter().all(harmless),
         Effect::PutSourceOnTopOfLibrary => true,
         e => gains(e),
     }
@@ -177,7 +181,12 @@ fn draws(effects: &[Effect]) -> Option<u32> {
     let mut want = 0u32;
     for effect in effects {
         match effect {
-            Effect::Sequence(inner) => want = want.saturating_add(draws(inner)?),
+            // The agent answers every optional clause with yes, so a draw
+            // inside one is a draw it will take — counting it as zero would
+            // be the deck-out this whole function exists to refuse.
+            Effect::Sequence(inner) | Effect::MayDo { effects: inner } => {
+                want = want.saturating_add(draws(inner)?);
+            }
             Effect::DrawCards { amount } => match amount {
                 baylee_cards_dsl::Amount::Fixed(n) => want = want.saturating_add(*n),
                 _ => return None,

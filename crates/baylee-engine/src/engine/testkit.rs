@@ -213,6 +213,17 @@ pub fn pass_until(
                     .apply(player, PlayerAction::DeclareBlockers { blockers: vec![] })
                     .unwrap();
             }
+            // "You may …" on the way past. Yes, because that is what these
+            // tests meant before the word was read at all, and because a
+            // test whose *subject* is the optional clause answers it itself
+            // and never gets here.
+            Pending::YesNo {
+                player,
+                prompt: crate::choice::YesNoPrompt::MayDo,
+                ..
+            } => {
+                engine.apply(player, PlayerAction::YesNo(true)).unwrap();
+            }
             other => panic!("unexpected while passing: {other:?}"),
         }
     }

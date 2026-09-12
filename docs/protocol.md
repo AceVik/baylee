@@ -123,6 +123,21 @@ to see is already covered when the opening hand arrives. Setting a standing
 answer is not a game action (the pending question stays exactly as it was),
 so a reconnect simply restates what the seat already has.
 
+A stored answer covers one **kind** of question, and not every question a
+card asks. The engine's gate is `YesNoPrompt::automatable`, and it is true
+for two variants: `MayDo`, the printed "you may" inside a resolving ability,
+and `CommanderZone`, which is what `AbilityRef::COMMANDER_ZONE` below was
+reserved for. Everything else a card asks is a decision about *cost* — a
+kicker, a shockland's two life, a tax trigger, a miracle — and those carry an
+`AbilityRef` too, so a rule keyed on "the question names an ability" would
+have let the first standing answer a player ever stored spend their mana.
+That was the rule, until `MayDo` gave it something to be wrong about: a seat
+that had said "always take Ondu Cleric's life" would have had Rite of
+Replication kicked for it. `CommanderReplace` is the near miss that stays
+off the list — its right answer depends on the `to_library` the prompt
+carries, and a stored bool cannot see it. A new variant is automatable only
+when saying yes to it costs nothing but the choice.
+
 Storing a handle the registry does not know is refused rather than kept: it
 could never fire, and it would fail silently — the seat would just be asked a
 question it believed it had answered for good.

@@ -407,6 +407,7 @@ fn a_fetched_shockland_still_asks_the_question() {
 }
 
 #[test]
+#[allow(clippy::too_many_lines)] // one drive loop over the whole choice taxonomy
 fn cleric_rally_gains_life_on_ally_etbs() {
     let mut engine = Engine::new(
         &preset_with_hand(
@@ -491,6 +492,17 @@ fn cleric_rally_gains_life_on_ally_etbs() {
                         },
                     )
                     .unwrap();
+            }
+            // The rally trigger prints "you may", so it asks. This test is
+            // about how often it fires and for how much, which is the same
+            // arithmetic once the offer is taken; the decision itself has
+            // its own pair of tests in `card_tests`.
+            Pending::YesNo {
+                player,
+                prompt: crate::choice::YesNoPrompt::MayDo,
+                ..
+            } => {
+                engine.apply(player, PlayerAction::YesNo(true)).unwrap();
             }
             Pending::GameOver(_) => panic!("game should not end"),
             other => panic!("unexpected: {other:?}"),

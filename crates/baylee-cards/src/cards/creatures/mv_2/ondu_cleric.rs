@@ -29,11 +29,13 @@ card! {
     }],
     color_identity: ColorSet::from_slice(&[Color::White]),
     coverage: Coverage::Implemented,
-    abilities: &[triggered!(Trigger::EntersBattlefield(&YOUR_ALLIES), &[Effect::GainLife {
-            amount: Amount::CountOf {
-                filter: &ALLIES_YOU_CONTROL,
-                zone: ZoneSel::Battlefield,
-            },
+    abilities: &[triggered!(Trigger::EntersBattlefield(&YOUR_ALLIES), &[Effect::MayDo {
+            effects: &[Effect::GainLife {
+                amount: Amount::CountOf {
+                    filter: &ALLIES_YOU_CONTROL,
+                    zone: ZoneSel::Battlefield,
+                },
+            }],
         }])],
 }
 

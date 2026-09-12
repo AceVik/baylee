@@ -315,8 +315,40 @@ pub enum YesNoPrompt {
         /// (CR 903.8), so the prompt has to say which is happening.
         to_library: bool,
     },
+    /// "You may …" inside a resolving ability ([`baylee_cards_dsl::Effect::MayDo`]).
+    MayDo,
     /// Generic yes/no (optional effects).
     Generic,
+}
+
+impl YesNoPrompt {
+    /// Whether a stored standing answer may answer this question for the
+    /// seat.
+    ///
+    /// The gate is the *kind of question*, never the handle it arrives
+    /// under. Every yes/no a card asks carries an [`AbilityRef`] — kicker,
+    /// a shockland's two life, a tax trigger, a miracle — so a rule keyed
+    /// on "it names an ability" would have let the first standing answer a
+    /// player ever stored silence a decision about **cost**. A player who
+    /// says "always take Ondu Cleric's life" has said nothing whatsoever
+    /// about paying `{2}` for a kicker.
+    ///
+    /// So the list holds only the questions where saying yes costs nothing
+    /// but the choice itself.
+    ///
+    /// [`Self::CommanderZone`] is on it because it is what
+    /// `AbilityRef::COMMANDER_ZONE` was reserved for — "always put Katara
+    /// back" is a preference a player is meant to be able to keep — and the
+    /// `{2}` it leads to is a tax on a *later* cast rather than a cost paid
+    /// here. Its sibling [`Self::CommanderReplace`] is deliberately **off**
+    /// it: the right answer there depends on where the commander was going
+    /// (a library is a loss, a hand is strictly better than the command
+    /// zone), and a stored `Yes` cannot see the `to_library` that decides
+    /// it.
+    #[must_use]
+    pub fn automatable(self) -> bool {
+        matches!(self, Self::MayDo | Self::CommanderZone { .. })
+    }
 }
 
 // ------------------------------------------------------------ automation

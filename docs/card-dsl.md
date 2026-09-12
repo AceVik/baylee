@@ -553,6 +553,14 @@ Costs/taxes: `PlayerMayPayOr`, `AddCounter`, `AddCounterFilter`,
 `DelayedManaAtNextFirstMain` (Mana Drain), `SacrificeSelf`,
 `PayCostOrLoseLater`, `ExileTargetsCreateTokens`.
 Conditional: `IfEventPowerAtLeast` (Tribute to the World Tree).
+Optional: `MayDo { effects }` — the printed "you may", wrapping the whole
+clause the word covers. It asks the controller and runs `effects` only on a
+yes, so it is the right variant **only** when the card prints the word and
+the choice is not already offered somewhere else: "you may have *target*
+player lose life" is a `TargetReq` with a minimum of zero, "you may pay 2
+life" as a land enters is an `EnterModifier`, and "you may play those cards"
+is a permission with nothing to ask. `xtask validate` holds every card
+printing "you may" against that list and says which construct it accepted.
 Utility: `UntapTarget`, `NegXFixed` (amount), `CreateTokenCopyOfFirstToken`,
 `BecomeMonarch`, `Sequence(&[..])`.
 Modal/sequence: `Sequence(&[..])`.

@@ -160,7 +160,8 @@ fn swept_filters(effect: &Effect) -> Vec<&'static Filter> {
             .chain(*otherwise)
             .flat_map(swept_filters)
             .collect(),
-        Effect::IfCreaturesDiedAtLeast { then, .. }
+        Effect::MayDo { effects: then }
+        | Effect::IfCreaturesDiedAtLeast { then, .. }
         | Effect::IfNotLostLifeThisTurn { then, .. }
         | Effect::IfControlGreatestCmc { then, .. } => {
             then.iter().flat_map(swept_filters).collect()
@@ -307,7 +308,8 @@ fn mana_symbol_colors(effect: &Effect) -> ColorSet {
         | Effect::IfEventPowerAtLeast {
             then, otherwise, ..
         } => then.iter().chain(*otherwise).fold(ColorSet::EMPTY, union),
-        Effect::IfCreaturesDiedAtLeast { then, .. }
+        Effect::MayDo { effects: then }
+        | Effect::IfCreaturesDiedAtLeast { then, .. }
         | Effect::IfNotLostLifeThisTurn { then, .. }
         | Effect::IfControlGreatestCmc { then, .. } => then.iter().fold(ColorSet::EMPTY, union),
         _ => ColorSet::EMPTY,

@@ -1485,6 +1485,113 @@ fn check_player_targets_match_the_printing(
     *problems += 1;
 }
 
+/// A card whose printing says "you may" has to hand the player the choice.
+///
+/// The fault this closes is the one the owner reported by name: Ondu Cleric
+/// prints "you may gain life equal to the number of Allies you control" and
+/// gained it every time, because the word was read as decoration. Four cards
+/// were written that way, and each of them has a board where the automatic
+/// answer is the wrong one — which is the whole reason the word is printed.
+///
+/// It is decidable without a second reader for [`check_player_targets_match_the_printing`]'s
+/// reason: the card prints the word, and the code either carries a construct
+/// that offers a choice or it does not. What it must **not** be is a list of
+/// card names — this is a sweep over the pool, and a sweep that recognises
+/// cards one at a time stops being one the moment a card is added.
+///
+/// So it reads the **compiled `CardDef`** and not the file, through the
+/// `Debug` rendering `pool-dump` already writes. That is what makes it a
+/// check about constructs: Restoration Angel writes its "may" as a literal
+/// `TargetReq { min: 0, .. }` and Sun Titan writes the same thing as
+/// `TargetReq::up_to_one`, and the compiled form of both says `min: 0`. A
+/// grep over the source would have called one of them a bug.
+///
+/// The list is longer than `MayDo` because a printed "you may" is said
+/// several different ways here, all of them already asking:
+///
+/// - "you may have **target** player lose life" — a target requirement whose
+///   minimum is zero. Declining is choosing no target, which the target
+///   prompt already offers (Hagra Diabolist, Sun Titan, Restoration Angel).
+/// - "you may pay 2 life" as a land enters — `TappedOrPayLife`, and
+///   `PayLifeOrEnterTapped` where the same choice is an effect.
+/// - "you may pay `{N}`" during resolution — `PlayerMayPayOr`.
+/// - "you may pay … rather than pay this spell's mana cost" — an
+///   `AlternativeCost`; a kicker is an additional cost.
+/// - "you may have this enter as a copy" — `CopyOnEnter`.
+/// - "you may choose new targets for the copy" — the copy effects, which ask
+///   on their own (`AwaitingOp::CopyNewTargets`).
+/// - "you may choose a nonland card from it" — `BottomCardFromHand`, which
+///   offers a choice of none (Vendilion Clique).
+/// - "you may search your library" — an optional search.
+/// - "you may put it on the bottom" — scry, a choice by construction.
+/// - "you may play those cards … and you may spend mana as though" —
+///   `SearchTakeover`. A permission is not a decision: playing a card is
+///   optional already, and there is nothing to ask.
+///
+/// A stub claims nothing and a `Partial` card has said in writing that it
+/// diverges, so both are skipped — the same two exemptions the checks above
+/// take.
+///
+/// What it counts is what it can decide, and the two are not the same
+/// thing. It asks whether the card carries an asking construct *anywhere*,
+/// so a printing with two "may"s and one construct passes. A clean sweep
+/// therefore says no card in the pool is may-blind; it does not say every
+/// printed "may" is asked, and reading it as the second claim is how a
+/// check like this stops finding anything.
+fn check_optional_clauses_are_offered(
+    slug: &str,
+    def: &baylee_cards::dsl::CardDef,
+    payload: &serde_json::Value,
+    tally: &mut PrintingTally,
+    problems: &mut usize,
+) {
+    // Every construct that hands a choice to the player, as the compiled
+    // definition spells it. `min: 0` is a target requirement's and nothing
+    // else's — it is the one `min` field in the whole DSL.
+    const OFFERS_A_CHOICE: &[&str] = &[
+        "MayDo",
+        "min: 0",
+        "PayLifeOrEnterTapped",
+        "PlayerMayPayOr",
+        "CopyOnEnter",
+        "CopyTargetSpell",
+        "CopySpell",
+        "BottomCardFromHand",
+        "OptionalBasicLandSearchFor",
+        "optional: true",
+        "Scry",
+        "PutFromHandOnTop",
+        "ReorderTopLibrary",
+        "SearchTakeover",
+    ];
+    if !def.is_implemented() {
+        return;
+    }
+    let printed = printed_text(payload).to_lowercase();
+    if !strip_reminders(&printed).contains("you may") {
+        return;
+    }
+    tally.optional_clauses += 1;
+    // A cost a face offers rather than demands is read from the field, not
+    // from the rendering: "you may pay … rather than" and a kicker are the
+    // *absence* of a requirement, and an empty list renders as one word.
+    if def.faces.iter().any(|f| {
+        !f.alternative_costs.is_empty()
+            || !f.additional_costs.is_empty()
+            || f.miracle.is_some()
+            || !f.enter_modifiers.is_empty()
+    }) {
+        return;
+    }
+    // Everything else is a construct that appears in the rendering.
+    let compiled = format!("{def:#?}");
+    if OFFERS_A_CHOICE.iter().any(|c| compiled.contains(c)) {
+        return;
+    }
+    println!("{slug}: the printing says \"you may\" and the code never asks");
+    *problems += 1;
+}
+
 /// The printed phrase that states a target count of "up to", if there is one.
 ///
 /// Read by scanning rather than by matching a list of whole phrases, because
@@ -1568,6 +1675,8 @@ struct PrintingTally {
     player_targets: usize,
     /// Cards whose printing states a target count of "up to".
     targets: usize,
+    /// Cards whose printing says "you may" outside reminder text.
+    optional_clauses: usize,
     /// Cards whose `Set:` header line was held against the printing.
     printings: usize,
     /// Faces whose type line was held against the printed one.
@@ -1608,6 +1717,12 @@ struct PrintingTally {
 /// multi-faced files still being `// GENERATED STUB` is why it is not higher
 /// — a stub writes no mana ability for the check to read.
 ///
+/// Optional clause is **47**, measured 2026-09-12: the cards whose printing
+/// says "you may" outside reminder text. All 47 carry a construct that asks,
+/// and four of them did not until `Effect::MayDo` existed — Ondu Cleric,
+/// Kazandu Blademaster, Umara Raptor and Luminarch Ascension, which the check
+/// names by slug when the recogniser for `MayDo` is taken out of it.
+///
 /// Type line is **1473** and that number is exact rather than measured: the
 /// pool prints 1475 faces (1255 cards of one face and 110 of two), and the
 /// only card whose printed and code face counts disagree is Emeritus of Woe,
@@ -1626,6 +1741,7 @@ const PRINTING_FLOOR: PrintingTally = PrintingTally {
     costs: 1340,
     player_targets: 20,
     targets: 10,
+    optional_clauses: 40,
     printings: 1300,
     type_lines: 1400,
 };
@@ -2577,6 +2693,7 @@ fn validate(root: &Path) -> anyhow::Result<()> {
             check_scope_matches_the_text(&slug, def.name(), def, &payload, &mut problems);
             check_card_matches_the_printing(&slug, def, &payload, &mut tally, &mut problems);
             check_type_line_matches_the_printing(&slug, def, &payload, &mut tally, &mut problems);
+            check_optional_clauses_are_offered(&slug, def, &payload, &mut tally, &mut problems);
         }
         check_code_matches_the_printing(&slug, &content, &payload, &mut tally, &mut problems);
         check_oracle_matches_the_printing(&slug, &content, &payload, &mut tally, &mut problems);
@@ -2621,7 +2738,7 @@ fn report_what_the_sweeps_reached(
     println!(
         "validate: against the printings \u{2014} {} payloads, {} loyalty, {} identity, \
          {} keyword, {} mana, {} oracle, {} cost, {} player target, {} target count, \
-         {} printing, {} type line",
+         {} optional clause, {} printing, {} type line",
         tally.payloads,
         tally.loyalty,
         tally.identity,
@@ -2631,6 +2748,7 @@ fn report_what_the_sweeps_reached(
         tally.costs,
         tally.player_targets,
         tally.targets,
+        tally.optional_clauses,
         tally.printings,
         tally.type_lines
     );
@@ -2661,6 +2779,11 @@ fn check_printing_floors(tally: &PrintingTally, problems: &mut usize) {
             PRINTING_FLOOR.player_targets,
         ),
         ("target count", tally.targets, PRINTING_FLOOR.targets),
+        (
+            "optional clause",
+            tally.optional_clauses,
+            PRINTING_FLOOR.optional_clauses,
+        ),
         ("printing", tally.printings, PRINTING_FLOOR.printings),
         ("type line", tally.type_lines, PRINTING_FLOOR.type_lines),
     ] {

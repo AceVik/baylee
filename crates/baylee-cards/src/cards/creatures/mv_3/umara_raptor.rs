@@ -23,8 +23,10 @@ card! {
     color_identity: ColorSet::from_slice(&[Color::Blue]),
     keywords: KeywordSet::FLYING,
     coverage: Coverage::Implemented,
-    abilities: &[triggered!(Trigger::EntersBattlefield(&YOUR_ALLIES), &[Effect::AddCounter {
-            kind: CounterKind::P1P1,
-            amount: Amount::Fixed(1),
+    abilities: &[triggered!(Trigger::EntersBattlefield(&YOUR_ALLIES), &[Effect::MayDo {
+            effects: &[Effect::AddCounter {
+                kind: CounterKind::P1P1,
+                amount: Amount::Fixed(1),
+            }],
         }])],
 }
