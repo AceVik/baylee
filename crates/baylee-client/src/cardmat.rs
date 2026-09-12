@@ -2057,6 +2057,173 @@ struct Globals { time: f32 };
         );
     }
 
+    /// One `vec3<f32>` literal out of the shader.
+    fn wgsl_rgb(source: &str, name: &str) -> [f32; 3] {
+        let line = source
+            .lines()
+            .map(str::trim_start)
+            .find(|line| line.starts_with(&format!("const {name}:")))
+            .unwrap_or_else(|| panic!("the shader has no {name}"));
+        let Some((inside, _)) = line
+            .rsplit_once("vec3<f32>(")
+            .and_then(|(_, tail)| tail.split_once(')'))
+        else {
+            panic!("{name} is not a vec3 literal: {line}")
+        };
+        let parts: Vec<f32> = inside
+            .split(',')
+            .map(|part| part.trim().parse().expect("a number"))
+            .collect();
+        [parts[0], parts[1], parts[2]]
+    }
+
+    /// Rec. 709 relative luminance — how bright a colour is, which is the
+    /// question "which of these two is the figure" actually asks.
+    fn luma(c: [f32; 3]) -> f32 {
+        0.2126f32.mul_add(c[0], 0.7152f32.mul_add(c[1], 0.0722 * c[2]))
+    }
+
+    /// Hue in degrees, for the one comparison that is about colour rather
+    /// than brightness: a damaged creature must not be read as a
+    /// planeswalker.
+    fn hue(c: [f32; 3]) -> f32 {
+        let high = c[0].max(c[1]).max(c[2]);
+        let low = c[0].min(c[1]).min(c[2]);
+        let span = high - low;
+        assert!(span > 0.0, "a grey has no hue");
+        let raw = if (high - c[0]).abs() < f32::EPSILON {
+            (c[1] - c[2]) / span
+        } else if (high - c[1]).abs() < f32::EPSILON {
+            (c[2] - c[0]) / span + 2.0
+        } else {
+            (c[0] - c[1]) / span + 4.0
+        };
+        (raw * 60.0).rem_euclid(360.0)
+    }
+
+    /// How wide a card is drawn, in physical pixels, at the two distances
+    /// the plate has to work at.
+    ///
+    /// Measured on this machine rather than derived: `/state` reports a
+    /// permanent on a duel's battlefield at about 47 logical pixels across,
+    /// and the hover preview asks for 308 before its own fit, both on a
+    /// display at scale 2. They are the whole reason the constants below
+    /// are what they are, so they are written down beside them.
+    const TABLE_CARD_PX: f32 = 94.0;
+    const PREVIEW_CARD_PX: f32 = 616.0;
+
+    /// Marked damage is drawn as the **figure** on the plate and the
+    /// numerals standing in it as its ground, and that is the whole of the
+    /// fix — not a louder colour.
+    ///
+    /// It was a rising fill of `EMBER` at 58% *behind* near-white numerals,
+    /// which composites to a luminance of about 0.25 against the body's
+    /// 0.05 and the ink's 0.96: the brightest thing on the plate was the
+    /// numerals, so the numerals were what the eye read and the damage was
+    /// a slightly warmer dark behind them. The owner played whole games
+    /// without seeing it, which is the correct reading of that picture.
+    ///
+    /// So the three claims here are about the ordering of brightnesses and
+    /// not about any one of them, and each is bounded on both sides: a band
+    /// far brighter than the body it covers, a digit inside it still well
+    /// clear of the band, and a hue nothing else in this corner owns.
+    #[test]
+    fn the_damage_band_is_the_figure_and_its_numerals_are_the_ground() {
+        let src = include_str!("shaders/card_common.wgsl");
+        let heat = wgsl_rgb(src, "HEAT");
+        let plate = wgsl_rgb(src, "PLATE");
+        let ink = wgsl_rgb(src, "INK");
+        let gilt = wgsl_rgb(src, "GILT");
+
+        // One number read twice, because a digit inside the band is drawn
+        // in the plate's own colour: it is the band against the body it
+        // covers, and it is the contrast that digit keeps standing in it.
+        // Seven is the bound and these colours give nine — against the
+        // nineteen a white digit keeps on the bare plate, and the four an
+        // ink digit kept over the old 58% fill.
+        let lit = luma(heat) / luma(plate);
+        assert!(
+            lit >= 7.0,
+            "the band is only {lit} times the brightness of the plate, so \
+             neither it nor the digits standing in it read"
+        );
+
+        // The other half of the inversion, and the one that says the
+        // ordering rather than the ratio: the ink stays the brightest thing
+        // the plate can draw, so a digit *outside* the band is still the
+        // figure there. A band brighter than the ink would swap the two
+        // back the other way round.
+        assert!(
+            luma(ink) > luma(heat),
+            "the band is brighter than the ink it is read against"
+        );
+
+        // And laid on whole. The old fill was this colour at 58%, which is
+        // the single edit that would put the damage back behind the
+        // numerals while every constant above still passed.
+        assert!(
+            src.contains("out = mix(out, HEAT, band);"),
+            "the band is no longer laid on at the band mask alone"
+        );
+
+        // Red of the gilt a planeswalker's plate is rimmed with, by enough
+        // that the two are never one glance apart.
+        let (hot, gold) = (hue(heat), hue(gilt));
+        assert!(
+            hot + 20.0 < gold,
+            "the band sits at {hot}° against the rim's {gold}°"
+        );
+    }
+
+    /// A point of damage is drawn at the table, and how *many* points is
+    /// answered where there is room to answer it.
+    ///
+    /// Both halves are bounded on both sides, because both fail in two
+    /// directions: a floor too small says nothing and a floor too big makes
+    /// one damage on a twelve look like one damage on a two; a tick
+    /// threshold too high rules a plate eighteen pixels wide into invisible
+    /// rows and one too low never rules the preview at all.
+    #[test]
+    fn the_band_says_marked_at_the_table_and_how_much_in_the_preview() {
+        use baylee_client_core::cardplate as plate;
+        let src = include_str!("shaders/card_common.wgsl");
+        let floor = wgsl_const(src, "DAMAGE_FLOOR");
+        let tick_aa = wgsl_const(src, "TICK_AA");
+        let tick_max = wgsl_const(src, "TICK_MAX");
+
+        let pixels = floor * TABLE_CARD_PX;
+        assert!(
+            pixels >= 2.0,
+            "one point of damage is {pixels} pixels tall at the table"
+        );
+        assert!(
+            floor < plate::PLATE_H / 2.0,
+            "the floor is {floor} of a {} plate, so a point of damage on a \
+             big creature looks like a point on a small one",
+            plate::PLATE_H
+        );
+
+        // `aa` is the pixel size in card widths, so the threshold is read
+        // straight against the two distances.
+        assert!(
+            tick_aa < 1.0 / TABLE_CARD_PX,
+            "the rules would be drawn on the table, {tick_aa} against {}",
+            1.0 / TABLE_CARD_PX
+        );
+        assert!(
+            tick_aa > 1.0 / PREVIEW_CARD_PX,
+            "the preview is never ruled, {tick_aa} against {}",
+            1.0 / PREVIEW_CARD_PX
+        );
+
+        // And the rows a ruled band can actually be counted in.
+        let row = plate::PLATE_H / tick_max * PREVIEW_CARD_PX;
+        assert!(
+            row >= 3.0,
+            "the tallest ruled creature has rows {row} pixels apart"
+        );
+    }
+
     /// The crest is the rail's alphabet, on the edge the rail does not use.
     ///
     /// Two claims, and both are geometry rather than taste. It borrows the

@@ -1078,8 +1078,47 @@ const ROMAN_MAX: u32 = 5u;
 const GILT: vec3<f32> = vec3<f32>(0.87, 0.73, 0.38);
 
 /// Marked damage, which is the one thing on this plate that is not printed on
-/// a real card — so it is drawn as a rising fill rather than as a numeral.
-const EMBER: vec3<f32> = vec3<f32>(0.88, 0.27, 0.18);
+/// a real card — so it is drawn as a band rather than as a numeral.
+///
+/// Hot enough to be the **figure**. It was `(0.88, 0.27, 0.18)` laid on at
+/// 58%, which composited to about `(138, 49, 36)` over the near-black body:
+/// dark red behind white numerals, on a plate that is eighteen physical
+/// pixels wide at the table camera. The owner played whole games without
+/// noticing it, which is the correct reading of that picture — the numerals
+/// were the figure and the damage was ground behind them.
+///
+/// So the band is laid on whole, and the numerals standing in it are drawn
+/// in the plate's own colour instead (see [`plate_layer`]). A damaged
+/// creature is a hot box with dark digits in it; an undamaged one is a dark
+/// box with white ones. The hue sits at about 18°, well red of `GILT`'s 43°,
+/// so a damaged creature is never read as a planeswalker.
+const HEAT: vec3<f32> = vec3<f32>(0.96, 0.36, 0.18);
+
+/// The shortest band any damage at all is drawn as, in card widths.
+///
+/// One point of damage on a twelve-toughness body is a hundredth of the
+/// plate, which at this camera is a third of a pixel and says nothing. The
+/// floor is about two and a half physical pixels at the table, which is
+/// enough to read as *marked* — and the preview is where how much is asked.
+const DAMAGE_FLOOR: f32 = 0.026;
+
+/// Where the band stops being a proportion and starts being countable: the
+/// pixel size, in card widths, at which it is ruled into one row per point
+/// of toughness.
+///
+/// `aa` is that pixel size and is already computed, so the plate knows how
+/// big it is being drawn without anything having to tell it — about 0.0106
+/// on the table and 0.0018 in the hover preview. Rows at the table camera
+/// would be a quarter of a pixel apart; at a quarter of this threshold they
+/// are five pixels apart and a player counts them.
+const TICK_AA: f32 = 0.004;
+
+/// The largest toughness ruled into rows. Past it the rows are hairlines on
+/// top of hairlines and the proportion reads better on its own.
+const TICK_MAX: i32 = 12;
+
+/// A rule's half-width, in pixels — a hairline by construction, at any size.
+const TICK_HAIR: f32 = 0.6;
 
 /// A saga's page. Light where every other plate is dark, because a chapter is
 /// a *page* — and because the one thing that must never happen in this corner
@@ -1210,14 +1249,36 @@ fn plate_layer(uv: vec2<f32>, word: u32, color: vec3<f32>) -> vec3<f32> {
     let b = i32((word >> PLATE_SLOT_BITS) & PLATE_SLOT_MASK) - PLATE_BIAS;
     let c = i32((word >> (PLATE_SLOT_BITS * 2u)) & PLATE_SLOT_MASK) - PLATE_BIAS;
 
-    // Damage rises from the bottom of the plate to `damage / toughness`, so
-    // what a player reads is how close to lethal this creature is rather than
-    // an arithmetic problem in two numerals.
+    // Damage is a band rising from the bottom of the plate to
+    // `damage / toughness`, so what a player reads is how close to lethal
+    // this creature is rather than an arithmetic problem in two numerals.
+    //
+    // The mask is kept, because the numerals below are drawn *through* it:
+    // the band is the figure on this plate and a digit standing in it is its
+    // ground. That inversion is the whole of the cue — a hot box with dark
+    // numbers in it, against a dark box with white ones.
+    var band = 0.0;
     if kind == PLATE_FIGHT && c > 0 && b > 0 {
-        let frac = clamp(f32(c) / f32(b), 0.0, 1.0);
-        let level = y1 - PLATE_H * frac;
-        let fill = inside * smoothstep(level - aa, level + aa, p.y);
-        out = mix(out, EMBER, fill * 0.58);
+        let share = clamp(f32(c) / f32(b), 0.0, 1.0);
+        let lit = max(PLATE_H * share, DAMAGE_FLOOR);
+        let level = y1 - lit;
+        band = inside * smoothstep(level - aa, level + aa, p.y);
+        out = mix(out, HEAT, band);
+
+        // Drawn large — the hover preview, or a camera a player has pushed
+        // in — the band is ruled into one row per point of toughness, and
+        // the damage becomes a number to count rather than a proportion to
+        // judge. The first and last rules are the plate's own edges and are
+        // left to it.
+        if aa <= TICK_AA && b <= TICK_MAX {
+            let row = PLATE_H / f32(b);
+            let into = (y1 - p.y) / row;
+            let which = round(into);
+            let inner = step(0.5, which) * step(which, f32(b) - 0.5);
+            let hair = aa * TICK_HAIR;
+            let rule = 1.0 - smoothstep(0.0, hair, abs(into - which) * row);
+            out = mix(out, body, band * rule * inner * 0.75);
+        }
     }
 
     // The rim, in whichever ink this plate writes with.
@@ -1291,7 +1352,12 @@ fn plate_layer(uv: vec2<f32>, word: u32, color: vec3<f32>) -> vec3<f32> {
     let s1 = mix(glyph_cell(gw, cx, cy + 1), glyph_cell(gw, cx + 1, cy + 1), f.x);
     let v = mix(s0, s1, f.y);
     let e = max(aa / unit, 0.06);
-    return mix(out, accent, smoothstep(0.5 - e, 0.5 + e, v));
+    // The digits are ground where the band is figure. Blended rather than
+    // switched, so the waterline cuts a numeral cleanly instead of flipping
+    // it a pixel at a time: a `4` half in the band is white above the line
+    // and dark below it, which is one more place the level is drawn.
+    let ink = mix(accent, body, clamp(band, 0.0, 1.0));
+    return mix(out, ink, smoothstep(0.5 - e, 0.5 + e, v));
 }
 
 // ------------------------------------------------------------- counter chips
