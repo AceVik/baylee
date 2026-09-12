@@ -49,6 +49,7 @@ pub mod i18n;
 pub mod images;
 pub mod interaction;
 pub mod layout;
+pub mod lifeflash;
 pub mod lobby;
 pub mod manapip;
 pub mod manaplan;

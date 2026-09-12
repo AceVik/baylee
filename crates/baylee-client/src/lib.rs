@@ -56,6 +56,7 @@ pub mod host;
 pub mod hud;
 pub mod input;
 pub mod keys;
+pub mod lifeflash;
 pub mod loading;
 pub mod lobby;
 pub mod manasources;
@@ -377,6 +378,14 @@ pub struct Duel {
     /// that can disagree. What lives here is only what the *player* said
     /// about the panel — open, which tab, what is typed.
     pub browser: baylee_client_core::browser::Browser,
+    /// What every seat's life total was last time a view arrived, and what
+    /// is being drawn about the ones that have changed since.
+    ///
+    /// Beside the view for the reason the browser is beside the interaction:
+    /// it is a reading *of* the view and has no truth of its own. It has to
+    /// live somewhere that outlives the seat bar, which is rebuilt by the
+    /// very change it is animating — see [`crate::lifeflash`].
+    pub life_flash: baylee_client_core::lifeflash::Ledger,
     /// What has been typed into the creature-type filter.
     ///
     /// It lives here and not on the `Interaction` because the interaction is
@@ -449,12 +458,16 @@ impl Duel {
     /// can ask what a re-sent question does.
     /// A new view of the table.
     ///
-    /// Only one thing beyond storing it, and it is here rather than at the
+    /// Two things beyond storing it, and they are here rather than at the
     /// message loop for the reason [`Self::receive_choice`] is: a method is
     /// the only shape a test can ask a question of. Cards the engine is
     /// *showing* this seat live in no zone the table can draw, so a reveal
-    /// opens the sheet that does — on the edge, never per frame.
+    /// opens the sheet that does — on the edge, never per frame. And a life
+    /// total that moved exists only as the difference between this view and
+    /// the last one, so it has to be read on the edge too: a frame later the
+    /// previous total is gone.
     pub(crate) fn receive_view(&mut self, view: PlayerView) {
+        self.life_flash.read(&view.seats);
         self.view = Some(view);
         if let Some(v) = self.view.as_ref() {
             self.browser.saw_reveal(v);
@@ -700,6 +713,14 @@ fn add_present_systems(app: &mut App) {
                 )
                     .chain()
                     .after(table::apply_camera_rig),
+                // A life total changing is drawn over the cell that carries
+                // it, so this runs once the bar holding that cell has been
+                // rebuilt and placed. It reads `bevy_ui`'s own layout for
+                // where the cell is, which is a frame old for the reason
+                // above — and a frame is nothing to a number that hangs for
+                // a second, where guessing the position from the shelf and
+                // the tilt would be the bar's layout written out twice.
+                lifeflash::flash_life_changes.after(hud::place_seat_bars),
             ),
             textures::drive_preloads,
             textures::load_the_card_back,

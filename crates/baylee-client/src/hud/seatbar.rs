@@ -120,6 +120,25 @@ pub struct SeatInk {
     pub player: PlayerId,
 }
 
+/// The life cell in particular, so that a life total changing can be drawn
+/// over the number it changed.
+///
+/// A second marker beside [`SeatInk`] rather than a search through the tree:
+/// every cell on the bar wears `SeatInk`, so "which of this seat's cells is
+/// the life one" has no answer from the components alone, and answering it
+/// by position would be a claim about [`Density::cells`] made in the one
+/// place that cannot see it.
+///
+/// [`crate::lifeflash`] is the only reader. Not every bar has one — a
+/// [`Density::Mark`] bar has no life cell at all — which is why that module
+/// falls back to the bar itself rather than treating a missing cell as a
+/// missing seat.
+#[derive(Component)]
+pub struct LifeCell {
+    /// Whose life total.
+    pub player: PlayerId,
+}
+
 /// Where one seat's shelf is on screen, and what fits on it.
 ///
 /// Measured along the shelf's **own** axis rather than the window's, which is
@@ -796,6 +815,9 @@ fn life(
     commands
         .spawn((
             SeatInk {
+                player: seat.player,
+            },
+            LifeCell {
                 player: seat.player,
             },
             cell_node(width, height),

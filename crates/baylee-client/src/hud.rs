@@ -634,6 +634,14 @@ pub(crate) mod palette {
     pub const ACCENT: Color = Color::srgb(0.33, 0.75, 0.71);
     /// Danger: lethal damage, a seat about to lose.
     pub const DANGER: Color = Color::srgb(0.91, 0.47, 0.42);
+    /// Life gained — [`DANGER`]'s answer, and the only green on this
+    /// overlay.
+    ///
+    /// Leaf rather than emerald, which is what keeps it away from [`ACCENT`]:
+    /// the accent is a cyan-leaning teal and means *this is asking you
+    /// something*, and a life gain is asking nothing. Two greens that had to
+    /// be told apart would be a third claim the player never agreed to read.
+    pub const HEAL: Color = Color::srgb(0.53, 0.80, 0.44);
     /// The active seat's marker.
     pub const ACTIVE: Color = Color::srgb(0.84, 0.64, 0.31);
     /// A card the client is offering to tap lands for: an offer, not a
@@ -953,7 +961,7 @@ pub use rail::{DesignationFlash, flash_the_designation, light_the_current_step};
 pub(crate) use scroll::scrolled;
 pub use scroll::{HandScroll, Scrolls, scrolls, wheel_is_the_interfaces};
 pub use seatbar::{
-    BarRevision, SeatBar, SeatBarRoot, SeatInk, SeatStep, SeatTile, Shelf, Shelves,
+    BarRevision, LifeCell, SeatBar, SeatBarRoot, SeatInk, SeatStep, SeatTile, Shelf, Shelves,
     measure_shelves, place_seat_bars, stretch_step_tiles, sync_seat_bars,
 };
 pub use stack::{StackMotion, ease_the_stack_in};
