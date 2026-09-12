@@ -1291,6 +1291,16 @@ impl GameState {
         {
             self.watch_token_cleanup(id);
         }
+        // CR 506.4: a permanent that leaves the battlefield is removed from
+        // combat, and this is the one place every departure passes through —
+        // a death, a bounce, an exile, and the exile-and-return that is a
+        // blink. The id is no help on its own: it is an arena handle and the
+        // same one comes back, so a creature that was blinked mid-combat was
+        // still declared as an attacker, still counted as blocked, and still
+        // traded damage with a blocker it had never met.
+        if from_zone == crate::zone::Zone::Battlefield {
+            self.combat.remove_from_combat(id);
+        }
         // Creature deaths this turn (Emeritus of Woe's re-prepare).
         if from_zone == crate::zone::Zone::Battlefield && to.zone() == crate::zone::Zone::Graveyard
         {
@@ -1514,6 +1524,7 @@ impl GameState {
         for a in &self.combat.attackers {
             h.u32(a.creature.slot());
             hash_defender(&mut h, a.defending, ObjectId::slot);
+            h.boolean(a.blocked);
         }
         h.usize(self.combat.blockers.len());
         for b in &self.combat.blockers {
@@ -1684,6 +1695,7 @@ impl GameState {
         for a in &self.combat.attackers {
             h.u32(position(a.creature));
             hash_defender(&mut h, a.defending, position);
+            h.boolean(a.blocked);
         }
         h.usize(self.combat.blockers.len());
         for b in &self.combat.blockers {

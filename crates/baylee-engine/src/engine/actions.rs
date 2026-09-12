@@ -1,8 +1,7 @@
 use super::{
-    AbilityDef, AttackerInfo, BlockerInfo, CardLookup, Cause, CombatDeclared, Engine, EngineError,
-    GameEvent, LossReason, ObjectId, ObjectKind, Pending, PlanKind, PlayerAction, PlayerId,
-    SmallVec, Status, Zone, ZoneLocation, ZonePosition, cast_wizard, casting, combat, mana_pay,
-    resolve, sba,
+    AbilityDef, AttackerInfo, CardLookup, Cause, CombatDeclared, Engine, EngineError, GameEvent,
+    LossReason, ObjectId, ObjectKind, Pending, PlanKind, PlayerAction, PlayerId, SmallVec, Status,
+    Zone, ZoneLocation, ZonePosition, cast_wizard, casting, combat, mana_pay, resolve, sba,
 };
 use crate::choice::CastModeKind;
 
@@ -1089,6 +1088,7 @@ impl<L: CardLookup> Engine<L> {
             self.state.combat.attackers.push(AttackerInfo {
                 creature,
                 defending,
+                blocked: false,
             });
             self.state.journal.record(GameEvent::BecameAttacker {
                 object: creature,
@@ -1143,10 +1143,7 @@ impl<L: CardLookup> Engine<L> {
             }
         }
         for (blocker, attacker) in blockers {
-            self.state
-                .combat
-                .blockers
-                .push(BlockerInfo { blocker, attacker });
+            self.state.combat.declare_block(blocker, attacker);
             self.state.journal.record(GameEvent::BecameBlocker {
                 object: blocker,
                 attacker,

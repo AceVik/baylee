@@ -6,7 +6,7 @@
 
 use crate::casting::{self, CastFailure};
 use crate::choice::{LegalActions, Pending, PlayerAction};
-use crate::combat::{self, AttackerInfo, BlockerInfo};
+use crate::combat::{self, AttackerInfo};
 use crate::eval;
 use crate::event::{Cause, GameEvent, LossReason};
 use crate::mana_pay;

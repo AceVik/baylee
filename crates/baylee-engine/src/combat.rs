@@ -26,6 +26,15 @@ pub struct AttackerInfo {
     pub creature: ObjectId,
     /// What it attacks: a player, or one of their planeswalkers.
     pub defending: Defender,
+    /// Whether a blocker was ever declared against it (CR 509.1h).
+    ///
+    /// It is set once and never cleared, which is the whole point: a
+    /// creature that has been blocked *stays* blocked for the rest of
+    /// combat, so "is it blocked" and "what is blocking it" stop being the
+    /// same question the moment a blocker leaves the battlefield. Reading
+    /// the blocker list for both is what let an attacker whose only blocker
+    /// was blinked deal its damage to the player.
+    pub blocked: bool,
 }
 
 /// One declared blocker.
@@ -63,10 +72,52 @@ impl CombatState {
             .collect()
     }
 
-    /// Whether a creature is currently blocked.
+    /// Whether a creature is blocked (CR 509.1h) — which is not the same as
+    /// having a blocker left, and is why the answer is a flag.
     #[must_use]
     pub fn is_blocked(&self, attacker: ObjectId) -> bool {
-        self.blockers.iter().any(|b| b.attacker == attacker)
+        self.attackers
+            .iter()
+            .any(|a| a.creature == attacker && a.blocked)
+    }
+
+    /// Records one block, which is two statements and not one: the pairing,
+    /// and the fact that the attacker is now blocked (CR 509.1h).
+    ///
+    /// One door, because the second statement is the easy one to forget —
+    /// the flag was set at the call site in `declare_blockers` first, and
+    /// every test that built a block by hand went on assigning damage as
+    /// though nothing were blocking.
+    pub fn declare_block(&mut self, blocker: ObjectId, attacker: ObjectId) {
+        for info in &mut self.attackers {
+            if info.creature == attacker {
+                info.blocked = true;
+            }
+        }
+        self.blockers.push(BlockerInfo { blocker, attacker });
+    }
+
+    /// Takes a permanent out of combat (CR 506.4).
+    ///
+    /// A creature that leaves the battlefield stops being an attacking,
+    /// blocking, blocked or unblocked creature — and comes back, if it comes
+    /// back at all, as a new object that was never in this combat (CR
+    /// 400.7). The `ObjectId` does not say so on its own: it is an arena
+    /// handle and survives the round trip, so a Restoration Angel blinking
+    /// an attacker left the attacker declared, swinging and being blocked,
+    /// with a creature that had not been on the battlefield when blockers
+    /// were declared.
+    ///
+    /// Three entries go, and the third is the one worth naming: the
+    /// creature's own attack, every block it was making, and every block
+    /// made *against* it, because a blocker with nothing left to block deals
+    /// its damage to nothing. What does not go is the `blocked` flag on some
+    /// other attacker — that is a fact about the attacker, not about the
+    /// blocker that has left.
+    pub fn remove_from_combat(&mut self, id: ObjectId) {
+        self.attackers.retain(|a| a.creature != id);
+        self.blockers
+            .retain(|b| b.blocker != id && b.attacker != id);
     }
 }
 
@@ -276,7 +327,7 @@ pub fn deal_combat_damage(state: &mut GameState, first_strike_step: bool) {
         if !strikes_now(state, info.creature, first_strike_step) {
             continue;
         }
-        assign_attacker_damage(state, info.creature, info.defending);
+        assign_attacker_damage(state, info.creature, info.defending, info.blocked);
     }
     let blockers = state.combat.blockers.clone();
     for info in &blockers {
@@ -297,7 +348,12 @@ pub fn deal_combat_damage(state: &mut GameState, first_strike_step: bool) {
 }
 
 /// One attacker's damage assignment (CR 510.1a–c).
-fn assign_attacker_damage(state: &mut GameState, attacker: ObjectId, defending: Defender) {
+fn assign_attacker_damage(
+    state: &mut GameState,
+    attacker: ObjectId,
+    defending: Defender,
+    blocked: bool,
+) {
     let power = power_of(state, attacker);
     let trample = has_keyword(state, attacker, K::TRAMPLE);
     let lifelink = has_keyword(state, attacker, K::LIFELINK);
@@ -305,18 +361,22 @@ fn assign_attacker_damage(state: &mut GameState, attacker: ObjectId, defending: 
         return;
     };
     let mut lifelinked = 0i16;
-    let blockers = state.combat.blockers_of(attacker);
-    // CR 509.1h: an attacker with no blockers left is still *blocked*, so
-    // it deals no damage to the player — unless it has trample, which
-    // assigns everything past the (now absent) blockers to the defender.
-    let live: Vec<ObjectId> = blockers
-        .iter()
-        .copied()
+    // CR 509.1h: an attacker whose blockers have all left is still
+    // *blocked*, so it deals no damage to the player — unless it has
+    // trample, which assigns everything past the (now absent) blockers to
+    // the defender. The question is the declaration, not the list: a
+    // creature that left the battlefield is out of combat entirely
+    // (CR 506.4) and `CombatState::remove_from_combat` has already dropped
+    // its entry, so an empty list here means either "never blocked" or
+    // "blocked by creatures that are gone", and only `blocked` tells them
+    // apart.
+    let live: Vec<ObjectId> = state
+        .combat
+        .blockers_of(attacker)
+        .into_iter()
         .filter(|b| state.object(*b).is_some())
         .collect();
-    if blockers.is_empty() {
-        lifelinked += deal_damage_to_defender(state, attacker, defending, power);
-    } else {
+    if blocked {
         let mut remaining = power;
         for blocker in &live {
             if remaining <= 0 {
@@ -340,6 +400,8 @@ fn assign_attacker_damage(state: &mut GameState, attacker: ObjectId, defending: 
             // planeswalker it's attacking", not to the player regardless.
             lifelinked += deal_damage_to_defender(state, attacker, defending, remaining);
         }
+    } else {
+        lifelinked += deal_damage_to_defender(state, attacker, defending, power);
     }
     if lifelink {
         gain_life(state, controller, lifelinked);
@@ -582,6 +644,7 @@ mod tests {
         state.combat.attackers.push(AttackerInfo {
             creature,
             defending: Defender::Player(defending),
+            blocked: false,
         });
     }
 
@@ -590,6 +653,7 @@ mod tests {
         state.combat.attackers.push(AttackerInfo {
             creature,
             defending: Defender::Planeswalker(walker),
+            blocked: false,
         });
     }
 
@@ -618,10 +682,7 @@ mod tests {
     }
 
     fn block(state: &mut GameState, blocker: ObjectId, attacker: ObjectId) {
-        state
-            .combat
-            .blockers
-            .push(BlockerInfo { blocker, attacker });
+        state.combat.declare_block(blocker, attacker);
     }
 
     fn damage(state: &GameState, id: ObjectId) -> u16 {
@@ -636,6 +697,132 @@ mod tests {
 
     const P0: PlayerId = PlayerId::new(0);
     const P1: PlayerId = PlayerId::new(1);
+
+    /// A blink takes a creature out of combat and brings back a different
+    /// one (CR 506.4, CR 400.7) — different to the rules, at any rate; the
+    /// `ObjectId` is an arena handle and comes back unchanged, which is why
+    /// nothing noticed. Ephemerate on an attacking Solemn Simulacrum left it
+    /// declared as an attacker, and a Restoration Angel later took an
+    /// attacking Sun Titan and Elesh Norn out of a combat they went on
+    /// fighting.
+    #[test]
+    fn a_blinked_attacker_is_out_of_combat() {
+        let mut state = empty_state();
+        let titan = creature(&mut state, P0, 6, 6, KeywordSet::EMPTY);
+        let wall = creature(&mut state, P1, 0, 8, KeywordSet::EMPTY);
+        attack(&mut state, titan, P1);
+        block(&mut state, wall, titan);
+
+        // Out and straight back in, which is what a blink is.
+        state
+            .move_object(
+                titan,
+                ZoneLocation::Exile(P0),
+                crate::zone::ZonePosition::Top,
+                crate::event::Cause::Effect,
+            )
+            .expect("exiled");
+        state
+            .move_object(
+                titan,
+                ZoneLocation::Battlefield,
+                crate::zone::ZonePosition::Top,
+                crate::event::Cause::Effect,
+            )
+            .expect("returned");
+        assert!(on_battlefield(&state, titan), "the blink brought it back");
+        assert!(
+            state.combat.attackers.is_empty(),
+            "it is not attacking any more"
+        );
+        assert!(
+            state.combat.blockers.is_empty(),
+            "and the wall has nothing left to block"
+        );
+
+        deal_combat_damage(&mut state, false);
+        assert_eq!(damage(&state, wall), 0, "it dealt no damage");
+        assert_eq!(damage(&state, titan), 0, "and took none");
+        assert_eq!(state.players[1].life, 20, "nor did anything get through");
+    }
+
+    /// The other half, and the asymmetry that makes it its own case
+    /// (CR 509.1h): an attacker whose blocker leaves stays **blocked**. It
+    /// deals its damage to nothing at all — the blocker is gone and the
+    /// player is not a legal recipient.
+    #[test]
+    fn an_attacker_stays_blocked_when_its_blocker_is_blinked() {
+        let mut state = empty_state();
+        let bear = creature(&mut state, P0, 7, 7, KeywordSet::EMPTY);
+        let chump = creature(&mut state, P1, 1, 1, KeywordSet::EMPTY);
+        attack(&mut state, bear, P1);
+        block(&mut state, chump, bear);
+
+        state
+            .move_object(
+                chump,
+                ZoneLocation::Exile(P1),
+                crate::zone::ZonePosition::Top,
+                crate::event::Cause::Effect,
+            )
+            .expect("exiled");
+        state
+            .move_object(
+                chump,
+                ZoneLocation::Battlefield,
+                crate::zone::ZonePosition::Top,
+                crate::event::Cause::Effect,
+            )
+            .expect("returned");
+        assert!(
+            state.combat.is_blocked(bear),
+            "being blocked is a fact about the attacker, not about the blocker"
+        );
+        assert!(state.combat.blockers_of(bear).is_empty());
+
+        deal_combat_damage(&mut state, false);
+        assert_eq!(state.players[1].life, 20, "seven damage went nowhere");
+        assert_eq!(
+            damage(&state, chump),
+            0,
+            "the creature that came back was never in this combat"
+        );
+    }
+
+    /// …unless it tramples, which is the exception the owner asked for by
+    /// name: CR 702.19b assigns everything past the (absent) blockers to
+    /// what the creature was attacking.
+    #[test]
+    fn trample_goes_through_when_the_blocker_is_blinked() {
+        let mut state = empty_state();
+        let beast = creature(&mut state, P0, 7, 7, KeywordSet::TRAMPLE);
+        let chump = creature(&mut state, P1, 1, 1, KeywordSet::EMPTY);
+        attack(&mut state, beast, P1);
+        block(&mut state, chump, beast);
+
+        state
+            .move_object(
+                chump,
+                ZoneLocation::Exile(P1),
+                crate::zone::ZonePosition::Top,
+                crate::event::Cause::Effect,
+            )
+            .expect("exiled");
+        state
+            .move_object(
+                chump,
+                ZoneLocation::Battlefield,
+                crate::zone::ZonePosition::Top,
+                crate::event::Cause::Effect,
+            )
+            .expect("returned");
+
+        deal_combat_damage(&mut state, false);
+        assert_eq!(
+            state.players[1].life, 13,
+            "all seven trample through, nothing having to be assigned first"
+        );
+    }
 
     /// CR 702.2b + 704.5h: any nonzero damage from a deathtouch source is
     /// lethal. A 1/1 deathtoucher marks one damage on a 6/6 and the SBA
