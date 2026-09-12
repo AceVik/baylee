@@ -1053,9 +1053,13 @@ type Aloft = (With<Floating>, With<CardVisual>, Without<CardShadow>);
 /// - the *spread* grows with the height by [`DECK_SHADOW_SPREAD`], the same
 ///   coefficient a thick pile's shadow already grows by, so a flier and a
 ///   deck of the same height cast the same shadow. It is capped at
-///   [`FLOAT_SHADOW_CAP`], which is what stops a card on its way out of the
-///   game — [`retire`] throws one [`BOUNCE_RISE`] into the air — from
-///   dragging a shadow the size of a lane along behind it.
+///   [`FLOAT_SHADOW_CAP`], because the height read here is the *whole* rise
+///   and a flier the pointer is resting on carries a hover lift on top of
+///   its own: the cap is what stops that from spreading a lane-sized pool
+///   under one card. A card on its way out of the game — [`retire`] throws
+///   one [`BOUNCE_RISE`] into the air — is not this system's to worry
+///   about, because it loses [`CardVisual`] on the way and [`Aloft`] then
+///   does not match it at all.
 ///
 /// The formula is general and reproduces what a resting card is given at
 /// spawn, so lifting the [`Floating`] filter would give a *hovered* card a
@@ -6016,10 +6020,12 @@ mod flying_tests {
     }
 
     #[test]
-    fn a_shadow_does_not_follow_a_card_out_of_the_game() {
-        // `retire` throws a card that has left the table `BOUNCE_RISE` into
-        // the air. Its shadow is capped rather than tracking it, or a card on
-        // its way to a hand would drag a pool the size of the lane behind it.
+    fn the_spread_stops_however_high_the_card_is_carried() {
+        // A flier the pointer is resting on is at `RESTING` plus the hover
+        // lift, and the height read here is the whole of that. The cap is
+        // what keeps the sum from putting a lane-sized pool under one card,
+        // so it is measured at the largest rise anything on this table ever
+        // takes: the one `retire` throws a departing card into.
         let mut app = App::new();
         app.add_systems(Update, ground_the_shadows);
         a_card_in_the_air(&mut app, BOUNCE_RISE, true);
@@ -6028,7 +6034,31 @@ mod flying_tests {
         let spread = shadow_of(&mut app).scale.x;
         assert!(
             spread <= 1.0 + FLOAT_SHADOW_CAP * DECK_SHADOW_SPREAD + 1e-5,
-            "a departing card dragged a {spread}× shadow with it"
+            "the spread ran past its cap: {spread}×"
+        );
+    }
+
+    #[test]
+    fn a_shadow_does_not_follow_a_card_out_of_the_game() {
+        // The other half, and the one the cap cannot do: a card `retire` has
+        // taken over is no longer a `CardVisual`, so `Aloft` does not match
+        // it and its shadow is left exactly where the bounce carries it —
+        // glued underneath, which is what a card flying off to a hand wants.
+        let mut app = App::new();
+        app.add_systems(Update, ground_the_shadows);
+        let card = app.world_mut().spawn((
+            Floating,
+            Transform::from_xyz(0.0, TABLE_Y + CARD_LIFT + BOUNCE_RISE, 0.0),
+        ));
+        let card = card.id();
+        let was = Transform::from_xyz(0.0, 0.0, -(CARD_LIFT * 0.5));
+        app.world_mut().spawn((CardShadow, was, ChildOf(card)));
+        app.update();
+
+        assert_eq!(
+            shadow_of(&mut app),
+            was,
+            "a card that has left the table was still being grounded"
         );
     }
 }
