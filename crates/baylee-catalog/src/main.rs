@@ -2,8 +2,8 @@
 //!
 //! ```text
 //! baylee-catalog migrate                 # create the schema
-//! baylee-catalog ingest                  # every card, English
-//! baylee-catalog ingest --all-languages  # every card, every language
+//! baylee-catalog ingest                  # every card, every language
+//! baylee-catalog ingest --english-only   # every card, English only
 //! baylee-catalog search --query "bolt"   # check an install
 //! ```
 //!
@@ -33,9 +33,9 @@ enum Cmd {
     Migrate,
     /// Download a Scryfall bulk feed and store every card in it.
     Ingest {
-        /// Ingest every language instead of English only.
+        /// Ingest English only instead of every language.
         #[arg(long)]
-        all_languages: bool,
+        english_only: bool,
     },
     /// Search the catalog, to check an install.
     Search {
@@ -66,12 +66,12 @@ async fn main() -> Result<()> {
             catalog.migrate().await?;
             println!("schema is up to date");
         }
-        Cmd::Ingest { all_languages } => {
+        Cmd::Ingest { english_only } => {
             catalog.migrate().await?;
-            let feed = if all_languages {
-                ingest::Feed::AllLanguages
+            let feed = if english_only {
+                ingest::Feed::English
             } else {
-                ingest::Feed::Default
+                ingest::Feed::AllLanguages
             };
             let stored = ingest::bulk(&catalog, feed).await?;
             println!(

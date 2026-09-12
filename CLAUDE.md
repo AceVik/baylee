@@ -109,10 +109,22 @@ The card catalog (card text, not images) lives in PostgreSQL and is optional:
 ```bash
 docker compose up -d                                     # postgres 18 on :5432
 export DATABASE_URL=postgres://baylee:baylee@127.0.0.1:5432/baylee
-cargo run -p baylee-catalog -- ingest                     # ~118k English printings, ~30 s
-cargo run -p baylee-catalog -- ingest --all-languages     # every language (392 MB)
+cargo run -p baylee-catalog -- ingest                     # every language: 542k printings, ~3 min, 593 MB
+cargo run -p baylee-catalog -- ingest --english-only      # ~118k English printings, ~30 s
 cargo run -p baylee-catalog -- search "lightning bolt"
 ```
+
+**Every language is the default and English is the opt-out**, which is the
+opposite way round from Scryfall's two feeds. A card's printed text is the one
+thing a player reads in their own language — the client asks `/catalog/text`
+with the language it is set to and falls back to English printing by printing
+— so an English-only catalog is not a smaller install, it is a client that
+quietly speaks English to everyone. Measured on this machine: `all_cards` is
+392 MB compressed, stores 542 142 printings in 19 languages in about three
+minutes, and leaves the database at 593 MB against the 118k rows
+`--english-only` stores. Run it with `RUST_LOG=baylee_catalog=info`: a plain
+`RUST_LOG=info` puts every `INSERT` through the tracing subscriber and writes
+a 92 MB log for one ingest.
 
 Without `DATABASE_URL` the gateway starts as before and simply serves no card
 text; the client then draws faces from what the engine projects. Copy

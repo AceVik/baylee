@@ -30,14 +30,24 @@ const RATE_LIMIT_PAUSE: Duration = Duration::from_millis(120);
 const BATCH: usize = 400;
 
 /// Which bulk feed to ingest.
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+///
+/// Every language is the **default** here and English-only is the opt-out,
+/// which is the opposite of how Scryfall names its two feeds. A card's
+/// printed text is the one thing a player reads in their own language, and a
+/// catalog that has to be re-ingested before it can say so is a catalog that
+/// is wrong for everyone who did not read the flag.
+#[derive(Clone, Copy, Default, PartialEq, Eq, Debug)]
 pub enum Feed {
-    /// Every card in English (or its printed language when it has no English
-    /// printing). ~78 MB compressed.
-    Default,
-    /// Every card in every language. ~392 MB compressed, and the only feed
-    /// that makes a non-English client useful.
+    /// Every card in every language Magic is printed in. ~392 MB compressed,
+    /// 542 142 printings in 19 languages, about three minutes, 593 MB in
+    /// Postgres.
+    #[default]
     AllLanguages,
+    /// Every card in English (or its printed language when it has no English
+    /// printing). ~78 MB compressed and about 118 000 printings — a fifth of
+    /// the rows, for an install that is only ever going to be read in
+    /// English.
+    English,
 }
 
 impl Feed {
@@ -45,8 +55,8 @@ impl Feed {
     #[must_use]
     pub const fn scryfall_type(self) -> &'static str {
         match self {
-            Self::Default => "default_cards",
             Self::AllLanguages => "all_cards",
+            Self::English => "default_cards",
         }
     }
 }
@@ -159,8 +169,19 @@ mod tests {
 
     #[test]
     fn feeds_name_the_scryfall_types() {
-        assert_eq!(Feed::Default.scryfall_type(), "default_cards");
+        assert_eq!(Feed::English.scryfall_type(), "default_cards");
         assert_eq!(Feed::AllLanguages.scryfall_type(), "all_cards");
+    }
+
+    /// An ingest nobody configured fills the catalog in every language.
+    ///
+    /// It is asserted rather than left to the CLI's flag, because the
+    /// default is the whole decision: `--english-only` is a choice a person
+    /// makes about their own install, and the absence of a flag must never
+    /// be read as "English is enough".
+    #[test]
+    fn an_ingest_nobody_configured_speaks_every_language() {
+        assert_eq!(Feed::default(), Feed::AllLanguages);
     }
 
     /// The batch size has to stay inside Postgres' parameter cap with room for
