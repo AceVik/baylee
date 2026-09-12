@@ -1,7 +1,7 @@
 //! xtask — baylee development tasks (codegen, card explanation, …).
 
 use baylee_cards_codegen::{
-    acceptance, catalog, forge, forgegen, landgen, layout, ledger, scryfall, stubgen,
+    acceptance, catalog, forge, forgegen, landgen, layout, ledger, lines, scryfall, stubgen,
 };
 use clap::{Parser, Subcommand};
 use std::collections::{BTreeMap, BTreeSet};
@@ -32,6 +32,11 @@ enum Cmd {
         #[arg(long, default_value = "data/scryfall-cache")]
         cache: PathBuf,
     },
+    /// Measure how well the compiled ability list lines up with the printed sentences.
+    ///
+    /// A report, not a check: it is the design input for the per-ability
+    /// line index the stack panel needs.
+    AbilityLines,
     /// Dump every compiled `CardDef` — the equivalence check for a refactor.
     ///
     /// A change that is meant to alter no rules (new macros, shared filters,
@@ -302,6 +307,7 @@ fn main() -> anyhow::Result<()> {
             forge,
             cache,
         } => codegen(&root, check, &forge, &cache),
+        Cmd::AbilityLines => ability_lines(&root),
         Cmd::PoolDump { out } => pool_dump(&out),
         Cmd::ForgeReport {
             forge,
@@ -1830,6 +1836,28 @@ fn printed_text(payload: &serde_json::Value) -> String {
     out
 }
 
+/// The printed text of each face, kept apart.
+///
+/// [`printed_text`] joins them, which is right for a search over "does this
+/// card say X anywhere" and wrong for anything that wants an index into one
+/// face's sentences: Sheoldred's front prints three lines and its back
+/// three more, and a saga chapter numbered against the joined string points
+/// at the front face a client is not drawing.
+fn face_texts(payload: &serde_json::Value) -> Vec<String> {
+    let text = |v: Option<&serde_json::Value>| {
+        v.and_then(serde_json::Value::as_str)
+            .unwrap_or_default()
+            .to_string()
+    };
+    if let Some(faces) = payload
+        .get("card_faces")
+        .and_then(serde_json::Value::as_array)
+    {
+        return faces.iter().map(|f| text(f.get("oracle_text"))).collect();
+    }
+    vec![text(payload.get("oracle_text"))]
+}
+
 /// A Scryfall color letter.
 fn color_of_letter(letter: &str) -> Option<baylee_cards::dsl::Color> {
     use baylee_cards::dsl::Color;
@@ -2597,18 +2625,12 @@ fn check_scope_matches_the_text(
 }
 
 /// Oracle text with its reminder text taken out.
+///
+/// One implementation, in `lines`, because the sentence reader there needs
+/// exactly this and a second copy of it would be free to drift from the
+/// one the generated table is built with.
 fn strip_reminders(text: &str) -> String {
-    let mut out = String::with_capacity(text.len());
-    let mut depth = 0usize;
-    for c in text.chars() {
-        match c {
-            '(' => depth += 1,
-            ')' => depth = depth.saturating_sub(1),
-            _ if depth == 0 => out.push(c),
-            _ => {}
-        }
-    }
-    out
+    lines::without_reminder(text)
 }
 
 fn validate(root: &Path) -> anyhow::Result<()> {
@@ -3989,4 +4011,163 @@ mod tests {
     fn an_unknown_word_refuses_the_line_rather_than_guessing() {
         assert_eq!(printed_subtypes("Creature \u{2014} Wizard Nonesuch"), None);
     }
+}
+
+// ------------------------------------------------------ ability lines
+
+/// Why one ability found no sentence.
+#[derive(Clone, Copy, PartialEq, Eq, Debug, PartialOrd, Ord)]
+enum Miss {
+    /// The card prints no line of that shape at all — an ability whose
+    /// sentence is printed as a *keyword* (Mulldrifter's evoke sacrifice,
+    /// Lightning Greaves' `Equip {0}`).
+    NoLineOfThatShape,
+    /// A line of the right shape is there and none of them matches what
+    /// the ability says about itself. This is the bucket that matters: it
+    /// is where a swapped pair and a wrong cost both land.
+    NoLineThatSaysThat,
+}
+
+/// Does the compiled ability list line up with the printed sentences?
+///
+/// `docs/client.md` says codegen "can emit a per-card table of ordered
+/// sentences alongside the registry", and that the `//! Oracle:` header
+/// lines are "ordered to match the ability list". Nothing has ever counted
+/// that, and the whole of the stack-text feature rests on it: if an ability
+/// can be given the index of the sentence it came from, the client can
+/// print a localized loyalty ability's actual text instead of "+1".
+///
+/// So this is a **measurement**, not a check. It reports how many cards
+/// line up, and names every one that does not, because the shape of the
+/// answer decides the shape of the table: a clean sweep means one
+/// `Option<u8>` per ability, and a long tail means a hand-kept override
+/// column beside it.
+///
+/// It matches on shape **and** on content, and the second half is not
+/// optional. Shape alone cannot tell a walker's `+1` from its `−3` or a
+/// `Dies` trigger from an `Enters` one, so it walks a card whose abilities
+/// are in each other's places and reports it as aligned — an upper bound
+/// wearing a count's clothes.
+fn ability_lines(root: &Path) -> anyhow::Result<()> {
+    let decks_text = fs::read_to_string(root.join("data/acceptance-decks.txt"))?;
+    let rows = acceptance::parse_decks(&decks_text)?;
+    let pool_text = fs::read_to_string(root.join("data/card-pool.txt")).unwrap_or_default();
+    let names = acceptance::all_names(&rows, &pool_text);
+    let by_name: BTreeMap<&str, &'static baylee_cards::dsl::CardDef> =
+        baylee_cards::all().map(|def| (def.name(), def)).collect();
+
+    let mut considered = 0usize;
+    let mut abilities_seen = 0usize;
+    let mut aligned = 0usize;
+    let mut out_of_order = 0usize;
+    let mut lineless = 0usize;
+    let mut ambiguous = 0usize;
+    let mut coinflips: Vec<String> = Vec::new();
+    let mut misses: Vec<String> = Vec::new();
+    let mut disorder: Vec<String> = Vec::new();
+    let mut why: BTreeMap<(Miss, lines::LineShape), usize> = BTreeMap::new();
+
+    for name in &names {
+        let Some(def) = by_name.get(name.split(" // ").next().unwrap_or(name)) else {
+            continue;
+        };
+        // A `Partial` card's abilities go on the stack like anyone else's,
+        // so the table has to cover it — only a stub has nothing to say.
+        if matches!(def.coverage, baylee_cards::dsl::Coverage::Unimplemented) {
+            continue;
+        }
+        let Some(payload) = cached_printing(root, name) else {
+            continue;
+        };
+        // **One face at a time**, because that is the unit the table has to
+        // be in: a back face's abilities are its own (`abilities_for_face`)
+        // and a client draws one face's text, so an index into the two
+        // joined together points at the face nobody is reading. Sheoldred
+        // is the card that says so — its three saga chapters are on the
+        // back and were not in the walk at all.
+        let texts = face_texts(&payload);
+        for face in 0..def.faces.len() {
+            let Some(printed) = texts.get(face) else {
+                continue;
+            };
+            let abilities = def.abilities_for_face(face);
+            let sentences: Vec<&str> = lines::sentences(printed).collect();
+            // Only the abilities that can *be* a stack entry are in
+            // question. A static never goes on the stack, and one printed
+            // sentence is several of them by design ("gets +1/+1 and has
+            // flying" is layers 7c and 6), so asking a static which
+            // sentence it came from is asking the wrong question.
+            let stackable: Vec<(usize, lines::LineShape)> = abilities
+                .iter()
+                .map(lines::ability_shape)
+                .enumerate()
+                .filter(|(_, s)| *s != lines::LineShape::Other)
+                .collect();
+            if stackable.is_empty() {
+                continue;
+            }
+            considered += 1;
+            abilities_seen += stackable.len();
+
+            // The mapping itself is `lines::map`, the same code the table
+            // will be generated from — a report that matched a second way
+            // would be measuring itself rather than the thing that ships.
+            let mapping = lines::map(abilities, printed);
+            ambiguous += mapping.ambiguous;
+            if mapping.ambiguous > 0 {
+                coinflips.push(format!("{} ({})", def.name(), mapping.ambiguous));
+            }
+            let mut found_all = true;
+            for (i, want) in stackable.iter().copied() {
+                if mapping.lines[i].is_some() {
+                    continue;
+                }
+                found_all = false;
+                let miss = if sentences.iter().any(|l| lines::line_shape(l) == want) {
+                    Miss::NoLineThatSaysThat
+                } else {
+                    Miss::NoLineOfThatShape
+                };
+                *why.entry((miss, want)).or_default() += 1;
+                misses.push(format!("{}: ability {i} ({want:?}) — {miss:?}", def.name()));
+            }
+            // `found_all` is asked first. `in_order` says only that the
+            // walk never went backwards, and an ability with no sentence at
+            // all never moves it — so a card whose *first* ability is
+            // lineless is perfectly "in order" and must still be counted as
+            // the miss it is.
+            match (found_all, mapping.in_order) {
+                (false, _) => lineless += 1,
+                (true, true) => aligned += 1,
+                (true, false) => {
+                    out_of_order += 1;
+                    disorder.push(def.name().to_string());
+                }
+            }
+        }
+    }
+
+    println!("ability lines: {considered} cards ({abilities_seen} stack-capable abilities)");
+    println!("  {aligned} line up sentence-for-ability, in printed order");
+    println!("  {out_of_order} find every ability a sentence, but not in the code's order");
+    println!("  {lineless} have an ability no sentence fits");
+    println!("  {ambiguous} abilities fit more than one sentence equally well");
+    if !coinflips.is_empty() {
+        println!("    {}", coinflips.join(", "));
+    }
+    println!("\nwhy an ability found no sentence:");
+    let mut pairs: Vec<_> = why.into_iter().collect();
+    pairs.sort_by_key(|&(_, n)| std::cmp::Reverse(n));
+    for ((miss, want), n) in &pairs {
+        println!("  {want:?}: {miss:?} — {n}");
+    }
+    println!("\nout of order ({}):", disorder.len());
+    for card in &disorder {
+        println!("  {card}");
+    }
+    println!("\nabilities with no sentence ({}):", misses.len());
+    for line in &misses {
+        println!("  {line}");
+    }
+    Ok(())
 }
