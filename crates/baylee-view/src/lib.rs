@@ -38,7 +38,7 @@ use serde::{Deserialize, Serialize};
 
 /// Protocol version of the view payload. Bumped on any breaking change so a
 /// client can refuse a host it cannot render rather than mis-rendering it.
-pub const VIEW_VERSION: u32 = 17;
+pub const VIEW_VERSION: u32 = 18;
 
 // ---------------------------------------------------------------- turn shape
 
@@ -884,6 +884,16 @@ pub struct AttackerView {
     /// What it attacks: the defending player, or one of their
     /// planeswalkers (CR 508.1a).
     pub defending: Defender,
+    /// Whether it was blocked, which is **not** the same question as whether
+    /// anything is blocking it now (CR 509.1h).
+    ///
+    /// A creature that was blocked stays blocked for the rest of combat even
+    /// if every blocker leaves, and then deals its combat damage to nothing
+    /// at all. The engine has carried that as a flag since a blinked blocker
+    /// let an attacker through; without it here a client derives "blocked"
+    /// from an empty blocker list, draws no line, and counts the damage
+    /// against the player it never reaches.
+    pub blocked: bool,
 }
 
 /// One declared blocker and the attacker it blocks.
@@ -921,9 +931,17 @@ impl CombatView {
 
     /// Whether an attacker is unblocked, which a client marks because it
     /// decides whether damage reaches the defending player.
+    ///
+    /// Asks the flag and not the blocker list: an attacker whose blockers
+    /// have all left is blocked and dealing damage to nobody (CR 509.1h),
+    /// and an arithmetic that read the list would hand the whole squad's
+    /// damage to the player it is not reaching.
     #[must_use]
     pub fn is_unblocked(&self, attacker: ObjectId) -> bool {
-        self.blockers_of(attacker).next().is_none()
+        !self
+            .attackers
+            .iter()
+            .any(|a| a.creature == attacker && a.blocked)
     }
 }
 
@@ -1007,6 +1025,22 @@ pub struct PlayerView {
     /// Empty in every view where nothing is being shown, which is nearly all
     /// of them.
     pub looking_at: Vec<PublicObject>,
+    /// The permanent holding this seat to sorcery speed, if one is
+    /// (Teferi, Time Raveler's static — CR 613.1, a layer-2-and-beyond
+    /// continuous effect the engine reads off its own effect table).
+    ///
+    /// The one thing a client cannot work out and had been guessing at. Its
+    /// timing rule is written to be conservative in the direction that costs
+    /// the player nothing — offer a spell the engine then refuses, rather
+    /// than hide one it would have allowed — and for this effect it was
+    /// conservative the expensive way round: an instant was offered
+    /// unconditionally, the click armed a mana run, the lands tapped, and the
+    /// spell was refused with the mana gone.
+    ///
+    /// An object and not a flag, because the seat is owed the *reason*: the
+    /// card to flash when the offer is withheld is this one. `None` is the
+    /// ordinary case and means nothing is holding this seat back.
+    pub sorcery_lock: Option<ObjectId>,
 }
 
 impl PlayerView {
@@ -1174,6 +1208,7 @@ mod tests {
             command: vec![vec![]; seats as usize],
             combat: CombatView::default(),
             looking_at: Vec::new(),
+            sorcery_lock: None,
         }
     }
 
@@ -1287,10 +1322,12 @@ mod tests {
             AttackerView {
                 creature: att,
                 defending: Defender::Player(PlayerId::new(1)),
+                blocked: true,
             },
             AttackerView {
                 creature: other,
                 defending: Defender::Player(PlayerId::new(1)),
+                blocked: false,
             },
         ];
         v.combat.blockers = vec![BlockerView {
@@ -1301,6 +1338,35 @@ mod tests {
         assert!(!v.combat.is_unblocked(att));
         assert!(v.combat.is_unblocked(other));
         assert_eq!(v.combat.blockers_of(att).count(), 1);
+    }
+
+    /// CR 509.1h: an attacker stays blocked when its blockers leave, and the
+    /// two questions a client asks about it stop agreeing.
+    ///
+    /// This is the shape a blink makes — the engine removes the departing
+    /// creature from combat and leaves the flag standing — and before the
+    /// flag reached the view it was unrepresentable: the blocker list is
+    /// empty, so "is it unblocked" answered yes and the whole squad's damage
+    /// was counted against a player none of it reaches.
+    #[test]
+    fn an_attacker_whose_blockers_have_gone_is_still_blocked() {
+        let mut v = view(2);
+        let att = ObjectId::new(10, 0);
+        v.combat.attackers = vec![AttackerView {
+            creature: att,
+            defending: Defender::Player(PlayerId::new(1)),
+            blocked: true,
+        }];
+
+        assert_eq!(
+            v.combat.blockers_of(att).count(),
+            0,
+            "nothing is blocking it any more"
+        );
+        assert!(
+            !v.combat.is_unblocked(att),
+            "and it is blocked all the same, dealing its damage to nobody"
+        );
     }
 
     #[test]

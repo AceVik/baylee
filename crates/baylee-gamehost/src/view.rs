@@ -550,6 +550,7 @@ pub fn player_view(
                 .map(|a| AttackerView {
                     creature: a.creature,
                     defending: a.defending,
+                    blocked: a.blocked,
                 })
                 .collect(),
             blockers: state
@@ -563,6 +564,20 @@ pub fn player_view(
                 .collect(),
         },
         looking_at: looking_at(state, seat, pending),
+        // The same question `casting::timing_allows` asks before it refuses a
+        // spell, asked once per view so the seat can be told before it spends
+        // anything. It is the effect's *source* that travels, not a flag: the
+        // client owes the player the card to point at.
+        sorcery_lock: state
+            .effects
+            .iter()
+            .find(|fx| {
+                matches!(
+                    fx.modifier,
+                    baylee_cards_dsl::Modifier::OpponentsCastAsSorcery
+                ) && state.is_opponent(fx.controller, seat)
+            })
+            .and_then(|fx| fx.source),
     }
 }
 
@@ -701,6 +716,72 @@ mod tests {
                 seat(vec![]),
             ],
         }
+    }
+
+    fn teferi_time_raveler() -> CardIndex {
+        by_oracle_id("ae7604bb-4818-45a3-960c-cf3d83f15964")
+            .unwrap()
+            .index
+    }
+
+    /// A preset with a Teferi, Time Raveler standing on seat 1's battlefield.
+    fn a_table_under_teferi() -> GamePreset {
+        let mut preset = mixed_print_preset();
+        preset.seats[1].starting_battlefield = vec![DeckEntry {
+            card: teferi_time_raveler(),
+            print: PrintRef::new(0),
+        }];
+        preset
+    }
+
+    /// The seat Teferi is holding to sorcery speed is told so, and told by
+    /// which card.
+    ///
+    /// This is the one timing fact a client cannot work out for itself. Its
+    /// own rule is written to err in the direction that costs the player
+    /// nothing — offer a spell the engine then refuses, rather than hide one
+    /// it would have allowed — and for this effect it erred the expensive way
+    /// round: an instant was offered unconditionally, the tap ran, the lands
+    /// were spent, and only then was the spell refused.
+    ///
+    /// The object and not a flag, because the answer a player is owed is
+    /// *which card*, and the bystander is the seat across the table: Teferi's
+    /// own controller casts at whatever speed they like (CR 613 — the static
+    /// says "each opponent"), so a view that named it for both seats would be
+    /// a lock nobody could ever be outside of.
+    #[test]
+    fn the_seat_teferi_locks_is_told_which_card_is_locking_it() {
+        use baylee_engine::choice::{Pending, PlayerAction};
+
+        let preset = a_table_under_teferi();
+        let mut engine = Engine::new(&preset, Registry).expect("game starts");
+        // Past the mulligans, because a static is registered by a pass of the
+        // machine and not by dealing the cards: the effect table is empty
+        // until the game has actually started.
+        for _ in 0..2 {
+            let Pending::Mulligan { player, .. } = engine.pending().clone() else {
+                panic!("expected a mulligan")
+            };
+            engine.apply(player, PlayerAction::MulliganKeep).unwrap();
+        }
+        let locked = player_view(engine.state(), PlayerId::new(0), None, 0, None, false);
+        let theirs = player_view(engine.state(), PlayerId::new(1), None, 0, None, false);
+
+        let teferi = theirs
+            .battlefield
+            .iter()
+            .find(|o| o.controller == PlayerId::new(1))
+            .expect("their walker is on the table");
+
+        assert_eq!(
+            locked.sorcery_lock,
+            Some(teferi.id),
+            "the seat it holds is told which permanent holds it"
+        );
+        assert_eq!(
+            theirs.sorcery_lock, None,
+            "and its own controller is not held by it"
+        );
     }
 
     /// The whole point of `PrintRef`: two copies of the *same* card in one

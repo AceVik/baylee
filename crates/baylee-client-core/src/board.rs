@@ -1388,6 +1388,7 @@ mod tests {
                 vec![AttackerView {
                     creature: attacker,
                     defending: baylee_core::ids::Defender::Player(PlayerId::new(1)),
+                    blocked: true,
                 }],
                 vec![BlockerView { blocker, attacker }],
             )

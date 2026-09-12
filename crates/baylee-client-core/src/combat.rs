@@ -223,10 +223,19 @@ fn tally(view: &PlayerView, lines: &[Line]) -> Vec<Tally> {
         |id: ObjectId| -> i32 { view.object(id).and_then(|o| o.power).map_or(0, i32::from) };
     // A blocker declared but not yet sent counts: the whole point of the
     // number is to answer "what still gets through if I block here".
+    //
+    // And a blocker that has *gone* still counts, which is why the view's own
+    // flag is asked first and not derived from the lines beside it. CR 509.1h
+    // keeps an attacker blocked for the rest of combat once it has been
+    // blocked, whatever happens to the blockers afterwards — a blink is the
+    // way that happens — and such an attacker has no block line to find,
+    // because there is nothing left to draw one to. Counting it as getting
+    // through hands the player a number for damage that reaches nobody.
     let blocked = |attacker: ObjectId| -> bool {
-        lines
-            .iter()
-            .any(|l| l.kind == LineKind::Block && l.to == LineEnd::Object(attacker))
+        !view.combat.is_unblocked(attacker)
+            || lines
+                .iter()
+                .any(|l| l.kind == LineKind::Block && l.to == LineEnd::Object(attacker))
     };
 
     let mut out: Vec<Tally> = Vec::new();
@@ -286,6 +295,7 @@ mod tests {
                 vec![AttackerView {
                     creature: obj(1),
                     defending: Defender::Player(seat(0)),
+                    blocked: false,
                 }],
                 Vec::new(),
             )
@@ -338,6 +348,7 @@ mod tests {
                 vec![AttackerView {
                     creature: obj(1),
                     defending: Defender::Player(seat(1)),
+                    blocked: false,
                 }],
                 Vec::new(),
             )
@@ -365,14 +376,17 @@ mod tests {
                     AttackerView {
                         creature: obj(1),
                         defending: Defender::Player(seat(0)),
+                        blocked: false,
                     },
                     AttackerView {
                         creature: obj(2),
                         defending: Defender::Player(seat(0)),
+                        blocked: false,
                     },
                     AttackerView {
                         creature: obj(3),
                         defending: Defender::Planeswalker(obj(50)),
+                        blocked: false,
                     },
                 ],
                 Vec::new(),
@@ -403,10 +417,12 @@ mod tests {
                     AttackerView {
                         creature: obj(1),
                         defending: Defender::Player(seat(0)),
+                        blocked: false,
                     },
                     AttackerView {
                         creature: obj(3),
                         defending: Defender::Player(seat(0)),
+                        blocked: false,
                     },
                 ],
                 Vec::new(),
@@ -452,6 +468,37 @@ mod tests {
         );
     }
 
+    /// CR 509.1h: an attacker whose blockers have gone is still blocked, and
+    /// the felt must not promise the player damage that reaches nobody.
+    ///
+    /// This is what a blink in the declare-blockers step leaves behind — the
+    /// engine takes the departing creature out of combat and leaves the
+    /// attacker's flag standing — and the tally had no way to see it: there
+    /// is no blocker left to draw a line to, so the arithmetic that reads the
+    /// lines counted the whole attack as getting through.
+    #[test]
+    fn an_attacker_whose_blocker_was_blinked_still_gets_through_nothing() {
+        let view = attackers_of_seat_one()
+            .with_combat(
+                vec![AttackerView {
+                    creature: obj(3),
+                    defending: Defender::Player(seat(0)),
+                    blocked: true,
+                }],
+                Vec::new(),
+            )
+            .build();
+
+        let combat = Combat::read(&view, None);
+        let tally = combat.tally_at(LineEnd::Seat(seat(0))).expect("tally");
+
+        assert!(tally.power > 0, "it is still attacking, and still that big");
+        assert_eq!(
+            tally.unblocked, 0,
+            "and none of it arrives: it was blocked, and stays blocked"
+        );
+    }
+
     #[test]
     fn a_standing_block_counts_the_same_as_a_proposed_one() {
         let view = attackers_of_seat_one()
@@ -460,6 +507,7 @@ mod tests {
                 vec![AttackerView {
                     creature: obj(3),
                     defending: Defender::Player(seat(0)),
+                    blocked: true,
                 }],
                 vec![BlockerView {
                     blocker: obj(10),

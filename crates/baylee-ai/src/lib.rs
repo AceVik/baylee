@@ -631,6 +631,7 @@ mod tests {
             command: vec![vec![]; lives.len()],
             combat: CombatView::default(),
             looking_at: Vec::new(),
+            sorcery_lock: None,
         }
     }
 
@@ -811,6 +812,7 @@ mod tests {
             attackers: vec![baylee_view::AttackerView {
                 creature: obj(1),
                 defending: Defender::Player(PlayerId::new(0)),
+                blocked: false,
             }],
             blockers: vec![],
         };
@@ -843,6 +845,7 @@ mod tests {
             attackers: vec![baylee_view::AttackerView {
                 creature: obj(1),
                 defending: Defender::Player(PlayerId::new(0)),
+                blocked: false,
             }],
             blockers: vec![],
         };

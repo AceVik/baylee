@@ -629,6 +629,7 @@ mod combat {
                 vec![AttackerView {
                     creature: ObjectId::new(1, 0),
                     defending: Defender::Player(PlayerId::new(0)),
+                    blocked,
                 }],
                 blockers,
             )

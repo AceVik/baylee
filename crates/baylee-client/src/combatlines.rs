@@ -463,6 +463,7 @@ mod running {
                 vec![AttackerView {
                     creature: obj(1),
                     defending: Defender::Player(PlayerId::new(0)),
+                    blocked: true,
                 }],
                 vec![BlockerView {
                     blocker: obj(2),

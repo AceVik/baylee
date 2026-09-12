@@ -100,6 +100,7 @@ impl ViewBuilder {
                 command: vec![Vec::new(); n],
                 combat: CombatView::default(),
                 looking_at: Vec::new(),
+                sorcery_lock: None,
             },
         }
     }
