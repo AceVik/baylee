@@ -36,9 +36,8 @@ Two consequences worth knowing before changing anything here:
 | Open the zone browser (graveyards, exile, the stack) | `G`, or a tap on the top card of a pile | implemented |
 | Move the zone browser / resize it (remembered per client) | drag its title row / its bottom-right corner | implemented |
 | Battlefield camera: pan | arrows (not while choosing a number), right- or middle-drag, touch-drag | implemented |
-| Battlefield camera: zoom | `Shift+↑/↓`, wheel, pinch | implemented |
-| Battlefield camera: rotate | `Shift+←/→`, left-drag, rotate gesture | implemented |
-| Battlefield camera: tilt | left-drag (up/down) | implemented |
+| Battlefield camera: zoom | wheel over the felt, pinch | implemented |
+| Battlefield camera: rotate / tilt | — (deliberately none) | removed |
 | Select a step tile (the seat bars' keyboard cursor) | `⇧W` / `⇧S` | implemented |
 | Fast-forward to next phase (decisions still yours) | `Tab` | implemented |
 | Fast-forward to the next turn | `⇧Tab` | implemented |
@@ -211,6 +210,25 @@ its own row of the prompt bar ("Tap for G", "+1", "Ability 2"). The prompt bar c
 whatever is pending, including combat's "Aim next", "Attack"/"Block" and
 "None". The hand bar scrolls horizontally
 with the mouse wheel.
+
+### The left button plays, and never moves the camera
+
+It used to orbit the table, and the left button is also the button that plays
+cards, so every click that travelled a pixel turned the table a little — and
+worse, it switched the automatic framing off for the rest of the session,
+because `table::frame_table` followed its own shot only while the rig still
+equalled it exactly. Both are gone: yaw and tilt are no longer controls at
+all (every seat's bar is drawn upright on its own mat, so turning the table
+only makes "which side am I on" ambiguous, and `table::CAMERA_LEAN` is a
+measured trade rather than something a hand aims), and what the player is
+holding is now said out loud in `Duel::camera_held`.
+
+The camera has one job — a table that does not fit the window — so what is
+left is zoom and pan, both on gestures that can mean nothing else (wheel over
+the felt, right- or middle-drag, pinch, the arrows), and both undone by `H`.
+`F` walks the seats. A wheel is the **interface's** whenever there is a UI
+node under the pointer, scrolling or not: `hud::scrolls` takes it, a list at
+its end swallows it rather than passing it on, and the camera never sees it.
 
 ## Rules
 

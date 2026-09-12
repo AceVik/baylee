@@ -1366,24 +1366,24 @@ fn typing_reaches_the_builder_and_return_adds_the_first_hit() {
 #[allow(clippy::float_cmp)] // every value here is exact by construction
 fn a_long_list_can_be_scrolled_and_stops_at_both_ends() {
     // Three hundred pixels of window over nine hundred of cards.
-    assert_eq!(scrolled(0.0, 120.0, 300.0, 900.0, 1.0), 120.0);
+    assert_eq!(crate::hud::scrolled(0.0, 120.0, 300.0, 900.0, 1.0), 120.0);
     assert_eq!(
-        scrolled(500.0, 400.0, 300.0, 900.0, 1.0),
+        crate::hud::scrolled(500.0, 400.0, 300.0, 900.0, 1.0),
         600.0,
         "the bottom of the list is the end of it"
     );
     assert_eq!(
-        scrolled(40.0, -400.0, 300.0, 900.0, 1.0),
+        crate::hud::scrolled(40.0, -400.0, 300.0, 900.0, 1.0),
         0.0,
         "and so is the top"
     );
     assert_eq!(
-        scrolled(0.0, 50.0, 300.0, 300.0, 1.0),
+        crate::hud::scrolled(0.0, 50.0, 300.0, 300.0, 1.0),
         0.0,
         "a list that fits does not move at all"
     );
     // Physical sizes, logical offset: a 2× screen has half the room.
-    assert_eq!(scrolled(0.0, 999.0, 300.0, 900.0, 0.5), 300.0);
+    assert_eq!(crate::hud::scrolled(0.0, 999.0, 300.0, 900.0, 0.5), 300.0);
 }
 
 #[test]

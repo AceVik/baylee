@@ -143,8 +143,21 @@ pub(crate) fn dotenv_value(key: &str) -> Option<String> {
 impl ClientSettings {
     /// Loads the settings (defaults on any problem — a corrupt or missing
     /// store must never stop the game from starting).
+    ///
+    /// **Not under the crate's own unit tests**, for the same reason
+    /// [`ClientSettings::save`] does not write there, and it took the
+    /// opposite direction to notice: the developer set their own client to
+    /// German to photograph it, and three lobby tests failed on the spot,
+    /// because `LobbyState::new` reads this and they assert on the words on
+    /// the screen. A test that passes or fails on whose machine it runs is
+    /// worse than no test. The same `cfg(test)` caveat applies — it is set
+    /// while this library is compiled *for* its own tests and not while it is
+    /// compiled as a dependency of one in `tests/`.
     #[must_use]
     pub fn load() -> Self {
+        if cfg!(test) {
+            return Self::default();
+        }
         store::read()
             .and_then(|text| serde_json::from_str(&text).ok())
             .unwrap_or_default()

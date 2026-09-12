@@ -2925,3 +2925,49 @@ all three shapes in both languages; and `spawn_rich` is **run** in an `App`
 and never called is a shape this client has shipped before — the same test
 asserts every child carries `Pickable::IGNORE`, since a label left pickable
 sits in front of the button it labels.
+
+61. **"Kaum berühre ich mit der Maus was, drehe ich den Tisch etwas."**
+    *Fixed.* Three defects under one report, and only the first of them was
+    the one the owner could see.
+
+    **The duel had no scrolling at all.** `Overflow::scroll_y` only *clips*:
+    Bevy moves the content when `ScrollPosition` changes and nothing changes
+    it on its own, and the lobby was the only screen that had ever written
+    one (`lobby::systems`). So the zone browser's card grid carried an
+    overflow, a comment about `Pointer<Scroll>`, and no way to reach the
+    second row of a library — and the wheel fell through to
+    `input::camera_controls`, which zoomed the table. That is the report
+    exactly: *"oft möchte ich eigentlich nur irgendwo was scrollen, auf
+    einmal verschiebe ich den Zoom"*. `hud::scrolls` is the missing system.
+
+    **The left button orbited, and it is also the button that plays cards.**
+    Every click that travelled a pixel turned the table a little. The fix is
+    not a dead zone: yaw and tilt are gone as controls outright, which
+    entry 37 above put in and this takes back out. That is not a reversal of
+    37's finding — tilt really did not exist and `CAMERA_LEAN` really was
+    nailed into the transform — but of where it put the control. A lean is a
+    measured trade between a card reading as an object and the far seat's
+    cards shrinking, a few degrees wide either way; a yaw only makes "which
+    side am I sitting on" ambiguous, now that every seat's bar is drawn
+    upright on its own mat. Neither is something a hand aims, and both were
+    on the one button that must never mean two things.
+
+    **And the half nobody could see.** `table::frame_table` followed its own
+    framing only while the rig still *equalled* the shot it had computed, so
+    a single stray pixel of left-drag switched the automatic framing off for
+    the rest of the session: the table never re-framed on a resize, on a
+    seat joining, on anything. The rig's equality was standing in for a fact
+    nobody had written down, and `Duel::camera_held` is that fact said out
+    loud — set by every camera gesture, cleared by `navigate_home`, by a
+    change in seat count and by a rig that is still `default()`.
+
+    Which gesture belongs to a panel is decided by the **node under the
+    pointer** and never by a rectangle. It was a rectangle — the bottom of
+    the window, the hand bar's height plus twenty — so every other panel was
+    the camera's by construction and a moved hand bar would have been wrong
+    in silence. A wheel that lands on anything with a `ComputedNode` is the
+    interface's, scrolling or not, and a list at its end **swallows** it
+    rather than chaining: "this list has no more rows" must not become "the
+    table is now zoomed". `camera_controls` and `hud::scrolls` read that off
+    the same `Pointer<Scroll>` stream rather than through a flag one sets and
+    the other clears, so neither has to run first.

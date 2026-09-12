@@ -929,6 +929,7 @@ mod card;
 mod hand;
 mod overlay;
 pub(crate) mod rail;
+mod scroll;
 pub(crate) mod seatbar;
 mod stack;
 mod tray;
@@ -949,6 +950,8 @@ pub use hand::{ARMED_RAISE, HAND_BAR_H, OVERLAY_CARD_H, OVERLAY_CARD_W};
 pub use overlay::{despawn_overlay, sync_overlay};
 pub use rail::same_team;
 pub use rail::{DesignationFlash, flash_the_designation, light_the_current_step};
+pub(crate) use scroll::scrolled;
+pub use scroll::{HandScroll, Scrolls, scrolls, wheel_is_the_interfaces};
 pub use seatbar::{
     BarRevision, SeatBar, SeatBarRoot, SeatInk, SeatStep, SeatTile, Shelf, Shelves,
     measure_shelves, place_seat_bars, stretch_step_tiles, sync_seat_bars,

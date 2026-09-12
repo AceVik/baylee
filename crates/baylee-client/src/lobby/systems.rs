@@ -866,7 +866,7 @@ fn scroll_lineage(
             return;
         };
         if let Ok((mut position, computed, which)) = lists.get_mut(e) {
-            position.y = scrolled(
+            position.y = crate::hud::scrolled(
                 position.y,
                 by,
                 computed.size().y,
@@ -878,19 +878,6 @@ fn scroll_lineage(
         }
         current = parents.get(e).ok().map(ChildOf::parent);
     }
-}
-
-/// Where a list ends up after a gesture.
-///
-/// Bevy clamps what it *draws* but leaves [`ScrollPosition`] alone, so an
-/// offset past the end would have to be unwound before the list moved again —
-/// a swipe that ran off the bottom would then need the same distance back
-/// before anything happened. The two sizes are physical pixels and the offset
-/// is logical, which is what `scale` (a `ComputedNode`'s inverse scale factor)
-/// converts between.
-pub(super) fn scrolled(from: f32, by: f32, view: f32, content: f32, scale: f32) -> f32 {
-    let room = (content - view).max(0.0) * scale;
-    (from + by).clamp(0.0, room)
 }
 
 /// Leaves a finished game and comes back here.

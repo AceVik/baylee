@@ -1875,36 +1875,46 @@ pub enum HoverSource {
     Elsewhere,
 }
 
-/// The battlefield canvas camera: arrows pan, Shift+Up/Down zooms,
-/// Shift+Left/Right rotates, **left-drag orbits** (turn and tilt),
-/// right- or middle-drag pans, the wheel zooms (over the hand bar it scrolls
-/// the hand instead), and the touch gestures do what fingers do
-/// (pan/pinch/rotate).
+/// The battlefield camera: arrows pan, right- or middle-drag pans, the wheel
+/// zooms unless the interface asked for it first, and two fingers do what two
+/// fingers do (pan, pinch).
 ///
-/// The mouse follows the orbit convention rather than the map one: a drag
-/// turns the table, and moving the view sideways is the other button. The
-/// keyboard keeps the bindings `docs/keyboard-map.md` lists, tilt included —
-/// there is no key for it, because tilt is the one thing a player wants to
-/// *aim* rather than step.
+/// # The left button plays and never moves the camera
+///
+/// It used to orbit — a drag turned the table and tilted it — and the left
+/// button is also the button that plays cards, so *every click that travelled
+/// a pixel turned the table a little*. That is the owner's report
+/// („kaum berühre ich mit der Maus was, drehe ich den Tisch etwas"), and the
+/// half of it nobody could see was worse: [`crate::table::frame_table`] stops
+/// following its own framing the moment the rig is not exactly the one it
+/// computed, so a stray pixel switched the automatic framing off for the rest
+/// of the session and the table stayed wherever the accident left it.
+///
+/// So orbit is gone, and with it the two controls that could only be set
+/// wrong: **yaw** (every seat's bar is already drawn upright on its own mat,
+/// so turning the table only makes "which side am I on" ambiguous) and
+/// **lean** (`table::CAMERA_LEAN` is a measured trade between a card reading
+/// as an object and a far seat's cards shrinking — a few degrees wide, and
+/// nothing a hand aims). Shift+arrows and the touch rotation gesture went
+/// with them.
+///
+/// What is left is the one job the camera has: **a table that does not fit
+/// the window**. Zoom and pan, both recoverable with one key
+/// ([`Action::FocusHome`]), and everything else is a *viewpoint* —
+/// [`navigate_home`] and [`navigate_to_player`].
 #[allow(clippy::too_many_arguments)]
 pub fn camera_controls(
     keys: Res<ButtonInput<KeyCode>>,
     buttons: Res<ButtonInput<MouseButton>>,
     mut motions: MessageReader<bevy::input::mouse::MouseMotion>,
     mut wheels: MessageReader<MouseWheel>,
+    mut scrolled: MessageReader<Pointer<bevy::picking::events::Scroll>>,
+    nodes: Query<(), With<ComputedNode>>,
     mut pans: MessageReader<bevy::input::gestures::PanGesture>,
     mut pinches: MessageReader<bevy::input::gestures::PinchGesture>,
-    mut rotates: MessageReader<bevy::input::gestures::RotationGesture>,
-    windows: Query<&Window>,
     mut duel: ResMut<Duel>,
     mut rig: ResMut<crate::table::CameraRig>,
 ) {
-    let meta = keys.pressed(KeyCode::SuperLeft)
-        || keys.pressed(KeyCode::SuperRight)
-        || keys.pressed(KeyCode::AltLeft)
-        || keys.pressed(KeyCode::AltRight);
-    let shift = (keys.pressed(KeyCode::ShiftLeft) || keys.pressed(KeyCode::ShiftRight)) && !meta;
-
     // Screen-relative directions on the table plane.
     let right = Vec2::new(rig.yaw.cos(), -rig.yaw.sin());
     let forward = Vec2::new(-rig.yaw.sin(), -rig.yaw.cos());
@@ -1919,95 +1929,81 @@ pub fn camera_controls(
         Some(Prompt::ChooseNumber { .. })
     );
 
-    // ---- keyboard: pan / zoom / rotate ----------------------------------
+    // ---- keyboard: pan ---------------------------------------------------
     let pan_step = rig.distance * 0.02;
-    if stepping {
-        // nothing: the arrows belong to the number
-    } else if shift {
-        if keys.pressed(KeyCode::ArrowUp) {
-            rig.distance = (rig.distance * 0.985).max(crate::table::CameraRig::MIN_DISTANCE);
-        }
-        if keys.pressed(KeyCode::ArrowDown) {
-            rig.distance = (rig.distance * 1.015).min(crate::table::CameraRig::MAX_DISTANCE);
-        }
-        if keys.pressed(KeyCode::ArrowLeft) {
-            rig.yaw += 0.015;
-        }
-        if keys.pressed(KeyCode::ArrowRight) {
-            rig.yaw -= 0.015;
-        }
-    } else {
+    if !stepping {
         if keys.pressed(KeyCode::ArrowLeft) {
             rig.target -= right * pan_step;
+            duel.camera_held = true;
         }
         if keys.pressed(KeyCode::ArrowRight) {
             rig.target += right * pan_step;
+            duel.camera_held = true;
         }
         if keys.pressed(KeyCode::ArrowUp) {
             rig.target += forward * pan_step;
+            duel.camera_held = true;
         }
         if keys.pressed(KeyCode::ArrowDown) {
             rig.target -= forward * pan_step;
+            duel.camera_held = true;
         }
     }
 
-    // ---- mouse: left-drag orbits, right- or middle-drag pans -------------
+    // ---- mouse: right- or middle-drag pans -------------------------------
     //
-    // The orbit convention every other 3D scene in this engine's ecosystem
-    // uses, and the one a player arrives with: drag turns the thing you are
-    // looking at, and moving the view sideways is the deliberate gesture on
-    // the other button. It used to be the other way round, which reads as a
-    // map rather than as a table.
+    // Neither button plays a card, which is the whole reason they are the
+    // ones that move the view: a gesture that moves the camera has to be a
+    // gesture that can mean nothing else.
     let (mut dx, mut dy) = (0.0, 0.0);
     for motion in motions.read() {
         dx += motion.delta.x;
         dy += motion.delta.y;
     }
     let drag_scale = rig.distance / 600.0;
-    if buttons.pressed(MouseButton::Left) && !duel.resize_drag {
-        rig.yaw -= dx * 0.004;
-        // Dragging *down* tips the camera towards the table's own plane,
-        // which is the way round a hand expects: the far edge comes up to
-        // meet the pointer.
-        rig.lean = (rig.lean + dy * 0.004).clamp(
-            crate::table::CameraRig::MIN_LEAN,
-            crate::table::CameraRig::MAX_LEAN,
-        );
-    }
-    if buttons.pressed(MouseButton::Right) || buttons.pressed(MouseButton::Middle) {
+    if (buttons.pressed(MouseButton::Right) || buttons.pressed(MouseButton::Middle))
+        && (dx != 0.0 || dy != 0.0)
+    {
         rig.target -= right * dx * drag_scale;
         rig.target -= forward * dy * drag_scale;
+        duel.camera_held = true;
     }
 
-    // ---- wheel: zoom, unless the pointer is over the hand bar ------------
-    let over_hand = windows.single().ok().and_then(|w| {
-        w.cursor_position()
-            .map(|p| p.y > w.height() - (crate::hud::HAND_CARD_H + 20.0))
-    }) == Some(true);
+    // ---- wheel: zoom, unless the interface asked for it first -------------
+    //
+    // The hand bar used to be carved out of this by a rectangle — the bottom
+    // of the window, the hand's own height plus twenty — and every other
+    // panel was the camera's by construction, which is why a wheel over a
+    // library zoomed the table. `hud::scrolls` owns that question now and
+    // this reads its answer off the same messages rather than off a flag one
+    // of the two would have to set before the other ran.
+    let theirs = crate::hud::wheel_is_the_interfaces(&mut scrolled, &nodes);
     for wheel in wheels.read() {
-        if over_hand {
-            duel.hand_scroll = (duel.hand_scroll - wheel.y * 60.0).max(0.0);
-        } else {
-            rig.distance = (rig.distance * (1.0 - wheel.y * 0.08)).clamp(
-                crate::table::CameraRig::MIN_DISTANCE,
-                crate::table::CameraRig::MAX_DISTANCE,
-            );
+        if theirs || wheel.y == 0.0 {
+            continue;
         }
+        rig.distance = (rig.distance * (1.0 - wheel.y * 0.08)).clamp(
+            crate::table::CameraRig::MIN_DISTANCE,
+            crate::table::CameraRig::MAX_DISTANCE,
+        );
+        duel.camera_held = true;
     }
 
     // ---- touch gestures ---------------------------------------------------
+    //
+    // Two fingers pan and pinch; the rotation gesture is gone with the
+    // orbit it was the touch twin of.
     for pan in pans.read() {
         rig.target -= right * pan.0.x * drag_scale;
         rig.target -= forward * pan.0.y * drag_scale;
+        duel.camera_held = true;
     }
     for pinch in pinches.read() {
         rig.distance = (rig.distance / (1.0 + pinch.0 * 0.5)).clamp(
             crate::table::CameraRig::MIN_DISTANCE,
             crate::table::CameraRig::MAX_DISTANCE,
         );
-    }
-    for rotate in rotates.read() {
-        rig.yaw += rotate.0;
+        duel.camera_held = true;
     }
 }
 
@@ -2025,6 +2021,10 @@ pub fn navigate_to_player(
     let world = Vec2::new(slot.center.x, -slot.center.y);
     *rig = crate::table::CameraRig::framing(&slot, world);
     duel.focus = Some(player);
+    // Aimed on purpose, so the table stops framing itself: this is the *one*
+    // seat the player asked to look at, and re-framing the whole ring on the
+    // next resize would take it away from them.
+    duel.camera_held = true;
     crate::rebuild_board(duel);
 }
 
@@ -2038,6 +2038,7 @@ pub fn navigate_to_player(
 pub fn navigate_home(duel: &mut Duel, rig: &mut crate::table::CameraRig) {
     *rig = crate::table::CameraRig::default();
     duel.focus = None;
+    duel.camera_held = false;
     crate::rebuild_board(duel);
 }
 
@@ -3005,9 +3006,9 @@ mod tests {
                 .init_resource::<crate::table::CameraRig>()
                 .add_message::<MouseMotion>()
                 .add_message::<MouseWheel>()
+                .add_message::<bevy::picking::events::Pointer<bevy::picking::events::Scroll>>()
                 .add_message::<bevy::input::gestures::PanGesture>()
                 .add_message::<bevy::input::gestures::PinchGesture>()
-                .add_message::<bevy::input::gestures::RotationGesture>()
                 .insert_resource(duel)
                 .add_systems(Update, super::camera_controls);
             app.world_mut()
@@ -3029,16 +3030,23 @@ mod tests {
         );
     }
 
-    /// The mouse follows the orbit convention: drag turns the table.
+    /// Two buttons move the table, and neither of them plays a card.
     ///
-    /// It used to be the map one — left-drag slid the table around and only
-    /// the right button turned it — which is the wrong way round for a thing
-    /// you are looking *at* rather than travelling over, and is not what a
-    /// player arrives expecting from any other 3D scene.
+    /// This replaces a test that asserted the orbit convention — left-drag
+    /// turns the table, right-drag slides it — which is the defect the owner
+    /// reported: the left button is also the button that *plays*, so every
+    /// click that travelled a pixel turned the table a little. Nothing turns
+    /// it any more, so what is left to check is that a pan is still a pan,
+    /// that it changes nothing else, and that it says the player is aiming.
+    ///
+    /// `table::framing_tests` holds the other half, which needs
+    /// [`crate::table::frame_table`] running beside this one: a left drag
+    /// moves nothing *and* leaves the automatic framing on.
     #[test]
-    fn the_left_button_turns_the_table_and_the_right_one_moves_it() {
+    fn only_the_right_and_middle_buttons_move_the_table() {
         use bevy::input::ButtonInput;
         use bevy::input::mouse::{MouseMotion, MouseWheel};
+        use bevy::picking::events::{Pointer, Scroll};
         use bevy::prelude::*;
 
         let drag = |button: MouseButton, delta: Vec2| {
@@ -3048,9 +3056,9 @@ mod tests {
                 .init_resource::<crate::table::CameraRig>()
                 .add_message::<MouseMotion>()
                 .add_message::<MouseWheel>()
+                .add_message::<Pointer<Scroll>>()
                 .add_message::<bevy::input::gestures::PanGesture>()
                 .add_message::<bevy::input::gestures::PinchGesture>()
-                .add_message::<bevy::input::gestures::RotationGesture>()
                 .init_resource::<crate::Duel>()
                 .add_systems(Update, super::camera_controls);
             app.world_mut()
@@ -3058,30 +3066,15 @@ mod tests {
                 .press(button);
             app.world_mut().write_message(MouseMotion { delta });
             app.update();
-            *app.world().resource::<crate::table::CameraRig>()
+            (
+                *app.world().resource::<crate::table::CameraRig>(),
+                app.world().resource::<crate::Duel>().camera_held,
+            )
         };
 
         let home = crate::table::CameraRig::default();
-        let turned = drag(MouseButton::Left, Vec2::new(40.0, 0.0));
-        assert!(
-            (turned.yaw - home.yaw).abs() > 1e-4,
-            "the left button did not turn the table"
-        );
-        assert_eq!(
-            turned.target, home.target,
-            "and it must not have moved it as well"
-        );
-
-        let tilted = drag(MouseButton::Left, Vec2::new(0.0, 40.0));
-        assert!(
-            tilted.lean > home.lean,
-            "dragging down did not tip the camera towards the table: {} against {}",
-            tilted.lean,
-            home.lean
-        );
-
         for button in [MouseButton::Right, MouseButton::Middle] {
-            let moved = drag(button, Vec2::new(40.0, 20.0));
+            let (moved, held) = drag(button, Vec2::new(40.0, 20.0));
             assert_ne!(
                 moved.target, home.target,
                 "{button:?} did not move the table"
@@ -3090,46 +3083,15 @@ mod tests {
                 (moved.yaw - home.yaw).abs() < 1e-6 && (moved.lean - home.lean).abs() < 1e-6,
                 "{button:?} turned the table as well"
             );
+            assert!(held, "{button:?} is the player aiming, and has to say so");
         }
-    }
 
-    /// The tilt is bounded at both ends, and for two different reasons: a
-    /// card is a slab with a wall and a contact shadow and reads as a decal
-    /// from straight overhead, and there is nothing drawn behind the table
-    /// for a flat camera to find.
-    #[test]
-    fn the_camera_cannot_be_tipped_flat_or_stood_straight_up() {
-        use bevy::input::ButtonInput;
-        use bevy::input::mouse::{MouseMotion, MouseWheel};
-        use bevy::prelude::*;
-
-        let mut app = App::new();
-        app.init_resource::<ButtonInput<KeyCode>>()
-            .init_resource::<ButtonInput<MouseButton>>()
-            .init_resource::<crate::table::CameraRig>()
-            .add_message::<MouseMotion>()
-            .add_message::<MouseWheel>()
-            .add_message::<bevy::input::gestures::PanGesture>()
-            .add_message::<bevy::input::gestures::PinchGesture>()
-            .add_message::<bevy::input::gestures::RotationGesture>()
-            .init_resource::<crate::Duel>()
-            .add_systems(Update, super::camera_controls);
-        app.world_mut()
-            .resource_mut::<ButtonInput<MouseButton>>()
-            .press(MouseButton::Left);
-
-        for delta in [10_000.0_f32, -20_000.0, 10_000.0] {
-            app.world_mut().write_message(MouseMotion {
-                delta: Vec2::new(0.0, delta),
-            });
-            app.update();
-            let lean = app.world().resource::<crate::table::CameraRig>().lean;
-            assert!(
-                (crate::table::CameraRig::MIN_LEAN..=crate::table::CameraRig::MAX_LEAN)
-                    .contains(&lean),
-                "a drag of {delta} left the camera leaning {lean}"
-            );
-        }
+        let (untouched, held) = drag(MouseButton::Left, Vec2::new(40.0, 0.0));
+        assert_eq!(
+            untouched, home,
+            "the left button plays cards and nothing else"
+        );
+        assert!(!held, "and it does not take the camera off the table");
     }
 
     /// The browser had a pointer route and no keyboard one, which is exactly

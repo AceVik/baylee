@@ -73,7 +73,19 @@ pub(super) fn spawn_hand_bar(
                 ColorStop::percent(VEIL.with_alpha(VEIL_ALPHA), 100.0),
             ])),
             ZIndex(2),
-            Pickable::IGNORE,
+            // Hoverable, and still blocking nothing. The bar is a veil over
+            // the table and a click has always gone straight through it —
+            // which is what `should_block_lower: false` keeps — but a wheel
+            // has to *land* somewhere to be the hand's, and the gaps between
+            // the cards are most of the bar. `Pickable::IGNORE` is both bits
+            // off, which made the whole bar invisible to the pointer and
+            // left "is this scroll the hand's" to a rectangle measured from
+            // the bottom of the window.
+            Pickable {
+                should_block_lower: false,
+                is_hoverable: true,
+            },
+            super::HandScroll,
         ))
         .id();
 

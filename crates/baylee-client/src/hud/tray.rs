@@ -393,16 +393,26 @@ pub(super) fn spawn_tray(
     // explicit height it was given, and hand the overflow — including the
     // resize corner — to `Overflow::clip`.
     let grid = commands
-        .spawn((Node {
-            flex_direction: FlexDirection::Row,
-            flex_wrap: FlexWrap::Wrap,
-            column_gap: px(TRAY_GAP),
-            row_gap: px(TRAY_GAP),
-            flex_grow: 1.0,
-            min_height: px(0),
-            overflow: Overflow::scroll_y(),
-            ..default()
-        },))
+        .spawn((
+            Node {
+                flex_direction: FlexDirection::Row,
+                flex_wrap: FlexWrap::Wrap,
+                column_gap: px(TRAY_GAP),
+                row_gap: px(TRAY_GAP),
+                flex_grow: 1.0,
+                min_height: px(0),
+                overflow: Overflow::scroll_y(),
+                ..default()
+            },
+            // The two halves the sentence above only claimed. An overflow
+            // clips and nothing else — Bevy moves the content when
+            // `ScrollPosition` changes and nothing changes it on its own —
+            // so until `hud::scrolls` existed this grid ended at the bottom
+            // of the sheet with the rest of the library behind it, and the
+            // wheel that should have reached it zoomed the table.
+            super::Scrolls,
+            ScrollPosition::default(),
+        ))
         .id();
     if rows.is_empty() {
         let empty = super::overlay::slip_text(

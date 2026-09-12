@@ -296,6 +296,20 @@ pub struct Duel {
     pub canvas_aspect: Option<f32>,
     /// The engaged autopilot, if any ("next phase" / "end turn").
     pub autopilot: Option<AutoPilot>,
+    /// Whether the player has aimed the camera themselves.
+    ///
+    /// While this is false the table frames itself ([`table::frame_table`]),
+    /// so every resize and every seat joining is re-framed. It is set by the
+    /// gestures that can only mean the camera — a wheel over the felt, a
+    /// right- or middle-drag, a pinch, the arrows — and by
+    /// [`input::navigate_to_player`]; it is cleared by
+    /// [`input::navigate_home`] and by the table changing size.
+    ///
+    /// A flag and not a comparison, because it *was* a comparison: the
+    /// framing stopped following the moment the rig differed from the
+    /// computed one by anything at all, which the since-deleted left-drag
+    /// orbit did on every click that travelled a pixel.
+    pub camera_held: bool,
     /// Hand bar scroll offset in pixels.
     pub hand_scroll: f32,
     /// Whether the preview resize handle is being dragged.
@@ -747,7 +761,6 @@ impl Plugin for DuelPlugin {
             .init_resource::<table::ZoneWatch>()
             .init_resource::<table::CameraRig>()
             .init_resource::<table::ShownRig>()
-            .init_resource::<table::HomeRig>()
             .init_resource::<Reconnect>()
             .init_resource::<sheen::Sheen>()
             .init_resource::<touch::Touched>()
@@ -806,6 +819,11 @@ impl Plugin for DuelPlugin {
                     input::pointer,
                     input::pointer_hover,
                     input::camera_controls,
+                    // Beside the camera rather than before it: the two read
+                    // the same `Pointer<Scroll>` stream and answer "whose
+                    // wheel is this" from it independently, so there is no
+                    // order between them to get wrong.
+                    hud::scrolls,
                     input::preview_resize,
                     input::tray_drag,
                     face::track_modifier,

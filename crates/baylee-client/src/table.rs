@@ -295,12 +295,14 @@ pub struct CameraRig {
     pub yaw: f32,
     /// How far the camera stands off vertical, as a tangent.
     ///
-    /// [`CAMERA_LEAN`] is where every shot starts and where the framing
-    /// arithmetic is done, because that arithmetic is about which table fits
-    /// on which screen and a player tilting the camera has stopped asking
-    /// that question. This field is what the player then does to it, and it
-    /// is a tangent rather than an angle because that is what the transform
-    /// and the shadow offsets read.
+    /// Every shot the client takes is [`CAMERA_LEAN`] and no control changes
+    /// it: the lean is a measured trade between a card reading as an object
+    /// and the far seat's cards shrinking (that constant carries the
+    /// numbers), which is a few degrees wide and nothing a hand aims. It
+    /// stays a field rather than moving into the transform because the
+    /// framing arithmetic reads it off the rig it is solving for. A tangent
+    /// and not an angle, because that is what the transform and the shadow
+    /// offsets read.
     pub lean: f32,
 }
 
@@ -334,21 +336,13 @@ impl CameraRig {
     /// in and every large one on the way out.
     pub const MAX_DISTANCE: f32 = 120.0;
 
-    /// As near vertical as the player may tilt: about 10° off plan.
-    ///
-    /// Not zero, and the card is why. A card is a slab with a thin wall
-    /// around its edge and a contact shadow under it, and neither reads from
-    /// directly overhead — a table seen straight down is a table of decals.
-    pub const MIN_LEAN: f32 = 0.176;
-    /// As far over as the player may tilt: about 55° off plan.
-    ///
-    /// Bounded because a card table is read from above. There *is* a sky
-    /// behind it now (`crate::sky`), so the old reason — that a lean this
-    /// far pointed the camera at the clear colour — is gone; what is left is
-    /// that the cards themselves become unreadable long before the geometry
-    /// does, and a seat looking along its own board sees the backs of its
-    /// front row and nothing else.
-    pub const MAX_LEAN: f32 = 1.428;
+    // `MIN_LEAN` (0.176, about 10° off plan) and `MAX_LEAN` (1.428, about
+    // 55°) stood here and are gone with the tilt control they bounded. Their
+    // reasons were real and are now [`CAMERA_LEAN`]'s to carry, because the
+    // lean is one number the client picks rather than a range a hand moves
+    // through: a card is a slab with a wall and a contact shadow and reads
+    // as a decal from straight overhead, and a seat looking along its own
+    // board sees the backs of its front row.
 
     /// Moves the rig so `pod` (a seat's table-space centre) fills the free
     /// canvas area: camera outside the ellipse looking inward, cards
@@ -613,22 +607,28 @@ pub fn track_canvas(windows: Query<&Window>, mut duel: ResMut<Duel>) {
     }
 }
 
-/// The framing the table currently deserves, and whether the camera is still
-/// following it.
-///
-/// A rig that equals the last framing — or that is still
-/// [`CameraRig::default`], which is what the resource starts as and what
-/// `navigate_home` asks for, neither of them a place anyone aimed at — is the
-/// table's camera and follows the table. One drag, zoom or focus and it is
-/// the player's, and a window resize no longer moves it.
-#[derive(Resource, Clone, Copy, Default)]
-pub struct HomeRig(Option<CameraRig>);
-
 /// Keeps the table framed as seats, focus and window size change.
+///
+/// Whether it may is [`Duel::camera_held`], and that used to be a float
+/// comparison: this system kept the framing it had last computed and followed
+/// the table only while the rig still *equalled* it. Anything that moved the
+/// rig by any amount at all — one pixel of the left-drag orbit that has since
+/// been deleted, during an ordinary click on a card — switched the automatic
+/// framing off for the rest of the session, silently, and the table then
+/// stayed wherever the accident left it through a resize and through a seat
+/// joining. Nothing said so and nothing could put it back except a key nobody
+/// knew to press.
+///
+/// Two things put the camera back in the table's hands, and both are about a
+/// table rather than about a rig. The **seat count** changing is a different
+/// table, so a player aiming at the old one is not aiming at this one. And
+/// [`CameraRig::default`] is the one rig that means "nobody aimed this" —
+/// [`crate::input::navigate_home`] asks for exactly it, which is how a key, a
+/// tab and anything else that cannot reach the flag still comes home.
 pub fn frame_table(
-    duel: Res<Duel>,
+    mut duel: ResMut<Duel>,
     windows: Query<&Window>,
-    mut home: ResMut<HomeRig>,
+    mut seats: Local<usize>,
     mut rig: ResMut<CameraRig>,
 ) {
     let Some(layout) = duel.layout.as_ref() else {
@@ -641,13 +641,18 @@ pub fn frame_table(
         layout,
         Canvas::hud(Vec2::new(window.width(), window.height())),
     );
-    let current: CameraRig = *rig;
-    let following = home.0.is_none_or(|last| current == last) || current == CameraRig::default();
-    if following && current != next {
-        *rig = next;
+    if *seats != layout.slots.len() {
+        *seats = layout.slots.len();
+        duel.camera_held = false;
     }
-    if home.0 != Some(next) {
-        home.0 = Some(next);
+    if *rig == CameraRig::default() {
+        duel.camera_held = false;
+    }
+    if duel.camera_held {
+        return;
+    }
+    if *rig != next {
+        *rig = next;
     }
 }
 
@@ -5351,5 +5356,190 @@ mod library_fan_tests {
             );
         }
         assert_eq!(targets.len(), ZonePile::FAN_MAX);
+    }
+}
+
+/// The camera is the table's until the player takes it, and taking it has to
+/// be deliberate.
+///
+/// These run the real systems in an `App` rather than calling the arithmetic,
+/// because the bug they are about was never in the arithmetic:
+/// [`frame_table`] computed the right shot every time and had stopped being
+/// allowed to write it.
+#[cfg(test)]
+mod framing_tests {
+    use super::*;
+    use baylee_core::ids::PlayerId;
+    use bevy::input::gestures::{PanGesture, PinchGesture};
+    use bevy::input::mouse::{MouseMotion, MouseScrollUnit, MouseWheel};
+    use bevy::picking::events::Scroll;
+
+    /// A laptop's window, in logical pixels.
+    const WINDOW: Vec2 = Vec2::new(1728.0, 1052.0);
+
+    fn app(window: Vec2) -> App {
+        let mut app = App::new();
+        app.add_message::<MouseMotion>()
+            .add_message::<MouseWheel>()
+            .add_message::<Pointer<Scroll>>()
+            .add_message::<PanGesture>()
+            .add_message::<PinchGesture>()
+            .init_resource::<ButtonInput<KeyCode>>()
+            .init_resource::<ButtonInput<MouseButton>>()
+            .init_resource::<CameraRig>()
+            .init_resource::<Duel>()
+            .add_systems(Update, (crate::input::camera_controls, frame_table).chain());
+        let mut w = Window::default();
+        w.resolution.set(window.x, window.y);
+        app.world_mut().spawn(w);
+        let seats: Vec<PlayerId> = (0..2).map(PlayerId::new).collect();
+        let layout = TableLayout::new(&seats, Canvas::hud(window).aspect(), None);
+        app.world_mut().resource_mut::<Duel>().layout = Some(layout);
+        app.update();
+        app
+    }
+
+    /// The pointer travels a little while the left button is down — which is
+    /// what an ordinary click on a card looks like, and what used to turn the
+    /// table.
+    fn left_drag(app: &mut App) {
+        app.world_mut()
+            .resource_mut::<ButtonInput<MouseButton>>()
+            .press(MouseButton::Left);
+        app.world_mut()
+            .resource_mut::<Messages<MouseMotion>>()
+            .write(MouseMotion {
+                delta: Vec2::new(6.0, 4.0),
+            });
+        app.update();
+    }
+
+    /// A wheel with nothing of the interface under it.
+    fn wheel(app: &mut App, y: f32) {
+        app.world_mut()
+            .resource_mut::<Messages<MouseWheel>>()
+            .write(MouseWheel {
+                unit: MouseScrollUnit::Line,
+                x: 0.0,
+                y,
+                window: Entity::PLACEHOLDER,
+                phase: bevy::input::touch::TouchPhase::Moved,
+            });
+        app.update();
+    }
+
+    /// The owner's report, as an assertion: „kaum berühre ich mit der Maus
+    /// was, drehe ich den Tisch etwas".
+    #[test]
+    fn a_left_drag_leaves_the_camera_exactly_where_it_was() {
+        let mut app = app(WINDOW);
+        let before = *app.world().resource::<CameraRig>();
+        left_drag(&mut app);
+        assert_eq!(
+            *app.world().resource::<CameraRig>(),
+            before,
+            "the left button plays cards and moves nothing"
+        );
+        assert!(
+            !app.world().resource::<Duel>().camera_held,
+            "and it does not take the camera off the table either"
+        );
+    }
+
+    /// The half of that report nobody could see: the framing used to stop
+    /// following on the first pixel, so the table never came back into frame
+    /// again — not on a resize, not ever.
+    #[test]
+    fn the_table_is_still_framed_after_a_left_drag() {
+        let mut app = app(WINDOW);
+        left_drag(&mut app);
+
+        let wider = Vec2::new(2400.0, 1052.0);
+        let mut windows = app.world_mut().query::<&mut Window>();
+        windows
+            .iter_mut(app.world_mut())
+            .next()
+            .expect("a window")
+            .resolution
+            .set(wider.x, wider.y);
+        app.update();
+
+        let layout = app
+            .world()
+            .resource::<Duel>()
+            .layout
+            .clone()
+            .expect("a layout");
+        assert_eq!(
+            *app.world().resource::<CameraRig>(),
+            CameraRig::home(&layout, Canvas::hud(wider)),
+            "a wider window re-frames the table"
+        );
+    }
+
+    /// And the other direction: a wheel over the felt *is* the camera, so it
+    /// holds — and holding is what stops the next resize from taking the
+    /// view away from the player.
+    #[test]
+    fn a_wheel_over_the_felt_holds_the_camera() {
+        let mut app = app(WINDOW);
+        let before = *app.world().resource::<CameraRig>();
+        wheel(&mut app, 1.0);
+        let after = *app.world().resource::<CameraRig>();
+        assert!(
+            after.distance < before.distance,
+            "the wheel pulled the camera in"
+        );
+        assert!(
+            app.world().resource::<Duel>().camera_held,
+            "a wheel over the felt can only mean the camera"
+        );
+
+        let mut windows = app.world_mut().query::<&mut Window>();
+        windows
+            .iter_mut(app.world_mut())
+            .next()
+            .expect("a window")
+            .resolution
+            .set(2400.0, 1052.0);
+        app.update();
+        assert_eq!(
+            *app.world().resource::<CameraRig>(),
+            after,
+            "a resize does not take back a view the player asked for"
+        );
+    }
+
+    /// `navigate_home` is the way back, and it is the *only* way back a key
+    /// or a chip needs to know about: it asks for the one rig that means
+    /// nobody aimed this.
+    #[test]
+    fn going_home_gives_the_camera_back_to_the_table() {
+        let mut app = app(WINDOW);
+        wheel(&mut app, 1.0);
+        assert!(app.world().resource::<Duel>().camera_held);
+
+        let mut duel = app.world_mut().remove_resource::<Duel>().expect("a duel");
+        let mut rig = app
+            .world_mut()
+            .remove_resource::<CameraRig>()
+            .expect("a rig");
+        crate::input::navigate_home(&mut duel, &mut rig);
+        app.world_mut().insert_resource(duel);
+        app.world_mut().insert_resource(rig);
+        app.update();
+
+        let layout = app
+            .world()
+            .resource::<Duel>()
+            .layout
+            .clone()
+            .expect("a layout");
+        assert!(!app.world().resource::<Duel>().camera_held);
+        assert_eq!(
+            *app.world().resource::<CameraRig>(),
+            CameraRig::home(&layout, Canvas::hud(WINDOW)),
+            "and the table framed itself again on the next tick"
+        );
     }
 }
