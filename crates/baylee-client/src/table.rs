@@ -5866,6 +5866,47 @@ mod flying_tests {
     }
 
     #[test]
+    fn the_keyword_survives_the_trip_from_the_view_to_the_table() {
+        // The hand-built group above says the renderer reads the badge. This
+        // says the badge is there to read: a view with the flying bit set,
+        // through the real `BoardModel::from_view`, and out the other side as
+        // a card that is off the felt. Both halves, or a bit that never
+        // reaches `CardGroup::badges` would pass the first test forever.
+        use baylee_client_core::board::{BoardModel, Openings, keyword_bits};
+        use baylee_client_core::test_support::{ViewBuilder, token};
+
+        let mut drake = token(1, 1, "Gilded Drake", 3, 3);
+        drake.keywords = keyword_bits::FLYING;
+        let view = ViewBuilder::new(2)
+            .with_battlefield(1, vec![drake])
+            .with_battlefield(0, vec![token(2, 0, "Ogre", 3, 3)])
+            .build();
+        let board = BoardModel::from_view(
+            &view,
+            Openings::none(),
+            |_| 12.0,
+            crate::cardart::registry(),
+        );
+        let duel = Duel {
+            board: Some(board),
+            layout: Some(TableLayout::new(
+                &[PlayerId::new(0), PlayerId::new(1)],
+                16.0 / 9.0,
+                None,
+            )),
+            ..Duel::default()
+        };
+        let flying: Vec<(u32, bool)> = placements(&duel)
+            .iter()
+            .map(|p| (p.object.slot(), p.flying))
+            .collect();
+        assert!(
+            flying.contains(&(1, true)) && flying.contains(&(2, false)),
+            "the flying bit did not reach the table: {flying:?}"
+        );
+    }
+
+    #[test]
     fn a_creature_that_does_not_fly_is_never_lifted() {
         for t in [0.0, 0.7, 3.3, 11.9] {
             assert!(
