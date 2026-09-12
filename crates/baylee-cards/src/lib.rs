@@ -17,6 +17,11 @@ pub mod decks;
 pub mod filters;
 /// Generated: registry tables.
 pub mod generated;
+/// Generated: which printed sentence each ability came from.
+pub mod generated_lines;
+/// Which printed sentence an ability came from (the reader of
+/// [`generated_lines`]).
+pub mod lines;
 /// Pool-wide lints over the card data (tests only).
 #[cfg(test)]
 mod lints;

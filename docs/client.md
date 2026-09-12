@@ -346,12 +346,32 @@ about a particular game: a gateway can store *"always say yes to Ondu Cleric's
 rally"* against an account and replay it into the next one.
 
 **Getting the text is the client's job, and no text crosses the engine
-boundary.** The intended source is codegen: the card files already carry the
-oracle sentences as `//! Oracle:` header lines, ordered to match the ability
-list, so `cargo xtask codegen` can emit a per-card table of ordered sentences
-alongside the registry for clients and the gateway to read. Until it does, a
-client can render the source permanent's name plus the ability index, which
-is already enough to point at the right card on the board.
+boundary.** The source is codegen, and what it emits is an *index* rather than
+the text: `crates/baylee-cards/src/generated_lines.rs` says, per card and per
+**face**, which printed sentence each ability came from, and
+`crates/baylee-cards/src/lines.rs` is the reader
+(`lines::ability_line(card, face, index)`). A client then splits the printed
+text of the printing and language its player chose and takes that sentence, so
+a loyalty ability draws as what it does instead of as `+1`.
+
+Three things about it are load-bearing. It is **generated**, because the
+answer is read out of the English oracle text against the compiled ability
+list and a running game holds neither — `xtask` is the one place that links
+both, and `codegen --check` is what keeps the table from going stale. The unit
+is a **face**, because abilities are per face (`abilities_for_face`, and a
+back face never inherits) while `AbilityRef` carries no face: whoever looks a
+line up supplies it, which for a stack entry is the face the source object is
+showing. And the English sentence *count* travels beside the index
+(`AbilityLine::of`), because the index is resolved against a text that may be
+an older printing or a translation that joins two lines — an index merely out
+of range is caught by anyone, but one that is in range and off by one is shown
+to the player as precise text, which is worse than `+1`.
+
+It does not reach every ability, and the misses are honest: 318 of the pool's
+327 stack-capable abilities know their sentence, the rest being abilities
+printed as a keyword (echo, evoke, station), a quoted sub-ability inside a
+copy sentence, and a saga threshold row. `cargo run -p xtask -- ability-lines`
+is the report that names them; `baylee_cards::lines`' tests are the floor.
 
 ### The stack panel draws it
 

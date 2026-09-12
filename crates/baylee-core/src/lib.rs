@@ -5,6 +5,7 @@
 //! - [`types`]: card types, supertypes, subtype identifiers
 //! - [`mana`]: mana symbols, costs, pools (see `docs/mana-notation.md`)
 //! - [`preset`]: reproducible game start definitions incl. the print table
+//! - [`oracle`]: how a printed oracle text is cut into sentences
 
 #![warn(missing_docs)]
 
@@ -51,6 +52,7 @@ pub mod generated {
 }
 pub mod ids;
 pub mod mana;
+pub mod oracle;
 pub mod preset;
 pub mod types;
 

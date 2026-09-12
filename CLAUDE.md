@@ -220,8 +220,13 @@ The engine is also strictly synchronous — async lives only in `engine-server`,
 ### Cards: generated stubs, hand-finished, machine-checked
 
 `cargo xtask codegen` writes the stub, the registry tables
-(`crates/baylee-cards/src/generated.rs`, `cards/mod.rs`) and subtype constants
-(`crates/baylee-core/src/generated/subtypes.rs`). You then edit **only**
+(`crates/baylee-cards/src/generated.rs`, `cards/mod.rs`), subtype constants
+(`crates/baylee-core/src/generated/subtypes.rs`) and the ability-line table
+(`crates/baylee-cards/src/generated_lines.rs` — which printed sentence each
+ability came from, so a client can draw a stack entry as what the ability
+*does*; `docs/client.md` §"Which ability is on the stack" is normative, and the table is
+two-phase, so a card added by one run gets its row from the next). You then
+edit **only**
 `coverage`, `keywords`, `abilities` in that card's file;
 `index`, `oracle_id`, `scryfall_id` and `faces` stay as generated — except
 for the three fields a face has no printed data for in the Scryfall payload

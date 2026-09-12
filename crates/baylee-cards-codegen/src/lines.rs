@@ -26,13 +26,11 @@ use baylee_cards_dsl::{AbilityDef, Trigger};
 
 /// The sentences a printed oracle text is made of.
 ///
-/// Blank lines are dropped, so the index this module hands out is an index
-/// into *this* iterator and not into `str::lines`. Every reader of the
-/// table has to split the same way, which is why the split is a function
-/// here rather than a line of code in three places.
-pub fn sentences(oracle: &str) -> impl Iterator<Item = &str> {
-    oracle.lines().map(str::trim).filter(|l| !l.is_empty())
-}
+/// Re-exported rather than written here: the client resolves the index
+/// this module hands out against a *localized* printed text and cannot
+/// reach this crate, so the split belongs to `baylee-core`, which both
+/// ends depend on.
+pub use baylee_core::oracle::sentences;
 
 /// What shape an oracle sentence or an ability is, coarsely enough that the
 /// two can be held against each other.

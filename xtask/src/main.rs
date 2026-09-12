@@ -637,6 +637,19 @@ fn codegen(root: &Path, check: bool, forge_dir: &Path, cache: &Path) -> anyhow::
         &mut changed,
     )?;
 
+    // 4. Which printed sentence each ability came from → generated_lines.rs.
+    //    Written here rather than beside the registry because it is built
+    //    from a *different* pair of sources: the registry comes from the
+    //    ledger and the files on disk, this comes from the **compiled**
+    //    pool read against the cached printings. One renderer over two
+    //    sources makes a `--check` failure unreadable.
+    write_or_check(
+        check,
+        &root.join("crates/baylee-cards/src/generated_lines.rs"),
+        &render_ability_lines(root)?,
+        &mut changed,
+    )?;
+
     if check {
         if changed.is_empty() {
             println!("codegen check: up to date");
@@ -1856,6 +1869,113 @@ fn face_texts(payload: &serde_json::Value) -> Vec<String> {
         return faces.iter().map(|f| text(f.get("oracle_text"))).collect();
     }
     vec![text(payload.get("oracle_text"))]
+}
+
+/// Renders `crates/baylee-cards/src/generated_lines.rs`: per card, per
+/// face, which printed sentence each ability came from.
+///
+/// The answer has to be precomputed, and it has to be precomputed *here*.
+/// It comes from reading the English oracle text against the compiled
+/// ability list, and a running game holds neither — the engine carries no
+/// card text at all, and a client fetches the printing and language the
+/// player chose rather than Scryfall's English. `xtask` is the one place
+/// that links both halves: `baylee-cards` for the compiled `CardDef`s and
+/// `baylee-cards-codegen` for the reader, which is the same shape
+/// `validate` already has.
+///
+/// # It is two-phase, and that is what `--check` is for
+///
+/// The table is built from the pool **compiled into this binary**, so a
+/// card added by the run that is writing it is not in the walk: its row
+/// lands on the *next* `codegen`, after a rebuild. That is not a race to
+/// be fixed here — it is the same order `validate` reads the pool in — and
+/// `codegen --check` in CI is what turns a forgotten second run into a
+/// build failure rather than a card whose stack entry silently says
+/// nothing.
+fn render_ability_lines(root: &Path) -> anyhow::Result<String> {
+    let decks_text = fs::read_to_string(root.join("data/acceptance-decks.txt"))?;
+    let rows = acceptance::parse_decks(&decks_text)?;
+    let pool_text = fs::read_to_string(root.join("data/card-pool.txt")).unwrap_or_default();
+    // The pool's *own* spelling of a name, because that is what the
+    // printing is cached under: a double-faced card is `A // B` there and
+    // its front face alone in `CardDef::name`.
+    let names = acceptance::all_names(&rows, &pool_text);
+    let by_name: BTreeMap<&str, &'static baylee_cards::dsl::CardDef> =
+        baylee_cards::all().map(|def| (def.name(), def)).collect();
+
+    let mut table: Vec<String> =
+        vec![String::from("&[],"); baylee_cards::generated::BY_INDEX.len()];
+    for name in &names {
+        let Some(def) = by_name.get(name.split(" // ").next().unwrap_or(name)) else {
+            continue;
+        };
+        let Some(payload) = cached_printing(root, name) else {
+            continue;
+        };
+        let texts = face_texts(&payload);
+        let mut faces: Vec<String> = Vec::new();
+        let mut any = false;
+        for face in 0..def.faces.len() {
+            let abilities = def.abilities_for_face(face);
+            any |= !abilities.is_empty();
+            let printed = texts.get(face).map_or("", String::as_str);
+            let mapping = lines::map(abilities, printed);
+            let stackable = abilities
+                .iter()
+                .map(lines::ability_shape)
+                .filter(|shape| *shape != lines::LineShape::Other)
+                .count();
+            let cells: Vec<String> = mapping
+                .lines
+                .iter()
+                .map(|line| line.map_or_else(|| "None".to_string(), |l| format!("Some({l})")))
+                .collect();
+            faces.push(format!(
+                "FaceLines {{ sentences: {}, stackable: {}, lines: &[{}] }}",
+                baylee_core::oracle::sentence_count(printed),
+                stackable,
+                cells.join(", ")
+            ));
+        }
+        // A card with no abilities on any face — a vanilla creature, a
+        // stub — has nothing to point at, and an empty row keeps the file
+        // to the cards the feature is about.
+        if !any {
+            continue;
+        }
+        let Some(slot) = table.get_mut(def.index.get() as usize) else {
+            continue;
+        };
+        *slot = format!("// {}\n&[{}],", def.name(), faces.join(", "));
+    }
+
+    // The two-phase gap, said out loud where it happens rather than found
+    // in CI a day later: cards this run added to the registry are not in
+    // the pool this binary compiled against, so they have no row yet.
+    let added = names
+        .iter()
+        .filter(|name| !by_name.contains_key(name.split(" // ").next().unwrap_or(name)))
+        .count();
+    if added > 0 {
+        println!(
+            "note: {added} card(s) are newer than the compiled pool; \
+             run `cargo xtask codegen` again for their ability lines"
+        );
+    }
+
+    Ok(format!(
+        "// GENERATED by `cargo xtask codegen` — do not edit by hand.\n\
+         \n\
+         #![allow(missing_docs, unused_imports, dead_code, clippy::all, clippy::pedantic)]\n\
+         \n\
+         use crate::lines::FaceLines;\n\
+         \n\
+         /// Per card by `CardIndex`, per face, in `abilities_for_face` order:\n\
+         /// which printed sentence each ability came from. `&[]` is a card with\n\
+         /// no abilities, a retired index, or one with no cached printing.\n\
+         pub static ABILITY_LINES: &[&[FaceLines]] = &[\n{}\n];\n",
+        table.join("\n")
+    ))
 }
 
 /// A Scryfall color letter.
@@ -4147,7 +4267,7 @@ fn ability_lines(root: &Path) -> anyhow::Result<()> {
         }
     }
 
-    println!("ability lines: {considered} cards ({abilities_seen} stack-capable abilities)");
+    println!("ability lines: {considered} faces ({abilities_seen} stack-capable abilities)");
     println!("  {aligned} line up sentence-for-ability, in printed order");
     println!("  {out_of_order} find every ability a sentence, but not in the code's order");
     println!("  {lineless} have an ability no sentence fits");
