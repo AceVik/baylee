@@ -2057,6 +2057,60 @@ struct Globals { time: f32 };
         );
     }
 
+    /// Parchment is one material, and the card and the interface draw it from
+    /// one number.
+    ///
+    /// A saga's chapter page is parchment on a card; a prompt slip and the
+    /// ability sheet are parchment in the interface. They were two colours —
+    /// #E0D4B0 in the shader and #EDE3CC in the palette — which is a drift
+    /// nothing could see, because the two are never touching on screen. What
+    /// makes it worth a test is that they answer the same question: a player
+    /// who has learned what paper looks like in this game has learned one
+    /// thing, and two papers is a fact they have to hold twice.
+    ///
+    /// Read out of the WGSL rather than restated here, the way the rail and
+    /// the plate are already held — a constant copied into a test agrees with
+    /// whatever it was copied from, including a mistake.
+    #[test]
+    fn the_parchment_is_the_same_paper_in_both_languages() {
+        let src = include_str!("shaders/card_common.wgsl");
+        let page = wgsl_rgb(src, "PARCHMENT");
+        let sheet = crate::hud::palette::PARCHMENT.to_srgba();
+        for (channel, (shader, ui)) in [
+            (page[0], sheet.red),
+            (page[1], sheet.green),
+            (page[2], sheet.blue),
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            assert!(
+                (shader - ui).abs() < 1e-6,
+                "channel {channel}: the card draws parchment at {shader} and \
+                 the interface paints it at {ui}"
+            );
+        }
+        // And the generated sheet the interface stretches over that fill is
+        // the same paper again in its middle, which is the seam a flat
+        // border round a grained middle used to show.
+        let grain = baylee_client_core::tabletop::parchment(64);
+        let middle = grain.pixel(32, 32);
+        for (channel, (fill, drawn)) in [
+            (page[0], middle[0]),
+            (page[1], middle[1]),
+            (page[2], middle[2]),
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            assert!(
+                (fill - drawn).abs() < 0.06,
+                "channel {channel}: the fill is {fill} and the sheet over it \
+                 is {drawn}"
+            );
+        }
+    }
+
     /// One `vec3<f32>` literal out of the shader.
     fn wgsl_rgb(source: &str, name: &str) -> [f32; 3] {
         let line = source

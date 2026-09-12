@@ -638,12 +638,14 @@ const SKIP_INK: f32 = 0.50;
 
 /// The ground under a step a standing order stops at.
 ///
-/// Faint enough to be a *ground* rather than a chip — it composites to
-/// (56, 79, 62) on the ledge — and that is the whole signal: a lit label on a
-/// raised ground beside dim labels on bare cloth. A luminance difference
+/// [`crate::hud::palette::PARCHMENT`] at 14%, written out because a colour
+/// with an alpha is not a `const fn` away from one without. Faint enough to
+/// be a *ground* rather than a chip — a shade over the shelf it sits on and
+/// no more — and that is the whole signal: a lit label on a raised ground
+/// beside dim labels on bare cloth. A luminance difference
 /// rather than a hue one, which is what a green felt makes of any attempt to
 /// say go/stop in colour.
-const STOP_GROUND: Color = Color::srgba(0.929, 0.890, 0.800, 0.14);
+const STOP_GROUND: Color = Color::srgba(0.88, 0.83, 0.69, 0.14);
 
 /// The corner a step tile is cut with.
 const TILE_RADIUS: f32 = 3.0;

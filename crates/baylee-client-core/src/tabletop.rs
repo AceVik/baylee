@@ -266,11 +266,29 @@ pub fn felt(size: u32) -> Texture {
 #[must_use]
 pub fn parchment(size: u32) -> Texture {
     /// The sheet where it has been handled least.
-    const SHEET: [f32; 3] = [0.929, 0.890, 0.800];
+    ///
+    /// The same parchment the card shader draws a saga's page with
+    /// (`shaders/card_common.wgsl`), and the same one
+    /// `baylee_client::hud::palette::PARCHMENT` is painted flat with. The
+    /// three were three
+    /// colours until now: the UI's #EDE3CC and the card's #E0D4B0 for one
+    /// material, with the *small* surface the darker of the two — which is
+    /// backwards, because a colour field the size of a fingernail already
+    /// reads greyer and darker than a sheet of paper does. The card's is
+    /// what everything took, so a sheet of parchment is one thing wherever
+    /// it is drawn; `the_parchment_is_the_same_paper_in_both_languages`
+    /// reads it back out of the WGSL.
+    const SHEET: [f32; 3] = [0.880, 0.830, 0.690];
     /// Where it has aged: warmer and a shade down.
-    const AGED: [f32; 3] = [0.839, 0.780, 0.655];
+    ///
+    /// Moved with the sheet by the *ratio* it stood at rather than by the
+    /// difference, because a stop is multiplicative: keeping the old offset
+    /// would have left the staining nearly as dark against a sheet that had
+    /// come down to meet it, and the mottle that stops a flat fill from
+    /// reading as a rectangle of paint would have gone with it.
+    const AGED: [f32; 3] = [0.795, 0.727, 0.565];
     /// The rim, where a sheet lying on a table loses the light.
-    const EDGE: [f32; 3] = [0.706, 0.639, 0.502];
+    const EDGE: [f32; 3] = [0.669, 0.596, 0.433];
 
     let mut texture = Texture::blank(size, size);
     let extent = size as f32;
@@ -1702,10 +1720,12 @@ mod tests {
     fn the_ledge_is_dark_enough_to_read_ink_against() {
         // Bare felt beside a mat, measured off `off_a.png` at a duel framing.
         const FELT_ON_SCREEN: [f32; 3] = [21.0, 63.0, 40.0];
-        // `PARCHMENT` #EDE3CC and `PARCHMENT_EDGE` #B4A380 — the bar's
-        // numerals and its glyphs, the second being the worst case.
-        const PARCHMENT: [f32; 3] = [237.0, 227.0, 204.0];
-        const PARCHMENT_EDGE: [f32; 3] = [180.0, 163.0, 128.0];
+        // `PARCHMENT` #E0D4B0 and `PARCHMENT_EDGE` #AA986E — the bar's
+        // numerals and its glyphs, the second being the worst case. Both came
+        // down when the UI's parchment took the card shader's value; they
+        // measure 7.9 and 4.1 against the 9.1 and 4.7 they had.
+        const PARCHMENT: [f32; 3] = [224.0, 212.0, 176.0];
+        const PARCHMENT_EDGE: [f32; 3] = [171.0, 152.0, 110.0];
 
         let ledge = over([1.0, 1.0, 1.0, MAT_LEDGE_VALUE], FELT_ON_SCREEN);
         // Two floors, because the bar writes two kinds of thing on this

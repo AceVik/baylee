@@ -658,16 +658,25 @@ pub(crate) mod palette {
     pub const SHADOW: Color = Color::srgba(0.0, 0.0, 0.0, 0.55);
 
     /// Parchment, matching the middle of
-    /// [`tabletop::parchment`](baylee_client_core::tabletop::parchment).
+    /// [`tabletop::parchment`](baylee_client_core::tabletop::parchment) —
+    /// and, since this value, the card shader's own `PARCHMENT`.
     ///
     /// Felt is the ground, parchment is a sheet, brass draws the lines and
     /// gold belongs to the local seat. A panel that is *read* is a sheet; a
     /// panel that is *worked in* stays [`PANEL`]. That is the whole rule, and
     /// it is why the prompt is parchment and the seat tabs are not.
-    pub const PARCHMENT: Color = Color::srgb(0.929, 0.890, 0.800);
+    ///
+    /// It was #EDE3CC while the saga page the card shader draws was #E0D4B0,
+    /// which is one material in two colours — and the wrong way round, the
+    /// *smaller* surface being the darker one where a colour field the size
+    /// of a fingernail already reads darker than a sheet of paper. The card's
+    /// is what both took. `the_parchment_is_the_same_paper_in_both_languages`
+    /// reads it back out of the WGSL, the way the rail and the plate are
+    /// already held.
+    pub const PARCHMENT: Color = Color::srgb(0.88, 0.83, 0.69);
     /// Where a sheet lying on a table loses the light — its border, and the
     /// rim of the generated sheet it has to meet.
-    pub const PARCHMENT_EDGE: Color = Color::srgb(0.706, 0.639, 0.502);
+    pub const PARCHMENT_EDGE: Color = Color::srgb(0.669, 0.596, 0.433);
     /// Ink.
     pub const PARCHMENT_INK: Color = Color::srgb(0.098, 0.082, 0.062);
     /// The quieter ink: hints, tallies, what a key does.
@@ -711,7 +720,7 @@ pub(crate) mod palette {
     /// under a surface that is not there. A few percent of the sheet's own
     /// colour is enough to be a surface and not enough to compete with
     /// [`BRASS`].
-    pub const SLIP_GHOST: Color = Color::srgb(0.878, 0.835, 0.741);
+    pub const SLIP_GHOST: Color = Color::srgb(0.832, 0.779, 0.639);
 }
 
 /// The generated surfaces the overlay is drawn on.
