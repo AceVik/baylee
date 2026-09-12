@@ -4006,3 +4006,105 @@ fn an_optional_clause_inside_a_condition_is_offered_once_and_taken_once() {
         "one offer, one counter"
     );
 }
+
+fn jace_the_mind_sculptor() -> baylee_core::ids::CardIndex {
+    card_index("7f77a84e-5a4b-4834-aefa-3cecc175ae8e")
+}
+
+/// Jace, the Mind Sculptor's +2: "Look at the top card of **target
+/// player's** library. **You** may put that card on the bottom of **that
+/// player's** library."
+///
+/// Two players, two roles, and the engine had each of them on the wrong
+/// seat. `Effect::ScryFor` handed the `Pending::ChooseCards` to the target,
+/// so the *opponent* decided whether to keep their own card — the opposite
+/// of what the card says. And `AwaitingOp::Scry` then bottomed the chosen
+/// card into `res.controller`'s library, which is not a misplacement so
+/// much as a theft: the card came out of one player's library and went into
+/// another's.
+///
+/// Jace is the only card in the pool that uses `ScryFor`, and nothing in
+/// the suite had ever activated it, which is how both survived. The two
+/// library counts below are what catch the second one; the asked seat
+/// catches the first.
+#[test]
+fn jace_looks_at_a_targets_library_and_the_controller_decides() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(53, forest())
+        .battlefield(0, &[jace_the_mind_sculptor()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let before = (library_size(&engine, p0), library_size(&engine, p1));
+    let top_of_theirs = *engine
+        .state()
+        .zones
+        .list(crate::zone::ZoneLocation::Library(p1))
+        .last()
+        .expect("the opponent has a library");
+
+    let jace = on_battlefield(&engine, p0, jace_the_mind_sculptor()).expect("jace deployed");
+    engine
+        .apply(
+            p0,
+            PlayerAction::ActivateAbility {
+                source: jace,
+                ability_index: 0,
+            },
+        )
+        .expect("the +2 activates");
+    let Pending::ChoosePlayer { options, .. } = engine.pending().clone() else {
+        panic!("the +2 asks whose library, got {:?}", engine.pending())
+    };
+    assert!(options.contains(&p1), "the opponent is a legal target");
+    engine.apply(p0, PlayerAction::ChoosePlayer(p1)).unwrap();
+
+    // The ability resolves, and the question it raises goes to Jace's
+    // controller — never to the player whose library is being looked at.
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseCards { .. })
+    });
+    let Pending::ChooseCards {
+        player,
+        options,
+        min,
+        max,
+        ..
+    } = engine.pending().clone()
+    else {
+        unreachable!("the predicate just matched")
+    };
+    assert_eq!(player, p0, "\"you may put that card on the bottom\" — you");
+    assert_eq!(options, vec![top_of_theirs], "and it is their top card");
+    assert_eq!((min, max), (0, 1), "the \"may\" is the zero minimum");
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![top_of_theirs],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::Priority { .. }) && stack_is_empty(e)
+    });
+
+    assert_eq!(
+        engine
+            .state()
+            .zones
+            .list(crate::zone::ZoneLocation::Library(p1))
+            .first()
+            .copied(),
+        Some(top_of_theirs),
+        "the card goes to the bottom of the library it came out of"
+    );
+    assert_eq!(
+        (library_size(&engine, p0), library_size(&engine, p1)),
+        before,
+        "and no card crossed between the two libraries"
+    );
+}

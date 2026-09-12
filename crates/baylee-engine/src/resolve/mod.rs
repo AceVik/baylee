@@ -161,8 +161,13 @@ pub enum AwaitingOp {
     },
     /// Scry: chosen cards go to the bottom, the rest stays on top.
     Scry {
-        /// How many cards were looked at.
-        looked: u8,
+        /// **Whose library the cards came out of**, which is not always the
+        /// controller's: Jace, the Mind Sculptor's +2 looks at the top card
+        /// of *target player's* library and bottoms it into *that player's*
+        /// library, while the controller is the one deciding. Reading
+        /// `res.controller` here moved the card from one player's library
+        /// into another's.
+        player: PlayerId,
     },
     /// The controller decides whether to take an optional clause
     /// ([`Effect::MayDo`]).
@@ -793,13 +798,15 @@ pub fn resume(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]) 
                 }
             }
         }
-        AwaitingOp::Scry { .. } => {
+        AwaitingOp::Scry { player } => {
             // Chosen cards go to the bottom in chosen order; the rest stays
             // on top in its original relative order (scry approximation).
+            // The library is the one they were looked at in — see the
+            // variant's own doc.
             for &card in chosen {
                 let _ = state.move_object(
                     card,
-                    ZoneLocation::Library(res.controller),
+                    ZoneLocation::Library(player),
                     ZonePosition::Bottom,
                     Cause::Effect,
                 );
@@ -1138,11 +1145,15 @@ fn exec_choice(state: &mut GameState, res: &mut Resolution, op: Effect) -> Optio
             if looked.is_empty() {
                 return None;
             }
-            res.awaiting = Some(AwaitingOp::Scry {
-                looked: looked.len() as u8,
-            });
+            res.awaiting = Some(AwaitingOp::Scry { player });
+            // Two players, two roles. Jace's +2 prints "Look at the top card
+            // of **target player's** library. **You** may put that card on
+            // the bottom of **that player's** library" — so the library is
+            // the target's and the decision is the controller's. Asking
+            // `player` handed the opponent the choice of whether to keep
+            // their own card, which is the opposite of what the card does.
             Some(Pending::ChooseCards {
-                player,
+                player: you,
                 options: looked,
                 min: 0,
                 max: n as u8,
@@ -1162,9 +1173,7 @@ fn exec_choice(state: &mut GameState, res: &mut Resolution, op: Effect) -> Optio
             if looked.is_empty() {
                 return None;
             }
-            res.awaiting = Some(AwaitingOp::Scry {
-                looked: looked.len() as u8,
-            });
+            res.awaiting = Some(AwaitingOp::Scry { player: you });
             Some(Pending::ChooseCards {
                 player: you,
                 options: looked,
