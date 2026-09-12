@@ -1147,6 +1147,17 @@ spell can point at a card in a graveyard nothing else is drawing. A player
 target keeps `name: None` — seat names live in `GameStatic`, which the board
 model has never carried.
 
+An ability's full row also says what it **does**, rather than that it is an
+ability: the host names the printed sentence it came from as
+`StackText { face, line, of }` and `card_face::sentence_blocks` cuts the
+catalog's oracle text at that index, so a loyalty ability reads as its own
+paragraph instead of as "+1". The count is the guard and it is *English* —
+the host generated it from `baylee_cards::lines`, so a text of a different
+length is refused whole rather than indexed into, which is what a translation
+one sentence shorter would be. The borrowed picture comes from the face the
+sentence came from and not the face the source is showing, because an ability
+on the stack is independent of its source (CR 113.7a).
+
 The question itself is a **sheet**, and two things about sheets are easy to
 get wrong twice. `hud::sheet()` on a panel paints that panel's *content box*,
 so any padding shows as a ring of flat `PARCHMENT` around the grain with the

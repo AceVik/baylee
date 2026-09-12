@@ -8,10 +8,17 @@
 //!
 //! The panel does not draw its entries as peers. The next thing to resolve is
 //! a **full** row — a card an inch across, the spell's name at reading size,
-//! an arrow and a picture of everything it points at — and everything under
-//! it is a **compact** row: a smaller card, one line of name, smaller
-//! thumbnails and no arrow. That is the whole hierarchy, and it is one
-//! decision rather than two, because the size ramp *is* the depth cue.
+//! the printed sentence an ability came from, an arrow and a picture of
+//! everything it points at — and everything under it is a **compact** row: a
+//! smaller card, one line of name, smaller thumbnails, no sentence and no
+//! arrow. That is the whole hierarchy, and it is one decision rather than
+//! two, because the size ramp *is* the depth cue.
+//!
+//! The sentence is the clearest case of what that ramp buys. It runs to
+//! [`STACK_SENTENCE_LINES`] lines and answers "what is about to happen",
+//! which is a question about the *next* thing to resolve; the same paragraph
+//! on every queued row would be four screens of rules text nobody is reading
+//! yet, in the space the queue needs to say how deep it is.
 //!
 //! The arithmetic forces it. A full row is [`STACK_CARD_H`] plus its padding,
 //! about 104 px; the panel is 62% of the window, which on a laptop is a
