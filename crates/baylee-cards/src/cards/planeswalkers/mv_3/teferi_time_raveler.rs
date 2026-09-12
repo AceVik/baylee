@@ -31,7 +31,6 @@ card! {
             layer: Layer::Text,
             filter: Filter::Any,
             modifier: Modifier::OpponentsCastAsSorcery,
-            cross_zone: false,
         }),
         loyalty!(1, &[Effect::CreateContinuousEffect {
                 layer: Layer::Text,

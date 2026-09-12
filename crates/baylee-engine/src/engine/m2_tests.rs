@@ -89,14 +89,12 @@ static ANTHEM_ABILITIES: &[AbilityDef] = &[AbilityDef::Static(StaticAbility {
     layer: Layer::PtModify,
     filter: CREATURE_YOU,
     modifier: Modifier::ModifyPT(1, 1),
-    cross_zone: false,
 })];
 
 static LATTICE_ABILITIES: &[AbilityDef] = &[AbilityDef::Static(StaticAbility {
     layer: Layer::Type,
     filter: Filter::Any,
     modifier: Modifier::AddType(TypeSet::ARTIFACT),
-    cross_zone: false,
 })];
 
 static PUMP_EFFECTS: &[Effect] = &[Effect::CreateContinuousEffect {

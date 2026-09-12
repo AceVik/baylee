@@ -53,7 +53,6 @@ card! {
                 at_least: 8,
                 types: TypeSet::CREATURE,
             },
-            cross_zone: false,
         }),
         AbilityDef::Static(StaticAbility {
             layer: Layer::Ability,
@@ -63,7 +62,6 @@ card! {
                 at_least: 8,
                 keywords: KeywordSet::FLYING,
             },
-            cross_zone: false,
         }),
         // Other artifacts you control have hexproof and indestructible.
         AbilityDef::Static(StaticAbility {
@@ -74,7 +72,6 @@ card! {
                 Filter::Another,
             ]),
             modifier: Modifier::AddKeyword(HEXPROOF_INDESTRUCTIBLE),
-            cross_zone: false,
         }),
         // 1+: modal combat trigger (a +1/+1 counter or two charge
         // counters on up to one other artifact).

@@ -27,7 +27,6 @@ card! {
             layer: Layer::Text,
             filter: Filter::Any,
             modifier: Modifier::OpponentsCantSearch,
-            cross_zone: false,
         }),
         loyalty!(-1, &[
                 Effect::Mill {

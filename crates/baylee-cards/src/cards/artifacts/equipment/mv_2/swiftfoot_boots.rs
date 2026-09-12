@@ -31,7 +31,6 @@ card! {
             layer: Layer::Ability,
             filter: Filter::AttachedToBySource,
             modifier: Modifier::AddKeyword(KeywordSet::HEXPROOF.union(KeywordSet::HASTE)),
-            cross_zone: false,
         }),
         activated!(
             Cost {

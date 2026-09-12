@@ -194,16 +194,21 @@ pub enum Modifier {
 pub struct StaticAbility {
     /// The layer the effect applies in.
     pub layer: Layer,
-    /// Which objects are affected.
+    /// Which objects are affected — including *where* they are.
+    ///
+    /// An effect that reaches past the battlefield (Maskwood Nexus:
+    /// "creature cards you own that aren't on the battlefield") says so with
+    /// a [`Filter::InZone`], and that is the only way to say it: the engine
+    /// derives the cross-zone projection pass from the filter itself. There
+    /// was a `cross_zone: bool` beside this field for exactly that purpose
+    /// and nothing ever read it, so Mycosynth Lattice — the one card that
+    /// relied on the flag instead of on its filter — was a `Filter::Any`
+    /// that reached the stack and made instant spells into permanents, while
+    /// the colourless half it was declared for never reached a library at
+    /// all. One statement, in the one place that is read.
     pub filter: Filter,
     /// What changes.
     pub modifier: Modifier,
-    /// Whether the effect reaches beyond the battlefield (Maskwood Nexus:
-    /// "creature cards you own that aren't on the battlefield"). When any
-    /// cross-zone effect is registered, the engine projects characteristics
-    /// for *all* zones; without one, only battlefield + stack are projected
-    /// (hot path).
-    pub cross_zone: bool,
 }
 
 /// How long a created continuous effect lasts.

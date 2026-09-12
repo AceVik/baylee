@@ -33,7 +33,6 @@ card! {
             layer: Layer::Ability,
             filter: Filter::Any,
             modifier: Modifier::CantActivateArtifacts,
-            cross_zone: false,
         }),
         // Both halves name **the target** and nothing else. They were written
         // with the same filter the targeting used, which reads as the same

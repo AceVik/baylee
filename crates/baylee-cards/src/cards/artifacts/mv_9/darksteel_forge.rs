@@ -21,6 +21,5 @@ card! {
         layer: Layer::Ability,
         filter: ARTIFACTS_YOURS,
         modifier: Modifier::AddKeyword(KeywordSet::INDESTRUCTIBLE),
-        cross_zone: false,
     })],
 }

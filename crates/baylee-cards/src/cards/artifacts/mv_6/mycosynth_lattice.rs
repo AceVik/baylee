@@ -41,19 +41,16 @@ card! {
             layer: Layer::Type,
             filter: PERMANENTS,
             modifier: Modifier::AddType(TypeSet::ARTIFACT),
-            cross_zone: true,
         }),
         AbilityDef::Static(StaticAbility {
             layer: Layer::Color,
             filter: EVERYTHING,
             modifier: Modifier::SetColor(ColorSet::EMPTY),
-            cross_zone: true,
         }),
         AbilityDef::Static(StaticAbility {
             layer: Layer::Text,
             filter: Filter::Any,
             modifier: Modifier::ManaIsAnyColor,
-            cross_zone: false,
         }),
     ],
 }

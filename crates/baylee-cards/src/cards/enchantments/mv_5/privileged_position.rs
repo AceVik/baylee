@@ -23,6 +23,5 @@ card! {
         layer: Layer::Ability,
         filter: OTHER_YOURS,
         modifier: Modifier::AddKeyword(KeywordSet::HEXPROOF),
-        cross_zone: false,
     })],
 }

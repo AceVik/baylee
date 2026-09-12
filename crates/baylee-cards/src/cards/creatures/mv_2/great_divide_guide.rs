@@ -35,6 +35,5 @@ card! {
             effects: ANY_COLOR_MANA,
             mana_ability: true,
         },
-        cross_zone: false,
     })],
 }

@@ -33,7 +33,6 @@ card! {
             layer: Layer::Ability,
             filter: Filter::AttachedToBySource,
             modifier: Modifier::AddKeyword(KeywordSet::HASTE.union(KeywordSet::SHROUD)),
-            cross_zone: false,
         }),
         activated!(
             Cost {

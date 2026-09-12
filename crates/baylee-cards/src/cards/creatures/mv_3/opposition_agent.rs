@@ -31,6 +31,5 @@ card! {
         layer: Layer::Text,
         filter: Filter::Any,
         modifier: Modifier::SearchTakeover,
-        cross_zone: false,
     })],
 }

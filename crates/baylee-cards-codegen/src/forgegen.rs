@@ -1128,9 +1128,10 @@ impl Tx<'_> {
             self.note(format!("static ability from `EffectZone$ {zone}`"));
             return None;
         }
-        // Likewise `AffectedZone`: our `cross_zone` says the effect reaches
-        // past the battlefield, and a filter that has no zone predicate in
-        // it cannot say *which* other zone. Refuse rather than guess.
+        // Likewise `AffectedZone`: reaching past the battlefield is said by
+        // a `Filter::InZone` in the filter, and a filter that has no zone
+        // predicate in it cannot say *which* other zone. Refuse rather than
+        // guess.
         if let Some(zone) = p.take("AffectedZone")
             && zone != "Battlefield"
         {
@@ -1314,7 +1315,7 @@ impl Tx<'_> {
     fn static_expr(layer: &str, filter: &str, modifier: &str) -> String {
         format!(
             "AbilityDef::Static(StaticAbility {{ layer: {layer}, filter: {filter}, \
-             modifier: {modifier}, cross_zone: false }})"
+             modifier: {modifier} }})"
         )
     }
 

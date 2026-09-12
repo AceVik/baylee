@@ -19,6 +19,6 @@ card! {
     },
     ],
     abilities: &[
-        AbilityDef::Static(StaticAbility { layer: Layer::Type, filter: Filter::LAND, modifier: Modifier::AddSubtype(subtypes::land::FOREST), cross_zone: false }),
+        AbilityDef::Static(StaticAbility { layer: Layer::Type, filter: Filter::LAND, modifier: Modifier::AddSubtype(subtypes::land::FOREST) }),
     ],
 }

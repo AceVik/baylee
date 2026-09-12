@@ -20,7 +20,6 @@ card! {
             layer: Layer::Text,
             filter: Filter::Any,
             modifier: Modifier::NoMaxHandSize,
-            cross_zone: false,
         }),
         mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
     ],

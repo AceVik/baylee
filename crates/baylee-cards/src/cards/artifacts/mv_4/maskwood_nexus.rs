@@ -39,7 +39,6 @@ card! {
             layer: Layer::Type,
             filter: NEXUS_FILTER,
             modifier: Modifier::AllCreatureTypes,
-            cross_zone: true,
         }),
         activated!(Cost {
                 mana: baylee_core::mana!("{3}"),

@@ -37,7 +37,6 @@ card! {
             layer: Layer::Ability,
             filter: Filter::And(&[Filter::ARTIFACT, Filter::ControlledByYou]),
             modifier: Modifier::AddKeyword(KeywordSet::HEXPROOF),
-            cross_zone: false,
         }),
     ],
 }

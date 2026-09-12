@@ -37,7 +37,6 @@ card! {
             layer: Layer::Text,
             filter: Filter::Any,
             modifier: Modifier::LegendRuleOff,
-            cross_zone: false,
         }),
     ],
 }

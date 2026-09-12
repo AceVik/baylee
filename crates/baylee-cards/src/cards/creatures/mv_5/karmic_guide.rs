@@ -33,7 +33,6 @@ card! {
             layer: Layer::Text,
             filter: Filter::This,
             modifier: Modifier::ProtectionFrom(&BLACK_F),
-            cross_zone: false,
         }),
         triggered!(Trigger::EntersBattlefield(&Filter::This), &[Effect::GraveyardToBattlefield {
                 target: TargetSpec::CardInGraveyard(&Filter::CREATURE, PlayerRel::You),

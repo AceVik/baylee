@@ -36,7 +36,6 @@ card! {
             layer: Layer::Text,
             filter: Filter::Any,
             modifier: Modifier::NoMaxHandSize,
-            cross_zone: false,
         }),
         // {2}{U}: Level 2 (sorcery speed, requires level 1).
         AbilityDef::ActivatedConditional {

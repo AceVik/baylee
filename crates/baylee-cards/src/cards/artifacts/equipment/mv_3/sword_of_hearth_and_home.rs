@@ -32,19 +32,16 @@ card! {
             layer: Layer::PtModify,
             filter: Filter::AttachedToBySource,
             modifier: Modifier::ModifyPT(2, 2),
-            cross_zone: false,
         }),
         AbilityDef::Static(StaticAbility {
             layer: Layer::Text,
             filter: Filter::AttachedToBySource,
             modifier: Modifier::ProtectionFrom(&GREEN_F),
-            cross_zone: false,
         }),
         AbilityDef::Static(StaticAbility {
             layer: Layer::Text,
             filter: Filter::AttachedToBySource,
             modifier: Modifier::ProtectionFrom(&WHITE_F),
-            cross_zone: false,
         }),
         triggered!(Trigger::DealsCombatDamageToPlayer(&Filter::AttachedToBySource), &[
                 Effect::Blink {

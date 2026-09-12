@@ -36,7 +36,6 @@ card! {
             layer: Layer::Ability,
             filter: ANOTHER_ALLY,
             modifier: Modifier::AddKeyword(KeywordSet::MENACE.union(KeywordSet::PROWESS)),
-            cross_zone: false,
         }),
         triggered!(Trigger::SpellCast(&NONCREATURE_SPELL), &[Effect::CreateTokenN {
                 token: &ALLY_TOKEN,
