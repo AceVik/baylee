@@ -1715,15 +1715,18 @@ impl Lobby {
                 self.games = listing.games;
                 self.total = listing.total;
                 self.offset = listing.offset;
-                // The table we are waiting at starts playing the moment
-                // somebody joins it; that is when the seat becomes usable.
+                // A seat becomes usable when its table starts playing, which
+                // is a different moment from being given the seat — see
+                // [`LobbyEvent::Seated`] below. This is the one place that
+                // knows the difference, because the listing is what carries
+                // the table's state.
                 let started = self.awaiting.as_ref().is_some_and(|h| {
                     self.games
                         .iter()
                         .any(|g| g.id == h.game_id && g.state == "playing")
                 });
                 if started && let Some(handover) = self.awaiting.take() {
-                    self.note(Phrase::OpponentSatDown);
+                    self.note(Phrase::TakingTheSeat);
                     self.screen = Screen::Seated(handover);
                 }
                 // Tables close while somebody is reading page three of them.
@@ -1736,25 +1739,53 @@ impl Lobby {
                 None
             }
             LobbyEvent::Seated(handover) => {
-                if self.asked_for.take() == Some(GameMode::Open) {
-                    // Ours, but not playable yet: the gateway builds the
-                    // session when the second seat is filled. Offline
-                    // nobody is coming — every other chair is the house
-                    // already — so what the table waits for is the player
-                    // arranging it, and saying "waiting for an opponent"
-                    // there would be a sentence about a person who does
-                    // not exist.
-                    self.note(if self.offline() {
-                        Phrase::TableOpenHouse
-                    } else {
-                        Phrase::TableOpen
-                    });
-                    self.awaiting = Some(handover);
-                    return self.list();
+                // **A seat is not a game**, and this used to ask only whether
+                // the seat was one we had *opened*: `!= Some(Open)` put a
+                // table against the house and a room somebody else is
+                // hosting in the same branch and sent both straight to the
+                // duel. For the house that is right — `mode: "ai"` orders an
+                // engine before it answers. For a room it is not: a room
+                // starts on two statements by two people (this seat's own
+                // `ready`, then the host's `start`), so a player who sat down
+                // at one was shown a duel with no game behind it — the sky,
+                // two seat mats and nothing else — and no way back to the
+                // lobby to give the `ready` it was waiting for. The owner
+                // found it by sitting down at a table I was hosting.
+                //
+                // `join_seat` has said the right thing in a comment the whole
+                // time ("sitting down does not begin the game — the seat
+                // screen waits either way") and then cleared `asked_for`,
+                // which is what put it in the branch that does not wait.
+                match self.asked_for.take() {
+                    // The house is already at the table.
+                    Some(GameMode::Ai) => {
+                        self.note(Phrase::TakingTheSeat);
+                        self.screen = Screen::Seated(handover);
+                        None
+                    }
+                    // Ours, and empty. Offline nobody is coming — every other
+                    // chair is the house already — so what the table waits
+                    // for is the player arranging it, and saying "waiting for
+                    // an opponent" there would be a sentence about a person
+                    // who does not exist.
+                    Some(GameMode::Open) => {
+                        self.note(if self.offline() {
+                            Phrase::TableOpenHouse
+                        } else {
+                            Phrase::TableOpen
+                        });
+                        self.awaiting = Some(handover);
+                        self.list()
+                    }
+                    // Somebody else's room, or a rematch — both hand back a
+                    // seat at a table that has not started, and the player's
+                    // next move is in the lobby rather than at the table.
+                    None => {
+                        self.note(Phrase::YouAreSeated);
+                        self.awaiting = Some(handover);
+                        self.list()
+                    }
                 }
-                self.note(Phrase::TakingTheSeat);
-                self.screen = Screen::Seated(handover);
-                None
             }
             LobbyEvent::Failed(why) => {
                 self.write(why, Tone::Refusal);
@@ -2264,6 +2295,82 @@ mod tests {
         assert_eq!(lobby.awaiting(), None);
     }
 
+    /// The other half of that, and the half that was missing: **joining**
+    /// somebody else's room does not start it either.
+    ///
+    /// The owner sat down at a room I was hosting and was shown a duel with
+    /// no game behind it — the sky, two seat mats, nothing else — because
+    /// the join path handed the seat straight to `Screen::Seated`. A room
+    /// starts on two statements by two people, and neither of them is
+    /// sitting down; worse, the duel it opened had no way back to the lobby,
+    /// so the `ready` it was waiting for could never be given.
+    #[test]
+    fn joining_a_room_waits_for_it_to_start_like_opening_one_does() {
+        let mut lobby = seated_lobby();
+        let handover = SeatHandover {
+            game_id: "g1".to_string(),
+            seat: 1,
+            seat_token: "st".to_string(),
+            local: false,
+        };
+        // No `host()` call: this is a join, which is the path that did not
+        // set `asked_for` and therefore took the other branch.
+        assert_eq!(
+            lobby.apply(LobbyEvent::Seated(handover.clone())),
+            Some(LobbyRequest::ListGames(lobby.query())),
+            "a seat at a room is held, not played"
+        );
+        assert_eq!(*lobby.screen(), Screen::Table, "still in the lobby");
+        assert_eq!(lobby.awaiting(), Some(&handover));
+
+        // Seated, with a deck, and nobody has said `ready` yet.
+        lobby.apply(LobbyEvent::Games(GameListing::of(vec![GameSummary {
+            id: "g1".to_string(),
+            state: "waiting".to_string(),
+            seats: vec![
+                GameSeat {
+                    seat: 0,
+                    taken: true,
+                    ready: true,
+                    ..GameSeat::default()
+                },
+                GameSeat {
+                    seat: 1,
+                    taken: true,
+                    ..GameSeat::default()
+                },
+            ],
+            ..GameSummary::default()
+        }])));
+        assert_eq!(
+            *lobby.screen(),
+            Screen::Table,
+            "a full room is still a room until the host starts it"
+        );
+
+        lobby.apply(LobbyEvent::Games(GameListing::of(vec![GameSummary {
+            id: "g1".to_string(),
+            state: "playing".to_string(),
+            seats: vec![
+                GameSeat {
+                    seat: 0,
+                    taken: true,
+                    ready: true,
+                    ..GameSeat::default()
+                },
+                GameSeat {
+                    seat: 1,
+                    taken: true,
+                    ready: true,
+                    ..GameSeat::default()
+                },
+            ],
+            ..GameSummary::default()
+        }])));
+        assert_eq!(*lobby.screen(), Screen::Seated(handover));
+        assert_eq!(lobby.awaiting(), None);
+    }
+
     /// The press to play again is recorded on one side of the unseating and
     /// spent on the other, so the one thing it must survive is the unseating
     /// — which clears `busy`, the status line and everything else about the
@@ -2317,19 +2424,37 @@ mod tests {
         assert_eq!(lobby.awaiting(), None);
     }
 
+    /// This asserted that a join is playable at once, which is what the
+    /// owner's empty duel was. Its *other* claim is the one worth keeping and
+    /// the reason it was written: an open table of ours that went nowhere
+    /// must not leave a stale `asked_for` behind that changes what the next
+    /// seat means.
     #[test]
-    fn joining_someone_elses_table_is_playable_at_once() {
+    fn a_failed_open_table_does_not_colour_the_next_seat() {
         let mut lobby = seated_lobby();
-        // An earlier open table of ours must not turn this into a wait.
         lobby.host(GameMode::Open);
         lobby.apply(LobbyEvent::Failed("busy".to_string()));
         lobby.join("g7");
-        lobby.apply(LobbyEvent::Seated(SeatHandover {
+        let handover = SeatHandover {
             game_id: "g7".to_string(),
             seat: 1,
             seat_token: "st".to_string(),
             local: false,
-        }));
+        };
+        lobby.apply(LobbyEvent::Seated(handover.clone()));
+        assert_eq!(
+            *lobby.screen(),
+            Screen::Table,
+            "a room does not start by being sat at"
+        );
+        assert_eq!(lobby.awaiting(), Some(&handover));
+        // And it is the *joined* table being waited for, not the one that
+        // failed to open.
+        lobby.apply(LobbyEvent::Games(GameListing::of(vec![GameSummary {
+            id: "g7".to_string(),
+            state: "playing".to_string(),
+            ..GameSummary::default()
+        }])));
         assert!(matches!(lobby.screen(), Screen::Seated(_)));
     }
 

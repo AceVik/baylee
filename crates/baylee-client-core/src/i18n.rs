@@ -339,6 +339,16 @@ messages! {
     },
     /// Somebody joined it.
     OpponentSatDown { en: "an opponent sat down", de: "ein Gegner hat sich gesetzt" },
+    /// A chair at somebody else's room, which does not start on sitting down.
+    ///
+    /// A room takes two statements by two people — this seat's own `ready`
+    /// and the host's `start` — so the seat is held and the game is not
+    /// running yet. Said in the second person because the next move is the
+    /// player's.
+    YouAreSeated {
+        en: "you are seated — say you are ready, then the host starts",
+        de: "du sitzt — geh auf Bereit, dann startet der Host",
+    },
     /// The seat was granted and the duel is opening.
     TakingTheSeat { en: "taking the seat…", de: "nehme den Platz ein…" },
     /// The game we were in ended and the lobby is back.
