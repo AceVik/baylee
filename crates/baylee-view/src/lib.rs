@@ -38,7 +38,7 @@ use serde::{Deserialize, Serialize};
 
 /// Protocol version of the view payload. Bumped on any breaking change so a
 /// client can refuse a host it cannot render rather than mis-rendering it.
-pub const VIEW_VERSION: u32 = 16;
+pub const VIEW_VERSION: u32 = 17;
 
 // ---------------------------------------------------------------- turn shape
 
@@ -420,7 +420,53 @@ pub enum StackItem {
         /// Which ability of which card, stable across games — `None` when
         /// the source has no card and there is no such handle.
         ability: Option<AbilityRef>,
+        /// Where this ability's printed sentence is, when it is known.
+        ///
+        /// A separate field rather than more of [`AbilityRef`], because
+        /// that handle is also what a player's standing answer is filed
+        /// under: it names an ability across games and printings, and a
+        /// sentence index is about one printing's text.
+        text: Option<StackText>,
     },
+}
+
+/// Where an ability's printed sentence is, so a client can draw a stack
+/// entry as what the ability *does*.
+///
+/// The engine carries no card text and a client's text is whatever
+/// printing and language that player chose, so neither end can be handed
+/// the sentence itself. What travels is where to find it: which face, and
+/// which sentence of that face — computed by `cargo xtask codegen` from
+/// the **English** oracle text against the compiled ability list, which is
+/// why [`StackText::of`] comes with it.
+///
+/// It is absent for an ability whose sentence is not known: one belonging
+/// to a token, a token copy or an emblem (CR 111.1, CR 114.2), one a
+/// continuous effect granted, and the handful of printed ones no sentence
+/// fits (a keyword's own trigger has none of its own). A client draws
+/// those as it drew every ability before this field existed.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
+pub struct StackText {
+    /// Which face of the card the ability came from.
+    ///
+    /// Not the face the source is showing now: an ability on the stack is
+    /// independent of its source (CR 113.7a), which may have transformed
+    /// or died since. A client splits *this* face's text, and borrows
+    /// this face's picture, so the two agree with each other and with the
+    /// ability that is actually resolving.
+    pub face: u8,
+    /// 0-based index into that face's sentences.
+    pub line: u8,
+    /// How many sentences the **English** text of that face has.
+    ///
+    /// The index was computed against English; a client resolves it
+    /// against a localized printing, which may be pre-errata wording or a
+    /// translation that joins two lines into one. An index merely out of
+    /// range is caught by anyone — one that is *in* range and points a
+    /// sentence off is shown to the player as precise text and is worse
+    /// than no text at all. A client whose own split of the text it holds
+    /// yields a different number must refuse the whole answer.
+    pub of: u8,
 }
 
 /// An object a seat can see, with its characteristics already projected

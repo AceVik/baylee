@@ -299,6 +299,50 @@ a zone no other seat's view walks, so without it a seat is told a card
 identity whose printing it was never given, and draws a hole where the card
 should be.
 
+## What an ability on the stack says it does (view version 17)
+
+`StackItem::Ability` carries a third field, `text: Option<StackText>`, and
+what it names is a **sentence of a printing**: `{ face, line, of }` — which
+face of the card the ability was printed on, which of that face's sentences
+it is, and how many sentences that face has. The client owns the text in the
+player's own language, so the host sends a coordinate rather than prose and
+nothing on this wire has to be translated.
+
+It is a field beside `ability` rather than more of `AbilityRef`, and that is
+the whole design. The handle above is what a **standing answer** is filed
+under: it names an ability across games and across printings, and it is a
+wire constant for exactly that reason. A sentence index is about one
+printing's text — a different printing of the same card can lay its lines out
+differently, and a reprint is free to. Putting one inside the other would
+make every stored answer depend on which piece of cardboard was in front of
+the player when they gave it.
+
+`of` is the guard, and it is why the field is a triple rather than a pair.
+An index out of range is caught by anyone; the case that needs catching is a
+text one sentence *shorter*, where the index lands in range and points at the
+sentence beside the right one — precise text that is confidently wrong, which
+is worse than the label it replaced. So the count travels with the index and a
+text of a different length is refused whole. The count is of the **English**
+text, because that is what the host generated its table from
+(`baylee_cards::lines`), and a translation that splits its lines differently
+is a translation the client will not index into.
+
+The face is the one that is easy to get wrong, and the trap is that the wrong
+answer is right most of the time. An ability on the stack is independent of
+its source (CR 113.7a): the source may have transformed, or left the
+battlefield entirely, while the ability waits. Reading the source's *current*
+face therefore names a sentence the ability never came from — and on a card
+whose two faces have the same number of sentences, `of` cannot catch it,
+because both counts are English. The host answers from the ability list the
+object took with it when it went on the stack (CR 608.2), which
+`crates/baylee-gamehost/src/view.rs` recovers the face from by identity.
+
+The field is absent — and the client falls back to the label it drew before —
+for an ability whose source is a token, a token copy or an emblem (there is no
+printed card to index into, CR 111.1 and CR 114.2), for one a continuous
+effect granted, and for a keyword ability that is printed as a word rather
+than as a sentence of its own.
+
 ## Client preferences (`/settings`)
 
 Keys and standing orders follow the **account**, not the machine: a player who

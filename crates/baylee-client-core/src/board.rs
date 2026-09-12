@@ -492,6 +492,14 @@ pub enum StackKind {
         /// why the entry carries its own name and art rather than a promise
         /// that this object can still be found.
         source: ObjectId,
+        /// Where the ability's printed sentence is, when the host knows.
+        ///
+        /// Carried through rather than resolved here: the text itself is
+        /// the printing and language this player chose, which lives in the
+        /// shell beside the catalog and not in the board model. What this
+        /// layer owes the renderer is the *handle*, which it had been
+        /// dropping on the floor.
+        text: Option<baylee_view::StackText>,
     },
 }
 
@@ -686,8 +694,8 @@ impl BoardModel {
             .enumerate()
             .map(|(i, o)| {
                 let kind = match o.stack_item {
-                    Some(baylee_view::StackItem::Ability { source, .. }) => {
-                        StackKind::Ability { source }
+                    Some(baylee_view::StackItem::Ability { source, text, .. }) => {
+                        StackKind::Ability { source, text }
                     }
                     _ => StackKind::Spell,
                 };
@@ -695,10 +703,21 @@ impl BoardModel {
                 // its source's picture. When the source has already left
                 // (CR 113.7a) there is nothing to borrow and the name stands
                 // alone — which is exactly what the panel then draws.
+                //
+                // Which *face* of it is the host's answer and not the
+                // source's current one, for the same reason: a Sheoldred
+                // who has turned back over while her chapter ability waits
+                // on the stack is showing the wrong side of herself, and
+                // the picture beside the sentence has to be the picture
+                // that sentence is printed on.
                 let art = o
                     .card
                     .or_else(|| match kind {
-                        StackKind::Ability { source } => view.object(source).and_then(|s| s.card),
+                        StackKind::Ability { source, text } => {
+                            view.object(source).and_then(|s| s.card).map(|c| {
+                                text.map_or(c, |t| baylee_view::CardIdentity { face: t.face, ..c })
+                            })
+                        }
                         StackKind::Spell => None,
                     })
                     // `Small`, like every other card on the board, and for two
@@ -1897,6 +1916,7 @@ mod tests {
         ability.stack_item = Some(baylee_view::StackItem::Ability {
             source: ObjectId::new(1, 0),
             ability: Some(baylee_core::ids::AbilityRef::new(CardIndex::new(33), 0)),
+            text: None,
         });
         let view = ViewBuilder::new(2)
             .with_battlefield(0, [source])
@@ -1907,13 +1927,58 @@ mod tests {
         assert_eq!(
             m.stack[0].kind,
             StackKind::Ability {
-                source: ObjectId::new(1, 0)
+                source: ObjectId::new(1, 0),
+                text: None,
             }
         );
         assert_eq!(
             m.stack[0].art,
             Some(source_art),
             "an ability has no card, so it wears the picture of whatever made it"
+        );
+    }
+
+    /// The picture and the sentence are two halves of one card, so the face
+    /// the host named for the *text* is the face the borrowed picture is
+    /// taken from — not the face the source happens to be showing.
+    ///
+    /// A Sheoldred who has turned back over while her chapter ability waits
+    /// on the stack is the shape of it (CR 113.7a): the permanent on the
+    /// battlefield is face 0, and the ability is face 1's third sentence.
+    /// Drawing face 0 beside face 1's text would be one card illustrated
+    /// with another.
+    #[test]
+    fn an_abilitys_picture_is_taken_from_the_face_its_text_came_from() {
+        let source = printed(1, 0, "Sheoldred", 33);
+        let mut ability = token(2, 0, "Sheoldred", 0, 0);
+        ability.card = None;
+        ability.types = TypeSet::EMPTY;
+        ability.power = None;
+        ability.toughness = None;
+        ability.stack_item = Some(baylee_view::StackItem::Ability {
+            source: ObjectId::new(1, 0),
+            ability: Some(baylee_core::ids::AbilityRef::new(CardIndex::new(33), 2)),
+            text: Some(baylee_view::StackText {
+                face: 1,
+                line: 2,
+                of: 3,
+            }),
+        });
+        let view = ViewBuilder::new(2)
+            .with_battlefield(0, [source])
+            .with_stack(vec![ability])
+            .build();
+
+        let m = model(&view);
+        assert_eq!(
+            m.stack[0].art,
+            Some(ImageKey::new(PrintRef::new(33), 1, ArtSize::Small)),
+            "the source shows face 0 and the ability came off face 1"
+        );
+        assert!(
+            m.required_images()
+                .contains(&ImageKey::new(PrintRef::new(33), 1, ArtSize::Small)),
+            "the face actually drawn is the face that has to be loaded"
         );
     }
 
@@ -1924,6 +1989,7 @@ mod tests {
         ability.stack_item = Some(baylee_view::StackItem::Ability {
             source: ObjectId::new(99, 0),
             ability: Some(baylee_core::ids::AbilityRef::new(CardIndex::new(1), 0)),
+            text: None,
         });
         let view = ViewBuilder::new(2).with_stack(vec![ability]).build();
         let m = model(&view);

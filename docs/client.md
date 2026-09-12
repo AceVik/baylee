@@ -330,7 +330,11 @@ own, so the view carries what it points at:
 ```rust
 PublicObject.stack_item: Option<StackItem>
 // StackItem::Spell
-// StackItem::Ability { source: ObjectId, ability: AbilityRef }
+// StackItem::Ability {
+//     source: ObjectId,
+//     ability: Option<AbilityRef>,
+//     text: Option<StackText { face: u8, line: u8, of: u8 }>,
+// }
 ```
 
 `AbilityRef { card: CardIndex, index: u32 }` is the stable handle. `index` is
@@ -360,8 +364,8 @@ list and a running game holds neither — `xtask` is the one place that links
 both, and `codegen --check` is what keeps the table from going stale. The unit
 is a **face**, because abilities are per face (`abilities_for_face`, and a
 back face never inherits) while `AbilityRef` carries no face: whoever looks a
-line up supplies it, which for a stack entry is the face the source object is
-showing. And the English sentence *count* travels beside the index
+line up supplies it, and for a stack entry that is *not* the face the source
+object is showing — see below. And the English sentence *count* travels beside the index
 (`AbilityLine::of`), because the index is resolved against a text that may be
 an older printing or a translation that joins two lines — an index merely out
 of range is caught by anyone, but one that is in range and off by one is shown
@@ -373,12 +377,33 @@ printed as a keyword (echo, evoke, station), a quoted sub-ability inside a
 copy sentence, and a saga threshold row. `cargo run -p xtask -- ability-lines`
 is the report that names them; `baylee_cards::lines`' tests are the floor.
 
+**The host does the lookup, and the face is the part that is easy to get
+wrong.** `gamehost::view::stack_item` fills `StackText` in, which is why a
+client needs neither the card registry nor the table — `baylee-client-core`
+does not link `baylee-cards` and is not going to. The face it sends is
+**not** the one the source object is showing: an ability on the stack is
+independent of its source (CR 113.7a), so a Sheoldred who has turned back
+over while her chapter ability waits would name the front face's list, the
+chapter index would land *in range* on it, and a wrong sentence would be
+drawn as precise text — which `of` cannot catch, both counts being English.
+The right answer is already on the object for free: `own_abilities` is the
+very `&'static [AbilityDef]` slice `abilities_for_face` returned, captured
+when the ability was put on the stack (CR 608.2), so `ability_face`
+identity-compares it against each face's list. A copy therefore answers
+`None` — it carries the *copied* card's list while its object names the
+physical card — and that refusal is the point: a Spark Double drawing the
+double's own sentence would be a stranger's text on the stack.
+
+The client indexes that same face's localized text, and borrows that same
+face's picture, so the sentence and the art beside it are the two halves of
+one card.
+
 ### The stack panel draws it
 
 `hud::spawn_stack_panel` is where that stops being theory. Each entry is a
 card, not a line of text: the spell's own picture, or — for an ability, which
 has no card at all — the picture of the permanent it came from, borrowed
-through `StackKind::Ability { source }`.
+through `StackKind::Ability { source, text }`, at the face `text` names.
 
 **The entries are not peers.** The next thing to resolve is a *full* row — a
 66-pixel card, the name at reading size, what kind of thing it is and whose

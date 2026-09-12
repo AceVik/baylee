@@ -11,6 +11,7 @@
 //! clone, or an animated land has to arrive already resolved.
 
 use baylee_ai::pending_player;
+use baylee_cards::dsl::AbilityDef;
 use baylee_core::ids::{ObjectId, PlayerId};
 use baylee_engine::choice::Pending;
 use baylee_engine::object::{GameObject, ObjectKind};
@@ -276,9 +277,65 @@ fn stack_item(obj: &GameObject) -> Option<baylee_view::StackItem> {
             ability: loc
                 .card
                 .map(|card| baylee_core::ids::AbilityRef::new(card, loc.index)),
+            text: loc
+                .card
+                .and_then(|card| stack_text(card, loc.index, obj.own_abilities)),
         }),
         _ => None,
     }
+}
+
+/// Which face of its card an ability on the stack came from.
+///
+/// The source's *current* face is the wrong answer and is the trap this
+/// exists to avoid. An ability on the stack is independent of its source
+/// (CR 113.7a), which may have transformed back or died since — and a
+/// wrong face here is caught by nothing downstream, because both faces'
+/// sentence counts are English, so the `of` guard agrees and the player is
+/// shown the other side's sentence as precise text.
+///
+/// `own_abilities` is the right answer for free: it is the very `&'static`
+/// slice `abilities_for_face` returned, captured at the moment the ability
+/// was put on the stack (CR 608.2), so identity settles it. That is also
+/// why a copy answers `None` — a Spark Double's ability carries the
+/// *copied* card's list while the object's card is the physical one, no
+/// face matches, and refusing is right: the alternative prints the wrong
+/// card's sentence. An empty list is skipped rather than matched, because
+/// it cannot be the source of an ability on the stack and two empty slices
+/// may share an address.
+fn ability_face(def: &baylee_cards::dsl::CardDef, captured: &'static [AbilityDef]) -> Option<u8> {
+    if captured.is_empty() {
+        return None;
+    }
+    (0..def.faces.len())
+        .find(|&face| {
+            let printed = def.abilities_for_face(face);
+            std::ptr::eq(printed.as_ptr(), captured.as_ptr()) && printed.len() == captured.len()
+        })
+        .and_then(|face| u8::try_from(face).ok())
+}
+
+/// Where an ability's printed sentence is, for a client holding the card's
+/// text in the player's own language.
+///
+/// Answers `None` for everything the generated table has no row for — a
+/// reserved index (`AbilityRef::SPELL`, `SYNTHETIC`, …), a static ability,
+/// a printed one no sentence fits — which is the whole point of it being
+/// an `Option` on the wire. `docs/client.md` §"Which ability is on the
+/// stack" is normative.
+fn stack_text(
+    card: baylee_core::ids::CardIndex,
+    index: u32,
+    captured: Option<&'static [AbilityDef]>,
+) -> Option<baylee_view::StackText> {
+    let def = baylee_cards::by_index(card)?;
+    let face = ability_face(def, captured?)?;
+    let line = baylee_cards::lines::ability_line(card, face as usize, index)?;
+    Some(baylee_view::StackText {
+        face,
+        line: line.line,
+        of: line.of,
+    })
 }
 
 /// Collects a public zone into view objects.
@@ -1572,5 +1629,47 @@ mod tests {
                 "seat 0 has taken none"
             );
         }
+    }
+
+    /// The face a stack entry's text is read against is recovered by
+    /// *identity*, and every answer this can give is one a player sees.
+    ///
+    /// Sheoldred is the whole reason the face is resolved at all rather
+    /// than assumed to be zero: her back face is the only one in the pool
+    /// that puts an ability on the stack
+    /// (`baylee_cards::lines` counts them). The copy case is the one that
+    /// has to answer *nothing* — a Spark Double's ability carries the
+    /// copied card's list while the object's card is the physical one, and
+    /// "no face matches" is the only honest answer there. Printing the
+    /// physical card's sentence instead would put a stranger's text on the
+    /// stack, which is worse than the bare label it replaces.
+    #[test]
+    fn a_stack_entrys_face_is_recovered_from_the_list_it_took_with_it() {
+        let sheoldred = baylee_cards::all()
+            .find(|d| d.name() == "Sheoldred")
+            .expect("the pool has Sheoldred");
+        let other = baylee_cards::all()
+            .find(|d| d.name() != "Sheoldred" && !d.abilities_for_face(0).is_empty())
+            .expect("the pool has some other card with abilities");
+
+        assert_eq!(
+            ability_face(sheoldred, sheoldred.abilities_for_face(1)),
+            Some(1),
+            "the back face's own list names the back face"
+        );
+        assert_eq!(
+            ability_face(sheoldred, sheoldred.abilities_for_face(0)),
+            Some(0)
+        );
+        assert_eq!(
+            ability_face(sheoldred, other.abilities_for_face(0)),
+            None,
+            "a copy carries the copied card's list; no face of the physical card is it"
+        );
+        assert_eq!(
+            ability_face(sheoldred, &[]),
+            None,
+            "an empty list cannot be the source of an ability, and shares an address"
+        );
     }
 }

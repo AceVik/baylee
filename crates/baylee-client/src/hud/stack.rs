@@ -619,7 +619,7 @@ fn spawn_stack_entry(
     if full {
         let kind = match item.kind {
             baylee_client_core::board::StackKind::Spell => None,
-            baylee_client_core::board::StackKind::Ability { source } => {
+            baylee_client_core::board::StackKind::Ability { source, .. } => {
                 Some(view.object(source).map_or_else(
                     || Phrase::StackAbilityBare.text(lang).to_string(),
                     |o| Phrase::StackAbility.fill(lang, &[&o.name]),
