@@ -1142,7 +1142,7 @@ fn cards_json(believed: &Believed, duel: &Duel, window: Vec2) -> String {
     }
     let lens = crate::table::Lens::new(rig, window);
     let on_the_table = believed.cards.iter().filter_map(|(visual, at)| {
-        let (mid, size) = card_rect(&lens, at)?;
+        let (mid, size) = crate::table::card_box(&lens, at)?;
         Some(card_row(
             duel,
             "table",
@@ -1246,32 +1246,6 @@ fn card_row(
             h = size.y,
         ),
     )
-}
-
-/// The screen box one card covers, as its centre and its size in logical
-/// pixels.
-///
-/// The centre is the card's own projected origin rather than the middle of
-/// the box: under perspective those differ, and the one worth clicking is the
-/// card's.
-fn card_rect(lens: &crate::table::Lens, at: &Transform) -> Option<(Vec2, Vec2)> {
-    let half = Vec2::new(
-        baylee_client_core::layout::CARD_WIDTH,
-        baylee_client_core::layout::CARD_HEIGHT,
-    ) / 2.0;
-    let mut min = Vec2::splat(f32::MAX);
-    let mut max = Vec2::splat(f32::MIN);
-    for corner in [
-        Vec2::new(-half.x, -half.y),
-        Vec2::new(half.x, -half.y),
-        Vec2::new(half.x, half.y),
-        Vec2::new(-half.x, half.y),
-    ] {
-        let drawn = lens.project_world(at.transform_point(corner.extend(0.0)))?;
-        min = min.min(drawn);
-        max = max.max(drawn);
-    }
-    Some((lens.project_world(at.translation)?, max - min))
 }
 
 /// One string, as JSON.
@@ -1506,7 +1480,7 @@ mod tests {
 
         let card = Transform::from_translation(crate::table::to_world(at, crate::table::CARD_LIFT))
             .with_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2));
-        let (_, size) = card_rect(&lens, &card).expect("a card on it");
+        let (_, size) = crate::table::card_box(&lens, &card).expect("a card on it");
 
         let want = Vec2::new(CARD_WIDTH * across, CARD_HEIGHT * along);
         assert!(
@@ -1530,8 +1504,9 @@ mod tests {
         let tapped = Transform::from_translation(world)
             .with_rotation(flat * Quat::from_rotation_z(-std::f32::consts::FRAC_PI_2));
 
-        let (_, standing) = card_rect(&lens, &upright).expect("a card in front of the eye");
-        let (_, turned) = card_rect(&lens, &tapped).expect("the same card, tapped");
+        let (_, standing) =
+            crate::table::card_box(&lens, &upright).expect("a card in front of the eye");
+        let (_, turned) = crate::table::card_box(&lens, &tapped).expect("the same card, tapped");
         assert!(
             standing.y > standing.x,
             "an untapped card is taller than it is wide: {standing:?}"

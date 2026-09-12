@@ -52,6 +52,25 @@ pub struct AbilityOption {
     /// there would fire something unarmed, and an extra tap is the cheaper
     /// way to be wrong.
     pub tap_only: bool,
+    /// What it costs, written so [`crate::manaui::spawn_rich`] can draw it:
+    /// `{2}, {T}` becomes two discs and a comma.
+    ///
+    /// The sheet puts this on the right of the row and the ability's own
+    /// sentence on the left, which is why it is a field and no longer merely
+    /// the [`Self::label`] a button had room for. `None` where there is no
+    /// cost to read — a grant is printed on no card, a prepared cast is not
+    /// an ability, and a free ability's cost is nothing rather than "0".
+    pub cost: Option<String>,
+    /// Where this ability's printed sentence is, for a client holding the
+    /// card's text in the player's own language.
+    ///
+    /// The same handle an ability on the stack travels under
+    /// ([`baylee_view::StackText`]) and resolved the same way, because it is
+    /// the same question: which sentence of this face is this ability. `None`
+    /// for everything the generated table has no row for — a reserved index,
+    /// a granted ability, a printed one no sentence fits — and the sheet then
+    /// falls back to [`Self::label`].
+    pub printed: Option<baylee_view::StackText>,
 }
 
 /// Whether an ability's whole cost is `{T}` on the permanent that has it.
@@ -133,6 +152,18 @@ pub fn options(
                     Tap::Ability(index) => tap_only(view, object, index),
                     Tap::Intrinsic => true,
                 },
+                cost: match source.tap {
+                    Tap::Ability(index) => printed_cost(lang, view, object, index),
+                    // The CR 305.6 shortcut is printed on no card and there
+                    // is nothing to read it off; tapping is the whole of it.
+                    Tap::Intrinsic => Some("{T}".to_string()),
+                },
+                // Deliberately none, even for a printed mana ability that has
+                // a sentence. `mana_label` is written for this row and says
+                // more than the card does: a Chromatic Lantern grant reads
+                // "Tap for any colour" where the printed text of the land it
+                // sits on says nothing about the grant at all.
+                printed: None,
             });
         }
     }
@@ -207,6 +238,8 @@ pub fn options(
             tap_only: baylee_engine::choice::granted_slot(index).is_none()
                 && index != baylee_engine::choice::PREPARED_CAST
                 && tap_only(view, object, index),
+            cost: printed_cost(lang, view, object, index),
+            printed: printed_sentence(view, object, index),
         });
     }
     out
@@ -357,6 +390,50 @@ fn printed_label(lang: Lang, view: &PlayerView, object: ObjectId, index: u32) ->
         }
         _ => unnamed(),
     }
+}
+
+/// What a printed ability costs, as one short rich string.
+///
+/// The other half of [`printed_label`], split out because the sheet draws the
+/// two in different columns: a planeswalker's loyalty change *is* its cost,
+/// an activated ability's is what it pays, and a trigger has none at all.
+///
+/// The reserved indices answer `None` here rather than being checked by the
+/// caller, because `ability_at` already has to look the ability up and a
+/// reserved index simply finds nothing.
+fn printed_cost(lang: Lang, view: &PlayerView, object: ObjectId, index: u32) -> Option<String> {
+    match crate::manasources::ability_at(view, object, index)? {
+        AbilityDef::Loyalty { cost, .. } => Some(if *cost >= 0 {
+            format!("+{cost}")
+        } else {
+            format!("\u{2212}{}", -cost)
+        }),
+        AbilityDef::Activated { cost, .. } | AbilityDef::ActivatedConditional { cost, .. } => {
+            cost_label(lang, cost)
+        }
+        _ => None,
+    }
+}
+
+/// Which printed sentence a permanent's ability came from.
+///
+/// The face is the one the permanent is *showing*, which is the right answer
+/// here and is not the right answer for an ability already on the stack: that
+/// one is independent of its source (CR 113.7a) and may outlive a transform,
+/// which is why `baylee_view::StackText::face` is captured by the host. An
+/// ability being offered is being offered by the object as it stands.
+fn printed_sentence(
+    view: &PlayerView,
+    object: ObjectId,
+    index: u32,
+) -> Option<baylee_view::StackText> {
+    let card = view.object(object)?.card?;
+    let line = baylee_cards::lines::ability_line(card.index, card.face as usize, index)?;
+    Some(baylee_view::StackText {
+        face: card.face,
+        line: line.line,
+        of: line.of,
+    })
 }
 
 /// What an activated ability costs, as one short string.

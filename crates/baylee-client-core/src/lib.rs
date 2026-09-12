@@ -34,6 +34,7 @@
 // loses a whole number, so the conversions are exact in practice.
 #![allow(clippy::cast_precision_loss)]
 
+pub mod abilitysheet;
 pub mod airborne;
 pub mod automation;
 pub mod board;

@@ -168,8 +168,6 @@ pub fn sync_overlay(
         i.focus_position()
             .map(|(focus, count)| (focus, count, i.declared()))
     });
-    let ability_menu = duel.ability_menu;
-    let ability_pick = duel.ability_pick;
     let focus = duel.focus;
     let preview_scale = settings.preview_scale;
     let browser = (
@@ -210,8 +208,6 @@ pub fn sync_overlay(
         && revision.texts == texts.len()
         && revision.arrivals == textures.epoch()
         && revision.combat == combat
-        && revision.ability_menu == ability_menu
-        && revision.ability_pick == ability_pick
         && revision.browser == browser
         && revision.menu == menu
         && revision.armed == armed_deed
@@ -236,8 +232,6 @@ pub fn sync_overlay(
     revision.texts = texts.len();
     revision.arrivals = textures.epoch();
     revision.combat = combat;
-    revision.ability_menu = ability_menu;
-    revision.ability_pick = ability_pick;
     revision.browser = browser;
     revision.menu = menu;
     revision.armed.clone_from(&armed_deed);
@@ -806,67 +800,13 @@ pub fn sync_overlay(
             commands.entity(bar).add_child(row);
         }
 
-        // The ability chooser, when a permanent was clicked that offers more
-        // than one thing. Its own row rather than more entries in `answers`,
-        // because these are not answers to the pending choice — they are
-        // things to *do* while holding priority, and mixing them with "OK"
-        // would put a mana ability next to the button that ends the turn.
-        if let Some(options) = duel
-            .ability_menu
-            .and_then(|object| ability_options(&duel, lang, object))
-            .filter(|options| options.len() > 1)
-        {
-            let row = commands
-                .spawn((
-                    Node {
-                        flex_direction: FlexDirection::Row,
-                        column_gap: px(6),
-                        flex_wrap: FlexWrap::Wrap,
-                        ..default()
-                    },
-                    Pickable::IGNORE,
-                ))
-                .id();
-            for (index, option) in options.iter().enumerate() {
-                // The keyboard's entry is drawn as the chosen one, so the two
-                // ways of answering the menu are visibly the same menu.
-                let picked = index == duel.ability_pick;
-                let fill = if picked {
-                    palette::BRASS
-                } else {
-                    palette::SLIP_GHOST
-                };
-                let button = commands
-                    .spawn((
-                        AbilityButton { index },
-                        Node {
-                            padding: UiRect::axes(px(12), px(5)),
-                            border: UiRect::all(px(1)),
-                            border_radius: btn_radius(),
-                            ..default()
-                        },
-                        BackgroundColor(fill),
-                        BorderColor::all(if picked {
-                            palette::BRASS
-                        } else {
-                            palette::PARCHMENT_EDGE
-                        }),
-                        Feel::new(fill),
-                        soft_shadow(),
-                    ))
-                    .id();
-                let text = crate::manaui::spawn_rich(
-                    &mut commands,
-                    &fonts,
-                    &option.label,
-                    13.0,
-                    palette::PARCHMENT_INK,
-                );
-                commands.entity(button).add_child(text);
-                commands.entity(row).add_child(button);
-            }
-            commands.entity(bar).add_child(row);
-        }
+        // The ability chooser used to be a third row here, a wrapping line of
+        // buttons whose whole label was the ability's *cost* — `{2}, {T}` —
+        // because a button on a bar has room for four words. It is the
+        // parchment sheet beside the permanent now ([`crate::hud::sheet`]),
+        // where there is room for the printed sentence and the cost both, and
+        // where the list is next to the card it belongs to instead of at the
+        // bottom of the window.
         commands.entity(root).add_child(slip_row);
     }
 

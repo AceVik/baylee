@@ -914,6 +914,39 @@ impl Lens {
     }
 }
 
+/// The screen box one card covers, as its centre and its size in logical
+/// pixels.
+///
+/// The centre is the card's own projected origin rather than the middle of
+/// the box: under perspective those differ, and the one worth clicking is the
+/// card's.
+///
+/// It lives here rather than in [`crate::devctl`], where it was written, for
+/// the reason the ability sheet needs it: a sheet anchored to a permanent has
+/// to be put where that permanent is *drawn*, and the harness had already
+/// worked out that a card is four corners turned by its own transform and not
+/// an axis-aligned rectangle around its origin.
+#[must_use]
+pub fn card_box(lens: &Lens, at: &Transform) -> Option<(Vec2, Vec2)> {
+    let half = Vec2::new(
+        baylee_client_core::layout::CARD_WIDTH,
+        baylee_client_core::layout::CARD_HEIGHT,
+    ) / 2.0;
+    let mut min = Vec2::splat(f32::MAX);
+    let mut max = Vec2::splat(f32::MIN);
+    for corner in [
+        Vec2::new(-half.x, -half.y),
+        Vec2::new(half.x, -half.y),
+        Vec2::new(half.x, half.y),
+        Vec2::new(-half.x, half.y),
+    ] {
+        let drawn = lens.project_world(at.transform_point(corner.extend(0.0)))?;
+        min = min.min(drawn);
+        max = max.max(drawn);
+    }
+    Some((lens.project_world(at.translation)?, max - min))
+}
+
 /// How quickly a card settles onto its mark, as a fraction of the remaining
 /// distance per second.
 ///

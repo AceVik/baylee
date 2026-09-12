@@ -1078,6 +1078,37 @@ messages! {
     /// is usually the reason the land is in the deck.
     TapForRestricted { en: "Tap for {0} (restricted)", de: "Tappen für {0} (eingeschränkt)" },
 
+
+    // ---- the ability sheet
+    /// what it can do
+    ///
+    /// The sheet's second line, under the permanent's own name. It says what
+    /// the list below it *is* — a list of things this card could do now, and
+    /// not the card's printed text, which is a hover away and says what it
+    /// does always.
+    WhatItCanDo { en: "what it can do", de: "was sie kann" },
+    /// Press {0} again
+    ///
+    /// The footer while a row is armed. `{0}` is the digit drawn on that
+    /// row, because the key that armed it is the key that sends it — there
+    /// is no second confirm key to learn.
+    SheetPressAgain { en: "Press {0} again", de: "Drücke {0} noch einmal" },
+    /// A digit picks
+    ///
+    /// The same footer with nothing armed. It names the gesture rather than
+    /// a range, because how many rows there are is on the sheet already.
+    SheetDigitPicks { en: "A digit picks", de: "Eine Ziffer wählt" },
+    /// Esc closes
+    SheetEscCloses { en: "Esc closes", de: "Esc schliesst" },
+    /// More — page {0} of {1}
+    ///
+    /// The tenth row, which exists only for a permanent with more than nine
+    /// things to do: a land under a Chromatic Lantern is granted a mana
+    /// ability on top of whatever it prints. It carries `0` rather than a
+    /// digit, being the one key on that row of the keyboard that names no
+    /// ability.
+    SheetMorePage { en: "More — page {0} of {1}", de: "Weitere — Seite {0} von {1}" },
+
     // ---- what an ability costs
     /// Tap for {0}
     TapFor { en: "Tap for {0}", de: "Tappen für {0}" },

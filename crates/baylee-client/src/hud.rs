@@ -563,13 +563,6 @@ pub struct HudRevision {
     /// the client until the answer is sent — so without them here the combat
     /// line would be drawn once and then stay wrong for the whole step.
     combat: Option<(usize, usize, usize)>,
-    /// Which permanent's abilities the chooser is offering. Opened by a click
-    /// and closed by the next one, neither of which is a new snapshot, so
-    /// without it here the chooser would never appear.
-    ability_menu: Option<ObjectId>,
-    /// Which entry of that chooser the keyboard is on — same reason, and
-    /// without it the highlight would never move.
-    ability_pick: usize,
     /// What the zone browser is showing. Opened by a choice arriving and
     /// by a tap on the top card of a pile, neither of which need be a new
     /// snapshot,
@@ -948,6 +941,7 @@ mod overlay;
 pub(crate) mod rail;
 mod scroll;
 pub(crate) mod seatbar;
+mod sheet;
 mod stack;
 mod tray;
 
@@ -972,6 +966,10 @@ pub use scroll::{HandScroll, Scrolls, scrolls, wheel_is_the_interfaces};
 pub use seatbar::{
     BarRevision, LifeCell, SeatBar, SeatBarRoot, SeatInk, SeatStep, SeatTile, Shelf, Shelves,
     measure_shelves, place_seat_bars, stretch_step_tiles, sync_seat_bars,
+};
+pub use sheet::{
+    AbilitySheet, AbilitySheetRoot, SheetPager, SheetRevision, place_ability_sheet,
+    sync_ability_sheet,
 };
 pub use stack::{StackMotion, ease_the_stack_in};
 pub(crate) use tray::band_of;

@@ -24,6 +24,7 @@ use crate::keys::Fired;
 use crate::settings::ClientSettings;
 use crate::table::CardVisual;
 use crate::{Deed, Duel, HoverSpot};
+use baylee_client_core::abilitysheet;
 use baylee_client_core::automation::AutoPilot;
 use baylee_client_core::browser::Placement;
 use baylee_client_core::interaction::{Interaction, Prompt, SelectionOutcome};
@@ -244,6 +245,7 @@ pub fn activate_card(duel: &mut Duel, object: ObjectId) -> Answer {
             _ => {
                 duel.ability_menu = Some(object);
                 duel.ability_pick = 0;
+                duel.ability_page = 0;
                 return Answer::Took;
             }
         }
@@ -314,11 +316,28 @@ fn arm(duel: &mut Duel, object: ObjectId, deed: Deed) {
 /// card: a sacrifice, a discard, an exile, life, mana, and a loyalty ability,
 /// whose counters no untap step gives back. Those are still arm-then-act,
 /// because there is no undo in the engine and never will be.
-fn arm_ability(duel: &mut Duel, object: ObjectId, option: &crate::abilities::AbilityOption) {
-    if option.mana || option.tap_only {
-        duel.submit(option.action.clone());
-    } else {
-        arm(duel, object, Deed::Ability(option.action.clone()));
+///
+/// Returns whether the ability was *sent*. The ability sheet stands open
+/// while a row is armed — the roundel goes gilt and the same digit again
+/// sends it — so the caller needs to know which of the two happened, and a
+/// sheet that closed on the arming would take the digit away with it.
+fn arm_ability(
+    duel: &mut Duel,
+    object: ObjectId,
+    option: &crate::abilities::AbilityOption,
+) -> bool {
+    // Whether this row is armed already is never asked here: `fire_armed` is
+    // the path for that, and it re-resolves the deed against the current
+    // `LegalActions` rather than trusting a list drawn a frame ago.
+    match abilitysheet::press(option.mana || option.tap_only, false) {
+        abilitysheet::Press::Send => {
+            duel.submit(option.action.clone());
+            true
+        }
+        abilitysheet::Press::Arm | abilitysheet::Press::Fire => {
+            arm(duel, object, Deed::Ability(option.action.clone()));
+            false
+        }
     }
 }
 
@@ -332,6 +351,11 @@ pub fn fire_armed(duel: &mut Duel) {
     let Some(armed) = duel.armed.take() else {
         return;
     };
+    // The ability sheet stands open while a row is armed, because the digit
+    // that armed it is the digit that sends it. Once it is sent the sheet has
+    // been answered, and a list of things to do left standing over a card
+    // whose ability is already on the stack is a list a player has to dismiss.
+    duel.ability_menu = None;
     match armed.deed {
         Deed::Play => {
             match duel
@@ -460,6 +484,13 @@ pub fn keyboard(
     // Same reason, and the same place in the order: a digit is bound to no
     // action, so `Fired` is empty for exactly the keys a number choice wants.
     if number_keys(&mut typed, &mut duel) {
+        return;
+    }
+    // And once more for the ability sheet, whose rows are sent by the digit
+    // drawn on each of them. Same place in the order and the same reason: a
+    // digit is bound to no action, so `Fired` is empty for exactly these
+    // keys.
+    if sheet_digits(&mut typed, &mut duel) {
         return;
     }
     // And the same again for the browser's filter box — but only while it has
@@ -850,23 +881,31 @@ pub fn armed_keys(fired: Fired, duel: &mut Duel) -> bool {
     false
 }
 
-/// The open ability chooser: the cursor keys walk it, the primary key or
-/// confirm takes the entry, cancel puts it away. Returns whether it consumed
-/// the frame.
+/// The open ability sheet: the cursor keys walk it, the primary key or
+/// confirm takes the row, cancel puts the sheet away. Returns whether it
+/// consumed the frame.
 ///
 /// The list is rebuilt from `LegalActions` here rather than trusted from the
 /// frame it was drawn on — the same rule the pointer path follows, and for
 /// the same reason: the engine may have withdrawn the ability since.
+///
+/// The digits are not here. They are read as *characters* by
+/// [`sheet_digits`], the way the subtype filter and a number entry are,
+/// because a digit is bound to no [`Action`] and nine new ones would be nine
+/// rows in every player's keymap for a key whose whole meaning is the number
+/// printed on it.
 pub fn ability_menu_keys(fired: Fired, duel: &mut Duel) -> bool {
     let Some(object) = duel.ability_menu else {
         return false;
     };
     let Some(options) = abilities_of(duel, object).filter(|o| o.len() > 1) else {
-        // Nothing left to choose: the menu is stale, and holding it open
+        // Nothing left to choose: the sheet is stale, and holding it open
         // would keep the keyboard hostage.
         duel.ability_menu = None;
         return false;
     };
+    // The list can shrink under a page that was valid when it was turned to.
+    duel.ability_page = abilitysheet::clamp(options.len(), duel.ability_page);
     if fired.has(Action::Cancel) {
         duel.ability_menu = None;
         return true;
@@ -878,17 +917,160 @@ pub fn ability_menu_keys(fired: Fired, duel: &mut Duel) -> bool {
         let len = i32::try_from(options.len()).unwrap_or(1);
         let next = i32::try_from(duel.ability_pick).unwrap_or(0) + step;
         duel.ability_pick = usize::try_from(next.rem_euclid(len)).unwrap_or(0);
+        // The cursor walks the whole list and the sheet shows nine rows of
+        // it, so walking off the end of a page turns it. Deriving the page
+        // from the cursor rather than moving them separately is what stops
+        // the highlight from being on a row that is not drawn.
+        duel.ability_page = duel.ability_pick / abilitysheet::PAGE;
         return true;
     }
     if fired.has(Action::Primary) || fired.has(Action::Confirm) || fired.has(Action::ActivateCard) {
-        let option = options.get(duel.ability_pick).cloned();
-        duel.ability_menu = None;
-        if let Some(option) = option {
-            arm_ability(duel, object, &option);
+        if let Some(option) = options.get(duel.ability_pick).cloned()
+            && arm_ability(duel, object, &option)
+        {
+            duel.ability_menu = None;
         }
         return true;
     }
     false
+}
+
+/// The digits, while the ability sheet stands: each row is sent by the number
+/// drawn on it, and `0` turns the page. Returns whether it consumed the
+/// frame.
+///
+/// Read straight off `KeyboardInput` as `Key::Character`, the way
+/// `subtype_keys` and the number-entry path already read digits. The
+/// alternative is nine new [`Action`]s, which is nine rows in every keymap
+/// screen and a rebinding a player could make — for a key whose entire
+/// meaning is the numeral printed beside the row.
+///
+/// A row with a cost **arms** on the first press and sends on the second,
+/// which is [`abilitysheet::press`]'s whole answer; a mana ability and a
+/// `{T}`-only ability send on the first, which is the same one-tap exemption
+/// [`arm_ability`] applies everywhere else.
+fn sheet_digits(typed: &mut MessageReader<KeyboardInput>, duel: &mut Duel) -> bool {
+    // Both halves of the guard are about *not reading the events*. The sheet
+    // can stand open while the browser's filter box has the keyboard, and
+    // `typed.read()` drains every key rather than the digits alone — so a
+    // sheet that read here unconditionally would eat the letters a player is
+    // typing into that box and open an ability with the digits.
+    if duel.ability_menu.is_none() || duel.browser.is_typing() {
+        return false;
+    }
+    let pressed: Vec<char> = typed
+        .read()
+        .filter(|event| event.state.is_pressed())
+        .filter_map(|event| match &event.logical_key {
+            Key::Character(s) => Some(s.chars()),
+            _ => None,
+        })
+        .flatten()
+        .filter(char::is_ascii_digit)
+        .collect();
+    if pressed.is_empty() {
+        return false;
+    }
+    let mut took = false;
+    for digit in pressed {
+        // A digit may have sent something, which puts the sheet away, and
+        // every digit after it would then be read against a permanent that is
+        // no longer being asked about.
+        if duel.ability_menu.is_none() {
+            break;
+        }
+        took |= sheet_digit(duel, digit);
+    }
+    took
+}
+
+/// One digit, against the sheet as it stands: a row, or the pager. Returns
+/// whether it named either.
+///
+/// Split out of [`sheet_digits`] because that one takes a `MessageReader` and
+/// this is the half worth testing — arming, sending and paging are the
+/// two-stage mechanic, and a test that had to build keyboard events to reach
+/// them would be testing Bevy.
+///
+/// The list is rebuilt here for every digit, because the one before it may
+/// have sent something: a list read once and used twice is the chooser bug
+/// this whole path was written to avoid.
+pub fn sheet_digit(duel: &mut Duel, digit: char) -> bool {
+    let Some(object) = duel.ability_menu else {
+        return false;
+    };
+    let Some(options) = abilities_of(duel, object).filter(|o| o.len() > 1) else {
+        return false;
+    };
+    let page = abilitysheet::clamp(options.len(), duel.ability_page);
+    duel.ability_page = page;
+    if digit == abilitysheet::PAGER {
+        // The pager is drawn only where there is a second page, so a `0` on a
+        // sheet of two rows is a key nothing on screen offered: it consumes
+        // no frame and turns nothing.
+        turn_the_page(duel);
+        return abilitysheet::paged(options.len());
+    }
+    let Some(at) = abilitysheet::option_of(options.len(), page, digit) else {
+        return false;
+    };
+    take_sheet_row(duel, at);
+    true
+}
+
+/// The row a press landed on: armed by the first press, sent by the second.
+///
+/// The digit and the click share it, because they are the same press — the
+/// roundel is what the digit is drawn on, and a row whose click armed while
+/// its digit sent would be two controls wearing one number.
+fn take_sheet_row(duel: &mut Duel, at: usize) {
+    let Some(object) = duel.ability_menu else {
+        return;
+    };
+    let Some(option) = abilities_of(duel, object).and_then(|o| o.get(at).cloned()) else {
+        return;
+    };
+    duel.ability_pick = at;
+    let armed = duel.armed.as_ref().is_some_and(|a| {
+        a.object == object && matches!(&a.deed, Deed::Ability(action) if *action == option.action)
+    });
+    match abilitysheet::press(option.mana || option.tap_only, armed) {
+        // Through `fire_armed` and not `duel.submit`, so the deed is
+        // re-resolved against the current `LegalActions` exactly as the
+        // confirm key and the second tap on the card already do.
+        abilitysheet::Press::Fire => fire_armed(duel),
+        abilitysheet::Press::Send | abilitysheet::Press::Arm => {
+            if arm_ability(duel, object, &option) {
+                duel.ability_menu = None;
+            }
+        }
+    }
+}
+
+/// The tenth row: the next page of the ability sheet, wrapping at the end.
+///
+/// The cursor goes to the top of the new page rather than staying where it
+/// was, because the page and the cursor are two ways of saying the same
+/// thing — [`ability_menu_keys`] derives the page from the cursor when the
+/// arrow keys walk off the end of one, and this is the same equality read the
+/// other way round.
+///
+/// Wrapping rather than stopping: the pager is one key and there is no second
+/// one for going back, so a player who overshoots gets there by pressing it
+/// again.
+fn turn_the_page(duel: &mut Duel) {
+    let Some(object) = duel.ability_menu else {
+        return;
+    };
+    let Some(options) = abilities_of(duel, object) else {
+        return;
+    };
+    if !abilitysheet::paged(options.len()) {
+        return;
+    }
+    let page = abilitysheet::clamp(options.len(), duel.ability_page);
+    duel.ability_page = abilitysheet::turn(options.len(), page);
+    duel.ability_pick = abilitysheet::rows(options.len(), duel.ability_page).start;
 }
 
 /// The card cursor, and the key that acts on what it is over. Returns whether
@@ -1348,20 +1530,16 @@ fn move_cursor(duel: &mut Duel, d_row: i32, d_col: i32) {
     duel.hovered_at = None;
 }
 
-/// Sends the ability one row of the ability chooser stands for.
+/// Sends the ability one row of the ability sheet stands for.
 ///
-/// Rebuilt from `LegalActions` here rather than trusted from the bar: a
-/// chooser drawn a frame ago must not be able to send an ability the engine
-/// has since stopped offering.
+/// It is [`take_sheet_row`] and nothing else: a click on a row and the digit
+/// drawn on that row are the same press, so the row arms on the first and
+/// sends on the second exactly as the keyboard does — and the list is rebuilt
+/// from `LegalActions` in there rather than trusted from the sheet, because a
+/// sheet drawn a frame ago must not be able to send an ability the engine has
+/// since stopped offering.
 fn pick_ability(duel: &mut Duel, index: usize) {
-    let picked = duel
-        .ability_menu
-        .and_then(|object| Some((object, abilities_of(duel, object)?)))
-        .and_then(|(object, options)| Some((object, options.get(index).cloned()?)));
-    duel.ability_menu = None;
-    if let Some((object, option)) = picked {
-        arm_ability(duel, object, &option);
-    }
+    take_sheet_row(duel, index);
 }
 
 /// Answers an indexed choice: a colour, a seat, one of several ways to cast.
@@ -1512,6 +1690,7 @@ pub fn pointer(
     menu_buttons: Query<&MenuButton>,
     prompt_buttons: Query<&PromptButton>,
     ability_buttons: Query<&AbilityButton>,
+    pagers: Query<&crate::hud::SheetPager>,
     choice_buttons: Query<&ChoiceButton>,
     tray: TrayWidgets,
     parents: Query<&ChildOf>,
@@ -1578,6 +1757,10 @@ pub fn pointer(
         }
         if let Some(button) = find_in_lineage(e, &ability_buttons, &parents) {
             pick_ability(&mut duel, button.index);
+            continue;
+        }
+        if find_in_lineage(e, &pagers, &parents).is_some() {
+            turn_the_page(&mut duel);
             continue;
         }
         if let Some(button) = find_in_lineage(e, &choice_buttons, &parents) {

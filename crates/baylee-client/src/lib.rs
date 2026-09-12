@@ -369,6 +369,15 @@ pub struct Duel {
     /// as it is rebuilt, because the engine may withdraw an ability while
     /// the menu stands.
     pub ability_pick: usize,
+    /// Which page of that menu the sheet is showing.
+    ///
+    /// Nine rows fit, because a row is sent by the digit drawn on it and
+    /// there are nine digits that are not zero
+    /// ([`baylee_client_core::abilitysheet`]). A tenth ability is real —
+    /// a land under a Chromatic Lantern is granted a mana ability on top of
+    /// what it prints — and turns the page rather than taking a key nobody
+    /// would guess. Reset with [`Self::ability_pick`] when the sheet opens.
+    pub ability_page: usize,
     /// The zone browser: every zone a choice can reach that the table
     /// cannot draw.
     ///
@@ -715,6 +724,16 @@ fn add_present_systems(app: &mut App) {
                 )
                     .chain()
                     .after(table::apply_camera_rig),
+                // The ability sheet is pinned to a *card* rather than to a
+                // rectangle of felt, and to where that card is drawn right
+                // now: nothing on this table is positioned directly, so a
+                // sheet anchored to `Motion::target` would arrive before the
+                // card it belongs to. After `glide` for that, and after the
+                // rig for the reason the bars are.
+                (hud::sync_ability_sheet, hud::place_ability_sheet)
+                    .chain()
+                    .after(table::apply_camera_rig)
+                    .after(table::glide),
                 // A life total changing is drawn over the cell that carries
                 // it, so this runs once the bar holding that cell has been
                 // rebuilt and placed. It reads `bevy_ui`'s own layout for
@@ -792,6 +811,7 @@ impl Plugin for DuelPlugin {
             .init_resource::<hud::DesignationFlash>()
             .init_resource::<hud::Shelves>()
             .init_resource::<hud::BarRevision>()
+            .init_resource::<hud::SheetRevision>()
             .init_resource::<textures::Preload>()
             .init_resource::<cardtext::CardTexts>()
             .init_resource::<face::FaceMode>()
