@@ -282,6 +282,31 @@ pub fn deal_the_dev_board(preset: &mut GamePreset) {
                     .is_some_and(|face| face.name.eq_ignore_ascii_case(name))
             })
             .unwrap_or_else(|| panic!("BAYLEE_DEV_SEAT_BOARD: no card named `{name}`"));
+        // The card's **own** printing, and not `PrintRef::new(0)`.
+        //
+        // Print 0 is whatever the first card of the first decklist happened
+        // to resolve to, so a dealt board wore a stranger's picture — and now
+        // that a stack entry draws its printed sentence, it would have asked
+        // the catalog for a stranger's text as well. That is the one failure
+        // this harness must not have: a measurement of a board it never
+        // dealt. The entry is appended to the game's own print table, which
+        // is what a seat's entitlement is counted against, and deduplicated
+        // because a board may deal two of a card.
+        let want = baylee_core::preset::PrintInfo {
+            scryfall_id: card.scryfall_id.parse().unwrap_or_else(|_| {
+                panic!("BAYLEE_DEV_SEAT_BOARD: `{name}` has no printing id to draw")
+            }),
+            lang: "EN".into(),
+            finish: baylee_core::preset::Finish::Normal,
+        };
+        let print = if let Some(pos) = preset.prints.iter().position(|p| *p == want) {
+            pos
+        } else {
+            preset.prints.push(want);
+            preset.prints.len() - 1
+        };
+        let print = u16::try_from(print)
+            .unwrap_or_else(|_| panic!("BAYLEE_DEV_SEAT_BOARD: this game has too many printings"));
         let chair = preset
             .seats
             .get_mut(seat)
@@ -290,7 +315,7 @@ pub fn deal_the_dev_board(preset: &mut GamePreset) {
             .starting_battlefield
             .push(baylee_core::preset::DeckEntry {
                 card: card.index,
-                print: baylee_core::ids::PrintRef::new(0),
+                print: baylee_core::ids::PrintRef::new(print),
             });
     }
 }
