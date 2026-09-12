@@ -36,6 +36,7 @@
 
 #[allow(clippy::wildcard_imports)] // the HUD's own vocabulary
 use super::*;
+use baylee_client_core::card_face::TextBlock;
 
 /// The card a stack entry is drawn at, at the top of the panel.
 const STACK_CARD_W: f32 = 66.0;
@@ -68,6 +69,22 @@ const STACK_PANEL_W: f32 = 296.0;
 /// instead — a number is a worse drawing than a card and a much better one
 /// than a silent clip.
 const STACK_COMPACT_ROWS: usize = 6;
+
+/// The printed sentence under the name on the full row.
+///
+/// Eleven, the size the subtitle beside it is already set at, and four under
+/// the name: the name is what the row *is* and stays the largest thing on it,
+/// while the sentence and the subtitle are both things the row says about
+/// itself and read as one block at one size.
+const STACK_SENTENCE_PT: f32 = 11.0;
+/// How many lines of that sentence the row will give up its height for.
+///
+/// Measured rather than chosen: the body is about 187 px wide, which is 32
+/// characters at this size, and the longest loyalty ability in the pool is
+/// 113 characters — three and a half lines. Four is that plus the rounding,
+/// and it is a *cut*, not a wrap limit: past it the sentence ends in an
+/// ellipsis so one pathological card cannot push the queue out of the panel.
+const STACK_SENTENCE_LINES: f32 = 4.0;
 
 /// How fast a row arrives, per second.
 ///
@@ -659,6 +676,67 @@ fn spawn_stack_entry(
             .id();
         commands.entity(subtitle).add_child(seat);
         commands.entity(body).add_child(subtitle);
+
+        // What the ability *does*, in the player's own printing and
+        // language. This is the whole reason the host says which sentence a
+        // stack entry is: "+1" tells a player nothing, and a stack of three
+        // triggers that all read `Ability · Ondu Cleric` tells them less.
+        //
+        // The full row only. A queued row answers "what else is coming", and
+        // six sentences stacked under one another would be a wall of text
+        // where the size ramp used to carry the order.
+        if let Some(blocks) = stack_sentence(item, view, faces) {
+            let sentence = commands
+                .spawn((
+                    Text::default(),
+                    tf(fonts, STACK_SENTENCE_PT),
+                    TextColor(palette::INK),
+                    Arriving::ink(key, palette::INK.alpha()),
+                    Pickable::IGNORE,
+                ))
+                .id();
+            // One budget across the spans, spent in printed order, so a long
+            // ability cannot grow the row past the queue it is ordering — and
+            // so the reminder is what gets cut first, which is the order a
+            // player would drop them in too.
+            let mut left = budget(room * STACK_SENTENCE_LINES, STACK_SENTENCE_PT);
+            for block in blocks {
+                let reminder = matches!(block, TextBlock::Reminder(_));
+                // A reminder is drawn inside `" (…)"`, which is three
+                // characters of the shared room that are not text.
+                let room_for = if reminder {
+                    left.saturating_sub(3)
+                } else {
+                    left
+                };
+                if room_for == 0 {
+                    break;
+                }
+                let text = cut(block.text(), room_for);
+                let drawn = text.chars().count() + usize::from(reminder) * 3;
+                left = left.saturating_sub(drawn);
+                let ink = if reminder {
+                    palette::MUTED
+                } else {
+                    palette::INK
+                };
+                let font = if reminder {
+                    tf_italic(fonts, STACK_SENTENCE_PT)
+                } else {
+                    tf(fonts, STACK_SENTENCE_PT)
+                };
+                let span = commands
+                    .spawn((
+                        TextSpan::new(if reminder { format!(" ({text})") } else { text }),
+                        font,
+                        TextColor(ink),
+                        Arriving::ink(key, ink.alpha()),
+                    ))
+                    .id();
+                commands.entity(sentence).add_child(span);
+            }
+            commands.entity(body).add_child(sentence);
+        }
     }
 
     if !item.targets.is_empty() {
@@ -920,6 +998,34 @@ fn spawn_stack_target(
     chip
 }
 
+/// The printed sentence a stack entry stands for, in the player's own
+/// language, or `None` when there is nothing trustworthy to draw.
+///
+/// Three things have to line up and any of them may be missing, which is
+/// why every step is a `?` and the panel falls back to the label it drew
+/// before. The host has to know which sentence it is (it does not for a
+/// token's ability, an emblem's, or one a continuous effect granted); the
+/// source has to still be findable, because the *printing* is what the
+/// text is filed under and an ability on the stack outlives its source
+/// (CR 113.7a); and that printing's text has to have arrived — a gateway
+/// with no catalog serves none, which is the ordinary case offline.
+///
+/// The face is the host's answer and not the source's current one, for
+/// the reason `baylee_view::StackText::face` gives.
+fn stack_sentence(
+    item: &baylee_client_core::board::StackItem,
+    view: &PlayerView,
+    faces: &FaceCtx<'_>,
+) -> Option<Vec<TextBlock>> {
+    let baylee_client_core::board::StackKind::Ability { source, text } = item.kind else {
+        return None;
+    };
+    let text = text?;
+    let print = view.object(source)?.card?.print;
+    let card = faces.texts.get(print, text.face)?;
+    baylee_client_core::card_face::sentence_blocks(&card.oracle_text, text.line, text.of)
+}
+
 /// A card name cut to one line `room` pixels wide, set at `size`.
 ///
 /// Inter's lower case averages a little over half its point size and a card
@@ -932,12 +1038,26 @@ fn spawn_stack_target(
 /// never grows past the budget, and the cut is on `char` boundaries because a
 /// card name is not ASCII (Æther Vial, Márton Stromgald).
 fn fit(name: &str, room: f32, size: f32) -> String {
-    #[allow(clippy::cast_sign_loss, clippy::cast_possible_truncation)]
-    let budget = (room / (size * 0.52)).max(4.0) as usize;
-    if name.chars().count() <= budget {
-        return name.to_string();
+    cut(name, budget(room, size))
+}
+
+/// How many characters of `size`-point Inter fit in `room` pixels.
+///
+/// Split out of [`fit`] because a *sentence* spends one budget across several
+/// spans — rules text and its reminder are two — and each span cutting itself
+/// to the full budget would let the pair run twice as long as the room they
+/// share.
+#[allow(clippy::cast_sign_loss, clippy::cast_possible_truncation)]
+fn budget(room: f32, size: f32) -> usize {
+    (room / (size * 0.52)).max(4.0) as usize
+}
+
+/// `text`, cut to `budget` characters with an ellipsis if it is longer.
+fn cut(text: &str, budget: usize) -> String {
+    if text.chars().count() <= budget {
+        return text.to_string();
     }
-    let mut cut: String = name.chars().take(budget - 1).collect();
+    let mut cut: String = text.chars().take(budget.saturating_sub(1)).collect();
     cut.push('…');
     cut
 }
