@@ -25,7 +25,8 @@ use crate::cardmat::{CardLook, CardMaterial, MOVING, material, motion_of};
 use crate::face;
 use crate::feltmat::FeltMaterial;
 use crate::textures::CardTextures;
-use baylee_client_core::board::CardGroup;
+use baylee_client_core::airborne;
+use baylee_client_core::board::{CardGroup, KeywordBadge};
 use baylee_client_core::combat::Combat;
 use baylee_client_core::images::{FinishTreatment, ImageKey};
 use baylee_client_core::layout::{
@@ -254,6 +255,33 @@ const _: () = assert!(
     (SELECTED_LIFT - HOVER_LIFT) * CAMERA_LEAN
         <= (CARD_WIDTH / 2.0) * (SELECTED_SCALE - HOVER_SCALE)
 );
+
+// A creature with flying stands higher than any of those, and that is not a
+// breach of the bound above — it is a different bound. `covered_lift` is about
+// a rise the *pointer* causes: a card that grows under the pointer and rises
+// further than it grows slides out from under it, and the flicker that starts
+// is one the card is feeding itself. A flier's height is caused by the card
+// and not by the pointer, so there is no loop to close; what it has to respect
+// is only that its own movement is too small to leave a pointer that is
+// sitting still, which is `airborne::SWAY` and is a fiftieth of a card's
+// width. The renderer holds it still under the pointer as well — see
+// `sync_scene` — so this is the belt to that pair of braces.
+const _: () = assert!(airborne::SWAY * CAMERA_LEAN < CARD_WIDTH / 20.0);
+// And a card the player has chosen must never stand higher than a creature in
+// the air: two claims about height that mean different things must not be able
+// to trade places.
+const _: () = assert!(SELECTED_LIFT < airborne::RESTING - airborne::SWAY);
+
+/// The height past which a flier's contact shadow stops spreading.
+///
+/// The spread is what says "up there", and the shadow texture is shared by
+/// every card in the game — so it can be moved and scaled and never dimmed,
+/// and past the top of the bob a wider one stops reading as a higher card and
+/// starts reading as a heavier one. The cap is that top, which means a
+/// *hovered* flier goes on climbing away from a shadow that has stopped
+/// growing. That is the right way round: the extra height there is the
+/// pointer's claim about the card, not the card's claim about itself.
+const FLOAT_SHADOW_CAP: f32 = airborne::RESTING + airborne::SWAY;
 
 /// Marks everything spawned for the duel, so closing it is one despawn.
 #[derive(Component)]
@@ -928,6 +956,24 @@ pub struct CardVisual {
     pub count: usize,
 }
 
+/// A card that is off the felt because what it stands for has flying.
+///
+/// A marker and nothing more: the height is written into [`Motion::target`]
+/// by [`sync_scene`] like every other reason a card is where it is, so there
+/// is no second number here that could disagree with it. What the marker is
+/// for is the *shadow* — [`ground_the_shadows`] asks which cards' shadows
+/// have to be left behind on the table, and this is the answer.
+#[derive(Component)]
+pub struct Floating;
+
+/// The contact shadow under a card, as a child of that card.
+///
+/// It was unmarked while it was only ever set once at spawn. It has to be
+/// found again now, because a card that leaves the ground has to leave it
+/// behind.
+#[derive(Component)]
+pub struct CardShadow;
+
 /// Where a card is going.
 ///
 /// The scene diff writes the *target* and never the transform itself, so
@@ -971,6 +1017,79 @@ pub fn glide(
         transform.translation = transform.translation.lerp(motion.target.translation, t);
         transform.rotation = transform.rotation.slerp(motion.target.rotation, t);
         transform.scale = transform.scale.lerp(motion.target.scale, t);
+    }
+}
+
+/// A card that is in the air and still in the game.
+///
+/// [`CardVisual`] is the second half and not decoration: a card on its way out
+/// of the game loses it, and [`retire`] throws that card [`BOUNCE_RISE`] into
+/// the air — a height nothing here is meant to answer. `Without<CardShadow>`
+/// is what tells Bevy the two queries below cannot name one entity, so it
+/// hands out the one `&mut Transform` this system asks for.
+type Aloft = (With<Floating>, With<CardVisual>, Without<CardShadow>);
+
+/// Leaves a flying creature's contact shadow on the table.
+///
+/// A card's shadow is a child of the card, which is what keeps it under a
+/// tapped card with nothing having to rotate it — and it means that a card
+/// which rises carries its shadow up with it, glued to its own underside. For
+/// a card that lies on the felt that is invisible and correct. For one that
+/// is a foot above it, it is the whole cue thrown away: the shadow is the
+/// only thing this camera has to say how high something is, because a twenty
+/// degree lean turns a card's rise into two or three pixels of parallax and
+/// nothing else.
+///
+/// So the shadow is put back where it belongs, every frame, from where the
+/// card actually **is**:
+///
+/// - the *height* is read off the parent's live [`Transform`] and not off
+///   [`Motion::target`], because a card halfway through a glide is halfway
+///   and its shadow has to agree with the picture rather than with the plan;
+/// - the local `z` it is written to is the card's own axis — a card is laid
+///   flat by a quarter turn about x, so local `+z` is world `+y` and the tap
+///   turns about that same axis and leaves it alone — divided by the parent's
+///   scale, because a hovered card is 6% larger and its children with it;
+/// - the *spread* grows with the height by [`DECK_SHADOW_SPREAD`], the same
+///   coefficient a thick pile's shadow already grows by, so a flier and a
+///   deck of the same height cast the same shadow. It is capped at
+///   [`FLOAT_SHADOW_CAP`], which is what stops a card on its way out of the
+///   game — [`retire`] throws one [`BOUNCE_RISE`] into the air — from
+///   dragging a shadow the size of a lane along behind it.
+///
+/// The formula is general and reproduces what a resting card is given at
+/// spawn, so lifting the [`Floating`] filter would give a *hovered* card a
+/// shadow that answers too. That is deliberately not done here: it is a
+/// change to how the pointer reads, which is not what this is about, and a
+/// card in a pile's hover fan is tilted — `local z` is not world up for it,
+/// and the formula would put its shadow through the felt.
+pub fn ground_the_shadows(
+    cards: Query<&Transform, Aloft>,
+    mut shadows: Query<(&ChildOf, &mut Transform), With<CardShadow>>,
+) {
+    for (parent, mut at) in &mut shadows {
+        let Ok(card) = cards.get(parent.parent()) else {
+            continue;
+        };
+        // How far off the felt the card itself is. `CARD_LIFT` is the hair
+        // every card is given so it does not z-fight the cloth, so a card
+        // lying down measures zero here and its shadow keeps the placement it
+        // was spawned with.
+        let height = (card.translation.y - TABLE_Y - CARD_LIFT).max(0.0);
+        // The *position* is divided by the parent's scale and the spread is
+        // not, and the asymmetry is the point. A child's offset is scaled
+        // along with it, so a fixed world height has to be asked for in the
+        // parent's units; a shadow's size, on the other hand, is meant to
+        // follow the card — a card 6% larger under the pointer casts a
+        // shadow 6% larger, as it always has.
+        let scale = card.scale.z.abs().max(1e-4);
+        let spread = 1.0 + height.min(FLOAT_SHADOW_CAP) * DECK_SHADOW_SPREAD;
+        let down = (card.translation.y - TABLE_Y - CARD_LIFT * 0.5) / scale;
+        let wanted =
+            Transform::from_xyz(0.0, 0.0, -down).with_scale(Vec3::new(spread, spread, 1.0));
+        if *at != wanted {
+            *at = wanted;
+        }
     }
 }
 
@@ -2453,6 +2572,14 @@ struct Placement {
     /// Where this card stands in its row, as a height — see [`LANE_RISE`].
     lift: f32,
     tapped: bool,
+    /// Whether this card has flying, and therefore stands off the felt — see
+    /// [`airborne`].
+    ///
+    /// Read off the group's badges, which is where the client is told: the
+    /// engine sends a keyword bitset and `KeywordBadge::from_bits` is what
+    /// turns it into facts. Resolved here for the reason the offer and the
+    /// corner are — this is where the group's members are.
+    flying: bool,
     count: usize,
     art: Option<ImageKey>,
     offer: crate::cardmat::Offer,
@@ -2482,11 +2609,38 @@ fn place_of(kind: PileKind, player: PlayerId) -> Option<Place> {
     }
 }
 
+/// How far above its row a card stands because of what the card *is*.
+///
+/// Zero for everything but a creature with flying, which has a height of its
+/// own and a slow bob around it ([`airborne`]). The height is returned rather
+/// than applied: it joins the row's rise and the deck under the card in the
+/// one lift [`card_transform`] is given, so it travels through
+/// [`Motion`]/[`glide`] like every other reason a card is where it is. An
+/// offset added *after* the glide would be pulled back by the glide on the
+/// next frame and would compound.
+///
+/// `held` freezes the bob at its resting height — the height stays, only the
+/// movement stops. It is true while the pointer is on the card, while the
+/// card is chosen or armed, and while the player has motion turned off. The
+/// first three are the same reading: a card someone is looking at should hold
+/// still, and a card bobbing under a pointer that is not moving is the one
+/// way this could take a click away from a player.
+fn float_of(placement: &Placement, held: bool, elapsed: f32) -> f32 {
+    if !placement.flying {
+        0.0
+    } else if held {
+        airborne::RESTING
+    } else {
+        airborne::height(elapsed, airborne::phase(placement.object))
+    }
+}
+
 /// Computes placements for the whole table.
 ///
 /// Pure geometry over the board model, so the ordering is the model's ordering
 /// and therefore stable frame to frame — which is what makes the diff below
 /// cheap and stops cards from swapping places when nothing happened.
+#[allow(clippy::too_many_lines)] // one walk of the model, in the model's order
 fn placements(duel: &Duel) -> Vec<Placement> {
     let (Some(board), Some(layout)) = (duel.board.as_ref(), duel.layout.as_ref()) else {
         return Vec::new();
@@ -2535,6 +2689,11 @@ fn placements(duel: &Duel) -> Vec<Placement> {
                     // before it, and never in bands of both.
                     lift: LANE_RISE * i as f32 / steps,
                     tapped: group.status.is_tapped(),
+                    // A group is one card standing for several and every
+                    // member of it has the same keywords — `ObjectSummaryKey`
+                    // carries them, so two Serra Angels of which one has lost
+                    // flying are two groups.
+                    flying: group.badges.contains(&KeywordBadge::Flying),
                     count: group.count(),
                     art: group.art,
                     // Resolved here rather than in the sync loop, because
@@ -2603,6 +2762,10 @@ fn placements(duel: &Duel) -> Vec<Placement> {
                         position: pose.at,
                         lift: pose.lift,
                         tapped: false,
+                        // A card the pointer has lifted out of a graveyard is
+                        // not a permanent and has no keywords to draw, the
+                        // same reason its corner is the empty one.
+                        flying: false,
                         count: if i + 1 == len {
                             under.saturating_sub(len - 1).max(1)
                         } else {
@@ -2642,6 +2805,7 @@ fn placements(duel: &Duel) -> Vec<Placement> {
                 // `Corner::of`. Drawing a 4/4 on a card that is no longer a
                 // creature would be inventing a fact.
                 tapped: false,
+                flying: false,
                 count: usize::try_from(pile.count).unwrap_or(usize::MAX),
                 art: pile.art,
                 offer: crate::cardmat::Offer::on(duel.armed.as_ref(), &[top], false),
@@ -2662,6 +2826,7 @@ fn placements(duel: &Duel) -> Vec<Placement> {
 #[allow(clippy::too_many_lines)] // the diff loop is one coherent pass
 pub fn sync_scene(
     mut commands: Commands,
+    time: Res<Time>,
     duel: Res<Duel>,
     mut index: ResMut<SceneIndex>,
     mut watch: ResMut<ZoneWatch>,
@@ -2678,6 +2843,7 @@ pub fn sync_scene(
         &mut Motion,
         &mut CardVisual,
         &mut MeshMaterial3d<CardMaterial>,
+        Has<Floating>,
     )>,
 ) {
     let (Some(statics), Some(textures)) = (duel.statics.as_ref(), textures.as_mut()) else {
@@ -2833,11 +2999,25 @@ pub fn sync_scene(
         // children, so what a player sees is one block of cardboard with a
         // face on top rather than a card with a fan of cards behind it.
         let deck = stack_rise(placement.count.saturating_sub(1));
+        // A creature with flying stands off the felt. It goes in *here*, with
+        // the row's rise and the deck under it, so it reaches the card
+        // through `Motion` and `glide` like every other reason a card is
+        // where it is — an offset added to the transform after the glide
+        // would be fought by the glide on the next frame and compound.
+        //
+        let float = float_of(
+            placement,
+            placement.selected
+                || placement.offer.armed
+                || hovered == Some(placement.object)
+                || still,
+            time.elapsed_secs_wrapped(),
+        );
         let mut transform = card_transform(
             &placement.slot,
             placement.position,
             placement.tapped,
-            placement.lift + deck,
+            placement.lift + deck + float,
         );
         // A card in a fan is tipped up and turned; everything else about it —
         // where it stands, the deck under it, the hover lift below — is the
@@ -2865,7 +3045,9 @@ pub fn sync_scene(
         let entity = if let Some(&entity) = index.cards.get(&placement.object) {
             // Existing card: update in place. Touching only what changed is
             // what keeps a large board cheap.
-            if let Ok((mut motion, mut visual, mut current_material)) = cards.get_mut(entity) {
+            if let Ok((mut motion, mut visual, mut current_material, airborne)) =
+                cards.get_mut(entity)
+            {
                 if motion.target != transform {
                     motion.target = transform;
                 }
@@ -2874,6 +3056,18 @@ pub fn sync_scene(
                 }
                 if current_material.0 != material {
                     current_material.0 = material;
+                }
+                // A creature can gain flying and lose it again — an anthem
+                // resolving, an aura leaving — so this is a diff like the
+                // others and not a property of the entity. Compared first:
+                // an unconditional insert every frame would be an archetype
+                // move every frame for every flier on the table.
+                if airborne != placement.flying {
+                    if placement.flying {
+                        commands.entity(entity).insert(Floating);
+                    } else {
+                        commands.entity(entity).remove::<Floating>();
+                    }
                 }
             }
             entity
@@ -2915,14 +3109,22 @@ pub fn sync_scene(
                 ))
                 .id();
             index.cards.insert(placement.object, entity);
+            if placement.flying {
+                commands.entity(entity).insert(Floating);
+            }
 
             // The contact shadow rides along as a child, which is what keeps
-            // it under a tapped card without anything having to rotate it,
-            // and what makes it grow out from under a card as that card is
-            // lifted. It sits between the felt and the card, and is not
-            // pickable — a click near a card's edge means the table.
+            // it under a tapped card without anything having to rotate it. It
+            // sits between the felt and the card, and is not pickable — a
+            // click near a card's edge means the table.
+            //
+            // Set here for the card as it stands and then left alone, which
+            // is right for every card that lies on the felt. A card that
+            // *rises* off it is [`ground_the_shadows`]'s business, and it
+            // finds this child by its marker.
             if let Some((mesh, material)) = shadow.clone() {
                 commands.entity(entity).with_child((
+                    CardShadow,
                     Mesh3d(mesh),
                     MeshMaterial3d(material),
                     // Under the whole deck rather than under the top card, and
@@ -3013,7 +3215,7 @@ pub fn sync_scene(
                 // moved zones on the same frame never reaches here: the move
                 // below is the truer answer and takes precedence.
                 if let Some(&home) = index.fanned.get(&id) {
-                    if let Ok((mut motion, _, _)) = cards.get_mut(entity) {
+                    if let Ok((mut motion, _, _, _)) = cards.get_mut(entity) {
                         motion.target =
                             exit(Some(home), pile_stand(&duel, Some(home)), &motion.target);
                     }
@@ -3027,7 +3229,7 @@ pub fn sync_scene(
                 continue;
             };
             let to = step.to;
-            if let Ok((mut motion, _, mut worn)) = cards.get_mut(entity) {
+            if let Ok((mut motion, _, mut worn, _)) = cards.get_mut(entity) {
                 motion.target = exit(to, pile_stand(&duel, to), &motion.target);
                 if let Some(dressed) = dress_the_exit(
                     &mut card_materials,
@@ -5540,6 +5742,252 @@ mod framing_tests {
             *app.world().resource::<CameraRig>(),
             CameraRig::home(&layout, Canvas::hud(WINDOW)),
             "and the table framed itself again on the next tick"
+        );
+    }
+}
+
+/// What flying does to a card on the table, and to the shadow under it.
+///
+/// The height itself is [`baylee_client_core::airborne`]'s and is tested
+/// there. What is tested here is the two halves the renderer owns: that the
+/// height is asked for at all and only for the right cards, and that the
+/// shadow is left behind on the felt when the card takes off.
+#[cfg(test)]
+mod flying_tests {
+    use super::*;
+    use baylee_client_core::board::Provenance;
+
+    fn obj(slot: u32) -> ObjectId {
+        ObjectId::new(slot, 0)
+    }
+
+    /// A placement standing for one creature, which flies or does not.
+    fn card(slot: u32, flying: bool) -> Placement {
+        Placement {
+            object: obj(slot),
+            // `float_of` reads only the two fields below; the slot is here
+            // because a `Placement` is a whole card and comes from a table.
+            slot: *TableLayout::new(&[PlayerId::new(0)], 16.0 / 9.0, None)
+                .slot(PlayerId::new(0))
+                .expect("a one-seat table seats its one player"),
+            position: Vec2::ZERO,
+            lift: 0.0,
+            tapped: false,
+            flying,
+            count: 1,
+            art: None,
+            offer: crate::cardmat::Offer::default(),
+            corner: baylee_client_core::cardplate::Corner::default(),
+            selected: false,
+            fan: None,
+        }
+    }
+
+    /// One creature, with whatever keywords the caller wants drawn on it.
+    fn creature(slot: u32, badges: Vec<KeywordBadge>) -> CardGroup {
+        CardGroup {
+            representative: obj(slot),
+            members: vec![obj(slot)],
+            name: format!("Creature {slot}"),
+            power: Some(2),
+            toughness: Some(2),
+            damage: 0,
+            loyalty: None,
+            status: baylee_view::ObjectStatus::NONE,
+            counters: Vec::new(),
+            badges,
+            art: None,
+            provenance: Provenance::Token,
+            original: None,
+            summoning_sick: false,
+            activatable: false,
+            commander: false,
+            individual: None,
+        }
+    }
+
+    /// A one-seat table with those creatures standing in the creature lane.
+    fn duel(groups: Vec<CardGroup>) -> Duel {
+        use baylee_client_core::board::{BoardModel, Lane, SeatPod};
+        use baylee_client_core::layout::LaneKind;
+        Duel {
+            board: Some(BoardModel {
+                seq: 1,
+                local: PlayerId::new(0),
+                turn: 1,
+                step: baylee_view::Step::Main,
+                pods: vec![SeatPod {
+                    player: PlayerId::new(0),
+                    life: 20,
+                    poison: 0,
+                    energy: 0,
+                    hand_count: 0,
+                    library_count: 40,
+                    graveyard_count: 0,
+                    has_lost: false,
+                    is_local: true,
+                    is_active: true,
+                    has_priority: true,
+                    lanes: vec![Lane {
+                        kind: LaneKind::Creatures,
+                        groups,
+                        overflowing: false,
+                    }],
+                    piles: baylee_client_core::PileKind::ALL
+                        .into_iter()
+                        .map(baylee_client_core::ZonePile::empty)
+                        .collect(),
+                    tokens: Vec::new(),
+                    threat: baylee_client_core::ThreatSummary::default(),
+                }],
+                stack: Vec::new(),
+                hand: Vec::new(),
+            }),
+            layout: Some(TableLayout::new(&[PlayerId::new(0)], 16.0 / 9.0, None)),
+            ..Duel::default()
+        }
+    }
+
+    #[test]
+    fn the_keyword_on_the_card_is_what_puts_it_in_the_air() {
+        let placed = placements(&duel(vec![
+            creature(1, vec![KeywordBadge::Flying]),
+            creature(2, vec![KeywordBadge::Trample, KeywordBadge::Reach]),
+        ]));
+        let flying: Vec<(u32, bool)> = placed.iter().map(|p| (p.object.slot(), p.flying)).collect();
+        assert!(
+            flying.contains(&(1, true)),
+            "the creature with flying is not in the air: {flying:?}"
+        );
+        assert!(
+            flying.contains(&(2, false)),
+            "reach is not flying, and a trampler is on the ground: {flying:?}"
+        );
+    }
+
+    #[test]
+    fn a_creature_that_does_not_fly_is_never_lifted() {
+        for t in [0.0, 0.7, 3.3, 11.9] {
+            assert!(
+                float_of(&card(1, false), false, t).abs() < f32::EPSILON,
+                "a ground creature left the felt at {t} seconds"
+            );
+        }
+    }
+
+    #[test]
+    fn a_flier_stands_off_the_felt_and_is_never_still() {
+        let one = card(1, true);
+        let first = float_of(&one, false, 0.0);
+        let later = float_of(&one, false, 0.9);
+        assert!(
+            (first - later).abs() > 1e-4,
+            "a flier that does not move is a card somebody forgot to put down"
+        );
+        for h in [first, later] {
+            assert!(
+                (airborne::RESTING - airborne::SWAY..=airborne::RESTING + airborne::SWAY)
+                    .contains(&h),
+                "the bob left its band: {h}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_flier_the_pointer_is_on_holds_still_without_coming_down() {
+        let one = card(1, true);
+        for t in [0.0, 0.9, 4.4] {
+            let held = float_of(&one, true, t);
+            assert!(
+                (held - airborne::RESTING).abs() < f32::EPSILON,
+                "a held flier moved, or dropped, at {t} seconds: {held}"
+            );
+        }
+    }
+
+    /// A card standing `height` above the felt, with its contact shadow
+    /// underneath it exactly as `sync_scene` spawns one.
+    fn a_card_in_the_air(app: &mut App, height: f32, floating: bool) -> Entity {
+        let mut card = app.world_mut().spawn((
+            CardVisual {
+                object: obj(1),
+                count: 1,
+            },
+            Transform::from_xyz(0.0, TABLE_Y + CARD_LIFT + height, 0.0),
+        ));
+        if floating {
+            card.insert(Floating);
+        }
+        let card = card.id();
+        app.world_mut().spawn((
+            CardShadow,
+            Transform::from_xyz(0.0, 0.0, -(CARD_LIFT * 0.5)),
+            ChildOf(card),
+        ));
+        card
+    }
+
+    fn shadow_of(app: &mut App) -> Transform {
+        let mut q = app
+            .world_mut()
+            .query_filtered::<&Transform, With<CardShadow>>();
+        *q.iter(app.world()).next().expect("the shadow is spawned")
+    }
+
+    #[test]
+    fn a_flier_leaves_its_shadow_on_the_table() {
+        let mut app = App::new();
+        app.add_systems(Update, ground_the_shadows);
+        let card = a_card_in_the_air(&mut app, airborne::RESTING, true);
+        app.update();
+
+        let shadow = shadow_of(&mut app);
+        let card = *app.world().entity(card).get::<Transform>().unwrap();
+        let on_the_felt = card.translation.y + shadow.translation.z;
+        assert!(
+            (on_the_felt - (TABLE_Y + CARD_LIFT * 0.5)).abs() < 1e-5,
+            "the shadow is {on_the_felt} above the felt and not {}",
+            TABLE_Y + CARD_LIFT * 0.5
+        );
+        assert!(
+            shadow.scale.x > 1.0 + airborne::RESTING * 0.5,
+            "the shadow did not spread as the card climbed: {}",
+            shadow.scale.x
+        );
+    }
+
+    #[test]
+    fn a_card_lying_on_the_felt_keeps_the_shadow_it_was_given() {
+        // The counter-test, and the one that says the system is doing
+        // something rather than everything: a card that does not fly is not
+        // in the query at all, so its shadow is the one `sync_scene` spawned.
+        let mut app = App::new();
+        app.add_systems(Update, ground_the_shadows);
+        a_card_in_the_air(&mut app, 0.0, false);
+        app.update();
+
+        let shadow = shadow_of(&mut app);
+        assert!(
+            (shadow.translation.z + CARD_LIFT * 0.5).abs() < f32::EPSILON
+                && (shadow.scale.x - 1.0).abs() < f32::EPSILON,
+            "a grounded card's shadow was moved: {shadow:?}"
+        );
+    }
+
+    #[test]
+    fn a_shadow_does_not_follow_a_card_out_of_the_game() {
+        // `retire` throws a card that has left the table `BOUNCE_RISE` into
+        // the air. Its shadow is capped rather than tracking it, or a card on
+        // its way to a hand would drag a pool the size of the lane behind it.
+        let mut app = App::new();
+        app.add_systems(Update, ground_the_shadows);
+        a_card_in_the_air(&mut app, BOUNCE_RISE, true);
+        app.update();
+
+        let spread = shadow_of(&mut app).scale.x;
+        assert!(
+            spread <= 1.0 + FLOAT_SHADOW_CAP * DECK_SHADOW_SPREAD + 1e-5,
+            "a departing card dragged a {spread}× shadow with it"
         );
     }
 }
