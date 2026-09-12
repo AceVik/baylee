@@ -35,6 +35,22 @@ use tracing_subscriber::EnvFilter;
 struct AppState {
     store: Mutex<Store>,
     limiter: auth::RateLimiter,
+    /// Sign-in attempts, counted **per address** rather than per IP.
+    ///
+    /// A separate limiter because it answers a different question. Guessing
+    /// is aimed at one account, so the address is what the count belongs to;
+    /// an IP is only a proxy for it, and a bad proxy in both directions. It
+    /// punishes a household or an office behind one address for a neighbour's
+    /// typing — which is how the owner locked themselves out of a development
+    /// box where every request, mine included, arrives from `127.0.0.1` — and
+    /// it stops nobody with more than one address to send from.
+    ///
+    /// The cost is stated rather than avoided: a stranger who knows an
+    /// address can spend its eight attempts and make its owner wait out the
+    /// window. That is a nuisance bounded by five minutes, against guessing
+    /// bounded by nothing, and the register and resend routes keep their IP
+    /// limit so account spam and mail amplification stay bounded by it.
+    sign_in_limiter: auth::RateLimiter,
     lobby: Mutex<Lobby>,
     store_path: PathBuf,
     /// Signals the background writer that the store needs persisting
@@ -139,6 +155,7 @@ async fn main() {
     let state = Arc::new(AppState {
         store: Mutex::new(Store::load(&store_path)),
         limiter: auth::RateLimiter::new(std::time::Duration::from_secs(300), 10),
+        sign_in_limiter: auth::RateLimiter::new(std::time::Duration::from_secs(300), 8),
         lobby: Mutex::new(Lobby::default()),
         // Small: a receiver that falls this far behind is one whose socket is
         // not draining, and the lag is handled by sending it the current
@@ -549,13 +566,14 @@ async fn register(
 
 async fn login(
     State(state): State<Shared>,
-    ConnectInfo(addr): ConnectInfo<SocketAddr>,
-    headers: HeaderMap,
     Json(creds): Json<Credentials>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorBody>)> {
+    // Eight tries at **this address**, not at this machine. Lower-cased for
+    // the key because `Store::account_by_email` matches that way, so two
+    // spellings of one address are one account and have to be one count.
     if !state
-        .limiter
-        .allow(&rate_limit_ip(&state, addr.ip(), &headers))
+        .sign_in_limiter
+        .allow(&creds.email.to_ascii_lowercase())
     {
         return Err(err(StatusCode::TOO_MANY_REQUESTS, "too many attempts"));
     }
@@ -584,6 +602,12 @@ async fn login(
     if !ok {
         return Err(err(StatusCode::UNAUTHORIZED, "invalid credentials"));
     }
+    // Getting it right is what the window was counting towards. Leaving the
+    // typos on the clock would refuse the next sign-in from a player who has
+    // just proved who they are.
+    state
+        .sign_in_limiter
+        .forget(&creds.email.to_ascii_lowercase());
     // Checked *after* the password, deliberately: answering "confirm your
     // e-mail first" to a wrong password would tell a stranger the address
     // exists, which is the one thing every other answer on this route is

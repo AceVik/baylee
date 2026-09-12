@@ -221,3 +221,76 @@ fn a_resend_says_nothing_about_who_exists() {
         assert!(body.contains("\"ok\":true"), "resend for {email}: {body}");
     }
 }
+
+/// Sign-in attempts are counted against the **address**, not the machine.
+///
+/// Keyed per IP, one development box is one bucket: the owner's typing and
+/// every scripted call this session made shared ten attempts, and the owner
+/// was the one locked out. An address is what guessing is aimed at, so it is
+/// what the count belongs to — and a wrong password at one address must not
+/// cost another address anything.
+#[test]
+fn eight_tries_are_eight_tries_at_one_address() {
+    let gw = spawn_gateway("attempts");
+    let port = gw.port;
+    let (status, body) = register(port, "eight@example.com", "Eight", "en");
+    assert_eq!(status, 200, "register: {body}");
+    let (status, body) = register(port, "other@example.com", "Other", "en");
+    assert_eq!(status, 200, "register: {body}");
+
+    let wrong = |email: &str| {
+        http(
+            port,
+            "POST",
+            "/auth/login",
+            None,
+            &format!("{{\"email\":\"{email}\",\"password\":\"not-it\"}}"),
+        )
+        .0
+    };
+
+    // Eight are answered on their merits; the ninth is not answered at all.
+    for i in 1..=8 {
+        assert_eq!(wrong("eight@example.com"), 401, "try {i} is a real answer");
+    }
+    assert_eq!(wrong("eight@example.com"), 429, "the ninth is refused");
+    // The same address in a different spelling is the same account, so it is
+    // the same count.
+    assert_eq!(wrong("Eight@Example.com"), 429, "one account, one count");
+
+    // And the machine is not what was counted.
+    assert_eq!(
+        wrong("other@example.com"),
+        401,
+        "a neighbour's typing costs this address nothing"
+    );
+    let (status, body) = sign_in(port, "other@example.com");
+    assert_eq!(status, 200, "and the right password still works: {body}");
+}
+
+/// Getting in is what the window was counting towards, so it hands the tries
+/// back: a player who mistypes six times, signs in, then signs out has not
+/// spent anything.
+#[test]
+fn signing_in_clears_what_the_typos_spent() {
+    let gw = spawn_gateway("attempts-cleared");
+    let port = gw.port;
+    let (status, body) = register(port, "clear@example.com", "Clear", "en");
+    assert_eq!(status, 200, "register: {body}");
+
+    for _ in 0..7 {
+        let (status, _) = http(
+            port,
+            "POST",
+            "/auth/login",
+            None,
+            "{\"email\":\"clear@example.com\",\"password\":\"not-it\"}",
+        );
+        assert_eq!(status, 401);
+    }
+    let (status, body) = sign_in(port, "clear@example.com");
+    assert_eq!(status, 200, "the eighth try is the right one: {body}");
+    // Without the clearing this would be the ninth attempt and refused.
+    let (status, body) = sign_in(port, "clear@example.com");
+    assert_eq!(status, 200, "and signing in again is not rationed: {body}");
+}

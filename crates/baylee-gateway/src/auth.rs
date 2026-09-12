@@ -7,7 +7,9 @@
 //! - Login errors are identical for unknown users and wrong passwords,
 //!   and unknown-user attempts verify against a fixed dummy hash so
 //!   response timing doesn't leak account existence.
-//! - A per-IP sliding-window rate limiter throttles auth endpoints.
+//! - Sliding-window rate limiters throttle the auth endpoints. Signing in
+//!   is counted per **address** and the rest per IP; `RateLimiter` holds the
+//!   window and the count and the caller says what a key is.
 //! - All secret comparisons are constant-time (`subtle`).
 
 use argon2::Argon2;
@@ -126,19 +128,26 @@ pub fn now_secs() -> u64 {
         .map_or(0, |d| d.as_secs())
 }
 
-/// Sliding-window per-IP rate limiter for auth endpoints.
+/// Sliding-window rate limiter for auth endpoints.
+///
+/// It counts keys and has no opinion about what a key *is*: an IP for the
+/// routes where there is no account yet to name, an e-mail address for the
+/// one route that is aimed at a particular account. That is the whole reason
+/// it takes a `&str` — keying sign-ins on the machine punished a household
+/// for one member's typing, and on a development box it made every scripted
+/// call and the owner's own typing share a single budget.
 pub struct RateLimiter {
-    /// ip → attempt timestamps within the window.
+    /// key → attempt timestamps within the window.
     hits: Mutex<HashMap<String, Vec<Instant>>>,
     /// Last time dead entries were swept (bounds the map's growth —
-    /// unique attacker IPs must not grow it without limit).
+    /// unique keys must not grow it without limit).
     last_sweep: Mutex<Instant>,
     window: Duration,
     max_attempts: usize,
 }
 
 impl RateLimiter {
-    /// `max_attempts` per `window` per IP.
+    /// `max_attempts` per `window` per key.
     #[must_use]
     pub fn new(window: Duration, max_attempts: usize) -> Self {
         Self {
@@ -150,7 +159,7 @@ impl RateLimiter {
     }
 
     /// True when the attempt is allowed (and recorded).
-    pub fn allow(&self, ip: &str) -> bool {
+    pub fn allow(&self, key: &str) -> bool {
         let mut hits = self.hits.lock();
         let now = Instant::now();
         // Periodically drop entries with no hits inside the window.
@@ -163,13 +172,25 @@ impl RateLimiter {
             *last = now;
         }
         drop(last);
-        let entry = hits.entry(ip.to_string()).or_default();
+        let entry = hits.entry(key.to_string()).or_default();
         entry.retain(|t| now.duration_since(*t) < self.window);
         if entry.len() >= self.max_attempts {
             return false;
         }
         entry.push(now);
         true
+    }
+
+    /// Drops a key's history, so what it has spent no longer counts.
+    ///
+    /// For the one thing a sliding window cannot see on its own: the attempts
+    /// were a person getting their own password right in the end. Without
+    /// this, seven typos followed by a success leave the eighth try spent,
+    /// and signing out and back in is refused by a limiter that has already
+    /// been satisfied. Only a caller that *knows* the attempt succeeded may
+    /// call it, which is why it is not part of `allow`.
+    pub fn forget(&self, key: &str) {
+        self.hits.lock().remove(key);
     }
 }
 
@@ -317,5 +338,25 @@ mod tests {
         assert!(limiter.allow("1.2.3.4"));
         assert!(!limiter.allow("1.2.3.4"));
         assert!(limiter.allow("5.6.7.8"));
+    }
+
+    /// Getting the password right in the end is the thing a sliding window
+    /// cannot see, so the caller that saw it says so.
+    #[test]
+    fn what_a_key_has_spent_can_be_given_back() {
+        let limiter = RateLimiter::new(Duration::from_secs(60), 2);
+        assert!(limiter.allow("a@b.c"));
+        assert!(limiter.allow("a@b.c"));
+        assert!(!limiter.allow("a@b.c"), "spent");
+        limiter.forget("a@b.c");
+        assert!(limiter.allow("a@b.c"), "and handed back");
+        // One key's history, not everybody's.
+        assert!(limiter.allow("d@e.f"));
+        assert!(limiter.allow("d@e.f"));
+        limiter.forget("a@b.c");
+        assert!(
+            !limiter.allow("d@e.f"),
+            "somebody else's count is untouched"
+        );
     }
 }
