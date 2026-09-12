@@ -2309,3 +2309,71 @@ fn the_eye_shows_the_password_and_the_bullets_come_back() {
         ["\u{2022}\u{2022}", "|"]
     );
 }
+
+/// The address is filled in from the settings and the caret starts on the
+/// password, because that is the only thing still missing.
+///
+/// Through `from_settings` rather than `new`, which reads the defaults under
+/// this crate's tests on purpose — the point of the split.
+#[test]
+fn the_sign_in_box_opens_on_the_address_that_used_it_last() {
+    let blank = LobbyState::from_settings(crate::settings::ClientSettings::default());
+    assert_eq!(blank.lobby.field(Field::Email), "");
+    assert_eq!(
+        blank.lobby.focus(),
+        Field::Email,
+        "with nothing stored the caret starts at the top"
+    );
+
+    let known = LobbyState::from_settings(crate::settings::ClientSettings {
+        last_email: "mail@acevik.de".to_string(),
+        ..crate::settings::ClientSettings::default()
+    });
+    assert_eq!(known.lobby.field(Field::Email), "mail@acevik.de");
+    assert_eq!(known.lobby.focus(), Field::Password);
+}
+
+/// And it is written down by the sign-in that worked, not by the attempt.
+#[test]
+fn only_a_sign_in_that_worked_is_worth_remembering() {
+    let mut app = headless();
+    app.insert_resource(crate::settings::ClientSettings::default());
+    {
+        let mut state = app.world_mut().resource_mut::<LobbyState>();
+        state.lobby.set_field(Field::Email, "mail@acevik.de");
+    }
+
+    // A refusal leaves the stored address alone: it may well be the typo.
+    app.world()
+        .resource::<Mailbox>()
+        .0
+        .lock()
+        .expect("mailbox")
+        .push(Reply::Event(LobbyEvent::Failed(
+            "invalid credentials".to_string(),
+        )));
+    app.update();
+    assert_eq!(
+        app.world()
+            .resource::<crate::settings::ClientSettings>()
+            .last_email,
+        "",
+        "a refused attempt says nothing about the address"
+    );
+
+    app.world()
+        .resource::<Mailbox>()
+        .0
+        .lock()
+        .expect("mailbox")
+        .push(Reply::Event(LobbyEvent::LoggedIn {
+            token: "tok".to_string(),
+        }));
+    app.update();
+    assert_eq!(
+        app.world()
+            .resource::<crate::settings::ClientSettings>()
+            .last_email,
+        "mail@acevik.de"
+    );
+}

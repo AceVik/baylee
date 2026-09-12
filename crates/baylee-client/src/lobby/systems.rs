@@ -16,6 +16,8 @@ pub(super) fn poll(
     mailbox: Res<Mailbox>,
     mut prefs: ResMut<crate::prefs::Prefs>,
     mut opens: MessageWriter<DuelCommand>,
+    // Absent in a headless test, which has no settings file to write to.
+    mut settings: Option<ResMut<crate::settings::ClientSettings>>,
 ) {
     let replies = {
         let Ok(mut box_) = mailbox.0.lock() else {
@@ -29,7 +31,20 @@ pub(super) fn poll(
     for reply in replies {
         match reply {
             Reply::Event(event) => {
+                // A sign-in that worked is the one moment this client knows
+                // an address is a real one, so it is the only moment worth
+                // writing it down. Read off the field rather than out of the
+                // request, because the field is what the player typed and the
+                // request is gone by now.
+                let worked = matches!(event, LobbyEvent::LoggedIn { .. });
                 let next = state.lobby.apply(event);
+                if worked && let Some(settings) = settings.as_mut() {
+                    let typed = state.lobby.field(Field::Email).to_string();
+                    if settings.last_email != typed {
+                        settings.last_email = typed;
+                        settings.save();
+                    }
+                }
                 dispatch(&mut state, &mailbox, next);
             }
             Reply::Registration(enabled) => state.lobby.set_registration_enabled(enabled),

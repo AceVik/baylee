@@ -35,6 +35,19 @@ pub struct ClientSettings {
     /// the default depends on the window, and this store does not know one.
     #[serde(default)]
     pub zone_browser: Option<baylee_client_core::browser::Placement>,
+    /// The address that last signed in here, to fill the sign-in box with.
+    ///
+    /// Here for the reason the zone browser above is, said from the other
+    /// side: it has to be readable *before* anybody has signed in, so it
+    /// cannot travel with the account over `/settings`.
+    ///
+    /// Written on a sign-in that worked and never on one that was refused —
+    /// that is the one moment the client knows the address is a real one, and
+    /// a remembered typo would be handed back on every launch. The password
+    /// is not kept beside it and will not be: that belongs in the platform's
+    /// keychain, not in a JSON file in a config directory.
+    #[serde(default)]
+    pub last_email: String,
 }
 
 impl Default for ClientSettings {
@@ -44,6 +57,7 @@ impl Default for ClientSettings {
             lang: "en".to_string(),
             prefer_text_view: false,
             zone_browser: None,
+            last_email: String::new(),
         }
     }
 }
@@ -321,6 +335,7 @@ mod tests {
                 width: 520.0,
                 height: 380.0,
             }),
+            last_email: "mail@acevik.de".to_string(),
         };
         let text = serde_json::to_string_pretty(&written).expect("serializes");
         let read: ClientSettings = serde_json::from_str(&text).expect("decodes");
@@ -330,6 +345,7 @@ mod tests {
         let place = read.zone_browser.expect("the sheet's place survived");
         assert!((place.left - 40.0).abs() < f32::EPSILON);
         assert!((place.width - 520.0).abs() < f32::EPSILON);
+        assert_eq!(read.last_email, "mail@acevik.de");
     }
 
     /// A store written before the language field existed must still load, and

@@ -195,11 +195,30 @@ impl LobbyState {
     /// A signed-out lobby pointed at the configured gateway.
     #[must_use]
     pub fn new() -> Self {
-        let lang = crate::settings::ClientSettings::load().lang;
+        Self::from_settings(crate::settings::ClientSettings::load())
+    }
+
+    /// The same, from settings a caller already has.
+    ///
+    /// Split out because `ClientSettings::load` answers the defaults under
+    /// this crate's own tests — deliberately, so that a test cannot pass or
+    /// fail on whose machine it runs — and what the stored settings *do* to
+    /// this screen is then exactly what no test could reach.
+    #[must_use]
+    pub fn from_settings(stored: crate::settings::ClientSettings) -> Self {
+        let lang = stored.lang;
         let mut lobby = Lobby::new();
         // The lobby draws itself in this language; `lang` below is the code
         // the *catalog* is asked for. One setting, two readers.
         lobby.set_lang(Lang::of(&lang));
+        // The address that signed in here last. Retyping it every launch is
+        // the kind of small toll that is paid a hundred times and noticed
+        // once — and with it filled in the caret can start where the only
+        // thing still missing actually is.
+        if !stored.last_email.is_empty() {
+            lobby.set_field(Field::Email, &stored.last_email);
+            lobby.focus_on(Field::Password);
+        }
         Self {
             lobby,
             gateway: crate::settings::gateway_url(),
