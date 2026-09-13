@@ -143,6 +143,24 @@ impl Offline {
         self.started.take()
     }
 
+    /// Breaks the table up: no room, and nothing waiting to start.
+    ///
+    /// Offline a table lives exactly as long as the host in this process
+    /// does, so the game ending *is* the table ending — and nothing was
+    /// saying so. A room left standing goes on answering `ListGames` with a
+    /// row that is `yours` and `"playing"`, which is precisely what
+    /// `Lobby::reclaim_a_seat` exists to notice: it asked for the ticket to
+    /// that chair, offline refused in words, and a player who had done
+    /// nothing wrong came back from a duel to a red line in the corner and a
+    /// table still listed as running.
+    ///
+    /// `started` goes with the room rather than being left to be taken later:
+    /// a preset for a table that no longer exists is a duel nobody asked for.
+    pub(crate) fn close_table(&mut self) {
+        self.room = None;
+        self.started = None;
+    }
+
     /// Writes back the decks that are this player's own.
     ///
     /// The built-ins are filtered out rather than written: they come from the
@@ -265,7 +283,7 @@ impl Offline {
             }
             LobbyRequest::StartGame { .. } => self.start(),
             LobbyRequest::LeaveGame { .. } => {
-                self.room = None;
+                self.close_table();
                 LobbyEvent::Left
             }
             // The half that needs other people. Refused in words rather than
@@ -934,6 +952,64 @@ mod tests {
         assert_eq!(preset.seats.len(), 2);
         assert!(matches!(preset.seats[0].controller, SeatController::Open));
         assert!(matches!(preset.seats[1].controller, SeatController::Ai(_)));
+    }
+
+    /// A table that has been played is gone, and another one can be opened.
+    ///
+    /// Offline the table *is* the host in this process, so the duel ending
+    /// ends the table — and nothing used to say so. The room went on being
+    /// listed as `yours` and `"playing"`, which is the one shape
+    /// `Lobby::reclaim_a_seat` exists to act on: it asked for the ticket to
+    /// that chair, this module refused it in words, and coming back from a
+    /// game against the house put a red line in the corner of the lobby
+    /// beside a table still described as running.
+    ///
+    /// A round trip and not a snapshot, because a fix that closed the table
+    /// by breaking the next one would pass every assertion but the last two.
+    #[test]
+    fn a_table_that_has_been_played_is_not_listed_any_more() {
+        let mut offline = with_a_room(2);
+        offline.perform(LobbyRequest::StartGame {
+            game_id: ROOM.to_string(),
+        });
+        assert_eq!(listed(&offline).state, "playing");
+        offline.take_started().expect("the shell installs a host");
+
+        offline.close_table();
+        let LobbyEvent::Games(listing) =
+            offline.perform(LobbyRequest::ListGames(GameQuery::default()))
+        else {
+            panic!("listing games answers a listing")
+        };
+        assert!(listing.games.is_empty(), "the table it played at is gone");
+
+        let deck = offline.decks[0].id.clone();
+        let again = offline.perform(LobbyRequest::CreateGame {
+            deck_id: deck,
+            mode: GameMode::Ai,
+            chairs: 2,
+            name: String::new(),
+            password: String::new(),
+        });
+        assert!(matches!(again, LobbyEvent::Seated(_)), "got {again:?}");
+        assert!(offline.take_started().is_some(), "a second duel was built");
+    }
+
+    /// Closing a table takes the preset with it.
+    ///
+    /// The shell takes the preset and then comes back, so this order only
+    /// happens when something went wrong on the way to the duel — and a
+    /// preset for a table that no longer exists is a game nobody asked for,
+    /// waiting to be installed by the next press of anything.
+    #[test]
+    fn a_table_closed_before_its_duel_started_leaves_no_preset_behind() {
+        let mut offline = with_a_room(2);
+        offline.perform(LobbyRequest::StartGame {
+            game_id: ROOM.to_string(),
+        });
+        assert!(offline.started.is_some(), "the start button built one");
+        offline.close_table();
+        assert!(offline.take_started().is_none());
     }
 
     /// Opening a room does not start it, which is the counter-test.

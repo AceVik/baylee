@@ -772,6 +772,61 @@ fn playing_the_house_offline_is_still_one_press() {
     assert!(state.connected, "with a host installed for it");
 }
 
+/// And coming back from it leaves the lobby as it found it.
+///
+/// The finished offline table used to stay in the list as `yours` and
+/// `"playing"`, so the very next listing made `Lobby::reclaim_a_seat` ask for
+/// the ticket to that chair — a request offline can only refuse, in English,
+/// in red, in the corner of a lobby of a player who had done nothing but
+/// finish a game. Both halves are one cause and this is the wiring for it:
+/// `came_back` is where the host stops existing, so it is where the table
+/// does too.
+#[test]
+fn coming_back_from_an_offline_duel_leaves_no_table_and_no_refusal() {
+    let mut app = headless();
+    app.world_mut().resource_mut::<LobbyState>().offline =
+        Some(super::offline::Offline::without_a_file());
+    tap_control(&mut app, "play offline", |p| *p == Press::PlayOffline);
+    tap_control(&mut app, "play the house", |p| {
+        *p == Press::Host(GameMode::Ai)
+    });
+    // One tap seats you without re-reading the list, so the room is not in
+    // `games()` yet — it is the refresh on the way *back* that lists it, and
+    // that is the listing this is about.
+
+    // `DuelPlugin` is not in this app, so the phase is moved by hand — what
+    // `DuelCommand::Open` and the leave button eventually become. `came_back`
+    // hangs on `OnEnter(Closed)`.
+    for phase in [DuelPhase::Playing, DuelPhase::Closed] {
+        app.world_mut()
+            .resource_mut::<NextState<DuelPhase>>()
+            .set(phase);
+        app.update();
+    }
+    // Decks, then tables: the refresh goes round the mailbox once per frame,
+    // exactly as a gateway's answers would.
+    app.update();
+    app.update();
+
+    let state = app.world().resource::<LobbyState>();
+    assert_eq!(*state.lobby.screen(), Screen::Table, "back at the list");
+    assert!(
+        state.lobby.games().is_empty(),
+        "the table it played at is gone: {:?}",
+        state.lobby.games()
+    );
+    assert!(
+        !state.lobby.decks().is_empty(),
+        "and the refresh it came back through still ran"
+    );
+    assert_ne!(
+        state.lobby.tone(),
+        Tone::Refusal,
+        "nothing was refused: {:?}",
+        state.lobby.status()
+    );
+}
+
 fn labels(app: &mut App) -> Vec<String> {
     let mut query = app.world_mut().query::<&Text>();
     query.iter(app.world()).map(|t| t.0.clone()).collect()

@@ -940,7 +940,14 @@ pub(super) fn came_back(
     if !matches!(state.lobby.screen(), Screen::Seated(_)) {
         return;
     }
-    state.lobby.unseat_because(Phrase::GameEnded, &[]);
+    state.lobby.stand_up(Phrase::GameEnded, &[]);
+    // The host that has just been dropped *was* the offline table, so this is
+    // where it stops existing. Before the refresh below rather than after, so
+    // the listing that comes back is the one without it — a row still saying
+    // "playing" is a table the lobby would try to reclaim a chair at.
+    if let Some(offline) = state.offline.as_mut() {
+        offline.close_table();
+    }
     // The order matters: unseating first is what lets the request survive,
     // and what stops `poll` re-dialling the game that just ended before the
     // new ticket arrives. A player who pressed *play again* is not shown the

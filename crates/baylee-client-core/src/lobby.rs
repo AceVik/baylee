@@ -1315,8 +1315,15 @@ impl Lobby {
     /// Only from [`Screen::Table`]: the lobby is where a player is looking
     /// for their table. Somebody in the deck builder did not ask to be moved,
     /// and the sign-in screen has no account to ask with.
+    ///
+    /// And **never offline**, where the whole question is unaskable: a ticket
+    /// that outlives the client is what this recovers, and offline the table
+    /// itself dies with the process, so there is nothing on the other side to
+    /// hand a chair back. The offline performer says exactly that and refuses
+    /// in words — which is a red line in the corner of a lobby that has done
+    /// nothing wrong, and is how this was found.
     fn reclaim_a_seat(&mut self) -> Option<LobbyRequest> {
-        if !matches!(self.screen, Screen::Table) || self.awaiting.is_some() {
+        if !matches!(self.screen, Screen::Table) || self.awaiting.is_some() || self.offline() {
             return None;
         }
         let game_id = self
@@ -1619,8 +1626,7 @@ impl Lobby {
     }
 
     /// Leaves the seat screen without a seat, because the shell could not
-    /// connect to the table it was handed — or because the game it opened has
-    /// ended and the player is back.
+    /// connect to the table it was handed.
     pub fn unseat_because(&mut self, phrase: Phrase, args: &[&str]) {
         let why = phrase.fill(self.lang, args);
         self.unseat(why);
@@ -1628,13 +1634,30 @@ impl Lobby {
 
     /// The same, in words somebody else chose — the gateway's, usually.
     pub fn unseat(&mut self, why: impl Into<String>) {
+        self.leave_the_seat(why.into(), Tone::Refusal);
+    }
+
+    /// The same movement, because the game is simply **over**.
+    ///
+    /// [`Tone`] is the only channel that tells a refusal from a note, so the
+    /// two ways out of a seat cannot share one: every finished duel used to
+    /// put its own ending in the corner of the lobby in the red reserved for
+    /// "nothing more will happen until you do something about it". Nothing
+    /// had gone wrong; the player had won.
+    pub fn stand_up(&mut self, phrase: Phrase, args: &[&str]) {
+        let why = phrase.fill(self.lang, args);
+        self.leave_the_seat(why, Tone::Note);
+    }
+
+    /// What both of the above do, differing only in how it should read.
+    fn leave_the_seat(&mut self, why: String, tone: Tone) {
         if matches!(self.screen, Screen::Seated(_)) {
             self.screen = Screen::Table;
         }
         self.busy = false;
         self.awaiting = None;
         self.asked_for = None;
-        self.write(why.into(), Tone::Refusal);
+        self.write(why, tone);
     }
 
     /// Goes to the table screen with no account behind it.
@@ -2004,6 +2027,38 @@ mod tests {
             local: true,
         }));
         assert_eq!(lobby.status(), "table open — arrange the chairs and start");
+    }
+
+    /// Offline asks for no chair back, however the listing reads.
+    ///
+    /// `reclaim_a_seat` recovers a ticket that died with the process while
+    /// the *table* lived on at a gateway. Offline the table is the process,
+    /// so there is nobody to ask — and the offline performer refuses the
+    /// request in words, which came out as a red line in the corner of the
+    /// lobby of a player who had just finished a game against the house.
+    /// The counter-test is
+    /// `a_restarted_client_asks_for_the_chair_it_is_still_sitting_in`: the
+    /// same listing at a gateway is worth a ticket.
+    #[test]
+    fn offline_asks_for_no_chair_it_could_never_be_given() {
+        let mut lobby = offline_lobby();
+        let mine = GameListing::of(vec![GameSummary {
+            id: "offline".to_string(),
+            state: "playing".to_string(),
+            seats: vec![GameSeat {
+                seat: 0,
+                taken: true,
+                you: true,
+                ..GameSeat::default()
+            }],
+            ..GameSummary::default()
+        }]);
+        assert_eq!(
+            lobby.apply(LobbyEvent::Games(mine)),
+            None,
+            "offline has nothing to hand a chair back"
+        );
+        assert!(!lobby.busy(), "and nothing is in flight for it");
     }
 
     /// And the gateway's own table keeps the sentence it had.
@@ -2568,7 +2623,7 @@ mod tests {
             local: false,
         }));
         lobby.want_rematch("g1");
-        lobby.unseat_because(Phrase::GameEnded, &[]);
+        lobby.stand_up(Phrase::GameEnded, &[]);
         assert_eq!(
             lobby.take_rematch(),
             Some(LobbyRequest::Rematch {
@@ -2579,12 +2634,30 @@ mod tests {
         assert_eq!(lobby.take_rematch(), None, "spent exactly once");
     }
 
+    /// A game that ended is not a refusal, and a table that could not be
+    /// reached is.
+    ///
+    /// Both leave the seat by the same door, and the words alone cannot tell
+    /// them apart — `Tone` is the whole of it, and the lobby draws a refusal
+    /// in red. Every finished duel used to end with its own ending written
+    /// up there in the colour that means somebody has to do something.
+    #[test]
+    fn the_end_of_a_game_is_read_differently_from_a_table_that_refused_one() {
+        let mut lobby = seated_lobby();
+        lobby.stand_up(Phrase::GameEnded, &[]);
+        assert_eq!(*lobby.screen(), Screen::Table, "and still leaves the seat");
+        assert_eq!(lobby.tone(), Tone::Note);
+
+        lobby.unseat_because(Phrase::CouldNotReachTable, &["no route"]);
+        assert_eq!(lobby.tone(), Tone::Refusal);
+    }
+
     /// Leaving without pressing it asks for nothing, which is what lets the
     /// shell fall through to re-reading the table list.
     #[test]
     fn leaving_a_finished_game_asks_for_no_rematch_by_itself() {
         let mut lobby = seated_lobby();
-        lobby.unseat_because(Phrase::GameEnded, &[]);
+        lobby.stand_up(Phrase::GameEnded, &[]);
         assert_eq!(lobby.take_rematch(), None);
         // And a press that outlives the account it was made under is dropped
         // rather than sent, having nothing to sign it with.

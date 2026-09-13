@@ -1488,6 +1488,23 @@ tap, and "play the house AI offline", which installs a `LocalHost` and needs
 no account at all. A finished game gets a "back to the lobby" button, which
 closes the duel and drops the host with it.
 
+That is also where an **offline table stops existing**. Offline the table *is*
+the host in this process, so the game ending ends the table — and nothing used
+to say so. The room went on being listed as `yours` and `"playing"`, so the
+next listing made `Lobby::reclaim_a_seat` ask for the ticket to that chair,
+and the offline performer, which has nobody to ask, refused it in words. A
+player who had done nothing but finish a game came back to a red line in the
+corner beside a table still described as running. `came_back` closes it now,
+and `reclaim_a_seat` asks nothing at all offline: it exists to recover a
+ticket that died while the table lived on at a gateway, and offline a seat
+cannot outlive the table it belongs to.
+
+And the end of a game is **not a refusal**. `Tone` is the only thing that
+tells the two apart and the lobby draws a refusal in red, so leaving a seat
+has two doors — `Lobby::unseat` for a table that could not be reached, and
+`Lobby::stand_up` for one whose game is over. Every finished duel used to put
+its own ending up there in the colour that means somebody has to do something.
+
 The lobby is `DuelPhase::Closed` only, and brings its own 2D camera — the duel
 brings its own and the two never coexist.
 
