@@ -282,6 +282,15 @@ way the ability sheet closes when one of its rows arms.
 One way is not a question and no chooser opens — the click then arms what it
 always armed, in two presses rather than three.
 
+While it stands it holds the **whole** prompt bar: the pass and skip-turn
+answers are not drawn under it, because those answer the priority window it
+was opened inside and not the question on the headline — and the keys already
+went to the chooser, so the bar was drawing a primary button the keyboard
+would not press. `Esc` is therefore the one way past it that is not an answer,
+which is the rule the ability sheet and every dialog here already follow. A
+click on **another card** also puts it away — §Arming's change of mind — and
+takes the way that was chosen with it, exactly as `Esc` on an armed deed does.
+
 ## The sheet a question opened
 
 A question whose answer is lying in a pile has nowhere on the table to be

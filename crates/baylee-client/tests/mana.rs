@@ -2235,3 +2235,77 @@ fn a_card_with_one_reachable_way_opens_no_chooser() {
         "the click arms the deed it always armed"
     );
 }
+
+/// A tap on **another** card puts the chooser away.
+///
+/// The trace it was written for: the chooser stands for Solitude and the next
+/// click is Reveillark, which with five Plains has exactly one way and so
+/// opens no chooser of its own. Every branch under that one used to leave the
+/// old question standing — a headline asking about Solitude over an armed row
+/// offering Reveillark, and a row press that would then arm the card the
+/// player had stopped looking at.
+#[test]
+fn a_tap_on_another_card_puts_the_cast_chooser_away() {
+    use baylee_client::Duel;
+    use baylee_client::input::activate_card;
+
+    let mut table = Table::open_with(&white_preset(&[SOLITUDE, REVEILLARK], 5));
+    table.walk_to_main();
+    let solitude = id_in_hand(&table, "Solitude");
+    let lark = id_in_hand(&table, "Reveillark");
+
+    let mut duel = Duel::default();
+    refresh(&mut duel, &table);
+
+    activate_card(&mut duel, solitude);
+    assert_eq!(
+        duel.cast_menu.as_ref().map(|m| m.card),
+        Some(solitude),
+        "five Plains and a white card in hand is two ways to cast Solitude"
+    );
+
+    activate_card(&mut duel, lark);
+    assert!(
+        duel.cast_menu.is_none(),
+        "the question belonged to the card the player has left"
+    );
+    assert_eq!(
+        duel.armed.as_ref().map(|a| a.object),
+        Some(lark),
+        "and the click still arms what it clicked"
+    );
+}
+
+/// Taking the deed back forgets the way that was chosen for it.
+///
+/// The two are one press (`take_cast_row` answers and arms together), so an
+/// `Esc` that kept the answer would take back the taps and keep the choice —
+/// and the answer is spent by the *engine's* `ChooseCastMode`, which is still
+/// reachable by another route: Solitude's free evoke needs no run at all.
+#[test]
+fn taking_the_deed_back_forgets_the_way_that_was_chosen() {
+    use baylee_client::Duel;
+    use baylee_client::input::{activate_card, disarm, pick_choice};
+
+    let mut table = Table::open_with(&white_preset(&[SOLITUDE, REVEILLARK], 5));
+    table.walk_to_main();
+    let solitude = id_in_hand(&table, "Solitude");
+
+    let mut duel = Duel::default();
+    refresh(&mut duel, &table);
+
+    activate_card(&mut duel, solitude);
+    pick_choice(&mut duel, 0);
+    assert!(duel.armed.is_some(), "a row arms rather than sending");
+    assert!(
+        duel.cast_answer.is_some_and(|(card, _)| card == solitude),
+        "and the way it picked is remembered"
+    );
+
+    disarm(&mut duel);
+    assert!(duel.armed.is_none());
+    assert!(
+        duel.cast_answer.is_none(),
+        "Esc takes back the whole of what was said, which way included"
+    );
+}

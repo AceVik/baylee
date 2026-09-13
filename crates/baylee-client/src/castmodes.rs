@@ -56,11 +56,16 @@
 //!   question about a back face; [`CastModeKind::Miracle`] is not a choice a
 //!   click makes.
 //!
-//! Nothing here reads the commander tax, convoke, delve or a printed cost
-//! reduction either — the same four things [`crate::mana_for`] and
-//! [`crate::reachable`] already do not read. A way whose real price is lower
-//! than this thinks is a way that stays off the list, which costs a click and
-//! never a wrong cast.
+//! Nothing here reads convoke, delve or a printed cost reduction either —
+//! the same three [`crate::mana_for`] and [`crate::reachable`] already do not
+//! read. A way whose real price is lower than this thinks is a way that stays
+//! off the list, which costs a click and never a wrong cast.
+//!
+//! The commander tax looks like a fourth of those and is not. Both of them
+//! *do* read it (`with_more_generic(2 * commander.casts)`), because both also
+//! offer to tap for a commander standing in the **command zone**, which is
+//! the only place CR 903.8 charges it. This module reads a card in hand and
+//! nothing else, so here there is no tax to add rather than one left unread.
 
 use baylee_cards_dsl::{AltCondition, CostPart, Filter};
 use baylee_client_core::manaplan::{self, Plan};

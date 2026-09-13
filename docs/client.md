@@ -2020,6 +2020,26 @@ make goes to the run and **never** to the engine's standing offer, because
 that offer is the wrong answer by construction — Solitude is `castable` the
 whole time, for the way the player just declined.
 
+While it stands it takes the prompt bar **whole**, answers included. Every
+other row there reads `interaction.pending`, which is the ordinary priority
+window the chooser was opened inside, so the bar drew "Choose how it is cast"
+as its headline with a gilt "Pass priority" underneath — two primary buttons
+on one sheet saying opposite things, and the one the keyboard would press was
+not the one drawn as primary. The engine's own `ChooseCastMode` draws no
+answer row either, a row there *being* the answer, so this is the same chooser
+in the same clothes rather than a special case. `Esc` is the way back out.
+
+And a tap on **another card** puts it away, which is the change of mind that
+already disarms. Only `activate_card` opens either menu, and it now closes the
+other before it takes any branch — without that line a card with one way, a
+land, or a permanent with abilities each left the previous card's question
+standing over the new card's deed, and a row press then armed the card the
+player had stopped looking at. The chosen way goes with it, and with an `Esc`
+that disarms: `cast_answer` outlives the run that spends it by design, so
+every gesture that *is* a player leaving a card has to say so, or the engine's
+next `ChooseCastMode` about that card is answered by a decision that was
+abandoned.
+
 `activatable` is the board's half of the same idea, and it is the engine's own
 answer: every source named in `LegalActions.mana_abilities` or `.abilities`.
 It reaches the shader as a fourth glow bit, and is drawn as a *moving* warm

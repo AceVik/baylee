@@ -193,6 +193,22 @@ pub fn activate_card(duel: &mut Duel, object: ObjectId) -> Answer {
         // question standing, not a button that failed.
         return Answer::Took;
     }
+    // A tap on a *different* card puts the chooser away, which is the same
+    // change of mind that disarmed above. Every branch below reaches a card
+    // that opens no chooser of its own — a land, a permanent with abilities,
+    // a spell with one way — and each of them left the old card's question
+    // standing over the new card's deed: one headline asking how to cast
+    // Solitude, one row offering to play Reveillark, and a row press that
+    // armed the card the player had stopped looking at.
+    duel.cast_menu = None;
+    // And the way chosen for that other card goes with it. The answer
+    // deliberately outlives the run that spends it — a free alternative has
+    // no run at all — so the gestures that *are* a player leaving a card have
+    // to say so, or the engine's next `ChooseCastMode` about it is answered
+    // by a decision that was walked away from.
+    if duel.cast_answer.is_some_and(|(card, _)| card != object) {
+        duel.cast_answer = None;
+    }
     if let Some(menu) = cast_menu_for(duel, object) {
         duel.ability_menu = None;
         duel.cast_menu = Some(menu);
@@ -1054,6 +1070,27 @@ fn subtype_keys(fired: Fired, typed: &mut MessageReader<KeyboardInput>, duel: &m
     true
 }
 
+/// Takes back what is armed, and the chosen way with it.
+///
+/// The two are one decision: [`take_cast_row`] answers this client's question
+/// and arms the run in the same press, so an `Esc` that left the answer
+/// behind would take back the taps and keep the choice. It is not merely
+/// untidy — the answer is spent by the *engine's* `ChooseCastMode`, and that
+/// question is still reachable by another route (the free alternative the
+/// engine offers with an empty pool needs no run at all), so a forgotten one
+/// would be applied to a cast the player made some other way.
+pub fn disarm(duel: &mut Duel) {
+    let Some(armed) = duel.armed.take() else {
+        return;
+    };
+    if duel
+        .cast_answer
+        .is_some_and(|(card, _)| card == armed.object)
+    {
+        duel.cast_answer = None;
+    }
+}
+
 /// An armed deed: the confirm keys send it, cancel disarms. Returns whether
 /// it consumed the frame.
 ///
@@ -1065,7 +1102,7 @@ pub fn armed_keys(fired: Fired, duel: &mut Duel) -> bool {
         return false;
     }
     if fired.has(Action::Cancel) {
-        duel.armed = None;
+        disarm(duel);
         return true;
     }
     if fired.has(Action::Primary) || fired.has(Action::Confirm) || fired.has(Action::ActivateCard) {
@@ -1944,10 +1981,14 @@ fn take_cast_row(duel: &mut Duel, at: usize) {
 /// takes the row, cancel puts it away. Returns whether it consumed the frame.
 ///
 /// Its own handler rather than a branch of [`ability_menu_keys`], because the
-/// two menus are about different things and can never stand together — but
-/// the same shape, so the keyboard answers this list the way it answers that
-/// one. The rows are a single column here, so up and down are the whole of
-/// the walk.
+/// two menus are about different things and never stand together — but the
+/// same shape, so the keyboard answers this list the way it answers that one.
+/// The rows are a single column here, so up and down are the whole of the
+/// walk.
+///
+/// "Never together" is a property of one place and not an observation:
+/// [`activate_card`] is the only door either menu is opened through, and it
+/// closes the other one before it takes any branch at all.
 pub fn cast_menu_keys(fired: Fired, duel: &mut Duel) -> bool {
     let Some(card) = duel.cast_menu.as_ref().map(|m| m.card) else {
         return false;
@@ -2026,7 +2067,7 @@ fn menu_click(duel: &mut Duel, action: MenuAction, was_armed: bool) {
         // The same door the keys use, so the two ways of confirming cannot
         // drift; `fire_armed` re-resolves against the current `LegalActions`.
         MenuAction::SendArmed => fire_armed(duel),
-        MenuAction::CancelArmed => duel.armed = None,
+        MenuAction::CancelArmed => disarm(duel),
     }
 }
 

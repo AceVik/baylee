@@ -539,7 +539,16 @@ pub fn sync_overlay(
         // a fetchland's target saw "Bestätigen" twice on one screen, once in
         // the dialog's footer and once on the slip, and had to work out
         // whether the two meant the same thing.
-        let answers: &[(PromptAction, &str)] = if waiting {
+        // The client's own cast chooser takes the bar whole, answers and all.
+        // Everything here reads `interaction.pending`, which while the chooser
+        // stands is the ordinary priority window behind it — so the bar drew
+        // "Choose how it is cast" as its headline and "Pass priority" as the
+        // gilt answer under it, two primary buttons on one sheet saying
+        // opposite things. The engine's *own* `ChooseCastMode` draws no answer
+        // row either (a row is the answer, and picking one sends it), so this
+        // is the same chooser in the same clothes rather than a special case.
+        // `Esc` is the way back out, as it is for every other menu here.
+        let answers: &[(PromptAction, &str)] = if waiting || cast_menu.is_some() {
             &[]
         } else {
             match duel
@@ -640,6 +649,11 @@ pub fn sync_overlay(
         if let Some(rows) = duel
             .cast_menu
             .as_ref()
+            // The same `!over` the headline and the revision are filtered on,
+            // and it has to be the same one: the gate above remembers the
+            // filtered value, so rows read from the raw field would be a list
+            // nothing could rebuild.
+            .filter(|_| !over)
             .map(crate::CastMenu::prompt)
             .or_else(|| {
                 duel.interaction
@@ -661,7 +675,7 @@ pub fn sync_overlay(
             })
             .filter(|rows| !rows.is_empty())
         {
-            let picked = duel.cast_menu.as_ref().map_or_else(
+            let picked = duel.cast_menu.as_ref().filter(|_| !over).map_or_else(
                 || {
                     duel.interaction
                         .as_ref()
