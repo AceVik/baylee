@@ -104,16 +104,27 @@ const TRAY_BADGE_W: f32 = 70.0 + 12.0;
 /// Thirty characters of name — `Sea Gate Loremaster` and room to spare.
 #[cfg(test)]
 const TRAY_NAME_W: f32 = 30.0 * TRAY_CH * TRAY_NAME_SIZE;
-/// A type line's measure: `Legendary Planeswalker — Aminatou` at
-/// [`TRAY_TYPE_SIZE`] times [`super::UI_SCALE`], which is 185.3 px in
-/// Alegreya Sans Medium, against 185.1 in the Inter this replaced — two
-/// tenths of a pixel, which is why the constant below stayed put.
+/// A type line's measure, at [`TRAY_TYPE_SIZE`] times [`super::UI_SCALE`] in
+/// Alegreya Sans Medium.
 ///
-/// Measured rather than estimated for the reason [`TRAY_BADGE_W`] gives — a
-/// long type line is all supertype, type and em dash, which is wider than the
-/// mean this estimate is taken over — and it is a *measure* rather than a
-/// fit: a longer one is clipped at its end, not wrapped.
-const TRAY_TYPE_W: f32 = 185.1;
+/// It was 185.1 — `Legendary Planeswalker — Aminatou`, one line measured out
+/// of one card — and one card is not a measure. Against the type lines the
+/// **catalog** actually prints for this pool, 185.1 clips 14 rows of 1321;
+/// against the two decks at the table it was first seen on, it clipped
+/// **13 of 167**, because a Commander deck is made of legends and a legend's
+/// type line is the long kind: `Legendary Creature — Human Warrior Ally` sets
+/// 211.2. 215.0 leaves exactly one row of those 167 over the edge
+/// (`Legendary Creature — Phyrexian Human Wizard`, 239.7) and costs the panel
+/// 30 px of default width, which [`baylee_client_core::browser::Placement`]
+/// carries.
+///
+/// A *measure* rather than a fit: a longer one is clipped at its end, not
+/// wrapped — see [`clipped`] for why that sentence was false for as long as
+/// this constant has existed. Measured rather than estimated for the reason
+/// [`TRAY_BADGE_W`] gives, and measured in **German**, because the estimate
+/// and the English line agreed with each other and both disagreed with the
+/// screen.
+const TRAY_TYPE_W: f32 = 215.0;
 
 /// The panel's default width: **one row**.
 ///
@@ -335,6 +346,41 @@ fn dialog_text(
         commands.entity(line).add_child(span);
     }
     line
+}
+
+/// Puts a line of [`dialog_text`] in a box that actually clips it.
+///
+/// A `Node`'s `Overflow` clips its **descendants**, not its own glyphs:
+/// `CalculatedClip` is propagated down by `update_clipping_system`, so a
+/// `Text` entity carrying `Overflow::clip()` clips nothing at all, having no
+/// children to clip. Both columns of a row had exactly that, and both had a
+/// comment saying "too long is clipped at the end instead" — which was true
+/// of the intent and false of the drawing. A German type line ran straight
+/// out of its measure and printed underneath the zone badge:
+/// `Legendäre Kreatur — Mensch, Verbündeter` is 32% wider than the
+/// `Legendary Planeswalker — Aminatou` [`TRAY_TYPE_W`] was measured from, and
+/// a client is drawn in whichever language the player picked.
+///
+/// So the clip goes on a box and the line goes inside it. `flex_shrink: 0`
+/// on the line is what makes the clip do anything: a line allowed to shrink
+/// gets a narrower *box* and lays its glyphs out just the same, so the
+/// overrun survives in a shorter node and the clip rect never bites.
+fn clipped(commands: &mut Commands, line: Entity, box_node: Node) -> Entity {
+    commands.entity(line).insert(Node {
+        flex_shrink: 0.0,
+        ..default()
+    });
+    let clip = commands
+        .spawn((
+            Node {
+                overflow: Overflow::clip(),
+                ..box_node
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(clip).add_child(line);
+    clip
 }
 
 /// The zone browser: a dialog over the table, in the middle of it.
@@ -1170,13 +1216,16 @@ fn spawn_row(
         TRAY_NAME_SIZE,
         palette::DIALOG_INK,
     );
-    commands.entity(name).insert(Node {
-        flex_grow: 1.0,
-        flex_basis: px(0),
-        min_width: px(0),
-        overflow: Overflow::clip(),
-        ..default()
-    });
+    let name = clipped(
+        commands,
+        name,
+        Node {
+            flex_grow: 1.0,
+            flex_basis: px(0),
+            min_width: px(0),
+            ..default()
+        },
+    );
     commands.entity(slot).add_child(name);
 
     // ---- the cost, drawn and not spelled ----
@@ -1224,12 +1273,15 @@ fn spawn_row(
         TRAY_TYPE_SIZE,
         palette::DIALOG_SOFT,
     );
-    commands.entity(type_line).insert(Node {
-        width: px(TRAY_TYPE_W),
-        flex_shrink: 0.0,
-        overflow: Overflow::clip(),
-        ..default()
-    });
+    let type_line = clipped(
+        commands,
+        type_line,
+        Node {
+            width: px(TRAY_TYPE_W),
+            flex_shrink: 0.0,
+            ..default()
+        },
+    );
     commands.entity(slot).add_child(type_line);
 
     // ---- which pile it is in ----

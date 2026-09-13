@@ -353,7 +353,13 @@ impl Placement {
     /// in Alegreya Sans than it did in Inter. That is the seam this number
     /// and `TRAY_PANEL_W` exist to keep honest, and it is the whole of what a
     /// change of family cost the layout.
-    pub const DEFAULT_W: f32 = 662.0;
+    ///
+    /// It moved again, 662 → 692, when `TRAY_TYPE_W` was measured against the
+    /// type lines a **German** catalog prints rather than against the one
+    /// English line it had been taken from. 30 px is what it costs to stop
+    /// clipping one row in thirteen at a table of legends; the reasoning is
+    /// on that constant.
+    pub const DEFAULT_W: f32 = 692.0;
     /// The chrome, and eight rows and a **half**.
     ///
     /// The half row is the point. A grid was cut to four whole rows because
