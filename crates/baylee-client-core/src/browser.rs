@@ -227,7 +227,11 @@ pub enum SortKey {
     /// is information — it is what "the top card of your graveyard" means.
     #[default]
     Place,
-    /// By name.
+    /// By name — the one on the row, in that name's own alphabet.
+    ///
+    /// Through [`prose::sort_key`](crate::prose::sort_key), so it is the
+    /// reader's alphabet and not the byte order that files every accented
+    /// letter above `z`.
     Name,
     /// By mana value.
     ManaValue,
@@ -907,7 +911,10 @@ impl Browser {
     ) -> Vec<BrowseRow> {
         let mine = interaction.filter(|it| it.is_mine());
         let ordering = mine.is_some_and(Interaction::is_ordering);
-        let needle = self.filter.trim().to_lowercase();
+        // Folded, not merely lowercased: `strasse` has to find `Straße`, and
+        // a player whose keyboard has no `ß` types the first of those. See
+        // [`crate::prose::sort_key`].
+        let needle = crate::prose::sort_key(self.filter.trim());
         let mut out = Vec::new();
         for zone in self.zones(view) {
             if self.tab.is_some_and(|t| t != zone) {
@@ -919,8 +926,8 @@ impl Browser {
                 // card and a player knows the one they learned it under. The
                 // projection is also the only name a *token* has.
                 if !needle.is_empty()
-                    && !shown.to_lowercase().contains(&needle)
-                    && !object.name.to_lowercase().contains(&needle)
+                    && !crate::prose::sort_key(&shown).contains(&needle)
+                    && !crate::prose::sort_key(&object.name).contains(&needle)
                 {
                     continue;
                 }
@@ -979,6 +986,16 @@ impl Browser {
             .map(|(at, row)| (row.id, at))
             .collect();
         let place = |row: &BrowseRow| places.get(&row.id).copied().unwrap_or(0);
+        // Folded once per row and not once per comparison, which is the same
+        // reason `places` is a map: a sort asks its key n log n times.
+        let keys: HashMap<ObjectId, String> = if self.sort == SortKey::Name {
+            rows.iter()
+                .map(|row| (row.id, crate::prose::sort_key(&row.name)))
+                .collect()
+        } else {
+            HashMap::new()
+        };
+        let key = |row: &BrowseRow| keys.get(&row.id).map_or("", String::as_str);
         rows.sort_by(|a, b| {
             let zone = a.zone.cmp(&b.zone);
             if zone != std::cmp::Ordering::Equal {
@@ -988,7 +1005,7 @@ impl Browser {
                 // The place *is* the key here, not the tie-break, or asking
                 // for the pile upside down would compare equal and do nothing.
                 SortKey::Place => place(a).cmp(&place(b)),
-                SortKey::Name => a.name.cmp(&b.name),
+                SortKey::Name => key(a).cmp(key(b)),
                 SortKey::ManaValue => a.mana_value.cmp(&b.mana_value),
                 SortKey::Type => type_rank(a.types).cmp(&type_rank(b.types)),
             };
@@ -1974,6 +1991,61 @@ mod tests {
         // A card the catalog has no German printing of keeps its own name,
         // and is still found by it — the fallback is a row, not a hole.
         assert_eq!(found("elves"), ["Llanowar Elves"]);
+    }
+
+    /// Both ends of the panel read the same alphabet.
+    ///
+    /// The seam put German names on the rows and left them being compared as
+    /// bytes, which files every accented letter above `z`: a graveyard sorted
+    /// by name put *Ätherfluss* at the bottom, under *Zombie*. The filter had
+    /// the other half of it — nothing typed on a keyboard without an `ß`
+    /// could ever find a card printed with one.
+    #[test]
+    fn the_panel_alphabetises_and_searches_in_the_readers_own_letters() {
+        let view = ViewBuilder::new(2)
+            .with_graveyard(
+                0,
+                vec![
+                    printed(4, 0, "Zombie", 2),
+                    printed(5, 0, "Aetherflux", 3),
+                    printed(6, 0, "Brainstorm", 1),
+                ],
+            )
+            .build();
+        // The same three cards, as this seat's printings name them.
+        let german = |object: &baylee_view::PublicObject| {
+            Some(match object.name.as_str() {
+                "Aetherflux" => "Ätherfluss".to_string(),
+                same => same.to_string(),
+            })
+        };
+        let names = Names { shown: &german };
+
+        let mut b = Browser::new();
+        b.sort_by(SortKey::Name);
+        let order: Vec<String> = b
+            .rows(&view, None, names)
+            .into_iter()
+            .map(|r| r.name)
+            .collect();
+        assert_eq!(
+            order,
+            ["Ätherfluss", "Brainstorm", "Zombie"],
+            "the accent belongs at the front, with the A it is one of"
+        );
+
+        b.set_filter("atherfluss");
+        assert_eq!(
+            b.rows(&view, None, names).len(),
+            1,
+            "a keyboard with no umlaut still finds the card"
+        );
+        b.set_filter("ss");
+        assert_eq!(
+            b.rows(&view, None, names).len(),
+            1,
+            "and so does the ss in it"
+        );
     }
 
     #[test]
