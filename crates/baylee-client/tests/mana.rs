@@ -1275,6 +1275,10 @@ const TUNDRA: &str = "02418479-9455-417f-a6a1-004356faff37";
 /// of Allies you control`. It is an Ally itself, so X is at least one, and it
 /// is the card whose amount no planner can read (`Amount::CountOf`).
 const HARABAZ: &str = "ead985ec-f29f-4a3b-b8b1-061142cc5bd1";
+/// Homeward Path — `{T}: Add {C}` **and** `{T}: Each player gains control of
+/// all creatures they own`. Two free taps, both legal at once and one of them
+/// mana: the card that makes a sheet with a pip on it rather than a bubble.
+const HOMEWARD: &str = "cb8ec2e4-8223-4172-8f2c-37c918a573fa";
 
 /// Seat 0 opens with a Tundra and a Harabaz Druid on the table.
 ///
@@ -1500,4 +1504,88 @@ fn a_creature_whose_only_ability_is_mana_gets_the_same_five_pips() {
     activate_card(&mut duel, druid);
     assert_eq!(duel.ability_menu, Some(druid), "the click opens the bubble");
     assert!(duel.outbox().is_empty(), "and taps nothing");
+}
+
+/// The owner's sixth point: a permanent that makes mana **and** does
+/// something else keeps its sheet, with the colours as a header on it.
+///
+/// Reported as *"Wenn es sowas wie Harabaz Druid in der Kombi ist, oder wie
+/// beim Gates of Istfell: Dann kommt der normale Abilities Dialog ABER er hat
+/// eine Besonderheit. Die erste Zeile ist quasi sowas wie der Mana-Dialog,
+/// dort stehen zentriert die Farben, die es produzieren kann (oder auch
+/// Farblos wie beim Artefakt) und via Klick ist es dann das. Nur dass man eben
+/// auch die anderen Abilities noch zur Auswahl hat."*
+///
+/// Two halves, and the second is the one that could quietly go wrong: the pips
+/// carry **no digit**, so `1` is the written row and not the `{C}`. A list that
+/// numbered the pips would put a `2` on the only keycap this sheet draws.
+#[test]
+fn a_permanent_that_also_makes_mana_gets_the_pips_as_a_header() {
+    use baylee_client::input::{activate_card, sheet_digit};
+    use baylee_client::{Duel, abilities};
+    use baylee_client_core::interaction::Interaction;
+
+    let mut preset = bubble_preset();
+    preset.seats[0].starting_battlefield = vec![entry(HOMEWARD)];
+    let mut table = Table::open_with(&preset);
+    table.walk_to_main();
+
+    let path = table
+        .view()
+        .battlefield
+        .iter()
+        .find(|o| o.name == "Homeward Path")
+        .expect("the land starts on the table")
+        .id;
+
+    let mut duel = Duel::default();
+    duel.view = Some(table.view().clone());
+    duel.interaction = Some(Interaction::new(
+        table.pending.clone().expect("priority"),
+        PlayerId::new(0),
+    ));
+    baylee_client::rebuild_board(&mut duel);
+
+    let options = abilities::options(
+        baylee_client_core::Lang::En,
+        duel.view.as_ref().expect("a view"),
+        duel.interaction.as_ref().expect("priority"),
+        path,
+    );
+    assert!(
+        !abilities::pouring(&options),
+        "not a bubble — it does something besides make mana: {options:?}"
+    );
+    let split = abilities::Split::of(&options);
+    assert_eq!(
+        (split.pips, split.rows),
+        (1, 1),
+        "one pip for the {{C}}, one written row for the rest: {options:?}"
+    );
+    assert_eq!(
+        options[0].pour.map(|pour| pour.color),
+        Some(baylee_core::mana::ManaColor::Colorless),
+        "and a colourless pip is a pip — `of_mana` answers what `of_color` \
+         cannot (CR 106.1b)"
+    );
+
+    activate_card(&mut duel, path);
+    assert_eq!(duel.ability_menu, Some(path), "the sheet opens");
+    assert!(duel.outbox().is_empty(), "and sends nothing");
+
+    // The one keycap on this sheet says `1`, and it is on the sentence. The
+    // pip above it carries no digit at all.
+    assert!(
+        sheet_digit(&mut duel, '1'),
+        "the digit names the written row"
+    );
+    assert!(duel.mana_run.is_none(), "which is not a pour");
+    assert_eq!(
+        duel.outbox(),
+        [PlayerAction::ActivateAbility {
+            source: path,
+            ability_index: 1,
+        }],
+        "`1` sent the sentence, not the {{C}}"
+    );
 }

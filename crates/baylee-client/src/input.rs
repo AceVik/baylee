@@ -973,8 +973,9 @@ pub fn ability_menu_keys(fired: Fired, duel: &mut Duel) -> bool {
         duel.ability_menu = None;
         return false;
     };
+    let split = crate::abilities::Split::of(&options);
     // The list can shrink under a page that was valid when it was turned to.
-    duel.ability_page = abilitysheet::clamp(options.len(), duel.ability_page);
+    duel.ability_page = abilitysheet::clamp(split.numbered().1, duel.ability_page);
     if fired.has(Action::Cancel) {
         duel.ability_menu = None;
         return true;
@@ -989,8 +990,14 @@ pub fn ability_menu_keys(fired: Fired, duel: &mut Duel) -> bool {
         // The cursor walks the whole list and the sheet shows nine rows of
         // it, so walking off the end of a page turns it. Deriving the page
         // from the cursor rather than moving them separately is what stops
-        // the highlight from being on a row that is not drawn.
-        duel.ability_page = duel.ability_pick / abilitysheet::PAGE;
+        // the highlight from being on a row that is not drawn — and the pips
+        // are drawn on every page, so a cursor on one leaves the page where
+        // it was rather than sending it back to the first.
+        duel.ability_page = if duel.ability_pick < split.pips && split.rows > 0 {
+            duel.ability_page
+        } else {
+            split.page_of(duel.ability_pick)
+        };
         return true;
     }
     if fired.has(Action::Primary) || fired.has(Action::Confirm) || fired.has(Action::ActivateCard) {
@@ -1071,19 +1078,24 @@ pub fn sheet_digit(duel: &mut Duel, digit: char) -> bool {
     let Some(options) = abilities_of(duel, object).filter(|o| o.len() > 1) else {
         return false;
     };
-    let page = abilitysheet::clamp(options.len(), duel.ability_page);
+    // The digits count the **written** rows and skip the pips a mana header
+    // leads with, which is [`crate::abilities::Split::numbered`]: a pip on a
+    // sheet carries no keycap, so a digit that reached one would send a row
+    // nothing on screen had numbered.
+    let (head, counted) = crate::abilities::Split::of(&options).numbered();
+    let page = abilitysheet::clamp(counted, duel.ability_page);
     duel.ability_page = page;
     if digit == abilitysheet::PAGER {
         // The pager is drawn only where there is a second page, so a `0` on a
         // sheet of two rows is a key nothing on screen offered: it consumes
         // no frame and turns nothing.
         turn_the_page(duel);
-        return abilitysheet::paged(options.len());
+        return abilitysheet::paged(counted);
     }
-    let Some(at) = abilitysheet::option_of(options.len(), page, digit) else {
+    let Some(at) = abilitysheet::option_of(counted, page, digit) else {
         return false;
     };
-    take_sheet_row(duel, at);
+    take_sheet_row(duel, head + at);
     true
 }
 
@@ -1134,12 +1146,13 @@ fn turn_the_page(duel: &mut Duel) {
     let Some(options) = abilities_of(duel, object) else {
         return;
     };
-    if !abilitysheet::paged(options.len()) {
+    let (head, counted) = crate::abilities::Split::of(&options).numbered();
+    if !abilitysheet::paged(counted) {
         return;
     }
-    let page = abilitysheet::clamp(options.len(), duel.ability_page);
-    duel.ability_page = abilitysheet::turn(options.len(), page);
-    duel.ability_pick = abilitysheet::rows(options.len(), duel.ability_page).start;
+    let page = abilitysheet::clamp(counted, duel.ability_page);
+    duel.ability_page = abilitysheet::turn(counted, page);
+    duel.ability_pick = head + abilitysheet::rows(counted, duel.ability_page).start;
 }
 
 /// The card cursor, and the key that acts on what it is over. Returns whether

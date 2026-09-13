@@ -583,7 +583,10 @@ pub fn sync_ability_sheet(
         return;
     };
 
-    let page = abilitysheet::clamp(options.len(), duel.ability_page);
+    let page = abilitysheet::clamp(
+        crate::abilities::Split::of(&options).rows,
+        duel.ability_page,
+    );
     let armed = armed_row(&duel, object, &options);
     let fingerprint: Vec<String> = options.iter().map(|o| o.label.clone()).collect();
     if revision.object == Some(object)
@@ -799,6 +802,7 @@ fn spawn_sheet(
     // are all the sheet's and none of them is worth a second copy. What it
     // does not take is the sheet's *shape* — no head, no footer, no floor
     // under its width, and a row of pips instead of a column of sentences.
+    let split = crate::abilities::Split::of(options);
     let bubble = crate::abilities::pouring(options);
     let mut node = Node {
         position_type: PositionType::Absolute,
@@ -912,6 +916,18 @@ fn spawn_sheet(
 
     spawn_head(commands, fonts, faces, duel, object, sheet);
 
+    // ---- the header of pips ----------------------------------------------
+    //
+    // A permanent that makes mana *and* does something else puts the colours
+    // it can make on one centred row above the list, and the rest of the list
+    // is untouched. It stands on every page, because a colour is not an item
+    // in the list of things this permanent does — it is the one thing the
+    // permanent does that a symbol can say outright.
+    if split.pips > 0 {
+        let strip = spawn_pour_strip(commands, fonts, duel, options, split);
+        commands.entity(sheet).add_child(strip);
+    }
+
     // ---- the rows --------------------------------------------------------
     //
     // Whether *this sheet* has a cost column, and how wide, is one answer for
@@ -919,32 +935,27 @@ fn spawn_sheet(
     // row with a column of its own width would put its prose where its
     // neighbours' costs are. Decided over the rows on this page, because a
     // page is what is seen.
-    let costs = cost_column(faces, duel, object, options, page);
-    for at in abilitysheet::rows(options.len(), page) {
+    let costs = cost_column(faces, duel, object, options, split, page);
+    for at in abilitysheet::rows(split.rows, page) {
         let digit = digit_of(at).unwrap_or('?');
+        let index = split.option(at);
         let row = spawn_row(
             commands,
             fonts,
             faces,
             duel,
             object,
-            at,
-            &options[at],
+            index,
+            &options[index],
             digit,
-            armed == Some(at),
-            duel.ability_pick == at,
+            armed == Some(index),
+            duel.ability_pick == index,
             costs,
         );
         commands.entity(sheet).add_child(row);
     }
-    if abilitysheet::paged(options.len()) {
-        let row = spawn_pager(
-            commands,
-            fonts,
-            lang,
-            page,
-            abilitysheet::pages(options.len()),
-        );
+    if abilitysheet::paged(split.rows) {
+        let row = spawn_pager(commands, fonts, lang, page, abilitysheet::pages(split.rows));
         commands.entity(sheet).add_child(row);
     }
 
@@ -1337,10 +1348,12 @@ fn cost_column(
     duel: &Duel,
     object: ObjectId,
     options: &[crate::abilities::AbilityOption],
+    split: crate::abilities::Split,
     page: usize,
 ) -> Option<f32> {
     let mut widest: Option<f32> = None;
-    for at in abilitysheet::rows(options.len(), page) {
+    for row in abilitysheet::rows(split.rows, page) {
+        let at = split.option(row);
         let printed = row_text(faces, duel, object, &options[at]).is_some();
         let Some(cost) = row_cost(&options[at], printed) else {
             continue;
@@ -1442,14 +1455,53 @@ fn spawn_cost_title(commands: &mut Commands, fonts: &UiFonts, cost: &str) -> Ent
     holder
 }
 
+/// The colours a permanent can make, centred above the list of what else it
+/// does.
+///
+/// The same pips a bubble is made of, on a sheet that also has sentences on
+/// it. It is a **header** and not a row: it carries no digit and no wash of
+/// its own, it is drawn on every page, and it is centred where a row's ink
+/// starts at the paper's left edge — all four say the same thing, which is
+/// that the list below it is a list and this is not an item in it.
+fn spawn_pour_strip(
+    commands: &mut Commands,
+    fonts: &UiFonts,
+    duel: &Duel,
+    options: &[crate::abilities::AbilityOption],
+    split: crate::abilities::Split,
+) -> Entity {
+    let strip = commands
+        .spawn((
+            Node {
+                flex_direction: FlexDirection::Row,
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
+                column_gap: px(POUR_AIR),
+                // The sheet's own vertical padding is above it already; this
+                // is the air under it, against the first sentence.
+                margin: UiRect::bottom(px(SHEET_PAD_Y - POUR_RING)),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    for (at, option) in options.iter().enumerate().take(split.pips) {
+        let Some(pour) = option.pour else { continue };
+        let pip = spawn_pour(commands, fonts, at, pour.color, duel.ability_pick == at);
+        commands.entity(strip).add_child(pip);
+    }
+    strip
+}
+
 /// One pip of a mana bubble: the colour, and the whole of the control.
 ///
 /// There is no keycap and no sentence beside it, which is the point — a mana
 /// symbol is the one label in this interface that needs no translating and no
-/// reading. The digit that sends it is still the row's own position, the way
-/// it is on the sheet, and it is simply not drawn: a number printed beside a
-/// `{W}` would be a second thing to look at on a control whose entire content
-/// is one mark.
+/// reading. On a bubble the digit that sends it is the pip's own position and
+/// is simply not drawn; on a sheet it has no digit at all
+/// ([`crate::abilities::Split`]). Either way a number printed beside a `{W}`
+/// would be a second thing to look at on a control whose entire content is one
+/// mark.
 ///
 /// The button is the disc plus [`POUR_RING`] of paper on every side. The disc
 /// itself is `Pickable::IGNORE` (see [`crate::manaui::spawn_pip`]), so the

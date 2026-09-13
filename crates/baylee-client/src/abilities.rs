@@ -84,6 +84,73 @@ pub struct AbilityOption {
     pub pour: Option<baylee_client_core::manaplan::Pour>,
 }
 
+/// Where a sheet's pips end and its numbered rows begin.
+///
+/// [`pour_out`] puts every pip at the front, so this is a count and not a set,
+/// and the whole of the sheet's arithmetic follows from it: the pips are a
+/// **header** — one centred row of marks, standing on every page of the list,
+/// carrying no digit — and `abilitysheet` counts the rest.
+///
+/// The alternative was to let the pips take the first digits, which is what
+/// they do on a bubble, where there is nothing else on the paper. On a sheet
+/// it would put a `6` on Mind Stone's first written row, and a player who has
+/// learned "press the number beside it" would be reading a list that starts at
+/// six.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct Split {
+    /// How many pips lead the list.
+    pub pips: usize,
+    /// How many written rows follow them, which is what the digits count.
+    pub rows: usize,
+}
+
+impl Split {
+    /// Reads the split off a list.
+    #[must_use]
+    pub fn of(options: &[AbilityOption]) -> Self {
+        let pips = options
+            .iter()
+            .take_while(|option| option.pour.is_some())
+            .count();
+        Self {
+            pips,
+            rows: options.len() - pips,
+        }
+    }
+
+    /// Which option the written row `at` is.
+    #[must_use]
+    pub const fn option(self, at: usize) -> usize {
+        self.pips + at
+    }
+
+    /// What the **digits** count: where the numbered rows start, and how many
+    /// there are.
+    ///
+    /// Two answers from one rule. On a sheet the pips are a header and the
+    /// digits count the written rows under them. On a *bubble* there are no
+    /// written rows, so the pips are what the digits count — which is not an
+    /// exception to the rule but the same one applied to a list with nothing
+    /// else in it, and it is what keeps a Tundra answerable by `2`.
+    #[must_use]
+    pub const fn numbered(self) -> (usize, usize) {
+        if self.rows == 0 {
+            (0, self.pips)
+        } else {
+            (self.pips, self.rows)
+        }
+    }
+
+    /// Which page the cursor standing on option `pick` is on.
+    ///
+    /// Zero for a pip, because the header is on every page: a cursor on a pip
+    /// is on a row that is drawn wherever the list happens to be.
+    #[must_use]
+    pub const fn page_of(self, pick: usize) -> usize {
+        pick.saturating_sub(self.pips) / baylee_client_core::abilitysheet::PAGE
+    }
+}
+
 /// Whether this list is a mana bubble rather than an ability sheet.
 ///
 /// One predicate rather than a second list shape, because everything between
@@ -91,9 +158,13 @@ pub struct AbilityOption {
 /// machinery, and a sum type here would have made seven readers branch to
 /// reach the same place. What differs is the ink: rows of sentences against a
 /// row of pips, which is [`crate::hud::sheet`]'s business alone.
+///
+/// A bubble is the case where the pips are *all* there is. A permanent that
+/// makes mana and does something else keeps its sheet and gets the pips as a
+/// header on it, which is [`Split`].
 #[must_use]
 pub fn pouring(options: &[AbilityOption]) -> bool {
-    !options.is_empty() && options.iter().all(|option| option.pour.is_some())
+    !options.is_empty() && Split::of(options).rows == 0
 }
 
 /// Whether an ability's whole cost is `{T}` on the permanent that has it.
@@ -274,49 +345,63 @@ pub fn options(
     out
 }
 
-/// A permanent whose every offer is mana becomes one row per **colour**.
+/// A permanent's **mana** rows become one row per colour, at the head of the
+/// list.
 ///
-/// The owner's fourth point, and it is a rewrite of the list rather than a
-/// second kind of list for the reason [`pouring`] gives. What it turns is
-/// "this Plains offers one thing, so fire it" — the short-circuit in
-/// [`crate::input::activate_card`] — into "this Plains offers white and four
-/// colours the grant on it can make, so ask". The card is then tapped by the
-/// press that answers, not by the press that asked.
+/// The owner's fourth point and the first half of his sixth, and it is a
+/// rewrite of the list rather than a second kind of list for the reason
+/// [`pouring`] gives. What it turns is "this Plains offers one thing, so fire
+/// it" — the short-circuit in [`crate::input::activate_card`] — into "this
+/// Plains offers white and four colours the grant on it can make, so ask". The
+/// card is then tapped by the press that answers, not by the press that asked.
+///
+/// Where *every* row is mana the pips are the whole sheet, which is the
+/// bubble. Where they are not, the pips lead a sheet that still lists
+/// everything else — Mind Stone is a `{C}` and a card drawn for a sacrifice,
+/// Gates of Istfell a `{W}` and four mana's worth of life and cards — and the
+/// owner asked for exactly that: *"die erste Zeile ist quasi sowas wie der
+/// Mana-Dialog … nur dass man eben auch die anderen Abilities noch zur Auswahl
+/// hat"*. [`Split`] is what the rest of the sheet reads that as.
 ///
 /// Three bars, and each one is a case that must keep working exactly as it
 /// did:
 ///
-/// - **Every offer is mana.** Mind Stone makes `{C}` and also draws a card
-///   for a sacrifice; that is a sheet, and reading it as a bubble would hide
-///   the half a player has to think about.
-/// - **The colours can all be read.** A partial expansion would be a bubble
-///   with a pip missing and no way to reach what it left out, so an offer
-///   this client cannot resolve — Reflecting Pool's — leaves the whole list
-///   alone.
-/// - **More than one colour.** A Plains, a Sol Ring, a Llanowar Elf: there is
-///   nothing to choose, so they stay on the one-tap path they have always
-///   been on and nothing about them changes.
+/// - **Every mana row is an offer this client can read.** Asked as
+///   *membership* and not as a count: a partial expansion would be a header
+///   with a colour missing and no row left to reach it by. Jasmine Dragon Tea
+///   Shop is the card that proves it — its restricted any-colour tap is a mana
+///   row and is deliberately no offer, so its list is left alone entirely. A
+///   count would have let a Plains under two grants cover for it, three
+///   against three.
+/// - **A colour to pour.** One is enough *beside* other rows, because there
+///   the pip is a symbol standing where a sentence would be — Mind Stone's
+///   lone `{C}` is what the owner asked to see. Alone it is not: a Plains, a
+///   Sol Ring, a Llanowar Elf offer nothing to choose between, so they stay on
+///   the one-tap path they have always been on.
 fn pour_out(
     view: &PlayerView,
     legal: &baylee_engine::choice::LegalActions,
     object: ObjectId,
     out: &mut Vec<AbilityOption>,
 ) {
-    if out.is_empty() || !out.iter().all(|option| option.mana) {
+    let mana = out.iter().filter(|option| option.mana).count();
+    if mana == 0 {
         return;
     }
     let offers = crate::manasources::offers(view, legal, object);
-    // Every offer, not merely one of them: the list above says this permanent
-    // has nothing but mana to give, and a bubble that could not name one of
-    // those taps would be quietly dropping a colour.
-    if offers.len() < out.len() {
+    if !out
+        .iter()
+        .filter(|option| option.mana)
+        .all(|option| offered(&offers, object, &option.action))
+    {
         return;
     }
     let pours = baylee_client_core::manaplan::pours(object, &offers);
-    if pours.len() < 2 {
+    let floor = if mana == out.len() { 2 } else { 1 };
+    if pours.len() < floor {
         return;
     }
-    *out = pours
+    let mut pips: Vec<AbilityOption> = pours
         .into_iter()
         .filter_map(|pour| {
             Some(AbilityOption {
@@ -344,11 +429,37 @@ fn pour_out(
         })
         .collect();
     // A tap the engine withdrew between `offers` and here cannot happen —
-    // both read the same `LegalActions` — but a list that came out with one
-    // pip is not a bubble any more, and must not be left standing as one.
-    if out.len() < 2 {
-        out.clear();
+    // both read the same `LegalActions` — but a header that came out short of
+    // the floor above must not be left standing as one.
+    if pips.len() < floor {
+        return;
     }
+    out.retain(|option| !option.mana);
+    pips.append(out);
+    *out = pips;
+}
+
+/// Whether an action is one of the taps [`crate::manasources::offers`] read.
+///
+/// The mana rows and the offers are built from the same `LegalActions` a few
+/// lines apart, so this is not a staleness check — it is the question of
+/// whether *this* tap is one a pip can stand for, which is exactly where the
+/// two readings are allowed to differ: `mana_offer` refuses restricted mana
+/// and `mana_label` does not.
+fn offered(
+    offers: &[baylee_client_core::manaplan::Offer],
+    object: ObjectId,
+    action: &PlayerAction,
+) -> bool {
+    let tap = match *action {
+        PlayerAction::ActivateManaAbility { source } if source == object => Tap::Intrinsic,
+        PlayerAction::ActivateAbility {
+            source,
+            ability_index,
+        } if source == object => Tap::Ability(ability_index),
+        _ => return false,
+    };
+    offers.iter().any(|offer| offer.tap == tap)
 }
 
 /// The activation one pour's tap is, checked against what the engine listed.
