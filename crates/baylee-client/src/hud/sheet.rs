@@ -196,17 +196,30 @@ const ROW_PT: f32 = 13.0;
 /// sentence it is charging for, which is the right place for it to land.
 const COST_MARK: f32 = 16.0;
 
-/// How wide the cost column is where every payment on the sheet is a mark.
+/// The **widest** a cost column may be: three marks and the air between them.
 ///
-/// Three marks and the air between them, and a **width** rather than a
-/// maximum: every row on such a sheet gets this column, so the sentences
-/// beside them share one left edge. It is also what makes a longer payment
-/// wrap — `{W}{U}{B}{R}{G}` folds to three marks over two inside the column
-/// instead of taking the room from the prose.
-const COST_MARKS: f32 = 3.0 * COST_MARK + 2.0 * 2.0;
+/// A cap and not a width. The column is as wide as the widest cost on the
+/// page and no wider, because paper between a cost and the sentence it
+/// charges for is paper the sentence is not using — a planeswalker's badge is
+/// one mark across and was being given a column for three.
+///
+/// Past three marks a cost stops reading as a column and starts reading as a
+/// second sentence, so it wraps instead: `{W}{U}{B}{R}{G}` folds to three
+/// marks over two rather than taking the room from the prose.
+const COST_MARKS: f32 = 3.0 * COST_MARK + 2.0 * crate::manaui::air(ROW_PT);
 
-/// The air under a cost written as a title over its own sentence.
+/// The air over and under the hairline beneath a cost set as a title.
 const COST_TITLE_AIR: f32 = 3.0;
+
+/// How much of [`palette::PARCHMENT_EDGE`] a title's hairline is drawn in.
+///
+/// Softer than [`rule`], which parts the sheet's *kinds of writing* — the
+/// name from the rows, the rows from the footer. This one parts a cost from
+/// the sentence it charges for, and those two are one thought: a hinge rather
+/// than a wall, so it is the same ink at not quite half strength. Alpha and
+/// not a mixed colour, so an armed row's brass comes through it exactly as it
+/// comes through the paper.
+const COST_RULE_WASH: f32 = 0.45;
 
 /// The wash under the row that is armed — [`palette::BRASS`] at 16%.
 ///
@@ -1220,73 +1233,80 @@ fn row_cost(option: &crate::abilities::AbilityOption, printed: bool) -> Option<&
     option.cost.as_deref().filter(|_| !repeats)
 }
 
-/// Whether this sheet draws its costs in a **column** beside the sentences.
+/// How wide this sheet's **cost column** is, or `None` for no column at all.
 ///
 /// One answer for the whole page, because a column is a claim about where
 /// every sentence on the sheet begins — a row that opted out would start its
 /// prose where its neighbours' costs are.
 ///
-/// The column is three marks wide, and that is a place for marks and not for
-/// a sentence. A card asks for a tap and a colour in marks and for everything
-/// else in words — `Sacrifice this artifact`, `Pay 1 life` — so a page with
-/// one of those on it puts *every* cost where the card itself puts it:
-/// [`spawn_row`] writes it as a title line over the sentence it charges for,
-/// across the whole width of the row, where it has room to wrap.
+/// A column is a place for marks, and for *one line* of them. Two things take
+/// a cost out of it, and both were seen on the paper before they were written
+/// down here:
+///
+/// - **Words.** A card asks for a tap and a colour in marks and for everything
+///   else in prose — `Sacrifice this artifact`, `Pay 1 life` — and three
+///   marks' width is not a place for a sentence; it overhung the paper.
+/// - **A second payment.** `{2}{U}{U}, {T}` is two lines in any column narrow
+///   enough to be one, and a two-line cost beside a one-line sentence reads as
+///   a row that has slipped, because the sentence is centred between them.
+///   [`COST_MARKS`] caps the width instead, so a *single* payment too wide for
+///   it wraps against a sentence long enough to stand beside it.
+///
+/// Either one and the page puts every cost where the printed card puts it:
+/// [`spawn_cost_title`], a title line over the sentence it charges for, with
+/// the row's whole width to wrap in.
 fn cost_column(
     faces: &crate::cardtext::CardTexts,
     duel: &Duel,
     object: ObjectId,
     options: &[crate::abilities::AbilityOption],
     page: usize,
-) -> bool {
-    let mut any = false;
+) -> Option<f32> {
+    let mut widest: Option<f32> = None;
     for at in abilitysheet::rows(options.len(), page) {
         let printed = row_text(faces, duel, object, &options[at]).is_some();
         let Some(cost) = row_cost(&options[at], printed) else {
             continue;
         };
-        if crate::abilities::payments(cost).any(in_words) {
-            return false;
+        let mut payments = crate::abilities::payments(cost);
+        let Some(only) = payments.next() else {
+            continue;
+        };
+        if payments.next().is_some() {
+            return None;
         }
-        any = true;
+        let span = crate::manaui::marks_span(only, ROW_PT, COST_MARK)?;
+        widest = Some(widest.map_or(span, |wide: f32| wide.max(span)));
     }
-    any
+    widest.map(|wide| wide.min(COST_MARKS))
 }
 
-/// Whether a payment is written in words rather than in marks.
-fn in_words(payment: &str) -> bool {
-    baylee_client_core::manapip::segments(payment)
-        .into_iter()
-        .any(|segment| {
-            matches!(segment, baylee_client_core::manapip::Segment::Text(words)
-                if !words.trim().is_empty())
-        })
-}
-
-/// A cost as the narrow column left of the sentence, one payment to a line.
+/// A cost as the narrow column left of the sentence.
 ///
-/// A cost is a *list* — mana, then a tap — and read as a column it wants to
-/// be one again: written across, the comma between two payments wrapped onto
-/// a line of its own. The column is spawned even for a row that has no cost,
-/// so the sentences beside it all begin in the same place.
-fn spawn_cost_column(commands: &mut Commands, fonts: &UiFonts, cost: Option<&str>) -> Entity {
+/// `width` is [`cost_column`]'s answer — the widest cost on the page, capped —
+/// and the column is spawned at it even for a row that has no cost, so every
+/// sentence on the sheet begins in the same place.
+fn spawn_cost_column(
+    commands: &mut Commands,
+    fonts: &UiFonts,
+    cost: Option<&str>,
+    width: f32,
+) -> Entity {
     let purse = commands
         .spawn((
             Node {
-                width: px(COST_MARKS),
-                flex_direction: FlexDirection::Column,
-                row_gap: px(2),
+                width: px(width),
                 flex_shrink: 0.0,
                 ..default()
             },
             Pickable::IGNORE,
         ))
         .id();
-    for payment in cost.into_iter().flat_map(crate::abilities::payments) {
+    if let Some(cost) = cost {
         let pips = crate::manaui::spawn_rich_marks(
             commands,
             fonts,
-            payment,
+            cost,
             ROW_PT,
             COST_MARK,
             palette::SLIP_SOFT,
@@ -1296,21 +1316,25 @@ fn spawn_cost_column(commands: &mut Commands, fonts: &UiFonts, cost: Option<&str
     purse
 }
 
-/// A cost as a **title over the sentence it charges for**.
+/// A cost as a **title over the sentence it charges for**, and a rule under it.
 ///
 /// Where the printed card puts it — `{1}, {T}, Sacrifice this artifact: Draw
-/// a card`, the charge first and what it buys after — and where a cost too
-/// long for [`spawn_cost_column`] has to go: three marks' width is not a
-/// place for `Sacrifice this artifact`, and at that width it overhung the
-/// paper's edge. Here it has the row's whole width to wrap in.
+/// a card`, the charge first and what it buys after — and where a cost
+/// [`cost_column`] will not take has to go.
 ///
-/// In a holder rather than by patching the line's own `Node`, which
-/// `manaui::rich` owns: a second copy of that node written out here to add
-/// one margin is a copy that drifts from it.
+/// The hairline is what tells the two apart at a glance, and it is drawn at
+/// [`COST_RULE_WASH`] rather than at [`rule`]'s full strength because a cost
+/// and its sentence are one thought. It is a child of the holder so that the
+/// holder is the whole title — one thing to place, and one margin under it.
+///
+/// The line itself sits in a holder rather than having its own `Node`
+/// patched: that node belongs to `manaui::rich`, and a second copy of it
+/// written out here to add one margin is a copy that drifts from it.
 fn spawn_cost_title(commands: &mut Commands, fonts: &UiFonts, cost: &str) -> Entity {
     let holder = commands
         .spawn((
             Node {
+                flex_direction: FlexDirection::Column,
                 margin: UiRect::bottom(px(COST_TITLE_AIR)),
                 ..default()
             },
@@ -1326,6 +1350,18 @@ fn spawn_cost_title(commands: &mut Commands, fonts: &UiFonts, cost: &str) -> Ent
         palette::SLIP_SOFT,
     );
     commands.entity(holder).add_child(line);
+    let hair = commands
+        .spawn((
+            Node {
+                height: px(1),
+                margin: UiRect::top(px(COST_TITLE_AIR)),
+                ..default()
+            },
+            BackgroundColor(palette::PARCHMENT_EDGE.with_alpha(COST_RULE_WASH)),
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(holder).add_child(hair);
     holder
 }
 
@@ -1342,7 +1378,7 @@ fn spawn_row(
     digit: char,
     armed: bool,
     picked: bool,
-    costs: bool,
+    costs: Option<f32>,
 ) -> Entity {
     let wash = if armed {
         ARMED_WASH
@@ -1404,8 +1440,8 @@ fn spawn_row(
     // that dropped it would start its sentence at the sheet's edge while its
     // neighbours started fifty pixels in, and a ragged column of prose is a
     // worse answer than a little empty paper.
-    if costs {
-        let purse = spawn_cost_column(commands, fonts, cost);
+    if let Some(width) = costs {
+        let purse = spawn_cost_column(commands, fonts, cost, width);
         commands.entity(row).add_child(purse);
     }
 
@@ -1429,7 +1465,9 @@ fn spawn_row(
             Pickable::IGNORE,
         ))
         .id();
-    if !costs && let Some(cost) = cost {
+    if costs.is_none()
+        && let Some(cost) = cost
+    {
         let title = spawn_cost_title(commands, fonts, cost);
         commands.entity(says).add_child(title);
     }
@@ -1830,6 +1868,14 @@ mod tests {
 const _: () = {
     assert!(SHEET_MIN < SHEET_MAX);
     assert!(2.0 * SHEET_PAD_X + 2.0 * (KEYCAP_SIDE * 10.5) + 8.0 + 2.0 * 5.0 < SHEET_MIN);
+    // Three marks fit the cap and a fourth does not, which is the whole of
+    // what "three marks wide" means — a row of [`COST_MARK`] discs with
+    // `manaui::air` between them, and `{W}{U}{B}{R}{G}` folding to three over
+    // two because five of them do not fit. The first line is [`COST_MARKS`]'s
+    // own definition read back; it is here so that redefining it has to keep
+    // meaning three.
+    assert!(3.0 * COST_MARK + 2.0 * crate::manaui::air(ROW_PT) <= COST_MARKS);
+    assert!(4.0 * COST_MARK + 3.0 * crate::manaui::air(ROW_PT) > COST_MARKS);
 };
 
 /// The placer, run.

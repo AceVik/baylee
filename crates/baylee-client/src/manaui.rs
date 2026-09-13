@@ -505,6 +505,58 @@ pub fn spawn_rich_label(
     )
 }
 
+/// The air between two marks in a line, measured against the **words**.
+///
+/// This gap is the space in a line of writing, and a line does not open up
+/// because one character in it is drawn larger — so it comes off the
+/// sentence's size and not the mark's, even on a line where the two have been
+/// set apart.
+///
+/// `const` because [`crate::hud::sheet`] builds a column's width out of it,
+/// and a second copy of `0.12` over there is a number that drifts from this
+/// one.
+pub(crate) const fn air(size: f32) -> f32 {
+    if size * 0.12 > 1.0 { size * 0.12 } else { 1.0 }
+}
+
+/// How wide a line of **marks** is, laid out the way [`rich`] lays one out.
+///
+/// `None` where the line is not marks alone. A [`Pip::Number`] grows with its
+/// digits and a text run is prose, and neither has a width this side of the
+/// text engine — a caller that needs a number back is told so rather than
+/// handed a guess.
+///
+/// It exists because a *column* of costs is a shared width, and that width has
+/// to be known before anything is laid out. Predicting it here is the point:
+/// [`BADGE_SPAN`] is `pub(crate)` precisely so a caller mirroring a width
+/// reads it instead of retyping `1.55`, and the gap comes off [`air`] for the
+/// same reason.
+pub(crate) fn marks_span(text: &str, size: f32, marks: f32) -> Option<f32> {
+    use baylee_client_core::manapip::Segment;
+    let mut span = 0.0;
+    let mut count: u32 = 0;
+    for segment in baylee_client_core::manapip::segments(text) {
+        match segment {
+            // A blank run between two marks is a child with no width of its
+            // own; it still sits in the flex row, so it still opens a gap.
+            Segment::Text(words) if words.trim().is_empty() => count += 1,
+            Segment::Symbol(Pip::Loyalty(_)) => {
+                span += marks * BADGE_SPAN;
+                count += 1;
+            }
+            Segment::Symbol(Pip::Solid { .. } | Pip::Split { .. }) => {
+                span += marks;
+                count += 1;
+            }
+            Segment::Text(_) | Segment::Symbol(Pip::Number { .. }) => return None,
+        }
+    }
+    // Rounded **up**: a column a pixel wider than its content shows nothing,
+    // and one a pixel narrower wraps its last mark onto a line of its own —
+    // which is the ragged cost this width was computed to prevent.
+    (count > 0).then(|| (span + air(size) * (count - 1) as f32).ceil())
+}
+
 /// All three of the above, with what they differ in passed in.
 #[allow(clippy::too_many_arguments)] // two sizes, a colour and a face
 fn rich(
@@ -519,11 +571,12 @@ fn rich(
     let row = commands
         .spawn((
             Node {
-                // Air measured against the *words*, not the marks, even where
-                // the two have been set apart: this gap is the space in a
-                // line of writing, and a line does not open up because one
-                // character in it is drawn larger.
-                column_gap: px((size * 0.12).max(1.0)),
+                // Both gaps are [`air`] — see there for why it is measured
+                // against the words. The row one is only ever seen when a
+                // line wraps, and then it is leading: five marks folded into
+                // a narrow column touch without it.
+                column_gap: px(air(size)),
+                row_gap: px(air(size)),
                 align_items: AlignItems::Center,
                 flex_wrap: bevy::ui::FlexWrap::Wrap,
                 ..default()
@@ -700,5 +753,44 @@ mod tests {
             baylee_client_core::manapip::symbol("T"),
             Some(Pip::Solid { .. })
         ));
+    }
+
+    /// A mark's width is what [`marks_span`] says it is, or the columns built
+    /// on it are built on a guess.
+    ///
+    /// Both halves matter. The **numbers** are what a cost column is sized
+    /// from, and a badge is [`BADGE_SPAN`] wider than a disc — the one case
+    /// where a cost of one mark is not one mark across. The **refusals** are
+    /// what keeps the guess out: a payment with words in it has no width this
+    /// side of the text engine, and answering with the marks alone would size
+    /// a column to `{1}, {T},` and let `Sacrifice this artifact` hang off the
+    /// paper, which is exactly what it used to do.
+    #[test]
+    fn a_line_of_marks_is_as_wide_as_the_marks_in_it() {
+        let air = air(13.0);
+        assert!(
+            (air - 1.56).abs() < 0.01,
+            "the gap comes off the words: {air}"
+        );
+        assert_eq!(marks_span("{T}", 13.0, 16.0), Some(16.0));
+        assert_eq!(
+            marks_span("{2}{U}{U}", 13.0, 16.0),
+            Some((3.0 * 16.0 + 2.0 * air).ceil())
+        );
+        assert_eq!(
+            marks_span("{W}{U}{B}{R}{G}", 13.0, 16.0),
+            Some((5.0 * 16.0 + 4.0 * air).ceil())
+        );
+        assert_eq!(
+            marks_span("{L+2}", 13.0, 16.0),
+            Some((16.0 * BADGE_SPAN).ceil()),
+            "a loyalty badge is wider than the mark it is drawn at"
+        );
+        assert_eq!(marks_span("Sacrifice this artifact", 13.0, 16.0), None);
+        assert_eq!(marks_span("{1}, {T}, Pay 1 life", 13.0, 16.0), None);
+        assert_eq!(marks_span("", 13.0, 16.0), None);
+        // A badge lives behind its token, the way every other mark does.
+        // `+2` with no braces is prose and is measured as prose: refused.
+        assert_eq!(marks_span("+2", 13.0, 16.0), None);
     }
 }
