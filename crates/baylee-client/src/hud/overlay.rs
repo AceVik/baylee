@@ -2226,4 +2226,141 @@ mod tests {
             );
         }
     }
+
+    // ---- the slip under the preview -------------------------------------
+    //
+    // `hud::slip` is tested on its own arithmetic and on its own system;
+    // what those cannot say is whether `sync_overlay` ever builds one.
+    // "Declared but never wired" is a bug this client has shipped before.
+
+    /// A duel with one ability on the stack, its source on the battlefield,
+    /// and the pointer on the stack entry.
+    fn hovering_the_stack(hovered: bool) -> (Duel, crate::cardtext::CardTexts) {
+        use baylee_client_core::card_face::{CardTextEntry, FaceText};
+        use baylee_client_core::test_support::{ViewBuilder, printed, statics, token};
+
+        let texts = crate::cardtext::CardTexts::filed(
+            baylee_core::ids::PrintRef::new(7),
+            CardTextEntry {
+                scryfall_id: "abc".to_string(),
+                lang: "de".to_string(),
+                faces: vec![FaceText {
+                    name: "Ondu-Kleriker".to_string(),
+                    english_name: "Ondu Cleric".to_string(),
+                    type_line: "Kreatur".to_string(),
+                    oracle_text: "Ziehe eine Karte.".to_string(),
+                    mana_cost: String::new(),
+                }],
+            },
+        );
+        let mut ability = token(30, 0, "Ondu Cleric", 0, 0);
+        ability.card = None;
+        ability.stack_item = Some(baylee_view::StackItem::Ability {
+            source: ObjectId::new(7, 0),
+            ability: None,
+            text: Some(baylee_view::StackText {
+                face: 0,
+                line: 0,
+                of: 1,
+            }),
+        });
+        let mut duel = Duel {
+            interaction: Some(baylee_client_core::Interaction::new(
+                baylee_engine::choice::Pending::Priority {
+                    player: PlayerId::new(0),
+                    legal: Box::new(baylee_engine::choice::LegalActions::default()),
+                },
+                PlayerId::new(0),
+            )),
+            statics: Some(statics(8)),
+            hovered: hovered.then(|| ObjectId::new(30, 0)),
+            ..Duel::default()
+        };
+        duel.view = Some(
+            ViewBuilder::new(2)
+                .with_battlefield(0, vec![printed(7, 0, "Ondu Cleric", 7)])
+                .with_stack(vec![ability])
+                .build(),
+        );
+        crate::rebuild_board(&mut duel);
+        (duel, texts)
+    }
+
+    fn overlay_with(duel: Duel, texts: crate::cardtext::CardTexts) -> App {
+        // The stack panel draws pictures, and asking for one is an
+        // `AssetServer::load` — which spawns on the IO pool and panics
+        // without it. Idempotent, so several tests may ask.
+        bevy::tasks::IoTaskPool::get_or_init(Default::default);
+        let mut app = bar_of(duel);
+        app.insert_resource(texts);
+        app.world_mut().resource_mut::<HudRevision>().set_changed();
+        app.update();
+        app
+    }
+
+    /// The whole point of the feature, end to end: the pointer is on a stack
+    /// entry, and the sentence the row abbreviates is written out under the
+    /// preview.
+    #[test]
+    fn hovering_a_stack_entry_writes_its_sentence_out() {
+        let (duel, texts) = hovering_the_stack(true);
+        let mut app = overlay_with(duel, texts);
+        let said = said(&mut app);
+        // Three, and the third is the interesting one. The row says it cut
+        // to four lines; the sheet says it whole; and the preview's *card*
+        // says it too, because no art has arrived in a headless test and a
+        // card with no picture falls back to a constructed face. That third
+        // one is exactly why `slip::says` asks `FaceCtx::always` — the
+        // player's own choice — rather than "did a face come back": the
+        // fallback is the ordinary case offline, and suppressing the sheet
+        // there would silence it wherever a gateway serves no art.
+        assert_eq!(
+            said.iter()
+                .filter(|line| line.contains("Ziehe eine Karte."))
+                .count(),
+            3,
+            "the row, the fallback face and the sheet: {said:?}"
+        );
+        let mut sheets = app
+            .world_mut()
+            .query_filtered::<Entity, With<super::super::slip::Washing>>();
+        assert!(
+            sheets.iter(app.world()).count() > 0,
+            "and it is on a sheet the wash can reach"
+        );
+        // And the sheet is *in* the bubble. A slip spawned and never added to
+        // anything is still in the world, still carries its `Washing`, and
+        // still answers `said` — so without this the test passes on a sheet
+        // nobody can see.
+        let mut orphans = app
+            .world_mut()
+            .query_filtered::<Entity, (With<super::super::slip::Washing>, Without<ChildOf>)>();
+        assert_eq!(
+            orphans.iter(app.world()).count(),
+            0,
+            "a sheet hanging off nothing is drawn nowhere"
+        );
+    }
+
+    /// The counter-test, without which the one above would pass on a client
+    /// that drew a sheet under every preview it ever opened.
+    #[test]
+    fn a_pointer_on_nothing_opens_no_sheet() {
+        let (duel, texts) = hovering_the_stack(false);
+        let mut app = overlay_with(duel, texts);
+        let said = said(&mut app);
+        // Once, and it is the row's own: the panel abbreviates whether
+        // anyone is looking or not, and the sheet is what the looking buys.
+        assert_eq!(
+            said.iter()
+                .filter(|line| line.contains("Ziehe eine Karte."))
+                .count(),
+            1,
+            "the row says it and nothing else does: {said:?}"
+        );
+        let mut sheets = app
+            .world_mut()
+            .query_filtered::<Entity, With<super::super::slip::Washing>>();
+        assert_eq!(sheets.iter(app.world()).count(), 0);
+    }
 }
