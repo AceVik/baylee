@@ -586,6 +586,13 @@ pub struct DeckBuilder {
     /// changes rather than on every draw: the shell redraws far more often
     /// than a player types.
     results: Vec<usize>,
+    /// One folded key per `pool` slot — [`crate::prose::sort_key`] of the
+    /// name in the player's language, which is what every order ends in.
+    ///
+    /// Computed in `set_pool`, the one place `pool` is written, because a
+    /// name does not change after it arrives and folding inside the
+    /// comparator would fold each name the dozen times a sort reads it.
+    keys: Vec<String>,
     text: String,
     colors: Vec<char>,
     kind: Option<String>,

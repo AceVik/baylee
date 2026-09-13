@@ -860,3 +860,84 @@ fn naming_a_new_commander_answers_the_stale_one() {
         "the deck has a leader again"
     );
 }
+
+/// A pool as `GET /pool?lang=de` sends it: `name` translated, the English
+/// one kept beside it because that is what a saved deck line is written
+/// with. Exactly the shape the byte-order wart shows up in.
+fn german_pool() -> DeckBuilder {
+    let names = [
+        (1, "Zombie", "Zombie"),
+        (2, "Ätherfluss", "Aetherflux Reservoir"),
+        (3, "Straße der Ahnen", "Ancestral Highway"),
+        (4, "Blitzschlag", "Lightning Bolt"),
+    ];
+    let cards: Vec<PoolCard> = names
+        .iter()
+        .map(|(index, german, english)| PoolCard {
+            name: (*german).to_string(),
+            english_name: (*english).to_string(),
+            ..card(*index, english, "{1}", 1, &["Artifact"])
+        })
+        .collect();
+    let mut b = DeckBuilder::new();
+    b.set_pool(cards, true);
+    b
+}
+
+/// What the pool shows a German player has to be filed in a German
+/// alphabet, and `str::cmp` is byte order: every accent sits above `z`.
+#[test]
+fn the_pool_alphabetises_in_the_readers_own_letters() {
+    let b = german_pool();
+    let shown: Vec<&str> = b
+        .results()
+        .iter()
+        .map(|slot| b.card(*slot).unwrap().name.as_str())
+        .collect();
+    assert_eq!(
+        shown,
+        ["Ätherfluss", "Blitzschlag", "Straße der Ahnen", "Zombie"]
+    );
+    // The counter-test: this is the order the raw names sort into, and it
+    // is the one the builder drew before the fold.
+    let mut raw = vec!["Zombie", "Ätherfluss", "Straße der Ahnen", "Blitzschlag"];
+    raw.sort_unstable();
+    assert_eq!(
+        raw,
+        ["Blitzschlag", "Straße der Ahnen", "Zombie", "Ätherfluss"]
+    );
+}
+
+/// The keyboard a player has does not always carry the letter the card
+/// does, which is the half of the fold a sort alone never exercises.
+#[test]
+fn the_pool_is_searched_in_the_letters_a_player_can_type() {
+    let mut b = german_pool();
+    let found = |b: &DeckBuilder| -> Vec<String> {
+        b.results()
+            .iter()
+            .map(|slot| b.card(*slot).unwrap().name.clone())
+            .collect()
+    };
+    b.set_text("strasse");
+    assert_eq!(found(&b), ["Straße der Ahnen"], "ss for ß");
+    b.set_text("Straße");
+    assert_eq!(found(&b), ["Straße der Ahnen"], "and the letter itself");
+    b.set_text("atherfluss");
+    assert_eq!(found(&b), ["Ätherfluss"], "a for ä");
+    b.set_text("aetherflux");
+    assert_eq!(found(&b), ["Ätherfluss"], "the name it was learned under");
+    b.set_text("gebirge");
+    assert!(found(&b).is_empty(), "and it still says no");
+}
+
+/// The key list is read by slot beside the pool, so the two lengths are
+/// the invariant that makes that safe — a short list would silently sort
+/// the tail of the pool as if every name were empty.
+#[test]
+fn every_pool_card_has_a_key() {
+    let mut b = german_pool();
+    assert_eq!(b.keys.len(), b.pool().len());
+    b.set_pool(pool(), true);
+    assert_eq!(b.keys.len(), b.pool().len(), "and again after a reload");
+}

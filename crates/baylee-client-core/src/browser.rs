@@ -201,9 +201,11 @@ impl Names<'_> {
     /// The names the view already carries, untranslated.
     ///
     /// Not a test stub — a real answer, for a caller that genuinely has no
-    /// printing text to offer: the integration tests, an embedder with no
-    /// gateway, a seat whose catalog request has not come back yet. The
-    /// panel then behaves exactly as it did before any of this existed,
+    /// printing text to offer: the integration tests today, an embedder
+    /// with no gateway behind it later. (A seat *waiting* on its catalog is
+    /// not one of them: the renderer always builds the closure, and the
+    /// falling back happens inside it.) The panel then behaves exactly as
+    /// it did before any of this existed,
     /// which is the property that makes every test in this file that is not
     /// about language keep being about what it is about.
     #[must_use]

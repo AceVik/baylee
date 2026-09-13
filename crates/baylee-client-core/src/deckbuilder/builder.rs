@@ -151,6 +151,10 @@ impl DeckBuilder {
 
     /// Takes the pool and rebuilds the results.
     pub fn set_pool(&mut self, cards: Vec<PoolCard>, has_text: bool) {
+        self.keys = cards
+            .iter()
+            .map(|card| crate::prose::sort_key(&card.name))
+            .collect();
         self.pool = cards;
         self.has_text = has_text;
         // A deck may have been loaded before the pool arrived; its rows were
@@ -242,24 +246,31 @@ impl DeckBuilder {
 
     /// Recomputes the result list.
     fn refilter(&mut self) {
-        let needle = self.text.trim().to_lowercase();
+        // Folded, not merely lowercased: a player types `strasse` for
+        // `Straße` and `atherfluss` for `Ätherfluss`, and the haystacks
+        // below are folded the same way so both sides meet.
+        let needle = crate::prose::sort_key(self.text.trim());
         let mut hits: Vec<usize> = (0..self.pool.len())
             .filter(|slot| self.matches(&self.pool[*slot], &needle))
             .collect();
         let sort = self.sort;
+        // The name every order ends in is the *folded* one: `str::cmp` is
+        // byte order, which files every accented letter above `z`, so a
+        // German pool alphabetised on `name` put Ätherfluss after Zombie.
+        let key = |slot: &usize| self.keys.get(*slot).map_or("", String::as_str);
         // `sort_by` rather than `sort_unstable_by`: every comparison ends in
         // the name, so the order is total, but a stable sort keeps it obvious
         // that two runs of the same filter cannot disagree.
         hits.sort_by(|a, b| {
             let (x, y) = (&self.pool[*a], &self.pool[*b]);
             match sort {
-                Sort::Name => x.name.cmp(&y.name),
-                Sort::Cost => x.cmc.cmp(&y.cmc).then_with(|| x.name.cmp(&y.name)),
+                Sort::Name => key(a).cmp(key(b)),
+                Sort::Cost => x.cmc.cmp(&y.cmc).then_with(|| key(a).cmp(key(b))),
                 Sort::Type => x
                     .group()
                     .cmp(&y.group())
                     .then_with(|| x.cmc.cmp(&y.cmc))
-                    .then_with(|| x.name.cmp(&y.name)),
+                    .then_with(|| key(a).cmp(key(b))),
             }
         });
         self.results = hits;
@@ -287,15 +298,16 @@ impl DeckBuilder {
             return true;
         }
         // Every name the card answers to, in every language it was printed
-        // in. A player searching for their own copy types what is on it.
-        card.name.to_lowercase().contains(needle)
-            || card.english_name.to_lowercase().contains(needle)
-            || card
-                .alt_names
-                .iter()
-                .any(|n| n.to_lowercase().contains(needle))
-            || card.type_line.to_lowercase().contains(needle)
-            || card.oracle_text.to_lowercase().contains(needle)
+        // in. A player searching for their own copy types what is on it —
+        // and every haystack is folded the way the needle was, because a
+        // needle folded against a haystack that was only lowercased stops
+        // matching the very accents the fold exists for.
+        let folded = |text: &str| crate::prose::sort_key(text).contains(needle);
+        folded(&card.name)
+            || folded(&card.english_name)
+            || card.alt_names.iter().any(|n| folded(n))
+            || folded(&card.type_line)
+            || folded(&card.oracle_text)
     }
 
     /// Whether a card is within the chosen colors.
