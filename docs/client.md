@@ -2708,33 +2708,85 @@ is over, which is the veiled night sky with nothing in front of it.
 
 ## The sounds are decided before anything can play them
 
-The client makes no noise at all, and that is not the same thing as having no
-sound design. Every moment worth hearing is named, decided on the edge it
-happens on, deduplicated against what the eye is already being shown, and
-handed to a sink — which today does nothing. `baylee-client-core/src/cue.rs`
-is the deciding half and `crates/baylee-client/src/sound.rs` is the sink;
-between them there is a queue and no audio API anywhere.
+Every moment worth hearing is named, decided on the edge it happens on,
+deduplicated against what the eye is already being shown, and handed to a
+sink. `baylee-client-core/src/cue.rs` is the deciding half and
+`crates/baylee-client/src/sound.rs` is the sink; between them there is a queue
+and no audio API anywhere, which is what lets the whole model be tested
+without a device and proved by a **read** of `/state` rather than by somebody
+listening at the right moment.
 
-**Why it stops there** is two questions that are really one, and both of them
-are the owner's:
+### Nothing that plays is a file
 
-- *Where the sounds come from.* `docs/legal.md` has four clauses — the code
-  licence, the WotC fan policy, Scryfall, privacy — and none of them is about
-  audio. Shipped CC0 files and generated tones are different answers with
-  different consequences; the felt and the parchment are **arithmetic** for
-  exactly the reason §2 gives, that ornament is the easiest thing to borrow by
-  accident.
-- *What playing anything costs the build.* The workspace's bevy feature list
-  has no `bevy_audio`, so the client links no audio backend. Adding it pulls
-  rodio and cpal — CoreAudio, ALSA, WASAPI — into a binary that CI runs
-  through `cargo-deny`, `cargo-audit`, an MSRV check against 1.88 and a
-  `wasm32` check; and in a browser an `AudioContext` does not start until the
-  player has clicked something.
+`docs/legal.md` §5 is the rule, and it is clause 2's reasoning applied to the
+ear: ornament is the easiest thing to borrow by accident, and arithmetic
+borrows nothing. The felt, the seat mats and the lobby's backdrop were given
+that answer and so is this — `sound::render` writes samples and `sound::wav`
+writes a RIFF header in front of them, so the client ships no audio assets and
+there is no `sounds/` directory to audit. A player's own pack stays reachable
+because a `Cue` is a named moment and not a file name.
 
-Neither is decided by writing a line of code, so the seam is the deliverable.
-Everything above it is real: nine cues, twenty-two tests, and `/state` carrying
-the last one so the whole thing is proved by a **read** rather than by
-somebody listening at the right moment.
+`bevy_audio` and `wav` are the two bevy features that cost: rodio and cpal,
+which is CoreAudio, ALSA, WASAPI and — in a browser — an `AudioContext` that
+does not start until the player has clicked something. They add eighteen
+crates, all permissive and all already on `deny.toml`'s allowlist.
+
+**One instrument, struck nine ways.** All of them are a struck rosewood bar:
+a fundamental and two inharmonic partials at 3.93 and 9.56, each dying at its
+own rate, under a short filtered noise burst that is the mallet before the
+note. Metal was the other candidate and is wrong for the reason it is wrong in
+a room — a bell's upper partials outlive its fundamental, so two overlapping
+is a chord nobody asked for. What separates the nine is pitch, gesture and
+level, never timbre:
+
+| cue | peak | pitch | gesture |
+|---|---|---|---|
+| `MyLifeLost` | 0.700 | D4 → B3 | two strikes, falling a minor third, the second heavier |
+| `MyLifeGained` | 0.560 | D4 → F♯4 | the same, rising a major third, the second lighter |
+| `TheirLifeLost` | 0.280 | A3 → F♯3 | a fourth lower, soft mallet, one reflection |
+| `TheirLifeGained` | 0.224 | A3 → C♯4 | as above, rising |
+| `YourMove` | 0.154 | D3 | one touch, six variants |
+| `Refused` | 0.350 | G3 | two knuckles on the leather rail, almost no ring |
+| `GameWon` | 0.630 | D4 → F♯4 → A4 | three strikes rising and slowing |
+| `GameLost` | 0.560 | D4 → B3 → A3 | three falling and softening, left to ring longest |
+| `GameDrawn` | 0.504 | A3, A3 | two equal strikes, neither up nor down |
+
+Two intervals rather than one mirrored one, because mirroring would make a
+gain sound minor; together they outline a triad, so a lifelink trade —
+`MyLifeLost` and `TheirLifeGained` on one frame — is a chord and not an
+argument. "Elsewhere" is a filter and a reflection rather than a volume knob:
+a softer mallet, the top partial nearly gone, and one delayed dulled copy
+19 ms behind, which is what an ear reads as *over there*. The three endings
+are the only sounds longer than a blink and all three peak **below** a life
+cue; all three come to rest on A and never on the tonic, because a cadence
+left open is what keeps a win from being a fanfare. `docs/design.md` retires
+hues rather than handing out new ones and this is the same restraint.
+
+**`YourMove` is the one that could ruin it.** It fires on every priority
+grant. It is the lowest sound in the set, the quietest, one touch rather than
+a gesture, and one of six variants cycled in a fixed order — detuned within
+±16 cents, with the second partial struck at a different spot along the bar,
+so no two consecutive firings are the same sound. What is **not** built is the
+policy half, and it is the larger one: a grant that follows the player's own
+action tells them nothing, so a debounce, a suppression window after the seat
+sends anything, a refractory period and a louder cue when the window is in the
+background would turn two hundred grants into a few dozen touches. That wants
+a clock in `Cues`, which it has no field for. Until then the answer is the
+setting.
+
+**Three steps, not a slider.** `cue::Loudness` is `Full`, `Half` and `Off`,
+one chip each on the settings screen beside the sky's, and it multiplies at
+*playback* — the balance between the nine is baked into the buffers, so there
+is nothing for a player to tune. `Off` stops the device and nothing else:
+cues are still decided, drained and reported, which keeps "is it silent" and
+"is it deciding" two separate questions.
+
+Everything is computed once, on the frame the app opens, from a xorshift32
+seeded with a constant — so the table sounds the same on every machine, and
+`a_cue_renders_the_same_bytes_twice` is what says so. The one thing a
+generated sound has no other audit surface for is what it *sounds like*:
+`every_cue_written_out` is `#[ignore]`d and writes all fourteen to a
+directory for somebody to listen to.
 
 ### One event, one cue
 
@@ -2754,6 +2806,21 @@ same `Outcome` under a language. A table that chimed differently for team 1
 and team 2 would be saying something the game does not mean — and a second
 reading of `GameResult` is how the ear and the sheet would come to different
 conclusions about who lost.
+
+An ending is also the one cue that is played **alone**. Deduplicating within
+the frame bounds a frame at one copy of each sound, not at one sound, and the
+frame a game ends on is the only one that can carry three: the lethal hit is a
+life loss here, a life loss there, and the ending. Those three peaks sum past
+what a loudspeaker can do — 0.70 + 0.28 + 0.63 — so `sound::audible` keeps the
+ending and drops what shares its frame, and `MASTER` is left answering the
+two-cue case it was chosen for. Dropping rather than ducking is the same
+choice the rest of the sink makes: there is no mixer here and there is not
+going to be one. `Cue::ends_the_game` is the predicate, and it lives in the
+model beside `of_outcome` because which moment outranks which is a reading of
+the game; the shell only makes the noise. Nothing about this changes what is
+**drained** — `/state` reports the whole frame and `YourMove`'s variant
+counter moves as it would have, so "is it silent" and "is it deciding" stay
+two questions.
 
 ### A cue is a flank, and it can be taken back
 

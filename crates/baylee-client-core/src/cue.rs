@@ -71,6 +71,25 @@ pub enum Cue {
 }
 
 impl Cue {
+    /// Every cue, in no particular order but in *all* of them.
+    ///
+    /// The sink synthesises one sound per entry at startup, so a variant
+    /// missing here is a variant that is silent at runtime and loud in no
+    /// test. `every_cue_is_in_all` holds the two together by counting the
+    /// arms of [`Cue::name`], which the compiler already forces to be
+    /// exhaustive.
+    pub const ALL: [Self; 9] = [
+        Self::MyLifeLost,
+        Self::MyLifeGained,
+        Self::TheirLifeLost,
+        Self::TheirLifeGained,
+        Self::YourMove,
+        Self::Refused,
+        Self::GameWon,
+        Self::GameLost,
+        Self::GameDrawn,
+    ];
+
     /// Its own name, for `/state` and for whatever ends up playing it.
     ///
     /// Spelled out rather than derived from [`Debug`], because a `Debug`
@@ -105,6 +124,84 @@ impl Cue {
             Some(true) => Self::GameWon,
             Some(false) => Self::GameLost,
         }
+    }
+
+    /// Whether this is the last thing that will ever be said at this table.
+    ///
+    /// Exactly the three [`of_outcome`](Self::of_outcome) produces, asked as
+    /// a question because a *sink* needs it: the frame a game ends on is the
+    /// only frame that can carry three cues — the lethal hit is a life change
+    /// here, a life change there, and the ending — and those three amplitudes
+    /// together are louder than a loudspeaker can be. An ending is therefore
+    /// played alone. Deciding it here rather than in the shell is the split
+    /// the whole module is built on: which moment outranks which is a reading
+    /// of the game, and the shell only makes the noise.
+    #[must_use]
+    pub fn ends_the_game(self) -> bool {
+        matches!(self, Self::GameWon | Self::GameLost | Self::GameDrawn)
+    }
+}
+
+/// How loud the table is, if at all.
+///
+/// Three steps and not a slider, for the reason the sky picker is three
+/// chips: a slider is a number a player has to *tune*, and there is no
+/// tuning to be done here — the nine sounds are balanced against each other
+/// in [`crate::cue`]'s sink, so the only questions are "on", "quieter" and
+/// "off". It is stored under its own key rather than as a `bool` pair
+/// because two bools make four states and one of them is nonsense.
+///
+/// [`Full`](Self::Full) is the default and a missing key reads as it, which
+/// is the way round it has to be: a settings blob written by a client from
+/// before there was sound must not open a silent one, or the feature looks
+/// broken to exactly the player who has been here longest.
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Default, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Loudness {
+    /// Everything, at the levels the sink was balanced at.
+    #[default]
+    Full,
+    /// The same balance, half the amplitude.
+    Half,
+    /// Nothing at all. Cues are still decided, drained and reported to
+    /// `/state` — only the device is never asked for anything, which keeps
+    /// "is it silent" and "is it deciding" two separate questions.
+    Off,
+}
+
+impl Loudness {
+    /// Every step, in the order a picker offers them.
+    pub const ALL: [Self; 3] = [Self::Full, Self::Half, Self::Off];
+
+    /// The wire and storage spelling. Stable: an identifier, not a label.
+    #[must_use]
+    pub const fn key(self) -> &'static str {
+        match self {
+            Self::Full => "full",
+            Self::Half => "half",
+            Self::Off => "off",
+        }
+    }
+
+    /// What every cue's own amplitude is multiplied by.
+    ///
+    /// Half is **0.5 of the amplitude**, which is about −6 dB and reads as
+    /// "clearly quieter" rather than as "barely there"; a perceptual halving
+    /// would be nearer 0.25 and is a step too far for a table whose loudest
+    /// sound is already a tap.
+    #[must_use]
+    pub const fn gain(self) -> f32 {
+        match self {
+            Self::Full => 1.0,
+            Self::Half => 0.5,
+            Self::Off => 0.0,
+        }
+    }
+
+    /// Whether anything should be played at all.
+    #[must_use]
+    pub const fn audible(self) -> bool {
+        !matches!(self, Self::Off)
     }
 }
 
@@ -236,6 +333,47 @@ mod tests {
 
     fn who(n: u8) -> PlayerId {
         PlayerId::new(n)
+    }
+
+    /// [`Cue::ALL`] is every variant and each of them once.
+    ///
+    /// It cannot be derived, so it can go stale — and a stale entry is a
+    /// sound the sink never synthesises and nothing ever complains about.
+    /// The names are the check because [`Cue::name`] is a `match` the
+    /// compiler makes exhaustive: a tenth variant breaks that function, and
+    /// a duplicate here shows up as a short set.
+    #[test]
+    fn every_cue_is_in_all() {
+        let mut names: Vec<&str> = Cue::ALL.iter().map(|cue| cue.name()).collect();
+        names.sort_unstable();
+        names.dedup();
+        assert_eq!(names.len(), Cue::ALL.len(), "two entries name one cue");
+    }
+
+    /// The endings are exactly what an outcome produces, and nothing else.
+    ///
+    /// Two predicates over the same three variants is a thing to get
+    /// backwards once and never notice: a cue wrongly called an ending
+    /// silences whatever shares its frame, and an ending not called one
+    /// clips. So the list is built from [`Cue::of_outcome`] — the only thing
+    /// that makes an ending — rather than typed out a second time.
+    #[test]
+    fn an_ending_is_what_an_outcome_produces() {
+        let from_outcomes = [
+            Cue::of_outcome(Outcome::YouWon),
+            Cue::of_outcome(Outcome::YouLost),
+            Cue::of_outcome(Outcome::Draw),
+            Cue::of_outcome(Outcome::YourTeamWon(1)),
+            Cue::of_outcome(Outcome::TheirTeamWon(2)),
+        ];
+        for cue in Cue::ALL {
+            assert_eq!(
+                cue.ends_the_game(),
+                from_outcomes.contains(&cue),
+                "{} disagrees about being an ending",
+                cue.name()
+            );
+        }
     }
 
     fn table(life: &[i32]) -> Vec<baylee_view::SeatView> {

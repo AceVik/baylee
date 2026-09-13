@@ -14,6 +14,7 @@
 use crate::hud::{UiFonts, palette, tf};
 use crate::lobby::{Metrics, Press, button, chip, heading, panel, row};
 use baylee_client_core::automation::{RAIL_ROWS, RailPreset, RailSide};
+use baylee_client_core::cue::Loudness;
 use baylee_client_core::i18n::{Lang, Phrase};
 use baylee_client_core::prefs::{Action, AutoRule, Chord, Keymap, Preferences};
 use baylee_client_core::sky::SkyMode;
@@ -277,6 +278,8 @@ fn automation_panel(
     commands.entity(column).add_child(motion);
     let weather = sky_row(commands, prefs, lang, fonts, metrics);
     commands.entity(column).add_child(weather);
+    let loudness = sound_row(commands, prefs, lang, fonts, metrics);
+    commands.entity(column).add_child(loudness);
 
     let rail = heading(commands, fonts, metrics, Phrase::WhereToStop.text(lang));
     commands.entity(column).add_child(rail);
@@ -520,6 +523,70 @@ fn sky_row(
         commands.entity(line).add_child(pick);
     }
     line
+}
+
+/// The loudness picker: a heading, a line of why, and three chips.
+///
+/// Beside the sky's row and built the same way, because they are the same
+/// kind of setting — something the table does that changes nothing about the
+/// game, offered as a small closed set rather than as a number to tune.
+fn sound_row(
+    commands: &mut Commands,
+    prefs: &Preferences,
+    lang: Lang,
+    fonts: &UiFonts,
+    metrics: Metrics,
+) -> Entity {
+    let line = row(commands, metrics, true);
+    let label = commands
+        .spawn((
+            Node {
+                flex_grow: 1.0,
+                flex_direction: FlexDirection::Column,
+                ..default()
+            },
+            Pickable::IGNORE,
+            children![
+                (
+                    Text::new(Phrase::Sound.text(lang)),
+                    tf(fonts, metrics.text),
+                    TextColor(palette::INK),
+                ),
+                (
+                    Text::new(Phrase::SoundWhy.text(lang)),
+                    tf(fonts, metrics.small),
+                    TextColor(palette::MUTED),
+                )
+            ],
+        ))
+        .id();
+    commands.entity(line).add_child(label);
+    for offered in Loudness::ALL {
+        let pick = chip(
+            commands,
+            fonts,
+            metrics,
+            sound_name(offered).text(lang),
+            Press::PickSound(offered),
+            offered == prefs.sound,
+        );
+        commands.entity(line).add_child(pick);
+    }
+    line
+}
+
+/// The label a loudness step is offered under.
+///
+/// A `match` here rather than a method on [`Loudness`], for the reason
+/// [`sky_name`] gives: the enum lives in the renderer-free crate and
+/// `Phrase` is the interface's own vocabulary. `Loudness::key` stays the
+/// stored spelling.
+fn sound_name(level: Loudness) -> Phrase {
+    match level {
+        Loudness::Full => Phrase::SoundFull,
+        Loudness::Half => Phrase::SoundHalf,
+        Loudness::Off => Phrase::SoundOff,
+    }
 }
 
 /// The label a sky mode is offered under.

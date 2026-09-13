@@ -524,6 +524,7 @@ pub(super) fn clicks(
                 edit.reduce_motion = !edit.reduce_motion;
             }
             Press::PickSky(mode) => prefs.edit().sky = mode,
+            Press::PickSound(level) => prefs.edit().sound = level,
             Press::PickLang(lang) => {
                 state.lobby.set_lang(lang);
                 // One setting, two readers: the interface draws itself in
@@ -1099,6 +1100,8 @@ pub(crate) enum Press {
     PickLang(Lang),
     /// Put a sky behind the table, or let the clock choose one.
     PickSky(baylee_client_core::sky::SkyMode),
+    /// Turn the table up, down, or off.
+    PickSound(baylee_client_core::cue::Loudness),
     /// Turn one step of the phase rail red or green.
     ToggleRail(
         baylee_client_core::automation::RailSide,

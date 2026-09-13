@@ -122,6 +122,13 @@ bevy = { version = "0.19", default-features = false, features = [
     # bounds), so the swap costs nothing today and is what makes compute and
     # storage buffers reachable at all tomorrow.
     "x11", "wayland", "webgpu",
+    # Sound. `bevy_audio` is the device — rodio and cpal, which means
+    # CoreAudio, ALSA, WASAPI and, in a browser, an `AudioContext` that does
+    # not start until the player has clicked something. `wav` is the decoder,
+    # and it is the only format this client needs because it ships no audio
+    # files: `client::sound` computes PCM at startup and writes a RIFF header
+    # in front of it. See `docs/legal.md` §5.
+    "bevy_audio", "wav",
 ] }
 
 [workspace.lints.rust]

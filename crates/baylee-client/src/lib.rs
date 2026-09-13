@@ -923,7 +923,16 @@ impl Plugin for DuelPlugin {
             )
             .add_systems(
                 Startup,
-                (textures::setup, hud::setup_fonts, hud::setup_sheets),
+                (
+                    textures::setup,
+                    hud::setup_fonts,
+                    hud::setup_sheets,
+                    // Once, on the frame the app opens: fourteen buffers of
+                    // arithmetic, and thereafter fourteen handles. See
+                    // `sound`'s header for why they are computed and not
+                    // shipped.
+                    sound::voice_the_cues,
+                ),
             )
             .add_systems(
                 Update,

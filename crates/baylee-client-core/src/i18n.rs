@@ -467,6 +467,19 @@ messages! {
     SkyDay { en: "Day", de: "Tag" },
     /// Always stars and a crescent moon.
     SkyNight { en: "Night", de: "Nacht" },
+    /// Heading over the loudness picker.
+    Sound { en: "Sound", de: "Ton" },
+    /// What the table says out loud, in one line.
+    SoundWhy {
+        en: "Short tones for life, your turn, and the end of a game.",
+        de: "Kurze Töne für Leben, deinen Zug und das Spielende.",
+    },
+    /// Everything, at the levels the sink was balanced at.
+    SoundFull { en: "On", de: "An" },
+    /// The same balance, half the amplitude.
+    SoundHalf { en: "Quieter", de: "Leiser" },
+    /// Nothing at all.
+    SoundOff { en: "Off", de: "Aus" },
     /// Do the obvious thing
     ActPrimary { en: "Do the obvious thing", de: "Das Naheliegende tun" },
     /// Confirm / pass priority

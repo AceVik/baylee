@@ -671,6 +671,12 @@ pub struct Preferences {
     /// Weather, not rules: see [`crate::sky`] for why a client may decide
     /// this on its own and why the default follows the player's own clock.
     pub sky: crate::sky::SkyMode,
+    /// How loud the table is.
+    ///
+    /// Stored as a named step rather than a number, and defaulting to
+    /// [`Loudness::Full`](crate::cue::Loudness::Full), so a settings blob
+    /// written before there was sound opens a client that makes some.
+    pub sound: crate::cue::Loudness,
 }
 
 impl Preferences {
@@ -953,6 +959,30 @@ mod tests {
         let prefs = Preferences::from_json("{\"auto\":{\"pass_when_nothing_to_do\":true}}");
         assert!(prefs.auto.pass_when_nothing_to_do);
         assert_eq!(prefs.keymap, Keymap::standard(), "the keymap fell back");
+    }
+
+    /// A settings blob written before there was sound opens a *loud* client.
+    ///
+    /// The `Loudness` doc promises exactly this and nothing tested it. It is
+    /// the way round it has to be — a player who has been here longest would
+    /// otherwise be the one the feature looks broken to — and it is one word
+    /// away from the opposite, because `Off` is a variant like any other and
+    /// `#[derive(Default)]` takes whichever one carries the attribute.
+    #[test]
+    fn a_blob_from_before_there_was_sound_opens_a_client_that_can_be_heard() {
+        assert_eq!(
+            Preferences::from_json("{}").sound,
+            crate::cue::Loudness::Full
+        );
+        let prefs = Preferences {
+            sound: crate::cue::Loudness::Off,
+            ..Preferences::default()
+        };
+        assert_eq!(
+            Preferences::from_json(&prefs.to_json()).sound,
+            crate::cue::Loudness::Off,
+            "the silence did not survive"
+        );
     }
 
     #[test]

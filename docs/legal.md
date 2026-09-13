@@ -24,3 +24,14 @@ Urheber- und Medienrecht.
 4. **Privacy:** self-hosted; minimal account data; account deletion
    endpoint; no tracking. As a private, GitHub-hosted open-source project
    no Impressum is required (no commercial/public telemedia service).
+5. **Audio:** the client ships **no audio files**. Every sound it makes is
+   computed — `crates/baylee-client/src/sound.rs` writes PCM and a RIFF
+   header at startup, and nothing is fetched, bundled or sampled. This is
+   clause 2's reasoning applied to the ear rather than the eye: ornament is
+   the easiest thing to borrow by accident, and arithmetic borrows nothing.
+   It is the same decision the table's felt, the seat mats and the lobby's
+   backdrop were given, and it is the reason there is no "sounds/" directory
+   to audit. A player's own sound pack is a later question and a different
+   one — files a player supplies are theirs, not ours to distribute — and
+   `baylee_client_core::cue::Cue` is deliberately a named moment rather than
+   a file name so that answer stays open.
