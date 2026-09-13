@@ -525,14 +525,15 @@ pub fn keyboard(
     if aim_and_declare(fired, &mut duel) {
         return;
     }
-    if the_click(fired, &mut duel, &mut prefs) {
+    // Ahead of the primary key and of the straight answers, which is the
+    // whole of its precedence: while the dialog is the surface holding the
+    // question it owns both of §6's keys, and `the_click` would otherwise
+    // spend Enter on whatever card the pointer happens to be resting on
+    // behind the sheet.
+    if browser_answer_keys(fired, &mut duel) {
         return;
     }
-    // Before the straight answers and after the primary key, which is the
-    // whole of its precedence: it takes the confirm key away from
-    // `answer_the_question`, and it must not take Enter away from
-    // `the_click`, because Enter is how the dialog is answered at all.
-    if browser_answer_keys(fired, &mut duel) {
+    if the_click(fired, &mut duel, &mut prefs) {
         return;
     }
     if duel.interaction.is_some() {
@@ -1118,14 +1119,13 @@ fn aim_and_declare(fired: Fired, duel: &mut Duel) -> bool {
     false
 }
 
-/// The dialog's own keyboard, for the one key that meant two things.
+/// The dialog's own keyboard, for the two keys that meant something else.
 ///
 /// `docs/redesign-proposal.md` §6 is the spec: "Tab moves through rows, Space
-/// toggles, Enter confirms". Two of those three were already true in this
-/// client's vocabulary — [`Action::CombatFocusNext`] walks a `Mode::Objects`
-/// offer (its own doc says a target prompt is the same gesture), and
-/// [`Action::Primary`] is Enter and ends in confirm ([`the_click`]). The
-/// third was not, and the gap cost a game.
+/// toggles, Enter confirms". [`Action::CombatFocusNext`] was already the first
+/// of those — its own doc says walking a `Mode::Objects` offer is the same
+/// gesture as aiming at a blocker — and the other two both belonged to
+/// something else.
 ///
 /// [`Action::Confirm`] means "I am done here" *and* "pass priority", which is
 /// right everywhere but here: a `ChooseCards { min: 0 }` arrives while a
@@ -1134,14 +1134,38 @@ fn aim_and_declare(fired: Fired, duel: &mut Duel) -> bool {
 /// and no undo on the wire. A Solemn Simulacrum's search for a basic land was
 /// thrown away that way twice, and the land count never moved.
 ///
-/// So while the dialog is the surface holding the question, the confirm key
-/// ticks the focused row instead of sending. A stray press then does
-/// something the player can see and take back, which is the whole difference:
-/// the answer still needs Enter, or the footer's own two buttons.
+/// [`Action::Primary`] is Enter, and it did reach confirm — but only as
+/// [`the_click`]'s *third* branch, behind the card under the pointer. A card
+/// under the pointer is the ordinary state of a table with a dialog standing
+/// over it, so the key §6 gives the dialog was the one key the dialog was
+/// least likely to get: the pointer resting on the permanent whose ability
+/// asked the question is enough to take it.
+///
+/// So while the dialog is the surface holding the question, both keys belong
+/// to it. The confirm key ticks the focused row instead of sending — a stray
+/// press then does something the player can see and take back — and the
+/// primary key sends. Neither reaches the table behind the sheet, which is
+/// the whole point: `answers_here` is only true when the answer is *not* on
+/// the table, because [`baylee_client_core::browser::Browser::follow`] opens
+/// the sheet for a choice exactly when nothing on the table can answer it.
 ///
 /// Returns whether it consumed the frame.
 fn browser_answer_keys(fired: Fired, duel: &mut Duel) -> bool {
-    if !fired.has(Action::Confirm) || !duel.browser.answers_here(duel.interaction.as_ref()) {
+    if !duel.browser.answers_here(duel.interaction.as_ref()) {
+        return false;
+    }
+    if fired.has(Action::Primary) {
+        // Consumes the frame even when the answer is not complete — a `min`
+        // not reached yet, so `confirm` says no. The alternative is Enter
+        // falling through to the hovered card, which is the defect this
+        // branch exists to close, and it would fire on exactly the presses a
+        // player makes while still building the answer.
+        if let Some(action) = duel.interaction.as_ref().and_then(Interaction::confirm) {
+            duel.submit(action);
+        }
+        return true;
+    }
+    if !fired.has(Action::Confirm) {
         return false;
     }
     // Consumes the frame even when the focus stands on nothing selectable:
@@ -4176,6 +4200,59 @@ mod tests {
         let it = duel.interaction.as_ref().expect("the question stands");
         assert!(it.is_selected(obj(1)));
         assert!(duel.outbox().is_empty(), "ticking is not sending");
+    }
+
+    /// §6 gives the dialog Enter, and the table kept taking it.
+    ///
+    /// `the_click` answers the card under the pointer before anything else,
+    /// and a card under the pointer is the ordinary state of a table with a
+    /// sheet standing over it — the permanent whose ability asked the
+    /// question is usually the very card the pointer is resting on. So the
+    /// one key the dialog needs was the one key it was least likely to get,
+    /// and the press went to the table instead, silently.
+    ///
+    /// The second half of the test is what says the precedence matters: the
+    /// same press, on the same duel, is taken by `the_click` and spent on a
+    /// card that is not even part of the question.
+    #[test]
+    fn the_dialog_answers_enter_rather_than_the_card_under_the_pointer() {
+        use crate::keys::Fired;
+        use baylee_client_core::prefs::Keymap;
+
+        let keymap = Keymap::standard();
+        let space = press(bevy::prelude::KeyCode::Space);
+        let enter = press(bevy::prelude::KeyCode::Enter);
+
+        let mut duel = duel_searching(1);
+        // A row ticked, and the pointer left on something else entirely —
+        // the fetchland that asked the question, lying in the graveyard.
+        super::browser_answer_keys(Fired::of(&space, &keymap), &mut duel);
+        duel.hovered = Some(obj(7));
+
+        assert!(
+            super::browser_answer_keys(Fired::of(&enter, &keymap), &mut duel),
+            "the dialog takes the frame, so the dispatch never reaches the table"
+        );
+        assert_eq!(
+            duel.outbox(),
+            &[PlayerAction::ChooseObjects {
+                objects: vec![obj(1)]
+            }],
+            "Enter sent the answer the player had built"
+        );
+
+        // And what that precedence is holding back.
+        let mut table = duel_searching(1);
+        table.hovered = Some(obj(7));
+        let mut prefs = crate::prefs::Prefs::default();
+        assert!(
+            super::the_click(Fired::of(&enter, &keymap), &mut table, &mut prefs),
+            "the hovered card would have eaten the key"
+        );
+        assert!(
+            table.outbox().is_empty(),
+            "…and answered nothing with it, which is how the press vanished"
+        );
     }
 
     /// Cancel is the whole point of arming: it has to leave nothing behind.

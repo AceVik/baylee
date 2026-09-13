@@ -636,7 +636,19 @@ impl Browser {
     }
 
     /// Opens the panel on one zone — what a tap on a pile does.
+    ///
+    /// Refused while the panel is holding a question, for the reason
+    /// [`Self::show`] gives and one harder half: this is the only door that
+    /// writes `tab` without asking the lock, and it also turns a `ForChoice`
+    /// opening into a by-hand one — which takes the sheet away from the
+    /// question it was opened for, so `answers_here` goes false and the
+    /// question's own keys stop working on a dialog that is still on the
+    /// screen. A tap that lands on a pile while a search is standing open is
+    /// not a request to abandon the search.
     pub fn open_at(&mut self, zone: BrowseZone) {
+        if self.open == Opening::ForChoice {
+            return;
+        }
         self.open = Opening::ByHand;
         self.tab = Some(zone);
     }
@@ -2010,6 +2022,55 @@ mod tests {
         let rows = Browser::new().rows(&view, None, Names::projected());
         assert_eq!(rows.len(), 1);
         assert!(!rows[0].standing.focused);
+    }
+
+    /// A tap that lands on a pile is not a request to abandon the search.
+    ///
+    /// `open_at` is the only door that writes `tab` without asking the lock,
+    /// and it also turns a `ForChoice` opening into a by-hand one — so a tap
+    /// on a graveyard while a library search stood open took the sheet away
+    /// from the question, `answers_here` went false, and the question's own
+    /// keys stopped working on a dialog that was still on the screen.
+    #[test]
+    fn a_tap_on_a_pile_does_not_take_the_sheet_from_a_question() {
+        let view = ViewBuilder::new(2)
+            .with_looking_at(vec![printed(4, 0, "Forest", 3)])
+            .build();
+        let it = Interaction::new(
+            baylee_engine::choice::Pending::ChooseCards {
+                player: PlayerId::new(0),
+                options: vec![ObjectId::new(4, 0)],
+                min: 1,
+                max: 1,
+                prompt: baylee_engine::choice::ChoicePrompt::Generic,
+            },
+            PlayerId::new(0),
+        );
+        let mut b = Browser::new();
+        b.follow(&view, Some(&it));
+        assert!(b.answers_here(Some(&it)), "the sheet holds the question");
+
+        b.open_at(BrowseZone::Graveyard(PlayerId::new(0)));
+
+        assert!(
+            b.answers_here(Some(&it)),
+            "a tap on a pile took the sheet away from the question"
+        );
+        assert_eq!(
+            b.tab(),
+            Some(BrowseZone::Looking),
+            "and it must not have moved the tab either"
+        );
+    }
+
+    /// The counter-test: with no question standing, a tap on a pile is
+    /// exactly what opens that pile, which is the whole job of `open_at`.
+    #[test]
+    fn a_tap_on_a_pile_still_opens_that_pile() {
+        let mut b = Browser::new();
+        b.open_at(BrowseZone::Graveyard(PlayerId::new(0)));
+        assert!(b.is_open());
+        assert_eq!(b.tab(), Some(BrowseZone::Graveyard(PlayerId::new(0))));
     }
 
     /// The cycle is one control, so a direction must not survive a key change.
