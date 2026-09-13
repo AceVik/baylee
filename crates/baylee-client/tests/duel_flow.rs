@@ -1094,7 +1094,7 @@ fn can_reach(view: &PlayerView, interaction: &Interaction, id: baylee_core::ids:
         || browser
             .rows(view, Some(interaction), Names::projected())
             .iter()
-            .any(|r| r.id == id && r.selectable)
+            .any(|r| r.id == id && r.standing.selectable)
 }
 
 /// Questions no scenario in this file has ever put to the client.

@@ -61,6 +61,13 @@ const TRAY_GAP: f32 = 11.0;
 /// The checkbox. Also the width of the gutter a row that cannot be chosen
 /// leaves empty, so the names stay in one column.
 const TRAY_BOX: f32 = 15.0;
+/// The rail down the left edge of the row the keyboard stands on.
+///
+/// Every row reserves it and only the focused one paints it, so the focus
+/// moving never moves a name. Two pixels rather than one: the row already
+/// ends in a one-pixel rule and a focus the same weight as a separator is a
+/// separator.
+const TRAY_FOCUS: f32 = 2.0;
 /// One mana pip on a row.
 const TRAY_PIP: f32 = 15.0;
 /// What a cost is given: four pips and the air between them.
@@ -986,7 +993,7 @@ fn spawn_row(
     // and would be lifted to a brighter nothing, and a chosen one rests at a
     // tenth and would be lifted to a paler tenth. A hundred rows that did not
     // answer the pointer is the whole list not answering it.
-    let (fill, hot) = if row.selected {
+    let (fill, hot) = if row.standing.selected {
         (palette::CANDLE_WASH, palette::CANDLE_WASH_LIT)
     } else {
         (Color::NONE, palette::DIALOG_LIT)
@@ -1006,13 +1013,30 @@ fn spawn_row(
                 // that arithmetic one text metric away from being wrong.
                 height: px(TRAY_ROW_H),
                 padding: UiRect::axes(px(TRAY_SIDE), px(TRAY_ROW_PAD)),
-                border: UiRect::bottom(px(1)),
+                // Every row carries the focus rail's width, and only the
+                // focused one carries its colour: a border that appeared
+                // would shift that row's whole content sideways, and a list
+                // whose rows step in and out as the focus passes is worse to
+                // read than no focus at all.
+                border: UiRect {
+                    left: px(TRAY_FOCUS),
+                    bottom: px(1),
+                    ..default()
+                },
                 flex_shrink: 0.0,
                 overflow: Overflow::clip(),
                 ..default()
             },
             BackgroundColor(fill),
-            BorderColor::all(palette::DIALOG_LINE),
+            BorderColor {
+                left: if row.standing.focused {
+                    palette::CANDLE_EDGE
+                } else {
+                    Color::NONE
+                },
+                bottom: palette::DIALOG_LINE,
+                ..BorderColor::all(Color::NONE)
+            },
             Feel::rising_to(fill, hot),
         ))
         .id();
@@ -1036,14 +1060,14 @@ fn spawn_row(
             TRAY_BOX / 2.0,
             row.place.map(|place| place.to_string()),
         )
-    } else if row.selected {
+    } else if row.standing.selected {
         (
             palette::CANDLE,
             palette::CANDLE,
             3.0,
             Some(glyph::CHECK.to_string()),
         )
-    } else if row.selectable {
+    } else if row.standing.selectable {
         (Color::NONE, palette::DIALOG_SOFT, 3.0, None)
     } else {
         (Color::NONE, Color::NONE, 3.0, None)

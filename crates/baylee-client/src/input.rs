@@ -528,6 +528,13 @@ pub fn keyboard(
     if the_click(fired, &mut duel, &mut prefs) {
         return;
     }
+    // Before the straight answers and after the primary key, which is the
+    // whole of its precedence: it takes the confirm key away from
+    // `answer_the_question`, and it must not take Enter away from
+    // `the_click`, because Enter is how the dialog is answered at all.
+    if browser_answer_keys(fired, &mut duel) {
+        return;
+    }
     if duel.interaction.is_some() {
         answer_the_question(fired, &mut duel, &mut prefs);
     }
@@ -1109,6 +1116,41 @@ fn aim_and_declare(fired: Fired, duel: &mut Duel) -> bool {
         return true;
     }
     false
+}
+
+/// The dialog's own keyboard, for the one key that meant two things.
+///
+/// `docs/redesign-proposal.md` §6 is the spec: "Tab moves through rows, Space
+/// toggles, Enter confirms". Two of those three were already true in this
+/// client's vocabulary — [`Action::CombatFocusNext`] walks a `Mode::Objects`
+/// offer (its own doc says a target prompt is the same gesture), and
+/// [`Action::Primary`] is Enter and ends in confirm ([`the_click`]). The
+/// third was not, and the gap cost a game.
+///
+/// [`Action::Confirm`] means "I am done here" *and* "pass priority", which is
+/// right everywhere but here: a `ChooseCards { min: 0 }` arrives while a
+/// player is passing priority through a stack of triggers, and the next press
+/// in that rhythm answered it with "nothing found" — silently, with no trace
+/// and no undo on the wire. A Solemn Simulacrum's search for a basic land was
+/// thrown away that way twice, and the land count never moved.
+///
+/// So while the dialog is the surface holding the question, the confirm key
+/// ticks the focused row instead of sending. A stray press then does
+/// something the player can see and take back, which is the whole difference:
+/// the answer still needs Enter, or the footer's own two buttons.
+///
+/// Returns whether it consumed the frame.
+fn browser_answer_keys(fired: Fired, duel: &mut Duel) -> bool {
+    if !fired.has(Action::Confirm) || !duel.browser.answers_here(duel.interaction.as_ref()) {
+        return false;
+    }
+    // Consumes the frame even when the focus stands on nothing selectable:
+    // the point is that this key does not reach `confirm` while the dialog
+    // is up, and a `Rejected` that fell through would reach it.
+    if let Some(i) = duel.interaction.as_mut() {
+        i.toggle_focused();
+    }
+    true
 }
 
 /// The primary key, with its fixed precedence: the card under the cursor,
@@ -3809,6 +3851,136 @@ mod tests {
             "a card with two ways to play it fired one of them on the click"
         );
         assert!(duel.armed.is_some());
+    }
+
+    /// A duel sitting on a `ChooseCards { min: 0 }` with the dialog open on
+    /// it — a Solemn Simulacrum's search for a basic land, which is the
+    /// shape AE6 was seen in twice.
+    fn duel_searching(min: u8) -> crate::Duel {
+        use baylee_engine::choice::ChoicePrompt;
+        let mut duel = crate::Duel {
+            interaction: Some(Interaction::new(
+                Pending::ChooseCards {
+                    player: PlayerId::new(0),
+                    options: vec![obj(1), obj(2)],
+                    min,
+                    max: 1,
+                    prompt: ChoicePrompt::Generic,
+                },
+                PlayerId::new(0),
+            )),
+            ..Default::default()
+        };
+        // Through the real door: `follow` is what opens the sheet for a
+        // question, and `answers_here` is false for a sheet opened any other
+        // way — so poking the state would test a configuration the client
+        // cannot reach.
+        let view = baylee_client_core::test_support::ViewBuilder::new(2).build();
+        // Destructured so the two fields are borrowed apart: `Interaction`
+        // is not `Clone`, and it should not become one for a test.
+        let crate::Duel {
+            browser,
+            interaction,
+            ..
+        } = &mut duel;
+        browser.follow(&view, interaction.as_ref());
+        assert!(
+            duel.browser.answers_here(duel.interaction.as_ref()),
+            "the dialog is the surface holding the question"
+        );
+        duel
+    }
+
+    fn press(name: bevy::prelude::KeyCode) -> bevy::input::ButtonInput<bevy::prelude::KeyCode> {
+        let mut keys = bevy::input::ButtonInput::default();
+        keys.press(name);
+        keys
+    }
+
+    /// AE6, and the whole reason the dialog has a keyboard of its own.
+    ///
+    /// The confirm key is Space and means two things — "I am done here" and
+    /// "pass priority". Three triggers go on the stack, the player passes
+    /// through them, and a `ChooseCards { min: 0 }` arrives mid-rhythm: the
+    /// next press answered it with "nothing found", with no trace and no
+    /// undo, and the land the search was for never entered play.
+    ///
+    /// `docs/redesign-proposal.md` §6 says Space toggles in this dialog, and
+    /// that is also the fix: a stray press now does something visible that
+    /// the same key takes back.
+    #[test]
+    fn the_confirm_key_cannot_throw_a_search_away() {
+        use crate::keys::Fired;
+        use baylee_client_core::prefs::Keymap;
+
+        let mut duel = duel_searching(0);
+        let keymap = Keymap::standard();
+        let keys = press(bevy::prelude::KeyCode::Space);
+
+        assert!(super::browser_answer_keys(
+            Fired::of(&keys, &keymap),
+            &mut duel
+        ));
+        assert!(
+            duel.outbox().is_empty(),
+            "the search was answered with nothing"
+        );
+        let it = duel.interaction.as_ref().expect("the question stands");
+        assert!(it.is_selected(obj(1)), "the focused row was ticked instead");
+        // And the same key again takes it back, which is what makes the
+        // stray press harmless rather than merely slower.
+        assert!(super::browser_answer_keys(
+            Fired::of(&keys, &keymap),
+            &mut duel
+        ));
+        let it = duel
+            .interaction
+            .as_ref()
+            .expect("the question still stands");
+        assert!(!it.is_selected(obj(1)));
+        assert!(duel.outbox().is_empty());
+    }
+
+    /// The counter-test, because "Space does nothing now" would pass the one
+    /// above: with no dialog holding the question the key is a pass again.
+    #[test]
+    fn the_confirm_key_still_passes_priority_with_no_dialog_up() {
+        use crate::keys::Fired;
+        use baylee_client_core::prefs::Keymap;
+
+        let mut duel = window_with(vec![], vec![]);
+        let keymap = Keymap::standard();
+        let keys = press(bevy::prelude::KeyCode::Space);
+        let fired = Fired::of(&keys, &keymap);
+
+        assert!(
+            !super::browser_answer_keys(fired, &mut duel),
+            "no dialog, so the dialog's keyboard declines the frame"
+        );
+        let mut prefs = crate::prefs::Prefs::default();
+        super::answer_the_question(fired, &mut duel, &mut prefs);
+        assert_eq!(duel.outbox(), &[PlayerAction::PassPriority]);
+    }
+
+    /// And a search that *must* take a card is no different: the key was
+    /// never able to answer that one, and it still ticks rather than
+    /// reaching past the dialog to a confirm that would be refused.
+    #[test]
+    fn a_search_with_a_minimum_is_ticked_by_the_same_key() {
+        use crate::keys::Fired;
+        use baylee_client_core::prefs::Keymap;
+
+        let mut duel = duel_searching(1);
+        let keymap = Keymap::standard();
+        let keys = press(bevy::prelude::KeyCode::Space);
+
+        assert!(super::browser_answer_keys(
+            Fired::of(&keys, &keymap),
+            &mut duel
+        ));
+        let it = duel.interaction.as_ref().expect("the question stands");
+        assert!(it.is_selected(obj(1)));
+        assert!(duel.outbox().is_empty(), "ticking is not sending");
     }
 
     /// Cancel is the whole point of arming: it has to leave nothing behind.

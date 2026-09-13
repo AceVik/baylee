@@ -1058,6 +1058,23 @@ impl Interaction {
         self.aim()
     }
 
+    /// Ticks whatever the focus is standing on.
+    ///
+    /// The other half of [`Self::cycle_focus`], and the pair is what a
+    /// keyboard has instead of a pointer: one walks the offer, this acts on
+    /// where it stopped. Combat has had the walk since the focus existed and
+    /// never had this, because there the *declaration* keys do the acting.
+    ///
+    /// `Rejected` when the focus stands on nothing, which is every mode that
+    /// has no focus to begin with.
+    pub fn toggle_focused(&mut self) -> SelectionOutcome {
+        match self.aim() {
+            Some(Pick::Object(id)) => self.toggle(id),
+            Some(Pick::Seat(player)) => self.toggle_player(player),
+            None => SelectionOutcome::Rejected,
+        }
+    }
+
     /// What the aim keys are standing on.
     ///
     /// Combat aims at the *second* half of the pair — the defender an attack
@@ -1699,6 +1716,48 @@ mod tests {
         assert_eq!(i.toggle(obj(3)), SelectionOutcome::Full);
         assert_eq!(i.toggle(obj(1)), SelectionOutcome::Removed);
         assert_eq!(i.toggle(obj(3)), SelectionOutcome::Added);
+    }
+
+    /// The keyboard's half of a list of cards: one key walks the offer, the
+    /// other acts where it stopped. Without the second there is no way to
+    /// answer a search from the keyboard at all — which is how the confirm
+    /// key came to be doing it, and how a `min: 0` search came to be
+    /// answered with "nothing" by a player who was passing priority.
+    #[test]
+    fn the_focus_keys_can_build_a_whole_answer_on_their_own() {
+        let mut i = interaction(Pending::ChooseCards {
+            player: me(),
+            options: vec![obj(1), obj(2), obj(3)],
+            min: 0,
+            max: 2,
+            prompt: ChoicePrompt::Generic,
+        });
+        // The focus starts on the first option, so this needs no walk.
+        assert_eq!(i.aim(), Some(Pick::Object(obj(1))));
+        assert_eq!(i.toggle_focused(), SelectionOutcome::Added);
+        assert_eq!(i.selected().collect::<Vec<_>>(), vec![obj(1)]);
+        // And it takes back where it ticked, which is what makes a stray
+        // press harmless: the same key on the same row undoes it.
+        assert_eq!(i.toggle_focused(), SelectionOutcome::Removed);
+        assert!(i.selected().next().is_none());
+        // Walk, then tick: the pair reaches any row in the list.
+        i.cycle_focus(2);
+        assert_eq!(i.aim(), Some(Pick::Object(obj(3))));
+        assert_eq!(i.toggle_focused(), SelectionOutcome::Added);
+        assert_eq!(i.selected().collect::<Vec<_>>(), vec![obj(3)]);
+    }
+
+    /// Every mode that has no focus has nothing to tick, and says so rather
+    /// than reaching for whatever happens to be first.
+    #[test]
+    fn a_question_with_no_focus_ticks_nothing() {
+        let mut i = interaction(Pending::Mulligan {
+            player: me(),
+            taken: 0,
+            next_is_free: true,
+        });
+        assert_eq!(i.aim(), None);
+        assert_eq!(i.toggle_focused(), SelectionOutcome::Rejected);
     }
 
     #[test]

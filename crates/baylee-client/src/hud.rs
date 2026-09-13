@@ -830,6 +830,19 @@ pub(crate) mod palette {
     /// saturated candle across the list would make the chosen row the only
     /// thing on the sheet anyone can see.
     pub const CANDLE_WASH: Color = Color::srgba(0.878, 0.604, 0.227, 0.10);
+    /// The rail down the edge of the row the keyboard is standing on.
+    ///
+    /// [`CANDLE`] dimmed, which is the grammar's own word for it: bright
+    /// candle is an offer the *engine* made, and this is the client
+    /// volunteering where the next press would land — a claim about the
+    /// keyboard, not about the game. A rail and not a wash because
+    /// [`CANDLE_WASH`] already means "chosen" on the same row, and the focus
+    /// stands on rows that are not chosen and leaves rows that are.
+    ///
+    /// More opaque than either wash and still short of [`CANDLE`], because a
+    /// two-pixel edge and a full-width fill do not read alike at one alpha:
+    /// the wash is faint precisely because it covers the whole row.
+    pub const CANDLE_EDGE: Color = Color::srgba(0.878, 0.604, 0.227, 0.55);
     /// The veil drawn over the table behind a dialog that holds the whole
     /// answer, at full strength.
     ///

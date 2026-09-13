@@ -140,10 +140,8 @@ pub struct BrowseRow {
     pub art: Option<ImageKey>,
     /// Where it is.
     pub zone: BrowseZone,
-    /// Whether the pending choice would accept it.
-    pub selectable: bool,
-    /// Whether it is part of the answer being assembled.
-    pub selected: bool,
+    /// How the pending question stands towards this row.
+    pub standing: RowStanding,
     /// Its one-based place in an ordering, for `Pending::OrderObjects`.
     ///
     /// `None` for every other choice: a number beside a card in a plain
@@ -161,6 +159,33 @@ pub struct BrowseRow {
     /// 111.7), so a row that looked like a card there would be inviting a
     /// player to plan around something that is about to be gone.
     pub token: bool,
+}
+
+/// How the pending question stands towards one row.
+///
+/// Three independent facts and not a ladder — a row can be offered and not
+/// chosen, chosen and not stood on, stood on and not offered, because the
+/// list shows cards the offer does not reach and the focus walks the offer
+/// rather than the list.
+///
+/// They travel together because they are drawn together and because the last
+/// of them is what made four bools on a row: grouping them says out loud
+/// what the three have in common, which is that each is about *this
+/// question* and none is about the card.
+///
+/// The split inside the group is worth knowing. `selectable` and `selected`
+/// are claims about the **answer** — what the engine will take, and what
+/// this seat has put in it. `focused` is a claim about the **keyboard**:
+/// where the next press would land, decided by the client alone and true
+/// even when no answer has been touched.
+#[derive(Clone, Copy, Default, PartialEq, Eq, Debug)]
+pub struct RowStanding {
+    /// Whether the pending choice would accept this row.
+    pub selectable: bool,
+    /// Whether it is part of the answer being assembled.
+    pub selected: bool,
+    /// Whether the keyboard's focus is standing on it.
+    pub focused: bool,
 }
 
 /// The name a card is printed with, in the language this seat reads.
@@ -950,8 +975,15 @@ impl Browser {
                         .map(|c| ImageKey::new(c.print, c.face, ArtSize::Small))
                         .or_else(|| object.token.map(|t| ImageKey::token(t, ArtSize::Small))),
                     zone,
-                    selectable,
-                    selected: mine.is_some_and(|it| it.is_selected(object.id)),
+                    standing: RowStanding {
+                        selectable,
+                        selected: mine.is_some_and(|it| it.is_selected(object.id)),
+                        focused: mine
+                            .and_then(crate::interaction::Interaction::aim)
+                            .is_some_and(|pick| {
+                                pick == crate::interaction::Pick::Object(object.id)
+                            }),
+                    },
                     place: ordering
                         .then(|| mine.and_then(|it| it.selected().position(|o| o == object.id)))
                         .flatten()
@@ -1113,7 +1145,10 @@ mod tests {
         let rows = b.rows(&view, Some(&it), Names::projected());
         assert_eq!(rows.len(), 4);
         assert!(rows.iter().all(|r| r.zone == BrowseZone::Looking));
-        assert!(rows.iter().all(|r| r.selectable), "all four were offered");
+        assert!(
+            rows.iter().all(|r| r.standing.selectable),
+            "all four were offered"
+        );
         assert!(rows.iter().all(|r| r.art.is_some()), "each has a picture");
     }
 
@@ -1581,7 +1616,7 @@ mod tests {
             let rows = b.rows(&view, Some(&it), Names::projected());
             for id in it.selectable() {
                 let on_table = table.contains(id);
-                let in_tray = rows.iter().any(|r| r.id == *id && r.selectable);
+                let in_tray = rows.iter().any(|r| r.id == *id && r.standing.selectable);
                 assert!(
                     on_table || in_tray,
                     "{pending:?} offers {id:?} and nothing draws it"
@@ -1771,7 +1806,7 @@ mod tests {
         assert!(
             b.rows(&view, Some(&it), Names::projected())
                 .iter()
-                .all(|r| !r.selectable),
+                .all(|r| !r.standing.selectable),
             "a graveyard card is not a legal discard"
         );
     }
@@ -1788,7 +1823,10 @@ mod tests {
         let rows = b.rows(&view, None, Names::projected());
         assert_eq!(rows.len(), 1, "the tab confines it to one pile");
         assert_eq!(rows[0].name, "Birds of Paradise");
-        assert!(!rows[0].selectable, "there is nothing to select for");
+        assert!(
+            !rows[0].standing.selectable,
+            "there is nothing to select for"
+        );
         assert!(rows[0].place.is_none());
 
         b.show(None);
@@ -1912,6 +1950,66 @@ mod tests {
             "the exile card sorted ahead of the graveyard it is not in"
         );
         assert_eq!(rows[1].zone, BrowseZone::Exile(PlayerId::new(0)));
+    }
+
+    /// Where the keyboard is standing has to reach the row, or the key that
+    /// ticks it is ticking something the player cannot pick out of a list.
+    ///
+    /// One row at a time, and never the chosen one by accident: `focused`
+    /// and `selected` are two different claims about the same row — the
+    /// client saying where a press would land, and the answer itself.
+    #[test]
+    fn the_row_the_keyboard_stands_on_says_so() {
+        let view = ViewBuilder::new(2)
+            .with_graveyard(
+                0,
+                vec![
+                    printed(4, 0, "Llanowar Elves", 3),
+                    printed(5, 0, "Forest", 4),
+                ],
+            )
+            .build();
+        let mut it = Interaction::new(
+            baylee_engine::choice::Pending::ChooseCards {
+                player: PlayerId::new(0),
+                options: vec![ObjectId::new(4, 0), ObjectId::new(5, 0)],
+                min: 0,
+                max: 2,
+                prompt: baylee_engine::choice::ChoicePrompt::Generic,
+            },
+            PlayerId::new(0),
+        );
+        let b = Browser::new();
+        let focus_of = |it: &Interaction| -> Vec<bool> {
+            b.rows(&view, Some(it), Names::projected())
+                .iter()
+                .map(|row| row.standing.focused)
+                .collect()
+        };
+        assert_eq!(focus_of(&it), vec![true, false], "it starts on the first");
+        it.cycle_focus(1);
+        assert_eq!(focus_of(&it), vec![false, true], "and the walk moves it");
+        // Ticking the second leaves the focus exactly where it was: one row
+        // is chosen, the same row is focused, and they are still two flags.
+        it.toggle_focused();
+        let rows = b.rows(&view, Some(&it), Names::projected());
+        assert_eq!(
+            rows.iter()
+                .map(|r| (r.standing.focused, r.standing.selected))
+                .collect::<Vec<_>>(),
+            vec![(false, false), (true, true)]
+        );
+    }
+
+    /// A panel with no question in front of it stands on nothing.
+    #[test]
+    fn a_browse_with_no_question_focuses_no_row() {
+        let view = ViewBuilder::new(2)
+            .with_graveyard(0, vec![printed(4, 0, "Forest", 3)])
+            .build();
+        let rows = Browser::new().rows(&view, None, Names::projected());
+        assert_eq!(rows.len(), 1);
+        assert!(!rows[0].standing.focused);
     }
 
     /// The cycle is one control, so a direction must not survive a key change.
@@ -2090,7 +2188,7 @@ mod tests {
             Browser::new()
                 .rows(&view, Some(&it), Names::projected())
                 .iter()
-                .all(|r| !r.selectable),
+                .all(|r| !r.standing.selectable),
             "watching another seat choose is not choosing"
         );
     }
