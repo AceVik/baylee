@@ -940,6 +940,10 @@ fn spawn_sheet(
         // directly under the bubble and has not moved; the footer says which
         // key arms and which sends, and nothing here arms — a pip is one
         // press. What is left is the question itself.
+        if let Some(prefix) = prefix_of(duel, object, options) {
+            let mark = spawn_prefix(commands, fonts, &prefix);
+            commands.entity(sheet).add_child(mark);
+        }
         for (at, option) in options.iter().enumerate() {
             let Some(pour) = option.pour else { continue };
             let pip = spawn_pour(commands, fonts, at, pour.color, duel.ability_pick == at);
@@ -958,7 +962,7 @@ fn spawn_sheet(
     // in the list of things this permanent does — it is the one thing the
     // permanent does that a symbol can say outright.
     if split.pips > 0 {
-        let strip = spawn_pour_strip(commands, fonts, duel, options, split);
+        let strip = spawn_pour_strip(commands, fonts, duel, object, options, split);
         commands.entity(sheet).add_child(strip);
     }
 
@@ -1505,6 +1509,7 @@ fn spawn_pour_strip(
     commands: &mut Commands,
     fonts: &UiFonts,
     duel: &Duel,
+    object: ObjectId,
     options: &[crate::abilities::AbilityOption],
     split: crate::abilities::Split,
 ) -> Entity {
@@ -1532,12 +1537,60 @@ fn spawn_pour_strip(
             Pickable::IGNORE,
         ))
         .id();
+    // The same rule the bubble asks: a header of pips that all stand for one
+    // tap whose pour is not a number says how many as well as which colour.
+    // On a sheet it is ordinarily `None` — the tap the pips won is the one a
+    // player can predict, which is what [`crate::abilities::pour_out`] gives
+    // them to — and it is asked anyway, because "which pips" is the same
+    // question in both places and two answers to it would drift.
+    if let Some(prefix) = prefix_of(duel, object, &options[..split.pips]) {
+        let mark = spawn_prefix(commands, fonts, &prefix);
+        commands.entity(strip).add_child(mark);
+    }
     for (at, option) in options.iter().enumerate().take(split.pips) {
         let Some(pour) = option.pour else { continue };
         let pip = spawn_pour(commands, fonts, at, pour.color, duel.ability_pick == at);
         commands.entity(strip).add_child(pip);
     }
     strip
+}
+
+/// What stands before a row of pips, if anything does.
+///
+/// [`crate::abilities::bubble_prefix`] is the rule; this is only the lookup
+/// that gets a `PlayerView` to it, so that both places that draw pips — the
+/// bubble and the strip on a sheet — ask the one question rather than each
+/// deciding for themselves.
+fn prefix_of(
+    duel: &Duel,
+    object: ObjectId,
+    options: &[crate::abilities::AbilityOption],
+) -> Option<String> {
+    crate::abilities::bubble_prefix(duel.view.as_ref()?, object, options)
+}
+
+/// `X×`, set before the pips it multiplies.
+///
+/// Ink and not brass: it is part of the question, at the weight the row's own
+/// words are set in, and the two registers that are not ink on this sheet are
+/// both *states* — see [`PICK_MARK`]. Set at the pip's own size because that
+/// is what it is a multiplier on, and `Pickable::IGNORE` because it is the
+/// one thing on a bubble that is not a control.
+fn spawn_prefix(commands: &mut Commands, fonts: &UiFonts, text: &str) -> Entity {
+    commands
+        .spawn((
+            Text::new(text.to_string()),
+            crate::hud::tf(fonts, POUR_MARK * 0.8),
+            TextColor(palette::SLIP_INK),
+            Node {
+                // The bubble's own `column_gap` is the air between two pips,
+                // which is too little between a word and a symbol.
+                margin: UiRect::right(px(POUR_AIR)),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id()
 }
 
 /// One pip of a mana bubble: the colour, and the whole of the control.

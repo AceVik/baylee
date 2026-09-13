@@ -2023,6 +2023,25 @@ can say "white" but not "white, and only on Ally spells"), or it lost every
 colour to another tap (the Druid above, whose own ability had simply vanished
 from the sheet). Either way the row is written out and the digits count it.
 
+**A written mana row that is a number nobody here can count is a step, not a
+send.** Pressing the Druid's row would otherwise tap the card and hand the
+colour to the engine's own chooser; what it does instead is step *into* that
+tap — `Duel::ability_tap`, read through `asking_tap`, so a value that outlives
+its sheet is inert — and `abilities::options_for` then answers with that one
+tap's pips and nothing else. The sheet is a bubble, the card is untapped, and
+the press that answers is what taps it, which is the bargain every bubble has
+always struck. `Esc` is one step back to the sheet.
+
+Such a bubble carries a **prefix**, and by one rule rather than a special
+case: *a bubble whose pips all stand for one tap whose pour is not a number
+says how many as well as which colour.* `abilities::bubble_prefix` is the
+rule, and it covers the Druid alone — whose bubble opens straight off a click,
+and which is the same question — as well as the Druid under a Guide. It is
+`X×` and not the number: counting the Allies means evaluating a `Filter`
+against a `PlayerView`, and no such evaluator exists this side of the wire,
+while a wrong count drawn as a fact would be worse than the letter the card
+itself prints.
+
 The sheet is answerable without a pointer, which the old chooser was not: it
 opened, took the keyboard hostage and let go of it only for `Esc`, while
 confirm reached `Interaction::confirm` — which during priority means *pass* —

@@ -266,6 +266,9 @@ pub fn activate_card(duel: &mut Duel, object: ObjectId) -> Answer {
                     duel.ability_menu = Some(object);
                     duel.ability_pick = 0;
                     duel.ability_page = 0;
+                    // A fresh sheet is the whole list, never a tap somebody
+                    // stepped into on the card before it.
+                    duel.ability_tap = None;
                 }
                 return Answer::Took;
             }
@@ -365,6 +368,36 @@ fn arm_ability(
             crate::RunEnd::Float,
         ));
         return true;
+    }
+    // A **written** mana row: the pips could not stand for this tap, because
+    // what one press of it pours is a number this side cannot count. Sending
+    // it would tap the card and hand the colour question to the engine's own
+    // chooser; what the owner asked for is the mana dialog, so the press
+    // steps into the tap and the sheet becomes that tap's bubble.
+    //
+    // Nothing is on the wire yet, which is the same bargain a bubble has
+    // always struck: the card is tapped by the press that answers, not by the
+    // press that asked.
+    if option.mana
+        && let PlayerAction::ActivateAbility {
+            source,
+            ability_index,
+        } = option.action
+        && source == object
+        && let Some(view) = duel.view.as_ref()
+        && !crate::manasources::countable(
+            view,
+            object,
+            baylee_client_core::manaplan::Tap::Ability(ability_index),
+        )
+    {
+        duel.last_error = None;
+        duel.armed = None;
+        duel.ability_menu = Some(object);
+        duel.ability_tap = Some(ability_index);
+        duel.ability_pick = 0;
+        duel.ability_page = 0;
+        return false;
     }
     // Whether this row is armed already is never asked here: `fire_armed` is
     // the path for that, and it re-resolves the deed against the current
@@ -509,11 +542,17 @@ const STALE: &str = "the engine no longer offers that";
 fn abilities_of(duel: &Duel, object: ObjectId) -> Option<Vec<crate::abilities::AbilityOption>> {
     let view = duel.view.as_ref()?;
     let interaction = duel.interaction.as_ref()?;
-    Some(crate::abilities::options(
+    Some(crate::abilities::options_for(
         baylee_client_core::Lang::En,
         view,
         interaction,
         object,
+        // Only about the permanent whose sheet is standing. `activate_card`
+        // asks this of whatever was clicked, and a sub-bubble opened over a
+        // stranger would be the last sheet's question drawn on a new card.
+        (duel.ability_menu == Some(object))
+            .then(|| duel.asking_tap())
+            .flatten(),
     ))
 }
 
@@ -984,7 +1023,17 @@ pub fn ability_menu_keys(fired: Fired, duel: &mut Duel) -> bool {
     // The list can shrink under a page that was valid when it was turned to.
     duel.ability_page = abilitysheet::clamp(split.numbered().1, duel.ability_page);
     if fired.has(Action::Cancel) {
-        duel.ability_menu = None;
+        // One step back, not all the way out. A sub-bubble was opened by a
+        // press on a row of a sheet that is still the answer to the click,
+        // and there is no undo in this client anywhere else either — `Esc`
+        // takes back the last thing a player said, which here is "that tap".
+        if duel.asking_tap().is_some() {
+            duel.ability_tap = None;
+            duel.ability_pick = 0;
+            duel.ability_page = 0;
+        } else {
+            duel.ability_menu = None;
+        }
         return true;
     }
     let down = i32::from(fired.has(Action::CursorDown)) - i32::from(fired.has(Action::CursorUp));

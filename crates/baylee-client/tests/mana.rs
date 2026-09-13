@@ -1400,6 +1400,18 @@ fn a_land_that_asks_which_colour_is_not_tapped_until_the_answer() {
         ],
         "white then blue, in `ManaColor` order"
     );
+    // The counter-test to Round eight's prefix: a Tundra pours one mana per
+    // press, so there is no multiplier to draw and drawing one would be a
+    // claim about the card.
+    assert_eq!(
+        baylee_client::abilities::bubble_prefix(
+            duel.view.as_ref().expect("a view"),
+            tundra,
+            &options
+        ),
+        None,
+        "a land's pip is one mana and says so by saying nothing"
+    );
 
     // The second pip: blue. One press, and the activation goes out with the
     // colour already decided.
@@ -1499,6 +1511,14 @@ fn a_creature_whose_only_ability_is_mana_gets_the_same_five_pips() {
             ManaColor::Green
         ],
         "any one colour, in WUBRG order"
+    );
+    // Round eight's third point reaches here too, and by the same rule rather
+    // than by a second one: five pips, all of a tap whose pour is not a
+    // number, so the bubble says how *many* as well as which.
+    assert_eq!(
+        abilities::bubble_prefix(duel.view.as_ref().expect("a view"), druid, &options).as_deref(),
+        Some("X×"),
+        "the Druid alone is the same question as the Druid under a Guide"
     );
 
     activate_card(&mut duel, druid);
@@ -1708,14 +1728,119 @@ fn a_second_mana_tap_the_pips_cannot_stand_for_keeps_its_sentence() {
         sheet_digit(&mut duel, '1'),
         "the digit names the written row"
     );
+    // Round eight's third point: *"wenn man den Effekt auswählt, dann
+    // verschwindet der Abilities Dialog und es wird wieder der Mana Dialog
+    // angezeigt"*. The press does not send — this tap makes X mana of **one**
+    // colour, and which colour is the only question it has left.
     assert!(duel.mana_run.is_none(), "which is not a pour");
+    assert!(duel.outbox().is_empty(), "and still taps nothing");
+    assert_eq!(duel.ability_menu, Some(druid), "the sheet stands");
+    assert_eq!(duel.asking_tap(), Some(0), "as that tap's own bubble");
+}
+
+/// Round eight's third point, end to end: the written row opens a bubble of
+/// its own, and one pip of it pours **two green**.
+///
+/// Reported as *"wenn man den Effekt auswählt, dann verschwindet der Abilities
+/// Dialog und es wird wieder der Mana Dialog angezeigt, allerdings mit einem
+/// Präfix … Entweder Xx(Symbol Auswahl), oder für X direkt ausgerechnet die
+/// Anzahl an Allys die ich kontrolliere."*
+///
+/// The last assertion is also the engine half's proof. Harabaz Druid prints
+/// "Add X mana of any **one** color" and was written with
+/// `Effect::mana_combination`, which the engine reads as a colour pick per
+/// mana — so two Allies used to be two questions and could come out `{W}{U}`.
+/// Two green out of one press is both halves at once.
+#[test]
+fn the_x_row_opens_a_bubble_whose_pip_pours_all_of_x_in_one_colour() {
+    use baylee_client::input::{activate_card, sheet_digit};
+    use baylee_client::{Duel, abilities, advance_mana_run};
+    use baylee_client_core::interaction::Interaction;
+
+    let mut preset = bubble_preset();
+    preset.seats[0].starting_battlefield = vec![entry(SQUAD), entry(HARABAZ)];
+    let mut table = Table::open_with(&preset);
+    table.walk_to_main();
+
+    let druid = table
+        .view()
+        .battlefield
+        .iter()
+        .find(|o| o.name == "Harabaz Druid")
+        .expect("the creature starts on the table")
+        .id;
+
+    let mut duel = Duel::default();
+    let refresh = |duel: &mut Duel, table: &Table| {
+        duel.view = Some(table.view().clone());
+        duel.interaction = Some(Interaction::new(
+            table.pending.clone().expect("priority"),
+            PlayerId::new(0),
+        ));
+        baylee_client::rebuild_board(duel);
+    };
+    refresh(&mut duel, &table);
+
+    activate_card(&mut duel, druid);
+    assert!(sheet_digit(&mut duel, '1'), "the written row");
+    assert_eq!(duel.asking_tap(), Some(0), "steps into its own tap");
+
+    // What the sheet is now: five pips, no written rows, every one of them
+    // the Druid's own ability — and a prefix, because one press of it pours a
+    // number this side of the wire cannot count.
+    let options = abilities::options_for(
+        baylee_client_core::Lang::En,
+        duel.view.as_ref().expect("a view"),
+        duel.interaction.as_ref().expect("priority"),
+        druid,
+        duel.asking_tap(),
+    );
+    let split = abilities::Split::of(&options);
+    assert_eq!((split.pips, split.rows), (5, 0), "a bubble: {options:?}");
+    assert!(
+        abilities::pouring(&options),
+        "which is what the sheet draws as pips alone"
+    );
+    assert!(
+        options.iter().all(|option| option
+            .pour
+            .as_ref()
+            .is_some_and(|pour| pour.step.tap == manaplan::Tap::Ability(0))),
+        "all of the Druid's own tap, not the Guide's grant: {options:?}"
+    );
     assert_eq!(
-        duel.outbox(),
-        [PlayerAction::ActivateAbility {
-            source: druid,
-            ability_index: 0,
-        }],
-        "`1` sent the ability that had gone missing"
+        abilities::bubble_prefix(duel.view.as_ref().expect("a view"), druid, &options).as_deref(),
+        Some("X×"),
+        "and says so before them"
+    );
+
+    // Green is the fifth pip in `ManaColor` order, and `5` is its digit: a
+    // bubble has no written rows, so the digits count the pips.
+    assert!(sheet_digit(&mut duel, '5'), "the digit names the green pip");
+    assert!(duel.mana_run.is_some(), "which starts a one-step run");
+    assert_eq!(duel.ability_menu, None, "and puts the bubble away");
+
+    for _ in 0..8 {
+        for action in duel.take_outbox() {
+            table.submit(action);
+        }
+        refresh(&mut duel, &table);
+        if duel.mana_run.is_none() {
+            break;
+        }
+        advance_mana_run(&mut duel);
+    }
+    assert_eq!(duel.last_error, None, "the run finished without aborting");
+
+    let pool = table
+        .view()
+        .seat(PlayerId::new(0))
+        .expect("own seat")
+        .mana_pool;
+    assert_eq!(
+        (pool.green, pool.white, pool.blue, pool.black, pool.red),
+        (2, 0, 0, 0, 0),
+        "two Allies, two mana, both of the one colour pressed: {pool:?}"
     );
 }
 

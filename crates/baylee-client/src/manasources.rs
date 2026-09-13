@@ -261,6 +261,45 @@ pub fn offers(
     out
 }
 
+/// Whether one press of this tap pours a number this side of the wire can
+/// name.
+///
+/// The `fixed` of [`offers`], asked of one tap and without a `LegalActions`
+/// in hand — because its two callers ask *after* the pips are built: what
+/// prefix a bubble carries, and whether a written mana row opens a bubble of
+/// its own rather than being sent.
+///
+/// Everything but a printed ability answers yes. The CR 305.6 shortcut is one
+/// mana of the land's own colour and there is no text to doubt; a grant has
+/// already been reduced to colours and a count by the host.
+pub(crate) fn countable(view: &PlayerView, object: baylee_core::ids::ObjectId, tap: Tap) -> bool {
+    let Tap::Ability(index) = tap else {
+        return true;
+    };
+    if baylee_engine::choice::granted_slot(index).is_some() {
+        return true;
+    }
+    match ability_at(view, object, index) {
+        Some(
+            AbilityDef::Activated {
+                cost,
+                effects,
+                mana_ability: true,
+                ..
+            }
+            | AbilityDef::ActivatedConditional {
+                cost,
+                effects,
+                mana_ability: true,
+                ..
+            },
+        ) => baylee_cards_dsl::mana_offer(cost, effects).is_none_or(|(_, amount)| amount.is_some()),
+        // Not a mana ability at all, or a card this client cannot read.
+        // Being unable to say "this is X" is not the same as saying it is.
+        _ => true,
+    }
+}
+
 /// The colours a Command Tower makes for the viewing seat.
 ///
 /// The same answer `resolve::mana::colors_of` gives, read off the same two

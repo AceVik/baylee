@@ -218,6 +218,16 @@ it, the sheet stays standing, and the same digit again sends it. A different
 digit is a change of mind and moves the arming, exactly as tapping a different
 card does. `Esc` disarms and leaves the sheet open; `Esc` again closes it.
 
+**One row neither arms nor sends: a mana row the pips could not stand for.**
+Harabaz Druid under a Great Divide Guide offers all five colours twice, and
+one pip per colour is all there is, so the pips go to the tap a player can
+predict and the Druid's own `{T}: Add X mana of any one color` stays a written
+row. Pressing it steps *into* that tap — the sheet becomes a bubble of its
+five colours with `X×` before them, and the press that answers is what taps
+the card. `Esc` there is one step back to the sheet rather than the way out,
+which is what `Esc` does everywhere else on this list: it takes back the last
+thing the player said.
+
 Clicking a row does all of the above identically — the pointer and the digit
 go through one function, because a second click that re-armed while a second
 press sent would be two answers to the same question. A player who would

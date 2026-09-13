@@ -1120,6 +1120,7 @@ fn state_dump(believed: &Believed, window: Vec2) -> String {
          \"autopilot\":{autopilot},\"last_error\":{error},\"lang\":{lang},\
          \"reachable\":{reachable},\"activatable\":{activatable},\"armed\":{armed},\
          \"outbox\":{outbox},\"mana_run\":{mana_run},\"ability_menu\":{menu},\
+         \"ability_tap\":{tap},\
          \"last_cue\":{last_cue},\"last_count\":{last_count},\
          \"departing\":{departing},\"cards\":{cards},\"buttons\":{buttons},\"shelves\":{shelves}}}",
         cards = cards_json(believed, duel, window),
@@ -1148,6 +1149,13 @@ fn state_dump(believed: &Believed, window: Vec2) -> String {
         menu = duel
             .ability_menu
             .map_or_else(|| "null".to_string(), |m| quoted(&format!("{m:?}"))),
+        // And which tap of it the sheet has stepped into, which is the sixth
+        // silent state: the sheet is a bubble of one ability's colours and
+        // the screenshot of that is a row of five discs — the same picture a
+        // permanent whose own pips those are would draw.
+        tap = duel
+            .asking_tap()
+            .map_or_else(|| "null".to_string(), |t| t.to_string()),
         // The fifth thing that happens without leaving a mark on the screen,
         // and the only one that is meant to leave none: the client decides
         // what is worth hearing (`baylee_client_core::cue`) before anything

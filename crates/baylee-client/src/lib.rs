@@ -389,6 +389,19 @@ pub struct Duel {
     /// what it prints — and turns the page rather than taking a key nobody
     /// would guess. Reset with [`Self::ability_pick`] when the sheet opens.
     pub ability_page: usize,
+    /// Which tap of that permanent the sheet has stepped *into*.
+    ///
+    /// The sheet is then a bubble of that tap's colours and nothing else —
+    /// the owner's third point, *"wenn man den Effekt auswählt … es wird
+    /// wieder der Mana Dialog angezeigt"*. It is set by pressing a mana row
+    /// the pips could not stand for, because such a row pours a number this
+    /// side cannot count and the only question it has left is which colour.
+    ///
+    /// Read through [`Self::asking_tap`] and never directly: it is only ever
+    /// meaningful about the permanent [`Self::ability_menu`] names, so a
+    /// value left behind by a sheet that has closed is inert rather than
+    /// something every write site of that field has to remember to clear.
+    pub ability_tap: Option<u32>,
     /// The zone browser: every zone a choice can reach that the table
     /// cannot draw.
     ///
@@ -613,6 +626,17 @@ impl Duel {
     #[must_use]
     pub fn seat(&self) -> Option<PlayerId> {
         self.statics.as_ref().map(|s| s.your_seat)
+    }
+
+    /// Which tap the ability sheet is asking the colour of, if it is asking.
+    ///
+    /// [`Self::ability_tap`] and nothing else, gated on the sheet being open:
+    /// the step *into* a tap belongs to the sheet it was taken on, so a value
+    /// that outlives its sheet answers nothing rather than opening a bubble
+    /// over the next card clicked.
+    #[must_use]
+    pub fn asking_tap(&self) -> Option<u32> {
+        self.ability_menu.and(self.ability_tap)
     }
 
     /// The local seat's side, if the table has sides at all.

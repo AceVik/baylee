@@ -1317,7 +1317,15 @@ fn ability_options(
 ) -> Option<Vec<crate::abilities::AbilityOption>> {
     let view = duel.view.as_ref()?;
     let interaction = duel.interaction.as_ref()?;
-    let options = crate::abilities::options(lang, view, interaction, object);
+    let options = crate::abilities::options_for(
+        lang,
+        view,
+        interaction,
+        object,
+        (duel.ability_menu == Some(object))
+            .then(|| duel.asking_tap())
+            .flatten(),
+    );
     (!options.is_empty()).then_some(options)
 }
 

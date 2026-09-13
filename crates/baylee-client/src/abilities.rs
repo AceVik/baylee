@@ -194,9 +194,47 @@ pub fn options(
     interaction: &Interaction,
     object: ObjectId,
 ) -> Vec<AbilityOption> {
+    options_for(lang, view, interaction, object, None)
+}
+
+/// The same list, or the colours of **one** tap on it.
+///
+/// `asking` is [`crate::Duel::asking_tap`]: the ability whose colour the
+/// player has stepped into, and it turns the sheet into a bubble of that
+/// tap's pips and nothing else. It is the second half of the owner's third
+/// point — *"wenn man den Effekt auswählt, dann verschwindet der Abilities
+/// Dialog und es wird wieder der Mana Dialog angezeigt"* — and it exists as a
+/// step of its own because the tap it is about makes a number no pip can
+/// stand for: five colours twice over is five pips, [`pour_out`] gives them
+/// to the tap a player can predict, and the loser is a written row. Pressing
+/// that row asks the only question it has left, which is which colour.
+///
+/// A tap the pips already stand for never gets here — the row is folded away
+/// and there is nothing to press. An unknown or withdrawn tap answers with an
+/// empty list, which the callers read as "no sheet", because the alternative
+/// is a bubble with no pips on it.
+#[must_use]
+pub fn options_for(
+    lang: Lang,
+    view: &PlayerView,
+    interaction: &Interaction,
+    object: ObjectId,
+    asking: Option<u32>,
+) -> Vec<AbilityOption> {
     let Some(legal) = interaction.legal_actions() else {
         return Vec::new();
     };
+    if let Some(index) = asking {
+        let tap = Tap::Ability(index);
+        let offers: Vec<_> = crate::manasources::offers(view, legal, object)
+            .into_iter()
+            .filter(|offer| offer.tap == tap)
+            .collect();
+        return baylee_client_core::manaplan::pours(object, &offers)
+            .into_iter()
+            .filter_map(|pour| pip_row(view, legal, object, pour))
+            .collect();
+    }
     let mut out = Vec::new();
 
     // The mana half comes through `manasources`, which has already reduced a
@@ -421,30 +459,7 @@ fn pour_out(
     let pours = baylee_client_core::manaplan::pours(object, &offers);
     let mut pips: Vec<AbilityOption> = pours
         .into_iter()
-        .filter_map(|pour| {
-            Some(AbilityOption {
-                action: tap_action(legal, &pour.step)?,
-                // The pip is the label. A reader that falls back to it —
-                // `armed_row`'s fingerprint does — then reads "{W}", which is
-                // what the row says.
-                label: pip(pour.color).to_string(),
-                mana: true,
-                // Answered truthfully rather than assumed, for the reason the
-                // field's own doc gives: `{T}, Sacrifice this: Add one mana of
-                // any color` is a bubble and is not paid out of the card.
-                // Nothing reads it here — a pour is armed by `pour` — so the
-                // two reasons a row goes through on one press stay separable.
-                tap_only: match pour.step.tap {
-                    Tap::Ability(index) => tap_only(view, object, index),
-                    Tap::Intrinsic => true,
-                },
-                // Neither has anything to say here. The cost of a pip is the
-                // tap it is drawn on, and its sentence is the colour.
-                cost: None,
-                printed: None,
-                pour: Some(pour),
-            })
-        })
+        .filter_map(|pour| pip_row(view, legal, object, pour))
         .collect();
     // Which taps the header ended up standing for. Read off the pips rather
     // than off `offers`, because an offer that won no colour is not one of
@@ -469,6 +484,80 @@ fn pour_out(
     }
     pips.append(&mut rows);
     *out = pips;
+}
+
+/// One pip: a colour, and the tap that pours it.
+///
+/// Split out of [`pour_out`] because [`options_for`] builds the same row for
+/// a bubble that stands for **one** tap rather than for everything the
+/// permanent offers, and a second copy of "what a pip is" is two things that
+/// can disagree about whether it carries a cost.
+fn pip_row(
+    view: &PlayerView,
+    legal: &baylee_engine::choice::LegalActions,
+    object: ObjectId,
+    pour: baylee_client_core::manaplan::Pour,
+) -> Option<AbilityOption> {
+    Some(AbilityOption {
+        action: tap_action(legal, &pour.step)?,
+        // The pip is the label. A reader that falls back to it —
+        // `armed_row`'s fingerprint does — then reads "{W}", which is what
+        // the row says.
+        label: pip(pour.color).to_string(),
+        mana: true,
+        // Answered truthfully rather than assumed, for the reason the field's
+        // own doc gives: `{T}, Sacrifice this: Add one mana of any color` is a
+        // bubble and is not paid out of the card. Nothing reads it here — a
+        // pour is armed by `pour` — so the two reasons a row goes through on
+        // one press stay separable.
+        tap_only: match pour.step.tap {
+            Tap::Ability(index) => tap_only(view, object, index),
+            Tap::Intrinsic => true,
+        },
+        // Neither has anything to say here. The cost of a pip is the tap it is
+        // drawn on, and its sentence is the colour.
+        cost: None,
+        printed: None,
+        pour: Some(pour),
+    })
+}
+
+/// What stands before a bubble's pips, when one press of them pours a number
+/// nobody here can count.
+///
+/// The owner's third point: *"allerdings mit einem Präfix, je nachdem was
+/// möglich ist. Entweder Xx(Symbol Auswahl), oder für X direkt ausgerechnet
+/// die Anzahl an Allys die ich kontrolliere."* A Harabaz Druid's tap makes X
+/// mana of **one** colour, so five pips on their own say "which colour" and
+/// leave out the half that makes the press worth thinking about.
+///
+/// One rule rather than a special case: **a bubble whose pips all stand for
+/// one tap whose pour is not a number carries a prefix.** That covers the
+/// Druid alone, whose bubble opens straight off a click, and the Druid under
+/// a Great Divide Guide, whose pips are the *grant* until the written row is
+/// pressed and a bubble for its own tap opens. Anything else — a Plains, a
+/// Command Tower, a permanent whose pips are two different taps — pours one
+/// mana per press and needs no prefix to say so.
+///
+/// It is `X×` and not the number, which is the second half of what the owner
+/// allowed. Counting the Allies means evaluating a `Filter` against a
+/// `PlayerView`, and no such evaluator exists this side of the wire — the
+/// engine's reads a `GameState`. A wrong count drawn as a fact would be worse
+/// than the letter the card itself prints.
+#[must_use]
+pub fn bubble_prefix(
+    view: &PlayerView,
+    object: ObjectId,
+    options: &[AbilityOption],
+) -> Option<String> {
+    let mut taps = options
+        .iter()
+        .filter_map(|option| option.pour.map(|p| p.step.tap));
+    let tap = taps.next()?;
+    if !taps.all(|other| other == tap) {
+        return None;
+    }
+    (!crate::manasources::countable(view, object, tap)).then(|| "X×".to_string())
 }
 
 /// Which tap of `object` an action is, if it is one of its taps at all.
