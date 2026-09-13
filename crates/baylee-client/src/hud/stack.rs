@@ -64,6 +64,7 @@
 #[allow(clippy::wildcard_imports)] // the HUD's own vocabulary
 use super::*;
 use baylee_client_core::card_face::TextBlock;
+use baylee_client_core::manapip;
 
 /// The card a stack entry is drawn at, at the top of the panel.
 const STACK_CARD_W: f32 = 72.0;
@@ -151,6 +152,17 @@ const STACK_SENTENCE_PT: f32 = 12.0;
 /// past it the sentence ends in an ellipsis so one pathological card cannot
 /// push the queue out of the panel.
 const STACK_SENTENCE_LINES: f32 = 4.0;
+/// A mana mark in that sentence, as a fraction of the prose's own size.
+///
+/// The same 0.72 [`crate::manaui::spawn_pip`] sets a glyph at inside its
+/// disc, and it is the right number for a different reason here: the marks
+/// have to sit at the prose's cap height, and the font makes them nearly a
+/// full em tall. Rasterized out of `mana.ttf` at the 24 device pixels this
+/// sentence is drawn at on a Retina screen, a colour pip is 25 px from
+/// baseline to top against Inter's 18 px cap — at 0.72 it is 17, which is
+/// the match. The tap arrow is the font's shortest mark and lands at 13,
+/// reading as the heavier glyph it is rather than as a taller one.
+const STACK_MARK: f32 = 0.72;
 
 /// How fast a row arrives, per second.
 ///
@@ -1024,7 +1036,7 @@ fn spawn_stack_entry(
                 let reminder = matches!(block, TextBlock::Reminder(_));
                 // A reminder is drawn inside `" (…)"`, which is three
                 // characters of the shared room that are not text.
-                let room_for = if reminder {
+                let mut room_for = if reminder {
                     left.saturating_sub(3)
                 } else {
                     left
@@ -1032,28 +1044,62 @@ fn spawn_stack_entry(
                 if room_for == 0 {
                     break;
                 }
-                let text = cut(block.text(), room_for);
-                let drawn = text.chars().count() + usize::from(reminder) * 3;
-                left = left.saturating_sub(drawn);
                 let ink = if reminder {
                     palette::MUTED
                 } else {
                     palette::INK
                 };
-                let font = if reminder {
+                let prose = if reminder {
                     tf_italic(fonts, STACK_SENTENCE_PT)
                 } else {
                     tf(fonts, STACK_SENTENCE_PT)
                 };
-                let span = commands
-                    .spawn((
-                        TextSpan::new(if reminder { format!(" ({text})") } else { text }),
-                        font,
-                        TextColor(ink),
-                        Arriving::ink(key, ink.alpha()),
-                    ))
-                    .id();
-                commands.entity(sentence).add_child(span);
+                // Split, then budget. `{T}` is three characters of source and
+                // one mark on screen, so cutting the line before the split
+                // drops text the row had the room for.
+                let mut pieces: Vec<(String, bool)> = Vec::new();
+                for piece in manapip::inline(block.text()) {
+                    if room_for == 0 {
+                        break;
+                    }
+                    match piece {
+                        manapip::Inline::Mark(mark) => {
+                            room_for -= 1;
+                            pieces.push((mark.to_string(), true));
+                        }
+                        manapip::Inline::Text(run) => {
+                            let run = cut(&run, room_for);
+                            room_for -= run.chars().count();
+                            pieces.push((run, false));
+                        }
+                    }
+                }
+                if pieces.is_empty() {
+                    continue;
+                }
+                // What is left of the shared room is what this block did not
+                // spend — the three characters of `" (…)"` were taken off it
+                // before the first piece was measured.
+                left = room_for;
+                if reminder {
+                    pieces.insert(0, (" (".to_string(), false));
+                    pieces.push((")".to_string(), false));
+                }
+                for (text, mark) in pieces {
+                    let span = commands
+                        .spawn((
+                            TextSpan::new(text),
+                            if mark {
+                                crate::manaui::mana_tf(fonts, STACK_SENTENCE_PT * STACK_MARK)
+                            } else {
+                                prose.clone()
+                            },
+                            TextColor(ink),
+                            Arriving::ink(key, ink.alpha()),
+                        ))
+                        .id();
+                    commands.entity(sentence).add_child(span);
+                }
             }
             commands.entity(body).add_child(sentence);
         }

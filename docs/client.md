@@ -444,6 +444,42 @@ never seen gets two lines and a clean edge instead of a third line that pushes
 the queue out of the panel. If a name column is ever narrowed again, `fit` is
 the thing to replace with a real measurement rather than to re-tune.
 
+**The sentence *quotes* the card, so its mana symbols are marks and not
+discs.** `{T}: Add {G}.` had been drawn with its braces, which is the one
+place in this client a symbol was spelled out in letters, and the obvious fix
+— `manaui::spawn_rich`, which every other surface uses — is the wrong one
+here. That builds a wrapping flex row of words and discs; the name and the
+subtitle directly above it are a real `Text` flow, so a third surface set by a
+second typesetter would sit in the reader's eye every time the panel is open,
+with looser word gaps, no kerning across a word boundary and a hand-rolled
+ellipsis that no longer knows what four lines are. `manapip::inline` is the
+other reader over the same brace scan: a symbol with one glyph becomes a bare
+`Inline::Mark`, set as a `TextSpan` in the `mana` font at `STACK_MARK` of the
+prose's size and in the **prose's own ink**, so the sentence stays one flow.
+A hybrid has no glyph — it is one disc with two halves — and is quoted as the
+two marks with a slash, the way the oracle text writes it.
+
+The rule behind that is worth keeping, because it decides the next case too:
+**showing a card is not quoting one.** The hover preview and the deckbuilder
+*show* the card, and a printed disc belongs there — colour identity is
+information a player reads off it. The stack sentence is a caption that quotes
+the card's text, at twelve points in the row's muted ink, where the disc is
+about ten pixels across and the mark inside it — the only part carrying "tap"
+— is exactly what a disc that small takes the contrast from. Colouring the
+bare mark instead would put the most saturated ink on the row in a register
+that is otherwise muted, and a warm red glyph would land close enough to the
+candle accent to be read as a claim about what the engine is offering — one
+hue, one claim, which is the rule every other border and light in this client
+already answers to. So the shape is the claim here and the grey stays. The
+preview is not changed to match, and that is the point rather than an omission
+— the two are almost never on screen together, and consistency *within* the
+panel is the one a reader experiences.
+
+Splitting comes before budgeting, which is the one thing easy to get backwards:
+`{T}` is three characters of source and one mark on screen, so the old
+`cut(block.text(), room)` charged a symbol three times over and dropped text
+the row had the space for.
+
 **A row arrives rather than appearing**: it lifts 14 pixels into place, grows
 from 0.96, and its ink, its fills and its accent rail come up from nothing
 over about a fifth of a second (`ARRIVE_RATE`, the same `1 - e^(-rate·dt)`

@@ -162,7 +162,7 @@ pub fn spawn_pip(commands: &mut Commands, fonts: &UiFonts, pip: Pip, size: f32) 
 }
 
 /// A mana-font handle at a size.
-fn mana_tf(fonts: &UiFonts, size: f32) -> TextFont {
+pub(crate) fn mana_tf(fonts: &UiFonts, size: f32) -> TextFont {
     TextFont {
         font: bevy::text::FontSource::Handle(fonts.mana.clone()),
         font_size: bevy::text::FontSize::Px(size),

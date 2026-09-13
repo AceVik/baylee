@@ -343,6 +343,65 @@ pub fn segments(text: &str) -> Vec<Segment> {
     out
 }
 
+/// One piece of a printed line **quoted** in the interface's own prose.
+///
+/// The difference from [`Segment`] is one of register, not of parsing. A card
+/// *shown* — the hover preview, a deckbuilder row — wears its symbols as the
+/// printed discs, because colour identity is a thing a player reads off them.
+/// A card *quoted* — the sentence under a stack row, twelve points in the
+/// row's own muted ink — has no room for one: the disc is ten pixels across
+/// there, and the mark inside it, which is the only part carrying "tap", is
+/// exactly the part a disc that small takes the contrast from. So a quotation
+/// keeps the mark and drops the disc, the way rules documents have always set
+/// mana symbols in body text. It also keeps the stack panel one typesetter's
+/// work — its name and its subtitle are real text, and a flex row of words
+/// underneath them reads as a second one.
+#[derive(Clone, PartialEq, Eq, Debug)]
+pub enum Inline {
+    /// Prose, set in the interface font.
+    Text(String),
+    /// One glyph of the `mana` font, set at the prose's size and in its ink.
+    Mark(char),
+}
+
+/// Splits a line into the prose and the bare marks written in it.
+///
+/// Built on [`segments`], so the three edge cases are answered in one place:
+/// a brace run that is not a symbol keeps its braces, an unclosed brace is
+/// prose to the end of the line, and `{W}{U}` inside one pair of braces is
+/// not a symbol. What this adds is the two pips that have no single glyph to
+/// be. A hybrid is one disc with two glyphs clipped to opposite halves, which
+/// is not something a character can be, so it is quoted the way the oracle
+/// text writes it — the two marks with a slash between them. A generic cost
+/// past the font's range is already digits on the card and stays digits here.
+///
+/// Neighbouring prose is merged, so a refused symbol does not leave three
+/// pieces where the line has one run of text.
+#[must_use]
+pub fn inline(text: &str) -> Vec<Inline> {
+    fn prose(out: &mut Vec<Inline>, run: &str) {
+        match out.last_mut() {
+            Some(Inline::Text(before)) => before.push_str(run),
+            _ => out.push(Inline::Text(run.to_string())),
+        }
+    }
+
+    let mut out: Vec<Inline> = Vec::new();
+    for segment in segments(text) {
+        match segment {
+            Segment::Text(run) => prose(&mut out, &run),
+            Segment::Symbol(Pip::Solid { glyph, .. }) => out.push(Inline::Mark(glyph)),
+            Segment::Symbol(Pip::Split { left, right }) => {
+                out.push(Inline::Mark(left.0));
+                prose(&mut out, "/");
+                out.push(Inline::Mark(right.0));
+            }
+            Segment::Symbol(Pip::Number { value }) => prose(&mut out, &value.to_string()),
+        }
+    }
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -505,5 +564,50 @@ mod tests {
         assert_eq!(parse(""), None);
         assert_eq!(parse("   "), None);
         assert_eq!(parse("{Q}"), None);
+    }
+
+    /// The whole point of the quoted register: three characters of source
+    /// become one mark, and the prose either side of it stays one run.
+    #[test]
+    fn a_quoted_line_keeps_the_mark_and_drops_the_braces() {
+        assert_eq!(
+            inline("{T}: Add {G}."),
+            vec![
+                Inline::Mark(glyph::TAP),
+                Inline::Text(": Add ".into()),
+                Inline::Mark(glyph::GREEN),
+                Inline::Text(".".into()),
+            ]
+        );
+    }
+
+    /// A hybrid is one disc with two halves, and no character is that. Quoted,
+    /// it is what the oracle text prints minus its braces.
+    #[test]
+    fn a_hybrid_is_quoted_as_the_two_marks_the_card_prints() {
+        assert_eq!(
+            inline("{W/U}"),
+            vec![
+                Inline::Mark(glyph::WHITE),
+                Inline::Text("/".into()),
+                Inline::Mark(glyph::BLUE),
+            ]
+        );
+    }
+
+    /// Inherited from [`segments`] and worth pinning here, because a reader
+    /// that silently ate what it did not know would quote the card wrongly:
+    /// a run with no symbol keeps its braces, and neighbouring prose merges
+    /// rather than leaving three pieces where the line has one.
+    #[test]
+    fn a_run_this_table_refuses_is_quoted_as_written() {
+        assert_eq!(
+            inline("Sacrifice {this}, then draw."),
+            vec![Inline::Text("Sacrifice {this}, then draw.".into())]
+        );
+        assert_eq!(
+            inline("Pay {1000000} life."),
+            vec![Inline::Text("Pay 1000000 life.".into())]
+        );
     }
 }
