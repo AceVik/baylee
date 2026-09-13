@@ -1305,7 +1305,14 @@ messages! {
     BrowseConfirm { en: "Confirm", de: "Bestätigen" },
     /// Sends the *empty* answer, which is the only way out a question whose
     /// minimum is zero has — there is no cancel action on the wire.
-    BrowseCancel { en: "Cancel", de: "Abbrechen" },
+    ///
+    /// It said `Cancel` / `Abbrechen` until somebody read it out loud. The
+    /// word was a small lie and the code already knew it: the handler clears
+    /// the selection and then **confirms**, so a player who believed they had
+    /// backed out of the question had in fact answered it, and the game had
+    /// moved on without them. Naming the answer instead of the gesture is the
+    /// fix — a button on a question says what it sends.
+    BrowseNone { en: "None", de: "Keine" },
     /// How an ordering is answered.
     BrowseOrderHint {
         en: "click them in the order they should go",

@@ -18,7 +18,7 @@
 
 use crate::hud::{
     AbilityButton, ChoiceButton, HandCardVisual, MenuAction, MenuButton, PlayerTab, PreviewResize,
-    PromptAction, PromptButton, TrayCancel, TrayCard, TrayClose, TrayFilter, TraySort, TrayTab,
+    PromptAction, PromptButton, TrayCard, TrayClose, TrayFilter, TrayNone, TraySort, TrayTab,
 };
 use crate::keys::Fired;
 use crate::settings::ClientSettings;
@@ -48,7 +48,7 @@ pub struct TrayWidgets<'w, 's> {
     close: Query<'w, 's, &'static TrayClose>,
     sort: Query<'w, 's, &'static TraySort>,
     filter: Query<'w, 's, &'static TrayFilter>,
-    cancel: Query<'w, 's, &'static TrayCancel>,
+    cancel: Query<'w, 's, &'static TrayNone>,
 }
 
 /// Finds a component on the clicked entity or one of its ancestors —

@@ -560,16 +560,22 @@ pub struct TraySort {
     pub reverse: bool,
 }
 
-/// The dialog's way out, drawn only when the question's minimum is zero.
+/// The "none of them" button, drawn only when the question's minimum is zero.
 ///
 /// Not a [`PromptAction::Confirm`] button with different words, though that
-/// is what it *sends*: Confirm sends the answer that is assembled and Cancel
-/// sends the **empty** one, so a player who has ticked a card and then
-/// changed their mind must not have that card sent under the word "Cancel".
-/// It clears the answer first and confirms after — the two together are the
-/// closest thing to a cancel the wire has (`docs/redesign-proposal.md` §6).
+/// is what it *sends*: Confirm sends the answer that is assembled and this
+/// one sends the **empty** answer, clearing the selection first so a player
+/// who ticked a card and then changed their mind does not have that card sent
+/// under it (`docs/redesign-proposal.md` §6).
+///
+/// It was `TrayCancel`, under a button reading "Cancel", and both were wrong
+/// the same way: there is no cancel on the wire, so this button *answers the
+/// question* and the game moves on. A player who read it as a way out had
+/// already spent the choice. The word is [`Phrase::BrowseNone`] now and the
+/// type is named for what it does, because the next reader of this file is
+/// exactly the person the old name would have fooled.
 #[derive(Component)]
-pub struct TrayCancel;
+pub struct TrayNone;
 
 /// The veil over the table, behind a dialog that holds the whole answer.
 ///

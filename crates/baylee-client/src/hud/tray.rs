@@ -906,13 +906,13 @@ fn spawn_footer(
         let out = dialog_text(
             commands,
             fonts,
-            Phrase::BrowseCancel.text(lang),
+            Phrase::BrowseNone.text(lang),
             13.0,
             palette::DIALOG_SOFT,
         );
         let cancel = commands
             .spawn((
-                TrayCancel,
+                TrayNone,
                 Button,
                 Node {
                     height: px(TRAY_FOOT_H),
@@ -1554,7 +1554,7 @@ mod tests {
                 .any(|e| app.world().entity(*e).contains::<PromptButton>());
             let out = kids
                 .iter()
-                .any(|e| app.world().entity(*e).contains::<TrayCancel>());
+                .any(|e| app.world().entity(*e).contains::<TrayNone>());
             (lit, out)
         }
 
