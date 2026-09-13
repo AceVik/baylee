@@ -39,11 +39,17 @@
 //! object that resolved is gone from the view, and a ghost of it would be a
 //! claim the view no longer makes.
 //!
-//! What is *not* here: a stagger when several rows land in one frame. It
-//! would want to run bottom-up, and depth is the one thing [`StackKey`]
-//! deliberately does not carry — a row demoted from second to third would
-//! become a new key and announce itself all over again. The panel's own fade
-//! and slide already cover the case the owner asked about.
+//! What is *not* here: a stagger when several rows land in one frame. Not
+//! because the depth is out of reach — [`spawn_stack_panel`] walks the stack
+//! in depth order and could bake a delay into the row on the way past, and
+//! because the progress lives in [`StackMotion`] rather than in the row,
+//! re-baking that delay onto a row already at rest would change nothing.
+//! It is the *fade* that makes it expensive: a delay has to reach every node
+//! the arrival touches, and [`Arriving`] is built at nineteen places in this
+//! file — or [`StackMotion`] holds seconds instead of progress and every one
+//! of those nodes remaps it. The panel's own fade and slide already cover the
+//! case the owner asked about, so this is "not worth it today" and not
+//! "impossible".
 //!
 //! The progress cannot live in the row, because the HUD is a retained tree
 //! rebuilt whenever [`HudRevision`]
@@ -462,11 +468,17 @@ fn track(motion: &mut StackMotion, live: &[StackKey]) {
     motion.rows.retain(|rise| live.contains(&rise.key));
     for &key in live {
         if !motion.rows.iter().any(|rise| rise.key == key) {
+            let promoted = promoted.contains(&key);
             motion.rows.push(Rise {
                 key,
                 at: 0.0,
-                promoted: promoted.contains(&key),
-                cooled: 0.0,
+                promoted,
+                // Only a promotion has a rail to cool. Seeded at nothing for
+                // everything else, the slower ramp would keep `moving` true
+                // for a third of a second after the row had settled, and
+                // every node in the panel would go on being written to with
+                // nothing left to say.
+                cooled: if promoted { 0.0 } else { 1.0 },
             });
         }
     }

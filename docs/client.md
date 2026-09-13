@@ -474,11 +474,16 @@ lift, which is the one thing that tells the two apart: the alpha ramp is
 identical for both, and it carries its own counter-test — a spell that is
 merely cast still drops in from above.
 
-What is **not** there is a stagger when several rows land in one frame. It
-would want to run bottom-up, and depth is the one thing `StackKey` deliberately
-does not carry: a row demoted from second to third would become a new key and
-announce itself all over again. The panel's own fade and slide already cover a
-panel going from empty to populated.
+What is **not** there is a stagger when several rows land in one frame, and the
+reason is not that the depth is out of reach: `spawn_stack_panel` walks the
+stack in depth order and could bake a delay into the row on the way past, and
+because the progress lives in `StackMotion` rather than in the row, re-baking
+that delay onto a row already at rest would change nothing. It is the **fade**
+that makes it expensive. A delay has to reach every node the arrival touches,
+and `Arriving` is built at nineteen places in `hud/stack.rs` — or `StackMotion`
+holds seconds instead of progress and every one of those nodes remaps it. The
+panel's own fade and slide already cover a panel going from empty to populated,
+so this is "not worth it today" and not "impossible".
 
 The *other* direction of that key change is carried across instead of eased,
 which is the case the panel is most often in. A spell landing on a stack that
