@@ -196,29 +196,17 @@ const ROW_PT: f32 = 13.0;
 /// sentence it is charging for, which is the right place for it to land.
 const COST_MARK: f32 = 16.0;
 
-/// The widest the keycap's column may grow to carry a cost.
+/// How wide the cost column is where every payment on the sheet is a mark.
 ///
-/// Three marks and the air between them. Without it the column is as wide as
-/// the longest cost on the sheet, and `{2}{B}, {T}, Sacrifice this` would
-/// take the room from the prose that moving the cost here was meant to give
-/// it. At the cap [`crate::manaui::spawn_rich_marks`]'s own `flex_wrap` folds
-/// the cost into a second line under the keycap instead, which is a shape the
-/// column already has room for.
-const COST_MAX: f32 = 3.0 * COST_MARK + 2.0 * 2.0;
+/// Three marks and the air between them, and a **width** rather than a
+/// maximum: every row on such a sheet gets this column, so the sentences
+/// beside them share one left edge. It is also what makes a longer payment
+/// wrap — `{W}{U}{B}{R}{G}` folds to three marks over two inside the column
+/// instead of taking the room from the prose.
+const COST_MARKS: f32 = 3.0 * COST_MARK + 2.0 * 2.0;
 
-/// The air between the keycap, the rule under it and the cost under that.
-///
-/// Paid twice, so the pair stand apart by more than the number says. They are
-/// two different kinds of thing sharing one column — a key on the keyboard
-/// and what the ability charges — and a cost tucked up against the cap read
-/// as the cap's own second line.
-const COST_LIFT: f32 = 5.0;
-
-/// How wide the rule between them runs, as a share of the keycap's side.
-///
-/// Shorter than the cap, so it reads as a mark parting two things and not as
-/// a box drawn round either of them.
-const COST_RULE: f32 = 0.7;
+/// The air under a cost written as a title over its own sentence.
+const COST_TITLE_AIR: f32 = 3.0;
 
 /// The wash under the row that is armed — [`palette::BRASS`] at 16%.
 ///
@@ -835,6 +823,13 @@ fn spawn_sheet(
     spawn_head(commands, fonts, faces, duel, object, sheet);
 
     // ---- the rows --------------------------------------------------------
+    //
+    // Whether *this sheet* has a cost column, and how wide, is one answer for
+    // all of it and not one per row: the sentences share a left edge, and a
+    // row with a column of its own width would put its prose where its
+    // neighbours' costs are. Decided over the rows on this page, because a
+    // page is what is seen.
+    let costs = cost_column(faces, duel, object, options, page);
     for at in abilitysheet::rows(options.len(), page) {
         let digit = digit_of(at).unwrap_or('?');
         let row = spawn_row(
@@ -848,6 +843,7 @@ fn spawn_sheet(
             digit,
             armed == Some(at),
             duel.ability_pick == at,
+            costs,
         );
         commands.entity(sheet).add_child(row);
     }
@@ -1210,7 +1206,130 @@ fn rule(commands: &mut Commands, above: f32) -> Entity {
         .id()
 }
 
-/// One row: the keycap, what the ability does, what it costs.
+/// What a row charges, where that is not the row's own words a second time.
+///
+/// Offline there is no card text at all, so every printed ability falls back
+/// to its cost as its *label* — and a row reading `{2}, {T}` beside `{2}, {T}`
+/// is the duplication the sentence-first layout exists to remove, not a cost
+/// drawn where a cost belongs.
+///
+/// Its own function because the answer is needed twice: once per row, to draw
+/// it, and once per *sheet*, to decide whether there is a cost column at all.
+fn row_cost(option: &crate::abilities::AbilityOption, printed: bool) -> Option<&str> {
+    let repeats = !printed && option.cost.as_deref() == Some(option.label.as_str());
+    option.cost.as_deref().filter(|_| !repeats)
+}
+
+/// Whether this sheet draws its costs in a **column** beside the sentences.
+///
+/// One answer for the whole page, because a column is a claim about where
+/// every sentence on the sheet begins — a row that opted out would start its
+/// prose where its neighbours' costs are.
+///
+/// The column is three marks wide, and that is a place for marks and not for
+/// a sentence. A card asks for a tap and a colour in marks and for everything
+/// else in words — `Sacrifice this artifact`, `Pay 1 life` — so a page with
+/// one of those on it puts *every* cost where the card itself puts it:
+/// [`spawn_row`] writes it as a title line over the sentence it charges for,
+/// across the whole width of the row, where it has room to wrap.
+fn cost_column(
+    faces: &crate::cardtext::CardTexts,
+    duel: &Duel,
+    object: ObjectId,
+    options: &[crate::abilities::AbilityOption],
+    page: usize,
+) -> bool {
+    let mut any = false;
+    for at in abilitysheet::rows(options.len(), page) {
+        let printed = row_text(faces, duel, object, &options[at]).is_some();
+        let Some(cost) = row_cost(&options[at], printed) else {
+            continue;
+        };
+        if crate::abilities::payments(cost).any(in_words) {
+            return false;
+        }
+        any = true;
+    }
+    any
+}
+
+/// Whether a payment is written in words rather than in marks.
+fn in_words(payment: &str) -> bool {
+    baylee_client_core::manapip::segments(payment)
+        .into_iter()
+        .any(|segment| {
+            matches!(segment, baylee_client_core::manapip::Segment::Text(words)
+                if !words.trim().is_empty())
+        })
+}
+
+/// A cost as the narrow column left of the sentence, one payment to a line.
+///
+/// A cost is a *list* — mana, then a tap — and read as a column it wants to
+/// be one again: written across, the comma between two payments wrapped onto
+/// a line of its own. The column is spawned even for a row that has no cost,
+/// so the sentences beside it all begin in the same place.
+fn spawn_cost_column(commands: &mut Commands, fonts: &UiFonts, cost: Option<&str>) -> Entity {
+    let purse = commands
+        .spawn((
+            Node {
+                width: px(COST_MARKS),
+                flex_direction: FlexDirection::Column,
+                row_gap: px(2),
+                flex_shrink: 0.0,
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    for payment in cost.into_iter().flat_map(crate::abilities::payments) {
+        let pips = crate::manaui::spawn_rich_marks(
+            commands,
+            fonts,
+            payment,
+            ROW_PT,
+            COST_MARK,
+            palette::SLIP_SOFT,
+        );
+        commands.entity(purse).add_child(pips);
+    }
+    purse
+}
+
+/// A cost as a **title over the sentence it charges for**.
+///
+/// Where the printed card puts it — `{1}, {T}, Sacrifice this artifact: Draw
+/// a card`, the charge first and what it buys after — and where a cost too
+/// long for [`spawn_cost_column`] has to go: three marks' width is not a
+/// place for `Sacrifice this artifact`, and at that width it overhung the
+/// paper's edge. Here it has the row's whole width to wrap in.
+///
+/// In a holder rather than by patching the line's own `Node`, which
+/// `manaui::rich` owns: a second copy of that node written out here to add
+/// one margin is a copy that drifts from it.
+fn spawn_cost_title(commands: &mut Commands, fonts: &UiFonts, cost: &str) -> Entity {
+    let holder = commands
+        .spawn((
+            Node {
+                margin: UiRect::bottom(px(COST_TITLE_AIR)),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    let line = crate::manaui::spawn_rich_marks(
+        commands,
+        fonts,
+        cost,
+        ROW_PT,
+        COST_MARK,
+        palette::SLIP_SOFT,
+    );
+    commands.entity(holder).add_child(line);
+    holder
+}
+
+/// One row: what it costs, what the ability does, the key that arms it.
 #[allow(clippy::too_many_arguments, clippy::fn_params_excessive_bools)]
 fn spawn_row(
     commands: &mut Commands,
@@ -1223,6 +1342,7 @@ fn spawn_row(
     digit: char,
     armed: bool,
     picked: bool,
+    costs: bool,
 ) -> Entity {
     let wash = if armed {
         ARMED_WASH
@@ -1268,32 +1388,26 @@ fn spawn_row(
         palette::PARCHMENT_INK,
         ROW_CAP_PT,
     );
-    // The keycap and the cost are one column, and the cost is **under** the
-    // key rather than out at the row's far edge. Two things come of it. The
-    // sentence gets the whole of the rest of the row instead of the rest
-    // minus a cost and a gap, which is the room a printed ability needs and
-    // the reason the owner asked for it; and the two things a player is not
-    // reading as prose — the key to press and what it charges — stand
-    // together in one narrow column down the left of the sheet, where the eye
-    // can run past them.
-    let hand = commands
-        .spawn((
-            Node {
-                flex_direction: FlexDirection::Column,
-                align_items: AlignItems::Center,
-                row_gap: px(COST_LIFT),
-                // The column keeps its width against a long sentence and is
-                // bounded against a long cost: a cost is allowed to make this
-                // column wider than the keycap, up to a point.
-                flex_shrink: 0.0,
-                max_width: px(COST_MAX),
-                ..default()
-            },
-            Pickable::IGNORE,
-        ))
-        .id();
-    commands.entity(hand).add_child(keycap);
-    commands.entity(row).add_child(hand);
+    // What the ability *does*, if the card's text is here to say it, and what
+    // it costs if it is not: the fallback label is `printed_label`'s answer,
+    // which is the cost. Read here rather than where it is drawn, because the
+    // cost column is decided by it and stands to the left of the sentence.
+    let printed = row_text(faces, duel, object, option);
+    let cost = row_cost(option, printed.is_some());
+    // **Cost, sentence, key**, in that order across the row. The cost is what
+    // a player checks first ("can I afford this") and the key is what they
+    // press last, so the row is read in the order it is used; and both ends
+    // hold a fixed width, which leaves the sentence one straight left edge
+    // down the whole sheet.
+    //
+    // The column is spawned on every row of such a sheet, empty or not. A row
+    // that dropped it would start its sentence at the sheet's edge while its
+    // neighbours started fifty pixels in, and a ragged column of prose is a
+    // worse answer than a little empty paper.
+    if costs {
+        let purse = spawn_cost_column(commands, fonts, cost);
+        commands.entity(row).add_child(purse);
+    }
 
     let says = commands
         .spawn((
@@ -1315,13 +1429,11 @@ fn spawn_row(
             Pickable::IGNORE,
         ))
         .id();
-    // What the ability *does*, if the card's text is here to say it, and what
-    // it costs if it is not: the fallback label is `printed_label`'s answer,
-    // which is the cost.
-    let printed = row_text(faces, duel, object, option);
-    let blocks = printed
-        .clone()
-        .unwrap_or_else(|| vec![TextBlock::Rules(option.label.clone())]);
+    if !costs && let Some(cost) = cost {
+        let title = spawn_cost_title(commands, fonts, cost);
+        commands.entity(says).add_child(title);
+    }
+    let blocks = printed.unwrap_or_else(|| vec![TextBlock::Rules(option.label.clone())]);
     for block in blocks {
         let (words, colour) = match &block {
             TextBlock::Rules(t) => (t.clone(), palette::SLIP_INK),
@@ -1331,43 +1443,7 @@ fn spawn_row(
         commands.entity(says).add_child(line);
     }
     commands.entity(row).add_child(says);
-
-    // The cost is skipped where it would print the row's own words a second
-    // time. Offline there is no card text at all, so every printed ability
-    // falls back to its cost — and a row reading `{2}, {T}` beside `{2}, {T}`
-    // is the duplication the sentence-first layout exists to remove, not a
-    // cost drawn where a cost belongs.
-    let repeats = printed.is_none() && option.cost.as_deref() == Some(option.label.as_str());
-    if let Some(cost) = option.cost.as_deref().filter(|_| !repeats) {
-        // A rule between the key and what it charges. They share one column
-        // and they are not the same kind of thing — one is a place on the
-        // keyboard, the other is what the ability costs — and with air alone
-        // the cost read as a second line of the keycap.
-        let bar = commands
-            .spawn((
-                Node {
-                    width: px(ROW_CAP_PT * KEYCAP_SIDE * COST_RULE),
-                    height: px(1),
-                    ..default()
-                },
-                BackgroundColor(palette::PARCHMENT_EDGE),
-                Pickable::IGNORE,
-            ))
-            .id();
-        commands.entity(hand).add_child(bar);
-        // The words in a cost stay at the rows' size and only the marks grow:
-        // `Sacrifice this` set at [`COST_MARK`] would be larger than the
-        // ability it is part of.
-        let pips = crate::manaui::spawn_rich_marks(
-            commands,
-            fonts,
-            cost,
-            ROW_PT,
-            COST_MARK,
-            palette::SLIP_SOFT,
-        );
-        commands.entity(hand).add_child(pips);
-    }
+    commands.entity(row).add_child(keycap);
     row
 }
 

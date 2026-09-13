@@ -452,7 +452,31 @@ fn cost_label(lang: Lang, cost: &Cost) -> Option<String> {
             CostPart::ExileFromHand(_) => Phrase::CostExileACard.text(lang).to_string(),
         });
     }
-    (!parts.is_empty()).then(|| parts.join(", "))
+    (!parts.is_empty()).then(|| parts.join(COST_JOIN))
+}
+
+/// What a cost's payments are written apart with.
+///
+/// The printed card's own punctuation: `{2}{B}, {T}, Sacrifice this`. Named
+/// because [`payments`] takes it back apart, and a separator spelled out at
+/// both ends is a pair that drifts.
+const COST_JOIN: &str = ", ";
+
+/// A cost, back into the payments it was written from.
+///
+/// A cost is a *list* — mana, then a tap, then whatever else the card asks
+/// for — and [`cost_label`] writes it as one line because that is how a card
+/// prints it. Drawn as a narrow column beside a sentence it wants to be a
+/// list again: a comma that wrapped onto a line of its own is the shape that
+/// made this necessary, and `{2}{U}{U}` over `{T}` over `Sacrifice this` is
+/// how a player reads what an ability charges anyway.
+///
+/// The inverse of one `join`, which is why the two are written together here
+/// rather than each where it is used.
+pub fn payments(cost: &str) -> impl Iterator<Item = &str> {
+    cost.split(COST_JOIN)
+        .map(str::trim)
+        .filter(|part| !part.is_empty())
 }
 
 /// One mana symbol, as a letter.
