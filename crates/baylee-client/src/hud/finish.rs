@@ -457,6 +457,7 @@ mod tests {
         UiFonts {
             text: Handle::default(),
             medium: Handle::default(),
+            bold: Handle::default(),
             italic: Handle::default(),
             medium_italic: Handle::default(),
             serif: Handle::default(),

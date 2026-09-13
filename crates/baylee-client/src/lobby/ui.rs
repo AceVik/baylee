@@ -1357,7 +1357,7 @@ pub(crate) fn chip(
     let text = commands
         .spawn((
             Text::new(label),
-            tf(fonts, metrics.small),
+            tf_bold(fonts, metrics.small),
             TextColor(if on { palette::INK } else { palette::MUTED }),
             Pickable::IGNORE,
         ))
@@ -1833,7 +1833,7 @@ pub(crate) fn button(
     let text = commands
         .spawn((
             Text::new(label),
-            tf(fonts, metrics.text),
+            tf_bold(fonts, metrics.text),
             TextColor(if enabled { palette::INK } else { palette::DEAD }),
             Pickable::IGNORE,
         ))

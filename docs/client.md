@@ -2618,11 +2618,41 @@ hand and still hold what the systems are for.
 The interface is set in **Alegreya Sans** and what a card *says* is set in
 **Faustina**, and the split is the point: one face separated by size gave a
 card's printed text and the button beside it the same voice, and a card's
-rules text is a **quotation**. `hud::UiFonts` carries six files — four static
-Alegreya Sans cuts (Regular, Medium, and the italic of each) and Faustina
-upright and italic, variable on `wght` 300–800 — beside the icon and mana
-faces. This **overrides `docs/design.md` §1.2**, which shipped three cuts of
-Inter and said there was no fourth; the override is recorded there.
+rules text is a **quotation**. `hud::UiFonts` carries seven files — five
+static Alegreya Sans cuts (Regular, Medium, Bold, and the italic of the first
+two) and Faustina upright and italic, variable on `wght` 300–800 — beside the
+icon and mana faces. This **overrides `docs/design.md` §1.2**, which shipped
+three cuts of Inter and said there was no fourth; the override is recorded
+there.
+
+The Bold is the newest of them and it draws one line: **a word a player can
+press is set in Bold, and a word a player can only read is not.** So the
+label on a button, a chip, a tray tab, an answer on the prompt slip, a phase
+tile and the digit in an ability row's roundel are bold; the ability's own
+printed sentence beside that digit, a card's name in a browser row and the
+slip's prose are not — a sentence *quoted* inside a control is still a
+quotation, which is why the ability chooser's `{T}: Add {G}` stays as it was
+while the menu button's "Play {0}" beside it does not. `hud::tf_bold` is the
+one door, and two more exist for exactly the reason it does:
+`manaui::spawn_rich_label` and the tray's `dialog_label`, each a second
+function rather than a `bool` on an existing one, because a flag in that
+position is a thing to get backwards and both of those functions have callers
+on **both** sides of the line.
+
+It has to be a file. `TextFont::weight` reaches a variable font and these
+cuts are static, so a bold label is a bold `.ttf` or it is nothing — and
+Medium was already spent on the small sizes, where it is the reading weight
+rather than emphasis. Three tests hold the asset itself
+(`hud::tests::faces`): every face `setup_fonts` names is a file in the tree,
+the bold cut's `OS/2.usWeightClass` really is 700, and nothing sits under
+`assets/fonts/` that the client does not name — the last because
+`AssetServer::load` is lazy and infallible, so a renamed `.ttf` is an
+interface drawn in nothing and no test that says so.
+
+No width estimate moved with it. Bold measures **0.4610** of the em on lower
+case against the Regular's 0.4453 — 3.5% wider, read out of the shipped files
+— and `stack::CHAR_WIDTH` budgets card *names*, which are never a control's
+label.
 
 Two scales carry the whole change, and the reason they are scales is the
 reason they exist at all. Every size in this client was chosen against

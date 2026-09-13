@@ -64,6 +64,14 @@ pub struct UiFonts {
     /// that field only reaches a variable font. Small text takes this one —
     /// [`tf`] says where the line is and why.
     pub medium: Handle<Font>,
+    /// The family's Bold, and the only face a **control** is set in.
+    ///
+    /// A fifth file for exactly the reason there is a fourth: `TextFont::weight`
+    /// does not reach a static cut, so a bold label is a bold *file* or it is
+    /// nothing. What it buys is a distinction this interface could not draw —
+    /// a word a player can press against a word a player can only read. See
+    /// [`tf_bold`] for where that line falls.
+    pub bold: Handle<Font>,
     /// Interface text, slanted.
     ///
     /// A second file rather than a switch, for the same reason it always
@@ -92,6 +100,7 @@ pub fn setup_fonts(mut commands: Commands, assets: Res<AssetServer>) {
     commands.insert_resource(UiFonts {
         text: assets.load("fonts/AlegreyaSans-Regular.ttf"),
         medium: assets.load("fonts/AlegreyaSans-Medium.ttf"),
+        bold: assets.load("fonts/AlegreyaSans-Bold.ttf"),
         italic: assets.load("fonts/AlegreyaSans-Italic.ttf"),
         medium_italic: assets.load("fonts/AlegreyaSans-MediumItalic.ttf"),
         serif: assets.load("fonts/Faustina.ttf"),
@@ -147,6 +156,37 @@ pub(crate) fn tf(fonts: &UiFonts, size: f32) -> TextFont {
     };
     TextFont {
         font: bevy::text::FontSource::Handle(face.clone()),
+        font_size: bevy::text::FontSize::Px(size * UI_SCALE),
+        font_features: lining(),
+        ..default()
+    }
+}
+
+/// A **control's own label**, at a size.
+///
+/// The one rule this face draws, and it is worth stating because it is not
+/// "important text is bold": a label a player can **press** is set in Bold,
+/// and a sentence that merely happens to lie inside a control is not. So the
+/// word on a button, a chip, a tray tab, an answer on the prompt slip and the
+/// digit in an ability row's roundel are all bold; the ability's printed
+/// sentence beside that digit, a card's name in a browser row and the slip's
+/// prose are not. A control that is *only* a glyph — the eye at the end of a
+/// password box, the phase tiles' icons — is set in the icon face and reaches
+/// none of this.
+///
+/// There is no small-size branch, and that is the difference from [`tf`].
+/// Medium exists down there because the Regular's stems go grey under a 12 px
+/// raster; Bold has no such trouble at any size this client sets, so the face
+/// is the same one all the way down and a 8 px tile label is the same weight
+/// as a 20 px button.
+///
+/// Bold is 3.5% wider than Regular on lower case (0.4610 of the em against
+/// 0.4453, measured out of the shipped files), which is why no width estimate
+/// moved with it: [`stack::CHAR_WIDTH`] budgets card *names*, and a card name
+/// is never a control's label.
+pub(crate) fn tf_bold(fonts: &UiFonts, size: f32) -> TextFont {
+    TextFont {
+        font: bevy::text::FontSource::Handle(fonts.bold.clone()),
         font_size: bevy::text::FontSize::Px(size * UI_SCALE),
         font_features: lining(),
         ..default()

@@ -38,7 +38,7 @@ use bevy::input::keyboard::{Key, KeyboardInput};
 use bevy::input::mouse::MouseScrollUnit;
 use bevy::prelude::*;
 
-use crate::hud::{UiFonts, btn_radius, palette, soft_shadow, tf};
+use crate::hud::{UiFonts, btn_radius, palette, soft_shadow, tf, tf_bold};
 use crate::net::{NetworkHost, SeatTicket};
 use crate::softkeys::{SoftKey, SoftKeyboard};
 use crate::{DuelCommand, DuelPhase, InstalledHost};

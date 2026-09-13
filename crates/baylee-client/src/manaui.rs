@@ -220,6 +220,39 @@ pub fn spawn_rich(
     size: f32,
     color: Color,
 ) -> Entity {
+    rich(commands, fonts, text, size, color, crate::hud::tf)
+}
+
+/// The same line, set as a **control's own label**.
+///
+/// A separate door rather than a `bool` at the end of [`spawn_rich`], because
+/// the two callers mean different things and a flag in that position is a
+/// thing to get backwards: a menu button says *"Play {0}"* in its own voice
+/// and the ability sheet *quotes* `{T}: Add {G}` off a card. Only the first
+/// is a word a player can press, and [`crate::hud::tf_bold`] is where that
+/// line is drawn.
+///
+/// The discs do not change with it. A mana symbol is a printed mark and has
+/// one weight; bolding the letters around it is what a bold label is.
+pub fn spawn_rich_label(
+    commands: &mut Commands,
+    fonts: &UiFonts,
+    text: &str,
+    size: f32,
+    color: Color,
+) -> Entity {
+    rich(commands, fonts, text, size, color, crate::hud::tf_bold)
+}
+
+/// Both of the above, with the face they differ in passed in.
+fn rich(
+    commands: &mut Commands,
+    fonts: &UiFonts,
+    text: &str,
+    size: f32,
+    color: Color,
+    face: fn(&UiFonts, f32) -> TextFont,
+) -> Entity {
     let row = commands
         .spawn((
             Node {
@@ -236,7 +269,7 @@ pub fn spawn_rich(
             baylee_client_core::manapip::Segment::Text(words) => commands
                 .spawn((
                     Text::new(words),
-                    crate::hud::tf(fonts, size),
+                    face(fonts, size),
                     TextColor(color),
                     Pickable::IGNORE,
                 ))
@@ -287,6 +320,7 @@ mod tests {
         UiFonts {
             text: Handle::default(),
             medium: Handle::default(),
+            bold: Handle::default(),
             italic: Handle::default(),
             medium_italic: Handle::default(),
             serif: Handle::default(),

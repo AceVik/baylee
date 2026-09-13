@@ -1243,7 +1243,7 @@ fn spawn_tile(
             let label = commands
                 .spawn((
                     Text::new(short),
-                    tf(fonts, 8.0),
+                    tf_bold(fonts, 8.0),
                     TextColor(ink),
                     Pickable::IGNORE,
                 ))

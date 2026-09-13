@@ -421,6 +421,7 @@ fn headless() -> App {
         .insert_resource(UiFonts {
             text: Handle::default(),
             medium: Handle::default(),
+            bold: Handle::default(),
             italic: Handle::default(),
             medium_italic: Handle::default(),
             serif: Handle::default(),

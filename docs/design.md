@@ -449,6 +449,22 @@ that jitter their neighbours are a legibility bug, not a nicety.
 > `hud::UI_SCALE` are where that lives; `crates/baylee-client/src/hud.rs` is
 > normative on the sizes, and `docs/client.md` §"Two families" on the roles.
 
+> **A seventh file, 2026-09-13.** `AlegreyaSans-Bold.ttf` joins them, and it
+> buys exactly one distinction: **a word a player can press is set in Bold,
+> and a word a player can only read is not.** That is a line the interface
+> could not draw before — `TextFont::weight` reaches a variable font and these
+> cuts are static, so a bold label is a bold *file* or it is nothing, and
+> Medium was already spent on the small sizes where the Regular's stems go
+> grey. `hud::tf_bold` is the door and its doc comment is normative on which
+> side of the line a given piece of text falls: the word on a button, a chip,
+> a tray tab, an answer on the prompt slip, a phase tile and the digit in an
+> ability row's roundel are bold; the ability's own printed sentence beside
+> that digit, a card name in a browser row and the slip's prose are not — a
+> sentence quoted inside a control is still a quotation. No width estimate
+> moved with it: Bold measures 0.4610 of the em on lower case against the
+> Regular's 0.4453, 3.5% wider, and `stack::CHAR_WIDTH` budgets card *names*,
+> which are never a control's label.
+
 ### 1.3 The keyword algebra
 
 This is the question that was asked directly — how do several animated

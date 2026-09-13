@@ -17,8 +17,9 @@ used during development as a read-only rules reference. No Forge source code
 or data files are copied into this repository.
 
 Bundled fonts (crates/baylee-client/assets/fonts/): Alegreya Sans by Juan
-Pablo del Peral / Huerta Tipografica (Regular, Medium, Italic, Medium Italic),
-which sets the interface, and Faustina by Omnibus-Type (upright and italic,
+Pablo del Peral / Huerta Tipografica (Regular, Medium, Bold, Italic, Medium
+Italic), which sets the interface, and Faustina by Omnibus-Type (upright and
+italic,
 variable weight), which sets card names and rules text — both licensed under
 the SIL Open Font License 1.1, whose text is in assets/fonts/licenses/;
 Font Awesome Free 6.7.2 (https://fontawesome.com), icons licensed under

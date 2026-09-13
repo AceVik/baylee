@@ -322,10 +322,41 @@ fn dialog_text(
     size: f32,
     ink: Color,
 ) -> Entity {
+    dialog_line(commands, fonts, text, size, ink, tf)
+}
+
+/// The same line, set as a **control's own label**.
+///
+/// The tray's buttons are its tabs, its sort controls and the two words in
+/// its foot, and all of them are built from this rather than from
+/// `lobby::ui::button` — the browser is a panel of its own and shares none of
+/// that widget. So the bold face has to be reachable from here too, and for
+/// the same reason it is a second door rather than a flag: a card's name and
+/// a tab's are both lines of this dialog, and only one of them can be
+/// pressed.
+fn dialog_label(
+    commands: &mut Commands,
+    fonts: &UiFonts,
+    text: &str,
+    size: f32,
+    ink: Color,
+) -> Entity {
+    dialog_line(commands, fonts, text, size, ink, tf_bold)
+}
+
+/// Both of the above, with the face they differ in passed in.
+fn dialog_line(
+    commands: &mut Commands,
+    fonts: &UiFonts,
+    text: &str,
+    size: f32,
+    ink: Color,
+    face: fn(&UiFonts, f32) -> TextFont,
+) -> Entity {
     let line = commands
         .spawn((
             Text::default(),
-            tf(fonts, size),
+            face(fonts, size),
             TextColor(ink),
             // Every line on this dialog stands in a band of a fixed height,
             // so a line that wrapped would have its second half cut off by
@@ -339,7 +370,7 @@ fn dialog_text(
         let span = commands
             .spawn((
                 TextSpan::new(run.to_string()),
-                tf(fonts, size),
+                face(fonts, size),
                 TextColor(if aside { palette::DIALOG_SOFT } else { ink }),
             ))
             .id();
@@ -877,7 +908,7 @@ fn spawn_footer(
             }),
         ))
         .id();
-    let words = dialog_text(
+    let words = dialog_label(
         commands,
         fonts,
         Phrase::BrowseConfirm.text(lang),
@@ -903,7 +934,7 @@ fn spawn_footer(
     commands.entity(foot).add_child(confirm);
 
     if min == 0 {
-        let out = dialog_text(
+        let out = dialog_label(
             commands,
             fonts,
             Phrase::BrowseNone.text(lang),
@@ -963,7 +994,7 @@ fn spawn_tab(
     } else {
         (palette::DIALOG, palette::DIALOG_INK)
     };
-    let text = dialog_text(commands, fonts, &label, 11.0, ink);
+    let text = dialog_label(commands, fonts, &label, 11.0, ink);
     let tab = commands
         .spawn((
             TrayTab { zone },
@@ -998,7 +1029,7 @@ fn spawn_control<C: Component>(
     label: &str,
     pad: f32,
 ) -> Entity {
-    let text = dialog_text(commands, fonts, label, 11.0, palette::DIALOG_INK);
+    let text = dialog_label(commands, fonts, label, 11.0, palette::DIALOG_INK);
     let button = commands
         .spawn((
             marker,
@@ -1529,6 +1560,7 @@ mod tests {
             let fonts = UiFonts {
                 text: Handle::default(),
                 medium: Handle::default(),
+                bold: Handle::default(),
                 italic: Handle::default(),
                 medium_italic: Handle::default(),
                 serif: Handle::default(),

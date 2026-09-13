@@ -1507,7 +1507,7 @@ fn put_words(commands: &mut Commands, fonts: &UiFonts, button: Entity, text: &st
     if text.is_empty() {
         return;
     }
-    let node = crate::manaui::spawn_rich(commands, fonts, text, 13.0, ink);
+    let node = crate::manaui::spawn_rich_label(commands, fonts, text, 13.0, ink);
     commands.entity(button).add_child(node);
 }
 
@@ -1600,7 +1600,7 @@ fn spawn_menu_row(commands: &mut Commands, fonts: &UiFonts, lang: Lang, duel: &D
                 soft_shadow(),
                 children![(
                     Text::new(label),
-                    tf(fonts, 13.0),
+                    tf_bold(fonts, 13.0),
                     TextColor(ink),
                     Pickable::IGNORE,
                 )],
@@ -1649,7 +1649,7 @@ fn spawn_hold(commands: &mut Commands, fonts: &UiFonts, lang: Lang, row: Entity)
             soft_shadow(),
             children![(
                 Text::new(Phrase::HoldRelease.text(lang)),
-                tf(fonts, 13.0),
+                tf_bold(fonts, 13.0),
                 TextColor(palette::INK),
                 Pickable::IGNORE,
             )],
@@ -1749,7 +1749,7 @@ pub(crate) fn answer_button(
             Feel::new(rest),
             children![(
                 Text::new(label),
-                tf(fonts, ANSWER_PT),
+                tf_bold(fonts, ANSWER_PT),
                 TextColor(if lead {
                     palette::PARCHMENT_INK
                 } else {
@@ -1871,7 +1871,7 @@ fn spawn_step(commands: &mut Commands, fonts: &UiFonts, delta: i32, glyph: &str)
             Feel::new(palette::BRASS),
             children![(
                 Text::new(glyph.to_string()),
-                tf(fonts, 17.0),
+                tf_bold(fonts, 17.0),
                 TextColor(palette::PARCHMENT_INK),
                 // See [`answer_node`]: a label is a node, and a node under the
                 // pointer is what the pointer is over.
@@ -2090,6 +2090,7 @@ mod tests {
         UiFonts {
             text: Handle::default(),
             medium: Handle::default(),
+            bold: Handle::default(),
             italic: Handle::default(),
             medium_italic: Handle::default(),
             serif: Handle::default(),

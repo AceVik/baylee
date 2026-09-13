@@ -1447,3 +1447,125 @@ mod the_tiles_follow_the_shelf {
         );
     }
 }
+
+/// The faces on disk, read as files rather than as handles.
+///
+/// `AssetServer::load` is lazy and infallible: a name that matches nothing
+/// hands back a handle that never resolves, so a renamed or forgotten `.ttf`
+/// is an interface drawn in *nothing* and a test suite that says so
+/// nowhere. These read the bytes.
+mod faces {
+    /// Every face [`super::setup_fonts`] asks for, in its own spelling.
+    ///
+    /// Typed out a second time on purpose. The point is to hold the loader's
+    /// strings against the directory, and a list built from the loader could
+    /// only ever agree with it.
+    const SHIPPED: [&str; 8] = [
+        "AlegreyaSans-Regular.ttf",
+        "AlegreyaSans-Medium.ttf",
+        "AlegreyaSans-Bold.ttf",
+        "AlegreyaSans-Italic.ttf",
+        "AlegreyaSans-MediumItalic.ttf",
+        "Faustina.ttf",
+        "Faustina-Italic.ttf",
+        "fa-solid-900.ttf",
+    ];
+
+    fn path(file: &str) -> std::path::PathBuf {
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("assets/fonts")
+            .join(file)
+    }
+
+    /// A TrueType table's offset and length, by tag.
+    ///
+    /// Twenty lines of hand-rolled parser rather than a dependency, for the
+    /// same reason the sounds are computed: this reads two numbers out of one
+    /// table and a font crate in the tree would be a build cost paid on every
+    /// machine forever.
+    fn table(bytes: &[u8], tag: [u8; 4]) -> Option<(usize, usize)> {
+        let count = u16::from_be_bytes([*bytes.get(4)?, *bytes.get(5)?]) as usize;
+        (0..count).find_map(|i| {
+            let at = 12 + 16 * i;
+            (bytes.get(at..at + 4)? == tag).then(|| {
+                let n = |o: usize| {
+                    u32::from_be_bytes([
+                        bytes[at + o],
+                        bytes[at + o + 1],
+                        bytes[at + o + 2],
+                        bytes[at + o + 3],
+                    ]) as usize
+                };
+                (n(8), n(12))
+            })
+        })
+    }
+
+    /// `OS/2`'s `usWeightClass`: 400 for a Regular, 700 for a Bold.
+    fn weight(bytes: &[u8]) -> Option<u16> {
+        let (at, len) = table(bytes, *b"OS/2")?;
+        (len >= 6).then(|| u16::from_be_bytes([bytes[at + 4], bytes[at + 5]]))
+    }
+
+    /// Every face the loader names is a file that is there.
+    #[test]
+    fn every_face_the_client_asks_for_is_in_the_tree() {
+        for file in SHIPPED {
+            let at = path(file);
+            let bytes =
+                std::fs::read(&at).unwrap_or_else(|_| panic!("{} is not shipped", at.display()));
+            assert!(bytes.len() > 1024, "{file} is {} bytes", bytes.len());
+            assert!(
+                table(&bytes, *b"OS/2").is_some(),
+                "{file} has no OS/2 table, so it is not a font this reads"
+            );
+        }
+    }
+
+    /// The bold cut is bold, and the other two weights of the family are not.
+    ///
+    /// The whole of `tf_bold` rests on a *file*, because `TextFont::weight`
+    /// reaches only a variable font and these are static cuts. A file that
+    /// was quietly the Regular under a bold name would draw every control in
+    /// this client at the weight it had before, and nothing else in the suite
+    /// could tell.
+    #[test]
+    fn the_bold_cut_is_the_one_that_is_bold() {
+        let of =
+            |file: &str| weight(&std::fs::read(path(file)).expect("a face")).expect("a weight");
+        assert_eq!(of("AlegreyaSans-Bold.ttf"), 700, "the bold cut is not bold");
+        assert_eq!(of("AlegreyaSans-Medium.ttf"), 500);
+        assert_eq!(of("AlegreyaSans-Regular.ttf"), 400);
+    }
+
+    /// Nothing under `assets/fonts` is unaccounted for.
+    ///
+    /// `docs/legal.md` is the reason this is worth a test rather than a
+    /// glance: every file in there is a third party's, licensed under a
+    /// licence that has to be vendored beside it, and a face that arrived
+    /// without being named anywhere is exactly the kind of thing an audit is
+    /// supposed to find. The mana font is named by clause 2 and loaded
+    /// through `manaui`, so it is listed here as shipped-and-known.
+    #[test]
+    fn no_face_is_shipped_that_nothing_names() {
+        let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("assets/fonts");
+        let mut found: Vec<String> = std::fs::read_dir(&dir)
+            .expect("the font directory")
+            .filter_map(|entry| {
+                let name = entry.ok()?.file_name().to_string_lossy().into_owned();
+                std::path::Path::new(&name)
+                    .extension()
+                    .is_some_and(|ext| ext.eq_ignore_ascii_case("ttf"))
+                    .then_some(name)
+            })
+            .collect();
+        found.sort();
+        let mut known: Vec<String> = SHIPPED
+            .iter()
+            .map(|s| (*s).to_string())
+            .chain(std::iter::once("mana.ttf".to_string()))
+            .collect();
+        known.sort();
+        assert_eq!(found, known, "a face nothing in the client names");
+    }
+}

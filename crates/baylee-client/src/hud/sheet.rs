@@ -478,7 +478,7 @@ fn spawn_row(
     let glyph = commands
         .spawn((
             Text::new(digit.to_string()),
-            tf(fonts, 11.0),
+            tf_bold(fonts, 11.0),
             // Dark on gold in both states. White on brass fails contrast, and
             // an armed row is the one a player is about to commit to.
             TextColor(palette::PARCHMENT_INK),
@@ -573,7 +573,7 @@ fn spawn_pager(
     let glyph = commands
         .spawn((
             Text::new(abilitysheet::PAGER.to_string()),
-            tf(fonts, 11.0),
+            tf_bold(fonts, 11.0),
             TextColor(palette::SLIP_SOFT),
             Pickable::IGNORE,
         ))
@@ -585,7 +585,7 @@ fn spawn_pager(
             Text::new(
                 Phrase::SheetMorePage.fill(lang, &[&(page + 1).to_string(), &pages.to_string()]),
             ),
-            tf(fonts, 12.0),
+            tf_bold(fonts, 12.0),
             TextColor(palette::SLIP_SOFT),
             Pickable::IGNORE,
         ))
