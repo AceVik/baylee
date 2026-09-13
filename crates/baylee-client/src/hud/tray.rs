@@ -1120,7 +1120,12 @@ fn spawn_row(
     let name = dialog_text(
         commands,
         fonts,
-        &row.name,
+        // `BrowseRow::name` is the projection, which is English; the printing
+        // this seat chose has the player's own. See [`crate::face::name_of`].
+        &view.object(row.id).map_or_else(
+            || row.name.clone(),
+            |o| crate::face::name_of(o, view, faces.texts),
+        ),
         TRAY_NAME_SIZE,
         palette::DIALOG_INK,
     );

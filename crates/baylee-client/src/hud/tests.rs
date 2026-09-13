@@ -727,6 +727,7 @@ mod revision {
 
 mod combat {
     use super::*;
+    use crate::cardtext::CardTexts;
     use baylee_client_core::test_support::{ViewBuilder, token};
     use baylee_core::ids::Defender;
     use baylee_view::{AttackerView, BlockerView};
@@ -757,8 +758,8 @@ mod combat {
     #[test]
     fn an_attack_aimed_at_this_seat_is_read_out_and_marked() {
         let view = attacked_by(3, false);
-        let (line, threatened) =
-            incoming_line(&view, None, None, Lang::En).expect("combat is declared");
+        let (line, threatened) = incoming_line(&view, None, None, &CardTexts::default(), Lang::En)
+            .expect("combat is declared");
         assert!(
             line.contains('3'),
             "the number that gets through is in the line: {line}"
@@ -772,8 +773,8 @@ mod combat {
     #[test]
     fn a_blocked_attack_is_still_read_out_but_no_longer_marked() {
         let view = attacked_by(3, true);
-        let (line, threatened) =
-            incoming_line(&view, None, None, Lang::En).expect("combat is declared");
+        let (line, threatened) = incoming_line(&view, None, None, &CardTexts::default(), Lang::En)
+            .expect("combat is declared");
         assert!(
             !threatened,
             "nothing reaches this seat once the attacker is blocked: {line}"
@@ -785,7 +786,7 @@ mod combat {
         let view = ViewBuilder::new(2)
             .with_battlefield(0, vec![token(1, 0, "Bear", 2, 2)])
             .build();
-        assert!(incoming_line(&view, None, None, Lang::En).is_none());
+        assert!(incoming_line(&view, None, None, &CardTexts::default(), Lang::En).is_none());
     }
 
     #[test]
@@ -809,7 +810,7 @@ mod combat {
         let interaction = baylee_client_core::Interaction::new(choice, PlayerId::new(0));
         assert!(interaction.focus_position().is_some(), "there is an aim");
         assert!(
-            combat_line(&interaction, &view, None, Lang::En).is_none(),
+            combat_line(&interaction, &view, None, &CardTexts::default(), Lang::En).is_none(),
             "but it is not a combat aim, and this line only speaks for combat"
         );
     }

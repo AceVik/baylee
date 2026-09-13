@@ -907,6 +907,14 @@ fn spawn_stack_entry(
         STACK_QUEUED_NAME_PT
     };
     let room = STACK_PANEL_W - 20.0 - if full { 12.0 } else { 8.0 } - 3.0 - width - 8.0;
+    // The name a player reads rather than the one the engine projects. It has
+    // to be looked up here and not taken from `item.name`, because
+    // `BoardModel` is built in a crate that links neither the catalog nor a
+    // socket to fetch it over.
+    let title = view.object(item.id).map_or_else(
+        || item.name.clone(),
+        |o| crate::face::name_of(o, view, faces.texts),
+    );
     let mut name = commands.spawn((
         tf(fonts, size),
         TextColor(ink),
@@ -918,7 +926,7 @@ fn spawn_stack_entry(
     ));
     if full {
         name.insert((
-            Text::new(item.name.clone()),
+            Text::new(title),
             bevy::text::LineHeight::Px(STACK_NAME_LINE),
             // A cap in pixels rather than a claim about the pool: a printing
             // this client has never seen gets two lines and a clean edge
@@ -931,7 +939,7 @@ fn spawn_stack_entry(
         ));
     } else {
         name.insert((
-            Text::new(fit(&item.name, room, size)),
+            Text::new(fit(&title, room, size)),
             TextLayout::linebreak(bevy::text::LineBreak::NoWrap),
         ));
     }
@@ -948,7 +956,10 @@ fn spawn_stack_entry(
             baylee_client_core::board::StackKind::Ability { source, .. } => {
                 Some(view.object(source).map_or_else(
                     || Phrase::StackAbilityBare.text(lang).to_string(),
-                    |o| Phrase::StackAbility.fill(lang, &[&o.name]),
+                    |o| {
+                        Phrase::StackAbility
+                            .fill(lang, &[&crate::face::name_of(o, view, faces.texts)])
+                    },
                 ))
             }
         };
@@ -1050,7 +1061,7 @@ fn spawn_stack_entry(
 
     if !item.targets.is_empty() {
         let targets = spawn_stack_targets(
-            commands, lang, item, key, full, statics, textures, assets, fonts, cards,
+            commands, lang, item, key, full, view, statics, textures, assets, fonts, faces, cards,
         );
         commands.entity(body).add_child(targets);
     }
@@ -1066,10 +1077,12 @@ fn spawn_stack_targets(
     item: &baylee_client_core::board::StackItem,
     key: StackKey,
     full: bool,
+    view: &PlayerView,
     statics: &GameStatic,
     textures: &mut CardTextures,
     assets: &AssetServer,
     fonts: &UiFonts,
+    faces: &FaceCtx<'_>,
     mut cards: Option<&mut UiCards<'_>>,
 ) -> Entity {
     let row = commands
@@ -1111,10 +1124,12 @@ fn spawn_stack_targets(
             target,
             key,
             full,
+            view,
             statics,
             textures,
             assets,
             fonts,
+            faces,
             cards.as_deref_mut(),
         );
         commands.entity(row).add_child(chip);
@@ -1243,10 +1258,12 @@ fn spawn_stack_target(
     target: &baylee_client_core::board::StackTarget,
     key: StackKey,
     full: bool,
+    view: &PlayerView,
     statics: &GameStatic,
     textures: &mut CardTextures,
     assets: &AssetServer,
     fonts: &UiFonts,
+    faces: &FaceCtx<'_>,
     cards: Option<&mut UiCards<'_>>,
 ) -> Entity {
     let (width, height) = if full {
@@ -1276,7 +1293,15 @@ fn spawn_stack_target(
     // its name in the same chip, so the row never has a hole in it.
     let (glyph, label) = match target.player() {
         Some(player) => (Some(glyph::HEART), statics.seat_name(player).to_string()),
-        None => (None, target.name.clone().unwrap_or_else(|| "?".into())),
+        None => (
+            None,
+            target
+                .object()
+                .and_then(|id| view.object(id))
+                .map(|o| crate::face::name_of(o, view, faces.texts))
+                .or_else(|| target.name.clone())
+                .unwrap_or_else(|| "?".into()),
+        ),
     };
     let size = if full { 12.0 } else { 11.0 };
     let chip = commands

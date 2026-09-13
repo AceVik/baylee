@@ -214,6 +214,45 @@ impl Characteristics {
     }
 }
 
+/// Does this printed text still describe an object called `name`?
+///
+/// The **clone guard**. A copy carries the copied name in its view while its
+/// cardboard — and therefore its printing, and therefore this text — is still
+/// the Clone's own, so the two disagree and only the name says what a player
+/// is looking at. The same is true of a face-down permanent and of anything an
+/// effect renamed. Comparing against *both* names is what makes it work in a
+/// translated client: `name` is the served language and `english_name` is the
+/// one the engine projects, and an ordinary card matches on the second.
+#[must_use]
+pub fn describes(text: &CardText, name: &str) -> bool {
+    text.english_name == name || text.name == name
+}
+
+/// The name to write for an object whose projected name is `name`.
+///
+/// This is the **one** place a card name is translated, and it exists because
+/// there were six others. Everything a player reads a name off — the stack's
+/// title and its subtitle and its target chips, the combat line's aim and the
+/// ends of a combat tally, the rows of the zone browser — reads
+/// [`PublicObject::name`], which comes out of the compiled card registry and
+/// is therefore always English. The localized name is one lookup away in the
+/// catalog and was reached only by whatever happened to be building a whole
+/// [`CardFace`], so a German client drew a German sentence under an English
+/// title.
+///
+/// Falling back to the projected name is not a failure case. A token, an
+/// emblem, a card whose text has not arrived yet and a card the seat may not
+/// identify all have nothing else to be called, and [`describes`] deliberately
+/// sends a clone the same way: the printing's name would be a lie about which
+/// card is on the table.
+#[must_use]
+pub fn shown_name<'a>(name: &'a str, text: Option<&'a CardText>) -> &'a str {
+    match text {
+        Some(text) if describes(text, name) => &text.name,
+        _ => name,
+    }
+}
+
 impl CardFace {
     /// Builds the face for an object on the board.
     #[must_use]
@@ -239,9 +278,9 @@ impl CardFace {
         // Is the object still the card the text describes? A clone, a
         // face-down creature, or anything that changed its name is not, and
         // then the printed prose does not belong to it.
-        let text = text.filter(|t| t.english_name == object.name || t.name == object.name);
+        let text = text.filter(|t| describes(t, &object.name));
 
-        let name = text.map_or_else(|| object.name.clone(), |t| t.name.clone());
+        let name = shown_name(&object.name, text).to_string();
 
         let cost = printed_cost.map_or_else(
             || {
@@ -722,6 +761,47 @@ mod tests {
             "the host counted four sentences and this text has three"
         );
         assert_eq!(sentence_blocks(three, 3, 3), None, "past the last sentence");
+    }
+
+    /// The whole of V1 in one assertion: a translated client showed a German
+    /// sentence under an English title, because six places read the
+    /// projection and only [`CardFace`] ever reached the catalog.
+    #[test]
+    fn a_card_is_named_in_the_language_it_was_printed_in() {
+        let mut german = text("Gefluteter Strand", "Land", "");
+        german.lang = "de".to_string();
+        german.english_name = "Flooded Strand".to_string();
+
+        assert_eq!(
+            shown_name("Flooded Strand", Some(&german)),
+            "Gefluteter Strand"
+        );
+        // Already translated — a client asking twice must not lose the name.
+        assert_eq!(
+            shown_name("Gefluteter Strand", Some(&german)),
+            "Gefluteter Strand"
+        );
+        // Nothing arrived yet, and a token that has no printing at all.
+        assert_eq!(shown_name("Flooded Strand", None), "Flooded Strand");
+    }
+
+    /// The clone guard, which is the reason the lookup cannot simply be
+    /// "whatever the printing says": a Clone carries its own cardboard into
+    /// every zone, so the printing beside it is the *Clone's* and naming the
+    /// object after it would be a lie about what is on the table.
+    #[test]
+    fn a_copy_keeps_the_name_it_copied() {
+        let mut german = text("Klon", "Kreatur — Gestaltwandler", "");
+        german.lang = "de".to_string();
+        german.english_name = "Clone".to_string();
+
+        assert!(describes(&german, "Clone"));
+        assert!(describes(&german, "Klon"));
+        assert!(!describes(&german, "Snapcaster Mage"));
+        assert_eq!(
+            shown_name("Snapcaster Mage", Some(&german)),
+            "Snapcaster Mage"
+        );
     }
 
     /// A sentence carries its own reminder text, and it is greyed like any

@@ -80,6 +80,17 @@ impl CardTexts {
         self.by_print.len()
     }
 
+    /// One printing's text, filed directly, for a test elsewhere in the crate
+    /// that is about what a name is *drawn* as rather than about how text is
+    /// fetched. The ordinary road in is [`Self::absorb`], which needs a
+    /// `GameStatic` to turn a Scryfall id into a [`PrintRef`].
+    #[cfg(test)]
+    pub(crate) fn filed(print: PrintRef, entry: CardTextEntry) -> Self {
+        let mut texts = Self::default();
+        texts.by_print.insert(print, entry);
+        texts
+    }
+
     /// Files entries against the print table.
     ///
     /// The catalog answers by Scryfall id; the renderer asks by [`PrintRef`].

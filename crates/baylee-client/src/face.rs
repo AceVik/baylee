@@ -111,6 +111,45 @@ pub fn of_object(
     CardFace::from_object(object, cost, text.as_ref())
 }
 
+/// The name to write for an object, in the player's own language.
+///
+/// The renderer's half of [`baylee_client_core::card_face::shown_name`]: that
+/// function holds the clone guard and knows nothing about where text comes
+/// from, and this one finds the printing whose text names the object.
+///
+/// For an **ability** that printing is the *source's*, because an ability has
+/// no card of its own — and the face is the one the host says the ability's
+/// sentence is printed on rather than the one the source is showing now, for
+/// the reason [`baylee_view::StackText::face`] gives: a Sheoldred who has
+/// turned back over while her chapter ability waits on the stack must not lend
+/// that ability the other side's name. A source that has already left
+/// (CR 113.7a) leaves the name English, because then there is nothing else to
+/// call it by.
+#[must_use]
+pub fn name_of(
+    object: &baylee_view::PublicObject,
+    view: &baylee_view::PlayerView,
+    texts: &crate::cardtext::CardTexts,
+) -> String {
+    let text = printing_of(object, view).and_then(|(print, face)| texts.get(print, face));
+    baylee_client_core::card_face::shown_name(&object.name, text.as_ref()).to_string()
+}
+
+/// Which printing's text names this object, and which face of it.
+fn printing_of(
+    object: &baylee_view::PublicObject,
+    view: &baylee_view::PlayerView,
+) -> Option<(baylee_core::ids::PrintRef, u8)> {
+    if let Some(card) = object.card {
+        return Some((card.print, card.face));
+    }
+    let Some(baylee_view::StackItem::Ability { source, text, .. }) = object.stack_item else {
+        return None;
+    };
+    let card = view.object(source)?.card?;
+    Some((card.print, text.map_or(card.face, |t| t.face)))
+}
+
 /// The face for a card in hand.
 ///
 /// A hand card arrives as a [`baylee_view::HandObject`], which carries only
@@ -603,6 +642,89 @@ mod tests {
         let lost = ImageKey::new(PrintRef::new(1), 0, ArtSize::Small);
         textures.mark_failed(lost, crate::textures::Failure::Load(1));
         assert!(wants_face(&quiet, &plain, &textures, Some(lost)));
+    }
+
+    /// A face's helper for the two tests below: one printing, translated.
+    fn german(english: &str, translated: &str) -> crate::cardtext::CardTexts {
+        use baylee_client_core::card_face::{CardTextEntry, FaceText};
+        crate::cardtext::CardTexts::filed(
+            baylee_core::ids::PrintRef::new(7),
+            CardTextEntry {
+                scryfall_id: "abc".to_string(),
+                lang: "de".to_string(),
+                faces: vec![FaceText {
+                    name: translated.to_string(),
+                    english_name: english.to_string(),
+                    type_line: "Land".to_string(),
+                    oracle_text: String::new(),
+                    mana_cost: String::new(),
+                }],
+            },
+        )
+    }
+
+    /// An ability has no card of its own, so its name has to be looked up
+    /// through the permanent it came from. Nothing else in the client reaches
+    /// a printing that way, which is why this one is worth a test: the
+    /// obvious implementation answers `None` for every ability on the stack
+    /// and leaves the whole panel English.
+    #[test]
+    fn an_ability_is_named_through_the_permanent_it_came_from() {
+        use baylee_client_core::test_support::{ViewBuilder, printed, token};
+
+        let texts = german("Flooded Strand", "Gefluteter Strand");
+        let mut ability = token(30, 0, "Flooded Strand", 0, 0);
+        ability.card = None;
+        ability.stack_item = Some(baylee_view::StackItem::Ability {
+            source: baylee_core::ids::ObjectId::new(7, 0),
+            ability: None,
+            text: Some(baylee_view::StackText {
+                face: 0,
+                line: 0,
+                of: 1,
+            }),
+        });
+        let view = ViewBuilder::new(2)
+            .with_battlefield(0, vec![printed(7, 0, "Flooded Strand", 7)])
+            .with_stack(vec![ability.clone()])
+            .build();
+
+        assert_eq!(
+            name_of(&ability, &view, &texts),
+            "Gefluteter Strand",
+            "the ability borrows its source's printing"
+        );
+        // The source itself, which is the ordinary path.
+        assert_eq!(
+            name_of(
+                view.object(baylee_core::ids::ObjectId::new(7, 0)).unwrap(),
+                &view,
+                &texts
+            ),
+            "Gefluteter Strand"
+        );
+    }
+
+    /// An ability outlives its source (CR 113.7a). There is then no printing
+    /// to ask, and the projected name is all there is — which is the honest
+    /// answer, not a bug to paper over.
+    #[test]
+    fn an_ability_whose_source_has_left_keeps_the_name_it_has() {
+        use baylee_client_core::test_support::{ViewBuilder, token};
+
+        let texts = german("Flooded Strand", "Gefluteter Strand");
+        let mut ability = token(30, 0, "Flooded Strand", 0, 0);
+        ability.card = None;
+        ability.stack_item = Some(baylee_view::StackItem::Ability {
+            source: baylee_core::ids::ObjectId::new(7, 0),
+            ability: None,
+            text: None,
+        });
+        let view = ViewBuilder::new(2)
+            .with_stack(vec![ability.clone()])
+            .build();
+
+        assert_eq!(name_of(&ability, &view, &texts), "Flooded Strand");
     }
 
     /// The table quad is tinted by colour identity, so two different decks

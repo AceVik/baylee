@@ -492,7 +492,7 @@ pub fn sync_overlay(
             .interaction
             .as_ref()
             .filter(|i| i.is_combat() && !waiting)
-            .and_then(|i| combat_line(i, view, duel.statics.as_ref(), lang))
+            .and_then(|i| combat_line(i, view, duel.statics.as_ref(), faces.texts, lang))
         {
             let aim = slip_line(&mut commands, &fonts, &line, 13.0, palette::SLIP_SOFT);
             commands.entity(bar).add_child(aim);
@@ -504,9 +504,13 @@ pub fn sync_overlay(
         // making, so it is not filtered on `waiting`: an attack aimed at you
         // while the other side is still choosing blockers is exactly the
         // thing you need to be able to read.
-        if let Some((line, threatened)) =
-            incoming_line(view, duel.interaction.as_ref(), duel.statics.as_ref(), lang)
-        {
+        if let Some((line, threatened)) = incoming_line(
+            view,
+            duel.interaction.as_ref(),
+            duel.statics.as_ref(),
+            faces.texts,
+            lang,
+        ) {
             let ink = if threatened {
                 palette::INK_DANGER
             } else {

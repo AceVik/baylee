@@ -2759,6 +2759,47 @@ itself in its own words, and it is written to the store on the click: the
 settings screen has no way out but a click, and a language that reverted on
 the next launch would read as a button that did nothing.
 
+### A card's own name is translated in one place
+
+`Phrase` covers the words the client writes. A **card name** is not one of
+them: it comes out of the catalog with the card's text, beside the sentence,
+and for a long time only one thing ever read it. `CardFace::build` merged the
+printed text over the projection and translated the name on the way past — so
+anything drawing a whole card face got a German name, and the seven other
+places that wrote a name got `PublicObject::name`, which is the compiled card
+registry and is therefore always English. The stack panel is where that read
+worst: a German sentence under an English title, on the same row.
+
+The guard those seven needed already existed, inline in `build`. It is now
+`card_face::describes` and `card_face::shown_name`, and it is the **clone
+guard** rather than a lookup: a Clone carries its own cardboard into every
+zone, so the printing beside it is the Clone's while the projected name is what
+the object has become, and naming the object after its printing would be a lie
+about what is on the table. `shown_name` compares against *both* the served
+name and the English one, so an ordinary card matches whichever end asks.
+
+`face::name_of` is the renderer's half — it finds the printing, which is the
+part `baylee-client-core` cannot do because it links neither the catalog nor a
+socket to fetch it over. For an **ability** that printing is the *source's*,
+because an ability has no card of its own, and the face is the one the host
+says the sentence is printed on rather than the one the source is showing now:
+a Sheoldred who has turned back over while her chapter ability waits on the
+stack must not lend that ability the other side's name. An ability whose
+source has already left (CR 113.7a) keeps the projected name, because then
+there is nothing else to call it by.
+
+The seven callers are the stack panel's title, its `Ability · <name>`
+subtitle and its target chips, the combat line's aim, the ends of a combat
+tally, the zone browser's rows, and the ability sheet's heading. It stays one
+function: a new place that writes a card name calls `face::name_of`, and if it
+cannot reach a `PlayerView` it is drawing the wrong thing.
+
+The lookup has to happen at draw time and not in `BoardModel`, and the reason
+is one line up: `BoardModel` is built in `baylee-client-core`. A name is
+therefore *not* part of what `HudRevision` compares — but `texts` is, counting
+how many printings have text, so a name that turns German when the catalog
+answers mid-game redraws with the sentence it belongs to.
+
 ## Embedding (the open-world plan)
 
 `DuelPlugin` creates no window and no schedule of its own. An application adds

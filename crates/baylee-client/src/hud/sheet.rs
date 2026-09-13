@@ -275,7 +275,7 @@ fn spawn_sheet(
         .id();
     commands.spawn(sheet_surface(sheets)).insert(ChildOf(sheet));
 
-    spawn_head(commands, fonts, lang, duel, object, sheet);
+    spawn_head(commands, fonts, lang, faces, duel, object, sheet);
 
     // ---- the rows --------------------------------------------------------
     for at in abilitysheet::rows(options.len(), page) {
@@ -314,15 +314,15 @@ fn spawn_head(
     commands: &mut Commands,
     fonts: &UiFonts,
     lang: Lang,
+    faces: &crate::cardtext::CardTexts,
     duel: &Duel,
     object: ObjectId,
     sheet: Entity,
 ) {
-    let name = duel
-        .view
-        .as_ref()
-        .and_then(|v| v.object(object))
-        .map_or_else(String::new, |o| o.name.clone());
+    let name = duel.view.as_ref().map_or_else(String::new, |view| {
+        view.object(object)
+            .map_or_else(String::new, |o| crate::face::name_of(o, view, faces))
+    });
     let head = commands
         .spawn((
             Text::new(name),

@@ -174,6 +174,7 @@ pub(super) fn combat_line(
     interaction: &baylee_client_core::Interaction,
     view: &PlayerView,
     statics: Option<&GameStatic>,
+    texts: &crate::cardtext::CardTexts,
     lang: Lang,
 ) -> Option<String> {
     // `focus_position` answers for a target prompt as well now, and the aim
@@ -200,7 +201,7 @@ pub(super) fn combat_line(
             CombatFocus::Defender(Defender::Planeswalker(o)) | CombatFocus::Attacker(o) => {
                 view.object(o).map_or_else(
                     || Phrase::APermanent.text(lang).to_string(),
-                    |o| o.name.clone(),
+                    |o| crate::face::name_of(o, view, texts),
                 )
             }
             CombatFocus::None => Phrase::AimingAtNothing.text(lang).to_string(),
@@ -236,6 +237,7 @@ pub(super) fn incoming_line(
     view: &PlayerView,
     interaction: Option<&baylee_client_core::Interaction>,
     statics: Option<&GameStatic>,
+    texts: &crate::cardtext::CardTexts,
     lang: Lang,
 ) -> Option<(String, bool)> {
     let combat = Combat::read(view, interaction);
@@ -250,7 +252,7 @@ pub(super) fn incoming_line(
         ),
         LineEnd::Object(o) => view.object(o).map_or_else(
             || Phrase::APermanent.text(lang).to_string(),
-            |o| o.name.clone(),
+            |o| crate::face::name_of(o, view, texts),
         ),
     };
     let threatened = combat
