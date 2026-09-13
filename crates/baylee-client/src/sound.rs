@@ -2,8 +2,8 @@
 //!
 //! [`baylee_client_core::cue`] is the whole of the thinking — which moments
 //! are worth hearing, and the arithmetic that makes a triple block one sound
-//! instead of three. This is the other half: fourteen tones, **computed** at
-//! startup and played through `bevy_audio`.
+//! instead of three. This is the other half: fourteen buffers, **computed**
+//! at startup and played through `bevy_audio`.
 //!
 //! # Nothing here is a file
 //!
@@ -16,18 +16,28 @@
 //! audit. A player's own sound pack stays reachable because a [`Cue`] is a
 //! named moment and not a file name.
 //!
-//! # One instrument, struck nine ways
+//! The samples are uncompressed, and that is the answer to "why not Opus".
+//! Nothing here is stored and nothing is transmitted: the bytes are made a
+//! millisecond before rodio decodes them again, so a codec has nothing to
+//! save and could only take quality away. (`bevy_audio` reads wav, flac,
+//! vorbis, mp3 and aac; its decoders have no Opus at all, so the question has
+//! a second answer as well.)
 //!
-//! All of them are the same thing: a **struck rosewood bar**. A fundamental
-//! and two inharmonic partials at 3.93 and 9.56, each dying at its own rate,
-//! under a short filtered noise burst — the mallet before the note. That is
-//! what keeps a set of tones from being a set of *beeps*: a sine has no body,
-//! a sawtooth is a synthesiser, and wood is what belongs on a table with a
-//! leather rail round it. Metal was the other candidate and is wrong for the
-//! same reason it is wrong in a room: a bell's upper partials outlive its
-//! fundamental, so two of them overlapping is a chord nobody asked for.
+//! # One instrument
 //!
-//! What separates the nine is **pitch, gesture and level**, never timbre:
+//! All nine are the same thing: a **struck rosewood bar**, one bar, played in
+//! two ways. Five modes of the bar and five of the contact, under a force
+//! pulse whose *duration* is the whole of what a mallet is — see
+//! [`mallet`] — and over a tube whose air column takes 27 ms to bloom.
+//! A sine has no body, a sawtooth is a synthesiser, and wood is what belongs
+//! on a table with a leather rail round it. Metal was the other candidate and
+//! is wrong for the same reason it is wrong in a room: a bell's upper
+//! partials outlive its fundamental, so two of them overlapping is a chord
+//! nobody asked for. The clamp in [`modes`] is what holds this module to that
+//! claim.
+//!
+//! What separates the nine is **pitch, gesture, level and distance**, never
+//! timbre:
 //!
 //! - the four life cues are one two-strike gesture, falling a minor third for
 //!   a loss and rising a major third for a gain. Two intervals rather than
@@ -36,46 +46,48 @@
 //!   and [`Cue::TheirLifeGained`] on one frame — is a chord and not an
 //!   argument.
 //! - somebody **else's** life is that gesture a fourth lower, at a third of
-//!   the level, with a softer mallet, the top partial nearly gone and one
-//!   early reflection 19 ms behind it. "Elsewhere" is a filter and a
-//!   reflection, not a volume knob: a single delayed, dulled copy is what an
-//!   ear reads as *over there*.
+//!   the level, struck with the *same* mallet and heard across the room.
+//!   Distance is a room and a level; a gentler blow would say somebody was
+//!   hit more gently, which is not what a seat across the table means.
 //! - the three endings are the only sounds longer than a blink, and what they
-//!   add is **ring** — the resonator tube under the bar — never a new timbre
-//!   and never more loudness. All three peak below a life cue. Won rises and
-//!   slows, lost falls and softens, drawn is two equal strikes; all three come
-//!   to rest on A and never on the tonic, because a cadence left open is what
-//!   keeps a win from being a fanfare. `docs/design.md` retires hues rather
-//!   than handing out new ones, and this is the same restraint.
+//!   add is **ring** — the same bar, let ring instead of stopped — never a
+//!   new timbre and never more loudness. All three peak below a life cue.
+//!   Life cues speak in thirds, which have a colour; endings speak in perfect
+//!   intervals, which have none: a fifth up, a fourth down, a unison. All
+//!   three come to rest on A and never on the tonic. `docs/design.md` retires
+//!   hues rather than handing out new ones, and this is the same restraint.
+//!
+//! [`Cue::Refused`] is the one exception and is honest about it: a knuckle on
+//! the rail, with no bar in it at all.
 //!
 //! # `YourMove` is the one that could ruin it
 //!
 //! It fires on every priority grant — two hundred times in a long game — and
-//! a fixed tone at that rate is a metronome. Three things answer it here:
-//! it is the **lowest** sound in the set at 147 Hz, so it sits under the game
-//! rather than over it; it is the **quietest**, peaking at 0.154 against a
-//! life cue's 0.700; it is **one touch** rather than a two-note gesture,
+//! a fixed tone at that rate is a metronome. Four things answer it here: it
+//! is the **lowest** sound in the set at 147 Hz, so it sits under the game
+//! rather than over it; it is the **quietest**, peaking at 0.22 against a
+//! life cue's 1.00; it is **one touch** rather than a two-note gesture,
 //! because a melody is a thing that repeats and a tap is not; and it is one
-//! of **six variants** cycled in a fixed order, detuned within ±16 cents with
-//! the second partial struck at a different spot on the bar. A real bar
-//! drifts that much with the room and never reads as a wrong note, but no two
-//! consecutive firings are the same sound.
+//! of **six variants** cycled in a fixed order, each detuned within ±16 cents
+//! *and struck in a different place on the bar*. The spot is the stronger
+//! half of that pair — it swings the 4× partial from 0.99 to 0.59 and lifts
+//! an antisymmetric mode out of silence, where 16 cents on a yarn-struck
+//! 147 Hz bar is barely there.
 //!
-//! It is *not* the shortest — 900 ms, against a life cue's 650 — and that is
-//! deliberate rather than an oversight: a soft low note with a long decay is
-//! felt and then forgotten, where a short one is a *click*, and a click two
-//! hundred times is the metronome this is trying not to be. Measured: at half
-//! a second it is down to 0.018, a fiftieth of a life cue's peak.
+//! It is *not* the shortest, and that is deliberate rather than an oversight:
+//! a soft low note with a long decay is felt and then forgotten, where a
+//! short one is a *click*, and a click two hundred times is the metronome
+//! this is trying not to be.
 //!
 //! What is **not** built is the policy half, and it is the larger half: a
 //! grant that follows the player's own action tells them nothing, so a
 //! debounce of about 600 ms, a suppression window after the seat sends
 //! anything, a refractory period, and a louder cue when the window is in the
-//! background would together turn two hundred grants into a few dozen touches.
-//! That belongs in `baylee-client-core` beside `reconnect.rs`, where it can be
-//! tested without a device — and it wants a clock passed in, which
-//! [`baylee_client_core::cue::Cues`] has no field for yet. Until it exists the
-//! setting is the answer, and `Loudness::Off` is one chip on the settings
+//! background would together turn two hundred grants into a few dozen
+//! touches. That belongs in `baylee-client-core` beside `reconnect.rs`, where
+//! it can be tested without a device — and it wants a clock passed in, which
+//! [`baylee_client_core::cue::Cues`] has no field for yet. Until it exists
+//! the setting is the answer, and `Loudness::Off` is one chip on the settings
 //! screen.
 //!
 //! The other deliberate omission is loudness by **amount**: a twelve-point
@@ -90,7 +102,6 @@ use bevy::prelude::*;
 use crate::Duel;
 use crate::prefs::Prefs;
 use baylee_client_core::cue::{Cue, Loudness};
-
 /// Samples per second, everywhere.
 const RATE: f32 = 44_100.0;
 
@@ -108,587 +119,905 @@ const RATE: f32 = 44_100.0;
 /// three fit — a mixer would, and this module has none.
 const MASTER: f32 = 0.70;
 
-/// One partial of the bar: where it sits, how loud it starts, and how fast it
-/// dies relative to the fundamental.
+// --------------------------------------------------------------- the mallet
+
+/// How long the mallet is in contact with the bar, in seconds.
 ///
-/// 3.93 and 9.56 are a rosewood bar's, and the short decays are what makes it
-/// wood: the upper partials are gone in a tenth of the time the fundamental
-/// takes, which is the whole difference between a struck bar and a struck
-/// bell.
-struct Partial {
-    ratio: f32,
-    gain: f32,
-    decay: f32,
-}
-
-/// The bar, before any cue changes it.
-const BAR: [Partial; 3] = [
-    Partial {
-        ratio: 1.0,
-        gain: 1.0,
-        decay: 1.0,
-    },
-    Partial {
-        ratio: 3.93,
-        gain: 0.32,
-        decay: 0.35,
-    },
-    Partial {
-        ratio: 9.56,
-        gain: 0.10,
-        decay: 0.15,
-    },
-];
-
-/// What hits the bar.
+/// This is the **whole** of what a mallet is here, and that is the correction
+/// the second pass made. A mallet used to be a noise burst with its own
+/// cutoff and its own attack ramp, *summed on top of* a fixed partial
+/// spectrum — so a softer stick was the identical note with a different click
+/// in front of it, and the ear heard two sounds rather than one. A real blow
+/// is a force pulse of some duration, and a duration is a low-pass filter on
+/// whatever it drives: [`contact_gain`] is that filter, and it reaches every
+/// mode at once. Nothing else about a mallet needs saying.
 ///
-/// The noise burst is the contact and the lowpass is the mallet's head: a
-/// hard stick passes 2.2 kHz of it, yarn passes 700 Hz, and a knuckle on the
-/// leather rail is mostly burst and almost no note. `attack` is the ramp the
-/// note itself opens on — 1.5 ms is an anti-click, and the longer values are
-/// a softer stroke rather than a safety margin.
-struct Mallet {
-    /// The one-pole corner, in hertz.
-    cut: f32,
-    /// The burst's level against the fundamental.
-    gain: f32,
-    /// How fast the burst dies, in seconds.
-    decay: f32,
-    /// The note's own opening ramp, in seconds.
-    attack: f32,
+/// The four are a ladder in contact time, and the spectrum follows from it:
+/// hard at 1.2 ms passes 9 kHz, yarn at 4 ms is down 12 dB by 2 kHz and takes
+/// the knock with it. That is also honestly **not** scale-invariant — the
+/// same stick reads harder at A4 than at D3, because the filter is on
+/// `f · contact` and not on the ratio — which is how a real instrument
+/// behaves and is what the old fixed spectrum could not say.
+mod mallet {
+    /// A hard rubber core. The life cues, which have to be heard *through* a
+    /// game rather than under it.
+    pub(super) const HARD: f32 = 0.0012;
+    /// Wound, medium. The endings, where the table is being set down.
+    pub(super) const SOFT: f32 = 0.0025;
+    /// Yarn. [`super::Cue::YourMove`], the two hundred times a game one.
+    pub(super) const YARN: f32 = 0.0040;
+    /// A knuckle, which is not a mallet at all. [`super::Cue::Refused`].
+    pub(super) const KNUCKLE: f32 = 0.0060;
 }
 
-/// A hard stick: the life cues at this seat.
-const HARD: Mallet = Mallet {
-    cut: 2200.0,
-    gain: 0.18,
-    decay: 0.005,
-    attack: 0.0015,
-};
-
-/// Soft: somebody else's life, heard across the table.
-const SOFT: Mallet = Mallet {
-    cut: 1200.0,
-    gain: 0.10,
-    decay: 0.006,
-    attack: 0.005,
-};
-
-/// Yarn, the softest thing there is, and [`Cue::YourMove`]'s alone.
-const YARN: Mallet = Mallet {
-    cut: 700.0,
-    gain: 0.06,
-    decay: 0.006,
-    attack: 0.006,
-};
-
-/// Not the bar at all — a knuckle on the padded rail.
-const KNUCKLE: Mallet = Mallet {
-    cut: 600.0,
-    gain: 0.55,
-    decay: 0.010,
-    attack: 0.001,
-};
-
-/// The stroke a win is struck with: brighter than [`SOFT`], because it is a
-/// larger gesture on a larger bar.
-const WON: Mallet = Mallet {
-    cut: 1600.0,
-    gain: 0.10,
-    decay: 0.006,
-    attack: 0.003,
-};
-
-/// And the one a loss is: duller still.
-const LOST: Mallet = Mallet {
-    cut: 900.0,
-    gain: 0.10,
-    decay: 0.006,
-    attack: 0.004,
-};
-
-/// Just intonation off D4, which is the only scale in the building.
-mod note {
-    pub const FS3: f32 = 183.54;
-    /// Not in the working scale, which is why a refusal is struck on it.
-    pub const G3: f32 = 195.77;
-    /// Where all three endings come to rest.
-    pub const A3: f32 = 220.25;
-    pub const B3: f32 = 244.72;
-    pub const CS4: f32 = 275.31;
-    pub const D4: f32 = 293.66;
-    pub const FS4: f32 = 367.08;
-    pub const A4: f32 = 440.49;
+/// What a contact time of `contact` does to a component at `hz`.
+///
+/// `1/√(1 + (f·τ)²)`, a one-pole roll-off whose corner is `1/(2πτ)`. It is
+/// the one number that makes a mallet a mallet, and the reason the partial
+/// gains below are *impulse* gains: what the bar would give under a blow of
+/// no duration. There are no blows of no duration.
+fn contact_gain(hz: f32, contact: f32) -> f32 {
+    let x = hz * contact;
+    1.0 / (1.0 + x * x).sqrt()
 }
 
-/// One blow: when, on what note, how long it rings and how hard.
-struct Strike {
-    /// Seconds from the start of the buffer.
-    at: f32,
-    /// The fundamental, in hertz.
-    hz: f32,
-    /// The fundamental's decay constant, in seconds. The partials take
-    /// fractions of it.
-    ring: f32,
-    /// Against the loudest strike in the same cue.
-    gain: f32,
-}
+/// How far the mallet lands from the centre of the bar, as a fraction of the
+/// distance to the node of the 4× partial (0.144 of the bar's length).
+///
+/// A player does not hit the same spot twice, and the spot is *far* more
+/// audible than a few cents of tuning: across this range the 4× partial
+/// swings from 0.99 of its full strength to 0.59, and an antisymmetric mode
+/// that is silent at the centre comes up out of nothing. That is what makes
+/// two strikes in one cue two blows rather than one buffer played twice, and
+/// it is most of what keeps [`Cue::YourMove`] from being a metronome.
+#[derive(Clone, Copy)]
+struct Spot(f32);
 
-/// One early reflection, which is how a sound is put across the table.
-struct Room {
-    /// Seconds behind the direct sound.
-    delay: f32,
-    /// How much of it comes back.
-    gain: f32,
-    /// The wall, as a one-pole corner in hertz.
-    cut: f32,
-}
-
-/// The one reflection both `Their…` cues are heard through.
-const ELSEWHERE: Room = Room {
-    delay: 0.019,
-    gain: 0.30,
-    cut: 1500.0,
-};
-
-/// Everything one buffer needs.
-struct Recipe {
-    strikes: &'static [Strike],
-    mallet: &'static Mallet,
-    /// Seconds. Long enough for the last strike to have died.
-    len: f32,
-    /// What the finished buffer is normalised to, before [`MASTER`].
-    peak: f32,
-    /// Overrides for the bar's upper partials, where a cue wants a different
-    /// body. `None` leaves [`BAR`] alone.
-    second: Option<f32>,
-    third: Option<f32>,
-    /// A reflection, for a sound that is not happening here.
-    room: Option<Room>,
-}
-
-impl Recipe {
-    /// The bar this recipe strikes, with its overrides applied.
-    fn bar(&self) -> [f32; 3] {
-        [
-            BAR[0].gain,
-            self.second.unwrap_or(BAR[1].gain),
-            self.third.unwrap_or(BAR[2].gain),
-        ]
+impl Spot {
+    /// What this spot does to the fundamental, the 4× partial and the
+    /// antisymmetric mode.
+    ///
+    /// Cosines of the mode shape at the striking point, which is why the
+    /// fundamental barely moves (it has no node anywhere on the bar's
+    /// striking half) and the 4× partial dies as the node is approached. The
+    /// antisymmetric mode is a sine of it: exactly zero at the centre, which
+    /// is why a centred strike has no trace of it at all.
+    fn shape(self) -> (f32, f32, f32) {
+        let o = self.0;
+        (
+            (0.82 * o).cos(),
+            (std::f32::consts::FRAC_PI_2 * o).cos(),
+            0.40 * (0.75 * o).sin(),
+        )
     }
 }
 
-/// The eight cues that are one sound each.
+// ------------------------------------------------------------------ the bar
+
+/// D4, the bar the whole instrument is tuned from.
+const ANCHOR: f32 = 293.66;
+
+/// Two hundred and fifty of quality factor, for the tube under the bar.
 ///
-/// [`Cue::YourMove`] is not here; it is [`VARIANTS`], which is six of them.
+/// A resonator tube is not a filter and not more ring: it is a *rise*. The
+/// air column takes `Q/(πf₀)` to come up to strength — 27 ms at D4, 54 ms at
+/// D3 — which is the bloom a marimba has and a synthesiser does not, and it
+/// is what softens the seam between the knock and the note. The first draft
+/// of this module claimed the endings "add the resonator tube" and only made
+/// `ring` longer, which is a bar that changes size — the one thing "one
+/// instrument" forbids.
+const TUBE_Q: f32 = 25.0;
+
+/// How long the fundamental of a freely ringing bar lasts, at `hz`.
+///
+/// `0.28 s` at D4 and longer as the bar gets bigger, which is the law a
+/// marimba obeys: 0.49 s at D3, 0.20 s at A4. Every cue takes its ring from
+/// this and a damping factor, so the endings are the **same bar** let ring
+/// and the life cues are that bar stopped — rather than, as before, a bar
+/// whose size was written down per cue.
+fn free_ring(hz: f32) -> f32 {
+    0.28 * (ANCHOR / hz).powf(0.8)
+}
+
+/// One mode of the bar: where it sits, how hard the blow drives it, and how
+/// long it lives.
+#[derive(Clone, Copy)]
+struct Mode {
+    hz: f32,
+    /// What an impulse would give it, **before** [`contact_gain`].
+    gain: f32,
+    /// Seconds to `1/e` of the fast component. See [`envelope`].
+    tau: f32,
+}
+
+/// Every mode a struck bar gives at this pitch, with this mallet, here.
+///
+/// Five of the bar and five of the contact, and the interesting half is that
+/// the ratios **move with pitch**. A marimba tuner holds 1 : 4 : 10 in the
+/// low bars and cannot hold it at the top — the bar runs out of the
+/// undercutting that buys the tuning — so the ratios slide about a tenth of
+/// an octave per octave. The slope is a choice rather than a citation; what
+/// it buys is that D3 and A4 are not the same waveform at two speeds, which
+/// is the first thing an ear catches in a set of nine.
+///
+/// The decay law is the other half: `τ_k = τ₁ · r^-1.2`, **clamped** to 90 ms
+/// above the fundamental and 30 ms from the third mode up. The clamp is the
+/// bell guard. Without it a long ring drags its top along — [`Cue::GameLost`]'s A3
+/// would have carried 2106 Hz for 90 ms and [`Cue::GameWon`]'s A4 4211 Hz for 67 —
+/// which is precisely the metal this module's header says it is not.
+fn modes(hz: f32, contact: f32, spot: Spot, ring: f32) -> Vec<Mode> {
+    let octaves = (hz / ANCHOR).log2();
+    let r2 = 3.92 - 0.15 * octaves;
+    let r3 = 9.56 - 0.80 * octaves;
+    let r4 = 1.9 * r3;
+    let (g1, g4, ganti) = spot.shape();
+
+    let bar = [
+        (1.0, 1.00 * g1, ring),
+        (r2, 0.55 * g4, (ring * r2.powf(-1.2)).min(0.090)),
+        (r3, 0.30, (ring * r3.powf(-1.2)).min(0.030)),
+        (r4, 0.12, (ring * r4.powf(-1.2)).min(0.030)),
+        (2.63, ganti, (ring * 2.63_f32.powf(-1.2)).min(0.090)),
+    ];
+
+    let mut out: Vec<Mode> = bar
+        .iter()
+        .filter(|(_, gain, _)| gain.abs() > 1e-4)
+        .map(|&(ratio, gain, tau)| {
+            let f = hz * ratio;
+            Mode {
+                hz: f,
+                gain: gain * contact_gain(f, contact),
+                tau,
+            }
+        })
+        .collect();
+
+    // The knock: local deformation where the stick lands, which is a property
+    // of the *contact* and not of the bar, so these are absolute frequencies
+    // and do not move with pitch. Filtered noise was what stood here before,
+    // and filtered noise is sand — a wooden knock is a handful of very high,
+    // very heavily damped modes, gone in a millisecond or two. The yarn
+    // mallet loses them without being told to: `contact_gain(6620, 0.004)` is
+    // 0.04.
+    for &(f, tau) in &KNOCK {
+        out.push(Mode {
+            hz: f,
+            gain: 0.20 * contact_gain(f, contact),
+            tau,
+        });
+    }
+    out
+}
+
+/// The contact modes, in hertz and seconds.
+const KNOCK: [(f32, f32); 5] = [
+    (1900.0, 0.0025),
+    (2830.0, 0.0020),
+    (3710.0, 0.0016),
+    (5090.0, 0.0012),
+    (6620.0, 0.0010),
+];
+
+/// How one mode's amplitude moves through a strike.
+///
+/// Three things at once, and each of them answers a specific complaint about
+/// the first draft:
+///
+/// - the **onset** is the integral of the force pulse — a raised-cosine ramp
+///   over the contact time — so every mode comes up together and in step with
+///   the blow. A note that started at full amplitude on sample zero is a
+///   click, which is why the first draft needed a click glued on.
+/// - the **decay is compound**, `0.72·e^(−t/τ) + 0.28·e^(−t/2.3τ)`. A single
+///   exponential is a straight line in decibels, which is the organ-stop
+///   tell; a real bar loses its energy two ways (to the air fast, into the
+///   mount slowly) and the slow part is what makes an ending last without
+///   being made louder or longer on paper.
+/// - `t` is measured from the strike, so a mode struck late in a cue is not
+///   somewhere in the middle of its own life.
+fn envelope(t: f32, tau: f32, contact: f32) -> f32 {
+    if t < 0.0 {
+        return 0.0;
+    }
+    let onset = if t < contact {
+        let x = t / contact;
+        x - (std::f32::consts::TAU * x).sin() / std::f32::consts::TAU
+    } else {
+        1.0
+    };
+    let fast = (-t / tau).exp();
+    let slow = (-t / (2.3 * tau)).exp();
+    onset * (0.72 * fast + 0.28 * slow)
+}
+
+// --------------------------------------------------------------- the strikes
+
+/// One blow.
+#[derive(Clone, Copy)]
+struct Strike {
+    /// Seconds after the start of the buffer.
+    at: f32,
+    /// The bar's fundamental, in hertz. `None` is [`Cue::Refused`], which is
+    /// not the bar at all.
+    hz: f32,
+    /// How long the fundamental rings, as a fraction of [`free_ring`]. The
+    /// endings are 1.0 and everything else is stopped.
+    damp: f32,
+    /// Which mallet.
+    contact: f32,
+    /// Where on the bar.
+    spot: Spot,
+    /// Relative to the cue's own level.
+    gain: f32,
+    /// Whether the tube under the bar is in play.
+    tube: bool,
+}
+
+/// Writes one strike into a mono buffer.
+fn strike(buf: &mut [f32], blow: &Strike, noise: &mut Noise) {
+    let ring = free_ring(blow.hz) * blow.damp;
+    let modes = modes(blow.hz, blow.contact, blow.spot, ring);
+    let start = (blow.at * RATE) as usize;
+    let rise = TUBE_Q / (std::f32::consts::PI * blow.hz);
+
+    // The fundamental is a *pair*, a tenth of a percent apart, half strength
+    // each. Two nearly-equal modes beat at their difference — 1.4 s at D4,
+    // 1.9 s at A3 — so only a sound that lives that long shows it, which is
+    // exactly the three endings. A bar that is perfectly one frequency is a
+    // sine, and the ear knows.
+    for (i, sample) in buf.iter_mut().enumerate().skip(start) {
+        let secs = (i - start) as f32 / RATE;
+        let turns = std::f32::consts::TAU * secs;
+        let mut here = 0.0;
+        for (n, mode) in modes.iter().enumerate() {
+            let amp = mode.gain * envelope(secs, mode.tau, blow.contact);
+            if n == 0 {
+                here += 0.5 * amp * (turns * mode.hz * 0.9988).sin();
+                here += 0.5 * amp * (turns * mode.hz * 1.0012).sin();
+            } else {
+                here += amp * (turns * mode.hz).sin();
+            }
+        }
+        if blow.tube {
+            let amp = 0.5 * (1.0 - (-secs / rise).exp()) * (-secs / ring).exp();
+            here += amp * (turns * blow.hz).sin();
+        }
+        *sample += blow.gain * here;
+    }
+
+    // Grit: the stick's own surface, audible only while it is touching. It
+    // lives inside the contact window and has no decay of its own, which is
+    // the difference between a texture and a shaker.
+    grit(
+        buf,
+        start,
+        blow.contact,
+        if blow.contact < 0.002 { 0.03 } else { 0.01 },
+        5000.0,
+        noise,
+    );
+}
+
+/// Noise under the blow, for exactly as long as the blow lasts.
+fn grit(buf: &mut [f32], start: usize, contact: f32, gain: f32, cut: f32, noise: &mut Noise) {
+    let n = (contact * RATE) as usize;
+    let a = pole(cut);
+    let mut lp = 0.0;
+    for i in 0..n {
+        let Some(sample) = buf.get_mut(start + i) else {
+            break;
+        };
+        let x = i as f32 / n as f32;
+        let window = 0.5 * (1.0 - (std::f32::consts::TAU * x).cos());
+        lp = a.mul_add(lp - noise.next(), noise.next());
+        *sample += gain * window * lp;
+    }
+}
+
+/// [`Cue::Refused`] is not the bar, and says so.
+///
+/// A knuckle on the rail: one low mode with nothing above it, and three
+/// leather slaps that are gone in three milliseconds. The first draft put it
+/// on the bar at G3 with a 20 ms ring, which is four cycles — no pitch is
+/// perceived at all, so the note it was "outside the working scale" by was
+/// inaudible, and the cue was a click with a justification. This has no
+/// pitch to be wrong about.
+fn thud(buf: &mut [f32], at: f32, gain: f32, noise: &mut Noise) {
+    const BODY: [(f32, f32); 4] = [
+        (190.0, 0.018),
+        (900.0, 0.003),
+        (1400.0, 0.0025),
+        (2100.0, 0.002),
+    ];
+    let start = (at * RATE) as usize;
+    for (i, sample) in buf.iter_mut().enumerate().skip(start) {
+        let t = (i - start) as f32 / RATE;
+        let mut v = 0.0;
+        for (n, &(hz, tau)) in BODY.iter().enumerate() {
+            let a = if n == 0 { 1.0 } else { 0.45 } * envelope(t, tau, mallet::KNUCKLE);
+            v += a * (std::f32::consts::TAU * hz * t).sin();
+        }
+        *sample += gain * v;
+    }
+    grit(buf, start, mallet::KNUCKLE, 0.25, 2500.0, noise);
+}
+
+// ------------------------------------------------------------------ the room
+
+/// Where the listener is standing relative to the sound.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Where {
+    /// This seat, and the endings: the sound is in front of the player.
+    Here,
+    /// Another seat: across the table.
+    Elsewhere,
+    /// An ending, which is the same place as `Here` and wetter.
+    Ending,
+}
+
+impl Where {
+    /// Seconds between the direct sound and the first reflection.
+    ///
+    /// This is the cue the ear actually uses for distance, and the first
+    /// draft had it **backwards**: it put 19 ms on the far sounds, and a
+    /// *near* source is the one with the large gap. A far source's first
+    /// reflection arrives almost with it.
+    fn gap(self) -> f32 {
+        match self {
+            Self::Elsewhere => 0.005,
+            Self::Here | Self::Ending => 0.012,
+        }
+    }
+
+    /// Dry, early and late, as fractions of the direct sound.
+    fn mix(self) -> (f32, f32, f32) {
+        match self {
+            Self::Here => (1.00, 0.20, 0.10),
+            Self::Elsewhere => (0.40, 0.36, 0.30),
+            Self::Ending => (1.00, 0.25, 0.40),
+        }
+    }
+}
+
+/// Six early reflections, in seconds and gain — **the same set in both
+/// ears**.
+///
+/// Two things fix these numbers, and the second one was learned twice.
+///
+/// They are at no simple ratio to one another, because a delay at a simple
+/// ratio is a comb filter and a comb filter has a **pitch**. That is not a
+/// theoretical worry: the single 19 ms tap this replaces notched at
+/// (n+½)·52.63 Hz, and F#3 — the second strike of [`Cue::TheirLifeLost`] —
+/// sits 0.7 Hz from the n = 3 notch while A3, its first strike, sits near a
+/// peak. A gesture written as a falling third at 0.80 then 1.00 was *heard*
+/// as roughly 0.92 then 0.70: the room had inverted the dynamic of the cue.
+///
+/// And they are **one set**, not one per ear, which is the correction the
+/// first stereo draft needed. Two different tap sets are two different combs,
+/// and two combs disagree: measured over the eight pitches this instrument
+/// uses, the two sets were −0.99 correlated at A3 and 16 dB apart in level
+/// there — a hard pan and a near-total cancellation on any mono sum, at
+/// exactly the pitch the "elsewhere" cues are built on. Physically it was
+/// wrong as well: a reflection off a table reaches both ears within a
+/// fraction of a millisecond, and what differs between the ears in a real
+/// room is the diffuse tail. So the ears share their early reflections and
+/// [`late`] is the only thing that differs.
+///
+/// The set itself is searched rather than chosen: over D3, F#3, A3, B3, C#4,
+/// D4, F#4 and A4 it is flat to **2.2 dB**, against 21 dB for the first
+/// draft's, with no two taps closer than 4.8 ms or further apart than 9.
+/// Whatever colour it has, both ears have it, so it colours and never pans.
+const EARLY: [(f32, f32); 6] = [
+    (0.0139, 0.50),
+    (0.0218, 0.42),
+    (0.0271, 0.36),
+    (0.0319, 0.29),
+    (0.0390, 0.23),
+    (0.0480, 0.18),
+];
+
+/// The late field's delay lines, per channel, in seconds.
+///
+/// Long, and that is the whole point. Four lines of 23–54 ms — the first
+/// draft's — space their modes 19 to 43 Hz apart, and with a feedback of
+/// 0.795 each mode has a gain of nearly five. Measured on a decaying note,
+/// that reverb *amplified* A3 by 2.3× and D3 by 0.95: a three-to-one
+/// coloration with its worst peak sitting on the pitch two of the nine cues
+/// are built from. It is finding three over again — a delay network has a
+/// pitch — one layer further in.
+///
+/// At 63–115 ms the modes are 9 to 16 Hz apart, so every note sits on several
+/// at once, and `10^(−3d/RT60)` puts the feedback at 0.33 rather than 0.80,
+/// which is a gain of 1.5 instead of 4.9. Measured over the eight pitches the
+/// instrument uses and both ears: **1.79** worst-to-best, against 2.80.
+const LATE_L: [f32; 4] = [0.0631, 0.0797, 0.0971, 0.1153];
+/// The other ear's — the *only* thing that differs between them. See
+/// [`EARLY`] for why it is this and not the reflections.
+const LATE_R: [f32; 4] = [0.0673, 0.0761, 0.1013, 0.1117];
+
+/// How long the late field takes to fall 60 dB.
+const RT60: f32 = 0.7;
+
+/// What the late field is multiplied by, so that its mix number means what it
+/// says.
+///
+/// A reverb has gain: it sums many delayed copies of a note that is still
+/// sounding, so its peak is not the note's peak. Measured across the eight
+/// pitches and both ears, this network averages about 1.1, so 0.9 makes
+/// `Where::mix`'s third number a fraction of the dry peak rather than a
+/// number to be tuned by ear against an unknown. Without it the *reverb* set
+/// the level: `GameDrawn`'s loudest moment was 112 ms into a tail whose
+/// second strike does not land until 420, which is a cue whose loudness is
+/// decided by the room rather than by the blow.
+const LATE_TRIM: f32 = 0.9;
+
+/// A one-pole coefficient for a corner at `cut`.
+fn pole(cut: f32) -> f32 {
+    (-std::f32::consts::TAU * cut / RATE).exp()
+}
+
+/// The early reflections, low-passed. One set, heard by both ears.
+fn early(dry: &[f32], gap: f32, cut: f32) -> Vec<f32> {
+    let mut out = vec![0.0; dry.len()];
+    for &(delay, gain) in &EARLY {
+        let d = ((delay + gap) * RATE) as usize;
+        for i in d..dry.len() {
+            out[i] += gain * dry[i - d];
+        }
+    }
+    let a = pole(cut);
+    let mut lp = 0.0;
+    for sample in &mut out {
+        lp = a.mul_add(lp - *sample, *sample);
+        *sample = lp;
+    }
+    out
+}
+
+/// One channel's late field: a feedback delay network.
+///
+/// Two series allpasses to smear the input, then four delay lines mixed into
+/// one another by a Hadamard matrix — the standard way to get a dense tail
+/// out of very little arithmetic, and *pure delay arithmetic*, which is what
+/// keeps it deterministic. The one-pole inside each loop is why the tail gets
+/// darker as it dies, which every real room does and no bare delay network
+/// does.
+fn late(dry: &[f32], lines: &[f32; 4], gap: f32) -> Vec<f32> {
+    let n = dry.len();
+
+    // Smear first: an allpass passes every frequency at the same level and
+    // scrambles their arrival, which is what turns four echoes into a wash.
+    let mut smeared = dry.to_vec();
+    for &(delay, g) in &[(0.0043_f32, 0.6_f32), (0.0019, 0.6)] {
+        let d = (delay * RATE) as usize;
+        let mut buf = vec![0.0; n];
+        let mut store = vec![0.0; d.max(1)];
+        for i in 0..n {
+            let z = store[i % d.max(1)];
+            let v = smeared[i] + g * z;
+            buf[i] = z - g * v;
+            store[i % d.max(1)] = v;
+        }
+        smeared = buf;
+    }
+
+    let delays: Vec<usize> = lines.iter().map(|&d| (d * RATE) as usize).collect();
+    let gains: Vec<f32> = lines
+        .iter()
+        .map(|&d| 10_f32.powf(-3.0 * d / RT60))
+        .collect();
+    let a = pole(3200.0);
+
+    let mut store: Vec<Vec<f32>> = delays.iter().map(|&d| vec![0.0; d.max(1)]).collect();
+    let mut lp = [0.0_f32; 4];
+    let mut out = vec![0.0; n];
+    let pre = (gap * RATE) as usize;
+
+    for i in 0..n {
+        let feed: Vec<f32> = (0..4)
+            .map(|k| {
+                let d = delays[k].max(1);
+                store[k][i % d]
+            })
+            .collect();
+
+        // Hadamard/2: every line hears every other, which is what makes the
+        // tail dense instead of four separate echoes.
+        let half = 0.5;
+        let mix = [
+            half * (feed[0] + feed[1] + feed[2] + feed[3]),
+            half * (feed[0] - feed[1] + feed[2] - feed[3]),
+            half * (feed[0] + feed[1] - feed[2] - feed[3]),
+            half * (feed[0] - feed[1] - feed[2] + feed[3]),
+        ];
+
+        let input = if i >= pre { smeared[i - pre] } else { 0.0 };
+        for k in 0..4 {
+            let d = delays[k].max(1);
+            lp[k] = a.mul_add(lp[k] - mix[k], mix[k]);
+            store[k][i % d] = input + gains[k] * lp[k];
+        }
+        out[i] = LATE_TRIM * 0.5 * feed.iter().sum::<f32>();
+    }
+    out
+}
+
+// ----------------------------------------------------------------- a recipe
+
+/// Everything one cue needs.
+struct Recipe {
+    strikes: &'static [Strike],
+    /// `Some` for [`Cue::Refused`], which is a knuckle and not the bar.
+    thuds: &'static [(f32, f32)],
+    /// Seconds. Held against the tail by `no_cue_ends_on_a_step`.
+    len: f32,
+    /// What the finished buffer is normalised to, before [`MASTER`].
+    peak: f32,
+    room: Where,
+}
+
+/// A strike with the fields most cues share.
+const fn blow(at: f32, hz: f32, damp: f32, contact: f32, spot: f32, gain: f32) -> Strike {
+    Strike {
+        at,
+        hz,
+        damp,
+        contact,
+        spot: Spot(spot),
+        gain,
+        tube: true,
+    }
+}
+
+/// The scale, in hertz.
+///
+/// Just intonation off D, so the intervals are exact small ratios rather than
+/// twelve-root-of-two approximations of them: a 6:5 minor third has no beat
+/// between its partials and an equal-tempered one has a slow one, which over
+/// a two-note gesture is the difference between a chord and a wobble.
+mod note {
+    /// The bar the instrument is tuned from.
+    pub(super) const D4: f32 = super::ANCHOR;
+    /// An octave below it. [`super::Cue::YourMove`].
+    pub(super) const D3: f32 = 146.83;
+    /// A fifth above D4.
+    pub(super) const A4: f32 = 440.49;
+    /// A fourth below D4 — where the other seats' cues sit.
+    pub(super) const A3: f32 = 220.25;
+    /// A minor third below D4.
+    pub(super) const B3: f32 = 244.72;
+    /// A major third above D4.
+    pub(super) const FS4: f32 = 367.08;
+    /// A minor third below A3.
+    pub(super) const FS3: f32 = 183.54;
+    /// A major third above A3.
+    pub(super) const CS4: f32 = 275.31;
+}
+
+/// Every cue but [`Cue::YourMove`], which is six buffers and is built by
+/// [`tap`].
+///
+/// The skeleton is the one the first draft chose and it survives: **life cues
+/// speak in thirds and endings in perfect intervals**. A third has a colour —
+/// minor for a loss, major for a gain — and that colour is the message; a
+/// fifth, a fourth and a unison have none, which is what keeps an ending from
+/// being an opinion about the game. All three still come to rest on A.
+///
+/// What did not survive is [`Cue::GameWon`]'s third strike. D4–F#4–A4 struck in order
+/// is a root-position major triad, which is a fanfare however quietly it is
+/// played, and "it rests on A so the cadence is open" does not hold once the
+/// D has been struck first — the ear has heard the whole chord. The length it
+/// was buying comes from the compound decay, the beat between the paired
+/// fundamentals and the room instead.
 const RECIPES: [(Cue, Recipe); 8] = [
     (
         Cue::MyLifeLost,
         Recipe {
+            // 110 ms rather than 95: the first fundamental gets about thirty
+            // cycles to be a note before the next knock lands on top of it.
             strikes: &[
-                Strike {
-                    at: 0.0,
-                    hz: note::D4,
-                    ring: 0.110,
-                    gain: 0.80,
-                },
-                Strike {
-                    at: 0.095,
-                    hz: note::B3,
-                    ring: 0.125,
-                    gain: 1.00,
-                },
+                blow(0.0, note::D4, 0.55, mallet::HARD, 0.15, 1.0),
+                blow(0.110, note::B3, 0.55, mallet::HARD, 0.30, 1.0),
             ],
-            mallet: &HARD,
-            len: 0.650,
+            thuds: &[],
+            len: 1.8,
             peak: 1.00,
-            second: None,
-            third: None,
-            room: None,
+            room: Where::Here,
         },
     ),
     (
         Cue::MyLifeGained,
         Recipe {
             strikes: &[
-                Strike {
-                    at: 0.0,
-                    hz: note::D4,
-                    ring: 0.110,
-                    gain: 1.00,
-                },
-                Strike {
-                    at: 0.085,
-                    hz: note::FS4,
-                    ring: 0.095,
-                    gain: 0.85,
-                },
+                blow(0.0, note::D4, 0.55, mallet::HARD, 0.15, 1.0),
+                blow(0.100, note::FS4, 0.55, mallet::HARD, 0.30, 1.0),
             ],
-            mallet: &HARD,
-            len: 0.550,
+            thuds: &[],
+            len: 1.7,
             peak: 0.80,
-            second: None,
-            third: None,
-            room: None,
+            room: Where::Here,
         },
     ),
     (
         Cue::TheirLifeLost,
         Recipe {
+            // The **same mallet** as my own life, which is the correction:
+            // distance is a room and a level, never a gentler blow. A softer
+            // stick says somebody was hit more gently, which is not what a
+            // seat across the table means.
             strikes: &[
-                Strike {
-                    at: 0.0,
-                    hz: note::A3,
-                    ring: 0.140,
-                    gain: 0.80,
-                },
-                Strike {
-                    at: 0.095,
-                    hz: note::FS3,
-                    ring: 0.160,
-                    gain: 1.00,
-                },
+                blow(0.0, note::A3, 0.55, mallet::HARD, 0.15, 1.0),
+                blow(0.110, note::FS3, 0.55, mallet::HARD, 0.30, 1.0),
             ],
-            mallet: &SOFT,
-            len: 0.800,
+            thuds: &[],
+            len: 2.0,
             peak: 0.40,
-            second: None,
-            third: Some(0.05),
-            room: Some(ELSEWHERE),
+            room: Where::Elsewhere,
         },
     ),
     (
         Cue::TheirLifeGained,
         Recipe {
             strikes: &[
-                Strike {
-                    at: 0.0,
-                    hz: note::A3,
-                    ring: 0.140,
-                    gain: 1.00,
-                },
-                Strike {
-                    at: 0.085,
-                    hz: note::CS4,
-                    ring: 0.120,
-                    gain: 0.85,
-                },
+                blow(0.0, note::A3, 0.55, mallet::HARD, 0.15, 1.0),
+                blow(0.100, note::CS4, 0.55, mallet::HARD, 0.30, 1.0),
             ],
-            mallet: &SOFT,
-            len: 0.750,
+            thuds: &[],
+            len: 1.9,
             peak: 0.32,
-            second: None,
-            third: Some(0.05),
-            room: Some(ELSEWHERE),
+            room: Where::Elsewhere,
         },
     ),
     (
         Cue::Refused,
         Recipe {
-            strikes: &[
-                Strike {
-                    at: 0.0,
-                    hz: note::G3,
-                    ring: 0.020,
-                    gain: 1.00,
-                },
-                Strike {
-                    at: 0.055,
-                    hz: note::G3,
-                    ring: 0.020,
-                    gain: 0.80,
-                },
-            ],
-            mallet: &KNUCKLE,
-            len: 0.200,
+            strikes: &[],
+            thuds: &[(0.0, 1.0), (0.055, 0.80)],
+            len: 0.9,
             peak: 0.50,
-            second: Some(0.25),
-            third: Some(0.0),
-            room: None,
+            room: Where::Here,
         },
     ),
     (
         Cue::GameWon,
         Recipe {
             strikes: &[
-                Strike {
-                    at: 0.0,
-                    hz: note::D4,
-                    ring: 0.280,
-                    gain: 0.80,
-                },
-                Strike {
-                    at: 0.240,
-                    hz: note::FS4,
-                    ring: 0.280,
-                    gain: 0.90,
-                },
-                Strike {
-                    at: 0.560,
-                    hz: note::A4,
-                    ring: 0.450,
-                    gain: 1.00,
-                },
+                blow(0.0, note::D4, 1.0, mallet::HARD, 0.15, 1.0),
+                blow(0.380, note::A4, 1.0, mallet::HARD, 0.30, 1.0),
             ],
-            mallet: &WON,
-            len: 2.700,
+            thuds: &[],
+            len: 3.2,
             peak: 0.90,
-            second: None,
-            third: None,
-            room: None,
+            room: Where::Ending,
         },
     ),
     (
         Cue::GameLost,
         Recipe {
             strikes: &[
-                Strike {
-                    at: 0.0,
-                    hz: note::D4,
-                    ring: 0.300,
-                    gain: 1.00,
-                },
-                Strike {
-                    at: 0.300,
-                    hz: note::B3,
-                    ring: 0.320,
-                    gain: 0.90,
-                },
-                Strike {
-                    at: 0.700,
-                    hz: note::A3,
-                    ring: 0.600,
-                    gain: 0.85,
-                },
+                blow(0.0, note::D4, 1.0, mallet::SOFT, 0.15, 1.0),
+                blow(0.460, note::A3, 1.0, mallet::SOFT, 0.30, 0.85),
             ],
-            mallet: &LOST,
-            len: 3.700,
+            thuds: &[],
+            len: 4.4,
             peak: 0.80,
-            second: None,
-            third: None,
-            room: None,
+            room: Where::Ending,
         },
     ),
     (
         Cue::GameDrawn,
         Recipe {
+            // A unison, which is the whole point — and two *different* blows
+            // at it, because the same pitch struck twice at the same spot is
+            // one buffer played twice and the ear catches that in one
+            // hearing.
             strikes: &[
-                Strike {
-                    at: 0.0,
-                    hz: note::A3,
-                    ring: 0.380,
-                    gain: 1.00,
-                },
-                Strike {
-                    at: 0.420,
-                    hz: note::A3,
-                    ring: 0.480,
-                    gain: 0.95,
-                },
+                blow(0.0, note::A3, 1.0, mallet::SOFT, 0.15, 1.0),
+                blow(0.420, note::A3, 1.0, mallet::SOFT, 0.35, 0.92),
             ],
-            mallet: &SOFT,
-            len: 2.800,
+            thuds: &[],
+            len: 4.2,
             peak: 0.72,
-            second: None,
-            third: None,
-            room: None,
+            room: Where::Ending,
         },
     ),
 ];
 
-/// The six [`Cue::YourMove`] taps, as a fundamental and a second-partial
-/// amplitude, cycled in this order.
+/// [`Cue::YourMove`]'s six, as (cents off [`note::D3`], spot).
 ///
-/// Detune within ±16 cents of D3, and a different second partial each time,
-/// which is the mallet landing at a different spot along the bar. The order
-/// is fixed and deliberately **not** sorted: an ascending run would read as a
-/// glide, and a player who heard six rising taps would go looking for what
-/// they meant.
+/// Detuned within ±16 cents **and** struck in six different places. The
+/// detune alone was the first draft's answer and it is the weaker half: 16
+/// cents on a yarn-struck 147 Hz bar is barely there — a real bar drifts that
+/// much with the room and it never reads as a wrong note — while moving the
+/// spot swings the 4× partial from 0.99 to 0.59 and brings an antisymmetric
+/// mode up out of silence. Written in cents rather than in hertz because a
+/// detune is a ratio, and six hand-typed frequencies hide whether any of them
+/// has drifted out of the ±16 the doc promises.
+///
+/// Unsorted in both columns, so consecutive firings are not a ramp.
 const VARIANTS: [(f32, f32); 6] = [
-    (146.83, 0.32),
-    (147.77, 0.22),
-    (146.24, 0.40),
-    (148.20, 0.15),
-    (145.65, 0.36),
-    (147.26, 0.26),
+    (0.0, 0.10),
+    (11.0, 0.45),
+    (-7.0, 0.25),
+    (16.0, 0.60),
+    (-14.0, 0.35),
+    (5.0, 0.15),
 ];
 
-/// One tap, built at one of [`VARIANTS`].
+/// What a detune of `cents` does to the lowest bar.
+fn detuned(cents: f32) -> f32 {
+    note::D3 * (cents / 1200.0).exp2()
+}
+
+/// One of [`Cue::YourMove`]'s six.
 ///
-/// A function rather than six more entries in [`RECIPES`], because the six
-/// differ in two numbers and agree about everything else — and a `Strike` is
-/// borrowed from a `const`, which cannot be written six times over without
-/// six copies of the rest of the recipe.
-fn tap(hz: f32, second: f32) -> Recipe {
+/// A single yarn touch on the lowest bar, stopped at 0.60 — 290 ms of
+/// fundamental with the tube's 54 ms bloom under it. It is *not* the shortest
+/// cue and that is deliberate: a soft low note with a tail is felt and then
+/// forgotten, where a short one is a click, and a click two hundred times is
+/// the metronome this is trying not to be.
+fn tap(hz: f32, spot: f32) -> Recipe {
     Recipe {
-        strikes: Vec::leak(vec![Strike {
-            at: 0.0,
-            hz,
-            ring: 0.240,
-            gain: 1.00,
-        }]),
-        mallet: &YARN,
-        len: 0.900,
+        strikes: Box::leak(Box::new([blow(0.0, hz, 0.60, mallet::YARN, spot, 1.0)])),
+        thuds: &[],
+        len: 2.4,
         peak: 0.22,
-        second: Some(second),
-        third: None,
-        room: None,
+        room: Where::Here,
     }
 }
 
-/// A deterministic bit source for the mallet's contact noise.
+// ---------------------------------------------------------------- rendering
+
+/// A xorshift32, seeded the same way every time.
 ///
-/// xorshift32 with a fixed seed, re-seeded at the start of every buffer, so a
-/// cue's samples are a pure function of its recipe and every machine hears
-/// the same table. It is the same reason `tabletop`'s fbm hashes a lattice
-/// point instead of drawing from an RNG: nothing generated here may depend on
-/// a clock.
+/// The only stochastic thing in the module, and it is consumed entirely by
+/// [`grit`] — before the stereo split, so both channels hear the same grit
+/// and the two ears never disagree about what the stick was made of. No
+/// clock, no `rand`, no entropy: the same table sounds the same on every
+/// machine, which is the rule every generated surface in this client obeys.
 struct Noise(u32);
 
 impl Noise {
-    /// The seed. Any odd constant does; this one is legible in a hex dump.
     const SEED: u32 = 0x5EED_BA11;
 
     fn new() -> Self {
         Self(Self::SEED)
     }
 
-    /// The next sample, in `-1.0..1.0`.
     fn next(&mut self) -> f32 {
-        self.0 ^= self.0 << 13;
-        self.0 ^= self.0 >> 17;
-        self.0 ^= self.0 << 5;
-        let bits = u16::try_from(self.0 >> 16).unwrap_or(u16::MAX);
-        f32::from(bits) / f32::from(u16::MAX) * 2.0 - 1.0
+        let mut x = self.0;
+        x ^= x << 13;
+        x ^= x >> 17;
+        x ^= x << 5;
+        self.0 = x;
+        (x as f32 / u32::MAX as f32).mul_add(2.0, -1.0)
     }
 }
 
-/// A one-pole lowpass coefficient for a corner at `cut` hertz.
-fn pole(cut: f32) -> f32 {
-    (-std::f32::consts::TAU * cut / RATE).exp()
-}
-
-/// Renders a recipe to samples in `-1.0..1.0`.
+/// One cue, as interleaved stereo samples.
 ///
-/// Three passes, in this order and not another: the strikes, then the room,
-/// then the level. A reflection added *after* normalising would push the peak
-/// back over what the recipe asked for, and a fade applied before the room
-/// would be audible in the reflection.
-#[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+/// # Stereo, and what it is allowed to claim
+///
+/// The direct sound is **identical in both ears**; only the room differs.
+/// That is not timidity, it is the only honest option: a [`Cue`] carries no
+/// seat, `Their…` is deduplicated across every seat that lost life on one
+/// view, and an opponent across the table is in front of the player anyway —
+/// so any pan would be a position the game cannot back up. Two *different*
+/// reflection patterns with the same dry signal is heard as space rather than
+/// as direction, and it is the whole of what stops a computed buffer sounding
+/// like a sample. `the_two_ears_agree_about_where_the_sound_is` bounds the
+/// difference, so a phone summing to mono loses a little reverb and cancels
+/// nothing.
 fn render(recipe: &Recipe) -> Vec<f32> {
-    let len = (recipe.len * RATE) as usize;
-    let mut out = vec![0.0f32; len];
+    let n = (recipe.len * RATE) as usize;
+    let mut dry = vec![0.0_f32; n];
     let mut noise = Noise::new();
-    let bar = recipe.bar();
-    let mallet = recipe.mallet;
-    let contact = pole(mallet.cut);
-    // The burst is spent in about six of its own decay constants; running the
-    // filter past that is arithmetic on silence.
-    let burst = (mallet.decay * 6.0 * RATE) as usize;
 
-    for strike in recipe.strikes {
-        let start = (strike.at * RATE) as usize;
-        if start >= len {
-            continue;
-        }
-        let mut low = 0.0f32;
-        for (i, place) in out[start..].iter_mut().enumerate() {
-            #[allow(clippy::cast_precision_loss)]
-            let t = i as f32 / RATE;
-            let open = (t / mallet.attack).min(1.0);
-            let mut sample = 0.0f32;
-            for (partial, &gain) in BAR.iter().zip(bar.iter()) {
-                if gain == 0.0 {
-                    continue;
-                }
-                let hz = strike.hz * partial.ratio;
-                let decay = (-t / (strike.ring * partial.decay)).exp();
-                sample += gain * decay * (std::f32::consts::TAU * hz * t).sin();
-            }
-            if i < burst {
-                let white = noise.next();
-                low = contact.mul_add(low, (1.0 - contact) * white);
-                sample += mallet.gain * low * (-t / mallet.decay).exp();
-            }
-            *place += strike.gain * open * sample;
-        }
+    for s in recipe.strikes {
+        strike(&mut dry, s, &mut noise);
+    }
+    for &(at, gain) in recipe.thuds {
+        thud(&mut dry, at, gain, &mut noise);
     }
 
-    if let Some(room) = &recipe.room {
-        let delay = (room.delay * RATE) as usize;
-        let wall = pole(room.cut);
-        let mut low = 0.0f32;
-        let direct = out.clone();
-        for (place, &dry) in out[delay..].iter_mut().zip(direct.iter()) {
-            low = wall.mul_add(low, (1.0 - wall) * dry);
-            *place += room.gain * low;
-        }
-    }
+    let (dry_mix, er_mix, late_mix) = recipe.room.mix();
+    let gap = recipe.room.gap();
 
-    level(&mut out, recipe.peak * MASTER);
+    // Distance dulls. A one-pole at 4.5 kHz is air over a few metres, and it
+    // is applied to the *direct* sound only — the room has its own filters.
+    let direct: Vec<f32> = if recipe.room == Where::Elsewhere {
+        let a = pole(4500.0);
+        let mut lp = 0.0;
+        dry.iter()
+            .map(|&x| {
+                lp = a.mul_add(lp - x, x);
+                lp
+            })
+            .collect()
+    } else {
+        dry.clone()
+    };
+
+    let reflections = early(&dry, gap, 4500.0);
+    let late_l = late(&dry, &LATE_L, gap);
+    let late_r = late(&dry, &LATE_R, gap);
+
+    let mut out = Vec::with_capacity(n * 2);
+    for i in 0..n {
+        let near = dry_mix * direct[i] + er_mix * reflections[i];
+        out.push(near + late_mix * late_l[i]);
+        out.push(near + late_mix * late_r[i]);
+    }
+    level(&mut out, recipe.peak);
     out
 }
 
-/// Scales a buffer so its loudest sample is `peak`, then fades its tail.
+/// Scales a finished buffer to `peak` and takes the last six milliseconds
+/// down to nothing.
 ///
-/// The fade is six milliseconds of a raised cosine. Without it a buffer ends
-/// on whatever the exponential had reached, and a step from that to zero is a
-/// click — the one artefact a listener always notices and never attributes to
-/// the sound that caused it.
-#[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+/// The fade is not a taste decision: a buffer that stops while it is still
+/// moving is a step, and a step is a click at every frequency at once. Six
+/// milliseconds of raised cosine is below the ear's resolution for a change
+/// of level and far above it for a discontinuity.
+///
+/// The peak is taken over **both** channels together, so the stereo image is
+/// not tilted by whichever ear happened to be louder.
 fn level(buf: &mut [f32], peak: f32) {
-    let loudest = buf.iter().fold(0.0f32, |a, s| a.max(s.abs()));
-    if loudest > 0.0 {
-        let k = peak / loudest;
-        for sample in buf.iter_mut() {
-            *sample *= k;
+    let found = buf.iter().fold(0.0_f32, |m, s| m.max(s.abs()));
+    if found > 0.0 {
+        let k = peak * MASTER / found;
+        for s in buf.iter_mut() {
+            *s *= k;
         }
     }
-    let fade = ((0.006 * RATE) as usize).min(buf.len());
-    let n = buf.len();
-    for (i, sample) in buf[n - fade..].iter_mut().enumerate() {
-        #[allow(clippy::cast_precision_loss)]
-        let t = i as f32 / fade as f32;
-        *sample *= f32::midpoint(1.0, (std::f32::consts::PI * t).cos());
+    let frames = buf.len() / 2;
+    let fade = ((0.006 * RATE) as usize).min(frames);
+    for i in 0..fade {
+        let x = i as f32 / fade as f32;
+        let g = f32::midpoint(1.0, (std::f32::consts::PI * x).cos());
+        let f = frames - fade + i;
+        buf[f * 2] *= g;
+        buf[f * 2 + 1] *= g;
     }
 }
 
-/// Wraps samples in a 16-bit mono RIFF header.
+/// A 44-byte RIFF header and 16-bit **stereo** samples behind it.
 ///
-/// Written out by hand rather than taken from a crate because it is
-/// forty-four bytes and one cast, and because this is the only audio format
-/// the client will ever *produce*: it ships no files, so nothing here has to
-/// read one.
+/// `bevy_audio`'s `AudioSource` holds *encoded* bytes that rodio decodes, so
+/// there is no door in it that takes samples — which is why this function
+/// exists and why `wav` is in the workspace's bevy feature list. Uncompressed
+/// on purpose: nothing here is stored or transmitted, so a codec could only
+/// take quality away. (`bevy_audio` decodes wav, flac, vorbis, mp3 and aac;
+/// rodio's decoders have no Opus at all, so that question has an answer and
+/// it is no.)
 fn wav(samples: &[f32]) -> Vec<u8> {
+    const CHANNELS: u16 = 2;
     let data = samples.len() * 2;
     let mut out = Vec::with_capacity(44 + data);
     out.extend_from_slice(b"RIFF");
     out.extend_from_slice(&u32::try_from(36 + data).unwrap_or(u32::MAX).to_le_bytes());
     out.extend_from_slice(b"WAVEfmt ");
-    out.extend_from_slice(&16u32.to_le_bytes()); // the PCM chunk's length
-    out.extend_from_slice(&1u16.to_le_bytes()); // uncompressed
-    out.extend_from_slice(&1u16.to_le_bytes()); // mono
-    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-    let rate = RATE as u32;
-    out.extend_from_slice(&rate.to_le_bytes());
-    out.extend_from_slice(&(rate * 2).to_le_bytes()); // bytes per second
-    out.extend_from_slice(&2u16.to_le_bytes()); // bytes per frame
-    out.extend_from_slice(&16u16.to_le_bytes()); // bits per sample
+    out.extend_from_slice(&16_u32.to_le_bytes());
+    out.extend_from_slice(&1_u16.to_le_bytes()); // PCM
+    out.extend_from_slice(&CHANNELS.to_le_bytes());
+    out.extend_from_slice(&(RATE as u32).to_le_bytes());
+    out.extend_from_slice(&(RATE as u32 * u32::from(CHANNELS) * 2).to_le_bytes());
+    out.extend_from_slice(&(CHANNELS * 2).to_le_bytes()); // block align
+    out.extend_from_slice(&16_u16.to_le_bytes()); // bits
     out.extend_from_slice(b"data");
     out.extend_from_slice(&u32::try_from(data).unwrap_or(u32::MAX).to_le_bytes());
-    for &sample in samples {
-        #[allow(clippy::cast_possible_truncation)]
-        let value = (sample.clamp(-1.0, 1.0) * f32::from(i16::MAX)) as i16;
-        out.extend_from_slice(&value.to_le_bytes());
+    for &s in samples {
+        let v = (s.clamp(-1.0, 1.0) * f32::from(i16::MAX)) as i16;
+        out.extend_from_slice(&v.to_le_bytes());
     }
     out
 }
 
-/// One finished buffer as a playable asset.
+/// Wraps finished bytes in the asset `bevy_audio` plays.
 ///
-/// `AudioSource` is a `Arc<[u8]>` of an encoded file and a `rodio` decoder
-/// behind it, which is why [`wav`] exists at all: there is no door into
-/// `bevy_audio` that takes samples.
+/// `AudioSource` is a struct with a public `Arc<[u8]>` of *encoded* file
+/// bytes and no constructor, which is the whole reason [`wav`] exists: there
+/// is no door in it that takes samples.
 fn source(bytes: Vec<u8>) -> AudioSource {
     AudioSource {
         bytes: bytes.into(),
@@ -753,7 +1082,7 @@ pub fn voice_the_cues(mut commands: Commands, sources: Option<ResMut<Assets<Audi
     }
     let taps = VARIANTS
         .iter()
-        .map(|&(hz, second)| sources.add(source(wav(&render(&tap(hz, second))))))
+        .map(|&(cents, spot)| sources.add(source(wav(&render(&tap(detuned(cents), spot))))))
         .collect();
     voices.push((Cue::YourMove, taps));
     commands.insert_resource(Voices { voices, played: 0 });
@@ -837,7 +1166,6 @@ fn sound(commands: &mut Commands, voices: &mut Voices, cue: Cue, level: Loudness
         ));
     }
 }
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -965,7 +1293,7 @@ mod tests {
             .iter()
             .map(|(_, recipe)| wav(&render(recipe)))
             .collect();
-        rendered.push(wav(&render(&tap(VARIANTS[0].0, VARIANTS[0].1))));
+        rendered.push(wav(&render(&tap(detuned(VARIANTS[0].0), VARIANTS[0].1))));
         let before = rendered.len();
         rendered.sort_unstable();
         rendered.dedup();
@@ -978,7 +1306,7 @@ mod tests {
     fn no_two_taps_sound_alike() {
         let mut rendered: Vec<Vec<u8>> = VARIANTS
             .iter()
-            .map(|&(hz, second)| wav(&render(&tap(hz, second))))
+            .map(|&(cents, spot)| wav(&render(&tap(detuned(cents), spot))))
             .collect();
         let before = rendered.len();
         rendered.sort_unstable();
@@ -1012,8 +1340,8 @@ mod tests {
     #[test]
     fn every_cue_is_loud_enough_to_hear_and_quiet_enough_not_to_clip() {
         let mut recipes: Vec<(Cue, Recipe)> = Vec::new();
-        for (hz, second) in VARIANTS {
-            recipes.push((Cue::YourMove, tap(hz, second)));
+        for (cents, spot) in VARIANTS {
+            recipes.push((Cue::YourMove, tap(detuned(cents), spot)));
         }
         for (cue, recipe) in RECIPES.iter().chain(recipes.iter()) {
             let samples = render(recipe);
@@ -1103,9 +1431,108 @@ mod tests {
         assert_eq!(rate, 44_100, "the wrong sample rate is the wrong pitch");
         assert_eq!(
             u16::from_le_bytes([bytes[22], bytes[23]]),
-            1,
-            "not mono, so every second sample would be the other ear's"
+            2,
+            "not stereo, so the two ears would be read as one at double speed"
         );
+        // The three fields that have to agree with the channel count, and the
+        // reason this test names all of them: a stereo file with a mono block
+        // align decodes at half speed with the ears interleaved, which is a
+        // failure that *plays* — the worst kind to leave to the ear.
+        assert_eq!(
+            u16::from_le_bytes([bytes[32], bytes[33]]),
+            4,
+            "block align is not two channels of sixteen bits"
+        );
+        assert_eq!(
+            u32::from_le_bytes([bytes[28], bytes[29], bytes[30], bytes[31]]),
+            44_100 * 4,
+            "byte rate does not match the block align"
+        );
+        assert_eq!(samples.len() % 2, 0, "an odd sample count is half a frame");
+    }
+
+    /// Both ears hear the same sound, and only the room differs.
+    ///
+    /// The design's one rule about stereo, held as a number. A [`Cue`] names
+    /// a moment and never a seat — `Their…` is deduplicated across every seat
+    /// that lost life on one view — so a pan would be a position the game
+    /// cannot back up. What is decorrelated is the *room*: two different sets
+    /// of reflections behind one dry signal, which the ear reads as space
+    /// rather than as direction.
+    ///
+    /// What is bounded is **mono compatibility**, in two numbers, and what is
+    /// deliberately *not* bounded is how much the two channels differ.
+    ///
+    /// A side-to-mid ratio would be the obvious check and it is the wrong
+    /// one: a long reverberant tail carries far more energy than a stopped
+    /// note, so a genuinely distant cue is more than half side energy while
+    /// still being perfectly centred — `TheirLifeLost` sits at 0.51 and is
+    /// right to. What must hold is that the two ears **agree**: a positive
+    /// correlation, so nothing is inverted or hard-panned, and a mono sum
+    /// that keeps almost all of its peak, so a phone speaker loses reverb and
+    /// not the sound.
+    ///
+    /// The first draft of the room failed both: two different early-reflection
+    /// sets measured −0.99 correlated at A3, which is a cue that all but
+    /// disappears the moment anyone sums it.
+    #[test]
+    fn the_two_ears_agree_about_where_the_sound_is() {
+        for (cue, recipe) in &RECIPES {
+            let samples = render(recipe);
+            let (mid, side) = samples
+                .as_chunks::<2>()
+                .0
+                .iter()
+                .fold((0.0, 0.0), |(m, s), f| {
+                    (m + (f[0] + f[1]).powi(2), s + (f[0] - f[1]).powi(2))
+                });
+            assert!(side > 0.0, "{} is the same in both ears", cue.name());
+            let corr = (mid - side) / (mid + side);
+            assert!(
+                corr > 0.25,
+                "{} has ears that disagree: correlation {corr:.2}",
+                cue.name()
+            );
+
+            let loudest = samples.iter().fold(0.0_f32, |m, s| m.max(s.abs()));
+            let summed = samples
+                .as_chunks::<2>()
+                .0
+                .iter()
+                .fold(0.0_f32, |m, f| m.max((f32::midpoint(f[0], f[1])).abs()));
+            assert!(
+                summed > 0.85 * loudest,
+                "{} loses {:.0}% of its peak in mono",
+                cue.name(),
+                100.0 * (1.0 - summed / loudest)
+            );
+        }
+    }
+
+    /// No mode above the fundamental outlives a tenth of a second.
+    ///
+    /// The bell guard, and the reason it is a test rather than a comment: the
+    /// decay law is `τ₁ · r^-1.2`, so a *longer* ring lengthens every partial
+    /// with it, and the endings ring four times as long as a life cue. An
+    /// ending whose 9.56 partial rang for 90 ms would be a struck bell, which
+    /// is exactly what this module's header says it is not — and the clamp
+    /// that stops it is one `.min()` easy to drop while tuning.
+    #[test]
+    fn nothing_above_the_fundamental_rings_like_a_bell() {
+        for (cue, recipe) in &RECIPES {
+            for blow in recipe.strikes {
+                let ring = free_ring(blow.hz) * blow.damp;
+                for mode in modes(blow.hz, blow.contact, blow.spot, ring).iter().skip(1) {
+                    assert!(
+                        mode.tau <= 0.090,
+                        "{}: {:.0} Hz rings {:.0} ms",
+                        cue.name(),
+                        mode.hz,
+                        mode.tau * 1000.0
+                    );
+                }
+            }
+        }
     }
 
     /// A buffer ends at silence.
@@ -1174,9 +1601,9 @@ mod tests {
             let path = format!("{dir}/{}.wav", cue.name());
             std::fs::write(&path, wav(&render(recipe))).expect("written");
         }
-        for (i, &(hz, second)) in VARIANTS.iter().enumerate() {
+        for (i, &(cents, spot)) in VARIANTS.iter().enumerate() {
             let path = format!("{dir}/YourMove-{i}.wav");
-            std::fs::write(&path, wav(&render(&tap(hz, second)))).expect("written");
+            std::fs::write(&path, wav(&render(&tap(detuned(cents), spot)))).expect("written");
         }
     }
 
