@@ -88,6 +88,15 @@ impl Material for MatMaterial {
     fn alpha_mode(&self) -> AlphaMode {
         AlphaMode::Blend
     }
+
+    /// Where a mat sits in the transparent pass: at its own rung of the
+    /// table's ladder, so it is painted before the weather over it and before
+    /// the contact shadow of any card lying on it — wherever on the table
+    /// that card happens to be, which is the half of it the sort used to get
+    /// wrong. See [`table::sort_bias`](crate::table::sort_bias).
+    fn depth_bias(&self) -> f32 {
+        crate::table::sort_bias(crate::table::ZONE_LIFT)
+    }
 }
 
 /// Installs the mat material and its shader.

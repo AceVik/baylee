@@ -87,9 +87,17 @@ pub struct AtmosphereParams {
     /// different room, and a setting that quietly removed the weather would
     /// look like a bug in the weather rather than like the setting working.
     pub motion: f32,
-    /// The corner radius the mesh was cut with, so the air can be faded
-    /// out where the table stops instead of ending on a line.
+    /// The corner radius the mesh was cut with, so the shader can measure how
+    /// far onto the cloth a point is.
     pub corner: f32,
+    /// How wide the padded rail runs, in table units.
+    ///
+    /// The same number the felt is given, and for the opposite purpose: the
+    /// felt uses it to draw the rail, and this uses it to know where the
+    /// cloth begins — so a veil can stop on the cloth while a leaf goes on
+    /// over the leather, which is one of the cheapest things that says the
+    /// marks are in the air and the veils are on the table.
+    pub rail: f32,
 }
 
 /// The air.
@@ -111,6 +119,19 @@ impl Material for AtmosphereMaterial {
     /// into a claim the depth buffer enforces on every pixel.
     fn alpha_mode(&self) -> AlphaMode {
         AlphaMode::Blend
+    }
+
+    /// Where the air sits in the transparent pass.
+    ///
+    /// Being blended, it is *sorted*, and the sort is by distance to the
+    /// camera — so without this the air would be painted over a seat's mat at
+    /// one end of the table and under it at the other, which is the bug the
+    /// whole-table quad made unignorable. [`table::sort_bias`] turns the lift
+    /// ladder into the order, and this is simply the air's own rung of it.
+    ///
+    /// [`table::sort_bias`]: crate::table::sort_bias
+    fn depth_bias(&self) -> f32 {
+        crate::table::sort_bias(crate::table::ATMOSPHERE_LIFT)
     }
 }
 
@@ -255,6 +276,7 @@ fn params_of(air: Weather, span: Vec2, fall: Vec2, motion: f32) -> AtmospherePar
         flakes: air.flakes,
         motion,
         corner: baylee_client_core::tabletop::table_corner(span),
+        rail: baylee_client_core::tabletop::RAIL_WIDTH,
     }
 }
 
@@ -310,6 +332,31 @@ mod tests {
         assert!(
             air < crate::table::CARD_LIFT,
             "the air reached the cards: {air}"
+        );
+    }
+
+    /// The sort ladder, both halves.
+    ///
+    /// A blended surface is painted in an order the *sort* decides, and the
+    /// sort key is `distance + depth_bias`. So the ladder is only the drawing
+    /// order if every rung's bias beats the spread of distances a table can
+    /// produce — otherwise which end of the table a thing sits on decides it,
+    /// which is what used to happen.
+    #[test]
+    fn the_ladder_decides_what_covers_what() {
+        use crate::table::{ATMOSPHERE_LIFT, CARD_LIFT, ZONE_LIFT, sort_bias};
+        let mat = sort_bias(ZONE_LIFT);
+        let air = sort_bias(ATMOSPHERE_LIFT);
+        let shadow = sort_bias(CARD_LIFT * 0.5);
+        assert!(mat < air && air < shadow, "{mat} {air} {shadow}");
+        // The eight-seat ring is the widest table there is, and the camera is
+        // never further than `MAX_DISTANCE`; the spread of distances across
+        // the slab is bounded by its own diagonal, which is well inside this.
+        let widest_table = 120.0_f32;
+        assert!(
+            air - mat > widest_table && shadow - air > widest_table,
+            "a table wider than the gap between two rungs would decide the \
+             order instead of the ladder: {mat} {air} {shadow}"
         );
     }
 

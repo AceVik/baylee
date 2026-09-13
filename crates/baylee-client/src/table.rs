@@ -50,7 +50,7 @@ const TABLE_Y: f32 = 0.0;
 /// Vertical gap between the felt and a card.
 pub(crate) const CARD_LIFT: f32 = 0.01;
 /// Where a seat's mat sits: above the felt, below everything played on it.
-const ZONE_LIFT: f32 = 0.002;
+pub(crate) const ZONE_LIFT: f32 = 0.002;
 /// Where the glow under a mat sits — below the mat, above the felt.
 const GLOW_LIFT: f32 = 0.001;
 /// Where the centre medallion is inlaid.
@@ -68,6 +68,39 @@ const MEDALLION_LIFT: f32 = 0.0015;
 pub(crate) const ATMOSPHERE_LIFT: f32 = 0.0035;
 const _: () = assert!(ATMOSPHERE_LIFT > ZONE_LIFT);
 const _: () = assert!(ATMOSPHERE_LIFT < CARD_LIFT * 0.5);
+
+/// Turns a lift into the order the transparent pass draws it in.
+///
+/// The ladder above has always carried the comment *"the order of these
+/// decides what draws over what; nothing here is depth-sorted"*, and the
+/// second half of that was never true. Bevy sorts `Transparent3d` by
+/// `rangefinder.distance(mesh_center) + depth_bias`, ascending, with the
+/// distance **increasing towards the camera** — so what actually decided the
+/// order was which end of the table a thing sat on. A mat on the near half
+/// was drawn after a card's contact shadow on the far half and covered it;
+/// nobody noticed, because a mat is a veil in the hundredths and a shadow is
+/// a small dark ellipse, and because the two are rarely in the same place.
+/// The air over the table is what made it worth fixing: it is the width of
+/// the whole slab, so it meets every other blended surface at once and would
+/// have been over the mats at one end and under them at the other.
+///
+/// A bias, and not a reordering of the lifts, because the lifts are *right* —
+/// they are the heights these things are at, and the depth buffer uses them.
+/// The gain only has to be large enough that the smallest rung of the ladder
+/// beats the widest table: the rungs are half a thousandth apart and the
+/// eight-seat ring reaches about forty units across, so 0.0005 × 400 000 =
+/// 200 is a comfortable margin. `the_ladder_decides_what_covers_what` holds
+/// both halves of that.
+///
+/// It touches nothing but the sort. Depth *writing* is off for every blended
+/// surface here, so none of them was ever occluding another; what this fixes
+/// is purely which one is painted last.
+pub(crate) fn sort_bias(lift: f32) -> f32 {
+    lift * SORT_GAIN
+}
+
+/// See [`sort_bias`].
+const SORT_GAIN: f32 = 400_000.0;
 /// Table kept around the play area, so no camera angle finds the slab's edge.
 ///
 /// The slab used to be a fixed 60 × 44 whoever was sitting at it — about four
@@ -1774,6 +1807,9 @@ pub fn spawn_stage(
         )))),
         alpha_mode: AlphaMode::Blend,
         unlit: true,
+        // A card's shadow is the highest thing the table's ground carries,
+        // and it is what the air is kept underneath.
+        depth_bias: sort_bias(CARD_LIFT * 0.5),
         ..default()
     }));
     #[expect(
@@ -1865,6 +1901,7 @@ pub fn spawn_stage(
             base_color_texture: Some(images.add(image_of(&tabletop::medallion(512)))),
             alpha_mode: AlphaMode::Blend,
             unlit: true,
+            depth_bias: sort_bias(MEDALLION_LIFT),
             ..default()
         })),
         Transform::from_xyz(0.0, TABLE_Y + MEDALLION_LIFT, 0.0)
@@ -1920,7 +1957,8 @@ struct TableQuad {
     /// Extent on the felt, in table units.
     size: Vec2,
     /// How far above [`TABLE_Y`] it lies. The order of these decides what
-    /// draws over what; nothing here is depth-sorted.
+    /// draws over what, through [`sort_bias`] — which is newer than this
+    /// comment, and is what finally made the sentence true.
     lift: f32,
     /// Multiplied into the texture, so a white texel comes out this colour.
     tint: LinearRgba,
@@ -1945,6 +1983,7 @@ fn spawn_table_quad(
         base_color_texture: Some(quad.texture),
         alpha_mode: AlphaMode::Blend,
         unlit: true,
+        depth_bias: sort_bias(quad.lift),
         ..default()
     });
     let entity = commands
