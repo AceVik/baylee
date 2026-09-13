@@ -7,9 +7,11 @@
 //! permanent was on the table.
 //!
 //! What is here is a sheet of paper laid beside the card it belongs to: the
-//! permanent's name, a numbered row per thing it can do with the ability's own
-//! printed sentence on it, and the cost as pips on the right where a cost
-//! belongs. `docs/redesign-proposal.md` §7 is the design.
+//! permanent's name, and a numbered row per thing it can do with the
+//! ability's own printed sentence on it. The cost is under the key that arms
+//! it, in a narrow column down the left — the two marks a player scans rather
+//! than reads, with the whole of the rest of the row left to the sentence.
+//! `docs/redesign-proposal.md` §7 is the design.
 //!
 //! # Two trees, because two things change at different rates
 //!
@@ -71,6 +73,18 @@ const SHEET_GAP: f32 = 18.0;
 /// edge and the other half is under the paper. Small — it is a tail, and a
 /// tail that could be mistaken for a control would be one.
 const NUB: f32 = 14.0;
+
+/// How much light the paper has lost where the nub lies on it.
+///
+/// The nub carries the sheet's own grain, which is what makes it the same
+/// material — and stretching a 512-pixel sheet of parchment into fourteen
+/// pixels shows the *whole* of it, the bright middle included, while the
+/// sheet under it at that point is showing its own vignetted rim. Measured on
+/// the running client: the paper beside the nub is 203,187,148 and the nub's
+/// face came out 215,201,163. This is the rim's share of the middle's light,
+/// which is the one number that closes it — and it is a tint on the image and
+/// not a second colour, so the grain still shows through.
+const NUB_TONE: f32 = 0.945;
 
 /// How far the halo stands off the card it rings.
 const HALO_AIR: f32 = 3.0;
@@ -156,6 +170,38 @@ const KEYCAP_SIDE: f32 = 1.9;
 /// 21-pixel square is; half the side is the circle it used to be.
 const KEYCAP_R: f32 = 4.0;
 
+/// The size a row's writing is set at.
+///
+/// Named because a row now sets its words and its marks at two sizes and the
+/// pair has to be read together: this is the smaller of them, and it is what
+/// a printed sentence is set in.
+const ROW_PT: f32 = 13.0;
+
+/// The size a row's **cost** is drawn at, disc for disc.
+///
+/// Larger than [`ROW_PT`], which is the one place on this sheet where a mark
+/// is not sized off the sentence beside it — because under the keycap it is
+/// not in a sentence any more. It is the answer to "what does this charge",
+/// read on its own, and the number inside a loyalty badge is the smallest
+/// thing in it: a badge is drawn at its size and its numeral at 0.82 of that,
+/// so a cost set at the rows' own 13 pt put a planeswalker's loyalty on the
+/// page at nine pixels. Sixteen puts it at thirteen — the size of the
+/// sentence it is charging for, which is the right place for it to land.
+const COST_MARK: f32 = 16.0;
+
+/// The widest the keycap's column may grow to carry a cost.
+///
+/// Three marks and the air between them. Without it the column is as wide as
+/// the longest cost on the sheet, and `{2}{B}, {T}, Sacrifice this` would
+/// take the room from the prose that moving the cost here was meant to give
+/// it. At the cap [`crate::manaui::spawn_rich_marks`]'s own `flex_wrap` folds
+/// the cost into a second line under the keycap instead, which is a shape the
+/// column already has room for.
+const COST_MAX: f32 = 3.0 * COST_MARK + 2.0 * 2.0;
+
+/// The air between the keycap and the cost under it.
+const COST_LIFT: f32 = 3.0;
+
 /// The wash under the row that is armed — [`palette::BRASS`] at 16%.
 ///
 /// It sits on an opaque sheet and not on felt, which is the whole reason a
@@ -163,12 +209,24 @@ const KEYCAP_R: f32 = 4.0;
 /// grey, and parchment over parchment is warmer parchment.
 const ARMED_WASH: Color = Color::srgba(0.788, 0.635, 0.153, 0.16);
 
-/// The wash under an armed row with the pointer on it.
+/// How much ink the pointer presses into a row — 10%.
 ///
-/// Brighter than [`ARMED_WASH`] and not dimmer: `Feel` crossfades from the
-/// resting colour to this one, so a hot colour below the base would make
-/// hovering the row a player has already committed to *take light away*.
-const ARMED_HOT: Color = Color::srgba(0.788, 0.635, 0.153, 0.24);
+/// **The hover is a different register from the state, and that is the whole
+/// of it.** The washes above say what a row *is* — the keyboard is here, this
+/// one is armed — and they say it in brass. The hover says where the pointer
+/// is, and saying it with more brass is what made it nearly invisible: a
+/// row's hot end was the next wash up the same ladder, which is eight per
+/// cent of a warm hue on a warm ground, about eleven levels and in the blue
+/// channel alone. A *picked* row had it worse than that — it rested at
+/// [`PICKED_WASH`] and rose to [`PICKED_WASH`], so the row a player was
+/// already pointing at answered the pointer with nothing at all.
+///
+/// Ink is the register this sheet already keeps for that, in
+/// [`CLOSE_REST`]/[`CLOSE_HOT`]: a press in the paper, which is a fall in
+/// luminance and reads on any ground and at any hue. So a row keeps its brass
+/// and takes ink on top of it, and [`pressed`] is the one rule that says so
+/// for all three states instead of three hand-tuned literals.
+const ROW_PRESS: f32 = 0.10;
 
 /// The dish the close button sits in — [`palette::PARCHMENT_INK`] at 5%.
 ///
@@ -187,6 +245,30 @@ const CLOSE_HOT: Color = Color::srgba(0.098, 0.082, 0.062, 0.14);
 /// about the same row: the cursor is *where a key would land* and the arming
 /// is *what a key has already done*.
 const PICKED_WASH: Color = Color::srgba(0.788, 0.635, 0.153, 0.08);
+
+/// A row's resting wash with the pointer's ink pressed into it.
+///
+/// Source-over, so it is the colour the two layers actually make and not an
+/// average of them: a row resting at nothing comes out as plain ink at
+/// [`ROW_PRESS`] — the close button's register, exactly — and a row resting
+/// at brass keeps the brass and darkens, which is the same movement either
+/// way. `Feel` crossfades one colour into another and cannot stack two, which
+/// is why this is composited here and not layered there.
+fn pressed(rest: Color) -> Color {
+    let rest = rest.to_srgba();
+    let ink = palette::PARCHMENT_INK.to_srgba();
+    // Never zero — the ink is opaque enough to divide by on its own — so the
+    // resting alpha is free to be zero.
+    let alpha = ROW_PRESS + rest.alpha * (1.0 - ROW_PRESS);
+    let mix =
+        |over: f32, under: f32| (over * ROW_PRESS + under * rest.alpha * (1.0 - ROW_PRESS)) / alpha;
+    Color::srgba(
+        mix(ink.red, rest.red),
+        mix(ink.green, rest.green),
+        mix(ink.blue, rest.blue),
+        alpha,
+    )
+}
 
 /// The parent of the sheet, so one despawn clears it.
 #[derive(Component)]
@@ -440,7 +522,7 @@ pub fn sync_ability_sheet(
         armed,
         fresh,
     );
-    let (halo, nub) = spawn_trim(&mut commands, fresh);
+    let (halo, nub) = spawn_trim(&mut commands, &sheets, fresh);
     // Order *is* the drawing: the ring round the card, then the paper, then
     // the tail lying across the paper's edge. See [`SheetNub`] for why the
     // tail is in front of the sheet and not behind it.
@@ -453,7 +535,7 @@ pub fn sync_ability_sheet(
 /// it needs a `ComputedNode` that does not exist on the frame they are made —
 /// so without this they would be drawn once in the window's top-left corner,
 /// which is where an unplaced absolute node is.
-fn spawn_trim(commands: &mut Commands, fresh: bool) -> (Entity, Entity) {
+fn spawn_trim(commands: &mut Commands, sheets: &UiSheets, fresh: bool) -> (Entity, Entity) {
     let arrive = Vec2::splat(if fresh { 0.0 } else { 1.0 });
     let halo = commands
         .spawn((
@@ -488,12 +570,54 @@ fn spawn_trim(commands: &mut Commands, fresh: bool) -> (Entity, Entity) {
                 scale: arrive,
                 ..UiTransform::IDENTITY
             },
-            BackgroundColor(palette::PARCHMENT),
+            // No ground of its own. The grain below covers the *padding* box,
+            // and a `BackgroundColor` reaches under the border as well — so a
+            // flat [`palette::PARCHMENT`] here survived the grain as a
+            // one-pixel bright rim on the two edges the placer leaves clear,
+            // which at a forty-five degree angle is an antialiased light line
+            // down each side of the diamond. Measured: 213 against the
+            // paper's 203, and the last thing drawing an outline round a tail
+            // that is meant to have none.
+            BackgroundColor(Color::NONE),
             // Written by the placer, which is the only thing that knows which
             // two of the four edges are the ones facing out.
             BorderColor::all(Color::NONE),
         ))
         .id();
+    // **The nub is cut from the same paper, and this is what says so.** It
+    // was a flat [`palette::PARCHMENT`] diamond — 224,212,176 — lying on a
+    // sheet whose face is the *stretched grain*, measured at 203,187,148. Its
+    // inner half therefore painted a bright flat patch on grained paper and
+    // the outer half a bright flat tail, which is the whole reason it read as
+    // its own element rather than as the sheet's corner: a tail of paper and
+    // the paper it is torn from cannot be two materials. The geometry was
+    // right all along — only `NUB·√2/2` of it stands proud — so nothing here
+    // moves it or grows it.
+    //
+    // An absolute child inset to zero rather than [`sheet_surface`], which
+    // carries the sheet's own 13-pixel corner and would round a 14-pixel
+    // square into a circle, and rather than [`sheet`] on the nub itself,
+    // which paints the *content* box and would leave the border ring flat.
+    // The rotation and the opening scale propagate to it; the grain is noise
+    // and has no up.
+    let grain = commands
+        .spawn((
+            Node {
+                position_type: PositionType::Absolute,
+                left: px(0),
+                right: px(0),
+                top: px(0),
+                bottom: px(0),
+                ..default()
+            },
+            ImageNode {
+                color: Color::srgb(NUB_TONE, NUB_TONE, NUB_TONE),
+                ..sheet(sheets)
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(nub).add_child(grain);
     (halo, nub)
 }
 
@@ -990,7 +1114,7 @@ fn spawn_row(
                 ..default()
             },
             BackgroundColor(wash),
-            Feel::rising_to(wash, if armed { ARMED_HOT } else { PICKED_WASH }),
+            Feel::rising_to(wash, pressed(wash)),
         ))
         .id();
 
@@ -1008,7 +1132,32 @@ fn spawn_row(
         palette::PARCHMENT_INK,
         11.0,
     );
-    commands.entity(row).add_child(keycap);
+    // The keycap and the cost are one column, and the cost is **under** the
+    // key rather than out at the row's far edge. Two things come of it. The
+    // sentence gets the whole of the rest of the row instead of the rest
+    // minus a cost and a gap, which is the room a printed ability needs and
+    // the reason the owner asked for it; and the two things a player is not
+    // reading as prose — the key to press and what it charges — stand
+    // together in one narrow column down the left of the sheet, where the eye
+    // can run past them.
+    let hand = commands
+        .spawn((
+            Node {
+                flex_direction: FlexDirection::Column,
+                align_items: AlignItems::Center,
+                row_gap: px(COST_LIFT),
+                // The column keeps its width against a long sentence and is
+                // bounded against a long cost: a cost is allowed to make this
+                // column wider than the keycap, up to a point.
+                flex_shrink: 0.0,
+                max_width: px(COST_MAX),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(hand).add_child(keycap);
+    commands.entity(row).add_child(hand);
 
     let says = commands
         .spawn((
@@ -1042,20 +1191,30 @@ fn spawn_row(
             TextBlock::Rules(t) => (t.clone(), palette::SLIP_INK),
             TextBlock::Reminder(t) => (t.clone(), palette::SLIP_ASIDE),
         };
-        let line = crate::manaui::spawn_rich(commands, fonts, &words, 13.0, colour);
+        let line = crate::manaui::spawn_rich(commands, fonts, &words, ROW_PT, colour);
         commands.entity(says).add_child(line);
     }
     commands.entity(row).add_child(says);
 
-    // The pip column is skipped where it would print the row's own words a
-    // second time. Offline there is no card text at all, so every printed
-    // ability falls back to its cost — and a row reading `{2}, {T}` on the
-    // left and `{2}, {T}` on the right is the duplication the sentence-first
-    // layout exists to remove, not a cost drawn where a cost belongs.
+    // The cost is skipped where it would print the row's own words a second
+    // time. Offline there is no card text at all, so every printed ability
+    // falls back to its cost — and a row reading `{2}, {T}` beside `{2}, {T}`
+    // is the duplication the sentence-first layout exists to remove, not a
+    // cost drawn where a cost belongs.
     let repeats = printed.is_none() && option.cost.as_deref() == Some(option.label.as_str());
     if let Some(cost) = option.cost.as_deref().filter(|_| !repeats) {
-        let pips = crate::manaui::spawn_rich(commands, fonts, cost, 13.0, palette::SLIP_SOFT);
-        commands.entity(row).add_child(pips);
+        // The words in a cost stay at the rows' size and only the marks grow:
+        // `Sacrifice this` set at [`COST_MARK`] would be larger than the
+        // ability it is part of.
+        let pips = crate::manaui::spawn_rich_marks(
+            commands,
+            fonts,
+            cost,
+            ROW_PT,
+            COST_MARK,
+            palette::SLIP_SOFT,
+        );
+        commands.entity(hand).add_child(pips);
     }
     row
 }
@@ -1080,7 +1239,7 @@ fn spawn_pager(
                 ..default()
             },
             BackgroundColor(Color::NONE),
-            Feel::rising_to(Color::NONE, PICKED_WASH),
+            Feel::rising_to(Color::NONE, pressed(Color::NONE)),
         ))
         .id();
     let keycap = cap(

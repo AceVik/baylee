@@ -204,6 +204,14 @@ const NUMBER_LIFT: f32 = 0.55;
 /// that drifts.
 pub(crate) const BADGE_SPAN: f32 = 1.55;
 
+/// How big a mark set *in* a sentence is, as a share of the letters round it.
+///
+/// Roughly the cap height, so `{T}: Add {G}` reads as one sentence rather
+/// than as prose with badges dropped into it. It is a default and not a rule:
+/// [`spawn_rich_marks`] is the door for a line whose marks are what a player
+/// reads and whose words are the aside.
+const MARK_SHARE: f32 = 0.88;
+
 /// A planeswalker's loyalty cost, built the way the card prints it.
 ///
 /// Three children on one parent, and their order *is* the drawing: `bevy_ui`
@@ -425,8 +433,8 @@ pub fn spawn_cost(
 /// it and a hover that lands on the label is a hover the button never sees.
 ///
 /// `size` is the text's font size; the discs are set a little under it, at
-/// roughly the cap height, so the line reads as a sentence rather than as
-/// prose with badges dropped into it.
+/// [`MARK_SHARE`] of it, so the line reads as a sentence rather than as prose
+/// with badges dropped into it.
 pub fn spawn_rich(
     commands: &mut Commands,
     fonts: &UiFonts,
@@ -434,7 +442,38 @@ pub fn spawn_rich(
     size: f32,
     color: Color,
 ) -> Entity {
-    rich(commands, fonts, text, size, color, crate::hud::tf)
+    rich(
+        commands,
+        fonts,
+        text,
+        size,
+        size * MARK_SHARE,
+        color,
+        crate::hud::tf,
+    )
+}
+
+/// The same line with the **marks set apart from the words**.
+///
+/// [`spawn_rich`] ties the two together at [`MARK_SHARE`], which is right for
+/// a sentence and wrong for a *cost*: a cost is read for its marks, and the
+/// words in it (`, `, `Sacrifice this`) are the aside. Tying them would mean
+/// choosing between an unreadable mark and a cost set larger than the ability
+/// it belongs to — a loyalty badge is [`CAP`]·0.82 of its size before a
+/// numeral is drawn in it, so the digit on a badge set at a sentence's own
+/// size comes out under ten pixels.
+///
+/// `marks` is the disc's diameter and not a share, because the caller sizing
+/// it is sizing a mark and not scaling a sentence.
+pub fn spawn_rich_marks(
+    commands: &mut Commands,
+    fonts: &UiFonts,
+    text: &str,
+    size: f32,
+    marks: f32,
+    color: Color,
+) -> Entity {
+    rich(commands, fonts, text, size, marks, color, crate::hud::tf)
 }
 
 /// The same line, set as a **control's own label**.
@@ -455,21 +494,35 @@ pub fn spawn_rich_label(
     size: f32,
     color: Color,
 ) -> Entity {
-    rich(commands, fonts, text, size, color, crate::hud::tf_bold)
+    rich(
+        commands,
+        fonts,
+        text,
+        size,
+        size * MARK_SHARE,
+        color,
+        crate::hud::tf_bold,
+    )
 }
 
-/// Both of the above, with the face they differ in passed in.
+/// All three of the above, with what they differ in passed in.
+#[allow(clippy::too_many_arguments)] // two sizes, a colour and a face
 fn rich(
     commands: &mut Commands,
     fonts: &UiFonts,
     text: &str,
     size: f32,
+    marks: f32,
     color: Color,
     face: fn(&UiFonts, f32) -> TextFont,
 ) -> Entity {
     let row = commands
         .spawn((
             Node {
+                // Air measured against the *words*, not the marks, even where
+                // the two have been set apart: this gap is the space in a
+                // line of writing, and a line does not open up because one
+                // character in it is drawn larger.
                 column_gap: px((size * 0.12).max(1.0)),
                 align_items: AlignItems::Center,
                 flex_wrap: bevy::ui::FlexWrap::Wrap,
@@ -489,7 +542,7 @@ fn rich(
                 ))
                 .id(),
             baylee_client_core::manapip::Segment::Symbol(pip) => {
-                spawn_pip(commands, fonts, pip, size * 0.88)
+                spawn_pip(commands, fonts, pip, marks)
             }
         };
         commands.entity(row).add_child(child);
