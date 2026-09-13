@@ -43,6 +43,7 @@ Two consequences worth knowing before changing anything here:
 | Fast-forward to the next turn | `⇧Tab` | implemented |
 | Number choices (X) | arrows, digits, `⌫` (or the `−`/`+` buttons) | implemented |
 | Pick a row of the ability sheet (the digit drawn on it) | `1`–`9` | implemented |
+| Walk the ability sheet: its column / its mana pips | `W` `S` / `A` `D` | implemented |
 | Turn the ability sheet's page | `0` | implemented |
 | Mulligan keep / bottom | `K` / `B` | implemented |
 | Yes / no | `Y` / `N` | implemented |
@@ -220,9 +221,22 @@ card does. `Esc` disarms and leaves the sheet open; `Esc` again closes it.
 Clicking a row does all of the above identically — the pointer and the digit
 go through one function, because a second click that re-armed while a second
 press sent would be two answers to the same question. A player who would
-rather not count reaches the same rows with the card cursor: `W A S D` walk
-the list and turn the page by walking off the end of one, and the activate key
-takes the row the cursor is on.
+rather not count reaches the same rows with the card cursor, and the activate
+key takes the row the cursor is on.
+
+**The cursor is two-dimensional here and nowhere else in the client**, because
+this sheet is the only one with two directions on it: a permanent that makes
+mana carries a centred **row** of coloured pips above its column of written
+rows (`docs/client.md` §"The question itself is a sheet"). So `W` and `S` walk
+the whole column, pips included, and turn the page by walking off the end of
+one; `A` and `D` belong to the pip strip, wrapping inside it and never
+reaching a sentence. From a written row either of them **arrives** on the
+strip in one press, at the end it was travelling towards — rightwards at the
+first pip, leftwards at the last. A sheet with no pips has nothing horizontal
+on it, and there `A` and `D` step the list exactly as `W` and `S` do, so a
+player holding one of them need not know which permanents have a header.
+`baylee_client_core::abilitysheet::step_down` and `step_along` are the
+arithmetic.
 
 The sheet owns the keyboard while it stands, *after* an armed deed and before
 the card cursor. That order is the arming rule seen from the other side:

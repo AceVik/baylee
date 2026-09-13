@@ -104,6 +104,57 @@ pub fn option_of(len: usize, page: usize, digit: char) -> Option<usize> {
     (at < row.end).then_some(at)
 }
 
+/// Where the cursor lands when the sheet is walked **up or down**.
+///
+/// The whole list, wrapping at both ends, which is what it has always been:
+/// the pips and the written rows are one column of options as far as this is
+/// concerned, and the drawn page follows the cursor rather than the other way
+/// round. `step` is `+1` for down and `-1` for up.
+///
+/// An empty list answers zero rather than dividing by it. The sheet's own
+/// reader has already closed a list with nothing to choose from by the time
+/// this is asked, and a cursor is not the place to find that out.
+#[must_use]
+pub fn step_down(len: usize, pick: usize, step: i32) -> usize {
+    if len == 0 {
+        return 0;
+    }
+    let len = i32::try_from(len).unwrap_or(i32::MAX);
+    let at = i32::try_from(pick).unwrap_or(0);
+    usize::try_from((at + step).rem_euclid(len)).unwrap_or(0)
+}
+
+/// Where the cursor lands when the sheet is walked **left or right**.
+///
+/// The mana header is a row of pips laid side by side, and it is the one
+/// thing on this sheet that is horizontal — so the two horizontal keys are
+/// what walks it, and they reach it from wherever the cursor happens to be.
+/// The owner asked for exactly that: *"bei den Mana Symbolen, die kann man
+/// mit A und D navigieren. Wenn man A oder D navigiert, switcht es sofort zur
+/// Mana Zeile"*.
+///
+/// A press from a written row therefore does not step at all — it **arrives**,
+/// at the end of the strip the press was travelling towards: rightwards enters
+/// at the first pip, leftwards at the last. A fixed end would make one of the
+/// two directions cross the whole header before it did anything, and entering
+/// at "the pip above the row" would be answering a question about geometry
+/// that a centred header of a different width cannot answer.
+///
+/// A sheet with no header has nothing horizontal on it, and there the two keys
+/// keep doing what they always did: stepping the list like [`step_down`],
+/// because a player holding one of them to walk a list should not have to know
+/// which permanents have pips.
+#[must_use]
+pub fn step_along(len: usize, pips: usize, pick: usize, step: i32) -> usize {
+    if pips == 0 {
+        return step_down(len, pick, step);
+    }
+    if pick >= pips {
+        return if step >= 0 { 0 } else { pips - 1 };
+    }
+    step_down(pips, pick, step)
+}
+
 /// What pressing a row's digit does.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Press {
@@ -325,6 +376,35 @@ mod tests {
         assert_eq!(option_of(12, 1, '1'), Some(9));
         assert_eq!(option_of(12, 1, '3'), Some(11));
         assert_eq!(option_of(12, 1, '4'), None);
+    }
+
+    /// Up and down walk the whole sheet, header included, and wrap.
+    #[test]
+    fn the_vertical_keys_walk_one_column_of_everything_there_is() {
+        // Six options: five pips and a written row (Harabaz Druid under a
+        // Great Divide Guide).
+        assert_eq!(step_down(6, 0, 1), 1);
+        assert_eq!(step_down(6, 4, 1), 5, "off the last pip onto the sentence");
+        assert_eq!(step_down(6, 5, 1), 0, "and round");
+        assert_eq!(step_down(6, 0, -1), 5, "the other way round");
+        assert_eq!(step_down(0, 0, 1), 0, "an empty sheet has one place to be");
+    }
+
+    /// Left and right belong to the pip strip, and reach it from anywhere.
+    #[test]
+    fn the_horizontal_keys_are_the_mana_row_and_jump_to_it() {
+        // Five pips, one written row.
+        assert_eq!(step_along(6, 5, 0, 1), 1, "along the header");
+        assert_eq!(step_along(6, 5, 4, 1), 0, "and round the header alone");
+        assert_eq!(step_along(6, 5, 0, -1), 4);
+        // From the sentence: one press arrives, at the end it was heading for.
+        assert_eq!(step_along(6, 5, 5, 1), 0, "rightwards enters at the first");
+        assert_eq!(step_along(6, 5, 5, -1), 4, "leftwards at the last");
+        // A sheet with no header: the two keys step the list, as before.
+        assert_eq!(step_along(4, 0, 0, 1), 1);
+        assert_eq!(step_along(4, 0, 0, -1), 3);
+        // A bubble is all header, so there is nothing to jump *from*.
+        assert_eq!(step_along(5, 5, 4, 1), 0);
     }
 
     #[test]

@@ -958,6 +958,13 @@ pub fn armed_keys(fired: Fired, duel: &mut Duel) -> bool {
 /// frame it was drawn on — the same rule the pointer path follows, and for
 /// the same reason: the engine may have withdrawn the ability since.
 ///
+/// The cursor is two-dimensional here and on no other sheet, because this one
+/// has two directions in it: a centred **row** of mana pips above a column of
+/// written rows. Up and down walk everything there is, as they always have;
+/// left and right are the pip strip and jump to it from wherever the cursor
+/// stands. [`abilitysheet::step_down`] and [`abilitysheet::step_along`] are
+/// the arithmetic and carry the reasons.
+///
 /// The digits are not here. They are read as *characters* by
 /// [`sheet_digits`], the way the subtype filter and a number entry are,
 /// because a digit is bound to no [`Action`] and nine new ones would be nine
@@ -980,13 +987,17 @@ pub fn ability_menu_keys(fired: Fired, duel: &mut Duel) -> bool {
         duel.ability_menu = None;
         return true;
     }
-    let step = i32::from(fired.has(Action::CursorDown)) - i32::from(fired.has(Action::CursorUp))
-        + i32::from(fired.has(Action::CursorRight))
-        - i32::from(fired.has(Action::CursorLeft));
-    if step != 0 {
-        let len = i32::try_from(options.len()).unwrap_or(1);
-        let next = i32::try_from(duel.ability_pick).unwrap_or(0) + step;
-        duel.ability_pick = usize::try_from(next.rem_euclid(len)).unwrap_or(0);
+    let down = i32::from(fired.has(Action::CursorDown)) - i32::from(fired.has(Action::CursorUp));
+    let along =
+        i32::from(fired.has(Action::CursorRight)) - i32::from(fired.has(Action::CursorLeft));
+    if down != 0 || along != 0 {
+        // A frame carrying both is answered by the strip, because that is the
+        // gesture that names a destination rather than a direction.
+        duel.ability_pick = if along == 0 {
+            abilitysheet::step_down(options.len(), duel.ability_pick, down)
+        } else {
+            abilitysheet::step_along(options.len(), split.pips, duel.ability_pick, along)
+        };
         // The cursor walks the whole list and the sheet shows nine rows of
         // it, so walking off the end of a page turns it. Deriving the page
         // from the cursor rather than moving them separately is what stops

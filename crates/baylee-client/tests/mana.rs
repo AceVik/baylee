@@ -1704,3 +1704,88 @@ fn a_second_mana_tap_the_pips_cannot_stand_for_keeps_its_sentence() {
         "`1` sent the ability that had gone missing"
     );
 }
+
+/// Round seven's third point: the mana pips are walked by the two horizontal
+/// keys, and either of them reaches the strip from a written row at once.
+///
+/// Reported as *"bei den Mana Symbolen, die kann man mit A und D navigieren.
+/// Wenn man A oder D navigiert, switcht es sofort zur Mana Zeile, mit W und S
+/// wie gehabt hoch und runter."* The sheet is the only one in the client with
+/// two directions on it — a centred row of pips above a column of sentences —
+/// and all four keys used to step the flat list by one, so `D` on a pip moved
+/// sideways and `D` on a sentence moved down.
+#[test]
+fn the_horizontal_keys_walk_the_pips_and_jump_to_them() {
+    use baylee_client::input::{ability_menu_keys, activate_card};
+    use baylee_client::keys::Fired;
+    use baylee_client::{Duel, abilities};
+    use baylee_client_core::interaction::Interaction;
+    use baylee_client_core::prefs::Action;
+
+    let mut preset = bubble_preset();
+    preset.seats[0].starting_battlefield = vec![entry(SQUAD), entry(HARABAZ)];
+    let mut table = Table::open_with(&preset);
+    table.walk_to_main();
+
+    let druid = table
+        .view()
+        .battlefield
+        .iter()
+        .find(|o| o.name == "Harabaz Druid")
+        .expect("the creature starts on the table")
+        .id;
+
+    let mut duel = Duel::default();
+    duel.view = Some(table.view().clone());
+    duel.interaction = Some(Interaction::new(
+        table.pending.clone().expect("priority"),
+        PlayerId::new(0),
+    ));
+    baylee_client::rebuild_board(&mut duel);
+
+    activate_card(&mut duel, druid);
+    assert_eq!(duel.ability_menu, Some(druid), "the sheet opens");
+    let options = abilities::options(
+        baylee_client_core::Lang::En,
+        duel.view.as_ref().expect("a view"),
+        duel.interaction.as_ref().expect("priority"),
+        druid,
+    );
+    let split = abilities::Split::of(&options);
+    assert_eq!((split.pips, split.rows), (5, 1), "five pips and a sentence");
+
+    let key = |duel: &mut Duel, action| ability_menu_keys(Fired::of_actions(&[action]), duel);
+
+    // Down walks everything there is, header included, exactly as before.
+    assert!(key(&mut duel, Action::CursorDown));
+    assert_eq!(duel.ability_pick, 1, "the second pip");
+
+    // Right walks the header and wraps inside it, without ever reaching the
+    // sentence: five pips, not six options.
+    for expected in [2, 3, 4, 0] {
+        assert!(key(&mut duel, Action::CursorRight));
+        assert_eq!(duel.ability_pick, expected, "the header is its own ring");
+    }
+    assert!(key(&mut duel, Action::CursorLeft));
+    assert_eq!(duel.ability_pick, 4, "and the other way round it");
+
+    // Onto the written row, by the vertical key that owns the column.
+    assert!(key(&mut duel, Action::CursorDown));
+    assert_eq!(duel.ability_pick, split.option(0), "the sentence");
+
+    // And one horizontal press arrives on the strip, at the end it was
+    // heading for — this is the half the owner asked for by name.
+    assert!(key(&mut duel, Action::CursorRight));
+    assert_eq!(duel.ability_pick, 0, "rightwards enters at the first pip");
+    assert!(
+        key(&mut duel, Action::CursorUp),
+        "up off the first pip is the top of the whole column"
+    );
+    assert_eq!(
+        duel.ability_pick,
+        split.option(0),
+        "which wraps round to the sentence"
+    );
+    assert!(key(&mut duel, Action::CursorLeft));
+    assert_eq!(duel.ability_pick, 4, "leftwards enters at the last");
+}
