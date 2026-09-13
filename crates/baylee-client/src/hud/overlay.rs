@@ -1327,15 +1327,15 @@ pub fn sync_overlay(
     // keyboard, or by the engine asking a question about cards the table
     // cannot show. Nothing draws a second copy of a zone to click.
     if let (true, Some(statics)) = (duel.browser.is_open(), duel.statics.as_ref()) {
-        // Where the sheet stands, decided here so that the tray takes a
-        // rectangle rather than the window and the store. `fit` is applied on
-        // every build and never written back: a window briefly dragged narrow
-        // must not overwrite where the player put the sheet on the screen
-        // they play on.
+        // Where the sheet stands, decided by the browser so that the tray
+        // takes a rectangle rather than the window and the store. `fit` is
+        // applied on every build and never written back: a window briefly
+        // dragged narrow must not overwrite where the player put the sheet on
+        // the screen they play on. A sheet a *question* opened reads no store
+        // at all and is centred — `Browser::placement` carries the
+        // measurement that says why a clamp was not enough.
         let band = tray::band_of(&windows);
-        let place = settings
-            .zone_browser
-            .map_or_else(|| Placement::centred(band), |p| p.fit(band));
+        let place = duel.browser.placement(band, settings.zone_browser);
         let tray = tray::spawn_tray(
             &mut commands,
             lang,

@@ -235,12 +235,16 @@ pub(super) fn spawn_tray(
         .id();
     // "All" carries no count: a sum of a graveyard, a stack and a reveal is a
     // number about nothing.
+    // A question that lives in one zone pins the tab to it (W3): every other
+    // tab, "All" included, is drawn and is not a button.
+    let pinned = browser.locked();
     let mut chips = vec![spawn_tab(
         commands,
         fonts,
         None,
         Phrase::BrowseAll.text(lang).to_string(),
         browser.tab().is_none(),
+        pinned.is_some(),
     )];
     for zone in browser.zones(view) {
         chips.push(spawn_tab(
@@ -249,6 +253,7 @@ pub(super) fn spawn_tray(
             Some(zone),
             zone_label(lang, zone, view, statics),
             browser.tab() == Some(zone),
+            pinned.is_some_and(|p| p != zone),
         ));
     }
     commands.entity(tabs).add_children(&chips);
@@ -469,12 +474,19 @@ pub(super) fn spawn_tray(
 }
 
 /// One zone tab.
+///
+/// `locked` is the question having pinned a tab: every other one is still
+/// drawn, at the weight of something that is not a control, and is not a
+/// button. Drawn and not hidden, because a tab that vanished would be saying
+/// the graveyard is empty — and what is true is that it is no part of *this*
+/// question.
 fn spawn_tab(
     commands: &mut Commands,
     fonts: &UiFonts,
     zone: Option<BrowseZone>,
     label: String,
     current: bool,
+    locked: bool,
 ) -> Entity {
     // Brass is a *light* on this sheet and not a letter: measured against
     // parchment it carries 1.9:1, which is why the current tab read fainter
@@ -482,6 +494,11 @@ fn spawn_tab(
     // under it says it a second time.
     let (fill, ink) = if current {
         (Color::srgba(0.0, 0.0, 0.0, 0.10), palette::SLIP_INK)
+    } else if locked {
+        // No surface at all under it, and the aside's grey on top: an aside
+        // is already the sheet's word for "a different kind of sentence",
+        // which is exactly what a tab outside the question is.
+        (Color::NONE, palette::SLIP_ASIDE)
     } else {
         (palette::SLIP_GHOST, palette::SLIP_SOFT)
     };
@@ -490,16 +507,22 @@ fn spawn_tab(
     let tab = commands
         .spawn((
             TrayTab { zone },
-            Button,
             Node {
                 padding: UiRect::axes(px(7), px(3)),
                 border_radius: btn_radius(),
                 ..default()
             },
             BackgroundColor(fill),
-            Feel::new(fill),
         ))
         .id();
+    if locked {
+        // No `Button` and no `Feel` either: a control that lights under the
+        // pointer and then refuses the click is worse than one that never
+        // invited it.
+        commands.entity(tab).insert(Pickable::IGNORE);
+    } else {
+        commands.entity(tab).insert((Button, Feel::new(fill)));
+    }
     commands.entity(tab).add_child(text);
     tab
 }

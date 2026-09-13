@@ -398,6 +398,15 @@ enum Opening {
 pub struct Browser {
     open: Opening,
     tab: Option<BrowseZone>,
+    /// The tab the *question* pins, when every card it offers is in one zone.
+    ///
+    /// Beside `tab` rather than inside it because the two answer different
+    /// questions: `tab` is what is showing, `locked` is whether the player
+    /// may change it. A search puts seven library cards on the sheet and the
+    /// graveyard beside them has nothing to do with the question — so the
+    /// other tabs are drawn and are not buttons, which is the owner's
+    /// "ausgrauen" said in state.
+    locked: Option<BrowseZone>,
     filter: String,
     sort: SortKey,
     descending: bool,
@@ -430,6 +439,50 @@ impl Browser {
         self.tab
     }
 
+    /// The tab the pending question pins, when it pins one.
+    ///
+    /// The renderer draws every other tab and makes none of them a button.
+    /// Drawn rather than hidden: a tab that vanished would say the graveyard
+    /// is empty, and what is true is that it is not part of *this* question.
+    #[must_use]
+    pub fn locked(&self) -> Option<BrowseZone> {
+        self.locked
+    }
+
+    /// Whether a *question* is what put the sheet on screen.
+    ///
+    /// The difference matters twice over. A sheet a question opened dims the
+    /// table behind it, because nothing else on the table is an answer; a
+    /// sheet the player opened by hand dims nothing, because the panel can
+    /// stand open for a whole turn and the game goes on underneath it. And
+    /// the same line decides where it stands — see [`Self::placement`].
+    #[must_use]
+    pub fn for_choice(&self) -> bool {
+        self.open == Opening::ForChoice
+    }
+
+    /// Where the sheet stands this time.
+    ///
+    /// A sheet the player opened is where they last dragged it, because that
+    /// is what dragging it means. A sheet a *question* opened is **centred,
+    /// every time**, and never reads the store at all.
+    ///
+    /// That second rule is the owner's W1, and the measurement says why a
+    /// clamp was not enough: the remembered rectangle was 854 wide at
+    /// `left: 437`, which is centred in a 1728-pixel band and 164 pixels left
+    /// of centre in the 2056-pixel one it was drawn in. [`Placement::fit`]
+    /// brings a rectangle *inside* a band and has no opinion about the middle
+    /// of it, so a placement remembered from a smaller window stays where it
+    /// was and simply looks misplaced. Nobody dragged that sheet anywhere; it
+    /// was put there by a window that is not this one.
+    #[must_use]
+    pub fn placement(&self, band: (f32, f32), stored: Option<Placement>) -> Placement {
+        match stored {
+            Some(place) if !self.for_choice() => place.fit(band),
+            _ => Placement::centred(band),
+        }
+    }
+
     /// What is typed in the filter.
     #[must_use]
     pub fn filter(&self) -> &str {
@@ -451,11 +504,21 @@ impl Browser {
     pub fn close(&mut self) {
         self.open = Opening::Shut;
         self.typing = false;
+        // The lock belongs to the question, and the question is over. Kept
+        // any longer it would pin the next sheet the player opened by hand to
+        // a zone chosen by something that has already been answered.
+        self.locked = None;
     }
 
     /// Shows one zone, or every zone when given `None`.
+    ///
+    /// Refused while a question has pinned a tab: the rows in every other
+    /// zone answer nothing, so the model says no rather than relying on the
+    /// renderer to have drawn no button.
     pub fn show(&mut self, tab: Option<BrowseZone>) {
-        self.tab = tab;
+        if self.locked.is_none() {
+            self.tab = tab;
+        }
     }
 
     /// Narrows the list to cards whose name contains `text`.
@@ -578,13 +641,45 @@ impl Browser {
     /// puts the library on screen, the pick sends, the next question wants
     /// nothing from the sheet and the sheet gets out of the way.
     pub fn follow(&mut self, view: &PlayerView, interaction: Option<&Interaction>) {
-        if interaction.is_some_and(|it| Self::wanted(view, it)) {
+        if let Some(it) = interaction.filter(|it| Self::wanted(view, it)) {
             self.open = Opening::ForChoice;
-            self.tab = None;
+            // Which tab the question itself asks for, before "every zone at
+            // once", which is the answer for a question that spans them. It
+            // also settles an ordering this used to lose: a reveal arrives as
+            // a *view* and `saw_reveal` pins `Looking` on it, then the choice
+            // arrives and this ran a frame later and wrote that pin away.
+            self.locked = Self::sole_zone(view, it);
+            self.tab = self.locked;
             self.filter.clear();
         } else if self.open == Opening::ForChoice {
             self.close();
+        } else {
+            self.locked = None;
         }
+    }
+
+    /// The one zone every card this question offers is in, when there is one.
+    ///
+    /// `None` the moment the offer reaches two zones — or reaches the table
+    /// or the hand, which the sheet does not draw at all: a question that can
+    /// be answered by clicking a permanent must not pin the sheet to the
+    /// pile it *also* offers, because the tabs would then be claiming the
+    /// permanent is not an answer.
+    fn sole_zone(view: &PlayerView, interaction: &Interaction) -> Option<BrowseZone> {
+        let mut only = None;
+        for id in interaction.selectable() {
+            let found = zones_of(view).into_iter().find(|zone| {
+                objects_in(view, *zone)
+                    .iter()
+                    .any(|object| object.id == *id)
+            })?;
+            match only {
+                None => only = Some(found),
+                Some(zone) if zone == found => {}
+                Some(_) => return None,
+            }
+        }
+        only
     }
 
     /// Reacts to a *view* arriving, which is a different event.
@@ -652,28 +747,39 @@ impl Browser {
     /// player looking for a card is usually looking in their own graveyard.
     #[must_use]
     pub fn zones(&self, view: &PlayerView) -> Vec<BrowseZone> {
-        let mut out = Vec::new();
-        if !view.looking_at.is_empty() {
-            out.push(BrowseZone::Looking);
-        }
-        if !view.stack.is_empty() {
-            out.push(BrowseZone::Stack);
-        }
-        for seat in seats_from(view) {
-            let i = seat.get() as usize;
-            if view.graveyards.get(i).is_some_and(|z| !z.is_empty()) {
-                out.push(BrowseZone::Graveyard(seat));
-            }
-            if view.exile.get(i).is_some_and(|z| !z.is_empty()) {
-                out.push(BrowseZone::Exile(seat));
-            }
-            if view.command.get(i).is_some_and(|z| !z.is_empty()) {
-                out.push(BrowseZone::Command(seat));
-            }
-        }
-        out
+        zones_of(view)
     }
+}
 
+/// Every zone with something in it, in tab order.
+///
+/// Free of the panel because [`Browser::sole_zone`] asks it while deciding
+/// what the panel's state should *be*: a method reading nothing of `self`
+/// that `self` is being built from is a borrow waiting to be a problem.
+fn zones_of(view: &PlayerView) -> Vec<BrowseZone> {
+    let mut out = Vec::new();
+    if !view.looking_at.is_empty() {
+        out.push(BrowseZone::Looking);
+    }
+    if !view.stack.is_empty() {
+        out.push(BrowseZone::Stack);
+    }
+    for seat in seats_from(view) {
+        let i = seat.get() as usize;
+        if view.graveyards.get(i).is_some_and(|z| !z.is_empty()) {
+            out.push(BrowseZone::Graveyard(seat));
+        }
+        if view.exile.get(i).is_some_and(|z| !z.is_empty()) {
+            out.push(BrowseZone::Exile(seat));
+        }
+        if view.command.get(i).is_some_and(|z| !z.is_empty()) {
+            out.push(BrowseZone::Command(seat));
+        }
+    }
+    out
+}
+
+impl Browser {
     /// The rows to draw, in tab order and then in each zone's own order.
     ///
     /// Pass `None` for the interaction to browse with no question pending —
@@ -865,6 +971,122 @@ mod tests {
         assert!(rows.iter().all(|r| r.zone == BrowseZone::Looking));
         assert!(rows.iter().all(|r| r.selectable), "all four were offered");
         assert!(rows.iter().all(|r| r.art.is_some()), "each has a picture");
+    }
+
+    /// W1, as the owner measured it: the sheet sat 164 pixels left of the
+    /// middle of a 2056-pixel window, at exactly the place it would be
+    /// centred in a 1728-pixel one.
+    ///
+    /// Nobody had dragged it there — it was remembered from a smaller screen,
+    /// and `fit` has no opinion about the middle of a band. So a question's
+    /// sheet reads no store at all, and the two window widths have to answer
+    /// the same word: centred.
+    #[test]
+    fn a_sheet_a_question_opened_is_centred_on_whatever_window_it_meets() {
+        let shown: Vec<_> = (10..14).map(|s| printed(s, 0, "Forest", 1)).collect();
+        let view = ViewBuilder::new(2).with_looking_at(shown).build();
+        let it = Interaction::new(
+            Pending::ChooseCards {
+                player: me(),
+                options: (10..14).map(obj).collect(),
+                min: 1,
+                max: 1,
+                prompt: ChoicePrompt::SearchLibrary,
+            },
+            me(),
+        );
+
+        // What the store held: the sheet centred on the smaller window.
+        let small = (1728.0, 776.0);
+        let remembered = Placement::centred(small);
+        assert!((remembered.left - 437.0).abs() < 1.0, "the measured left");
+
+        let mut b = Browser::new();
+        b.follow(&view, Some(&it));
+        assert!(b.for_choice(), "a question is what opened it");
+
+        let middle = |place: Placement| place.left + place.width / 2.0;
+        for band in [small, (2056.0, 776.0)] {
+            let place = b.placement(band, Some(remembered));
+            assert!(
+                (middle(place) - band.0 / 2.0).abs() < 1.0,
+                "a question's sheet is centred in {band:?}, not where a smaller window left it"
+            );
+        }
+
+        // The other half of the same rule: a sheet the *player* opened is
+        // where they put it, because that is what dragging it means.
+        let mut by_hand = Browser::new();
+        by_hand.open_at(BrowseZone::Looking);
+        let held = by_hand.placement((2056.0, 776.0), Some(remembered));
+        assert!(
+            (held.left - remembered.left).abs() < 1.0,
+            "a dragged sheet stays dragged"
+        );
+    }
+
+    /// W3: a search is about the cards being shown and about nothing else,
+    /// so the tabs beside them are not part of the question.
+    #[test]
+    fn a_question_that_lives_in_one_zone_pins_the_tab_to_it() {
+        let shown: Vec<_> = (10..13).map(|s| printed(s, 0, "Forest", 1)).collect();
+        let buried: Vec<_> = (20..22).map(|s| printed(s, 0, "Mountain", 1)).collect();
+        let view = ViewBuilder::new(2)
+            .with_looking_at(shown)
+            .with_graveyard(0, buried)
+            .build();
+        let search = Interaction::new(
+            Pending::ChooseCards {
+                player: me(),
+                options: (10..13).map(obj).collect(),
+                min: 1,
+                max: 1,
+                prompt: ChoicePrompt::SearchLibrary,
+            },
+            me(),
+        );
+
+        let mut b = Browser::new();
+        b.follow(&view, Some(&search));
+        assert_eq!(b.locked(), Some(BrowseZone::Looking));
+        assert_eq!(b.tab(), Some(BrowseZone::Looking));
+        assert!(
+            b.rows(&view, Some(&search))
+                .iter()
+                .all(|r| r.zone == BrowseZone::Looking),
+            "the graveyard has nothing to answer here"
+        );
+
+        // The pin is the model's, not the renderer's: a click that reached
+        // "every zone" anyway changes nothing.
+        b.show(None);
+        assert_eq!(b.tab(), Some(BrowseZone::Looking), "the pin holds");
+
+        // A question that reaches two zones pins nothing — there is no one
+        // tab that could answer it.
+        let across = Interaction::new(
+            Pending::ChooseCards {
+                player: me(),
+                options: [obj(10), obj(20)].into(),
+                min: 1,
+                max: 1,
+                prompt: ChoicePrompt::Generic,
+            },
+            me(),
+        );
+        b.follow(&view, Some(&across));
+        assert_eq!(b.locked(), None);
+        assert_eq!(b.tab(), None, "every zone at once");
+
+        // And the pin belongs to the question: answered, the sheet the player
+        // opens next is theirs to steer again.
+        b.follow(&view, Some(&search));
+        assert_eq!(b.locked(), Some(BrowseZone::Looking));
+        b.close();
+        assert_eq!(b.locked(), None);
+        b.open();
+        b.show(Some(BrowseZone::Graveyard(me())));
+        assert_eq!(b.tab(), Some(BrowseZone::Graveyard(me())));
     }
 
     /// The sheet is put where it fits, and shrunk before it is moved.
