@@ -85,7 +85,14 @@ pub(super) fn poll(
                 let mut preset = preset;
                 #[cfg(all(feature = "dev-control", not(target_arch = "wasm32")))]
                 crate::host::deal_the_dev_board(&mut preset);
-                let names = super::offline::seat_names(&preset);
+                // The seat names are drawn for the rest of the game, so they
+                // are written in the player's language here and never again:
+                // `GameStatic` is sent once, and a gateway's table names its
+                // chairs after accounts, which have no language at all.
+                let lang = settings
+                    .as_ref()
+                    .map_or(Lang::En, |s| baylee_client_core::Lang::of(&s.lang));
+                let names = super::offline::seat_names(&preset, lang);
                 let refs: Vec<&str> = names.iter().map(String::as_str).collect();
                 crate::host::LocalHost::new(&preset, PlayerId::new(0), &refs)
             }) {

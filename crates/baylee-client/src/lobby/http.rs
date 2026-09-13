@@ -23,8 +23,12 @@ pub(super) fn dispatch(state: &mut LobbyState, mailbox: &Mailbox, request: Optio
     let Some(request) = request else {
         return;
     };
+    // The offline performer writes the words a player reads, so it needs
+    // the language the lobby is speaking. A gateway does not: its rows are
+    // account names, which have no language.
+    let lang = state.lobby.lang();
     if let Some(offline) = state.offline.as_mut() {
-        let event = offline.perform(request);
+        let event = offline.perform(request, lang);
         if let Ok(mut box_) = mailbox.0.lock() {
             box_.push(Reply::Event(event));
         }

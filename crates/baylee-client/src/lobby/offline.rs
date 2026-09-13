@@ -184,7 +184,12 @@ impl Offline {
     }
 
     /// Answers one request, the way the gateway would have.
-    pub(crate) fn perform(&mut self, request: LobbyRequest) -> LobbyEvent {
+    ///
+    /// The language is the player-facing half of an answer: this performer is
+    /// both sides of the table, so the chair it calls "you" is named in the
+    /// words the lobby is speaking. A gateway needs none, because its rows are
+    /// account names.
+    pub(crate) fn perform(&mut self, request: LobbyRequest, lang: Lang) -> LobbyEvent {
         match request {
             LobbyRequest::ListDecks => LobbyEvent::Decks(
                 self.decks
@@ -237,7 +242,7 @@ impl Offline {
             LobbyRequest::ListGames(_) => LobbyEvent::Games(GameListing::of(
                 self.room
                     .as_ref()
-                    .map(|room| self.summary(room))
+                    .map(|room| self.summary(room, lang))
                     .into_iter()
                     .collect(),
             )),
@@ -487,11 +492,11 @@ impl Offline {
     }
 
     /// The room as the game list describes it.
-    fn summary(&self, room: &Room) -> GameSummary {
+    fn summary(&self, room: &Room, lang: Lang) -> GameSummary {
         GameSummary {
             id: ROOM.to_string(),
             name: room.name.clone(),
-            host: Some(YOU.to_string()),
+            host: Some(Phrase::You.text(lang).to_string()),
             yours: true,
             state: if room.playing { "playing" } else { "waiting" }.to_string(),
             locked: false,
@@ -507,7 +512,7 @@ impl Offline {
                     ai: (chair.kind == SeatKind::Ai).then(|| chair.ai.clone()),
                     taken: true,
                     player: Some(if at == 0 {
-                        YOU.to_string()
+                        Phrase::You.text(lang).to_string()
                     } else {
                         format!("{} {at}", chair.ai)
                     }),
@@ -526,9 +531,6 @@ impl Offline {
         }
     }
 }
-
-/// What an offline chair calls the player.
-const YOU: &str = "You";
 
 /// The id prefix the acceptance file's decks are listed under.
 const BUILTIN: &str = "builtin:";
@@ -651,7 +653,17 @@ fn profile(name: &str) -> AIProfile {
 /// be the chair the player is in and the rest have to be told apart. An AI
 /// chair is named for its difficulty and its seat number, which is the only
 /// thing about it a player chose.
-pub(crate) fn seat_names(preset: &GamePreset) -> Vec<String> {
+///
+/// **The player's chair is named in the player's language**, and that is why
+/// this takes a [`Lang`] at all. These strings become
+/// `GameStatic::seats[].display_name`, which is drawn wherever a seat is
+/// named — the seat's own bar, the roster, the line over a stack entry — so
+/// an English `"You"` here is an English word on a German table, in a client
+/// where a phrase with no German is a compilation error. The AI's difficulty
+/// keeps its wire spelling for the reason every identifier-that-is-also-a-
+/// label does: `"sharp"` is what the preset says, and translating it would
+/// make the name disagree with the chair it describes.
+pub(crate) fn seat_names(preset: &GamePreset, lang: Lang) -> Vec<String> {
     preset
         .seats
         .iter()
@@ -664,13 +676,22 @@ pub(crate) fn seat_names(preset: &GamePreset) -> Vec<String> {
                     .map_or("AI", |(name, _)| *name);
                 format!("{level} {at}")
             }
-            _ => YOU.to_string(),
+            _ => Phrase::You.text(lang).to_string(),
         })
         .collect()
 }
 
 #[cfg(test)]
 impl Offline {
+    /// One request, answered in English.
+    ///
+    /// Every test here reads a shape rather than a word, and the one that
+    /// reads a word says which language it wants. Spelling `Lang::En` at
+    /// twenty call sites would say it twenty times and mean it once.
+    fn ask(&mut self, request: LobbyRequest) -> LobbyEvent {
+        self.perform(request, Lang::En)
+    }
+
     /// An offline lobby with the built-in decks and no file behind it.
     ///
     /// Both halves matter. A test that *read* the store would answer
@@ -699,7 +720,7 @@ mod tests {
     fn with_a_room(chairs: usize) -> Offline {
         let mut offline = offline();
         let deck = offline.decks[0].id.clone();
-        offline.perform(LobbyRequest::CreateGame {
+        offline.ask(LobbyRequest::CreateGame {
             deck_id: deck,
             mode: GameMode::Open,
             chairs,
@@ -712,7 +733,7 @@ mod tests {
     /// The room as the lobby would read it back.
     fn listed(offline: &Offline) -> GameSummary {
         let LobbyEvent::Games(listing) =
-            offline_ref(offline).perform(LobbyRequest::ListGames(GameQuery::default()))
+            offline_ref(offline).ask(LobbyRequest::ListGames(GameQuery::default()))
         else {
             panic!("listing a game answers a listing")
         };
@@ -738,7 +759,7 @@ mod tests {
     /// cannot get back.
     #[test]
     fn the_offline_pool_is_every_card_the_engine_knows() {
-        let LobbyEvent::Pool { cards, has_text } = offline().perform(LobbyRequest::LoadPool) else {
+        let LobbyEvent::Pool { cards, has_text } = offline().ask(LobbyRequest::LoadPool) else {
             panic!("asking for the pool answers a pool")
         };
         assert_eq!(cards.len(), baylee_cards::count());
@@ -749,7 +770,7 @@ mod tests {
     #[test]
     fn a_deck_saved_offline_loads_again() {
         let mut offline = offline();
-        let LobbyEvent::DeckSaved { deck_id } = offline.perform(LobbyRequest::SaveDeck {
+        let LobbyEvent::DeckSaved { deck_id } = offline.ask(LobbyRequest::SaveDeck {
             deck_id: None,
             name: "Mine".to_string(),
             cards: vec!["4 Island".to_string()],
@@ -760,7 +781,7 @@ mod tests {
         };
         let id = deck_id.expect("a new deck is given an id");
         let LobbyEvent::DeckLoaded { name, cards, .. } =
-            offline.perform(LobbyRequest::LoadDeck { deck_id: id })
+            offline.ask(LobbyRequest::LoadDeck { deck_id: id })
         else {
             panic!("loading answers a deck")
         };
@@ -778,7 +799,7 @@ mod tests {
         let mut offline = offline();
         let builtin = offline.decks[0].id.clone();
         let before = offline.decks.len();
-        let LobbyEvent::DeckSaved { deck_id } = offline.perform(LobbyRequest::SaveDeck {
+        let LobbyEvent::DeckSaved { deck_id } = offline.ask(LobbyRequest::SaveDeck {
             deck_id: Some(builtin.clone()),
             name: "Allytifact, edited".to_string(),
             cards: vec!["4 Island".to_string()],
@@ -827,7 +848,7 @@ mod tests {
     #[test]
     fn your_own_chair_cannot_be_handed_to_the_house() {
         let mut offline = with_a_room(2);
-        offline.perform(LobbyRequest::SetSeat {
+        offline.ask(LobbyRequest::SetSeat {
             game_id: ROOM.to_string(),
             seat: 0,
             kind: Some(SeatKind::Ai),
@@ -848,7 +869,7 @@ mod tests {
     fn the_teams_the_chairs_were_given_reach_the_preset() {
         let mut offline = with_a_room(4);
         for (seat, team) in [(0, 1), (1, 2), (2, 1), (3, 2)] {
-            offline.perform(LobbyRequest::SetSeat {
+            offline.ask(LobbyRequest::SetSeat {
                 game_id: ROOM.to_string(),
                 seat,
                 kind: None,
@@ -857,12 +878,12 @@ mod tests {
                 team: Some(team),
             });
         }
-        offline.perform(LobbyRequest::SetReady {
+        offline.ask(LobbyRequest::SetReady {
             game_id: ROOM.to_string(),
             ready: true,
         });
         assert_eq!(
-            offline.perform(LobbyRequest::StartGame {
+            offline.ask(LobbyRequest::StartGame {
                 game_id: ROOM.to_string()
             }),
             LobbyEvent::Moved
@@ -888,7 +909,7 @@ mod tests {
     #[test]
     fn a_chairs_difficulty_reaches_the_preset() {
         let mut offline = with_a_room(2);
-        offline.perform(LobbyRequest::SetSeat {
+        offline.ask(LobbyRequest::SetSeat {
             game_id: ROOM.to_string(),
             seat: 1,
             kind: None,
@@ -896,11 +917,11 @@ mod tests {
             deck_id: None,
             team: None,
         });
-        offline.perform(LobbyRequest::SetReady {
+        offline.ask(LobbyRequest::SetReady {
             game_id: ROOM.to_string(),
             ready: true,
         });
-        offline.perform(LobbyRequest::StartGame {
+        offline.ask(LobbyRequest::StartGame {
             game_id: ROOM.to_string(),
         });
         let preset = offline.take_started().expect("started");
@@ -908,6 +929,50 @@ mod tests {
             preset.seats[1].controller,
             SeatController::Ai(AIProfile::SHARP)
         );
+    }
+
+    /// The owner's report: a German table called the player "You".
+    ///
+    /// These names become `GameStatic::seats[].display_name`, which is what a
+    /// seat's own bar, the roster and the line above a stack entry all write.
+    /// `GameStatic` is sent once per game, so one English word here is an
+    /// English word in every one of those places for the whole duel — in a
+    /// client where a phrase with no German is a compilation error.
+    ///
+    /// The difficulty keeps its wire spelling on purpose: `"sharp"` is what
+    /// the chair was set to and what the preset holds.
+    #[test]
+    fn the_players_own_chair_is_named_in_the_players_language() {
+        let mut offline = with_a_room(2);
+        offline.ask(LobbyRequest::SetReady {
+            game_id: ROOM.to_string(),
+            ready: true,
+        });
+        offline.ask(LobbyRequest::StartGame {
+            game_id: ROOM.to_string(),
+        });
+        let preset = offline.take_started().expect("started");
+        assert_eq!(seat_names(&preset, Lang::De)[0], "Du");
+        assert_eq!(seat_names(&preset, Lang::En)[0], "You");
+        assert_eq!(
+            seat_names(&preset, Lang::De)[1],
+            seat_names(&preset, Lang::En)[1],
+            "an AI chair is named for the difficulty the preset holds"
+        );
+    }
+
+    /// And the same word on the screen the table is arranged on.
+    #[test]
+    fn the_offline_room_lists_the_players_chair_in_their_language() {
+        let offline = with_a_room(2);
+        let LobbyEvent::Games(listing) =
+            offline_ref(&offline).perform(LobbyRequest::ListGames(GameQuery::default()), Lang::De)
+        else {
+            panic!("listing a game answers a listing")
+        };
+        let room = listing.games.first().expect("the offline room");
+        assert_eq!(room.host.as_deref(), Some("Du"));
+        assert_eq!(room.seats[0].player.as_deref(), Some("Du"));
     }
 
     /// A chair with no deck is a refusal, not a game that starts anyway.
@@ -919,8 +984,8 @@ mod tests {
     fn a_chair_with_no_deck_refuses_to_start() {
         let mut offline = with_a_room(2);
         let deck = offline.decks[1].id.clone();
-        offline.perform(LobbyRequest::DeleteDeck { deck_id: deck });
-        let answer = offline.perform(LobbyRequest::StartGame {
+        offline.ask(LobbyRequest::DeleteDeck { deck_id: deck });
+        let answer = offline.ask(LobbyRequest::StartGame {
             game_id: ROOM.to_string(),
         });
         assert!(
@@ -940,7 +1005,7 @@ mod tests {
     fn playing_the_house_starts_the_duel_it_hands_over() {
         let mut offline = offline();
         let deck = offline.decks[0].id.clone();
-        let answer = offline.perform(LobbyRequest::CreateGame {
+        let answer = offline.ask(LobbyRequest::CreateGame {
             deck_id: deck,
             mode: GameMode::Ai,
             chairs: 2,
@@ -969,22 +1034,21 @@ mod tests {
     #[test]
     fn a_table_that_has_been_played_is_not_listed_any_more() {
         let mut offline = with_a_room(2);
-        offline.perform(LobbyRequest::StartGame {
+        offline.ask(LobbyRequest::StartGame {
             game_id: ROOM.to_string(),
         });
         assert_eq!(listed(&offline).state, "playing");
         offline.take_started().expect("the shell installs a host");
 
         offline.close_table();
-        let LobbyEvent::Games(listing) =
-            offline.perform(LobbyRequest::ListGames(GameQuery::default()))
+        let LobbyEvent::Games(listing) = offline.ask(LobbyRequest::ListGames(GameQuery::default()))
         else {
             panic!("listing games answers a listing")
         };
         assert!(listing.games.is_empty(), "the table it played at is gone");
 
         let deck = offline.decks[0].id.clone();
-        let again = offline.perform(LobbyRequest::CreateGame {
+        let again = offline.ask(LobbyRequest::CreateGame {
             deck_id: deck,
             mode: GameMode::Ai,
             chairs: 2,
@@ -1004,7 +1068,7 @@ mod tests {
     #[test]
     fn a_table_closed_before_its_duel_started_leaves_no_preset_behind() {
         let mut offline = with_a_room(2);
-        offline.perform(LobbyRequest::StartGame {
+        offline.ask(LobbyRequest::StartGame {
             game_id: ROOM.to_string(),
         });
         assert!(offline.started.is_some(), "the start button built one");
@@ -1028,11 +1092,11 @@ mod tests {
     #[test]
     fn a_second_person_cannot_be_sat_down_offline() {
         let mut offline = with_a_room(2);
-        offline.perform(LobbyRequest::SetReady {
+        offline.ask(LobbyRequest::SetReady {
             game_id: ROOM.to_string(),
             ready: true,
         });
-        let answer = offline.perform(LobbyRequest::SetSeat {
+        let answer = offline.ask(LobbyRequest::SetSeat {
             game_id: ROOM.to_string(),
             seat: 1,
             kind: Some(SeatKind::Human),
@@ -1051,7 +1115,7 @@ mod tests {
     fn the_requests_that_need_a_gateway_say_so() {
         let mut offline = offline();
         assert!(matches!(
-            offline.perform(LobbyRequest::LogIn {
+            offline.ask(LobbyRequest::LogIn {
                 email: "a@b.c".to_string(),
                 password: "x".to_string(),
             }),
