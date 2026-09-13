@@ -1077,13 +1077,23 @@ fn state_dump(believed: &Believed, window: Vec2) -> String {
                     )
                 })
                 .collect();
+            // `focus` is combat's alone, and `aim` is the same question asked
+            // of every mode that has an answer to it — the row a dialog's
+            // keyboard is standing on included. Both, rather than the second
+            // in place of the first: `CombatFocus` says whether the thing
+            // aimed at is a defender or an attacker, which `Pick` drops.
+            //
+            // Without `aim`, a `Mode::Objects` focus is invisible here, and
+            // proving that a key moved it takes a photograph and a pixel
+            // diff — which is what it took once.
             format!(
                 "{{\"pending\":{pending},\"selected\":{selected},\"selected_players\":{seats},\
-                 \"assignments\":[{pairs}],\"focus\":{focus}}}",
+                 \"assignments\":[{pairs}],\"focus\":{focus},\"aim\":{aim}}}",
                 selected = i.selected().count(),
                 seats = i.selected_players().count(),
                 pairs = pairs.join(","),
                 focus = quoted(&format!("{:?}", i.combat_focus())),
+                aim = quoted(&format!("{:?}", i.aim())),
             )
         },
     );

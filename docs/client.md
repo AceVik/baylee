@@ -3435,6 +3435,15 @@ necessary because `selected` is **empty** in both combat modes, an attack and
 a block being pairs rather than a set. A caller watching `selected` watches a
 whole declaration go together and sees nothing move.
 
+`focus` is combat's own, and `aim` is the same question asked of every mode
+that has an answer to it — including the row a dialog's keyboard is standing
+on, which `focus` is silent about because `Interaction::combat_focus` returns
+`CombatFocus::None` outside the two combat modes. Both are reported rather
+than the second in place of the first: `CombatFocus` says whether the thing
+aimed at is a defender or an attacker, and `Pick` drops that. Without `aim`,
+proving that a key moved the focus inside the zone browser takes two
+screenshots and a pixel diff, which is what it took the once.
+
 ## Editing a shader without stopping the game
 
 `--features dev-reload` puts bevy's embedded-asset watcher behind every shader
