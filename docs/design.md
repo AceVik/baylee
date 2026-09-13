@@ -435,6 +435,20 @@ weight and tracking rather than by family — and every number that changes gets
 verified in `bevy_text-0.19.1`), which nothing currently sets. Life totals
 that jitter their neighbours are a legibility bug, not a nicety.
 
+> **Overridden, 2026-09-13.** The client now ships **two** families and six
+> files: Alegreya Sans for the interface and **Faustina for what a card
+> says**. The paragraph above is kept because its argument is the one that
+> was overruled and the reasons it gives are still the constraints. What
+> changed is the premise that a serif fails at card sizes: Faustina is a
+> text serif cut for small sizes, not a display face, and it is drawn 10%
+> larger than the nominal size a caller asks for so its x-height matches the
+> Inter it replaced (0.494 × 1.1 = 0.543, Inter's own). The reason to spend a
+> family on it is that "one face, separated by size" gave a card's printed
+> text and the button beside it the same voice, and a card's text is the one
+> thing on the screen that is a *quotation*. `hud::SERIF_SCALE` and
+> `hud::UI_SCALE` are where that lives; `crates/baylee-client/src/hud.rs` is
+> normative on the sizes, and `docs/client.md` §"Two families" on the roles.
+
 ### 1.3 The keyword algebra
 
 This is the question that was asked directly — how do several animated

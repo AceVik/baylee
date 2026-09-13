@@ -92,13 +92,18 @@ const STACK_QUEUED_TARGET_H: f32 = STACK_QUEUED_TARGET_W * 88.0 / 63.0;
 /// the panel less the padding either side, the row's own padding, the rail,
 /// the card and the gap — `W − 20 − 8 − 3 − card − 8` — which came to 187 px,
 /// and 187 px is not a name: measured over every face in the pool with the
-/// advance widths of the shipped Inter, 58 of the 1475 (3.9%) did not fit at
-/// the size they are drawn, and a further two dozen were cut by the estimator
-/// below although they would have. At **352** — a fifth of the 1728-pixel
-/// window this client is developed against, so still a panel and not a second
-/// window — that column is 267 px and **every** face in the pool fits, with
-/// the longest (`Okina, Temple to the Grandfathers`, 245 px at 14) still
-/// 22 px short of the edge.
+/// advance widths of Inter, which the client shipped then, 58 of the 1475
+/// (3.9%) did not fit at the size they are drawn, and a further two dozen
+/// were cut by the estimator below although they would have. (Faustina is
+/// the narrower face for a *name* — 3 of 1475 would overrun that column, not
+/// 58 — so the widening is not what the serif needed. It is what the
+/// estimator needed, and that argument is unchanged.)
+///
+/// At **352** — a fifth of the 1728-pixel window this client is developed
+/// against, so still a panel and not a second window — that column is 267 px
+/// and **every** face in the pool fits, with the longest
+/// (`Okina, Temple to the Grandfathers`, 202 px at 14 in Faustina, 245 in
+/// Inter) still 65 px short of the edge.
 const STACK_PANEL_W: f32 = 352.0;
 
 /// How many compact rows are drawn under the full one.
@@ -119,7 +124,7 @@ const STACK_COMPACT_ROWS: usize = 6;
 const STACK_NAME_PT: f32 = 16.0;
 /// Its line box, stated rather than left to [`bevy::text`]'s 1.2 default,
 /// because [`STACK_NAME_LINES`] is a height in pixels and has to know it.
-const STACK_NAME_LINE: f32 = STACK_NAME_PT * 1.2;
+const STACK_NAME_LINE: f32 = STACK_NAME_PT * super::SERIF_SCALE * 1.2;
 /// How many lines of it the full row will give up its height for.
 ///
 /// Two, and it is the one place in the panel that wraps. A name is what the
@@ -157,11 +162,20 @@ const STACK_SENTENCE_LINES: f32 = 4.0;
 /// The same 0.72 [`crate::manaui::spawn_pip`] sets a glyph at inside its
 /// disc, and it is the right number for a different reason here: the marks
 /// have to sit at the prose's cap height, and the font makes them nearly a
-/// full em tall. Rasterized out of `mana.ttf` at the 24 device pixels this
-/// sentence is drawn at on a Retina screen, a colour pip is 25 px from
-/// baseline to top against Inter's 18 px cap — at 0.72 it is 17, which is
-/// the match. The tap arrow is the font's shortest mark and lands at 13,
-/// reading as the heavier glyph it is rather than as a taller one.
+/// full em tall — a colour pip measures 1.001 em out of `mana.ttf`, so 0.72
+/// of the size is 0.72 of the line.
+///
+/// Rasterized at the device pixels this sentence is drawn at on a Retina
+/// screen, the pip stands **17.3** px against the prose's cap. The prose has
+/// changed face underneath it and the number did not move: Faustina is asked
+/// for [`super::SERIF_SCALE`] times the nominal 12 and caps at 0.648 em,
+/// which is 17.1 px; Inter was asked for 12 flat and capped at 0.728 em,
+/// which was 17.5. A taller size in a shorter face and a shorter size in a
+/// taller one land within a pixel of each other, so 0.72 is the match for
+/// both — which is luck, and is recorded here so a third face is *measured*
+/// rather than assumed to inherit it. The tap arrow is the font's shortest
+/// mark at 0.784 em and lands at 13.5, reading as the heavier glyph it is
+/// rather than as a taller one.
 const STACK_MARK: f32 = 0.72;
 
 /// How fast a row arrives, per second.
@@ -932,7 +946,10 @@ fn spawn_stack_entry(
         |o| crate::face::name_of(o, view, faces.texts),
     );
     let mut name = commands.spawn((
-        tf(fonts, size),
+        // A card's name is set in the card's face, not the interface's:
+        // Faustina carries every printed word this client draws, wherever
+        // the ground under it happens to be.
+        super::tf_serif(fonts, size, 400),
         TextColor(ink),
         Arriving::ink(key, ink.alpha()),
         // The row is what the pointer is on, and a label is a node: left
@@ -982,7 +999,7 @@ fn spawn_stack_entry(
         let subtitle = commands
             .spawn((
                 Text::default(),
-                tf(fonts, STACK_SENTENCE_PT),
+                super::tf_serif(fonts, STACK_SENTENCE_PT, 400),
                 TextColor(palette::MUTED),
                 Arriving::ink(key, palette::MUTED.alpha()),
                 Pickable::IGNORE,
@@ -992,7 +1009,7 @@ fn spawn_stack_entry(
             let span = commands
                 .spawn((
                     TextSpan::new(format!("{kind} — ")),
-                    tf(fonts, STACK_SENTENCE_PT),
+                    super::tf_serif(fonts, STACK_SENTENCE_PT, 400),
                     TextColor(palette::MUTED),
                     Arriving::ink(key, palette::MUTED.alpha()),
                 ))
@@ -1005,7 +1022,7 @@ fn spawn_stack_entry(
         let seat = commands
             .spawn((
                 TextSpan::new(statics.seat_name(item.controller).to_string()),
-                tf_italic(fonts, STACK_SENTENCE_PT),
+                super::tf_serif_italic(fonts, STACK_SENTENCE_PT, 400),
                 TextColor(palette::MUTED),
                 Arriving::ink(key, palette::MUTED.alpha()),
             ))
@@ -1025,7 +1042,7 @@ fn spawn_stack_entry(
             let sentence = commands
                 .spawn((
                     Text::default(),
-                    tf(fonts, STACK_SENTENCE_PT),
+                    super::tf_serif(fonts, STACK_SENTENCE_PT, 400),
                     TextColor(palette::INK),
                     Arriving::ink(key, palette::INK.alpha()),
                     Pickable::IGNORE,
@@ -1048,9 +1065,9 @@ fn spawn_stack_entry(
                         if piece.mark {
                             crate::manaui::mana_tf(fonts, STACK_SENTENCE_PT * STACK_MARK)
                         } else if piece.reminder {
-                            tf_italic(fonts, STACK_SENTENCE_PT)
+                            super::tf_serif_italic(fonts, STACK_SENTENCE_PT, 400)
                         } else {
-                            tf(fonts, STACK_SENTENCE_PT)
+                            super::tf_serif(fonts, STACK_SENTENCE_PT, 400)
                         },
                         TextColor(ink),
                         Arriving::ink(key, ink.alpha()),
@@ -1473,19 +1490,33 @@ pub(super) fn spans_of(blocks: &[TextBlock], room: Option<usize>) -> Vec<Piece> 
     out
 }
 
+/// The average advance of a lower-case letter, as a fraction of the size.
+///
+/// Measured, not guessed, and it survived the change of face by arithmetic
+/// rather than by luck. Inter's lower case averaged 0.531 of its size and
+/// 0.52 was that, rounded down to be generous. Alegreya Sans measures 0.445
+/// of the size it is *rendered* at and Faustina 0.473, and they are rendered
+/// at 1.2x and 1.1x the nominal size a caller passes — **0.534 and 0.520**
+/// against the nominal, which brackets the same number. That is what let the
+/// scales be scales rather than three hundred new constants.
+pub(super) const CHAR_WIDTH: f32 = 0.52;
+
 /// A card name cut to one line `room` pixels wide, set at `size`.
 ///
-/// Inter's lower case averages a little over half its point size and a card
+/// A serif's lower case averages a little over half its point size and a card
 /// name is mostly lower case, so `0.52` is the ratio the budget is taken at —
 /// deliberately generous, because the cost of guessing narrow is one word
 /// clipped by the body's own `overflow` and the cost of guessing wide is a
 /// name cut short that would have fitted.
 ///
 /// **It is a guess and the widening is what makes it a safe one.** Measured
-/// against the shipped `Inter.ttf`'s own advance widths, a real name runs
-/// between 0.41 and 0.70 of its length times its size, not 0.52, so at the old
-/// 187-pixel column this cut four names that then clipped anyway and
-/// twenty-four that would have fitted whole. The only caller left is the
+/// against the shipped `Faustina.ttf`'s own advance widths, a real name runs
+/// between 0.36 (`Teferi's Isle`) and 0.65 (`Damn`) of its length times its
+/// size, not 0.52 — a ratio that is wrong in **both** directions at once, so
+/// at the old 187-pixel column it both cut names that would have fitted and
+/// passed names that then clipped. (In `Inter.ttf`, which this replaced, the
+/// spread was 0.41 to 0.70 and the widest name set 227 px against Faustina's
+/// 202.) The only caller left is the
 /// **queued** row, whose column is now 267 px at 14: over all 1475 faces in
 /// the pool the budget is 36 characters, nothing clips and nothing is cut
 /// that would have fitted — the estimator is exercised and wrong about
@@ -1500,7 +1531,12 @@ fn fit(name: &str, room: f32, size: f32) -> String {
     cut(name, budget(room, size))
 }
 
-/// How many characters of `size`-point Inter fit in `room` pixels.
+/// How many characters of `size`-point text fit in `room` pixels.
+///
+/// [`CHAR_WIDTH`] is the ratio, and it is a nominal size that goes in: the
+/// two faces are asked for a scaled one ([`super::UI_SCALE`],
+/// [`super::SERIF_SCALE`]), and the scales were chosen so that the product
+/// lands back where Inter was.
 ///
 /// Split out of [`fit`] because a *sentence* spends one budget across several
 /// spans — rules text and its reminder are two — and each span cutting itself
@@ -1508,7 +1544,7 @@ fn fit(name: &str, room: f32, size: f32) -> String {
 /// share.
 #[allow(clippy::cast_sign_loss, clippy::cast_possible_truncation)]
 pub(super) fn budget(room: f32, size: f32) -> usize {
-    (room / (size * 0.52)).max(4.0) as usize
+    (room / (size * CHAR_WIDTH)).max(4.0) as usize
 }
 
 /// `text`, cut to `budget` characters with an ellipsis if it is longer.
@@ -1557,7 +1593,7 @@ mod tests {
         let cut = fit("Asmoranomardicadaistinaculdacar", room, size);
         assert!(cut.ends_with('…'), "cut without saying so: {cut}");
         #[allow(clippy::cast_sign_loss, clippy::cast_possible_truncation)]
-        let budget = (room / (size * 0.52)) as usize;
+        let budget = (room / (size * CHAR_WIDTH)) as usize;
         assert!(
             cut.chars().count() <= budget,
             "{cut} is {} chars, over the {budget} it had",

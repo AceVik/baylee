@@ -39,22 +39,47 @@ use baylee_core::ids::{Defender, ObjectId, PlayerId};
 use baylee_view::{GameStatic, PlayerView};
 use bevy::prelude::*;
 
-/// The four UI fonts: Inter upright and italic for text, Font Awesome Solid
-/// for icons, and the `mana` font for mana symbols.
-/// Bundled OFL/CC-BY fonts (see NOTICE) — the default font has none of the
-/// weight range, the icon glyphs or the mana symbols.
+/// The faces the interface is set in.
+///
+/// Two text families and two symbol faces, and the two families are two
+/// *voices*. **Alegreya Sans** carries the interface — a humanist sans whose
+/// strokes still remember a pen, which is the "leicht geschwungene" the
+/// owner asked for, while its terminals are a text face's and not a
+/// handwriting's. **Faustina** carries card names and rules text: a
+/// newspaper serif, because a rules paragraph is *quoted* text — the same
+/// reason the stack sentence draws marks and not discs — and the only serif
+/// whose hairlines survived this client's 12 px 1× raster.
+///
+/// This replaces Inter in every role, so it **overrides `docs/design.md`
+/// §1.2**, which says three cuts are shipped, there is no fourth, and Inter
+/// carries all of them. Both families are OFL 1.1 with no Reserved Font
+/// Name; see `NOTICE` and `assets/fonts/licenses/`.
 #[derive(Resource, Clone)]
 pub struct UiFonts {
-    /// Text font (Inter, variable weight).
+    /// Interface text (Alegreya Sans Regular).
     pub text: Handle<Font>,
-    /// The same family, slanted.
+    /// The same family one weight up.
     ///
-    /// A second file rather than a switch, because there is nowhere to put
-    /// the switch: `Inter.ttf` is a variable font whose axes are `opsz` and
-    /// `wght` and nothing else, and [`TextFont`] carries a face and a size —
-    /// no style, no synthetic oblique. A slant this client cannot ask for is
-    /// a slant it has to ship.
+    /// A file and not a [`TextFont::weight`]: these are *static* cuts, and
+    /// that field only reaches a variable font. Small text takes this one —
+    /// [`tf`] says where the line is and why.
+    pub medium: Handle<Font>,
+    /// Interface text, slanted.
+    ///
+    /// A second file rather than a switch, for the same reason it always
+    /// was: [`TextFont`] carries a face and a size, and a slant this client
+    /// cannot ask for is a slant it has to ship.
     pub italic: Handle<Font>,
+    /// Slanted and one weight up, for small italics.
+    pub medium_italic: Handle<Font>,
+    /// Card names and rules text (Faustina, variable `wght` 300–800).
+    ///
+    /// Variable, so [`TextFont::weight`] does reach this one — which is what
+    /// pays for the ink: a pen set down on parchment spreads, and weight 500
+    /// is that spread.
+    pub serif: Handle<Font>,
+    /// The same, slanted — a reminder's aside.
+    pub serif_italic: Handle<Font>,
     /// Icon font (Font Awesome 6 Free, solid).
     pub icons: Handle<Font>,
     /// Mana symbols (the `mana` font, SIL OFL). `docs/legal.md` §2 names it
@@ -65,29 +90,144 @@ pub struct UiFonts {
 /// Loads the bundled fonts at startup.
 pub fn setup_fonts(mut commands: Commands, assets: Res<AssetServer>) {
     commands.insert_resource(UiFonts {
-        text: assets.load("fonts/Inter.ttf"),
-        italic: assets.load("fonts/Inter-Italic.ttf"),
+        text: assets.load("fonts/AlegreyaSans-Regular.ttf"),
+        medium: assets.load("fonts/AlegreyaSans-Medium.ttf"),
+        italic: assets.load("fonts/AlegreyaSans-Italic.ttf"),
+        medium_italic: assets.load("fonts/AlegreyaSans-MediumItalic.ttf"),
+        serif: assets.load("fonts/Faustina.ttf"),
+        serif_italic: assets.load("fonts/Faustina-Italic.ttf"),
         icons: assets.load("fonts/fa-solid-900.ttf"),
         mana: assets.load("fonts/mana.ttf"),
     });
 }
 
+/// What a nominal size is multiplied by before Alegreya Sans is asked for it.
+///
+/// Alegreya Sans is authored small: its x-height is 0.458 of the em against
+/// Inter's 0.546, so at the same nominal size the whole interface reads about
+/// two steps smaller. Every size in this client was chosen against Inter, so
+/// the correction lives *here* and not in three hundred call sites.
+///
+/// It has a second, load-bearing effect. The width estimator in
+/// [`stack::CHAR_WIDTH`] is 0.52 of the size per character, measured on
+/// Inter; Alegreya Sans measures 0.445, and 0.445 × 1.2 is 0.534. The
+/// apparent size and the character budget therefore both stay where they
+/// were, which is why this is a scale and not a set of new constants.
+pub(crate) const UI_SCALE: f32 = 1.2;
+
+/// The same for Faustina, whose x-height is 0.494.
+pub(crate) const SERIF_SCALE: f32 = 1.1;
+
+/// Below this nominal size the Regular cut is asked to do too much.
+///
+/// Alegreya Sans has a light Regular, and under a 12 px raster its thin
+/// strokes drop below a pixel and the stems go grey. Medium is the reading
+/// weight down there; above it Medium reads as emphasis nobody asked for.
+const SMALL_TEXT: f32 = 14.0;
+
+/// Lining figures, always.
+///
+/// Alegreya Sans defaults to **old-style** figures, whose 3, 4, 7 and 9 hang
+/// below the baseline. That is right in a paragraph and wrong in every place
+/// this client puts a number: a life total, a mana value, a turn number, a
+/// power and toughness. `lnum` is therefore not a flourish — it is what keeps
+/// a 7 from looking like it fell out of the seat bar.
+fn lining() -> bevy::text::FontFeatures {
+    bevy::text::FontFeatures::builder()
+        .enable(bevy::text::FontFeatureTag::LINING_FIGURES)
+        .build()
+}
+
 /// A text-font handle at a size.
 pub(crate) fn tf(fonts: &UiFonts, size: f32) -> TextFont {
+    let face = if size < SMALL_TEXT {
+        &fonts.medium
+    } else {
+        &fonts.text
+    };
     TextFont {
-        font: bevy::text::FontSource::Handle(fonts.text.clone()),
-        font_size: bevy::text::FontSize::Px(size),
+        font: bevy::text::FontSource::Handle(face.clone()),
+        font_size: bevy::text::FontSize::Px(size * UI_SCALE),
+        font_features: lining(),
         ..default()
     }
 }
 
 /// The same at a slant — the prompt slip's own voice.
 pub(crate) fn tf_italic(fonts: &UiFonts, size: f32) -> TextFont {
+    let face = if size < SMALL_TEXT {
+        &fonts.medium_italic
+    } else {
+        &fonts.italic
+    };
     TextFont {
-        font: bevy::text::FontSource::Handle(fonts.italic.clone()),
-        font_size: bevy::text::FontSize::Px(size),
+        font: bevy::text::FontSource::Handle(face.clone()),
+        font_size: bevy::text::FontSize::Px(size * UI_SCALE),
+        font_features: lining(),
         ..default()
     }
+}
+
+/// Faustina at a size and a weight — a card's own words.
+///
+/// The weight is an argument because this is the one face here that is
+/// variable, and because parchment wants a heavier stroke than a panel does:
+/// [`INK_WEIGHT`] is what a sheet asks for and 400 is what everything else
+/// does. Faustina prints lining figures by default, so no feature is set.
+pub(crate) fn tf_serif(fonts: &UiFonts, size: f32, weight: u16) -> TextFont {
+    TextFont {
+        font: bevy::text::FontSource::Handle(fonts.serif.clone()),
+        font_size: bevy::text::FontSize::Px(size * SERIF_SCALE),
+        weight: bevy::text::FontWeight(weight),
+        ..default()
+    }
+}
+
+/// The same, slanted — a reminder in brackets.
+pub(crate) fn tf_serif_italic(fonts: &UiFonts, size: f32, weight: u16) -> TextFont {
+    TextFont {
+        font: bevy::text::FontSource::Handle(fonts.serif_italic.clone()),
+        font_size: bevy::text::FontSize::Px(size * SERIF_SCALE),
+        weight: bevy::text::FontWeight(weight),
+        ..default()
+    }
+}
+
+/// The weight a pen has when it is set down on parchment.
+///
+/// Not decoration: this is half of what the owner asked for when they asked
+/// for ink. A nib laid on a rough sheet spreads, and 500 on a variable face
+/// is that spread — where the other half, [`bleed`], is the halo the fibres
+/// wick it into.
+pub(crate) const INK_WEIGHT: u16 = 500;
+
+/// The shadow under text on parchment: a **bleeding front**, not a drop.
+///
+/// The client already had a `TextShadow` here and it said the wrong thing. A
+/// shadow offset straight down doubles every stroke and reads as "the
+/// letters are floating above the sheet"; ink sits *in* the sheet. So the
+/// correction is the direction, not the amount — half a pixel down, no
+/// sideways component until the size is large enough to carry one, and the
+/// colour of an iron-gall bleed front (a warm amber-brown) rather than
+/// black.
+///
+/// Under 12 px there is no halo at all: at that size a second coloured copy
+/// of a stem is the whole stem, and the umlauts clot. The test is one
+/// sentence — **if a player can see the shadow, it is too strong.**
+pub(crate) fn bleed(size: f32) -> Option<TextShadow> {
+    let (offset, alpha) = if size < 12.0 {
+        return None;
+    } else if size < 16.0 {
+        (Vec2::new(0.0, 0.5), 0.26)
+    } else if size < 25.0 {
+        (Vec2::new(0.25, 0.75), 0.28)
+    } else {
+        (Vec2::new(0.5, 1.0), 0.30)
+    };
+    Some(TextShadow {
+        offset,
+        color: palette::BLEED.with_alpha(alpha),
+    })
 }
 
 /// An icon-font handle at a size.
@@ -781,12 +921,14 @@ pub(crate) mod palette {
     /// draining the warmth out of it says so where another shade of brown
     /// would only say "further away".
     pub const SLIP_ASIDE: Color = Color::srgba(0.404, 0.376, 0.337, 0.86);
-    /// What a letter on the slip casts.
+    /// The colour a nib bleeds into the fibres around it.
     ///
-    /// Warm and barely there: a hard black shadow under 13 px text reads as
-    /// a rendering fault, and the job here is only to lift the line off a
-    /// sheet that is the same family of colour as the ink is.
-    pub const SLIP_SHADOW: Color = Color::srgba(0.161, 0.129, 0.086, 0.32);
+    /// Iron-gall ink does not cast a grey shadow; it wicks outwards and the
+    /// front of it is warm amber-brown, because the iron oxidises before the
+    /// gall darkens. That is the whole reason [`super::bleed`] is not
+    /// [`SLIP_SHADOW`] at a different alpha: the old shadow was the right
+    /// idea in the wrong colour and the wrong direction.
+    pub const BLEED: Color = Color::srgb(0.290, 0.200, 0.090);
     /// The fill under an answer that is not the one the sheet is asking for.
     ///
     /// Not [`Color::NONE`]: a button with no fill and a drop shadow renders

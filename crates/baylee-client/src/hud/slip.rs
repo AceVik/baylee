@@ -89,13 +89,13 @@ const SLIP_PT: f32 = 13.0;
 const SLIP_LEADING: f32 = 1.25;
 
 /// One line of it, in pixels.
-const SLIP_LINE: f32 = SLIP_PT * SLIP_LEADING;
+const SLIP_LINE: f32 = SLIP_PT * super::SERIF_SCALE * SLIP_LEADING;
 
 /// The heading — what kind of thing this is, and whose.
 const SLIP_HEAD_PT: f32 = 11.0;
 
 /// Its line box.
-const SLIP_HEAD_LINE: f32 = SLIP_HEAD_PT * SLIP_LEADING;
+const SLIP_HEAD_LINE: f32 = SLIP_HEAD_PT * super::UI_SCALE * SLIP_LEADING;
 
 /// The gap between the heading and the sentence.
 const SLIP_ROW_GAP: f32 = 5.0;
@@ -277,7 +277,7 @@ pub(super) fn runs(slip: &Slip) -> Vec<Vec<Piece>> {
 /// own: a card of four short paragraphs is four lines tall, not one.
 ///
 /// The estimator is the same character guess the stack row's names are cut
-/// with — a claim about Inter's advance widths — and is used here for a
+/// with — a claim about the shipped faces' advance widths — and is used for a
 /// *duration* and a placement rather than for a cut, so being a character or
 /// two out costs a few milliseconds of wipe and nothing else.
 fn lines(runs: &[Vec<Piece>], width: f32) -> usize {
@@ -637,17 +637,18 @@ fn page(commands: &mut Commands, runs: Vec<Vec<Piece>>, pen: Pen, fonts: &UiFont
         let sentence = commands
             .spawn((
                 Text::default(),
-                tf(fonts, SLIP_PT),
+                super::tf_serif(fonts, SLIP_PT, super::INK_WEIGHT),
                 bevy::text::LineHeight::Px(SLIP_LINE),
                 TextColor(palette::SLIP_INK),
-                TextShadow {
-                    offset: Vec2::new(0.0, 1.0),
-                    color: palette::SLIP_SHADOW,
-                },
                 pen.mark(Part::Ink, palette::SLIP_INK),
                 Pickable::IGNORE,
             ))
             .id();
+        // The halo, and only where it belongs: `bleed` answers `None` under
+        // 12 px, where a second coloured copy of a stem *is* the stem.
+        if let Some(halo) = super::bleed(SLIP_PT * super::SERIF_SCALE) {
+            commands.entity(sentence).insert(halo);
+        }
         for piece in para {
             let ink = if piece.reminder {
                 palette::SLIP_ASIDE
@@ -660,9 +661,9 @@ fn page(commands: &mut Commands, runs: Vec<Vec<Piece>>, pen: Pen, fonts: &UiFont
                     if piece.mark {
                         crate::manaui::mana_tf(fonts, SLIP_PT * SLIP_MARK)
                     } else if piece.reminder {
-                        tf_italic(fonts, SLIP_PT)
+                        super::tf_serif_italic(fonts, SLIP_PT, super::INK_WEIGHT)
                     } else {
-                        tf(fonts, SLIP_PT)
+                        super::tf_serif(fonts, SLIP_PT, super::INK_WEIGHT)
                     },
                     TextColor(ink),
                     pen.mark(Part::Ink, ink),
@@ -1009,7 +1010,11 @@ mod tests {
         let mut app = App::new();
         let fonts = UiFonts {
             text: Handle::default(),
+            medium: Handle::default(),
             italic: Handle::default(),
+            medium_italic: Handle::default(),
+            serif: Handle::default(),
+            serif_italic: Handle::default(),
             icons: Handle::default(),
             mana: Handle::default(),
         };

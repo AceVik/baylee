@@ -52,7 +52,7 @@
 #[allow(clippy::wildcard_imports)] // the HUD's own vocabulary
 use super::*;
 use baylee_client_core::interaction::{ending_reason, verdict};
-use bevy::text::{FontWeight, LineHeight};
+use bevy::text::LineHeight;
 
 /// How wide the sheet is drawn, at a window with room for it.
 ///
@@ -61,12 +61,16 @@ use bevy::text::{FontWeight, LineHeight};
 /// thing on the screen.
 ///
 /// The number is the longest verdict, **measured out of the shipped font**
-/// rather than guessed at. `Das Spiel endet unentschieden` sets 598 px in
-/// `Inter.ttf` at [`VERDICT_PT`] and [`FontWeight::SEMIBOLD`] (the variable
-/// axes, `opsz` 14 and `wght` 600); every other verdict is shorter, the
-/// nearest being `Team 2 gewinnt — deins` at 472. Against it this sheet gives
+/// rather than guessed at. `Das Spiel endet unentschieden` sets 585 px in
+/// `Faustina.ttf` at [`VERDICT_PT`] times [`super::SERIF_SCALE`], weight 600;
+/// every other verdict is shorter, the nearest being `Team 2 gewinnt — deins`
+/// at 466. (In `Inter.ttf`, which this replaced, the pair was 561 and 443 at
+/// [`VERDICT_PT`] itself. The serif is the **wider** face here, by 4.4% — it
+/// is set 10% larger to match Inter's x-height and does not give all of that
+/// back in the advances, which is a cost of the change and not a benefit of
+/// it.) Against it this sheet gives
 /// 638 — 720 less two forty-pixel margins and its two one-pixel borders — so
-/// the worst line has forty pixels of air. If a verdict ever does wrap, widen
+/// the worst line has fifty pixels of air. If a verdict ever does wrap, widen
 /// the sheet rather than shrink the type: a headline that changes size with
 /// the sentence is a headline that says the sentence matters less.
 const SHEET_W: f32 = 720.0;
@@ -342,15 +346,10 @@ fn write_the_verdict(commands: &mut Commands, fonts: &UiFonts, sheet: Entity, sa
     let headline = commands
         .spawn((
             Text::new(verdict(lang, result, seat, team)),
-            TextFont {
-                font: bevy::text::FontSource::Handle(fonts.text.clone()),
-                font_size: bevy::text::FontSize::Px(VERDICT_PT),
-                // The one place this client asks Inter for a weight: it is a
-                // variable font on `wght`, so this is the shipped file doing
-                // what it was made for and not a second file to load.
-                weight: FontWeight::SEMIBOLD,
-                ..default()
-            },
+            // The one place this client asks a face for a weight, and Faustina
+            // is the one it can ask: Alegreya Sans ships as static cuts,
+            // where `weight` reaches nothing at all.
+            super::tf_serif(fonts, VERDICT_PT, 600),
             LineHeight::RelativeToFont(VERDICT_LEADING),
             // Opaque, unlike the slip's ink: `SLIP_INK` lets the grain through
             // at thirteen pixels, where it is a stroke with paper in it, and
@@ -457,7 +456,11 @@ mod tests {
     fn fonts() -> UiFonts {
         UiFonts {
             text: Handle::default(),
+            medium: Handle::default(),
             italic: Handle::default(),
+            medium_italic: Handle::default(),
+            serif: Handle::default(),
+            serif_italic: Handle::default(),
             icons: Handle::default(),
             mana: Handle::default(),
         }

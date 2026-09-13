@@ -90,19 +90,24 @@ const TRAY_TYPE_SIZE: f32 = 10.5;
 /// The zone badge's.
 const TRAY_BADGE_SIZE: f32 = 9.0;
 /// The zone badge: the longest zone word this client has — `Kommandozone`,
-/// which sets at 68.8 px in Inter at [`TRAY_BADGE_SIZE`] — plus its padding
-/// and border.
+/// which sets at 70.0 px in Alegreya Sans Medium at [`TRAY_BADGE_SIZE`]
+/// times [`super::UI_SCALE`] — plus its padding and border.
 ///
 /// **Measured in the shipped face, not estimated.** [`TRAY_CH`] is a mean
 /// over mixed-case English prose and holds there to within a percent; a
 /// German compound of round wide letters runs 0.64 per character, and the
-/// estimate cut the last three letters off every badge on the panel.
-const TRAY_BADGE_W: f32 = 68.8 + 12.0;
+/// estimate cut the last three letters off every badge on the panel. It was
+/// 68.8 while the face was Inter, and re-measuring on the change of face is
+/// what this doc is for: a number a *font* produced has to be taken from
+/// the font that is shipped, and 1.2 px of it is one clipped letter.
+const TRAY_BADGE_W: f32 = 70.0 + 12.0;
 /// Thirty characters of name — `Sea Gate Loremaster` and room to spare.
 #[cfg(test)]
 const TRAY_NAME_W: f32 = 30.0 * TRAY_CH * TRAY_NAME_SIZE;
 /// A type line's measure: `Legendary Planeswalker — Aminatou` at
-/// [`TRAY_TYPE_SIZE`], which is 185.1 px in Inter.
+/// [`TRAY_TYPE_SIZE`] times [`super::UI_SCALE`], which is 185.3 px in
+/// Alegreya Sans Medium, against 185.1 in the Inter this replaced — two
+/// tenths of a pixel, which is why the constant below stayed put.
 ///
 /// Measured rather than estimated for the reason [`TRAY_BADGE_W`] gives — a
 /// long type line is all supertype, type and em dash, which is wider than the
@@ -481,8 +486,9 @@ pub(super) fn spawn_tray(
             BorderColor::all(palette::DIALOG_LINE),
             Feel::new(palette::DIALOG),
             children![(
-                // The icon font's own cross. Inter has no U+2715, which is
-                // why the button drew as a thin bar for one build.
+                // The icon font's own cross. The text face has no U+2715 —
+                // it was Inter and is Alegreya Sans, and neither does — which
+                // is why the button drew as a thin bar for one build.
                 Text::new(glyph::CLOSE.to_string()),
                 icon_tf(fonts, 12.0),
                 TextColor(palette::DIALOG_SOFT),
@@ -1091,7 +1097,9 @@ fn spawn_row(
         .id();
     if let Some(inside) = glyph_in {
         // The ordering's number is set in the text face and the tick in the
-        // icon one, because a tick is a glyph Inter does not have.
+        // icon one, because a tick is a glyph the text face does not have.
+        // Checked again on the change from Inter: Alegreya Sans has no
+        // U+2713 either.
         let face = if row.place.is_some() {
             tf(fonts, 9.5)
         } else {
@@ -1468,7 +1476,11 @@ mod tests {
             let mut app = App::new();
             let fonts = UiFonts {
                 text: Handle::default(),
+                medium: Handle::default(),
                 italic: Handle::default(),
+                medium_italic: Handle::default(),
+                serif: Handle::default(),
+                serif_italic: Handle::default(),
                 icons: Handle::default(),
                 mana: Handle::default(),
             };

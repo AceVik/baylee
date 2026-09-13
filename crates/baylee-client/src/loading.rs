@@ -388,7 +388,11 @@ mod tests {
             .init_resource::<Time>()
             .insert_resource(UiFonts {
                 text: Handle::default(),
+                medium: Handle::default(),
                 italic: Handle::default(),
+                medium_italic: Handle::default(),
+                serif: Handle::default(),
+                serif_italic: Handle::default(),
                 icons: Handle::default(),
                 mana: Handle::default(),
             })

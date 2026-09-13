@@ -1809,24 +1809,24 @@ pub(super) fn slip_text(
     ink: Color,
     italic: bool,
 ) -> Entity {
+    // Faustina, at the weight a nib has when it is set down: this is a
+    // card.s words on parchment, which is the serif's whole job here. The
+    // slant is still the slip's own voice and the browser's absence of one.
     let face = |fonts: &UiFonts, size| {
         if italic {
-            tf_italic(fonts, size)
+            super::tf_serif_italic(fonts, size, super::INK_WEIGHT)
         } else {
-            tf(fonts, size)
+            super::tf_serif(fonts, size, super::INK_WEIGHT)
         }
     };
     let line = commands
-        .spawn((
-            Text::default(),
-            face(fonts, size),
-            TextColor(ink),
-            TextShadow {
-                offset: Vec2::new(0.0, 1.0),
-                color: palette::SLIP_SHADOW,
-            },
-        ))
+        .spawn((Text::default(), face(fonts, size), TextColor(ink)))
         .id();
+    // The halo is the bleeding front, not a drop shadow, and it is absent
+    // under 12 px where it would clot the umlauts.
+    if let Some(halo) = super::bleed(size * super::SERIF_SCALE) {
+        commands.entity(line).insert(halo);
+    }
     for (run, aside) in baylee_client_core::prose::bracketed(text) {
         let span = commands
             .spawn((
@@ -2089,7 +2089,11 @@ mod tests {
     fn fonts() -> UiFonts {
         UiFonts {
             text: Handle::default(),
+            medium: Handle::default(),
             italic: Handle::default(),
+            medium_italic: Handle::default(),
+            serif: Handle::default(),
+            serif_italic: Handle::default(),
             icons: Handle::default(),
             mana: Handle::default(),
         }

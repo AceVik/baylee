@@ -428,10 +428,12 @@ nobody holds it.
 **The panel is 352 px wide because 296 was not wide enough for the names.**
 The name column of a queued row is the panel less the padding either side, the
 row's own padding, the rail, the card and the gap, which came to 187 px —
-measured against the shipped `Inter.ttf`'s own advance widths, 58 of the 1475
-faces in the pool (3.9%) did not fit that at the size they are drawn, and a
-further two dozen were cut short by `fit`'s estimator although they would
-have. The estimator is the part worth knowing about: it budgets characters at
+measured against the advance widths of Inter, which the client shipped then,
+58 of the 1475 faces in the pool (3.9%) did not fit that at the size they are
+drawn, and a further two dozen were cut short by `fit`'s estimator although
+they would have. (In the Faustina that replaced it only 3 of the 1475 overrun
+that column, so the widening is not what the serif needed; it is what the
+estimator needed, and that half of the argument is untouched.) The estimator is the part worth knowing about: it budgets characters at
 a flat `0.52 × size`, and a real name runs anywhere between 0.41 and 0.70, so
 it was wrong in **both** directions at once. Widening is what makes it safe
 rather than merely luckier. At 352 the queued column is 267 px at 14 px, the
@@ -2448,6 +2450,59 @@ the commit that retired it and the one that gives the bar its baton and its
 hinge-light, so both run over an empty query. Their tests spawn the markers by
 hand and still hold what the systems are for.
 
+## Two families
+
+The interface is set in **Alegreya Sans** and what a card *says* is set in
+**Faustina**, and the split is the point: one face separated by size gave a
+card's printed text and the button beside it the same voice, and a card's
+rules text is a **quotation**. `hud::UiFonts` carries six files — four static
+Alegreya Sans cuts (Regular, Medium, and the italic of each) and Faustina
+upright and italic, variable on `wght` 300–800 — beside the icon and mana
+faces. This **overrides `docs/design.md` §1.2**, which shipped three cuts of
+Inter and said there was no fourth; the override is recorded there.
+
+Two scales carry the whole change, and the reason they are scales is the
+reason they exist at all. Every size in this client was chosen against
+Inter's x-height of 0.546 em. Alegreya Sans is authored at 0.458 and Faustina
+at 0.494, so at the same nominal number the interface would read about two
+steps smaller — `hud::UI_SCALE` (1.2) and `hud::SERIF_SCALE` (1.1) multiply a
+caller's nominal size on the way into `TextFont`, and three hundred call
+sites keep the numbers they had. 0.494 × 1.1 is 0.543, which is Inter's own
+to three places.
+
+The second effect is what makes it safe. `stack::CHAR_WIDTH` budgets a
+character at 0.52 of the nominal size, measured on Inter's 0.531 mean
+lower-case advance. Alegreya Sans measures 0.445 of the size it is *rendered*
+at and Faustina 0.473 — 0.534 and 0.520 against the nominal, which brackets
+the same 0.52. Every width estimate in the client therefore survived the
+change of family untouched.
+
+What did **not** survive is every number a font produced, and those were
+re-measured one at a time rather than assumed: the verdict sheet's longest
+line (585 px, was 598 claimed against Inter's real 561), the stack panel's
+widest name (`Okina, Temple to the Grandfathers`, 202 px against 245), the
+tray's zone badge (`Kommandozone`, 70.0 px against 68.8 — one clipped letter
+if it had been left), and the mana mark's 0.72, which lands within a pixel of
+the prose's cap in both faces by luck and is documented as luck so a third
+face is measured rather than assumed to inherit it.
+
+Three smaller decisions are in `hud.rs` and are easy to lose:
+
+- **`SMALL_TEXT` (14 px) switches cut, not weight.** Alegreya Sans has a
+  light Regular whose stems go grey under a 12 px raster, so anything below
+  14 asks for the Medium *file*. `TextFont::weight` cannot do this job — it
+  only reaches a variable font, and these four cuts are static.
+- **Lining figures, always.** Alegreya Sans defaults to old-style figures,
+  whose 3, 4, 7 and 9 hang below the baseline. That is right in a paragraph
+  and wrong in a life total, a mana value, a turn number and a power. Every
+  `tf` sets `lnum`.
+- **`hud::bleed` is the ink halo and it answers `None` under 12 px.** A pen
+  set down on parchment spreads, and the halo is that spread — but below 12
+  px a second coloured copy of a stem *is* the stem, so the halo would be a
+  blur rather than a bleed. Faustina's `wght` 500 (`hud::INK_WEIGHT`) is the
+  other half of the same idea, and it works because Faustina is variable
+  where the sans is not.
+
 ## The prompt slip is a sheet, and a sheet is a child
 
 `hud::sheet()` inserted on a panel paints that panel's **content box**, so
@@ -2460,10 +2515,11 @@ missing — carrying `Pickable::IGNORE` and a radius one pixel tighter than
 the panel's so the two curves are concentric. The prompt slip and the ability
 sheet go through it; the zone browser did too, until §1.3 made it a panel.
 
-The slip's prose is set in Inter Italic, which is a **second font file** and
-has to be: `Inter.ttf` is variable on `opsz` and `wght` only, and `TextFont`
-carries a face and a size — there is no style field and no synthetic oblique,
-so a slant this client cannot ask for is a slant it has to ship. Bracketed
+The slip's prose is set in **Faustina Italic**, which is a second font file
+and has to be: Faustina is variable on `wght` alone, `TextFont` in Bevy 0.19
+does carry a `style` field, and nothing synthesises an oblique from an
+upright — so a slant this client cannot ask for is a slant it has to ship.
+(It was Inter Italic for the same reason, one file down.) Bracketed
 asides are greyed, and which stretches those are is
 `baylee_client_core::prose::bracketed` — in the model, with a test, and
 deliberately refusing to grey an **unclosed** bracket, because one stray
@@ -2516,9 +2572,12 @@ Size carries the feeling instead: **forty pixels**, against the twenty this
 overlay had never gone above.
 
 The width is measured rather than chosen. `Das Spiel endet unentschieden` is
-the longest verdict there is, and it sets **598 px** in the shipped `Inter.ttf`
-at 40 px on the `wght` 600 axis — so the sheet is 720, whose inner 638 leaves
-it forty pixels of air. A headline that shrank to fit its own sentence would
+the longest verdict there is, and it sets **585 px** in the shipped
+`Faustina.ttf` at `VERDICT_PT` times `SERIF_SCALE` on the `wght` 600 axis —
+so the sheet is 720, whose inner 638 leaves it fifty pixels of air. (Inter
+set the same line at 561 px. The serif is the wider face here by 4.4%,
+because it is drawn 10% larger to match Inter's x-height and does not give
+all of that back in the advances — a cost of the change, recorded as one.) A headline that shrank to fit its own sentence would
 be saying that sentence matters less.
 
 ### The verdict says who, the line under it says how
@@ -3277,7 +3336,7 @@ has no filesystem.
 
 Fonts are not embedded, and that is what `<link data-trunk rel="copy-dir"
 href="assets">` in `index.html` is for. Bevy's asset server resolves
-`fonts/Inter.ttf` against `./assets/` in a browser exactly as it does
+`fonts/Faustina.ttf` against `./assets/` in a browser exactly as it does
 natively, but nothing puts that directory into `dist/` unless trunk is told
 to — and the failure is silent: no error, just every glyph the client draws
 rendering as nothing. The icons and the mana symbols are that; a native run

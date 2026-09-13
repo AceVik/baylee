@@ -16,14 +16,16 @@ The Forge rules engine (https://github.com/Card-Forge/forge, GPL-3.0) may be
 used during development as a read-only rules reference. No Forge source code
 or data files are copied into this repository.
 
-Bundled fonts (crates/baylee-client/assets/fonts/): the Inter font family
-(https://rsms.me/inter/), upright and italic, licensed under the SIL Open Font
-License 1.1;
+Bundled fonts (crates/baylee-client/assets/fonts/): Alegreya Sans by Juan
+Pablo del Peral / Huerta Tipografica (Regular, Medium, Italic, Medium Italic),
+which sets the interface, and Faustina by Omnibus-Type (upright and italic,
+variable weight), which sets card names and rules text — both licensed under
+the SIL Open Font License 1.1, whose text is in assets/fonts/licenses/;
 Font Awesome Free 6.7.2 (https://fontawesome.com), icons licensed under
 CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/); and the Mana font
 (https://github.com/andrewgioia/mana) by Andrew Gioia, licensed under the SIL
 Open Font License 1.1, whose glyphs the client uses to draw mana symbols.
-None of the three is a Wizards of the Coast asset.
+None of them is a Wizards of the Coast asset.
 
 baylee source code is licensed under the GNU Affero General Public License
 v3.0 only (see LICENSE). The project is free and non-commercial; no feature

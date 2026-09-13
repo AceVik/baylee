@@ -1167,10 +1167,23 @@ absolute child is measured against its parent's *padding* box. And a `Text`
 is a `Node`: a label inside a button is a pickable child in front of it, so
 every label inside a control carries `Pickable::IGNORE` or `Feel` animates
 the button in its padding and goes dead across the middle. The slip's prose
-is Inter **Italic**, a second file rather than a switch (`Inter.ttf` is
-variable on `opsz`/`wght` only and `TextFont` has no style field), and its
+is **Faustina Italic**, a second file rather than a switch (nothing
+synthesises an oblique from an upright), and its
 bracketed asides are greyed by `client_core::prose::bracketed`, which refuses
-to grey an unclosed bracket. The answers share the sheet's width with
+to grey an unclosed bracket.
+
+**The interface is two families, not one.** Alegreya Sans carries the
+interface and Faustina carries what a card *says* — a rules paragraph is a
+quotation and should not share a voice with the button beside it. That
+overrides `docs/design.md` §1.2, which shipped three cuts of Inter and said
+there was no fourth; the override is recorded in both files. `hud::UI_SCALE`
+(1.2) and `hud::SERIF_SCALE` (1.1) multiply a caller's nominal size on the
+way into `TextFont`, because every size here was chosen against Inter's
+0.546 em x-height and the two new faces are authored at 0.458 and 0.494 —
+so three hundred call sites keep their numbers, and `stack::CHAR_WIDTH`'s
+0.52 still brackets both faces (0.534 and 0.520 against the nominal). Every
+number a *font* produced was re-measured instead: `docs/client.md` §"Two
+families" lists them, and the zone badge was 1.2 px short until it was. The answers share the sheet's width with
 `flex_grow: 1` and a `flex_basis` of **zero** — grow alone divides only the
 slack left after the labels.
 

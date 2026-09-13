@@ -347,7 +347,13 @@ impl Placement {
     /// than across: past a comfortable measure, width buys a longer blank
     /// stretch in the middle of every row and nothing else. Height is what
     /// buys rows, and it is the axis that grew.
-    pub const DEFAULT_W: f32 = 661.0;
+    ///
+    /// It moved from 661 to 662 on the change of text face: the zone badge is
+    /// measured out of the shipped font and `Kommandozone` sets 1.2 px wider
+    /// in Alegreya Sans than it did in Inter. That is the seam this number
+    /// and `TRAY_PANEL_W` exist to keep honest, and it is the whole of what a
+    /// change of family cost the layout.
+    pub const DEFAULT_W: f32 = 662.0;
     /// The chrome, and eight rows and a **half**.
     ///
     /// The half row is the point. A grid was cut to four whole rows because

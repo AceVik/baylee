@@ -318,7 +318,11 @@ mod running {
         // glyph, and what is being asked is which node exists and where.
         app.insert_resource(crate::hud::UiFonts {
             text: Handle::default(),
+            medium: Handle::default(),
             italic: Handle::default(),
+            medium_italic: Handle::default(),
+            serif: Handle::default(),
+            serif_italic: Handle::default(),
             icons: Handle::default(),
             mana: Handle::default(),
         });
