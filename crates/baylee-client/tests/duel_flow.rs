@@ -13,8 +13,9 @@
 use baylee_client::host::{DuelHost, HostMessage, LocalHost};
 use baylee_client_core::board::{BoardModel, Openings, SeatPod};
 use baylee_client_core::browser::Browser;
+use baylee_client_core::cue::Cue;
 use baylee_client_core::i18n::{Lang, Phrase};
-use baylee_client_core::interaction::{CombatFocus, Interaction, ending_reason, verdict};
+use baylee_client_core::interaction::{CombatFocus, Interaction, ending_reason, outcome, verdict};
 use baylee_core::ids::{CardIndex, PlayerId, PrintRef};
 use baylee_core::preset::{
     AIProfile, DeckEntry, Finish, FormatId, GamePreset, HouseRules, PrintInfo, SeatController,
@@ -1030,6 +1031,17 @@ fn the_words_at_the_end_of_a_real_game_are_the_ones_the_screen_shows() {
         assert_eq!(
             ending_reason(lang, &result).as_deref(),
             Some(Phrase::EndedLastPlayer.text(lang)),
+        );
+    }
+
+    // And the third reader of the same result, which has no language at all:
+    // the sound the end of a game makes. It goes through `outcome` rather
+    // than reading `GameResult` again, so this is what says the ear and the
+    // sheet cannot come to different conclusions about who lost.
+    for (seat, expected) in [(0, Cue::GameWon), (1, Cue::GameLost)] {
+        assert_eq!(
+            Cue::of_outcome(outcome(&result, PlayerId::new(seat), None)),
+            expected,
         );
     }
 }

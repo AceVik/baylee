@@ -201,11 +201,7 @@ pub(crate) fn spawn_finish(
         return;
     };
     let seat = statics.your_seat;
-    let team = statics
-        .seats
-        .iter()
-        .find(|s| s.player == seat)
-        .and_then(|s| s.team);
+    let team = duel.my_team();
     let lang = Lang::of(&settings.lang);
     let width = windows
         .iter()

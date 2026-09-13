@@ -1110,6 +1110,7 @@ fn state_dump(believed: &Believed, window: Vec2) -> String {
          \"autopilot\":{autopilot},\"last_error\":{error},\"lang\":{lang},\
          \"reachable\":{reachable},\"activatable\":{activatable},\"armed\":{armed},\
          \"outbox\":{outbox},\"mana_run\":{mana_run},\"ability_menu\":{menu},\
+         \"last_cue\":{last_cue},\
          \"departing\":{departing},\"cards\":{cards},\"buttons\":{buttons},\"shelves\":{shelves}}}",
         cards = cards_json(believed, duel, window),
         buttons = buttons_json(believed),
@@ -1137,6 +1138,15 @@ fn state_dump(believed: &Believed, window: Vec2) -> String {
         menu = duel
             .ability_menu
             .map_or_else(|| "null".to_string(), |m| quoted(&format!("{m:?}"))),
+        // The fifth thing that happens without leaving a mark on the screen,
+        // and the only one that is meant to leave none: the client decides
+        // what is worth hearing (`baylee_client_core::cue`) before anything
+        // can play it, so the last cue is how that decision is *proved* —
+        // by a read, rather than by somebody listening at the right moment.
+        last_cue = duel
+            .cues
+            .last()
+            .map_or_else(|| "null".to_string(), |c| quoted(c.name())),
     )
 }
 

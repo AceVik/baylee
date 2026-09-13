@@ -69,6 +69,7 @@ pub mod settingsui;
 pub mod sheen;
 pub mod sky;
 pub mod softkeys;
+pub mod sound;
 pub mod table;
 pub mod textures;
 pub mod tokenart;
@@ -395,6 +396,15 @@ pub struct Duel {
     /// live somewhere that outlives the seat bar, which is rebuilt by the
     /// very change it is animating — see [`crate::lifeflash`].
     pub life_flash: baylee_client_core::lifeflash::Ledger,
+    /// What this frame has decided is worth hearing.
+    ///
+    /// Beside the ledger it mostly reads, for the same reason the ledger is
+    /// beside the view: it is a reading *of* the game and has no truth of its
+    /// own. Filled on the edges — a view arriving, a question arriving, the
+    /// engine refusing something — and emptied once per frame by
+    /// [`crate::sound::play_the_cues`]. Nothing about audio is in it; see
+    /// [`baylee_client_core::cue`].
+    pub cues: baylee_client_core::cue::Cues,
     /// What has been typed into the creature-type filter.
     ///
     /// It lives here and not on the `Interaction` because the interaction is
@@ -467,6 +477,15 @@ impl Duel {
         // flashed and been gone before it was read. It stands until this
         // player tries something else.
         self.last_error = None;
+        // And so does a chime announcing a question this player is about to
+        // answer. The standing orders and the autopilot answer in the same
+        // half-frame that installs a question (`poll_host` → `run_autopilot`,
+        // both in `DuelSet::Sync`, both ahead of the drain in
+        // `DuelSet::Present`), so a question the player never saw makes no
+        // sound. A player answering a question they *did* hear reaches this
+        // line frames later, when the queue no longer holds it, and the call
+        // is then the no-op it should be.
+        self.cues.retract(baylee_client_core::cue::Cue::YourMove);
         self.outbox.push(action);
     }
 
@@ -491,7 +510,11 @@ impl Duel {
     /// the last one, so it has to be read on the edge too: a frame later the
     /// previous total is gone.
     pub(crate) fn receive_view(&mut self, view: PlayerView) {
-        self.life_flash.read(&view.seats);
+        // One reading of the difference, two things told about it: the number
+        // over the bar and the sound in the room are the same event on the
+        // same clock, which is what `Change::started` is for.
+        let changes = self.life_flash.read(&view.seats);
+        self.cues.note_life(&changes, view.seat);
         self.view = Some(view);
         if let Some(v) = self.view.as_ref() {
             self.browser.saw_reveal(v);
@@ -504,6 +527,17 @@ impl Duel {
             self.subtype_filter.clear();
         }
         self.interaction = Some(Interaction::new(pending, seat));
+        // The flank, not the state: `Cues` remembers whether the last
+        // question was this seat's, so the acting seat being re-sent its own
+        // question — which happens every time anybody at the table says
+        // anything — is silent. A game ending is addressed to nobody, so it
+        // clears the flag on its way past.
+        self.cues
+            .note_question(self.interaction.as_ref().is_some_and(Interaction::is_mine));
+        if let Some(result) = self.ending() {
+            let outcome = baylee_client_core::interaction::outcome(result, seat, self.my_team());
+            self.cues.note_ending(outcome);
+        }
         // Decided here and not per frame: a panel that re-decided
         // every frame whether to be open could never be closed.
         if let Some(v) = self.view.as_ref() {
@@ -552,6 +586,24 @@ impl Duel {
     #[must_use]
     pub fn seat(&self) -> Option<PlayerId> {
         self.statics.as_ref().map(|s| s.your_seat)
+    }
+
+    /// The local seat's side, if the table has sides at all.
+    ///
+    /// The roster and not the view: a seat's team is in `GameStatic` and no
+    /// `PlayerView` carries it. It is the one thing about the table that
+    /// reading a `Victor::Team` needs — see
+    /// [`baylee_client_core::interaction::outcome`] — and it is asked twice,
+    /// by the end screen and by the sound the end of a game makes, which is
+    /// why it is written once here.
+    #[must_use]
+    pub fn my_team(&self) -> Option<u8> {
+        let statics = self.statics.as_ref()?;
+        statics
+            .seats
+            .iter()
+            .find(|s| s.player == statics.your_seat)
+            .and_then(|s| s.team)
     }
 
     /// Whether the local seat is being asked something right now.
@@ -776,6 +828,18 @@ fn add_present_systems(app: &mut App) {
             .in_set(DuelSet::Present)
             .run_if(not(in_state(DuelPhase::Closed))),
     );
+    // Its own call because the tuple above is at its twenty, and its own
+    // *system* because it belongs to none of them: it is where a frame stops
+    // deciding what is worth hearing and hands it over. In `Present` rather
+    // than `Sync` for the one reason that matters — that is what lets a cue
+    // be taken back, since every source of one and everything that answers a
+    // question have run by the time this does.
+    app.add_systems(
+        Update,
+        sound::play_the_cues
+            .in_set(DuelSet::Present)
+            .run_if(not(in_state(DuelPhase::Closed))),
+    );
 }
 
 impl Plugin for DuelPlugin {
@@ -975,6 +1039,13 @@ fn poll_host(
                 duel.receive_choice(*pending);
             }
             HostMessage::Failed(reason) => {
+                // Gated the way the prompt bar's refusal line is: a game that
+                // has ended keeps none of the things that answer a question,
+                // and a refusal chiming over the end screen would be the
+                // client objecting to something nobody can still do.
+                if duel.ending().is_none() {
+                    duel.cues.note_refusal();
+                }
                 duel.last_error = Some(reason.clone());
                 reports.write(DuelReport::Failed(reason));
             }
@@ -2149,5 +2220,167 @@ mod schedule_order_tests {
             stored_as(table::sync_scene),
             stored_as(sheen::watch_for_arrivals),
         ));
+    }
+}
+
+#[cfg(test)]
+mod cue_feed_tests {
+    //! The three edges a cue is decided on, driven through `poll_host`.
+    //!
+    //! [`baylee_client_core::cue`] is tested on its own and says nothing
+    //! about whether anything ever calls it — "declared but never wired" is a
+    //! bug this client has shipped before, and a silent sink is exactly the
+    //! kind of feature nobody notices is unwired. So these go through the
+    //! real message loop, with a host handing over the real payloads.
+
+    use super::*;
+    use baylee_client_core::cue::Cue;
+    use baylee_client_core::test_support::ViewBuilder;
+    use baylee_engine::win::{EndReason, GameResult, Victor};
+
+    /// A host that hands over one scripted batch and then nothing.
+    struct ScriptedHost(Vec<HostMessage>);
+
+    impl DuelHost for ScriptedHost {
+        fn poll(&mut self) -> Vec<HostMessage> {
+            std::mem::take(&mut self.0)
+        }
+        fn submit(&mut self, _: PlayerAction) {}
+        fn seat(&self) -> PlayerId {
+            PlayerId::new(0)
+        }
+        fn link(&self) -> LinkState {
+            LinkState::Local
+        }
+    }
+
+    /// An app with just enough in it to run `poll_host` over a script.
+    fn table_told(messages: Vec<HostMessage>) -> App {
+        let mut app = App::new();
+        app.add_plugins(bevy::asset::AssetPlugin::default())
+            // `poll_host` moves the phase on, and a `NextState` written without
+            // this is written into a schedule nobody runs.
+            .add_plugins(bevy::state::app::StatesPlugin)
+            .init_asset::<Image>();
+        let textures = {
+            let mut images = app.world_mut().resource_mut::<Assets<Image>>();
+            textures::CardTextures::new(&mut images, 1 << 20)
+        };
+        app.insert_resource(textures)
+            .init_resource::<Duel>()
+            .init_state::<DuelPhase>()
+            .add_message::<DuelReport>()
+            .insert_resource(InstalledHost(Box::new(ScriptedHost(messages))))
+            .add_systems(Update, poll_host);
+        // `poll_host` returns at once in `Closed`, which is where a `DuelPhase`
+        // starts; a table nobody has opened is told nothing.
+        app.world_mut()
+            .resource_mut::<NextState<DuelPhase>>()
+            .set(DuelPhase::Playing);
+        app.update();
+        app
+    }
+
+    fn cues(app: &App) -> &[Cue] {
+        app.world().resource::<Duel>().cues.pending()
+    }
+
+    fn view_at(life: i32) -> PlayerView {
+        let mut view = ViewBuilder::new(2).build();
+        view.seats[0].life = life;
+        view
+    }
+
+    fn priority() -> Pending {
+        Pending::Priority {
+            player: PlayerId::new(0),
+            legal: Box::new(baylee_engine::choice::LegalActions::default()),
+        }
+    }
+
+    /// Two views a moment apart, and the difference is a sound.
+    #[test]
+    fn a_life_total_that_moves_is_heard() {
+        let app = table_told(vec![
+            HostMessage::View(Box::new(view_at(40))),
+            HostMessage::View(Box::new(view_at(37))),
+        ]);
+        assert_eq!(cues(&app), [Cue::MyLifeLost]);
+    }
+
+    /// …and the first view of a table is not twenty life arriving, which is
+    /// the ledger's rule reaching all the way out to the message loop.
+    #[test]
+    fn the_first_view_of_a_table_is_heard_as_nothing() {
+        let app = table_told(vec![HostMessage::View(Box::new(view_at(40)))]);
+        assert!(cues(&app).is_empty());
+    }
+
+    /// A question addressed to this seat.
+    #[test]
+    fn being_asked_something_is_heard() {
+        let app = table_told(vec![HostMessage::Choice(Box::new(priority()))]);
+        assert_eq!(cues(&app), [Cue::YourMove]);
+    }
+
+    /// The same question again is the same question. `pump` hands the acting
+    /// seat its own question back every time anybody says anything.
+    #[test]
+    fn the_same_question_re_sent_is_heard_once() {
+        let app = table_told(vec![
+            HostMessage::Choice(Box::new(priority())),
+            HostMessage::Choice(Box::new(priority())),
+            HostMessage::Choice(Box::new(priority())),
+        ]);
+        assert_eq!(cues(&app), [Cue::YourMove]);
+    }
+
+    /// The end of a game, read from the chair that lost it.
+    #[test]
+    fn the_end_of_a_game_is_heard_from_the_chair_it_happened_to() {
+        let over = Pending::GameOver(GameResult {
+            winner: Some(Victor::Player(PlayerId::new(1))),
+            reason: EndReason::LastPlayerStanding,
+        });
+        let app = table_told(vec![HostMessage::Choice(Box::new(over))]);
+        assert_eq!(cues(&app), [Cue::GameLost]);
+    }
+
+    /// A refusal while there is still a game to refuse something in.
+    #[test]
+    fn a_refused_action_is_heard() {
+        let app = table_told(vec![HostMessage::Failed(
+            "illegal action for your seat".into(),
+        )]);
+        assert_eq!(cues(&app), [Cue::Refused]);
+    }
+
+    /// The counter-test, and the one that matters: the bar stops whole at the
+    /// end of a game and so does the room. A refusal arriving after the
+    /// result would be the client objecting to something nobody can still do.
+    #[test]
+    fn a_refusal_after_the_result_is_not_heard() {
+        let over = Pending::GameOver(GameResult {
+            winner: Some(Victor::Player(PlayerId::new(0))),
+            reason: EndReason::LastPlayerStanding,
+        });
+        let app = table_told(vec![
+            HostMessage::Choice(Box::new(over)),
+            HostMessage::Failed("illegal action for your seat".into()),
+        ]);
+        assert_eq!(cues(&app), [Cue::GameWon], "and no `Refused` beside it");
+    }
+
+    /// A question the client answers for the player inside the same frame is
+    /// a question the player never saw. This is the whole of why the drain is
+    /// in `Present` and the answer is in `Sync`.
+    #[test]
+    fn a_question_the_standing_orders_answer_is_never_heard() {
+        let mut app = table_told(vec![HostMessage::Choice(Box::new(priority()))]);
+        assert_eq!(cues(&app), [Cue::YourMove], "decided");
+        app.world_mut()
+            .resource_mut::<Duel>()
+            .submit(PlayerAction::PassPriority);
+        assert!(cues(&app).is_empty(), "and taken back before the drain");
     }
 }

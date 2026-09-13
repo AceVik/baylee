@@ -995,7 +995,8 @@ pub(crate) const Z_VEIL: i32 = 3;
 /// The prompt slip: the sentence that says what the question *is*, and so the
 /// one surface a veil must never dim.
 pub(crate) const Z_SLIP: i32 = 4;
-/// The zone browser's dialog.
+/// The zone browser's dialog — and the end screen's sheet, which is over a
+/// veil of its own under a different root and wants the same answer.
 pub(crate) const Z_SHEET: i32 = 5;
 /// The hover preview, which describes whatever is under the pointer and so has
 /// to stand over all of it — including a row of the dialog.

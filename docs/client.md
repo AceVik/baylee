@@ -2503,6 +2503,12 @@ patch where the headline sits goes (44, 70, 58) → (69, 73, 57) → (106, 98,
 80) → (103, 96, 78) while the felt beside it goes (33, 56, 46) → (19, 47, 37)
 → (10, 27, 23) → (10, 26, 23). One number, read twice.
 
+Those four frames were taken while the sheet was still *under* the veil (the
+next section), so the values it rises through are the veiled ones and the
+patch now rests at (215, 200, 163) instead of (103, 96, 78). What they were
+measuring is unaffected: the sheet and the felt move together, on one clock,
+in opposite directions.
+
 ### The sheet shipped on the wrong side of its own veil
 
 The `Z` ladder in `hud` says what the order is for — "a surface that is
@@ -2546,6 +2552,87 @@ game is over" is one `if` at the call site rather than an indent around
 seventy lines. Measured at the same corner across the same concession: the
 pill patch reads (54, 61, 68) while the game is on and (18, 20, 29) once it
 is over, which is the veiled night sky with nothing in front of it.
+
+## The sounds are decided before anything can play them
+
+The client makes no noise at all, and that is not the same thing as having no
+sound design. Every moment worth hearing is named, decided on the edge it
+happens on, deduplicated against what the eye is already being shown, and
+handed to a sink — which today does nothing. `baylee-client-core/src/cue.rs`
+is the deciding half and `crates/baylee-client/src/sound.rs` is the sink;
+between them there is a queue and no audio API anywhere.
+
+**Why it stops there** is two questions that are really one, and both of them
+are the owner's:
+
+- *Where the sounds come from.* `docs/legal.md` has four clauses — the code
+  licence, the WotC fan policy, Scryfall, privacy — and none of them is about
+  audio. Shipped CC0 files and generated tones are different answers with
+  different consequences; the felt and the parchment are **arithmetic** for
+  exactly the reason §2 gives, that ornament is the easiest thing to borrow by
+  accident.
+- *What playing anything costs the build.* The workspace's bevy feature list
+  has no `bevy_audio`, so the client links no audio backend. Adding it pulls
+  rodio and cpal — CoreAudio, ALSA, WASAPI — into a binary that CI runs
+  through `cargo-deny`, `cargo-audit`, an MSRV check against 1.88 and a
+  `wasm32` check; and in a browser an `AudioContext` does not start until the
+  player has clicked something.
+
+Neither is decided by writing a line of code, so the seam is the deliverable.
+Everything above it is real: nine cues, twenty tests, and `/state` carrying
+the last one so the whole thing is proved by a **read** rather than by
+somebody listening at the right moment.
+
+### One event, one cue
+
+The rule the model is built on: *what the eye is shown and what the ear is
+told are the same event, answered by the same arithmetic.* A triple block
+sends three views a frame apart and `lifeflash` merges them into one `−7`;
+`Ledger::note` says whether it started a flash or joined the one standing,
+`Change` carries that as `started`, and the ear is told once. Two opponents
+losing life on the same view are two numbers on two bars and **one** sound,
+because two copies of a sound on one frame are not two sounds — they are one
+sound played louder, which is why `Cues::push` deduplicates within the frame.
+
+The same discipline decides how a game ending sounds. `interaction::Outcome`
+is the five *sentences* the end sheet can write, `Cue::of_outcome` collapses
+them into the three *sounds* through `Outcome::won`, and `verdict` is that
+same `Outcome` under a language. A table that chimed differently for team 1
+and team 2 would be saying something the game does not mean — and a second
+reading of `GameResult` is how the ear and the sheet would come to different
+conclusions about who lost.
+
+### A cue is a flank, and it can be taken back
+
+Nothing in the model is asked "is it my turn"; it is told "it has become my
+turn", once. `Cues` remembers one bit — whether the last question was this
+seat's — because the acting seat is re-sent its own question every time
+anybody at the table says anything, and a client that chimed on each of those
+would be a metronome. That is the backlog's AC1, "keine Frage → Frage".
+
+`Cues::retract` is the other half of the same idea and is why the schedule is
+shaped the way it is. The standing orders and the autopilot answer in the
+same half-frame that installs a question — `poll_host` → `run_autopilot`,
+both in `DuelSet::Sync` — and a question the player never saw is not a
+question. Every action goes out through one door, so `Duel::submit` withdraws
+the chime; the drain is `sound::play_the_cues` in `DuelSet::Present`, after
+everything that could decide on a cue and everything that could answer one.
+A player answering a question they *did* hear reaches `submit` frames later,
+when the queue no longer holds it, and the call is the no-op it should be.
+
+The refusal cue is gated the way the prompt bar's refusal line is: `!over`. A
+game that has ended keeps none of the things that answer a question, and a
+refusal chiming over the end screen would be the client objecting to
+something nobody can still do.
+
+### What `/state` says
+
+`last_cue` is a flat string — `"MyLifeLost"`, `"YourMove"`, `"GameLost"`,
+`null` before anything has happened — written from `Cue::name`, which is
+spelled out rather than derived from `Debug` because a `Debug` rendering is
+allowed to change and a harness reads this. Conceding an offline duel and
+reading `/state.last_cue` is the end-to-end proof that the whole chain is
+wired, and it needs no speakers.
 
 ## The zone browser is a dialog, which is a different material
 
