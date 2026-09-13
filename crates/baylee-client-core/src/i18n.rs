@@ -239,6 +239,15 @@ messages! {
     SeatCount { en: "{0} seats", de: "{0} Plätze" },
     /// What a waiting room is waiting for. `{0}` is how many are not ready.
     WaitingFor { en: "waiting for {0}", de: "wartet auf {0}" },
+    /// The same, when the seat being waited for is the one reading it.
+    ///
+    /// A phrase of its own rather than [`Phrase::WaitingFor`] filled with a
+    /// pronoun, because a name and a pronoun do not decline alike: German
+    /// wants the accusative after "auf", so this slot would have to be handed
+    /// "dich" while every other line that names the local seat wants "Du". A
+    /// slot that needs a different word in different sentences is a slot that
+    /// gets filled wrongly, and the sentence is what to split.
+    WaitingForYou { en: "waiting for you", de: "wartet auf dich" },
     /// A room whose chairs are all ready.
     AllReady { en: "all ready", de: "alle bereit" },
     /// A room that is locked.

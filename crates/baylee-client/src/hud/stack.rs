@@ -720,7 +720,11 @@ pub(super) fn spawn_stack_panel(
     if let Some(holder) = view.priority {
         let waiting = commands
             .spawn((
-                Text::new(Phrase::WaitingFor.fill(lang, &[statics.seat_name(holder)])),
+                Text::new(waiting_line(
+                    lang,
+                    statics.seat_name(holder),
+                    holder == view.seat,
+                )),
                 tf(fonts, 11.0),
                 TextColor(palette::MUTED),
                 Arriving::ink(key, palette::MUTED.alpha()),
@@ -1388,6 +1392,22 @@ fn spawn_stack_target(
     chip
 }
 
+/// The line under the stack's title: whose answer the table is waiting for.
+///
+/// The local seat is **addressed**, not named. Its display name is the
+/// language's own pronoun — offline it is literally `Phrase::You` — and this
+/// sentence needs the accusative in German, so filling the slot with it reads
+/// "wartet auf Du". [`Phrase::WaitingForYou`] is the sentence written out
+/// instead, which is the fix that generalises: a slot that needs a different
+/// word in different sentences is a slot that gets filled wrongly.
+fn waiting_line(lang: Lang, name: &str, is_me: bool) -> String {
+    if is_me {
+        Phrase::WaitingForYou.text(lang).to_string()
+    } else {
+        Phrase::WaitingFor.fill(lang, &[name])
+    }
+}
+
 /// The printed sentence a stack entry stands for, in the player's own
 /// language, or `None` when there is nothing trustworthy to draw.
 ///
@@ -1473,6 +1493,21 @@ mod tests {
     #[test]
     fn a_short_name_is_not_cut() {
         assert_eq!(fit("Shock", 187.0, 15.0), "Shock");
+    }
+
+    /// The table waits for *you*, not for a pronoun in the wrong case.
+    ///
+    /// Seen live as "wartet auf You" and, once the offline seat was named in
+    /// German, one slot away from "wartet auf Du". An opponent is still named,
+    /// because a name is what a name slot is for.
+    #[test]
+    fn the_table_waits_for_you_rather_than_for_your_name() {
+        assert_eq!(waiting_line(Lang::De, "Du", true), "wartet auf dich");
+        assert_eq!(waiting_line(Lang::En, "You", true), "waiting for you");
+        assert_eq!(
+            waiting_line(Lang::De, "sharp 1", false),
+            "wartet auf sharp 1"
+        );
     }
 
     /// A long one is cut *and* stays inside the budget it was cut to. The
