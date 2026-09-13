@@ -12,7 +12,7 @@
 
 use baylee_client::host::{DuelHost, HostMessage, LocalHost};
 use baylee_client_core::board::{BoardModel, Openings, SeatPod};
-use baylee_client_core::browser::Browser;
+use baylee_client_core::browser::{Browser, Names};
 use baylee_client_core::cue::Cue;
 use baylee_client_core::i18n::{Lang, Phrase};
 use baylee_client_core::interaction::{CombatFocus, Interaction, ending_reason, outcome, verdict};
@@ -1092,7 +1092,7 @@ fn can_reach(view: &PlayerView, interaction: &Interaction, id: baylee_core::ids:
     browser.follow(view, Some(interaction));
     on_table
         || browser
-            .rows(view, Some(interaction))
+            .rows(view, Some(interaction), Names::projected())
             .iter()
             .any(|r| r.id == id && r.selectable)
 }

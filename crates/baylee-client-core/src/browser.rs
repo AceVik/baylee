@@ -126,7 +126,15 @@ impl BrowseZone {
 pub struct BrowseRow {
     /// The object this row stands for.
     pub id: ObjectId,
-    /// Its projected name — a clone shows the name it copied.
+    /// The name a player reads on this row.
+    ///
+    /// The projected one — a clone shows the name it copied — put through
+    /// whatever [`Names`] the caller brought, so it is in the language the
+    /// printing this seat chose is printed in. It is the string the row
+    /// draws **and** the string the filter and [`SortKey::Name`] work on,
+    /// which is the whole of why the seam exists: a panel that showed
+    /// "Wald" and then found nothing when "Wald" was typed into the box
+    /// under it was showing one name and searching another.
     pub name: String,
     /// Its picture, when it has one. A token in a graveyard has none.
     pub art: Option<ImageKey>,
@@ -153,6 +161,56 @@ pub struct BrowseRow {
     /// 111.7), so a row that looked like a card there would be inviting a
     /// player to plan around something that is about to be gone.
     pub token: bool,
+}
+
+/// The name a card is printed with, in the language this seat reads.
+///
+/// The same seam as [`board::Registry`](crate::board::Registry) and for the
+/// same reason: the answer is in the *catalog*, which is a printing's text
+/// in a player's own language, and this crate reaches neither the catalog
+/// nor the card registry — so the lookup arrives as an argument.
+///
+/// A view's `name` is the **projection**: what the rules say the object is
+/// called, in the engine's one language, which is English. Everywhere else
+/// on the screen the client has already replaced it — the table, the hand,
+/// the hover preview and this panel's own rows all draw the printing's name
+/// — and the browser was the one place that drew the translated name while
+/// deciding with the untranslated one.
+///
+/// One lookup and not two, unlike `Registry`: a row shows a name and sorts
+/// by it, and both are that one string. What it must **not** do is replace
+/// `object.name` outright, which is why [`Browser::rows`] keeps matching the
+/// filter against both — a player who learned a card in English is still
+/// allowed to type it.
+#[derive(Clone, Copy)]
+pub struct Names<'a> {
+    /// What this seat's chosen printing calls the object, if anything does.
+    ///
+    /// `None` is the honest answer and not a failure: a token, an ability on
+    /// the stack whose source has no text, or a client running against a
+    /// gateway with no catalog behind it. The projected name stands.
+    pub shown: &'a dyn Fn(&baylee_view::PublicObject) -> Option<String>,
+}
+
+/// The answer a caller with no card text in reach has: none at all.
+fn nothing_shown(_: &baylee_view::PublicObject) -> Option<String> {
+    None
+}
+
+impl Names<'_> {
+    /// The names the view already carries, untranslated.
+    ///
+    /// Not a test stub — a real answer, for a caller that genuinely has no
+    /// printing text to offer: the integration tests, an embedder with no
+    /// gateway, a seat whose catalog request has not come back yet. The
+    /// panel then behaves exactly as it did before any of this existed,
+    /// which is the property that makes every test in this file that is not
+    /// about language keep being about what it is about.
+    #[must_use]
+    pub fn projected() -> Names<'static> {
+        static SHOWN: fn(&baylee_view::PublicObject) -> Option<String> = nothing_shown;
+        Names { shown: &SHOWN }
+    }
 }
 
 /// What the browser sorts its rows by.
@@ -837,8 +895,16 @@ impl Browser {
     /// Pass `None` for the interaction to browse with no question pending —
     /// what tapping a pile does. Nothing is selectable then, which is
     /// the honest answer: there is nothing to select *for*.
+    ///
+    /// `names` is the seam [`Names`] documents; [`Names::projected`] is what
+    /// a caller with no card text brings.
     #[must_use]
-    pub fn rows(&self, view: &PlayerView, interaction: Option<&Interaction>) -> Vec<BrowseRow> {
+    pub fn rows(
+        &self,
+        view: &PlayerView,
+        interaction: Option<&Interaction>,
+        names: Names<'_>,
+    ) -> Vec<BrowseRow> {
         let mine = interaction.filter(|it| it.is_mine());
         let ordering = mine.is_some_and(Interaction::is_ordering);
         let needle = self.filter.trim().to_lowercase();
@@ -848,7 +914,14 @@ impl Browser {
                 continue;
             }
             for object in objects_in(view, zone) {
-                if !needle.is_empty() && !object.name.to_lowercase().contains(&needle) {
+                let shown = (names.shown)(object).unwrap_or_else(|| object.name.clone());
+                // Both names, because they are two ways of naming the same
+                // card and a player knows the one they learned it under. The
+                // projection is also the only name a *token* has.
+                if !needle.is_empty()
+                    && !shown.to_lowercase().contains(&needle)
+                    && !object.name.to_lowercase().contains(&needle)
+                {
                     continue;
                 }
                 // Membership of the offered list, not `is_selectable`: a
@@ -859,7 +932,7 @@ impl Browser {
                 let selectable = mine.is_some_and(|it| it.selectable().contains(&object.id));
                 out.push(BrowseRow {
                     id: object.id,
-                    name: object.name.clone(),
+                    name: shown,
                     // Same fallback as the board's: a token has no printing
                     // but does have a picture, and the row beside its badge
                     // is the one place a player reads a token as a card.
@@ -1018,7 +1091,7 @@ mod tests {
         b.follow(&view, Some(&it));
         assert!(b.is_open());
 
-        let rows = b.rows(&view, Some(&it));
+        let rows = b.rows(&view, Some(&it), Names::projected());
         assert_eq!(rows.len(), 4);
         assert!(rows.iter().all(|r| r.zone == BrowseZone::Looking));
         assert!(rows.iter().all(|r| r.selectable), "all four were offered");
@@ -1113,7 +1186,7 @@ mod tests {
         assert_eq!(b.locked(), Some(BrowseZone::Looking));
         assert_eq!(b.tab(), Some(BrowseZone::Looking));
         assert!(
-            b.rows(&view, Some(&search))
+            b.rows(&view, Some(&search), Names::projected())
                 .iter()
                 .all(|r| r.zone == BrowseZone::Looking),
             "the graveyard has nothing to answer here"
@@ -1486,7 +1559,7 @@ mod tests {
             let it = Interaction::new(pending.clone(), me());
             let mut b = Browser::new();
             b.follow(&view, Some(&it));
-            let rows = b.rows(&view, Some(&it));
+            let rows = b.rows(&view, Some(&it), Names::projected());
             for id in it.selectable() {
                 let on_table = table.contains(id);
                 let in_tray = rows.iter().any(|r| r.id == *id && r.selectable);
@@ -1641,12 +1714,14 @@ mod tests {
 
         let b = Browser::new();
         assert!(
-            b.rows(&view, Some(&it)).iter().all(|r| r.place.is_none()),
+            b.rows(&view, Some(&it), Names::projected())
+                .iter()
+                .all(|r| r.place.is_none()),
             "nothing picked yet"
         );
         it.toggle(obj(8));
         it.toggle(obj(7));
-        let rows = b.rows(&view, Some(&it));
+        let rows = b.rows(&view, Some(&it), Names::projected());
         let place = |id| rows.iter().find(|r| r.id == id).and_then(|r| r.place);
         assert_eq!(place(obj(8)), Some(1), "picked first, so it goes first");
         assert_eq!(place(obj(7)), Some(2));
@@ -1675,7 +1750,9 @@ mod tests {
         );
         let b = Browser::new();
         assert!(
-            b.rows(&view, Some(&it)).iter().all(|r| !r.selectable),
+            b.rows(&view, Some(&it), Names::projected())
+                .iter()
+                .all(|r| !r.selectable),
             "a graveyard card is not a legal discard"
         );
     }
@@ -1689,14 +1766,18 @@ mod tests {
         let mut b = Browser::new();
         b.open_at(BrowseZone::Graveyard(PlayerId::new(1)));
 
-        let rows = b.rows(&view, None);
+        let rows = b.rows(&view, None, Names::projected());
         assert_eq!(rows.len(), 1, "the tab confines it to one pile");
         assert_eq!(rows[0].name, "Birds of Paradise");
         assert!(!rows[0].selectable, "there is nothing to select for");
         assert!(rows[0].place.is_none());
 
         b.show(None);
-        assert_eq!(b.rows(&view, None).len(), 2, "both piles, unfiltered");
+        assert_eq!(
+            b.rows(&view, None, Names::projected()).len(),
+            2,
+            "both piles, unfiltered"
+        );
     }
 
     /// The graveyard's own order is the default and is information: it is
@@ -1716,7 +1797,10 @@ mod tests {
         let mut b = Browser::new();
         assert_eq!(b.sort(), SortKey::Place);
         let names = |b: &Browser| -> Vec<String> {
-            b.rows(&view, None).into_iter().map(|r| r.name).collect()
+            b.rows(&view, None, Names::projected())
+                .into_iter()
+                .map(|r| r.name)
+                .collect()
         };
         assert_eq!(
             names(&b),
@@ -1753,7 +1837,10 @@ mod tests {
             .build();
         let mut b = Browser::new();
         let names = |b: &Browser| -> Vec<String> {
-            b.rows(&view, None).into_iter().map(|r| r.name).collect()
+            b.rows(&view, None, Names::projected())
+                .into_iter()
+                .map(|r| r.name)
+                .collect()
         };
 
         b.sort_by(SortKey::Name);
@@ -1798,7 +1885,7 @@ mod tests {
             .build();
         let mut b = Browser::new();
         b.sort_by(SortKey::Name);
-        let rows = b.rows(&view, None);
+        let rows = b.rows(&view, None, Names::projected());
         assert_eq!(rows.len(), 2);
         assert_eq!(
             rows[0].zone,
@@ -1832,12 +1919,61 @@ mod tests {
             .build();
         let mut b = Browser::new();
         b.set_filter("ELV");
-        let rows = b.rows(&view, None);
+        let rows = b.rows(&view, None, Names::projected());
         assert_eq!(rows.len(), 1);
         assert_eq!(rows[0].name, "Llanowar Elves");
 
         b.set_filter("  ");
-        assert_eq!(b.rows(&view, None).len(), 2, "blank is not a filter");
+        assert_eq!(
+            b.rows(&view, None, Names::projected()).len(),
+            2,
+            "blank is not a filter"
+        );
+    }
+
+    /// The panel drew one name and searched another.
+    ///
+    /// A seat reading German sees *Wald* on the row — the renderer has
+    /// translated the drawn name since the catalog existed — and typing
+    /// `Wald` into the box under it found nothing, because the filter was
+    /// asking `object.name`, which the engine keeps in its one language.
+    /// Both names answer now: the one on the row, and the one the card is
+    /// known by everywhere outside this client.
+    #[test]
+    fn the_filter_answers_the_name_on_the_row_and_the_one_under_it() {
+        let view = ViewBuilder::new(2)
+            .with_graveyard(
+                0,
+                vec![
+                    printed(4, 0, "Forest", 0),
+                    printed(5, 0, "Swamp", 0),
+                    printed(6, 0, "Llanowar Elves", 3),
+                ],
+            )
+            .build();
+        // The catalog, stood in for: this seat's printings are German.
+        let german = |object: &baylee_view::PublicObject| match object.name.as_str() {
+            "Forest" => Some("Wald".to_string()),
+            "Swamp" => Some("Sumpf".to_string()),
+            _ => None,
+        };
+        let names = Names { shown: &german };
+        let found = |needle: &str| {
+            let mut b = Browser::new();
+            b.set_filter(needle);
+            b.rows(&view, None, names)
+                .into_iter()
+                .map(|r| r.name)
+                .collect::<Vec<_>>()
+        };
+
+        assert_eq!(found("wald"), ["Wald"], "the name the player is looking at");
+        assert_eq!(found("forest"), ["Wald"], "the name they learned it under");
+        assert_eq!(found("wal"), ["Wald"], "a prefix, which is how one types");
+        assert!(found("sumpf") == ["Sumpf"] && found("mountain").is_empty());
+        // A card the catalog has no German printing of keeps its own name,
+        // and is still found by it — the fallback is a row, not a hole.
+        assert_eq!(found("elves"), ["Llanowar Elves"]);
     }
 
     #[test]
@@ -1878,7 +2014,7 @@ mod tests {
         assert!(!Browser::wanted(&view, &it));
         assert!(
             Browser::new()
-                .rows(&view, Some(&it))
+                .rows(&view, Some(&it), Names::projected())
                 .iter()
                 .all(|r| !r.selectable),
             "watching another seat choose is not choosing"
@@ -1965,12 +2101,12 @@ mod tests {
             .build();
         let mut b = Browser::new();
         b.open();
-        assert_eq!(b.rows(&view, None).len(), 2);
+        assert_eq!(b.rows(&view, None, Names::projected()).len(), 2);
         b.start_typing();
         for c in "mou".chars() {
             b.push_filter(c);
         }
-        let rows = b.rows(&view, None);
+        let rows = b.rows(&view, None, Names::projected());
         assert_eq!(rows.len(), 1, "the filter did not reach the rows");
         assert_eq!(rows[0].name, "Mountain");
     }

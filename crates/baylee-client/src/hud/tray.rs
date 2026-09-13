@@ -35,7 +35,7 @@
 
 #[allow(clippy::wildcard_imports)] // the HUD's own vocabulary
 use super::*;
-use baylee_client_core::browser::{BrowseRow, BrowseZone, Browser};
+use baylee_client_core::browser::{BrowseRow, BrowseZone, Browser, Names};
 
 /// The thumbnail on a row.
 ///
@@ -346,7 +346,15 @@ pub(super) fn spawn_tray(
     mut cards: Option<&mut UiCards<'_>>,
     place: Placement,
 ) -> Entity {
-    let rows = browser.rows(view, interaction);
+    // The catalog reaching the panel's own decisions, which is the half
+    // `Browser` cannot do for itself: it decides in `baylee-client-core`,
+    // which links neither the card registry nor the gateway's text. Bound
+    // here rather than handed out by a constructor the way
+    // [`crate::cardart::registry`] is, because this one closes over the view
+    // and the texts and so has nowhere to live but the call.
+    let shown =
+        |object: &baylee_view::PublicObject| Some(crate::face::name_of(object, view, faces.texts));
+    let rows = browser.rows(view, interaction, Names { shown: &shown });
     // The question *this* sheet answers, which is not every question there
     // might be: a graveyard opened by hand while the engine asks about the
     // battlefield holds none of the answer, and grew a tally and a Confirm for
@@ -1126,12 +1134,7 @@ fn spawn_row(
     let name = dialog_text(
         commands,
         fonts,
-        // `BrowseRow::name` is the projection, which is English; the printing
-        // this seat chose has the player's own. See [`crate::face::name_of`].
-        &view.object(row.id).map_or_else(
-            || row.name.clone(),
-            |o| crate::face::name_of(o, view, faces.texts),
-        ),
+        &row.name,
         TRAY_NAME_SIZE,
         palette::DIALOG_INK,
     );
