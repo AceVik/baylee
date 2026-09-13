@@ -12,7 +12,14 @@ Urheber- und Medienrecht.
    "Magic: The Gathering" in branding; mana symbols drawn by the client
    itself (coloured pips, `crates/baylee-client/src/face.rs`) or, if a font
    is ever wanted, the open-licensed `mana` font (SIL OFL) — never WotC
-   assets.
+   assets. The same rule reaches everything the table is made of: the felt,
+   the seat mats, the lobby's backdrop, the sky and **the weather over the
+   table** are all computed rather than shipped
+   (`crates/baylee-client/src/shaders/atmosphere.wgsl`). The weather is the
+   sharpest case of it, because a falling leaf, a snowflake and a shaft of
+   light are exactly the three things a renderer normally reaches for a
+   downloaded sprite sheet to draw — so there is no `textures/` directory to
+   audit, in the same way clause 5 leaves no `sounds/` one.
 3. **Scryfall:** honor rate limits (≤ 10 req/s), cache card images
    (encouraged by their terms), "data and images provided by Scryfall"
    attribution in clients. No card images are committed to the repo — and

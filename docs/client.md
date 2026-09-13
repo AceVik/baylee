@@ -267,6 +267,169 @@ quarter of the brightness it needed, and
 `the_felt_is_dark_enough_to_read_cards_against` passed every run because it
 only ever bounded the bright end. It bounds both now.
 
+## The air over the table
+
+Six things can be in it — leaves, mist, embers, shafts of light, fog and
+snow — and **the lands on the battlefield decide how much of each**. A board
+of Forests gets a leaf fall; a board of Swamps gets a fog lying in the table;
+Snow-Covered anything gets flakes. It is weather in the same sense the sky is
+weather: it changes no legal action, nobody is meant to read it, and a player
+who never notices it has lost nothing.
+
+The split is the usual one and earns its keep twice here.
+`baylee-client-core/src/atmosphere.rs` reads the board and answers a
+`Weather` — six amplitudes and a three-component grade — which is arithmetic
+a test can argue with. `baylee-client/src/atmosphere.rs` and
+`shaders/atmosphere.wgsl` are what is left once that is taken away: one quad
+and one fragment shader.
+
+### Reading the board
+
+Only lands are looked at, and only the five basic subtypes plus the snow
+supertype. A land with *k* basic types contributes `1/k` to each of them, so
+a Tundra is half a Plains and half an Island and is still one land; snow is
+counted whole and separately, so a Snow-Covered Forest is a Forest **and** a
+flake source. A land printing no basic type at all — most of them — says
+nothing, which is why a deck of utility lands plays under still air rather
+than under a grey average of everything.
+
+Two functions of the counts decide an amplitude, and the second is the one
+that matters:
+
+- **saturation** `1 - e^(-c/3)` on the *total* count, so the air thickens
+  quickly over the first few lands and then stops. The third Forest is worth
+  more than ten times the twelfth, which is a test
+  (`more_of_one_land_thickens_the_air_and_then_stops`).
+- **share** `c² / Σc²` per kind, which sums to one by construction. So the
+  six amplitudes together can never pass the player's budget, and a
+  twenty-land board is not twenty times busier than a one-land board. That is
+  held over every mixture the five basics and snow can make, up to four of
+  each (`the_air_is_never_busier_than_its_budget`).
+
+Squaring the share is what makes a mono-coloured board read as *one* kind of
+weather and a five-colour board read as a light dusting of everything. A
+linear share would give a Forest-heavy board a permanent haze of the other
+four.
+
+### The grade, and why it cannot dim the felt
+
+Besides the six amplitudes a `Weather` answers a **grade**: a multiplier the
+felt shader applies as `under_weather`, beside `under_sky` and `under_lamp`.
+The stage has no lights in it and cannot have any, so every "light" on this
+table is a multiply on a surface's own colour, and this is the third of them.
+
+Each basic pulls that multiplier towards its own hue by at most
+`GRADE_REACH` (0.25) — deep green for Forest, teal for Island, ember for
+Mountain, pale gold for Plains, violet for Swamp, a pale chill for snow.
+**Every row of the pull table has a Rec.709 luma of zero to within 0.01**,
+the largest of them being about 4e-4, so however many are mixed and at
+whatever amplitudes, the felt's brightness cannot move by anything a player
+could see; only its hue can. That is the owner's *ohne das Spielen zu
+beeinträchtigen* turned into arithmetic rather than into restraint, and two
+tests hold it (`every_pull_is_a_hue_and_not_a_brightness`, which is where the
+0.01 is written down, and `the_felt_keeps_its_brightness_under_any_weather`).
+
+The grade is a separate uniform from the sky's tint rather than being folded
+into it, because the sky's strength depends on the hour and the weather's
+does not.
+
+### One surface, under everything a card casts
+
+Everything else is painted on a **single quad**, cut to the slab's own
+racetrack by `table::flat_table_mesh` and laid at `table::ATMOSPHERE_LIFT` —
+0.0035 of a unit above the felt. That is above every mark belonging to the
+table (a seat's mat at `ZONE_LIFT`, the glow under it, the medallion) and
+below the contact shadow under a card at `CARD_LIFT * 0.5`, and therefore
+below the card.
+
+The promise that follows is geometric, not a matter of taste: the quad is
+blended and the cards are opaque, so the cards write depth and the depth test
+rejects the quad at every pixel a card occupies. **Not one card pixel can be
+touched.** A future layer that wanted to be a post-process would have to give
+that up explicitly, which is the point of putting it here.
+
+A leaf is painted rather than flown. A billboard in the air would spend most
+of its life in front of a card at a camera twenty degrees off vertical; the
+quad is the other way round, and the shader is handed `fall`, the direction
+on the table plane a falling thing appears to travel, recomputed as the
+player orbits so the weather is not painted on the lens. The parallax is real
+even so: a mark drawn as though it were high in the air crosses the table
+faster than one near the felt, which is the whole of what sells depth here.
+
+### The lift ladder is the draw order, which it had never been
+
+`TableQuad::lift` used to carry a comment saying nothing on the table was
+depth-sorted. It was never true. Bevy sorts the transparent phase by
+`rangefinder.distance(mesh_center) + depth_bias`, ascending — so the order
+was **distance to the camera**, and a seat's mat on the near half of the
+table was painted over a card's contact shadow on the far half. Nothing had
+noticed because every previous overlay was small enough to sit entirely
+inside one lane.
+
+`table::sort_bias(lift)` is the fix and is simply `lift * 400_000`: it turns
+the lift ladder into the sort key, so the ladder finally decides what covers
+what, wherever on the table the two things happen to be. It is applied to
+every blended surface down there — the mats, the table quads, the medallion,
+the contact shadow and the air. `depth_bias` affects **only** the sort key
+and never the depth buffer, which is what makes it safe to hand it a number
+that large.
+
+### A veil and a mark are priced differently
+
+A **veil** — mist, fog, shafts — is paid for on every pixel of the table, so
+it must be cheap and it must be broad: low-frequency fbm, no per-mark loop.
+A **mark** — a leaf, a flake, an ember — covers almost nothing, so it may be
+expensive where it lands. Marks are drawn out of a hashed cell grid with a
+travel offset; amplitude buys *count* first (a gate on the cell's own keep
+value) and brightness only second, so half as much weather is half as many
+leaves rather than the same leaves at half opacity.
+
+`SHAFT_PEAK` is the one constant here that is derived rather than chosen.
+Shafts are the only layer that *lifts* the felt, and the felt already sits
+near the top of what `the_felt_is_dark_enough_to_read_cards_against` allows,
+which leaves about 0.047 of linear headroom and puts the shaft's peak alpha
+at 0.031. It is 0.025. The consequence is worth stating plainly, because it
+looks like a bug: **shafts are the quietest of the six**, and a Plains-heavy
+board gets the most restrained weather on the table. That is the bound doing
+its job.
+
+### What looking at it changed
+
+The numbers above were checked live through `dev-control`, one layer at a
+time at full amplitude, against the same table with the air switched off.
+Measured over the felt, the veils move it by about 5 of 255 (fog, over 99% of
+the cloth), 7 (shafts, 93%) and 1 (mist, in blooms at the rim, 11%); the
+marks cover a few tenths of a percent of the table and are strong where they
+land. Leaves at their maximum are about twenty on the whole table.
+
+One thing failed that reading and was changed. An ember was a disc: a flat
+plateau of 187 red twenty pixels across, then 64 three pixels later, then a
+halo nobody could see under it. On a green felt that is a counter somebody
+left on the table, not something burning. The core falls off from its middle
+now and meets the halo without a step, and the halo is worth seeing. It
+costs the same handful of pixels and is an entirely different object.
+
+### The setting
+
+`Preferences::atmosphere` is `Off` / `Soft` / `Full`, a budget of 0, 0.5 and
+1.0, and it lives in `Preferences` rather than in `ClientSettings` because it
+is a taste and not a machine's capability: it travels with the account over
+`GET`/`PUT /settings`, beside the sky. `Off` despawns the quad outright
+rather than setting six amplitudes to zero — a slab-sized blended surface is
+a near-fullscreen pass every frame whether or not anything is drawn on it,
+and that is the difference that matters on a phone.
+
+`reduce_motion` **freezes** the air rather than emptying it, on the same
+`MOVING`/`STILL` clock the cards, the mats and the sky use. A player who
+asked for a table that holds still asked for that, and a setting that quietly
+removed the weather would look like a bug in the weather rather than like the
+setting working.
+
+Nothing here is shipped: no leaf sprite, no snowflake texture, no gradient
+for a light shaft. `docs/legal.md` §2 decided that for the felt and the mats
+and §5 decided it again for sound; ornament is the easiest thing to borrow by
+accident, and arithmetic borrows nothing.
+
 ## Eight seats
 
 - Seats sit on a ring, local seat at the near edge, opponents clockwise **in

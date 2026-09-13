@@ -408,7 +408,12 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
             let m = mark_at(table, 2.5, travel, 2.5 + 2.0 * j, j + 8.0, t);
             let wobble = across * (0.06 * sin(t * (1.4 + 1.2 * m.s1) + m.s2 * TAU));
             let d = length(m.at - wobble);
-            let core = 1.0 - smoothstep(cores[i], cores[i] + 0.02, d);
+            // A spark has no edge. The core was a plateau with a cliff at its
+            // rim — measured live, 187 of red across twenty pixels and then
+            // 64 three pixels later — which reads as a counter somebody left
+            // on the felt rather than as something burning. It falls off from
+            // the middle now and meets the halo without a step in between.
+            let core = pow(1.0 - smoothstep(0.0, cores[i] * 2.4, d), 3.0);
             let glow = pow(1.0 - smoothstep(0.0, halos[i], d), 2.0);
             // An ember cools rather than fading symmetrically: it is at its
             // brightest early and spends most of its life going out.
@@ -422,8 +427,8 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
             // The halo is the ember's own light on the cloth and is not
             // displaced: that is its ground cue, the way the shadow is the
             // leaf's.
-            acc = over(acc, lit, glow * heat * 0.10);
-            acc = over(acc, lit, core * heat * 0.90);
+            acc = over(acc, lit, glow * heat * 0.22);
+            acc = over(acc, lit, core * heat * 0.75);
         }
     }
 
