@@ -86,9 +86,6 @@ const NUB: f32 = 14.0;
 /// not a second colour, so the grain still shows through.
 const NUB_TONE: f32 = 0.945;
 
-/// How far the halo stands off the card it rings.
-const HALO_AIR: f32 = 3.0;
-
 /// How long the sheet takes to open, in seconds.
 ///
 /// Short enough to be over before a player has finished looking down at it —
@@ -122,13 +119,12 @@ const ZOOM_FROM: f32 = 0.88;
 /// no snap at all.
 const ZOOM_BACK: f32 = 3.0;
 
-/// The share of the opening the nub and the halo wait out.
+/// The share of the opening the nub waits out.
 ///
-/// They are attached to things — the sheet's edge and the card's border — and
-/// a sheet at 90% has its edge 5% of its height away from where the nub is
-/// drawn. Rather than animate that gap away, the two arrive once the paper is
-/// nearly full size, which also reads right: the sheet opens, and *then* it
-/// points.
+/// It is attached to something — the sheet's own edge — and a sheet at 90%
+/// has that edge 5% of its height away from where the nub is drawn. Rather
+/// than animate the gap away, the tail arrives once the paper is nearly full
+/// size, which also reads right: the sheet opens, and *then* it points.
 const ZOOM_TAIL: f32 = 0.55;
 
 /// How close to the window's edge the sheet may come.
@@ -168,14 +164,50 @@ const POUR_MARK: f32 = 21.0;
 /// The ring of paper round a pip, which is the part the pointer lands on.
 ///
 /// The pip itself is a disc and a disc is a poor target, so the button is the
-/// disc plus this on every side. It is also what gives a picked pip a wash to
-/// be picked *in* — a highlight painted under the disc alone would be
-/// invisible. It did not shrink with [`POUR_MARK`] for exactly that reason:
-/// the ring is the target, and a smaller mark needs it more.
+/// disc plus this on every side. It is also where [`PICK_RING`] is drawn — a
+/// mark painted round the disc alone would be a second outline on the symbol
+/// rather than a ring round the control. It did not shrink with [`POUR_MARK`]
+/// for exactly that reason: the ring is the target, and a smaller mark needs
+/// it more.
 const POUR_RING: f32 = 5.0;
 
 /// The air between two pips.
 const POUR_AIR: f32 = 4.0;
+
+/// How much of [`palette::PARCHMENT_EDGE`] the header of pips is washed in.
+///
+/// The hairline that parts the head from the list, widened into a field. The
+/// owner asked for the mana row to stand out, and the sheet has exactly three
+/// registers to say it in: brass says a *state* (picked, armed), ink says the
+/// *pointer* (a hover, the close button's dish), and this says *structure* —
+/// the border, [`rule`], the cost title's hairline. "This is not an item in
+/// the list" is a structural claim, so it is drawn in the structural ink.
+/// Brass here would be one very wide armed row; ink would be a row the
+/// pointer never left.
+///
+/// Alpha rather than a mixed colour, so the grain comes through it as it comes
+/// through every other wash on this paper. Measured over the sheet's own face
+/// (203,187,148) it composites to 192,175,135 — 1.14:1, a *shade* where every
+/// state on this sheet is a light, which is what keeps a header from ever
+/// being mistaken for a row saying something.
+///
+/// Only the sheet gets it. On a bubble the pips are the whole paper, and a
+/// band the size of the page is a differently-coloured page.
+const POUR_BAND_WASH: f32 = 0.35;
+
+/// The air over and under the pips inside that band.
+///
+/// So the 31-pixel targets have paper around them rather than sitting on the
+/// band's own edges: 3 + 31 + 3 is a 37-pixel field.
+const POUR_BAND_AIR: f32 = 3.0;
+
+/// The paper between the head's hairline and the band.
+///
+/// With [`rule`]'s own 2 px under it that is six pixels, which is what keeps
+/// the two from reading as one thick line. Under the band the margin stays
+/// what it always was, because the band *parts* the head from the list and a
+/// second hairline below it would be saying the same thing twice.
+const POUR_BAND_GAP: f32 = 4.0;
 
 /// How far a pip grows under the pointer, and gives way under a press.
 ///
@@ -299,10 +331,52 @@ const CLOSE_HOT: Color = Color::srgba(0.098, 0.082, 0.062, 0.14);
 
 /// The wash under the row the keyboard is on.
 ///
-/// The same claim at half the weight, because the two are different claims
-/// about the same row: the cursor is *where a key would land* and the arming
-/// is *what a key has already done*.
+/// It carries the cursor's **extent** — which row, edge to edge — and
+/// [`PICK_MARK`] carries the claim. Two strengths of one wash is what the
+/// owner could not see: the cursor and the arming are different claims about
+/// the same row (*where a key would land* against *what a key has already
+/// done*), and a row that is both showed only the louder of them.
 const PICKED_WASH: Color = Color::srgba(0.788, 0.635, 0.153, 0.08);
+
+/// The ink the keyboard's own cursor is drawn in — [`palette::INK_BRASS`].
+///
+/// **Brass at ink weight says where the keyboard is; brass as a light says
+/// what it has done.** A mark two or three pixels wide is carried by its
+/// luminance and [`palette::BRASS`] has none to give here: on the paper, on
+/// the band and on [`ARMED_WASH`] it measures 1.28, 1.12 and 1.23:1, which is
+/// a mark that is not there. The ink weight measures 3.73, 3.28 and 3.59:1 —
+/// past WCAG 1.4.11's 3:1 for a graphical control — on all three, which is
+/// what [`the_cursors_mark_carries_on_every_ground_it_lands_on`] holds.
+///
+/// It is carried as a `BorderColor`, which `Feel` never writes, so the state
+/// and the hover stay in separate registers and a row can be armed *and* hold
+/// the cursor at once. The cost is that this accent now says two things on
+/// one sheet — whose list it is, in the head's letters, and where the keyboard
+/// is, as a bar — told apart by shape.
+const PICK_MARK: Color = palette::INK_BRASS;
+
+/// How wide the bar down the left edge of the row the keyboard is on.
+///
+/// A marginal mark, on the edge the eye enters a row by, and not a ring: the
+/// row is full-bleed against the sheet's own one-pixel border, so a ring
+/// would double that line.
+///
+/// **Every row carries the border**, transparent at rest, and so does
+/// [`spawn_pager`] — a border is box space in taffy, so a border on the picked
+/// row alone would jog that one sentence three pixels right, and "one straight
+/// left edge down the whole sheet" is the row's whole layout argument. That is
+/// the price of an edge that never moves, and the reason this is a border
+/// rather than a child spawned on the picked row.
+const PICK_BAR: f32 = 3.0;
+
+/// And the ring round the pip it is on.
+///
+/// A disc takes a ring, because there the ring *is* the control's extent —
+/// which is why a pip needs no wash beside it and [`PICKED_WASH`] is a row's
+/// alone. It eats into [`POUR_RING`] rather than adding to it, so the 31-pixel
+/// target is exactly the size it was, and it lifts with the disc under
+/// [`POUR_LIFT`] because `Feel` scales the node the border is on.
+const PICK_RING: f32 = 2.0;
 
 /// A row's resting wash with the pointer's ink pressed into it.
 ///
@@ -337,19 +411,18 @@ pub struct AbilitySheetRoot;
 pub struct AbilitySheet {
     /// The permanent it belongs to.
     pub object: ObjectId,
-    /// Where the three pieces already are, so a camera standing still costs
+    /// Where the two pieces already are, so a camera standing still costs
     /// one comparison instead of a relayout of the whole sheet.
     placed: Option<Placement>,
 }
 
-/// Where the sheet, its nub and its halo were last put.
+/// Where the sheet and its nub were last put.
 ///
 /// The sheet's own corner is **not** enough to guard on any more. It is
 /// clamped to the window, so a card gliding along the bottom row moves the
-/// halo and the nub while leaving the corner exactly where it was — and a
-/// guard that only watched the corner would pin the halo to where the card
-/// used to be. What changed is that the sheet stopped being the only thing
-/// this system places.
+/// nub while leaving the corner exactly where it was — and a guard that only
+/// watched the corner would pin the tail to where the card used to be. What
+/// changed is that the sheet stopped being the only thing this system places.
 #[derive(Clone, Copy, PartialEq)]
 struct Placement {
     /// The sheet's top-left.
@@ -422,15 +495,6 @@ fn put_nub(at: &Placement, node: &mut Node, edge: &mut BorderColor) {
     };
 }
 
-/// Puts the halo, a hairline standing off the card's own box.
-fn put_halo(at: &Placement, node: &mut Node) {
-    node.display = Display::Flex;
-    node.left = px(at.mid.x - at.card.x / 2.0 - HALO_AIR);
-    node.top = px(at.mid.y - at.card.y / 2.0 - HALO_AIR);
-    node.width = px(at.card.x + 2.0 * HALO_AIR);
-    node.height = px(at.card.y + 2.0 * HALO_AIR);
-}
-
 /// The tenth row, which turns the page.
 #[derive(Component)]
 pub struct SheetPager;
@@ -459,30 +523,22 @@ pub struct SheetClose;
 /// can no longer be on all four edges and be hidden by the body, so
 /// [`place_ability_sheet`] lights the two that face outwards and leaves the
 /// two lying on the paper clear.
+///
+/// It is the **only** thing the sheet attaches to the table, and that is a
+/// decision rather than an omission. A `SheetHalo` used to ring the card as
+/// well — [`palette::PARCHMENT_EDGE`] at the sheet's own weight, so paper,
+/// tail and ring would read as one gesture in one material. On the running
+/// client it read as a gold frame round the card instead, and the owner asked
+/// for it off. The tail already says which card the paper is about, from the
+/// paper's own side; a second mark saying it from the card's side is a light
+/// on a border that carries three rules claims and nothing else.
 #[derive(Component)]
 pub struct SheetNub;
 
-/// The hairline round the card the sheet belongs to.
-///
-/// Made of the **sheet** and not of the card: [`palette::PARCHMENT_EDGE`] at
-/// the sheet's own weight and corner radius, so the paper, its tail and this
-/// ring are one gesture in one material. The card's border already carries
-/// three lights that are rules claims — can be activated, is armed, will be
-/// tapped — and "this paper is about this card" is not a fourth one; a light
-/// in that register would be read as something the engine had said.
-#[derive(Component)]
-pub struct SheetHalo;
-
-/// The two pieces that are attached to something: the tail and the ring.
+/// The one piece that is attached to something: the tail.
 ///
 /// `Without<AbilitySheet>` is not decoration — it is what lets a system hold
-/// a mutable `Node` (or `UiTransform`) on the sheet and on these at once.
-type Trim = (Or<(With<SheetNub>, With<SheetHalo>)>, Without<AbilitySheet>);
-
-/// The ring on its own, disjoint from both of the others.
-type Halo = (With<SheetHalo>, Without<AbilitySheet>, Without<SheetNub>);
-
-/// And the tail on its own.
+/// a mutable `Node` (or `UiTransform`) on the sheet and on this at once.
 type Nub = (With<SheetNub>, Without<AbilitySheet>);
 
 /// The movement the sheet is in the middle of.
@@ -665,49 +721,27 @@ pub fn sync_ability_sheet(
         fresh,
         standing,
     );
-    let (halo, nub) = spawn_trim(&mut commands, &sheets, fresh, standing);
-    // Order *is* the drawing: the ring round the card, then the paper, then
-    // the tail lying across the paper's edge. See [`SheetNub`] for why the
-    // tail is in front of the sheet and not behind it.
-    commands.entity(root).add_children(&[halo, sheet, nub]);
+    let nub = spawn_trim(&mut commands, &sheets, fresh, standing);
+    // Order *is* the drawing: the paper, then the tail lying across the
+    // paper's edge. See [`SheetNub`] for why the tail is in front of the
+    // sheet and not behind it.
+    commands.entity(root).add_children(&[sheet, nub]);
 }
 
-/// The ring round the card and the tail that points at it.
+/// The tail that points at the card the sheet is about.
 ///
-/// Both are spawned hidden unless the sheet they belong to is being *rebuilt*
-/// and `standing` says where the last one stood. [`place_ability_sheet`] is
-/// otherwise what reveals them, and it needs a `ComputedNode` that does not
-/// exist on the frame they are made — so without this they would be drawn
-/// once in the window's top-left corner, which is where an unplaced absolute
-/// node is.
+/// It is spawned hidden unless the sheet it belongs to is being *rebuilt* and
+/// `standing` says where the last one stood. [`place_ability_sheet`] is
+/// otherwise what reveals it, and it needs a `ComputedNode` that does not
+/// exist on the frame it is made — so without this it would be drawn once in
+/// the window's top-left corner, which is where an unplaced absolute node is.
 fn spawn_trim(
     commands: &mut Commands,
     sheets: &UiSheets,
     fresh: bool,
     standing: Option<Placement>,
-) -> (Entity, Entity) {
+) -> Entity {
     let arrive = Vec2::splat(if fresh { 0.0 } else { 1.0 });
-    let mut halo_node = Node {
-        position_type: PositionType::Absolute,
-        display: Display::None,
-        border: UiRect::all(px(1)),
-        border_radius: BorderRadius::all(px(4)),
-        ..default()
-    };
-    if let Some(at) = standing.as_ref() {
-        put_halo(at, &mut halo_node);
-    }
-    let halo = commands
-        .spawn((
-            SheetHalo,
-            halo_node,
-            BorderColor::all(palette::PARCHMENT_EDGE),
-            UiTransform::from_scale(arrive),
-            // The ring is over the card it rings. A ring that answered the
-            // pointer would be a card that stopped answering it.
-            Pickable::IGNORE,
-        ))
-        .id();
     let mut nub_node = Node {
         position_type: PositionType::Absolute,
         display: Display::None,
@@ -778,7 +812,7 @@ fn spawn_trim(
         ))
         .id();
     commands.entity(nub).add_child(grain);
-    (halo, nub)
+    nub
 }
 
 /// One sheet, built.
@@ -798,8 +832,8 @@ fn spawn_sheet(
     standing: Option<Placement>,
 ) -> Entity {
     // A bubble is the same piece of paper with something else written on it:
-    // the grain, the border, the shadow, the nub, the halo and the opening
-    // are all the sheet's and none of them is worth a second copy. What it
+    // the grain, the border, the shadow, the nub and the opening are all the
+    // sheet's and none of them is worth a second copy. What it
     // does not take is the sheet's *shape* — no head, no footer, no floor
     // under its width, and a row of pips instead of a column of sentences.
     let split = crate::abilities::Split::of(options);
@@ -1459,10 +1493,14 @@ fn spawn_cost_title(commands: &mut Commands, fonts: &UiFonts, cost: &str) -> Ent
 /// does.
 ///
 /// The same pips a bubble is made of, on a sheet that also has sentences on
-/// it. It is a **header** and not a row: it carries no digit and no wash of
-/// its own, it is drawn on every page, and it is centred where a row's ink
-/// starts at the paper's left edge — all four say the same thing, which is
+/// it. It is a **header** and not a row: it carries no digit and no wash that
+/// says a state, it is drawn on every page, and it is centred where a row's
+/// ink starts at the paper's left edge — all four say the same thing, which is
 /// that the list below it is a list and this is not an item in it.
+///
+/// The band it sits on is the fourth, and the one the owner asked for: see
+/// [`POUR_BAND_WASH`] for why a *structural* wash is the only register that
+/// could carry it.
 fn spawn_pour_strip(
     commands: &mut Commands,
     fonts: &UiFonts,
@@ -1477,11 +1515,20 @@ fn spawn_pour_strip(
                 justify_content: JustifyContent::Center,
                 align_items: AlignItems::Center,
                 column_gap: px(POUR_AIR),
-                // The sheet's own vertical padding is above it already; this
-                // is the air under it, against the first sentence.
-                margin: UiRect::bottom(px(SHEET_PAD_Y - POUR_RING)),
+                padding: UiRect::vertical(px(POUR_BAND_AIR)),
+                // Full bleed, which is by construction rather than by a
+                // negative margin: the sheet has no horizontal padding — its
+                // rows carry their own — and stretches its children, so a
+                // background here reaches both edges of the paper.
+                //
+                // Above it, the paper between the head's hairline and the
+                // band; below it, the air against the first sentence, which
+                // is what it always was.
+                margin: UiRect::new(px(0), px(0), px(POUR_BAND_GAP), px(SHEET_PAD_Y - POUR_RING)),
+                border_radius: BorderRadius::all(px(KEYCAP_R)),
                 ..default()
             },
+            BackgroundColor(palette::PARCHMENT_EDGE.with_alpha(POUR_BAND_WASH)),
             Pickable::IGNORE,
         ))
         .id();
@@ -1513,18 +1560,27 @@ fn spawn_pour(
     color: baylee_core::mana::ManaColor,
     picked: bool,
 ) -> Entity {
-    let wash = if picked { PICKED_WASH } else { Color::NONE };
     let button = commands
         .spawn((
             crate::hud::AbilityButton { index },
             Node {
-                padding: UiRect::all(px(POUR_RING)),
+                // The ring is cut *out of* the paper round the disc, not added
+                // to it, so the target stays exactly [`POUR_RING`] deep
+                // whether the cursor is here or not.
+                border: UiRect::all(px(PICK_RING)),
+                padding: UiRect::all(px(POUR_RING - PICK_RING)),
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
                 border_radius: BorderRadius::all(px(POUR_MARK / 2.0 + POUR_RING)),
                 ..default()
             },
-            BackgroundColor(wash),
+            // No wash under a pip. The ring is the control's extent, and brass
+            // at [`PICKED_WASH`]'s weight over [`POUR_BAND_WASH`] composites
+            // to 191,172,125 against the band's own 192,175,135 — which is
+            // brass disappearing into brass, and the whole of what the owner
+            // could not see.
+            BackgroundColor(Color::NONE),
+            BorderColor::all(if picked { PICK_MARK } else { Color::NONE }),
             // **A lift, where a row is a tint.** This said the opposite for
             // one commit — "a button that grew under the pointer would re-lay
             // that glyph out" — and that is not what a lift does: `Feel`
@@ -1537,8 +1593,9 @@ fn spawn_pour(
             // The ink under it stays and is what the movement is read
             // against: [`pressed`] on a resting pip is plain ink at
             // [`ROW_PRESS`], the register the whole sheet already answers a
-            // pointer in.
-            Feel::lifting(wash, pressed(wash), POUR_LIFT),
+            // pointer in — and it is the same ink whether the cursor is on
+            // this pip or not, because the ring is not `Feel`'s to write.
+            Feel::lifting(Color::NONE, pressed(Color::NONE), POUR_LIFT),
         ))
         .id();
     let pip = crate::manaui::spawn_pip(
@@ -1583,11 +1640,19 @@ fn spawn_row(
                 flex_direction: FlexDirection::Row,
                 align_items: AlignItems::Center,
                 column_gap: px(11),
-                padding: UiRect::axes(px(SHEET_PAD_X), px(6)),
+                // The bar is taken out of the row's own left padding, so the
+                // sentence starts where it always did — see [`PICK_BAR`] for
+                // why every row carries the border and not only this one.
+                border: UiRect::left(px(PICK_BAR)),
+                padding: UiRect::new(px(SHEET_PAD_X - PICK_BAR), px(SHEET_PAD_X), px(6), px(6)),
                 border_radius: BorderRadius::all(px(KEYCAP_R)),
                 ..default()
             },
             BackgroundColor(wash),
+            // The cursor, in the one register `Feel` does not write — so an
+            // armed row that the keyboard is also on says both at once, which
+            // is the common case (press `2`, and the cursor is on 2).
+            BorderColor::all(if picked { PICK_MARK } else { Color::NONE }),
             // Lit but not lifted. A row is a *sentence* with a wash behind it,
             // and a button's 2.5% grow-on-hover reflows that sentence every
             // time the pointer crosses it — which the owner read as the text
@@ -1686,11 +1751,16 @@ fn spawn_pager(
                 flex_direction: FlexDirection::Row,
                 align_items: AlignItems::Center,
                 column_gap: px(11),
-                padding: UiRect::axes(px(SHEET_PAD_X), px(6)),
+                // The cursor never lands here, and the border is carried all
+                // the same: see [`PICK_BAR`]. A pager three pixels narrower
+                // than the rows above it is a bent left edge.
+                border: UiRect::left(px(PICK_BAR)),
+                padding: UiRect::new(px(SHEET_PAD_X - PICK_BAR), px(SHEET_PAD_X), px(6), px(6)),
                 border_radius: BorderRadius::all(px(KEYCAP_R)),
                 ..default()
             },
             BackgroundColor(Color::NONE),
+            BorderColor::all(Color::NONE),
             Feel::tinting_to(Color::NONE, pressed(Color::NONE)),
         ))
         .id();
@@ -1747,10 +1817,10 @@ fn row_text(
 }
 
 /// Follows the card with the sheet that is already built, and puts the nub
-/// and the halo where they point at it.
+/// where it points at it.
 ///
 /// Every frame, because the card is gliding — see the module header. The
-/// write is guarded on where the three pieces already are, so a card standing
+/// write is guarded on where the two pieces already are, so a card standing
 /// still costs one comparison and no relayout.
 ///
 /// The anchor is the card's **resting** pose ([`crate::table::CardRest`]) and
@@ -1770,7 +1840,6 @@ pub fn place_ability_sheet(
         &bevy::ui::ComputedNode,
     )>,
     mut nub: Query<(&mut Node, &mut BorderColor), Nub>,
-    mut halo: Query<&mut Node, Halo>,
 ) {
     let Ok((mut sheet, mut node, mut seen, computed)) = sheet.single_mut() else {
         return;
@@ -1792,9 +1861,6 @@ pub fn place_ability_sheet(
             sheet.placed = None;
             node.display = Display::None;
             for (mut piece, _) in &mut nub {
-                piece.display = Display::None;
-            }
-            for mut piece in &mut halo {
                 piece.display = Display::None;
             }
         }
@@ -1843,16 +1909,13 @@ pub fn place_ability_sheet(
     if let Ok((mut piece, mut edge)) = nub.single_mut() {
         put_nub(&now, &mut piece, &mut edge);
     }
-    if let Ok(mut piece) = halo.single_mut() {
-        put_halo(&now, &mut piece);
-    }
 }
 
 /// Opens and closes the sheet, and despawns it at the end of a close.
 ///
-/// The sheet grows, the nub and the halo follow it once it is nearly there
+/// The sheet grows, the nub follows it once it is nearly there
 /// ([`ZOOM_TAIL`]), and the same movement run backwards is what takes them
-/// all away. A player who has turned motion off gets the end of it on the
+/// both away. A player who has turned motion off gets the end of it on the
 /// first frame, which is the answer `table::glide` and `ShownRig` both give.
 ///
 /// The despawn is here and not in [`sync_ability_sheet`] because a closing
@@ -1863,7 +1926,7 @@ pub fn zoom_the_sheet(
     time: Res<Time>,
     prefs: Res<crate::prefs::Prefs>,
     mut sheets: Query<(&mut SheetZoom, &mut UiTransform, &ChildOf), With<AbilitySheet>>,
-    mut trim: Query<&mut UiTransform, Trim>,
+    mut trim: Query<&mut UiTransform, Nub>,
 ) {
     let still = prefs.all().reduce_motion;
     for (mut zoom, mut transform, parent) in &mut sheets {
@@ -1875,8 +1938,8 @@ pub fn zoom_the_sheet(
         };
         let done = zoom.t >= 1.0;
         if zoom.closing && done {
-            // The whole tree, not the sheet: the nub and the halo are its
-            // siblings and the root is what one despawn clears.
+            // The whole tree, not the sheet: the nub is its sibling and the
+            // root is what one despawn clears.
             commands.entity(parent.parent()).despawn();
             continue;
         }
@@ -1890,9 +1953,9 @@ pub fn zoom_the_sheet(
         };
         transform.scale = Vec2::splat(scale);
 
-        // The two attached pieces, on their own ramp — written every frame
-        // and never guarded on `display`, because the placer is what reveals
-        // them and a piece that was skipped while hidden would be shown at
+        // The attached piece, on its own ramp — written every frame and
+        // never guarded on `display`, because the placer is what reveals it
+        // and a tail that was skipped while hidden would be shown at
         // whatever scale it was left at for the frame in between.
         let tail = ((zoom.t - ZOOM_TAIL) / (1.0 - ZOOM_TAIL)).clamp(0.0, 1.0);
         for mut piece in &mut trim {
@@ -2301,5 +2364,69 @@ mod running {
             drift < 0.01,
             "the ink drifted off brass's hue by {drift:.3}"
         );
+    }
+
+    /// The cursor's mark carries on every ground it can land on.
+    ///
+    /// [`PICK_MARK`] is a graphical control's outline rather than a letter, so
+    /// the floor is WCAG 1.4.11's 3:1 and not the 4.5:1 above — but it has to
+    /// clear it on **three** grounds, because the sheet has three: bare paper,
+    /// the band under the pips ([`POUR_BAND_WASH`]) and an armed row's
+    /// [`ARMED_WASH`]. The counter-test is the point of it: [`palette::BRASS`]
+    /// fails all three, which is why two strengths of one wash could not say
+    /// where the keyboard was.
+    #[test]
+    fn the_cursors_mark_carries_on_every_ground_it_lands_on() {
+        /// sRGB → linear, as above.
+        fn linear(c: f32) -> f32 {
+            if c <= 0.040_45 {
+                c / 12.92
+            } else {
+                ((c + 0.055) / 1.055).powf(2.4)
+            }
+        }
+        fn luma(c: Color) -> f32 {
+            let s = c.to_srgba();
+            0.2126f32.mul_add(
+                linear(s.red),
+                0.7152f32.mul_add(linear(s.green), 0.0722 * linear(s.blue)),
+            )
+        }
+        fn contrast(a: Color, b: Color) -> f32 {
+            let (one, two) = (luma(a), luma(b));
+            (one.max(two) + 0.05) / (one.min(two) + 0.05)
+        }
+        /// `over` at its own alpha, laid on an opaque `under`.
+        fn over(over: Color, under: Color) -> Color {
+            let (o, u) = (over.to_srgba(), under.to_srgba());
+            let mix = |a: f32, b: f32| a.mul_add(o.alpha, b * (1.0 - o.alpha));
+            Color::srgb(
+                mix(o.red, u.red),
+                mix(o.green, u.green),
+                mix(o.blue, u.blue),
+            )
+        }
+
+        let paper = palette::PARCHMENT;
+        let grounds = [
+            ("the paper", paper),
+            (
+                "the band under the pips",
+                over(palette::PARCHMENT_EDGE.with_alpha(POUR_BAND_WASH), paper),
+            ),
+            ("an armed row", over(ARMED_WASH, paper)),
+        ];
+        for (what, ground) in grounds {
+            let mark = contrast(PICK_MARK, ground);
+            assert!(
+                mark >= 3.0,
+                "the cursor has to be visible on {what}: {mark:.2}:1"
+            );
+            let light = contrast(palette::BRASS, ground);
+            assert!(
+                light < 2.0,
+                "this test's premise is that brass cannot be a mark on {what}: {light:.2}:1"
+            );
+        }
     }
 }
