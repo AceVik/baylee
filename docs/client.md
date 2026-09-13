@@ -2520,7 +2520,11 @@ unit of what `TABLE_VEIL` at 0.70 predicts when the compositing is done in
 linear light, and both a perfectly plausible *choice* of colour for a muted
 end screen. What gave it away was that the numbers were predictable at all.
 The sheet now carries `ZIndex(Z_SHEET)` and the ladder is asserted rather
-than merely written down.
+than merely written down. Re-photographed after the fix, the same two
+patches read **(215, 200, 163)** and **(201, 162, 39)** — brass to the unit,
+and parchment a few counts under its own constant because the grain lies
+over it — while the felt beside the sheet stayed at (14, 18, 22). The veil
+is doing exactly what it did; it is doing it to the table only.
 
 ### The bar stops whole
 
@@ -2539,7 +2543,9 @@ they went on being drawn over the end screen at full strength — lit,
 hovering under the pointer through `ambience::Feel`, which runs ungated —
 answering nothing. `overlay::spawn_menu_row` exists so that "not once the
 game is over" is one `if` at the call site rather than an indent around
-seventy lines.
+seventy lines. Measured at the same corner across the same concession: the
+pill patch reads (54, 61, 68) while the game is on and (18, 20, 29) once it
+is over, which is the veiled night sky with nothing in front of it.
 
 ## The zone browser is a dialog, which is a different material
 
