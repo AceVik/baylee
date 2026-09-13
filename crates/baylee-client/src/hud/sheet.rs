@@ -55,7 +55,67 @@ const SHEET_MIN: f32 = 230.0;
 const SHEET_MAX: f32 = 380.0;
 
 /// The air between the card and the sheet's near edge.
-const SHEET_GAP: f32 = 10.0;
+///
+/// It has to clear the lift a hovered or armed card rises by, which is why it
+/// is not smaller: the sheet is anchored to the card's *resting* pose
+/// ([`crate::table::CardRest`]) and stays put, so a card that rises under the
+/// pointer rises **towards** the paper. Anchoring to the drawn pose instead
+/// would let the two keep their distance and drag the sheet about, which is
+/// the thing being fixed.
+const SHEET_GAP: f32 = 18.0;
+
+/// The nub's side, before it is turned.
+///
+/// A square turned forty-five degrees, the way a loyalty badge's point is
+/// ([`crate::manaui`]): its far vertex reaches `NUB·√2/2` past the sheet's
+/// edge and the other half is under the paper. Small — it is a tail, and a
+/// tail that could be mistaken for a control would be one.
+const NUB: f32 = 14.0;
+
+/// How far the halo stands off the card it rings.
+const HALO_AIR: f32 = 3.0;
+
+/// How long the sheet takes to open, in seconds.
+///
+/// Short enough to be over before a player has finished looking down at it —
+/// the sheet answers a click, and an answer that takes a quarter of a second
+/// to arrive is a delay rather than a movement.
+const ZOOM_IN: f32 = 0.16;
+
+/// And to close.
+///
+/// Shorter still, because the two are not the same event: opening is an
+/// answer arriving and closing is it being dismissed, and a dismissal that
+/// took as long as the answer reads as reluctance.
+const ZOOM_OUT: f32 = 0.10;
+
+/// The size the sheet grows from, and shrinks back to.
+///
+/// Not zero. A sheet that grows out of nothing is a puff of smoke; this is a
+/// page being laid down — it was always this size, and the movement is the
+/// last eighth of it arriving.
+const ZOOM_FROM: f32 = 0.88;
+
+/// The overshoot's shape, as the `c₁` of the usual ease-out-back.
+///
+/// The curve runs 0 → 1 over the range [`ZOOM_FROM`]..1 and its peak is
+/// `4c³ / 27(c+1)²` of that range past the end. **Three** is the value where
+/// that closed form collapses to exactly a quarter — `4·27 / 27·16` — so the
+/// sheet overshoots by a clean `(1 − ZOOM_FROM)/4`, which is 3% of full size.
+///
+/// The textbook `1.70158` is for a curve whose range *is* the whole size; at
+/// this range it would overshoot by a third of a per cent and there would be
+/// no snap at all.
+const ZOOM_BACK: f32 = 3.0;
+
+/// The share of the opening the nub and the halo wait out.
+///
+/// They are attached to things — the sheet's edge and the card's border — and
+/// a sheet at 90% has its edge 5% of its height away from where the nub is
+/// drawn. Rather than animate that gap away, the two arrive once the paper is
+/// nearly full size, which also reads right: the sheet opens, and *then* it
+/// points.
+const ZOOM_TAIL: f32 = 0.55;
 
 /// How close to the window's edge the sheet may come.
 const SHEET_MARGIN: f32 = 12.0;
@@ -110,6 +170,17 @@ const ARMED_WASH: Color = Color::srgba(0.788, 0.635, 0.153, 0.16);
 /// hovering the row a player has already committed to *take light away*.
 const ARMED_HOT: Color = Color::srgba(0.788, 0.635, 0.153, 0.24);
 
+/// The dish the close button sits in — [`palette::PARCHMENT_INK`] at 5%.
+///
+/// A resting state at all, which the other controls on this sheet do without,
+/// because a **finger** has no hover: on a tablet the cross would otherwise be
+/// a glyph floating on paper with nothing to say it is a target. Five per cent
+/// is a press in the paper rather than a button on it.
+const CLOSE_REST: Color = Color::srgba(0.098, 0.082, 0.062, 0.05);
+
+/// The same with the pointer on it.
+const CLOSE_HOT: Color = Color::srgba(0.098, 0.082, 0.062, 0.14);
+
 /// The wash under the row the keyboard is on.
 ///
 /// The same claim at half the weight, because the two are different claims
@@ -126,9 +197,29 @@ pub struct AbilitySheetRoot;
 pub struct AbilitySheet {
     /// The permanent it belongs to.
     pub object: ObjectId,
-    /// The corner it is already at, so a camera standing still costs one
-    /// comparison instead of a relayout of the whole sheet.
-    placed: Option<Vec2>,
+    /// Where the three pieces already are, so a camera standing still costs
+    /// one comparison instead of a relayout of the whole sheet.
+    placed: Option<Placement>,
+}
+
+/// Where the sheet, its nub and its halo were last put.
+///
+/// The sheet's own corner is **not** enough to guard on any more. It is
+/// clamped to the window, so a card gliding along the bottom row moves the
+/// halo and the nub while leaving the corner exactly where it was — and a
+/// guard that only watched the corner would pin the halo to where the card
+/// used to be. What changed is that the sheet stopped being the only thing
+/// this system places.
+#[derive(Clone, Copy, PartialEq)]
+struct Placement {
+    /// The sheet's top-left.
+    corner: Vec2,
+    /// The card's projected centre.
+    mid: Vec2,
+    /// The box the card covers.
+    card: Vec2,
+    /// Whether the sheet ended up under the card rather than over it.
+    below: bool,
 }
 
 /// The tenth row, which turns the page.
@@ -144,6 +235,62 @@ pub struct SheetPager;
 /// it, in the place every window in the world puts one.
 #[derive(Component)]
 pub struct SheetClose;
+
+/// The tail on the sheet's edge that points at the card it belongs to.
+///
+/// A square turned forty-five degrees, drawn **after** the sheet: its inner
+/// half lies over the paper, where parchment on parchment is invisible and
+/// the sheet's own edge underneath it is covered for exactly the width of the
+/// tail. So the seam closes with no clip and no second mesh — the loyalty
+/// badge's trick, run the other way round.
+///
+/// The other way round because it has to be in *front*. Drawn behind, the
+/// sheet's `BoxShadow` fell across the half that sticks out and the tail came
+/// out a muddy grey beside bright paper. Which costs something: the border
+/// can no longer be on all four edges and be hidden by the body, so
+/// [`place_ability_sheet`] lights the two that face outwards and leaves the
+/// two lying on the paper clear.
+#[derive(Component)]
+pub struct SheetNub;
+
+/// The hairline round the card the sheet belongs to.
+///
+/// Made of the **sheet** and not of the card: [`palette::PARCHMENT_EDGE`] at
+/// the sheet's own weight and corner radius, so the paper, its tail and this
+/// ring are one gesture in one material. The card's border already carries
+/// three lights that are rules claims — can be activated, is armed, will be
+/// tapped — and "this paper is about this card" is not a fourth one; a light
+/// in that register would be read as something the engine had said.
+#[derive(Component)]
+pub struct SheetHalo;
+
+/// The two pieces that are attached to something: the tail and the ring.
+///
+/// `Without<AbilitySheet>` is not decoration — it is what lets a system hold
+/// a mutable `Node` (or `UiTransform`) on the sheet and on these at once.
+type Trim = (Or<(With<SheetNub>, With<SheetHalo>)>, Without<AbilitySheet>);
+
+/// The ring on its own, disjoint from both of the others.
+type Halo = (With<SheetHalo>, Without<AbilitySheet>, Without<SheetNub>);
+
+/// And the tail on its own.
+type Nub = (With<SheetNub>, Without<AbilitySheet>);
+
+/// The movement the sheet is in the middle of.
+///
+/// Opening and closing are one component and not two states of the interface,
+/// because the second one has to *outlive* the thing it is about: when
+/// `Duel::ability_menu` goes back to `None` the sheet has nothing left to say
+/// and is still on screen. So the closed branch of [`sync_ability_sheet`]
+/// hands the tree over to [`zoom_the_sheet`] rather than despawning it, and
+/// the despawn happens at the end of the movement.
+#[derive(Component)]
+pub struct SheetZoom {
+    /// How far through it is: 0 at the first frame, 1 at the last.
+    t: f32,
+    /// Whether the end of it is a despawn.
+    closing: bool,
+}
 
 /// What the sheet is currently saying, so it is rebuilt only when that
 /// changes.
@@ -196,6 +343,7 @@ pub fn sync_ability_sheet(
     duel: Res<Duel>,
     mut revision: ResMut<SheetRevision>,
     existing: Query<Entity, With<AbilitySheetRoot>>,
+    standing: Query<Entity, With<AbilitySheet>>,
     fonts: Res<UiFonts>,
     sheets: Res<UiSheets>,
     faces: Res<crate::cardtext::CardTexts>,
@@ -210,10 +358,17 @@ pub fn sync_ability_sheet(
     let Some((object, options)) = open else {
         // Closed. Guarded on the revision so an interface with no sheet in it
         // does not run a query and a despawn loop on every frame of the game.
+        //
+        // The tree is *handed over* rather than despawned: what is on screen
+        // has to shrink before it goes, and the thing it was about is already
+        // gone. [`zoom_the_sheet`] owns it from here and does the despawn.
         if revision.object.is_some() {
             *revision = SheetRevision::default();
-            for entity in &existing {
-                commands.entity(entity).despawn();
+            for entity in &standing {
+                commands.entity(entity).insert(SheetZoom {
+                    t: 0.0,
+                    closing: true,
+                });
             }
         }
         return;
@@ -232,6 +387,10 @@ pub fn sync_ability_sheet(
     {
         return;
     }
+    // Read before the revision is overwritten: the sheet *opens* when it
+    // starts being about a permanent it was not about a moment ago, and
+    // merely redraws for every other reason it is rebuilt.
+    let fresh = revision.object != Some(object);
     revision.object = Some(object);
     revision.page = page;
     revision.pick = duel.ability_pick;
@@ -279,8 +438,63 @@ pub fn sync_ability_sheet(
         &options,
         page,
         armed,
+        fresh,
     );
-    commands.entity(root).add_child(sheet);
+    let (halo, nub) = spawn_trim(&mut commands, fresh);
+    // Order *is* the drawing: the ring round the card, then the paper, then
+    // the tail lying across the paper's edge. See [`SheetNub`] for why the
+    // tail is in front of the sheet and not behind it.
+    commands.entity(root).add_children(&[halo, sheet, nub]);
+}
+
+/// The ring round the card and the tail that points at it.
+///
+/// Both are spawned hidden. [`place_ability_sheet`] is what reveals them, and
+/// it needs a `ComputedNode` that does not exist on the frame they are made —
+/// so without this they would be drawn once in the window's top-left corner,
+/// which is where an unplaced absolute node is.
+fn spawn_trim(commands: &mut Commands, fresh: bool) -> (Entity, Entity) {
+    let arrive = Vec2::splat(if fresh { 0.0 } else { 1.0 });
+    let halo = commands
+        .spawn((
+            SheetHalo,
+            Node {
+                position_type: PositionType::Absolute,
+                display: Display::None,
+                border: UiRect::all(px(1)),
+                border_radius: BorderRadius::all(px(4)),
+                ..default()
+            },
+            BorderColor::all(palette::PARCHMENT_EDGE),
+            UiTransform::from_scale(arrive),
+            // The ring is over the card it rings. A ring that answered the
+            // pointer would be a card that stopped answering it.
+            Pickable::IGNORE,
+        ))
+        .id();
+    let nub = commands
+        .spawn((
+            SheetNub,
+            Node {
+                position_type: PositionType::Absolute,
+                display: Display::None,
+                width: px(NUB),
+                height: px(NUB),
+                border: UiRect::all(px(1)),
+                ..default()
+            },
+            UiTransform {
+                rotation: Rot2::radians(std::f32::consts::FRAC_PI_4),
+                scale: arrive,
+                ..UiTransform::IDENTITY
+            },
+            BackgroundColor(palette::PARCHMENT),
+            // Written by the placer, which is the only thing that knows which
+            // two of the four edges are the ones facing out.
+            BorderColor::all(Color::NONE),
+        ))
+        .id();
+    (halo, nub)
 }
 
 /// One sheet, built.
@@ -296,6 +510,7 @@ fn spawn_sheet(
     options: &[crate::abilities::AbilityOption],
     page: usize,
     armed: Option<usize>,
+    fresh: bool,
 ) -> Entity {
     let sheet = commands
         .spawn((
@@ -303,6 +518,28 @@ fn spawn_sheet(
                 object,
                 placed: None,
             },
+            // `fresh` is what keeps this a movement and not a twitch: the
+            // sheet is rebuilt whenever a row is armed, the cursor moves or
+            // the page turns, and a sheet that replayed its opening on every
+            // keystroke would be unreadable. Only a sheet that is about a
+            // *different* permanent than the last one opens.
+            SheetZoom {
+                t: if fresh { 0.0 } else { 1.0 },
+                closing: false,
+            },
+            UiTransform::from_scale(Vec2::splat(if fresh { ZOOM_FROM } else { 1.0 })),
+            // **This is the flicker.** The sheet is rebuilt whenever a row is
+            // armed or the cursor moves, and a rebuilt tree has no
+            // `ComputedNode` until `bevy_ui` has laid it out — so for one
+            // frame [`place_ability_sheet`] centred a sheet of size zero,
+            // which put it half a sheet to the right of where it belongs.
+            // Once a frame, on every keystroke.
+            //
+            // Hidden and not `Display::None`, which would be the obvious
+            // thing and is the wrong one: a `display: none` node is not laid
+            // out at all, so it would never acquire the size it is waiting
+            // for. Visibility is a render concern and the layout runs anyway.
+            Visibility::Hidden,
             Node {
                 position_type: PositionType::Absolute,
                 // As wide as what is on it. An absolutely-positioned node
@@ -391,12 +628,13 @@ fn spawn_head(
 ) {
     /// The close button's side.
     ///
-    /// Larger than a keycap and smaller than the 44 logical pixels the lobby
-    /// gives a phone. The sheet is not a responsive screen — it is pinned to
-    /// a card 47 px wide — so a target sized for a thumb would be a third of
-    /// the paper's width; this is sized for a finger on a tablet, which is
-    /// what a card on a table is played with.
-    const CLOSE: f32 = 24.0;
+    /// Half again the widest keycap and close to the 44 logical pixels the
+    /// lobby gives a phone — the sheet is not a responsive screen, it is
+    /// pinned to a card 47 px wide, so a target sized for a thumb would be a
+    /// sixth of the paper. This is sized for a finger on a tablet, which is
+    /// what a card on a table is played with, and it is the only thing on
+    /// the sheet a pointer has to *find* rather than being handed by a row.
+    const CLOSE: f32 = 30.0;
 
     let name = duel.view.as_ref().map_or_else(String::new, |view| {
         view.object(object)
@@ -458,8 +696,12 @@ fn spawn_head(
                 border_radius: BorderRadius::all(px(KEYCAP_R)),
                 ..default()
             },
-            BackgroundColor(Color::NONE),
-            Feel::rising_to(Color::NONE, PICKED_WASH),
+            BackgroundColor(CLOSE_REST),
+            // The paper taking a press, rather than the brass every other
+            // wash on this sheet is made of: the rows are lit in the colour
+            // of committing to something and this is the way *out*. Reaching
+            // for the arming colour here would say the door was a deed.
+            Feel::rising_to(CLOSE_REST, CLOSE_HOT),
         ))
         .id();
     let cross = commands
@@ -468,7 +710,7 @@ fn spawn_head(
             // dedicated multiplication and ballot crosses (U+2715, U+2716)
             // are not in the family and would draw as tofu.
             Text::new("\u{d7}"),
-            tf_bold(fonts, 15.0),
+            tf_bold(fonts, 18.0),
             // The same grey as the way out in the footer. The two are one
             // door drawn twice, once for each hand.
             TextColor(palette::SLIP_ASIDE),
@@ -893,18 +1135,33 @@ fn row_text(
     (!blocks.is_empty()).then_some(blocks)
 }
 
-/// Follows the card with the sheet that is already built.
+/// Follows the card with the sheet that is already built, and puts the nub
+/// and the halo where they point at it.
 ///
 /// Every frame, because the card is gliding — see the module header. The
-/// write is guarded on where the sheet already is, so a card standing still
-/// costs one comparison and no relayout.
+/// write is guarded on where the three pieces already are, so a card standing
+/// still costs one comparison and no relayout.
+///
+/// The anchor is the card's **resting** pose ([`crate::table::CardRest`]) and
+/// not the pose it is drawn in. A card under the pointer rises 0.06 units and
+/// grows 6%, and an armed one rises further still — so a sheet anchored to
+/// what is drawn slid up the screen whenever the hand crossed the permanent
+/// it was describing, and again the moment a row was armed. Neither is a
+/// *move*: the card is exactly where it was.
 pub fn place_ability_sheet(
     shown: Res<crate::table::ShownRig>,
     windows: Query<&Window>,
-    cards: Query<(&crate::table::CardVisual, &Transform)>,
-    mut sheet: Query<(&mut AbilitySheet, &mut Node, &bevy::ui::ComputedNode)>,
+    cards: Query<(&crate::table::CardVisual, &crate::table::CardRest)>,
+    mut sheet: Query<(
+        &mut AbilitySheet,
+        &mut Node,
+        &mut Visibility,
+        &bevy::ui::ComputedNode,
+    )>,
+    mut nub: Query<(&mut Node, &mut BorderColor), Nub>,
+    mut halo: Query<&mut Node, Halo>,
 ) {
-    let Ok((mut sheet, mut node, computed)) = sheet.single_mut() else {
+    let Ok((mut sheet, mut node, mut seen, computed)) = sheet.single_mut() else {
         return;
     };
     let (Some(rig), Ok(window)) = (shown.rig(), windows.single()) else {
@@ -915,7 +1172,7 @@ pub fn place_ability_sheet(
     let Some((mid, card)) = cards
         .iter()
         .find(|(visual, _)| visual.object == sheet.object)
-        .and_then(|(_, at)| crate::table::card_box(&lens, at))
+        .and_then(|(_, at)| crate::table::card_box(&lens, &at.0))
     else {
         // The card is not on the table — it left, or the camera cannot see
         // it. Hidden rather than despawned, the way a seat bar is: the sheet
@@ -923,6 +1180,12 @@ pub fn place_ability_sheet(
         if node.display != Display::None {
             sheet.placed = None;
             node.display = Display::None;
+            for (mut piece, _) in &mut nub {
+                piece.display = Display::None;
+            }
+            for mut piece in &mut halo {
+                piece.display = Display::None;
+            }
         }
         return;
     };
@@ -932,6 +1195,13 @@ pub fn place_ability_sheet(
     // that knows how tall — and, since the width became the text's to decide,
     // how wide — a sheet of text came out.
     let sheet_box = computed.size() * computed.inverse_scale_factor;
+    if sheet_box.x <= 0.0 {
+        // Not laid out yet. A sheet of size zero centres half a sheet to the
+        // right of where it belongs, so it waits rather than being drawn
+        // there for a frame — see the `Visibility::Hidden` it is spawned
+        // with.
+        return;
+    }
     // The ceiling is the *window's* as well as the design's. `corner_for`
     // clamps a sheet that came out too wide back inside the left margin, but
     // it cannot make it narrower, so on a window under 404 logical pixels a
@@ -943,13 +1213,139 @@ pub fn place_ability_sheet(
         node.max_width = ceiling;
     }
     let corner = corner_for(mid, card, sheet_box, size);
-    if sheet.placed == Some(corner) && node.display == Display::Flex {
+    let now = Placement {
+        corner,
+        mid,
+        card,
+        below: corner.y > mid.y,
+    };
+    if sheet.placed == Some(now) && node.display == Display::Flex {
         return;
     }
-    sheet.placed = Some(corner);
+    sheet.placed = Some(now);
     node.display = Display::Flex;
     node.left = px(corner.x);
     node.top = px(corner.y);
+    // It has a place now, so it may be looked at.
+    if *seen != Visibility::Inherited {
+        *seen = Visibility::Inherited;
+    }
+
+    // The nub, on the edge of the sheet that faces the card, at the card's
+    // own centre — and clamped inside the sheet's straight run, because a
+    // point growing out of a 6-pixel rounded corner reads as a chip out of
+    // the paper. A sheet pushed against the window's edge by a card in the
+    // corner is exactly where that happens.
+    if let Ok((mut nub, mut edge)) = nub.single_mut() {
+        let reach = NUB * std::f32::consts::SQRT_2 / 2.0;
+        let low = corner.x + 6.0 + reach;
+        let high = corner.x + sheet_box.x - 6.0 - reach;
+        nub.display = Display::Flex;
+        nub.left = px(mid.x.clamp(low, high.max(low)) - NUB / 2.0);
+        nub.top = px(if now.below {
+            corner.y - NUB / 2.0
+        } else {
+            corner.y + sheet_box.y - NUB / 2.0
+        });
+        // Which two edges face the card. `UiTransform` turns the square a
+        // quarter turn clockwise, so the box's `right` and `bottom` become
+        // the pair pointing down and its `top` and `left` the pair pointing
+        // up. The other two lie on the paper and carry no ink — see
+        // [`SheetNub`].
+        let ink = palette::PARCHMENT_EDGE;
+        *edge = if now.below {
+            BorderColor {
+                top: ink,
+                left: ink,
+                right: Color::NONE,
+                bottom: Color::NONE,
+            }
+        } else {
+            BorderColor {
+                right: ink,
+                bottom: ink,
+                top: Color::NONE,
+                left: Color::NONE,
+            }
+        };
+    }
+
+    // The halo, a hairline standing off the card's own box.
+    if let Ok(mut halo) = halo.single_mut() {
+        halo.display = Display::Flex;
+        halo.left = px(mid.x - card.x / 2.0 - HALO_AIR);
+        halo.top = px(mid.y - card.y / 2.0 - HALO_AIR);
+        halo.width = px(card.x + 2.0 * HALO_AIR);
+        halo.height = px(card.y + 2.0 * HALO_AIR);
+    }
+}
+
+/// Opens and closes the sheet, and despawns it at the end of a close.
+///
+/// The sheet grows, the nub and the halo follow it once it is nearly there
+/// ([`ZOOM_TAIL`]), and the same movement run backwards is what takes them
+/// all away. A player who has turned motion off gets the end of it on the
+/// first frame, which is the answer `table::glide` and `ShownRig` both give.
+///
+/// The despawn is here and not in [`sync_ability_sheet`] because a closing
+/// sheet has outlived the thing it was about: `Duel::ability_menu` is already
+/// `None` and the paper is still on screen.
+pub fn zoom_the_sheet(
+    mut commands: Commands,
+    time: Res<Time>,
+    prefs: Res<crate::prefs::Prefs>,
+    mut sheets: Query<(&mut SheetZoom, &mut UiTransform, &ChildOf), With<AbilitySheet>>,
+    mut trim: Query<&mut UiTransform, Trim>,
+) {
+    let still = prefs.all().reduce_motion;
+    for (mut zoom, mut transform, parent) in &mut sheets {
+        let span = if zoom.closing { ZOOM_OUT } else { ZOOM_IN };
+        zoom.t = if still {
+            1.0
+        } else {
+            (zoom.t + time.delta_secs() / span).min(1.0)
+        };
+        let done = zoom.t >= 1.0;
+        if zoom.closing && done {
+            // The whole tree, not the sheet: the nub and the halo are its
+            // siblings and the root is what one despawn clears.
+            commands.entity(parent.parent()).despawn();
+            continue;
+        }
+        let scale = if zoom.closing {
+            // Accelerating away. The opening's overshoot would read as a
+            // bounce on the way out, which is a movement asking to be watched
+            // by something that is leaving.
+            1.0 - (1.0 - ZOOM_FROM) * zoom.t * zoom.t
+        } else {
+            ZOOM_FROM + (1.0 - ZOOM_FROM) * pop(zoom.t)
+        };
+        transform.scale = Vec2::splat(scale);
+
+        // The two attached pieces, on their own ramp — written every frame
+        // and never guarded on `display`, because the placer is what reveals
+        // them and a piece that was skipped while hidden would be shown at
+        // whatever scale it was left at for the frame in between.
+        let tail = ((zoom.t - ZOOM_TAIL) / (1.0 - ZOOM_TAIL)).clamp(0.0, 1.0);
+        for mut piece in &mut trim {
+            piece.scale = Vec2::splat(if zoom.closing {
+                1.0 - (1.0 - ZOOM_FROM) * zoom.t
+            } else {
+                tail
+            });
+        }
+    }
+}
+
+/// The opening's curve: ease-out-back, running 0 → 1 with an overshoot.
+///
+/// `1 + (c+1)u³ + cu²` with `u = t − 1`, whose peak is `4c³/27(c+1)²` past
+/// the end — see [`ZOOM_BACK`] for why that number and not the usual one.
+/// The caller maps the whole curve onto [`ZOOM_FROM`]..1, so the overshoot is
+/// that share of the *range* and not of the size.
+fn pop(t: f32) -> f32 {
+    let u = t - 1.0;
+    1.0 + (ZOOM_BACK + 1.0) * u * u * u + ZOOM_BACK * u * u
 }
 
 /// Where the sheet's top-left corner goes.
@@ -1138,13 +1534,19 @@ mod running {
             .init_resource::<crate::prefs::Prefs>()
             .add_systems(Update, (apply_camera_rig, place_ability_sheet).chain());
         app.world_mut().spawn((TableCamera, Transform::default()));
+        let stands =
+            Transform::from_translation(crate::table::to_world(at, crate::table::CARD_LIFT))
+                .with_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2));
         app.world_mut().spawn((
             CardVisual {
                 object: obj(1),
                 count: 1,
             },
-            Transform::from_translation(crate::table::to_world(at, crate::table::CARD_LIFT))
-                .with_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2)),
+            stands,
+            // The placer reads this and not the `Transform`, so a card the
+            // pointer is on does not drag the paper about. Both are here
+            // because a card on the table carries both.
+            crate::table::CardRest(stands),
         ));
         let sheet = app
             .world_mut()

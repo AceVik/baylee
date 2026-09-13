@@ -823,15 +823,26 @@ fn add_present_systems(app: &mut App) {
                     .chain()
                     .after(table::apply_camera_rig),
                 // The ability sheet is pinned to a *card* rather than to a
-                // rectangle of felt, and to where that card is drawn right
-                // now: nothing on this table is positioned directly, so a
-                // sheet anchored to `Motion::target` would arrive before the
-                // card it belongs to. After `glide` for that, and after the
-                // rig for the reason the bars are.
-                (hud::sync_ability_sheet, hud::place_ability_sheet)
+                // rectangle of felt, and to where that card **stands** rather
+                // than the pose it is drawn in: `table::CardRest` is written
+                // by `sync_scene` before a hover or an arming lifts the card,
+                // so the paper is not dragged about by the hand crossing the
+                // thing it is describing. After that write, and after the rig
+                // for the reason the bars are.
+                //
+                // `zoom_the_sheet` is between the two on purpose. It is what
+                // despawns a closing sheet, so it has to run after the system
+                // that hands one over; and the scale it writes is one the
+                // placer never reads — that one is about *where* the paper
+                // is, this one about how much of it has arrived.
+                (
+                    hud::sync_ability_sheet,
+                    hud::zoom_the_sheet,
+                    hud::place_ability_sheet,
+                )
                     .chain()
                     .after(table::apply_camera_rig)
-                    .after(table::glide),
+                    .after(table::sync_scene),
                 // A life total changing is drawn over the cell that carries
                 // it, so this runs once the bar holding that cell has been
                 // rebuilt and placed. It reads `bevy_ui`'s own layout for

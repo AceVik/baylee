@@ -1035,6 +1035,38 @@ pub struct CardVisual {
     pub count: usize,
 }
 
+/// Where a card stands when nothing is touching it.
+///
+/// [`sync_scene`] builds a card's pose in two stages — its place on the felt,
+/// and then what the pointer or an armed deed is doing to it ([`HOVER_LIFT`]
+/// with [`HOVER_SCALE`], [`SELECTED_LIFT`] with [`SELECTED_SCALE`]) — and this
+/// is the first stage kept on its own.
+///
+/// It exists because something finally had to **point** at a card rather than
+/// be one. The ability sheet stands beside a permanent for as long as a player
+/// is reading it, and anchored to the live pose it was dragged about by the
+/// 0.06 units and 6% the pointer lifts a card by: a sheet that jumped whenever
+/// the hand moved across the thing it was describing.
+///
+/// Nothing *draws* from it, which is what keeps it from being a second opinion
+/// about where a card is — [`Motion::target`] is still the only one.
+#[derive(Component)]
+pub struct CardRest(pub Transform);
+
+/// Everything [`sync_scene`] writes on a card that is already on the table.
+///
+/// Named because it is five terms long and appears in three places in that
+/// one function, not because it is a concept: a card on the felt is its pose,
+/// what it stands for, what it is made of, whether it is in the air, and
+/// where it would be with nothing touching it.
+type DrawnCard = (
+    &'static mut Motion,
+    &'static mut CardVisual,
+    &'static mut MeshMaterial3d<CardMaterial>,
+    Has<Floating>,
+    &'static mut CardRest,
+);
+
 /// A card that is off the felt because what it stands for has flying.
 ///
 /// A marker and nothing more: the height is written into [`Motion::target`]
@@ -2953,12 +2985,7 @@ pub fn sync_scene(
     prefs: Res<crate::prefs::Prefs>,
     sheen: Res<crate::sheen::Sheen>,
     fonts: Option<Res<crate::hud::UiFonts>>,
-    mut cards: Query<(
-        &mut Motion,
-        &mut CardVisual,
-        &mut MeshMaterial3d<CardMaterial>,
-        Has<Floating>,
-    )>,
+    mut cards: Query<DrawnCard>,
 ) {
     let (Some(statics), Some(textures)) = (duel.statics.as_ref(), textures.as_mut()) else {
         return;
@@ -3148,6 +3175,9 @@ pub fn sync_scene(
         // made, which is the same claim being selected makes and belongs at
         // the same height. Selected wins over both; the pointer moving away
         // must not put an armed card back down.
+        // Where the card stands with nothing touching it, kept before the two
+        // branches below add what is. See [`CardRest`].
+        let resting = transform;
         if placement.selected || placement.offer.armed {
             transform.translation.y += SELECTED_LIFT;
             transform.scale *= SELECTED_SCALE;
@@ -3159,11 +3189,14 @@ pub fn sync_scene(
         let entity = if let Some(&entity) = index.cards.get(&placement.object) {
             // Existing card: update in place. Touching only what changed is
             // what keeps a large board cheap.
-            if let Ok((mut motion, mut visual, mut current_material, airborne)) =
+            if let Ok((mut motion, mut visual, mut current_material, airborne, mut rest)) =
                 cards.get_mut(entity)
             {
                 if motion.target != transform {
                     motion.target = transform;
+                }
+                if rest.0 != resting {
+                    rest.0 = resting;
                 }
                 if visual.count != placement.count {
                     visual.count = placement.count;
@@ -3220,6 +3253,7 @@ pub fn sync_scene(
                         &transform,
                     ),
                     Motion { target: transform },
+                    CardRest(resting),
                 ))
                 .id();
             index.cards.insert(placement.object, entity);
@@ -3329,7 +3363,7 @@ pub fn sync_scene(
                 // moved zones on the same frame never reaches here: the move
                 // below is the truer answer and takes precedence.
                 if let Some(&home) = index.fanned.get(&id) {
-                    if let Ok((mut motion, _, _, _)) = cards.get_mut(entity) {
+                    if let Ok((mut motion, _, _, _, _)) = cards.get_mut(entity) {
                         motion.target =
                             exit(Some(home), pile_stand(&duel, Some(home)), &motion.target);
                     }
@@ -3343,7 +3377,7 @@ pub fn sync_scene(
                 continue;
             };
             let to = step.to;
-            if let Ok((mut motion, _, mut worn, _)) = cards.get_mut(entity) {
+            if let Ok((mut motion, _, mut worn, _, _)) = cards.get_mut(entity) {
                 motion.target = exit(to, pile_stand(&duel, to), &motion.target);
                 if let Some(dressed) = dress_the_exit(
                     &mut card_materials,

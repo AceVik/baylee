@@ -255,9 +255,18 @@ pub fn activate_card(duel: &mut Duel, object: ObjectId) -> Answer {
                 return Answer::Took;
             }
             _ => {
-                duel.ability_menu = Some(object);
-                duel.ability_pick = 0;
-                duel.ability_page = 0;
+                // A second tap on the card whose sheet is already open does
+                // **nothing**, rather than putting the cursor and the page
+                // back to the top of a list the player is reading. The card
+                // is one of the two places a click does not close the sheet
+                // (see `close_the_sheet_on_a_press_outside_it`), so without
+                // this it would be the one place that answers a click by
+                // losing the reader's place.
+                if duel.ability_menu != Some(object) {
+                    duel.ability_menu = Some(object);
+                    duel.ability_pick = 0;
+                    duel.ability_page = 0;
+                }
                 return Answer::Took;
             }
         }
