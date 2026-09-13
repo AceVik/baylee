@@ -253,12 +253,28 @@ pub fn options(
                     // is nothing to read it off; tapping is the whole of it.
                     Tap::Intrinsic => Some("{T}".to_string()),
                 },
-                // Deliberately none, even for a printed mana ability that has
-                // a sentence. `mana_label` is written for this row and says
-                // more than the card does: a Chromatic Lantern grant reads
-                // "Tap for any colour" where the printed text of the land it
-                // sits on says nothing about the grant at all.
-                printed: None,
+                // The card's own sentence wherever the card has one, which is
+                // what the owner asked for: "Add X mana of any one color,
+                // where X is the number of Allies you control" says more —
+                // and says it in the printing's own language — than any label
+                // this client composes out of a `ManaSource`.
+                //
+                // It is new, and the reason it could not be done before is in
+                // `baylee_cards_codegen::lines::LineShape::Mana`: a mana
+                // ability was `Other` on both sides, so the table held `None`
+                // for every one of them.
+                //
+                // `mana_label` stays the fallback, and is the *only* answer
+                // for the two taps that are printed nowhere — the CR 305.6
+                // shortcut, which a Bayou's text does not mention, and a
+                // granted ability, which a Chromatic Lantern prints and the
+                // land under it does not.
+                printed: match source.tap {
+                    Tap::Ability(index) if baylee_engine::choice::granted_slot(index).is_none() => {
+                        printed_sentence(view, object, index)
+                    }
+                    _ => None,
+                },
                 // Set by `pour_out` below, over the whole list at once or not
                 // at all: whether a permanent is a bubble is a question about
                 // everything it offers, not about one row of it.

@@ -36,7 +36,7 @@ pub use baylee_core::oracle::sentences;
 /// two can be held against each other.
 ///
 /// The point is not to understand the sentence — it is to say which of the
-/// four *kinds* of line a card prints it is, because that is all a
+/// five *kinds* of line a card prints it is, because that is all a
 /// per-ability line index needs in order to be checkable.
 #[derive(Clone, Copy, PartialEq, Eq, Debug, PartialOrd, Ord)]
 pub enum LineShape {
@@ -48,9 +48,37 @@ pub enum LineShape {
     Activated,
     /// A saga chapter: "I —", "II, III —".
     Chapter,
+    /// `{T}: Add {G}.` — a mana ability, on both sides.
+    ///
+    /// It was `Other`, which is the right answer to the question this
+    /// module was first asked ("which sentence goes on the stack") and the
+    /// wrong one to the question it is asked now. A mana ability never uses
+    /// the stack (CR 605.1), so it is **not** counted in `FaceLines::stackable`
+    /// and never will be — but it *is* drawn, on the ability sheet, where
+    /// the owner asked to read the card's own sentence rather than a label
+    /// this client composed. A shape of its own is what lets both be true:
+    /// excluded from the denominator, and still placed.
+    ///
+    /// It has to be said on **both** sides or the exclusion is only half
+    /// applied — Karakas prints two `{T}:` lines and only one of them is
+    /// the mana, so its bounce ability fitted both and took whichever came
+    /// first.
+    Mana,
     /// Anything else a card prints: a static ability, a keyword line, the
     /// body of an instant or sorcery.
     Other,
+}
+
+impl LineShape {
+    /// Whether an ability of this shape can be a stack entry at all.
+    ///
+    /// The denominator of the whole feature, in one place instead of three
+    /// `!= LineShape::Other` filters that would each have had to learn
+    /// about [`LineShape::Mana`] separately.
+    #[must_use]
+    pub fn stackable(self) -> bool {
+        !matches!(self, Self::Other | Self::Mana)
+    }
 }
 
 /// A printed line with its reminder text taken off.
@@ -119,15 +147,13 @@ pub fn line_shape(line: &str) -> LineShape {
             LineShape::Other
         };
     };
-    // A line that makes mana is `Other` for the same reason a mana ability
-    // is (CR 605.1): it can never be the entry this table puts text on. It
-    // has to be said on *both* sides or the exclusion is only half applied
-    // — Karakas prints two `{T}:` lines and only one of them is the mana,
-    // so its bounce ability fitted both and took whichever came first.
+    // A line that makes mana is its own shape, and the reasons are on
+    // [`LineShape::Mana`] — including why it has to be said here as well as
+    // in `ability_shape`.
     let body = line.split_once(':').map_or("", |(_, body)| body.trim());
     let lower_body = body.to_lowercase();
     if lower_body.starts_with("add ") && (body.contains('{') || lower_body.contains("mana")) {
-        return LineShape::Other;
+        return LineShape::Mana;
     }
     // A loyalty cost is the whole of what precedes the colon, and the minus
     // a card prints is U+2212, not a hyphen.
@@ -153,12 +179,17 @@ pub fn line_shape(line: &str) -> LineShape {
 
 /// The shape of one compiled ability.
 ///
-/// A **mana ability is `Other` here**, and that is the rule rather than an
-/// exclusion: it does not use the stack (CR 605.1), so it can never be the
-/// stack entry this whole table exists to put text on. Asking it which
-/// sentence it came from is asking a question with no reader, and the pool
-/// answers it badly — a Bayou prints no mana line at all, only the
-/// reminder text the type line entitles it to (CR 305.6).
+/// A **mana ability is [`LineShape::Mana`]**, which is not the stack entry
+/// this table was first built for (CR 605.1) and is still a sentence a
+/// player reads. It used to be `Other`, and a mana ability therefore had no
+/// printed text at all — the reason the ability sheet composed its own
+/// label for one. A shape of its own places it while
+/// [`LineShape::stackable`] keeps it out of the count.
+///
+/// A land with no printed mana line at all — a Bayou, whose type line
+/// entitles it to mana by CR 305.6 and whose only text is the reminder —
+/// has no `AbilityDef` here either, so there is nothing to place and this
+/// never sees it.
 pub fn ability_shape(ability: &baylee_cards_dsl::AbilityDef) -> LineShape {
     use baylee_cards_dsl::AbilityDef as A;
     match ability {
@@ -166,7 +197,7 @@ pub fn ability_shape(ability: &baylee_cards_dsl::AbilityDef) -> LineShape {
         A::Triggered { .. } | A::ModalTriggered { .. } | A::Echo { .. } => LineShape::Triggered,
         A::Activated { mana_ability, .. } | A::ActivatedConditional { mana_ability, .. } => {
             if *mana_ability {
-                LineShape::Other
+                LineShape::Mana
             } else {
                 LineShape::Activated
             }
@@ -256,6 +287,68 @@ pub fn cost_fits(cost: &baylee_cards_dsl::Cost, line: &str) -> bool {
     printed.sort();
     want.sort();
     printed == want
+}
+
+/// Does what a mana ability *makes* fit the body of a printed line?
+///
+/// [`cost_fits`] is not enough on its own here, and Yavimaya Coast is why:
+/// it prints `{T}: Add {C}.` and `{T}: Add {G} or {U}. …`, two lines whose
+/// costs are the same symbol. Reading the colours after "Add" separates
+/// them, which is the same job [`loyalty_head`] does for a walker.
+///
+/// It compares **sets**, because the amount is written in words as often as
+/// in symbols ("Add two mana", "Add {C}{C}"), and it **accepts a body with
+/// no symbols in it at all** — "Add one mana of any color", "Add X mana of
+/// any one color" — where there is nothing to compare and the cost is the
+/// only handle left. A card printing two such lines would be `ambiguous`,
+/// which is the number that says so rather than a silent coin toss.
+fn mana_fits(effects: &[baylee_cards_dsl::Effect], line: &str) -> bool {
+    use baylee_cards_dsl::effect::{Effect, ManaSource};
+    let line = without_reminder(line);
+    let Some((_, body)) = line.split_once(':') else {
+        return true;
+    };
+    let mut printed: Vec<String> = braced(body);
+    if printed.is_empty() {
+        return true;
+    }
+    printed.sort();
+    printed.dedup();
+    let mut made: Vec<String> = Vec::new();
+    for effect in effects {
+        let Effect::AddMana { source, .. } = effect else {
+            continue;
+        };
+        match source {
+            ManaSource::Fixed(color) => made.push(symbol(*color).to_string()),
+            ManaSource::Choice(colors) => {
+                made.extend(colors.iter().map(|c| symbol(*c).to_string()));
+            }
+            // Neither names a colour the card could print, so neither has
+            // anything to be held against — `{T}: Add one mana of any color
+            // in your commander's color identity` carries no symbol either.
+            ManaSource::CommanderIdentity | ManaSource::LandColor { .. } => return true,
+        }
+    }
+    if made.is_empty() {
+        return true;
+    }
+    made.sort();
+    made.dedup();
+    printed == made
+}
+
+/// The letter a colour is printed as inside braces.
+fn symbol(color: baylee_core::mana::ManaColor) -> &'static str {
+    use baylee_core::mana::ManaColor as C;
+    match color {
+        C::White => "W",
+        C::Blue => "U",
+        C::Black => "B",
+        C::Red => "R",
+        C::Green => "G",
+        C::Colorless => "C",
+    }
 }
 
 /// Words the printed sentence must carry for a trigger to have come from it.
@@ -377,6 +470,18 @@ pub fn content_fits(ability: &baylee_cards_dsl::AbilityDef, line: &str) -> bool 
     use baylee_cards_dsl::AbilityDef as A;
     match ability {
         A::Loyalty { cost, .. } => loyalty_head(line) == Some(*cost),
+        A::Activated {
+            cost,
+            effects,
+            mana_ability: true,
+            ..
+        }
+        | A::ActivatedConditional {
+            cost,
+            effects,
+            mana_ability: true,
+            ..
+        } => cost_fits(cost, line) && mana_fits(effects, line),
         A::Activated { cost, .. } | A::ActivatedConditional { cost, .. } => cost_fits(cost, line),
         A::SagaChapter { chapter, .. } => {
             chapter_head(line).is_some_and(|chapters| chapters.contains(chapter))
@@ -402,11 +507,14 @@ pub fn content_fits(ability: &baylee_cards_dsl::AbilityDef, line: &str) -> bool 
 ///
 /// One entry per ability in `abilities`, in step with it — `None` where an
 /// ability has no sentence of its own, which is an honest answer and not a
-/// failure. A static never goes on the stack and is many-to-one with the
-/// printing by design; a mana ability does not use the stack at all
-/// (CR 605.1); and evoke, echo and station are *printed* as keyword lines
-/// rather than as sentences, so the client renders those from the registry
-/// the way `abilities.rs` already renders "Equip {0}".
+/// failure. A static is many-to-one with the printing by design, and evoke,
+/// echo and station are *printed* as keyword lines rather than as
+/// sentences, so the client renders those from the registry the way
+/// `abilities.rs` already renders "Equip {0}".
+///
+/// A **mana ability is placed**, though it is not a stack entry: only
+/// [`LineShape::Other`] short-circuits here, and [`LineShape::stackable`]
+/// is the separate question of whether it counts. See [`LineShape::Mana`].
 ///
 /// A sentence may be claimed **twice**, and that is not a defect: "enters
 /// or attacks" is one printed sentence and two `Trigger`s, so both of Sun

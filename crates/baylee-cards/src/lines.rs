@@ -139,14 +139,33 @@ mod tests {
     /// Both halves are bounded. Without the second, the mapper could
     /// answer the first by simply deciding fewer abilities are stack
     /// entries at all.
+    ///
+    /// **A mana ability is placed and is not counted here.** It does not
+    /// use the stack (CR 605.1), so [`FaceLines::stackable`] has never
+    /// included one — and the table places one anyway now, for the ability
+    /// sheet to draw the card's own sentence on a mana row. Adding those to
+    /// `mapped` would make the ratio climb on its own, which is exactly the
+    /// drift that hides a regression, so the walk asks the registry which
+    /// abilities are mana and counts them separately.
     #[test]
     fn nearly_every_stack_ability_knows_its_printed_sentence() {
         let mut stackable = 0usize;
         let mut mapped = 0usize;
-        for card in ABILITY_LINES {
-            for face in *card {
-                stackable += face.stackable as usize;
-                mapped += face.lines.iter().flatten().count();
+        let mut mana = 0usize;
+        for (def, card) in crate::generated::BY_INDEX.iter().zip(ABILITY_LINES) {
+            for (face, lines) in card.iter().enumerate() {
+                stackable += lines.stackable as usize;
+                let abilities = def.map_or(&[][..], |def| def.abilities_for_face(face));
+                for (at, line) in lines.lines.iter().enumerate() {
+                    if line.is_none() {
+                        continue;
+                    }
+                    if abilities.get(at).is_some_and(is_mana_ability) {
+                        mana += 1;
+                    } else {
+                        mapped += 1;
+                    }
+                }
             }
         }
         assert!(
@@ -155,8 +174,26 @@ mod tests {
         );
         assert!(
             mapped >= 318,
-            "{mapped} of {stackable} abilities know their sentence; 318 did"
+            "{mapped} of {stackable} stack abilities know their sentence; 318 did"
         );
+        assert!(
+            mana >= 400,
+            "{mana} mana abilities know their printed sentence"
+        );
+    }
+
+    /// Whether an ability is one the stack never sees (CR 605.1).
+    fn is_mana_ability(ability: &baylee_cards_dsl::AbilityDef) -> bool {
+        matches!(
+            ability,
+            baylee_cards_dsl::AbilityDef::Activated {
+                mana_ability: true,
+                ..
+            } | baylee_cards_dsl::AbilityDef::ActivatedConditional {
+                mana_ability: true,
+                ..
+            }
+        )
     }
 
     /// A sentence index has to be *in* the text it indexes.

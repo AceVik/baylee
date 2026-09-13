@@ -1684,6 +1684,20 @@ fn a_second_mana_tap_the_pips_cannot_stand_for_keeps_its_sentence() {
         "which says what it makes rather than repeating its own cost"
     );
     assert_eq!(own.cost.as_deref(), Some("{T}"), "the cost column: {own:?}");
+    // Round eight's second point: *"ich fände es schöner, wenn hier der
+    // Original Text angezeigt wird, statt einem customizierten"*. The label
+    // above is a fallback and is what this row drew until the line table
+    // learned to place a mana ability at all; the Druid prints one sentence
+    // and this is it.
+    assert_eq!(
+        own.printed,
+        Some(baylee_view::StackText {
+            face: 0,
+            line: 0,
+            of: 1,
+        }),
+        "the card's own sentence, not the label: {own:?}"
+    );
 
     // And the one keycap this sheet draws is on that row, the pips carrying
     // no digit.

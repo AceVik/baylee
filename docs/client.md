@@ -540,6 +540,24 @@ printed as a keyword (echo, evoke, station), a quoted sub-ability inside a
 copy sentence, and a saga threshold row. `cargo run -p xtask -- ability-lines`
 is the report that names them; `baylee_cards::lines`' tests are the floor.
 
+**A mana ability is placed and is not counted.** It was neither: a mana
+ability was `LineShape::Other` on both sides of `lines.rs`, so the table held
+`None` for all 408 of them and the ability sheet composed a label of its own
+("Tap for {G}") out of the `ManaSource` — which is what the owner asked to
+stop seeing, since the card prints a better sentence than the client can
+write, in the printing's own language. `LineShape::Mana` is that shape, said
+on **both** sides for the reason Karakas gives: it prints two `{T}:` lines and
+only one of them is the mana, so a half-applied exclusion let the bounce
+ability fit both. What it changes is only which cell the table holds, never
+the denominator — a mana ability does not use the stack (CR 605.1),
+`LineShape::stackable` is the one place that says so, and `FaceLines::stackable`
+is unmoved at 327. Two lines with the same cost are separated by what they
+*make* (`lines::mana_fits`, the same job `loyalty_head` does for a walker);
+Yavimaya Coast's `{T}: Add {C}` and `{T}: Add {G} or {U}` are why. The two
+taps that are printed nowhere keep the composed label and always will: the
+CR 305.6 shortcut, which a Bayou's text does not mention, and a granted
+ability, which the Chromatic Lantern prints and the land under it does not.
+
 **The host does the lookup, and the face is the part that is easy to get
 wrong.** `gamehost::view::stack_item` fills `StackText` in, which is why a
 client needs neither the card registry nor the table — `baylee-client-core`

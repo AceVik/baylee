@@ -1923,7 +1923,7 @@ fn render_ability_lines(root: &Path) -> anyhow::Result<String> {
             let stackable = abilities
                 .iter()
                 .map(lines::ability_shape)
-                .filter(|shape| *shape != lines::LineShape::Other)
+                .filter(|shape| shape.stackable())
                 .count();
             let cells: Vec<String> = mapping
                 .lines
@@ -4216,12 +4216,14 @@ fn ability_lines(root: &Path) -> anyhow::Result<()> {
             // question. A static never goes on the stack, and one printed
             // sentence is several of them by design ("gets +1/+1 and has
             // flying" is layers 7c and 6), so asking a static which
-            // sentence it came from is asking the wrong question.
+            // sentence it came from is asking the wrong question. A mana
+            // ability is placed but does not use the stack (CR 605.1), so
+            // it is out of this count too — see `LineShape::Mana`.
             let stackable: Vec<(usize, lines::LineShape)> = abilities
                 .iter()
                 .map(lines::ability_shape)
                 .enumerate()
-                .filter(|(_, s)| *s != lines::LineShape::Other)
+                .filter(|(_, s)| s.stackable())
                 .collect();
             if stackable.is_empty() {
                 continue;

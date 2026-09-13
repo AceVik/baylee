@@ -18,7 +18,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 3,
         stackable: 1,
-        lines: &[None, Some(2)],
+        lines: &[Some(1), Some(2)],
     }],
     // Aether Channeler
     &[FaceLines {
@@ -42,7 +42,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 0,
-        lines: &[None],
+        lines: &[Some(1)],
     }],
     // Archaeomancer
     &[FaceLines {
@@ -84,7 +84,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 0,
-        lines: &[None, None],
+        lines: &[Some(0), Some(1)],
     }],
     // Bloodstained Mire
     &[FaceLines {
@@ -96,7 +96,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 3,
         stackable: 1,
-        lines: &[None, Some(1)],
+        lines: &[Some(2), Some(1)],
     }],
     // Brainstorm
     &[FaceLines {
@@ -109,19 +109,19 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         FaceLines {
             sentences: 1,
             stackable: 0,
-            lines: &[None],
+            lines: &[Some(0)],
         },
         FaceLines {
             sentences: 1,
             stackable: 0,
-            lines: &[None],
+            lines: &[Some(0)],
         },
     ],
     // Cavern of Souls
     &[FaceLines {
         sentences: 3,
         stackable: 0,
-        lines: &[None, None],
+        lines: &[Some(1), Some(2)],
     }],
     // Charming Prince
     &[FaceLines {
@@ -133,25 +133,25 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 0,
-        lines: &[None, None],
+        lines: &[None, Some(0)],
     }],
     // City of Brass
     &[FaceLines {
         sentences: 2,
         stackable: 1,
-        lines: &[Some(0), None],
+        lines: &[Some(0), Some(1)],
     }],
     // Clearwater Pathway
     &[
         FaceLines {
             sentences: 1,
             stackable: 0,
-            lines: &[None],
+            lines: &[Some(0)],
         },
         FaceLines {
             sentences: 1,
             stackable: 0,
-            lines: &[None],
+            lines: &[Some(0)],
         },
     ],
     // Clever Concealment
@@ -164,7 +164,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 1,
         stackable: 0,
-        lines: &[None],
+        lines: &[Some(0)],
     }],
     // Commander's Insight
     &[FaceLines {
@@ -194,7 +194,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 0,
-        lines: &[None, None],
+        lines: &[Some(0), None],
     }],
     // Cyclonic Rift
     &[FaceLines {
@@ -242,7 +242,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 0,
-        lines: &[None],
+        lines: &[Some(1)],
     }],
     // Earth King's Lieutenant
     &[FaceLines {
@@ -314,13 +314,13 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 1,
         stackable: 0,
-        lines: &[None],
+        lines: &[Some(0)],
     }],
     // Fetid Heath
     &[FaceLines {
         sentences: 2,
         stackable: 0,
-        lines: &[None, None],
+        lines: &[Some(0), None],
     }],
     // Fierce Guardianship
     &[FaceLines {
@@ -380,7 +380,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 0,
-        lines: &[None],
+        lines: &[Some(1)],
     }],
     // Glasspool Mimic
     &[
@@ -392,7 +392,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         FaceLines {
             sentences: 2,
             stackable: 0,
-            lines: &[None],
+            lines: &[Some(1)],
         },
     ],
     // Godless Shrine
@@ -429,7 +429,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 1,
         stackable: 0,
-        lines: &[None],
+        lines: &[Some(0)],
     }],
     // Heliod's Intervention
     &[FaceLines {
@@ -448,12 +448,12 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         FaceLines {
             sentences: 1,
             stackable: 0,
-            lines: &[None],
+            lines: &[Some(0)],
         },
         FaceLines {
             sentences: 1,
             stackable: 0,
-            lines: &[None],
+            lines: &[Some(0)],
         },
     ],
     // Heroic Intervention
@@ -466,7 +466,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 1,
-        lines: &[None, Some(1)],
+        lines: &[Some(0), Some(1)],
     }],
     // Indatha Triome
     &[FaceLines {
@@ -490,7 +490,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 0,
-        lines: &[None],
+        lines: &[Some(1)],
     }],
     // Jace, the Mind Sculptor
     &[FaceLines {
@@ -502,7 +502,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 3,
         stackable: 1,
-        lines: &[None, None, Some(2)],
+        lines: &[Some(0), Some(1), Some(2)],
     }],
     // Jin-Gitaxias, Progress Tyrant
     &[FaceLines {
@@ -514,7 +514,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 1,
-        lines: &[None, Some(1)],
+        lines: &[Some(0), Some(1)],
     }],
     // Karmic Guide
     &[FaceLines {
@@ -544,7 +544,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 1,
-        lines: &[None, Some(1)],
+        lines: &[Some(0), Some(1)],
     }],
     // Liquimetal Coating
     &[FaceLines {
@@ -556,7 +556,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 1,
-        lines: &[None, Some(1)],
+        lines: &[Some(0), Some(1)],
     }],
     // Loran of the Third Path
     &[FaceLines {
@@ -574,7 +574,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 0,
-        lines: &[None, None],
+        lines: &[None, Some(0)],
     }],
     // Mana Drain
     &[FaceLines {
@@ -635,7 +635,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 1,
         stackable: 0,
-        lines: &[None],
+        lines: &[Some(0)],
     }],
     // Mulldrifter
     &[FaceLines {
@@ -653,7 +653,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 0,
-        lines: &[None, None],
+        lines: &[Some(0), None],
     }],
     // Mystical Tutor
     &[FaceLines {
@@ -713,7 +713,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 0,
-        lines: &[None],
+        lines: &[Some(1)],
     }],
     // Path to Exile
     &[FaceLines {
@@ -815,7 +815,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 1,
         stackable: 0,
-        lines: &[None],
+        lines: &[Some(0)],
     }],
     // Reflections of Littjara
     &[FaceLines {
@@ -827,7 +827,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 0,
-        lines: &[None, None],
+        lines: &[None, Some(1)],
     }],
     // Restoration Angel
     &[FaceLines {
@@ -851,7 +851,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 1,
-        lines: &[None, Some(1)],
+        lines: &[Some(0), Some(1)],
     }],
     // Rite of Replication
     &[FaceLines {
@@ -954,7 +954,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 1,
         stackable: 0,
-        lines: &[None],
+        lines: &[Some(0)],
     }],
     // Solemn Simulacrum
     &[FaceLines {
@@ -1080,7 +1080,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 1,
-        lines: &[None, Some(1)],
+        lines: &[Some(0), Some(1)],
     }],
     // Toxic Deluge
     &[FaceLines {
@@ -1177,7 +1177,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 1,
-        lines: &[None, Some(1)],
+        lines: &[Some(0), Some(1)],
     }],
     // Wartime Protestors
     &[FaceLines {
@@ -1189,7 +1189,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 1,
-        lines: &[None, Some(1)],
+        lines: &[Some(0), Some(1)],
     }],
     // Watery Grave
     &[FaceLines {
@@ -1237,20 +1237,20 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 3,
         stackable: 1,
-        lines: &[Some(1), None],
+        lines: &[Some(1), Some(2)],
     }],
     &[],
     // Abandoned Outpost
     &[FaceLines {
         sentences: 3,
         stackable: 0,
-        lines: &[None, None],
+        lines: &[Some(1), Some(2)],
     }],
     // Abraded Bluffs
     &[FaceLines {
         sentences: 3,
         stackable: 1,
-        lines: &[Some(1), None],
+        lines: &[Some(1), Some(2)],
     }],
     &[],
     &[],
@@ -1263,13 +1263,13 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 0,
-        lines: &[None, None],
+        lines: &[Some(0), Some(1)],
     }],
     // Adventurer's Inn
     &[FaceLines {
         sentences: 2,
         stackable: 1,
-        lines: &[Some(0), None],
+        lines: &[Some(0), Some(1)],
     }],
     &[],
     &[],
@@ -1279,13 +1279,13 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 3,
         stackable: 1,
-        lines: &[None, Some(2)],
+        lines: &[Some(1), Some(2)],
     }],
     // Akoum Refuge
     &[FaceLines {
         sentences: 3,
         stackable: 1,
-        lines: &[Some(1), None],
+        lines: &[Some(1), Some(2)],
     }],
     &[],
     &[],
@@ -1293,7 +1293,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 3,
         stackable: 1,
-        lines: &[None, None, Some(2)],
+        lines: &[Some(0), Some(1), Some(2)],
     }],
     // Alpine Meadow
     &[FaceLines {
@@ -1306,38 +1306,38 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 3,
         stackable: 0,
-        lines: &[None, None, None],
+        lines: &[Some(0), Some(1), Some(2)],
     }],
     &[],
     // Ancient Den
     &[FaceLines {
         sentences: 1,
         stackable: 0,
-        lines: &[None],
+        lines: &[Some(0)],
     }],
     // Ancient Spring
     &[FaceLines {
         sentences: 3,
         stackable: 0,
-        lines: &[None, None],
+        lines: &[Some(1), Some(2)],
     }],
     // Ancient Tomb
     &[FaceLines {
         sentences: 1,
         stackable: 0,
-        lines: &[None],
+        lines: &[Some(0)],
     }],
     // Ancient Ziggurat
     &[FaceLines {
         sentences: 1,
         stackable: 0,
-        lines: &[None],
+        lines: &[Some(0)],
     }],
     // Animal Sanctuary
     &[FaceLines {
         sentences: 2,
         stackable: 1,
-        lines: &[None, Some(1)],
+        lines: &[Some(0), Some(1)],
     }],
     &[],
     &[],
@@ -1345,7 +1345,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 0,
-        lines: &[None, None],
+        lines: &[Some(0), Some(1)],
     }],
     &[],
     &[],
@@ -1353,7 +1353,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 0,
-        lines: &[None],
+        lines: &[Some(1)],
     }],
     // Arctic Treeline
     &[FaceLines {
@@ -1370,7 +1370,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 3,
         stackable: 1,
-        lines: &[Some(1), None],
+        lines: &[Some(1), Some(2)],
     }],
     &[],
     &[],
@@ -1378,7 +1378,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 3,
         stackable: 1,
-        lines: &[Some(1), None],
+        lines: &[Some(1), Some(2)],
     }],
     &[],
     &[],
@@ -1387,7 +1387,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 3,
         stackable: 0,
-        lines: &[None, None, None],
+        lines: &[Some(0), Some(1), Some(2)],
     }],
     &[],
     &[],
@@ -1395,7 +1395,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 0,
-        lines: &[None],
+        lines: &[Some(1)],
     }],
     &[],
     // Bad River
@@ -1417,13 +1417,13 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 0,
-        lines: &[None],
+        lines: &[Some(1)],
     }],
     // Barren Moor
     &[FaceLines {
         sentences: 3,
         stackable: 1,
-        lines: &[None, Some(2)],
+        lines: &[Some(1), Some(2)],
     }],
     &[],
     &[],
@@ -1431,7 +1431,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 0,
-        lines: &[None, None],
+        lines: &[Some(0), Some(1)],
     }],
     &[],
     // Bayou
@@ -1448,7 +1448,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 3,
         stackable: 1,
-        lines: &[Some(1), None],
+        lines: &[Some(1), Some(2)],
     }],
     &[],
     &[],
@@ -1458,7 +1458,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 1,
-        lines: &[None, Some(1)],
+        lines: &[Some(0), Some(1)],
     }],
     &[],
     &[],
@@ -1466,14 +1466,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 1,
-        lines: &[None, Some(1)],
+        lines: &[Some(0), Some(1)],
     }],
     &[],
     // Blighted Gorge
     &[FaceLines {
         sentences: 2,
         stackable: 1,
-        lines: &[None, Some(1)],
+        lines: &[Some(0), Some(1)],
     }],
     &[],
     &[],
@@ -1483,7 +1483,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 1,
-        lines: &[None, Some(1)],
+        lines: &[Some(0), Some(1)],
     }],
     // Blood Crypt
     &[FaceLines {
@@ -1495,7 +1495,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 3,
         stackable: 1,
-        lines: &[Some(1), None],
+        lines: &[Some(1), Some(2)],
     }],
     &[],
     &[],
@@ -1503,34 +1503,34 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 3,
         stackable: 1,
-        lines: &[Some(1), None],
+        lines: &[Some(1), Some(2)],
     }],
     // Bog Wreckage
     &[FaceLines {
         sentences: 3,
         stackable: 0,
-        lines: &[None, None],
+        lines: &[Some(1), Some(2)],
     }],
     &[],
     // Boiling Rock Prison
     &[FaceLines {
         sentences: 3,
         stackable: 1,
-        lines: &[None, Some(2)],
+        lines: &[Some(1), Some(2)],
     }],
     &[],
     // Boreal Shelf
     &[FaceLines {
         sentences: 2,
         stackable: 0,
-        lines: &[None],
+        lines: &[Some(1)],
     }],
     &[],
     // Boros Guildgate
     &[FaceLines {
         sentences: 2,
         stackable: 0,
-        lines: &[None],
+        lines: &[Some(1)],
     }],
     &[],
     &[],
@@ -1538,7 +1538,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 3,
         stackable: 1,
-        lines: &[None, Some(2)],
+        lines: &[Some(1), Some(2)],
     }],
     &[],
     &[],
@@ -1559,7 +1559,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 3,
         stackable: 1,
-        lines: &[Some(1), None],
+        lines: &[Some(1), Some(2)],
     }],
     &[],
     &[],
@@ -1567,7 +1567,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 0,
-        lines: &[None, None],
+        lines: &[Some(0), Some(1)],
     }],
     &[],
     &[],
@@ -1581,7 +1581,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 3,
         stackable: 0,
-        lines: &[None, None],
+        lines: &[Some(1), Some(2)],
     }],
     // Canopy Vista
     &[FaceLines {
@@ -1599,7 +1599,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 3,
         stackable: 1,
-        lines: &[None, None, Some(2)],
+        lines: &[Some(0), Some(1), Some(2)],
     }],
     &[],
     &[],
@@ -1613,13 +1613,13 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 3,
         stackable: 0,
-        lines: &[None, None, None],
+        lines: &[Some(0), Some(1), Some(2)],
     }],
     // Castle Vantress
     &[FaceLines {
         sentences: 3,
         stackable: 1,
-        lines: &[None, Some(2)],
+        lines: &[Some(1), Some(2)],
     }],
     &[],
     &[],
@@ -1630,13 +1630,13 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 0,
-        lines: &[None, None],
+        lines: &[Some(0), Some(1)],
     }],
     // Celestial Colonnade
     &[FaceLines {
         sentences: 3,
         stackable: 1,
-        lines: &[None, Some(2)],
+        lines: &[Some(1), Some(2)],
     }],
     &[],
     &[],
@@ -1646,7 +1646,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 0,
-        lines: &[None],
+        lines: &[Some(1)],
     }],
     // Cinder Glade
     &[FaceLines {
@@ -1664,7 +1664,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 0,
-        lines: &[None],
+        lines: &[Some(1)],
     }],
     &[],
     &[],
@@ -1679,7 +1679,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 0,
-        lines: &[None],
+        lines: &[Some(1)],
     }],
     &[],
     &[],
@@ -1710,7 +1710,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 3,
         stackable: 1,
-        lines: &[Some(1), None],
+        lines: &[Some(1), Some(2)],
     }],
     &[],
     &[],
@@ -1719,20 +1719,20 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 0,
-        lines: &[None],
+        lines: &[Some(1)],
     }],
     // Crumbling Vestige
     &[FaceLines {
         sentences: 3,
         stackable: 1,
-        lines: &[Some(1), None],
+        lines: &[Some(1), Some(2)],
     }],
     &[],
     // Crypt of the Eternals
     &[FaceLines {
         sentences: 3,
         stackable: 1,
-        lines: &[Some(0), None, None],
+        lines: &[Some(0), Some(1), Some(2)],
     }],
     &[],
     &[],
@@ -1740,19 +1740,19 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 3,
         stackable: 1,
-        lines: &[Some(0), None, None],
+        lines: &[Some(0), Some(1), Some(2)],
     }],
     // Crystal Quarry
     &[FaceLines {
         sentences: 2,
         stackable: 0,
-        lines: &[None, None],
+        lines: &[Some(0), Some(1)],
     }],
     // Crystal Vein
     &[FaceLines {
         sentences: 2,
         stackable: 0,
-        lines: &[None, None],
+        lines: &[Some(0), Some(1)],
     }],
     &[],
     &[],
@@ -1765,32 +1765,32 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 3,
         stackable: 0,
-        lines: &[None],
+        lines: &[Some(2)],
     }],
     &[],
     // Darksteel Citadel
     &[FaceLines {
         sentences: 2,
         stackable: 0,
-        lines: &[None],
+        lines: &[Some(1)],
     }],
     // Darkwater Catacombs
     &[FaceLines {
         sentences: 1,
         stackable: 0,
-        lines: &[None],
+        lines: &[Some(0)],
     }],
     // Daru Encampment
     &[FaceLines {
         sentences: 2,
         stackable: 1,
-        lines: &[None, Some(1)],
+        lines: &[Some(0), Some(1)],
     }],
     // Deathcap Glade
     &[FaceLines {
         sentences: 2,
         stackable: 0,
-        lines: &[None],
+        lines: &[Some(1)],
     }],
     &[],
     &[],
@@ -1800,50 +1800,50 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 3,
         stackable: 1,
-        lines: &[None, Some(2)],
+        lines: &[Some(1), Some(2)],
     }],
     // Desert of the Glorified
     &[FaceLines {
         sentences: 3,
         stackable: 1,
-        lines: &[None, Some(2)],
+        lines: &[Some(1), Some(2)],
     }],
     // Desert of the Indomitable
     &[FaceLines {
         sentences: 3,
         stackable: 1,
-        lines: &[None, Some(2)],
+        lines: &[Some(1), Some(2)],
     }],
     // Desert of the Mindful
     &[FaceLines {
         sentences: 3,
         stackable: 1,
-        lines: &[None, Some(2)],
+        lines: &[Some(1), Some(2)],
     }],
     // Desert of the True
     &[FaceLines {
         sentences: 3,
         stackable: 1,
-        lines: &[None, Some(2)],
+        lines: &[Some(1), Some(2)],
     }],
     // Deserted Beach
     &[FaceLines {
         sentences: 2,
         stackable: 0,
-        lines: &[None],
+        lines: &[Some(1)],
     }],
     // Deserted Temple
     &[FaceLines {
         sentences: 2,
         stackable: 1,
-        lines: &[None, Some(1)],
+        lines: &[Some(0), Some(1)],
     }],
     &[],
     // Desolate Mire
     &[FaceLines {
         sentences: 1,
         stackable: 0,
-        lines: &[None],
+        lines: &[Some(0)],
     }],
     &[],
     &[],
@@ -1852,14 +1852,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 3,
         stackable: 1,
-        lines: &[Some(1), None],
+        lines: &[Some(1), Some(2)],
     }],
     &[],
     // Dimir Guildgate
     &[FaceLines {
         sentences: 2,
         stackable: 0,
-        lines: &[None],
+        lines: &[Some(1)],
     }],
     &[],
     &[],
@@ -1867,7 +1867,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 3,
         stackable: 1,
-        lines: &[Some(1), None],
+        lines: &[Some(1), Some(2)],
     }],
     &[],
     &[],
@@ -1877,7 +1877,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 0,
-        lines: &[None],
+        lines: &[Some(1)],
     }],
     &[],
     &[],
@@ -1886,20 +1886,20 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 0,
-        lines: &[None],
+        lines: &[Some(1)],
     }],
     // Drifting Meadow
     &[FaceLines {
         sentences: 3,
         stackable: 1,
-        lines: &[None, Some(2)],
+        lines: &[Some(1), Some(2)],
     }],
     &[],
     // Drossforge Bridge
     &[FaceLines {
         sentences: 3,
         stackable: 0,
-        lines: &[None],
+        lines: &[Some(2)],
     }],
     &[],
     &[],
@@ -1910,7 +1910,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 1,
-        lines: &[None, Some(1)],
+        lines: &[Some(0), Some(1)],
     }],
     &[],
     &[],
@@ -1919,13 +1919,13 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 3,
         stackable: 0,
-        lines: &[None, None],
+        lines: &[Some(1), Some(2)],
     }],
     // Ebon Stronghold
     &[FaceLines {
         sentences: 3,
         stackable: 0,
-        lines: &[None, None],
+        lines: &[Some(1), Some(2)],
     }],
     &[],
     &[],
@@ -1946,7 +1946,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 0,
-        lines: &[None],
+        lines: &[Some(1)],
     }],
     &[],
     &[],
@@ -1957,14 +1957,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 1,
-        lines: &[None, Some(1)],
+        lines: &[Some(0), Some(1)],
     }],
     &[],
     // Eroded Canyon
     &[FaceLines {
         sentences: 3,
         stackable: 1,
-        lines: &[Some(1), None],
+        lines: &[Some(1), Some(2)],
     }],
     &[],
     &[],
@@ -1985,21 +1985,21 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 3,
         stackable: 1,
-        lines: &[None, Some(2)],
+        lines: &[Some(1), Some(2)],
     }],
     &[],
     // Ferrous Lake
     &[FaceLines {
         sentences: 1,
         stackable: 0,
-        lines: &[None],
+        lines: &[Some(0)],
     }],
     &[],
     // Festering Gulch
     &[FaceLines {
         sentences: 3,
         stackable: 1,
-        lines: &[Some(1), None],
+        lines: &[Some(1), Some(2)],
     }],
     // Festering Thicket
     &[FaceLines {
@@ -2020,7 +2020,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 1,
-        lines: &[None, Some(1)],
+        lines: &[Some(0), Some(1)],
     }],
     &[],
     &[],
@@ -2028,7 +2028,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 3,
         stackable: 1,
-        lines: &[Some(1), None],
+        lines: &[Some(1), Some(2)],
     }],
     &[],
     &[],
@@ -2044,7 +2044,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 3,
         stackable: 1,
-        lines: &[None, Some(2)],
+        lines: &[Some(1), Some(2)],
     }],
     &[],
     &[],
@@ -2052,14 +2052,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 3,
         stackable: 1,
-        lines: &[Some(1), None],
+        lines: &[Some(1), Some(2)],
     }],
     &[],
     // Forbidding Watchtower
     &[FaceLines {
         sentences: 3,
         stackable: 1,
-        lines: &[None, Some(2)],
+        lines: &[Some(1), Some(2)],
     }],
     &[],
     &[],
@@ -2068,14 +2068,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 3,
         stackable: 1,
-        lines: &[None, Some(2)],
+        lines: &[Some(1), Some(2)],
     }],
     &[],
     // Forlorn Flats
     &[FaceLines {
         sentences: 3,
         stackable: 1,
-        lines: &[Some(1), None],
+        lines: &[Some(1), Some(2)],
     }],
     &[],
     &[],
@@ -2083,7 +2083,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 0,
-        lines: &[None],
+        lines: &[Some(1)],
     }],
     &[],
     &[],
@@ -2092,7 +2092,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 0,
-        lines: &[None],
+        lines: &[Some(1)],
     }],
     &[],
     &[],
@@ -2102,13 +2102,13 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 0,
-        lines: &[None],
+        lines: &[Some(1)],
     }],
     // Frost Marsh
     &[FaceLines {
         sentences: 2,
         stackable: 0,
-        lines: &[None],
+        lines: &[Some(1)],
     }],
     &[],
     &[],
@@ -2122,7 +2122,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 3,
         stackable: 1,
-        lines: &[None, Some(2)],
+        lines: &[Some(1), Some(2)],
     }],
     &[],
     &[],
@@ -2140,13 +2140,13 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 3,
         stackable: 0,
-        lines: &[None, None],
+        lines: &[Some(1), Some(2)],
     }],
     // Ghitu Encampment
     &[FaceLines {
         sentences: 3,
         stackable: 1,
-        lines: &[None, Some(2)],
+        lines: &[Some(1), Some(2)],
     }],
     &[],
     &[],
@@ -2175,7 +2175,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 1,
-        lines: &[None, Some(1)],
+        lines: &[Some(0), Some(1)],
     }],
     &[],
     &[],
@@ -2183,20 +2183,20 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 0,
-        lines: &[None],
+        lines: &[Some(1)],
     }],
     &[],
     // Goldmire Bridge
     &[FaceLines {
         sentences: 3,
         stackable: 0,
-        lines: &[None],
+        lines: &[Some(2)],
     }],
     // Golgari Guildgate
     &[FaceLines {
         sentences: 2,
         stackable: 0,
-        lines: &[None],
+        lines: &[Some(1)],
     }],
     &[],
     &[],
@@ -2204,13 +2204,13 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 0,
-        lines: &[None],
+        lines: &[Some(1)],
     }],
     // Grand Coliseum
     &[FaceLines {
         sentences: 3,
         stackable: 0,
-        lines: &[None, None],
+        lines: &[Some(1), Some(2)],
     }],
     &[],
     &[],
@@ -2225,14 +2225,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 3,
         stackable: 1,
-        lines: &[Some(1), None],
+        lines: &[Some(1), Some(2)],
     }],
     &[],
     // Great Furnace
     &[FaceLines {
         sentences: 1,
         stackable: 0,
-        lines: &[None],
+        lines: &[Some(0)],
     }],
     &[],
     &[],
@@ -2241,7 +2241,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 1,
-        lines: &[None, Some(1)],
+        lines: &[Some(0), Some(1)],
     }],
     &[],
     &[],
@@ -2249,7 +2249,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 1,
-        lines: &[None, None],
+        lines: &[Some(0), None],
     }],
     &[],
     &[],
@@ -2257,14 +2257,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 0,
-        lines: &[None],
+        lines: &[Some(1)],
     }],
     &[],
     // Guadosalam, Farplane Gateway
     &[FaceLines {
         sentences: 2,
         stackable: 0,
-        lines: &[None],
+        lines: &[Some(1)],
     }],
     &[],
     &[],
@@ -2293,7 +2293,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 0,
-        lines: &[None],
+        lines: &[Some(1)],
     }],
     &[],
     &[],
@@ -2301,7 +2301,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 3,
         stackable: 0,
-        lines: &[None, None],
+        lines: &[Some(1), Some(2)],
     }],
     &[],
     &[],
@@ -2310,14 +2310,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 3,
         stackable: 1,
-        lines: &[Some(1), None],
+        lines: &[Some(1), Some(2)],
     }],
     &[],
     // Henge of Ramos
     &[FaceLines {
         sentences: 2,
         stackable: 0,
-        lines: &[None, None],
+        lines: &[Some(0), Some(1)],
     }],
     &[],
     &[],
@@ -2339,25 +2339,25 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 0,
-        lines: &[None],
+        lines: &[Some(1)],
     }],
     // Highland Weald
     &[FaceLines {
         sentences: 2,
         stackable: 0,
-        lines: &[None],
+        lines: &[Some(1)],
     }],
     // Hinterland Harbor
     &[FaceLines {
         sentences: 2,
         stackable: 0,
-        lines: &[None],
+        lines: &[Some(1)],
     }],
     // Hissing Quagmire
     &[FaceLines {
         sentences: 3,
         stackable: 1,
-        lines: &[None, Some(2)],
+        lines: &[Some(1), Some(2)],
     }],
     &[],
     &[],
@@ -2367,7 +2367,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 1,
-        lines: &[None, Some(1)],
+        lines: &[Some(0), Some(1)],
     }],
     &[],
     &[],
@@ -2395,7 +2395,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 3,
         stackable: 1,
-        lines: &[Some(1), None],
+        lines: &[Some(1), Some(2)],
     }],
     &[],
     &[],
@@ -2403,7 +2403,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 0,
-        lines: &[None],
+        lines: &[Some(1)],
     }],
     &[],
     &[],
@@ -2420,7 +2420,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 3,
         stackable: 0,
-        lines: &[None, None],
+        lines: &[Some(1), Some(2)],
     }],
     &[],
     &[],
@@ -2430,13 +2430,13 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 0,
-        lines: &[None],
+        lines: &[Some(1)],
     }],
     // Jagged Barrens
     &[FaceLines {
         sentences: 3,
         stackable: 1,
-        lines: &[Some(1), None],
+        lines: &[Some(1), Some(2)],
     }],
     // Jetmir's Garden
     &[FaceLines {
@@ -2452,27 +2452,27 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 3,
         stackable: 1,
-        lines: &[Some(1), None],
+        lines: &[Some(1), Some(2)],
     }],
     // Jungle Shrine
     &[FaceLines {
         sentences: 2,
         stackable: 0,
-        lines: &[None],
+        lines: &[Some(1)],
     }],
     &[],
     // Jwar Isle Refuge
     &[FaceLines {
         sentences: 3,
         stackable: 1,
-        lines: &[Some(1), None],
+        lines: &[Some(1), Some(2)],
     }],
     &[],
     // Kabira Crossroads
     &[FaceLines {
         sentences: 3,
         stackable: 1,
-        lines: &[Some(1), None],
+        lines: &[Some(1), Some(2)],
     }],
     &[],
     &[],
@@ -2481,7 +2481,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 0,
-        lines: &[None, None],
+        lines: &[Some(0), Some(1)],
     }],
     &[],
     &[],
@@ -2489,7 +2489,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 3,
         stackable: 1,
-        lines: &[Some(1), None],
+        lines: &[Some(1), Some(2)],
     }],
     &[],
     &[],
@@ -2511,14 +2511,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 3,
         stackable: 0,
-        lines: &[None, None, None],
+        lines: &[Some(0), Some(1), Some(2)],
     }],
     &[],
     // Kyoshi Village
     &[FaceLines {
         sentences: 3,
         stackable: 1,
-        lines: &[None, Some(2)],
+        lines: &[Some(1), Some(2)],
     }],
     &[],
     &[],
@@ -2543,37 +2543,37 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 0,
-        lines: &[None, None],
+        lines: &[Some(0), Some(1)],
     }],
     // Lonely Arroyo
     &[FaceLines {
         sentences: 3,
         stackable: 1,
-        lines: &[Some(1), None],
+        lines: &[Some(1), Some(2)],
     }],
     // Lonely Sandbar
     &[FaceLines {
         sentences: 3,
         stackable: 1,
-        lines: &[None, Some(2)],
+        lines: &[Some(1), Some(2)],
     }],
     // Looming Spires
     &[FaceLines {
         sentences: 3,
         stackable: 1,
-        lines: &[Some(1), None],
+        lines: &[Some(1), Some(2)],
     }],
     // Lorehold Campus
     &[FaceLines {
         sentences: 3,
         stackable: 1,
-        lines: &[None, Some(2)],
+        lines: &[Some(1), Some(2)],
     }],
     // Los Diablos Missile Base
     &[FaceLines {
         sentences: 3,
         stackable: 1,
-        lines: &[Some(1), None],
+        lines: &[Some(1), Some(2)],
     }],
     &[],
     &[],
@@ -2582,14 +2582,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 3,
         stackable: 1,
-        lines: &[None, Some(2)],
+        lines: &[Some(1), Some(2)],
     }],
     &[],
     // Lush Oasis
     &[FaceLines {
         sentences: 3,
         stackable: 1,
-        lines: &[Some(1), None],
+        lines: &[Some(1), Some(2)],
     }],
     &[],
     &[],
@@ -2604,7 +2604,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 1,
         stackable: 0,
-        lines: &[None],
+        lines: &[Some(0)],
     }],
     &[],
     &[],
@@ -2615,21 +2615,21 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 0,
-        lines: &[None],
+        lines: &[Some(1)],
     }],
     &[],
     // Meditation Pools
     &[FaceLines {
         sentences: 3,
         stackable: 1,
-        lines: &[None, Some(2)],
+        lines: &[Some(1), Some(2)],
     }],
     &[],
     // Memorial to Genius
     &[FaceLines {
         sentences: 3,
         stackable: 1,
-        lines: &[None, Some(2)],
+        lines: &[Some(1), Some(2)],
     }],
     &[],
     &[],
@@ -2637,7 +2637,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 3,
         stackable: 1,
-        lines: &[None, Some(2)],
+        lines: &[Some(1), Some(2)],
     }],
     &[],
     &[],
@@ -2647,13 +2647,13 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 1,
-        lines: &[None, Some(1)],
+        lines: &[Some(0), Some(1)],
     }],
     // Minamo, School at Water's Edge
     &[FaceLines {
         sentences: 2,
         stackable: 1,
-        lines: &[None, Some(1)],
+        lines: &[Some(0), Some(1)],
     }],
     &[],
     &[],
@@ -2670,21 +2670,21 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 1,
         stackable: 0,
-        lines: &[None],
+        lines: &[Some(0)],
     }],
     &[],
     // Mistvault Bridge
     &[FaceLines {
         sentences: 3,
         stackable: 0,
-        lines: &[None],
+        lines: &[Some(2)],
     }],
     &[],
     // Misty Palms Oasis
     &[FaceLines {
         sentences: 3,
         stackable: 1,
-        lines: &[None, Some(2)],
+        lines: &[Some(1), Some(2)],
     }],
     &[],
     &[],
@@ -2704,7 +2704,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 1,
         stackable: 0,
-        lines: &[None],
+        lines: &[Some(0)],
     }],
     &[],
     &[],
@@ -2731,7 +2731,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 3,
         stackable: 1,
-        lines: &[Some(1), None],
+        lines: &[Some(1), Some(2)],
     }],
     &[],
     &[],
@@ -2739,7 +2739,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 0,
-        lines: &[None],
+        lines: &[Some(1)],
     }],
     &[],
     &[],
@@ -2751,7 +2751,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 3,
         stackable: 1,
-        lines: &[None, Some(2)],
+        lines: &[Some(1), Some(2)],
     }],
     &[],
     &[],
@@ -2760,14 +2760,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 1,
-        lines: &[None, Some(1)],
+        lines: &[Some(0), Some(1)],
     }],
     &[],
     // New Benalia
     &[FaceLines {
         sentences: 3,
         stackable: 1,
-        lines: &[Some(1), None],
+        lines: &[Some(1), Some(2)],
     }],
     &[],
     &[],
@@ -2776,14 +2776,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 0,
-        lines: &[None],
+        lines: &[Some(1)],
     }],
     &[],
     // North Pole Gates
     &[FaceLines {
         sentences: 3,
         stackable: 1,
-        lines: &[None, Some(2)],
+        lines: &[Some(1), Some(2)],
     }],
     &[],
     &[],
@@ -2791,7 +2791,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 1,
-        lines: &[None, Some(1)],
+        lines: &[Some(0), Some(1)],
     }],
     &[],
     &[],
@@ -2806,13 +2806,13 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 1,
-        lines: &[None, Some(1)],
+        lines: &[Some(0), Some(1)],
     }],
     // Omashu City
     &[FaceLines {
         sentences: 3,
         stackable: 1,
-        lines: &[None, Some(2)],
+        lines: &[Some(1), Some(2)],
     }],
     &[],
     &[],
@@ -2822,7 +2822,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 0,
-        lines: &[None],
+        lines: &[Some(1)],
     }],
     &[],
     &[],
@@ -2830,13 +2830,13 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 0,
-        lines: &[None],
+        lines: &[Some(1)],
     }],
     // Orzhova, the Church of Deals
     &[FaceLines {
         sentences: 2,
         stackable: 1,
-        lines: &[None, Some(1)],
+        lines: &[Some(0), Some(1)],
     }],
     &[],
     &[],
@@ -2844,13 +2844,13 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 1,
         stackable: 0,
-        lines: &[None],
+        lines: &[Some(0)],
     }],
     // Overgrown Farmland
     &[FaceLines {
         sentences: 2,
         stackable: 0,
-        lines: &[None],
+        lines: &[Some(1)],
     }],
     // Overgrown Tomb
     &[FaceLines {
@@ -2862,7 +2862,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 0,
-        lines: &[None, None],
+        lines: &[Some(0), Some(1)],
     }],
     &[],
     &[],
@@ -2881,7 +2881,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 3,
         stackable: 0,
-        lines: &[None, None],
+        lines: &[Some(1), Some(2)],
     }],
     &[],
     &[],
@@ -2889,7 +2889,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 3,
         stackable: 1,
-        lines: &[Some(1), None],
+        lines: &[Some(1), Some(2)],
     }],
     &[],
     &[],
@@ -2905,7 +2905,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 3,
         stackable: 1,
-        lines: &[None, Some(2)],
+        lines: &[Some(1), Some(2)],
     }],
     &[],
     &[],
@@ -2917,7 +2917,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 3,
         stackable: 1,
-        lines: &[None, Some(2)],
+        lines: &[Some(1), Some(2)],
     }],
     &[],
     &[],
@@ -2927,13 +2927,13 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 3,
         stackable: 1,
-        lines: &[Some(1), None],
+        lines: &[Some(1), Some(2)],
     }],
     // Quandrix Campus
     &[FaceLines {
         sentences: 3,
         stackable: 1,
-        lines: &[None, Some(2)],
+        lines: &[Some(1), Some(2)],
     }],
     &[],
     &[],
@@ -2941,19 +2941,19 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 0,
-        lines: &[None],
+        lines: &[Some(1)],
     }],
     // Racers' Ring
     &[FaceLines {
         sentences: 3,
         stackable: 1,
-        lines: &[None, Some(2)],
+        lines: &[Some(1), Some(2)],
     }],
     // Radiant Fountain
     &[FaceLines {
         sentences: 2,
         stackable: 1,
-        lines: &[Some(0), None],
+        lines: &[Some(0), Some(1)],
     }],
     // Radiant Grove
     &[FaceLines {
@@ -2980,7 +2980,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 0,
-        lines: &[None],
+        lines: &[Some(1)],
     }],
     &[],
     &[],
@@ -2990,14 +2990,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 3,
         stackable: 0,
-        lines: &[None, None],
+        lines: &[Some(1), Some(2)],
     }],
     &[],
     // Razortide Bridge
     &[FaceLines {
         sentences: 3,
         stackable: 0,
-        lines: &[None],
+        lines: &[Some(2)],
     }],
     &[],
     &[],
@@ -3009,14 +3009,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 3,
         stackable: 1,
-        lines: &[None, Some(2)],
+        lines: &[Some(1), Some(2)],
     }],
     &[],
     // Restless Bivouac
     &[FaceLines {
         sentences: 4,
         stackable: 2,
-        lines: &[None, Some(2), Some(3)],
+        lines: &[Some(1), Some(2), Some(3)],
     }],
     &[],
     &[],
@@ -3025,7 +3025,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 4,
         stackable: 2,
-        lines: &[None, Some(2), Some(3)],
+        lines: &[Some(1), Some(2), Some(3)],
     }],
     &[],
     &[],
@@ -3044,7 +3044,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 1,
-        lines: &[None, Some(1)],
+        lines: &[Some(0), Some(1)],
     }],
     &[],
     &[],
@@ -3060,7 +3060,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 0,
-        lines: &[None],
+        lines: &[Some(1)],
     }],
     &[],
     // Rocky Tar Pit
@@ -3073,20 +3073,20 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 1,
-        lines: &[None, Some(1)],
+        lines: &[Some(0), Some(1)],
     }],
     // Rootbound Crag
     &[FaceLines {
         sentences: 2,
         stackable: 0,
-        lines: &[None],
+        lines: &[Some(1)],
     }],
     &[],
     // Rugged Highlands
     &[FaceLines {
         sentences: 3,
         stackable: 1,
-        lines: &[Some(1), None],
+        lines: &[Some(1), Some(2)],
     }],
     &[],
     &[],
@@ -3094,13 +3094,13 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 3,
         stackable: 0,
-        lines: &[None, None],
+        lines: &[Some(1), Some(2)],
     }],
     // Rumble Arena
     &[FaceLines {
         sentences: 4,
         stackable: 1,
-        lines: &[Some(1), None, None],
+        lines: &[Some(1), Some(2), Some(3)],
     }],
     &[],
     &[],
@@ -3110,7 +3110,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 3,
         stackable: 0,
-        lines: &[None],
+        lines: &[Some(2)],
     }],
     // Sacred Foundry
     &[FaceLines {
@@ -3129,13 +3129,13 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 3,
         stackable: 0,
-        lines: &[None, None],
+        lines: &[Some(1), Some(2)],
     }],
     // Salt Marsh
     &[FaceLines {
         sentences: 2,
         stackable: 0,
-        lines: &[None],
+        lines: &[Some(1)],
     }],
     &[],
     &[],
@@ -3145,13 +3145,13 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 0,
-        lines: &[None],
+        lines: &[Some(1)],
     }],
     // Sandstone Bridge
     &[FaceLines {
         sentences: 3,
         stackable: 1,
-        lines: &[Some(1), None],
+        lines: &[Some(1), Some(2)],
     }],
     &[],
     &[],
@@ -3162,7 +3162,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 0,
-        lines: &[None],
+        lines: &[Some(1)],
     }],
     &[],
     // Savai Triome
@@ -3175,7 +3175,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 3,
         stackable: 0,
-        lines: &[None, None],
+        lines: &[Some(1), Some(2)],
     }],
     // Scattered Groves
     &[FaceLines {
@@ -3189,7 +3189,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 0,
-        lines: &[None, None],
+        lines: &[Some(0), Some(1)],
     }],
     // Scorched Geyser
     &[FaceLines {
@@ -3202,7 +3202,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 3,
         stackable: 1,
-        lines: &[Some(1), None],
+        lines: &[Some(1), Some(2)],
     }],
     &[],
     &[],
@@ -3215,21 +3215,21 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 3,
         stackable: 0,
-        lines: &[None, None],
+        lines: &[Some(1), Some(2)],
     }],
     &[],
     // Seaside Citadel
     &[FaceLines {
         sentences: 2,
         stackable: 0,
-        lines: &[None],
+        lines: &[Some(1)],
     }],
     &[],
     // Seat of the Synod
     &[FaceLines {
         sentences: 1,
         stackable: 0,
-        lines: &[None],
+        lines: &[Some(0)],
     }],
     &[],
     &[],
@@ -3238,7 +3238,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 3,
         stackable: 1,
-        lines: &[None, Some(2)],
+        lines: &[Some(1), Some(2)],
     }],
     &[],
     &[],
@@ -3248,7 +3248,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 3,
         stackable: 1,
-        lines: &[Some(1), None],
+        lines: &[Some(1), Some(2)],
     }],
     &[],
     &[],
@@ -3256,7 +3256,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 0,
-        lines: &[None],
+        lines: &[Some(1)],
     }],
     &[],
     &[],
@@ -3264,40 +3264,40 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 3,
         stackable: 2,
-        lines: &[Some(0), Some(1), None],
+        lines: &[Some(0), Some(1), Some(2)],
     }],
     // Serpent's Pass
     &[FaceLines {
         sentences: 3,
         stackable: 1,
-        lines: &[None, Some(2)],
+        lines: &[Some(1), Some(2)],
     }],
     &[],
     // Shadowblood Ridge
     &[FaceLines {
         sentences: 1,
         stackable: 0,
-        lines: &[None],
+        lines: &[Some(0)],
     }],
     &[],
     // Shambling Vent
     &[FaceLines {
         sentences: 3,
         stackable: 1,
-        lines: &[None, Some(2)],
+        lines: &[Some(1), Some(2)],
     }],
     // Sharlayan, Nation of Scholars
     &[FaceLines {
         sentences: 2,
         stackable: 0,
-        lines: &[None],
+        lines: &[Some(1)],
     }],
     &[],
     // Shattered Sanctum
     &[FaceLines {
         sentences: 2,
         stackable: 0,
-        lines: &[None],
+        lines: &[Some(1)],
     }],
     &[],
     &[],
@@ -3316,20 +3316,20 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 0,
-        lines: &[None, None],
+        lines: &[Some(0), Some(1)],
     }],
     &[],
     // Shinka, the Bloodsoaked Keep
     &[FaceLines {
         sentences: 2,
         stackable: 1,
-        lines: &[None, Some(1)],
+        lines: &[Some(0), Some(1)],
     }],
     // Shipwreck Marsh
     &[FaceLines {
         sentences: 2,
         stackable: 0,
-        lines: &[None],
+        lines: &[Some(1)],
     }],
     &[],
     &[],
@@ -3337,19 +3337,19 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 0,
-        lines: &[None],
+        lines: &[Some(1)],
     }],
     // Shivan Reef
     &[FaceLines {
         sentences: 2,
         stackable: 0,
-        lines: &[None, None],
+        lines: &[Some(0), Some(1)],
     }],
     // Shizo, Death's Storehouse
     &[FaceLines {
         sentences: 2,
         stackable: 1,
-        lines: &[None, Some(1)],
+        lines: &[Some(0), Some(1)],
     }],
     &[],
     &[],
@@ -3357,27 +3357,27 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 1,
-        lines: &[None, Some(1)],
+        lines: &[Some(0), Some(1)],
     }],
     &[],
     // Silverbluff Bridge
     &[FaceLines {
         sentences: 3,
         stackable: 0,
-        lines: &[None],
+        lines: &[Some(2)],
     }],
     // Silverquill Campus
     &[FaceLines {
         sentences: 3,
         stackable: 1,
-        lines: &[None, Some(2)],
+        lines: &[Some(1), Some(2)],
     }],
     &[],
     // Simic Guildgate
     &[FaceLines {
         sentences: 2,
         stackable: 0,
-        lines: &[None],
+        lines: &[Some(1)],
     }],
     &[],
     &[],
@@ -3385,21 +3385,21 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 1,
-        lines: &[None, Some(1)],
+        lines: &[Some(0), Some(1)],
     }],
     &[],
     // Skybridge Towers
     &[FaceLines {
         sentences: 3,
         stackable: 1,
-        lines: &[None, Some(2)],
+        lines: &[Some(1), Some(2)],
     }],
     &[],
     // Skycloud Expanse
     &[FaceLines {
         sentences: 1,
         stackable: 0,
-        lines: &[None],
+        lines: &[Some(0)],
     }],
     &[],
     &[],
@@ -3407,32 +3407,32 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 3,
         stackable: 0,
-        lines: &[None, None],
+        lines: &[Some(1), Some(2)],
     }],
     // Slagwoods Bridge
     &[FaceLines {
         sentences: 3,
         stackable: 0,
-        lines: &[None],
+        lines: &[Some(2)],
     }],
     // Slayers' Stronghold
     &[FaceLines {
         sentences: 2,
         stackable: 1,
-        lines: &[None, Some(1)],
+        lines: &[Some(0), Some(1)],
     }],
     // Slippery Karst
     &[FaceLines {
         sentences: 3,
         stackable: 1,
-        lines: &[None, Some(2)],
+        lines: &[Some(1), Some(2)],
     }],
     &[],
     // Smoldering Crater
     &[FaceLines {
         sentences: 3,
         stackable: 1,
-        lines: &[None, Some(2)],
+        lines: &[Some(1), Some(2)],
     }],
     // Smoldering Marsh
     &[FaceLines {
@@ -3475,7 +3475,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 1,
         stackable: 0,
-        lines: &[None],
+        lines: &[Some(0)],
     }],
     // Snowfield Sinkhole
     &[FaceLines {
@@ -3487,7 +3487,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 3,
         stackable: 1,
-        lines: &[None, Some(1)],
+        lines: &[Some(2), Some(1)],
     }],
     // Sodden Verdure
     &[FaceLines {
@@ -3504,7 +3504,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 3,
         stackable: 1,
-        lines: &[Some(1), None],
+        lines: &[Some(1), Some(2)],
     }],
     // Spara's Headquarters
     &[FaceLines {
@@ -3529,7 +3529,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 3,
         stackable: 1,
-        lines: &[Some(1), None],
+        lines: &[Some(1), Some(2)],
     }],
     &[],
     &[],
@@ -3544,7 +3544,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 3,
         stackable: 1,
-        lines: &[None, Some(2)],
+        lines: &[Some(1), Some(2)],
     }],
     // Stomping Ground
     &[FaceLines {
@@ -3556,14 +3556,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 0,
-        lines: &[None],
+        lines: &[Some(1)],
     }],
     &[],
     // Stormcarved Coast
     &[FaceLines {
         sentences: 2,
         stackable: 0,
-        lines: &[None],
+        lines: &[Some(1)],
     }],
     &[],
     &[],
@@ -3571,7 +3571,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 1,
-        lines: &[None, Some(1)],
+        lines: &[Some(0), Some(1)],
     }],
     &[],
     &[],
@@ -3580,13 +3580,13 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 0,
-        lines: &[None],
+        lines: &[Some(1)],
     }],
     // Subterranean Cavern
     &[FaceLines {
         sentences: 3,
         stackable: 1,
-        lines: &[Some(1), None],
+        lines: &[Some(1), Some(2)],
     }],
     &[],
     &[],
@@ -3594,13 +3594,13 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 0,
-        lines: &[None],
+        lines: &[Some(1)],
     }],
     // Sulfur Vent
     &[FaceLines {
         sentences: 3,
         stackable: 0,
-        lines: &[None, None],
+        lines: &[Some(1), Some(2)],
     }],
     // Sulfurous Mire
     &[FaceLines {
@@ -3612,19 +3612,19 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 0,
-        lines: &[None, None],
+        lines: &[Some(0), Some(1)],
     }],
     // Sun-Blessed Peak
     &[FaceLines {
         sentences: 3,
         stackable: 1,
-        lines: &[None, Some(2)],
+        lines: &[Some(1), Some(2)],
     }],
     // Sunbaked Canyon
     &[FaceLines {
         sentences: 2,
         stackable: 1,
-        lines: &[None, Some(1)],
+        lines: &[Some(0), Some(1)],
     }],
     &[],
     &[],
@@ -3632,19 +3632,19 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 0,
-        lines: &[None],
+        lines: &[Some(1)],
     }],
     // Sungrass Prairie
     &[FaceLines {
         sentences: 1,
         stackable: 0,
-        lines: &[None],
+        lines: &[Some(0)],
     }],
     // Sunhome, Fortress of the Legion
     &[FaceLines {
         sentences: 2,
         stackable: 1,
-        lines: &[None, Some(1)],
+        lines: &[Some(0), Some(1)],
     }],
     &[],
     &[],
@@ -3659,14 +3659,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 0,
-        lines: &[None],
+        lines: &[Some(1)],
     }],
     &[],
     // Sunscorched Divide
     &[FaceLines {
         sentences: 1,
         stackable: 0,
-        lines: &[None],
+        lines: &[Some(0)],
     }],
     &[],
     &[],
@@ -3678,20 +3678,20 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 3,
         stackable: 0,
-        lines: &[None, None],
+        lines: &[Some(1), Some(2)],
     }],
     &[],
     // Swiftwater Cliffs
     &[FaceLines {
         sentences: 3,
         stackable: 1,
-        lines: &[Some(1), None],
+        lines: &[Some(1), Some(2)],
     }],
     // TCRI Building
     &[FaceLines {
         sentences: 3,
         stackable: 1,
-        lines: &[Some(1), None],
+        lines: &[Some(1), Some(2)],
     }],
     &[],
     &[],
@@ -3710,14 +3710,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 3,
         stackable: 0,
-        lines: &[None],
+        lines: &[Some(2)],
     }],
     &[],
     // Tarnished Citadel
     &[FaceLines {
         sentences: 2,
         stackable: 0,
-        lines: &[None, None],
+        lines: &[Some(0), Some(1)],
     }],
     &[],
     &[],
@@ -3725,68 +3725,68 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 3,
         stackable: 1,
-        lines: &[None, Some(1)],
+        lines: &[Some(2), Some(1)],
     }],
     &[],
     // Temple of Abandon
     &[FaceLines {
         sentences: 3,
         stackable: 1,
-        lines: &[Some(1), None],
+        lines: &[Some(1), Some(2)],
     }],
     // Temple of Deceit
     &[FaceLines {
         sentences: 3,
         stackable: 1,
-        lines: &[Some(1), None],
+        lines: &[Some(1), Some(2)],
     }],
     // Temple of Enlightenment
     &[FaceLines {
         sentences: 3,
         stackable: 1,
-        lines: &[Some(1), None],
+        lines: &[Some(1), Some(2)],
     }],
     // Temple of Epiphany
     &[FaceLines {
         sentences: 3,
         stackable: 1,
-        lines: &[Some(1), None],
+        lines: &[Some(1), Some(2)],
     }],
     // Temple of Malady
     &[FaceLines {
         sentences: 3,
         stackable: 1,
-        lines: &[Some(1), None],
+        lines: &[Some(1), Some(2)],
     }],
     // Temple of Malice
     &[FaceLines {
         sentences: 3,
         stackable: 1,
-        lines: &[Some(1), None],
+        lines: &[Some(1), Some(2)],
     }],
     // Temple of Mystery
     &[FaceLines {
         sentences: 3,
         stackable: 1,
-        lines: &[Some(1), None],
+        lines: &[Some(1), Some(2)],
     }],
     // Temple of Plenty
     &[FaceLines {
         sentences: 3,
         stackable: 1,
-        lines: &[Some(1), None],
+        lines: &[Some(1), Some(2)],
     }],
     // Temple of Silence
     &[FaceLines {
         sentences: 3,
         stackable: 1,
-        lines: &[Some(1), None],
+        lines: &[Some(1), Some(2)],
     }],
     // Temple of Triumph
     &[FaceLines {
         sentences: 3,
         stackable: 1,
-        lines: &[Some(1), None],
+        lines: &[Some(1), Some(2)],
     }],
     &[],
     &[],
@@ -3806,7 +3806,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 3,
         stackable: 1,
-        lines: &[None, Some(2)],
+        lines: &[Some(1), Some(2)],
     }],
     &[],
     &[],
@@ -3815,14 +3815,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 3,
         stackable: 1,
-        lines: &[None, Some(2)],
+        lines: &[Some(1), Some(2)],
     }],
     &[],
     // The Fair Basilica
     &[FaceLines {
         sentences: 3,
         stackable: 1,
-        lines: &[None, Some(2)],
+        lines: &[Some(1), Some(2)],
     }],
     &[],
     &[],
@@ -3831,7 +3831,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 3,
         stackable: 1,
-        lines: &[None, Some(2)],
+        lines: &[Some(1), Some(2)],
     }],
     &[],
     &[],
@@ -3842,7 +3842,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 3,
         stackable: 1,
-        lines: &[None, Some(2)],
+        lines: &[Some(1), Some(2)],
     }],
     &[],
     &[],
@@ -3851,14 +3851,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 3,
         stackable: 0,
-        lines: &[None],
+        lines: &[Some(2)],
     }],
     &[],
     // Thornwood Falls
     &[FaceLines {
         sentences: 3,
         stackable: 1,
-        lines: &[Some(1), None],
+        lines: &[Some(1), Some(2)],
     }],
     &[],
     &[],
@@ -3876,20 +3876,20 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 0,
-        lines: &[None],
+        lines: &[Some(1)],
     }],
     // Timberland Ruins
     &[FaceLines {
         sentences: 3,
         stackable: 0,
-        lines: &[None, None],
+        lines: &[Some(1), Some(2)],
     }],
     &[],
     // Tinder Farm
     &[FaceLines {
         sentences: 3,
         stackable: 0,
-        lines: &[None, None],
+        lines: &[Some(1), Some(2)],
     }],
     &[],
     &[],
@@ -3903,7 +3903,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 0,
-        lines: &[None, None],
+        lines: &[Some(0), Some(1)],
     }],
     &[],
     &[],
@@ -3911,19 +3911,19 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 3,
         stackable: 1,
-        lines: &[None, Some(2)],
+        lines: &[Some(1), Some(2)],
     }],
     // Tranquil Cove
     &[FaceLines {
         sentences: 3,
         stackable: 1,
-        lines: &[Some(1), None],
+        lines: &[Some(1), Some(2)],
     }],
     // Tranquil Expanse
     &[FaceLines {
         sentences: 2,
         stackable: 0,
-        lines: &[None],
+        lines: &[Some(1)],
     }],
     &[],
     &[],
@@ -3931,7 +3931,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 3,
         stackable: 1,
-        lines: &[None, Some(2)],
+        lines: &[Some(1), Some(2)],
     }],
     &[],
     &[],
@@ -3940,27 +3940,27 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 1,
         stackable: 0,
-        lines: &[None],
+        lines: &[Some(0)],
     }],
     // Treetop Village
     &[FaceLines {
         sentences: 3,
         stackable: 1,
-        lines: &[None, Some(2)],
+        lines: &[Some(1), Some(2)],
     }],
     &[],
     // Treno, Dark City
     &[FaceLines {
         sentences: 2,
         stackable: 0,
-        lines: &[None],
+        lines: &[Some(1)],
     }],
     &[],
     // Tresserhorn Sinks
     &[FaceLines {
         sentences: 2,
         stackable: 0,
-        lines: &[None],
+        lines: &[Some(1)],
     }],
     &[],
     // Tropical Island
@@ -3978,7 +3978,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 3,
         stackable: 1,
-        lines: &[None, Some(1)],
+        lines: &[Some(2), Some(1)],
     }],
     &[],
     &[],
@@ -4004,7 +4004,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 0,
-        lines: &[None, None],
+        lines: &[Some(0), Some(1)],
     }],
     &[],
     &[],
@@ -4015,7 +4015,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 0,
-        lines: &[None, None],
+        lines: &[Some(0), Some(1)],
     }],
     &[],
     &[],
@@ -4025,7 +4025,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 0,
-        lines: &[None],
+        lines: &[Some(1)],
     }],
     // Urborg, Tomb of Yawgmoth
     &[FaceLines {
@@ -4037,7 +4037,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 1,
-        lines: &[None, Some(1)],
+        lines: &[Some(0), Some(1)],
     }],
     &[],
     &[],
@@ -4056,7 +4056,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 1,
         stackable: 0,
-        lines: &[None],
+        lines: &[Some(0)],
     }],
     &[],
     &[],
@@ -4064,7 +4064,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 0,
-        lines: &[None],
+        lines: &[Some(1)],
     }],
     &[],
     // Verdant Catacombs
@@ -4087,7 +4087,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 1,
         stackable: 0,
-        lines: &[None],
+        lines: &[Some(0)],
     }],
     &[],
     &[],
@@ -4117,20 +4117,20 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 1,
         stackable: 0,
-        lines: &[None],
+        lines: &[Some(0)],
     }],
     &[],
     // Waterfront District
     &[FaceLines {
         sentences: 3,
         stackable: 1,
-        lines: &[None, Some(2)],
+        lines: &[Some(1), Some(2)],
     }],
     // Waterlogged Grove
     &[FaceLines {
         sentences: 2,
         stackable: 1,
-        lines: &[None, Some(1)],
+        lines: &[Some(0), Some(1)],
     }],
     &[],
     &[],
@@ -4141,7 +4141,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 3,
         stackable: 0,
-        lines: &[None, None, None],
+        lines: &[Some(0), Some(1), Some(2)],
     }],
     &[],
     &[],
@@ -4149,7 +4149,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 3,
         stackable: 1,
-        lines: &[Some(1), None],
+        lines: &[Some(1), Some(2)],
     }],
     &[],
     &[],
@@ -4157,14 +4157,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 0,
-        lines: &[None],
+        lines: &[Some(1)],
     }],
     &[],
     // Wirewood Lodge
     &[FaceLines {
         sentences: 2,
         stackable: 1,
-        lines: &[None, Some(1)],
+        lines: &[Some(0), Some(1)],
     }],
     &[],
     &[],
@@ -4173,13 +4173,13 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 3,
         stackable: 1,
-        lines: &[None, Some(2)],
+        lines: &[Some(1), Some(2)],
     }],
     // Wizards' School
     &[FaceLines {
         sentences: 3,
         stackable: 0,
-        lines: &[None, None, None],
+        lines: &[Some(0), Some(1), Some(2)],
     }],
     &[],
     // Wooded Foothills
@@ -4198,7 +4198,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 0,
-        lines: &[None],
+        lines: &[Some(1)],
     }],
     // Woodland Chasm
     &[FaceLines {
@@ -4210,7 +4210,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 0,
-        lines: &[None],
+        lines: &[Some(1)],
     }],
     // Xander's Lounge
     &[FaceLines {
@@ -4222,7 +4222,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 0,
-        lines: &[None, None],
+        lines: &[Some(0), Some(1)],
     }],
     &[],
     // Yavimaya, Cradle of Growth
@@ -4236,7 +4236,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 1,
-        lines: &[Some(0), None],
+        lines: &[Some(0), Some(1)],
     }],
     // Ziatora's Proving Ground
     &[FaceLines {
@@ -4256,19 +4256,19 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 1,
         stackable: 0,
-        lines: &[None],
+        lines: &[Some(0)],
     }],
     // Birds of Paradise
     &[FaceLines {
         sentences: 2,
         stackable: 0,
-        lines: &[None],
+        lines: &[Some(1)],
     }],
     // Commander's Sphere
     &[FaceLines {
         sentences: 2,
         stackable: 1,
-        lines: &[None, Some(1)],
+        lines: &[Some(0), Some(1)],
     }],
     // Dark Ritual
     &[FaceLines {
@@ -4286,7 +4286,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 1,
         stackable: 0,
-        lines: &[None],
+        lines: &[Some(0)],
     }],
     // Lightning Greaves
     &[FaceLines {
@@ -4298,13 +4298,13 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 1,
         stackable: 0,
-        lines: &[None],
+        lines: &[Some(0)],
     }],
     // Mind Stone
     &[FaceLines {
         sentences: 2,
         stackable: 1,
-        lines: &[None, Some(1)],
+        lines: &[Some(0), Some(1)],
     }],
     // Nature's Lore
     &[FaceLines {
@@ -4334,7 +4334,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 2,
         stackable: 0,
-        lines: &[None, None],
+        lines: &[None, Some(1)],
     }],
     // Three Visits
     &[FaceLines {
