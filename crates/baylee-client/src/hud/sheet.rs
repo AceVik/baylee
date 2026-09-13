@@ -886,4 +886,37 @@ mod running {
         let node = app.world().entity(sheet).get::<Node>().expect("a node");
         assert_eq!(node.display, Display::None);
     }
+
+    /// Nothing on parchment is written in brass.
+    ///
+    /// `BRASS` on `PARCHMENT` measures 1.9:1 — below every legibility floor —
+    /// which is how the zone browser's current tab came to read *fainter*
+    /// than the ones beside it. Brass keeps its job as a light: the roundel
+    /// on an armed row, the ordering badge, the card glow, each of which sits
+    /// on its own fill. The check is on the source because what is being held
+    /// is a rule about a whole surface rather than about one node.
+    ///
+    /// It used to live in `hud::tray` and scan that one file. The tray is a
+    /// dark panel now (`docs/redesign-proposal.md` §1.3: parchment is a sheet
+    /// you read from, a panel is a place you work in), so the rule moved to
+    /// where the parchment actually is — and it reads both surfaces, which is
+    /// strictly more than it ever did.
+    #[test]
+    fn the_parchment_writes_no_letters_in_brass() {
+        // Assembled rather than written out, or the needle is in the
+        // haystack and this test fails on its own source line.
+        let ink_in = format!("TextColor(palette::{}", "BRASS");
+        for (what, source) in [
+            ("the ability sheet", include_str!("sheet.rs")),
+            ("the prompt slip", include_str!("overlay.rs")),
+        ] {
+            for line in source.lines() {
+                let code = line.split("//").next().unwrap_or(line);
+                assert!(
+                    !code.contains(&ink_in),
+                    "brass is a light on {what}, not a letter: {line}"
+                );
+            }
+        }
+    }
 }

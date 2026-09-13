@@ -903,10 +903,14 @@ mod slip {
     /// [`sheet`] inserted on a panel paints that panel's **content box**, so
     /// a sheet with padding drew the grain in the middle and flat
     /// [`palette::PARCHMENT`] in a ring around it — twenty-two pixels of it
-    /// on the slip, sixteen on the browser — with the sheet's own rounded
-    /// corners cut inside the panel's. Two concentric rounded rectangles in
-    /// two colours where there should be one sheet, which is what "the
-    /// background still looks strange" was.
+    /// on the slip, sixteen on the zone browser it was then — with the
+    /// sheet's own rounded corners cut inside the panel's. Two concentric
+    /// rounded rectangles in two colours where there should be one sheet,
+    /// which is what "the background still looks strange" was.
+    ///
+    /// The browser is a dark panel now and carries no parchment at all
+    /// (`docs/redesign-proposal.md` §1.3), so the slip is the one surface
+    /// left that this is about.
     ///
     /// An absolutely-positioned child is measured against its parent's
     /// *padding* box, which is exactly the missing ring. Both halves are
@@ -943,20 +947,22 @@ mod slip {
             "there is no parchment on it"
         );
 
-        for (name, source) in [
-            ("the prompt slip", include_str!("overlay.rs")),
-            ("the zone browser", include_str!("tray.rs")),
-        ] {
-            assert!(
-                source.contains("sheet_surface(sheets)"),
-                "{name} draws no parchment surface"
-            );
-            assert!(
-                !source.contains(".insert(sheet("),
-                "{name} wears the sheet as its own image again, which leaves \
-                 its padding flat"
-            );
-        }
+        let slip = include_str!("overlay.rs");
+        assert!(
+            slip.contains("sheet_surface(sheets)"),
+            "the prompt slip draws no parchment surface"
+        );
+        assert!(
+            !slip.contains(".insert(sheet("),
+            "the prompt slip wears the sheet as its own image again, which \
+             leaves its padding flat"
+        );
+        // And the browser stays a panel: a sheet put back on it is the
+        // material decision of §1.3 being undone by accident.
+        assert!(
+            !include_str!("tray.rs").contains("sheet_surface("),
+            "the zone browser is parchment again, and it is a place you work"
+        );
     }
 
     /// The answers divide the sheet between them.

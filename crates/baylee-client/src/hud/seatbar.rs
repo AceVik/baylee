@@ -441,16 +441,22 @@ pub fn sync_seat_bars(
             },
             // The bars stand over the table; the space between them must not.
             Pickable::IGNORE,
-            // Written down rather than left to the default, because what it
-            // orders is worth a sentence: a bar belongs to the felt and
-            // everything the player summons stands *over* it — the stack
-            // panel (1), the hand (2), the tray (3), an overlay (10). A bar
-            // that drew over a hover preview would hide the card the player
-            // asked to see in order to say which step it is, which they
-            // already know. Zero is the ground floor of the HUD and it is
-            // where a bar belongs; it is here so that nothing acquires a
-            // `ZIndex` later and quietly reorders it.
-            ZIndex(0),
+            // A bar belongs to the felt and everything the player summons
+            // stands *over* it — the stack panel, the hand, the zone
+            // browser, a hover preview. A bar that drew over a preview would
+            // hide the card the player asked to see in order to say which
+            // step it is, which they already know.
+            //
+            // `GlobalZIndex` and not `ZIndex`, which is the whole point of
+            // the line. The seat bars are their own retained tree with their
+            // own root (`BarRevision`), so a plain `ZIndex` here orders them
+            // against *nothing*: `ZIndex` is local to a parent's children,
+            // and the overlay's own 1/2/3/10 are inside `HudRoot`, a
+            // different stacking context. Two roots both at zero are tied
+            // and broken by whichever was rebuilt last — which is how the
+            // local seat's phase tiles came to be drawn straight through the
+            // zone browser's dialog.
+            GlobalZIndex(-1),
         ))
         .id();
 

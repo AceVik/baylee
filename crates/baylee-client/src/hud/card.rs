@@ -27,6 +27,18 @@ impl FaceCtx<'_> {
         self.mode.held || self.settings.prefer_text_view
     }
 
+    /// A card's characteristics, whatever is being *drawn* for it.
+    ///
+    /// [`Self::object`] answers a question about the picture — "show the face
+    /// instead of the art" — and answers `None` whenever the art is winning.
+    /// The zone browser's rows want the other thing: the cost and the type
+    /// line are written beside a thumbnail that is always the art, so asking
+    /// through the toggle left every row with a name and two empty columns
+    /// until somebody held the text modifier.
+    pub(super) fn facts(&self, object: &baylee_view::PublicObject) -> CardFace {
+        crate::face::of_object(object, self.texts)
+    }
+
     /// The face to draw instead of a card's art, or `None` to draw the art.
     pub(super) fn object(
         &self,

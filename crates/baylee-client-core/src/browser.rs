@@ -243,34 +243,40 @@ pub struct Placement {
 }
 
 impl Placement {
-    /// Three card columns wide: `3 · 74 + 2 · 6 + 32` of padding `+ 2` of
-    /// border. Below this the grid has nowhere to put a card.
-    pub const MIN_W: f32 = 300.0;
-    /// One card row under the header, the tabs and the filter.
-    pub const MIN_H: f32 = 260.0;
-    /// Ten columns — what `TRAY_PANEL_W` in the renderer computes.
+    /// A row with ten characters of name left in it: the fixed furniture a
+    /// row carries — the checkbox, the thumbnail, four pips of cost and the
+    /// zone badge — plus the shortest name worth reading. Below this the
+    /// prose is squeezed out and the row is a line of marks.
+    pub const MIN_W: f32 = 346.0;
+    /// The head, the footer, and two whole rows between them.
+    pub const MIN_H: f32 = 286.0;
+    /// One row wide — what `TRAY_PANEL_W` in the renderer computes.
     ///
-    /// It was eight, which is what the sheet was fixed at before it could be
-    /// resized at all. A search is the reason it grew: a fetchland offers
-    /// the whole library, and a sheet that shows twenty-four of a hundred
-    /// cards is a sheet the player scrolls rather than reads.
-    pub const DEFAULT_W: f32 = 854.0;
-    /// Four whole rows of cards, and not a pixel of parchment more.
+    /// It was 854, ten columns of a card grid, because the sheet used to draw
+    /// cards and a search wanted forty of them at once. The dialog is a list
+    /// now (`docs/redesign-proposal.md` §6), and a list is read down rather
+    /// than across: past a comfortable measure, width buys a longer blank
+    /// stretch in the middle of every row and nothing else. Height is what
+    /// buys rows, and it is the axis that grew.
+    pub const DEFAULT_W: f32 = 661.0;
+    /// The chrome, and eight rows and a **half**.
     ///
-    /// It was 520, which is three rows plus sixty-five pixels of nothing —
-    /// so a sheet with two cards in it read as *mostly empty* rather than as
-    /// a place, which is what the owner saw. A sheet is allowed to have room
-    /// left in it; it is not allowed to have most of a further row that can
-    /// never hold anything.
+    /// The half row is the point. A grid was cut to four whole rows because
+    /// most of a fifth was space nothing could ever be put in; a list is the
+    /// other way round — a row cut through by the bottom edge is what says
+    /// the list continues, and it says it without a scrollbar.
     ///
     /// The chrome it is derived from cannot be computed here: the header, the
-    /// zone tabs and the filter row are text line boxes, which are font
-    /// metrics rather than constants. It was **measured** on the running
-    /// client instead — 112 logical pixels from the sheet's top edge to the
-    /// first card's, and 17 more to close it underneath — and
-    /// `the_default_height_is_four_whole_rows` in the renderer holds this
-    /// number to that arithmetic.
-    pub const DEFAULT_H: f32 = 566.0;
+    /// zone tabs, the controls and the footer are text line boxes, which are
+    /// font metrics rather than constants. `TRAY_CHROME_H` in the renderer is
+    /// that measurement and `the_default_height_shows_half_a_row` holds this
+    /// number to the arithmetic over it.
+    ///
+    /// It is derived with the **footer present**, which a hand-opened sheet
+    /// has no use for: the sheet a question opens is the one whose size
+    /// nobody chose, because a sheet opened by hand is furniture the player
+    /// drags, resizes and keeps ([`Browser::placement`]).
+    pub const DEFAULT_H: f32 = 649.0;
     /// The clear the sheet keeps between itself and the band's edge.
     const MARGIN: f32 = 12.0;
 
@@ -997,9 +1003,19 @@ mod tests {
         );
 
         // What the store held: the sheet centred on the smaller window.
+        //
+        // That is how the fault was found. The owner measured the dialog at
+        // `x ≈ 437..1290` on a 2056-pixel window, and 437 is exactly
+        // `(1728 - 854) / 2` — the sheet's width at the time, centred in a
+        // band 1728 wide. So it had been centred, on a *different* screen,
+        // and remembered; `fit` clamps a rectangle inside a band and has no
+        // opinion about the middle of one.
         let small = (1728.0, 776.0);
         let remembered = Placement::centred(small);
-        assert!((remembered.left - 437.0).abs() < 1.0, "the measured left");
+        assert!(
+            (remembered.left - (small.0 - Placement::DEFAULT_W) / 2.0).abs() < 1.0,
+            "the arithmetic that found the fault"
+        );
 
         let mut b = Browser::new();
         b.follow(&view, Some(&it));

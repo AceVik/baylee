@@ -132,6 +132,10 @@ pub(crate) mod glyph {
     /// Times (close a panel). The text font has no U+2715, so the cross has
     /// to come from here or it draws as a missing glyph.
     pub const CLOSE: char = '\u{f00d}';
+    /// Check (a ticked box in the zone browser). Read out of the shipped
+    /// font's own cmap rather than looked up: a codepoint a search agrees
+    /// about is not the same claim as a glyph this file has.
+    pub const CHECK: char = '\u{f00c}';
     /// Eye: show a masked field.
     pub const EYE: char = '\u{f06e}';
     /// Eye with a line through it: cover it again.
@@ -402,6 +406,17 @@ pub struct TraySort {
     /// `true` for the arrow that reverses, `false` for the key itself.
     pub reverse: bool,
 }
+
+/// The dialog's way out, drawn only when the question's minimum is zero.
+///
+/// Not a [`PromptAction::Confirm`] button with different words, though that
+/// is what it *sends*: Confirm sends the answer that is assembled and Cancel
+/// sends the **empty** one, so a player who has ticked a card and then
+/// changed their mind must not have that card sent under the word "Cancel".
+/// It clears the answer first and confirms after — the two together are the
+/// closest thing to a cancel the wire has (`docs/redesign-proposal.md` §6).
+#[derive(Component)]
+pub struct TrayCancel;
 
 /// The scrolling strip inside the hand bar.
 #[derive(Component)]
@@ -714,6 +729,41 @@ pub(crate) mod palette {
     /// colour is enough to be a surface and not enough to compete with
     /// [`BRASS`].
     pub const SLIP_GHOST: Color = Color::srgb(0.832, 0.779, 0.639);
+
+    // ------------------------------------------------------ a dialog's own
+    //
+    // `docs/redesign-proposal.md` §1.3 draws the line and §6 applies it:
+    // **parchment is a sheet you read from, a panel is a place you work.**
+    // The prompt slip and the ability sheet are read; the zone browser has a
+    // checkbox, a tally and a Confirm in it, and that is work. So it is a
+    // panel — and a *warm* one, because the table it lies on is candlelit and
+    // [`PANEL`]'s cool near-black is the one surface in this client that was
+    // never on it.
+
+    /// The dialog's ground.
+    pub const DIALOG: Color = Color::srgb(0.110, 0.098, 0.075);
+    /// A dialog's ground where it is lifted: the head and the footer bands.
+    pub const DIALOG_LIT: Color = Color::srgb(0.149, 0.129, 0.098);
+    /// Every line drawn on a dialog: its border, and the rules between rows.
+    pub const DIALOG_LINE: Color = Color::srgb(0.216, 0.188, 0.122);
+    /// What a dialog says.
+    pub const DIALOG_INK: Color = Color::srgb(0.925, 0.890, 0.816);
+    /// The quieter half of it: a type line, a tally, a badge.
+    pub const DIALOG_SOFT: Color = Color::srgb(0.557, 0.514, 0.424);
+    /// Candle: an offer, at the energy of something the engine is asking for.
+    ///
+    /// The one hue the redesign leaves for "this is live" — [`ACCENT`]'s
+    /// teal is what it replaces. [`BRASS`] is its neighbour and not its
+    /// twin: brass is gilt, the colour of a thing already *taken* (an armed
+    /// deed, a place in an ordering), and candle is the invitation.
+    pub const CANDLE: Color = Color::srgb(0.878, 0.604, 0.227);
+    /// [`CANDLE`] laid over a dialog: the fill under a chosen row.
+    ///
+    /// A wash rather than a fill, because a row that is chosen is still a row
+    /// being read — the tick and the name carry the claim, and a bar of
+    /// saturated candle across the list would make the chosen row the only
+    /// thing on the sheet anyone can see.
+    pub const CANDLE_WASH: Color = Color::srgba(0.878, 0.604, 0.227, 0.10);
 }
 
 /// The generated surfaces the overlay is drawn on.

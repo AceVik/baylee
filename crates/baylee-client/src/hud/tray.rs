@@ -2,17 +2,32 @@
 //!
 //! Every zone a choice can reach that the table cannot show: the cards the
 //! engine is *showing* this seat, the stack, and every graveyard, exile pile
-//! and command zone at the table. Cards, not a list of names — the tray uses
-//! the same [`spawn_card_art`] the hand and the stack use, because a second
-//! card renderer is how two parts of one interface start disagreeing about
-//! what a card looks like.
+//! and command zone at the table.
 //!
 //! It opens by itself for a choice that needs it ([`Browser::wanted`]) and by
 //! hand from the table — a tap on the top card of a pile opens that pile —
-//! and a click on one of its cards goes through exactly the same
+//! and a click on one of its rows goes through exactly the same
 //! `activate_card` a click on the table does.
 //!
-//! There was a strip of pile chips above the sheet doing that second job,
+//! # Why it is a panel and not a sheet
+//!
+//! `docs/redesign-proposal.md` §1.3 draws the line: **parchment is a sheet
+//! you read from, a panel is a place you work in.** This was parchment, and a
+//! grid of ten card columns, on the argument that a graveyard is something a
+//! player *reads*. It is not: §6 draws a checkbox, a tally and a Confirm, and
+//! that is work. So it is a dark panel with a list in it — each row a
+//! checkbox, a thumbnail, a name, the cost in pips, the type line and the
+//! zone it is in — and the chosen row goes candle, not teal.
+//!
+//! The grid is what the list replaces, and the reason is the same one that
+//! made the grid ten columns wide: a fetchland offers the whole library. A
+//! grid answers "show me more at once" by growing sideways, which is the axis
+//! that buys nothing here — a name, a cost and a type line fit in one measure
+//! and everything past it is blank. A list grows *down*, which is where a
+//! hundred cards are, and it can say the three things about a card that a
+//! player searching a library is actually reading.
+//!
+//! There was a strip of pile chips above the sheet doing the by-hand job,
 //! drawing the local seat's graveyard, exile and command zone as counts. It is
 //! gone: those three piles stand on the felt now with a real stack of cards on
 //! them, and two drawings of one zone in two renderers is what the command
@@ -22,48 +37,133 @@
 use super::*;
 use baylee_client_core::browser::{BrowseRow, BrowseZone, Browser};
 
-/// The card a browser row is drawn at — smaller than a hand card, because
-/// a search can put thirty of them on screen at once, large enough that the
-/// art still identifies the card without the preview.
-const TRAY_CARD_W: f32 = 74.0;
-/// Height, keeping the 63:88 card aspect.
-const TRAY_CARD_H: f32 = TRAY_CARD_W * 88.0 / 63.0;
-/// Panel width: ten cards, their gaps and the padding.
+/// The thumbnail on a row.
 ///
-/// It was five, and a five-wide grid pinned to the left edge is what made
-/// looking through a hundred-card library a chore: nine rows of five, most of
-/// them off the bottom of a panel that also sat over the seat tabs. Eight
-/// fixed the pinning; ten is the owner asking for a *bigger* sheet, and a
-/// search is what it is for — forty cards at once instead of twenty-four.
+/// Small on purpose: it is there to be *recognised*, not read — the name is
+/// beside it in full and the preview is a hover away. It is what sets the row
+/// height, being the tallest thing in one.
+const TRAY_THUMB_W: f32 = 30.0;
+/// Its height, keeping the 63:88 card aspect.
+const TRAY_THUMB_H: f32 = TRAY_THUMB_W * 88.0 / 63.0;
+/// The air above and below the thumbnail in a row.
+const TRAY_ROW_PAD: f32 = 7.0;
+/// One row, which is the unit the whole sheet is measured in.
+const TRAY_ROW_H: f32 = TRAY_THUMB_H + 2.0 * TRAY_ROW_PAD;
+/// The gutter every band of the sheet keeps at its left and right.
+///
+/// The rows carry it themselves rather than the panel carrying it for them,
+/// which is what lets a chosen row's wash run from edge to edge: a highlight
+/// that stopped short of the border would read as a chip lying on the list
+/// rather than as the row being chosen.
+const TRAY_SIDE: f32 = 16.0;
+/// The air between two things in a row, and between two controls.
+const TRAY_GAP: f32 = 11.0;
+/// The checkbox. Also the width of the gutter a row that cannot be chosen
+/// leaves empty, so the names stay in one column.
+const TRAY_BOX: f32 = 15.0;
+/// One mana pip on a row.
+const TRAY_PIP: f32 = 15.0;
+/// What a cost is given: four pips and the air between them.
+///
+/// Four rather than the longest cost in the pool, because this is the width
+/// the *sheet* is derived from and a cost longer than four pips simply pushes
+/// the name's measure in. Most printed costs are three or four symbols.
+const TRAY_COST_W: f32 = 4.0 * TRAY_PIP + 3.0 * 2.0;
+/// What one character of the row's prose is worth, as a fraction of its size.
+///
+/// The same estimate `hud::stack` budgets a stack entry's name with. It is an
+/// estimate and it is allowed to be: what it sizes is a *measure*, and a name
+/// a little longer than one simply takes a little of the slack beside it.
+#[cfg(test)]
+const TRAY_CH: f32 = 0.52;
+/// The name's size.
+const TRAY_NAME_SIZE: f32 = 12.5;
+/// The type line's.
+const TRAY_TYPE_SIZE: f32 = 10.5;
+/// The zone badge's.
+const TRAY_BADGE_SIZE: f32 = 9.0;
+/// The zone badge: the longest zone word this client has — `Kommandozone`,
+/// which sets at 68.8 px in Inter at [`TRAY_BADGE_SIZE`] — plus its padding
+/// and border.
+///
+/// **Measured in the shipped face, not estimated.** [`TRAY_CH`] is a mean
+/// over mixed-case English prose and holds there to within a percent; a
+/// German compound of round wide letters runs 0.64 per character, and the
+/// estimate cut the last three letters off every badge on the panel.
+const TRAY_BADGE_W: f32 = 68.8 + 12.0;
+/// Thirty characters of name — `Sea Gate Loremaster` and room to spare.
+#[cfg(test)]
+const TRAY_NAME_W: f32 = 30.0 * TRAY_CH * TRAY_NAME_SIZE;
+/// A type line's measure: `Legendary Planeswalker — Aminatou` at
+/// [`TRAY_TYPE_SIZE`], which is 185.1 px in Inter.
+///
+/// Measured rather than estimated for the reason [`TRAY_BADGE_W`] gives — a
+/// long type line is all supertype, type and em dash, which is wider than the
+/// mean this estimate is taken over — and it is a *measure* rather than a
+/// fit: a longer one is clipped at its end, not wrapped.
+const TRAY_TYPE_W: f32 = 185.1;
+
+/// The panel's default width: **one row**.
+///
+/// Its fixed furniture — the checkbox, the thumbnail, four pips of cost and
+/// the zone badge — plus a measure for each of the two pieces of prose, and
+/// the gutters and gaps that hold them apart. Anything longer than a measure
+/// takes the slack in the middle, which is where a list wants it.
 ///
 /// The sheet takes its width from [`Placement`] now, because a player can
 /// resize it. This stays as the *derivation* of that default — the arithmetic
-/// that says why ten columns is 854 and not a round number somebody liked —
-/// and `the_default_width_is_still_ten_columns` holds the two together.
+/// that says why the number is what it is — and
+/// `the_default_width_is_one_whole_row` holds the two together.
 #[cfg(test)]
-const TRAY_PANEL_W: f32 = 10.0 * (TRAY_CARD_W + TRAY_GAP) + 34.0;
+const TRAY_PANEL_W: f32 = 2.0 * TRAY_SIDE
+    + TRAY_BOX
+    + TRAY_THUMB_W
+    + TRAY_NAME_W
+    + TRAY_COST_W
+    + TRAY_TYPE_W
+    + TRAY_BADGE_W
+    + 5.0 * TRAY_GAP
+    + 2.0;
 
-/// The air between two cards in the grid, in both directions.
-///
-/// Named because two places were using it and disagreeing: the grid laid its
-/// cards out at 6 and [`TRAY_PANEL_W`] derived the sheet's width from 8, so
-/// "eight columns" was 22 pixels wider than eight columns and the test that
-/// held the two together was holding one of them to a number the other did
-/// not use. Eight is what the seat bar and the phase rail already put between
-/// two buttons.
-const TRAY_GAP: f32 = 8.0;
+/// The title row: the sheet's name and the way out of it.
+const TRAY_TITLE_H: f32 = 24.0;
+/// One zone tab.
+const TRAY_TAB_H: f32 = 22.0;
+/// The search field, the sort key and the arrow beside it.
+const TRAY_CTRL_H: f32 = 28.0;
+/// A footer button.
+const TRAY_FOOT_H: f32 = 34.0;
+/// The air between the head's three rows.
+const TRAY_HEAD_GAP: f32 = 8.0;
+/// The head band's own padding, above and below.
+const TRAY_HEAD_PAD: f32 = 12.0;
+/// The footer band's.
+const TRAY_FOOT_PAD: f32 = 11.0;
 
-/// What stands above and below the grid on the sheet.
+/// What stands above and below the list.
 ///
-/// Measured on the running client rather than derived, because most of it is
-/// text: one border and sixteen of padding, then the header, the zone tabs,
-/// the filter row and three ten-pixel gaps come to **112** logical pixels
-/// from the sheet's top edge to the first card's, and the bottom padding and
-/// border close it with **17**. It exists so
+/// Arithmetic rather than a measurement, unlike the grid's chrome that came
+/// before it: every row of the head and the footer is given an explicit
+/// height here, so there is no text line box left to guess at. It exists so
 /// [`Placement::DEFAULT_H`](baylee_client_core::browser::Placement::DEFAULT_H)
 /// is a number with a reason rather than one somebody liked.
 #[cfg(test)]
-const TRAY_CHROME_H: f32 = 112.0 + 17.0;
+const TRAY_CHROME_H: f32 =
+    // the head: its border, its padding, and three rows with air between them
+    1.0 + 2.0 * TRAY_HEAD_PAD + TRAY_TITLE_H + TRAY_TAB_H + TRAY_CTRL_H + 2.0 * TRAY_HEAD_GAP
+    // the footer: its border, its padding, one button
+    + 1.0 + 2.0 * TRAY_FOOT_PAD + TRAY_FOOT_H
+    // and the panel's own border, top and bottom
+    + 2.0;
+
+/// How many rows the sheet opens showing.
+///
+/// The half is the point: a row cut through by the bottom edge is what says
+/// the list continues, and it says it without a scrollbar. A grid was cut to
+/// four *whole* rows for the opposite reason — most of a fifth row of cards
+/// was space nothing could ever be put in.
+#[cfg(test)]
+const TRAY_ROWS: f32 = 8.5;
 
 /// The strip of screen the sheet is allowed into: below the seat tabs and the
 /// phase rail, above the hand bar.
@@ -73,23 +173,61 @@ const TRAY_CHROME_H: f32 = 112.0 + 17.0;
 /// sheet in it, the drag clamps against it, and a resized window re-fits to
 /// it. A window that has not been created yet answers with the size the rest
 /// of the overlay falls back to.
-#[must_use]
 pub(crate) fn band_of(windows: &Query<&Window>) -> (f32, f32) {
-    let size = windows.single().map_or(Vec2::new(1200.0, 800.0), |w| {
-        Vec2::new(w.width(), w.height())
-    });
-    (size.x, (size.y - EDGE - HAND_BAR_H).max(Placement::MIN_H))
+    let (w, h) = windows
+        .single()
+        .map_or((1280.0, 720.0), |window| (window.width(), window.height()));
+    (w, (h - EDGE - HAND_BAR_H).max(Placement::MIN_H))
 }
 
-/// The zone browser: a sheet laid on the felt, in the middle of the table.
+/// A line of a dialog's prose.
 ///
-/// Centred rather than pinned to a corner, and parchment rather than a black
-/// panel, for the same reason the prompt slip is: this is the surface a
-/// player *reads* — a graveyard they are looking through, a library the
-/// engine is showing them — and the middle of the screen is where a stack of
-/// cards goes when somebody puts one down on a real table.
+/// The same bracket rule the parchment sheets use — `prose::bracketed` greys
+/// what a sentence says in brackets — in the dialog's own two inks. It is not
+/// `overlay::slip_text`: that one carries a warm shadow to lift ink off
+/// parchment and greys its asides in [`palette::SLIP_ASIDE`], and both of
+/// those belong to the sheet rather than to this panel. Ink on a dark ground
+/// needs no shadow to be a stroke.
+fn dialog_text(
+    commands: &mut Commands,
+    fonts: &UiFonts,
+    text: &str,
+    size: f32,
+    ink: Color,
+) -> Entity {
+    let line = commands
+        .spawn((
+            Text::default(),
+            tf(fonts, size),
+            TextColor(ink),
+            // Every line on this dialog stands in a band of a fixed height,
+            // so a line that wrapped would have its second half cut off by
+            // the row it is in. Too long is clipped at the end instead, which
+            // at least says which card it is.
+            TextLayout::linebreak(bevy::text::LineBreak::NoWrap),
+            Pickable::IGNORE,
+        ))
+        .id();
+    for (run, aside) in baylee_client_core::prose::bracketed(text) {
+        let span = commands
+            .spawn((
+                TextSpan::new(run.to_string()),
+                tf(fonts, size),
+                TextColor(if aside { palette::DIALOG_SOFT } else { ink }),
+            ))
+            .id();
+        commands.entity(line).add_child(span);
+    }
+    line
+}
+
+/// The zone browser: a dialog over the table, in the middle of it.
+///
+/// Centred rather than pinned to a corner, because that is where a stack of
+/// cards goes when somebody puts one down on a real table — and a dark panel
+/// rather than parchment, for the reason the module doc gives.
 #[allow(clippy::too_many_arguments)] // a panel, a view, and the stores
-#[allow(clippy::too_many_lines)] // header, tabs, filter and grid are one build
+#[allow(clippy::too_many_lines)] // head, tabs, controls, list and footer are one build
 pub(super) fn spawn_tray(
     commands: &mut Commands,
     lang: Lang,
@@ -101,19 +239,14 @@ pub(super) fn spawn_tray(
     assets: &AssetServer,
     fonts: &UiFonts,
     faces: &FaceCtx<'_>,
-    sheets: Option<&UiSheets>,
     mut cards: Option<&mut UiCards<'_>>,
     place: Placement,
 ) -> Entity {
     let rows = browser.rows(view, interaction);
     // The band: the whole window between its top edge and the hand bar,
-    // painting nothing and answering no click. It used to centre its one
-    // child; now it is the coordinate space that child is placed in, which is
-    // what makes a remembered position mean the same thing on two screens
-    // with different amounts of HUD above and below. It used to start under
-    // the phase rail, a hundred and ten pixels down; there is nothing across
-    // the top of the window any more, so it starts at the window's own edge
-    // and the sheet has that much more room to be dragged into.
+    // painting nothing and answering no click. It is the coordinate space the
+    // sheet is placed in, which is what makes a remembered position mean the
+    // same thing on two screens with different amounts of HUD above and below.
     let frame = commands
         .spawn((
             Node {
@@ -128,106 +261,110 @@ pub(super) fn spawn_tray(
             Pickable::IGNORE,
         ))
         .id();
-    let sheet_node = commands.spawn((
-        TrayPanel,
-        Node {
-            position_type: PositionType::Absolute,
-            left: px(place.left),
-            top: px(place.top),
-            width: px(place.width),
-            height: px(place.height),
-            flex_direction: FlexDirection::Column,
-            row_gap: px(10),
-            padding: UiRect::all(px(16)),
-            border: UiRect::all(px(1)),
-            overflow: Overflow::clip(),
-            border_radius: sheet_radius(),
-            ..default()
-        },
-        BackgroundColor(palette::PARCHMENT),
-        BorderColor::all(palette::PARCHMENT_EDGE),
-        sheet_shadow(),
-    ));
-    let panel = sheet_node.id();
+    let panel = commands
+        .spawn((
+            TrayPanel,
+            Node {
+                position_type: PositionType::Absolute,
+                left: px(place.left),
+                top: px(place.top),
+                width: px(place.width),
+                height: px(place.height),
+                flex_direction: FlexDirection::Column,
+                border: UiRect::all(px(1)),
+                overflow: Overflow::clip(),
+                border_radius: sheet_radius(),
+                ..default()
+            },
+            BackgroundColor(palette::DIALOG),
+            BorderColor::all(palette::DIALOG_LINE),
+            sheet_shadow(),
+        ))
+        .id();
     commands.entity(frame).add_child(panel);
-    // First child, so every row below is drawn on it — see [`sheet_surface`]
-    // for why the parchment is not the panel's own image.
-    if let Some(sheets) = sheets {
-        let surface = commands.spawn(sheet_surface(sheets)).id();
-        commands.entity(panel).add_child(surface);
-    }
 
-    // ---- header: what this is, the way out of it, and the handle ----
-    //
-    // The row answers the pointer now rather than ignoring it, because it is
-    // what a drag takes hold of. The title inside it keeps `Pickable::IGNORE`,
-    // so a press anywhere on the row that is not the close button is a press
-    // on the row itself.
-    let header = commands
+    // ---- the head: what this is, what it is showing, and what to type ----
+    let head = commands
+        .spawn((
+            Node {
+                flex_direction: FlexDirection::Column,
+                row_gap: px(TRAY_HEAD_GAP),
+                padding: UiRect::axes(px(TRAY_SIDE), px(TRAY_HEAD_PAD)),
+                border: UiRect::bottom(px(1)),
+                flex_shrink: 0.0,
+                ..default()
+            },
+            BackgroundColor(palette::DIALOG_LIT),
+            BorderColor::all(palette::DIALOG_LINE),
+            Pickable::IGNORE,
+        ))
+        .id();
+
+    // The title row answers the pointer, because it is what a drag takes hold
+    // of. The title inside it keeps `Pickable::IGNORE`, so a press anywhere on
+    // the row that is not the close button is a press on the row itself — and
+    // the tabs are deliberately *not* in it, or dragging a tab sideways would
+    // carry the whole sheet with it.
+    let title_row = commands
         .spawn((
             TrayGrip,
             Node {
                 flex_direction: FlexDirection::Row,
                 justify_content: JustifyContent::SpaceBetween,
                 align_items: AlignItems::Center,
+                height: px(TRAY_TITLE_H),
                 flex_shrink: 0.0,
                 ..default()
             },
         ))
         .id();
-    let title = super::overlay::slip_text(
+    let title = dialog_text(
         commands,
         fonts,
         Phrase::BrowseTitle.text(lang),
-        16.0,
-        palette::SLIP_INK,
-        false,
+        13.0,
+        palette::DIALOG_SOFT,
     );
-    commands.entity(title).insert(Pickable::IGNORE);
-    // The way out.
-    //
-    // It was a squat pill — 26.5 by 21.5 — with a 6.5 px cross adrift in the
-    // middle of it, no fill, and nothing that answered the pointer: a stray
-    // mark on the sheet rather than a control. Square, so the cross has a
-    // centre to sit in; the glyph large enough to read as a cross; and a
-    // `Feel`, because every other button in this client breathes and these
-    // were the only ones that did not.
+    // The way out. Square, so the cross has a centre to sit in, and with a
+    // `Feel`, because every other button in this client breathes.
     let close = commands
         .spawn((
             TrayClose,
             Button,
             Node {
-                width: px(24),
-                height: px(24),
+                width: px(22),
+                height: px(22),
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
                 border: UiRect::all(px(1)),
                 border_radius: btn_radius(),
                 ..default()
             },
-            BackgroundColor(palette::SLIP_GHOST),
-            BorderColor::all(palette::PARCHMENT_EDGE),
-            Feel::new(palette::SLIP_GHOST),
+            BackgroundColor(palette::DIALOG),
+            BorderColor::all(palette::DIALOG_LINE),
+            Feel::new(palette::DIALOG),
             children![(
                 // The icon font's own cross. Inter has no U+2715, which is
                 // why the button drew as a thin bar for one build.
                 Text::new(glyph::CLOSE.to_string()),
-                icon_tf(fonts, 13.0),
-                TextColor(palette::SLIP_INK),
+                icon_tf(fonts, 12.0),
+                TextColor(palette::DIALOG_SOFT),
                 Pickable::IGNORE,
             )],
         ))
         .id();
-    commands.entity(header).add_children(&[title, close]);
+    commands.entity(title_row).add_children(&[title, close]);
 
     // ---- the zone tabs, "All" first ----
     let tabs = commands
         .spawn((
             Node {
                 flex_direction: FlexDirection::Row,
-                flex_wrap: FlexWrap::Wrap,
                 column_gap: px(4),
-                row_gap: px(4),
+                align_items: AlignItems::Center,
+                height: px(TRAY_TAB_H),
+                overflow: Overflow::clip(),
+                flex_shrink: 0.0,
                 ..default()
             },
             Pickable::IGNORE,
@@ -258,7 +395,7 @@ pub(super) fn spawn_tray(
     }
     commands.entity(tabs).add_children(&chips);
 
-    // ---- what is typed, and what an ordering wants ----
+    // ---- what is typed, how it is sorted, and how much is answered ----
     //
     // An ordering has no filter to offer — the panel is the answer being
     // assembled, and narrowing it would hide places in it — so the row says
@@ -276,49 +413,56 @@ pub(super) fn spawn_tray(
     } else {
         format!("\u{201c}{}\u{201d}", browser.filter())
     };
-    let filter_row = commands
+    let controls = commands
         .spawn((
             Node {
                 flex_direction: FlexDirection::Row,
                 align_items: AlignItems::Center,
-                justify_content: JustifyContent::SpaceBetween,
-                column_gap: px(6),
+                column_gap: px(TRAY_GAP),
+                height: px(TRAY_CTRL_H),
+                flex_shrink: 0.0,
                 ..default()
             },
             Pickable::IGNORE,
         ))
         .id();
     let said = typing || !browser.filter().trim().is_empty();
-    let filter_fill = if typing {
-        Color::srgba(0.0, 0.0, 0.0, 0.10)
-    } else {
-        palette::SLIP_GHOST
-    };
-    let filter_text = super::overlay::slip_text(
+    let filter_text = dialog_text(
         commands,
         fonts,
         &hint,
-        12.0,
+        11.5,
         if said {
-            palette::SLIP_INK
+            palette::DIALOG_INK
         } else {
-            palette::SLIP_SOFT
+            palette::DIALOG_SOFT
         },
-        false,
     );
-    commands.entity(filter_text).insert(Pickable::IGNORE);
+    // A sunk field: the ring that says where the typing goes is the border
+    // turning candle, not a second fill.
     let filter_line = commands
         .spawn((
             TrayFilter,
             Button,
             Node {
                 flex_grow: 1.0,
-                padding: UiRect::axes(px(7), px(3)),
+                flex_basis: px(0),
+                min_width: px(0),
+                height: percent(100),
+                align_items: AlignItems::Center,
+                padding: UiRect::horizontal(px(9)),
+                border: UiRect::all(px(1)),
                 border_radius: btn_radius(),
+                overflow: Overflow::clip(),
                 ..default()
             },
-            BackgroundColor(filter_fill),
-            Feel::new(filter_fill),
+            BackgroundColor(palette::DIALOG),
+            BorderColor::all(if typing {
+                palette::CANDLE
+            } else {
+                palette::DIALOG_LINE
+            }),
+            Feel::new(palette::DIALOG),
         ))
         .id();
     commands.entity(filter_line).add_child(filter_text);
@@ -327,65 +471,49 @@ pub(super) fn spawn_tray(
     // its own. The key and the direction are two buttons because they are two
     // questions, and the arrow says which way the current one runs rather
     // than being a third state of the key.
-    let sort_fill = Color::srgba(0.0, 0.0, 0.0, 0.10);
-    let key_text = super::overlay::slip_text(
+    let sort_key = spawn_control(
         commands,
         fonts,
+        TraySort { reverse: false },
         browser.sort().label().text(lang),
-        12.0,
-        palette::SLIP_INK,
-        false,
+        9.0,
     );
-    commands.entity(key_text).insert(Pickable::IGNORE);
-    let sort_key = commands
-        .spawn((
-            TraySort { reverse: false },
-            Button,
-            Node {
-                padding: UiRect::axes(px(7), px(3)),
-                border_radius: btn_radius(),
-                ..default()
-            },
-            BackgroundColor(sort_fill),
-            Feel::new(sort_fill),
-        ))
-        .id();
-    commands.entity(sort_key).add_child(key_text);
-    let dir_text = super::overlay::slip_text(
+    let sort_dir = spawn_control(
         commands,
         fonts,
+        TraySort { reverse: true },
         if browser.descending() {
             "\u{2193}"
         } else {
             "\u{2191}"
         },
-        12.0,
-        palette::SLIP_INK,
-        false,
+        8.0,
     );
-    commands.entity(dir_text).insert(Pickable::IGNORE);
-    let sort_dir = commands
-        .spawn((
-            TraySort { reverse: true },
-            Button,
-            Node {
-                padding: UiRect::axes(px(6), px(3)),
-                border_radius: btn_radius(),
-                ..default()
-            },
-            BackgroundColor(sort_fill),
-            Feel::new(sort_fill),
-        ))
-        .id();
-    commands.entity(sort_dir).add_child(dir_text);
     commands
-        .entity(filter_row)
+        .entity(controls)
         .add_children(&[filter_line, sort_key, sort_dir]);
+    // The tally. The engine names a minimum and a maximum, so the dialog can
+    // say how far along the answer is — and a panel with no question in it (a
+    // graveyard opened by hand) says nothing rather than "0 of 0".
+    if let Some((min, max)) = interaction.and_then(baylee_client_core::Interaction::bounds) {
+        let chosen = interaction.map_or(0, baylee_client_core::Interaction::declared);
+        let words = if min == max {
+            Phrase::BrowseTallyExact.fill(lang, &[&chosen.to_string(), &max.to_string()])
+        } else {
+            Phrase::BrowseTallyUpTo.fill(lang, &[&chosen.to_string(), &max.to_string()])
+        };
+        let tally = dialog_text(commands, fonts, &words, 10.5, palette::DIALOG_SOFT);
+        commands.entity(controls).add_child(tally);
+    }
 
-    // ---- the cards ----
+    commands
+        .entity(head)
+        .add_children(&[title_row, tabs, controls]);
+
+    // ---- the list ----
     //
-    // The grid scrolls, and it is the grid rather than the panel: the tabs,
-    // the filter and the sort control have to stay where they are while a
+    // It scrolls, and it is the list rather than the panel: the tabs, the
+    // search field and the sort control have to stay where they are while a
     // hundred-card library is scrolled past them. `Pickable` and not
     // `Pickable::IGNORE`, because the picking backend is what turns a wheel
     // into the `Pointer<Scroll>` a scrolling node listens for — the same
@@ -397,13 +525,10 @@ pub(super) fn spawn_tray(
     // would size the column to its own content, push the sheet past the
     // explicit height it was given, and hand the overflow — including the
     // resize corner — to `Overflow::clip`.
-    let grid = commands
+    let list = commands
         .spawn((
             Node {
-                flex_direction: FlexDirection::Row,
-                flex_wrap: FlexWrap::Wrap,
-                column_gap: px(TRAY_GAP),
-                row_gap: px(TRAY_GAP),
+                flex_direction: FlexDirection::Column,
                 flex_grow: 1.0,
                 min_height: px(0),
                 overflow: Overflow::scroll_y(),
@@ -412,7 +537,7 @@ pub(super) fn spawn_tray(
             // The two halves the sentence above only claimed. An overflow
             // clips and nothing else — Bevy moves the content when
             // `ScrollPosition` changes and nothing changes it on its own —
-            // so until `hud::scrolls` existed this grid ended at the bottom
+            // so until `hud::scrolls` existed this list ended at the bottom
             // of the sheet with the rest of the library behind it, and the
             // wheel that should have reached it zoomed the table.
             super::Scrolls,
@@ -420,35 +545,46 @@ pub(super) fn spawn_tray(
         ))
         .id();
     if rows.is_empty() {
-        let empty = super::overlay::slip_text(
+        let empty = commands
+            .spawn((
+                Node {
+                    padding: UiRect::axes(px(TRAY_SIDE), px(TRAY_ROW_PAD * 2.0)),
+                    ..default()
+                },
+                Pickable::IGNORE,
+            ))
+            .id();
+        let words = dialog_text(
             commands,
             fonts,
             Phrase::BrowseEmpty.text(lang),
-            12.0,
-            palette::SLIP_SOFT,
-            false,
+            11.5,
+            palette::DIALOG_SOFT,
         );
-        commands.entity(empty).insert(Pickable::IGNORE);
-        commands.entity(grid).add_child(empty);
+        commands.entity(empty).add_child(words);
+        commands.entity(list).add_child(empty);
     }
     for row in &rows {
-        let card = spawn_row(
+        let node = spawn_row(
             commands, lang, row, view, statics, textures, assets, fonts, faces, &mut cards,
         );
-        commands.entity(grid).add_child(card);
+        commands.entity(list).add_child(node);
     }
+
+    // ---- the footer ----
+    let foot = spawn_footer(commands, fonts, lang, interaction);
 
     // The corner, in the same shape and the same place the card preview's is:
     // one handle, bottom right, both axes. A second handle on every edge is
-    // eight more hit targets for a gesture nobody makes on a sheet of cards.
+    // eight more hit targets for a gesture nobody makes on a dialog.
     let corner = commands
         .spawn((
             TrayResize,
             Button,
             Node {
                 position_type: PositionType::Absolute,
-                right: px(6),
-                bottom: px(6),
+                right: px(4),
+                bottom: px(4),
                 width: px(22),
                 height: px(22),
                 align_items: AlignItems::Center,
@@ -456,21 +592,140 @@ pub(super) fn spawn_tray(
                 border_radius: btn_radius(),
                 ..default()
             },
-            BackgroundColor(palette::SLIP_GHOST),
-            Feel::new(palette::SLIP_GHOST),
+            BackgroundColor(Color::NONE),
+            Feel::new(Color::NONE),
             children![(
                 Text::new(glyph::EXPAND.to_string()),
-                icon_tf(fonts, 11.0),
-                TextColor(palette::SLIP_SOFT),
+                icon_tf(fonts, 10.0),
+                TextColor(palette::DIALOG_SOFT),
                 Pickable::IGNORE,
             )],
         ))
         .id();
 
-    commands
-        .entity(panel)
-        .add_children(&[header, tabs, filter_row, grid, corner]);
+    commands.entity(panel).add_children(&[head, list]);
+    if let Some(foot) = foot {
+        commands.entity(panel).add_child(foot);
+    }
+    commands.entity(panel).add_child(corner);
     frame
+}
+
+/// The footer, or nothing at all when there is no question to answer.
+///
+/// Two buttons, and both of them send what [`PromptAction::Confirm`] sends,
+/// which is the whole shape of §6's footer: **Confirm is lit only when the
+/// answer is complete, and Cancel is drawn only when the minimum is zero.**
+/// There is no cancel on the wire — a question that will take an empty answer
+/// is answered by sending one, and a question that will not has no way out to
+/// offer, so a dialog that drew the button anyway would be promising what the
+/// engine cannot deliver.
+fn spawn_footer(
+    commands: &mut Commands,
+    fonts: &UiFonts,
+    lang: Lang,
+    interaction: Option<&baylee_client_core::Interaction>,
+) -> Option<Entity> {
+    let it = interaction?;
+    let (min, _max) = it.bounds()?;
+    let foot = commands
+        .spawn((
+            Node {
+                flex_direction: FlexDirection::Row,
+                align_items: AlignItems::Center,
+                column_gap: px(10),
+                padding: UiRect::axes(px(TRAY_SIDE), px(TRAY_FOOT_PAD)),
+                border: UiRect::top(px(1)),
+                flex_shrink: 0.0,
+                ..default()
+            },
+            BackgroundColor(palette::DIALOG_LIT),
+            BorderColor::all(palette::DIALOG_LINE),
+            Pickable::IGNORE,
+        ))
+        .id();
+
+    // Lit only when the answer is complete. An unlit Confirm is not a button
+    // at all — no `Button`, no `Feel`, `Pickable::IGNORE` — for the reason a
+    // pinned zone tab is not one: a control that lights under the pointer and
+    // then refuses the click is worse than one that never invited it.
+    let ready = it.can_confirm();
+    let confirm = commands
+        .spawn((
+            Node {
+                height: px(TRAY_FOOT_H),
+                padding: UiRect::horizontal(px(18)),
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+                border: UiRect::all(px(1)),
+                border_radius: btn_radius(),
+                ..default()
+            },
+            BackgroundColor(if ready {
+                palette::CANDLE
+            } else {
+                palette::DIALOG
+            }),
+            BorderColor::all(if ready {
+                palette::CANDLE
+            } else {
+                palette::DIALOG_LINE
+            }),
+        ))
+        .id();
+    let words = dialog_text(
+        commands,
+        fonts,
+        Phrase::BrowseConfirm.text(lang),
+        13.0,
+        if ready {
+            palette::DIALOG
+        } else {
+            palette::DIALOG_SOFT
+        },
+    );
+    commands.entity(confirm).add_child(words);
+    if ready {
+        commands.entity(confirm).insert((
+            Button,
+            PromptButton {
+                action: PromptAction::Confirm,
+            },
+            Feel::new(palette::CANDLE),
+        ));
+    } else {
+        commands.entity(confirm).insert(Pickable::IGNORE);
+    }
+    commands.entity(foot).add_child(confirm);
+
+    if min == 0 {
+        let out = dialog_text(
+            commands,
+            fonts,
+            Phrase::BrowseCancel.text(lang),
+            13.0,
+            palette::DIALOG_SOFT,
+        );
+        let cancel = commands
+            .spawn((
+                TrayCancel,
+                Button,
+                Node {
+                    height: px(TRAY_FOOT_H),
+                    padding: UiRect::horizontal(px(14)),
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::Center,
+                    border_radius: btn_radius(),
+                    ..default()
+                },
+                BackgroundColor(Color::NONE),
+                Feel::new(Color::NONE),
+            ))
+            .id();
+        commands.entity(cancel).add_child(out);
+        commands.entity(foot).add_child(cancel);
+    }
+    Some(foot)
 }
 
 /// One zone tab.
@@ -488,28 +743,29 @@ fn spawn_tab(
     current: bool,
     locked: bool,
 ) -> Entity {
-    // Brass is a *light* on this sheet and not a letter: measured against
-    // parchment it carries 1.9:1, which is why the current tab read fainter
-    // than the ones beside it. The ink says which tab is current; the fill
-    // under it says it a second time.
+    // Candle under the current tab, and the panel's own dark for the ink on
+    // it: a lit chip is the one place on this dialog where the accent is a
+    // *fill*, which is what keeps the list underneath quiet.
     let (fill, ink) = if current {
-        (Color::srgba(0.0, 0.0, 0.0, 0.10), palette::SLIP_INK)
+        (palette::CANDLE, palette::DIALOG)
     } else if locked {
-        // No surface at all under it, and the aside's grey on top: an aside
-        // is already the sheet's word for "a different kind of sentence",
-        // which is exactly what a tab outside the question is.
-        (Color::NONE, palette::SLIP_ASIDE)
+        // No surface at all under it, and the quieter ink on top: the dialog
+        // already means "a different kind of sentence" by that grey, which is
+        // exactly what a tab outside the question is.
+        (Color::NONE, palette::DIALOG_SOFT)
     } else {
-        (palette::SLIP_GHOST, palette::SLIP_SOFT)
+        (palette::DIALOG, palette::DIALOG_INK)
     };
-    let text = super::overlay::slip_text(commands, fonts, &label, 12.0, ink, false);
-    commands.entity(text).insert(Pickable::IGNORE);
+    let text = dialog_text(commands, fonts, &label, 11.0, ink);
     let tab = commands
         .spawn((
             TrayTab { zone },
             Node {
-                padding: UiRect::axes(px(7), px(3)),
+                height: px(TRAY_TAB_H),
+                padding: UiRect::horizontal(px(8)),
+                align_items: AlignItems::Center,
                 border_radius: btn_radius(),
+                flex_shrink: 0.0,
                 ..default()
             },
             BackgroundColor(fill),
@@ -527,10 +783,41 @@ fn spawn_tab(
     tab
 }
 
-/// One card in the grid: its picture, its selection state, and — for an
-/// ordering — the place it holds in the answer.
+/// One control in the head's bottom row: the sort key, or the arrow beside it.
+fn spawn_control<C: Component>(
+    commands: &mut Commands,
+    fonts: &UiFonts,
+    marker: C,
+    label: &str,
+    pad: f32,
+) -> Entity {
+    let text = dialog_text(commands, fonts, label, 11.0, palette::DIALOG_INK);
+    let button = commands
+        .spawn((
+            marker,
+            Button,
+            Node {
+                height: percent(100),
+                padding: UiRect::horizontal(px(pad)),
+                align_items: AlignItems::Center,
+                border: UiRect::all(px(1)),
+                border_radius: btn_radius(),
+                flex_shrink: 0.0,
+                ..default()
+            },
+            BackgroundColor(palette::DIALOG),
+            BorderColor::all(palette::DIALOG_LINE),
+            Feel::new(palette::DIALOG),
+        ))
+        .id();
+    commands.entity(button).add_child(text);
+    button
+}
+
+/// One row of the list: a checkbox, a thumbnail, the name, the cost in pips,
+/// the type line and the pile it is in.
 #[allow(clippy::too_many_arguments)] // the row, the view, and the stores
-#[allow(clippy::too_many_lines)] // art, plate and place badge are one build
+#[allow(clippy::too_many_lines)] // six columns in one build
 fn spawn_row(
     commands: &mut Commands,
     lang: Lang,
@@ -543,58 +830,122 @@ fn spawn_row(
     faces: &FaceCtx<'_>,
     cards: &mut Option<&mut UiCards<'_>>,
 ) -> Entity {
-    // Three states, three glows, and the same vocabulary the hand bar uses:
-    // gold for what the engine offered, brighter gold for what is already
-    // part of the answer, nothing at all for a card being read rather than
-    // chosen.
-    let shadow = if row.selected {
-        BoxShadow::new(
-            palette::BRASS,
-            Val::Px(0.0),
-            Val::Px(0.0),
-            Val::Px(2.0),
-            Val::Px(9.0),
-        )
-    } else if row.selectable {
-        BoxShadow::new(
-            palette::BRASS,
-            Val::Px(0.0),
-            Val::Px(0.0),
-            Val::Px(0.0),
-            Val::Px(5.0),
-        )
+    // Candle, and a wash of it rather than a fill: a chosen row is still a row
+    // being read. The tick and the ink carry the claim.
+    let fill = if row.selected {
+        palette::CANDLE_WASH
     } else {
-        soft_shadow()
+        Color::NONE
     };
     let slot = commands
         .spawn((
             TrayCard { object: row.id },
             Button,
             Node {
-                width: px(TRAY_CARD_W),
-                height: px(TRAY_CARD_H),
+                flex_direction: FlexDirection::Row,
+                align_items: AlignItems::Center,
+                column_gap: px(TRAY_GAP),
+                width: percent(100),
+                // Explicit rather than whatever the thumbnail happens to make
+                // it: the sheet's whole height is counted in rows, so a row
+                // whose height was an accident of its tallest child would put
+                // that arithmetic one text metric away from being wrong.
+                height: px(TRAY_ROW_H),
+                padding: UiRect::axes(px(TRAY_SIDE), px(TRAY_ROW_PAD)),
+                border: UiRect::bottom(px(1)),
                 flex_shrink: 0.0,
-                border_radius: card_radius(TRAY_CARD_W),
                 overflow: Overflow::clip(),
                 ..default()
             },
-            BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.10)),
-            shadow,
+            BackgroundColor(fill),
+            BorderColor::all(palette::DIALOG_LINE),
+            Feel::new(fill),
         ))
         .id();
 
-    let built = view
-        .object(row.id)
-        .and_then(|o| faces.object(o, textures, row.art));
-    if let Some(key) = row.art {
+    // ---- the box, or the place in an ordering ----
+    //
+    // A number rather than a tick for an ordering, because "third" is not a
+    // brighter kind of "chosen" — and it stands in the box's own column, so a
+    // list of ordered cards reads down the same gutter a list of ticked ones
+    // does. A row the question will not take leaves the column empty rather
+    // than drawing a box that cannot be ticked.
+    //
+    // Four states decided before the node is spawned rather than patched into
+    // it afterwards: a radius is a field of `Node` and not a component of its
+    // own, so "insert a rounder corner" would mean writing the whole `Node`
+    // back over itself.
+    let (fill, edge, radius, glyph_in) = if row.place.is_some() {
+        (
+            palette::CANDLE,
+            palette::CANDLE,
+            TRAY_BOX / 2.0,
+            row.place.map(|place| place.to_string()),
+        )
+    } else if row.selected {
+        (
+            palette::CANDLE,
+            palette::CANDLE,
+            3.0,
+            Some(glyph::CHECK.to_string()),
+        )
+    } else if row.selectable {
+        (Color::NONE, palette::DIALOG_SOFT, 3.0, None)
+    } else {
+        (Color::NONE, Color::NONE, 3.0, None)
+    };
+    let mark = commands
+        .spawn((
+            Node {
+                width: px(TRAY_BOX),
+                height: px(TRAY_BOX),
+                flex_shrink: 0.0,
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+                border: UiRect::all(px(1)),
+                border_radius: BorderRadius::all(px(radius)),
+                ..default()
+            },
+            BackgroundColor(fill),
+            BorderColor::all(edge),
+            Pickable::IGNORE,
+        ))
+        .id();
+    if let Some(inside) = glyph_in {
+        // The ordering's number is set in the text face and the tick in the
+        // icon one, because a tick is a glyph Inter does not have.
+        let face = if row.place.is_some() {
+            tf(fonts, 9.5)
+        } else {
+            icon_tf(fonts, 9.0)
+        };
+        let ink = commands
+            .spawn((
+                Text::new(inside),
+                face,
+                TextColor(palette::DIALOG),
+                Pickable::IGNORE,
+            ))
+            .id();
+        commands.entity(mark).add_child(ink);
+    }
+    commands.entity(slot).add_child(mark);
+
+    // ---- the picture ----
+    //
+    // `built` is deliberately not passed to it: a built face draws the name,
+    // the cost and the type line onto the card, and at thirty pixels wide all
+    // three would be a grey smear. The row says those three things beside it,
+    // in letters a person can read.
+    let thumb = if let Some(key) = row.art {
         let image = textures.get(key, statics, assets);
-        let visual = spawn_card_art(
+        spawn_card_art(
             commands,
             lang,
             image,
-            built.as_ref(),
-            TRAY_CARD_W,
-            TRAY_CARD_H,
+            None,
+            TRAY_THUMB_W,
+            TRAY_THUMB_H,
             crate::face::Detail::Compact,
             fonts,
             // No keyword sheath: nothing in the browser is on a battlefield,
@@ -602,93 +953,140 @@ fn spawn_row(
             // would be claiming something the rules do not say.
             CardLook::art(key, finish_of(statics, Some(key)), 0),
             cards.as_deref_mut(),
-        );
-        commands.entity(slot).add_child(visual);
+        )
     } else {
         // A token in a graveyard, or a card this seat may not identify.
-        let plate = commands
+        commands
             .spawn((
                 Node {
-                    width: percent(100),
-                    height: percent(100),
-                    align_items: AlignItems::Center,
-                    justify_content: JustifyContent::Center,
-                    padding: UiRect::all(px(4)),
+                    width: px(TRAY_THUMB_W),
+                    height: px(TRAY_THUMB_H),
+                    flex_shrink: 0.0,
+                    border_radius: card_radius(TRAY_THUMB_W),
                     ..default()
                 },
-                children![(
-                    Text::new(row.name.clone()),
-                    tf(fonts, 10.0),
-                    TextColor(palette::PARCHMENT_INK),
-                    Pickable::IGNORE,
-                )],
-                Pickable::IGNORE,
+                BackgroundColor(palette::DIALOG_LIT),
             ))
-            .id();
-        commands.entity(slot).add_child(plate);
-    }
+            .id()
+    };
+    commands.entity(thumb).insert(Pickable::IGNORE);
+    commands.entity(slot).add_child(thumb);
 
-    // The place in an ordering, drawn over the corner. A number rather than
-    // a glow, because "third" is not a brighter kind of "chosen".
-    if let Some(place) = row.place {
-        let badge = commands
-            .spawn((
-                Node {
-                    position_type: PositionType::Absolute,
-                    top: px(3),
-                    left: px(3),
-                    min_width: px(16),
-                    height: px(16),
-                    align_items: AlignItems::Center,
-                    justify_content: JustifyContent::Center,
-                    border_radius: BorderRadius::all(px(8)),
-                    ..default()
-                },
-                BackgroundColor(palette::BRASS),
-                children![(
-                    Text::new(place.to_string()),
-                    tf(fonts, 11.0),
-                    TextColor(palette::PANEL),
-                    Pickable::IGNORE,
-                )],
-                Pickable::IGNORE,
-            ))
-            .id();
-        commands.entity(slot).add_child(badge);
-    }
+    // ---- the name ----
+    //
+    // The one thing on the row that grows, with `flex_basis: 0` beside it:
+    // grow alone divides only the slack left after every fixed column, which
+    // on a narrow sheet is nothing at all.
+    let name = dialog_text(
+        commands,
+        fonts,
+        &row.name,
+        TRAY_NAME_SIZE,
+        palette::DIALOG_INK,
+    );
+    commands.entity(name).insert(Node {
+        flex_grow: 1.0,
+        flex_basis: px(0),
+        min_width: px(0),
+        overflow: Overflow::clip(),
+        ..default()
+    });
+    commands.entity(slot).add_child(name);
 
-    // A token says so. A graveyard holds cards and tokens together and they
-    // are not the same thing — a token there ceases to exist the next time
-    // state-based actions are checked (CR 111.7), so a row that looked like a
-    // card would be inviting a player to plan around something already gone.
-    // Along the bottom edge rather than in a corner, because the top-left
-    // corner is the ordering badge's and two marks fighting for one corner is
-    // how a player learns to read neither.
-    if row.token {
-        let mark = commands
-            .spawn((
-                Node {
-                    position_type: PositionType::Absolute,
-                    left: px(0),
-                    right: px(0),
-                    bottom: px(0),
-                    height: px(13),
-                    align_items: AlignItems::Center,
-                    justify_content: JustifyContent::Center,
-                    ..default()
-                },
-                BackgroundColor(palette::PANEL),
-                children![(
-                    Text::new(Phrase::IsToken.text(lang)),
-                    tf(fonts, 9.0),
-                    TextColor(palette::MUTED),
-                    Pickable::IGNORE,
-                )],
-                Pickable::IGNORE,
-            ))
-            .id();
-        commands.entity(slot).add_child(mark);
+    // ---- the cost, drawn and not spelled ----
+    //
+    // The face is what carries it: a `BrowseRow` has the projected mana
+    // *value*, which is what the sort key reads, and a number is not a price.
+    let built = view.object(row.id).map(|o| faces.facts(o));
+    let pips = commands
+        .spawn((
+            Node {
+                flex_direction: FlexDirection::Row,
+                column_gap: px(2),
+                flex_shrink: 0.0,
+                // A reserve rather than a fit, so the type lines beside them
+                // start in one column down the whole list. A cost longer than
+                // four pips takes the room it needs and pushes the name in,
+                // which is the right way round: the name has the slack.
+                min_width: px(TRAY_COST_W),
+                justify_content: JustifyContent::FlexEnd,
+                align_items: AlignItems::Center,
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    for symbol in built.iter().flat_map(|face| face.cost.iter()) {
+        let pip = crate::manaui::spawn_pip(
+            commands,
+            fonts,
+            baylee_client_core::manapip::pip(*symbol),
+            TRAY_PIP,
+        );
+        commands.entity(pips).add_child(pip);
     }
+    commands.entity(slot).add_child(pips);
+
+    // ---- the type line ----
+    let types = built
+        .as_ref()
+        .map_or_else(String::new, |f| f.type_line.clone());
+    let type_line = dialog_text(
+        commands,
+        fonts,
+        &types,
+        TRAY_TYPE_SIZE,
+        palette::DIALOG_SOFT,
+    );
+    commands.entity(type_line).insert(Node {
+        width: px(TRAY_TYPE_W),
+        flex_shrink: 0.0,
+        overflow: Overflow::clip(),
+        ..default()
+    });
+    commands.entity(slot).add_child(type_line);
+
+    // ---- which pile it is in ----
+    //
+    // The bare zone word, with no seat on it: at a table of four the tab above
+    // already says whose pile is being looked through, and a seat name in a
+    // badge this size is a smear. A token says so here instead — a graveyard
+    // holds cards and tokens together and they are not the same thing, since a
+    // token ceases to exist the next time state-based actions are checked (CR
+    // 111.7), so a row that looked like a card would invite a player to plan
+    // around something already gone.
+    let badge_words = if row.token {
+        Phrase::IsToken.text(lang).to_string()
+    } else {
+        row.zone.label().text(lang).to_string()
+    };
+    let badge_text = dialog_text(
+        commands,
+        fonts,
+        &badge_words,
+        TRAY_BADGE_SIZE,
+        palette::DIALOG_SOFT,
+    );
+    let badge = commands
+        .spawn((
+            Node {
+                width: px(TRAY_BADGE_W),
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+                padding: UiRect::horizontal(px(5)),
+                border: UiRect::all(px(1)),
+                border_radius: btn_radius(),
+                flex_shrink: 0.0,
+                overflow: Overflow::clip(),
+                ..default()
+            },
+            BorderColor::all(palette::DIALOG_LINE),
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(badge).add_child(badge_text);
+    commands.entity(slot).add_child(badge);
+
     slot
 }
 
@@ -698,9 +1096,9 @@ fn spawn_row(
 /// chips carried that nothing else on the sheet does.
 ///
 /// The count goes in brackets rather than after a separator because the
-/// sheet's typography already means something by a bracket: `slip_text` hands
-/// a bracketed run to [`palette::SLIP_ASIDE`], so "Graveyard (12)" is drawn as
-/// a name with a grey aside beside it and reads as one.
+/// dialog's typography already means something by a bracket: [`dialog_text`]
+/// hands a bracketed run to [`palette::DIALOG_SOFT`], so "Graveyard (12)" is
+/// drawn as a name with a grey aside beside it and reads as one.
 fn zone_label(lang: Lang, zone: BrowseZone, view: &PlayerView, statics: &GameStatic) -> String {
     let name = zone.label().text(lang).to_string();
     let named = match zone.seat() {
@@ -740,42 +1138,67 @@ mod tests {
         }
     }
 
-    /// The sheet a player has never moved is still ten card columns wide.
+    /// The sheet a player has never moved is exactly one row wide.
     ///
     /// `Placement::DEFAULT_W` is a number in the renderer-free half, where it
-    /// can be tested but where `TRAY_CARD_W` does not exist; the arithmetic
-    /// that produced it lives here. This is the seam between them, so a card
-    /// resized on one side cannot silently leave the other showing nine
-    /// columns and a gap.
+    /// can be tested but where a row's columns do not exist; the arithmetic
+    /// that produced it lives here. This is the seam between them, so a column
+    /// widened on one side cannot silently leave the other with a name that
+    /// no longer has its measure.
     #[test]
-    fn the_default_width_is_still_ten_columns() {
+    fn the_default_width_is_one_whole_row() {
+        let off = (Placement::DEFAULT_W - TRAY_PANEL_W).abs();
         assert!(
-            (Placement::DEFAULT_W - TRAY_PANEL_W).abs() < f32::EPSILON,
-            "ten columns is {TRAY_PANEL_W}, the sheet opens at {}",
+            off <= 1.0,
+            "a row is {TRAY_PANEL_W}, the sheet opens at {} ({off} out)",
             Placement::DEFAULT_W
         );
     }
 
-    /// And it opens four whole rows tall.
+    /// And it opens showing half of a ninth row.
     ///
-    /// The same seam one axis over, and the one that had gone wrong: 520 is
-    /// three rows plus sixty-five pixels, so the sheet always showed most of
-    /// a further row that nothing could ever be put in. The tolerance is a
-    /// pixel because [`TRAY_CHROME_H`] is a measurement and
-    /// [`Placement::DEFAULT_H`] is a whole number.
+    /// The same seam one axis over, and the half is the whole point: a list
+    /// cut off at a row boundary looks like a list that ends there.
     #[test]
-    fn the_default_height_is_four_whole_rows() {
-        let rows = 4.0;
-        let want = TRAY_CHROME_H + rows * TRAY_CARD_H + (rows - 1.0) * TRAY_GAP;
+    fn the_default_height_shows_half_a_row() {
+        let want = TRAY_CHROME_H + TRAY_ROWS * TRAY_ROW_H;
         let off = (Placement::DEFAULT_H - want).abs();
         assert!(
             off <= 1.0,
-            "four rows is {want}, the sheet opens at {} ({off} out)",
+            "{TRAY_ROWS} rows is {want}, the sheet opens at {} ({off} out)",
             Placement::DEFAULT_H
         );
-        // And it is genuinely short of a fifth, which is the whole point.
-        let five = want + TRAY_CARD_H + TRAY_GAP;
-        assert!(Placement::DEFAULT_H < five - TRAY_CARD_H / 2.0);
+        // Genuinely half: the list is cut through a row rather than between
+        // two, which is what says there is more below.
+        let spare = (Placement::DEFAULT_H - TRAY_CHROME_H) % TRAY_ROW_H;
+        assert!(
+            spare > TRAY_ROW_H * 0.25 && spare < TRAY_ROW_H * 0.75,
+            "the bottom row is cut at {spare} of {TRAY_ROW_H}, which reads as a whole one"
+        );
+    }
+
+    /// The smallest sheet still has a row in it worth reading.
+    ///
+    /// Both floors are one row's arithmetic: the width is the fixed columns
+    /// plus ten characters of name, and the height is the chrome plus two
+    /// whole rows. A sheet dragged smaller than either is a sheet with no
+    /// list left in it.
+    #[test]
+    fn the_floor_is_a_row_that_can_still_be_read() {
+        let fixed = TRAY_PANEL_W - TRAY_NAME_W - TRAY_TYPE_W;
+        let ten = 10.0 * TRAY_CH * TRAY_NAME_SIZE;
+        assert!(
+            (Placement::MIN_W - (fixed + ten)).abs() <= 1.0,
+            "ten characters of name is {}, the floor is {}",
+            fixed + ten,
+            Placement::MIN_W
+        );
+        let two = TRAY_CHROME_H + 2.0 * TRAY_ROW_H;
+        assert!(
+            (Placement::MIN_H - two).abs() <= 1.0,
+            "two rows is {two}, the floor is {}",
+            Placement::MIN_H
+        );
     }
 
     /// The band never claims more room than the window has.
@@ -791,12 +1214,12 @@ mod tests {
     }
 
     /// A tab says how many cards are in it, and says it in the one register
-    /// the sheet greys.
+    /// the dialog greys.
     ///
     /// Two claims in one, because they are one decision: the count is drawn
-    /// as an aside rather than as part of the name, and `slip_text` decides
-    /// that by finding a bracket. A count appended with a separator would
-    /// read at full ink weight and make every tab look twice as long.
+    /// as an aside rather than as part of the name, and [`dialog_text`]
+    /// decides that by finding a bracket. A count appended with a separator
+    /// would read at full ink weight and make every tab look twice as long.
     #[test]
     fn a_zone_tab_carries_its_count_as_an_aside() {
         let view = ViewBuilder::new(2)
@@ -815,7 +1238,7 @@ mod tests {
         assert_eq!(
             runs,
             vec![("Graveyard ", false), ("(1)", true)],
-            "the count is not in the aside register the sheet greys"
+            "the count is not in the aside register the dialog greys"
         );
 
         let theirs = zone_label(
@@ -830,24 +1253,105 @@ mod tests {
         );
     }
 
-    /// Nothing on the parchment says anything in brass.
+    /// The footer is exactly what the question allows, and nothing more.
     ///
-    /// `BRASS` on `PARCHMENT` measures 1.9:1 — below every legibility floor —
-    /// which is why the *current* zone tab read fainter than the ones beside
-    /// it. Brass keeps its job as a light: the card glow and the ordering
-    /// badge, both of which sit on their own fill. The check is on the source
-    /// because what is being held is a rule about the whole file, not about
-    /// one node.
+    /// Three claims, one per state, and they are the whole of §6's footer.
+    /// **Confirm is a control only when the answer is complete** — an unlit
+    /// one carries no `Button` at all, for the reason a pinned zone tab
+    /// carries none: a thing that lights under the pointer and then refuses
+    /// the click is worse than one that never invited it. And **Cancel is
+    /// drawn only when the minimum is zero**, because there is no cancel on
+    /// the wire: it is `Interaction::confirm` sending an empty answer, so a
+    /// question that will not take one has no way out to offer.
     #[test]
-    fn the_sheet_writes_no_letters_in_brass() {
+    fn the_footer_offers_only_what_the_question_allows() {
+        use baylee_core::ids::{ObjectId, PlayerId};
+        use baylee_engine::choice::{ChoicePrompt, Pending};
+
+        fn asked(min: u8, picks: &[u32]) -> baylee_client_core::Interaction {
+            let mut it = baylee_client_core::Interaction::new(
+                Pending::ChooseCards {
+                    player: PlayerId::new(0),
+                    options: (1..4).map(|n| ObjectId::new(n, 0)).collect(),
+                    min,
+                    max: 3,
+                    prompt: ChoicePrompt::SearchLibrary,
+                },
+                PlayerId::new(0),
+            );
+            for id in picks {
+                it.toggle(ObjectId::new(*id, 0));
+            }
+            it
+        }
+
+        /// Builds one footer and reports `(confirm is a control, cancel is drawn)`.
+        fn footer_of(it: &baylee_client_core::Interaction) -> (bool, bool) {
+            let mut app = App::new();
+            let fonts = UiFonts {
+                text: Handle::default(),
+                italic: Handle::default(),
+                icons: Handle::default(),
+                mana: Handle::default(),
+            };
+            let mut queue = bevy::ecs::world::CommandQueue::default();
+            let foot = {
+                let mut commands = Commands::new(&mut queue, app.world());
+                spawn_footer(&mut commands, &fonts, Lang::En, Some(it)).expect("a question has one")
+            };
+            queue.apply(app.world_mut());
+            let kids: Vec<_> = app
+                .world()
+                .entity(foot)
+                .get::<Children>()
+                .expect("a footer has buttons")
+                .iter()
+                .collect();
+            let lit = kids
+                .iter()
+                .any(|e| app.world().entity(*e).contains::<PromptButton>());
+            let out = kids
+                .iter()
+                .any(|e| app.world().entity(*e).contains::<TrayCancel>());
+            (lit, out)
+        }
+
+        assert_eq!(
+            footer_of(&asked(1, &[])),
+            (false, false),
+            "an incomplete answer offered a Confirm, or a way out that does \
+             not exist"
+        );
+        assert_eq!(
+            footer_of(&asked(1, &[1])),
+            (true, false),
+            "a complete answer could not be sent"
+        );
+        assert_eq!(
+            footer_of(&asked(0, &[])),
+            (true, true),
+            "a question that takes an empty answer drew no way out"
+        );
+    }
+
+    /// Nothing on the dialog is drawn in the teal the redesign retires.
+    ///
+    /// `palette::ACCENT` is what "this is asking you something" used to be
+    /// said in, and §1 gives that job to candle at two energies. The check is
+    /// on the source because what is being held is a rule about the whole
+    /// file, not about one node — and it is the counterpart of
+    /// `the_sheet_writes_no_letters_in_brass`, which holds the same kind of
+    /// rule over the two parchment surfaces.
+    #[test]
+    fn the_dialog_says_nothing_in_teal() {
         // Assembled rather than written out, or the needle is in the
         // haystack and this test fails on its own source line.
-        let ink_in = format!("TextColor(palette::{}", "BRASS");
+        let teal = format!("palette::{}", "ACCENT");
         for line in include_str!("tray.rs").lines() {
             let code = line.split("//").next().unwrap_or(line);
             assert!(
-                !code.contains(&ink_in),
-                "brass is a light on this sheet, not a letter: {line}"
+                !code.contains(&teal),
+                "the accent is the teal §1 retires: {line}"
             );
         }
     }

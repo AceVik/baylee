@@ -662,6 +662,27 @@ impl Interaction {
         }
     }
 
+    /// How many objects the answer wants: the fewest and the most.
+    ///
+    /// The tally on the zone browser's dialog is what needs this — "1 of up
+    /// to 2 chosen" — and so is the footer, because **Cancel exists exactly
+    /// when the minimum is zero**. There is no cancel action on the wire: a
+    /// question that will accept an empty answer is answered by sending one,
+    /// and a question that will not has no way out to offer. A dialog that
+    /// drew the button anyway would be promising something the engine cannot
+    /// deliver.
+    ///
+    /// `None` for every choice that is not a set of objects. An ordering
+    /// wants all of them, which is a bound rather than a special case.
+    #[must_use]
+    pub fn bounds(&self) -> Option<(usize, usize)> {
+        match &self.mode {
+            Mode::Objects { min, max, .. } => Some((*min, *max)),
+            Mode::Order { options } => Some((options.len(), options.len())),
+            _ => None,
+        }
+    }
+
     /// Whether the answer is an ordering rather than a set.
     ///
     /// The one thing outside this module that has to know: an ordering is
@@ -2497,5 +2518,65 @@ mod tests {
         i.cycle_focus(1);
         assert!(i.is_selectable(obj(11)));
         assert!(!i.is_selectable(obj(10)));
+    }
+
+    /// Cancel is an *empty* answer, and only a question that will take one
+    /// has it to offer.
+    ///
+    /// The zone browser's footer rests entirely on this: there is no cancel
+    /// action on the wire, so the way out of a "you may search" is to send
+    /// the empty set, and a question with a minimum above zero has no way out
+    /// at all. Both halves are asserted, and so is the order — [`cancel`]
+    /// first and [`confirm`] after, because a player who ticked a card and
+    /// then changed their mind must not have that card sent under the word
+    /// "Cancel".
+    ///
+    /// [`cancel`]: Interaction::cancel
+    /// [`confirm`]: Interaction::confirm
+    #[test]
+    fn a_question_that_takes_nothing_is_answered_with_nothing() {
+        let search = |min: u8| {
+            Interaction::new(
+                Pending::ChooseCards {
+                    player: me(),
+                    options: vec![obj(1), obj(2)],
+                    min,
+                    max: 2,
+                    prompt: ChoicePrompt::SearchLibrary,
+                },
+                me(),
+            )
+        };
+
+        let may = search(0);
+        assert_eq!(may.bounds(), Some((0, 2)));
+        assert_eq!(
+            may.confirm(),
+            Some(PlayerAction::ChooseObjects { objects: vec![] }),
+            "an empty answer to a may-search is not an answer at all"
+        );
+
+        let must = search(1);
+        assert_eq!(must.bounds(), Some((1, 2)));
+        assert!(
+            must.confirm().is_none(),
+            "a question with a minimum has a way out it cannot deliver"
+        );
+
+        // And the order: a pick taken back before the send.
+        let mut mind_changed = search(0);
+        mind_changed.toggle(obj(1));
+        assert_eq!(
+            mind_changed.confirm(),
+            Some(PlayerAction::ChooseObjects {
+                objects: vec![obj(1)]
+            })
+        );
+        mind_changed.cancel();
+        assert_eq!(
+            mind_changed.confirm(),
+            Some(PlayerAction::ChooseObjects { objects: vec![] }),
+            "Cancel sent the card the player had just decided against"
+        );
     }
 }

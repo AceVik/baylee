@@ -1347,7 +1347,6 @@ pub fn sync_overlay(
             &assets,
             &fonts,
             &faces,
-            sheets.as_deref(),
             cards.as_mut(),
             place,
         );

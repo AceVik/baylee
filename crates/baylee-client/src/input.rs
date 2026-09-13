@@ -18,7 +18,7 @@
 
 use crate::hud::{
     AbilityButton, ChoiceButton, HandCardVisual, MenuAction, MenuButton, PlayerTab, PreviewResize,
-    PromptAction, PromptButton, TrayCard, TrayClose, TrayFilter, TraySort, TrayTab,
+    PromptAction, PromptButton, TrayCancel, TrayCard, TrayClose, TrayFilter, TraySort, TrayTab,
 };
 use crate::keys::Fired;
 use crate::settings::ClientSettings;
@@ -48,6 +48,7 @@ pub struct TrayWidgets<'w, 's> {
     close: Query<'w, 's, &'static TrayClose>,
     sort: Query<'w, 's, &'static TraySort>,
     filter: Query<'w, 's, &'static TrayFilter>,
+    cancel: Query<'w, 's, &'static TrayCancel>,
 }
 
 /// Finds a component on the clicked entity or one of its ancestors —
@@ -1662,6 +1663,21 @@ fn browser_click(
     }
     if find_in_lineage(entity, &tray.close, parents).is_some() {
         duel.browser.close();
+        return true;
+    }
+    // The dialog's way out, which exists only when the question's minimum is
+    // zero. It sends the **empty** answer and not the assembled one: a player
+    // who ticked a card and then changed their mind must not have that card
+    // sent under the word "Cancel", so the answer is cleared first and
+    // confirmed after. There is no cancel on the wire; the two together are
+    // the closest thing to one there is.
+    if find_in_lineage(entity, &tray.cancel, parents).is_some() {
+        if let Some(it) = duel.interaction.as_mut() {
+            it.cancel();
+        }
+        if let Some(action) = duel.interaction.as_ref().and_then(Interaction::confirm) {
+            duel.submit(action);
+        }
         return true;
     }
     if let Some(sort) = find_in_lineage(entity, &tray.sort, parents) {

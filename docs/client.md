@@ -2062,6 +2062,16 @@ skips the write when they have not changed, because a `Mut<Node>` marks the
 node changed on any write and taffy would relay out every bar every frame
 while the camera stood still.
 
+Being a sibling root is also what makes its depth a `GlobalZIndex(-1)` rather
+than a `ZIndex(0)`, and the distinction is not pedantry: **`ZIndex` orders a
+node only among its own parent's children**, so a number on one tree's root
+and a number on another's are never compared at all — two roots both at zero
+are tied, and the tie is broken by whichever was rebuilt last. The bar carried
+`ZIndex(0)` with a comment naming the overlay's own 1/2/3/10 as what stands
+over it, and every one of those numbers is inside `HudRoot`, a different
+stacking context. The zone browser is what found it: the local seat's phase
+tiles were being drawn straight through an opaque dialog.
+
 **Both rows of standing orders are seen at once in the settings screen**, and
 that is where they belong. A seat bar carries the twelve steps of a turn but
 only the row that turn belongs to — an order about opponents' turns is
@@ -2198,8 +2208,8 @@ inside the panel's. `hud::sheet_surface()` is the parchment as an
 absolutely-positioned first child instead — an absolute child is measured
 against its parent's *padding* box, which is exactly the ring that was
 missing — carrying `Pickable::IGNORE` and a radius one pixel tighter than
-the panel's so the two curves are concentric. Both users of a sheet, the
-prompt slip and the zone browser, go through it.
+the panel's so the two curves are concentric. The prompt slip and the ability
+sheet go through it; the zone browser did too, until §1.3 made it a panel.
 
 The slip's prose is set in Inter Italic, which is a **second font file** and
 has to be: `Inter.ttf` is variable on `opsz` and `wght` only, and `TextFont`
@@ -2215,28 +2225,67 @@ The answers underneath share the sheet's width: `flex_grow: 1.0` with a
 after the labels and three answers with three different words would still
 come out three different widths.
 
-### The zone browser is the same sheet, in a different voice
-
 Four decisions make the slip's prose what it is, and only one of them is
 about the slip. Ink with a little parchment showing through, the faint warm
 shadow a letter lying on a sheet casts, and a grey for whatever the line says
 in brackets are all about the *parchment*; the slant is the slip's own voice,
-which is that of a question being asked. So `slip_line` is
-`slip_text(.., italic)` with one caller passing `true` and the browser
-passing `false` — a graveyard is listed on the sheet, not asked on it — and
-there is one treatment rather than two that drift apart the first time either
-is adjusted.
+which is that of a question being asked. `slip_line` is
+`slip_text(.., italic)` and only the slip is italic, so there is one
+treatment rather than two that drift apart the first time either is adjusted.
 
 Brass does not appear as **text** on parchment anywhere: measured, it carries
 1.9:1 against `PARCHMENT` (`SLIP_ASIDE` carries 4.9, `PARCHMENT_INK` 13.7),
-which is why the browser's current zone tab read fainter than the ones beside
-it. It keeps its job as a *light* — the card glow, the ordering badge — where
-it sits on its own fill. `the_sheet_writes_no_letters_in_brass` holds it.
+which is why the zone browser's current tab read fainter than the ones beside
+it back when the browser was parchment too. It keeps its job as a *light* —
+the card glow, the ordering badge — where it sits on its own fill.
+`the_parchment_writes_no_letters_in_brass` holds it, over both parchment
+surfaces.
+
+## The zone browser is a dialog, which is a different material
+
+`docs/redesign-proposal.md` §1.3 draws the line and §6 applies it:
+**parchment is a sheet you read from, a panel is a place you work in.** The
+browser was parchment, and a grid of ten card columns, on the argument that a
+graveyard is something a player *reads*. It is not — §6 puts a checkbox, a
+tally and a Confirm on it, and that is work — so it is a dark panel in its
+own warm near-black (`palette::DIALOG` and the four inks beside it; the HUD's
+older `PANEL` is a cool near-black and is the one surface in this client that
+was never on a candlelit table).
+
+What is in it is a **list**, not a grid: a row is a checkbox, a thumbnail, the
+name, the cost in pips, the type line and a badge saying which pile it is in.
+The grid grew sideways to show more at once, which is the axis that buys
+nothing for a card's three facts, and the list grows down, which is where a
+hundred-card library is. The chosen row goes **candle** — a wash rather than a
+fill, because a chosen row is still a row being read — and never the teal §1
+retires; `the_dialog_says_nothing_in_teal` reads the file back.
+
+The footer is two buttons and both of them send what `PromptAction::Confirm`
+sends. **Confirm is lit only when the answer is complete, and Cancel is drawn
+only when the minimum is zero**, which is `Interaction::bounds` answering both
+questions: there is no cancel action on the wire, so a question that will take
+an empty answer is answered by *sending* one and a question that will not has
+no way out to offer. Cancel is not Confirm with different words, though —
+`Interaction::cancel` clears the answer first, because a player who ticked a
+card and then changed their mind must not have that card sent under the word
+"Cancel".
+
+Two sizes are derived from all of that rather than chosen. `TRAY_PANEL_W` is
+**one row** — the fixed columns plus a measure for the name and one for the
+type line — and `Placement::DEFAULT_H` is the chrome plus eight rows **and a
+half**, the half being what says the list continues without a scrollbar. The
+grid before it was cut to four *whole* rows for the opposite reason: most of a
+fifth row of cards was space nothing could ever be put in. `MIN_W` and `MIN_H`
+are the same arithmetic at the floor — ten characters of name, and two whole
+rows.
 
 Every zone tab says how many cards are in it, in brackets, which is not
 decoration: `bracketed` is what greys a run, so `Graveyard (12)` draws as a
 name with a grey aside and reads as one. It is also the only thing the
-deleted pile-chip strip said that nothing else on the sheet did.
+deleted pile-chip strip said that nothing else on the sheet did — and the
+dialog keeps the rule in its own two inks (`dialog_text`), rather than
+borrowing `slip_text`, whose aside grey and warm letter-shadow are both about
+lifting ink off parchment.
 
 **The sheet moves and resizes, and remembers where it was put.**
 `browser::Placement` is a rectangle inside the *band* — everything between the

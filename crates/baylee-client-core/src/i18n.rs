@@ -1254,8 +1254,18 @@ messages! {
     BrowseAll { en: "All", de: "Alle" },
     /// A zone with nothing in it, or a filter that matched nothing.
     BrowseEmpty { en: "nothing here", de: "nichts hier" },
-    /// The filter box above the list.
-    BrowseFilter { en: "Filter by name", de: "Nach Namen filtern" },
+    /// The search box above the list.
+    BrowseFilter { en: "Search by name…", de: "Nach Namen suchen …" },
+    /// How much of the answer is assembled, when the question takes a range.
+    /// `{0}` is how many are chosen, `{1}` the most it will take.
+    BrowseTallyUpTo { en: "{0} of up to {1} chosen", de: "{0} von bis zu {1} gewählt" },
+    /// The same, for a question that names one number. `{0}` of `{1}`.
+    BrowseTallyExact { en: "{0} of {1} chosen", de: "{0} von {1} gewählt" },
+    /// Sends the answer the dialog has assembled.
+    BrowseConfirm { en: "Confirm", de: "Bestätigen" },
+    /// Sends the *empty* answer, which is the only way out a question whose
+    /// minimum is zero has — there is no cancel action on the wire.
+    BrowseCancel { en: "Cancel", de: "Abbrechen" },
     /// How an ordering is answered.
     BrowseOrderHint {
         en: "click them in the order they should go",
