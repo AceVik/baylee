@@ -13,6 +13,7 @@
 
 use baylee_client_core::i18n::{Lang, Phrase};
 use baylee_client_core::interaction::Interaction;
+use baylee_client_core::manapip;
 use baylee_client_core::manaplan::Tap;
 use baylee_core::ids::ObjectId;
 use baylee_core::mana::ManaColor;
@@ -367,13 +368,7 @@ fn printed_label(lang: Lang, view: &PlayerView, object: ObjectId, index: u32) ->
         return unnamed();
     };
     match def {
-        AbilityDef::Loyalty { cost, .. } => {
-            if *cost >= 0 {
-                format!("+{cost}")
-            } else {
-                format!("\u{2212}{}", -cost)
-            }
-        }
+        AbilityDef::Loyalty { cost, .. } => manapip::loyalty_token(*cost),
         AbilityDef::Activated { cost, effects, .. }
         | AbilityDef::ActivatedConditional { cost, effects, .. } => {
             // A mana ability the planner refuses still has to say what it
@@ -403,11 +398,7 @@ fn printed_label(lang: Lang, view: &PlayerView, object: ObjectId, index: u32) ->
 /// reserved index simply finds nothing.
 fn printed_cost(lang: Lang, view: &PlayerView, object: ObjectId, index: u32) -> Option<String> {
     match crate::manasources::ability_at(view, object, index)? {
-        AbilityDef::Loyalty { cost, .. } => Some(if *cost >= 0 {
-            format!("+{cost}")
-        } else {
-            format!("\u{2212}{}", -cost)
-        }),
+        AbilityDef::Loyalty { cost, .. } => Some(manapip::loyalty_token(*cost)),
         AbilityDef::Activated { cost, .. } | AbilityDef::ActivatedConditional { cost, .. } => {
             cost_label(lang, cost)
         }

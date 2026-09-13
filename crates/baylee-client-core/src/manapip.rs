@@ -123,6 +123,96 @@ pub enum Pip {
         /// The amount to spell out.
         value: u32,
     },
+    /// A planeswalker's loyalty cost, drawn as the badge the card prints.
+    Loyalty(Loyalty),
+}
+
+/// Which way a loyalty badge points.
+///
+/// The shape *is* the sign. That is how the card reads — an upward shield for
+/// a cost that adds and a downward one for a cost that takes — and it is what
+/// makes the badge legible at the size a list row gives it: the number written
+/// on it carries no sign of its own, because a mark eleven pixels across has
+/// room for the digits or for the sign, and the shape is already saying the
+/// sign.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum Tick {
+    /// A cost that adds loyalty: the shield points up.
+    Up,
+    /// A cost that takes it: the shield points down.
+    Down,
+    /// A cost that changes nothing, which is a shape of its own rather than
+    /// an upward badge reading `+0`. A point is a sign, and zero has none.
+    Flat,
+}
+
+/// A planeswalker's loyalty cost, as the card prints it.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct Loyalty {
+    /// Which way the badge points.
+    pub tick: Tick,
+    /// What is written on it, or `None` for the `−X` a few walkers print.
+    ///
+    /// `u8` because the deepest cost ever printed is `−40` and the engine's
+    /// own [`AbilityDef::Loyalty`] carries an `i8`, so nothing the rules can
+    /// express reaches past it.
+    ///
+    /// [`AbilityDef::Loyalty`]: https://docs.rs/baylee-cards-dsl
+    pub amount: Option<u8>,
+}
+
+impl Loyalty {
+    /// What is written on the badge: the digits, or `X`.
+    #[must_use]
+    pub fn caption(&self) -> String {
+        self.amount
+            .map_or_else(|| "X".to_string(), |n| n.to_string())
+    }
+}
+
+/// The brace token a loyalty cost is written as.
+///
+/// The one place that spells it, because a cost is handed to the renderer as
+/// a *string* — [`Pip`] is what comes out the other end, and the door between
+/// them is [`symbol`]. `{L+2}`, `{L0}`, `{L-12}`, `{L-X}`; the hyphen is
+/// ASCII because this is a token and not prose, and the minus a player reads
+/// is the badge's own shape.
+#[must_use]
+pub fn loyalty_token(cost: i8) -> String {
+    match cost.cmp(&0) {
+        std::cmp::Ordering::Greater => format!("{{L+{cost}}}"),
+        std::cmp::Ordering::Less => format!("{{L-{}}}", cost.unsigned_abs()),
+        std::cmp::Ordering::Equal => "{L0}".to_string(),
+    }
+}
+
+/// The loyalty badge a `{L…}` token asks for, if it asks for one.
+///
+/// Deliberately strict about the shapes a card actually prints: a signed
+/// number points, an unsigned one is the zero and nothing else. `{L5}` is not
+/// a cost any walker has, and reading it as a flat five would put a badge on
+/// screen that no card could have produced.
+#[must_use]
+fn loyalty(body: &str) -> Option<Loyalty> {
+    let rest = body.strip_prefix(['L', 'l'])?;
+    let mut chars = rest.chars();
+    let (tick, digits) = match chars.next()? {
+        '+' => (Tick::Up, chars.as_str()),
+        // The token is written with an ASCII hyphen; the printed minus is
+        // accepted beside it so a line quoted off a card can use this door
+        // too, and both catalogs print U+2212.
+        '-' | '\u{2212}' => (Tick::Down, chars.as_str()),
+        _ => (Tick::Flat, rest),
+    };
+    let amount = match digits {
+        "" => return None,
+        "X" | "x" => None,
+        n => Some(n.parse::<u8>().ok()?),
+    };
+    if tick == Tick::Flat && amount != Some(0) {
+        return None;
+    }
+    Some(Loyalty { tick, amount })
 }
 
 /// The glyph for a generic cost, when the font has one.
@@ -298,6 +388,12 @@ pub fn symbol(body: &str) -> Option<Pip> {
         }
         _ => {}
     }
+    // Before the fallthrough and not after it, the way the two above are:
+    // `ManaCost::try_parse` would refuse `{L+2}` and the run would come out
+    // as prose *with its braces*, which is the token on screen.
+    if let Some(loy) = loyalty(body) {
+        return Some(Pip::Loyalty(loy));
+    }
     let mut drawn = parse(&format!("{{{body}}}"))?;
     // Exactly one: `{W}{U}` inside one pair of braces is not a symbol, and
     // letting it through would draw two pips where the text has one.
@@ -397,6 +493,19 @@ pub fn inline(text: &str) -> Vec<Inline> {
                 out.push(Inline::Mark(right.0));
             }
             Segment::Symbol(Pip::Number { value }) => prose(&mut out, &value.to_string()),
+            // A quotation keeps the mark and drops the disc, and a loyalty
+            // badge is all disc: its shape is the whole symbol, so there is
+            // no mark left to keep. It is written out the way the card does
+            // instead — which is also what the stack panel has always shown,
+            // since a printed line arrives here with `+2` already in it.
+            Segment::Symbol(Pip::Loyalty(loy)) => {
+                let sign = match loy.tick {
+                    Tick::Up => "+",
+                    Tick::Down => "\u{2212}",
+                    Tick::Flat => "",
+                };
+                prose(&mut out, &format!("{sign}{}", loy.caption()));
+            }
         }
     }
     out
@@ -432,6 +541,7 @@ mod tests {
                 Pip::Number { value } => {
                     assert!(value > glyph::LARGEST_GENERIC, "small costs have glyphs");
                 }
+                Pip::Loyalty(loy) => panic!("a mana cost is not a loyalty cost: {loy:?}"),
             }
         }
     }
@@ -608,6 +718,84 @@ mod tests {
         assert_eq!(
             inline("Pay {1000000} life."),
             vec![Inline::Text("Pay 1000000 life.".into())]
+        );
+    }
+
+    /// The token and the badge are one round trip, because the spelling has
+    /// exactly one author.
+    #[test]
+    fn a_loyalty_cost_survives_the_token_it_is_written_as() {
+        for (cost, tick, amount) in [
+            (2_i8, Tick::Up, Some(2_u8)),
+            (0, Tick::Flat, Some(0)),
+            (-1, Tick::Down, Some(1)),
+            (-12, Tick::Down, Some(12)),
+            (-40, Tick::Down, Some(40)),
+        ] {
+            let token = loyalty_token(cost);
+            let body = token.trim_start_matches('{').trim_end_matches('}');
+            assert_eq!(
+                symbol(body),
+                Some(Pip::Loyalty(Loyalty { tick, amount })),
+                "{token}"
+            );
+        }
+    }
+
+    /// `−X` is printed by a handful of walkers and is not expressible in the
+    /// engine's own `i8`, so it has no token — but the reader answers it, and
+    /// the badge says `X` rather than declining and putting `{L-X}` on screen.
+    #[test]
+    fn the_minus_x_a_few_walkers_print_has_a_badge() {
+        let pip = symbol("L-X").expect("a badge");
+        let Pip::Loyalty(loy) = pip else {
+            panic!("not a badge: {pip:?}")
+        };
+        assert_eq!(loy.tick, Tick::Down);
+        assert_eq!(loy.caption(), "X");
+        assert_eq!(symbol("L\u{2212}X"), Some(pip), "the printed minus too");
+    }
+
+    /// The counter-test, and the one that matters: the door is narrow enough
+    /// that nothing else falls through it. A generic zero is a mana symbol
+    /// and must stay one, an unsigned number is not a loyalty cost any card
+    /// prints, and a run this refuses keeps its braces.
+    #[test]
+    fn nothing_but_a_loyalty_cost_comes_through_that_door() {
+        assert_eq!(
+            symbol("0"),
+            Some(Pip::Solid {
+                glyph: generic_glyph(0).expect("the font spells zero"),
+                disc: Disc::Generic,
+            }),
+            "{{0}} is generic mana and stays generic mana"
+        );
+        for refused in ["L5", "L", "L+", "LX", "L+1.5", "Loyal", "L+999"] {
+            assert_eq!(symbol(refused), None, "{refused}");
+        }
+        assert_eq!(
+            segments("Sacrifice {L5}."),
+            vec![Segment::Text("Sacrifice {L5}.".into())],
+            "a refused run keeps its braces"
+        );
+    }
+
+    /// Quoted, the badge is written out the way the card writes it — which is
+    /// what a printed line already carries, so the stack panel reads the same
+    /// before and after this door existed.
+    #[test]
+    fn a_badge_quoted_in_prose_is_the_cost_the_card_prints() {
+        assert_eq!(
+            inline("{L+2}: Look at the top card."),
+            vec![Inline::Text("+2: Look at the top card.".into())]
+        );
+        assert_eq!(
+            inline("{L-12}: Exile all cards."),
+            vec![Inline::Text("\u{2212}12: Exile all cards.".into())]
+        );
+        assert_eq!(
+            inline("{L0}: Draw three cards."),
+            vec![Inline::Text("0: Draw three cards.".into())]
         );
     }
 }

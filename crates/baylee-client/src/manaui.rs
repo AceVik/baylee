@@ -130,35 +130,172 @@ pub fn spawn_pip(commands: &mut Commands, fonts: &UiFonts, pip: Pip, size: f32) 
                 commands.entity(disc).add_child(half);
             }
         }
-        Pip::Number { value } => {
-            commands
-                .entity(disc)
-                .insert(BackgroundColor(disc_color(Disc::Generic)));
-            // Digits, not a glyph: `{1000000}` has no symbol in the font, and
-            // a disc wide enough to hold the number is still a mana symbol.
-            commands.entity(disc).insert(Node {
-                width: Val::Auto,
-                min_width: px(size),
-                height: px(size),
-                flex_shrink: 0.0,
-                padding: bevy::ui::UiRect::horizontal(px(size * 0.2)),
-                align_items: AlignItems::Center,
-                justify_content: JustifyContent::Center,
-                border_radius: BorderRadius::all(px(size / 2.0)),
-                ..default()
-            });
-            let text = commands
-                .spawn((
-                    Text::new(value.to_string()),
-                    crate::hud::tf(fonts, size * 0.62),
-                    TextColor(ink_color()),
-                    Pickable::IGNORE,
-                ))
-                .id();
-            commands.entity(disc).add_child(text);
-        }
+        Pip::Number { value } => spawn_number(commands, fonts, disc, value, size),
+        Pip::Loyalty(loy) => spawn_loyalty(commands, fonts, disc, loy, size),
     }
     disc
+}
+
+/// A generic cost the font has no glyph for, set as digits on a wider disc.
+///
+/// `{1000000}` has no symbol, and a disc wide enough to hold the number is
+/// still a mana symbol — so the disc grows with the digits rather than the
+/// digits shrinking into it.
+fn spawn_number(commands: &mut Commands, fonts: &UiFonts, disc: Entity, value: u32, size: f32) {
+    commands
+        .entity(disc)
+        .insert(BackgroundColor(disc_color(Disc::Generic)));
+    commands.entity(disc).insert(Node {
+        width: Val::Auto,
+        min_width: px(size),
+        height: px(size),
+        flex_shrink: 0.0,
+        padding: bevy::ui::UiRect::horizontal(px(size * 0.2)),
+        align_items: AlignItems::Center,
+        justify_content: JustifyContent::Center,
+        border_radius: BorderRadius::all(px(size / 2.0)),
+        ..default()
+    });
+    let text = commands
+        .spawn((
+            Text::new(value.to_string()),
+            crate::hud::tf(fonts, size * 0.62),
+            TextColor(ink_color()),
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(disc).add_child(text);
+}
+
+/// The side of the badge's turned square, as a fraction of the mark's size.
+///
+/// What shows of it is the half-diagonal, `CAP·√2/2`, and what stands proud of
+/// its own un-rotated box is `CAP·(√2−1)/2`. Both are written out where they
+/// are used rather than kept as a second constant: a bare 0.707 in a layout is
+/// a number nobody can check.
+const CAP: f32 = 0.78;
+
+/// A planeswalker's loyalty cost, built the way the card prints it.
+///
+/// Three children on one parent, and their order *is* the drawing: `bevy_ui`
+/// paints later siblings in front, so the turned square goes down first and
+/// the body covers the half of it that would stick out the other end — which
+/// makes a pentagon out of a square and a diamond without a single clip. The
+/// number goes on last.
+///
+/// Absolute children are placed against the parent's **padding** box, so the
+/// padding holds the point's height without moving anything inside it: the
+/// content box *is* the body, and one `align_items: Center` centres the number
+/// in the body rather than in the whole badge.
+///
+/// A mana pip is a light disc carrying dark ink. This is deliberately the
+/// other way round — dark body, parchment numeral — because a loyalty cost
+/// drawn in the pip's own register would read as generic mana, and the two
+/// stand in the same column of the same row.
+fn spawn_loyalty(
+    commands: &mut Commands,
+    fonts: &UiFonts,
+    badge: Entity,
+    loy: baylee_client_core::manapip::Loyalty,
+    size: f32,
+) {
+    use baylee_client_core::manapip::Tick;
+
+    let square = CAP * size;
+    let down = loy.tick == Tick::Down;
+    // The point that stands proud of the body: half the turned square's
+    // diagonal, the other half being what the body covers.
+    let rise = if loy.tick == Tick::Flat {
+        0.0
+    } else {
+        square * std::f32::consts::SQRT_2 / 2.0
+    };
+    let body = size;
+    // The zero is a lozenge and not a shield, so both its ends are rounded; a
+    // pointed badge keeps its blunt end nearly square, the way the card does.
+    let round = if loy.tick == Tick::Flat {
+        body * 0.42
+    } else {
+        body * 0.18
+    };
+    commands.entity(badge).insert(Node {
+        width: Val::Auto,
+        min_width: px(size * 1.25),
+        height: px(body + rise),
+        flex_shrink: 0.0,
+        align_items: AlignItems::Center,
+        justify_content: JustifyContent::Center,
+        padding: bevy::ui::UiRect {
+            left: px(size * 0.22),
+            right: px(size * 0.22),
+            top: px(if down { 0.0 } else { rise }),
+            bottom: px(if down { rise } else { 0.0 }),
+        },
+        ..default()
+    });
+
+    if loy.tick != Tick::Flat {
+        // A square turned about its own middle overhangs its box by the same
+        // `(√2−1)/2` on every side; insetting by that puts the far vertex on
+        // the badge's own edge.
+        let inset = square * (std::f32::consts::SQRT_2 - 1.0) / 2.0;
+        let lane = commands
+            .spawn((
+                Node {
+                    position_type: PositionType::Absolute,
+                    left: px(0.0),
+                    right: px(0.0),
+                    top: if down { Val::Auto } else { px(inset) },
+                    bottom: if down { px(inset) } else { Val::Auto },
+                    height: px(square),
+                    justify_content: JustifyContent::Center,
+                    ..default()
+                },
+                Pickable::IGNORE,
+            ))
+            .id();
+        let point = commands
+            .spawn((
+                Node {
+                    width: px(square),
+                    height: px(square),
+                    ..default()
+                },
+                UiTransform::from_rotation(Rot2::radians(std::f32::consts::FRAC_PI_4)),
+                BackgroundColor(palette::PARCHMENT_INK),
+                Pickable::IGNORE,
+            ))
+            .id();
+        commands.entity(lane).add_child(point);
+        commands.entity(badge).add_child(lane);
+    }
+
+    let slab = commands
+        .spawn((
+            Node {
+                position_type: PositionType::Absolute,
+                left: px(0.0),
+                right: px(0.0),
+                top: if down { px(0.0) } else { px(rise) },
+                bottom: if down { px(rise) } else { px(0.0) },
+                border_radius: BorderRadius::all(px(round)),
+                ..default()
+            },
+            BackgroundColor(palette::PARCHMENT_INK),
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(badge).add_child(slab);
+
+    let text = commands
+        .spawn((
+            Text::new(loy.caption()),
+            crate::hud::tf_bold(fonts, size * 0.74),
+            TextColor(palette::PARCHMENT),
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(badge).add_child(text);
 }
 
 /// A mana-font handle at a size.
