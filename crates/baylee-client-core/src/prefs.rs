@@ -671,6 +671,18 @@ pub struct Preferences {
     /// Weather, not rules: see [`crate::sky`] for why a client may decide
     /// this on its own and why the default follows the player's own clock.
     pub sky: crate::sky::SkyMode,
+    /// How much weather is in the air over the table.
+    ///
+    /// Beside [`Self::sky`] and not in `ClientSettings`, which is the choice
+    /// worth stating: this travels with the **account** over `GET`/`PUT
+    /// /settings`, so a player who turned the leaves down on one machine has
+    /// them down on the next. `ClientSettings` is per device, and is where a
+    /// setting belongs when the *machine* is what decides it.
+    ///
+    /// Defaults to [`Atmosphere::Soft`](crate::atmosphere::Atmosphere::Soft)
+    /// rather than to `Full`, for the reason given there: the default is what
+    /// a player who never opens this screen lives with.
+    pub atmosphere: crate::atmosphere::Atmosphere,
     /// How loud the table is.
     ///
     /// Stored as a named step rather than a number, and defaulting to
@@ -983,6 +995,29 @@ mod tests {
             crate::cue::Loudness::Off,
             "the silence did not survive"
         );
+    }
+
+    /// A blob written before a field existed must lose only that field.
+    ///
+    /// The obvious version of this test — `from_json("{}")` gives the default
+    /// — cannot fail, and that is exactly the trap. `from_json` answers an
+    /// unreadable blob with `Default::default()`, so a struct that had *lost*
+    /// `#[serde(default)]` would still pass it: a parse failure and a
+    /// per-field default look identical from `{}`. The blob here therefore
+    /// carries a **non-default sibling**, and the assertion is that the
+    /// sibling survived beside the missing field. That is the `toggle-overlay`
+    /// incident in one test — one unknown row, every preference gone.
+    #[test]
+    fn a_blob_from_before_the_air_had_weather_in_it_keeps_everything_else() {
+        let stored = r#"{"sound":"off","sky":"night"}"#;
+        let prefs = Preferences::from_json(stored);
+        assert_eq!(prefs.atmosphere, crate::atmosphere::Atmosphere::Soft);
+        assert_eq!(
+            prefs.sound,
+            crate::cue::Loudness::Off,
+            "a missing field took the whole blob with it"
+        );
+        assert_eq!(prefs.sky, crate::sky::SkyMode::Night);
     }
 
     #[test]

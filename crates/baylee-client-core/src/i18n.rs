@@ -467,6 +467,19 @@ messages! {
     SkyDay { en: "Day", de: "Tag" },
     /// Always stars and a crescent moon.
     SkyNight { en: "Night", de: "Nacht" },
+    /// Heading over the weather picker.
+    Atmosphere { en: "Atmosphere", de: "Atmosphäre" },
+    /// What the weather is for, in one line.
+    AtmosphereWhy {
+        en: "Air over the table, from the lands on it. Never over a card.",
+        de: "Luft über dem Tisch, aus den Ländern darauf. Nie über einer Karte.",
+    },
+    /// No weather at all.
+    AtmosphereOff { en: "Off", de: "Aus" },
+    /// Half the budget: visible when looked for, invisible when played under.
+    AtmosphereSoft { en: "Soft", de: "Zart" },
+    /// The whole budget.
+    AtmosphereFull { en: "Full", de: "Voll" },
     /// Heading over the loudness picker.
     Sound { en: "Sound", de: "Ton" },
     /// What the table says out loud, in one line.

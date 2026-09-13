@@ -36,6 +36,7 @@
 
 pub mod abilitysheet;
 pub mod airborne;
+pub mod atmosphere;
 pub mod automation;
 pub mod board;
 pub mod browser;
