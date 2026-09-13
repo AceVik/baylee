@@ -3978,6 +3978,20 @@ untested.
 `width`, `height` and `scale` so the ratio between the two is read rather than
 guessed; on a Retina display a guess is wrong by a factor of two.
 
+**The position is dealt, not played into.** `BAYLEE_DEV_SEAT_BOARD` and
+`BAYLEE_DEV_SEAT_HAND` are semicolon-separated lists of card names, each
+optionally prefixed `<seat>:`, that fill a seat's `starting_battlefield` and
+its opening hand before turn one — a semicolon because a comma is part of a
+card's name far too often. A singleton in a ninety-card deck is not something
+a game reaches on request, and ten turns of the offline duel put four lands
+and no creature on the table, so anything about how a card is drawn or clicked
+would otherwise be unprovable. The board variable appends; the hand variable
+**replaces** the deal, because a `starting_hand` is the whole hand. Both are
+behind the `dev-control` feature — a shipped binary that seats cards from the
+environment is a cheat — and both are loud on a name they cannot find, because
+a typo that quietly dealt nothing turns "this does not happen" into a
+conclusion about the code. `host::deal_the_dev_board` is the reader.
+
 **The clock is a lever, because almost nothing worth photographing here waits.**
 A card's exit lives 0.55 s, a sheen sweep less, and one `/screenshot` round trip
 is a frame plus a file write — so the harness could prove an animation had

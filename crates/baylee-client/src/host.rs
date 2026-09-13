@@ -231,7 +231,7 @@ pub fn demo_duel(deck_file: &str, seed: u64) -> Option<GamePreset> {
     Some(preset)
 }
 
-/// A board dealt by hand, for proving something about a *permanent*.
+/// A board — and a hand — dealt by hand, for proving something about a card.
 ///
 /// `BAYLEE_DEV_SEAT_BOARD` is a **semicolon**-separated list of card names,
 /// each optionally prefixed with a seat and a colon:
@@ -244,6 +244,13 @@ pub fn demo_duel(deck_file: &str, seed: u64) -> Option<GamePreset> {
 /// The cards arrive on the battlefield before turn one, through the same
 /// `SeatSpec::starting_battlefield` the duel-flow tests use, so the engine
 /// treats them exactly as it treats a boss board or a puzzle.
+///
+/// `BAYLEE_DEV_SEAT_HAND` is the same list one zone along, and **replaces**
+/// the opening deal for the seats it names rather than adding to it — a
+/// `starting_hand` is the whole hand. `BAYLEE_DEV_SEAT_HAND="Reveillark"`
+/// with six `Plains` on the board is AZ's acceptance criterion, set up in two
+/// variables instead of by playing a ninety-card singleton deck into
+/// position.
 ///
 /// It exists because the alternative is playing a duel into position, and a
 /// singleton in a ninety-card deck is not something a game reaches on request:
@@ -264,7 +271,41 @@ pub fn demo_duel(deck_file: &str, seed: u64) -> Option<GamePreset> {
 /// that reports a measurement of a board it never dealt.
 #[cfg(all(feature = "dev-control", not(target_arch = "wasm32")))]
 pub fn deal_the_dev_board(preset: &mut GamePreset) {
-    let Ok(spec) = std::env::var("BAYLEE_DEV_SEAT_BOARD") else {
+    deal_the_dev_zone(preset, "BAYLEE_DEV_SEAT_BOARD", DevZone::Battlefield);
+    deal_the_dev_zone(preset, "BAYLEE_DEV_SEAT_HAND", DevZone::Hand);
+}
+
+/// Which of the two zones a hand-dealt card is being put in.
+#[cfg(all(feature = "dev-control", not(target_arch = "wasm32")))]
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum DevZone {
+    /// `starting_battlefield`, appended to: a board is a list of permanents.
+    Battlefield,
+    /// `starting_hand`, **replacing** whatever would have been drawn.
+    ///
+    /// It has to replace rather than append, because a `starting_hand` is the
+    /// whole opening hand and a seat that was given one is not dealt seven on
+    /// top of it. So an empty `BAYLEE_DEV_SEAT_HAND` leaves the deal alone and
+    /// a non-empty one is the hand, exactly.
+    Hand,
+}
+
+/// The half of [`deal_the_dev_board`] that reads one variable into one zone.
+///
+/// `BAYLEE_DEV_SEAT_HAND` exists for the same reason the board variable does,
+/// one zone along: anything about a card *in hand* — which is most of what a
+/// click does — needs that card in hand, and a singleton in a ninety-card
+/// deck is not something a game reaches on request. It is what makes AZ's own
+/// acceptance criterion performable at all (`docs/client.md` §"Which way to
+/// cast it is asked before anything is tapped"): Reveillark and six open
+/// Plains are two variables and no duel played into position.
+///
+/// # Panics
+///
+/// As [`deal_the_dev_board`], and for its reasons.
+#[cfg(all(feature = "dev-control", not(target_arch = "wasm32")))]
+fn deal_the_dev_zone(preset: &mut GamePreset, variable: &str, zone: DevZone) {
+    let Ok(spec) = std::env::var(variable) else {
         return;
     };
     for wanted in spec.split(';').map(str::trim).filter(|s| !s.is_empty()) {
@@ -281,7 +322,7 @@ pub fn deal_the_dev_board(preset: &mut GamePreset) {
                     .first()
                     .is_some_and(|face| face.name.eq_ignore_ascii_case(name))
             })
-            .unwrap_or_else(|| panic!("BAYLEE_DEV_SEAT_BOARD: no card named `{name}`"));
+            .unwrap_or_else(|| panic!("{variable}: no card named `{name}`"));
         // The card's **own** printing, and not `PrintRef::new(0)`.
         //
         // Print 0 is whatever the first card of the first decklist happened
@@ -306,7 +347,7 @@ pub fn deal_the_dev_board(preset: &mut GamePreset) {
         let want = baylee_cards::decks::reference_print(card.index);
         assert!(
             !want.scryfall_id.is_nil(),
-            "BAYLEE_DEV_SEAT_BOARD: `{name}` has no printing id to draw"
+            "{variable}: `{name}` has no printing id to draw"
         );
         let print = if let Some(pos) = preset.prints.iter().position(|p| *p == want) {
             pos
@@ -315,17 +356,19 @@ pub fn deal_the_dev_board(preset: &mut GamePreset) {
             preset.prints.len() - 1
         };
         let print = u16::try_from(print)
-            .unwrap_or_else(|_| panic!("BAYLEE_DEV_SEAT_BOARD: this game has too many printings"));
+            .unwrap_or_else(|_| panic!("{variable}: this game has too many printings"));
         let chair = preset
             .seats
             .get_mut(seat)
-            .unwrap_or_else(|| panic!("BAYLEE_DEV_SEAT_BOARD: this game has no seat {seat}"));
-        chair
-            .starting_battlefield
-            .push(baylee_core::preset::DeckEntry {
-                card: card.index,
-                print: baylee_core::ids::PrintRef::new(print),
-            });
+            .unwrap_or_else(|| panic!("{variable}: this game has no seat {seat}"));
+        let entry = baylee_core::preset::DeckEntry {
+            card: card.index,
+            print: baylee_core::ids::PrintRef::new(print),
+        };
+        match zone {
+            DevZone::Battlefield => chair.starting_battlefield.push(entry),
+            DevZone::Hand => chair.starting_hand.get_or_insert_default().push(entry),
+        }
     }
 }
 
