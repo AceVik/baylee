@@ -1963,22 +1963,57 @@ is a label a player has to guess at and "Tap for {G}", "+1" and
 "{T}, Sacrifice this, Pay 1 life" are not — a printed ability with neither a
 colour nor a loyalty cost is named by what it costs to activate, which is the
 half of it a player is actually deciding about. One
-option activates on the click that found it; several open a chooser in the
-prompt bar, on its own row, because these are not answers to the pending
-choice and a mana ability does not belong next to the button that ends the
-turn. The chooser sends by *position*: the list is rebuilt from the current
-`LegalActions` when the button is pressed, so a bar drawn a frame ago cannot
-send an ability the engine has since withdrawn.
+option activates on the click that found it; several open the **sheet** below.
+Either way the answer goes out by *position*: the list is rebuilt from the
+current `LegalActions` when the row is pressed, so a sheet drawn a frame ago
+cannot send an ability the engine has since withdrawn.
 
-The chooser is also answerable without a pointer, which it was not: it opened,
-took the keyboard hostage and let go of it only for `Esc`. Confirm reached
-`Interaction::confirm` — which during priority means *pass* — and the cursor
-keys walked the table behind the open menu. It now owns the keyboard while it
-stands: the cursor keys ring through the entries, the primary key or confirm
-activates the highlighted one, cancel puts it away, and the entry the keyboard
-is on is drawn as the chosen one so the two ways of answering are visibly the
-same menu. The list is rebuilt from `LegalActions` on the key as well as on
-the click, for the same reason.
+### The question a permanent asks is a sheet
+
+It was a row of buttons in the prompt bar, which sat at the far side of the
+screen from the card it was about and could only say "Ability 2" about the
+ones it had no words for. It is now a piece of parchment anchored beside the
+permanent itself: one numbered keycap per row, the ability's own printed
+sentence in the player's language beside it, and its cost drawn as pips on the
+right. `docs/keyboard-map.md` §"The ability sheet" is normative on the keys;
+`baylee_client_core::abilitysheet` is the arithmetic and
+`baylee-client/src/hud/sheet.rs` draws it.
+
+**A permanent that makes mana gets a header of pips**, one per colour it can
+pour, centred above the written rows and carrying no digit —
+`abilities::Split` is where a sheet's pips end and its numbered rows begin,
+and the digits count only the rows, so `1` is always the first sentence and
+never the first disc. Where there are no rows left the header *is* the sheet,
+which is the mana bubble a Plains or a Tundra opens.
+
+Which taps the header stands for is the whole of the judgement, and it is
+`manaplan::pours`: **a permanent taps once**, so the pips are a colour-wise
+union over its taps rather than a list of abilities, and a colour offered
+twice is one pip. It goes to the tap a player can foresee — an `Offer` carries
+whether what one press pours is a number at all, and a pip promises one mana
+of the colour pressed — and then to the tap that will not stop to ask. Harabaz
+Druid under a Great Divide Guide is the card that settled it: the grant makes
+one mana of any colour and the Druid's own ability makes X, where X is a count
+of the battlefield nothing this side of the engine reads.
+
+And **a tap the header does not stand for keeps its sentence**. That is the
+partition in `abilities::pour_out`, and it replaced an all-or-nothing rule
+that dropped every mana row once the pips were built. Two ways a mana row can
+fail to be under a pip, and both are real cards: it is no offer at all
+(Jasmine Dragon Tea Shop's any-colour tap is restricted to Allies, and a pip
+can say "white" but not "white, and only on Ally spells"), or it lost every
+colour to another tap (the Druid above, whose own ability had simply vanished
+from the sheet). Either way the row is written out and the digits count it.
+
+The sheet is answerable without a pointer, which the old chooser was not: it
+opened, took the keyboard hostage and let go of it only for `Esc`, while
+confirm reached `Interaction::confirm` — which during priority means *pass* —
+and the cursor keys walked the table behind it. It owns the keyboard while it
+stands, the row the keyboard is on is drawn as the chosen one so the two ways
+of answering are visibly the same sheet, and the cursor is **two-dimensional**
+because this sheet is the only one with two directions on it: `W`/`S` walk the
+whole column, `A`/`D` are the pip strip and arrive on it from a written row in
+one press.
 
 ### The pool, and the land that always tapped for the wrong thing
 
