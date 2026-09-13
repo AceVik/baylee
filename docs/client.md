@@ -2396,6 +2396,113 @@ the card glow, the ordering badge — where it sits on its own fill.
 `the_parchment_writes_no_letters_in_brass` holds it, over both parchment
 surfaces.
 
+## The end of a game is a sheet, not a line in the bar
+
+A finished game used to be said the way everything else is said: one line in
+the prompt bar at thirteen pixels, with the board still being drawn
+underneath and two buttons floating over it sixty-four pixels from the top of
+the window. But a result is not a prompt — there is nothing to answer — so
+the bar now goes quiet the moment `Duel::ending()` has something in it, and
+the verdict gets the sheet the prompt slip grows into.
+
+`hud::finish` is **spawned once, on `OnEnter(DuelPhase::Finished)`**, and that
+is the one thing about it that is different from every other tree here.
+Everything else on this overlay is retained behind a revision because
+everything else changes — a hover, a card drawn, a life total.
+`Pending::GameOver` is the last thing the engine ever says at this table, so
+there is nothing to synchronise: it is built on the edge, taken down on the
+way out, and never touched in between.
+
+**Won, lost and drawn are the same sheet.** Every hue in this palette already
+carries a claim — `INK_DANGER` is damage, `HEAL` is life gained, `BRASS` is a
+thing already taken, `CANDLE` is an offer — so a red loss would read as
+damage and a gold win as something taken, and `docs/redesign-proposal.md` §1
+retires hues rather than handing out new ones. Only the sentence differs.
+Size carries the feeling instead: **forty pixels**, against the twenty this
+overlay had never gone above.
+
+The width is measured rather than chosen. `Das Spiel endet unentschieden` is
+the longest verdict there is, and it sets **598 px** in the shipped `Inter.ttf`
+at 40 px on the `wght` 600 axis — so the sheet is 720, whose inner 638 leaves
+it forty pixels of air. A headline that shrank to fit its own sentence would
+be saying that sentence matters less.
+
+### The verdict says who, the line under it says how
+
+`interaction::verdict` was already there and already read the winner off the
+prompt; `interaction::ending_reason` is its second half and answers *how* the
+game was decided — one line per `EndReason`, and `None` for a draw, whose
+only available reason is the verdict's own sentence written twice.
+
+It takes **no seat**. The winner and everyone who lost read the same second
+line, so "every opponent has left the game" would be true from exactly one
+chair at the table and false from the others; the reason is a fact about the
+table.
+
+What a player actually wants after a loss — zero life, an empty library, ten
+poison — is **not here**, and not for want of trying: `SeatView` carries
+`has_lost` and no reason for it, and deriving one from the last view's life
+totals would be the client deciding a rules fact, which is the line
+`CLAUDE.md` draws. It needs a field on the view and a `VIEW_VERSION` bump.
+
+### Two plugins, one composition
+
+The verdict is the *duel's* to say and the way out is the *shell's*, and
+`DuelPlugin` is meant to be embeddable in an application that already has a
+front door — it cannot know whether there is a lobby behind it. So the sheet
+leaves one row marked `hud::FinishExits`, and `lobby::ui::spawn_leave_button`
+puts its buttons in it.
+
+That seam is a **marker and nothing else**: no call, no shared resource, no
+ordering between the two plugins. Which is why the lobby's system had to move
+to `Update`. `spawn_finish` runs on the same state edge, its `Commands` are
+applied at the end of that schedule, and a system merely ordered *after* it
+would query a row that does not exist yet — while an explicit sync point
+between two plugins that do not know each other is exactly the coupling the
+marker exists to avoid. It runs every frame the game is over and stops the
+moment its buttons are standing. The row is held at a fixed 32 px — what
+`answer_node` renders at, confirmed against a live prompt slip — so the sheet
+does not reflow as they land.
+
+The exits are the slip's own answers, from the same `hud::answer_button`, so
+they obey the slip's own rule: the first answer is what the sheet is *for*
+and is the only one in brass. A lone "back to the lobby" is therefore a lead
+answer, which is right — there is nothing left for it to be quieter than.
+
+Two things fall out of that, and both were found by putting the buttons where
+someone would look at them. A launch handed a `SeatTicket` adds no
+`LobbyPlugin` at all, so its row simply stays empty — honest, because that
+client has nowhere to go either. And *play again* asked
+`matches!(screen, Screen::Seated(_))` while its own comment said "only for a
+game reached through the gateway": an offline duel is seated too, so playing
+the house offered a rematch that would have asked a gateway for another of a
+table it has never heard of.
+
+### It settles on the veil's own number
+
+There is no second fade. `dim_the_table` already eases `Veil::lit` towards
+whatever wants the table dark, at rate 9.0, taking the whole step at once
+under `reduce_motion` — and a finished game is now its second reason to
+darken a table, the stronger of the two: a dialog holds the whole answer, and
+a game that is over has no answer left anywhere. `settle_the_sheet` reads
+that number and paints the sheet with it, and lowers the sheet the last
+twelve pixels onto the table. One rate, one resting point, one
+`reduce_motion`, and nothing had to be told a transition is happening — the
+shape `sky::table_light` already uses for the felt.
+
+The colours have to be *remembered* rather than read back off the node, which
+is what `finish::Settling` is: one frame into a fade the node is carrying the
+faded value, and taking that as the base is how a thing fades to nothing and
+stays there. The exits are deliberately left out of it — they carry
+`ambience::Feel`, which owns their `BackgroundColor` from their first frame,
+and two systems writing one component would be two answers to what colour a
+button is.
+
+Measured live at `0.08` timescale, over four frames of one concession: the
+patch where the headline sits goes (44, 70, 58) → (69, 73, 57) → (106, 98,
+80) → (103, 96, 78) while the felt beside it goes (33, 56, 46) → (19, 47, 37)
+→ (10, 27, 23) → (10, 26, 23). One number, read twice.
+
 ## The zone browser is a dialog, which is a different material
 
 `docs/redesign-proposal.md` §1.3 draws the line and §6 applies it:

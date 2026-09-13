@@ -51,9 +51,17 @@ use bevy::text::{FontWeight, LineHeight};
 ///
 /// Wider than the ability sheet's 300, and it should be: that one stands
 /// beside a card and has to leave the board readable, and this is the only
-/// thing on the screen. Wide enough that the longest verdict —
-/// `Das Spiel endet unentschieden` — sets on one line at [`VERDICT_PT`]. If a
-/// verdict ever wraps here, widen the sheet rather than shrink the type.
+/// thing on the screen.
+///
+/// The number is the longest verdict, **measured out of the shipped font**
+/// rather than guessed at. `Das Spiel endet unentschieden` sets 598 px in
+/// `Inter.ttf` at [`VERDICT_PT`] and [`FontWeight::SEMIBOLD`] (the variable
+/// axes, `opsz` 14 and `wght` 600); every other verdict is shorter, the
+/// nearest being `Team 2 gewinnt — deins` at 472. Against it this sheet gives
+/// 638 — 720 less two forty-pixel margins and its two one-pixel borders — so
+/// the worst line has forty pixels of air. If a verdict ever does wrap, widen
+/// the sheet rather than shrink the type: a headline that changes size with
+/// the sentence is a headline that says the sentence matters less.
 const SHEET_W: f32 = 720.0;
 
 /// The air the sheet leaves at each side of a window too narrow for
