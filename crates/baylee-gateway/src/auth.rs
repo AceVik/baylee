@@ -13,7 +13,8 @@
 //! - All secret comparisons are constant-time (`subtle`).
 
 use argon2::Argon2;
-use argon2::password_hash::{PasswordHash, PasswordHasher, PasswordVerifier, SaltString};
+use argon2::password_hash::phc::PasswordHash;
+use argon2::{PasswordHasher, PasswordVerifier};
 use parking_lot::Mutex;
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
@@ -31,13 +32,14 @@ pub const TOKEN_TTL: Duration = Duration::from_secs(12 * 3600);
 /// Only when the OS RNG is unavailable (unrecoverable anyway).
 #[must_use]
 pub fn hash_password(password: &str) -> String {
-    let mut salt_bytes = [0u8; 16];
-    getrandom::fill(&mut salt_bytes).expect("OS RNG available");
-    let salt = SaltString::encode_b64(&salt_bytes).expect("salt encodes");
-    Argon2::default()
-        .hash_password(password.as_bytes(), &salt)
-        .expect("argon2 hashing works")
-        .to_string()
+    // The salt is the library's own since password-hash 0.6:
+    // `PasswordHasher::hash_password` draws `RECOMMENDED_SALT_LEN` bytes
+    // from the OS CSPRNG itself, which is why this no longer reaches for
+    // `getrandom` and a `SaltString` (the type is gone).
+    let hash: PasswordHash = Argon2::default()
+        .hash_password(password.as_bytes())
+        .expect("argon2 hashing works");
+    hash.to_string()
 }
 
 /// Verify a password against a stored PHC hash. Unknown users verify

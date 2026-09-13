@@ -6,7 +6,7 @@
 //! what makes replays and determinism tests possible.
 
 use rand_chacha::ChaCha8Rng;
-use rand_core::{RngCore, SeedableRng};
+use rand_core::{Rng, SeedableRng};
 
 /// The game's single source of randomness.
 #[derive(Clone, Debug)]

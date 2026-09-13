@@ -124,8 +124,13 @@ path = "src/main.rs"
 # Only reached through the `dev-control` feature; see its comment above.
 image = { workspace = true, optional = true }
 
-# Browser builds: entropy comes from Web Crypto (see .cargo/config.toml), and
-# settings persist in localStorage (see src/settings.rs).
+# Browser builds: entropy comes from Web Crypto and settings persist in
+# localStorage (see src/settings.rs). `getrandom` refuses to guess a backend
+# on wasm32-unknown-unknown — a wrong guess would be a silently weak RNG
+# rather than a build error — and since 0.4 this feature is the whole of the
+# answer. It used to be half of one: `.cargo/config.toml` also passed
+# `--cfg getrandom_backend="wasm_js"`, which 0.4 no longer declares as a
+# value, so the flag went from load-bearing to an unexpected cfg nobody reads.
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 getrandom = { workspace = true, features = ["wasm_js"] }
 web-sys = { workspace = true, features = [

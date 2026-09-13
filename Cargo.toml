@@ -35,16 +35,16 @@ uuid = { version = "1", features = ["serde", "v7", "js"] }
 thiserror = "2"
 anyhow = "1"
 smallvec = "1"
-prost = "0.13"
-prost-build = "0.13"
+prost = "0.14"
+prost-build = "0.14"
 protoc-bin-vendored = "3"
 bytes = "1"
 futures-util = "0.3"
 rustc-hash = "2"
 glam = "0.32"
 xxhash-rust = { version = "0.8", features = ["xxh3"] }
-rand_chacha = "0.9"
-rand_core = "0.9"
+rand_chacha = "0.10"
+rand_core = "0.10"
 clap = { version = "4", features = ["derive"] }
 ureq = { version = "3", features = ["json"] }
 heck = "0.5"
@@ -53,8 +53,8 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 tokio = { version = "1", features = ["full"] }
 parking_lot = "0.12"
 axum = { version = "0.8", features = ["ws"] }
-argon2 = "0.5"
-getrandom = "0.3"
+argon2 = "0.6"
+getrandom = "0.4"
 # PNG encoding for the dev-control screenshot endpoint (`dev-control`
 # feature, never in a release build). Pinned to the version bevy already
 # resolves, so it adds no second copy of the crate.
@@ -63,7 +63,7 @@ image = { version = "0.25", default-features = false, features = ["png"] }
 # the one bevy already resolves for wasm, so this adds no second copy.
 web-sys = "0.3"
 wasm-bindgen = "0.2"
-sha2 = "0.10"
+sha2 = "0.11"
 # Confirmation mail from the gateway. rustls only — no OpenSSL on the build
 # host, and `webpki-roots` so a container needs no CA bundle of its own.
 lettre = { version = "0.11", default-features = false, features = [
@@ -71,7 +71,7 @@ lettre = { version = "0.11", default-features = false, features = [
     "webpki-roots",
 ] }
 subtle = "2"
-tokio-tungstenite = "0.26"
+tokio-tungstenite = "0.30"
 # Card catalog persistence (gateway only). The engine never sees a database.
 sea-orm = { version = "2.0", default-features = false, features = [
     "sqlx-postgres", "runtime-tokio-rustls", "macros",
@@ -81,7 +81,7 @@ sea-orm = { version = "2.0", default-features = false, features = [
 flate2 = "1"
 # Card text fetch in the client. Tiny, and the only HTTP client that works
 # unchanged on native and wasm — bevy's asset server only does assets.
-ehttp = "0.5"
+ehttp = "0.7"
 # The duel socket, for the same reason: one API that is a background thread
 # natively and the browser's own WebSocket on wasm. `tls` is rustls-only, so
 # a wss:// gateway costs no system OpenSSL.
@@ -97,7 +97,7 @@ web-time = "1.1"
 # only when a real GPU pipeline is built — which in the browser means the one
 # environment that cannot be debugged by looking at a filesystem.
 naga = { version = "29", features = ["wgsl-in"] }
-criterion = { version = "0.5", features = ["html_reports"] }
+criterion = { version = "0.8", features = ["html_reports"] }
 bevy = { version = "0.19", default-features = false, features = [
     "std", "async_executor", "multi_threaded",
     "bevy_asset", "bevy_log", "bevy_state", "reflect_auto_register",

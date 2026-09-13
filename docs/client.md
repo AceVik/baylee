@@ -3584,5 +3584,9 @@ otherwise.
 - The wasm CI job type-checks `baylee-client` for `wasm32-unknown-unknown`.
   The browser-only paths (settings storage, entropy) compile nowhere else,
   so without that job they rot silently.
-- Browser entropy needs both `.cargo/config.toml`'s `getrandom_backend` cfg and
-  the `wasm_js` feature; either alone is not enough.
+- Browser entropy is the `wasm_js` feature on `getrandom`, and nothing else.
+  It used to need a `getrandom_backend` cfg in `.cargo/config.toml` beside it —
+  `getrandom` 0.4 dropped that value from the ones it declares, so the flag
+  stopped selecting anything and was removed. A stale rustflag is worse than
+  no rustflag: it reads as load-bearing and is not, and cargo says nothing
+  about a cfg value a dependency no longer knows.

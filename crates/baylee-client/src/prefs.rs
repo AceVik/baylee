@@ -180,7 +180,7 @@ impl Prefs {
         };
         let body = self.value.to_json().into_bytes();
         let mut request = ehttp::Request::post(format!("{gateway}/settings"), body);
-        request.method = "PUT".to_string();
+        request.method = ehttp::Method::PUT;
         request.headers = ehttp::Headers::new(&[
             ("Accept", "application/json"),
             ("Content-Type", "application/json"),

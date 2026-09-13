@@ -122,7 +122,7 @@ fn every_request_hits_the_route_the_gateway_serves() {
     ];
     for (request, method, url) in cases {
         let (built, _) = build("http://gw", None, "en", request.clone());
-        assert_eq!(built.method, method, "{request:?}");
+        assert_eq!(built.method.as_str(), method, "{request:?}");
         assert_eq!(built.url, url, "{request:?}");
     }
 }

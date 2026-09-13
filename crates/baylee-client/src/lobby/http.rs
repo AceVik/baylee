@@ -122,7 +122,7 @@ pub(super) fn build(
                 // is a new one. Getting that backwards would either lose the
                 // original or leave a duplicate behind on every save.
                 Some(id) => (
-                    json_body("PUT", &format!("{base}/decks/{id}"), &body),
+                    json_body(ehttp::Method::PUT, &format!("{base}/decks/{id}"), &body),
                     Expect::DeckSaved,
                 ),
                 None => (
@@ -133,7 +133,7 @@ pub(super) fn build(
         }
         LobbyRequest::DeleteDeck { deck_id } => (
             ehttp::Request {
-                method: "DELETE".to_string(),
+                method: ehttp::Method::DELETE,
                 ..ehttp::Request::get(format!("{base}/decks/{deck_id}"))
             },
             Expect::DeckDeleted,
@@ -261,14 +261,14 @@ pub(super) fn build(
 /// `Request::post` has already set a `text/plain` content type that axum's
 /// `Json` extractor refuses.
 fn json_post(url: &str, body: &serde_json::Value) -> ehttp::Request {
-    json_body("POST", url, body)
+    json_body(ehttp::Method::POST, url, body)
 }
 
 /// A JSON request with any method. `ehttp` only builds `GET` and `POST`, and
 /// updating a deck is a `PUT`.
-fn json_body(method: &str, url: &str, body: &serde_json::Value) -> ehttp::Request {
+fn json_body(method: ehttp::Method, url: &str, body: &serde_json::Value) -> ehttp::Request {
     let mut request = ehttp::Request::post(url, serde_json::to_vec(body).unwrap_or_default());
-    request.method = method.to_string();
+    request.method = method;
     request.headers = ehttp::Headers::new(&[
         ("Accept", "application/json"),
         ("Content-Type", "application/json"),
