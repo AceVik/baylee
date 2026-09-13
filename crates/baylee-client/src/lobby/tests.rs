@@ -828,6 +828,67 @@ fn a_keyboard_can_leave_the_end_screen() {
     }
 }
 
+/// The branch the test above cannot reach: which way out a key *chooses*.
+///
+/// Offline there is only ever one button on the sheet, so all three keys land
+/// on it and the selection in `leave_keys` never runs. At a gateway's table
+/// there are two, and the rule is the sheet's own: `Enter` and `Space` answer
+/// the **lead** way — *play again* — while `Esc` is the quiet one and goes
+/// back to the lobby. Both write a `Close`; what separates them is whether a
+/// rematch was recorded for the way out to send.
+#[test]
+fn a_keyboard_answers_the_lead_way_out_and_escape_still_leaves() {
+    for (key, rematch) in [
+        (KeyCode::Enter, Some("g1")),
+        (KeyCode::Space, Some("g1")),
+        (KeyCode::Escape, None),
+    ] {
+        let mut app = headless();
+        stocked(&mut app);
+        {
+            let mut state = app.world_mut().resource_mut::<LobbyState>();
+            state.lobby.host(GameMode::Ai);
+            state.lobby.apply(LobbyEvent::Seated(SeatHandover {
+                game_id: "g1".to_string(),
+                seat: 0,
+                seat_token: "st".to_string(),
+                local: false,
+            }));
+            // Stand in for the dial that opened the game now ending, so the
+            // poller leaves the socket alone.
+            state.connected = true;
+        }
+        phase(&mut app, DuelPhase::Finished);
+        let found = presses(&mut app);
+        assert!(
+            found.contains(&Press::PlayAgain) && found.contains(&Press::Leave),
+            "both ways out are drawn: {found:?}"
+        );
+        app.world_mut()
+            .resource_mut::<Messages<DuelCommand>>()
+            .clear();
+
+        app.world_mut()
+            .resource_mut::<ButtonInput<KeyCode>>()
+            .press(key);
+        app.update();
+        let closed: Vec<DuelCommand> = app
+            .world_mut()
+            .resource_mut::<Messages<DuelCommand>>()
+            .drain()
+            .collect();
+        assert!(
+            closed.iter().any(|c| matches!(c, DuelCommand::Close)),
+            "{key:?} left the end screen: {closed:?}"
+        );
+        assert_eq!(
+            app.world().resource::<LobbyState>().lobby.rematch_wanted(),
+            rematch,
+            "{key:?} took the wrong way out"
+        );
+    }
+}
+
 /// And coming back from it leaves the lobby as it found it.
 ///
 /// The finished offline table used to stay in the list as `yours` and
