@@ -42,6 +42,8 @@ Two consequences worth knowing before changing anything here:
 | Fast-forward to next phase (decisions still yours) | `Tab` | implemented |
 | Fast-forward to the next turn | `⇧Tab` | implemented |
 | Number choices (X) | arrows, digits, `⌫` (or the `−`/`+` buttons) | implemented |
+| Pick a row of the ability sheet (the digit drawn on it) | `1`–`9` | implemented |
+| Turn the ability sheet's page | `0` | implemented |
 | Mulligan keep / bottom | `K` / `B` | implemented |
 | Yes / no | `Y` / `N` | implemented |
 | Let the stack resolve (stop asking me) | `F6` | implemented |
@@ -157,8 +159,9 @@ engine has withdrawn between the taps disarms and says so rather than being
 sent. A `Run` is re-read too, and can come back a different answer: between the
 two taps this seat holds priority, so the one thing that can have changed is
 its own manual land tap, after which the spell is castable outright and the run
-would float mana nobody asked for. Picking from the ability chooser arms rather
-than sends: the chooser disambiguates, it does not confirm.
+would float mana nobody asked for. Picking a row of the ability sheet arms
+rather than sends: the sheet disambiguates, it does not confirm. §"The ability
+sheet" below is the whole of that.
 
 **Suspending is a fourth deed, and a run has two ends.** "Rather than cast this
 card from your hand, pay {U} and exile it with four time counters on it"
@@ -181,6 +184,50 @@ cooler pulse a beat behind, because the price follows the verb and "Tap 3, then
 cast" does not say *which* three. The armed card stops wearing the
 `ACTIVATABLE` chase it accepted: one border carrying both would be saying the
 same thing twice. `docs/client.md` §"The card surface" has the whole register.
+
+## The ability sheet
+
+A permanent with more than one thing to do opens a **sheet** when it is
+activated: a piece of parchment anchored beside the card itself, one numbered
+roundel per row, the ability's own printed sentence beside it, and its cost as
+pips on the right. It replaced a row of buttons in the prompt bar, which named
+the abilities of a card at the far side of the screen and could only say
+"Ability 2" about the ones it had no words for.
+
+**A row is sent by the digit drawn on it** — `1` through `9`, and `0` turns
+the page when there is a second one. A page holds nine because the roundel is
+the key, and there are nine digits that are not zero;
+`baylee_client_core::abilitysheet` is the arithmetic. Those digits are read as
+**typed characters and not as keymap actions**, the way a number choice reads
+them: nine rebindable rows called "the fourth ability" would be naming a
+position on a sheet rather than a thing a player does.
+
+**The roundel says what the press will do.** A row whose whole cost is paid
+out of the card — a mana ability (CR 605.1), or one that asks nothing beyond
+the `{T}` it already implies — goes through on the first press, for the reason
+§Arming gives: the next untap step gives that cost back. Every other row
+**arms** instead. The roundel turns gilt, the card wears `glow::ARMED` with
+it, the sheet stays standing, and the same digit again sends it. A different
+digit is a change of mind and moves the arming, exactly as tapping a different
+card does. `Esc` disarms and leaves the sheet open; `Esc` again closes it.
+
+Clicking a row does all of the above identically — the pointer and the digit
+go through one function, because a second click that re-armed while a second
+press sent would be two answers to the same question. A player who would
+rather not count reaches the same rows with the card cursor: `W A S D` walk
+the list and turn the page by walking off the end of one, and the activate key
+takes the row the cursor is on.
+
+The sheet owns the keyboard while it stands, *after* an armed deed and before
+the card cursor. That order is the arming rule seen from the other side:
+arming is where choosing ends, so a confirm key that reached the sheet instead
+would pick a second ability rather than send the first.
+
+**The sheet takes no key it was not offered.** It reads the keyboard only
+while nothing else is typing — the zone browser's filter box is the case that
+exists — because the digit path drains the whole key queue rather than the
+digits alone, so a sheet that read unconditionally would eat the letters going
+into that box and open an ability with the digits.
 
 ## Mouse
 
@@ -205,8 +252,8 @@ Begin Combat, Attackers, Blockers, Damage, End of Combat, Main 2, End Step,
 Cleanup) has its own tile on that bar, toggling green / red on click.
 Fast-forwarding is `Tab` and `⇧Tab`, which have no buttons of their own.
 Clicking your own permanent activates what it is offering: one ability arms
-straight away (or goes through, if it makes mana), several open a chooser on
-its own row of the prompt bar ("Tap for G", "+1", "Ability 2"). The prompt bar carries the answers for
+straight away (or goes through, if it makes mana), several open the ability
+sheet on the card itself. The prompt bar carries the answers for
 whatever is pending, including combat's "Aim next", "Attack"/"Block" and
 "None". The hand bar scrolls horizontally
 with the mouse wheel.
