@@ -93,6 +93,16 @@ pub struct Change {
     pub seat: PlayerId,
     /// By how much, signed. Never zero.
     pub delta: i32,
+    /// Whether this began a new flash rather than joining the one standing.
+    ///
+    /// The field sound is read through, and the reason it is a field rather
+    /// than a second call: the merge above is what makes a triple block read
+    /// `−7` **once**, and a sound decided from the list alone would play
+    /// three times over one number. What the eye is shown and what the ear is
+    /// told are the same event on the same clock ([`MERGE`]), so they are
+    /// answered by the same arithmetic and not by two that have to be kept in
+    /// step.
+    pub started: bool,
 }
 
 /// Where and how strongly a flash is drawn this frame.
@@ -213,24 +223,29 @@ impl Ledger {
             if delta == 0 {
                 continue;
             }
+            let started = self.note(seat.player, delta);
             changes.push(Change {
                 seat: seat.player,
                 delta,
+                started,
             });
-            self.note(seat.player, delta);
         }
         changes
     }
 
     /// Adds one change to the seat's flash, or starts a new one.
-    fn note(&mut self, seat: PlayerId, delta: i32) {
+    ///
+    /// Answers **which**, because that is the one thing a sound needs and
+    /// cannot see: a merge is a number being corrected in place and a start
+    /// is a new thing happening. See [`Change::started`].
+    fn note(&mut self, seat: PlayerId, delta: i32) -> bool {
         if let Some(flash) = self.flashes.iter_mut().find(|f| f.seat == seat)
             && flash.age < MERGE
             && (flash.delta < 0) == (delta < 0)
         {
             flash.delta += delta;
             flash.age = 0.0;
-            return;
+            return false;
         }
         self.flashes.retain(|f| f.seat != seat);
         self.flashes.push(Flash {
@@ -238,6 +253,7 @@ impl Ledger {
             delta,
             age: 0.0,
         });
+        true
     }
 
     /// Moves every flash `dt` seconds on and drops the ones that are over.
@@ -308,11 +324,13 @@ mod tests {
             vec![
                 Change {
                     seat: who(0),
-                    delta: -3
+                    delta: -3,
+                    started: true
                 },
                 Change {
                     seat: who(1),
-                    delta: 3
+                    delta: 3,
+                    started: true
                 },
             ]
         );

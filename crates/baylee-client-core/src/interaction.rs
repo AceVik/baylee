@@ -259,30 +259,81 @@ impl Prompt {
 
 /// The line a finished game gets, as this seat reads it.
 ///
-/// It takes the seat's own team rather than the whole roster because that is
-/// the only thing about the table it needs: a `Victor::Team` is answered by
-/// one comparison, whether the winning team is yours. A seat with no team can
+/// [`outcome`] under a language. The split is not decoration: a sound plays
+/// at the end of a game too, in no language at all.
+#[must_use]
+pub fn verdict(lang: Lang, result: &GameResult, seat: PlayerId, team: Option<u8>) -> String {
+    match outcome(result, seat, team) {
+        Outcome::Draw => Phrase::TheGameIsADraw.text(lang).to_string(),
+        Outcome::YouWon => Phrase::YouWon.text(lang).to_string(),
+        Outcome::YouLost => Phrase::YouLost.text(lang).to_string(),
+        Outcome::YourTeamWon(n) => Phrase::YourTeamWon.fill(lang, &[&n.to_string()]),
+        Outcome::TheirTeamWon(n) => Phrase::TheirTeamWon.fill(lang, &[&n.to_string()]),
+    }
+}
+
+/// How a finished game reads from one chair, before it is put into words.
+///
+/// [`verdict`] is this plus a language, and it was this and nothing else
+/// until something other than the sheet wanted the same answer: a sound at
+/// the end of a game is the same fact and must not be a second reading of
+/// `GameResult`, or the day a team's win starts counting differently the two
+/// would disagree about who lost.
+///
+/// The five arms are the five *sentences*, which is why a team's number is in
+/// here at all — the sheet has to name the team. Anything that only wants to
+/// know which way it went asks [`Outcome::won`].
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum Outcome {
+    /// Nobody won.
+    Draw,
+    /// This seat won, on its own.
+    YouWon,
+    /// Somebody else won, on their own.
+    YouLost,
+    /// This seat's team won, and which.
+    YourTeamWon(u8),
+    /// Another team won, and which.
+    TheirTeamWon(u8),
+}
+
+impl Outcome {
+    /// Which way it went, `None` for a draw.
+    #[must_use]
+    pub fn won(self) -> Option<bool> {
+        match self {
+            Self::Draw => None,
+            Self::YouWon | Self::YourTeamWon(_) => Some(true),
+            Self::YouLost | Self::TheirTeamWon(_) => Some(false),
+        }
+    }
+}
+
+/// Reads a [`GameResult`] from one chair.
+///
+/// Takes the seat's own team rather than the whole roster because that is the
+/// only thing about the table it needs: a `Victor::Team` is answered by one
+/// comparison, whether the winning team is yours. A seat with no team can
 /// only be its own winner, which is every seat in a game with no teams in it.
 ///
 /// It sits here rather than in the renderer for the reason every other line
 /// does — who won is a decision about the game, and the shell only draws it.
 #[must_use]
-pub fn verdict(lang: Lang, result: &GameResult, seat: PlayerId, team: Option<u8>) -> String {
+pub fn outcome(result: &GameResult, seat: PlayerId, team: Option<u8>) -> Outcome {
     match result.winner {
-        None => Phrase::TheGameIsADraw.text(lang).to_string(),
-        Some(Victor::Player(winner)) => if winner == seat {
-            Phrase::YouWon
-        } else {
-            Phrase::YouLost
-        }
-        .text(lang)
-        .to_string(),
-        Some(Victor::Team(won)) => {
-            let number = won.to_string();
-            if team == Some(won) {
-                Phrase::YourTeamWon.fill(lang, &[&number])
+        None => Outcome::Draw,
+        Some(Victor::Player(winner)) => {
+            if winner == seat {
+                Outcome::YouWon
             } else {
-                Phrase::TheirTeamWon.fill(lang, &[&number])
+                Outcome::YouLost
+            }
+        }
+        Some(Victor::Team(won)) => {
+            if team == Some(won) {
+                Outcome::YourTeamWon(won)
+            } else {
+                Outcome::TheirTeamWon(won)
             }
         }
     }
