@@ -292,13 +292,22 @@ pub fn deal_the_dev_board(preset: &mut GamePreset) {
         // dealt. The entry is appended to the game's own print table, which
         // is what a seat's entitlement is counted against, and deduplicated
         // because a board may deal two of a card.
-        let want = baylee_core::preset::PrintInfo {
-            scryfall_id: card.scryfall_id.parse().unwrap_or_else(|_| {
-                panic!("BAYLEE_DEV_SEAT_BOARD: `{name}` has no printing id to draw")
-            }),
-            lang: "EN".into(),
-            finish: baylee_core::preset::Finish::Normal,
-        };
+        //
+        // It asks `decks::reference_print` rather than building the same
+        // three fields a second time, because the dedup compares the **whole**
+        // struct and the two constructions have to be identical for it to fire
+        // at all. This line wrote `"EN"` where a decklist writes `"en"`, so
+        // every dealt card the deck already carried was appended a second time
+        // under the same printing id — and `cardtext::absorb`, which files an
+        // answer against the first index claiming that id, left the dealt copy
+        // with no card text whatsoever. Six of ten cards on a hand-dealt board
+        // came out blank, which reads exactly like a hole in the catalog and
+        // is not one.
+        let want = baylee_cards::decks::reference_print(card.index);
+        assert!(
+            !want.scryfall_id.is_nil(),
+            "BAYLEE_DEV_SEAT_BOARD: `{name}` has no printing id to draw"
+        );
         let print = if let Some(pos) = preset.prints.iter().position(|p| *p == want) {
             pos
         } else {
@@ -433,6 +442,35 @@ pub(crate) mod tests {
 
     /// The acceptance deck file that ships with the repository.
     const DECK_FILE: &str = include_str!("../../../data/acceptance-decks.txt");
+
+    /// A dealt card and the same card in a decklist are **one** print entry.
+    ///
+    /// `deal_the_dev_board` appends its printing to the game's print table and
+    /// deduplicates against what is already there by whole-struct equality, so
+    /// the two constructions have to agree field for field. They did not — the
+    /// harness wrote `"EN"` where `reference_print` writes `"en"` — and every
+    /// dealt card the deck already carried got a second index. Card text is
+    /// filed against the first index claiming an id, so the dealt copy, the
+    /// one actually on the table, had no printed sentence at all.
+    ///
+    /// This is checked without the env var, on the decks the binary ships:
+    /// what it really asserts is that the two print constructions are the same
+    /// value, which is the whole of the dedup's precondition.
+    #[test]
+    fn a_dealt_card_reuses_the_printing_the_deck_already_named() {
+        let preset = demo_duel(DECK_FILE, 7).expect("the shipped decks parse");
+        let entry = *preset.seats[0].deck.first().expect("the deck is not empty");
+        let card = baylee_cards::by_index(entry.card).expect("a deck names real cards");
+        let want = baylee_cards::decks::reference_print(card.index);
+        assert!(
+            !want.scryfall_id.is_nil(),
+            "a card in the acceptance decks has a printing to draw"
+        );
+        assert!(
+            preset.prints.contains(&want),
+            "the harness deals the entry the decklist already resolved to"
+        );
+    }
 
     #[test]
     fn the_demo_duel_that_the_binary_launches_actually_builds() {
