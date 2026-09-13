@@ -157,8 +157,9 @@ pub struct HandCardVisual {
 /// A card that is actually standing in the player's own hand row.
 ///
 /// [`HandCardVisual`] is deliberately wider than that — it means "a card the
-/// HUD draws rather than the felt", and the stack panel puts it on every slot
-/// so a spell on the stack hovers and previews like any other card. That is
+/// HUD draws rather than the felt", and the stack panel puts it on every row
+/// so a spell on the stack hovers, previews and answers a click like any
+/// other card. That is
 /// right for hover and for clicks and wrong for anything that *writes* to the
 /// node: [`crate::touch::settle`] sets a card's `top`, and with only the
 /// wider component to go on it set the stack slots' too, for as long as a
@@ -166,6 +167,18 @@ pub struct HandCardVisual {
 /// that it is the row, and the two questions stop being one.
 #[derive(Component)]
 pub struct HandRowCard;
+
+/// A whole row of the stack panel, standing for the object drawn on it.
+///
+/// The same shape as [`HandRowCard`] and for the same reason, one surface
+/// along. The row carries [`HandCardVisual`] so that a click anywhere on it
+/// — the picture, the name, the printed sentence — is a click on the spell
+/// it draws, and this says *which* node is the row. `devctl`'s
+/// `/state.cards` reads it to report the stack as a third zone beside the
+/// table and the hand: a driver that cannot find a stack object on screen
+/// cannot answer a `ChooseTargets` that names one.
+#[derive(Component)]
+pub struct StackRowCard;
 
 /// A seat's bar: click inspects that seat's board.
 ///
@@ -655,6 +668,15 @@ pub(crate) mod palette {
     pub const PANEL: Color = Color::srgba(0.05, 0.06, 0.08, 0.88);
     /// Slightly lighter panel (active tab, tooltip).
     pub const PANEL_LIT: Color = Color::srgba(0.10, 0.13, 0.16, 0.94);
+    /// [`PANEL_LIT`] with the pointer on it.
+    ///
+    /// One step and no more: the stack's top row is already the loud thing in
+    /// its panel, and a hover that also brightened its ink or its rail would
+    /// be answering a second time — the card preview the same hover opens is
+    /// the real answer. Lifted in all three channels rather than in alpha,
+    /// because this row is the one that rests at almost full opacity and has
+    /// nowhere left to go there.
+    pub const PANEL_HOT: Color = Color::srgba(0.13, 0.17, 0.20, 0.94);
     /// Primary text.
     pub const INK: Color = Color::srgb(0.90, 0.93, 0.94);
     /// Secondary text.

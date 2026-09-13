@@ -119,6 +119,54 @@ const PANEL_LIFT: f32 = 10.0;
 /// be an effect, and this is a notification.
 const ARRIVE_SCALE: f32 = 0.96;
 
+/// What the pointer and the standing question say about a row.
+///
+/// Three facts that arrive together and are read together, bundled so the
+/// panel's builders take one argument for them rather than three. They are
+/// the same three the hand bar reads — a spell on the stack is a legal
+/// target of anything that says "target spell", and a player choosing one is
+/// doing exactly what they do in the hand.
+pub(super) struct Picks<'a> {
+    /// The object under the pointer, or the one the keyboard cursor names.
+    pub hovered: Option<ObjectId>,
+    /// What has been picked towards the answer so far.
+    pub selected: &'a [ObjectId],
+    /// What the pending question would accept.
+    pub selectable: &'a [ObjectId],
+}
+
+impl Picks<'_> {
+    /// The light a row's picture wears, if it wears one.
+    ///
+    /// The same light the hand bar draws, at the same three weights and from
+    /// the same function — deliberately, and it is the whole argument for
+    /// putting this on the *picture* rather than on the row. "The rules will
+    /// accept this as an answer" is one claim, and a player who met it as a
+    /// glow around a card in their hand must meet it as a glow around a card
+    /// here; two grammars for one fact is two things to learn.
+    ///
+    /// It also leaves the row's own teal alone. The rail marks a **slot** —
+    /// a position in the queue, drawn as a bar — and this marks an
+    /// **object**, drawn as a glow around a picture, so a counterspell aimed
+    /// at the top of the stack reads as "this card, in this slot" rather than
+    /// as a louder slot.
+    fn light(&self, object: ObjectId) -> Option<BoxShadow> {
+        let hovered = self.hovered == Some(object);
+        if self.selected.contains(&object) {
+            return Some(super::hand::halo(palette::ACCENT, 1.0));
+        }
+        if self.selectable.contains(&object) {
+            return Some(super::hand::halo(
+                palette::ACCENT,
+                if hovered { 0.85 } else { 0.70 },
+            ));
+        }
+        // A row that is not an answer to anything still hovers; its ground
+        // says so, and a glow would be claiming the question accepts it.
+        None
+    }
+}
+
 /// Which part of the panel a node's arrival is remembered under.
 ///
 /// The *shape* is part of the key on purpose. A row promoted from compact to
@@ -381,6 +429,7 @@ pub(super) fn spawn_stack_panel(
     board: &baylee_client_core::BoardModel,
     view: &PlayerView,
     statics: &GameStatic,
+    picks: &Picks<'_>,
     textures: &mut CardTextures,
     assets: &AssetServer,
     fonts: &UiFonts,
@@ -500,6 +549,7 @@ pub(super) fn spawn_stack_panel(
             item.depth == 0,
             view,
             statics,
+            picks,
             textures,
             assets,
             fonts,
@@ -546,6 +596,7 @@ fn spawn_stack_entry(
     full: bool,
     view: &PlayerView,
     statics: &GameStatic,
+    picks: &Picks<'_>,
     textures: &mut CardTextures,
     assets: &AssetServer,
     fonts: &UiFonts,
@@ -557,10 +608,28 @@ fn spawn_stack_entry(
     // a hint of the same fill so "this resolves second" is visible, and
     // everything under *that* is flat. Depth is the only ordering a player
     // has to trust here, and past the second row it is carried by position.
+    //
+    // Under the pointer each of the three is one step lighter than what it
+    // already had, which is how a hover can mean the same thing on rows that
+    // are not peers. It is built into the tree rather than animated by a
+    // [`Feel`], and that is particular to this panel: `ease_the_stack_in`
+    // writes this very `BackgroundColor` for as long as a row is arriving,
+    // and a second writer with its own opinion about the alpha would fight it
+    // for a quarter of a second every time a spell is cast. The overlay is
+    // rebuilt whenever the hover changes anyway — `HudRevision` counts it —
+    // so the row can simply be *built* lit, which is what the hand bar has
+    // always done with its halo.
+    let hovered = picks.hovered == Some(item.id);
     let fill = if full {
-        palette::PANEL_LIT
+        if hovered {
+            palette::PANEL_HOT
+        } else {
+            palette::PANEL_LIT
+        }
     } else if item.depth == 1 {
-        palette::PANEL_LIT.with_alpha(0.45)
+        palette::PANEL_LIT.with_alpha(if hovered { 0.62 } else { 0.45 })
+    } else if hovered {
+        palette::PANEL_LIT.with_alpha(0.30)
     } else {
         Color::NONE
     };
@@ -578,7 +647,20 @@ fn spawn_stack_entry(
             },
             BackgroundColor(fill),
             BorderColor::all(rail),
-            Pickable::IGNORE,
+            // The whole row answers for the spell on it, and that is the fix
+            // for a duel that could not be played: a `ChooseTargets` whose
+            // only option was a spell on the stack had no way to be answered
+            // at all, because the panel's one pickable node was the 66-pixel
+            // picture and every other node — the row included — carried
+            // `Pickable::IGNORE`. `Interaction::toggle` has always taken "a
+            // spell on the stack"; what was missing was a way to *say* it.
+            // A click anywhere on the row — the picture, the name, the
+            // printed sentence — now goes through `activate_card` like a
+            // click on a card in the hand, and lands on `toggle` for the
+            // same reason it does there: nothing earlier in that chain is
+            // true of an object on the stack.
+            HandCardVisual { object: item.id },
+            crate::hud::StackRowCard,
             Arriving::fill(key, fill.alpha()),
             ArrivingRow {
                 lift: ARRIVE_LIFT,
@@ -597,7 +679,8 @@ fn spawn_stack_entry(
         commands,
         lang,
         key,
-        Some(item.id),
+        // The row speaks for the entry; see `spawn_stack_card`.
+        None,
         item.art,
         stack_face(item, view, faces, textures),
         width,
@@ -608,6 +691,13 @@ fn spawn_stack_entry(
         fonts,
         cards.as_deref_mut(),
     );
+    // The light that says the pending question would take this spell as its
+    // answer, and the brighter one that says it already has. It replaces the
+    // slot's drop shadow rather than joining it, exactly as in the hand:
+    // `BoxShadow` is one component, and a card is lit or it is at rest.
+    if let Some(light) = picks.light(item.id) {
+        commands.entity(art).insert(light);
+    }
     commands.entity(row).add_child(art);
 
     let body = commands
@@ -639,6 +729,10 @@ fn spawn_stack_entry(
             TextLayout::linebreak(bevy::text::LineBreak::NoWrap),
             TextColor(ink),
             Arriving::ink(key, ink.alpha()),
+            // The row is what the pointer is on, and a label is a node: left
+            // pickable it would take the hover for itself and the row around
+            // it would never light.
+            Pickable::IGNORE,
         ))
         .id();
     commands.entity(body).add_child(name);
@@ -802,6 +896,8 @@ fn spawn_stack_targets(
                 tf(fonts, 14.0),
                 TextColor(palette::ACCENT),
                 Arriving::ink(key, palette::ACCENT.alpha()),
+                // A label, and the row's hover is the row's — as above.
+                Pickable::IGNORE,
             ))
             .id();
         commands.entity(row).add_child(arrow);
@@ -872,13 +968,21 @@ fn spawn_stack_card(
             Arriving::fill(key, palette::PANEL_LIT.alpha()),
         ))
         .id();
-    // The one pickable thing in this panel. A stack card is drawn an inch
-    // across — enough to recognise a spell, nowhere near enough to read one —
-    // and the stack is where a player most needs to read. `HandCardVisual` is
-    // what `pointer_hover` looks for, and it already speaks for every card
-    // the HUD draws rather than the felt; a card whose object this seat may
-    // not know (something cast face down) reports nothing and simply does not
-    // preview.
+    // Who speaks for this picture. A stack card is drawn an inch across —
+    // enough to recognise a spell, nowhere near enough to read one — and the
+    // stack is where a player most needs to read. `HandCardVisual` is what
+    // `pointer_hover` looks for, and it already speaks for every card the HUD
+    // draws rather than the felt; a card whose object this seat may not know
+    // (something cast face down) reports nothing and simply does not preview.
+    //
+    // An **entry** passes `None` and is not the exception it looks like: its
+    // whole row carries the component instead, so that the name and the
+    // printed sentence answer for the spell as well as the picture does. A
+    // picture that stayed pickable inside a pickable row would also swallow
+    // the row's own hover — a `Node` under the pointer is the hover, and its
+    // parent is then not hovered at all — which is the mistake the hand bar's
+    // labels have already made once. A **target** chip is its own object and
+    // keeps its own handle.
     match object {
         Some(object) => {
             commands.entity(slot).insert(HandCardVisual { object });

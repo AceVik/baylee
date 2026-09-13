@@ -466,6 +466,47 @@ of them where the words should be, while every arithmetic test passed;
 `fading_a_label_does_not_give_it_a_plate` is the test that would have caught
 it.
 
+**A row is a card, so it answers a click like one.** This is the one place the
+panel was unfinished rather than merely plain: a duel stopped dead on a
+`ChooseTargets { options: [200], min: 1 }` whose only option was a spell on
+the stack, and there was no way on either device to say it. The pointer found
+nothing — every node in the panel carried `Pickable::IGNORE` except the
+66-pixel picture inside the row — and the keyboard found nothing either,
+because `cursor_grid` was built out of the *board* and the stack is not on the
+board. The model had always allowed it: `Interaction::toggle` takes "a
+permanent, a card in a zone, or a spell on the stack". Both halves are wired
+now. The **row** carries `HandCardVisual`, so a click on the picture, the
+name or the printed sentence goes through `activate_card` and lands on
+`toggle` — nothing earlier in that chain is ever true of an object on the
+stack — and the picture inside it is `Pickable::IGNORE`, because a pickable
+child would take the row's hover for itself and the row would never light.
+`cursor_grid` gains the stack as its last row, which is the topmost, because
+the panel is drawn highest. `a_click_on_a_stack_row_answers_the_question_it_was_asked`
+goes through the real `pointer` system and the real message rather than
+calling `toggle` by hand, and `the_card_cursor_reaches_a_spell_on_the_stack`
+is the keyboard's half.
+
+What a row then says about itself is the hand bar's grammar, unchanged. A
+spell the pending question would accept wears the same `ACCENT` halo a card in
+hand wears, at the same three weights — 0.70 offered, 0.85 offered and
+hovered, 1.0 chosen — out of the same `hand::halo`, because "the rules accept
+this as an answer" is one claim and a player must not have to learn it twice.
+It goes on the **picture** and not on the row, which keeps the row's own teal
+honest: the rail marks a *slot* and is a bar, the halo marks an *object* and
+is a glow around a card, so a counterspell aimed at the top of the stack reads
+as "this card, in this slot" rather than as a louder slot. Hover is the row's
+own ground one step lighter — `PANEL_HOT` for the full row, alpha 0.62 for the
+second, 0.30 for a row that rests at nothing — and it is built into the tree
+rather than animated by a `Feel`, because `ease_the_stack_in` writes that same
+`BackgroundColor` for as long as a row is arriving, and two writers with
+different opinions about the alpha would fight for a quarter of a second every
+time a spell is cast. The overlay is rebuilt on every hover change anyway.
+
+`devctl`'s `/state.cards` reports the stack as a third zone beside `table` and
+`hand`, read off the `StackRowCard` marker. It is not a convenience: a driver
+could read `interaction.pending`, see a `ChooseTargets` naming object 200, and
+have no way at all to find object 200 on the screen.
+
 The resolution happens in `baylee-client-core`, not in the renderer:
 `BoardModel::from_view` turns each `TargetRef` into a `StackTarget { what,
 name, art }` by looking the object up through `PlayerView::object`, which is

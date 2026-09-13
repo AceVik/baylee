@@ -979,6 +979,26 @@ struct Believed<'w, 's> {
         ),
         With<crate::hud::HandRowCard>,
     >,
+    /// Every row of the stack panel.
+    ///
+    /// The third zone, and it was missing for the same reason the hand once
+    /// was: a driver could read `interaction.pending` and see a
+    /// `ChooseTargets` naming object 200, and then had no way on earth to
+    /// find object 200 on the screen — the stack is neither a card on the
+    /// felt nor a card in the hand, and it is where every "target spell"
+    /// lives. `StackRowCard` and not the wider `HandCardVisual` for the
+    /// reason the hand gives above: the panel puts that one on target chips
+    /// too, and a chip is a picture *of* an object elsewhere.
+    stack: Query<
+        'w,
+        's,
+        (
+            &'static crate::hud::HandCardVisual,
+            &'static bevy::ui::ComputedNode,
+            &'static bevy::ui::UiGlobalTransform,
+        ),
+        With<crate::hud::StackRowCard>,
+    >,
     /// The prompt bar's answers, and the two choosers under it.
     ///
     /// Added for the same reason and by the same road as the cards: a
@@ -1129,11 +1149,12 @@ fn state_dump(believed: &Believed, window: Vec2) -> String {
 /// downscaled image, and every one of them repeated after the lane repacked.
 /// `at_x`/`at_y` are logical pixels and go straight into `/pointer`.
 ///
-/// **Both halves of the question**, because a caller that can find a
-/// permanent but not a card in hand still cannot play a game: `zone` is
-/// `table` for the 3D scene and `hand` for the row, and both answer in the
-/// same logical pixels, so a caller need not know which kind of thing it is
-/// clicking.
+/// **Every part of the question**, because a caller that can find a permanent
+/// but not a card in hand still cannot play a game, and one that can find
+/// both but not a spell on the stack cannot answer a counterspell: `zone` is
+/// `table` for the 3D scene, `hand` for the row and `stack` for the panel,
+/// and all three answer in the same logical pixels, so a caller need not know
+/// which kind of thing it is clicking.
 ///
 /// Two things it is careful about. A table card's rect is measured from the
 /// **live** `Transform`, so a card mid-glide reports where it is rather than
@@ -1179,10 +1200,27 @@ fn cards_json(believed: &Believed, duel: &Duel, window: Vec2) -> String {
             computed.size() * scale,
         )
     });
+    // The stack reads exactly like the hand — a `bevy_ui` node whose computed
+    // box is already in physical pixels — and reports the *row*, not the
+    // picture on it, because the row is what answers a click now.
+    let on_the_stack = believed.stack.iter().map(|(visual, computed, place)| {
+        let scale = computed.inverse_scale_factor;
+        card_row(
+            duel,
+            "stack",
+            visual.object,
+            1,
+            place.translation * scale,
+            computed.size() * scale,
+        )
+    });
     // By zone and then by object, so two runs of the same board answer in the
     // same order and a diff between them is about the table rather than about
     // the ECS.
-    let mut rows: Vec<(&str, u32, String)> = on_the_table.chain(in_the_hand).collect();
+    let mut rows: Vec<(&str, u32, String)> = on_the_table
+        .chain(in_the_hand)
+        .chain(on_the_stack)
+        .collect();
     rows.sort_unstable_by_key(|(zone, object, _)| (*zone, *object));
     let rows: Vec<String> = rows.into_iter().map(|(_, _, row)| row).collect();
     format!("[{}]", rows.join(","))
@@ -1323,6 +1361,13 @@ fn name_of(duel: &Duel, object: baylee_core::ids::ObjectId) -> String {
                 .iter()
                 .find(|held| held.id == object)
                 .map(|held| held.name.clone())
+        })
+        .or_else(|| {
+            board
+                .stack
+                .iter()
+                .find(|item| item.id == object)
+                .map(|item| item.name.clone())
         })
         .map_or_else(|| "null".to_string(), |name| quoted(&name))
 }

@@ -246,10 +246,15 @@ pub fn sync_overlay(
         return;
     };
 
-    // Which cards this choice will actually accept. `selected` says what a
-    // player has picked; this says what they *may* pick, which is the thing
-    // the hand had no way of showing: a cleanup discard lit nothing up at
-    // all, so the only clue that the hand was clickable was clicking it.
+    // Which of the objects the *overlay* draws this choice will actually
+    // accept. `selected` says what a player has picked; this says what they
+    // may pick, which is the thing the hand had no way of showing: a cleanup
+    // discard lit nothing up at all, so the only clue that the hand was
+    // clickable was clicking it.
+    //
+    // The stack joined it by the same road. Every card in the game that says
+    // "target spell" points at a row of that panel, and until those rows
+    // became clickable there was nothing there to light.
     let selectable: Vec<ObjectId> = duel
         .interaction
         .as_ref()
@@ -258,6 +263,7 @@ pub fn sync_overlay(
                 .hand
                 .iter()
                 .map(|c| c.id)
+                .chain(board.stack.iter().map(|item| item.id))
                 .filter(|id| i.is_selectable(*id))
                 .collect()
         })
@@ -1337,6 +1343,11 @@ pub fn sync_overlay(
             board,
             view,
             statics,
+            &super::stack::Picks {
+                hovered,
+                selected: &selected,
+                selectable: &selectable,
+            },
             &mut textures,
             &assets,
             &fonts,

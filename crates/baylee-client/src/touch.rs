@@ -582,10 +582,11 @@ mod running {
     /// Casting a card moves it from the hand to the stack, and the touch it
     /// was given in the hand must not follow it there.
     ///
-    /// The stack panel's slots carry `HandCardVisual` too — that is what makes
-    /// a spell on the stack hover and preview like any other card — and an
-    /// `ObjectId` survives the zone change, so the card that was pressed a
-    /// tenth of a second ago is drawn by a slot with the same id on it.
+    /// The stack panel's rows carry `HandCardVisual` too — that is what makes
+    /// a spell on the stack hover, preview and answer a click like any other
+    /// card — and an `ObjectId` survives the zone change, so the card that was
+    /// pressed a tenth of a second ago is drawn by a node with the same id on
+    /// it.
     #[test]
     fn a_stack_slot_is_not_moved_by_a_finger_that_was_in_the_hand() {
         let (mut app, object, card, _) = harness();
