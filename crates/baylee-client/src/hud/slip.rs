@@ -100,6 +100,14 @@ const SLIP_HEAD_LINE: f32 = SLIP_HEAD_PT * SLIP_LEADING;
 /// The gap between the heading and the sentence.
 const SLIP_ROW_GAP: f32 = 5.0;
 
+/// The gap between two printed paragraphs.
+///
+/// Wider than [`SLIP_ROW_GAP`]: the heading and the sentence are one block
+/// with a label on it, while two paragraphs are two things a card says, and
+/// on a planeswalker they are two separate abilities a player is choosing
+/// between.
+const SLIP_PARA_GAP: f32 = 7.0;
+
 /// The margin of sheet around the writing.
 const SLIP_PAD: f32 = 10.0;
 
@@ -175,8 +183,16 @@ pub(super) struct Slip {
     pub kind: Option<String>,
     /// Whose it is.
     pub seat: String,
-    /// The sentence, or the whole printed body.
-    pub blocks: Vec<TextBlock>,
+    /// The sentence, or the whole printed body — **by paragraph**.
+    ///
+    /// Two levels and not one, because a card prints paragraphs and
+    /// [`baylee_client_core::card_face::split_blocks`] does not say where
+    /// they ended: it splits on the newline and on the reminder's brackets
+    /// alike, and hands back one flat list. Drawn flat, a planeswalker's
+    /// three loyalty abilities run together as
+    /// `…oben auf deine Bibliothek.−1: Schicke…`, which was the first thing
+    /// the live shot showed.
+    pub blocks: Vec<Vec<TextBlock>>,
 }
 
 /// What the slip under the preview should say, if anything.
@@ -212,14 +228,25 @@ pub(super) fn says(
             Some(Slip {
                 says: id,
                 kind: Some(kind),
+                // An ability on the stack is one sentence, which is one
+                // paragraph by construction.
                 seat,
-                blocks,
+                blocks: vec![blocks],
             })
         }
         baylee_client_core::board::StackKind::Spell => {
             let card = view.object(id)?.card?;
             let text = faces.texts.get(card.print, card.face)?;
-            let blocks = baylee_client_core::card_face::split_blocks(&text.oracle_text);
+            // Split by paragraph *here* and hand each one to `split_blocks`
+            // on its own, which is what keeps the boundary the flat list
+            // loses. `split_blocks` over one paragraph is exactly the
+            // reminder split, which is what a paragraph wants.
+            let blocks: Vec<Vec<TextBlock>> = text
+                .oracle_text
+                .split('\n')
+                .map(baylee_client_core::card_face::split_blocks)
+                .filter(|para| !para.is_empty())
+                .collect();
             // A vanilla creature spell prints no rules text at all, and an
             // empty sheet under the picture would be a panel saying nothing.
             if blocks.is_empty() {
@@ -235,22 +262,36 @@ pub(super) fn says(
     }
 }
 
-/// Every run of the sentence, as it is drawn — no budget, because the slip
-/// wraps rather than cutting.
-pub(super) fn runs(slip: &Slip) -> Vec<Piece> {
-    super::stack::spans_of(&slip.blocks, None)
+/// Every run of every paragraph, as they are drawn — no budget, because the
+/// slip wraps rather than cutting.
+pub(super) fn runs(slip: &Slip) -> Vec<Vec<Piece>> {
+    slip.blocks
+        .iter()
+        .map(|para| super::stack::spans_of(para, None))
+        .collect()
 }
 
 /// How many lines `runs` wraps to in a sheet `width` pixels wide.
 ///
-/// The same character estimator the stack row's names are cut with, which is
-/// a guess about Inter's advance widths and is used here for a *duration*
-/// rather than for a cut — so being a character or two out costs a few
-/// milliseconds of wipe and nothing else.
-fn lines(runs: &[Piece], width: f32) -> usize {
+/// Counted per paragraph and summed, because each one starts a line of its
+/// own: a card of four short paragraphs is four lines tall, not one.
+///
+/// The estimator is the same character guess the stack row's names are cut
+/// with — a claim about Inter's advance widths — and is used here for a
+/// *duration* and a placement rather than for a cut, so being a character or
+/// two out costs a few milliseconds of wipe and nothing else.
+fn lines(runs: &[Vec<Piece>], width: f32) -> usize {
     let per = super::stack::budget(width - 2.0 * SLIP_PAD, SLIP_PT).max(1);
-    let chars: usize = runs.iter().map(|piece| piece.text.chars().count()).sum();
-    chars.div_ceil(per).max(1)
+    runs.iter()
+        .map(|para| {
+            para.iter()
+                .map(|piece| piece.text.chars().count())
+                .sum::<usize>()
+                .div_ceil(per)
+                .max(1)
+        })
+        .sum::<usize>()
+        .max(1)
 }
 
 /// How long the wipe takes for a sentence of `lines` lines.
@@ -265,9 +306,10 @@ fn across(lines: usize) -> f32 {
 /// An estimate, and it is allowed to be: [`super::hand::preview_place`] uses
 /// it to decide which side of the pointer the bubble opens on, and the node
 /// itself is laid out by `bevy_ui` from the text that is actually in it.
-pub(super) fn height(runs: &[Piece], width: f32, heading: bool) -> f32 {
+pub(super) fn height(runs: &[Vec<Piece>], width: f32, heading: bool) -> f32 {
     #[allow(clippy::cast_precision_loss)]
-    let body = lines(runs, width) as f32 * SLIP_LINE;
+    let body = lines(runs, width) as f32 * SLIP_LINE
+        + (runs.len().saturating_sub(1)) as f32 * SLIP_PARA_GAP;
     let head = if heading {
         SLIP_HEAD_LINE + SLIP_ROW_GAP
     } else {
@@ -465,7 +507,7 @@ pub fn wash_the_slip_in(
 pub(super) fn spawn(
     commands: &mut Commands,
     slip: &Slip,
-    runs: Vec<Piece>,
+    runs: Vec<Vec<Piece>>,
     width: f32,
     window_h: f32,
     fonts: &UiFonts,
@@ -570,64 +612,72 @@ fn heading(commands: &mut Commands, slip: &Slip, pen: Pen, fonts: &UiFonts) -> E
     line
 }
 
-/// The sentence, and the wipe over it.
+/// The printed body, paragraph by paragraph, and the wipe over all of it.
 ///
 /// One box, so the wipe covers the writing and not the heading, and so its
 /// own soft edge is clipped at the sheet's margin rather than spilling onto
-/// it.
-fn page(commands: &mut Commands, runs: Vec<Piece>, pen: Pen, fonts: &UiFonts) -> Entity {
+/// it — and one [`Text`] per paragraph inside that box, because a card
+/// prints paragraphs and one flat run of spans loses where they ended: a
+/// planeswalker's three loyalty abilities came out as
+/// `…oben auf deine Bibliothek.−1: Schicke…`.
+fn page(commands: &mut Commands, runs: Vec<Vec<Piece>>, pen: Pen, fonts: &UiFonts) -> Entity {
     let page = commands
         .spawn((
             Node {
                 width: percent(100),
                 flex_direction: FlexDirection::Column,
+                row_gap: px(SLIP_PARA_GAP),
                 overflow: Overflow::clip(),
                 ..default()
             },
             Pickable::IGNORE,
         ))
         .id();
-    let sentence = commands
-        .spawn((
-            Text::default(),
-            tf(fonts, SLIP_PT),
-            bevy::text::LineHeight::Px(SLIP_LINE),
-            TextColor(palette::SLIP_INK),
-            TextShadow {
-                offset: Vec2::new(0.0, 1.0),
-                color: palette::SLIP_SHADOW,
-            },
-            pen.mark(Part::Ink, palette::SLIP_INK),
-            Pickable::IGNORE,
-        ))
-        .id();
-    for piece in runs {
-        let ink = if piece.reminder {
-            palette::SLIP_ASIDE
-        } else {
-            palette::SLIP_INK
-        };
-        let span = commands
+    for para in runs {
+        let sentence = commands
             .spawn((
-                TextSpan::new(piece.text),
-                if piece.mark {
-                    crate::manaui::mana_tf(fonts, SLIP_PT * SLIP_MARK)
-                } else if piece.reminder {
-                    tf_italic(fonts, SLIP_PT)
-                } else {
-                    tf(fonts, SLIP_PT)
+                Text::default(),
+                tf(fonts, SLIP_PT),
+                bevy::text::LineHeight::Px(SLIP_LINE),
+                TextColor(palette::SLIP_INK),
+                TextShadow {
+                    offset: Vec2::new(0.0, 1.0),
+                    color: palette::SLIP_SHADOW,
                 },
-                TextColor(ink),
-                pen.mark(Part::Ink, ink),
+                pen.mark(Part::Ink, palette::SLIP_INK),
+                Pickable::IGNORE,
             ))
             .id();
-        commands.entity(sentence).add_child(span);
+        for piece in para {
+            let ink = if piece.reminder {
+                palette::SLIP_ASIDE
+            } else {
+                palette::SLIP_INK
+            };
+            let span = commands
+                .spawn((
+                    TextSpan::new(piece.text),
+                    if piece.mark {
+                        crate::manaui::mana_tf(fonts, SLIP_PT * SLIP_MARK)
+                    } else if piece.reminder {
+                        tf_italic(fonts, SLIP_PT)
+                    } else {
+                        tf(fonts, SLIP_PT)
+                    },
+                    TextColor(ink),
+                    pen.mark(Part::Ink, ink),
+                ))
+                .id();
+            commands.entity(sentence).add_child(span);
+        }
+        commands.entity(page).add_child(sentence);
     }
-    commands.entity(page).add_child(sentence);
 
     // Only the wipe's `top` moves: the fade is in the gradient's *pixel*
     // stops, so it stays the same thickness whatever the sheet's height is
-    // and the system writes one number a frame.
+    // and the system writes one number a frame. It is one veil over the
+    // whole page and not one per paragraph, because the ink is meant to
+    // arrive down the sheet in one movement.
     let veil = commands
         .spawn((
             Node {
@@ -656,6 +706,11 @@ fn page(commands: &mut Commands, runs: Vec<Piece>, pen: Pen, fonts: &UiFonts) ->
 mod tests {
     use super::*;
     use crate::prefs::Prefs;
+
+    /// One paragraph of one plain run, which is what most of these want.
+    fn para(text: &str) -> Vec<Piece> {
+        vec![piece(text)]
+    }
 
     fn piece(text: &str) -> Piece {
         Piece {
@@ -757,10 +812,86 @@ mod tests {
         assert_eq!(
             super::runs(&slip)
                 .iter()
+                .flatten()
                 .map(|piece| piece.text.as_str())
                 .collect::<String>(),
             "Ziehe eine Karte.",
             "the player's own printing, in the player's own language"
+        );
+    }
+
+    /// A planeswalker's three loyalty abilities are three paragraphs, and
+    /// this is the defect the first live shot showed: drawn as one flat run
+    /// of spans they came out as `…oben auf deine Bibliothek.−1: Schicke…`,
+    /// with the second ability starting in the middle of the first one's
+    /// last line. The printing holds the boundary in a newline and
+    /// [`baylee_client_core::card_face::split_blocks`] does not carry it, so
+    /// the split happens before it is asked.
+    #[test]
+    fn a_walker_on_the_stack_keeps_its_abilities_apart() {
+        use baylee_client_core::board::Openings;
+        use baylee_client_core::card_face::{CardTextEntry, FaceText};
+        use baylee_client_core::test_support::{ViewBuilder, printed};
+        let texts = crate::cardtext::CardTexts::filed(
+            baylee_core::ids::PrintRef::new(9),
+            CardTextEntry {
+                scryfall_id: "def".to_string(),
+                lang: "de".to_string(),
+                faces: vec![FaceText {
+                    name: "Aminatou, die Schicksalswenderin".to_string(),
+                    english_name: "Aminatou, the Fateshifter".to_string(),
+                    type_line: "Legendärer Planeswalker — Aminatou".to_string(),
+                    oracle_text: "+1: Ziehe eine Karte. Lege dann eine Karte \
+                        aus deiner Hand oben auf deine Bibliothek.\n\
+                        −1: Schicke eine bleibende Karte, die du kontrollierst, \
+                        ins Exil. Bringe sie dann unter der Kontrolle ihres \
+                        Besitzers ins Spiel zurück.\n\
+                        −6: Wähle bis zu einen Spieler."
+                        .to_string(),
+                    mana_cost: String::new(),
+                }],
+            },
+        );
+        let mut spell = printed(31, 0, "Aminatou, the Fateshifter", 9);
+        spell.stack_item = Some(baylee_view::StackItem::Spell);
+        let view = ViewBuilder::new(2).with_stack(vec![spell]).build();
+        let board = baylee_client_core::BoardModel::from_view(
+            &view,
+            Openings::none(),
+            |_| 800.0,
+            crate::cardart::registry(),
+        );
+        let mode = crate::face::FaceMode::default();
+        let settings = crate::settings::ClientSettings::default();
+        let statics = baylee_client_core::test_support::statics(8);
+        let slip = super::says(
+            &board,
+            &view,
+            &statics,
+            Lang::De,
+            &ctx(&texts, &mode, &settings, &view),
+            Some(ObjectId::new(31, 0)),
+        )
+        .expect("a spell on the stack, with its printing filed");
+        let runs = super::runs(&slip);
+        assert_eq!(runs.len(), 3, "three loyalty abilities, three paragraphs");
+        let said: Vec<String> = runs
+            .iter()
+            .map(|para| para.iter().map(|piece| piece.text.as_str()).collect())
+            .collect();
+        assert!(
+            said[0].ends_with("oben auf deine Bibliothek."),
+            "the first paragraph ends where the card's line ends: {:?}",
+            said[0]
+        );
+        assert!(
+            said[1].starts_with("−1: Schicke"),
+            "the second begins at its own cost: {:?}",
+            said[1]
+        );
+        assert!(
+            said.iter().all(|para| !para.contains(".−")),
+            "no paragraph carries the next one's cost: {said:?}"
         );
     }
 
@@ -837,8 +968,8 @@ mod tests {
     #[test]
     fn a_long_ability_is_three_lines_of_a_card_wide_sheet() {
         let long = "x".repeat(113);
-        assert_eq!(lines(&[piece(&long)], 308.0), 3);
-        assert_eq!(lines(&[piece("Draw a card.")], 308.0), 1);
+        assert_eq!(lines(&[para(&long)], 308.0), 3);
+        assert_eq!(lines(&[para("Draw a card.")], 308.0), 1);
         assert_eq!(lines(&[], 308.0), 1, "an empty page is still one line");
     }
 
@@ -846,17 +977,96 @@ mod tests {
     /// makes it taller still. Both halves are what the placement reads.
     #[test]
     fn the_sheet_grows_with_what_is_on_it() {
-        let one = [piece("Draw a card.")];
+        let one = [para("Draw a card.")];
         let bare = height(&one, 308.0, false);
         let headed = height(&one, 308.0, true);
         assert!(
             headed > bare,
             "a heading costs a row: {headed} against {bare}"
         );
-        let long = [piece(&"x".repeat(113))];
+        let long = [para(&"x".repeat(113))];
         assert!(
             height(&long, 308.0, false) > bare,
             "three lines are taller than one"
+        );
+        // And a second paragraph costs its own line *and* the gap between
+        // them, which is the arithmetic the placement above the sheet
+        // leaves room for.
+        let two = [para("Draw a card."), para("Draw a card.")];
+        let apart = height(&two, 308.0, false);
+        assert!(
+            (apart - bare - SLIP_LINE - SLIP_PARA_GAP).abs() < 0.01,
+            "{apart} is {bare} plus a line and a gap"
+        );
+    }
+
+    /// The builder's half of the same claim: a paragraph is a `Text` of its
+    /// own, so the line break between two of them is the layout's and not a
+    /// character anyone had to print. The model keeping the paragraphs
+    /// apart buys nothing if they are all poured into one line afterwards.
+    #[test]
+    fn each_paragraph_is_drawn_as_a_line_of_its_own() {
+        let mut app = App::new();
+        let fonts = UiFonts {
+            text: Handle::default(),
+            italic: Handle::default(),
+            icons: Handle::default(),
+            mana: Handle::default(),
+        };
+        let slip = Slip {
+            says: ObjectId::new(31, 0),
+            kind: None,
+            seat: "Du".to_string(),
+            blocks: Vec::new(),
+        };
+        let runs = vec![
+            para("+1: Ziehe eine Karte."),
+            para("−1: Schicke sie ins Exil."),
+        ];
+        let mut queue = bevy::ecs::world::CommandQueue::default();
+        let root = {
+            let mut commands = Commands::new(&mut queue, app.world());
+            spawn(&mut commands, &slip, runs, 308.0, 1052.0, &fonts, None)
+        };
+        queue.apply(app.world_mut());
+        // The sheet is heading, then page; the page is one line per
+        // paragraph, then the veil over all of them.
+        let page = *app
+            .world()
+            .entity(root)
+            .get::<Children>()
+            .expect("a sheet has a heading and a page")
+            .last()
+            .expect("the page is the last of them");
+        let kids: Vec<Entity> = app
+            .world()
+            .entity(page)
+            .get::<Children>()
+            .expect("the page has its lines")
+            .iter()
+            .collect();
+        let lines: Vec<Entity> = kids
+            .iter()
+            .copied()
+            .filter(|e| app.world().entity(*e).contains::<Text>())
+            .collect();
+        assert_eq!(lines.len(), 2, "two paragraphs, two lines");
+        for line in lines {
+            let spans = app
+                .world()
+                .entity(line)
+                .get::<Children>()
+                .expect("a line carries its runs");
+            assert_eq!(spans.len(), 1, "and each line carries only its own");
+        }
+        assert_eq!(
+            app.world()
+                .entity(page)
+                .get::<Node>()
+                .expect("the page is a node")
+                .row_gap,
+            px(SLIP_PARA_GAP),
+            "the gap between them is the one the height was measured with"
         );
     }
 

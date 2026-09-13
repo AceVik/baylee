@@ -613,7 +613,7 @@ card carrying that one sentence entire: the player's own printing, in the
 player's own language, with `{T}` and the pips as marks and the reminder text
 in the same quieter slant the row uses.
 
-Three decisions in that, and each is easy to get backwards.
+Four decisions in that, and each is easy to get backwards.
 
 **It is the bubble and not the row.** §8.2 of the redesign already made the
 preview "the only place rules text is read at size", and a second such place
@@ -635,6 +635,20 @@ about the *choice*, never about `preview_face` having returned something: a
 constructed face is also what fills in while art is in flight, which is the
 ordinary case offline, and is exactly the case where a card scan with English
 rules text on it looks as though this already worked.
+
+**Paragraphs are split before `split_blocks` is asked, not after.** A card
+prints paragraphs and `card_face::split_blocks` does not say where they ended:
+it splits on the newline and on a reminder's brackets alike and hands back one
+flat list. Drawn flat, Aminatou's three loyalty abilities came out as
+`…oben auf deine Bibliothek.−1: Schicke…`, with the second one starting in the
+middle of the first one's last line — the first thing the live shot showed. So
+the printing is cut on `\n` first and each paragraph handed to `split_blocks`
+on its own, which is then exactly the reminder split a paragraph wants. Each
+becomes a `Text` of its own, `SLIP_PARA_GAP` apart, and the wipe stays **one**
+veil over the whole page: the ink is meant to arrive down the sheet in one
+movement, not once per paragraph. An ability on the stack is one sentence and
+therefore one paragraph by construction, which is why only the spell branch
+splits.
 
 **The progress is a resource.** `SlipWash`, for the same reason `StackMotion`
 is one: hover is part of the HUD's rebuild gate, so the slip is despawned and
