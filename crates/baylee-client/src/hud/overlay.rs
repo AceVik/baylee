@@ -174,12 +174,14 @@ pub fn sync_overlay(
     });
     let focus = duel.focus;
     let preview_scale = settings.preview_scale;
-    let browser = (
-        duel.browser.is_open(),
-        duel.browser.tab(),
-        duel.browser.filter().to_string(),
-        duel.browser.is_typing(),
-    );
+    let browser = BrowserGate {
+        open: duel.browser.is_open(),
+        tab: duel.browser.tab(),
+        filter: duel.browser.filter().to_string(),
+        typing: duel.browser.is_typing(),
+        sort: duel.browser.sort(),
+        descending: duel.browser.descending(),
+    };
     let menu = (duel.can_offer_draw(), duel.concede_armed);
     let armed_deed = duel.armed.clone();
     // Rounded to whole pixels: a window being dragged reports fractional

@@ -723,6 +723,62 @@ mod revision {
             );
         }
     }
+
+    /// The blind spot the test above has, one level down.
+    ///
+    /// `browser` passed that test for as long as it existed, because the
+    /// whole field was compared and the whole field was assigned. It was a
+    /// four-tuple, and the browser has **six** things a player can move: the
+    /// sort key and its direction were not in it, so clicking either of the
+    /// two buttons beside the filter box changed the order of a list that was
+    /// never redrawn. Both controls did nothing at all on screen.
+    ///
+    /// A struct with named fields is most of the fix — a literal that names
+    /// every field cannot forget one and still compile — so what is left to
+    /// guard is the escape hatch: `..Default::default()` would put the hole
+    /// straight back, with the compiler content.
+    #[test]
+    fn the_browsers_gate_is_filled_field_by_field() {
+        let hud = include_str!("../hud.rs");
+        let overlay = include_str!("overlay.rs");
+
+        let body = hud
+            .split_once("struct BrowserGate {")
+            .expect("the gate is still its own struct")
+            .1
+            .split_once("\n}")
+            .expect("and still closes")
+            .0;
+        let fields: Vec<&str> = body
+            .lines()
+            .filter_map(|line| {
+                let (name, _) = line.strip_prefix("    ")?.split_once(':')?;
+                name.chars()
+                    .all(|c| c.is_ascii_alphanumeric() || c == '_')
+                    .then_some(name)
+            })
+            .collect();
+        assert_eq!(fields.len(), 6, "the fields did not parse: {fields:?}");
+
+        let built = overlay
+            .split_once("let browser = BrowserGate {")
+            .expect("still built where the gate is assembled")
+            .1
+            .split_once("\n    };")
+            .expect("and still closes")
+            .0;
+        for field in fields {
+            assert!(
+                built.contains(&format!("{field}:")),
+                "`{field}` is in the gate and is never read off the browser"
+            );
+        }
+        assert!(
+            !built.contains(".."),
+            "a struct update fills the rest from `Default`, which is the hole \
+             the named fields were supposed to close"
+        );
+    }
 }
 
 mod combat {

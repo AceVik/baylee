@@ -568,6 +568,35 @@ pub fn hand_layout(count: usize, card_w: f32, available_w: f32) -> HandLayout {
     }
 }
 
+/// Everything about the zone browser that the drawn panel depends on.
+///
+/// Its own struct and not a tuple in [`HudRevision`], because it was a tuple
+/// and two of these six were missing from it. The panel is a **retained**
+/// tree: nothing in the browser reaches the screen except by appearing here
+/// and being found to have changed, so a field left out is a control that
+/// silently does nothing. The sort key and its direction were left out, and
+/// clicking either button changed the order of a list that was never redrawn.
+///
+/// Named fields are the whole point — an omission from a list of names is
+/// visible where an omission from `(bool, Option<_>, String, bool)` is not.
+#[derive(Default, Clone, PartialEq, Eq)]
+struct BrowserGate {
+    /// Whether the panel stands at all. Opened by a choice arriving and by a
+    /// tap on the top card of a pile, neither of which need be a new
+    /// snapshot.
+    open: bool,
+    /// Which zone tab is showing.
+    tab: Option<baylee_client_core::browser::BrowseZone>,
+    /// What is typed in the filter.
+    filter: String,
+    /// Whether the filter box is holding the keyboard, which draws its rim.
+    typing: bool,
+    /// Which key the rows are in, and
+    sort: baylee_client_core::browser::SortKey,
+    /// which way up.
+    descending: bool,
+}
+
 /// Which snapshot the overlay currently shows.
 #[derive(Resource, Default)]
 pub struct HudRevision {
@@ -614,16 +643,8 @@ pub struct HudRevision {
     /// the client until the answer is sent — so without them here the combat
     /// line would be drawn once and then stay wrong for the whole step.
     combat: Option<(usize, usize, usize)>,
-    /// What the zone browser is showing. Opened by a choice arriving and
-    /// by a tap on the top card of a pile, neither of which need be a new
-    /// snapshot,
-    /// and the tab and filter move with no snapshot at all.
-    browser: (
-        bool,
-        Option<baylee_client_core::browser::BrowseZone>,
-        String,
-        bool,
-    ),
+    /// What the zone browser is showing.
+    browser: BrowserGate,
     /// The value a number choice stands at. It changes with no new snapshot —
     /// stepping X never leaves the client until Confirm — so without it the
     /// stepper would draw the opening value and then stay wrong.
