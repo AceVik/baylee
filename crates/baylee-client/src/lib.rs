@@ -1002,6 +1002,11 @@ impl Plugin for DuelPlugin {
                     // finger put down *after* its own tap had been answered
                     // would leave the card pressed with nothing to lift it.
                     touch::watch_the_finger.before(input::pointer),
+                    // Before `pointer`, and on the *press* rather than the
+                    // click it becomes: a click on another card has to close
+                    // this sheet and then open that one, which is two things
+                    // in that order and not one thing twice.
+                    input::close_the_sheet_on_a_press_outside_it.before(input::pointer),
                     input::pointer,
                     input::pointer_hover,
                     input::camera_controls,

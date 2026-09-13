@@ -1741,6 +1741,50 @@ fn menu_click(duel: &mut Duel, action: MenuAction, was_armed: bool) {
     }
 }
 
+/// A press anywhere that is neither the sheet nor its card closes the sheet.
+///
+/// The one gesture on this surface that is about *nothing*: every branch of
+/// [`pointer`] answers a thing that was clicked, and this answers a click that
+/// found nothing to answer it. So it cannot be a branch there —
+/// `Pointer<Click>` is only ever raised on an entity that was hit, and the
+/// felt is `Pickable::IGNORE`, so a click on bare cloth raises no message at
+/// all. What it reads instead is the press and [`HoverMap`], which is the one
+/// place that knows the pointer is over **nothing**.
+///
+/// The press and not the click, because the two land on different frames and
+/// the release is what `pointer` reads: closing on the press and letting the
+/// release fall through is what makes a click on *another* card close this
+/// sheet and open that one, rather than doing both to the same card.
+///
+/// Two exemptions, which are the owner's own words for it — the dialog and
+/// the card. Neither of them is *answering* anything: the card is where the
+/// sheet came from and a second tap on it is a no-op ([`activate_card`] makes
+/// sure of that), so a player rummaging around the permanent they are reading
+/// about cannot lose their place.
+pub fn close_the_sheet_on_a_press_outside_it(
+    buttons: Res<ButtonInput<MouseButton>>,
+    hovers: Res<bevy::picking::hover::HoverMap>,
+    sheet: Query<&crate::hud::AbilitySheetRoot>,
+    cards: Query<&CardVisual>,
+    parents: Query<&ChildOf>,
+    mut duel: ResMut<Duel>,
+) {
+    let Some(object) = duel.ability_menu else {
+        return;
+    };
+    if !buttons.just_pressed(MouseButton::Left) {
+        return;
+    }
+    for hovered in hovers.values().flat_map(|over| over.keys().copied()) {
+        let spared = find_in_lineage(hovered, &sheet, &parents).is_some()
+            || find_in_lineage(hovered, &cards, &parents).is_some_and(|v| v.object == object);
+        if spared {
+            return;
+        }
+    }
+    duel.ability_menu = None;
+}
+
 /// A click on the ability sheet.
 ///
 /// Its own function for the reason [`browser_click`] is: they are one widget,
