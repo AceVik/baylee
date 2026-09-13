@@ -23,14 +23,8 @@ card! {
     }],
     color_identity: ColorSet::from_slice(&[Color::Green]),
     coverage: Coverage::Implemented,
-    abilities: &[mana_ability!(&[Effect::mana_combination(
-            &[
-                ManaColor::White,
-                ManaColor::Blue,
-                ManaColor::Black,
-                ManaColor::Red,
-                ManaColor::Green,
-            ],
+    abilities: &[mana_ability!(&[Effect::mana_choice_dynamic(
+            ALL_MANA_COLORS,
             Amount::CountOf {
                 filter: &ALLIES_YOU,
                 zone: ZoneSel::Battlefield,
@@ -38,5 +32,8 @@ card! {
         )])],
 }
 
-// X = Allies is delivered by the mana effect.s dynamic Amount::CountOf
-// (evaluated at resolution against your battlefield).
+// X = Allies is `Amount::CountOf`, evaluated at resolution against your own
+// battlefield. The colour is **one** pick for the whole of X, which is what
+// `mana_choice_dynamic` says and `mana_combination` — which this was written
+// with — does not: that one is "in any combination", a pick per mana, so a
+// player with three Allies was asked three times and could make {W}{U}{B}.

@@ -1052,6 +1052,29 @@ impl Effect {
         }
     }
 
+    /// `Add X mana of any one color, where X is …` — one pick, counted
+    /// amount.
+    ///
+    /// The fourth corner of the two questions the others answer between them,
+    /// and it was the missing one: [`Self::mana_choice`] is a pick of one
+    /// mana, [`Self::mana_dynamic`] is a counted amount of a named colour,
+    /// and [`Self::mana_combination`] is a counted amount with a pick *each*.
+    /// Harabaz Druid prints "any **one** color" and was written with the last
+    /// of those, which the engine reads as X colour prompts (`resolve::mana`:
+    /// `let (picks, per_pick) = if combination { (n, 1) } else { (1, n) };`).
+    /// Widening `mana_combination` would not have fixed it, because "in any
+    /// combination" is a real and different sentence — this is the shape that
+    /// was not sayable.
+    #[must_use]
+    pub const fn mana_choice_dynamic(colors: &'static [ManaColor], amount: Amount) -> Self {
+        Self::AddMana {
+            source: ManaSource::Choice(colors),
+            amount,
+            combination: false,
+            restriction: None,
+        }
+    }
+
     /// `Add {W}{U} in any combination of colors.` — one pick per mana,
     /// which is what "in any combination" means and what a single choice
     /// for the whole amount does not.

@@ -18,6 +18,9 @@ fn forest() -> CardIndex {
 fn harabaz_druid() -> CardIndex {
     card_index("ead985ec-f29f-4a3b-b8b1-061142cc5bd1")
 }
+fn mystic_gate() -> CardIndex {
+    card_index("e9f5feb2-2c1a-46ce-885a-4f378d7d10af")
+}
 fn halimar_excavator() -> CardIndex {
     card_index("fd3e37c9-93bf-4f3e-a279-22afbffd8d43")
 }
@@ -89,12 +92,59 @@ fn activate(engine: &mut Engine<RegistryLookup>, seat: PlayerId, card: CardIndex
         .expect("the ability activates");
 }
 
-/// "Add X mana in any combination of colors, where X is the number of
-/// Allies you control." Two Allies is two mana and two picks — the old
-/// non-combination path added the whole amount per pick and then asked
-/// again, which paid X² mana for a card that promises X.
+/// "Add two mana in any combination of {W} and/or {U}." Two mana is two
+/// picks — the old non-combination path added the whole amount per pick and
+/// then asked again, which paid X² mana for a line that promises X.
+///
+/// The subject used to be Harabaz Druid, which was written with
+/// `mana_combination` and prints "any **one** color"; the test passed on a
+/// card the rule does not apply to, and the pair below is what separates the
+/// two sentences now.
 #[test]
 fn any_combination_adds_one_mana_per_pick() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(11, forest())
+        .battlefield(0, &[mystic_gate(), forest()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    // The gate's combination line costs `{1}, {T}`, and an ability whose mana
+    // is not floating is not offered at all — so the Forest goes first.
+    activate(&mut engine, p0, forest(), 0);
+    activate(&mut engine, p0, mystic_gate(), 1);
+    let Pending::ChooseColor { options, .. } = engine.pending().clone() else {
+        panic!("expected a colour choice, got {:?}", engine.pending())
+    };
+    assert_eq!(options.len(), 2, "white or blue");
+    engine
+        .apply(p0, PlayerAction::ChooseColor(ManaColor::Blue))
+        .expect("first mana");
+    assert!(
+        matches!(engine.pending(), Pending::ChooseColor { .. }),
+        "the second mana is a second pick, not a repeat of the first"
+    );
+    engine
+        .apply(p0, PlayerAction::ChooseColor(ManaColor::White))
+        .expect("second mana");
+
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(pool.total(), 2, "the {{G}} was spent on the {{1}}");
+    assert_eq!(pool.available(ManaColor::Blue), 1);
+    assert_eq!(pool.available(ManaColor::White), 1);
+}
+
+/// "Add X mana of any **one** color, where X is the number of Allies you
+/// control." Two Allies is two mana and **one** pick, both of that colour.
+///
+/// Reported from a game: the Druid was asking once per mana and making
+/// {W}{U} where it prints one colour. It was written with
+/// [`Effect::mana_combination`](baylee_cards_dsl::Effect::mana_combination),
+/// whose whole job is the opposite sentence — and the shape it wanted,
+/// a pick for a counted amount, was not sayable until
+/// `Effect::mana_choice_dynamic` existed.
+#[test]
+fn x_mana_of_any_one_color_is_one_pick_for_all_of_it() {
     let p0 = PlayerId::new(0);
     let mut engine = Duel::new(11, forest())
         .battlefield(0, &[harabaz_druid(), halimar_excavator()])
@@ -108,20 +158,17 @@ fn any_combination_adds_one_mana_per_pick() {
     };
     assert_eq!(options.len(), 5, "any of the five colours");
     engine
-        .apply(p0, PlayerAction::ChooseColor(ManaColor::Blue))
-        .expect("first mana");
+        .apply(p0, PlayerAction::ChooseColor(ManaColor::Green))
+        .expect("the colour");
     assert!(
-        matches!(engine.pending(), Pending::ChooseColor { .. }),
-        "the second mana is a second pick, not a repeat of the first"
+        matches!(engine.pending(), Pending::Priority { .. }),
+        "one colour for the whole of X, so there is no second question: {:?}",
+        engine.pending()
     );
-    engine
-        .apply(p0, PlayerAction::ChooseColor(ManaColor::Red))
-        .expect("second mana");
 
     let pool = &engine.state().players[0].mana_pool;
     assert_eq!(pool.total(), 2, "two Allies, two mana");
-    assert_eq!(pool.available(ManaColor::Blue), 1);
-    assert_eq!(pool.available(ManaColor::Red), 1);
+    assert_eq!(pool.available(ManaColor::Green), 2, "both of one colour");
 }
 
 /// "Add one mana of any color in your commander's color identity." There is
