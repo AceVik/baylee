@@ -3217,7 +3217,7 @@ pub fn sync_scene(
         let Some((object, fonts)) = object.zip(fonts.as_deref()) else {
             continue;
         };
-        let built = face::of_object(object, &texts);
+        let built = face::of_object(object, None, &texts);
         let spawned = face::spawn_world(&mut commands, entity, &built, fonts);
         index.faces.insert(placement.object, (seq, spawned));
     }

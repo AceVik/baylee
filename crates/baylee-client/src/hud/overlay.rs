@@ -110,6 +110,7 @@ pub fn sync_overlay(
         texts: &texts,
         mode: &mode,
         settings: &settings,
+        view: duel.view.as_ref(),
     };
     let lang = Lang::of(&settings.lang);
     let seq = duel.board.as_ref().map(|b| b.seq);

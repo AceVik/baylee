@@ -98,16 +98,27 @@ pub fn wants_face(
 
 /// The face for an object on the board, stack, graveyard, exile or command
 /// zone.
+///
+/// `view` is what lets an **ability** be drawn in the player's language. An
+/// ability on the stack has no card of its own, so `object.card` is `None`
+/// and there is nothing to look text up by; the picture beside it is the
+/// source permanent's, and so is the text. Finding that source needs the
+/// view, which a caller that is drawing a permanent does not need and may
+/// pass as `None` — a permanent always carries its own printing.
 #[must_use]
 pub fn of_object(
     object: &baylee_view::PublicObject,
+    view: Option<&baylee_view::PlayerView>,
     texts: &crate::cardtext::CardTexts,
 ) -> CardFace {
     let printed = object
         .card
         .and_then(|c| baylee_cards::by_index(c.index).map(|def| (def, c)));
     let cost = printed.and_then(|(def, c)| def.faces.get(c.face as usize).map(|f| &f.mana_cost));
-    let text = object.card.and_then(|c| texts.get(c.print, c.face));
+    let text = view
+        .and_then(|view| printing_of(object, view))
+        .or_else(|| object.card.map(|c| (c.print, c.face)))
+        .and_then(|(print, face)| texts.get(print, face));
     CardFace::from_object(object, cost, text.as_ref())
 }
 
@@ -702,6 +713,51 @@ mod tests {
                 &texts
             ),
             "Gefluteter Strand"
+        );
+    }
+
+    /// The stack panel draws an ability as the *picture* of the permanent it
+    /// came from, and the picture carries a name. Found live: a Marsh Flats
+    /// ability read "Brackmarsch" in the row's title and "Marsh Flats" on the
+    /// thumbnail two inches to its left, because the thumbnail is built from
+    /// the stack object and a stack object for an ability has no `card` to
+    /// look text up by. The view is what closes it.
+    #[test]
+    fn the_picture_beside_an_ability_is_named_like_the_ability() {
+        use baylee_client_core::test_support::{ViewBuilder, printed, token};
+
+        let texts = german("Marsh Flats", "Brackmarsch");
+        let mut ability = token(30, 0, "Marsh Flats", 0, 0);
+        ability.card = None;
+        ability.stack_item = Some(baylee_view::StackItem::Ability {
+            source: baylee_core::ids::ObjectId::new(7, 0),
+            ability: None,
+            text: Some(baylee_view::StackText {
+                face: 0,
+                line: 0,
+                of: 1,
+            }),
+        });
+        let view = ViewBuilder::new(2)
+            .with_battlefield(0, vec![printed(7, 0, "Marsh Flats", 7)])
+            .with_stack(vec![ability.clone()])
+            .build();
+
+        assert_eq!(
+            of_object(&ability, Some(&view), &texts).name,
+            "Brackmarsch",
+            "the thumbnail borrows the source's printing, like the title above it"
+        );
+        // The counter-test: a caller with no view is drawing a permanent, and
+        // a permanent carries its own printing.
+        assert_eq!(
+            of_object(
+                view.object(baylee_core::ids::ObjectId::new(7, 0)).unwrap(),
+                None,
+                &texts
+            )
+            .name,
+            "Brackmarsch"
         );
     }
 

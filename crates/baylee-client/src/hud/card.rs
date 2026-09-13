@@ -9,13 +9,18 @@ use super::*;
 /// What the overlay needs in order to choose between a card's art and its own
 /// constructed face.
 ///
-/// Bundled because every card-drawing helper here needs all three, and three
-/// more parameters on functions that already carry eleven is how a signature
-/// stops being readable.
+/// Bundled because every card-drawing helper here needs the same set, and
+/// four more parameters on functions that already carry eleven is how a
+/// signature stops being readable.
 pub(super) struct FaceCtx<'a> {
     pub(super) texts: &'a crate::cardtext::CardTexts,
     pub(super) mode: &'a crate::face::FaceMode,
     pub(super) settings: &'a crate::settings::ClientSettings,
+    /// The seat's view, for the one face that cannot be built without it: an
+    /// ability on the stack has no card, so its text and its name are the
+    /// source permanent's and the source is found through here. `None` before
+    /// the first view arrives, which is also when there is nothing to draw.
+    pub(super) view: Option<&'a baylee_view::PlayerView>,
 }
 
 impl FaceCtx<'_> {
@@ -36,7 +41,7 @@ impl FaceCtx<'_> {
     /// through the toggle left every row with a name and two empty columns
     /// until somebody held the text modifier.
     pub(super) fn facts(&self, object: &baylee_view::PublicObject) -> CardFace {
-        crate::face::of_object(object, self.texts)
+        crate::face::of_object(object, self.view, self.texts)
     }
 
     /// The face to draw instead of a card's art, or `None` to draw the art.
@@ -47,7 +52,7 @@ impl FaceCtx<'_> {
         art: Option<ImageKey>,
     ) -> Option<CardFace> {
         crate::face::wants_face(self.mode, self.settings, textures, art)
-            .then(|| crate::face::of_object(object, self.texts))
+            .then(|| crate::face::of_object(object, self.view, self.texts))
     }
 
     /// The same, for a card in hand.
