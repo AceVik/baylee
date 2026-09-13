@@ -1035,75 +1035,28 @@ fn spawn_stack_entry(
             // ability cannot grow the row past the queue it is ordering — and
             // so the reminder is what gets cut first, which is the order a
             // player would drop them in too.
-            let mut left = budget(room * STACK_SENTENCE_LINES, STACK_SENTENCE_PT);
-            for block in blocks {
-                let reminder = matches!(block, TextBlock::Reminder(_));
-                // A reminder is drawn inside `" (…)"`, which is three
-                // characters of the shared room that are not text.
-                let mut room_for = if reminder {
-                    left.saturating_sub(3)
-                } else {
-                    left
-                };
-                if room_for == 0 {
-                    break;
-                }
-                let ink = if reminder {
+            let room = budget(room * STACK_SENTENCE_LINES, STACK_SENTENCE_PT);
+            for piece in spans_of(&blocks, Some(room)) {
+                let ink = if piece.reminder {
                     palette::MUTED
                 } else {
                     palette::INK
                 };
-                let prose = if reminder {
-                    tf_italic(fonts, STACK_SENTENCE_PT)
-                } else {
-                    tf(fonts, STACK_SENTENCE_PT)
-                };
-                // Split, then budget. `{T}` is three characters of source and
-                // one mark on screen, so cutting the line before the split
-                // drops text the row had the room for.
-                let mut pieces: Vec<(String, bool)> = Vec::new();
-                for piece in manapip::inline(block.text()) {
-                    if room_for == 0 {
-                        break;
-                    }
-                    match piece {
-                        manapip::Inline::Mark(mark) => {
-                            room_for -= 1;
-                            pieces.push((mark.to_string(), true));
-                        }
-                        manapip::Inline::Text(run) => {
-                            let run = cut(&run, room_for);
-                            room_for -= run.chars().count();
-                            pieces.push((run, false));
-                        }
-                    }
-                }
-                if pieces.is_empty() {
-                    continue;
-                }
-                // What is left of the shared room is what this block did not
-                // spend — the three characters of `" (…)"` were taken off it
-                // before the first piece was measured.
-                left = room_for;
-                if reminder {
-                    pieces.insert(0, (" (".to_string(), false));
-                    pieces.push((")".to_string(), false));
-                }
-                for (text, mark) in pieces {
-                    let span = commands
-                        .spawn((
-                            TextSpan::new(text),
-                            if mark {
-                                crate::manaui::mana_tf(fonts, STACK_SENTENCE_PT * STACK_MARK)
-                            } else {
-                                prose.clone()
-                            },
-                            TextColor(ink),
-                            Arriving::ink(key, ink.alpha()),
-                        ))
-                        .id();
-                    commands.entity(sentence).add_child(span);
-                }
+                let span = commands
+                    .spawn((
+                        TextSpan::new(piece.text),
+                        if piece.mark {
+                            crate::manaui::mana_tf(fonts, STACK_SENTENCE_PT * STACK_MARK)
+                        } else if piece.reminder {
+                            tf_italic(fonts, STACK_SENTENCE_PT)
+                        } else {
+                            tf(fonts, STACK_SENTENCE_PT)
+                        },
+                        TextColor(ink),
+                        Arriving::ink(key, ink.alpha()),
+                    ))
+                    .id();
+                commands.entity(sentence).add_child(span);
             }
             commands.entity(body).add_child(sentence);
         }
@@ -1422,7 +1375,7 @@ fn waiting_line(lang: Lang, name: &str, is_me: bool) -> String {
 ///
 /// The face is the host's answer and not the source's current one, for
 /// the reason `baylee_view::StackText::face` gives.
-fn stack_sentence(
+pub(super) fn stack_sentence(
     item: &baylee_client_core::board::StackItem,
     view: &PlayerView,
     faces: &FaceCtx<'_>,
@@ -1434,6 +1387,90 @@ fn stack_sentence(
     let print = view.object(source)?.card?.print;
     let card = faces.texts.get(print, text.face)?;
     baylee_client_core::card_face::sentence_blocks(&card.oracle_text, text.line, text.of)
+}
+
+/// One run of a sentence as it is drawn: prose, or a single mana mark.
+///
+/// A mark is its own piece because it is set in a different font at a
+/// different size ([`STACK_MARK`]), and a reminder is flagged rather than
+/// separated because the brackets it is drawn inside are pieces too and have
+/// to carry the same slant and the same ink.
+pub(super) struct Piece {
+    /// The characters.
+    pub text: String,
+    /// One glyph of `mana.ttf`, rather than prose.
+    pub mark: bool,
+    /// Reminder text (CR 207.2), including its own `" ("` and `")"`.
+    pub reminder: bool,
+}
+
+/// Every run of `blocks`, in printed order, with a reminder's brackets in
+/// place and the whole sentence held to `room` characters.
+///
+/// `room` is `None` for a surface that **wraps** instead of cutting, which is
+/// the difference between the two places this is drawn. The stack panel's full
+/// row is budgeted — its height is what the queue under it is measured
+/// against, so a pathological card must not be able to push the queue off the
+/// panel — while the slip under the hover preview is the place that answers
+/// "what *exactly* is about to happen" and cuts nothing at all.
+///
+/// The order inside a block is split-then-budget, and that is the part worth
+/// keeping: `{T}` is three characters of source and one mark on screen, so
+/// cutting the line before the split drops text there was room for.
+///
+/// The three characters taken off a reminder's budget are its `" (…)"`, and
+/// they come off before its first piece is measured — so what a block hands
+/// on to the next one is what it did not spend.
+pub(super) fn spans_of(blocks: &[TextBlock], room: Option<usize>) -> Vec<Piece> {
+    let mut out = Vec::new();
+    let mut left = room;
+    for block in blocks {
+        let reminder = matches!(block, TextBlock::Reminder(_));
+        let mut room_for = left.map(|left| {
+            if reminder {
+                left.saturating_sub(3)
+            } else {
+                left
+            }
+        });
+        if room_for == Some(0) {
+            break;
+        }
+        let mut pieces: Vec<(String, bool)> = Vec::new();
+        for piece in manapip::inline(block.text()) {
+            if room_for == Some(0) {
+                break;
+            }
+            match piece {
+                manapip::Inline::Mark(mark) => {
+                    room_for = room_for.map(|room| room - 1);
+                    pieces.push((mark.to_string(), true));
+                }
+                manapip::Inline::Text(run) => {
+                    let run = match room_for {
+                        Some(room) => cut(&run, room),
+                        None => run,
+                    };
+                    room_for = room_for.map(|room| room - run.chars().count());
+                    pieces.push((run, false));
+                }
+            }
+        }
+        if pieces.is_empty() {
+            continue;
+        }
+        left = room_for;
+        if reminder {
+            pieces.insert(0, (" (".to_string(), false));
+            pieces.push((")".to_string(), false));
+        }
+        out.extend(pieces.into_iter().map(|(text, mark)| Piece {
+            text,
+            mark,
+            reminder,
+        }));
+    }
+    out
 }
 
 /// A card name cut to one line `room` pixels wide, set at `size`.
@@ -1470,12 +1507,12 @@ fn fit(name: &str, room: f32, size: f32) -> String {
 /// to the full budget would let the pair run twice as long as the room they
 /// share.
 #[allow(clippy::cast_sign_loss, clippy::cast_possible_truncation)]
-fn budget(room: f32, size: f32) -> usize {
+pub(super) fn budget(room: f32, size: f32) -> usize {
     (room / (size * 0.52)).max(4.0) as usize
 }
 
 /// `text`, cut to `budget` characters with an ellipsis if it is longer.
-fn cut(text: &str, budget: usize) -> String {
+pub(super) fn cut(text: &str, budget: usize) -> String {
     if text.chars().count() <= budget {
         return text.to_string();
     }

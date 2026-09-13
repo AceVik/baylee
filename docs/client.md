@@ -604,6 +604,69 @@ graveyard that nothing else on screen is drawing. And an ability whose source
 has already left the battlefield (CR 113.7a) has no picture to borrow: it
 draws as a name with an empty plate, never as a missing entry.
 
+### And the hover writes it out in full
+
+The panel abbreviates on purpose — a queued row draws no sentence and a full
+row cuts one to `STACK_SENTENCE_LINES` — so **the hover is where the whole
+sentence is read**. `hud::slip` hangs a sheet of parchment under the preview's
+card carrying that one sentence entire: the player's own printing, in the
+player's own language, with `{T}` and the pips as marks and the reminder text
+in the same quieter slant the row uses.
+
+Three decisions in that, and each is easy to get backwards.
+
+**It is the bubble and not the row.** §8.2 of the redesign already made the
+preview "the only place rules text is read at size", and a second such place
+inside the panel would be two answers to one question. It also has a concrete
+failure: the overlay is rebuilt on every hover change, so a row that grew
+under the pointer could push the pointer out of itself, which changes the
+hover, which rebuilds the row collapsed — a two-frame oscillation that
+`pointer_hover`'s grace window would not suppress, because the pointer really
+has moved relative to the tree.
+
+**It is the sentence and not the card.** A card prints several abilities and
+the stack holds one; `stack_sentence` already resolves which. For a *spell* it
+is the cast face's whole rules text, because on the stack the object **is**
+its text about to resolve — the stack is the one zone where "what does this
+card look like" is never the question. The exception is the text face: when
+the player has asked for it (`FaceCtx::always` — the held modifier or
+`prefer_text_view`), the face is the slip and the sheet is not drawn. Asked
+about the *choice*, never about `preview_face` having returned something: a
+constructed face is also what fills in while art is in flight, which is the
+ordinary case offline, and is exactly the case where a card scan with English
+rules text on it looks as though this already worked.
+
+**The progress is a resource.** `SlipWash`, for the same reason `StackMotion`
+is one: hover is part of the HUD's rebuild gate, so the slip is despawned and
+respawned by the very pointer movement that opened it. The nodes are spawned
+**at rest** and `wash_the_slip_in` runs after `sync_overlay` to take the ink
+back off — a rebuild after the wash has finished therefore draws nothing dim,
+and one mid-wash re-attaches where it was. Walking down the panel re-inks the
+sheet without rebuilding it: the ground restarts only when there was no slip a
+frame ago.
+
+The wash itself is three stages, and the middle one is the only thing in this
+client that is not an exponential. The sheet comes out of the card's foot at
+`ambience::FEEL_RATE`; the ink fades up at the same rate under a veil whose
+edge travels down the page **linearly over a duration**, because an
+exponential wipe rushes the first line and crawls through the last and reading
+order is the whole reason the wipe exists; and the ink lands a quarter of the
+way back towards the sheet and dries to its own colour on the stack panel's
+own settle rate. Wet ink is lighter and browner. Legible at about 200 ms,
+finished at about 450, and `reduce_motion` collapses all of it to a sheet that
+is simply there, written, on the first frame.
+
+Two smaller things the sheet costs. It is part of the bubble's *size*, so it
+is resolved before `preview_art_size` is asked how large the picture may be —
+a card sized to the window with a sheet hung under it would put the sheet off
+the bottom of the screen. And the resize handle is measured from the card's
+foot rather than the bubble's, or it lands in the middle of a sentence.
+
+What is deliberately **not** here: a hint on the queued rows that there is
+more to read. The hover is the invitation and the full row's ellipsis is the
+honest sign; a glyph saying "more" on six rows at once would be the wall of
+text the ramp exists to prevent.
+
 ## Images and memory
 
 Keyed by printing id — no API call is needed to render a board.

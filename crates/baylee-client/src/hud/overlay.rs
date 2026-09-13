@@ -893,11 +893,28 @@ pub fn sync_overlay(
             // `preview_place` can rescue it. The slider is a preference; the
             // window is not.
             let want = Vec2::new(308.0 * scale, 308.0 * scale * 88.0 / 63.0);
-            let art_size = preview_art_size(want, 6.0, window);
+            // The sentence the stack is abbreviating, when that is what the
+            // pointer is on. It is part of the bubble's *size* and therefore
+            // has to be resolved before the picture is: a card sized to the
+            // window and a sheet hung under it would put the sheet off the
+            // bottom of the screen. See `super::slip`.
+            let slip = super::slip::says(board, view, statics, lang, &faces, hovered);
+            let runs = slip.as_ref().map(super::slip::runs).unwrap_or_default();
+            // Twice, at two widths, and the first one is the estimate that
+            // decides how much room the picture may take. The second is at
+            // the width the sheet will actually be drawn at, which is the one
+            // the placement and the resize handle are measured from.
+            let asked = slip.as_ref().map_or(0.0, |s| {
+                super::slip::height(&runs, want.x, s.kind.is_some())
+            });
+            let art_size = preview_art_size(want, 6.0, window - Vec2::new(0.0, asked));
             let (img_w, img_h) = (art_size.x, art_size.y);
+            let slip_h = slip
+                .as_ref()
+                .map_or(0.0, |s| super::slip::height(&runs, img_w, s.kind.is_some()));
             // The panel is the picture plus its six pixels of padding on
-            // every side.
-            let panel = art_size + Vec2::splat(12.0);
+            // every side, and the sheet under it when there is one.
+            let panel = art_size + Vec2::splat(12.0) + Vec2::new(0.0, slip_h);
             let place = preview_place(anchor, panel, window);
             let key = art.map(|art| ImageKey {
                 size: ArtSize::Normal,
@@ -1000,6 +1017,9 @@ pub fn sync_overlay(
                         top: px(place.y),
                         left: px(place.x),
                         padding: UiRect::all(px(6)),
+                        // A column, because the bubble is a card and — when
+                        // the pointer is on the stack — a sheet under it.
+                        flex_direction: FlexDirection::Column,
                         border_radius: preview_radius(img_w),
                         overflow: Overflow::clip(),
                         ..default()
@@ -1016,12 +1036,16 @@ pub fn sync_overlay(
                     ZIndex(Z_PREVIEW),
                     Pickable::IGNORE,
                     children![(
-                        // Resize handle, bottom right.
+                        // Resize handle, bottom right — of the *card*, which
+                        // is not the bottom of the bubble once a sheet hangs
+                        // under it. It resizes the picture, so it stays on
+                        // the picture's corner rather than landing in the
+                        // middle of a sentence.
                         PreviewResize,
                         Node {
                             position_type: PositionType::Absolute,
                             right: px(4),
-                            bottom: px(4),
+                            bottom: px(4.0 + slip_h),
                             padding: UiRect::all(px(4)),
                             border_radius: btn_radius(),
                             ..default()
@@ -1119,6 +1143,21 @@ pub fn sync_overlay(
             commands
                 .entity(frame)
                 .insert_recursive::<Children>(Pickable::IGNORE);
+            // The sheet, under the card and inside the same bubble — so the
+            // two move together, are clipped together, and read as one thing
+            // held up rather than as a panel that opened beside a panel.
+            if let Some(slip) = slip {
+                let sheet = super::slip::spawn(
+                    &mut commands,
+                    &slip,
+                    runs,
+                    img_w,
+                    window.y,
+                    &fonts,
+                    sheets.as_deref(),
+                );
+                commands.entity(tooltip).add_child(sheet);
+            }
             commands.entity(root).add_child(tooltip);
 
             // ---- the card underneath a copy ---------------------------

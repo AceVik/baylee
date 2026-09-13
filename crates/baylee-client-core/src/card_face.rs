@@ -454,7 +454,14 @@ fn type_kind_order() -> [(TypeSet, SubtypeKind); 6] {
 /// in parentheses is reminder text. Nesting does not occur in printed text, so
 /// a depth counter is enough and an unbalanced parenthesis degrades to rules
 /// text rather than swallowing the rest of the card.
-fn split_blocks(oracle: &str) -> Vec<TextBlock> {
+///
+/// Public for the one caller that wants a whole card body and has no
+/// [`CardFace`] to take it off: the slip under the hover preview, which draws
+/// what a *spell* on the stack is about to do from the printing it already
+/// holds. [`sentence_blocks`] is this same split over one sentence, which is
+/// what an **ability** on the stack needs instead.
+#[must_use]
+pub fn split_blocks(oracle: &str) -> Vec<TextBlock> {
     let mut blocks = Vec::new();
     for paragraph in oracle.split('\n') {
         let paragraph = paragraph.trim();

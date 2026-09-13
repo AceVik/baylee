@@ -1147,6 +1147,7 @@ pub(crate) mod rail;
 mod scroll;
 pub(crate) mod seatbar;
 mod sheet;
+mod slip;
 mod stack;
 mod tray;
 
@@ -1179,6 +1180,7 @@ pub use sheet::{
     AbilitySheet, AbilitySheetRoot, SheetPager, SheetRevision, place_ability_sheet,
     sync_ability_sheet,
 };
+pub use slip::{SlipWash, wash_the_slip_in};
 pub use stack::{StackMotion, ease_the_stack_in};
 pub(crate) use tray::band_of;
 pub(crate) use tray::dim_the_table;

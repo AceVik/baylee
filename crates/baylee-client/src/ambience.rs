@@ -28,7 +28,11 @@ use bevy::asset::embedded_asset;
 /// large one. 18 is about 120 ms to settle, which is under the ~150 ms where
 /// a control starts feeling sluggish and over the ~60 ms where it reads as an
 /// instant snap.
-const FEEL_RATE: f32 = 18.0;
+///
+/// Shared rather than restated: the slip under the hover preview
+/// ([`crate::hud::slip`]) answers a pointer too, and a second 18 written out
+/// there would be the same decision in two places.
+pub(crate) const FEEL_RATE: f32 = 18.0;
 
 /// How much a hovered button grows, and how far a pressed one gives way.
 const HOVER_SCALE: f32 = 1.025;
