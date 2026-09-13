@@ -52,6 +52,13 @@ struct FeltParams {
     /// own — a wash that went blue after sunset would be saying something
     /// about the turn that was not true.
     ambient: vec4<f32>,
+    /// The weather in the air over the table: `rgb` a second multiplier on
+    /// the table's own colour, `w` unused. `(1, 1, 1)` is still air.
+    ///
+    /// Its own field and not folded into `ambient`, because the sky's light
+    /// arrives at a strength that depends on the hour and the weather's does
+    /// not — multiplied together, a forest would stop being green at noon.
+    weather: vec4<f32>,
     /// The slab's world size, which is what turns a world position into a
     /// point in the fields below.
     span: vec2<f32>,
@@ -94,6 +101,22 @@ const TAU: f32 = 6.2831855;
 /// own hue and turn the baize grey at both ends of the day.
 fn under_sky(linear: vec3<f32>) -> vec3<f32> {
     return mix(linear, linear * params.ambient.rgb, params.ambient.a);
+}
+
+/// The same cloth with weather in the air over it.
+///
+/// `baylee_client_core::atmosphere` builds this so that its Rec.709 luma is
+/// exactly 1 however many kinds of land are on the table, which is the one
+/// property that matters: the eye reads a change in *lightness* on the cloth
+/// as a change in the room, and a change in the room behind a card is exactly
+/// what would make the card harder to judge. Hue may move; brightness may not.
+///
+/// Unscaled, unlike `under_sky` — the strength is already in the number,
+/// because how much of it there is was decided by how many forests are on the
+/// table and by what the player asked for, and neither of those is the
+/// shader's business.
+fn under_weather(linear: vec3<f32>) -> vec3<f32> {
+    return linear * params.weather.rgb;
 }
 
 /// The lamp over the table: how far its pool reaches as a fraction of the
@@ -239,7 +262,7 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
         let grain = fbm2(vec2<f32>(table.x + table.y, in.world_position.y * 6.0) * 2.0);
         let shade = mix(1.15, 0.42, drop) * mix(0.78, 1.0, faces);
         let apron = to_linear(APRON * shade + vec3<f32>((grain - 0.5) * 0.012));
-        return vec4<f32>(under_sky(under_lamp(apron, table)), 1.0);
+        return vec4<f32>(under_weather(under_sky(under_lamp(apron, table))), 1.0);
     }
 
     // One field decides the whole top. `outer` is the mesh's own boundary
@@ -311,5 +334,5 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     // The lamp reaches the table.s own colour and stops there: the phase
     // light is something the table *emits*, and a step that dimmed towards
     // the ends of the slab would be saying something untrue about the turn.
-    return vec4<f32>(under_sky(under_lamp(to_linear(colour), table)) + glow, 1.0);
+    return vec4<f32>(under_weather(under_sky(under_lamp(to_linear(colour), table))) + glow, 1.0);
 }

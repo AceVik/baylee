@@ -60,6 +60,21 @@ pub struct FeltParams {
     /// nothing here knows a transition is happening, and the table follows
     /// the sky because both read the same number.
     pub ambient: Vec4,
+    /// The weather's own tint: `rgb` a second multiplier on the table's
+    /// colour, `w` unused.
+    ///
+    /// Straight out of
+    /// [`Weather::grade`](baylee_client_core::atmosphere::Weather::grade),
+    /// and a field of its own rather than folded into [`Self::ambient`]
+    /// because the two are scaled by different things — the sky's light
+    /// arrives at a strength that depends on the hour, and the weather's does
+    /// not. Multiplied together, a forest would stop being green at noon.
+    ///
+    /// A multiply and not a mix, for the reason this file keeps repeating:
+    /// there is no light in this scene and there cannot be one. `(1, 1, 1)`
+    /// is a table with nothing in the air over it, and is what the slab is
+    /// cut with.
+    pub weather: Vec4,
     /// The slab's world size, which is how the shader turns a point on the
     /// table into a point in the cloth.
     ///

@@ -525,6 +525,7 @@ pub(super) fn clicks(
             }
             Press::PickSky(mode) => prefs.edit().sky = mode,
             Press::PickSound(level) => prefs.edit().sound = level,
+            Press::PickAtmosphere(air) => prefs.edit().atmosphere = air,
             Press::PickLang(lang) => {
                 state.lobby.set_lang(lang);
                 // One setting, two readers: the interface draws itself in
@@ -1102,6 +1103,8 @@ pub(crate) enum Press {
     PickSky(baylee_client_core::sky::SkyMode),
     /// Turn the table up, down, or off.
     PickSound(baylee_client_core::cue::Loudness),
+    /// Put weather in the air over the table, or take it away.
+    PickAtmosphere(baylee_client_core::atmosphere::Atmosphere),
     /// Turn one step of the phase rail red or green.
     ToggleRail(
         baylee_client_core::automation::RailSide,

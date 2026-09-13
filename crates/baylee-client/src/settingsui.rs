@@ -13,6 +13,7 @@
 
 use crate::hud::{UiFonts, palette, tf};
 use crate::lobby::{Metrics, Press, button, chip, heading, panel, row};
+use baylee_client_core::atmosphere::Atmosphere;
 use baylee_client_core::automation::{RAIL_ROWS, RailPreset, RailSide};
 use baylee_client_core::cue::Loudness;
 use baylee_client_core::i18n::{Lang, Phrase};
@@ -278,6 +279,8 @@ fn automation_panel(
     commands.entity(column).add_child(motion);
     let weather = sky_row(commands, prefs, lang, fonts, metrics);
     commands.entity(column).add_child(weather);
+    let air = atmosphere_row(commands, prefs, lang, fonts, metrics);
+    commands.entity(column).add_child(air);
     let loudness = sound_row(commands, prefs, lang, fonts, metrics);
     commands.entity(column).add_child(loudness);
 
@@ -523,6 +526,70 @@ fn sky_row(
         commands.entity(line).add_child(pick);
     }
     line
+}
+
+/// The weather picker: a heading, a line of why, and three chips.
+///
+/// Directly under the sky's row, because the two are read together — the sky
+/// is what is *behind* the table and this is what is in the air *over* it, and
+/// a player who has just decided on stars is the player deciding whether snow
+/// falls through them.
+fn atmosphere_row(
+    commands: &mut Commands,
+    prefs: &Preferences,
+    lang: Lang,
+    fonts: &UiFonts,
+    metrics: Metrics,
+) -> Entity {
+    let line = row(commands, metrics, true);
+    let label = commands
+        .spawn((
+            Node {
+                flex_grow: 1.0,
+                flex_direction: FlexDirection::Column,
+                ..default()
+            },
+            Pickable::IGNORE,
+            children![
+                (
+                    Text::new(Phrase::Atmosphere.text(lang)),
+                    tf(fonts, metrics.text),
+                    TextColor(palette::INK),
+                ),
+                (
+                    Text::new(Phrase::AtmosphereWhy.text(lang)),
+                    tf(fonts, metrics.small),
+                    TextColor(palette::MUTED),
+                )
+            ],
+        ))
+        .id();
+    commands.entity(line).add_child(label);
+    for offered in Atmosphere::ALL {
+        let pick = chip(
+            commands,
+            fonts,
+            metrics,
+            atmosphere_name(offered).text(lang),
+            Press::PickAtmosphere(offered),
+            offered == prefs.atmosphere,
+        );
+        commands.entity(line).add_child(pick);
+    }
+    line
+}
+
+/// The label a weather step is offered under.
+///
+/// A `match` here rather than a method on [`Atmosphere`], for the reason
+/// [`sky_name`] gives: the enum lives in the renderer-free crate beside the
+/// arithmetic, and `Phrase` is the interface's own vocabulary.
+fn atmosphere_name(air: Atmosphere) -> Phrase {
+    match air {
+        Atmosphere::Off => Phrase::AtmosphereOff,
+        Atmosphere::Soft => Phrase::AtmosphereSoft,
+        Atmosphere::Full => Phrase::AtmosphereFull,
+    }
 }
 
 /// The loudness picker: a heading, a line of why, and three chips.

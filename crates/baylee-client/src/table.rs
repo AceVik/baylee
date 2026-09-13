@@ -55,6 +55,19 @@ const ZONE_LIFT: f32 = 0.002;
 const GLOW_LIFT: f32 = 0.001;
 /// Where the centre medallion is inlaid.
 const MEDALLION_LIFT: f32 = 0.0015;
+/// Where the weather over the table is painted.
+///
+/// Above every mark that belongs to the table itself — the glow, the
+/// medallion, a seat's mat — and **below** the contact shadow a card casts
+/// (`CARD_LIFT * 0.5`, so 0.005) and therefore below the card. That ordering
+/// is the whole of the promise that the air never covers a card: the cards
+/// are opaque and write depth, so a blended surface underneath them is
+/// rejected by the depth test at every pixel a card occupies. It is geometry,
+/// not discipline, and `the_air_lies_under_everything_a_card_casts` in
+/// [`crate::atmosphere`] is what keeps it that way.
+pub(crate) const ATMOSPHERE_LIFT: f32 = 0.0035;
+const _: () = assert!(ATMOSPHERE_LIFT > ZONE_LIFT);
+const _: () = assert!(ATMOSPHERE_LIFT < CARD_LIFT * 0.5);
 /// Table kept around the play area, so no camera angle finds the slab's edge.
 ///
 /// The slab used to be a fixed 60 × 44 whoever was sitting at it — about four
@@ -2323,6 +2336,11 @@ pub fn sync_table(
                     // own colour is what `a = 0` means, so a table that is
                     // cut before the first `sync_sky` is simply the table.
                     ambient: Vec4::new(1.0, 1.0, 1.0, 0.0),
+                    // Still air, for the same reason: the cloth's own colour
+                    // is what a multiplier of one means, so a table cut
+                    // before anything has read the battlefield is simply the
+                    // table.
+                    weather: Vec4::ONE,
                     span,
                     corner: tabletop::table_corner(span),
                     rail: tabletop::RAIL_WIDTH,
@@ -2381,6 +2399,26 @@ fn slab_mesh(span: Vec2) -> Mesh {
         tabletop::table_corner(span),
         0.0,
         -TABLE_THICKNESS,
+        SLAB_SEGMENTS,
+    )
+}
+
+/// The slab's outline with no body under it: the racetrack as a single flat
+/// face.
+///
+/// The same cut as [`slab_mesh`], which is the point — the weather has to
+/// stop exactly where the table does, or a leaf falls through the sky in the
+/// corners the racetrack gives away. Passing the same height for the top and
+/// the bottom leaves the wall's quads with no area at all, so they rasterise
+/// to nothing and there is no second surface to z-fight with the felt's own
+/// apron.
+pub(crate) fn flat_table_mesh(span: Vec2) -> Mesh {
+    rounded_slab_mesh(
+        span.x,
+        span.y,
+        tabletop::table_corner(span),
+        0.0,
+        0.0,
         SLAB_SEGMENTS,
     )
 }

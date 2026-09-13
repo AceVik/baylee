@@ -38,6 +38,7 @@
 pub mod abilities;
 pub mod ambience;
 pub mod arrowmat;
+pub mod atmosphere;
 pub mod buildui;
 pub mod cardart;
 pub mod cardmat;
@@ -738,7 +739,16 @@ fn add_present_systems(app: &mut App) {
             // After the sky has eased its phase, so the table is lit by the
             // light that is actually behind it this frame and not by last
             // frame's.
-            sky::light_the_table.after(sky::sync_sky),
+            // One entry and not two, because the tuple is at its twenty. The
+            // second is here rather than anywhere else because it writes the
+            // *same asset* as the first — the felt's own material, one field
+            // for the sky's light and one for the weather's tint — and it
+            // comes after the table is cut, because the air is cut to the
+            // same racetrack and reads the slab to learn it.
+            (
+                sky::light_the_table.after(sky::sync_sky),
+                atmosphere::breathe.after(table::sync_table),
+            ),
             // One entry and not three: a system tuple holds twenty and this
             // list is at its limit. Chained rather than merely ordered
             // because that is what the first pair is — a card that left this
@@ -860,6 +870,7 @@ impl Plugin for DuelPlugin {
             .add_plugins(matmat::MatMaterialPlugin)
             .add_plugins(arrowmat::ArrowMaterialPlugin)
             .add_plugins(sky::SkyPlugin)
+            .add_plugins(atmosphere::AtmospherePlugin)
             // Without this nothing on the 3D table can be pointed at, ever.
             //
             // Bevy's UI picking backend is on by default and its *mesh* one is
