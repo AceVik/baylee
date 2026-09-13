@@ -3136,6 +3136,44 @@ therefore *not* part of what `HudRevision` compares — but `texts` is, counting
 how many printings have text, so a name that turns German when the catalog
 answers mid-game redraws with the sentence it belongs to.
 
+### And the type line under it, which stayed English
+
+The name was one of two things a translated client got wrong on the same card.
+The **type line** was the other: "Nistende Falkentaube / Creature — Bird", in a
+client whose catalog had been serving `Kreatur — Vogel` the whole time —
+`baylee-catalog` sends `printed_type_line` where a printing has one, so the
+right words were sitting in `CardText::type_line` and were thrown away.
+
+They were thrown away by a guard that is right and was asked in the wrong
+language. The printed line may only be drawn while nothing has **changed** the
+object's types — an animated land *is* a creature and its own card would
+contradict the board — and `build` asked that by comparing the printed line
+against a line it built out of the projection. That comparison is only
+meaningful when both are English. In German the word sets can never be equal,
+so every card fell back, every time; in English it worked, which is exactly why
+nothing noticed.
+
+The question is not "do the two lines read alike" but "did anything change the
+types", and that is a comparison of **bitsets**: `card_face::PrintedTypes` —
+supertypes, types and subtypes as the compiled registry has them — against the
+projected `Characteristics`. Exact, language-free, and no protocol change. The
+renderer supplies it, because `baylee-cards` is not a dependency of
+`baylee-client-core`: `face::printed_types` reads the `FaceDef` that
+`of_object` and `of_hand` already look up for the mana cost.
+
+`None` is the honest answer for anything the registry cannot be asked about,
+and it keeps the projected line: a token has no printed type line to be right
+or wrong about, and an ability on the stack borrows its source's *text* but not
+its types. Changeling lands on the same side for a better reason — CR 702.73
+sets every creature type, so the projected subtypes genuinely differ from the
+printed ones and the card's own `— Shapeshifter` would be a lie; the fallback
+collapses to `All creature types` as it always has.
+
+The bug had a test named after it. `a_localized_type_line_survives_when_
+nothing_changed_the_types` asserted the **name** and never the line, so it was
+green throughout — a reminder that a test's title is not one of its
+assertions.
+
 ## Embedding (the open-world plan)
 
 `DuelPlugin` creates no window and no schedule of its own. An application adds

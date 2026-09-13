@@ -253,26 +253,63 @@ pub fn shown_name<'a>(name: &'a str, text: Option<&'a CardText>) -> &'a str {
     }
 }
 
+/// What a card's cardboard says it is, out of the compiled registry.
+///
+/// [`Characteristics`] are what an object **is** right now, after every
+/// continuous effect; this is what was **printed** on it. The pair answers
+/// the one question the printed type line has to pass before it may be drawn:
+/// did anything change this object's types? An animated land, a clone, a
+/// changeling and a face-down creature all differ here, and none of them may
+/// be described by the line on their own card.
+///
+/// Three bitsets and not a string, because the string form of that comparison
+/// is only ever right in one language — see [`CardFace::build`].
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct PrintedTypes {
+    /// Supertypes as printed (CR 205.4).
+    pub supertypes: SupertypeSet,
+    /// Card types as printed (CR 205.2).
+    pub types: TypeSet,
+    /// Subtypes as printed (CR 205.3).
+    pub subtypes: SubtypeSet,
+}
+
+impl PrintedTypes {
+    /// Whether the object still has exactly the types it was printed with.
+    fn still_hold(self, object: &Characteristics) -> bool {
+        self.supertypes == object.supertypes
+            && self.types == object.types
+            && self.subtypes == object.subtypes
+    }
+}
+
 impl CardFace {
     /// Builds the face for an object on the board.
     #[must_use]
     pub fn from_object(
         object: &PublicObject,
         printed_cost: Option<&ManaCost>,
+        printed_types: Option<PrintedTypes>,
         text: Option<&CardText>,
     ) -> Self {
-        Self::build(&Characteristics::projected(object), printed_cost, text)
+        Self::build(
+            &Characteristics::projected(object),
+            printed_cost,
+            printed_types,
+            text,
+        )
     }
 
     /// Builds the face from characteristics.
     ///
-    /// `printed_cost` comes from the compiled card registry and `text` from the
-    /// gateway catalog; both are optional, and the face degrades one field at a
-    /// time rather than refusing to render.
+    /// `printed_cost` and `printed_types` come from the compiled card registry
+    /// and `text` from the gateway catalog; all three are optional, and the
+    /// face degrades one field at a time rather than refusing to render.
     #[must_use]
     pub fn build(
         object: &Characteristics,
         printed_cost: Option<&ManaCost>,
+        printed_types: Option<PrintedTypes>,
         text: Option<&CardText>,
     ) -> Self {
         // Is the object still the card the text describes? A clone, a
@@ -293,12 +330,24 @@ impl CardFace {
 
         // The printed type line is only usable when nothing changed the
         // object's types; otherwise it would contradict the board.
-        let projected = projected_type_line(object);
-        let type_line = match text {
-            Some(t) if !t.type_line.is_empty() && same_type_line(&t.type_line, &projected) => {
+        //
+        // Asked of the **types** and not of the two lines. Comparing the
+        // strings was right in English and wrong everywhere else: the printed
+        // line arrives translated (the catalog serves `printed_type_line`
+        // where it has one) and the projected line is built out of the
+        // engine's own English type words, so the two word sets can never be
+        // equal in a German client and every card fell back — a Nistende
+        // Falkentaube read `Creature — Bird` under its own name. The bitsets
+        // say the same thing exactly, in no language at all.
+        //
+        // A card the registry cannot be asked about keeps the fallback: a
+        // token has no printed line to be right or wrong about, and an
+        // ability on the stack borrows its source's text but not its types.
+        let type_line = match (text, printed_types) {
+            (Some(t), Some(printed)) if !t.type_line.is_empty() && printed.still_hold(object) => {
                 t.type_line.clone()
             }
-            _ => projected,
+            _ => projected_type_line(object),
         };
 
         Self {
@@ -325,24 +374,6 @@ fn stats(object: &Characteristics) -> Option<Stats> {
         });
     }
     object.loyalty.map(Stats::Loyalty)
-}
-
-/// Whether a printed type line describes the same types as the projected one.
-///
-/// Compared on words rather than bytes: the em dash, spacing and the exact
-/// subtype order differ harmlessly between Scryfall's string and the one built
-/// here, and none of those differences mean the object changed.
-fn same_type_line(printed: &str, projected: &str) -> bool {
-    let words = |s: &str| {
-        let mut w: Vec<String> = s
-            .split(|c: char| c.is_whitespace() || c == '—' || c == '-')
-            .filter(|p| !p.is_empty())
-            .map(str::to_lowercase)
-            .collect();
-        w.sort();
-        w
-    };
-    words(printed) == words(projected)
 }
 
 /// Builds a type line out of an object's projected characteristics.
@@ -510,6 +541,16 @@ mod tests {
         }
     }
 
+    /// The registry's answer for a fixture nothing has changed: the types it
+    /// is standing there with are the types it was printed with.
+    fn as_printed(obj: &PublicObject) -> PrintedTypes {
+        PrintedTypes {
+            supertypes: obj.supertypes,
+            types: obj.types,
+            subtypes: obj.subtypes,
+        }
+    }
+
     /// The fixture names a real card, so it has to name it as the printing
     /// does: Ondu Cleric is a **Kor** Cleric Ally, and said Human here for as
     /// long as the card's own file did. Nothing failed — the fixture supplies
@@ -525,7 +566,12 @@ mod tests {
             subtypes::creature::ALLY,
         ]);
         let t = text("Ondu Cleric", "Creature — Kor Cleric Ally", "Whenever...");
-        let face = CardFace::from_object(&obj, Some(&baylee_core::mana!("{1}{W}")), Some(&t));
+        let face = CardFace::from_object(
+            &obj,
+            Some(&baylee_core::mana!("{1}{W}")),
+            Some(as_printed(&obj)),
+            Some(&t),
+        );
 
         assert_eq!(face.name, "Ondu Cleric");
         assert_eq!(face.type_line, "Creature — Kor Cleric Ally");
@@ -550,11 +596,46 @@ mod tests {
         obj.types = TypeSet::LAND.union(TypeSet::CREATURE);
         obj.subtypes =
             SubtypeSet::from_slice(&[subtypes::land::FOREST, subtypes::creature::ELEMENTAL]);
-        // The catalog still describes the printed land.
+        // The catalog still describes the printed land, and so does the
+        // registry: `Basic Land — Forest` is what the cardboard says, and the
+        // types no longer match it.
         let t = text("Forest", "Basic Land — Forest", "({T}: Add {G}.)");
-        let face = CardFace::from_object(&obj, None, Some(&t));
+        let printed = PrintedTypes {
+            supertypes: SupertypeSet::BASIC,
+            types: TypeSet::LAND,
+            subtypes: SubtypeSet::from_slice(&[subtypes::land::FOREST]),
+        };
+        let face = CardFace::from_object(&obj, None, Some(printed), Some(&t));
 
         assert_eq!(face.type_line, "Land Creature — Forest Elemental");
+    }
+
+    /// The same refusal in a language where it is the only thing standing
+    /// between a player and a lie.
+    ///
+    /// The guard used to compare the two *strings*, which meant a German
+    /// client refused every printed line and this animated Wald read like an
+    /// animated Wald by accident. Now the German line is taken whenever the
+    /// types still hold, so the refusal here has to come from the types.
+    #[test]
+    fn a_localized_line_is_refused_when_something_changed_the_types() {
+        let mut obj = token(11, 0, "Wald", 4, 4);
+        obj.types = TypeSet::LAND.union(TypeSet::CREATURE);
+        obj.supertypes = SupertypeSet::BASIC;
+        obj.subtypes =
+            SubtypeSet::from_slice(&[subtypes::land::FOREST, subtypes::creature::ELEMENTAL]);
+        let mut t = text("Wald", "Basisland — Wald", "({T}: Erzeuge {G}.)");
+        t.lang = "de".to_string();
+        t.english_name = "Forest".to_string();
+        let printed = PrintedTypes {
+            supertypes: SupertypeSet::BASIC,
+            types: TypeSet::LAND,
+            subtypes: SubtypeSet::from_slice(&[subtypes::land::FOREST]),
+        };
+        let face = CardFace::from_object(&obj, None, Some(printed), Some(&t));
+
+        assert_eq!(face.name, "Wald", "the name is the card@ own either way");
+        assert_eq!(face.type_line, "Basic Land Creature — Forest Elemental");
     }
 
     /// Subtypes group behind their own type, in the type's printed order —
@@ -564,7 +645,7 @@ mod tests {
         let mut obj = token(3, 0, "Dryad Arbor", 1, 1);
         obj.types = TypeSet::LAND.union(TypeSet::CREATURE);
         obj.subtypes = SubtypeSet::from_slice(&[subtypes::creature::DRYAD, subtypes::land::FOREST]);
-        let face = CardFace::from_object(&obj, None, None);
+        let face = CardFace::from_object(&obj, None, None, None);
         assert_eq!(face.type_line, "Land Creature — Forest Dryad");
     }
 
@@ -574,7 +655,7 @@ mod tests {
     fn changeling_collapses_instead_of_printing_three_hundred_types() {
         let mut obj = token(4, 0, "Woodland Changeling", 2, 2);
         obj.subtypes = SubtypeSet::ALL_CREATURE;
-        let face = CardFace::from_object(&obj, None, None);
+        let face = CardFace::from_object(&obj, None, None, None);
         assert_eq!(face.type_line, "Creature — All creature types");
     }
 
@@ -588,7 +669,7 @@ mod tests {
             "Creature — Shapeshifter",
             "You may have Clone enter...",
         );
-        let face = CardFace::from_object(&obj, None, Some(&t));
+        let face = CardFace::from_object(&obj, None, Some(as_printed(&obj)), Some(&t));
 
         assert_eq!(face.name, "Serra Angel");
         assert!(face.body.is_empty());
@@ -603,7 +684,7 @@ mod tests {
             "Creature — Bird",
             "Flying (This creature can't be blocked except by creatures with flying or reach.)\nVigilance",
         );
-        let face = CardFace::from_object(&obj, None, Some(&t));
+        let face = CardFace::from_object(&obj, None, Some(as_printed(&obj)), Some(&t));
 
         assert_eq!(
             face.body,
@@ -624,7 +705,7 @@ mod tests {
     fn an_unclosed_parenthesis_keeps_its_text() {
         let obj = token(7, 0, "Broken", 1, 1);
         let t = text("Broken", "Creature — Ox", "Trample (this never closes");
-        let face = CardFace::from_object(&obj, None, Some(&t));
+        let face = CardFace::from_object(&obj, None, Some(as_printed(&obj)), Some(&t));
         assert_eq!(face.body.len(), 2);
         assert_eq!(face.body[0], TextBlock::Rules("Trample".to_string()));
         assert_eq!(face.body[1].text(), "this never closes");
@@ -636,7 +717,7 @@ mod tests {
     fn a_face_without_catalog_text_still_carries_everything_the_view_knows() {
         let mut obj = token(8, 0, "Grizzly Bears", 2, 2);
         obj.subtypes = SubtypeSet::from_slice(&[subtypes::creature::BEAR]);
-        let face = CardFace::from_object(&obj, Some(&baylee_core::mana!("{1}{G}")), None);
+        let face = CardFace::from_object(&obj, Some(&baylee_core::mana!("{1}{G}")), None, None);
 
         assert_eq!(face.name, "Grizzly Bears");
         assert_eq!(face.type_line, "Creature — Bear");
@@ -653,7 +734,7 @@ mod tests {
         obj.toughness = None;
         obj.loyalty = Some(4);
         obj.subtypes = SubtypeSet::from_slice(&[subtypes::planeswalker::TEFERI]);
-        let face = CardFace::from_object(&obj, None, None);
+        let face = CardFace::from_object(&obj, None, None, None);
 
         assert_eq!(face.type_line, "Planeswalker — Teferi");
         assert_eq!(face.stats, Some(Stats::Loyalty(4)));
@@ -715,8 +796,15 @@ mod tests {
         t.english_name = "Forest".to_string();
         // The object shows the localized name, which is how the client knows
         // it is still that card.
-        let face = CardFace::from_object(&obj, None, Some(&t));
+        let face = CardFace::from_object(&obj, None, Some(as_printed(&obj)), Some(&t));
         assert_eq!(face.name, "Wald");
+        // What the test was named for and never asked. It could not have
+        // asked it: the guard compared the German line against an English one
+        // built from the engine's own type words, so this read
+        // `Basic Land — Forest` under a card called Wald — which is the whole
+        // of V7, and it was sitting inside a test whose title claims the
+        // opposite.
+        assert_eq!(face.type_line, "Basisland — Wald");
     }
 
     /// Jace is the card the whole feature was asked for: four loyalty

@@ -113,13 +113,28 @@ pub fn of_object(
 ) -> CardFace {
     let printed = object
         .card
-        .and_then(|c| baylee_cards::by_index(c.index).map(|def| (def, c)));
-    let cost = printed.and_then(|(def, c)| def.faces.get(c.face as usize).map(|f| &f.mana_cost));
+        .and_then(|c| baylee_cards::by_index(c.index).map(|def| (def, c)))
+        .and_then(|(def, c)| def.faces.get(c.face as usize));
+    let cost = printed.map(|f| &f.mana_cost);
     let text = view
         .and_then(|view| printing_of(object, view))
         .or_else(|| object.card.map(|c| (c.print, c.face)))
         .and_then(|(print, face)| texts.get(print, face));
-    CardFace::from_object(object, cost, text.as_ref())
+    CardFace::from_object(object, cost, printed.map(printed_types), text.as_ref())
+}
+
+/// The three type bitsets a registry face was printed with.
+///
+/// `FaceDef` keeps its subtypes as a slice of ids because that is what a card
+/// file writes; the comparison wants the set, and building it here is the one
+/// place the renderer has both `baylee-cards` and the client's model in view.
+fn printed_types(face: &baylee_cards::dsl::FaceDef) -> baylee_client_core::card_face::PrintedTypes {
+    use baylee_core::types::SubtypeSet;
+    baylee_client_core::card_face::PrintedTypes {
+        supertypes: face.supertypes,
+        types: face.types,
+        subtypes: SubtypeSet::from_slice(face.subtypes),
+    }
 }
 
 /// The name to write for an object, in the player's own language.
@@ -186,7 +201,12 @@ pub fn of_hand(card: &baylee_view::HandObject, texts: &crate::cardtext::CardText
         damage: 0,
     };
     let text = texts.get(card.card.print, card.card.face);
-    CardFace::build(&chars, face_def.map(|f| &f.mana_cost), text.as_ref())
+    CardFace::build(
+        &chars,
+        face_def.map(|f| &f.mana_cost),
+        face_def.map(printed_types),
+        text.as_ref(),
+    )
 }
 
 // ------------------------------------------------------------------ palette
