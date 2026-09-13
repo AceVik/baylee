@@ -486,6 +486,33 @@ impl Browser {
         self.is_open() && self.locked.is_some()
     }
 
+    /// Whether this sheet is where the pending question gets answered.
+    ///
+    /// Two surfaces can draw a Confirm for one question — the dialog's own
+    /// footer and the prompt slip's answer row — and for a `ChooseCards` they
+    /// both did, so the player was shown the same button twice, in two
+    /// places, and had to work out whether the two meant the same thing. They
+    /// do. The dialog's is the one to keep: §6 of the table design says a
+    /// dialog is a place you *work*, and the footer stands under the rows the
+    /// answer is made of. This is the single predicate both surfaces read —
+    /// the sheet draws its tally and its footer exactly when it is true, and
+    /// the slip draws no answers exactly then.
+    ///
+    /// It is [`Self::for_choice`] and **not** [`Self::dims_the_table`]: a
+    /// choice whose answers span this sheet and the player's hand is still
+    /// sent from here, there being nowhere else to send it from, even though
+    /// the table behind it stays lit.
+    ///
+    /// And it is narrower than the interaction's own [`Interaction::bounds`],
+    /// which is what the footer read before: a graveyard opened **by hand**
+    /// while the engine is asking about the battlefield is not that question's
+    /// dialog, and it grew a tally and a Confirm for a question none of its
+    /// rows could answer.
+    #[must_use]
+    pub fn answers_here(&self, interaction: Option<&Interaction>) -> bool {
+        self.for_choice() && interaction.is_some_and(|it| it.is_mine() && it.bounds().is_some())
+    }
+
     /// Where the sheet stands this time.
     ///
     /// A sheet the player opened is where they last dragged it, because that
@@ -1175,6 +1202,83 @@ mod tests {
         let mut by_hand = Browser::new();
         by_hand.open_at(BrowseZone::Graveyard(me()));
         assert!(!by_hand.dims_the_table(), "the game goes on underneath");
+    }
+
+    /// One question, one Confirm. The dialog's footer is where the answer is
+    /// sent from, and the prompt slip reads this same predicate to keep out of
+    /// its way.
+    #[test]
+    fn only_the_sheet_the_question_opened_draws_its_footer() {
+        let shown: Vec<_> = (10..13).map(|s| printed(s, 0, "Forest", 1)).collect();
+        let view = ViewBuilder::new(2)
+            .with_looking_at(shown)
+            .with_hand(vec![("Ornithopter", 0, 30)])
+            .with_battlefield(0, [printed(40, 0, "Grizzly Bears", 2)])
+            .with_graveyard(0, vec![printed(50, 0, "Lightning Bolt", 3)])
+            .build();
+
+        let search = Interaction::new(
+            Pending::ChooseCards {
+                player: me(),
+                options: (10..13).map(obj).collect(),
+                min: 1,
+                max: 1,
+                prompt: ChoicePrompt::SearchLibrary,
+            },
+            me(),
+        );
+        let mut b = Browser::new();
+        assert!(
+            !b.answers_here(Some(&search)),
+            "a shut sheet answers nothing"
+        );
+        b.follow(&view, Some(&search));
+        assert!(b.answers_here(Some(&search)), "this is the question's home");
+        assert!(
+            !b.answers_here(None),
+            "and a sheet with no question left in it draws no footer either"
+        );
+
+        // A choice that spans the sheet and the hand: the table stays lit, and
+        // the send still happens here, because there is nowhere else for it.
+        let spanning = Interaction::new(
+            Pending::ChooseCards {
+                player: me(),
+                options: [obj(10), obj(30)].into(),
+                min: 1,
+                max: 1,
+                prompt: ChoicePrompt::Generic,
+            },
+            me(),
+        );
+        b.follow(&view, Some(&spanning));
+        assert!(!b.dims_the_table(), "the hand is an answer");
+        assert!(
+            b.answers_here(Some(&spanning)),
+            "and this is still the send"
+        );
+
+        // The case the footer used to get wrong: a question about the
+        // battlefield, and a graveyard the player opened to read while they
+        // think about it. Nothing in that pile is an answer.
+        let on_the_table = Interaction::new(
+            Pending::ChooseCards {
+                player: me(),
+                options: [obj(40)].into(),
+                min: 1,
+                max: 1,
+                prompt: ChoicePrompt::Generic,
+            },
+            me(),
+        );
+        let mut by_hand = Browser::new();
+        by_hand.open_at(BrowseZone::Graveyard(me()));
+        by_hand.follow(&view, Some(&on_the_table));
+        assert!(by_hand.is_open(), "the pile the player opened stays open");
+        assert!(
+            !by_hand.answers_here(Some(&on_the_table)),
+            "the table is where that question is answered"
+        );
     }
 
     /// The sheet is put where it fits, and shrunk before it is moved.

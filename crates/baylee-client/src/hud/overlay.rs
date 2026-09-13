@@ -373,6 +373,13 @@ pub fn sync_overlay(
     // answered from are now the same place to look.
     if prompt.is_some() || error.is_some() || link_note.is_some() {
         let waiting = !duel.is_my_turn_to_act();
+        // Whether the zone browser's dialog is holding this question. The slip
+        // then says what the question is and nothing about how to answer it:
+        // no Confirm, because the dialog's footer already draws one under the
+        // rows the answer is made of, and no "click a card on the board",
+        // because the board is behind a veil with nothing on it to click.
+        // `Browser::answers_here` is the single predicate, read on both sides.
+        let elsewhere = duel.browser.answers_here(duel.interaction.as_ref());
         // The centring row spans the whole window and is ignored by the
         // pointer, so it takes nothing away from the board it lies over; only
         // the slip inside it is a surface.
@@ -447,10 +454,16 @@ pub fn sync_overlay(
         // nothing is submittable until something is picked, and no hint,
         // because none existed. A player who did not already know to click
         // their hand had no way to find out.
+        //
+        // Not when the zone browser's dialog is holding the question, though:
+        // the hint for a `ChooseCards` is "click a card on the board", and the
+        // board is behind a veil with nothing on it to click. A dialog says
+        // what to do by being one — checkboxes, and a tally counting up to the
+        // number the engine asked for.
         if let Some(hint) = duel
             .interaction
             .as_ref()
-            .filter(|i| !waiting && i.selected().next().is_none())
+            .filter(|i| !waiting && !elsewhere && i.selected().next().is_none())
             .and_then(|i| pick_hint(&i.prompt()))
         {
             let line = slip_line(
@@ -562,6 +575,10 @@ pub fn sync_overlay(
             (PromptAction::Confirm, Phrase::PassPriority.text(lang)),
             (PromptAction::SkipTurn, Phrase::SkipTheTurn.text(lang)),
         ];
+        // `elsewhere` is what keeps the Confirm out of here: a player ticking
+        // a fetchland's target saw "Bestätigen" twice on one screen, once in
+        // the dialog's footer and once on the slip, and had to work out
+        // whether the two meant the same thing.
         let answers: &[(PromptAction, &str)] = if waiting {
             &[]
         } else {
@@ -579,10 +596,11 @@ pub fn sync_overlay(
                 Some(baylee_engine::choice::Pending::ChooseAttackers { .. }) => &combat_answers,
                 Some(baylee_engine::choice::Pending::ChooseBlockers { .. }) => &block_answers,
                 Some(_)
-                    if duel
-                        .interaction
-                        .as_ref()
-                        .is_some_and(baylee_client_core::Interaction::can_confirm) =>
+                    if !elsewhere
+                        && duel
+                            .interaction
+                            .as_ref()
+                            .is_some_and(baylee_client_core::Interaction::can_confirm) =>
                 {
                     &ok_answer
                 }

@@ -2363,6 +2363,30 @@ it is answered and the veil goes with it; the number still eases back down
 with nothing to draw, which is what makes the next question fade in from
 nothing rather than snap from wherever the last one stopped.
 
+**One question gets one Confirm, and the dialog's footer is the one that
+stays.** `Browser::answers_here` is the single predicate both surfaces read:
+the sheet draws its tally and its footer exactly when it is true, and the
+prompt slip draws no answer row and no pick hint exactly then. Without it a
+player ticking a fetchland's target was shown "Bestätigen" twice on one
+screen — once under the rows the answer is made of, once out on the slip —
+and had to work out whether the two meant the same thing. They do; §6 of *A
+Table You Want To Sit At* says a dialog is a place you **work**, so the
+button belongs under the work. The slip's pick hint goes with it for the
+same reason from the other side: for a `ChooseCards` it reads "click a card
+on the board", and the board is behind a veil with nothing on it to click.
+
+The predicate is `for_choice()` and **not** `dims_the_table()` — a choice
+spanning this sheet and the hand is still sent from here, there being nowhere
+else to send it from, even while the table behind it stays lit. And it is
+narrower than the interaction's own `bounds()`, which is what the footer read
+before: a graveyard opened *by hand* while the engine asks about the
+battlefield is not that question's dialog, and grew a tally and a Confirm for
+a question none of its rows could answer. Nothing else on the sheet narrows
+with it — a row is drawn as selected because it *is*, whoever draws the send.
+The keyboard is unaffected either way: `Action::Confirm` reaches
+`Interaction::confirm` in `input::answer_the_question` and has never been
+gated on a drawn button.
+
 `hud::Z_STACK` through `hud::Z_PREVIEW` are the six numbers that order is
 written in, in one place, for the reason the seat bars gave: a `ZIndex`
 orders a node only among its own parent's children, so these mean something

@@ -341,6 +341,18 @@ pub(super) fn spawn_tray(
     place: Placement,
 ) -> Entity {
     let rows = browser.rows(view, interaction);
+    // The question *this* sheet answers, which is not every question there
+    // might be: a graveyard opened by hand while the engine asks about the
+    // battlefield holds none of the answer, and grew a tally and a Confirm for
+    // it anyway. `Browser::answers_here` carries the whole argument, including
+    // why the prompt slip reads the same predicate and draws no second
+    // Confirm behind this one. Everything else on the sheet — the rows, the
+    // place numbers — still takes the interaction whole: a row is drawn as
+    // selected because it *is*, whatever surface the send belongs to.
+    let answering = browser
+        .answers_here(interaction)
+        .then_some(interaction)
+        .flatten();
     // The band: the whole window between its top edge and the hand bar,
     // painting nothing and answering no click. It is the coordinate space the
     // sheet is placed in, which is what makes a remembered position mean the
@@ -599,8 +611,8 @@ pub(super) fn spawn_tray(
     // The tally. The engine names a minimum and a maximum, so the dialog can
     // say how far along the answer is — and a panel with no question in it (a
     // graveyard opened by hand) says nothing rather than "0 of 0".
-    if let Some((min, max)) = interaction.and_then(baylee_client_core::Interaction::bounds) {
-        let chosen = interaction.map_or(0, baylee_client_core::Interaction::declared);
+    if let Some((min, max)) = answering.and_then(baylee_client_core::Interaction::bounds) {
+        let chosen = answering.map_or(0, baylee_client_core::Interaction::declared);
         let words = if min == max {
             Phrase::BrowseTallyExact.fill(lang, &[&chosen.to_string(), &max.to_string()])
         } else {
@@ -676,7 +688,7 @@ pub(super) fn spawn_tray(
     }
 
     // ---- the footer ----
-    let foot = spawn_footer(commands, fonts, lang, interaction);
+    let foot = spawn_footer(commands, fonts, lang, answering);
 
     // The corner, in the same shape and the same place the card preview's is:
     // one handle, bottom right, both axes. A second handle on every edge is
