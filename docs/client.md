@@ -900,15 +900,49 @@ separation is the whole grammar:
 - **The border says what the card is.** Indestructible is the *base*:
   darksteel, a hard blue-grey with a specular line, the card made of something
   rather than lit by something. Hexproof and shroud are *films* over that base
-  — a steady green sheath, or the same idea taken further, colder and hazier,
-  since not even its controller may target it. Base × film composes, so an
-  indestructible hexproof creature is steel under green and neither claim is
+  — a green fog holding things off, or the same idea taken further, colder and
+  denser, since not even its controller may target it. Base × film composes, so
+  an indestructible hexproof creature is steel under green and neither claim is
   lost. Two films would not compose, and never have to: `glow_bits` drops
   hexproof whenever shroud is present, because shroud already forbids every
   target hexproof forbids (CR 702.18a against 702.11b) and the green film
   would be advertising a permission the card does not grant. That
   normalisation lives in Rust rather than in WGSL so that it is unit-tested
   once and both shaders inherit it.
+- **Depth is a register of its own: a fact about the card may reach in, an
+  offer or a deed stays on the rim.** The films used to sit in the same
+  `BORDER` band as everything else, and the owner read the result as what it
+  was: a border. A permanent on the felt is about 94 physical pixels wide, so
+  that band is five of them — a five-pixel green line that blinks on and off,
+  which is not what hexproof is. It is something *held around* the card. So
+  the films now fall off as `exp(-d · WARD_REACH)` rather than stepping to a
+  width: any `smoothstep` to a width still has a hem, and the hem is the part
+  that reads as a stroke. The fog is at full density at the edge, still better
+  than half of it where the old band ended, a fifth at the art's own edge, and
+  nothing worth drawing a third of the way in. The steel keeps the thin band,
+  because metal has an edge — and so do the travelling invitation, the armed
+  ring and the indigo price, which are all things a player could *do* rather
+  than things the card *is*.
+
+  Hexproof and shroud are told apart on four axes and hue was never one of
+  them on its own. Hexproof is two coarse noise octaves whose time term
+  advances along `d`; `d` is zero at every edge and grows inward, so the plus
+  sign carries the wisps *outward*, which is the direction the claim is about,
+  and the minus sign would draw a card soaking it up. Shroud keeps its fine
+  grain drifting across the whole card as a sheet. Coarse roll out of the edge
+  against fine sheet drift, 6 cells against 14, green against cold blue,
+  0.55 against 0.65. Nothing about it is a lamp: there is no light in this
+  scene and there cannot be one, so the fog is arithmetic on the card's own
+  colour. The obvious alternative — a bigger quad behind the card with the
+  silhouette punched out — was refused for three reasons, and the decisive one
+  is that the felt is green (`FELT_CLOTH` is `(0.071, 0.223, 0.150)`), so a
+  halo outside the card would land on the one surface hexproof's hue has no
+  contrast against. It also buys no width at this card size and could only
+  ever be built for the table, leaving a card in the hand looking like a
+  different card. Measured live with a board of eight warded lands: 76/50/30
+  peak per channel over 1.6 s inside a warded card, **0/0/0** on an
+  opponent's plain land in the same pair of frames, and the green excess over
+  the red channel falling from about +30 at the edge to +1 in the middle.
 - **The face says what the card can do.** A creature with summoning sickness
   (`glow::SUMMONING_SICK`) is drawn asleep, over the art and never on the
   border. It is not a keyword — it is a fact about *this turn* — and putting

@@ -72,6 +72,25 @@ const GLOW_COPY: u32 = 2097152u;
 /// How far in from the edge the border treatment reaches, in UV.
 const BORDER: f32 = 0.055;
 
+/// How steeply a keyword *film* falls off inward, per unit of UV.
+///
+/// Not a width: `exp(-d * WARD_REACH)`. See the border block for what the
+/// numbers come out as, and for why a falloff rather than a width.
+const WARD_REACH: f32 = 11.0;
+/// The densest the hexproof fog ever gets, right at the card's edge.
+///
+/// A cap on coverage, so the printed frame is at most this green and the art
+/// proper — which begins around `d = 0.09` — is under a fifth. Colour
+/// identity is read off the frame and the art, and the old flat band was
+/// covering the frame harder than this does.
+const WARD_HEX: f32 = 0.55;
+/// The same for shroud, which is strictly the stronger of the two and has to
+/// look it: a thin shroud beside a deep hexproof fog would say the opposite
+/// of what the rules do.
+const WARD_SHROUD: f32 = 0.65;
+/// The thinnest a wisp of hexproof fog is allowed to get.
+const WARD_THIN: f32 = 0.35;
+
 /// What the travelling activatable light averages to over its own circuit.
 ///
 /// Shared with the UI twin by being written out twice — it is one line, and
@@ -406,60 +425,93 @@ fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
 
     // ---- the border, when the rules have made the card something
     //
-    // Drawn inside the card's own printed border rather than outside the
-    // quad: the mesh is exactly the card, and a glow that needed room around
-    // it would need every layout in the client to leave room for it.
+    // Drawn inside the card's own quad rather than outside it: the mesh is
+    // exactly the card, and a halo that needed room around it would need
+    // every layout in the client to leave room for it. That is a constraint
+    // on *where* the mark is and never was one on how deep it reaches, which
+    // is what the sheath had got wrong. A card on the felt is about 94
+    // physical pixels wide, so `BORDER` is five of them: a five-pixel green
+    // line that blinks is a border, and hexproof is not a border. It is
+    // something being held around the card.
     //
-    // The band is a *material*, composed as base × film rather than as an
-    // average. Indestructible is what the card is made of; hexproof and
-    // shroud are what lies over it. Averaging them turned an indestructible
-    // hexproof creature into a third colour that said neither thing — this
-    // way it is a green sheath on metal, and both are still legible.
+    // So depth is a register of its own, and the sentence is worth keeping:
+    // **a fact about the card may reach in; an offer or a deed stays on the
+    // rim.** Indestructible is a metal the card is made of and metal has an
+    // edge, so it keeps the thin band, alongside the travelling invitation,
+    // the armed ring and the price. Hexproof and shroud are what lies *over*
+    // the card, and they roll inward as fog.
+    //
+    // The composition is still base × film rather than an average, for the
+    // reason it always was: averaging turned an indestructible hexproof
+    // creature into a third colour that said neither thing, and this way it
+    // is a green fog over a steel rim with both still legible.
     if params.glow != 0u {
         let d = edge_distance(uv);
         let band = 1.0 - smoothstep(0.0, BORDER, d);
-        if band > 0.0 {
-            var base = vec3<f32>(0.0);
-            var has_base = 0.0;
-            var film = vec3<f32>(0.0);
-            var film_amount = 0.0;
 
-            // Indestructible is darksteel: a hard, dark blue-grey metal with
-            // a bright specular line, not a coloured light. It is the card
-            // *itself* that is made of something.
-            if (params.glow & GLOW_INDESTRUCTIBLE) != 0u {
-                let brush = noise(vec2<f32>(uv.x * 120.0, uv.y * 8.0));
-                let spec = pow(smoothstep(0.35, 1.0, brush), 3.0);
-                let steel = vec3<f32>(0.36, 0.42, 0.50) + vec3<f32>(0.55) * spec;
-                // Slow, so it reads as metal catching the light rather than
-                // as something switched on.
-                let turn = 0.72 + 0.28 * sin(t * 0.8 + uv.y * 3.0);
-                base = steel * turn;
-                has_base = 1.0;
-            }
-            // Hexproof: a protective sheath, green and steady.
-            if (params.glow & GLOW_HEXPROOF) != 0u {
-                let pulse = 0.70 + 0.30 * sin(t * 1.6);
-                film = vec3<f32>(0.28, 0.86, 0.48) * pulse;
-                film_amount = 0.78;
-            }
-            // Shroud: the same idea taken further — nothing may target it,
-            // including its controller — so it is colder and hazier. It
-            // *replaces* the hexproof film rather than mixing with it, which
-            // is also what the rules do to a card carrying both. `glow_bits`
-            // already drops hexproof in that case; this ordering is the
-            // second lock.
-            if (params.glow & GLOW_SHROUD) != 0u {
-                let haze = noise(uv * 14.0 + vec2<f32>(t * 0.30, -t * 0.22));
-                film = vec3<f32>(0.55, 0.62, 0.92) * (0.55 + 0.45 * haze);
-                film_amount = 0.88;
-            }
-            let painted = max(has_base, film_amount);
-            if painted > 0.0 {
-                var mark = mix(color.rgb, base, has_base);
-                mark = mix(mark, film, film_amount);
-                color = vec4<f32>(mix(color.rgb, mark, band * 0.85), color.a);
-            }
+        // Indestructible is darksteel: a hard, dark blue-grey metal with a
+        // bright specular line, not a coloured light. It is the card
+        // *itself* that is made of something.
+        if band > 0.0 && (params.glow & GLOW_INDESTRUCTIBLE) != 0u {
+            let brush = noise(vec2<f32>(uv.x * 120.0, uv.y * 8.0));
+            let spec = pow(smoothstep(0.35, 1.0, brush), 3.0);
+            let steel = vec3<f32>(0.36, 0.42, 0.50) + vec3<f32>(0.55) * spec;
+            // Slow, so it reads as metal catching the light rather than as
+            // something switched on.
+            let turn = 0.72 + 0.28 * sin(t * 0.8 + uv.y * 3.0);
+            color = vec4<f32>(mix(color.rgb, steel * turn, band * 0.85), color.a);
+        }
+
+        // How far the fog reaches, as a falloff and not as a width. Any
+        // `smoothstep` to a width still has a hem, and a hem is exactly what
+        // reads as a stroke; `exp` has none. At `WARD_REACH` it is 1.00 at
+        // the edge, 0.55 where the old band ended, 0.30 a tenth of the way
+        // in, 0.09 at a fifth and nothing worth drawing past a third — dense
+        // where it gathers, thinning inward, with no far edge at all.
+        let veil = exp(-d * WARD_REACH);
+        var film = vec3<f32>(0.0);
+        var film_cov = 0.0;
+        // Hexproof: something holding bad effects off, and rolling outward
+        // while it does. Both octaves advance along `d`, which is zero at
+        // every edge and grows inward, so `+ t` carries a wisp *towards* the
+        // edge whichever edge it is near — outward, which is the direction
+        // the claim is about; `- t` would have the card soaking it up.
+        // `perimeter()` is the obvious coordinate to decorrelate along and is
+        // the wrong one: `hash21` is not periodic, so the field would seam at
+        // the top-left corner where the perimeter wraps. `WARD_THIN` is what
+        // makes it fog rather than a gradient — a fog with no thin patches is
+        // just a wash.
+        //
+        // The third case of the reduce-motion rule, and the one that needs no
+        // exception: freezing `t` leaves a still noise field with the same
+        // mean as a drifting one, so a card that does not move is a card in
+        // the same fog.
+        if (params.glow & GLOW_HEXPROOF) != 0u {
+            let n1 = noise(vec2<f32>(uv.x * 6.0 + uv.y * 3.0, d * 18.0 + t * 0.50));
+            let n2 = noise(vec2<f32>(uv.x * 10.0 - uv.y * 4.0, d * 30.0 + t * 0.35));
+            let wisp = WARD_THIN + (1.0 - WARD_THIN) * (0.6 * n1 + 0.4 * n2);
+            film = vec3<f32>(0.28, 0.86, 0.48);
+            film_cov = veil * wisp * WARD_HEX;
+        }
+        // Shroud: the same idea taken further — nothing may target it,
+        // including its controller — so it is colder, denser, and moves
+        // differently: a fine grain drifting across the whole card as a
+        // sheet, against hexproof's coarse roll out of the edge. Four axes
+        // separate the two at 47 logical pixels — hue, grain, motion,
+        // density — and hue on its own never was one. It *replaces* the
+        // hexproof film rather than mixing with it, which is what the rules
+        // do to a card carrying both; `glow_bits` already drops hexproof
+        // there, and this ordering is the second lock.
+        if (params.glow & GLOW_SHROUD) != 0u {
+            let haze = noise(uv * 14.0 + vec2<f32>(t * 0.30, -t * 0.22));
+            film = vec3<f32>(0.55, 0.62, 0.92) * (0.55 + 0.45 * haze);
+            film_cov = veil * WARD_SHROUD;
+        }
+        if film_cov > 0.0 {
+            color = vec4<f32>(mix(color.rgb, film, film_cov), color.a);
+        }
+
+        if band > 0.0 {
             // Activatable is not a property of the card, so it must not read
             // like one: a warm light running round the border, which the eye
             // finds across a whole board and which no printed ability could

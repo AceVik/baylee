@@ -70,6 +70,14 @@ const GLOW_COPY: u32 = 2097152u;
 /// How far in from the edge the border treatment reaches, in UV.
 const BORDER: f32 = 0.055;
 
+/// The keyword fog's falloff, its two densities and its thinnest wisp — the
+/// table shader's twins, written out for the same reason `CHASE_STILL` is.
+/// `card.wgsl` has what every number is and why.
+const WARD_REACH: f32 = 11.0;
+const WARD_HEX: f32 = 0.55;
+const WARD_SHROUD: f32 = 0.65;
+const WARD_THIN: f32 = 0.35;
+
 /// What the travelling activatable light averages to over its own circuit.
 /// The table shader's twin of this constant; the derivation is at the use
 /// site there.
@@ -353,37 +361,48 @@ fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
     }
 
     if params.glow != 0u {
-        let band = 1.0 - smoothstep(0.0, BORDER, edge_distance(uv));
+        let d = edge_distance(uv);
+        let band = 1.0 - smoothstep(0.0, BORDER, d);
+
+        // Base × film, exactly as the table composes it, and at the same two
+        // depths: the metal is what the card is made of and keeps the rim,
+        // the fog is what lies over it and reaches in, and shroud replaces
+        // the hexproof film rather than mixing with it.
+        //
+        // No pixel scaling, and that is the point rather than an omission.
+        // `CardParams` carries no size, and everything else on this card —
+        // the border, the rail, the plate, the corner radius — is in UV and
+        // grows with it. A fog fixed in pixels would be the one element that
+        // changed shape between the table and the preview, and a preview is
+        // an enlargement of the table card.
+        if band > 0.0 && (params.glow & GLOW_INDESTRUCTIBLE) != 0u {
+            let brush = noise(vec2<f32>(uv.x * 120.0, uv.y * 8.0));
+            let spec = pow(smoothstep(0.35, 1.0, brush), 3.0);
+            let steel = vec3<f32>(0.36, 0.42, 0.50) + vec3<f32>(0.55) * spec;
+            let turn = 0.72 + 0.28 * sin(t * 0.8 + uv.y * 3.0);
+            color = vec4<f32>(mix(color.rgb, steel * turn, band * 0.85), color.a);
+        }
+
+        let veil = exp(-d * WARD_REACH);
+        var film = vec3<f32>(0.0);
+        var film_cov = 0.0;
+        if (params.glow & GLOW_HEXPROOF) != 0u {
+            let n1 = noise(vec2<f32>(uv.x * 6.0 + uv.y * 3.0, d * 18.0 + t * 0.50));
+            let n2 = noise(vec2<f32>(uv.x * 10.0 - uv.y * 4.0, d * 30.0 + t * 0.35));
+            let wisp = WARD_THIN + (1.0 - WARD_THIN) * (0.6 * n1 + 0.4 * n2);
+            film = vec3<f32>(0.28, 0.86, 0.48);
+            film_cov = veil * wisp * WARD_HEX;
+        }
+        if (params.glow & GLOW_SHROUD) != 0u {
+            let haze = noise(uv * 14.0 + vec2<f32>(t * 0.30, -t * 0.22));
+            film = vec3<f32>(0.55, 0.62, 0.92) * (0.55 + 0.45 * haze);
+            film_cov = veil * WARD_SHROUD;
+        }
+        if film_cov > 0.0 {
+            color = vec4<f32>(mix(color.rgb, film, film_cov), color.a);
+        }
+
         if band > 0.0 {
-            // Base × film, exactly as the table composes it: the metal is
-            // what the card is made of, the sheath is what lies over it, and
-            // shroud replaces the hexproof film rather than mixing with it.
-            var base = vec3<f32>(0.0);
-            var has_base = 0.0;
-            var film = vec3<f32>(0.0);
-            var film_amount = 0.0;
-            if (params.glow & GLOW_INDESTRUCTIBLE) != 0u {
-                let brush = noise(vec2<f32>(uv.x * 120.0, uv.y * 8.0));
-                let spec = pow(smoothstep(0.35, 1.0, brush), 3.0);
-                let steel = vec3<f32>(0.36, 0.42, 0.50) + vec3<f32>(0.55) * spec;
-                base = steel * (0.72 + 0.28 * sin(t * 0.8 + uv.y * 3.0));
-                has_base = 1.0;
-            }
-            if (params.glow & GLOW_HEXPROOF) != 0u {
-                film = vec3<f32>(0.28, 0.86, 0.48) * (0.70 + 0.30 * sin(t * 1.6));
-                film_amount = 0.78;
-            }
-            if (params.glow & GLOW_SHROUD) != 0u {
-                let haze = noise(uv * 14.0 + vec2<f32>(t * 0.30, -t * 0.22));
-                film = vec3<f32>(0.55, 0.62, 0.92) * (0.55 + 0.45 * haze);
-                film_amount = 0.88;
-            }
-            let painted = max(has_base, film_amount);
-            if painted > 0.0 {
-                var mark = mix(color.rgb, base, has_base);
-                mark = mix(mark, film, film_amount);
-                color = vec4<f32>(mix(color.rgb, mark, band * 0.85), color.a);
-            }
             // Activatable is not a property of the card, so it must not read
             // like one: a warm light running round the border, which the eye
             // finds across a whole board and which no printed ability could

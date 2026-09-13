@@ -1713,6 +1713,59 @@ pub(crate) mod tests {
         }
     }
 
+    /// The two shaders hold a card in the same fog, and hold it *off* the
+    /// card rather than painting a line round it.
+    ///
+    /// Three claims, and each one is a way the change could quietly come
+    /// undone. The four constants have to agree across the twins, because a
+    /// card in the hand and the same card on the felt are the same card. The
+    /// fog has to fall off exponentially in `d` rather than step to a width,
+    /// because a `smoothstep` to any width still has a hem and a hem is what
+    /// reads as a border — the complaint this answers. And the wisps have to
+    /// travel on `+ t` along `d`: `d` is zero at every edge and grows inward,
+    /// so a plus sign carries them outward, and a minus sign would draw a
+    /// card soaking the fog up instead of holding it off.
+    #[test]
+    fn both_shaders_hold_a_card_in_the_same_fog() {
+        let table = include_str!("shaders/card.wgsl");
+        let ui = include_str!("shaders/card_ui.wgsl");
+        for name in ["WARD_REACH", "WARD_HEX", "WARD_SHROUD", "WARD_THIN"] {
+            let theirs = wgsl_const(table, name);
+            assert!(
+                (theirs - wgsl_const(ui, name)).abs() < f32::EPSILON,
+                "{name} differs between the twins"
+            );
+        }
+        // Deep enough to be fog: the old band ended at BORDER, and the fog is
+        // still at better than half its density there.
+        let reach = wgsl_const(table, "WARD_REACH");
+        let border = wgsl_const(table, "BORDER");
+        assert!(
+            (-border * reach).exp() > 0.5,
+            "the fog is already thin where the old border ended"
+        );
+        // And thin enough not to be a green card: where the printed frame
+        // ends and the art begins, around `d = 0.09`, the densest the fog can
+        // be is 0.204 — a fifth, before the wisp thins it further. Colour
+        // identity is read off the frame and the art, and the flat band this
+        // replaced was covering the frame at 0.66.
+        let hex = wgsl_const(table, "WARD_HEX");
+        assert!(
+            (-0.09 * reach).exp() * hex < 0.21,
+            "the fog covers the art rather than gathering at the edge"
+        );
+        for (which, src) in [("card.wgsl", table), ("card_ui.wgsl", ui)] {
+            assert!(
+                src.contains("exp(-d * WARD_REACH)"),
+                "{which} steps the fog to a width instead of letting it fall off"
+            );
+            assert!(
+                src.contains("d * 18.0 + t * 0.50") && src.contains("d * 30.0 + t * 0.35"),
+                "{which} does not roll its wisps outward along the edge distance"
+            );
+        }
+    }
+
     /// An armed card is not also inviting a tap.
     ///
     /// Both lights live in the same register on the border, and the whole
