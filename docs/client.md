@@ -460,6 +460,26 @@ eases into the full row instead of cutting to it. Departure is not animated at
 all, and deliberately: the object that resolved is gone from the view, and
 drawing a ghost of it would be drawing something the view no longer carries.
 
+**A promotion runs the arrival backwards, and that is the resolution
+animation.** It was being drawn as an arrival — lifting into the slot from
+above, which is the movement of a spell *landing* on the stack and the
+opposite of what happened. A promoted row now starts `PROMOTE_LIFT` below its
+place and at `PROMOTE_SCALE`, so it comes up out of the slot it was queued in
+and grows, and its rail lands at `INK` and cools to `ACCENT` on the slower
+`SETTLE_RATE` — still settling after the row has stopped moving, so the accent
+mark is seen travelling one slot down the queue. That is "a spell resolved"
+told as the movement it is, with no ghost of the object that left.
+`a_promoted_row_comes_up_from_the_slot_it_was_in` asserts the *sign* of the
+lift, which is the one thing that tells the two apart: the alpha ramp is
+identical for both, and it carries its own counter-test — a spell that is
+merely cast still drops in from above.
+
+What is **not** there is a stagger when several rows land in one frame. It
+would want to run bottom-up, and depth is the one thing `StackKey` deliberately
+does not carry: a row demoted from second to third would become a new key and
+announce itself all over again. The panel's own fade and slide already cover a
+panel going from empty to populated.
+
 The *other* direction of that key change is carried across instead of eased,
 which is the case the panel is most often in. A spell landing on a stack that
 already had one demotes yesterday's top to a queued row — a new key for an

@@ -28,11 +28,25 @@
 //! the same space, and what still does not fit is *counted* on a last line
 //! rather than silently cut off.
 //!
-//! # Arriving
+//! # Arriving, and resolving
 //!
 //! A row eases in: it lifts into place, grows the last few percent, and its
-//! ink and its fills come up from nothing. The progress cannot live in the
-//! row, because the HUD is a retained tree rebuilt whenever [`HudRevision`]
+//! ink and its fills come up from nothing. A **promotion** is the same
+//! movement run the other way — up out of the slot the row was queued in,
+//! from a smaller scale, with its rail landing bright and cooling into the
+//! accent on a slower ramp. That is the whole of the resolution animation,
+//! and it is drawn as a movement rather than as a departure on purpose: the
+//! object that resolved is gone from the view, and a ghost of it would be a
+//! claim the view no longer makes.
+//!
+//! What is *not* here: a stagger when several rows land in one frame. It
+//! would want to run bottom-up, and depth is the one thing [`StackKey`]
+//! deliberately does not carry — a row demoted from second to third would
+//! become a new key and announce itself all over again. The panel's own fade
+//! and slide already cover the case the owner asked about.
+//!
+//! The progress cannot live in the row, because the HUD is a retained tree
+//! rebuilt whenever [`HudRevision`]
 //! changes and *hover* is part of that gate — a pointer twitch during the
 //! quarter second an arrival takes would despawn the row and spawn it again,
 //! and a fade that restarts under the pointer reads as a flicker. It lives in
@@ -158,6 +172,31 @@ const PANEL_LIFT: f32 = 10.0;
 /// be an effect, and this is a notification.
 const ARRIVE_SCALE: f32 = 0.96;
 
+/// How far *below* its resting place a promoted row starts.
+///
+/// The other direction, and that is the whole of the resolution animation.
+/// A row is promoted when the object above it has resolved and left, which is
+/// the one event in this panel a player most wants to see — and it was being
+/// drawn as an arrival, lifting into the slot from above, which says the
+/// opposite of what happened. A promotion comes *up* from the row it was in.
+const PROMOTE_LIFT: f32 = 10.0;
+
+/// The scale a promoted row starts at.
+///
+/// Below [`ARRIVE_SCALE`] on purpose: an arriving row lands and a promoted
+/// one *grows*, having been drawn at two thirds the size a moment earlier.
+const PROMOTE_SCALE: f32 = 0.92;
+
+/// How fast a promoted row's rail cools from its landing colour to its own.
+///
+/// Slower than [`ARRIVE_RATE`], so the light is still settling after the row
+/// has stopped moving — about 290 ms to nine tenths. That lag is the point:
+/// the accent rail was on the row that resolved a moment ago, and a bright
+/// mark appearing one slot lower and cooling into place is "a spell resolved"
+/// drawn as the movement it is, without drawing a ghost of the object the
+/// view no longer carries.
+const SETTLE_RATE: f32 = 8.0;
+
 /// What the pointer and the standing question say about a row.
 ///
 /// Three facts that arrive together and are read together, bundled so the
@@ -214,7 +253,9 @@ impl Picks<'_> {
 /// the promotion ease rather than cut. It also means departure needs no
 /// animation at all: the object that resolved is gone from the view, drawing
 /// a ghost of it would be drawing something the view no longer carries, and
-/// the *visible* event is the new top rising into the full row.
+/// the *visible* event is the new top rising into the full row — which it
+/// now literally does, up out of the slot it was queued in rather than down
+/// from above. See [`PROMOTE_LIFT`].
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum StackKey {
     /// The panel itself, which arrives when the stack stops being empty.
@@ -223,15 +264,31 @@ pub enum StackKey {
     Entry(ObjectId, bool),
 }
 
+/// One row's movement into its place.
+#[derive(Clone, Copy)]
+struct Rise {
+    /// The row this is about.
+    key: StackKey,
+    /// How far along it is, `0.0`…`1.0`.
+    at: f32,
+    /// Whether the row **grew** into this slot rather than landing in it —
+    /// the object above it resolved. It comes up from below and starts
+    /// smaller; see [`PROMOTE_LIFT`].
+    promoted: bool,
+    /// The promoted row's rail, on its own slower ramp; see [`SETTLE_RATE`].
+    /// Unused by anything that merely arrived.
+    cooled: f32,
+}
+
 /// How far each row of the stack panel has arrived, `0.0`…`1.0`.
 ///
 /// A `Vec` rather than a map: a stack with more than a dozen objects on it is
 /// a rules oddity rather than a case to optimise for, and a linear scan over
-/// eight pairs is cheaper than hashing one.
+/// eight entries is cheaper than hashing one.
 #[derive(Resource, Default)]
 pub struct StackMotion {
-    /// One pair per row on screen, in no particular order.
-    rows: Vec<(StackKey, f32)>,
+    /// One entry per row on screen, in no particular order.
+    rows: Vec<Rise>,
 }
 
 impl StackMotion {
@@ -240,8 +297,14 @@ impl StackMotion {
     fn progress(&self, key: StackKey) -> f32 {
         self.rows
             .iter()
-            .find(|(k, _)| *k == key)
-            .map_or(1.0, |(_, p)| *p)
+            .find(|rise| rise.key == key)
+            .map_or(1.0, |rise| rise.at)
+    }
+
+    /// The whole of `key`'s movement, for the row itself — which is the one
+    /// node that needs to know *which way* it came.
+    fn rise(&self, key: StackKey) -> Option<Rise> {
+        self.rows.iter().copied().find(|rise| rise.key == key)
     }
 }
 
@@ -338,6 +401,77 @@ pub struct ArrivingRow {
     rail: Color,
 }
 
+/// Reconciles what is being tracked against what is on screen.
+///
+/// Three rules, and each is a different answer to "this key was not here last
+/// frame".
+///
+/// A row that steps **down** is not an arrival. When a spell lands on a stack
+/// that already had one, yesterday's top is drawn queued from this frame on —
+/// a different key for the same object, which would otherwise be seeded at
+/// nothing and fade in beside the newcomer, so two rows would announce
+/// themselves and only one of them would be new. Carrying the progress across
+/// the key change leaves it standing where it was, and it is the *current*
+/// progress and not `1.0` because the house AI answers within a frame or two
+/// of priority: the common case is a spell demoted while it is still
+/// arriving, and seeding that at rest would snap it to full.
+///
+/// A row that steps **up** is a promotion — the object above it resolved —
+/// and that one is *not* carried across, because it is the movement the
+/// player is meant to see. It is marked instead, and moves the other way; see
+/// [`PROMOTE_LIFT`]. The marking has to happen here, before the retain below
+/// drops the queued key the question is asked about.
+///
+/// Anything else is new and starts at nothing.
+fn track(motion: &mut StackMotion, live: &[StackKey]) {
+    for &key in live {
+        let StackKey::Entry(id, false) = key else {
+            continue;
+        };
+        let known = motion.rows.iter().any(|rise| rise.key == key);
+        let stepped_down = motion
+            .rows
+            .iter()
+            .find(|rise| rise.key == StackKey::Entry(id, true))
+            .map(|rise| rise.at);
+        if !known && let Some(progress) = stepped_down {
+            motion.rows.push(Rise {
+                key,
+                at: progress,
+                promoted: false,
+                cooled: 1.0,
+            });
+        }
+    }
+
+    let promoted: Vec<StackKey> = live
+        .iter()
+        .copied()
+        .filter(|key| {
+            let StackKey::Entry(id, true) = *key else {
+                return false;
+            };
+            !motion.rows.iter().any(|rise| rise.key == *key)
+                && motion
+                    .rows
+                    .iter()
+                    .any(|rise| rise.key == StackKey::Entry(id, false))
+        })
+        .collect();
+
+    motion.rows.retain(|rise| live.contains(&rise.key));
+    for &key in live {
+        if !motion.rows.iter().any(|rise| rise.key == key) {
+            motion.rows.push(Rise {
+                key,
+                at: 0.0,
+                promoted: promoted.contains(&key),
+                cooled: 0.0,
+            });
+        }
+    }
+}
+
 /// Eases every arriving row towards its resting state.
 ///
 /// Runs after [`sync_overlay`] and deliberately: a row spawned this frame is
@@ -370,55 +504,30 @@ pub fn ease_the_stack_in(
             live.push(arriving.key);
         }
     }
-    // A row that steps *down* is not an arrival. When a spell lands on a
-    // stack that already had one, yesterday's top is drawn queued from this
-    // frame on — a different key for the same object, which would otherwise
-    // be seeded at nothing and fade in beside the newcomer, so two rows would
-    // announce themselves and only one of them would be new. Carrying the
-    // progress across the key change leaves it standing where it was. It is
-    // the *current* progress and not 1.0, because the house AI answers within
-    // a frame or two of priority: the common case is a spell demoted while it
-    // is still arriving, and seeding that at rest would snap it to full.
-    //
-    // The other direction is deliberately not carried: a queued row becoming
-    // full is what a resolution looks like from the panel, and that is the
-    // movement the player is meant to see.
-    for &key in &live {
-        let StackKey::Entry(id, false) = key else {
-            continue;
-        };
-        let known = motion.rows.iter().any(|(k, _)| *k == key);
-        let stepped_down = motion
-            .rows
-            .iter()
-            .find(|(k, _)| *k == StackKey::Entry(id, true))
-            .map(|(_, p)| *p);
-        if !known && let Some(progress) = stepped_down {
-            motion.rows.push((key, progress));
-        }
-    }
-
-    motion.rows.retain(|(key, _)| live.contains(key));
-    for key in live {
-        if !motion.rows.iter().any(|(k, _)| *k == key) {
-            motion.rows.push((key, 0.0));
-        }
-    }
+    track(&mut motion, &live);
 
     let still = prefs.is_some_and(|p| p.all().reduce_motion);
-    let step = if still {
-        1.0
-    } else {
-        1.0 - (-ARRIVE_RATE * time.delta_secs()).exp()
+    let ease = |rate: f32| {
+        if still {
+            1.0
+        } else {
+            1.0 - (-rate * time.delta_secs()).exp()
+        }
     };
+    let step = ease(ARRIVE_RATE);
+    let settle = ease(SETTLE_RATE);
     let mut moving = false;
-    for (_, progress) in &mut motion.rows {
-        if *progress >= 1.0 {
+    for rise in &mut motion.rows {
+        if rise.at >= 1.0 && rise.cooled >= 1.0 {
             continue;
         }
-        *progress = (*progress + (1.0 - *progress) * step).min(1.0);
-        if *progress > 0.999 {
-            *progress = 1.0;
+        rise.at = (rise.at + (1.0 - rise.at) * step).min(1.0);
+        if rise.at > 0.999 {
+            rise.at = 1.0;
+        }
+        rise.cooled = (rise.cooled + (1.0 - rise.cooled) * settle).min(1.0);
+        if rise.cooled > 0.999 {
+            rise.cooled = 1.0;
         }
         moving = true;
     }
@@ -445,10 +554,28 @@ pub fn ease_the_stack_in(
         }
     }
     for (arriving, row, mut transform, mut border) in &mut rows {
-        let progress = motion.progress(arriving.key);
-        transform.translation.y = px(-row.lift * (1.0 - progress));
-        transform.scale = Vec2::splat(row.from + (1.0 - row.from) * progress);
-        *border = BorderColor::all(row.rail.with_alpha(row.rail.alpha() * progress));
+        let rise = motion.rise(arriving.key);
+        let progress = rise.map_or(1.0, |rise| rise.at);
+        // Which way the row came, which is the whole of the difference
+        // between a spell being cast and a spell resolving. An arrival drops
+        // in from above (negative y is up); a promotion comes up from the
+        // slot below and grows, because that is what happened to it.
+        let (lift, from) = if rise.is_some_and(|rise| rise.promoted) {
+            (PROMOTE_LIFT, PROMOTE_SCALE)
+        } else {
+            (-row.lift, row.from)
+        };
+        transform.translation.y = px(lift * (1.0 - progress));
+        transform.scale = Vec2::splat(from + (1.0 - from) * progress);
+        // The rail lands bright and cools into its own colour, on the slower
+        // ramp, so the light is still settling after the row has stopped —
+        // an accent mark appearing one slot down from where it was is the
+        // resolution, told without a ghost of the object that left.
+        let rail = match rise {
+            Some(rise) if rise.promoted => palette::INK.mix(&row.rail, rise.cooled),
+            _ => row.rail,
+        };
+        *border = BorderColor::all(rail.with_alpha(row.rail.alpha() * progress));
     }
 }
 
@@ -1309,7 +1436,12 @@ mod tests {
         let mut motion = StackMotion::default();
         let id = ObjectId::new(3, 0);
         assert!((motion.progress(StackKey::Entry(id, true)) - 1.0).abs() < f32::EPSILON);
-        motion.rows.push((StackKey::Entry(id, true), 0.4));
+        motion.rows.push(Rise {
+            key: StackKey::Entry(id, true),
+            at: 0.4,
+            promoted: false,
+            cooled: 1.0,
+        });
         assert!((motion.progress(StackKey::Entry(id, true)) - 0.4).abs() < f32::EPSILON);
         assert!((motion.progress(StackKey::Panel) - 1.0).abs() < f32::EPSILON);
     }
@@ -1554,6 +1686,99 @@ mod tests {
         assert!(
             part > 0.0 && part < palette::PANEL_LIT.alpha(),
             "a resolution is meant to be seen: {part}"
+        );
+    }
+
+    /// And it arrives from the **other direction**, which is the difference
+    /// between a spell being cast and a spell resolving.
+    ///
+    /// A promoted row grew out of the slot below it: the object above it has
+    /// resolved and left. Drawn as an arrival it lifted into place from
+    /// above — the movement of something landing on the stack, which is the
+    /// opposite of what happened. This is the one assertion that can tell the
+    /// two apart, because the alpha ramp is identical for both.
+    #[test]
+    fn a_promoted_row_comes_up_from_the_slot_it_was_in() {
+        let mut app = harness();
+        let id = ObjectId::new(14, 0);
+        let (queued, queued_ink) = a_row(&mut app, StackKey::Entry(id, false));
+        for _ in 0..40 {
+            a_frame(&mut app);
+        }
+        app.world_mut().entity_mut(queued).despawn();
+        app.world_mut().entity_mut(queued_ink).despawn();
+        let (full, _) = a_row(&mut app, StackKey::Entry(id, true));
+        a_frame(&mut app);
+
+        let lift = lift_of(&app, full);
+        assert!(
+            lift > 0.0 && lift <= PROMOTE_LIFT,
+            "a promotion starts below its place and rises: {lift}"
+        );
+
+        // The counter-test, and the reason the sign is worth asserting at
+        // all: a spell that is merely *cast* still drops in from above.
+        let (landed, _) = a_row(&mut app, StackKey::Entry(ObjectId::new(15, 0), true));
+        a_frame(&mut app);
+        assert!(
+            lift_of(&app, landed) < 0.0,
+            "an arrival comes from the other side"
+        );
+    }
+
+    /// The promoted row's rail lands bright and cools into the accent.
+    ///
+    /// The light was on the row that resolved a moment ago; a bright mark
+    /// appearing one slot lower and settling is the resolution drawn as the
+    /// movement it is. It is on the slower ramp deliberately, so it is still
+    /// settling after the row has stopped moving — which is what this asserts
+    /// by reading the border on the frame the movement is nearly over.
+    #[test]
+    fn the_rail_of_a_promoted_row_cools_into_place() {
+        let mut app = harness();
+        let id = ObjectId::new(16, 0);
+        let (queued, queued_ink) = a_row(&mut app, StackKey::Entry(id, false));
+        for _ in 0..40 {
+            a_frame(&mut app);
+        }
+        app.world_mut().entity_mut(queued).despawn();
+        app.world_mut().entity_mut(queued_ink).despawn();
+        let (full, _) = a_row(&mut app, StackKey::Entry(id, true));
+
+        let mut seen_warmer = false;
+        for _ in 0..12 {
+            a_frame(&mut app);
+            let rail = app
+                .world()
+                .entity(full)
+                .get::<BorderColor>()
+                .expect("a Node always has one")
+                .top
+                .to_srgba();
+            // Whiter than the accent it settles at: `INK` is brighter in
+            // every channel, and red is where the two differ most.
+            if rail.red > palette::ACCENT.to_srgba().red * 1.1 {
+                seen_warmer = true;
+            }
+        }
+        assert!(seen_warmer, "the rail landed brighter than it rests");
+
+        for _ in 0..60 {
+            a_frame(&mut app);
+        }
+        let settled = app
+            .world()
+            .entity(full)
+            .get::<BorderColor>()
+            .expect("a Node always has one")
+            .top
+            .to_srgba();
+        let accent = palette::ACCENT.to_srgba();
+        assert!(
+            (settled.red - accent.red).abs() < 0.02
+                && (settled.green - accent.green).abs() < 0.02
+                && (settled.blue - accent.blue).abs() < 0.02,
+            "and cooled all the way to the accent: {settled:?}"
         );
     }
 
