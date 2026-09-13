@@ -110,6 +110,15 @@ pub struct Feel {
     /// How far into the hovered state it currently is, 0 to 1. Negative
     /// values are the pressed side, so one number carries both.
     pub warmth: f32,
+    /// Whether the pointer also *moves* it.
+    ///
+    /// True for a button, which is a small object a pointer can lift. False
+    /// where the control is a **line of writing**: growing a row by
+    /// [`HOVER_SCALE`] grows the sentence on it with it, and a paragraph that
+    /// changes size under the pointer is the one thing a reader cannot read
+    /// past. It is 2.5% either way, which is nothing on a keycap and four
+    /// hundred pixels of prose reflowing on an ability sheet.
+    pub lean: bool,
 }
 
 impl Feel {
@@ -120,6 +129,7 @@ impl Feel {
             base,
             hot: None,
             warmth: 0.0,
+            lean: true,
         }
     }
 
@@ -130,6 +140,16 @@ impl Feel {
             base,
             hot: Some(hot),
             warmth: 0.0,
+            lean: true,
+        }
+    }
+
+    /// The same, for a control the pointer may light but must not move.
+    #[must_use]
+    pub fn tinting_to(base: Color, hot: Color) -> Self {
+        Self {
+            lean: false,
+            ..Self::rising_to(base, hot)
         }
     }
 }
@@ -234,8 +254,14 @@ fn feel(
 
         let hot = feel.warmth.max(0.0);
         let cold = (-feel.warmth).max(0.0);
-        let scale = 1.0 + (HOVER_SCALE - 1.0) * hot + (PRESS_SCALE - 1.0) * cold;
-        transform.scale = Vec2::splat(scale);
+        let scale = if feel.lean {
+            1.0 + (HOVER_SCALE - 1.0) * hot + (PRESS_SCALE - 1.0) * cold
+        } else {
+            1.0
+        };
+        if transform.scale != Vec2::splat(scale) {
+            transform.scale = Vec2::splat(scale);
+        }
         // The press is a shade either way; only the hover has two readings,
         // and a stated hot end is interpolated in all four channels so an
         // alpha of zero can rise out of nothing.
