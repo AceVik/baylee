@@ -1927,7 +1927,7 @@ for floating mana before any tap, then for the *least* flexible source that
 fits, so the Forest pays the green pip and the Command Tower is still untapped
 afterwards.
 
-Three rules keep it honest, and they are the reason to read the module before
+Four rules keep it honest, and they are the reason to read the module before
 changing it:
 
 1. **Every step is an action the engine offered.** A `Source` is built from
@@ -1945,6 +1945,10 @@ changing it:
    match are not two independent units, and pretending otherwise builds a plan
    the engine rejects halfway through — with the land already tapped. The cost
    of being wrong in this direction is one extra land.
+4. **A card with more than one way to be cast is asked about *before* it is
+   paid for.** This one is newest and is the subject of the next section: a
+   planner that floats a cost has already chosen which cost, and choosing is
+   not a planner's to do.
 
 Knowing that ability 2 of a Command Tower makes mana takes the compiled card
 registry, which `baylee-client-core` deliberately does not link, so that half
@@ -1957,6 +1961,64 @@ In the hand, this is a third state and it is drawn as one:
 rather than one set, because they are different claims — gold is the engine
 saying yes, indigo is this client offering to tap lands first. Clicking either
 casts; the difference is what happens in between.
+
+### Which way to cast it is asked before anything is tapped
+
+`Engine::cast_options` counts a spell's ways against the mana that is
+**already floating**, which is right and unavoidable: the engine has no
+planner and cannot know which lands are about to be tapped. The planner does
+have one — and it used to float *exactly the printed cost* and then send
+`CastSpell`. By the time the engine counted there was one way left, so it
+asked nothing, and the client had chosen for the player in silence.
+
+The silence ran both ways. An alternative cost **dearer** than the printed one
+could never be picked by clicking: Reveillark's evoke is `{5}{W}` against a
+printed `{4}{W}`, so seven open mana cast it the cheap way with three lands
+still untapped. And a **free** alternative was taken just as quietly in the
+other direction — Solitude with an empty pool is already in
+`LegalActions.castable`, for its evoke, so the click exiled a white card and
+the printed `{3}{W}{W}` was unreachable for a player who would rather keep it.
+
+So the question moved in front of the floating. `Duel::cast_menu` is the same
+chooser the engine's own `Pending::ChooseCastMode` opens — it *is* a
+`Prompt::CastMode`, drawn by `choices::options` like any other, with the same
+rows, the same costs and the same `ChoiceButton` — built one step earlier, out
+of `baylee-client/src/castmodes.rs`. A row **arms** rather than sends, the way
+the ability sheet's rows do, because there is no undo and a spell on the stack
+is the least undoable thing in the game. The answer is then remembered in
+`Duel::cast_answer` and spent when the engine finally asks, which is several
+round trips later: the taps, the cast, and only then the question.
+
+Three things about it are load-bearing.
+
+It is remembered as a **`CastModeKind`, never an index**. The engine numbers
+its options by position in a list it rebuilds against the pool of the moment,
+and the pool of the moment is exactly what the run in between has changed.
+
+It is **not carried on the `ManaRun`**. `advance_mana_run` clears the run on
+the frame it sends `CastSpell`, so the `ChooseCastMode` arrives to no run at
+all — and the free-alternative case has no run in the first place. It lives on
+`Duel` and is written off when the seat gets priority back with nothing armed
+and no run going, which is the shape of "the spell is on the stack and the
+engine had only one way to offer".
+
+It **refuses what it cannot read**. A row offered here that the engine will
+not offer is a row that lies, so a way is listed only when every part of its
+cost can be evaluated from the view: the mana through `manaplan` as always, a
+life payment against the seat's own total, and a pitch (`ExileFromHand` with a
+colour filter — Force of Will's blue card, Solitude's white one) against the
+hand, where the card being cast is never a candidate for its own pitch.
+Anything else takes the way off the list. So does everything but `Normal` and
+`Alternative`: a modal spell's modes need `casting::mode_has_a_legal_target`,
+which takes the `GameState` this client does not have and must not
+approximate, so Damn's overload is still cast the cheap way and that is AM1's
+to close.
+
+One way is not a question, and the click then does exactly what it always did.
+`fire_armed` had to learn one thing for this: a chosen way with taps left to
+make goes to the run and **never** to the engine's standing offer, because
+that offer is the wrong answer by construction — Solitude is `castable` the
+whole time, for the way the player just declined.
 
 `activatable` is the board's half of the same idea, and it is the engine's own
 answer: every source named in `LegalActions.mana_abilities` or `.abilities`.
@@ -3952,6 +4014,15 @@ to look. It also answers a question no screenshot can — whether the exit path
 ran at all — and that is what it was added for. Three runs failed to catch a
 graveyard sink before `departing` said, flatly, that the count never left zero;
 the cause was that a card going to a pile is never stale in the first place.
+
+`cast_menu` and `cast_answer` are one more of the same, read at its two ends.
+The cast chooser swallows the keyboard exactly as the ability sheet does, so
+without the first a standing chooser is indistinguishable from a click that
+did nothing. The second is the way the player picked, and it travels through a
+whole mana run before it is spent — several round trips with nothing on the
+screen to say so — which makes it the only way to tell "the evoke was chosen"
+from "the engine picked for us again", the distinction §"Which way to cast it
+is asked before anything is tapped" exists to make.
 
 `shelves` is the fifth, and it answers a different kind of question again: not
 a state that hides, but an *arithmetic* a picture can only ever suggest. A

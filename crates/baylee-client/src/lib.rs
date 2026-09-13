@@ -43,6 +43,7 @@ pub mod buildui;
 pub mod cardart;
 pub mod cardmat;
 pub mod cardtext;
+pub mod castmodes;
 pub mod choices;
 pub mod combatlines;
 pub mod depart;
@@ -240,6 +241,65 @@ pub enum RunEnd {
     Float,
 }
 
+/// The client's own question: which of several ways to cast one card.
+///
+/// It is the same chooser the engine's own `Pending::ChooseCastMode` opens —
+/// [`Self::prompt`] builds a real `Prompt::CastMode` and the prompt bar draws
+/// it through [`crate::choices::options`] like any other — asked one step
+/// earlier. The engine counts a spell's ways against the mana that is already
+/// floating and cannot do otherwise; this client is what floats that mana, so
+/// it is the one that has to ask first. [`crate::castmodes`] is where the ways
+/// come from, and its module doc is what will not be offered.
+///
+/// The answer is remembered in [`Duel::cast_answer`] rather than here, because
+/// it outlives the menu: the menu closes on the press that picks a row, and
+/// the engine asks its own question several round trips later.
+#[derive(Debug, Clone)]
+pub struct CastMenu {
+    /// The card in hand the chooser is about.
+    pub card: ObjectId,
+    /// The ways, in the order they are drawn.
+    pub modes: Vec<crate::castmodes::ReachableMode>,
+    /// Which row the cursor is on.
+    pub pick: usize,
+}
+
+impl CastMenu {
+    /// The question, in the shape the prompt bar already knows how to draw.
+    ///
+    /// Built on demand rather than stored beside [`Self::modes`]: two copies
+    /// of one list are two things that can disagree, and this one is cheap —
+    /// it is read only while the chooser stands.
+    #[must_use]
+    pub fn prompt(&self) -> baylee_client_core::interaction::Prompt {
+        baylee_client_core::interaction::Prompt::CastMode {
+            object: self.card,
+            options: self
+                .modes
+                .iter()
+                .enumerate()
+                .map(|(i, m)| baylee_engine::choice::CastModeDesc {
+                    // This client's own numbering, and it never leaves the
+                    // client: the answer travels as a `CastModeKind` and is
+                    // matched against the engine's list when the engine
+                    // finally asks, because the engine's index is a position
+                    // in a list built against the pool at that instant — the
+                    // very pool this chooser is about to change.
+                    index: u8::try_from(i).unwrap_or(u8::MAX),
+                    kind: m.kind,
+                    cost: m.cost,
+                })
+                .collect(),
+        }
+    }
+
+    /// The way row `at` stands for, if the list still has that row.
+    #[must_use]
+    pub fn mode(&self, at: usize) -> Option<&crate::castmodes::ReachableMode> {
+        self.modes.get(at)
+    }
+}
+
 /// What the hover preview has to stand beside.
 ///
 /// A tooltip stands beside the thing it describes, and the two variants are
@@ -372,6 +432,28 @@ pub struct Duel {
     /// ability activates on the click that found it, because a menu of one is
     /// a menu that only ever wastes a tap.
     pub ability_menu: Option<ObjectId>,
+    /// The card whose *ways to be cast* the prompt bar is offering.
+    ///
+    /// [`ability_menu`](Self::ability_menu)'s sibling, on the same rule: only
+    /// ever set for a card with more than one way, because a chooser of one
+    /// row only ever costs a press. See [`CastMenu`] for why the client asks
+    /// this at all and [`crate::castmodes`] for what it may ask about.
+    pub cast_menu: Option<CastMenu>,
+    /// The way the player picked, and the card they picked it for.
+    ///
+    /// It outlives the chooser on purpose. Between the press that answers
+    /// this client's question and the engine asking its own there is a whole
+    /// mana run — several round trips, each one a fresh `Pending` — and the
+    /// answer has to survive all of it. It is **not** carried on the
+    /// [`ManaRun`]: `advance_mana_run` clears the run on the frame it sends
+    /// `CastSpell`, and the `ChooseCastMode` arrives after that, to no run at
+    /// all. The other half of the same argument is the free alternative cost,
+    /// which has no run in the first place.
+    ///
+    /// A [`baylee_engine::choice::CastModeKind`] and never an index: the
+    /// engine numbers its options by position in a list it rebuilds against
+    /// the pool of the moment, and the moment has moved.
+    pub cast_answer: Option<(ObjectId, baylee_engine::choice::CastModeKind)>,
     /// Which entry of that menu the keyboard is on.
     ///
     /// A menu the pointer can answer and the keyboard cannot is not a menu,
@@ -588,6 +670,10 @@ impl Duel {
         // current `LegalActions` — but a menu that outlives its
         // question is a menu a player has to dismiss.
         self.ability_menu = None;
+        // The cast chooser goes with it, and for the same reason twice over:
+        // it is a chooser, and it is a chooser about a card the game may have
+        // just moved.
+        self.cast_menu = None;
         // …and so is a half-pressed concession. The game moved on.
         self.concede_armed = false;
         // An armed deed survives this, and that is the point. Only a question
@@ -598,6 +684,22 @@ impl Duel {
             Some(Pending::Priority { player, .. }) if *player == seat
         ) {
             self.armed = None;
+        }
+        // A chosen way is owed to exactly one question, and this is where it
+        // is written off when that question never comes: the seat is holding
+        // priority again with nothing armed and no run going, so the spell is
+        // on the stack and the engine had only one way to offer. Every step
+        // in between fails one of the three — a run's taps come back as
+        // priority *with* a run, a `ChooseColor` is not priority at all, and
+        // the `ChooseCastMode` this is for is not either.
+        if self.mana_run.is_none()
+            && self.armed.is_none()
+            && matches!(
+                self.interaction.as_ref().map(Interaction::pending),
+                Some(Pending::Priority { player, .. }) if *player == seat
+            )
+        {
+            self.cast_answer = None;
         }
         rebuild_board(self);
     }
@@ -1013,6 +1115,13 @@ impl Plugin for DuelPlugin {
                     poll_host,
                     keep_the_table_connected.run_if(duel_is_live),
                     run_mana_plan,
+                    // After the run and before the HUD is built, which is
+                    // both halves of where it belongs: the run is what puts
+                    // the mana up and sends the cast, and a frame drawn
+                    // between the engine's question and this answer would
+                    // flash the engine's own chooser over a choice the player
+                    // already made.
+                    answer_the_chosen_cast_mode,
                     run_autopilot,
                     flush_outbox,
                     cardtext::request,
@@ -1375,6 +1484,76 @@ fn tap_action(
             }),
     }
 }
+
+/// Answers the engine's `ChooseCastMode` with the way the player already
+/// chose, when they chose one.
+fn answer_the_chosen_cast_mode(mut duel: ResMut<Duel>) {
+    take_the_chosen_cast_mode(&mut duel);
+}
+
+/// The decision behind that system, `pub` for the same reason
+/// [`advance_mana_run`] is: a test drives the whole cast through the same
+/// door the frame loop does.
+///
+/// It is the far end of [`CastMenu`]. The player answered this client's
+/// question before any mana was floated; the engine asks its own once the
+/// mana is up, and this is where the two are joined. The match is on
+/// [`baylee_engine::choice::CastModeKind`] and never on an index, because the
+/// engine's indices are positions in a list it builds against the pool at the
+/// instant it asks — and the run that just finished is what changed that pool.
+///
+/// A way the engine does not offer is reported rather than substituted. It is
+/// reachable: the pitch card this client counted can have left the hand
+/// between the chooser and the cast (a Force of Will countering the very
+/// spell), and casting the *other* way instead would be the silence this
+/// whole repair exists to end.
+pub fn take_the_chosen_cast_mode(duel: &mut Duel) {
+    let Some((card, kind)) = duel.cast_answer else {
+        return;
+    };
+    let seat = duel.seat().unwrap_or(PlayerId::new(0));
+    let Some(interaction) = duel.interaction.as_ref() else {
+        return;
+    };
+    let Pending::ChooseCastMode {
+        player,
+        object,
+        options,
+        ..
+    } = interaction.pending()
+    else {
+        return;
+    };
+    if *player != seat || *object != card {
+        return;
+    }
+    let at = options.iter().position(|option| option.kind == kind);
+    duel.cast_answer = None;
+    let Some(at) = at else {
+        duel.last_error = Some(NO_SUCH_WAY.to_string());
+        return;
+    };
+    // Through `choose_index` and `confirm` rather than building the action
+    // here, so this answers the question the same way a press on the row
+    // would — one door, and a client that cannot express an answer fails
+    // rather than sending one nothing on screen could have produced.
+    let action = duel
+        .interaction
+        .as_mut()
+        .and_then(|i| i.choose_index(at).then(|| i.confirm())?);
+    if let Some(action) = action {
+        duel.submit(action);
+    }
+}
+
+/// What the bar says when the chosen way is not among the ones the engine
+/// went on to offer.
+///
+/// English, beside the stale-deed line and the mana run's own abort lines and
+/// for the reason given there: `last_error` is one channel that also carries
+/// the gateway's words, and translating half of it would be worse than
+/// translating none.
+const NO_SUCH_WAY: &str = "the engine no longer offers that way of casting it";
 
 /// The taps that would make `card` castable, if any.
 ///

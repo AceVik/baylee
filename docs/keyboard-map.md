@@ -259,6 +259,29 @@ exists — because the digit path drains the whole key queue rather than the
 digits alone, so a sheet that read unconditionally would eat the letters going
 into that box and open an ability with the digits.
 
+## The cast chooser
+
+A card in hand with more than one way to be **cast** opens the ability sheet's
+sibling, in the prompt bar rather than beside the card: the same chooser the
+engine's own `ChooseCastMode` opens, asked one step earlier because this
+client is what floats the mana and the engine cannot count a spell's ways
+until it is floating (`docs/client.md` §"Which way to cast it is asked before
+anything is tapped").
+
+The keys are the ability sheet's, one dimension shorter. `W`/`S` and `A`/`D`
+all walk the single column and wrap; the primary key, confirm and the activate
+key take the row the cursor is on; `Esc` puts the chooser away with nothing
+said. Clicking a row is the same press through the same function.
+
+**A row arms rather than sends**, which is §Arming's rule and not a second
+one: a spell on the stack is the least undoable thing in the game, so the
+press that answers *which way* leaves the deed standing in the bar and the
+next press is what pays for it. The chooser closes on that first press, the
+way the ability sheet closes when one of its rows arms.
+
+One way is not a question and no chooser opens — the click then arms what it
+always armed, in two presses rather than three.
+
 ## The sheet a question opened
 
 A question whose answer is lying in a pile has nowhere on the table to be

@@ -144,11 +144,27 @@ pub fn sync_overlay(
         .map_or(baylee_client_core::Turn::Mine, |v| {
             baylee_client_core::Turn::of(v.active, v.seat)
         });
-    let prompt = duel
-        .interaction
+    // The client's own cast chooser speaks in the bar's own voice while it
+    // stands. The engine is holding an ordinary priority window behind it —
+    // which is exactly the window this client has to ask *inside*, because
+    // the engine cannot count a spell's ways until the mana is floating and
+    // this is the thing that floats it. See [`crate::CastMenu`].
+    let cast_menu = duel
+        .cast_menu
         .as_ref()
         .filter(|_| !over)
-        .map(|i| i.prompt().headline(lang, turn, duel.statics.as_ref()));
+        .map(|m| (m.card, m.modes.len(), m.pick));
+    let prompt = duel
+        .cast_menu
+        .as_ref()
+        .filter(|_| !over)
+        .map(|m| m.prompt().headline(lang, turn, duel.statics.as_ref()))
+        .or_else(|| {
+            duel.interaction
+                .as_ref()
+                .filter(|_| !over)
+                .map(|i| i.prompt().headline(lang, turn, duel.statics.as_ref()))
+        });
     // A refusal used to *stand in* for the headline, which meant it was only
     // ever seen when nothing was being asked — and the engine refuses an
     // answer precisely while a question is standing. The player clicked, the
@@ -219,6 +235,7 @@ pub fn sync_overlay(
         && revision.armed == armed_deed
         && revision.number == number
         && revision.choice == choice
+        && revision.cast_menu == cast_menu
         && revision.window == canvas
         && !existing.is_empty()
     {
@@ -243,6 +260,7 @@ pub fn sync_overlay(
     revision.armed.clone_from(&armed_deed);
     revision.number = number;
     revision.choice = choice;
+    revision.cast_menu = cast_menu;
     revision.window = canvas;
 
     for entity in &existing {
@@ -614,11 +632,21 @@ pub fn sync_overlay(
         // while holding priority — they are *the* answer, and picking one
         // sends it. Until this existed a tapped dual land drew "Choose a
         // colour" with nothing under it and the game stopped there.
+        // The client's own cast chooser is asked first and drawn by the same
+        // code: it *is* a `Prompt::CastMode`, built one step before the
+        // engine would have built it. Everything below — the labels, the
+        // costs, the highlight, the button that sends — is the chooser that
+        // was already here.
         if let Some(rows) = duel
-            .interaction
+            .cast_menu
             .as_ref()
-            .filter(|_| !waiting)
-            .map(baylee_client_core::Interaction::prompt)
+            .map(crate::CastMenu::prompt)
+            .or_else(|| {
+                duel.interaction
+                    .as_ref()
+                    .filter(|_| !waiting)
+                    .map(baylee_client_core::Interaction::prompt)
+            })
             .and_then(|p| {
                 crate::choices::options(
                     &p,
@@ -633,10 +661,14 @@ pub fn sync_overlay(
             })
             .filter(|rows| !rows.is_empty())
         {
-            let picked = duel
-                .interaction
-                .as_ref()
-                .and_then(baylee_client_core::Interaction::chosen_index);
+            let picked = duel.cast_menu.as_ref().map_or_else(
+                || {
+                    duel.interaction
+                        .as_ref()
+                        .and_then(baylee_client_core::Interaction::chosen_index)
+                },
+                |m| Some(m.pick),
+            );
             let row = commands
                 .spawn((
                     Node {

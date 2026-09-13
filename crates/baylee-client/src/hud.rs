@@ -855,6 +855,16 @@ pub struct HudRevision {
     /// which always arrives with a new `seq`, this never leaves the client at
     /// all — so without it here the armed row would never be drawn.
     armed: Option<crate::Armed>,
+    /// The cast chooser this client opens before it floats anything: which
+    /// card, how many ways, and which row the cursor is on.
+    ///
+    /// `armed`'s neighbour and for its reason: the chooser is entirely the
+    /// client's, so opening it, walking it and closing it all happen with no
+    /// new snapshot and nothing else in this struct moving. The three fields
+    /// are what a redraw depends on; the ways themselves are rebuilt from
+    /// `LegalActions` whenever the list is read, so a change in them arrives
+    /// with the `seq` that caused it.
+    cast_menu: Option<(ObjectId, usize, usize)>,
     /// The window's logical size, rounded to whole pixels.
     ///
     /// Nothing in this struct followed the *window* before, so a HUD built

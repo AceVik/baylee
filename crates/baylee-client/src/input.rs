@@ -179,6 +179,25 @@ pub fn activate_card(duel: &mut Duel, object: ObjectId) -> Answer {
         return Answer::Took;
     }
     duel.armed = None;
+    // A card with more than one way to be cast is asked about **first**, and
+    // that ordering is the whole of AZ. Both branches under this one commit
+    // to a way without saying so: the engine offers a card in `castable` only
+    // for the ways the *current* pool pays for — which for Solitude with an
+    // empty pool is the free evoke and nothing else — and the run below
+    // floats exactly the printed cost, after which the evoke is the way that
+    // has become unaffordable. Either way the player was told nothing.
+    // [`crate::castmodes`] is what may be asked about.
+    if duel.cast_menu.as_ref().is_some_and(|m| m.card == object) {
+        // A second tap on the card whose chooser is already open does
+        // nothing, the same as the ability sheet's: it is the player's own
+        // question standing, not a button that failed.
+        return Answer::Took;
+    }
+    if let Some(menu) = cast_menu_for(duel, object) {
+        duel.ability_menu = None;
+        duel.cast_menu = Some(menu);
+        return Answer::Took;
+    }
     if let Some(action) = duel.interaction.as_ref().and_then(|i| i.play_card(object)) {
         // A land plays on the click. See `one_click_land` below for the line
         // that lets it and for what stays on the far side of that line.
@@ -312,6 +331,31 @@ fn open_pile(duel: &mut Duel, object: ObjectId) -> bool {
         return true;
     }
     false
+}
+
+/// The chooser for `object`, when it has more than one way to be cast.
+///
+/// `None` is the ordinary answer and means "carry on as before": one way, no
+/// way, or a card this client would not offer to pay for anyway.
+///
+/// The two membership tests are not a third judgement about timing and the
+/// board — they are the two this client already makes, asked again. A card
+/// the engine offers is castable now; a card in `reachable` has been through
+/// `timing::allows` and has a plan. Without them a sorcery with two printed
+/// ways would open a chooser on an opponent's turn and every row in it would
+/// lead nowhere.
+fn cast_menu_for(duel: &Duel, object: ObjectId) -> Option<crate::CastMenu> {
+    let view = duel.view.as_ref()?;
+    let legal = duel.interaction.as_ref()?.legal_actions()?;
+    if !legal.castable.contains(&object) && !duel.reachable.contains(&object) {
+        return None;
+    }
+    let modes = crate::castmodes::reachable_modes(view, legal, object);
+    (modes.len() > 1).then_some(crate::CastMenu {
+        card: object,
+        modes,
+        pick: 0,
+    })
 }
 
 /// Arms a deed. The prompt bar draws what is armed, and the way out of it.
@@ -449,6 +493,9 @@ pub fn fire_armed(duel: &mut Duel) {
     // been answered, and a list of things to do left standing over a card
     // whose ability is already on the stack is a list a player has to dismiss.
     duel.ability_menu = None;
+    // The cast chooser is already closed by the press that picked a row; this
+    // is the case where a deed was armed some other way while one stood.
+    duel.cast_menu = None;
     match armed.deed {
         Deed::Play => {
             match duel
@@ -490,7 +537,21 @@ pub fn fire_armed(duel: &mut Duel) {
             plan,
             then: crate::RunEnd::Cast,
         } => {
-            if let Some(action) = duel
+            // The short-circuit below is for the *manual* land tap that may
+            // have happened between the two clicks, and it must not fire when
+            // the player has chosen a way to cast: the engine's answer with
+            // the pool as it stands is exactly the wrong one — a Solitude
+            // whose printed cost the player picked is `castable` this whole
+            // time, for its free evoke. So a chosen way with taps left to
+            // make goes to the run, and only the run.
+            let chosen = duel
+                .cast_answer
+                .as_ref()
+                .is_some_and(|(card, _)| *card == armed.object);
+            if chosen && !plan.is_empty() {
+                duel.last_error = None;
+                duel.mana_run = Some(crate::ManaRun::new(plan, armed.object, crate::RunEnd::Cast));
+            } else if let Some(action) = duel
                 .interaction
                 .as_ref()
                 .and_then(|i| i.play_card(armed.object))
@@ -632,6 +693,11 @@ pub fn keyboard(
     // The ability menu owns the keyboard while it stands: a list of things to
     // do is not a background for the cursor to walk over.
     if ability_menu_keys(fired, &mut duel) {
+        return;
+    }
+    // And the cast chooser for the same reason, after it: the two never stand
+    // together, so the order between them is arbitrary and the rule is not.
+    if cast_menu_keys(fired, &mut duel) {
         return;
     }
     if move_the_cursor(fired, &mut duel) {
@@ -1794,7 +1860,18 @@ fn pick_ability(duel: &mut Duel, index: usize) {
 /// there is nothing to combine. The rows are rebuilt from the *current*
 /// prompt first, so a button drawn before the engine moved on answers nothing
 /// rather than the wrong thing.
-fn pick_choice(duel: &mut Duel, index: usize) {
+///
+/// `pub` for the same reason [`activate_card`] is: a row of this chooser is a
+/// press, and a test that built the answer by hand would pass just as loudly
+/// with no button behind it.
+pub fn pick_choice(duel: &mut Duel, index: usize) {
+    // This client's own chooser first, because while it stands it *is* the
+    // question on the bar — the engine is still holding an ordinary priority
+    // window behind it. See [`take_cast_row`].
+    if duel.cast_menu.is_some() {
+        take_cast_row(duel, index);
+        return;
+    }
     let offered = duel
         .interaction
         .as_ref()
@@ -1825,6 +1902,89 @@ fn pick_choice(duel: &mut Duel, index: usize) {
     if let Some(action) = action {
         duel.submit(action);
     }
+}
+
+/// Takes one row of the cast chooser: the way is remembered, the deed is
+/// armed, the chooser closes.
+///
+/// It **arms** rather than sending, which is the same two-stage rule the
+/// ability sheet's rows follow ([`take_sheet_row`]) and for the same reason:
+/// there is no undo in the engine, and a spell on the stack is the least
+/// undoable thing in the game. So the press that answers this client's
+/// question leaves the deed standing in the prompt bar, and the next one
+/// sends it.
+///
+/// The list is rebuilt from the current `LegalActions` before the row is
+/// read, exactly as every other chooser in this file does — a bar drawn a
+/// frame ago must not be able to pick a way the board no longer offers.
+fn take_cast_row(duel: &mut Duel, at: usize) {
+    let Some(card) = duel.cast_menu.as_ref().map(|m| m.card) else {
+        return;
+    };
+    let Some(mode) = cast_menu_for(duel, card).and_then(|m| m.mode(at).cloned()) else {
+        // The card has stopped offering that many ways. Close rather than
+        // guess: the player is looking at a list that is no longer true.
+        duel.cast_menu = None;
+        duel.last_error = Some(STALE.to_string());
+        return;
+    };
+    duel.cast_menu = None;
+    duel.cast_answer = Some((card, mode.kind));
+    arm(
+        duel,
+        card,
+        Deed::Run {
+            plan: mode.plan,
+            then: crate::RunEnd::Cast,
+        },
+    );
+}
+
+/// The open cast chooser: the cursor keys walk it, the primary key or confirm
+/// takes the row, cancel puts it away. Returns whether it consumed the frame.
+///
+/// Its own handler rather than a branch of [`ability_menu_keys`], because the
+/// two menus are about different things and can never stand together — but
+/// the same shape, so the keyboard answers this list the way it answers that
+/// one. The rows are a single column here, so up and down are the whole of
+/// the walk.
+pub fn cast_menu_keys(fired: Fired, duel: &mut Duel) -> bool {
+    let Some(card) = duel.cast_menu.as_ref().map(|m| m.card) else {
+        return false;
+    };
+    let Some(fresh) = cast_menu_for(duel, card) else {
+        // Fewer than two ways left: the chooser is stale, and holding it open
+        // would keep the keyboard hostage over a question that has answered
+        // itself.
+        duel.cast_menu = None;
+        return false;
+    };
+    let len = fresh.modes.len();
+    if let Some(menu) = duel.cast_menu.as_mut() {
+        menu.modes = fresh.modes;
+        menu.pick = menu.pick.min(len - 1);
+    }
+    if fired.has(Action::Cancel) {
+        duel.cast_menu = None;
+        return true;
+    }
+    let step = i32::from(fired.has(Action::CursorDown)) - i32::from(fired.has(Action::CursorUp))
+        + i32::from(fired.has(Action::CursorRight))
+        - i32::from(fired.has(Action::CursorLeft));
+    if step != 0 {
+        if let Some(menu) = duel.cast_menu.as_mut() {
+            let at = i32::try_from(menu.pick).unwrap_or(0);
+            let wide = i32::try_from(len).unwrap_or(1);
+            menu.pick = usize::try_from((at + step).rem_euclid(wide)).unwrap_or(0);
+        }
+        return true;
+    }
+    if fired.has(Action::Primary) || fired.has(Action::Confirm) || fired.has(Action::ActivateCard) {
+        let at = duel.cast_menu.as_ref().map_or(0, |m| m.pick);
+        take_cast_row(duel, at);
+        return true;
+    }
+    false
 }
 
 /// The two buttons in the top-right menu.

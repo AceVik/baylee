@@ -1928,3 +1928,310 @@ fn the_horizontal_keys_walk_the_pips_and_jump_to_them() {
     assert!(key(&mut duel, Action::CursorLeft));
     assert_eq!(duel.ability_pick, 4, "leftwards enters at the last");
 }
+
+// --------------------------------------------------------------------- AZ
+//
+// The mana planner used to pick the *way* a spell was cast, silently, by
+// floating exactly the printed cost and then asking the engine to cast it.
+// The engine counts a spell's ways against the pool as it stands (it has no
+// planner and cannot do otherwise), so by then there was only ever one way
+// left and nothing to ask about. The repair is that the client asks first —
+// `Duel::cast_menu` — and remembers the answer until the engine's own
+// question arrives, several round trips later.
+//
+// Both tests below go through the click and the row press, never through a
+// hand-built `PlayerAction`: what is claimed is about buttons.
+
+/// Reveillark — `{4}{W}`, and Evoke `{5}{W}`. The alternative cost is the
+/// **dearer** one, which is the half a planner can never reach on its own.
+const REVEILLARK: &str = "1be13ede-98f8-497e-800c-03e5802932b3";
+/// Solitude — `{3}{W}{W}`, or exile a white card from your hand. The
+/// alternative is **free**, so the engine offers the card as castable off an
+/// empty pool and the printed cost is the one that was unreachable.
+const SOLITUDE: &str = "dcb9c2a7-ae54-4ddc-a567-640bf4bf4366";
+/// Plains.
+const PLAINS: &str = "bc71ebf6-2056-41f7-be35-b2e5c34afa99";
+
+/// Seat 0 with `lands` untapped Plains on the table and `hand` in hand.
+fn white_preset(hand: &[&str], lands: usize) -> GamePreset {
+    let deck: Vec<DeckEntry> = (0..60).map(|_| entry(PLAINS)).collect();
+    let seat = |ai: bool| SeatSpec {
+        controller: if ai {
+            SeatController::Ai(AIProfile::default())
+        } else {
+            SeatController::Open
+        },
+        capabilities: baylee_core::preset::SeatCapabilities::default(),
+        deck: deck.clone(),
+        sideboard: vec![],
+        commanders: vec![],
+        starting_life: None,
+        starting_hand: None,
+        starting_battlefield: vec![],
+        emblems: vec![],
+        team: None,
+    };
+    let mut preset = GamePreset {
+        format: FormatId::Freeform,
+        seed: 7,
+        house_rules: HouseRules::default(),
+        modifiers: vec![],
+        prints: vec![PrintInfo {
+            scryfall_id: uuid::Uuid::nil(),
+            lang: "EN".into(),
+            finish: Finish::Normal,
+        }],
+        seats: vec![seat(false), seat(true)],
+    };
+    preset.seats[0].starting_hand = Some(hand.iter().copied().map(entry).collect());
+    preset.seats[0].starting_battlefield = (0..lands).map(|_| entry(PLAINS)).collect();
+    preset
+}
+
+/// The client resource, refreshed the way the frame loop refreshes it.
+fn refresh(duel: &mut baylee_client::Duel, table: &Table) {
+    use baylee_client_core::interaction::Interaction;
+    duel.view = Some(table.view().clone());
+    duel.interaction = Some(Interaction::new(
+        table.pending.clone().expect("a question"),
+        PlayerId::new(0),
+    ));
+    baylee_client::rebuild_board(duel);
+}
+
+fn id_in_hand(table: &Table, name: &str) -> baylee_core::ids::ObjectId {
+    table
+        .view()
+        .hand
+        .iter()
+        .find(|c| c.name == name)
+        .unwrap_or_else(|| panic!("{name} is in the opening hand"))
+        .id
+}
+
+fn untapped_lands(table: &Table) -> usize {
+    table
+        .view()
+        .battlefield
+        .iter()
+        .filter(|o| {
+            o.controller == PlayerId::new(0)
+                && o.types.contains(baylee_core::types::TypeSet::LAND)
+                && !o.status.contains(baylee_view::ObjectStatus::TAPPED)
+        })
+        .count()
+}
+
+/// Runs the two systems the frame loop runs after a deed is fired, one engine
+/// round trip at a time, and answers the engine's own cast-mode question with
+/// the way the player already chose.
+///
+/// Returns how many times the engine asked which way — which is the number
+/// that was **zero** before this repair.
+fn play_it_out(duel: &mut baylee_client::Duel, table: &mut Table) -> usize {
+    let mut asked = 0;
+    for _ in 0..24 {
+        refresh(duel, table);
+        if matches!(table.pending, Some(Pending::ChooseCastMode { .. })) {
+            asked += 1;
+        }
+        baylee_client::advance_mana_run(duel);
+        baylee_client::take_the_chosen_cast_mode(duel);
+        let sent = duel.take_outbox();
+        if sent.is_empty() {
+            break;
+        }
+        for action in sent {
+            table.submit(action);
+        }
+    }
+    assert_eq!(duel.last_error, None, "nothing aborted on the way through");
+    asked
+}
+
+/// The measurement in the report, answered.
+///
+/// Eight Plains, both of Reveillark's ways payable, and the player asked. It
+/// used to go straight onto the stack for the printed `{4}{W}` with three
+/// lands still untapped and no question asked at all.
+#[test]
+fn reveillark_asks_which_way_and_evokes_when_it_is_told_to() {
+    use baylee_client::Duel;
+    use baylee_client::input::{activate_card, pick_choice};
+    use baylee_engine::choice::CastModeKind;
+
+    let mut table = Table::open_with(&white_preset(&[REVEILLARK], 8));
+    table.walk_to_main();
+    let lark = id_in_hand(&table, "Reveillark");
+
+    let mut duel = Duel::default();
+    refresh(&mut duel, &table);
+    assert!(
+        !table.legal().castable.contains(&lark),
+        "the mana is in the lands, so the engine offers nothing yet"
+    );
+    assert!(
+        duel.reachable.contains(&lark),
+        "and this client offers to go and get it"
+    );
+
+    // The click opens the chooser. Nothing is armed and nothing is on the
+    // wire: the question comes before the first tap, which is the whole
+    // repair.
+    activate_card(&mut duel, lark);
+    let ways = duel
+        .cast_menu
+        .as_ref()
+        .map(|m| m.modes.iter().map(|w| w.kind).collect::<Vec<_>>())
+        .expect("two ways, so a chooser");
+    assert_eq!(
+        ways,
+        vec![CastModeKind::Normal, CastModeKind::Alternative(0)],
+        "printed {{4}}{{W}} and evoke {{5}}{{W}}"
+    );
+    assert!(duel.armed.is_none(), "a chooser is not an armed deed");
+    assert!(
+        duel.outbox().is_empty(),
+        "and it says nothing to the engine"
+    );
+
+    // The evoke row. It arms, the way the ability sheet's rows do, because a
+    // spell on the stack is the least undoable thing in the game.
+    pick_choice(&mut duel, 1);
+    assert!(
+        duel.cast_menu.is_none(),
+        "the chooser is answered and closes"
+    );
+    assert_eq!(
+        duel.cast_answer,
+        Some((lark, CastModeKind::Alternative(0))),
+        "and the way is remembered as a kind, not as an index"
+    );
+    assert!(
+        duel.armed.is_some(),
+        "with the deed waiting for its second tap"
+    );
+    assert!(duel.outbox().is_empty());
+
+    // Second tap sends it: six lands tapped for {5}{W}, then the cast, then
+    // the engine's own question — answered with the evoke.
+    activate_card(&mut duel, lark);
+    for action in duel.take_outbox() {
+        table.submit(action);
+    }
+    assert!(duel.mana_run.is_some(), "the second tap starts the run");
+    assert_eq!(
+        play_it_out(&mut duel, &mut table),
+        1,
+        "the engine asked which way exactly once"
+    );
+
+    assert_eq!(
+        untapped_lands(&table),
+        2,
+        "evoke is {{5}}{{W}}: six of the eight Plains are spent"
+    );
+    assert!(
+        table.view().stack.iter().any(|o| o.name == "Reveillark"),
+        "and the spell is on the stack: {:?}",
+        table
+            .view()
+            .stack
+            .iter()
+            .map(|o| &o.name)
+            .collect::<Vec<_>>()
+    );
+    assert_eq!(
+        duel.cast_answer, None,
+        "the answer was spent, not left over"
+    );
+}
+
+/// The other direction, and the one the click could not reach at all.
+///
+/// Solitude's evoke is free, so the engine has it in `castable` from the
+/// first frame and the click cast it that way in silence. Five Plains make
+/// the printed `{3}{W}{W}` reachable too — and picking it has to beat the
+/// engine's own offer, which is exactly what `fire_armed` had to learn.
+#[test]
+fn solitude_can_be_hard_cast_even_though_the_engine_offers_the_free_way() {
+    use baylee_client::Duel;
+    use baylee_client::input::{activate_card, pick_choice};
+    use baylee_engine::choice::CastModeKind;
+
+    // Reveillark is in the hand as the white card the evoke would exile —
+    // without one the pitch is unpayable and there is only one way.
+    let mut table = Table::open_with(&white_preset(&[SOLITUDE, REVEILLARK], 5));
+    table.walk_to_main();
+    let solitude = id_in_hand(&table, "Solitude");
+
+    let mut duel = Duel::default();
+    refresh(&mut duel, &table);
+    assert!(
+        table.legal().castable.contains(&solitude),
+        "the free evoke is payable with an empty pool, so the engine offers it"
+    );
+
+    activate_card(&mut duel, solitude);
+    let ways = duel
+        .cast_menu
+        .as_ref()
+        .map(|m| m.modes.iter().map(|w| w.kind).collect::<Vec<_>>())
+        .expect("free or printed, so a chooser");
+    assert_eq!(
+        ways,
+        vec![CastModeKind::Normal, CastModeKind::Alternative(0)]
+    );
+
+    // The printed cost, which is the row that was unreachable.
+    pick_choice(&mut duel, 0);
+    assert_eq!(duel.cast_answer, Some((solitude, CastModeKind::Normal)));
+
+    activate_card(&mut duel, solitude);
+    assert!(
+        duel.outbox().is_empty(),
+        "the engine's own offer must not short-circuit a chosen way"
+    );
+    assert!(duel.mana_run.is_some(), "five lands to tap first");
+    assert_eq!(play_it_out(&mut duel, &mut table), 1);
+
+    assert_eq!(untapped_lands(&table), 0, "{{3}}{{W}}{{W}} spends all five");
+    assert!(
+        table.view().stack.iter().any(|o| o.name == "Solitude"),
+        "and Solitude is on the stack, paid for the printed way"
+    );
+    assert!(
+        table.view().hand.iter().any(|c| c.name == "Reveillark"),
+        "with the white card still in hand, which is the whole reason to hard cast it"
+    );
+}
+
+/// One way is no question. The click keeps the behaviour it always had — two
+/// presses, not three — and that matters as much as the chooser does.
+///
+/// It is the pitch filter read live as well: Solitude alone in a hand has
+/// nothing white to exile but itself, and the card being cast is never a
+/// candidate for its own pitch. So the free way is not on offer at all, the
+/// printed one is, and one way is not a question.
+#[test]
+fn a_card_with_one_reachable_way_opens_no_chooser() {
+    use baylee_client::Duel;
+    use baylee_client::input::activate_card;
+
+    let mut table = Table::open_with(&white_preset(&[SOLITUDE], 5));
+    table.walk_to_main();
+    let solitude = id_in_hand(&table, "Solitude");
+
+    let mut duel = Duel::default();
+    refresh(&mut duel, &table);
+    activate_card(&mut duel, solitude);
+    assert!(
+        duel.cast_menu.is_none(),
+        "one way is not a question: {:?}",
+        duel.cast_menu.as_ref().map(|m| m.modes.len())
+    );
+    assert!(
+        duel.armed.is_some(),
+        "the click arms the deed it always armed"
+    );
+}

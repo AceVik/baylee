@@ -1120,7 +1120,7 @@ fn state_dump(believed: &Believed, window: Vec2) -> String {
          \"autopilot\":{autopilot},\"last_error\":{error},\"lang\":{lang},\
          \"reachable\":{reachable},\"activatable\":{activatable},\"armed\":{armed},\
          \"outbox\":{outbox},\"mana_run\":{mana_run},\"ability_menu\":{menu},\
-         \"ability_tap\":{tap},\
+         \"ability_tap\":{tap},\"cast_menu\":{cast_menu},\"cast_answer\":{cast_answer},\
          \"last_cue\":{last_cue},\"last_count\":{last_count},\
          \"departing\":{departing},\"cards\":{cards},\"buttons\":{buttons},\"shelves\":{shelves}}}",
         cards = cards_json(believed, duel, window),
@@ -1156,6 +1156,16 @@ fn state_dump(believed: &Believed, window: Vec2) -> String {
         tap = duel
             .asking_tap()
             .map_or_else(|| "null".to_string(), |t| t.to_string()),
+        // The seventh and eighth, and they are one state read at its two
+        // ends. The cast chooser swallows the keyboard exactly as the ability
+        // sheet does, and the way it was answered with then travels silently
+        // through a whole mana run to meet the engine's own question several
+        // round trips later — so a caller that could see neither could not
+        // tell "the chooser is standing" from "the click did nothing", nor
+        // "the evoke was chosen" from "the engine picked for us again". See
+        // [`crate::CastMenu`].
+        cast_menu = cast_menu_json(duel),
+        cast_answer = cast_answer_json(duel),
         // The fifth thing that happens without leaving a mark on the screen,
         // and the only one that is meant to leave none: the client decides
         // what is worth hearing (`baylee_client_core::cue`) before anything
@@ -1171,6 +1181,45 @@ fn state_dump(believed: &Believed, window: Vec2) -> String {
         // burst from a tap. `0` when nothing has been heard yet, and `1` for
         // every cue that has no amount in it.
         last_count = duel.cues.last().map_or(0, |beat| beat.count),
+    )
+}
+
+/// The cast chooser, while it stands: which card, how many ways, which row.
+///
+/// The near end of a state that is invisible in a screenshot in the way the
+/// ability sheet's is — it swallows the keyboard, and a caller that could not
+/// see it could not tell it from a click that did nothing.
+fn cast_menu_json(duel: &Duel) -> String {
+    duel.cast_menu.as_ref().map_or_else(
+        || "null".to_string(),
+        |menu| {
+            format!(
+                "{{\"card\":{},\"ways\":{},\"pick\":{}}}",
+                menu.card.slot(),
+                menu.modes.len(),
+                menu.pick
+            )
+        },
+    )
+}
+
+/// The far end of the same state: the way the player picked, still owed to a
+/// question the engine has not asked yet.
+///
+/// It travels through a whole mana run — several round trips — before it is
+/// spent, and nothing on the screen says so. Without it a caller cannot tell
+/// "the evoke was chosen" from "the engine picked for us again", which is the
+/// distinction the whole of [`crate::CastMenu`] exists to make.
+fn cast_answer_json(duel: &Duel) -> String {
+    duel.cast_answer.as_ref().map_or_else(
+        || "null".to_string(),
+        |(card, kind)| {
+            format!(
+                "{{\"card\":{},\"kind\":{}}}",
+                card.slot(),
+                quoted(&format!("{kind:?}"))
+            )
+        },
     )
 }
 
