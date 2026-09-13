@@ -2250,6 +2250,30 @@ narrow does not overwrite where the player put it. The geometry lives in
 `ClientSettings` and not `Preferences`: it is a fact about this screen, not
 about the account.
 
+**A sheet a question opened is not furniture, and reads none of that.**
+`Opening::ForChoice` is the client's own doing — it arrives with the question
+and is taken away with it — so `Browser::placement` centres it on whatever
+window it meets and `input::tray_drag` refuses to move it. Both halves are
+needed and the writing half is the one easy to miss: the remembered rectangle
+that sent the dialog to the left third of a window was 854 wide at `left:
+437`, which is *centred* in a 1728-pixel band and 164 pixels left of centre
+in the 2056-pixel one it was drawn in. `fit` clamps a rectangle inside a band
+and has no opinion about the middle of it, so a sheet placed by one window
+kept that place in the next. A drag that still wrote to the store would put
+the panel back there a rebuild later, and would leave the *hand-opened*
+sheet standing somewhere nobody chose.
+
+The same opening pins the tab. `Browser::locked` is beside `tab` rather than
+inside it because the two answer different questions — `tab` is what is
+showing, `locked` is whether the player may change it — and it is decided by
+the **offer** and never by the prompt kind: every id in
+`Interaction::selectable` living in one `BrowseZone` pins that zone, and an
+id on the battlefield or in hand pins nothing, which is right, because a
+question answerable by clicking a permanent must not lock the sheet to a
+pile. A pinned tab is drawn without `Button` or `Feel` and with
+`Pickable::IGNORE`: a control that lights under the pointer and then refuses
+the click is worse than one that never invited it.
+
 Two things about the mechanics are worth knowing before touching them. The
 drag is a `Pointer<Press>` that records *what* is held plus a per-frame read
 of `Window::cursor_position`, **not** `Pointer<Drag>` — the duel HUD is a

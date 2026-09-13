@@ -1287,6 +1287,17 @@ pub fn tray_drag(
     /// release; a resize that only moved four is a resize nobody meant.
     const TAP_SLOP: f32 = 4.0;
 
+    // A sheet a *question* opened is not furniture the player arranged: it is
+    // centred on whatever window it meets and reads no stored rectangle at all
+    // (`Browser::placement`). Dragging it would write a rectangle nobody is
+    // looking at into `settings.zone_browser` — the sheet would snap back to
+    // the middle at the next rebuild, and the hand-opened sheet would later
+    // stand where nobody put it. Only a `ByHand` sheet is furniture.
+    if duel.browser.for_choice() {
+        duel.tray_drag = None;
+        return;
+    }
+
     let cursor = windows.single().ok().and_then(Window::cursor_position);
     for down in downs.read() {
         // The ✕ sits *on* the header, so its lineage carries the grip. The
@@ -4049,5 +4060,56 @@ mod dragging {
         let before = node_of(&app, panel);
         cursor_to(&mut app, Vec2::new(1000.0, 600.0));
         assert_eq!(node_of(&app, panel).left, before.left);
+    }
+
+    /// The sheet a question opened is not furniture, and cannot be rearranged.
+    ///
+    /// The half that is easy to miss is the *writing*: `Browser::placement`
+    /// already refuses to read a stored rectangle for such a sheet, so a drag
+    /// that still wrote one would move the panel under the hand, snap it back
+    /// to the middle at the next rebuild, and leave the remembered place of
+    /// the hand-opened sheet somewhere nobody chose.
+    #[test]
+    fn a_sheet_a_question_opened_cannot_be_dragged() {
+        use baylee_client_core::test_support::ViewBuilder;
+        use baylee_core::ids::PlayerId;
+        use baylee_engine::choice::{ChoicePrompt, Pending};
+
+        let (mut app, panel, grip, _) = harness();
+        let view = ViewBuilder::new(2).build();
+        let asked = Pending::ChooseCards {
+            player: PlayerId::new(0),
+            options: vec![ObjectId::new(7, 0)],
+            min: 1,
+            max: 1,
+            prompt: ChoicePrompt::SearchLibrary,
+        };
+        let interaction =
+            baylee_client_core::interaction::Interaction::new(asked, PlayerId::new(0));
+        app.world_mut()
+            .resource_mut::<Duel>()
+            .browser
+            .follow(&view, Some(&interaction));
+        assert!(
+            app.world().resource::<Duel>().browser.for_choice(),
+            "the harness did not open the sheet for a question"
+        );
+
+        press(&mut app, grip);
+        app.update();
+        let before = node_of(&app, panel);
+        cursor_to(&mut app, Vec2::new(1200.0, 700.0));
+        assert_eq!(
+            node_of(&app, panel).left,
+            before.left,
+            "a question's sheet followed the pointer"
+        );
+        assert!(
+            app.world()
+                .resource::<ClientSettings>()
+                .zone_browser
+                .is_none(),
+            "a question's sheet wrote a place the player will never see it in"
+        );
     }
 }
