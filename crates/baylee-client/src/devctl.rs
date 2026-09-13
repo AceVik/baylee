@@ -699,6 +699,16 @@ fn logical_key(name: &str) -> Key {
         "ArrowDown" => Key::ArrowDown,
         "ArrowLeft" => Key::ArrowLeft,
         "ArrowRight" => Key::ArrowRight,
+        // The canonical spellings, which `harness_alias` lets a caller write
+        // either way round. `Digit2` pressed the physical key and reported no
+        // logical one at all, so the ability sheet — which reads its digits
+        // as characters, the way the subtype filter does — saw nothing;
+        // `2` worked and `Digit2` did not, which is the harness disagreeing
+        // with itself about one key.
+        _ if name.len() == 6 && name.starts_with("Digit") => Key::Character(name[5..].into()),
+        _ if name.len() == 4 && name.starts_with("Key") => {
+            Key::Character(name[3..].to_lowercase().into())
+        }
         other => match other.chars().next() {
             Some(first) if other.chars().count() == 1 => {
                 Key::Character(first.to_lowercase().to_string().into())
@@ -1360,6 +1370,25 @@ fn shelves_json(shelves: Option<&crate::hud::Shelves>, designated: bool) -> Stri
 mod tests {
     use super::*;
     use bevy::ecs::message::Messages;
+
+    /// A key named either way round says the same thing.
+    ///
+    /// `harness_alias` already let a caller write `2` for `Digit2`, but only
+    /// the *physical* code went both ways: `Digit2` reported no logical key
+    /// at all, so a reader that takes its digits as characters — the ability
+    /// sheet, the subtype filter, a number entry — saw the short spelling and
+    /// not the canonical one. The harness must not disagree with itself
+    /// about one key.
+    #[test]
+    fn a_key_named_either_way_round_produces_the_same_character() {
+        assert_eq!(logical_key("Digit2"), logical_key("2"));
+        assert_eq!(logical_key("KeyG"), logical_key("g"));
+        assert_eq!(logical_key("Digit0"), Key::Character("0".into()));
+        assert_eq!(logical_key("KeyA"), Key::Character("a".into()));
+        // Still no logical key where there is none to report.
+        assert!(matches!(logical_key("F5"), Key::Unidentified(_)));
+        assert!(matches!(logical_key("ShiftLeft"), Key::Unidentified(_)));
+    }
 
     #[test]
     fn a_request_body_yields_its_fields() {
