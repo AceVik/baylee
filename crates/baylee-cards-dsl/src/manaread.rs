@@ -105,6 +105,47 @@ pub fn mana_shape(cost: &Cost, effects: &[Effect]) -> Option<(ManaSource, u8, bo
     ))
 }
 
+/// The **colour question** an ability is about to ask, and nothing else.
+///
+/// The fourth reading here, and it relaxes exactly one clause of
+/// [`mana_shape`]: **how much**. A plan insists on `Amount::Fixed` because it
+/// has to count what it is buying; Harabaz Druid's "add X mana of any one
+/// color, where X is the number of Allies you control" has no such number and
+/// still asks a player which colour, which is the whole of what a mana bubble
+/// draws. Counting it would be the over-count that leaves a board half
+/// tapped — drawing its five pips costs nothing.
+///
+/// Everything else stays, restricted mana included, and that one is worth
+/// saying out loud because a bubble spends nothing and looks as though it
+/// could take it. It cannot: a bubble's whole label is the pip, and a pip can
+/// say "white" but not "white, and only on Ally spells". Jasmine Dragon Tea
+/// Shop prints both taps — `{T}: Add {C}` beside an any-colour one restricted
+/// to Allies — and drawing six indistinguishable discs for it would be the
+/// bug that card was already reported for once
+/// (`a_restricted_mana_ability_says_what_it_makes`). Restricted mana wants
+/// the sheet's words.
+///
+/// The rest is what makes any of these readings safe: a free cost, and one
+/// `AddMana` and nothing beside it. An ability that also does something else
+/// is one a player should read before activating.
+#[must_use]
+pub fn mana_offer(cost: &Cost, effects: &[Effect]) -> Option<ManaSource> {
+    if cost.mana != ManaCost::ZERO {
+        return None;
+    }
+    let [
+        Effect::AddMana {
+            source,
+            restriction: None,
+            ..
+        },
+    ] = effects
+    else {
+        return None;
+    };
+    Some(*source)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -347,6 +347,25 @@ fn arm_ability(
     object: ObjectId,
     option: &crate::abilities::AbilityOption,
 ) -> bool {
+    // A pip of a mana bubble, and this is the press the owner asked for. The
+    // permanent has not been touched yet: the colour was chosen on a bubble
+    // that cost nothing to open, and the two go out together as a one-step
+    // run — the activation now, the engine's `ChooseColor` answered from
+    // `ManaRun::asking` on the frame after. A `duel.submit` here would be the
+    // old path exactly, which is tap first and ask second.
+    if let Some(pour) = option.pour {
+        duel.last_error = None;
+        duel.armed = None;
+        duel.mana_run = Some(crate::ManaRun::new(
+            baylee_client_core::manaplan::Plan {
+                steps: vec![pour.step],
+                ..Default::default()
+            },
+            object,
+            crate::RunEnd::Float,
+        ));
+        return true;
+    }
     // Whether this row is armed already is never asked here: `fire_armed` is
     // the path for that, and it re-resolves the deed against the current
     // `LegalActions` rather than trusting a list drawn a frame ago.
@@ -455,6 +474,23 @@ pub fn fire_armed(duel: &mut Duel) {
             } else {
                 duel.last_error = Some(STALE.to_string());
             }
+        }
+        // A pour is never armed — [`arm_ability`] starts its run on the press
+        // that picks the colour, which is the whole of "the card taps once
+        // the mana has been chosen". Nothing arranges this deed today; it
+        // costs one line to do the right thing if something ever does, and
+        // the run itself re-checks the tap against the current
+        // `LegalActions` exactly as the two above do.
+        Deed::Run {
+            plan,
+            then: crate::RunEnd::Float,
+        } => {
+            duel.last_error = None;
+            duel.mana_run = Some(crate::ManaRun::new(
+                plan,
+                armed.object,
+                crate::RunEnd::Float,
+            ));
         }
     }
 }

@@ -72,6 +72,28 @@ pub struct AbilityOption {
     /// a granted ability, a printed one no sentence fits — and the sheet then
     /// falls back to [`Self::label`].
     pub printed: Option<baylee_view::StackText>,
+    /// The colour this row pours, when the row is one pip of a mana bubble.
+    ///
+    /// `Some` only on a list [`pour_out`] has rewritten, which it does when
+    /// every last thing a permanent offers is mana and there is more than one
+    /// colour to pick from. The rest of the list is then the same list of
+    /// colours, and the whole of what makes a bubble a bubble is that
+    /// [`crate::input::arm_ability`] answers a row carrying one with a
+    /// one-step [`crate::ManaRun`] instead of with an activation — so the
+    /// permanent taps on *this* press, having been asked the colour first.
+    pub pour: Option<baylee_client_core::manaplan::Pour>,
+}
+
+/// Whether this list is a mana bubble rather than an ability sheet.
+///
+/// One predicate rather than a second list shape, because everything between
+/// the two — the digits, the cursor, the pager, the click — is the same
+/// machinery, and a sum type here would have made seven readers branch to
+/// reach the same place. What differs is the ink: rows of sentences against a
+/// row of pips, which is [`crate::hud::sheet`]'s business alone.
+#[must_use]
+pub fn pouring(options: &[AbilityOption]) -> bool {
+    !options.is_empty() && options.iter().all(|option| option.pour.is_some())
 }
 
 /// Whether an ability's whole cost is `{T}` on the permanent that has it.
@@ -165,6 +187,10 @@ pub fn options(
                 // "Tap for any colour" where the printed text of the land it
                 // sits on says nothing about the grant at all.
                 printed: None,
+                // Set by `pour_out` below, over the whole list at once or not
+                // at all: whether a permanent is a bubble is a question about
+                // everything it offers, not about one row of it.
+                pour: None,
             });
         }
     }
@@ -241,9 +267,114 @@ pub fn options(
                 && tap_only(view, object, index),
             cost: printed_cost(lang, view, object, index),
             printed: printed_sentence(view, object, index),
+            pour: None,
         });
     }
+    pour_out(view, legal, object, &mut out);
     out
+}
+
+/// A permanent whose every offer is mana becomes one row per **colour**.
+///
+/// The owner's fourth point, and it is a rewrite of the list rather than a
+/// second kind of list for the reason [`pouring`] gives. What it turns is
+/// "this Plains offers one thing, so fire it" — the short-circuit in
+/// [`crate::input::activate_card`] — into "this Plains offers white and four
+/// colours the grant on it can make, so ask". The card is then tapped by the
+/// press that answers, not by the press that asked.
+///
+/// Three bars, and each one is a case that must keep working exactly as it
+/// did:
+///
+/// - **Every offer is mana.** Mind Stone makes `{C}` and also draws a card
+///   for a sacrifice; that is a sheet, and reading it as a bubble would hide
+///   the half a player has to think about.
+/// - **The colours can all be read.** A partial expansion would be a bubble
+///   with a pip missing and no way to reach what it left out, so an offer
+///   this client cannot resolve — Reflecting Pool's — leaves the whole list
+///   alone.
+/// - **More than one colour.** A Plains, a Sol Ring, a Llanowar Elf: there is
+///   nothing to choose, so they stay on the one-tap path they have always
+///   been on and nothing about them changes.
+fn pour_out(
+    view: &PlayerView,
+    legal: &baylee_engine::choice::LegalActions,
+    object: ObjectId,
+    out: &mut Vec<AbilityOption>,
+) {
+    if out.is_empty() || !out.iter().all(|option| option.mana) {
+        return;
+    }
+    let offers = crate::manasources::offers(view, legal, object);
+    // Every offer, not merely one of them: the list above says this permanent
+    // has nothing but mana to give, and a bubble that could not name one of
+    // those taps would be quietly dropping a colour.
+    if offers.len() < out.len() {
+        return;
+    }
+    let pours = baylee_client_core::manaplan::pours(object, &offers);
+    if pours.len() < 2 {
+        return;
+    }
+    *out = pours
+        .into_iter()
+        .filter_map(|pour| {
+            Some(AbilityOption {
+                action: tap_action(legal, &pour.step)?,
+                // The pip is the label. A reader that falls back to it —
+                // `armed_row`'s fingerprint does — then reads "{W}", which is
+                // what the row says.
+                label: pip(pour.color).to_string(),
+                mana: true,
+                // Answered truthfully rather than assumed, for the reason the
+                // field's own doc gives: `{T}, Sacrifice this: Add one mana of
+                // any color` is a bubble and is not paid out of the card.
+                // Nothing reads it here — a pour is armed by `pour` — so the
+                // two reasons a row goes through on one press stay separable.
+                tap_only: match pour.step.tap {
+                    Tap::Ability(index) => tap_only(view, object, index),
+                    Tap::Intrinsic => true,
+                },
+                // Neither has anything to say here. The cost of a pip is the
+                // tap it is drawn on, and its sentence is the colour.
+                cost: None,
+                printed: None,
+                pour: Some(pour),
+            })
+        })
+        .collect();
+    // A tap the engine withdrew between `offers` and here cannot happen —
+    // both read the same `LegalActions` — but a list that came out with one
+    // pip is not a bubble any more, and must not be left standing as one.
+    if out.len() < 2 {
+        out.clear();
+    }
+}
+
+/// The activation one pour's tap is, checked against what the engine listed.
+///
+/// The same pair of lists [`crate::advance_mana_run`] taps through, read here
+/// so the row carries an action like every other row does — a reader that
+/// compares actions (an armed deed, a stale-list check) must not find a hole
+/// on a bubble's rows.
+fn tap_action(
+    legal: &baylee_engine::choice::LegalActions,
+    step: &baylee_client_core::manaplan::Step,
+) -> Option<PlayerAction> {
+    match step.tap {
+        Tap::Intrinsic => legal.mana_abilities.contains(&step.source).then_some(
+            PlayerAction::ActivateManaAbility {
+                source: step.source,
+            },
+        ),
+        Tap::Ability(ability_index) => legal
+            .abilities
+            .contains(&(step.source, ability_index))
+            .then_some(PlayerAction::ActivateAbility {
+                source: step.source,
+                ability_index,
+            }),
+    }
 }
 
 /// How many of `object`'s entries in `legal.mana_abilities` are *grants*.

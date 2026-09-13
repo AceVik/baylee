@@ -357,6 +357,24 @@ pub fn of_color(color: Color) -> Pip {
     Pip::Solid { glyph, disc }
 }
 
+/// The pip for one mana in a **pool**.
+///
+/// [`of_color`] cannot answer this and never will: a `Color` is one of the
+/// five (CR 105.1) and mana in a pool may also be colourless, which is not a
+/// colour (CR 106.1b). Same table, read from the other set.
+#[must_use]
+pub fn of_mana(color: baylee_core::mana::ManaColor) -> Pip {
+    use baylee_core::mana::ManaColor;
+    pip(match color {
+        ManaColor::White => ManaSymbol::White,
+        ManaColor::Blue => ManaSymbol::Blue,
+        ManaColor::Black => ManaSymbol::Black,
+        ManaColor::Red => ManaSymbol::Red,
+        ManaColor::Green => ManaSymbol::Green,
+        ManaColor::Colorless => ManaSymbol::Colorless,
+    })
+}
+
 /// Parses a printed cost string and returns its pips, or `None` when the
 /// string is not a cost the rules can express.
 ///

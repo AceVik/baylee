@@ -100,6 +100,70 @@ pub struct Step {
     pub color: Option<ManaColor>,
 }
 
+/// What one tap of a permanent offers a **mana bubble**.
+///
+/// Deliberately not a [`Source`], and the missing field is the point: a
+/// bubble never counts mana, so how much a tap makes has no bearing on which
+/// pip is drawn — and an ability whose amount is a count of the board ("add X
+/// mana of any one color, where X is the number of Allies you control") has
+/// no amount to give and still asks the player a colour.
+#[derive(Clone, PartialEq, Eq, Debug)]
+pub struct Offer {
+    /// Which action taps it.
+    pub tap: Tap,
+    /// The colours it offers a choice between.
+    pub colors: Vec<ManaColor>,
+}
+
+/// One pip of a mana bubble: a colour, and the tap that pours it.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct Pour {
+    /// The colour the pip is drawn in.
+    pub color: ManaColor,
+    /// The tap that makes it, and the answer to the engine's question —
+    /// [`Step::color`] is `None` where that tap makes this colour and no
+    /// other, because then the engine does not ask and an answer to a
+    /// question nobody posed aborts the run.
+    pub step: Step,
+}
+
+/// The pips a permanent's taps come to: one per colour, in `ManaColor` order.
+///
+/// **A permanent taps once**, which is why this is a colour-wise union and
+/// not a list of abilities. A Forest under a Chromatic Lantern makes `{G}`
+/// twice over — from its own CR 305.6 shortcut and from the grant — and that
+/// is one pip, not two.
+///
+/// Which of the two wins is the only judgement here, and it goes to the tap
+/// that will **not stop to ask**: a source of one colour is one action, where
+/// a source of five is an action and then an answer. Where that ties, the
+/// intrinsic shortcut wins, for the reason [`plan`] already prefers it — one
+/// fewer round trip.
+#[must_use]
+pub fn pours(id: ObjectId, offers: &[Offer]) -> Vec<Pour> {
+    /// How much a tap makes a player wait, lower being better.
+    fn patience(offer: &Offer) -> (usize, bool) {
+        (offer.colors.len(), matches!(offer.tap, Tap::Ability(_)))
+    }
+    ManaColor::ALL
+        .into_iter()
+        .filter_map(|color| {
+            let best = offers
+                .iter()
+                .filter(|offer| offer.colors.contains(&color))
+                .min_by_key(|offer| patience(offer))?;
+            Some(Pour {
+                color,
+                step: Step {
+                    source: id,
+                    tap: best.tap,
+                    color: (best.colors.len() > 1).then_some(color),
+                },
+            })
+        })
+        .collect()
+}
+
 /// The taps that make a spell castable.
 #[derive(Clone, PartialEq, Eq, Debug, Default)]
 pub struct Plan {
@@ -689,5 +753,76 @@ mod tests {
         let shrine = SubtypeSet::from_slice(&[land::PLAINS, land::SWAMP]);
         assert_eq!(basic_land_color(&shrine), None);
         assert_eq!(basic_land_color(&SubtypeSet::EMPTY), None);
+    }
+
+    /// A Forest under a Chromatic Lantern: five pips, and the green one is
+    /// the land's **own** tap.
+    ///
+    /// The whole judgement in [`pours`], as arithmetic. Both taps make green;
+    /// the grant would stop and ask which colour and the CR 305.6 shortcut
+    /// would not, so green is poured by the shortcut and the other four by
+    /// the grant. Backwards, it costs a round trip and a colour prompt for
+    /// the one colour the land prints on itself.
+    #[test]
+    fn a_granted_any_colour_fills_in_round_the_lands_own_mana() {
+        let id = ObjectId::new(4, 0);
+        let offers = vec![
+            Offer {
+                tap: Tap::Ability(u32::MAX),
+                colors: vec![
+                    ManaColor::White,
+                    ManaColor::Blue,
+                    ManaColor::Black,
+                    ManaColor::Red,
+                    ManaColor::Green,
+                ],
+            },
+            Offer {
+                tap: Tap::Intrinsic,
+                colors: vec![ManaColor::Green],
+            },
+        ];
+        let poured = pours(id, &offers);
+        assert_eq!(
+            poured.iter().map(|p| p.color).collect::<Vec<_>>(),
+            vec![
+                ManaColor::White,
+                ManaColor::Blue,
+                ManaColor::Black,
+                ManaColor::Red,
+                ManaColor::Green
+            ],
+            "one pip per colour, in WUBRG order"
+        );
+        let green = poured.last().expect("five pips");
+        assert_eq!(green.step.tap, Tap::Intrinsic, "green is the land's own");
+        assert_eq!(
+            green.step.color, None,
+            "and a one-colour tap is never asked which colour"
+        );
+        let white = poured.first().expect("five pips");
+        assert_eq!(white.step.tap, Tap::Ability(u32::MAX), "white is the grant");
+        assert_eq!(
+            white.step.color,
+            Some(ManaColor::White),
+            "which does ask, and the answer is already in hand"
+        );
+        assert!(poured.iter().all(|p| p.step.source == id));
+    }
+
+    /// Nothing to choose is not a bubble, and [`pours`] says so by answering
+    /// with one pip: a Plains stays on the one-tap path it has always been on.
+    #[test]
+    fn a_source_of_one_colour_comes_to_one_pip() {
+        let id = ObjectId::new(5, 0);
+        let offers = vec![Offer {
+            tap: Tap::Intrinsic,
+            colors: vec![ManaColor::White],
+        }];
+        let poured = pours(id, &offers);
+        assert_eq!(poured.len(), 1);
+        assert_eq!(poured[0].color, ManaColor::White);
+        assert_eq!(poured[0].step.color, None);
+        assert!(pours(id, &[]).is_empty());
     }
 }

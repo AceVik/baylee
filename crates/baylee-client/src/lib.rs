@@ -229,6 +229,15 @@ pub enum RunEnd {
     Cast,
     /// `PlayerAction::Suspend`.
     Suspend,
+    /// Nothing at all: the taps **are** the point.
+    ///
+    /// A mana bubble pours one mana into the pool and the player spends it
+    /// themselves, so the run is a single step with a colour already in its
+    /// hand. That is also the whole of how "the card taps only once the mana
+    /// has been chosen" is arranged — the activation is not sent until the
+    /// pip is pressed, and `asking` answers the engine's `ChooseColor` on the
+    /// very next frame.
+    Float,
 }
 
 /// What the hover preview has to stand beside.
@@ -1173,7 +1182,7 @@ fn run_autopilot(mut duel: ResMut<Duel>, prefs: Res<prefs::Prefs>) {
     duel.submit(action);
 }
 
-/// Tapping lands for a spell, one action at a time.
+/// Tapping permanents for mana, one action at a time.
 ///
 /// The plan is decided in one go (`manaplan::plan`) and then spent one step
 /// per engine round trip, because that is how the engine works: every
@@ -1181,13 +1190,18 @@ fn run_autopilot(mut duel: ResMut<Duel>, prefs: Res<prefs::Prefs>) {
 /// a fresh `LegalActions`. That round trip is also the safety property — each
 /// step is re-checked against what the engine is offering *now*, so a plan
 /// that has gone stale stops instead of guessing.
+///
+/// Usually the mana is *for* something and [`RunEnd`] says what. It is not
+/// always: [`RunEnd::Float`] is a run of one tap made because the player
+/// asked for that mana and nothing else, which is what a mana bubble sends.
 #[derive(Debug)]
 pub struct ManaRun {
     /// Taps still to make.
     steps: std::collections::VecDeque<baylee_client_core::manaplan::Step>,
     /// The colour to answer with while an ability is asking for one.
     asking: Option<baylee_core::mana::ManaColor>,
-    /// The spell all of this is for.
+    /// The card all of this is for — the spell being paid for, or, under
+    /// [`RunEnd::Float`], the permanent whose own mana was asked for.
     card: ObjectId,
     /// What the mana is spent on once every tap is made.
     then: RunEnd,
@@ -1282,6 +1296,10 @@ pub fn advance_mana_run(duel: &mut Duel) {
                     Some((card, RunEnd::Suspend)) if legal.suspendable.contains(&card) => {
                         action = Some(PlayerAction::Suspend { card });
                     }
+                    // Nothing is owed at the end of a pour, and there is
+                    // nothing to check either: the mana is in the pool, which
+                    // is a thing the player can see and spend.
+                    Some((_, RunEnd::Float)) => {}
                     Some((_, RunEnd::Cast)) => {
                         abort = Some("the mana is up but the spell is not castable");
                     }

@@ -142,10 +142,29 @@ fn mana_ability(
     if restricted {
         return None;
     }
-    let colors = match source {
-        baylee_cards_dsl::ManaSource::Fixed(color) => vec![color],
-        baylee_cards_dsl::ManaSource::Choice(colors) => colors.to_vec(),
-        baylee_cards_dsl::ManaSource::CommanderIdentity => commander_identity(view)?,
+    let colors = produced_colors(view, source)?;
+    Some(Source {
+        id,
+        tap: Tap::Ability(index),
+        colors,
+        amount,
+    })
+}
+
+/// Which colours a read mana source actually makes, at this board.
+///
+/// The half of the reading that needs a game. Two of the four sources have no
+/// answer without one, which is why [`baylee_cards_dsl::mana_shape`] stops
+/// one step earlier and hands the `ManaSource` back for a caller holding a
+/// [`PlayerView`] to finish.
+fn produced_colors(
+    view: &PlayerView,
+    source: baylee_cards_dsl::ManaSource,
+) -> Option<Vec<baylee_core::mana::ManaColor>> {
+    match source {
+        baylee_cards_dsl::ManaSource::Fixed(color) => Some(vec![color]),
+        baylee_cards_dsl::ManaSource::Choice(colors) => Some(colors.to_vec()),
+        baylee_cards_dsl::ManaSource::CommanderIdentity => commander_identity(view),
         // Reflecting Pool and Exotic Orchard read the *projected*
         // `produced_colors` of every land on one side of the table, and no
         // view carries that — a Chromatic Lantern's grant is in there, and so
@@ -154,14 +173,81 @@ fn mana_ability(
         // board half tapped when the engine refuses the colour. It wants the
         // treatment `PublicObject::granted_mana` got: a projection from
         // gamehost, which is the only side that can see it.
-        baylee_cards_dsl::ManaSource::LandColor { .. } => return None,
-    };
-    Some(Source {
-        id,
-        tap: Tap::Ability(index),
-        colors,
-        amount,
-    })
+        baylee_cards_dsl::ManaSource::LandColor { .. } => None,
+    }
+}
+
+/// Every tap `object` has for mana, **one per ability** rather than one per
+/// permanent.
+///
+/// The mirror image of [`sources`], and the two differences are both the
+/// mana bubble's doing.
+///
+/// It does **not** dedupe. `sources` reduces a permanent to the one tap a
+/// plan may spend, because two entries would let the planner pay `{G}{G}`
+/// with one Forest. A bubble has the opposite problem: a Plains under an
+/// effect granting it any colour makes `{W}` without asking and the other
+/// four by asking, and a list that kept only the grant would put the player
+/// through a colour prompt to get the white the land already prints.
+/// [`baylee_client_core::manaplan::pours`] does the reducing instead, and it
+/// reduces per *colour*.
+///
+/// And it reads each ability through [`baylee_cards_dsl::mana_offer`], which
+/// asks only what colours are on offer — see there for why a bubble may draw
+/// two abilities a planner must refuse.
+#[must_use]
+pub fn offers(
+    view: &PlayerView,
+    legal: &LegalActions,
+    object: baylee_core::ids::ObjectId,
+) -> Vec<baylee_client_core::manaplan::Offer> {
+    use baylee_client_core::manaplan::Offer;
+    let mut out = Vec::new();
+    if legal.mana_abilities.contains(&object)
+        && let Some(permanent) = view.battlefield.iter().find(|o| o.id == object)
+        && let Some(color) = basic_land_color(&permanent.subtypes)
+    {
+        out.push(Offer {
+            tap: Tap::Intrinsic,
+            colors: vec![color],
+        });
+    }
+    for &(id, index) in &legal.abilities {
+        if id != object {
+            continue;
+        }
+        let colors = match baylee_engine::choice::granted_slot(index) {
+            // A grant is printed on no card, so there is no ability to read:
+            // the host has already reduced it to colours and the view carries
+            // them.
+            Some(slot) => granted_source(view, object, slot).map(|source| source.colors),
+            None => match ability_at(view, object, index) {
+                Some(
+                    AbilityDef::Activated {
+                        cost,
+                        effects,
+                        mana_ability: true,
+                        ..
+                    }
+                    | AbilityDef::ActivatedConditional {
+                        cost,
+                        effects,
+                        mana_ability: true,
+                        ..
+                    },
+                ) => baylee_cards_dsl::mana_offer(cost, effects)
+                    .and_then(|source| produced_colors(view, source)),
+                _ => None,
+            },
+        };
+        if let Some(colors) = colors.filter(|colors| !colors.is_empty()) {
+            out.push(Offer {
+                tap: Tap::Ability(index),
+                colors,
+            });
+        }
+    }
+    out
 }
 
 /// The colours a Command Tower makes for the viewing seat.

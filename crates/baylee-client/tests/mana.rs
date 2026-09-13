@@ -1266,3 +1266,238 @@ fn no_suspend_card_in_the_pool_is_also_castable() {
          answers and `activate_card` picks the first silently: {both:?}"
     );
 }
+
+/// Tundra. Two basic land types, so the engine offers no CR 305.6 shortcut
+/// for it at all: its mana is the printed `{T}: Add {W} or {U}`, and that
+/// ability asks.
+const TUNDRA: &str = "02418479-9455-417f-a6a1-004356faff37";
+/// Harabaz Druid — `{T}: Add X mana of any one color, where X is the number
+/// of Allies you control`. It is an Ally itself, so X is at least one, and it
+/// is the card whose amount no planner can read (`Amount::CountOf`).
+const HARABAZ: &str = "ead985ec-f29f-4a3b-b8b1-061142cc5bd1";
+
+/// Seat 0 opens with a Tundra and a Harabaz Druid on the table.
+///
+/// Both are the owner's fourth point in one board: a land that asks which of
+/// two colours, and a creature whose only ability is mana and whose amount is
+/// a count of the battlefield.
+fn bubble_preset() -> GamePreset {
+    let deck: Vec<DeckEntry> = (0..60).map(|_| entry(FOREST)).collect();
+    let seat = |ai: bool| SeatSpec {
+        controller: if ai {
+            SeatController::Ai(AIProfile::default())
+        } else {
+            SeatController::Open
+        },
+        capabilities: baylee_core::preset::SeatCapabilities::default(),
+        deck: deck.clone(),
+        sideboard: vec![],
+        commanders: vec![],
+        starting_life: None,
+        starting_hand: None,
+        starting_battlefield: vec![],
+        emblems: vec![],
+        team: None,
+    };
+    let mut preset = GamePreset {
+        format: FormatId::Freeform,
+        seed: 11,
+        house_rules: HouseRules::default(),
+        modifiers: vec![],
+        prints: vec![PrintInfo {
+            scryfall_id: uuid::Uuid::nil(),
+            lang: "EN".into(),
+            finish: Finish::Normal,
+        }],
+        seats: vec![seat(false), seat(true)],
+    };
+    preset.seats[0].starting_battlefield = vec![entry(TUNDRA), entry(HARABAZ)];
+    preset
+}
+
+/// The owner's fourth point, end to end: **the card taps only once the mana
+/// has been chosen.**
+///
+/// Reported as *"Bei Karten die reines Mana generieren (aber halt Wahl des
+/// Spielers). Da sollte lieber so ein kleines Pergament-Stil Dialog direkt
+/// unter der Karte aufploppen wo der Spieler dann das Mana-Symbol wählen
+/// kann"*, and then, in the same breath: *"die Karte wird erst dann getappt,
+/// wenn das Mana ausgewählt wurde"*.
+///
+/// What it replaces is the one-option short-circuit in `activate_card`: a
+/// Tundra offered exactly one thing, so the click fired it, the land tapped,
+/// and the colour was asked afterwards in the prompt bar at the bottom of the
+/// screen. The assertion that carries the whole report is the one in the
+/// middle — the land is **untapped** while the bubble stands open.
+#[test]
+fn a_land_that_asks_which_colour_is_not_tapped_until_the_answer() {
+    use baylee_client::input::{activate_card, sheet_digit};
+    use baylee_client::{Duel, advance_mana_run};
+    use baylee_client_core::interaction::Interaction;
+
+    let mut table = Table::open_with(&bubble_preset());
+    table.walk_to_main();
+
+    let tundra = table
+        .view()
+        .battlefield
+        .iter()
+        .find(|o| o.name == "Tundra")
+        .expect("the land starts on the table")
+        .id;
+
+    let mut duel = Duel::default();
+    let refresh = |duel: &mut Duel, table: &Table| {
+        duel.view = Some(table.view().clone());
+        duel.interaction = Some(Interaction::new(
+            table.pending.clone().expect("priority"),
+            PlayerId::new(0),
+        ));
+        baylee_client::rebuild_board(duel);
+    };
+    let tapped = |table: &Table| {
+        table
+            .view()
+            .battlefield
+            .iter()
+            .find(|o| o.id == tundra)
+            .expect("still on the table")
+            .status
+            .contains(baylee_view::ObjectStatus::TAPPED)
+    };
+    refresh(&mut duel, &table);
+    assert!(!tapped(&table), "it starts untapped");
+
+    // The click opens the bubble and sends nothing. Two pips, because a
+    // Tundra makes two colours.
+    activate_card(&mut duel, tundra);
+    assert_eq!(duel.ability_menu, Some(tundra), "the bubble is open");
+    assert!(duel.outbox().is_empty(), "and nothing reached the wire");
+    assert!(!tapped(&table), "**the land is still untapped**");
+
+    let options = baylee_client::abilities::options(
+        baylee_client_core::Lang::En,
+        duel.view.as_ref().expect("a view"),
+        duel.interaction.as_ref().expect("priority"),
+        tundra,
+    );
+    assert!(
+        baylee_client::abilities::pouring(&options),
+        "every row is a pour, so the sheet draws pips: {options:?}"
+    );
+    assert_eq!(
+        options
+            .iter()
+            .filter_map(|o| o.pour.map(|p| p.color))
+            .collect::<Vec<_>>(),
+        vec![
+            baylee_core::mana::ManaColor::White,
+            baylee_core::mana::ManaColor::Blue
+        ],
+        "white then blue, in `ManaColor` order"
+    );
+
+    // The second pip: blue. One press, and the activation goes out with the
+    // colour already decided.
+    assert!(sheet_digit(&mut duel, '2'), "the digit names a pip");
+    assert!(duel.mana_run.is_some(), "which starts a one-step run");
+    assert_eq!(duel.ability_menu, None, "and puts the bubble away");
+
+    for _ in 0..8 {
+        for action in duel.take_outbox() {
+            table.submit(action);
+        }
+        refresh(&mut duel, &table);
+        if duel.mana_run.is_none() {
+            break;
+        }
+        advance_mana_run(&mut duel);
+    }
+
+    assert_eq!(duel.last_error, None, "the run finished without aborting");
+    assert!(duel.mana_run.is_none(), "and finished");
+    assert!(tapped(&table), "*now* the land is tapped");
+    let pool = table
+        .view()
+        .seat(PlayerId::new(0))
+        .expect("own seat")
+        .mana_pool;
+    assert_eq!(
+        (pool.blue, pool.white),
+        (1, 0),
+        "one blue, which is the pip that was pressed: {pool:?}"
+    );
+    assert!(
+        table.view().stack.is_empty(),
+        "a mana ability never uses the stack (CR 605.3a)"
+    );
+}
+
+/// The same bubble on a creature, and on the ability no planner can read.
+///
+/// Harabaz Druid's `Add X mana of any one color` has an `Amount::CountOf`,
+/// so `mana_shape` refuses it and `manasources::sources` has never seen it —
+/// it was the empty `↺` row on the sheet. `mana_offer` reads the colour
+/// question alone, which is all a bubble asks, and the owner's addendum said
+/// the dialog is for *"Artefakte und Kreaturen, die nur Mana Ability haben"*.
+#[test]
+fn a_creature_whose_only_ability_is_mana_gets_the_same_five_pips() {
+    use baylee_client::input::activate_card;
+    use baylee_client::{Duel, abilities, manasources};
+    use baylee_client_core::interaction::Interaction;
+    use baylee_core::mana::ManaColor;
+
+    let mut table = Table::open_with(&bubble_preset());
+    table.walk_to_main();
+
+    let druid = table
+        .view()
+        .battlefield
+        .iter()
+        .find(|o| o.name == "Harabaz Druid")
+        .expect("the creature starts on the table")
+        .id;
+
+    // The premise, and the reason this needed a fourth reading at all: the
+    // planner cannot count what this makes, so it is in no `Source` list.
+    assert!(
+        !manasources::sources(table.view(), table.legal())
+            .iter()
+            .any(|s| s.id == druid),
+        "no planner can read an amount that is a count of the battlefield"
+    );
+
+    let mut duel = Duel::default();
+    duel.view = Some(table.view().clone());
+    duel.interaction = Some(Interaction::new(
+        table.pending.clone().expect("priority"),
+        PlayerId::new(0),
+    ));
+    baylee_client::rebuild_board(&mut duel);
+
+    let options = abilities::options(
+        baylee_client_core::Lang::En,
+        duel.view.as_ref().expect("a view"),
+        duel.interaction.as_ref().expect("priority"),
+        druid,
+    );
+    assert!(abilities::pouring(&options), "a bubble: {options:?}");
+    assert_eq!(
+        options
+            .iter()
+            .filter_map(|o| o.pour.map(|p| p.color))
+            .collect::<Vec<_>>(),
+        vec![
+            ManaColor::White,
+            ManaColor::Blue,
+            ManaColor::Black,
+            ManaColor::Red,
+            ManaColor::Green
+        ],
+        "any one colour, in WUBRG order"
+    );
+
+    activate_card(&mut duel, druid);
+    assert_eq!(duel.ability_menu, Some(druid), "the click opens the bubble");
+    assert!(duel.outbox().is_empty(), "and taps nothing");
+}

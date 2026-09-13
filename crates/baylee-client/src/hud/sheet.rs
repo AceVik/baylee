@@ -149,6 +149,26 @@ const SHEET_PAD_X: f32 = 12.0;
 /// The same, above and below.
 const SHEET_PAD_Y: f32 = 10.0;
 
+/// How wide a mana bubble's pip is drawn.
+///
+/// Larger than the cost column's [`COST_MARK`], and for the reason the two
+/// are different things: a cost is a mark set beside a sentence at reading
+/// size, and a pip on a bubble is the *whole* control — five of them are all
+/// there is on the paper. This is about the size a mana symbol is printed at
+/// in a card's own cost line.
+const POUR_MARK: f32 = 26.0;
+
+/// The ring of paper round a pip, which is the part the pointer lands on.
+///
+/// The pip itself is a disc and a disc is a poor target, so the button is the
+/// disc plus this on every side. It is also what gives a picked pip a wash to
+/// be picked *in* — a highlight painted under the disc alone would be
+/// invisible.
+const POUR_RING: f32 = 5.0;
+
+/// The air between two pips.
+const POUR_AIR: f32 = 5.0;
+
 /// A keycap's side, as a multiple of the legend on it.
 ///
 /// A square and not a disc, because what it stands for is a **key**: the digit
@@ -301,6 +321,13 @@ pub struct AbilitySheet {
     /// Where the three pieces already are, so a camera standing still costs
     /// one comparison instead of a relayout of the whole sheet.
     placed: Option<Placement>,
+    /// Whether this is a mana bubble rather than a list of abilities.
+    ///
+    /// The one thing about a bubble the *placer* has to know: the owner asked
+    /// for it "directly under the card", where a sheet goes above by default.
+    /// See [`corner_for`] for why that default is right for a sheet and wrong
+    /// for this.
+    bubble: bool,
 }
 
 /// Where the sheet, its nub and its halo were last put.
@@ -755,6 +782,12 @@ fn spawn_sheet(
     fresh: bool,
     standing: Option<Placement>,
 ) -> Entity {
+    // A bubble is the same piece of paper with something else written on it:
+    // the grain, the border, the shadow, the nub, the halo and the opening
+    // are all the sheet's and none of them is worth a second copy. What it
+    // does not take is the sheet's *shape* — no head, no footer, no floor
+    // under its width, and a row of pips instead of a column of sentences.
+    let bubble = crate::abilities::pouring(options);
     let mut node = Node {
         position_type: PositionType::Absolute,
         // As wide as what is on it. An absolutely-positioned node
@@ -763,10 +796,29 @@ fn spawn_sheet(
         // natural width for that to mean anything, which is what
         // `flex_basis: Auto` on a row's prose column is for.
         width: Val::Auto,
-        min_width: px(SHEET_MIN),
+        // The floor is the sheet's alone. It is there so a list of one-word
+        // rows is still a *sheet*; a bubble at that width would be five pips
+        // adrift in the middle of a page.
+        min_width: px(if bubble { 0.0 } else { SHEET_MIN }),
         max_width: px(SHEET_MAX),
-        flex_direction: FlexDirection::Column,
-        padding: UiRect::vertical(px(SHEET_PAD_Y)),
+        flex_direction: if bubble {
+            FlexDirection::Row
+        } else {
+            FlexDirection::Column
+        },
+        // Only the bubble's. A sheet's rows are stretched to the paper's
+        // width, which is what lets a row's wash reach both edges.
+        align_items: if bubble {
+            AlignItems::Center
+        } else {
+            AlignItems::Stretch
+        },
+        column_gap: px(POUR_AIR),
+        padding: if bubble {
+            UiRect::all(px(SHEET_PAD_Y - POUR_RING))
+        } else {
+            UiRect::vertical(px(SHEET_PAD_Y))
+        },
         border: UiRect::all(px(1)),
         border_radius: BorderRadius::all(px(6)),
         ..default()
@@ -784,6 +836,7 @@ fn spawn_sheet(
                 // back is about not *blinking*; it is not a claim that the
                 // card has not moved since.
                 placed: None,
+                bubble,
             },
             // `fresh` is what keeps this a movement and not a twitch: the
             // sheet is rebuilt whenever a row is armed, the cursor moves or
@@ -832,6 +885,19 @@ fn spawn_sheet(
         ))
         .id();
     commands.spawn(sheet_surface(sheets)).insert(ChildOf(sheet));
+
+    if bubble {
+        // No head and no footer. The head names the permanent, which is
+        // directly under the bubble and has not moved; the footer says which
+        // key arms and which sends, and nothing here arms — a pip is one
+        // press. What is left is the question itself.
+        for (at, option) in options.iter().enumerate() {
+            let Some(pour) = option.pour else { continue };
+            let pip = spawn_pour(commands, fonts, at, pour.color, duel.ability_pick == at);
+            commands.entity(sheet).add_child(pip);
+        }
+        return sheet;
+    }
 
     spawn_head(commands, fonts, faces, duel, object, sheet);
 
@@ -1365,6 +1431,54 @@ fn spawn_cost_title(commands: &mut Commands, fonts: &UiFonts, cost: &str) -> Ent
     holder
 }
 
+/// One pip of a mana bubble: the colour, and the whole of the control.
+///
+/// There is no keycap and no sentence beside it, which is the point — a mana
+/// symbol is the one label in this interface that needs no translating and no
+/// reading. The digit that sends it is still the row's own position, the way
+/// it is on the sheet, and it is simply not drawn: a number printed beside a
+/// `{W}` would be a second thing to look at on a control whose entire content
+/// is one mark.
+///
+/// The button is the disc plus [`POUR_RING`] of paper on every side. The disc
+/// itself is `Pickable::IGNORE` (see [`crate::manaui::spawn_pip`]), so the
+/// press lands here however precisely the pointer hit the mark.
+fn spawn_pour(
+    commands: &mut Commands,
+    fonts: &UiFonts,
+    index: usize,
+    color: baylee_core::mana::ManaColor,
+    picked: bool,
+) -> Entity {
+    let wash = if picked { PICKED_WASH } else { Color::NONE };
+    let button = commands
+        .spawn((
+            crate::hud::AbilityButton { index },
+            Node {
+                padding: UiRect::all(px(POUR_RING)),
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+                border_radius: BorderRadius::all(px(POUR_MARK / 2.0 + POUR_RING)),
+                ..default()
+            },
+            BackgroundColor(wash),
+            // A tint and not a lift, for the reason a row is a tint: the pip
+            // is a disc with a glyph clipped inside it, and a button that
+            // grew by 2.5% under the pointer would re-lay that glyph out
+            // every time the pointer crossed it.
+            Feel::tinting_to(wash, pressed(wash)),
+        ))
+        .id();
+    let pip = crate::manaui::spawn_pip(
+        commands,
+        fonts,
+        baylee_client_core::manapip::of_mana(color),
+        POUR_MARK,
+    );
+    commands.entity(button).add_child(pip);
+    button
+}
+
 /// One row: what it costs, what the ability does, the key that arms it.
 #[allow(clippy::too_many_arguments, clippy::fn_params_excessive_bools)]
 fn spawn_row(
@@ -1637,7 +1751,7 @@ pub fn place_ability_sheet(
     if node.max_width != ceiling {
         node.max_width = ceiling;
     }
-    let corner = corner_for(mid, card, sheet_box, size);
+    let corner = corner_for(mid, card, sheet_box, size, sheet.bubble);
     let now = Placement {
         corner,
         size: sheet_box,
@@ -1743,16 +1857,27 @@ fn pop(t: f32) -> f32 {
 /// to hang off either edge, because a sheet half outside the window is a list
 /// with rows the player cannot see and cannot click.
 ///
+/// `under` turns that preference round, and only a mana bubble sets it. The
+/// owner asked for the bubble "directly under the card", and it can be given
+/// that where a sheet cannot: what a sheet would cover below a card is the
+/// player's own hand, and a bubble is two lines of a sheet's height. It still
+/// goes above when there is no room below, for the same reason a sheet goes
+/// below when there is none above.
+///
 /// The width is measured rather than assumed, the way the height already was:
 /// the sheet sizes itself to its own text between [`SHEET_MIN`] and
 /// [`SHEET_MAX`], so a constant here would centre a narrow sheet as if it were
 /// a wide one and put it off-centre by half the difference.
-fn corner_for(mid: Vec2, card: Vec2, sheet: Vec2, window: Vec2) -> Vec2 {
+fn corner_for(mid: Vec2, card: Vec2, sheet: Vec2, window: Vec2, under: bool) -> Vec2 {
     let above = mid.y - card.y / 2.0 - SHEET_GAP - sheet.y;
-    let top = if above >= SHEET_MARGIN {
+    let below = mid.y + card.y / 2.0 + SHEET_GAP;
+    let room_below = below + sheet.y <= window.y - SHEET_MARGIN;
+    let top = if under && room_below {
+        below
+    } else if above >= SHEET_MARGIN {
         above
     } else {
-        (mid.y + card.y / 2.0 + SHEET_GAP).min(window.y - SHEET_MARGIN - sheet.y)
+        below.min(window.y - SHEET_MARGIN - sheet.y)
     };
     Vec2::new(
         (mid.x - sheet.x / 2.0).clamp(
@@ -1778,7 +1903,7 @@ mod tests {
     #[test]
     fn the_sheet_sits_over_the_card_it_belongs_to() {
         let mid = Vec2::new(864.0, 600.0);
-        let at = corner_for(mid, CARD, SHEET, WINDOW);
+        let at = corner_for(mid, CARD, SHEET, WINDOW, false);
         assert!(
             (at.x + SHEET.x / 2.0 - mid.x).abs() < 0.5,
             "centred on the card: {at} against {mid}"
@@ -1799,7 +1924,7 @@ mod tests {
     fn a_sheet_of_any_width_is_centred_on_its_card() {
         let mid = Vec2::new(864.0, 600.0);
         for w in [SHEET_MIN, 260.0, 300.0, SHEET_MAX] {
-            let at = corner_for(mid, CARD, Vec2::new(w, 210.0), WINDOW);
+            let at = corner_for(mid, CARD, Vec2::new(w, 210.0), WINDOW, false);
             assert!(
                 (at.x + w / 2.0 - mid.x).abs() < 0.5,
                 "a {w}-wide sheet sits at {at}, off the card's {}",
@@ -1814,7 +1939,7 @@ mod tests {
     #[test]
     fn a_sheet_with_no_room_above_the_card_goes_below_it() {
         let mid = Vec2::new(864.0, 90.0);
-        let at = corner_for(mid, CARD, SHEET, WINDOW);
+        let at = corner_for(mid, CARD, SHEET, WINDOW, false);
         assert!(
             at.y >= mid.y + CARD.y / 2.0,
             "below the card: {} against {}",
@@ -1832,7 +1957,7 @@ mod tests {
         for x in [0.0, 20.0, 1700.0, WINDOW.x] {
             for w in [SHEET_MIN, SHEET_MAX] {
                 let sheet = Vec2::new(w, 210.0);
-                let at = corner_for(Vec2::new(x, 600.0), CARD, sheet, WINDOW);
+                let at = corner_for(Vec2::new(x, 600.0), CARD, sheet, WINDOW, false);
                 assert!(
                     at.x >= SHEET_MARGIN && at.x + w <= WINDOW.x - SHEET_MARGIN,
                     "at x={x} a {w}-wide sheet's corner is {at}"
@@ -1851,9 +1976,46 @@ mod tests {
             CARD,
             Vec2::new(300.0, 900.0),
             Vec2::new(900.0, 500.0),
+            false,
         );
         assert!(at.y >= SHEET_MARGIN, "the top is on screen: {at}");
         assert!(at.x >= SHEET_MARGIN, "and so is the left edge");
+    }
+
+    /// The owner's fourth point, as arithmetic: a bubble opens **under** the
+    /// card where a sheet opens over it, and it is the same call with one
+    /// flag turned.
+    #[test]
+    fn a_mana_bubble_opens_under_the_card_and_a_sheet_over_it() {
+        let mid = Vec2::new(864.0, 600.0);
+        let bubble = Vec2::new(150.0, 42.0);
+        let under = corner_for(mid, CARD, bubble, WINDOW, true);
+        assert!(
+            under.y >= mid.y + CARD.y / 2.0,
+            "below the card's bottom edge: the bubble starts at {} and the \
+             card ends at {}",
+            under.y,
+            mid.y + CARD.y / 2.0
+        );
+        let over = corner_for(mid, CARD, bubble, WINDOW, false);
+        assert!(
+            over.y + bubble.y <= mid.y - CARD.y / 2.0,
+            "and the same paper as a sheet still goes above: {over}"
+        );
+    }
+
+    /// It gives way rather than hanging off the bottom, which is the half a
+    /// preference must not cost: a card in the land lane has the hand bar
+    /// under it and there is no room down there for anything.
+    #[test]
+    fn a_bubble_with_no_room_below_goes_over_the_card_after_all() {
+        let mid = Vec2::new(864.0, WINDOW.y - 40.0);
+        let bubble = Vec2::new(150.0, 42.0);
+        let at = corner_for(mid, CARD, bubble, WINDOW, true);
+        assert!(
+            at.y + bubble.y <= mid.y - CARD.y / 2.0,
+            "above the card: {at} against a card centred at {mid}"
+        );
     }
 }
 
@@ -1944,6 +2106,7 @@ mod running {
                 AbilitySheet {
                     object: anchor,
                     placed: None,
+                    bubble: false,
                 },
                 Node::default(),
                 bevy::ui::ComputedNode {

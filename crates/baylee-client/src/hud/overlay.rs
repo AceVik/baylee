@@ -1396,14 +1396,22 @@ fn armed_label(duel: &Duel, lang: Lang, armed: &crate::Armed) -> Option<ArmedWor
         // `{4}{U}{U}` — so the plan carries the cost it was built for and
         // the row draws it.
         crate::Deed::Run { plan, then } => {
-            let (offered, phrase) = match then {
-                crate::RunEnd::Cast => (&duel.reachable, Phrase::ArmedPayAndCast),
-                crate::RunEnd::Suspend => (&duel.suspend_reach, Phrase::ArmedSuspend),
+            let offered = match then {
+                crate::RunEnd::Cast => Some((&duel.reachable, Phrase::ArmedPayAndCast)),
+                crate::RunEnd::Suspend => Some((&duel.suspend_reach, Phrase::ArmedSuspend)),
+                // A pour is never armed: [`crate::input::arm_ability`] starts
+                // its run on the press that picks the colour, which is the
+                // whole of "the card taps once the mana has been chosen". So
+                // there is no row to draw here, and no price to quote either
+                // — the mana *is* the point, and it costs a tap.
+                crate::RunEnd::Float => None,
             };
-            offered.contains(&armed.object).then(|| ArmedWords {
-                text: phrase.text(lang).to_string(),
-                cost: Some(plan.cost),
-            })
+            offered
+                .filter(|(offered, _)| offered.contains(&armed.object))
+                .map(|(_, phrase)| ArmedWords {
+                    text: phrase.text(lang).to_string(),
+                    cost: Some(plan.cost),
+                })
         }
         // The engine is already offering the suspend, so the cost is floating
         // and there is nothing left to quote — the same reason `Play` quotes
