@@ -46,6 +46,21 @@ const SHEET_GAP: f32 = 10.0;
 /// How close to the window's edge the sheet may come.
 const SHEET_MARGIN: f32 = 12.0;
 
+/// The sheet's own margin, left and right.
+///
+/// **The sheet does not carry it — every child does.** The wash under a row is
+/// what says "this one", so it has to reach the paper's edge; a row inset by
+/// the sheet's padding reads as a second, narrower object lying on it. The
+/// first version got there by giving the row `-SHEET_PAD_X` as a margin and
+/// the same number back as padding, which works and depends on two numbers
+/// cancelling. Paying the margin per child is the same column of ink with
+/// nothing to cancel: the row is simply a child of a sheet with no horizontal
+/// padding, so it is full width by construction rather than by arithmetic.
+const SHEET_PAD_X: f32 = 12.0;
+
+/// The same, above and below.
+const SHEET_PAD_Y: f32 = 10.0;
+
 /// The digit keycap's side.
 ///
 /// A square and not a disc, because what it stands for is a **key**: the digit
@@ -263,7 +278,7 @@ fn spawn_sheet(
                 position_type: PositionType::Absolute,
                 width: px(SHEET_W),
                 flex_direction: FlexDirection::Column,
-                padding: UiRect::axes(px(16), px(13)),
+                padding: UiRect::vertical(px(SHEET_PAD_Y)),
                 border: UiRect::all(px(1)),
                 border_radius: BorderRadius::all(px(6)),
                 ..default()
@@ -344,22 +359,46 @@ fn spawn_head(
     let head = commands
         .spawn((
             Text::new(name),
-            tf(fonts, 16.0),
-            TextColor(palette::SLIP_INK),
+            // Bold and in the house colour. The name is the one thing on this
+            // sheet that is not an answer to anything — it says *whose* list
+            // this is — so giving it the accent costs the accent nothing,
+            // while leaving it in the body ink made the head read as a first
+            // row.
+            //
+            // Brass and not `palette::ACCENT`: the teal belongs to the panel
+            // register, and `docs/redesign-proposal.md` §1.3 is what splits
+            // the two. On parchment the accent *is* brass — it is what the
+            // armed keycap and the armed wash are already made of. At ink
+            // weight, though: `BRASS` itself is a light and measures 1.6:1 as
+            // letters here, which `the_parchment_writes_no_letters_in_brass`
+            // holds.
+            tf_bold(fonts, 16.0),
+            TextColor(palette::INK_BRASS),
+            Node {
+                margin: UiRect::horizontal(px(SHEET_PAD_X)),
+                ..default()
+            },
             Pickable::IGNORE,
         ))
         .id();
     commands.entity(sheet).add_child(head);
-    let hair = rule(commands, 10.0);
+    let hair = rule(commands, 5.0);
     commands.entity(sheet).add_child(hair);
 }
 
 /// The rule under the rows, and the one line that says which key does what.
 ///
-/// Two halves and one separator: what the digit on the armed row would do if
-/// it were pressed again, and the way out. With nothing armed the first half
-/// names the gesture instead, because a sheet that said only "Esc closes"
+/// Two halves pushed to opposite ends: what the digit on the armed row would
+/// do if it were pressed again, and the way out. With nothing armed the first
+/// half names the gesture instead, because a sheet that said only "Esc closes"
 /// would be a list with no stated way to answer it.
+///
+/// The keys in it are **drawn as keys** (see [`cap`]) rather than spelled out
+/// mid-sentence, which is how the settings screen has always shown a binding.
+/// The legend for the way out comes from
+/// [`baylee_client_core::prefs::Chord`] rather than from a phrase, so the word
+/// on the cap here and the word on that screen cannot drift apart — and so a
+/// translation cannot rename a key.
 fn spawn_foot(
     commands: &mut Commands,
     fonts: &UiFonts,
@@ -367,23 +406,84 @@ fn spawn_foot(
     armed: Option<usize>,
     sheet: Entity,
 ) {
+    /// The footer's own size, a little under the rows'.
+    const FOOT_PT: f32 = 10.5;
+
     let hair = rule(commands, 8.0);
     commands.entity(sheet).add_child(hair);
-    let hint = match armed.and_then(digit_of) {
-        Some(digit) => Phrase::SheetPressAgain.fill(lang, &[&digit.to_string()]),
-        None => Phrase::SheetDigitPicks.text(lang).to_string(),
-    };
     let foot = commands
         .spawn((
-            Text::new(format!(
-                "{hint} \u{b7} {}",
-                Phrase::SheetEscCloses.text(lang)
-            )),
-            tf(fonts, 10.5),
-            TextColor(palette::SLIP_ASIDE),
+            Node {
+                flex_direction: FlexDirection::Row,
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::SpaceBetween,
+                column_gap: px(8),
+                margin: UiRect::horizontal(px(SHEET_PAD_X)),
+                ..default()
+            },
             Pickable::IGNORE,
         ))
         .id();
+
+    let words = |commands: &mut Commands, text: String| {
+        commands
+            .spawn((
+                Text::new(text),
+                tf(fonts, FOOT_PT),
+                TextColor(palette::SLIP_ASIDE),
+                Pickable::IGNORE,
+            ))
+            .id()
+    };
+
+    // The left half: a cap only where there is a particular key to draw. With
+    // nothing armed the sentence is about *any* digit, and a cap reading "1"
+    // there would name the first row rather than the gesture.
+    let left = commands
+        .spawn((
+            Node {
+                flex_direction: FlexDirection::Row,
+                align_items: AlignItems::Center,
+                column_gap: px(5),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    if let Some(digit) = armed.and_then(digit_of) {
+        let key = cap(commands, fonts, &digit.to_string(), palette::BRASS, FOOT_PT);
+        commands.entity(left).add_child(key);
+        let says = words(commands, Phrase::SheetPressAgain.text(lang).to_string());
+        commands.entity(left).add_child(says);
+    } else {
+        let says = words(commands, Phrase::SheetDigitPicks.text(lang).to_string());
+        commands.entity(left).add_child(says);
+    }
+    commands.entity(foot).add_child(left);
+
+    let right = commands
+        .spawn((
+            Node {
+                flex_direction: FlexDirection::Row,
+                align_items: AlignItems::Center,
+                column_gap: px(5),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    let key = cap(
+        commands,
+        fonts,
+        &baylee_client_core::prefs::Chord::key("Escape").display(),
+        palette::SLIP_GHOST,
+        FOOT_PT,
+    );
+    commands.entity(right).add_child(key);
+    let says = words(commands, Phrase::SheetCloses.text(lang).to_string());
+    commands.entity(right).add_child(says);
+    commands.entity(foot).add_child(right);
+
     commands.entity(sheet).add_child(foot);
 }
 
@@ -394,13 +494,66 @@ fn digit_of(at: usize) -> Option<char> {
         .and_then(|place| char::from_digit(place, 10))
 }
 
+/// One key, drawn as the key it is.
+///
+/// The sheet names a key in two places — on a row, where the digit is what
+/// arms it, and in the footer, where `Esc` is the way out — and a player
+/// should not have to learn twice that a small square means "press this".
+/// `lobby::ui::chip` is the same idea in the panel register, which is where
+/// the settings screen draws every binding; this is the parchment one.
+///
+/// It **grows with its legend**: a digit is one character and `Esc` is three,
+/// so the side is a floor and not a width. Anything else would either clip
+/// the word or make every digit sit in a box wide enough for the longest key
+/// on the keyboard.
+fn cap(commands: &mut Commands, fonts: &UiFonts, legend: &str, fill: Color, size: f32) -> Entity {
+    let key = commands
+        .spawn((
+            Node {
+                min_width: px(KEYCAP),
+                height: px(KEYCAP),
+                flex_shrink: 0.0,
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+                padding: UiRect::horizontal(px(5)),
+                border: UiRect::all(px(1)),
+                border_radius: BorderRadius::all(px(KEYCAP_R)),
+                ..default()
+            },
+            BackgroundColor(fill),
+            BorderColor::all(if fill == palette::BRASS {
+                palette::PARCHMENT_INK
+            } else {
+                palette::PARCHMENT_SOFT
+            }),
+            Pickable::IGNORE,
+        ))
+        .id();
+    let glyph = commands
+        .spawn((
+            Text::new(legend.to_string()),
+            tf_bold(fonts, size),
+            // Dark on gold in both states. White on brass fails contrast, and
+            // an armed row is the one a player is about to commit to.
+            TextColor(palette::PARCHMENT_INK),
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(key).add_child(glyph);
+    key
+}
+
 /// A hairline across the sheet, with `above` pixels of air over it.
+///
+/// Inset like the ink it separates rather than run wall to wall: a rule that
+/// touched the border would close the sheet into two boxes, and what it is
+/// doing is parting two kinds of writing on one page.
 fn rule(commands: &mut Commands, above: f32) -> Entity {
     commands
         .spawn((
             Node {
                 height: px(1),
-                margin: UiRect::new(px(0), px(0), px(above), px(2)),
+                margin: UiRect::new(px(SHEET_PAD_X), px(SHEET_PAD_X), px(above), px(2)),
                 ..default()
             },
             BackgroundColor(palette::PARCHMENT_EDGE),
@@ -440,8 +593,7 @@ fn spawn_row(
                 flex_direction: FlexDirection::Row,
                 align_items: AlignItems::Center,
                 column_gap: px(11),
-                padding: UiRect::axes(px(4), px(6)),
-                margin: UiRect::horizontal(px(-4)),
+                padding: UiRect::axes(px(SHEET_PAD_X), px(6)),
                 border_radius: BorderRadius::all(px(KEYCAP_R)),
                 ..default()
             },
@@ -450,42 +602,17 @@ fn spawn_row(
         ))
         .id();
 
-    let keycap = commands
-        .spawn((
-            Node {
-                width: px(KEYCAP),
-                height: px(KEYCAP),
-                flex_shrink: 0.0,
-                align_items: AlignItems::Center,
-                justify_content: JustifyContent::Center,
-                border: UiRect::all(px(1)),
-                border_radius: BorderRadius::all(px(KEYCAP_R)),
-                ..default()
-            },
-            BackgroundColor(if armed {
-                palette::BRASS
-            } else {
-                palette::SLIP_GHOST
-            }),
-            BorderColor::all(if armed {
-                palette::PARCHMENT_INK
-            } else {
-                palette::PARCHMENT_SOFT
-            }),
-            Pickable::IGNORE,
-        ))
-        .id();
-    let glyph = commands
-        .spawn((
-            Text::new(digit.to_string()),
-            tf_bold(fonts, 11.0),
-            // Dark on gold in both states. White on brass fails contrast, and
-            // an armed row is the one a player is about to commit to.
-            TextColor(palette::PARCHMENT_INK),
-            Pickable::IGNORE,
-        ))
-        .id();
-    commands.entity(keycap).add_child(glyph);
+    let keycap = cap(
+        commands,
+        fonts,
+        &digit.to_string(),
+        if armed {
+            palette::BRASS
+        } else {
+            palette::SLIP_GHOST
+        },
+        11.0,
+    );
     commands.entity(row).add_child(keycap);
 
     let says = commands
@@ -544,8 +671,7 @@ fn spawn_pager(
                 flex_direction: FlexDirection::Row,
                 align_items: AlignItems::Center,
                 column_gap: px(11),
-                padding: UiRect::axes(px(4), px(6)),
-                margin: UiRect::horizontal(px(-4)),
+                padding: UiRect::axes(px(SHEET_PAD_X), px(6)),
                 border_radius: BorderRadius::all(px(KEYCAP_R)),
                 ..default()
             },
@@ -553,32 +679,13 @@ fn spawn_pager(
             Feel::rising_to(Color::NONE, PICKED_WASH),
         ))
         .id();
-    let keycap = commands
-        .spawn((
-            Node {
-                width: px(KEYCAP),
-                height: px(KEYCAP),
-                flex_shrink: 0.0,
-                align_items: AlignItems::Center,
-                justify_content: JustifyContent::Center,
-                border: UiRect::all(px(1)),
-                border_radius: BorderRadius::all(px(KEYCAP_R)),
-                ..default()
-            },
-            BackgroundColor(Color::NONE),
-            BorderColor::all(palette::PARCHMENT_SOFT),
-            Pickable::IGNORE,
-        ))
-        .id();
-    let glyph = commands
-        .spawn((
-            Text::new(abilitysheet::PAGER.to_string()),
-            tf_bold(fonts, 11.0),
-            TextColor(palette::SLIP_SOFT),
-            Pickable::IGNORE,
-        ))
-        .id();
-    commands.entity(keycap).add_child(glyph);
+    let keycap = cap(
+        commands,
+        fonts,
+        &abilitysheet::PAGER.to_string(),
+        Color::NONE,
+        11.0,
+    );
     commands.entity(row).add_child(keycap);
     let says = commands
         .spawn((
@@ -925,5 +1032,56 @@ mod running {
                 );
             }
         }
+    }
+
+    /// …and the ink weight of it is what a heading is written in.
+    ///
+    /// The rule above only says what brass may not do. This is the other half:
+    /// the sheet still wants its own accent — the owner asked for the card's
+    /// name in the house colour — and [`palette::INK_BRASS`] is that hue taken
+    /// down until it carries. Both sides are measured, because a palette entry
+    /// nudged for looks is exactly how the unreadable one got there.
+    #[test]
+    fn the_accent_a_sheet_writes_with_is_dark_enough_to_read() {
+        /// sRGB → linear, the transfer function WCAG's ratio is defined over.
+        fn linear(c: f32) -> f32 {
+            if c <= 0.040_45 {
+                c / 12.92
+            } else {
+                ((c + 0.055) / 1.055).powf(2.4)
+            }
+        }
+        fn contrast(a: Color, b: Color) -> f32 {
+            let luma = |c: Color| {
+                let s = c.to_srgba();
+                0.2126f32.mul_add(
+                    linear(s.red),
+                    0.7152f32.mul_add(linear(s.green), 0.0722 * linear(s.blue)),
+                )
+            };
+            let (one, two) = (luma(a), luma(b));
+            (one.max(two) + 0.05) / (one.min(two) + 0.05)
+        }
+
+        let light = contrast(palette::BRASS, palette::PARCHMENT);
+        assert!(
+            light < 2.0,
+            "brass is a light and this test's premise is that it cannot be read: {light:.2}:1"
+        );
+        let ink = contrast(palette::INK_BRASS, palette::PARCHMENT);
+        assert!(
+            ink >= 4.5,
+            "the sheet's accent has to carry body text: {ink:.2}:1"
+        );
+        // And it is still brass rather than brown: the mix is the same, only
+        // the level is lower, so every channel stands in the same ratio.
+        let (was, now) = (palette::BRASS.to_srgba(), palette::INK_BRASS.to_srgba());
+        let drift = (was.red / was.green - now.red / now.green)
+            .abs()
+            .max((was.blue / was.green - now.blue / now.green).abs());
+        assert!(
+            drift < 0.01,
+            "the ink drifted off brass's hue by {drift:.3}"
+        );
     }
 }

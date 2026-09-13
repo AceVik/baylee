@@ -1115,19 +1115,29 @@ messages! {
 
 
     // ---- the ability sheet
-    /// Press {0} again
+    /// again
     ///
-    /// The footer while a row is armed. `{0}` is the digit drawn on that
-    /// row, because the key that armed it is the key that sends it — there
-    /// is no second confirm key to learn.
-    SheetPressAgain { en: "Press {0} again", de: "Drücke {0} noch einmal" },
+    /// The footer while a row is armed, beside a keycap carrying that row's
+    /// digit — the key that armed it is the key that sends it, and there is
+    /// no second confirm key to learn. The digit used to be `{0}` inside this
+    /// sentence; it is drawn as the key it is now, so the phrase is the word
+    /// that goes with the cap and nothing else.
+    SheetPressAgain { en: "again", de: "noch einmal" },
     /// A digit picks
     ///
-    /// The same footer with nothing armed. It names the gesture rather than
-    /// a range, because how many rows there are is on the sheet already.
-    SheetDigitPicks { en: "A digit picks", de: "Eine Ziffer wählt" },
-    /// Esc closes
-    SheetEscCloses { en: "Esc closes", de: "Esc schliesst" },
+    /// The same footer with nothing armed, and the one half that carries no
+    /// cap: the sentence is about *any* digit, and a key drawn there would
+    /// name the first row rather than the gesture. It names the gesture
+    /// rather than a range, because how many rows there are is on the sheet
+    /// already.
+    SheetDigitPicks { en: "A digit picks", de: "Eine Ziffer wählen" },
+    /// close
+    ///
+    /// The other end of the footer, beside the cap for the key itself. The
+    /// key's own name is never translated and never spelled here: it comes
+    /// from `prefs::Chord::display`, the same reader the settings screen
+    /// draws every binding with.
+    SheetCloses { en: "close", de: "schließen" },
     /// More — page {0} of {1}
     ///
     /// The tenth row, which exists only for a permanent with more than nine

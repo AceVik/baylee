@@ -173,7 +173,16 @@ fn spawn_number(commands: &mut Commands, fonts: &UiFonts, disc: Entity, value: u
 /// its own un-rotated box is `CAP·(√2−1)/2`. Both are written out where they
 /// are used rather than kept as a second constant: a bare 0.707 in a layout is
 /// a number nobody can check.
-const CAP: f32 = 0.78;
+const CAP: f32 = 0.86;
+
+/// How far up into its own point the number is lifted, as a share of the rise.
+///
+/// Zero centres the number in the whole badge, one centres it in the body
+/// alone — and both are wrong for the same reason from opposite sides: the
+/// point is part of the shape a reader sees, so a number centred under it sits
+/// low, and a number centred through it rides up into the taper where the
+/// shoulders pinch. The card splits the difference, and so does this.
+const NUMBER_LIFT: f32 = 0.55;
 
 /// A planeswalker's loyalty cost, built the way the card prints it.
 ///
@@ -184,9 +193,9 @@ const CAP: f32 = 0.78;
 /// number goes on last.
 ///
 /// Absolute children are placed against the parent's **padding** box, so the
-/// padding holds the point's height without moving anything inside it: the
-/// content box *is* the body, and one `align_items: Center` centres the number
-/// in the body rather than in the whole badge.
+/// padding moves neither the body nor the point. What it moves is the
+/// *number*, which is laid out in the content box, and [`NUMBER_LIFT`] is the
+/// share of the point that padding gives back to it.
 ///
 /// A mana pip is a light disc carrying dark ink. This is deliberately the
 /// other way round — dark body, parchment numeral — because a loyalty cost
@@ -218,18 +227,19 @@ fn spawn_loyalty(
     } else {
         body * 0.18
     };
+    let lift = rise * NUMBER_LIFT;
     commands.entity(badge).insert(Node {
         width: Val::Auto,
-        min_width: px(size * 1.25),
+        min_width: px(size * 1.55),
         height: px(body + rise),
         flex_shrink: 0.0,
         align_items: AlignItems::Center,
         justify_content: JustifyContent::Center,
         padding: bevy::ui::UiRect {
-            left: px(size * 0.22),
-            right: px(size * 0.22),
-            top: px(if down { 0.0 } else { rise }),
-            bottom: px(if down { rise } else { 0.0 }),
+            left: px(size * 0.26),
+            right: px(size * 0.26),
+            top: px(if down { 0.0 } else { lift }),
+            bottom: px(if down { lift } else { 0.0 }),
         },
         ..default()
     });
@@ -290,7 +300,7 @@ fn spawn_loyalty(
     let text = commands
         .spawn((
             Text::new(loy.caption()),
-            crate::hud::tf_bold(fonts, size * 0.74),
+            crate::hud::tf_bold(fonts, size * 0.82),
             TextColor(palette::PARCHMENT),
             Pickable::IGNORE,
         ))

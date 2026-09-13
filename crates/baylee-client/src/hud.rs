@@ -946,6 +946,16 @@ pub(crate) mod palette {
     /// Danger on parchment. [`DANGER`] is tuned to carry on 88% black and is
     /// unreadable on a sheet; this is the same claim at the same weight.
     pub const INK_DANGER: Color = Color::srgb(0.620, 0.200, 0.129);
+    /// The accent on parchment — a sheet's own heading, set in the house
+    /// colour rather than in body ink.
+    ///
+    /// [`BRASS`] is a *light*: it fills a keycap, a wash, a border, each of
+    /// which is its own ground. As letters on [`PARCHMENT`] it measures
+    /// 1.6:1, which is why nothing on a sheet is written in it. This is the
+    /// same hue taken down to an ink weight — every channel of [`BRASS`] at
+    /// 0.53, which keeps the mix exactly and lands on 4.8:1, the contrast
+    /// [`INK_DANGER`] carries, because the pair are the same claim made twice.
+    pub const INK_BRASS: Color = Color::srgb(0.418, 0.337, 0.081);
     /// The shadow a sheet lying above the table casts.
     pub const SHEET_SHADOW: Color = Color::srgba(0.0, 0.0, 0.0, 0.66);
 
