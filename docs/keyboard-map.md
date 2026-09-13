@@ -189,24 +189,30 @@ same thing twice. `docs/client.md` §"The card surface" has the whole register.
 
 A permanent with more than one thing to do opens a **sheet** when it is
 activated: a piece of parchment anchored beside the card itself, one numbered
-roundel per row, the ability's own printed sentence beside it, and its cost as
+keycap per row, the ability's own printed sentence beside it, and its cost as
 pips on the right. It replaced a row of buttons in the prompt bar, which named
 the abilities of a card at the far side of the screen and could only say
 "Ability 2" about the ones it had no words for.
 
 **A row is sent by the digit drawn on it** — `1` through `9`, and `0` turns
-the page when there is a second one. A page holds nine because the roundel is
+the page when there is a second one. A page holds nine because the keycap is
 the key, and there are nine digits that are not zero;
 `baylee_client_core::abilitysheet` is the arithmetic. Those digits are read as
 **typed characters and not as keymap actions**, the way a number choice reads
 them: nine rebindable rows called "the fourth ability" would be naming a
 position on a sheet rather than a thing a player does.
 
-**The roundel says what the press will do.** A row whose whole cost is paid
+And it is drawn as a **key**: a square with its corners taken off, sharing
+`sheet::KEYCAP_R` with the row it sits in so the two read as one object. It
+was a disc for as long as it existed, and a disc with a numeral in it is a
+bullet — the ornament that numbers a list, which is exactly the thing this
+one is not.
+
+**The keycap says what the press will do.** A row whose whole cost is paid
 out of the card — a mana ability (CR 605.1), or one that asks nothing beyond
 the `{T}` it already implies — goes through on the first press, for the reason
 §Arming gives: the next untap step gives that cost back. Every other row
-**arms** instead. The roundel turns gilt, the card wears `glow::ARMED` with
+**arms** instead. The keycap turns gilt, the card wears `glow::ARMED` with
 it, the sheet stays standing, and the same digit again sends it. A different
 digit is a change of mind and moves the arming, exactly as tapping a different
 card does. `Esc` disarms and leaves the sheet open; `Esc` again closes it.

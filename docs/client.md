@@ -2628,7 +2628,7 @@ there.
 The Bold is the newest of them and it draws one line: **a word a player can
 press is set in Bold, and a word a player can only read is not.** So the
 label on a button, a chip, a tray tab, an answer on the prompt slip, a phase
-tile and the digit in an ability row's roundel are bold; the ability's own
+tile and the digit in an ability row's keycap are bold; the ability's own
 printed sentence beside that digit, a card's name in a browser row and the
 slip's prose are not — a sentence *quoted* inside a control is still a
 quotation, which is why the ability chooser's `{T}: Add {G}` stays as it was
@@ -2985,7 +2985,14 @@ because combat damage puts a question between its hits and a resolving
 the **library**, as the smaller of "cards new to the hand" and "cards gone
 from the library", because a bounce and a *Regrowth* arrive in the same field
 of the same view and only the library says which happened — so milling five
-and drawing one is one, and a bounce with no draw is none. And counters count
+and drawing one is one, and a bounce with no draw is none. The same rule makes
+a **tutor to hand a draw**, and that is its one deliberate imprecision: a
+*Recruiter of the Guard* takes a card off the library and puts it in the hand,
+which from two views is exactly what a draw is, and nothing in a `PlayerView`
+says why a card moved. It was heard at the table before it was noticed here,
+and it reads as right rather than wrong — the eye sees a card leave the library
+for the hand and the ear says so — but it is an acceptance, not a distinction
+the counter is able to make. And counters count
 **objects, not counters**: three creatures taking one +1/+1 each is three, one
 creature taking four is one, and a creature that *enters* with counters on it
 is a creature arriving rather than counters being placed.

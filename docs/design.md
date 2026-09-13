@@ -458,7 +458,7 @@ that jitter their neighbours are a legibility bug, not a nicety.
 > grey. `hud::tf_bold` is the door and its doc comment is normative on which
 > side of the line a given piece of text falls: the word on a button, a chip,
 > a tray tab, an answer on the prompt slip, a phase tile and the digit in an
-> ability row's roundel are bold; the ability's own printed sentence beside
+> ability row's keycap are bold; the ability's own printed sentence beside
 > that digit, a card name in a browser row and the slip's prose are not — a
 > sentence quoted inside a control is still a quotation. No width estimate
 > moved with it: Bold measures 0.4610 of the em on lower case against the

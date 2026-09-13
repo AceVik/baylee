@@ -590,7 +590,7 @@ fn preset_with_a_planeswalker() -> GamePreset {
 /// other shape — two abilities, neither of them mana — and it is the one this
 /// branch actually runs in.
 ///
-/// Staying open is the half the sheet added. The row's roundel goes gilt and
+/// Staying open is the half the sheet added. The row's keycap goes gilt and
 /// the footer says to press the same digit again, so a sheet that closed on
 /// the arming would take away the only key it had just named — and the two
 /// states have two ways out, the first escape disarming and the second

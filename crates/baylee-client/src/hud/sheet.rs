@@ -31,7 +31,6 @@
 use super::*;
 use baylee_client_core::abilitysheet;
 use baylee_client_core::card_face::TextBlock;
-use bevy::text::LetterSpacing;
 
 /// How wide the sheet is.
 ///
@@ -47,8 +46,21 @@ const SHEET_GAP: f32 = 10.0;
 /// How close to the window's edge the sheet may come.
 const SHEET_MARGIN: f32 = 12.0;
 
-/// The digit roundel's diameter.
-const ROUNDEL: f32 = 21.0;
+/// The digit keycap's side.
+///
+/// A square and not a disc, because what it stands for is a **key**: the digit
+/// on it is the one a player presses to arm that row, and a keyboard has no
+/// round keys. It was a roundel and read as a bullet — an ornament numbering
+/// a list rather than a control naming a keystroke.
+const KEYCAP: f32 = 21.0;
+
+/// The keycap's corner radius, and the row's.
+///
+/// One constant for both, so the cap reads as a key sitting *in* its row
+/// rather than as a second, differently-cornered object on it. A key is a
+/// square with its corners taken off, which is what a small radius on a
+/// 21-pixel square is; half the side is the circle it used to be.
+const KEYCAP_R: f32 = 4.0;
 
 /// The wash under the row that is armed — [`palette::BRASS`] at 16%.
 ///
@@ -275,7 +287,7 @@ fn spawn_sheet(
         .id();
     commands.spawn(sheet_surface(sheets)).insert(ChildOf(sheet));
 
-    spawn_head(commands, fonts, lang, faces, duel, object, sheet);
+    spawn_head(commands, fonts, faces, duel, object, sheet);
 
     // ---- the rows --------------------------------------------------------
     for at in abilitysheet::rows(options.len(), page) {
@@ -309,11 +321,17 @@ fn spawn_sheet(
     sheet
 }
 
-/// The permanent's name, and a line saying what the list under it is.
+/// The permanent's name, and the hairline under it.
+///
+/// There used to be a line of spaced capitals between the two saying what the
+/// list below was ("what it can do"). It was the one place in the interface
+/// with letter-spacing, and it is gone: a list of things a permanent can do,
+/// standing under that permanent's own name, does not need a label saying it
+/// is a list of things a permanent can do. The hairline does the separating
+/// the label was also doing, and it is what remains.
 fn spawn_head(
     commands: &mut Commands,
     fonts: &UiFonts,
-    lang: Lang,
     faces: &crate::cardtext::CardTexts,
     duel: &Duel,
     object: ObjectId,
@@ -332,24 +350,6 @@ fn spawn_head(
         ))
         .id();
     commands.entity(sheet).add_child(head);
-    let sub = commands
-        .spawn((
-            Text::new(Phrase::WhatItCanDo.text(lang).to_uppercase()),
-            tf(fonts, 10.0),
-            // The one place in the interface with letter-spacing, and it is
-            // what makes ten uppercase characters read as a label rather
-            // than as a shout. Its own component in Bevy 0.19 and not a
-            // field on `TextFont`.
-            LetterSpacing::Rem(0.08),
-            TextColor(palette::SLIP_SOFT),
-            Node {
-                margin: UiRect::top(px(2)),
-                ..default()
-            },
-            Pickable::IGNORE,
-        ))
-        .id();
-    commands.entity(sheet).add_child(sub);
     let hair = rule(commands, 10.0);
     commands.entity(sheet).add_child(hair);
 }
@@ -409,7 +409,7 @@ fn rule(commands: &mut Commands, above: f32) -> Entity {
         .id()
 }
 
-/// One row: the roundel, what the ability does, what it costs.
+/// One row: the keycap, what the ability does, what it costs.
 #[allow(clippy::too_many_arguments, clippy::fn_params_excessive_bools)]
 fn spawn_row(
     commands: &mut Commands,
@@ -432,7 +432,7 @@ fn spawn_row(
     };
     let row = commands
         .spawn((
-            // The *whole row* is the button, not the roundel on it: a target
+            // The *whole row* is the button, not the keycap on it: a target
             // 21 pixels across beside a sentence that is not clickable is a
             // row a player aims at and misses.
             crate::hud::AbilityButton { index },
@@ -442,7 +442,7 @@ fn spawn_row(
                 column_gap: px(11),
                 padding: UiRect::axes(px(4), px(6)),
                 margin: UiRect::horizontal(px(-4)),
-                border_radius: BorderRadius::all(px(4)),
+                border_radius: BorderRadius::all(px(KEYCAP_R)),
                 ..default()
             },
             BackgroundColor(wash),
@@ -450,16 +450,16 @@ fn spawn_row(
         ))
         .id();
 
-    let roundel = commands
+    let keycap = commands
         .spawn((
             Node {
-                width: px(ROUNDEL),
-                height: px(ROUNDEL),
+                width: px(KEYCAP),
+                height: px(KEYCAP),
                 flex_shrink: 0.0,
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
                 border: UiRect::all(px(1)),
-                border_radius: BorderRadius::all(px(ROUNDEL / 2.0)),
+                border_radius: BorderRadius::all(px(KEYCAP_R)),
                 ..default()
             },
             BackgroundColor(if armed {
@@ -485,8 +485,8 @@ fn spawn_row(
             Pickable::IGNORE,
         ))
         .id();
-    commands.entity(roundel).add_child(glyph);
-    commands.entity(row).add_child(roundel);
+    commands.entity(keycap).add_child(glyph);
+    commands.entity(row).add_child(keycap);
 
     let says = commands
         .spawn((
@@ -546,23 +546,23 @@ fn spawn_pager(
                 column_gap: px(11),
                 padding: UiRect::axes(px(4), px(6)),
                 margin: UiRect::horizontal(px(-4)),
-                border_radius: BorderRadius::all(px(4)),
+                border_radius: BorderRadius::all(px(KEYCAP_R)),
                 ..default()
             },
             BackgroundColor(Color::NONE),
             Feel::rising_to(Color::NONE, PICKED_WASH),
         ))
         .id();
-    let roundel = commands
+    let keycap = commands
         .spawn((
             Node {
-                width: px(ROUNDEL),
-                height: px(ROUNDEL),
+                width: px(KEYCAP),
+                height: px(KEYCAP),
                 flex_shrink: 0.0,
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
                 border: UiRect::all(px(1)),
-                border_radius: BorderRadius::all(px(ROUNDEL / 2.0)),
+                border_radius: BorderRadius::all(px(KEYCAP_R)),
                 ..default()
             },
             BackgroundColor(Color::NONE),
@@ -578,8 +578,8 @@ fn spawn_pager(
             Pickable::IGNORE,
         ))
         .id();
-    commands.entity(roundel).add_child(glyph);
-    commands.entity(row).add_child(roundel);
+    commands.entity(keycap).add_child(glyph);
+    commands.entity(row).add_child(keycap);
     let says = commands
         .spawn((
             Text::new(
@@ -898,7 +898,7 @@ mod running {
     ///
     /// `BRASS` on `PARCHMENT` measures 1.9:1 — below every legibility floor —
     /// which is how the zone browser's current tab came to read *fainter*
-    /// than the ones beside it. Brass keeps its job as a light: the roundel
+    /// than the ones beside it. Brass keeps its job as a light: the keycap
     /// on an armed row, the ordering badge, the card glow, each of which sits
     /// on its own fill. The check is on the source because what is being held
     /// is a rule about a whole surface rather than about one node.

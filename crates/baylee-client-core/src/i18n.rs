@@ -1115,13 +1115,6 @@ messages! {
 
 
     // ---- the ability sheet
-    /// what it can do
-    ///
-    /// The sheet's second line, under the permanent's own name. It says what
-    /// the list below it *is* — a list of things this card could do now, and
-    /// not the card's printed text, which is a hover away and says what it
-    /// does always.
-    WhatItCanDo { en: "what it can do", de: "was sie kann" },
     /// Press {0} again
     ///
     /// The footer while a row is armed. `{0}` is the digit drawn on that

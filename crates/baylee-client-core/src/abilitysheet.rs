@@ -8,7 +8,7 @@
 //!
 //! # Why a page holds nine
 //!
-//! Because the roundel on a row is the key that sends it, and there are nine
+//! Because the keycap on a row is the key that sends it, and there are nine
 //! digits that are not zero. Ten rows would need a key that is not a digit
 //! for the tenth, and a player who has learned "the number beside it" would
 //! meet an exception on the one card that has ten things to do.
@@ -110,7 +110,7 @@ pub enum Press {
     /// Sends the ability at once — the CR 605.1 one-tap exemption, and the
     /// cost that is paid out of the card itself and given back at untap.
     Send,
-    /// Arms the row: the roundel goes gilt, the card goes gilt, and the same
+    /// Arms the row: the keycap goes gilt, the card goes gilt, and the same
     /// digit again sends it. There is no undo in the engine, so anything with
     /// a cost is asked for twice.
     Arm,

@@ -319,7 +319,7 @@ fn arm(duel: &mut Duel, object: ObjectId, deed: Deed) {
 /// because there is no undo in the engine and never will be.
 ///
 /// Returns whether the ability was *sent*. The ability sheet stands open
-/// while a row is armed — the roundel goes gilt and the same digit again
+/// while a row is armed — the keycap goes gilt and the same digit again
 /// sends it — so the caller needs to know which of the two happened, and a
 /// sheet that closed on the arming would take the digit away with it.
 fn arm_ability(
@@ -1034,7 +1034,7 @@ pub fn sheet_digit(duel: &mut Duel, digit: char) -> bool {
 /// The row a press landed on: armed by the first press, sent by the second.
 ///
 /// The digit and the click share it, because they are the same press — the
-/// roundel is what the digit is drawn on, and a row whose click armed while
+/// keycap is what the digit is drawn on, and a row whose click armed while
 /// its digit sent would be two controls wearing one number.
 fn take_sheet_row(duel: &mut Duel, at: usize) {
     let Some(object) = duel.ability_menu else {

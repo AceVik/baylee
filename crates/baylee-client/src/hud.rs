@@ -168,7 +168,7 @@ pub(crate) fn tf(fonts: &UiFonts, size: f32) -> TextFont {
 /// "important text is bold": a label a player can **press** is set in Bold,
 /// and a sentence that merely happens to lie inside a control is not. So the
 /// word on a button, a chip, a tray tab, an answer on the prompt slip and the
-/// digit in an ability row's roundel are all bold; the ability's printed
+/// digit in an ability row's keycap are all bold; the ability's printed
 /// sentence beside that digit, a card's name in a browser row and the slip's
 /// prose are not. A control that is *only* a glyph — the eye at the end of a
 /// password box, the phase tiles' icons — is set in the icon face and reaches
