@@ -1120,7 +1120,7 @@ fn state_dump(believed: &Believed, window: Vec2) -> String {
          \"autopilot\":{autopilot},\"last_error\":{error},\"lang\":{lang},\
          \"reachable\":{reachable},\"activatable\":{activatable},\"armed\":{armed},\
          \"outbox\":{outbox},\"mana_run\":{mana_run},\"ability_menu\":{menu},\
-         \"last_cue\":{last_cue},\
+         \"last_cue\":{last_cue},\"last_count\":{last_count},\
          \"departing\":{departing},\"cards\":{cards},\"buttons\":{buttons},\"shelves\":{shelves}}}",
         cards = cards_json(believed, duel, window),
         buttons = buttons_json(believed),
@@ -1156,7 +1156,13 @@ fn state_dump(believed: &Believed, window: Vec2) -> String {
         last_cue = duel
             .cues
             .last()
-            .map_or_else(|| "null".to_string(), |c| quoted(c.name())),
+            .map_or_else(|| "null".to_string(), |beat| quoted(beat.cue.name())),
+        // And how many of it, which is the half a name cannot carry: three
+        // cards drawn and one drawn are the same cue and two different
+        // sounds, so a harness that could read only the name could not tell a
+        // burst from a tap. `0` when nothing has been heard yet, and `1` for
+        // every cue that has no amount in it.
+        last_count = duel.cues.last().map_or(0, |beat| beat.count),
     )
 }
 

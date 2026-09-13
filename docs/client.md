@@ -2924,39 +2924,83 @@ which is CoreAudio, ALSA, WASAPI and — in a browser — an `AudioContext` that
 does not start until the player has clicked something. They add eighteen
 crates, all permissive and all already on `deny.toml`'s allowlist.
 
-**One instrument, struck nine ways.** All of them are a struck rosewood bar:
-a fundamental and two inharmonic partials at 3.93 and 9.56, each dying at its
-own rate, under a short filtered noise burst that is the mallet before the
-note. Metal was the other candidate and is wrong for the reason it is wrong in
-a room — a bell's upper partials outlive its fundamental, so two overlapping
-is a chord nobody asked for. What separates the nine is pitch, gesture and
-level, never timbre:
+**One instrument, struck twelve ways.** All of them are a struck rosewood bar
+over a resonator tube: five modes of the bar and five of the contact, under a
+force pulse whose *duration* is the whole of what a mallet is, and over an air
+column that takes 27 ms at D4 to bloom. Metal was the other candidate and is
+wrong for the reason it is wrong in a room — a bell's upper partials outlive
+its fundamental, so two overlapping is a chord nobody asked for, and the clamp
+in `sound::modes` is what holds the module to that. What separates the twelve
+is pitch, gesture, level and distance, never timbre:
 
 | cue | peak | pitch | gesture |
 |---|---|---|---|
-| `MyLifeLost` | 0.700 | D4 → B3 | two strikes, falling a minor third, the second heavier |
-| `MyLifeGained` | 0.560 | D4 → F♯4 | the same, rising a major third, the second lighter |
-| `TheirLifeLost` | 0.280 | A3 → F♯3 | a fourth lower, soft mallet, one reflection |
-| `TheirLifeGained` | 0.224 | A3 → C♯4 | as above, rising |
-| `YourMove` | 0.154 | D3 | one touch, six variants |
-| `Refused` | 0.350 | G3 | two knuckles on the leather rail, almost no ring |
-| `GameWon` | 0.630 | D4 → F♯4 → A4 | three strikes rising and slowing |
-| `GameLost` | 0.560 | D4 → B3 → A3 | three falling and softening, left to ring longest |
-| `GameDrawn` | 0.504 | A3, A3 | two equal strikes, neither up nor down |
+| `MyLifeLost` | 0.700 | D4 → B3 | two strikes 110 ms apart, falling a minor third |
+| `MyLifeGained` | 0.560 | D4 → F♯4 | the same at 100 ms, rising a major third |
+| `TheirLifeGained` | 0.224 | A3 → C♯4 | as above, a fourth lower and across the room |
+| `TheirLifeLost` | 0.280 | A3 → F♯3 | likewise — the *same* mallet, never a gentler one |
+| `CardDrawn` | 0.140 | D5 | one tap per card, up to seven, accelerating |
+| `CreatureGrew` | 0.196 | A4 → C♯5 | a 45 ms flam, up to five, the life gesture made small |
+| `CreatureShrank` | 0.238 | A4 → F♯4 | the same falling, and the louder of the two |
+| `YourMove` | 0.154 | D3 | one yarn touch, six variants |
+| `Refused` | 0.350 | — | two knuckles on the leather rail; no bar and no pitch |
+| `GameWon` | 0.630 | D4 → A4 | two strikes 380 ms apart, a fifth up, let ring |
+| `GameLost` | 0.560 | D4 → A3 | a fourth down at 460 ms, softer and longer |
+| `GameDrawn` | 0.504 | A3, A3 | a unison at 420 ms — two different blows, not one twice |
 
 Two intervals rather than one mirrored one, because mirroring would make a
 gain sound minor; together they outline a triad, so a lifelink trade —
 `MyLifeLost` and `TheirLifeGained` on one frame — is a chord and not an
-argument. "Elsewhere" is a filter and a reflection rather than a volume knob:
-a softer mallet, the top partial nearly gone, and one delayed dulled copy
-19 ms behind, which is what an ear reads as *over there*. The three endings
+argument. "Elsewhere" is a **room and a level**, never a gentler blow: a
+softer stick would say somebody was hit more gently, which is not what a seat
+across the table means, so the mallet is the same and what changes is a dulled
+direct sound and a reflection that arrives almost with it. The three endings
 are the only sounds longer than a blink and all three peak **below** a life
 cue; all three come to rest on A and never on the tonic, because a cadence
 left open is what keeps a win from being a fanfare. `docs/design.md` retires
 hues rather than handing out new ones and this is the same restraint.
 
+**Three of them count, and that is a change to the model.** The owner asked
+for a draw and a counter to be audible *as an amount* — "so that when several
+cards are drawn, you hear that too" — and the module had written down that
+this could not be done, because a `Cue` is a flat variant with no payload. The
+reasoning was right about where the change had to happen and wrong about what
+it was: a twelve-point hit is not a louder one-point hit, it is one event
+whose number is on the bar, but drawing three cards is three events. So
+`cue::Beat` is a cue *and a count*, `Cue::most` says how far each can count
+(seven for a draw, which is a hand; five for counters, which are gestures and
+are counted less far), and the sink builds one buffer per count. A burst is
+the same blow struck N times at a gap that **accelerates** — an even run is a
+metronome, and a dealer's flick is not — with every blow taking its own row of
+a ladder of spots, detunes and gains, so three is three blows and never one
+buffer played three times.
+
+What decides the counts is `cue::Tally`, a second view-differ beside
+`lifeflash::Ledger` and deliberately without its clock. **A draw of three
+arrives in one view, not three**: `gamehost::Session::pump` runs the engine
+until a seat that answers over a socket has a question and only then builds a
+view, so everything between two questions is one difference — `MERGE` exists
+because combat damage puts a question between its hits and a resolving
+*Divination* cannot. Two rules make the reading honest. A draw is counted off
+the **library**, as the smaller of "cards new to the hand" and "cards gone
+from the library", because a bounce and a *Regrowth* arrive in the same field
+of the same view and only the library says which happened — so milling five
+and drawing one is one, and a bounce with no draw is none. And counters count
+**objects, not counters**: three creatures taking one +1/+1 each is three, one
+creature taking four is one, and a creature that *enters* with counters on it
+is a creature arriving rather than counters being placed.
+
+The frame budget moved with it. `MASTER` was chosen when two cues were the
+worst case an ordinary frame could hold, and a *Sign in Blood* is a life loss
+and a draw while a *Fathom Mage* is a counter and a draw. `sound::audible`
+therefore fills a frame greedily by `sound::rank` — a refusal first, then
+life, then the table's texture, then the draw, then the nudge — and **drops**
+what will not fit rather than ducking it, which is the choice the rest of the
+module already makes: there is no mixer and a sound either happens or does
+not. An ending is still played alone.
+
 **`YourMove` is the one that could ruin it.** It fires on every priority
-grant. It is the lowest sound in the set, the quietest, one touch rather than
+grant. It is the lowest sound in the set, and the quietest but for the draw, one touch rather than
 a gesture, and one of six variants cycled in a fixed order — detuned within
 ±16 cents, with the second partial struck at a different spot along the bar,
 so no two consecutive firings are the same sound. What is **not** built is the
@@ -2969,7 +3013,7 @@ setting.
 
 **Three steps, not a slider.** `cue::Loudness` is `Full`, `Half` and `Off`,
 one chip each on the settings screen beside the sky's, and it multiplies at
-*playback* — the balance between the nine is baked into the buffers, so there
+*playback* — the balance between them is baked into the buffers, so there
 is nothing for a player to tune. `Off` stops the device and nothing else:
 cues are still decided, drained and reported, which keeps "is it silent" and
 "is it deciding" two separate questions.
@@ -2978,8 +3022,10 @@ Everything is computed once, on the frame the app opens, from a xorshift32
 seeded with a constant — so the table sounds the same on every machine, and
 `a_cue_renders_the_same_bytes_twice` is what says so. The one thing a
 generated sound has no other audit surface for is what it *sounds like*:
-`every_cue_written_out` is `#[ignore]`d and writes all fourteen to a
-directory for somebody to listen to.
+`every_cue_written_out` is `#[ignore]`d and writes all thirty-seven to a
+directory for somebody to listen to — which is where the counted three have
+to be judged, because "seven taps at these gaps can be counted" and "a 45 ms
+flam reads as a direction" are claims about ears and no test can hold them.
 
 ### One event, one cue
 
@@ -3046,6 +3092,13 @@ spelled out rather than derived from `Debug` because a `Debug` rendering is
 allowed to change and a harness reads this. Conceding an offline duel and
 reading `/state.last_cue` is the end-to-end proof that the whole chain is
 wired, and it needs no speakers.
+
+`last_count` beside it is the half a name cannot carry: `1` for every cue with
+no amount in it, `0` before anything has been heard, and for the counted three
+the number the sink was actually given. Drawing three cards and drawing one
+are the same `last_cue` and two different sounds, so a harness reading only
+the name could not tell a burst from a tap — which is precisely the thing the
+counted cues exist to do.
 
 ## The zone browser is a dialog, which is a different material
 

@@ -38,7 +38,8 @@
 
 use crate::interaction::Outcome;
 use crate::lifeflash::Change;
-use baylee_core::ids::PlayerId;
+use baylee_core::ids::{ObjectId, PlayerId};
+use baylee_view::{CounterKind, PlayerView};
 
 /// A moment worth hearing.
 ///
@@ -68,6 +69,26 @@ pub enum Cue {
     GameLost,
     /// The game is over and nobody won.
     GameDrawn,
+    /// A card came off this seat's library and into its hand.
+    ///
+    /// Off the *library*, which is the whole of what tells a draw from a
+    /// bounce: a card returned to hand from a graveyard arrives in exactly
+    /// the same field of the same view, and only the library count moving
+    /// with it says which of the two happened. [`Tally`] is where that is
+    /// read.
+    CardDrawn,
+    /// A creature already on the battlefield gained +1/+1 counters.
+    ///
+    /// *Already there.* One that arrives with counters on it is a creature
+    /// arriving, not counters being placed, and the two are different moments
+    /// however alike the two views look.
+    CreatureGrew,
+    /// A creature already on the battlefield gained −1/−1 counters.
+    ///
+    /// Two variants and not one with a direction, for the reason there are
+    /// four life cues and not two: they are two different sounds, and a
+    /// `bool` in the middle of a match arm is a thing to get backwards.
+    CreatureShrank,
 }
 
 impl Cue {
@@ -78,7 +99,7 @@ impl Cue {
     /// test. `every_cue_is_in_all` holds the two together by counting the
     /// arms of [`Cue::name`], which the compiler already forces to be
     /// exhaustive.
-    pub const ALL: [Self; 9] = [
+    pub const ALL: [Self; 12] = [
         Self::MyLifeLost,
         Self::MyLifeGained,
         Self::TheirLifeLost,
@@ -88,6 +109,9 @@ impl Cue {
         Self::GameWon,
         Self::GameLost,
         Self::GameDrawn,
+        Self::CardDrawn,
+        Self::CreatureGrew,
+        Self::CreatureShrank,
     ];
 
     /// Its own name, for `/state` and for whatever ends up playing it.
@@ -106,7 +130,45 @@ impl Cue {
             Self::GameWon => "GameWon",
             Self::GameLost => "GameLost",
             Self::GameDrawn => "GameDrawn",
+            Self::CardDrawn => "CardDrawn",
+            Self::CreatureGrew => "CreatureGrew",
+            Self::CreatureShrank => "CreatureShrank",
         }
+    }
+
+    /// The largest count this cue can carry, past which it says "a lot".
+    ///
+    /// **One** for every cue but three, and that is the line rather than a
+    /// limit: a life total moving by twelve and by one are the same event to
+    /// the ear, and the number is already on the bar. Drawing three cards is
+    /// not one event — it is three, arriving close enough together that the
+    /// sink plays them as a burst — and so is a resolution that puts counters
+    /// on three creatures. Those are the three the owner asked for by name,
+    /// and the reason [`Beat`] exists at all.
+    ///
+    /// The two counted ceilings are different and both are the ear's number
+    /// rather than the game's. **Seven** for a draw, which is the count this
+    /// game has a word for — a hand, and what a *Wheel of Fortune* or a
+    /// *Windfall* deals — and about where counting a run of single taps gives
+    /// out anyway. **Five** for counters, because each of those is a two-note
+    /// gesture rather than one tap and a run of gestures is counted less far.
+    ///
+    /// It is a number rather than a `bool` because the *sink* needs exactly
+    /// this: it synthesises one buffer per count, so a cue on the wrong side
+    /// of the line is either silent above one or six buffers nobody plays.
+    #[must_use]
+    pub const fn most(self) -> u8 {
+        match self {
+            Self::CardDrawn => 7,
+            Self::CreatureGrew | Self::CreatureShrank => 5,
+            _ => 1,
+        }
+    }
+
+    /// Every count this cue is ever played at, which is `1..=most`.
+    #[must_use]
+    pub fn counts(self) -> std::ops::RangeInclusive<u8> {
+        1..=self.most()
     }
 
     /// How a finished game sounds from this chair.
@@ -146,7 +208,7 @@ impl Cue {
 ///
 /// Three steps and not a slider, for the reason the sky picker is three
 /// chips: a slider is a number a player has to *tune*, and there is no
-/// tuning to be done here — the nine sounds are balanced against each other
+/// tuning to be done here — the sounds are balanced against each other
 /// in [`crate::cue`]'s sink, so the only questions are "on", "quieter" and
 /// "off". It is stored under its own key rather than as a `bool` pair
 /// because two bools make four states and one of them is nonsense.
@@ -205,6 +267,54 @@ impl Loudness {
     }
 }
 
+/// A cue, and how many of it.
+///
+/// The one thing this module's first draft said it would not do, done — and
+/// the reason it is a wrapper rather than a field on [`Cue`] is that the
+/// original argument still holds. A `Cue` stays a flat variant with no
+/// payload, because every reader wants a *name*: a sink matches on it,
+/// `/state` prints it, a future sound pack is keyed by it. The count is not
+/// part of what the moment is called; it is how many of that moment landed
+/// together, which is a property of the frame and lives here.
+///
+/// [`Cue::most`] says how far a given cue can count. For everything else
+/// `count` is 1 and means nothing.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct Beat {
+    /// What happened.
+    pub cue: Cue,
+    /// How many of it, from 1 to [`Cue::most`].
+    pub count: u8,
+}
+
+impl Beat {
+    /// One of something.
+    #[must_use]
+    pub const fn once(cue: Cue) -> Self {
+        Self { cue, count: 1 }
+    }
+
+    /// `count` of something, clamped into the range [`Cue::most`] allows.
+    ///
+    /// Clamped *here* and nowhere else, so a reader may count honestly and
+    /// hand over whatever it found: a *Windfall* for twelve is seven, and the
+    /// arithmetic that decided twelve does not have to know the ceiling.
+    #[must_use]
+    pub const fn of(cue: Cue, count: u8) -> Self {
+        let most = cue.most();
+        Self {
+            cue,
+            count: if count < 1 {
+                1
+            } else if count > most {
+                most
+            } else {
+                count
+            },
+        }
+    }
+}
+
 /// The cues this frame has decided on, and the last one it ever decided.
 ///
 /// A queue and not a callback: the client decides on cues in three different
@@ -214,10 +324,15 @@ impl Loudness {
 #[derive(Clone, Default, Debug)]
 pub struct Cues {
     /// Decided this frame, not yet handed over.
-    queue: Vec<Cue>,
-    /// The last cue drained, for `/state` and for a test that wants to read
+    queue: Vec<Beat>,
+    /// The last beat drained, for `/state` and for a test that wants to read
     /// what the client heard rather than listen for it.
-    last: Option<Cue>,
+    ///
+    /// The whole [`Beat`] and not just its cue, because the count is the new
+    /// thing worth proving: "three cards were drawn and the sink was told
+    /// three" is a read, where "it sounded like three" is somebody listening
+    /// at the right moment.
+    last: Option<Beat>,
     /// Whether the last question the table asked was this seat's to answer.
     ///
     /// The one remembered bit in the whole module, and it is what makes
@@ -242,8 +357,25 @@ impl Cues {
     /// louder" rule: two opponents taking damage on one view is one event to
     /// a listener, however many numbers it puts on the table.
     pub fn push(&mut self, cue: Cue) {
-        if !self.queue.contains(&cue) {
-            self.queue.push(cue);
+        self.push_many(cue, 1);
+    }
+
+    /// Adds a cue `count` of which happened at once.
+    ///
+    /// A cue already decided on this frame is **raised** to the larger count
+    /// rather than added to. It is the same rule `push` has always had, read
+    /// one level up: two readings of one frame are two readings of the same
+    /// thing, and the one that saw more saw all of it. Summing would make a
+    /// second reader who found nothing new turn three cards into six.
+    ///
+    /// The count is clamped by [`Beat::of`]; see [`Cue::most`] for the
+    /// ceilings and why they are the ear's numbers.
+    pub fn push_many(&mut self, cue: Cue, count: u8) {
+        let beat = Beat::of(cue, count);
+        if let Some(already) = self.queue.iter_mut().find(|b| b.cue == cue) {
+            already.count = already.count.max(beat.count);
+        } else {
+            self.queue.push(beat);
         }
     }
 
@@ -257,7 +389,7 @@ impl Cues {
     /// past withdrawing, and this is then a no-op, which is the right answer
     /// for a player answering a question they *did* see.
     pub fn retract(&mut self, cue: Cue) {
-        self.queue.retain(|c| *c != cue);
+        self.queue.retain(|beat| beat.cue != cue);
     }
 
     /// Reads a view's life changes.
@@ -300,29 +432,204 @@ impl Cues {
         self.push(Cue::Refused);
     }
 
+    /// Takes what one view moved, as [`Tally`] read it.
+    ///
+    /// Three counted cues out of one reading, and the counts go straight in:
+    /// this is the only place in the module where "how many" survives as far
+    /// as the queue, because these are the only three moments that *have* a
+    /// how many. A flow with nothing in it pushes nothing, which is what
+    /// every view that merely re-states the table looks like.
+    pub fn note_flow(&mut self, flow: &Flow) {
+        for (cue, count) in [
+            (Cue::CardDrawn, flow.drawn),
+            (Cue::CreatureGrew, flow.grew),
+            (Cue::CreatureShrank, flow.shrank),
+        ] {
+            if count > 0 {
+                self.push_many(cue, count);
+            }
+        }
+    }
+
     /// Hands over everything decided since the last drain.
     ///
     /// The last of them is remembered, which is the whole of `/state`'s
     /// `last_cue` and the reason a sound can be *proven* by a read rather
     /// than by somebody listening at the right moment.
-    pub fn take(&mut self) -> Vec<Cue> {
+    pub fn take(&mut self) -> Vec<Beat> {
         if let Some(last) = self.queue.last() {
             self.last = Some(*last);
         }
         std::mem::take(&mut self.queue)
     }
 
-    /// The last cue handed over, if there has been one.
+    /// The last beat handed over, if there has been one.
     #[must_use]
-    pub fn last(&self) -> Option<Cue> {
+    pub fn last(&self) -> Option<Beat> {
         self.last
     }
 
     /// What is waiting to be heard, without taking it.
     #[must_use]
-    pub fn pending(&self) -> &[Cue] {
+    pub fn pending(&self) -> &[Beat] {
         &self.queue
     }
+}
+
+/// What one view moved that the ear is owed.
+///
+/// Three counts and nothing else, because three is all there is to say: how
+/// many cards were drawn, how many creatures grew, how many shrank.
+#[derive(Clone, Copy, Default, PartialEq, Eq, Debug)]
+pub struct Flow {
+    /// Cards that came off this seat's library and into its hand.
+    pub drawn: u8,
+    /// Creatures that gained +1/+1 counters while already on the battlefield.
+    pub grew: u8,
+    /// Creatures that gained −1/−1 counters, likewise.
+    pub shrank: u8,
+}
+
+impl Flow {
+    /// Whether this view said anything at all.
+    #[must_use]
+    pub const fn is_quiet(&self) -> bool {
+        self.drawn == 0 && self.grew == 0 && self.shrank == 0
+    }
+}
+
+/// The reader that turns two views into a [`Flow`].
+///
+/// The same shape as [`crate::lifeflash::Ledger`] and for the same reason:
+/// the engine sends a whole [`baylee_view::PlayerView`] per change and no
+/// events, so "what happened" is the difference between two of them and
+/// there is nowhere else to compute it. A frame later the previous view is
+/// gone.
+///
+/// # Why there is no clock in it, where the life ledger has one
+///
+/// A draw of three cards arrives in **one** view, not three.
+/// `gamehost::Session::pump` runs the engine until a seat that answers over a
+/// socket has a question, and only *then* builds a view for every such seat —
+/// so everything between two questions, however much of it there is, is one
+/// difference. `lifeflash::MERGE` exists because combat damage puts a
+/// question between its hits and genuinely does send several views; a
+/// resolving *Divination* puts no question anywhere and cannot.
+///
+/// If that ever changed, the failure is mild and worth naming: the ear would
+/// get two beats of one where it now gets one beat of two, which is an
+/// honest rendering of two events. It would not go silent.
+///
+/// # The first view is silent
+///
+/// The ledger's rule, carried over. An opening hand of seven is not seven
+/// cards being drawn where a player can hear it, and a client that joined a
+/// game in progress has not just watched the whole board arrive.
+#[derive(Clone, Default, Debug)]
+pub struct Tally {
+    /// The cards in this seat's hand as of the last view read.
+    hand: Vec<ObjectId>,
+    /// How many cards were left in this seat's library.
+    library: u32,
+    /// Every battlefield object and its power/toughness counters, as
+    /// `(object, plus, minus)`, sorted by object so a lookup is a search.
+    counters: Vec<(ObjectId, u16, u16)>,
+    /// Whether anything has been read yet. Not `hand.is_empty()`: a seat
+    /// with no cards in hand is an ordinary state of a game.
+    seeded: bool,
+}
+
+impl Tally {
+    /// A reader that has seen nothing.
+    #[must_use]
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Reads a view against the last one, and remembers it.
+    ///
+    /// # A draw is a library, not a hand
+    ///
+    /// Counting the ids that are new to the hand answers the wrong question:
+    /// a bounced creature, a card put back by a *Brainstorm* and a commander
+    /// declining CR 903.9b all arrive there the same way. What separates them
+    /// is the **library count**, and the answer is the smaller of the two —
+    /// so milling five and drawing one is one card, a bounce with no draw is
+    /// none, and drawing one while bouncing one is one. It is honest in the
+    /// direction that matters: it can undercount a turn that does two things
+    /// at once, and it cannot invent a draw that did not happen.
+    ///
+    /// # Counters are creatures, not counters
+    ///
+    /// The count is how many **objects** gained power/toughness counters, not
+    /// how many counters were placed. Three creatures each taking one +1/+1
+    /// is three; one creature taking three is one, because that is one card
+    /// resolving on one permanent and the plate under it says the rest. Only
+    /// objects that were in the *previous* view are counted, so a creature
+    /// entering with counters on it is a creature arriving.
+    pub fn read(&mut self, view: &PlayerView) -> Flow {
+        let hand: Vec<ObjectId> = view.hand.iter().map(|card| card.id).collect();
+        let library = view
+            .seats
+            .iter()
+            .find(|seat| seat.player == view.seat)
+            .map_or(0, |seat| seat.library_count);
+        let mut counters: Vec<(ObjectId, u16, u16)> = view
+            .battlefield
+            .iter()
+            .map(|object| {
+                let of = |want: CounterKind| {
+                    object
+                        .counters
+                        .iter()
+                        .find(|entry| entry.kind == want)
+                        .map_or(0, |entry| entry.count)
+                };
+                (
+                    object.id,
+                    of(CounterKind::PlusOnePlusOne),
+                    of(CounterKind::MinusOneMinusOne),
+                )
+            })
+            .collect();
+        counters.sort_unstable_by_key(|(id, _, _)| *id);
+
+        let flow = if self.seeded {
+            let arrived = hand.iter().filter(|id| !self.hand.contains(id)).count();
+            let off_the_top = self.library.saturating_sub(library) as usize;
+            let (mut grew, mut shrank) = (0_usize, 0_usize);
+            for &(id, plus, minus) in &counters {
+                let Ok(at) = self.counters.binary_search_by_key(&id, |(id, _, _)| *id) else {
+                    continue;
+                };
+                let (_, was_plus, was_minus) = self.counters[at];
+                grew += usize::from(plus > was_plus);
+                shrank += usize::from(minus > was_minus);
+            }
+            Flow {
+                drawn: small(arrived.min(off_the_top)),
+                grew: small(grew),
+                shrank: small(shrank),
+            }
+        } else {
+            Flow::default()
+        };
+
+        self.hand = hand;
+        self.library = library;
+        self.counters = counters;
+        self.seeded = true;
+        flow
+    }
+}
+
+/// A count, brought into a byte without wrapping.
+///
+/// Saturating and not clamped to a cue's ceiling: the ceiling is
+/// [`Beat::of`]'s job and belongs in one place, and a [`Flow`] is allowed to
+/// say twelve cards were drawn even though nothing will play twelve.
+fn small(n: usize) -> u8 {
+    u8::try_from(n).unwrap_or(u8::MAX)
 }
 
 #[cfg(test)]
@@ -333,6 +640,17 @@ mod tests {
 
     fn who(n: u8) -> PlayerId {
         PlayerId::new(n)
+    }
+
+    /// Drains the queue and keeps only the names.
+    ///
+    /// Most of what this module decides has no amount in it, and a test that
+    /// spelled `Beat { cue, count: 1 }` at every assertion would be saying
+    /// "one" forty times about cues that can never be anything else. The
+    /// counted three are asserted on as whole [`Beat`]s, where the count is
+    /// the point.
+    fn heard(cues: &mut Cues) -> Vec<Cue> {
+        cues.take().into_iter().map(|beat| beat.cue).collect()
     }
 
     /// [`Cue::ALL`] is every variant and each of them once.
@@ -402,7 +720,7 @@ mod tests {
         let mut ledger = Ledger::new();
         let mut cues = Cues::new();
         cues.note_life(&ledger.read(&table(&[20, 20])), who(0));
-        assert!(cues.take().is_empty());
+        assert!(heard(&mut cues).is_empty());
     }
 
     /// Three blockers dealing damage in three views are one number on the bar
@@ -416,7 +734,7 @@ mod tests {
             cues.note_life(&ledger.read(&table(&[life, 20])), who(0));
             ledger.tick(MERGE / 2.0);
         }
-        assert_eq!(cues.take(), vec![Cue::MyLifeLost]);
+        assert_eq!(heard(&mut cues), vec![Cue::MyLifeLost]);
     }
 
     /// The counter-test: past the merge window it is a second thing
@@ -427,10 +745,10 @@ mod tests {
         let mut cues = Cues::new();
         ledger.read(&table(&[20, 20]));
         cues.note_life(&ledger.read(&table(&[18, 20])), who(0));
-        assert_eq!(cues.take(), vec![Cue::MyLifeLost]);
+        assert_eq!(heard(&mut cues), vec![Cue::MyLifeLost]);
         ledger.tick(MERGE * 2.0);
         cues.note_life(&ledger.read(&table(&[16, 20])), who(0));
-        assert_eq!(cues.take(), vec![Cue::MyLifeLost]);
+        assert_eq!(heard(&mut cues), vec![Cue::MyLifeLost]);
     }
 
     /// My life and somebody else's are different sounds; both directions are
@@ -441,10 +759,16 @@ mod tests {
         let mut cues = Cues::new();
         ledger.read(&table(&[20, 20]));
         cues.note_life(&ledger.read(&table(&[17, 23])), who(0));
-        assert_eq!(cues.take(), vec![Cue::MyLifeLost, Cue::TheirLifeGained]);
+        assert_eq!(
+            heard(&mut cues),
+            vec![Cue::MyLifeLost, Cue::TheirLifeGained]
+        );
         ledger.tick(MERGE * 2.0);
         cues.note_life(&ledger.read(&table(&[20, 20])), who(0));
-        assert_eq!(cues.take(), vec![Cue::MyLifeGained, Cue::TheirLifeLost]);
+        assert_eq!(
+            heard(&mut cues),
+            vec![Cue::MyLifeGained, Cue::TheirLifeLost]
+        );
     }
 
     /// A sweeper that hits three opponents is one sound, not three.
@@ -454,7 +778,7 @@ mod tests {
         let mut cues = Cues::new();
         ledger.read(&table(&[20, 20, 20, 20]));
         cues.note_life(&ledger.read(&table(&[20, 17, 17, 17])), who(0));
-        assert_eq!(cues.take(), vec![Cue::TheirLifeLost]);
+        assert_eq!(heard(&mut cues), vec![Cue::TheirLifeLost]);
     }
 
     /// The flank, twice: the seat being re-sent its own question says
@@ -463,13 +787,13 @@ mod tests {
     fn a_seat_is_only_told_once_that_it_is_being_waited_for() {
         let mut cues = Cues::new();
         cues.note_question(true);
-        assert_eq!(cues.take(), vec![Cue::YourMove]);
+        assert_eq!(heard(&mut cues), vec![Cue::YourMove]);
         cues.note_question(true);
-        assert!(cues.take().is_empty(), "the same question, re-sent");
+        assert!(heard(&mut cues).is_empty(), "the same question, re-sent");
         cues.note_question(false);
-        assert!(cues.take().is_empty(), "somebody else's question");
+        assert!(heard(&mut cues).is_empty(), "somebody else's question");
         cues.note_question(true);
-        assert_eq!(cues.take(), vec![Cue::YourMove], "asked again");
+        assert_eq!(heard(&mut cues), vec![Cue::YourMove], "asked again");
     }
 
     /// A question the standing orders answer inside the frame it arrived in
@@ -479,7 +803,7 @@ mod tests {
         let mut cues = Cues::new();
         cues.note_question(true);
         cues.retract(Cue::YourMove);
-        assert!(cues.take().is_empty());
+        assert!(heard(&mut cues).is_empty());
         assert_eq!(
             cues.last(),
             None,
@@ -494,9 +818,9 @@ mod tests {
     fn a_cue_already_heard_cannot_be_taken_back() {
         let mut cues = Cues::new();
         cues.note_question(true);
-        assert_eq!(cues.take(), vec![Cue::YourMove]);
+        assert_eq!(heard(&mut cues), vec![Cue::YourMove]);
         cues.retract(Cue::YourMove);
-        assert_eq!(cues.last(), Some(Cue::YourMove));
+        assert_eq!(cues.last(), Some(Beat::once(Cue::YourMove)));
     }
 
     /// Five sentences, three sounds — and the two collapses are the ones a
@@ -551,9 +875,282 @@ mod tests {
         cues.note_refusal();
         cues.note_ending(Outcome::YouLost);
         assert_eq!(
-            cues.take(),
+            heard(&mut cues),
             vec![Cue::MyLifeLost, Cue::Refused, Cue::GameLost]
         );
-        assert_eq!(cues.last(), Some(Cue::GameLost));
+        assert_eq!(cues.last(), Some(Beat::once(Cue::GameLost)));
+    }
+
+    // ------------------------------------------------------------ the tally
+
+    /// A table with `hand` cards in this seat's hand and `library` left.
+    ///
+    /// Ids run `1..=hand`, so growing the hand by one and shrinking the
+    /// library by one is what a draw looks like from here — which is exactly
+    /// what the reader is asked to tell from a bounce.
+    fn seat_with(hand: u32, library: u32) -> PlayerView {
+        let cards: Vec<(&str, u32, u32)> = (1..=hand).map(|slot| ("a card", 1, slot)).collect();
+        let mut view = crate::test_support::ViewBuilder::new(2)
+            .with_hand(cards)
+            .build();
+        for seat in &mut view.seats {
+            seat.library_count = library;
+        }
+        view
+    }
+
+    /// Puts `plus` +1/+1 and `minus` −1/−1 counters on creature `slot`.
+    fn creature(slot: u32, plus: u16, minus: u16) -> baylee_view::PublicObject {
+        let mut object = crate::test_support::token(slot, 0, "a creature", 2, 2);
+        for (kind, count) in [
+            (CounterKind::PlusOnePlusOne, plus),
+            (CounterKind::MinusOneMinusOne, minus),
+        ] {
+            if count > 0 {
+                object
+                    .counters
+                    .push(baylee_view::CounterEntry { kind, count });
+            }
+        }
+        object
+    }
+
+    /// A table whose battlefield is exactly these creatures.
+    fn board(creatures: Vec<baylee_view::PublicObject>) -> PlayerView {
+        crate::test_support::ViewBuilder::new(2)
+            .with_battlefield(0, creatures)
+            .build()
+    }
+
+    /// The rule the whole module opens with, once more: the first view is not
+    /// an opening hand of seven being drawn where anybody could hear it.
+    #[test]
+    fn an_opening_hand_is_not_seven_draws() {
+        let mut tally = Tally::new();
+        let mut cues = Cues::new();
+        cues.note_flow(&tally.read(&seat_with(7, 53)));
+        assert!(heard(&mut cues).is_empty());
+    }
+
+    /// Three cards off the top is one cue that says three.
+    ///
+    /// And it is **one view**, not three — see [`Tally`] for why a
+    /// *Divination* resolving cannot send more than one. This is the owner's
+    /// request turned into a number: "so that when several cards are drawn,
+    /// you hear that too".
+    #[test]
+    fn drawing_three_is_heard_as_three() {
+        let mut tally = Tally::new();
+        let mut cues = Cues::new();
+        tally.read(&seat_with(4, 53));
+        cues.note_flow(&tally.read(&seat_with(7, 50)));
+        assert_eq!(cues.take(), vec![Beat::of(Cue::CardDrawn, 3)]);
+    }
+
+    /// …and one card is one, which is every turn of every game.
+    #[test]
+    fn drawing_for_the_turn_is_heard_as_one() {
+        let mut tally = Tally::new();
+        let mut cues = Cues::new();
+        tally.read(&seat_with(4, 53));
+        cues.note_flow(&tally.read(&seat_with(5, 52)));
+        assert_eq!(cues.take(), vec![Beat::once(Cue::CardDrawn)]);
+    }
+
+    /// A card arriving in hand from anywhere but the library is silent.
+    ///
+    /// The counter-test that makes the cue mean "drew" rather than "gained a
+    /// card": an *Unsummon* on your own creature, a commander declining
+    /// CR 903.9b's replacement and a *Regrowth* all put a card in a hand and
+    /// take nothing off a library.
+    #[test]
+    fn a_card_bounced_back_to_hand_is_not_a_draw() {
+        let mut tally = Tally::new();
+        let mut cues = Cues::new();
+        tally.read(&seat_with(4, 53));
+        cues.note_flow(&tally.read(&seat_with(5, 53)));
+        assert!(heard(&mut cues).is_empty(), "a bounce sounded like a draw");
+    }
+
+    /// A library that shrinks without the hand growing is silent too.
+    ///
+    /// The other half: a mill, a fetchland's shuffle, a cascade. Both halves
+    /// matter because the reader takes the *smaller* of the two, and a reader
+    /// that took either one alone would be wrong on one of these two tests.
+    #[test]
+    fn milling_five_is_not_drawing_five() {
+        let mut tally = Tally::new();
+        let mut cues = Cues::new();
+        tally.read(&seat_with(4, 53));
+        cues.note_flow(&tally.read(&seat_with(4, 48)));
+        assert!(heard(&mut cues).is_empty(), "a mill sounded like a draw");
+    }
+
+    /// A draw and a bounce on one view is one draw.
+    ///
+    /// The case that decides the arithmetic. Two cards arrive in hand and one
+    /// came off the library, so the honest answer is one — and the failure a
+    /// naive count would make is the loud one: two.
+    #[test]
+    fn a_draw_beside_a_bounce_is_one_card() {
+        let mut tally = Tally::new();
+        let mut cues = Cues::new();
+        tally.read(&seat_with(4, 53));
+        cues.note_flow(&tally.read(&seat_with(6, 52)));
+        assert_eq!(cues.take(), vec![Beat::once(Cue::CardDrawn)]);
+    }
+
+    /// A *Windfall* is a hand's worth, not sixty.
+    #[test]
+    fn a_draw_past_the_ceiling_is_the_ceiling() {
+        let mut tally = Tally::new();
+        let mut cues = Cues::new();
+        tally.read(&seat_with(0, 60));
+        let flow = tally.read(&seat_with(20, 40));
+        assert_eq!(flow.drawn, 20, "the reader counts honestly");
+        cues.note_flow(&flow);
+        assert_eq!(
+            cues.take(),
+            vec![Beat::of(Cue::CardDrawn, Cue::CardDrawn.most())],
+            "and the queue is what clamps"
+        );
+    }
+
+    /// Counters on three creatures is one cue that says three.
+    ///
+    /// **Objects, not counters.** A *Cathars' Crusade* trigger putting one
+    /// +1/+1 on each of three creatures is three; one *Hardened Scales*
+    /// making a single creature take four is one, because that is one card
+    /// resolving on one permanent and the plate under it says the rest.
+    #[test]
+    fn counters_on_three_creatures_are_heard_as_three() {
+        let mut tally = Tally::new();
+        let mut cues = Cues::new();
+        tally.read(&board(vec![
+            creature(1, 0, 0),
+            creature(2, 0, 0),
+            creature(3, 0, 0),
+            creature(4, 0, 0),
+        ]));
+        cues.note_flow(&tally.read(&board(vec![
+            creature(1, 1, 0),
+            creature(2, 1, 0),
+            creature(3, 1, 0),
+            creature(4, 0, 0),
+        ])));
+        assert_eq!(cues.take(), vec![Beat::of(Cue::CreatureGrew, 3)]);
+    }
+
+    /// …and four counters on one creature is one.
+    #[test]
+    fn four_counters_on_one_creature_are_heard_as_one() {
+        let mut tally = Tally::new();
+        let mut cues = Cues::new();
+        tally.read(&board(vec![creature(1, 0, 0)]));
+        cues.note_flow(&tally.read(&board(vec![creature(1, 4, 0)])));
+        assert_eq!(cues.take(), vec![Beat::once(Cue::CreatureGrew)]);
+    }
+
+    /// The two directions are two sounds, and a view can carry both.
+    ///
+    /// A fight against a wither creature, or a *Bloodflow Connoisseur* beside
+    /// an infect blocker: one creature grows, another shrinks, on one view.
+    #[test]
+    fn growing_and_shrinking_are_two_sounds() {
+        let mut tally = Tally::new();
+        let mut cues = Cues::new();
+        tally.read(&board(vec![creature(1, 0, 0), creature(2, 0, 0)]));
+        cues.note_flow(&tally.read(&board(vec![creature(1, 2, 0), creature(2, 0, 1)])));
+        assert_eq!(
+            cues.take(),
+            vec![
+                Beat::once(Cue::CreatureGrew),
+                Beat::once(Cue::CreatureShrank)
+            ]
+        );
+    }
+
+    /// A creature that arrives with counters on it is a creature arriving.
+    ///
+    /// The line the cue's own doc draws, and the one a diff over the whole
+    /// battlefield would get wrong every time: a *Scute Mob*, a kicked
+    /// *Rite of Replication*, any token made with +1/+1 counters. The view
+    /// looks identical to a counter being placed — a battlefield entry with
+    /// counters on it that was not there before — and only "was it there
+    /// before" tells them apart.
+    #[test]
+    fn a_creature_that_enters_with_counters_is_not_counters_being_placed() {
+        let mut tally = Tally::new();
+        let mut cues = Cues::new();
+        tally.read(&board(vec![creature(1, 0, 0)]));
+        cues.note_flow(&tally.read(&board(vec![creature(1, 0, 0), creature(2, 5, 0)])));
+        assert!(
+            heard(&mut cues).is_empty(),
+            "an arrival sounded like growth"
+        );
+    }
+
+    /// Counters coming *off* a creature say nothing.
+    ///
+    /// A vanishing permanent losing time counters, a −1/−1 removed by a
+    /// *Nest Invader*'s owner at end of turn: the owner asked for the sound
+    /// of counters being *placed*, and a cue is a flank in one direction.
+    #[test]
+    fn counters_taken_away_are_silent() {
+        let mut tally = Tally::new();
+        let mut cues = Cues::new();
+        tally.read(&board(vec![creature(1, 3, 0)]));
+        cues.note_flow(&tally.read(&board(vec![creature(1, 1, 0)])));
+        assert!(heard(&mut cues).is_empty());
+    }
+
+    /// A view that says nothing new makes no sound.
+    ///
+    /// The common case by a distance: the acting seat is re-sent its own
+    /// question every time anybody at the table says anything, so most views
+    /// a client sees are the previous one again.
+    #[test]
+    fn a_view_that_repeats_itself_is_silent() {
+        let mut tally = Tally::new();
+        let mut cues = Cues::new();
+        tally.read(&seat_with(7, 53));
+        let flow = tally.read(&seat_with(7, 53));
+        assert!(flow.is_quiet());
+        cues.note_flow(&flow);
+        assert!(heard(&mut cues).is_empty());
+    }
+
+    /// Two readings of one frame do not add up.
+    ///
+    /// `push_many` raises rather than sums, which is `push`'s old rule read
+    /// one level up. The failure it stops is the loud one: a second reader
+    /// finding the same three cards would otherwise make it six.
+    #[test]
+    fn one_frame_read_twice_is_still_one_frame() {
+        let mut cues = Cues::new();
+        cues.push_many(Cue::CardDrawn, 3);
+        cues.push_many(Cue::CardDrawn, 2);
+        assert_eq!(cues.take(), vec![Beat::of(Cue::CardDrawn, 3)]);
+    }
+
+    /// Every counted cue can say every count it claims to.
+    ///
+    /// [`Cue::most`] is read by the sink to decide how many buffers to build,
+    /// so a ceiling that does not round-trip through [`Beat::of`] is a burst
+    /// that finds no sound at the top of its range.
+    #[test]
+    fn a_beat_can_carry_every_count_its_cue_allows() {
+        for cue in Cue::ALL {
+            for count in cue.counts() {
+                assert_eq!(Beat::of(cue, count).count, count, "{}", cue.name());
+            }
+            assert_eq!(Beat::of(cue, 0).count, 1, "{} went to nothing", cue.name());
+            assert_eq!(
+                Beat::of(cue, u8::MAX).count,
+                cue.most(),
+                "{} went past its ceiling",
+                cue.name()
+            );
+        }
     }
 }

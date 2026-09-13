@@ -397,6 +397,16 @@ pub struct Duel {
     /// live somewhere that outlives the seat bar, which is rebuilt by the
     /// very change it is animating — see [`crate::lifeflash`].
     pub life_flash: baylee_client_core::lifeflash::Ledger,
+    /// What this seat's hand and the table's counters were last time a view
+    /// arrived — the ear's half of the same idea.
+    ///
+    /// A second reader beside [`Self::life_flash`] rather than a field inside
+    /// it, because the two answer to different masters: the ledger's numbers
+    /// are *drawn*, so it carries a clock and merges hits that arrive
+    /// together, and this one is only ever heard, so it carries neither. See
+    /// [`baylee_client_core::cue::Tally`] for why a draw of three needs no
+    /// merge window at all.
+    pub tally: baylee_client_core::cue::Tally,
     /// What this frame has decided is worth hearing.
     ///
     /// Beside the ledger it mostly reads, for the same reason the ledger is
@@ -516,6 +526,13 @@ impl Duel {
         // same clock, which is what `Change::started` is for.
         let changes = self.life_flash.read(&view.seats);
         self.cues.note_life(&changes, view.seat);
+        // The same edge, the second reading: a card that arrived in this hand
+        // and a creature that grew exist only as the difference between this
+        // view and the last, and a frame later the last one is gone. Unlike
+        // the life ledger this one draws nothing, so it is read here and
+        // nowhere else.
+        let flow = self.tally.read(&view);
+        self.cues.note_flow(&flow);
         self.view = Some(view);
         if let Some(v) = self.view.as_ref() {
             self.browser.saw_reveal(v);
@@ -938,10 +955,10 @@ impl Plugin for DuelPlugin {
                     textures::setup,
                     hud::setup_fonts,
                     hud::setup_sheets,
-                    // Once, on the frame the app opens: fourteen buffers of
-                    // arithmetic, and thereafter fourteen handles. See
-                    // `sound`'s header for why they are computed and not
-                    // shipped.
+                    // Once, on the frame the app opens: thirty-seven
+                    // buffers of arithmetic, and thereafter thirty-seven
+                    // handles. See `sound`'s header for why they are
+                    // computed and not shipped, and what the count buys.
                     sound::voice_the_cues,
                 ),
             )
@@ -2306,8 +2323,13 @@ mod cue_feed_tests {
         app
     }
 
-    fn cues(app: &App) -> &[Cue] {
+    fn cues(app: &App) -> &[baylee_client_core::cue::Beat] {
         app.world().resource::<Duel>().cues.pending()
+    }
+
+    /// Just the names, for the many tests that never cared how many.
+    fn cue_names(app: &App) -> Vec<Cue> {
+        cues(app).iter().map(|beat| beat.cue).collect()
     }
 
     fn view_at(life: i32) -> PlayerView {
@@ -2330,7 +2352,7 @@ mod cue_feed_tests {
             HostMessage::View(Box::new(view_at(40))),
             HostMessage::View(Box::new(view_at(37))),
         ]);
-        assert_eq!(cues(&app), [Cue::MyLifeLost]);
+        assert_eq!(cue_names(&app), [Cue::MyLifeLost]);
     }
 
     /// …and the first view of a table is not twenty life arriving, which is
@@ -2345,7 +2367,7 @@ mod cue_feed_tests {
     #[test]
     fn being_asked_something_is_heard() {
         let app = table_told(vec![HostMessage::Choice(Box::new(priority()))]);
-        assert_eq!(cues(&app), [Cue::YourMove]);
+        assert_eq!(cue_names(&app), [Cue::YourMove]);
     }
 
     /// The same question again is the same question. `pump` hands the acting
@@ -2357,7 +2379,7 @@ mod cue_feed_tests {
             HostMessage::Choice(Box::new(priority())),
             HostMessage::Choice(Box::new(priority())),
         ]);
-        assert_eq!(cues(&app), [Cue::YourMove]);
+        assert_eq!(cue_names(&app), [Cue::YourMove]);
     }
 
     /// The end of a game, read from the chair that lost it.
@@ -2368,7 +2390,7 @@ mod cue_feed_tests {
             reason: EndReason::LastPlayerStanding,
         });
         let app = table_told(vec![HostMessage::Choice(Box::new(over))]);
-        assert_eq!(cues(&app), [Cue::GameLost]);
+        assert_eq!(cue_names(&app), [Cue::GameLost]);
     }
 
     /// A refusal while there is still a game to refuse something in.
@@ -2377,7 +2399,7 @@ mod cue_feed_tests {
         let app = table_told(vec![HostMessage::Failed(
             "illegal action for your seat".into(),
         )]);
-        assert_eq!(cues(&app), [Cue::Refused]);
+        assert_eq!(cue_names(&app), [Cue::Refused]);
     }
 
     /// The counter-test, and the one that matters: the bar stops whole at the
@@ -2393,7 +2415,11 @@ mod cue_feed_tests {
             HostMessage::Choice(Box::new(over)),
             HostMessage::Failed("illegal action for your seat".into()),
         ]);
-        assert_eq!(cues(&app), [Cue::GameWon], "and no `Refused` beside it");
+        assert_eq!(
+            cue_names(&app),
+            [Cue::GameWon],
+            "and no `Refused` beside it"
+        );
     }
 
     /// A question the client answers for the player inside the same frame is
@@ -2402,7 +2428,7 @@ mod cue_feed_tests {
     #[test]
     fn a_question_the_standing_orders_answer_is_never_heard() {
         let mut app = table_told(vec![HostMessage::Choice(Box::new(priority()))]);
-        assert_eq!(cues(&app), [Cue::YourMove], "decided");
+        assert_eq!(cue_names(&app), [Cue::YourMove], "decided");
         app.world_mut()
             .resource_mut::<Duel>()
             .submit(PlayerAction::PassPriority);

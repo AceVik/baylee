@@ -2,8 +2,8 @@
 //!
 //! [`baylee_client_core::cue`] is the whole of the thinking — which moments
 //! are worth hearing, and the arithmetic that makes a triple block one sound
-//! instead of three. This is the other half: fourteen buffers, **computed**
-//! at startup and played through `bevy_audio`.
+//! instead of three. This is the other half: **thirty-seven buffers**,
+//! computed at startup and played through `bevy_audio`.
 //!
 //! # Nothing here is a file
 //!
@@ -25,7 +25,7 @@
 //!
 //! # One instrument
 //!
-//! All nine are the same thing: a **struck rosewood bar**, one bar, played in
+//! All twelve are the same thing: a **struck rosewood bar**, one bar, played in
 //! two ways. Five modes of the bar and five of the contact, under a force
 //! pulse whose *duration* is the whole of what a mallet is — see
 //! [`mallet`] — and over a tube whose air column takes 27 ms to bloom.
@@ -36,8 +36,8 @@
 //! nobody asked for. The clamp in [`modes`] is what holds this module to that
 //! claim.
 //!
-//! What separates the nine is **pitch, gesture, level and distance**, never
-//! timbre:
+//! What separates the twelve is **pitch, gesture, level and distance**,
+//! never timbre:
 //!
 //! - the four life cues are one two-strike gesture, falling a minor third for
 //!   a loss and rising a major third for a gain. Two intervals rather than
@@ -90,18 +90,44 @@
 //! the setting is the answer, and `Loudness::Off` is one chip on the settings
 //! screen.
 //!
-//! The other deliberate omission is loudness by **amount**: a twelve-point
-//! hit should be louder than a one-point one, and cannot be, because a
-//! [`Cue`] is a flat variant with no payload — on purpose, so that every
-//! reader gets a name. Giving it one is a change to the model, not to the
-//! sink.
+//! # Three of them count
+//!
+//! The other deliberate omission used to be loudness by **amount**, and the
+//! reasoning was right about where such a change had to happen and wrong
+//! about what it was. A twelve-point hit is not a louder one-point hit — it
+//! is one event whose number is already on the bar. But drawing three cards
+//! *is* three events, and so is a resolution that puts counters on three
+//! creatures, and the owner asked for both by name: "so that when several
+//! cards are drawn, you hear that too".
+//!
+//! So the model grew a count ([`baylee_client_core::cue::Beat`]) and the sink
+//! grew a buffer per count. A burst is the same blow struck N times at a gap
+//! that **accelerates** — [`BURST_SQUEEZE`], because an even run is the
+//! metronome this module spends most of its length avoiding — with every blow
+//! taking its own row of a ladder, so three is three blows and never one
+//! buffer played three times.
+//!
+//! - [`Cue::CardDrawn`] is one tap on **D5**, the tonic two octaves above
+//!   [`Cue::YourMove`]: D3 is this seat's wait, D4 its life, D5 its hand. See
+//!   [`draw`], which also states the one place this bends the rules above —
+//!   it is the shortest sound here and it fires often.
+//! - [`Cue::CreatureGrew`] and [`Cue::CreatureShrank`] are the life gesture's
+//!   **diminutive**: the same word — more, or less — a fifth up, two and a
+//!   half times faster, on a softer stick and at a third of the level. See
+//!   [`counters`] for why A4 is the only note the pair can be built from.
+//!
+//! What that costs is the frame budget. [`MASTER`] was chosen when two cues
+//! were the worst case an ordinary frame could hold, and they are not: a
+//! *Sign in Blood* is a life loss and a draw, a *Fathom Mage* is a counter
+//! and a draw. So [`audible`] now fills a frame greedily by [`rank`] and
+//! drops what will not fit, instead of assuming everything always did.
 
 use bevy::audio::{AudioPlayer, AudioSource, PlaybackSettings, Volume};
 use bevy::prelude::*;
 
 use crate::Duel;
 use crate::prefs::Prefs;
-use baylee_client_core::cue::{Cue, Loudness};
+use baylee_client_core::cue::{Beat, Cue, Loudness};
 /// Samples per second, everywhere.
 const RATE: f32 = 44_100.0;
 
@@ -238,7 +264,7 @@ struct Mode {
 /// undercutting that buys the tuning — so the ratios slide about a tenth of
 /// an octave per octave. The slope is a choice rather than a citation; what
 /// it buys is that D3 and A4 are not the same waveform at two speeds, which
-/// is the first thing an ear catches in a set of nine.
+/// is the first thing an ear catches in a set this size.
 ///
 /// The decay law is the other half: `τ_k = τ₁ · r^-1.2`, **clamped** to 90 ms
 /// above the fundamental and 30 ms from the third mode up. The clamp is the
@@ -522,7 +548,7 @@ const EARLY: [(f32, f32); 6] = [
 /// draft's — space their modes 19 to 43 Hz apart, and with a feedback of
 /// 0.795 each mode has a gain of nearly five. Measured on a decaying note,
 /// that reverb *amplified* A3 by 2.3× and D3 by 0.95: a three-to-one
-/// coloration with its worst peak sitting on the pitch two of the nine cues
+/// coloration with its worst peak sitting on the pitch two of the life cues
 /// are built from. It is finding three over again — a delay network has a
 /// pitch — one layer further in.
 ///
@@ -692,6 +718,230 @@ mod note {
     pub(super) const FS3: f32 = 183.54;
     /// A major third above A3.
     pub(super) const CS4: f32 = 275.31;
+    /// The octave above [`D4`]. [`super::Cue::CardDrawn`].
+    ///
+    /// Exactly 2 × the anchor, which is the most just interval there is, and
+    /// the reason the draw sits on the tonic rather than beside it: D3 is
+    /// this seat's wait, D4 is this seat's life, D5 is this seat's hand —
+    /// three octaves of one note for three sizes of one owner. Every other
+    /// candidate collides. A4 is where all three endings come to rest, and
+    /// the most frequent cue in the set must not dilute that; F#4, B3 and C#4
+    /// are the coloured second notes of the life gestures, so a draw on one
+    /// of them would sound like half a life cue.
+    pub(super) const D5: f32 = 587.32;
+    /// A major third above [`A4`], and the octave above [`CS4`].
+    ///
+    /// Where a +1/+1 counter's gesture lands. See [`super::counters`] for why
+    /// A4 is the only note on this scale that gesture can be built from.
+    pub(super) const CS5: f32 = 550.62;
+}
+
+// ------------------------------------------------------------------ a burst
+
+/// How the gaps inside a burst shrink, blow by blow.
+///
+/// A **smooth accelerando**, which is what keeps a run of near-identical
+/// blows from being the metronome this module spends so much effort avoiding
+/// — and it is also what a hand dealing cards does. A bouncing ball is
+/// trivially counted and a clock is not, so speeding up costs nothing in
+/// countability and buys the whole difference in character. Jitter would buy
+/// the same character and lose the count.
+const BURST_SQUEEZE: f32 = 0.955;
+
+/// The first gap between two drawn cards, in seconds.
+///
+/// 118 ms is about eight and a half cards a second, and the seventh gap is
+/// still 94 — comfortably above the ~40 ms where two taps fuse into one, and
+/// above the 80 ms where a listener starts to lose the last of them.
+const DRAW_GAP: f32 = 0.118;
+
+/// The first gap between two creatures taking counters, in seconds.
+///
+/// Nearly twice the draw's, because each of these is a two-note *gesture* and
+/// not a tap: the gap from one gesture's second blow to the next gesture's
+/// first is 145 ms against the 45 ms inside a gesture, a ratio of 3.2 to 1.
+/// Below about three to one the ear regroups the pair across the boundary and
+/// the count comes apart.
+const COUNTER_GAP: f32 = 0.190;
+
+/// How far apart a counter gesture's two blows are, in seconds.
+///
+/// Inside the ~50 ms window two sounds are heard as one event, which is what
+/// the count needs — three creatures must be three events, not six. And above
+/// the ~20 ms where the *order* of two brief tones stops being identifiable,
+/// which is what the direction needs: at 45 ms a player hears the second note
+/// land above or below the first rather than inferring it. The first blow
+/// gets twenty cycles at A4 before the second arrives, so it is a pitch and
+/// not a click.
+const FLAM: f32 = 0.045;
+
+/// The k-th gap of a burst whose first gap is `first`.
+fn gap(first: f32, k: usize) -> f32 {
+    first * BURST_SQUEEZE.powi(i32::try_from(k).unwrap_or(0))
+}
+
+/// [`Cue::CardDrawn`]'s seven blows, as (cents, spot, gain).
+///
+/// Unsorted in every column, for the reason [`VARIANTS`] is: a ladder that
+/// ramped would be a gesture, and a burst has to be a count. Cents stay
+/// within ±12 and the gains within a tenth — a *small* dynamic, so the run is
+/// not a machine, but never an accent, because an accented blow is heard as a
+/// downbeat and a downbeat groups the count into bars.
+const DRAW_LADDER: [(f32, f32, f32); 7] = [
+    (0.0, 0.12, 1.00),
+    (8.0, 0.42, 0.94),
+    (-5.0, 0.28, 0.97),
+    (12.0, 0.58, 0.91),
+    (-10.0, 0.20, 0.95),
+    (4.0, 0.50, 0.92),
+    (-8.0, 0.35, 0.98),
+];
+
+/// The same for a counter gesture, as (cents, spot of the first blow, spot of
+/// the second).
+///
+/// The detune moves **both** blows of a gesture together. The whole point of
+/// tuning this instrument in just intonation is that a 6:5 third has no beat
+/// between its partials; detuning one note of the pair and not the other puts
+/// one there, which is the one thing a counter cue must not do — the interval
+/// *is* the message.
+const COUNTER_LADDER: [(f32, f32, f32); 5] = [
+    (0.0, 0.15, 0.30),
+    (9.0, 0.40, 0.20),
+    (-6.0, 0.25, 0.45),
+    (13.0, 0.55, 0.10),
+    (-11.0, 0.10, 0.35),
+];
+
+/// Which ladder rows a count-of-one buffer is built from.
+///
+/// Three of them, cycled by [`Voices::pick`] exactly as [`Cue::YourMove`]'s
+/// six are, and for the same reason: one is the count that fires forty times
+/// a game, where a burst already varies inside itself. Rows 1, 3 and 5 rather
+/// than the first three, so a solo is not the head of a burst.
+const SOLOS: [usize; 3] = [0, 2, 4];
+
+/// How a drawn card sounds, `rows.len()` of them.
+///
+/// One blow per card and nothing else. A two-note gesture per card would make
+/// three cards six blows, and six blows in 600 ms is a texture rather than a
+/// number — the whole requirement here is that a player can *count* it.
+///
+/// `damp` 0.30 leaves 48 ms of fundamental, which is 28 cycles at D5: short
+/// enough that seven do not smear, long enough to be a pitch rather than the
+/// click this module's header warns about. The mallet is [`mallet::HARD`],
+/// which is where the snap is — a card is mostly contact and a little body,
+/// and the contact is exactly what [`KNOCK`] is.
+///
+/// This is the shortest sound on the bar and it fires often, which is a
+/// **bend**: the header argues at length that [`Cue::YourMove`] is
+/// deliberately not the shortest, because a click two hundred times is a
+/// metronome. Counting needs it — nobody counts 290 ms notes at 100 ms gaps —
+/// and three things replace the defence: the solo variants and the per-blow
+/// ladder, a rate nearer forty a game than two hundred, and a level of 0.20.
+/// The "felt and then forgotten" argument does not carry over either:
+/// `YourMove` is a nudge, and a draw is information the owner asked to hear.
+fn draw(rows: &[usize]) -> Recipe {
+    let mut strikes = Vec::with_capacity(rows.len());
+    let mut at = 0.0;
+    for (k, &row) in rows.iter().enumerate() {
+        // The gap goes *between* blows, so it is taken before all but the
+        // first. Added after every blow instead it would put a hundred
+        // milliseconds of tail on the end that nobody asked for, and leave
+        // `len` lying about the span.
+        if k > 0 {
+            at += gap(DRAW_GAP, k - 1);
+        }
+        let (cents, spot, gain) = DRAW_LADDER[row];
+        strikes.push(blow(
+            at,
+            note::D5 * (cents / 1200.0).exp2(),
+            0.30,
+            mallet::HARD,
+            spot,
+            gain,
+        ));
+    }
+    Recipe {
+        strikes: strikes.leak(),
+        thuds: &[],
+        len: 0.90 + at,
+        peak: if rows.len() > 1 { 0.22 } else { 0.20 },
+        room: Where::Here,
+    }
+}
+
+/// How creatures taking power/toughness counters sound, `rows.len()` of them.
+///
+/// A **diminutive of the life gesture**, which is the argument for the cue
+/// existing at all: a counter says the word life says — more, or less — one
+/// size smaller. So it is the same shape (a note, then a third), two and a
+/// half times faster, ringing a third as long, struck with a softer stick and
+/// at a third of the level. A softer stick is *right* here where it would be
+/// wrong for a distant seat: "a gentler blow says somebody was hit more
+/// gently" is exactly what a counter means against a life total.
+///
+/// A4 is the only note on this scale the gesture can be built from, and the
+/// enumeration is short enough to write down. D4 and A3 are life's. From F#4
+/// a major third *up* is a minor third by interval, so the colour inverts.
+/// From B3 neither third lands in D major. D3 is [`Cue::YourMove`]'s. D5 is
+/// the draw's, and a shrink's first blow would then *be* a draw blow — which
+/// a Fathom Mage puts on one frame. A4 leaves [`note::CS5`] above and
+/// [`note::FS4`] below, both on the scale and neither on the tonic.
+///
+/// The grace note is the quieter of the pair (0.80 against 1.00) because the
+/// *destination* carries the direction, which is where the ear is going.
+fn counters(up: bool, rows: &[usize]) -> Recipe {
+    let mut strikes = Vec::with_capacity(rows.len() * 2);
+    let mut at = 0.0;
+    for (k, &row) in rows.iter().enumerate() {
+        // Between gestures, not after each; see [`draw`].
+        if k > 0 {
+            at += gap(COUNTER_GAP, k - 1);
+        }
+        let (cents, first, second) = COUNTER_LADDER[row];
+        let shift = (cents / 1200.0).exp2();
+        let lands = if up { note::CS5 } else { note::FS4 };
+        strikes.push(blow(at, note::A4 * shift, 0.35, mallet::SOFT, first, 0.80));
+        strikes.push(blow(
+            at + FLAM,
+            lands * shift,
+            0.35,
+            mallet::SOFT,
+            second,
+            1.00,
+        ));
+    }
+    let loud = if up { 0.28 } else { 0.34 };
+    Recipe {
+        strikes: strikes.leak(),
+        thuds: &[],
+        len: 1.00 + at,
+        // The same +0.02 the draw takes, and for the same reason: `level`
+        // normalises the whole buffer, so a burst whose blows pile a tenth on
+        // top of one another would have each of them a tenth quieter than a
+        // solo. Three has to sound like three *of the same thing*.
+        peak: if rows.len() > 1 { loud + 0.02 } else { loud },
+        room: Where::Here,
+    }
+}
+
+/// Every buffer a counted cue needs, in count order, each with its variants.
+///
+/// The shape the sink stores: `takes[n - 1]` is the list of recipes for a
+/// burst of `n`, and a list with more than one in it is cycled.
+fn burst(cue: Cue, count: u8) -> Vec<Recipe> {
+    let rows: Vec<usize> = (0..count as usize).collect();
+    let of = |rows: &[usize]| match cue {
+        Cue::CreatureGrew => counters(true, rows),
+        Cue::CreatureShrank => counters(false, rows),
+        _ => draw(rows),
+    };
+    if count == 1 {
+        SOLOS.iter().map(|&row| of(&[row])).collect()
+    } else {
+        vec![of(&rows)]
+    }
 }
 
 /// Every cue but [`Cue::YourMove`], which is six buffers and is built by
@@ -1032,14 +1282,24 @@ fn source(bytes: Vec<u8>) -> AudioSource {
 /// not a cost worth a second spelling.
 #[derive(Resource, Default)]
 pub struct Voices {
-    /// Each cue and the one or more buffers it may be played from.
-    voices: Vec<(Cue, Vec<Handle<AudioSource>>)>,
+    /// Each cue *at each count* and the one or more buffers it may be played
+    /// from.
+    ///
+    /// Keyed by the whole [`Beat`] rather than by the cue, because a burst of
+    /// three is a different buffer and not a louder one. Nine of the twelve
+    /// cues have exactly one entry, at count 1.
+    voices: Vec<(Beat, Vec<Handle<AudioSource>>)>,
     /// How many sounds have been asked for, which is what picks a variant.
     played: usize,
 }
 
 impl Voices {
-    /// How many cues have a voice. Nine, or the client is silent somewhere.
+    /// How many cue-and-count pairs have a voice.
+    ///
+    /// Twenty-six, or the client is silent somewhere: nine cues that count to
+    /// one, a draw that counts to seven and two counter cues that count to
+    /// five. `every_cue_has_a_voice` builds the same number out of
+    /// [`Cue::counts`] rather than writing it down twice.
     #[must_use]
     pub fn len(&self) -> usize {
         self.voices.len()
@@ -1052,9 +1312,9 @@ impl Voices {
         self.voices.is_empty()
     }
 
-    /// The next buffer for a cue, or `None` if it has no voice.
-    fn pick(&self, cue: Cue) -> Option<&Handle<AudioSource>> {
-        let takes = &self.voices.iter().find(|(which, _)| *which == cue)?.1;
+    /// The next buffer for a beat, or `None` if it has no voice.
+    fn pick(&self, beat: Beat) -> Option<&Handle<AudioSource>> {
+        let takes = &self.voices.iter().find(|(which, _)| *which == beat)?.1;
         takes.get(self.played % takes.len())
     }
 }
@@ -1078,13 +1338,26 @@ pub fn voice_the_cues(mut commands: Commands, sources: Option<ResMut<Assets<Audi
     let mut voices = Vec::with_capacity(Cue::ALL.len());
     for (cue, recipe) in &RECIPES {
         let bytes = wav(&render(recipe));
-        voices.push((*cue, vec![sources.add(source(bytes))]));
+        voices.push((Beat::once(*cue), vec![sources.add(source(bytes))]));
     }
     let taps = VARIANTS
         .iter()
         .map(|&(cents, spot)| sources.add(source(wav(&render(&tap(detuned(cents), spot))))))
         .collect();
-    voices.push((Cue::YourMove, taps));
+    voices.push((Beat::once(Cue::YourMove), taps));
+    // The counted three, one buffer per count. Built from `Cue::counts` and
+    // not from a number written down here, so a ceiling that moves in the
+    // model moves the buffers with it rather than leaving the top of a burst
+    // silent.
+    for cue in Cue::ALL.into_iter().filter(|cue| cue.most() > 1) {
+        for count in cue.counts() {
+            let takes = burst(cue, count)
+                .iter()
+                .map(|recipe| sources.add(source(wav(&render(recipe)))))
+                .collect();
+            voices.push((Beat::of(cue, count), takes));
+        }
+    }
     commands.insert_resource(Voices { voices, played: 0 });
 }
 
@@ -1115,36 +1388,98 @@ pub fn play_the_cues(
     }
     let level = prefs.map_or_else(Loudness::default, |prefs| prefs.all().sound);
     let mut voices = voices;
-    for cue in audible(&duel.cues.take()) {
+    for beat in audible(&duel.cues.take()) {
         if let Some(voices) = voices.as_mut() {
-            sound(&mut commands, voices, cue, level);
+            sound(&mut commands, voices, beat, level);
         }
     }
 }
 
-/// Which of one frame's cues are actually played.
+/// What a cue's finished buffer peaks at, after [`MASTER`].
 ///
-/// Ordinarily all of them: [`MASTER`] is chosen so that the two loudest life
-/// cues fit together, and `docs/client.md` §"One event, one cue" is why a
-/// frame cannot carry two of the *same* sound. The exception is the frame a
-/// game ends on, which is the one frame that carries three — the lethal hit
-/// is a life loss here, a life loss there, and the ending, and 0.70 + 0.28 +
-/// 0.63 clips at the loudest moment of the game.
-///
-/// So an ending is played **alone**. It is the only thing on that frame
-/// anybody is listening for, and the life change that caused it is already
-/// drawn on two bars and flashed on both. Dropping the quiet cues rather than
-/// ducking them is the same choice `Cues` makes everywhere else: this module
-/// has no mixer and wants none — a sound either happens or does not.
-///
-/// The cues are still **drained** by the caller either way, so nothing here
-/// changes what `/state` reports or what [`Cue::YourMove`]'s counter is on.
-/// Silencing and deciding stay two questions.
-fn audible(cues: &[Cue]) -> Vec<Cue> {
-    match cues.iter().find(|cue| cue.ends_the_game()) {
-        Some(&ending) => vec![ending],
-        None => cues.to_vec(),
+/// The one number [`audible`] needs, and it is read out of the recipe rather
+/// than tabulated a second time — a table of levels beside the levels is a
+/// table that goes stale on the first tuning pass.
+fn peak_of(beat: Beat) -> f32 {
+    if let Some((_, recipe)) = RECIPES.iter().find(|(cue, _)| *cue == beat.cue) {
+        return recipe.peak * MASTER;
     }
+    match beat.cue {
+        Cue::YourMove => tap(note::D3, VARIANTS[0].1).peak * MASTER,
+        cue => {
+            burst(cue, beat.count)
+                .first()
+                .map_or(0.0, |recipe| recipe.peak)
+                * MASTER
+        }
+    }
+}
+
+/// How loud a cue is allowed to be when it is competing for one frame.
+///
+/// Low is loud. It is a *ranking* and never an amplitude — the amplitudes are
+/// the recipes' — and what it decides is which cue is dropped when a frame
+/// carries more than the loudspeaker does. The order is the order a player
+/// would want it in: a refusal first, because it is the one cue that answers
+/// something the player themselves just did and a silent refusal reads as a
+/// dead button; then life, which is the number a player must not miss; then
+/// the table's texture, shrink before grow because losing is the one to
+/// notice; then the draw; then the nudge.
+///
+/// Endings are not in it, because an ending is not ranked — it is alone.
+fn rank(cue: Cue) -> u8 {
+    match cue {
+        Cue::Refused => 0,
+        Cue::MyLifeLost | Cue::MyLifeGained => 1,
+        Cue::TheirLifeLost | Cue::TheirLifeGained => 2,
+        Cue::CreatureShrank => 3,
+        Cue::CreatureGrew => 4,
+        Cue::CardDrawn => 5,
+        _ => 6,
+    }
+}
+
+/// Which of one frame's beats are actually played.
+///
+/// Two rules, and the second of them is a **bend** of what [`MASTER`]'s doc
+/// says. The ending rule is unchanged: the frame a game ends on carries the
+/// lethal hit as well — a life loss here, a life loss there, and the ending —
+/// and 0.70 + 0.28 + 0.63 clips at the loudest moment of the game, so an
+/// ending is played **alone**.
+///
+/// What has changed is everything else. `MASTER` was chosen when two was the
+/// worst case an ordinary frame could hold, and it is not any more: a *Sign in
+/// Blood* is a life loss and a draw, an infect combat is life and a shrink, a
+/// *Fathom Mage* is a counter and a draw, and any of them can land beside
+/// [`Cue::YourMove`]. So the frame is filled **greedily by [`rank`]** while
+/// the sum of the peaks still fits under one, and what does not fit is
+/// dropped.
+///
+/// Dropped and never ducked, which is the same choice `Cues` makes
+/// everywhere: this module has no mixer and wants none — a sound either
+/// happens or it does not. And the beats are still **drained** by the caller
+/// either way, so nothing here changes what `/state` reports or what
+/// [`Cue::YourMove`]'s variant counter is on. Silencing and deciding stay two
+/// questions.
+fn audible(beats: &[Beat]) -> Vec<Beat> {
+    if let Some(&ending) = beats.iter().find(|beat| beat.cue.ends_the_game()) {
+        return vec![ending];
+    }
+    let mut wanted = beats.to_vec();
+    wanted.sort_by_key(|beat| rank(beat.cue));
+    let mut room = 1.0;
+    let mut kept: Vec<Beat> = Vec::with_capacity(wanted.len());
+    for beat in wanted {
+        let loud = peak_of(beat);
+        if loud <= room {
+            room -= loud;
+            kept.push(beat);
+        }
+    }
+    // Back into the order the frame decided them in, so `/state` and the ear
+    // agree about what happened first.
+    kept.sort_by_key(|beat| beats.iter().position(|b| b == beat).unwrap_or_default());
+    kept
 }
 
 /// Plays one cue, if the player wants to hear anything.
@@ -1153,8 +1488,8 @@ fn audible(cues: &[Cue]) -> Vec<Cue> {
 /// down and back up does not put [`Cue::YourMove`] back on the variant it was
 /// on. The point of the cycle is that consecutive *firings* differ, not
 /// consecutive audible ones.
-fn sound(commands: &mut Commands, voices: &mut Voices, cue: Cue, level: Loudness) {
-    let handle = voices.pick(cue).cloned();
+fn sound(commands: &mut Commands, voices: &mut Voices, beat: Beat, level: Loudness) {
+    let handle = voices.pick(beat).cloned();
     voices.played = voices.played.wrapping_add(1);
     if !level.audible() {
         return;
@@ -1207,12 +1542,16 @@ mod tests {
             .note_ending(Outcome::YouLost);
         assert_eq!(
             app.world().resource::<Duel>().cues.pending(),
-            [Cue::GameLost]
+            [Beat::once(Cue::GameLost)]
         );
         app.update();
         let duel = app.world().resource::<Duel>();
         assert!(duel.cues.pending().is_empty(), "the queue was drained");
-        assert_eq!(duel.cues.last(), Some(Cue::GameLost), "and remembered");
+        assert_eq!(
+            duel.cues.last(),
+            Some(Beat::once(Cue::GameLost)),
+            "and remembered"
+        );
     }
 
     /// The counter-test for the early return: a frame with nothing to say
@@ -1258,15 +1597,17 @@ mod tests {
         app.update();
         let duel = app.world().resource::<Duel>();
         assert!(duel.cues.pending().is_empty());
-        assert_eq!(duel.cues.last(), Some(Cue::Refused));
+        assert_eq!(duel.cues.last(), Some(Beat::once(Cue::Refused)));
     }
 
-    /// Every cue is synthesised. A cue with no voice is silent at runtime and
-    /// loud in no test.
+    /// Every cue is synthesised, **at every count it can carry**.
     ///
     /// Run against the real startup system in a real asset world, because
     /// what can go wrong here is a missing *arm* rather than wrong
-    /// arithmetic: [`RECIPES`] is eight entries and [`Cue::ALL`] is nine.
+    /// arithmetic: [`RECIPES`] is eight entries and [`Cue::ALL`] is twelve,
+    /// three of which are several buffers each. A count with no buffer is a
+    /// draw of four that plays nothing at all — silent at runtime and loud in
+    /// no test.
     #[test]
     fn every_cue_has_a_voice() {
         let mut app = App::new();
@@ -1275,13 +1616,125 @@ mod tests {
             .add_systems(Startup, voice_the_cues);
         app.update();
         let voices = app.world().resource::<Voices>();
-        assert_eq!(voices.len(), Cue::ALL.len(), "a cue with no sound");
+        let wanted: usize = Cue::ALL.iter().map(|cue| cue.counts().count()).sum();
+        assert_eq!(voices.len(), wanted, "a cue with no sound");
         for cue in Cue::ALL {
-            assert!(voices.pick(cue).is_some(), "{} has no voice", cue.name());
+            for count in cue.counts() {
+                let beat = Beat::of(cue, count);
+                assert!(
+                    voices.pick(beat).is_some(),
+                    "{} has no voice at {count}",
+                    cue.name()
+                );
+            }
         }
     }
 
-    /// Nine cues, nine different sounds.
+    /// A count past a cue's ceiling is played as the ceiling, not as silence.
+    ///
+    /// [`Beat::of`] clamps, so this is really a test that nothing between the
+    /// model and the sink goes round it — a `Beat` built by hand with a twelve
+    /// in it would find no buffer and drop the sound at exactly the moment
+    /// there was most to hear.
+    #[test]
+    fn drawing_a_whole_deck_sounds_like_a_handful() {
+        let mut app = App::new();
+        app.add_plugins(bevy::asset::AssetPlugin::default())
+            .init_asset::<AudioSource>()
+            .add_systems(Startup, voice_the_cues);
+        app.update();
+        let voices = app.world().resource::<Voices>();
+        let most = Beat::of(Cue::CardDrawn, Cue::CardDrawn.most());
+        assert_eq!(Beat::of(Cue::CardDrawn, 60), most, "a Windfall is a hand");
+        assert!(voices.pick(most).is_some());
+    }
+
+    /// A burst is one blow per thing that happened, and the run accelerates.
+    ///
+    /// The arithmetic nothing else can see: [`burst`] builds the strikes and
+    /// [`render`] turns them into samples, so a ladder indexed wrongly or a
+    /// gap that failed to accumulate would come out as a buffer that still
+    /// peaks correctly, still renders twice the same, and is simply the wrong
+    /// sound.
+    #[test]
+    fn a_burst_is_one_blow_per_thing_that_happened() {
+        for cue in Cue::ALL.iter().filter(|cue| cue.most() > 1) {
+            let per = usize::from(*cue != Cue::CardDrawn) + 1;
+            for count in cue.counts() {
+                for recipe in burst(*cue, count) {
+                    assert_eq!(
+                        recipe.strikes.len(),
+                        per * count as usize,
+                        "{} at {count} is the wrong number of blows",
+                        cue.name()
+                    );
+                }
+            }
+        }
+        let three = &burst(Cue::CardDrawn, 3)[0];
+        let (first, second) = (
+            three.strikes[1].at - three.strikes[0].at,
+            three.strikes[2].at - three.strikes[1].at,
+        );
+        assert!(first > second, "the burst does not accelerate");
+        assert!(second > 0.080, "the last gap fuses at {second}");
+    }
+
+    /// A counter gesture's two blows are one event, and the second says which
+    /// way.
+    ///
+    /// Both halves matter and both are easy to get backwards. Inside the
+    /// ~50 ms grouping window the pair is heard as one thing, which is what
+    /// makes three creatures three and not six; and the *destination* is the
+    /// louder blow, because that is the note carrying the direction.
+    #[test]
+    fn a_counter_is_one_gesture_that_lands_somewhere() {
+        for (cue, up) in [(Cue::CreatureGrew, true), (Cue::CreatureShrank, false)] {
+            let solo = &burst(cue, 1)[0];
+            let (first, second) = (&solo.strikes[0], &solo.strikes[1]);
+            let apart = second.at - first.at;
+            assert!(
+                (0.020..=0.050).contains(&apart),
+                "{} is {apart}s apart: one event needs under 50 ms and a \
+                 direction needs over 20",
+                cue.name()
+            );
+            assert!(second.gain > first.gain, "the grace note is the loud one");
+            assert_eq!(second.hz > first.hz, up, "{} lands wrong", cue.name());
+        }
+    }
+
+    /// The room does not invert a counter gesture.
+    ///
+    /// This module has been bitten twice by a delay network having a *pitch* —
+    /// a comb notch that turned a falling third written 0.80 then 1.00 into
+    /// 0.92 then 0.70 — and both times at a pitch the tap set had not been
+    /// searched over. [`note::CS5`] and [`note::D5`] are new and were not in
+    /// that search, so the dynamic written in [`counters`] is checked *after*
+    /// the room rather than trusted before it: the destination has to still be
+    /// the louder blow once the reflections are on it.
+    #[test]
+    fn the_room_leaves_the_gesture_pointing_where_it_was_aimed() {
+        for cue in [Cue::CreatureGrew, Cue::CreatureShrank] {
+            let solo = &burst(cue, 1)[0];
+            let samples = render(solo);
+            let loudest = |from: f32, to: f32| {
+                let a = ((from * RATE) as usize * 2).min(samples.len());
+                let b = ((to * RATE) as usize * 2).min(samples.len());
+                samples[a..b].iter().fold(0.0_f32, |m, s| m.max(s.abs()))
+            };
+            let grace = loudest(0.0, FLAM);
+            let lands = loudest(FLAM, FLAM + 0.060);
+            assert!(
+                lands > grace,
+                "{}: the room made the grace note ({grace:.3}) the loud one \
+                 against the destination ({lands:.3})",
+                cue.name()
+            );
+        }
+    }
+
+    /// Thirty-seven buffers, thirty-seven different sounds.
     ///
     /// A recipe copied and not edited is the easy mistake in a table this
     /// shape, and it is invisible: two cues that sound alike are a client
@@ -1289,11 +1742,10 @@ mod tests {
     /// the whole point of computing them is that they are reproducible.
     #[test]
     fn no_two_cues_sound_alike() {
-        let mut rendered: Vec<Vec<u8>> = RECIPES
+        let mut rendered: Vec<Vec<u8>> = all_the_sounds()
             .iter()
             .map(|(_, recipe)| wav(&render(recipe)))
             .collect();
-        rendered.push(wav(&render(&tap(detuned(VARIANTS[0].0), VARIANTS[0].1))));
         let before = rendered.len();
         rendered.sort_unstable();
         rendered.dedup();
@@ -1322,10 +1774,10 @@ mod tests {
     /// The mallet's noise is the only thing here that could break it.
     #[test]
     fn a_cue_renders_the_same_bytes_twice() {
-        for (cue, recipe) in &RECIPES {
+        for (cue, recipe) in all_the_sounds() {
             assert_eq!(
-                wav(&render(recipe)),
-                wav(&render(recipe)),
+                wav(&render(&recipe)),
+                wav(&render(&recipe)),
                 "{} is not reproducible",
                 cue.name()
             );
@@ -1339,12 +1791,8 @@ mod tests {
     /// the same mistake in a sink is a cue that plays and cannot be heard.
     #[test]
     fn every_cue_is_loud_enough_to_hear_and_quiet_enough_not_to_clip() {
-        let mut recipes: Vec<(Cue, Recipe)> = Vec::new();
-        for (cents, spot) in VARIANTS {
-            recipes.push((Cue::YourMove, tap(detuned(cents), spot)));
-        }
-        for (cue, recipe) in RECIPES.iter().chain(recipes.iter()) {
-            let samples = render(recipe);
+        for (cue, recipe) in all_the_sounds() {
+            let samples = render(&recipe);
             let peak = samples.iter().fold(0.0f32, |a, s| a.max(s.abs()));
             let want = recipe.peak * MASTER;
             assert!(
@@ -1369,17 +1817,13 @@ mod tests {
     /// for what stops it.
     #[test]
     fn two_life_cues_on_one_frame_do_not_clip() {
-        let together = peak_of(Cue::MyLifeLost) + peak_of(Cue::TheirLifeLost);
+        let together = once(Cue::MyLifeLost) + once(Cue::TheirLifeLost);
         assert!(together < 1.0, "two cues sum to {together}");
     }
 
-    /// What a recipe is normalised to, after [`MASTER`].
-    fn peak_of(cue: Cue) -> f32 {
-        RECIPES
-            .iter()
-            .find(|(which, _)| *which == cue)
-            .map(|(_, recipe)| recipe.peak * MASTER)
-            .expect("a recipe")
+    /// One of a cue, at what it is normalised to after [`MASTER`].
+    fn once(cue: Cue) -> f32 {
+        peak_of(Beat::once(cue))
     }
 
     /// A lethal hit is three cues on one frame, and three do not fit.
@@ -1392,20 +1836,89 @@ mod tests {
     /// change that caused it is already drawn on two bars.
     #[test]
     fn an_ending_silences_the_life_cues_under_it() {
-        let lethal = [Cue::MyLifeLost, Cue::TheirLifeLost, Cue::GameWon];
-        let raw: f32 = lethal.iter().map(|&cue| peak_of(cue)).sum();
+        let lethal = [Cue::MyLifeLost, Cue::TheirLifeLost, Cue::GameWon].map(Beat::once);
+        let raw: f32 = lethal.iter().map(|&beat| peak_of(beat)).sum();
         assert!(raw > 1.0, "the three would not have clipped anyway");
         let kept = audible(&lethal);
-        assert_eq!(kept, vec![Cue::GameWon], "the ending is not alone");
-        let together: f32 = kept.iter().map(|&cue| peak_of(cue)).sum();
+        assert_eq!(
+            kept,
+            vec![Beat::once(Cue::GameWon)],
+            "the ending is not alone"
+        );
+        let together: f32 = kept.iter().map(|&beat| peak_of(beat)).sum();
         assert!(together < 1.0, "the ending clips at {together}");
     }
 
     /// And an ordinary frame is left exactly as it was.
     #[test]
     fn a_frame_with_no_ending_keeps_every_cue() {
-        let pair = [Cue::MyLifeLost, Cue::TheirLifeLost];
+        let pair = [Cue::MyLifeLost, Cue::TheirLifeLost].map(Beat::once);
         assert_eq!(audible(&pair), pair.to_vec());
+    }
+
+    /// Every cue's peak is where the module says it is.
+    ///
+    /// [`peak_of`] is read by [`audible`] and has three branches — the recipe
+    /// table, the tap, and the bursts — because the three are stored three
+    /// different ways. A branch that answered zero would make its cue free,
+    /// so the frame would admit it *and* everything under it, and the clip
+    /// would arrive at the loudest moment rather than the quietest.
+    #[test]
+    fn every_cue_can_say_how_loud_it_is() {
+        for cue in Cue::ALL {
+            for count in cue.counts() {
+                let loud = peak_of(Beat::of(cue, count));
+                assert!(
+                    loud > 0.1 && loud <= 1.0,
+                    "{} at {count} claims {loud}",
+                    cue.name()
+                );
+            }
+        }
+    }
+
+    /// The frames a real game makes, and which of them still fit.
+    ///
+    /// The bend [`audible`] documents, held as numbers. A *Sign in Blood* is
+    /// a life loss and a draw; an infect combat is life and a shrink; a
+    /// *Fathom Mage* is a counter and a draw — none of those existed when
+    /// [`MASTER`] was chosen against exactly two cues. Each is checked to
+    /// **fit**, because a budget that dropped them would be a quieter client
+    /// than the owner asked for; and the lethal combat frame is checked to be
+    /// **cut**, because that is what a budget is for.
+    #[test]
+    fn a_frame_admits_what_it_can_hold_and_drops_the_rest() {
+        let fits = |cues: &[Cue]| {
+            let frame: Vec<Beat> = cues.iter().map(|&cue| Beat::once(cue)).collect();
+            audible(&frame).len() == frame.len()
+        };
+        assert!(fits(&[Cue::MyLifeLost, Cue::CardDrawn]), "Sign in Blood");
+        assert!(fits(&[Cue::MyLifeLost, Cue::CreatureShrank]), "infect");
+        assert!(fits(&[Cue::CreatureGrew, Cue::CardDrawn]), "Fathom Mage");
+        assert!(fits(&[Cue::CardDrawn, Cue::YourMove]), "an ordinary turn");
+
+        // A whole multiplayer combat: both life cues, a shrink, a draw and
+        // the nudge. 0.70 + 0.28 + 0.25 + 0.15 + 0.15 is 1.53.
+        let combat = [
+            Cue::MyLifeLost,
+            Cue::TheirLifeLost,
+            Cue::CreatureShrank,
+            Cue::CardDrawn,
+            Cue::YourMove,
+        ]
+        .map(Beat::once);
+        let raw: f32 = combat.iter().map(|&beat| peak_of(beat)).sum();
+        assert!(raw > 1.0, "the five would not have clipped anyway");
+        let kept = audible(&combat);
+        let together: f32 = kept.iter().map(|&beat| peak_of(beat)).sum();
+        assert!(together <= 1.0, "the frame still clips at {together}");
+        assert!(!kept.is_empty(), "a busy frame went silent");
+        // The ranking, not merely the sum: what survives a full frame is the
+        // life a player must not miss, never the texture under it.
+        assert!(
+            kept.contains(&Beat::once(Cue::MyLifeLost)),
+            "the loudest thing that happened was dropped"
+        );
     }
 
     /// The header says what the bytes are.
@@ -1477,8 +1990,8 @@ mod tests {
     /// disappears the moment anyone sums it.
     #[test]
     fn the_two_ears_agree_about_where_the_sound_is() {
-        for (cue, recipe) in &RECIPES {
-            let samples = render(recipe);
+        for (cue, recipe) in all_the_sounds() {
+            let samples = render(&recipe);
             let (mid, side) = samples
                 .as_chunks::<2>()
                 .0
@@ -1519,7 +2032,7 @@ mod tests {
     /// that stops it is one `.min()` easy to drop while tuning.
     #[test]
     fn nothing_above_the_fundamental_rings_like_a_bell() {
-        for (cue, recipe) in &RECIPES {
+        for (cue, recipe) in all_the_sounds() {
             for blow in recipe.strikes {
                 let ring = free_ring(blow.hz) * blow.damp;
                 for mode in modes(blow.hz, blow.contact, blow.spot, ring).iter().skip(1) {
@@ -1543,8 +2056,8 @@ mod tests {
     /// thing.
     #[test]
     fn no_cue_ends_on_a_step() {
-        for (cue, recipe) in &RECIPES {
-            let samples = render(recipe);
+        for (cue, recipe) in all_the_sounds() {
+            let samples = render(&recipe);
             let last = samples.last().copied().unwrap_or_default();
             assert!(
                 last.abs() < 0.001,
@@ -1569,7 +2082,12 @@ mod tests {
         let mut voices = app.world_mut().resource_mut::<Voices>();
         let mut seen = Vec::new();
         for _ in 0..VARIANTS.len() * 2 {
-            seen.push(voices.pick(Cue::YourMove).cloned().expect("a tap"));
+            seen.push(
+                voices
+                    .pick(Beat::once(Cue::YourMove))
+                    .cloned()
+                    .expect("a tap"),
+            );
             voices.played += 1;
         }
         for pair in seen.windows(2) {
@@ -1605,6 +2123,46 @@ mod tests {
             let path = format!("{dir}/YourMove-{i}.wav");
             std::fs::write(&path, wav(&render(&tap(detuned(cents), spot)))).expect("written");
         }
+        // The counted three, every count and every variant — which is most of
+        // what there is to listen *to* now, and all of what the design's own
+        // perceptual claims rest on: that seven taps at these gaps can be
+        // counted, and that a 45 ms flam reads as a direction rather than as
+        // one thickened note. Neither is a thing a test can assert.
+        for cue in Cue::ALL.into_iter().filter(|cue| cue.most() > 1) {
+            for count in cue.counts() {
+                for (i, recipe) in burst(cue, count).iter().enumerate() {
+                    let path = format!("{dir}/{}-{count}-{i}.wav", cue.name());
+                    std::fs::write(&path, wav(&render(recipe))).expect("written");
+                }
+            }
+        }
+    }
+
+    /// Every buffer the client will ever synthesise, with the cue it belongs
+    /// to.
+    ///
+    /// [`RECIPES`] used to be the whole set and is now eight of twenty-six:
+    /// six taps and the counted three's bursts are built by functions rather
+    /// than written into a table. Every test below that says "every cue" has
+    /// to mean this, or the tests that hold the *instrument* together — the
+    /// bell guard, the clip bound, the ends-at-silence rule, the two ears —
+    /// would all be silently ignoring the newest and most frequent sounds in
+    /// the set, which is exactly the shape of a test that passes and proves
+    /// nothing.
+    fn all_the_sounds() -> Vec<(Cue, Recipe)> {
+        let mut out: Vec<(Cue, Recipe)> = Vec::new();
+        for (cue, recipe) in RECIPES {
+            out.push((cue, recipe));
+        }
+        for (cents, spot) in VARIANTS {
+            out.push((Cue::YourMove, tap(detuned(cents), spot)));
+        }
+        for cue in Cue::ALL.into_iter().filter(|cue| cue.most() > 1) {
+            for count in cue.counts() {
+                out.extend(burst(cue, count).into_iter().map(|recipe| (cue, recipe)));
+            }
+        }
+        out
     }
 
     /// A [`Prefs`] with the sound turned off.
