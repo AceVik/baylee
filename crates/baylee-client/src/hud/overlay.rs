@@ -619,7 +619,16 @@ pub fn sync_overlay(
             .filter(|_| !waiting)
             .map(baylee_client_core::Interaction::prompt)
             .and_then(|p| {
-                crate::choices::options(&p, lang, duel.statics.as_ref(), &duel.subtype_filter)
+                crate::choices::options(
+                    &p,
+                    lang,
+                    duel.statics.as_ref(),
+                    &duel.subtype_filter,
+                    crate::choices::FaceNames {
+                        view: duel.view.as_ref(),
+                        texts: Some(&texts),
+                    },
+                )
             })
             .filter(|rows| !rows.is_empty())
         {

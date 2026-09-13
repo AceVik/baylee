@@ -161,6 +161,50 @@ pub fn name_of(
     baylee_client_core::card_face::shown_name(&object.name, text.as_ref()).to_string()
 }
 
+/// What one *named* face of a card is called, in the player's own language.
+///
+/// [`name_of`] answers for the face an object is showing. This answers for a
+/// face it is being *offered*: a pathway (CR 712.4a) is one object showing one
+/// of its two land faces, and the question is about both of them.
+///
+/// The hand is searched first and by hand, because
+/// [`baylee_view::PlayerView::object`] does not look there — and a land being
+/// played is in the hand, which is the whole case this exists for.
+///
+/// Three rungs, and each is the honest answer to its own failure: the
+/// catalog's text where the gateway served it, the compiled registry's
+/// English where it did not (still the card's own name), and `None` for a
+/// card the view cannot place or the registry does not have, which leaves the
+/// caller to say what kind of thing the option is instead.
+#[must_use]
+pub fn face_name(
+    object: baylee_core::ids::ObjectId,
+    face: usize,
+    view: &baylee_view::PlayerView,
+    texts: Option<&crate::cardtext::CardTexts>,
+) -> Option<String> {
+    let card = view
+        .hand
+        .iter()
+        .find(|c| c.id == object)
+        .map(|c| c.card)
+        .or_else(|| view.object(object).and_then(|o| o.card))?;
+    let served = u8::try_from(face)
+        .ok()
+        .zip(texts)
+        .and_then(|(face, texts)| texts.get(card.print, face))
+        .map(|text| text.name);
+    served.or_else(|| {
+        Some(
+            baylee_cards::by_index(card.index)?
+                .faces
+                .get(face)?
+                .name
+                .to_string(),
+        )
+    })
+}
+
 /// Which printing's text names this object, and which face of it.
 fn printing_of(
     object: &baylee_view::PublicObject,

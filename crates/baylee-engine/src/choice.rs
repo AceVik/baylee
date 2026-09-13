@@ -159,6 +159,16 @@ pub enum Pending {
     ChooseCastMode {
         /// Casting player.
         player: PlayerId,
+        /// What the question is about: the card being cast or played, or the
+        /// permanent whose modal trigger is picking a mode.
+        ///
+        /// A handle and not a name, for the reason the engine carries no card
+        /// text at all — the same rule that makes an ability an
+        /// [`baylee_core::ids::AbilityRef`]. Two land faces of a pathway
+        /// (CR 712.4a) differ in nothing a [`CastModeDesc`] carries: same
+        /// kind, same empty cost, different printed name. Without this the
+        /// client draws two identical buttons and the choice is blind.
+        object: ObjectId,
         /// The legal cast options.
         options: Vec<CastModeDesc>,
     },

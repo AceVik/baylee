@@ -484,6 +484,7 @@ impl<L: CardLookup> Engine<L> {
             WizardStage::ChooseMode => {
                 self.pending = Pending::ChooseCastMode {
                     player: wizard.player,
+                    object: wizard.card,
                     options: wizard.options.clone(),
                 };
                 self.awaiting_answer = true;

@@ -331,7 +331,10 @@ fn force_of_negation_exiles_the_spell_it_counters() {
     cast_from_hand(&mut engine, p0, force_of_negation());
     // Three Islands are up, so the wizard offers the printed cost beside the
     // pitch; the rider under test is the destination, not the discount.
-    if let Pending::ChooseCastMode { player, options } = engine.pending().clone() {
+    if let Pending::ChooseCastMode {
+        player, options, ..
+    } = engine.pending().clone()
+    {
         let normal = options
             .iter()
             .position(|o| matches!(o.kind, crate::choice::CastModeKind::Normal))

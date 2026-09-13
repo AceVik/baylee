@@ -197,7 +197,11 @@ impl<L: CardLookup> Engine<L> {
                         })
                         .collect();
                     self.pending_plan = Some(PlanKind::PlayLandFace { card });
-                    self.pending = Pending::ChooseCastMode { player, options };
+                    self.pending = Pending::ChooseCastMode {
+                        player,
+                        object: card,
+                        options,
+                    };
                     self.awaiting_answer = true;
                     return Ok(());
                 }

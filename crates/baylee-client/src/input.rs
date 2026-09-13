@@ -780,11 +780,15 @@ fn visible_types(duel: &Duel) -> Vec<crate::choices::ChoiceOption> {
         .as_ref()
         .map(Interaction::prompt)
         .and_then(|p| {
+            // Neither the language nor the face names are plumbed here, for
+            // the one reason: this reads the *shape* of a creature-type list
+            // and never its labels. The renderer is where a row is written.
             crate::choices::options(
                 &p,
                 baylee_client_core::Lang::En,
                 duel.statics.as_ref(),
                 &duel.subtype_filter,
+                crate::choices::FaceNames::default(),
             )
         })
         .unwrap_or_default()
@@ -1646,16 +1650,17 @@ fn pick_choice(duel: &mut Duel, index: usize) {
         .interaction
         .as_ref()
         .map(baylee_client_core::Interaction::prompt)
-        // The language is irrelevant here and deliberately not plumbed: only
-        // the *shape* of the answer is read back -- whether this prompt is an
-        // indexed choice at all, and how many rows it has. The labels are the
-        // renderer's business.
+        // The language and the face names are irrelevant here and
+        // deliberately not plumbed: only the *shape* of the answer is read
+        // back -- whether this prompt is an indexed choice at all, and how
+        // many rows it has. The labels are the renderer's business.
         .and_then(|p| {
             crate::choices::options(
                 &p,
                 baylee_client_core::Lang::En,
                 duel.statics.as_ref(),
                 &duel.subtype_filter,
+                crate::choices::FaceNames::default(),
             )
         })
         // Not `index < rows.len()`: a filtered list's rows carry the

@@ -202,6 +202,9 @@ const SENSEIS_DIVINING_TOP: &str = "13575cf9-65c1-4861-b21e-eb2155e07766";
 /// The 1/2 the combat scenarios are built out of, and the creature Rite of
 /// Replication points at.
 const GREAT_DIVIDE_GUIDE: &str = "79e69a91-d580-47fb-be76-1e32c50d2fa0";
+/// Brightclimb Pathway // Grimclimb Pathway: two land faces, so playing it is
+/// a question about which one (CR 712.4a).
+const BRIGHTCLIMB_PATHWAY: &str = "1c633e02-95ef-445e-b4e0-fbfbc5ed9cc9";
 
 /// One card, at the default printing.
 fn entry(oracle: &str) -> DeckEntry {
@@ -513,6 +516,7 @@ impl Client {
                     baylee_client_core::Lang::En,
                     self.statics.as_ref(),
                     "",
+                    baylee_client::choices::FaceNames::default(),
                 )
                 .expect("an indexed choice offers rows");
                 assert!(!rows.is_empty(), "a choice with no rows cannot be answered");
@@ -541,6 +545,7 @@ impl Client {
                     baylee_client_core::Lang::En,
                     self.statics.as_ref(),
                     &typed,
+                    baylee_client::choices::FaceNames::default(),
                 )
                 .expect("a creature type is a chooser");
                 assert!(
@@ -730,6 +735,7 @@ fn a_cavern_of_souls_can_be_played_and_its_type_answered() {
         baylee_client_core::Lang::En,
         client.statics.as_ref(),
         "elf",
+        baylee_client::choices::FaceNames::default(),
     )
     .expect("a creature type is a chooser");
     assert_eq!(rows[0].label, "Elf");
@@ -818,6 +824,7 @@ fn a_dual_land_can_be_tapped_and_the_colour_answered() {
         baylee_client_core::Lang::En,
         client.statics.as_ref(),
         "",
+        baylee_client::choices::FaceNames::default(),
     )
     .expect("a colour choice is a chooser");
     assert_eq!(rows.len(), 2, "one row per colour the engine offered");
@@ -841,6 +848,81 @@ fn a_dual_land_can_be_tapped_and_the_colour_answered() {
         "engine refused: {:?}",
         client.errors
     );
+}
+
+/// A pathway in hand and nothing else to play.
+fn pathway_preset(seed: u64) -> GamePreset {
+    let mut preset = duel_preset(seed);
+    preset.seats[0].starting_hand = Some(vec![entry(BRIGHTCLIMB_PATHWAY)]);
+    preset
+}
+
+/// The owner's AE11: a pathway asked which face, and both buttons said the
+/// same thing.
+///
+/// `CastModeKind::PlayLandFace` was mapped to one fixed phrase and the side
+/// index thrown away, and a land has no mana cost — so the column the
+/// chooser relies on to tell two options apart (the cost) was empty for both
+/// of them. Two identical rows, and the choice made blind.
+///
+/// Held here rather than only in the unit test because the question has to be
+/// *reached*: the engine has to say which object it is asking about, the view
+/// has to still hold that object — it is in the hand, which
+/// `PlayerView::object` does not search — and the rows have to be built from
+/// the prompt the client actually got.
+#[test]
+fn a_pathways_two_land_faces_are_two_different_buttons() {
+    let preset = pathway_preset(11);
+    let mut host =
+        LocalHost::new(&preset, PlayerId::new(0), &["You", "House AI"]).expect("the duel starts");
+    let mut client = Client::default();
+    client.absorb(host.poll());
+
+    // Walk to a priority that offers the land, and play it.
+    let mut played = false;
+    for _ in 0..200 {
+        let pending = client.pending.clone().expect("a choice");
+        if let Pending::Priority { legal, .. } = &pending
+            && let Some(&card) = legal.lands.first()
+        {
+            host.submit(PlayerAction::PlayLand { card });
+            client.absorb(host.poll());
+            played = true;
+            break;
+        }
+        let Some(action) = client.answer(PlayerId::new(0)) else {
+            break;
+        };
+        host.submit(action);
+        client.absorb(host.poll());
+    }
+    assert!(played, "the pathway never became playable");
+
+    let pending = client.pending.clone().expect("a choice");
+    let Pending::ChooseCastMode { options, .. } = &pending else {
+        panic!("a card with two land faces asks which one, got {pending:?}");
+    };
+    assert_eq!(options.len(), 2, "both faces are lands");
+
+    let interaction = Interaction::new(pending.clone(), PlayerId::new(0));
+    let rows = baylee_client::choices::options(
+        &interaction.prompt(),
+        baylee_client_core::Lang::En,
+        client.statics.as_ref(),
+        "",
+        baylee_client::choices::FaceNames {
+            view: client.view.as_ref(),
+            texts: None,
+        },
+    )
+    .expect("a face choice is a chooser");
+    assert_eq!(rows.len(), 2, "one row per face the engine offered");
+    assert_ne!(
+        rows[0].label, rows[1].label,
+        "two buttons that say the same thing are not a choice"
+    );
+    assert_eq!(rows[0].label, "Brightclimb Pathway");
+    assert_eq!(rows[1].label, "Grimclimb Pathway");
 }
 
 #[test]

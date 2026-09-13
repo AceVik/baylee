@@ -29,9 +29,35 @@ use baylee_client_core::i18n::{Lang, Phrase};
 use baylee_client_core::interaction::Prompt;
 use baylee_client_core::manapip::{self, Pip};
 use baylee_core::generated::subtypes;
-use baylee_core::ids::SubtypeId;
+use baylee_core::ids::{ObjectId, SubtypeId};
 use baylee_core::mana::{ManaColor, ManaCost, ManaSymbol};
 use baylee_view::GameStatic;
+
+/// Where a row that names a card face looks that name up.
+///
+/// Two steps, and they live in two places: the object says which card and
+/// which printing (the view), and the printing says what the face is called
+/// in the player's own language (the catalog's text). Both are optional, and
+/// each absence is honest rather than a failure — the view has not arrived
+/// yet, the gateway serves no card text, or the caller is one of the two that
+/// read only the *shape* of the list and never draw a label at all.
+///
+/// A face that cannot be named falls back to the phrase the row carried
+/// before, which still says what kind of option it is.
+#[derive(Clone, Copy, Default)]
+pub struct FaceNames<'a> {
+    /// The seat's view. Without it nothing can be named.
+    pub view: Option<&'a baylee_view::PlayerView>,
+    /// The catalog's text. Without it a name is the registry's English.
+    pub texts: Option<&'a crate::cardtext::CardTexts>,
+}
+
+impl FaceNames<'_> {
+    /// What face `face` of `object` is called.
+    fn of(self, object: ObjectId, face: usize) -> Option<String> {
+        crate::face::face_name(object, face, self.view?, self.texts)
+    }
+}
 
 /// One row of an indexed chooser.
 #[derive(Clone, PartialEq, Debug)]
@@ -128,6 +154,7 @@ pub fn options(
     lang: Lang,
     statics: Option<&GameStatic>,
     filter: &str,
+    names: FaceNames<'_>,
 ) -> Option<Vec<ChoiceOption>> {
     match prompt {
         Prompt::ChooseColor { options } => Some(
@@ -156,17 +183,20 @@ pub fn options(
                 })
                 .collect(),
         ),
-        Prompt::CastMode { options } => Some(
+        Prompt::CastMode { object, options } => Some(
             options
                 .iter()
                 .enumerate()
                 .map(|(i, desc)| ChoiceOption {
                     index: i,
-                    label: cast_label(desc.kind, lang),
+                    label: cast_label(desc.kind, lang, *object, names),
                     pip: None,
                     // The cost is the part that actually distinguishes two
                     // alternative costs from each other; the words above it
-                    // only say which kind of thing it is.
+                    // only say which kind of thing it is. It is *also* what
+                    // fails for a pathway, whose two options cost nothing and
+                    // differ only in the name they print — which is why the
+                    // label names the face rather than the kind.
                     cost: (!desc.cost.is_empty()).then_some(desc.cost),
                 })
                 .collect(),
@@ -177,7 +207,18 @@ pub fn options(
 }
 
 /// What one cast option is called.
-fn cast_label(kind: baylee_engine::choice::CastModeKind, lang: Lang) -> String {
+///
+/// The two options that name a **face** say the face's own name where it can
+/// be found, because that is the only thing that tells them apart: a pathway's
+/// two land faces are the same kind at the same empty cost and differ in
+/// nothing else a row draws. The phrase stays as the fallback, which is what
+/// every row said before.
+fn cast_label(
+    kind: baylee_engine::choice::CastModeKind,
+    lang: Lang,
+    object: ObjectId,
+    names: FaceNames<'_>,
+) -> String {
     use baylee_engine::choice::CastModeKind as K;
     match kind {
         K::Normal => Phrase::CastNormal.text(lang).to_string(),
@@ -185,8 +226,12 @@ fn cast_label(kind: baylee_engine::choice::CastModeKind, lang: Lang) -> String {
         // One-based, because the printed card numbers its modes from one and
         // a player reads the card, not the index.
         K::Mode(i) => Phrase::CastModeNumber.fill(lang, &[&(i + 1).to_string()]),
-        K::Face(_) => Phrase::CastBackFace.text(lang).to_string(),
-        K::PlayLandFace(_) => Phrase::CastLandFace.text(lang).to_string(),
+        K::Face(i) => names
+            .of(object, i)
+            .unwrap_or_else(|| Phrase::CastBackFace.text(lang).to_string()),
+        K::PlayLandFace(i) => names
+            .of(object, i)
+            .unwrap_or_else(|| Phrase::CastLandFace.text(lang).to_string()),
         K::Miracle => Phrase::CastMiracle.text(lang).to_string(),
     }
 }
@@ -206,6 +251,7 @@ mod tests {
             Lang::En,
             None,
             "",
+            FaceNames::default(),
         )
         .expect("a colour choice has rows");
         assert_eq!(rows.len(), 2, "one row per offered colour, in engine order");
@@ -235,6 +281,7 @@ mod tests {
             Lang::En,
             Some(&statics),
             "",
+            FaceNames::default(),
         )
         .expect("a player choice has rows");
         assert_eq!(rows[0].label, "House AI");
@@ -253,6 +300,7 @@ mod tests {
         };
         let rows = options(
             &Prompt::CastMode {
+                object: ObjectId::new(1, 0),
                 options: vec![
                     desc(CastModeKind::Normal, "{2}{U}"),
                     desc(CastModeKind::Mode(1), "{U}"),
@@ -261,6 +309,7 @@ mod tests {
             Lang::En,
             None,
             "",
+            FaceNames::default(),
         )
         .expect("a cast choice has rows");
         assert_eq!(rows[0].label, "Printed cost");
@@ -268,12 +317,108 @@ mod tests {
         assert!(rows.iter().all(|r| r.cost.is_some()));
     }
 
+    /// Brightclimb Pathway, in the hand, as one object with two land faces.
+    ///
+    /// The hand and not the battlefield because that is where the question is
+    /// asked from — and because `PlayerView::object` does not look in the
+    /// hand, which is the whole reason [`crate::face::face_name`] searches it
+    /// first.
+    fn pathway_in_hand() -> (baylee_view::PlayerView, ObjectId) {
+        let def = baylee_cards::by_oracle_id("1c633e02-95ef-445e-b4e0-fbfbc5ed9cc9")
+            .expect("Brightclimb Pathway is in the pool");
+        let id = ObjectId::new(11, 0);
+        let mut view = baylee_client_core::test_support::ViewBuilder::new(2).build();
+        view.hand = vec![baylee_view::HandObject {
+            id,
+            card: baylee_view::CardIdentity {
+                index: def.index,
+                print: baylee_core::ids::PrintRef::new(0),
+                face: 0,
+            },
+            name: def.faces[0].name.to_string(),
+            mana_value: 0,
+            colors: baylee_core::color::ColorSet::default(),
+            types: baylee_core::types::TypeSet::LAND,
+            commander: false,
+        }];
+        (view, id)
+    }
+
+    /// The owner's AE11: two buttons that said the same thing.
+    ///
+    /// A pathway's two options are the same kind at the same empty cost, so
+    /// every column a row draws was identical — the label, the missing pip,
+    /// the missing cost — and the choice was made blind.
+    #[test]
+    fn a_pathways_two_land_faces_are_two_different_buttons() {
+        let (view, object) = pathway_in_hand();
+        let desc = |face: usize| CastModeDesc {
+            index: u8::try_from(face).expect("a face index"),
+            kind: CastModeKind::PlayLandFace(face),
+            cost: ManaCost::ZERO,
+        };
+        let rows = options(
+            &Prompt::CastMode {
+                object,
+                options: vec![desc(0), desc(1)],
+            },
+            Lang::En,
+            None,
+            "",
+            FaceNames {
+                view: Some(&view),
+                texts: None,
+            },
+        )
+        .expect("a cast choice has rows");
+        assert_eq!(rows[0].label, "Brightclimb Pathway");
+        assert_eq!(rows[1].label, "Grimclimb Pathway");
+        assert!(
+            rows.iter().all(|r| r.cost.is_none()),
+            "a land face costs nothing, which is why the label has to carry it"
+        );
+    }
+
+    /// The rung under it: nothing to look a name up with is not a blank row.
+    ///
+    /// A view that has not arrived, an object the seat cannot place, a card
+    /// the registry does not have — each leaves the phrase that says what kind
+    /// of option this is, which is what every row said before.
+    #[test]
+    fn a_face_that_cannot_be_named_keeps_the_words_it_had() {
+        let rows = options(
+            &Prompt::CastMode {
+                object: ObjectId::new(11, 0),
+                options: vec![CastModeDesc {
+                    index: 0,
+                    kind: CastModeKind::PlayLandFace(1),
+                    cost: ManaCost::ZERO,
+                }],
+            },
+            Lang::En,
+            None,
+            "",
+            FaceNames::default(),
+        )
+        .expect("a cast choice has rows");
+        assert_eq!(rows[0].label, Phrase::CastLandFace.text(Lang::En));
+    }
+
     /// The prompts this module does not answer: they are clicks on the board
     /// or the table, and a chooser row drawn for one would be a second, wrong
     /// way to answer.
     #[test]
     fn prompts_that_are_not_indexed_choices_have_no_rows() {
-        assert!(options(&Prompt::OrderObjects, Lang::En, None, "").is_none());
+        assert!(
+            options(
+                &Prompt::OrderObjects,
+                Lang::En,
+                None,
+                "",
+                FaceNames::default(),
+            )
+            .is_none()
+        );
         assert!(
             options(
                 &Prompt::ChooseTargets {
@@ -283,7 +428,8 @@ mod tests {
                 },
                 Lang::En,
                 None,
-                ""
+                "",
+                FaceNames::default(),
             )
             .is_none()
         );
@@ -304,6 +450,7 @@ mod tests {
             Lang::En,
             None,
             "",
+            FaceNames::default(),
         )
         .expect("a subtype choice has rows");
         assert_eq!(
@@ -331,6 +478,7 @@ mod tests {
             Lang::En,
             None,
             "elf",
+            FaceNames::default(),
         )
         .expect("a subtype choice has rows");
         assert_eq!(rows[0].label, "Elf", "a prefix match, case-insensitively");
@@ -347,6 +495,7 @@ mod tests {
             Lang::En,
             None,
             "zzzz",
+            FaceNames::default(),
         )
         .expect("a subtype choice still answers, with no rows");
         assert!(

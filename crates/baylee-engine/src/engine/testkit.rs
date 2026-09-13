@@ -505,7 +505,10 @@ pub fn play_land_face(
     // A card printing two land faces is asked which one is being played, and
     // the answer decides which face's modifiers and abilities are the ones
     // in play.
-    if let Pending::ChooseCastMode { player, options } = engine.pending().clone() {
+    if let Pending::ChooseCastMode {
+        player, options, ..
+    } = engine.pending().clone()
+    {
         let slot = options
             .iter()
             .position(
@@ -912,7 +915,9 @@ pub fn answer_one(engine: &Engine<RegistryLookup>) -> Result<(PlayerId, PlayerAc
             };
             (player, PlayerAction::ChoosePlayer(first))
         }
-        Pending::ChooseCastMode { player, options } => {
+        Pending::ChooseCastMode {
+            player, options, ..
+        } => {
             let Some(first) = options.first() else {
                 return Err(Rest::Unanswered("ChooseCastMode"));
             };

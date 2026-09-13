@@ -1373,6 +1373,7 @@ impl<L: CardLookup> Engine<L> {
                 });
                 self.pending = Pending::ChooseCastMode {
                     player: t.controller,
+                    object: t.source,
                     options,
                 };
                 self.awaiting_answer = true;

@@ -2558,7 +2558,10 @@ fn a_modal_trigger_asks(
 fn a_modal_trigger_offers_every_mode_it_can_legally_choose() {
     let p0 = PlayerId::new(0);
     let engine = a_modal_trigger_asks(53, &[quiet_creature()]);
-    let Pending::ChooseCastMode { player, options } = engine.pending().clone() else {
+    let Pending::ChooseCastMode {
+        player, options, ..
+    } = engine.pending().clone()
+    else {
         unreachable!("the helper returns standing on the question")
     };
     assert_eq!(player, p0, "the trigger's controller chooses the mode");

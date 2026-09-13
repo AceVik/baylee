@@ -153,6 +153,14 @@ pub enum Prompt {
     },
     /// Choose how to cast a spell.
     CastMode {
+        /// The card being cast or played — or the permanent whose modal
+        /// trigger is choosing, which arrives through the same question.
+        ///
+        /// Carried because two options can be identical in everything a
+        /// [`CastModeDesc`] holds and differ only in the name they print: a
+        /// pathway's two land faces (CR 712.4a) are the same kind at the same
+        /// empty cost. This is the handle the label is resolved through.
+        object: ObjectId,
         /// The offered options.
         options: Vec<CastModeDesc>,
     },
@@ -719,7 +727,10 @@ impl Interaction {
             Pending::ChoosePlayer { options, .. } => Prompt::ChoosePlayer {
                 options: options.clone(),
             },
-            Pending::ChooseCastMode { options, .. } => Prompt::CastMode {
+            Pending::ChooseCastMode {
+                object, options, ..
+            } => Prompt::CastMode {
+                object: *object,
                 options: options.clone(),
             },
             Pending::OrderObjects { .. } => Prompt::OrderObjects,
@@ -2565,6 +2576,7 @@ mod tests {
             },
             Pending::ChooseCastMode {
                 player: me(),
+                object: obj(1),
                 options: vec![],
             },
             Pending::OrderObjects {

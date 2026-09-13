@@ -94,7 +94,14 @@ fn keep_mulligans(engine: &mut Engine<RegistryLookup>) {
 }
 
 /// Advances until p0 has priority with a playable land, then plays it.
-fn play_land(engine: &mut Engine<RegistryLookup>, p0: PlayerId, card_name_idx: CardIndex) {
+///
+/// Answers with the object that was played, which is what a face choice is
+/// then held against.
+fn play_land(
+    engine: &mut Engine<RegistryLookup>,
+    p0: PlayerId,
+    card_name_idx: CardIndex,
+) -> ObjectId {
     let mut guard = 0;
     loop {
         guard += 1;
@@ -107,7 +114,7 @@ fn play_land(engine: &mut Engine<RegistryLookup>, p0: PlayerId, card_name_idx: C
                     engine
                         .apply(player, PlayerAction::PlayLand { card })
                         .unwrap();
-                    return;
+                    return card;
                 }
                 engine.apply(player, PlayerAction::PassPriority).unwrap();
             }
@@ -141,12 +148,21 @@ fn pathway_face_choice_plays_back_face() {
     let mut engine = Engine::new(&preset(7, vec![brightclimb()], vec![]), RegistryLookup).unwrap();
     keep_mulligans(&mut engine);
     let p0 = PlayerId::new(0);
-    play_land(&mut engine, p0, brightclimb());
+    let played = play_land(&mut engine, p0, brightclimb());
     // The engine asks which land face to play.
-    let Pending::ChooseCastMode { player, options } = engine.pending().clone() else {
+    let Pending::ChooseCastMode {
+        player,
+        object,
+        options,
+    } = engine.pending().clone()
+    else {
         panic!("expected face choice, got {:?}", engine.pending());
     };
     assert_eq!(player, p0);
+    // The two options print different names and agree about everything a
+    // `CastModeDesc` carries, so the card is the only handle a client has to
+    // tell the buttons apart with.
+    assert_eq!(object, played, "the question names the card it is about");
     assert_eq!(options.len(), 2);
     assert!(matches!(options[1].kind, CastModeKind::PlayLandFace(1)));
     engine.apply(player, PlayerAction::ChooseMode(1)).unwrap();
