@@ -2365,6 +2365,17 @@ mod tests {
                 crate::hud::StackRowCard,
             ))
             .id();
+        // Before the click: the panel draws its halo off `is_selectable`, and
+        // a row that answered a click while saying nothing about itself would
+        // be a target a player could only find by trying.
+        assert!(
+            app.world()
+                .resource::<crate::Duel>()
+                .interaction
+                .as_ref()
+                .is_some_and(|i| i.is_selectable(obj(200))),
+            "the spell on the stack is drawn as an answer the question accepts"
+        );
         click(&mut app, row);
 
         let duel = app.world().resource::<crate::Duel>();

@@ -406,24 +406,43 @@ has no card at all — the picture of the permanent it came from, borrowed
 through `StackKind::Ability { source, text }`, at the face `text` names.
 
 **The entries are not peers.** The next thing to resolve is a *full* row — a
-66-pixel card, the name at reading size, what kind of thing it is and whose
-(`Ability · Llanowar Elves — *You*`, the seat in the slant because it is the
-one word that names a person), then an arrow and a picture of everything it
-points at. Everything under it is a *compact* row at two thirds of that: a
-44-pixel card, one line of name cut to fit rather than wrapped, smaller
-thumbnails, no arrow and no subtitle. The size ramp **is** the depth cue,
-which is why there is no numeral beside the rows — position already carries
-the order and the badge already carries the count.
+72-pixel card, the name at 16 px over up to two lines, what kind of thing it
+is and whose (`Ability · Llanowar Elves — *You*`, the seat in the slant
+because it is the one word that names a person), then an arrow and a picture
+of everything it points at. Everything under it is a *compact* row at about
+two thirds of that: a 46-pixel card, one line of name cut to fit rather than
+wrapped, smaller thumbnails, no arrow and no subtitle. The size ramp **is**
+the depth cue, which is why there is no numeral beside the rows — position
+already carries the order and the badge already carries the count.
 
 The arithmetic is what forces it rather than taste. The panel is
-`max_height: 62%`; a full row is about 104 logical pixels and a laptop leaves
-about 598 after the title, so six uniform rows fit and the seventh is clipped
+`max_height: 62%`; a full row is about 113 logical pixels and a laptop leaves
+about 598 after the title, so five uniform rows fit and the sixth is clipped
 with nothing to say it was — and a stack of ten is an ordinary storm turn. One
 full row and six compact ones fit the same space, and what still does not fit
 is *counted* on a last line (`+3 more`). Under the title sits one more line
 the prompt slip cannot carry: whose answer the table is waiting for, from
 `PlayerView::priority`, and nothing at all while the stack is resolving and
 nobody holds it.
+
+**The panel is 352 px wide because 296 was not wide enough for the names.**
+The name column of a queued row is the panel less the padding either side, the
+row's own padding, the rail, the card and the gap, which came to 187 px —
+measured against the shipped `Inter.ttf`'s own advance widths, 58 of the 1475
+faces in the pool (3.9%) did not fit that at the size they are drawn, and a
+further two dozen were cut short by `fit`'s estimator although they would
+have. The estimator is the part worth knowing about: it budgets characters at
+a flat `0.52 × size`, and a real name runs anywhere between 0.41 and 0.70, so
+it was wrong in **both** directions at once. Widening is what makes it safe
+rather than merely luckier. At 352 the queued column is 267 px at 14 px, the
+budget is 36 characters, and over all 1475 faces nothing clips and nothing is
+cut that would have fitted — the longest, `Okina, Temple to the
+Grandfathers`, is 245 px. The full row does not call the estimator at all: its
+name *wraps*, capped at two lines by a `max_height` over a clipped node, which
+is a bound rather than a claim about the pool — a printing this client has
+never seen gets two lines and a clean edge instead of a third line that pushes
+the queue out of the panel. If a name column is ever narrowed again, `fit` is
+the thing to replace with a real measurement rather than to re-tune.
 
 **A row arrives rather than appearing**: it lifts 14 pixels into place, grows
 from 0.96, and its ink, its fills and its accent rail come up from nothing

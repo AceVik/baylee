@@ -21,8 +21,8 @@
 //! yet, in the space the queue needs to say how deep it is.
 //!
 //! The arithmetic forces it. A full row is [`STACK_CARD_H`] plus its padding,
-//! about 104 px; the panel is 62% of the window, which on a laptop is a
-//! little over six hundred. Six uniform rows and the seventh is clipped with
+//! about 113 px; the panel is 62% of the window, which on a laptop is a
+//! little over six hundred. Five uniform rows and the sixth is clipped with
 //! nothing to say it was — and a stack of ten is a perfectly ordinary
 //! storm turn. One full row and [`STACK_COMPACT_ROWS`] compact ones fit in
 //! the same space, and what still does not fit is *counted* on a last line
@@ -46,51 +46,90 @@ use super::*;
 use baylee_client_core::card_face::TextBlock;
 
 /// The card a stack entry is drawn at, at the top of the panel.
-const STACK_CARD_W: f32 = 66.0;
+const STACK_CARD_W: f32 = 72.0;
 /// Height of that card.
 const STACK_CARD_H: f32 = STACK_CARD_W * 88.0 / 63.0;
-/// The card a *queued* entry is drawn at — two thirds of the top one, which
-/// is the whole of the ordering cue.
-const STACK_QUEUED_W: f32 = 44.0;
+/// The card a *queued* entry is drawn at — about two thirds of the top one,
+/// which is the whole of the ordering cue.
+const STACK_QUEUED_W: f32 = 46.0;
 /// Height of that card.
 const STACK_QUEUED_H: f32 = STACK_QUEUED_W * 88.0 / 63.0;
 /// The smaller card a *target* is drawn at, so the two never read as peers:
 /// the thing on the stack is the sentence, its targets are its objects.
-const STACK_TARGET_W: f32 = 38.0;
+const STACK_TARGET_W: f32 = 40.0;
 /// Height of a target thumbnail.
 const STACK_TARGET_H: f32 = STACK_TARGET_W * 88.0 / 63.0;
 /// A target of a queued entry, at the same two thirds.
-const STACK_QUEUED_TARGET_W: f32 = 25.0;
+const STACK_QUEUED_TARGET_W: f32 = 26.0;
 /// Height of that thumbnail.
 const STACK_QUEUED_TARGET_H: f32 = STACK_QUEUED_TARGET_W * 88.0 / 63.0;
-/// Panel width. Wide enough for a card, an arrow and three targets.
-const STACK_PANEL_W: f32 = 296.0;
+
+/// Panel width.
+///
+/// It was 296, which was wide enough for a card, an arrow and three targets
+/// and not wide enough for the **names**. The name column of a queued row is
+/// the panel less the padding either side, the row's own padding, the rail,
+/// the card and the gap — `W − 20 − 8 − 3 − card − 8` — which came to 187 px,
+/// and 187 px is not a name: measured over every face in the pool with the
+/// advance widths of the shipped Inter, 58 of the 1475 (3.9%) did not fit at
+/// the size they are drawn, and a further two dozen were cut by the estimator
+/// below although they would have. At **352** — a fifth of the 1728-pixel
+/// window this client is developed against, so still a panel and not a second
+/// window — that column is 267 px and **every** face in the pool fits, with
+/// the longest (`Okina, Temple to the Grandfathers`, 245 px at 14) still
+/// 22 px short of the edge.
+const STACK_PANEL_W: f32 = 352.0;
 
 /// How many compact rows are drawn under the full one.
 ///
 /// The panel is `max_height: 62%`; on the 1052-logical-pixel window this
 /// client is developed against that is 652, less 20 of padding and 34 of
-/// title leaves 598. A full row is 104 and a compact one about 70, both plus
-/// the 6 px gap: `104 + 6 + 6 × 76 = 566`, and the seventh compact row would
-/// be the first to be cut. Anything past that is counted on one line
-/// instead — a number is a worse drawing than a card and a much better one
-/// than a silent clip.
+/// title leaves 598. A full row is the card plus its padding, `101 + 12` =
+/// 113, and a compact one `64 + 8` = 72, both plus the 6 px gap:
+/// `113 + 6 + 6 × 78 = 587`, and the seventh compact row would be the first
+/// to be cut. Anything past that is counted on one line instead — a number is
+/// a worse drawing than a card and a much better one than a silent clip.
+///
+/// Six survived the widening because the panel grew sideways and not
+/// downwards: the cards are a tenth taller and the budget is unchanged.
 const STACK_COMPACT_ROWS: usize = 6;
+
+/// The name on the full row, which is the largest thing in the panel.
+const STACK_NAME_PT: f32 = 16.0;
+/// Its line box, stated rather than left to [`bevy::text`]'s 1.2 default,
+/// because [`STACK_NAME_LINES`] is a height in pixels and has to know it.
+const STACK_NAME_LINE: f32 = STACK_NAME_PT * 1.2;
+/// How many lines of it the full row will give up its height for.
+///
+/// Two, and it is the one place in the panel that wraps. A name is what the
+/// row *is*, and the nine faces in the pool that do not fit 237 px at this
+/// size are the ones a player is most likely not to know by sight — the
+/// legendary lands with a title after the comma. The cap is a `max_height`
+/// over a clipped node rather than a claim about the pool: a printing this
+/// client has never seen gets two lines and a clean edge, not a third line
+/// that pushes the queue out of the panel.
+///
+/// The queued rows below stay at one line. Their height is what the panel is
+/// budgeted against, and at 267 px every face in the pool fits on it.
+const STACK_NAME_LINES: f32 = 2.0;
+/// The name on a queued row.
+const STACK_QUEUED_NAME_PT: f32 = 14.0;
 
 /// The printed sentence under the name on the full row.
 ///
-/// Eleven, the size the subtitle beside it is already set at, and four under
+/// Twelve, the size the subtitle beside it is already set at, and four under
 /// the name: the name is what the row *is* and stays the largest thing on it,
 /// while the sentence and the subtitle are both things the row says about
 /// itself and read as one block at one size.
-const STACK_SENTENCE_PT: f32 = 11.0;
+const STACK_SENTENCE_PT: f32 = 12.0;
 /// How many lines of that sentence the row will give up its height for.
 ///
-/// Measured rather than chosen: the body is about 187 px wide, which is 32
-/// characters at this size, and the longest loyalty ability in the pool is
-/// 113 characters — three and a half lines. Four is that plus the rounding,
-/// and it is a *cut*, not a wrap limit: past it the sentence ends in an
-/// ellipsis so one pathological card cannot push the queue out of the panel.
+/// Measured rather than chosen: the body is about 237 px wide, which is
+/// around 38 characters at this size, and the longest loyalty ability in the
+/// pool is 113 characters — three lines. Four is that plus the slack word
+/// wrapping leaves at the end of a line, and it is a *cut*, not a wrap limit:
+/// past it the sentence ends in an ellipsis so one pathological card cannot
+/// push the queue out of the panel.
 const STACK_SENTENCE_LINES: f32 = 4.0;
 
 /// How fast a row arrives, per second.
@@ -716,25 +755,48 @@ fn spawn_stack_entry(
     commands.entity(row).add_child(body);
 
     // The body is the panel less its padding, the row's own padding, the rail
-    // and the card; a name is cut to fit it on one line rather than wrapped,
-    // because a two-line name in a queued row breaks the height the whole
-    // panel is budgeted against.
+    // and the card. The two rows spend it differently, and that is the whole
+    // of the ramp once more: the **full** row's name may wrap to
+    // [`STACK_NAME_LINES`], because it is the thing the row is about and nine
+    // faces in the pool are longer than one line of it; a **queued** name is
+    // cut to fit one line, because its height is what the panel is budgeted
+    // against and at 267 px every face in the pool fits on it anyway.
     let ink = if full { palette::ACCENT } else { palette::INK };
-    let size = if full { 15.0 } else { 13.0 };
+    let size = if full {
+        STACK_NAME_PT
+    } else {
+        STACK_QUEUED_NAME_PT
+    };
     let room = STACK_PANEL_W - 20.0 - if full { 12.0 } else { 8.0 } - 3.0 - width - 8.0;
-    let name = commands
-        .spawn((
+    let mut name = commands.spawn((
+        tf(fonts, size),
+        TextColor(ink),
+        Arriving::ink(key, ink.alpha()),
+        // The row is what the pointer is on, and a label is a node: left
+        // pickable it would take the hover for itself and the row around
+        // it would never light.
+        Pickable::IGNORE,
+    ));
+    if full {
+        name.insert((
+            Text::new(item.name.clone()),
+            bevy::text::LineHeight::Px(STACK_NAME_LINE),
+            // A cap in pixels rather than a claim about the pool: a printing
+            // this client has never seen gets two lines and a clean edge
+            // instead of a third line that pushes the queue out of the panel.
+            Node {
+                max_height: px(STACK_NAME_LINES * STACK_NAME_LINE),
+                overflow: Overflow::clip(),
+                ..default()
+            },
+        ));
+    } else {
+        name.insert((
             Text::new(fit(&item.name, room, size)),
-            tf(fonts, size),
             TextLayout::linebreak(bevy::text::LineBreak::NoWrap),
-            TextColor(ink),
-            Arriving::ink(key, ink.alpha()),
-            // The row is what the pointer is on, and a label is a node: left
-            // pickable it would take the hover for itself and the row around
-            // it would never light.
-            Pickable::IGNORE,
-        ))
-        .id();
+        ));
+    }
+    let name = name.id();
     commands.entity(body).add_child(name);
 
     // What kind of thing this is, and whose — on the top row only. An ability
@@ -754,7 +816,7 @@ fn spawn_stack_entry(
         let subtitle = commands
             .spawn((
                 Text::default(),
-                tf(fonts, 11.0),
+                tf(fonts, STACK_SENTENCE_PT),
                 TextColor(palette::MUTED),
                 Arriving::ink(key, palette::MUTED.alpha()),
                 Pickable::IGNORE,
@@ -764,7 +826,7 @@ fn spawn_stack_entry(
             let span = commands
                 .spawn((
                     TextSpan::new(format!("{kind} — ")),
-                    tf(fonts, 11.0),
+                    tf(fonts, STACK_SENTENCE_PT),
                     TextColor(palette::MUTED),
                     Arriving::ink(key, palette::MUTED.alpha()),
                 ))
@@ -772,12 +834,12 @@ fn spawn_stack_entry(
             commands.entity(subtitle).add_child(span);
         }
         // The seat in the slant, and only the seat: it is the one word of the
-        // subtitle that names a *person*, and italic Inter at eleven pixels
-        // over this ground is legible for a word and tiring for a sentence.
+        // subtitle that names a *person*, and italic Inter at this size over
+        // this ground is legible for a word and tiring for a sentence.
         let seat = commands
             .spawn((
                 TextSpan::new(statics.seat_name(item.controller).to_string()),
-                tf_italic(fonts, 11.0),
+                tf_italic(fonts, STACK_SENTENCE_PT),
                 TextColor(palette::MUTED),
                 Arriving::ink(key, palette::MUTED.alpha()),
             ))
@@ -1151,6 +1213,18 @@ fn stack_sentence(
 /// deliberately generous, because the cost of guessing narrow is one word
 /// clipped by the body's own `overflow` and the cost of guessing wide is a
 /// name cut short that would have fitted.
+///
+/// **It is a guess and the widening is what makes it a safe one.** Measured
+/// against the shipped `Inter.ttf`'s own advance widths, a real name runs
+/// between 0.41 and 0.70 of its length times its size, not 0.52, so at the old
+/// 187-pixel column this cut four names that then clipped anyway and
+/// twenty-four that would have fitted whole. The only caller left is the
+/// **queued** row, whose column is now 267 px at 14: over all 1475 faces in
+/// the pool the budget is 36 characters, nothing clips and nothing is cut
+/// that would have fitted — the estimator is exercised and wrong about
+/// nothing. The full row does not call it at all; it wraps. If a name column
+/// is ever narrowed again, this is the thing to replace with a real
+/// measurement rather than to re-tune.
 ///
 /// The ellipsis replaces characters rather than joining them, so the result
 /// never grows past the budget, and the cut is on `char` boundaries because a
