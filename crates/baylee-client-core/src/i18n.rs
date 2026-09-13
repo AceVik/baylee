@@ -17,9 +17,16 @@
 //! that lets you ship half of it is what makes it never get finished.
 //!
 //! Nothing here touches a renderer, so the whole of it is testable without a
-//! window, and the two rules worth having are tests: every phrase answers in
-//! every language, and a phrase's placeholders are the same set in all of
-//! them — `{0}` moving is what translation *is*, `{0}` vanishing is a bug.
+//! window, and the three rules worth having are tests: every phrase answers in
+//! every language, a phrase's placeholders are the same set in all of
+//! them — `{0}` moving is what translation *is*, `{0}` vanishing is a bug —
+//! and **no phrase carries a bracketed plural**.
+//!
+//! That last one is [`Phrase::counted`]. A sentence whose subject is counted
+//! is written **twice**, once for one thing and once for the rest, and the
+//! number picks between them; `card(s)` and `Karte(n)` are not plurals, and
+//! the sheet drew them in grey as bracketed asides beside the very number
+//! they disagreed with.
 //!
 //! # What is not here
 //!
@@ -849,10 +856,15 @@ messages! {
         en: "{0} lands in {1} cards is thin for this curve.",
         de: "{0} Länder auf {1} Karten sind dünn für diese Kurve.",
     },
-    /// {0} card(s) are not fully implemented yet and will not play as printed.
+    /// {0} card is not fully implemented yet and will not play as printed.
+    ShakyCard {
+        en: "{0} card is not fully implemented yet and will not play as printed.",
+        de: "{0} Karte ist noch nicht vollständig umgesetzt und spielt nicht wie gedruckt.",
+    },
+    /// {0} cards are not fully implemented yet and will not play as printed.
     ShakyCards {
-        en: "{0} card(s) are not fully implemented yet and will not play as printed.",
-        de: "{0} Karte(n) sind noch nicht vollständig umgesetzt und spielen nicht wie gedruckt.",
+        en: "{0} cards are not fully implemented yet and will not play as printed.",
+        de: "{0} Karten sind noch nicht vollständig umgesetzt und spielen nicht wie gedruckt.",
     },
 
 
@@ -875,20 +887,50 @@ messages! {
     },
     /// Keep this hand? ({0} taken)
     MulliganTaken { en: "Keep this hand? ({0} taken)", de: "Diese Hand behalten? ({0} genommen)" },
-    /// Put {0} card(s) on the bottom
-    PutOnBottom { en: "Put {0} card(s) on the bottom", de: "Lege {0} Karte(n) nach unten" },
+    /// Put {0} card on the bottom
+    PutCardOnBottom { en: "Put {0} card on the bottom", de: "Lege {0} Karte nach unten" },
+    /// Put {0} cards on the bottom
+    PutOnBottom { en: "Put {0} cards on the bottom", de: "Lege {0} Karten nach unten" },
     /// Declare attackers
     DeclareAttackers { en: "Declare attackers", de: "Angreifer deklarieren" },
     /// Declare blockers
     DeclareBlockers { en: "Declare blockers", de: "Blocker deklarieren" },
-    /// Discard {0} card(s)
-    DiscardCards { en: "Discard {0} card(s)", de: "Wirf {0} Karte(n) ab" },
+    /// Discard {0} card
+    DiscardCard { en: "Discard {0} card", de: "Wirf {0} Karte ab" },
+    /// Discard {0} cards
+    DiscardCards { en: "Discard {0} cards", de: "Wirf {0} Karten ab" },
     /// Legend rule: keep one
     LegendRule { en: "Legend rule: keep one", de: "Legendenregel: behalte eine" },
-    /// card(s)
-    NounCards { en: "card(s)", de: "Karte(n)" },
-    /// target(s)
-    NounTargets { en: "target(s)", de: "Ziel(e)" },
+    /// card
+    NounCard { en: "card", de: "Karte" },
+    /// cards
+    NounCards { en: "cards", de: "Karten" },
+    /// target
+    NounTarget { en: "target", de: "Ziel" },
+    /// targets
+    NounTargets { en: "targets", de: "Ziele" },
+    /// card from your library
+    NounCardFromLibrary { en: "card from your library", de: "Karte aus deiner Bibliothek" },
+    /// cards from your library
+    NounCardsFromLibrary { en: "cards from your library", de: "Karten aus deiner Bibliothek" },
+    /// card to put on the bottom
+    NounCardToBottom { en: "card to put on the bottom", de: "Karte, die nach unten geht" },
+    /// cards to put on the bottom
+    NounCardsToBottom { en: "cards to put on the bottom", de: "Karten, die nach unten gehen" },
+    /// card to put on top of your library
+    NounCardToTop {
+        en: "card to put on top of your library",
+        de: "Karte, die oben auf deine Bibliothek kommt",
+    },
+    /// cards to put on top of your library
+    NounCardsToTop {
+        en: "cards to put on top of your library",
+        de: "Karten, die oben auf deine Bibliothek kommen",
+    },
+    /// card from outside the game
+    NounCardOutside { en: "card from outside the game", de: "Karte von außerhalb der Partie" },
+    /// cards from outside the game
+    NounCardsOutside { en: "cards from outside the game", de: "Karten von außerhalb der Partie" },
     /// Convoke: tap creatures or artifacts to help pay
     ConvokeToHelpPay { en: "Tap creatures or artifacts to help pay — each pays for one", de: "Tippe Kreaturen oder Artefakte an, um mitzubezahlen — jedes zahlt eins" },
     /// Delve: exile cards from your graveyard to help pay
@@ -1377,6 +1419,27 @@ impl Phrase {
         text
     }
 
+    /// The form of a counted sentence that `n` things ask for.
+    ///
+    /// Both languages split in the same place — exactly one against anything
+    /// else — so the number picks the sentence and the language never has to
+    /// be asked. **Zero takes the plural**, which is both languages again:
+    /// "Choose up to 0 cards", "Wähle bis zu 0 Karten".
+    ///
+    /// This exists because the file said `card(s)` and `Karte(n)` out loud in
+    /// five places, and the sheet's own typography greys a bracketed aside
+    /// ([`crate::prose::bracketed`]) — so a broken plural was drawn as an
+    /// editorial remark, in grey, next to the number it disagreed with. The
+    /// repair is not a suffix: German wants a relative clause here
+    /// ("Karte, die nach unten geht" against "Karten, die nach unten gehen"),
+    /// and the verb inside it agrees too. Only a whole second literal can say
+    /// that, which is why a counted phrase is written twice rather than
+    /// assembled.
+    #[must_use]
+    pub const fn counted(n: usize, one: Self, many: Self) -> Self {
+        if n == 1 { one } else { many }
+    }
+
     /// The placeholders this phrase carries, as their indices.
     ///
     /// Used by the test that keeps the languages in step: word order is the
@@ -1462,6 +1525,56 @@ mod tests {
                     english,
                     "{phrase:?} loses or invents a placeholder in {lang:?}"
                 );
+            }
+        }
+    }
+
+    /// `card(s)` is not a plural in any language, and the sheet greys what a
+    /// sentence says in brackets — so the broken form was drawn as an
+    /// editorial aside, in grey, right beside the number it disagreed with.
+    /// [`Phrase::counted`] is the way to say this; a bracketed suffix is not.
+    #[test]
+    fn no_phrase_fakes_a_plural_with_a_bracket() {
+        for phrase in Phrase::ALL {
+            for lang in Lang::ALL {
+                let text = phrase.text(lang);
+                for fake in ["(s)", "(n)", "(e)", "(en)", "(er)"] {
+                    assert!(
+                        !text.contains(fake),
+                        "{phrase:?} says {fake} in {lang:?} instead of being written twice"
+                    );
+                }
+            }
+        }
+    }
+
+    /// A counted phrase is two literals, and the pair has to stay one
+    /// sentence: the same values in the same slots, or the singular quietly
+    /// drops the number it is counting.
+    #[test]
+    fn both_forms_of_a_counted_phrase_carry_the_same_values() {
+        let pairs = [
+            (Phrase::ShakyCard, Phrase::ShakyCards),
+            (Phrase::PutCardOnBottom, Phrase::PutOnBottom),
+            (Phrase::DiscardCard, Phrase::DiscardCards),
+            (Phrase::NounCard, Phrase::NounCards),
+            (Phrase::NounTarget, Phrase::NounTargets),
+            (Phrase::NounCardFromLibrary, Phrase::NounCardsFromLibrary),
+            (Phrase::NounCardToBottom, Phrase::NounCardsToBottom),
+            (Phrase::NounCardToTop, Phrase::NounCardsToTop),
+            (Phrase::NounCardOutside, Phrase::NounCardsOutside),
+        ];
+        for (one, many) in pairs {
+            for lang in Lang::ALL {
+                assert_eq!(
+                    one.slots(lang),
+                    many.slots(lang),
+                    "{one:?} and {many:?} disagree about their values in {lang:?}"
+                );
+            }
+            assert_eq!(Phrase::counted(1, one, many), one);
+            for n in [0, 2, 7] {
+                assert_eq!(Phrase::counted(n, one, many), many);
             }
         }
     }

@@ -219,7 +219,12 @@ impl Prompt {
                     Phrase::MulliganTaken.fill(lang, &[&taken.to_string()])
                 }
             }
-            Self::BottomCards { count } => Phrase::PutOnBottom.fill(lang, &[&count.to_string()]),
+            Self::BottomCards { count } => Phrase::counted(
+                usize::from(*count),
+                Phrase::PutCardOnBottom,
+                Phrase::PutOnBottom,
+            )
+            .fill(lang, &[&count.to_string()]),
             // Not "You have priority". A priority window is an invitation, and
             // stating the rules term for it — next to a button labelled OK —
             // read as a modal that had to be dismissed before play could go on.
@@ -234,7 +239,12 @@ impl Prompt {
             },
             Self::DeclareAttackers => Phrase::DeclareAttackers.text(lang).to_string(),
             Self::DeclareBlockers { .. } => Phrase::DeclareBlockers.text(lang).to_string(),
-            Self::Discard { count } => Phrase::DiscardCards.fill(lang, &[&count.to_string()]),
+            Self::Discard { count } => Phrase::counted(
+                usize::from(*count),
+                Phrase::DiscardCard,
+                Phrase::DiscardCards,
+            )
+            .fill(lang, &[&count.to_string()]),
             Self::LegendRule => Phrase::LegendRule.text(lang).to_string(),
             // Delve and convoke are not selections of cards or of targets:
             // both are "spend what you have to help pay", and a line saying
@@ -243,13 +253,21 @@ impl Prompt {
                 reason: ChoicePrompt::Delve,
                 ..
             } => Phrase::DelveToHelpPay.text(lang).to_string(),
-            Self::ChooseCards { min, max, .. } => choose_line(lang, Phrase::NounCards, *min, *max),
+            // Every other reason is said by the noun that is counted, which is
+            // the one place in this sentence where it fits: "Wähle bis zu 2
+            // Karten, die nach unten gehen". Without it a tutor, a scry, a
+            // put-back and a wish all read "Wähle 1 Karte", and two of those
+            // four decide the turn.
+            Self::ChooseCards { reason, min, max } => {
+                let (one, many) = choice_noun(*reason);
+                choose_line(lang, one, many, *min, *max)
+            }
             Self::ChooseTargets {
                 reason: TargetPrompt::Convoke,
                 ..
             } => Phrase::ConvokeToHelpPay.text(lang).to_string(),
             Self::ChooseTargets { min, max, .. } => {
-                choose_line(lang, Phrase::NounTargets, *min, *max)
+                choose_line(lang, Phrase::NounTarget, Phrase::NounTargets, *min, *max)
             }
             Self::ChooseSubtype { .. } => Phrase::ChooseCreatureType.text(lang).to_string(),
             Self::ChooseColor { .. } => Phrase::ChooseColour.text(lang).to_string(),
@@ -376,13 +394,37 @@ pub fn ending_reason(lang: Lang, result: &GameResult) -> Option<String> {
     Some(phrase.text(lang).to_string())
 }
 
+/// What a card choice is *for*, as the noun it counts — both forms.
+///
+/// [`ChoicePrompt`] has six variants and the prompt bar used to read one of
+/// them. A library search, a scry, a put-back and a wish are four different
+/// decisions and were four copies of the same sentence, so a player could not
+/// tell whether they were fetching something, burying it or bringing it in
+/// from outside. `Delve` is answered a line earlier (it is part of a cost,
+/// not a selection) and `Generic` is the plain noun, which is honest: the
+/// engine did not say what it was for either.
+fn choice_noun(reason: ChoicePrompt) -> (Phrase, Phrase) {
+    match reason {
+        ChoicePrompt::SearchLibrary => (Phrase::NounCardFromLibrary, Phrase::NounCardsFromLibrary),
+        ChoicePrompt::ScryBottom => (Phrase::NounCardToBottom, Phrase::NounCardsToBottom),
+        ChoicePrompt::PutBackOnTop => (Phrase::NounCardToTop, Phrase::NounCardsToTop),
+        ChoicePrompt::Wish => (Phrase::NounCardOutside, Phrase::NounCardsOutside),
+        ChoicePrompt::Delve | ChoicePrompt::Generic => (Phrase::NounCard, Phrase::NounCards),
+    }
+}
+
 /// "Choose two cards", with the noun as an argument rather than glued on.
 ///
 /// A count and a noun agree differently in different languages, so the whole
 /// sentence has to be one phrase — pasting a translated noun onto a
 /// translated "choose up to" is how a translation ends up ungrammatical.
-fn choose_line(lang: Lang, noun: Phrase, min: u8, max: u8) -> String {
-    let noun = noun.text(lang);
+///
+/// The noun comes in both forms and **`max` picks between them**, because
+/// `max` is the number the noun stands next to in all three frames: "up to
+/// 2 cards", "1 card", "1–3 cards". A range whose top is more than one is
+/// plural however low it starts.
+fn choose_line(lang: Lang, one: Phrase, many: Phrase, min: u8, max: u8) -> String {
+    let noun = Phrase::counted(usize::from(max), one, many).text(lang);
     match (min, max) {
         (0, m) => Phrase::ChooseUpTo.fill(lang, &[&m.to_string(), noun]),
         (a, b) if a == b => Phrase::ChooseExactly.fill(lang, &[&a.to_string(), noun]),
@@ -2479,7 +2521,7 @@ mod tests {
         });
         assert_eq!(
             i.prompt().headline(Lang::En, Turn::Mine),
-            "Choose up to 2 target(s)"
+            "Choose up to 2 targets"
         );
 
         let i = interaction(Pending::ChooseNumber {
@@ -2500,6 +2542,58 @@ mod tests {
         assert_eq!(
             i.prompt().headline(Lang::En, Turn::Mine),
             "Pay 2 life? Otherwise it enters tapped"
+        );
+    }
+
+    /// The backlog's own check, as a test: four card choices, and each line
+    /// has to be placeable without knowing which card asked it. Before this,
+    /// all four read "Choose 1 card(s)".
+    #[test]
+    fn four_card_choices_read_as_four_different_decisions() {
+        let line = |reason, min, max, lang| {
+            interaction(Pending::ChooseCards {
+                player: me(),
+                options: vec![obj(1), obj(2), obj(3)],
+                min,
+                max,
+                prompt: reason,
+            })
+            .prompt()
+            .headline(lang, Turn::Mine)
+        };
+
+        assert_eq!(
+            line(ChoicePrompt::SearchLibrary, 1, 1, Lang::En),
+            "Choose 1 card from your library"
+        );
+        assert_eq!(
+            line(ChoicePrompt::ScryBottom, 0, 2, Lang::De),
+            "Wähle bis zu 2 Karten, die nach unten gehen"
+        );
+        assert_eq!(
+            line(ChoicePrompt::PutBackOnTop, 1, 1, Lang::De),
+            "Wähle 1 Karte, die oben auf deine Bibliothek kommt"
+        );
+        assert_eq!(
+            line(ChoicePrompt::Wish, 1, 3, Lang::En),
+            "Choose 1–3 cards from outside the game"
+        );
+        // Delve is answered a line earlier: it is part of a cost, not a
+        // selection, and that arm must not be shadowed by the reason noun.
+        assert_eq!(
+            line(ChoicePrompt::Delve, 0, 4, Lang::En),
+            "Exile cards from your graveyard to help pay — each pays for one"
+        );
+
+        // And the whole of AS's second half: one card is never "card(s)".
+        for lang in Lang::ALL {
+            let one = line(ChoicePrompt::Generic, 1, 1, lang);
+            assert!(!one.contains("(s)") && !one.contains("(n)"), "{one}");
+        }
+        assert_eq!(line(ChoicePrompt::Generic, 1, 1, Lang::De), "Wähle 1 Karte");
+        assert_eq!(
+            line(ChoicePrompt::Generic, 2, 2, Lang::De),
+            "Wähle 2 Karten"
         );
     }
 

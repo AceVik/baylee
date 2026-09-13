@@ -3572,9 +3572,31 @@ substitutes `{0}`, `{1}` … left to right and leaves an unfilled placeholder
 standing, because a visible `{2}` is a bug report and a silently dropped one is
 a sentence that means something else.
 
-Two rules are tests rather than conventions: every phrase answers in every
-language, and a phrase's placeholder *set* is the same in all of them — `{0}`
-moving is what translation is, `{0}` vanishing is a bug.
+Three rules are tests rather than conventions: every phrase answers in every
+language, a phrase's placeholder *set* is the same in all of them — `{0}`
+moving is what translation is, `{0}` vanishing is a bug — and **no phrase
+fakes a plural with a bracket**.
+
+A sentence whose subject is counted is written **twice** — once for exactly
+one thing, once for everything else — and `Phrase::counted(n, one, many)`
+picks between them; both languages split in the same place, so the number
+decides and the language is never asked, and zero takes the plural in both.
+`card(s)` and `Karte(n)` are not plurals, and the sheet's own typography
+greys what a sentence says in brackets (`prose::bracketed`), so the broken
+form was drawn as an editorial aside, in grey, beside the number it
+disagreed with. A suffix would not have been enough either: German wants a
+relative clause here — "Karte, die nach unten geht" against "Karten, die
+nach unten gehen" — and the verb inside it agrees too, which only a whole
+second literal can say.
+
+The noun is also where a card choice says what it is **for**. `ChoicePrompt`
+has six variants; the prompt bar read one, so a library search, a scry, a
+put-back and a wish were four copies of "Choose 1 card". `choice_noun` gives
+each its own counted pair, which fits inside the counting frame without a
+second sentence: "Wähle bis zu 2 Karten, die nach unten gehen". `Delve` is
+answered a line earlier (it is part of a cost, not a selection) and
+`Generic` stays the plain noun, which is honest — the engine did not say
+what it was for either.
 
 Who says what:
 
@@ -3595,9 +3617,11 @@ Who says what:
   `Phrase` compares as itself in every language, where the English string
   would have been a key that changed meaning when the screen did.
 - A whole sentence is one phrase, never a translated verb with a translated
-  noun pasted on. `choose_line` takes `Phrase::NounCards` as an argument to
+  noun pasted on. `choose_line` takes the noun as an argument to
   `Phrase::ChooseUpTo` for exactly that reason: a count and a noun agree
-  differently in different languages.
+  differently in different languages. It takes **both forms** of it and picks
+  by `max`, because `max` is the number the noun stands next to in all three
+  frames — "up to 2 cards", "1 card", "1–3 cards".
 - `input.rs` asks for ability labels in English on purpose and says so: that
   path reads only each option's `action` — it picks by position or takes the
   only one there is — and never draws a label.
