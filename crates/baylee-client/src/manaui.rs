@@ -214,19 +214,18 @@ fn spawn_loyalty(
     let down = loy.tick == Tick::Down;
     // The point that stands proud of the body: half the turned square's
     // diagonal, the other half being what the body covers.
-    let rise = if loy.tick == Tick::Flat {
-        0.0
-    } else {
-        square * std::f32::consts::SQRT_2 / 2.0
-    };
+    //
+    // [`Tick::Flat`] points **up** with the rest, which the printed card does
+    // not — a zero is a flat lozenge there. It is drawn as a plus because that
+    // is what it costs the player: an ability you may use without spending
+    // loyalty is one you may always use, which is the claim `+N` makes. The
+    // model still keeps the three ticks apart (the parser reads them and the
+    // prose prints them), so this is a drawing decision and nothing else in
+    // the client reads it.
+    let rise = square * std::f32::consts::SQRT_2 / 2.0;
     let body = size;
-    // The zero is a lozenge and not a shield, so both its ends are rounded; a
-    // pointed badge keeps its blunt end nearly square, the way the card does.
-    let round = if loy.tick == Tick::Flat {
-        body * 0.42
-    } else {
-        body * 0.18
-    };
+    // A pointed badge keeps its blunt end nearly square, the way the card does.
+    let round = body * 0.18;
     let lift = rise * NUMBER_LIFT;
     commands.entity(badge).insert(Node {
         width: Val::Auto,
@@ -244,41 +243,39 @@ fn spawn_loyalty(
         ..default()
     });
 
-    if loy.tick != Tick::Flat {
-        // A square turned about its own middle overhangs its box by the same
-        // `(√2−1)/2` on every side; insetting by that puts the far vertex on
-        // the badge's own edge.
-        let inset = square * (std::f32::consts::SQRT_2 - 1.0) / 2.0;
-        let lane = commands
-            .spawn((
-                Node {
-                    position_type: PositionType::Absolute,
-                    left: px(0.0),
-                    right: px(0.0),
-                    top: if down { Val::Auto } else { px(inset) },
-                    bottom: if down { px(inset) } else { Val::Auto },
-                    height: px(square),
-                    justify_content: JustifyContent::Center,
-                    ..default()
-                },
-                Pickable::IGNORE,
-            ))
-            .id();
-        let point = commands
-            .spawn((
-                Node {
-                    width: px(square),
-                    height: px(square),
-                    ..default()
-                },
-                UiTransform::from_rotation(Rot2::radians(std::f32::consts::FRAC_PI_4)),
-                BackgroundColor(palette::PARCHMENT_INK),
-                Pickable::IGNORE,
-            ))
-            .id();
-        commands.entity(lane).add_child(point);
-        commands.entity(badge).add_child(lane);
-    }
+    // A square turned about its own middle overhangs its box by the same
+    // `(√2−1)/2` on every side; insetting by that puts the far vertex on
+    // the badge's own edge.
+    let inset = square * (std::f32::consts::SQRT_2 - 1.0) / 2.0;
+    let lane = commands
+        .spawn((
+            Node {
+                position_type: PositionType::Absolute,
+                left: px(0.0),
+                right: px(0.0),
+                top: if down { Val::Auto } else { px(inset) },
+                bottom: if down { px(inset) } else { Val::Auto },
+                height: px(square),
+                justify_content: JustifyContent::Center,
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    let point = commands
+        .spawn((
+            Node {
+                width: px(square),
+                height: px(square),
+                ..default()
+            },
+            UiTransform::from_rotation(Rot2::radians(std::f32::consts::FRAC_PI_4)),
+            BackgroundColor(palette::PARCHMENT_INK),
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(lane).add_child(point);
+    commands.entity(badge).add_child(lane);
 
     let slab = commands
         .spawn((

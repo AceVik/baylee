@@ -1375,7 +1375,7 @@ pub use seatbar::{
     measure_shelves, place_seat_bars, stretch_step_tiles, sync_seat_bars,
 };
 pub use sheet::{
-    AbilitySheet, AbilitySheetRoot, SheetPager, SheetRevision, place_ability_sheet,
+    AbilitySheet, AbilitySheetRoot, SheetClose, SheetPager, SheetRevision, place_ability_sheet,
     sync_ability_sheet,
 };
 pub use slip::{SlipWash, wash_the_slip_in};

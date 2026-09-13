@@ -32,13 +32,27 @@ use super::*;
 use baylee_client_core::abilitysheet;
 use baylee_client_core::card_face::TextBlock;
 
-/// How wide the sheet is.
+/// The narrowest the sheet is drawn.
 ///
-/// Wide enough for a printed sentence at 13 px without the rows turning into
-/// paragraphs — about forty characters, which covers most of what an
-/// activated ability says — and narrow enough that a sheet standing beside a
-/// permanent in the middle lane does not reach either edge of the window.
-const SHEET_W: f32 = 300.0;
+/// The sheet is as wide as what is written on it, between this and
+/// [`SHEET_MAX`]. One fixed width was doing two jobs that pull opposite ways:
+/// wide enough that a long sentence does not come out as a column of two-word
+/// lines, and narrow enough that a short one is not a keycap alone on a field
+/// of paper. A single number picks the losing side of one of them.
+///
+/// The floor is what keeps a sheet of one-word rows (`+1`, `Tap for {G}`) a
+/// sheet rather than a label, and it is what the footer — two halves pushed
+/// apart, and the widest fixed thing here — is measured against.
+const SHEET_MIN: f32 = 230.0;
+
+/// The widest.
+///
+/// A printed sentence at 13 px reaches about sixty characters across this,
+/// which is where a line stops being comfortable to read; past it the rows
+/// wrap, which is what a *maximum* is for. It also keeps a sheet standing
+/// beside a permanent in the middle lane clear of both window edges, which
+/// the fixed width was chosen for and is the one job it was doing well.
+const SHEET_MAX: f32 = 380.0;
 
 /// The air between the card and the sheet's near edge.
 const SHEET_GAP: f32 = 10.0;
@@ -61,13 +75,18 @@ const SHEET_PAD_X: f32 = 12.0;
 /// The same, above and below.
 const SHEET_PAD_Y: f32 = 10.0;
 
-/// The digit keycap's side.
+/// A keycap's side, as a multiple of the legend on it.
 ///
 /// A square and not a disc, because what it stands for is a **key**: the digit
 /// on it is the one a player presses to arm that row, and a keyboard has no
 /// round keys. It was a roundel and read as a bullet — an ornament numbering
 /// a list rather than a control naming a keystroke.
-const KEYCAP: f32 = 21.0;
+///
+/// A *ratio* and not a side, because the sheet draws caps at two sizes. It was
+/// 21 px flat, which is 1.9 times the rows' 11 pt and was right there and
+/// wrong everywhere else: the footer's smaller legend sat in the same 21 px
+/// box, so the quietest key on the sheet had the largest cap on it.
+const KEYCAP_SIDE: f32 = 1.9;
 
 /// The keycap's corner radius, and the row's.
 ///
@@ -115,6 +134,16 @@ pub struct AbilitySheet {
 /// The tenth row, which turns the page.
 #[derive(Component)]
 pub struct SheetPager;
+
+/// The cross in the head, which is `Esc` for a hand that is not on the
+/// keyboard.
+///
+/// The footer already says the way out, and says it in the one register a
+/// pointer cannot use: a keycap is a *reminder*, not a control, and a player
+/// on a tablet has nothing to press. This is the same door with a hit box on
+/// it, in the place every window in the world puts one.
+#[derive(Component)]
+pub struct SheetClose;
 
 /// What the sheet is currently saying, so it is rebuilt only when that
 /// changes.
@@ -276,7 +305,15 @@ fn spawn_sheet(
             },
             Node {
                 position_type: PositionType::Absolute,
-                width: px(SHEET_W),
+                // As wide as what is on it. An absolutely-positioned node
+                // shrink-wraps its content, so the bound is the pair of
+                // limits and not a width — and the rows have to be able to
+                // *ask* for their natural width for that to mean anything,
+                // which is what `flex_basis: Auto` on a row's prose column is
+                // for.
+                width: Val::Auto,
+                min_width: px(SHEET_MIN),
+                max_width: px(SHEET_MAX),
                 flex_direction: FlexDirection::Column,
                 padding: UiRect::vertical(px(SHEET_PAD_Y)),
                 border: UiRect::all(px(1)),
@@ -336,7 +373,7 @@ fn spawn_sheet(
     sheet
 }
 
-/// The permanent's name, and the hairline under it.
+/// The permanent's name, the way out, and the hairline under them.
 ///
 /// There used to be a line of spaced capitals between the two saying what the
 /// list below was ("what it can do"). It was the one place in the interface
@@ -352,10 +389,31 @@ fn spawn_head(
     object: ObjectId,
     sheet: Entity,
 ) {
+    /// The close button's side.
+    ///
+    /// Larger than a keycap and smaller than the 44 logical pixels the lobby
+    /// gives a phone. The sheet is not a responsive screen — it is pinned to
+    /// a card 47 px wide — so a target sized for a thumb would be a third of
+    /// the paper's width; this is sized for a finger on a tablet, which is
+    /// what a card on a table is played with.
+    const CLOSE: f32 = 24.0;
+
     let name = duel.view.as_ref().map_or_else(String::new, |view| {
         view.object(object)
             .map_or_else(String::new, |o| crate::face::name_of(o, view, faces))
     });
+    let row = commands
+        .spawn((
+            Node {
+                flex_direction: FlexDirection::Row,
+                align_items: AlignItems::Center,
+                column_gap: px(6),
+                margin: UiRect::horizontal(px(SHEET_PAD_X)),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
     let head = commands
         .spawn((
             Text::new(name),
@@ -375,13 +433,52 @@ fn spawn_head(
             tf_bold(fonts, 16.0),
             TextColor(palette::INK_BRASS),
             Node {
-                margin: UiRect::horizontal(px(SHEET_PAD_X)),
+                // It takes the slack, so the cross is against the right
+                // margin whatever the name is and however wide the sheet
+                // came out — and `min_width: 0` lets a long name wrap rather
+                // than push the cross off the paper.
+                flex_grow: 1.0,
+                min_width: px(0),
                 ..default()
             },
             Pickable::IGNORE,
         ))
         .id();
-    commands.entity(sheet).add_child(head);
+    commands.entity(row).add_child(head);
+
+    let shut = commands
+        .spawn((
+            SheetClose,
+            Node {
+                width: px(CLOSE),
+                height: px(CLOSE),
+                flex_shrink: 0.0,
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+                border_radius: BorderRadius::all(px(KEYCAP_R)),
+                ..default()
+            },
+            BackgroundColor(Color::NONE),
+            Feel::rising_to(Color::NONE, PICKED_WASH),
+        ))
+        .id();
+    let cross = commands
+        .spawn((
+            // `×` (U+00D7), which Alegreya Sans' Bold cut carries — the
+            // dedicated multiplication and ballot crosses (U+2715, U+2716)
+            // are not in the family and would draw as tofu.
+            Text::new("\u{d7}"),
+            tf_bold(fonts, 15.0),
+            // The same grey as the way out in the footer. The two are one
+            // door drawn twice, once for each hand.
+            TextColor(palette::SLIP_ASIDE),
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(shut).add_child(cross);
+    commands.entity(row).add_child(shut);
+
+    commands.entity(sheet).add_child(row);
     let hair = rule(commands, 5.0);
     commands.entity(sheet).add_child(hair);
 }
@@ -408,6 +505,19 @@ fn spawn_foot(
 ) {
     /// The footer's own size, a little under the rows'.
     const FOOT_PT: f32 = 10.5;
+    /// The way out is drawn smaller than the digit that sends.
+    ///
+    /// The two halves are not a pair: one is the next thing a player is going
+    /// to do and the other is the door, which is in the same place on every
+    /// sheet and only has to be findable. Size and colour say that once each.
+    const EXIT_PT: f32 = 9.5;
+    /// The air between the hairline and the footer's own line.
+    ///
+    /// More than the 2 px [`rule`] leaves under itself, because the rule is
+    /// parting two *kinds* of writing here and not two rows of the same kind:
+    /// above it is what this permanent can do, below it is how the keyboard
+    /// works.
+    const FOOT_AIR: f32 = 6.0;
 
     let hair = rule(commands, 8.0);
     commands.entity(sheet).add_child(hair);
@@ -415,21 +525,26 @@ fn spawn_foot(
         .spawn((
             Node {
                 flex_direction: FlexDirection::Row,
+                // Both halves on the exit's middle. `Center` and not
+                // `SpaceBetween`'s default baseline: the two halves are
+                // different heights (a cap plus words against words alone),
+                // and a line of prose beside a keycap reads as sitting low
+                // unless something says otherwise.
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::SpaceBetween,
                 column_gap: px(8),
-                margin: UiRect::horizontal(px(SHEET_PAD_X)),
+                margin: UiRect::new(px(SHEET_PAD_X), px(SHEET_PAD_X), px(FOOT_AIR), px(0.0)),
                 ..default()
             },
             Pickable::IGNORE,
         ))
         .id();
 
-    let words = |commands: &mut Commands, text: String| {
+    let words = |commands: &mut Commands, text: String, size: f32| {
         commands
             .spawn((
                 Text::new(text),
-                tf(fonts, FOOT_PT),
+                tf(fonts, size),
                 TextColor(palette::SLIP_ASIDE),
                 Pickable::IGNORE,
             ))
@@ -451,12 +566,29 @@ fn spawn_foot(
         ))
         .id();
     if let Some(digit) = armed.and_then(digit_of) {
-        let key = cap(commands, fonts, &digit.to_string(), palette::BRASS, FOOT_PT);
+        let key = cap(
+            commands,
+            fonts,
+            &digit.to_string(),
+            palette::BRASS,
+            // Dark on gold. White on brass fails contrast, and an armed row
+            // is the one a player is about to commit to.
+            palette::PARCHMENT_INK,
+            FOOT_PT,
+        );
         commands.entity(left).add_child(key);
-        let says = words(commands, Phrase::SheetPressAgain.text(lang).to_string());
+        let says = words(
+            commands,
+            Phrase::SheetPressAgain.text(lang).to_string(),
+            FOOT_PT,
+        );
         commands.entity(left).add_child(says);
     } else {
-        let says = words(commands, Phrase::SheetDigitPicks.text(lang).to_string());
+        let says = words(
+            commands,
+            Phrase::SheetDigitPicks.text(lang).to_string(),
+            FOOT_PT,
+        );
         commands.entity(left).add_child(says);
     }
     commands.entity(foot).add_child(left);
@@ -477,10 +609,17 @@ fn spawn_foot(
         fonts,
         &baylee_client_core::prefs::Chord::key("Escape").display(),
         palette::SLIP_GHOST,
-        FOOT_PT,
+        // The same grey as the words beside it, so the cap and its sentence
+        // are one aside instead of a black key with a quiet label.
+        palette::SLIP_ASIDE,
+        EXIT_PT,
     );
     commands.entity(right).add_child(key);
-    let says = words(commands, Phrase::SheetCloses.text(lang).to_string());
+    let says = words(
+        commands,
+        Phrase::SheetCloses.text(lang).to_string(),
+        EXIT_PT,
+    );
     commands.entity(right).add_child(says);
     commands.entity(foot).add_child(right);
 
@@ -505,17 +644,30 @@ fn digit_of(at: usize) -> Option<char> {
 /// It **grows with its legend**: a digit is one character and `Esc` is three,
 /// so the side is a floor and not a width. Anything else would either clip
 /// the word or make every digit sit in a box wide enough for the longest key
-/// on the keyboard.
-fn cap(commands: &mut Commands, fonts: &UiFonts, legend: &str, fill: Color, size: f32) -> Entity {
+/// on the keyboard. The box grows with the *size* too — see [`KEYCAP_SIDE`].
+///
+/// `ink` is the legend's colour and is not derived from `fill`, because the
+/// two say different things. On a row the cap is a control and is written in
+/// full ink; in the footer it is a reminder of a key that is always there, and
+/// is written in the same grey as the words beside it.
+fn cap(
+    commands: &mut Commands,
+    fonts: &UiFonts,
+    legend: &str,
+    fill: Color,
+    ink: Color,
+    size: f32,
+) -> Entity {
+    let side = size * KEYCAP_SIDE;
     let key = commands
         .spawn((
             Node {
-                min_width: px(KEYCAP),
-                height: px(KEYCAP),
+                min_width: px(side),
+                height: px(side),
                 flex_shrink: 0.0,
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
-                padding: UiRect::horizontal(px(5)),
+                padding: UiRect::horizontal(px(size * 0.45)),
                 border: UiRect::all(px(1)),
                 border_radius: BorderRadius::all(px(KEYCAP_R)),
                 ..default()
@@ -533,9 +685,7 @@ fn cap(commands: &mut Commands, fonts: &UiFonts, legend: &str, fill: Color, size
         .spawn((
             Text::new(legend.to_string()),
             tf_bold(fonts, size),
-            // Dark on gold in both states. White on brass fails contrast, and
-            // an armed row is the one a player is about to commit to.
-            TextColor(palette::PARCHMENT_INK),
+            TextColor(ink),
             Pickable::IGNORE,
         ))
         .id();
@@ -611,6 +761,9 @@ fn spawn_row(
         } else {
             palette::SLIP_GHOST
         },
+        // Dark on gold in both states. White on brass fails contrast, and an
+        // armed row is the one a player is about to commit to.
+        palette::PARCHMENT_INK,
         11.0,
     );
     commands.entity(row).add_child(keycap);
@@ -618,8 +771,17 @@ fn spawn_row(
     let says = commands
         .spawn((
             Node {
+                // `flex_basis: Auto` and not zero, which is what it was. A
+                // basis of zero contributes **nothing** to the row's natural
+                // width, and a sheet that sizes itself to its content would
+                // have measured a row as a keycap plus its pips and come out
+                // at [`SHEET_MIN`] however long the sentence was. `Auto` asks
+                // for the sentence; `min_width: 0` keeps the row able to
+                // shrink back to the cap when the sheet is at [`SHEET_MAX`],
+                // which is where the text wraps.
                 flex_grow: 1.0,
-                flex_basis: px(0),
+                flex_basis: Val::Auto,
+                min_width: px(0),
                 flex_direction: FlexDirection::Column,
                 ..default()
             },
@@ -684,6 +846,7 @@ fn spawn_pager(
         fonts,
         &abilitysheet::PAGER.to_string(),
         Color::NONE,
+        palette::PARCHMENT_INK,
         11.0,
     );
     commands.entity(row).add_child(keycap);
@@ -766,9 +929,20 @@ pub fn place_ability_sheet(
     // `ComputedNode` is bevy_ui's own layout, which is a frame old here for
     // the reason the module header gives. A frame is nothing to a sheet that
     // stands for as long as a player is reading it, and it is the only thing
-    // that knows how tall a sheet of text came out.
-    let height = computed.size().y * computed.inverse_scale_factor;
-    let corner = corner_for(mid, card, height, size);
+    // that knows how tall — and, since the width became the text's to decide,
+    // how wide — a sheet of text came out.
+    let sheet_box = computed.size() * computed.inverse_scale_factor;
+    // The ceiling is the *window's* as well as the design's. `corner_for`
+    // clamps a sheet that came out too wide back inside the left margin, but
+    // it cannot make it narrower, so on a window under 404 logical pixels a
+    // sheet at [`SHEET_MAX`] would hang off the right edge with rows on it.
+    // Written unconditionally, ahead of the guard below: it is the input the
+    // next frame's `sheet_box` is measured under.
+    let ceiling = px((size.x - 2.0 * SHEET_MARGIN).clamp(SHEET_MIN, SHEET_MAX));
+    if node.max_width != ceiling {
+        node.max_width = ceiling;
+    }
+    let corner = corner_for(mid, card, sheet_box, size);
     if sheet.placed == Some(corner) && node.display == Display::Flex {
         return;
     }
@@ -781,7 +955,7 @@ pub fn place_ability_sheet(
 /// Where the sheet's top-left corner goes.
 ///
 /// `mid` and `card` are the permanent's projected centre and the box it
-/// covers ([`crate::table::card_box`]), `height` is how tall the sheet came
+/// covers ([`crate::table::card_box`]), `sheet` is how large the sheet came
 /// out and `window` is the canvas.
 ///
 /// Above the card by default, because that is where a sheet covers the fewest
@@ -790,17 +964,22 @@ pub fn place_ability_sheet(
 /// Below only when there is no room above — and *clamped* rather than allowed
 /// to hang off either edge, because a sheet half outside the window is a list
 /// with rows the player cannot see and cannot click.
-fn corner_for(mid: Vec2, card: Vec2, height: f32, window: Vec2) -> Vec2 {
-    let above = mid.y - card.y / 2.0 - SHEET_GAP - height;
+///
+/// The width is measured rather than assumed, the way the height already was:
+/// the sheet sizes itself to its own text between [`SHEET_MIN`] and
+/// [`SHEET_MAX`], so a constant here would centre a narrow sheet as if it were
+/// a wide one and put it off-centre by half the difference.
+fn corner_for(mid: Vec2, card: Vec2, sheet: Vec2, window: Vec2) -> Vec2 {
+    let above = mid.y - card.y / 2.0 - SHEET_GAP - sheet.y;
     let top = if above >= SHEET_MARGIN {
         above
     } else {
-        (mid.y + card.y / 2.0 + SHEET_GAP).min(window.y - SHEET_MARGIN - height)
+        (mid.y + card.y / 2.0 + SHEET_GAP).min(window.y - SHEET_MARGIN - sheet.y)
     };
     Vec2::new(
-        (mid.x - SHEET_W / 2.0).clamp(
+        (mid.x - sheet.x / 2.0).clamp(
             SHEET_MARGIN,
-            (window.x - SHEET_MARGIN - SHEET_W).max(SHEET_MARGIN),
+            (window.x - SHEET_MARGIN - sheet.x).max(SHEET_MARGIN),
         ),
         top.max(SHEET_MARGIN),
     )
@@ -815,22 +994,40 @@ mod tests {
     /// A permanent on a duel's battlefield is about this many logical pixels
     /// wide, and the box keeps the 63:88 card aspect.
     const CARD: Vec2 = Vec2::new(47.0, 65.6);
+    /// A sheet of about five rows, at the width a middling sentence asks for.
+    const SHEET: Vec2 = Vec2::new(300.0, 210.0);
 
     #[test]
     fn the_sheet_sits_over_the_card_it_belongs_to() {
         let mid = Vec2::new(864.0, 600.0);
-        let at = corner_for(mid, CARD, 210.0, WINDOW);
+        let at = corner_for(mid, CARD, SHEET, WINDOW);
         assert!(
-            (at.x + SHEET_W / 2.0 - mid.x).abs() < 0.5,
+            (at.x + SHEET.x / 2.0 - mid.x).abs() < 0.5,
             "centred on the card: {at} against {mid}"
         );
         assert!(
-            at.y + 210.0 <= mid.y - CARD.y / 2.0,
+            at.y + SHEET.y <= mid.y - CARD.y / 2.0,
             "and clear of its top edge: the sheet ends at {} and the card \
              starts at {}",
-            at.y + 210.0,
+            at.y + SHEET.y,
             mid.y - CARD.y / 2.0
         );
+    }
+
+    /// The sheet is as wide as its own text now, so every width has to land
+    /// on the same card. A constant here would put a narrow sheet off-centre
+    /// by half the difference and nothing but the eye would catch it.
+    #[test]
+    fn a_sheet_of_any_width_is_centred_on_its_card() {
+        let mid = Vec2::new(864.0, 600.0);
+        for w in [SHEET_MIN, 260.0, 300.0, SHEET_MAX] {
+            let at = corner_for(mid, CARD, Vec2::new(w, 210.0), WINDOW);
+            assert!(
+                (at.x + w / 2.0 - mid.x).abs() < 0.5,
+                "a {w}-wide sheet sits at {at}, off the card's {}",
+                mid.x
+            );
+        }
     }
 
     /// A permanent near the top of the window — an opponent's board — has no
@@ -839,14 +1036,14 @@ mod tests {
     #[test]
     fn a_sheet_with_no_room_above_the_card_goes_below_it() {
         let mid = Vec2::new(864.0, 90.0);
-        let at = corner_for(mid, CARD, 210.0, WINDOW);
+        let at = corner_for(mid, CARD, SHEET, WINDOW);
         assert!(
             at.y >= mid.y + CARD.y / 2.0,
             "below the card: {} against {}",
             at.y,
             mid.y + CARD.y / 2.0
         );
-        assert!(at.y + 210.0 <= WINDOW.y, "and still inside the window");
+        assert!(at.y + SHEET.y <= WINDOW.y, "and still inside the window");
     }
 
     /// Neither edge of the window may cut a row off. A card in the corner is
@@ -855,11 +1052,14 @@ mod tests {
     #[test]
     fn a_sheet_beside_a_card_at_the_edge_stays_inside_the_window() {
         for x in [0.0, 20.0, 1700.0, WINDOW.x] {
-            let at = corner_for(Vec2::new(x, 600.0), CARD, 210.0, WINDOW);
-            assert!(
-                at.x >= SHEET_MARGIN && at.x + SHEET_W <= WINDOW.x - SHEET_MARGIN,
-                "at x={x} the sheet's corner is {at}"
-            );
+            for w in [SHEET_MIN, SHEET_MAX] {
+                let sheet = Vec2::new(w, 210.0);
+                let at = corner_for(Vec2::new(x, 600.0), CARD, sheet, WINDOW);
+                assert!(
+                    at.x >= SHEET_MARGIN && at.x + w <= WINDOW.x - SHEET_MARGIN,
+                    "at x={x} a {w}-wide sheet's corner is {at}"
+                );
+            }
         }
     }
 
@@ -871,13 +1071,26 @@ mod tests {
         let at = corner_for(
             Vec2::new(400.0, 300.0),
             CARD,
-            900.0,
+            Vec2::new(300.0, 900.0),
             Vec2::new(900.0, 500.0),
         );
         assert!(at.y >= SHEET_MARGIN, "the top is on screen: {at}");
         assert!(at.x >= SHEET_MARGIN, "and so is the left edge");
     }
 }
+
+/// The two bounds are a range, and the footer fits inside the narrow end of
+/// it — two caps at the footer's own size, the gap between its halves, the
+/// gap inside each and the sheet's two margins.
+///
+/// Held here and not in a test because every term is a constant: a test would
+/// be the compiler's own arithmetic run a second time, at a moment when it is
+/// too late to matter. This fails the *build* that narrows the floor past
+/// what the footer needs.
+const _: () = {
+    assert!(SHEET_MIN < SHEET_MAX);
+    assert!(2.0 * SHEET_PAD_X + 2.0 * (KEYCAP_SIDE * 10.5) + 8.0 + 2.0 * 5.0 < SHEET_MIN);
+};
 
 /// The placer, run.
 ///
@@ -942,7 +1155,7 @@ mod running {
                 },
                 Node::default(),
                 bevy::ui::ComputedNode {
-                    size: Vec2::new(SHEET_W, 200.0),
+                    size: Vec2::new(300.0, 200.0),
                     ..default()
                 },
             ))
@@ -976,10 +1189,10 @@ mod running {
             panic!("no top: {:?}", node.top)
         };
         assert!(
-            (left + SHEET_W / 2.0 - drawn.x).abs() < 1.0,
+            (left + 300.0 / 2.0 - drawn.x).abs() < 1.0,
             "the sheet is centred on the card: its middle is {} and the card \
              is drawn at {}",
-            left + SHEET_W / 2.0,
+            left + 300.0 / 2.0,
             drawn.x
         );
         assert!(

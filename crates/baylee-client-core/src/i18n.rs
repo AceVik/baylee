@@ -1115,14 +1115,18 @@ messages! {
 
 
     // ---- the ability sheet
-    /// again
+    /// to confirm
     ///
     /// The footer while a row is armed, beside a keycap carrying that row's
     /// digit — the key that armed it is the key that sends it, and there is
     /// no second confirm key to learn. The digit used to be `{0}` inside this
     /// sentence; it is drawn as the key it is now, so the phrase is the word
     /// that goes with the cap and nothing else.
-    SheetPressAgain { en: "again", de: "noch einmal" },
+    ///
+    /// It read "again", which is true of the gesture and silent about the
+    /// consequence. This half of the footer is the only place the sheet says
+    /// that the next press *sends* something, so it says that instead.
+    SheetPressAgain { en: "to confirm", de: "zum Bestätigen" },
     /// A digit picks
     ///
     /// The same footer with nothing armed, and the one half that carries no

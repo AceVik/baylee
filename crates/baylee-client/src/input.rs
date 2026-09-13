@@ -51,6 +51,17 @@ pub struct TrayWidgets<'w, 's> {
     cancel: Query<'w, 's, &'static TrayNone>,
 }
 
+/// Everything on the ability sheet a pointer can land on, bundled for the
+/// same reason [`TrayWidgets`] is: `pointer` is at Bevy's parameter limit,
+/// and these three are one surface. A row arms, the tenth row turns the
+/// page, the cross in the head is the way out.
+#[derive(bevy::ecs::system::SystemParam)]
+pub struct SheetWidgets<'w, 's> {
+    rows: Query<'w, 's, &'static AbilityButton>,
+    pager: Query<'w, 's, &'static crate::hud::SheetPager>,
+    close: Query<'w, 's, &'static crate::hud::SheetClose>,
+}
+
 /// Finds a component on the clicked entity or one of its ancestors —
 /// a click on a button's icon or text belongs to the button.
 ///
@@ -1721,6 +1732,41 @@ fn menu_click(duel: &mut Duel, action: MenuAction, was_armed: bool) {
     }
 }
 
+/// A click on the ability sheet.
+///
+/// Its own function for the reason [`browser_click`] is: they are one widget,
+/// and [`pointer`] is a routing table rather than a place where behaviour
+/// lives.
+///
+/// Returns whether the click belonged to the sheet.
+fn sheet_click(
+    duel: &mut Duel,
+    entity: Entity,
+    sheet: &SheetWidgets,
+    parents: &Query<&ChildOf>,
+) -> bool {
+    // The cross comes first. It sits inside the sheet's head, so a branch
+    // that matched a row before it would still be right — but it is the one
+    // thing here that is not about an ability, and reading it first says so.
+    if find_in_lineage(entity, &sheet.close, parents).is_some() {
+        // Exactly what `Action::Cancel` does in [`ability_menu_keys`], and no
+        // more: an armed deed survives the sheet closing, there as here,
+        // because the card itself still carries it and taking it back is
+        // `Esc` on the *table*.
+        duel.ability_menu = None;
+        return true;
+    }
+    if let Some(button) = find_in_lineage(entity, &sheet.rows, parents) {
+        pick_ability(duel, button.index);
+        return true;
+    }
+    if find_in_lineage(entity, &sheet.pager, parents).is_some() {
+        turn_the_page(duel);
+        return true;
+    }
+    false
+}
+
 /// A click inside the zone browser.
 ///
 /// Its own function rather than five more arms in [`pointer`]: they are one
@@ -1802,8 +1848,7 @@ pub fn pointer(
     seat_steps: Query<&crate::hud::SeatStep>,
     menu_buttons: Query<&MenuButton>,
     prompt_buttons: Query<&PromptButton>,
-    ability_buttons: Query<&AbilityButton>,
-    pagers: Query<&crate::hud::SheetPager>,
+    sheet: SheetWidgets,
     choice_buttons: Query<&ChoiceButton>,
     tray: TrayWidgets,
     parents: Query<&ChildOf>,
@@ -1868,12 +1913,7 @@ pub fn pointer(
             menu_click(&mut duel, button.action, was_armed);
             continue;
         }
-        if let Some(button) = find_in_lineage(e, &ability_buttons, &parents) {
-            pick_ability(&mut duel, button.index);
-            continue;
-        }
-        if find_in_lineage(e, &pagers, &parents).is_some() {
-            turn_the_page(&mut duel);
+        if sheet_click(&mut duel, e, &sheet, &parents) {
             continue;
         }
         if let Some(button) = find_in_lineage(e, &choice_buttons, &parents) {
