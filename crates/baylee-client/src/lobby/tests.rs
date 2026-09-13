@@ -896,6 +896,69 @@ fn phase(app: &mut App, next: DuelPhase) {
     app.update();
 }
 
+/// The ways out belong *in* the duel's end screen, not floating over the board.
+///
+/// `hud::spawn_finish` leaves one row marked `FinishExits` and this is the
+/// only thing that joins the two plugins — no call, no ordering, no shared
+/// resource. So the marker is put down by hand here and the buttons have to
+/// find it: a lobby that went back to spawning a bar of its own over the
+/// table would pass every other test in this file, and the screen would have
+/// a hole in the middle of it with two buttons hovering above the felt.
+#[test]
+fn the_ways_out_are_put_in_the_row_the_end_screen_left_for_them() {
+    let mut app = headless();
+    stocked(&mut app);
+    {
+        let mut state = app.world_mut().resource_mut::<LobbyState>();
+        state.lobby.host(GameMode::Ai);
+        state.lobby.apply(LobbyEvent::Seated(SeatHandover {
+            game_id: "g1".to_string(),
+            seat: 0,
+            seat_token: "st".to_string(),
+            local: false,
+        }));
+        state.connected = true;
+    }
+    let row = app.world_mut().spawn(crate::hud::FinishExits).id();
+    phase(&mut app, DuelPhase::Finished);
+
+    let mut buttons = app.world_mut().query::<(Entity, &Press)>();
+    let ways: Vec<Entity> = buttons
+        .iter(app.world())
+        .filter(|(_, p)| matches!(p, Press::PlayAgain | Press::Leave))
+        .map(|(e, _)| e)
+        .collect();
+    assert_eq!(ways.len(), 2, "both ways out");
+    for way in ways {
+        let parent = app
+            .world()
+            .entity(way)
+            .get::<ChildOf>()
+            .map(ChildOf::parent);
+        assert_eq!(parent, Some(row), "a way out was hung somewhere else");
+    }
+    let mut bars = app
+        .world_mut()
+        .query_filtered::<Entity, With<LeaveButton>>();
+    assert_eq!(
+        bars.iter(app.world()).count(),
+        0,
+        "the fallback bar was built even though the screen had left a row"
+    );
+
+    // And it settles: the same frame twice must not hang a second pair.
+    app.update();
+    let mut again = app.world_mut().query::<&Press>();
+    assert_eq!(
+        again
+            .iter(app.world())
+            .filter(|p| matches!(p, Press::PlayAgain | Press::Leave))
+            .count(),
+        2,
+        "the ways out were spawned again on the next frame"
+    );
+}
+
 /// The whole *play again* path from the player's side: the button stands over
 /// the finished game, pressing it and coming back asks the gateway for the
 /// next table, and the ticket that answers seats them again.

@@ -258,7 +258,13 @@ pub(crate) fn dim_the_table(
     mut nodes: Query<&mut BackgroundColor, With<TableVeil>>,
 ) {
     let still = prefs.is_some_and(|p| p.all().reduce_motion);
-    let target = if duel.browser.dims_the_table() {
+    // A finished game darkens the table for the same reason a search does,
+    // and it is the stronger case of the two: a dialog holds the whole
+    // answer, and a game that is over has no answer left anywhere. The end
+    // screen spawns a veil of its own and this is what paints it, so the
+    // two surfaces that dim this table dim it by the same arithmetic at the
+    // same rate rather than by two fades that could disagree.
+    let target = if duel.browser.dims_the_table() || duel.ending().is_some() {
         1.0
     } else {
         0.0

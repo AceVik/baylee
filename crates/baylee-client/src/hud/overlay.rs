@@ -29,7 +29,10 @@ const TRACK_W: f32 = 52.0;
 /// every pixel here is a pixel off each button. Wide enough that two brass
 /// edges never touch, narrow enough that the row still reads as one control
 /// with parts rather than as scattered buttons.
-const BUTTON_GAP: f32 = 8.0;
+pub(super) const BUTTON_GAP: f32 = 8.0;
+
+/// The label on an answer, in logical pixels.
+pub(super) const ANSWER_PT: f32 = 13.0;
 
 /// The narrowest the prompt slip is drawn.
 ///
@@ -114,24 +117,13 @@ pub fn sync_overlay(
     };
     let lang = Lang::of(&settings.lang);
     let seq = duel.board.as_ref().map(|b| b.seq);
-    // A finished game says who won, not merely that it is finished — and a
-    // team game says which team, which is why this is answered here and not
-    // in the prompt: the seat's own team lives in the roster.
-    let ending = duel.interaction.as_ref().and_then(|i| {
-        let baylee_engine::choice::Pending::GameOver(result) = i.pending() else {
-            return None;
-        };
-        let statics = duel.statics.as_ref()?;
-        let seat = statics.your_seat;
-        let team = statics
-            .seats
-            .iter()
-            .find(|s| s.player == seat)
-            .and_then(|s| s.team);
-        Some(baylee_client_core::interaction::verdict(
-            lang, result, seat, team,
-        ))
-    });
+    // A finished game is the one question this bar does not answer. Who won
+    // is the end screen's whole subject, set at four times this size; a
+    // dimmed second copy of it under the screen's own would be the same
+    // sentence twice, and `Prompt::GameOver`'s headline ("The game is over")
+    // would be a third wording of it beside the other two. So the bar simply
+    // stops: there is no question left for a question bar to hold.
+    let over = duel.ending().is_some();
     // Whose turn it is, for the one line that changes with it. A seat holds
     // priority on every turn at the table, so the bar has to be told which
     // one this is or it says "Your move" through the whole game.
@@ -141,11 +133,11 @@ pub fn sync_overlay(
         .map_or(baylee_client_core::Turn::Mine, |v| {
             baylee_client_core::Turn::of(v.active, v.seat)
         });
-    let prompt = ending.or_else(|| {
-        duel.interaction
-            .as_ref()
-            .map(|i| i.prompt().headline(lang, turn))
-    });
+    let prompt = duel
+        .interaction
+        .as_ref()
+        .filter(|_| !over)
+        .map(|i| i.prompt().headline(lang, turn));
     // A refusal used to *stand in* for the headline, which meant it was only
     // ever seen when nothing was being asked — and the engine refuses an
     // answer precisely while a question is standing. The player clicked, the
@@ -628,54 +620,11 @@ pub fn sync_overlay(
             // combat's three. A button whose width says nothing is a button
             // whose position says nothing.
             let row = commands.spawn((answer_row_node(), Pickable::IGNORE)).id();
-            // The first answer is the one the question is asking for — keep,
-            // confirm, pass — and it is the only one drawn in brass. The rest
-            // are the same button in the sheet's own colour, because two
-            // equally loud answers make a player read both before finding out
-            // which one the sheet meant.
             for (i, (action, label)) in answers.iter().enumerate() {
-                let lead = i == 0;
-                let rest = if lead {
-                    palette::BRASS
-                } else {
-                    palette::SLIP_GHOST
-                };
-                let button = commands
-                    .spawn((
-                        PromptButton { action: *action },
-                        answer_node(),
-                        BackgroundColor(rest),
-                        BorderColor::all(if lead {
-                            palette::BRASS
-                        } else {
-                            palette::PARCHMENT_EDGE
-                        }),
-                        soft_shadow(),
-                        // The same component every other button in the client
-                        // carries: `ambience::feel` leans it towards the
-                        // pointer, sinks it under a press and owns its
-                        // `BackgroundColor` from the first frame on.
-                        Feel::new(rest),
-                        children![(
-                            Text::new(*label),
-                            tf(&fonts, 13.0),
-                            TextColor(if lead {
-                                palette::PARCHMENT_INK
-                            } else {
-                                palette::PARCHMENT_SOFT
-                            }),
-                            // A label is a `Node`, and a node under the
-                            // pointer is what the pointer is *over*: without
-                            // this the button only ever lit up when the
-                            // pointer was in its padding, and went dead the
-                            // moment it crossed the word it is named after.
-                            // Measured, not guessed — hovering the padding
-                            // moved 155 levels and hovering the word moved
-                            // none.
-                            Pickable::IGNORE,
-                        )],
-                    ))
-                    .id();
+                let button = answer_button(&mut commands, &fonts, label, i == 0);
+                commands
+                    .entity(button)
+                    .insert(PromptButton { action: *action });
                 commands.entity(row).add_child(button);
             }
             commands.entity(bar).add_child(row);
@@ -1680,6 +1629,64 @@ pub(super) fn answer_node() -> Node {
         border_radius: btn_radius(),
         ..default()
     }
+}
+
+/// One answer on a parchment sheet.
+///
+/// `lead` is the answer the sheet is *for* — keep, confirm, pass, play again
+/// — and is the only one drawn in brass; the rest are the same button in the
+/// sheet's own colour, because two equally loud answers make a player read
+/// both before finding out which one the sheet meant. A lone answer is a lead
+/// answer: there is nothing left for it to be quieter than.
+///
+/// It carries no marker of its own, because two sheets use it and they name
+/// their answers differently: the prompt slip adds a [`PromptButton`] with a
+/// `PlayerAction` on it, and the end screen's exits carry the lobby's `Press`
+/// — a way *out* of a duel is not a move in one. A widget that knew which of
+/// those it was would be a widget only one of them could use.
+pub(crate) fn answer_button(
+    commands: &mut Commands,
+    fonts: &UiFonts,
+    label: &str,
+    lead: bool,
+) -> Entity {
+    let rest = if lead {
+        palette::BRASS
+    } else {
+        palette::SLIP_GHOST
+    };
+    commands
+        .spawn((
+            answer_node(),
+            BackgroundColor(rest),
+            BorderColor::all(if lead {
+                palette::BRASS
+            } else {
+                palette::PARCHMENT_EDGE
+            }),
+            soft_shadow(),
+            // The same component every other button in the client carries:
+            // `ambience::feel` leans it towards the pointer, sinks it under a
+            // press and owns its `BackgroundColor` from the first frame on.
+            Feel::new(rest),
+            children![(
+                Text::new(label),
+                tf(fonts, ANSWER_PT),
+                TextColor(if lead {
+                    palette::PARCHMENT_INK
+                } else {
+                    palette::PARCHMENT_SOFT
+                }),
+                // A label is a `Node`, and a node under the pointer is what
+                // the pointer is *over*: without this the button only ever lit
+                // up when the pointer was in its padding, and went dead the
+                // moment it crossed the word it is named after. Measured, not
+                // guessed — hovering the padding moved 155 levels and hovering
+                // the word moved none.
+                Pickable::IGNORE,
+            )],
+        ))
+        .id()
 }
 
 /// One line of the prompt slip's prose.

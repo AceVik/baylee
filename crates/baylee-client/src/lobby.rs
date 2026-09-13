@@ -98,7 +98,10 @@ impl Plugin for LobbyPlugin {
             .add_message::<Pointer<Over>>()
             .add_message::<Pointer<Out>>()
             .add_systems(OnExit(DuelPhase::Closed), (teardown, despawn_preview))
-            .add_systems(OnEnter(DuelPhase::Finished), spawn_leave_button)
+            .add_systems(
+                Update,
+                spawn_leave_button.run_if(in_state(DuelPhase::Finished)),
+            )
             .add_systems(OnExit(DuelPhase::Finished), despawn_leave_button);
     }
 }

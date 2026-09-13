@@ -1105,6 +1105,7 @@ pub struct CardMotion<'w> {
 }
 
 mod card;
+mod finish;
 mod hand;
 mod overlay;
 pub(crate) mod rail;
@@ -1122,11 +1123,14 @@ use hand::{
     PreviewAt, preview_anchor, preview_art_size, preview_face, preview_place, spawn_hand_bar,
     underneath_place,
 };
+use overlay::BUTTON_GAP;
 use rail::{combat_line, incoming_line};
 use stack::spawn_stack_panel;
 
+pub(crate) use finish::{FinishExits, despawn_finish, settle_the_sheet, spawn_finish};
 pub use hand::apply_hand_scroll;
 pub use hand::{ARMED_RAISE, HAND_BAR_H, OVERLAY_CARD_H, OVERLAY_CARD_W};
+pub(crate) use overlay::answer_button;
 pub use overlay::{despawn_overlay, sync_overlay};
 pub use rail::same_team;
 pub use rail::{DesignationFlash, flash_the_designation, light_the_current_step};

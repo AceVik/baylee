@@ -16,9 +16,21 @@ pub(super) struct LobbyScreen;
 #[derive(Component)]
 pub(super) struct LobbyRoot;
 
-/// The "leave table" button shown over a finished game.
+/// The bar the ways out fall back to when the duel drew no end screen.
+///
+/// Only ever on a node this module *made*, which is what keeps the teardown
+/// honest: the buttons normally live inside the duel's sheet and are taken
+/// down with it, and a marker that also sat on the duel's own row would have
+/// this module despawning an entity the duel is about to despawn again.
 #[derive(Component)]
 pub(super) struct LeaveButton;
+
+/// One way out of a finished game, wherever it ended up standing.
+///
+/// The "are these already placed" question, asked of the buttons rather than
+/// of their holder for the same reason: the holder may be the duel's.
+#[derive(Component)]
+pub(super) struct DuelExit;
 
 /// How much room there is, in three sizes.
 ///
@@ -1386,70 +1398,73 @@ fn short_id(id: &str) -> String {
     id.chars().take(8).collect()
 }
 
-/// The "leave table" button, over a game that has ended.
+/// The ways out of a finished game, put in the row the duel's end screen left
+/// for them.
+///
+/// An `Update` system and not an `OnEnter` one, and that is the whole of the
+/// seam. `hud::spawn_finish` runs on the same edge, its `Commands` are applied
+/// at the end of that schedule, and a system merely ordered *after* it would
+/// query a row that does not exist yet — while an explicit sync point between
+/// two plugins that do not know each other is exactly the coupling the marker
+/// exists to avoid. So this runs every frame the game is over and stops the
+/// moment its buttons are standing.
+///
+/// If there is no such row — the screen draws nothing without a roster, and an
+/// embedder may have its own — the buttons fall back to a bar of their own
+/// over the board, which is where they lived before the screen existed. A
+/// player with no way out of a finished table is the one outcome worth a
+/// fallback.
 pub(super) fn spawn_leave_button(
     mut commands: Commands,
     state: Res<LobbyState>,
     fonts: Option<Res<UiFonts>>,
-    windows: Query<&Window>,
+    placed: Query<Entity, With<DuelExit>>,
+    exits: Query<Entity, With<crate::hud::FinishExits>>,
 ) {
     let Some(fonts) = fonts else {
         return;
     };
+    if !placed.is_empty() {
+        return;
+    }
     let lang = state.lobby.lang();
-    let width = windows
-        .iter()
-        .next()
-        .map_or(1280.0, |w| w.resolution.width());
-    let metrics = Metrics::of(width);
-    let holder = commands
-        .spawn((
-            LeaveButton,
-            Node {
-                position_type: PositionType::Absolute,
-                top: px(64),
-                width: percent(100),
-                justify_content: JustifyContent::Center,
-                column_gap: px(12),
-                ..default()
-            },
-            Pickable::IGNORE,
-        ))
-        .id();
     // Play again first, because it is what most players want and the one that
     // needs the other three still at the table. Only for a game reached
     // through the gateway: an offline duel against the house has no table to
     // ask for another of, and the request would have no account to make it.
     let networked = matches!(state.lobby.screen(), Screen::Seated(_));
+    let mut ways: Vec<(&str, Press)> = Vec::new();
     if networked {
-        let again = button(
-            &mut commands,
-            &fonts,
-            metrics,
-            Phrase::PlayAgain.text(lang),
-            Press::PlayAgain,
-            palette::ACCENT,
-            true,
-        );
-        commands.entity(holder).add_child(again);
+        ways.push((Phrase::PlayAgain.text(lang), Press::PlayAgain));
     }
-    // Quiet beside *play again*, which is what most players want — but the
-    // accent again when it stands alone, an offline duel having no table to
-    // ask for another of and nothing else to press.
-    let leave = button(
-        &mut commands,
-        &fonts,
-        metrics,
-        Phrase::BackToLobby.text(lang),
-        Press::Leave,
-        if networked {
-            palette::PANEL
-        } else {
-            palette::ACCENT
-        },
-        true,
-    );
-    commands.entity(holder).add_child(leave);
+    ways.push((Phrase::BackToLobby.text(lang), Press::Leave));
+
+    // In the sheet these are the slip's own answers, so they obey the slip's
+    // own rule: the first one is what the sheet is *for* and is the only one
+    // in brass. That makes the lone "back to the lobby" of an offline duel a
+    // lead answer, which is right — there is nothing left for it to be
+    // quieter than.
+    let holder = exits.iter().next().unwrap_or_else(|| {
+        commands
+            .spawn((
+                LeaveButton,
+                Node {
+                    position_type: PositionType::Absolute,
+                    top: px(64),
+                    width: percent(100),
+                    justify_content: JustifyContent::Center,
+                    column_gap: px(12),
+                    ..default()
+                },
+                Pickable::IGNORE,
+            ))
+            .id()
+    });
+    for (i, (label, press)) in ways.into_iter().enumerate() {
+        let way = crate::hud::answer_button(&mut commands, &fonts, label, i == 0);
+        commands.entity(way).insert((press, DuelExit));
+        commands.entity(holder).add_child(way);
+    }
 }
 
 /// Removes it again on the way out.

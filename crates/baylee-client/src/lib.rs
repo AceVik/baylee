@@ -438,6 +438,21 @@ pub struct Duel {
 }
 
 impl Duel {
+    /// The result, once the game has one.
+    ///
+    /// `Pending::GameOver` is the only question that is not a question: it
+    /// carries the answer instead of asking for one, and three readers want
+    /// it — the veil that darkens a table nobody is playing on any more, the
+    /// end screen, and the prompt slip, which uses it to *stop* speaking.
+    /// Written once here rather than matched three times.
+    #[must_use]
+    pub fn ending(&self) -> Option<&baylee_engine::win::GameResult> {
+        match self.interaction.as_ref()?.pending() {
+            Pending::GameOver(result) => Some(result),
+            _ => None,
+        }
+    }
+
     /// Queues an action for the host.
     ///
     /// Queuing rather than sending directly keeps every mutation of the game on
@@ -748,6 +763,10 @@ fn add_present_systems(app: &mut App) {
                 // `hud::Veil`, where a rebuild cannot reach it, and this is
                 // what paints it on. See `tray::spawn_veil`.
                 hud::dim_the_table.after(hud::sync_overlay),
+                // The end screen settles as that veil rises, off the very
+                // number `dim_the_table` has just written: one movement, one
+                // rate, one `reduce_motion`.
+                hud::settle_the_sheet.after(hud::dim_the_table),
             ),
             textures::drive_preloads,
             textures::load_the_card_back,
@@ -882,6 +901,12 @@ impl Plugin for DuelPlugin {
                     .run_if(in_state(DuelPhase::Playing)),
             )
             .add_systems(OnEnter(DuelPhase::Opening), table::spawn_stage)
+            // The end screen. Built on the edge because a result never
+            // changes, and taken down on the way out of `Finished` — which
+            // covers the way to `Closed` too, so it needs no line in the
+            // teardown below.
+            .add_systems(OnEnter(DuelPhase::Finished), hud::spawn_finish)
+            .add_systems(OnExit(DuelPhase::Finished), hud::despawn_finish)
             .add_systems(
                 OnEnter(DuelPhase::Closed),
                 (table::despawn_stage, hud::despawn_overlay),
