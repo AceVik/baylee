@@ -34,7 +34,7 @@ Two consequences worth knowing before changing anything here:
 | Show a card's text instead of its art (while held) | `Cmd` / `Alt` | implemented |
 | Keep the card text on (latch, persisted) | `T` | implemented |
 | Open the zone browser (graveyards, exile, the stack) | `G`, or a tap on the top card of a pile | implemented |
-| Move the zone browser / resize it (remembered per client; a sheet a *question* opened is centred and stays put) | drag its title row / its bottom-right corner | implemented |
+| Move the zone browser / resize it (remembered per client; a sheet a *question* opened is centred, stays put and draws no corner) | drag its title row / its bottom-right corner | implemented |
 | Battlefield camera: pan | arrows (not while choosing a number), right- or middle-drag, touch-drag | implemented |
 | Battlefield camera: zoom | wheel over the felt, pinch | implemented |
 | Battlefield camera: rotate / tilt | — (deliberately none) | removed |

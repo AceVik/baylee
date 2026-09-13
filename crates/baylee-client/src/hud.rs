@@ -418,6 +418,29 @@ pub struct TraySort {
 #[derive(Component)]
 pub struct TrayCancel;
 
+/// The veil over the table, behind a dialog that holds the whole answer.
+///
+/// It is a child of [`HudRoot`] and therefore part of the retained tree, so it
+/// is torn down and rebuilt with everything else — which is why how far it has
+/// risen is kept in [`Veil`] and not on this node. Marked here so
+/// [`tray::dim_the_table`] can find it on the frames between two rebuilds.
+#[derive(Component)]
+pub struct TableVeil;
+
+/// How far the veil has risen, `0.0` to `1.0` of [`palette::VEIL`]'s alpha.
+///
+/// A resource and not a field of the node, because the node does not survive a
+/// rebuild and a question is answered *through* rebuilds: every tick of a
+/// checkbox changes [`HudRevision`], and a fade that started again at each of
+/// them would be a table that flickered while a player chose a card.
+///
+/// There is only ever one veil, so one number is the whole state.
+#[derive(Resource, Default)]
+pub struct Veil {
+    /// The eased fraction.
+    pub lit: f32,
+}
+
 /// The scrolling strip inside the hand bar.
 #[derive(Component)]
 pub struct HandStrip;
@@ -764,6 +787,43 @@ pub(crate) mod palette {
     /// saturated candle across the list would make the chosen row the only
     /// thing on the sheet anyone can see.
     pub const CANDLE_WASH: Color = Color::srgba(0.878, 0.604, 0.227, 0.10);
+    /// The veil drawn over the table behind a dialog that holds the whole
+    /// answer, at full strength.
+    ///
+    /// **Cold, and that is the whole of it.** A dialog this dark cannot be
+    /// separated from a veiled table by brightness — [`DIALOG`] is srgb8
+    /// (28, 25, 19) and the veiled baize measures (15, 29, 26), so the panel
+    /// is the *darker* of the two in green and the difference cannot be read
+    /// as depth. What separates them is **temperature**: a blue-black veil
+    /// pulls the cloth towards teal and drains the leather rail of its
+    /// warmth, and the dialog and its [`CANDLE`] are then the only warm
+    /// things in the window. A pure-black veil would have darkened everything
+    /// and separated nothing.
+    ///
+    /// It is the same blue-black the hand bar's own ground is, one step
+    /// deeper, and that is not a coincidence worth hiding: the hand bar is
+    /// already a veil over the felt and already picked cool for the same
+    /// reason, so a second one in another hue would read as two materials
+    /// where there is one.
+    ///
+    /// The alpha was **measured on screen, not reasoned about**: a
+    /// `BackgroundColor` composites in linear space, where an alpha buys far
+    /// less darkening than sRGB arithmetic predicts — `hand::VEIL_ALPHA`
+    /// carries the same warning and the numbers that earned it. Measured at
+    /// 1728×1052 against a live search, one screenshot either side of the
+    /// same `Confirm`: the felt goes (29, 53, 43) → (15, 29, 26), the rail
+    /// (21, 51, 40) → (12, 29, 25), a seat bar's ink 173 → 100 — a little
+    /// over half, everywhere, and everything still legible. 0.60 was the
+    /// first value and took the felt only to (18, 34, 29), which read as
+    /// weather rather than as a table that has been put down.
+    pub const TABLE_VEIL: Color = Color::srgba(0.020, 0.030, 0.055, 0.70);
+    /// [`CANDLE_WASH`] with the pointer on it.
+    ///
+    /// Stated rather than derived, because `Feel`'s default hover shades a
+    /// colour towards white and keeps its alpha: a wash at a tenth lifted
+    /// that way is a slightly paler tenth, which is not an answer a player
+    /// can see. Twice the wash is.
+    pub const CANDLE_WASH_LIT: Color = Color::srgba(0.878, 0.604, 0.227, 0.20);
 }
 
 /// The generated surfaces the overlay is drawn on.
@@ -881,6 +941,43 @@ fn upward_shadow() -> BoxShadow {
 pub(crate) fn btn_radius() -> BorderRadius {
     BorderRadius::all(px(6))
 }
+
+// ------------------------------------------------ what lies over what, and why
+//
+// Six numbers rather than six literals scattered over four files, because a
+// `ZIndex` only ever orders a node **among its own parent's children**: every
+// one of these is a direct child of [`HudRoot`], they are therefore all
+// comparable, and the only way to see whether they are right is to read them
+// together. Two siblings sharing a number are settled by the order they were
+// spawned in, which is how the seat bars — a *second* retained tree, whose own
+// root was tied with this one at zero — came to be drawn straight through the
+// zone browser's dialog.
+//
+// These order **nothing outside `HudRoot`**. bevy sorts root nodes by
+// `(GlobalZIndex, ZIndex)` and only then walks each subtree, so every other
+// root in this client is either wholly above or wholly below all six: the seat
+// bars at `GlobalZIndex(-1)` are under them, and [`crate::depart`]'s flying
+// card, [`sheet`]'s ability sheet and [`crate::lifeflash`]'s number are over
+// them, in that order.
+//
+// The order says one thing: **a surface that is answering a question stands
+// over a surface that is merely showing one.** The veil is the hinge — what is
+// below it goes dark, what is above it stays lit.
+
+/// The stack of spells waiting to resolve.
+pub(crate) const Z_STACK: i32 = 1;
+/// The hand bar.
+pub(crate) const Z_HAND: i32 = 2;
+/// The veil over the table, behind a dialog holding the whole answer.
+pub(crate) const Z_VEIL: i32 = 3;
+/// The prompt slip: the sentence that says what the question *is*, and so the
+/// one surface a veil must never dim.
+pub(crate) const Z_SLIP: i32 = 4;
+/// The zone browser's dialog.
+pub(crate) const Z_SHEET: i32 = 5;
+/// The hover preview, which describes whatever is under the pointer and so has
+/// to stand over all of it — including a row of the dialog.
+pub(crate) const Z_PREVIEW: i32 = 10;
 
 /// How far anything fixed to the edge of the window stands off it.
 ///
@@ -1023,3 +1120,4 @@ pub use sheet::{
 };
 pub use stack::{StackMotion, ease_the_stack_in};
 pub(crate) use tray::band_of;
+pub(crate) use tray::dim_the_table;

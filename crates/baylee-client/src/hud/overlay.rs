@@ -376,7 +376,14 @@ pub fn sync_overlay(
         // The centring row spans the whole window and is ignored by the
         // pointer, so it takes nothing away from the board it lies over; only
         // the slip inside it is a surface.
-        let slip_row = commands.spawn((slip_row_node(), Pickable::IGNORE)).id();
+        //
+        // Four, which is above the veil. The slip is the sentence saying what
+        // the question *is*, and the veil is drawn to say that the question is
+        // the only thing left to do: dimming the words that state it would be
+        // the veil contradicting itself.
+        let slip_row = commands
+            .spawn((slip_row_node(), ZIndex(Z_SLIP), Pickable::IGNORE))
+            .id();
         let slip = commands.spawn((
             Node {
                 max_width: px(620),
@@ -1081,7 +1088,7 @@ pub fn sync_overlay(
                     // cut keeps the scan's white corners off the screen.
                     BackgroundColor(Color::NONE),
                     upward_shadow(),
-                    ZIndex(10),
+                    ZIndex(Z_PREVIEW),
                     Pickable::IGNORE,
                     children![(
                         // Resize handle, bottom right.
@@ -1256,7 +1263,7 @@ pub fn sync_overlay(
                             ..default()
                         },
                         BackgroundColor(Color::NONE),
-                        ZIndex(10),
+                        ZIndex(Z_PREVIEW),
                         Pickable::IGNORE,
                         children![(
                             Text::new(Phrase::CardUnderneath.text(lang).to_string()),
@@ -1334,6 +1341,18 @@ pub fn sync_overlay(
         // the screen they play on. A sheet a *question* opened reads no store
         // at all and is centred — `Browser::placement` carries the
         // measurement that says why a clamp was not enough.
+        // W2: the table goes dark behind a dialog that holds the whole answer,
+        // and behind no other — `Browser::dims_the_table` carries the argument
+        // for why that is a narrower question than "a question opened this".
+        //
+        // The node is spawned whenever the *sheet* is, and it is
+        // `dim_the_table` that decides how dark it is: a question answered by
+        // a second one that the sheet only partly holds leaves the sheet
+        // standing with its lock gone, and a veil that was spawned on the lock
+        // would vanish there instead of lifting. Clear, it is one node
+        // painting nothing and answering nothing.
+        let veil = tray::spawn_veil(&mut commands);
+        commands.entity(root).add_child(veil);
         let band = tray::band_of(&windows);
         let place = duel.browser.placement(band, settings.zone_browser);
         let tray = tray::spawn_tray(

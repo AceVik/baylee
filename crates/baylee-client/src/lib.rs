@@ -742,6 +742,12 @@ fn add_present_systems(app: &mut App) {
                 // a second, where guessing the position from the shelf and
                 // the tilt would be the bar's layout written out twice.
                 lifeflash::flash_life_changes.after(hud::place_seat_bars),
+                // The veil behind a dialog that holds the whole answer. After
+                // the rebuild, because the veil *is* part of the retained tree
+                // and is spawned clear: how far the fade has risen lives in
+                // `hud::Veil`, where a rebuild cannot reach it, and this is
+                // what paints it on. See `tray::spawn_veil`.
+                hud::dim_the_table.after(hud::sync_overlay),
             ),
             textures::drive_preloads,
             textures::load_the_card_back,
@@ -812,6 +818,7 @@ impl Plugin for DuelPlugin {
             .init_resource::<hud::Shelves>()
             .init_resource::<hud::BarRevision>()
             .init_resource::<hud::SheetRevision>()
+            .init_resource::<hud::Veil>()
             .init_resource::<textures::Preload>()
             .init_resource::<cardtext::CardTexts>()
             .init_resource::<face::FaceMode>()

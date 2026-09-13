@@ -199,9 +199,16 @@ pub fn sync_ability_sheet(
             },
             // The felt between the card and the sheet is not the sheet.
             Pickable::IGNORE,
-            // Over the stack panel and the hand, under the prompt slip and
-            // the hover preview: it is anchored to a card on the table and a
-            // question the table is asking still comes first.
+            // This is a **root**, not a child of `HudRoot`, so the number
+            // does not mean what the four in `hud::Z_SLIP` means. bevy's
+            // `ui_stack_system` sorts roots by `(GlobalZIndex, ZIndex)` and
+            // then walks each subtree, so a root at `(0, 4)` stands over the
+            // whole of a root at `(0, 0)` — this sheet is over every part of
+            // the overlay, the prompt slip and the hover preview included,
+            // which is *not* what it should be and is why the number is
+            // written down here with what it actually does. Re-homing it
+            // needs the third retained tree to be ordered against the first,
+            // which is a decision of its own and not this one's to take.
             ZIndex(4),
         ))
         .id();

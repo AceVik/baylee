@@ -457,14 +457,33 @@ impl Browser {
 
     /// Whether a *question* is what put the sheet on screen.
     ///
-    /// The difference matters twice over. A sheet a question opened dims the
-    /// table behind it, because nothing else on the table is an answer; a
-    /// sheet the player opened by hand dims nothing, because the panel can
-    /// stand open for a whole turn and the game goes on underneath it. And
-    /// the same line decides where it stands — see [`Self::placement`].
+    /// It decides where the sheet stands ([`Self::placement`]) and whether it
+    /// can be dragged at all — a sheet the player did not arrange is not
+    /// furniture. It does **not** decide the dim; see [`Self::dims_the_table`]
+    /// for why that is a narrower question than this one.
     #[must_use]
     pub fn for_choice(&self) -> bool {
         self.open == Opening::ForChoice
+    }
+
+    /// Whether the table behind the sheet should go dark.
+    ///
+    /// The owner's W2, and the predicate is [`Self::locked`] rather than
+    /// [`Self::for_choice`]. A question opens this sheet whenever any of its
+    /// answers is somewhere the table cannot show — which is not the same as
+    /// *every* answer being in here. A `ChooseCards` that spans the cards
+    /// being revealed and the player's own hand opens the sheet `ForChoice`
+    /// and locks no tab, and a dim on that question would darken the hand the
+    /// player has to click. `locked` is already the stronger claim — one zone
+    /// holds every option — so it is the one that says "there is nothing else
+    /// to do".
+    ///
+    /// A reveal with no choice attached is `ForChoice` too and locks nothing,
+    /// which falls out the same way and is right for the same reason: cards
+    /// being shown are not a question, and nothing is waiting on the player.
+    #[must_use]
+    pub fn dims_the_table(&self) -> bool {
+        self.is_open() && self.locked.is_some()
     }
 
     /// Where the sheet stands this time.
@@ -1103,6 +1122,59 @@ mod tests {
         b.open();
         b.show(Some(BrowseZone::Graveyard(me())));
         assert_eq!(b.tab(), Some(BrowseZone::Graveyard(me())));
+    }
+
+    /// W2: the dim says "there is nothing else to do", so it is drawn only
+    /// when that is true — which is a narrower thing than "a question opened
+    /// this sheet".
+    #[test]
+    fn the_table_goes_dark_only_when_every_answer_is_in_the_sheet() {
+        let shown: Vec<_> = (10..13).map(|s| printed(s, 0, "Forest", 1)).collect();
+        let view = ViewBuilder::new(2)
+            .with_looking_at(shown)
+            .with_hand(vec![("Ornithopter", 0, 30)])
+            .build();
+        let mut b = Browser::new();
+        assert!(!b.dims_the_table(), "a shut sheet darkens nothing");
+
+        // A search: every card it offers is in the one pile it put on screen.
+        let search = Interaction::new(
+            Pending::ChooseCards {
+                player: me(),
+                options: (10..13).map(obj).collect(),
+                min: 1,
+                max: 1,
+                prompt: ChoicePrompt::SearchLibrary,
+            },
+            me(),
+        );
+        b.follow(&view, Some(&search));
+        assert!(b.dims_the_table(), "nothing outside the sheet is an answer");
+
+        // A question that also offers a card in hand. The sheet still opens —
+        // the revealed cards are nowhere else — but the hand is an answer,
+        // and a veil over it would be darkening the thing to click.
+        let spanning = Interaction::new(
+            Pending::ChooseCards {
+                player: me(),
+                options: [obj(10), obj(30)].into(),
+                min: 1,
+                max: 1,
+                prompt: ChoicePrompt::Generic,
+            },
+            me(),
+        );
+        b.follow(&view, Some(&spanning));
+        assert!(b.for_choice(), "a question is still what opened it");
+        assert!(
+            !b.dims_the_table(),
+            "the hand holds an answer and must stay lit"
+        );
+
+        // And a pile the player opened to read stands over a live game.
+        let mut by_hand = Browser::new();
+        by_hand.open_at(BrowseZone::Graveyard(me()));
+        assert!(!by_hand.dims_the_table(), "the game goes on underneath");
     }
 
     /// The sheet is put where it fits, and shrunk before it is moved.

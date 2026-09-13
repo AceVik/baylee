@@ -406,7 +406,7 @@ pub(super) fn spawn_stack_panel(
                 ..default()
             },
             BackgroundColor(palette::PANEL),
-            ZIndex(1),
+            ZIndex(Z_STACK),
             upward_shadow(),
             Pickable::IGNORE,
             Arriving::fill(key, palette::PANEL.alpha()),

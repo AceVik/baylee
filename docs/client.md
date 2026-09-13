@@ -2323,6 +2323,57 @@ pile. A pinned tab is drawn without `Button` or `Feel` and with
 `Pickable::IGNORE`: a control that lights under the pointer and then refuses
 the click is worse than one that never invited it.
 
+A `ForChoice` sheet also draws **no resize corner**. The drag is refused
+there, so the handle would be a control that lights under the pointer and
+then does nothing — the same rule the pinned tabs obey, applied to the one
+piece of furniture left inviting a gesture nobody can make.
+
+**The table goes dark behind a dialog that holds the whole answer**, and
+behind no other. `Browser::dims_the_table` is `locked().is_some()` and
+deliberately not `for_choice()`: a question opens this sheet whenever *any*
+of its answers is somewhere the table cannot show, which is not the same as
+every answer being in here. A `ChooseCards` spanning the cards being revealed
+and the player's own hand opens the sheet and locks no tab, and a veil over
+that question would be darkening the hand the player has to click. A reveal
+with no choice attached falls out the same way and is right for the same
+reason: cards being shown are not a question.
+
+The veil is one full-window node, `Pickable::IGNORE`, painting
+`palette::TABLE_VEIL`. Darkening is the whole of the ask — a veil that also
+swallowed clicks would be making a claim the model does not make — so a click
+on it falls through to `input::pointer`'s "nothing interactive" branch, which
+clears the preview, which is what a click on empty felt has always done. Its
+colour is **cold**, and that is an argument rather than a taste: the dialog
+is srgb8 (28, 25, 19) and the veiled baize measures (15, 29, 26), so the
+panel is the darker of the two in green and brightness cannot separate them.
+Temperature can, and the veil is the same blue-black the hand bar's own
+ground already is. The alpha was measured on screen either side of one
+`Confirm`, because a `BackgroundColor` composites in **linear** space where
+an alpha buys far less darkening than sRGB arithmetic predicts: 0.70 takes
+the felt (29, 53, 43) → (15, 29, 26) and a seat bar's ink 173 → 100 — a
+little over half everywhere, and everything still legible. 0.60 read as
+weather rather than as a table that had been put down.
+
+How far the fade has risen lives in the `hud::Veil` **resource** and not on
+the node, and that is load-bearing: the overlay is a retained tree, every
+tick of a checkbox rebuilds it, and a fade held on the node would start again
+at each of them — a table that flickered while a player chose a card. It
+rises and never falls on screen, because the dialog is torn down the instant
+it is answered and the veil goes with it; the number still eases back down
+with nothing to draw, which is what makes the next question fade in from
+nothing rather than snap from wherever the last one stopped.
+
+`hud::Z_STACK` through `hud::Z_PREVIEW` are the six numbers that order is
+written in, in one place, for the reason the seat bars gave: a `ZIndex`
+orders a node only among its own parent's children, so these mean something
+only against each other. The prompt slip stands *above* the veil — dimming
+the sentence that states the question would be the veil contradicting itself
+— and the hover preview above the dialog, because a card held up to the
+light is held over whatever raised it. They order nothing outside `HudRoot`:
+bevy sorts root nodes by `(GlobalZIndex, ZIndex)` and only then walks each
+subtree, so the seat bars are wholly below all six and the departing card,
+the ability sheet and a life flash wholly above them.
+
 Two things about the mechanics are worth knowing before touching them. The
 drag is a `Pointer<Press>` that records *what* is held plus a per-frame read
 of `Window::cursor_position`, **not** `Pointer<Drag>` — the duel HUD is a

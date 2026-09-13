@@ -72,7 +72,7 @@ pub(super) fn spawn_hand_bar(
                 ColorStop::percent(VEIL.with_alpha(VEIL_ALPHA * 0.45), 38.0),
                 ColorStop::percent(VEIL.with_alpha(VEIL_ALPHA), 100.0),
             ])),
-            ZIndex(2),
+            ZIndex(Z_HAND),
             // Hoverable, and still blocking nothing. The bar is a veil over
             // the table and a click has always gone straight through it —
             // which is what `should_block_lower: false` keeps — but a wheel

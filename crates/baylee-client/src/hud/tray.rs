@@ -180,6 +180,104 @@ pub(crate) fn band_of(windows: &Query<&Window>) -> (f32, f32) {
     (w, (h - EDGE - HAND_BAR_H).max(Placement::MIN_H))
 }
 
+/// How fast the veil rises, as the rate of `1 - e^(-rate·dt)`.
+///
+/// Nine, against the fourteen every button in this client hovers at: 90% of
+/// the way in `ln(10)/9`, about a quarter of a second. A hover answers the
+/// pointer and may be quick; a veil changes the whole scene and reads as an
+/// accident if it simply appears — but it has to be settled before the eye has
+/// finished reading the dialog's title, and anything past a third of a second
+/// is the player waiting.
+///
+/// It rises and never falls on screen: the dialog is a retained tree and goes
+/// the instant it is answered, so the veil goes with it. The number still eases
+/// back down with nothing to draw, which is what makes the *next* question fade
+/// in from nothing rather than snapping from wherever the last one stopped.
+const VEIL_RATE: f32 = 9.0;
+
+/// The veil over the table, and the number behind it.
+///
+/// One full-window node, painting [`palette::TABLE_VEIL`] at whatever fraction the
+/// fade has reached, answering no click at all. `Pickable::IGNORE` is the
+/// whole of W2's scope: the owner asked for darkening, not for blocking, and
+/// a veil that swallowed clicks would be making a claim the model does not
+/// make — [`Browser::dims_the_table`] is drawn from `locked`, and even a
+/// locked question leaves the board worth *pointing* at. A click that lands
+/// here falls through to `input::pointer`'s "nothing interactive" branch,
+/// which clears the preview, which is what a click on the table's empty felt
+/// has always done.
+///
+/// It is the window and not [`band_of`]'s strip, because the hand bar is the
+/// one thing under it a player might otherwise still reach for, and a question
+/// whose every answer is in the dialog is exactly the question the hand cannot
+/// answer.
+///
+/// It is spawned fully clear and painted by [`dim_the_table`], which runs
+/// after the rebuild in the same frame: the fade lives in [`Veil`] rather than
+/// on this node, and reading it here would mean a seventeenth system parameter
+/// on `sync_overlay`, which already carries sixteen.
+pub(super) fn spawn_veil(commands: &mut Commands) -> Entity {
+    commands
+        .spawn((
+            TableVeil,
+            Node {
+                position_type: PositionType::Absolute,
+                left: px(0),
+                right: px(0),
+                top: px(0),
+                bottom: px(0),
+                ..default()
+            },
+            BackgroundColor(veil_at(0.0)),
+            ZIndex(Z_VEIL),
+            Pickable::IGNORE,
+        ))
+        .id()
+}
+
+/// [`palette::TABLE_VEIL`] at `lit` of its alpha.
+fn veil_at(lit: f32) -> Color {
+    palette::TABLE_VEIL.with_alpha(palette::TABLE_VEIL.alpha() * lit.clamp(0.0, 1.0))
+}
+
+/// Eases the veil towards where the browser says it should be, and paints it.
+///
+/// After `sync_overlay` deliberately, for the reason [`spawn_veil`] gives: a
+/// veil spawned this frame is spawned clear, and this is what gives it its
+/// colour before anything is drawn. The number itself is eased whether a veil
+/// exists or not, which is what lets it fall back to nothing while there is
+/// nothing on screen to fall.
+///
+/// `reduce_motion` takes the whole step at once, the way [`Feel`] does — the
+/// veil is still drawn, it simply arrives.
+pub(crate) fn dim_the_table(
+    time: Res<Time>,
+    duel: Res<crate::Duel>,
+    prefs: Option<Res<crate::prefs::Prefs>>,
+    mut veil: ResMut<Veil>,
+    mut nodes: Query<&mut BackgroundColor, With<TableVeil>>,
+) {
+    let still = prefs.is_some_and(|p| p.all().reduce_motion);
+    let target = if duel.browser.dims_the_table() {
+        1.0
+    } else {
+        0.0
+    };
+    let step = if still {
+        1.0
+    } else {
+        1.0 - (-VEIL_RATE * time.delta_secs()).exp()
+    };
+    veil.lit += (target - veil.lit) * step;
+    if (veil.lit - target).abs() < 0.001 {
+        veil.lit = target;
+    }
+    let colour = veil_at(veil.lit);
+    for mut background in &mut nodes {
+        background.0 = colour;
+    }
+}
+
 /// A line of a dialog's prose.
 ///
 /// The same bracket rule the parchment sheets use — `prose::bracketed` greys
@@ -247,6 +345,12 @@ pub(super) fn spawn_tray(
     // painting nothing and answering no click. It is the coordinate space the
     // sheet is placed in, which is what makes a remembered position mean the
     // same thing on two screens with different amounts of HUD above and below.
+    //
+    // Five, above [`spawn_veil`]'s three and the prompt slip's four. The
+    // overlay's whole order is stated in one place — `overlay::sync_overlay`'s
+    // doc — because a `ZIndex` is local to a parent's children and two
+    // siblings that share one are settled by the order they were spawned in,
+    // which is how the seat bars once came to be drawn through this dialog.
     let frame = commands
         .spawn((
             Node {
@@ -257,7 +361,7 @@ pub(super) fn spawn_tray(
                 bottom: px(HAND_BAR_H),
                 ..default()
             },
-            ZIndex(3),
+            ZIndex(Z_SHEET),
             Pickable::IGNORE,
         ))
         .id();
@@ -577,37 +681,52 @@ pub(super) fn spawn_tray(
     // The corner, in the same shape and the same place the card preview's is:
     // one handle, bottom right, both axes. A second handle on every edge is
     // eight more hit targets for a gesture nobody makes on a dialog.
-    let corner = commands
-        .spawn((
-            TrayResize,
-            Button,
-            Node {
-                position_type: PositionType::Absolute,
-                right: px(4),
-                bottom: px(4),
-                width: px(22),
-                height: px(22),
-                align_items: AlignItems::Center,
-                justify_content: JustifyContent::Center,
-                border_radius: btn_radius(),
-                ..default()
-            },
-            BackgroundColor(Color::NONE),
-            Feel::new(Color::NONE),
-            children![(
-                Text::new(glyph::EXPAND.to_string()),
-                icon_tf(fonts, 10.0),
-                TextColor(palette::DIALOG_SOFT),
-                Pickable::IGNORE,
-            )],
-        ))
-        .id();
+    //
+    // Drawn only on a sheet the player arranged. A sheet a *question* opened
+    // is centred and reads no stored rectangle, so `input::tray_drag` returns
+    // before it ever reaches this handle — and then the rule the pinned tabs
+    // and the unlit Confirm already obey applies here too: a control that
+    // lights under the pointer and refuses the gesture is worse than no
+    // control at all.
+    let corner = (!browser.for_choice()).then(|| {
+        commands
+            .spawn((
+                TrayResize,
+                Button,
+                Node {
+                    position_type: PositionType::Absolute,
+                    right: px(4),
+                    bottom: px(4),
+                    width: px(22),
+                    height: px(22),
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::Center,
+                    border_radius: btn_radius(),
+                    ..default()
+                },
+                BackgroundColor(Color::NONE),
+                // `Feel::new` shades towards white and **keeps the alpha**, so
+                // a control resting at nothing is lifted to a brighter nothing
+                // and never answers the pointer. The hot end is stated here
+                // for exactly the reason [`Feel::hot`] exists.
+                Feel::rising_to(Color::NONE, palette::DIALOG_LIT),
+                children![(
+                    Text::new(glyph::EXPAND.to_string()),
+                    icon_tf(fonts, 10.0),
+                    TextColor(palette::DIALOG_SOFT),
+                    Pickable::IGNORE,
+                )],
+            ))
+            .id()
+    });
 
     commands.entity(panel).add_children(&[head, list]);
     if let Some(foot) = foot {
         commands.entity(panel).add_child(foot);
     }
-    commands.entity(panel).add_child(corner);
+    if let Some(corner) = corner {
+        commands.entity(panel).add_child(corner);
+    }
     frame
 }
 
@@ -719,7 +838,10 @@ fn spawn_footer(
                     ..default()
                 },
                 BackgroundColor(Color::NONE),
-                Feel::new(Color::NONE),
+                // A ghost button that fills in under the pointer rather than
+                // one that lightens: see the resize corner for why a rest of
+                // `Color::NONE` has to state its hot end.
+                Feel::rising_to(Color::NONE, palette::DIALOG_LIT),
             ))
             .id();
         commands.entity(cancel).add_child(out);
@@ -832,10 +954,16 @@ fn spawn_row(
 ) -> Entity {
     // Candle, and a wash of it rather than a fill: a chosen row is still a row
     // being read. The tick and the ink carry the claim.
-    let fill = if row.selected {
-        palette::CANDLE_WASH
+    //
+    // The hot end is stated both ways round, because `Feel`'s own hover keeps
+    // a colour's alpha (see [`Feel::hot`]): an unchosen row rests at nothing
+    // and would be lifted to a brighter nothing, and a chosen one rests at a
+    // tenth and would be lifted to a paler tenth. A hundred rows that did not
+    // answer the pointer is the whole list not answering it.
+    let (fill, hot) = if row.selected {
+        (palette::CANDLE_WASH, palette::CANDLE_WASH_LIT)
     } else {
-        Color::NONE
+        (Color::NONE, palette::DIALOG_LIT)
     };
     let slot = commands
         .spawn((
@@ -859,7 +987,7 @@ fn spawn_row(
             },
             BackgroundColor(fill),
             BorderColor::all(palette::DIALOG_LINE),
-            Feel::new(fill),
+            Feel::rising_to(fill, hot),
         ))
         .id();
 
@@ -1331,6 +1459,140 @@ mod tests {
             footer_of(&asked(0, &[])),
             (true, true),
             "a question that takes an empty answer drew no way out"
+        );
+    }
+
+    /// W2's whole claim, written as an order: the veil goes over what answers
+    /// nothing and under everything that does.
+    ///
+    /// One assertion rather than five literals in four files, because that is
+    /// the failure it guards. A `ZIndex` is local to a parent's children, so
+    /// these five mean something only *against each other* — a veil written
+    /// as a 3 beside a prompt slip that had never been given a number at all
+    /// is a dim drawn over the sentence stating the question.
+    ///
+    /// In `const` blocks, so the order is checked when the crate is *built*
+    /// and not when its tests are run. It is still a named test because the
+    /// rule wants somewhere to be written down in words, and because a
+    /// constant that silently stopped being compared would be no rule at all.
+    #[test]
+    fn the_veil_lies_over_the_table_and_under_the_question() {
+        const {
+            assert!(
+                Z_STACK < Z_VEIL && Z_HAND < Z_VEIL,
+                "the stack and the hand answer nothing here and go dark with the table"
+            );
+            assert!(
+                Z_VEIL < Z_SLIP,
+                "the slip is the sentence saying what the question is"
+            );
+            assert!(Z_SLIP < Z_SHEET, "the dialog is what the slip is about");
+            assert!(
+                Z_SHEET < Z_PREVIEW,
+                "a card held up to the light is held over whatever raised it"
+            );
+        }
+    }
+
+    /// The fade rises to exactly the veil's own alpha and falls back to
+    /// nothing — and it survives the rebuild that every tick of a checkbox
+    /// causes, which is the whole reason the number is not on the node.
+    #[test]
+    fn the_veil_rises_while_the_question_stands_and_falls_when_it_is_answered() {
+        use baylee_client_core::test_support::{ViewBuilder, printed};
+        use baylee_core::ids::{ObjectId, PlayerId};
+        use baylee_engine::choice::{ChoicePrompt, Pending};
+        use std::time::Duration;
+
+        fn tick(app: &mut App) {
+            app.world_mut()
+                .resource_mut::<Time>()
+                .advance_by(Duration::from_millis(16));
+            app.update();
+        }
+        fn alpha(app: &mut App) -> f32 {
+            let mut found = app
+                .world_mut()
+                .query_filtered::<&BackgroundColor, With<TableVeil>>();
+            found.iter(app.world()).next().expect("a veil").0.alpha()
+        }
+        fn raise(app: &mut App) {
+            let mut queue = bevy::ecs::world::CommandQueue::default();
+            {
+                let mut commands = Commands::new(&mut queue, app.world());
+                spawn_veil(&mut commands);
+            }
+            queue.apply(app.world_mut());
+        }
+
+        let mut app = App::new();
+        app.init_resource::<Time>()
+            .init_resource::<Veil>()
+            .init_resource::<crate::Duel>()
+            .add_systems(Update, dim_the_table);
+        raise(&mut app);
+        assert!(alpha(&mut app).abs() < 1e-6, "it is spawned clear");
+
+        // A search, through the same door the client uses: cards shown, every
+        // answer among them.
+        let view = ViewBuilder::new(2)
+            .with_looking_at((10..13).map(|s| printed(s, 0, "Forest", 1)).collect())
+            .build();
+        let search = baylee_client_core::Interaction::new(
+            Pending::ChooseCards {
+                player: PlayerId::new(0),
+                options: (10..13).map(|n| ObjectId::new(n, 0)).collect(),
+                min: 1,
+                max: 1,
+                prompt: ChoicePrompt::SearchLibrary,
+            },
+            PlayerId::new(0),
+        );
+        app.world_mut()
+            .resource_mut::<crate::Duel>()
+            .browser
+            .follow(&view, Some(&search));
+        for _ in 0..3 {
+            tick(&mut app);
+        }
+        let rising = alpha(&mut app);
+        assert!(
+            rising > 0.0 && rising < palette::TABLE_VEIL.alpha(),
+            "three frames in it should be on its way and not there yet: {rising}"
+        );
+
+        // A tick of a checkbox rebuilds the whole overlay, veil included.
+        let standing: Vec<_> = {
+            let mut found = app.world_mut().query_filtered::<Entity, With<TableVeil>>();
+            found.iter(app.world()).collect()
+        };
+        for entity in standing {
+            app.world_mut().entity_mut(entity).despawn();
+        }
+        raise(&mut app);
+        tick(&mut app);
+        assert!(
+            alpha(&mut app) > rising,
+            "the rebuilt veil started again from nothing — the fade is on the \
+             node instead of in `Veil`"
+        );
+
+        for _ in 0..60 {
+            tick(&mut app);
+        }
+        assert!(
+            (alpha(&mut app) - palette::TABLE_VEIL.alpha()).abs() < 1e-4,
+            "it settles at the veil's own alpha, not a hair under it"
+        );
+
+        // Answered. The number falls whether or not a node is left to paint.
+        app.world_mut().resource_mut::<crate::Duel>().browser = Browser::new();
+        for _ in 0..60 {
+            tick(&mut app);
+        }
+        assert!(
+            alpha(&mut app).abs() < 1e-6,
+            "and is clear again for the next one"
         );
     }
 
