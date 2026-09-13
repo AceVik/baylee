@@ -378,6 +378,16 @@ fn arm_ability(
     // Nothing is on the wire yet, which is the same bargain a bubble has
     // always struck: the card is tapped by the press that answers, not by the
     // press that asked.
+    //
+    // A step is only worth taking into a bubble that is a **question**, which
+    // is why the pips are built here and counted before the sheet turns into
+    // one. Two shapes would otherwise walk into a dead end: a tap that pours
+    // an uncountable amount of *one* colour (`Effect::mana_dynamic` — "add
+    // {G} for each Ally") has exactly one answer, and a tap whose colours no
+    // board can resolve has none at all, so the sheet would become a bubble
+    // with nothing in it to press. Neither is printed on a card in this pool
+    // today; the rule `docs/client.md` states is general, and a row that
+    // cannot ask anything is sent the way it always was.
     if option.mana
         && let PlayerAction::ActivateAbility {
             source,
@@ -385,11 +395,21 @@ fn arm_ability(
         } = option.action
         && source == object
         && let Some(view) = duel.view.as_ref()
+        && let Some(interaction) = duel.interaction.as_ref()
         && !crate::manasources::countable(
             view,
             object,
             baylee_client_core::manaplan::Tap::Ability(ability_index),
         )
+        && crate::abilities::options_for(
+            baylee_client_core::Lang::En,
+            view,
+            interaction,
+            object,
+            Some(ability_index),
+        )
+        .len()
+            > 1
     {
         duel.last_error = None;
         duel.armed = None;
