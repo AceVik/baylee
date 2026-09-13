@@ -2155,7 +2155,9 @@ The half of this that has nothing to do with buttons: a choice answered by
 **clicking** has to say so. "Discard 1 card(s)" stood alone at every cleanup —
 no button, because nothing is submittable until a card is picked, and no hint,
 because none existed. A player who did not already know to click their hand
-had no way to find out. There is a line under the headline now, and the cards
+had no way to find out. That sentence is twice history: the bracket in it is
+gone as well, and §"The interface's own words" says why a counted sentence is
+written twice instead. There is a line under the headline now, and the cards
 the choice would accept glow, from `Interaction::is_selectable` rather than
 from the board model: `selectable()` is empty for a discard *by design* (the
 engine does not enumerate a seat's own hand, which is already private), so the

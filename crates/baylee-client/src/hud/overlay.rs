@@ -390,7 +390,8 @@ pub fn sync_overlay(
         // bar used to draw "Discard 1 card(s)" and stop: no button, because
         // nothing is submittable until something is picked, and no hint,
         // because none existed. A player who did not already know to click
-        // their hand had no way to find out.
+        // their hand had no way to find out. (The bracket in that quote is
+        // history too — `Phrase::counted` writes a counted sentence twice.)
         //
         // Not when the zone browser's dialog is holding the question, though:
         // the hint for a `ChooseCards` is "click a card on the board", and the
