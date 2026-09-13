@@ -131,7 +131,17 @@ pub fn spawn_pip(commands: &mut Commands, fonts: &UiFonts, pip: Pip, size: f32) 
             }
         }
         Pip::Number { value } => spawn_number(commands, fonts, disc, value, size),
-        Pip::Loyalty(loy) => spawn_loyalty(commands, fonts, disc, loy, size),
+        Pip::Loyalty(loy) => {
+            spawn_loyalty(
+                commands,
+                fonts,
+                disc,
+                loy,
+                size,
+                palette::PARCHMENT_INK,
+                palette::PARCHMENT,
+            );
+        }
     }
     disc
 }
@@ -184,6 +194,16 @@ const CAP: f32 = 0.86;
 /// shoulders pinch. The card splits the difference, and so does this.
 const NUMBER_LIFT: f32 = 0.55;
 
+/// How wide a loyalty badge is at its narrowest, as a share of its size.
+///
+/// The badge is wider than it is a mark across, because the card's is: a
+/// lozenge carrying two digits is a wide shape and one carrying a single
+/// digit keeps that width rather than shrinking into a lozenge of its own.
+/// Named because a caller that lays a badge beside prose has to take the
+/// width out of the prose's budget, and a `1.55` written twice is a number
+/// that drifts.
+pub(crate) const BADGE_SPAN: f32 = 1.55;
+
 /// A planeswalker's loyalty cost, built the way the card prints it.
 ///
 /// Three children on one parent, and their order *is* the drawing: `bevy_ui`
@@ -197,17 +217,24 @@ const NUMBER_LIFT: f32 = 0.55;
 /// *number*, which is laid out in the content box, and [`NUMBER_LIFT`] is the
 /// share of the point that padding gives back to it.
 ///
-/// A mana pip is a light disc carrying dark ink. This is deliberately the
-/// other way round — dark body, parchment numeral — because a loyalty cost
-/// drawn in the pip's own register would read as generic mana, and the two
-/// stand in the same column of the same row.
+/// A mana pip is a light disc carrying dark ink. The sheet's badge is
+/// deliberately the other way round — dark body, parchment numeral — because
+/// a loyalty cost drawn in the pip's own register would read as generic mana,
+/// and the two stand in the same column of the same row.
+///
+/// Which is why the pair is an argument. The badge is a solid mark with a
+/// number cut out of it, so it is legible only against the ground it is laid
+/// on, and this client lays it on two at once: the sheet's parchment, which
+/// takes a dark body, and the stack's dark panel, which takes a light one.
 fn spawn_loyalty(
     commands: &mut Commands,
     fonts: &UiFonts,
     badge: Entity,
     loy: baylee_client_core::manapip::Loyalty,
     size: f32,
-) {
+    body_ink: Color,
+    numeral: Color,
+) -> LoyaltyBadge {
     use baylee_client_core::manapip::Tick;
 
     let square = CAP * size;
@@ -229,7 +256,7 @@ fn spawn_loyalty(
     let lift = rise * NUMBER_LIFT;
     commands.entity(badge).insert(Node {
         width: Val::Auto,
-        min_width: px(size * 1.55),
+        min_width: px(size * BADGE_SPAN),
         height: px(body + rise),
         flex_shrink: 0.0,
         align_items: AlignItems::Center,
@@ -270,7 +297,7 @@ fn spawn_loyalty(
                 ..default()
             },
             UiTransform::from_rotation(Rot2::radians(std::f32::consts::FRAC_PI_4)),
-            BackgroundColor(palette::PARCHMENT_INK),
+            BackgroundColor(body_ink),
             Pickable::IGNORE,
         ))
         .id();
@@ -288,7 +315,7 @@ fn spawn_loyalty(
                 border_radius: BorderRadius::all(px(round)),
                 ..default()
             },
-            BackgroundColor(palette::PARCHMENT_INK),
+            BackgroundColor(body_ink),
             Pickable::IGNORE,
         ))
         .id();
@@ -298,11 +325,54 @@ fn spawn_loyalty(
         .spawn((
             Text::new(loy.caption()),
             crate::hud::tf_bold(fonts, size * 0.82),
-            TextColor(palette::PARCHMENT),
+            TextColor(numeral),
             Pickable::IGNORE,
         ))
         .id();
     commands.entity(badge).add_child(text);
+
+    LoyaltyBadge {
+        root: badge,
+        body: [point, slab],
+        numeral: text,
+    }
+}
+
+/// The nodes a loyalty badge is made of, handed back to whoever asked for one.
+///
+/// There is no subtree opacity in `bevy_ui`, so a caller that fades its own
+/// tree in — the stack panel, where every node carries an `Arriving` — has to
+/// reach each piece of the badge itself. Two fills and one numeral, because
+/// those are two different colours on two different components and a single
+/// blanket bundle would animate one of them and silently miss the other.
+pub struct LoyaltyBadge {
+    /// The badge itself, to be put in a tree.
+    pub root: Entity,
+    /// The two nodes painted in the body colour: the point and the slab.
+    pub body: [Entity; 2],
+    /// The node carrying the number written on it.
+    pub numeral: Entity,
+}
+
+/// A loyalty badge on its own, in the two colours the ground asks for.
+///
+/// [`spawn_pip`] is the door for a badge quoted inside a printed cost, where
+/// it is one symbol among the mana. This is the door for a badge standing as
+/// an **initial** before a sentence — the way a card prints a planeswalker's
+/// line — which is a different job: the caller picks the colours, and gets
+/// back the pieces so it can animate them.
+pub fn spawn_loyalty_badge(
+    commands: &mut Commands,
+    fonts: &UiFonts,
+    loy: baylee_client_core::manapip::Loyalty,
+    size: f32,
+    body_ink: Color,
+    numeral: Color,
+) -> LoyaltyBadge {
+    // `spawn_loyalty` writes the whole `Node` itself, so the entity it is
+    // handed needs nothing on it but `Pickable::IGNORE`.
+    let badge = commands.spawn(Pickable::IGNORE).id();
+    spawn_loyalty(commands, fonts, badge, loy, size, body_ink, numeral)
 }
 
 /// A mana-font handle at a size.

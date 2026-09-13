@@ -186,6 +186,24 @@ pub fn loyalty_token(cost: i8) -> String {
     }
 }
 
+/// The loyalty badge a **printed** cost asks for, if it is one.
+///
+/// [`loyalty_token`] writes what the client says to itself; this reads what
+/// the *card* says. A planeswalker's line begins `+2: `, `0: ` or `−1: ` —
+/// prose, with no brace and no `L` — and `generated_lines` carries it that
+/// way, because it carries the printed sentence.
+///
+/// The same parser answers both, so the two doors cannot drift, and its
+/// strictness is what makes this one safe to point at any cost prefix: the
+/// only unsigned number it accepts is zero, so `{2}{B}, {T}` and
+/// `Sacrifice a Land` are refused rather than read as flat badges. A cost is
+/// printed the same way in every language, so this asks nothing of the one
+/// the player reads in.
+#[must_use]
+pub fn printed_loyalty(cost: &str) -> Option<Loyalty> {
+    loyalty(&format!("L{}", cost.trim()))
+}
+
 /// The loyalty badge a `{L…}` token asks for, if it asks for one.
 ///
 /// Deliberately strict about the shapes a card actually prints: a signed
@@ -778,6 +796,43 @@ mod tests {
             vec![Segment::Text("Sacrifice {L5}.".into())],
             "a refused run keeps its braces"
         );
+    }
+
+    /// The printed door reads what a card prints, and — the half that keeps
+    /// it safe to point at *any* activation cost — refuses everything else a
+    /// cost prefix can be.
+    #[test]
+    fn a_printed_cost_is_a_badge_only_when_a_walker_printed_it() {
+        for (printed, tick, amount) in [
+            ("+2", Tick::Up, Some(2_u8)),
+            ("+12", Tick::Up, Some(12)),
+            ("0", Tick::Flat, Some(0)),
+            ("-1", Tick::Down, Some(1)),
+            ("\u{2212}1", Tick::Down, Some(1)),
+            ("\u{2212}X", Tick::Down, None),
+        ] {
+            assert_eq!(
+                printed_loyalty(printed),
+                Some(Loyalty { tick, amount }),
+                "{printed}"
+            );
+        }
+        for refused in [
+            "",
+            // The discriminating one: a cost of one generic mana looks like a
+            // zero with braces round it, and is the other door's answer.
+            "{0}",
+            "{T}",
+            "{2}, {T}",
+            "{2}{B}, {T}, Sacrifice this",
+            "Sacrifice a Land",
+            "Level up {2}",
+            "2",
+            "X",
+            "Whenever this creature attacks, draw a card",
+        ] {
+            assert_eq!(printed_loyalty(refused), None, "{refused}");
+        }
     }
 
     /// Quoted, the badge is written out the way the card writes it — which is

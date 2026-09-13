@@ -146,6 +146,46 @@ pub const fn press(one_tap: bool, armed: bool) -> Press {
 /// *granted* ability does instead of what this one does.
 const COST_PREFIX: usize = 48;
 
+/// A printed line split at its cost, when it has one: `(cost, effect)`.
+///
+/// The one place that decides where a cost ends, because [`effect`] and
+/// [`loyalty_initial`] must agree about it exactly — a row that drew a badge
+/// for a prefix it then printed anyway would say the cost twice, and one that
+/// dropped a prefix it drew no badge for would lose it.
+fn cost_of(line: &str) -> Option<(&str, &str)> {
+    let at = line.find(": ")?;
+    if at >= COST_PREFIX {
+        return None;
+    }
+    let rest = line[at + 2..].trim();
+    if rest.is_empty() {
+        return None;
+    }
+    Some((&line[..at], rest))
+}
+
+/// The loyalty badge a printed line **begins** with, if it begins with one.
+///
+/// A planeswalker's ability is printed `+2: Look at the top card…`, and that
+/// cost is a shape rather than a word: a line that sets it as letters loses
+/// the one mark a player recognises a walker's ability by. So it comes off
+/// the front of the sentence and is drawn as the initial the card draws it
+/// as, and [`effect`] takes the rest.
+///
+/// `None` for everything else, which is nearly everything. The narrowness is
+/// [`manapip::printed_loyalty`]'s, and the prefix asked about is exactly the
+/// one [`effect`] would cut, so the two answers cannot disagree.
+///
+/// [`manapip::printed_loyalty`]: crate::manapip::printed_loyalty
+#[must_use]
+pub fn loyalty_initial(blocks: &[TextBlock]) -> Option<crate::manapip::Loyalty> {
+    let TextBlock::Rules(first) = blocks.first()? else {
+        return None;
+    };
+    let (cost, _) = cost_of(first)?;
+    crate::manapip::printed_loyalty(cost)
+}
+
 /// The half of a printed ability that says what it *does*.
 ///
 /// A row of the sheet draws the cost on the right as pips, so the sentence on
@@ -163,16 +203,10 @@ pub fn effect(blocks: Vec<TextBlock>) -> Vec<TextBlock> {
     let Some(TextBlock::Rules(first)) = blocks.first_mut() else {
         return blocks;
     };
-    let Some(at) = first.find(": ") else {
+    let Some((_, rest)) = cost_of(first) else {
         return blocks;
     };
-    if at >= COST_PREFIX {
-        return blocks;
-    }
-    let rest = first[at + 2..].trim().to_string();
-    if rest.is_empty() {
-        return blocks;
-    }
+    let rest = rest.to_string();
     *first = rest;
     blocks
 }
@@ -217,6 +251,38 @@ mod tests {
         // whole line rather than going blank.
         assert_eq!(effect(vec![rules("{T}: ")]), vec![rules("{T}: ")]);
         assert!(effect(Vec::new()).is_empty());
+    }
+
+    /// A walker's line comes apart in two, with nothing said twice and
+    /// nothing lost: the badge off the front, the sentence out of [`effect`].
+    #[test]
+    fn a_walkers_line_gives_up_its_badge_before_it_is_printed() {
+        let line = vec![rules(
+            "+2: Look at the top card of target player's library.",
+        )];
+        let badge = loyalty_initial(&line).expect("a badge");
+        assert_eq!(badge.tick, crate::manapip::Tick::Up);
+        assert_eq!(badge.caption(), "2");
+        assert_eq!(
+            effect(line),
+            vec![rules("Look at the top card of target player's library.")]
+        );
+        // The printed minus, which is what an oracle line actually carries.
+        let down = loyalty_initial(&[rules("\u{2212}1: Draw a card.")]).expect("a badge");
+        assert_eq!(down.tick, crate::manapip::Tick::Down);
+        assert_eq!(down.caption(), "1");
+        // Everything that is not a walker's cost keeps its whole prefix, and
+        // a reminder block is never the one read.
+        for other in [
+            "{2}, {T}: Draw a card.",
+            "Whenever this creature attacks, draw a card.",
+            "Cycling {2}",
+            "Target creature gains an ability until end of turn: \"{T}: Add {G}.\"",
+        ] {
+            assert!(loyalty_initial(&[rules(other)]).is_none(), "{other}");
+        }
+        assert!(loyalty_initial(&[TextBlock::Reminder("+2: Draw a card.".into())]).is_none());
+        assert!(loyalty_initial(&[]).is_none());
     }
 
     #[test]

@@ -178,6 +178,27 @@ const STACK_SENTENCE_LINES: f32 = 4.0;
 /// rather than as a taller one.
 const STACK_MARK: f32 = 0.72;
 
+/// A planeswalker's loyalty badge standing before the sentence, as a fraction
+/// of the prose's own size.
+///
+/// The 0.88 [`crate::manaui::spawn_rich`] sets every symbol at inside a line
+/// of prose, so an initial here and a mark quoted mid-sentence are set to one
+/// another exactly as they are on the ability sheet. It is deliberately not
+/// [`STACK_MARK`]: that one is a *glyph* out of `mana.ttf` that has to reach
+/// the prose's cap height, and this is a shape built out of two boxes whose
+/// size is its own.
+const STACK_INITIAL: f32 = 0.88;
+
+/// How tall one line of that sentence is, as a share of its font size.
+///
+/// `bevy_text`'s own default, written out because the initial is centred
+/// against the **first** line: a badge centred on the whole block would sit
+/// halfway down a four-line paragraph.
+const STACK_LINE: f32 = 1.2;
+
+/// The air between the initial and the sentence it stands before.
+const STACK_INITIAL_GAP: f32 = 6.0;
+
 /// How fast a row arrives, per second.
 ///
 /// The same exponential everything in this client eases with, at a rate that
@@ -1039,43 +1060,8 @@ fn spawn_stack_entry(
         // six sentences stacked under one another would be a wall of text
         // where the size ramp used to carry the order.
         if let Some(blocks) = stack_sentence(item, view, faces) {
-            let sentence = commands
-                .spawn((
-                    Text::default(),
-                    super::tf_serif(fonts, STACK_SENTENCE_PT, 400),
-                    TextColor(palette::INK),
-                    Arriving::ink(key, palette::INK.alpha()),
-                    Pickable::IGNORE,
-                ))
-                .id();
-            // One budget across the spans, spent in printed order, so a long
-            // ability cannot grow the row past the queue it is ordering — and
-            // so the reminder is what gets cut first, which is the order a
-            // player would drop them in too.
-            let room = budget(room * STACK_SENTENCE_LINES, STACK_SENTENCE_PT);
-            for piece in spans_of(&blocks, Some(room)) {
-                let ink = if piece.reminder {
-                    palette::MUTED
-                } else {
-                    palette::INK
-                };
-                let span = commands
-                    .spawn((
-                        TextSpan::new(piece.text),
-                        if piece.mark {
-                            crate::manaui::mana_tf(fonts, STACK_SENTENCE_PT * STACK_MARK)
-                        } else if piece.reminder {
-                            super::tf_serif_italic(fonts, STACK_SENTENCE_PT, 400)
-                        } else {
-                            super::tf_serif(fonts, STACK_SENTENCE_PT, 400)
-                        },
-                        TextColor(ink),
-                        Arriving::ink(key, ink.alpha()),
-                    ))
-                    .id();
-                commands.entity(sentence).add_child(span);
-            }
-            commands.entity(body).add_child(sentence);
+            let line = spawn_stack_sentence(commands, fonts, key, blocks, room);
+            commands.entity(body).add_child(line);
         }
     }
 
@@ -1087,6 +1073,160 @@ fn spawn_stack_entry(
     }
 
     row
+}
+
+/// The printed sentence on a full row, with a planeswalker's badge before it.
+///
+/// A walker prints its cost at the head of the line — `+2: Look at the top
+/// card…` — and that badge is the mark a player recognises a walker's ability
+/// by. Set as letters it is three characters of prose at the front of a
+/// sentence; set as the shape the card draws, it is an **initial**, and what
+/// is left beside it is what the ability does. The two halves come from one
+/// reading in [`baylee_client_core::abilitysheet`], so the cost cannot be both
+/// drawn and printed, nor dropped without being drawn.
+///
+/// Everything else on the stack keeps its whole line. A cost paid in mana is
+/// already a row of marks inside the sentence and has no second shape to
+/// stand as, and a trigger has no cost at all.
+fn spawn_stack_sentence(
+    commands: &mut Commands,
+    fonts: &UiFonts,
+    key: StackKey,
+    blocks: Vec<TextBlock>,
+    room: f32,
+) -> Entity {
+    use baylee_client_core::abilitysheet;
+
+    let initial = abilitysheet::loyalty_initial(&blocks);
+    let blocks = if initial.is_some() {
+        abilitysheet::effect(blocks)
+    } else {
+        blocks
+    };
+    let sentence = commands
+        .spawn((
+            Text::default(),
+            super::tf_serif(fonts, STACK_SENTENCE_PT, 400),
+            TextColor(palette::INK),
+            Arriving::ink(key, palette::INK.alpha()),
+            Pickable::IGNORE,
+            if initial.is_some() {
+                // Sharing the line with the badge, and able to shrink back
+                // off its own natural width — prose that cannot shrink pushes
+                // the row wide instead of wrapping inside it.
+                Node {
+                    flex_grow: 1.0,
+                    flex_basis: Val::Auto,
+                    min_width: px(0),
+                    ..default()
+                }
+            } else {
+                Node::default()
+            },
+        ))
+        .id();
+
+    // One budget across the spans, spent in printed order, so a long ability
+    // cannot grow the row past the queue it is ordering — and so the reminder
+    // is what gets cut first, which is the order a player would drop them in
+    // too. The initial takes its own width out of that room first, or the cut
+    // would be measured against pixels the prose no longer has.
+    let prose = room
+        - initial.map_or(0.0, |_| {
+            STACK_SENTENCE_PT * STACK_INITIAL * crate::manaui::BADGE_SPAN + STACK_INITIAL_GAP
+        });
+    let room = budget(prose * STACK_SENTENCE_LINES, STACK_SENTENCE_PT);
+    for piece in spans_of(&blocks, Some(room)) {
+        let ink = if piece.reminder {
+            palette::MUTED
+        } else {
+            palette::INK
+        };
+        let span = commands
+            .spawn((
+                TextSpan::new(piece.text),
+                if piece.mark {
+                    crate::manaui::mana_tf(fonts, STACK_SENTENCE_PT * STACK_MARK)
+                } else if piece.reminder {
+                    super::tf_serif_italic(fonts, STACK_SENTENCE_PT, 400)
+                } else {
+                    super::tf_serif(fonts, STACK_SENTENCE_PT, 400)
+                },
+                TextColor(ink),
+                Arriving::ink(key, ink.alpha()),
+            ))
+            .id();
+        commands.entity(sentence).add_child(span);
+    }
+
+    let Some(loy) = initial else {
+        return sentence;
+    };
+    spawn_walker_line(commands, fonts, key, loy, sentence)
+}
+
+/// The badge and the sentence, as one line.
+///
+/// The badge is laid on the **panel**, not on parchment, so it is drawn the
+/// other way up from the sheet's: a light body carrying a dark number. That
+/// is the same claim the sheet's dark-on-parchment badge makes, made on the
+/// ground this panel actually has — a `PARCHMENT_INK` lozenge here would be a
+/// hole in the panel with nothing legible in it.
+fn spawn_walker_line(
+    commands: &mut Commands,
+    fonts: &UiFonts,
+    key: StackKey,
+    loy: manapip::Loyalty,
+    sentence: Entity,
+) -> Entity {
+    let line = commands
+        .spawn((
+            Node {
+                flex_direction: FlexDirection::Row,
+                align_items: AlignItems::FlexStart,
+                column_gap: px(STACK_INITIAL_GAP),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    // Exactly one line tall, with the badge centred in it: an initial belongs
+    // on the sentence's first line, and a badge aligned to the block would
+    // either ride above that line's own middle or sink into the paragraph.
+    let seat = commands
+        .spawn((
+            Node {
+                height: px(STACK_SENTENCE_PT * super::SERIF_SCALE * STACK_LINE),
+                align_items: AlignItems::Center,
+                flex_shrink: 0.0,
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    let badge = crate::manaui::spawn_loyalty_badge(
+        commands,
+        fonts,
+        loy,
+        STACK_SENTENCE_PT * STACK_INITIAL,
+        palette::INK,
+        palette::PANEL_LIT,
+    );
+    // There is no subtree opacity in `bevy_ui`, so each piece of the badge
+    // arrives on the row's own progress or none of it does — and a solid mark
+    // standing at full strength over a row that has not faded in yet is the
+    // one-frame flash [`ease_the_stack_in`] exists to prevent.
+    for fill in badge.body {
+        commands
+            .entity(fill)
+            .insert(Arriving::fill(key, palette::INK.alpha()));
+    }
+    commands
+        .entity(badge.numeral)
+        .insert(Arriving::ink(key, palette::PANEL_LIT.alpha()));
+    commands.entity(seat).add_child(badge.root);
+    commands.entity(line).add_children(&[seat, sentence]);
+    line
 }
 
 /// The arrow and everything a stack entry points at, as one wrapping row.
