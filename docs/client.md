@@ -2864,6 +2864,17 @@ tally, the zone browser's rows, and the ability sheet's heading. It stays one
 function: a new place that writes a card name calls `face::name_of`, and if it
 cannot reach a `PlayerView` it is drawing the wrong thing.
 
+"Anything drawing a whole card face" had one exception, and it took a live
+ability on the stack to find it. The **picture** beside a stack entry is built
+by `face::of_object`, which merged the printed text over the object's own
+`card` — and an ability has no card (`StackKind::Ability`), so there was
+nothing to merge: the thumbnail fell back to the compiled registry's English
+while the title above it, drawn by `name_of`, read German. `of_object` takes
+the view for that one face alone, and finds the printing the same way
+`name_of` does — the source permanent's, on the face the host says the
+sentence is printed on. Picture and title are now named by one lookup instead
+of two that agreed only for a card.
+
 The lookup has to happen at draw time and not in `BoardModel`, and the reason
 is one line up: `BoardModel` is built in `baylee-client-core`. A name is
 therefore *not* part of what `HudRevision` compares — but `texts` is, counting
