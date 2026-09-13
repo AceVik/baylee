@@ -1374,10 +1374,7 @@ fn zone_label(lang: Lang, zone: BrowseZone, view: &PlayerView, statics: &GameSta
         None => name,
         Some(seat) if seat == view.seat => name,
         Some(seat) => {
-            let who = statics.seats.iter().find(|s| s.player == seat).map_or_else(
-                || Phrase::SeatNumbered.fill(lang, &[&seat.get().to_string()]),
-                |s| s.display_name.clone(),
-            );
+            let who = seat_name(lang, Some(statics), seat);
             Phrase::BrowseZoneOf.fill(lang, &[&name, &who])
         }
     };

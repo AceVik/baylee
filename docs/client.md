@@ -3600,6 +3600,24 @@ answered a line earlier (it is part of a cost, not a selection) and
 `Generic` stays the plain noun, which is honest — the engine did not say
 what it was for either.
 
+A line that talks about **another chair** names it, and `i18n::seat_name` is
+the single place that decides how. Four sentences want it — a zone browser's
+tab, the player chooser's rows, "waiting for …", and a draw offer — and three
+spellings had grown between them: `Phrase::SeatNumbered`, a developer's `#1`,
+and a bare `PlayerId` printed straight into the sentence, which is how the
+best the prompt bar could say at a table where everyone has a name was "Warte
+auf Platz 1". The roster is an `Option` because `GameStatic` arrives once and
+frames are drawn before it does, and a seat it does not describe is
+**numbered, not dropped** — the sentence is about a chair that exists either
+way. The viewing seat's own name is the other function, `own_seat_name`, and
+no caller has to choose between the two: a line that says "waiting for" or
+"offers a draw" is never about the seat reading it.
+
+That is also what finally put the proposer into a draw offer.
+`YesNoPrompt::DrawOffer` carries `proposer` and the line dropped it in a `..`,
+so the question read "Ein Remis wurde angeboten. Annehmen?" — obvious at a
+duel, and not a question anybody can answer at a table of four.
+
 Who says what:
 
 - The lobby's own status lines go through `Lobby::note`, which reads the

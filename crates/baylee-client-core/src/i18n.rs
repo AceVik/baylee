@@ -35,6 +35,9 @@
 //! those translatable is a protocol change — a code beside the prose — and is
 //! deliberately a separate piece of work.
 
+use baylee_core::ids::PlayerId;
+use baylee_view::GameStatic;
+
 /// A language the interface speaks.
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Default, Hash)]
 pub enum Lang {
@@ -876,8 +879,17 @@ messages! {
     /// actually lying there. One word, because the picture says the rest and
     /// the caption is no wider than the card it labels.
     CardUnderneath { en: "UNDERNEATH", de: "DARUNTER" },
-    /// Waiting for seat {0}
-    WaitingForSeat { en: "Waiting for seat {0}", de: "Warte auf Platz {0}" },
+    /// Waiting for {0}
+    ///
+    /// `{0}` is a seat's *name* and falls back to [`Phrase::SeatNumbered`],
+    /// so the old wording ("Waiting for seat 1") is what a table with no
+    /// roster still says — and a table that has one says who.
+    ///
+    /// Not [`Phrase::WaitingFor`], which is the same fact reported *about*
+    /// somebody ("wartet auf …") inside a stack entry or a lobby row. This
+    /// is the prompt bar speaking in its own voice, and German conjugates
+    /// the two differently.
+    WaitingForPlayer { en: "Waiting for {0}", de: "Warte auf {0}" },
     /// Waiting
     JustWaiting { en: "Waiting", de: "Warte" },
     /// Keep this hand? (the next mulligan is free)
@@ -984,10 +996,14 @@ messages! {
     PayTax { en: "Pay {{0}}?", de: "{{0}} zahlen?" },
     /// Cast it for its miracle cost?
     CastForMiracle { en: "Cast it for its miracle cost?", de: "Für die Wunderkosten wirken?" },
-    /// A draw was offered. Accept?
-    DrawWasOffered {
-        en: "A draw was offered. Accept?",
-        de: "Ein Remis wurde angeboten. Annehmen?",
+    /// {0} offers a draw. Accept?
+    ///
+    /// Named rather than passive, and the name is the whole of the repair:
+    /// at a duel "a draw was offered" is obvious, and at a table of four it
+    /// is a question nobody can answer.
+    DrawOfferedBy {
+        en: "{0} offers a draw. Accept?",
+        de: "{0} bietet ein Remis an. Annehmen?",
     },
     /// Put your commander into the command zone?
     CommanderToCommandZone {
@@ -1477,6 +1493,35 @@ pub fn own_seat_name(lang: Lang, name: &str) -> String {
     } else {
         Phrase::YouNamed.fill(lang, &[name])
     }
+}
+
+/// What to call a seat inside a sentence.
+///
+/// Every line that talks *about* another chair needs this, and four of them
+/// were writing it out: a zone browser's tab, the player chooser's rows, the
+/// bar's "waiting for" line and now a draw offer. Three spellings had grown
+/// between them — `Phrase::SeatNumbered` in one, a developer's `#1` in
+/// another, and a bare `PlayerId` in the third, which is how "Warte auf Platz
+/// 1" was the best the prompt bar could say at a table where everyone has a
+/// name.
+///
+/// The roster is [`Option`] because a seat is sent [`GameStatic`] once and a
+/// client draws frames before it arrives; a seat it does not describe is
+/// **numbered, not dropped**, because the sentence is about a chair that
+/// exists either way.
+///
+/// This is for *another* seat. The viewing seat's own name is
+/// [`own_seat_name`], which draws the pronoun instead — and no caller here
+/// has to choose between them: a line that says "waiting for" or "offers a
+/// draw" is never about the seat reading it.
+#[must_use]
+pub fn seat_name(lang: Lang, statics: Option<&GameStatic>, player: PlayerId) -> String {
+    statics
+        .and_then(|s| s.seats.iter().find(|seat| seat.player == player))
+        .map_or_else(
+            || Phrase::SeatNumbered.fill(lang, &[&player.get().to_string()]),
+            |seat| seat.display_name.clone(),
+        )
 }
 
 #[cfg(test)]

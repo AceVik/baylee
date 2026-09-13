@@ -11,7 +11,10 @@
 //!
 //! This module is the list. It is a sibling of [`crate::abilities`] and for
 //! the same reason: the *label* is what needs to know about mana symbols and
-//! seat names, which is knowledge `baylee-client-core` does not carry.
+//! card faces, which is knowledge `baylee-client-core` does not carry. A
+//! seat's name is the one that came back — every line that talks about
+//! another chair wants it, so it is [`baylee_client_core::i18n::seat_name`]
+//! and this list asks for it like everybody else.
 //!
 //! [`Prompt`] is what it reads, not [`baylee_engine::choice::Pending`] — the
 //! prompt already carries every option the engine offered, in the engine's
@@ -25,7 +28,7 @@
 //! question as it *enters*, so a client that cannot answer it loses the game
 //! on a land drop.
 
-use baylee_client_core::i18n::{Lang, Phrase};
+use baylee_client_core::i18n::{Lang, Phrase, seat_name};
 use baylee_client_core::interaction::Prompt;
 use baylee_client_core::manapip::{self, Pip};
 use baylee_core::generated::subtypes;
@@ -173,14 +176,11 @@ pub fn options(
             options
                 .iter()
                 .enumerate()
-                .map(|(i, p)| {
-                    // A seat with no identity is still a seat that has to be
-                    // pickable, so it gets its number rather than no row.
-                    let name = statics
-                        .and_then(|s| s.seats.iter().find(|seat| seat.player == *p))
-                        .map(|seat| seat.display_name.clone());
-                    ChoiceOption::text(i, name.unwrap_or_else(|| format!("#{}", p.get())))
-                })
+                // A seat with no identity is still a seat that has to be
+                // pickable, so `seat_name` numbers it rather than dropping
+                // the row — in the words a player is shown everywhere else,
+                // which this list used to spell `#7`.
+                .map(|(i, p)| ChoiceOption::text(i, seat_name(lang, statics, *p)))
                 .collect(),
         ),
         Prompt::CastMode { object, options } => Some(
@@ -287,8 +287,10 @@ mod tests {
         assert_eq!(rows[0].label, "House AI");
         // A seat the statics do not describe still gets a row: a chooser that
         // dropped it would offer fewer answers than the engine did, and the
-        // index of everything after it would name the wrong seat.
-        assert_eq!(rows[1].label, "#7");
+        // index of everything after it would name the wrong seat. It is
+        // numbered in the words the rest of the interface numbers a seat in,
+        // which this row used to spell `#7`.
+        assert_eq!(rows[1].label, "Seat 7");
     }
 
     #[test]

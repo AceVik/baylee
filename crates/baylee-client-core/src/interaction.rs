@@ -29,7 +29,7 @@
 //! is a rules question and re-deriving it client-side would be a second,
 //! divergent implementation of it.
 
-use crate::i18n::{Lang, Phrase};
+use crate::i18n::{Lang, Phrase, seat_name};
 use baylee_core::ids::{Defender, ObjectId, PlayerId, SubtypeId};
 use baylee_core::mana::ManaColor;
 use baylee_engine::choice::{
@@ -37,6 +37,7 @@ use baylee_engine::choice::{
     YesNoPrompt,
 };
 use baylee_engine::win::{EndReason, GameResult, Victor};
+use baylee_view::GameStatic;
 
 /// What a combat declaration is currently pointed at.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -207,10 +208,21 @@ impl Turn {
 
 impl Prompt {
     /// A short line for the prompt bar.
+    ///
+    /// `statics` is the roster, and it is here for the two lines that are
+    /// about **somebody else**: the one that says whose answer the table is
+    /// waiting for, and the one that says who offered a draw. Both had the
+    /// seat and printed it as a number — "Warte auf Platz 1", "ein Remis
+    /// wurde angeboten" — which is answerable at a duel by knowing there is
+    /// only one other chair, and is not a question at all at a table of four.
+    /// [`crate::i18n::seat_name`] numbers a seat the roster does not describe,
+    /// so a frame drawn before `GameStatic` arrives says what it used to.
     #[must_use]
-    pub fn headline(&self, lang: Lang, turn: Turn) -> String {
+    pub fn headline(&self, lang: Lang, turn: Turn, statics: Option<&GameStatic>) -> String {
         match self {
-            Self::Waiting { on: Some(p) } => Phrase::WaitingForSeat.fill(lang, &[&p.to_string()]),
+            Self::Waiting { on: Some(p) } => {
+                Phrase::WaitingForPlayer.fill(lang, &[&seat_name(lang, statics, *p)])
+            }
             Self::Waiting { on: None } => Phrase::JustWaiting.text(lang).to_string(),
             Self::Mulligan { taken, free } => {
                 if *free {
@@ -277,7 +289,7 @@ impl Prompt {
             Self::ChoosePlayer { .. } => Phrase::ChoosePlayer.text(lang).to_string(),
             Self::CastMode { .. } => Phrase::ChooseHowToCast.text(lang).to_string(),
             Self::OrderObjects => Phrase::PutInOrder.text(lang).to_string(),
-            Self::YesNo { question } => yes_no_line(lang, *question),
+            Self::YesNo { question } => yes_no_line(lang, *question, statics),
             Self::GameOver => Phrase::TheGameIsOver.text(lang).to_string(),
         }
     }
@@ -432,7 +444,8 @@ fn choose_line(lang: Lang, one: Phrase, many: Phrase, min: u8, max: u8) -> Strin
     }
 }
 
-fn yes_no_line(lang: Lang, question: YesNoPrompt) -> String {
+/// The roster is taken for the one question that is about another player.
+fn yes_no_line(lang: Lang, question: YesNoPrompt, statics: Option<&GameStatic>) -> String {
     match question {
         YesNoPrompt::PayLifeOrEnterTapped { amount } => {
             Phrase::PayLifeOrTapped.fill(lang, &[&amount.to_string()])
@@ -440,7 +453,11 @@ fn yes_no_line(lang: Lang, question: YesNoPrompt) -> String {
         YesNoPrompt::Kicker => Phrase::PayAdditionalCost.text(lang).to_string(),
         YesNoPrompt::PayTax { mana } => Phrase::PayTax.fill(lang, &[&mana.to_string()]),
         YesNoPrompt::Miracle { .. } => Phrase::CastForMiracle.text(lang).to_string(),
-        YesNoPrompt::DrawOffer { .. } => Phrase::DrawWasOffered.text(lang).to_string(),
+        // The `..` here is what the whole repair was: `proposer` travels with
+        // the question and was dropped one line short of the sentence.
+        YesNoPrompt::DrawOffer { proposer } => {
+            Phrase::DrawOfferedBy.fill(lang, &[&seat_name(lang, statics, proposer)])
+        }
         YesNoPrompt::CommanderZone { .. } => Phrase::CommanderToCommandZone.text(lang).to_string(),
         // The destination is the whole of the decision (CR 903.8 taxes only
         // the command zone), so the line has to name it rather than ask the
@@ -2247,14 +2264,17 @@ mod tests {
                 suspendable: vec![],
             }),
         });
-        assert_eq!(i.prompt().headline(Lang::En, Turn::Mine), "Your move");
-        assert_eq!(i.prompt().headline(Lang::De, Turn::Mine), "Du bist dran");
+        assert_eq!(i.prompt().headline(Lang::En, Turn::Mine, None), "Your move");
         assert_eq!(
-            i.prompt().headline(Lang::En, Turn::Theirs),
+            i.prompt().headline(Lang::De, Turn::Mine, None),
+            "Du bist dran"
+        );
+        assert_eq!(
+            i.prompt().headline(Lang::En, Turn::Theirs, None),
             "You may respond"
         );
         assert_eq!(
-            i.prompt().headline(Lang::De, Turn::Theirs),
+            i.prompt().headline(Lang::De, Turn::Theirs, None),
             "Du kannst reagieren"
         );
     }
@@ -2520,7 +2540,7 @@ mod tests {
             reason: TargetPrompt::Targets,
         });
         assert_eq!(
-            i.prompt().headline(Lang::En, Turn::Mine),
+            i.prompt().headline(Lang::En, Turn::Mine, None),
             "Choose up to 2 targets"
         );
 
@@ -2530,7 +2550,7 @@ mod tests {
             max: 50,
         });
         assert_eq!(
-            i.prompt().headline(Lang::En, Turn::Mine),
+            i.prompt().headline(Lang::En, Turn::Mine, None),
             "Choose a number (0–50)"
         );
 
@@ -2540,8 +2560,68 @@ mod tests {
             source: None,
         });
         assert_eq!(
-            i.prompt().headline(Lang::En, Turn::Mine),
+            i.prompt().headline(Lang::En, Turn::Mine, None),
             "Pay 2 life? Otherwise it enters tapped"
+        );
+    }
+
+    /// Two lines in this `match` are about **another chair**, and both had
+    /// the seat in hand and printed a number. A draw offer is the one that
+    /// matters: at a table of four, "a draw was offered" is not a question
+    /// anybody can answer.
+    #[test]
+    fn the_two_lines_about_another_seat_say_whose_seat_it_is() {
+        let mut roster = crate::test_support::statics(0);
+        roster.seats.push(baylee_view::SeatIdentity {
+            player: PlayerId::new(1),
+            display_name: "AceVik".to_string(),
+            is_ai: false,
+            away: false,
+            team: None,
+        });
+
+        let waiting = interaction(Pending::ChooseTargets {
+            player: PlayerId::new(1),
+            options: vec![obj(1)],
+            player_options: vec![],
+            min: 1,
+            max: 1,
+            reason: TargetPrompt::Targets,
+        })
+        .prompt();
+        assert_eq!(
+            waiting.headline(Lang::De, Turn::Theirs, Some(&roster)),
+            "Warte auf AceVik"
+        );
+
+        let offer = interaction(Pending::YesNo {
+            player: me(),
+            prompt: YesNoPrompt::DrawOffer {
+                proposer: PlayerId::new(1),
+            },
+            source: None,
+        })
+        .prompt();
+        assert_eq!(
+            offer.headline(Lang::En, Turn::Mine, Some(&roster)),
+            "AceVik offers a draw. Accept?"
+        );
+        assert_eq!(
+            offer.headline(Lang::De, Turn::Mine, Some(&roster)),
+            "AceVik bietet ein Remis an. Annehmen?"
+        );
+
+        // A frame drawn before `GameStatic` arrives numbers the seat rather
+        // than dropping it: the sentence is about a chair that exists either
+        // way, and this is what both lines said before there was a roster to
+        // ask. The seat the roster does not describe answers the same way.
+        assert_eq!(
+            waiting.headline(Lang::De, Turn::Theirs, None),
+            "Warte auf Platz 1"
+        );
+        assert_eq!(
+            offer.headline(Lang::En, Turn::Mine, None),
+            "Seat 1 offers a draw. Accept?"
         );
     }
 
@@ -2559,7 +2639,7 @@ mod tests {
                 prompt: reason,
             })
             .prompt()
-            .headline(lang, Turn::Mine)
+            .headline(lang, Turn::Mine, None)
         };
 
         assert_eq!(
@@ -2685,7 +2765,7 @@ mod tests {
         ];
         for pending in all {
             let i = interaction(pending);
-            assert!(!i.prompt().headline(Lang::En, Turn::Mine).is_empty());
+            assert!(!i.prompt().headline(Lang::En, Turn::Mine, None).is_empty());
         }
     }
 
@@ -2723,9 +2803,9 @@ mod tests {
             reason: TargetPrompt::Targets,
         });
         for lang in [Lang::En, Lang::De] {
-            let target_line = targeting.prompt().headline(lang, Turn::Mine);
+            let target_line = targeting.prompt().headline(lang, Turn::Mine, None);
             for asking in [&convoke, &delve] {
-                let line = asking.prompt().headline(lang, Turn::Mine);
+                let line = asking.prompt().headline(lang, Turn::Mine, None);
                 assert!(!line.is_empty());
                 assert_ne!(
                     line, target_line,

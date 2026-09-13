@@ -24,7 +24,7 @@
 //! [`HudRevision`] counts the hover and a bar that was rebuilt on every
 //! pointer move would be rebuilt some hundreds of times a turn.
 
-use baylee_client_core::i18n::{Lang, Phrase};
+use baylee_client_core::i18n::{Lang, Phrase, seat_name};
 
 use crate::Duel;
 use crate::ambience::Feel;
