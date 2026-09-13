@@ -74,10 +74,27 @@ mod tests {
     use super::*;
     use baylee_client_core::interaction::Outcome;
 
+    /// What [`watch`] saw on the frame that just ran.
+    ///
+    /// "Did this frame mark the duel dirty" can only be asked from *inside*
+    /// the frame. `App::update` ends with `World::clear_trackers`, which moves
+    /// `last_change_tick` past every write the update made, so a `Ref<Duel>`
+    /// taken afterwards answers `false` whatever the systems did — the first
+    /// draft of the counter-test below asked from outside and passed with the
+    /// early return deleted.
+    #[derive(Resource, Default)]
+    struct Dirtied(bool);
+
+    /// Runs after [`play_the_cues`] and records whether it moved the tick.
+    fn watch(duel: Res<Duel>, mut dirtied: ResMut<Dirtied>) {
+        dirtied.0 = duel.is_changed();
+    }
+
     fn app() -> App {
         let mut app = App::new();
         app.init_resource::<Duel>()
-            .add_systems(Update, play_the_cues);
+            .init_resource::<Dirtied>()
+            .add_systems(Update, (play_the_cues, watch).chain());
         app
     }
 
@@ -104,20 +121,32 @@ mod tests {
     /// The counter-test for the early return: a frame with nothing to say
     /// must not report the duel as having changed, or every reader that
     /// watches the resource rebuilds on every frame of a quiet game.
+    ///
+    /// The second half is the counter-test's own counter-test. A watcher that
+    /// can never see dirt would pass the first assertion however wrong the
+    /// system was, so the cue goes in through `bypass_change_detection` —
+    /// leaving [`play_the_cues`] as the only thing that can have moved the
+    /// tick on the frame after it.
     #[test]
     fn a_silent_frame_does_not_touch_the_duel() {
         let mut app = app();
+        // `init_resource` marked it; that is not a frame's doing.
         app.update();
-        // `last_changed` is the tick the resource was last marked at; running
-        // a frame that decides nothing must not move it.
         app.update();
-        let world = app.world();
-        let duel = world
-            .get_resource_ref::<Duel>()
-            .expect("the duel is installed");
         assert!(
-            !duel.is_changed(),
+            !app.world().resource::<Dirtied>().0,
             "a frame with no cues in it marked the whole duel dirty"
+        );
+
+        app.world_mut()
+            .resource_mut::<Duel>()
+            .bypass_change_detection()
+            .cues
+            .note_refusal();
+        app.update();
+        assert!(
+            app.world().resource::<Dirtied>().0,
+            "the watcher never sees dirt, so the assertion above proves nothing"
         );
     }
 }

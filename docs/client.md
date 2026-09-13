@@ -2579,7 +2579,7 @@ are the owner's:
   player has clicked something.
 
 Neither is decided by writing a line of code, so the seam is the deliverable.
-Everything above it is real: nine cues, twenty tests, and `/state` carrying
+Everything above it is real: nine cues, twenty-two tests, and `/state` carrying
 the last one so the whole thing is proved by a **read** rather than by
 somebody listening at the right moment.
 
