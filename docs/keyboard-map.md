@@ -277,6 +277,26 @@ the felt, right- or middle-drag, pinch, the arrows), and both undone by `H`.
 node under the pointer, scrolling or not: `hud::scrolls` takes it, a list at
 its end swallows it rather than passing it on, and the camera never sees it.
 
+## The end screen
+
+The verdict sheet is the one screen whose keys are not the duel's.
+`DuelSet::Input` runs only in `DuelPhase::Playing`, so by the time the sheet
+is up every binding above is off — which for a while meant the sheet could be
+reached with a keyboard and not left with one, the only screen in the client
+with no exit. `lobby::systems::leave_keys` answers there instead, and it reads
+the buttons that are **actually drawn** rather than a list of its own, so a
+key can never take a way out the sheet does not show.
+
+| Action | Default | What it does |
+|---|---|---|
+| The click / confirm | `Enter` / `Space` | presses the lead answer — *play again* at a gateway's table, *back to the lobby* offline |
+| Cancel | `Esc` | always the way back to the lobby |
+
+It lives in the lobby plugin and not in `input.rs` because the verdict is the
+duel's to say and the way *out* is the shell's: `DuelPlugin` is embeddable in
+an application with no lobby behind it, and there the sheet's exit row stays
+empty. Reading the row is what makes both cases one rule.
+
 ## Rules
 
 Every `Pending` variant is operable without a pointer device; focus is always

@@ -904,27 +904,89 @@ pub(super) fn leave_clicks(
     mut closes: MessageWriter<DuelCommand>,
 ) {
     for click in pointer.read() {
-        match in_lineage(click.entity, &presses, &parents) {
-            Some(Press::Leave) => {
-                closes.write(DuelCommand::Close);
-            }
-            // Both buttons close the table; the difference is what is waiting
-            // on the other side of it. Recorded rather than sent, because
-            // `came_back` tears the seat down on the way out and would clear
-            // a request already in flight — see `Lobby::want_rematch`.
-            Some(Press::PlayAgain) => {
-                let played = match state.lobby.screen() {
-                    Screen::Seated(handover) => Some(handover.game_id.clone()),
-                    _ => None,
-                };
-                if let Some(game_id) = played {
-                    state.lobby.want_rematch(game_id);
-                }
-                closes.write(DuelCommand::Close);
-            }
+        if let Some(way) = in_lineage(click.entity, &presses, &parents) {
+            take_the_way_out(*way, &mut state, &mut closes);
+        }
+    }
+}
+
+/// The way off the end screen for somebody with no pointer.
+///
+/// `DuelSet::Input` stops at `DuelPhase::Playing`, so on the end screen every
+/// key did nothing at all and a keyboard-only player had no way back to the
+/// lobby — the one screen in the client with no exit. It lives here and not in
+/// `input.rs` for the reason [`crate::hud::finish`] gives about the sheet
+/// itself: the verdict is the duel's to say and the way out is the shell's,
+/// and a `DuelPlugin` embedded in something with no lobby behind it has
+/// nowhere to go.
+///
+/// It reads the buttons that are **actually drawn** rather than a list of its
+/// own, so a key can never take a way out the sheet does not offer.
+/// `Confirm` and `Primary` — Space and Enter by default — press the lead
+/// answer, which is what the brass button on the sheet is; `Cancel` always
+/// leaves, because the way out is the thing nobody may be stuck without.
+pub(super) fn leave_keys(
+    keys: Res<ButtonInput<KeyCode>>,
+    prefs: Res<crate::prefs::Prefs>,
+    exits: Query<&Press, With<super::ui::DuelExit>>,
+    mut state: ResMut<LobbyState>,
+    mut closes: MessageWriter<DuelCommand>,
+) {
+    use baylee_client_core::prefs::Action;
+    let fired = crate::keys::Fired::of(&keys, prefs.keymap());
+    if fired.quiet() {
+        return;
+    }
+    let mut leave = false;
+    let mut again = false;
+    for press in &exits {
+        match press {
+            Press::Leave => leave = true,
+            Press::PlayAgain => again = true,
             _ => {}
         }
     }
+    // `ui::spawn_leave_button` puts *play again* first where there is one, and
+    // the first answer on a slip is the lead — so the lead is the rematch when
+    // the sheet has one and the way back otherwise.
+    let lead = if again {
+        Press::PlayAgain
+    } else if leave {
+        Press::Leave
+    } else {
+        return;
+    };
+    let way = if fired.has(Action::Cancel) && leave {
+        Press::Leave
+    } else if fired.has(Action::Confirm) || fired.has(Action::Primary) {
+        lead
+    } else {
+        return;
+    };
+    take_the_way_out(way, &mut state, &mut closes);
+}
+
+/// Takes one of the end screen's exits, whatever asked for it.
+///
+/// Both buttons close the table; the difference is what is waiting on the
+/// other side of it. A rematch is *recorded* rather than sent, because
+/// [`came_back`] tears the seat down on the way out and would clear a request
+/// already in flight — see `Lobby::want_rematch`.
+fn take_the_way_out(way: Press, state: &mut LobbyState, closes: &mut MessageWriter<DuelCommand>) {
+    match way {
+        Press::Leave => {}
+        Press::PlayAgain => {
+            let played = match state.lobby.screen() {
+                Screen::Seated(handover) => Some(handover.game_id.clone()),
+                _ => None,
+            };
+            if let Some(game_id) = played {
+                state.lobby.want_rematch(game_id);
+            }
+        }
+        _ => return,
+    }
+    closes.write(DuelCommand::Close);
 }
 
 /// The lobby is on screen again: forget the seat and re-read the tables.

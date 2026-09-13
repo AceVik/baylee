@@ -424,6 +424,11 @@ fn headless() -> App {
             icons: Handle::default(),
             mana: Handle::default(),
         })
+        // `MinimalPlugins` brings no `InputPlugin`, and `leave_keys` reads the
+        // key state the way every other handler does. The resource alone and
+        // not the plugin: the plugin clears `just_pressed` in `PreUpdate`, so
+        // a key pressed by a test would be gone before `Update` ran.
+        .init_resource::<ButtonInput<KeyCode>>()
         .add_plugins(LobbyPlugin);
     // The startup probe asks a gateway whether sign-ups are open. Left
     // pointing at the default address it reaches a gateway that happens to
@@ -770,6 +775,57 @@ fn playing_the_house_offline_is_still_one_press() {
         state.lobby.screen()
     );
     assert!(state.connected, "with a host installed for it");
+}
+
+/// The end screen has a way out for somebody with no pointer.
+///
+/// `DuelSet::Input` stops at `DuelPhase::Playing`, so on the verdict sheet
+/// every key did nothing at all: it was the one screen in the client a
+/// keyboard could reach and not leave. Offline there is a single button, so
+/// all three of Escape, Space and Enter are the same door — and each is
+/// pressed on its own frame, because one that fired on the wrong action would
+/// otherwise hide behind another that fired correctly.
+#[test]
+fn a_keyboard_can_leave_the_end_screen() {
+    for key in [KeyCode::Escape, KeyCode::Space, KeyCode::Enter] {
+        let mut app = headless();
+        app.world_mut().resource_mut::<LobbyState>().offline =
+            Some(super::offline::Offline::without_a_file());
+        tap_control(&mut app, "play offline", |p| *p == Press::PlayOffline);
+        tap_control(&mut app, "play the house", |p| {
+            *p == Press::Host(GameMode::Ai)
+        });
+        for phase in [DuelPhase::Playing, DuelPhase::Finished] {
+            app.world_mut()
+                .resource_mut::<NextState<DuelPhase>>()
+                .set(phase);
+            app.update();
+        }
+        // The sheet is the duel's; this app has no `DuelPlugin`, so only the
+        // row's buttons are here — which is all this reads.
+        let mut exits = app.world_mut().query::<&Press>();
+        assert!(
+            exits.iter(app.world()).any(|p| *p == Press::Leave),
+            "the way back is drawn"
+        );
+        app.world_mut()
+            .resource_mut::<Messages<DuelCommand>>()
+            .clear();
+
+        app.world_mut()
+            .resource_mut::<ButtonInput<KeyCode>>()
+            .press(key);
+        app.update();
+        let closed: Vec<DuelCommand> = app
+            .world_mut()
+            .resource_mut::<Messages<DuelCommand>>()
+            .drain()
+            .collect();
+        assert!(
+            closed.iter().any(|c| matches!(c, DuelCommand::Close)),
+            "{key:?} left the end screen: {closed:?}"
+        );
+    }
 }
 
 /// And coming back from it leaves the lobby as it found it.

@@ -41,6 +41,13 @@
 //! `SeatTicket` adds no `LobbyPlugin` at all (`main.rs`), and then the row
 //! stays empty — which is honest, because that client has nowhere to go
 //! either.
+//!
+//! The **keyboard** way out is the shell's for the same reason and lives
+//! beside those buttons, in `lobby::systems::leave_keys`: `DuelSet::Input`
+//! runs only in `DuelPhase::Playing`, so every binding is off while this
+//! sheet is up, and for a while that made it the one screen a keyboard could
+//! reach and not leave. It reads the row rather than a list of its own, so
+//! the two cases above stay one rule.
 
 #[allow(clippy::wildcard_imports)] // the HUD's own vocabulary
 use super::*;

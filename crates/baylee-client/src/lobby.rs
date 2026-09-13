@@ -92,7 +92,10 @@ impl Plugin for LobbyPlugin {
                     .chain()
                     .run_if(in_state(DuelPhase::Closed)),
             )
-            .add_systems(Update, leave_clicks.run_if(in_state(DuelPhase::Finished)))
+            .add_systems(
+                Update,
+                (leave_clicks, leave_keys).run_if(in_state(DuelPhase::Finished)),
+            )
             .add_systems(OnEnter(DuelPhase::Closed), (came_back, spawn_camera))
             .init_resource::<Hovered>()
             .add_message::<Pointer<Over>>()
@@ -302,7 +305,9 @@ mod tests;
 
 use http::{ask_about_registration, dispatch};
 use preview::{Hovered, despawn_preview, hovers, preview};
-use systems::{came_back, clicks, keyboard, leave_clicks, poll, scrolls, softkeys, waiting, watch};
+use systems::{
+    came_back, clicks, keyboard, leave_clicks, leave_keys, poll, scrolls, softkeys, waiting, watch,
+};
 use ui::{despawn_leave_button, spawn_camera, spawn_leave_button, teardown, ui};
 
 // The vocabulary the lobby's own halves share, and that `buildui` and
