@@ -896,6 +896,40 @@ fn phase(app: &mut App, next: DuelPhase) {
     app.update();
 }
 
+/// A duel against the house offers one way out, and it is the lead answer.
+///
+/// Found live rather than reasoned about: a conceded offline duel drew a
+/// brass *play again* in the middle of its end screen, and pressing it would
+/// have asked the gateway for another of a table the gateway has never heard
+/// of. An offline seat is `Screen::Seated` like any other — `systems::poll`
+/// branches on `handover.local`, not on the variant — so the test that
+/// matters is the flag and not the screen.
+#[test]
+fn a_duel_against_the_house_offers_one_way_out_and_no_rematch() {
+    let mut app = headless();
+    stocked(&mut app);
+    {
+        let mut state = app.world_mut().resource_mut::<LobbyState>();
+        state.lobby.host(GameMode::Ai);
+        state.lobby.apply(LobbyEvent::Seated(SeatHandover {
+            game_id: "offline".to_string(),
+            seat: 0,
+            seat_token: String::new(),
+            local: true,
+        }));
+        state.connected = true;
+    }
+    app.world_mut().spawn(crate::hud::FinishExits);
+    phase(&mut app, DuelPhase::Finished);
+
+    let found = presses(&mut app);
+    assert!(
+        !found.contains(&Press::PlayAgain),
+        "there is no table to ask for another of: {found:?}"
+    );
+    assert!(found.contains(&Press::Leave), "{found:?}");
+}
+
 /// The ways out belong *in* the duel's end screen, not floating over the board.
 ///
 /// `hud::spawn_finish` leaves one row marked `FinishExits` and this is the

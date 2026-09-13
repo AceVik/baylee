@@ -1432,7 +1432,15 @@ pub(super) fn spawn_leave_button(
     // needs the other three still at the table. Only for a game reached
     // through the gateway: an offline duel against the house has no table to
     // ask for another of, and the request would have no account to make it.
-    let networked = matches!(state.lobby.screen(), Screen::Seated(_));
+    //
+    // `local` and not merely `Seated`, which is what this asked before and
+    // which was wrong the whole time: an offline duel is seated too
+    // (`systems::poll` reads `Screen::Seated(handover)` and branches on
+    // `handover.local`), so playing the house put a *play again* over the
+    // finished game that would have asked a gateway for another of a table
+    // it has never heard of. It was floating over the board where nobody
+    // looked; the end screen put it in the middle of the sheet.
+    let networked = matches!(state.lobby.screen(), Screen::Seated(handover) if !handover.local);
     let mut ways: Vec<(&str, Press)> = Vec::new();
     if networked {
         ways.push((Phrase::PlayAgain.text(lang), Press::PlayAgain));
