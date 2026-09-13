@@ -1185,28 +1185,46 @@ messages! {
     },
     /// The game is over and this seat won it.
     YouWon {
-        en: "you won",
-        de: "du hast gewonnen",
+        en: "You won",
+        de: "Du hast gewonnen",
     },
     /// The game is over and this seat did not.
     YouLost {
-        en: "you lost",
-        de: "du hast verloren",
+        en: "You lost",
+        de: "Du hast verloren",
     },
     /// The game is over and this seat's team won it.
     YourTeamWon {
-        en: "team {0} wins — yours",
+        en: "Team {0} wins — yours",
         de: "Team {0} gewinnt — deins",
     },
     /// The game is over and another team won it.
     TheirTeamWon {
-        en: "team {0} wins",
+        en: "Team {0} wins",
         de: "Team {0} gewinnt",
     },
     /// Nobody won.
     TheGameIsADraw {
-        en: "the game is a draw",
-        de: "das Spiel endet unentschieden",
+        en: "The game is a draw",
+        de: "Das Spiel endet unentschieden",
+    },
+    /// Why a game ended: one seat outlived every other
+    /// (`EndReason::LastPlayerStanding`).
+    EndedLastPlayer {
+        en: "Only one player left in the game",
+        de: "Nur noch ein Spieler im Spiel",
+    },
+    /// Why a game ended: one team outlived every other
+    /// (`EndReason::LastTeamStanding`).
+    EndedLastTeam {
+        en: "Only one team left in the game",
+        de: "Nur noch ein Team im Spiel",
+    },
+    /// Why a game ended: a card or an emblem declared a winner
+    /// (`EndReason::EffectWin`).
+    EndedByEffect {
+        en: "An effect decided it",
+        de: "Ein Effekt hat entschieden",
     },
     /// The gateway did not answer at all. `{0}` is the transport's word.
     GatewayNoAnswer {

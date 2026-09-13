@@ -13,7 +13,8 @@
 use baylee_client::host::{DuelHost, HostMessage, LocalHost};
 use baylee_client_core::board::{BoardModel, Openings, SeatPod};
 use baylee_client_core::browser::Browser;
-use baylee_client_core::interaction::{CombatFocus, Interaction};
+use baylee_client_core::i18n::{Lang, Phrase};
+use baylee_client_core::interaction::{CombatFocus, Interaction, ending_reason, verdict};
 use baylee_core::ids::{CardIndex, PlayerId, PrintRef};
 use baylee_core::preset::{
     AIProfile, DeckEntry, Finish, FormatId, GamePreset, HouseRules, PrintInfo, SeatController,
@@ -1000,6 +1001,37 @@ fn a_whole_game_can_be_won_through_the_clients_combat_path() {
         "the opponent should be dead, at {}",
         them.life
     );
+}
+
+#[test]
+fn the_words_at_the_end_of_a_real_game_are_the_ones_the_screen_shows() {
+    // The end screen is drawn from two client-core functions and nothing
+    // else. Both are tested on hand-built `GameResult`s; this is the one
+    // place they are asked about a result an actual game produced, which is
+    // what says the payload survives `LocalHost`, the wire encoding and
+    // `Interaction` with its `winner` and its `reason` intact.
+    let (client, _) = run(&combat_preset(9), 4_000, Fight::Always);
+    let Some(Pending::GameOver(result)) = client.pending else {
+        panic!("the game never ended: {:?}", client.pending);
+    };
+
+    for lang in Lang::ALL {
+        // Seat 0 is the one this test plays, and it is the one that won.
+        assert_eq!(
+            verdict(lang, &result, PlayerId::new(0), None),
+            Phrase::YouWon.text(lang),
+        );
+        assert_eq!(
+            verdict(lang, &result, PlayerId::new(1), None),
+            Phrase::YouLost.text(lang),
+        );
+        // Ten 1/2s walking across the table empties the other chair, so the
+        // second line says how — and it is the same line from both chairs.
+        assert_eq!(
+            ending_reason(lang, &result).as_deref(),
+            Some(Phrase::EndedLastPlayer.text(lang)),
+        );
+    }
 }
 
 #[test]

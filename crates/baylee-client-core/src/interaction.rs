@@ -36,7 +36,7 @@ use baylee_engine::choice::{
     BlockOption, CastModeDesc, ChoicePrompt, LegalActions, Pending, PlayerAction, TargetPrompt,
     YesNoPrompt,
 };
-use baylee_engine::win::{GameResult, Victor};
+use baylee_engine::win::{EndReason, GameResult, Victor};
 
 /// What a combat declaration is currently pointed at.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -286,6 +286,35 @@ pub fn verdict(lang: Lang, result: &GameResult, seat: PlayerId, team: Option<u8>
             }
         }
     }
+}
+
+/// The line under the verdict: *how* the game was decided.
+///
+/// `None` for a draw, and that refusal is the point. The four reasons are a
+/// rule apiece, and three of them say something the verdict does not — a
+/// table that emptied, a team that outlasted another, a card that declared a
+/// winner. [`EndReason::Draw`] says only "nobody won", which is the verdict's
+/// own sentence written a second time, and a screen that repeats itself
+/// teaches a player to stop reading the second line.
+///
+/// It says nothing about *this seat*, deliberately. The same words are read
+/// by the winner and by everyone who lost, so "every opponent has left" is
+/// true from exactly one chair at the table and false from the others.
+///
+/// What a player actually wants after a loss — zero life, an empty library,
+/// ten poison — is not here because it is not in the view: `SeatView` carries
+/// `has_lost` and no reason for it, and inventing one from the life totals
+/// would be the client deciding a rules fact. See the backlog's
+/// "richer loss reason" item.
+#[must_use]
+pub fn ending_reason(lang: Lang, result: &GameResult) -> Option<String> {
+    let phrase = match result.reason {
+        EndReason::LastPlayerStanding => Phrase::EndedLastPlayer,
+        EndReason::LastTeamStanding => Phrase::EndedLastTeam,
+        EndReason::EffectWin => Phrase::EndedByEffect,
+        EndReason::Draw => return None,
+    };
+    Some(phrase.text(lang).to_string())
 }
 
 /// "Choose two cards", with the noun as an argument rather than glued on.
@@ -1446,6 +1475,106 @@ pub fn pending_player(pending: &Pending) -> Option<PlayerId> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // ------------------------------------------------- how a game ends
+
+    fn ended(winner: Option<Victor>, reason: EndReason) -> GameResult {
+        GameResult { winner, reason }
+    }
+
+    #[test]
+    fn the_seat_that_won_and_the_seat_that_did_not_read_different_lines() {
+        let result = ended(
+            Some(Victor::Player(PlayerId::new(0))),
+            EndReason::LastPlayerStanding,
+        );
+        let mine = verdict(Lang::En, &result, PlayerId::new(0), None);
+        let theirs = verdict(Lang::En, &result, PlayerId::new(1), None);
+        assert_ne!(mine, theirs);
+        assert_eq!(mine, Phrase::YouWon.text(Lang::En));
+        assert_eq!(theirs, Phrase::YouLost.text(Lang::En));
+    }
+
+    #[test]
+    fn a_team_wins_for_everyone_sitting_on_it() {
+        let result = ended(Some(Victor::Team(2)), EndReason::LastTeamStanding);
+        let ours = verdict(Lang::En, &result, PlayerId::new(3), Some(2));
+        let theirs = verdict(Lang::En, &result, PlayerId::new(1), Some(1));
+        // The seat that won is on the team, not the one the engine named.
+        assert_eq!(ours, Phrase::YourTeamWon.fill(Lang::En, &["2"]));
+        assert_eq!(theirs, Phrase::TheirTeamWon.fill(Lang::En, &["2"]));
+    }
+
+    #[test]
+    fn a_verdict_is_a_headline_and_is_written_like_one() {
+        // Every other line the prompt bar shows starts with a capital; these
+        // five were the outliers, and the end screen sets them at 44 px.
+        for lang in Lang::ALL {
+            for line in [
+                verdict(lang, &ended(None, EndReason::Draw), me(), None),
+                verdict(
+                    lang,
+                    &ended(Some(Victor::Player(me())), EndReason::EffectWin),
+                    me(),
+                    None,
+                ),
+                verdict(
+                    lang,
+                    &ended(Some(Victor::Player(PlayerId::new(9))), EndReason::EffectWin),
+                    me(),
+                    None,
+                ),
+                verdict(
+                    lang,
+                    &ended(Some(Victor::Team(1)), EndReason::LastTeamStanding),
+                    me(),
+                    Some(1),
+                ),
+            ] {
+                let first = line.chars().next().expect("a verdict is never empty");
+                assert!(first.is_uppercase(), "{lang:?}: {line:?}");
+            }
+        }
+    }
+
+    #[test]
+    fn a_draw_is_the_one_ending_that_gets_no_second_line() {
+        for lang in Lang::ALL {
+            assert_eq!(ending_reason(lang, &ended(None, EndReason::Draw)), None);
+            for reason in [
+                EndReason::LastPlayerStanding,
+                EndReason::LastTeamStanding,
+                EndReason::EffectWin,
+            ] {
+                let line =
+                    ending_reason(lang, &ended(None, reason)).expect("every other ending says how");
+                assert!(!line.is_empty());
+            }
+        }
+    }
+
+    #[test]
+    fn the_reason_never_takes_a_side() {
+        // The winner and the loser read the same second line, so it may not
+        // be written from either chair: one text per reason, per language.
+        for lang in Lang::ALL {
+            let mut seen: Vec<String> = Vec::new();
+            for reason in [
+                EndReason::LastPlayerStanding,
+                EndReason::LastTeamStanding,
+                EndReason::EffectWin,
+            ] {
+                let line = ending_reason(lang, &ended(Some(Victor::Player(me())), reason))
+                    .expect("every other ending says how");
+                let other =
+                    ending_reason(lang, &ended(Some(Victor::Player(PlayerId::new(9))), reason))
+                        .expect("every other ending says how");
+                assert_eq!(line, other, "{lang:?} {reason:?}");
+                assert!(!seen.contains(&line), "two reasons share a line: {line:?}");
+                seen.push(line);
+            }
+        }
+    }
 
     fn me() -> PlayerId {
         PlayerId::new(0)
