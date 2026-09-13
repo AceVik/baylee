@@ -72,12 +72,13 @@ pub struct AbilityOption {
     /// a granted ability, a printed one no sentence fits — and the sheet then
     /// falls back to [`Self::label`].
     pub printed: Option<baylee_view::StackText>,
-    /// The colour this row pours, when the row is one pip of a mana bubble.
+    /// The colour this row pours, when the row is one pip of a mana header.
     ///
-    /// `Some` only on a list [`pour_out`] has rewritten, which it does when
-    /// every last thing a permanent offers is mana and there is more than one
-    /// colour to pick from. The rest of the list is then the same list of
-    /// colours, and the whole of what makes a bubble a bubble is that
+    /// `Some` only on a row [`pour_out`] put there, which it does for each
+    /// colour a permanent's taps come to — and the rows those pips stand for
+    /// are gone, while a mana row no pip stands for keeps its sentence beside
+    /// them. Where nothing is left written the header *is* the list, which is
+    /// the bubble [`pouring`] names. What makes a pip a pip either way is that
     /// [`crate::input::arm_ability`] answers a row carrying one with a
     /// one-step [`crate::ManaRun`] instead of with an activation — so the
     /// permanent taps on *this* press, having been asked the colour first.
@@ -363,44 +364,45 @@ pub fn options(
 /// Mana-Dialog … nur dass man eben auch die anderen Abilities noch zur Auswahl
 /// hat"*. [`Split`] is what the rest of the sheet reads that as.
 ///
-/// Three bars, and each one is a case that must keep working exactly as it
-/// did:
+/// **A tap the header does not stand for keeps its sentence.** That is the
+/// whole of the partition, and it replaces the all-or-nothing bar this used to
+/// open with. A mana row is folded into the pips only where one of them is
+/// *that* tap; everything else stays written, and the digits count it.
 ///
-/// - **Every mana row is an offer this client can read.** Asked as
-///   *membership* and not as a count: a partial expansion would be a header
-///   with a colour missing and no row left to reach it by. Jasmine Dragon Tea
-///   Shop is the card that proves it — its restricted any-colour tap is a mana
-///   row and is deliberately no offer, so its list is left alone entirely. A
-///   count would have let a Plains under two grants cover for it, three
-///   against three.
-/// - **A colour to pour.** One is enough *beside* other rows, because there
-///   the pip is a symbol standing where a sentence would be — Mind Stone's
-///   lone `{C}` is what the owner asked to see. Alone it is not: a Plains, a
-///   Sol Ring, a Llanowar Elf offer nothing to choose between, so they stay on
-///   the one-tap path they have always been on.
+/// Two ways a mana row can fail to be under a pip, and both are cards in the
+/// owner's deck:
+///
+/// - **It is no offer at all.** Jasmine Dragon Tea Shop's any-colour tap is
+///   restricted to Allies, and a pip can say "white" but not "white, and only
+///   on Ally spells". Its `{T}: Add {C}` becomes the header and the restricted
+///   tap keeps the words that are the reason the land is in the deck. This
+///   used to leave the whole list alone, out of a worry — a colour in the
+///   header with no row to reach it by — that the partition answers directly:
+///   the row is right there.
+/// - **It lost every colour to another tap.** Harabaz Druid under a Great
+///   Divide Guide offers all five colours twice, and one pip per colour is all
+///   there is; [`baylee_client_core::manaplan::pours`] gives them to the grant,
+///   because a pip claims one mana of the colour pressed and the Druid's own
+///   ability makes a number nobody here can count. Folding the loser away is
+///   what the owner reported as its own mana ability having "verloren
+///   gegangen"; it is a written row now, saying what it makes.
+///
+/// The other bar is unchanged: **a colour to pour**. One is enough *beside*
+/// other rows, because there the pip is a symbol standing where a sentence
+/// would be — Mind Stone's lone `{C}` is what the owner asked to see. Alone it
+/// is not: a Plains, a Sol Ring, a Llanowar Elf offer nothing to choose
+/// between, so they stay on the one-tap path they have always been on.
 fn pour_out(
     view: &PlayerView,
     legal: &baylee_engine::choice::LegalActions,
     object: ObjectId,
     out: &mut Vec<AbilityOption>,
 ) {
-    let mana = out.iter().filter(|option| option.mana).count();
-    if mana == 0 {
+    if !out.iter().any(|option| option.mana) {
         return;
     }
     let offers = crate::manasources::offers(view, legal, object);
-    if !out
-        .iter()
-        .filter(|option| option.mana)
-        .all(|option| offered(&offers, object, &option.action))
-    {
-        return;
-    }
     let pours = baylee_client_core::manaplan::pours(object, &offers);
-    let floor = if mana == out.len() { 2 } else { 1 };
-    if pours.len() < floor {
-        return;
-    }
     let mut pips: Vec<AbilityOption> = pours
         .into_iter()
         .filter_map(|pour| {
@@ -428,38 +430,45 @@ fn pour_out(
             })
         })
         .collect();
-    // A tap the engine withdrew between `offers` and here cannot happen —
-    // both read the same `LegalActions` — but a header that came out short of
-    // the floor above must not be left standing as one.
+    // Which taps the header ended up standing for. Read off the pips rather
+    // than off `offers`, because an offer that won no colour is not one of
+    // them: it is a second way to tap the same permanent, and the row that
+    // names it is the only thing left that can.
+    let stood: Vec<Tap> = pips
+        .iter()
+        .filter_map(|pip| pip.pour.as_ref().map(|pour| pour.step.tap))
+        .collect();
+    let mut rows: Vec<AbilityOption> = out
+        .iter()
+        .filter(|option| {
+            !option.mana || !tap_of(object, &option.action).is_some_and(|tap| stood.contains(&tap))
+        })
+        .cloned()
+        .collect();
+    // Nothing written left means the pips are the whole sheet, which is the
+    // bubble, and a bubble with one pip is a question with one answer.
+    let floor = if rows.is_empty() { 2 } else { 1 };
     if pips.len() < floor {
         return;
     }
-    out.retain(|option| !option.mana);
-    pips.append(out);
+    pips.append(&mut rows);
     *out = pips;
 }
 
-/// Whether an action is one of the taps [`crate::manasources::offers`] read.
+/// Which tap of `object` an action is, if it is one of its taps at all.
 ///
-/// The mana rows and the offers are built from the same `LegalActions` a few
-/// lines apart, so this is not a staleness check — it is the question of
-/// whether *this* tap is one a pip can stand for, which is exactly where the
-/// two readings are allowed to differ: `mana_offer` refuses restricted mana
-/// and `mana_label` does not.
-fn offered(
-    offers: &[baylee_client_core::manaplan::Offer],
-    object: ObjectId,
-    action: &PlayerAction,
-) -> bool {
-    let tap = match *action {
-        PlayerAction::ActivateManaAbility { source } if source == object => Tap::Intrinsic,
+/// The mana rows and the pips are built from the same `LegalActions` a few
+/// lines apart, so this is not a staleness check — it is how [`pour_out`] asks
+/// whether a row it is holding is the one a given pip stands for.
+fn tap_of(object: ObjectId, action: &PlayerAction) -> Option<Tap> {
+    match *action {
+        PlayerAction::ActivateManaAbility { source } if source == object => Some(Tap::Intrinsic),
         PlayerAction::ActivateAbility {
             source,
             ability_index,
-        } if source == object => Tap::Ability(ability_index),
-        _ => return false,
-    };
-    offers.iter().any(|offer| offer.tap == tap)
+        } if source == object => Some(Tap::Ability(ability_index)),
+        _ => None,
+    }
 }
 
 /// The activation one pour's tap is, checked against what the engine listed.
@@ -622,6 +631,20 @@ fn printed_label(lang: Lang, view: &PlayerView, object: ObjectId, index: u32) ->
             if let Some((mana, true)) = baylee_cards_dsl::mana_made(cost, effects) {
                 let colors = mana_choice(lang, &mana.colors, mana.amount);
                 return Phrase::TapForRestricted.fill(lang, &[&colors]);
+            }
+            // And a mana ability whose amount is a count of the board is
+            // read by neither of those, for the same reason turned the
+            // other way up: `mana_made` will not claim a number it has not
+            // got. It still has to say what it makes — Harabaz Druid's own
+            // ability fell through to `cost_label` and drew a row reading
+            // "{T}" beside a cost reading "{T}", which is the shape this
+            // whole path was reported as broken in once already.
+            if let Some((source, None)) = baylee_cards_dsl::mana_offer(cost, effects)
+                && let Some(colors) = crate::manasources::produced_colors(view, source)
+                && !colors.is_empty()
+            {
+                let colors = mana_choice(lang, &colors, 1);
+                return Phrase::TapForVariable.fill(lang, &[&colors]);
             }
             cost_label(lang, cost).unwrap_or_else(unnamed)
         }
@@ -1029,6 +1052,12 @@ mod tests {
     /// `{T}`, the same tap, saying nothing about what it makes. Two buttons,
     /// one of them unreadable, and the unreadable one is the reason the land
     /// is in the deck.
+    ///
+    /// The partition in [`pour_out`] changed the *shape* of the answer and
+    /// not the claim: the `{C}` is a header pip now, because a pip is exactly
+    /// what a colour with a number behind it wants, and the restricted tap
+    /// keeps its sentence because a pip cannot say "and only on Ally spells".
+    /// Still two offers, still tellable apart.
     #[test]
     fn a_restricted_mana_ability_says_what_it_makes() {
         const JASMINE: u16 = 77;
@@ -1044,9 +1073,19 @@ mod tests {
         let labels: Vec<&str> = out.iter().map(|o| o.label.as_str()).collect();
         assert_eq!(
             labels,
-            vec!["Tap for {C}", "Tap for any color (restricted)"],
+            vec!["{C}", "Tap for any color (restricted)"],
             "both taps have to be tellable apart: {out:?}"
         );
+        assert!(
+            out[0].pour.is_some(),
+            "the colourless tap is the header pip"
+        );
+        assert!(
+            out[1].pour.is_none(),
+            "and the restricted one is a written row, because a pip cannot \
+             carry what it may be spent on"
+        );
+        assert_eq!(Split::of(&out), Split { pips: 1, rows: 1 });
         assert!(
             out.iter().all(|o| o.mana),
             "both are mana abilities (CR 605.1), so both stay one tap"

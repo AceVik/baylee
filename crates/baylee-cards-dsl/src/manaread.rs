@@ -53,6 +53,12 @@ pub fn simple_mana(cost: &Cost, effects: &[Effect]) -> Option<SimpleMana> {
 #[must_use]
 pub fn mana_made(cost: &Cost, effects: &[Effect]) -> Option<(SimpleMana, bool)> {
     let (source, amount, restricted) = mana_shape(cost, effects)?;
+    // An amount only a board can count is no label's to write either: "Tap
+    // for {G}" would be a claim about *how much*, and how much is the one
+    // thing this reading does not know. A caller that wants to say the
+    // colours anyway takes [`mana_offer`], which reports the hole instead of
+    // falling into it.
+    let amount = amount?;
     let colors = match source {
         ManaSource::Fixed(color) => vec![color],
         ManaSource::Choice(colors) => colors.to_vec(),
@@ -80,17 +86,27 @@ pub fn mana_made(cost: &Cost, effects: &[Effect]) -> Option<(SimpleMana, bool)> 
 /// This is the reading it needs, and the split is the same one the module
 /// header describes: the shape is the card's, the resolution is the board's,
 /// and the two are not the same job. Everything that makes the bar high —
-/// a free cost, one effect, a fixed amount — is still enforced here, so a
-/// caller resolving the source itself cannot slip past any of it.
+/// a free cost, one `AddMana` and nothing beside it — is still enforced here,
+/// so a caller resolving the source itself cannot slip past any of it.
+///
+/// **The amount is an `Option` and the hole is the point.** Harabaz Druid's
+/// "add X mana of any one color, where X is the number of Allies you control"
+/// is a mana ability in every other respect and has no number in it, and the
+/// three readings above want three different things from that: a plan must
+/// refuse it (counting a guess leaves a board half tapped), a label must say
+/// the colours without claiming an amount, and a mana bubble's pip must be
+/// the *last* tap offered for a colour rather than no tap at all. A reading
+/// that ended at `Amount::Fixed` could serve only the first, and the card
+/// then vanished from the sheet entirely.
 #[must_use]
-pub fn mana_shape(cost: &Cost, effects: &[Effect]) -> Option<(ManaSource, u8, bool)> {
+pub fn mana_shape(cost: &Cost, effects: &[Effect]) -> Option<(ManaSource, Option<u8>, bool)> {
     if cost.mana != ManaCost::ZERO {
         return None;
     }
     let [
         Effect::AddMana {
             source,
-            amount: Amount::Fixed(amount),
+            amount,
             restriction,
             ..
         },
@@ -98,52 +114,55 @@ pub fn mana_shape(cost: &Cost, effects: &[Effect]) -> Option<(ManaSource, u8, bo
     else {
         return None;
     };
-    Some((
-        *source,
-        u8::try_from(*amount).unwrap_or(u8::MAX),
-        restriction.is_some(),
-    ))
+    let amount = match amount {
+        Amount::Fixed(amount) => Some(u8::try_from(*amount).unwrap_or(u8::MAX)),
+        // `CountOf`, `X`, and the rest: a number this side of the engine has
+        // no board to work out.
+        _ => None,
+    };
+    Some((*source, amount, restriction.is_some()))
 }
 
-/// The **colour question** an ability is about to ask, and nothing else.
+/// The **colour question** an ability is about to ask, and how much it pours
+/// where that is a number.
 ///
 /// The fourth reading here, and it relaxes exactly one clause of
-/// [`mana_shape`]: **how much**. A plan insists on `Amount::Fixed` because it
-/// has to count what it is buying; Harabaz Druid's "add X mana of any one
-/// color, where X is the number of Allies you control" has no such number and
-/// still asks a player which colour, which is the whole of what a mana bubble
-/// draws. Counting it would be the over-count that leaves a board half
-/// tapped — drawing its five pips costs nothing.
+/// [`mana_made`]: **how much**. A plan insists on a number because it has to
+/// count what it is buying; Harabaz Druid's "add X mana of any one color,
+/// where X is the number of Allies you control" has no such number and still
+/// asks a player which colour, which is the whole of what a mana bubble draws.
+/// Counting it would be the over-count that leaves a board half tapped —
+/// drawing its five pips costs nothing.
 ///
-/// Everything else stays, restricted mana included, and that one is worth
-/// saying out loud because a bubble spends nothing and looks as though it
-/// could take it. It cannot: a bubble's whole label is the pip, and a pip can
-/// say "white" but not "white, and only on Ally spells". Jasmine Dragon Tea
-/// Shop prints both taps — `{T}: Add {C}` beside an any-colour one restricted
-/// to Allies — and drawing six indistinguishable discs for it would be the
-/// bug that card was already reported for once
-/// (`a_restricted_mana_ability_says_what_it_makes`). Restricted mana wants
-/// the sheet's words.
+/// The amount comes back all the same, and it comes back **not to count
+/// with**. A pip is a promise of that colour, so what a bubble needs to know
+/// about the amount is only whether there *is* one: a permanent with two mana
+/// taps that both make green has to put the predictable one behind the pip
+/// and leave the other its sentence, and it cannot tell them apart without
+/// this. Harabaz Druid under a Great Divide Guide is exactly that permanent,
+/// and it is what the owner reported as its own ability having "verloren
+/// gegangen" — both taps made all five colours, the pips collapsed them into
+/// one, and the tap the pips did not stand for was deleted from the sheet.
+/// `baylee_client_core::manaplan::Offer` is the half that acts on it.
+///
+/// Restricted mana is refused, and that one is worth saying out loud because
+/// a bubble spends nothing and looks as though it could take it. It cannot: a
+/// bubble's whole label is the pip, and a pip can say "white" but not "white,
+/// and only on Ally spells". Jasmine Dragon Tea Shop prints both taps —
+/// `{T}: Add {C}` beside an any-colour one restricted to Allies — and drawing
+/// six indistinguishable discs for it would be the bug that card was already
+/// reported for once (`a_restricted_mana_ability_says_what_it_makes`).
+/// Restricted mana wants the sheet's words.
 ///
 /// The rest is what makes any of these readings safe: a free cost, and one
 /// `AddMana` and nothing beside it. An ability that also does something else
 /// is one a player should read before activating.
 #[must_use]
-pub fn mana_offer(cost: &Cost, effects: &[Effect]) -> Option<ManaSource> {
-    if cost.mana != ManaCost::ZERO {
-        return None;
+pub fn mana_offer(cost: &Cost, effects: &[Effect]) -> Option<(ManaSource, Option<u8>)> {
+    match mana_shape(cost, effects)? {
+        (source, amount, false) => Some((source, amount)),
+        (_, _, true) => None,
     }
-    let [
-        Effect::AddMana {
-            source,
-            restriction: None,
-            ..
-        },
-    ] = effects
-    else {
-        return None;
-    };
-    Some(*source)
 }
 
 #[cfg(test)]
@@ -225,8 +244,54 @@ mod tests {
         assert_eq!(mana_made(&tap(), &effects), None);
         assert_eq!(
             mana_shape(&tap(), &effects),
-            Some((ManaSource::CommanderIdentity, 1, false)),
+            Some((ManaSource::CommanderIdentity, Some(1), false)),
             "one unrestricted mana, of colours only a board can name"
+        );
+    }
+
+    /// Harabaz Druid, through all four doors at once.
+    ///
+    /// The amount is a count of the battlefield, so there is no number to
+    /// read and the two planning doors have to refuse it — but the colour
+    /// question is as plain as any other, and a mana bubble asks nothing
+    /// else. The `None` is what lets a *pip* prefer a tap whose pour it can
+    /// name while still standing for this one where nothing else covers the
+    /// colour; a reading that stopped at `Amount::Fixed` said only "not a
+    /// mana ability" and took the card off the sheet.
+    #[test]
+    fn an_amount_only_the_board_can_count_is_a_colour_question_all_the_same() {
+        static ALLIES: Filter = Filter::CREATURE;
+        let every = &[
+            ManaColor::White,
+            ManaColor::Blue,
+            ManaColor::Black,
+            ManaColor::Red,
+            ManaColor::Green,
+        ];
+        let effects = [Effect::AddMana {
+            source: ManaSource::Choice(every),
+            amount: Amount::CountOf {
+                filter: &ALLIES,
+                zone: crate::effect::ZoneSel::Battlefield,
+            },
+            combination: true,
+            restriction: None,
+        }];
+        assert_eq!(
+            mana_shape(&tap(), &effects),
+            Some((ManaSource::Choice(every), None, false)),
+            "the shape is read; the amount is the hole"
+        );
+        assert_eq!(
+            simple_mana(&tap(), &effects),
+            None,
+            "a plan cannot count it"
+        );
+        assert_eq!(mana_made(&tap(), &effects), None, "nor can a label");
+        assert_eq!(
+            mana_offer(&tap(), &effects),
+            Some((ManaSource::Choice(every), None)),
+            "a pip asks which colour, and is told there is no number"
         );
     }
 
@@ -243,7 +308,7 @@ mod tests {
         }];
         assert_eq!(
             mana_shape(&tap(), &effects),
-            Some((ManaSource::LandColor { mine: false }, 1, false))
+            Some((ManaSource::LandColor { mine: false }, Some(1), false))
         );
     }
 }

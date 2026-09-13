@@ -1589,3 +1589,118 @@ fn a_permanent_that_also_makes_mana_gets_the_pips_as_a_header() {
         "`1` sent the sentence, not the {{C}}"
     );
 }
+
+/// Round seven's first point: Harabaz Druid **under a Great Divide Guide**,
+/// where it has two mana abilities and one of them had gone missing.
+///
+/// Reported as *"er hat in der Konstilazion zwei Mana Abilities. 1x die
+/// geerbte vom Great Divide Guide und dann die eigene, mit X = count(allies),
+/// diese ist gerade 'verloren gegangen'"*. Both taps make all five colours, so
+/// the colour-wise union has one pip per colour to share between them and the
+/// loser used to be dropped from the list outright.
+///
+/// Two claims, and they are the two halves of the fix. The pips stand for the
+/// **grant**, because a pip promises one mana of the colour pressed and the
+/// Druid's own X is a count of the battlefield nothing this side of the engine
+/// reads. And the Druid's own ability is a written row saying what it makes,
+/// because a tap the header does not stand for keeps its sentence.
+#[test]
+fn a_second_mana_tap_the_pips_cannot_stand_for_keeps_its_sentence() {
+    use baylee_client::input::{activate_card, sheet_digit};
+    use baylee_client::{Duel, abilities};
+    use baylee_client_core::interaction::Interaction;
+    use baylee_engine::choice::GRANTED_ABILITY;
+
+    let mut preset = bubble_preset();
+    preset.seats[0].starting_battlefield = vec![entry(SQUAD), entry(HARABAZ)];
+    let mut table = Table::open_with(&preset);
+    table.walk_to_main();
+
+    let druid = table
+        .view()
+        .battlefield
+        .iter()
+        .find(|o| o.name == "Harabaz Druid")
+        .expect("the creature starts on the table")
+        .id;
+
+    let mut duel = Duel::default();
+    duel.view = Some(table.view().clone());
+    duel.interaction = Some(Interaction::new(
+        table.pending.clone().expect("priority"),
+        PlayerId::new(0),
+    ));
+    baylee_client::rebuild_board(&mut duel);
+
+    // The premise: the engine is offering both, the Druid's own ability at
+    // index 0 and the Guide's grant under the synthetic one.
+    let legal = table.legal();
+    assert!(legal.abilities.contains(&(druid, 0)), "its own {legal:?}");
+    assert!(
+        legal.abilities.contains(&(druid, GRANTED_ABILITY)),
+        "and the one the Guide hands every Ally: {legal:?}"
+    );
+
+    let options = abilities::options(
+        baylee_client_core::Lang::En,
+        duel.view.as_ref().expect("a view"),
+        duel.interaction.as_ref().expect("priority"),
+        druid,
+    );
+    let split = abilities::Split::of(&options);
+    assert_eq!(
+        (split.pips, split.rows),
+        (5, 1),
+        "five colours as a header, and the ability they are not: {options:?}"
+    );
+    assert!(
+        options[..split.pips].iter().all(|option| option
+            .pour
+            .as_ref()
+            .is_some_and(|pour| pour.step.tap == manaplan::Tap::Ability(GRANTED_ABILITY))),
+        "every pip is the grant, whose pour is one mana: {options:?}"
+    );
+    assert_eq!(
+        options[0].action,
+        PlayerAction::ActivateAbility {
+            source: druid,
+            ability_index: GRANTED_ABILITY,
+        },
+        "and presses the activation the engine offered it under"
+    );
+
+    let own = &options[split.option(0)];
+    assert!(own.pour.is_none(), "the written row is no pip: {own:?}");
+    assert_eq!(
+        own.action,
+        PlayerAction::ActivateAbility {
+            source: druid,
+            ability_index: 0,
+        },
+        "and it is the Druid's own ability"
+    );
+    assert_eq!(
+        own.label, "Tap for X mana (any color)",
+        "which says what it makes rather than repeating its own cost"
+    );
+    assert_eq!(own.cost.as_deref(), Some("{T}"), "the cost column: {own:?}");
+
+    // And the one keycap this sheet draws is on that row, the pips carrying
+    // no digit.
+    activate_card(&mut duel, druid);
+    assert_eq!(duel.ability_menu, Some(druid), "the click opens the sheet");
+    assert!(duel.outbox().is_empty(), "and taps nothing");
+    assert!(
+        sheet_digit(&mut duel, '1'),
+        "the digit names the written row"
+    );
+    assert!(duel.mana_run.is_none(), "which is not a pour");
+    assert_eq!(
+        duel.outbox(),
+        [PlayerAction::ActivateAbility {
+            source: druid,
+            ability_index: 0,
+        }],
+        "`1` sent the ability that had gone missing"
+    );
+}

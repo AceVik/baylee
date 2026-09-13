@@ -102,7 +102,7 @@ pub struct Step {
 
 /// What one tap of a permanent offers a **mana bubble**.
 ///
-/// Deliberately not a [`Source`], and the missing field is the point: a
+/// Deliberately not a [`Source`], and the missing field is still the point: a
 /// bubble never counts mana, so how much a tap makes has no bearing on which
 /// pip is drawn — and an ability whose amount is a count of the board ("add X
 /// mana of any one color, where X is the number of Allies you control") has
@@ -113,6 +113,19 @@ pub struct Offer {
     pub tap: Tap,
     /// The colours it offers a choice between.
     pub colors: Vec<ManaColor>,
+    /// Whether what one press pours is a number at all.
+    ///
+    /// Not *which* number — that is the field this deliberately does not
+    /// have, and every offer here pours something for the colour pressed.
+    /// What a pip needs is only whether the tap behind it is predictable,
+    /// and it needs that for one reason: a permanent with two mana taps of
+    /// the same colours reduces to one pip per colour, so the pip has to
+    /// stand for the tap a player can foresee and the other has to be given
+    /// its sentence back rather than deleted. Harabaz Druid under a Great
+    /// Divide Guide is that permanent — the grant makes one mana of any
+    /// colour, its own ability makes X, and X is a count of the battlefield
+    /// nothing this side of the engine reads.
+    pub fixed: bool,
 }
 
 /// One pip of a mana bubble: a colour, and the tap that pours it.
@@ -134,16 +147,38 @@ pub struct Pour {
 /// twice over — from its own CR 305.6 shortcut and from the grant — and that
 /// is one pip, not two.
 ///
-/// Which of the two wins is the only judgement here, and it goes to the tap
-/// that will **not stop to ask**: a source of one colour is one action, where
-/// a source of five is an action and then an answer. Where that ties, the
-/// intrinsic shortcut wins, for the reason [`plan`] already prefers it — one
-/// fewer round trip.
+/// Which of the taps wins a colour is the only judgement here, and it is made
+/// in three parts, each of which is the same question asked one step further
+/// down.
+///
+/// **A pip a player can foresee**, first. A pip is a promise of that colour
+/// and says nothing about how much, so the tap behind it had better be one
+/// whose pour is a number — Harabaz Druid under a Great Divide Guide offers
+/// all five colours twice over, once as "one mana" and once as "X mana, where
+/// X is the number of Allies you control", and a header built out of the
+/// second is a header nobody can read. Where an unpredictable tap is the
+/// **only** cover for a colour it takes that pip all the same, which is not
+/// an exception: a Harabaz Druid on its own is a bubble of five, and that is
+/// what the owner asked for.
+///
+/// Then the tap that will **not stop to ask**: a source of one colour is one
+/// action, where a source of five is an action and then an answer. Where that
+/// ties, the intrinsic shortcut wins, for the reason [`plan`] already prefers
+/// it — one fewer round trip.
+///
+/// What this does *not* decide is what becomes of the taps that win nothing.
+/// They are not interchangeable with the winner — that is the whole of the
+/// first part above — so `abilities::pour_out` keeps each of them as a
+/// written row rather than folding it into the header.
 #[must_use]
 pub fn pours(id: ObjectId, offers: &[Offer]) -> Vec<Pour> {
-    /// How much a tap makes a player wait, lower being better.
-    fn patience(offer: &Offer) -> (usize, bool) {
-        (offer.colors.len(), matches!(offer.tap, Tap::Ability(_)))
+    /// How much a tap makes a player guess and then wait, lower being better.
+    fn patience(offer: &Offer) -> (bool, usize, bool) {
+        (
+            !offer.fixed,
+            offer.colors.len(),
+            matches!(offer.tap, Tap::Ability(_)),
+        )
     }
     ManaColor::ALL
         .into_iter()
@@ -776,10 +811,12 @@ mod tests {
                     ManaColor::Red,
                     ManaColor::Green,
                 ],
+                fixed: true,
             },
             Offer {
                 tap: Tap::Intrinsic,
                 colors: vec![ManaColor::Green],
+                fixed: true,
             },
         ];
         let poured = pours(id, &offers);
@@ -818,11 +855,75 @@ mod tests {
         let offers = vec![Offer {
             tap: Tap::Intrinsic,
             colors: vec![ManaColor::White],
+            fixed: true,
         }];
         let poured = pours(id, &offers);
         assert_eq!(poured.len(), 1);
         assert_eq!(poured[0].color, ManaColor::White);
         assert_eq!(poured[0].step.color, None);
         assert!(pours(id, &[]).is_empty());
+    }
+
+    /// Every colour, and no number behind any of them.
+    ///
+    /// Harabaz Druid on its own: nothing else covers a single one of the five
+    /// colours, so the unpredictable tap takes every pip and the creature is
+    /// a bubble. The owner asked for that in as many words — *"Artefakte und
+    /// Kreaturen, die nur Mana Ability haben"* — and it is the half of the
+    /// rule that a plain "refuse what cannot be counted" would have lost.
+    #[test]
+    fn a_tap_no_one_can_count_still_pours_where_nothing_else_does() {
+        let id = ObjectId::new(6, 0);
+        let offers = vec![Offer {
+            tap: Tap::Ability(0),
+            colors: ManaColor::ALL
+                .into_iter()
+                .filter(|c| *c != ManaColor::Colorless)
+                .collect(),
+            fixed: false,
+        }];
+        let poured = pours(id, &offers);
+        assert_eq!(poured.len(), 5, "one pip per colour it offers");
+        assert!(poured.iter().all(|p| p.step.tap == Tap::Ability(0)));
+    }
+
+    /// The same tap beside one that pours a number, and it loses every
+    /// colour.
+    ///
+    /// Harabaz Druid under a Great Divide Guide, which is what the owner
+    /// reported: two taps, the same five colours, and one pip per colour to
+    /// share between them. The pips go to the grant — one mana of whichever
+    /// colour is pressed, which is what a pip claims — and the Druid's own
+    /// ability wins nothing here precisely so that the sheet can give it its
+    /// sentence back instead of folding it away.
+    #[test]
+    fn a_countable_tap_takes_the_pips_from_one_that_is_not() {
+        let id = ObjectId::new(7, 0);
+        let every: Vec<ManaColor> = ManaColor::ALL
+            .into_iter()
+            .filter(|c| *c != ManaColor::Colorless)
+            .collect();
+        let offers = vec![
+            Offer {
+                tap: Tap::Ability(0),
+                colors: every.clone(),
+                fixed: false,
+            },
+            Offer {
+                tap: Tap::Ability(u32::MAX),
+                colors: every,
+                fixed: true,
+            },
+        ];
+        let poured = pours(id, &offers);
+        assert_eq!(poured.len(), 5);
+        assert!(
+            poured.iter().all(|p| p.step.tap == Tap::Ability(u32::MAX)),
+            "every pip is the tap whose pour is a number: {poured:?}"
+        );
+        assert!(
+            poured.iter().all(|p| p.step.color.is_some()),
+            "a five-colour tap is asked which colour, and the answer is in hand"
+        );
     }
 }

@@ -142,6 +142,11 @@ fn mana_ability(
     if restricted {
         return None;
     }
+    // And an amount only the board can count is refused here for the reason
+    // the shape stopped short of naming one: a plan that guessed at Harabaz
+    // Druid's X would leave a board half tapped. A bubble asks a smaller
+    // question and takes it — see [`offers`].
+    let amount = amount?;
     let colors = produced_colors(view, source)?;
     Some(Source {
         id,
@@ -157,7 +162,7 @@ fn mana_ability(
 /// answer without one, which is why [`baylee_cards_dsl::mana_shape`] stops
 /// one step earlier and hands the `ManaSource` back for a caller holding a
 /// [`PlayerView`] to finish.
-fn produced_colors(
+pub(crate) fn produced_colors(
     view: &PlayerView,
     source: baylee_cards_dsl::ManaSource,
 ) -> Option<Vec<baylee_core::mana::ManaColor>> {
@@ -194,7 +199,8 @@ fn produced_colors(
 ///
 /// And it reads each ability through [`baylee_cards_dsl::mana_offer`], which
 /// asks only what colours are on offer — see there for why a bubble may draw
-/// two abilities a planner must refuse.
+/// two abilities a planner must refuse, and why it is told whether the amount
+/// behind one of them is a number.
 #[must_use]
 pub fn offers(
     view: &PlayerView,
@@ -210,17 +216,20 @@ pub fn offers(
         out.push(Offer {
             tap: Tap::Intrinsic,
             colors: vec![color],
+            // One mana of the land's own colour, by CR 305.6 and by nothing
+            // else: there is no card text to read and no amount to doubt.
+            fixed: true,
         });
     }
     for &(id, index) in &legal.abilities {
         if id != object {
             continue;
         }
-        let colors = match baylee_engine::choice::granted_slot(index) {
+        let read = match baylee_engine::choice::granted_slot(index) {
             // A grant is printed on no card, so there is no ability to read:
-            // the host has already reduced it to colours and the view carries
-            // them.
-            Some(slot) => granted_source(view, object, slot).map(|source| source.colors),
+            // the host has already reduced it to colours *and* a count, which
+            // is why a grant is always a number here.
+            Some(slot) => granted_source(view, object, slot).map(|source| (source.colors, true)),
             None => match ability_at(view, object, index) {
                 Some(
                     AbilityDef::Activated {
@@ -235,15 +244,17 @@ pub fn offers(
                         mana_ability: true,
                         ..
                     },
-                ) => baylee_cards_dsl::mana_offer(cost, effects)
-                    .and_then(|source| produced_colors(view, source)),
+                ) => baylee_cards_dsl::mana_offer(cost, effects).and_then(|(source, amount)| {
+                    Some((produced_colors(view, source)?, amount.is_some()))
+                }),
                 _ => None,
             },
         };
-        if let Some(colors) = colors.filter(|colors| !colors.is_empty()) {
+        if let Some((colors, fixed)) = read.filter(|(colors, _)| !colors.is_empty()) {
             out.push(Offer {
                 tap: Tap::Ability(index),
                 colors,
+                fixed,
             });
         }
     }

@@ -1112,6 +1112,16 @@ messages! {
     /// {C}" is two offers a player cannot tell apart, and the restricted one
     /// is usually the reason the land is in the deck.
     TapForRestricted { en: "Tap for {0} (restricted)", de: "Tappen für {0} (eingeschränkt)" },
+    /// Tap for X mana ({0})
+    ///
+    /// Harabaz Druid: *"add X mana of any one color, where X is the number of
+    /// Allies you control"*. The `X` is the card's own letter and is left
+    /// standing, because what it comes to is the engine's arithmetic and no
+    /// client counts it — what the row can say honestly is that the amount is
+    /// a count, and which colours it is a count of. Without it the ability
+    /// fell back to its cost and drew a row reading "{T}" beside a cost
+    /// column reading "{T}".
+    TapForVariable { en: "Tap for X mana ({0})", de: "Tappen für X Mana ({0})" },
 
 
     // ---- the ability sheet
