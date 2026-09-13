@@ -123,6 +123,17 @@ pub fn sync_overlay(
     // sentence twice, and `Prompt::GameOver`'s headline ("The game is over")
     // would be a third wording of it beside the other two. So the bar simply
     // stops: there is no question left for a question bar to hold.
+    //
+    // It stops **whole**, and that is the part worth stating. The slip is
+    // drawn for a question *or* a refusal *or* a word about the connection,
+    // so silencing only the question leaves two ways for the bar to come
+    // back under the end screen — and both are answers to a game that is
+    // still being played. A refusal is the engine turning down an action,
+    // and there are no actions left (`DuelSet::Input` does not run in
+    // `Finished`). A word about the connection is a table waiting for you,
+    // and this one has stopped waiting: the gateway drops the socket after
+    // `GameEnded`, and a red "the connection to the table was lost" under
+    // "You won" would be reporting a loss that cost the player nothing.
     let over = duel.ending().is_some();
     // Whose turn it is, for the one line that changes with it. A seat holds
     // priority on every turn at the table, so the bar has to be told which
@@ -143,12 +154,12 @@ pub fn sync_overlay(
     // answer precisely while a question is standing. The player clicked, the
     // bar went on saying "Choose a target", and nothing else happened. It is
     // its own line now, under whatever the bar was already saying.
-    let error = duel.last_error.clone();
+    let error = duel.last_error.clone().filter(|_| !over);
     // The connection, when it has something to say. Drawn in the same bar
     // rather than in a banner of its own because that is where this client
     // already speaks to the player, and above the rest of it because a table
     // that cannot hear you makes every other line on the bar moot.
-    let link_note = duel.link_note;
+    let link_note = duel.link_note.filter(|_| !over);
     let hovered = duel.hovered;
     let selected: Vec<ObjectId> = duel
         .interaction
@@ -277,89 +288,14 @@ pub fn sync_overlay(
 
     // ---- top right: the two things that end a game -----------------------
     //
-    // What used to be here was a full-width strip of seat tabs with this menu
-    // on the end of it, and a twelve-step phase rail under that: two bands
-    // that between them took a hundred and ten pixels off the top of every
-    // window, on every screen, for the whole game. Both are on the table now
-    // — each seat's own bar, written on its mat's ledge — which is where the
-    // information was about in the first place. What is left up here is the
-    // pair of controls that belong to *no* seat, and they are a row of pills
-    // over the felt rather than a band across it.
-    let menu_row = commands
-        .spawn((
-            Node {
-                position_type: PositionType::Absolute,
-                top: px(EDGE),
-                right: px(EDGE),
-                height: px(MENU_H),
-                flex_direction: FlexDirection::Row,
-                align_items: AlignItems::Center,
-                column_gap: px(8),
-                ..default()
-            },
-            Pickable::IGNORE,
-        ))
-        .id();
-    // A draw needs this seat's own priority (CR 104.4a, and `offer_draw`
-    // refuses anything else), so the button says so instead of being a live
-    // button whose usual answer is an error in the prompt bar. Concede is
-    // always legal and is greyed by nothing — what it has instead is a second
-    // press, because there is no undo behind it.
-    if duel.priority_held() {
-        spawn_hold(&mut commands, &fonts, lang, menu_row);
+    // Both of them *are* ways to end a game, so a game that has already
+    // ended keeps neither: input stops in `DuelPhase::Finished`
+    // (`DuelSet::Input`), and a pill drawn there is lit, hovers under the
+    // pointer and answers nothing — an offer the client cannot keep.
+    if !over {
+        let menu_row = spawn_menu_row(&mut commands, &fonts, lang, &duel);
+        commands.entity(root).add_child(menu_row);
     }
-    let armed = duel.concede_armed;
-    for (action, label, enabled) in [
-        (
-            MenuAction::OfferDraw,
-            Phrase::OfferADraw.text(lang),
-            duel.can_offer_draw(),
-        ),
-        (
-            MenuAction::Concede,
-            if armed {
-                Phrase::ConcedeConfirm.text(lang)
-            } else {
-                Phrase::Concede.text(lang)
-            },
-            true,
-        ),
-    ] {
-        let lit = match (action, armed) {
-            (MenuAction::Concede, true) => palette::DANGER,
-            _ if enabled => palette::PANEL_LIT,
-            _ => palette::PANEL,
-        };
-        let ink = match (action, armed) {
-            (MenuAction::Concede, true) => palette::PANEL,
-            _ if enabled => palette::INK,
-            _ => palette::DEAD,
-        };
-        let button = commands
-            .spawn((
-                MenuButton { action },
-                Node {
-                    height: px(MENU_H),
-                    align_items: AlignItems::Center,
-                    justify_content: JustifyContent::Center,
-                    padding: UiRect::axes(px(14), px(0)),
-                    border_radius: btn_radius(),
-                    ..default()
-                },
-                BackgroundColor(lit),
-                Feel::new(lit),
-                soft_shadow(),
-                children![(
-                    Text::new(label),
-                    tf(&fonts, 13.0),
-                    TextColor(ink),
-                    Pickable::IGNORE,
-                )],
-            ))
-            .id();
-        commands.entity(menu_row).add_child(button);
-    }
-    commands.entity(root).add_child(menu_row);
 
     // ---- the prompt slip: the question, and the answers to it -------------
     //
@@ -1533,6 +1469,98 @@ fn put_words(commands: &mut Commands, fonts: &UiFonts, button: Entity, text: &st
 /// ago and forgot would watch the game play itself and have nothing on screen
 /// to blame. So the state is drawn, and the way out of it sits beside the
 /// drawing rather than only on a function key nobody can see.
+/// The row of pills in the top-right corner: a draw offer and a concession.
+///
+/// What used to be here was a full-width strip of seat tabs with this menu on
+/// the end of it, and a twelve-step phase rail under that: two bands that
+/// between them took a hundred and ten pixels off the top of every window, on
+/// every screen, for the whole game. Both are on the table now — each seat's
+/// own bar, written on its mat's ledge — which is where the information was
+/// about in the first place. What is left up here is the pair of controls
+/// that belong to *no* seat, and they are a row of pills over the felt rather
+/// than a band across it.
+///
+/// Its own function because it is drawn for a game that is still being played
+/// and for no other, and an `if` around seventy lines in the middle of
+/// [`sync_overlay`] would hide that behind an indent.
+fn spawn_menu_row(commands: &mut Commands, fonts: &UiFonts, lang: Lang, duel: &Duel) -> Entity {
+    let menu_row = commands
+        .spawn((
+            Node {
+                position_type: PositionType::Absolute,
+                top: px(EDGE),
+                right: px(EDGE),
+                height: px(MENU_H),
+                flex_direction: FlexDirection::Row,
+                align_items: AlignItems::Center,
+                column_gap: px(8),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    // A draw needs this seat's own priority (CR 104.4a, and `offer_draw`
+    // refuses anything else), so the button says so instead of being a live
+    // button whose usual answer is an error in the prompt bar. Concede is
+    // always legal and is greyed by nothing — what it has instead is a second
+    // press, because there is no undo behind it.
+    if duel.priority_held() {
+        spawn_hold(commands, fonts, lang, menu_row);
+    }
+    let armed = duel.concede_armed;
+    for (action, label, enabled) in [
+        (
+            MenuAction::OfferDraw,
+            Phrase::OfferADraw.text(lang),
+            duel.can_offer_draw(),
+        ),
+        (
+            MenuAction::Concede,
+            if armed {
+                Phrase::ConcedeConfirm.text(lang)
+            } else {
+                Phrase::Concede.text(lang)
+            },
+            true,
+        ),
+    ] {
+        let lit = match (action, armed) {
+            (MenuAction::Concede, true) => palette::DANGER,
+            _ if enabled => palette::PANEL_LIT,
+            _ => palette::PANEL,
+        };
+        let ink = match (action, armed) {
+            (MenuAction::Concede, true) => palette::PANEL,
+            _ if enabled => palette::INK,
+            _ => palette::DEAD,
+        };
+        let button = commands
+            .spawn((
+                MenuButton { action },
+                Node {
+                    height: px(MENU_H),
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::Center,
+                    padding: UiRect::axes(px(14), px(0)),
+                    border_radius: btn_radius(),
+                    ..default()
+                },
+                BackgroundColor(lit),
+                Feel::new(lit),
+                soft_shadow(),
+                children![(
+                    Text::new(label),
+                    tf(fonts, 13.0),
+                    TextColor(ink),
+                    Pickable::IGNORE,
+                )],
+            ))
+            .id();
+        commands.entity(menu_row).add_child(button);
+    }
+    menu_row
+}
+
 fn spawn_hold(commands: &mut Commands, fonts: &UiFonts, lang: Lang, row: Entity) {
     let chip = commands
         .spawn((
@@ -1998,4 +2026,154 @@ fn two_faced(view: &PlayerView, hovered: Option<ObjectId>) -> bool {
         .and_then(|object| object.card.as_ref())
         .and_then(|card| baylee_cards::by_index(card.index))
         .is_some_and(|def| def.faces.len() > 1)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use baylee_core::ids::PlayerId;
+    use baylee_engine::win::{EndReason, GameResult, Victor};
+
+    /// Fonts with no asset server behind them: what is under test is which
+    /// lines the bar builds, and none of that is the GPU's.
+    fn fonts() -> UiFonts {
+        UiFonts {
+            text: Handle::default(),
+            italic: Handle::default(),
+            icons: Handle::default(),
+            mana: Handle::default(),
+        }
+    }
+
+    /// A headless app that really runs [`sync_overlay`].
+    ///
+    /// Not a source-reading test, because the claim is about what the system
+    /// *builds* rather than about a component only a renderer creates. The
+    /// two optional material resources are left out on purpose — that is the
+    /// branch a machine with no GPU takes, and it is the branch that draws
+    /// the prose this test reads.
+    fn bar_of(duel: Duel) -> App {
+        let mut app = App::new();
+        app.add_plugins(bevy::asset::AssetPlugin::default())
+            .init_asset::<Image>();
+        let textures = {
+            let mut images = app.world_mut().resource_mut::<Assets<Image>>();
+            CardTextures::new(&mut images, 1 << 20)
+        };
+        app.insert_resource(textures)
+            .insert_resource(duel)
+            .insert_resource(fonts())
+            .insert_resource(crate::settings::ClientSettings::default())
+            .init_resource::<HudRevision>()
+            .init_resource::<crate::prefs::Prefs>()
+            .init_resource::<crate::cardtext::CardTexts>()
+            .init_resource::<crate::face::FaceMode>()
+            .init_resource::<crate::sheen::Sheen>()
+            .init_resource::<crate::touch::Touched>()
+            .add_systems(Update, sync_overlay);
+        app.update();
+        app
+    }
+
+    /// Every word the bar put on the screen.
+    ///
+    /// `TextSpan` and not `Text`: `slip_text` splits a line into runs so a
+    /// bracketed aside can be greyed, which leaves the `Text` itself empty
+    /// and every word in a child.
+    fn said(app: &mut App) -> Vec<String> {
+        let mut roots = app.world_mut().query::<&Text>();
+        let mut lines: Vec<String> = roots.iter(app.world()).map(|t| t.0.clone()).collect();
+        let mut spans = app.world_mut().query::<&TextSpan>();
+        lines.extend(spans.iter(app.world()).map(|s| s.0.clone()));
+        lines
+    }
+
+    /// The refusal the engine handed back on the last action anyone took.
+    const REFUSED: &str = "illegal action for your seat";
+
+    fn duel_with(over: bool) -> Duel {
+        let pending = if over {
+            baylee_engine::choice::Pending::GameOver(GameResult {
+                winner: Some(Victor::Player(PlayerId::new(0))),
+                reason: EndReason::LastPlayerStanding,
+            })
+        } else {
+            baylee_engine::choice::Pending::Priority {
+                player: PlayerId::new(0),
+                legal: Box::new(baylee_engine::choice::LegalActions::default()),
+            }
+        };
+        let mut duel = Duel {
+            interaction: Some(baylee_client_core::Interaction::new(
+                pending,
+                PlayerId::new(0),
+            )),
+            last_error: Some(REFUSED.to_string()),
+            link_note: Some(Phrase::LinkLost),
+            ..Duel::default()
+        };
+        // The bar is not drawn at all without a board to draw it over, which
+        // is what an empty tree would otherwise be mistaken for.
+        duel.view = Some(baylee_client_core::test_support::ViewBuilder::new(2).build());
+        crate::rebuild_board(&mut duel);
+        duel
+    }
+
+    /// Once a result is standing, this overlay offers nothing.
+    ///
+    /// Four things, and only the first of them was ever silenced. A refusal
+    /// or a word about the connection each draws the whole slip on its own,
+    /// under the end screen and in the veil, saying something about a game
+    /// that has stopped being played — and the draw and concede pills stayed
+    /// lit up in the corner, hovering under the pointer and answering
+    /// nothing, because `DuelSet::Input` does not run in `Finished`.
+    #[test]
+    fn nothing_the_overlay_offers_outlives_the_game() {
+        let mut app = bar_of(duel_with(true));
+        let lines = said(&mut app);
+        assert!(
+            !lines.iter().any(|l| l.contains(REFUSED)),
+            "a refusal outlived the game it refused: {lines:?}"
+        );
+        let note = Phrase::LinkLost.text(Lang::En).to_string();
+        assert!(
+            !lines.iter().any(|l| l.contains(&note)),
+            "the table is gone and so is the reason to say so: {lines:?}"
+        );
+        for pill in [Phrase::OfferADraw, Phrase::Concede] {
+            let label = pill.text(Lang::En).to_string();
+            assert!(
+                !lines.contains(&label),
+                "a way to end a game that has ended, lit and unanswerable: \
+                 {lines:?}"
+            );
+        }
+    }
+
+    /// The counter-test, without which the one above passes on an empty tree.
+    ///
+    /// It is not a formality here: the first draft of this harness built no
+    /// tree at all — `sync_overlay` returns early without a board — and the
+    /// test above passed on the empty world.
+    #[test]
+    fn a_game_still_being_played_is_offered_all_four() {
+        let mut app = bar_of(duel_with(false));
+        let lines = said(&mut app);
+        assert!(
+            lines.iter().any(|l| l.contains(REFUSED)),
+            "the refusal is the whole reason the slip has a second line: {lines:?}"
+        );
+        let note = Phrase::LinkLost.text(Lang::En).to_string();
+        assert!(
+            lines.iter().any(|l| l.contains(&note)),
+            "a table that cannot hear you has to say so: {lines:?}"
+        );
+        for pill in [Phrase::OfferADraw, Phrase::Concede] {
+            let label = pill.text(Lang::En).to_string();
+            assert!(
+                lines.contains(&label),
+                "every game still being played offers both of these: {lines:?}"
+            );
+        }
+    }
 }

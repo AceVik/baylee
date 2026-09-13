@@ -2503,6 +2503,44 @@ patch where the headline sits goes (44, 70, 58) → (69, 73, 57) → (106, 98,
 80) → (103, 96, 78) while the felt beside it goes (33, 56, 46) → (19, 47, 37)
 → (10, 27, 23) → (10, 26, 23). One number, read twice.
 
+### The sheet shipped on the wrong side of its own veil
+
+The `Z` ladder in `hud` says what the order is for — "a surface that is
+answering a question stands over a surface that is merely showing one. The
+veil is the hinge: what is below it goes dark, what is above it stays lit" —
+and the end sheet shipped **below** it. The veil is its sibling under
+`FinishRoot`, carrying `Z_VEIL`; the sheet carried no `ZIndex` at all, which
+is a zero against that three, so the veil was painted over the whole screen
+and the verdict was read through it.
+
+It did not look like a bug, which is the point of recording the arithmetic.
+Parchment (224, 212, 176) reached the window as **(125, 116, 94)** and the
+lobby button's brass (201, 162, 39) as **(117, 93, 24)** — each within a
+unit of what `TABLE_VEIL` at 0.70 predicts when the compositing is done in
+linear light, and both a perfectly plausible *choice* of colour for a muted
+end screen. What gave it away was that the numbers were predictable at all.
+The sheet now carries `ZIndex(Z_SHEET)` and the ladder is asserted rather
+than merely written down.
+
+### The bar stops whole
+
+`Duel::ending()` silenced the *question*, and the prompt slip is drawn for a
+question **or** a refusal **or** a word about the connection — so two ways
+back onto the screen were left open, and both of them are answers to a game
+that is still being played. A refusal is the engine turning down an action
+and there are no actions left, `DuelSet::Input` not running in `Finished`; a
+word about the connection is a table waiting for you, and the gateway drops
+the socket after `GameEnded`, so a red "the connection to the table was lost"
+under "You won" would be reporting a loss that cost the player nothing.
+
+The draw and concede pills were the same mistake one level up. They are the
+two controls that belong to no seat, they are both *ways to end a game*, and
+they went on being drawn over the end screen at full strength — lit,
+hovering under the pointer through `ambience::Feel`, which runs ungated —
+answering nothing. `overlay::spawn_menu_row` exists so that "not once the
+game is over" is one `if` at the call site rather than an indent around
+seventy lines.
+
 ## The zone browser is a dialog, which is a different material
 
 `docs/redesign-proposal.md` §1.3 draws the line and §6 applies it:

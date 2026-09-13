@@ -266,6 +266,14 @@ pub(crate) fn spawn_finish(
             sheet_shadow(),
             Settling::panel(palette::PARCHMENT, palette::PARCHMENT_EDGE),
             UiTransform::from_translation(Val2::px(0.0, SHEET_LIFT)),
+            // Above the veil, which is its **sibling** under this root and
+            // would otherwise be painted over it: `ui_stack_system` orders
+            // siblings by `ZIndex`, and a node with none is a zero against
+            // the veil's three. The ladder in `hud` says what that costs —
+            // "the veil is the hinge: what is below it goes dark, what is
+            // above it stays lit" — and this sheet was below it, drawn at
+            // thirty per cent of the paper it is written on.
+            ZIndex(Z_SHEET),
             Pickable::IGNORE,
         ))
         .id();
@@ -609,5 +617,43 @@ mod tests {
         app.update();
         assert!((ink(&mut app) - palette::PARCHMENT_INK.alpha()).abs() < 1e-6);
         assert_eq!(lift(&mut app), Val2::px(0.0, 0.0), "it comes to rest");
+    }
+
+    /// The sheet stands over the veil it brought with it.
+    ///
+    /// It shipped under it. Both are children of the same root, the veil
+    /// carries `Z_VEIL` and the sheet carried none, so the veil was painted
+    /// over the whole screen — parchment `(224, 212, 176)` reached the window
+    /// as `(125, 116, 94)` and brass `(201, 162, 39)` as `(117, 93, 24)`,
+    /// each within a unit of what seventy per cent of `TABLE_VEIL` predicts.
+    /// It read as a *dimmer* sheet rather than as a bug, which is exactly why
+    /// the ladder is asserted and not merely written down.
+    #[test]
+    fn the_sheet_stands_over_the_veil_it_brought() {
+        let mut app = app_at(ended(
+            GameResult {
+                winner: Some(Victor::Player(PlayerId::new(0))),
+                reason: EndReason::LastPlayerStanding,
+            },
+            None,
+        ));
+        let mut sheets = app
+            .world_mut()
+            .query_filtered::<(&ZIndex, &ChildOf), With<FinishSheet>>();
+        let (sheet_z, sheet_parent) = sheets.iter(app.world()).next().expect("a sheet");
+        let (sheet_z, sheet_parent) = (sheet_z.0, sheet_parent.parent());
+        let mut veils = app
+            .world_mut()
+            .query_filtered::<(&ZIndex, &ChildOf), With<TableVeil>>();
+        let (veil_z, veil_parent) = veils.iter(app.world()).next().expect("a veil");
+        let (veil_z, veil_parent) = (veil_z.0, veil_parent.parent());
+        assert_eq!(
+            sheet_parent, veil_parent,
+            "the two are ordered against each other only as siblings"
+        );
+        assert!(
+            sheet_z > veil_z,
+            "the veil ({veil_z}) is painted over the sheet ({sheet_z})"
+        );
     }
 }
