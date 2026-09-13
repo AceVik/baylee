@@ -156,18 +156,37 @@ const SHEET_PAD_Y: f32 = 10.0;
 /// size, and a pip on a bubble is the *whole* control — five of them are all
 /// there is on the paper. This is about the size a mana symbol is printed at
 /// in a card's own cost line.
-const POUR_MARK: f32 = 26.0;
+///
+/// It shipped at 26 and the owner asked for "etwas kleiner". The floor under
+/// that is not the mark but the **target**: the disc plus [`POUR_RING`] on
+/// every side is what a finger lands on, and the close button in
+/// [`spawn_head`] argues 30 px as the size for a card game played on a
+/// tablet. 21 + 2×5 is 31, so this is as small as the pip goes without the
+/// bubble becoming harder to hit than the sheet it stands in for.
+const POUR_MARK: f32 = 21.0;
 
 /// The ring of paper round a pip, which is the part the pointer lands on.
 ///
 /// The pip itself is a disc and a disc is a poor target, so the button is the
 /// disc plus this on every side. It is also what gives a picked pip a wash to
 /// be picked *in* — a highlight painted under the disc alone would be
-/// invisible.
+/// invisible. It did not shrink with [`POUR_MARK`] for exactly that reason:
+/// the ring is the target, and a smaller mark needs it more.
 const POUR_RING: f32 = 5.0;
 
 /// The air between two pips.
-const POUR_AIR: f32 = 5.0;
+const POUR_AIR: f32 = 4.0;
+
+/// How far a pip grows under the pointer, and gives way under a press.
+///
+/// Four times an ordinary button's [`crate::ambience::BUTTON_LIFT`], and that is the
+/// same decision as the ring above read from the other end. 2.5% of a keycap
+/// is half a pixel and is meant to be felt rather than seen, because a keycap
+/// sits in a row of writing that must not move with it. A pip sits in air: it
+/// is one mark, the paper it is on carries nothing else, and the owner asked
+/// for an effect he could *see*. Ten per cent of 31 px is three pixels of
+/// travel, which is a movement rather than a shimmer.
+const POUR_LIFT: f32 = 0.10;
 
 /// A keycap's side, as a multiple of the legend on it.
 ///
@@ -321,13 +340,6 @@ pub struct AbilitySheet {
     /// Where the three pieces already are, so a camera standing still costs
     /// one comparison instead of a relayout of the whole sheet.
     placed: Option<Placement>,
-    /// Whether this is a mana bubble rather than a list of abilities.
-    ///
-    /// The one thing about a bubble the *placer* has to know: the owner asked
-    /// for it "directly under the card", where a sheet goes above by default.
-    /// See [`corner_for`] for why that default is right for a sheet and wrong
-    /// for this.
-    bubble: bool,
 }
 
 /// Where the sheet, its nub and its halo were last put.
@@ -836,7 +848,6 @@ fn spawn_sheet(
                 // back is about not *blinking*; it is not a claim that the
                 // card has not moved since.
                 placed: None,
-                bubble,
             },
             // `fresh` is what keeps this a movement and not a twitch: the
             // sheet is rebuilt whenever a row is armed, the cursor moves or
@@ -1462,11 +1473,20 @@ fn spawn_pour(
                 ..default()
             },
             BackgroundColor(wash),
-            // A tint and not a lift, for the reason a row is a tint: the pip
-            // is a disc with a glyph clipped inside it, and a button that
-            // grew by 2.5% under the pointer would re-lay that glyph out
-            // every time the pointer crossed it.
-            Feel::tinting_to(wash, pressed(wash)),
+            // **A lift, where a row is a tint.** This said the opposite for
+            // one commit — "a button that grew under the pointer would re-lay
+            // that glyph out" — and that is not what a lift does: `Feel`
+            // writes `UiTransform::scale`, which is applied after layout, so
+            // the disc, the clip and the glyph inside it are the same laid-out
+            // node drawn larger. What is true of a *row* is not true here for
+            // the reason [`POUR_LIFT`] gives: a row is a line of writing, and
+            // a pip is one mark with air around it.
+            //
+            // The ink under it stays and is what the movement is read
+            // against: [`pressed`] on a resting pip is plain ink at
+            // [`ROW_PRESS`], the register the whole sheet already answers a
+            // pointer in.
+            Feel::lifting(wash, pressed(wash), POUR_LIFT),
         ))
         .id();
     let pip = crate::manaui::spawn_pip(
@@ -1751,7 +1771,7 @@ pub fn place_ability_sheet(
     if node.max_width != ceiling {
         node.max_width = ceiling;
     }
-    let corner = corner_for(mid, card, sheet_box, size, sheet.bubble);
+    let corner = corner_for(mid, card, sheet_box, size);
     let now = Placement {
         corner,
         size: sheet_box,
@@ -1857,24 +1877,23 @@ fn pop(t: f32) -> f32 {
 /// to hang off either edge, because a sheet half outside the window is a list
 /// with rows the player cannot see and cannot click.
 ///
-/// `under` turns that preference round, and only a mana bubble sets it. The
-/// owner asked for the bubble "directly under the card", and it can be given
-/// that where a sheet cannot: what a sheet would cover below a card is the
-/// player's own hand, and a bubble is two lines of a sheet's height. It still
-/// goes above when there is no room below, for the same reason a sheet goes
-/// below when there is none above.
+/// A **mana bubble is placed by the same rule**, which it briefly was not: it
+/// was put under the card, on the words "ein kleiner Dialog direkt unter der
+/// Karte". Measured on the running client, "under" in the land lane is on top
+/// of the seat's own phase rail — the bubble opened across `CBT | ATK | BLK |
+/// DMG` for as long as the pick lasted — and the owner asked for it over the
+/// card instead, "vergleichbar zu dem Abilities-Dialog". So there is one rule
+/// again rather than two, and the bubble is where a player is already looking
+/// for a sheet.
 ///
 /// The width is measured rather than assumed, the way the height already was:
 /// the sheet sizes itself to its own text between [`SHEET_MIN`] and
 /// [`SHEET_MAX`], so a constant here would centre a narrow sheet as if it were
 /// a wide one and put it off-centre by half the difference.
-fn corner_for(mid: Vec2, card: Vec2, sheet: Vec2, window: Vec2, under: bool) -> Vec2 {
+fn corner_for(mid: Vec2, card: Vec2, sheet: Vec2, window: Vec2) -> Vec2 {
     let above = mid.y - card.y / 2.0 - SHEET_GAP - sheet.y;
     let below = mid.y + card.y / 2.0 + SHEET_GAP;
-    let room_below = below + sheet.y <= window.y - SHEET_MARGIN;
-    let top = if under && room_below {
-        below
-    } else if above >= SHEET_MARGIN {
+    let top = if above >= SHEET_MARGIN {
         above
     } else {
         below.min(window.y - SHEET_MARGIN - sheet.y)
@@ -1903,7 +1922,7 @@ mod tests {
     #[test]
     fn the_sheet_sits_over_the_card_it_belongs_to() {
         let mid = Vec2::new(864.0, 600.0);
-        let at = corner_for(mid, CARD, SHEET, WINDOW, false);
+        let at = corner_for(mid, CARD, SHEET, WINDOW);
         assert!(
             (at.x + SHEET.x / 2.0 - mid.x).abs() < 0.5,
             "centred on the card: {at} against {mid}"
@@ -1924,7 +1943,7 @@ mod tests {
     fn a_sheet_of_any_width_is_centred_on_its_card() {
         let mid = Vec2::new(864.0, 600.0);
         for w in [SHEET_MIN, 260.0, 300.0, SHEET_MAX] {
-            let at = corner_for(mid, CARD, Vec2::new(w, 210.0), WINDOW, false);
+            let at = corner_for(mid, CARD, Vec2::new(w, 210.0), WINDOW);
             assert!(
                 (at.x + w / 2.0 - mid.x).abs() < 0.5,
                 "a {w}-wide sheet sits at {at}, off the card's {}",
@@ -1939,7 +1958,7 @@ mod tests {
     #[test]
     fn a_sheet_with_no_room_above_the_card_goes_below_it() {
         let mid = Vec2::new(864.0, 90.0);
-        let at = corner_for(mid, CARD, SHEET, WINDOW, false);
+        let at = corner_for(mid, CARD, SHEET, WINDOW);
         assert!(
             at.y >= mid.y + CARD.y / 2.0,
             "below the card: {} against {}",
@@ -1957,7 +1976,7 @@ mod tests {
         for x in [0.0, 20.0, 1700.0, WINDOW.x] {
             for w in [SHEET_MIN, SHEET_MAX] {
                 let sheet = Vec2::new(w, 210.0);
-                let at = corner_for(Vec2::new(x, 600.0), CARD, sheet, WINDOW, false);
+                let at = corner_for(Vec2::new(x, 600.0), CARD, sheet, WINDOW);
                 assert!(
                     at.x >= SHEET_MARGIN && at.x + w <= WINDOW.x - SHEET_MARGIN,
                     "at x={x} a {w}-wide sheet's corner is {at}"
@@ -1976,45 +1995,25 @@ mod tests {
             CARD,
             Vec2::new(300.0, 900.0),
             Vec2::new(900.0, 500.0),
-            false,
         );
         assert!(at.y >= SHEET_MARGIN, "the top is on screen: {at}");
         assert!(at.x >= SHEET_MARGIN, "and so is the left edge");
     }
 
-    /// The owner's fourth point, as arithmetic: a bubble opens **under** the
-    /// card where a sheet opens over it, and it is the same call with one
-    /// flag turned.
+    /// A bubble is a sheet two lines high and goes where a sheet goes. It
+    /// spent one commit opening *below* the card, which is where the seat's
+    /// own phase rail is drawn for a card in the land lane.
     #[test]
-    fn a_mana_bubble_opens_under_the_card_and_a_sheet_over_it() {
+    fn a_mana_bubble_opens_over_the_card_like_any_other_sheet() {
         let mid = Vec2::new(864.0, 600.0);
         let bubble = Vec2::new(150.0, 42.0);
-        let under = corner_for(mid, CARD, bubble, WINDOW, true);
-        assert!(
-            under.y >= mid.y + CARD.y / 2.0,
-            "below the card's bottom edge: the bubble starts at {} and the \
-             card ends at {}",
-            under.y,
-            mid.y + CARD.y / 2.0
-        );
-        let over = corner_for(mid, CARD, bubble, WINDOW, false);
-        assert!(
-            over.y + bubble.y <= mid.y - CARD.y / 2.0,
-            "and the same paper as a sheet still goes above: {over}"
-        );
-    }
-
-    /// It gives way rather than hanging off the bottom, which is the half a
-    /// preference must not cost: a card in the land lane has the hand bar
-    /// under it and there is no room down there for anything.
-    #[test]
-    fn a_bubble_with_no_room_below_goes_over_the_card_after_all() {
-        let mid = Vec2::new(864.0, WINDOW.y - 40.0);
-        let bubble = Vec2::new(150.0, 42.0);
-        let at = corner_for(mid, CARD, bubble, WINDOW, true);
+        let at = corner_for(mid, CARD, bubble, WINDOW);
         assert!(
             at.y + bubble.y <= mid.y - CARD.y / 2.0,
-            "above the card: {at} against a card centred at {mid}"
+            "above the card's top edge: the bubble ends at {} and the card \
+             starts at {}",
+            at.y + bubble.y,
+            mid.y - CARD.y / 2.0
         );
     }
 }
@@ -2106,7 +2105,6 @@ mod running {
                 AbilitySheet {
                     object: anchor,
                     placed: None,
-                    bubble: false,
                 },
                 Node::default(),
                 bevy::ui::ComputedNode {

@@ -34,9 +34,15 @@ use bevy::asset::embedded_asset;
 /// there would be the same decision in two places.
 pub(crate) const FEEL_RATE: f32 = 18.0;
 
-/// How much a hovered button grows, and how far a pressed one gives way.
-const HOVER_SCALE: f32 = 1.025;
-const PRESS_SCALE: f32 = 0.975;
+/// How much an ordinary button grows under the pointer, and gives way under a
+/// press — 2.5% either way.
+///
+/// A *share* and not two scales, because the two were always ±0.025 and a pair
+/// of numbers that must mirror each other is a pair that can stop mirroring.
+/// It is [`Feel::lift`]'s default rather than the only value: a control small
+/// enough to be one mark — a mana pip is 21 px of disc — moves 2.5% by half a
+/// pixel, which is a movement nobody sees.
+pub(crate) const BUTTON_LIFT: f32 = 0.025;
 
 /// How far a hovered button is lightened towards white, and a pressed one
 /// darkened. Small on purpose: the tone still has to read as the same button.
@@ -110,15 +116,21 @@ pub struct Feel {
     /// How far into the hovered state it currently is, 0 to 1. Negative
     /// values are the pressed side, so one number carries both.
     pub warmth: f32,
-    /// Whether the pointer also *moves* it.
+    /// How far the pointer also *moves* it: the share it grows by under a
+    /// hover, and gives way by under a press.
     ///
-    /// True for a button, which is a small object a pointer can lift. False
-    /// where the control is a **line of writing**: growing a row by
-    /// [`HOVER_SCALE`] grows the sentence on it with it, and a paragraph that
-    /// changes size under the pointer is the one thing a reader cannot read
-    /// past. It is 2.5% either way, which is nothing on a keycap and four
-    /// hundred pixels of prose reflowing on an ability sheet.
-    pub lean: bool,
+    /// [`BUTTON_LIFT`] for a button, which is a small object a pointer can
+    /// lift. **Zero** where the control is a *line of writing*: growing a row
+    /// grows the sentence on it, and a paragraph that changes size under the
+    /// pointer is the one thing a reader cannot read past.
+    ///
+    /// A number rather than the flag it was, because the two ends of that flag
+    /// are not the whole range. A mana pip is a disc 21 px across and the
+    /// **whole** of its control — there is no sentence beside it to disturb
+    /// and nothing to reflow — so it is the case that wants a *larger*
+    /// movement than a button's, and with a flag the only way to say that was
+    /// another constant read by one call site.
+    pub lift: f32,
 }
 
 impl Feel {
@@ -129,7 +141,7 @@ impl Feel {
             base,
             hot: None,
             warmth: 0.0,
-            lean: true,
+            lift: BUTTON_LIFT,
         }
     }
 
@@ -140,7 +152,7 @@ impl Feel {
             base,
             hot: Some(hot),
             warmth: 0.0,
-            lean: true,
+            lift: BUTTON_LIFT,
         }
     }
 
@@ -148,7 +160,16 @@ impl Feel {
     #[must_use]
     pub fn tinting_to(base: Color, hot: Color) -> Self {
         Self {
-            lean: false,
+            lift: 0.0,
+            ..Self::rising_to(base, hot)
+        }
+    }
+
+    /// The same again, moving by a share the caller states.
+    #[must_use]
+    pub fn lifting(base: Color, hot: Color, lift: f32) -> Self {
+        Self {
+            lift,
             ..Self::rising_to(base, hot)
         }
     }
@@ -254,11 +275,7 @@ fn feel(
 
         let hot = feel.warmth.max(0.0);
         let cold = (-feel.warmth).max(0.0);
-        let scale = if feel.lean {
-            1.0 + (HOVER_SCALE - 1.0) * hot + (PRESS_SCALE - 1.0) * cold
-        } else {
-            1.0
-        };
+        let scale = 1.0 + feel.lift * (hot - cold);
         if transform.scale != Vec2::splat(scale) {
             transform.scale = Vec2::splat(scale);
         }
