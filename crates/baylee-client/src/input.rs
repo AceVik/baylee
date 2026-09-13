@@ -1984,7 +1984,7 @@ pub fn pointer_hover(
     mut moves: MessageReader<bevy::window::CursorMoved>,
     mut grace: Local<u8>,
     mut source: Local<HoverSource>,
-    mut lane: Local<Option<HoverZone>>,
+    mut zone: Local<Option<HoverZone>>,
     mut last: Local<Option<ObjectId>>,
     cards: Query<&CardVisual>,
     hand_cards: Query<&HandCardVisual>,
@@ -2004,7 +2004,7 @@ pub fn pointer_hover(
     // again, through a different door.
     if duel.hovered != *last {
         *source = HoverSource::Elsewhere;
-        *lane = None;
+        *zone = None;
     }
 
     // A hovered card can leave without ever firing an `Out`, and playing the
@@ -2029,7 +2029,7 @@ pub fn pointer_hover(
             HoverSource::Table => {
                 cards.iter().any(|v| v.object == object)
                     && duel.view.as_ref().is_none_or(|view| {
-                        lane.is_none_or(|was| hover_zone(view, object) == Some(was))
+                        zone.is_none_or(|was| hover_zone(view, object) == Some(was))
                     })
             }
             // A tray row lives and dies with the panel: closing the browser,
@@ -2062,7 +2062,7 @@ pub fn pointer_hover(
             duel.hovered = None;
             duel.hovered_at = None;
             *source = HoverSource::Elsewhere;
-            *lane = None;
+            *zone = None;
         }
     }
 
@@ -2107,8 +2107,8 @@ pub fn pointer_hover(
                 // The place the claim is about, taken with the claim. A view
                 // that has not arrived yet leaves it `None`, which holds the
                 // hover rather than clearing it — the first view to name the
-                // card fixes the lane on the next frame.
-                *lane = duel
+                // card fixes the zone on the next frame.
+                *zone = duel
                     .view
                     .as_ref()
                     .and_then(|view| hover_zone(view, v.object));
@@ -2174,6 +2174,12 @@ pub fn pointer_hover(
 /// under a still pointer, which fires no event at all. This is what makes
 /// that case answerable: the hover survives only while something of the same
 /// kind still draws the object.
+///
+/// That is the whole answer for every kind but [`HoverSource::Table`], and
+/// half of it there: a card on the table keeps its entity when it changes
+/// zone, so the kind still answers yes about a permanent that is now the top
+/// of a graveyard. [`HoverZone`] is the other half, and holds a table hover
+/// against the *place* the pointer found the card in.
 #[derive(Clone, Copy, PartialEq, Eq, Default, Debug)]
 pub enum HoverSource {
     /// A hand card, or a card in the command zone.

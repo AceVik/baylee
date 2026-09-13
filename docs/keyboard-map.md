@@ -21,8 +21,8 @@ Two consequences worth knowing before changing anything here:
 
 | Action | Default | Status |
 |---|---|---|
-| The click (card under cursor → phase toggle → pass) | `Enter` | implemented |
-| Confirm / pass (never toggles anything else) | `Space` | implemented |
+| The click (a sheet holding the question → card under cursor → phase toggle → pass) | `Enter` | implemented |
+| Confirm / pass (ticks a row on a sheet holding the question, and toggles nothing else) | `Space` | implemented |
 | Cancel: armed deed, then preview, then the zone browser, then phase selection, then half-built answer | `Esc` | implemented |
 | Send what is armed (a second tap on the card does the same) | `Enter` / `Space` / `E` | implemented |
 | Move the card cursor (hand → own board → opponents) | `W A S D` | implemented |
@@ -228,6 +228,31 @@ while nothing else is typing — the zone browser's filter box is the case that
 exists — because the digit path drains the whole key queue rather than the
 digits alone, so a sheet that read unconditionally would eat the letters going
 into that box and open an ability with the digits.
+
+## The sheet a question opened
+
+A question whose answer is lying in a pile has nowhere on the table to be
+answered, so the zone browser opens as a **dialog**: `Browser::follow` is the
+only door that does it, and `Browser::answers_here` is the one predicate that
+says the sheet is standing for a question — it was opened for a choice, the
+choice is this seat's, and the choice has bounds. While that holds, the sheet
+takes **both** of the first two keys above, and takes them before anything
+else reads a key.
+
+`Space` ticks the row the focus is on; `Enter` sends what is ticked. Both
+consume the frame even when they change nothing. An `Enter` with nothing
+ticked leaves the dialog standing rather than falling through, because what it
+fell through to was the card the pointer happened to be resting on behind the
+sheet — and opening *that* card's pile is not an answer to the question on the
+screen. A tap on a pile is refused while a question is standing for the same
+reason and a harder one: it would hand the sheet to the pile, which makes
+`answers_here` false and leaves a dialog still on the screen with neither of
+its own keys working.
+
+That order is the shorter half of §"The ability sheet" above, read from the
+same side: a surface holding a question keeps its keys until the question is
+answered or cancelled, and `Esc` is the way out, at the rung the cancel ladder
+in the table above gives the zone browser.
 
 ## Mouse
 
