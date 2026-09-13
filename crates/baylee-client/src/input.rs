@@ -1960,6 +1960,7 @@ pub fn pointer_hover(
     mut moves: MessageReader<bevy::window::CursorMoved>,
     mut grace: Local<u8>,
     mut source: Local<HoverSource>,
+    mut lane: Local<Option<HoverZone>>,
     mut last: Local<Option<ObjectId>>,
     cards: Query<&CardVisual>,
     hand_cards: Query<&HandCardVisual>,
@@ -1979,6 +1980,7 @@ pub fn pointer_hover(
     // again, through a different door.
     if duel.hovered != *last {
         *source = HoverSource::Elsewhere;
+        *lane = None;
     }
 
     // A hovered card can leave without ever firing an `Out`, and playing the
@@ -1995,7 +1997,17 @@ pub fn pointer_hover(
     if let Some(object) = duel.hovered {
         let alive = match *source {
             HoverSource::Hand => hand_cards.iter().any(|h| h.object == object),
-            HoverSource::Table => cards.iter().any(|v| v.object == object),
+            // Drawn *and* still lying where the pointer found it. The second
+            // half is [`HoverZone`]'s whole reason for existing: a permanent
+            // that becomes the top of a graveyard keeps this very entity and
+            // stays a `CardVisual`, so "is it drawn" answers yes about a card
+            // that has crossed the table.
+            HoverSource::Table => {
+                cards.iter().any(|v| v.object == object)
+                    && duel.view.as_ref().is_none_or(|view| {
+                        lane.is_none_or(|was| hover_zone(view, object) == Some(was))
+                    })
+            }
             // A tray row lives and dies with the panel: closing the browser,
             // switching its tab or typing into its filter rebuilds the whole
             // grid, and the row the pointer was over is gone without ever
@@ -2026,6 +2038,7 @@ pub fn pointer_hover(
             duel.hovered = None;
             duel.hovered_at = None;
             *source = HoverSource::Elsewhere;
+            *lane = None;
         }
     }
 
@@ -2067,6 +2080,14 @@ pub fn pointer_hover(
                         .map_or(HoverSpot::Point(at), HoverSpot::Card),
                 );
                 *source = HoverSource::Table;
+                // The place the claim is about, taken with the claim. A view
+                // that has not arrived yet leaves it `None`, which holds the
+                // hover rather than clearing it — the first view to name the
+                // card fixes the lane on the next frame.
+                *lane = duel
+                    .view
+                    .as_ref()
+                    .and_then(|view| hover_zone(view, v.object));
             } else if let Some(h) = find_in_lineage(over.entity, &hand_cards, &parents) {
                 duel.hovered = Some(h.object);
                 duel.hovered_at = Some(HoverSpot::Point(at));
@@ -2140,6 +2161,75 @@ pub enum HoverSource {
     /// The keyboard cursor, or nothing at all.
     #[default]
     Elsewhere,
+}
+
+/// Which zone a card the pointer found was lying in at the time.
+///
+/// A pointer hover is a claim about a **place**: the player put the pointer
+/// on a card lying somewhere on the table. Nothing else in this system can
+/// make that claim false when the card is the thing that moves.
+/// `Pointer<Out>` does not fire, because the events are drained while the
+/// pointer is still — that is "Why a still pointer says nothing", and it is
+/// deliberate. [`HoverSource`]'s kind check does not fire either, because a
+/// card that changes zone keeps its entity: `SceneIndex::cards` reuses it for
+/// the pile top it becomes, so it is still drawn and still a `CardVisual`.
+///
+/// The card therefore glides out from under the pointer and takes the hover
+/// with it. A fetchland sacrificed under the pointer is the everyday case,
+/// and it cost a game: the hover followed Marsh Flats into the graveyard, and
+/// [`the_click`] answers a hover before it answers anything else, so the
+/// `Enter` that was meant to confirm the search the fetchland had just opened
+/// opened the *graveyard* instead.
+///
+/// Only [`HoverSource::Table`] is held against this. A hand card leaving the
+/// hand is already answered by its own kind check, and the keyboard cursor
+/// (`Elsewhere`) is *meant* to follow a card across a zone — `move_cursor`'s
+/// grid spans the hand and every lane, and clearing it there would drop the
+/// player's cursor rather than fix a ghost.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum HoverZone {
+    /// A permanent on the battlefield.
+    Battlefield,
+    /// A spell or ability waiting to resolve.
+    Stack,
+    /// Somebody's graveyard.
+    Graveyard,
+    /// Exile.
+    Exile,
+    /// A command zone.
+    Command,
+    /// A card the game is showing everyone, and nowhere else.
+    Shown,
+}
+
+/// Where the view says a card is, read in the order
+/// [`baylee_view::PlayerView::object`] reads it, so the two can never
+/// disagree about a card that is in two places at once.
+///
+/// `None` for a card the view does not carry — a card in hand, or one that
+/// has left the game. A hover is never cleared on `None`, because a view that
+/// has not arrived yet would otherwise take the pointer's answer away.
+fn hover_zone(view: &baylee_view::PlayerView, object: ObjectId) -> Option<HoverZone> {
+    let is_it = |o: &baylee_view::PublicObject| o.id == object;
+    if view.battlefield.iter().any(is_it) {
+        return Some(HoverZone::Battlefield);
+    }
+    if view.stack.iter().any(is_it) {
+        return Some(HoverZone::Stack);
+    }
+    if view.graveyards.iter().flatten().any(is_it) {
+        return Some(HoverZone::Graveyard);
+    }
+    if view.exile.iter().flatten().any(is_it) {
+        return Some(HoverZone::Exile);
+    }
+    if view.command.iter().flatten().any(is_it) {
+        return Some(HoverZone::Command);
+    }
+    view.looking_at
+        .iter()
+        .any(is_it)
+        .then_some(HoverZone::Shown)
 }
 
 /// The battlefield camera: arrows pan, right- or middle-drag pans, the wheel
@@ -3085,6 +3175,111 @@ mod tests {
             app.world().resource::<crate::Duel>().hovered,
             Some(obj(5)),
             "the cursor should follow the card it just played, not reset"
+        );
+    }
+
+    /// An app with `pointer_hover` and one permanent on the table, seen from
+    /// a seat that also has a graveyard to lose it into.
+    fn hover_app(view: baylee_view::PlayerView) -> (bevy::app::App, bevy::prelude::Entity) {
+        use bevy::prelude::*;
+
+        let mut app = App::new();
+        app.add_message::<bevy::picking::events::Pointer<bevy::picking::events::Over>>()
+            .add_message::<bevy::picking::events::Pointer<bevy::picking::events::Out>>()
+            .add_message::<bevy::window::CursorMoved>()
+            .insert_resource(crate::Duel {
+                view: Some(view),
+                ..crate::Duel::default()
+            })
+            .add_systems(Update, super::pointer_hover);
+        let card = app
+            .world_mut()
+            .spawn(crate::table::CardVisual {
+                object: obj(9),
+                count: 1,
+            })
+            .id();
+        (app, card)
+    }
+
+    /// A fetchland cracked under the pointer, which is the everyday way into
+    /// this and the way it was found.
+    ///
+    /// The card is sacrificed, glides to the graveyard and becomes the top of
+    /// it — keeping the very entity it had on the battlefield, because
+    /// `SceneIndex::cards` reuses one entity per object. So it is still drawn
+    /// and still a `CardVisual`, the pointer has not moved so no `Out` is
+    /// fired, and the hover crossed the table with it. `the_click` answers a
+    /// hover before anything else, so the `Enter` meant for the search the
+    /// fetchland had just opened opened the graveyard instead.
+    #[test]
+    fn a_card_that_leaves_the_battlefield_leaves_the_pointer_behind() {
+        use baylee_client_core::test_support::{ViewBuilder, printed};
+
+        let on_the_field = ViewBuilder::new(2)
+            .with_battlefield(0, [printed(9, 0, "Marsh Flats", 4)])
+            .build();
+        let (mut app, card) = hover_app(on_the_field);
+        hover(&mut app, card);
+        assert_eq!(
+            app.world().resource::<crate::Duel>().hovered,
+            Some(obj(9)),
+            "the pointer over a permanent is a hover"
+        );
+
+        // Cracked. The same entity is now the top of the graveyard, and
+        // nothing else about the frame has changed.
+        app.world_mut().resource_mut::<crate::Duel>().view = Some(
+            ViewBuilder::new(2)
+                .with_graveyard(0, vec![printed(9, 0, "Marsh Flats", 4)])
+                .build(),
+        );
+        app.update();
+
+        assert_eq!(
+            app.world().resource::<crate::Duel>().hovered,
+            None,
+            "the hover followed the card into the graveyard"
+        );
+    }
+
+    /// The cure must not take the ordinary hover away.
+    ///
+    /// Cards on this table move constantly — a lane repacks, a permanent taps,
+    /// a hovered card lifts — and the pointer is meant to keep its card
+    /// through all of it. Only a card that has changed *zone* has left the
+    /// place the pointer is making a claim about.
+    #[test]
+    fn a_permanent_that_only_moves_keeps_its_hover() {
+        use baylee_client_core::test_support::{ViewBuilder, printed, token};
+
+        let alone = ViewBuilder::new(2)
+            .with_battlefield(0, [printed(9, 0, "Birds of Paradise", 4)])
+            .build();
+        let (mut app, card) = hover_app(alone);
+        hover(&mut app, card);
+        assert_eq!(app.world().resource::<crate::Duel>().hovered, Some(obj(9)));
+
+        // A second creature arrives, the lane repacks, and the hovered card
+        // is drawn somewhere else entirely. It is still on the battlefield.
+        app.world_mut().resource_mut::<crate::Duel>().view = Some(
+            ViewBuilder::new(2)
+                .with_battlefield(
+                    0,
+                    [
+                        printed(9, 0, "Birds of Paradise", 4),
+                        token(11, 0, "Saproling", 1, 1),
+                    ],
+                )
+                .build(),
+        );
+        app.update();
+        app.update();
+
+        assert_eq!(
+            app.world().resource::<crate::Duel>().hovered,
+            Some(obj(9)),
+            "a repacked lane is not a card leaving the pointer"
         );
     }
 
