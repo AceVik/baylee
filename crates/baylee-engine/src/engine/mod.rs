@@ -463,10 +463,41 @@ impl<L: CardLookup> Engine<L> {
         }
         self.awaiting_answer = false;
         self.apply_inner(player, action)?;
-        // As-it-enters modifiers run before anything else (they may
-        // override the just-published pending with a shockland choice);
-        // if they changed the state, the published legal list is stale.
-        let recompute_player = if self.apply_enter_modifiers() {
+        // The board the action left behind has to be settled before the
+        // pending `apply_inner` just published can be believed, and nothing
+        // else will do it: `after_action` sets `awaiting_answer`, which is
+        // the first line `run_machine` returns on, so the machine's steps 0a
+        // and 0b do not run until the *next* action arrives. Between those
+        // two moments sit a view sent to every seat and a legal list the
+        // player is offered, both read off a projection that is one action
+        // out of date.
+        //
+        // The owner found it with three artifact-matters permanents on the
+        // board: Mycosynth Lattice, Padeem and Darksteel Forge, a land played
+        // from hand, and a land that was none of an artifact, hexproof or
+        // indestructible for as long as they looked at it. `move_object`
+        // invalidates the projection on the way in and always did — what was
+        // missing is anybody to recompute it before the player was shown the
+        // answer. A land is the only permanent that reaches the battlefield
+        // without passing through the stack, which is why it is the case that
+        // showed, but a spell put *onto* the stack invalidates the same
+        // projection and was shown just as stale.
+        //
+        // The machine's own order (0a, then 0b), and the refresh taken a
+        // second time after it because 0b is a writer: an entry modifier that
+        // places counters goes through `replacement::put_counters`, which
+        // invalidates again. The first call is what an arrival under a static
+        // needs and the second is what a counter placed on arrival needs;
+        // neither is the other, and either alone leaves half the board stale.
+        self.sync_static_effects();
+        let projected = self.state.refresh_characteristics();
+        // As-it-enters modifiers may override the just-published pending with
+        // a shockland choice.
+        let entered = self.apply_enter_modifiers();
+        let reprojected = self.state.refresh_characteristics();
+        // If any of the three changed the state, the published legal list is
+        // stale with it.
+        let recompute_player = if projected || entered || reprojected {
             if let Pending::Priority { player: p, .. } = &self.pending {
                 Some(*p)
             } else {

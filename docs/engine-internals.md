@@ -27,6 +27,23 @@ dependency topological order within a layer. Cache validity = one
 `Indefinitely`, conditions. Subtypes are a 512-bit bitmap (changeling =
 set-all in O(1)).
 
+**A `Pending` is published from a settled board, and that is `Engine::apply`'s
+job rather than the machine's.** The invalidation half has always been right —
+`move_object` marks the projection stale in both directions for the
+battlefield and the stack, and every counter writer does the same — but the
+recompute runs in `run_machine`, whose first line returns while an answer is
+awaited. `after_action` sets exactly that flag: it hands the acting player
+their priority back (CR 117.3c) with a legal list and a view built from a
+projection one action old. So `apply` settles the board itself after the
+action and before the pending is believed — statics synced, characteristics
+refreshed, as-it-enters modifiers applied, characteristics refreshed again
+because that last step writes counters — and rebuilds the published legal list
+if any of them moved. A land is the only permanent that reaches the
+battlefield without passing through the stack, which is why *"I play a land
+and it does not inherit the static effects on the field"* is the report this
+arrived as; a spell put onto the stack invalidated the same projection and was
+shown just as stale.
+
 Layer 2 is not cached separately: the refresh writes the projected
 controller straight into `GameObject::controller`, so every rule that asks
 "who controls this" reads one field and none of them has to know that

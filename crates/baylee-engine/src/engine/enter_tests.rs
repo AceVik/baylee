@@ -35,7 +35,9 @@
 //! that says nothing and arrives tapped anyway is the one a sweep written in
 //! a single direction never sees.
 
-use super::testkit::{basic_forest, card_index, play_land_face};
+use super::testkit::{
+    Duel, basic_forest, card_index, in_hand, keep_mulligans, play_land_face, reach_main_phase,
+};
 use super::*;
 use baylee_cards_dsl::{CardDef, EnterModifier, FaceDef};
 use baylee_core::ids::CardIndex;
@@ -275,4 +277,87 @@ fn the_comparison_notices_when_the_card_and_the_game_are_not_the_same_card() {
     );
     assert!(disagreement("the Bog", bog_face, true).is_none());
     assert!(disagreement("the Forest", wood_face, false).is_none());
+}
+
+// ---------------------------------------------------------------------------
+// What a permanent *is* when it has entered
+//
+// The sweep above measures one bit a card writes about itself. This measures
+// what the rest of the board writes about the card, at the one moment the
+// engine used to get wrong: the priority the player is handed straight back
+// after their own action (CR 117.3c), which `Engine::after_action` publishes
+// without the machine ever running.
+
+/// Mycosynth Lattice: every permanent is an artifact in addition to its other
+/// types (CR 613, layer 4).
+fn mycosynth_lattice() -> CardIndex {
+    card_index("ae1f2ab5-c6a5-4d49-a746-3cb4668bf805")
+}
+
+/// Padeem, Consul of Innovation: artifacts you control have hexproof
+/// (layer 6).
+fn padeem() -> CardIndex {
+    card_index("0c7ba712-6a99-4d2f-9242-a2163a11f69c")
+}
+
+/// Darksteel Forge: artifacts you control have indestructible (layer 6).
+fn darksteel_forge() -> CardIndex {
+    card_index("9b3bec05-441f-4fdf-8b51-69fa8613fcd4")
+}
+
+/// A land played under the three of them is all three things **before
+/// anybody is asked anything**, which is the half that was wrong.
+///
+/// The owner's report, and it is exact: with all three on the battlefield,
+/// a land played from hand inherited none of artifact, hexproof or
+/// indestructible. It was never the layer system, the filters or the cards —
+/// this same board projects a land correctly the moment the *next* action
+/// arrives, which is what made it look like a card bug and what let a test
+/// written one step too late pass. `move_object` invalidates the projection
+/// on the way in and always has; nobody recomputed it before the player was
+/// shown the board and offered a legal list off it.
+///
+/// All three are asserted rather than the type alone, because the two
+/// keywords are the layer-6 half and they only arrive if layer 4 has already
+/// made the land an artifact for their filters to match (CR 613.1, applied
+/// in `layers::recompute_with` against the in-progress projection). A land
+/// that is an artifact with neither keyword would be a different fault in a
+/// different place, and this says which one it is.
+#[test]
+fn a_land_is_under_the_boards_continuous_effects_the_moment_it_has_entered() {
+    let seat = PlayerId::new(0);
+    let mut engine = Duel::new(7, basic_forest())
+        .hand(0, &[basic_forest()])
+        .battlefield(0, &[mycosynth_lattice(), padeem(), darksteel_forge()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, seat);
+
+    let land = in_hand(&engine, seat, basic_forest()).expect("the Forest reached the hand");
+    engine
+        .apply(seat, PlayerAction::PlayLand { card: land })
+        .expect("a land drop on an empty first main phase");
+
+    let landed = engine
+        .state()
+        .object(land)
+        .expect("the Forest is on the battlefield");
+    assert_eq!(landed.zone, crate::zone::Zone::Battlefield);
+    let c = landed.characteristics();
+    assert!(
+        c.types.contains(TypeSet::ARTIFACT),
+        "a land played under Mycosynth Lattice is not an artifact: {:?}",
+        c.types
+    );
+    assert!(
+        c.keywords.contains(baylee_cards_dsl::KeywordSet::HEXPROOF),
+        "a land played under Padeem has no hexproof: {:?}",
+        c.keywords
+    );
+    assert!(
+        c.keywords
+            .contains(baylee_cards_dsl::KeywordSet::INDESTRUCTIBLE),
+        "a land played under Darksteel Forge is not indestructible: {:?}",
+        c.keywords
+    );
 }

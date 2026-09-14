@@ -101,6 +101,20 @@ enum Unreadable {
     /// of them — a dual is left to the `AddManaChoice` ability printed on its
     /// card, which can ask which colour.
     NoLoneBasicType,
+    /// The CR 305.6 shortcut on a land whose own static ability gives it a
+    /// basic land type. Urborg, Tomb of Yawgmoth and Yavimaya, Cradle of
+    /// Growth are the two in the pool — "each land is a Swamp / a Forest in
+    /// addition to its other land types", and each of them is a land — so the
+    /// shortcut answers about the *projected* type line and the printed card
+    /// cannot say what it will find there.
+    ///
+    /// It arrived as a finding rather than as a thought: the two of them were
+    /// offered no intrinsic route at all until `Engine::apply` began settling
+    /// the board before publishing a pending, because the land's own static
+    /// was registered but nothing had projected it yet. The sweep was right
+    /// about the engine and the engine was wrong, which is the direction a
+    /// skip bucket has to be read carefully in.
+    SelfTyped,
 }
 
 /// What the card says pressing `route` does, or why the sweep cannot say.
@@ -111,6 +125,7 @@ fn promised(
     route: Route,
 ) -> Result<SimpleMana, Unreadable> {
     match route {
+        Route::Intrinsic if types_itself(def, index) => Err(Unreadable::SelfTyped),
         Route::Intrinsic => lone_basic_color(face)
             .map(|color| SimpleMana {
                 colors: vec![color],
@@ -256,6 +271,9 @@ struct Tally {
     /// Faces printing two basic land types, which is the one shape the
     /// CR 305.6 shortcut is *right* to withhold.
     dual_typed: usize,
+    /// Faces whose own static ability writes their type line, so the
+    /// CR 305.6 shortcut is answering about a board.
+    self_typed: usize,
     /// Land faces that are also creatures, and so summoning sick (CR 302.6).
     also_a_creature: usize,
     /// Land faces that were still answering their own arrival when the sweep
@@ -272,6 +290,7 @@ impl Tally {
         self.costly += other.costly;
         self.unreadable += other.unreadable;
         self.dual_typed += other.dual_typed;
+        self.self_typed += other.self_typed;
         self.also_a_creature += other.also_a_creature;
         self.busy += other.busy;
     }
@@ -305,11 +324,36 @@ fn routes(def: &CardDef, index: usize) -> (Vec<Route>, Vec<(Route, Unreadable)>)
     }
     // A face printing no basic land type at all has no intrinsic route to
     // count — only a face printing *two* does, and that is the one shape the
-    // CR 305.6 shortcut is right to withhold.
+    // CR 305.6 shortcut is right to withhold. A land that types itself is the
+    // exception and is kept: it prints no basic type either, and it is
+    // nonetheless offered the route on a real board.
     if face.subtypes.iter().all(|s| !is_a_basic_type(*s)) {
-        counted.retain(|(route, _)| *route != Route::Intrinsic);
+        counted.retain(|(route, why)| *route != Route::Intrinsic || *why == Unreadable::SelfTyped);
     }
     (readable, counted)
+}
+
+/// Whether this face's own static abilities hand it a basic land type.
+///
+/// Read off the card rather than off a board, like everything else the oracle
+/// half of this sweep reads: a static that adds one of the five subtypes in
+/// layer 4 (CR 613, and CR 305.7 for what a land then makes) is a land whose
+/// projected type line is not its printed one. The filter is not consulted,
+/// which makes this deliberately wide — a card adding Swamp to *other* lands
+/// only would be counted here too. Widening a counted skip is the safe
+/// direction and the count is printed; narrowing it by reading a filter this
+/// sweep has no board for would not be.
+fn types_itself(def: &CardDef, index: usize) -> bool {
+    def.abilities_for_face(index).iter().any(|ability| {
+        matches!(
+            ability,
+            AbilityDef::Static(baylee_cards_dsl::StaticAbility {
+                layer: baylee_cards_dsl::Layer::Type,
+                modifier: baylee_cards_dsl::Modifier::AddSubtype(s),
+                ..
+            }) if is_a_basic_type(*s)
+        )
+    })
 }
 
 /// Whether a subtype is one of the five that make mana by themselves.
@@ -346,6 +390,7 @@ fn walk_face(def: &CardDef, index: usize, offenders: &mut Vec<String>, tally: &m
             Unreadable::Cost => tally.costly += 1,
             Unreadable::Reading => tally.unreadable += 1,
             Unreadable::NoLoneBasicType => tally.dual_typed += 1,
+            Unreadable::SelfTyped => tally.self_typed += 1,
         }
     }
 
@@ -367,13 +412,15 @@ fn walk_face(def: &CardDef, index: usize, offenders: &mut Vec<String>, tally: &m
     let seen: Vec<Route> = seen
         .into_iter()
         .filter(|route| match route {
-            // The CR 305.6 shortcut depends on the type line alone — never on
-            // the board, never on the player's mana — so it is always judged.
-            // A land printing two basic types that was offered it anyway is
-            // Godless Shrine tapping for white and never for black, and a
-            // filter that let that through would be filtering out the one
-            // bug this arm exists for.
-            Route::Intrinsic => true,
+            // The CR 305.6 shortcut depends on the type line and never on the
+            // player's mana, so it is judged wherever the printed card is the
+            // whole of that type line. A land printing two basic types that
+            // was offered it anyway is Godless Shrine tapping for white and
+            // never for black, and a filter that let that through would be
+            // filtering out the one bug this arm exists for — which is why
+            // the exception is exactly the one shape whose type line a static
+            // rewrites, and not "anything the sweep could not read".
+            Route::Intrinsic => !types_itself(def, index),
             // A printed ability is judged only where the sweep can price it.
             // One it cannot — a filter land's `{1}, {T}`, a static condition
             // reading an empty board — is correctly withheld from a player
@@ -488,7 +535,7 @@ fn every_land_in_the_pool_makes_the_mana_its_own_card_promises() {
         "{} colours proven over {} routes. Skipped: {} faces that do not arrive untapped, \
          {} that are also creatures, {} abilities behind a board condition, {} that cost \
          more than the tap, {} `simple_mana` will not read, {} faces printing two basic \
-         land types, {} still answering their own arrival",
+         land types, {} that give themselves one, {} still answering their own arrival",
         tally.colors,
         tally.routes,
         tally.not_untapped,
@@ -497,6 +544,7 @@ fn every_land_in_the_pool_makes_the_mana_its_own_card_promises() {
         tally.costly,
         tally.unreadable,
         tally.dual_typed,
+        tally.self_typed,
         tally.busy
     );
     assert!(
@@ -555,4 +603,43 @@ fn the_comparison_notices_when_the_promise_and_the_pool_are_not_the_same_land() 
         "one mana passed for a promise of two"
     );
     assert!(disagreement("a Forest", &one_green, ManaColor::Green, &green).is_none());
+}
+
+/// What the `SelfTyped` bucket is skipping, asserted rather than counted.
+///
+/// A skip that nobody measures is where a whole pool ends up, and this one is
+/// worse than most: it was opened *because* the two cards in it were being
+/// offered nothing, and closing the sweep's mouth about them without saying
+/// what the right answer is would have preserved the bug as a tally line. So
+/// the other direction is nailed down here. Urborg, Tomb of Yawgmoth makes
+/// every land a Swamp in addition to its other land types, Urborg is a land,
+/// and CR 305.6 gives a Swamp `{T}: Add {B}` — on the turn it lands, in the
+/// priority its own controller is handed straight back.
+///
+/// It is the acceptance of the settle in `Engine::apply` read from the other
+/// end: the type line this depends on is written by a static ability that was
+/// registered a moment ago and projected only because something asked.
+#[test]
+fn a_land_that_gives_itself_a_basic_type_taps_for_it_the_turn_it_lands() {
+    let urborg = card_index("db6174d7-211d-4817-b8e4-8384594c83f9");
+    let (engine, land) = play_land_face(urborg, 0).expect("Urborg is played");
+    assert!(
+        engine
+            .state()
+            .object(land)
+            .expect("Urborg is on the battlefield")
+            .characteristics()
+            .subtypes
+            .contains(land::SWAMP),
+        "Urborg is not a Swamp on the turn it lands"
+    );
+    assert_eq!(
+        offered(&engine, land).expect("Urborg holds priority"),
+        vec![Route::Intrinsic],
+        "Urborg was not offered the mana ability its own type line gives it"
+    );
+    let (made, tapped) =
+        pressed(urborg, 0, Route::Intrinsic, ManaColor::Black).expect("Urborg taps for black");
+    assert_eq!(made, vec![(ManaColor::Black, 1)]);
+    assert!(tapped, "Urborg made mana and was left untapped");
 }
