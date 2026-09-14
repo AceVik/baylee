@@ -28,11 +28,12 @@
 //! question as it *enters*, so a client that cannot answer it loses the game
 //! on a land drop.
 
+use baylee_client_core::card_face::TextBlock;
 use baylee_client_core::i18n::{Lang, Phrase, seat_name};
 use baylee_client_core::interaction::Prompt;
 use baylee_client_core::manapip::{self, Pip};
 use baylee_core::generated::subtypes;
-use baylee_core::ids::{ObjectId, SubtypeId};
+use baylee_core::ids::{CardIndex, ObjectId, SubtypeId};
 use baylee_core::mana::{ManaColor, ManaCost, ManaSymbol};
 use baylee_view::GameStatic;
 
@@ -60,6 +61,67 @@ impl FaceNames<'_> {
     fn of(self, object: ObjectId, face: usize) -> Option<String> {
         crate::face::face_name(object, face, self.view?, self.texts)
     }
+}
+
+/// Which face a cast option is a fact about.
+///
+/// Zero, always, and it is a fact about `cast_wizard` rather than about
+/// this list: the engine enumerates modes out of `abilities_for_face(0)`
+/// and alternative costs out of `def.faces[0]`, so `Mode(i)` and
+/// `Alternative(i)` count the *front* face's however the card is turned.
+/// The two options that name a face carry their own index instead, which
+/// is what `FaceNames::of` is given.
+const CAST_FACE: usize = 0;
+
+/// One printed sentence of the card `object` is, in the player's own
+/// language — the label a row of the cast chooser wants.
+///
+/// The same three steps a stack entry's sentence is drawn through, and each
+/// of them may honestly come up empty: the generated table has to know
+/// which sentence a mode or an alternative cost is
+/// ([`baylee_cards::lines::mode_line`] and its twin), the card has to be
+/// findable — it is in **hand**, which is the one zone `PlayerView::object`
+/// does not answer for — and the printing's text has to have arrived, which
+/// it has not offline. A caller falls back to the phrase the row said
+/// before.
+///
+/// Reminder text is dropped. It is the card explaining itself, which is
+/// worth a whole line on a card and is not what a button says: evoke's
+/// bracketed half alone is longer than the prompt bar.
+///
+/// `line` is the lookup rather than a flag because the two are the same
+/// function twice — a face's modes and its alternative costs are two lists
+/// and one shape, exactly as `Mode(i)` and `Alternative(i)` are.
+fn printed_sentence(
+    names: FaceNames<'_>,
+    object: ObjectId,
+    line: fn(CardIndex, usize, usize) -> Option<baylee_cards::lines::AbilityLine>,
+    at: usize,
+) -> Option<String> {
+    let view = names.view?;
+    let card = view
+        .hand
+        .iter()
+        .find(|c| c.id == object)
+        .map(|c| c.card)
+        .or_else(|| view.object(object).and_then(|o| o.card))?;
+    let found = line(card.index, CAST_FACE, at)?;
+    let face = u8::try_from(CAST_FACE).ok()?;
+    let text = names.texts?.get(card.print, face)?;
+    let blocks =
+        baylee_client_core::card_face::sentence_blocks(&text.oracle_text, found.line, found.of)?;
+    let said: Vec<&str> = blocks
+        .iter()
+        .filter_map(|block| match block {
+            TextBlock::Rules(text) => Some(text.as_str()),
+            TextBlock::Reminder(_) => None,
+        })
+        .collect();
+    // The bullet a modal card lists its modes under is the list's mark and
+    // not the mode's words — the row is already one of several.
+    let said = said.join(" ");
+    let said = said.trim_start_matches(['\u{2022}', ' ']).trim();
+    (!said.is_empty()).then(|| said.to_string())
 }
 
 /// One row of an indexed chooser.
@@ -208,11 +270,25 @@ pub fn options(
 
 /// What one cast option is called.
 ///
-/// The two options that name a **face** say the face's own name where it can
-/// be found, because that is the only thing that tells them apart: a pathway's
-/// two land faces are the same kind at the same empty cost and differ in
-/// nothing else a row draws. The phrase stays as the fallback, which is what
-/// every row said before.
+/// Two of the six kinds name a **face**, and they say the face's own name
+/// where it can be found, because that is the only thing that tells them
+/// apart: a pathway's two land faces are the same kind at the same empty cost
+/// and differ in nothing else a row draws.
+///
+/// Two more are a **sentence the card prints**, and they are the reason this
+/// function is not a table of six phrases. `Mode(i)` and `Alternative(i)` are
+/// the whole of what the engine says about a mode and an alternative cost —
+/// there is no label in the protocol, and there could not be, because the
+/// engine carries no card text at all. So the row read "Mode 2", which asks a
+/// player to pick between two numbers on a card they may never have seen, and
+/// the ability sheet beside it had been drawing the printed sentence since
+/// it existed. The generated line table is what closes that: it says which
+/// sentence a mode is, the catalog says what that sentence is in the player's
+/// own language, and the two together make a row that reads like the card.
+///
+/// Every one of them keeps its phrase as the fallback, which is what every row
+/// said before — an unknown printing, a card the table could not read whole,
+/// or a gateway serving no text all end up there.
 fn cast_label(
     kind: baylee_engine::choice::CastModeKind,
     lang: Lang,
@@ -222,10 +298,14 @@ fn cast_label(
     use baylee_engine::choice::CastModeKind as K;
     match kind {
         K::Normal => Phrase::CastNormal.text(lang).to_string(),
-        K::Alternative(_) => Phrase::CastAlternative.text(lang).to_string(),
-        // One-based, because the printed card numbers its modes from one and
-        // a player reads the card, not the index.
-        K::Mode(i) => Phrase::CastModeNumber.fill(lang, &[&(i + 1).to_string()]),
+        K::Alternative(i) => {
+            printed_sentence(names, object, baylee_cards::lines::alternative_line, i)
+                .unwrap_or_else(|| Phrase::CastAlternative.text(lang).to_string())
+        }
+        // One-based in the fallback, because the printed card numbers its
+        // modes from one and a player reads the card, not the index.
+        K::Mode(i) => printed_sentence(names, object, baylee_cards::lines::mode_line, i)
+            .unwrap_or_else(|| Phrase::CastModeNumber.fill(lang, &[&(i + 1).to_string()])),
         K::Face(i) => names
             .of(object, i)
             .unwrap_or_else(|| Phrase::CastBackFace.text(lang).to_string()),
@@ -504,5 +584,229 @@ mod tests {
             rows.is_empty(),
             "nothing may be pickable that does not match"
         );
+    }
+
+    /// One card in the hand with one printing's text filed against it.
+    ///
+    /// The hand for the reason `pathway_in_hand` gives — it is where a cast
+    /// question is asked from, and the one zone `PlayerView::object` does
+    /// not answer for.
+    fn asking_about(
+        oracle_id: &str,
+        lang: &str,
+        oracle: &str,
+    ) -> (
+        baylee_view::PlayerView,
+        crate::cardtext::CardTexts,
+        ObjectId,
+    ) {
+        use baylee_client_core::card_face::{CardTextEntry, FaceText};
+        let def = baylee_cards::by_oracle_id(oracle_id).expect("the card is in the pool");
+        let print = baylee_core::ids::PrintRef::new(3);
+        let id = ObjectId::new(21, 0);
+        let mut view = baylee_client_core::test_support::ViewBuilder::new(2).build();
+        view.hand = vec![baylee_view::HandObject {
+            id,
+            card: baylee_view::CardIdentity {
+                index: def.index,
+                print,
+                face: 0,
+            },
+            name: def.faces[0].name.to_string(),
+            mana_value: 0,
+            colors: baylee_core::color::ColorSet::default(),
+            types: def.faces[0].types,
+            commander: false,
+        }];
+        let texts = crate::cardtext::CardTexts::filed(
+            print,
+            CardTextEntry {
+                scryfall_id: "x".to_string(),
+                lang: lang.to_string(),
+                faces: vec![FaceText {
+                    name: def.faces[0].name.to_string(),
+                    english_name: def.faces[0].name.to_string(),
+                    type_line: String::new(),
+                    oracle_text: oracle.to_string(),
+                    mana_cost: String::new(),
+                }],
+            },
+        );
+        (view, texts, id)
+    }
+
+    /// The rows of a cast chooser over `kinds`, all at the same cost.
+    fn cast_rows(
+        object: ObjectId,
+        kinds: &[CastModeKind],
+        names: FaceNames<'_>,
+        lang: Lang,
+    ) -> Vec<ChoiceOption> {
+        options(
+            &Prompt::CastMode {
+                object,
+                options: kinds
+                    .iter()
+                    .enumerate()
+                    .map(|(i, kind)| CastModeDesc {
+                        index: u8::try_from(i).expect("a small list"),
+                        kind: *kind,
+                        cost: ManaCost::ZERO,
+                    })
+                    .collect(),
+            },
+            lang,
+            None,
+            "",
+            names,
+        )
+        .expect("a cast choice has rows")
+    }
+
+    /// The owner's AM1: a mode row says what the mode *does*.
+    ///
+    /// Sheoldred's Edict prints a header and three bullets, and the engine
+    /// offers three modes carrying nothing but their own index — so the
+    /// chooser drew "Mode 1", "Mode 2", "Mode 3" and the player picked
+    /// between three numbers. The bullet is the list's mark and not the
+    /// mode's words, so it is cut off the front.
+    #[test]
+    fn a_mode_row_says_the_bullet_the_card_prints() {
+        let (view, texts, object) = asking_about(
+            "217062f5-96f1-454c-9507-17f34ef37070",
+            "en",
+            "Choose one —\n\
+             • Each opponent sacrifices a nontoken creature of their choice.\n\
+             • Each opponent sacrifices a creature token of their choice.\n\
+             • Each opponent sacrifices a planeswalker of their choice.",
+        );
+        let rows = cast_rows(
+            object,
+            &[
+                CastModeKind::Mode(0),
+                CastModeKind::Mode(1),
+                CastModeKind::Mode(2),
+            ],
+            FaceNames {
+                view: Some(&view),
+                texts: Some(&texts),
+            },
+            Lang::En,
+        );
+        assert_eq!(
+            rows[0].label,
+            "Each opponent sacrifices a nontoken creature of their choice."
+        );
+        assert_eq!(
+            rows[2].label,
+            "Each opponent sacrifices a planeswalker of their choice."
+        );
+    }
+
+    /// And it says it in the player's own language, because the sentence is
+    /// the *catalog's* and only the index is the registry's.
+    #[test]
+    fn a_mode_row_is_read_in_the_language_the_player_chose() {
+        let (view, texts, object) = asking_about(
+            "217062f5-96f1-454c-9507-17f34ef37070",
+            "de",
+            "Wähle eins —\n\
+             • Jeder Gegner opfert eine Kreatur, die kein Spielstein ist.\n\
+             • Jeder Gegner opfert einen Kreaturenspielstein seiner Wahl.\n\
+             • Jeder Gegner opfert einen Planeswalker seiner Wahl.",
+        );
+        let rows = cast_rows(
+            object,
+            &[CastModeKind::Mode(1)],
+            FaceNames {
+                view: Some(&view),
+                texts: Some(&texts),
+            },
+            Lang::De,
+        );
+        assert_eq!(
+            rows[0].label,
+            "Jeder Gegner opfert einen Kreaturenspielstein seiner Wahl."
+        );
+    }
+
+    /// A printing whose own split is a different length is refused whole.
+    ///
+    /// The `of` guard, at the one surface where being off by one is worst:
+    /// an index merely out of range falls back, while an index that is *in*
+    /// range names the mode beside the right one and draws it as the card's
+    /// own words. Here the row goes back to the number it used to carry.
+    #[test]
+    fn a_printing_of_a_different_length_falls_back_to_the_number() {
+        let (view, texts, object) = asking_about(
+            "217062f5-96f1-454c-9507-17f34ef37070",
+            "en",
+            "Choose one —\n\
+             • Each opponent sacrifices a nontoken creature of their choice.\n\
+             • Each opponent sacrifices a creature token of their choice.",
+        );
+        let rows = cast_rows(
+            object,
+            &[CastModeKind::Mode(1)],
+            FaceNames {
+                view: Some(&view),
+                texts: Some(&texts),
+            },
+            Lang::En,
+        );
+        assert_eq!(rows[0].label, "Mode 2", "one-based, as the card numbers it");
+    }
+
+    /// The owner's other half of AM1: an alternative cost is a sentence too.
+    ///
+    /// "Alternative cost" is a category and every card in the pool that has
+    /// one drew exactly that word. Solitude's is a keyword line, which is
+    /// the shape a sentence-shaped reader would have missed.
+    #[test]
+    fn an_alternative_cost_row_says_what_it_charges() {
+        let (view, texts, object) = asking_about(
+            "dcb9c2a7-ae54-4ddc-a567-640bf4bf4366",
+            "en",
+            "Flash\n\
+             Lifelink\n\
+             When this creature enters, exile up to one other target creature. \
+             That creature's controller gains life equal to its power.\n\
+             Evoke—Exile a white card from your hand.",
+        );
+        let rows = cast_rows(
+            object,
+            &[CastModeKind::Normal, CastModeKind::Alternative(0)],
+            FaceNames {
+                view: Some(&view),
+                texts: Some(&texts),
+            },
+            Lang::En,
+        );
+        assert_eq!(rows[0].label, "Printed cost", "the normal way has no line");
+        assert_eq!(rows[1].label, "Evoke—Exile a white card from your hand.");
+    }
+
+    /// With no card text at all, every row says what it said before.
+    ///
+    /// The ordinary offline case — a gateway serving no catalog — and the
+    /// reason each row keeps its phrase rather than drawing nothing.
+    #[test]
+    fn a_row_with_no_text_to_read_keeps_the_phrase_it_had() {
+        let (view, _, object) = asking_about(
+            "dcb9c2a7-ae54-4ddc-a567-640bf4bf4366",
+            "en",
+            "Evoke—Exile a white card from your hand.",
+        );
+        let rows = cast_rows(
+            object,
+            &[CastModeKind::Alternative(0), CastModeKind::Mode(1)],
+            FaceNames {
+                view: Some(&view),
+                texts: None,
+            },
+            Lang::En,
+        );
+        assert_eq!(rows[0].label, "Alternative cost");
+        assert_eq!(rows[1].label, "Mode 2");
     }
 }

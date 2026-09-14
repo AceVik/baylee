@@ -22,7 +22,7 @@
 //! each other's places walks in order and reports as aligned — an upper
 //! bound wearing a count's clothes.
 
-use baylee_cards_dsl::{AbilityDef, Trigger};
+use baylee_cards_dsl::{AbilityDef, AltCondition, AlternativeCost, CostPart, SpellMode, Trigger};
 
 /// The sentences a printed oracle text is made of.
 ///
@@ -597,6 +597,223 @@ pub struct Mapping {
     pub ambiguous: usize,
 }
 
+/// The bullet a modal card lists its modes under.
+const BULLET: char = '\u{2022}';
+
+/// Which printed sentence each mode of a modal spell came from.
+///
+/// `CastModeKind::Mode(i)` is the only thing a client is told about a mode,
+/// and a chooser that can only say "Mode 2" asks a player to pick between
+/// two numbers. The sentence is what turns that into the card — but only
+/// where it is *known*: a label pointing one sentence off is drawn as the
+/// card's own words and is worse than the number it replaced, so anything
+/// this cannot read whole answers `None` for every mode of the face.
+///
+/// Two printings, and the text says which. A card that prints `Choose one —`
+/// lists its modes as bullets, one per mode, in order — three of the pool's
+/// four modal cards. The fourth shape is **overload**, which prints no
+/// bullet at all: the card's body, and a keyword line naming the other
+/// cost. There, a mode with a `cost_override` finds the keyword line
+/// printing that cost and a mode without one is the body, and both halves
+/// have to come out to exactly the right count or the card is refused.
+///
+/// It reads modes and not abilities, so it is not part of [`map`]: an
+/// `AbilityDef::ModalSpell` is [`LineShape::Other`] there, which is the
+/// right answer for the ability — the whole card is its text — and no
+/// answer at all for the modes inside it.
+#[must_use]
+pub fn map_modes(modes: &[SpellMode], oracle: &str) -> Vec<Option<u8>> {
+    let lines: Vec<&str> = sentences(oracle).collect();
+    let refuse = || vec![None; modes.len()];
+    let bullets: Vec<usize> = lines
+        .iter()
+        .enumerate()
+        .filter(|(_, line)| line.trim_start().starts_with(BULLET))
+        .map(|(at, _)| at)
+        .collect();
+    if !bullets.is_empty() {
+        // A bullet count that disagrees with the mode count is the printing
+        // and the code describing different cards, which is exactly the
+        // case where walking them in step is confidently wrong.
+        if bullets.len() != modes.len() {
+            return refuse();
+        }
+        return bullets.iter().map(|at| u8::try_from(*at).ok()).collect();
+    }
+    let mut found = vec![None; modes.len()];
+    let mut spoken: Vec<usize> = Vec::new();
+    for (at, mode) in modes.iter().enumerate() {
+        let Some(mana) = mode.cost_override else {
+            continue;
+        };
+        let cost = baylee_cards_dsl::Cost { mana, parts: &[] };
+        let hits: Vec<usize> = lines
+            .iter()
+            .enumerate()
+            .filter(|(_, line)| line_shape(line) == LineShape::Activated && cost_fits(&cost, line))
+            .map(|(at, _)| at)
+            .collect();
+        // Two lines printing the same cost is the reader unable to tell
+        // them apart, and whichever came first would be a coin toss drawn
+        // to the player as the card's own sentence.
+        let [only] = hits[..] else {
+            return refuse();
+        };
+        found[at] = u8::try_from(only).ok();
+        spoken.push(only);
+    }
+    // What is left is the card's body, and the counts have to meet exactly.
+    // A modal card that also prints a keyword line — "Flying" over a body
+    // over an overload cost — leaves two candidates for one mode and is
+    // refused here rather than given the first of them.
+    let body: Vec<usize> = lines
+        .iter()
+        .enumerate()
+        .filter(|(at, line)| !spoken.contains(at) && line_shape(line) == LineShape::Other)
+        .map(|(at, _)| at)
+        .collect();
+    let plain: Vec<usize> = (0..modes.len())
+        .filter(|at| modes[*at].cost_override.is_none())
+        .collect();
+    if body.len() != plain.len() {
+        return refuse();
+    }
+    for (at, line) in plain.iter().zip(body) {
+        found[*at] = u8::try_from(line).ok();
+    }
+    found
+}
+
+/// Which printed sentence each alternative cost came from.
+///
+/// The twin of [`map_modes`] for `CastModeKind::Alternative(i)`, and the
+/// owner's own acceptance line for the cast chooser: a row reading
+/// "Evoke—Exile a white card from your hand" is the card, and
+/// "Alternative cost" is a category.
+///
+/// An alternative is printed in one of two ways. A card may write it out as
+/// a sentence — "You may exile a blue card from your hand **rather than
+/// pay** this spell's mana cost", "you may cast this spell **without paying
+/// its mana cost**" — where the two templates are themselves the
+/// discriminator: the second is the cost of nothing and the first is a cost
+/// that was substituted. Or it prints it as a **keyword line**, `Evoke
+/// {2}{U}` and `Evoke—Exile a white card from your hand.`, where the cost
+/// stands alone behind one word.
+///
+/// Every part of the cost has to be found in the sentence ([`parts_fit`]),
+/// and a sentence that fits two alternatives — or two sentences that fit
+/// one — is refused rather than guessed at.
+#[must_use]
+pub fn map_alternatives(alts: &[AlternativeCost], oracle: &str) -> Vec<Option<u8>> {
+    let lines: Vec<&str> = sentences(oracle).collect();
+    let mut found: Vec<Option<u8>> = alts
+        .iter()
+        .map(|alt| {
+            let hits: Vec<usize> = lines
+                .iter()
+                .enumerate()
+                .filter(|(_, line)| alternative_fits(alt, line))
+                .map(|(at, _)| at)
+                .collect();
+            match hits[..] {
+                [only] => u8::try_from(only).ok(),
+                _ => None,
+            }
+        })
+        .collect();
+    // One sentence cannot be two alternative costs. Where it looks like
+    // both, neither is known — the same refusal the single-hit rule above
+    // makes, seen from the sentence's side.
+    for at in 0..found.len() {
+        if found[at].is_some() && found.iter().filter(|line| **line == found[at]).count() > 1 {
+            found[at] = None;
+        }
+    }
+    found
+}
+
+/// Could this printed line be the alternative cost this card compiled?
+fn alternative_fits(alt: &AlternativeCost, line: &str) -> bool {
+    let text = without_reminder(line);
+    let lower = text.to_lowercase();
+    let free = lower.contains("without paying its mana cost");
+    let instead = lower.contains("rather than pay");
+    if free || instead {
+        // The two templates are a fact about the cost and not only about
+        // the words: "without paying its mana cost" is printed for a cost
+        // of nothing, and "rather than pay" for one that was substituted.
+        // A card printing both sentences is separated by exactly this.
+        if free != (alt.cost.mana.is_empty() && alt.cost.parts.is_empty()) {
+            return false;
+        }
+        return condition_fits(alt.condition, &lower) && parts_fit(alt.cost.parts, &lower);
+    }
+    // The keyword form. `cost_fits` reads the mana; the words after an em
+    // dash carry a cost that has no symbols, and both are held to the
+    // single word in front — without which "When this creature enters,
+    // exile up to one other target creature" is a line with no braces
+    // fitting a cost with no mana, which is nothing compared against
+    // nothing.
+    let Some((_, rest)) = keyword_cost(&text) else {
+        return false;
+    };
+    matches!(alt.condition, AltCondition::Always)
+        && cost_fits(&alt.cost, &text)
+        && parts_fit(alt.cost.parts, &rest.to_lowercase())
+}
+
+/// A keyword line that prints a cost, split into the keyword and the cost.
+///
+/// `Evoke {2}{U}` and `Evoke—Exile a white card from your hand.` are the
+/// two shapes, and both begin with a single word. That is the whole of what
+/// keeps an ordinary sentence out, so it is a word and not merely a short
+/// head: every English sentence on a card starts with a word and a space.
+fn keyword_cost(line: &str) -> Option<(&str, &str)> {
+    if let Some((head, rest)) = line.split_once('\u{2014}') {
+        return one_word(head).then_some((head, rest.trim()));
+    }
+    let (head, rest) = line.split_once(' ')?;
+    (one_word(head) && rest.starts_with('{')).then_some((head, rest))
+}
+
+/// Is this the whole of one printed word?
+fn one_word(head: &str) -> bool {
+    !head.is_empty() && head.chars().all(char::is_alphabetic)
+}
+
+/// Does the sentence state the condition the alternative cost carries?
+fn condition_fits(condition: AltCondition, lower: &str) -> bool {
+    match condition {
+        // An unconditional alternative states no condition, and both
+        // conditional ones print theirs as the clause the sentence opens
+        // with — which is what separates Force of Will's "You may…" from
+        // Force of Negation's "If it's not your turn, you may…".
+        AltCondition::Always => !lower.starts_with("if "),
+        AltCondition::NotYourTurn => lower.contains("not your turn"),
+        AltCondition::CommanderControlled => lower.contains("control a commander"),
+    }
+}
+
+/// Is every non-mana part of a cost named in the printed words?
+///
+/// The honesty rule, in one function. A part this cannot read refuses the
+/// whole sentence rather than letting the others carry it: a row labelled
+/// with a cost that leaves out half of what it charges is worse than one
+/// labelled "Alternative cost", because the player reads it as the card.
+fn parts_fit(parts: &[CostPart], lower: &str) -> bool {
+    parts.iter().all(|part| match part {
+        // Printed in symbols, and read by `cost_fits` there; the prose says
+        // nothing about either.
+        CostPart::TapSelf | CostPart::UntapSelf => true,
+        CostPart::PayLife(n) => lower.contains(&format!("pay {n} life")),
+        CostPart::ExileFromHand(_) => lower.contains("exile") && lower.contains("from your hand"),
+        CostPart::Discard(_) => lower.contains("discard"),
+        CostPart::Sacrifice(_) | CostPart::SacrificeSelf => lower.contains("sacrifice"),
+        CostPart::ExileSelf => lower.contains("exile"),
+        _ => false,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -737,5 +954,169 @@ mod tests {
         let found = map(&abilities, text);
         assert_eq!(found.lines, vec![Some(1), Some(1)]);
         assert!(found.in_order, "a shared sentence is not disorder");
+    }
+
+    /// One mode, one bullet — the shape three of the pool's four modal
+    /// cards print.
+    #[test]
+    fn a_bulleted_card_gives_each_mode_its_own_bullet() {
+        let text = "Choose one —\n\
+                    • Each opponent sacrifices a nontoken creature of their choice.\n\
+                    • Each opponent sacrifices a creature token of their choice.\n\
+                    • Each opponent sacrifices a planeswalker of their choice.";
+        let modes = [mode(None), mode(None), mode(None)];
+        assert_eq!(
+            map_modes(&modes, text),
+            vec![Some(1), Some(2), Some(3)],
+            "the header is a sentence too, and no mode is it"
+        );
+    }
+
+    /// A bullet count that disagrees with the mode count is refused whole.
+    ///
+    /// The counter-test the honesty rule exists for: walking them in step
+    /// places two of the three and is confidently wrong about which, and
+    /// the row it draws is the card's own words on the wrong mode — worse
+    /// than the "Mode 2" it replaced.
+    #[test]
+    fn a_printing_with_a_bullet_too_few_is_refused_whole() {
+        let text = "Choose one —\n\
+                    • Destroy target artifact.\n\
+                    • Destroy target enchantment.";
+        let modes = [mode(None), mode(None), mode(None)];
+        assert_eq!(map_modes(&modes, text), vec![None, None, None]);
+    }
+
+    /// Overload prints no bullet: a body and a keyword line.
+    #[test]
+    fn an_overloaded_card_finds_its_body_and_its_keyword_line() {
+        let text = "Return target nonland permanent you don't control to its \
+                    owner's hand.\n\
+                    Overload {6}{U} (You may cast this spell for its overload \
+                    cost. If you do, change \"target\" in its text to \"each.\")";
+        let modes = [mode(None), mode(Some(baylee_core::mana!("{6}{U}")))];
+        assert_eq!(map_modes(&modes, text), vec![Some(0), Some(1)]);
+    }
+
+    /// A second brace-free sentence leaves the plain mode two candidates.
+    ///
+    /// "Flying" over a body over an overload cost is a card nobody prints
+    /// today, and the point is exactly that: the reader says it cannot tell
+    /// which of the two is the mode instead of taking the first.
+    #[test]
+    fn a_keyword_line_beside_the_body_refuses_the_plain_mode() {
+        let text = "Flying and vigilance, and this creature attacks each combat \
+                    if able.\n\
+                    Return target nonland permanent you don't control to its \
+                    owner's hand.\n\
+                    Overload {6}{U}";
+        let modes = [mode(None), mode(Some(baylee_core::mana!("{6}{U}")))];
+        assert_eq!(map_modes(&modes, text), vec![None, None]);
+    }
+
+    /// The two ways a card prints an alternative cost, and a sentence that
+    /// is neither.
+    #[test]
+    fn an_alternative_cost_is_found_as_a_sentence_or_as_a_keyword_line() {
+        let pitch = "You may pay 1 life and exile a blue card from your hand \
+                     rather than pay this spell's mana cost.\n\
+                     Counter target spell.";
+        assert_eq!(
+            map_alternatives(&[alt(life_and_pitch(), AltCondition::Always)], pitch),
+            vec![Some(0)]
+        );
+        let evoke = "Flash\n\
+                     Lifelink\n\
+                     When this creature enters, exile up to one other target \
+                     creature. That creature's controller gains life equal to \
+                     its power.\n\
+                     Evoke—Exile a white card from your hand.";
+        assert_eq!(
+            map_alternatives(&[alt(pitch_only(), AltCondition::Always)], evoke),
+            vec![Some(3)],
+            "the trigger names an exile too, and says nothing about a hand"
+        );
+    }
+
+    /// "Without paying its mana cost" is the cost of nothing, and "rather
+    /// than pay" is a cost that was substituted.
+    ///
+    /// Which is what tells a free alternative from a pitch one without
+    /// reading either sentence, and it is a claim about the templating that
+    /// a card printing the wrong one of the two would break loudly.
+    #[test]
+    fn the_two_templates_separate_a_free_cost_from_a_substituted_one() {
+        let free = "If you control a commander, you may cast this spell \
+                    without paying its mana cost.\n\
+                    Counter target noncreature spell.";
+        assert_eq!(
+            map_alternatives(
+                &[alt(
+                    baylee_cards_dsl::Cost::FREE,
+                    AltCondition::CommanderControlled
+                )],
+                free
+            ),
+            vec![Some(0)]
+        );
+        assert_eq!(
+            map_alternatives(
+                &[alt(pitch_only(), AltCondition::CommanderControlled)],
+                free
+            ),
+            vec![None],
+            "a cost that pays something cannot be the sentence that pays nothing"
+        );
+    }
+
+    /// The condition is read, so the two free commander instants cannot
+    /// take Force of Negation's sentence and the other way round.
+    #[test]
+    fn a_condition_the_sentence_does_not_state_is_refused() {
+        let text = "If it's not your turn, you may exile a blue card from your \
+                    hand rather than pay this spell's mana cost.\n\
+                    Counter target noncreature spell.";
+        assert_eq!(
+            map_alternatives(&[alt(pitch_only(), AltCondition::NotYourTurn)], text),
+            vec![Some(0)]
+        );
+        assert_eq!(
+            map_alternatives(&[alt(pitch_only(), AltCondition::Always)], text),
+            vec![None],
+            "the sentence opens with a condition and the cost carries none"
+        );
+    }
+
+    /// One mode with no `cost_override` and no sentence at all.
+    fn mode(cost_override: Option<baylee_core::mana::ManaCost>) -> SpellMode {
+        SpellMode {
+            effects: &[],
+            targets: None,
+            cost_override,
+        }
+    }
+
+    /// One alternative cost.
+    fn alt(cost: baylee_cards_dsl::Cost, condition: AltCondition) -> AlternativeCost {
+        AlternativeCost { cost, condition }
+    }
+
+    /// Force of Will's: a life payment and a pitched card.
+    fn life_and_pitch() -> baylee_cards_dsl::Cost {
+        baylee_cards_dsl::Cost {
+            mana: baylee_core::mana::ManaCost::ZERO,
+            parts: &[
+                CostPart::PayLife(1),
+                CostPart::ExileFromHand(&baylee_cards_dsl::Filter::Any),
+            ],
+        }
+    }
+
+    /// Misdirection's and evoke's: a pitched card and nothing else.
+    fn pitch_only() -> baylee_cards_dsl::Cost {
+        baylee_cards_dsl::Cost {
+            mana: baylee_core::mana::ManaCost::ZERO,
+            parts: &[CostPart::ExileFromHand(&baylee_cards_dsl::Filter::Any)],
+        }
     }
 }

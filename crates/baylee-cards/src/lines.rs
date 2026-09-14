@@ -64,6 +64,26 @@ pub struct FaceLines {
     /// entry, and for one no sentence fits — a keyword-printed echo or
     /// evoke trigger has no sentence of its own to point at.
     pub lines: &'static [Option<u8>],
+    /// Per mode of this face's modal spell, in `SpellMode` order: which
+    /// printed sentence the mode is.
+    ///
+    /// A mode is not an ability and has no row in `lines`: the whole card
+    /// is the `AbilityDef::ModalSpell`'s text, and what a player picks
+    /// between are the sentences *inside* it. The engine names one as
+    /// `CastModeKind::Mode(i)` and says nothing else about it, so without
+    /// this a chooser can only offer two numbers.
+    ///
+    /// Empty for a face with no modal spell, and all `None` for one whose
+    /// printing `baylee_cards_codegen::lines::map_modes` could not read
+    /// whole.
+    pub modes: &'static [Option<u8>],
+    /// Per alternative cost of this face, in `alternative_costs` order:
+    /// which printed sentence states it.
+    ///
+    /// The twin of `modes` for `CastModeKind::Alternative(i)` — "Evoke—Exile
+    /// a white card from your hand" rather than "Alternative cost". An
+    /// alternative cost is not an ability either; it is a field on the face.
+    pub alternatives: &'static [Option<u8>],
 }
 
 /// Where one ability's text is, and how long the text it indexes is.
@@ -91,6 +111,48 @@ pub fn ability_line(card: CardIndex, face: usize, index: u32) -> Option<AbilityL
         .get(card.get() as usize)?
         .get(face)?;
     let line = (*face.lines.get(usize::try_from(index).ok()?)?)?;
+    Some(AbilityLine {
+        line,
+        of: face.sentences,
+    })
+}
+
+/// Which printed sentence one **mode** of a modal spell is, if it is known.
+///
+/// The twin of [`ability_line`] for `CastModeKind::Mode(i)`, and every
+/// bound is checked here for the same reason: a cast chooser builds its
+/// rows from whatever the engine has just offered, so a card that has
+/// since changed face, a mode index from a pool the client does not have,
+/// and a card with no modal spell at all must all answer `None` rather
+/// than take the game down over a label.
+///
+/// The face is **0** for every caller there is today — the engine reads
+/// `def.abilities_for_face(0)` when it enumerates modes, so `Mode(i)` is
+/// always about the front — but it is asked for rather than assumed,
+/// because that is a fact about `cast_wizard` and not about this table.
+#[must_use]
+pub fn mode_line(card: CardIndex, face: usize, mode: usize) -> Option<AbilityLine> {
+    let face = crate::generated_lines::ABILITY_LINES
+        .get(card.get() as usize)?
+        .get(face)?;
+    let line = (*face.modes.get(mode)?)?;
+    Some(AbilityLine {
+        line,
+        of: face.sentences,
+    })
+}
+
+/// Which printed sentence one **alternative cost** is stated by, if it is
+/// known.
+///
+/// The twin of [`mode_line`] for `CastModeKind::Alternative(i)`. A face's
+/// `alternative_costs` is what the index counts, in printed order.
+#[must_use]
+pub fn alternative_line(card: CardIndex, face: usize, alt: usize) -> Option<AbilityLine> {
+    let face = crate::generated_lines::ABILITY_LINES
+        .get(card.get() as usize)?
+        .get(face)?;
+    let line = (*face.alternatives.get(alt)?)?;
     Some(AbilityLine {
         line,
         of: face.sentences,
@@ -269,6 +331,98 @@ mod tests {
                     def.name(),
                     def.abilities_for_face(face).len(),
                     lines.lines.len()
+                );
+                let modes = def
+                    .abilities_for_face(face)
+                    .iter()
+                    .find_map(|a| match a {
+                        baylee_cards_dsl::AbilityDef::ModalSpell { modes } => Some(modes.len()),
+                        _ => None,
+                    })
+                    .unwrap_or(0);
+                assert!(
+                    lines.modes.len() == modes,
+                    "{} face {face} prints {modes} modes and {} rows",
+                    def.name(),
+                    lines.modes.len()
+                );
+                let alternatives = def.faces[face].alternative_costs.len();
+                assert!(
+                    lines.alternatives.len() == alternatives,
+                    "{} face {face} prints {alternatives} alternative costs and {} rows",
+                    def.name(),
+                    lines.alternatives.len()
+                );
+            }
+        }
+    }
+
+    /// Every mode and every alternative cost in the pool knows which
+    /// sentence it is.
+    ///
+    /// An **equality** rather than a floor, which is what separates it from
+    /// `nearly_every_stack_ability_knows_its_printed_sentence` above. An
+    /// ability is allowed to have no sentence of its own — a static is
+    /// many-to-one with the printing, and evoke's trigger is printed as a
+    /// keyword line — while a mode and an alternative cost *are* printed
+    /// sentences by construction: a card states what you may do instead, or
+    /// it does not offer the option at all. A miss here is therefore the
+    /// reader needing work rather than a fact about the pool, and what it
+    /// costs is the thing this table exists to remove — a chooser row
+    /// reading "Mode 2".
+    #[test]
+    fn every_mode_and_alternative_cost_knows_its_printed_sentence() {
+        let mut seen = 0usize;
+        for (def, card) in crate::generated::BY_INDEX.iter().zip(ABILITY_LINES) {
+            let Some(def) = def else { continue };
+            for (face, lines) in card.iter().enumerate() {
+                for (at, line) in lines.modes.iter().enumerate() {
+                    assert!(
+                        line.is_some(),
+                        "{} face {face} mode {at} knows no sentence",
+                        def.name()
+                    );
+                    seen += 1;
+                }
+                for (at, line) in lines.alternatives.iter().enumerate() {
+                    assert!(
+                        line.is_some(),
+                        "{} face {face} alternative cost {at} knows no sentence",
+                        def.name()
+                    );
+                    seen += 1;
+                }
+            }
+        }
+        assert!(
+            seen >= 17,
+            "the pool prints only {seen} cast options with a sentence; it printed 17"
+        );
+    }
+
+    /// A mode index counts the modes of **one** modal spell.
+    ///
+    /// `cast_wizard` walks every `AbilityDef::ModalSpell` on the face and
+    /// enumerates each one's modes from zero, so a face carrying two of
+    /// them would offer two different modes under the same
+    /// `CastModeKind::Mode(0)`. That is an ambiguity in the engine's own
+    /// handle before it is one in this table — which reads the first modal
+    /// spell and would be describing whichever the engine's walk reached
+    /// first. The pool has never printed such a card; this is what says so
+    /// rather than the comment that used to.
+    #[test]
+    fn a_face_prints_at_most_one_modal_spell() {
+        for def in crate::all() {
+            for face in 0..def.faces.len() {
+                let modal = def
+                    .abilities_for_face(face)
+                    .iter()
+                    .filter(|a| matches!(a, baylee_cards_dsl::AbilityDef::ModalSpell { .. }))
+                    .count();
+                assert!(
+                    modal <= 1,
+                    "{} face {face} prints {modal} modal spells, and `Mode(i)` names one",
+                    def.name()
                 );
             }
         }

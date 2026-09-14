@@ -291,6 +291,12 @@ which is the rule the ability sheet and every dialog here already follow. A
 click on **another card** also puts it away — §Arming's change of mind — and
 takes the way that was chosen with it, exactly as `Esc` on an armed deed does.
 
+And a row **reads like the ability sheet's**, which is the whole of what makes
+the two siblings rather than lookalikes: a mode and an alternative cost are
+printed sentences, so the row carries the card's own words in the player's own
+language instead of "Mode 2" — `docs/client.md` §"Which ability is on the
+stack" has the table that answers it.
+
 ## The sheet a question opened
 
 A question whose answer is lying in a pile has nowhere on the table to be

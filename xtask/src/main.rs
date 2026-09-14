@@ -1917,7 +1917,19 @@ fn render_ability_lines(root: &Path) -> anyhow::Result<String> {
         let mut any = false;
         for face in 0..def.faces.len() {
             let abilities = def.abilities_for_face(face);
-            any |= !abilities.is_empty();
+            // A mode and an alternative cost are not abilities, so a card
+            // whose only readable thing is one of them — none today, but
+            // a modal spell needs no other ability — would be dropped by
+            // the emptiness test below if it asked about abilities alone.
+            let modes: &[baylee_cards::dsl::SpellMode] = abilities
+                .iter()
+                .find_map(|a| match a {
+                    baylee_cards::dsl::AbilityDef::ModalSpell { modes } => Some(*modes),
+                    _ => None,
+                })
+                .unwrap_or(&[]);
+            let alternatives = def.faces[face].alternative_costs;
+            any |= !abilities.is_empty() || !modes.is_empty() || !alternatives.is_empty();
             let printed = texts.get(face).map_or("", String::as_str);
             let mapping = lines::map(abilities, printed);
             let stackable = abilities
@@ -1925,16 +1937,24 @@ fn render_ability_lines(root: &Path) -> anyhow::Result<String> {
                 .map(lines::ability_shape)
                 .filter(|shape| shape.stackable())
                 .count();
-            let cells: Vec<String> = mapping
-                .lines
+            let cell = |line: &Option<u8>| {
+                line.map_or_else(|| "None".to_string(), |l| format!("Some({l})"))
+            };
+            let cells: Vec<String> = mapping.lines.iter().map(cell).collect();
+            let mode_cells: Vec<String> =
+                lines::map_modes(modes, printed).iter().map(cell).collect();
+            let alt_cells: Vec<String> = lines::map_alternatives(alternatives, printed)
                 .iter()
-                .map(|line| line.map_or_else(|| "None".to_string(), |l| format!("Some({l})")))
+                .map(cell)
                 .collect();
             faces.push(format!(
-                "FaceLines {{ sentences: {}, stackable: {}, lines: &[{}] }}",
+                "FaceLines {{ sentences: {}, stackable: {}, lines: &[{}], \
+                 modes: &[{}], alternatives: &[{}] }}",
                 baylee_core::oracle::sentence_count(printed),
                 stackable,
-                cells.join(", ")
+                cells.join(", "),
+                mode_cells.join(", "),
+                alt_cells.join(", ")
             ));
         }
         // A card with no abilities on any face — a vanilla creature, a

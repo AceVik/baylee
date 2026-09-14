@@ -579,6 +579,41 @@ The client indexes that same face's localized text, and borrows that same
 face's picture, so the sentence and the art beside it are the two halves of
 one card.
 
+**The same table answers a question that is not about the stack at all.** A
+*mode* and an *alternative cost* are printed sentences too, and neither is an
+ability: the whole card is the `AbilityDef::ModalSpell`'s text, and what a
+player picks between are the sentences inside it, while an alternative cost is
+a field on the face. The engine names them `CastModeKind::Mode(i)` and
+`Alternative(i)` and says nothing else — there is no label in the protocol and
+there could not be — so the cast chooser drew "Mode 2" while the ability sheet
+beside it had been drawing the card's own sentence since it existed.
+`FaceLines` therefore carries two more arrays, `modes` and `alternatives`,
+read by `lines::mode_line` and `lines::alternative_line`, and they are two
+arrays rather than one because they index two different lists exactly as the
+two kinds do. Both are about **face 0**, which is a fact about `cast_wizard`
+(it enumerates modes out of `abilities_for_face(0)` and alternative costs out
+of `def.faces[0]`) rather than about the table, so the caller states it.
+
+The reader is `codegen::lines::map_modes` and `map_alternatives`, and both
+obey the transcoder's honesty rule — one unread clause and the card is refused
+whole, because a row carrying the card's own words on the *wrong* mode is
+worse than the number it replaced. A modal card prints its modes one of two
+ways: as **bullets** under a "Choose one —" header, where the bullet count has
+to equal the mode count or nothing is claimed, or as **overload**, where the
+card prints its body and a keyword line and a mode with a `cost_override`
+finds the line printing that cost. An alternative cost is printed either as a
+sentence — and the two templates are themselves the discriminator, "without
+paying its mana cost" being the cost of nothing and "rather than pay" one that
+was substituted — or as a keyword line (`Evoke {2}{U}`,
+`Evoke—Exile a white card from your hand.`), held to the single word in front
+of it so that an ordinary sentence cannot fit a cost with no symbols. Every
+non-mana part has to be named in the printed words (`parts_fit`), and a
+sentence fitting two options, or two sentences fitting one, is refused rather
+than guessed at. All 9 modes and all 8 alternative costs in the pool map, and
+`every_mode_and_alternative_cost_knows_its_printed_sentence` is an equality
+rather than a floor: an ability may honestly have no sentence, a mode never
+can.
+
 ### The stack panel draws it
 
 `hud::spawn_stack_panel` is where that stops being theory. Each entry is a
@@ -2011,8 +2046,11 @@ hand, where the card being cast is never a candidate for its own pitch.
 Anything else takes the way off the list. So does everything but `Normal` and
 `Alternative`: a modal spell's modes need `casting::mode_has_a_legal_target`,
 which takes the `GameState` this client does not have and must not
-approximate, so Damn's overload is still cast the cheap way and that is AM1's
-to close.
+approximate, so Damn's overload is still cast the cheap way when the click
+finds one. That is a hole in *this* list and not in the chooser: a modal spell
+the engine asks about — Sheoldred's Edict, which is affordable at three
+different modes — opens `Pending::ChooseCastMode` and is answered through the
+same rows.
 
 One way is not a question, and the click then does exactly what it always did.
 `fire_armed` had to learn one thing for this: a chosen way with taps left to
@@ -2039,6 +2077,23 @@ that disarms: `cast_answer` outlives the run that spends it by design, so
 every gesture that *is* a player leaving a card has to say so, or the engine's
 next `ChooseCastMode` about that card is answered by a decision that was
 abandoned.
+
+**A row says what the card says.** `Mode(i)` and `Alternative(i)` are the
+whole of what the engine tells anyone about a mode or an alternative cost, so
+the chooser drew "Mode 2" and "Alternative cost" — a player picking between
+numbers on a card they may never have seen, while the ability sheet two
+inches away had been drawing printed sentences since it existed. Both kinds
+now read their sentence out of the generated line table (§"Which ability is on
+the stack"), in the printing and language the player chose: Sheoldred's Edict
+offers its three bullets, Solitude offers "Evoke—Exile a white card from your
+hand". Reminder text is dropped — it is the card explaining itself, which is
+worth a line on a card and is not what a button says — and the bullet a modal
+card lists its modes under goes with it, the row already being one of several.
+The cost stays drawn beside the words even where the sentence prints it too,
+because that is what the ability sheet does with "Cycling {B}" and the two
+choosers are meant to be indistinguishable. Everything that cannot be read
+keeps the phrase it had: an unknown printing, a text whose own split came out
+a different length (`AbilityLine::of`), or a gateway serving no catalog.
 
 `activatable` is the board's half of the same idea, and it is the engine's own
 answer: every source named in `LegalActions.mana_abilities` or `.abilities`.
