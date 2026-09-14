@@ -13,8 +13,8 @@
 //! # The node decides, never a rectangle
 //!
 //! Which gesture belongs to a panel used to be a hard-coded strip at the
-//! bottom of the window — the hand bar's height plus twenty pixels — so
-//! every other panel was camera by construction and a moved hand bar would
+//! bottom of the window — the hand zone's height plus twenty pixels — so
+//! every other panel was camera by construction and a moved hand zone would
 //! have been wrong in silence. It is the **node under the pointer** now: a
 //! wheel that lands on anything with a [`ComputedNode`] is the interface's,
 //! and the camera does not see it. Two consequences are deliberate.
@@ -58,7 +58,7 @@ const HAND_LINE: f32 = 60.0;
 #[derive(Component, Clone, Copy, Default, Debug)]
 pub struct Scrolls;
 
-/// The hand bar, which scrolls sideways and not through [`ScrollPosition`].
+/// The hand zone, which scrolls sideways and not through [`ScrollPosition`].
 ///
 /// The hand is laid out by hand — `apply_hand_scroll` writes the strip's
 /// margin from `Duel::hand_scroll`, because the row also has to lead, trail

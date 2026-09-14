@@ -70,7 +70,7 @@ const SWEEP_MARGIN: f32 = 0.5;
 /// The coating used to sweep continuously on every card in the hand, in the
 /// preview and in the stack panel — a six-second cycle nothing ever stopped.
 /// Measured on a still table with nothing hovered, a 24×16 frame diff put
-/// *all* of the change in the hand bar, mean 18–30 per cell against a table
+/// *all* of the change in the hand zone, mean 18–30 per cell against a table
 /// at zero: the "flickering" a player sees at rest is this band, and a
 /// glamour every card wears at all times is not a glamour. So it happens
 /// once, when there is something to notice — a card drawn, a card played, a

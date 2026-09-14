@@ -695,7 +695,7 @@ pub fn sync_ability_sheet(
             // The felt between the card and the sheet is not the sheet.
             Pickable::IGNORE,
             // This is a **root**, not a child of `HudRoot`, so the number
-            // does not mean what the four in `hud::Z_SLIP` means. bevy's
+            // does not mean what the four in `hud::Z_LEDGE` means. bevy's
             // `ui_stack_system` sorts roots by `(GlobalZIndex, ZIndex)` and
             // then walks each subtree, so a root at `(0, 4)` stands over the
             // whole of a root at `(0, 0)` — this sheet is over every part of

@@ -223,7 +223,7 @@ fn printing_of(
 /// The face for a card in hand.
 ///
 /// A hand card arrives as a [`baylee_view::HandObject`], which carries only
-/// what the hand bar needed — no subtypes, no power. The rest comes from the
+/// what the hand zone needed — no subtypes, no power. The rest comes from the
 /// compiled registry, which is the right source anyway: a card in hand is the
 /// printed card until something says otherwise.
 #[must_use]

@@ -87,7 +87,7 @@ const LOAD_TRIES: u8 = 3;
 
 /// The size the printed card back is fetched at.
 ///
-/// One size for every use of it — the table, the hand bar, the zone browser —
+/// One size for every use of it — the table, the hand zone, the zone browser —
 /// because there is one back and it is the same picture at every scale a card
 /// is ever drawn. `Normal` is a whole card at 488×680, which is what the
 /// front of a card is drawn from too.

@@ -89,21 +89,52 @@ mod layout {
         );
     }
 
-    /// The bar clips its children, so its headroom is a promise about the
-    /// tallest thing that can stand out of a card.
+    /// The zone clips its children, so the room above a card is a promise
+    /// about the tallest thing that can stand out of one.
     ///
     /// A glow cut off flat along a horizontal line is not a subtle fault — it
     /// stops reading as a light and starts reading as a box drawn round the
-    /// card — and the promise is made by three numbers that can each move on
+    /// card — and the promise is made by four numbers that can each move on
     /// their own.
+    ///
+    /// The room is the ledge *plus* the headroom, and that is the whole of
+    /// what the rebuild changed: [`hand::HAND_HEADROOM`] came down from 25 to
+    /// 12 because a halo reaching past it now runs on under an opaque shelf
+    /// instead of into the clip. Asserted here against the zone as a whole,
+    /// so the day somebody makes the shelf shallower to buy back a pixel of
+    /// table, this is what says no.
     #[test]
-    fn the_bar_keeps_room_for_a_raised_card_and_its_glow() {
+    fn the_zone_keeps_room_for_a_raised_card_and_its_glow() {
         use super::super::hand::{ARMED_RAISE, HALO_REACH, HAND_FOOTROOM};
-        let room = HAND_BAR_H - HAND_CARD_H - HAND_FOOTROOM;
+        let room = HAND_ZONE_H - HAND_CARD_H - HAND_FOOTROOM;
         assert!(
             room >= ARMED_RAISE + HALO_REACH,
             "a card raised by {ARMED_RAISE} with a halo reaching {HALO_REACH} \
              has {room} to stand in"
+        );
+    }
+
+    /// The zone is the camera's share of the window, and it did not grow.
+    ///
+    /// `Canvas::hud.bottom` is this number and `CameraRig::home` frames the
+    /// table in what is left, so every pixel here is a pixel the table does
+    /// not get. The rebuild put a 40-pixel shelf along the top of the hand
+    /// and paid for it by narrowing the card from 110 to 92 — the ledger the
+    /// owner was promised, written where it can fail.
+    #[test]
+    fn the_ledge_is_paid_for_out_of_the_cards_and_not_out_of_the_table() {
+        use super::super::hand::{HAND_FOOTROOM, HAND_HEADROOM, LEDGE_H};
+        // What the bar it replaces came to: a 110-wide card, 25 of headroom,
+        // 10 of footroom.
+        let was = 110.0 * 88.0 / 63.0 + 25.0 + HAND_FOOTROOM;
+        assert!(
+            HAND_ZONE_H - was < 2.0,
+            "the zone is {HAND_ZONE_H} against the bar's {was}, and the \
+             difference is table"
+        );
+        assert!(
+            (HAND_ZONE_H - (LEDGE_H + HAND_HEADROOM + HAND_CARD_H + HAND_FOOTROOM)).abs() < 1e-3,
+            "the zone is its four parts and nothing else"
         );
     }
 
@@ -139,25 +170,36 @@ mod layout {
     /// And the preview points at the card, not at where the row would have
     /// started if it were not centred.
     ///
-    /// `lead` is half the bar's spare room, so this grew as the hand
-    /// shrank — the fewer cards left, the further from its card the bubble
-    /// stood.
+    /// `lead` is half the zone's spare room, so the error this catches grew
+    /// as the hand shrank — the fewer cards left, the further from its card
+    /// the bubble stood.
+    ///
+    /// Checked against **symmetry** and not against the sum. The test that
+    /// was here added the same terms in the same order as the function and
+    /// so agreed with it however wrong both were, which is exactly what
+    /// happened: a `HAND_BAR_PAD` that the layout does not apply sat in both
+    /// for as long as either existed, and it took a screenshot to see it. A
+    /// centred row's middle card is on the window's own centre line and its
+    /// ends are equidistant from it — neither of which survives a constant
+    /// offset, and neither of which is this function written out twice.
     #[test]
     fn the_preview_stands_on_the_card_it_describes() {
-        let available = hand_available(1920.0);
-        let layout = hand_layout(7, HAND_CARD_W, available);
+        const WINDOW: f32 = 1920.0;
+        let layout = hand_layout(7, HAND_CARD_W, hand_available(WINDOW));
         assert!(layout.lead > 100.0, "this window has room to centre in");
-        for index in 0..7 {
-            // Where the bar actually draws the card: its padding, the
-            // strip's inset and margin, then the card's place in the row.
-            let drawn = HAND_BAR_PAD + HAND_STRIP_INSET + layout.lead + index as f32 * layout.step;
-            let middle = crate::hud::hand::hand_card_x(layout, 0.0, index);
-            assert!(
-                (middle - (drawn + HAND_CARD_W / 2.0)).abs() < 1e-3,
-                "card {index} is drawn at {drawn} and the preview points at \
-                 {middle}"
-            );
-        }
+        let at = |i| crate::hud::hand::hand_card_x(layout, 0.0, i);
+        assert!(
+            (at(3) - WINDOW / 2.0).abs() < 1e-3,
+            "the middle of seven cards is at {} and the window's middle is {}",
+            at(3),
+            WINDOW / 2.0
+        );
+        assert!(
+            ((at(3) - at(0)) - (at(6) - at(3))).abs() < 1e-3,
+            "the row reaches {} to the left of centre and {} to the right",
+            at(3) - at(0),
+            at(6) - at(3)
+        );
     }
 }
 
@@ -295,7 +337,7 @@ mod preview_place {
     }
 
     /// A pointer anchor is also kept off the window's own top edge and out
-    /// from under the hand bar, which the clamp above allows and this does
+    /// from under the hand zone, which the clamp above allows and this does
     /// not: a preview whose bottom half is behind the hand is a preview of a
     /// card's top half.
     #[test]
@@ -304,7 +346,7 @@ mod preview_place {
             let place = preview_place(PreviewAt::Pointer(Vec2::new(600.0, y)), PANEL, WINDOW);
             assert!(place.y >= EDGE, "at y {y} the panel starts at {}", place.y);
             assert!(
-                place.y + PANEL.y <= WINDOW.y - HAND_BAR_H,
+                place.y + PANEL.y <= WINDOW.y - HAND_ZONE_H,
                 "at y {y} the panel ends at {}",
                 place.y + PANEL.y
             );
@@ -362,7 +404,7 @@ mod preview_place {
                 place.y
             );
             assert!(
-                place.y + PANEL.y <= WINDOW.y - HAND_BAR_H,
+                place.y + PANEL.y <= WINDOW.y - HAND_ZONE_H,
                 "a card centred at y {cy} opened a panel ending at {}",
                 place.y + PANEL.y
             );
@@ -374,11 +416,11 @@ mod preview_place {
     /// Reported by the owner as the rule the placement should obey: the panel
     /// adjusts itself so that it is wholly in the viewport, with some padding
     /// to the edges. Every other preference here — beside the card, above the
-    /// hand bar, centred on the span — gives way to it.
+    /// hand zone, centred on the span — gives way to it.
     ///
     /// The case the old arithmetic lost is the last row: `preview_scale` goes
     /// to 1.75, which is a panel of 551 × 765, and on a 720-pixel-high window
-    /// that does not fit above a hand bar 174 pixels tall. The band's bounds
+    /// that does not fit above a hand zone 174 pixels tall. The band's bounds
     /// crossed, the clamp took the wrong one, and the preview hung off the
     /// bottom of the screen.
     #[test]
@@ -478,7 +520,7 @@ mod preview_place {
         );
     }
 
-    /// And when it cannot clear the hand bar, it sits **as high as it can**
+    /// And when it cannot clear the hand zone, it sits **as high as it can**
     /// rather than wherever a crossed clamp lands.
     ///
     /// A preview at a large `preview_scale` on a modest window is taller than
@@ -490,7 +532,7 @@ mod preview_place {
         let window = Vec2::new(1280.0, 720.0);
         let panel = Vec2::new(300.0, 600.0);
         assert!(
-            panel.y > window.y - HAND_BAR_H,
+            panel.y > window.y - HAND_ZONE_H,
             "the case only exists while the panel really is too tall"
         );
         for at in [
@@ -514,7 +556,7 @@ mod preview_place {
     fn a_hand_card_still_previews_above_the_hand_bar() {
         let place = preview_place(PreviewAt::Hand(864.0), PANEL, WINDOW);
         assert!(
-            (place.y + PANEL.y - (WINDOW.y - HAND_BAR_H - 10.0)).abs() < 1e-3,
+            (place.y + PANEL.y - (WINDOW.y - HAND_ZONE_H - 10.0)).abs() < 1e-3,
             "the panel's bottom edge is at {}",
             place.y + PANEL.y
         );
@@ -937,7 +979,7 @@ mod slip {
     /// prominent thing on screen, in the corner furthest from the hand it is
     /// answered from. This is the claim that stops it drifting back there:
     /// the row spans the window and centres what is in it, and it clears the
-    /// hand bar rather than sitting behind it.
+    /// hand zone rather than sitting behind it.
     #[test]
     fn the_prompt_slip_stands_in_the_middle_above_the_hand() {
         let node = super::super::overlay::slip_row_node();
@@ -949,8 +991,8 @@ mod slip {
             panic!("the slip is placed in pixels, not {:?}", node.bottom);
         };
         assert!(
-            bottom > HAND_BAR_H && bottom < HAND_BAR_H + 60.0,
-            "the slip sits at {bottom}, and the hand bar is {HAND_BAR_H} tall — \
+            bottom > HAND_ZONE_H && bottom < HAND_ZONE_H + 60.0,
+            "the slip sits at {bottom}, and the hand zone is {HAND_ZONE_H} tall — \
              it has to clear it and stay next to it"
         );
     }

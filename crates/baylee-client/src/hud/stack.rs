@@ -254,7 +254,7 @@ const SETTLE_RATE: f32 = 8.0;
 ///
 /// Three facts that arrive together and are read together, bundled so the
 /// panel's builders take one argument for them rather than three. They are
-/// the same three the hand bar reads — a spell on the stack is a legal
+/// the same three the hand zone reads — a spell on the stack is a legal
 /// target of anything that says "target spell", and a player choosing one is
 /// doing exactly what they do in the hand.
 pub(super) struct Picks<'a> {
@@ -269,7 +269,7 @@ pub(super) struct Picks<'a> {
 impl Picks<'_> {
     /// The light a row's picture wears, if it wears one.
     ///
-    /// The same light the hand bar draws, at the same three weights and from
+    /// The same light the hand zone draws, at the same three weights and from
     /// the same function — deliberately, and it is the whole argument for
     /// putting this on the *picture* rather than on the row. "The rules will
     /// accept this as an answer" is one claim, and a player who met it as a
@@ -846,7 +846,7 @@ fn spawn_stack_entry(
     // and a second writer with its own opinion about the alpha would fight it
     // for a quarter of a second every time a spell is cast. The overlay is
     // rebuilt whenever the hover changes anyway — `HudRevision` counts it —
-    // so the row can simply be *built* lit, which is what the hand bar has
+    // so the row can simply be *built* lit, which is what the hand zone has
     // always done with its halo.
     let hovered = picks.hovered == Some(item.id);
     let fill = if full {
@@ -1356,7 +1356,7 @@ fn spawn_stack_card(
     // printed sentence answer for the spell as well as the picture does. A
     // picture that stayed pickable inside a pickable row would also swallow
     // the row's own hover — a `Node` under the pointer is the hover, and its
-    // parent is then not hovered at all — which is the mistake the hand bar's
+    // parent is then not hovered at all — which is the mistake the hand zone's
     // labels have already made once. A **target** chip is its own object and
     // keeps its own handle.
     match object {

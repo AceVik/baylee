@@ -15,12 +15,14 @@
 //! and none of the rest of it, and the one frame where the row's card and the
 //! departing one have to be pixel-identical is the first one.
 //!
-//! So the row's own node is taken out of the hand bar and re-parented here,
+//! So the row's own node is taken out of the hand zone and re-parented here,
 //! which is `table::Departing` said in `bevy_ui`: the entity keeps its
 //! material, its halo, its corner radius and its constructed face, and loses
 //! the two components that made it a card in a hand. It cannot be left where
-//! it is, because the hand bar clips its children to `HAND_HEADROOM` — under
-//! thirty pixels, `ARMED_RAISE` plus `HALO_REACH` — and a departure that
+//! it is, because the hand zone clips its children — the strip sits
+//! `LEDGE_H + HAND_HEADROOM` down from the zone's top edge and the zone ends
+//! at the window's bottom — and a departure that stayed inside that clip
+//! would be a card sliding under an invisible line.
 //! stayed inside that clip would be a card sliding under an invisible line.
 //!
 //! # Z-order, and the one thing it costs
@@ -28,7 +30,7 @@
 //! The ghost is its own UI root, a sibling of `HudRoot` the way the seat bars
 //! are, which puts it over the whole interface — including the prompt bar it
 //! rises past. The alternative is under the whole interface, and that is
-//! worse in a way a player would see every single time: the hand bar paints a
+//! worse in a way a player would see every single time: the hand zone paints a
 //! veil over its own bottom edge, so a ghost behind it would darken on the
 //! frame it is supposed to be indistinguishable from the card it just was.
 //! A quarter of a second of a shrinking card over a panel is the cheaper of
@@ -61,7 +63,7 @@ pub struct Leaving {
 /// board and the card is already out of this one, so the difference between
 /// the two is the departure. The re-parenting is queued before the rebuild's
 /// despawn for the same reason, and commands are applied in the order the
-/// systems ran — so the card is out of the hand bar's tree before the tree is
+/// systems ran — so the card is out of the hand zone's tree before the tree is
 /// taken down.
 ///
 /// The trigger is the **view** and never the click. Casting is two-stage and
@@ -233,7 +235,7 @@ mod running {
 
     /// One node in the hand row, with the layout's answer already on it.
     ///
-    /// Both components, because that is what `spawn_hand_bar` puts on a row
+    /// Both components, because that is what `spawn_hand_zone` puts on a row
     /// card, and a `ComputedNode`/`UiGlobalTransform` pair because a headless
     /// app runs no `bevy_ui` layout and [`send_off`] reads the row's place off
     /// exactly those.
@@ -334,9 +336,9 @@ mod running {
         );
     }
 
-    /// It is taken out of the hand bar, which clips to `HAND_HEADROOM` — under
-    /// thirty pixels, not the eight an armed card is raised by — so a card
-    /// that stayed a child of the row would leave under an invisible line.
+    /// It is taken out of the hand zone, which clips its children to a box
+    /// that ends at the window's own bottom edge — so a card that stayed a
+    /// child of the row would leave under an invisible line.
     #[test]
     fn a_departing_card_is_flown_in_a_root_of_its_own() {
         let mut app = harness(&[1]);

@@ -96,7 +96,7 @@ pub mod glow {
     /// and never touches the border register at all.
     ///
     /// It rides this word anyway because the word is what reaches every
-    /// surface: table, hand bar, tray, own-board overlay and hover preview all
+    /// surface: table, hand zone, tray, own-board overlay and hover preview all
     /// key one [`CardLook`] on it. A commander drawn on the table and plain in
     /// the overlay would be the same card disagreeing with itself.
     pub const COMMANDER: u32 = 128;
@@ -227,7 +227,7 @@ impl Offer {
     /// armed.
     ///
     /// One reader for the three surfaces that draw a card — the table, the
-    /// hand bar and the own-board overlay — for the same reason [`glow_of`]
+    /// hand zone and the own-board overlay — for the same reason [`glow_of`]
     /// is one function: they draw the same cards, and an armed spell that lit
     /// up in the hand but not on the table would be worse than not drawing it
     /// at all.
@@ -311,7 +311,7 @@ pub fn glow_of(object: Option<&baylee_view::PublicObject>, offer: Offer) -> u32 
 /// and deliberately. That seam exists because `baylee-client-core` does not
 /// link `baylee-cards`; this crate does, and every one of `glow_of`'s three
 /// callers would otherwise pass the same closure to get the same answer, which
-/// is three chances for a card in the hand bar to disagree with the same card
+/// is three chances for a card in the hand zone to disagree with the same card
 /// on the table.
 ///
 /// `board::provenance_of` is still where the judgement is made. Nothing is

@@ -1,15 +1,18 @@
-//! The hand bar along the bottom, its scrolling, and the hover preview
+//! The hand zone along the bottom, its scrolling, and the hover preview
 //! that rises out of it.
 
 #[allow(clippy::wildcard_imports)] // the HUD's own vocabulary
 use super::*;
 
-/// The hand bar: a clipping container with the scrolling strip inside,
-/// the commander zone pinned to its right end. Always on top of the
-/// own-board overlay.
+/// The hand zone: a clipping container with the scrolling strip inside and
+/// the veil beneath it, reaching [`LEDGE_H`] further up than the cards do so
+/// that the ledge has something to stand on.
+///
+/// The ledge itself is **not** built here and is not a child of this node —
+/// see `ledge::spawn_ledge` for why a sibling.
 #[allow(clippy::too_many_arguments)]
-#[allow(clippy::too_many_lines)] // strip + commander zone are one flat build
-pub(super) fn spawn_hand_bar(
+#[allow(clippy::too_many_lines)] // strip, veil and cards are one flat build
+pub(super) fn spawn_hand_zone(
     commands: &mut Commands,
     lang: Lang,
     board: &baylee_client_core::BoardModel,
@@ -29,56 +32,47 @@ pub(super) fn spawn_hand_bar(
     touch: &crate::touch::Touched,
     mut cards: Option<&mut UiCards<'_>>,
 ) -> Entity {
-    let bar = commands
+    let zone = commands
         .spawn((
             Node {
                 position_type: PositionType::Absolute,
                 bottom: px(0),
                 left: px(0),
                 right: px(0),
-                height: px(HAND_BAR_H),
+                height: px(HAND_ZONE_H),
                 padding: UiRect::axes(px(HAND_BAR_PAD), px(HAND_BAR_PAD)),
                 overflow: Overflow::clip(),
                 ..default()
             },
-            // The bar was 88% black across the whole bottom of the window,
-            // and a hand of cards laid on a black strip is a hand of cards in
-            // a *panel* — the one thing on this screen that is not supposed
-            // to read as an interface. So it was made transparent, and the
-            // cards ended up lying directly on the sky. Two things were lost
-            // with the strip and only one of them was meant to go: the panel,
-            // yes; but also the dark ground every card's glow was being read
-            // against, which is why the owner reports the hand glow as
-            // missing (`halo` has the measurement).
+            // The strip under the cards was 88% black across the whole bottom
+            // of the window, and a hand of cards laid on a black strip is a
+            // hand of cards in a *panel* — the one thing on this screen that
+            // is not supposed to read as an interface. So it was made
+            // transparent, and the cards ended up lying directly on the sky.
+            // Two things were lost with the strip and only one of them was
+            // meant to go: the panel, yes; but also the dark ground every
+            // card's glow was being read against, which is why the owner
+            // reported the hand glow as missing (`halo` has the measurement).
             //
-            // This is the ground back without the panel. A vertical gradient
-            // from nothing at the top edge to a soft blue-black at the
-            // bottom: it has no top edge to read as a frame, it darkens where
-            // the cards actually are, and it stops well short of the strip's
-            // 88% — a veil over the table rather than a lid on it, and
-            // `VEIL_ALPHA` has the measurement. The hue is `palette::PANEL`'s, one
-            // step cooler — the felt and the sky are both saturated and a
-            // neutral grey over either of them reads as dirt.
+            // The ground is back as the veil child below — a gradient from
+            // nothing to a soft blue-black, a veil over the table rather than
+            // a lid on it. The zone itself paints nothing at all.
             //
             // No `BoxShadow` here, ever: a shadow is drawn from a node's
-            // rectangle and not from its paint, so even a transparent bar
+            // rectangle and not from its paint, so even a transparent zone
             // with an elevation shadow lays a hard dark band the width of the
             // window across the table. That is the trap this node has already
-            // fallen into once, and a gradient is what a soft edge costs
-            // instead.
+            // fallen into once. The ledge is allowed one because the ledge is
+            // opaque and its shadow falls on the cards, which is the whole
+            // point of it.
             BackgroundColor(Color::NONE),
-            BackgroundGradient::from(LinearGradient::to_bottom(vec![
-                ColorStop::percent(VEIL.with_alpha(0.0), 0.0),
-                ColorStop::percent(VEIL.with_alpha(VEIL_ALPHA * 0.45), 38.0),
-                ColorStop::percent(VEIL.with_alpha(VEIL_ALPHA), 100.0),
-            ])),
             ZIndex(Z_HAND),
-            // Hoverable, and still blocking nothing. The bar is a veil over
+            // Hoverable, and still blocking nothing. The zone lies over
             // the table and a click has always gone straight through it —
             // which is what `should_block_lower: false` keeps — but a wheel
             // has to *land* somewhere to be the hand's, and the gaps between
-            // the cards are most of the bar. `Pickable::IGNORE` is both bits
-            // off, which made the whole bar invisible to the pointer and
+            // the cards are most of it. `Pickable::IGNORE` is both bits
+            // off, which made the whole zone invisible to the pointer and
             // left "is this scroll the hand's" to a rectangle measured from
             // the bottom of the window.
             Pickable {
@@ -89,13 +83,47 @@ pub(super) fn spawn_hand_bar(
         ))
         .id();
 
+    // The veil, and the reason it is a child rather than the zone's own
+    // paint. The zone now reaches `LEDGE_H` above the cards so the ledge has
+    // something to stand on, and a gradient on the zone itself would start
+    // its climb up there — under an opaque shelf, where none of it can be
+    // seen, and arriving at the cards already part-way dark. The veil is the
+    // strip's ground, so it starts where the shelf ends.
+    //
+    // Spawned before the strip and added as a child first: children paint in
+    // order, and a ground added after the cards is a ground drawn over them.
+    let veil = commands
+        .spawn((
+            Node {
+                position_type: PositionType::Absolute,
+                top: px(LEDGE_H),
+                left: px(0),
+                right: px(0),
+                bottom: px(0),
+                ..default()
+            },
+            BackgroundColor(Color::NONE),
+            BackgroundGradient::from(LinearGradient::to_bottom(vec![
+                ColorStop::percent(VEIL.with_alpha(0.0), 0.0),
+                ColorStop::percent(VEIL.with_alpha(VEIL_ALPHA * 0.45), 38.0),
+                ColorStop::percent(VEIL.with_alpha(VEIL_ALPHA), 100.0),
+            ])),
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(zone).add_child(veil);
+
     let strip = commands
         .spawn((
             HandStrip,
             Node {
                 position_type: PositionType::Absolute,
                 left: px(0),
-                top: px(HAND_HEADROOM),
+                // Under the ledge, then the air a raised card needs. The
+                // zone's own padding does not move an absolutely-positioned
+                // child: taffy measures one against the padding *box*, which
+                // is the border box less the border, and there is no border.
+                top: px(LEDGE_H + HAND_HEADROOM),
                 height: px(HAND_CARD_H),
                 // Spawn already at the current scroll offset — starting at
                 // zero and correcting next frame is the hand's flicker.
@@ -201,10 +229,9 @@ pub(super) fn spawn_hand_bar(
                     position_type: PositionType::Absolute,
                     left: px(left),
                     // An armed card stands out of the row, the way the table
-                    // lifts an armed permanent. The bar keeps exactly this
-                    // much headroom inside its own clip (`HAND_BAR_H` is the
-                    // card plus twice ten, and the strip starts at ten), so
-                    // the raise never cuts the card's top edge off.
+                    // lifts an armed permanent. [`HAND_HEADROOM`] is the air
+                    // it rises into and the ledge above it is what stops it,
+                    // so the raise never reaches the zone's clip at all.
                     //
                     // Spawned where the card *is* rather than where it
                     // belongs, because this tree is rebuilt on every hover
@@ -248,16 +275,16 @@ pub(super) fn spawn_hand_bar(
         commands.entity(entity).add_child(shade);
         commands.entity(strip).add_child(entity);
     }
-    commands.entity(bar).add_child(strip);
+    commands.entity(zone).add_child(strip);
 
     // The command zone is *not* drawn here any more. It is a zone on the
     // table like the graveyard and the exile pile, and it was the only one
-    // that had been copied into the hand bar as a flat 2D card — so a seat's
+    // that had been copied into the hand zone as a flat 2D card — so a seat's
     // commander existed twice, in two sizes, in two renderers, and the 3D
     // slot beside the mat sat empty beneath the copy. `table::spawn_piles`
     // and the pile placements draw it now, where a public zone belongs
     // (CR 903.6), and the cast tax rides on the card itself.
-    bar
+    zone
 }
 
 /// Where the hand should be scrolled to, given where it is now.
@@ -337,26 +364,36 @@ pub fn apply_hand_scroll(
 
 /// The middle of hand card `index`, in window pixels.
 ///
-/// Every term the bar itself applies, in the order the bar applies them: its
-/// own padding, the strip's inset, the layout's centring `lead`, the scroll
-/// offset, and the card's place in the row. It exists because the preview
-/// used to compute a shorter version of this sum — inset and step, no
-/// padding and no `lead` — so the bubble opened `HAND_BAR_PAD + lead` to the
-/// left of the card it belonged to. `lead` is half the bar's spare room, so
-/// the emptier the hand, the further away the preview stood: five hundred
-/// pixels on a wide window, which reads as a panel with no connection to
-/// anything.
+/// Every term the zone itself applies, in the order it applies them: the
+/// strip's inset, the layout's centring `lead`, the scroll offset, and the
+/// card's place in the row. It exists because the preview used to compute a
+/// shorter version of this sum — inset and step, no `lead` — so the bubble
+/// opened `lead` to the left of the card it belonged to. `lead` is half the
+/// zone's spare room, so the emptier the hand, the further away the preview
+/// stood: five hundred pixels on a wide window, which reads as a panel with
+/// no connection to anything.
+///
+/// **[`HAND_BAR_PAD`] is not a term here**, and it was, for as long as this
+/// function has existed. The strip is an absolutely-positioned child and
+/// taffy lays one of those out against the padding *box* — the border box
+/// less the border, of which there is none — so the zone's padding moves the
+/// strip not at all. The ten pixels were real in the sum and not on the
+/// screen, which is why they read as a bubble slightly to the right of its
+/// card rather than as anything obviously broken.
+///
+/// Measured, because the test that was here restated this same sum and so
+/// agreed with it however wrong it was: at 1728 logical pixels with four
+/// cards in hand, `/state` reports card centres at 714, 814, 914 and 1014,
+/// and this function answered 724.
 #[must_use]
 pub(super) fn hand_card_x(layout: HandLayout, scroll: f32, index: usize) -> f32 {
-    HAND_BAR_PAD + HAND_STRIP_INSET + layout.lead - scroll
-        + index as f32 * layout.step
-        + HAND_CARD_W / 2.0
+    HAND_STRIP_INSET + layout.lead - scroll + index as f32 * layout.step + HAND_CARD_W / 2.0
 }
 
 /// Where the preview panel stands.
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub(super) enum PreviewAt {
-    /// A card in the hand bar. The bubble sits above the bar with its tail on
+    /// A card in the hand zone. The bubble sits above the bar with its tail on
     /// the card, which is where a hand card's preview has always opened and
     /// is the one place in the client where the card has a position the HUD
     /// itself knows.
@@ -386,7 +423,7 @@ pub(super) fn preview_anchor(
     spot: Option<crate::HoverSpot>,
 ) -> Option<(Option<ImageKey>, PreviewAt)> {
     let h = hovered?;
-    // Where the hover happened, for everything that is not in the hand bar.
+    // Where the hover happened, for everything that is not in the hand zone.
     // Checked once here rather than at each arm below, because "where the
     // panel goes" is the same question whatever the card turned out to be.
     let at = match spot {
@@ -497,7 +534,7 @@ fn viewport(panel: Vec2, window: Vec2) -> (Vec2, Vec2) {
 }
 
 /// The band the panel *prefers*: the viewport, kept off the window's own top
-/// edge and out from under the hand bar.
+/// edge and out from under the hand zone.
 ///
 /// A preference rather than a rule, and the difference is the whole point.
 /// The bar is 174 logical pixels of hand, and a preview at a large
@@ -515,7 +552,7 @@ fn band(panel: Vec2, window: Vec2) -> (Vec2, Vec2) {
     // but at the inset, and the top edge must not be pushed off the screen
     // to keep a rule about the bottom one.
     let top = EDGE.clamp(low.y, high.y);
-    let bottom = window.y - HAND_BAR_H - PREVIEW_INSET - panel.y;
+    let bottom = window.y - HAND_ZONE_H - PREVIEW_INSET - panel.y;
     let floor = if bottom >= top { bottom } else { top };
     (Vec2::new(low.x, top), Vec2::new(high.x, floor))
 }
@@ -528,7 +565,7 @@ fn band(panel: Vec2, window: Vec2) -> (Vec2, Vec2) {
 /// the one bound that cannot be traded away — and the aspect is kept, because
 /// a squashed card is a card a player reads the wrong number off.
 ///
-/// Not against the hand bar as well: standing clear of the hand is a
+/// Not against the hand zone as well: standing clear of the hand is a
 /// *preference* the placement expresses, and paying for it in picture size on
 /// a short window would make every preview smaller to protect a strip the
 /// panel is allowed to overlap anyway.
@@ -555,11 +592,11 @@ pub(super) fn preview_place(at: PreviewAt, panel: Vec2, window: Vec2) -> Vec2 {
     match at {
         PreviewAt::Hand(x) => banded(Vec2::new(
             x - panel.x / 2.0,
-            window.y - HAND_BAR_H - 10.0 - panel.y,
+            window.y - HAND_ZONE_H - 10.0 - panel.y,
         )),
         PreviewAt::Loose => banded(Vec2::new(
             (window.x - panel.x) / 2.0,
-            window.y - HAND_BAR_H - 10.0 - panel.y,
+            window.y - HAND_ZONE_H - 10.0 - panel.y,
         )),
         PreviewAt::Card(rect) => beside(rect, panel, low, high, window),
         // The pointer is a rectangle of no size: the same arithmetic, with
@@ -607,7 +644,7 @@ fn beside(card: Rect, panel: Vec2, low: Vec2, high: Vec2, window: Vec2) -> Vec2 
     let (from, to) = (card.min.x, card.max.x);
     let (top, bottom) = (card.min.y, card.max.y);
     let middle = card.center().y;
-    // Kept clear of the window's own edge and of the hand bar while it fits
+    // Kept clear of the window's own edge and of the hand zone while it fits
     // there, and inside the window without exception. It used to be kept
     // clear of the tab strip and the phase rail as well; both are on the
     // table now, so the preview may open a hundred pixels higher than it
@@ -754,18 +791,64 @@ pub(super) const HALO_REACH: f32 = HALO_SPREAD / 2.0 + 2.0 * HALO_BLUR;
 pub const OVERLAY_CARD_W: f32 = 86.0;
 /// Card height in the own-board overlay (63:88).
 pub const OVERLAY_CARD_H: f32 = OVERLAY_CARD_W * 88.0 / 63.0;
-/// The hand bar's height, including its padding.
-pub const HAND_BAR_H: f32 = HAND_CARD_H + HAND_HEADROOM + HAND_FOOTROOM;
-
-/// How much room the bar keeps above a card, and why it is not ten.
+/// The ledge: the zone's top edge, and the one place on this screen a player
+/// works at.
 ///
-/// The bar clips its children, and a `BoxShadow` is a child's paint like any
-/// other — so a gap shorter than the tallest thing that can stand out of a
-/// card cuts a glow off flat, which reads as a rectangle drawn round the card
-/// rather than as a light coming off it. Two things stand out: the halo, and
-/// an armed card raised by [`ARMED_RAISE`] with its halo still on. Both at
-/// once is the bound.
-pub const HAND_HEADROOM: f32 = ARMED_RAISE + HALO_REACH;
+/// Six pixels of air, a 28-pixel button, six more — the button being a
+/// keycap's twenty plus its own padding. Not the lobby's 44: the lobby is the
+/// one responsive screen and the table is a desktop picture with the keyboard
+/// first, and a 44-px button is a 56-px ledge. Every pixel of ledge is a
+/// pixel of table, or 0.72 pixels of hand card; that is the whole of the
+/// exchange, and it is why this number is small.
+pub const LEDGE_H: f32 = 40.0;
+
+/// The zone along the bottom: the ledge, the room a raised card needs, the
+/// cards, and the room under them.
+///
+/// It replaces `HAND_BAR_H`, which named this strip while it was only a
+/// backdrop for a row of cards. The hand and the question the engine is
+/// asking are one zone now, and its top edge is the ledge.
+pub const HAND_ZONE_H: f32 = LEDGE_H + HAND_HEADROOM + HAND_CARD_H + HAND_FOOTROOM;
+
+/// The zone is what the camera is framed against, so its height is a budget
+/// and not a result.
+///
+/// `Canvas::hud.bottom` is this number, and `CameraRig::home` frames the table
+/// in what is left — so a zone that grows takes the table with it, silently
+/// and on every screen. The bar it replaces was 188.65; the ceiling is that
+/// plus a rounding's worth of slack. A change that breaks this is a change
+/// that costs table, and it has to say so rather than be discovered in a
+/// screenshot.
+const _: () = assert!(HAND_ZONE_H <= 191.0);
+
+/// What stands out of a raised card has to fit under the ledge.
+///
+/// This is [`HAND_HEADROOM`]'s old promise, moved to where the room actually
+/// is now. The halo is no longer cut by the clip — it runs on under the ledge
+/// — but "under the ledge" is only true while the ledge is deep enough to
+/// cover it, and both numbers can move on their own.
+const _: () = assert!(ARMED_RAISE + HALO_REACH <= LEDGE_H + HAND_HEADROOM);
+
+/// How much room the zone keeps between a card and the ledge, and why it is
+/// no longer twenty-five.
+///
+/// Twenty-five was `ARMED_RAISE + HALO_REACH`, and it was measured: the zone
+/// clips its children, a `BoxShadow` is a child's paint like any other, and a
+/// glow cut off flat along a horizontal line stops reading as a light and
+/// starts reading as a box drawn round the card. The photograph behind it is
+/// a red-channel step of 8 across the clip line against 72 at the card's own
+/// edge.
+///
+/// The arrangement is what changed, not the arithmetic. The zone now reaches
+/// `LEDGE_H` further up than the cards do, and the ledge is an **opaque**
+/// sibling standing on that strip: a halo that reaches past the card's top
+/// has forty pixels to spend before the clip is anywhere near it, and what
+/// ends it is the ledge *covering* it. A card runs under a shelf instead of
+/// being cut by a line — and the shelf casts its shadow down onto it.
+///
+/// So this is only the air between the card's raised top edge and the shelf
+/// it must not touch: [`ARMED_RAISE`] plus four.
+pub const HAND_HEADROOM: f32 = ARMED_RAISE + 4.0;
 
 /// The room under a card, which nothing has to clear: below the bottom edge
 /// is the window's own edge, and a halo cut off there is cut off by the

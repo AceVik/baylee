@@ -269,7 +269,7 @@ mod running {
 
     /// One hand card in a world with the two systems in it.
     ///
-    /// The card is built the way the hand bar builds one: a node carrying
+    /// The card is built the way the hand zone builds one: a node carrying
     /// [`crate::hud::HandCardVisual`], with the shade pane as its child. The
     /// `Time` is advanced by hand, so every number below is a duration and
     /// not a frame count.
@@ -296,7 +296,7 @@ mod running {
 
     /// One node in the hand row, born where the card already is.
     ///
-    /// Both components, because that is what `spawn_hand_bar` puts on it and
+    /// Both components, because that is what `spawn_hand_zone` puts on it and
     /// the pair is the point: the wider one is what a click and a hover are
     /// resolved through, the marker is what says this node is the row's.
     fn hand_card(app: &mut App, object: ObjectId, top: f32) -> Entity {
@@ -445,7 +445,7 @@ mod running {
 
     /// The rebuild test, and the reason a [`Touch`] lives in a resource.
     ///
-    /// The hand bar is rebuilt whenever the pointer crosses a card, so the
+    /// The hand zone is rebuilt whenever the pointer crosses a card, so the
     /// node under the finger is despawned and a fresh one takes its place
     /// mid-press. The card must not start again from the row — which is
     /// exactly what an animation held on the entity would do.
@@ -458,7 +458,7 @@ mod running {
         assert!(before > 0.0);
 
         app.world_mut().entity_mut(card).despawn();
-        // Spawned where the card is, which is what `spawn_hand_bar` asks the
+        // Spawned where the card is, which is what `spawn_hand_zone` asks the
         // resource for.
         let lift = app.world().resource::<Touched>().lift_of(object, 0.0);
         let fresh = hand_card(&mut app, object, lift);
@@ -606,7 +606,7 @@ mod running {
 
     /// And a press on a stack slot is not a finger in the hand.
     ///
-    /// Asserted through `lift_of`, which is the question `spawn_hand_bar`
+    /// Asserted through `lift_of`, which is the question `spawn_hand_zone`
     /// asks — so what it says is what the row would be built from.
     #[test]
     fn a_press_on_a_stack_slot_puts_no_finger_on_anything() {

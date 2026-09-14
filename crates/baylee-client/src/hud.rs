@@ -14,7 +14,7 @@
 //!   concede, as a row of pills over the felt rather than a band across it.
 //! - **Right** — the stack, drawn as cards, under those pills.
 //! - **The middle** — the prompt slip, the zone browser, the hover preview.
-//! - **Bottom** — the hand bar: card images, overlapping but never less
+//! - **Bottom** — the hand zone: card images, overlapping but never less
 //!   than 30% visible, horizontally scrollable when even that overflows,
 //!   with a large hover tooltip for reading a card.
 //!
@@ -640,23 +640,41 @@ pub struct Veil {
     pub lit: f32,
 }
 
-/// The scrolling strip inside the hand bar.
+/// The scrolling strip inside the hand zone.
 #[derive(Component)]
 pub struct HandStrip;
 
 /// Hand card geometry: the size every hand card renders at.
-pub const HAND_CARD_W: f32 = 110.0;
+///
+/// It was 110, and the owner asked for a hand of slightly less height. A hand
+/// card keeps 63:88, so height is not a number this file has — it is the
+/// width, seen the other way round, and 110 → 92 is 25.1 pixels off the
+/// bottom of the window. That is what pays for [`hand::LEDGE_H`]: the zone is
+/// 1.9 px taller than the bar it replaces, which the camera cannot see.
+///
+/// Not 84. The card's printed name is rastered across this width (`face.rs`),
+/// and under about 88 px it falls below the legibility floor the preview card
+/// is held to — a hand of cards nobody can read is not a smaller hand.
+pub const HAND_CARD_W: f32 = 92.0;
 /// Height, keeping the 63:88 card aspect.
 pub const HAND_CARD_H: f32 = HAND_CARD_W * 88.0 / 63.0;
 /// The fraction of a card that must stay visible when cards overlap.
 const MIN_VISIBLE: f32 = 0.3;
 
-/// The bar's own padding, which every card in it starts after.
+/// How much of the window the hand may not lay itself out in.
 ///
-/// The strip is an absolutely-positioned child, so it is measured against
-/// the bar's *padding* box: a card's screen x is this, plus the strip's
-/// margin, plus its place in the row. Anything that has to point at a hand
-/// card from outside the bar has to add it too — see [`HAND_STRIP_INSET`].
+/// It is written as the zone's padding and read by [`hand_available`], and
+/// those are two different facts about it — because the padding moves
+/// **nothing**. The strip is an absolutely-positioned child, and taffy lays
+/// one of those out against the padding *box*, which is the border box less
+/// the border and has no padding taken off it. What actually holds the row
+/// off the window's edges is [`HAND_STRIP_INSET`] on one side and the
+/// layout's centring `lead` on the other, and they balance because `lead` is
+/// computed from a width this has already been subtracted from.
+///
+/// So: a term in the row's **width**, never a term in a card's **position**.
+/// It was both for as long as it existed, which put the hover preview ten
+/// pixels to the right of its own card — see `hand::hand_card_x`.
 pub const HAND_BAR_PAD: f32 = 10.0;
 
 /// Where the strip's own left edge sits inside that padding box.
@@ -689,7 +707,7 @@ pub fn hand_available(window_w: f32) -> f32 {
     (window_w - 2.0 * HAND_BAR_PAD).max(0.0)
 }
 
-/// How the hand bar lays out `count` cards of `card_w` width in
+/// How the hand zone lays out `count` cards of `card_w` width in
 /// `available_w` pixels: the distance between card starts, the total
 /// content width, and whether scrolling is required.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -869,11 +887,11 @@ pub struct HudRevision {
     ///
     /// Nothing in this struct followed the *window* before, so a HUD built
     /// for one size stood there unchanged after a resize — latent everywhere
-    /// the overlay reads `windows` (the hand bar does, at
-    /// `overlay.rs`'s `spawn_hand_bar`), and no longer latent at all once the
+    /// the overlay reads `windows` (the hand zone does, at
+    /// `overlay.rs`'s `spawn_hand_zone`), and no longer latent at all once the
     /// zone browser is placed from a band whose height is the window's. A
     /// rebuild on resize is cheaper than a system clamping the sheet every
-    /// frame, and it fixes the hand bar on the way past.
+    /// frame, and it fixes the hand zone on the way past.
     window: (i32, i32),
 }
 
@@ -1064,8 +1082,8 @@ pub(crate) mod palette {
     /// things in the window. A pure-black veil would have darkened everything
     /// and separated nothing.
     ///
-    /// It is the same blue-black the hand bar's own ground is, one step
-    /// deeper, and that is not a coincidence worth hiding: the hand bar is
+    /// It is the same blue-black the hand zone's own ground is, one step
+    /// deeper, and that is not a coincidence worth hiding: the hand zone is
     /// already a veil over the felt and already picked cool for the same
     /// reason, so a second one in another hue would read as two materials
     /// where there is one.
@@ -1230,13 +1248,17 @@ pub(crate) fn btn_radius() -> BorderRadius {
 
 /// The stack of spells waiting to resolve.
 pub(crate) const Z_STACK: i32 = 1;
-/// The hand bar.
+/// The hand zone: the cards and the ground they lie on.
 pub(crate) const Z_HAND: i32 = 2;
 /// The veil over the table, behind a dialog holding the whole answer.
 pub(crate) const Z_VEIL: i32 = 3;
-/// The prompt slip: the sentence that says what the question *is*, and so the
-/// one surface a veil must never dim.
-pub(crate) const Z_SLIP: i32 = 4;
+/// The ledge: the edge the hand zone ends at, carrying the question, its
+/// answers, the mana pool and the two ways out — and so the one surface a
+/// veil must never dim.
+///
+/// It was `Z_SLIP`, for the prompt slip that used to float here and said the
+/// same thing about itself. The name changed; the reason did not.
+pub(crate) const Z_LEDGE: i32 = 4;
 /// The zone browser's dialog — and the end screen's sheet, which is over a
 /// veil of its own under a different root and wants the same answer.
 pub(crate) const Z_SHEET: i32 = 5;
@@ -1255,7 +1277,7 @@ pub(crate) const Z_PREVIEW: i32 = 10;
 /// the number outlived them: it is what the menu pills, the stack, the tray
 /// and the browser all stand off by.
 ///
-/// The hand bar keeps its own ten: its edge is never seen (it is full-width
+/// The hand zone keeps its own ten: its edge is never seen (it is full-width
 /// and its cards are centred), and the number is load-bearing arithmetic in
 /// [`hand`]'s spread rather than an inset.
 pub(crate) const EDGE: f32 = 12.0;
@@ -1280,11 +1302,11 @@ pub(crate) const MENU_H: f32 = 32.0;
 /// stack at all.
 pub(crate) const MENU_BAND: f32 = EDGE + MENU_H + EDGE;
 
-/// How far the two things that float above the hand bar — the prompt slip
+/// How far the two things that float above the hand zone — the prompt slip
 /// and the mana chip — stand off it.
 ///
 /// One constant for the same reason [`EDGE`] is: they sit side by side at
-/// the same height and were pinned at `HAND_BAR_H + 12` and `+ 10`.
+/// the same height and were pinned at `HAND_ZONE_H + 12` and `+ 10`.
 pub(crate) const ABOVE_HAND: f32 = 12.0;
 
 /// A card's corner radius for a given rendered width.
@@ -1358,6 +1380,7 @@ pub struct CardMotion<'w> {
 mod card;
 mod finish;
 mod hand;
+mod ledge;
 mod overlay;
 pub(crate) mod rail;
 mod scroll;
@@ -1372,7 +1395,7 @@ mod tests;
 
 use card::{FaceCtx, spawn_card_art};
 use hand::{
-    PreviewAt, preview_anchor, preview_art_size, preview_face, preview_place, spawn_hand_bar,
+    PreviewAt, preview_anchor, preview_art_size, preview_face, preview_place, spawn_hand_zone,
     underneath_place,
 };
 use overlay::BUTTON_GAP;
@@ -1381,7 +1404,7 @@ use stack::spawn_stack_panel;
 
 pub(crate) use finish::{FinishExits, despawn_finish, settle_the_sheet, spawn_finish};
 pub use hand::apply_hand_scroll;
-pub use hand::{ARMED_RAISE, HAND_BAR_H, OVERLAY_CARD_H, OVERLAY_CARD_W};
+pub use hand::{ARMED_RAISE, HAND_ZONE_H, LEDGE_H, OVERLAY_CARD_H, OVERLAY_CARD_W};
 pub(crate) use overlay::answer_button;
 pub use overlay::{despawn_overlay, sync_overlay};
 pub use rail::same_team;

@@ -4,7 +4,7 @@
 //! in the preview and in the stack panel, continuously, on a six-second loop.
 //! It looked expensive and it said nothing: a mark every card wears at all
 //! times is not a mark. Measured on a still table with nothing hovered, a
-//! 24×16 frame diff put *all* of the change in the hand bar — mean 18 to 30
+//! 24×16 frame diff put *all* of the change in the hand zone — mean 18 to 30
 //! per cell against a table at zero — which is also the answer to "the cards
 //! flicker at rest".
 //!
@@ -129,7 +129,7 @@ impl Sweep {
 /// would get wrong.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum Surface {
-    /// A card in the hand bar: it was drawn.
+    /// A card in the hand zone: it was drawn.
     Hand,
     /// A permanent on the felt: it was played.
     Table,

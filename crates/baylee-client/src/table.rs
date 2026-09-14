@@ -440,7 +440,7 @@ impl CameraRig {
     /// has to fit changes: two seats and eight seats are different tables,
     /// and a phone and a monitor leave different amounts of them uncovered.
     /// The hard-coded 20 units it replaced put the local seat's own mat under
-    /// the hand bar on every screen — a player could not see their own
+    /// the hand zone on every screen — a player could not see their own
     /// creatures, which made every later piece of board legibility moot.
     #[must_use]
     pub fn home(layout: &TableLayout, canvas: Canvas) -> Self {
@@ -451,7 +451,7 @@ impl CameraRig {
         let span = max - min;
 
         // The free band, as normalised device coordinates: +1 is the top of
-        // the window, and the tab strip and the hand bar eat inwards.
+        // the window, and the tab strip and the hand zone eat inwards.
         let top = 1.0 - 2.0 * canvas.top / canvas.window.y.max(1.0);
         let bottom = -1.0 + 2.0 * canvas.bottom / canvas.window.y.max(1.0);
         let right = 1.0 - 2.0 * canvas.right / canvas.window.x.max(1.0);
@@ -516,7 +516,7 @@ impl CameraRig {
         // table too big for `MAX_DISTANCE` has no such interval, and there
         // the far edge is pinned again and the overflow goes out of the
         // bottom, which is the graceful direction: a mat behind the tab strip
-        // is a mat nobody can see, and one under the hand bar is one the
+        // is a mat nobody can see, and one under the hand zone is one the
         // player can pull into view.
         //
         // Sideways the span is centred in the band as it stands at the near
@@ -559,7 +559,7 @@ impl CameraRig {
 /// reports is the box the *cards* stand in, and a seat's mat is drawn
 /// [`ZONE_MARGIN`] wider than that on every side — so a shot framed on the
 /// reported box crops the mat's own printed border, and at the near edge it
-/// crops it under the hand bar.
+/// crops it under the hand zone.
 ///
 /// The rest is the felt itself. A table framed to the last pixel of the band
 /// reads as a photograph someone cropped too tightly, whatever the arithmetic
@@ -605,7 +605,7 @@ fn ground(q: f32) -> f32 {
 
 /// The part of the window the table is actually seen through.
 ///
-/// The HUD is not beside the battlefield, it is on top of it: the hand bar is
+/// The HUD is not beside the battlefield, it is on top of it: the hand zone is
 /// an overlay on the same full-window camera. Framing the table against the
 /// *window* therefore frames it against a rectangle part of which nobody can
 /// see.
@@ -624,7 +624,7 @@ pub struct Canvas {
     /// a future panel across the top would say so in, and because the framing
     /// arithmetic below is written in terms of all four sides.
     pub top: f32,
-    /// Covered at the bottom: the hand bar.
+    /// Covered at the bottom: the hand zone.
     pub bottom: f32,
     /// Covered on the right. Nothing: the menu pills are a corner rather than
     /// a column, and the stack panel is drawn over the felt on purpose — a
@@ -640,7 +640,7 @@ impl Canvas {
         Self {
             window,
             top: 0.0,
-            bottom: crate::hud::HAND_BAR_H,
+            bottom: crate::hud::HAND_ZONE_H,
             right: 0.0,
         }
     }
@@ -3605,7 +3605,7 @@ mod camera_tests {
     /// projects 548, 688, 768 and 1247 pixels long and 21.1, 30.7, 36.2 and
     /// 69.4 deep. The length runs 0.69, 0.67, 0.67 and 0.65 of the window's
     /// width — a band and not a constant, and it narrows as the window grows
-    /// because `Canvas::hud` takes a *fixed* hand bar off the bottom, so a
+    /// because `Canvas::hud` takes a *fixed* hand zone off the bottom, so a
     /// small window is a squarer canvas.
     ///
     /// Every hand-over above the smallest window is a **depth** one, and that
@@ -3976,7 +3976,7 @@ mod camera_tests {
 
     /// The bug this whole framing exists for: the table shipped with a
     /// hard-coded 20-unit camera looking at the middle of the felt, and the
-    /// local seat's own mat came out *underneath the hand bar*. A player
+    /// local seat's own mat came out *underneath the hand zone*. A player
     /// could not see their own creatures.
     #[test]
     fn the_local_seats_own_mat_is_not_behind_the_hand_bar() {
@@ -4000,7 +4000,7 @@ mod camera_tests {
         );
         assert!(
             good.y >= floor,
-            "the near edge of my own mat is still under the hand bar: {} vs {floor}",
+            "the near edge of my own mat is still under the hand zone: {} vs {floor}",
             good.y
         );
     }
@@ -4040,7 +4040,7 @@ mod camera_tests {
         let top = 1.0 - 2.0 * canvas.top / canvas.window.y;
         let bottom = -1.0 + 2.0 * canvas.bottom / canvas.window.y;
         // Both bounds, because only checking the near edge is exactly the
-        // hole that let the hand bar bug through in the first place: a shot
+        // hole that let the hand zone bug through in the first place: a shot
         // aimed too far off can satisfy one edge by breaking the other.
         for corner in corners(&layout) {
             let at = project(rig, canvas, corner);

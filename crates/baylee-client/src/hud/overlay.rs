@@ -365,7 +365,7 @@ pub fn sync_overlay(
         // the only thing left to do: dimming the words that state it would be
         // the veil contradicting itself.
         let slip_row = commands
-            .spawn((slip_row_node(), ZIndex(Z_SLIP), Pickable::IGNORE))
+            .spawn((slip_row_node(), ZIndex(Z_LEDGE), Pickable::IGNORE))
             .id();
         let slip = commands.spawn((
             Node {
@@ -857,7 +857,7 @@ pub fn sync_overlay(
                 .spawn((
                     Node {
                         position_type: PositionType::Absolute,
-                        bottom: px(HAND_BAR_H + ABOVE_HAND),
+                        bottom: px(HAND_ZONE_H + ABOVE_HAND),
                         left: px(EDGE),
                         flex_direction: FlexDirection::Row,
                         align_items: AlignItems::Center,
@@ -932,13 +932,13 @@ pub fn sync_overlay(
         }
     }
 
-    // ---- bottom: the hand bar (always on top) ---------------------------
+    // ---- bottom: the hand zone (always on top) ---------------------------
     if let Some(statics) = duel.statics.as_ref() {
         let available = windows
             .single()
             .map_or(1200.0, |w| hand_available(w.width()));
         let layout = hand_layout(board.hand.len(), HAND_CARD_W, available);
-        let hand_bar = spawn_hand_bar(
+        let hand_zone = spawn_hand_zone(
             &mut commands,
             lang,
             board,
@@ -958,7 +958,19 @@ pub fn sync_overlay(
             &motion.touch,
             cards.as_mut(),
         );
-        commands.entity(root).add_child(hand_bar);
+        commands.entity(root).add_child(hand_zone);
+
+        // The ledge stands on top of the zone and is a *sibling* of it, not a
+        // child: `ZIndex` counts among siblings, and the question has to
+        // stand over the table veil the zone dialog paints while the hand
+        // goes dark under it. `ledge::spawn_ledge` has the whole reason.
+        //
+        // Spawned after the zone so that, at equal `ZIndex`, it would still
+        // be the later of the two — the order is not what carries it, but a
+        // shelf built before the thing it stands on is a trap left for
+        // somebody.
+        let ledge = ledge::spawn_ledge(&mut commands);
+        commands.entity(root).add_child(ledge);
 
         // ---- card preview: a speech-bubble tooltip over the hovered
         // card (hand, own battlefield, or command zone). No title text —
@@ -1112,7 +1124,7 @@ pub fn sync_overlay(
                         overflow: Overflow::clip(),
                         ..default()
                     },
-                    // Transparent, like the hand bar under it and for the
+                    // Transparent, like the hand zone under it and for the
                     // same reason: the preview is a *card* held up to the
                     // light, and it was drawn as a card inside a dark tile
                     // six pixels bigger on every side. The padding stays —
@@ -1340,13 +1352,13 @@ pub fn sync_overlay(
             // and only for a hand card, which is the only one the tail can
             // point *at*. A panel standing beside a permanent needs none: it
             // is already next to the thing it describes, and a caret aimed
-            // down into the hand bar from there would name a card at random.
+            // down into the hand zone from there would name a card at random.
             if let PreviewAt::Hand(x) = anchor {
                 let tail = commands
                     .spawn((
                         Node {
                             position_type: PositionType::Absolute,
-                            bottom: px(HAND_BAR_H + 2.0),
+                            bottom: px(HAND_ZONE_H + 2.0),
                             left: px(x - 9.0),
                             ..default()
                         },
@@ -1939,7 +1951,7 @@ pub(super) fn slip_text(
 pub(super) fn slip_row_node() -> Node {
     Node {
         position_type: PositionType::Absolute,
-        bottom: px(HAND_BAR_H + ABOVE_HAND),
+        bottom: px(HAND_ZONE_H + ABOVE_HAND),
         left: px(0),
         right: px(0),
         flex_direction: FlexDirection::Row,

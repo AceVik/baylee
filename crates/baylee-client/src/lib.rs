@@ -921,7 +921,7 @@ fn add_present_systems(app: &mut App) {
             // that has left the hand is taken out of the row before the row
             // is rebuilt, and chaining is what says so. The commands of the
             // first are queued before the commands of the second, so the
-            // node is out of the hand bar when the hand bar is despawned.
+            // node is out of the hand zone when the hand zone is despawned.
             (depart::send_off, hud::sync_overlay).chain(),
             hud::apply_hand_scroll,
             (
@@ -1037,7 +1037,7 @@ impl Plugin for DuelPlugin {
             // Without this nothing on the 3D table can be pointed at, ever.
             //
             // Bevy's UI picking backend is on by default and its *mesh* one is
-            // not, so the hand bar — which is UI nodes — answered the pointer
+            // not, so the hand zone — which is UI nodes — answered the pointer
             // while the battlefield, the stack of a hovered permanent and
             // every pile beside a mat did not: `Pointer<Over>` and
             // `Pointer<Click>` simply never fired for a `Mesh3d`. That is why

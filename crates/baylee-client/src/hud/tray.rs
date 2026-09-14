@@ -189,7 +189,7 @@ const TRAY_CHROME_H: f32 =
 const TRAY_ROWS: f32 = 8.5;
 
 /// The strip of screen the sheet is allowed into: below the seat tabs and the
-/// phase rail, above the hand bar.
+/// phase rail, above the hand zone.
 ///
 /// One function because three places need the same answer and a band computed
 /// twice is a band that can disagree with itself — the overlay places the
@@ -200,7 +200,7 @@ pub(crate) fn band_of(windows: &Query<&Window>) -> (f32, f32) {
     let (w, h) = windows
         .single()
         .map_or((1280.0, 720.0), |window| (window.width(), window.height()));
-    (w, (h - EDGE - HAND_BAR_H).max(Placement::MIN_H))
+    (w, (h - EDGE - HAND_ZONE_H).max(Placement::MIN_H))
 }
 
 /// How fast the veil rises, as the rate of `1 - e^(-rate·dt)`.
@@ -230,7 +230,7 @@ const VEIL_RATE: f32 = 9.0;
 /// which clears the preview, which is what a click on the table's empty felt
 /// has always done.
 ///
-/// It is the window and not [`band_of`]'s strip, because the hand bar is the
+/// It is the window and not [`band_of`]'s strip, because the hand zone is the
 /// one thing under it a player might otherwise still reach for, and a question
 /// whose every answer is in the dialog is exactly the question the hand cannot
 /// answer.
@@ -456,7 +456,7 @@ pub(super) fn spawn_tray(
         .answers_here(interaction)
         .then_some(interaction)
         .flatten();
-    // The band: the whole window between its top edge and the hand bar,
+    // The band: the whole window between its top edge and the hand zone,
     // painting nothing and answering no click. It is the coordinate space the
     // sheet is placed in, which is what makes a remembered position mean the
     // same thing on two screens with different amounts of HUD above and below.
@@ -473,7 +473,7 @@ pub(super) fn spawn_tray(
                 left: px(0),
                 right: px(0),
                 top: px(EDGE),
-                bottom: px(HAND_BAR_H),
+                bottom: px(HAND_ZONE_H),
                 ..default()
             },
             ZIndex(Z_SHEET),
@@ -1471,11 +1471,11 @@ mod tests {
     #[test]
     fn the_band_is_what_is_left_above_the_hand() {
         // A window the size the dev harness reports.
-        let tall = 1052.0 - EDGE - HAND_BAR_H;
+        let tall = 1052.0 - EDGE - HAND_ZONE_H;
         assert!(tall > Placement::MIN_H, "the fixture is not exercising it");
         // A window too short for a sheet still gets one: `MIN_H` wins, and a
         // sheet clamped to nothing would be a sheet that is not there.
-        let cramped = (200.0f32 - EDGE - HAND_BAR_H).max(Placement::MIN_H);
+        let cramped = (200.0f32 - EDGE - HAND_ZONE_H).max(Placement::MIN_H);
         assert!((cramped - Placement::MIN_H).abs() < f32::EPSILON);
     }
 
@@ -1626,10 +1626,13 @@ mod tests {
                 "the stack and the hand answer nothing here and go dark with the table"
             );
             assert!(
-                Z_VEIL < Z_SLIP,
-                "the slip is the sentence saying what the question is"
+                Z_VEIL < Z_LEDGE,
+                "the ledge carries the question, and a dimmed question is one a player is told not to answer"
             );
-            assert!(Z_SLIP < Z_SHEET, "the dialog is what the slip is about");
+            assert!(
+                Z_LEDGE < Z_SHEET,
+                "the dialog is what the question is about"
+            );
             assert!(
                 Z_SHEET < Z_PREVIEW,
                 "a card held up to the light is held over whatever raised it"

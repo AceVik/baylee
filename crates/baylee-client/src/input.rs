@@ -2436,7 +2436,7 @@ pub fn pointer_hover(
     }
 
     // A hovered card can leave without ever firing an `Out`, and playing the
-    // card under the pointer is the ordinary way into that: the hand bar is
+    // card under the pointer is the ordinary way into that: the hand zone is
     // rebuilt, the node the pointer was over is despawned, and a despawned
     // entity reports nothing. So the hover is also held against the kind of
     // entity that reported it. A land played from the hand is no longer *a
@@ -2786,7 +2786,7 @@ pub fn camera_controls(
 
     // ---- wheel: zoom, unless the interface asked for it first -------------
     //
-    // The hand bar used to be carved out of this by a rectangle — the bottom
+    // The hand zone used to be carved out of this by a rectangle — the bottom
     // of the window, the hand's own height plus twenty — and every other
     // panel was the camera's by construction, which is why a wheel over a
     // library zoomed the table. `hud::scrolls` owns that question now and
@@ -2823,7 +2823,7 @@ pub fn camera_controls(
 }
 
 /// Navigates the camera to a seat.s pod, framing it in the free canvas
-/// area (clear of the tab strip and the hand bar), cards upright. Also
+/// area (clear of the tab strip and the hand zone), cards upright. Also
 /// marks the seat as the layout.s focus so its pod is enlarged.
 pub fn navigate_to_player(
     duel: &mut Duel,
@@ -3243,7 +3243,7 @@ mod tests {
         app
     }
 
-    /// One node in the hand row, as `spawn_hand_bar` builds one.
+    /// One node in the hand row, as `spawn_hand_zone` builds one.
     ///
     /// Both components, because the pair is what the two systems ask for:
     /// the wider one is what a press and a click resolve through, the marker
@@ -3493,7 +3493,7 @@ mod tests {
 
     /// Playing the card under the pointer must take its preview with it.
     ///
-    /// The hand bar is rebuilt whole on every board change, so the node the
+    /// The hand zone is rebuilt whole on every board change, so the node the
     /// pointer was over is *despawned* — and Bevy fires no `Out` for an
     /// entity that no longer exists. The card preview therefore stayed open
     /// over the middle of the table until the player happened to hover
@@ -3525,7 +3525,7 @@ mod tests {
             "the pointer over a hand card is a hover"
         );
 
-        // The land is played: the hand bar is rebuilt without it, and the
+        // The land is played: the hand zone is rebuilt without it, and the
         // same object arrives on the table. No `Out` is fired, and the
         // pointer does not move.
         app.world_mut().entity_mut(card).despawn();
@@ -3620,7 +3620,7 @@ mod tests {
         app.world_mut().resource_mut::<crate::Duel>().hovered = Some(obj(5));
         app.update();
 
-        // It is played. The hand bar is rebuilt without it and the same
+        // It is played. The hand zone is rebuilt without it and the same
         // object is now a permanent.
         app.world_mut().entity_mut(in_hand).despawn();
         app.world_mut().spawn(crate::table::CardVisual {
@@ -4869,7 +4869,7 @@ mod dragging {
         // The node the overlay would have built: an explicit rectangle, so
         // that "it moved" is a comparison of two numbers rather than of a
         // number against `Auto`.
-        let band = (1728.0, 1052.0 - crate::hud::EDGE - crate::hud::HAND_BAR_H);
+        let band = (1728.0, 1052.0 - crate::hud::EDGE - crate::hud::HAND_ZONE_H);
         let home = Placement::centred(band);
         let panel = app
             .world_mut()
@@ -5014,7 +5014,7 @@ mod dragging {
     #[test]
     fn clicking_the_corner_maximises_and_restores_the_sheet() {
         let (mut app, panel, _, corner) = harness();
-        let band = (1728.0, 1052.0 - crate::hud::EDGE - crate::hud::HAND_BAR_H);
+        let band = (1728.0, 1052.0 - crate::hud::EDGE - crate::hud::HAND_ZONE_H);
         let home = node_of(&app, panel);
 
         press(&mut app, corner);
@@ -5039,7 +5039,7 @@ mod dragging {
     #[test]
     fn dragging_the_corner_does_not_maximise_it() {
         let (mut app, panel, _, corner) = harness();
-        let band = (1728.0, 1052.0 - crate::hud::EDGE - crate::hud::HAND_BAR_H);
+        let band = (1728.0, 1052.0 - crate::hud::EDGE - crate::hud::HAND_ZONE_H);
         press(&mut app, corner);
         app.update();
         cursor_to(&mut app, Vec2::new(900.0, 500.0));

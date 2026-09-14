@@ -450,7 +450,7 @@ fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
 
     // ---- the crest, also from that file
     //
-    // The hand bar is where this one earns its keep: a commander that declined
+    // The hand zone is where this one earns its keep: a commander that declined
     // CR 903.9b sits in the hand looking like any other legend, and the
     // command-zone card beside it is the same card in a zone that taxes it.
     color = vec4<f32>(
