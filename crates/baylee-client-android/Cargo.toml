@@ -1,0 +1,76 @@
+[package]
+name = "baylee-client-android"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Android packaging shim: the entry point an APK needs, and nothing else."
+
+[lints]
+workspace = true
+
+[lib]
+# cargo-apk packages the **cdylib** of the package it is pointed at: Android
+# has no executables to launch, it loads `lib<name>.so` and calls
+# `android_main` in it. That is the whole reason this package exists instead
+# of a feature on `baylee-client` — a crate's `crate-type` cannot be made
+# conditional on the target, so putting `cdylib` on the client itself would
+# link a half-gigabyte shared object on every desktop `cargo build --workspace`
+# for a platform that build is not for.
+crate-type = ["cdylib"]
+
+# And this is what keeps that promise: off Android the package has no
+# dependencies at all, so the cdylib is an empty shared object that links in
+# no time. Everything below is reached only when the target *is* Android.
+[target.'cfg(target_os = "android")'.dependencies]
+baylee-client.workspace = true
+bevy = { workspace = true, features = ["android-native-activity"] }
+
+[features]
+# The harness, off by default for the reason `baylee-client` gives: a remote
+# control socket in a game binary is a cheat vector, and the guarantee worth
+# having is that the code is not in the build. `scripts/mobile/android-build.sh`
+# turns it on, because a client on a phone that cannot be driven or
+# photographed is a client nothing can check.
+dev-control = ["baylee-client/dev-control"]
+
+# The APK. `package` is the id adb and `run-as` address it by; keep it in step
+# with `scripts/mobile/android-build.sh`.
+[package.metadata.android]
+package = "local.baylee.client"
+apk_name = "baylee"
+# One architecture on purpose: every phone and every Apple-silicon emulator
+# image here is arm64, and a second target doubles a build that is already
+# long.
+build_targets = ["aarch64-linux-android"]
+# The fonts and the mana glyphs. Without them every glyph the client draws
+# renders as nothing — the same silent failure trunk has in a browser.
+assets = "../baylee-client/assets"
+
+[package.metadata.android.sdk]
+# 26 is `bevy_audio`'s floor; 33 is what cargo-apk and the Play Store target.
+min_sdk_version = 26
+target_sdk_version = 33
+
+[package.metadata.android.application]
+label = "Baylee"
+# `debuggable` is load-bearing here rather than cosmetic: it is what lets
+# `adb exec-out run-as local.baylee.client cat files/shot.png` read a
+# screenshot out of the app's own directory, which is the only directory on
+# the device the client may write to.
+debuggable = true
+# The gateway on the LAN is plain `http://`. Android's cleartext policy only
+# governs the platform's own HTTP stacks and not the sockets `ehttp` and
+# `ewebsock` open, but a policy that says one thing while the app does another
+# is a trap for whoever reads the manifest next.
+uses_cleartext_traffic = true
+
+[[package.metadata.android.uses_permission]]
+name = "android.permission.INTERNET"
+
+# `cargo apk run` sets these up with `adb reverse` before it launches: the
+# device dials its *own* 127.0.0.1 and lands on this machine. That is what
+# makes a USB cable enough — no LAN address, no WiFi, nothing to re-bake when
+# the router hands out a different lease.
+[package.metadata.android.reverse_port_forward]
+"tcp:28766" = "tcp:28766"

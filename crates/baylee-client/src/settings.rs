@@ -87,6 +87,20 @@ pub fn gateway_url() -> String {
         if let Some(url) = dotenv_value("BAYLEE_GATEWAY") {
             return trim_url(&url);
         }
+        // A phone has neither. An app started by a tap on an icon inherits no
+        // environment, and there is no working directory to put a `.env` in,
+        // so on those two targets the address is baked in when the client is
+        // compiled — `BAYLEE_GATEWAY=http://192.168.…:28766 cargo apk build`.
+        // It sits *after* both runtime lookups on purpose: the iOS simulator
+        // does pass an environment through (`SIMCTL_CHILD_BAYLEE_GATEWAY`),
+        // and what was passed today must beat what was compiled last week.
+        // `build.rs` is the other half — without it cargo would not rebuild
+        // when the address changes, and the phone would keep dialling the old
+        // one with nothing anywhere saying so.
+        #[cfg(any(target_os = "android", target_os = "ios"))]
+        if let Some(url) = option_env!("BAYLEE_GATEWAY").filter(|url| !url.is_empty()) {
+            return trim_url(url);
+        }
         "http://127.0.0.1:28766".to_string()
     }
     #[cfg(target_arch = "wasm32")]

@@ -97,6 +97,15 @@ window" has the protocol, why a wheel is written twice, the reason a click
 takes three frames, and why zero is refused by `/timescale` rather than taken
 as a pause.
 
+The same harness reaches the client **on a phone**, and that is what decided
+how a phone runs it at all: a browser build has no sockets, so Android is an
+APK (`crates/baylee-client-android`, `scripts/mobile/android-build.sh`) and iOS
+a hand-assembled `.app` (`scripts/mobile/ios-sim-run.sh`). The loopback bind is
+unchanged — `adb forward tcp:28773 tcp:28770` reaches the *device's* loopback,
+and the iOS simulator shares this machine's. `docs/mobile.md` is normative,
+including the four different addresses the gateway has depending on where the
+client is running, and which two renderers do not work yet.
+
 A shader can be edited **while the game runs**, which is the other half of
 working on a look:
 

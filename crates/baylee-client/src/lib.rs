@@ -73,6 +73,7 @@ pub mod sheen;
 pub mod sky;
 pub mod softkeys;
 pub mod sound;
+pub mod standalone;
 pub mod table;
 pub mod textures;
 pub mod tokenart;

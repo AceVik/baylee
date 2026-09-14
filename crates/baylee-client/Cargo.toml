@@ -124,6 +124,16 @@ path = "src/main.rs"
 # Only reached through the `dev-control` feature; see its comment above.
 image = { workspace = true, optional = true }
 
+# Android never calls `main`: it loads a shared object and calls
+# `android_main`, and `android-activity` — winit's door to that — refuses to
+# compile at all until one of its two activity kinds has been chosen (six
+# `cannot find type …Impl` errors and a 15-line `compile_error!` saying so).
+# cargo-apk packages a NativeActivity, so that is the one. Target-scoped
+# because the feature means nothing anywhere else, and because a desktop build
+# should not carry it to find that out.
+[target.'cfg(target_os = "android")'.dependencies]
+bevy = { workspace = true, features = ["android-native-activity"] }
+
 # Browser builds: entropy comes from Web Crypto and settings persist in
 # localStorage (see src/settings.rs). `getrandom` refuses to guess a backend
 # on wasm32-unknown-unknown — a wrong guess would be a silently weak RNG

@@ -100,9 +100,14 @@ impl DevControlPlugin {
     ///
     /// Unset means "not today": the harness is compiled in but silent, so a
     /// dev build behaves exactly like a normal one until asked.
+    ///
+    /// On a phone there is no environment to be unset *in* — see
+    /// [`baked_port`].
     #[must_use]
     pub fn from_env() -> Option<Self> {
-        let raw = std::env::var("BAYLEE_DEV_CONTROL").ok()?;
+        let raw = std::env::var("BAYLEE_DEV_CONTROL")
+            .ok()
+            .or_else(|| baked_port().map(str::to_string))?;
         match raw.parse::<u16>() {
             Ok(port) if port > 0 => Some(Self { port }),
             _ => {
@@ -111,6 +116,30 @@ impl DevControlPlugin {
             }
         }
     }
+}
+
+/// The port compiled into a phone build, if one was.
+///
+/// Android starts an app with an empty environment, so `BAYLEE_DEV_CONTROL`
+/// has nowhere to be read from there and the harness would be compiled in and
+/// permanently silent — which is exactly the build a phone needs it in. The
+/// value is taken at compile time instead (`BAYLEE_DEV_CONTROL=28770 cargo
+/// apk build`), and `build.rs` asks cargo to rebuild when it changes.
+///
+/// Deliberately **only** on the two phone targets. A desktop binary that
+/// opened a control socket because a variable happened to be exported while
+/// it was built is precisely the surprise a harness like this must never
+/// spring; there, an unset variable still means "not today". The socket is
+/// still bound on loopback, which is what makes `adb forward` the only way in
+/// from another machine.
+#[cfg(any(target_os = "android", target_os = "ios"))]
+fn baked_port() -> Option<&'static str> {
+    option_env!("BAYLEE_DEV_CONTROL")
+}
+
+#[cfg(not(any(target_os = "android", target_os = "ios")))]
+fn baked_port() -> Option<&'static str> {
+    None
 }
 
 impl Plugin for DevControlPlugin {

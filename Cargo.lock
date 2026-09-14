@@ -663,6 +663,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "baylee-client-android"
+version = "0.1.0"
+dependencies = [
+ "baylee-client",
+ "bevy",
+]
+
+[[package]]
 name = "baylee-client-core"
 version = "0.1.0"
 dependencies = [
