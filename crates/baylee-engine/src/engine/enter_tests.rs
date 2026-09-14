@@ -361,3 +361,68 @@ fn a_land_is_under_the_boards_continuous_effects_the_moment_it_has_entered() {
         c.keywords
     );
 }
+
+/// What an action left behind is settled before the player is asked again.
+///
+/// Eroded Canyon prints "When this land enters, it deals 1 damage to target
+/// opponent". Playing it used to hand the player `Pending::Priority` looking
+/// at an empty stack, with the trigger still unread in the journal and the
+/// question of who it hits unasked — because `after_action` published that
+/// priority itself and set `awaiting_answer`, which is the first line
+/// `run_machine` returns on. The machine did not run again until the *next*
+/// action arrived, so nothing between two actions ever happened: not the
+/// layer projection (which is how the Mycosynth Lattice report was found),
+/// not the state-based actions CR 117.5 owes, and not this trigger.
+///
+/// CR 603.3b puts a triggered ability on the stack the next time a player
+/// would receive priority, which is here — CR 117.3c hands it straight back
+/// to whoever acted. Both rules are about the same moment, and the engine
+/// was skipping the first of them.
+#[test]
+fn what_an_action_triggered_is_on_the_stack_before_the_player_is_asked_again() {
+    let seat = PlayerId::new(0);
+    // `{T}: Add {U} or {R}`, enters tapped, and deals 1 damage to a chosen
+    // opponent as it does. The damage is what makes it a witness: a trigger
+    // with a target cannot be mistaken for a board that merely looks settled.
+    let canyon = card_index("852c6520-d148-4923-a312-05a9af821f24");
+    let mut engine = Duel::new(7, basic_forest()).hand(0, &[canyon]).start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, seat);
+
+    let land = in_hand(&engine, seat, canyon).expect("the Canyon reached the hand");
+    engine
+        .apply(seat, PlayerAction::PlayLand { card: land })
+        .expect("a land drop on an empty first main phase");
+
+    // The trigger is asked about at once, rather than a turn late.
+    let Pending::ChooseTargets { player, .. } = engine.pending().clone() else {
+        panic!(
+            "the land's own trigger was never put on the stack: {:?}",
+            engine.pending()
+        )
+    };
+    assert_eq!(player, seat);
+    engine
+        .apply(
+            seat,
+            PlayerAction::ChooseTargets {
+                objects: Vec::new(),
+                players: vec![PlayerId::new(1)],
+            },
+        )
+        .expect("the only opponent is a legal target");
+
+    // And *then* the priority CR 117.3c owes, with the trigger standing on
+    // the stack under it — which is what makes a response land above it.
+    let stack = engine.state().zones.list(crate::zone::ZoneLocation::Stack);
+    assert_eq!(
+        stack.len(),
+        1,
+        "the trigger is the one thing on the stack when priority comes back"
+    );
+    assert!(
+        matches!(engine.pending(), Pending::Priority { player, .. } if *player == seat),
+        "priority returns to whoever played the land: {:?}",
+        engine.pending()
+    );
+}

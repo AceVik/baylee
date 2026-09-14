@@ -72,6 +72,26 @@ pub struct Engine<L: CardLookup> {
     priority_holder: Option<PlayerId>,
     /// All players passed with a non-empty stack: resolve the top.
     resolve_next: bool,
+    /// The player who just took a non-pass action and is owed priority back
+    /// (CR 117.3c) — once the machine has finished with what they did.
+    ///
+    /// A flag rather than a published `Pending`, and that is the whole of
+    /// the difference. [`Engine::after_action`] used to build the question
+    /// itself and set `awaiting_answer`, which is the first line
+    /// [`Engine::run_machine`] returns on — so between an action and the
+    /// *next* one the machine did not run at all. Nothing settled the
+    /// continuous effects the action had invalidated, nothing ran the
+    /// state-based actions it owed (CR 117.5), and nothing put the abilities
+    /// it triggered on the stack (CR 603.3b). A player who dropped a land
+    /// that says "when this land enters, it deals 1 damage to target
+    /// opponent" was handed priority looking at an empty stack, with the
+    /// trigger still unread in the journal.
+    ///
+    /// So the action records only that priority is owed, and
+    /// [`Engine::priority_round`] hands it over at step 5 the way it hands
+    /// over every other priority — after the machine has done the work the
+    /// action made for it.
+    regrant_priority: Option<PlayerId>,
     /// Mulligan progress per seat.
     mulligans: Vec<u8>,
     /// Seat currently mulliganing.
@@ -296,6 +316,7 @@ impl<L: CardLookup> Engine<L> {
             passes: 0,
             priority_holder: None,
             resolve_next: false,
+            regrant_priority: None,
             combat_declared: CombatDeclared::None,
             loyalty_used_this_turn: Vec::new(),
             awaiting_answer: true,
@@ -463,55 +484,15 @@ impl<L: CardLookup> Engine<L> {
         }
         self.awaiting_answer = false;
         self.apply_inner(player, action)?;
-        // The board the action left behind has to be settled before the
-        // pending `apply_inner` just published can be believed, and nothing
-        // else will do it: `after_action` sets `awaiting_answer`, which is
-        // the first line `run_machine` returns on, so the machine's steps 0a
-        // and 0b do not run until the *next* action arrives. Between those
-        // two moments sit a view sent to every seat and a legal list the
-        // player is offered, both read off a projection that is one action
-        // out of date.
-        //
-        // The owner found it with three artifact-matters permanents on the
-        // board: Mycosynth Lattice, Padeem and Darksteel Forge, a land played
-        // from hand, and a land that was none of an artifact, hexproof or
-        // indestructible for as long as they looked at it. `move_object`
-        // invalidates the projection on the way in and always did — what was
-        // missing is anybody to recompute it before the player was shown the
-        // answer. A land is the only permanent that reaches the battlefield
-        // without passing through the stack, which is why it is the case that
-        // showed, but a spell put *onto* the stack invalidates the same
-        // projection and was shown just as stale.
-        //
-        // The machine's own order (0a, then 0b), and the refresh taken a
-        // second time after it because 0b is a writer: an entry modifier that
-        // places counters goes through `replacement::put_counters`, which
-        // invalidates again. The first call is what an arrival under a static
-        // needs and the second is what a counter placed on arrival needs;
-        // neither is the other, and either alone leaves half the board stale.
-        self.sync_static_effects();
-        let projected = self.state.refresh_characteristics();
-        // As-it-enters modifiers may override the just-published pending with
-        // a shockland choice.
-        let entered = self.apply_enter_modifiers();
-        let reprojected = self.state.refresh_characteristics();
-        // If any of the three changed the state, the published legal list is
-        // stale with it.
-        let recompute_player = if projected || entered || reprojected {
-            if let Pending::Priority { player: p, .. } = &self.pending {
-                Some(*p)
-            } else {
-                None
-            }
-        } else {
-            None
-        };
-        if let Some(p) = recompute_player {
-            let legal = self.compute_legal(p);
-            if let Pending::Priority { legal: l, .. } = &mut self.pending {
-                **l = legal;
-            }
-        }
+        // And then the machine, which is the whole of the settling an action
+        // owes. It used to be unreachable from here: `after_action` published
+        // the next `Pending` itself and set `awaiting_answer`, which is the
+        // first line `run_machine` returns on, so between an action and the
+        // next one nothing ran at all — no layer projection, no state-based
+        // actions, no triggers. That was patched once, by doing the machine's
+        // steps 0a and 0b by hand right here; `after_action` records the
+        // priority it owes instead now, and the hand-rolled copy goes with
+        // the reason for it.
         self.run_until_choice();
         Ok(())
     }

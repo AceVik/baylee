@@ -414,6 +414,25 @@ impl<L: CardLookup> Engine<L> {
     /// Runs the APNAP priority round for steps that grant priority.
     /// Returns `true` when a pending choice was produced.
     pub(crate) fn priority_round(&mut self) -> bool {
+        // The acting player gets priority straight back (CR 117.3c). It is
+        // asked here rather than answered on the spot in `after_action`
+        // because everything above this line in `run_machine` — the layer
+        // projection, the state-based actions, the triggers — is owed to the
+        // board the action left behind, and a question published before any
+        // of it ran was a question about a board that no longer existed.
+        //
+        // First of the three arms, and it has to be: after an action
+        // `priority_holder` is `Some` and `passes` is zero, so the round
+        // below would read it as a round in progress and hand priority to
+        // the *next* player.
+        if let Some(player) = self.regrant_priority.take() {
+            self.pending = Pending::Priority {
+                player,
+                legal: Box::new(self.compute_legal(player)),
+            };
+            self.awaiting_answer = true;
+            return true;
+        }
         if self.priority_holder.is_none() && self.passes == 0 {
             // Open a new round with the active player (CR 117.3a).
             let active = self.state.turn.active;

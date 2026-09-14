@@ -1023,17 +1023,9 @@ impl GameState {
     /// Hot path: one generation compare. When stale, permanents and stack
     /// objects are re-projected through the layer system (CR 613).
     ///
-    /// Answers whether it did that work, which is not idle curiosity. A
-    /// caller that has already published a `Pending` built from the old
-    /// projection has to build it again, and [`crate::Engine::apply`] is
-    /// exactly that caller. It reads "the projection moved" and not
-    /// "something changed", which is the same reading — and the same purpose
-    /// — as the flag `apply_enter_modifiers` answers with two lines away
-    /// from it.
-    ///
     /// # Panics
     /// Internal invariant violations (zone objects always exist).
-    pub fn refresh_characteristics(&mut self) -> bool {
+    pub fn refresh_characteristics(&mut self) {
         // Both halves of the stack shortcut below fail silently — an id
         // left in the subset is projected after its object is gone, a spell
         // missing from it quietly stops being affected by anthems — and the
@@ -1045,7 +1037,7 @@ impl GameState {
             "stack_projectable drifted from the stack"
         );
         if self.characteristics_generation == self.effects.generation {
-            return false;
+            return;
         }
         let generation = self.effects.generation;
         // Bucket and dependency-order the effect table ONCE for the whole
@@ -1115,7 +1107,6 @@ impl GameState {
         ids.clear();
         self.projection_ids = ids;
         self.characteristics_generation = generation;
-        true
     }
 
     /// Object access.

@@ -27,22 +27,36 @@ dependency topological order within a layer. Cache validity = one
 `Indefinitely`, conditions. Subtypes are a 512-bit bitmap (changeling =
 set-all in O(1)).
 
-**A `Pending` is published from a settled board, and that is `Engine::apply`'s
-job rather than the machine's.** The invalidation half has always been right —
-`move_object` marks the projection stale in both directions for the
-battlefield and the stack, and every counter writer does the same — but the
-recompute runs in `run_machine`, whose first line returns while an answer is
-awaited. `after_action` sets exactly that flag: it hands the acting player
-their priority back (CR 117.3c) with a legal list and a view built from a
-projection one action old. So `apply` settles the board itself after the
-action and before the pending is believed — statics synced, characteristics
-refreshed, as-it-enters modifiers applied, characteristics refreshed again
-because that last step writes counters — and rebuilds the published legal list
-if any of them moved. A land is the only permanent that reaches the
-battlefield without passing through the stack, which is why *"I play a land
-and it does not inherit the static effects on the field"* is the report this
-arrived as; a spell put onto the stack invalidated the same projection and was
-shown just as stale.
+**A `Pending` is published from a settled board, and the machine is what
+settles it — including after an action.** The invalidation half has always
+been right: `move_object` marks the projection stale in both directions for
+the battlefield and the stack, and every counter writer does the same. What
+was missing is anyone to recompute it, because the recompute runs in
+`run_machine`, whose first line returns while an answer is awaited — and
+`after_action` used to set exactly that flag, publishing the acting player's
+priority (CR 117.3c) itself. Between one action and the next, then, the
+machine did not run at all.
+
+Three separate things were owed in that gap and none of them happened. The
+layer projection stayed one action old, which is the report this arrived as:
+*"I play a land and it does not inherit the artifact, hexproof, indestructible
+static effects on the field"* — a land being the only permanent that reaches
+the battlefield without passing through the stack, though a spell put onto the
+stack invalidated the same projection and was shown just as stale. The
+state-based actions CR 117.5 owes before any player receives priority did not
+run. And the abilities the action triggered were not put on the stack, so a
+land printing *"when this land enters, it deals 1 damage to target opponent"*
+handed its controller priority over an empty stack with the question unasked —
+and a spell cast in that window would have been stacked *under* a trigger that
+preceded it.
+
+So `after_action` records only that priority is owed
+(`Engine::regrant_priority`, `passes` reset) and publishes nothing;
+`priority_round`'s first arm hands it over at step 5, where every other
+priority in the game is handed over, after the machine has done the work the
+action made for it. An action is therefore an ordinary re-entry into the
+machine rather than an exception to it, which is the property the three
+failures above all came from lacking.
 
 Layer 2 is not cached separately: the refresh writes the projected
 controller straight into `GameObject::controller`, so every rule that asks

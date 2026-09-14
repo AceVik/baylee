@@ -1026,13 +1026,21 @@ impl<L: CardLookup> Engine<L> {
     pub(crate) fn after_action(&mut self, player: PlayerId) {
         // After any non-pass action, priority returns to the acting player
         // (CR 117.3c) and the pass counter resets.
+        //
+        // It is *recorded* and not published, because CR 117.3c is not the
+        // only rule that owes this player something. Before anybody receives
+        // priority the game performs its state-based actions (CR 117.5) and
+        // puts the abilities that have triggered on the stack (CR 603.3b),
+        // and the continuous effects the action created have to be in force
+        // for both. All of that is the machine's work and none of it had a
+        // chance to happen: building the question here set `awaiting_answer`,
+        // which is the first line `run_machine` returns on, so the machine
+        // stayed out until the *next* action arrived. `priority_round` picks
+        // this up at step 5 instead, which is where every other priority in
+        // the game is handed over.
         self.passes = 0;
         self.priority_holder = Some(player);
-        self.pending = Pending::Priority {
-            player,
-            legal: Box::new(self.compute_legal(player)),
-        };
-        self.awaiting_answer = true;
+        self.regrant_priority = Some(player);
     }
 
     pub(crate) fn mulligan_bottom_count(&self, taken: u8) -> u8 {
