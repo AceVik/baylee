@@ -35,7 +35,7 @@ adb install -r target/debug/apk/baylee.apk
 adb shell am start -n local.baylee.client/android.app.NativeActivity
 ```
 
-Three things about that are worth knowing before changing any of them.
+Four things about that are worth knowing before changing any of them.
 
 **An Android app never calls `main`.** It loads `libbaylee_client_android.so`
 and calls `android_main`, which is why `crates/baylee-client-android` exists at
@@ -55,6 +55,26 @@ lookups, so the iOS simulator's `SIMCTL_CHILD_…` still wins. Changing the
 gateway therefore means a rebuild, and `crates/baylee-client/build.rs` is what
 makes cargo notice: without its `rerun-if-env-changed` the phone would keep
 dialling the address from the previous build with nothing anywhere saying so.
+
+**Landscape belongs to the manifest, not to the client.** A table is played
+across and not down, and the activity is placed before a frame is ever drawn —
+so a client that asked for landscape once it was running would start portrait
+and turn. `[package.metadata.android.application.activity]` carries
+`orientation = "sensorLandscape"` (both landscape directions, neither portrait
+one, and the device's own rotation lock is not consulted); the iOS side is
+`UISupportedInterfaceOrientations` in `ios-sim-run.sh`'s plist, saying the
+same thing. What makes it safe on Android is cargo-apk's default
+`configChanges`, packaged as `0x4a0` —
+`orientation|keyboardHidden|screenSize` — which keeps the activity through a
+rotation rather than recreating it, and a recreated `NativeActivity` re-enters
+`android_main` in a process that still has an event loop. Read it back out of
+a built APK rather than trusting the manifest source:
+
+```sh
+"$ANDROID_HOME"/build-tools/*/aapt2 dump xmltree \
+    --file AndroidManifest.xml target/debug/apk/baylee.apk | grep -i orientation
+# android:screenOrientation(0x0101001e)=6      # 6 is sensorLandscape
+```
 
 **The address depends on where the client runs**, and this is the part that is
 guessed wrong:
@@ -92,6 +112,31 @@ A relaunch needs `adb shell am force-stop local.baylee.client` first. A
 NativeActivity process outlives its activity, so starting it again re-enters
 `android_main` in a process that already has an event loop, and bevy stops with
 `Failed to build event loop: RecreationAttempt`.
+
+**Install with `--no-incremental`.** `adb install -r` on a phone that supports
+it streams the APK and lets pages arrive on demand, and this one does not
+survive it: the app dies before bevy starts with `Fatal signal 7 (SIGBUS),
+code 2 (BUS_ADRERR)` in `__dl_load_library` — the dynamic linker reading a
+page of `libbaylee_client_android.so` that is not there yet. It looks exactly
+like a crash in the client and is not one.
+
+### Wireless debugging
+
+The phone's *pairing* port is not its *connect* port, and only mDNS knows
+either. With "Wireless debugging" open on the phone and the pairing dialog
+showing, `adb mdns services` advertises both:
+
+```sh
+adb mdns services
+# …  _adb-tls-pairing._tcp   192.168.0.92:39295   # only while the dialog is open
+# …  _adb-tls-connect._tcp   192.168.0.92:37139
+adb pair 192.168.0.92:39295 <the six digits on the phone>
+```
+
+Then stop. The mDNS transport connects on its own, and an `adb connect` on top
+of it gives one phone **two** transports, after which every command answers
+"more than one device/emulator"; `adb disconnect <ip>:<connect port>` removes
+the manual one and leaves the mDNS one.
 
 ## iOS simulator
 
@@ -131,9 +176,33 @@ switch, so on iOS this needs HTTPS or the native build.
 
 Measured on 14.09.2026 on this machine:
 
-- The APK builds (2 m 35 s), installs, launches, and **opens its dev-control
-  socket** — `dev control: listening on http://127.0.0.1:28770` in `logcat`,
-  and requests forwarded with `adb forward` reach it.
+- **The client runs on a physical phone and is drivable from here.** A Pixel
+  11 Pro XL (kodiak, Android 17) over wireless debugging: the APK builds
+  (2 m 35 s), installs, launches, and `curl -s localhost:28773/health` through
+  `adb forward tcp:28773 tcp:28770` answers frame 278 on a 920.21 × 443.08
+  window at scale 2.4375 — the phone's own 2243 × 1080 landscape screen, not
+  a default. `/screenshot` writes a 2243 × 1080 PNG that `run-as` brings
+  back. That is the requirement at the top of this file, met on real
+  hardware.
+- It took one line to get there, and the line is not about the client.
+  **The Pixel 11 falls one generation outside bevy's own carve-out.** Its GPU
+  is a `"PowerVR C-Series CXTP-48-1536 MC1"`, and PowerVR's SPIR-V compiler
+  aborts (`SIGABRT` in the "Async Compute T" thread, inside
+  `libufwriter.so`'s `spvcompiler::getMangledImageTypeString`, called from
+  `IMG_vkCreateComputePipelines`) on a sampled image inside a compute shader
+  — which is `mesh_preprocess.wgsl`'s `depth_pyramid: texture_2d<f32>`, and
+  that shader exists only under `GpuPreprocessingMode::Culling`. Bevy already
+  holds this family to `PreprocessingOnly`, but recognises it by comparing
+  the adapter name against the literal `"PowerVR D-Series DXT-48-1536 MC1"`,
+  the Pixel 10's. `standalone::run` disables `INDIRECT_FIRST_INSTANCE` on
+  Android, which is the one feature `GpuPreprocessingSupport::from_world`
+  reads as `culling_feature_support` and which nothing else in bevy reads at
+  all, so it asks for that mode and clamps no limit. `logcat` then says `Some
+  GPU preprocessing are limited on this device.` instead of `fully
+  supported`, and **that line is the measurement** — read it before blaming
+  or crediting anything else. Worth reporting upstream: a
+  `starts_with("PowerVR")` in `get_pixel10_driver_version` would cover the
+  family.
 - The fonts are in the APK at `assets/fonts/…`, which is why
   `standalone::asset_root` returns `""` on Android: bevy reads through the
   APK's `AssetManager`, whose root *is* that directory.
@@ -151,9 +220,29 @@ Pro's 393×852 logical. So the lobby in that screenshot is laid out in
 makes of it was not measured. The run loop is fixed and the harness reaches
 the app; window sizing on iOS is the next question, and it is a different one.
 
-One thing does **not** work yet, in the renderer and not on real hardware,
-which is the one surface untested:
+Two things do **not** work yet:
 
+- **The lobby's layout never settles on Android, so it cannot be used by
+  hand.** This started as "the text does not draw" and the measurement says
+  otherwise, which is the reason to write it down carefully. The felt and the
+  sky are correct — the 3D pipeline and every shader are fine — but of a
+  screen of lobby text, three or four glyphs land, each far too large, and
+  they are *different* glyphs in the next screenshot, with the panel behind
+  them a different size. Then `POST /pause` and two screenshots five seconds
+  apart: **903 609 differing subpixels, peak 217 of 255**. A stopped clock
+  should give a still frame, so the variation is not animation and not the
+  status-bar-clock trap either — the panel is growing between frames while
+  nothing is asking it to. Read that as a layout that feeds back on itself
+  (oversized text measurement pushing a panel wider, which measures again)
+  rather than as a font that failed to load: nothing is logged, no asset
+  error and no font error, the fonts *are* in the APK, and the same build
+  draws them on the desktop and in the iOS simulator.
+
+  Two facts for whoever picks it up. The window scale is **2.4375** — a
+  fraction, where every surface that draws correctly reports 2 or 3, and
+  bevy 0.19 made `FontSize` an enum of units. And the client is drivable
+  through dev-control the whole time this is happening, so `/state` and
+  `/screenshot` are available from the first frame.
 - **The Android emulator loses the device.** With `-gpu host` the guest gets
   the host GPU through gfxstream (`AdapterInfo … "Apple M1 Max", driver:
   "MoltenVK"`), and one frame after `Creating new window baylee` it reports
@@ -161,8 +250,8 @@ which is the one surface untested:
   `wgpu-hal … swapchain: Trying to destroy a SwapchainAcquireSemaphore that is
   still in use by a SurfaceTexture`. `-gpu swiftshader_indirect` did not help —
   the emulator logged `option: host` anyway and then wedged at 0 % CPU without
-  ever opening its adb port. A physical Pixel has a real Vulkan driver and is
-  the thing to try before spending another hour here.
+  ever opening its adb port. The physical Pixel was the thing to try instead,
+  and it worked — so this is a dead end that costs nothing, not a blocker.
 
 The `WinitSettings::mobile()` above is not a candidate fix for it: that was a
 run loop nobody woke, and this is a device the driver hands back. The obvious
