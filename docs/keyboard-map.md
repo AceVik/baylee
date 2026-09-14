@@ -49,7 +49,7 @@ Two consequences worth knowing before changing anything here:
 | Yes / no | `Y` / `N` | implemented |
 | Let the stack resolve (stop asking me) | `F6` | implemented |
 | Nothing more this turn (stop asking me) | `F7` | implemented |
-| Ask me again (cancel a hold) | `F6` / `F7`, or the chip | implemented |
+| Ask me again (cancel a hold) | `F6` / `F7`, or the way out on the shelf | implemented |
 | Game log | `L` | planned |
 | Automation menu for selection | `M` | planned |
 
@@ -122,10 +122,15 @@ hold that could outlive its reason is a hold that loses a game quietly.
 
 Both keys **cancel** a running hold rather than replacing it, so a player who
 has stopped being asked does not have to remember which key did it. And a
-running hold is **drawn**: an accent chip beside the concede button, with the
-way out next to it. Without that the state would have no symptom at all — the
-prompt bar is empty because the seat is not being asked, which is exactly what
-an idle turn looks like.
+running hold is **drawn**, in the middle of the shelf and exactly where a
+question would have stood: the sentence says the seat is not being asked and
+the single answer beside it is the way out. Without that the state would have
+no symptom at all — the shelf is empty because the seat is not being asked,
+which is exactly what an idle turn looks like. The **autopilot** is drawn by
+the same pair of lines, because to a player the two are one state ("you are
+not being asked, and here is how to be asked again"); the difference is the
+key cap, which only the engine hold wears, `F6` and `F7` being the keys that
+cancel a hold and not a run of turns the client is playing out.
 
 Unlike every other answer, a hold is sent while this seat is **not** the one
 being asked; the engine accepts an automation setting from any seated player

@@ -184,7 +184,7 @@ const _: () = assert!(LEDGE_PAD_Y * 2.0 + BUTTON_H == hand::LEDGE_H);
 ///
 /// There is no `hovered` here and there must not be. That is the whole point
 /// of the struct, and `the_shelf_does_not_follow_the_pointer` holds it.
-// Four bools, and the lint's advice — "a state machine, or two-variant enums"
+// Nine bools, and the lint's advice — "a state machine, or two-variant enums"
 // — is the one shape this must not take. Each of these is an independent fact
 // about a different thing, and what the struct does with them is compare all
 // of them at once; folding any pair into an enum would claim they cannot both
