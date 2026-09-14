@@ -31,6 +31,19 @@ pub enum CastError {
     /// Costs with {X}/{Y}/{Z} need the full wizard (M1.S3).
     #[error("variable costs not supported yet")]
     VariableCost,
+    /// Every way of casting the card fails on its own terms: each one is
+    /// either unpayable or has nothing to point at.
+    ///
+    /// The variant the note beside [`can_cast`]'s face probe has asked for
+    /// since it was written — "a `CastError` variant that does not call a
+    /// target problem *not enough mana*". A modal spell is where the
+    /// difference stopped being cosmetic: Damn on three Swamps could pay for
+    /// "destroy target creature" and had nothing to destroy, and could point
+    /// the overload at everything and not pay `{2}{W}{W}` for it. Neither
+    /// half is a mana problem, and answering with one sent a player looking
+    /// for a fourth land.
+    #[error("no way to cast this spell")]
+    NoWayToCast,
 }
 
 /// Whether any effect lets mana be spent as though it were mana of any
@@ -257,6 +270,34 @@ pub fn mode_has_a_legal_target(
         Some(req) => requirement_is_reachable(req, state, player, card),
         None => true,
     }
+}
+
+/// Whether choosing a mode is the **only** way to cast this face (CR 700.2).
+///
+/// The cast wizard's own guard, lifted out of it so the offer can ask the
+/// same question with the same words. It refuses a mode-less `Normal` option
+/// for a card whose every effect sits under a mode — such a spell would go
+/// hand → stack → graveyard and do nothing — and the offer has to know that,
+/// because a card the wizard will only ever price *per mode* is castable
+/// exactly when one of its modes is.
+///
+/// The three clauses hold it to that sentence and no further: a permanent
+/// spell arrives on the battlefield whether a mode was picked or not, and a
+/// plain [`baylee_cards_dsl::AbilityDef::Spell`] printed beside the modes is
+/// what resolution finds first.
+#[must_use]
+pub fn modes_are_the_only_way(def: &baylee_cards_dsl::CardDef, face: usize) -> bool {
+    let Some(f) = def.faces.get(face) else {
+        return false;
+    };
+    let abilities = def.abilities_for_face(face);
+    abilities
+        .iter()
+        .any(|a| matches!(a, baylee_cards_dsl::AbilityDef::ModalSpell { .. }))
+        && !abilities
+            .iter()
+            .any(|a| matches!(a, baylee_cards_dsl::AbilityDef::Spell { .. }))
+        && !f.types.is_permanent()
 }
 
 /// Whether a target requirement can be met on this board.
@@ -566,7 +607,15 @@ pub fn can_cast(
     // blank. Asking before the arithmetic is also the right rule, because a
     // reduction that takes `{1}` down to nothing leaves a spell that is cast
     // for free and was always castable.
-    if !has_a_printed_cost(&c.mana_cost) || !probe(&normal_cost.with_x(0)) {
+    // A card whose only spell ability is modal has no normal way to be cast
+    // at all — `cast_options` offers none — so its printed price is not an
+    // answer about the card, and taking it as one is how Damn was offered on
+    // a board that could take neither of its modes. The price `{B}{B}`
+    // belongs to "destroy target creature", which had nothing to destroy; the
+    // mode that needed no target was `{2}{W}{W}` on three Swamps. Both
+    // questions were asked and both were answered yes, about different modes.
+    let modal_only = printed.is_some_and(|def| modes_are_the_only_way(def, 0));
+    if modal_only || !has_a_printed_cost(&c.mana_cost) || !probe(&normal_cost.with_x(0)) {
         // Alternative costs may still make it castable (pitch/evoke). The
         // wizard computes the exact options; this decides only whether there
         // is one, and asks about the whole cost to do it.
@@ -601,10 +650,21 @@ pub fn can_cast(
                 && probe(&alt.cost.mana)
                 && alternative_parts_payable(state, player, card, alt.cost.parts)
         });
+        // Affordable *and* pointable, of the **same** mode. A mode's price
+        // and a mode's target line are the two halves of one way to cast the
+        // card, and this probe used to ask only the first while
+        // `has_a_legal_target` asked the second of whichever mode happened to
+        // answer yes — so a board where one mode was payable and a *different*
+        // one was targetable offered a card the wizard then refused. It is the
+        // same intersection `cast_options` makes two files away, which is the
+        // half that was already right.
         let any_mode = def.abilities.iter().any(|a| match a {
-            baylee_cards_dsl::AbilityDef::ModalSpell { modes } => modes
-                .iter()
-                .any(|m| probe(&m.cost_override.unwrap_or(face.mana_cost).with_x(0))),
+            baylee_cards_dsl::AbilityDef::ModalSpell { modes } => {
+                modes.iter().enumerate().any(|(i, m)| {
+                    probe(&m.cost_override.unwrap_or(face.mana_cost).with_x(0))
+                        && mode_has_a_legal_target(state, lookup, player, card, i)
+                })
+            }
             _ => false,
         });
         // And every other face the wizard would offer, which this probe knew
@@ -630,7 +690,21 @@ pub fn can_cast(
             probe(&f.mana_cost.with_x(0)) && face_has_a_legal_target(state, lookup, player, card, i)
         });
         if !any_alt && !any_mode && !any_face {
-            return Err(CastError::NotEnoughMana);
+            // Which of the two refused matters to whoever reads it. A mode
+            // that was affordable and had nothing to point at is not a
+            // player one land short, and telling them it is sends them
+            // looking for the land.
+            let a_mode_was_affordable = def.abilities.iter().any(|a| match a {
+                baylee_cards_dsl::AbilityDef::ModalSpell { modes } => modes
+                    .iter()
+                    .any(|m| probe(&m.cost_override.unwrap_or(face.mana_cost).with_x(0))),
+                _ => false,
+            });
+            return Err(if a_mode_was_affordable {
+                CastError::NoWayToCast
+            } else {
+                CastError::NotEnoughMana
+            });
         }
     }
     Ok(())

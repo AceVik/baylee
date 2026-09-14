@@ -51,6 +51,18 @@ fn twining_twins() -> CardIndex {
 fn mirrorhall_mimic() -> CardIndex {
     card_index("5768fe50-a134-492c-a725-5ed02610c39f")
 }
+fn swamp() -> CardIndex {
+    card_index("56719f6a-1a6c-4c0a-8d21-18f7d7350b68")
+}
+/// `{B}{B}` "destroy target creature", overload `{2}{W}{W}` — the one card
+/// in the pool whose two modes differ in *both* price and target line.
+fn damn() -> CardIndex {
+    card_index("b01d61cc-9844-4191-86a0-f2db6d42d6e5")
+}
+/// The quietest creature there is, here only as something to destroy.
+fn llanowar_elves() -> CardIndex {
+    card_index("68954295-54e3-4303-a6bc-fc4547a4e3a3")
+}
 
 /// Taps everything `seat` can tap for mana right now.
 #[track_caller]
@@ -382,4 +394,89 @@ fn the_adventure_is_not_offered_again_from_the_exile_it_was_cast_into() {
         is_offered(&engine, twins),
         "a stale adventure rider kept Swift Spiral from being cast out of the hand"
     );
+}
+
+/// A mode's price and a mode's target line belong to the **same** mode.
+///
+/// Damn is `{B}{B}` "destroy target creature" and an overload at
+/// `{2}{W}{W}` that needs no target at all. On three Swamps against an empty
+/// board both questions were asked, both answered yes, and each about the
+/// other's mode: `can_cast` found the printed `{B}{B}` payable and returned
+/// early, and `has_a_legal_target` found the overload pointable because a
+/// requirement of `None` is reachable everywhere. So the card lit up in the
+/// hand and every press came back "illegal action for your seat", which is
+/// the offer contradicting itself in the direction a player cannot recover
+/// from — the button they are told to press is the button they are punished
+/// for.
+///
+/// `cast_options` was already right, and had been since Cyclonic Rift: it
+/// intersects the two per mode. The offer now asks the same intersection,
+/// which is the whole of the fix.
+#[test]
+fn a_modal_spell_is_offered_only_where_one_mode_is_paid_for_and_pointed() {
+    let p0 = PlayerId::new(0);
+
+    // Three Swamps, nothing to destroy. `{B}{B}` buys a mode with no target
+    // and `{2}{W}{W}` is out of reach, so there is no way to cast the card.
+    let mut engine = Duel::new(41, swamp())
+        .hand(0, &[damn()])
+        .battlefield(0, &[swamp(), swamp(), swamp()])
+        .start();
+    keep_mulligans(&mut engine);
+    pass_until(&mut engine, |e| {
+        matches!(e.state().turn.phase, Phase::FirstMain) && e.state().turn.active == p0
+    });
+    let card = find(&engine, crate::zone::ZoneLocation::Hand(p0), damn()).expect("Damn is in hand");
+    tap_all_mana(&mut engine, p0);
+    assert!(
+        !is_offered(&engine, card),
+        "Damn was offered with neither of its modes available"
+    );
+    // And the two halves agree about it, which is the point: an offer this
+    // test could not see is worth nothing if pressing the card works anyway.
+    assert!(
+        engine.apply(p0, PlayerAction::CastSpell { card }).is_err(),
+        "the card was refused by the offer and accepted by the wizard"
+    );
+
+    // The same board with something to destroy: the `{B}{B}` mode is now
+    // both payable and pointable, so the card is castable and stays so.
+    let mut engine = Duel::new(41, swamp())
+        .hand(0, &[damn()])
+        .battlefield(0, &[swamp(), swamp(), swamp(), llanowar_elves()])
+        .start();
+    keep_mulligans(&mut engine);
+    pass_until(&mut engine, |e| {
+        matches!(e.state().turn.phase, Phase::FirstMain) && e.state().turn.active == p0
+    });
+    let card = find(&engine, crate::zone::ZoneLocation::Hand(p0), damn()).expect("Damn is in hand");
+    tap_all_mana(&mut engine, p0);
+    assert!(
+        is_offered(&engine, card),
+        "a creature on the board makes Damn's printed mode a real cast"
+    );
+    engine
+        .apply(p0, PlayerAction::CastSpell { card })
+        .expect("the offer is honoured");
+
+    // Four Plains and an empty board: the overload needs no target and is
+    // paid for, so the card is castable for the mode whose price is *not*
+    // the printed one.
+    let mut engine = Duel::new(41, plains())
+        .hand(0, &[damn()])
+        .battlefield(0, &[plains(), plains(), plains(), plains()])
+        .start();
+    keep_mulligans(&mut engine);
+    pass_until(&mut engine, |e| {
+        matches!(e.state().turn.phase, Phase::FirstMain) && e.state().turn.active == p0
+    });
+    let card = find(&engine, crate::zone::ZoneLocation::Hand(p0), damn()).expect("Damn is in hand");
+    tap_all_mana(&mut engine, p0);
+    assert!(
+        is_offered(&engine, card),
+        "the overload is payable and needs no target, and the card was not offered"
+    );
+    engine
+        .apply(p0, PlayerAction::CastSpell { card })
+        .expect("the offer is honoured");
 }
