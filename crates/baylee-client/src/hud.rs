@@ -796,8 +796,13 @@ struct BrowserGate {
     /// tap on the top card of a pile, neither of which need be a new
     /// snapshot.
     open: bool,
-    /// Which zone tab is showing.
-    tab: Option<baylee_client_core::browser::BrowseZone>,
+    /// Which zone boxes are ticked, empty being "Alle".
+    ///
+    /// The whole set and not one zone, because ticking a second pile merges
+    /// it into the list without changing anything else the gate can see: a
+    /// comparison that kept only "which tab" would draw the merge once and
+    /// then never redraw it.
+    ticked: std::collections::BTreeSet<baylee_client_core::browser::BrowseZone>,
     /// What is typed in the filter — **and where the caret and the selection
     /// stand in it**, which is why this is the buffer rather than its string.
     ///

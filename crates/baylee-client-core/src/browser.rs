@@ -32,7 +32,7 @@
 use baylee_core::ids::{ObjectId, PlayerId};
 use baylee_core::types::TypeSet;
 use baylee_view::PlayerView;
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
 
 use crate::i18n::Phrase;
 use crate::images::{ArtSize, ImageKey};
@@ -338,7 +338,13 @@ impl Placement {
     /// prose is squeezed out and the row is a line of marks.
     pub const MIN_W: f32 = 356.0;
     /// The head, the footer, and two whole rows between them.
-    pub const MIN_H: f32 = 314.0;
+    ///
+    /// It was 314, with the zone tabs on a row of their own. They went into
+    /// the title bar on 14.09.2026, which is `TRAY_TAB_H` and one
+    /// `TRAY_HEAD_GAP` — 30 px — that the chrome no longer spends, and the
+    /// floor comes down by exactly that so it stays "two whole rows" rather
+    /// than two and a bit.
+    pub const MIN_H: f32 = 284.0;
     /// One row wide — what `TRAY_PANEL_W` in the renderer computes.
     ///
     /// It was 854, ten columns of a card grid, because the sheet used to draw
@@ -389,7 +395,12 @@ impl Placement {
     /// 119. Spending the whole of a taller row on more sheet would have put
     /// this at 768 against the 850 the band has on the screen it was measured
     /// on, which is a dialog that reads as a screen.
-    pub const DEFAULT_H: f32 = 698.0;
+    ///
+    /// It was 698 until the zone tabs moved into the title bar later the same
+    /// day. That is one row of chrome and one gap — 30 px — and the sheet
+    /// gives them back rather than keeping them as an eighth row: the count
+    /// of rows is what the owner chose, the chrome is what it costs.
+    pub const DEFAULT_H: f32 = 668.0;
     /// The clear the sheet keeps between itself and the band's edge.
     const MARGIN: f32 = 12.0;
 
@@ -516,11 +527,24 @@ enum Opening {
 #[derive(Clone, Default, Debug)]
 pub struct Browser {
     open: Opening,
-    tab: Option<BrowseZone>,
+    /// Which zones are ticked, and **empty means every one of them**.
+    ///
+    /// A set rather than the `Option<BrowseZone>` this was, because the owner
+    /// asked on 14.09.2026 for a checkbox at the start of each zone's name so
+    /// that ticking several *merges* them. The empty set is not a fourth
+    /// state to remember: it is what "Alle" means, so unticking the last zone
+    /// lands back on everything instead of on a panel showing nothing, and
+    /// there is no arrangement of ticks the model cannot spell.
+    ///
+    /// A `BTreeSet` and not a `HashSet` for the reason [`BrowseZone`]'s `Ord`
+    /// exists: the tab order is the panel's first structure, and a set that
+    /// iterated in a different order every run would be a third opinion about
+    /// it.
+    tabs: BTreeSet<BrowseZone>,
     /// The tab the *question* pins, when every card it offers is in one zone.
     ///
-    /// Beside `tab` rather than inside it because the two answer different
-    /// questions: `tab` is what is showing, `locked` is whether the player
+    /// Beside `tabs` rather than inside it because the two answer different
+    /// questions: `tabs` is what is showing, `locked` is whether the player
     /// may change it. A search puts seven library cards on the sheet and the
     /// graveyard beside them has nothing to do with the question — so the
     /// other tabs are drawn and are not buttons, which is the owner's
@@ -560,10 +584,37 @@ impl Browser {
         self.open != Opening::Shut
     }
 
-    /// The zone tab in force, or `None` for "every zone at once".
+    /// The zones that are ticked. Empty is "Alle", and means every one.
+    ///
+    /// Read by the renderer to draw the boxes and by the redraw gate to tell
+    /// one arrangement of ticks from another. Ask [`Self::shows`] rather than
+    /// this when the question is "does this zone's list appear": the empty
+    /// set answers that differently from how it reads.
     #[must_use]
-    pub fn tab(&self) -> Option<BrowseZone> {
-        self.tab
+    pub const fn ticked(&self) -> &BTreeSet<BrowseZone> {
+        &self.tabs
+    }
+
+    /// Whether this zone's box carries a tick.
+    #[must_use]
+    pub fn is_ticked(&self, zone: BrowseZone) -> bool {
+        self.tabs.contains(&zone)
+    }
+
+    /// Whether nothing is ticked, which is what "Alle" says.
+    #[must_use]
+    pub fn shows_every_zone(&self) -> bool {
+        self.tabs.is_empty()
+    }
+
+    /// Whether this zone's cards are in the list.
+    ///
+    /// The one place the empty set's meaning lives. Every reader that wants
+    /// "is this zone being listed" goes through here, so a ticked set and a
+    /// merged list cannot disagree about what "Alle" is.
+    #[must_use]
+    pub fn shows(&self, zone: BrowseZone) -> bool {
+        self.tabs.is_empty() || self.tabs.contains(&zone)
     }
 
     /// The tab the pending question pins, when it pins one.
@@ -681,18 +732,22 @@ impl Browser {
     ///
     /// Refused while the panel is holding a question, for the reason
     /// [`Self::show`] gives and one harder half: this is the only door that
-    /// writes `tab` without asking the lock, and it also turns a `ForChoice`
-    /// opening into a by-hand one — which takes the sheet away from the
-    /// question it was opened for, so `answers_here` goes false and the
-    /// question's own keys stop working on a dialog that is still on the
+    /// writes the ticks without asking the lock, and it also turns a
+    /// `ForChoice` opening into a by-hand one — which takes the sheet away
+    /// from the question it was opened for, so `answers_here` goes false and
+    /// the question's own keys stop working on a dialog that is still on the
     /// screen. A tap that lands on a pile while a search is standing open is
     /// not a request to abandon the search.
+    ///
+    /// It **replaces** the ticks rather than adding one: a tap on a pile says
+    /// "show me that pile", and a pile quietly joining a merge the player
+    /// built earlier would be answering a question nobody asked.
     pub fn open_at(&mut self, zone: BrowseZone) {
         if self.open == Opening::ForChoice {
             return;
         }
         self.open = Opening::ByHand;
-        self.tab = Some(zone);
+        self.tabs = std::iter::once(zone).collect();
     }
 
     /// Closes the panel, keeping the tab and filter for the next time.
@@ -705,14 +760,32 @@ impl Browser {
         self.locked = None;
     }
 
-    /// Shows one zone, or every zone when given `None`.
+    /// Shows one zone alone, or every zone when given `None`.
     ///
     /// Refused while a question has pinned a tab: the rows in every other
     /// zone answer nothing, so the model says no rather than relying on the
     /// renderer to have drawn no button.
     pub fn show(&mut self, tab: Option<BrowseZone>) {
         if self.locked.is_none() {
-            self.tab = tab;
+            self.tabs = tab.into_iter().collect();
+        }
+    }
+
+    /// Ticks a zone's box, or unticks it — which is what merges two piles into
+    /// one list.
+    ///
+    /// Unticking the last one leaves the empty set, and the empty set is
+    /// "Alle": there is no way to arrive at a panel showing nothing, and no
+    /// rule about a minimum to remember, because [`Self::shows`] is where the
+    /// meaning of empty lives.
+    ///
+    /// Refused while a question has pinned a tab, for [`Self::show`]'s reason.
+    pub fn tick(&mut self, zone: BrowseZone) {
+        if self.locked.is_some() {
+            return;
+        }
+        if !self.tabs.remove(&zone) {
+            self.tabs.insert(zone);
         }
     }
 
@@ -922,6 +995,14 @@ impl Browser {
     /// puts the library on screen, the pick sends, the next question wants
     /// nothing from the sheet and the sheet gets out of the way.
     pub fn follow(&mut self, view: &PlayerView, interaction: Option<&Interaction>) {
+        // A pile the player ticked can empty — the graveyard they were
+        // merging gets exiled whole — and a tick on a zone that no longer
+        // exists is a tick nothing draws and nothing can take back. Dropping
+        // it here rather than in `rows` keeps one answer to "what is ticked":
+        // a set that listed a zone the panel has no chip for would be a state
+        // the player could see the effect of and not the cause.
+        let alive: BTreeSet<BrowseZone> = zones_of(view).into_iter().collect();
+        self.tabs.retain(|zone| alive.contains(zone));
         if let Some(it) = interaction.filter(|it| Self::wanted(view, it)) {
             self.open = Opening::ForChoice;
             // Which tab the question itself asks for, before "every zone at
@@ -930,7 +1011,7 @@ impl Browser {
             // a *view* and `saw_reveal` pins `Looking` on it, then the choice
             // arrives and this ran a frame later and wrote that pin away.
             self.locked = Self::sole_zone(view, it);
-            self.tab = self.locked;
+            self.tabs = self.locked.into_iter().collect();
             self.filter.clear();
         } else if self.open == Opening::ForChoice {
             self.close();
@@ -996,7 +1077,11 @@ impl Browser {
                 }
             } else {
                 self.open = Opening::ForChoice;
-                self.tab = Some(BrowseZone::Looking);
+                // Alone, and not added to whatever the player had ticked: the
+                // cards being shown are the event, and a reveal landing inside
+                // a merge of two graveyards would be a reveal nobody could
+                // find.
+                self.tabs = std::iter::once(BrowseZone::Looking).collect();
             }
             self.looking_seen = now;
         }
@@ -1084,7 +1169,7 @@ impl Browser {
         let needle = crate::prose::sort_key(self.filter.text().trim());
         let mut out = Vec::new();
         for zone in self.zones(view) {
-            if self.tab.is_some_and(|t| t != zone) {
+            if !self.shows(zone) {
                 continue;
             }
             for object in objects_in(view, zone) {
@@ -1240,6 +1325,15 @@ mod tests {
         PlayerId::new(0)
     }
 
+    /// What is ticked, in tab order, as a list a test can read.
+    ///
+    /// A `Vec` and not the set itself: the empty case is what "Alle" means
+    /// and `vec![]` says that in the assertion, where `BTreeSet::new()` says
+    /// only that the set is empty.
+    fn ticks(b: &Browser) -> Vec<BrowseZone> {
+        b.ticked().iter().copied().collect()
+    }
+
     fn obj(slot: u32) -> ObjectId {
         ObjectId::new(slot, 0)
     }
@@ -1378,7 +1472,7 @@ mod tests {
         let mut b = Browser::new();
         b.follow(&view, Some(&search));
         assert_eq!(b.locked(), Some(BrowseZone::Looking));
-        assert_eq!(b.tab(), Some(BrowseZone::Looking));
+        assert_eq!(ticks(&b), vec![BrowseZone::Looking]);
         assert!(
             b.rows(&view, Some(&search), Names::projected())
                 .iter()
@@ -1389,7 +1483,7 @@ mod tests {
         // The pin is the model's, not the renderer's: a click that reached
         // "every zone" anyway changes nothing.
         b.show(None);
-        assert_eq!(b.tab(), Some(BrowseZone::Looking), "the pin holds");
+        assert_eq!(ticks(&b), vec![BrowseZone::Looking], "the pin holds");
 
         // A question that reaches two zones pins nothing — there is no one
         // tab that could answer it.
@@ -1405,7 +1499,7 @@ mod tests {
         );
         b.follow(&view, Some(&across));
         assert_eq!(b.locked(), None);
-        assert_eq!(b.tab(), None, "every zone at once");
+        assert_eq!(ticks(&b), vec![], "every zone at once");
 
         // And the pin belongs to the question: answered, the sheet the player
         // opens next is theirs to steer again.
@@ -1415,7 +1509,7 @@ mod tests {
         assert_eq!(b.locked(), None);
         b.open();
         b.show(Some(BrowseZone::Graveyard(me())));
-        assert_eq!(b.tab(), Some(BrowseZone::Graveyard(me())));
+        assert_eq!(ticks(&b), vec![BrowseZone::Graveyard(me())]);
     }
 
     /// W2: the dim says "there is nothing else to do", so it is drawn only
@@ -1669,7 +1763,7 @@ mod tests {
             b.is_open(),
             "cards being shown open the sheet that draws them"
         );
-        assert_eq!(b.tab(), Some(BrowseZone::Looking));
+        assert_eq!(ticks(&b), vec![BrowseZone::Looking]);
 
         // …and it stays closed once the player closes it, however many views
         // arrive carrying the same cards. A per-frame decision would make the
@@ -2185,8 +2279,8 @@ mod tests {
             "a tap on a pile took the sheet away from the question"
         );
         assert_eq!(
-            b.tab(),
-            Some(BrowseZone::Looking),
+            ticks(&b),
+            vec![BrowseZone::Looking],
             "and it must not have moved the tab either"
         );
     }
@@ -2198,7 +2292,7 @@ mod tests {
         let mut b = Browser::new();
         b.open_at(BrowseZone::Graveyard(PlayerId::new(0)));
         assert!(b.is_open());
-        assert_eq!(b.tab(), Some(BrowseZone::Graveyard(PlayerId::new(0))));
+        assert_eq!(ticks(&b), vec![BrowseZone::Graveyard(PlayerId::new(0))]);
     }
 
     /// The cycle is one control, so a direction must not survive a key change.
@@ -2334,6 +2428,91 @@ mod tests {
             b.rows(&view, None, names).len(),
             1,
             "and so does the ss in it"
+        );
+    }
+
+    /// Two boxes ticked is one list, and no box ticked is every list.
+    ///
+    /// The owner asked for the checkbox on 14.09.2026 — *"so das man sie
+    /// durch das checken quasi mergen kann"* — and the merge is the whole of
+    /// what has to be asserted: that the rows really do span both piles, that
+    /// they stay **grouped by zone** while they do (which is what
+    /// [`BrowseZone`]'s `Ord` is for, and the one property a set could have
+    /// thrown away), and that unticking the last box lands on everything
+    /// rather than on nothing. That last one is the empty set's meaning, and
+    /// a panel that could be emptied by a second click on one chip is the bug
+    /// this is written against.
+    #[test]
+    fn ticking_two_zones_merges_their_lists_and_unticking_the_last_shows_all() {
+        let view = ViewBuilder::new(2)
+            .with_stack(vec![printed(3, 1, "Counterspell", 2)])
+            .with_graveyard(0, vec![printed(4, 0, "Llanowar Elves", 3)])
+            .with_graveyard(1, vec![printed(5, 1, "Birds of Paradise", 4)])
+            .build();
+        let names = Names::projected();
+        let mut b = Browser::new();
+        b.open();
+        assert!(b.shows_every_zone(), "a fresh panel is on Alle");
+        assert_eq!(b.rows(&view, None, names).len(), 3, "all three piles");
+
+        b.tick(BrowseZone::Graveyard(me()));
+        assert_eq!(ticks(&b), vec![BrowseZone::Graveyard(me())]);
+        assert_eq!(b.rows(&view, None, names).len(), 1, "one pile alone");
+
+        b.tick(BrowseZone::Stack);
+        assert_eq!(
+            ticks(&b),
+            vec![BrowseZone::Stack, BrowseZone::Graveyard(me())],
+            "and they are held in tab order, not in the order they were ticked"
+        );
+        let zones: Vec<BrowseZone> = b
+            .rows(&view, None, names)
+            .iter()
+            .map(|row| row.zone)
+            .collect();
+        assert_eq!(
+            zones,
+            vec![BrowseZone::Stack, BrowseZone::Graveyard(me())],
+            "the merged list is still grouped by zone"
+        );
+        assert!(
+            !b.shows(BrowseZone::Graveyard(PlayerId::new(1))),
+            "a pile nobody ticked is not in the merge"
+        );
+
+        b.tick(BrowseZone::Stack);
+        b.tick(BrowseZone::Graveyard(me()));
+        assert!(b.shows_every_zone(), "the last tick off is Alle again");
+        assert_eq!(b.rows(&view, None, names).len(), 3);
+    }
+
+    /// A ticked pile that empties takes its tick with it.
+    ///
+    /// Nothing draws a chip for a zone with nothing in it ([`zones_of`]), so a
+    /// tick left behind on one is a state the player can see the effect of —
+    /// an empty list — and not the cause. `follow` is where it goes, because
+    /// that is the door a view comes in through.
+    #[test]
+    fn a_tick_does_not_outlive_the_pile_it_is_on() {
+        let full = ViewBuilder::new(2)
+            .with_graveyard(0, vec![printed(4, 0, "Llanowar Elves", 3)])
+            .with_stack(vec![printed(3, 1, "Counterspell", 2)])
+            .build();
+        let mut b = Browser::new();
+        b.open();
+        b.tick(BrowseZone::Graveyard(me()));
+        b.tick(BrowseZone::Stack);
+        b.follow(&full, None);
+        assert_eq!(ticks(&b).len(), 2, "both piles are still there");
+
+        let emptied = ViewBuilder::new(2)
+            .with_stack(vec![printed(3, 1, "Counterspell", 2)])
+            .build();
+        b.follow(&emptied, None);
+        assert_eq!(
+            ticks(&b),
+            vec![BrowseZone::Stack],
+            "the graveyard's tick went with the graveyard"
         );
     }
 

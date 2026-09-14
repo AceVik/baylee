@@ -169,6 +169,12 @@ const TRAY_FOOT_H: f32 = 34.0;
 const TRAY_HEAD_GAP: f32 = 8.0;
 /// The head band's own padding, above and below.
 const TRAY_HEAD_PAD: f32 = 12.0;
+/// The box at the start of a zone tab's name.
+///
+/// Smaller than the list's [`TRAY_BOX`], because it stands in a 22-px chip
+/// rather than beside a 56-px thumbnail, and because a box as big as the one
+/// that answers the question would be claiming to be that box.
+const TRAY_TAB_BOX: f32 = 12.0;
 /// The head band's own top corners: the panel's, less the border it sits in.
 ///
 /// Derived and not chosen, so that moving [`super::SHEET_R`] moves both curves
@@ -186,8 +192,10 @@ const TRAY_FOOT_PAD: f32 = 11.0;
 /// is a number with a reason rather than one somebody liked.
 #[cfg(test)]
 const TRAY_CHROME_H: f32 =
-    // the head: its border, its padding, and three rows with air between them
-    1.0 + 2.0 * TRAY_HEAD_PAD + TRAY_TITLE_H + TRAY_TAB_H + TRAY_CTRL_H + 2.0 * TRAY_HEAD_GAP
+    // the head: its border, its padding, and two rows with air between them —
+    // the tabs are in the title row now, so `TRAY_TAB_H` is spent inside
+    // `TRAY_TITLE_H` rather than beside it
+    1.0 + 2.0 * TRAY_HEAD_PAD + TRAY_TITLE_H + TRAY_CTRL_H + TRAY_HEAD_GAP
     // the footer: its border, its padding, one button
     + 1.0 + 2.0 * TRAY_FOOT_PAD + TRAY_FOOT_H
     // and the panel's own border, top and bottom
@@ -296,7 +304,7 @@ pub fn sync_tray(
     };
     let browser = super::BrowserGate {
         open: duel.browser.is_open(),
-        tab: duel.browser.tab(),
+        ticked: duel.browser.ticked().clone(),
         filter: duel.browser.filter_field().clone(),
         typing: duel.browser.is_typing(),
         sort: duel.browser.sort(),
@@ -842,10 +850,17 @@ pub(super) fn spawn_tray(
         .id();
 
     // The title row answers the pointer, because it is what a drag takes hold
-    // of. The title inside it keeps `Pickable::IGNORE`, so a press anywhere on
-    // the row that is not the close button is a press on the row itself — and
-    // the tabs are deliberately *not* in it, or dragging a tab sideways would
-    // carry the whole sheet with it.
+    // of. Everything inside it that is not a control keeps `Pickable::IGNORE`,
+    // so a press on the bare row is a press on the row itself.
+    //
+    // **The tabs are in it, and the word "Zonen" is gone.** The owner asked
+    // for both on 14.09.2026 — the chips say what the panel is far better
+    // than a label repeating the name of the thing the player just opened,
+    // and a title bar with nothing but a title in it is a row of air. They
+    // were deliberately *out* of this row before, because dragging a tab
+    // sideways would have carried the sheet with it; that is now settled
+    // where the `✕` already settles it — `tray_drag` lets the specific
+    // control claim the press before the row it stands on does.
     let title_row = commands
         .spawn((
             TrayGrip,
@@ -853,19 +868,13 @@ pub(super) fn spawn_tray(
                 flex_direction: FlexDirection::Row,
                 justify_content: JustifyContent::SpaceBetween,
                 align_items: AlignItems::Center,
+                column_gap: px(TRAY_GAP),
                 height: px(TRAY_TITLE_H),
                 flex_shrink: 0.0,
                 ..default()
             },
         ))
         .id();
-    let title = dialog_text(
-        commands,
-        fonts,
-        Phrase::BrowseTitle.text(lang),
-        13.0,
-        palette::DIALOG_SOFT,
-    );
     // The way out. Square, so the cross has a centre to sit in, and with a
     // `Feel`, because every other button in this client breathes.
     let close = commands
@@ -895,9 +904,13 @@ pub(super) fn spawn_tray(
             )],
         ))
         .id();
-    commands.entity(title_row).add_children(&[title, close]);
-
     // ---- the zone tabs, "All" first ----
+    //
+    // They take the row's slack and the `✕` keeps its 22 px, which is why the
+    // tabs grow and the close button does not. `min_width` of zero is the
+    // half a flex row always needs: without it a row of eight piles refuses
+    // to shrink below the width of its own chips and pushes the `✕` off the
+    // sheet.
     let tabs = commands
         .spawn((
             Node {
@@ -906,24 +919,30 @@ pub(super) fn spawn_tray(
                 align_items: AlignItems::Center,
                 height: px(TRAY_TAB_H),
                 overflow: Overflow::clip(),
-                flex_shrink: 0.0,
+                flex_grow: 1.0,
+                flex_basis: px(0),
+                min_width: px(0),
                 ..default()
             },
             Pickable::IGNORE,
         ))
         .id();
     // "All" carries no count: a sum of a graveyard, a stack and a reveal is a
-    // number about nothing.
-    // A question that lives in one zone pins the tab to it (W3): every other
-    // tab, "All" included, is drawn and is not a button.
+    // number about nothing. Its box is ticked when no other one is, which is
+    // the empty set's meaning drawn rather than a fourth state
+    // ([`Browser::shows_every_zone`]).
+    //
+    // A question that lives in one zone pins the tab to it (W3): nothing in
+    // the row is a button then, "All" included.
     let pinned = browser.locked();
+    let live = pinned.is_none();
     let mut chips = vec![spawn_tab(
         commands,
         fonts,
         None,
         Phrase::BrowseAll.text(lang).to_string(),
-        browser.tab().is_none(),
-        pinned.is_some(),
+        browser.shows_every_zone(),
+        live,
     )];
     for zone in browser.zones(view) {
         chips.push(spawn_tab(
@@ -931,11 +950,12 @@ pub(super) fn spawn_tray(
             fonts,
             Some(zone),
             zone_label(lang, zone, view, statics),
-            browser.tab() == Some(zone),
-            pinned.is_some_and(|p| p != zone),
+            browser.is_ticked(zone) || pinned == Some(zone),
+            live,
         ));
     }
     commands.entity(tabs).add_children(&chips);
+    commands.entity(title_row).add_children(&[tabs, close]);
 
     // ---- what is typed, how it is sorted, and how much is answered ----
     //
@@ -1048,9 +1068,8 @@ pub(super) fn spawn_tray(
         commands.entity(controls).add_child(tally);
     }
 
-    commands
-        .entity(head)
-        .add_children(&[title_row, tabs, controls]);
+    // Two rows, where it was three: the tabs went up into the title row.
+    commands.entity(head).add_children(&[title_row, controls]);
 
     // ---- the list ----
     //
@@ -1294,30 +1313,36 @@ fn spawn_footer(
     Some(foot)
 }
 
-/// One zone tab.
+/// One zone tab: a box, and the pile's name beside it.
 ///
-/// `locked` is the question having pinned a tab: every other one is still
-/// drawn, at the weight of something that is not a control, and is not a
-/// button. Drawn and not hidden, because a tab that vanished would be saying
-/// the graveyard is empty — and what is true is that it is no part of *this*
-/// question.
+/// `live` is false while a question has pinned a tab — every other one is
+/// still drawn, at the weight of something that is not a control, and none of
+/// them is a button. Drawn and not hidden, because a tab that vanished would
+/// be saying the graveyard is empty, and what is true is that it is no part
+/// of *this* question.
+///
+/// **The state is in the box and not under the chip.** It was a candle fill
+/// across the whole tab, which is a thing one chip at a time can say; the
+/// owner asked on 14.09.2026 for a checkbox at the start of each name so that
+/// ticking several merges them, and three candle chips in a row would read as
+/// three panels rather than as one list. So the chip keeps the panel's own
+/// dark and the box carries the accent — the same box, the same candle and
+/// the same tick the rows in the list below already use, one size down.
 fn spawn_tab(
     commands: &mut Commands,
     fonts: &UiFonts,
     zone: Option<BrowseZone>,
     label: String,
-    current: bool,
-    locked: bool,
+    ticked: bool,
+    live: bool,
 ) -> Entity {
-    // Candle under the current tab, and the panel's own dark for the ink on
-    // it: a lit chip is the one place on this dialog where the accent is a
-    // *fill*, which is what keeps the list underneath quiet.
-    let (fill, ink) = if current {
-        (palette::CANDLE, palette::DIALOG)
-    } else if locked {
-        // No surface at all under it, and the quieter ink on top: the dialog
-        // already means "a different kind of sentence" by that grey, which is
-        // exactly what a tab outside the question is.
+    // A chip outside the question gets no surface at all and the quieter ink
+    // on top: the dialog already means "a different kind of sentence" by that
+    // grey, which is exactly what a tab outside the question is. It also gets
+    // **no box**, for the reason a row the question will not take draws none:
+    // a box that cannot be ticked is an invitation that will be refused.
+    let dead = !live && !ticked;
+    let (fill, ink) = if dead {
         (Color::NONE, palette::DIALOG_SOFT)
     } else {
         (palette::DIALOG, palette::DIALOG_INK)
@@ -1330,6 +1355,7 @@ fn spawn_tab(
                 height: px(TRAY_TAB_H),
                 padding: UiRect::horizontal(px(8)),
                 align_items: AlignItems::Center,
+                column_gap: px(6),
                 border_radius: btn_radius(),
                 flex_shrink: 0.0,
                 ..default()
@@ -1337,16 +1363,69 @@ fn spawn_tab(
             BackgroundColor(fill),
         ))
         .id();
-    if locked {
+    if !dead {
+        let mark = spawn_tab_box(commands, fonts, ticked);
+        commands.entity(tab).add_child(mark);
+    }
+    if live {
+        commands.entity(tab).insert((Button, Feel::new(fill)));
+    } else {
         // No `Button` and no `Feel` either: a control that lights under the
         // pointer and then refuses the click is worse than one that never
         // invited it.
         commands.entity(tab).insert(Pickable::IGNORE);
-    } else {
-        commands.entity(tab).insert((Button, Feel::new(fill)));
     }
     commands.entity(tab).add_child(text);
     tab
+}
+
+/// The box at the start of a zone's name.
+///
+/// The list's own box ([`spawn_row`]) one size down and with the same four
+/// decisions made the same way: candle under a tick, a hollow outline under
+/// none, the tick out of the **icon** face because neither Inter nor Alegreya
+/// Sans has U+2713, and `Pickable::IGNORE` so the box never takes the press
+/// meant for the chip it sits in — the trap `a-label-swallows-the-hover`
+/// names.
+///
+/// A box on a pinned tab is drawn and is not a control — the chip around it
+/// carries that — and its tick stays candle, because the question really has
+/// ticked that zone and a grey tick would be saying something else.
+fn spawn_tab_box(commands: &mut Commands, fonts: &UiFonts, ticked: bool) -> Entity {
+    let (fill, edge) = if ticked {
+        (palette::CANDLE, palette::CANDLE)
+    } else {
+        (Color::NONE, palette::DIALOG_SOFT)
+    };
+    let mark = commands
+        .spawn((
+            Node {
+                width: px(TRAY_TAB_BOX),
+                height: px(TRAY_TAB_BOX),
+                flex_shrink: 0.0,
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+                border: UiRect::all(px(1)),
+                border_radius: BorderRadius::all(px(3)),
+                ..default()
+            },
+            BackgroundColor(fill),
+            BorderColor::all(edge),
+            Pickable::IGNORE,
+        ))
+        .id();
+    if ticked {
+        let ink = commands
+            .spawn((
+                Text::new(glyph::CHECK.to_string()),
+                icon_tf(fonts, 7.5),
+                TextColor(palette::DIALOG),
+                Pickable::IGNORE,
+            ))
+            .id();
+        commands.entity(mark).add_child(ink);
+    }
+    mark
 }
 
 /// One control in the head's bottom row: the sort key, or the arrow beside it.

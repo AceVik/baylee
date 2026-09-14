@@ -1714,6 +1714,7 @@ pub fn tray_drag(
     grips: Query<&crate::hud::TrayGrip>,
     corners: Query<&crate::hud::TrayResize>,
     closes: Query<&TrayClose>,
+    tabs: Query<&TrayTab>,
     parents: Query<&ChildOf>,
     windows: Query<&Window>,
     mut panels: Query<&mut Node, With<crate::hud::TrayPanel>>,
@@ -1741,11 +1742,19 @@ pub fn tray_drag(
 
     let cursor = windows.single().ok().and_then(Window::cursor_position);
     for down in downs.read() {
-        // The ✕ sits *on* the header, so its lineage carries the grip. The
-        // specific control claims the press before the row it stands on does,
-        // or every close would first nudge the sheet by whatever the hand
-        // wobbled between the press and the release — and then save it.
-        if find_in_lineage(down.entity, &closes, &parents).is_some() {
+        // The ✕ and the zone tabs sit *on* the header, so their lineage
+        // carries the grip. The specific control claims the press before the
+        // row it stands on does, or every close would first nudge the sheet by
+        // whatever the hand wobbled between the press and the release — and
+        // then save it.
+        //
+        // The tabs joined that list when they moved into the title row on
+        // 14.09.2026. It is the same bargain the ✕ already had, and it is the
+        // reason the tabs could move at all: a chip that started a drag would
+        // carry the whole sheet sideways every time a pile was ticked.
+        if find_in_lineage(down.entity, &closes, &parents).is_some()
+            || find_in_lineage(down.entity, &tabs, &parents).is_some()
+        {
             continue;
         }
         let kind = if find_in_lineage(down.entity, &corners, &parents).is_some() {
@@ -2310,10 +2319,18 @@ fn browser_click(
         activate_card(duel, card.object);
         return true;
     }
-    // A tab inside the open tray switches zone; a chip outside it opens and
-    // closes the whole panel. Two different jobs, so two components.
+    // A tab inside the open tray ticks a zone's box; a chip outside it opens
+    // and closes the whole panel. Two different jobs, so two components.
+    //
+    // "Alle" is the one chip that is not a box being ticked — it is every box
+    // being cleared, which is the same state and is why `Browser` keeps one
+    // set and not a set plus a flag. Everything else toggles, so a second
+    // click on a pile takes it back out of the merge.
     if let Some(tab) = find_in_lineage(entity, &tray.tabs, parents) {
-        duel.browser.show(tab.zone);
+        match tab.zone {
+            Some(zone) => duel.browser.tick(zone),
+            None => duel.browser.show(None),
+        }
         return true;
     }
     if find_in_lineage(entity, &tray.close, parents).is_some() {
@@ -4666,8 +4683,8 @@ mod tests {
         super::activate_card(&mut duel, top);
         assert!(duel.browser.is_open(), "the graveyard did not open");
         assert_eq!(
-            duel.browser.tab(),
-            Some(baylee_client_core::BrowseZone::Graveyard(PlayerId::new(0))),
+            duel.browser.ticked().iter().copied().collect::<Vec<_>>(),
+            vec![baylee_client_core::BrowseZone::Graveyard(PlayerId::new(0))],
             "it opened on somebody else's pile"
         );
     }
@@ -5345,6 +5362,43 @@ mod dragging {
                 .zone_browser
                 .is_none(),
             "closing the sheet wrote a place nobody chose"
+        );
+    }
+
+    /// And neither does a zone tab, which is what let them move up there.
+    ///
+    /// The tabs were kept out of the title row precisely so that ticking a
+    /// pile could not drag the sheet sideways. They went in on 14.09.2026 —
+    /// the owner asked for it, and the chips say what the panel is far better
+    /// than the word "Zonen" did — so the guarantee has to come from the same
+    /// place the ✕'s does: the specific control claims the press before the
+    /// row it stands on. A chip is pressed at every merge, so this is the
+    /// noisier half of the pair rather than the quieter one.
+    #[test]
+    fn pressing_a_zone_tab_does_not_start_a_drag() {
+        let (mut app, panel, grip, _) = harness();
+        let tab = app
+            .world_mut()
+            .spawn((
+                crate::hud::TrayTab {
+                    zone: Some(baylee_client_core::BrowseZone::Stack),
+                },
+                Node::default(),
+            ))
+            .id();
+        app.world_mut().entity_mut(grip).add_children(&[tab]);
+
+        press(&mut app, tab);
+        app.update();
+        let before = node_of(&app, panel);
+        cursor_to(&mut app, Vec2::new(1000.0, 600.0));
+        assert_eq!(node_of(&app, panel).left, before.left);
+        assert!(
+            app.world()
+                .resource::<ClientSettings>()
+                .zone_browser
+                .is_none(),
+            "ticking a zone wrote a place nobody chose"
         );
     }
 

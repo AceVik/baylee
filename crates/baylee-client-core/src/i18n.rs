@@ -1375,8 +1375,6 @@ messages! {
     },
 
     // ---- the zone browser
-    /// The panel that shows every zone a choice can reach.
-    BrowseTitle { en: "Zones", de: "Zonen" },
     /// Cards the engine is showing this seat — a search, a scry, a reveal.
     BrowseLooking { en: "Revealed", de: "Aufgedeckt" },
     /// A graveyard.
