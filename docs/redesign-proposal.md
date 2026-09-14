@@ -590,7 +590,7 @@ lookup"), and `the_click` (`input.rs:634`) treats it as any other object.
 anchor (the bubble's tail target) sits horizontally": a hand card answers
 `Some(x)`, everything else — lanes, piles, command zone — answers `None`,
 which means screen centre. The tail exists (`overlay.rs:1148-1164`): a
-`CARET_DOWN` glyph at `anchor − 9`, bottom `HAND_BAR_H + 2` — it always
+`CARET_DOWN` glyph at `anchor − 9`, bottom `HAND_ZONE_H + 2` — it always
 points *down at the hand bar*, even for a permanent on the table. The panel
 is always at the bottom (`overlay.rs:1061`). So a table hover shows a bubble
 in the middle of the screen with a tail pointing at nothing.

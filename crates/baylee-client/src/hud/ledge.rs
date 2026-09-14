@@ -41,11 +41,21 @@ pub(super) fn spawn_ledge(commands: &mut Commands) -> Entity {
                 left: px(0),
                 right: px(0),
                 height: px(hand::LEDGE_H),
-                padding: UiRect::axes(px(EDGE), px(LEDGE_PAD_Y)),
+                // The lip is paid for out of the **top** padding, which is why
+                // this is not `UiRect::axes`. `BoxSizing::DEFAULT` is
+                // `BorderBox`, so `LEDGE_H` is the outside of the shelf and
+                // the border eats into it: 6 + 28 + 6 is 40 only if the line
+                // is not there, and with it a 28-px button overflows by one.
+                // Taking the pixel off the padding rather than adding it to
+                // the shelf keeps the rule the whole height budget is built on
+                // — every pixel of ledge is a pixel of table — and costs
+                // nothing to look at, because 1 + 5 above the button reads as
+                // the 6 below it.
+                padding: UiRect::new(px(EDGE), px(EDGE), px(LEDGE_PAD_Y - LIP), px(LEDGE_PAD_Y)),
                 // The lip: one line along the top and nothing down the sides
                 // or under it, because the zone runs on to the window's own
                 // edges and an edge has no corners.
-                border: UiRect::top(px(1)),
+                border: UiRect::top(px(LIP)),
                 overflow: Overflow::visible(),
                 ..default()
             },
@@ -71,6 +81,13 @@ pub(super) fn spawn_ledge(commands: &mut Commands) -> Entity {
             // button in a node the pointer cannot see is a button that cannot
             // be pressed. Hoverable, blocking nothing, exactly as the zone
             // below it is.
+            //
+            // `should_block_lower: false` on an *opaque* node does mean a
+            // click on the bare shelf reaches whatever 3D geometry is behind
+            // it, which is not obviously right. It is harmless today because
+            // the only thing down there is the slab's margin and nothing on
+            // it is pickable; if the layout ever puts a card under the shelf,
+            // this is the line that has to change.
             Pickable {
                 should_block_lower: false,
                 is_hoverable: true,
@@ -81,6 +98,26 @@ pub(super) fn spawn_ledge(commands: &mut Commands) -> Entity {
 
 /// The air above and below a button on the shelf.
 ///
-/// Twice this plus a button's 28 is [`hand::LEDGE_H`], and that equation is
-/// the only reason either number is what it is.
+/// Twice this plus a button's [`BUTTON_H`] is [`hand::LEDGE_H`], and that
+/// equation is the only reason either number is what it is. The [`LIP`] comes
+/// out of the top of it rather than out of the shelf; the node says why.
 pub(super) const LEDGE_PAD_Y: f32 = 6.0;
+
+/// The line along the top of the shelf, where the table stops.
+pub(super) const LIP: f32 = 1.0;
+
+/// How tall anything a player presses on the shelf is.
+///
+/// A keycap with the button's own air around it: `sheet::cap` draws one at
+/// 1.9 times its font size, so the shelf's 10.5-pt cap is a 20-px square and
+/// `20 + 2 · 4` is this. It is written out rather than computed because the
+/// shelf has no keycap yet — the step that lifts `cap` out of `sheet.rs` is
+/// the one that gets to tie the two together.
+///
+/// Not the 44 a phone would ask for: this is a desktop table, the shelf is
+/// 40 px of a window that would rather be table, and a 44-px target would take
+/// another 16 px off the hand. A deliberate refusal, written down as one.
+pub(super) const BUTTON_H: f32 = 28.0;
+
+/// The shelf's arithmetic, as one statement rather than four comments.
+const _: () = assert!(LEDGE_PAD_Y * 2.0 + BUTTON_H == hand::LEDGE_H);
