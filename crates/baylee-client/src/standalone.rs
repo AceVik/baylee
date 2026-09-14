@@ -44,34 +44,64 @@ pub fn run() {
         }
     };
 
-    let mut app = App::new();
-    app.add_plugins(
-        DefaultPlugins
-            .set(WindowPlugin {
-                primary_window: Some({
-                    let mut window = Window {
-                        title: "baylee".to_string(),
-                        // A regular decorated window: the system close /
-                        // minimize buttons stay available.
-                        fit_canvas_to_parent: true,
-                        ..default()
-                    };
-                    // Starts maximized (decorations kept). A phone has no
-                    // window manager to ask, and ignores it.
-                    window.set_maximized(true);
-                    window
-                }),
-                ..default()
-            })
-            .set(bevy::asset::AssetPlugin {
-                // Natively the fonts live in the crate's assets dir (run
-                // from the repo root or anywhere else); trunk copies that
-                // dir to `dist/assets`, the browser's asset root.
-                file_path: asset_root().to_string(),
-                ..default()
+    let plugins = DefaultPlugins
+        .set(WindowPlugin {
+            primary_window: Some({
+                let mut window = Window {
+                    title: "baylee".to_string(),
+                    // A regular decorated window: the system close /
+                    // minimize buttons stay available.
+                    fit_canvas_to_parent: true,
+                    ..default()
+                };
+                // Starts maximized (decorations kept). A phone has no
+                // window manager to ask, and ignores it.
+                window.set_maximized(true);
+                window
             }),
-    )
-    .add_plugins(DuelPlugin {
+            ..default()
+        })
+        .set(bevy::asset::AssetPlugin {
+            // Natively the fonts live in the crate's assets dir (run
+            // from the repo root or anywhere else); trunk copies that
+            // dir to `dist/assets`, the browser's asset root.
+            file_path: asset_root().to_string(),
+            ..default()
+        });
+    // A phone's driver aborts on bevy's occlusion-culling shader, and this
+    // one feature bit is the public door to the state bevy itself puts the
+    // previous generation of the same GPU in.
+    //
+    // The Pixel 11 Pro XL's adapter is a "PowerVR C-Series CXTP-48-1536 MC1",
+    // and PowerVR's SPIR-V compiler dies inside
+    // `spvcompiler::getMangledImageTypeString` while
+    // `IMG_vkCreateComputePipelines` compiles `mesh_preprocess.wgsl` — which
+    // carries a sampled image (`depth_pyramid: texture_2d<f32>`) inside a
+    // *compute* shader. That shader exists only under
+    // `GpuPreprocessingMode::Culling`. Bevy already holds this GPU family to
+    // `PreprocessingOnly`, where there is no depth pyramid at all, but it
+    // recognises it by comparing the adapter name against the literal
+    // "PowerVR D-Series DXT-48-1536 MC1" — the Pixel 10's, one generation
+    // off, so the 11 falls through and crashes on its first frame.
+    // `GpuPreprocessingSupport::from_world` reads `INDIRECT_FIRST_INSTANCE`
+    // as its `culling_feature_support`, and bevy reads that feature nowhere
+    // else, so dropping it asks for exactly that mode and nothing besides.
+    //
+    // Android-wide rather than per device, because these settings are built
+    // before there is an adapter to ask — and a table of a few dozen cards
+    // has nothing to lose to CPU-side culling.
+    #[cfg(target_os = "android")]
+    let plugins = plugins.set(bevy::render::RenderPlugin {
+        render_creation: bevy::render::settings::WgpuSettings {
+            disabled_features: Some(bevy::render::settings::WgpuFeatures::INDIRECT_FIRST_INSTANCE),
+            ..default()
+        }
+        .into(),
+        ..default()
+    });
+
+    let mut app = App::new();
+    app.add_plugins(plugins).add_plugins(DuelPlugin {
         config: DuelConfig::default(),
     });
     // A phone's run loop is not a desktop's. `WinitSettings::default()` is
