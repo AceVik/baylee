@@ -1,13 +1,19 @@
-# Local Postgres for the card catalog.
+# Local Postgres. The gateway does not start without it.
 #
-# Only the catalog needs a database: accounts, decks and lobbies still live in
-# the gateway's JSON store, so a gateway started without this compose file runs
-# every game — it just serves no card text.
+# It holds two things that are only neighbours: the gateway's accounts,
+# sessions, decks and preferences (`baylee-db`, migrated in place), and the
+# card catalog (`baylee-catalog`, rebuilt wholesale by an ingest). The first
+# is required — a gateway with no database has no accounts. The second is
+# optional: without an ingest the gateway serves no card text and the client
+# draws faces from what the engine projects.
+#
+# The test suite needs this too. Each spawned gateway takes a schema of its
+# own, so the suite never touches what an ingest has put in `public`.
 #
 #   docker compose up -d
 #   export DATABASE_URL=postgres://baylee:baylee@127.0.0.1:5432/baylee
-#   cargo run -p baylee-catalog -- ingest        # English, ~78 MB compressed
-#   cargo run -p baylee-catalog -- ingest --all-languages   # every language
+#   cargo run -p baylee-catalog -- ingest                  # every language
+#   cargo run -p baylee-catalog -- ingest --english-only   # ~118k printings
 services:
   postgres:
     image: postgres:18-alpine

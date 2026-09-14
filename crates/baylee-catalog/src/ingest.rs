@@ -124,6 +124,7 @@ pub async fn bulk(catalog: &Catalog, feed: Feed) -> Result<usize> {
     reader
         .join()
         .map_err(|_| anyhow::anyhow!("bulk reader thread panicked"))??;
+    catalog.analyze().await?;
     tracing::info!(stored, "ingest complete");
     Ok(stored)
 }

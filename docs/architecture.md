@@ -23,14 +23,20 @@ Master plan (Blueprint v1.3). baylee is a cargo workspace:
   `baylee-protocol` and nothing else in the workspace: an agent has never heard
   of a card, a rule or a deck, which is why it can run where the gateway does
   not.
-- **baylee-gateway** (M4) — [Implemented today]: axum + JSON-file store
-  (parking_lot mutex, debounced background writer): auth (Argon2id,
-  hashed bearer tokens), decks/validation, lobbies, and **routing** between
-  seat sockets and one engine process per game — it links neither the engine
-  nor gamehost (see "The gateway runs no rules" in docs/protocol.md).
-  [Spec target]: SeaORM 2 + PostgreSQL 18, catalog
-  search, banlists, image proxy/cache. The store move goes
-  via SQLite first (see docs/protocol.md roadmap).
+- **baylee-gateway** (M4) — [Implemented today]: axum + SeaORM 2 over
+  PostgreSQL 18 (`baylee-db`: six tables, entities, a migrator, UUIDv7 keys):
+  auth (Argon2id, hashed bearer tokens), decks/validation, lobbies, and
+  **routing** between seat sockets and one engine process per game — it links
+  neither the engine nor gamehost (see "The gateway runs no rules" in
+  docs/protocol.md). Lobbies are the exception and are *not* stored: a room
+  is arranged in memory and dies with the process, because a half-arranged
+  table nobody is sitting at is worth nothing after a restart.
+  [Spec target]: banlists, image proxy/cache.
+
+  The JSON file it used to keep is now only something to **import**. There is
+  no SQLite step and never was one worth taking: the gateway is a server, a
+  server wants a server database, and the intermediate hop would have been a
+  schema written twice.
 - **frontends** (M5) — Leptos lobby, Bevy 2.5D game client (WASM + native +
   mobile), reusable `ui-widgets` / `client-presentation` split (MMO-ready).
 

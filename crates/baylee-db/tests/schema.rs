@@ -12,9 +12,10 @@
 //! machine hold half a gigabyte of ingested card text that took three minutes
 //! to write.
 //!
-//! Without `DATABASE_URL` they are skipped, loudly. That is a stage-one
-//! compromise and not a preference: the gateway does not require a database
-//! yet, so neither may its test suite.
+//! Without `DATABASE_URL` they fail rather than skip. A skipped test that
+//! reports success is worse than a missing one: the gateway keeps its
+//! accounts in PostgreSQL now, so a green suite with no server would be
+//! saying that a schema works when nothing had asked it to do anything.
 
 use baylee_db::entity::prelude::*;
 use baylee_db::entity::{account, client_settings, deck, session_token};
@@ -34,17 +35,18 @@ struct Sandbox {
 }
 
 impl Sandbox {
-    /// Make a fresh schema and migrate it, or `None` when there is no server
-    /// named.
-    async fn open(what: &str) -> Option<Self> {
-        let Ok(url) = std::env::var("DATABASE_URL") else {
-            eprintln!(
-                "skipping {what}: no DATABASE_URL.\n  \
-                 docker compose up -d && \
-                 export DATABASE_URL=postgres://baylee:baylee@127.0.0.1:5432/baylee"
-            );
-            return None;
-        };
+    /// Make a fresh schema and migrate it.
+    async fn open(what: &str) -> Self {
+        let url = std::env::var("DATABASE_URL")
+            .ok()
+            .filter(|u| !u.is_empty())
+            .unwrap_or_else(|| {
+                panic!(
+                    "DATABASE_URL is not set, and these tests are about PostgreSQL.\n  \
+                     docker compose up -d\n  \
+                     export DATABASE_URL=postgres://baylee:baylee@127.0.0.1:5432/baylee"
+                )
+            });
 
         // The name carries the test's own, so a schema left behind by a
         // panic says which test abandoned it.
@@ -68,12 +70,12 @@ impl Sandbox {
             .await
             .expect("migrating a fresh schema");
 
-        Some(Self {
+        Self {
             db,
             admin,
             schema,
             scoped,
-        })
+        }
     }
 
     /// Give the schema back.
@@ -103,9 +105,7 @@ fn an_account(email: &str) -> account::ActiveModel {
 /// every time.
 #[tokio::test]
 async fn the_schema_applies_and_reapplies() {
-    let Some(sandbox) = Sandbox::open("migrate").await else {
-        return;
-    };
+    let sandbox = Sandbox::open("migrate").await;
 
     let again = baylee_db::connect(&sandbox.scoped, 2)
         .await
@@ -126,9 +126,7 @@ async fn the_schema_applies_and_reapplies() {
 /// was created rather than a plain one that would have let the row through.
 #[tokio::test]
 async fn an_address_is_taken_whatever_its_case() {
-    let Some(sandbox) = Sandbox::open("case").await else {
-        return;
-    };
+    let sandbox = Sandbox::open("case").await;
 
     Account::insert(an_account("Player@Example.com"))
         .exec(&sandbox.db)
@@ -151,9 +149,7 @@ async fn an_address_is_taken_whatever_its_case() {
 /// owned by nobody — stops being possible.
 #[tokio::test]
 async fn deleting_an_account_takes_everything_it_owned() {
-    let Some(sandbox) = Sandbox::open("cascade").await else {
-        return;
-    };
+    let sandbox = Sandbox::open("cascade").await;
 
     let account = an_account("leaver@example.com");
     let Set(id) = account.id else { unreachable!() };

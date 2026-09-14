@@ -140,7 +140,19 @@ GL budget — uniforms only, no storage buffers, no texture arrays, no
 fallback one word away. Reaching past it is allowed; it is a decision a
 commit has to state, because it is the commit that closes the fallback.
 
-The card catalog (card text, not images) lives in PostgreSQL and is optional:
+PostgreSQL holds two things that are only neighbours. **`baylee-db`** is the
+gateway's own — accounts, sessions, decks, confirmation links, standing
+answers, client preferences — six tables with entities and a migrator, and it
+is **required**: a gateway without `DATABASE_URL` refuses to start, because a
+gateway with no database has no accounts and a process answering every request
+with a 503 looks healthy to anything watching it. A `gateway-store.json` left
+over from before is imported on the first start against an empty database and
+then moved aside, never deleted.
+
+The **card catalog** (card text, not images) is the optional half, and is the
+same database with hand-written SQL instead of entities — its value is in
+three index definitions and two queries the planner shapes, where
+`baylee-db`'s is that a column's two types cannot drift apart:
 
 ```bash
 docker compose up -d                                     # postgres 18 on :5432
@@ -162,22 +174,32 @@ minutes, and leaves the database at 593 MB against the 118k rows
 `RUST_LOG=info` puts every `INSERT` through the tracing subscriber and writes
 a 92 MB log for one ingest.
 
-Without `DATABASE_URL` the gateway starts as before and simply serves no card
-text; the client then draws faces from what the engine projects. Copy
-`.env.example` to `.env` for the client's `BAYLEE_GATEWAY` and this URL.
+Without an **ingest** the gateway still runs every game and simply serves no
+card text; the client then draws faces from what the engine projects. Without
+`DATABASE_URL` it does not start at all. Copy `.env.example` to `.env` for the
+client's `BAYLEE_GATEWAY` and this URL.
+
+The test suite needs the same server: the e2e tests spawn real gateway
+processes, and each one takes a **schema of its own** with its pool capped at
+two — which is what lets three dozen of them share a server that allows a
+hundred connections, and what keeps them off the `public` schema an ingest
+has filled. CI runs a `postgres:18-alpine` service for exactly this.
 
 A gateway with no agent connected hosts no games — `POST /lobby/games` answers
 `503`. The gateway links neither the engine nor gamehost; see "The gateway runs
 no rules" in `docs/protocol.md` for the whole circle.
 
-Env vars: gateway takes `PORT`, `STORE_PATH` (default `gateway-store.json` in
-the working directory, and *not* gitignored), `BAYLEE_ART_PATH` (the card-art
+Env vars: gateway takes `PORT`, `DATABASE_URL` (**required**), `BAYLEE_DB_POOL`
+(how many connections one gateway keeps, default 8 — small because a stock
+PostgreSQL allows 100 in total), `STORE_PATH` (default `gateway-store.json` in
+the working directory, *not* gitignored, and now only a file to **import** on
+a first start), `BAYLEE_ART_PATH` (the card-art
 mirror, default `art-cache/` and gitignored; `off` disables it),
 `BAYLEE_DECK_IMAGE_PATH` (the sleeve and the playmat a player uploads for a
 deck, default `deck-images/` and gitignored for the same reason; `off` or an
 empty value refuses uploads outright),
 `BAYLEE_REGISTRATION=off`,
-`BAYLEE_TRUSTED_PROXIES`, `DATABASE_URL`, `BAYLEE_AGENT_TOKEN` (the shared
+`BAYLEE_TRUSTED_PROXIES`, `BAYLEE_AGENT_TOKEN` (the shared
 secret an agent presents; without it no agent may connect), `BAYLEE_SMTP_URL`
 / `BAYLEE_MAIL_FROM` / `BAYLEE_PUBLIC_URL` (confirmation mail — without the
 first of them the gateway sends none and requires no confirmation, which is

@@ -29,8 +29,34 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - run: cargo clippy --workspace --all-targets -- -D warnings
 
+  # The gateway keeps its accounts in PostgreSQL, so the suite needs one.
+  # Not a convenience: the e2e tests spawn real gateway processes, and a
+  # gateway with no database refuses to start.
+  #
+  # Each spawned gateway takes a schema of its own and caps its pool at two,
+  # which is what lets three dozen of them share one server that allows a
+  # hundred connections in total.
   test:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: baylee
+          POSTGRES_PASSWORD: baylee
+          POSTGRES_DB: baylee
+        ports:
+          - 5432:5432
+        # Without this the first test races the server's own startup, which
+        # fails on some runs and not others — the one failure shape a CI job
+        # must not have.
+        options: >-
+          --health-cmd "pg_isready -U baylee -d baylee"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgres://baylee:baylee@127.0.0.1:5432/baylee
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/linux-deps
@@ -42,6 +68,22 @@ jobs:
   # payment from every release build), so the suite also runs in release.
   test-release:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: baylee
+          POSTGRES_PASSWORD: baylee
+          POSTGRES_DB: baylee
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U baylee -d baylee"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgres://baylee:baylee@127.0.0.1:5432/baylee
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/linux-deps

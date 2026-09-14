@@ -13,7 +13,7 @@
 //! becomes a queryable catalog, because the deck builder needs to *search* it,
 //! not just look cards up by id.
 //!
-//! # Why hand-written SQL under an ORM
+//! # Why hand-written SQL here and entities next door
 //!
 //! The whole value of this crate is in three index definitions and two
 //! queries: a lateral join that resolves "the same card in my language", and a
@@ -21,6 +21,19 @@
 //! the query planner rather than by the entity model, so they are written as
 //! SQL and `SeaORM` supplies the pool, the parameter binding and the backend
 //! abstraction.
+//!
+//! [`baylee_db`] is the same database and the opposite case, and the two
+//! together are what the choice actually looks like: two dozen small,
+//! ordinary reads and writes on six tables, where what is worth having is
+//! that a column's Rust type and its Postgres type cannot drift apart. So
+//! that one has entities and this one has statements, and neither is the
+//! house style — the question is whether the planner or the type checker is
+//! the thing you are arguing with.
+//!
+//! They own their schemas separately for the same reason. These tables are
+//! rebuilt wholesale by an ingest and are `CREATE TABLE IF NOT EXISTS`; those
+//! are migrated in place and have to survive the data in them. One migrator
+//! over both would have to pretend that is one lifecycle.
 //!
 //! # Legal
 //!
@@ -574,6 +587,29 @@ impl Catalog {
             ))
             .await
             .context("upserting faces")?;
+        Ok(())
+    }
+
+    /// Tell the planner what is now in the tables.
+    ///
+    /// PostgreSQL's autovacuum gets to this eventually, and "eventually" is
+    /// the problem: an ingest writes 542k rows in about three minutes and the
+    /// searches start immediately after. Until the statistics catch up the
+    /// planner is choosing between a trigram index and a sequential scan on
+    /// its estimate for an empty table, and it picks the scan — so the first
+    /// minutes after the one operation that fills this database are the
+    /// slowest searches it will ever serve.
+    ///
+    /// One statement, once, at the end of the ingest. It is the cheapest
+    /// thing in this crate that makes the search faster.
+    ///
+    /// # Errors
+    /// When the statement fails.
+    pub async fn analyze(&self) -> Result<()> {
+        self.db
+            .execute_unprepared("ANALYZE cards, card_faces")
+            .await
+            .context("analyzing the catalog tables")?;
         Ok(())
     }
 
