@@ -821,7 +821,20 @@ pub fn sync_overlay(
     }
 
     // ---- the stack (left of the rail, when non-empty) --------------------
-    if let (false, Some(statics)) = (board.stack.is_empty(), duel.statics.as_ref()) {
+    //
+    // And not once the game is over, which is the rule the prompt bar keeps
+    // six hundred lines above and for the same reason. The owner pressed
+    // "concede" with one of Sheoldred's triggers still on the stack, and the
+    // end screen came up with that trigger drawn beside it — an entry whose
+    // whole job is to say something is about to happen, in a game where
+    // nothing will. `Duel::ending` names three readers in its own doc (the
+    // veil, the end screen, the prompt bar); this panel is the fourth, and
+    // nobody had connected it.
+    if let (false, false, Some(statics)) = (
+        duel.ending().is_some(),
+        board.stack.is_empty(),
+        duel.statics.as_ref(),
+    ) {
         let stack = spawn_stack_panel(
             &mut commands,
             lang,
@@ -2234,5 +2247,41 @@ mod tests {
             .world_mut()
             .query_filtered::<Entity, With<super::super::slip::Washing>>();
         assert_eq!(sheets.iter(app.world()).count(), 0);
+    }
+
+    /// A stack entry outlives the game it belonged to.
+    ///
+    /// The owner conceded as a function test with one of Sheoldred's
+    /// triggers on the stack, and the end screen came up with the trigger
+    /// still drawn beside it — an entry whose whole job is to say that
+    /// something is about to happen, in a game where nothing will. The
+    /// prompt bar has stopped *whole* at `GameOver` for exactly this reason,
+    /// and the stack panel was the fourth reader of `Duel::ending` that
+    /// nobody had connected.
+    #[test]
+    fn the_stack_panel_stops_with_the_prompt_bar_when_the_game_is_over() {
+        let (duel, texts) = hovering_the_stack(false);
+        let mut app = overlay_with(duel, texts);
+        let running = said(&mut app);
+        assert!(
+            running.iter().any(|line| line.contains("Ondu")),
+            "the premise: a running game draws the stack it has: {running:?}"
+        );
+
+        let (mut duel, texts) = hovering_the_stack(false);
+        duel.interaction = Some(baylee_client_core::Interaction::new(
+            baylee_engine::choice::Pending::GameOver(GameResult {
+                winner: Some(Victor::Player(PlayerId::new(0))),
+                reason: EndReason::LastPlayerStanding,
+            }),
+            PlayerId::new(0),
+        ));
+        crate::rebuild_board(&mut duel);
+        let mut app = overlay_with(duel, texts);
+        let over = said(&mut app);
+        assert!(
+            !over.iter().any(|line| line.contains("Ondu")),
+            "the same stack is still drawn under a finished game: {over:?}"
+        );
     }
 }
