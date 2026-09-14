@@ -3409,9 +3409,18 @@ pub fn sync_scene(
     // frame's answer to "was that card in the air".
     index.fanned = fanned;
 
-    // Tell the cache what is on screen so it can evict the rest.
-    let visible: Vec<ImageKey> = wanted.iter().filter_map(|p| p.art).collect();
-    textures.retain_visible(&visible);
+    // Tell the cache what is on screen so the next fetch evicts something
+    // else. The placements are the table's own cards; `required_images` is
+    // the board model's whole answer — the hand, the stack and what it points
+    // at, a pile's top card and the fan a hover spreads out of it, the
+    // cardboard under a copy — and none of those is on the table, so none of
+    // them was being touched at all. The zone dialog's rows are the one thing
+    // neither list holds, and `hud::tray` touches those itself.
+    let mut visible: Vec<ImageKey> = wanted.iter().filter_map(|p| p.art).collect();
+    if let Some(board) = duel.board.as_ref() {
+        visible.extend(board.required_images());
+    }
+    textures.touch_visible(&visible);
 }
 
 /// How a group should be labelled in the overlay, if at all.

@@ -719,6 +719,14 @@ pub(super) fn spawn_tray(
     let shown =
         |object: &baylee_view::PublicObject| Some(crate::face::name_of(object, view, faces.texts));
     let rows = browser.rows(view, interaction, Names { shown: &shown });
+    // The sheet's own cards are on no table and in no board model — a library
+    // search lists a hundred that nothing else is drawing — so the texture
+    // cache is told about them here or by nobody. Before this, the rows a
+    // player was reading were the oldest thing in the cache and the first a
+    // fetch would have thrown away.
+    let on_the_sheet: Vec<baylee_client_core::images::ImageKey> =
+        rows.iter().filter_map(|row| row.art).collect();
+    textures.touch_visible(&on_the_sheet);
     // The question *this* sheet answers, which is not every question there
     // might be: a graveyard opened by hand while the engine asks about the
     // battlefield holds none of the answer, and grew a tally and a Confirm for

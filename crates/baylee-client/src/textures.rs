@@ -383,12 +383,26 @@ impl CardTextures {
         handle
     }
 
-    /// Marks everything currently on screen as used, then evicts what the
-    /// budget can no longer justify holding.
+    /// Marks everything currently on screen as used, so that what is *not* on
+    /// screen is what the next fetch evicts.
     ///
-    /// Called once per frame with the board's own answer to what it needs, so
-    /// the cache never has to guess at visibility.
-    pub fn retain_visible(&mut self, visible: &[ImageKey]) {
+    /// It does not evict, and the doc above it said it did for as long as it
+    /// existed. Eviction belongs to `ImageBudget::insert`, which is the only
+    /// moment the cache grows and therefore the only moment it can be over
+    /// budget. All this does is push what is being looked at to the young end
+    /// of the queue, so that the eviction, when it comes, takes something
+    /// else.
+    ///
+    /// **Every system that draws cards calls it with its own**, which is the
+    /// other half of the same finding. It was called once, by
+    /// `table::sync_scene`, with the table's placements — so the hand, the
+    /// zone dialog's rows and a hover preview of a card in neither were never
+    /// touched at all, which makes exactly the cards the player is looking at
+    /// the oldest things in the cache and the first to go. Harmless today
+    /// (256 MB holds some 2250 `Small` textures and a duel wants a few dozen)
+    /// and harmless for the wrong reason: not because the list was right, but
+    /// because the queue has never been long enough to reach the end of it.
+    pub fn touch_visible(&mut self, visible: &[ImageKey]) {
         self.budget.touch_all(visible.iter().copied());
     }
 
