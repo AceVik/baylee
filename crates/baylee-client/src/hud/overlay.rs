@@ -337,6 +337,11 @@ pub fn sync_overlay(
         // is that the zone's height never changes.
         let ledge = ledge::spawn_ledge(&mut commands);
         commands.entity(root).add_child(ledge);
+        // The pool's column is the shelf's one retained child — it is where a
+        // mana arriving is drawn arriving, and `sync_ledge` despawns the
+        // other two on every rebuild. See [`ledge::pool`].
+        let pool = ledge::pool::spawn_pool_column(&mut commands);
+        commands.entity(ledge).add_child(pool);
         // And the drawer's node, for the same two reasons: it outlives every
         // rebuild this system does, and what fills it is not any of this
         // system's business. See [`ledge::drawer`].
@@ -1266,12 +1271,14 @@ mod tests {
             .init_resource::<ledge::LedgeRevision>()
             .init_resource::<ledge::LedgeLayout>()
             .init_resource::<ledge::drawer::DrawerRevision>()
-            // All four, chained, in the order the app runs them: the first
-            // spawns the shelf and the drawer's node, the second writes the
-            // shelf and records where its middle ended up, the third fills
-            // the drawer over that middle and the fourth opens or shuts it. A
-            // harness that ran only the rebuild would be reading a bar with
-            // no words on it and calling that an answer.
+            .init_resource::<ledge::pool::PoolRevision>()
+            // All six, chained, in the order the app runs them: the first
+            // spawns the shelf, the pool's retained column and the drawer's
+            // node, the second writes the shelf and records where its middle
+            // ended up, then the drawer is filled over that middle and opened
+            // or shut, and the pool's row is reconciled and moved. A harness
+            // that ran only the rebuild would be reading a bar with no words
+            // on it and calling that an answer.
             .add_systems(
                 Update,
                 (
@@ -1279,6 +1286,8 @@ mod tests {
                     ledge::sync_ledge,
                     ledge::drawer::sync_drawer,
                     ledge::drawer::zoom_the_drawer,
+                    ledge::pool::sync_pool,
+                    ledge::pool::zoom_the_pool,
                 )
                     .chain(),
             );
@@ -1848,6 +1857,77 @@ mod tests {
             !lines.contains(&dash),
             "the dash stands *instead of* the entries, not beside them: \
              {lines:?}"
+        );
+    }
+
+    /// A mana that is floating is one entity for as long as it is floating.
+    ///
+    /// The whole reason `ledge/pool.rs` exists, and the one claim that cannot
+    /// be made about anything else on this shelf. §4.1 wants a new entry to
+    /// pop and a spent one to fade, and neither is possible while the thing
+    /// being animated is despawned and rebuilt whenever the *sentence*
+    /// changes — which is at every priority. So: the same entity across a
+    /// rebuild that changed both the question and the count, and no entity at
+    /// all once the mana is spent.
+    ///
+    /// The counter-test is in the middle of it. The shelf really is rebuilt
+    /// between the two readings — the sentence is a different sentence — so
+    /// an entry that survives is surviving something, rather than sitting in
+    /// a tree nothing touched.
+    #[test]
+    fn a_floating_mana_is_one_entity_for_as_long_as_it_floats() {
+        let pooled = |green: u16, prompt: &str| {
+            let mut duel = duel_watching();
+            duel.last_error = Some(prompt.to_string());
+            {
+                let view = duel.view.as_mut().expect("the seat has a view");
+                let seat = view.seat;
+                view.seats
+                    .iter_mut()
+                    .find(|s| s.player == seat)
+                    .expect("this seat sits at its own table")
+                    .mana_pool
+                    .green = green;
+            }
+            crate::rebuild_board(&mut duel);
+            duel
+        };
+        let entries = |app: &mut App| {
+            let mut q = app.world_mut().query::<(Entity, &ledge::pool::PoolEntry)>();
+            q.iter(app.world()).map(|(e, _)| e).collect::<Vec<_>>()
+        };
+
+        let mut app = bar_of(pooled(1, "one"));
+        let first = entries(&mut app);
+        assert_eq!(first.len(), 1, "one colour is floating, so one entry");
+        let before = said(&mut app).join("|");
+
+        *app.world_mut().resource_mut::<Duel>() = pooled(2, "two");
+        app.update();
+        assert_eq!(
+            entries(&mut app),
+            first,
+            "the same mana, more of it: the entry is written, not replaced"
+        );
+        assert_ne!(
+            said(&mut app).join("|"),
+            before,
+            "this test's premise is that the shelf was rebuilt under it"
+        );
+
+        // Spent. With motion off the fade is over on the frame it starts.
+        *app.world_mut().resource_mut::<Duel>() = pooled(0, "three");
+        app.update();
+        assert!(
+            entries(&mut app).is_empty(),
+            "a spent mana leaves, rather than being left behind"
+        );
+        // And the em dash waits for it: one more frame, because the row can
+        // only say "nothing floating" once nothing is on it saying otherwise.
+        app.update();
+        assert!(
+            said(&mut app).contains(&"\u{2014}".to_string()),
+            "the empty pool says so again once the last pip has gone"
         );
     }
 

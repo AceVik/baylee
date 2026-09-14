@@ -1027,6 +1027,11 @@ fn add_present_systems(app: &mut App) {
                 // leave, and a panel it has just spawned is drawn small on
                 // the frame it first appears rather than a frame later.
                 hud::zoom_the_drawer.after(hud::sync_drawer),
+                // The pool's own row, on its own revision, after the shelf
+                // that holds its column — and its movement after that, for
+                // the drawer's reason: a spent mana has to be able to leave.
+                hud::sync_pool.after(hud::sync_ledge),
+                hud::zoom_the_pool.after(hud::sync_pool),
                 hud::dim_the_table.after(hud::sync_overlay),
                 // The end screen settles as that veil rises, off the very
                 // number `dim_the_table` has just written: one movement, one
@@ -1118,6 +1123,7 @@ impl Plugin for DuelPlugin {
             .init_resource::<hud::LedgeRevision>()
             .init_resource::<hud::LedgeLayout>()
             .init_resource::<hud::DrawerRevision>()
+            .init_resource::<hud::PoolRevision>()
             .init_resource::<hud::SheetRevision>()
             .init_resource::<hud::Veil>()
             .init_resource::<textures::Preload>()

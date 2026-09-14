@@ -1519,6 +1519,7 @@ pub(crate) use finish::{FinishExits, despawn_finish, settle_the_sheet, spawn_fin
 pub use hand::apply_hand_scroll;
 pub use hand::{ARMED_RAISE, HAND_ZONE_H, LEDGE_H, OVERLAY_CARD_H, OVERLAY_CARD_W};
 pub use ledge::drawer::{DrawerRevision, DrawerRoot, sync_drawer, zoom_the_drawer};
+pub use ledge::pool::{PoolRevision, sync_pool, zoom_the_pool};
 pub use ledge::{LedgeLayout, LedgeRevision, LedgeShelf, sync_ledge};
 pub(crate) use overlay::answer_button;
 pub use overlay::{despawn_overlay, sync_overlay};

@@ -19,6 +19,7 @@
 use super::*;
 
 pub(super) mod drawer;
+pub(super) mod pool;
 
 /// Where the shelf put the middle of itself, for the drawer to stand over.
 ///
@@ -305,15 +306,6 @@ pub struct LedgeRevision {
     /// and a cap that promised one would be a lie. Entirely client-side, so
     /// nothing else here moves when it starts or stops.
     pub(super) autopilot: bool,
-    /// What is floating in this seat's pool, which is the whole left column.
-    ///
-    /// Listed for [`holdable`](Self::holdable)'s reason, and here more
-    /// plainly still: mana floats and is spent *inside* one question —
-    /// tapping two lands for a spell moves this three times before anything
-    /// is answered — so whether the column ever redraws would otherwise rest
-    /// on `PlayerView::seq` counting a mana ability as a change. It does, and
-    /// this does not depend on it.
-    pub(super) pool: Vec<baylee_client_core::manapool::Floating>,
     /// The language the shelf is written in.
     pub(super) lang: Option<Lang>,
     /// Every keycap's legend comes out of the keymap, so a rebinding has to
@@ -457,6 +449,7 @@ pub fn sync_ledge(
     mut revision: ResMut<LedgeRevision>,
     mut layout: ResMut<LedgeLayout>,
     shelf: Query<(Entity, Option<&Children>), With<LedgeShelf>>,
+    pool_column: Query<(), With<pool::PoolColumn>>,
     fonts: Res<UiFonts>,
     settings: Res<crate::settings::ClientSettings>,
     prefs: Res<crate::prefs::Prefs>,
@@ -512,26 +505,27 @@ pub fn sync_ledge(
         concede_armed: duel.concede_armed,
         priority_held: duel.priority_held(),
         autopilot: duel.autopilot.is_some(),
-        pool: duel
-            .view
-            .as_ref()
-            .and_then(|v| v.seat(v.seat))
-            .map(|s| baylee_client_core::manapool::row(&s.mana_pool))
-            .unwrap_or_default(),
         lang: Some(lang),
         keys: Some(prefs.keymap().clone()),
         window_w,
     };
     // The second half of the gate is what covers a shelf that was spawned
-    // afresh with the revision still describing the tree before it: the
-    // columns are always three, so an empty shelf is one nothing has filled.
-    if *revision == next && standing.is_some_and(|c| !c.is_empty()) {
+    // afresh with the revision still describing the tree before it. The pool's
+    // column is spawned with the shelf and never by this system, so a shelf
+    // nothing has filled has exactly that one child.
+    if *revision == next && standing.is_some_and(|c| c.len() > 1) {
         return;
     }
     *revision = next;
 
     for child in standing.into_iter().flatten() {
-        commands.entity(*child).despawn();
+        // Everything except the retained pool column. `ledge/pool.rs` says
+        // why it is exempt: mana arrives and is spent *inside* one question,
+        // and §4.1 wants that drawn arriving, which takes an entity that
+        // outlives this rebuild.
+        if pool_column.get(*child).is_err() {
+            commands.entity(*child).despawn();
+        }
     }
 
     // The middle is built first because it is the only one that knows how
@@ -584,19 +578,20 @@ pub fn sync_ledge(
     layout.mid_x = arrangement.mid_x;
     layout.window_w = window_w;
 
+    // Two, not three. The left column is `pool::PoolColumn` and is retained:
+    // it was spawned with the shelf, the despawn above skipped it, and it
+    // fills itself against a revision of its own so an arriving mana can be
+    // drawn arriving. See `ledge/pool.rs`.
     let columns = [
-        column_node(Side::Left),
         column_node(Side::Mid(arrangement.mid_x, window_w)),
         column_node(Side::Right),
     ]
     .map(|node| commands.spawn(node).id());
     commands.entity(shelf).add_children(&columns);
 
-    pool_row(&mut commands, &fonts, lang, columns[0], &revision.pool);
+    ways_out(&mut commands, &fonts, lang, columns[1], &revision);
 
-    ways_out(&mut commands, &fonts, lang, columns[2], &revision);
-
-    let middle = columns[1];
+    let middle = columns[0];
 
     // `Split` is the rung that sends the sentence into the drawer, and there
     // is no drawer yet. Until there is, it draws what `Compact` draws: a
@@ -925,114 +920,6 @@ fn column_node(side: Side) -> impl Bundle {
     // the order the three were spawned in — "a label swallows the hover", one
     // level up. The buttons inside it are pickable in their own right.
     (node, Pickable::IGNORE)
-}
-
-/// The left column: what this seat has floating, on the shelf's left edge.
-///
-/// The one zone with no card in it, and until the chip it stood in there was
-/// nowhere on screen for it at all. That absence hid a defect rather than
-/// merely being untidy: a land with two mana abilities taps for whichever one
-/// the client's planner can read, and with nothing drawn there was no way to
-/// see which had fired — Jasmine Dragon Tea Shop made `{C}` every time and
-/// looked exactly like a land making the Ally mana it had been tapped for.
-///
-/// **The label always stands**, empty pool or not, watching seat or not, and
-/// that overturns the chip's own documented rule ("drawn while the seat has
-/// something to answer, hidden when it is only watching"). The rule was right
-/// for a box floating over the table, where an empty pool cost the board a
-/// piece of itself; the shelf is a *place*, its left edge is reserved whatever
-/// stands on it ([`LEFT_RESERVED`]), and a label that blinked in and out at
-/// every priority would be movement carrying no information. What the chip
-/// decided and this keeps: the count is a **numeral** beside the disc and
-/// never a row of repeated discs — colour alone must not carry meaning, and
-/// six discs is a number a player has to stop and count.
-///
-/// §4.1's entry animation — a new one popping in over 160 ms, a spent one
-/// fading out over 100 ms — waits for `hud/motion.rs` in §10.2 step 6. The
-/// shelf is rebuilt whole when its revision moves, so there is no entity here
-/// that outlives the change it would animate.
-fn pool_row(
-    commands: &mut Commands,
-    fonts: &UiFonts,
-    lang: Lang,
-    column: Entity,
-    pool: &[baylee_client_core::manapool::Floating],
-) {
-    let label = commands
-        .spawn((
-            Text::new(Phrase::ManaPool.text(lang).to_string()),
-            tf(fonts, POOL_LABEL_PT),
-            TextColor(palette::DIALOG_SOFT),
-            Node {
-                // The column's own gap is the step between entries; the label
-                // is not one of them and takes the wider step of §4.1.
-                margin: UiRect::right(px(POOL_LABEL_GAP - POOL_ENTRY_GAP)),
-                ..default()
-            },
-            Pickable::IGNORE,
-        ))
-        .id();
-    commands.entity(column).add_child(label);
-
-    if pool.is_empty() {
-        // An em dash rather than a row of zeroes: "nothing floating" is one
-        // fact, not six. Set at the numerals' size because it stands where a
-        // numeral would, and in the one ink on this shelf that means absence.
-        let none = commands
-            .spawn((
-                Text::new("\u{2014}".to_string()),
-                tf(fonts, POOL_COUNT_PT),
-                TextColor(palette::LEDGE_DEAD),
-                Pickable::IGNORE,
-            ))
-            .id();
-        commands.entity(column).add_child(none);
-    }
-
-    for entry in pool {
-        let group = commands
-            .spawn((
-                Node {
-                    flex_direction: FlexDirection::Row,
-                    align_items: AlignItems::Center,
-                    column_gap: px(POOL_PIP_GAP),
-                    // A restriction is drawn as a rim round the **pair** and
-                    // not round the disc, because the symbol has to keep
-                    // meaning its own colour: this mana *is* white, it simply
-                    // cannot pay for everything white pays for. §4.1 changes
-                    // the rim's *colour* and leaves that reasoning where it
-                    // was: the chip drew this rim in the brass of an active
-                    // card, which §3.2 names with this very pip as its
-                    // example — brass is a light at a card's edge.
-                    padding: UiRect::axes(px(3), px(1)),
-                    // Always a border, coloured only when there is something
-                    // to say: `BoxSizing::BorderBox` takes the border out of
-                    // the content box, so a rim that appeared would otherwise
-                    // narrow the entry it appeared on and shuffle the row.
-                    border: UiRect::all(px(1)),
-                    border_radius: btn_radius(),
-                    ..default()
-                },
-                BorderColor::all(if entry.restricted {
-                    palette::DIALOG_SOFT
-                } else {
-                    Color::NONE
-                }),
-                Pickable::IGNORE,
-            ))
-            .id();
-        let pip = crate::manaui::spawn_pip(commands, fonts, entry.pip, POOL_PIP);
-        let count = commands
-            .spawn((
-                Text::new(format!("\u{00d7}{}", entry.count)),
-                tf_bold(fonts, POOL_COUNT_PT),
-                TextColor(palette::DIALOG_INK),
-                Pickable::IGNORE,
-            ))
-            .id();
-        commands.entity(group).add_children(&[pip, count]);
-        commands.entity(column).add_child(group);
-    }
 }
 
 /// The right column: the two ways out of a game that is still being played.
