@@ -723,10 +723,14 @@ pub fn map_alternatives(alts: &[AlternativeCost], oracle: &str) -> Vec<Option<u8
         .collect();
     // One sentence cannot be two alternative costs. Where it looks like
     // both, neither is known — the same refusal the single-hit rule above
-    // makes, seen from the sentence's side.
-    for at in 0..found.len() {
-        if found[at].is_some() && found.iter().filter(|line| **line == found[at]).count() > 1 {
-            found[at] = None;
+    // makes, seen from the sentence's side. The pair is read out of a
+    // snapshot rather than out of the list being struck through: clearing
+    // the first in place would leave the second one alone and hand it the
+    // sentence both of them fit.
+    let taken = found.clone();
+    for (at, line) in found.iter_mut().enumerate() {
+        if line.is_some() && taken.iter().filter(|other| *other == &taken[at]).count() > 1 {
+            *line = None;
         }
     }
     found
@@ -1084,6 +1088,30 @@ mod tests {
             map_alternatives(&[alt(pitch_only(), AltCondition::Always)], text),
             vec![None],
             "the sentence opens with a condition and the cost carries none"
+        );
+    }
+
+    /// A sentence that fits two alternative costs names neither of them.
+    ///
+    /// No card in the pool prints two, so this is the rule stated rather
+    /// than a case observed — and it is read out of a snapshot, because
+    /// striking the first one through in place would leave the second
+    /// holding the sentence alone and looking like a single hit.
+    #[test]
+    fn one_sentence_that_fits_two_alternatives_names_neither() {
+        let text = "You may exile a blue card from your hand rather than pay \
+                    this spell's mana cost.\n\
+                    Counter target spell.";
+        assert_eq!(
+            map_alternatives(
+                &[
+                    alt(pitch_only(), AltCondition::Always),
+                    alt(pitch_only(), AltCondition::Always),
+                ],
+                text
+            ),
+            vec![None, None],
+            "the second one must not keep the sentence the first gave up"
         );
     }
 

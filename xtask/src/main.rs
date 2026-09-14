@@ -1917,10 +1917,6 @@ fn render_ability_lines(root: &Path) -> anyhow::Result<String> {
         let mut any = false;
         for face in 0..def.faces.len() {
             let abilities = def.abilities_for_face(face);
-            // A mode and an alternative cost are not abilities, so a card
-            // whose only readable thing is one of them — none today, but
-            // a modal spell needs no other ability — would be dropped by
-            // the emptiness test below if it asked about abilities alone.
             let modes: &[baylee_cards::dsl::SpellMode] = abilities
                 .iter()
                 .find_map(|a| match a {
@@ -1929,7 +1925,12 @@ fn render_ability_lines(root: &Path) -> anyhow::Result<String> {
                 })
                 .unwrap_or(&[]);
             let alternatives = def.faces[face].alternative_costs;
-            any |= !abilities.is_empty() || !modes.is_empty() || !alternatives.is_empty();
+            // An alternative cost is not an ability, so a face that prints
+            // one and nothing else — none today — would be dropped by the
+            // emptiness test below if it asked about abilities alone. The
+            // modes need no such clause: they come out of `abilities`, so
+            // a face that has any has an ability too.
+            any |= !abilities.is_empty() || !alternatives.is_empty();
             let printed = texts.get(face).map_or("", String::as_str);
             let mapping = lines::map(abilities, printed);
             let stackable = abilities

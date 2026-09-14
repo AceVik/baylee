@@ -43,6 +43,27 @@ pub(super) const ANSWER_PT: f32 = 13.0;
 /// size, which is also what stops the slip jumping about between steps.
 const SLIP_MIN_W: f32 = 380.0;
 
+/// The widest it is drawn, and the air between its edge and its words.
+///
+/// Both were written into the slip's own `Node` and nowhere else, which was
+/// fine while every answer on the sheet was two words long. A row that says
+/// what the card says is not: Force of Will's alternative cost is one German
+/// sentence of 148 characters, and it was drawn as a single unbroken line
+/// **914 logical pixels** wide — the button hanging 170 px past each edge of
+/// the 620-wide parchment it was supposed to be on. `max_width` binds the
+/// slip's own box and not its children's, so the sheet stayed 620 and the
+/// answer walked out of it.
+const SLIP_MAX_W: f32 = 620.0;
+const SLIP_PAD_X: f32 = 22.0;
+
+/// What one answer may take up: the slip's content box, edge to edge.
+///
+/// An answer capped here wraps inside the sheet instead of overflowing it,
+/// which is what the ability sheet has always done with a printed sentence
+/// (`sheet::SHEET_MAX` and the `min_width: 0` beneath it). The border is
+/// counted because a `Node` is measured as its border box.
+const SLIP_INNER_W: f32 = SLIP_MAX_W - 2.0 * (SLIP_PAD_X + 1.0);
+
 /// The caption over the card underneath a copy, one line of nine-pixel type.
 ///
 /// Named because it is the difference between bottom-aligning the *pair* with
@@ -348,12 +369,12 @@ pub fn sync_overlay(
             .id();
         let slip = commands.spawn((
             Node {
-                max_width: px(620),
+                max_width: px(SLIP_MAX_W),
                 min_width: px(SLIP_MIN_W),
                 flex_direction: FlexDirection::Column,
                 align_items: AlignItems::Center,
                 row_gap: px(7),
-                padding: UiRect::axes(px(22), px(13)),
+                padding: UiRect::axes(px(SLIP_PAD_X), px(13)),
                 border: UiRect::all(px(1)),
                 border_radius: sheet_radius(),
                 ..default()
@@ -717,6 +738,20 @@ pub fn sync_overlay(
                             border_radius: btn_radius(),
                             column_gap: px(5),
                             align_items: AlignItems::Center,
+                            // An answer stays on its own sheet. The cap is
+                            // the slip's content box and the floor is zero,
+                            // and both are needed: without the floor a flex
+                            // item's automatic minimum size is its content,
+                            // so it refuses to shrink and the cap only moves
+                            // the overflow; without the cap nothing bounds a
+                            // row whose parent is itself sized to fit. The
+                            // line inside wraps on its own — `manaui::rich`
+                            // is a wrapping row and a `Text` breaks at a word
+                            // — once something narrower than the sentence
+                            // tells it where.
+                            max_width: px(SLIP_INNER_W),
+                            min_width: px(0),
+                            flex_wrap: FlexWrap::Wrap,
                             ..default()
                         },
                         BackgroundColor(fill),

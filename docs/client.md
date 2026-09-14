@@ -2100,6 +2100,20 @@ choosers are meant to be indistinguishable. Everything that cannot be read
 keeps the phrase it had: an unknown printing, a text whose own split came out
 a different length (`AbilityLine::of`), or a gateway serving no catalog.
 
+Drawing a sentence where two words used to go is what found the slip's other
+half. A row was a button with no width of its own, and Force of Will's
+alternative cost is 148 characters in German: it came out as one unbroken line
+**914 logical pixels** wide, hanging 170 px past each edge of the 620-wide
+parchment it was drawn on. `max_width` binds a node's own box and not its
+children's, so the sheet stayed 620 and the answer walked out of it. An answer
+is now capped at `SLIP_INNER_W` — the slip's content box, edge to edge — with
+a `min_width` of zero under it, and both are needed: without the floor a flex
+item's automatic minimum size is its own content, so it refuses to shrink and
+the cap only moves the overflow. The line inside wraps on its own once
+something narrower than the sentence tells it where, `manaui::rich` being a
+wrapping row of words and marks. Measured: 914 × 31 before, 574 × 49.5 after,
+two lines on one sheet, and a press on the second line still answers.
+
 `activatable` is the board's half of the same idea, and it is the engine's own
 answer: every source named in `LegalActions.mana_abilities` or `.abilities`.
 It reaches the shader as a fourth glow bit, and is drawn as a *moving* warm
