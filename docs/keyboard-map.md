@@ -66,6 +66,14 @@ not: it read `KeyCode` directly, so the arrows drove the table *through* a
 focused filter box, which is the owner's report of 14.09.2026 and the reason
 the last of the camera went with it.
 
+Removing the camera made the arrows reach the box; it did not make the box
+*show* it. `hud::BrowserGate` compared the filter's **string**, so the caret
+and the selection — which is all an arrow moves — were state the dialog's
+revision could not see, and the box redrew only when the text changed. It
+carries the whole `TextBuffer` now. Measured in the running client the same
+day: five `ArrowLeft`s over `abcdef` moved the box by zero pixels before, and
+`⇧←` three times paints `def` and stands the caret on its near edge after.
+
 A number is typed as well as stepped: a digit appends to what stands (`1`
 then `2` reads 12), falls back to the digit alone when appending would leave
 the offered range, and `⌫` takes one off. Twelve presses of `↑` is not a way

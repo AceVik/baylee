@@ -1877,7 +1877,7 @@ mod tests {
     /// saw*, so the move must be a message of its own and must come first.
     ///
     /// Five frames, and the two that are not the press and the release are
-    /// the repairs AL6a asked for. The move is written **twice**, a whole
+    /// the repairs `AL6a` asked for. The move is written **twice**, a whole
     /// frame apart, because a single one is sometimes simply lost — measured
     /// live as a pointer put on a card and `hovered` read fifteen times as
     /// `None`, where sending the same move again named the object at once.
@@ -2036,7 +2036,7 @@ mod tests {
     /// It used to be answered on the frame it was written, which made it the
     /// one call the caller could not trust: a hover read straight after was
     /// read a frame before anything had looked at the move, and the lost
-    /// move AL6a measured was a bare one. The repeat costs two frames and
+    /// move `AL6a` measured was a bare one. The repeat costs two frames and
     /// buys a `/pointer` whose answer means the pointer is there.
     #[test]
     fn a_move_without_a_press_is_only_a_move_and_is_still_sent_twice() {

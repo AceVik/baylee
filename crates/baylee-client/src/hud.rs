@@ -798,8 +798,21 @@ struct BrowserGate {
     open: bool,
     /// Which zone tab is showing.
     tab: Option<baylee_client_core::browser::BrowseZone>,
-    /// What is typed in the filter.
-    filter: String,
+    /// What is typed in the filter — **and where the caret and the selection
+    /// stand in it**, which is why this is the buffer rather than its string.
+    ///
+    /// It was a `String`, so a caret that moved changed nothing this gate
+    /// could see, while `tray::filter_runs` draws the box out of
+    /// [`TextBuffer::segments`] — head, selection, tail and the bar between
+    /// them, every one of them read off the state the comparison had thrown
+    /// away. Measured in the running client on 14.09.2026: `abcdef` typed,
+    /// then five `ArrowLeft`s, three of them holding shift, and the box did
+    /// not change by a single pixel — then a `Backspace` deleted the **b**,
+    /// which is the model saying the caret had been standing at 2 the whole
+    /// time. The same defect the sort buttons had, one field further in.
+    ///
+    /// [`TextBuffer::segments`]: baylee_client_core::textbuf::TextBuffer::segments
+    filter: baylee_client_core::textbuf::TextBuffer,
     /// Whether the filter box is holding the keyboard, which draws its rim.
     typing: bool,
     /// Which key the rows are in, and

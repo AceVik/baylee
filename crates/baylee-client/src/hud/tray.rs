@@ -292,7 +292,7 @@ pub fn sync_tray(
     let browser = super::BrowserGate {
         open: duel.browser.is_open(),
         tab: duel.browser.tab(),
-        filter: duel.browser.filter().to_string(),
+        filter: duel.browser.filter_field().clone(),
         typing: duel.browser.is_typing(),
         sort: duel.browser.sort(),
         descending: duel.browser.descending(),

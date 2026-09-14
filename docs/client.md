@@ -3419,6 +3419,20 @@ picking frame by frame with nothing rebuilt, and a row's focus ring is
 placement is deliberately not in the gate either; `input::tray_drag` writes
 the panel's `Node` directly so that dragging the sheet does not rebuild it.
 
+**A gate field may not be a projection that throws state away.** Naming every
+field closed the hole the sort buttons fell into; it did not close the one a
+field's *type* can open. `BrowserGate::filter` was the box's `String`, and the
+box draws more than its string — `tray::filter_runs` asks
+`TextBuffer::segments` for head, selection and tail and puts the caret bar
+between two of them — so every caret move was invisible to the comparison and
+the box stood still until the text changed. Measured in the running client on
+14.09.2026: `abcdef`, then five `ArrowLeft`s, three of them holding shift,
+moved the box by **zero** pixels, and the `Backspace` after them deleted the
+**b**, which is the model saying the caret had been standing at 2 the whole
+time. The gate holds the `TextBuffer` now, whose own `PartialEq` carries the
+caret and the anchor; the type change is its own counter-test, because the
+expression that dropped them no longer compiles.
+
 It is the **sixth** retained tree and it is *not* a sixth root: the veil
 stands at `Z_VEIL` and the panel at `Z_SHEET` with the shelf's `Z_LEDGE`
 between them, and a `ZIndex` orders a node only among its own parent's
