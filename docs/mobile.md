@@ -200,9 +200,11 @@ Measured on 14.09.2026 on this machine:
   all, so it asks for that mode and clamps no limit. `logcat` then says `Some
   GPU preprocessing are limited on this device.` instead of `fully
   supported`, and **that line is the measurement** — read it before blaming
-  or crediting anything else. Worth reporting upstream: a
+  or crediting anything else. Reported upstream as
+  [bevyengine/bevy#25788](https://github.com/bevyengine/bevy/issues/25788),
+  which carries the tombstone and the suggested fix: a
   `starts_with("PowerVR")` in `get_pixel10_driver_version` would cover the
-  family.
+  family, the way the Adreno and Mali checks beside it already do.
 - **The same driver cannot resolve 4x multisampling either**, and that one is
   worth knowing before it costs somebody a day. `Msaa` defaults to
   `Sample4`; on a tiler the end-of-pass resolve is where tile memory is
@@ -278,11 +280,31 @@ Measured on 14.09.2026 on this machine:
 
   So: no missing barrier, no buffer written while it is being read, no
   invalid API use. The commands are correct and the driver draws them wrong.
-  This is a bevy/wgpu bug report worth filing rather than a defect to hunt in
-  this repo — the evidence is the pipeline split above plus this silence. One
-  limit worth stating: the layer's own `vk_layer_settings.txt` is only read
+  This is a bevy/wgpu defect rather than one to hunt in this repo — the
+  evidence is the pipeline split above plus this silence. One limit worth
+  stating: the layer's own `vk_layer_settings.txt` is only read
   from `/data/local/debug/vulkan/`, which needs root, so best-practices and
   info-level output could not be turned on. Errors did not need it.
+
+  This went upstream as a comment on an existing thread rather than as a new
+  issue, because the thread already existed:
+  [bevyengine/bevy#14710](https://github.com/bevyengine/bevy/issues/14710)
+  ("UI elements randomly disappear for some frames on specific android
+  devices"), open since August 2024 and 35 comments long. Every device named
+  in it until now is MediaTek, Mali or Exynos, so `PowerVR` is a new family
+  on that list. Our
+  [comment](https://github.com/bevyengine/bevy/issues/14710#issuecomment-5669534508)
+  carries the two-phone table above, the pipeline split, and the one finding
+  worth repeating here: the thread's leading suspect is
+  [gfx-rs/wgpu#8853](https://github.com/gfx-rs/wgpu/issues/8853), a missing
+  barrier between two render passes writing the same colour attachment, and
+  the fix that closed it (wgpu PR #8924) **is already in the wgpu 29.0.4 we
+  build against** — `wgpu-hal-29.0.4/src/vulkan/adapter.rs:3080` returns
+  `TextureUses::INCLUSIVE` alone, where the gles, dx12 and metal backends
+  still add `COLOR_TARGET | DEPTH_STENCIL_WRITE`. So that barrier is being
+  emitted on this phone and the symptom is still there: either there is a
+  second cause, or this driver needs more than the barrier. Check that
+  before spending a day on the assumption that a wgpu bump will fix it.
 
   Two facts about the phone, read off it rather than guessed, because they
   are the first things anyone will want to try: there is **no updatable
