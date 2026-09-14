@@ -45,19 +45,6 @@ If `/health` never answers: the feature was left off (the routes are not in the
 binary), the variable was unset (the socket is never opened), or the app
 panicked at startup — check its stderr before blaming the harness.
 
-**The window can be resized from outside**, which is how a layout is checked at
-a width other than this desktop's. There is no route for it; macOS will do it
-by PID:
-
-```bash
-osascript -e 'tell application "System Events" to tell (first process whose unix id is '"$PID"') to set size of front window to {1280, 800}'
-curl -s localhost:28770/health    # {"…","width":1280,"height":768,"scale":2}
-```
-
-`/health` is the acceptance, not the number asked for: the frame keeps its
-title bar, so 800 comes back as 768 of canvas, and the layout that matters is
-the one `/health` reports.
-
 ## The protocol
 
 ```text
@@ -108,7 +95,7 @@ To act on a card, find its screen position rather than guessing: `/state.view`
 gives you the object, the board gives you the lane, and a screenshot gives you
 the pixels. Clicking blind wastes more turns than measuring once.
 
-## The eight things that go wrong
+## The six things that go wrong
 
 **A click is three frames.** `/pointer` writes a `CursorMoved`, then the press,
 then the release, mirrored into `WindowEvent` the way `bevy_winit` does,
@@ -157,29 +144,6 @@ resolves as a 0/0 and dies to a state-based action with nothing in
 down; `{"release":true}` lifts it. Part of the client is about a key *being*
 held — shift turns a double-faced card over for as long as it is down — and a
 harness that could only tap cannot reach it.
-
-**A `/pointer` move is sometimes lost outright, and only re-*sending* it
-helps.** Measured: the cursor put on a permanent at (600, 311), then
-`/state.hovered` read **fifteen times** in a row — `None` every time. The same
-move sent a second time answered with the object on the first read. Reading
-again never repairs it; sending again always does. So aim in a loop until the
-client says what is under the pointer, and only then press:
-
-```bash
-until curl -s localhost:28770/state | grep -q '"hovered":{"object":52'; do
-  curl -s -XPOST localhost:28770/pointer -d '{"x":600,"y":311}'
-done
-curl -s -XPOST localhost:28770/pointer -d '{"x":600,"y":311,"press":true}'
-```
-
-That is also the whole reason "hover first, then click" works: not the extra
-frame, the second send.
-
-**And what a click did is visible a frame later** — the one place where
-reading again *is* the repair. A click that arms a card answers, and
-`/state.armed` is still `null`; a moment later it is complete with nothing
-sent in between. Poll the state after a click instead of reading it once, or
-a click that worked is written down as a dead handler.
 
 ## Screenshots, and proving a render claim
 
