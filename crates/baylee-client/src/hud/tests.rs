@@ -780,10 +780,13 @@ mod revision {
     ///
     /// `browser` passed that test for as long as it existed, because the
     /// whole field was compared and the whole field was assigned. It was a
-    /// four-tuple, and the browser has **six** things a player can move: the
-    /// sort key and its direction were not in it, so clicking either of the
-    /// two buttons beside the filter box changed the order of a list that was
-    /// never redrawn. Both controls did nothing at all on screen.
+    /// four-tuple, and the browser has **seven** things a player can move:
+    /// the sort key and its direction were not in it, so clicking either of
+    /// the two buttons beside the filter box changed the order of a list that
+    /// was never redrawn. Both controls did nothing at all on screen. The
+    /// seventh is the view mode, added with the three shape buttons — and
+    /// added *here* first, precisely because three more buttons that redraw
+    /// nothing is the same defect a second time.
     ///
     /// A struct with named fields is most of the fix — a literal that names
     /// every field cannot forget one and still compile — so what is left to
@@ -812,7 +815,7 @@ mod revision {
                     .then_some(name)
             })
             .collect();
-        assert_eq!(fields.len(), 6, "the fields did not parse: {fields:?}");
+        assert_eq!(fields.len(), 7, "the fields did not parse: {fields:?}");
 
         let built = built_in
             .split_once("let browser = super::BrowserGate {")
@@ -1795,6 +1798,69 @@ mod faces {
         for arrow in ['\u{2190}', '\u{2191}', '\u{2192}', '\u{2193}'] {
             assert!(glyph(&face, arrow as u32) > 0, "no {arrow:?}");
         }
+    }
+
+    /// Every mark `hud::glyph` names is one the icon face actually has.
+    ///
+    /// The same trap as the chords above, in the font it is easiest to fall
+    /// into: a Font Awesome codepoint is a four-digit number nobody can read,
+    /// a search will agree about one cheerfully, and a wrong one draws a
+    /// blank advance that looks exactly like a control the layout forgot. The
+    /// close button shipped as a thin bar once for a version of this.
+    ///
+    /// Typed out a second time, like [`SHIPPED`]: a list built from the
+    /// module could only ever agree with the module.
+    #[test]
+    fn every_mark_the_overlay_names_is_in_the_icon_face() {
+        use crate::hud::glyph;
+        let face = std::fs::read(path("fa-solid-900.ttf")).expect("the icon face");
+        let named = [
+            ("HEART", glyph::HEART),
+            ("HAND", glyph::HAND),
+            ("LIBRARY", glyph::LIBRARY),
+            ("SKULL", glyph::SKULL),
+            ("EXILE", glyph::EXILE),
+            ("POISON", glyph::POISON),
+            ("ENERGY", glyph::ENERGY),
+            ("CARET_DOWN", glyph::CARET_DOWN),
+            ("EXPAND", glyph::EXPAND),
+            ("COMMAND", glyph::COMMAND),
+            ("CLOSE", glyph::CLOSE),
+            ("CHECK", glyph::CHECK),
+            ("VIEW_ROWS", glyph::VIEW_ROWS),
+            ("VIEW_BIG", glyph::VIEW_BIG),
+            ("VIEW_GRID", glyph::VIEW_GRID),
+            ("EYE", glyph::EYE),
+            ("EYE_SLASH", glyph::EYE_SLASH),
+        ];
+        for (name, mark) in named {
+            assert!(
+                glyph(&face, mark as u32) > 0,
+                "glyph::{name} is U+{:04X}, which this face does not have — it draws as an \
+                 empty advance, which reads as a control that is simply missing",
+                mark as u32
+            );
+        }
+
+        // The three view marks have to differ from one another as well as
+        // exist: they are one control with three answers, and two segments
+        // drawn alike is a button that cannot say what it does.
+        let views = [glyph::VIEW_ROWS, glyph::VIEW_BIG, glyph::VIEW_GRID];
+        let shapes: std::collections::BTreeSet<u16> =
+            views.iter().map(|m| glyph(&face, *m as u32)).collect();
+        assert_eq!(shapes.len(), 3, "two of the three view marks are one glyph");
+
+        // And the premise: this reader can say no. U+F999 sits *inside* the
+        // private-use block the marks above come from and this face does not
+        // fill it, which is the counter-test worth having — a reader that
+        // answered "yes" to the whole block would pass every assertion above
+        // while checking nothing. (U+F8FF is not the one to use: the face
+        // does fill that slot, which is how this test first failed.)
+        assert_eq!(
+            glyph(&face, 0xf999),
+            0,
+            "the reader answers yes to a codepoint the face has no glyph for"
+        );
     }
 }
 

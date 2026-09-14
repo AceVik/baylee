@@ -35,6 +35,18 @@ pub struct ClientSettings {
     /// the default depends on the window, and this store does not know one.
     #[serde(default)]
     pub zone_browser: Option<baylee_client_core::browser::Placement>,
+    /// Which shape the zone browser draws its list in.
+    ///
+    /// Beside the rectangle above rather than in `Preferences`, but for the
+    /// opposite reason: the rectangle is a fact about *this screen*, and this
+    /// is taste that simply has nowhere better to live — a view mode is not
+    /// worth a round trip to the gateway and is wanted by a player who has
+    /// never signed in. Its own `#[serde(default)]` is the one that matters if
+    /// this enum ever grows or loses a variant: an unknown name would
+    /// otherwise refuse the whole file and take the player's sheet, their
+    /// language and their address with it.
+    #[serde(default)]
+    pub zone_view: baylee_client_core::browser::ViewMode,
     /// The address that last signed in here, to fill the sign-in box with.
     ///
     /// Here for the reason the zone browser above is, said from the other
@@ -57,6 +69,7 @@ impl Default for ClientSettings {
             lang: "en".to_string(),
             prefer_text_view: false,
             zone_browser: None,
+            zone_view: baylee_client_core::browser::ViewMode::default(),
             last_email: String::new(),
         }
     }
@@ -349,6 +362,7 @@ mod tests {
                 width: 520.0,
                 height: 380.0,
             }),
+            zone_view: baylee_client_core::browser::ViewMode::Grid,
             last_email: "mail@acevik.de".to_string(),
         };
         let text = serde_json::to_string_pretty(&written).expect("serializes");
@@ -359,7 +373,31 @@ mod tests {
         let place = read.zone_browser.expect("the sheet's place survived");
         assert!((place.left - 40.0).abs() < f32::EPSILON);
         assert!((place.width - 520.0).abs() < f32::EPSILON);
+        assert_eq!(
+            read.zone_view,
+            baylee_client_core::browser::ViewMode::Grid,
+            "the view the player chose has to come back, or the buttons are a setting that \
+             resets every launch"
+        );
         assert_eq!(read.last_email, "mail@acevik.de");
+    }
+
+    /// A settings file naming a view mode this build has never heard of loads
+    /// as the rest of itself, with that one field defaulted.
+    ///
+    /// `load` is `from_str(…).ok().unwrap_or_default()`, so a field that
+    /// refused would take the sheet's rectangle, the language and the
+    /// remembered address down with it — which is exactly what one retired
+    /// `Action` once did to every key a player had ever bound.
+    #[test]
+    fn a_retired_view_mode_does_not_take_the_whole_store_with_it() {
+        let settings: ClientSettings =
+            serde_json::from_str(r#"{"lang":"de","zone_view":"folders"}"#).expect("still decodes");
+        assert_eq!(settings.lang, "de", "the rest of the file survived");
+        assert_eq!(
+            settings.zone_view,
+            baylee_client_core::browser::ViewMode::default()
+        );
     }
 
     /// A store written before the language field existed must still load, and

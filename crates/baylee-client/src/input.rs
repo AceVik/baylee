@@ -41,14 +41,21 @@ use bevy::prelude::*;
 /// Bundled rather than four more arguments because `pointer` already sits at
 /// Bevy's parameter limit — and because they are one thing: the tray, its
 /// tabs, its close button, its filter box and its sort control.
+///
+/// The settings store rides along for the same reason and is the one member
+/// that is not a query: the view buttons are the only control on this panel
+/// whose state does not live on the `Browser`, and `pointer` has no room left
+/// to be handed it separately.
 #[derive(bevy::ecs::system::SystemParam)]
 pub struct TrayWidgets<'w, 's> {
     cards: Query<'w, 's, &'static TrayCard>,
     tabs: Query<'w, 's, &'static TrayTab>,
     close: Query<'w, 's, &'static TrayClose>,
     sort: Query<'w, 's, &'static TraySort>,
+    views: Query<'w, 's, &'static crate::hud::TrayView>,
     filter: Query<'w, 's, &'static TrayFilter>,
     cancel: Query<'w, 's, &'static TrayNone>,
+    settings: ResMut<'w, crate::settings::ClientSettings>,
 }
 
 /// Everything on the ability sheet a pointer can land on, bundled for the
@@ -2312,7 +2319,7 @@ fn sheet_click(
 fn browser_click(
     duel: &mut Duel,
     entity: Entity,
-    tray: &TrayWidgets,
+    tray: &mut TrayWidgets,
     parents: &Query<&ChildOf>,
 ) -> bool {
     if let Some(card) = find_in_lineage(entity, &tray.cards, parents) {
@@ -2360,6 +2367,19 @@ fn browser_click(
         }
         return true;
     }
+    // The one control on this panel that writes to the settings store rather
+    // than to the `Browser`: which shape the list is drawn in is not a fact
+    // about the game, and a player who picked the grid once should not have
+    // to pick it again next launch. Saved on the click and not on a timer —
+    // it is one small file and a click is the moment the player decided.
+    if let Some(view) = find_in_lineage(entity, &tray.views, parents) {
+        let mode = view.mode;
+        if tray.settings.zone_view != mode {
+            tray.settings.zone_view = mode;
+            tray.settings.save();
+        }
+        return true;
+    }
     // The filter box takes the keyboard on the click and gives it back on
     // the next one, so a player can leave the panel open and keep playing.
     if find_in_lineage(entity, &tray.filter, parents).is_some() {
@@ -2390,7 +2410,7 @@ pub fn pointer(
     prompt_buttons: Query<&PromptButton>,
     sheet: SheetWidgets,
     choice_buttons: Query<&ChoiceButton>,
-    tray: TrayWidgets,
+    mut tray: TrayWidgets,
     parents: Query<&ChildOf>,
     mut duel: ResMut<Duel>,
     mut prefs: ResMut<crate::prefs::Prefs>,
@@ -2460,7 +2480,7 @@ pub fn pointer(
             pick_choice(&mut duel, button.index);
             continue;
         }
-        if browser_click(&mut duel, e, &tray, &parents) {
+        if browser_click(&mut duel, e, &mut tray, &parents) {
             continue;
         }
         if let Some(button) = find_in_lineage(e, &prompt_buttons, &parents) {
@@ -2954,6 +2974,7 @@ mod tests {
         app.init_resource::<crate::prefs::Prefs>()
             .init_resource::<crate::table::CameraRig>()
             .init_resource::<crate::touch::Touched>()
+            .init_resource::<crate::settings::ClientSettings>()
             .add_message::<bevy::picking::events::Pointer<bevy::picking::events::Click>>()
             .insert_resource(crate::Duel {
                 interaction: Some(baylee_client_core::interaction::Interaction::new(
@@ -3254,6 +3275,7 @@ mod tests {
         app.init_resource::<crate::prefs::Prefs>()
             .init_resource::<crate::table::CameraRig>()
             .init_resource::<crate::touch::Touched>()
+            .init_resource::<crate::settings::ClientSettings>()
             .add_message::<Pointer<Press>>()
             .add_message::<Pointer<Release>>()
             .add_message::<Pointer<Click>>()
@@ -3462,6 +3484,7 @@ mod tests {
         app.init_resource::<crate::prefs::Prefs>()
             .init_resource::<crate::table::CameraRig>()
             .init_resource::<crate::touch::Touched>()
+            .init_resource::<crate::settings::ClientSettings>()
             .add_message::<bevy::picking::events::Pointer<bevy::picking::events::Click>>()
             .insert_resource(duel)
             .add_systems(Update, super::pointer);
@@ -3855,6 +3878,62 @@ mod tests {
         assert_eq!(
             app.world().resource::<crate::Duel>().outbox(),
             [PlayerAction::OfferDraw]
+        );
+    }
+
+    /// A view button is the one control on the dialog that writes to the
+    /// settings store rather than to the `Browser`.
+    ///
+    /// Two halves, and the second is the one worth a test. The first is that
+    /// the click lands at all — three new buttons that change nothing is the
+    /// defect the sort key already shipped once. The second is that it writes
+    /// **only** the view: the sheet's remembered rectangle lives in the same
+    /// resource, and a handler that wrote the whole store back would park a
+    /// sheet nobody had moved.
+    #[test]
+    fn a_view_button_writes_the_view_and_nothing_else() {
+        use crate::settings::ClientSettings;
+        use baylee_client_core::browser::ViewMode;
+
+        let (mut app, _, _) = menu_app(crate::Duel::default());
+        let grid = app
+            .world_mut()
+            .spawn(crate::hud::TrayView {
+                mode: ViewMode::Grid,
+            })
+            .id();
+        let detailed = app
+            .world_mut()
+            .spawn(crate::hud::TrayView {
+                mode: ViewMode::Detailed,
+            })
+            .id();
+
+        assert_eq!(
+            app.world().resource::<ClientSettings>().zone_view,
+            ViewMode::Detailed,
+            "the list is what a player who has chosen nothing gets"
+        );
+
+        click(&mut app, grid);
+        assert_eq!(
+            app.world().resource::<ClientSettings>().zone_view,
+            ViewMode::Grid,
+            "the grid button did not reach the setting the panel is drawn from"
+        );
+        assert!(
+            app.world()
+                .resource::<ClientSettings>()
+                .zone_browser
+                .is_none(),
+            "changing the view wrote a place nobody chose"
+        );
+
+        click(&mut app, detailed);
+        assert_eq!(
+            app.world().resource::<ClientSettings>().zone_view,
+            ViewMode::Detailed,
+            "the view is a choice, not a ratchet"
         );
     }
 

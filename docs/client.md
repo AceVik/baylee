@@ -3375,13 +3375,66 @@ own warm near-black (`palette::DIALOG` and the four inks beside it; the HUD's
 older `PANEL` is a cool near-black and is the one surface in this client that
 was never on a candlelit table).
 
-What is in it is a **list**, not a grid: a row is a checkbox, a thumbnail, the
-name, the cost in pips, the type line and a badge saying which pile it is in.
-The grid grew sideways to show more at once, which is the axis that buys
-nothing for a card's three facts, and the list grows down, which is where a
-hundred-card library is. The chosen row goes **candle** — a wash rather than a
-fill, because a chosen row is still a row being read — and never the teal §1
-retires; `the_dialog_says_nothing_in_teal` reads the file back.
+What is in it is a **list by default, and a grid on request**. A row is a
+checkbox, a thumbnail, the name, the cost in pips, the type line and a badge
+saying which pile it is in. The chosen row goes **candle** — a wash rather
+than a fill, because a chosen row is still a row being read — and never the
+teal §1 retires; `the_dialog_says_nothing_in_teal` reads the file back.
+
+The list is the default because **choosing is reading**: a fetchland offers
+the whole library, and which of ninety lands is answered in the type line and
+the cost, which are words. A grid answers "show me more at once" by growing
+sideways, which buys nothing for those three facts — they fit in one measure
+and everything past it is blank — while a list grows down, which is where a
+hundred cards are. That argument used to end with the grid deleted, and it was
+one step short: *not every opening of this panel is a choice*. A player
+tapping their own graveyard to see what is in it is browsing, and browsing a
+pile of cards is what a grid is for. So `browser::ViewMode` is three shapes
+for the same rows — `Detailed`, `Large`, `Grid` — chosen by three icon
+segments at the right end of the controls row, and the sideways axis is a
+click rather than a refusal.
+
+Three things fix those three shapes, and none of them is a taste. **The
+picture has one size.** Card art is fetched at `ArtSize::Small`, 146 × 204
+device pixels, so a 73-logical-pixel card is one texel to one pixel at
+scale 2 and the next size up costs eleven times the texture — a hundred-card
+library at `ArtSize::Normal` is 133 MB against a 96 MB budget on a phone. So
+the large row's thumbnail *is* 73 and a grid tile grows to at most 100, and
+no view asks for a different image than the row it replaces: switching shape
+costs no fetch and no VRAM at all.
+**The grid packs at that floor and grows into the gaps**, never into the
+picture (`browser::grid_across`, the same rule `seatbar::Density::for_length`
+uses on a mat): as many tiles as fit at 73, then shared out to fill the
+measure. The sheet's own `MIN_W` guarantees four columns, which is why the
+100 cap never actually bites on this panel — it is the bound that holds for a
+narrower measure, and the two tests say which of them checks which.
+And **the sheet's arithmetic stays the detailed row's**: `TRAY_ROWS`,
+`DEFAULT_H` and `MIN_H` describe the panel a player opens, so changing view
+changes the flow inside it and never the rectangle it stands in.
+
+What each shape drops is the interesting half. The **large** list loses the
+type line and nothing else — it was the widest fixed column, and at 73 pixels
+a frame's colour and a creature's silhouette are legible off the art itself —
+and puts the name (one step larger, with the cost beside it) over the pile
+badge on a second line. The badge stays because a merged multi-zone list is
+the whole reason it exists. The **grid** writes nothing at all: a name under a
+73-pixel column clips on most of the pool, and the hover preview already says
+which card this is in full. What a tile still has to carry is the two things
+a picture cannot say for itself, and they are the same colour at two
+geometries — chosen is the art's own edge going candle, focus is a rail
+standing outside the tile — so a tile that is both reads as two concentric
+rings. An ordering's place number is the list's own candle disc moved into the
+tile's corner, because a player who changes view mid-ordering must not have to
+learn the mark again. Tiles run in one flow under a single ticked tab and in
+headed runs when several are ticked, which needs no regrouping: `BrowseZone`'s
+`Ord` *is* the tab order and `Browser::rows` already emits zone by zone in it.
+
+The mode lives in `ClientSettings` beside the sheet's rectangle, and its
+reader is hand-written for the reason `Keymap`'s is: the store is
+`from_str(…).ok().unwrap_or_default()`, so a view mode retired in a later
+build would refuse the whole file and take that player's sheet placement,
+their language and their remembered address with it. An unknown name reads as
+the default instead.
 
 The footer is two buttons and both of them send what `PromptAction::Confirm`
 sends. **Confirm is lit only when the answer is complete, and Cancel is drawn
@@ -3470,6 +3523,24 @@ opened would set `answers_here()` false and kill that question's own keys on a
 dialog still standing, which is what clicking the filter box did to a search
 prompt for as long as the box could be clicked.
 
+**A zone tab is a box to tick, and the boxes are the title bar.** The owner
+asked for both on 14.09.2026 — a checkbox at the start of each zone's name so
+that ticking several *merges* them, and the chips moved up into the title row
+with the word "Zonen" dropped, because the chips say what the panel is better
+than a label repeating the name of the thing that was just opened. So
+`Browser::tabs` is a `BTreeSet` and **the empty set is what "Alle" means**:
+there is no fourth state to remember, unticking the last pile lands back on
+everything instead of on a panel showing nothing, and `Browser::shows` is the
+one place that meaning lives. It is a `BTreeSet` and not a `HashSet` because
+`BrowseZone`'s `Ord` *is* the tab order, and a set that iterated differently
+each run would be a second opinion about it. Two rules keep a tick honest: a
+tap on a pile and a reveal **replace** the ticks rather than joining them — a
+reveal merged into a graveyard is a reveal nobody can find — and a tick does
+not outlive its pile, so a graveyard that empties takes its own tick with it.
+Tabs in the title row means the row is also the drag grip, which is settled
+the way the `✕` already settles it: `input::tray_drag` lets the specific
+control claim the press before the row it stands on.
+
 Every zone tab says how many cards are in it, in brackets, which is not
 decoration: `bracketed` is what greys a run, so `Graveyard (12)` draws as a
 name with a grey aside and reads as one. It is also the only thing the
@@ -3503,9 +3574,10 @@ kept that place in the next. A drag that still wrote to the store would put
 the panel back there a rebuild later, and would leave the *hand-opened*
 sheet standing somewhere nobody chose.
 
-The same opening pins the tab. `Browser::locked` is beside `tab` rather than
-inside it because the two answer different questions — `tab` is what is
-showing, `locked` is whether the player may change it — and it is decided by
+The same opening pins the tab. `Browser::locked` is beside `tabs` rather than
+inside it because the two answer different questions — `tabs` is which piles
+are showing, `locked` is whether the player may change that — and it is
+decided by
 the **offer** and never by the prompt kind: every id in
 `Interaction::selectable` living in one `BrowseZone` pins that zone, and an
 id on the battlefield or in hand pins nothing, which is right, because a

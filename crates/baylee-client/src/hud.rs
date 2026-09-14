@@ -297,17 +297,23 @@ pub(crate) mod glyph {
     /// of the window and the one that gives the seat sheet its body: poison
     /// and energy are two of the things the sheet says and the bar has no
     /// room for.
-    #[expect(dead_code, reason = "the seat sheet says it next")]
+    // Used by `hud::tests`, which is where the icon face is read, so the
+    // expectation only holds in a build that is not the test one.
+    #[cfg_attr(not(test), expect(dead_code, reason = "the seat sheet says it next"))]
     pub const POISON: char = '\u{f714}';
     /// Bolt (energy counters). See [`POISON`].
-    #[expect(dead_code, reason = "the seat sheet says it next")]
+    // Used by `hud::tests`, which is where the icon face is read, so the
+    // expectation only holds in a build that is not the test one.
+    #[cfg_attr(not(test), expect(dead_code, reason = "the seat sheet says it next"))]
     pub const ENERGY: char = '\u{f0e7}';
     /// Caret down (speech-bubble tail).
     pub const CARET_DOWN: char = '\u{f0d7}';
     /// Expand (resize handle).
     pub const EXPAND: char = '\u{f065}';
     /// Crown (the command zone). See [`POISON`].
-    #[expect(dead_code, reason = "the seat sheet says it next")]
+    // Used by `hud::tests`, which is where the icon face is read, so the
+    // expectation only holds in a build that is not the test one.
+    #[cfg_attr(not(test), expect(dead_code, reason = "the seat sheet says it next"))]
     pub const COMMAND: char = '\u{f521}';
     /// Times (close a panel). The text font has no U+2715, so the cross has
     /// to come from here or it draws as a missing glyph.
@@ -316,6 +322,21 @@ pub(crate) mod glyph {
     /// font's own cmap rather than looked up: a codepoint a search agrees
     /// about is not the same claim as a glyph this file has.
     pub const CHECK: char = '\u{f00c}';
+    /// A list of rows, each with a block at its left: the detailed view.
+    ///
+    /// The three below are the zone browser's view buttons, and they are a
+    /// *set* — read out of the shipped font's cmap together and rendered
+    /// together, because what each one has to say it says by not looking like
+    /// the other two. This one is the only one of the three with a column
+    /// down its left side, which is the thumbnail.
+    pub const VIEW_ROWS: char = '\u{f00b}';
+    /// Three fat items with a mark beside each: the large view. Fewer things,
+    /// bigger, and no left column — which is exactly what that view drops.
+    pub const VIEW_BIG: char = '\u{f03a}';
+    /// Four large cells: the grid. Two by two rather than the denser
+    /// three-by-three beside it in the font, because the tiles are cards and
+    /// a grid of nine would read as a spreadsheet.
+    pub const VIEW_GRID: char = '\u{f009}';
     /// Eye: show a masked field.
     pub const EYE: char = '\u{f06e}';
     /// Eye with a line through it: cover it again.
@@ -603,6 +624,21 @@ pub struct TraySort {
     pub reverse: bool,
 }
 
+/// One of the browser's three view buttons.
+///
+/// Three buttons and not one that cycles, which is where this differs from
+/// the sort key beside it: a sort key is a ring of four *equivalent* answers
+/// and the button can say which one is current, but a view is a shape the
+/// player is looking at, and a control that has to be pressed twice to get
+/// back to the list would be asking them to guess what the next press does.
+/// Three marks, one lit — the current one is visible without pressing
+/// anything.
+#[derive(Component)]
+pub struct TrayView {
+    /// The mode this button selects.
+    pub mode: baylee_client_core::browser::ViewMode,
+}
+
 /// The "none of them" button, drawn only when the question's minimum is zero.
 ///
 /// Not a [`PromptAction::Confirm`] button with different words, though that
@@ -824,6 +860,14 @@ struct BrowserGate {
     sort: baylee_client_core::browser::SortKey,
     /// which way up.
     descending: bool,
+    /// Which shape the rows are drawn in.
+    ///
+    /// Read out of `ClientSettings` rather than the `Browser`, which is the
+    /// one field here that does not come off the model — and it is here for
+    /// the reason the two above it are: the mode is a control on this panel,
+    /// so a panel that could not see it changing is three buttons that do
+    /// nothing.
+    view: baylee_client_core::browser::ViewMode,
 }
 
 /// Which snapshot the overlay currently shows.

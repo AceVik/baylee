@@ -291,6 +291,142 @@ impl SortKey {
     }
 }
 
+/// Which shape the same rows are drawn in.
+///
+/// It changes **nothing** about which cards are on the sheet: the filter, the
+/// ticked zones and the sort decide the rows, and this decides how each one is
+/// written. That is why it is not a field of [`Browser`] — there is no model
+/// question it answers — and why the sheet's own arithmetic stays the detailed
+/// row's: `TRAY_ROWS`, [`Placement::DEFAULT_H`] and [`Placement::MIN_H`]
+/// describe the panel a player opens, and a panel that resized itself when the
+/// view changed would move a sheet the player had put somewhere.
+///
+/// The value lives in the client's settings beside the sheet's rectangle, for
+/// the reason `prefer_text_view` does: it is taste, it is worth keeping across
+/// launches, and an account is not needed to have it.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default)]
+pub enum ViewMode {
+    /// A row is a checkbox, a thumbnail, a name, the cost, the type line and
+    /// the pile it is in.
+    ///
+    /// The default, because the sheet exists to be *chosen from* and choosing
+    /// is reading: a fetchland asks which of ninety lands, and the answer is
+    /// in the type line and the cost. The other two are for browsing, which is
+    /// the rarer half.
+    #[default]
+    Detailed,
+    /// The same list with the asides dropped and the picture doubled.
+    ///
+    /// For the player who knows the pile and is looking for a card they can
+    /// already name by its art.
+    Large,
+    /// Every card in the zone as a tile, laid out across and wrapped.
+    ///
+    /// The owner's *"wie auf einer Produktseite"*. It is the one view that
+    /// grows sideways, which is why it took a mode to justify: see the module
+    /// doc of `hud::tray`, where the list and the grid argue it out.
+    Grid,
+}
+
+impl ViewMode {
+    /// All three, in the order a control should offer them — least card to
+    /// most.
+    pub const ALL: [Self; 3] = [Self::Detailed, Self::Large, Self::Grid];
+
+    /// The button's label.
+    #[must_use]
+    pub const fn label(self) -> Phrase {
+        match self {
+            Self::Detailed => Phrase::ViewDetailed,
+            Self::Large => Phrase::ViewLarge,
+            Self::Grid => Phrase::ViewGrid,
+        }
+    }
+
+    /// Whether this view writes a name, a cost and a type line beside the
+    /// picture, which is what a question asked *of the list* needs.
+    #[must_use]
+    pub const fn is_a_list(self) -> bool {
+        matches!(self, Self::Detailed | Self::Large)
+    }
+
+    /// The spelling this is stored under, which is not the label: a label is
+    /// translated and a stored name may never be.
+    #[must_use]
+    pub const fn name(self) -> &'static str {
+        match self {
+            Self::Detailed => "detailed",
+            Self::Large => "large",
+            Self::Grid => "grid",
+        }
+    }
+}
+
+/// One row of the grid: how many tiles fit across `measure`, how wide each
+/// one is, and how much air stands between two of them.
+///
+/// The grid's whole layout, and it is here rather than in the renderer for
+/// the reason [`Placement`] is: it is arithmetic, and arithmetic with a
+/// window in front of it is arithmetic nobody tests.
+///
+/// The rule is `seatbar::Density::for_length`'s, applied to cards instead of
+/// step tiles: **fit as many as will go at `min`, then grow them together
+/// towards `max` and put whatever is left over in the gaps.** Growing into
+/// the gaps rather than into the picture is the point — card art has exactly
+/// one useful size (see `TRAY_BIG_THUMB_W` in `hud::tray`) and a tile wider
+/// than `max` is a blurred card, so the slack has to go somewhere that is not
+/// the card.
+///
+/// At least one column always comes back, even from a measure narrower than
+/// one tile: a sheet dragged to its floor shows a card that overhangs by a
+/// few pixels, which the list's own clip takes, and a grid of zero columns
+/// would be a blank panel with a hundred cards behind it.
+#[must_use]
+pub fn grid_across(measure: f32, min: f32, max: f32, gap: f32) -> (usize, f32, f32) {
+    // `+ gap` on both sides is the fencepost: n tiles have n-1 gaps, so
+    // measuring in "tile plus gap" units over-counts by exactly one gap and
+    // the numerator has to carry it too.
+    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+    let across = (((measure + gap) / (min + gap)).floor() as usize).max(1);
+    #[allow(clippy::cast_precision_loss)]
+    let n = across as f32;
+    let each = ((measure - (n - 1.0) * gap) / n).clamp(min, max);
+    // Only a capped row has anything left over, and a single column has no
+    // gap to put it in — so both of those keep the gap they were given and
+    // the row simply ends short of the right edge, which is what a last row
+    // of three tiles does anyway.
+    let air = if across > 1 && each >= max {
+        ((measure - n * each) / (n - 1.0)).max(gap)
+    } else {
+        gap
+    };
+    (across, each, air)
+}
+
+impl serde::Serialize for ViewMode {
+    fn serialize<S: serde::Serializer>(&self, out: S) -> Result<S::Ok, S::Error> {
+        out.serialize_str(self.name())
+    }
+}
+
+/// A name this build does not know is read as the default, not as a refusal.
+///
+/// The derived reader would answer an unknown variant with an error, and the
+/// client's settings store is `serde_json::from_str(…).ok().unwrap_or_default()`
+/// — so one view mode retired in a later build would take that player's sheet
+/// placement, their language and their remembered address down with it. That
+/// is exactly the hole `Keymap` fell into over a retired action, written out
+/// here before it can be fallen into a second time.
+impl<'de> serde::Deserialize<'de> for ViewMode {
+    fn deserialize<D: serde::Deserializer<'de>>(input: D) -> Result<Self, D::Error> {
+        let said = String::deserialize(input)?;
+        Ok(Self::ALL
+            .into_iter()
+            .find(|mode| mode.name() == said)
+            .unwrap_or_default())
+    }
+}
+
 /// Where a type line sits in [`SortKey::Type`]'s order.
 ///
 /// A permanent is several types at once, so this is a precedence and not a
@@ -1336,6 +1472,86 @@ mod tests {
 
     fn obj(slot: u32) -> ObjectId {
         ObjectId::new(slot, 0)
+    }
+
+    /// The grid never draws a card wider than the one size the art has.
+    ///
+    /// The three measures are the sheet's own: its floor, its default and a
+    /// maximised sheet on this screen, each less the gutters the list keeps.
+    #[test]
+    fn a_tile_grows_into_the_gaps_and_never_past_the_art() {
+        // 73 is one texel to one pixel at scale 2; 100 is where the softening
+        // starts to show. `hud::tray` owns both numbers and states why.
+        let (min, max, gap) = (73.0, 100.0, 10.0);
+        for measure in [324.0_f32, 670.0, 1400.0, 2976.0] {
+            let (across, each, air) = grid_across(measure, min, max, gap);
+            assert!(across >= 1, "{measure} px fits no tile at all");
+            assert!(
+                (min..=max).contains(&each),
+                "{measure} px draws a {each}-wide tile, which is outside the art's own size"
+            );
+            assert!(air >= gap, "{measure} px squeezes the gap to {air}");
+            #[allow(clippy::cast_precision_loss)]
+            let used = across as f32 * each + (across - 1) as f32 * air;
+            assert!(
+                used <= measure + 0.01,
+                "{across} tiles of {each} with {air} between them is {used}, wider than {measure}"
+            );
+        }
+    }
+
+    /// And when the cap does bite, the leftover goes into the air rather than
+    /// into the picture.
+    ///
+    /// It bites on a *narrow* measure and not on a wide one, which is the
+    /// part that is easy to have backwards: the count is taken at `min`
+    /// first, so a wide measure is a row of many tiles each barely above the
+    /// floor. Only two or three columns leave a share big enough to reach the
+    /// cap — and `hud::tray`'s own test is the other half of this, showing
+    /// that the browser's floor width fits four and so never gets here.
+    #[test]
+    fn a_capped_row_widens_its_gaps_instead_of_its_cards() {
+        let (across, each, air) = grid_across(368.0, 73.0, 100.0, 10.0);
+        assert_eq!(across, 4, "368 px fits four tiles at the floor");
+        assert!(
+            (each - 84.5).abs() < 0.01,
+            "four across 368 px is 84.5 each, not {each}"
+        );
+        assert!((air - 10.0).abs() < f32::EPSILON, "uncapped keeps its gap");
+
+        let (across, each, air) = grid_across(230.0, 73.0, 100.0, 10.0);
+        assert_eq!(across, 2, "230 px fits two tiles and not a third");
+        assert!(
+            (each - 100.0).abs() < 0.01,
+            "two across 230 px hits the cap"
+        );
+        assert!(
+            (air - 30.0).abs() < 0.01,
+            "the 30 px the cards gave up did not go into the gap; it is {air}"
+        );
+        assert!(
+            (2.0f32.mul_add(each, air) - 230.0).abs() < 0.01,
+            "a capped row still fills its measure"
+        );
+    }
+
+    /// A stored view mode this build does not know is the default, not a
+    /// refusal that takes the whole settings file with it.
+    #[test]
+    fn an_unknown_view_mode_reads_as_the_default() {
+        for mode in ViewMode::ALL {
+            let text = serde_json::to_string(&mode).expect("a mode writes");
+            let back: ViewMode = serde_json::from_str(&text).expect("and reads");
+            assert_eq!(back, mode, "{} did not survive the round trip", mode.name());
+        }
+        let retired: ViewMode = serde_json::from_str("\"folders\"").expect("an unknown name reads");
+        assert_eq!(
+            retired,
+            ViewMode::default(),
+            "a mode this build has never heard of has to fall back, not fail: the client's \
+             settings store answers a refusal with Default and would take the player's sheet, \
+             their language and their address down with it"
+        );
     }
 
     /// Everything a client can already click without the browser: the

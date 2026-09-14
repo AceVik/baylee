@@ -19,13 +19,29 @@
 //! checkbox, a thumbnail, a name, the cost in pips, the type line and the
 //! zone it is in — and the chosen row goes candle, not teal.
 //!
-//! The grid is what the list replaces, and the reason is the same one that
-//! made the grid ten columns wide: a fetchland offers the whole library. A
-//! grid answers "show me more at once" by growing sideways, which is the axis
-//! that buys nothing here — a name, a cost and a type line fit in one measure
-//! and everything past it is blank. A list grows *down*, which is where a
-//! hundred cards are, and it can say the three things about a card that a
-//! player searching a library is actually reading.
+//! # The list is the default, and the grid is a mode
+//!
+//! The grid used to be what the list *replaced*, and that was one argument
+//! short. The half that was right: **choosing is reading.** A fetchland
+//! offers the whole library, and the answer to "which of these ninety lands"
+//! is in the type line and the cost, which are words — so the view a player
+//! is dropped into grows *down*, where a hundred cards are, and says the
+//! three things about a card that a search is actually read for. A grid
+//! answers "show me more at once" by growing sideways, which buys nothing at
+//! all for those three facts: they fit in one measure and everything past it
+//! is blank.
+//!
+//! The half that was wrong: not every opening of this panel is a choice. A
+//! player tapping their own graveyard to see what is in it is *browsing*, and
+//! browsing a pile of cards is exactly what a grid is for — the owner asked
+//! for it as *"wie auf einer Produktseite"* on 14.09.2026. So the sideways
+//! axis is not refused, it is **chosen**: [`ViewMode`] is three shapes for
+//! the same rows, the detailed list is the default because choosing is the
+//! costlier half, and the grid is a click away for the half that is looking.
+//!
+//! What none of the three may do is ask for a different picture. Card art is
+//! fetched at one size and one only; see [`TRAY_BIG_THUMB_W`] for the
+//! arithmetic that bounds all three views to it.
 //!
 //! There was a strip of pile chips above the sheet doing the by-hand job,
 //! drawing the local seat's graveyard, exile and command zone as counts. It is
@@ -35,7 +51,7 @@
 
 #[allow(clippy::wildcard_imports)] // the HUD's own vocabulary
 use super::*;
-use baylee_client_core::browser::{BrowseRow, BrowseZone, Browser, Names};
+use baylee_client_core::browser::{BrowseRow, BrowseZone, Browser, Names, ViewMode, grid_across};
 
 /// The thumbnail on a row.
 ///
@@ -58,6 +74,44 @@ const TRAY_THUMB_H: f32 = TRAY_THUMB_W * 88.0 / 63.0;
 const TRAY_ROW_PAD: f32 = 7.0;
 /// One row, which is the unit the whole sheet is measured in.
 const TRAY_ROW_H: f32 = TRAY_THUMB_H + 2.0 * TRAY_ROW_PAD;
+/// The picture in the large list, and in a grid tile at its smallest.
+///
+/// **73 and not a round number**, and it is the one measurement in this file
+/// that is not a taste: card art is fetched at [`ArtSize::Small`], which is
+/// 146×204 *physical* pixels, so on this retina screen a 73-wide picture is
+/// exactly one texel to one pixel. Past about 100 the softening is visible,
+/// and the next size up costs eleven times the texture — a hundred-card
+/// library at [`ArtSize::Normal`] is 133 MB against a budget of 96 on a
+/// phone. So the two views that make the picture bigger stop where the
+/// picture does, and neither of them asks for a different image: a row and a
+/// tile are the same [`ImageKey`] drawn at three sizes.
+///
+/// [`ArtSize::Small`]: baylee_client_core::images::ArtSize::Small
+/// [`ArtSize::Normal`]: baylee_client_core::images::ArtSize::Normal
+/// [`ImageKey`]: baylee_client_core::images::ImageKey
+const TRAY_BIG_THUMB_W: f32 = 73.0;
+/// Its height, the same 63:88 as every other card in this client.
+const TRAY_BIG_THUMB_H: f32 = TRAY_BIG_THUMB_W * 88.0 / 63.0;
+/// The air above and below the picture in the large list.
+const TRAY_BIG_ROW_PAD: f32 = 8.0;
+/// One row of the large list.
+const TRAY_BIG_ROW_H: f32 = TRAY_BIG_THUMB_H + 2.0 * TRAY_BIG_ROW_PAD;
+/// The checkbox in the large list, which grows with the row.
+///
+/// The one column that must not get *relatively* smaller as the row grows:
+/// the large list is a list a player chooses from, and a tick target that
+/// shrank as everything around it doubled would be the control going the
+/// wrong way.
+const TRAY_BIG_BOX: f32 = 18.0;
+/// The widest a grid tile is allowed to grow.
+///
+/// The tiles share the width the way `seatbar`'s split rail shares the mat:
+/// they grow together to this cap and the slack past it goes into the gaps,
+/// never into the picture — so a tile is sharp at every width the sheet can
+/// be dragged to, instead of being sharp at one of them.
+const TRAY_TILE_MAX: f32 = 100.0;
+/// The air between two tiles, both ways.
+const TRAY_TILE_GAP: f32 = 10.0;
 /// The gutter every band of the sheet keeps at its left and right.
 ///
 /// The rows carry it themselves rather than the panel carrying it for them,
@@ -309,6 +363,7 @@ pub fn sync_tray(
         typing: duel.browser.is_typing(),
         sort: duel.browser.sort(),
         descending: duel.browser.descending(),
+        view: settings.zone_view,
     };
     let seq = duel.board.as_ref().map(|b| b.seq);
     let selected: Vec<ObjectId> = duel
@@ -416,6 +471,7 @@ pub fn sync_tray(
         &faces,
         cards.as_mut(),
         place,
+        settings.zone_view,
     );
     commands.entity(root).add_child(tray);
 }
@@ -738,6 +794,7 @@ pub(super) fn spawn_tray(
     faces: &FaceCtx<'_>,
     mut cards: Option<&mut UiCards<'_>>,
     place: Placement,
+    mode: ViewMode,
 ) -> Entity {
     // The catalog reaching the panel's own decisions, which is the half
     // `Browser` cannot do for itself: it decides in `baylee-client-core`,
@@ -1051,9 +1108,36 @@ pub(super) fn spawn_tray(
         },
         8.0,
     );
+    // And after them, the three shapes the same rows can be drawn in. They
+    // sit at the right end so that every "how it is shown" control is one
+    // cluster and the search field keeps the growing left — and they are
+    // three buttons rather than a fourth cycling one, for the reason
+    // [`super::TrayView`] gives: a sort key is a ring of equivalent answers
+    // and a view is a shape you are looking at.
+    let views = commands
+        .spawn((
+            Node {
+                flex_direction: FlexDirection::Row,
+                align_items: AlignItems::Center,
+                height: percent(100),
+                flex_shrink: 0.0,
+                overflow: Overflow::clip(),
+                border: UiRect::all(px(1)),
+                border_radius: btn_radius(),
+                ..default()
+            },
+            BorderColor::all(palette::DIALOG_LINE),
+            Pickable::IGNORE,
+        ))
+        .id();
+    let segments: Vec<Entity> = ViewMode::ALL
+        .into_iter()
+        .map(|each| spawn_view(commands, fonts, each, each == mode))
+        .collect();
+    commands.entity(views).add_children(&segments);
     commands
         .entity(controls)
-        .add_children(&[filter_line, sort_key, sort_dir]);
+        .add_children(&[filter_line, sort_key, sort_dir, views]);
     // The tally. The engine names a minimum and a maximum, so the dialog can
     // say how far along the answer is — and a panel with no question in it (a
     // graveyard opened by hand) says nothing rather than "0 of 0".
@@ -1125,11 +1209,54 @@ pub(super) fn spawn_tray(
         commands.entity(empty).add_child(words);
         commands.entity(list).add_child(empty);
     }
-    for row in &rows {
-        let node = spawn_row(
-            commands, lang, row, view, statics, textures, assets, fonts, faces, &mut cards,
-        );
-        commands.entity(list).add_child(node);
+    match mode {
+        ViewMode::Detailed | ViewMode::Large => {
+            for row in &rows {
+                let node = if mode == ViewMode::Large {
+                    spawn_big_row(
+                        commands, lang, row, view, statics, textures, assets, fonts, faces,
+                        &mut cards,
+                    )
+                } else {
+                    spawn_row(
+                        commands, lang, row, view, statics, textures, assets, fonts, faces,
+                        &mut cards,
+                    )
+                };
+                commands.entity(list).add_child(node);
+            }
+        }
+        ViewMode::Grid => spawn_grid(
+            commands,
+            list,
+            lang,
+            &rows,
+            GridCtx {
+                view,
+                statics,
+                fonts,
+                // The measure the tiles share: the sheet's own width less
+                // the gutter the list keeps on both sides. The panel's
+                // border is inside that width already — it is a `border`,
+                // not a margin — so it is not subtracted a second time.
+                measure: place.width - 2.0 * TRAY_SIDE,
+                // Headed runs only when the panel is showing more than one
+                // pile: a tile cannot say which zone it came from, and the
+                // list view says it in a badge on every row. With one tab
+                // ticked the tabs above have already said it, and a heading
+                // repeating that tab would be a line of chrome over every
+                // grid the panel ever draws.
+                headed: rows
+                    .iter()
+                    .map(|row| row.zone)
+                    .collect::<std::collections::BTreeSet<_>>()
+                    .len()
+                    > 1,
+            },
+            textures,
+            assets,
+            &mut cards,
+        ),
     }
 
     // ---- the footer ----
@@ -1428,6 +1555,67 @@ fn spawn_tab_box(commands: &mut Commands, fonts: &UiFonts, ticked: bool) -> Enti
     mark
 }
 
+/// One of the three view segments.
+///
+/// Icons and not words, and that is arithmetic rather than taste: three
+/// labels beside the sort key would leave the search field about 140 px wide
+/// on a sheet at its 356-pixel floor, which is a search box that can show a
+/// card name and nothing a player is typing. The words exist anyway —
+/// [`ViewMode::label`] is a translated phrase for each — because an icon with
+/// nothing behind it is a control that cannot be named by a tooltip, a
+/// keyboard map or a reader.
+///
+/// The three are one strip with one border round it rather than three
+/// buttons in a row: they are a single question with three answers, and a
+/// chosen segment says so by being the lit one. The unchosen two rest at
+/// nothing, so the strip reads as one control with a mark in it.
+fn spawn_view(commands: &mut Commands, fonts: &UiFonts, mode: ViewMode, current: bool) -> Entity {
+    let (fill, ink) = if current {
+        (palette::DIALOG_LIT, palette::CANDLE)
+    } else {
+        (Color::NONE, palette::DIALOG_SOFT)
+    };
+    let mark = match mode {
+        ViewMode::Detailed => glyph::VIEW_ROWS,
+        ViewMode::Large => glyph::VIEW_BIG,
+        ViewMode::Grid => glyph::VIEW_GRID,
+    };
+    let icon = commands
+        .spawn((
+            Text::new(mark.to_string()),
+            icon_tf(fonts, 10.0),
+            TextColor(ink),
+            Pickable::IGNORE,
+        ))
+        .id();
+    let button = commands
+        .spawn((
+            super::TrayView { mode },
+            Button,
+            Node {
+                width: px(26),
+                height: percent(100),
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+                ..default()
+            },
+            BackgroundColor(fill),
+            // Both ends stated, because `Feel::new` shades towards white and
+            // **keeps the alpha**: an unchosen segment rests at nothing and
+            // would be lifted to a brighter nothing, which is a control that
+            // never answers the pointer. The resize corner has the same note
+            // for the same reason.
+            if current {
+                Feel::new(palette::DIALOG_LIT)
+            } else {
+                Feel::rising_to(Color::NONE, palette::DIALOG_LIT)
+            },
+        ))
+        .id();
+    commands.entity(button).add_child(icon);
+    button
+}
+
 /// One control in the head's bottom row: the sort key, or the arrow beside it.
 fn spawn_control<C: Component>(
     commands: &mut Commands,
@@ -1475,20 +1663,557 @@ fn spawn_row(
     faces: &FaceCtx<'_>,
     cards: &mut Option<&mut UiCards<'_>>,
 ) -> Entity {
-    // Candle, and a wash of it rather than a fill: a chosen row is still a row
-    // being read. The tick and the ink carry the claim.
+    let slot = row_slot(commands, row, TRAY_ROW_H, TRAY_ROW_PAD);
+
+    let mark = spawn_mark(commands, fonts, row, TRAY_BOX);
+    commands.entity(slot).add_child(mark);
+
+    let thumb = spawn_thumb(
+        commands,
+        lang,
+        row,
+        statics,
+        textures,
+        assets,
+        fonts,
+        cards,
+        TRAY_THUMB_W,
+    );
+    commands.entity(slot).add_child(thumb);
+
+    // ---- the name ----
     //
-    // The hot end is stated both ways round, because `Feel`'s own hover keeps
-    // a colour's alpha (see [`Feel::hot`]): an unchosen row rests at nothing
-    // and would be lifted to a brighter nothing, and a chosen one rests at a
-    // tenth and would be lifted to a paler tenth. A hundred rows that did not
-    // answer the pointer is the whole list not answering it.
+    // The one thing on the row that grows, with `flex_basis: 0` beside it:
+    // grow alone divides only the slack left after every fixed column, which
+    // on a narrow sheet is nothing at all.
+    let name = dialog_text(
+        commands,
+        fonts,
+        &row.name,
+        TRAY_NAME_SIZE,
+        palette::DIALOG_INK,
+    );
+    let name = clipped(
+        commands,
+        name,
+        Node {
+            flex_grow: 1.0,
+            flex_basis: px(0),
+            min_width: px(0),
+            ..default()
+        },
+    );
+    commands.entity(slot).add_child(name);
+
+    // ---- the cost, drawn and not spelled ----
+    //
+    // The face is what carries it: a `BrowseRow` has the projected mana
+    // *value*, which is what the sort key reads, and a number is not a price.
+    let pips = spawn_cost(commands, fonts, row, view, faces);
+    commands.entity(slot).add_child(pips);
+
+    // ---- the type line ----
+    let built = view.object(row.id).map(|o| faces.facts(o));
+    let types = built
+        .as_ref()
+        .map_or_else(String::new, |f| f.type_line.clone());
+    let type_line = dialog_text(
+        commands,
+        fonts,
+        &types,
+        TRAY_TYPE_SIZE,
+        palette::DIALOG_SOFT,
+    );
+    let type_line = clipped(
+        commands,
+        type_line,
+        Node {
+            width: px(TRAY_TYPE_W),
+            flex_shrink: 0.0,
+            ..default()
+        },
+    );
+    commands.entity(slot).add_child(type_line);
+
+    let badge = spawn_badge(commands, lang, fonts, row);
+    commands.entity(slot).add_child(badge);
+
+    slot
+}
+
+/// What a grid needs that a row does not: the measure it shares out, and
+/// whether the runs are headed.
+///
+/// A struct because [`spawn_grid`] would otherwise take eleven arguments, and
+/// these four belong together — they are the answers to "how wide" and "how
+/// many piles", which is the whole of what makes a grid different from a
+/// list.
+struct GridCtx<'a> {
+    view: &'a PlayerView,
+    statics: &'a GameStatic,
+    fonts: &'a UiFonts,
+    /// The width the tiles share, which is the sheet less the list's gutters.
+    measure: f32,
+    /// Whether to head each pile's run with its name.
+    headed: bool,
+}
+
+/// Every card in the ticked zones, as tiles.
+///
+/// The owner's *"einfach nur alle Karten in der Zone wie auf einer
+/// Produktseite"*. The rows are the same rows the lists draw — same filter,
+/// same sort, same order — and the only thing that changes is that they are
+/// laid across and wrapped instead of down.
+///
+/// The runs keep the sort's order rather than being regrouped by zone, which
+/// is not a choice: [`BrowseZone`]'s `Ord` **is** the tab order and
+/// `Browser::rows` already emits zone by zone in it, so walking the rows in
+/// order and starting a new run whenever the zone changes gives exactly the
+/// grouping the tabs promise. A grid that sorted itself again would be a
+/// second opinion about an order that already has one.
+#[allow(clippy::too_many_arguments)] // the rows, the measure, and the stores
+fn spawn_grid(
+    commands: &mut Commands,
+    list: Entity,
+    lang: Lang,
+    rows: &[BrowseRow],
+    ctx: GridCtx<'_>,
+    textures: &mut CardTextures,
+    assets: &AssetServer,
+    cards: &mut Option<&mut UiCards<'_>>,
+) {
+    let (_, tile, air) = grid_across(ctx.measure, TRAY_BIG_THUMB_W, TRAY_TILE_MAX, TRAY_TILE_GAP);
+    let mut run: Option<(BrowseZone, Entity)> = None;
+    for row in rows {
+        let open = match run {
+            Some((zone, node)) if zone == row.zone => node,
+            _ => {
+                if ctx.headed {
+                    let head =
+                        spawn_run_head(commands, lang, ctx.fonts, row.zone, ctx.view, ctx.statics);
+                    commands.entity(list).add_child(head);
+                }
+                let node = commands
+                    .spawn((
+                        Node {
+                            flex_direction: FlexDirection::Row,
+                            flex_wrap: FlexWrap::Wrap,
+                            column_gap: px(air),
+                            row_gap: px(TRAY_TILE_GAP),
+                            padding: UiRect::axes(px(TRAY_SIDE), px(TRAY_TILE_GAP)),
+                            ..default()
+                        },
+                        Pickable::IGNORE,
+                    ))
+                    .id();
+                commands.entity(list).add_child(node);
+                run = Some((row.zone, node));
+                node
+            }
+        };
+        let node = spawn_tile(commands, lang, row, &ctx, textures, assets, cards, tile);
+        commands.entity(open).add_child(node);
+    }
+}
+
+/// The line that starts one pile's run of tiles.
+///
+/// The pile's name and then a rule to the right edge, which is the cheapest
+/// thing that reads as a heading in a panel whose only other horizontal line
+/// is the rule under a row. It is drawn only when more than one pile is
+/// showing: with one tab ticked the tabs above have already said which, and a
+/// heading repeating the tab would be chrome on every grid the panel draws.
+fn spawn_run_head(
+    commands: &mut Commands,
+    lang: Lang,
+    fonts: &UiFonts,
+    zone: BrowseZone,
+    view: &PlayerView,
+    statics: &GameStatic,
+) -> Entity {
+    let head = commands
+        .spawn((
+            Node {
+                flex_direction: FlexDirection::Row,
+                align_items: AlignItems::Center,
+                column_gap: px(TRAY_GAP),
+                padding: UiRect::new(px(TRAY_SIDE), px(TRAY_SIDE), px(TRAY_TILE_GAP), px(0)),
+                flex_shrink: 0.0,
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    let words = dialog_label(
+        commands,
+        fonts,
+        &zone_label(lang, zone, view, statics),
+        10.5,
+        palette::DIALOG_SOFT,
+    );
+    let rule = commands
+        .spawn((
+            Node {
+                flex_grow: 1.0,
+                height: px(1),
+                ..default()
+            },
+            BackgroundColor(palette::DIALOG_LINE),
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(head).add_children(&[words, rule]);
+    head
+}
+
+/// One card in the grid.
+///
+/// Nothing is written on it and nothing under it. A name under a 73-pixel
+/// column clips on most of the pool, and a clipped name is worse than no name
+/// — the hover preview already says which card this is, in full, with its
+/// text. What the tile has to carry instead is the two things a picture
+/// cannot say for itself: whether it is chosen, and where the keyboard is.
+///
+/// Those two are the same colour at two geometries, which is deliberate.
+/// Chosen is the tile's **own** border going candle, tight against the art;
+/// focus is a rail standing outside it. So a tile that is both reads as two
+/// concentric rings and neither can be mistaken for the other — where a wash
+/// over the art, which is what the list uses, would dim the one thing the
+/// tile is *for*.
+///
+/// The ordering number is the list's own candle disc, moved into the tile's
+/// top-left corner over the art. Carrying the same mark between the views is
+/// what lets a player change view in the middle of an ordering without having
+/// to learn it again.
+#[allow(clippy::too_many_arguments)] // the row, the context, and the stores
+fn spawn_tile(
+    commands: &mut Commands,
+    lang: Lang,
+    row: &BrowseRow,
+    ctx: &GridCtx<'_>,
+    textures: &mut CardTextures,
+    assets: &AssetServer,
+    cards: &mut Option<&mut UiCards<'_>>,
+    width: f32,
+) -> Entity {
+    // The focus rail is a border the tile always reserves and only the
+    // focused one paints, for the reason a row reserves its own: a ring that
+    // appeared would move the tile, and a grid that stepped about as the
+    // focus crossed it is worse to read than a grid with no focus at all.
+    let tile = commands
+        .spawn((
+            TrayCard { object: row.id },
+            Button,
+            Node {
+                width: px(width + 2.0 * TRAY_FOCUS + 4.0),
+                padding: UiRect::all(px(2.0)),
+                border: UiRect::all(px(TRAY_FOCUS)),
+                // The card's own corner plus what stands outside it, so the
+                // focus ring is concentric with the picture rather than
+                // squarer than it — the same arithmetic the panel's head
+                // does against the sheet.
+                border_radius: BorderRadius::all(px(width * 0.0476 + 4.0)),
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+                flex_shrink: 0.0,
+                ..default()
+            },
+            BackgroundColor(if row.standing.selected {
+                palette::CANDLE_WASH
+            } else {
+                Color::NONE
+            }),
+            BorderColor::all(if row.standing.focused {
+                palette::CANDLE_EDGE
+            } else {
+                Color::NONE
+            }),
+            // Tinted and never lifted, the rule the rows obey: a tile that
+            // grew under the pointer would reflow the whole run it is in.
+            Feel::rising_to(Color::NONE, palette::DIALOG_LIT),
+        ))
+        .id();
+
+    let art = spawn_thumb(
+        commands,
+        lang,
+        row,
+        ctx.statics,
+        textures,
+        assets,
+        ctx.fonts,
+        cards,
+        width,
+    );
+    // Chosen is the art's own edge, which is why it is inserted here rather
+    // than being a property of the tile: a second frame around the picture
+    // would read as a card in a holder.
+    if row.standing.selected {
+        commands
+            .entity(art)
+            .insert(Outline::new(px(2), px(0), palette::CANDLE));
+    }
+    commands.entity(tile).add_child(art);
+
+    // The ordering number, over the art's top-left corner. Nothing is drawn
+    // for a plain tick: the candle edge above has already said it, and a box
+    // in the corner of a picture is a box over a picture.
+    if row.place.is_some() {
+        let disc = spawn_mark(commands, ctx.fonts, row, 20.0);
+        commands.entity(disc).insert(Node {
+            position_type: PositionType::Absolute,
+            left: px(4),
+            top: px(4),
+            width: px(20),
+            height: px(20),
+            align_items: AlignItems::Center,
+            justify_content: JustifyContent::Center,
+            border: UiRect::all(px(1)),
+            border_radius: BorderRadius::all(px(10)),
+            ..default()
+        });
+        commands.entity(tile).add_child(disc);
+    }
+    tile
+}
+
+/// The card's price, drawn and not spelled.
+///
+/// The face is what carries it: a [`BrowseRow`] has the projected mana
+/// *value*, which is what the sort key reads, and a number is not a price.
+fn spawn_cost(
+    commands: &mut Commands,
+    fonts: &UiFonts,
+    row: &BrowseRow,
+    view: &PlayerView,
+    faces: &FaceCtx<'_>,
+) -> Entity {
+    let pips = commands
+        .spawn((
+            Node {
+                flex_direction: FlexDirection::Row,
+                column_gap: px(2),
+                flex_shrink: 0.0,
+                // A reserve rather than a fit, so the type lines beside them
+                // start in one column down the whole list. A cost longer than
+                // four pips takes the room it needs and pushes the name in,
+                // which is the right way round: the name has the slack.
+                min_width: px(TRAY_COST_W),
+                justify_content: JustifyContent::FlexEnd,
+                align_items: AlignItems::Center,
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    let built = view.object(row.id).map(|o| faces.facts(o));
+    for symbol in built.iter().flat_map(|face| face.cost.iter()) {
+        let pip = crate::manaui::spawn_pip(
+            commands,
+            fonts,
+            baylee_client_core::manapip::pip(*symbol),
+            TRAY_PIP,
+        );
+        commands.entity(pips).add_child(pip);
+    }
+    pips
+}
+
+/// Which pile the card is in, as a bordered word.
+///
+/// The bare zone word, with no seat on it: at a table of four the tabs above
+/// already say whose pile is being looked through, and a seat name in a badge
+/// this size is a smear. A token says so here instead — a graveyard holds
+/// cards and tokens together and they are not the same thing, since a token
+/// ceases to exist the next time state-based actions are checked (CR 111.7),
+/// so a row that looked like a card would invite a player to plan around
+/// something already gone.
+///
+/// Both lists draw it, and the large one draws it on a line of its own: a
+/// merged list is the whole reason the badge exists, and dropping it there
+/// would leave two Kommandozonen ticked and nothing on a row saying which one
+/// a card came out of.
+fn spawn_badge(commands: &mut Commands, lang: Lang, fonts: &UiFonts, row: &BrowseRow) -> Entity {
+    let words = if row.token {
+        Phrase::IsToken.text(lang).to_string()
+    } else {
+        row.zone.label().text(lang).to_string()
+    };
+    let text = dialog_text(
+        commands,
+        fonts,
+        &words,
+        TRAY_BADGE_SIZE,
+        palette::DIALOG_SOFT,
+    );
+    let badge = commands
+        .spawn((
+            Node {
+                width: px(TRAY_BADGE_W),
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+                padding: UiRect::horizontal(px(5)),
+                border: UiRect::all(px(1)),
+                border_radius: btn_radius(),
+                flex_shrink: 0.0,
+                overflow: Overflow::clip(),
+                ..default()
+            },
+            BorderColor::all(palette::DIALOG_LINE),
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(badge).add_child(text);
+    badge
+}
+
+/// One row of the **large** list: the box, a picture at the one size the art
+/// actually has, and beside them the name over the pile it came from.
+///
+/// It is the detailed row with the type line taken out and the picture
+/// doubled, and the type line is the right thing to lose: it was the widest
+/// fixed column on the row, and at 73 pixels the frame's colour and a
+/// creature's silhouette are legible off the art itself. The name goes up one
+/// size and the cost stays beside it, because a name and a price are what a
+/// player is scanning for; the badge takes the second line, which is where the
+/// room the type line gave up goes.
+///
+/// The box grows with the row rather than staying at 15: this is the view a
+/// player picks when they are *choosing*, and a tick target that shrank
+/// relative to everything around it would be the control going the wrong way.
+#[allow(clippy::too_many_arguments)] // the row, the view, and the stores
+fn spawn_big_row(
+    commands: &mut Commands,
+    lang: Lang,
+    row: &BrowseRow,
+    view: &PlayerView,
+    statics: &GameStatic,
+    textures: &mut CardTextures,
+    assets: &AssetServer,
+    fonts: &UiFonts,
+    faces: &FaceCtx<'_>,
+    cards: &mut Option<&mut UiCards<'_>>,
+) -> Entity {
+    let slot = row_slot(commands, row, TRAY_BIG_ROW_H, TRAY_BIG_ROW_PAD);
+
+    let mark = spawn_mark(commands, fonts, row, TRAY_BIG_BOX);
+    commands.entity(slot).add_child(mark);
+
+    let thumb = spawn_thumb(
+        commands,
+        lang,
+        row,
+        statics,
+        textures,
+        assets,
+        fonts,
+        cards,
+        TRAY_BIG_THUMB_W,
+    );
+    commands.entity(slot).add_child(thumb);
+
+    // The two lines beside the picture. The column grows and its children are
+    // the ones allowed to clip, so a long name shortens instead of pushing
+    // the cost off the row.
+    let words = commands
+        .spawn((
+            Node {
+                flex_direction: FlexDirection::Column,
+                justify_content: JustifyContent::Center,
+                row_gap: px(6),
+                flex_grow: 1.0,
+                flex_basis: px(0),
+                min_width: px(0),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+
+    let title = commands
+        .spawn((
+            Node {
+                flex_direction: FlexDirection::Row,
+                align_items: AlignItems::Center,
+                column_gap: px(TRAY_GAP),
+                width: percent(100),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    let name = dialog_text(
+        commands,
+        fonts,
+        &row.name,
+        TRAY_NAME_SIZE + 1.5,
+        palette::DIALOG_INK,
+    );
+    let name = clipped(
+        commands,
+        name,
+        Node {
+            flex_grow: 1.0,
+            flex_basis: px(0),
+            min_width: px(0),
+            ..default()
+        },
+    );
+    let pips = spawn_cost(commands, fonts, row, view, faces);
+    commands.entity(title).add_children(&[name, pips]);
+
+    let badge = spawn_badge(commands, lang, fonts, row);
+    commands.entity(words).add_children(&[title, badge]);
+    commands.entity(slot).add_child(words);
+
+    slot
+}
+
+/// What a zone tab reads. A pile belonging to a seat says whose it is,
+/// because at a table of four "Graveyard" alone names nothing — and every tab
+/// says how many cards are in it, which is the one thing the deleted pile
+/// chips carried that nothing else on the sheet does.
+///
+/// The count goes in brackets rather than after a separator because the
+/// dialog's typography already means something by a bracket: [`dialog_text`]
+/// hands a bracketed run to [`palette::DIALOG_SOFT`], so "Graveyard (12)" is
+/// drawn as a name with a grey aside beside it and reads as one.
+fn zone_label(lang: Lang, zone: BrowseZone, view: &PlayerView, statics: &GameStatic) -> String {
+    let name = zone.label().text(lang).to_string();
+    let named = match zone.seat() {
+        None => name,
+        Some(seat) if seat == view.seat => name,
+        Some(seat) => {
+            let who = seat_name(lang, Some(statics), seat);
+            Phrase::BrowseZoneOf.fill(lang, &[&name, &who])
+        }
+    };
+    Phrase::BrowseTabCount.fill(lang, &[&named, &zone.count_in(view).to_string()])
+}
+
+/// The row itself: the thing a click lands on, before anything is written in
+/// it.
+///
+/// Both lists build one of these, which is what keeps them one list in two
+/// sizes rather than two lists — the picking, the chosen wash, the focus rail
+/// and the hover behaviour are stated once here and neither view may differ
+/// about them.
+///
+/// Candle, and a wash of it rather than a fill: a chosen row is still a row
+/// being read. The tick and the ink carry the claim.
+///
+/// The hot end is stated both ways round, because `Feel`'s own hover keeps a
+/// colour's alpha (see [`Feel::hot`]): an unchosen row rests at nothing and
+/// would be lifted to a brighter nothing, and a chosen one rests at a tenth
+/// and would be lifted to a paler tenth. A hundred rows that did not answer
+/// the pointer is the whole list not answering it.
+fn row_slot(commands: &mut Commands, row: &BrowseRow, height: f32, pad: f32) -> Entity {
     let (fill, hot) = if row.standing.selected {
         (palette::CANDLE_WASH, palette::CANDLE_WASH_LIT)
     } else {
         (Color::NONE, palette::DIALOG_LIT)
     };
-    let slot = commands
+    commands
         .spawn((
             TrayCard { object: row.id },
             Button,
@@ -1501,8 +2226,8 @@ fn spawn_row(
                 // it: the sheet's whole height is counted in rows, so a row
                 // whose height was an accident of its tallest child would put
                 // that arithmetic one text metric away from being wrong.
-                height: px(TRAY_ROW_H),
-                padding: UiRect::axes(px(TRAY_SIDE), px(TRAY_ROW_PAD)),
+                height: px(height),
+                padding: UiRect::axes(px(TRAY_SIDE), px(pad)),
                 // Every row carries the focus rail's width, and only the
                 // focused one carries its colour: a border that appeared
                 // would shift that row's whole content sideways, and a list
@@ -1535,25 +2260,32 @@ fn spawn_row(
             // half of what the owner reported as the dialog flickering.
             Feel::tinting_to(fill, hot),
         ))
-        .id();
+        .id()
+}
 
-    // ---- the box, or the place in an ordering ----
-    //
-    // A number rather than a tick for an ordering, because "third" is not a
-    // brighter kind of "chosen" — and it stands in the box's own column, so a
-    // list of ordered cards reads down the same gutter a list of ticked ones
-    // does. A row the question will not take leaves the column empty rather
-    // than drawing a box that cannot be ticked.
-    //
-    // Four states decided before the node is spawned rather than patched into
-    // it afterwards: a radius is a field of `Node` and not a component of its
-    // own, so "insert a rounder corner" would mean writing the whole `Node`
-    // back over itself.
+/// The box a row is ticked in, or the number saying where it stands in an
+/// ordering.
+///
+/// A number rather than a tick for an ordering, because "third" is not a
+/// brighter kind of "chosen" — and it stands in the box's own place, so a
+/// list of ordered cards reads down the same gutter a list of ticked ones
+/// does. A row the question will not take leaves it empty rather than drawing
+/// a box that cannot be ticked.
+///
+/// Four states decided before the node is spawned rather than patched into it
+/// afterwards: a radius is a field of `Node` and not a component of its own,
+/// so "insert a rounder corner" would mean writing the whole `Node` back over
+/// itself.
+///
+/// `size` is the one thing the three views differ about, and the glyph inside
+/// is scaled from it rather than given: a mark that kept a nine-point tick
+/// while its box grew to twenty would be a tick rattling around in a box.
+fn spawn_mark(commands: &mut Commands, fonts: &UiFonts, row: &BrowseRow, size: f32) -> Entity {
     let (fill, edge, radius, glyph_in) = if row.place.is_some() {
         (
             palette::CANDLE,
             palette::CANDLE,
-            TRAY_BOX / 2.0,
+            size / 2.0,
             row.place.map(|place| place.to_string()),
         )
     } else if row.standing.selected {
@@ -1571,8 +2303,8 @@ fn spawn_row(
     let mark = commands
         .spawn((
             Node {
-                width: px(TRAY_BOX),
-                height: px(TRAY_BOX),
+                width: px(size),
+                height: px(size),
                 flex_shrink: 0.0,
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
@@ -1591,9 +2323,9 @@ fn spawn_row(
         // Checked again on the change from Inter: Alegreya Sans has no
         // U+2713 either.
         let face = if row.place.is_some() {
-            tf(fonts, 9.5)
+            tf(fonts, size * 9.5 / TRAY_BOX)
         } else {
-            icon_tf(fonts, 9.0)
+            icon_tf(fonts, size * 9.0 / TRAY_BOX)
         };
         let ink = commands
             .spawn((
@@ -1605,14 +2337,34 @@ fn spawn_row(
             .id();
         commands.entity(mark).add_child(ink);
     }
-    commands.entity(slot).add_child(mark);
+    mark
+}
 
-    // ---- the picture ----
-    //
-    // `built` is deliberately not passed to it: a built face draws the name,
-    // the cost and the type line onto the card, and at thirty pixels wide all
-    // three would be a grey smear. The row says those three things beside it,
-    // in letters a person can read.
+/// The card's picture, at whatever size the view draws it.
+///
+/// `built` is deliberately not passed to it: a built face draws the name, the
+/// cost and the type line onto the card, and at forty pixels wide all three
+/// would be a grey smear. A list says those three things beside it, in
+/// letters a person can read; a grid says them in the hover preview.
+///
+/// Every view asks for the same [`ImageKey`] — the one the row already
+/// carries — so making the picture bigger costs no texture at all. See
+/// [`TRAY_BIG_THUMB_W`] for what bounds the size.
+///
+/// [`ImageKey`]: baylee_client_core::images::ImageKey
+#[allow(clippy::too_many_arguments)] // a row, the stores, and one number
+fn spawn_thumb(
+    commands: &mut Commands,
+    lang: Lang,
+    row: &BrowseRow,
+    statics: &GameStatic,
+    textures: &mut CardTextures,
+    assets: &AssetServer,
+    fonts: &UiFonts,
+    cards: &mut Option<&mut UiCards<'_>>,
+    width: f32,
+) -> Entity {
+    let height = width * 88.0 / 63.0;
     let thumb = if let Some(key) = row.art {
         let image = textures.get(key, statics, assets);
         spawn_card_art(
@@ -1620,8 +2372,8 @@ fn spawn_row(
             lang,
             image,
             None,
-            TRAY_THUMB_W,
-            TRAY_THUMB_H,
+            width,
+            height,
             crate::face::Detail::Compact,
             fonts,
             // No keyword sheath: nothing in the browser is on a battlefield,
@@ -1635,10 +2387,10 @@ fn spawn_row(
         commands
             .spawn((
                 Node {
-                    width: px(TRAY_THUMB_W),
-                    height: px(TRAY_THUMB_H),
+                    width: px(width),
+                    height: px(height),
                     flex_shrink: 0.0,
-                    border_radius: card_radius(TRAY_THUMB_W),
+                    border_radius: card_radius(width),
                     ..default()
                 },
                 BackgroundColor(palette::DIALOG_LIT),
@@ -1646,152 +2398,7 @@ fn spawn_row(
             .id()
     };
     commands.entity(thumb).insert(Pickable::IGNORE);
-    commands.entity(slot).add_child(thumb);
-
-    // ---- the name ----
-    //
-    // The one thing on the row that grows, with `flex_basis: 0` beside it:
-    // grow alone divides only the slack left after every fixed column, which
-    // on a narrow sheet is nothing at all.
-    let name = dialog_text(
-        commands,
-        fonts,
-        &row.name,
-        TRAY_NAME_SIZE,
-        palette::DIALOG_INK,
-    );
-    let name = clipped(
-        commands,
-        name,
-        Node {
-            flex_grow: 1.0,
-            flex_basis: px(0),
-            min_width: px(0),
-            ..default()
-        },
-    );
-    commands.entity(slot).add_child(name);
-
-    // ---- the cost, drawn and not spelled ----
-    //
-    // The face is what carries it: a `BrowseRow` has the projected mana
-    // *value*, which is what the sort key reads, and a number is not a price.
-    let built = view.object(row.id).map(|o| faces.facts(o));
-    let pips = commands
-        .spawn((
-            Node {
-                flex_direction: FlexDirection::Row,
-                column_gap: px(2),
-                flex_shrink: 0.0,
-                // A reserve rather than a fit, so the type lines beside them
-                // start in one column down the whole list. A cost longer than
-                // four pips takes the room it needs and pushes the name in,
-                // which is the right way round: the name has the slack.
-                min_width: px(TRAY_COST_W),
-                justify_content: JustifyContent::FlexEnd,
-                align_items: AlignItems::Center,
-                ..default()
-            },
-            Pickable::IGNORE,
-        ))
-        .id();
-    for symbol in built.iter().flat_map(|face| face.cost.iter()) {
-        let pip = crate::manaui::spawn_pip(
-            commands,
-            fonts,
-            baylee_client_core::manapip::pip(*symbol),
-            TRAY_PIP,
-        );
-        commands.entity(pips).add_child(pip);
-    }
-    commands.entity(slot).add_child(pips);
-
-    // ---- the type line ----
-    let types = built
-        .as_ref()
-        .map_or_else(String::new, |f| f.type_line.clone());
-    let type_line = dialog_text(
-        commands,
-        fonts,
-        &types,
-        TRAY_TYPE_SIZE,
-        palette::DIALOG_SOFT,
-    );
-    let type_line = clipped(
-        commands,
-        type_line,
-        Node {
-            width: px(TRAY_TYPE_W),
-            flex_shrink: 0.0,
-            ..default()
-        },
-    );
-    commands.entity(slot).add_child(type_line);
-
-    // ---- which pile it is in ----
-    //
-    // The bare zone word, with no seat on it: at a table of four the tab above
-    // already says whose pile is being looked through, and a seat name in a
-    // badge this size is a smear. A token says so here instead — a graveyard
-    // holds cards and tokens together and they are not the same thing, since a
-    // token ceases to exist the next time state-based actions are checked (CR
-    // 111.7), so a row that looked like a card would invite a player to plan
-    // around something already gone.
-    let badge_words = if row.token {
-        Phrase::IsToken.text(lang).to_string()
-    } else {
-        row.zone.label().text(lang).to_string()
-    };
-    let badge_text = dialog_text(
-        commands,
-        fonts,
-        &badge_words,
-        TRAY_BADGE_SIZE,
-        palette::DIALOG_SOFT,
-    );
-    let badge = commands
-        .spawn((
-            Node {
-                width: px(TRAY_BADGE_W),
-                align_items: AlignItems::Center,
-                justify_content: JustifyContent::Center,
-                padding: UiRect::horizontal(px(5)),
-                border: UiRect::all(px(1)),
-                border_radius: btn_radius(),
-                flex_shrink: 0.0,
-                overflow: Overflow::clip(),
-                ..default()
-            },
-            BorderColor::all(palette::DIALOG_LINE),
-            Pickable::IGNORE,
-        ))
-        .id();
-    commands.entity(badge).add_child(badge_text);
-    commands.entity(slot).add_child(badge);
-
-    slot
-}
-
-/// What a zone tab reads. A pile belonging to a seat says whose it is,
-/// because at a table of four "Graveyard" alone names nothing — and every tab
-/// says how many cards are in it, which is the one thing the deleted pile
-/// chips carried that nothing else on the sheet does.
-///
-/// The count goes in brackets rather than after a separator because the
-/// dialog's typography already means something by a bracket: [`dialog_text`]
-/// hands a bracketed run to [`palette::DIALOG_SOFT`], so "Graveyard (12)" is
-/// drawn as a name with a grey aside beside it and reads as one.
-fn zone_label(lang: Lang, zone: BrowseZone, view: &PlayerView, statics: &GameStatic) -> String {
-    let name = zone.label().text(lang).to_string();
-    let named = match zone.seat() {
-        None => name,
-        Some(seat) if seat == view.seat => name,
-        Some(seat) => {
-            let who = seat_name(lang, Some(statics), seat);
-            Phrase::BrowseZoneOf.fill(lang, &[&name, &who])
-        }
-    };
-    Phrase::BrowseTabCount.fill(lang, &[&named, &zone.count_in(view).to_string()])
+    thumb
 }
 
 #[cfg(test)]
@@ -1925,6 +2532,132 @@ mod tests {
             assert!(
                 source.contains(band),
                 "the band spelled `{band}` no longer carries the panel's curve"
+            );
+        }
+    }
+
+    /// No view asks for a picture bigger than the one the client has.
+    ///
+    /// The whole cost of the two larger views is here, and it is a cost that
+    /// has to stay at zero: every row already fetches its art at
+    /// [`ArtSize::Small`], so drawing it larger costs no texture at all —
+    /// until a size crosses what that image holds, at which point the honest
+    /// fix is the next size up and a hundred-card library at
+    /// [`ArtSize::Normal`] is 133 MB against a 96 MB budget on a phone.
+    ///
+    /// The bound is stated in *physical* pixels and against the window's own
+    /// scale, because that is the comparison that means anything: a 73-wide
+    /// picture at scale 2 is 146 across, which is exactly what Scryfall
+    /// serves. The cap is allowed to reach past 1:1, and by how much is the
+    /// number this test pins.
+    ///
+    /// [`ArtSize::Small`]: baylee_client_core::images::ArtSize::Small
+    /// [`ArtSize::Normal`]: baylee_client_core::images::ArtSize::Normal
+    #[test]
+    fn the_larger_views_stay_inside_the_one_size_the_art_has() {
+        use baylee_client_core::images::ArtSize;
+        let (art_w, _) = ArtSize::Small.dimensions();
+        #[allow(clippy::cast_precision_loss)]
+        let art_w = art_w as f32;
+        // This machine, and every retina screen: two device pixels to one
+        // logical one.
+        let scale = 2.0;
+
+        assert!(
+            (TRAY_BIG_THUMB_W * scale - art_w).abs() < 0.5,
+            "the large list draws {TRAY_BIG_THUMB_W} logical px, which is {} device px against \
+             the {art_w} the image has — it is meant to be exactly 1:1",
+            TRAY_BIG_THUMB_W * scale
+        );
+        assert!(
+            TRAY_TILE_MAX * scale / art_w < 1.4,
+            "a grid tile may grow to {TRAY_TILE_MAX} px, which upscales the art {:.2}× — past \
+             about 1.4 the softening is what a player sees, and the answer is not a bigger \
+             ArtSize",
+            TRAY_TILE_MAX * scale / art_w
+        );
+        const {
+            assert!(
+                TRAY_TILE_MAX >= TRAY_BIG_THUMB_W,
+                "a tile cannot be capped below the size it starts at"
+            );
+            // And the detailed row, which is the one that was measured first
+            // and must stay under both.
+            assert!(TRAY_THUMB_W < TRAY_BIG_THUMB_W);
+        }
+    }
+
+    /// The grid fills the sheet at every width the sheet can be dragged to.
+    ///
+    /// Three measures, all of them the sheet's own: its floor, the width it
+    /// opens at, and a maximised sheet on this screen. A column count of one
+    /// at the floor would be a grid that is a list with the words taken out.
+    #[test]
+    fn the_grid_fills_the_sheet_at_its_floor_and_at_its_default() {
+        use baylee_client_core::browser::Placement;
+        let at = |sheet: f32| {
+            let (across, tile, air) = grid_across(
+                sheet - 2.0 * TRAY_SIDE,
+                TRAY_BIG_THUMB_W,
+                TRAY_TILE_MAX,
+                TRAY_TILE_GAP,
+            );
+            #[allow(clippy::cast_precision_loss)]
+            let used = across as f32 * tile + (across - 1) as f32 * air;
+            (across, tile, used)
+        };
+
+        let (floor, _, used) = at(Placement::MIN_W);
+        assert!(
+            floor >= 3,
+            "the sheet at its floor shows {floor} tiles across, which is not a grid"
+        );
+        assert!(used <= Placement::MIN_W - 2.0 * TRAY_SIDE + 0.01);
+
+        let (default, _, used) = at(Placement::DEFAULT_W);
+        assert!(
+            default > floor,
+            "the sheet at {} shows no more tiles than at its floor",
+            Placement::DEFAULT_W
+        );
+        assert!(used <= Placement::DEFAULT_W - 2.0 * TRAY_SIDE + 0.01);
+
+        // A maximised sheet on this machine's window.
+        let (wide, _, used) = at(1728.0);
+        assert!(wide > default);
+        assert!(used <= 1728.0 - 2.0 * TRAY_SIDE + 0.01);
+
+        // The row always *fills* its measure, at every width in between —
+        // there is no ragged right edge and no width at which the grid pays
+        // for its own gaps twice. Swept rather than sampled, because the two
+        // places this can go wrong are the fencepost (n tiles, n-1 gaps) and
+        // the step where a column is gained, and both are one pixel wide.
+        for w in (Placement::MIN_W as u16)..=2000 {
+            let sheet = f32::from(w);
+            let measure = sheet - 2.0 * TRAY_SIDE;
+            let (across, tile, used) = at(sheet);
+            assert!(
+                (TRAY_BIG_THUMB_W..=TRAY_TILE_MAX).contains(&tile),
+                "a sheet of {sheet} draws a {tile}-wide tile"
+            );
+            assert!(used <= measure + 0.01, "{across} tiles overflow {measure}");
+            assert!(
+                used >= measure - 0.01,
+                "a sheet of {sheet} leaves {} px of its row empty, which is a grid paying for \
+                 a gap it does not have",
+                measure - used
+            );
+            // And the cap never actually bites above the floor, which is a
+            // fact about these three numbers rather than a wish: packing at
+            // 73 first means a row of four shares out at most one 73-plus-gap
+            // between them, so the widest tile the sheet can ever draw is
+            // about 94. The cap stays in `grid_across` as the bound that
+            // holds for a caller whose measure fits fewer columns than this
+            // sheet's floor does — it is checked there, on such a measure.
+            assert!(
+                tile < TRAY_TILE_MAX,
+                "a sheet of {sheet} reached the cap at {tile}; the floor is supposed to \
+                 guarantee enough columns that it never can"
             );
         }
     }
