@@ -220,27 +220,6 @@ const POUR_BAND_GAP: f32 = 4.0;
 /// travel, which is a movement rather than a shimmer.
 const POUR_LIFT: f32 = 0.10;
 
-/// A keycap's side, as a multiple of the legend on it.
-///
-/// A square and not a disc, because what it stands for is a **key**: the digit
-/// on it is the one a player presses to arm that row, and a keyboard has no
-/// round keys. It was a roundel and read as a bullet — an ornament numbering
-/// a list rather than a control naming a keystroke.
-///
-/// A *ratio* and not a side, because the sheet draws caps at two sizes. It was
-/// 21 px flat, which is 1.9 times the rows' 11 pt and was right there and
-/// wrong everywhere else: the footer's smaller legend sat in the same 21 px
-/// box, so the quietest key on the sheet had the largest cap on it.
-const KEYCAP_SIDE: f32 = 1.9;
-
-/// The keycap's corner radius, and the row's.
-///
-/// One constant for both, so the cap reads as a key sitting *in* its row
-/// rather than as a second, differently-cornered object on it. A key is a
-/// square with its corners taken off, which is what a small radius on a
-/// 21-pixel square is; half the side is the circle it used to be.
-const KEYCAP_R: f32 = 4.0;
-
 /// The legend on a row's keycap, which is what sets that cap's own side.
 ///
 /// The footer's key is smaller, which is the whole reason [`KEYCAP_SIDE`] is
@@ -1266,23 +1245,14 @@ fn digit_of(at: usize) -> Option<char> {
         .and_then(|place| char::from_digit(place, 10))
 }
 
-/// One key, drawn as the key it is.
+/// [`keycap`] with the sheet's own edge on it.
 ///
-/// The sheet names a key in two places — on a row, where the digit is what
-/// arms it, and in the footer, where `Esc` is the way out — and a player
-/// should not have to learn twice that a small square means "press this".
-/// `lobby::ui::chip` is the same idea in the panel register, which is where
-/// the settings screen draws every binding; this is the parchment one.
-///
-/// It **grows with its legend**: a digit is one character and `Esc` is three,
-/// so the side is a floor and not a width. Anything else would either clip
-/// the word or make every digit sit in a box wide enough for the longest key
-/// on the keyboard. The box grows with the *size* too — see [`KEYCAP_SIDE`].
-///
-/// `ink` is the legend's colour and is not derived from `fill`, because the
-/// two say different things. On a row the cap is a control and is written in
-/// full ink; in the footer it is a reminder of a key that is always there, and
-/// is written in the same grey as the words beside it.
+/// The shape is everyone's — see [`keycap`] for why the box is a square and
+/// why it grows with its legend. What is the sheet's is the **border**: on
+/// parchment a cap filled with brass is ringed in ink and everything else in
+/// the soft grey, which is a rule about this paper and about no other
+/// surface. It lives here so the caller does not have to know it, and so that
+/// the ledge, which draws caps on a dialog, is not silently given it.
 fn cap(
     commands: &mut Commands,
     fonts: &UiFonts,
@@ -1291,39 +1261,19 @@ fn cap(
     ink: Color,
     size: f32,
 ) -> Entity {
-    let side = size * KEYCAP_SIDE;
-    let key = commands
-        .spawn((
-            Node {
-                min_width: px(side),
-                height: px(side),
-                flex_shrink: 0.0,
-                align_items: AlignItems::Center,
-                justify_content: JustifyContent::Center,
-                padding: UiRect::horizontal(px(size * 0.45)),
-                border: UiRect::all(px(1)),
-                border_radius: BorderRadius::all(px(KEYCAP_R)),
-                ..default()
-            },
-            BackgroundColor(fill),
-            BorderColor::all(if fill == palette::BRASS {
-                palette::PARCHMENT_INK
-            } else {
-                palette::PARCHMENT_SOFT
-            }),
-            Pickable::IGNORE,
-        ))
-        .id();
-    let glyph = commands
-        .spawn((
-            Text::new(legend.to_string()),
-            tf_bold(fonts, size),
-            TextColor(ink),
-            Pickable::IGNORE,
-        ))
-        .id();
-    commands.entity(key).add_child(glyph);
-    key
+    keycap(
+        commands,
+        fonts,
+        legend,
+        fill,
+        ink,
+        if fill == palette::BRASS {
+            palette::PARCHMENT_INK
+        } else {
+            palette::PARCHMENT_SOFT
+        },
+        size,
+    )
 }
 
 /// A hairline across the sheet, with `above` pixels of air over it.

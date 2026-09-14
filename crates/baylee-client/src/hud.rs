@@ -1198,6 +1198,91 @@ pub(crate) fn btn_radius() -> BorderRadius {
     BorderRadius::all(px(6))
 }
 
+/// A keycap's side, as a multiple of the legend on it.
+///
+/// A square and not a disc, because what it stands for is a **key**: the
+/// character on it is the one a player presses, and a keyboard has no round
+/// keys. It was a roundel and read as a bullet — an ornament numbering a list
+/// rather than a control naming a keystroke.
+///
+/// A *ratio* and not a side, because caps are drawn at more than one size. It
+/// was 21 px flat, which is 1.9 times the ability sheet's 11-pt rows and was
+/// right there and wrong everywhere else: that sheet's smaller footer legend
+/// sat in the same 21-px box, so the quietest key on it had the largest cap.
+pub(crate) const KEYCAP_SIDE: f32 = 1.9;
+
+/// The keycap's corner radius, and the ability sheet's row radius.
+///
+/// One constant for both, so a cap reads as a key sitting *in* its row rather
+/// than as a second, differently-cornered object on it. A key is a square
+/// with its corners taken off, which is what a small radius on a 21-pixel
+/// square is; half the side is the circle it used to be.
+pub(crate) const KEYCAP_R: f32 = 4.0;
+
+/// One key, drawn as the key it is.
+///
+/// A key gets named in more than one register: on a row of the ability sheet,
+/// where the digit is what arms it; in that sheet's footer, where `Esc` is
+/// the way out; and on the ledge, where an answer carries the chord that
+/// sends it. A player should not have to learn twice that a small square
+/// means "press this". `lobby::ui::chip` is the same idea in the panel
+/// register, which is where the settings screen draws every binding.
+///
+/// It **grows with its legend**: a digit is one character and `⇧Tab` is four,
+/// so the side is a floor and not a width. Anything else would either clip
+/// the word or make every digit sit in a box wide enough for the longest key
+/// on the keyboard. The box grows with the *size* too — see [`KEYCAP_SIDE`].
+///
+/// Three colours and none of them derived from another, because they say
+/// three different things. `ink` is the legend's: on a row the cap is a
+/// control and is written in full ink, in a footer it is a reminder of a key
+/// that is always there and is written in the same grey as the words beside
+/// it. `border` is the cap's own edge, and it is the one this function used
+/// to decide for itself — *parchment* knowledge (ink at the edge of brass,
+/// soft grey otherwise) baked into a shape that is not parchment's. The ledge
+/// draws caps on a dialog, where that rule gives the wrong answer, so the
+/// edge is the caller's to name and `sheet::cap` is where the old one lives
+/// on.
+pub(crate) fn keycap(
+    commands: &mut Commands,
+    fonts: &UiFonts,
+    legend: &str,
+    fill: Color,
+    ink: Color,
+    border: Color,
+    size: f32,
+) -> Entity {
+    let side = size * KEYCAP_SIDE;
+    let key = commands
+        .spawn((
+            Node {
+                min_width: px(side),
+                height: px(side),
+                flex_shrink: 0.0,
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+                padding: UiRect::horizontal(px(size * 0.45)),
+                border: UiRect::all(px(1)),
+                border_radius: BorderRadius::all(px(KEYCAP_R)),
+                ..default()
+            },
+            BackgroundColor(fill),
+            BorderColor::all(border),
+            Pickable::IGNORE,
+        ))
+        .id();
+    let glyph = commands
+        .spawn((
+            Text::new(legend.to_string()),
+            tf_bold(fonts, size),
+            TextColor(ink),
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(key).add_child(glyph);
+    key
+}
+
 // ------------------------------------------------ what lies over what, and why
 //
 // Six numbers rather than six literals scattered over four files, because a
