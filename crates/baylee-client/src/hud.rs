@@ -475,38 +475,12 @@ pub struct ChoiceButton {
 }
 
 /// What a prompt button answers.
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub enum PromptAction {
-    /// Yes.
-    Yes,
-    /// No.
-    No,
-    /// Keep the hand.
-    Keep,
-    /// Take the mulligan.
-    Mulligan,
-    /// Confirm / pass / OK.
-    Confirm,
-    /// Declare no attackers, or no blockers.
-    DeclareNothing,
-    /// Aim the next declaration at the next defender (or attacker).
-    AimNext,
-    /// Hand the rest of this turn to the autopilot.
-    ///
-    /// The other half of the arrow buttons the rail lost. It belongs here
-    /// rather than on a strip of its own for the reason the slip exists at
-    /// all: "pass this window" and "pass every window until my next turn" are
-    /// the same decision at two sizes, and a player who has just been offered
-    /// the first should not have to look somewhere else for the second.
-    SkipTurn,
-    /// One arm of the number stepper: `+1` or `-1`.
-    ///
-    /// A prompt button rather than a component of its own, because that is
-    /// what it is — the one choice with nothing on the table to click, and
-    /// the arms belong in the same bar as every other answer. It also keeps
-    /// `input::pointer` off Bevy's system-parameter limit.
-    Step(i32),
-}
+///
+/// Defined in `client-core` and named here, because
+/// [`baylee_client_core::ledge::shortcut_for`] is the bridge from an answer
+/// to the key that sends it, and a keymap is `prefs`' business. The component
+/// it rides on stays a renderer thing; the enum is a fact about the question.
+pub use baylee_client_core::ledge::PromptAction;
 
 /// One card in the zone browser.
 ///

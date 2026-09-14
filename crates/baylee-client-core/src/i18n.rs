@@ -1079,6 +1079,13 @@ messages! {
     PassPriority { en: "Pass", de: "Passen" },
     /// Skip the rest of the turn
     SkipTheTurn { en: "Skip turn", de: "Zug überspringen" },
+    /// Hold priority until the stack is empty — the ledge's own button.
+    ///
+    /// [`Phrase::ActHoldForStack`] is the same hold *described* in the
+    /// keyboard menu, where a line has room to say what a key does. This is
+    /// the label on a 28-pixel button, so it says what pressing it does and
+    /// nothing else.
+    ResolveTheStack { en: "Resolve the stack", de: "Stack abarbeiten" },
     /// Day
     DesignationDay { en: "Day", de: "Tag" },
     /// Night
