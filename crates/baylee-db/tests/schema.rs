@@ -218,3 +218,114 @@ async fn deleting_an_account_takes_everything_it_owned() {
 
     sandbox.close().await;
 }
+
+/// A whole store file, with something in every one of the six maps, so the
+/// import's foreign keys are exercised rather than only its accounts.
+const A_WHOLE_STORE: &str = r#"{
+  "accounts": {
+    "0192f0c0-0000-7000-8000-000000000001": {
+      "id": "0192f0c0-0000-7000-8000-000000000001",
+      "email": "Keeper@Example.COM",
+      "display_name": "Keeper",
+      "password_hash": "$argon2id$v=19$m=19456,t=2,p=1$c2FsdA$aGFzaA",
+      "created_at": 1700000000,
+      "confirmed_at": 1700000050,
+      "lang": "de"
+    }
+  },
+  "tokens": {
+    "aaaa": {
+      "token_hash": "aaaa",
+      "account_id": "0192f0c0-0000-7000-8000-000000000001",
+      "expires_at": 1900000000
+    }
+  },
+  "confirmations": {
+    "bbbb": {
+      "token_hash": "bbbb",
+      "account_id": "0192f0c0-0000-7000-8000-000000000001",
+      "expires_at": 1900000000
+    }
+  },
+  "decks": {
+    "0192f0c0-0000-7000-8000-00000000000a": {
+      "id": "0192f0c0-0000-7000-8000-00000000000a",
+      "account_id": "0192f0c0-0000-7000-8000-000000000001",
+      "name": "Mono Green",
+      "cards": ["4 Llanowar Elves", "20 Forest"],
+      "sideboard": ["2 Naturalize"],
+      "commander": null,
+      "updated_at": 1700000100
+    }
+  },
+  "automation": {
+    "0192f0c0-0000-7000-8000-000000000001": [
+      { "card": 7, "ability": 4294967295, "yes": true }
+    ]
+  },
+  "settings": {
+    "0192f0c0-0000-7000-8000-000000000001": { "lang": "de" }
+  }
+}"#;
+
+/// The one code path that touches somebody's real accounts, run against a
+/// real server.
+///
+/// Every unit test in `import.rs` stops at the `Plan` — it is a pure function
+/// and that is the point — so nothing before this had ever asked PostgreSQL
+/// to accept the rows it builds. Three things are only true here: the
+/// children land after their parents, the tally describes what is actually in
+/// the tables, and a second import of the same file does nothing rather than
+/// duplicating or failing.
+#[tokio::test]
+async fn a_store_file_becomes_the_tables_it_describes() {
+    let sandbox = Sandbox::open("import").await;
+
+    let legacy = baylee_db::import::read_legacy(A_WHOLE_STORE).expect("the fixture is a store");
+    let tally = baylee_db::import::import_legacy(&sandbox.db, &legacy)
+        .await
+        .expect("importing into an empty schema")
+        .expect("an empty schema is imported into");
+
+    assert_eq!(tally.accounts, 1);
+    assert_eq!(tally.decks, 1);
+    assert_eq!(tally.tokens, 1);
+    assert_eq!(tally.confirmations, 1);
+    assert_eq!(tally.answers, 1);
+    assert_eq!(tally.settings, 1);
+
+    let saved = Account::find().one(&sandbox.db).await.unwrap().unwrap();
+    assert_eq!(
+        saved.email, "Keeper@Example.COM",
+        "the address is kept as it was typed"
+    );
+    assert!(saved.confirmed_at.is_some());
+
+    let deck = Deck::find().one(&sandbox.db).await.unwrap().unwrap();
+    assert_eq!(deck.account_id, saved.id, "the deck found its owner");
+    assert_eq!(deck.sideboard, ["2 Naturalize"]);
+
+    // The reserved ability index counts down from `u32::MAX`, which is why
+    // both numbers are `i64` in the table: as `i32` this row would not fit.
+    let answer = StandingAnswer::find()
+        .one(&sandbox.db)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(answer.ability, i64::from(u32::MAX));
+
+    let again = baylee_db::import::import_legacy(&sandbox.db, &legacy)
+        .await
+        .expect("a second import is not an error");
+    assert!(
+        again.is_none(),
+        "a database with accounts in it was imported into a second time"
+    );
+    assert_eq!(
+        Account::find().count(&sandbox.db).await.unwrap(),
+        1,
+        "the second import wrote rows anyway"
+    );
+
+    sandbox.close().await;
+}

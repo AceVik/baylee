@@ -294,3 +294,46 @@ fn signing_in_clears_what_the_typos_spent() {
     let (status, body) = sign_in(port, "clear@example.com");
     assert_eq!(status, 200, "and signing in again is not rationed: {body}");
 }
+
+/// Registering an address twice answers exactly what registering it once
+/// answers, and leaves the first account alone.
+///
+/// The refusal moved from a check in the gateway to a unique index in the
+/// database, and the gateway recognises it by reading the driver's error
+/// text. If that reading ever misses, `create_account` returns `Err` and the
+/// route answers **503** — which is an oracle telling an attacker exactly
+/// which addresses exist, in the one route written from top to bottom to
+/// avoid saying so. Nothing else in the suite registers the same address
+/// twice, so nothing else would notice.
+#[test]
+fn a_second_registration_says_no_more_than_the_first() {
+    let gw = spawn_gateway("taken");
+
+    let (status, body) = register(gw.port, "twice@example.com", "Twice", "en");
+    assert_eq!(status, 200, "the first registration: {body}");
+    let first = body;
+
+    // The same address in another case is the same address: the index is on
+    // `lower(email)`.
+    let (status, body) = register(gw.port, "TWICE@Example.COM", "Somebody", "en");
+    assert_eq!(
+        status, 200,
+        "a taken address must answer as a free one does, not 503: {body}"
+    );
+    assert_eq!(body, first, "the two answers differ, which is the leak");
+
+    // A display name is unique too, and that refusal used to be its own
+    // lookup.
+    let (status, body) = register(gw.port, "other@example.com", "twice", "en");
+    assert_eq!(status, 200, "a taken display name: {body}");
+    assert_eq!(body, first, "the two answers differ, which is the leak");
+
+    // And the account that was there first is untouched by either.
+    let (status, body) = sign_in(gw.port, "twice@example.com");
+    assert_eq!(status, 200, "the original account still signs in: {body}");
+    let (status, body) = sign_in(gw.port, "other@example.com");
+    assert_eq!(
+        status, 401,
+        "the refused registration made no account: {body}"
+    );
+}

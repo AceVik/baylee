@@ -22,7 +22,10 @@
 use crate::entity::prelude::*;
 use crate::entity::{account, client_settings, confirmation, deck, session_token, standing_answer};
 use anyhow::{Context, Result};
-use sea_orm::{ActiveValue::Set, DatabaseConnection, EntityTrait, PaginatorTrait};
+use sea_orm::{
+    ActiveValue::Set, ConnectionTrait, DatabaseConnection, EntityTrait, PaginatorTrait,
+    TransactionTrait,
+};
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::path::Path;
@@ -403,17 +406,26 @@ impl<'a> Owners<'a> {
     }
 }
 
-/// Write a legacy store into an empty database.
+/// Write a legacy store into an empty database, all of it or none of it.
 ///
 /// Answers `None` when the database already holds accounts — importing twice
 /// would either fail on the unique index or, worse, half-succeed.
+///
+/// The whole import is one transaction, and that is the point rather than a
+/// tidiness: this is the only code in the workspace that touches somebody's
+/// real accounts, and a failure partway through would commit the accounts,
+/// leave the file in place (correct) and then find `count > 0` on the next
+/// start — so the decks would never be imported and nothing would say so.
+/// The count is asked *inside* the transaction for the same reason.
 ///
 /// # Errors
 ///
 /// If the database refuses a write.
 pub async fn import_legacy(db: &DatabaseConnection, legacy: &Legacy) -> Result<Option<Imported>> {
+    let txn = db.begin().await.context("opening the import")?;
+
     if Account::find()
-        .count(db)
+        .count(&txn)
         .await
         .context("counting accounts")?
         > 0
@@ -427,12 +439,14 @@ pub async fn import_legacy(db: &DatabaseConnection, legacy: &Legacy) -> Result<O
     // Accounts first and on their own: every other table is a foreign key
     // into this one, so a child written before its parent fails rather than
     // dangles.
-    insert_all::<Account, _>(db, plan.accounts).await?;
-    insert_all::<Deck, _>(db, plan.decks).await?;
-    insert_all::<SessionToken, _>(db, plan.tokens).await?;
-    insert_all::<Confirmation, _>(db, plan.confirmations).await?;
-    insert_all::<StandingAnswer, _>(db, plan.answers).await?;
-    insert_all::<ClientSettings, _>(db, plan.settings).await?;
+    insert_all::<Account, _>(&txn, plan.accounts).await?;
+    insert_all::<Deck, _>(&txn, plan.decks).await?;
+    insert_all::<SessionToken, _>(&txn, plan.tokens).await?;
+    insert_all::<Confirmation, _>(&txn, plan.confirmations).await?;
+    insert_all::<StandingAnswer, _>(&txn, plan.answers).await?;
+    insert_all::<ClientSettings, _>(&txn, plan.settings).await?;
+
+    txn.commit().await.context("committing the import")?;
 
     Ok(Some(tally))
 }
@@ -440,7 +454,10 @@ pub async fn import_legacy(db: &DatabaseConnection, legacy: &Legacy) -> Result<O
 /// Insert in batches, because one statement per row over a network is the
 /// slow way and one statement for ten thousand rows exceeds what a parameter
 /// list may hold.
-async fn insert_all<E, A>(db: &DatabaseConnection, rows: Vec<A>) -> Result<()>
+///
+/// Takes any connection rather than the pool, so the caller decides whether
+/// these rows are part of a transaction.
+async fn insert_all<E, A>(db: &impl ConnectionTrait, rows: Vec<A>) -> Result<()>
 where
     E: EntityTrait,
     A: sea_orm::ActiveModelTrait<Entity = E> + Send,
@@ -451,7 +468,7 @@ where
 
     for chunk in rows.into_iter().collect::<Vec<_>>().chunks(BATCH) {
         E::insert_many(chunk.to_vec())
-            .exec(db)
+            .exec_without_returning(db)
             .await
             .with_context(|| format!("importing into {}", E::default().table_name()))?;
     }
