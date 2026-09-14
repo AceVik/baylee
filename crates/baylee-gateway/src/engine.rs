@@ -267,7 +267,7 @@ async fn run_engine_socket(state: Shared, mut socket: WebSocket) {
     let game_id = hello.game_id.clone();
     let (tx, mut rx) = mpsc::unbounded_channel();
     let setup = {
-        let names = crate::seat_names(&state, &game_id);
+        let names = crate::seat_names(&state, &game_id).await;
         let mut lobby = state.lobby.lock();
         let Some(game) = lobby.games.get_mut(&game_id) else {
             tracing::warn!(game_id, "engine attached to a game that is not here");

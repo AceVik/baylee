@@ -323,7 +323,7 @@ pub async fn upload(
     Query(params): Query<HashMap<String, String>>,
     body: Bytes,
 ) -> Response {
-    if let Err(e) = crate::authed(&state, &headers) {
+    if let Err(e) = crate::authed(&state, &headers).await {
         return e.into_response();
     }
     // A missing `kind` and an unknown one are the same answer on purpose:

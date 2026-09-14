@@ -1,15 +1,50 @@
-//! JSON-file persistence for accounts and decks. Atomic writes
-//! (write-temp-then-rename) so a crash mid-write can't corrupt the store.
-//! Secrets at rest: Argon2id password hashes, SHA-256 token hashes —
-//! never plaintext credentials.
+//! What the gateway remembers, and how it asks.
+//!
+//! Accounts, sessions, decks, confirmation links, standing answers and client
+//! preferences, in PostgreSQL through [`baylee_db`]. This module is the only
+//! place in the gateway that knows there is a database: every route calls a
+//! function here and gets a plain struct back.
+//!
+//! # The types are the wire, not the schema
+//!
+//! `Account::id` is a `String` and `Account::created_at` is unix seconds,
+//! while the columns behind them are a `uuid` and a `timestamptz`. That is
+//! deliberate and is the seam this module exists to hold. Those two shapes
+//! are what the client parses — `DeckSummary`, `GameSummary` and the lobby's
+//! JSON all read them — so a change of storage that changed them would be a
+//! protocol change wearing a migration's clothes. The conversion happens
+//! here, at the edge, in four small functions nobody else calls.
+//!
+//! # What stopped being possible
+//!
+//! Registering used to read "is this address taken", decide, and then write,
+//! with nothing in between to stop two requests doing it at once. The
+//! uniqueness now lives in the index, so the second writer is refused by the
+//! database rather than by a check it had already passed.
 
-use serde::{Deserialize, Serialize};
+use crate::auth;
+use anyhow::Result;
+use baylee_db::entity::account::Entity as Accounts;
+use baylee_db::entity::client_settings::Entity as Settings;
+use baylee_db::entity::confirmation::Entity as Confirmations;
+use baylee_db::entity::deck::Entity as Decks;
+use baylee_db::entity::session_token::Entity as Sessions;
+use baylee_db::entity::standing_answer::Entity as Answers;
+use baylee_db::entity::{
+    account, client_settings, confirmation, deck, session_token, standing_answer,
+};
+use sea_orm::{
+    ActiveValue::Set,
+    ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, QueryOrder,
+    sea_query::{Expr, ExprTrait, Func, OnConflict},
+};
 use std::collections::HashMap;
-use std::path::{Path, PathBuf};
+use time::OffsetDateTime;
+use uuid::Uuid;
 
 /// A registered account. The username is the e-mail address; the
 /// display name is shown to other players.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug)]
 pub struct Account {
     /// Account id (`UUIDv7`).
     pub id: String,
@@ -28,23 +63,17 @@ pub struct Account {
     /// see [`crate::mail::Mailer::required`] — which is why this is an
     /// `Option` and not a bool: "never asked" and "asked and not answered"
     /// are the same field, and only the mailer decides which one matters.
-    ///
-    /// Defaulted, so every account written before confirmation existed loads
-    /// as unconfirmed rather than failing to load. On a gateway that then
-    /// turns mail on, those accounts are asked to confirm — which is the
-    /// honest answer, since nobody ever checked their address.
-    #[serde(default)]
     pub confirmed_at: Option<u64>,
     /// The language the account registered in, for the mail it is sent.
-    #[serde(default)]
     pub lang: String,
 }
 
 /// An outstanding "confirm your address" link.
 ///
-/// Only the hash is kept, for the same reason a session token's is: the store
-/// is a file on disk, and a link in it would be a working login.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+/// Only the hash is kept, for the same reason a session token's is: a link
+/// that reached a mailbox is a working login, and a stored one would be a
+/// row that grants an account to whoever can read the table.
+#[derive(Clone, Debug)]
 pub struct Confirmation {
     /// SHA-256 of the token in the link.
     pub token_hash: String,
@@ -56,7 +85,7 @@ pub struct Confirmation {
 }
 
 /// A stored session token (only the SHA-256 hash is kept).
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug)]
 pub struct StoredToken {
     /// SHA-256 of the bearer token.
     pub token_hash: String,
@@ -67,7 +96,7 @@ pub struct StoredToken {
 }
 
 /// A player's deck (card names; resolved against the registry at use).
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug)]
 pub struct Deck {
     /// Deck id (`UUIDv7`).
     pub id: String,
@@ -79,22 +108,13 @@ pub struct Deck {
     pub cards: Vec<String>,
     /// Sideboard lines, in the same form. Cards outside the game a seat may
     /// reach; never shuffled into the library.
-    ///
-    /// Defaulted rather than required, so a deck saved before there was a
-    /// sideboard still loads as one without a sideboard.
-    #[serde(default)]
     pub sideboard: Vec<String>,
     /// Commander card name, if any.
     pub commander: Option<String>,
-    /// Image id of the sleeve this deck's cards show face-down.
-    ///
-    /// Defaulted, like the sideboard above and for the same reason: a deck
-    /// saved before decks had a sleeve still loads as one without a sleeve.
-    /// `None` means the client draws its own generated back.
-    #[serde(default)]
+    /// Image id of the sleeve this deck's cards show face-down. `None` means
+    /// the client draws its own generated back.
     pub sleeve: Option<String>,
     /// Image id of the playmat this deck's seat plays on.
-    #[serde(default)]
     pub playmat: Option<String>,
     /// Last update (unix seconds).
     pub updated_at: u64,
@@ -108,7 +128,7 @@ pub struct Deck {
 /// what makes it storable here. "Always gain the life from Ondu Cleric's
 /// rally trigger" is a preference about a *card*, so it belongs to the
 /// account and not to the table.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct StandingAnswer {
     /// Registry index of the card the ability is printed on.
     pub card: u32,
@@ -120,93 +140,590 @@ pub struct StandingAnswer {
     pub yes: bool,
 }
 
-/// The whole store.
-#[derive(Default, Clone, Debug, Serialize, Deserialize)]
-pub struct Store {
-    /// Accounts by id.
-    pub accounts: HashMap<String, Account>,
-    /// Tokens by hash.
-    pub tokens: HashMap<String, StoredToken>,
-    /// Decks by id.
-    pub decks: HashMap<String, Deck>,
-    /// Standing answers by account id. Defaulted so a store written
-    /// before this existed still loads.
-    #[serde(default)]
-    pub automation: HashMap<String, Vec<StandingAnswer>>,
-    /// Client preferences by account id — keymap, phase rail, and what the
-    /// client may answer without asking.
-    ///
-    /// Deliberately an opaque JSON object rather than a typed struct. The
-    /// gateway would have to link `baylee-client-core` to know what is in
-    /// here, and it links neither the client's brain nor the engine on
-    /// purpose; and a client that adds a preference should not need a
-    /// gateway deploy before it can store it. What the gateway does enforce
-    /// is that the value is an object and that it is small — see
-    /// `MAX_SETTINGS_BYTES`.
-    #[serde(default)]
-    pub settings: HashMap<String, serde_json::Value>,
-    /// Outstanding confirmation links, by token hash.
-    #[serde(default)]
-    pub confirmations: HashMap<String, Confirmation>,
+// ---------------------------------------------------------- the two edges
+
+/// Unix seconds as a timestamp.
+fn at(seconds: u64) -> OffsetDateTime {
+    i64::try_from(seconds)
+        .ok()
+        .and_then(|s| OffsetDateTime::from_unix_timestamp(s).ok())
+        .unwrap_or(OffsetDateTime::UNIX_EPOCH)
 }
 
-impl Store {
-    /// Load from disk (missing file = empty store).
-    #[must_use]
-    pub fn load(path: &Path) -> Self {
-        std::fs::read_to_string(path)
-            .ok()
-            .and_then(|text| serde_json::from_str(&text).ok())
-            .unwrap_or_default()
-    }
+/// A timestamp as unix seconds. Negative is before 1970 and is clamped
+/// rather than wrapped: there is no field here a pre-epoch value would be
+/// meaningful in, and `u64::MAX` seconds from now is a worse answer than
+/// zero.
+fn secs(at: OffsetDateTime) -> u64 {
+    u64::try_from(at.unix_timestamp()).unwrap_or(0)
+}
 
-    /// Persist atomically.
-    pub fn save(&self, path: &Path) -> std::io::Result<()> {
-        let tmp = PathBuf::from(format!("{}.tmp", path.display()));
-        std::fs::write(
-            &tmp,
-            serde_json::to_string_pretty(self).expect("store serializes"),
-        )?;
-        std::fs::rename(&tmp, path)
-    }
+/// A stored id as the gateway hands it around.
+fn id(uuid: Uuid) -> String {
+    uuid.to_string()
+}
 
-    /// Find an account by login e-mail (case-insensitive).
-    #[must_use]
-    pub fn account_by_email(&self, email: &str) -> Option<&Account> {
-        self.accounts
-            .values()
-            .find(|a| a.email.eq_ignore_ascii_case(email))
-    }
+/// A handed-around id as the database wants it.
+///
+/// Answers `None` for anything that is not a `UUID`, which is how a route
+/// that was given a deck id out of a URL refuses it: a malformed id is a
+/// deck that does not exist, not a query that fails.
+fn uuid(raw: &str) -> Option<Uuid> {
+    Uuid::parse_str(raw).ok()
+}
 
-    /// Drops every confirmation link for one account, and every link that has
-    /// expired.
-    ///
-    /// Both halves matter: a fresh link has to invalidate the last one that
-    /// was mailed, or a resend would leave two working links behind; and
-    /// nothing else ever walks this map, so expiry has to be swept somewhere.
-    pub fn clear_confirmations(&mut self, account_id: &str, now: u64) {
-        self.confirmations
-            .retain(|_, c| c.account_id != account_id && c.expires_at > now);
-    }
-
-    /// Find an account by display name (case-insensitive).
-    #[must_use]
-    pub fn account_by_display_name(&self, display_name: &str) -> Option<&Account> {
-        self.accounts
-            .values()
-            .find(|a| a.display_name.eq_ignore_ascii_case(display_name))
-    }
-
-    /// Resolve a bearer token to its account id when valid (sliding
-    /// renewal bumps the expiry on use).
-    pub fn resolve_token(&mut self, token: &str, now: u64) -> Option<String> {
-        let hash = crate::auth::token_hash(token);
-        let entry = self.tokens.get_mut(&hash)?;
-        if entry.expires_at < now {
-            self.tokens.remove(&hash);
-            return None;
+impl From<account::Model> for Account {
+    fn from(row: account::Model) -> Self {
+        Self {
+            id: id(row.id),
+            email: row.email,
+            display_name: row.display_name,
+            password_hash: row.password_hash,
+            created_at: secs(row.created_at),
+            confirmed_at: row.confirmed_at.map(secs),
+            lang: row.lang,
         }
-        entry.expires_at = now + crate::auth::TOKEN_TTL.as_secs();
-        Some(entry.account_id.clone())
     }
+}
+
+impl From<deck::Model> for Deck {
+    fn from(row: deck::Model) -> Self {
+        Self {
+            id: id(row.id),
+            account_id: id(row.account_id),
+            name: row.name,
+            cards: row.cards,
+            sideboard: row.sideboard,
+            commander: row.commander,
+            sleeve: row.sleeve,
+            playmat: row.playmat,
+            updated_at: secs(row.updated_at),
+        }
+    }
+}
+
+impl From<confirmation::Model> for Confirmation {
+    fn from(row: confirmation::Model) -> Self {
+        Self {
+            token_hash: row.token_hash,
+            account_id: id(row.account_id),
+            expires_at: secs(row.expires_at),
+        }
+    }
+}
+
+// -------------------------------------------------------------- accounts
+
+/// One account by id, or `None`.
+///
+/// # Errors
+///
+/// If the database refuses.
+pub async fn account(db: &DatabaseConnection, account_id: &str) -> Result<Option<Account>> {
+    let Some(id) = uuid(account_id) else {
+        return Ok(None);
+    };
+    Ok(Accounts::find_by_id(id).one(db).await?.map(Into::into))
+}
+
+/// One account by login e-mail, case-insensitively.
+///
+/// The comparison is `lower(email) = lower($1)`, which is the expression the
+/// unique index is built on — so this is an index lookup and not the scan an
+/// `ILIKE` would have been.
+///
+/// # Errors
+///
+/// If the database refuses.
+pub async fn account_by_email(db: &DatabaseConnection, email: &str) -> Result<Option<Account>> {
+    Ok(Accounts::find()
+        .filter(Expr::expr(Func::lower(Expr::col(account::Column::Email))).eq(email.to_lowercase()))
+        .one(db)
+        .await?
+        .map(Into::into))
+}
+
+/// Display names for a set of account ids, for the lobby's rosters.
+///
+/// One query rather than one per seat: a full table at eight chairs was eight
+/// round trips to name eight people.
+///
+/// # Errors
+///
+/// If the database refuses.
+pub async fn display_names(
+    db: &DatabaseConnection,
+    wanted: impl IntoIterator<Item = String>,
+) -> Result<HashMap<String, String>> {
+    let ids: Vec<Uuid> = wanted.into_iter().filter_map(|w| uuid(&w)).collect();
+    if ids.is_empty() {
+        return Ok(HashMap::new());
+    }
+    Ok(Accounts::find()
+        .filter(account::Column::Id.is_in(ids))
+        .all(db)
+        .await?
+        .into_iter()
+        .map(|row| (id(row.id), row.display_name))
+        .collect())
+}
+
+/// Write a new account, answering `false` when the address or the display
+/// name is already taken.
+///
+/// The refusal comes from the unique index rather than from a check, which is
+/// what closes the window the file-backed version had: two registrations of
+/// one address could both read "free" and both write.
+///
+/// # Errors
+///
+/// If the database refuses for any reason other than that clash.
+pub async fn create_account(db: &DatabaseConnection, new: Account) -> Result<bool> {
+    let row = account::ActiveModel {
+        id: Set(uuid(&new.id).unwrap_or_else(Uuid::now_v7)),
+        email: Set(new.email),
+        display_name: Set(new.display_name),
+        password_hash: Set(new.password_hash),
+        created_at: Set(at(new.created_at)),
+        confirmed_at: Set(new.confirmed_at.map(at)),
+        lang: Set(new.lang),
+    };
+    match Accounts::insert(row).exec(db).await {
+        Ok(_) => Ok(true),
+        Err(e) if is_taken(&e) => Ok(false),
+        Err(e) => Err(e.into()),
+    }
+}
+
+/// Whether a write failed because something unique already exists.
+fn is_taken(e: &sea_orm::DbErr) -> bool {
+    matches!(e, sea_orm::DbErr::RecordNotInserted) || e.to_string().contains("duplicate key value")
+}
+
+/// Mark an address confirmed. Silent when the account is gone.
+///
+/// # Errors
+///
+/// If the database refuses.
+pub async fn confirm_account(db: &DatabaseConnection, account_id: &str, now: u64) -> Result<()> {
+    let Some(id) = uuid(account_id) else {
+        return Ok(());
+    };
+    Accounts::update_many()
+        .col_expr(account::Column::ConfirmedAt, Expr::value(at(now)))
+        .filter(account::Column::Id.eq(id))
+        .filter(account::Column::ConfirmedAt.is_null())
+        .exec(db)
+        .await?;
+    Ok(())
+}
+
+// ------------------------------------------------------------- sessions
+
+/// Store a session token.
+///
+/// # Errors
+///
+/// If the database refuses.
+pub async fn put_token(db: &DatabaseConnection, token: StoredToken) -> Result<()> {
+    let Some(account_id) = uuid(&token.account_id) else {
+        return Ok(());
+    };
+    Sessions::insert(session_token::ActiveModel {
+        token_hash: Set(token.token_hash),
+        account_id: Set(account_id),
+        expires_at: Set(at(token.expires_at)),
+    })
+    .exec(db)
+    .await?;
+    Ok(())
+}
+
+/// Resolve a bearer token to its account id, sliding the expiry.
+///
+/// # Why the renewal is not on every request
+///
+/// The file-backed version bumped `expires_at` each time a token was seen,
+/// which cost nothing because the whole store was already in memory. Against
+/// a database it is an `UPDATE` per authenticated request — every deck list,
+/// every lobby poll, every settings read — to move a deadline that is twelve
+/// hours away.
+///
+/// So it renews only once the token is past its half-life. A session is still
+/// kept alive by use, which is the whole point of a sliding expiry, and the
+/// write happens at most once per six hours per session instead of once per
+/// request. The cost is stated rather than hidden: a token that is used
+/// constantly and then abandoned lapses up to six hours earlier than it
+/// would have, which is the direction an error should go.
+///
+/// # Errors
+///
+/// If the database refuses.
+pub async fn resolve_token(
+    db: &DatabaseConnection,
+    token: &str,
+    now: u64,
+) -> Result<Option<String>> {
+    let hash = auth::token_hash(token);
+    let Some(row) = Sessions::find_by_id(hash.clone()).one(db).await? else {
+        return Ok(None);
+    };
+    let expires = secs(row.expires_at);
+    if expires < now {
+        Sessions::delete_by_id(hash).exec(db).await?;
+        return Ok(None);
+    }
+
+    let ttl = auth::TOKEN_TTL.as_secs();
+    if expires.saturating_sub(now) < ttl / 2 {
+        Sessions::update_many()
+            .col_expr(session_token::Column::ExpiresAt, Expr::value(at(now + ttl)))
+            .filter(session_token::Column::TokenHash.eq(hash))
+            .exec(db)
+            .await?;
+    }
+    Ok(Some(id(row.account_id)))
+}
+
+/// Sign one session out.
+///
+/// # Errors
+///
+/// If the database refuses.
+pub async fn drop_token(db: &DatabaseConnection, token: &str) -> Result<()> {
+    Sessions::delete_by_id(auth::token_hash(token))
+        .exec(db)
+        .await?;
+    Ok(())
+}
+
+/// Remove every lapsed session, answering how many went.
+///
+/// One `DELETE ... WHERE expires_at <= $1` on the index the migration made
+/// for it, instead of the whole map walked in memory.
+///
+/// # Errors
+///
+/// If the database refuses.
+pub async fn sweep_tokens(db: &DatabaseConnection, now: u64) -> Result<u64> {
+    Ok(Sessions::delete_many()
+        .filter(session_token::Column::ExpiresAt.lte(at(now)))
+        .exec(db)
+        .await?
+        .rows_affected)
+}
+
+// -------------------------------------------------------- confirmations
+
+/// Drop every confirmation link for one account, and every link that has
+/// expired.
+///
+/// Both halves matter: a fresh link has to invalidate the last one that was
+/// mailed, or a resend would leave two working links behind; and nothing else
+/// ever walks this table, so expiry has to be swept somewhere.
+///
+/// # Errors
+///
+/// If the database refuses.
+pub async fn clear_confirmations(
+    db: &DatabaseConnection,
+    account_id: &str,
+    now: u64,
+) -> Result<()> {
+    if let Some(id) = uuid(account_id) {
+        Confirmations::delete_many()
+            .filter(confirmation::Column::AccountId.eq(id))
+            .exec(db)
+            .await?;
+    }
+    Confirmations::delete_many()
+        .filter(confirmation::Column::ExpiresAt.lte(at(now)))
+        .exec(db)
+        .await?;
+    Ok(())
+}
+
+/// Store a confirmation link.
+///
+/// # Errors
+///
+/// If the database refuses.
+pub async fn put_confirmation(db: &DatabaseConnection, link: Confirmation) -> Result<()> {
+    let Some(account_id) = uuid(&link.account_id) else {
+        return Ok(());
+    };
+    Confirmations::insert(confirmation::ActiveModel {
+        token_hash: Set(link.token_hash),
+        account_id: Set(account_id),
+        expires_at: Set(at(link.expires_at)),
+    })
+    .exec(db)
+    .await?;
+    Ok(())
+}
+
+/// Spend a confirmation link: read it and remove it in one step, so a link
+/// followed twice works once.
+///
+/// # Errors
+///
+/// If the database refuses.
+pub async fn take_confirmation(
+    db: &DatabaseConnection,
+    token_hash: &str,
+) -> Result<Option<Confirmation>> {
+    let found = Confirmations::find_by_id(token_hash.to_owned())
+        .one(db)
+        .await?;
+    let Some(found) = found else {
+        return Ok(None);
+    };
+    let removed = Confirmations::delete_by_id(token_hash.to_owned())
+        .exec(db)
+        .await?;
+    // Somebody else spent it between the read and the delete. Answering
+    // `None` is what makes "a link works once" true rather than nearly true.
+    if removed.rows_affected == 0 {
+        return Ok(None);
+    }
+    Ok(Some(found.into()))
+}
+
+// ----------------------------------------------------------------- decks
+
+/// One account's decks, newest first.
+///
+/// # Errors
+///
+/// If the database refuses.
+pub async fn decks_of(db: &DatabaseConnection, account_id: &str) -> Result<Vec<Deck>> {
+    let Some(id) = uuid(account_id) else {
+        return Ok(Vec::new());
+    };
+    Ok(Decks::find()
+        .filter(deck::Column::AccountId.eq(id))
+        .order_by_desc(deck::Column::UpdatedAt)
+        .all(db)
+        .await?
+        .into_iter()
+        .map(Into::into)
+        .collect())
+}
+
+/// One deck by id.
+///
+/// # Errors
+///
+/// If the database refuses.
+pub async fn deck(db: &DatabaseConnection, deck_id: &str) -> Result<Option<Deck>> {
+    let Some(id) = uuid(deck_id) else {
+        return Ok(None);
+    };
+    Ok(Decks::find_by_id(id).one(db).await?.map(Into::into))
+}
+
+/// Several decks by id, in one query.
+///
+/// Used where a table's seats each name one: a rematch reads every played
+/// deck at once rather than once per chair.
+///
+/// # Errors
+///
+/// If the database refuses.
+pub async fn decks_by_id(
+    db: &DatabaseConnection,
+    wanted: impl IntoIterator<Item = String>,
+) -> Result<HashMap<String, Deck>> {
+    let ids: Vec<Uuid> = wanted.into_iter().filter_map(|w| uuid(&w)).collect();
+    if ids.is_empty() {
+        return Ok(HashMap::new());
+    }
+    Ok(Decks::find()
+        .filter(deck::Column::Id.is_in(ids))
+        .all(db)
+        .await?
+        .into_iter()
+        .map(|row| (id(row.id), row.into()))
+        .collect())
+}
+
+/// Write a deck, replacing one of the same id.
+///
+/// # Errors
+///
+/// If the database refuses.
+pub async fn put_deck(db: &DatabaseConnection, saved: Deck) -> Result<()> {
+    let (Some(id), Some(account_id)) = (uuid(&saved.id), uuid(&saved.account_id)) else {
+        return Ok(());
+    };
+    Decks::insert(deck::ActiveModel {
+        id: Set(id),
+        account_id: Set(account_id),
+        name: Set(saved.name),
+        cards: Set(saved.cards),
+        sideboard: Set(saved.sideboard),
+        commander: Set(saved.commander),
+        sleeve: Set(saved.sleeve),
+        playmat: Set(saved.playmat),
+        updated_at: Set(at(saved.updated_at)),
+    })
+    .on_conflict(
+        OnConflict::column(deck::Column::Id)
+            .update_columns([
+                deck::Column::Name,
+                deck::Column::Cards,
+                deck::Column::Sideboard,
+                deck::Column::Commander,
+                deck::Column::Sleeve,
+                deck::Column::Playmat,
+                deck::Column::UpdatedAt,
+            ])
+            .to_owned(),
+    )
+    .exec(db)
+    .await?;
+    Ok(())
+}
+
+/// Delete one of an account's decks, answering whether it was theirs to
+/// delete.
+///
+/// The ownership is part of the `DELETE` rather than a read before it: a
+/// check and then a write is two statements another request can slip
+/// between, and this way the row is only ever removed by the account that
+/// owns it.
+///
+/// # Errors
+///
+/// If the database refuses.
+pub async fn delete_deck(db: &DatabaseConnection, deck_id: &str, account_id: &str) -> Result<bool> {
+    let (Some(id), Some(owner)) = (uuid(deck_id), uuid(account_id)) else {
+        return Ok(false);
+    };
+    Ok(Decks::delete_many()
+        .filter(deck::Column::Id.eq(id))
+        .filter(deck::Column::AccountId.eq(owner))
+        .exec(db)
+        .await?
+        .rows_affected
+        > 0)
+}
+
+// ------------------------------------------------- automation, settings
+
+/// One account's standing answers.
+///
+/// # Errors
+///
+/// If the database refuses.
+pub async fn automation_of(
+    db: &DatabaseConnection,
+    account_id: &str,
+) -> Result<Vec<StandingAnswer>> {
+    let Some(id) = uuid(account_id) else {
+        return Ok(Vec::new());
+    };
+    Ok(Answers::find()
+        .filter(standing_answer::Column::AccountId.eq(id))
+        .all(db)
+        .await?
+        .into_iter()
+        .map(|row| StandingAnswer {
+            card: u32::try_from(row.card).unwrap_or(0),
+            ability: u32::try_from(row.ability).unwrap_or(0),
+            yes: row.yes,
+        })
+        .collect())
+}
+
+/// Replace one account's standing answers with this list.
+///
+/// A replacement and not a merge, because that is what the route means: the
+/// client sends the whole list it believes in, and an answer it left out is
+/// one the player has stopped standing by.
+///
+/// # Errors
+///
+/// If the database refuses.
+pub async fn put_automation(
+    db: &DatabaseConnection,
+    account_id: &str,
+    answers: Vec<StandingAnswer>,
+) -> Result<()> {
+    let Some(id) = uuid(account_id) else {
+        return Ok(());
+    };
+    Answers::delete_many()
+        .filter(standing_answer::Column::AccountId.eq(id))
+        .exec(db)
+        .await?;
+    if answers.is_empty() {
+        return Ok(());
+    }
+    Answers::insert_many(answers.into_iter().map(|a| standing_answer::ActiveModel {
+        account_id: Set(id),
+        card: Set(i64::from(a.card)),
+        ability: Set(i64::from(a.ability)),
+        yes: Set(a.yes),
+    }))
+    // The client is allowed to send the same ability twice; the last one it
+    // named is the one it means.
+    .on_conflict(
+        OnConflict::columns([
+            standing_answer::Column::AccountId,
+            standing_answer::Column::Card,
+            standing_answer::Column::Ability,
+        ])
+        .update_column(standing_answer::Column::Yes)
+        .to_owned(),
+    )
+    .exec(db)
+    .await?;
+    Ok(())
+}
+
+/// One account's client preferences, if it has written any.
+///
+/// # Errors
+///
+/// If the database refuses.
+pub async fn settings_of(
+    db: &DatabaseConnection,
+    account_id: &str,
+) -> Result<Option<serde_json::Value>> {
+    let Some(id) = uuid(account_id) else {
+        return Ok(None);
+    };
+    Ok(Settings::find_by_id(id).one(db).await?.map(|row| row.doc))
+}
+
+/// Write one account's client preferences.
+///
+/// # Errors
+///
+/// If the database refuses.
+pub async fn put_settings(
+    db: &DatabaseConnection,
+    account_id: &str,
+    doc: serde_json::Value,
+) -> Result<()> {
+    let Some(id) = uuid(account_id) else {
+        return Ok(());
+    };
+    Settings::insert(client_settings::ActiveModel {
+        account_id: Set(id),
+        doc: Set(doc),
+        updated_at: Set(OffsetDateTime::now_utc()),
+    })
+    .on_conflict(
+        OnConflict::column(client_settings::Column::AccountId)
+            .update_columns([
+                client_settings::Column::Doc,
+                client_settings::Column::UpdatedAt,
+            ])
+            .to_owned(),
+    )
+    .exec(db)
+    .await?;
+    Ok(())
 }

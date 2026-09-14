@@ -78,11 +78,17 @@ fn no_answers_is_an_empty_list_the_engine_can_read() {
 }
 
 /// A store written before standing answers existed still loads.
+///
+/// The file is no longer where the gateway keeps anything — it is what a
+/// first start against an empty database takes over — so the claim is the
+/// importer's now, and `baylee_db::import` is where the rest of it is
+/// tested. This stays because the property is the gateway's: a gateway
+/// started against a two-release-old file must not lose the accounts in it.
 #[test]
 fn an_older_store_file_still_loads() {
     let old = r#"{"accounts":{},"tokens":{},"decks":{}}"#;
-    let store: store::Store = serde_json::from_str(old).expect("older store loads");
-    assert!(store.automation.is_empty());
+    let legacy = baylee_db::import::read_legacy(old).expect("older store loads");
+    assert!(legacy.automation.is_empty());
 }
 
 fn deck_named(cards: &[&str], commander: Option<&str>) -> store::Deck {

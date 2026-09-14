@@ -28,12 +28,16 @@ use serde::{Deserialize, Serialize};
 use std::net::{IpAddr, SocketAddr};
 use std::path::PathBuf;
 use std::sync::Arc;
-use store::{Account, Confirmation, Deck, Store, StoredToken};
+use store::{Account, Confirmation, Deck, StoredToken};
 use tracing_subscriber::EnvFilter;
 
 /// Shared gateway state.
 struct AppState {
-    store: Mutex<Store>,
+    /// Accounts, sessions, decks, links, standing answers, preferences.
+    ///
+    /// `store.rs` is the only module that knows this is a database; every
+    /// route here calls a function there and gets a plain struct back.
+    db: sea_orm::DatabaseConnection,
     limiter: auth::RateLimiter,
     /// Sign-in attempts, counted **per address** rather than per IP.
     ///
@@ -52,11 +56,6 @@ struct AppState {
     /// limit so account spam and mail amplification stay bounded by it.
     sign_in_limiter: auth::RateLimiter,
     lobby: Mutex<Lobby>,
-    store_path: PathBuf,
-    /// Signals the background writer that the store needs persisting
-    /// (debounced — serializing the whole store must stay out of the
-    /// request path).
-    save_tx: tokio::sync::mpsc::UnboundedSender<()>,
     /// Registration toggle (`BAYLEE_REGISTRATION=off` to disable).
     registration_enabled: bool,
     /// Where confirmation mail goes, and — because it is the same
@@ -115,11 +114,6 @@ struct AppState {
 }
 
 impl AppState {
-    /// Ask the background writer to persist the store (cheap, debounced).
-    fn request_save(&self) {
-        let _ = self.save_tx.send(());
-    }
-
     /// Tell every open `/lobby/ws` that the lobby moved.
     ///
     /// Deliberately fire-and-forget and deliberately not inside the lobby
@@ -144,8 +138,8 @@ async fn main() {
         .unwrap_or(28766);
     let store_path = std::env::var("STORE_PATH")
         .map_or_else(|_| PathBuf::from("gateway-store.json"), PathBuf::from);
-    let (save_tx, save_rx) = tokio::sync::mpsc::unbounded_channel();
-    let catalog = connect_catalog().await;
+    let db = open_database(&store_path).await;
+    let catalog = connect_catalog(db.clone()).await;
     let agent_token = std::env::var("BAYLEE_AGENT_TOKEN")
         .ok()
         .filter(|t| !t.is_empty());
@@ -153,7 +147,7 @@ async fn main() {
         tracing::warn!("BAYLEE_AGENT_TOKEN is not set: no agent can connect, so no game can start");
     }
     let state = Arc::new(AppState {
-        store: Mutex::new(Store::load(&store_path)),
+        db,
         limiter: auth::RateLimiter::new(std::time::Duration::from_secs(300), 10),
         sign_in_limiter: auth::RateLimiter::new(std::time::Duration::from_secs(300), 8),
         lobby: Mutex::new(Lobby::default()),
@@ -165,8 +159,6 @@ async fn main() {
         agent_token,
         engine_url: std::env::var("BAYLEE_ENGINE_URL")
             .unwrap_or_else(|_| format!("ws://127.0.0.1:{port}/engine/ws")),
-        store_path,
-        save_tx,
         registration_enabled: std::env::var("BAYLEE_REGISTRATION")
             .map_or(true, |v| !matches!(v.as_str(), "off" | "0" | "false")),
         mail: mail::Mailer::from_env(),
@@ -179,7 +171,6 @@ async fn main() {
         art: Arc::new(art::ArtCache::from_env()),
         deck_images: Arc::new(cosmetics::Store::from_env()),
     });
-    spawn_store_writer(state.clone(), save_rx);
     spawn_cleanup(state.clone());
 
     let app = Router::new()
@@ -255,21 +246,63 @@ async fn main() {
     .expect("gateway serves");
 }
 
-/// Persists the store outside the request path: mutation handlers send a
-/// dirty signal, this task debounces bursts and writes one snapshot.
-fn spawn_store_writer(state: Shared, mut rx: tokio::sync::mpsc::UnboundedReceiver<()>) {
-    tokio::spawn(async move {
-        while rx.recv().await.is_some() {
-            tokio::time::sleep(std::time::Duration::from_millis(250)).await;
-            while rx.try_recv().is_ok() {}
-            let snapshot = state.store.lock().clone();
-            let path = state.store_path.clone();
-            let written = tokio::task::spawn_blocking(move || snapshot.save(&path)).await;
-            if let Ok(Err(e)) = written {
-                tracing::warn!(%e, "store write failed");
+/// Open the one connection pool the gateway has, and take over a store file
+/// if this is the first start against an empty database.
+///
+/// # Why this is fatal and the catalog is not
+///
+/// A gateway with no card catalog serves no card text and plays every game;
+/// a gateway with no database has no accounts, so there is nothing it can do
+/// but refuse, and refusing at startup is the only place it can do so
+/// honestly. The alternative — answering every request with a 503 — is a
+/// process that looks healthy to anything watching it.
+async fn open_database(store_path: &std::path::Path) -> sea_orm::DatabaseConnection {
+    let url = std::env::var("DATABASE_URL")
+        .ok()
+        .filter(|u| !u.is_empty())
+        .unwrap_or_else(|| {
+            panic!(
+                "DATABASE_URL is not set; the gateway keeps its accounts in PostgreSQL.\n  \
+                 docker compose up -d\n  \
+                 export DATABASE_URL=postgres://baylee:baylee@127.0.0.1:5432/baylee"
+            )
+        });
+    // Small by default and settable, because the number that binds is at the
+    // other end: a stock PostgreSQL allows 100 connections in total, and a
+    // test suite that spawns three dozen gateways has to fit inside that.
+    let pool = std::env::var("BAYLEE_DB_POOL")
+        .ok()
+        .and_then(|p| p.parse().ok())
+        .unwrap_or(baylee_db::DEFAULT_POOL);
+
+    let db = match baylee_db::connect(&url, pool).await {
+        Ok(db) => db,
+        Err(e) => panic!("{e:#}"),
+    };
+    tracing::info!(url = %baylee_db::redacted(&url), pool, "database ready");
+
+    match baylee_db::import::import_file(&db, store_path).await {
+        Ok(Some(done)) => {
+            tracing::info!(
+                accounts = done.accounts,
+                decks = done.decks,
+                sessions = done.tokens,
+                orphans = done.orphans,
+                "imported {}",
+                store_path.display()
+            );
+            // Moved, never deleted: until the database has been backed up
+            // once, this file is the only copy of somebody's account.
+            let aside = baylee_db::import::imported_name(store_path);
+            if let Err(e) = std::fs::rename(store_path, &aside) {
+                tracing::warn!(%e, "could not move {} aside", store_path.display());
             }
         }
-    });
+        Ok(None) => {}
+        Err(e) => tracing::error!("{e:#}"),
+    }
+
+    db
 }
 
 /// Periodically reclaims finished games (after a grace period), stale
@@ -312,14 +345,13 @@ fn spawn_cleanup(state: Shared) {
                     LobbyState::Playing => true,
                 });
             }
-            let purged = {
-                let mut store = state.store.lock();
-                let before = store.tokens.len();
-                store.tokens.retain(|_, t| t.expires_at > now);
-                before - store.tokens.len()
-            };
-            if purged > 0 {
-                state.request_save();
+            // One `DELETE ... WHERE expires_at <= $1` on the index the
+            // migration made for it, where this used to walk every session
+            // the gateway had ever issued.
+            match store::sweep_tokens(&state.db, now).await {
+                Ok(purged) if purged > 0 => tracing::debug!(purged, "lapsed sessions swept"),
+                Ok(_) => {}
+                Err(e) => tracing::warn!("{e:#}"),
             }
         }
     });
@@ -435,33 +467,33 @@ async fn mail_confirmation(state: &Shared, account_id: &str) {
         return;
     }
     let issued = auth::IssuedToken::new();
-    let (email, display_name, lang) = {
-        let mut store = state.store.lock();
-        let now = auth::now_secs();
-        store.clear_confirmations(account_id, now);
-        let Some(account) = store.accounts.get(account_id) else {
-            return;
-        };
-        let who = (
-            account.email.clone(),
-            account.display_name.clone(),
-            account.lang.clone(),
-        );
-        let token_hash = auth::token_hash(&issued.token);
-        store.confirmations.insert(
-            token_hash.clone(),
-            Confirmation {
-                token_hash,
-                account_id: account_id.to_string(),
-                expires_at: now + CONFIRM_TTL_SECS,
-            },
-        );
-        who
+    let now = auth::now_secs();
+    // The old link stops working before the new one is written: a resend
+    // that left both alive would be two working logins in one mailbox.
+    if let Err(e) = store::clear_confirmations(&state.db, account_id, now).await {
+        tracing::error!("{e:#}");
+        return;
+    }
+    let Ok(Some(account)) = store::account(&state.db, account_id).await else {
+        return;
     };
-    state.request_save();
+    let link = Confirmation {
+        token_hash: auth::token_hash(&issued.token),
+        account_id: account_id.to_string(),
+        expires_at: now + CONFIRM_TTL_SECS,
+    };
+    if let Err(e) = store::put_confirmation(&state.db, link).await {
+        tracing::error!("{e:#}");
+        return;
+    }
     state
         .mail
-        .send_confirmation(&email, &display_name, &lang, &issued.token)
+        .send_confirmation(
+            &account.email,
+            &account.display_name,
+            &account.lang,
+            &issued.token,
+        )
         .await;
 }
 
@@ -475,20 +507,20 @@ async fn confirm(
     Query(query): Query<ConfirmQuery>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorBody>)> {
     let now = auth::now_secs();
-    let mut store = state.store.lock();
-    let Some(found) = store.confirmations.remove(&auth::token_hash(&query.token)) else {
+    // Read and removed in one step, so a link followed twice works once —
+    // including when the second request is a mail client prefetching it.
+    let found = store::take_confirmation(&state.db, &auth::token_hash(&query.token))
+        .await
+        .map_err(|e| db_down(&e))?;
+    let Some(found) = found else {
         return Err(err(StatusCode::BAD_REQUEST, "that link is not valid"));
     };
     if found.expires_at <= now {
-        drop(store);
-        state.request_save();
         return Err(err(StatusCode::BAD_REQUEST, "that link has expired"));
     }
-    if let Some(account) = store.accounts.get_mut(&found.account_id) {
-        account.confirmed_at = Some(now);
-    }
-    drop(store);
-    state.request_save();
+    store::confirm_account(&state.db, &found.account_id, now)
+        .await
+        .map_err(|e| db_down(&e))?;
     Ok(Json(serde_json::json!({ "ok": true })))
 }
 
@@ -509,13 +541,11 @@ async fn resend_confirmation(
     {
         return Err(err(StatusCode::TOO_MANY_REQUESTS, "too many attempts"));
     }
-    let account_id = {
-        let store = state.store.lock();
-        store
-            .account_by_email(&body.email)
-            .filter(|a| a.confirmed_at.is_none())
-            .map(|a| a.id.clone())
-    };
+    let account_id = store::account_by_email(&state.db, &body.email)
+        .await
+        .map_err(|e| db_down(&e))?
+        .filter(|a| a.confirmed_at.is_none())
+        .map(|a| a.id);
     if let Some(account_id) = account_id {
         mail_confirmation(&state, &account_id).await;
     }
@@ -554,33 +584,27 @@ async fn register(
     let password_hash = tokio::task::spawn_blocking(move || auth::hash_password(&password))
         .await
         .map_err(|_| err(StatusCode::INTERNAL_SERVER_ERROR, "hashing failed"))?;
-    let created = {
-        let mut store = state.store.lock();
-        let email_taken = store.account_by_email(&body.email).is_some();
-        let name_taken = store.account_by_display_name(&body.display_name).is_some();
-        if email_taken || name_taken {
-            None
-        } else {
-            let now = auth::now_secs();
-            let account = Account {
-                id: auth::new_id(),
-                email: body.email.to_lowercase(),
-                display_name: body.display_name,
-                password_hash,
-                created_at: now,
-                // A gateway that sends no mail confirms on the spot. That is
-                // not a weaker rule than it looks: it is the same rule, asked
-                // of a gateway that never asked the question.
-                confirmed_at: (!state.mail.required()).then_some(now),
-                lang: body.lang,
-            };
-            let id = account.id.clone();
-            store.accounts.insert(id.clone(), account);
-            Some(id)
-        }
+    let now = auth::now_secs();
+    let account = Account {
+        id: auth::new_id(),
+        email: body.email.to_lowercase(),
+        display_name: body.display_name,
+        password_hash,
+        created_at: now,
+        // A gateway that sends no mail confirms on the spot. That is
+        // not a weaker rule than it looks: it is the same rule, asked
+        // of a gateway that never asked the question.
+        confirmed_at: (!state.mail.required()).then_some(now),
+        lang: body.lang,
     };
-    if let Some(id) = created {
-        state.request_save();
+    let id = account.id.clone();
+    // The refusal is the unique index's, not a check's. Reading "is this
+    // address free" and then writing is two statements another registration
+    // can slip between, and both of them would have read "free".
+    let created = store::create_account(&state.db, account)
+        .await
+        .map_err(|e| db_down(&e))?;
+    if created {
         mail_confirmation(&state, &id).await;
     }
     // Anti-enumeration again, and the reason the mail is sent before the
@@ -606,17 +630,12 @@ async fn login(
     }
     // Fetch the hash under a short lock; the expensive verify runs off
     // the async worker and outside the store lock.
-    let account = {
-        let store = state.store.lock();
-        store
-            .account_by_email(&creds.email)
-            .map(|a| ((a.id.clone(), a.confirmed_at), a.password_hash.clone()))
-    };
-    let (account, stored_hash) = account.unzip();
-    let (account_id, confirmed_at) = match account {
-        Some((id, confirmed)) => (Some(id), confirmed),
-        None => (None, None),
-    };
+    let account = store::account_by_email(&state.db, &creds.email)
+        .await
+        .map_err(|e| db_down(&e))?;
+    let stored_hash = account.as_ref().map(|a| a.password_hash.clone());
+    let account_id = account.as_ref().map(|a| a.id.clone());
+    let confirmed_at = account.and_then(|a| a.confirmed_at);
     let password = creds.password.clone();
     let ok = tokio::task::spawn_blocking(move || {
         auth::verify_password(stored_hash.as_deref(), &password)
@@ -646,16 +665,16 @@ async fn login(
         ));
     }
     let issued = auth::IssuedToken::new();
-    let mut store = state.store.lock();
-    store.tokens.insert(
-        auth::token_hash(&issued.token),
+    store::put_token(
+        &state.db,
         StoredToken {
             token_hash: auth::token_hash(&issued.token),
             account_id,
             expires_at: issued.expires_at,
         },
-    );
-    state.request_save();
+    )
+    .await
+    .map_err(|e| db_down(&e))?;
     Ok(Json(serde_json::json!({
         "token": issued.token,
         "expires_at": issued.expires_at,
@@ -663,18 +682,36 @@ async fn login(
 }
 
 /// Resolves the bearer token to an account id.
-fn authed(state: &Shared, headers: &HeaderMap) -> Result<String, (StatusCode, Json<ErrorBody>)> {
+///
+/// One indexed read per authenticated request, and a write only once the
+/// session is past its half-life — see `store::resolve_token` for why the
+/// sliding expiry stopped sliding on every request.
+async fn authed(
+    state: &Shared,
+    headers: &HeaderMap,
+) -> Result<String, (StatusCode, Json<ErrorBody>)> {
     let token = headers
         .get("authorization")
         .and_then(|v| v.to_str().ok())
         .and_then(|v| v.strip_prefix("Bearer "))
         .ok_or_else(|| err(StatusCode::UNAUTHORIZED, "missing bearer token"))?;
-    let mut store = state.store.lock();
-    let account_id = store
-        .resolve_token(token, auth::now_secs())
-        .ok_or_else(|| err(StatusCode::UNAUTHORIZED, "invalid or expired token"))?;
-    state.request_save();
-    Ok(account_id)
+    store::resolve_token(&state.db, token, auth::now_secs())
+        .await
+        .map_err(|e| db_down(&e))?
+        .ok_or_else(|| err(StatusCode::UNAUTHORIZED, "invalid or expired token"))
+}
+
+/// A database that refused, as an answer a client can act on.
+///
+/// 503 rather than 500: the gateway itself is fine and the thing behind it
+/// is not, and that difference is what tells a client to try again later
+/// instead of to stop.
+fn db_down(e: &anyhow::Error) -> (StatusCode, Json<ErrorBody>) {
+    tracing::error!("{e:#}");
+    err(
+        StatusCode::SERVICE_UNAVAILABLE,
+        "the gateway's database is unavailable",
+    )
 }
 
 // ------------------------------------------------------------------ catalog
@@ -698,25 +735,22 @@ const MAX_ONDEMAND_FILL: usize = 25;
 ///
 /// A failure here is logged and otherwise ignored: card text is presentation,
 /// and a gateway that cannot reach Postgres should still host games.
-async fn connect_catalog() -> Option<baylee_catalog::Catalog> {
-    let url = std::env::var("DATABASE_URL")
-        .ok()
-        .filter(|u| !u.is_empty())?;
-    match baylee_catalog::Catalog::connect(&url).await {
-        Ok(catalog) => {
-            if let Err(err) = catalog.migrate().await {
-                tracing::error!(%err, "card catalog schema could not be applied");
-                return None;
-            }
-            let count = catalog.count().await.unwrap_or(0);
-            tracing::info!(printings = count, "card catalog connected");
-            Some(catalog)
-        }
-        Err(err) => {
-            tracing::error!(%err, "card catalog unavailable; text endpoints disabled");
-            None
-        }
+async fn connect_catalog(db: sea_orm::DatabaseConnection) -> Option<baylee_catalog::Catalog> {
+    // The pool the gateway already opened, not a second one against the same
+    // URL: two pools are twice the backend processes for no more concurrency,
+    // and one `search_path` is what lets a test put the whole gateway in a
+    // schema of its own.
+    let catalog = baylee_catalog::Catalog::from_connection(db);
+    if let Err(err) = catalog.migrate().await {
+        // Not fatal, unlike the account tables. A gateway with no card
+        // catalog serves no card text and plays every game; the client draws
+        // faces from what the engine projects.
+        tracing::error!(%err, "card catalog schema could not be applied");
+        return None;
     }
+    let count = catalog.count().await.unwrap_or(0);
+    tracing::info!(printings = count, "card catalog connected");
+    Some(catalog)
 }
 
 /// Query for `/catalog/text`.
@@ -845,9 +879,9 @@ async fn logout(
         .and_then(|v| v.to_str().ok())
         .and_then(|v| v.strip_prefix("Bearer "))
         .ok_or_else(|| err(StatusCode::UNAUTHORIZED, "missing bearer token"))?;
-    let mut store = state.store.lock();
-    store.tokens.remove(&auth::token_hash(token));
-    state.request_save();
+    store::drop_token(&state.db, token)
+        .await
+        .map_err(|e| db_down(&e))?;
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -856,11 +890,10 @@ async fn me(
     State(state): State<Shared>,
     headers: HeaderMap,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorBody>)> {
-    let account_id = authed(&state, &headers)?;
-    let store = state.store.lock();
-    let account = store
-        .accounts
-        .get(&account_id)
+    let account_id = authed(&state, &headers).await?;
+    let account = store::account(&state.db, &account_id)
+        .await
+        .map_err(|e| db_down(&e))?
         .ok_or_else(|| err(StatusCode::NOT_FOUND, "account gone"))?;
     Ok(Json(serde_json::json!({
         "id": account.id,
@@ -1040,12 +1073,13 @@ async fn list_decks(
     State(state): State<Shared>,
     headers: HeaderMap,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorBody>)> {
-    let account_id = authed(&state, &headers)?;
-    let store = state.store.lock();
-    let decks: Vec<_> = store
-        .decks
-        .values()
-        .filter(|d| d.account_id == account_id)
+    let account_id = authed(&state, &headers).await?;
+    // One indexed read on `(account_id, updated_at DESC)`, where this used
+    // to walk every deck on the gateway to find one player's.
+    let decks: Vec<_> = store::decks_of(&state.db, &account_id)
+        .await
+        .map_err(|e| db_down(&e))?
+        .iter()
         .map(|d| {
             serde_json::json!({
                 "id": d.id,
@@ -1066,11 +1100,10 @@ async fn get_deck(
     headers: HeaderMap,
     Path(id): Path<String>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorBody>)> {
-    let account_id = authed(&state, &headers)?;
-    let store = state.store.lock();
-    let deck = store
-        .decks
-        .get(&id)
+    let account_id = authed(&state, &headers).await?;
+    let deck = store::deck(&state.db, &id)
+        .await
+        .map_err(|e| db_down(&e))?
         .ok_or_else(|| err(StatusCode::NOT_FOUND, "no such deck"))?;
     if deck.account_id != account_id {
         return Err(err(StatusCode::FORBIDDEN, "not your deck"));
@@ -1091,9 +1124,8 @@ async fn create_deck(
     headers: HeaderMap,
     Json(body): Json<DeckBody>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorBody>)> {
-    let account_id = authed(&state, &headers)?;
+    let account_id = authed(&state, &headers).await?;
     validate_deck(&body)?;
-    let mut store = state.store.lock();
     let deck = Deck {
         id: auth::new_id(),
         account_id,
@@ -1106,8 +1138,9 @@ async fn create_deck(
         updated_at: auth::now_secs(),
     };
     let id = deck.id.clone();
-    store.decks.insert(id.clone(), deck);
-    state.request_save();
+    store::put_deck(&state.db, deck)
+        .await
+        .map_err(|e| db_down(&e))?;
     Ok(Json(serde_json::json!({ "deck_id": id })))
 }
 
@@ -1117,24 +1150,30 @@ async fn update_deck(
     Path(id): Path<String>,
     Json(body): Json<DeckBody>,
 ) -> Result<StatusCode, (StatusCode, Json<ErrorBody>)> {
-    let account_id = authed(&state, &headers)?;
+    let account_id = authed(&state, &headers).await?;
     validate_deck(&body)?;
-    let mut store = state.store.lock();
-    let deck = store
-        .decks
-        .get_mut(&id)
+    let deck = store::deck(&state.db, &id)
+        .await
+        .map_err(|e| db_down(&e))?
         .ok_or_else(|| err(StatusCode::NOT_FOUND, "no such deck"))?;
     if deck.account_id != account_id {
         return Err(err(StatusCode::FORBIDDEN, "not your deck"));
     }
-    deck.name = body.name;
-    deck.cards = body.cards;
-    deck.sideboard = body.sideboard;
-    deck.commander = body.commander;
-    deck.sleeve = body.sleeve;
-    deck.playmat = body.playmat;
-    deck.updated_at = auth::now_secs();
-    state.request_save();
+    store::put_deck(
+        &state.db,
+        Deck {
+            name: body.name,
+            cards: body.cards,
+            sideboard: body.sideboard,
+            commander: body.commander,
+            sleeve: body.sleeve,
+            playmat: body.playmat,
+            updated_at: auth::now_secs(),
+            ..deck
+        },
+    )
+    .await
+    .map_err(|e| db_down(&e))?;
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -1143,17 +1182,21 @@ async fn delete_deck(
     headers: HeaderMap,
     Path(id): Path<String>,
 ) -> Result<StatusCode, (StatusCode, Json<ErrorBody>)> {
-    let account_id = authed(&state, &headers)?;
-    let mut store = state.store.lock();
-    match store.decks.get(&id) {
-        Some(deck) if deck.account_id == account_id => {
-            store.decks.remove(&id);
-        }
-        Some(_) => return Err(err(StatusCode::FORBIDDEN, "not your deck")),
-        None => return Err(err(StatusCode::NOT_FOUND, "no such deck")),
+    let account_id = authed(&state, &headers).await?;
+    // The ownership is inside the `DELETE`, so the row can only ever be
+    // removed by the account that owns it. Telling "not yours" from "not
+    // there" still takes a read, and the two answers are worth keeping
+    // apart: one is a bug in the client and the other is a stale list.
+    if store::delete_deck(&state.db, &id, &account_id)
+        .await
+        .map_err(|e| db_down(&e))?
+    {
+        return Ok(StatusCode::NO_CONTENT);
     }
-    state.request_save();
-    Ok(StatusCode::NO_CONTENT)
+    match store::deck(&state.db, &id).await.map_err(|e| db_down(&e))? {
+        Some(_) => Err(err(StatusCode::FORBIDDEN, "not your deck")),
+        None => Err(err(StatusCode::NOT_FOUND, "no such deck")),
+    }
 }
 
 // ------------------------------------------------------------------ lobby
@@ -1164,8 +1207,8 @@ async fn delete_deck(
 /// is looking at one room, not at a page of the lobby, and handing them back
 /// a page would make the room they are in vanish from their own screen if it
 /// happened to fall off the end of it.
-fn listing(state: &Shared, account_id: &str) -> serde_json::Value {
-    let names = seated_names(state);
+async fn listing(state: &Shared, account_id: &str) -> serde_json::Value {
+    let names = seated_names(state).await;
     let lobby = state.lobby.lock();
     serde_json::json!({
         "games": lobby.list_for(account_id, &names),
@@ -1173,8 +1216,12 @@ fn listing(state: &Shared, account_id: &str) -> serde_json::Value {
 }
 
 /// One page of the listing, searched and counted.
-fn listing_page(state: &Shared, account_id: &str, query: &lobby::LobbyQuery) -> serde_json::Value {
-    let names = seated_names(state);
+async fn listing_page(
+    state: &Shared,
+    account_id: &str,
+    query: &lobby::LobbyQuery,
+) -> serde_json::Value {
+    let names = seated_names(state).await;
     let lobby = state.lobby.lock();
     let (games, total) = lobby.page_for(account_id, &names, query);
     serde_json::json!({
@@ -1187,23 +1234,22 @@ fn listing_page(state: &Shared, account_id: &str, query: &lobby::LobbyQuery) -> 
 
 /// Display names for every account sitting at a visible table.
 ///
-/// Two locks, always in this order — store first, then lobby. Every other
-/// path that needs both takes them the same way round.
-fn seated_names(state: &Shared) -> std::collections::HashMap<String, String> {
+/// The lobby guard is taken, read and dropped before the database is asked
+/// anything, and that order is now load-bearing rather than tidy: a
+/// `parking_lot` guard held across an `.await` makes the whole future
+/// `!Send`, which axum refuses to accept as a handler. The ordering was
+/// already right — it is the reason this conversion was small.
+///
+/// One query for every name, not one per chair.
+async fn seated_names(state: &Shared) -> std::collections::HashMap<String, String> {
     let wanted = state.lobby.lock().seated_accounts();
-    let names: std::collections::HashMap<String, String> = {
-        let store = state.store.lock();
-        wanted
-            .into_iter()
-            .filter_map(|id| {
-                store
-                    .accounts
-                    .get(&id)
-                    .map(|a| (id, a.display_name.clone()))
-            })
-            .collect()
-    };
-    names
+    match store::display_names(&state.db, wanted).await {
+        Ok(names) => names,
+        Err(e) => {
+            tracing::error!("{e:#}");
+            std::collections::HashMap::new()
+        }
+    }
 }
 
 /// The lobby, searched and paged.
@@ -1212,8 +1258,8 @@ async fn list_games(
     headers: HeaderMap,
     Query(query): Query<lobby::LobbyQuery>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorBody>)> {
-    let account_id = authed(&state, &headers)?;
-    Ok(Json(listing_page(&state, &account_id, &query)))
+    let account_id = authed(&state, &headers).await?;
+    Ok(Json(listing_page(&state, &account_id, &query).await))
 }
 #[derive(Deserialize)]
 struct CreateGameBody {
@@ -1318,20 +1364,19 @@ fn ai_preset(
 }
 
 /// Looks a deck up and checks it belongs to the account asking for it.
-fn own_deck(
+async fn own_deck(
     state: &Shared,
     account_id: &str,
     deck_id: &str,
 ) -> Result<(String, Deck), (StatusCode, Json<ErrorBody>)> {
-    let store = state.store.lock();
-    let deck = store
-        .decks
-        .get(deck_id)
+    let deck = store::deck(&state.db, deck_id)
+        .await
+        .map_err(|e| db_down(&e))?
         .ok_or_else(|| err(StatusCode::NOT_FOUND, "no such deck"))?;
     if deck.account_id != account_id {
         return Err(err(StatusCode::FORBIDDEN, "not your deck"));
     }
-    Ok((deck.name.clone(), deck.clone()))
+    Ok((deck.name.clone(), deck))
 }
 
 /// Builds the preset a room's seats add up to.
@@ -1427,8 +1472,8 @@ async fn create_game(
     headers: HeaderMap,
     Json(body): Json<CreateGameBody>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorBody>)> {
-    let account_id = authed(&state, &headers)?;
-    let (deck_name, deck) = own_deck(&state, &account_id, &body.deck_id)?;
+    let account_id = authed(&state, &headers).await?;
+    let (deck_name, deck) = own_deck(&state, &account_id, &body.deck_id).await?;
     let game_id = auth::new_id();
     let seat_token = auth::new_token();
 
@@ -1512,8 +1557,8 @@ async fn join_game(
     Path(id): Path<String>,
     Json(body): Json<JoinGameBody>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorBody>)> {
-    let account_id = authed(&state, &headers)?;
-    let (deck_name, deck) = own_deck(&state, &account_id, &body.deck_id)?;
+    let account_id = authed(&state, &headers).await?;
+    let (deck_name, deck) = own_deck(&state, &account_id, &body.deck_id).await?;
     let seat_token = auth::new_token();
     let seat = {
         let mut lobby = state.lobby.lock();
@@ -1596,7 +1641,7 @@ async fn take_seat(
     headers: HeaderMap,
     Path(id): Path<String>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorBody>)> {
-    let account_id = authed(&state, &headers)?;
+    let account_id = authed(&state, &headers).await?;
     let seat_token = auth::new_token();
     let seat = {
         let mut lobby = state.lobby.lock();
@@ -1663,11 +1708,11 @@ async fn set_seat(
     Path((id, seat)): Path<(String, usize)>,
     Json(body): Json<SeatBody>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorBody>)> {
-    let account_id = authed(&state, &headers)?;
+    let account_id = authed(&state, &headers).await?;
     // Looked up before the lobby lock: the store has its own, and taking two
     // in one order here and the other order elsewhere is how deadlocks start.
     let chosen = match &body.deck_id {
-        Some(deck_id) => Some(own_deck(&state, &account_id, deck_id)?),
+        Some(deck_id) => Some(own_deck(&state, &account_id, deck_id).await?),
         None => None,
     };
     {
@@ -1768,7 +1813,7 @@ async fn set_seat(
         }
     }
     state.lobby_moved();
-    Ok(Json(listing(&state, &account_id)))
+    Ok(Json(listing(&state, &account_id).await))
 }
 
 #[derive(Deserialize)]
@@ -1793,7 +1838,7 @@ async fn set_ready(
     Path(id): Path<String>,
     Json(body): Json<ReadyBody>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorBody>)> {
-    let account_id = authed(&state, &headers)?;
+    let account_id = authed(&state, &headers).await?;
     let rematch = {
         let mut lobby = state.lobby.lock();
         let game = lobby
@@ -1828,7 +1873,7 @@ async fn set_ready(
         try_start(&state, &id)?;
     }
     state.lobby_moved();
-    Ok(Json(listing(&state, &account_id)))
+    Ok(Json(listing(&state, &account_id).await))
 }
 
 /// Starts the room. The host's call, and only once every chair is ready.
@@ -1837,7 +1882,7 @@ async fn start_room(
     headers: HeaderMap,
     Path(id): Path<String>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorBody>)> {
-    let account_id = authed(&state, &headers)?;
+    let account_id = authed(&state, &headers).await?;
     {
         let lobby = state.lobby.lock();
         let game = lobby
@@ -1860,7 +1905,7 @@ async fn start_room(
         return Err(err(StatusCode::CONFLICT, "the room is no longer ready"));
     }
     state.lobby_moved();
-    Ok(Json(listing(&state, &account_id)))
+    Ok(Json(listing(&state, &account_id).await))
 }
 
 #[derive(Deserialize)]
@@ -1880,7 +1925,7 @@ async fn hand_over(
     Path(id): Path<String>,
     Json(body): Json<HostBody>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorBody>)> {
-    let account_id = authed(&state, &headers)?;
+    let account_id = authed(&state, &headers).await?;
     {
         let mut lobby = state.lobby.lock();
         let game = lobby
@@ -1903,7 +1948,7 @@ async fn hand_over(
         game.host = Some(new_host);
     }
     state.lobby_moved();
-    Ok(Json(listing(&state, &account_id)))
+    Ok(Json(listing(&state, &account_id).await))
 }
 
 /// Gives up a seat, handing the room on if the host is the one leaving.
@@ -1912,7 +1957,7 @@ async fn leave_game(
     headers: HeaderMap,
     Path(id): Path<String>,
 ) -> Result<StatusCode, (StatusCode, Json<ErrorBody>)> {
-    let account_id = authed(&state, &headers)?;
+    let account_id = authed(&state, &headers).await?;
     let mut lobby = state.lobby.lock();
     let game = lobby
         .games
@@ -1966,7 +2011,7 @@ async fn rematch(
     headers: HeaderMap,
     Path(id): Path<String>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorBody>)> {
-    let account_id = authed(&state, &headers)?;
+    let account_id = authed(&state, &headers).await?;
     let seat_token = auth::new_token();
     // Lobby, then store, then lobby again — never both at once, which is the
     // rule `seat_names` states and every path here keeps. Nothing in this
@@ -2007,14 +2052,16 @@ async fn rematch(
             _ => return Err(err(StatusCode::CONFLICT, "that game is not over yet")),
         }
     };
-    let fresh: Vec<Option<Deck>> = {
-        let store = state.store.lock();
-        played
-            .iter()
-            .flatten()
-            .map(|deck| deck.as_deref().and_then(|d| store.decks.get(d)).cloned())
-            .collect()
-    };
+    // One query for the whole table's decks rather than one per chair.
+    let wanted: Vec<String> = played.iter().flatten().flatten().cloned().collect();
+    let known = store::decks_by_id(&state.db, wanted)
+        .await
+        .map_err(|e| db_down(&e))?;
+    let fresh: Vec<Option<Deck>> = played
+        .iter()
+        .flatten()
+        .map(|deck| deck.as_deref().and_then(|d| known.get(d)).cloned())
+        .collect();
     let (room_id, seat) = {
         let mut lobby = state.lobby.lock();
         // `played` is `None` when the caller addressed the rematch room
@@ -2105,13 +2152,10 @@ async fn list_automation(
     State(state): State<Shared>,
     headers: HeaderMap,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorBody>)> {
-    let account_id = authed(&state, &headers)?;
-    let store = state.store.lock();
-    let answers = store
-        .automation
-        .get(&account_id)
-        .cloned()
-        .unwrap_or_default();
+    let account_id = authed(&state, &headers).await?;
+    let answers = store::automation_of(&state.db, &account_id)
+        .await
+        .map_err(|e| db_down(&e))?;
     Ok(Json(serde_json::json!({ "answers": answers })))
 }
 
@@ -2125,7 +2169,7 @@ async fn set_automation(
     headers: HeaderMap,
     Json(body): Json<AutomationBody>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorBody>)> {
-    let account_id = authed(&state, &headers)?;
+    let account_id = authed(&state, &headers).await?;
     if body.answers.len() > MAX_STANDING_ANSWERS {
         return Err(err(StatusCode::BAD_REQUEST, "too many remembered answers"));
     }
@@ -2141,8 +2185,9 @@ async fn set_automation(
     answers.sort_by_key(|a| (a.card, a.ability));
     answers.dedup_by_key(|a| (a.card, a.ability));
     let count = answers.len();
-    state.store.lock().automation.insert(account_id, answers);
-    state.request_save();
+    store::put_automation(&state.db, &account_id, answers)
+        .await
+        .map_err(|e| db_down(&e))?;
     Ok(Json(serde_json::json!({ "stored": count })))
 }
 
@@ -2162,12 +2207,10 @@ async fn get_settings(
     State(state): State<Shared>,
     headers: HeaderMap,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorBody>)> {
-    let account_id = authed(&state, &headers)?;
-    let store = state.store.lock();
-    let settings = store
-        .settings
-        .get(&account_id)
-        .cloned()
+    let account_id = authed(&state, &headers).await?;
+    let settings = store::settings_of(&state.db, &account_id)
+        .await
+        .map_err(|e| db_down(&e))?
         .unwrap_or_else(|| serde_json::json!({}));
     Ok(Json(settings))
 }
@@ -2183,7 +2226,7 @@ async fn put_settings(
     headers: HeaderMap,
     Json(body): Json<serde_json::Value>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorBody>)> {
-    let account_id = authed(&state, &headers)?;
+    let account_id = authed(&state, &headers).await?;
     if !body.is_object() {
         return Err(err(StatusCode::BAD_REQUEST, "settings must be an object"));
     }
@@ -2191,8 +2234,9 @@ async fn put_settings(
     if bytes > MAX_SETTINGS_BYTES {
         return Err(err(StatusCode::PAYLOAD_TOO_LARGE, "settings too large"));
     }
-    state.store.lock().settings.insert(account_id, body);
-    state.request_save();
+    store::put_settings(&state.db, &account_id, body)
+        .await
+        .map_err(|e| db_down(&e))?;
     Ok(Json(serde_json::json!({ "stored": bytes })))
 }
 
@@ -2217,7 +2261,7 @@ fn standing_payload(answers: &[store::StandingAnswer]) -> Vec<u8> {
 }
 
 /// What a seat's account has remembered, ready to hand to the engine.
-fn standing_for_seat(state: &Shared, game_id: &str, seat: usize) -> Vec<u8> {
+async fn standing_for_seat(state: &Shared, game_id: &str, seat: usize) -> Vec<u8> {
     let account_id = {
         let lobby = state.lobby.lock();
         lobby
@@ -2229,14 +2273,16 @@ fn standing_for_seat(state: &Shared, game_id: &str, seat: usize) -> Vec<u8> {
     let Some(account_id) = account_id else {
         return b"[]".to_vec();
     };
-    let answers = state
-        .store
-        .lock()
-        .automation
-        .get(&account_id)
-        .cloned()
-        .unwrap_or_default();
-    standing_payload(&answers)
+    // The guard above is read and dropped before this: an answer that never
+    // arrives is a question the player is asked again, but a lobby lock held
+    // across a query is every other route waiting on the database.
+    match store::automation_of(&state.db, &account_id).await {
+        Ok(answers) => standing_payload(&answers),
+        Err(e) => {
+            tracing::error!("{e:#}");
+            b"[]".to_vec()
+        }
+    }
 }
 
 // ---------------------------------------------------------------- game ws
@@ -2274,12 +2320,10 @@ async fn lobby_ws(
     Query(params): Query<LobbyWsParams>,
     ws: WebSocketUpgrade,
 ) -> Result<axum::response::Response, (StatusCode, Json<ErrorBody>)> {
-    let account_id = {
-        let mut store = state.store.lock();
-        store
-            .resolve_token(&params.token, auth::now_secs())
-            .ok_or_else(|| err(StatusCode::UNAUTHORIZED, "invalid or expired token"))?
-    };
+    let account_id = store::resolve_token(&state.db, &params.token, auth::now_secs())
+        .await
+        .map_err(|e| db_down(&e))?
+        .ok_or_else(|| err(StatusCode::UNAUTHORIZED, "invalid or expired token"))?;
     Ok(ws.on_upgrade(move |socket| run_lobby_socket(state, account_id, params.query, socket)))
 }
 
@@ -2294,7 +2338,7 @@ async fn run_lobby_socket(
     // opening listing is being rendered is not lost between the two.
     let mut changed = state.lobby_changed.subscribe();
     loop {
-        let payload = listing_page(&state, &account_id, &query).to_string();
+        let payload = listing_page(&state, &account_id, &query).await.to_string();
         if socket.send(Message::Text(payload.into())).await.is_err() {
             return;
         }
@@ -2392,7 +2436,7 @@ async fn game_cosmetics(
 /// after the other rather than nested: the lobby says which account sits
 /// where, the store says what that account is called, and nothing in between
 /// needs both at once.
-fn seat_names(state: &Shared, game_id: &str) -> Vec<String> {
+async fn seat_names(state: &Shared, game_id: &str) -> Vec<String> {
     let accounts: Vec<Option<String>> = {
         let lobby = state.lobby.lock();
         match lobby.games.get(game_id) {
@@ -2400,14 +2444,20 @@ fn seat_names(state: &Shared, game_id: &str) -> Vec<String> {
             None => return Vec::new(),
         }
     };
-    let store = state.store.lock();
+    let names = match store::display_names(&state.db, accounts.iter().flatten().cloned()).await {
+        Ok(names) => names,
+        Err(e) => {
+            tracing::error!("{e:#}");
+            std::collections::HashMap::new()
+        }
+    };
     accounts
         .into_iter()
         .map(|id| match id {
-            Some(id) => store.accounts.get(&id).map_or_else(
-                || "Unknown player".to_string(),
-                |account| account.display_name.clone(),
-            ),
+            Some(id) => names
+                .get(&id)
+                .cloned()
+                .unwrap_or_else(|| "Unknown player".to_string()),
             // An empty chair in a running game is the house playing it.
             None => "House AI".to_string(),
         })
@@ -2479,7 +2529,7 @@ async fn run_game_socket(state: Shared, game_id: String, seat: usize, mut socket
     }
     let attach = v1::envelope::Msg::SeatAttached(v1::SeatAttached {
         seat: seat as u32,
-        standing_json: standing_for_seat(&state, &game_id, seat),
+        standing_json: standing_for_seat(&state, &game_id, seat).await,
         resync: false,
     });
     if !to_engine(&state, &game_id, attach) {

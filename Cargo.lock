@@ -939,6 +939,7 @@ dependencies = [
 name = "baylee-gateway"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "argon2",
  "axum",
  "baylee-build",
@@ -946,6 +947,7 @@ dependencies = [
  "baylee-cards-dsl",
  "baylee-catalog",
  "baylee-core",
+ "baylee-db",
  "baylee-engine",
  "baylee-engine-server",
  "baylee-protocol",
@@ -957,10 +959,12 @@ dependencies = [
  "lettre",
  "parking_lot",
  "prost",
+ "sea-orm",
  "serde",
  "serde_json",
  "sha2 0.11.0",
  "subtle",
+ "time",
  "tokio",
  "tokio-tungstenite 0.30.0",
  "tracing",

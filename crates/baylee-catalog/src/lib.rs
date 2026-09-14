@@ -179,6 +179,20 @@ impl Catalog {
         Ok(Self { db })
     }
 
+    /// Share a connection the caller already has.
+    ///
+    /// The gateway opens exactly one pool and hands it here, rather than
+    /// dialling a second time with the same URL. Two pools against one
+    /// server is twice the backend processes for no more concurrency, and it
+    /// is what made a test suite of three dozen gateways ask a stock
+    /// PostgreSQL for more connections than it has. It also keeps both halves
+    /// on one `search_path`, which is what lets a test put the whole gateway
+    /// in a schema of its own.
+    #[must_use]
+    pub fn from_connection(db: DatabaseConnection) -> Self {
+        Self { db }
+    }
+
     /// Creates the schema if it is not there yet.
     ///
     /// Idempotent, so it is safe to run on every gateway start; the ingest

@@ -23,13 +23,65 @@ pub struct Gateway {
     pub agent_token: String,
     child: std::process::Child,
     store_path: std::path::PathBuf,
+    schema: String,
 }
 
 impl Drop for Gateway {
     fn drop(&mut self) {
+        // The process first: a gateway still holding connections into the
+        // schema would make the drop wait on it.
         let _ = self.child.kill();
         let _ = self.child.wait();
         let _ = std::fs::remove_file(&self.store_path);
+        ddl(&format!(
+            "DROP SCHEMA IF EXISTS \"{}\" CASCADE",
+            self.schema
+        ));
+    }
+}
+
+/// Where the tests' PostgreSQL is, or a panic that says how to start one.
+///
+/// A skip would be worse than this. The gateway keeps its accounts in
+/// PostgreSQL now, so a suite that quietly passed without one would be
+/// reporting that a gateway works when nothing had asked it to do anything.
+pub fn database_url() -> String {
+    std::env::var("DATABASE_URL")
+        .ok()
+        .filter(|u| !u.is_empty())
+        .unwrap_or_else(|| {
+            panic!(
+                "DATABASE_URL is not set, and the gateway keeps its accounts in PostgreSQL.\n  \
+                 docker compose up -d\n  \
+                 export DATABASE_URL=postgres://baylee:baylee@127.0.0.1:5432/baylee"
+            )
+        })
+}
+
+/// Run one DDL statement against the test database.
+///
+/// On its own thread with its own runtime, because this is called from
+/// `Drop` — which cannot await — and from tests that are already inside a
+/// runtime, where building a second one in place would panic.
+fn ddl(sql: &str) {
+    let url = database_url();
+    let sql = sql.to_owned();
+    let done = std::thread::spawn(move || {
+        tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("a runtime for one statement")
+            .block_on(async move {
+                use sea_orm::ConnectionTrait as _;
+                let db = sea_orm::Database::connect(&url)
+                    .await
+                    .expect("connecting to the test database");
+                db.execute_unprepared(&sql).await.map(|_| ())
+            })
+    })
+    .join();
+    if let Ok(Err(e)) = done {
+        eprintln!("test schema statement failed: {e}");
     }
 }
 
@@ -53,6 +105,17 @@ pub fn spawn_gateway_with(label: &str, env: &[(&str, String)]) -> Gateway {
     let store_path = std::env::temp_dir().join(format!("baylee-gateway-{label}-{port}.json"));
     let _ = std::fs::remove_file(&store_path);
     let agent_token = format!("test-agent-secret-{port}");
+    // A schema per gateway, so three dozen of these run against one server
+    // without seeing each other's accounts — and so none of them can touch
+    // the catalog's tables in `public`, which on a developer's machine hold
+    // half a gigabyte that took three minutes to ingest. The name carries
+    // the test's, so a schema left behind by a crash says which one left it.
+    let schema = format!("t_{label}_{port}").replace(|c: char| !c.is_ascii_alphanumeric(), "_");
+    ddl(&format!("DROP SCHEMA IF EXISTS \"{schema}\" CASCADE"));
+    ddl(&format!("CREATE SCHEMA \"{schema}\""));
+    let base = database_url();
+    let sep = if base.contains('?') { '&' } else { '?' };
+    let scoped = format!("{base}{sep}options=-c%20search_path%3D{schema},public");
     // Beside the store and named the same way, so a failure that outlives the
     // run leaves both halves of the evidence in one place.
     let stderr_path = std::env::temp_dir().join(format!("baylee-gateway-{label}-{port}.stderr"));
@@ -65,6 +128,14 @@ pub fn spawn_gateway_with(label: &str, env: &[(&str, String)]) -> Gateway {
         .env("PORT", port.to_string())
         .env("STORE_PATH", &store_path)
         .env("BAYLEE_AGENT_TOKEN", &agent_token)
+        .env("DATABASE_URL", &scoped)
+        // Two, not the default eight. What binds is the other end: a stock
+        // PostgreSQL allows a hundred connections in total, and this suite
+        // has three dozen gateways alive at once. At eight apiece it would
+        // ask for nearly three times what the server has, and fail in
+        // whichever test happened to be last — which is the worst way for a
+        // suite to fail, because it is a different test every run.
+        .env("BAYLEE_DB_POOL", "2")
         // No card-art mirror. Starting a game warms every printing at the
         // table, and these tests start a lot of games: left on, the suite
         // fetches a few hundred images from Scryfall and writes them into the
@@ -113,6 +184,7 @@ pub fn spawn_gateway_with(label: &str, env: &[(&str, String)]) -> Gateway {
         agent_token,
         child,
         store_path,
+        schema,
     }
 }
 
