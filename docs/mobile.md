@@ -215,14 +215,31 @@ Measured on 14.09.2026 on this machine:
   untouched, which is why the felt and the sky look perfect throughout and
   point away from the cause.
 
-  Both cameras carry `Msaa::Off` under `cfg(target_os = "android")`. The
-  measurement, with the clock stopped (`POST /pause`) and two screenshots
-  five seconds apart, same phone and same build:
+  Both cameras ask `crate::gpu::msaa` what to carry, and it asks the
+  *adapter*: `Msaa::Off` on a name starting `PowerVR`, bevy's own `Sample4`
+  on everything else. `Msaa` is a component in bevy 0.19 and not a resource,
+  so it has to be repeated on every camera; `RenderAdapterInfo` is a
+  main-world resource (`bevy_render-0.19.1/src/settings.rs:197`), so an
+  ordinary system can read it.
 
-  | | differing pixels | bright pixels |
+  The measurement, with the clock stopped (`POST /pause`) and two screenshots
+  five seconds apart, same APK on both phones:
+
+  | | Pixel 11 Pro XL (`PowerVR C-Series`) | Pixel 6 Pro (`Mali-G78`) |
   | --- | --- | --- |
-  | `Sample4` (bevy's default) | 105 000 | 1 200 |
-  | `Msaa::Off` | 4 300 | 4 700 |
+  | `Sample4` (bevy's default) | 105 000 differing / 1 200 bright | 0 / 180 077 |
+  | `Msaa::Off` | 4 300 / 4 700 | 0 / 180 209 |
+
+  The Pixel 6 column is the **control**, and it is what turned a suspicion
+  into a finding: same APK, same code path, `Mali-G78` on driver
+  `v1.r54p2-01eac0` (Android 17, `raven`) — a complete, correct lobby at
+  both settings, 4x costing it nothing. That is also why the gate moved off
+  `target_os`: the blanket rule was taking antialiasing away from every Mali
+  device to work around a driver they do not have.
+
+  And `Msaa::Off` here is a **mitigation, not a fix** — 105 000 → 4 300 is
+  the difference between a screen carrying six glyph fragments and a screen
+  carrying its labels. The bullet below says what is still wrong.
 
   Seven other things were ruled out, each by a build and a measurement or by
   a grep of bevy's own source, and they are listed so that nobody re-runs

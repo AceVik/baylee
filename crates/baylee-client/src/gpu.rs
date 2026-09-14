@@ -25,15 +25,18 @@ use bevy::render::view::Msaa;
 /// [`Msaa::Off`] on `PowerVR`, [`Msaa::Sample4`] — bevy's own default —
 /// everywhere else.
 ///
-/// `PowerVR` is a tiler, and the end-of-pass resolve is where tile memory is
-/// written back. The driver in a Pixel 11 Pro XL (`"PowerVR C-Series
-/// CXTP-48-1536 MC1"`, `25.3@6908880`) gets that wrong, and the damage falls
-/// on whatever was written last, which is the UI pass: the lobby drew three
-/// or four oversized glyphs out of a screen of text, a panel in two halves at
-/// different offsets, and a different subset on every frame. It reads exactly
-/// like a font that failed to load and is nothing of the kind — the Vulkan
-/// validation layers, synchronisation checks included, report the client's
-/// commands as valid.
+/// This is a **mitigation and not a fix**, which is the first thing to know
+/// about it. On a Pixel 11 Pro XL (`"PowerVR C-Series CXTP-48-1536 MC1"`,
+/// `25.3@6908880`) the UI pass is broken either way: with bevy's default
+/// `Sample4` a full-screen sign-in form drew six glyph fragments and nothing
+/// else, and with multisampling off the same form draws its title and its
+/// field labels, truncates a string in the middle, puts one glyph at several
+/// times its size, and still omits every solid quad — the panel behind the
+/// form, the sign-in button. A different subset every frame. What is *not*
+/// affected is the custom material behind it: the backdrop shader draws
+/// perfectly in both, which is why this looked for so long like a font that
+/// had failed to load. It is not one — the Vulkan validation layers,
+/// synchronisation checks included, report the client's commands as valid.
 ///
 /// Measured on two phones, same APK, clock stopped, two screenshots five
 /// seconds apart — differing pixels, then lit pixels where the text is:
@@ -43,10 +46,11 @@ use bevy::render::view::Msaa;
 /// | `Sample4` | 105 000 / 1 200 | 0 / 180 077 |
 /// | `Off` | 4 300 / 4 700 | 0 / 180 209 |
 ///
-/// The Mali column is why this asks the adapter instead of asking Android:
-/// 4x costs that phone nothing, and a blanket rule would have taken smooth
-/// edges off every non-`PowerVR` Android device to work around a driver they do
-/// not have.
+/// So the 4x column is unusable and the `Off` column is merely bad, and it is
+/// taken because it is the better of two. The Mali column is why this asks
+/// the adapter instead of asking Android: 4x costs that phone nothing, and a
+/// blanket rule would have taken smooth edges off every non-`PowerVR` Android
+/// device to work around a driver they do not have.
 ///
 /// `None` — no renderer, which is how the lobby's decisions are tested —
 /// answers with the default, because a headless app draws nothing to spoil.
