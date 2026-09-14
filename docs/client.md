@@ -4088,18 +4088,36 @@ That is both simpler and *more* faithful: `keys.rs` reads exactly that
 resource, so an injected press travels through the account's `Keymap` like any
 other — and focus stops mattering, which is the whole point.
 
-**A click is three frames, and this is where the first version was wrong.**
+**A click is five frames, and this is where the first version was wrong.**
 Bevy's picking backend does not read `ButtonInput` at all: it reads
 `WindowEvent` messages, keeps the last cursor location in a `Local`, and only
 turns a press into a `Pointer<Click>` once a press and a release have landed on
 the same hovered entity. Setting `Window::cursor_position` and pressing the
 resource in one frame therefore answered `{"ok":true}` while nothing whatsoever
 was clicked — the screenshot after the click was byte-identical to the one
-before it. `/pointer` now writes a `CursorMoved` on the frame it arrives, the
-press on the next and the release on the one after, mirrored into `WindowEvent`
-exactly as `bevy_winit` does, and answers the caller only once the release is
-out. `devctl::tests::a_click_is_a_move_then_a_press_then_a_release` is that
-sequence as a test.
+before it. `/pointer` writes a `CursorMoved` on the frame it arrives, the press
+and the release on frames of their own, mirrored into `WindowEvent` exactly as
+`bevy_winit` does.
+
+Two of the five came later, and each is a fault this harness had been
+reporting as silence. **The move is written twice**, a whole frame apart,
+because a single one is sometimes simply lost: measured with a click helper as
+a pointer put on Palace Jailer and `hovered` read fifteen times running as
+`None`, where sending the *same* move again named the object on the first
+read. Repeated reading never repaired it and repeated sending always did,
+which is the shape of an event that did not arrive rather than a state that
+had not settled — so the harness sends it twice and stops guessing. **And the
+answer waits one frame past the release**, which is written on the frame
+*before* anything reads it: a caller that clicked Sheoldred's Edict and then
+asked `/state` was shown `armed: None`, with the arming standing there a
+moment later and no second click sent. A harness that answers before its deed
+has been read has every measurement off by one.
+`a_click_is_the_move_twice_then_a_press_a_release_and_a_frame_to_read_it` is
+the sequence as a test.
+
+A bare move rides the same machine — sent twice, answered on the third frame —
+because the lost move was a bare one, and a `/pointer` whose answer does not
+mean *the pointer is there* is the one call a caller cannot build on.
 
 **A press can also be held, and that is a different tool.** `{"hold":true}`
 presses and stops there; `{"release":true}` is the call that lets go, and the

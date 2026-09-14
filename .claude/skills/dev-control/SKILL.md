@@ -157,14 +157,28 @@ being built.
 
 ## The ten things that go wrong
 
-**A click is three frames.** `/pointer` writes a `CursorMoved`, then the press,
-then the release, mirrored into `WindowEvent` the way `bevy_winit` does,
-because Bevy's picking backend reads window events and turns a press into a
-`Pointer<Click>` only once press and release land on the same hovered entity.
-The route answers *after* the release, so a click is several frames slower than
-a key. The first version set the cursor and pressed in one frame, answered
-`{"ok":true}`, and clicked nothing at all — the screenshot before and after
-were byte-identical.
+**A click is five frames, and a bare move is three.** `/pointer` writes a
+`CursorMoved`, **the same move again a frame later**, then the press, then the
+release, then one frame in which it writes nothing — mirrored into
+`WindowEvent` the way `bevy_winit` does, because Bevy's picking backend reads
+window events and turns a press into a `Pointer<Click>` only once press and
+release land on the same hovered entity. The first version set the cursor and
+pressed in one frame, answered `{"ok":true}`, and clicked nothing at all — the
+screenshot before and after were byte-identical.
+
+The repeat and the last frame are each a measured fault. A move is sometimes
+**lost**: a pointer put on a card and `hovered` read fifteen times running as
+`None`, where re-sending the same move named the object on the first read —
+repeated reading never repaired it, repeated sending always did. And the route
+used to answer on the frame the release was *written*, which is the frame
+before anything reads it, so a click followed by `/state` showed the board
+from before the click (`armed: None`, armed a moment later with no second
+click).
+
+**So the answer now means it.** When `/pointer` replies, the move has been
+seen and the click has been read — there is no longer any need to send a move
+in a loop until `hovered` names the object, or to poll `/state` after a click.
+Both of those were the caller's half of the two faults above.
 
 **Coordinates are logical, screenshots are physical.** `/health` reports
 `width`, `height` and `scale` so the ratio is read rather than guessed. On a

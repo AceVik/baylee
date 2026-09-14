@@ -165,20 +165,44 @@ struct Stepping {
     reply: Sender<String>,
 }
 
-/// A click being played out over three frames.
+/// A pointer deed being played out one stage per frame.
 ///
 /// It cannot be done in one. Bevy's picking backend does not read
 /// [`ButtonInput`] at all — it reads [`WindowEvent`] messages, keeps the last
 /// cursor location in a `Local`, and only turns a press into a `Pointer<Click>`
 /// once a press and a release have landed on the same hovered entity. So the
-/// move has to be seen, hovered against the UI tree, and only then pressed:
-/// three frames, in that order, exactly as a real mouse produces them. Doing
-/// it in one frame is what made an earlier version answer `{"ok":true}` while
-/// nothing whatsoever was clicked.
+/// move has to be seen, hovered against the UI tree, and only then pressed,
+/// in that order, exactly as a real mouse produces them. Doing it in one
+/// frame is what made an earlier version answer `{"ok":true}` while nothing
+/// whatsoever was clicked.
+///
+/// Two stages were added to the three once the remaining trouble was taken
+/// apart with a click helper, and each answers one half of it.
+///
+/// [`ClickStage::Aim`] writes the cursor move a **second** time, a whole
+/// frame after the request wrote it. A move is sometimes simply lost: the
+/// pointer was put on a card and `hovered` read fifteen times running as
+/// `None`, and sending the *same* move again named the object on the first
+/// read. Repeated reading never repaired it and repeated sending always did,
+/// which is the shape of an event that did not arrive rather than a state
+/// that had not settled — so the harness sends it twice and stops guessing.
+///
+/// [`ClickStage::Settle`] writes nothing at all and exists to hold the
+/// answer back one more frame. The reply used to go out on the frame the
+/// release was *written*, which is the frame before anything reads it: a
+/// caller that clicked and then asked for `/state` saw the board from before
+/// its own click (`armed: None`, and armed a moment later without a second
+/// click). A harness that answers before the deed has been read is a harness
+/// whose every measurement is off by one.
 struct Click {
     at: Vec2,
-    button: MouseButton,
+    /// `None` for a bare move, which now rides the same machine so that it
+    /// is sent twice and answered late like everything else here.
+    button: Option<MouseButton>,
     stage: ClickStage,
+    /// The stage [`ClickStage::Aim`] hands over to — a press for a click or
+    /// a hold, the release for a call that only lets go.
+    then: ClickStage,
     /// Whether the button stays down once it has been pressed.
     ///
     /// A press and its release are one call by default, which is right for a
@@ -188,17 +212,19 @@ struct Click {
     /// and neither could be photographed. Named after [`press_key`]'s pair,
     /// because it is the same pair.
     hold: bool,
-    /// What the answer calls what it did.
-    word: &'static str,
-    /// Held until the last stage is written, so a caller that got its answer
-    /// knows the deed is finished rather than merely begun.
+    /// What goes back to the caller once the last stage has been read.
+    answer: String,
+    /// Held until then, so a caller that got its answer knows the deed is
+    /// finished rather than merely begun.
     reply: Sender<String>,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum ClickStage {
+    Aim,
     Press,
     Release,
+    Settle,
 }
 
 /// Starts the listener thread, or returns `None` if the port is taken.
@@ -470,12 +496,14 @@ fn pump(
         keys.release(key);
     }
     let window = windows.single_mut().ok().map(|(entity, _)| entity);
-    if let Some(entity) = window {
+    if let Ok((entity, mut win)) = windows.single_mut() {
         advance_clicks(
             &mut control,
             entity,
+            &mut win,
             &mut buttons,
             &mut clicks,
+            &mut moves,
             &mut window_events,
         );
     }
@@ -518,15 +546,26 @@ fn pump(
             "/pointer" => {
                 match move_pointer(&job.body, &mut windows, &mut moves, &mut window_events) {
                     Err(err) => format!("{{\"error\":\"{err}\"}}"),
-                    Ok((_, None)) => "{\"ok\":true,\"clicked\":false}".to_string(),
-                    Ok((at, Some(deed))) => {
-                        // The answer is owed after the last stage, not now.
+                    // Both shapes go on the queue, and a bare move with them:
+                    // it is the move that goes missing, so the aim-again
+                    // frame is worth exactly as much to a call that only
+                    // aims. The answer is owed after the last stage in
+                    // either case, not now.
+                    Ok((at, deed)) => {
+                        let answer = match &deed {
+                            Some(deed) => format!(
+                                "{{\"ok\":true,\"{}\":true,\"x\":{},\"y\":{}}}",
+                                deed.word, at.x, at.y
+                            ),
+                            None => "{\"ok\":true,\"clicked\":false}".to_string(),
+                        };
                         control.clicking.push(Click {
                             at,
-                            button: deed.button,
-                            stage: deed.stage,
-                            hold: deed.hold,
-                            word: deed.word,
+                            button: deed.as_ref().map(|d| d.button),
+                            stage: ClickStage::Aim,
+                            then: deed.as_ref().map_or(ClickStage::Settle, |d| d.stage),
+                            hold: deed.as_ref().is_some_and(|d| d.hold),
+                            answer,
                             reply: job.reply,
                         });
                         continue;
@@ -806,20 +845,39 @@ fn move_pointer(
             let x: f32 = x.parse().map_err(|_| "x is not a number")?;
             let y: f32 = y.parse().map_err(|_| "y is not a number")?;
             let at = Vec2::new(x, y);
-            let previous = window.cursor_position();
-            window.set_cursor_position(Some(at));
-            let moved = CursorMoved {
-                window: entity,
-                position: at,
-                delta: previous.map(|from| at - from),
-            };
-            moves.write(moved.clone());
-            window_events.write(WindowEvent::CursorMoved(moved));
+            aim_cursor(at, entity, &mut window, moves, window_events);
             at
         }
         _ => window.cursor_position().ok_or("no x/y and no cursor")?,
     };
     Ok((at, button_deed(body)?))
+}
+
+/// Puts the cursor at `at` and tells everything that watches it.
+///
+/// Its own function because [`ClickStage::Aim`] writes the very same move a
+/// frame later, and a second spelling of it is a second thing to keep in
+/// step: the whole point of the repeat is that the two are identical.
+///
+/// The delta is computed against where the cursor was, so a repeat writes a
+/// zero delta — which is what a real mouse held still reports, and what the
+/// picking backend expects of one.
+fn aim_cursor(
+    at: Vec2,
+    entity: Entity,
+    window: &mut Window,
+    moves: &mut MessageWriter<CursorMoved>,
+    window_events: &mut MessageWriter<WindowEvent>,
+) {
+    let previous = window.cursor_position();
+    window.set_cursor_position(Some(at));
+    let moved = CursorMoved {
+        window: entity,
+        position: at,
+        delta: previous.map(|from| at - from),
+    };
+    moves.write(moved.clone());
+    window_events.write(WindowEvent::CursorMoved(moved));
 }
 
 /// What a `/pointer` body asks the button to do, or `None` for a bare move.
@@ -879,43 +937,68 @@ struct ButtonDeed {
     word: &'static str,
 }
 
-/// Plays the next stage of every click in flight, one stage per frame.
+/// Plays the next stage of every pointer deed in flight, one stage per frame.
 ///
 /// The press carries no position of its own — bevy's backend pairs it with the
-/// last cursor location it saw, which is the move written the frame before.
+/// last cursor location it saw, which is the move written the frame before,
+/// and written again by [`ClickStage::Aim`] the frame before that.
 fn advance_clicks(
     control: &mut DevControl,
     window: Entity,
+    win: &mut Window,
     buttons: &mut ButtonInput<MouseButton>,
     clicks: &mut MessageWriter<MouseButtonInput>,
+    moves: &mut MessageWriter<CursorMoved>,
     window_events: &mut MessageWriter<WindowEvent>,
 ) {
     for click in std::mem::take(&mut control.clicking) {
-        let (state, next) = match click.stage {
-            // A held press has no second stage: the button stays down until a
-            // `{"release":true}` of its own comes to lift it.
-            ClickStage::Press if click.hold => (ButtonState::Pressed, None),
-            ClickStage::Press => (ButtonState::Pressed, Some(ClickStage::Release)),
-            ClickStage::Release => (ButtonState::Released, None),
+        let next = match click.stage {
+            // The move, a second time and a whole frame later. A bare move
+            // has nothing to press afterwards and goes straight to settling.
+            ClickStage::Aim => {
+                aim_cursor(click.at, window, win, moves, window_events);
+                Some(if click.button.is_some() {
+                    click.then
+                } else {
+                    ClickStage::Settle
+                })
+            }
+            // A held press has no release of its own: the button stays down
+            // until a `{"release":true}` comes to lift it.
+            ClickStage::Press | ClickStage::Release => {
+                let state = if click.stage == ClickStage::Press {
+                    ButtonState::Pressed
+                } else {
+                    ButtonState::Released
+                };
+                if let Some(button) = click.button {
+                    match state {
+                        ButtonState::Pressed => buttons.press(button),
+                        ButtonState::Released => buttons.release(button),
+                    }
+                    let input = MouseButtonInput {
+                        button,
+                        state,
+                        window,
+                    };
+                    clicks.write(input);
+                    window_events.write(WindowEvent::MouseButtonInput(input));
+                }
+                Some(if click.stage == ClickStage::Press && !click.hold {
+                    ClickStage::Release
+                } else {
+                    ClickStage::Settle
+                })
+            }
+            // A frame in which the harness writes nothing, so that the
+            // answer leaves after the systems that read the last stage have
+            // run rather than before them.
+            ClickStage::Settle => None,
         };
-        match state {
-            ButtonState::Pressed => buttons.press(click.button),
-            ButtonState::Released => buttons.release(click.button),
-        }
-        let input = MouseButtonInput {
-            button: click.button,
-            state,
-            window,
-        };
-        clicks.write(input);
-        window_events.write(WindowEvent::MouseButtonInput(input));
         match next {
             Some(stage) => control.clicking.push(Click { stage, ..click }),
             None => {
-                let _ = click.reply.send(format!(
-                    "{{\"ok\":true,\"{}\":true,\"x\":{},\"y\":{}}}",
-                    click.word, click.at.x, click.at.y
-                ));
+                let _ = click.reply.send(click.answer);
             }
         }
     }
@@ -1792,8 +1875,18 @@ mod tests {
     /// success without ever reaching bevy's picking backend. Picking reads
     /// `WindowEvent`, and it pairs a press with the *last cursor location it
     /// saw*, so the move must be a message of its own and must come first.
+    ///
+    /// Five frames, and the two that are not the press and the release are
+    /// the repairs AL6a asked for. The move is written **twice**, a whole
+    /// frame apart, because a single one is sometimes simply lost — measured
+    /// live as a pointer put on a card and `hovered` read fifteen times as
+    /// `None`, where sending the same move again named the object at once.
+    /// And the last frame writes nothing: the answer leaves after the frame
+    /// in which the release was *read*, not the one in which it was written,
+    /// or a caller that clicks and then asks `/state` is shown the board from
+    /// before its own click.
     #[test]
-    fn a_click_is_a_move_then_a_press_then_a_release() {
+    fn a_click_is_the_move_twice_then_a_press_a_release_and_a_frame_to_read_it() {
         let (mut app, tx) = harness();
         let (reply, answers) = channel();
         tx.send(Job {
@@ -1811,6 +1904,13 @@ mod tests {
         );
 
         app.update();
+        assert_eq!(
+            window_events(&app),
+            ["move 40 60"],
+            "the same move again, a frame later: repeated sending is what repairs a lost one"
+        );
+
+        app.update();
         assert_eq!(window_events(&app), ["press"]);
         assert!(
             app.world()
@@ -1824,6 +1924,16 @@ mod tests {
             !app.world()
                 .resource::<ButtonInput<MouseButton>>()
                 .pressed(MouseButton::Left)
+        );
+        assert!(
+            answers.try_recv().is_err(),
+            "the release has been written and not yet read by anything"
+        );
+
+        app.update();
+        assert!(
+            window_events(&app).is_empty(),
+            "the settling frame writes nothing; it exists to be read in"
         );
         assert!(answers.try_recv().unwrap().contains("\"clicked\":true"));
     }
@@ -1850,12 +1960,14 @@ mod tests {
         app.update();
         assert_eq!(window_events(&app), ["move 40 60"]);
         app.update();
+        assert_eq!(window_events(&app), ["move 40 60"], "aimed twice");
+        app.update();
         assert_eq!(window_events(&app), ["press"]);
+        app.update();
         assert!(answers.try_recv().unwrap().contains("\"held\":true"));
 
-        // The button is still down two frames later, which is the whole
-        // point: the ordinary click would have let go on this one.
-        app.update();
+        // The button is still down, which is the whole point: the ordinary
+        // click would have let go by now.
         assert_eq!(window_events(&app), [] as [String; 0]);
         assert!(
             app.world()
@@ -1870,9 +1982,12 @@ mod tests {
             reply,
         })
         .unwrap();
-        // Two frames for the same reason the press took two: a job is drained
-        // after the stages have been played, so its own first stage is the
-        // next frame's.
+        // The job is drained after the stages have been played, so its own
+        // first stage is the next frame's — and the aim comes before the
+        // release for a call that carries no coordinates too, because the
+        // cursor is put back where it already was and the picking backend is
+        // reminded of it.
+        app.update();
         app.update();
         app.update();
         assert_eq!(window_events(&app), ["release"]);
@@ -1881,6 +1996,7 @@ mod tests {
                 .resource::<ButtonInput<MouseButton>>()
                 .pressed(MouseButton::Left)
         );
+        app.update();
         assert!(answers.try_recv().unwrap().contains("\"released\":true"));
     }
 
@@ -1913,10 +2029,17 @@ mod tests {
         assert!(mirrored[0].contains("MouseWheel"), "{mirrored:?}");
     }
 
-    /// A move without `press` is answered at once and presses nothing — the
-    /// hover path, which is how a card preview is opened.
+    /// A move without `press` presses nothing — the hover path, which is how
+    /// a card preview is opened — and it is sent twice and answered late all
+    /// the same.
+    ///
+    /// It used to be answered on the frame it was written, which made it the
+    /// one call the caller could not trust: a hover read straight after was
+    /// read a frame before anything had looked at the move, and the lost
+    /// move AL6a measured was a bare one. The repeat costs two frames and
+    /// buys a `/pointer` whose answer means the pointer is there.
     #[test]
-    fn a_move_without_a_press_is_only_a_move() {
+    fn a_move_without_a_press_is_only_a_move_and_is_still_sent_twice() {
         let (mut app, tx) = harness();
         let (reply, answers) = channel();
         tx.send(Job {
@@ -1927,6 +2050,14 @@ mod tests {
         .unwrap();
         app.update();
         assert_eq!(window_events(&app), ["move 10 20"]);
+        assert!(
+            answers.try_recv().is_err(),
+            "answered once the move has been read, not once it has been written"
+        );
+        app.update();
+        assert_eq!(window_events(&app), ["move 10 20"]);
+        app.update();
+        assert!(window_events(&app).is_empty(), "and nothing was pressed");
         assert!(answers.try_recv().unwrap().contains("\"clicked\":false"));
         let mut windows = app
             .world_mut()
