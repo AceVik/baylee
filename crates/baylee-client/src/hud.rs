@@ -957,9 +957,6 @@ pub(crate) mod palette {
     pub const PARCHMENT_SOFT: Color = Color::srgb(0.290, 0.251, 0.204);
     /// Brass: the answer a sheet is asking for.
     pub const BRASS: Color = Color::srgb(0.788, 0.635, 0.153);
-    /// Danger on parchment. [`DANGER`] is tuned to carry on 88% black and is
-    /// unreadable on a sheet; this is the same claim at the same weight.
-    pub const INK_DANGER: Color = Color::srgb(0.620, 0.200, 0.129);
     /// The accent on parchment — a sheet's own heading, set in the house
     /// colour rather than in body ink.
     ///
@@ -967,8 +964,10 @@ pub(crate) mod palette {
     /// which is its own ground. As letters on [`PARCHMENT`] it measures
     /// 1.6:1, which is why nothing on a sheet is written in it. This is the
     /// same hue taken down to an ink weight — every channel of [`BRASS`] at
-    /// 0.53, which keeps the mix exactly and lands on 4.8:1, the contrast
-    /// [`INK_DANGER`] carries, because the pair are the same claim made twice.
+    /// 0.53, which keeps the mix exactly and lands on 4.8:1 — the contrast
+    /// the parchment's own danger ink carried, which retired with the prompt
+    /// slip in §10.2 step 6 (the shelf and the drawer say danger in
+    /// [`DANGER`], on dialog and not on paper).
     pub const INK_BRASS: Color = Color::srgb(0.418, 0.337, 0.081);
     /// The shadow a sheet lying above the table casts.
     pub const SHEET_SHADOW: Color = Color::srgba(0.0, 0.0, 0.0, 0.66);
@@ -1219,9 +1218,16 @@ fn upward_shadow() -> BoxShadow {
     )
 }
 
+/// The soft corner radius for buttons and tabs, as a number.
+///
+/// Spelled out as well as wrapped, because one thing on this screen wants it
+/// on two corners and not on the other two: the drawer grows out of the shelf,
+/// so it is rounded at the top and square where it meets the lip.
+pub(crate) const BTN_R: f32 = 6.0;
+
 /// The soft corner radius for buttons and tabs.
 pub(crate) fn btn_radius() -> BorderRadius {
-    BorderRadius::all(px(6))
+    BorderRadius::all(px(BTN_R))
 }
 
 /// Roughly how wide `text` is at `size`, before anything has been laid out.
@@ -1391,15 +1397,6 @@ pub(crate) const Z_PREVIEW: i32 = 10;
 /// [`hand`]'s spread rather than an inset.
 pub(crate) const EDGE: f32 = 12.0;
 
-/// How far what is left of the prompt slip floats above the hand zone.
-///
-/// It was two things at this height — the slip and the mana chip, pinned at
-/// `HAND_ZONE_H + 12` and `+ 10` until one constant settled it. The pool is
-/// on the shelf now (AX §4.1), in the left column where it is a *place*
-/// rather than a badge beside the question; the slip is the last reader and
-/// goes with the drawer in §10.2 step 6, and this goes with it.
-pub(crate) const ABOVE_HAND: f32 = 12.0;
-
 /// A card's corner radius for a given rendered width.
 ///
 /// The number is the printed one — 3 mm on a 63 mm card, 4.76% — and it has
@@ -1486,6 +1483,11 @@ pub struct OverlayTree<'w, 's> {
     pub(crate) root: Query<'w, 's, (Entity, Option<&'static Children>), With<HudRoot>>,
     /// The shelf, so a child can be recognised as the one to keep.
     pub(crate) shelf: Query<'w, 's, Entity, With<ledge::LedgeShelf>>,
+    /// The drawer's node, which is kept for the same reason and is a second
+    /// query rather than an `Or` with the shelf: two things survive the sweep
+    /// and they survive it for two arguments, so a reader of this struct
+    /// should have to see both.
+    pub(crate) drawer: Query<'w, 's, Entity, With<ledge::drawer::DrawerRoot>>,
 }
 
 mod card;
@@ -1510,13 +1512,13 @@ use hand::{
     underneath_place,
 };
 use overlay::BUTTON_GAP;
-use rail::{combat_line, incoming_line};
 use stack::spawn_stack_panel;
 
 pub(crate) use finish::{FinishExits, despawn_finish, settle_the_sheet, spawn_finish};
 pub use hand::apply_hand_scroll;
 pub use hand::{ARMED_RAISE, HAND_ZONE_H, LEDGE_H, OVERLAY_CARD_H, OVERLAY_CARD_W};
-pub use ledge::{LedgeRevision, LedgeShelf, sync_ledge};
+pub use ledge::drawer::{DrawerRevision, DrawerRoot, sync_drawer};
+pub use ledge::{LedgeLayout, LedgeRevision, LedgeShelf, sync_ledge};
 pub(crate) use overlay::answer_button;
 pub use overlay::{despawn_overlay, sync_overlay};
 pub use rail::same_team;

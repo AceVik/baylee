@@ -1019,6 +1019,9 @@ fn add_present_systems(app: &mut App) {
                 // rebuilt on every pointer move would lose the warmth under
                 // the pointer that is about to press it.
                 hud::sync_ledge.after(hud::sync_overlay),
+                // And the drawer after the shelf, because the centre it stands
+                // over is what the shelf has just worked out.
+                hud::sync_drawer.after(hud::sync_ledge),
                 hud::dim_the_table.after(hud::sync_overlay),
                 // The end screen settles as that veil rises, off the very
                 // number `dim_the_table` has just written: one movement, one
@@ -1108,6 +1111,8 @@ impl Plugin for DuelPlugin {
             .init_resource::<hud::Shelves>()
             .init_resource::<hud::BarRevision>()
             .init_resource::<hud::LedgeRevision>()
+            .init_resource::<hud::LedgeLayout>()
+            .init_resource::<hud::DrawerRevision>()
             .init_resource::<hud::SheetRevision>()
             .init_resource::<hud::Veil>()
             .init_resource::<textures::Preload>()

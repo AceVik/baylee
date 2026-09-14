@@ -310,11 +310,14 @@ pub(crate) fn dim_the_table(
 /// A line of a dialog's prose.
 ///
 /// The same bracket rule the parchment sheets use — `prose::bracketed` greys
-/// what a sentence says in brackets — in the dialog's own two inks. It is not
-/// `overlay::slip_text`: that one carries a warm shadow to lift ink off
-/// parchment and greys its asides in [`palette::SLIP_ASIDE`], and both of
-/// those belong to the sheet rather than to this panel. Ink on a dark ground
-/// needs no shadow to be a stroke.
+/// what a sentence says in brackets — in the dialog's own two inks. It was
+/// not `overlay::slip_text`, which carried a warm shadow to lift ink off
+/// parchment and greyed its asides in [`palette::SLIP_ASIDE`]: both belonged
+/// to the sheet rather than to this panel, and ink on a dark ground needs no
+/// shadow to be a stroke. That function went with the prompt slip in §10.2
+/// step 6; `ledge::sentence` is the dialog register's version of the same
+/// idea, and this one stays separate from it because a graveyard is *listed*
+/// on a panel where a question is *asked* on one.
 fn dialog_text(
     commands: &mut Commands,
     fonts: &UiFonts,

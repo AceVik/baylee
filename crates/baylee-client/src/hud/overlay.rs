@@ -34,36 +34,6 @@ pub(super) const BUTTON_GAP: f32 = 8.0;
 /// The label on an answer, in logical pixels.
 pub(super) const ANSWER_PT: f32 = 13.0;
 
-/// The narrowest the prompt slip is drawn.
-///
-/// The sheet takes its width from its longest line, and its shortest question
-/// ("You have priority") is shorter than the two answers under it. Without a
-/// floor the slip shrinks to the words and the buttons are squeezed into a
-/// sliver; with one, every question is asked on a sheet of a recognisable
-/// size, which is also what stops the slip jumping about between steps.
-const SLIP_MIN_W: f32 = 380.0;
-
-/// The widest it is drawn, and the air between its edge and its words.
-///
-/// Both were written into the slip's own `Node` and nowhere else, which was
-/// fine while every answer on the sheet was two words long. A row that says
-/// what the card says is not: Force of Will's alternative cost is one German
-/// sentence of 143 characters, and it was drawn as a single unbroken line
-/// **914 logical pixels** wide — the button hanging 147 px past each edge of
-/// the 620-wide parchment it was supposed to be on. `max_width` binds the
-/// slip's own box and not its children's, so the sheet stayed 620 and the
-/// answer walked out of it.
-const SLIP_MAX_W: f32 = 620.0;
-const SLIP_PAD_X: f32 = 22.0;
-
-/// What one answer may take up: the slip's content box, edge to edge.
-///
-/// An answer capped here wraps inside the sheet instead of overflowing it,
-/// which is what the ability sheet has always done with a printed sentence
-/// (`sheet::SHEET_MAX` and the `min_width: 0` beneath it). The border is
-/// counted because a `Node` is measured as its border box.
-const SLIP_INNER_W: f32 = SLIP_MAX_W - 2.0 * (SLIP_PAD_X + 1.0);
-
 /// The caption over the card underneath a copy, one line of nine-pixel type.
 ///
 /// Named because it is the difference between bottom-aligning the *pair* with
@@ -338,7 +308,7 @@ pub fn sync_overlay(
     // and the preview.
     let root = if let Ok((root, children)) = tree.root.single() {
         for child in children.into_iter().flatten() {
-            if !tree.shelf.contains(*child) {
+            if !tree.shelf.contains(*child) && !tree.drawer.contains(*child) {
                 commands.entity(*child).despawn();
             }
         }
@@ -367,338 +337,20 @@ pub fn sync_overlay(
         // is that the zone's height never changes.
         let ledge = ledge::spawn_ledge(&mut commands);
         commands.entity(root).add_child(ledge);
+        // And the drawer's node, for the same two reasons: it outlives every
+        // rebuild this system does, and what fills it is not any of this
+        // system's business. See [`ledge::drawer`].
+        let drawer = ledge::drawer::spawn_drawer_root(&mut commands);
+        commands.entity(root).add_child(drawer);
         root
     };
 
-    // ---- the prompt slip: the question, and the answers to it -------------
-    //
-    // Centred over the near edge of the player's own board, and a sheet of
-    // parchment rather than a panel. Both of those are the same argument. It
-    // used to sit in the bottom-right corner in 88%-black at 13 px — the one
-    // thing on screen that has to be answered, drawn as the least prominent
-    // thing on it, in the corner furthest from where a player's eyes are
-    // (their own hand, and the board above it). A question and the hand it is
-    // answered from are now the same place to look.
-    if prompt.is_some() || error.is_some() || link_note.is_some() {
-        let waiting = !duel.is_my_turn_to_act();
-        // Whether the zone browser's dialog is holding this question. The slip
-        // then says what the question is and nothing about how to answer it:
-        // no Confirm, because the dialog's footer already draws one under the
-        // rows the answer is made of, and no "click a card on the board",
-        // because the board is behind a veil with nothing on it to click.
-        // `Browser::answers_here` is the single predicate, read on both sides.
-        let elsewhere = duel.browser.answers_here(duel.interaction.as_ref());
-        // The sheet, spawned by the first row that needs one and not before.
-        //
-        // The question itself is on the ledge now, with its answers, the
-        // armed row and whatever the engine or the socket has refused — all
-        // four are one line each and belong on the shelf, which is where the
-        // player is already looking. What is left here is every row that is
-        // *more* than a line: a pick hint, combat's aim and threat, the
-        // number stepper, the subtype filter, the indexed chooser. Those are
-        // the drawer's (AX §5), the drawer is step 6, and dropping them in
-        // the meantime would take two shipped lines off the screen.
-        //
-        // So this is the transitional shape and it is deliberately lazy: a
-        // question with none of those rows draws no sheet at all, which is
-        // most questions. No headline on what is left either — it stands
-        // directly over the shelf, and the question is written on the shelf.
-        let mut bar: Option<Entity> = None;
-
-        // A choice that is answered by clicking has to say so. The prompt
-        // bar used to draw "Discard 1 card(s)" and stop: no button, because
-        // nothing is submittable until something is picked, and no hint,
-        // because none existed. A player who did not already know to click
-        // their hand had no way to find out. (The bracket in that quote is
-        // history too — `Phrase::counted` writes a counted sentence twice.)
-        //
-        // Not when the zone browser's dialog is holding the question, though:
-        // the hint for a `ChooseCards` is "click a card on the board", and the
-        // board is behind a veil with nothing on it to click. A dialog says
-        // what to do by being one — checkboxes, and a tally counting up to the
-        // number the engine asked for.
-        if let Some(hint) = duel
-            .interaction
-            .as_ref()
-            .filter(|i| !waiting && !elsewhere && i.selected().next().is_none())
-            .and_then(|i| pick_hint(&i.prompt()))
-        {
-            let line = slip_line(
-                &mut commands,
-                &fonts,
-                hint.text(lang),
-                12.0,
-                palette::SLIP_SOFT,
-            );
-            let bar = leftover_slip(&mut commands, sheets.as_deref(), root, &mut bar);
-            commands.entity(bar).add_child(line);
-        }
-
-        // ---- combat: what the next declaration is aimed at -----------------
-        //
-        // Combat is the one choice where clicking a creature is not enough:
-        // the engine asks *which* defender, and a player who cannot see the
-        // answer is guessing. The line says where the aim points and how many
-        // declarations stand, and it is the same aim the keyboard cycles.
-        if let Some(line) = duel
-            .interaction
-            .as_ref()
-            .filter(|i| i.is_combat() && !waiting)
-            .and_then(|i| combat_line(i, view, duel.statics.as_ref(), faces.texts, lang))
-        {
-            let aim = slip_line(&mut commands, &fonts, &line, 13.0, palette::SLIP_SOFT);
-            let bar = leftover_slip(&mut commands, sheets.as_deref(), root, &mut bar);
-            commands.entity(bar).add_child(aim);
-        }
-
-        // ---- combat: what is coming at whom --------------------------------
-        //
-        // Unlike the aim above, this is not about a declaration this seat is
-        // making, so it is not filtered on `waiting`: an attack aimed at you
-        // while the other side is still choosing blockers is exactly the
-        // thing you need to be able to read.
-        if let Some((line, threatened)) = incoming_line(
-            view,
-            duel.interaction.as_ref(),
-            duel.statics.as_ref(),
-            faces.texts,
-            lang,
-        ) {
-            let ink = if threatened {
-                palette::INK_DANGER
-            } else {
-                palette::SLIP_SOFT
-            };
-            let incoming = slip_line(&mut commands, &fonts, &line, 13.0, ink);
-            let bar = leftover_slip(&mut commands, sheets.as_deref(), root, &mut bar);
-            commands.entity(bar).add_child(incoming);
-        }
-
-        // ---- the number stepper -------------------------------------------
-        //
-        // The one choice with nothing on the table to click. The headline
-        // already says the range; what was missing was the value itself and
-        // any way at all to change it with a pointer.
-        if let (Some(value), false) = (number, waiting) {
-            let row = commands
-                .spawn((
-                    Node {
-                        flex_direction: FlexDirection::Row,
-                        align_items: AlignItems::Center,
-                        column_gap: px(10),
-                        ..default()
-                    },
-                    Pickable::IGNORE,
-                ))
-                .id();
-            let minus = spawn_step(&mut commands, &fonts, -1, "\u{2212}");
-            let shown = commands
-                .spawn((
-                    Text::new(value.to_string()),
-                    tf(&fonts, 20.0),
-                    TextColor(palette::PARCHMENT_INK),
-                ))
-                .id();
-            let plus = spawn_step(&mut commands, &fonts, 1, "+");
-            commands.entity(row).add_children(&[minus, shown, plus]);
-            let bar = leftover_slip(&mut commands, sheets.as_deref(), root, &mut bar);
-            commands.entity(bar).add_child(row);
-        }
-
-        // ---- the type-to-filter box, for the one choice whose list is too
-        // long to look at. Drawn whether or not anything matches: a filter
-        // with no rows under it is exactly when a player needs to see what
-        // they typed.
-        if !waiting
-            && let Some(Prompt::ChooseSubtype { .. }) = duel
-                .interaction
-                .as_ref()
-                .map(baylee_client_core::Interaction::prompt)
-        {
-            let field = commands
-                .spawn((
-                    Node {
-                        padding: UiRect::axes(px(10), px(5)),
-                        border: UiRect::all(px(1)),
-                        border_radius: btn_radius(),
-                        align_items: AlignItems::Center,
-                        ..default()
-                    },
-                    BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.06)),
-                    BorderColor::all(palette::BRASS),
-                    Pickable::IGNORE,
-                ))
-                .id();
-            // A caret with nothing before it, so an empty box still reads as
-            // somewhere to type rather than as a blank panel.
-            let text = commands
-                .spawn((
-                    Text::new(format!("{}_", duel.subtype_filter)),
-                    tf(&fonts, 14.0),
-                    TextColor(palette::PARCHMENT_INK),
-                    Pickable::IGNORE,
-                ))
-                .id();
-            commands.entity(field).add_child(text);
-            let bar = leftover_slip(&mut commands, sheets.as_deref(), root, &mut bar);
-            commands.entity(bar).add_child(field);
-        }
-
-        // ---- the indexed chooser: a colour, a seat, a way to cast ---------
-        //
-        // Its own row, above the ability menu and below the answers, because
-        // it is neither: these are not "OK" and they are not things to do
-        // while holding priority — they are *the* answer, and picking one
-        // sends it. Until this existed a tapped dual land drew "Choose a
-        // colour" with nothing under it and the game stopped there.
-        // The client's own cast chooser is asked first and drawn by the same
-        // code: it *is* a `Prompt::CastMode`, built one step before the
-        // engine would have built it. Everything below — the labels, the
-        // costs, the highlight, the button that sends — is the chooser that
-        // was already here.
-        if let Some(rows) = duel
-            .cast_menu
-            .as_ref()
-            // The same `!over` the headline and the revision are filtered on,
-            // and it has to be the same one: the gate above remembers the
-            // filtered value, so rows read from the raw field would be a list
-            // nothing could rebuild.
-            .filter(|_| !over)
-            .map(crate::CastMenu::prompt)
-            .or_else(|| {
-                duel.interaction
-                    .as_ref()
-                    .filter(|_| !waiting)
-                    .map(baylee_client_core::Interaction::prompt)
-            })
-            .and_then(|p| {
-                crate::choices::options(
-                    &p,
-                    lang,
-                    duel.statics.as_ref(),
-                    &duel.subtype_filter,
-                    crate::choices::FaceNames {
-                        view: duel.view.as_ref(),
-                        texts: Some(&texts),
-                    },
-                )
-            })
-            .filter(|rows| !rows.is_empty())
-        {
-            let picked = duel.cast_menu.as_ref().filter(|_| !over).map_or_else(
-                || {
-                    duel.interaction
-                        .as_ref()
-                        .and_then(baylee_client_core::Interaction::chosen_index)
-                },
-                |m| Some(m.pick),
-            );
-            let row = commands
-                .spawn((
-                    Node {
-                        flex_direction: FlexDirection::Row,
-                        column_gap: px(6),
-                        flex_wrap: FlexWrap::Wrap,
-                        align_items: AlignItems::Center,
-                        ..default()
-                    },
-                    Pickable::IGNORE,
-                ))
-                .id();
-            for option in &rows {
-                let on = picked == Some(option.index);
-                // The sheet's own colour under an answer that is not the one
-                // picked, the same as every other secondary answer on this
-                // parchment. It was 5% black, which is a fourth fill for the
-                // same claim on one sheet.
-                let fill = if on {
-                    palette::BRASS
-                } else {
-                    palette::SLIP_GHOST
-                };
-                let button = commands
-                    .spawn((
-                        ChoiceButton {
-                            index: option.index,
-                        },
-                        Node {
-                            padding: UiRect::axes(px(10), px(5)),
-                            border: UiRect::all(px(1)),
-                            border_radius: btn_radius(),
-                            column_gap: px(5),
-                            align_items: AlignItems::Center,
-                            // An answer stays on its own sheet. The cap is
-                            // the slip's content box and the floor is zero,
-                            // and both are needed: without the floor a flex
-                            // item's automatic minimum size is its content,
-                            // so it refuses to shrink and the cap only moves
-                            // the overflow; without the cap nothing bounds a
-                            // row whose parent is itself sized to fit. The
-                            // line inside wraps on its own — `manaui::rich`
-                            // is a wrapping row and a `Text` breaks at a word
-                            // — once something narrower than the sentence
-                            // tells it where.
-                            // `Wrap` is about the row's own parts and not
-                            // about the sentence: an answer that carries cost
-                            // marks as well as words drops the marks onto a
-                            // second line instead of squeezing the words into
-                            // a column beside them. Nothing in the pool prints
-                            // both today, so it says what happens when one does.
-                            max_width: px(SLIP_INNER_W),
-                            min_width: px(0),
-                            flex_wrap: FlexWrap::Wrap,
-                            ..default()
-                        },
-                        BackgroundColor(fill),
-                        BorderColor::all(if on {
-                            palette::BRASS
-                        } else {
-                            palette::PARCHMENT_EDGE
-                        }),
-                        Feel::new(fill),
-                    ))
-                    .id();
-                if let Some(pip) = option.pip {
-                    let mark = crate::manaui::spawn_pip(&mut commands, &fonts, pip, 20.0);
-                    commands.entity(button).add_child(mark);
-                }
-                if !option.label.is_empty() {
-                    // Rich, not plain: a label carries printed symbols in
-                    // braces and drawing them as letters is what made "Tap
-                    // for WUBRG" a sentence nobody could read.
-                    let text = crate::manaui::spawn_rich(
-                        &mut commands,
-                        &fonts,
-                        &option.label,
-                        13.0,
-                        palette::PARCHMENT_INK,
-                    );
-                    commands.entity(button).add_child(text);
-                }
-                if let Some(cost) = option.cost {
-                    for pip in baylee_client_core::manapip::cost(&cost) {
-                        let mark = crate::manaui::spawn_pip(&mut commands, &fonts, pip, 15.0);
-                        commands.entity(button).add_child(mark);
-                    }
-                }
-                commands.entity(row).add_child(button);
-            }
-            let bar = leftover_slip(&mut commands, sheets.as_deref(), root, &mut bar);
-            commands.entity(bar).add_child(row);
-        }
-
-        // What is armed went to the shelf with the answers it replaces
-        // (`ledge::armed_row`): it is one line, and §5 keeps it out of the
-        // drawer for exactly that reason.
-        //
-        // The ability chooser used to be a row here too, a wrapping line of
-        // buttons whose whole label was the ability's *cost* — `{2}, {T}` —
-        // because a button on a bar has room for four words. It is the
-        // parchment sheet beside the permanent now ([`crate::hud::sheet`]),
-        // where there is room for the printed sentence and the cost both, and
-        // where the list is next to the card it belongs to instead of at the
-        // bottom of the window.
-    }
+    // The question and everything it needs are no longer drawn here. The four
+    // things that are one line each went to the shelf in §10.2 step 3, and in
+    // step 6 the rest followed them into the drawer: the pick hint, combat's
+    // aim and its threat, the number stepper, the subtype filter and the
+    // indexed chooser. The slip that carried them is gone with them; what
+    // still uses this sheet is the hover preview, further down.
 
     // ---- bottom: the hand zone (always on top) ---------------------------
     if let Some(statics) = duel.statics.as_ref() {
@@ -1374,181 +1026,6 @@ pub(crate) fn answer_button(
         .id()
 }
 
-/// One line of the prompt slip's prose.
-///
-/// Four things at once, and they are one decision rather than four. The slip
-/// is the sheet a question is *written* on, so its lines are set in the
-/// italic of the same family, cast the faint warm shadow a letter lying on
-/// parchment casts, carry a little of the sheet through the ink, and hand
-/// their bracketed asides to a grey — a key to press or a count the board
-/// already shows is not part of the sentence, and reading it as if it were
-/// makes every question longer than it is.
-///
-/// The split is [`baylee_client_core::prose::bracketed`], which is where the
-/// test for it lives; here it becomes one [`TextSpan`] per run. The root
-/// carries the shadow, because a shadow is per text block rather than per
-/// span, and an empty root string draws nothing of its own.
-fn slip_line(
-    commands: &mut Commands,
-    fonts: &UiFonts,
-    text: &str,
-    size: f32,
-    ink: Color,
-) -> Entity {
-    slip_text(commands, fonts, text, size, ink, true)
-}
-
-/// The same treatment, upright.
-///
-/// Three of the four decisions above are about the *sheet* — ink with a
-/// little parchment through it, the faint warm shadow a letter lying on one
-/// casts, bracketed asides in grey — and one of them is about the slip's
-/// voice, which is the slant. The zone browser is the same sheet and not the
-/// same voice: a question is written on the parchment, a graveyard is merely
-/// listed on it. So the posture is the argument and everything else is
-/// shared, rather than the browser growing a second treatment that would
-/// drift from this one the first time either was adjusted.
-pub(super) fn slip_text(
-    commands: &mut Commands,
-    fonts: &UiFonts,
-    text: &str,
-    size: f32,
-    ink: Color,
-    italic: bool,
-) -> Entity {
-    // Faustina, at the weight a nib has when it is set down: this is a
-    // card.s words on parchment, which is the serif's whole job here. The
-    // slant is still the slip's own voice and the browser's absence of one.
-    let face = |fonts: &UiFonts, size| {
-        if italic {
-            super::tf_serif_italic(fonts, size, super::INK_WEIGHT)
-        } else {
-            super::tf_serif(fonts, size, super::INK_WEIGHT)
-        }
-    };
-    let line = commands
-        .spawn((Text::default(), face(fonts, size), TextColor(ink)))
-        .id();
-    // The halo is the bleeding front, not a drop shadow, and it is absent
-    // under 12 px where it would clot the umlauts.
-    if let Some(halo) = super::bleed(size * super::SERIF_SCALE) {
-        commands.entity(line).insert(halo);
-    }
-    for (run, aside) in baylee_client_core::prose::bracketed(text) {
-        let span = commands
-            .spawn((
-                TextSpan::new(run.to_string()),
-                face(fonts, size),
-                TextColor(if aside { palette::SLIP_ASIDE } else { ink }),
-            ))
-            .id();
-        commands.entity(line).add_child(span);
-    }
-    line
-}
-
-/// The sheet whatever is left of the prompt slip is written on, spawned the
-/// first time a row asks for one.
-///
-/// **Transitional.** The question, its answers, the armed row and any refusal
-/// are on the ledge; what still comes here is every row that is more than one
-/// line — a pick hint, combat's aim and threat, the number stepper, the
-/// subtype filter, the indexed chooser — and all of those belong in the
-/// drawer (AX §5), which is step 6. Deleting them now to be rid of the slip
-/// sooner would take two shipped lines off the screen; drawing an empty sheet
-/// under every question instead would put a blank piece of parchment over the
-/// table. So it is lazy, and most questions never call it.
-///
-/// No headline on it either: it stands directly over the shelf, and the
-/// question is written on the shelf.
-///
-/// The centring row spans the whole window and is ignored by the pointer, so
-/// it takes nothing away from the board it lies over; only the sheet inside
-/// it is a surface. [`Z_LEDGE`] is above the veil, because these rows are
-/// part of the question the veil is drawn to point at.
-fn leftover_slip(
-    commands: &mut Commands,
-    sheets: Option<&UiSheets>,
-    root: Entity,
-    bar: &mut Option<Entity>,
-) -> Entity {
-    if let Some(bar) = *bar {
-        return bar;
-    }
-    let slip_row = commands
-        .spawn((slip_row_node(), ZIndex(Z_LEDGE), Pickable::IGNORE))
-        .id();
-    let sheet = commands
-        .spawn((
-            Node {
-                max_width: px(SLIP_MAX_W),
-                min_width: px(SLIP_MIN_W),
-                flex_direction: FlexDirection::Column,
-                align_items: AlignItems::Center,
-                row_gap: px(7),
-                padding: UiRect::axes(px(SLIP_PAD_X), px(13)),
-                border: UiRect::all(px(1)),
-                border_radius: sheet_radius(),
-                ..default()
-            },
-            BackgroundColor(palette::PARCHMENT),
-            BorderColor::all(palette::PARCHMENT_EDGE),
-            sheet_shadow(),
-        ))
-        .id();
-    commands.entity(slip_row).add_child(sheet);
-    // First child, and a child rather than the sheet's own image: see
-    // [`sheet_surface`] for the ring of flat parchment that was.
-    if let Some(sheets) = sheets {
-        let surface = commands.spawn(sheet_surface(sheets)).id();
-        commands.entity(sheet).add_child(surface);
-    }
-    commands.entity(root).add_child(slip_row);
-    *bar = Some(sheet);
-    sheet
-}
-
-pub(super) fn slip_row_node() -> Node {
-    Node {
-        position_type: PositionType::Absolute,
-        bottom: px(HAND_ZONE_H + ABOVE_HAND),
-        left: px(0),
-        right: px(0),
-        flex_direction: FlexDirection::Row,
-        justify_content: JustifyContent::Center,
-        ..default()
-    }
-}
-
-fn spawn_step(commands: &mut Commands, fonts: &UiFonts, delta: i32, glyph: &str) -> Entity {
-    commands
-        .spawn((
-            PromptButton {
-                action: PromptAction::Step(delta),
-            },
-            Node {
-                width: px(30),
-                height: px(30),
-                justify_content: JustifyContent::Center,
-                align_items: AlignItems::Center,
-                border_radius: btn_radius(),
-                ..default()
-            },
-            BackgroundColor(palette::BRASS),
-            soft_shadow(),
-            Feel::new(palette::BRASS),
-            children![(
-                Text::new(glyph.to_string()),
-                tf_bold(fonts, 17.0),
-                TextColor(palette::PARCHMENT_INK),
-                // See [`answer_node`]: a label is a node, and a node under the
-                // pointer is what the pointer is over.
-                Pickable::IGNORE,
-            )],
-        ))
-        .id()
-}
-
 /// The second life total (CR 903.10a), drawn as a track: the commander glyph,
 /// a fixed-width bar filled to the worst source, one tick per other
 /// commander, and the worst number itself.
@@ -1667,33 +1144,6 @@ pub(super) fn spawn_commander_track(
     Some(row)
 }
 
-/// Whether the hovered object is a card printed on both sides.
-///
-/// The view says which face is up, not how many there are, so the answer
-/// comes from the registry the client already links for ability labels and
-/// mana sources. A token or a face-down permanent has no card and therefore
-/// no back.
-/// The line that says how a choice is answered, when it is answered by
-/// clicking something rather than by pressing a button.
-///
-/// `None` for every choice that draws its own answers, so a hint never
-/// appears next to a row of buttons that already says what to do. A creature
-/// type is the exception, because there the hint is not about where to click
-/// — it is about the box, and a list cut to twelve of three hundred and fifty
-/// says nothing about typing on its own.
-const fn pick_hint(prompt: &Prompt) -> Option<Phrase> {
-    match prompt {
-        // The seat's own hand, which the engine does not enumerate because it
-        // is already private -- `Interaction::selectable` is empty for both.
-        Prompt::Discard { .. } | Prompt::BottomCards { .. } => Some(Phrase::HintClickHand),
-        Prompt::ChooseCards { .. } | Prompt::ChooseTargets { .. } | Prompt::LegendRule => {
-            Some(Phrase::HintClickBoard)
-        }
-        Prompt::ChooseSubtype { .. } => Some(Phrase::HintTypeToFilter),
-        _ => None,
-    }
-}
-
 /// What the preview shows once it has been turned over.
 ///
 /// `Some` is the printing's second face; `None` means the printed back —
@@ -1738,6 +1188,17 @@ pub(super) fn face_node(width: f32, height: f32) -> Node {
     }
 }
 
+/// Whether the hovered object is a card printed on both sides.
+///
+/// The view says which face is up, not how many there are, so the answer
+/// comes from the registry the client already links for ability labels and
+/// mana sources. A token or a face-down permanent has no card and therefore
+/// no back.
+///
+/// This doc had been sitting six items further up, above a `pick_hint` that
+/// had its own, since whichever splice put it there — the shape
+/// `doc-comment-splice-beheads-the-next-item` is named for. It came back when
+/// `pick_hint` went to the drawer and left it standing over nothing.
 fn two_faced(view: &PlayerView, hovered: Option<ObjectId>) -> bool {
     hovered
         .and_then(|id| view.object(id))
@@ -1794,11 +1255,18 @@ mod tests {
             .init_resource::<crate::sheen::Sheen>()
             .init_resource::<crate::touch::Touched>()
             .init_resource::<ledge::LedgeRevision>()
-            // Both, chained: the shelf is spawned by the first and written by
-            // the second, and the question is on the shelf. A harness that
-            // ran only the rebuild would be reading a bar with no words on
-            // it and calling that an answer.
-            .add_systems(Update, (sync_overlay, ledge::sync_ledge).chain());
+            .init_resource::<ledge::LedgeLayout>()
+            .init_resource::<ledge::drawer::DrawerRevision>()
+            // All three, chained, in the order the app runs them: the first
+            // spawns the shelf and the drawer's node, the second writes the
+            // shelf and records where its middle ended up, the third fills
+            // the drawer over that middle. A harness that ran only the
+            // rebuild would be reading a bar with no words on it and calling
+            // that an answer.
+            .add_systems(
+                Update,
+                (sync_overlay, ledge::sync_ledge, ledge::drawer::sync_drawer).chain(),
+            );
         app.update();
         app
     }
@@ -1891,6 +1359,75 @@ mod tests {
         duel.view = Some(view);
         crate::rebuild_board(&mut duel);
         duel
+    }
+
+    /// A seat being asked to name a colour, which is the shortest question
+    /// that needs a drawer: the answer is a list, and a list is more than a
+    /// line.
+    fn duel_choosing_a_colour() -> Duel {
+        use baylee_core::mana::ManaColor;
+        let mut duel = Duel {
+            interaction: Some(baylee_client_core::Interaction::new(
+                baylee_engine::choice::Pending::ChooseColor {
+                    player: PlayerId::new(0),
+                    options: vec![ManaColor::White, ManaColor::Blue, ManaColor::Black],
+                },
+                PlayerId::new(0),
+            )),
+            ..Duel::default()
+        };
+        duel.view = Some(baylee_client_core::test_support::ViewBuilder::new(2).build());
+        crate::rebuild_board(&mut duel);
+        duel
+    }
+
+    /// The drawer opens on a question whose answer is a list, and is shut the
+    /// rest of the time.
+    ///
+    /// Both halves, because each is a different bug. A drawer that never
+    /// opens is a colour chooser drawn as "Choose a colour" with nothing
+    /// under it, which is how a tapped dual land used to stop a game dead. A
+    /// drawer that never shuts is an empty panel standing over the table for
+    /// the whole of every turn — and its node is exempt from the overlay's
+    /// sweep now, so nothing else would take it away.
+    ///
+    /// It counts [`ChoiceButton`]s rather than reading words: a colour is
+    /// answered by a mana pip and carries no label at all, on the grounds
+    /// that a `{U}` disc says "blue" in every language there is.
+    #[test]
+    fn the_drawer_opens_on_a_list_and_is_shut_otherwise() {
+        let rows = |app: &mut App| {
+            let mut q = app.world_mut().query::<&ChoiceButton>();
+            q.iter(app.world()).map(|b| b.index).collect::<Vec<_>>()
+        };
+        let panels = |app: &mut App| {
+            let mut q = app
+                .world_mut()
+                .query_filtered::<Option<&Children>, With<ledge::drawer::DrawerRoot>>();
+            q.iter(app.world())
+                .map(|c| c.map_or(0, bevy::ecs::hierarchy::Children::len))
+                .sum::<usize>()
+        };
+
+        let mut app = bar_of(duel_choosing_a_colour());
+        assert_eq!(
+            rows(&mut app),
+            vec![0, 1, 2],
+            "three colours were offered and the drawer has to carry all three"
+        );
+        assert_eq!(panels(&mut app), 1, "and they stand on one panel");
+
+        // The same seat, with nothing being asked of it.
+        let mut app = bar_of(duel_with(false));
+        assert!(
+            rows(&mut app).is_empty(),
+            "a priority window is answered on the shelf, not out of a drawer"
+        );
+        assert_eq!(
+            panels(&mut app),
+            0,
+            "an empty drawer is a panel standing over the table saying nothing"
+        );
     }
 
     /// Once a result is standing, this overlay offers nothing.
@@ -2018,7 +1555,7 @@ mod tests {
     /// much worse bug of the two: a bar that never redraws says the wrong
     /// thing about the game for as long as the game lasts.
     #[test]
-    fn the_shelf_outlives_a_rebuild_and_nothing_else_does() {
+    fn the_shelf_and_the_drawer_outlive_a_rebuild_and_nothing_else_does() {
         // A print table, because the counter-half needs something the overlay
         // *does* draw under the root, and everything it draws there asks for
         // one. The two ways out of a game were the exception — spawned with
@@ -2048,35 +1585,45 @@ mod tests {
                 .flat_map(|c| c.iter().collect::<Vec<_>>())
                 .collect::<Vec<_>>()
         };
-        // Everything the root carries **except** the shelf, which is the
-        // honest way to name "what the rebuild rebuilds": it says which
-        // entities it means rather than resting on a component that happens
-        // to be drawn in one place — `MenuButton` was that component and
-        // stopped being it the moment the ways out of a game moved here.
+        let drawer = |app: &mut App| {
+            let mut q = app
+                .world_mut()
+                .query_filtered::<Entity, With<ledge::drawer::DrawerRoot>>();
+            q.iter(app.world()).collect::<Vec<_>>()
+        };
+        // Everything the root carries **except** the two nodes the sweep is
+        // told to pass over, which is the honest way to name "what the
+        // rebuild rebuilds": it says which entities it means rather than
+        // resting on a component that happens to be drawn in one place —
+        // `MenuButton` was that component and stopped being it the moment the
+        // ways out of a game moved to the shelf.
         let redrawn = |app: &mut App| {
-            let shelves = {
-                let mut q = app
-                    .world_mut()
-                    .query_filtered::<Entity, With<ledge::LedgeShelf>>();
+            let kept = {
+                let mut q = app.world_mut().query_filtered::<
+                    Entity,
+                    Or<(With<ledge::LedgeShelf>, With<ledge::drawer::DrawerRoot>)>,
+                >();
                 q.iter(app.world()).collect::<Vec<_>>()
             };
             let mut q = app.world_mut().query_filtered::<&Children, With<HudRoot>>();
             q.iter(app.world())
                 .flat_map(|c| c.iter().collect::<Vec<_>>())
-                .filter(|e| !shelves.contains(e))
+                .filter(|e| !kept.contains(e))
                 .collect::<Vec<_>>()
         };
 
         let was_shelf = shelf(&mut app);
+        let was_drawer = drawer(&mut app);
         let was_root = roots(&mut app);
         let was_standing = standing(&mut app);
         let was_redrawn = redrawn(&mut app);
         assert_eq!(was_shelf.len(), 1, "one shelf, and it was built");
-        assert_eq!(was_root.len(), 1, "and one root to hang it off");
+        assert_eq!(was_drawer.len(), 1, "and one drawer beside it");
+        assert_eq!(was_root.len(), 1, "and one root to hang them off");
         assert_eq!(was_standing.len(), 3, "and three columns standing on it");
         assert!(
             !was_redrawn.is_empty(),
-            "the overlay drew something of its own beside the shelf"
+            "the overlay drew something of its own beside the two"
         );
 
         // The pointer moves onto a card. Nothing about the game changed.
@@ -2084,6 +1631,12 @@ mod tests {
         app.update();
 
         assert_eq!(shelf(&mut app), was_shelf, "the shelf was rebuilt");
+        assert_eq!(
+            drawer(&mut app),
+            was_drawer,
+            "the drawer's node was rebuilt, and a panel open under the \
+             pointer would have gone with it"
+        );
         assert_eq!(roots(&mut app), was_root, "and so was the root under it");
         assert_eq!(
             standing(&mut app),

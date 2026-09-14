@@ -647,6 +647,8 @@ mod closing {
         let mut app = App::new();
         app.init_resource::<HudRevision>()
             .init_resource::<LedgeRevision>()
+            .init_resource::<crate::hud::LedgeLayout>()
+            .init_resource::<crate::hud::DrawerRevision>()
             .add_systems(Update, despawn_overlay);
         let root = app.world_mut().spawn(HudRoot).id();
         let child = app.world_mut().spawn(Node::default()).id();
@@ -864,8 +866,9 @@ mod combat {
     #[test]
     fn an_attack_aimed_at_this_seat_is_read_out_and_marked() {
         let view = attacked_by(3, false);
-        let (line, threatened) = incoming_line(&view, None, None, &CardTexts::default(), Lang::En)
-            .expect("combat is declared");
+        let (line, threatened) =
+            rail::incoming_line(&view, None, None, &CardTexts::default(), Lang::En)
+                .expect("combat is declared");
         assert!(
             line.contains('3'),
             "the number that gets through is in the line: {line}"
@@ -879,8 +882,9 @@ mod combat {
     #[test]
     fn a_blocked_attack_is_still_read_out_but_no_longer_marked() {
         let view = attacked_by(3, true);
-        let (line, threatened) = incoming_line(&view, None, None, &CardTexts::default(), Lang::En)
-            .expect("combat is declared");
+        let (line, threatened) =
+            rail::incoming_line(&view, None, None, &CardTexts::default(), Lang::En)
+                .expect("combat is declared");
         assert!(
             !threatened,
             "nothing reaches this seat once the attacker is blocked: {line}"
@@ -892,7 +896,7 @@ mod combat {
         let view = ViewBuilder::new(2)
             .with_battlefield(0, vec![token(1, 0, "Bear", 2, 2)])
             .build();
-        assert!(incoming_line(&view, None, None, &CardTexts::default(), Lang::En).is_none());
+        assert!(rail::incoming_line(&view, None, None, &CardTexts::default(), Lang::En).is_none());
     }
 
     #[test]
@@ -916,7 +920,7 @@ mod combat {
         let interaction = baylee_client_core::Interaction::new(choice, PlayerId::new(0));
         assert!(interaction.focus_position().is_some(), "there is an aim");
         assert!(
-            combat_line(&interaction, &view, None, &CardTexts::default(), Lang::En).is_none(),
+            rail::combat_line(&interaction, &view, None, &CardTexts::default(), Lang::En).is_none(),
             "but it is not a combat aim, and this line only speaks for combat"
         );
     }
@@ -986,22 +990,29 @@ mod slip {
     /// It shipped in the bottom-right at 13 px against 88% black — the least
     /// prominent thing on screen, in the corner furthest from the hand it is
     /// answered from. This is the claim that stops it drifting back there:
-    /// the row spans the window and centres what is in it, and it clears the
-    /// hand zone rather than sitting behind it.
+    /// the row spans the window and centres what is in it.
+    ///
+    /// What it is asserted against moved with the question. The slip row
+    /// floated a dozen pixels clear of the hand zone; the drawer that replaced
+    /// it does not float at all — it *grows out of the shelf*, so its bottom
+    /// edge is a pixel **inside** the zone rather than above it, and the
+    /// bound flipped with it. A drawer sitting where the slip sat would be a
+    /// panel hanging over the table with a gap under it.
     #[test]
-    fn the_prompt_slip_stands_in_the_middle_above_the_hand() {
-        let node = super::super::overlay::slip_row_node();
+    fn the_question_stands_in_the_middle_and_on_the_shelf() {
+        let node = super::super::ledge::drawer::root_node();
         assert_eq!(node.justify_content, JustifyContent::Center);
         assert_eq!(node.position_type, PositionType::Absolute);
         assert_eq!(node.left, px(0), "a row that does not span cannot centre");
         assert_eq!(node.right, px(0));
         let Val::Px(bottom) = node.bottom else {
-            panic!("the slip is placed in pixels, not {:?}", node.bottom);
+            panic!("the drawer is placed in pixels, not {:?}", node.bottom);
         };
         assert!(
-            bottom > HAND_ZONE_H && bottom < HAND_ZONE_H + 60.0,
-            "the slip sits at {bottom}, and the hand zone is {HAND_ZONE_H} tall — \
-             it has to clear it and stay next to it"
+            (bottom - (HAND_ZONE_H - 1.0)).abs() < 0.001,
+            "the drawer sits at {bottom} and the zone is {HAND_ZONE_H} tall — \
+             it grows out of the shelf's lip, and the one pixel of overlap is \
+             what keeps the join a single line"
         );
     }
 
@@ -1016,8 +1027,11 @@ mod slip {
     /// which is what "the background still looks strange" was.
     ///
     /// The browser is a dark panel now and carries no parchment at all
-    /// (`docs/redesign-proposal.md` §1.3), so the slip is the one surface
-    /// left that this is about.
+    /// (`docs/redesign-proposal.md` §1.3), and the prompt slip went with AX
+    /// §10.2 step 6 — the question is asked on the shelf and the drawer, both
+    /// of them dialog rather than paper. What is still written on parchment is
+    /// the hover preview's card text, the ability sheet and the end screen, so
+    /// those are the three files scanned.
     ///
     /// An absolutely-positioned child is measured against its parent's
     /// *padding* box, which is exactly the missing ring. Both halves are
@@ -1054,16 +1068,21 @@ mod slip {
             "there is no parchment on it"
         );
 
-        let slip = include_str!("overlay.rs");
-        assert!(
-            slip.contains("sheet_surface(sheets)"),
-            "the prompt slip draws no parchment surface"
-        );
-        assert!(
-            !slip.contains(".insert(sheet("),
-            "the prompt slip wears the sheet as its own image again, which \
-             leaves its padding flat"
-        );
+        for (name, source) in [
+            ("the hover preview", include_str!("slip.rs")),
+            ("the ability sheet", include_str!("sheet.rs")),
+            ("the end screen", include_str!("finish.rs")),
+        ] {
+            assert!(
+                source.contains("sheet_surface(sheets)"),
+                "{name} draws no parchment surface"
+            );
+            assert!(
+                !source.contains(".insert(sheet("),
+                "{name} wears the sheet as its own image again, which leaves \
+                 its padding flat"
+            );
+        }
         // And the browser stays a panel: a sheet put back on it is the
         // material decision of §1.3 being undone by accident.
         assert!(

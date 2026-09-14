@@ -12,13 +12,69 @@
 //! arrive in their own steps — their columns are already here and already the
 //! width they will be, so that nothing the middle does moves when they land.
 //!
-//! Everything taller than one line belongs in the drawer, which is a step
-//! further still; until it exists, the rows that were going there are left on
-//! what remains of the prompt slip (`overlay::leftover_slip`) rather than
-//! deleted.
+//! Everything taller than one line belongs in the [`drawer`], which grows
+//! upward out of this shelf and has its own file and its own counter.
 
 #[allow(clippy::wildcard_imports)] // the HUD's own vocabulary
 use super::*;
+
+pub(super) mod drawer;
+
+/// Where the shelf put the middle of itself, for the drawer to stand over.
+///
+/// A resource rather than a second call to
+/// [`baylee_client_core::ledge::arrange`], because arranging takes the widths
+/// of all three columns and the drawer has no business measuring the shelf's
+/// buttons. Two estimates of one number would also be two chances to be
+/// wrong about it, and the middle's width is already an estimate —
+/// see [`mid_width`].
+///
+/// Written whenever [`sync_ledge`] rebuilds, which is whenever it can change:
+/// the arrangement is a function of the revision and the window.
+#[derive(Resource)]
+pub struct LedgeLayout {
+    /// The centre of the middle column, in logical pixels from the left edge.
+    pub(super) mid_x: f32,
+    /// The window it was measured in.
+    pub(super) window_w: i32,
+}
+
+impl Default for LedgeLayout {
+    /// The middle of a window of the width `sync_ledge` assumes before it has
+    /// seen one, so a drawer drawn before the first arrangement is centred
+    /// rather than thrown to the left edge.
+    fn default() -> Self {
+        Self {
+            mid_x: 600.0,
+            window_w: 1200,
+        }
+    }
+}
+
+/// How far the middle of the shelf is from the middle of the window.
+///
+/// Doubled, because this is paid as *padding on one side*: a centred child in
+/// a box padded by `p` on the left has its centre at `(p + w) / 2`, so `p` is
+/// twice the slide. Positive means the middle sits right of centre.
+pub(super) fn mid_shift(mid_x: f32, window_w: i32) -> f32 {
+    #[allow(clippy::cast_precision_loss)]
+    let half = window_w as f32 / 2.0;
+    2.0 * (mid_x - half)
+}
+
+/// That slide as padding, on whichever side has to carry it.
+///
+/// The one place this arithmetic lives. The middle column and the drawer both
+/// stand on the same centre, and a drawer that worked it out for itself would
+/// be over the question until the day one of the two was adjusted.
+pub(super) fn mid_padding(mid_x: f32, window_w: i32) -> UiRect {
+    let shift = mid_shift(mid_x, window_w);
+    if shift >= 0.0 {
+        UiRect::left(px(shift))
+    } else {
+        UiRect::right(px(-shift))
+    }
+}
 
 /// The shelf itself: the one node in the overlay's retained tree that
 /// **outlives a rebuild**.
@@ -399,6 +455,7 @@ pub fn sync_ledge(
     mut commands: Commands,
     duel: Res<Duel>,
     mut revision: ResMut<LedgeRevision>,
+    mut layout: ResMut<LedgeLayout>,
     shelf: Query<(Entity, Option<&Children>), With<LedgeShelf>>,
     fonts: Res<UiFonts>,
     settings: Res<crate::settings::ClientSettings>,
@@ -520,6 +577,12 @@ pub fn sync_ledge(
         },
         caps_w,
     );
+    // The drawer stands over the question, so it has to be told where the
+    // question ended up. Written here rather than read from the node, because
+    // a `Node`'s padding is bevy_ui's to lay out and would be a frame stale by
+    // the time anything read it back.
+    layout.mid_x = arrangement.mid_x;
+    layout.window_w = window_w;
 
     let columns = [
         column_node(Side::Left),
@@ -550,7 +613,7 @@ pub fn sync_ledge(
         } else {
             palette::DIALOG_INK
         };
-        let line = self::sentence(&mut commands, &fonts, &text, ink);
+        let line = self::sentence(&mut commands, &fonts, &text, SENTENCE_PT, ink);
         commands.entity(middle).add_child(line);
     }
 
@@ -848,19 +911,13 @@ fn column_node(side: Side) -> impl Bundle {
         // Full width and centred, so the question stands on the **window's**
         // middle — which is the middle of this seat's own mat. When `arrange`
         // has had to slide it off centre, the slide is paid for out of one
-        // side's padding: a centred child in a box padded by `p` on the left
-        // has its centre at `(p + w) / 2`, so `p = 2 · shift`.
+        // side's padding ([`mid_padding`]), which is the same arithmetic the
+        // drawer stands on.
         Side::Mid(mid_x, window_w) => {
             node.left = px(0);
             node.right = px(0);
             node.justify_content = JustifyContent::Center;
-            #[allow(clippy::cast_precision_loss)]
-            let shift = 2.0 * (mid_x - window_w as f32 / 2.0);
-            node.padding = if shift >= 0.0 {
-                UiRect::left(px(shift))
-            } else {
-                UiRect::right(px(-shift))
-            };
+            node.padding = mid_padding(mid_x, window_w);
         }
     }
     // The middle lies over the other two across the whole width, so without
@@ -1052,11 +1109,13 @@ fn ways_out(
 /// Bracketed asides go grey through the same
 /// [`baylee_client_core::prose::bracketed`] the slip used, because a key to
 /// press or a count the board already shows is not part of the sentence.
-fn sentence(commands: &mut Commands, fonts: &UiFonts, text: &str, ink: Color) -> Entity {
+/// `size` because the drawer writes in this voice too and writes quieter: a
+/// hint about where to click is not as loud as the question it is under.
+fn sentence(commands: &mut Commands, fonts: &UiFonts, text: &str, size: f32, ink: Color) -> Entity {
     let line = commands
         .spawn((
             Text::default(),
-            tf_italic(fonts, SENTENCE_PT),
+            tf_italic(fonts, size),
             TextColor(ink),
             Pickable::IGNORE,
         ))
@@ -1065,7 +1124,7 @@ fn sentence(commands: &mut Commands, fonts: &UiFonts, text: &str, ink: Color) ->
         let span = commands
             .spawn((
                 TextSpan::new(run.to_string()),
-                tf_italic(fonts, SENTENCE_PT),
+                tf_italic(fonts, size),
                 TextColor(if aside { palette::DIALOG_SOFT } else { ink }),
             ))
             .id();
@@ -1389,14 +1448,19 @@ mod tests {
     /// occurrences, which passes the moment a second one appears in a doc
     /// comment.
     ///
-    /// The drawer joins this when it exists (§10.2 step 6): it is the same
-    /// surface with the same rules, and a scan that read only half of it
-    /// would be `sheet.rs`'s file-bound scan made twice.
-    fn drawn() -> &'static str {
-        include_str!("ledge.rs")
+    /// The drawer is read with it (§10.2 step 6), which is why this hands
+    /// back a `String` rather than the `&'static str` it used to: the drawer
+    /// is the same surface under the same rules, and a scan that read only
+    /// the half of it standing on the shelf would be `sheet.rs`'s file-bound
+    /// scan made twice. It carries no `#[cfg(test)]` of its own — what it
+    /// draws is asserted by driving it, in `overlay.rs`' harness — so it
+    /// joins whole.
+    fn drawn() -> String {
+        let shelf = include_str!("ledge.rs")
             .split_once("#[cfg(test)]")
             .expect("the tests are still where they were")
-            .0
+            .0;
+        format!("{shelf}{}", include_str!("ledge/drawer.rs"))
     }
 
     /// What an answer is written in has to be readable on what it is written
