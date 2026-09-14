@@ -1098,17 +1098,6 @@ messages! {
     SortByCost { en: "By cost", de: "Nach Kosten" },
     /// By type
     SortByType { en: "By type", de: "Nach Typ" },
-    /// The zone browser's detailed list — the row with a type line on it.
-    ///
-    /// The three view labels are drawn as icons on the panel, so these are
-    /// what a keyboard map, a tooltip or a screen reader says. They are
-    /// written here and not skipped for that reason: an icon with no words
-    /// behind it is a control that cannot be named.
-    ViewDetailed { en: "Detailed list", de: "Detaillierte Liste" },
-    /// The larger, quieter list.
-    ViewLarge { en: "Large list", de: "Große Liste" },
-    /// Every card as a tile.
-    ViewGrid { en: "Grid", de: "Raster" },
     /// Token
     IsToken { en: "Token", de: "Spielstein" },
     /// Your move

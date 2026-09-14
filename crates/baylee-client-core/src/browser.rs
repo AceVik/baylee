@@ -333,25 +333,17 @@ impl ViewMode {
     /// most.
     pub const ALL: [Self; 3] = [Self::Detailed, Self::Large, Self::Grid];
 
-    /// The button's label.
-    #[must_use]
-    pub const fn label(self) -> Phrase {
-        match self {
-            Self::Detailed => Phrase::ViewDetailed,
-            Self::Large => Phrase::ViewLarge,
-            Self::Grid => Phrase::ViewGrid,
-        }
-    }
-
-    /// Whether this view writes a name, a cost and a type line beside the
-    /// picture, which is what a question asked *of the list* needs.
-    #[must_use]
-    pub const fn is_a_list(self) -> bool {
-        matches!(self, Self::Detailed | Self::Large)
-    }
-
-    /// The spelling this is stored under, which is not the label: a label is
-    /// translated and a stored name may never be.
+    /// The spelling this is stored under, and the only name a mode has.
+    ///
+    /// There is deliberately no translated label beside it. The three
+    /// segments are icons, nothing in the client reads a word for them, and
+    /// a `Phrase` nobody renders is prose the i18n tests bless and no player
+    /// ever sees — `BrowseTitle` was retired for exactly that. The words
+    /// come back with whatever first needs them: a tooltip, the keyboard
+    /// map, or the menu the actions bar is about to grow.
+    ///
+    /// A stored name would not be that label in any case: a label is
+    /// translated and this may never be.
     #[must_use]
     pub const fn name(self) -> &'static str {
         match self {

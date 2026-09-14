@@ -112,6 +112,18 @@ const TRAY_BIG_BOX: f32 = 18.0;
 const TRAY_TILE_MAX: f32 = 100.0;
 /// The air between two tiles, both ways.
 const TRAY_TILE_GAP: f32 = 10.0;
+/// What a tile is wider than its picture: the focus rail on both sides, and
+/// the two pixels of air that keep the picture off it.
+///
+/// It exists because the packing and the drawing have to agree about *which*
+/// width they are sharing out. [`grid_across`] divides the measure among
+/// whole tiles, so it has to be handed the whole tile — hand it the
+/// picture's width instead and every full row is eight pixels per tile too
+/// wide and wraps its last one onto a line of its own. Invisible with two
+/// cards in a zone and certain on a graveyard, which is why it is a named
+/// constant read by both halves rather than a `+ 4.0` written out at the one
+/// that draws.
+const TRAY_TILE_CHROME: f32 = 2.0 * (TRAY_FOCUS + 2.0);
 /// The gutter every band of the sheet keeps at its left and right.
 ///
 /// The rows carry it themselves rather than the panel carrying it for them,
@@ -1560,10 +1572,11 @@ fn spawn_tab_box(commands: &mut Commands, fonts: &UiFonts, ticked: bool) -> Enti
 /// Icons and not words, and that is arithmetic rather than taste: three
 /// labels beside the sort key would leave the search field about 140 px wide
 /// on a sheet at its 356-pixel floor, which is a search box that can show a
-/// card name and nothing a player is typing. The words exist anyway —
-/// [`ViewMode::label`] is a translated phrase for each — because an icon with
-/// nothing behind it is a control that cannot be named by a tooltip, a
-/// keyboard map or a reader.
+/// card name and nothing a player is typing. There are no words behind them
+/// either, which is the honest half: an icon with nothing behind it cannot be
+/// named by a tooltip, a keyboard map or a reader, and [`ViewMode::name`]
+/// says why the translated labels are written when something first asks
+/// rather than now.
 ///
 /// The three are one strip with one border round it rather than three
 /// buttons in a row: they are a single question with three answers, and a
@@ -1782,7 +1795,15 @@ fn spawn_grid(
     assets: &AssetServer,
     cards: &mut Option<&mut UiCards<'_>>,
 ) {
-    let (_, tile, air) = grid_across(ctx.measure, TRAY_BIG_THUMB_W, TRAY_TILE_MAX, TRAY_TILE_GAP);
+    // Packed as whole tiles and drawn as pictures: what is shared out is the
+    // node the wrap sees, and [`TRAY_TILE_CHROME`] is the difference.
+    let (_, tile, air) = grid_across(
+        ctx.measure,
+        TRAY_BIG_THUMB_W + TRAY_TILE_CHROME,
+        TRAY_TILE_MAX + TRAY_TILE_CHROME,
+        TRAY_TILE_GAP,
+    );
+    let art = tile - TRAY_TILE_CHROME;
     let mut run: Option<(BrowseZone, Entity)> = None;
     for row in rows {
         let open = match run {
@@ -1811,7 +1832,7 @@ fn spawn_grid(
                 node
             }
         };
-        let node = spawn_tile(commands, lang, row, &ctx, textures, assets, cards, tile);
+        let node = spawn_tile(commands, lang, row, &ctx, textures, assets, cards, art);
         commands.entity(open).add_child(node);
     }
 }
@@ -1905,31 +1926,41 @@ fn spawn_tile(
             TrayCard { object: row.id },
             Button,
             Node {
-                width: px(width + 2.0 * TRAY_FOCUS + 4.0),
+                width: px(width + TRAY_TILE_CHROME),
                 padding: UiRect::all(px(2.0)),
                 border: UiRect::all(px(TRAY_FOCUS)),
                 // The card's own corner plus what stands outside it, so the
                 // focus ring is concentric with the picture rather than
                 // squarer than it — the same arithmetic the panel's head
                 // does against the sheet.
-                border_radius: BorderRadius::all(px(width * 0.0476 + 4.0)),
+                border_radius: BorderRadius::all(px(width * 0.0476 + TRAY_TILE_CHROME / 2.0)),
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
                 flex_shrink: 0.0,
                 ..default()
             },
-            BackgroundColor(if row.standing.selected {
-                palette::CANDLE_WASH
-            } else {
-                Color::NONE
-            }),
+            // Nothing, chosen or not — and that is the one place this tile
+            // parts company with a row. A row says chosen with a wash across
+            // its whole line; a tile's whole line *is* the picture, so the
+            // wash would dim the one thing it is for. The candle edge below
+            // carries the claim instead. Written as the plain rest colour
+            // because `Feel` owns this field from its first tick: a wash set
+            // here and not named in the `Feel` is a wash nobody ever sees.
+            BackgroundColor(Color::NONE),
             BorderColor::all(if row.standing.focused {
                 palette::CANDLE_EDGE
             } else {
                 Color::NONE
             }),
-            // Tinted and never lifted, the rule the rows obey: a tile that
-            // grew under the pointer would reflow the whole run it is in.
+            // Both ends stated, because `Feel::new` shades towards white and
+            // keeps the alpha: a tile resting at nothing would be lifted to a
+            // brighter nothing and never answer the pointer.
+            //
+            // Lifted, where a row is not. A row is a line of writing and
+            // growing it grows the sentence; a tile is a picture, and the
+            // pointer picking it up a little is what a picture answers with.
+            // The gap is what it grows into — a `UiTransform` scale moves
+            // nothing else on the row it is in.
             Feel::rising_to(Color::NONE, palette::DIALOG_LIT),
         ))
         .id();
@@ -2592,19 +2623,26 @@ mod tests {
     /// Three measures, all of them the sheet's own: its floor, the width it
     /// opens at, and a maximised sheet on this screen. A column count of one
     /// at the floor would be a grid that is a list with the words taken out.
+    ///
+    /// What it packs is the **tile**, chrome and all, exactly as
+    /// [`spawn_grid`] does — which is the half that was wrong once. Sharing
+    /// the measure out among pictures and then drawing each of them eight
+    /// pixels wider puts every full row over its measure by a tile, and
+    /// `bevy_ui` answers that by wrapping the last one onto a line of its
+    /// own. Nothing about a zone holding two cards can show it.
     #[test]
     fn the_grid_fills_the_sheet_at_its_floor_and_at_its_default() {
         use baylee_client_core::browser::Placement;
         let at = |sheet: f32| {
             let (across, tile, air) = grid_across(
                 sheet - 2.0 * TRAY_SIDE,
-                TRAY_BIG_THUMB_W,
-                TRAY_TILE_MAX,
+                TRAY_BIG_THUMB_W + TRAY_TILE_CHROME,
+                TRAY_TILE_MAX + TRAY_TILE_CHROME,
                 TRAY_TILE_GAP,
             );
             #[allow(clippy::cast_precision_loss)]
             let used = across as f32 * tile + (across - 1) as f32 * air;
-            (across, tile, used)
+            (across, tile - TRAY_TILE_CHROME, used)
         };
 
         let (floor, _, used) = at(Placement::MIN_W);
@@ -2632,13 +2670,14 @@ mod tests {
         // for its own gaps twice. Swept rather than sampled, because the two
         // places this can go wrong are the fencepost (n tiles, n-1 gaps) and
         // the step where a column is gained, and both are one pixel wide.
+        let mut capped = 0u32;
         for w in (Placement::MIN_W as u16)..=2000 {
             let sheet = f32::from(w);
             let measure = sheet - 2.0 * TRAY_SIDE;
-            let (across, tile, used) = at(sheet);
+            let (across, art, used) = at(sheet);
             assert!(
-                (TRAY_BIG_THUMB_W..=TRAY_TILE_MAX).contains(&tile),
-                "a sheet of {sheet} draws a {tile}-wide tile"
+                (TRAY_BIG_THUMB_W..=TRAY_TILE_MAX).contains(&art),
+                "a sheet of {sheet} draws a {art}-wide picture"
             );
             assert!(used <= measure + 0.01, "{across} tiles overflow {measure}");
             assert!(
@@ -2647,19 +2686,22 @@ mod tests {
                  a gap it does not have",
                 measure - used
             );
-            // And the cap never actually bites above the floor, which is a
-            // fact about these three numbers rather than a wish: packing at
-            // 73 first means a row of four shares out at most one 73-plus-gap
-            // between them, so the widest tile the sheet can ever draw is
-            // about 94. The cap stays in `grid_across` as the bound that
-            // holds for a caller whose measure fits fewer columns than this
-            // sheet's floor does — it is checked there, on such a measure.
-            assert!(
-                tile < TRAY_TILE_MAX,
-                "a sheet of {sheet} reached the cap at {tile}; the floor is supposed to \
-                 guarantee enough columns that it never can"
-            );
+            capped += u32::from(art >= TRAY_TILE_MAX);
         }
+        // The cap does bite, and it bites in one narrow window: a row of
+        // three shares out at most one 81-plus-gap between them, so three
+        // columns can reach 100 and four never can — above about a 386-pixel
+        // sheet the picture's own floor is what decides every width. That is
+        // worth a count rather than a bound, because both halves are
+        // load-bearing. A zero here means the cap is unreachable and the
+        // slack-into-the-gaps rule is dead code on this panel; a number in
+        // the hundreds means the pictures are pinned at 100 and the grid is
+        // paying for its width in air instead of in cards.
+        assert!(
+            (1..=32).contains(&capped),
+            "the cap binds at {capped} of the sheet's widths, which is not the narrow window \
+             these three numbers describe"
+        );
     }
 
     /// A tab says how many cards are in it, and says it in the one register

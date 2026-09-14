@@ -3405,9 +3405,19 @@ costs no fetch and no VRAM at all.
 **The grid packs at that floor and grows into the gaps**, never into the
 picture (`browser::grid_across`, the same rule `seatbar::Density::for_length`
 uses on a mat): as many tiles as fit at 73, then shared out to fill the
-measure. The sheet's own `MIN_W` guarantees four columns, which is why the
-100 cap never actually bites on this panel — it is the bound that holds for a
-narrower measure, and the two tests say which of them checks which.
+measure. What is shared out is the **tile** and not the picture in it, which
+is the one piece of this arithmetic that has already been wrong once: a tile
+is `TRAY_TILE_CHROME` wider than its art — the focus rail on both sides and
+the air that keeps the picture off it — so packing pictures and then drawing
+each of them eight pixels wider puts every full row over its measure by a
+whole tile, which `bevy_ui` answers by wrapping the last one onto a line of
+its own. A zone holding two cards cannot show that and a graveyard always
+would. The sheet's own `MIN_W` guarantees three columns, and three is exactly
+the count at which the 100 cap can still be reached: the grid draws its
+widest pictures in a ten-pixel window around a 380-pixel sheet and packs at
+the art's own floor at every width above it. The two tests say which of them
+checks which — the tray counts the widths where the cap binds, and the core
+test holds `grid_across` at a measure narrow enough that it binds outright.
 And **the sheet's arithmetic stays the detailed row's**: `TRAY_ROWS`,
 `DEFAULT_H` and `MIN_H` describe the panel a player opens, so changing view
 changes the flow inside it and never the rectangle it stands in.
