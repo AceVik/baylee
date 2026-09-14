@@ -119,8 +119,17 @@ fn printed_sentence(
         .collect();
     // The bullet a modal card lists its modes under is the list's mark and
     // not the mode's words — the row is already one of several.
+    //
+    // Four marks, because a printing chooses its own and this is read off
+    // the catalog rather than off Scryfall's English: `•` in English,
+    // Portuguese and Chinese (which leaves no space after it), `*` in
+    // German, French, Spanish and Italian, and `・` in Japanese. The index
+    // is computed against the English text and is unaffected; only what the
+    // row draws is.
     let said = said.join(" ");
-    let said = said.trim_start_matches(['\u{2022}', ' ']).trim();
+    let said = said
+        .trim_start_matches(['\u{2022}', '*', '\u{30fb}', ' '])
+        .trim();
     (!said.is_empty()).then(|| said.to_string())
 }
 
@@ -705,15 +714,20 @@ mod tests {
 
     /// And it says it in the player's own language, because the sentence is
     /// the *catalog's* and only the index is the registry's.
+    ///
+    /// The text is the one the gateway actually serves for this printing,
+    /// **including its bullet**: a printing chooses its own mark, and the
+    /// German one is `*` where the English is `•`. A trim that knew only
+    /// the English mark left every German mode row starting with a star.
     #[test]
     fn a_mode_row_is_read_in_the_language_the_player_chose() {
         let (view, texts, object) = asking_about(
             "217062f5-96f1-454c-9507-17f34ef37070",
             "de",
-            "Wähle eins —\n\
-             • Jeder Gegner opfert eine Kreatur, die kein Spielstein ist.\n\
-             • Jeder Gegner opfert einen Kreaturenspielstein seiner Wahl.\n\
-             • Jeder Gegner opfert einen Planeswalker seiner Wahl.",
+            "Bestimme eines -\n\
+             * Jeder Gegner opfert eine Nichtspielsteinkreatur, die er bestimmt.\n\
+             * Jeder Gegner opfert einen Kreaturenspielstein, den er bestimmt.\n\
+             * Jeder Gegner opfert einen Planeswalker, den er bestimmt.",
         );
         let rows = cast_rows(
             object,
@@ -726,7 +740,7 @@ mod tests {
         );
         assert_eq!(
             rows[0].label,
-            "Jeder Gegner opfert einen Kreaturenspielstein seiner Wahl."
+            "Jeder Gegner opfert einen Kreaturenspielstein, den er bestimmt."
         );
     }
 

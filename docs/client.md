@@ -2089,6 +2089,11 @@ offers its three bullets, Solitude offers "Evoke—Exile a white card from your
 hand". Reminder text is dropped — it is the card explaining itself, which is
 worth a line on a card and is not what a button says — and the bullet a modal
 card lists its modes under goes with it, the row already being one of several.
+Four marks, and they are read off the catalog rather than guessed: `•` in
+English, Portuguese and Chinese — which leaves no space after it — `*` in
+German, French, Spanish and Italian, and `・` in Japanese. Only the drawing
+is affected; the index is computed against Scryfall's English and every one
+of those printings splits into the same number of lines.
 The cost stays drawn beside the words even where the sentence prints it too,
 because that is what the ability sheet does with "Cycling {B}" and the two
 choosers are meant to be indistinguishable. Everything that cannot be read
