@@ -103,7 +103,7 @@ pub fn sync_overlay(
     mut commands: Commands,
     duel: Res<Duel>,
     mut revision: ResMut<HudRevision>,
-    existing: Query<Entity, With<HudRoot>>,
+    tree: OverlayTree,
     mut textures: ResMut<CardTextures>,
     assets: Res<AssetServer>,
     windows: Query<&Window>,
@@ -258,7 +258,7 @@ pub fn sync_overlay(
         && revision.choice == choice
         && revision.cast_menu == cast_menu
         && revision.window == canvas
-        && !existing.is_empty()
+        && !tree.root.is_empty()
     {
         return;
     }
@@ -284,10 +284,14 @@ pub fn sync_overlay(
     revision.cast_menu = cast_menu;
     revision.window = canvas;
 
-    for entity in &existing {
-        commands.entity(entity).despawn();
-    }
     let (Some(board), Some(view)) = (duel.board.as_ref(), duel.view.as_ref()) else {
+        // Nothing to draw yet, or nothing left: the tree describes a game
+        // that is not there, so all of it goes — the shelf included. The
+        // guard above then finds no root and rebuilds from the first frame
+        // there is one, which is what this early return has always bought.
+        for (root, _) in &tree.root {
+            commands.entity(root).despawn();
+        }
         return;
     };
 
@@ -314,18 +318,56 @@ pub fn sync_overlay(
         })
         .unwrap_or_default();
 
-    let root = commands
-        .spawn((
-            HudRoot,
-            Node {
-                width: percent(100),
-                height: percent(100),
-                ..default()
-            },
-            // The overlay must never eat clicks meant for the table.
-            Pickable::IGNORE,
-        ))
-        .id();
+    // The rebuild, which is no longer a clean sweep: the root and the shelf
+    // stand, everything else is torn down and written again.
+    //
+    // The shelf is the exception because it is the one thing here that is not
+    // a picture of the snapshot — it is the edge the window ends at, and the
+    // buttons on it hold a `Feel` whose warmth would be lost every time the
+    // pointer crossed a card. `ledge::LedgeShelf` has the whole argument,
+    // including why it cannot simply be a second root the way the seat bars
+    // are.
+    //
+    // The design (§10.2 step 1) put the shelf in this tree and (§6) asked for
+    // a revision counter of its own in the same breath, which cannot both be
+    // true while a rebuild despawns the root: a counter governing a subtree
+    // that is deleted on every pointer move governs nothing. Keeping the root
+    // is the smaller of the two ways out — the other moves four `ZIndex`
+    // layers to `GlobalZIndex` to make room for a ledge root between the veil
+    // and the preview.
+    let root = if let Ok((root, children)) = tree.root.single() {
+        for child in children.into_iter().flatten() {
+            if !tree.shelf.contains(*child) {
+                commands.entity(*child).despawn();
+            }
+        }
+        root
+    } else {
+        let root = commands
+            .spawn((
+                HudRoot,
+                Node {
+                    width: percent(100),
+                    height: percent(100),
+                    ..default()
+                },
+                // The overlay must never eat clicks meant for the table.
+                Pickable::IGNORE,
+            ))
+            .id();
+        // The ledge stands on top of the hand zone and is a *sibling* of it,
+        // not a child: `ZIndex` counts among siblings, and the question has
+        // to stand over the table veil the zone dialog paints while the hand
+        // goes dark under it. `ledge::spawn_ledge` has the whole reason.
+        //
+        // Spawned with the root rather than with the hand below it, because
+        // it outlives every rebuild the hand does not, and because it is
+        // drawn whether or not there is a hand to draw: §6's first principle
+        // is that the zone's height never changes.
+        let ledge = ledge::spawn_ledge(&mut commands);
+        commands.entity(root).add_child(ledge);
+        root
+    };
 
     // ---- top right: the two things that end a game -----------------------
     //
@@ -959,18 +1001,6 @@ pub fn sync_overlay(
             cards.as_mut(),
         );
         commands.entity(root).add_child(hand_zone);
-
-        // The ledge stands on top of the zone and is a *sibling* of it, not a
-        // child: `ZIndex` counts among siblings, and the question has to
-        // stand over the table veil the zone dialog paints while the hand
-        // goes dark under it. `ledge::spawn_ledge` has the whole reason.
-        //
-        // Spawned after the zone so that, at equal `ZIndex`, it would still
-        // be the later of the two — the order is not what carries it, but a
-        // shelf built before the thing it stands on is a trap left for
-        // somebody.
-        let ledge = ledge::spawn_ledge(&mut commands);
-        commands.entity(root).add_child(ledge);
 
         // ---- card preview: a speech-bubble tooltip over the hovered
         // card (hand, own battlefield, or command zone). No title text —
@@ -2338,6 +2368,62 @@ mod tests {
                 "every game still being played offers both of these: {lines:?}"
             );
         }
+    }
+
+    /// The shelf is built once and stands; everything else on the overlay is
+    /// a picture of the snapshot and is drawn again.
+    ///
+    /// [`HudRevision`] counts the hover, so this rebuild happens hundreds of
+    /// times a turn — every time the pointer crosses a card. The shelf is the
+    /// one node that must survive it: a `Feel`'s warmth is state on the
+    /// button entity, so a shelf torn down under the pointer snaps the button
+    /// the player is reaching for back to rest, and the ledge's own revision
+    /// counter would govern a subtree that is deleted before it can be
+    /// compared.
+    ///
+    /// The counter-half of the assertion is the important one. Without it
+    /// this passes on an overlay that stopped rebuilding at all, which is the
+    /// much worse bug of the two: a bar that never redraws says the wrong
+    /// thing about the game for as long as the game lasts.
+    #[test]
+    fn the_shelf_outlives_a_rebuild_and_nothing_else_does() {
+        let mut app = bar_of(duel_with(false));
+
+        let shelf = |app: &mut App| {
+            let mut q = app
+                .world_mut()
+                .query_filtered::<Entity, With<ledge::LedgeShelf>>();
+            q.iter(app.world()).collect::<Vec<_>>()
+        };
+        let roots = |app: &mut App| {
+            let mut q = app.world_mut().query_filtered::<Entity, With<HudRoot>>();
+            q.iter(app.world()).collect::<Vec<_>>()
+        };
+        let words = |app: &mut App| {
+            let mut q = app.world_mut().query_filtered::<Entity, With<Text>>();
+            q.iter(app.world()).collect::<Vec<_>>()
+        };
+
+        let was_shelf = shelf(&mut app);
+        let was_root = roots(&mut app);
+        let was_words = words(&mut app);
+        assert_eq!(was_shelf.len(), 1, "one shelf, and it was built");
+        assert_eq!(was_root.len(), 1, "and one root to hang it off");
+        assert!(!was_words.is_empty(), "and a question written on the bar");
+
+        // The pointer moves onto a card. Nothing about the game changed.
+        app.world_mut().resource_mut::<Duel>().hovered = Some(ObjectId::new(1, 0));
+        app.update();
+
+        assert_eq!(shelf(&mut app), was_shelf, "the shelf was rebuilt");
+        assert_eq!(roots(&mut app), was_root, "and so was the root under it");
+        let now_words = words(&mut app);
+        assert!(!now_words.is_empty(), "the bar still says something");
+        assert!(
+            now_words.iter().all(|e| !was_words.contains(e)),
+            "the overlay stopped rebuilding: it is still showing the tree it \
+             built for a different frame"
+        );
     }
 
     // ---- the slip under the preview -------------------------------------

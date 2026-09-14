@@ -15,6 +15,29 @@
 #[allow(clippy::wildcard_imports)] // the HUD's own vocabulary
 use super::*;
 
+/// The shelf itself: the one node in the overlay's retained tree that
+/// **outlives a rebuild**.
+///
+/// [`super::HudRevision`] counts the hover, so `sync_overlay` tears its tree
+/// down and builds it again whenever the pointer crosses a card — hundreds of
+/// times a turn. Everything in that tree is content that follows the pointer
+/// (the preview *is* the hover) or is cheap enough not to care. The shelf is
+/// neither: it is the edge the window ends at, it is there at the first frame
+/// and never goes, and the buttons on it carry a [`crate::ambience::Feel`]
+/// whose warmth is state on the entity — a shelf rebuilt under the pointer
+/// snaps the button the player is reaching for back to rest.
+///
+/// So `sync_overlay` keeps the root and this node across a rebuild and
+/// despawns the rest, and the shelf's own contents answer to their own
+/// revision. It is **not** a second root, and that is a measurement rather
+/// than a preference: a root sorts wholesale against the others, and the
+/// shelf has to stand *over* the table veil (`Z_VEIL`, the whole window) and
+/// *under* the hover preview (`Z_PREVIEW`, which `hand::beside` may put over
+/// the shelf when it describes a card near the bottom of the screen). Both
+/// are children of [`HudRoot`], so the shelf has to be one too.
+#[derive(Component)]
+pub struct LedgeShelf;
+
 /// Spawns the shelf: opaque, full width, [`hand::LEDGE_H`] tall, standing on
 /// the top of the hand zone.
 ///
@@ -35,6 +58,7 @@ use super::*;
 pub(super) fn spawn_ledge(commands: &mut Commands) -> Entity {
     commands
         .spawn((
+            LedgeShelf,
             Node {
                 position_type: PositionType::Absolute,
                 bottom: px(hand::HAND_ZONE_H - hand::LEDGE_H),

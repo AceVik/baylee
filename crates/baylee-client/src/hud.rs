@@ -1436,6 +1436,26 @@ pub struct CardMotion<'w> {
     pub(crate) touch: Res<'w, crate::touch::Touched>,
 }
 
+/// The overlay's retained tree, as the two things a rebuild has to tell
+/// apart.
+///
+/// One `SystemParam` for the reason [`CardMotion`] gives — [`sync_overlay`]
+/// stands at bevy's sixteen-parameter ceiling and a seventeenth fails at
+/// every `.before()` that names it rather than where it is written.
+///
+/// The pair exists because a rebuild is no longer a clean sweep.
+/// [`HudRevision`] counts the hover, so the tree is torn down whenever the
+/// pointer moves; [`ledge::LedgeShelf`] is the one node that must not be, and
+/// its doc comment has the whole reason. So the root is kept, its children
+/// are despawned, and the shelf is passed over.
+#[derive(bevy::ecs::system::SystemParam)]
+pub struct OverlayTree<'w, 's> {
+    /// The root, and whatever hangs off it.
+    pub(crate) root: Query<'w, 's, (Entity, Option<&'static Children>), With<HudRoot>>,
+    /// The shelf, so a child can be recognised as the one to keep.
+    pub(crate) shelf: Query<'w, 's, Entity, With<ledge::LedgeShelf>>,
+}
+
 mod card;
 mod finish;
 mod hand;
