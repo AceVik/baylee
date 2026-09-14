@@ -34,8 +34,9 @@ use bevy::shader::ShaderRef;
 
 /// How far in front of the camera the sky stands, in table units.
 ///
-/// Well past [`crate::table::MAX_DISTANCE`] so nothing the player can zoom to
-/// reaches it, and well inside the default far plane (1000) so it is never
+/// Well past [`crate::table::MAX_DISTANCE`] — which is the framing's own
+/// ceiling now and no longer a player's zoom — so no shot the client takes
+/// can reach it, and well inside the default far plane (1000) so it is never
 /// clipped away.
 pub const SKY_DISTANCE: f32 = 500.0;
 

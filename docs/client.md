@@ -3383,6 +3383,32 @@ fifth row of cards was space nothing could ever be put in. `MIN_W` and `MIN_H`
 are the same arithmetic at the floor — ten characters of name, and two whole
 rows.
 
+**A place you work in is a place the keyboard is already in.** The filter box
+takes the keyboard as the panel opens (`input::browser_takes_the_keyboard`)
+and gives it back on `Esc` or `Enter`, after which the sheet can stand open
+through a turn with the letters at the table again. It was the other way
+round — the box took the keyboard only on a click — and the owner found the
+cost the first time they used the search: fifteen of the twenty-six bare
+letters are bound actions, so a term typed into a freshly opened panel was
+fifteen keystrokes fired at the game. One of them is `T`, which latches the
+text view on and **persists it**, which is why the report came back as *"Alle
+Karten sind falsch rum"* a session later rather than as anything about
+searching. `K`/`B` and `Y`/`N` are worse and quieter: they reach the engine,
+and there is no undo.
+
+Three details hold it. The keystroke that *opened* the panel is not a
+keystroke for the box — `G` opens the sheet on a frame where nothing reads the
+message queue and a `KeyboardInput` outlives its frame, so `keyboard` advances
+its reader past whatever is standing on the frame the box gains the keyboard,
+or the panel opens with `g` already typed into it. The shell refuses to take
+the keyboard at all where the platform owns its own typing (a phone's
+`<input>` is raised by a tap and by nothing else) or while an ordering is
+being made, which draws no filter box. And `Browser::start_typing` promotes
+only a sheet that was **shut**: writing `Opening::ByHand` over one a question
+opened would set `answers_here()` false and kill that question's own keys on a
+dialog still standing, which is what clicking the filter box did to a search
+prompt for as long as the box could be clicked.
+
 Every zone tab says how many cards are in it, in brackets, which is not
 decoration: `bracketed` is what greys a run, so `Graveyard (12)` draws as a
 name with a grey aside and reads as one. It is also the only thing the

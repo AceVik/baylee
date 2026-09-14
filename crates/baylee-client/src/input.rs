@@ -4124,7 +4124,9 @@ mod tests {
             .init_resource::<crate::table::CameraRig>()
             .init_resource::<crate::settings::ClientSettings>()
             .add_message::<KeyboardInput>()
+            .init_resource::<Keystrokes>()
             .insert_resource(duel)
+            .add_systems(PreUpdate, deliver_keystrokes)
             .add_systems(
                 Update,
                 (
@@ -4135,6 +4137,34 @@ mod tests {
         let window = app.world_mut().spawn_empty().id();
         app.update();
         (app, window)
+    }
+
+    /// Keystrokes waiting to be written *inside* a frame.
+    ///
+    /// A message written before `App::update` is not the same message a
+    /// keyboard writes, and the difference is exactly the one under test.
+    /// `Messages::update` runs in `First`, so a write from outside the
+    /// schedule is already one swap old when `Update` sees it and is dropped
+    /// at the start of the next frame — it lives one frame, not two. A real
+    /// keystroke is written by `bevy_input` in `PreUpdate`, *after* that swap,
+    /// so it is still readable on the following frame. That following frame is
+    /// the frame the filter box takes the keyboard on, which is the whole
+    /// reason `keyboard` clears its reader there.
+    ///
+    /// Writing from outside hid that: with the guard commented out the test
+    /// still passed, because the character the box would have eaten had
+    /// already expired.
+    #[derive(bevy::prelude::Resource, Default)]
+    struct Keystrokes(Vec<bevy::input::keyboard::KeyboardInput>);
+
+    /// `bevy_input`'s half, in the one place it matters.
+    fn deliver_keystrokes(
+        mut queued: bevy::prelude::ResMut<Keystrokes>,
+        mut out: bevy::prelude::MessageWriter<bevy::input::keyboard::KeyboardInput>,
+    ) {
+        for key in queued.0.drain(..) {
+            out.write(key);
+        }
     }
 
     /// One letter, pressed the way a real keyboard presses it.
@@ -4157,14 +4187,17 @@ mod tests {
         app.world_mut()
             .resource_mut::<ButtonInput<KeyCode>>()
             .press(code);
-        app.world_mut().write_message(KeyboardInput {
-            key_code: code,
-            logical_key: Key::Character(c.to_string().into()),
-            state: bevy::input::ButtonState::Pressed,
-            text: Some(c.to_string().into()),
-            repeat: false,
-            window,
-        });
+        app.world_mut()
+            .resource_mut::<Keystrokes>()
+            .0
+            .push(KeyboardInput {
+                key_code: code,
+                logical_key: Key::Character(c.to_string().into()),
+                state: bevy::input::ButtonState::Pressed,
+                text: Some(c.to_string().into()),
+                repeat: false,
+                window,
+            });
         app.update();
         app.world_mut()
             .resource_mut::<ButtonInput<KeyCode>>()
@@ -4354,8 +4387,20 @@ mod tests {
     /// The browser had a pointer route and no keyboard one, which is exactly
     /// the promise `docs/keyboard-map.md` makes and the reason the action was
     /// added rather than the chip being the only way in.
+    ///
+    /// It is also the one test that walks the whole `G` path with both systems
+    /// registered, which is what makes it the place the `typed.clear()` guard
+    /// is held: the frame `G` opens the sheet on writes a `KeyboardInput` that
+    /// nothing reads, and messages live two frames, so without the guard that
+    /// `g` is waiting in the queue when the box takes the keyboard a frame
+    /// later. The panel would open with `g` already typed into it.
+    ///
+    /// The second half of the old test — `G` again shuts it — was true and is
+    /// no longer, which is the *point* of the change rather than a regression:
+    /// a box with the keyboard is a box a bound letter cannot reach past. The
+    /// way out is `Esc`, and then the latch is a latch again.
     #[test]
-    fn the_browser_key_opens_the_tray_and_shuts_it_again() {
+    fn the_browser_key_opens_the_tray_and_the_box_then_holds_the_letters() {
         use bevy::input::ButtonInput;
         use bevy::input::keyboard::KeyboardInput;
         use bevy::prelude::*;
@@ -4367,7 +4412,16 @@ mod tests {
             .init_resource::<crate::settings::ClientSettings>()
             .add_message::<KeyboardInput>()
             .init_resource::<crate::Duel>()
-            .add_systems(Update, super::keyboard);
+            .init_resource::<Keystrokes>()
+            .add_systems(PreUpdate, deliver_keystrokes)
+            .add_systems(
+                Update,
+                (
+                    super::browser_takes_the_keyboard.before(super::keyboard),
+                    super::keyboard,
+                ),
+            );
+        let window = app.world_mut().spawn_empty().id();
 
         // `reset_all` and not `clear`: a key that is still held is not pressed
         // again, and the second press would fire nothing at all.
@@ -4378,15 +4432,51 @@ mod tests {
             app.update();
         };
 
-        assert!(!app.world().resource::<crate::Duel>().browser.is_open());
-        press(&mut app, KeyCode::KeyG);
+        assert!(!panel_stands(&app));
+        // A real press of `G`, character and all — because the character is
+        // the thing that must not be typed.
+        type_letter(&mut app, window, KeyCode::KeyG, 'g');
+        assert!(panel_stands(&app), "the browser key did not open the tray");
         assert!(
-            app.world().resource::<crate::Duel>().browser.is_open(),
-            "the browser key did not open the tray"
+            !app.world().resource::<crate::Duel>().browser.is_typing(),
+            "the box takes the keyboard a frame later, not on the frame the \
+             sheet opens: that frame's keystroke belongs to the game"
         );
+
+        // The frame after, which in the client is simply the next one.
+        app.update();
+        assert!(
+            app.world().resource::<crate::Duel>().browser.is_typing(),
+            "the sheet opened and nothing gave the filter box the keyboard"
+        );
+        assert_eq!(
+            filter_reads(&app),
+            "",
+            "the keystroke that opened the panel was typed into it"
+        );
+
+        // Now the same key is a letter. The latch is out of reach.
+        type_letter(&mut app, window, KeyCode::KeyG, 'g');
+        assert_eq!(filter_reads(&app), "g");
+        assert!(
+            panel_stands(&app),
+            "a letter typed into the box shut the panel"
+        );
+
+        // `Esc` twice: the first empties the box, the second hands the
+        // keyboard back. Two presses because a player who has typed a term
+        // means the term, not the panel.
+        press(&mut app, KeyCode::Escape);
+        assert_eq!(filter_reads(&app), "");
+        assert!(app.world().resource::<crate::Duel>().browser.is_typing());
+        press(&mut app, KeyCode::Escape);
+        assert!(!app.world().resource::<crate::Duel>().browser.is_typing());
+        assert!(panel_stands(&app), "letting go of the box shut the panel");
+
+        // And with the letters back at the table it is a latch again.
         press(&mut app, KeyCode::KeyG);
         assert!(
-            !app.world().resource::<crate::Duel>().browser.is_open(),
+            !panel_stands(&app),
             "it is a latch, so the same key shuts it"
         );
     }

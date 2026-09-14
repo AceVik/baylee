@@ -363,7 +363,11 @@ pub struct TableCamera;
 pub struct CameraRig {
     /// Look-at point in world space (x/z).
     pub target: Vec2,
-    /// Distance from the target (zoom).
+    /// Distance from the target.
+    ///
+    /// Written by the framing and by nothing a hand does: there is no zoom
+    /// control any more, so this is an output of [`CameraRig::home`] that a
+    /// pan carries along rather than a setting.
     pub distance: f32,
     /// Azimuth around the target (0 = behind the local seat).
     pub yaw: f32,
@@ -392,17 +396,18 @@ impl Default for CameraRig {
 }
 
 impl CameraRig {
-    /// As close as the player may pull the camera in: one seat's lane,
+    /// As close as the framing may pull the camera in: one seat's lane,
     /// filling the screen.
     pub const MIN_DISTANCE: f32 = 12.0;
-    /// As far as the player may push it out.
+    /// As far as the framing may push it out.
     ///
-    /// It is a limit on the *player's* zoom, and [`CameraRig::home`] clamps
-    /// itself to the same pair — which is why it has headroom over the
-    /// furthest table there is. A five-seat table asks for about 81 units,
-    /// and a limit sitting just above that would not stop the shot: it
-    /// would silently crop it, because a fit refused is a fit that no
-    /// longer fits.
+    /// It was a limit on the *player's* zoom and is now the only limit there
+    /// is: the zoom went at the owner's word (*„Das Zoom in/out sollte eh
+    /// weg!"*), so the pair bounds [`CameraRig::home`] and nothing else —
+    /// which is why it has headroom over the furthest table there is. A
+    /// five-seat table asks for about 81 units, and a limit sitting just
+    /// above that would not stop the shot: it would silently crop it,
+    /// because a fit refused is a fit that no longer fits.
     ///
     /// Both ends are distances through [`FOV`], so both moved when it did:
     /// the same shot through half the angle stands twice as far off, and a
@@ -799,7 +804,7 @@ pub const FOV: f32 = 0.42;
 /// Where the camera actually is, as against where the rig says it should be.
 ///
 /// A second copy rather than smoothing the rig itself, because the rig is
-/// *input*: a drag writes it, a zoom writes it, focusing a seat writes it,
+/// *input*: a drag writes it, the framing writes it, focusing a seat writes it,
 /// and every one of those wants to be able to say "there" without having to
 /// know that something else is interpolating behind it.
 #[derive(Resource, Clone, Copy, Default)]

@@ -715,14 +715,25 @@ impl Browser {
 
     /// Whether the filter box has the keyboard.
     ///
-    /// The panel hands it over as it opens and the player takes it back with
-    /// `Esc` or `Enter`, after which the letters belong to the game again and
-    /// the sheet can stand open through a turn. It was the other way round
-    /// once — the box took the keyboard only on a click — and the price was
-    /// paid in a single sitting: a search term typed into an open panel was
-    /// fifteen bound letters fired at the table, one of which latched the
-    /// text view on and persisted it. `K`/`B` and `Y`/`N` reach the *engine*,
-    /// and there is no undo.
+    /// Normally it is handed over as the panel opens and the player takes it
+    /// back with `Esc` or `Enter`, after which the letters belong to the game
+    /// again and the sheet can stand open through a turn. It was the other
+    /// way round once — the box took the keyboard only on a click — and the
+    /// price was paid in a single sitting: a search term typed into an open
+    /// panel was fifteen bound letters fired at the table, one of which
+    /// latched the text view on and persisted it. `K`/`B` and `Y`/`N` reach
+    /// the *engine*, and there is no undo.
+    ///
+    /// **This half does not decide that**, and a reader who takes the
+    /// paragraph above as the whole rule will be wrong on two platforms.
+    /// [`Self::start_typing`] is called by the shell —
+    /// `input::browser_takes_the_keyboard` in `baylee-client` — which refuses
+    /// on two counts a model cannot see: a platform that owns its own typing
+    /// (a phone's `<input>` is raised by a tap and by nothing else, so
+    /// seizing the keyboard here would draw a focused box nobody can type
+    /// into), and an ordering, which draws no filter box at all. An open
+    /// panel with this `false` is therefore not a defect by itself; it is one
+    /// of those two, or the player pressed `Esc`.
     #[must_use]
     pub const fn is_typing(&self) -> bool {
         self.typing
