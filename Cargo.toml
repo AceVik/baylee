@@ -38,6 +38,7 @@ baylee-engine-server = { path = "crates/baylee-engine-server" }
 baylee-agent = { path = "crates/baylee-agent" }
 baylee-catalog = { path = "crates/baylee-catalog" }
 baylee-build = { path = "crates/baylee-build" }
+baylee-db = { path = "crates/baylee-db" }
 
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
@@ -82,10 +83,27 @@ lettre = { version = "0.11", default-features = false, features = [
 ] }
 subtle = "2"
 tokio-tungstenite = "0.30"
-# Card catalog persistence (gateway only). The engine never sees a database.
+# Persistence, gateway side only. The engine never sees a database: the
+# catalog stores card text, `baylee-db` stores accounts, decks and sessions.
 sea-orm = { version = "2.0", default-features = false, features = [
     "sqlx-postgres", "runtime-tokio-rustls", "macros",
+    # The three Postgres types the account tables are built from, plus the
+    # array a decklist is stored as. Without these features SeaORM maps a
+    # `uuid` column to a `String` and a `timestamptz` to nothing at all,
+    # which is how a typed schema quietly becomes a stringly one again.
+    "with-uuid", "with-time", "with-json", "postgres-array",
 ] }
+# The migrator. Same release line as `sea-orm` deliberately: the two share
+# `sea-query` types across their public API and a mismatched pair fails to
+# compile in a way that reads like a bug in this repository.
+sea-orm-migration = { version = "2.0", default-features = false, features = [
+    "sqlx-postgres", "runtime-tokio-rustls",
+] }
+# Timestamps. `time` rather than `chrono` because it was already in the tree
+# as a transitive dependency and because `OffsetDateTime` cannot be built
+# without an offset, which is the mistake a `timestamptz` column exists to
+# stop being possible.
+time = { version = "0.3", features = ["serde"] }
 # Scryfall ships its bulk data gzipped; the ingest streams it rather than
 # holding 400 MB of JSON in memory.
 flate2 = "1"
