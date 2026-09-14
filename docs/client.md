@@ -3383,6 +3383,34 @@ fifth row of cards was space nothing could ever be put in. `MIN_W` and `MIN_H`
 are the same arithmetic at the floor — ten characters of name, and two whole
 rows.
 
+**The dialog is drawn on a revision of its own**, and that is the answer to
+the owner's second report about it: *„Das Zonen-Dialog ist noch sehr instabil!
+Beim Hover flackert alles"*. `HudRevision` carries `hovered`, so the overlay
+tree is torn down and written again on every pointer move that changes which
+object is under the cursor — and the dialog is a hundred rows that the pointer
+moves *across*. What a player sees is the row they are reaching for going out
+as they reach it: the replacement is a new entity whose `Feel` starts at
+`warmth: 0`, and picking needs a frame to send `Over` to something that did
+not exist when it last looked. `tray::TrayRevision` counts what the dialog
+actually draws from — the `BrowserGate`, the snapshot, what is ticked, where
+the keyboard is standing, arrivals, the text-face latch, the window — and no
+hover at all, because the dialog reads none: `Feel` lights a row through
+picking frame by frame with nothing rebuilt, and a row's focus ring is
+`Interaction::aim`, the keyboard's row rather than the pointer's. The
+placement is deliberately not in the gate either; `input::tray_drag` writes
+the panel's `Node` directly so that dragging the sheet does not rebuild it.
+
+It is the **sixth** retained tree and it is *not* a sixth root: the veil
+stands at `Z_VEIL` and the panel at `Z_SHEET` with the shelf's `Z_LEDGE`
+between them, and a `ZIndex` orders a node only among its own parent's
+children — so the two are two children of `HudRoot` which `sync_overlay`
+passes over by marker, the same bargain the shelf and the drawer already have.
+Wrapping them in one node to make a single root would put the shelf behind the
+veil, and the shelf is where the question the dialog is answering is written.
+The marker on the outer one is `TrayBand` rather than `TrayPanel`: the sheet
+is the rectangle a drag writes and has to stay the inner node, and a sweep
+told to keep the inner one despawns the band and takes the sheet with it.
+
 **A place you work in is a place the keyboard is already in.** The filter box
 takes the keyboard as the panel opens (`input::browser_takes_the_keyboard`)
 and gives it back on `Esc` or `Enter`, after which the sheet can stand open

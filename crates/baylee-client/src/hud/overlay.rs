@@ -222,14 +222,6 @@ pub fn sync_overlay(
     });
     let focus = duel.focus;
     let preview_scale = settings.preview_scale;
-    let browser = BrowserGate {
-        open: duel.browser.is_open(),
-        tab: duel.browser.tab(),
-        filter: duel.browser.filter().to_string(),
-        typing: duel.browser.is_typing(),
-        sort: duel.browser.sort(),
-        descending: duel.browser.descending(),
-    };
     let armed_deed = duel.armed.clone();
     // Rounded to whole pixels: a window being dragged reports fractional
     // sizes, and a revision keyed on an `f32` would rebuild the whole tree on
@@ -261,7 +253,6 @@ pub fn sync_overlay(
         && revision.texts == texts.len()
         && revision.arrivals == textures.epoch()
         && revision.combat == combat
-        && revision.browser == browser
         && revision.armed == armed_deed
         && revision.number == number
         && revision.choice == choice
@@ -285,7 +276,6 @@ pub fn sync_overlay(
     revision.texts = texts.len();
     revision.arrivals = textures.epoch();
     revision.combat = combat;
-    revision.browser = browser;
     revision.armed.clone_from(&armed_deed);
     revision.number = number;
     revision.choice = choice;
@@ -345,7 +335,11 @@ pub fn sync_overlay(
     // and the preview.
     let root = if let Ok((root, children)) = tree.root.single() {
         for child in children.into_iter().flatten() {
-            if !tree.shelf.contains(*child) && !tree.drawer.contains(*child) {
+            if !tree.shelf.contains(*child)
+                && !tree.drawer.contains(*child)
+                && !tree.veil.contains(*child)
+                && !tree.panel.contains(*child)
+            {
                 commands.entity(*child).despawn();
             }
         }
@@ -850,47 +844,13 @@ pub fn sync_overlay(
 
     // ---- the zone browser ------------------------------------------------
     //
-    // Opened from the table (a tap on the top card of a pile), from the
-    // keyboard, or by the engine asking a question about cards the table
-    // cannot show. Nothing draws a second copy of a zone to click.
-    if let (true, Some(statics)) = (duel.browser.is_open(), duel.statics.as_ref()) {
-        // Where the sheet stands, decided by the browser so that the tray
-        // takes a rectangle rather than the window and the store. `fit` is
-        // applied on every build and never written back: a window briefly
-        // dragged narrow must not overwrite where the player put the sheet on
-        // the screen they play on. A sheet a *question* opened reads no store
-        // at all and is centred — `Browser::placement` carries the
-        // measurement that says why a clamp was not enough.
-        // W2: the table goes dark behind a dialog that holds the whole answer,
-        // and behind no other — `Browser::dims_the_table` carries the argument
-        // for why that is a narrower question than "a question opened this".
-        //
-        // The node is spawned whenever the *sheet* is, and it is
-        // `dim_the_table` that decides how dark it is: a question answered by
-        // a second one that the sheet only partly holds leaves the sheet
-        // standing with its lock gone, and a veil that was spawned on the lock
-        // would vanish there instead of lifting. Clear, it is one node
-        // painting nothing and answering nothing.
-        let veil = tray::spawn_veil(&mut commands);
-        commands.entity(root).add_child(veil);
-        let band = tray::band_of(&windows);
-        let place = duel.browser.placement(band, settings.zone_browser);
-        let tray = tray::spawn_tray(
-            &mut commands,
-            lang,
-            &duel.browser,
-            view,
-            duel.interaction.as_ref(),
-            statics,
-            &mut textures,
-            &assets,
-            &fonts,
-            &faces,
-            cards.as_mut(),
-            place,
-        );
-        commands.entity(root).add_child(tray);
-    }
+    // Drawn here until the owner reported it flickering under the pointer,
+    // and the report was about this system rather than about the dialog:
+    // `hovered` is in the gate above, so every pointer move that changed
+    // which object was under the cursor despawned the whole tree — and the
+    // dialog is a hundred rows the pointer moves *across*. It is
+    // `tray::sync_tray` now, with `tray::TrayRevision` counting the things
+    // the dialog actually draws from, none of which is a hover.
 }
 
 /// What an armed deed calls itself: the words, and the mana those words name.
@@ -1310,13 +1270,18 @@ mod tests {
             .init_resource::<ledge::LedgeLayout>()
             .init_resource::<ledge::drawer::DrawerRevision>()
             .init_resource::<ledge::pool::PoolRevision>()
-            // All six, chained, in the order the app runs them: the first
+            .init_resource::<tray::TrayRevision>()
+            // All seven, chained, in the order the app runs them: the first
             // spawns the shelf, the pool's retained column and the drawer's
             // node, the second writes the shelf and records where its middle
             // ended up, then the drawer is filled over that middle and opened
             // or shut, and the pool's row is reconciled and moved. A harness
             // that ran only the rebuild would be reading a bar with no words
             // on it and calling that an answer.
+            //
+            // The zone dialog is the seventh and hangs off the same root on a
+            // gate of its own, which is a thing a harness running only
+            // `sync_overlay` could no longer see at all.
             .add_systems(
                 Update,
                 (
@@ -1326,6 +1291,7 @@ mod tests {
                     ledge::drawer::zoom_the_drawer,
                     ledge::pool::sync_pool,
                     ledge::pool::zoom_the_pool,
+                    tray::sync_tray,
                 )
                     .chain(),
             );
@@ -1705,18 +1671,23 @@ mod tests {
                 .query_filtered::<Entity, With<ledge::drawer::DrawerRoot>>();
             q.iter(app.world()).collect::<Vec<_>>()
         };
-        // Everything the root carries **except** the two nodes the sweep is
-        // told to pass over, which is the honest way to name "what the
-        // rebuild rebuilds": it says which entities it means rather than
-        // resting on a component that happens to be drawn in one place —
-        // `MenuButton` was that component and stopped being it the moment the
-        // ways out of a game moved to the shelf.
+        // Everything the root carries **except** the nodes the sweep is told
+        // to pass over, which is the honest way to name "what the rebuild
+        // rebuilds": it says which entities it means rather than resting on a
+        // component that happens to be drawn in one place — `MenuButton` was
+        // that component and stopped being it the moment the ways out of a
+        // game moved to the shelf.
+        //
+        // Four now, not two: the zone dialog's veil and panel joined the list
+        // when the dialog got a revision of its own.
         let redrawn = |app: &mut App| {
             let kept = {
-                let mut q = app.world_mut().query_filtered::<
-                    Entity,
-                    Or<(With<ledge::LedgeShelf>, With<ledge::drawer::DrawerRoot>)>,
-                >();
+                let mut q = app.world_mut().query_filtered::<Entity, Or<(
+                    With<ledge::LedgeShelf>,
+                    With<ledge::drawer::DrawerRoot>,
+                    With<TableVeil>,
+                    With<TrayBand>,
+                )>>();
                 q.iter(app.world()).collect::<Vec<_>>()
             };
             let mut q = app.world_mut().query_filtered::<&Children, With<HudRoot>>();
@@ -1765,6 +1736,77 @@ mod tests {
             now_redrawn.iter().all(|e| !was_redrawn.contains(e)),
             "the overlay stopped rebuilding: it is still showing the tree it \
              built for a different frame"
+        );
+    }
+
+    /// The owner's report, as an assertion: *„Das Zonen-Dialog ist noch sehr
+    /// instabil! Beim Hover flackert alles"*.
+    ///
+    /// The dialog is a hundred rows and the pointer moves *across* them, so
+    /// every row it reached tore the whole overlay down and wrote it again —
+    /// the dialog with it, because the dialog was part of that tree. What the
+    /// player sees is the row they are reaching for going out: the
+    /// replacement is a new entity with a fresh [`Feel`] at `warmth: 0`, and
+    /// picking needs a frame to send `Over` to something that did not exist
+    /// when it last looked.
+    ///
+    /// Both halves, and the second is the one that makes the first mean
+    /// anything: a dialog that had simply stopped being drawn would pass the
+    /// first assertion perfectly. So the filter is typed into next, which is
+    /// a change the dialog *must* answer, and the same entity standing there
+    /// would be the opposite defect — a panel showing a list nobody narrowed.
+    #[test]
+    fn the_zone_dialog_outlives_a_pointer_move_and_not_a_search() {
+        let mut duel = duel_with(false);
+        duel.statics = Some(baylee_client_core::test_support::statics(8));
+        duel.browser.open();
+        let mut app = bar_of(duel);
+
+        let panel = |app: &mut App| {
+            let mut q = app.world_mut().query_filtered::<Entity, With<TrayBand>>();
+            q.iter(app.world()).collect::<Vec<_>>()
+        };
+        let veil = |app: &mut App| {
+            let mut q = app.world_mut().query_filtered::<Entity, With<TableVeil>>();
+            q.iter(app.world()).collect::<Vec<_>>()
+        };
+        // The overlay's own half, so this cannot pass on a renderer that has
+        // stopped rebuilding anything at all.
+        let hand = |app: &mut App| {
+            let mut q = app.world_mut().query_filtered::<Entity, With<HandScroll>>();
+            q.iter(app.world()).collect::<Vec<_>>()
+        };
+
+        let was_panel = panel(&mut app);
+        let was_veil = veil(&mut app);
+        let was_hand = hand(&mut app);
+        assert_eq!(was_panel.len(), 1, "the dialog was drawn at all");
+        assert_eq!(was_veil.len(), 1, "and the veil behind it");
+        assert_eq!(was_hand.len(), 1, "and the overlay drew its own hand zone");
+
+        // The pointer moves onto a card. Nothing about the dialog changed.
+        app.world_mut().resource_mut::<Duel>().hovered = Some(ObjectId::new(1, 0));
+        app.update();
+
+        assert_eq!(panel(&mut app), was_panel, "the dialog was rebuilt");
+        assert_eq!(veil(&mut app), was_veil, "and so was the veil behind it");
+        assert!(
+            hand(&mut app).iter().all(|e| !was_hand.contains(e)),
+            "the overlay stopped rebuilding, so the dialog standing still \
+             says nothing about the dialog"
+        );
+
+        // And the counter-half: a letter in the filter box is a different
+        // list, and a different list is a rebuild.
+        app.world_mut()
+            .resource_mut::<Duel>()
+            .browser
+            .push_filter('a');
+        app.update();
+        assert!(
+            panel(&mut app).iter().all(|e| !was_panel.contains(e)),
+            "the search narrowed nothing: the dialog is showing the list it \
+             built before the letter was typed"
         );
     }
 

@@ -792,7 +792,9 @@ mod revision {
     #[test]
     fn the_browsers_gate_is_filled_field_by_field() {
         let hud = include_str!("../hud.rs");
-        let overlay = include_str!("overlay.rs");
+        // The dialog got a retained tree of its own, and the gate moved with
+        // it: `sync_overlay` reads the browser nowhere at all any more.
+        let built_in = include_str!("tray.rs");
 
         let body = hud
             .split_once("struct BrowserGate {")
@@ -812,8 +814,8 @@ mod revision {
             .collect();
         assert_eq!(fields.len(), 6, "the fields did not parse: {fields:?}");
 
-        let built = overlay
-            .split_once("let browser = BrowserGate {")
+        let built = built_in
+            .split_once("let browser = super::BrowserGate {")
             .expect("still built where the gate is assembled")
             .1
             .split_once("\n    };")

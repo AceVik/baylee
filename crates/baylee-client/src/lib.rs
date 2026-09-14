@@ -1033,6 +1033,18 @@ fn add_present_systems(app: &mut App) {
                 // the drawer's reason: a spent mana has to be able to leave.
                 hud::sync_pool.after(hud::sync_ledge),
                 hud::zoom_the_pool.after(hud::sync_pool),
+                // The zone dialog, on a revision of its own for the same
+                // reason as the shelf and with a louder symptom: the dialog
+                // is a hundred rows, and a tree rebuilt on every pointer move
+                // despawned the row under the pointer *as the pointer reached
+                // it* — the replacement starting at `warmth: 0` and waiting a
+                // frame for picking to say `Over` again. The owner reported
+                // it as the dialog being unstable.
+                //
+                // After the overlay, because it hangs its two nodes off that
+                // system's root; `sync_overlay` passes them over by marker
+                // the way it passes over the shelf and the drawer.
+                hud::sync_tray.after(hud::sync_overlay),
                 hud::dim_the_table.after(hud::sync_overlay),
                 // The end screen settles as that veil rises, off the very
                 // number `dim_the_table` has just written: one movement, one
@@ -1126,6 +1138,7 @@ impl Plugin for DuelPlugin {
             .init_resource::<hud::LedgeLayout>()
             .init_resource::<hud::DrawerRevision>()
             .init_resource::<hud::PoolRevision>()
+            .init_resource::<hud::TrayRevision>()
             .init_resource::<hud::SheetRevision>()
             .init_resource::<hud::Veil>()
             .init_resource::<textures::Preload>()

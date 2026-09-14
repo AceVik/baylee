@@ -188,6 +188,210 @@ const TRAY_CHROME_H: f32 =
 #[cfg(test)]
 const TRAY_ROWS: f32 = 8.5;
 
+/// What the dialog was last drawn from.
+///
+/// The **sixth** retained tree in this client and the fifth revision counter
+/// beside [`super::HudRevision`], and it exists for the reason every one of
+/// the others does: `HudRevision` counts `hovered`, so it is rebuilt on every
+/// pointer move that changes which object is under the cursor — and the
+/// dialog draws a hundred rows that the pointer is moving *across*.
+///
+/// The owner reported it as instability: *„Das Zonen-Dialog ist noch sehr
+/// instabil! Beim Hover flackert alles"*. The flicker is what a despawn and
+/// respawn looks like from outside. Two halves of it were paid off in
+/// 429e5a1a — the row no longer grows under the pointer, so a list stopped
+/// reflowing while it was being read — and this is the third: a row torn down
+/// and written again comes back with a fresh [`Feel`] at `warmth: 0`, and
+/// picking needs a frame to send `Over` to the new entity, so the row under
+/// the pointer goes dark for a frame *every time the pointer moves onto it*.
+///
+/// What is **not** here is as load-bearing as what is. The dialog reads no
+/// hover at all: `Feel` lights a row through picking, frame by frame, without
+/// anything being rebuilt, and `RowStanding::focused` is
+/// `Interaction::aim` — the keyboard's row, not the pointer's — which is why
+/// [`Self::aim`] is in the gate and `hovered` is not. And the *placement* is
+/// not here either, deliberately: `input::tray_drag` writes the panel's `Node`
+/// directly precisely so that dragging the sheet does not rebuild it, and a
+/// field here would undo that at the first pixel of the drag.
+#[derive(Resource, Default)]
+pub struct TrayRevision {
+    /// The panel's own state: open, which tab, the filter, the sort.
+    browser: super::BrowserGate,
+    /// The snapshot the rows describe.
+    seq: Option<u64>,
+    /// Which rows are ticked — and, in an ordering, their place numbers.
+    selected: Vec<ObjectId>,
+    /// Where the keyboard is standing, as `(position, count)`.
+    ///
+    /// [`baylee_client_core::Interaction::focus_position`] rather than `aim`
+    /// itself, because the two read the same `focus` and this one is `Copy`.
+    aim: Option<(usize, usize)>,
+    /// Card art that has arrived since the last build.
+    arrivals: u64,
+    /// The text-face latch, which turns every thumbnail over at once.
+    faces: bool,
+    /// How many card texts have been fetched.
+    texts: usize,
+    /// The window, rounded to whole pixels — a band a sheet is re-fitted to.
+    window: (i32, i32),
+}
+
+/// Draws the zone dialog, and only when the dialog has changed.
+///
+/// Two nodes rather than one subtree, and that is forced rather than chosen:
+/// the veil stands at [`Z_VEIL`] and the panel at [`Z_SHEET`], with the
+/// ledge's [`Z_LEDGE`] **between** them, because the shelf carries the
+/// question and its answers and a question drawn dimmed is a question the
+/// player is being told not to answer. A `ZIndex` orders a node among its own
+/// parent's children, so the two have to be siblings of the shelf and
+/// therefore two children of [`super::HudRoot`], not one wrapper.
+///
+/// It runs after `sync_overlay` and keeps its nodes out of that system's
+/// sweep by marker ([`super::OverlayTree`]), the same bargain the shelf and
+/// the drawer already have. When the overlay tears the root down — a game
+/// that is over, or one that has not started — these go with it, the queries
+/// below come back empty, and the gate rebuilds from the first frame there is
+/// a root again.
+#[allow(clippy::too_many_arguments)] // a panel, a view, and the stores
+pub fn sync_tray(
+    mut commands: Commands,
+    duel: Res<crate::Duel>,
+    mut revision: ResMut<TrayRevision>,
+    tree: TrayTree,
+    mut textures: ResMut<CardTextures>,
+    assets: Res<AssetServer>,
+    windows: Query<&Window>,
+    fonts: Res<UiFonts>,
+    settings: Res<crate::settings::ClientSettings>,
+    texts: Res<crate::cardtext::CardTexts>,
+    mode: Res<crate::face::FaceMode>,
+    ui_materials: Option<ResMut<UiCardMaterials>>,
+    material_assets: Option<ResMut<Assets<CardUiMaterial>>>,
+) {
+    let Ok(root) = tree.root.single() else {
+        // No overlay yet. Nothing of ours can be standing either — a despawn
+        // takes the descendants — so there is nothing to tear down and the
+        // gate is left untouched, ready to build on the frame a root appears.
+        return;
+    };
+    let browser = super::BrowserGate {
+        open: duel.browser.is_open(),
+        tab: duel.browser.tab(),
+        filter: duel.browser.filter().to_string(),
+        typing: duel.browser.is_typing(),
+        sort: duel.browser.sort(),
+        descending: duel.browser.descending(),
+    };
+    let seq = duel.board.as_ref().map(|b| b.seq);
+    let selected: Vec<ObjectId> = duel
+        .interaction
+        .as_ref()
+        .map(|i| i.selected().collect())
+        .unwrap_or_default();
+    let aim = duel
+        .interaction
+        .as_ref()
+        .and_then(baylee_client_core::Interaction::focus_position);
+    // Rounded to whole pixels for `HudRevision`'s reason: a window being
+    // dragged reports fractional sizes, and a gate keyed on an `f32` would
+    // rebuild on a sub-pixel wobble.
+    #[allow(clippy::cast_possible_truncation)]
+    let canvas = windows
+        .single()
+        .map_or((1200, 800), |w| (w.width() as i32, w.height() as i32));
+    let faces = FaceCtx {
+        texts: &texts,
+        mode: &mode,
+        settings: &settings,
+        view: duel.view.as_ref(),
+    };
+    let faces_always = faces.always();
+    // `!drawn` is this gate's `!tree.root.is_empty()`: the overlay can take
+    // the root away under us, and a revision that still said "open, already
+    // drawn" would leave the dialog missing until something else about it
+    // changed.
+    let drawn = !tree.panel.is_empty();
+    if revision.browser == browser
+        && revision.seq == seq
+        && revision.selected == selected
+        && revision.aim == aim
+        && revision.arrivals == textures.epoch()
+        && revision.faces == faces_always
+        && revision.texts == texts.len()
+        && revision.window == canvas
+        && drawn == browser.open
+    {
+        return;
+    }
+    revision.browser = browser.clone();
+    revision.seq = seq;
+    revision.selected.clone_from(&selected);
+    revision.aim = aim;
+    revision.arrivals = textures.epoch();
+    revision.faces = faces_always;
+    revision.texts = texts.len();
+    revision.window = canvas;
+
+    for entity in tree.panel.iter().chain(tree.veil.iter()) {
+        commands.entity(entity).despawn();
+    }
+
+    let (Some(view), Some(statics)) = (duel.view.as_ref(), duel.statics.as_ref()) else {
+        return;
+    };
+    if !browser.open {
+        return;
+    }
+
+    let mut cards = match (ui_materials, material_assets) {
+        (Some(cache), Some(assets)) => Some((cache, assets)),
+        _ => None,
+    };
+    let mut cards = cards.as_mut().map(|(cache, assets)| UiCards {
+        cache: cache.as_mut(),
+        assets: assets.as_mut(),
+    });
+    let lang = Lang::of(&settings.lang);
+
+    // W2: the table goes dark behind a dialog that holds the whole answer,
+    // and behind no other — `Browser::dims_the_table` carries the argument
+    // for why that is a narrower question than "a question opened this".
+    //
+    // The node is spawned whenever the *sheet* is, and it is `dim_the_table`
+    // that decides how dark it is: a question answered by a second one that
+    // the sheet only partly holds leaves the sheet standing with its lock
+    // gone, and a veil that was spawned on the lock would vanish there
+    // instead of lifting. Clear, it is one node painting nothing and
+    // answering nothing.
+    let veil = spawn_veil(&mut commands);
+    commands.entity(root).add_child(veil);
+    // Where the sheet stands, decided by the browser so that the tray takes a
+    // rectangle rather than the window and the store. `fit` is applied on
+    // every build and never written back: a window briefly dragged narrow
+    // must not overwrite where the player put the sheet on the screen they
+    // play on. A sheet a *question* opened reads no store at all and is
+    // centred — `Browser::placement` carries the measurement that says why a
+    // clamp was not enough.
+    let place = duel
+        .browser
+        .placement(band_of(&windows), settings.zone_browser);
+    let tray = spawn_tray(
+        &mut commands,
+        lang,
+        &duel.browser,
+        view,
+        duel.interaction.as_ref(),
+        statics,
+        &mut textures,
+        &assets,
+        &fonts,
+        &faces,
+        cards.as_mut(),
+        place,
+    );
+    commands.entity(root).add_child(tray);
+}
+
 /// The strip of screen the sheet is allowed into: below the seat tabs and the
 /// phase rail, above the hand zone.
 ///
@@ -471,6 +675,7 @@ pub(super) fn spawn_tray(
     // which is how the seat bars once came to be drawn through this dialog.
     let frame = commands
         .spawn((
+            TrayBand,
             Node {
                 position_type: PositionType::Absolute,
                 left: px(0),

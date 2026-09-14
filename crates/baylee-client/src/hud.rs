@@ -533,6 +533,18 @@ pub struct TrayClose;
 #[derive(Component)]
 pub struct TrayPanel;
 
+/// The band the sheet is placed in: the dialog's outermost node, and the one
+/// that is actually a child of [`HudRoot`].
+///
+/// A second marker rather than moving [`TrayPanel`] outwards, because the two
+/// nodes answer two questions. `TrayPanel` is the rectangle a drag writes and
+/// has to be the sheet itself; this is what [`OverlayTree`] passes over and
+/// [`TrayTree`] tears down, and a sweep that named the inner one would despawn
+/// the band and take the sheet with it — which is exactly what it did for one
+/// test run.
+#[derive(Component)]
+pub struct TrayBand;
+
 /// The sheet's title row: what a drag takes hold of.
 ///
 /// The header and not a separate grip glyph, which is the convention every
@@ -774,6 +786,10 @@ pub fn hand_layout(count: usize, card_w: f32, available_w: f32) -> HandLayout {
 ///
 /// Named fields are the whole point — an omission from a list of names is
 /// visible where an omission from `(bool, Option<_>, String, bool)` is not.
+///
+/// It sat in [`HudRevision`] until the dialog got a retained tree of its own;
+/// it is [`tray::TrayRevision`]'s now, and the browser reaches `sync_overlay`
+/// nowhere else at all.
 #[derive(Default, Clone, PartialEq, Eq)]
 struct BrowserGate {
     /// Whether the panel stands at all. Opened by a choice arriving and by a
@@ -838,8 +854,6 @@ pub struct HudRevision {
     /// the client until the answer is sent — so without them here the combat
     /// line would be drawn once and then stay wrong for the whole step.
     combat: Option<(usize, usize, usize)>,
-    /// What the zone browser is showing.
-    browser: BrowserGate,
     /// The value a number choice stands at. It changes with no new snapshot —
     /// stepping X never leaves the client until Confirm — so without it the
     /// stepper would draw the opening value and then stay wrong.
@@ -1488,6 +1502,35 @@ pub struct OverlayTree<'w, 's> {
     /// and they survive it for two arguments, so a reader of this struct
     /// should have to see both.
     pub(crate) drawer: Query<'w, 's, Entity, With<ledge::drawer::DrawerRoot>>,
+    /// The zone dialog's veil, kept for a third argument: the dialog is
+    /// rebuilt on a gate of its own ([`tray::TrayRevision`]), because it draws
+    /// from no hover at all and this system's gate counts one.
+    pub(crate) veil: Query<'w, 's, Entity, With<TableVeil>>,
+    /// And the dialog's panel. A fourth query rather than an `Or` with the
+    /// veil, and here the pair is *forced* rather than merely clearer: a
+    /// `ZIndex` orders a node among its own parent's children, and the veil
+    /// ([`Z_VEIL`]) and the panel ([`Z_SHEET`]) have the shelf's [`Z_LEDGE`]
+    /// between them. Wrapping the two in one node would put the shelf behind
+    /// the veil — and the shelf is where the question the dialog is answering
+    /// is written.
+    pub(crate) panel: Query<'w, 's, Entity, With<TrayBand>>,
+}
+
+/// The zone dialog's own nodes, and the root they hang from.
+///
+/// [`tray::sync_tray`]'s counterpart to [`OverlayTree`]. It asks for the root
+/// rather than being handed one because the two systems are independent: the
+/// overlay can take the root away between two frames of the dialog standing —
+/// a game that ends, a board that has not arrived — and the dialog has to find
+/// that out rather than be told.
+#[derive(bevy::ecs::system::SystemParam)]
+pub struct TrayTree<'w, 's> {
+    /// The overlay's root, which both nodes are children of.
+    pub(crate) root: Query<'w, 's, Entity, With<HudRoot>>,
+    /// The veil, at [`Z_VEIL`].
+    pub(crate) veil: Query<'w, 's, Entity, With<TableVeil>>,
+    /// The panel, at [`Z_SHEET`].
+    pub(crate) panel: Query<'w, 's, Entity, With<TrayBand>>,
 }
 
 mod card;
@@ -1540,3 +1583,4 @@ pub use slip::{SlipWash, wash_the_slip_in};
 pub use stack::{StackMotion, ease_the_stack_in};
 pub(crate) use tray::band_of;
 pub(crate) use tray::dim_the_table;
+pub use tray::{TrayRevision, sync_tray};
