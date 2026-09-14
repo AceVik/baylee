@@ -265,13 +265,35 @@ const BUTTON_PAD_Y: f32 = 4.0;
 
 /// What the left column takes: the mana pool at its widest.
 ///
-/// **Reserved, not measured**, and deliberately at §2.3's *worst* case: the
-/// label, six entries and the gaps between them, plus [`EDGE`] —
-/// `12 + 57 + 10 + 6·36 + 5·6`. §2.3 refuses to centre the question between
-/// its neighbours precisely so that it does not move when a mana pip arrives,
-/// and a reservation that followed the pool would be that refusal undone one
-/// level down: the question would hold still against its neighbour's *edge*
-/// and wander with its contents instead.
+/// **Reserved rather than followed**, and at the *worst* case: the label, six
+/// entries and the gaps between them, plus [`EDGE`]. §2.3 refuses to centre
+/// the question between its neighbours precisely so that it does not move
+/// when a mana pip arrives, and a reservation that followed the pool would be
+/// that refusal undone one level down: the question would hold still against
+/// its neighbour's *edge* and wander with its contents instead.
+///
+/// The number is **measured**, which is §10.1 item 3's acceptance and is the
+/// one place it changed something. §2.3 estimated 325 from `0.52 × pt` per
+/// character; the shipped face and this row's own padding give
+///
+/// ```text
+///   EDGE                                        12.0
+///   "Manavorrat", Medium 11 × UI_SCALE          60.5   (estimated 57)
+///   label gap                                   10.0
+///   6 entries: 1 + 3 + 16 + 4 + 14.0 + 3 + 1   252.1   (estimated 6 × 36)
+///   5 gaps between them                         30.0
+///                                              ─────
+///                                              364.6
+/// ```
+///
+/// The estimator was four pixels low on the label and the design's per-entry
+/// figure had left out the restriction rim's own padding. Under-reserving is
+/// the one direction that costs something: `arrange` slides the question to
+/// clear *this* number, so a column wider than it says crowds the question by
+/// the difference. The German label is the wider of the two languages (the
+/// English "Mana pool" is 54.7) and a two-digit count is not covered — `×12`
+/// is 6.8 px wider than `×8`, and six kinds of mana in double figures is
+/// past what a duel does.
 ///
 /// Six is §2.3's worst case and it is the count of mana *colours*, colourless
 /// included. [`baylee_client_core::manapool::row`] lists restricted mana as
@@ -280,7 +302,7 @@ const BUTTON_PAD_Y: f32 = 4.0;
 /// its reservation and under the question instead of being clipped. Noted
 /// rather than solved: reaching it takes seven sources of mana in one window,
 /// one of them restricted, with none of it spent.
-const LEFT_RESERVED: f32 = 325.0;
+const LEFT_RESERVED: f32 = 365.0;
 
 /// The same for the right column: two buttons and the edge, §2.3's figure.
 const RIGHT_RESERVED: f32 = 214.0;

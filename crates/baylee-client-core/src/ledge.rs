@@ -271,16 +271,26 @@ mod tests {
     use super::*;
     use crate::prefs::Keymap;
 
-    /// The three widths §2.3 of the design measured, at the screen it
-    /// measured them on.
+    /// The three widths of §2.3, at the screen it wrote them for.
     ///
     /// `LEFT` is a six-entry mana pool and `RIGHT` is both leave-the-game
     /// buttons — the widest either column ever gets — and both are measured
     /// from the window's edge, so the renderer's own inset is in them.
-    const LEFT: f32 = 325.0;
+    ///
+    /// Two of the three are **measured** now rather than estimated, which is
+    /// §10.1 item 3's acceptance and moved both: §2.3 read 325 and 588 off
+    /// `0.52 × pt` per character, and the shipped face gives 365 for the pool
+    /// (the label is 60.5 and an entry 42.0, the design's 36 having left out
+    /// the restriction rim's padding) and 623 for a German priority — that
+    /// last one out of the buttons' own drawn widths at 1728, which is where
+    /// `Shift+Tab` spelled out in full lands. `RIGHT` stays an estimate until
+    /// the column exists (§10.2 step 5). Both moved *up*, which is the
+    /// direction that costs something: `arrange` slides the question to clear
+    /// what it is told the neighbours take.
+    const LEFT: f32 = 365.0;
     const RIGHT: f32 = 214.0;
     /// A priority window's middle: the sentence, three answers, three caps.
-    const PRIORITY: f32 = 588.0;
+    const PRIORITY: f32 = 623.0;
     /// What the three keycaps in that middle account for.
     const CAPS: f32 = 91.0;
 
@@ -298,23 +308,23 @@ mod tests {
     /// at 1280 between the widest neighbours the rungs are
     ///
     /// ```text
-    ///   Full     mid <= 1280 - 325 - 214 - 48  =  693
-    ///   Compact  693 < mid <= 693 + 91         =  784
-    ///   Split    mid > 784
+    ///   Full     mid <= 1280 - 365 - 214 - 48  =  653
+    ///   Compact  653 < mid <= 653 + 91         =  744
+    ///   Split    mid > 744
     /// ```
     ///
     /// which is written out here because the design's own worked example puts
-    /// 800 in `Compact`, and 800 − 91 is 709, which is 16 px past what 1280
+    /// 800 in `Compact`, and 800 − 91 is 709, which is 56 px past what 1280
     /// has. Every input below sits inside a rung rather than on a boundary.
     #[test]
     fn the_rungs_are_where_the_arithmetic_puts_them() {
         for (mid, want) in [
             (PRIORITY, Density::Full),
-            (693.0, Density::Full),
-            (694.0, Density::Compact),
-            (720.0, Density::Compact),
-            (784.0, Density::Compact),
-            (785.0, Density::Split),
+            (653.0, Density::Full),
+            (654.0, Density::Compact),
+            (700.0, Density::Compact),
+            (744.0, Density::Compact),
+            (745.0, Density::Split),
             (900.0, Density::Split),
         ] {
             assert_eq!(
@@ -337,16 +347,18 @@ mod tests {
         }
     }
 
-    /// At 1280 the widest mana pool reaches 325 and the centred question
-    /// would start at 640 − 294 = 346, three pixels inside the 24 the two
-    /// columns owe each other. The question slides; it does not shrink.
+    /// At 1280 the widest mana pool reaches 365 and the centred question
+    /// would start at 640 − 311.5 = 328.5, well inside the 24 the two columns
+    /// owe each other. The question slides; it does not shrink — and it is
+    /// the *measured* pool that makes the slide 60 px rather than the 3 the
+    /// estimate predicted, which is what the reservation is for.
     #[test]
     fn the_question_slides_off_centre_rather_than_losing_its_keys() {
         let at = arrange(1280.0, worst(PRIORITY), CAPS);
         assert_eq!(at.density, Density::Full);
         assert!(
-            (at.mid_x - 643.0).abs() < 1e-3,
-            "expected the question pushed 3 px right of centre, got {}",
+            (at.mid_x - 700.5).abs() < 1e-3,
+            "expected the question pushed 60 px right of centre, got {}",
             at.mid_x
         );
         assert!(
@@ -369,13 +381,19 @@ mod tests {
         }
     }
 
-    /// An empty mana pool is 250 px of room the worst case does not have, and
+    /// An empty mana pool is 269 px of room the worst case does not have, and
     /// it buys back a whole rung — which is the reason the left column's
     /// width is an input rather than a constant.
+    ///
+    /// 96 is the measured empty column: the edge, the label and the em dash
+    /// that stands where the entries would. Note what this test is *not* — the
+    /// renderer hands `arrange` the reservation whatever is floating (§2.3
+    /// refuses to let the question follow the pool), so this is the rule
+    /// answering honestly about an input it is not currently given.
     #[test]
     fn an_empty_mana_pool_pays_for_a_longer_question() {
         let full = Columns {
-            left: 75.0,
+            left: 96.0,
             mid: 800.0,
             right: RIGHT,
         };
