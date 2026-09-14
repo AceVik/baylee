@@ -4325,6 +4325,80 @@ mod tests {
         assert!(fresh.outbox().is_empty());
     }
 
+    /// And it can ask for one, against the stack standing over it.
+    ///
+    /// The twin of the test above, and the half that was missing: `ledge.rs`
+    /// draws a button carrying [`MenuAction::HoldForStack`] and nothing said
+    /// the press reached [`Duel::hold_action`]. It cannot be read off a
+    /// running game either — a hold and a pass both leave the stack resolved
+    /// and this seat asked again on an empty one — so the outbox is the only
+    /// place the two differ at all.
+    ///
+    /// Three states, because the predicate has three answers and two of them
+    /// are refusals. A hold over a stack of one is `UntilStackEmpty { depth:
+    /// 1 }`; an empty stack would be `depth: 0`, a hold that is over before it
+    /// begins; and a hold already running would send `Always`, which cancels
+    /// the very thing the label promises to set. That last one is what the
+    /// predicate is for — the other two could have been a greyed-out button.
+    ///
+    /// [`Duel::hold_action`]: crate::Duel::hold_action
+    #[test]
+    fn the_prompt_bar_can_ask_for_a_hold_as_well() {
+        use baylee_engine::choice::PriorityHold;
+
+        use crate::host::{DuelHost, HostMessage, LocalHost};
+        use crate::hud::MenuAction;
+        let mut host = LocalHost::new(
+            &crate::host::tests::duel_preset(),
+            PlayerId::new(0),
+            &["You", "AI"],
+        )
+        .expect("host");
+        let view = host
+            .poll()
+            .into_iter()
+            .find_map(|m| match m {
+                HostMessage::View(v) => Some(*v),
+                _ => None,
+            })
+            .expect("a view");
+
+        let seated = |on_stack: bool, held: bool| {
+            let mut view = view.clone();
+            view.stack = if on_stack {
+                vec![baylee_client_core::test_support::token(9, 1, "Shock", 0, 0)]
+            } else {
+                Vec::new()
+            };
+            view.priority_held = held;
+            crate::Duel {
+                view: Some(view),
+                ..Default::default()
+            }
+        };
+
+        let mut duel = seated(true, false);
+        super::menu_click(&mut duel, MenuAction::HoldForStack, false);
+        assert_eq!(
+            duel.outbox(),
+            [PlayerAction::SetPriorityHold(
+                PriorityHold::UntilStackEmpty { depth: 1 }
+            )]
+        );
+
+        // Nothing on the stack: the same press would ask for a hold that is
+        // already over, so it asks for nothing at all.
+        let mut nothing = seated(false, false);
+        super::menu_click(&mut nothing, MenuAction::HoldForStack, false);
+        assert!(nothing.outbox().is_empty());
+
+        // And with one already running it sends nothing either, rather than
+        // the `Always` that would end it — cancelling is `ReleaseHold`'s job.
+        let mut running = seated(true, true);
+        super::menu_click(&mut running, MenuAction::HoldForStack, false);
+        assert!(running.outbox().is_empty());
+    }
+
     /// A duel driven to seat 0's first main phase, out of a real `LocalHost`.
     ///
     /// Every one of the arming tests needs a `LegalActions` that actually
