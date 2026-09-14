@@ -169,6 +169,11 @@ const TRAY_FOOT_H: f32 = 34.0;
 const TRAY_HEAD_GAP: f32 = 8.0;
 /// The head band's own padding, above and below.
 const TRAY_HEAD_PAD: f32 = 12.0;
+/// The head band's own top corners: the panel's, less the border it sits in.
+///
+/// Derived and not chosen, so that moving [`super::SHEET_R`] moves both curves
+/// together. `the_head_is_cut_concentrically_with_the_panel` is what holds it.
+const TRAY_HEAD_R: f32 = super::SHEET_R - 1.0;
 /// The footer band's.
 const TRAY_FOOT_PAD: f32 = 11.0;
 
@@ -803,6 +808,22 @@ pub(super) fn spawn_tray(
     commands.entity(frame).add_child(panel);
 
     // ---- the head: what this is, what it is showing, and what to type ----
+    //
+    // It carries the panel's own radius at the top, less the one pixel of
+    // border it sits inside — the same arithmetic and the same reason as
+    // [`super::sheet_surface`], which is the other place a child has to be
+    // concentric with the corner it is drawn in.
+    //
+    // Without it the panel's two top corners were square. `Overflow::clip()`
+    // clips **rectangularly** in `bevy_ui`, so a square child inside a
+    // rounded parent paints over the parent's corner *and* over the arc of
+    // its border, and what is left is two straight lines that stop short of
+    // each other. Measured in the running client at 3008 x 1630 before the
+    // change: the fill in the corner read `DIALOG_LIT` (38, 33, 25) — the
+    // head's colour, not the panel's (28, 25, 19) — and the 1 px line was
+    // absent over exactly the 14 px of the radius. The panel's *bottom*
+    // corners, where no child reaches, drew a clean arc the whole time,
+    // which is what says the radius was never the thing that was wrong.
     let head = commands
         .spawn((
             Node {
@@ -810,6 +831,7 @@ pub(super) fn spawn_tray(
                 row_gap: px(TRAY_HEAD_GAP),
                 padding: UiRect::axes(px(TRAY_SIDE), px(TRAY_HEAD_PAD)),
                 border: UiRect::bottom(px(1)),
+                border_radius: BorderRadius::top(px(TRAY_HEAD_R)),
                 flex_shrink: 0.0,
                 ..default()
             },
@@ -1171,6 +1193,12 @@ fn spawn_footer(
                 column_gap: px(10),
                 padding: UiRect::axes(px(TRAY_SIDE), px(TRAY_FOOT_PAD)),
                 border: UiRect::top(px(1)),
+                // The head's radius at the other end, and for the same reason
+                // — this band reaches the panel's bottom two corners exactly
+                // as the head reaches the top two. It is drawn only while a
+                // question is standing, which is why the square corner was
+                // seen at the top first.
+                border_radius: BorderRadius::bottom(px(TRAY_HEAD_R)),
                 flex_shrink: 0.0,
                 ..default()
             },
@@ -1783,6 +1811,43 @@ mod tests {
         // sheet clamped to nothing would be a sheet that is not there.
         let cramped = (200.0f32 - EDGE - HAND_ZONE_H).max(Placement::MIN_H);
         assert!((cramped - Placement::MIN_H).abs() < f32::EPSILON);
+    }
+
+    /// The two bands that reach the panel's corners are cut with the panel's
+    /// own curve, one pixel in.
+    ///
+    /// `Overflow::clip()` clips rectangularly in `bevy_ui`, so this is not
+    /// something the panel can do for its children: a square child paints
+    /// over the rounded corner it sits in *and* over the arc of the border,
+    /// which is what the owner saw on 14.09.2026 — a square corner with two
+    /// straight lines stopping short of each other. The number is derived
+    /// from [`super::SHEET_R`] rather than typed, so that the two curves
+    /// cannot drift apart; this is the assertion that the derivation is the
+    /// concentric one and not merely equal.
+    #[test]
+    fn the_head_is_cut_concentrically_with_the_panel() {
+        assert_eq!(
+            sheet_radius().top_left,
+            px(SHEET_R),
+            "the panel is cut with something other than `SHEET_R`"
+        );
+        // One pixel of border between the two curves, which is what
+        // `spawn_tray`'s panel carries and what `spawn_footer` sits inside.
+        assert!(
+            (TRAY_HEAD_R - (SHEET_R - 1.0)).abs() < f32::EPSILON,
+            "the head's radius is {TRAY_HEAD_R} inside a {SHEET_R} panel with \
+             a 1 px border, so the two curves are not concentric"
+        );
+        let source = include_str!("tray.rs");
+        for band in [
+            "border_radius: BorderRadius::top(px(TRAY_HEAD_R))",
+            "border_radius: BorderRadius::bottom(px(TRAY_HEAD_R))",
+        ] {
+            assert!(
+                source.contains(band),
+                "the band spelled `{band}` no longer carries the panel's curve"
+            );
+        }
     }
 
     /// A tab says how many cards are in it, and says it in the one register

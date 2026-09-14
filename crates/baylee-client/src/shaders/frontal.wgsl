@@ -182,26 +182,68 @@ fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
     // glow is a rules statement.
     let dye = params.dye.rgb * (1.0 + 2.0 * fold * params.dye.w * breath);
 
-    // The lip: the one line on either surface, and the place the table stops.
-    // Opaque on purpose, and painted here rather than left to `BorderColor`
-    // because a `MaterialNode` is what draws this node and whether a border
-    // survives on one is a question rather than a given.
-    let on_the_lip = select(0.0, 1.0, y < params.lip.w);
-    alpha = mix(alpha, 1.0, on_the_lip);
-
     // The **top two** corners, rounded, and not the bottom two: the owner
     // asked for them on 14.09.2026, and the cloth runs off the bottom of the
     // window, where a rounded corner would be a notch cut out of the frame.
     // Cut here rather than left to `BorderRadius`, because a `MaterialNode`
     // is drawn by this shader and what the UI pass does with a radius on one
     // is a question — the same reason the lip is painted here.
+    //
+    // The centre is clamped along the top edge, so `out` is the distance from
+    // one circle between the corners and from a straight line between them:
+    // for `across` in `[r, w - r]` the centre sits directly above at
+    // `(across, r)` and `out` collapses to `r - y`. That is what lets one
+    // number serve both the cut and the lip below.
     let w = params.aspect * h;
     let across = in.uv.x * w;
-    if params.corner > 0.0 && y < params.corner {
-        let r = params.corner;
-        let centre = vec2<f32>(clamp(across, r, max(w - r, r)), r);
-        let out = distance(vec2<f32>(across, y), centre);
-        alpha = alpha * (1.0 - smoothstep(r - 1.0, r + 0.5, out));
+    let r = params.corner;
+    let rounding = r > 0.0 && y < r;
+    let centre = vec2<f32>(clamp(across, r, max(w - r, r)), r);
+    let out = distance(vec2<f32>(across, y), centre);
+    // Half a device pixel, in this shader's own units. Taken here and not
+    // inside the branch below: a derivative asked for under non-uniform
+    // control flow is undefined, and `rounding` is per-fragment.
+    let aa = max(0.5 * fwidth(out), 0.0001);
+
+    // How far under the surface's own top edge this fragment lies — measured
+    // from the **rounded** edge where there is one, which is the whole point.
+    // `y` alone is the distance from the node's top *row*, and a lip drawn on
+    // that is a straight band the corner then cuts off flat: the bright line
+    // stopped dead about five pixels short of each end and left a blunt
+    // corner behind it, which is the "seltsame Kante" the owner reported on
+    // 14.09.2026. Measured before the change at 3008 x 1630: the lip ran from
+    // x = 16 to the far edge and the arc left of it carried none of it.
+    let depth = select(y, r - out, rounding);
+
+    // The lip: the one line on either surface, and the place the table stops.
+    // Opaque on purpose, and painted here rather than left to `BorderColor`
+    // because a `MaterialNode` is what draws this node and whether a border
+    // survives on one is a question rather than a given.
+    // `depth >= 0.0` is what keeps this off the skirt, whose `lip.w` is zero
+    // and whose `lip.rgb` is therefore black: without it every fragment
+    // *outside* the arc would satisfy `depth < 0` and the corner's own
+    // anti-aliased rim would be painted black instead of dyed.
+    let on_the_lip = select(0.0, 1.0, depth >= 0.0 && depth < params.lip.w);
+    alpha = mix(alpha, 1.0, on_the_lip);
+
+    // And the cut comes **after** the lip, because the lip writes an opaque
+    // alpha: cutting first and lighting second would hand the corner's own
+    // anti-aliasing back to the band that follows it round.
+    //
+    // The band is **one device pixel**, taken from the derivative rather than
+    // written as a number, and that is what makes the lip one line rather than
+    // two weights. It was `smoothstep(r - 1.0, r + 0.5, out)` — one and a half
+    // *logical* pixels, three device pixels on this screen — and the straight
+    // top edge is entirely inside that band, so the row the lip is drawn on
+    // was faded to about half before it ever reached the frame. Measured at
+    // 3008 x 1630: the lip along the straight edge composited to (35, 30, 19)
+    // against `DIALOG_LINE`'s (55, 48, 31), while the same lip round the
+    // corner — whose fragments are fully covered — came out at the full
+    // (55, 48, 31). A corner brighter than the line it ends is the artefact
+    // over again, so the fade is narrowed to where a fragment really does
+    // straddle the edge.
+    if rounding {
+        alpha = alpha * (1.0 - smoothstep(r - aa, r + aa, out));
     }
 
     return vec4<f32>(

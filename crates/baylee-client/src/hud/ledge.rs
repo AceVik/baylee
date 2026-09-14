@@ -216,13 +216,23 @@ pub struct LedgeCast;
 ///
 /// A child, `Pickable::IGNORE`, drawn entirely **outside** the shelf's
 /// rectangle, which is the whole reason it is not a `ShadowStyle` any more.
+///
+/// The [`LIP`] in the offset is not a nudge. An absolutely-positioned child's
+/// insets are measured from its containing block's **padding** box, and the
+/// shelf carries `border: UiRect::top(px(LIP))` — so a bare `-LIFT_UP_H` put
+/// this gradient's darkest end one pixel *inside* the bar, on top of the one
+/// line the cloth paints. Measured at 3008 x 1630: the lip along the straight
+/// top edge composited to (36, 31, 19) where the same lip round the corner,
+/// below the cast, came out at `DIALOG_LINE`'s own (55, 48, 31) — the same
+/// ratio, 0.65, on all three channels, which is a black veil and not a
+/// different colour. A shadow an object casts must not fall on the object.
 fn lift_up(commands: &mut Commands) -> Entity {
     commands
         .spawn((
             LedgeCast,
             Node {
                 position_type: PositionType::Absolute,
-                top: px(-LIFT_UP_H),
+                top: px(-LIFT_UP_H - LIP),
                 left: px(0),
                 right: px(0),
                 height: px(LIFT_UP_H),
@@ -246,6 +256,10 @@ fn lift_up(commands: &mut Commands) -> Entity {
 }
 
 /// And its cast on the cards below, the lighter of the two.
+///
+/// The [`LIP`] comes off this one for the reason it goes onto [`lift_up`]:
+/// both are measured from the padding box, so `LEDGE_H` alone would start the
+/// cast a pixel below the shelf and leave an unshadowed line under it.
 fn lift_down(commands: &mut Commands) -> Entity {
     let share = |f: f32| palette::SHADOW.with_alpha(palette::SHADOW.alpha() * LIFT_DOWN_SHARE * f);
     commands
@@ -253,7 +267,7 @@ fn lift_down(commands: &mut Commands) -> Entity {
             LedgeCast,
             Node {
                 position_type: PositionType::Absolute,
-                top: px(hand::LEDGE_H),
+                top: px(hand::LEDGE_H - LIP),
                 left: px(0),
                 right: px(0),
                 height: px(LIFT_DOWN_H),

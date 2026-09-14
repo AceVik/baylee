@@ -1208,10 +1208,18 @@ pub(crate) fn sheet_shadow() -> BoxShadow {
     )
 }
 
+/// The corner a sheet is cut with, as a number.
+///
+/// Spelled out as well as wrapped for [`BTN_R`]'s reason and one more: a child
+/// drawn inside a sheet has to be cut *concentrically* with it, which is this
+/// number less the border it sits inside, and a child that guessed would show
+/// as a square corner in a round one.
+pub(crate) const SHEET_R: f32 = 14.0;
+
 /// The corner a sheet is cut with. Rounder than a button, because it is a
 /// larger object and a sheet with a button's radius reads as a big button.
 pub(crate) fn sheet_radius() -> BorderRadius {
-    BorderRadius::all(px(14))
+    BorderRadius::all(px(SHEET_R))
 }
 
 /// The parchment as a *child* of the node it covers, rather than as that
@@ -1242,7 +1250,7 @@ pub(crate) fn sheet_surface(sheets: &UiSheets) -> impl Bundle {
             right: px(0),
             top: px(0),
             bottom: px(0),
-            border_radius: BorderRadius::all(px(13)),
+            border_radius: BorderRadius::all(px(SHEET_R - 1.0)),
             ..default()
         },
         sheet(sheets),

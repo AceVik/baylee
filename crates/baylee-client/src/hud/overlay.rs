@@ -2044,15 +2044,26 @@ mod tests {
         assert!(down.2 > 0.0, "and it is still a cast, not an absence");
         // Wholly outside the shelf, both of them: the one above ends where
         // the shelf begins, the one below begins where the shelf ends.
+        //
+        // **Both insets are read from the shelf's padding box**, which is
+        // where this assertion used to be wrong in exactly the way the code
+        // was. An absolutely-positioned child's `top` is measured from its
+        // containing block's padding box, and the shelf carries
+        // `border: UiRect::top(px(LIP))` — so `top: -LIFT_UP_H` put the
+        // gradient's darkest end one pixel *inside* the bar, on the one line
+        // the cloth paints, and `up.0 + up.1 <= 0.0` was satisfied by the
+        // overlap rather than in spite of it. Converting to the border box is
+        // one addition, and it is the whole of what the claim is about.
+        let lip = crate::hud::LEDGE_LIP;
         assert!(
-            up.0 + up.1 <= 0.0,
+            up.0 + up.1 + lip <= 0.0,
             "the table's cast reaches {} pixels into the shelf",
-            up.0 + up.1
+            up.0 + up.1 + lip
         );
         assert!(
-            down.0 >= crate::hud::LEDGE_H,
+            down.0 + lip >= crate::hud::LEDGE_H,
             "the hand's cast starts {} pixels above the shelf's lower edge",
-            crate::hud::LEDGE_H - down.0
+            crate::hud::LEDGE_H - (down.0 + lip)
         );
         assert!(
             app.world().entity(shelf).get::<BoxShadow>().is_none(),
