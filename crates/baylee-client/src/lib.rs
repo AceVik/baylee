@@ -55,6 +55,7 @@ pub mod face;
 pub mod feltmat;
 pub mod flip;
 pub mod frontal;
+pub mod gpu;
 pub mod host;
 pub mod hud;
 pub mod input;

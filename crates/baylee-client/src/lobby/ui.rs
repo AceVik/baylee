@@ -141,6 +141,7 @@ const AMBIENT_ENERGY: f32 = 0.35;
 pub(super) fn spawn_camera(
     mut commands: Commands,
     ambience: Option<ResMut<Assets<crate::ambience::AmbienceMaterial>>>,
+    adapter: Option<Res<bevy::render::renderer::RenderAdapterInfo>>,
 ) {
     commands.spawn((
         LobbyScreen,
@@ -149,18 +150,13 @@ pub(super) fn spawn_camera(
             clear_color: ClearColorConfig::Custom(BACKDROP),
             ..default()
         },
-        // No multisampling on Android, and this is a driver workaround
-        // rather than a performance choice. `Msaa` defaults to `Sample4`;
-        // on the tile-based GPU in a Pixel 11 the end-of-pass resolve is
-        // where tile memory is written back, and this driver gets it wrong:
-        // with 4x on, the lobby drew three or four oversized glyphs out of a
-        // screen of text, a panel in two halves at different offsets, and a
-        // different subset on every frame — 105 000 pixels of difference
-        // between two frames with the clock stopped. With it off, the same
-        // build and the same phone: 4 300, and the words are readable.
-        // Measured, not guessed — see `docs/mobile.md`.
-        #[cfg(target_os = "android")]
-        bevy::render::view::Msaa::Off,
+        // Bevy's own `Sample4` on nearly every GPU, and off on the one that
+        // cannot resolve it — `crate::gpu::msaa` names the driver and carries
+        // the measurement. Asked of the *adapter* rather than of the
+        // operating system, because a GPU family is what has the defect: a
+        // blanket `cfg(target_os = "android")` took a Mali phone's
+        // antialiasing away to work around a PowerVR bug it does not have.
+        crate::gpu::msaa(adapter.as_deref()),
     ));
     // Spawned here rather than in `ui`, and this is the whole reason it is a
     // separate entity: the node tree is despawned and rebuilt on every state

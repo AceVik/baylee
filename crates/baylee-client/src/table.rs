@@ -1817,6 +1817,7 @@ pub fn spawn_stage(
     mut cards: ResMut<Assets<CardMaterial>>,
     mut images: ResMut<Assets<Image>>,
     mut index: ResMut<SceneIndex>,
+    adapter: Option<Res<bevy::render::renderer::RenderAdapterInfo>>,
 ) {
     index.quad = Some(meshes.add(rounded_card_mesh(CARD_WIDTH, CARD_HEIGHT, CARD_CORNER)));
 
@@ -1913,13 +1914,12 @@ pub fn spawn_stage(
         // numbers as radiance would be wrong. Naming it here stops a future
         // default from quietly doing that.
         Tonemapping::None,
-        // The same Android driver workaround the lobby's camera carries, and
-        // for the same reason — `lobby::ui::spawn_camera` has the
-        // measurement. Both cameras need it rather than only the one that
-        // was caught: the defect is in the tiler's multisample resolve, not
-        // in anything the lobby does.
-        #[cfg(target_os = "android")]
-        bevy::render::view::Msaa::Off,
+        // The same answer the lobby's camera gets, from the same place:
+        // `Msaa` is a component in bevy 0.19, so a driver workaround has to
+        // be repeated on every camera rather than set once. Both need it
+        // rather than only the one the defect was caught on — it is in the
+        // tiler's multisample resolve, not in anything the lobby does.
+        crate::gpu::msaa(adapter.as_deref()),
     ));
 
     // Nothing below is lit, and nothing above it is either: card art must

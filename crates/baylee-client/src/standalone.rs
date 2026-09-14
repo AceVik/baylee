@@ -68,32 +68,14 @@ pub fn run() {
             file_path: asset_root().to_string(),
             ..default()
         });
-    // A phone's driver aborts on bevy's occlusion-culling shader, and this
-    // one feature bit is the public door to the state bevy itself puts the
-    // previous generation of the same GPU in.
-    //
-    // The Pixel 11 Pro XL's adapter is a "PowerVR C-Series CXTP-48-1536 MC1",
-    // and PowerVR's SPIR-V compiler dies inside
-    // `spvcompiler::getMangledImageTypeString` while
-    // `IMG_vkCreateComputePipelines` compiles `mesh_preprocess.wgsl` — which
-    // carries a sampled image (`depth_pyramid: texture_2d<f32>`) inside a
-    // *compute* shader. That shader exists only under
-    // `GpuPreprocessingMode::Culling`. Bevy already holds this GPU family to
-    // `PreprocessingOnly`, where there is no depth pyramid at all, but it
-    // recognises it by comparing the adapter name against the literal
-    // "PowerVR D-Series DXT-48-1536 MC1" — the Pixel 10's, one generation
-    // off, so the 11 falls through and crashes on its first frame.
-    // `GpuPreprocessingSupport::from_world` reads `INDIRECT_FIRST_INSTANCE`
-    // as its `culling_feature_support`, and bevy reads that feature nowhere
-    // else, so dropping it asks for exactly that mode and nothing besides.
-    //
-    // Android-wide rather than per device, because these settings are built
-    // before there is an adapter to ask — and a table of a few dozen cards
-    // has nothing to lose to CPU-side culling.
-    #[cfg(target_os = "android")]
+    // What this build refuses to let a driver do. Empty everywhere but on a
+    // phone, where one feature bit keeps bevy off a compute shader PowerVR's
+    // compiler aborts on; `crate::gpu::disabled_features` has the whole
+    // chain. Set unconditionally because `None` *is* the default — so on a
+    // desktop this line builds exactly the `RenderPlugin` bevy would have.
     let plugins = plugins.set(bevy::render::RenderPlugin {
         render_creation: bevy::render::settings::WgpuSettings {
-            disabled_features: Some(bevy::render::settings::WgpuFeatures::INDIRECT_FIRST_INSTANCE),
+            disabled_features: crate::gpu::disabled_features(),
             ..default()
         }
         .into(),
