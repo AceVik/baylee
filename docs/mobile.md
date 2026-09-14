@@ -246,6 +246,27 @@ Measured on 14.09.2026 on this machine:
   with the backdrop correct in both. So it is that one pipeline's per-frame
   vertex buffer, not the pass, not the atlas and not the layout.
 
+  **And the Vulkan validation layers say the client is innocent**, which is
+  the fact that settles who has to fix this. `libVkLayer_khronos_validation.so`
+  (Khronos `vulkan-sdk-1.4.357.0`, arm64) copied into the app's own directory,
+  `gpu_debug_app` / `gpu_debug_layers` pointed at it, and the Android loader
+  confirms it: `vulkan: Loaded layer VK_LAYER_KHRONOS_validation`. Across
+  several twenty-second runs with the UI visibly broken it reported
+  **nothing**. That covers synchronisation hazards too, and not by luck —
+  `wgpu-hal`'s `instance.rs` says `// Always enable synchronization
+  validation` and pushes `SYNCHRONIZATION_VALIDATION` whenever the layer is
+  present, which in a debug APK it now is. Bevy's log filter is `wgpu=error`,
+  so warnings would have been dropped, but every validation *error* and every
+  sync hazard is `ERROR` severity and would have come through.
+
+  So: no missing barrier, no buffer written while it is being read, no
+  invalid API use. The commands are correct and the driver draws them wrong.
+  This is a bevy/wgpu bug report worth filing rather than a defect to hunt in
+  this repo — the evidence is the pipeline split above plus this silence. One
+  limit worth stating: the layer's own `vk_layer_settings.txt` is only read
+  from `/data/local/debug/vulkan/`, which needs root, so best-practices and
+  info-level output could not be turned on. Errors did not need it.
+
   Two facts about the phone, read off it rather than guessed, because they
   are the first things anyone will want to try: there is **no updatable
   graphics driver installed** (`pm list packages` finds none, so Developer
