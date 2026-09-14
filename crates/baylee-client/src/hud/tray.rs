@@ -532,6 +532,74 @@ fn dialog_text(
     dialog_line(commands, fonts, text, size, ink, tf)
 }
 
+/// The size the filter box's own text is set at, in one place because the
+/// caret's height is derived from it.
+const FILTER_TEXT: f32 = 11.5;
+
+/// What is inside the search box while it holds the keyboard: up to three
+/// runs with a bar between two of them.
+///
+/// The same three runs `lobby::ui::field_runs` draws and through the same
+/// door — [`TextBuffer::segments`] — because the owner asked for a box that
+/// works like the lobby's, and two spellings of "where is the caret" would be
+/// two things to keep in step. No glyph metrics anywhere: the row is already
+/// measuring the letters, so a bar put into it as the next thing in the row
+/// lands exactly where they end.
+///
+/// It used to be one string with `▏` stuck on the end of it, which is a caret
+/// that can only ever be in one place — and it was, because the model behind
+/// it was a `String` that characters were pushed onto.
+///
+/// [`TextBuffer::segments`]: baylee_client_core::textbuf::TextBuffer::segments
+fn filter_runs(
+    commands: &mut Commands,
+    fonts: &UiFonts,
+    browser: &baylee_client_core::Browser,
+    ink: Color,
+) -> Vec<Entity> {
+    let field = browser.filter_field();
+    let seg = field.segments();
+    // Head, caret, selection, tail — with the caret on the far side of the
+    // selection when that is the end the player is holding.
+    let caret_at = usize::from(seg.caret_after_selection) + 1;
+    let runs = [(seg.head, false), (seg.selected, true), (seg.tail, false)];
+    let mut out = Vec::new();
+    for (i, (text, selected)) in runs.into_iter().enumerate() {
+        if i == caret_at {
+            out.push(
+                commands
+                    .spawn((
+                        Node {
+                            width: px(1),
+                            // Bevy lays a text node out at 1.2 times the font
+                            // size, so a shorter bar would stand lower than
+                            // the selection beside it and read as a fault
+                            // rather than as a caret.
+                            height: px(FILTER_TEXT * 1.2),
+                            margin: UiRect::horizontal(px(-0.5)),
+                            flex_shrink: 0.0,
+                            ..default()
+                        },
+                        BackgroundColor(palette::CANDLE),
+                        Pickable::IGNORE,
+                    ))
+                    .id(),
+            );
+        }
+        if text.is_empty() {
+            continue;
+        }
+        let run = dialog_text(commands, fonts, text, FILTER_TEXT, ink);
+        if selected {
+            commands
+                .entity(run)
+                .insert(BackgroundColor(palette::SELECTION));
+        }
+        out.push(run);
+    }
+    out
+}
+
 /// The same line, set as a **control's own label**.
 ///
 /// The tray's buttons are its tabs, its sort controls and the two words in
@@ -832,14 +900,16 @@ pub(super) fn spawn_tray(
     // the thing a player clicks to search the pile they are looking at.
     let ordering = interaction.is_some_and(baylee_client_core::Interaction::is_ordering);
     let typing = browser.is_typing();
+    // A field being typed into draws itself out of its own segments below; a
+    // field at rest is one line saying what it holds or what it is for.
     let hint = if ordering {
-        Phrase::BrowseOrderHint.text(lang).to_string()
+        Some(Phrase::BrowseOrderHint.text(lang).to_string())
     } else if typing {
-        format!("{}\u{258f}", browser.filter())
+        None
     } else if browser.filter().trim().is_empty() {
-        Phrase::BrowseFilter.text(lang).to_string()
+        Some(Phrase::BrowseFilter.text(lang).to_string())
     } else {
-        format!("\u{201c}{}\u{201d}", browser.filter())
+        Some(format!("\u{201c}{}\u{201d}", browser.filter()))
     };
     let controls = commands
         .spawn((
@@ -855,17 +925,15 @@ pub(super) fn spawn_tray(
         ))
         .id();
     let said = typing || !browser.filter().trim().is_empty();
-    let filter_text = dialog_text(
-        commands,
-        fonts,
-        &hint,
-        11.5,
-        if said {
-            palette::DIALOG_INK
-        } else {
-            palette::DIALOG_SOFT
-        },
-    );
+    let ink = if said {
+        palette::DIALOG_INK
+    } else {
+        palette::DIALOG_SOFT
+    };
+    let filter_text: Vec<Entity> = match &hint {
+        Some(words) => vec![dialog_text(commands, fonts, words, 11.5, ink)],
+        None => filter_runs(commands, fonts, browser, ink),
+    };
     // A sunk field: the ring that says where the typing goes is the border
     // turning candle, not a second fill.
     let filter_line = commands
@@ -893,7 +961,7 @@ pub(super) fn spawn_tray(
             Feel::new(palette::DIALOG),
         ))
         .id();
-    commands.entity(filter_line).add_child(filter_text);
+    commands.entity(filter_line).add_children(&filter_text);
     // A library is a hundred cards and a long graveyard is thirty, so "look
     // through this pile" is not a question the pile's own order answers on
     // its own. The key and the direction are two buttons because they are two

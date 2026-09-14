@@ -514,7 +514,15 @@ pub struct Browser {
     /// other tabs are drawn and are not buttons, which is the owner's
     /// "ausgrauen" said in state.
     locked: Option<BrowseZone>,
-    filter: String,
+    /// The search box, and a whole field rather than a string.
+    ///
+    /// It used to be a `String` that keystrokes were pushed onto and popped
+    /// off, which is a field with no caret, no selection, no arrow keys and
+    /// no paste — and the owner named the lobby's boxes as the thing this one
+    /// should be. It is the same [`crate::textbuf::TextBuffer`] those use, so
+    /// the client has one answer to what a text field does and both places
+    /// give it.
+    filter: crate::textbuf::TextBuffer,
     sort: SortKey,
     descending: bool,
     typing: bool,
@@ -639,6 +647,16 @@ impl Browser {
     /// What is typed in the filter.
     #[must_use]
     pub fn filter(&self) -> &str {
+        self.filter.text()
+    }
+
+    /// The box itself — its text, its caret and its selection.
+    ///
+    /// What a renderer needs to draw a field rather than a string, through
+    /// [`crate::textbuf::TextBuffer::segments`], which is the same door the
+    /// lobby's boxes are drawn through.
+    #[must_use]
+    pub const fn filter_field(&self) -> &crate::textbuf::TextBuffer {
         &self.filter
     }
 
@@ -694,8 +712,32 @@ impl Browser {
     /// a whole value arrives from autofill or a paste — which is exactly
     /// where a stray newline or tab comes from.
     pub fn set_filter(&mut self, text: impl Into<String>) {
-        self.filter = text.into();
-        self.filter.retain(|c| !c.is_control());
+        let mut text: String = text.into();
+        text.retain(|c| !c.is_control());
+        let end = text.len();
+        self.filter.set(&text, end, None);
+    }
+
+    /// The same, with the caret and selection the platform reports beside the
+    /// value — `Lobby::set_field_at`'s shape and for its reason: an `<input>`
+    /// owns both, and this writes even when the text has not changed, because
+    /// moving the caret inside unchanged text is exactly what an arrow key in
+    /// one does.
+    ///
+    /// Offsets are byte offsets into `text`, which is what a `SoftKey` is
+    /// documented to carry. Dropping a control character would move every
+    /// offset after it, so a value that had one is taken with the caret at the
+    /// end rather than with offsets that no longer point where the platform
+    /// meant.
+    pub fn set_filter_state(&mut self, text: &str, cursor: usize, anchor: Option<usize>) {
+        let mut clean: String = text.to_string();
+        clean.retain(|c| !c.is_control());
+        if clean.len() == text.len() {
+            self.filter.set(&clean, cursor, anchor);
+        } else {
+            let end = clean.len();
+            self.filter.set(&clean, end, None);
+        }
     }
 
     /// Empties the box, and asks for the platform's own field to be re-seeded.
@@ -772,16 +814,54 @@ impl Browser {
         self.typing = false;
     }
 
-    /// One typed character.
+    /// One typed character, at the caret and over the selection.
     pub fn push_filter(&mut self, c: char) {
         if !c.is_control() {
-            self.filter.push(c);
+            self.filter.insert(c.encode_utf8(&mut [0u8; 4]));
         }
     }
 
-    /// Rubs one character out, and says whether there was one.
+    /// A whole run at once — a paste, or what an IME commits.
+    pub fn type_text(&mut self, text: &str) {
+        let mut clean: String = text.to_string();
+        clean.retain(|c| !c.is_control());
+        if !clean.is_empty() {
+            self.filter.insert(&clean);
+        }
+    }
+
+    /// Rubs out what is selected, or the character before the caret, and says
+    /// whether there was anything to rub out.
     pub fn pop_filter(&mut self) -> bool {
-        self.filter.pop().is_some()
+        let before = self.filter.text().len();
+        self.filter.delete_back();
+        self.filter.text().len() != before
+    }
+
+    /// The same forwards — Delete.
+    pub fn delete_forward(&mut self) {
+        self.filter.delete_forward();
+    }
+
+    /// Moves the caret, extending the selection when `select`.
+    pub fn move_filter_caret(
+        &mut self,
+        step: crate::textbuf::Step,
+        dir: crate::textbuf::Dir,
+        select: bool,
+    ) {
+        self.filter.move_caret(step, dir, select);
+    }
+
+    /// Selects the whole box — ⌘A.
+    pub fn select_all_filter(&mut self) {
+        self.filter.select_all();
+    }
+
+    /// Puts the caret at a byte offset, with `anchor` the other end of a
+    /// selection — what a click or a drag in the box asks for.
+    pub fn place_filter_caret(&mut self, cursor: usize, anchor: Option<usize>) {
+        self.filter.place(cursor, anchor);
     }
 
     /// What the rows are sorted by.
@@ -989,7 +1069,7 @@ impl Browser {
         // Folded, not merely lowercased: `strasse` has to find `Straße`, and
         // a player whose keyboard has no `ß` types the first of those. See
         // [`crate::prose::sort_key`].
-        let needle = crate::prose::sort_key(self.filter.trim());
+        let needle = crate::prose::sort_key(self.filter.text().trim());
         let mut out = Vec::new();
         for zone in self.zones(view) {
             if self.tab.is_some_and(|t| t != zone) {
@@ -2378,5 +2458,71 @@ mod tests {
         let rows = b.rows(&view, None, Names::projected());
         assert_eq!(rows.len(), 1, "the filter did not reach the rows");
         assert_eq!(rows[0].name, "Mountain");
+    }
+
+    /// The search box is a field, not a string with letters pushed onto it.
+    ///
+    /// The owner asked for it by naming the boxes that already work: *"die
+    /// Input felder überall, auch das Suchfeld im Zonen-Dialog soll
+    /// vollständig funktionieren wie ein normales Input Feld aus dem Web.
+    /// (Sowie die im Login Formullar, die funktionieren top.)"* Everything
+    /// below is something that box could not do — the caret could only ever
+    /// be at the end, because that is where `push`ing puts a character.
+    #[test]
+    fn the_search_box_has_a_caret_a_selection_and_the_keys_that_move_them() {
+        use crate::textbuf::{Dir, Step};
+        let mut b = Browser::new();
+        b.start_typing();
+        b.type_text("Llanowar Elves");
+
+        // Home, then two words to the right, then type in the middle of it.
+        b.move_filter_caret(Step::Line, Dir::Left, false);
+        assert_eq!(b.filter_field().cursor(), 0);
+        b.move_filter_caret(Step::Word, Dir::Right, false);
+        assert_eq!(
+            b.filter_field().cursor(),
+            "Llanowar".len(),
+            "a word is a word and not eight presses of the right arrow"
+        );
+        b.push_filter('!');
+        assert_eq!(b.filter(), "Llanowar! Elves");
+
+        // Shift extends a selection, and typing over it replaces it.
+        b.move_filter_caret(Step::Line, Dir::Right, false);
+        b.move_filter_caret(Step::Word, Dir::Left, true);
+        assert_eq!(
+            b.filter_field().selection().map(|s| &b.filter()[s]),
+            Some("Elves"),
+            "shift+⌥← selects the word behind the caret"
+        );
+        b.type_text("Mystic");
+        assert_eq!(b.filter(), "Llanowar! Mystic");
+
+        // Delete rubs out forwards, Backspace backwards, and either one takes
+        // the selection whole when there is one.
+        b.move_filter_caret(Step::Line, Dir::Left, false);
+        b.delete_forward();
+        assert_eq!(b.filter(), "lanowar! Mystic");
+        b.select_all_filter();
+        assert!(b.pop_filter(), "there was a selection to rub out");
+        assert_eq!(b.filter(), "", "select-all and one press empties the box");
+        assert!(!b.pop_filter(), "and there is nothing left to rub out");
+
+        // A platform that owns its own typing hands the caret over with the
+        // value, which is what an `<input>`'s arrow keys and its paste do.
+        b.set_filter_state("Forest", 3, Some(6));
+        assert_eq!(b.filter(), "Forest");
+        assert_eq!(b.filter_field().cursor(), 3);
+        assert_eq!(
+            b.filter_field().selection().map(|s| &b.filter()[s]),
+            Some("est")
+        );
+        // Unless a control character had to be dropped, which would move every
+        // offset after it: then the caret goes to the end rather than
+        // somewhere the platform did not mean.
+        b.set_filter_state("For\nest", 3, Some(6));
+        assert_eq!(b.filter(), "Forest");
+        assert_eq!(b.filter_field().cursor(), 6);
+        assert_eq!(b.filter_field().selection(), None);
     }
 }

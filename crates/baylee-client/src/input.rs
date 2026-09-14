@@ -710,7 +710,7 @@ pub fn keyboard(
     // sheet can stand open for a whole turn, and a released box that went on
     // swallowing every keystroke would be the end of playing with the
     // graveyard visible.
-    if browser_keys(fired, &mut typed, &mut duel) {
+    if browser_keys(fired, &keys, &mut typed, &mut duel) {
         return;
     }
     if fired.quiet() {
@@ -895,11 +895,20 @@ pub fn browser_softkeys(
     *had_focus = true;
     for key in keys.drain() {
         match key {
-            // Not a keystroke: autofill and paste arrive as a whole value.
-            crate::softkeys::SoftKey::Text { value, .. } => duel.browser.set_filter(value),
-            // The filter box is a string with no caret drawn in it, so a
-            // caret that moved inside the element changes nothing here.
-            crate::softkeys::SoftKey::Caret { .. } => {}
+            // Not a keystroke: autofill and paste arrive as a whole value,
+            // and with the caret and selection the element is holding — the
+            // `<input>` owns both, and the box draws both now.
+            crate::softkeys::SoftKey::Text {
+                value,
+                cursor,
+                anchor,
+            } => duel.browser.set_filter_state(&value, cursor, anchor),
+            // A caret that moved inside unchanged text is exactly what the
+            // arrow keys do on a page, and it used to change nothing here
+            // because there was no caret to move.
+            crate::softkeys::SoftKey::Caret { cursor, anchor } => {
+                duel.browser.place_filter_caret(cursor, anchor);
+            }
             // Nothing to submit — the rows are already narrowed, so the
             // action key means "done".
             crate::softkeys::SoftKey::Submit => {
@@ -935,7 +944,21 @@ pub fn browser_softkeys(
 /// empties the box first when there is anything in it, so one press undoes
 /// the search and the next one lets go — a player who typed `mou` and found
 /// nothing should not have to rub out three letters to get back to the pile.
-fn browser_keys(fired: Fired, typed: &mut MessageReader<KeyboardInput>, duel: &mut Duel) -> bool {
+///
+/// What it reads is what `lobby::systems::text_field_keys` reads, chord for
+/// chord, because the owner named the lobby's boxes as the thing this one
+/// should be: a caret that moves by character, word and line, a selection
+/// shift extends, Delete beside Backspace, and select-all. It was a string
+/// with characters pushed onto the end of it and popped off again, which is
+/// none of those. Tab is the one chord the lobby has and this does not —
+/// there is no second field on a zone sheet to move to.
+fn browser_keys(
+    fired: Fired,
+    codes: &ButtonInput<KeyCode>,
+    typed: &mut MessageReader<KeyboardInput>,
+    duel: &mut Duel,
+) -> bool {
+    use baylee_client_core::textbuf::{Dir, Step};
     if !duel.browser.is_typing() {
         return false;
     }
@@ -960,23 +983,54 @@ fn browser_keys(fired: Fired, typed: &mut MessageReader<KeyboardInput>, duel: &m
     if crate::softkeys::SoftKeyboard::owns_typing() {
         return true;
     }
+    // The three modifiers a text field reads, once for the whole batch
+    // because a key event carries no modifier state of its own. Which one
+    // means what is the platform's convention rather than a preference, and
+    // it is the lobby's: shift extends a selection, and the reaches past a
+    // single character are ⌥/Ctrl for a word and ⌘/Home-End for the line.
+    let shift = codes.any_pressed([KeyCode::ShiftLeft, KeyCode::ShiftRight]);
+    let word = codes.any_pressed([
+        KeyCode::AltLeft,
+        KeyCode::AltRight,
+        KeyCode::ControlLeft,
+        KeyCode::ControlRight,
+    ]);
+    let line = codes.any_pressed([KeyCode::SuperLeft, KeyCode::SuperRight]);
+    // ⌘A and Ctrl+A, answered before the text arm so the "a" stays out of the
+    // box.
+    let command = line || codes.any_pressed([KeyCode::ControlLeft, KeyCode::ControlRight]);
+    let reach = if line {
+        Step::Line
+    } else if word {
+        Step::Word
+    } else {
+        Step::Char
+    };
     for event in typed.read() {
         if !event.state.is_pressed() {
             continue;
         }
         match &event.logical_key {
-            Key::Character(s) => {
-                for c in s.chars() {
-                    duel.browser.push_filter(c);
-                }
-            }
-            Key::Space => duel.browser.push_filter(' '),
             Key::Backspace => {
                 duel.browser.pop_filter();
             }
+            Key::Delete => duel.browser.delete_forward(),
+            Key::ArrowLeft => duel.browser.move_filter_caret(reach, Dir::Left, shift),
+            Key::ArrowRight => duel.browser.move_filter_caret(reach, Dir::Right, shift),
+            Key::Home => duel.browser.move_filter_caret(Step::Line, Dir::Left, shift),
+            Key::End => duel
+                .browser
+                .move_filter_caret(Step::Line, Dir::Right, shift),
             // "Done" rather than "submit": the rows are already narrowed, so
             // the only thing left to do is hand the keyboard back.
             Key::Enter => duel.browser.stop_typing(),
+            Key::Character(s) if command => {
+                if s.eq_ignore_ascii_case("a") {
+                    duel.browser.select_all_filter();
+                }
+            }
+            Key::Character(s) => duel.browser.type_text(s),
+            Key::Space => duel.browser.push_filter(' '),
             _ => {}
         }
     }
@@ -4478,6 +4532,126 @@ mod tests {
         assert!(
             !panel_stands(&app),
             "it is a latch, so the same key shuts it"
+        );
+    }
+
+    /// The search box answers the keys a text field answers.
+    ///
+    /// The owner named the lobby's boxes as the thing this one should be, and
+    /// this is the half a player presses: a caret that moves by character and
+    /// by word, Home and End, shift extending a selection, Delete beside
+    /// Backspace, and ⌘A. The box was a `String` with characters pushed onto
+    /// the end of it, so every one of these did nothing — and ⌘A typed an
+    /// "a", which is the one that also *corrupts* the search.
+    #[test]
+    fn the_search_box_answers_the_keys_a_text_field_answers() {
+        use bevy::input::ButtonInput;
+        use bevy::input::keyboard::{Key, KeyboardInput};
+        use bevy::prelude::*;
+
+        let mut app = App::new();
+        app.init_resource::<ButtonInput<KeyCode>>()
+            .init_resource::<crate::prefs::Prefs>()
+            .init_resource::<crate::table::CameraRig>()
+            .init_resource::<crate::settings::ClientSettings>()
+            .add_message::<KeyboardInput>()
+            .init_resource::<crate::Duel>()
+            .init_resource::<Keystrokes>()
+            .add_systems(PreUpdate, deliver_keystrokes)
+            .add_systems(Update, super::keyboard);
+        let window = app.world_mut().spawn_empty().id();
+        app.world_mut().resource_mut::<crate::Duel>().browser.open();
+        app.world_mut()
+            .resource_mut::<crate::Duel>()
+            .browser
+            .start_typing();
+        app.update();
+
+        // One key, with whatever modifiers are named held down for it.
+        let chord = |app: &mut App, code: KeyCode, key: Key, mods: &[KeyCode]| {
+            {
+                let mut keys = app.world_mut().resource_mut::<ButtonInput<KeyCode>>();
+                keys.reset_all();
+                for m in mods {
+                    keys.press(*m);
+                }
+                keys.press(code);
+            }
+            app.world_mut()
+                .resource_mut::<Keystrokes>()
+                .0
+                .push(KeyboardInput {
+                    key_code: code,
+                    logical_key: key,
+                    state: bevy::input::ButtonState::Pressed,
+                    text: None,
+                    repeat: false,
+                    window,
+                });
+            app.update();
+        };
+        let caret = |app: &App| {
+            app.world()
+                .resource::<crate::Duel>()
+                .browser
+                .filter_field()
+                .cursor()
+        };
+
+        for c in "Wald".chars() {
+            type_letter(&mut app, window, KeyCode::KeyW, c);
+        }
+        assert_eq!(filter_reads(&app), "Wald");
+        assert_eq!(caret(&app), 4);
+
+        // Home, then one character right, then a letter typed *inside* the
+        // word — the whole thing a caret is for.
+        chord(&mut app, KeyCode::Home, Key::Home, &[]);
+        assert_eq!(caret(&app), 0);
+        chord(&mut app, KeyCode::ArrowRight, Key::ArrowRight, &[]);
+        type_letter(&mut app, window, KeyCode::KeyU, 'u');
+        assert_eq!(
+            filter_reads(&app),
+            "Wuald",
+            "the caret was not where it said"
+        );
+
+        // ⇧End selects to the end, and typing replaces what is selected.
+        chord(&mut app, KeyCode::End, Key::End, &[KeyCode::ShiftLeft]);
+        assert_eq!(
+            app.world()
+                .resource::<crate::Duel>()
+                .browser
+                .filter_field()
+                .selection(),
+            Some(2..5),
+            "shift did not extend a selection"
+        );
+        type_letter(&mut app, window, KeyCode::KeyO, 'o');
+        assert_eq!(filter_reads(&app), "Wuo");
+
+        // Delete forwards from the start, which Backspace cannot do.
+        chord(&mut app, KeyCode::Home, Key::Home, &[]);
+        chord(&mut app, KeyCode::Delete, Key::Delete, &[]);
+        assert_eq!(filter_reads(&app), "uo");
+
+        // And ⌘A selects the box instead of typing an "a" into it.
+        chord(
+            &mut app,
+            KeyCode::KeyA,
+            Key::Character("a".into()),
+            &[KeyCode::SuperLeft],
+        );
+        assert_eq!(
+            filter_reads(&app),
+            "uo",
+            "the command chord typed its own letter into the search"
+        );
+        chord(&mut app, KeyCode::Backspace, Key::Backspace, &[]);
+        assert_eq!(
+            filter_reads(&app),
+            "",
+            "select-all and one press empties it"
         );
     }
 
