@@ -714,108 +714,6 @@ pub fn sync_overlay(
         // bottom of the window.
     }
 
-    // ---- the mana pool, opposite the prompt bar --------------------------
-    //
-    // The one zone with no card in it, and until now the one zone with no
-    // place on screen. That absence hid a defect rather than merely being
-    // untidy: a land with two mana abilities taps for whichever one the
-    // client's planner can read, and with nothing drawn there was no way to
-    // see which had fired — Jasmine Dragon Tea Shop made `{C}` every time and
-    // looked exactly like a land making the Ally mana it was tapped for.
-    //
-    // Left, because the prompt bar is right and the two must never push each
-    // other around; at the prompt bar's height, because that band is already
-    // where this client says what is going on. Drawn while the seat has
-    // something to answer even when empty, so it is a *place* a player learns
-    // rather than a badge that appears and vanishes — and hidden entirely
-    // when the seat is only watching, since floating mana it cannot spend is
-    // one more thing in the way.
-    {
-        let pool = view
-            .seat(view.seat)
-            .map(|s| s.mana_pool)
-            .unwrap_or_default();
-        let floating = baylee_client_core::manapool::row(&pool);
-        if !floating.is_empty() || duel.is_my_turn_to_act() {
-            let bar = commands
-                .spawn((
-                    Node {
-                        position_type: PositionType::Absolute,
-                        bottom: px(HAND_ZONE_H + ABOVE_HAND),
-                        left: px(EDGE),
-                        flex_direction: FlexDirection::Row,
-                        align_items: AlignItems::Center,
-                        column_gap: px(8),
-                        padding: UiRect::axes(px(12), px(6)),
-                        border_radius: btn_radius(),
-                        ..default()
-                    },
-                    BackgroundColor(palette::PANEL),
-                    soft_shadow(),
-                    Pickable::IGNORE,
-                ))
-                .id();
-            let label = commands
-                .spawn((
-                    Text::new(Phrase::ManaPool.text(lang).to_string()),
-                    tf(&fonts, 11.0),
-                    TextColor(palette::MUTED),
-                    Pickable::IGNORE,
-                ))
-                .id();
-            commands.entity(bar).add_child(label);
-            if floating.is_empty() {
-                // An em dash rather than a row of zeroes: "nothing floating"
-                // is one fact, not six.
-                let none = commands
-                    .spawn((
-                        Text::new("\u{2014}".to_string()),
-                        tf(&fonts, 15.0),
-                        TextColor(palette::DEAD),
-                        Pickable::IGNORE,
-                    ))
-                    .id();
-                commands.entity(bar).add_child(none);
-            }
-            for entry in floating {
-                let group = commands
-                    .spawn((
-                        Node {
-                            flex_direction: FlexDirection::Row,
-                            align_items: AlignItems::Center,
-                            column_gap: px(3),
-                            // A restriction is drawn as a rim round the pair,
-                            // because the symbol itself has to keep meaning
-                            // its colour: this mana *is* white, it simply
-                            // cannot pay for everything white pays for.
-                            padding: UiRect::axes(px(4), px(2)),
-                            border: UiRect::all(px(if entry.restricted { 1.0 } else { 0.0 })),
-                            border_radius: btn_radius(),
-                            ..default()
-                        },
-                        BorderColor::all(palette::ACTIVE),
-                        Pickable::IGNORE,
-                    ))
-                    .id();
-                let pip = crate::manaui::spawn_pip(&mut commands, &fonts, entry.pip, 18.0);
-                // The count as a numeral, always — colour alone must not
-                // carry meaning, and five discs in a row is a number the
-                // player has to stop and count.
-                let count = commands
-                    .spawn((
-                        Text::new(format!("\u{00d7}{}", entry.count)),
-                        tf(&fonts, 13.0),
-                        TextColor(palette::INK),
-                        Pickable::IGNORE,
-                    ))
-                    .id();
-                commands.entity(group).add_children(&[pip, count]);
-                commands.entity(bar).add_child(group);
-            }
-            commands.entity(root).add_child(bar);
-        }
-    }
-
     // ---- bottom: the hand zone (always on top) ---------------------------
     if let Some(statics) = duel.statics.as_ref() {
         let available = windows
@@ -2328,6 +2226,82 @@ mod tests {
         assert!(
             answers.contains(&PromptAction::Confirm) && answers.contains(&PromptAction::SkipTurn),
             "and it stands between the two that are answers: {answers:?}"
+        );
+    }
+
+    /// A seat with nothing to answer: the opponent holds priority.
+    ///
+    /// The state the mana pool used to vanish in, and the only one in which
+    /// the shelf's rule and the chip's rule differ.
+    fn duel_watching() -> Duel {
+        let mut duel = Duel {
+            interaction: Some(baylee_client_core::Interaction::new(
+                baylee_engine::choice::Pending::Priority {
+                    player: PlayerId::new(1),
+                    legal: Box::new(baylee_engine::choice::LegalActions::default()),
+                },
+                PlayerId::new(0),
+            )),
+            ..Duel::default()
+        };
+        duel.view = Some(baylee_client_core::test_support::ViewBuilder::new(2).build());
+        crate::rebuild_board(&mut duel);
+        assert!(!duel.is_my_turn_to_act(), "this seat is watching");
+        duel
+    }
+
+    /// The mana pool is a place on the shelf, not a badge that comes and goes.
+    ///
+    /// Three claims in one, and the first is the one that changed. The chip
+    /// this replaces was drawn only "while the seat has something to answer",
+    /// so at every opponent's priority the label blinked out — movement in
+    /// the corner of the eye carrying no information at all. AX §4.1 keeps it
+    /// standing, because a reserved column costs nothing to leave occupied
+    /// where a floating box cost the table a piece of itself.
+    ///
+    /// Then: an empty pool is an em dash and not six zeroes, and mana in it
+    /// is a numeral beside a disc rather than a row of discs to count.
+    #[test]
+    fn the_mana_pool_is_a_place_and_not_a_badge() {
+        let label = Phrase::ManaPool.text(Lang::En).to_string();
+        let dash = "\u{2014}".to_string();
+
+        let mut watching = bar_of(duel_watching());
+        let lines = said(&mut watching);
+        assert!(
+            lines.contains(&label),
+            "the pool keeps its place while this seat waits: {lines:?}"
+        );
+        assert!(
+            lines.contains(&dash),
+            "nothing floating is one fact, written once: {lines:?}"
+        );
+
+        // And with mana in it the dash is gone and the count is a numeral.
+        let mut duel = duel_watching();
+        {
+            let view = duel.view.as_mut().expect("the seat has a view");
+            let seat = view.seat;
+            let pool = &mut view
+                .seats
+                .iter_mut()
+                .find(|s| s.player == seat)
+                .expect("this seat sits at its own table")
+                .mana_pool;
+            pool.green = 3;
+            pool.restricted[baylee_core::mana::ManaColor::White.index()] = 1;
+        }
+        crate::rebuild_board(&mut duel);
+        let mut floating = bar_of(duel);
+        let lines = said(&mut floating);
+        assert!(
+            lines.contains(&"\u{00d7}3".to_string()) && lines.contains(&"\u{00d7}1".to_string()),
+            "three green and one restricted white, as numerals: {lines:?}"
+        );
+        assert!(
+            !lines.contains(&dash),
+            "the dash stands *instead of* the entries, not beside them: \
+             {lines:?}"
         );
     }
 

@@ -1033,6 +1033,20 @@ pub(crate) mod palette {
     pub const DIALOG_INK: Color = Color::srgb(0.925, 0.890, 0.816);
     /// The quieter half of it: a type line, a tally, a badge.
     pub const DIALOG_SOFT: Color = Color::srgb(0.557, 0.514, 0.424);
+    /// What a dialog says about a thing that is not there.
+    ///
+    /// Quieter than [`DIALOG_SOFT`], and **deliberately** under the 4.5 : 1
+    /// that prose has to clear: 3.08 : 1 on [`DIALOG`], which is above the
+    /// 3.0 a large glyph or a disabled control is held to and below the ratio
+    /// that would make it read as something to attend to. AX §3.2 names the
+    /// number, `a_candle_is_dark_enough_to_write_on` holds both ends of it.
+    ///
+    /// Two readers, and they are the same claim twice: the em dash standing
+    /// where an empty mana pool's entries would be, and — from §10.2 step 5 —
+    /// a draw offer the engine would refuse. Not [`DEAD`], which is the cool
+    /// near-black grey of the old panels and has no business on a candlelit
+    /// shelf.
+    pub const LEDGE_DEAD: Color = Color::srgb(0.430, 0.400, 0.330);
     /// Candle: an offer, at the energy of something the engine is asking for.
     ///
     /// The one hue the redesign leaves for "this is live" — [`ACCENT`]'s
@@ -1400,11 +1414,13 @@ pub(crate) const MENU_H: f32 = 32.0;
 /// stack at all.
 pub(crate) const MENU_BAND: f32 = EDGE + MENU_H + EDGE;
 
-/// How far the two things that float above the hand zone — the prompt slip
-/// and the mana chip — stand off it.
+/// How far what is left of the prompt slip floats above the hand zone.
 ///
-/// One constant for the same reason [`EDGE`] is: they sit side by side at
-/// the same height and were pinned at `HAND_ZONE_H + 12` and `+ 10`.
+/// It was two things at this height — the slip and the mana chip, pinned at
+/// `HAND_ZONE_H + 12` and `+ 10` until one constant settled it. The pool is
+/// on the shelf now (AX §4.1), in the left column where it is a *place*
+/// rather than a badge beside the question; the slip is the last reader and
+/// goes with the drawer in §10.2 step 6, and this goes with it.
 pub(crate) const ABOVE_HAND: f32 = 12.0;
 
 /// A card's corner radius for a given rendered width.
