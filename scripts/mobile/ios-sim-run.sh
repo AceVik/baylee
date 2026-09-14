@@ -64,6 +64,21 @@ cat > "$APP/Info.plist" <<'PLIST'
          a letterboxed compatibility window at the wrong resolution. -->
     <key>UILaunchScreen</key><dict/>
     <key>UIRequiredDeviceCapabilities</key><array><string>arm64</string></array>
+    <!-- A table is played across, not down. Both landscape directions and
+         neither portrait one, on phone and on tablet — the same thing the
+         Android shim's manifest asks for with `sensorLandscape`. iOS takes
+         the launch orientation from this list, so the app opens the right
+         way up however the device is held and never starts portrait. -->
+    <key>UISupportedInterfaceOrientations</key>
+    <array>
+        <string>UIInterfaceOrientationLandscapeLeft</string>
+        <string>UIInterfaceOrientationLandscapeRight</string>
+    </array>
+    <key>UISupportedInterfaceOrientations~ipad</key>
+    <array>
+        <string>UIInterfaceOrientationLandscapeLeft</string>
+        <string>UIInterfaceOrientationLandscapeRight</string>
+    </array>
     <key>UIStatusBarHidden</key><true/>
     <key>UIApplicationSupportsIndirectInputEvents</key><true/>
 </dict>

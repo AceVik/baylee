@@ -65,6 +65,21 @@ debuggable = true
 # is a trap for whoever reads the manifest next.
 uses_cleartext_traffic = true
 
+# A table is played across, not down. `sensorLandscape` rather than
+# `landscape`, so a phone held the other way round is still the right way up:
+# both landscape directions, neither portrait one, and the phone's own
+# rotation lock is not consulted. It belongs in the manifest and not in the
+# client because the activity is placed before a frame is ever drawn — a
+# client that asked for landscape afterwards would start portrait and turn.
+#
+# What makes it safe is cargo-apk's default `configChanges`
+# (`orientation|keyboardHidden|screenSize`): the activity survives a rotation
+# instead of being recreated. A recreated `NativeActivity` re-enters
+# `android_main` in a process that still has an event loop, which is the
+# `RecreationAttempt` that a relaunch needs `am force-stop` to avoid.
+[package.metadata.android.application.activity]
+orientation = "sensorLandscape"
+
 [[package.metadata.android.uses_permission]]
 name = "android.permission.INTERNET"
 
