@@ -667,9 +667,10 @@ pub(super) fn spawn_stack_panel(
             Node {
                 position_type: PositionType::Absolute,
                 right: px(EDGE),
-                // Under the menu pills, which are the only thing left in this
-                // corner — see [`MENU_BAND`].
-                top: px(MENU_BAND),
+                // The corner is the panel's own now: the draw offer and the
+                // concession that used to sit above it are on the shelf
+                // (AX §4.3), so there is nothing left up here to clear.
+                top: px(EDGE),
                 width: px(STACK_PANEL_W),
                 max_height: percent(62),
                 flex_direction: FlexDirection::Column,

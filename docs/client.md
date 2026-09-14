@@ -3123,11 +3123,19 @@ The draw and concede pills were the same mistake one level up. They are the
 two controls that belong to no seat, they are both *ways to end a game*, and
 they went on being drawn over the end screen at full strength — lit,
 hovering under the pointer through `ambience::Feel`, which runs ungated —
-answering nothing. `overlay::spawn_menu_row` exists so that "not once the
-game is over" is one `if` at the call site rather than an indent around
+answering nothing. `overlay::spawn_menu_row` existed so that "not once the
+game is over" was one `if` at the call site rather than an indent around
 seventy lines. Measured at the same corner across the same concession: the
-pill patch reads (54, 61, 68) while the game is on and (18, 20, 29) once it
-is over, which is the veiled night sky with nothing in front of it.
+pill patch read (54, 61, 68) while the game was on and (18, 20, 29) once it
+was over, which is the veiled night sky with nothing in front of it.
+
+The pair is no longer in that corner. AX §4.3 put both of them in the shelf's
+right-hand column (`ledge::ways_out`), where the rule is the same sentence
+and one line shorter: after `GameOver` the column is **empty**. The corner is
+the stack panel's own now, and `MENU_BAND` — the one inset in this client
+that was not `EDGE`, stated rather than measured because a stack panel that
+discovered the pills by overlapping them would only ever have done so in the
+games that have a stack — retired with them.
 
 ## The sounds are decided before anything can play them
 

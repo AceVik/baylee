@@ -194,6 +194,14 @@ const _: () = assert!(LEDGE_PAD_Y * 2.0 + BUTTON_H == hand::LEDGE_H);
 pub struct LedgeRevision {
     /// Which snapshot of the game.
     pub(super) seq: Option<u64>,
+    /// Whether the game has ended, which empties the right column.
+    ///
+    /// Everything else the ending changes it changes through a field that is
+    /// already here — the sentence, the answers — so this looks redundant and
+    /// is not: the two ways out of a game are drawn from `can_offer_draw` and
+    /// `concede_armed` alone, and neither of those moves when the last player
+    /// falls over.
+    pub(super) over: bool,
     /// The question, as the sentence says it.
     pub(super) prompt: Option<String>,
     /// The engine's refusal, which replaces that sentence.
@@ -223,6 +231,24 @@ pub struct LedgeRevision {
     /// the interaction and listed anyway; this one is no different, and the
     /// alternative is a claim about what `PlayerView::seq` counts.
     pub(super) holdable: bool,
+    /// Whether the engine would take a draw offer right now, which is the
+    /// difference between a secondary button and a dead one.
+    pub(super) can_offer_draw: bool,
+    /// Whether the concession is armed and waiting for its second press.
+    ///
+    /// It follows nothing but the pointer — no snapshot, no question — so
+    /// without it here the button would keep the word it was drawn with. It
+    /// is also what takes the draw offer away: see [`ways_out`].
+    pub(super) concede_armed: bool,
+    /// Whether this seat has a running priority hold, which is what the
+    /// middle says instead of a question — and what puts a keycap on the way
+    /// out of it.
+    pub(super) priority_held: bool,
+    /// Whether the client's own autopilot is running, which draws the same
+    /// sentence and the same button with **no** cap: no key ends it (§4.4),
+    /// and a cap that promised one would be a lie. Entirely client-side, so
+    /// nothing else here moves when it starts or stops.
+    pub(super) autopilot: bool,
     /// What is floating in this seat's pool, which is the whole left column.
     ///
     /// Listed for [`holdable`](Self::holdable)'s reason, and here more
@@ -304,8 +330,39 @@ const BUTTON_PAD_Y: f32 = 4.0;
 /// one of them restricted, with none of it spent.
 const LEFT_RESERVED: f32 = 365.0;
 
-/// The same for the right column: two buttons and the edge, §2.3's figure.
-const RIGHT_RESERVED: f32 = 214.0;
+/// The same for the right column: two buttons, the gap between them and the
+/// edge.
+///
+/// **Measured** like [`LEFT_RESERVED`] and for the same reason — `arrange`
+/// slides the question to clear what it is told the neighbours take, so a
+/// column wider than it says crowds the question by the difference. §2.3
+/// estimated 214; the shipped Bold at 13 points gives
+///
+/// ```text
+///   EDGE                                        12.0
+///   "Remis anbieten" + 2·PAD_X + 2·border      119.1
+///   BUTTON_GAP                                   8.0
+///   "Aufgeben"  + 2·PAD_X + 2·border            82.9
+///                                              ─────
+///                                              222.0
+/// ```
+///
+/// German is the wider of the two (English is 193.4) and is what is reserved,
+/// as on the left.
+///
+/// The **armed** concession is not in this number, and that is the finding of
+/// §10.2 step 5 rather than an omission: "Aufgeben? Nochmal drücken" is 200.4
+/// wide, so §4.3's pair-that-grows-leftwards would be 339.5 here. Reserving
+/// *that* would drop every 1280 window to `Compact` for the whole game to
+/// pay for a state that lasts one click; drawing it unreserved puts it 71.5
+/// px over the middle's last button — and the right column is spawned after
+/// the middle, so the grown button would win the pick over the right end of
+/// "Zug überspringen" and a skip-turn click would concede the game. So the
+/// armed concession **stands alone**: the draw offer is not drawn beside it
+/// (212.4 in German, 164.9 in English, both inside this reservation), which
+/// is also the right answer on its own terms — a second button beside a
+/// decision with no undo is a misclick target.
+const RIGHT_RESERVED: f32 = 222.0;
 
 /// What the left column calls itself, set quietly.
 ///
@@ -380,6 +437,7 @@ pub fn sync_ledge(
     let window_w = windows.single().map_or(1200, |w| w.width() as i32);
     let next = LedgeRevision {
         seq: duel.board.as_ref().map(|b| b.seq),
+        over,
         prompt,
         error: duel.last_error.clone().filter(|_| !over),
         link_note: duel.link_note.filter(|_| !over),
@@ -393,6 +451,10 @@ pub fn sync_ledge(
         armed: duel.armed.clone(),
         cast_menu: duel.cast_menu.is_some() && !over,
         holdable: duel.can_hold_for_stack(),
+        can_offer_draw: duel.can_offer_draw(),
+        concede_armed: duel.concede_armed,
+        priority_held: duel.priority_held(),
+        autopilot: duel.autopilot.is_some(),
         pool: duel
             .view
             .as_ref()
@@ -431,15 +493,21 @@ pub fn sync_ledge(
         // the question above it would be the same sentence a second time —
         // §6: the shelf never shows two sentences, and the armed row is the
         // one state that takes the sentence away rather than replacing it.
+        //
+        // A running hold replaces it instead, and that is the whole of §4.4:
+        // "why is nobody asking me?" is a question about the middle, so it is
+        // answered in the middle, where the question would have been.
         .or_else(|| {
-            revision
-                .prompt
-                .clone()
-                .filter(|_| armed.is_none())
-                .map(|text| (text, false))
+            if holding(&duel, over, waiting) {
+                Some(Phrase::HoldingPriority.text(lang).to_string())
+            } else {
+                revision.prompt.clone()
+            }
+            .filter(|_| armed.is_none())
+            .map(|text| (text, false))
         });
 
-    let caps = keys_for(&prefs, &answers, armed.is_some());
+    let caps = keys_for(&prefs, &answers, armed.is_some(), duel.priority_held());
     let caps_w: f32 = caps.iter().flatten().map(|c| cap_width(c) + CAP_GAP).sum();
     let mid = mid_width(sentence.as_ref().map(|(t, _)| t.as_str()), &answers, &caps);
     #[allow(clippy::cast_precision_loss)]
@@ -463,9 +531,8 @@ pub fn sync_ledge(
 
     pool_row(&mut commands, &fonts, lang, columns[0], &revision.pool);
 
-    // The right column — a draw offer and a concession — arrives in its own
-    // step; its room is reserved above so that nothing the middle does moves
-    // when it lands.
+    ways_out(&mut commands, &fonts, lang, columns[2], &revision);
+
     let middle = columns[1];
 
     // `Split` is the rung that sends the sentence into the drawer, and there
@@ -511,13 +578,16 @@ pub fn sync_ledge(
             } else {
                 None
             };
-            // The candle is the first answer's and stays there whatever else
-            // joins the row: a command is never the thing the shelf is
-            // inviting, and the invitation is what the candle is for.
-            let weight = if i == 0 {
-                Weight::Candle
-            } else {
-                Weight::Secondary
+            // The candle is the first *answer*'s and stays there whatever
+            // else joins the row: a command is never the thing the shelf is
+            // inviting, and the invitation is what the candle is for. Which
+            // is why this reads the `Says` and not only the index — the hold
+            // row is one command standing alone at zero, and a burning "Ask
+            // me again" would say the game is waiting for it.
+            let weight = match says {
+                Says::Command(super::MenuAction::ReleaseHold) => Weight::Ghost,
+                Says::Answer(_) if i == 0 => Weight::Candle,
+                Says::Answer(_) | Says::Command(_) => Weight::Secondary,
             };
             let button = answer(&mut commands, &fonts, label, weight, cap);
             match *says {
@@ -573,6 +643,15 @@ fn answers_for(
     elsewhere: bool,
 ) -> Vec<(Says, String)> {
     use baylee_engine::choice::Pending;
+    // Above the suppression and not below it: the hold exists **only** while
+    // this seat is not being asked, so a branch under that `return` would be
+    // dead code that looked like a feature.
+    if holding(duel, over, waiting) {
+        return vec![(
+            Says::Command(super::MenuAction::ReleaseHold),
+            Phrase::HoldRelease.text(lang).to_string(),
+        )];
+    }
     if over || waiting || duel.cast_menu.is_some() {
         return Vec::new();
     }
@@ -638,6 +717,27 @@ fn answers_for(
     }
 }
 
+/// Whether the shelf is showing a running hold instead of a question.
+///
+/// A hold is the one game state with **no other symptom**: the middle is
+/// empty precisely *because* the seat is not being asked, which is exactly
+/// what an idle shelf looks like. A player who set one two turns ago and
+/// forgot would watch the game play itself with nothing on screen to blame.
+///
+/// Two mechanisms, one picture (§4.4): the engine's own hold, which a view
+/// reports, and the client's autopilot, which never reaches the wire at all.
+/// They differ in one thing only and it is the keycap — see [`keys_for`].
+///
+/// `cast_menu` takes it away for the reason it takes the answers away: the
+/// engine's window behind the client's own chooser is an ordinary priority,
+/// and the chooser is a question this seat is very much being asked.
+fn holding(duel: &Duel, over: bool, waiting: bool) -> bool {
+    !over
+        && waiting
+        && duel.cast_menu.is_none()
+        && (duel.priority_held() || duel.autopilot.is_some())
+}
+
 /// The legend on each answer's keycap, or `None` where the answer has no key.
 ///
 /// **Always out of the keymap**, never out of a string in the code: a player
@@ -651,10 +751,17 @@ fn answers_for(
 /// which reaches `PromptAction` alone. That is one line per command and the
 /// alternative is worse: `shortcut_for` lives in client-core, where
 /// `MenuAction` is a renderer type it does not know and should not learn.
+///
+/// `held` is the one cap that depends on the *game* and not on the button:
+/// the way out of an engine hold wears `F6`, because `F6` is what cancels a
+/// running hold, and the way out of the **autopilot** wears nothing, because
+/// no key ends that one (§4.4). One button, two mechanisms behind it, and a
+/// cap that promised what its key does not do would be worse than no cap.
 fn keys_for(
     prefs: &crate::prefs::Prefs,
     answers: &[(Says, String)],
     armed: bool,
+    held: bool,
 ) -> Vec<Option<String>> {
     let legend = |action| {
         prefs
@@ -683,6 +790,13 @@ fn keys_for(
             // else would do it.
             Says::Command(super::MenuAction::HoldForStack) => {
                 Some(baylee_client_core::prefs::Action::HoldForStack)
+            }
+            // The same key again, and the same reason: `Duel::hold_action`
+            // answers `PriorityHold::Always` while a hold is running, so F6
+            // and this button send one thing. The autopilot has no key and
+            // gets no cap.
+            Says::Command(super::MenuAction::ReleaseHold) => {
+                held.then_some(baylee_client_core::prefs::Action::HoldForStack)
             }
             Says::Command(_) => None,
         })
@@ -727,6 +841,9 @@ fn column_node(side: Side) -> impl Bundle {
         Side::Right => {
             node.right = px(EDGE);
             node.justify_content = JustifyContent::End;
+            // Two buttons, so the step between them is a button's and not a
+            // sentence's — and [`RIGHT_RESERVED`] is measured with this one.
+            node.column_gap = px(baylee_client_core::ledge::BUTTON_GAP);
         }
         // Full width and centred, so the question stands on the **window's**
         // middle — which is the middle of this seat's own mat. When `arrange`
@@ -861,6 +978,71 @@ fn pool_row(
     }
 }
 
+/// The right column: the two ways out of a game that is still being played.
+///
+/// It was a row of pills in the window's top-right corner, over the felt,
+/// with the priority hold's chip beside it. The hold went to the middle
+/// (§4.4, and it is the answer to a question the middle is asking), and these
+/// two came here, which is where they were always about to be: the shelf has
+/// three columns, and leaving the game belongs to no seat and to no question.
+///
+/// **After `GameOver` the column is empty** — there is nothing left to
+/// concede and nobody left to offer a draw to, and the pair used to stay lit
+/// in the corner under the end screen, hovering and answering nothing because
+/// `DuelSet::Input` does not run in `Finished`.
+///
+/// Neither button wears a keycap and neither is going to: a draw offer is not
+/// a thing to press by accident, and a concession is that twice over. What
+/// the concession has instead is [`Weight::Danger`] and a second press
+/// ([`crate::Duel::concede_armed`]), which every other key and every other
+/// click take back.
+///
+/// The armed concession **stands alone**, which is this step's one deviation
+/// from §4.3's "Remis rückt mit" and is measured in [`RIGHT_RESERVED`]: the
+/// pair would be 339.5 px wide in German, the reservation is 222, and the
+/// column is spawned *after* the middle — so the grown button would take the
+/// press meant for the right end of "Zug überspringen" and a skipped turn
+/// would concede the game.
+fn ways_out(
+    commands: &mut Commands,
+    fonts: &UiFonts,
+    lang: Lang,
+    column: Entity,
+    revision: &LedgeRevision,
+) {
+    if revision.over {
+        return;
+    }
+    let armed = revision.concede_armed;
+    if !armed {
+        // A draw needs this seat's own priority (CR 104.4a, and `offer_draw`
+        // refuses anything else), so the button says so rather than being a
+        // live control whose usual answer is a refusal in the sentence above.
+        let weight = if revision.can_offer_draw {
+            Weight::Secondary
+        } else {
+            Weight::Dead
+        };
+        let offer = answer(commands, fonts, Phrase::OfferADraw.text(lang), weight, None);
+        if weight != Weight::Dead {
+            commands.entity(offer).insert(super::MenuButton {
+                action: super::MenuAction::OfferDraw,
+            });
+        }
+        commands.entity(column).add_child(offer);
+    }
+    let (words, weight) = if armed {
+        (Phrase::ConcedeConfirm, Weight::Danger)
+    } else {
+        (Phrase::Concede, Weight::Secondary)
+    };
+    let concede = answer(commands, fonts, words.text(lang), weight, None);
+    commands.entity(concede).insert(super::MenuButton {
+        action: super::MenuAction::Concede,
+    });
+    commands.entity(column).add_child(concede);
+}
+
 /// The shelf's prose: the question, or whatever has replaced it.
 ///
 /// The slip's voice on the dialog's ground. The slant is what carried the
@@ -894,11 +1076,12 @@ fn sentence(commands: &mut Commands, fonts: &UiFonts, text: &str, ink: Color) ->
 
 /// How loud an answer is.
 ///
-/// Three and not five: **Danger** (a concession waiting for its second press)
-/// and **Dead** (a draw that cannot be offered) belong to the right column and
-/// arrive with it in §10.2 step 5. The colour the second of them needs is here
-/// already — [`palette::LEDGE_DEAD`] came with the empty pool's em dash — but
-/// a weight with no caller is a weight nothing has ever drawn.
+/// Five, and the last two are the right column's, which is why they arrived
+/// with it in §10.2 step 5: a concession waiting for its second press is the
+/// loudest thing this shelf ever says, and a draw the engine would refuse is
+/// the quietest. [`palette::LEDGE_DEAD`] came in for the empty pool's em dash
+/// and says exactly the same thing on a button — a place where something
+/// would be.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub(super) enum Weight {
     /// The answer the engine is asking for — pass, attack, keep, yes, OK.
@@ -912,6 +1095,23 @@ pub(super) enum Weight {
     Secondary,
     /// A way back out rather than an answer: cancel, ask again.
     Ghost,
+    /// A concession that has been armed and is waiting for its second press.
+    ///
+    /// The one weight louder than the candle, and the only one on the shelf
+    /// that is not an invitation. Rejected: a concession drawn in this colour
+    /// at rest — then the second stage says nothing new — and a concession
+    /// drawn as a ghost, which is too quiet for the hardest thing the button
+    /// does.
+    Danger,
+    /// A control that is drawn because its place is reserved, and that cannot
+    /// be pressed: a draw offer outside this seat's own priority.
+    ///
+    /// Not a greyed-out fill but **no fill at all**, so it reads as a place
+    /// something would be rather than as a button somebody has switched off.
+    /// It carries no [`Feel`] and no `MenuButton`, and takes
+    /// `Pickable::IGNORE`: a control the pointer warms and the press ignores
+    /// is a lie one frame long.
+    Dead,
 }
 
 impl Weight {
@@ -929,20 +1129,34 @@ impl Weight {
                 palette::DIALOG_INK,
             ),
             Self::Ghost => (Color::NONE, Color::NONE, palette::DIALOG_INK),
+            // `DIALOG` on `DANGER` is the second pair this shelf is held to
+            // — §3.2 measures it at 6.11 : 1, and it is the same dark ink the
+            // candle carries, because the two loud buttons are one register.
+            Self::Danger => (palette::DANGER, palette::DANGER, palette::DIALOG),
+            // A border and nothing behind it: the box is where the button
+            // would be, and `LEDGE_DEAD` is the ink the empty pool writes its
+            // em dash in.
+            Self::Dead => (Color::NONE, palette::DIALOG_LINE, palette::LEDGE_DEAD),
         }
     }
 
-    /// How it answers the pointer.
+    /// How it answers the pointer, or nothing where it must not answer at all.
     ///
     /// `Feel::new` shades a colour towards white and **keeps its alpha**, so
     /// a ghost resting at `Color::NONE` would be lifted to a brighter nothing
     /// and never answer the pointer at all. Its hot end is therefore stated.
-    fn feel(self) -> Feel {
-        match self {
+    ///
+    /// [`Dead`](Self::Dead) is the one weight with no answer: a button that
+    /// warms under the pointer and does nothing when pressed is worse than a
+    /// button that is plainly not there.
+    fn feel(self) -> Option<Feel> {
+        Some(match self {
             Self::Candle => Feel::new(palette::CANDLE),
             Self::Secondary => Feel::new(palette::DIALOG_LIT),
             Self::Ghost => Feel::rising_to(Color::NONE, palette::DIALOG_LIT),
-        }
+            Self::Danger => Feel::new(palette::DANGER),
+            Self::Dead => return None,
+        })
     }
 
     /// The cap's own fill, border and legend, which are not the button's.
@@ -955,10 +1169,15 @@ impl Weight {
     ///
     /// A ghost's cap is the secondary's exactly. `DIALOG_LIT` as its fill
     /// would measure 4.28 : 1 against the legend and fall under 4.5.
+    ///
+    /// The right column's two wear none at all — §4.3 refuses a key for
+    /// either, a draw offer because it is not a thing to press by accident
+    /// and a concession for the same reason twice over — so their arm here is
+    /// the quiet one and is never reached by a drawing.
     const fn cap_colours(self) -> (Color, Color, Color) {
         match self {
             Self::Candle => (palette::DIALOG, palette::DIALOG, palette::CANDLE),
-            Self::Secondary | Self::Ghost => {
+            Self::Secondary | Self::Ghost | Self::Danger | Self::Dead => {
                 (palette::DIALOG, palette::DIALOG_LINE, palette::DIALOG_SOFT)
             }
         }
@@ -997,9 +1216,16 @@ pub(super) fn answer(
             },
             BackgroundColor(fill),
             BorderColor::all(edge),
-            weight.feel(),
         ))
         .id();
+    // A dead control gets neither, which is the whole of what makes it dead:
+    // no warmth under the pointer, and no press to be swallowed by a box that
+    // was never going to answer it.
+    if let Some(feel) = weight.feel() {
+        commands.entity(button).insert(feel);
+    } else {
+        commands.entity(button).insert(Pickable::IGNORE);
+    }
     if let Some(legend) = cap {
         let (cap_fill, cap_edge, cap_ink) = weight.cap_colours();
         let key = keycap(commands, fonts, legend, cap_fill, cap_ink, cap_edge, CAP_PT);
@@ -1031,7 +1257,7 @@ fn armed_row(
     row: Entity,
     words: &super::overlay::ArmedWords,
 ) {
-    let caps = keys_for(prefs, &[], true);
+    let caps = keys_for(prefs, &[], true, false);
     let cancel = super::overlay::ArmedWords {
         text: Phrase::ArmedCancel.text(lang).to_string(),
         cost: None,
@@ -1213,6 +1439,15 @@ mod tests {
             ink >= 4.5,
             "the candle's own label has to be readable: {ink:.2}:1"
         );
+        // The armed concession is the second loud button and carries the same
+        // dark ink, which is what makes the pair one register rather than two
+        // colours that happen to be bright. §3.2 measures it at 6.11 : 1.
+        let danger = contrast(palette::DIALOG, palette::DANGER);
+        assert!(
+            danger >= 4.5,
+            "the loudest thing the shelf says has to be readable while it \
+             says it: {danger:.2}:1"
+        );
         let wrong = contrast(palette::DIALOG_INK, palette::CANDLE);
         assert!(
             wrong < 3.0,
@@ -1226,8 +1461,8 @@ mod tests {
             legend >= 4.5,
             "a keycap nobody can read is a key nobody presses: {legend:.2}:1"
         );
-        // The em dash of an empty pool, and in step 5 a draw offer the engine
-        // would refuse: a thing that is not there.
+        // The em dash of an empty pool, and a draw offer the engine would
+        // refuse: a thing that is not there.
         let absent = contrast(palette::LEDGE_DEAD, palette::DIALOG);
         assert!(
             (3.0..4.5).contains(&absent),
@@ -1324,7 +1559,9 @@ mod tests {
         // And the slip in §2.3's own worked example, written down where it
         // can be checked: it measures `[Space]` at the square, which is 18
         // pixels light. The priority middle is 606 and not 588 — still
-        // `Full` at 1280 against 325 and 214, so nothing downstream moves.
+        // `Full` at 1280 against the design's own 325 and 214, so nothing
+        // downstream moved when it was found. (Both of those are measured
+        // numbers now, 365 and 222, and 623 is still `Full`.)
         assert!(
             cap_width("Space") - square > 17.0,
             "the design's arithmetic was out by {}",
@@ -1352,7 +1589,7 @@ mod tests {
                 "Resolve the stack".to_string(),
             ),
         ];
-        let caps = keys_for(&prefs, &row, false);
+        let caps = keys_for(&prefs, &row, false, false);
         assert_eq!(
             caps.get(1).and_then(Option::as_deref),
             Some("F6"),
@@ -1365,9 +1602,37 @@ mod tests {
             "Concede".to_string(),
         )];
         assert_eq!(
-            keys_for(&prefs, &row, false),
+            keys_for(&prefs, &row, false, false),
             vec![None],
             "a concession has no key and must not grow one here"
+        );
+    }
+
+    /// The way out of a hold wears the key that ends a hold, and the way out
+    /// of the autopilot wears nothing.
+    ///
+    /// One button and one sentence for two mechanisms (§4.4), which is right
+    /// — a player who has stopped being asked does not care which of them did
+    /// it — and the keycap is the one place the difference is real. `F6`
+    /// cancels a running engine hold; **no** key ends the autopilot, so a cap
+    /// on that button would promise a way out that the keyboard does not
+    /// have.
+    #[test]
+    fn the_way_out_of_a_hold_wears_a_key_and_the_way_out_of_the_pilot_does_not() {
+        let prefs = crate::prefs::Prefs::default();
+        let row = vec![(
+            Says::Command(super::MenuAction::ReleaseHold),
+            "Ask me again".to_string(),
+        )];
+        assert_eq!(
+            keys_for(&prefs, &row, false, true),
+            vec![Some("F6".to_string())],
+            "a running hold is cancelled by F6, so the button says F6"
+        );
+        assert_eq!(
+            keys_for(&prefs, &row, false, false),
+            vec![None],
+            "no key ends the autopilot, so the same button wears no cap"
         );
     }
 }

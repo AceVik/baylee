@@ -2057,7 +2057,15 @@ fn menu_click(duel: &mut Duel, action: MenuAction, was_armed: bool) {
         // `hold_action` reads the *current* view rather than the one that was
         // drawn — so a hold the engine has already expired cannot be
         // "cancelled" into a new one by a stale button.
+        //
+        // It takes the **autopilot** with it, which the pills in the corner
+        // never did: AX §4.4 draws one picture for both, so one button has to
+        // answer for both or the sentence would stay on the shelf with the
+        // press having done nothing visible. The autopilot is entirely the
+        // client's and reaches no wire, so it is simply dropped; nothing else
+        // ends it but its own arrival at the next turn.
         MenuAction::ReleaseHold => {
+            duel.autopilot = None;
             if duel.priority_held()
                 && let Some(action) = duel.hold_action(false)
             {

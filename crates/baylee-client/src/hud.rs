@@ -10,9 +10,9 @@
 //!
 //! What is left up here belongs to the window rather than to a seat:
 //!
-//! - **Top right** — the two controls that end a game, offer a draw and
-//!   concede, as a row of pills over the felt rather than a band across it.
-//! - **Right** — the stack, drawn as cards, under those pills.
+//! - **Right** — the stack, drawn as cards, in a corner that is its own: the
+//!   two controls that end a game were a row of pills above it and are on the
+//!   shelf's right-hand column now (AX §4.3).
 //! - **The middle** — the prompt slip, the zone browser, the hover preview.
 //! - **Bottom** — the hand zone: card images, overlapping but never less
 //!   than 30% visible, horizontally scrollable when even that overflows,
@@ -408,11 +408,11 @@ pub struct Designation(pub baylee_view::DayNight);
 
 /// A button that does something to the game rather than answering a question.
 ///
-/// It began as the pair of pills in the window's top-right corner and is no
-/// longer only that: the armed row's two buttons stand on the shelf, and so
-/// does "resolve the stack". What the component says is what it always said —
-/// this control's press goes to `input::menu_click` — and where it is drawn
-/// is the caller's business.
+/// It began as the pair of pills in the window's top-right corner and every
+/// one of them is on the shelf now: the armed row's two buttons, "resolve the
+/// stack", the way out of a hold, and the pair itself. What the component
+/// says is what it always said — this control's press goes to
+/// `input::menu_click` — and where it is drawn is the caller's business.
 #[derive(Component)]
 pub struct MenuButton {
     /// What the button does.
@@ -855,11 +855,6 @@ pub struct HudRevision {
     /// their `BackgroundColor` from the first frame, so a fill that depends
     /// on state is only honest while the state is in this gate.
     choice: Option<usize>,
-    /// The two menu buttons' states: whether a draw may be offered at all,
-    /// and whether concede is waiting for its second press. The first follows
-    /// the pending choice, the second nothing but the pointer, and a button
-    /// whose label changes has to be redrawn when it does.
-    menu: (bool, bool),
     /// What is armed and waiting for its second tap. Unlike a priority hold,
     /// which always arrives with a new `seq`, this never leaves the client at
     /// all — so without it here the armed row would never be drawn.
@@ -1386,33 +1381,15 @@ pub(crate) const Z_PREVIEW: i32 = 10;
 /// difference meant anything — it was three people picking a number — and an
 /// eye reading down that edge sees the disagreement long before it can name
 /// it. Two of those four are gone now (the seat bars are on the table), and
-/// the number outlived them: it is what the menu pills, the stack, the tray
-/// and the browser all stand off by.
+/// the number outlived them: it is what the stack, the tray and the browser
+/// all stand off by — and since §10.2 step 5 put the two ways out of a game
+/// on the shelf, it is what *everything* pinned to an edge stands off by.
+/// There is no exception left.
 ///
 /// The hand zone keeps its own ten: its edge is never seen (it is full-width
 /// and its cards are centred), and the number is load-bearing arithmetic in
 /// [`hand`]'s spread rather than an inset.
 pub(crate) const EDGE: f32 = 12.0;
-
-/// How tall the two controls in the top-right corner are drawn.
-///
-/// They are the whole of what is left of a strip that was fifty-six pixels
-/// tall with a fifty-four pixel rail under it, and they no longer sit on a
-/// band at all: a pill over the felt is as tall as the finger that presses it
-/// and no taller. Thirty-two is small for a *touch* target — the lobby's
-/// phone frame asks forty-four — and these two are a desktop control apiece,
-/// with a second press behind the dangerous one.
-pub(crate) const MENU_H: f32 = 32.0;
-
-/// Where the top of the free window begins for anything pinned to the
-/// **right**, which is the one column the menu pills stand in.
-///
-/// The rest of the window's top edge is `EDGE` and nothing more: the strip
-/// that used to run across it is on the table now. This is the exception, and
-/// it is stated rather than measured because a stack panel that discovered
-/// the pills by overlapping them would do so only in the games that have a
-/// stack at all.
-pub(crate) const MENU_BAND: f32 = EDGE + MENU_H + EDGE;
 
 /// How far what is left of the prompt slip floats above the hand zone.
 ///

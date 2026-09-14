@@ -277,18 +277,23 @@ mod tests {
     /// buttons — the widest either column ever gets — and both are measured
     /// from the window's edge, so the renderer's own inset is in them.
     ///
-    /// Two of the three are **measured** now rather than estimated, which is
-    /// §10.1 item 3's acceptance and moved both: §2.3 read 325 and 588 off
-    /// `0.52 × pt` per character, and the shipped face gives 365 for the pool
-    /// (the label is 60.5 and an entry 42.0, the design's 36 having left out
-    /// the restriction rim's padding) and 623 for a German priority — that
-    /// last one out of the buttons' own drawn widths at 1728, which is where
-    /// `Shift+Tab` spelled out in full lands. `RIGHT` stays an estimate until
-    /// the column exists (§10.2 step 5). Both moved *up*, which is the
-    /// direction that costs something: `arrange` slides the question to clear
-    /// what it is told the neighbours take.
+    /// All three are **measured** rather than estimated, which is §10.1 item
+    /// 3's acceptance and moved every one of them: §2.3 read 325, 588 and 214
+    /// off `0.52 × pt` per character, and the shipped face gives 365 for the
+    /// pool (the label is 60.5 and an entry 42.0, the design's 36 having left
+    /// out the restriction rim's padding), 623 for a German priority — out of
+    /// the buttons' own drawn widths at 1728, which is where `Shift+Tab`
+    /// spelled out in full lands — and 222 for "Remis anbieten" beside
+    /// "Aufgeben". All three moved *up*, which is the direction that costs
+    /// something: `arrange` slides the question to clear what it is told the
+    /// neighbours take.
+    ///
+    /// `RIGHT` is the column **at rest**. An armed concession is wider than
+    /// both buttons together and is drawn alone for exactly that reason; the
+    /// renderer's own `RIGHT_RESERVED` carries the measurement and the
+    /// argument.
     const LEFT: f32 = 365.0;
-    const RIGHT: f32 = 214.0;
+    const RIGHT: f32 = 222.0;
     /// A priority window's middle: the sentence, three answers, three caps.
     const PRIORITY: f32 = 623.0;
     /// What the three keycaps in that middle account for.
@@ -308,23 +313,23 @@ mod tests {
     /// at 1280 between the widest neighbours the rungs are
     ///
     /// ```text
-    ///   Full     mid <= 1280 - 365 - 214 - 48  =  653
-    ///   Compact  653 < mid <= 653 + 91         =  744
-    ///   Split    mid > 744
+    ///   Full     mid <= 1280 - 365 - 222 - 48  =  645
+    ///   Compact  645 < mid <= 645 + 91         =  736
+    ///   Split    mid > 736
     /// ```
     ///
     /// which is written out here because the design's own worked example puts
-    /// 800 in `Compact`, and 800 − 91 is 709, which is 56 px past what 1280
+    /// 800 in `Compact`, and 800 − 91 is 709, which is 64 px past what 1280
     /// has. Every input below sits inside a rung rather than on a boundary.
     #[test]
     fn the_rungs_are_where_the_arithmetic_puts_them() {
         for (mid, want) in [
             (PRIORITY, Density::Full),
-            (653.0, Density::Full),
-            (654.0, Density::Compact),
+            (645.0, Density::Full),
+            (646.0, Density::Compact),
             (700.0, Density::Compact),
-            (744.0, Density::Compact),
-            (745.0, Density::Split),
+            (736.0, Density::Compact),
+            (737.0, Density::Split),
             (900.0, Density::Split),
         ] {
             assert_eq!(

@@ -223,7 +223,6 @@ pub fn sync_overlay(
         sort: duel.browser.sort(),
         descending: duel.browser.descending(),
     };
-    let menu = (duel.can_offer_draw(), duel.concede_armed);
     let armed_deed = duel.armed.clone();
     // Rounded to whole pixels: a window being dragged reports fractional
     // sizes, and a revision keyed on an `f32` would rebuild the whole tree on
@@ -256,7 +255,6 @@ pub fn sync_overlay(
         && revision.arrivals == textures.epoch()
         && revision.combat == combat
         && revision.browser == browser
-        && revision.menu == menu
         && revision.armed == armed_deed
         && revision.number == number
         && revision.choice == choice
@@ -281,7 +279,6 @@ pub fn sync_overlay(
     revision.arrivals = textures.epoch();
     revision.combat = combat;
     revision.browser = browser;
-    revision.menu = menu;
     revision.armed.clone_from(&armed_deed);
     revision.number = number;
     revision.choice = choice;
@@ -372,17 +369,6 @@ pub fn sync_overlay(
         commands.entity(root).add_child(ledge);
         root
     };
-
-    // ---- top right: the two things that end a game -----------------------
-    //
-    // Both of them *are* ways to end a game, so a game that has already
-    // ended keeps neither: input stops in `DuelPhase::Finished`
-    // (`DuelSet::Input`), and a pill drawn there is lit, hovers under the
-    // pointer and answers nothing — an offer the client cannot keep.
-    if !over {
-        let menu_row = spawn_menu_row(&mut commands, &fonts, lang, &duel);
-        commands.entity(root).add_child(menu_row);
-    }
 
     // ---- the prompt slip: the question, and the answers to it -------------
     //
@@ -1297,154 +1283,6 @@ pub(super) fn armed_label(duel: &Duel, lang: Lang, armed: &crate::Armed) -> Opti
     }
 }
 
-/// The chip that says this seat is not being asked, and the button out of it.
-///
-/// It exists because a hold is the one game state with no other symptom: the
-/// prompt bar is empty precisely *because* the seat is not being asked, which
-/// is exactly what an idle bar looks like. A player who set a hold two turns
-/// ago and forgot would watch the game play itself and have nothing on screen
-/// to blame. So the state is drawn, and the way out of it sits beside the
-/// drawing rather than only on a function key nobody can see.
-/// The row of pills in the top-right corner: a draw offer and a concession.
-///
-/// What used to be here was a full-width strip of seat tabs with this menu on
-/// the end of it, and a twelve-step phase rail under that: two bands that
-/// between them took a hundred and ten pixels off the top of every window, on
-/// every screen, for the whole game. Both are on the table now — each seat's
-/// own bar, written on its mat's ledge — which is where the information was
-/// about in the first place. What is left up here is the pair of controls
-/// that belong to *no* seat, and they are a row of pills over the felt rather
-/// than a band across it.
-///
-/// Its own function because it is drawn for a game that is still being played
-/// and for no other, and an `if` around seventy lines in the middle of
-/// [`sync_overlay`] would hide that behind an indent.
-fn spawn_menu_row(commands: &mut Commands, fonts: &UiFonts, lang: Lang, duel: &Duel) -> Entity {
-    let menu_row = commands
-        .spawn((
-            Node {
-                position_type: PositionType::Absolute,
-                top: px(EDGE),
-                right: px(EDGE),
-                height: px(MENU_H),
-                flex_direction: FlexDirection::Row,
-                align_items: AlignItems::Center,
-                column_gap: px(8),
-                ..default()
-            },
-            Pickable::IGNORE,
-        ))
-        .id();
-    // A draw needs this seat's own priority (CR 104.4a, and `offer_draw`
-    // refuses anything else), so the button says so instead of being a live
-    // button whose usual answer is an error in the prompt bar. Concede is
-    // always legal and is greyed by nothing — what it has instead is a second
-    // press, because there is no undo behind it.
-    if duel.priority_held() {
-        spawn_hold(commands, fonts, lang, menu_row);
-    }
-    let armed = duel.concede_armed;
-    for (action, label, enabled) in [
-        (
-            MenuAction::OfferDraw,
-            Phrase::OfferADraw.text(lang),
-            duel.can_offer_draw(),
-        ),
-        (
-            MenuAction::Concede,
-            if armed {
-                Phrase::ConcedeConfirm.text(lang)
-            } else {
-                Phrase::Concede.text(lang)
-            },
-            true,
-        ),
-    ] {
-        let lit = match (action, armed) {
-            (MenuAction::Concede, true) => palette::DANGER,
-            _ if enabled => palette::PANEL_LIT,
-            _ => palette::PANEL,
-        };
-        let ink = match (action, armed) {
-            (MenuAction::Concede, true) => palette::PANEL,
-            _ if enabled => palette::INK,
-            _ => palette::DEAD,
-        };
-        let button = commands
-            .spawn((
-                MenuButton { action },
-                Node {
-                    height: px(MENU_H),
-                    align_items: AlignItems::Center,
-                    justify_content: JustifyContent::Center,
-                    padding: UiRect::axes(px(14), px(0)),
-                    border_radius: btn_radius(),
-                    ..default()
-                },
-                BackgroundColor(lit),
-                Feel::new(lit),
-                soft_shadow(),
-                children![(
-                    Text::new(label),
-                    tf_bold(fonts, 13.0),
-                    TextColor(ink),
-                    Pickable::IGNORE,
-                )],
-            ))
-            .id();
-        commands.entity(menu_row).add_child(button);
-    }
-    menu_row
-}
-
-fn spawn_hold(commands: &mut Commands, fonts: &UiFonts, lang: Lang, row: Entity) {
-    let chip = commands
-        .spawn((
-            Node {
-                height: px(MENU_H),
-                align_items: AlignItems::Center,
-                justify_content: JustifyContent::Center,
-                padding: UiRect::axes(px(14), px(0)),
-                border_radius: btn_radius(),
-                ..default()
-            },
-            BackgroundColor(palette::ACCENT),
-            Pickable::IGNORE,
-            children![(
-                Text::new(Phrase::HoldingPriority.text(lang)),
-                tf(fonts, 13.0),
-                TextColor(palette::PANEL),
-            )],
-        ))
-        .id();
-    let release = commands
-        .spawn((
-            MenuButton {
-                action: MenuAction::ReleaseHold,
-            },
-            Node {
-                height: px(MENU_H),
-                align_items: AlignItems::Center,
-                justify_content: JustifyContent::Center,
-                padding: UiRect::axes(px(14), px(0)),
-                border_radius: btn_radius(),
-                ..default()
-            },
-            BackgroundColor(palette::PANEL_LIT),
-            Feel::new(palette::PANEL_LIT),
-            soft_shadow(),
-            children![(
-                Text::new(Phrase::HoldRelease.text(lang)),
-                tf_bold(fonts, 13.0),
-                TextColor(palette::INK),
-                Pickable::IGNORE,
-            )],
-        ))
-        .id();
-    commands.entity(row).add_child(chip);
-    commands.entity(row).add_child(release);
-}
-
 /// One arm of the number stepper.
 /// Where the prompt slip stands.
 ///
@@ -2034,9 +1872,14 @@ mod tests {
     /// Four things, and only the first of them was ever silenced. A refusal
     /// or a word about the connection each draws the whole slip on its own,
     /// under the end screen and in the veil, saying something about a game
-    /// that has stopped being played — and the draw and concede pills stayed
-    /// lit up in the corner, hovering under the pointer and answering
-    /// nothing, because `DuelSet::Input` does not run in `Finished`.
+    /// that has stopped being played — and the draw and concede controls
+    /// stayed lit, hovering under the pointer and answering nothing, because
+    /// `DuelSet::Input` does not run in `Finished`.
+    ///
+    /// Those two are drawn by `ledge::ways_out` now rather than in the corner
+    /// up here, and the test did not move with them: `said` reads the whole
+    /// world, so it is about what the player can see and never about which
+    /// function put it there.
     #[test]
     fn nothing_the_overlay_offers_outlives_the_game() {
         let mut app = bar_of(duel_with(true));
@@ -2109,7 +1952,14 @@ mod tests {
     /// thing about the game for as long as the game lasts.
     #[test]
     fn the_shelf_outlives_a_rebuild_and_nothing_else_does() {
-        let mut app = bar_of(duel_with(false));
+        // A print table, because the counter-half needs something the overlay
+        // *does* draw under the root, and everything it draws there asks for
+        // one. The two ways out of a game were the exception — spawned with
+        // nothing but a language — and they are on the shelf now (AX §4.3),
+        // so what answers for the overlay is the hand zone.
+        let mut duel = duel_with(false);
+        duel.statics = Some(baylee_client_core::test_support::statics(8));
+        let mut app = bar_of(duel);
 
         let shelf = |app: &mut App| {
             let mut q = app
@@ -2122,8 +1972,7 @@ mod tests {
             q.iter(app.world()).collect::<Vec<_>>()
         };
         // What the shelf carries, and what the overlay carries: the two sides
-        // of the claim. A draw offer and a concession are drawn by the
-        // rebuild and nothing else in this test touches them.
+        // of the claim.
         let standing = |app: &mut App| {
             let mut q = app
                 .world_mut()
@@ -2132,19 +1981,36 @@ mod tests {
                 .flat_map(|c| c.iter().collect::<Vec<_>>())
                 .collect::<Vec<_>>()
         };
-        let pills = |app: &mut App| {
-            let mut q = app.world_mut().query_filtered::<Entity, With<MenuButton>>();
-            q.iter(app.world()).collect::<Vec<_>>()
+        // Everything the root carries **except** the shelf, which is the
+        // honest way to name "what the rebuild rebuilds": it says which
+        // entities it means rather than resting on a component that happens
+        // to be drawn in one place — `MenuButton` was that component and
+        // stopped being it the moment the ways out of a game moved here.
+        let redrawn = |app: &mut App| {
+            let shelves = {
+                let mut q = app
+                    .world_mut()
+                    .query_filtered::<Entity, With<ledge::LedgeShelf>>();
+                q.iter(app.world()).collect::<Vec<_>>()
+            };
+            let mut q = app.world_mut().query_filtered::<&Children, With<HudRoot>>();
+            q.iter(app.world())
+                .flat_map(|c| c.iter().collect::<Vec<_>>())
+                .filter(|e| !shelves.contains(e))
+                .collect::<Vec<_>>()
         };
 
         let was_shelf = shelf(&mut app);
         let was_root = roots(&mut app);
         let was_standing = standing(&mut app);
-        let was_pills = pills(&mut app);
+        let was_redrawn = redrawn(&mut app);
         assert_eq!(was_shelf.len(), 1, "one shelf, and it was built");
         assert_eq!(was_root.len(), 1, "and one root to hang it off");
         assert_eq!(was_standing.len(), 3, "and three columns standing on it");
-        assert!(!was_pills.is_empty(), "the overlay drew its own controls");
+        assert!(
+            !was_redrawn.is_empty(),
+            "the overlay drew something of its own beside the shelf"
+        );
 
         // The pointer moves onto a card. Nothing about the game changed.
         app.world_mut().resource_mut::<Duel>().hovered = Some(ObjectId::new(1, 0));
@@ -2159,17 +2025,10 @@ mod tests {
              same loss one level down: a `Feel` under the pointer goes back \
              to rest"
         );
-        // A `MenuButton` reads as "was rebuilt" here only because *this* duel
-        // draws none on the shelf: `duel_with(false)` has an empty stack and
-        // nothing armed, so the only ones in the world are the top-right
-        // pair. Neither of those states is exotic — the armed row and
-        // "resolve the stack" both put one on the shelf, where it persists —
-        // so anything added to this half has to say which entities it means.
-        // Step 5 moves the pair onto the shelf too and the half goes with it.
-        let now_pills = pills(&mut app);
-        assert!(!now_pills.is_empty(), "the overlay still draws them");
+        let now_redrawn = redrawn(&mut app);
+        assert!(!now_redrawn.is_empty(), "the overlay still draws it");
         assert!(
-            now_pills.iter().all(|e| !was_pills.contains(e)),
+            now_redrawn.iter().all(|e| !was_redrawn.contains(e)),
             "the overlay stopped rebuilding: it is still showing the tree it \
              built for a different frame"
         );
