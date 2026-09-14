@@ -253,21 +253,41 @@ impl Chord {
         !self.shift && !self.ctrl && !self.alt && !self.meta
     }
 
-    /// How the chord reads on a settings screen: `⇧W`, `Space`, `Esc`.
+    /// How the chord reads wherever a key is named: `Shift+W`, `Space`,
+    /// `Esc`.
+    ///
+    /// The modifiers are **words and not the Mac marks**, and that is a
+    /// correction rather than a preference. It was `⌃⌥⇧⌘`, and this interface
+    /// is set in Alegreya Sans, which carries **none of those four
+    /// codepoints**: each one drew an empty `.notdef` advance and nothing
+    /// else. So the settings screen listed `W` for `KeyW` and `W` for
+    /// `Chord::shift("KeyW")` — two rows a player could not tell apart — and
+    /// the ledge's keycap said `Tab` for a turn that is skipped with
+    /// `Shift+Tab`. A cap promising a key that does not do the thing is worse
+    /// than no cap at all.
+    ///
+    /// The arrows stay, because the face *does* have those (U+2190 to
+    /// U+2193, measured out of the shipped file); it is only the modifier
+    /// marks that are absent. `every_chord_this_names_can_be_drawn` in the
+    /// renderer reads the `cmap` and holds both halves of that.
+    ///
+    /// `Cmd` keeps `⌘`'s meaning. The alternative — shipping a face that has
+    /// the marks — is a licence decision (`docs/legal.md` §2) rather than a
+    /// rename, so it is noted and not taken here.
     #[must_use]
     pub fn display(&self) -> String {
         let mut out = String::new();
         if self.ctrl {
-            out.push('⌃');
+            out.push_str("Ctrl+");
         }
         if self.alt {
-            out.push('⌥');
+            out.push_str("Alt+");
         }
         if self.shift {
-            out.push('⇧');
+            out.push_str("Shift+");
         }
         if self.meta {
-            out.push('⌘');
+            out.push_str("Cmd+");
         }
         out.push_str(&pretty_key(&self.key));
         out
@@ -814,12 +834,20 @@ mod tests {
     #[test]
     fn a_chord_reads_the_way_a_player_would_write_it() {
         assert_eq!(Chord::key("KeyW").display(), "W");
-        assert_eq!(Chord::shift("KeyW").display(), "⇧W");
+        assert_eq!(Chord::shift("KeyW").display(), "Shift+W");
         assert_eq!(Chord::key("Escape").display(), "Esc");
         assert_eq!(Chord::key("ArrowUp").display(), "↑");
         assert_eq!(Chord::key("Digit3").display(), "3");
         assert!(Chord::key("Space").plain());
         assert!(!Chord::shift("Space").plain());
+        // The one that was wrong for as long as the function existed: two
+        // chords that differ only in a modifier have to *read* differently,
+        // and `⇧` is not a character the interface's face can draw.
+        assert_ne!(
+            Chord::key("KeyW").display(),
+            Chord::shift("KeyW").display(),
+            "a modifier that renders as nothing makes two bindings one row"
+        );
     }
 
     /// A player who never opened the settings screen gets the swap.

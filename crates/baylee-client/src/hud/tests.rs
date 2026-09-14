@@ -1612,4 +1612,111 @@ mod faces {
         known.sort();
         assert_eq!(found, known, "a face nothing in the client names");
     }
+
+    /// Which glyph a codepoint maps to in this face, or zero for none.
+    ///
+    /// A `cmap` format-4 lookup, hand-rolled beside [`table`] and for the
+    /// same reason: it reads one number out of one table. Format 4 is the
+    /// BMP subtable every desktop face carries, and every character
+    /// `Chord::display` can produce is in the BMP.
+    fn glyph(bytes: &[u8], code: u32) -> u16 {
+        let Some((cmap, _)) = table(bytes, *b"cmap") else {
+            return 0;
+        };
+        let u16_at = |at: usize| u16::from_be_bytes([bytes[at], bytes[at + 1]]);
+        let subtables = u16_at(cmap + 2) as usize;
+        // The Unicode BMP subtable: Windows/Unicode (3, 1), or Unicode (0, n).
+        let sub = (0..subtables).find_map(|i| {
+            let rec = cmap + 4 + 8 * i;
+            let (platform, encoding) = (u16_at(rec), u16_at(rec + 2));
+            let at = cmap
+                + u32::from_be_bytes([
+                    bytes[rec + 4],
+                    bytes[rec + 5],
+                    bytes[rec + 6],
+                    bytes[rec + 7],
+                ]) as usize;
+            ((platform == 3 && encoding == 1) || platform == 0).then_some(at)
+        });
+        let Some(sub) = sub.filter(|at| u16_at(*at) == 4) else {
+            return 0;
+        };
+        let Ok(code) = u16::try_from(code) else {
+            return 0;
+        };
+        let segs = u16_at(sub + 6) as usize / 2;
+        let ends = sub + 14;
+        let starts = ends + 2 * segs + 2;
+        let deltas = starts + 2 * segs;
+        let ranges = deltas + 2 * segs;
+        let Some(i) = (0..segs).find(|i| u16_at(ends + 2 * i) >= code) else {
+            return 0;
+        };
+        let start = u16_at(starts + 2 * i);
+        if start > code {
+            return 0;
+        }
+        let delta = u16_at(deltas + 2 * i);
+        let offset = u16_at(ranges + 2 * i) as usize;
+        if offset == 0 {
+            return code.wrapping_add(delta);
+        }
+        let at = ranges + 2 * i + offset + 2 * (code - start) as usize;
+        match u16_at(at) {
+            0 => 0,
+            g => g.wrapping_add(delta),
+        }
+    }
+
+    /// Every character a keyboard binding can be drawn with is one this face
+    /// actually has.
+    ///
+    /// The defect that earned it: `Chord::display` spelled its modifiers with
+    /// the Mac marks `⌃⌥⇧⌘`, and **Alegreya Sans has none of the four**. They
+    /// drew an empty advance and nothing else, so the settings screen listed
+    /// `W` twice for `KeyW` and `Shift+W`, and the ledge's keycap promised
+    /// `Tab` for a turn that is skipped with `Shift+Tab`.
+    ///
+    /// Read out of the shipped file rather than assumed, because a glyph is
+    /// the one thing about type that no amount of reading the source can
+    /// settle — and because the same trap is waiting for the next arrow,
+    /// mark or symbol somebody reaches for. The counter-test is what makes
+    /// the reader trustworthy: the four marks are checked to be *absent*, so
+    /// a `glyph` that answered yes to everything would fail here.
+    #[test]
+    fn every_chord_this_names_can_be_drawn() {
+        use baylee_client_core::prefs::{Action, Keymap};
+        let face = std::fs::read(path("AlegreyaSans-Bold.ttf")).expect("the bold cut");
+        assert!(glyph(&face, 'W' as u32) > 0, "the reader found no W");
+
+        let map = Keymap::standard();
+        for action in Action::ALL {
+            for chord in map.chords(action) {
+                for ch in chord.display().chars() {
+                    assert!(
+                        glyph(&face, ch as u32) > 0,
+                        "{action:?} is drawn as {:?}, and this face has no \
+                         {ch:?} — it renders as an empty advance, which is a \
+                         key the player cannot read",
+                        chord.display()
+                    );
+                }
+            }
+        }
+
+        // And the premise: those four marks really are missing, so the words
+        // are a fix and not a preference.
+        for mark in ['\u{2303}', '\u{2325}', '\u{21e7}', '\u{2318}'] {
+            assert_eq!(
+                glyph(&face, mark as u32),
+                0,
+                "this face has {mark:?} after all — the modifiers could be \
+                 marks again, and this test is the place to decide that"
+            );
+        }
+        // The arrows, which are kept precisely because they are there.
+        for arrow in ['\u{2190}', '\u{2191}', '\u{2192}', '\u{2193}'] {
+            assert!(glyph(&face, arrow as u32) > 0, "no {arrow:?}");
+        }
+    }
 }
