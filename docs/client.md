@@ -2102,8 +2102,8 @@ a different length (`AbilityLine::of`), or a gateway serving no catalog.
 
 Drawing a sentence where two words used to go is what found the slip's other
 half. A row was a button with no width of its own, and Force of Will's
-alternative cost is 148 characters in German: it came out as one unbroken line
-**914 logical pixels** wide, hanging 170 px past each edge of the 620-wide
+alternative cost is 143 characters in German: it came out as one unbroken line
+**914 logical pixels** wide, hanging 147 px past each edge of the 620-wide
 parchment it was drawn on. `max_width` binds a node's own box and not its
 children's, so the sheet stayed 620 and the answer walked out of it. An answer
 is now capped at `SLIP_INNER_W` — the slip's content box, edge to edge — with

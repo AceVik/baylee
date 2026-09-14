@@ -48,8 +48,8 @@ const SLIP_MIN_W: f32 = 380.0;
 /// Both were written into the slip's own `Node` and nowhere else, which was
 /// fine while every answer on the sheet was two words long. A row that says
 /// what the card says is not: Force of Will's alternative cost is one German
-/// sentence of 148 characters, and it was drawn as a single unbroken line
-/// **914 logical pixels** wide — the button hanging 170 px past each edge of
+/// sentence of 143 characters, and it was drawn as a single unbroken line
+/// **914 logical pixels** wide — the button hanging 147 px past each edge of
 /// the 620-wide parchment it was supposed to be on. `max_width` binds the
 /// slip's own box and not its children's, so the sheet stayed 620 and the
 /// answer walked out of it.
@@ -749,6 +749,12 @@ pub fn sync_overlay(
                             // is a wrapping row and a `Text` breaks at a word
                             // — once something narrower than the sentence
                             // tells it where.
+                            // `Wrap` is about the row's own parts and not
+                            // about the sentence: an answer that carries cost
+                            // marks as well as words drops the marks onto a
+                            // second line instead of squeezing the words into
+                            // a column beside them. Nothing in the pool prints
+                            // both today, so it says what happens when one does.
                             max_width: px(SLIP_INNER_W),
                             min_width: px(0),
                             flex_wrap: FlexWrap::Wrap,
