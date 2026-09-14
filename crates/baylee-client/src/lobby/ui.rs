@@ -558,6 +558,25 @@ fn table(
         ))
         .id();
     commands.entity(bar).add_child(brand);
+    // The build, beside the name, on every screen including a phone.
+    //
+    // It survives the narrowing that drops the gateway address below,
+    // because the two answer different questions: the address is reassurance
+    // a player already has, and this is the only thing on screen that says
+    // *which* baylee this is. It is what a bug report is worthless without,
+    // and it is half of the AGPL offer the gateway answers in full at
+    // `GET /source` — a version, so that "the source is over there" names a
+    // particular source. Twenty characters at the smallest size the lobby
+    // has, which is what lets it afford to be unconditional.
+    let build = commands
+        .spawn((
+            Text::new(baylee_build::short()),
+            tf(fonts, metrics.small * 0.9),
+            TextColor(palette::MUTED),
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(bar).add_child(build);
     // The gateway address is reassurance, not information, and the first thing
     // a narrow screen can do without — and offline it is not even that: the
     // address is printed from settings and nothing has been dialled.

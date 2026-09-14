@@ -1,0 +1,29 @@
+name: linux-deps
+description: >
+  The system libraries Bevy links against on Linux, and nothing on any other
+  platform.
+
+runs:
+  using: composite
+  steps:
+    # ALSA is the only one that is a *build*-time dependency: rodio reaches
+    # it through cpal and alsa-sys, and alsa-sys is a pkg-config crate, so a
+    # runner without the headers fails at `cargo build` rather than at run
+    # time. X11 and Wayland are not listed here on purpose — Bevy opens both
+    # with dlopen at run time (x11-dl, wayland-sys), so a build needs neither
+    # and a CI runner never opens a window anyway. libudev is gamepad
+    # enumeration and is in the same pkg-config position as ALSA.
+    #
+    # Guarded by the runner's own OS rather than by a `if:` on every call
+    # site, so the three non-Linux platforms in the build matrix can use the
+    # same one line.
+    - shell: bash
+      run: |
+        if [ "$RUNNER_OS" != "Linux" ]; then
+          echo "not Linux ($RUNNER_OS) — nothing to install"
+          exit 0
+        fi
+        sudo apt-get update
+        sudo apt-get install --no-install-recommends -y \
+          libasound2-dev \
+          libudev-dev

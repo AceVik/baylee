@@ -9,6 +9,15 @@ edition = "2024"
 # gateway. CI builds against exactly this version so the number stays true.
 rust-version = "1.88"
 license = "AGPL-3.0-only"
+# The AGPL's own "How to Apply" appendix asks for a copyright holder and a
+# way to reach the source, and here both are obligations rather than
+# decoration: §13 says a user who interacts with the program over a network
+# must be offered its Corresponding Source, and a gateway is exactly that.
+# `repository` is where that offer points; `baylee-build` carries it into
+# every binary and the client draws it.
+authors = ["Viktor Machnik"]
+repository = "https://github.com/AceVik/baylee"
+description = "An unofficial, non-commercial fan implementation of a trading card game"
 
 # Dependency policy: newest stable, pinned here once for the whole workspace.
 # Refresh with `cargo upgrade` (cargo-edit) + full CI run.
@@ -28,6 +37,7 @@ baylee-gateway = { path = "crates/baylee-gateway" }
 baylee-engine-server = { path = "crates/baylee-engine-server" }
 baylee-agent = { path = "crates/baylee-agent" }
 baylee-catalog = { path = "crates/baylee-catalog" }
+baylee-build = { path = "crates/baylee-build" }
 
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"

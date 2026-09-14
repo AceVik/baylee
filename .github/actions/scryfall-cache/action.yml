@@ -1,0 +1,29 @@
+name: scryfall-cache
+description: >
+  Restores the Scryfall payload cache that codegen and validate read, and
+  saves it again for the next run.
+
+runs:
+  using: composite
+  steps:
+    # `data/scryfall-cache/` is 1371 JSON payloads, one per card in the
+    # pool, and it used to be committed. It is card data belonging to
+    # somebody else, cached as their guidelines encourage, and a cache is
+    # not source — so it lives here instead, where it is restored in seconds
+    # and costs the repository nothing.
+    #
+    # The key is the card ledger, because that is what decides *which*
+    # payloads are wanted: adding a card invalidates the cache exactly when
+    # a new payload is needed and never otherwise. `restore-keys` then hands
+    # the previous cache to that run anyway, so the fetch is for the one new
+    # card rather than for all 1372.
+    #
+    # A complete miss is not a failure: `xtask` fetches what it does not
+    # find, inside Scryfall's rate limit. It is slow (minutes, not seconds),
+    # which is the whole reason for the restore-key fallback.
+    - uses: actions/cache@v4
+      with:
+        path: data/scryfall-cache
+        key: scryfall-cache-${{ hashFiles('data/card-index.tsv') }}
+        restore-keys: |
+          scryfall-cache-

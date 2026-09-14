@@ -15,6 +15,7 @@ baylee-cards.workspace = true
 # `manasources.rs` reads a card's printed mana ability out of the registry:
 # which of its abilities makes mana, and what colours it can make.
 baylee-cards-dsl.workspace = true
+baylee-build.workspace = true
 baylee-client-core.workspace = true
 baylee-core.workspace = true
 baylee-engine.workspace = true

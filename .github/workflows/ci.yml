@@ -22,6 +22,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: ./.github/actions/linux-deps
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
@@ -32,6 +33,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: ./.github/actions/linux-deps
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - run: cargo test --workspace --all-targets
@@ -42,14 +44,57 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: ./.github/actions/linux-deps
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - run: cargo test --workspace --all-targets --release
+
+  # Every platform this is meant to run on, on its own architecture.
+  #
+  # What breaks per-platform is exactly what one Linux runner cannot see: a
+  # path separator, a `cfg` that has only ever run on 64-bit x86, a build
+  # script that assumes a shell, and above all the **link**. So this builds
+  # rather than checks — the client is a GUI binary and half of what a new
+  # platform costs is discovered by the linker and not by the type checker.
+  #
+  # The suite itself does not run here, deliberately. The tests are
+  # arithmetic and protocol, both architecture-independent, so running them
+  # six times would re-prove what the two jobs above already prove while
+  # making every pull request wait on six Bevy builds.
+  build:
+    name: build (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      # One platform failing must not hide the state of the other five; the
+      # whole value of a matrix is knowing *which* of them broke.
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest      # x86_64-unknown-linux-gnu
+          - os: ubuntu-24.04-arm   # aarch64-unknown-linux-gnu
+          - os: windows-latest     # x86_64-pc-windows-msvc
+          - os: windows-11-arm     # aarch64-pc-windows-msvc
+          - os: macos-13           # x86_64-apple-darwin
+          - os: macos-latest       # aarch64-apple-darwin
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/linux-deps
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.os }}
+      - run: cargo build --workspace --bins
+      # `--bins` links every binary; this is the half it does not reach, and
+      # it is where a `cfg(test)` block first meets a platform. Checked
+      # rather than built, because linking test harnesses on six platforms
+      # is a cost with no matching failure mode.
+      - run: cargo check --workspace --all-targets
 
   codegen-check:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: ./.github/actions/scryfall-cache
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - run: cargo run -p xtask -- codegen --check
@@ -62,6 +107,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: ./.github/actions/scryfall-cache
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - run: cargo run -p xtask -- validate
@@ -86,6 +132,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: ./.github/actions/linux-deps
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - run: cargo bench -p baylee-engine -- --quick
@@ -96,6 +143,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: ./.github/actions/linux-deps
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: "1.88"

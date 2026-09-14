@@ -42,3 +42,34 @@ Urheber- und Medienrecht.
    one — files a player supplies are theirs, not ours to distribute — and
    `baylee_client_core::cue::Cue` is deliberately a named moment rather than
    a file name so that answer stays open.
+6. **AGPL §13 — the network clause.** This is the one licence obligation the
+   project's own architecture triggers, and it was written down nowhere.
+   §13 says a user who interacts with a modified version of the program
+   *remotely, over a network* must be offered its Corresponding Source — and
+   the gateway is exactly that: a process other people connect to.
+   Publishing the repository is not by itself the offer, because a gateway
+   may be running a patch nobody pushed. So the offer is answered by the
+   running process: **`GET /source`** is unauthenticated (an offer
+   conditional on having an account is not an offer to the people §13 is
+   about) and names the licence, the version, the commit, the build number
+   and the repository — plus `dirty`, the one field that says the commit
+   does not fully describe what is running. `baylee-build` stamps all of it
+   in at compile time, and the client prints the short form beside its own
+   name in the lobby. Anyone who deploys a fork carries the same obligation
+   and inherits the route that discharges it.
+7. **The card-script reference.** Code generation may read an external,
+   GPL-licensed corpus of rules scripts from a checkout the developer
+   supplies. It is an automated lookup: no file of it is copied into this
+   repository, vendored, or present in any build output, and nothing here is
+   a derived work of it. `NOTICE` names the project precisely and is the
+   only place that does — the code and the rest of the documentation call it
+   "the corpus", which is a naming choice and not a claim about provenance.
+   `xtask::scripts_root` finds the checkout instead of hard-coding a path,
+   which is what keeps "never vendored" true of the build as well as of the
+   tree.
+8. **A cache of someone else's data is not source.**
+   `data/scryfall-cache/` is one JSON payload per card in the pool, fetched
+   under clause 3 and kept because Scryfall's guidelines encourage caching.
+   It is **not committed** — 1371 files of it were, until it was taken out.
+   CI restores it from its own cache and `xtask` refetches whatever is
+   missing, so holding the line costs nothing.

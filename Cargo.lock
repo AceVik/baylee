@@ -584,6 +584,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "baylee-build"
+version = "0.1.0"
+
+[[package]]
 name = "baylee-cards"
 version = "0.1.0"
 dependencies = [
@@ -635,6 +639,7 @@ name = "baylee-client"
 version = "0.1.0"
 dependencies = [
  "baylee-ai",
+ "baylee-build",
  "baylee-cards",
  "baylee-cards-dsl",
  "baylee-client-core",
@@ -755,6 +760,7 @@ version = "0.1.0"
 dependencies = [
  "argon2",
  "axum",
+ "baylee-build",
  "baylee-cards",
  "baylee-cards-dsl",
  "baylee-catalog",

@@ -183,6 +183,7 @@ async fn main() {
     spawn_cleanup(state.clone());
 
     let app = Router::new()
+        .route("/source", get(source))
         .route("/auth/config", get(auth_config))
         .route("/auth/register", post(register))
         .route("/auth/login", post(login))
@@ -382,6 +383,32 @@ fn rate_limit_ip(state: &AppState, peer: IpAddr, headers: &HeaderMap) -> String 
 
 /// Public auth configuration (clients check this before offering
 /// registration).
+/// What this gateway is, and where the source for exactly this build lives.
+///
+/// The AGPL's §13 obliges a program modified and offered to users over a
+/// network to offer those users its Corresponding Source, and a gateway is
+/// the one process here that meets that description. Unauthenticated on
+/// purpose: an offer conditional on having an account is not an offer to the
+/// people §13 is about. It names the commit rather than only the repository,
+/// because "the source is on GitHub" does not say *which* source — a build
+/// running a patch nobody published would answer that sentence truthfully
+/// and still be hiding what it runs.
+async fn source() -> Json<serde_json::Value> {
+    Json(serde_json::json!({
+        "name": "baylee",
+        "license": "AGPL-3.0-only",
+        "version": baylee_build::short(),
+        "commit": baylee_build::COMMIT,
+        "build": baylee_build::BUILD_NUMBER,
+        "built_at": baylee_build::BUILT_AT,
+        "source": baylee_build::REPOSITORY,
+        // Stated rather than implied: a reader who finds `dirty` true knows
+        // the commit above does not fully describe what is running, which is
+        // the one case where the offer would otherwise mislead.
+        "dirty": baylee_build::DIRTY,
+    }))
+}
+
 async fn auth_config(State(state): State<Shared>) -> Json<serde_json::Value> {
     Json(serde_json::json!({
         "registration_enabled": state.registration_enabled,

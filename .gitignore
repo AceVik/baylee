@@ -1,7 +1,15 @@
 /target
 **/*.rs.bk
 .DS_Store
-/data/scryfall-cache/*.part
+
+# The Scryfall payload cache that codegen and validate read: one JSON
+# document per card in the pool, fetched from Scryfall's API and kept
+# because their guidelines encourage caching. It is a cache of somebody
+# else's data rather than source, and `docs/legal.md` §3 is why that line is
+# kept sharp here instead of left to convenience — 1371 files of it were
+# committed. CI restores it with `.github/actions/scryfall-cache` and
+# `xtask` refetches whatever is missing, so nothing depends on it existing.
+/data/scryfall-cache/
 .idea/
 # trunk default output (browser build of baylee-client)
 dist/
