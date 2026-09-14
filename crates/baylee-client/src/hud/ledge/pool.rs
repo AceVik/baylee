@@ -417,7 +417,11 @@ fn label(commands: &mut Commands, fonts: &UiFonts, lang: Lang) -> Entity {
             PoolLabel,
             Text::new(Phrase::ManaPool.text(lang).to_string()),
             tf(fonts, POOL_LABEL_PT),
-            TextColor(palette::DIALOG_SOFT),
+            // On the shelf's own ground, which is no longer opaque — see
+            // `palette::LEDGE_SOFT`. The restricted rim further down stays
+            // `DIALOG_SOFT`: it is a mark rather than prose, and 4.07 : 1
+            // clears the 3.0 a mark is held to.
+            TextColor(palette::LEDGE_SOFT),
             Node {
                 // The column's own gap is the step between entries; the label
                 // is not one of them and takes the wider step of §4.1.

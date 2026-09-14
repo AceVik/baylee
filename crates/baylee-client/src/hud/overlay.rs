@@ -85,8 +85,9 @@ pub struct Surfaces<'w> {
     /// `setup_sheets` simply draws the flat colour the sheet is grained
     /// around.
     sheets: Option<Res<'w, UiSheets>>,
-    /// The cloth under the hand: one handle, minted on the first frame there
-    /// is somewhere to mint it and cloned on every frame after.
+    /// The cloth: two handles, each minted on the first frame there is
+    /// somewhere to mint it and cloned on every frame after — the skirt over
+    /// the whole hand zone, the rail over the actions row.
     ///
     /// Optional like the rest of this bundle, and for the same reason twice
     /// over: `FrontalPlugin` is what puts it there, and a test app that
@@ -95,16 +96,22 @@ pub struct Surfaces<'w> {
     /// scheduler, with the parameter's name switched off unless the `debug`
     /// feature is on.
     cloth: Option<ResMut<'w, crate::frontal::Cloth>>,
-    /// Where it is minted. Absent headless, and then there is no cloth and
-    /// the hand zone draws the gradient it always did.
+    /// Where they are minted. Absent headless, and then there is no cloth and
+    /// both surfaces draw the flat dye instead.
     cloth_assets: Option<ResMut<'w, Assets<crate::frontal::FrontalMaterial>>>,
 }
 
 impl Surfaces<'_> {
-    /// The cloth's handle, or `None` when there is nowhere to draw it.
-    fn hanging(&mut self) -> Option<Handle<crate::frontal::FrontalMaterial>> {
+    /// The skirt's handle, or `None` when there is nowhere to draw it.
+    fn skirt(&mut self) -> Option<Handle<crate::frontal::FrontalMaterial>> {
         let assets = self.cloth_assets.as_deref_mut();
-        self.cloth.as_mut()?.get(assets)
+        self.cloth.as_mut()?.skirt(assets)
+    }
+
+    /// The rail's, which is the same cloth cut for a node 40 pixels tall.
+    fn rail(&mut self) -> Option<Handle<crate::frontal::FrontalMaterial>> {
+        let assets = self.cloth_assets.as_deref_mut();
+        self.cloth.as_mut()?.rail(assets)
     }
 }
 
@@ -132,7 +139,8 @@ pub fn sync_overlay(
     material_assets: Option<ResMut<Assets<CardUiMaterial>>>,
     mut surfaces: Surfaces,
 ) {
-    let hanging = surfaces.hanging();
+    let skirt = surfaces.skirt();
+    let rail = surfaces.rail();
     let mut cards = match (ui_materials, material_assets) {
         (Some(cache), Some(assets)) => Some((cache, assets)),
         _ => None,
@@ -366,7 +374,7 @@ pub fn sync_overlay(
         // it outlives every rebuild the hand does not, and because it is
         // drawn whether or not there is a hand to draw: §6's first principle
         // is that the zone's height never changes.
-        let ledge = ledge::spawn_ledge(&mut commands);
+        let ledge = ledge::spawn_ledge(&mut commands, rail);
         commands.entity(root).add_child(ledge);
         // The pool's column is the shelf's one retained child — it is where a
         // mana arriving is drawn arriving, and `sync_ledge` despawns the
@@ -413,7 +421,7 @@ pub fn sync_overlay(
             &motion.sheen,
             &motion.touch,
             cards.as_mut(),
-            hanging,
+            skirt,
         );
         commands.entity(root).add_child(hand_zone);
 
@@ -1670,12 +1678,24 @@ mod tests {
         };
         // What the shelf carries, and what the overlay carries: the two sides
         // of the claim.
+        //
+        // The shelf's two casts are not columns and are filtered out: they
+        // are spawned with the shelf and exempt from the rebuild, so counting
+        // them here would make "three columns" read five and would let a
+        // column that stopped being built pass unnoticed.
         let standing = |app: &mut App| {
+            let casts = {
+                let mut q = app
+                    .world_mut()
+                    .query_filtered::<Entity, With<ledge::LedgeCast>>();
+                q.iter(app.world()).collect::<Vec<_>>()
+            };
             let mut q = app
                 .world_mut()
                 .query_filtered::<&Children, With<ledge::LedgeShelf>>();
             q.iter(app.world())
                 .flat_map(|c| c.iter().collect::<Vec<_>>())
+                .filter(|e| !casts.contains(e))
                 .collect::<Vec<_>>()
         };
         let drawer = |app: &mut App| {
@@ -1958,41 +1978,86 @@ mod tests {
     ///
     /// The owner asked for the second cast on 14.09.2026 — "zum Tisch hin als
     /// auch zur Hand hin (zur Hand etwas leichter)". It is read off the
-    /// **built node** and not off the constants, because the constants being
-    /// right is not the claim: a `BoxShadow` written with one entry would
-    /// satisfy every number in `ledge.rs` and still be a lid.
+    /// **built nodes** and not off the constants, because the constants being
+    /// right is not the claim: one cast written twice would satisfy every
+    /// number in `ledge.rs` and still be a lid.
+    ///
+    /// They stopped being a `BoxShadow` when the shelf stopped being opaque,
+    /// and the second half of this test is why: a `BoxShadow` is the node's
+    /// own rectangle offset and blurred, so both casts lay most of their
+    /// weight *inside* the shelf — invisible behind an opaque one, and about
+    /// two thirds black across a translucent one. So each cast has to fall
+    /// wholly outside the shelf's box, and that is asserted rather than
+    /// assumed.
     #[test]
     fn the_shelf_casts_both_ways_and_more_softly_onto_the_hand() {
         let mut app = bar_of(duel_with(false));
-        let mut shelves = app
+        let shelf = app
             .world_mut()
-            .query_filtered::<&BoxShadow, With<ledge::LedgeShelf>>();
-        let shadow = shelves
+            .query_filtered::<Entity, With<ledge::LedgeShelf>>()
             .iter(app.world())
             .next()
-            .expect("the shelf is built")
-            .clone();
-        let offset = |cast: &ShadowStyle| match cast.y_offset {
-            Val::Px(y) => y,
+            .expect("the shelf is built");
+        let children: Vec<Entity> = app
+            .world()
+            .entity(shelf)
+            .get::<Children>()
+            .expect("the shelf has children")
+            .iter()
+            .collect();
+        let px = |v: Val| match v {
+            Val::Px(p) => p,
             other => panic!("a cast is measured in pixels, not {other:?}"),
         };
-        let up = shadow
+        let casts: Vec<(f32, f32, f32)> = children
+            .into_iter()
+            .filter_map(|child| {
+                // A cast is the only child of the shelf that is a gradient;
+                // the three columns are laid out and carry no paint at all.
+                let gradient = app.world().entity(child).get::<BackgroundGradient>()?;
+                let node = app.world().entity(child).get::<Node>()?;
+                let (top, height) = (px(node.top), px(node.height));
+                let weight = gradient.0.iter().fold(0.0_f32, |most, g| match g {
+                    Gradient::Linear(l) => l
+                        .stops
+                        .iter()
+                        .fold(most, |m, stop| m.max(stop.color.alpha())),
+                    _ => most,
+                });
+                Some((top, height, weight))
+            })
+            .collect();
+        let up = casts
             .iter()
-            .find(|cast| offset(cast) < 0.0)
+            .find(|(top, _, _)| *top < 0.0)
             .expect("nothing is cast onto the table");
-        let down = shadow
+        let down = casts
             .iter()
-            .find(|cast| offset(cast) > 0.0)
+            .find(|(top, _, _)| *top > 0.0)
             .expect("nothing is cast onto the hand");
         assert!(
-            down.color.alpha() < up.color.alpha(),
+            down.2 < up.2,
             "the hand's side is the lighter one: {} against {}",
-            down.color.alpha(),
-            up.color.alpha()
+            down.2,
+            up.2
+        );
+        assert!(down.2 > 0.0, "and it is still a cast, not an absence");
+        // Wholly outside the shelf, both of them: the one above ends where
+        // the shelf begins, the one below begins where the shelf ends.
+        assert!(
+            up.0 + up.1 <= 0.0,
+            "the table's cast reaches {} pixels into the shelf",
+            up.0 + up.1
         );
         assert!(
-            down.color.alpha() > 0.0,
-            "and it is still a cast, not an absence"
+            down.0 >= crate::hud::LEDGE_H,
+            "the hand's cast starts {} pixels above the shelf's lower edge",
+            crate::hud::LEDGE_H - down.0
+        );
+        assert!(
+            app.world().entity(shelf).get::<BoxShadow>().is_none(),
+            "a `BoxShadow` on a translucent shelf lays its own rectangle \
+             across the whole width of the window"
         );
     }
 

@@ -84,31 +84,42 @@ pub(super) fn spawn_hand_zone(
         ))
         .id();
 
-    // The veil, and the reason it is a child rather than the zone's own
-    // paint. The zone now reaches `LEDGE_H` above the cards so the ledge has
-    // something to stand on, and a gradient on the zone itself would start
-    // its climb up there — under an opaque shelf, where none of it can be
-    // seen, and arriving at the cards already part-way dark. The veil is the
-    // strip's ground, so it starts where the shelf ends.
+    // The skirt, and the reason it is a child rather than the zone's own
+    // paint: a `BackgroundColor` is a colour where this is a surface, and the
+    // zone is also the node a wheel has to land on, which a material node
+    // would stop being.
+    //
+    // It covers the **whole** zone — `top: 0`, not `top: LEDGE_H`. That is
+    // the owner's "make the background complete, like it's a container"
+    // (14.09.2026), and it inverts the reason the ground used to start at the
+    // shelf's lower edge: a ground behind an opaque shelf is a ground nobody
+    // can see, and the shelf is no longer opaque. It is also what makes the
+    // shelf's own transparency affordable, because the shelf is then
+    // composited over this cloth instead of over the sky —
+    // `palette::LEDGE_SOFT` carries that arithmetic.
     //
     // Spawned before the strip and added as a child first: children paint in
     // order, and a ground added after the cards is a ground drawn over them.
     //
-    // What it is painted with is the owner's ask of 14.09.2026 — a shader
-    // ground for this band that goes over into the actions row. That is
-    // `crate::frontal`, the cloth hanging from the shelf, and it arrives here
-    // as a handle rather than as a material because this whole zone is
-    // respawned on every pointer move. Without a render world there is no
-    // handle and the gradient it replaced is drawn instead: a ground is a
-    // ground, and every headless test that builds this tree needs one.
-    let veil = commands
+    // What it is painted with is `crate::frontal`, and it arrives here as a
+    // handle rather than as a material because this whole zone is respawned
+    // on every pointer move. Without a render world there is no handle and a
+    // flat ground of the same dye is drawn instead: a ground is a ground, and
+    // every headless test that builds this tree needs one.
+    let skirt = commands
         .spawn((
             Node {
                 position_type: PositionType::Absolute,
-                top: px(LEDGE_H),
+                top: px(0),
                 left: px(0),
                 right: px(0),
                 bottom: px(0),
+                // The same two corners the shelf rounds and the cloth cuts, so
+                // the headless ground is the shape the drawn one is. The
+                // shader cuts them itself — whether a `BorderRadius` reaches a
+                // `MaterialNode` at all is a question — and the two agree
+                // because they read the same constant.
+                border_radius: BorderRadius::top(px(crate::frontal::CORNER)),
                 ..default()
             },
             BackgroundColor(Color::NONE),
@@ -118,20 +129,16 @@ pub(super) fn spawn_hand_zone(
     match cloth {
         Some(handle) => {
             commands
-                .entity(veil)
+                .entity(skirt)
                 .insert((MaterialNode(handle), crate::frontal::Hanging));
         }
         None => {
             commands
-                .entity(veil)
-                .insert(BackgroundGradient::from(LinearGradient::to_bottom(vec![
-                    ColorStop::percent(VEIL.with_alpha(0.0), 0.0),
-                    ColorStop::percent(VEIL.with_alpha(VEIL_ALPHA * 0.45), 38.0),
-                    ColorStop::percent(VEIL.with_alpha(VEIL_ALPHA), 100.0),
-                ])));
+                .entity(skirt)
+                .insert(BackgroundColor(palette::DIALOG.with_alpha(GROUND)));
         }
     }
-    commands.entity(zone).add_child(veil);
+    commands.entity(zone).add_child(skirt);
 
     let strip = commands
         .spawn((
@@ -723,24 +730,20 @@ pub(super) fn preview_face(
     faces.object(view.object(hovered)?, textures, art)
 }
 
-/// The hand zone's own ground: `palette::PANEL`'s hue, one step cooler and
-/// carrying no alpha of its own — the gradient's stops supply that.
-pub(crate) const VEIL: Color = Color::srgb(0.04, 0.055, 0.085);
-
-/// How dark the veil gets at the window's bottom edge.
+/// The ground drawn where there is no render world to draw the cloth on.
 ///
-/// Under two thirds deliberately: the felt, the sky and a seat's mat all
-/// still read through it, which is the difference between a ground and a
-/// panel and is what the owner asked for in the same breath as asking for it
-/// at all — *slightly* transparent.
+/// A headless app has no `Assets<FrontalMaterial>` and every overlay test
+/// builds this tree, so the zone needs a ground that is arithmetic rather
+/// than a shader. It is the cloth's own dye at the cloth's own density where
+/// it leaves the shelf — **read** from [`crate::frontal::SKIRT`] and not
+/// restated, because the one thing a fallback must not do is put the ground a
+/// test measures somewhere else.
 ///
-/// The number is bigger than the picture, and that is worth knowing before
-/// reaching for it: **the gradient composites in linear space**, so an alpha
-/// here buys much less darkening than sRGB arithmetic predicts. Measured
-/// against the sky at the bottom edge, `0.44` took 136 to 108 rather than the
-/// 81 the naive sum gives. This value takes it to about 94, a third down,
-/// which is a ground a card's glow can be read against.
-pub(crate) const VEIL_ALPHA: f32 = 0.58;
+/// Not a gradient any more. The gradient this replaces ran from nothing at
+/// the top to 0.58 at the bottom, which is what left the lower two thirds of
+/// the zone reading as sky; the owner's instruction of 14.09.2026 is a
+/// container, and a container has one ground.
+const GROUND: f32 = crate::frontal::SKIRT;
 
 /// A card's glow: a wide soft halo with a tight bright ring inside it.
 ///

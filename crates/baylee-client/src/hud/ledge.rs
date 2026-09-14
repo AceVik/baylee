@@ -112,13 +112,22 @@ pub struct LedgeShelf;
 /// answer. The slip stood above that veil for exactly this reason and the
 /// ledge inherits its place.
 ///
-/// Two more things that look like details and are not. The shelf is
-/// **opaque**: it is the edge the table ends at, and a translucent one reads
-/// as another veil rather than as a shelf. And its overflow is **visible**:
-/// the drawer grows up out of it, so a `clip()` copied from the zone below
-/// would leave a drawer nobody can see.
-pub(super) fn spawn_ledge(commands: &mut Commands) -> Entity {
-    commands
+/// Two more things that look like details and are not. The shelf is **no
+/// longer opaque** — §3.3 said it was, and gave a reason ("a translucent edge
+/// reads as a veil, not as a shelf"), and the owner reversed it on 14.09.2026:
+/// *"Make them a little bit transparent with slow moving shader animation, so
+/// it gets a little bit breathing live."* What makes that readable rather
+/// than merely dimmer is the other half of the same instruction: the hand
+/// zone's cloth now runs **behind** this node, so the shelf is composited over
+/// a container and not over the sky. And its overflow is **visible**: the
+/// drawer grows up out of it, and so do the two casts below, so a `clip()`
+/// copied from the zone would leave a drawer nobody can see and a shelf that
+/// stands off nothing.
+pub(super) fn spawn_ledge(
+    commands: &mut Commands,
+    cloth: Option<Handle<crate::frontal::FrontalMaterial>>,
+) -> Entity {
+    let shelf = commands
         .spawn((
             LedgeShelf,
             Node {
@@ -138,46 +147,29 @@ pub(super) fn spawn_ledge(commands: &mut Commands) -> Entity {
                 // nothing to look at, because 1 + 5 above the button reads as
                 // the 6 below it.
                 padding: UiRect::new(px(EDGE), px(EDGE), px(LEDGE_PAD_Y - LIP), px(LEDGE_PAD_Y)),
-                // The lip: one line along the top and nothing down the sides
-                // or under it, because the zone runs on to the window's own
-                // edges and an edge has no corners.
+                // The lip is still paid for out of the border box, because the
+                // padding arithmetic above is measured against it — but it is
+                // *painted* by the cloth (`frontal.wgsl`, the top row of the
+                // rail), because a `BorderColor` on a `MaterialNode` is a
+                // question and the line is not optional.
                 border: UiRect::top(px(LIP)),
+                // The two corners the owner asked for on 14.09.2026, cut by
+                // the cloth itself and stated here too so the headless
+                // fallback is the same shape. It rounds the **top** only; the
+                // other three corners of the controls bar are off the frame.
+                border_radius: BorderRadius::top(px(crate::frontal::CORNER)),
                 overflow: Overflow::visible(),
                 ..default()
             },
-            BackgroundColor(palette::DIALOG),
-            BorderColor::all(palette::DIALOG_LINE),
-            // Both ways, because the shelf stands off both. The comment on
-            // the zone forbids a shadow there and means it — a shadow is
-            // drawn from a node's rectangle, so a transparent node with one
-            // lays a hard band across the table. This node is opaque and its
-            // rectangle *is* the shelf, so a cast falls where a shelf's cast
-            // falls: downwards it is what turns a card running under the
-            // shelf into a card on a shelf rather than a card cut by a line,
-            // and upwards it is what lifts the shelf off the table instead of
-            // butting the two against each other along one line.
-            //
-            // The blurred half of each cast that falls *inside* the
-            // rectangle is behind an opaque node and is never seen, so the
-            // two do not sum anywhere a player can look — except the three
-            // pixels the upward cast reaches past the shelf's bottom edge,
-            // which is under the downward one and lighter than it.
-            BoxShadow(vec![
-                ShadowStyle {
-                    color: palette::SHADOW,
-                    x_offset: px(0.0),
-                    y_offset: px(-LIFT_UP_Y),
-                    spread_radius: px(0.0),
-                    blur_radius: px(LIFT_UP_BLUR),
-                },
-                ShadowStyle {
-                    color: palette::SHADOW.with_alpha(palette::SHADOW.alpha() * LIFT_DOWN_SHARE),
-                    x_offset: px(0.0),
-                    y_offset: px(LIFT_DOWN_Y),
-                    spread_radius: px(0.0),
-                    blur_radius: px(LIFT_DOWN_BLUR),
-                },
-            ]),
+            // Nothing of its own. The rail is a surface, and it is the same
+            // cloth as the zone below — one dye, one pair of clocks, one fold
+            // field indexed on the window's x, so the two read as one piece
+            // with a rail across the top. Without a render world there is no
+            // handle and the flat dye is drawn instead.
+            match cloth {
+                Some(_) => BackgroundColor(Color::NONE),
+                None => BackgroundColor(palette::DIALOG.with_alpha(RAIL_FALLBACK)),
+            },
             ZIndex(Z_LEDGE),
             // The shelf itself answers nothing and must not swallow a click
             // meant for the table — but its children are buttons, and a
@@ -185,16 +177,95 @@ pub(super) fn spawn_ledge(commands: &mut Commands) -> Entity {
             // be pressed. Hoverable, blocking nothing, exactly as the zone
             // below it is.
             //
-            // `should_block_lower: false` on an *opaque* node does mean a
-            // click on the bare shelf reaches whatever 3D geometry is behind
-            // it, which is not obviously right. It is harmless today because
-            // the only thing down there is the slab's margin and nothing on
-            // it is pickable; if the layout ever puts a card under the shelf,
-            // this is the line that has to change.
+            // `should_block_lower: false` does mean a click on the bare shelf
+            // reaches whatever 3D geometry is behind it, which is not
+            // obviously right. It is harmless today because the only thing
+            // down there is the slab's margin and nothing on it is pickable;
+            // if the layout ever puts a card under the shelf, this is the
+            // line that has to change.
             Pickable {
                 should_block_lower: false,
                 is_hoverable: true,
             },
+        ))
+        .id();
+    if let Some(handle) = cloth {
+        commands
+            .entity(shelf)
+            .insert((MaterialNode(handle), crate::frontal::Hanging));
+    }
+    // The two casts, as children outside the shelf's own box rather than as a
+    // `BoxShadow` on it. See `LIFT_UP_Y` for why they had to stop being one.
+    for cast in [lift_up(commands), lift_down(commands)] {
+        commands.entity(shelf).add_child(cast);
+    }
+    shelf
+}
+
+/// What [`sync_ledge`] leaves alone: everything the shelf was spawned with.
+type Retained = Or<(With<pool::PoolColumn>, With<LedgeCast>)>;
+
+/// One of the shelf's two casts, so the rebuild leaves them where they are.
+///
+/// They are spawned with the shelf and never change: an elevation is a fact
+/// about the shelf and not about the question standing on it.
+#[derive(Component, Clone, Copy)]
+pub struct LedgeCast;
+
+/// The shelf's cast on the table above it.
+///
+/// A child, `Pickable::IGNORE`, drawn entirely **outside** the shelf's
+/// rectangle, which is the whole reason it is not a `ShadowStyle` any more.
+fn lift_up(commands: &mut Commands) -> Entity {
+    commands
+        .spawn((
+            LedgeCast,
+            Node {
+                position_type: PositionType::Absolute,
+                top: px(-LIFT_UP_H),
+                left: px(0),
+                right: px(0),
+                height: px(LIFT_UP_H),
+                ..default()
+            },
+            BackgroundGradient::from(LinearGradient::to_bottom(vec![
+                ColorStop::percent(palette::SHADOW.with_alpha(0.0), 0.0),
+                ColorStop::percent(
+                    palette::SHADOW.with_alpha(palette::SHADOW.alpha() * 0.18),
+                    40.0,
+                ),
+                ColorStop::percent(
+                    palette::SHADOW.with_alpha(palette::SHADOW.alpha() * 0.55),
+                    70.0,
+                ),
+                ColorStop::percent(palette::SHADOW, 100.0),
+            ])),
+            Pickable::IGNORE,
+        ))
+        .id()
+}
+
+/// And its cast on the cards below, the lighter of the two.
+fn lift_down(commands: &mut Commands) -> Entity {
+    let share = |f: f32| palette::SHADOW.with_alpha(palette::SHADOW.alpha() * LIFT_DOWN_SHARE * f);
+    commands
+        .spawn((
+            LedgeCast,
+            Node {
+                position_type: PositionType::Absolute,
+                top: px(hand::LEDGE_H),
+                left: px(0),
+                right: px(0),
+                height: px(LIFT_DOWN_H),
+                ..default()
+            },
+            BackgroundGradient::from(LinearGradient::to_bottom(vec![
+                ColorStop::percent(share(1.0), 0.0),
+                ColorStop::percent(share(0.48), 35.0),
+                ColorStop::percent(share(0.12), 70.0),
+                ColorStop::percent(share(0.0), 100.0),
+            ])),
+            Pickable::IGNORE,
         ))
         .id()
 }
@@ -214,13 +285,27 @@ pub(super) fn spawn_ledge(commands: &mut Commands) -> Entity {
 /// with; below it is a row of cards each carrying a glow that is a *rules*
 /// statement, and a heavy cast there argues with the one light on this screen
 /// a player is meant to read as information.
-const LIFT_UP_Y: f32 = 5.0;
-const LIFT_UP_BLUR: f32 = 16.0;
-
-/// The same, downwards onto the hand. The offset and the blur §3.3 measured,
-/// kept.
-const LIFT_DOWN_Y: f32 = 4.0;
-const LIFT_DOWN_BLUR: f32 = 12.0;
+///
+/// **Why these are heights and not offsets and blurs.** They were a
+/// `BoxShadow` with two `ShadowStyle`s, and a `BoxShadow` is the node's own
+/// rectangle offset and blurred — so the up-cast's rectangle is this shelf
+/// shifted five pixels up and covers nearly the whole of its interior at
+/// `SHADOW`'s full 0.55, and the down-cast covers it again from about ten
+/// pixels down. All of that was *behind an opaque node and never seen*, which
+/// was true right up until the owner asked for the shelf to be translucent on
+/// 14.09.2026. On a translucent one it is roughly two thirds black across the
+/// whole width, which is the removed panel arriving by the back door — the
+/// same failure `frontal.rs`'s hem paid for once ("a hem at 0.97 under a cast
+/// at 0.25 is 0.99 over the first sixteen pixels").
+///
+/// So each cast is a gradient child lying entirely outside the shelf's box:
+/// nothing of either falls on the shelf, the up-cast still lands on the felt
+/// and the down-cast still lands on the cards, and both still ride at
+/// [`Z_LEDGE`] because they are children of the node that carries it. The
+/// depths are what the old blurs reached — about fourteen pixels up and
+/// twelve down — so the picture is the one §3.3 and AV1 measured.
+const LIFT_UP_H: f32 = 14.0;
+const LIFT_DOWN_H: f32 = 12.0;
 
 /// What the hand's side of the cast is worth against the table's.
 ///
@@ -228,18 +313,23 @@ const LIFT_DOWN_BLUR: f32 = 12.0;
 /// being true when [`palette::SHADOW`] is retuned — which is what the assert
 /// below is for.
 ///
-/// The number is smaller than it looks, and the reason is the other cast. A
-/// `BoxShadow` is one rectangle blurred, so the upward cast's *lower* edge is
-/// blurred too: it sits at the shelf's underside less [`LIFT_UP_Y`] and its
-/// tail carries about [`LIFT_UP_BLUR`] past that, so roughly eleven pixels of
-/// it land on the hand at full strength — behind the shelf everywhere else,
-/// but not there. Measured at 1280 (mean luminance against the sky, relative
-/// to a row clear of both casts): the shelf's underside read 11.5 % down
-/// before any of this, 13.8 % down at a share of 0.70 — *deeper* than the one
-/// cast it replaced — and this is what puts it back where §3.3 measured it
-/// while the table's side carries the lift.
-const LIFT_DOWN_SHARE: f32 = 0.45;
+/// It was 0.45 while the two casts were one blurred rectangle each: the
+/// up-cast's own lower edge was blurred too and about eleven pixels of it
+/// landed on the hand, so the hand's side was being paid for twice and a
+/// share of 0.70 measured *deeper* there than the single cast it replaced.
+/// Neither cast reaches the other's side now, so the share is the plain
+/// statement it was always meant to be and goes back to the 0.70 AV1 asked
+/// for.
+const LIFT_DOWN_SHARE: f32 = 0.70;
 const _: () = assert!(LIFT_DOWN_SHARE < 1.0 && LIFT_DOWN_SHARE > 0.0);
+
+/// How dense the shelf is where there is no render world to draw the cloth.
+///
+/// The cloth's own density at the rail, **read** from [`crate::frontal::RAIL`]
+/// rather than restated, for the reason `hand::GROUND` gives: a fallback that
+/// put the ground somewhere else would move every headless measurement with
+/// it.
+const RAIL_FALLBACK: f32 = crate::frontal::RAIL;
 
 /// The air above and below a button on the shelf.
 ///
@@ -249,7 +339,7 @@ const _: () = assert!(LIFT_DOWN_SHARE < 1.0 && LIFT_DOWN_SHARE > 0.0);
 pub(super) const LEDGE_PAD_Y: f32 = 6.0;
 
 /// The line along the top of the shelf, where the table stops.
-pub(super) const LIP: f32 = 1.0;
+pub(crate) const LIP: f32 = 1.0;
 
 /// How tall anything a player presses on the shelf is.
 ///
@@ -508,7 +598,11 @@ pub fn sync_ledge(
     mut revision: ResMut<LedgeRevision>,
     mut layout: ResMut<LedgeLayout>,
     shelf: Query<(Entity, Option<&Children>), With<LedgeShelf>>,
-    pool_column: Query<(), With<pool::PoolColumn>>,
+    // Two exemptions from the rebuild below, and one query for both: the
+    // pool's column, which outlives a rebuild so a mana can be drawn arriving
+    // (`ledge/pool.rs`), and the two casts, which are spawned with the shelf
+    // and never change.
+    retained: Query<(), Retained>,
     fonts: Res<UiFonts>,
     settings: Res<crate::settings::ClientSettings>,
     prefs: Res<crate::prefs::Prefs>,
@@ -569,20 +663,24 @@ pub fn sync_ledge(
         window_w,
     };
     // The second half of the gate is what covers a shelf that was spawned
-    // afresh with the revision still describing the tree before it. The pool's
-    // column is spawned with the shelf and never by this system, so a shelf
-    // nothing has filled has exactly that one child.
-    if *revision == next && standing.is_some_and(|c| c.len() > 1) {
+    // afresh with the revision still describing the tree before it. Everything
+    // spawned *with* the shelf is exempt from the rebuild below and is
+    // therefore also not evidence that the rebuild has run, so the question is
+    // whether anything else is standing there.
+    let filled = standing.is_some_and(|c| c.iter().any(|child| retained.get(child).is_err()));
+    if *revision == next && filled {
         return;
     }
     *revision = next;
 
     for child in standing.into_iter().flatten() {
-        // Everything except the retained pool column. `ledge/pool.rs` says
-        // why it is exempt: mana arrives and is spent *inside* one question,
-        // and §4.1 wants that drawn arriving, which takes an entity that
-        // outlives this rebuild.
-        if pool_column.get(*child).is_err() {
+        // Everything the shelf was not spawned with. `ledge/pool.rs` says why
+        // the pool's column is exempt: mana arrives and is spent *inside* one
+        // question, and §4.1 wants that drawn arriving, which takes an entity
+        // that outlives this rebuild. The two casts are exempt because they
+        // are the shelf's own elevation and answer to nothing this system
+        // knows about.
+        if retained.get(*child).is_err() {
             commands.entity(*child).despawn();
         }
     }
@@ -660,10 +758,13 @@ pub fn sync_ledge(
     let shows_sentence = arrangement.density.shows_sentence()
         || arrangement.density == baylee_client_core::ledge::Density::Split;
     if let Some((text, alarming)) = sentence.filter(|_| shows_sentence) {
+        // `LEDGE_SOFT` and not `DIALOG_SOFT`: this sentence stands on the
+        // shelf's own ground, which is no longer opaque. The constant says
+        // what that costs and why it is only for ink standing here.
         let ink = if alarming {
             palette::DANGER
         } else if waiting {
-            palette::DIALOG_SOFT
+            palette::LEDGE_SOFT
         } else {
             palette::DIALOG_INK
         };
@@ -1071,7 +1172,7 @@ fn sentence(commands: &mut Commands, fonts: &UiFonts, text: &str, size: f32, ink
             .spawn((
                 TextSpan::new(run.to_string()),
                 tf_italic(fonts, size),
-                TextColor(if aside { palette::DIALOG_SOFT } else { ink }),
+                TextColor(if aside { palette::LEDGE_SOFT } else { ink }),
             ))
             .id();
         commands.entity(line).add_child(span);

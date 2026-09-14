@@ -3504,8 +3504,12 @@ clears the preview, which is what a click on empty felt has always done. Its
 colour is **cold**, and that is an argument rather than a taste: the dialog
 is srgb8 (28, 25, 19) and the veiled baize measures (15, 29, 26), so the
 panel is the darker of the two in green and brightness cannot separate them.
-Temperature can, and the veil is the same blue-black the hand bar's own
-ground already is. The alpha was measured on screen either side of one
+Temperature can. The veil used to be the same blue-black the hand bar's own
+ground was, and that is no longer true of the ground: the owner asked for a
+container on 14.09.2026, and the hand zone is now `frontal`'s cloth in
+`palette::DIALOG` — the dialog's own colour, with nothing cool about it. The
+veil is over the *table* and the container is the dialog's register, so the
+two no longer have to match. The alpha was measured on screen either side of one
 `Confirm`, because a `BackgroundColor` composites in **linear** space where
 an alpha buys far less darkening than sRGB arithmetic predicts: 0.70 takes
 the felt (29, 53, 43) → (15, 29, 26) and a seat bar's ink 173 → 100 — a

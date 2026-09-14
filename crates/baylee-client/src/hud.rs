@@ -1041,6 +1041,29 @@ pub(crate) mod palette {
     pub const DIALOG_INK: Color = Color::srgb(0.925, 0.890, 0.816);
     /// The quieter half of it: a type line, a tally, a badge.
     pub const DIALOG_SOFT: Color = Color::srgb(0.557, 0.514, 0.424);
+    /// The same quiet ink, on the **actions row**, which is no longer opaque.
+    ///
+    /// [`DIALOG_SOFT`] reads 4.69 : 1 on an opaque [`DIALOG`] — 0.19 of
+    /// headroom over the 4.5 prose needs, which is all it ever had. The owner
+    /// asked for the row to be "a little bit transparent" on 14.09.2026
+    /// (`ax-design.md` §3.3 had said opaque, with a reason, and this reverses
+    /// it), and the row is composited over the sky: at a density of 0.92 the
+    /// same ink falls to 4.07 : 1 at the cloth's worst pose, and the sentence
+    /// standing on the row stops being readable.
+    ///
+    /// So the ink pays for the transparency, where the transparency is:
+    /// `DIALOG_SOFT` scaled by 1.33 in **linear** light, which keeps its hue
+    /// exactly and takes it to 5.18 : 1 at rest and 4.95 : 1 at the worst
+    /// pose. `frontal.rs`'s
+    /// `the_rail_stays_readable_at_every_pose_the_cloth_can_take` is what
+    /// holds it, scanning the poses the two clocks can actually reach.
+    ///
+    /// Only for ink standing **directly on the row**: the waiting sentence,
+    /// its bracketed asides, and the pool's own word. A keycap's legend sits
+    /// on the cap's own opaque fill and keeps [`DIALOG_SOFT`]; so does every
+    /// line in the drawer, which is opaque [`DIALOG`]; and the zone dialog —
+    /// which the owner named as the colour to match — is not touched at all.
+    pub const LEDGE_SOFT: Color = Color::srgb(0.635, 0.586, 0.485);
     /// What a dialog says about a thing that is not there.
     ///
     /// Quieter than [`DIALOG_SOFT`], and **deliberately** under the 4.5 : 1
@@ -1095,15 +1118,19 @@ pub(crate) mod palette {
     /// things in the window. A pure-black veil would have darkened everything
     /// and separated nothing.
     ///
-    /// It is the same blue-black the hand zone's own ground is, one step
-    /// deeper, and that is not a coincidence worth hiding: the hand zone is
-    /// already a veil over the felt and already picked cool for the same
-    /// reason, so a second one in another hue would read as two materials
-    /// where there is one.
+    /// It used to be the same blue-black the hand zone's own ground was, one
+    /// step deeper, and the argument for that was that the zone is itself a
+    /// veil over the felt so a second hue would read as two materials. **The
+    /// zone is no longer a veil.** The owner asked for a container on
+    /// 14.09.2026 and `crate::frontal` is what draws it: one dye,
+    /// [`DIALOG`], at 0.88 falling to 0.92, with the table still showing
+    /// through and nothing cool about it. So this alpha is now on its own —
+    /// the veil is over the *table*, the container is the dialog's own
+    /// colour, and the two no longer have to match.
     ///
     /// The alpha was **measured on screen, not reasoned about**: a
     /// `BackgroundColor` composites in linear space, where an alpha buys far
-    /// less darkening than sRGB arithmetic predicts — `hand::VEIL_ALPHA`
+    /// less darkening than sRGB arithmetic predicts — `frontal::SKIRT`
     /// carries the same warning and the numbers that earned it. Measured at
     /// 1728×1052 against a live search, one screenshot either side of the
     /// same `Confirm`: the felt goes (29, 53, 43) → (15, 29, 26), the rail
@@ -1561,7 +1588,9 @@ use stack::spawn_stack_panel;
 pub(crate) use finish::{FinishExits, despawn_finish, settle_the_sheet, spawn_finish};
 pub use hand::apply_hand_scroll;
 pub use hand::{ARMED_RAISE, HAND_ZONE_H, LEDGE_H, OVERLAY_CARD_H, OVERLAY_CARD_W};
-pub(crate) use hand::{VEIL, VEIL_ALPHA};
+/// The one line the actions row carries, which `frontal` paints because the
+/// row is drawn by a `MaterialNode` and a border on one is a question.
+pub(crate) use ledge::LIP as LEDGE_LIP;
 pub use ledge::drawer::{DrawerRevision, DrawerRoot, sync_drawer, zoom_the_drawer};
 pub use ledge::pool::{PoolRevision, sync_pool, zoom_the_pool};
 pub use ledge::{LedgeLayout, LedgeRevision, LedgeShelf, sync_ledge};
