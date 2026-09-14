@@ -1867,6 +1867,32 @@ mod tests {
         duel
     }
 
+    /// A seat that is not being asked, because it said not to ask.
+    ///
+    /// The question belongs to the *other* player, which is what makes this
+    /// seat wait: `Interaction::is_mine` compares the pending's player with
+    /// the seat, and everything the shelf calls "waiting" comes off that one
+    /// answer.
+    fn duel_not_asking(hold: bool, pilot: bool) -> Duel {
+        let mut duel = Duel {
+            interaction: Some(baylee_client_core::Interaction::new(
+                baylee_engine::choice::Pending::Priority {
+                    player: PlayerId::new(1),
+                    legal: Box::new(baylee_engine::choice::LegalActions::default()),
+                },
+                PlayerId::new(0),
+            )),
+            autopilot: pilot
+                .then_some(baylee_client_core::automation::AutoPilot::ToNextTurn { from_turn: 1 }),
+            ..Duel::default()
+        };
+        let mut view = baylee_client_core::test_support::ViewBuilder::new(2).build();
+        view.priority_held = hold;
+        duel.view = Some(view);
+        crate::rebuild_board(&mut duel);
+        duel
+    }
+
     /// Once a result is standing, this overlay offers nothing.
     ///
     /// Four things, and only the first of them was ever silenced. A refusal
@@ -1933,6 +1959,47 @@ mod tests {
                 "every game still being played offers both of these: {lines:?}"
             );
         }
+    }
+
+    /// A running hold says so in the middle, where the question would be.
+    ///
+    /// It is the one game state with **no other symptom** (AX §4.4): the
+    /// middle is empty precisely *because* the seat is not being asked, which
+    /// is what an idle shelf looks like — so a player who set a hold two
+    /// turns ago and forgot would watch the game play itself with nothing on
+    /// screen to blame.
+    ///
+    /// Two mechanisms and one picture, and this is where that is asserted
+    /// rather than merely intended: an engine hold and the client's own
+    /// autopilot each put the same sentence and the same way out on the
+    /// shelf. Live, neither is a state a screenshot can be relied on to
+    /// catch — the house AI answers a whole turn between two frames.
+    #[test]
+    fn a_running_hold_is_drawn_where_the_question_would_have_been() {
+        for (hold, pilot, what) in [
+            (true, false, "an engine hold"),
+            (false, true, "the autopilot"),
+        ] {
+            let mut app = bar_of(duel_not_asking(hold, pilot));
+            let lines = said(&mut app);
+            for phrase in [Phrase::HoldingPriority, Phrase::HoldRelease] {
+                let words = phrase.text(Lang::En).to_string();
+                assert!(
+                    lines.contains(&words),
+                    "{what} left the shelf with nothing to blame: {lines:?}"
+                );
+            }
+        }
+        // The counter-half, and the reason the sentence is not simply always
+        // there: a seat that *is* being asked has a question of its own, and
+        // two sentences on one shelf is what §6 forbids.
+        let mut app = bar_of(duel_not_asking(false, false));
+        let lines = said(&mut app);
+        let words = Phrase::HoldingPriority.text(Lang::En).to_string();
+        assert!(
+            !lines.contains(&words),
+            "nobody is holding anything and the shelf said otherwise: {lines:?}"
+        );
     }
 
     /// The shelf is built once and stands; everything else on the overlay is
