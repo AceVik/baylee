@@ -173,8 +173,25 @@ that the local seat's own mat projected *below* the hand bar — a player could
 not see their own creatures, which makes every other piece of board legibility
 moot. `CameraRig::home` computes the shot from `TableLayout::extent` and a
 `Canvas` that names what the HUD covers, and `table::frame_table` reapplies it
-when the seats, the focus or the window change — stopping the moment the
-player has aimed the camera themselves.
+when the seats, the focus or the window change — stopping only while the
+player is looking at one seat.
+
+**A hand no longer moves this camera at all**, and that is three owner reports
+in a row rather than one decision. The orbit went first, because the left
+button is also the button that plays cards and every click that travelled a
+pixel turned the table. The zoom went next, because the wheel argued with
+every scrolling panel in the interface and the referee between them never
+held. The pan went on 14.09.2026 with the rest — *„Generelles Camera Movement
+kann weg (also nicht nur die Maus Controls, sondern auch die Keyboard
+Controls)"* — and the report under it is the one that names the cost of a
+keyboard route outside the keymap: the arrows drove the table while a text
+field had the keyboard, because `input::camera_controls` read `KeyCode`
+directly and every other duel key goes through `Fired::of` and stops at
+`browser_keys`. So `input::camera_controls` is gone, and what is left is a rig
+only `frame_table` and `navigate_to_player`/`navigate_home` ever write —
+`table::framing_tests::nothing_a_hand_does_moves_the_table` writes every
+gesture of all three generations into one frame and
+`looking_at_one_seat_holds_the_camera` is its counter-test.
 
 The inversion is exact rather than tuned, which is why it is arithmetic and
 not a magic number per screen size. With the eye at distance `D`, the lean
@@ -260,7 +277,9 @@ kept the one power nothing else on screen has: covering the game. What went
 with it is the whole sliding layer (`OwnBoardOverlay`, its knob, the `X`
 action and `Duel::overlay_open`/`overlay_t`); `hud/overlay.rs` keeps its name
 and its job, which is the retained HUD tree — tabs, prompt slip, stack.
-`input::camera_controls` no longer has anything to refuse to run under.
+`input::camera_controls` no longer had anything to refuse to run under, and
+has since been deleted outright — see "A hand no longer moves this camera"
+above.
 
 The felt was too dark as well, and that was real: it was authored at about a
 quarter of the brightness it needed, and

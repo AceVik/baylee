@@ -1216,11 +1216,12 @@ impl Plugin for DuelPlugin {
                     input::close_the_sheet_on_a_press_outside_it.before(input::pointer),
                     input::pointer,
                     input::pointer_hover,
-                    input::camera_controls,
-                    // Beside the camera rather than before it: the two read
-                    // the same `Pointer<Scroll>` stream and answer "whose
-                    // wheel is this" from it independently, so there is no
-                    // order between them to get wrong.
+                    // `input::camera_controls` used to stand here, and its
+                    // absence is the point: the owner asked for the general
+                    // camera movement to go on 14.09.2026, keyboard included,
+                    // so nothing a hand does reaches the rig any more.
+                    // `hud::scrolls` no longer shares the wheel with anything
+                    // and there is no order left to get wrong.
                     hud::scrolls,
                     input::preview_resize,
                     input::tray_drag,

@@ -5,7 +5,7 @@
 //! content when [`ScrollPosition`] changes and nothing changes it on its own
 //! — so the zone browser's card grid carried an overflow, a comment about
 //! `Pointer<Scroll>`, and no way to reach the second row of a library. The
-//! wheel fell through to [`crate::input::camera_controls`] and zoomed the
+//! wheel fell through to `input::camera_controls` and zoomed the
 //! table instead, which is the owner's report exactly: *"oft möchte ich
 //! eigentlich nur irgendwo was scrollen, auf einmal verschiebe ich den
 //! Zoom"*.
@@ -266,10 +266,15 @@ mod tests {
     }
 
     /// The counter-test, and the whole point of the change: a wheel that
-    /// reaches nothing the interface owns is left alone here — it is the
-    /// camera's, and `camera_controls` is what will read it.
+    /// reaches nothing the interface owns is left alone here.
+    ///
+    /// It used to be the camera's, and since 14.09.2026 it is nobody's — the
+    /// owner had the general camera movement removed. That makes this test
+    /// *more* load-bearing rather than less: the walk has to stop at the last
+    /// scrolling ancestor, and a walk that claimed everything would now be
+    /// claiming it for a panel that is not under the pointer.
     #[test]
-    fn a_wheel_over_the_table_is_left_for_the_camera() {
+    fn a_wheel_over_the_table_is_claimed_by_nothing() {
         let mut app = app();
         let card_on_the_table = app.world_mut().spawn_empty().id();
         wheel(&mut app, card_on_the_table, -1.0);

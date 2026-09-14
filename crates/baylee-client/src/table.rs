@@ -5723,13 +5723,21 @@ mod library_fan_tests {
     }
 }
 
-/// The camera is the table's until the player takes it, and taking it has to
-/// be deliberate.
+/// The camera is the table's, and the one thing that takes it is a player
+/// asking to look at a single seat.
 ///
-/// These run the real systems in an `App` rather than calling the arithmetic,
+/// These run the real system in an `App` rather than calling the arithmetic,
 /// because the bug they are about was never in the arithmetic:
 /// [`frame_table`] computed the right shot every time and had stopped being
 /// allowed to write it.
+///
+/// What the harness registers is what can still reach the rig from the input
+/// set, and that is now **nothing**. `input::camera_controls` was deleted on
+/// 14.09.2026 at the owner's word — *„Generelles Camera Movement kann weg
+/// (also nicht nur die Maus Controls, sondern auch die Keyboard Controls)"* —
+/// so every gesture below is written into an app with no reader for it, and
+/// what these tests hold is the other half: the framing keeps the shot through
+/// all of it, and gives it up only where it is asked to.
 #[cfg(test)]
 mod framing_tests {
     use super::*;
@@ -5752,7 +5760,7 @@ mod framing_tests {
             .init_resource::<ButtonInput<MouseButton>>()
             .init_resource::<CameraRig>()
             .init_resource::<Duel>()
-            .add_systems(Update, (crate::input::camera_controls, frame_table).chain());
+            .add_systems(Update, frame_table);
         let mut w = Window::default();
         w.resolution.set(window.x, window.y);
         app.world_mut().spawn(w);
@@ -5763,77 +5771,106 @@ mod framing_tests {
         app
     }
 
-    /// The pointer travels a little while the left button is down — which is
-    /// what an ordinary click on a card looks like, and what used to turn the
-    /// table.
-    fn left_drag(app: &mut App) {
-        app.world_mut()
-            .resource_mut::<ButtonInput<MouseButton>>()
-            .press(MouseButton::Left);
-        app.world_mut()
-            .resource_mut::<Messages<MouseMotion>>()
-            .write(MouseMotion {
-                delta: Vec2::new(6.0, 4.0),
-            });
-        app.update();
-    }
-
-    /// A wheel with nothing of the interface under it.
-    fn wheel(app: &mut App, y: f32) {
-        app.world_mut()
-            .resource_mut::<Messages<MouseWheel>>()
-            .write(MouseWheel {
-                unit: MouseScrollUnit::Line,
-                x: 0.0,
-                y,
-                window: Entity::PLACEHOLDER,
-                phase: bevy::input::touch::TouchPhase::Moved,
-            });
-        app.update();
-    }
-
-    /// The one gesture a hand still has on the table: a right-drag, which
-    /// slides it and plays nothing.
-    fn right_drag(app: &mut App) {
-        app.world_mut()
-            .resource_mut::<ButtonInput<MouseButton>>()
-            .press(MouseButton::Right);
+    /// Every gesture that ever moved this table, in one frame.
+    ///
+    /// The arrows with shift held are the owner's own report — *„Aktuell wenn
+    /// ich die Pfeiltasten betätige sammt Shift, dann bedient es nicht das
+    /// Textfeld, sondern die Kamera vom Tisch"* — and the three buttons, the
+    /// wheel, the two-finger pan and the pinch are the rest of the set as it
+    /// stood over the three removals: orbit, then zoom, then this.
+    fn every_gesture(app: &mut App) {
+        {
+            let mut keys = app.world_mut().resource_mut::<ButtonInput<KeyCode>>();
+            for key in [
+                KeyCode::ArrowLeft,
+                KeyCode::ArrowRight,
+                KeyCode::ArrowUp,
+                KeyCode::ArrowDown,
+                KeyCode::ShiftLeft,
+            ] {
+                keys.press(key);
+            }
+        }
+        {
+            let mut buttons = app.world_mut().resource_mut::<ButtonInput<MouseButton>>();
+            for button in [MouseButton::Left, MouseButton::Right, MouseButton::Middle] {
+                buttons.press(button);
+            }
+        }
         app.world_mut()
             .resource_mut::<Messages<MouseMotion>>()
             .write(MouseMotion {
                 delta: Vec2::new(40.0, 20.0),
             });
-        app.update();
         app.world_mut()
-            .resource_mut::<ButtonInput<MouseButton>>()
-            .release(MouseButton::Right);
+            .resource_mut::<Messages<MouseWheel>>()
+            .write(MouseWheel {
+                unit: MouseScrollUnit::Line,
+                x: 0.0,
+                y: -4.0,
+                window: Entity::PLACEHOLDER,
+                phase: bevy::input::touch::TouchPhase::Moved,
+            });
+        app.world_mut()
+            .resource_mut::<Messages<PanGesture>>()
+            .write(PanGesture(Vec2::new(30.0, 30.0)));
+        app.world_mut()
+            .resource_mut::<Messages<PinchGesture>>()
+            .write(PinchGesture(0.4));
+        app.update();
+        {
+            let mut keys = app.world_mut().resource_mut::<ButtonInput<KeyCode>>();
+            keys.clear();
+        }
+        let mut buttons = app.world_mut().resource_mut::<ButtonInput<MouseButton>>();
+        buttons.clear();
     }
 
-    /// The owner's report, as an assertion: „kaum berühre ich mit der Maus
-    /// was, drehe ich den Tisch etwas".
+    /// The one seat that is not the local one, which is what there is to look
+    /// at: the harness seats two.
+    fn opponent() -> PlayerId {
+        PlayerId::new(1)
+    }
+
+    /// Frames that seat the way the `F` key and a tap on its board do.
+    fn look_at_a_seat(app: &mut App) {
+        let mut duel = app.world_mut().remove_resource::<Duel>().expect("a duel");
+        let mut rig = app
+            .world_mut()
+            .remove_resource::<CameraRig>()
+            .expect("a rig");
+        crate::input::navigate_to_player(&mut duel, &mut rig, opponent());
+        app.world_mut().insert_resource(duel);
+        app.world_mut().insert_resource(rig);
+        app.update();
+    }
+
+    /// Three owner reports, one assertion: *„kaum berühre ich mit der Maus
+    /// was, drehe ich den Tisch etwas"*, *„Das Zoom in/out sollte eh weg!"*,
+    /// and now the whole of it — keyboard included.
     #[test]
-    fn a_left_drag_leaves_the_camera_exactly_where_it_was() {
+    fn nothing_a_hand_does_moves_the_table() {
         let mut app = app(WINDOW);
         let before = *app.world().resource::<CameraRig>();
-        left_drag(&mut app);
+        every_gesture(&mut app);
         assert_eq!(
             *app.world().resource::<CameraRig>(),
             before,
-            "the left button plays cards and moves nothing"
+            "a hand still moves the table"
         );
         assert!(
             !app.world().resource::<Duel>().camera_held,
-            "and it does not take the camera off the table either"
+            "and it takes the camera off the table on the way"
         );
     }
 
-    /// The half of that report nobody could see: the framing used to stop
+    /// The half of the first report nobody could see: the framing used to stop
     /// following on the first pixel, so the table never came back into frame
     /// again — not on a resize, not ever.
     #[test]
-    fn the_table_is_still_framed_after_a_left_drag() {
+    fn the_table_is_still_framed_after_every_gesture() {
         let mut app = app(WINDOW);
-        left_drag(&mut app);
+        every_gesture(&mut app);
 
         let wider = Vec2::new(2400.0, 1052.0);
         let mut windows = app.world_mut().query::<&mut Window>();
@@ -5858,35 +5895,24 @@ mod framing_tests {
         );
     }
 
-    /// And the other direction: a drag over the felt *is* the camera, so it
-    /// holds — and holding is what stops the next resize from taking the
-    /// view away from the player.
+    /// And the other direction, which is the whole of what is left: looking at
+    /// one seat *is* a view the player asked for, so it holds — and holding is
+    /// what stops the next resize from taking it away again.
     ///
-    /// A wheel used to be the gesture here, and its absence is checked first.
-    /// The owner asked for the zoom to go (*„Das Zoom in/out sollte eh
-    /// weg!"*), and a wheel that still moved the rig would be the removal
-    /// undone with every scrolling panel back to arguing with the table.
+    /// This is the counter-test the test above needs. Without it a rig that
+    /// nothing could move for a quite different reason — the system unhooked,
+    /// the layout missing — would pass by standing still.
     #[test]
-    fn a_drag_over_the_felt_holds_the_camera_and_a_wheel_does_nothing() {
+    fn looking_at_one_seat_holds_the_camera() {
         let mut app = app(WINDOW);
         let before = *app.world().resource::<CameraRig>();
-        wheel(&mut app, 1.0);
-        assert_eq!(
-            *app.world().resource::<CameraRig>(),
-            before,
-            "the wheel still zoomed"
-        );
-        assert!(
-            !app.world().resource::<Duel>().camera_held,
-            "and it took the framing off the table on the way"
-        );
 
-        right_drag(&mut app);
+        look_at_a_seat(&mut app);
         let after = *app.world().resource::<CameraRig>();
-        assert_ne!(after.target, before.target, "the drag slid the table");
+        assert_ne!(after.target, before.target, "the seat was never framed");
         assert!(
             app.world().resource::<Duel>().camera_held,
-            "a drag over the felt can only mean the camera"
+            "a seat the player asked to see can only mean the camera"
         );
 
         let mut windows = app.world_mut().query::<&mut Window>();
@@ -5910,7 +5936,7 @@ mod framing_tests {
     #[test]
     fn going_home_gives_the_camera_back_to_the_table() {
         let mut app = app(WINDOW);
-        right_drag(&mut app);
+        look_at_a_seat(&mut app);
         assert!(app.world().resource::<Duel>().camera_held);
 
         let mut duel = app.world_mut().remove_resource::<Duel>().expect("a duel");

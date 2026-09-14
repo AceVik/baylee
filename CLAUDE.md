@@ -1012,7 +1012,15 @@ seat's own mat *underneath the hand bar* on every screen.
 `TableLayout::extent` (each pod's box rotated by its `facing`, because a seat
 on your left plays across the table) and a `Canvas` naming what the HUD
 covers; `table::frame_table` reapplies it as seats, focus and window change
-and stops as soon as the player has aimed the camera themselves. The
+and stops only while the player is looking at one seat. **No hand moves this
+camera**: the orbit went because the button that plays cards was also the
+button that turned the table, the zoom went because the wheel argued with
+every scrolling panel, and the pan went with the rest on 14.09.2026 — the
+owner's report being that arrow keys drove the table *through* a focused text
+field, `input::camera_controls` having read `KeyCode` directly rather than
+through the keymap, which is the one route around every other guard. The
+system is gone; `navigate_to_player`/`navigate_home` (`F`/`H`) are viewpoints
+and are in the keymap. The
 inversion is exact: the lean's cross terms cancel, so a felt point's screen
 position is *linear* in the eye distance and the fit is one division rather
 than a search. `camera_tests` projects every pod's corners forwards — written

@@ -35,9 +35,7 @@ Two consequences worth knowing before changing anything here:
 | Keep the card text on (latch, persisted) | `T` | implemented |
 | Open the zone browser (graveyards, exile, the stack) | `G`, or a tap on the top card of a pile | implemented |
 | Move the zone browser / resize it (remembered per client; a sheet a *question* opened is centred, stays put and draws no corner) | drag its title row / its bottom-right corner | implemented |
-| Battlefield camera: pan | arrows (not while choosing a number), right- or middle-drag, touch-drag | implemented |
-| Battlefield camera: zoom | wheel over the felt, pinch | implemented |
-| Battlefield camera: rotate / tilt | — (deliberately none) | removed |
+| Battlefield camera: pan / zoom / rotate / tilt | — (deliberately none) | removed |
 | Select a step tile (the seat bars' keyboard cursor) | `⇧W` / `⇧S` | implemented |
 | Fast-forward to next phase (decisions still yours) | `Tab` | implemented |
 | Fast-forward to the next turn | `⇧Tab` | implemented |
@@ -53,14 +51,20 @@ Two consequences worth knowing before changing anything here:
 | Game log | `L` | planned |
 | Automation menu for selection | `M` | planned |
 
-The camera controls are deliberately *not* in the keymap: they are held-key
-analogue input rather than discrete actions, and a rebinding screen listing
-"pan left" beside "keep this hand" would be describing two different kinds of
-thing. That is also why the arrows have one exception written into the camera
-rather than into the keymap: `NumberUp`/`NumberDown` *are* discrete actions
-bound to the same keys, so while a number is being chosen the arrows belong to
-the number and the table holds still. Without it the same press raised X and
-panned the board out from under it.
+There are **no camera controls left**, and the rows above are the whole of the
+keyboard. The camera has one job — framing the table against the part of the
+window the table is seen through — and `table::frame_table` does it on every
+seat count, focus and resize. The two viewpoints that remain are in the table
+above and in the keymap like everything else: `F` walks to the next
+opponent's board and `H` comes home.
+
+That is also why the arrows have no exception written into them any more. They
+are `NumberUp`/`NumberDown` and nothing else, and while a text box holds the
+keyboard they are the box's, because every key on this page goes through
+`Fired::of` and stops at `browser_keys`. The camera was the one route that did
+not: it read `KeyCode` directly, so the arrows drove the table *through* a
+focused filter box, which is the owner's report of 14.09.2026 and the reason
+the last of the camera went with it.
 
 A number is typed as well as stepped: a digit appends to what stands (`1`
 then `2` reads 12), falls back to the digit alone when appending would leave
@@ -356,24 +360,44 @@ whatever is pending, including combat's "Aim next", "Attack"/"Block" and
 "None". The hand bar scrolls horizontally
 with the mouse wheel.
 
-### The left button plays, and never moves the camera
+### Nothing a hand does moves the camera
 
-It used to orbit the table, and the left button is also the button that plays
-cards, so every click that travelled a pixel turned the table a little — and
-worse, it switched the automatic framing off for the rest of the session,
-because `table::frame_table` followed its own shot only while the rig still
-equalled it exactly. Both are gone: yaw and tilt are no longer controls at
-all (every seat's bar is drawn upright on its own mat, so turning the table
-only makes "which side am I on" ambiguous, and `table::CAMERA_LEAN` is a
-measured trade rather than something a hand aims), and what the player is
-holding is now said out loud in `Duel::camera_held`.
+It went in three removals, each one an owner report, and they are worth
+reading together because the last only makes sense as the end of the series.
 
-The camera has one job — a table that does not fit the window — so what is
-left is zoom and pan, both on gestures that can mean nothing else (wheel over
-the felt, right- or middle-drag, pinch, the arrows), and both undone by `H`.
-`F` walks the seats. A wheel is the **interface's** whenever there is a UI
-node under the pointer, scrolling or not: `hud::scrolls` takes it, a list at
-its end swallows it rather than passing it on, and the camera never sees it.
+**The orbit**, first. A left drag turned the table, and the left button is
+also the button that plays cards, so every click that travelled a pixel
+turned the table a little — and worse, it switched the automatic framing off
+for the rest of the session, because `table::frame_table` followed its own
+shot only while the rig still equalled it exactly. Yaw and tilt are not
+controls a hand should have anyway: every seat's bar is drawn upright on its
+own mat, so turning the table only makes "which side am I on" ambiguous, and
+`table::CAMERA_LEAN` is a measured trade rather than something a hand aims.
+
+**The zoom**, next. The wheel had to be arbitrated against every scrolling
+panel in the interface, and the referee did not hold at the surface it
+mattered at (*„mit dem Rad scrollen scheint sich mit dem Kamera Zoom-In/Out
+zu streiten"*). The capability went rather than the referee, and the pinch
+with it.
+
+**The pan**, on 14.09.2026, and with it the whole of the thing: *„Generelles
+Camera Movement kann weg (also nicht nur die Maus Controls, sondern auch die
+Keyboard Controls)"*. The report under it is what makes this page the right
+place for the story — the arrows drove the table while a **text field** had
+the keyboard. Every key on this page goes through `Fired::of` and stops at
+`browser_keys` when a box is typing; `input::camera_controls` read `KeyCode`
+directly, so it was the one route around that guard, and shift-arrow in the
+zone dialog's filter panned the board instead of extending a selection. The
+system is deleted.
+
+What is left needs no arbitration at all. `CameraRig::home` frames the table
+against the part of the window the table is seen through, `frame_table`
+reapplies it on every seat count, focus and resize, and the only thing that
+suspends it is a player asking to look at **one seat** (`F` walks them, `H`
+comes home) — which is a viewpoint rather than a camera control, and is in
+the keymap like every other action. A wheel is the interface's whenever there
+is a UI node under the pointer, scrolling or not; over bare felt it is now
+nobody's.
 
 ## The end screen
 
