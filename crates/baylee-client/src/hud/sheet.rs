@@ -86,47 +86,6 @@ const NUB: f32 = 14.0;
 /// not a second colour, so the grain still shows through.
 const NUB_TONE: f32 = 0.945;
 
-/// How long the sheet takes to open, in seconds.
-///
-/// Short enough to be over before a player has finished looking down at it —
-/// the sheet answers a click, and an answer that takes a quarter of a second
-/// to arrive is a delay rather than a movement.
-const ZOOM_IN: f32 = 0.16;
-
-/// And to close.
-///
-/// Shorter still, because the two are not the same event: opening is an
-/// answer arriving and closing is it being dismissed, and a dismissal that
-/// took as long as the answer reads as reluctance.
-const ZOOM_OUT: f32 = 0.10;
-
-/// The size the sheet grows from, and shrinks back to.
-///
-/// Not zero. A sheet that grows out of nothing is a puff of smoke; this is a
-/// page being laid down — it was always this size, and the movement is the
-/// last eighth of it arriving.
-const ZOOM_FROM: f32 = 0.88;
-
-/// The overshoot's shape, as the `c₁` of the usual ease-out-back.
-///
-/// The curve runs 0 → 1 over the range [`ZOOM_FROM`]..1 and its peak is
-/// `4c³ / 27(c+1)²` of that range past the end. **Three** is the value where
-/// that closed form collapses to exactly a quarter — `4·27 / 27·16` — so the
-/// sheet overshoots by a clean `(1 − ZOOM_FROM)/4`, which is 3% of full size.
-///
-/// The textbook `1.70158` is for a curve whose range *is* the whole size; at
-/// this range it would overshoot by a third of a per cent and there would be
-/// no snap at all.
-const ZOOM_BACK: f32 = 3.0;
-
-/// The share of the opening the nub waits out.
-///
-/// It is attached to something — the sheet's own edge — and a sheet at 90%
-/// has that edge 5% of its height away from where the nub is drawn. Rather
-/// than animate the gap away, the tail arrives once the paper is nearly full
-/// size, which also reads right: the sheet opens, and *then* it points.
-const ZOOM_TAIL: f32 = 0.55;
-
 /// How close to the window's edge the sheet may come.
 const SHEET_MARGIN: f32 = 12.0;
 
@@ -875,7 +834,7 @@ fn spawn_sheet(
                 t: if fresh { 0.0 } else { 1.0 },
                 closing: false,
             },
-            UiTransform::from_scale(Vec2::splat(if fresh { ZOOM_FROM } else { 1.0 })),
+            UiTransform::from_scale(Vec2::splat(if fresh { motion::ZOOM_FROM } else { 1.0 })),
             // **This is the flicker.** A rebuilt tree has no `ComputedNode`
             // until `bevy_ui` has laid it out — so for one frame
             // [`place_ability_sheet`] centred a sheet of size zero, which put
@@ -1917,9 +1876,13 @@ pub fn place_ability_sheet(
 /// Opens and closes the sheet, and despawns it at the end of a close.
 ///
 /// The sheet grows, the nub follows it once it is nearly there
-/// ([`ZOOM_TAIL`]), and the same movement run backwards is what takes them
-/// both away. A player who has turned motion off gets the end of it on the
-/// first frame, which is the answer `table::glide` and `ShownRig` both give.
+/// ([`motion::ZOOM_TAIL`]), and the same movement run backwards is what takes
+/// them both away. A player who has turned motion off gets the end of it on
+/// the first frame, which is the answer `table::glide` and `ShownRig` both
+/// give.
+///
+/// The curve itself is [`super::motion`], because the drawer opens on it too
+/// and §7 measures the whole shelf against *this* movement.
 ///
 /// The despawn is here and not in [`sync_ability_sheet`] because a closing
 /// sheet has outlived the thing it was about: `Duel::ability_menu` is already
@@ -1933,12 +1896,12 @@ pub fn zoom_the_sheet(
 ) {
     let still = prefs.all().reduce_motion;
     for (mut zoom, mut transform, parent) in &mut sheets {
-        let span = if zoom.closing { ZOOM_OUT } else { ZOOM_IN };
-        zoom.t = if still {
-            1.0
+        let span = if zoom.closing {
+            motion::ZOOM_OUT
         } else {
-            (zoom.t + time.delta_secs() / span).min(1.0)
+            motion::ZOOM_IN
         };
+        zoom.t = motion::step(zoom.t, span, time.delta_secs(), still);
         let done = zoom.t >= 1.0;
         if zoom.closing && done {
             // The whole tree, not the sheet: the nub is its sibling and the
@@ -1947,12 +1910,9 @@ pub fn zoom_the_sheet(
             continue;
         }
         let scale = if zoom.closing {
-            // Accelerating away. The opening's overshoot would read as a
-            // bounce on the way out, which is a movement asking to be watched
-            // by something that is leaving.
-            1.0 - (1.0 - ZOOM_FROM) * zoom.t * zoom.t
+            motion::shutting(zoom.t)
         } else {
-            ZOOM_FROM + (1.0 - ZOOM_FROM) * pop(zoom.t)
+            motion::opening(zoom.t)
         };
         transform.scale = Vec2::splat(scale);
 
@@ -1960,26 +1920,15 @@ pub fn zoom_the_sheet(
         // never guarded on `display`, because the placer is what reveals it
         // and a tail that was skipped while hidden would be shown at
         // whatever scale it was left at for the frame in between.
-        let tail = ((zoom.t - ZOOM_TAIL) / (1.0 - ZOOM_TAIL)).clamp(0.0, 1.0);
+        let tail = motion::tail(zoom.t);
         for mut piece in &mut trim {
             piece.scale = Vec2::splat(if zoom.closing {
-                1.0 - (1.0 - ZOOM_FROM) * zoom.t
+                1.0 - (1.0 - motion::ZOOM_FROM) * zoom.t
             } else {
                 tail
             });
         }
     }
-}
-
-/// The opening's curve: ease-out-back, running 0 → 1 with an overshoot.
-///
-/// `1 + (c+1)u³ + cu²` with `u = t − 1`, whose peak is `4c³/27(c+1)²` past
-/// the end — see [`ZOOM_BACK`] for why that number and not the usual one.
-/// The caller maps the whole curve onto [`ZOOM_FROM`]..1, so the overshoot is
-/// that share of the *range* and not of the size.
-fn pop(t: f32) -> f32 {
-    let u = t - 1.0;
-    1.0 + (ZOOM_BACK + 1.0) * u * u * u + ZOOM_BACK * u * u
 }
 
 /// Where the sheet's top-left corner goes.

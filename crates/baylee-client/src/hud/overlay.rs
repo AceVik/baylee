@@ -1244,12 +1244,21 @@ mod tests {
             let mut images = app.world_mut().resource_mut::<Assets<Image>>();
             CardTextures::new(&mut images, 1 << 20)
         };
+        // Motion off, and a clock present at all. The drawer's way out is a
+        // movement now, so "shut" means "gone" only once that movement has
+        // run — and a bare `App` has no `Time`, so without both of these a
+        // dismissed panel would sit at `t = 0` for ever and anything counting
+        // panels would be counting one the question had already left. It is
+        // the end of the movement and not its absence: see `hud::motion`.
+        let mut prefs = crate::prefs::Prefs::default();
+        prefs.edit().reduce_motion = true;
         app.insert_resource(textures)
             .insert_resource(duel)
             .insert_resource(fonts())
             .insert_resource(crate::settings::ClientSettings::default())
+            .insert_resource(prefs)
+            .init_resource::<Time>()
             .init_resource::<HudRevision>()
-            .init_resource::<crate::prefs::Prefs>()
             .init_resource::<crate::cardtext::CardTexts>()
             .init_resource::<crate::face::FaceMode>()
             .init_resource::<crate::sheen::Sheen>()
@@ -1257,15 +1266,21 @@ mod tests {
             .init_resource::<ledge::LedgeRevision>()
             .init_resource::<ledge::LedgeLayout>()
             .init_resource::<ledge::drawer::DrawerRevision>()
-            // All three, chained, in the order the app runs them: the first
+            // All four, chained, in the order the app runs them: the first
             // spawns the shelf and the drawer's node, the second writes the
             // shelf and records where its middle ended up, the third fills
-            // the drawer over that middle. A harness that ran only the
-            // rebuild would be reading a bar with no words on it and calling
-            // that an answer.
+            // the drawer over that middle and the fourth opens or shuts it. A
+            // harness that ran only the rebuild would be reading a bar with
+            // no words on it and calling that an answer.
             .add_systems(
                 Update,
-                (sync_overlay, ledge::sync_ledge, ledge::drawer::sync_drawer).chain(),
+                (
+                    sync_overlay,
+                    ledge::sync_ledge,
+                    ledge::drawer::sync_drawer,
+                    ledge::drawer::zoom_the_drawer,
+                )
+                    .chain(),
             );
         app.update();
         app
@@ -1427,6 +1442,58 @@ mod tests {
             panels(&mut app),
             0,
             "an empty drawer is a panel standing over the table saying nothing"
+        );
+    }
+
+    /// The panel is kept while the question is, and it leaves with it.
+    ///
+    /// §7 gives the drawer the one movement on this shelf that overshoots:
+    /// it *appears*, where an answer merely *changes*. That only reads right
+    /// if "appears" happens once — a panel rebuilt whenever its contents
+    /// changed would pop again on the row a player has just taken, which is a
+    /// movement saying "something new arrived" about the click they just
+    /// made. So the identity of the entity is the assertion: the same panel
+    /// across a change of contents, and **no** panel once the question is
+    /// gone. The second half is what
+    /// [`the_drawer_opens_on_a_list_and_is_shut_otherwise`] cannot reach —
+    /// it builds a fresh app per case, so nothing there has ever had to
+    /// leave.
+    #[test]
+    fn the_drawers_panel_outlives_its_contents_and_not_its_question() {
+        let panel = |app: &mut App| {
+            let mut q = app
+                .world_mut()
+                .query_filtered::<&Children, With<ledge::drawer::DrawerRoot>>();
+            q.iter(app.world()).flatten().copied().next()
+        };
+
+        let mut app = bar_of(duel_choosing_a_colour());
+        let opened = panel(&mut app).expect("a colour is chosen out of the drawer");
+
+        // The middle colour is taken. The rows are redrawn — one of them is
+        // washed now — and the drawer has not opened again.
+        {
+            let mut duel = app.world_mut().resource_mut::<Duel>();
+            assert!(
+                duel.interaction.as_mut().is_some_and(|i| i.choose_index(1)),
+                "the second colour is one of the three that were offered"
+            );
+        }
+        app.update();
+        assert_eq!(
+            panel(&mut app),
+            Some(opened),
+            "a row being taken is a change of contents, not a second arrival"
+        );
+
+        // And the question goes away. With motion off the way out is over on
+        // the frame it starts, so the panel is gone by the end of this one.
+        *app.world_mut().resource_mut::<Duel>() = duel_with(false);
+        app.update();
+        assert_eq!(
+            panel(&mut app),
+            None,
+            "the drawer has to be able to leave, not merely to stop being filled"
         );
     }
 

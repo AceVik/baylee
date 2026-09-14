@@ -118,6 +118,21 @@ pub(super) const PICKED_WASH: f32 = 0.10;
 #[derive(Component)]
 pub struct DrawerRoot;
 
+/// Where the panel is in its own opening, and which way it is going.
+///
+/// Its own state and not the sheet's, for the reason `hud/motion.rs` gives:
+/// the two are despawned by different systems and a shared component would
+/// have to be told which. `t` is reset rather than reversed when the
+/// direction changes, because the two spans and the two curves are different
+/// — [`motion::ZOOM_OUT`] is shorter than [`motion::ZOOM_IN`] on purpose.
+#[derive(Component, Default)]
+pub struct DrawerZoom {
+    /// 0 at the start of the movement, 1 at its end.
+    t: f32,
+    /// Whether this is the way out.
+    closing: bool,
+}
+
 /// One written line above the rows.
 #[derive(Clone, PartialEq, Debug)]
 struct Line {
@@ -221,6 +236,7 @@ pub fn sync_drawer(
     layout: Res<super::LedgeLayout>,
     root: Query<(Entity, Option<&Children>), With<DrawerRoot>>,
     mut node: Query<&mut Node, With<DrawerRoot>>,
+    mut zooms: Query<&mut DrawerZoom>,
     fonts: Res<UiFonts>,
     settings: Res<crate::settings::ClientSettings>,
     texts: Res<crate::cardtext::CardTexts>,
@@ -230,28 +246,103 @@ pub fn sync_drawer(
     };
     let lang = Lang::of(&settings.lang);
     let next = reading(&duel, lang, &texts, &layout);
+    let shut = next.empty();
+    // At most one, and it is the panel. `Option` rather than a loop because
+    // everything below asks what state that one panel is in.
+    let hanging = standing
+        .into_iter()
+        .flatten()
+        .copied()
+        .next()
+        .map(|panel| (panel, zooms.get(panel).is_ok_and(|z| z.closing)));
+    // Whether the tree is showing an open drawer *right now*. A panel on its
+    // way out is not one: the reading it belonged to is already gone, and it
+    // is on screen only because §7 gives the drawer a way out as well as a
+    // way in.
+    let open = hanging.is_some_and(|(_, closing)| !closing);
     // The second half is the same guard the shelf carries and is here for the
     // same reason turned the other way up: a node spawned afresh with the
-    // revision still describing the panel that used to hang off it. Either
-    // the drawer has something in it and there is something to draw, or it is
-    // empty and there is not.
-    if *revision == next && standing.is_some_and(|c| !c.is_empty()) != next.empty() {
+    // revision still describing the panel that used to hang off it. The tree
+    // agrees with the reading when an open panel is exactly what a non-empty
+    // reading asked for.
+    if *revision == next && open != shut {
         return;
     }
     *revision = next;
 
-    for child in standing.into_iter().flatten() {
-        commands.entity(*child).despawn();
-    }
     if let Ok(mut node) = node.single_mut() {
         node.padding = super::mid_padding(layout.mid_x, layout.window_w);
     }
-    if revision.empty() {
+    if shut {
+        // Sent away rather than despawned. `zoom_the_drawer` is what takes it
+        // off the tree, at the end of the movement — and until then its rows
+        // are still pickable, which is safe because `input::pick_choice`
+        // re-resolves every click against the *current* interaction and
+        // answers nothing when there is none.
+        if let Some((panel, _)) = hanging
+            && let Ok(mut zoom) = zooms.get_mut(panel)
+        {
+            zoom.closing = true;
+            zoom.t = 0.0;
+        }
         return;
     }
 
+    // An open panel is kept and refilled. Only its contents changed — the
+    // drawer did not open again, and a question that gained a line must not
+    // make the whole thing pop a second time.
+    let panel = match hanging {
+        Some((panel, false)) => {
+            commands.entity(panel).despawn_related::<Children>();
+            panel
+        }
+        // Nothing there, or something leaving. A panel that was on its way
+        // out cannot be caught and turned round: its `t` runs on the closing
+        // span and against the closing curve, so it goes and a fresh one
+        // opens in its place on the same frame.
+        was => {
+            if let Some((leaving, _)) = was {
+                commands.entity(leaving).despawn();
+            }
+            spawn_panel(&mut commands, root)
+        }
+    };
+
+    for line in &revision.lines {
+        let written = sentence(&mut commands, &fonts, &line.text, line.size, line.ink);
+        commands.entity(panel).add_child(written);
+    }
+
+    if let Some(value) = revision.number {
+        let row = stepper(&mut commands, &fonts, value);
+        commands.entity(panel).add_child(row);
+    }
+
+    if let Some(typed) = revision.filter.clone() {
+        let field = filter_field(&mut commands, &fonts, &typed);
+        commands.entity(panel).add_child(field);
+    }
+
+    if !revision.rows.is_empty() {
+        let rows = chooser(&mut commands, &fonts, &revision.rows, revision.picked);
+        commands.entity(panel).add_child(rows);
+    }
+}
+
+/// The panel itself: the drawer's one child, and the thing that moves.
+///
+/// Spawned already small, the way the sheet is — a panel that appeared at
+/// full size for the frame before [`zoom_the_drawer`] first ran would be a
+/// flash, and the movement is supposed to be the whole of its arrival.
+fn spawn_panel(commands: &mut Commands, root: Entity) -> Entity {
     let panel = commands
         .spawn((
+            DrawerZoom::default(),
+            UiTransform {
+                scale: Vec2::splat(motion::ZOOM_FROM),
+                translation: motion::from_bottom(motion::ZOOM_FROM),
+                ..default()
+            },
             Node {
                 min_width: px(MIN_W),
                 max_width: px(MAX_W),
@@ -291,25 +382,46 @@ pub fn sync_drawer(
         ))
         .id();
     commands.entity(root).add_child(panel);
+    panel
+}
 
-    for line in &revision.lines {
-        let written = sentence(&mut commands, &fonts, &line.text, line.size, line.ink);
-        commands.entity(panel).add_child(written);
-    }
-
-    if let Some(value) = revision.number {
-        let row = stepper(&mut commands, &fonts, value);
-        commands.entity(panel).add_child(row);
-    }
-
-    if let Some(typed) = revision.filter.clone() {
-        let field = filter_field(&mut commands, &fonts, &typed);
-        commands.entity(panel).add_child(field);
-    }
-
-    if !revision.rows.is_empty() {
-        let rows = chooser(&mut commands, &fonts, &revision.rows, revision.picked);
-        commands.entity(panel).add_child(rows);
+/// Opens and closes the drawer, and takes it off the tree at the end of a
+/// close.
+///
+/// The one movement §7 gives the shelf, and the only one on it that
+/// overshoots: the drawer *appears* (like a sheet) where the answers on the
+/// shelf merely *change* (like a sentence). What makes it a drawer and not a
+/// second sheet is the origin — [`motion::from_bottom`] pins the bottom edge,
+/// so it grows out of the lip instead of swelling around its own middle.
+///
+/// The despawn is here and not in [`sync_drawer`] for the reason the sheet's
+/// is in `zoom_the_sheet`: a closing panel has outlived the question it was
+/// about, and `sync_drawer` has already written the reading that says so.
+pub fn zoom_the_drawer(
+    mut commands: Commands,
+    time: Res<Time>,
+    prefs: Res<crate::prefs::Prefs>,
+    mut panels: Query<(Entity, &mut DrawerZoom, &mut UiTransform)>,
+) {
+    let still = prefs.all().reduce_motion;
+    for (panel, mut zoom, mut transform) in &mut panels {
+        let span = if zoom.closing {
+            motion::ZOOM_OUT
+        } else {
+            motion::ZOOM_IN
+        };
+        zoom.t = motion::step(zoom.t, span, time.delta_secs(), still);
+        if zoom.closing && zoom.t >= 1.0 {
+            commands.entity(panel).despawn();
+            continue;
+        }
+        let scale = if zoom.closing {
+            motion::shutting(zoom.t)
+        } else {
+            motion::opening(zoom.t)
+        };
+        transform.scale = Vec2::splat(scale);
+        transform.translation = motion::from_bottom(scale);
     }
 }
 
