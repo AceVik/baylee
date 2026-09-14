@@ -594,6 +594,7 @@ fn heading(commands: &mut Commands, slip: &Slip, pen: Pen, fonts: &UiFonts) -> E
                 tf(fonts, SLIP_HEAD_PT),
                 TextColor(palette::SLIP_SOFT),
                 pen.mark(Part::Heading, palette::SLIP_SOFT),
+                Pickable::IGNORE,
             ))
             .id();
         commands.entity(line).add_child(span);
@@ -606,6 +607,7 @@ fn heading(commands: &mut Commands, slip: &Slip, pen: Pen, fonts: &UiFonts) -> E
             tf_italic(fonts, SLIP_HEAD_PT),
             TextColor(palette::SLIP_SOFT),
             pen.mark(Part::Heading, palette::SLIP_SOFT),
+            Pickable::IGNORE,
         ))
         .id();
     commands.entity(line).add_child(seat);
@@ -667,6 +669,7 @@ fn page(commands: &mut Commands, runs: Vec<Vec<Piece>>, pen: Pen, fonts: &UiFont
                     },
                     TextColor(ink),
                     pen.mark(Part::Ink, ink),
+                    Pickable::IGNORE,
                 ))
                 .id();
             commands.entity(sentence).add_child(span);

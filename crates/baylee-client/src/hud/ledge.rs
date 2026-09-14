@@ -1173,6 +1173,7 @@ fn sentence(commands: &mut Commands, fonts: &UiFonts, text: &str, size: f32, ink
                 TextSpan::new(run.to_string()),
                 tf_italic(fonts, size),
                 TextColor(if aside { palette::LEDGE_SOFT } else { ink }),
+                Pickable::IGNORE,
             ))
             .id();
         commands.entity(line).add_child(span);

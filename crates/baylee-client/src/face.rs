@@ -349,6 +349,15 @@ const fn color_letter(color: MagicColor) -> &'static str {
 /// `width` is the rendered card width in pixels; every size on the face is a
 /// fraction of it, so one function serves a 110-pixel hand card and a
 /// 500-pixel preview without a second set of constants.
+///
+/// **Every node here carries [`Pickable::IGNORE`]**, and it is one rule rather
+/// than eight decisions: a drawn face is never the pointer's target — the hand
+/// card, the tray row or the stack entry around it is — and marking only the
+/// root would achieve nothing. `bevy_ui`'s picking backend reports the
+/// *deepest* node under the pointer and `bevy_picking::hover::build_hover_map`
+/// stops at the first entity that carries no `Pickable` at all, so one
+/// unmarked `Text` in the middle of the face is as opaque as the whole card:
+/// it keeps `PickingInteraction` off the row and the row never lights.
 #[allow(clippy::too_many_lines)] // one card, top to bottom
 pub fn spawn_ui(
     commands: &mut Commands,
@@ -365,6 +374,7 @@ pub fn spawn_ui(
 
     let root = commands
         .spawn((
+            Pickable::IGNORE,
             Node {
                 width: percent(100),
                 height: percent(100),
@@ -379,16 +389,20 @@ pub fn spawn_ui(
 
     // ---- title row: name on the left, cost pips on the right ------------
     let title = commands
-        .spawn(Node {
-            width: percent(100),
-            flex_direction: FlexDirection::Row,
-            align_items: AlignItems::Center,
-            column_gap: Val::Px(pad * 0.4),
-            ..default()
-        })
+        .spawn((
+            Pickable::IGNORE,
+            Node {
+                width: percent(100),
+                flex_direction: FlexDirection::Row,
+                align_items: AlignItems::Center,
+                column_gap: Val::Px(pad * 0.4),
+                ..default()
+            },
+        ))
         .id();
     let name = commands
         .spawn((
+            Pickable::IGNORE,
             Text::new(face.name.clone()),
             text_font(fonts, title_size),
             TextColor(INK),
@@ -408,6 +422,7 @@ pub fn spawn_ui(
     // ---- the paper: type line, then rules text --------------------------
     let paper = commands
         .spawn((
+            Pickable::IGNORE,
             Node {
                 width: percent(100),
                 flex_grow: 1.0,
@@ -424,6 +439,7 @@ pub fn spawn_ui(
 
     let type_line = commands
         .spawn((
+            Pickable::IGNORE,
             Text::new(face.type_line.clone()),
             text_font(fonts, type_size),
             TextColor(MUTED),
@@ -449,6 +465,7 @@ pub fn spawn_ui(
             // and saying so beats an empty box.
             let node = commands
                 .spawn((
+                    Pickable::IGNORE,
                     Text::new(Phrase::NoRulesTextHere.text(lang)),
                     text_font(fonts, body_size),
                     TextColor(MUTED),
@@ -463,6 +480,7 @@ pub fn spawn_ui(
     if let Some(stats) = face.stats {
         let badge = commands
             .spawn((
+                Pickable::IGNORE,
                 Node {
                     align_self: AlignSelf::FlexEnd,
                     padding: UiRect::axes(Val::Px(pad * 0.6), Val::Px(pad * 0.2)),
@@ -486,12 +504,15 @@ pub fn spawn_ui(
 fn spawn_pips(commands: &mut Commands, face: &CardFace, width: f32, fonts: &UiFonts) -> Entity {
     let size = (width * 0.11).clamp(8.0, 26.0);
     let row = commands
-        .spawn(Node {
-            flex_direction: FlexDirection::Row,
-            column_gap: Val::Px(size * 0.12),
-            flex_shrink: 0.0,
-            ..default()
-        })
+        .spawn((
+            Pickable::IGNORE,
+            Node {
+                flex_direction: FlexDirection::Row,
+                column_gap: Val::Px(size * 0.12),
+                flex_shrink: 0.0,
+                ..default()
+            },
+        ))
         .id();
     for symbol in &face.cost {
         // The `mana` font draws the printed mark; the letter this used to set

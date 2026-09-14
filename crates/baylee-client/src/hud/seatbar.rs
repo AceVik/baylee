@@ -838,6 +838,7 @@ fn life(
                     TextSpan::new(format!(" {}", seat.life)),
                     tf(fonts, fits(14.0, height)),
                     TextColor(numeral),
+                    Pickable::IGNORE,
                 )],
             )],
         ))
@@ -888,6 +889,7 @@ fn count(
                     TextSpan::new(format!(" {value}")),
                     tf(fonts, fits(13.0, height)),
                     TextColor(ink_of(seat)),
+                    Pickable::IGNORE,
                 )],
             )],
         ))

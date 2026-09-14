@@ -126,6 +126,18 @@ pub(super) fn spawn_card_art(
             ))
             .id()
     };
+    // Neither the slot nor what is inside it is ever the pointer's target:
+    // the art is always inside something that *is* — a hand card, a tray row,
+    // a stack entry — and a picture that took the hover for itself would
+    // leave that thing dark under the one part of it a player looks at.
+    //
+    // Both, and not the slot alone, because `build_hover_map` stops at the
+    // **first** entity that carries no `Pickable` at all, and the backend
+    // reports the deepest node first. A marked slot around an unmarked child
+    // is exactly as opaque as an unmarked slot; it only moves which entity
+    // does the blocking.
+    commands.entity(child).insert(Pickable::IGNORE);
+    commands.entity(slot).insert(Pickable::IGNORE);
     commands.entity(slot).add_child(child);
     slot
 }

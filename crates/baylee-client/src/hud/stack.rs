@@ -1034,6 +1034,7 @@ fn spawn_stack_entry(
                     super::tf_serif(fonts, STACK_SENTENCE_PT, 400),
                     TextColor(palette::MUTED),
                     Arriving::ink(key, palette::MUTED.alpha()),
+                    Pickable::IGNORE,
                 ))
                 .id();
             commands.entity(subtitle).add_child(span);
@@ -1047,6 +1048,7 @@ fn spawn_stack_entry(
                 super::tf_serif_italic(fonts, STACK_SENTENCE_PT, 400),
                 TextColor(palette::MUTED),
                 Arriving::ink(key, palette::MUTED.alpha()),
+                Pickable::IGNORE,
             ))
             .id();
         commands.entity(subtitle).add_child(seat);
@@ -1155,6 +1157,7 @@ fn spawn_stack_sentence(
                 },
                 TextColor(ink),
                 Arriving::ink(key, ink.alpha()),
+                Pickable::IGNORE,
             ))
             .id();
         commands.entity(sentence).add_child(span);

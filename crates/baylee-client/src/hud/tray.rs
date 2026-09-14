@@ -42,7 +42,16 @@ use baylee_client_core::browser::{BrowseRow, BrowseZone, Browser, Names};
 /// Small on purpose: it is there to be *recognised*, not read — the name is
 /// beside it in full and the preview is a hover away. It is what sets the row
 /// height, being the tallest thing in one.
-const TRAY_THUMB_W: f32 = 30.0;
+///
+/// It was 30, and the owner asked for a little more on 14.09.2026 — *"amche
+/// die Zeilen etwas höher, damit man das Miniatur-Bild etwas größer sieht"* —
+/// which is one number and four consequences, because a row is the unit the
+/// whole sheet is measured in. The row grows 55.9 → 69.9, [`TRAY_ROWS`] drops
+/// from 8.5 to 7.5 so the sheet opens 49 px taller instead of 119, and
+/// `Placement::DEFAULT_W`/`MIN_W` take the ten pixels the column itself
+/// gained. The three tests below the fold hold all of that together, so this
+/// constant cannot be moved on its own.
+const TRAY_THUMB_W: f32 = 40.0;
 /// Its height, keeping the 63:88 card aspect.
 const TRAY_THUMB_H: f32 = TRAY_THUMB_W * 88.0 / 63.0;
 /// The air above and below the thumbnail in a row.
@@ -185,8 +194,14 @@ const TRAY_CHROME_H: f32 =
 /// the list continues, and it says it without a scrollbar. A grid was cut to
 /// four *whole* rows for the opposite reason — most of a fifth row of cards
 /// was space nothing could ever be put in.
+///
+/// Eight and a half until the rows grew on 14.09.2026 (see [`TRAY_THUMB_W`]).
+/// Seven and a half is what keeps the sheet close to the height it opened at
+/// before: a taller row spent entirely on more sheet would have put the
+/// default at 768 of the 850 the band has at 1738, which is a dialog that
+/// reads as a screen.
 #[cfg(test)]
-const TRAY_ROWS: f32 = 8.5;
+const TRAY_ROWS: f32 = 7.5;
 
 /// What the dialog was last drawn from.
 ///
@@ -647,6 +662,7 @@ fn dialog_line(
                 TextSpan::new(run.to_string()),
                 face(fonts, size),
                 TextColor(if aside { palette::DIALOG_SOFT } else { ink }),
+                Pickable::IGNORE,
             ))
             .id();
         commands.entity(line).add_child(span);

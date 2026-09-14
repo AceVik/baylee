@@ -336,9 +336,9 @@ impl Placement {
     /// row carries — the checkbox, the thumbnail, four pips of cost and the
     /// zone badge — plus the shortest name worth reading. Below this the
     /// prose is squeezed out and the row is a line of marks.
-    pub const MIN_W: f32 = 346.0;
+    pub const MIN_W: f32 = 356.0;
     /// The head, the footer, and two whole rows between them.
-    pub const MIN_H: f32 = 286.0;
+    pub const MIN_H: f32 = 314.0;
     /// One row wide — what `TRAY_PANEL_W` in the renderer computes.
     ///
     /// It was 854, ten columns of a card grid, because the sheet used to draw
@@ -359,8 +359,13 @@ impl Placement {
     /// English line it had been taken from. 30 px is what it costs to stop
     /// clipping one row in thirteen at a table of legends; the reasoning is
     /// on that constant.
-    pub const DEFAULT_W: f32 = 692.0;
-    /// The chrome, and eight rows and a **half**.
+    ///
+    /// And 692 → 702 on 14.09.2026, which is the thumbnail column and nothing
+    /// else: the owner asked for a bigger picture on each row, and a column
+    /// ten pixels wider is ten pixels of row. [`Self::MIN_W`] moved with it,
+    /// both being the same row with a different amount of name left in it.
+    pub const DEFAULT_W: f32 = 702.0;
+    /// The chrome, and seven rows and a **half**.
     ///
     /// The half row is the point. A grid was cut to four whole rows because
     /// most of a fifth was space nothing could ever be put in; a list is the
@@ -377,7 +382,14 @@ impl Placement {
     /// has no use for: the sheet a question opens is the one whose size
     /// nobody chose, because a sheet opened by hand is furniture the player
     /// drags, resizes and keeps ([`Browser::placement`]).
-    pub const DEFAULT_H: f32 = 649.0;
+    ///
+    /// It was 649 and eight and a half rows. The owner asked for taller rows
+    /// on 14.09.2026, which raises a row from 55.9 to 69.9 — so the count came
+    /// down half a row with it and the sheet opens 49 px taller rather than
+    /// 119. Spending the whole of a taller row on more sheet would have put
+    /// this at 768 against the 850 the band has on the screen it was measured
+    /// on, which is a dialog that reads as a screen.
+    pub const DEFAULT_H: f32 = 698.0;
     /// The clear the sheet keeps between itself and the band's edge.
     const MARGIN: f32 = 12.0;
 
