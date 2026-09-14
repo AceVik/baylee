@@ -666,8 +666,26 @@ pub fn keyboard(
     mut prefs: ResMut<crate::prefs::Prefs>,
     mut rig: ResMut<crate::table::CameraRig>,
     mut settings: ResMut<crate::settings::ClientSettings>,
+    mut had_keyboard: Local<bool>,
 ) {
     let fired = Fired::of(&keys, prefs.keymap());
+    // The keystroke that opened the panel is not a keystroke for the box.
+    // `G` opens the sheet on a frame where nothing here reads the message
+    // queue, so the character is still standing in it when the box takes the
+    // keyboard a moment later — and `browser_keys` would type it the first
+    // time it looks. Advancing this reader past whatever is pending on the
+    // frame the box *gains* the keyboard is the whole guard, and it is the
+    // right shape for the click path too: a key pressed before the box was
+    // clicked belongs to the table it was pressed over.
+    //
+    // A bool rather than `typing_epoch`, which counts re-seedings of the
+    // platform's own field as well as focus and would drop a character every
+    // time `Esc` emptied the box.
+    let typing = duel.browser.is_typing();
+    if typing && !*had_keyboard {
+        typed.clear();
+    }
+    *had_keyboard = typing;
     // Before the quiet check, and not after it: a letter typed into the type
     // filter is usually bound to no action at all, so `Fired` is empty for
     // exactly the keys the box cares about most.
@@ -686,10 +704,12 @@ pub fn keyboard(
     if sheet_digits(&mut typed, &mut duel) {
         return;
     }
-    // And the same again for the browser's filter box — but only while it has
-    // been given the keyboard, because the panel can stand open for a whole
-    // turn and a box that swallowed every keystroke would end playing with
-    // the graveyard visible.
+    // And the same again for the browser's filter box, which holds the
+    // keyboard from the moment the panel opens until the player hands it back
+    // — see `browser_takes_the_keyboard`. Only while it holds it, though: the
+    // sheet can stand open for a whole turn, and a released box that went on
+    // swallowing every keystroke would be the end of playing with the
+    // graveyard visible.
     if browser_keys(fired, &mut typed, &mut duel) {
         return;
     }
@@ -798,15 +818,45 @@ fn look_around(
     }
 }
 
-/// Typing a number rather than stepping to it.
+/// The filter box takes the keyboard as the zone dialog opens.
 ///
-/// Stepping from 0 to 9 is nine presses, and X is routinely somebody's whole
-/// hand of lands. So a digit types: it appends to what stands, and falls back
-/// to the digit alone when appending would leave the offered range — which is
-/// what a player means by typing `7` when the value already reads `12` and the
-/// maximum is 9. Backspace takes a digit off, and the interaction clamps
-/// whatever comes out, so nothing typed here is expressible outside the range
-/// the engine offered.
+/// Every application with a search field does this, and §6's reading of the
+/// dialog is the same one — *„ein Ort, an dem man arbeitet"*. It was the
+/// other way round until the owner paid for it: the box took the keyboard
+/// only on a click in it, so a search term typed into a panel that had just
+/// been opened was fifteen bound letters fired at the table instead. One of
+/// them (`T`) latched the text view on and *persisted* it, which is how every
+/// card in a duel came to be drawn as its own rules text; `K`/`B` and `Y`/`N`
+/// reach the engine, and there is no undo there.
+///
+/// The player takes the keyboard back with `Esc` or `Enter` and the sheet
+/// goes on standing — that half of the bargain is untouched, and it is what
+/// lets a graveyard stay open through a turn.
+///
+/// Two things it will not do. **Not on a platform that owns the typing**,
+/// because there `is_typing` is what raises a phone's keyboard
+/// ([`browser_softkeys`]) and a tap on a pile would put it over the graveyard
+/// the player meant to read. And **not for an ordering**, which draws no
+/// filter box at all (`hud::tray`: the row says what to do instead) — a
+/// keyboard handed to a field that is not on screen is a keyboard nobody can
+/// get back.
+pub fn browser_takes_the_keyboard(mut duel: ResMut<Duel>, mut was_open: Local<bool>) {
+    let open = duel.browser.is_open();
+    let opening = open && !*was_open;
+    *was_open = open;
+    if !opening || crate::softkeys::SoftKeyboard::owns_typing() {
+        return;
+    }
+    if duel
+        .interaction
+        .as_ref()
+        .is_some_and(Interaction::is_ordering)
+    {
+        return;
+    }
+    duel.browser.start_typing();
+}
+
 /// The platform's own text input, pointed at the browser's filter box.
 ///
 /// Only the browser has one, and it is the only thing that raises a phone's
@@ -933,6 +983,20 @@ fn browser_keys(fired: Fired, typed: &mut MessageReader<KeyboardInput>, duel: &m
     true
 }
 
+/// Typing a number rather than stepping to it.
+///
+/// Stepping from 0 to 9 is nine presses, and X is routinely somebody's whole
+/// hand of lands. So a digit types: it appends to what stands, and falls back
+/// to the digit alone when appending would leave the offered range — which is
+/// what a player means by typing `7` when the value already reads `12` and the
+/// maximum is 9. Backspace takes a digit off, and the interaction clamps
+/// whatever comes out, so nothing typed here is expressible outside the range
+/// the engine offered.
+///
+/// The doc block was above `browser_softkeys` for as long as it existed —
+/// spliced onto the next item's own, so `cargo doc` printed it over the soft
+/// keyboard's. Same family as the `still_gliding` splice: the anchor is the
+/// closing brace before a block, never the `///` after it.
 fn number_keys(typed: &mut MessageReader<KeyboardInput>, duel: &mut Duel) -> bool {
     if !matches!(
         duel.interaction.as_ref().map(Interaction::prompt),
@@ -3956,18 +4020,113 @@ mod tests {
         assert_eq!(number(&app), 0);
     }
 
-    /// The graveyard is searchable, and only while it has been asked to be.
+    /// The graveyard is searchable, and the search term stays out of the game.
     ///
     /// "Sortierbar, durchsuchbar, scrollbar" — the first and the last were
     /// there and the middle one was not: `Browser::set_filter` was written
     /// and no key or click ever reached it. What is pinned here is both
-    /// halves of the bargain, because the panel can stand open for a whole
-    /// turn: letters reach the box once it holds the keyboard, and they must
-    /// not before.
+    /// halves of the bargain: the box holds the keyboard from the moment the
+    /// sheet opens, and it lets go when the player says so, after which the
+    /// panel can stand open for a whole turn with the letters belonging to
+    /// the game again.
+    ///
+    /// The first half is the owner's bug of 14.09., and it is pinned with the
+    /// word they actually typed. Fifteen of the twenty-six letters are bound,
+    /// so a German search term is a handful of game actions: `T` latched the
+    /// text view on and persisted it — every card in the duel drawn as its own
+    /// rules text — and `K`/`B`, `Y`/`N` would have answered a mulligan or a
+    /// yes/no question outright.
     #[test]
-    fn the_pile_is_searchable_only_while_the_box_holds_the_keyboard() {
-        use bevy::input::ButtonInput;
+    fn a_search_term_reaches_the_box_and_never_the_game() {
+        use bevy::prelude::*;
+
+        let (mut app, window) = a_zone_dialog_that_has_just_opened();
+        assert!(
+            app.world().resource::<crate::Duel>().browser.is_typing(),
+            "the sheet opened and left the keyboard with the table"
+        );
+
+        // The owner's own search term, typed into the panel they had just
+        // opened. `S`, `T`, `E` and `F` are all bound; `T` is `ToggleTextView`
+        // and the one that stayed, because it is written to disk.
+        for (code, c) in [
+            (KeyCode::KeyS, 's'),
+            (KeyCode::KeyT, 't'),
+            (KeyCode::KeyU, 'u'),
+            (KeyCode::KeyR, 'r'),
+            (KeyCode::KeyM, 'm'),
+            (KeyCode::KeyT, 't'),
+            (KeyCode::KeyI, 'i'),
+            (KeyCode::KeyE, 'e'),
+            (KeyCode::KeyF, 'f'),
+        ] {
+            type_letter(&mut app, window, code, c);
+        }
+        assert_eq!(
+            filter_reads(&app),
+            "sturmtief",
+            "the search term missed the box"
+        );
+        assert!(panel_stands(&app), "a letter in the term closed the panel");
+        assert!(
+            !app.world()
+                .resource::<crate::settings::ClientSettings>()
+                .prefer_text_view,
+            "the search term latched the text view on"
+        );
+        assert!(
+            app.world().resource::<crate::Duel>().outbox().is_empty(),
+            "the search term sent something to the engine"
+        );
+    }
+
+    /// The other half of the same bargain: the box lets go on request, and
+    /// then the sheet can stand open for a whole turn with the letters
+    /// belonging to the game again.
+    #[test]
+    fn a_released_filter_box_hands_the_letters_back() {
         use bevy::input::keyboard::{Key, KeyboardInput};
+        use bevy::prelude::*;
+
+        let (mut app, window) = a_zone_dialog_that_has_just_opened();
+        type_letter(&mut app, window, KeyCode::KeyM, 'm');
+        type_letter(&mut app, window, KeyCode::KeyO, 'o');
+        assert_eq!(filter_reads(&app), "mo");
+
+        app.world_mut().write_message(KeyboardInput {
+            key_code: KeyCode::Backspace,
+            logical_key: Key::Backspace,
+            state: bevy::input::ButtonState::Pressed,
+            text: None,
+            repeat: false,
+            window,
+        });
+        app.update();
+        assert_eq!(filter_reads(&app), "m", "backspace did not reach the box");
+
+        // `G` is `ToggleBrowser`, so the claim is not merely that the filter
+        // stopped growing — a key that went nowhere at all would satisfy
+        // that. The action has to have *fired*.
+        app.world_mut()
+            .resource_mut::<crate::Duel>()
+            .browser
+            .stop_typing();
+        let was = panel_stands(&app);
+        type_letter(&mut app, window, KeyCode::KeyG, 'g');
+        assert_eq!(filter_reads(&app), "m", "the box typed after letting go");
+        assert_ne!(panel_stands(&app), was, "a released box ate a bound key");
+    }
+
+    /// An app holding the key path, with the zone dialog one frame past
+    /// opening.
+    ///
+    /// That frame matters and is why it is spent here: in the client it is
+    /// the frame `G` was pressed on, so it is also the frame whose keystroke
+    /// the box must not take. Letters typed after it are the player's *next*
+    /// ones, which is what a real keyboard produces.
+    fn a_zone_dialog_that_has_just_opened() -> (bevy::prelude::App, bevy::prelude::Entity) {
+        use bevy::input::ButtonInput;
+        use bevy::input::keyboard::KeyboardInput;
         use bevy::prelude::*;
 
         let mut app = App::new();
@@ -3979,81 +4138,62 @@ mod tests {
             .init_resource::<crate::settings::ClientSettings>()
             .add_message::<KeyboardInput>()
             .insert_resource(duel)
-            .add_systems(Update, super::keyboard);
+            .add_systems(
+                Update,
+                (
+                    super::browser_takes_the_keyboard.before(super::keyboard),
+                    super::keyboard,
+                ),
+            );
         let window = app.world_mut().spawn_empty().id();
+        app.update();
+        (app, window)
+    }
 
-        // A letter is two things at once — a character for a text box and a
-        // bound action for the game — and a real press sends both, so the
-        // helper does too. Nothing here clears `ButtonInput` between frames
-        // (that is `bevy_input`'s own system, and this `App` has none), so a
-        // press has to be released by hand or every later frame sees it held.
-        let type_letter = |app: &mut App, code: KeyCode, c: char| {
-            app.world_mut()
-                .resource_mut::<ButtonInput<KeyCode>>()
-                .press(code);
-            app.world_mut().write_message(KeyboardInput {
-                key_code: code,
-                logical_key: Key::Character(c.to_string().into()),
-                state: bevy::input::ButtonState::Pressed,
-                text: Some(c.to_string().into()),
-                repeat: false,
-                window,
-            });
-            app.update();
-            app.world_mut()
-                .resource_mut::<ButtonInput<KeyCode>>()
-                .clear();
-        };
-        let open = |app: &App| app.world().resource::<crate::Duel>().browser.is_open();
-        let filter = |app: &App| {
-            app.world()
-                .resource::<crate::Duel>()
-                .browser
-                .filter()
-                .to_string()
-        };
-
-        // An open panel is not a focused box: the letters belong to the game.
-        // `G` is `ToggleBrowser`, so the claim is not merely that the filter
-        // stayed empty — a key that went nowhere at all would satisfy that,
-        // and a panel that swallowed the keyboard for as long as it stood
-        // open is the bug this bargain exists to prevent. The action has to
-        // have *fired*.
-        let was = open(&app);
-        type_letter(&mut app, KeyCode::KeyG, 'g');
-        assert_eq!(filter(&app), "", "the box typed without being asked to");
-        assert_ne!(open(&app), was, "the open panel ate a bound key");
-
-        app.world_mut().resource_mut::<crate::Duel>().browser.open();
-        app.world_mut()
-            .resource_mut::<crate::Duel>()
-            .browser
-            .start_typing();
-        // And now the other way round: the same key is a letter, and the
-        // panel must not close under the player's typing.
-        let was = open(&app);
-        type_letter(&mut app, KeyCode::KeyG, 'g');
-        assert_eq!(filter(&app), "g");
-        assert_eq!(open(&app), was, "typing a letter reached the game");
+    /// One letter, pressed the way a real keyboard presses it.
+    ///
+    /// A letter is two things at once — a character for a text box and a
+    /// bound action for the game — and a real press sends both, so this does
+    /// too. Nothing in these apps clears `ButtonInput` between frames (that
+    /// is `bevy_input`'s own system, and they have none), so a press has to
+    /// be released by hand or every later frame sees it held.
+    fn type_letter(
+        app: &mut bevy::prelude::App,
+        window: bevy::prelude::Entity,
+        code: bevy::prelude::KeyCode,
+        c: char,
+    ) {
+        use bevy::input::ButtonInput;
+        use bevy::input::keyboard::{Key, KeyboardInput};
+        use bevy::prelude::*;
 
         app.world_mut()
-            .resource_mut::<crate::Duel>()
-            .browser
-            .clear_filter();
-        type_letter(&mut app, KeyCode::KeyM, 'm');
-        type_letter(&mut app, KeyCode::KeyO, 'o');
-        assert_eq!(filter(&app), "mo");
-
+            .resource_mut::<ButtonInput<KeyCode>>()
+            .press(code);
         app.world_mut().write_message(KeyboardInput {
-            key_code: KeyCode::Backspace,
-            logical_key: Key::Backspace,
+            key_code: code,
+            logical_key: Key::Character(c.to_string().into()),
             state: bevy::input::ButtonState::Pressed,
-            text: None,
+            text: Some(c.to_string().into()),
             repeat: false,
             window,
         });
         app.update();
-        assert_eq!(filter(&app), "m", "backspace did not reach the box");
+        app.world_mut()
+            .resource_mut::<ButtonInput<KeyCode>>()
+            .clear();
+    }
+
+    fn filter_reads(app: &bevy::prelude::App) -> String {
+        app.world()
+            .resource::<crate::Duel>()
+            .browser
+            .filter()
+            .to_string()
+    }
+
+    fn panel_stands(app: &bevy::prelude::App) -> bool {
+        app.world().resource::<crate::Duel>().browser.is_open()
     }
 
     /// The arrows are bound to `NumberUp`/`NumberDown`, and `camera_controls`

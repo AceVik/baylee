@@ -1185,6 +1185,11 @@ impl Plugin for DuelPlugin {
                     // client must not also read raw keys, or a character is
                     // entered twice.
                     input::browser_softkeys,
+                    // Before the key path, so the frame the sheet opens on is
+                    // already one the filter box owns. A letter that reached
+                    // `look_around` instead is a display toggle or an engine
+                    // answer fired out of somebody's search term.
+                    input::browser_takes_the_keyboard.before(input::keyboard),
                     input::keyboard,
                     // Before the click, and it has to be: a press and the
                     // click it turns into arrive on the same frame, so a

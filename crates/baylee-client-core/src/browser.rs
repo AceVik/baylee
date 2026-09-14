@@ -715,10 +715,14 @@ impl Browser {
 
     /// Whether the filter box has the keyboard.
     ///
-    /// A box that took every keystroke while the panel merely stood open
-    /// would be the end of playing with the graveyard visible, so this is a
-    /// focus a player gives it and takes back — the same bargain the lobby's
-    /// fields make.
+    /// The panel hands it over as it opens and the player takes it back with
+    /// `Esc` or `Enter`, after which the letters belong to the game again and
+    /// the sheet can stand open through a turn. It was the other way round
+    /// once — the box took the keyboard only on a click — and the price was
+    /// paid in a single sitting: a search term typed into an open panel was
+    /// fifteen bound letters fired at the table, one of which latched the
+    /// text view on and persisted it. `K`/`B` and `Y`/`N` reach the *engine*,
+    /// and there is no undo.
     #[must_use]
     pub const fn is_typing(&self) -> bool {
         self.typing
@@ -735,8 +739,17 @@ impl Browser {
     }
 
     /// Gives the filter box the keyboard, opening the panel if it was shut.
+    ///
+    /// **Only** if it was shut: writing `ByHand` over a sheet a question
+    /// opened is the theft [`Self::open_at`] refuses for the same reason.
+    /// [`Self::answers_here`] reads the opening, so a sheet promoted this way
+    /// goes on standing in front of the question with the question's own keys
+    /// dead — which is what a click in the filter box did to a search prompt
+    /// for as long as the box could be clicked.
     pub fn start_typing(&mut self) {
-        self.open = Opening::ByHand;
+        if self.open == Opening::Shut {
+            self.open = Opening::ByHand;
+        }
         if !self.typing {
             self.typing = true;
             self.typing_epoch += 1;
