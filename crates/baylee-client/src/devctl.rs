@@ -833,7 +833,7 @@ fn move_pointer(
 /// to fall through to the bare-move return and answer `{"ok":true,
 /// "clicked":false}` — a `200` that reads like a press that happened, on a
 /// route whose whole purpose is photographing what lives between a press and
-/// a release. It cost a live proof of `docs/observed-faults.md` 35 one whole
+/// a release. It cost a live proof of `docs/observed-faults.md` 51 one whole
 /// gesture, which is the second time this harness has answered a caller's
 /// obvious spelling with something that looks like the client doing nothing;
 /// `harness_alias` is the first.

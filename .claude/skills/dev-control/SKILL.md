@@ -45,6 +45,20 @@ If `/health` never answers: the feature was left off (the routes are not in the
 binary), the variable was unset (the socket is never opened), or the app
 panicked at startup — check its stderr before blaming the harness.
 
+**The window can be resized from outside**, which is how a layout is checked at
+a width other than this desktop's — and the shelf's three columns collide or do
+not at a width, so there is no reading this one off a 1728-pixel photograph.
+There is no route for it; macOS will do it by PID:
+
+```bash
+osascript -e 'tell application "System Events" to tell (first process whose unix id is '"$PID"') to set size of front window to {1280, 800}'
+curl -s localhost:28770/health    # {"…","width":1280,"height":768,"scale":2}
+```
+
+`/health` is the acceptance, not the number asked for: the frame keeps its
+title bar, so 800 comes back as 768 of canvas, and the layout that matters is
+the one `/health` reports.
+
 ## The protocol
 
 ```text
@@ -72,7 +86,7 @@ the modifiers — those are **physical** key names, `KeyK` rather than the `K`
 character: `Y` and `1` resolve to `KeyY` and `Digit1`. That alias exists
 because this paragraph was here and a whole morning was still lost to
 `{"name":"Y"}` being refused and read as a key that did nothing; see
-`docs/observed-faults.md` 36, which is the withdrawn entry that came out of
+`docs/observed-faults.md` 52, which is the withdrawn entry that came out of
 it. Keys go into `ButtonInput<KeyCode>`, so they travel through the account's
 `Keymap` exactly as a real press does, which is the part most worth exercising
 and why the keyboard map is the list of what to send.
@@ -129,7 +143,7 @@ for b in json.load(sys.stdin)['buttons']:
 Use it when a pointer is what you want. Every answer in that bar also has a
 key: a shockland's "pay 2 life?" is `Y` or `N`, a mulligan is `K` or `B`,
 `Confirm` is `Space`. The entry that used to say otherwise
-(`docs/observed-faults.md` 36) was withdrawn — the keys were being sent under
+(`docs/observed-faults.md` 52) was withdrawn — the keys were being sent under
 names `/key` refuses.
 
 Two fields beside those answer a "nothing happened" that is really "something
@@ -141,7 +155,7 @@ first tap on anything irreversible only arms it, and the second fires it
 `selected` through a declaration shows nothing moving while the whole thing is
 being built.
 
-## The seven things that go wrong
+## The ten things that go wrong
 
 **A click is three frames.** `/pointer` writes a `CursorMoved`, then the press,
 then the release, mirrored into `WindowEvent` the way `bevy_winit` does,
@@ -192,7 +206,7 @@ the difference is only in the answer `/key` already gave you:
 `{"ok":true,"pressed":1}` or `{"error":"unknown key: …"}`. Before writing down
 that a handler is unwired, check that the press was accepted — a helper that
 throws the body away is a helper that will sooner or later hand you a fault
-that is not there. It has: `docs/observed-faults.md` 36.
+that is not there. It has: `docs/observed-faults.md` 52.
 
 **A held key is not a tapped one.** `{"hold":true}` presses and leaves the key
 down; `{"release":true}` lifts it. Part of the client is about a key *being*
@@ -209,6 +223,31 @@ to a bare cursor move and answering `{"ok":true,"clicked":false}`. A later
 because a screenshot cannot be asked for in the middle of one call.
 Photograph the rest state, hold, photograph, release, photograph: the third
 should come back to the first, and "byte-identical" is a real answer.
+
+**A move is sometimes lost outright, and only re-*sending* it helps.**
+Measured: the cursor put on a permanent at (600, 311), then `/state.hovered`
+read **fifteen times** in a row — `None` every time; the same move sent a
+second time answered with the object on the first read. Reading again never
+repairs it, sending again always does. So aim in a loop until the client says
+what is under the pointer, and only then press:
+
+```bash
+until curl -s localhost:28770/state | grep -q '"hovered":{"object":52'; do
+  curl -s -XPOST localhost:28770/pointer -d '{"x":600,"y":311}'
+done
+curl -s -XPOST localhost:28770/pointer -d '{"x":600,"y":311,"press":true}'
+```
+
+That is the whole reason "hover first, then click" works: not the extra frame,
+the second send. Two repairs are owed in `devctl.rs` — get the move through a
+full frame before the press *and* assure it arrived, and answer only once the
+frame that **read** the click is done.
+
+**And what a click did is visible a frame later** — the one place where
+reading again *is* the repair. A click that arms a card answers, and
+`/state.armed` is still `null`; a moment later it stands there complete with
+nothing sent in between. Poll after a click instead of reading once, or a
+click that worked is written down as a dead handler.
 
 ## Screenshots, and proving a render claim
 
