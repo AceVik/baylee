@@ -224,13 +224,37 @@ Measured on 14.09.2026 on this machine:
   | `Sample4` (bevy's default) | 105 000 | 1 200 |
   | `Msaa::Off` | 4 300 | 4 700 |
 
-  Four other things were ruled out first, each by a build and a measurement
-  rather than by argument, and they are listed so that nobody re-runs them:
-  the fractional scale factor (2.4375, pinned to 2 — no change),
+  Seven other things were ruled out, each by a build and a measurement or by
+  a grep of bevy's own source, and they are listed so that nobody re-runs
+  them: the fractional scale factor (2.4375, pinned to 2 — no change),
   `WgpuSettingsPriority::WebGPU` in place of the adapter's own claims (no
-  change), GPU preprocessing (`bevy_ui_render` does not use it) and push
-  constants (it does not use those either — it writes a plain
-  `RawBufferVec` every frame).
+  change), `WinitSettings::continuous()` instead of `mobile()`'s `Reactive`
+  (no change, and the frame rate did not move either — the client is bound at
+  about 22 fps in a debug build, not waiting on a timer),
+  `desired_maximum_frame_latency: 1` (no change), GPU preprocessing
+  (`bevy_ui_render` does not use it), push constants (it does not use those
+  either) and the font atlas churning per subpixel offset (`GlyphCacheKey` is
+  `glyph_id` alone — the doc comment above it still describes subpixel bins
+  the struct no longer has).
+
+  What is left after `Msaa::Off` is sharper than where it started, and it is
+  the thing to pick up: the lobby's backdrop is a UI node too
+  (`GlobalZIndex(-1)`, an `ambience` material) and it draws perfectly on
+  every frame, while the panels and the text beside it — the **standard** UI
+  pipeline, the one that writes a fresh `RawBufferVec` every frame — come and
+  go. One captured frame had 5 929 bright pixels and the next had **zero**,
+  with the backdrop correct in both. So it is that one pipeline's per-frame
+  vertex buffer, not the pass, not the atlas and not the layout.
+
+  Two facts about the phone, read off it rather than guessed, because they
+  are the first things anyone will want to try: there is **no updatable
+  graphics driver installed** (`pm list packages` finds none, so Developer
+  options → Graphics Driver Preferences has nothing to switch to), and the
+  panel is adaptive 0–120 Hz (`hasArrSupport true`) while the client draws
+  about 22. Locking the display to 60 (Settings → Display → Smooth Display)
+  and Developer options → "Disable HW overlays" are both free and reversible
+  and are worth trying before anything else — but neither can explain a frame
+  whose UI batch is simply absent.
 - The fonts are in the APK at `assets/fonts/…`, which is why
   `standalone::asset_root` returns `""` on Android: bevy reads through the
   APK's `AssetManager`, whose root *is* that directory.
