@@ -1860,6 +1860,49 @@ mod tests {
         );
     }
 
+    /// The shelf stands off the table above it and off the hand below it, and
+    /// it leans on the hand the more lightly of the two.
+    ///
+    /// The owner asked for the second cast on 14.09.2026 — "zum Tisch hin als
+    /// auch zur Hand hin (zur Hand etwas leichter)". It is read off the
+    /// **built node** and not off the constants, because the constants being
+    /// right is not the claim: a `BoxShadow` written with one entry would
+    /// satisfy every number in `ledge.rs` and still be a lid.
+    #[test]
+    fn the_shelf_casts_both_ways_and_more_softly_onto_the_hand() {
+        let mut app = bar_of(duel_with(false));
+        let mut shelves = app
+            .world_mut()
+            .query_filtered::<&BoxShadow, With<ledge::LedgeShelf>>();
+        let shadow = shelves
+            .iter(app.world())
+            .next()
+            .expect("the shelf is built")
+            .clone();
+        let offset = |cast: &ShadowStyle| match cast.y_offset {
+            Val::Px(y) => y,
+            other => panic!("a cast is measured in pixels, not {other:?}"),
+        };
+        let up = shadow
+            .iter()
+            .find(|cast| offset(cast) < 0.0)
+            .expect("nothing is cast onto the table");
+        let down = shadow
+            .iter()
+            .find(|cast| offset(cast) > 0.0)
+            .expect("nothing is cast onto the hand");
+        assert!(
+            down.color.alpha() < up.color.alpha(),
+            "the hand's side is the lighter one: {} against {}",
+            down.color.alpha(),
+            up.color.alpha()
+        );
+        assert!(
+            down.color.alpha() > 0.0,
+            "and it is still a cast, not an absence"
+        );
+    }
+
     /// A mana that is floating is one entity for as long as it is floating.
     ///
     /// The whole reason `ledge/pool.rs` exists, and the one claim that cannot

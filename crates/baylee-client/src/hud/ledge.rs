@@ -147,20 +147,37 @@ pub(super) fn spawn_ledge(commands: &mut Commands) -> Entity {
             },
             BackgroundColor(palette::DIALOG),
             BorderColor::all(palette::DIALOG_LINE),
-            // Downwards, onto the cards. The comment on the zone forbids a
-            // shadow there and means it — a shadow is drawn from a node's
-            // rectangle, so a transparent node with one lays a hard band
-            // across the table. This node is opaque and its rectangle *is*
-            // the shelf, so the shadow falls where a shelf's shadow falls and
-            // is what turns a card running under it into a card on a shelf
-            // rather than a card cut by a line.
-            BoxShadow(vec![ShadowStyle {
-                color: palette::SHADOW,
-                x_offset: px(0.0),
-                y_offset: px(4.0),
-                spread_radius: px(0.0),
-                blur_radius: px(12.0),
-            }]),
+            // Both ways, because the shelf stands off both. The comment on
+            // the zone forbids a shadow there and means it — a shadow is
+            // drawn from a node's rectangle, so a transparent node with one
+            // lays a hard band across the table. This node is opaque and its
+            // rectangle *is* the shelf, so a cast falls where a shelf's cast
+            // falls: downwards it is what turns a card running under the
+            // shelf into a card on a shelf rather than a card cut by a line,
+            // and upwards it is what lifts the shelf off the table instead of
+            // butting the two against each other along one line.
+            //
+            // The blurred half of each cast that falls *inside* the
+            // rectangle is behind an opaque node and is never seen, so the
+            // two do not sum anywhere a player can look — except the three
+            // pixels the upward cast reaches past the shelf's bottom edge,
+            // which is under the downward one and lighter than it.
+            BoxShadow(vec![
+                ShadowStyle {
+                    color: palette::SHADOW,
+                    x_offset: px(0.0),
+                    y_offset: px(-LIFT_UP_Y),
+                    spread_radius: px(0.0),
+                    blur_radius: px(LIFT_UP_BLUR),
+                },
+                ShadowStyle {
+                    color: palette::SHADOW.with_alpha(palette::SHADOW.alpha() * LIFT_DOWN_SHARE),
+                    x_offset: px(0.0),
+                    y_offset: px(LIFT_DOWN_Y),
+                    spread_radius: px(0.0),
+                    blur_radius: px(LIFT_DOWN_BLUR),
+                },
+            ]),
             ZIndex(Z_LEDGE),
             // The shelf itself answers nothing and must not swallow a click
             // meant for the table — but its children are buttons, and a
@@ -181,6 +198,48 @@ pub(super) fn spawn_ledge(commands: &mut Commands) -> Entity {
         ))
         .id()
 }
+
+/// How far the shelf stands off the table above it, and how soft that cast is.
+///
+/// §3.3 asked for one shadow, downwards, and gave the reason: a card running
+/// under an opaque bar reads as a card on a shelf rather than a card cut by a
+/// line. The owner asked for the other one on 14.09.2026 — *"zum Tisch hin
+/// als auch zur Hand hin (zur Hand etwas leichter)"* — and it is the same
+/// argument turned round. A slab that casts one way is a lid; one that casts
+/// both ways is standing off both, which is what a shelf at the edge of a
+/// table is doing.
+///
+/// The table's side is the deeper of the two because it is the side that can
+/// afford it. Above the shelf is open felt with nothing on it to compete
+/// with; below it is a row of cards each carrying a glow that is a *rules*
+/// statement, and a heavy cast there argues with the one light on this screen
+/// a player is meant to read as information.
+const LIFT_UP_Y: f32 = 5.0;
+const LIFT_UP_BLUR: f32 = 16.0;
+
+/// The same, downwards onto the hand. The offset and the blur §3.3 measured,
+/// kept.
+const LIFT_DOWN_Y: f32 = 4.0;
+const LIFT_DOWN_BLUR: f32 = 12.0;
+
+/// What the hand's side of the cast is worth against the table's.
+///
+/// A share and not a second colour, so "somewhat lighter" cannot quietly stop
+/// being true when [`palette::SHADOW`] is retuned — which is what the assert
+/// below is for.
+///
+/// The number is smaller than it looks, and the reason is the other cast. A
+/// `BoxShadow` is one rectangle blurred, so the upward cast's *lower* edge is
+/// blurred too: it sits at the shelf's underside less [`LIFT_UP_Y`] and its
+/// tail carries about [`LIFT_UP_BLUR`] past that, so roughly eleven pixels of
+/// it land on the hand at full strength — behind the shelf everywhere else,
+/// but not there. Measured at 1280 (mean luminance against the sky, relative
+/// to a row clear of both casts): the shelf's underside read 11.5 % down
+/// before any of this, 13.8 % down at a share of 0.70 — *deeper* than the one
+/// cast it replaced — and this is what puts it back where §3.3 measured it
+/// while the table's side carries the lift.
+const LIFT_DOWN_SHARE: f32 = 0.45;
+const _: () = assert!(LIFT_DOWN_SHARE < 1.0 && LIFT_DOWN_SHARE > 0.0);
 
 /// The air above and below a button on the shelf.
 ///
