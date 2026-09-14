@@ -1198,6 +1198,28 @@ pub(crate) fn btn_radius() -> BorderRadius {
     BorderRadius::all(px(6))
 }
 
+/// Roughly how wide `text` is at `size`, before anything has been laid out.
+///
+/// `bevy_ui` measures text *during* layout, which is one frame too late for a
+/// decision the layout itself depends on: the ledge has to know how wide its
+/// question is in order to decide whether the question fits beside its
+/// neighbours. So this is the estimator `hud::stack` already cuts card names
+/// with — `stack::CHAR_WIDTH` of the nominal point size per character — with
+/// the one correction a bold face needs, which Inter's own advance widths put
+/// at about 3.5%.
+///
+/// It is an estimate and is allowed to be. What it feeds is a choice between
+/// three arrangements with tens of pixels between them
+/// ([`baylee_client_core::ledge::arrange`]), not a position: the rungs are
+/// far enough apart that a few percent either way picks the same one. Nothing
+/// is ever *placed* from this.
+#[must_use]
+pub(crate) fn text_width(text: &str, size: f32, bold: bool) -> f32 {
+    #[allow(clippy::cast_precision_loss)]
+    let chars = text.chars().count() as f32;
+    chars * size * stack::CHAR_WIDTH * if bold { 1.035 } else { 1.0 }
+}
+
 /// A keycap's side, as a multiple of the legend on it.
 ///
 /// A square and not a disc, because what it stands for is a **key**: the
@@ -1484,6 +1506,7 @@ use stack::spawn_stack_panel;
 pub(crate) use finish::{FinishExits, despawn_finish, settle_the_sheet, spawn_finish};
 pub use hand::apply_hand_scroll;
 pub use hand::{ARMED_RAISE, HAND_ZONE_H, LEDGE_H, OVERLAY_CARD_H, OVERLAY_CARD_W};
+pub use ledge::{LedgeRevision, LedgeShelf, sync_ledge};
 pub(crate) use overlay::answer_button;
 pub use overlay::{despawn_overlay, sync_overlay};
 pub use rail::same_team;

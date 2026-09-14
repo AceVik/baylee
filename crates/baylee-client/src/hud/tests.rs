@@ -646,11 +646,13 @@ mod closing {
     fn closing_the_duel_takes_the_overlay_with_it() {
         let mut app = App::new();
         app.init_resource::<HudRevision>()
+            .init_resource::<LedgeRevision>()
             .add_systems(Update, despawn_overlay);
         let root = app.world_mut().spawn(HudRoot).id();
         let child = app.world_mut().spawn(Node::default()).id();
         app.world_mut().entity_mut(root).add_child(child);
         app.world_mut().resource_mut::<HudRevision>().seq = Some(7);
+        app.world_mut().resource_mut::<LedgeRevision>().seq = Some(7);
 
         app.update();
 
@@ -666,6 +668,12 @@ mod closing {
             app.world().resource::<HudRevision>().seq.is_none(),
             "a revision describing a tree that no longer exists would make the \
              next duel's first frame skip its own rebuild"
+        );
+        assert!(
+            app.world().resource::<LedgeRevision>().seq.is_none(),
+            "and the shelf's own counter describes the same vanished tree: \
+             its columns would be compared against a snapshot from the \
+             previous duel and never built"
         );
     }
 }
@@ -1064,7 +1072,7 @@ mod slip {
         );
     }
 
-    /// The answers divide the sheet between them.
+    /// The answers on a **sheet** divide it between them.
     ///
     /// The claim the owner asked for — "100% width, evenly distributed, with
     /// a small padding between them" — and the reason it needs a test is the
@@ -1072,23 +1080,17 @@ mod slip {
     /// after the labels, so three answers with three different words still
     /// come out three different widths. Zero is what takes the labels out of
     /// the sum.
+    ///
+    /// It is about a sheet and no longer about the *question*, which is on
+    /// the shelf now. The row that carried the question's answers went with
+    /// them, and its rule did not move with it: a sheet 380 to 620 pixels
+    /// wide has to be shared or its buttons huddle in the middle of it, and a
+    /// shelf that runs the whole window has no middle to huddle in — AX §2.3
+    /// measures each answer at its own label. What survives is the button,
+    /// which the end screen and the lobby's own exits still draw on
+    /// parchment.
     #[test]
     fn every_answer_is_drawn_the_same_width_as_every_other() {
-        let row = super::super::overlay::answer_row_node();
-        assert_eq!(
-            row.width,
-            percent(100),
-            "a row that does not span cannot share"
-        );
-        assert_eq!(row.flex_direction, FlexDirection::Row);
-        let Val::Px(gap) = row.column_gap else {
-            panic!("the gap is in pixels, not {:?}", row.column_gap);
-        };
-        assert!(
-            gap > 0.0 && gap < 20.0,
-            "the answers are {gap} apart, which is not the small padding asked for"
-        );
-
         let button = super::super::overlay::answer_node();
         assert!((button.flex_grow - 1.0).abs() < f32::EPSILON);
         assert_eq!(

@@ -82,12 +82,16 @@ pub fn despawn_overlay(
     mut commands: Commands,
     existing: Query<Entity, With<HudRoot>>,
     mut revision: ResMut<HudRevision>,
+    mut ledge: ResMut<ledge::LedgeRevision>,
     ui_materials: Option<ResMut<UiCardMaterials>>,
 ) {
     for entity in &existing {
         commands.entity(entity).despawn();
     }
     *revision = HudRevision::default();
+    // The shelf goes with the root it hangs off, so its own counter describes
+    // a tree that is not there either. Same reason, one level down.
+    *ledge = ledge::LedgeRevision::default();
     // The cache is what holds those materials alive, so letting go of it here
     // is what actually frees them: a duel that ended must not leave a hand's
     // worth behind for the next one.
@@ -398,74 +402,22 @@ pub fn sync_overlay(
         // because the board is behind a veil with nothing on it to click.
         // `Browser::answers_here` is the single predicate, read on both sides.
         let elsewhere = duel.browser.answers_here(duel.interaction.as_ref());
-        // The centring row spans the whole window and is ignored by the
-        // pointer, so it takes nothing away from the board it lies over; only
-        // the slip inside it is a surface.
+        // The sheet, spawned by the first row that needs one and not before.
         //
-        // Four, which is above the veil. The slip is the sentence saying what
-        // the question *is*, and the veil is drawn to say that the question is
-        // the only thing left to do: dimming the words that state it would be
-        // the veil contradicting itself.
-        let slip_row = commands
-            .spawn((slip_row_node(), ZIndex(Z_LEDGE), Pickable::IGNORE))
-            .id();
-        let slip = commands.spawn((
-            Node {
-                max_width: px(SLIP_MAX_W),
-                min_width: px(SLIP_MIN_W),
-                flex_direction: FlexDirection::Column,
-                align_items: AlignItems::Center,
-                row_gap: px(7),
-                padding: UiRect::axes(px(SLIP_PAD_X), px(13)),
-                border: UiRect::all(px(1)),
-                border_radius: sheet_radius(),
-                ..default()
-            },
-            BackgroundColor(palette::PARCHMENT),
-            BorderColor::all(palette::PARCHMENT_EDGE),
-            sheet_shadow(),
-        ));
-        let bar = slip.id();
-        commands.entity(slip_row).add_child(bar);
-        // First child, and a child rather than the slip's own image: see
-        // [`sheet_surface`] for the ring of flat parchment that was.
-        if let Some(sheets) = sheets.as_deref() {
-            let surface = commands.spawn(sheet_surface(sheets)).id();
-            commands.entity(bar).add_child(surface);
-        }
-        // Above the headline, because a table this client cannot reach makes
-        // every other line in the bar moot: the question standing there was
-        // asked before the socket went, and answering it will not arrive.
-        if let Some(phrase) = link_note {
-            let line = slip_line(
-                &mut commands,
-                &fonts,
-                phrase.text(lang),
-                15.0,
-                palette::INK_DANGER,
-            );
-            commands.entity(bar).add_child(line);
-        }
-
-        if let Some(text) = prompt {
-            let ink = if waiting {
-                palette::SLIP_SOFT
-            } else {
-                palette::SLIP_INK
-            };
-            let headline = slip_line(&mut commands, &fonts, &text, 18.0, ink);
-            commands.entity(bar).add_child(headline);
-        }
-
-        // What the engine said no to. It survives until this seat submits
-        // something else (`Duel::submit` clears it), so it is still there to
-        // read after the click that earned it — and it is drawn even while
-        // another seat is being asked, because a refusal is an answer to
-        // something *this* player did.
-        if let Some(text) = error {
-            let line = slip_line(&mut commands, &fonts, &text, 13.0, palette::INK_DANGER);
-            commands.entity(bar).add_child(line);
-        }
+        // The question itself is on the ledge now, with its answers, the
+        // armed row and whatever the engine or the socket has refused — all
+        // four are one line each and belong on the shelf, which is where the
+        // player is already looking. What is left here is every row that is
+        // *more* than a line: a pick hint, combat's aim and threat, the
+        // number stepper, the subtype filter, the indexed chooser. Those are
+        // the drawer's (AX §5), the drawer is step 6, and dropping them in
+        // the meantime would take two shipped lines off the screen.
+        //
+        // So this is the transitional shape and it is deliberately lazy: a
+        // question with none of those rows draws no sheet at all, which is
+        // most questions. No headline on what is left either — it stands
+        // directly over the shelf, and the question is written on the shelf.
+        let mut bar: Option<Entity> = None;
 
         // A choice that is answered by clicking has to say so. The prompt
         // bar used to draw "Discard 1 card(s)" and stop: no button, because
@@ -492,6 +444,7 @@ pub fn sync_overlay(
                 12.0,
                 palette::SLIP_SOFT,
             );
+            let bar = leftover_slip(&mut commands, sheets.as_deref(), root, &mut bar);
             commands.entity(bar).add_child(line);
         }
 
@@ -508,6 +461,7 @@ pub fn sync_overlay(
             .and_then(|i| combat_line(i, view, duel.statics.as_ref(), faces.texts, lang))
         {
             let aim = slip_line(&mut commands, &fonts, &line, 13.0, palette::SLIP_SOFT);
+            let bar = leftover_slip(&mut commands, sheets.as_deref(), root, &mut bar);
             commands.entity(bar).add_child(aim);
         }
 
@@ -530,6 +484,7 @@ pub fn sync_overlay(
                 palette::SLIP_SOFT
             };
             let incoming = slip_line(&mut commands, &fonts, &line, 13.0, ink);
+            let bar = leftover_slip(&mut commands, sheets.as_deref(), root, &mut bar);
             commands.entity(bar).add_child(incoming);
         }
 
@@ -560,102 +515,7 @@ pub fn sync_overlay(
                 .id();
             let plus = spawn_step(&mut commands, &fonts, 1, "+");
             commands.entity(row).add_children(&[minus, shown, plus]);
-            commands.entity(bar).add_child(row);
-        }
-
-        // Answer buttons, matching the pending choice.
-        let combat_answers = [
-            (PromptAction::AimNext, Phrase::AimNext.text(lang)),
-            (PromptAction::Confirm, Phrase::Attack.text(lang)),
-            (PromptAction::DeclareNothing, Phrase::DeclareNone.text(lang)),
-        ];
-        let block_answers = [
-            (PromptAction::AimNext, Phrase::AimNext.text(lang)),
-            (PromptAction::Confirm, Phrase::Block.text(lang)),
-            (PromptAction::DeclareNothing, Phrase::DeclareNone.text(lang)),
-        ];
-        let mulligan_answers = [
-            (PromptAction::Keep, Phrase::KeepHand.text(lang)),
-            (PromptAction::Mulligan, Phrase::TakeMulligan.text(lang)),
-        ];
-        let yes_no_answers = [
-            (PromptAction::Yes, Phrase::ActAnswerYes.text(lang)),
-            (PromptAction::No, Phrase::ActAnswerNo.text(lang)),
-        ];
-        let ok_answer = [(PromptAction::Confirm, Phrase::ConfirmOk.text(lang))];
-        // Priority is not confirmed, it is *passed*, and the two words are not
-        // interchangeable on a button. "OK" acknowledges something that has
-        // already happened; a player reading it under "You have priority" was
-        // being told to dismiss a window rather than invited to act, and said
-        // so. `PromptAction::Confirm` still carries it — the action was always
-        // right, only its label was wrong.
-        // Two sizes of the same decision. "Skip turn" is where the rail.s
-        // fast-forward button went: it is the answer to this window and to
-        // every window until this turn is over, and a player deciding to sit
-        // one out should find it under the question rather than on a strip in
-        // the corner.
-        let pass_answer = [
-            (PromptAction::Confirm, Phrase::PassPriority.text(lang)),
-            (PromptAction::SkipTurn, Phrase::SkipTheTurn.text(lang)),
-        ];
-        // `elsewhere` is what keeps the Confirm out of here: a player ticking
-        // a fetchland's target saw "Bestätigen" twice on one screen, once in
-        // the dialog's footer and once on the slip, and had to work out
-        // whether the two meant the same thing.
-        // The client's own cast chooser takes the bar whole, answers and all.
-        // Everything here reads `interaction.pending`, which while the chooser
-        // stands is the ordinary priority window behind it — so the bar drew
-        // "Choose how it is cast" as its headline and "Pass priority" as the
-        // gilt answer under it, two primary buttons on one sheet saying
-        // opposite things. The engine's *own* `ChooseCastMode` draws no answer
-        // row either (a row is the answer, and picking one sends it), so this
-        // is the same chooser in the same clothes rather than a special case.
-        // `Esc` is the way back out, as it is for every other menu here.
-        let answers: &[(PromptAction, &str)] = if waiting || cast_menu.is_some() {
-            &[]
-        } else {
-            match duel
-                .interaction
-                .as_ref()
-                .map(baylee_client_core::Interaction::pending)
-            {
-                Some(baylee_engine::choice::Pending::Mulligan { .. }) => &mulligan_answers,
-                Some(baylee_engine::choice::Pending::YesNo { .. }) => &yes_no_answers,
-                Some(baylee_engine::choice::Pending::Priority { .. }) => &pass_answer,
-                // Combat always offers all three, including with nothing
-                // declared: "none" is a real answer, and the step does not
-                // end until somebody gives one.
-                Some(baylee_engine::choice::Pending::ChooseAttackers { .. }) => &combat_answers,
-                Some(baylee_engine::choice::Pending::ChooseBlockers { .. }) => &block_answers,
-                Some(_)
-                    if !elsewhere
-                        && duel
-                            .interaction
-                            .as_ref()
-                            .is_some_and(baylee_client_core::Interaction::can_confirm) =>
-                {
-                    &ok_answer
-                }
-                _ => &[],
-            }
-        };
-        if !answers.is_empty() {
-            // The answers share the sheet's width, whatever there are of
-            // them: two, three or one, each takes the same fraction of it.
-            // The row could shrink to its labels instead — it used to — and
-            // then "Pass priority" and "Skip turn" sat in a huddle in the
-            // middle of a sheet with two inches of parchment either side of
-            // it, and a mulligan's two answers were a different size from
-            // combat's three. A button whose width says nothing is a button
-            // whose position says nothing.
-            let row = commands.spawn((answer_row_node(), Pickable::IGNORE)).id();
-            for (i, (action, label)) in answers.iter().enumerate() {
-                let button = answer_button(&mut commands, &fonts, label, i == 0);
-                commands
-                    .entity(button)
-                    .insert(PromptButton { action: *action });
-                commands.entity(row).add_child(button);
-            }
+            let bar = leftover_slip(&mut commands, sheets.as_deref(), root, &mut bar);
             commands.entity(bar).add_child(row);
         }
 
@@ -694,6 +554,7 @@ pub fn sync_overlay(
                 ))
                 .id();
             commands.entity(field).add_child(text);
+            let bar = leftover_slip(&mut commands, sheets.as_deref(), root, &mut bar);
             commands.entity(bar).add_child(field);
         }
 
@@ -836,40 +697,21 @@ pub fn sync_overlay(
                 }
                 commands.entity(row).add_child(button);
             }
+            let bar = leftover_slip(&mut commands, sheets.as_deref(), root, &mut bar);
             commands.entity(bar).add_child(row);
         }
 
-        // What is armed, and the way back out of it. Its own row, above the
-        // chooser it replaces: arming is where the chooser ends, and the two
-        // are never open at once.
-        if let Some(words) = duel
-            .armed
-            .as_ref()
-            .and_then(|a| armed_label(&duel, lang, a))
-        {
-            let row = commands
-                .spawn((
-                    Node {
-                        flex_direction: FlexDirection::Row,
-                        column_gap: px(6),
-                        flex_wrap: FlexWrap::Wrap,
-                        ..default()
-                    },
-                    Pickable::IGNORE,
-                ))
-                .id();
-            spawn_armed(&mut commands, &fonts, lang, row, &words);
-            commands.entity(bar).add_child(row);
-        }
-
-        // The ability chooser used to be a third row here, a wrapping line of
+        // What is armed went to the shelf with the answers it replaces
+        // (`ledge::armed_row`): it is one line, and §5 keeps it out of the
+        // drawer for exactly that reason.
+        //
+        // The ability chooser used to be a row here too, a wrapping line of
         // buttons whose whole label was the ability's *cost* — `{2}, {T}` —
         // because a button on a bar has room for four words. It is the
         // parchment sheet beside the permanent now ([`crate::hud::sheet`]),
         // where there is room for the printed sentence and the cost both, and
         // where the list is next to the card it belongs to instead of at the
         // bottom of the window.
-        commands.entity(root).add_child(slip_row);
     }
 
     // ---- the mana pool, opposite the prompt bar --------------------------
@@ -1479,13 +1321,13 @@ pub fn sync_overlay(
 /// builder deliberately does not do — `manaui::spawn_pip` sets each symbol on
 /// its own coloured disc, and this row now says the price the same way every
 /// other price in this client is said.
-struct ArmedWords {
+pub(super) struct ArmedWords {
     /// The phrase. When [`Self::cost`] is `Some`, its `{0}` marks where the
     /// pips go and the two halves are laid out either side of them; a phrase
     /// with no `{0}` simply takes the pips after its last word.
-    text: String,
+    pub(super) text: String,
     /// The mana this deed spends, or `None` when it spends none.
-    cost: Option<baylee_core::mana::ManaCost>,
+    pub(super) cost: Option<baylee_core::mana::ManaCost>,
 }
 
 /// What an armed deed calls itself, or `None` when the engine no longer
@@ -1496,7 +1338,7 @@ struct ArmedWords {
 /// offering something that has since been withdrawn. The row simply
 /// disappears; the state itself is cleared by the next key or tap, both of
 /// which run the same resolution.
-fn armed_label(duel: &Duel, lang: Lang, armed: &crate::Armed) -> Option<ArmedWords> {
+pub(super) fn armed_label(duel: &Duel, lang: Lang, armed: &crate::Armed) -> Option<ArmedWords> {
     match &armed.deed {
         crate::Deed::Play => duel
             .interaction
@@ -1555,98 +1397,6 @@ fn armed_label(duel: &Duel, lang: Lang, armed: &crate::Armed) -> Option<ArmedWor
                 cost: None,
             }),
     }
-}
-
-/// The armed deed as a pair of buttons: the deed itself, and the way back.
-///
-/// Two buttons and no label between them, because the first one *is* the
-/// label — a row that read "Play this card" beside a button called "Send"
-/// would be saying the same thing twice and leaving a player to work out
-/// which half was the button.
-fn spawn_armed(
-    commands: &mut Commands,
-    fonts: &UiFonts,
-    lang: Lang,
-    row: Entity,
-    words: &ArmedWords,
-) {
-    let cancel = ArmedWords {
-        text: Phrase::ArmedCancel.text(lang).to_string(),
-        cost: None,
-    };
-    for (action, words, lit, edge, ink) in [
-        (
-            MenuAction::SendArmed,
-            words,
-            palette::BRASS,
-            palette::BRASS,
-            palette::PARCHMENT_INK,
-        ),
-        (
-            MenuAction::CancelArmed,
-            &cancel,
-            // The sheet's own colour and not `Color::NONE`, which is what it
-            // was: this is a lead answer in brass and a second one beside it,
-            // exactly the pair the prompt's own answers are, and two
-            // treatments of that pair on one sheet is how two halves of an
-            // interface start disagreeing. See `palette::SLIP_GHOST`.
-            palette::SLIP_GHOST,
-            palette::PARCHMENT_EDGE,
-            palette::PARCHMENT_SOFT,
-        ),
-    ] {
-        let button = commands
-            .spawn((
-                MenuButton { action },
-                Node {
-                    // A row, because the label is no longer one string: a
-                    // price is drawn, so the words come in two pieces with
-                    // the discs standing between them.
-                    flex_direction: FlexDirection::Row,
-                    align_items: AlignItems::Center,
-                    column_gap: px(4),
-                    padding: UiRect::axes(px(12), px(5)),
-                    border: UiRect::all(px(1)),
-                    border_radius: btn_radius(),
-                    ..default()
-                },
-                BackgroundColor(lit),
-                BorderColor::all(edge),
-                soft_shadow(),
-                Feel::new(lit),
-            ))
-            .id();
-        // The phrase splits at its `{0}`; a phrase with none (or a button
-        // with no price to quote) is one piece and the pips are skipped.
-        let (head, tail) = words
-            .cost
-            .and_then(|_| words.text.split_once("{0}"))
-            .unwrap_or((words.text.as_str(), ""));
-        put_words(commands, fonts, button, head.trim(), ink);
-        if let Some(cost) = words.cost {
-            for pip in baylee_client_core::manapip::cost(&cost) {
-                let mark = crate::manaui::spawn_pip(commands, fonts, pip, 15.0);
-                commands.entity(button).add_child(mark);
-            }
-        }
-        put_words(commands, fonts, button, tail.trim(), ink);
-        commands.entity(row).add_child(button);
-    }
-}
-
-/// One piece of a button's words, or nothing at all when the piece is empty.
-///
-/// `Pickable::IGNORE`, like every label inside a control here: a `Text` is a
-/// `Node`, so a label left pickable sits in front of the button and `Feel`
-/// animates the padding while the middle goes dead. `spawn_rich` supplies
-/// that on every child it makes, and it is what turns a `{T}` the phrase
-/// carries into the printed symbol rather than the letter T.
-fn put_words(commands: &mut Commands, fonts: &UiFonts, button: Entity, text: &str, ink: Color) {
-    if text.is_empty() {
-        return;
-    }
-    let node = crate::manaui::spawn_rich_label(commands, fonts, text, 13.0, ink);
-    commands.entity(button).add_child(node);
 }
 
 /// The chip that says this seat is not being asked, and the button out of it.
@@ -1810,23 +1560,6 @@ fn spawn_hold(commands: &mut Commands, fonts: &UiFonts, lang: Lang, row: Entity)
 /// The row itself is `Pickable::IGNORE` and paints nothing: it spans the
 /// window so that its child can be centred in it, and takes no click away
 /// from the table it lies over.
-/// The row the prompt slip's answers stand in.
-///
-/// Full width, because the answers divide the sheet between them. The row
-/// used to shrink to its labels, and then "Pass priority" and "Skip turn"
-/// huddled in the middle of a sheet with parchment either side of them, and a
-/// mulligan's two answers came out a different size from combat's three. A
-/// button whose width says nothing is a button whose position says nothing.
-pub(super) fn answer_row_node() -> Node {
-    Node {
-        width: percent(100),
-        flex_direction: FlexDirection::Row,
-        column_gap: px(BUTTON_GAP),
-        margin: UiRect::top(px(2)),
-        ..default()
-    }
-}
-
 /// One answer on the prompt slip.
 ///
 /// `flex_grow: 1` with a `flex_basis` of **zero** is the whole promise: grow
@@ -1976,6 +1709,67 @@ pub(super) fn slip_text(
         commands.entity(line).add_child(span);
     }
     line
+}
+
+/// The sheet whatever is left of the prompt slip is written on, spawned the
+/// first time a row asks for one.
+///
+/// **Transitional.** The question, its answers, the armed row and any refusal
+/// are on the ledge; what still comes here is every row that is more than one
+/// line — a pick hint, combat's aim and threat, the number stepper, the
+/// subtype filter, the indexed chooser — and all of those belong in the
+/// drawer (AX §5), which is step 6. Deleting them now to be rid of the slip
+/// sooner would take two shipped lines off the screen; drawing an empty sheet
+/// under every question instead would put a blank piece of parchment over the
+/// table. So it is lazy, and most questions never call it.
+///
+/// No headline on it either: it stands directly over the shelf, and the
+/// question is written on the shelf.
+///
+/// The centring row spans the whole window and is ignored by the pointer, so
+/// it takes nothing away from the board it lies over; only the sheet inside
+/// it is a surface. [`Z_LEDGE`] is above the veil, because these rows are
+/// part of the question the veil is drawn to point at.
+fn leftover_slip(
+    commands: &mut Commands,
+    sheets: Option<&UiSheets>,
+    root: Entity,
+    bar: &mut Option<Entity>,
+) -> Entity {
+    if let Some(bar) = *bar {
+        return bar;
+    }
+    let slip_row = commands
+        .spawn((slip_row_node(), ZIndex(Z_LEDGE), Pickable::IGNORE))
+        .id();
+    let sheet = commands
+        .spawn((
+            Node {
+                max_width: px(SLIP_MAX_W),
+                min_width: px(SLIP_MIN_W),
+                flex_direction: FlexDirection::Column,
+                align_items: AlignItems::Center,
+                row_gap: px(7),
+                padding: UiRect::axes(px(SLIP_PAD_X), px(13)),
+                border: UiRect::all(px(1)),
+                border_radius: sheet_radius(),
+                ..default()
+            },
+            BackgroundColor(palette::PARCHMENT),
+            BorderColor::all(palette::PARCHMENT_EDGE),
+            sheet_shadow(),
+        ))
+        .id();
+    commands.entity(slip_row).add_child(sheet);
+    // First child, and a child rather than the sheet's own image: see
+    // [`sheet_surface`] for the ring of flat parchment that was.
+    if let Some(sheets) = sheets {
+        let surface = commands.spawn(sheet_surface(sheets)).id();
+        commands.entity(sheet).add_child(surface);
+    }
+    commands.entity(root).add_child(slip_row);
+    *bar = Some(sheet);
+    sheet
 }
 
 pub(super) fn slip_row_node() -> Node {
@@ -2263,7 +2057,12 @@ mod tests {
             .init_resource::<crate::face::FaceMode>()
             .init_resource::<crate::sheen::Sheen>()
             .init_resource::<crate::touch::Touched>()
-            .add_systems(Update, sync_overlay);
+            .init_resource::<ledge::LedgeRevision>()
+            // Both, chained: the shelf is spawned by the first and written by
+            // the second, and the question is on the shelf. A harness that
+            // ran only the rebuild would be reading a bar with no words on
+            // it and calling that an answer.
+            .add_systems(Update, (sync_overlay, ledge::sync_ledge).chain());
         app.update();
         app
     }
@@ -2285,6 +2084,16 @@ mod tests {
     const REFUSED: &str = "illegal action for your seat";
 
     fn duel_with(over: bool) -> Duel {
+        duel_saying(over, true)
+    }
+
+    /// The same, with the word about the connection left out.
+    ///
+    /// The shelf shows **one** sentence (AX §6), so a refusal and a lost
+    /// socket cannot both be read at once — the socket wins, because a
+    /// question answered into a table that is not there arrives nowhere. On
+    /// the slip they were two stacked lines and both were drawn.
+    fn duel_saying(over: bool, unreachable: bool) -> Duel {
         let pending = if over {
             baylee_engine::choice::Pending::GameOver(GameResult {
                 winner: Some(Victor::Player(PlayerId::new(0))),
@@ -2302,7 +2111,7 @@ mod tests {
                 PlayerId::new(0),
             )),
             last_error: Some(REFUSED.to_string()),
-            link_note: Some(Phrase::LinkLost),
+            link_note: unreachable.then_some(Phrase::LinkLost),
             ..Duel::default()
         };
         // The bar is not drawn at all without a board to draw it over, which
@@ -2352,14 +2161,19 @@ mod tests {
     fn a_game_still_being_played_is_offered_all_four() {
         let mut app = bar_of(duel_with(false));
         let lines = said(&mut app);
-        assert!(
-            lines.iter().any(|l| l.contains(REFUSED)),
-            "the refusal is the whole reason the slip has a second line: {lines:?}"
-        );
         let note = Phrase::LinkLost.text(Lang::En).to_string();
         assert!(
             lines.iter().any(|l| l.contains(&note)),
             "a table that cannot hear you has to say so: {lines:?}"
+        );
+        // The refusal is there too, and it is the only sentence the shelf
+        // draws once the socket is back: one line, and the more urgent of the
+        // two takes it.
+        let mut reachable = bar_of(duel_saying(false, false));
+        let lines = said(&mut reachable);
+        assert!(
+            lines.iter().any(|l| l.contains(REFUSED)),
+            "an answer the engine turned down has to be readable: {lines:?}"
         );
         for pill in [Phrase::OfferADraw, Phrase::Concede] {
             let label = pill.text(Lang::En).to_string();
@@ -2399,17 +2213,30 @@ mod tests {
             let mut q = app.world_mut().query_filtered::<Entity, With<HudRoot>>();
             q.iter(app.world()).collect::<Vec<_>>()
         };
-        let words = |app: &mut App| {
-            let mut q = app.world_mut().query_filtered::<Entity, With<Text>>();
+        // What the shelf carries, and what the overlay carries: the two sides
+        // of the claim. A draw offer and a concession are drawn by the
+        // rebuild and nothing else in this test touches them.
+        let standing = |app: &mut App| {
+            let mut q = app
+                .world_mut()
+                .query_filtered::<&Children, With<ledge::LedgeShelf>>();
+            q.iter(app.world())
+                .flat_map(|c| c.iter().collect::<Vec<_>>())
+                .collect::<Vec<_>>()
+        };
+        let pills = |app: &mut App| {
+            let mut q = app.world_mut().query_filtered::<Entity, With<MenuButton>>();
             q.iter(app.world()).collect::<Vec<_>>()
         };
 
         let was_shelf = shelf(&mut app);
         let was_root = roots(&mut app);
-        let was_words = words(&mut app);
+        let was_standing = standing(&mut app);
+        let was_pills = pills(&mut app);
         assert_eq!(was_shelf.len(), 1, "one shelf, and it was built");
         assert_eq!(was_root.len(), 1, "and one root to hang it off");
-        assert!(!was_words.is_empty(), "and a question written on the bar");
+        assert_eq!(was_standing.len(), 3, "and three columns standing on it");
+        assert!(!was_pills.is_empty(), "the overlay drew its own controls");
 
         // The pointer moves onto a card. Nothing about the game changed.
         app.world_mut().resource_mut::<Duel>().hovered = Some(ObjectId::new(1, 0));
@@ -2417,10 +2244,17 @@ mod tests {
 
         assert_eq!(shelf(&mut app), was_shelf, "the shelf was rebuilt");
         assert_eq!(roots(&mut app), was_root, "and so was the root under it");
-        let now_words = words(&mut app);
-        assert!(!now_words.is_empty(), "the bar still says something");
+        assert_eq!(
+            standing(&mut app),
+            was_standing,
+            "the shelf kept its place and lost what was on it, which is the \
+             same loss one level down: a `Feel` under the pointer goes back \
+             to rest"
+        );
+        let now_pills = pills(&mut app);
+        assert!(!now_pills.is_empty(), "the overlay still draws them");
         assert!(
-            now_words.iter().all(|e| !was_words.contains(e)),
+            now_pills.iter().all(|e| !was_pills.contains(e)),
             "the overlay stopped rebuilding: it is still showing the tree it \
              built for a different frame"
         );

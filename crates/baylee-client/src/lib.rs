@@ -991,6 +991,12 @@ fn add_present_systems(app: &mut App) {
                 // and is spawned clear: how far the fade has risen lives in
                 // `hud::Veil`, where a rebuild cannot reach it, and this is
                 // what paints it on. See `tray::spawn_veil`.
+                // The shelf is filled after the tree that holds it is built, and
+                // has a revision of its own for the reason `LedgeRevision`
+                // gives: `HudRevision` counts the hover, and a question
+                // rebuilt on every pointer move would lose the warmth under
+                // the pointer that is about to press it.
+                hud::sync_ledge.after(hud::sync_overlay),
                 hud::dim_the_table.after(hud::sync_overlay),
                 // The end screen settles as that veil rises, off the very
                 // number `dim_the_table` has just written: one movement, one
@@ -1079,6 +1085,7 @@ impl Plugin for DuelPlugin {
             .init_resource::<hud::DesignationFlash>()
             .init_resource::<hud::Shelves>()
             .init_resource::<hud::BarRevision>()
+            .init_resource::<hud::LedgeRevision>()
             .init_resource::<hud::SheetRevision>()
             .init_resource::<hud::Veil>()
             .init_resource::<textures::Preload>()
