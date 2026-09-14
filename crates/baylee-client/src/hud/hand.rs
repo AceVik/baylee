@@ -31,6 +31,7 @@ pub(super) fn spawn_hand_zone(
     sheen: &crate::sheen::Sheen,
     touch: &crate::touch::Touched,
     mut cards: Option<&mut UiCards<'_>>,
+    cloth: Option<Handle<crate::frontal::FrontalMaterial>>,
 ) -> Entity {
     let zone = commands
         .spawn((
@@ -92,6 +93,14 @@ pub(super) fn spawn_hand_zone(
     //
     // Spawned before the strip and added as a child first: children paint in
     // order, and a ground added after the cards is a ground drawn over them.
+    //
+    // What it is painted with is the owner's ask of 14.09.2026 — a shader
+    // ground for this band that goes over into the actions row. That is
+    // `crate::frontal`, the cloth hanging from the shelf, and it arrives here
+    // as a handle rather than as a material because this whole zone is
+    // respawned on every pointer move. Without a render world there is no
+    // handle and the gradient it replaced is drawn instead: a ground is a
+    // ground, and every headless test that builds this tree needs one.
     let veil = commands
         .spawn((
             Node {
@@ -103,14 +112,25 @@ pub(super) fn spawn_hand_zone(
                 ..default()
             },
             BackgroundColor(Color::NONE),
-            BackgroundGradient::from(LinearGradient::to_bottom(vec![
-                ColorStop::percent(VEIL.with_alpha(0.0), 0.0),
-                ColorStop::percent(VEIL.with_alpha(VEIL_ALPHA * 0.45), 38.0),
-                ColorStop::percent(VEIL.with_alpha(VEIL_ALPHA), 100.0),
-            ])),
             Pickable::IGNORE,
         ))
         .id();
+    match cloth {
+        Some(handle) => {
+            commands
+                .entity(veil)
+                .insert((MaterialNode(handle), crate::frontal::Hanging));
+        }
+        None => {
+            commands
+                .entity(veil)
+                .insert(BackgroundGradient::from(LinearGradient::to_bottom(vec![
+                    ColorStop::percent(VEIL.with_alpha(0.0), 0.0),
+                    ColorStop::percent(VEIL.with_alpha(VEIL_ALPHA * 0.45), 38.0),
+                    ColorStop::percent(VEIL.with_alpha(VEIL_ALPHA), 100.0),
+                ])));
+        }
+    }
     commands.entity(zone).add_child(veil);
 
     let strip = commands
@@ -705,7 +725,7 @@ pub(super) fn preview_face(
 
 /// The hand zone's own ground: `palette::PANEL`'s hue, one step cooler and
 /// carrying no alpha of its own — the gradient's stops supply that.
-const VEIL: Color = Color::srgb(0.04, 0.055, 0.085);
+pub(crate) const VEIL: Color = Color::srgb(0.04, 0.055, 0.085);
 
 /// How dark the veil gets at the window's bottom edge.
 ///
@@ -720,7 +740,7 @@ const VEIL: Color = Color::srgb(0.04, 0.055, 0.085);
 /// against the sky at the bottom edge, `0.44` took 136 to 108 rather than the
 /// 81 the naive sum gives. This value takes it to about 94, a third down,
 /// which is a ground a card's glow can be read against.
-const VEIL_ALPHA: f32 = 0.58;
+pub(crate) const VEIL_ALPHA: f32 = 0.58;
 
 /// A card's glow: a wide soft halo with a tight bright ring inside it.
 ///

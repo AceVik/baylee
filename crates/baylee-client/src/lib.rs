@@ -54,6 +54,7 @@ pub mod devctl;
 pub mod face;
 pub mod feltmat;
 pub mod flip;
+pub mod frontal;
 pub mod host;
 pub mod hud;
 pub mod input;
@@ -1071,6 +1072,7 @@ impl Plugin for DuelPlugin {
         flip::install(app);
         app.add_plugins(cardmat::CardMaterialPlugin)
             .add_plugins(feltmat::FeltMaterialPlugin)
+            .add_plugins(frontal::FrontalPlugin)
             .add_plugins(matmat::MatMaterialPlugin)
             .add_plugins(arrowmat::ArrowMaterialPlugin)
             .add_plugins(sky::SkyPlugin)

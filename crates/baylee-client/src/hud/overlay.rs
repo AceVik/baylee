@@ -70,6 +70,44 @@ pub fn despawn_overlay(
     }
 }
 
+/// Everything this bar paints *with* that only exists when there is a render
+/// world to paint in.
+///
+/// Three things travel as one because they are one answer to the same
+/// question, and because `sync_overlay` is a system with sixteen parameters
+/// and bevy implements `SystemParam` for tuples no longer than that — the
+/// seventeenth is not a compile error about the limit, it is "`sync_overlay`
+/// is not a system set" at every `.after()` in `lib.rs`, which is a long way
+/// from the cause.
+#[derive(bevy::ecs::system::SystemParam)]
+pub struct Surfaces<'w> {
+    /// The parchment, generated at startup — a headless app that never ran
+    /// `setup_sheets` simply draws the flat colour the sheet is grained
+    /// around.
+    sheets: Option<Res<'w, UiSheets>>,
+    /// The cloth under the hand: one handle, minted on the first frame there
+    /// is somewhere to mint it and cloned on every frame after.
+    ///
+    /// Optional like the rest of this bundle, and for the same reason twice
+    /// over: `FrontalPlugin` is what puts it there, and a test app that
+    /// builds this tree adds no plugins at all. A required resource here is
+    /// not a missing cloth — it is every overlay test panicking inside the
+    /// scheduler, with the parameter's name switched off unless the `debug`
+    /// feature is on.
+    cloth: Option<ResMut<'w, crate::frontal::Cloth>>,
+    /// Where it is minted. Absent headless, and then there is no cloth and
+    /// the hand zone draws the gradient it always did.
+    cloth_assets: Option<ResMut<'w, Assets<crate::frontal::FrontalMaterial>>>,
+}
+
+impl Surfaces<'_> {
+    /// The cloth's handle, or `None` when there is nowhere to draw it.
+    fn hanging(&mut self) -> Option<Handle<crate::frontal::FrontalMaterial>> {
+        let assets = self.cloth_assets.as_deref_mut();
+        self.cloth.as_mut()?.get(assets)
+    }
+}
+
 /// Rebuilds the overlay when anything it shows changes.
 #[allow(clippy::too_many_arguments)]
 #[allow(clippy::too_many_lines)] // one retained-UI rebuild, sectioned by comments
@@ -92,10 +130,9 @@ pub fn sync_overlay(
     // second code path for it.
     ui_materials: Option<ResMut<UiCardMaterials>>,
     material_assets: Option<ResMut<Assets<CardUiMaterial>>>,
-    // Generated at startup, so a headless app that never ran `setup_sheets`
-    // simply draws the flat colour the sheet is grained around.
-    sheets: Option<Res<UiSheets>>,
+    mut surfaces: Surfaces,
 ) {
+    let hanging = surfaces.hanging();
     let mut cards = match (ui_materials, material_assets) {
         (Some(cache), Some(assets)) => Some((cache, assets)),
         _ => None,
@@ -382,6 +419,7 @@ pub fn sync_overlay(
             &motion.sheen,
             &motion.touch,
             cards.as_mut(),
+            hanging,
         );
         commands.entity(root).add_child(hand_zone);
 
@@ -667,7 +705,7 @@ pub fn sync_overlay(
                     img_w,
                     window.y,
                     &fonts,
-                    sheets.as_deref(),
+                    surfaces.sheets.as_deref(),
                 );
                 commands.entity(tooltip).add_child(sheet);
             }

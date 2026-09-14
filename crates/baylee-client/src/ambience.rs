@@ -415,6 +415,10 @@ struct UiVertexOutput {
 };
 struct Globals { time: f32 };
 ";
-        crate::cardmat::tests::check_wgsl(include_str!("shaders/ambience.wgsl"), prelude);
+        // `check_wgsl` strips `#import` lines, so what is imported has to be
+        // put back by hand — the shared grain in this case, which is the
+        // whole point of it being shared.
+        let prelude = format!("{prelude}{}", include_str!("shaders/noise.wgsl"));
+        crate::cardmat::tests::check_wgsl(include_str!("shaders/ambience.wgsl"), &prelude);
     }
 }

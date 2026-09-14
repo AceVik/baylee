@@ -2,7 +2,9 @@
 //
 // Ornament, and therefore arithmetic: `docs/legal.md` §2 is the reason there
 // is no picture here. Everything below is value noise over a drifting domain,
-// which borrows nothing from anyone and costs one pass over the node.
+// which borrows nothing from anyone and costs one pass over the node. The
+// noise itself is `shaders/noise.wgsl`, shared with the cloth under the hand
+// — two surfaces that grained differently would be two authors.
 //
 // Three layers, in the order they read: a slow warped field that gives the
 // surface its clouds, a set of thin bands lensed by that same field (the
@@ -14,6 +16,7 @@
 
 #import bevy_render::globals::Globals
 #import bevy_ui::ui_vertex_output::UiVertexOutput
+#import "embedded://baylee_client/shaders/noise.wgsl"::fbm2
 
 struct AmbienceParams {
     /// The ground, and what the bands are drawn in.
@@ -34,46 +37,6 @@ struct AmbienceParams {
 @group(0) @binding(1) var<uniform> globals: Globals;
 @group(1) @binding(0) var<uniform> params: AmbienceParams;
 
-/// A hash with no trigonometry in it.
-///
-/// `sin`-based hashes differ between drivers — the same page can grain
-/// differently on two machines, and the table's own felt already made the
-/// argument that everyone should see the same surface.
-fn hash2(p: vec2<f32>) -> f32 {
-    var h = dot(p, vec2<f32>(127.1, 311.7));
-    h = fract(h * 0.1031);
-    h *= h + 33.33;
-    h *= h + h;
-    return fract(h);
-}
-
-/// Value noise, smoothed with the usual quintic so the derivative is
-/// continuous and the field has no visible cell edges.
-fn noise(p: vec2<f32>) -> f32 {
-    let i = floor(p);
-    let f = fract(p);
-    let u = f * f * f * (f * (f * 6.0 - 15.0) + 10.0);
-    let a = hash2(i);
-    let b = hash2(i + vec2<f32>(1.0, 0.0));
-    let c = hash2(i + vec2<f32>(0.0, 1.0));
-    let d = hash2(i + vec2<f32>(1.0, 1.0));
-    return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
-}
-
-/// Four octaves. A fifth is not visible at these amplitudes and costs a
-/// quarter of the shader.
-fn fbm(p: vec2<f32>) -> f32 {
-    var sum = 0.0;
-    var amp = 0.5;
-    var at = p;
-    for (var i = 0; i < 4; i = i + 1) {
-        sum = sum + amp * noise(at);
-        at = at * 2.03 + vec2<f32>(17.0, 9.0);
-        amp = amp * 0.5;
-    }
-    return sum;
-}
-
 @fragment
 fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
     let t = globals.time * params.energy;
@@ -83,10 +46,10 @@ fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
     // The field, warped by a slower copy of itself. Domain warping is what
     // stops fbm from reading as fog and starts it reading as current.
     let warp = vec2<f32>(
-        fbm(uv * 1.6 + vec2<f32>(t * 0.05, t * -0.03)),
-        fbm(uv * 1.6 + vec2<f32>(-t * 0.04, t * 0.06) + 4.0),
+        fbm2(uv * 1.6 + vec2<f32>(t * 0.05, t * -0.03)),
+        fbm2(uv * 1.6 + vec2<f32>(-t * 0.04, t * 0.06) + 4.0),
     );
-    let field = fbm(uv * 2.2 + warp * 1.4 + vec2<f32>(0.0, t * 0.02));
+    let field = fbm2(uv * 2.2 + warp * 1.4 + vec2<f32>(0.0, t * 0.02));
 
     // Bands, lensed through the same warp so they bend with the field
     // instead of sliding across it.
