@@ -203,6 +203,34 @@ Measured on 14.09.2026 on this machine:
   or crediting anything else. Worth reporting upstream: a
   `starts_with("PowerVR")` in `get_pixel10_driver_version` would cover the
   family.
+- **The same driver cannot resolve 4x multisampling either**, and that one is
+  worth knowing before it costs somebody a day. `Msaa` defaults to
+  `Sample4`; on a tiler the end-of-pass resolve is where tile memory is
+  written back, and the damage falls on whatever was written last — the UI
+  pass. The lobby drew three or four oversized glyphs out of a screen of
+  text, a panel in two halves at different offsets, and a different subset on
+  every frame. **It reads exactly like a font that failed to load, and it is
+  not**: nothing is logged, the fonts are in the APK, and the same build
+  draws them on the desktop and in the simulator. The 3D behind it is
+  untouched, which is why the felt and the sky look perfect throughout and
+  point away from the cause.
+
+  Both cameras carry `Msaa::Off` under `cfg(target_os = "android")`. The
+  measurement, with the clock stopped (`POST /pause`) and two screenshots
+  five seconds apart, same phone and same build:
+
+  | | differing pixels | bright pixels |
+  | --- | --- | --- |
+  | `Sample4` (bevy's default) | 105 000 | 1 200 |
+  | `Msaa::Off` | 4 300 | 4 700 |
+
+  Four other things were ruled out first, each by a build and a measurement
+  rather than by argument, and they are listed so that nobody re-runs them:
+  the fractional scale factor (2.4375, pinned to 2 — no change),
+  `WgpuSettingsPriority::WebGPU` in place of the adapter's own claims (no
+  change), GPU preprocessing (`bevy_ui_render` does not use it) and push
+  constants (it does not use those either — it writes a plain
+  `RawBufferVec` every frame).
 - The fonts are in the APK at `assets/fonts/…`, which is why
   `standalone::asset_root` returns `""` on Android: bevy reads through the
   APK's `AssetManager`, whose root *is* that directory.
@@ -222,27 +250,11 @@ the app; window sizing on iOS is the next question, and it is a different one.
 
 Two things do **not** work yet:
 
-- **The lobby's layout never settles on Android, so it cannot be used by
-  hand.** This started as "the text does not draw" and the measurement says
-  otherwise, which is the reason to write it down carefully. The felt and the
-  sky are correct — the 3D pipeline and every shader are fine — but of a
-  screen of lobby text, three or four glyphs land, each far too large, and
-  they are *different* glyphs in the next screenshot, with the panel behind
-  them a different size. Then `POST /pause` and two screenshots five seconds
-  apart: **903 609 differing subpixels, peak 217 of 255**. A stopped clock
-  should give a still frame, so the variation is not animation and not the
-  status-bar-clock trap either — the panel is growing between frames while
-  nothing is asking it to. Read that as a layout that feeds back on itself
-  (oversized text measurement pushing a panel wider, which measures again)
-  rather than as a font that failed to load: nothing is logged, no asset
-  error and no font error, the fonts *are* in the APK, and the same build
-  draws them on the desktop and in the iOS simulator.
-
-  Two facts for whoever picks it up. The window scale is **2.4375** — a
-  fraction, where every surface that draws correctly reports 2 or 3, and
-  bevy 0.19 made `FontSize` an enum of units. And the client is drivable
-  through dev-control the whole time this is happening, so `/state` and
-  `/screenshot` are available from the first frame.
+- **The lobby is readable on Android but not yet usable by hand.** The panel
+  backgrounds do not draw and the two input fields come out smeared, so a
+  person cannot sign in on the phone even though every label is legible.
+  This is what is *left* after the multisampling fix below, and it is a much
+  smaller thing than what it started as.
 - **The Android emulator loses the device.** With `-gpu host` the guest gets
   the host GPU through gfxstream (`AdapterInfo … "Apple M1 Max", driver:
   "MoltenVK"`), and one frame after `Creating new window baylee` it reports
