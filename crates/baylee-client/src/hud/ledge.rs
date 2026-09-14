@@ -1342,12 +1342,22 @@ mod tests {
     /// scan made twice. It carries no `#[cfg(test)]` of its own — what it
     /// draws is asserted by driving it, in `overlay.rs`' harness — so it
     /// joins whole.
+    ///
+    /// The pool joined it in step 6b, on the same argument and on the day it
+    /// still *passed*: its three inks are `DIALOG_SOFT`, `LEDGE_DEAD` and
+    /// `DIALOG`, every one of them a pair this module already measures. A scan
+    /// is worth widening while it is green — widening one to make a failure go
+    /// away is how a bound gets loosened to fit what it found.
     fn drawn() -> String {
         let shelf = include_str!("ledge.rs")
             .split_once("#[cfg(test)]")
             .expect("the tests are still where they were")
             .0;
-        format!("{shelf}{}", include_str!("ledge/drawer.rs"))
+        format!(
+            "{shelf}{}{}",
+            include_str!("ledge/drawer.rs"),
+            include_str!("ledge/pool.rs")
+        )
     }
 
     /// What an answer is written in has to be readable on what it is written

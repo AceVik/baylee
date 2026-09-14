@@ -107,12 +107,6 @@ pub struct Lit {
     ink: Option<Color>,
 }
 
-/// Everything on the row that is not an entry: the word and the em dash.
-///
-/// An alias because the pair is named in two places and `clippy::pedantic`
-/// counts a nested `Or` as a type worth naming — which it is.
-type Furniture<'w, 's> = Query<'w, 's, (), Or<(With<PoolLabel>, With<PoolDash>)>>;
-
 /// Every colour a node is wearing, of the three a node can wear.
 type Painted<'w, 's> = Query<
     'w,
@@ -162,9 +156,13 @@ pub(in crate::hud) fn spawn_pool_column(commands: &mut Commands) -> Entity {
 
 /// Fills the pool row, and starts every arrival and departure in it.
 ///
-/// Everything but the entries is rebuilt — the label is one node and the em
-/// dash is two states of one — and the entries are reconciled by
-/// [`PoolEntry`], which is the part that has to survive.
+/// The em dash is the only thing here that is spawned and despawned. The
+/// entries are reconciled by [`PoolEntry`], which is the part that has to
+/// survive a fade, and the label is kept for a plainer reason: it says the
+/// same word on almost every call, and a text node respawned that often is a
+/// blank frame waiting for the day a glyph takes a frame to shape. It is
+/// rebuilt only when the interface changes language, which is the one thing
+/// that can change what it says.
 #[allow(clippy::too_many_arguments)] // one retained row, like the shelf's own
 pub fn sync_pool(
     mut commands: Commands,
@@ -176,7 +174,7 @@ pub fn sync_pool(
     mut entries: Query<(&PoolEntry, &mut PipZoom)>,
     kids: Query<&Children>,
     mut counts: Query<&mut Text, With<PoolCount>>,
-    furniture: Furniture,
+    labels: Query<(), With<PoolLabel>>,
     dashes: Query<(), With<PoolDash>>,
     painted: Painted,
 ) {
@@ -220,8 +218,14 @@ pub fn sync_pool(
         .collect();
     let shown: Vec<PoolEntry> = live.iter().map(|(_, key)| *key).collect();
     // The dash waits for the last fade, so "nothing floating" is never said
-    // over a pip that is still on screen saying otherwise.
-    let dash_wanted = wanted.is_empty() && leaving.is_empty();
+    // over a pip that is still on screen saying otherwise — and `live` is the
+    // third of those three, the one that is easy to leave out. When the pool
+    // names nothing, every live entry is about to be marked closing *by this
+    // very call*, so reading `leaving` alone answers "is the row empty" on the
+    // one frame where the row is at its fullest. Left out, it put the dash on
+    // screen for a single frame at the moment of spending and took it away
+    // again, which is the movement carrying no information that §4.1 forbids.
+    let dash_wanted = wanted.is_empty() && leaving.is_empty() && live.is_empty();
     let dashed = children.iter().any(|c| dashes.get(*c).is_ok());
     // The second half is the tree, as everywhere on this shelf: an entry that
     // has finished fading is despawned by `zoom_the_pool` and leaves a
@@ -229,13 +233,15 @@ pub fn sync_pool(
     if *revision == next && shown == wanted && dashed == dash_wanted {
         return;
     }
+    let relabel = revision.lang != next.lang;
     *revision = next;
 
     for &child in &children {
-        if furniture.get(child).is_ok() {
+        if dashes.get(child).is_ok() {
             commands.entity(child).despawn();
         }
     }
+    let head = head(&mut commands, &children, &labels, &fonts, lang, relabel);
 
     let mut ordered: Vec<(usize, Entity)> = Vec::new();
     for floating in &revision.pool {
@@ -282,7 +288,7 @@ pub fn sync_pool(
     }
     ordered.sort_by_key(|(rank, _)| *rank);
 
-    let mut row = vec![label(&mut commands, &fonts, lang)];
+    let mut row = vec![head];
     if dash_wanted {
         row.push(dash(&mut commands, &fonts));
     }
@@ -376,6 +382,31 @@ fn capture(commands: &mut Commands, entry: Entity, kids: &Query<&Children>, pain
             edge: edge.copied(),
             ink: ink.map(|c| c.0),
         });
+    }
+}
+
+/// The word the row opens with, kept from the last call where it can be.
+///
+/// A label is the one node here that says the same thing on almost every call,
+/// so it is the one node worth not respawning: `relabel` is true only when the
+/// interface has changed language, and that is the only thing that can change
+/// what it says.
+fn head(
+    commands: &mut Commands,
+    standing: &[Entity],
+    labels: &Query<(), With<PoolLabel>>,
+    fonts: &UiFonts,
+    lang: Lang,
+    relabel: bool,
+) -> Entity {
+    match standing.iter().copied().find(|c| labels.contains(*c)) {
+        Some(kept) if !relabel => kept,
+        was => {
+            if let Some(leaving) = was {
+                commands.entity(leaving).despawn();
+            }
+            label(commands, fonts, lang)
+        }
     }
 }
 

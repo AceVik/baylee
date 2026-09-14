@@ -1876,36 +1876,15 @@ mod tests {
     /// a tree nothing touched.
     #[test]
     fn a_floating_mana_is_one_entity_for_as_long_as_it_floats() {
-        let pooled = |green: u16, prompt: &str| {
-            let mut duel = duel_watching();
-            duel.last_error = Some(prompt.to_string());
-            {
-                let view = duel.view.as_mut().expect("the seat has a view");
-                let seat = view.seat;
-                view.seats
-                    .iter_mut()
-                    .find(|s| s.player == seat)
-                    .expect("this seat sits at its own table")
-                    .mana_pool
-                    .green = green;
-            }
-            crate::rebuild_board(&mut duel);
-            duel
-        };
-        let entries = |app: &mut App| {
-            let mut q = app.world_mut().query::<(Entity, &ledge::pool::PoolEntry)>();
-            q.iter(app.world()).map(|(e, _)| e).collect::<Vec<_>>()
-        };
-
-        let mut app = bar_of(pooled(1, "one"));
-        let first = entries(&mut app);
+        let mut app = bar_of(pool_of(1, "one"));
+        let first = pool_entries(&mut app);
         assert_eq!(first.len(), 1, "one colour is floating, so one entry");
         let before = said(&mut app).join("|");
 
-        *app.world_mut().resource_mut::<Duel>() = pooled(2, "two");
+        *app.world_mut().resource_mut::<Duel>() = pool_of(2, "two");
         app.update();
         assert_eq!(
-            entries(&mut app),
+            pool_entries(&mut app),
             first,
             "the same mana, more of it: the entry is written, not replaced"
         );
@@ -1916,10 +1895,10 @@ mod tests {
         );
 
         // Spent. With motion off the fade is over on the frame it starts.
-        *app.world_mut().resource_mut::<Duel>() = pooled(0, "three");
+        *app.world_mut().resource_mut::<Duel>() = pool_of(0, "three");
         app.update();
         assert!(
-            entries(&mut app).is_empty(),
+            pool_entries(&mut app).is_empty(),
             "a spent mana leaves, rather than being left behind"
         );
         // And the em dash waits for it: one more frame, because the row can
@@ -1928,6 +1907,72 @@ mod tests {
         assert!(
             said(&mut app).contains(&"\u{2014}".to_string()),
             "the empty pool says so again once the last pip has gone"
+        );
+    }
+
+    /// A watching seat with `green` green mana floating and `prompt` on the
+    /// shelf.
+    ///
+    /// The sentence is a parameter because the pool's tests all need to be
+    /// able to rebuild the shelf *without* touching the pool, which is the
+    /// premise the retained column exists to survive.
+    fn pool_of(green: u16, prompt: &str) -> Duel {
+        let mut duel = duel_watching();
+        duel.last_error = Some(prompt.to_string());
+        {
+            let view = duel.view.as_mut().expect("the seat has a view");
+            let seat = view.seat;
+            view.seats
+                .iter_mut()
+                .find(|s| s.player == seat)
+                .expect("this seat sits at its own table")
+                .mana_pool
+                .green = green;
+        }
+        crate::rebuild_board(&mut duel);
+        duel
+    }
+
+    fn pool_entries(app: &mut App) -> Vec<Entity> {
+        let mut q = app.world_mut().query::<(Entity, &ledge::pool::PoolEntry)>();
+        q.iter(app.world()).map(|(e, _)| e).collect::<Vec<_>>()
+    }
+
+    /// The em dash never stands over a pip that is still on the row.
+    ///
+    /// §4.1 forbids movement that carries no information, and the em dash
+    /// appearing for one frame at the moment of spending and leaving again is
+    /// exactly that. The bug it guards is one missing clause: on the spend
+    /// frame the pool names nothing and nothing is *yet* marked closing, so a
+    /// reading that asks only "is anything fading" answers "the row is empty"
+    /// on the one frame where the row is at its fullest.
+    ///
+    /// It needs the movement **on**, which is why it is a second test rather
+    /// than two more lines in the one above. With `reduce_motion` the spent
+    /// pip is despawned before the frame ends, so a dash beside it is right by
+    /// accident; here the harness clock never advances, so the fading entry
+    /// sits at the start of its fade for as long as the test looks at it. The
+    /// first assertion is the counter-test: the pip really is still there, so
+    /// the absent dash is the dash *waiting* rather than a row that has
+    /// already been emptied.
+    #[test]
+    fn the_row_does_not_say_it_is_empty_over_a_pip_that_is_still_fading() {
+        let mut app = bar_of(pool_of(1, "one"));
+        app.world_mut()
+            .resource_mut::<crate::prefs::Prefs>()
+            .edit()
+            .reduce_motion = false;
+
+        *app.world_mut().resource_mut::<Duel>() = pool_of(0, "two");
+        app.update();
+        assert_eq!(
+            pool_entries(&mut app).len(),
+            1,
+            "the spent mana is still on the row, fading"
+        );
+        assert!(
+            !said(&mut app).contains(&"\u{2014}".to_string()),
+            "so the row must not say it is empty over the top of it"
         );
     }
 
