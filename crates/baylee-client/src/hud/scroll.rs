@@ -15,18 +15,24 @@
 //! Which gesture belongs to a panel used to be a hard-coded strip at the
 //! bottom of the window — the hand zone's height plus twenty pixels — so
 //! every other panel was camera by construction and a moved hand zone would
-//! have been wrong in silence. It is the **node under the pointer** now: a
-//! wheel that lands on anything with a [`ComputedNode`] is the interface's,
-//! and the camera does not see it. Two consequences are deliberate.
+//! have been wrong in silence. It is the **node under the pointer** now: the
+//! walk below climbs from whatever the wheel landed on until it meets
+//! something that scrolls.
 //!
-//! A list at its end **swallows** the wheel rather than handing it on. Scroll
-//! chaining is what turns "this list has no more rows" into "the table is now
-//! zoomed", and a player who has hit the end of a list is not asking about
-//! the camera.
+//! # Nothing to arbitrate any more
 //!
-//! And a UI node blocks the camera whether or not it scrolls. A wheel over
-//! the prompt sheet does nothing at all, which is the right answer: the
-//! player is reading a question, not looking around.
+//! There was a referee beside that walk — `wheel_is_the_interfaces`, which
+//! `camera_controls` asked before zooming — and it was not enough. The owner
+//! reported the two still fighting (*„mit dem Rad scrollen scheint sich mit
+//! dem Kamera Zoom-In/Out zu streiten"*) and decided the argument by taking a
+//! side: *„Das Zoom in/out sollte eh weg!"*. So the camera does not zoom, the
+//! referee is gone, and a wheel has exactly one possible claimant.
+//!
+//! One consequence survives the removal and is still deliberate: a list at
+//! its end **swallows** the wheel rather than handing it on. Scroll chaining
+//! would put a gesture that ran out of rows onto whatever is behind the
+//! panel, and a player who has hit the bottom of a library is not asking
+//! about anything else.
 
 #[allow(clippy::wildcard_imports)] // the HUD's own vocabulary
 use super::*;
@@ -127,18 +133,10 @@ pub(crate) fn scrolled(from: f32, by: f32, view: f32, content: f32, scale: f32) 
     (from + by).clamp(0.0, room)
 }
 
-/// Whether a wheel this frame belongs to the interface rather than the table.
-///
-/// Read by [`crate::input::camera_controls`] from the same messages this
-/// module consumes, rather than through a flag one of them sets and the
-/// other clears: two readers of one stream cannot disagree about what
-/// happened, and neither has to run first.
-pub fn wheel_is_the_interfaces(
-    wheels: &mut MessageReader<Pointer<Scroll>>,
-    nodes: &Query<(), With<ComputedNode>>,
-) -> bool {
-    wheels.read().any(|wheel| nodes.contains(wheel.entity))
-}
+// There was a referee here — `wheel_is_the_interfaces`, answering whose wheel
+// this frame's was by asking whether it had landed on a UI node. It is gone
+// with the thing it refereed against: the camera does not zoom any more, so a
+// wheel has one possible claimant and nothing to arbitrate.
 
 #[cfg(test)]
 mod tests {
@@ -278,50 +276,6 @@ mod tests {
         assert!(
             app.world().resource::<Duel>().hand_scroll.abs() < f32::EPSILON,
             "nothing in the interface claimed it"
-        );
-    }
-
-    /// The question `camera_controls` asks the same messages.
-    ///
-    /// A named function and not a closure, because two closures written the
-    /// same way are two *types*: `run_system_cached` would register a second
-    /// system with its own message cursor, and the second call would read
-    /// the first call's wheel again — which is exactly how this test first
-    /// reported that bare felt was a UI node.
-    fn asked(
-        mut wheels: MessageReader<Pointer<Scroll>>,
-        nodes: Query<(), With<ComputedNode>>,
-    ) -> bool {
-        wheel_is_the_interfaces(&mut wheels, &nodes)
-    }
-
-    /// And the half `camera_controls` asks: a wheel that landed on a UI node
-    /// is the interface's whether or not that node scrolls, so a wheel over
-    /// the prompt sheet does nothing rather than zooming the table behind
-    /// it.
-    #[test]
-    fn a_wheel_on_any_ui_node_is_the_interfaces() {
-        let mut app = App::new();
-        app.add_message::<Pointer<Scroll>>();
-        let sheet = app.world_mut().spawn(Node::default()).id();
-        let felt = app.world_mut().spawn_empty().id();
-
-        app.world_mut()
-            .resource_mut::<Messages<Pointer<Scroll>>>()
-            .write(aimed(sheet, -1.0));
-        assert_eq!(
-            app.world_mut().run_system_cached(asked).ok(),
-            Some(true),
-            "a sheet took it"
-        );
-
-        app.world_mut()
-            .resource_mut::<Messages<Pointer<Scroll>>>()
-            .write(aimed(felt, -1.0));
-        assert_eq!(
-            app.world_mut().run_system_cached(asked).ok(),
-            Some(false),
-            "the felt is not a node"
         );
     }
 }

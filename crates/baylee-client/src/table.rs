@@ -5778,6 +5778,23 @@ mod framing_tests {
         app.update();
     }
 
+    /// The one gesture a hand still has on the table: a right-drag, which
+    /// slides it and plays nothing.
+    fn right_drag(app: &mut App) {
+        app.world_mut()
+            .resource_mut::<ButtonInput<MouseButton>>()
+            .press(MouseButton::Right);
+        app.world_mut()
+            .resource_mut::<Messages<MouseMotion>>()
+            .write(MouseMotion {
+                delta: Vec2::new(40.0, 20.0),
+            });
+        app.update();
+        app.world_mut()
+            .resource_mut::<ButtonInput<MouseButton>>()
+            .release(MouseButton::Right);
+    }
+
     /// The owner's report, as an assertion: „kaum berühre ich mit der Maus
     /// was, drehe ich den Tisch etwas".
     #[test]
@@ -5827,22 +5844,35 @@ mod framing_tests {
         );
     }
 
-    /// And the other direction: a wheel over the felt *is* the camera, so it
+    /// And the other direction: a drag over the felt *is* the camera, so it
     /// holds — and holding is what stops the next resize from taking the
     /// view away from the player.
+    ///
+    /// A wheel used to be the gesture here, and its absence is checked first.
+    /// The owner asked for the zoom to go (*„Das Zoom in/out sollte eh
+    /// weg!"*), and a wheel that still moved the rig would be the removal
+    /// undone with every scrolling panel back to arguing with the table.
     #[test]
-    fn a_wheel_over_the_felt_holds_the_camera() {
+    fn a_drag_over_the_felt_holds_the_camera_and_a_wheel_does_nothing() {
         let mut app = app(WINDOW);
         let before = *app.world().resource::<CameraRig>();
         wheel(&mut app, 1.0);
-        let after = *app.world().resource::<CameraRig>();
-        assert!(
-            after.distance < before.distance,
-            "the wheel pulled the camera in"
+        assert_eq!(
+            *app.world().resource::<CameraRig>(),
+            before,
+            "the wheel still zoomed"
         );
         assert!(
+            !app.world().resource::<Duel>().camera_held,
+            "and it took the framing off the table on the way"
+        );
+
+        right_drag(&mut app);
+        let after = *app.world().resource::<CameraRig>();
+        assert_ne!(after.target, before.target, "the drag slid the table");
+        assert!(
             app.world().resource::<Duel>().camera_held,
-            "a wheel over the felt can only mean the camera"
+            "a drag over the felt can only mean the camera"
         );
 
         let mut windows = app.world_mut().query::<&mut Window>();
@@ -5866,7 +5896,7 @@ mod framing_tests {
     #[test]
     fn going_home_gives_the_camera_back_to_the_table() {
         let mut app = app(WINDOW);
-        wheel(&mut app, 1.0);
+        right_drag(&mut app);
         assert!(app.world().resource::<Duel>().camera_held);
 
         let mut duel = app.world_mut().remove_resource::<Duel>().expect("a duel");

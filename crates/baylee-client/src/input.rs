@@ -33,7 +33,7 @@ use baylee_client_core::touch::Answer;
 use baylee_core::ids::ObjectId;
 use baylee_engine::choice::PlayerAction;
 use bevy::input::keyboard::{Key, KeyboardInput};
-use bevy::input::mouse::{MouseMotion, MouseWheel};
+use bevy::input::mouse::MouseMotion;
 use bevy::prelude::*;
 
 /// Every widget the zone browser puts on screen, as one system parameter.
@@ -2776,9 +2776,8 @@ fn hover_zone(view: &baylee_view::PlayerView, object: ObjectId) -> Option<HoverZ
         .then_some(HoverZone::Shown)
 }
 
-/// The battlefield camera: arrows pan, right- or middle-drag pans, the wheel
-/// zooms unless the interface asked for it first, and two fingers do what two
-/// fingers do (pan, pinch).
+/// The battlefield camera: arrows pan, right- or middle-drag pans, two
+/// fingers pan. That is the whole of it.
 ///
 /// # The left button plays and never moves the camera
 ///
@@ -2799,20 +2798,30 @@ fn hover_zone(view: &baylee_view::PlayerView, object: ObjectId) -> Option<HoverZ
 /// nothing a hand aims). Shift+arrows and the touch rotation gesture went
 /// with them.
 ///
-/// What is left is the one job the camera has: **a table that does not fit
-/// the window**. Zoom and pan, both recoverable with one key
-/// ([`Action::FocusHome`]), and everything else is a *viewpoint* —
-/// [`navigate_home`] and [`navigate_to_player`].
-#[allow(clippy::too_many_arguments)]
+/// # And it no longer zooms
+///
+/// The wheel zoomed, and it had to be arbitrated against every scrolling
+/// panel in the interface — `hud::wheel_is_the_interfaces` read the picking
+/// messages to decide whose wheel it was. The owner's report is that the
+/// arbitration does not hold at the surface it matters at: *„mit dem Rad
+/// scrollen scheint sich mit dem Kamera Zoom-In/Out zu streiten (Das Zoom
+/// in/out sollte eh weg!)"*. So the capability goes rather than the referee,
+/// and the pinch with it — the same zoom by another finger, and one more way
+/// to set `camera_held` by accident, which is the *silent* half of the orbit
+/// story above.
+///
+/// Nothing is lost that the camera was for. Distance is
+/// [`crate::table::CameraRig::home`]'s to compute — it frames the table
+/// against the part of the window the table is seen through — and it does
+/// that on every seat count, focus and resize. What is left here is the one
+/// job a hand still has: **moving a table that does not fit the window**,
+/// recoverable with one key ([`Action::FocusHome`]). Everything else is a
+/// *viewpoint* — [`navigate_home`] and [`navigate_to_player`].
 pub fn camera_controls(
     keys: Res<ButtonInput<KeyCode>>,
     buttons: Res<ButtonInput<MouseButton>>,
     mut motions: MessageReader<bevy::input::mouse::MouseMotion>,
-    mut wheels: MessageReader<MouseWheel>,
-    mut scrolled: MessageReader<Pointer<bevy::picking::events::Scroll>>,
-    nodes: Query<(), With<ComputedNode>>,
     mut pans: MessageReader<bevy::input::gestures::PanGesture>,
-    mut pinches: MessageReader<bevy::input::gestures::PinchGesture>,
     mut duel: ResMut<Duel>,
     mut rig: ResMut<crate::table::CameraRig>,
 ) {
@@ -2870,40 +2879,18 @@ pub fn camera_controls(
         duel.camera_held = true;
     }
 
-    // ---- wheel: zoom, unless the interface asked for it first -------------
-    //
-    // The hand zone used to be carved out of this by a rectangle — the bottom
-    // of the window, the hand's own height plus twenty — and every other
-    // panel was the camera's by construction, which is why a wheel over a
-    // library zoomed the table. `hud::scrolls` owns that question now and
-    // this reads its answer off the same messages rather than off a flag one
-    // of the two would have to set before the other ran.
-    let theirs = crate::hud::wheel_is_the_interfaces(&mut scrolled, &nodes);
-    for wheel in wheels.read() {
-        if theirs || wheel.y == 0.0 {
-            continue;
-        }
-        rig.distance = (rig.distance * (1.0 - wheel.y * 0.08)).clamp(
-            crate::table::CameraRig::MIN_DISTANCE,
-            crate::table::CameraRig::MAX_DISTANCE,
-        );
-        duel.camera_held = true;
-    }
-
     // ---- touch gestures ---------------------------------------------------
     //
-    // Two fingers pan and pinch; the rotation gesture is gone with the
-    // orbit it was the touch twin of.
+    // Two fingers pan. The pinch went with the wheel's zoom and the rotation
+    // went with the orbit, so this is what is left of the whole gesture set:
+    // the one that moves the table without resizing it.
+    //
+    // The wheel is read here no longer, and that is the point of removing the
+    // zoom rather than the referee — every scrolling panel in the interface
+    // now owns its own wheel outright, with nothing to arbitrate against.
     for pan in pans.read() {
         rig.target -= right * pan.0.x * drag_scale;
         rig.target -= forward * pan.0.y * drag_scale;
-        duel.camera_held = true;
-    }
-    for pinch in pinches.read() {
-        rig.distance = (rig.distance / (1.0 + pinch.0 * 0.5)).clamp(
-            crate::table::CameraRig::MIN_DISTANCE,
-            crate::table::CameraRig::MAX_DISTANCE,
-        );
         duel.camera_held = true;
     }
 }
@@ -4298,6 +4285,70 @@ mod tests {
             "the left button plays cards and nothing else"
         );
         assert!(!held, "and it does not take the camera off the table");
+    }
+
+    /// The wheel and the pinch do not resize the table any more.
+    ///
+    /// Owner: *„mit dem Rad scrollen scheint sich mit dem Kamera Zoom-In/Out
+    /// zu streiten (Das Zoom in/out sollte eh weg!)"*. The referee that used
+    /// to decide whose wheel it was went with it, so what is left to hold is
+    /// that neither gesture reaches the rig at all — and `camera_held` with
+    /// it, because setting *that* by accident is what quietly switches the
+    /// automatic framing off for the rest of a session.
+    ///
+    /// The counter-test is in the same run: a right-drag on the same app
+    /// still moves the table, so this is a camera that ignores two gestures
+    /// rather than a system that stopped running.
+    #[test]
+    fn neither_the_wheel_nor_the_pinch_resizes_the_table() {
+        use bevy::input::ButtonInput;
+        use bevy::input::mouse::{MouseMotion, MouseScrollUnit, MouseWheel};
+        use bevy::prelude::*;
+
+        let mut app = App::new();
+        app.init_resource::<ButtonInput<KeyCode>>()
+            .init_resource::<ButtonInput<MouseButton>>()
+            .init_resource::<crate::table::CameraRig>()
+            .add_message::<MouseMotion>()
+            .add_message::<MouseWheel>()
+            .add_message::<bevy::input::gestures::PanGesture>()
+            .add_message::<bevy::input::gestures::PinchGesture>()
+            .init_resource::<crate::Duel>()
+            .add_systems(Update, super::camera_controls);
+
+        let home = crate::table::CameraRig::default();
+        app.world_mut().write_message(MouseWheel {
+            unit: MouseScrollUnit::Line,
+            x: 0.0,
+            y: -4.0,
+            window: Entity::PLACEHOLDER,
+            phase: bevy::input::touch::TouchPhase::Moved,
+        });
+        app.world_mut()
+            .write_message(bevy::input::gestures::PinchGesture(0.4));
+        app.update();
+        let rig = *app.world().resource::<crate::table::CameraRig>();
+        assert!(
+            (rig.distance - home.distance).abs() < f32::EPSILON,
+            "a wheel or a pinch still zoomed the table"
+        );
+        assert!(
+            !app.world().resource::<crate::Duel>().camera_held,
+            "and it took the framing off the table on the way"
+        );
+
+        app.world_mut()
+            .resource_mut::<ButtonInput<MouseButton>>()
+            .press(MouseButton::Right);
+        app.world_mut().write_message(MouseMotion {
+            delta: Vec2::new(40.0, 20.0),
+        });
+        app.update();
+        assert_ne!(
+            app.world().resource::<crate::table::CameraRig>().target,
+            home.target,
+            "the camera stopped listening altogether"
+        );
     }
 
     /// The browser had a pointer route and no keyboard one, which is exactly

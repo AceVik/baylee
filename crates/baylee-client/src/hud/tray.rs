@@ -1123,7 +1123,13 @@ fn spawn_row(
                 bottom: palette::DIALOG_LINE,
                 ..BorderColor::all(Color::NONE)
             },
-            Feel::rising_to(fill, hot),
+            // Lit, never lifted. A row is a *line of writing* — a tick, a
+            // picture, a name, the pips, a type line — and `Feel::lift`'s own
+            // doc names that as the case that must stay at zero: growing a
+            // row grows the sentence on it. A hundred of them under a moving
+            // pointer is a list that reflows while it is being read, which is
+            // half of what the owner reported as the dialog flickering.
+            Feel::tinting_to(fill, hot),
         ))
         .id();
 
