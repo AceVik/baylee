@@ -95,9 +95,19 @@ const ROW_INNER_GAP: f32 = 5.0;
 ///
 /// The shelf's own answer to "this one is taken", and deliberately not brass:
 /// brass is a light on a *card*, and one register per claim is the rule this
-/// whole shelf is built on. At this strength the wash reads as a highlight
-/// and still leaves [`palette::DIALOG_INK`] its contrast against the panel.
-const PICKED_WASH: f32 = 0.10;
+/// whole shelf is built on.
+///
+/// Measured, because §5 named the strength and nothing had held it to
+/// anything: **the wash does not say it.** Laid over [`palette::DIALOG`] it
+/// comes out 1.08 : 1 against the fill an unpicked row already has, which is
+/// below anything an eye reads as a difference. The border is what says it —
+/// [`palette::CANDLE`] against [`palette::DIALOG_LINE`] is 5.52 : 1 — and what
+/// the wash is for is that it leaves the words alone: [`palette::DIALOG_INK`]
+/// on the washed ground is 11.65 : 1 against 13.74 : 1 on the bare panel.
+/// `a_picked_row_is_said_by_its_border` holds both ends of that, so a later
+/// hand that strengthens the wash to make it carry the claim on its own is
+/// told what it is spending.
+pub(super) const PICKED_WASH: f32 = 0.10;
 
 /// The drawer's positioning node, which outlives every rebuild.
 ///
@@ -136,6 +146,14 @@ pub struct DrawerRevision {
     number: Option<u32>,
     /// What has been typed into the creature-type filter, when it is open.
     /// `Some("")` is an open and empty box, which is not the same as no box.
+    ///
+    /// This is the one field that keeps the drawer open on its own, and
+    /// [`DrawerRevision::empty`] leans on it: a creature type is chosen from
+    /// three hundred and fifty, so the list is cut to twelve and a filter that
+    /// matches nothing leaves **no rows at all**. The box has to stay drawn
+    /// there — it is where the typing goes, and a drawer that shut on the
+    /// letter that narrowed the list to nothing would take the way out with
+    /// it.
     filter: Option<String>,
     /// Every row of the indexed chooser, exactly as [`crate::choices`] wrote
     /// them.

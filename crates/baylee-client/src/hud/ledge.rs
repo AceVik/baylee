@@ -1535,6 +1535,73 @@ mod tests {
         );
     }
 
+    /// Which row of the drawer is taken is said by its border, and the wash is
+    /// only allowed to not get in the way.
+    ///
+    /// §5 named [`drawer::PICKED_WASH`] and nothing held it to anything, which
+    /// is the shape of claim this file measures rather than believes. It is
+    /// bounded on **both** sides, and the two bounds point opposite ways: the
+    /// ink has to survive the wash (the row still carries words), and the wash
+    /// must not be credited with the claim it cannot make — 1.08 : 1 against
+    /// the fill every other row already has is not a difference, so a drawer
+    /// that lost the candle border would go on passing a test that only asked
+    /// whether the picked row was washed.
+    #[test]
+    fn a_picked_row_is_said_by_its_border() {
+        /// sRGB → linear, as in `a_candle_is_dark_enough_to_write_on`.
+        fn linear(c: f32) -> f32 {
+            if c <= 0.040_45 {
+                c / 12.92
+            } else {
+                ((c + 0.055) / 1.055).powf(2.4)
+            }
+        }
+        fn contrast(a: Color, b: Color) -> f32 {
+            let luma = |c: Color| {
+                let s = c.to_srgba();
+                0.2126f32.mul_add(
+                    linear(s.red),
+                    0.7152f32.mul_add(linear(s.green), 0.0722 * linear(s.blue)),
+                )
+            };
+            let (one, two) = (luma(a), luma(b));
+            (one.max(two) + 0.05) / (one.min(two) + 0.05)
+        }
+        /// `over` at its own alpha, laid on an opaque `under`.
+        fn over(over: Color, under: Color) -> Color {
+            let (o, u) = (over.to_srgba(), under.to_srgba());
+            let mix = |a: f32, b: f32| a.mul_add(o.alpha, b * (1.0 - o.alpha));
+            Color::srgb(
+                mix(o.red, u.red),
+                mix(o.green, u.green),
+                mix(o.blue, u.blue),
+            )
+        }
+
+        let taken = over(
+            palette::CANDLE.with_alpha(drawer::PICKED_WASH),
+            palette::DIALOG,
+        );
+        let (_, edge, ink) = Weight::Secondary.colours();
+
+        let words = contrast(ink, taken);
+        assert!(
+            words >= 4.5,
+            "a row that has been picked is still a row to read: {words:.2}:1"
+        );
+        let said = contrast(palette::CANDLE, edge);
+        assert!(
+            said >= 3.0,
+            "the border is the whole of what says a row is taken: {said:.2}:1"
+        );
+        let alone = contrast(taken, palette::DIALOG_LIT);
+        assert!(
+            alone < 1.2,
+            "this test's premise is that the wash cannot say it on its own, \
+             and it measured {alone:.2}:1 against an untaken row's fill"
+        );
+    }
+
     /// The shelf does not follow the pointer, and the struct is where that is
     /// decided.
     ///
