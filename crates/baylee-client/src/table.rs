@@ -1913,6 +1913,13 @@ pub fn spawn_stage(
         // numbers as radiance would be wrong. Naming it here stops a future
         // default from quietly doing that.
         Tonemapping::None,
+        // The same Android driver workaround the lobby's camera carries, and
+        // for the same reason — `lobby::ui::spawn_camera` has the
+        // measurement. Both cameras need it rather than only the one that
+        // was caught: the defect is in the tiler's multisample resolve, not
+        // in anything the lobby does.
+        #[cfg(target_os = "android")]
+        bevy::render::view::Msaa::Off,
     ));
 
     // Nothing below is lit, and nothing above it is either: card art must
