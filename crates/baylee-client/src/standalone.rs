@@ -74,6 +74,16 @@ pub fn run() {
     .add_plugins(DuelPlugin {
         config: DuelConfig::default(),
     });
+    // A phone's run loop is not a desktop's. `WinitSettings::default()` is
+    // `game()`, which asks for `UpdateMode::Continuous` — and on iOS winit
+    // hands the thread to `UIApplicationMain`, where nothing then wakes the
+    // run loop: the table draws one frame and the process sits in
+    // `CFRunLoopRun` at 3% CPU, alive and never asked for another. `mobile()`
+    // asks for a frame on a 1/60 s timer instead, which is a `WaitUntil` the
+    // run loop honours by itself, and which bevy's own `winit_config.rs`
+    // names "default settings for mobile".
+    #[cfg(any(target_os = "android", target_os = "ios"))]
+    app.insert_resource(bevy::winit::WinitSettings::mobile());
     // The dev-control harness, when this build has it and the environment
     // asks for it. Added before the front door so a lobby session can be
     // driven too, not only a seated duel.

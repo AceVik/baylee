@@ -105,6 +105,18 @@ it is. A project would be a second place for the build settings to live in.
 dev-control needs no forwarding here — the client binds *this* machine's
 loopback.
 
+**A phone's run loop is not a desktop's**, and this is the one line of code
+the two phone targets needed. `WinitSettings::default()` is `game()`, which
+asks for `UpdateMode::Continuous`; on iOS winit hands the thread to
+`UIApplicationMain`, and nothing there wakes the run loop again — the client
+drew the table once and then sat in `CFRunLoopRun` at 3 % CPU, alive, never
+asked for another frame, with every dev-control request answering
+`{"error":"no answer within 10s"}` because `pump` runs once per frame and
+there were no more frames. `standalone::run` now inserts
+`WinitSettings::mobile()` on android and ios: a 1/60 s `Reactive` wait, which
+is a timer the run loop honours by itself, and which bevy's own
+`winit_config.rs` names "default settings for mobile".
+
 ## The browser, as the fallback
 
 `trunk serve index.html --release` from `crates/baylee-client/`, then the
@@ -125,11 +137,22 @@ Measured on 14.09.2026 on this machine:
 - The fonts are in the APK at `assets/fonts/…`, which is why
   `standalone::asset_root` returns `""` on Android: bevy reads through the
   APK's `AssetManager`, whose root *is* that directory.
-- The iOS simulator build runs, reaches Metal and **draws the table** — one
-  frame of it.
+- **The iOS simulator is a working dev-control surface.** The app runs at
+  about 60 fps (`/health` reported frame 12094 and, three seconds later,
+  12276), answers every route with no forwarding at all, and `/screenshot`
+  writes a 3840×2160 picture of the lobby. That took `WinitSettings::mobile()`
+  — see above; before it, the same build drew one frame and stopped.
 
-Two things do **not** work yet, both in the renderer and neither on real
-hardware, which is the one surface untested:
+The window is **not** the phone's screen, and the picture is not what a player
+would see. `/health` reports 1280×720 at scale 3, which is
+`WindowResolution::default()` — bevy's own 1280×720 — and not the iPhone 15
+Pro's 393×852 logical. So the lobby in that screenshot is laid out in
+`Metrics`' *desktop* frame, landscape, and what the simulator's own screen
+makes of it was not measured. The run loop is fixed and the harness reaches
+the app; window sizing on iOS is the next question, and it is a different one.
+
+One thing does **not** work yet, in the renderer and not on real hardware,
+which is the one surface untested:
 
 - **The Android emulator loses the device.** With `-gpu host` the guest gets
   the host GPU through gfxstream (`AdapterInfo … "Apple M1 Max", driver:
@@ -140,19 +163,13 @@ hardware, which is the one surface untested:
   the emulator logged `option: host` anyway and then wedged at 0 % CPU without
   ever opening its adb port. A physical Pixel has a real Vulkan driver and is
   the thing to try before spending another hour here.
-- **The iOS simulator draws one frame and stops.** Two screenshots three
-  seconds apart differ by **zero** pixels below the status bar (the status bar
-  clock is what makes a naive whole-image diff look alive), and every
-  dev-control request answers `{"error":"no answer within 10s"}` — which is the
-  same fact from the other side: `pump` runs once per frame, and there are no
-  more frames. It is not a crash, not the update mode
-  (`WinitSettings::default()` is `game()`, continuous) and not focus
-  (activating the Simulator changed nothing). `sample` on the process says
-  where it really is — 3 % CPU, main thread parked in
 
-      standalone::run → App::run → winit_runner → winit::…::ios::EventLoop::run
-        → UIApplicationMain → CFRunLoopRun → mach_msg
-
-  which is a live run loop that is never asked for another frame. So the thing
-  to chase is whatever drives redraws on iOS — winit starts a `CADisplayLink`
-  when the app becomes active — and not anything in this client's schedule.
+The `WinitSettings::mobile()` above is not a candidate fix for it: that was a
+run loop nobody woke, and this is a device the driver hands back. The obvious
+next lever is not one either, and that is worth writing down before someone
+spends an hour on it — `-feature -Vulkan` would push the guest onto GLES, which
+wgpu does support on Android, except that the SDK's own
+`emulator/lib/advancedFeatures.ini` already says `Vulkan = off` and there is no
+override in `~/.android/`, and the guest reported a Vulkan adapter anyway. So
+whatever turns it on comes from the system image or from gfxstream itself, and
+the flag is not the switch it looks like.
