@@ -253,6 +253,14 @@ pub(crate) mod store {
     }
 
     /// Writes one named document, creating the config dir if needed.
+    ///
+    /// Into a temporary beside it and then renamed, which is what the
+    /// gateway's own store already does and for the same reason:
+    /// `fs::write` truncates first, so a crash between the truncate and the
+    /// last byte leaves a file that parses as nothing. For the settings that
+    /// costs a player their window placement; for `offline-decks.json` it
+    /// costs them decks they built by hand and cannot regenerate, and that
+    /// document goes through this same function.
     pub fn write_named(name: &str, text: &str) {
         let Some(path) = path(name) else {
             return;
@@ -260,7 +268,32 @@ pub(crate) mod store {
         if let Some(dir) = path.parent() {
             let _ = std::fs::create_dir_all(dir);
         }
-        let _ = std::fs::write(path, text);
+        let temporary = path.with_extension("tmp");
+        if std::fs::write(&temporary, text).is_ok() {
+            let _ = std::fs::rename(&temporary, &path);
+        }
+    }
+
+    /// Puts a document that could not be read out of the way, once.
+    ///
+    /// The moment a player's work is actually lost is not the crash — it is
+    /// the *next save*, which overwrites a file nobody could parse with a
+    /// fresh default. Every reader here answers a parse failure with
+    /// defaults, so without this the unreadable bytes are gone within
+    /// seconds, and with them any chance of getting the decks back by hand.
+    ///
+    /// Once, because a second failure would otherwise overwrite the first
+    /// rescue with the very defaults that replaced it. The copy already set
+    /// aside is the one worth keeping.
+    pub fn set_aside(name: &str) {
+        let Some(path) = path(name) else {
+            return;
+        };
+        let broken = path.with_extension("broken");
+        if broken.exists() {
+            return;
+        }
+        let _ = std::fs::rename(&path, &broken);
     }
 
     /// A config-dir file location.
@@ -304,6 +337,26 @@ pub(crate) mod store {
     /// Writes one named document, under the same namespace.
     pub fn write_named(name: &str, text: &str) {
         write_key(&format!("baylee:{name}"), text);
+    }
+
+    /// Puts a document that could not be read out of the way, once.
+    ///
+    /// The native back end's note explains why this exists. There is no
+    /// half-written value to rescue here — `set_item` is atomic — but the
+    /// *other* half of the hazard is the same in a browser as on a disk: a
+    /// reader answers a parse failure with defaults and the next save
+    /// overwrites the bytes nobody could read. So the key is moved rather
+    /// than left to be replaced.
+    pub fn set_aside(name: &str) {
+        let key = format!("baylee:{name}");
+        let broken = format!("{key}.broken");
+        if read_key(&broken).is_some() {
+            return;
+        }
+        if let Some(text) = read_key(&key) {
+            write_key(&broken, &text);
+            remove_key(&key);
+        }
     }
 
     /// Reads one namespaced key.

@@ -68,10 +68,47 @@ struct StoredDeck {
 }
 
 /// The offline deck file.
+///
+/// Written whole and read row by row, which is the asymmetry [`read_decks`]
+/// exists for.
 #[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
 struct DeckFile {
     #[serde(default)]
     decks: Vec<StoredDeck>,
+}
+
+/// Every deck in the file that still reads, and no opinion about the rest.
+///
+/// This is the one document in the client holding work a player *authored*.
+/// Settings can be set again and preferences are a screenful of switches,
+/// but a deck is an evening, and the derived reader would refuse the whole
+/// `Vec<StoredDeck>` over a single row — one retired field, one type that
+/// changed shape, and forty decks are gone. `#[serde(default)]` on every
+/// field of `StoredDeck` does not help: it fills a field that is *missing*
+/// and says nothing about one that is present and wrong. That is exactly the
+/// bargain `Keymap` already struck in `client-core` — drop the row you
+/// cannot read, keep the ones you can.
+///
+/// The rescue is the other half. A file that fails even to be JSON is set
+/// aside before anything overwrites it, because the moment the decks are
+/// really lost is not the bad write — it is the next *good* one.
+fn read_decks() -> Vec<StoredDeck> {
+    let Some(text) = crate::settings::store::read_named(DECKS) else {
+        return Vec::new();
+    };
+    // Deliberately two steps. The outer shape is a wrapper with one field,
+    // so a failure here is the file itself being unreadable rather than any
+    // particular deck being wrong — different damage, different answer.
+    let Ok(raw) = serde_json::from_str::<serde_json::Value>(&text) else {
+        crate::settings::store::set_aside(DECKS);
+        return Vec::new();
+    };
+    let Some(rows) = raw.get("decks").and_then(serde_json::Value::as_array) else {
+        return Vec::new();
+    };
+    rows.iter()
+        .filter_map(|row| serde_json::from_value::<StoredDeck>(row.clone()).ok())
+        .collect()
 }
 
 /// One chair at the offline table.
@@ -124,12 +161,11 @@ pub(crate) struct Offline {
 
 impl Offline {
     /// Reads the deck file and stands the built-in decks beside it.
+    ///
+    /// Row by row, never all-or-nothing — see [`read_decks`].
     pub(crate) fn load() -> Self {
         let mut decks = builtin_decks();
-        let stored: DeckFile = crate::settings::store::read_named(DECKS)
-            .and_then(|text| serde_json::from_str(&text).ok())
-            .unwrap_or_default();
-        decks.extend(stored.decks);
+        decks.extend(read_decks());
         Self {
             decks,
             room: None,
@@ -714,6 +750,62 @@ mod tests {
     /// An offline lobby with the built-in decks and nothing written back.
     fn offline() -> Offline {
         Offline::without_a_file()
+    }
+
+    /// One unreadable deck costs that deck and nothing else.
+    ///
+    /// The document a player authored is the only one in this client whose
+    /// loss cannot be undone by setting something again, and the derived
+    /// reader would have refused the whole list over one row. Written against
+    /// the row decoder rather than through `Offline::load`, because `load`
+    /// reads the *developer's real deck file* — the same reason `persist` is
+    /// false in every test in this module.
+    ///
+    /// The bad row names a field the build has never seen **and** gives
+    /// `cards` the wrong type, which is the case `#[serde(default)]` cannot
+    /// reach: a default fills a field that is absent and says nothing about
+    /// one that is present and wrong.
+    #[test]
+    fn an_unreadable_deck_row_does_not_take_the_others_with_it() {
+        let text = r#"{
+            "decks": [
+                { "id": "a", "name": "Keeps", "cards": ["Forest"] },
+                { "id": "b", "name": "Refused", "cards": "Forest", "tempo": 3 },
+                { "id": "c", "name": "Also keeps", "cards": ["Island"] }
+            ]
+        }"#;
+        let raw: serde_json::Value = serde_json::from_str(text).expect("the file is JSON");
+        let rows = raw["decks"].as_array().expect("decks is a list");
+        let kept: Vec<StoredDeck> = rows
+            .iter()
+            .filter_map(|row| serde_json::from_value::<StoredDeck>(row.clone()).ok())
+            .collect();
+
+        let names: Vec<&str> = kept.iter().map(|deck| deck.name.as_str()).collect();
+        assert_eq!(
+            names,
+            ["Keeps", "Also keeps"],
+            "one bad row took {} of 3 decks with it",
+            3 - kept.len()
+        );
+    }
+
+    /// And the counter-test: the whole-file reader really would have lost
+    /// them, so the loop above is buying something rather than restating
+    /// what serde already does.
+    #[test]
+    fn the_whole_file_reader_would_have_lost_all_three() {
+        let text = r#"{
+            "decks": [
+                { "id": "a", "name": "Keeps", "cards": ["Forest"] },
+                { "id": "b", "name": "Refused", "cards": "Forest", "tempo": 3 }
+            ]
+        }"#;
+        assert!(
+            serde_json::from_str::<DeckFile>(text).is_err(),
+            "the derived reader accepted the bad row, so this file no longer \
+             proves why the row-by-row reader exists"
+        );
     }
 
     /// The one press that opens a table, so the room tests all start here.

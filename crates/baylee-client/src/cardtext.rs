@@ -235,79 +235,60 @@ pub fn poll(mut texts: ResMut<CardTexts>, duel: Res<crate::Duel>) {
 /// cosmetic problem for a few days at worst, while a cold start with no
 /// network is a game that cannot be read at all. The cache therefore has no
 /// expiry — a fresh fetch overwrites it whenever one succeeds.
+/// # One back end, not two
+///
+/// This used to carry its own copy of both halves of `settings::store` — the
+/// XDG path arithmetic natively, the `localStorage` wrapper in a browser —
+/// which meant every property of the client's persistence had to be won
+/// twice. It was not: the settings store writes through a temporary and
+/// renames, and this one truncated in place. The cache is a named document
+/// like any other now, so the atomic write and the rescue of an unreadable
+/// file arrived here for free, and whatever that seam learns next will too.
+///
+/// The browser note the old copy carried still applies and now applies once:
+/// `localStorage` is capped at a few megabytes and throws when it is full. A
+/// game's text is far below that; a player who has played in nineteen
+/// languages is the case that would reach it, and the write is best-effort
+/// either way.
 mod cache {
     use baylee_client_core::card_face::CardTextEntry;
 
+    /// The document one language's text lives in.
+    ///
+    /// Filtered to what a filename may hold because the language arrives
+    /// from a setting a player can type into.
+    fn name(lang: &str) -> String {
+        let lang: String = lang
+            .chars()
+            .filter(|c| c.is_ascii_alphanumeric() || *c == '-')
+            .collect();
+        format!("card-text-{lang}.json")
+    }
+
     /// Reads the cached entries for a language.
+    ///
+    /// A document that cannot be read is set aside rather than left for the
+    /// next successful fetch to overwrite. Nothing here was authored by a
+    /// player — every entry can be fetched again — so this is the cheap half
+    /// of the rule the deck file needs it for; it is applied anyway, because
+    /// a cache that empties itself in silence is how an afternoon goes into
+    /// debugging the fetch path when the writer was at fault.
     pub fn load(lang: &str) -> Vec<CardTextEntry> {
-        read(lang)
-            .and_then(|text| serde_json::from_str(&text).ok())
-            .unwrap_or_default()
+        let name = name(lang);
+        let Some(text) = crate::settings::store::read_named(&name) else {
+            return Vec::new();
+        };
+        serde_json::from_str(&text).unwrap_or_else(|_| {
+            crate::settings::store::set_aside(&name);
+            Vec::new()
+        })
     }
 
     /// Replaces the cache for a language.
     pub fn store(lang: &str, entries: &[CardTextEntry]) {
         if let Ok(text) = serde_json::to_string(entries) {
-            write(lang, &text);
+            crate::settings::store::write_named(&name(lang), &text);
         }
-    }
-
-    #[cfg(not(target_arch = "wasm32"))]
-    fn path(lang: &str) -> Option<std::path::PathBuf> {
-        // Same directory as the settings file; the language is part of the
-        // name so switching back and forth costs no re-fetch.
-        let base = std::env::var("XDG_CONFIG_HOME")
-            .ok()
-            .filter(|v| !v.is_empty())
-            .map_or_else(
-                || std::env::var("HOME").ok().map(|h| format!("{h}/.config")),
-                Some,
-            )?;
-        let lang: String = lang
-            .chars()
-            .filter(|c| c.is_ascii_alphanumeric() || *c == '-')
-            .collect();
-        Some(std::path::PathBuf::from(base).join(format!("baylee/card-text-{lang}.json")))
-    }
-
-    #[cfg(not(target_arch = "wasm32"))]
-    fn read(lang: &str) -> Option<String> {
-        std::fs::read_to_string(path(lang)?).ok()
-    }
-
-    #[cfg(not(target_arch = "wasm32"))]
-    fn write(lang: &str, text: &str) {
-        let Some(path) = path(lang) else {
-            return;
-        };
-        if let Some(dir) = path.parent() {
-            let _ = std::fs::create_dir_all(dir);
-        }
-        let _ = std::fs::write(path, text);
-    }
-
-    #[cfg(target_arch = "wasm32")]
-    fn read(lang: &str) -> Option<String> {
-        storage()?
-            .get_item(&format!("baylee:card-text:{lang}"))
-            .ok()
-            .flatten()
-    }
-
-    #[cfg(target_arch = "wasm32")]
-    fn write(lang: &str, text: &str) {
-        // A browser caps localStorage at a few megabytes and throws when it is
-        // full. A game's text is far below that, but a player who has played
-        // in several languages could get there, and losing the cache is not
-        // worth an exception.
-        if let Some(storage) = storage() {
-            let _ = storage.set_item(&format!("baylee:card-text:{lang}"), text);
-        }
-    }
-
-    #[cfg(target_arch = "wasm32")]
-    fn storage() -> Option<web_sys::Storage> {
-        web_sys::window()?.local_storage().ok().flatten()
     }
 }
 
