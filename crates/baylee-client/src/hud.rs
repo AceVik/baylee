@@ -406,7 +406,13 @@ pub struct PhaseNow {
 #[derive(Component, Clone, Copy, PartialEq, Eq)]
 pub struct Designation(pub baylee_view::DayNight);
 
-/// One of the pills in the window's top-right corner.
+/// A button that does something to the game rather than answering a question.
+///
+/// It began as the pair of pills in the window's top-right corner and is no
+/// longer only that: the armed row's two buttons stand on the shelf, and so
+/// does "resolve the stack". What the component says is what it always said —
+/// this control's press goes to `input::menu_click` — and where it is drawn
+/// is the caller's business.
 #[derive(Component)]
 pub struct MenuButton {
     /// What the button does.
@@ -423,11 +429,22 @@ pub enum MenuAction {
     OfferDraw,
     /// Cancel a running priority hold, so the seat is asked again.
     ///
-    /// Only ever drawn while one is running, which is why there is no
-    /// matching "set a hold" button: choosing between "until the stack is
-    /// empty" and "the rest of this turn" is a two-key decision, and the way
-    /// out of either is one.
+    /// Only ever drawn while one is running.
     ReleaseHold,
+    /// Hold priority until the stack is empty: `PriorityHold::UntilStackEmpty`,
+    /// the same thing `Action::HoldForStack` sends and by the same road.
+    ///
+    /// The one of the two holds that has a button, and [`ReleaseHold`] used to
+    /// say there was none. The other is F7's `UntilEndOfTurn`, which asks again
+    /// at every trigger — so it answers no question and is a setting rather
+    /// than a reply. This one, on a stack that is not empty, *is* an answer to
+    /// the question standing above it ("do you want to respond to that?"): no,
+    /// to none of it. Which is why it stands in the row of answers and why it
+    /// is drawn only while there is a stack to resolve — on an empty one it
+    /// would be a button promising to do nothing.
+    ///
+    /// [`ReleaseHold`]: MenuAction::ReleaseHold
+    HoldForStack,
     /// Send the armed deed (`crate::Armed`).
     SendArmed,
     /// Put it back with nothing on the wire.

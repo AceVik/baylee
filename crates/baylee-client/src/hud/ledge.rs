@@ -184,6 +184,12 @@ const _: () = assert!(LEDGE_PAD_Y * 2.0 + BUTTON_H == hand::LEDGE_H);
 ///
 /// There is no `hovered` here and there must not be. That is the whole point
 /// of the struct, and `the_shelf_does_not_follow_the_pointer` holds it.
+// Four bools, and the lint's advice — "a state machine, or two-variant enums"
+// — is the one shape this must not take. Each of these is an independent fact
+// about a different thing, and what the struct does with them is compare all
+// of them at once; folding any pair into an enum would claim they cannot both
+// be true, which is a claim about the game and not about the drawing.
+#[allow(clippy::struct_excessive_bools)]
 #[derive(Resource, Default, Clone, PartialEq)]
 pub struct LedgeRevision {
     /// Which snapshot of the game.
@@ -211,6 +217,12 @@ pub struct LedgeRevision {
     /// and "Pass priority" under "Choose how it is cast" is two primary
     /// answers saying opposite things.
     pub(super) cast_menu: bool,
+    /// Whether "resolve the stack" is one of the answers — [`Duel::
+    /// can_hold_for_stack`], written down rather than left to `seq`. Every
+    /// other field here is a fact the drawing reads, derived from the view or
+    /// the interaction and listed anyway; this one is no different, and the
+    /// alternative is a claim about what `PlayerView::seq` counts.
+    pub(super) holdable: bool,
     /// The language the shelf is written in.
     pub(super) lang: Option<Lang>,
     /// Every keycap's legend comes out of the keymap, so a rebinding has to
@@ -318,6 +330,7 @@ pub fn sync_ledge(
             .unwrap_or_default(),
         armed: duel.armed.clone(),
         cast_menu: duel.cast_menu.is_some() && !over,
+        holdable: duel.can_hold_for_stack(),
         lang: Some(lang),
         keys: Some(prefs.keymap().clone()),
         window_w,
@@ -422,47 +435,80 @@ pub fn sync_ledge(
         // first button *is* the answer, and the second is the way back.
         armed_row(&mut commands, &fonts, lang, &prefs, row, &words);
     } else {
-        for (i, (action, label)) in answers.iter().enumerate() {
+        for (i, (says, label)) in answers.iter().enumerate() {
             let cap = if arrangement.density.shows_keycaps() {
                 caps[i].as_deref()
             } else {
                 None
             };
+            // The candle is the first answer's and stays there whatever else
+            // joins the row: a command is never the thing the shelf is
+            // inviting, and the invitation is what the candle is for.
             let weight = if i == 0 {
                 Weight::Candle
             } else {
                 Weight::Secondary
             };
             let button = answer(&mut commands, &fonts, label, weight, cap);
-            commands
-                .entity(button)
-                .insert(PromptButton { action: *action });
+            match *says {
+                Says::Answer(action) => {
+                    commands.entity(button).insert(PromptButton { action });
+                }
+                Says::Command(action) => {
+                    commands.entity(button).insert(super::MenuButton { action });
+                }
+            }
             commands.entity(row).add_child(button);
         }
     }
 }
 
+/// What one button in the middle sends.
+///
+/// Two mechanisms wearing one shape, which is the honest way round: an
+/// [`Answer`](Says::Answer) replies to the question the engine asked and rides
+/// a [`PromptButton`]; a [`Command`](Says::Command) states a condition and
+/// rides a [`MenuButton`], reaching the game by the road that button's key
+/// already takes.
+///
+/// §10.1 item 7 of the design is about the one command there is: "resolve the
+/// stack" is a condition rather than a reply, and stands in the row of replies
+/// anyway, because while there *is* a stack it answers the question above it —
+/// no, to none of that.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub(super) enum Says {
+    /// An answer to the engine's question.
+    Answer(PromptAction),
+    /// Something done to the game beside answering it.
+    Command(super::MenuAction),
+}
+
 /// Which answers this question takes, in the order they are offered.
 ///
-/// Lifted out of `sync_overlay` unchanged, including the two suppressions
-/// that are easy to read as bugs. `cast_menu` takes the answers away because
-/// the engine's window *behind* the client's own chooser is an ordinary
-/// priority, and "Pass priority" under "Choose how it is cast" is two primary
-/// answers saying opposite things. `elsewhere` takes the Confirm away because
-/// the zone browser's footer already draws one, and a player ticking a
-/// fetchland's target saw the same word twice on one screen.
+/// Lifted out of `sync_overlay` with the two suppressions that are easy to
+/// read as bugs intact. `cast_menu` takes the answers away because the
+/// engine's window *behind* the client's own chooser is an ordinary priority,
+/// and "Pass priority" under "Choose how it is cast" is two primary answers
+/// saying opposite things. `elsewhere` takes the Confirm away because the zone
+/// browser's footer already draws one, and a player ticking a fetchland's
+/// target saw the same word twice on one screen.
+///
+/// What did not come from `sync_overlay` is the middle button of a priority,
+/// which had no button at all before the shelf: see [`Says`].
 fn answers_for(
     duel: &Duel,
     lang: Lang,
     over: bool,
     waiting: bool,
     elsewhere: bool,
-) -> Vec<(PromptAction, String)> {
+) -> Vec<(Says, String)> {
     use baylee_engine::choice::Pending;
     if over || waiting || duel.cast_menu.is_some() {
         return Vec::new();
     }
-    let say = |action: PromptAction, phrase: Phrase| (action, phrase.text(lang).to_string());
+    let say = |action: PromptAction, phrase: Phrase| {
+        (Says::Answer(action), phrase.text(lang).to_string())
+    };
     match duel
         .interaction
         .as_ref()
@@ -480,10 +526,23 @@ fn answers_for(
         // not interchangeable on a button: "OK" acknowledges something that
         // has already happened. "Skip turn" beside it is the same decision at
         // the larger size, and is where the phase rail's fast-forward went.
-        Some(Pending::Priority { .. }) => vec![
-            say(PromptAction::Confirm, Phrase::PassPriority),
-            say(PromptAction::SkipTurn, Phrase::SkipTheTurn),
-        ],
+        //
+        // Between them, and only while there is a stack to let go: three
+        // buttons, three mechanisms — the engine's own answer, an engine hold,
+        // and a client-side autopilot that never reaches the wire at all. They
+        // look alike on purpose; what they have in common is that each of them
+        // is a way of saying "not now".
+        Some(Pending::Priority { .. }) => {
+            let mut row = vec![say(PromptAction::Confirm, Phrase::PassPriority)];
+            if duel.can_hold_for_stack() {
+                row.push((
+                    Says::Command(super::MenuAction::HoldForStack),
+                    Phrase::ResolveTheStack.text(lang).to_string(),
+                ));
+            }
+            row.push(say(PromptAction::SkipTurn, Phrase::SkipTheTurn));
+            row
+        }
         // Combat always offers all three, including with nothing declared:
         // "none" is a real answer, and the step does not end without one.
         Some(Pending::ChooseAttackers { .. }) => vec![
@@ -517,9 +576,14 @@ fn answers_for(
 /// the action that sends it, and `chords` is the account's own binding of
 /// that action. `first` and not `[0]`, because an action a player has unbound
 /// is an answer with no cap rather than a panic.
+///
+/// A [`Says::Command`] names its action here rather than through that bridge,
+/// which reaches `PromptAction` alone. That is one line per command and the
+/// alternative is worse: `shortcut_for` lives in client-core, where
+/// `MenuAction` is a renderer type it does not know and should not learn.
 fn keys_for(
     prefs: &crate::prefs::Prefs,
-    answers: &[(PromptAction, String)],
+    answers: &[(Says, String)],
     armed: bool,
 ) -> Vec<Option<String>> {
     let legend = |action| {
@@ -541,7 +605,18 @@ fn keys_for(
     }
     answers
         .iter()
-        .map(|(action, _)| baylee_client_core::ledge::shortcut_for(*action).and_then(legend))
+        .map(|(says, _)| match says {
+            Says::Answer(action) => baylee_client_core::ledge::shortcut_for(*action),
+            // The same key the button's own press takes: `menu_click` and the
+            // key handler both go through `Duel::hold_action`, so the cap is
+            // the truth about what the button does and not merely about what
+            // else would do it.
+            Says::Command(super::MenuAction::HoldForStack) => {
+                Some(baylee_client_core::prefs::Action::HoldForStack)
+            }
+            Says::Command(_) => None,
+        })
+        .map(|action| action.and_then(legend))
         .collect()
 }
 
@@ -831,11 +906,7 @@ fn cap_width(legend: &str) -> f32 {
 /// The estimate [`baylee_client_core::ledge::arrange`] is fed, and the reason
 /// [`super::text_width`] exists — `bevy_ui` measures text during layout, and
 /// this is a decision the layout depends on.
-fn mid_width(
-    sentence: Option<&str>,
-    answers: &[(PromptAction, String)],
-    caps: &[Option<String>],
-) -> f32 {
+fn mid_width(sentence: Option<&str>, answers: &[(Says, String)], caps: &[Option<String>]) -> f32 {
     let buttons: f32 = answers
         .iter()
         .enumerate()
@@ -1026,10 +1097,11 @@ mod tests {
 
     /// A keycap is a floor and not a width.
     ///
-    /// `F6` sits in the 20-pixel square [`KEYCAP_SIDE`] gives it and `⇧Tab`
-    /// does not, which is the whole reason `sheet::cap`'s box grows with its
-    /// legend — and the reason §2.3's own worked example is 18 pixels light:
-    /// it measures `[Space]` at the square, and "Space" is five characters.
+    /// `F6` sits in the 20-pixel square [`KEYCAP_SIDE`] gives it and
+    /// `Shift+Tab` does not, which is the whole reason `sheet::cap`'s box
+    /// grows with its legend — and the reason §2.3's own worked example is 18
+    /// pixels light: it measures `[Space]` at the square, and "Space" is five
+    /// characters.
     #[test]
     fn a_long_chord_gets_a_wider_key() {
         let square = CAP_PT * KEYCAP_SIDE;
@@ -1038,7 +1110,7 @@ mod tests {
             "one character sits in the square: {}",
             cap_width("6")
         );
-        for chord in ["\u{21e7}Tab", "Space"] {
+        for chord in ["Shift+Tab", "Space"] {
             assert!(
                 cap_width(chord) > square,
                 "`{chord}` does not, and clipping a chord would be worse than \
@@ -1054,6 +1126,45 @@ mod tests {
             cap_width("Space") - square > 17.0,
             "the design's arithmetic was out by {}",
             cap_width("Space") - square
+        );
+    }
+
+    /// A command's cap names the key that does the same thing, and it comes
+    /// out of the keymap like every other cap on the shelf.
+    ///
+    /// The bridge [`keys_for`] uses for an answer —
+    /// `baylee_client_core::ledge::shortcut_for` — reaches `PromptAction`
+    /// alone, so a [`Says::Command`] names its action in the renderer. This is
+    /// what makes that a mapping rather than a guess: unbind
+    /// `Action::HoldForStack` in the default keymap and the cap goes, which is
+    /// right; point it at another action and this fails, which is the part
+    /// worth having.
+    #[test]
+    fn a_command_wears_the_key_that_does_the_same_thing() {
+        let prefs = crate::prefs::Prefs::default();
+        let row = vec![
+            (Says::Answer(PromptAction::Confirm), "Pass".to_string()),
+            (
+                Says::Command(super::MenuAction::HoldForStack),
+                "Resolve the stack".to_string(),
+            ),
+        ];
+        let caps = keys_for(&prefs, &row, false);
+        assert_eq!(
+            caps.get(1).and_then(Option::as_deref),
+            Some("F6"),
+            "the whole claim of the cap is that this key does this: {caps:?}"
+        );
+        // The counter-half: a command with no key of its own wears none,
+        // rather than borrowing the one beside it.
+        let row = vec![(
+            Says::Command(super::MenuAction::Concede),
+            "Concede".to_string(),
+        )];
+        assert_eq!(
+            keys_for(&prefs, &row, false),
+            vec![None],
+            "a concession has no key and must not grow one here"
         );
     }
 }

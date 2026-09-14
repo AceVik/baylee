@@ -1033,6 +1033,22 @@ struct Believed<'w, 's> {
             &'static bevy::ui::UiGlobalTransform,
         ),
     >,
+    /// Everything a player can press that is not an answer: the concession,
+    /// the draw offer, the armed card's two halves and "resolve the stack".
+    ///
+    /// Left out until the shelf put one of them in the row of answers, where
+    /// a harness reading only `prompt` rows sees a gap between two buttons and
+    /// nothing in it. They were always worth having — a concession has no key
+    /// at all, and the way to end a driven game was to close the window.
+    menus: Query<
+        'w,
+        's,
+        (
+            &'static crate::hud::MenuButton,
+            &'static bevy::ui::ComputedNode,
+            &'static bevy::ui::UiGlobalTransform,
+        ),
+    >,
 }
 
 /// What the client believes, as JSON.
@@ -1309,13 +1325,15 @@ fn cards_json(believed: &Believed, duel: &Duel, window: Vec2) -> String {
     format!("[{}]", rows.join(","))
 }
 
-/// Where the answers are: the prompt bar's buttons and the two choosers.
+/// Where the answers are: the shelf's buttons, the two choosers, and
+/// everything that acts on the game without answering it.
 ///
 /// `kind` says which list a button came from and `label` which one it is —
-/// the prompt action by name (`Yes`, `No`, `Confirm`, `DeclareNothing`,
-/// `Step(1)`), and a position for the ability and choice rows, which is what
-/// those carry themselves: both are rebuilt from the current `LegalActions`
-/// when pressed, so an index is the only stable handle there is.
+/// the prompt or menu action by name (`Yes`, `No`, `Confirm`,
+/// `DeclareNothing`, `Step(1)`, `Concede`, `HoldForStack`), and a position for
+/// the ability and choice rows, which is what those carry themselves: both are
+/// rebuilt from the current `LegalActions` when pressed, so an index is the
+/// only stable handle there is.
 ///
 /// This exists because the keyboard does not reach all of it. `Yes` and `No`
 /// have no binding at all — see `docs/observed-faults.md` — so without these
@@ -1349,6 +1367,14 @@ fn buttons_json(believed: &Believed) -> String {
     }
     for (button, node, place) in &believed.choices {
         push("choice", button.index.to_string(), node, place.translation);
+    }
+    for (button, node, place) in &believed.menus {
+        push(
+            "menu",
+            format!("{:?}", button.action),
+            node,
+            place.translation,
+        );
     }
     rows.sort_unstable();
     format!("[{}]", rows.join(","))

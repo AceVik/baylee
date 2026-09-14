@@ -2064,6 +2064,20 @@ fn menu_click(duel: &mut Duel, action: MenuAction, was_armed: bool) {
                 duel.submit(action);
             }
         }
+        // The mirror of the line above, down to the road it takes:
+        // `hold_action(false)` is what F6 sends, and which of the two things
+        // it sends is decided by the *current* view. So the button's own
+        // condition is re-read here — a stack that emptied, or a hold that
+        // started, since the shelf was drawn turns this press into a promise
+        // to do nothing or into a cancellation, and neither is what the cap
+        // says.
+        MenuAction::HoldForStack => {
+            if duel.can_hold_for_stack()
+                && let Some(action) = duel.hold_action(false)
+            {
+                duel.submit(action);
+            }
+        }
         // The same door the keys use, so the two ways of confirming cannot
         // drift; `fire_armed` re-resolves against the current `LegalActions`.
         MenuAction::SendArmed => fire_armed(duel),

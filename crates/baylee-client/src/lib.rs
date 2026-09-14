@@ -807,6 +807,28 @@ impl Duel {
         Some(PlayerAction::SetPriorityHold(hold))
     }
 
+    /// Whether "let the stack resolve" is a thing this seat could ask for.
+    ///
+    /// Two facts, and each of them changes what the *same* press does rather
+    /// than merely greying it out. On an empty stack [`hold_action(false)`]
+    /// sends `UntilStackEmpty { depth: 0 }`, a hold that is over before it
+    /// begins — a button promising to do nothing. And while a hold is already
+    /// running it sends `Always`, which **cancels** that hold: the button
+    /// under the F6 cap would do the opposite of what its label says. §4.4 of
+    /// the ledge design draws that second state as its own sentence, which is
+    /// why this is a predicate and not a disabled control.
+    ///
+    /// Read by both the drawing and the press, so a stack that emptied between
+    /// the two cannot be held against.
+    ///
+    /// [`hold_action(false)`]: Duel::hold_action
+    #[must_use]
+    pub fn can_hold_for_stack(&self) -> bool {
+        self.view
+            .as_ref()
+            .is_some_and(|v| !v.stack.is_empty() && !v.priority_held)
+    }
+
     /// Whether the engine would take a draw offer right now.
     ///
     /// `Engine::offer_draw` refuses anything but the offerer's own priority,

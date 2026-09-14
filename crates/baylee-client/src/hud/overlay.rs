@@ -2121,6 +2121,16 @@ mod tests {
         duel
     }
 
+    /// A priority with something on the stack to let go of, and no hold
+    /// running.
+    fn duel_with_a_stack() -> Duel {
+        let mut duel = duel_saying(false, false);
+        let view = duel.view.as_mut().expect("the seat has a view");
+        view.stack = vec![baylee_client_core::test_support::token(9, 1, "Shock", 0, 0)];
+        crate::rebuild_board(&mut duel);
+        duel
+    }
+
     /// Once a result is standing, this overlay offers nothing.
     ///
     /// Four things, and only the first of them was ever silenced. A refusal
@@ -2251,12 +2261,73 @@ mod tests {
              same loss one level down: a `Feel` under the pointer goes back \
              to rest"
         );
+        // A `MenuButton` reads as "was rebuilt" here only because *this* duel
+        // draws none on the shelf: `duel_with(false)` has an empty stack and
+        // nothing armed, so the only ones in the world are the top-right
+        // pair. Neither of those states is exotic — the armed row and
+        // "resolve the stack" both put one on the shelf, where it persists —
+        // so anything added to this half has to say which entities it means.
+        // Step 5 moves the pair onto the shelf too and the half goes with it.
         let now_pills = pills(&mut app);
         assert!(!now_pills.is_empty(), "the overlay still draws them");
         assert!(
             now_pills.iter().all(|e| !was_pills.contains(e)),
             "the overlay stopped rebuilding: it is still showing the tree it \
              built for a different frame"
+        );
+    }
+
+    /// The stack has an answer of its own, and it is only offered while there
+    /// is a stack.
+    ///
+    /// Three mechanisms stand in that row and look alike deliberately — the
+    /// engine's `Pass`, an engine hold, and a client-side autopilot — so the
+    /// one thing a test can check is that the middle of them appears exactly
+    /// when it does something. On an empty stack `hold_action(false)` sends
+    /// `UntilStackEmpty { depth: 0 }`, a hold that ends on the frame it
+    /// begins.
+    ///
+    /// The cap it wears is `ledge::a_command_wears_the_key_that_does_the_same
+    /// _thing`'s and not this test's: a headless app has no `Window`, so the
+    /// shelf is arranged against the 1200-pixel fallback and spends that rung
+    /// on the keycaps first — the caps are legitimately absent here.
+    #[test]
+    fn the_stack_can_be_let_go_of_only_while_there_is_one() {
+        let held = Phrase::ResolveTheStack.text(Lang::En).to_string();
+
+        let mut empty = bar_of(duel_saying(false, false));
+        let lines = said(&mut empty);
+        assert!(
+            !lines.contains(&held),
+            "a hold until an empty stack is empty promises nothing: {lines:?}"
+        );
+
+        let mut app = bar_of(duel_with_a_stack());
+        let lines = said(&mut app);
+        assert!(
+            lines.contains(&held),
+            "there is a stack, so there is something to let resolve: {lines:?}"
+        );
+
+        // And it is a `MenuButton`, not an answer: the engine was not asked
+        // this. `menu_click` is the other half — it re-reads the same
+        // predicate before sending.
+        let mut q = app
+            .world_mut()
+            .query_filtered::<&MenuButton, With<crate::ambience::Feel>>();
+        let kinds: Vec<MenuAction> = q.iter(app.world()).map(|b| b.action).collect();
+        assert!(
+            kinds.contains(&MenuAction::HoldForStack),
+            "the button carries the deed it does: {kinds:?}"
+        );
+        let mut prompts = app.world_mut().query::<&PromptButton>();
+        let answers: Vec<PromptAction> = prompts
+            .iter(app.world())
+            .map(|b| b.action)
+            .collect::<Vec<_>>();
+        assert!(
+            answers.contains(&PromptAction::Confirm) && answers.contains(&PromptAction::SkipTurn),
+            "and it stands between the two that are answers: {answers:?}"
         );
     }
 
