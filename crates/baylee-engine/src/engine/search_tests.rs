@@ -113,7 +113,7 @@ fn cultivate_puts_one_land_onto_the_battlefield_and_the_other_in_hand() {
 /// Finding fewer cards than the search allows fills the finds from the front:
 /// one basic land found by Cultivate is put onto the battlefield tapped, not
 /// into hand. That is the order the printed text names, and the order the
-/// forge reference resolves its two sub-abilities in.
+/// scripts reference resolves its two sub-abilities in.
 #[test]
 fn one_land_found_takes_the_first_destination() {
     let p0 = PlayerId::new(0);

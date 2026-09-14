@@ -1,7 +1,7 @@
 //! xtask — baylee development tasks (codegen, card explanation, …).
 
 use baylee_cards_codegen::{
-    acceptance, catalog, forge, forgegen, landgen, layout, ledger, lines, scryfall, stubgen,
+    acceptance, catalog, landgen, layout, ledger, lines, scriptgen, scripts, scryfall, stubgen,
 };
 use clap::{Parser, Subcommand};
 use std::collections::{BTreeMap, BTreeSet};
@@ -17,17 +17,14 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Cmd {
-    /// Regenerate subtype constants, card stubs, registry, and the forge index.
+    /// Regenerate subtype constants, card stubs, registry, and the script index.
     Codegen {
         /// Verify generated files are up to date instead of writing (CI).
         #[arg(long)]
         check: bool,
-        /// Path to the forge-reference cardsfolder.
-        #[arg(
-            long,
-            default_value = "../mtg/forge-reference/forge-gui/res/cardsfolder"
-        )]
-        forge: PathBuf,
+        /// Path to the card-script reference cardsfolder.
+        #[arg(long, default_value = "../mtg/card-scripts")]
+        scripts: PathBuf,
         /// Directory for cached Scryfall responses.
         #[arg(long, default_value = "data/scryfall-cache")]
         cache: PathBuf,
@@ -49,14 +46,11 @@ enum Cmd {
         #[arg(long)]
         out: PathBuf,
     },
-    /// Report how much of the forge-reference corpus the transcoder reads.
-    ForgeReport {
-        /// Path to the forge-reference cardsfolder.
-        #[arg(
-            long,
-            default_value = "../mtg/forge-reference/forge-gui/res/cardsfolder"
-        )]
-        forge: PathBuf,
+    /// Report how much of the card-script reference corpus the transcoder reads.
+    TranscodeReport {
+        /// Path to the card-script reference cardsfolder.
+        #[arg(long, default_value = "../mtg/card-scripts")]
+        scripts: PathBuf,
         /// Print this many refused scripts, for finding the next rule to add.
         #[arg(long, default_value_t = 0)]
         samples: usize,
@@ -127,19 +121,16 @@ enum Cmd {
     /// header to its printing and the sweeps pin behaviour to the `CardDef`,
     /// and neither can see a `CardDef` a person typed wrong.
     CrossRead {
-        /// Path to the forge-reference cardsfolder.
-        #[arg(
-            long,
-            default_value = "../mtg/forge-reference/forge-gui/res/cardsfolder"
-        )]
-        forge: PathBuf,
+        /// Path to the card-script reference cardsfolder.
+        #[arg(long, default_value = "../mtg/card-scripts")]
+        scripts: PathBuf,
         /// Print this many disagreeing cards with the script that caused it.
         #[arg(long, default_value_t = 0)]
         samples: usize,
     },
     /// Rank the land sentences `landgen` cannot read yet.
     ///
-    /// The counterpart to `forge-report`, and worth its own command for the
+    /// The counterpart to `transcode-report`, and worth its own command for the
     /// reason that one exists: every card in the pool that is still a
     /// generated stub is a land — 792 of them — and land text is formulaic.
     /// A sentence shape taught to `landgen` is not one card; it is every land
@@ -183,24 +174,18 @@ enum Cmd {
         /// three cards with one each.
         #[arg(long, default_value_t = 6)]
         max_new: usize,
-        /// Path to the forge-reference cardsfolder.
-        #[arg(
-            long,
-            default_value = "../mtg/forge-reference/forge-gui/res/cardsfolder"
-        )]
-        forge: PathBuf,
+        /// Path to the card-script reference cardsfolder.
+        #[arg(long, default_value = "../mtg/card-scripts")]
+        scripts: PathBuf,
     },
-    /// Show Scryfall + forge-reference data for a card side by side.
+    /// Show Scryfall + card-script reference data for a card side by side.
     Explain {
         /// Exact card name.
         #[arg(long)]
         name: String,
-        /// Path to the forge-reference cardsfolder.
-        #[arg(
-            long,
-            default_value = "../mtg/forge-reference/forge-gui/res/cardsfolder"
-        )]
-        forge: PathBuf,
+        /// Path to the card-script reference cardsfolder.
+        #[arg(long, default_value = "../mtg/card-scripts")]
+        scripts: PathBuf,
         /// Directory for cached Scryfall responses.
         #[arg(long, default_value = "data/scryfall-cache")]
         cache: PathBuf,
@@ -214,12 +199,9 @@ enum Cmd {
         /// Output directory for task packages.
         #[arg(long, default_value = "target/card-batch")]
         out: PathBuf,
-        /// Path to the forge-reference cardsfolder.
-        #[arg(
-            long,
-            default_value = "../mtg/forge-reference/forge-gui/res/cardsfolder"
-        )]
-        forge: PathBuf,
+        /// Path to the card-script reference cardsfolder.
+        #[arg(long, default_value = "../mtg/card-scripts")]
+        scripts: PathBuf,
         /// Directory for cached Scryfall responses.
         #[arg(long, default_value = "data/scryfall-cache")]
         cache: PathBuf,
@@ -231,7 +213,7 @@ enum Cmd {
     /// A card one of the readers wrote in full is **machine-owned**: codegen
     /// rewrites it on every run, which is what makes "fix the reader, not the
     /// card" enforceable rather than a convention — a rule corrected in
-    /// `landgen` or `forgegen` reaches every card that rule wrote, at once.
+    /// `landgen` or `scriptgen` reaches every card that rule wrote, at once.
     /// The cost is that a hand edit to such a file is reverted on the next
     /// run, silently as far as the editor is concerned.
     ///
@@ -304,18 +286,18 @@ fn main() -> anyhow::Result<()> {
     match cli.cmd {
         Cmd::Codegen {
             check,
-            forge,
+            scripts,
             cache,
-        } => codegen(&root, check, &forge, &cache),
+        } => codegen(&root, check, &scripts, &cache),
         Cmd::AbilityLines => ability_lines(&root),
         Cmd::PoolDump { out } => pool_dump(&out),
-        Cmd::ForgeReport {
-            forge,
+        Cmd::TranscodeReport {
+            scripts,
             samples,
             stubs,
             reason,
-        } => forge_report(&root, &forge, samples, stubs, reason.as_deref()),
-        Cmd::CrossRead { forge, samples } => cross_read(&root, &forge, samples),
+        } => transcode_report(&root, &scripts, samples, stubs, reason.as_deref()),
+        Cmd::CrossRead { scripts, samples } => cross_read(&root, &scripts, samples),
         Cmd::LandReport {
             samples,
             worklist,
@@ -325,15 +307,19 @@ fn main() -> anyhow::Result<()> {
         Cmd::CoverageSet {
             count,
             max_new,
-            forge,
-        } => coverage_set(&root, &forge, count, max_new),
-        Cmd::Explain { name, forge, cache } => explain(&root, &name, &forge, &cache),
+            scripts,
+        } => coverage_set(&root, &scripts, count, max_new),
+        Cmd::Explain {
+            name,
+            scripts,
+            cache,
+        } => explain(&root, &name, &scripts, &cache),
         Cmd::CardBatch {
             cards,
             out,
-            forge,
+            scripts,
             cache,
-        } => card_batch(&root, cards.as_deref(), &out, &forge, &cache),
+        } => card_batch(&root, cards.as_deref(), &out, &scripts, &cache),
         Cmd::Validate => validate(&root),
         Cmd::Adopt { name } => adopt(&root, &name),
         Cmd::RefreshOracle { dry_run } => refresh_oracle(&root, dry_run),
@@ -455,7 +441,7 @@ fn cards(
     agent: &ureq::Agent,
     cache: &Path,
     cats: &catalog::SubtypeCatalogs,
-    forge: Option<&forgegen::ForgeLookup>,
+    scripts: Option<&scriptgen::ScriptLookup>,
     changed: &mut Vec<PathBuf>,
 ) -> anyhow::Result<()> {
     let decks_text = fs::read_to_string(root.join("data/acceptance-decks.txt"))?;
@@ -507,7 +493,7 @@ fn cards(
         let card = scryfall::fetch_named(name, agent, cache)?;
         let oracle_id = card.oracle_id.clone().unwrap_or_default();
         let index = ledger.assign(&oracle_id, &card.name);
-        let (info, content) = stubgen::render_stub(&card, index, cats, forge, &cycles)?;
+        let (info, content) = stubgen::render_stub(&card, index, cats, scripts, &cycles)?;
         let stub_path = cards_dir.join(&info.path);
         // A card that already exists somewhere else is *moved*, never
         // rewritten at the new path and left behind at the old one — an
@@ -582,7 +568,59 @@ fn cards(
     Ok(())
 }
 
-fn codegen(root: &Path, check: bool, forge_dir: &Path, cache: &Path) -> anyhow::Result<()> {
+/// The card-script reference, as a directory on this machine.
+///
+/// The corpus is an external, read-only lookup that is never vendored (see
+/// `NOTICE`), so there is no path that is right for everyone and a
+/// hard-coded one is right for exactly the machine it was typed on. Three
+/// answers in order: `--scripts` if what it names exists, then
+/// `BAYLEE_CARD_SCRIPTS`, then a `cardsfolder` directory found beside the
+/// repository. Failing all three it hands back the path that was asked for,
+/// so a caller that finds nothing reports what a person named rather than
+/// something this function invented.
+fn scripts_root(root: &Path, given: &Path) -> PathBuf {
+    let asked = root.join(given);
+    if asked.exists() {
+        return asked;
+    }
+    if let Some(named) = std::env::var_os(SCRIPTS_ENV) {
+        let named = root.join(named);
+        if named.exists() {
+            return named;
+        }
+    }
+    find_cardsfolder(&root.join(".."), 4).unwrap_or(asked)
+}
+
+/// The environment variable that names the corpus, for a checkout sitting
+/// somewhere this cannot guess.
+const SCRIPTS_ENV: &str = "BAYLEE_CARD_SCRIPTS";
+
+/// The first directory named `cardsfolder` within `depth` levels of `at`.
+///
+/// Bounded and breadth-first on purpose: the corpus is a sibling checkout a
+/// level or two away, and an unbounded walk from the parent of a repository
+/// is a walk of somebody's whole home directory.
+fn find_cardsfolder(at: &Path, depth: usize) -> Option<PathBuf> {
+    if depth == 0 {
+        return None;
+    }
+    let mut dirs = Vec::new();
+    for entry in fs::read_dir(at).ok()?.flatten() {
+        if !entry.file_type().is_ok_and(|kind| kind.is_dir()) {
+            continue;
+        }
+        let path = entry.path();
+        if path.file_name().is_some_and(|name| name == "cardsfolder") {
+            return Some(path);
+        }
+        dirs.push(path);
+    }
+    dirs.into_iter()
+        .find_map(|dir| find_cardsfolder(&dir, depth - 1))
+}
+
+fn codegen(root: &Path, check: bool, scripts_dir: &Path, cache: &Path) -> anyhow::Result<()> {
     let cache = root.join(cache);
     let agent = ureq::Agent::new_with_defaults();
     let mut changed = Vec::new();
@@ -604,24 +642,24 @@ fn codegen(root: &Path, check: bool, forge_dir: &Path, cache: &Path) -> anyhow::
         &mut changed,
     )?;
 
-    // 2. forge-reference index. Built before the stubs, because a stub is
+    // 2. card-script reference index. Built before the stubs, because a stub is
     //    transcoded from the rules reference when one is checked out locally
     //    (read as an automated lookup, never copied).
-    let forge_dir = root.join(forge_dir);
-    let lookup = if forge_dir.exists() {
-        let index = forge::build_index(&forge_dir)?;
+    let scripts_dir = scripts_root(root, scripts_dir);
+    let lookup = if scripts_dir.exists() {
+        let index = scripts::build_index(&scripts_dir)?;
         write_or_check(
             check,
-            &root.join("data/forge_index.json"),
+            &root.join("data/script-index.json"),
             &serde_json::to_string_pretty(&index)?,
             &mut changed,
         )?;
-        println!("forge index: {} scripts", index.len());
-        Some(forgegen::ForgeLookup::new(forge_dir.clone(), index))
+        println!("script index: {} scripts", index.len());
+        Some(scriptgen::ScriptLookup::new(scripts_dir.clone(), index))
     } else {
         println!(
-            "note: forge-reference not found at {}, skipping index",
-            forge_dir.display()
+            "note: card-script reference not found at {}, skipping index",
+            scripts_dir.display()
         );
         None
     };
@@ -689,12 +727,12 @@ fn exemplar_for(type_line: &str) -> &'static str {
     "polluted_delta"
 }
 
-/// Builds per-card task packages (stub + forge script + exemplar + prompt).
+/// Builds per-card task packages (stub + reference script + exemplar + prompt).
 fn card_batch(
     root: &Path,
     cards: Option<&str>,
     out: &Path,
-    forge_dir: &Path,
+    scripts_dir: &Path,
     cache: &Path,
 ) -> anyhow::Result<()> {
     let agent = ureq::Agent::new_with_defaults();
@@ -707,8 +745,8 @@ fn card_batch(
     // batch, which is most of the pool.
     let pool_text = fs::read_to_string(root.join("data/card-pool.txt")).unwrap_or_default();
     let names = acceptance::all_names(&rows, &pool_text);
-    let forge_index: BTreeMap<String, String> = serde_json::from_str(
-        &fs::read_to_string(root.join("data/forge_index.json")).unwrap_or_default(),
+    let script_index: BTreeMap<String, String> = serde_json::from_str(
+        &fs::read_to_string(root.join("data/script-index.json")).unwrap_or_default(),
     )?;
     // One walk of the tree rather than one per card: `cards/` is a taxonomy
     // now, and a card is found by its slug wherever it has been filed.
@@ -755,13 +793,13 @@ fn card_batch(
             .unwrap_or(stub_path)
             .display()
             .to_string();
-        // 2. Forge script (ground truth).
-        let mut has_forge = false;
-        if let Some(rel) = forge_index.get(name) {
-            let script = root.join(forge_dir).join(rel);
+        // 2. Reference script (ground truth).
+        let mut has_script = false;
+        if let Some(rel) = script_index.get(name) {
+            let script = scripts_root(root, scripts_dir).join(rel);
             if script.exists() {
-                fs::write(dir.join("FORGE.txt"), fs::read_to_string(script)?)?;
-                has_forge = true;
+                fs::write(dir.join("SCRIPT.txt"), fs::read_to_string(script)?)?;
+                has_script = true;
             }
         }
         // 3. Scryfall JSON (metadata).
@@ -779,7 +817,7 @@ fn card_batch(
         // 5. Prompt.
         fs::write(
             dir.join("PROMPT.md"),
-            card_prompt(name, &rel, &dir, has_forge),
+            card_prompt(name, &rel, &dir, has_script),
         )?;
     }
     Ok(())
@@ -791,7 +829,7 @@ fn card_batch(
 /// tools and reads the package itself), not for one being handed pasted
 /// text: `SCRYFALL.json` alone would dominate the budget, and most of it is
 /// printing metadata the card does not care about.
-fn card_prompt(name: &str, file: &str, package: &Path, has_forge: bool) -> String {
+fn card_prompt(name: &str, file: &str, package: &Path, has_script: bool) -> String {
     let prompt = format!(
         "# Implement `{name}` in this repository\n\n\
          Edit exactly one file: `{file}`.\n\
@@ -800,7 +838,7 @@ fn card_prompt(name: &str, file: &str, package: &Path, has_forge: bool) -> Strin
          Read first, in this order:\n\
          - `crates/baylee-cards/AGENTS.md` — the playbook you are bound by.\n\
          - `docs/card-dsl.md` — the authoring contract and the full vocabulary.\n\
-         {forge_line}\
+         {script_line}\
          - `{package}/EXEMPLAR.rs` — an implemented card of the same type; match its style.\n\
          - `{package}/SCRYFALL.json` — metadata, if you need the printed details.\n\n\
          Hard rules:\n\
@@ -841,13 +879,13 @@ fn card_prompt(name: &str, file: &str, package: &Path, has_forge: bool) -> Strin
         // script under its printed name, and pointing an agent at a file
         // that does not exist spends a turn and teaches it that the
         // package's promises are approximate.
-        forge_line = if has_forge {
+        script_line = if has_script {
             format!(
-                "- `{}/FORGE.txt` — the forge-reference script; rules ground truth.\n",
+                "- `{}/SCRIPT.txt` — the card-script reference script; rules ground truth.\n",
                 package.display()
             )
         } else {
-            "There is no forge-reference script for this card. The oracle text in \
+            "There is no card-script reference script for this card. The oracle text in \
              the stub header is all the ground truth there is; if that leaves a \
              clause genuinely ambiguous, refuse rather than guess.\n"
                 .to_string()
@@ -2123,7 +2161,7 @@ fn check_card_matches_the_printing(
 /// Cleric said Human in its header and in its `subtypes` for as long as it
 /// had existed, and the printing says Kor. Raffine's Tower is the extreme of
 /// the same class: a `TypeSet::LAND` with no subtypes at all, so it made no
-/// mana (CR 305.6), and it took a second reader of the forge script to find.
+/// mana (CR 305.6), and it took a second reader of the reference script to find.
 ///
 /// What is compared is [`baylee_cards::pool::type_line`], the **one**
 /// renderer there is, rather than a set built here for the purpose. That is
@@ -2133,7 +2171,7 @@ fn check_card_matches_the_printing(
 /// Stronghold are `Legendary Land` on the card and were plain `Land` in the
 /// code, which is the legend rule (CR 704.5j) not applying to two of them.
 /// A second table of type words in this file would have been a second
-/// classifier to keep in step, which is the mistake `forge-report` already
+/// classifier to keep in step, which is the mistake `transcode-report` already
 /// made once.
 ///
 /// Order is part of the comparison because it is part of the card: the words
@@ -2981,7 +3019,7 @@ fn pool_dump(out: &Path) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn explain(root: &Path, name: &str, forge_dir: &Path, cache: &Path) -> anyhow::Result<()> {
+fn explain(root: &Path, name: &str, scripts_dir: &Path, cache: &Path) -> anyhow::Result<()> {
     let cache = root.join(cache);
     let agent = ureq::Agent::new_with_defaults();
     let card = scryfall::fetch_named(name, &agent, &cache)?;
@@ -2992,19 +3030,19 @@ fn explain(root: &Path, name: &str, forge_dir: &Path, cache: &Path) -> anyhow::R
         card.type_line.as_deref().unwrap_or(""),
         card.oracle_text.as_deref().unwrap_or("")
     );
-    let index_path = root.join("data/forge_index.json");
+    let index_path = root.join("data/script-index.json");
     if index_path.exists() {
         let index: BTreeMap<String, String> =
             serde_json::from_str(&fs::read_to_string(&index_path)?)?;
         if let Some(rel) = index.get(name) {
-            let script = root.join(forge_dir).join(rel);
-            println!("== forge-reference ({}) ==", script.display());
+            let script = scripts_root(root, scripts_dir).join(rel);
+            println!("== card-script reference ({}) ==", script.display());
             println!("{}", fs::read_to_string(&script).unwrap_or_default());
         } else {
-            println!("forge-reference: no script found for {name:?}");
+            println!("card-script reference: no script found for {name:?}");
         }
     } else {
-        println!("note: data/forge_index.json missing; run `cargo xtask codegen`");
+        println!("note: data/script-index.json missing; run `cargo xtask codegen`");
     }
     Ok(())
 }
@@ -3297,19 +3335,19 @@ fn dev_table(
     Ok(())
 }
 
-/// Counts how many forge-reference scripts the transcoder reads in full.
+/// Counts how many reference scripts the transcoder reads in full.
 ///
 /// The number is the honest ceiling on what `codegen` can generate from the
 /// rules reference: a script it refuses becomes an ordinary stub, so this is
 /// also the list of rules worth adding next.
-fn forge_report(
+fn transcode_report(
     root: &Path,
-    forge_dir: &Path,
+    scripts_dir: &Path,
     samples: usize,
     stubs: bool,
     reason: Option<&str>,
 ) -> anyhow::Result<()> {
-    let dir = root.join(forge_dir);
+    let dir = scripts_root(root, scripts_dir);
     let cache = root.join("data/scryfall-cache");
     let agent = ureq::Agent::new_with_defaults();
     let mut cats = catalog::SubtypeCatalogs {
@@ -3351,8 +3389,8 @@ fn forge_report(
             }
             hit.insert(name.to_string());
         }
-        let script = forgegen::parse(&text);
-        if forgegen::transcode(&script, &cats).is_some() {
+        let script = scriptgen::parse(&text);
+        if scriptgen::transcode(&script, &cats).is_some() {
             read += 1;
         } else {
             refused += 1;
@@ -3367,12 +3405,12 @@ fn forge_report(
     }
     let total = read + refused;
     println!(
-        "forge transcoder: {read} / {total} scripts read in full ({}%)",
+        "transcoder: {read} / {total} scripts read in full ({}%)",
         (read * 100).checked_div(total).unwrap_or(0)
     );
     if let Some((_, cards)) = &wanted {
         println!(
-            "  over our own stubs: {} of {cards} have a forge script",
+            "  over our own stubs: {} of {cards} have a reference script",
             hit.len()
         );
     }
@@ -3388,7 +3426,7 @@ fn forge_report(
 /// Chooses the cards that would teach the engine the most, and says what
 /// each one asks for.
 ///
-/// One refused forge script, reduced to the mechanics it uses.
+/// One refused reference script, reduced to the mechanics it uses.
 struct Card {
     name: String,
     atoms: Vec<String>,
@@ -3442,8 +3480,13 @@ fn greedy_pick(
 /// many new atoms it has but how many *other cards in the corpus* those
 /// atoms block. A mechanic one card uses is a curiosity; a mechanic four
 /// hundred cards use is the next thing to build.
-fn coverage_set(root: &Path, forge_dir: &Path, count: usize, max_new: usize) -> anyhow::Result<()> {
-    let dir = root.join(forge_dir);
+fn coverage_set(
+    root: &Path,
+    scripts_dir: &Path,
+    count: usize,
+    max_new: usize,
+) -> anyhow::Result<()> {
+    let dir = scripts_root(root, scripts_dir);
     let cache = root.join("data/scryfall-cache");
     let agent = ureq::Agent::new_with_defaults();
     let mut cats = catalog::SubtypeCatalogs {
@@ -3466,9 +3509,9 @@ fn coverage_set(root: &Path, forge_dir: &Path, count: usize, max_new: usize) -> 
     let mut demand: BTreeMap<String, usize> = BTreeMap::new();
     for path in &files {
         let text = fs::read_to_string(path)?;
-        let script = forgegen::parse(&text);
-        let atoms = forgegen::atoms(&script);
-        if forgegen::transcode(&script, &cats).is_some() {
+        let script = scriptgen::parse(&text);
+        let atoms = scriptgen::atoms(&script);
+        if scriptgen::transcode(&script, &cats).is_some() {
             known.extend(atoms);
             continue;
         }
@@ -3539,7 +3582,7 @@ fn stub_names(cards_dir: &Path) -> anyhow::Result<(BTreeSet<String>, usize)> {
         cards += 1;
         // The header's first line is `//! <name> — <cost> — <types>`, and a
         // double-faced card's name there is `<front> // <back>` — while the
-        // forge script for the pair is headed `Name:<front>` and holds the
+        // reference script for the pair is headed `Name:<front>` and holds the
         // back face after an `ALTERNATE` line. Matching only the joined name
         // made this worklist blind to every one of them: 104 of the 775
         // stubs, including all 81 that are not lands, and with them the
@@ -3572,13 +3615,13 @@ fn collect_scripts(dir: &Path, out: &mut Vec<PathBuf>) -> anyhow::Result<()> {
 /// This is a heuristic over the script's own text rather than a report from
 /// the transcoder: it names the first thing in the script that no rule
 /// claims, which is what makes the output a worklist.
-fn refusal_cause(script: &forgegen::ForgeScript, cats: &catalog::SubtypeCatalogs) -> String {
+fn refusal_cause(script: &scriptgen::CardScript, cats: &catalog::SubtypeCatalogs) -> String {
     if let Some(line) = script.unknown_lines.first() {
         let head = line.split(':').next().unwrap_or(line);
         return format!("unmodelled line kind `{head}:`");
     }
     for line in &script.keywords {
-        if forgegen::keyword_const_of(line).is_none() {
+        if scriptgen::keyword_const_of(line).is_none() {
             let head = line.split(':').next().unwrap_or(line);
             let head = head.split(' ').next().unwrap_or(head);
             return format!("keyword `{head}`");
@@ -3588,12 +3631,12 @@ fn refusal_cause(script: &forgegen::ForgeScript, cats: &catalog::SubtypeCatalogs
     // on and why; re-reading the script here only knows what *this* function
     // recognises, which is how every unexplained refusal used to be filed
     // under a label that named the wrong work.
-    if let Some(why) = forgegen::refusal_reason(script, cats) {
+    if let Some(why) = scriptgen::refusal_reason(script, cats) {
         return why;
     }
     for (kind, spec) in &script.rules {
-        for api in forgegen::apis_used(spec, &script.svars) {
-            if !forgegen::is_supported_api(&api) {
+        for api in scriptgen::apis_used(spec, &script.svars) {
+            if !scriptgen::is_supported_api(&api) {
                 return format!("effect `{api}`");
             }
         }
@@ -3668,7 +3711,7 @@ impl Shape {
             match ability {
                 // A modal spell and a modal triggered ability are one spell
                 // and one trigger that offer a choice, not a shape of their
-                // own — Forge writes both as a single `Charm` line. That is
+                // own — the corpus writes both as a single `Charm` line. That is
                 // the class this report exists for: the four cards whose
                 // only spell ability is `ModalSpell` were being offered a
                 // cast with no mode at all, and `beyond` is where that hid.
@@ -3690,10 +3733,10 @@ impl Shape {
                     }
                 }
                 // CR 614.1: a replacement effect is generated by a static
-                // ability, and Forge writes one as the `S:` line it is.
+                // ability, and the corpus writes one as the `S:` line it is.
                 A::Static(_) | A::Replacement(_) => out.statics += 1,
                 // A loyalty ability *is* an activated ability (CR 606.1),
-                // and Forge writes one as an `A:AB$` line whose cost adds or
+                // and the corpus writes one as an `A:AB$` line whose cost adds or
                 // removes loyalty counters. Leaving it in `beyond` reported
                 // every planeswalker in the pool as a card that builds
                 // nothing.
@@ -3703,7 +3746,7 @@ impl Shape {
         }
         // CR 305.6: a land with a basic land type has the matching mana
         // ability intrinsically, and it is printed nowhere — Taiga's text
-        // box holds reminder text and Forge writes no `A:` line for it. The
+        // box holds reminder text and the corpus writes no `A:` line for it. The
         // DSL has no intrinsic anything, so the card spells the ability out
         // and every dual, shock and basic in the pool disagreed with a
         // script that is silent by design. One such ability per face is what
@@ -3737,15 +3780,15 @@ impl Shape {
     ///
     /// Every classification here is the parser's or the transcoder's own —
     /// `rules` is already typed `A`/`T`/`S`/`R`, `AB$` versus `SP$` is the
-    /// same test [`forgegen`] makes to pick between `activated!` and
-    /// `spell!`, and mana-ness comes from [`forgegen::apis_used`] following
+    /// same test [`scriptgen`] makes to pick between `activated!` and
+    /// `spell!`, and mana-ness comes from [`scriptgen::apis_used`] following
     /// the `SubAbility$` chain. Nothing is re-derived with a regex: a second
-    /// classifier living here is exactly how `forge-report` came to rank its
+    /// classifier living here is exactly how `transcode-report` came to rank its
     /// refusal causes wrongly.
     /// `None` where the script cannot be counted at all — see the rule under
     /// "one unread clause" below.
-    fn of_script(script: &baylee_cards_codegen::forgegen::ForgeScript) -> Result<Self, String> {
-        use baylee_cards_codegen::forgegen;
+    fn of_script(script: &baylee_cards_codegen::scriptgen::CardScript) -> Result<Self, String> {
+        use baylee_cards_codegen::scriptgen;
         let mut out = Self::default();
         for (kind, body) in &script.rules {
             match kind {
@@ -3758,11 +3801,11 @@ impl Shape {
                     // `ManaReflected` is a mana ability nothing here can
                     // recognise as one, and guessing would have reported the
                     // card for building the ability it prints.
-                    let apis = forgegen::apis_used(body, &script.svars);
+                    let apis = scriptgen::apis_used(body, &script.svars);
                     if apis.is_empty() {
                         return Err("api:<unparsed>".to_string());
                     }
-                    if let Some(api) = apis.iter().find(|api| !forgegen::is_supported_api(api)) {
+                    if let Some(api) = apis.iter().find(|api| !scriptgen::is_supported_api(api)) {
                         return Err(format!("api:{api}"));
                     }
                     if apis.iter().all(|api| api == "Mana") {
@@ -3802,7 +3845,7 @@ impl Shape {
                 "Equip" | "Cycling" => out.activated += 1,
                 // **One unread clause and the script is not counted.** This
                 // is the transcoder's own honesty rule at a shallower depth,
-                // and it is what separates a report from a guess. Forge
+                // and it is what separates a report from a guess. The corpus
                 // folds whole abilities into keywords whose payload is an
                 // `SVar` chain — `K:ETBReplacement:Copy:DBCopy` is where
                 // Progenitor Mimic's granted upkeep trigger lives, and no
@@ -3811,7 +3854,7 @@ impl Shape {
                 // finding: reporting Progenitor Mimic for building a trigger
                 // its script "does not have" would be this tool inventing a
                 // defect out of its own blind spot.
-                _ if forgegen::keyword_const_of(keyword).is_none() => {
+                _ if scriptgen::keyword_const_of(keyword).is_none() => {
                     return Err(format!("kw:{word}"));
                 }
                 _ => {}
@@ -3872,7 +3915,7 @@ fn keyword_bit(const_name: &str) -> Option<baylee_cards::dsl::KeywordSet> {
 
 /// Reads every hand-written card a second way and prints the disagreements.
 #[allow(clippy::too_many_lines)] // one paragraph per skip bucket; splitting hides the census
-fn cross_read(root: &Path, forge_dir: &Path, samples: usize) -> anyhow::Result<()> {
+fn cross_read(root: &Path, scripts_dir: &Path, samples: usize) -> anyhow::Result<()> {
     // A disagreement never fails this command — that is the tier's whole
     // stance. What *does* fail it is the reader losing sight of which cards
     // it is reading, because that is the failure this command has already
@@ -3906,12 +3949,12 @@ fn cross_read(root: &Path, forge_dir: &Path, samples: usize) -> anyhow::Result<(
     };
     cats.normalize();
 
-    let index_path = root.join("data/forge_index.json");
-    let forge_index: BTreeMap<String, String> =
+    let index_path = root.join("data/script-index.json");
+    let script_index: BTreeMap<String, String> =
         serde_json::from_str(&fs::read_to_string(&index_path).unwrap_or_default())
             .unwrap_or_default();
-    if forge_index.is_empty() {
-        println!("note: data/forge_index.json is missing or empty; run `cargo xtask codegen`");
+    if script_index.is_empty() {
+        println!("note: data/script-index.json is missing or empty; run `cargo xtask codegen`");
         return Ok(());
     }
 
@@ -3951,23 +3994,23 @@ fn cross_read(root: &Path, forge_dir: &Path, samples: usize) -> anyhow::Result<(
             not_implemented += 1;
             continue;
         }
-        let Some(rel) = forge_index.get(def.name()) else {
+        let Some(rel) = script_index.get(def.name()) else {
             no_script += 1;
             continue;
         };
-        let script_path = root.join(forge_dir).join(rel);
+        let script_path = scripts_root(root, scripts_dir).join(rel);
         let Ok(script_text) = fs::read_to_string(&script_path) else {
             no_script += 1;
             continue;
         };
-        let script = forgegen::parse(&script_text);
+        let script = scriptgen::parse(&script_text);
         // The transcoder is read at whichever of its two depths this script
         // reaches. Transcoding is the deeper one and needs every clause
         // claimed, which a hand-written card's script almost never offers —
         // it is hand-written *because* a reader could not write it. Parsing
         // is the shallower one and never refuses: a script stopped on one
         // unclaimed parameter still says how many abilities it has.
-        let body = forgegen::transcode(&script, &cats);
+        let body = scriptgen::transcode(&script, &cats);
         compared += 1;
         in_full += usize::from(body.is_some());
 
@@ -4004,7 +4047,7 @@ fn cross_read(root: &Path, forge_dir: &Path, samples: usize) -> anyhow::Result<(
         let mut script_bits = baylee_cards::dsl::KeywordSet::EMPTY;
         let mut every_keyword_read = true;
         for line in &script.keywords {
-            match forgegen::keyword_const_of(line).and_then(keyword_bit) {
+            match scriptgen::keyword_const_of(line).and_then(keyword_bit) {
                 Some(bit) => script_bits = script_bits.union(bit),
                 None => every_keyword_read = false,
             }
@@ -4088,7 +4131,7 @@ fn cross_read(root: &Path, forge_dir: &Path, samples: usize) -> anyhow::Result<(
     }
     println!(
         "  skipped: {machine} machine-owned, {not_implemented} not implemented, \
-         {no_script} with no forge script"
+         {no_script} with no reference script"
     );
 
     if !(READ_FLOOR..=READ_CEILING).contains(&compared)

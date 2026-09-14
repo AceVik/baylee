@@ -294,7 +294,7 @@ pub enum AwaitingOp {
 /// The printed cards agree on a rule rather than deciding one by one: a
 /// search narrower than "a card" reveals its find on the way to a hidden
 /// zone, and a search that ends somewhere public does not — the card is
-/// about to be visible anyway. Of the 1015 printed searches in the forge
+/// about to be visible anyway. Of the 1015 printed searches in the scripts
 /// reference, none reveals where this says it should not, so the flag a
 /// card file would carry could only ever be wrong.
 fn reveals(

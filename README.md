@@ -19,7 +19,7 @@ markers: **[Implemented]** = code exists, **[Spec]** = design target only.
 | `baylee-engine` | Deterministic rules kernel (no I/O, no async) |
 | `baylee-cards-dsl` | Card authoring framework (data model + builders) |
 | `baylee-cards` | Compiled card registry (one file per card) |
-| `baylee-cards-codegen` | Scryfall/catalog/forge-reference code generation |
+| `baylee-cards-codegen` | Scryfall/catalog/card-script reference code generation |
 | `baylee-ai` | Heuristic AI controllers (difficulty profiles) |
 | `baylee-engine-server` | Binary: one process per game, WS transport; attaches to a gateway |
 | `baylee-agent` | Binary: starts engine processes for a gateway (protocol only — no rules, no cards) |

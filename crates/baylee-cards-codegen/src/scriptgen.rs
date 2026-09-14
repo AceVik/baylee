@@ -1,6 +1,6 @@
-//! forge-reference card script → `CardDef` abilities.
+//! card-script reference card script → `CardDef` abilities.
 //!
-//! A Forge card script is a line-oriented rules encoding:
+//! A card script is a line-oriented rules encoding:
 //!
 //! ```text
 //! Name:Lightning Bolt
@@ -24,7 +24,7 @@
 //! ability quietly dropped because its `NoRegen$ True` was ignored would be
 //! worse than no card at all, because the deckbuilder would offer it.
 //!
-//! Forge is read as an automated lookup only; no Forge file is copied into
+//! The corpus is read as an automated lookup only; no file of it is copied into
 //! this repository.
 
 use crate::body::CardBody;
@@ -33,7 +33,7 @@ use std::collections::BTreeMap;
 
 /// One parsed card script.
 #[derive(Debug, Default)]
-pub struct ForgeScript {
+pub struct CardScript {
     /// `K:` lines, verbatim.
     pub keywords: Vec<String>,
     /// Rules lines as `(kind, body)` — kind is `A`, `T`, `S` or `R`.
@@ -45,7 +45,7 @@ pub struct ForgeScript {
 }
 
 /// Line prefixes whose content this project takes from Scryfall instead, or
-/// that are Forge's own deckbuilding/AI hints and carry no rules.
+/// that are the corpus's own deckbuilding/AI hints and carry no rules.
 const IGNORED_PREFIXES: &[&str] = &[
     "Name",
     "ManaCost",
@@ -65,8 +65,8 @@ const IGNORED_PREFIXES: &[&str] = &[
 
 /// Splits a card script into its rules-bearing lines.
 #[must_use]
-pub fn parse(text: &str) -> ForgeScript {
-    let mut out = ForgeScript::default();
+pub fn parse(text: &str) -> CardScript {
+    let mut out = CardScript::default();
     for line in text.lines() {
         let line = line.trim_end();
         if line.is_empty() || line.starts_with('#') {
@@ -249,14 +249,14 @@ impl Tx<'_> {
     /// The spelling that makes a silent `?` visible at the point it happens.
     /// Every refusal that reaches [`refusal_reason`] with nothing recorded is
     /// reported as "no reason recorded", which is a worklist entry naming no
-    /// work — the same fault [`crate::forgegen`]'s own report was written to
+    /// work — the same fault [`crate::scriptgen`]'s own report was written to
     /// fix one level up.
     fn deny<T>(&self, what: String) -> Option<T> {
         self.note(what);
         None
     }
 
-    /// A Forge valid-string (`Creature.YouCtrl+nonToken`) as a `Filter`.
+    /// A valid-string (`Creature.YouCtrl+nonToken`) as a `Filter`.
     fn filter_expr(&self, valid: &str) -> Option<String> {
         let mut alternatives = Vec::new();
         for alt in valid.split(',') {
@@ -294,7 +294,7 @@ impl Tx<'_> {
                     "nonToken" | "!token" => "Filter::Not(&Filter::IsToken)".to_string(),
                     "nonLand" => "Filter::Not(&Filter::LAND)".to_string(),
                     "nonCreature" => "Filter::Not(&Filter::CREATURE)".to_string(),
-                    // Supertypes read like subtypes in a forge filter but are
+                    // Supertypes read like subtypes in a script filter but are
                     // a different set on the card (CR 205.4).
                     "Basic" => "Filter::HasSupertype(SupertypeSet::BASIC)".to_string(),
                     "nonBasic" => {
@@ -380,7 +380,7 @@ impl Tx<'_> {
     /// The same as [`Self::player_rel`], for an effect that sits in a chain
     /// which *targets a player*.
     ///
-    /// Forge leaves `Defined$` off when the effect means the target, and only
+    /// The corpus leaves `Defined$` off when the effect means the target, and only
     /// the chain knows whether that target was a player. Reading the absent
     /// key as `You` there is how Piranha Marsh — "target player loses 1 life"
     /// — generated as a land that drains its own controller.
@@ -449,7 +449,7 @@ impl Tx<'_> {
         }
     }
 
-    /// One Forge effect API as the `Effect` expressions it stands for.
+    /// One effect API as the `Effect` expressions it stands for.
     ///
     /// Every parameter a rule reads is *taken* from `p`; the caller then
     /// refuses the card if anything is left, which is what stops an ignored
@@ -583,7 +583,7 @@ impl Tx<'_> {
         }
         let mut out = Vec::new();
         // Layer 4: the types it becomes. A word is either a card type or a
-        // subtype, and Forge writes both in one list.
+        // subtype, and the corpus writes both in one list.
         for word in p.take("Types")?.split(',') {
             let word = word.trim();
             let modifier = if let Some(types) = card_type_const(word) {
@@ -713,7 +713,7 @@ impl Tx<'_> {
 
     /// `ChangeZone` for the zone pairs the engine has an effect for.
     ///
-    /// Forge writes every zone change with one API and two zone names; the
+    /// The corpus writes every zone change with one API and two zone names; the
     /// engine has a named effect per movement, because the movements differ
     /// in rules and not only in destination. So this is a table of pairs,
     /// not a translation of `Destination$` — and a pair with no effect
@@ -907,7 +907,7 @@ impl Tx<'_> {
     /// A `Cost$` value as a `Cost` expression, plus whether it taps.
     ///
     /// Takes `&self` only so that an unreadable token can name itself. A cost
-    /// is where the widest variety of Forge's syntax shows up — `Discard<…>`,
+    /// is where the widest variety of the corpus's syntax shows up — `Discard<…>`,
     /// `Exile<…>`, `tapXType<…>` — and a report saying "a cost" would send
     /// the reader back to the script to find out which.
     fn cost_expr(&self, raw: &str) -> Option<String> {
@@ -1033,7 +1033,7 @@ impl Tx<'_> {
 
     /// An `R:` replacement, for the one shape the engine models as data.
     ///
-    /// "Enters tapped" is a replacement effect in Forge and an
+    /// "Enters tapped" is a replacement effect in the corpus and an
     /// `EnterModifier` here, and the difference matters: a modifier is read
     /// *as the permanent enters*, which is what CR 614.1c describes and what
     /// stops the land from being tapped a moment after it arrives untapped.
@@ -1074,7 +1074,7 @@ impl Tx<'_> {
             self.note(format!("replacement `Moved` replacing with `{api}`"));
             return None;
         }
-        // A checkland taps *conditionally*: forge writes "tap it when you
+        // A checkland taps *conditionally*: a script writes "tap it when you
         // control none of these", which is the printed "enters tapped unless
         // you control a Swamp or a Mountain" turned inside out. `EQ0` is the
         // only comparison that is that sentence — `GE2` and friends are
@@ -1107,7 +1107,7 @@ impl Tx<'_> {
     ///
     /// One printed sentence can be several continuous effects: "get +1/+1
     /// and have flying" changes power/toughness in layer 7c and abilities
-    /// in layer 6, and CR 613.1 applies those in order. Forge writes both
+    /// in layer 6, and CR 613.1 applies those in order. The corpus writes both
     /// on one line, so this emits one `StaticAbility` per layer touched
     /// rather than trying to fold them into one.
     fn static_ability(&mut self, spec: &str) -> Option<()> {
@@ -1238,7 +1238,7 @@ impl Tx<'_> {
 
     /// `AddType`/`RemoveType` (layer 4) as static abilities.
     ///
-    /// Forge writes card types and subtypes in one list and the engine
+    /// The corpus writes card types and subtypes in one list and the engine
     /// keeps them apart — a `TypeSet` is a bitmask the rules read, a
     /// subtype is an interned id — so `AddType$ Artifact Goblin` becomes
     /// two modifiers on the same layer.
@@ -1403,7 +1403,7 @@ impl Tx<'_> {
     }
 }
 
-/// A forge colour word as our `Color` constant.
+/// A script colour word as our `Color` constant.
 ///
 /// `Colorless` is the empty set rather than a colour, and `ChosenColor` is
 /// a choice a transcoder cannot make — both stay unread.
@@ -1418,7 +1418,7 @@ fn color_const(word: &str) -> Option<&'static str> {
     })
 }
 
-/// A Forge type word as the `TypeSet` constant for it, or `None` when the
+/// A type word as the `TypeSet` constant for it, or `None` when the
 /// word is a subtype (or a type the engine has no bit for).
 fn card_type_const(word: &str) -> Option<&'static str> {
     Some(match word {
@@ -1435,7 +1435,7 @@ fn card_type_const(word: &str) -> Option<&'static str> {
     })
 }
 
-/// Forge keyword line → the bit in our `KeywordSet`, for the keywords that
+/// A keyword line → the bit in our `KeywordSet`, for the keywords that
 /// are text-independent (CR 702). Parameterized keywords are data, not bits,
 /// and are refused here on purpose.
 fn keyword_const(line: &str) -> Option<&'static str> {
@@ -1477,7 +1477,7 @@ fn keyword_const(line: &str) -> Option<&'static str> {
 /// Never errors; an unreadable script is `None`, which is what keeps a
 /// generated card honest.
 #[must_use]
-pub fn transcode(script: &ForgeScript, cats: &SubtypeCatalogs) -> Option<CardBody> {
+pub fn transcode(script: &CardScript, cats: &SubtypeCatalogs) -> Option<CardBody> {
     if !script.unknown_lines.is_empty() {
         return None;
     }
@@ -1511,7 +1511,7 @@ pub fn transcode(script: &ForgeScript, cats: &SubtypeCatalogs) -> Option<CardBod
 /// each rule's keys: such a list would rot the first time a rule learned a
 /// new one, and a stale worklist is worse than none.
 #[must_use]
-pub fn refusal_reason(script: &ForgeScript, cats: &SubtypeCatalogs) -> Option<String> {
+pub fn refusal_reason(script: &CardScript, cats: &SubtypeCatalogs) -> Option<String> {
     if !script.unknown_lines.is_empty() {
         return None;
     }
@@ -1604,7 +1604,7 @@ pub fn apis_used(spec: &str, svars: &BTreeMap<String, String>) -> Vec<String> {
     out
 }
 
-/// Whether a Forge keyword line maps onto a `KeywordSet` bit.
+/// Whether a keyword line maps onto a `KeywordSet` bit.
 #[must_use]
 pub fn keyword_const_of(line: &str) -> Option<&'static str> {
     keyword_const(line)
@@ -1620,7 +1620,7 @@ pub fn keyword_const_of(line: &str) -> Option<&'static str> {
 /// plan honest without restating each rule's parameter list here, where
 /// the copy would rot the first time a rule learned a new key.
 #[must_use]
-pub fn atoms(script: &ForgeScript) -> Vec<String> {
+pub fn atoms(script: &CardScript) -> Vec<String> {
     let mut out = Vec::new();
     for line in &script.keywords {
         let head = line.split(':').next().unwrap_or(line);
@@ -1779,7 +1779,7 @@ mod tests {
         );
     }
 
-    /// A checkland: forge writes the printed "enters tapped **unless** you
+    /// A checkland: a script writes the printed "enters tapped **unless** you
     /// control a Swamp or a Mountain" inside out, as "tap it when the count
     /// of those is zero". `EQ0` is that sentence and nothing else is.
     #[test]
@@ -2010,10 +2010,10 @@ mod tests {
         assert!(!text.contains("TargetSpec::Object"), "{text}");
     }
 
-    /// Forge's `Any` means creature, planeswalker, battle *or player*, and
+    /// The corpus's `Any` means creature, planeswalker, battle *or player*, and
     /// no `TargetSpec` spans objects and players. Read as `Filter::Any` it
     /// silently produced a burn spell that could not point at a player.
-    /// Forge's `Any` means creature, planeswalker, battle *or player*, so
+    /// The corpus's `Any` means creature, planeswalker, battle *or player*, so
     /// it is a `TargetSpec`, not a `Filter` — nothing on a player can be
     /// filtered on. Read as `Filter::Any` it silently produced a burn
     /// spell that could not point at a face.
@@ -2162,7 +2162,7 @@ mod tests {
     /// fix one level up, and it had simply moved down here: `?` is silent,
     /// so a rule that met a cost, a trigger mode or a missing `SVar` it
     /// could not read refused without saying which. Over the 33666 scripts
-    /// of the forge corpus that bucket is now empty, and this is the part of
+    /// of the corpus that bucket is now empty, and this is the part of
     /// that measurement a build can make.
     #[test]
     fn a_refused_script_always_says_why() {
@@ -2336,18 +2336,18 @@ mod tests {
     }
 }
 
-/// A forge-reference checkout, resolved by card name.
+/// A card-script reference checkout, resolved by card name.
 ///
 /// Held by `codegen` so a stub can be transcoded from the rules reference
 /// when one is available locally, and generated exactly as before when it is
 /// not — the checkout is never part of the build.
 #[derive(Debug)]
-pub struct ForgeLookup {
+pub struct ScriptLookup {
     root: std::path::PathBuf,
     index: BTreeMap<String, String>,
 }
 
-impl ForgeLookup {
+impl ScriptLookup {
     /// Wraps a cardsfolder and the name → relative-path index `codegen`
     /// already builds.
     #[must_use]
@@ -2357,8 +2357,8 @@ impl ForgeLookup {
 
     /// The script for a card, by its Scryfall name.
     #[must_use]
-    pub fn script(&self, name: &str) -> Option<ForgeScript> {
-        // Multi-face Scryfall names ("A // B") are one Forge script, filed
+    pub fn script(&self, name: &str) -> Option<CardScript> {
+        // Multi-face Scryfall names ("A // B") are one reference script, filed
         // under the front face.
         let key = self.index.get(name).or_else(|| {
             let front = name.split(" // ").next()?;

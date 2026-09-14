@@ -249,8 +249,8 @@ matters when you open one:
 
 - **Lands** are read from their printed text by
   `crates/baylee-cards-codegen/src/landgen.rs`.
-- **Everything else with a local forge-reference script** is read by
-  `crates/baylee-cards-codegen/src/forgegen.rs` (the checkout is an
+- **Everything else with a local card-script reference script** is read by
+  `crates/baylee-cards-codegen/src/scriptgen.rs` (the checkout is an
   automated lookup, never copied and never part of the build).
 
 Both write the *same* file standard as this document describes: the macros,
@@ -274,7 +274,7 @@ Two markers, and the file itself says which it is:
 
 `codegen` rewrites every machine-owned file on every run and never touches a
 hand-owned one. So **a generated card that is wrong is fixed in the reader,
-never in the file**: `landgen` and `forgegen` each wrote hundreds of cards, so
+never in the file**: `landgen` and `scriptgen` each wrote hundreds of cards, so
 a rule that got one wrong got every card that rule reached wrong, and patching
 the one file in front of you leaves the other ninety-nine broken *and* the
 patch is reverted on the next run. Fixing the reader corrects them all at once
@@ -321,7 +321,7 @@ the file's mana costs as a list of the lines it *writes* handed the front face
 the back face's cost, and the list is read per `face!` block now.
 
 If you want more cards generated, the lever is usually **this document's
-vocabulary**, not the readers. `cargo run -p xtask -- forge-report` ranks
+vocabulary**, not the readers. `cargo run -p xtask -- transcode-report` ranks
 what the corpus is waiting on, and the top entries are effects the DSL cannot
 express at all yet.
 
@@ -661,7 +661,7 @@ every printed search also obeys are derived, not declared, so a card cannot
 get them wrong:
 
 - **The library is always shuffled afterwards.** Of the 1015 printed
-  searches in the forge reference, three do not say "then shuffle", and all
+  searches in the scripts reference, three do not say "then shuffle", and all
   three empty the library instead.
 - **A find is revealed** when the search is narrower than "a card"
   (`Filter::Any`) *and* at least one destination is hidden (hand, top of

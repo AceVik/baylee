@@ -12,9 +12,15 @@ Card data and images are provided by Scryfall (https://scryfall.com) under
 its API terms. This project honors Scryfall's rate limits and caches images
 as encouraged by their guidelines.
 
-The Forge rules engine (https://github.com/Card-Forge/forge, GPL-3.0) may be
-used during development as a read-only rules reference. No Forge source code
-or data files are copied into this repository.
+The card-script reference this project's code generation may read during
+development is the card script corpus of the Forge rules engine
+(https://github.com/Card-Forge/forge, GPL-3.0). It is read from a local
+checkout the developer supplies, as an automated lookup only: no source code
+and no data file of it is copied into this repository, vendored, or
+distributed with it, and none of it is present in any build output. Nothing
+in this repository is a derived work of it. This paragraph is the only place
+that names it; the code and the rest of the documentation call it "the
+corpus", and that is a naming choice, not a claim about provenance.
 
 Bundled fonts (crates/baylee-client/assets/fonts/): Alegreya Sans by Juan
 Pablo del Peral / Huerta Tipografica (Regular, Medium, Bold, Italic, Medium

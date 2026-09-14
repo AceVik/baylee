@@ -24,7 +24,7 @@ One directory per card, written by `xtask card-batch`:
 | File | What it is |
 |---|---|
 | `STUB.rs` | the generated stub, as a reference copy |
-| `FORGE.txt` | the forge-reference script — rules ground truth, read never copied |
+| `SCRIPT.txt` | the card-script reference script — rules ground truth, read never copied |
 | `SCRYFALL.json` | printing metadata |
 | `EXEMPLAR.rs` | an implemented card of the same type, to match in style |
 | `PROMPT.md` | the instructions, pointing at all of the above |
@@ -75,7 +75,7 @@ are the reason it exists:
   falls short of.
 
 The second column is there to make a particular mistake hard. When `Pump` was
-the top blocker in `forge-report`, it was read as a missing subsystem; the
+the top blocker in `transcode-report`, it was read as a missing subsystem; the
 subsystem was already complete, and what was missing was one variant that
 could say "the target" without overloading a `Filter` to mean it. A refusal
 list that names absent mechanics sends the next round of engine work in the

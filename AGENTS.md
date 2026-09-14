@@ -6,10 +6,10 @@
 - Test: `cargo test --workspace --all-targets`
 - Lint: `cargo clippy --workspace --all-targets -- -D warnings`
 - Format: `cargo fmt --all`
-- Codegen (regenerate subtypes, card stubs, registry, forge index):
+- Codegen (regenerate subtypes, card stubs, registry, scripts index):
   `cargo run -p xtask -- codegen`
 - Codegen reproducibility check (CI): `cargo run -p xtask -- codegen --check`
-- Explain a card (Scryfall data + forge-reference script side by side):
+- Explain a card (Scryfall data + card-script reference script side by side):
   `cargo run -p xtask -- explain --name "Force of Will"`
 - Run the Bevy duel client (vs AI): `cargo run -p baylee-client`
   (design: `docs/client.md`; renderer-agnostic logic lives in
@@ -51,6 +51,7 @@
 ## Legal guardrails
 
 - Unofficial non-commercial fan project. No WotC assets in the repo.
-  Forge files are read-only reference and are never copied into the repo or
-  distributed with it (GPL-3.0); codegen may read a local checkout as an
-  automated lookup. See `NOTICE`.
+- The card-script reference is an external, GPL-licensed corpus that codegen
+  may read as an automated lookup from a local checkout. No file of it is
+  ever copied into this repository or distributed with it. `NOTICE` names it
+  exactly and is the one place that does; everywhere else it is "the corpus".

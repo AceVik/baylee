@@ -13,7 +13,7 @@ Master plan (Blueprint v1.3). baylee is a cargo workspace:
   detection (identical snapshot hash inside a decision-free segment).
 - **baylee-cards-dsl / baylee-cards / baylee-cards-codegen** — compiled card
   registry keyed by Scryfall ids; per-card files with human-verifiable
-  headers; codegen from Scryfall bulk + forge-reference index.
+  headers; codegen from Scryfall bulk + card-script reference index.
 - **baylee-protocol** — protobuf WS messages; per-player filtered views;
   every card carries `{object_id, card_index, print_ref}`.
 - **baylee-engine-server** — one process per game (up to 8 human/AI seats).

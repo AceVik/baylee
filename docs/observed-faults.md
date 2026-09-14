@@ -196,7 +196,8 @@ not by the order they were told, and nothing here is fixed yet.
     Every cell is `CARD_SPAN` wide now, so nothing overlaps and tapping moves
     nothing — the cell was always the right size and the card turns inside it.
 
-15. **Tokens render ugly.** They should carry pictures the way Forge's do.
+15. **Tokens render ugly.** They should carry pictures the way other clients
+    do.
 
     *Fixed for the tokens the registry defines.* A token has no printing, so
     the board model asked for no image at all and the renderer fell back to
@@ -1515,7 +1516,7 @@ about the table itself rather than the rules, and both are fixed.
     milling the wrong player.** `codegen` had only ever written a file that
     was missing or still carried `// GENERATED STUB`, so a card one of the
     readers wrote *in full* was hand-owned from the moment it existed. That
-    is backwards for the thing it was protecting: `landgen` and `forgegen`
+    is backwards for the thing it was protecting: `landgen` and `scriptgen`
     each wrote hundreds of cards, so a rule that read a sentence wrongly got
     every card printing that sentence wrong — and the file in front of you is
     one of them. Patching it leaves the other ninety-nine broken and teaches
@@ -1540,7 +1541,7 @@ about the table itself rather than the rules, and both are fixed.
     offered `TargetSpec::AnyPlayer` — and each then applied the effect to
     `PlayerRel::You`. Three lands that asked which opponent to mill and
     milled their controller instead. The reader had already been corrected:
-    `forgegen` wrote all three in `6bd876d`, and nine commits later the same
+    `scriptgen` wrote all three in `6bd876d`, and nine commits later the same
     day `457647f` taught it that an effect handed a target says
     `PlayerRel::Chosen` rather than `You`. By then the three files existed,
     which under the old rule made them hand-owned, so the correction reached
@@ -2005,8 +2006,8 @@ triggered abilities and the ordinary one. All four are gone.
 **What made the old shape look defensible**, and the check that had to come
 before removing it: an ability worded "whenever **one or more** … " does fire
 once for a whole batch. Storm the Vault is the only card in the pool whose
-printed text is worded that way, it is an unimplemented stub, and `forgegen`'s
-trigger table reads exactly four Forge modes (`ChangesZone`, `Phase`,
+printed text is worded that way, it is an unimplemented stub, and `scriptgen`'s
+trigger table reads exactly four corpus modes (`ChangesZone`, `Phase`,
 `Attacks`, `Taps`) and refuses the batch ones outright, so no machine-owned
 card encodes batch semantics either. Nothing was relying on the accident. When
 Storm the Vault is written it wants a `Trigger` variant of its own, not this

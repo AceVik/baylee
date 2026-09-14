@@ -480,7 +480,7 @@ pub fn render_stub(
     card: &ScryfallCard,
     index: u32,
     cats: &SubtypeCatalogs,
-    forge: Option<&crate::forgegen::ForgeLookup>,
+    scripts: Option<&crate::scriptgen::ScriptLookup>,
     cycles: &crate::layout::LandCycles,
 ) -> Result<(StubInfo, String), CodegenError> {
     // Multi-face cards slug by their front face ("Brightclimb Pathway // …"
@@ -491,10 +491,10 @@ pub fn render_stub(
     // A card is written out finished only when a reader understood the whole
     // of it; one clause left over and it stays an ordinary stub. Its own
     // printed text is tried first, because a land's intrinsic mana comes from
-    // its type line (CR 305.6) and no forge script restates it.
+    // its type line (CR 305.6) and no reference script restates it.
     let land = crate::landgen::recognize(card, cats).or_else(|| {
-        let script = forge?.script(&card.name)?;
-        crate::forgegen::transcode(&script, cats)
+        let script = scripts?.script(&card.name)?;
+        crate::scriptgen::transcode(&script, cats)
     });
 
     let mut out = String::with_capacity(4096);

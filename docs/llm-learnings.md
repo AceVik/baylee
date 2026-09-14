@@ -10,7 +10,7 @@ time). Maintained by the orchestrator; entries dated, newest first.
    cases (layers, copy, replacement, multi-choice cards) are spot-checked.
 2. Fixes are applied by the orchestrator, never by the LLM — but every fix
    is analyzed for a prompt improvement and recorded below.
-3. Each card task gets: the stub header (oracle text), the forge-reference
+3. Each card task gets: the stub header (oracle text), the card-script reference
    script, one similar already-implemented exemplar, and the DSL cookbook
    excerpt for its mechanic class. Nothing else (token budget).
 
@@ -319,7 +319,7 @@ Open milestones discovered tonight:
 - DSL frozen (`docs/card-dsl.md`); the cards `AGENTS.md` playbook lives in
   `crates/baylee-cards/AGENTS.md`.
 - `cargo run -p xtask -- card-batch` prepares per-card task packages in
-  `target/card-batch/<slug>/` (STUB + FORGE + SCRYFALL + EXEMPLAR + PROMPT).
+  `target/card-batch/<slug>/` (STUB + SCRIPT + SCRYFALL + EXEMPLAR + PROMPT).
   `--cards "A,B"` restricts to a list; default = all unimplemented
   acceptance cards.
 - `cargo run -p xtask -- validate` enforces conventions (194 conform).
@@ -552,7 +552,7 @@ is not a narrower version of the right one, it is wrong in both directions at
 once: it admits a basic Forest, which the card excludes, and it refuses Blood
 Crypt, which the card allows — and Farseek fetching a shockland is most of
 why the card is played. The transcoder, reading the same sentence off the
-forge script, produced the four-subtype `Or`. Nothing in the gate could have
+reference script, produced the four-subtype `Or`. Nothing in the gate could have
 told the two apart: both compile, both pass `validate`, both are
 `Coverage::Implemented`.
 
@@ -595,7 +595,7 @@ nothing to salvage. That test was `[ -f ]`, and it is the wrong test. Nine
 lands answered "yes" and three of them — Evolving Wilds, Terramorphic Expanse
 and Rogue's Passage — were still `// GENERATED STUB`, because both readers
 had refused them: landgen knows thirteen sentence shapes and none of them is
-a library search, and the forge scripts carry clauses it does not claim.
+a library search, and the scripts scripts carry clauses it does not claim.
 Deleting the branch on the strength of the file existing would have thrown
 away the only finished version of three cards.
 

@@ -1,7 +1,7 @@
 //! What a generator produces for one card.
 //!
 //! Two readers fill this in — [`landgen`](crate::landgen) from a land's
-//! printed text and [`forgegen`](crate::forgegen) from a forge-reference
+//! printed text and [`scriptgen`](crate::scriptgen) from a card-script reference
 //! script — and [`stubgen`](crate::stubgen) renders it. Both obey the same
 //! rule: a body is produced only when the whole card was understood, so a
 //! generated `Coverage::Implemented` never means "most of it".

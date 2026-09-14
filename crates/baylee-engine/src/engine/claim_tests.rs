@@ -11,7 +11,7 @@
 //! the journal whether the claim happened.
 //!
 //! Two different programs with two different failure modes is the whole
-//! point. `landgen` and `forgegen` read text too, and they are allowed to
+//! point. `landgen` and `scriptgen` read text too, and they are allowed to
 //! refuse anything they do not understand in full; this one is allowed to
 //! understand almost nothing. Ten phrases, no grammar, no parser — a word
 //! list and a number beside it.

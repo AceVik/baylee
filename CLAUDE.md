@@ -42,14 +42,14 @@ cargo test -p baylee-engine --lib -- --list              # discover exact names
 Card, codegen, and data tooling (`xtask`):
 
 ```bash
-cargo run -p xtask -- codegen            # regen subtypes, card stubs, registry, forge index
+cargo run -p xtask -- codegen            # regen subtypes, card stubs, registry, scripts index
 cargo run -p xtask -- codegen --check    # CI: fail if generated files are stale
 cargo run -p xtask -- validate           # card headers vs. the CardDef the code builds
 cargo run -p xtask -- adopt --name "Yavimaya Coast"       # take a generated card off the machine, for good
 cargo run -p xtask -- refresh-oracle                      # rewrite every `//! Oracle:` header from the cached printing
-cargo run -p xtask -- explain --name "Force of Will"      # Scryfall + forge data side by side
+cargo run -p xtask -- explain --name "Force of Will"      # Scryfall + scripts data side by side
 cargo run -p xtask -- card-batch --cards "A,B"            # LLM task packages for unimplemented cards
-cargo run -p xtask -- forge-report                        # how far the card transcoder reaches, and what it needs next
+cargo run -p xtask -- transcode-report                        # how far the card transcoder reaches, and what it needs next
 cargo run -p xtask -- cross-read                          # every hand-written card read a second way, and the disagreements
 cargo run -p xtask -- pool-dump --out /tmp/pool.txt       # every CardDef, for refactor equivalence diffs
 cargo run -p xtask -- dev-table --seats 4 --ai sharp      # a seated dev ticket (add --play to launch the client)
@@ -68,9 +68,14 @@ more than two chairs used to be arranged and then left sitting there.
 a chair on its own side), which needs three chairs or more — a duel already
 has exactly two sides.
 
-`codegen`, `explain`, and `card-batch` default `--forge` to
-`../mtg/forge-reference/forge-gui/res/cardsfolder` (read-only GPL reference,
-never copied into this repo) and `--cache` to `data/scryfall-cache`.
+`codegen`, `explain`, and `card-batch` read the **card-script reference** — an
+external, GPL-licensed corpus of rules scripts, read as an automated lookup
+and never copied into this repo (`NOTICE` names it). It is not vendored, so
+there is no path that is right for everyone and `xtask::scripts_root` asks
+three questions instead of hard-coding one: `--scripts` if what it names
+exists, then `BAYLEE_CARD_SCRIPTS`, then a `cardsfolder` directory found
+within four levels of the repository's parent. `--cache` defaults to
+`data/scryfall-cache`.
 
 Running things:
 
@@ -361,7 +366,7 @@ full*:
   1 damage to you.` becomes a two-effect mana ability, and the intrinsic mana
   of a Mountain Forest comes off the type line (CR 305.6), because Taiga
   prints nothing but reminder text.
-- `crates/baylee-cards-codegen/src/forgegen.rs` reads a **forge-reference
+- `crates/baylee-cards-codegen/src/scriptgen.rs` reads a **card-script reference
   script** (read as an automated lookup, never copied).
   Names, costs, types and P/T are ignored there; Scryfall already carries
   them. What it reads is `K:` keywords, `A:`/`T:` abilities and the `SVar:`
@@ -375,10 +380,10 @@ the card stays an honest `Coverage::Unimplemented` stub. A generated
 backwards would be worse than generating nothing: the deckbuilder offers
 `Implemented` cards as playable.
 
-`cargo run -p xtask -- forge-report` says how far the transcoder reaches and
-ranks what the refused scripts need next. The ceiling is **our** DSL, not
-Forge's — extend the DSL and the transcoder converts the gain into hundreds of
-cards at once, which is what `Pump` did: it was the top blocker at ~2300
+`cargo run -p xtask -- transcode-report` says how far the transcoder reaches
+and ranks what the refused scripts need next. The ceiling is **our** DSL, not
+the corpus's — extend the DSL and the transcoder converts the gain into
+hundreds of cards at once, which is what `Pump` did: it was the top blocker at ~2300
 scripts, and `Effect::PumpTarget` moved the transcoder from 1886 to 2545
 scripts read in full.
 
@@ -396,7 +401,7 @@ parameters (~4200)", described as the honest-stub rule showing its cost. Most
 of it was not that. `refusal_cause` was *guessing* — re-reading the script and
 naming the first thing it did not recognise — and the bucket was where every
 refusal it could not explain ended up. The transcoder now reports its own
-first refusal (`forgegen::unclaimed_parameter`), and the entry splits into an
+first refusal (`scriptgen::unclaimed_parameter`), and the entry splits into an
 API with no rule at all (a missing effect) and a rule that met a value it
 cannot say (a missing case in one that exists), which are different work.
 
@@ -432,7 +437,7 @@ transcoder disagreeing with itself.
 
 The hand-written half is the one surface no program checks against another,
 which is what `cargo run -p xtask -- cross-read` is for: the transcoder reads
-the same card from the forge script and the two shapes are compared. It is a
+the same card from the reference script and the two shapes are compared. It is a
 **report** and a disagreement is not a defect — a hand-written card is allowed
 to say more than one rule can. Two depths, because transcoding needs every
 clause claimed and a hand-written card exists precisely because a reader could

@@ -426,7 +426,7 @@ impl Recognizer<'_> {
 /// Why a land's printed text could not be read.
 ///
 /// A reader that answers `None` is a reader whose limits can only be guessed
-/// at, and guessing is exactly what made `forge-report`'s ranking wrong: it
+/// at, and guessing is exactly what made `transcode-report`'s ranking wrong: it
 /// re-read the script and named the first thing it did not recognise, which
 /// is not the same as the thing that actually stopped it. So this says what
 /// stopped it, and `land-report` groups by that rather than by a theory.

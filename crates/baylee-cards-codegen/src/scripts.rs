@@ -1,5 +1,5 @@
-//! forge-reference scan: card name → card script path (read-only reference
-//! index for card implementation batches; Forge files are never copied).
+//! card-script reference scan: card name → card script path (read-only reference
+//! index for card implementation batches; corpus files are never copied).
 
 use crate::error::CodegenError;
 use std::collections::BTreeMap;
@@ -7,7 +7,7 @@ use std::fs;
 use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
 
-/// Builds the name → script-path index for a forge cardsfolder.
+/// Builds the name → script-path index for a card-script corpus.
 ///
 /// Paths in the index are relative to `cardsfolder` (e.g. `f/force_of_will.txt`).
 ///
