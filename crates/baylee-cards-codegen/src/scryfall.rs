@@ -269,8 +269,10 @@ pub fn fill_from_bulk(names: &[String], agent: &ureq::Agent, cache_dir: &Path) -
     // first draft of this silently left three of them to the API. Both tiers
     // are exact rather than merely likely: the ledger's 33 694 rows carry
     // 33 694 distinct names, its 874 multi-part names have 874 distinct front
-    // faces, and no front face is also a whole name — measured, because a
-    // collision in either tier would hand a card another card's payload.
+    // faces, and no front face is also a whole name. The ledger is
+    // append-only, so that is a test rather than a measurement written down
+    // once — `a_pool_name_reaches_exactly_one_ledger_row`, because a collision
+    // in either tier would hand a card another card's payload in silence.
     let mut by_name: HashMap<&str, &str> = HashMap::with_capacity(baylee_cards_index::ROWS.len());
     let mut by_front: HashMap<&str, &str> = HashMap::new();
     for row in &baylee_cards_index::ROWS {
@@ -400,4 +402,45 @@ fn write_payload(card: &ScryfallCard, name: &str, cache_dir: &Path) -> Result<()
     let text = serde_json::to_string_pretty(card).map_err(|e| e.to_string())?;
     fs::write(&tmp, text).map_err(|e| e.to_string())?;
     fs::rename(&tmp, &file).map_err(|e| e.to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use std::collections::HashMap;
+
+    /// [`super::fill_from_bulk`] looks a pool name up in the ledger twice — the
+    /// whole name, then the front face of a multi-part one — and hands the
+    /// matching row's payload to that card. Both tiers were *measured* exact
+    /// when they were written, and the ledger is append-only: the next set can
+    /// print a card whose whole name is some other card's front face, and the
+    /// failure that follows is silent, one card written another card's oracle
+    /// text. So the measurement is a test rather than a sentence in a comment.
+    #[test]
+    fn a_pool_name_reaches_exactly_one_ledger_row() {
+        let mut by_name: HashMap<&str, &str> = HashMap::new();
+        let mut by_front: HashMap<&str, &str> = HashMap::new();
+        for row in &baylee_cards_index::ROWS {
+            if let Some(other) = by_name.insert(row.name, row.oracle_id) {
+                panic!(
+                    "two ledger rows are named {}: {other}, {}",
+                    row.name, row.oracle_id
+                );
+            }
+            if let Some(front) = row.name.split_once(" // ").map(|(front, _)| front)
+                && let Some(other) = by_front.insert(front, row.oracle_id)
+            {
+                panic!(
+                    "two ledger rows share the front face {front}: {other}, {}",
+                    row.oracle_id
+                );
+            }
+        }
+        for (front, oracle_id) in &by_front {
+            assert!(
+                !by_name.contains_key(front),
+                "{front} is a whole card and another card's front face ({oracle_id}), \
+                 so the front-face tier of fill_from_bulk can hand it the wrong payload"
+            );
+        }
+    }
 }
