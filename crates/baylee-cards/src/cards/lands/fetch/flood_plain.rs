@@ -23,10 +23,7 @@ card!(
         enter_modifiers = &[EnterModifier::Tapped],
     ),],
     abilities = &[activated!(
-        Cost {
-            mana: ManaCost::ZERO,
-            parts: &[CostPart::TapSelf, CostPart::SacrificeSelf]
-        },
+        cost!(TapSelf, SacrificeSelf),
         &[Effect::SearchLibrary {
             filter: &SEARCH1,
             finds: &[Find::BATTLEFIELD],

@@ -12,10 +12,7 @@ card!(
     coverage = Coverage::Implemented,
     faces = &[face!(name = "Mana Confluence", types = TypeSet::LAND,),],
     abilities = &[mana_ability!(
-        Cost {
-            mana: ManaCost::ZERO,
-            parts: &[CostPart::TapSelf, CostPart::PayLife(1)]
-        },
+        cost!(TapSelf, PayLife(1)),
         &[Effect::mana_of_any_color()]
     ),],
 );

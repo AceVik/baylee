@@ -28,10 +28,7 @@ card!(
     abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::Blue, 1)]),
         activated!(
-            Cost {
-                mana: mana!("{2}{U}{U}"),
-                parts: &[CostPart::TapSelf]
-            },
+            cost!("{2}{U}{U}", TapSelf),
             &[Effect::Scry {
                 amount: Amount::Fixed(2)
             }]

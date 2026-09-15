@@ -18,14 +18,7 @@ card!(
     coverage = Coverage::Implemented,
     faces = &[face!(name = "Wooded Foothills", types = TypeSet::LAND,),],
     abilities = &[activated!(
-        Cost {
-            mana: ManaCost::ZERO,
-            parts: &[
-                CostPart::TapSelf,
-                CostPart::PayLife(1),
-                CostPart::SacrificeSelf
-            ]
-        },
+        cost!(TapSelf, PayLife(1), SacrificeSelf),
         &[Effect::SearchLibrary {
             filter: &SEARCH1,
             finds: &[Find::BATTLEFIELD],

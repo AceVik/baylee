@@ -8,6 +8,29 @@
 
 use std::fmt::Write as _;
 
+/// A `Cost` expression, from the mana a reader accumulated and the parts it
+/// recognised.
+///
+/// Both readers build the same two pieces and used to render them the same
+/// way twice. `parts` are bare variant names (`TapSelf`, `PayLife(1)`),
+/// because `cost!` supplies the `CostPart::` prefix — which is the same word
+/// three times on a fetchland and is not what a reader is checking.
+///
+/// The three forms are the card's, not the code's: an empty cost is
+/// `Cost::FREE`, a bare tap is `Cost::TAP` (a third of every activated
+/// ability in the pool), and everything else reads left to right the way the
+/// card prints it — mana, then the rest.
+#[must_use]
+pub fn cost_literal(mana: &str, parts: &[String]) -> String {
+    match (mana.is_empty(), parts) {
+        (true, []) => "Cost::FREE".to_string(),
+        (true, [one]) if one == "TapSelf" => "Cost::TAP".to_string(),
+        (true, _) => format!("cost!({})", parts.join(", ")),
+        (false, []) => format!("cost!(\"{mana}\")"),
+        (false, _) => format!("cost!(\"{mana}\", {})", parts.join(", ")),
+    }
+}
+
 /// The generated body of one recognised card.
 #[derive(Debug, Default)]
 pub struct CardBody {

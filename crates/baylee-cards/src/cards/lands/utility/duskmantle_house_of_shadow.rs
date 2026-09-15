@@ -19,10 +19,7 @@ card!(
     abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
         activated!(
-            Cost {
-                mana: mana!("{U}{B}"),
-                parts: &[CostPart::TapSelf]
-            },
+            cost!("{U}{B}", TapSelf),
             &[Effect::Mill {
                 amount: Amount::Fixed(1),
                 target: PlayerRel::Chosen

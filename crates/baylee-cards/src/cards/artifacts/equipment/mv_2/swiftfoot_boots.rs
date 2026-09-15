@@ -31,10 +31,7 @@ card!(
             modifier: Modifier::AddKeyword(KeywordSet::HEXPROOF.union(KeywordSet::HASTE)),
         }),
         activated!(
-            Cost {
-                mana: mana!("{1}"),
-                parts: &[],
-            },
+            cost!("{1}"),
             &[Effect::AttachSelf {
                 target: TargetSpec::Object(&CREATURE_YOU_CONTROL),
             }],

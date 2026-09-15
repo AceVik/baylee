@@ -22,10 +22,7 @@ card!(
     abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
         activated!(
-            Cost {
-                mana: mana!("{W}"),
-                parts: &[CostPart::TapSelf]
-            },
+            cost!("{W}", TapSelf),
             &[Effect::PumpTarget {
                 power: Amount::Fixed(1),
                 toughness: Amount::Fixed(1),

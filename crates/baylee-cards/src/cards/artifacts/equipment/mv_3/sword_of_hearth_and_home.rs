@@ -63,10 +63,7 @@ card!(
             })
         ),
         activated!(
-            Cost {
-                mana: mana!("{2}"),
-                parts: &[],
-            },
+            cost!("{2}"),
             &[Effect::AttachSelf {
                 target: TargetSpec::Object(&CREATURE_YOU_CONTROL),
             }],

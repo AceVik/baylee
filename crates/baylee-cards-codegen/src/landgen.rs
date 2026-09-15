@@ -186,13 +186,13 @@ fn parse_cost(text: &str) -> Option<String> {
     for token in text.split(", ") {
         let token = token.trim();
         if token == "{T}" {
-            parts.push("CostPart::TapSelf".to_string());
+            parts.push("TapSelf".to_string());
         } else if token == "Sacrifice this land" {
-            parts.push("CostPart::SacrificeSelf".to_string());
+            parts.push("SacrificeSelf".to_string());
         } else if let Some(rest) = token.strip_prefix("Pay ")
             && let Some(n) = rest.strip_suffix(" life").and_then(number)
         {
-            parts.push(format!("CostPart::PayLife({n})"));
+            parts.push(format!("PayLife({n})"));
         } else if token.starts_with('{') && symbols(token).is_some() {
             if !mana.is_empty() {
                 return None;
@@ -202,18 +202,7 @@ fn parse_cost(text: &str) -> Option<String> {
             return None;
         }
     }
-    if mana.is_empty() && parts == ["CostPart::TapSelf"] {
-        return Some("Cost::TAP".to_string());
-    }
-    let mana_expr = if mana.is_empty() {
-        "ManaCost::ZERO".to_string()
-    } else {
-        format!("mana!(\"{mana}\")")
-    };
-    Some(format!(
-        "Cost {{ mana: {mana_expr}, parts: &[{}] }}",
-        parts.join(", ")
-    ))
+    Some(crate::body::cost_literal(&mana, &parts))
 }
 
 /// Splits a line into sentences, keeping `{1}, {T}: …` colons intact.
@@ -336,7 +325,7 @@ impl Recognizer<'_> {
         let cost = line.strip_prefix("Cycling ")?.trim();
         symbols(cost)?;
         self.body.abilities.push(format!(
-            "activated!(Cost {{ mana: mana!(\"{cost}\"), parts: &[CostPart::DiscardSelf] }}, &[Effect::DrawCards {{ amount: Amount::Fixed(1) }}], zone = ActivationZone::Hand)"
+            "activated!(cost!(\"{cost}\", DiscardSelf), &[Effect::DrawCards {{ amount: Amount::Fixed(1) }}], zone = ActivationZone::Hand)"
         ));
         self.body.notes.push("cycling".to_string());
         Some(())
@@ -719,7 +708,7 @@ mod tests {
         );
         assert_eq!(
             body.abilities[1],
-            "activated!(Cost { mana: mana!(\"{1}\"), parts: &[CostPart::TapSelf, CostPart::SacrificeSelf] }, &[Effect::DrawCards { amount: Amount::Fixed(1) }])"
+            "activated!(cost!(\"{1}\", TapSelf, SacrificeSelf), &[Effect::DrawCards { amount: Amount::Fixed(1) }])"
         );
     }
 

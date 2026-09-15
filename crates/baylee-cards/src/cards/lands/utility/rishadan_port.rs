@@ -17,10 +17,7 @@ card!(
     abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
         activated!(
-            Cost {
-                mana: mana!("{1}"),
-                parts: &[CostPart::TapSelf]
-            },
+            cost!("{1}", TapSelf),
             &[Effect::TapTarget],
             target = Some(TargetSpec::Object(&TARGET1))
         ),

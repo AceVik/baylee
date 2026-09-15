@@ -23,10 +23,7 @@ card!(
     abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::White, 1)]),
         activated!(
-            Cost {
-                mana: mana!("{1}{W}"),
-                parts: &[CostPart::DiscardSelf]
-            },
+            cost!("{1}{W}", DiscardSelf),
             &[Effect::DrawCards {
                 amount: Amount::Fixed(1)
             }],

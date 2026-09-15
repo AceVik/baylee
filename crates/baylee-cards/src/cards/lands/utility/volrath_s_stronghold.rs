@@ -24,10 +24,7 @@ card!(
         // the header: a free, repeatable recursion of any creature in your
         // graveyard, which is a different card.
         activated!(
-            Cost {
-                mana: mana!("{1}{B}"),
-                parts: &[CostPart::TapSelf]
-            },
+            cost!("{1}{B}", TapSelf),
             &[Effect::GraveyardToTop {
                 target: TargetSpec::CardInGraveyard(&Filter::CREATURE, PlayerRel::You),
             }],

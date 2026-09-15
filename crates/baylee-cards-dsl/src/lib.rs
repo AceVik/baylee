@@ -45,6 +45,7 @@ pub use manaread::{SimpleMana, mana_made, mana_offer, mana_shape, simple_mana};
 // a card file needs exactly one import (see `build::prelude`).
 pub use baylee_core::color::{Color, ColorSet};
 pub use baylee_core::ids::{CardIndex, SubtypeId};
+pub use baylee_core::mana;
 pub use baylee_core::mana::{ManaColor, ManaCost};
 pub use baylee_core::types::{SupertypeSet, TypeSet};
 pub use static_ability::{Duration, LAYERS, Layer, Modifier, ReplacementRule, StaticAbility};

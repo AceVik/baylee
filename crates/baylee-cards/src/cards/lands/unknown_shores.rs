@@ -14,12 +14,6 @@ card!(
     faces = &[face!(name = "Unknown Shores", types = TypeSet::LAND,),],
     abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
-        mana_ability!(
-            Cost {
-                mana: mana!("{1}"),
-                parts: &[CostPart::TapSelf]
-            },
-            &[Effect::mana_of_any_color()]
-        ),
+        mana_ability!(cost!("{1}", TapSelf), &[Effect::mana_of_any_color()]),
     ],
 );

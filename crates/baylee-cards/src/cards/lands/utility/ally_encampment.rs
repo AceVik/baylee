@@ -25,10 +25,7 @@ card!(
         mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
         mana_ability!(&[Effect::mana_of_any_color().restricted(&SPEND1, SpendRider::None)]),
         activated!(
-            Cost {
-                mana: mana!("{1}"),
-                parts: &[CostPart::TapSelf, CostPart::SacrificeSelf]
-            },
+            cost!("{1}", TapSelf, SacrificeSelf),
             &[Effect::ReturnToHand {
                 target: TargetSpec::Object(&TARGET2)
             }],

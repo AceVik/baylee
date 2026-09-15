@@ -16,10 +16,7 @@ card!(
     abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
         activated!(
-            Cost {
-                mana: mana!("{4}{R}"),
-                parts: &[CostPart::TapSelf, CostPart::SacrificeSelf]
-            },
+            cost!("{4}{R}", TapSelf, SacrificeSelf),
             &[Effect::DealDamage {
                 amount: Amount::Fixed(2),
                 target: TargetSpec::AnyTarget

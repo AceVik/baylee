@@ -501,6 +501,14 @@ stack, and nothing in the test suite reads that as a rules bug. Fields with no
 rules answer (a trigger, an effect list) are positional arguments, so they
 cannot be forgotten.
 
+A cost is `cost!`, which reads left to right the way the card prints it —
+`cost!("{1}{G}", TapSelf, SacrificeSelf)`, `cost!(TapSelf, SacrificeSelf,
+PayLife(1))` for a fetchland — with `Cost::FREE` and `Cost::TAP` for the two
+the macro would spell with no argument and one. `Cost { mana, parts }` is the
+struct underneath and is what a reader in `baylee-cards-codegen` builds
+through `body::cost_literal`, which both readers share so that the emitted
+spelling cannot drift between them.
+
 Filters compose inline; a slice promotes to `'static` in a `static`. Named
 predicates live on `Filter` itself (`CREATURE`, `NONLAND`, `BASIC_LAND`,
 `INSTANT_OR_SORCERY`, …) and pool-specific ones in

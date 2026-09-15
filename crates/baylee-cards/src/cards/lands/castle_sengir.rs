@@ -16,18 +16,9 @@ card!(
     faces = &[face!(name = "Castle Sengir", types = TypeSet::LAND,),],
     abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
+        mana_ability!(cost!("{1}", TapSelf), &[Effect::mana(ManaColor::Black, 1)]),
         mana_ability!(
-            Cost {
-                mana: mana!("{1}"),
-                parts: &[CostPart::TapSelf]
-            },
-            &[Effect::mana(ManaColor::Black, 1)]
-        ),
-        mana_ability!(
-            Cost {
-                mana: mana!("{2}"),
-                parts: &[CostPart::TapSelf]
-            },
+            cost!("{2}", TapSelf),
             &[Effect::mana_choice(&[ManaColor::Blue, ManaColor::Red])]
         ),
     ],

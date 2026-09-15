@@ -312,6 +312,40 @@ macro_rules! face {
     };
 }
 
+/// A cost, written the way the card prints it: mana first, then the rest.
+///
+/// ```ignore
+/// cost!("{2}")                                  // {2}: …
+/// cost!(TapSelf)                                // {T}: …  (= Cost::TAP)
+/// cost!("{1}{G}", TapSelf, SacrificeSelf)       // {1}{G}, {T}, Sacrifice this: …
+/// cost!(TapSelf, SacrificeSelf, PayLife(1))     // a fetchland
+/// cost!("{3}", DiscardSelf)                     // cycling
+/// ```
+///
+/// The mana string is the one the card prints and goes through
+/// [`mana!`](baylee_core::mana), so a cost is spelled once and in the same
+/// notation as a face. A part is named without its `CostPart::` prefix,
+/// because the prefix is the same word three times on a fetchland and is not
+/// what a reader is checking.
+///
+/// [`Cost::FREE`](crate::Cost::FREE) is the empty cost; there is nothing for
+/// `cost!()` to read, so it is not a form.
+#[macro_export]
+macro_rules! cost {
+    ($mana:literal $(, $part:ident $(($($arg:expr),* $(,)?))? )* $(,)?) => {
+        $crate::Cost {
+            mana: $crate::mana!($mana),
+            parts: &[$($crate::CostPart::$part $(($($arg),*))?),*],
+        }
+    };
+    ($($part:ident $(($($arg:expr),* $(,)?))? ),+ $(,)?) => {
+        $crate::Cost {
+            mana: $crate::ManaCost::ZERO,
+            parts: &[$($crate::CostPart::$part $(($($arg),*))?),+],
+        }
+    };
+}
+
 /// An activated ability: `activated!(cost, effects)` plus anything the card
 /// says that the rules do not assume.
 ///
@@ -471,7 +505,7 @@ pub mod prelude {
         KeywordSet, PartnerKind,
     };
     pub use crate::{
-        activated, card, face, loyalty, mana_ability, modal_triggered, mode, spell, triggered,
+        activated, card, cost, face, loyalty, mana_ability, modal_triggered, mode, spell, triggered,
     };
     pub use baylee_core::color::{Color, ColorSet};
     pub use baylee_core::ids::{CardIndex, SubtypeId};

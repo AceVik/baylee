@@ -21,10 +21,7 @@ card!(
     abilities = &[
         mana_ability!(&[Effect::mana_commander_identity()]),
         activated!(
-            Cost {
-                mana: ManaCost::ZERO,
-                parts: &[CostPart::SacrificeSelf],
-            },
+            cost!(SacrificeSelf),
             &[Effect::DrawCards {
                 amount: Amount::Fixed(1),
             }]

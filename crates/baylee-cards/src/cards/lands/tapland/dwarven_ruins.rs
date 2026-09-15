@@ -21,10 +21,7 @@ card!(
     abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::Red, 1)]),
         mana_ability!(
-            Cost {
-                mana: ManaCost::ZERO,
-                parts: &[CostPart::TapSelf, CostPart::SacrificeSelf]
-            },
+            cost!(TapSelf, SacrificeSelf),
             &[Effect::mana(ManaColor::Red, 2)]
         ),
     ],

@@ -25,10 +25,7 @@ card!(
     abilities = &[
         mana_ability!(&[Effect::mana_choice(&[ManaColor::Red, ManaColor::White])]),
         activated!(
-            Cost {
-                mana: mana!("{1}{R}{W}"),
-                parts: &[]
-            },
+            cost!("{1}{R}{W}"),
             &[
                 Effect::CreateContinuousEffect {
                     layer: Layer::Type,

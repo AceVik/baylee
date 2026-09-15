@@ -19,10 +19,7 @@ card!(
         power = Some(2),
         toughness = Some(2),
         alternative_costs = &[AlternativeCost {
-            cost: Cost {
-                mana: mana!("{2}{U}"),
-                parts: &[],
-            },
+            cost: cost!("{2}{U}"),
             condition: AltCondition::Always,
         }],
     )],

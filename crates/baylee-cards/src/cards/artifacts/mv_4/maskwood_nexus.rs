@@ -41,10 +41,7 @@ card!(
             modifier: Modifier::AllCreatureTypes,
         }),
         activated!(
-            Cost {
-                mana: mana!("{3}"),
-                parts: &[CostPart::TapSelf],
-            },
+            cost!("{3}", TapSelf),
             &[Effect::CreateToken {
                 token: &SHAPESHIFTER_TOKEN,
             }]

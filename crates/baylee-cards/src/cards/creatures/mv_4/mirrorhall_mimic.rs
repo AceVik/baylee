@@ -41,7 +41,7 @@ card!(
         ),
     ],
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Partial("Ghastly Mimicry\x27s aura ability needs aura attachment"),
+    coverage = Coverage::Partial("Ghastly Mimicry's aura ability needs aura attachment"),
     abilities = &[AbilityDef::CopyOnEnter {
         target: TargetSpec::Object(&Filter::CREATURE),
         mods: &[CopyMod::AddSubtype(creature::SPIRIT)],

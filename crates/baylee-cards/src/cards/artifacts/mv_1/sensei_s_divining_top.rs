@@ -17,13 +17,7 @@ card!(
     )],
     coverage = Coverage::Implemented,
     abilities = &[
-        activated!(
-            Cost {
-                mana: mana!("{1}"),
-                parts: &[],
-            },
-            &[Effect::ReorderTopLibrary { count: 3 }]
-        ),
+        activated!(cost!("{1}"), &[Effect::ReorderTopLibrary { count: 3 }]),
         activated!(
             Cost::TAP,
             &[

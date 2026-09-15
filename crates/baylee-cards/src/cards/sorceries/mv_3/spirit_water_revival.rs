@@ -33,10 +33,7 @@ card!(
         name = "Spirit Water Revival",
         mana_cost = mana!("{1}{U}{U}"),
         types = TypeSet::SORCERY,
-        additional_costs = &[Cost {
-            mana: mana!("{6}"),
-            parts: &[],
-        }],
+        additional_costs = &[cost!("{6}")],
         convoke = true,
     )],
     color_identity = ColorSet::from_slice(&[Color::Blue]),

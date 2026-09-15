@@ -25,10 +25,7 @@ card!(
     abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
         activated!(
-            Cost {
-                mana: mana!("{2}"),
-                parts: &[CostPart::TapSelf]
-            },
+            cost!("{2}", TapSelf),
             &[Effect::AddCounter {
                 kind: CounterKind::P1P1,
                 amount: Amount::Fixed(1)

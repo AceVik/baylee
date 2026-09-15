@@ -338,8 +338,8 @@ express at all yet.
 
 ### Card faces & costs
 
-- `mana_cost: baylee_core::mana!("{2}{W/U}{W/P}")` — compile-time parsed
-  (generic, color, hybrid, 2-or, Phyrexian, hybrid-Phyrexian, snow, X/Y/Z).
+- `mana_cost = mana!("{2}{W/U}{W/P}")` — compile-time parsed (generic,
+  color, hybrid, 2-or, Phyrexian, hybrid-Phyrexian, snow, X/Y/Z).
 - `FaceDef.alternative_costs: &[AlternativeCost { cost, condition }]` —
   pitch/evoke/conditional-free (conditions: `Always`, `NotYourTurn`,
   `CommanderControlled`). Its `parts` pay `PayLife` and `ExileFromHand`, and
@@ -352,9 +352,20 @@ express at all yet.
   `PayLifeX` is bounded where it is asked instead — the wizard offers X up to
   the caster's life total (CR 119.4) and never up to a constant. A `PayLife(n)`
   written here is bounded by nothing and would be paid past zero.
-- `Cost { mana, parts }` — parts: `TapSelf`, `UntapSelf`, `SacrificeSelf`,
-  `Sacrifice(filter)`, `Discard(filter)`, `DiscardSelf` (cycling),
-  `PayLife(n)`, `PayLifeX`, `ExileSelf`, `ExileFromHand(filter)`.
+- `cost!("{1}{G}", TapSelf, SacrificeSelf)` — a cost, read left to right the
+  way the card prints it: the mana string first (omitted when there is none),
+  then the parts. A part is named without its `CostPart::` prefix, which on a
+  fetchland was the same word three times.
+
+  The parts: `TapSelf`, `UntapSelf`, `SacrificeSelf`, `Sacrifice(filter)`,
+  `Discard(filter)`, `DiscardSelf` (cycling), `PayLife(n)`, `PayLifeX`,
+  `ExileSelf`, `ExileFromHand(filter)`, `ReturnSelfToHand`.
+
+  `Cost::FREE` is the empty cost and `Cost::TAP` a bare `{T}` — the two the
+  macro would spell with no argument and one, and the two that between them
+  are a third of the activated abilities in the pool. `Cost { mana, parts }`
+  is still the struct underneath and is what a *reader* in
+  `baylee-cards-codegen` builds; card files say `cost!`.
 
 Four of those may not appear on an **activated** ability, and one that carries
 them fails the build rather than shipping. `Sacrifice(filter)` and
@@ -640,10 +651,7 @@ Fetchland (activated with composite cost + filtered search):
 
 ```rust
 abilities = &[activated!(
-    Cost {
-        mana: ManaCost::ZERO,
-        parts: &[CostPart::TapSelf, CostPart::SacrificeSelf, CostPart::PayLife(1)],
-    },
+    cost!(TapSelf, SacrificeSelf, PayLife(1)),
     &[Effect::SearchLibrary {
         filter: &LAND_TYPE_PAIR,
         finds: &[Find::BATTLEFIELD],

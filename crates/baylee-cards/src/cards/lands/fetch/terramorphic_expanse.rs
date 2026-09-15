@@ -14,10 +14,7 @@ card!(
     coverage = Coverage::Implemented,
     faces = &[face!(name = "Terramorphic Expanse", types = TypeSet::LAND,),],
     abilities = &[activated!(
-        Cost {
-            mana: ManaCost::ZERO,
-            parts: &[CostPart::TapSelf, CostPart::SacrificeSelf],
-        },
+        cost!(TapSelf, SacrificeSelf),
         &[Effect::SearchLibrary {
             filter: &Filter::BASIC_LAND,
             finds: &[Find::BATTLEFIELD_TAPPED],

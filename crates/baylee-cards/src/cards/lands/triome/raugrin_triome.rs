@@ -31,10 +31,7 @@ card!(
             ManaColor::White,
         ])]),
         activated!(
-            Cost {
-                mana: mana!("{3}"),
-                parts: &[CostPart::DiscardSelf],
-            },
+            cost!("{3}", DiscardSelf),
             &[Effect::DrawCards {
                 amount: Amount::Fixed(1),
             }],

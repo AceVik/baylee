@@ -43,10 +43,7 @@ card!(
             })
         ),
         activated!(
-            Cost {
-                mana: mana!("{1}{W}"),
-                parts: &[CostPart::SacrificeSelf],
-            },
+            cost!("{1}{W}", SacrificeSelf),
             &[Effect::GainLife {
                 amount: Amount::Fixed(2),
             }]

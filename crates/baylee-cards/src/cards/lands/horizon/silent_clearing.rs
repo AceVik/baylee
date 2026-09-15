@@ -15,17 +15,11 @@ card!(
     faces = &[face!(name = "Silent Clearing", types = TypeSet::LAND,),],
     abilities = &[
         mana_ability!(
-            Cost {
-                mana: ManaCost::ZERO,
-                parts: &[CostPart::TapSelf, CostPart::PayLife(1)]
-            },
+            cost!(TapSelf, PayLife(1)),
             &[Effect::mana_choice(&[ManaColor::White, ManaColor::Black])]
         ),
         activated!(
-            Cost {
-                mana: mana!("{1}"),
-                parts: &[CostPart::TapSelf, CostPart::SacrificeSelf]
-            },
+            cost!("{1}", TapSelf, SacrificeSelf),
             &[Effect::DrawCards {
                 amount: Amount::Fixed(1)
             }]

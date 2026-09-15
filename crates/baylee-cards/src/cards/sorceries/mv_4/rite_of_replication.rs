@@ -14,10 +14,7 @@ card!(
         name = "Rite of Replication",
         mana_cost = mana!("{2}{U}{U}"),
         types = TypeSet::SORCERY,
-        additional_costs = &[Cost {
-            mana: mana!("{5}"),
-            parts: &[],
-        }],
+        additional_costs = &[cost!("{5}")],
     )],
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     coverage = Coverage::Implemented,

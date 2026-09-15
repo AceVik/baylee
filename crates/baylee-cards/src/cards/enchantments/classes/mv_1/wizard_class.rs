@@ -39,10 +39,7 @@ card!(
         }),
         // {2}{U}: Level 2 (sorcery speed, requires level 1).
         AbilityDef::ActivatedConditional {
-            cost: Cost {
-                mana: mana!("{2}{U}"),
-                parts: &[],
-            },
+            cost: cost!("{2}{U}"),
             effects: &[
                 Effect::AddCounter {
                     kind: CounterKind::Level,
@@ -60,10 +57,7 @@ card!(
         },
         // {4}{U}: Level 3 (sorcery speed, requires level 2).
         AbilityDef::ActivatedConditional {
-            cost: Cost {
-                mana: mana!("{4}{U}"),
-                parts: &[],
-            },
+            cost: cost!("{4}{U}"),
             effects: &[
                 Effect::AddCounter {
                     kind: CounterKind::Level,

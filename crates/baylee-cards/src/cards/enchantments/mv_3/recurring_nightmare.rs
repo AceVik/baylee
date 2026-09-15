@@ -28,13 +28,7 @@ card!(
     color_identity = ColorSet::from_slice(&[Color::Black]),
     coverage = Coverage::Partial("a sacrifice cost cannot be chosen during an activation"),
     abilities = &[activated!(
-        Cost {
-            mana: ManaCost::ZERO,
-            parts: &[
-                CostPart::Sacrifice(&CREATURE_YOU_CONTROL),
-                CostPart::ReturnSelfToHand,
-            ],
-        },
+        cost!(Sacrifice(&CREATURE_YOU_CONTROL), ReturnSelfToHand),
         &[Effect::GraveyardToBattlefield {
             target: TargetSpec::CardInGraveyard(&Filter::CREATURE, PlayerRel::You),
         }],

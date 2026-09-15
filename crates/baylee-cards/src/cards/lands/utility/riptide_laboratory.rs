@@ -25,10 +25,7 @@ card!(
     abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
         activated!(
-            Cost {
-                mana: mana!("{1}{U}"),
-                parts: &[CostPart::TapSelf]
-            },
+            cost!("{1}{U}", TapSelf),
             &[Effect::ReturnToHand {
                 target: TargetSpec::Object(&WIZARD),
             }],

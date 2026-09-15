@@ -915,17 +915,17 @@ impl Tx<'_> {
         let mut parts: Vec<String> = Vec::new();
         for token in raw.split_whitespace() {
             if token == "T" {
-                parts.push("CostPart::TapSelf".to_string());
+                parts.push("TapSelf".to_string());
             } else if token == "Q" {
-                parts.push("CostPart::UntapSelf".to_string());
+                parts.push("UntapSelf".to_string());
             } else if token.starts_with("Sac<1/CARDNAME") {
-                parts.push("CostPart::SacrificeSelf".to_string());
+                parts.push("SacrificeSelf".to_string());
             } else if let Some(n) = token
                 .strip_prefix("PayLife<")
                 .and_then(|t| t.strip_suffix('>'))
                 .and_then(|t| t.parse::<u16>().ok())
             {
-                parts.push(format!("CostPart::PayLife({n})"));
+                parts.push(format!("PayLife({n})"));
             } else if token.chars().all(|c| c.is_ascii_digit())
                 || matches!(token, "W" | "U" | "B" | "R" | "G" | "C")
             {
@@ -937,18 +937,7 @@ impl Tx<'_> {
                 return self.deny(format!("cost `{head}`"));
             }
         }
-        if mana.is_empty() && parts == ["CostPart::TapSelf"] {
-            return Some("Cost::TAP".to_string());
-        }
-        let mana_expr = if mana.is_empty() {
-            "ManaCost::ZERO".to_string()
-        } else {
-            format!("mana!(\"{mana}\")")
-        };
-        Some(format!(
-            "Cost {{ mana: {mana_expr}, parts: &[{}] }}",
-            parts.join(", ")
-        ))
+        Some(crate::body::cost_literal(&mana, &parts))
     }
 
     /// `T:Mode$ …` as a `Trigger` expression.
@@ -1905,7 +1894,7 @@ mod tests {
         assert_eq!(
             body.abilities,
             [
-                "activated!(Cost { mana: ManaCost::ZERO, parts: &[CostPart::TapSelf, CostPart::SacrificeSelf] }, &[Effect::SearchLibrary { filter: &SEARCH1, finds: &[Find::BATTLEFIELD], optional: false }])"
+                "activated!(cost!(TapSelf, SacrificeSelf), &[Effect::SearchLibrary { filter: &SEARCH1, finds: &[Find::BATTLEFIELD], optional: false }])"
             ]
         );
 

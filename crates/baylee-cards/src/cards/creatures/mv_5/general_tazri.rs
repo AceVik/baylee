@@ -47,10 +47,7 @@ card!(
             }]
         ),
         activated!(
-            Cost {
-                mana: mana!("{W}{U}{B}{R}{G}"),
-                parts: &[],
-            },
+            cost!("{W}{U}{B}{R}{G}"),
             &[Effect::PumpFilter {
                 filter: &ALLIES_YOU_CONTROL,
                 controlled_by: None,

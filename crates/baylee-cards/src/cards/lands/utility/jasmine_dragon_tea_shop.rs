@@ -35,10 +35,7 @@ card!(
         ])
         .restricted(&Filter::HasSubtype(creature::ALLY), SpendRider::None,)]),
         activated!(
-            Cost {
-                mana: mana!("{5}"),
-                parts: &[CostPart::TapSelf],
-            },
+            cost!("{5}", TapSelf),
             &[Effect::CreateToken { token: &ALLY_TOKEN }]
         ),
     ],

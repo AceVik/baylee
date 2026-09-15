@@ -25,10 +25,7 @@ card!(
         power = Some(3),
         toughness = Some(2),
         alternative_costs = &[AlternativeCost {
-            cost: Cost {
-                mana: ManaCost::ZERO,
-                parts: &[CostPart::ExileFromHand(&WHITE_CARD)],
-            },
+            cost: cost!(ExileFromHand(&WHITE_CARD)),
             condition: AltCondition::Always,
         }],
     )],

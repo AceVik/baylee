@@ -14,12 +14,6 @@ card!(
     faces = &[face!(name = "Henge of Ramos", types = TypeSet::LAND,),],
     abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
-        mana_ability!(
-            Cost {
-                mana: mana!("{2}"),
-                parts: &[CostPart::TapSelf]
-            },
-            &[Effect::mana_of_any_color()]
-        ),
+        mana_ability!(cost!("{2}", TapSelf), &[Effect::mana_of_any_color()]),
     ],
 );

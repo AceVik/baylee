@@ -23,10 +23,7 @@ card!(
         ),
         mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
         mana_ability!(
-            Cost {
-                mana: mana!("{1}"),
-                parts: &[CostPart::TapSelf]
-            },
+            cost!("{1}", TapSelf),
             &[Effect::mana_choice(&[
                 ManaColor::Blue,
                 ManaColor::Black,

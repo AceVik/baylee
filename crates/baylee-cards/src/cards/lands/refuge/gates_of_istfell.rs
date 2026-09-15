@@ -21,10 +21,7 @@ card!(
     abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::White, 1)]),
         activated!(
-            Cost {
-                mana: mana!("{2}{W}{U}{U}"),
-                parts: &[CostPart::TapSelf, CostPart::SacrificeSelf]
-            },
+            cost!("{2}{W}{U}{U}", TapSelf, SacrificeSelf),
             &[
                 Effect::GainLife {
                     amount: Amount::Fixed(2)

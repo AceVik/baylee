@@ -33,10 +33,7 @@ card!(
             modifier: Modifier::AddKeyword(KeywordSet::HASTE.union(KeywordSet::SHROUD)),
         }),
         activated!(
-            Cost {
-                mana: ManaCost::ZERO,
-                parts: &[],
-            },
+            Cost::FREE,
             &[Effect::AttachSelf {
                 target: TargetSpec::Object(&CREATURE_YOU_CONTROL),
             }],

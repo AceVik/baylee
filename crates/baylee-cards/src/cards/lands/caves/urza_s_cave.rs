@@ -22,10 +22,7 @@ card!(
     abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
         activated!(
-            Cost {
-                mana: mana!("{3}"),
-                parts: &[CostPart::TapSelf, CostPart::SacrificeSelf]
-            },
+            cost!("{3}", TapSelf, SacrificeSelf),
             &[Effect::SearchLibrary {
                 filter: &SEARCH1,
                 finds: &[Find::BATTLEFIELD_TAPPED],

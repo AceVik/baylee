@@ -51,10 +51,7 @@ card!(
                 layer: Layer::Ability,
                 filter: &Filter::This,
                 modifier: Modifier::GrantActivated {
-                    cost: Cost {
-                        mana: mana!("{2}"),
-                        parts: &[CostPart::TapSelf],
-                    },
+                    cost: cost!("{2}", TapSelf),
                     effects: &[Effect::CreateTokenPtPerCount {
                         token: &CONSTRUCT,
                         filter: &Filter::ARTIFACT,

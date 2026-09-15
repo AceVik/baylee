@@ -1143,6 +1143,22 @@ fn cached_printing(root: &Path, name: &str) -> Option<serde_json::Value> {
 }
 
 /// Extracts the first `"`-quoted value after `key` (e.g. `name = "…"`).
+/// What a card file writes after `<field> =`, with the line break rustfmt
+/// may have put in between skipped.
+///
+/// Card files are ordinary rustfmt output since the macros moved to
+/// parentheses, which means a value too long for its line is wrapped onto the
+/// next one: Nesting Dovehawk's `Coverage::Partial("…")` is written
+/// `coverage =\n        Coverage::Partial(…)`. A reader matching the literal
+/// `"coverage = Coverage::"` read that as a card with no coverage flag at all
+/// — the seventh textual reader of the pool to answer a question it could not
+/// see the answer to. Anything asking a card file what a knob says goes
+/// through here.
+fn knob<'a>(content: &'a str, field: &str) -> Option<&'a str> {
+    let at = content.find(&format!("{field} ="))?;
+    Some(content[at + field.len() + 2..].trim_start())
+}
+
 fn quoted_value<'a>(content: &'a str, key: &str) -> Option<&'a str> {
     let start = content.find(key)? + key.len();
     let rest = &content[start..];
@@ -2437,7 +2453,8 @@ fn check_header_matches_code(
     // either side may headline the file's first face.
     let code_name = content
         .find("faces = &[")
-        .and_then(|pos| quoted_value(&content[pos..], "name = \""));
+        .and_then(|pos| knob(&content[pos..], "name"))
+        .and_then(|v| quoted_value(v, "\""));
     if let Some(code_name) = code_name {
         let matches = head_name.split(" // ").any(|side| side == code_name);
         if !matches {
@@ -2876,7 +2893,7 @@ fn validate(root: &Path) -> anyhow::Result<()> {
             ("oracle id", content.contains("Oracle ID:")),
             (
                 "coverage flag",
-                is_stub || content.contains("coverage = Coverage::"),
+                is_stub || knob(&content, "coverage").is_some_and(|v| v.starts_with("Coverage::")),
             ),
         ] {
             if !check.1 {

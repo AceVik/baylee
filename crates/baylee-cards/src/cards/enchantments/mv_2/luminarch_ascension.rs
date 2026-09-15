@@ -41,10 +41,7 @@ card!(
             }]
         ),
         AbilityDef::ActivatedConditional {
-            cost: Cost {
-                mana: mana!("{1}{W}"),
-                parts: &[],
-            },
+            cost: cost!("{1}{W}"),
             effects: &[Effect::CreateToken { token: &ANGEL }],
             target: None,
             timing: ActivationTiming::InstantSpeed,

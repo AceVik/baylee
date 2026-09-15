@@ -20,14 +20,7 @@ card!(
     faces = &[face!(name = "Scalding Tarn", types = TypeSet::LAND,)],
     coverage = Coverage::Implemented,
     abilities = &[activated!(
-        Cost {
-            mana: ManaCost::ZERO,
-            parts: &[
-                CostPart::TapSelf,
-                CostPart::SacrificeSelf,
-                CostPart::PayLife(1),
-            ],
-        },
+        cost!(TapSelf, SacrificeSelf, PayLife(1)),
         &[Effect::SearchLibrary {
             filter: &SEARCH_FILTER,
             finds: &[Find::BATTLEFIELD],

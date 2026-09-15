@@ -13,10 +13,7 @@ card!(
     coverage = Coverage::Implemented,
     faces = &[face!(name = "Shadowblood Ridge", types = TypeSet::LAND,),],
     abilities = &[mana_ability!(
-        Cost {
-            mana: mana!("{1}"),
-            parts: &[CostPart::TapSelf]
-        },
+        cost!("{1}", TapSelf),
         &[
             Effect::mana(ManaColor::Black, 1),
             Effect::mana(ManaColor::Red, 1)

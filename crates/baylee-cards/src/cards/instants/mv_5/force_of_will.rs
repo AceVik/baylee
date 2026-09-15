@@ -18,10 +18,7 @@ card!(
         mana_cost = mana!("{3}{U}{U}"),
         types = TypeSet::INSTANT,
         alternative_costs = &[AlternativeCost {
-            cost: Cost {
-                mana: ManaCost::ZERO,
-                parts: &[CostPart::PayLife(1), CostPart::ExileFromHand(&BLUE_CARD)],
-            },
+            cost: cost!(PayLife(1), ExileFromHand(&BLUE_CARD)),
             condition: AltCondition::Always,
         }],
     )],

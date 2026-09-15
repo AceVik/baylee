@@ -104,10 +104,7 @@ card!(
             }]
         ),
         AbilityDef::ActivatedConditional {
-            cost: Cost {
-                mana: mana!("{4}{B}"),
-                parts: &[],
-            },
+            cost: cost!("{4}{B}"),
             effects: &[Effect::ExileSelfReturnAsFace { face: 1 }],
             target: None,
             timing: ActivationTiming::SorcerySpeed,

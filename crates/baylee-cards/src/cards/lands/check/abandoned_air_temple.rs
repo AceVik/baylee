@@ -30,10 +30,7 @@ card!(
     abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::White, 1)]),
         activated!(
-            Cost {
-                mana: mana!("{3}{W}"),
-                parts: &[CostPart::TapSelf],
-            },
+            cost!("{3}{W}", TapSelf),
             &[Effect::AddCounterFilter {
                 filter: &YOUR_CREATURES,
                 kind: CounterKind::P1P1,

@@ -18,10 +18,7 @@ card!(
     abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
         activated!(
-            Cost {
-                mana: mana!("{1}"),
-                parts: &[CostPart::TapSelf],
-            },
+            cost!("{1}", TapSelf),
             &[Effect::CreateContinuousEffect {
                 layer: Layer::Text,
                 filter: &Filter::This,

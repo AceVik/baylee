@@ -13,10 +13,7 @@ card!(
     coverage = Coverage::Implemented,
     faces = &[face!(name = "Sunscorched Divide", types = TypeSet::LAND,),],
     abilities = &[mana_ability!(
-        Cost {
-            mana: mana!("{1}"),
-            parts: &[CostPart::TapSelf]
-        },
+        cost!("{1}", TapSelf),
         &[
             Effect::mana(ManaColor::Red, 1),
             Effect::mana(ManaColor::White, 1)
