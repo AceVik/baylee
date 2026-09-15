@@ -407,7 +407,12 @@ renumbers nothing, and a `CardIndex` is what saved decks and replays name. A
 card this repo implements that the corpus filter drops is named in
 `data/corpus-keep.tsv`, the hand-kept additive half, and is admitted whole.
 Codegen only *reads* the ledger and fails loudly on a card with no row: one
-writer, and it is not the thing that writes card files. The `//!`
+writer, and it is not the thing that writes card files. What it *does* write
+from the ledger is `crates/baylee-core/src/generated/index/` — the same
+assignment as Rust constants, one `set_<code>.rs` per first-appearance set
+behind a `mod.rs` that globs them into one namespace, so `index::MOX_OPAL`
+resolves without anybody knowing the set. `docs/card-dsl.md` §"Two defaults"
+has the prefix rule and the generated door test. The `//!`
 header (name, cost, oracle text, set, Scryfall id) is the human-verification
 surface and `xtask validate` fails if it drifts from the `CardDef` built below
 it — **and** if its oracle text is not the one Scryfall prints, which is the

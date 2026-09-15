@@ -9,6 +9,7 @@
 
 pub mod acceptance;
 pub mod body;
+pub mod cardindex;
 pub mod catalog;
 pub mod error;
 pub mod landgen;

@@ -46,7 +46,10 @@ macro_rules! id_type {
 }
 
 id_type! {
-    /// Rules identity of a card definition (oracle-keyed, assigned by codegen).
+    /// Rules identity of a card definition (oracle-keyed, assigned by
+    /// `cargo xtask ledger` over the whole card corpus).
+    ///
+    /// [`crate::generated::index`] names every one of them.
     CardIndex(u32);
     /// Opaque index into a game's print table (presentation-only payload).
     PrintRef(u16);

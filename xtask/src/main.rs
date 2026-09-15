@@ -1,7 +1,8 @@
 //! xtask — baylee development tasks (codegen, card explanation, …).
 
 use baylee_cards_codegen::{
-    acceptance, catalog, landgen, layout, ledger, lines, scriptgen, scripts, scryfall, stubgen,
+    acceptance, cardindex, catalog, landgen, layout, ledger, lines, scriptgen, scripts, scryfall,
+    stubgen,
 };
 use clap::{Parser, Subcommand};
 use std::collections::{BTreeMap, BTreeSet};
@@ -450,6 +451,24 @@ fn write_or_check(
     } else {
         content
     };
+    write_verbatim(check, path, content, changed)
+}
+
+/// The same, for generated text that is already in the form rustfmt would
+/// leave it in.
+///
+/// The `CardIndex` tree is 383 files of one-line constants, and running
+/// rustfmt over each of them costs a process apiece on every `codegen` and
+/// every CI `--check` to change nothing. `the_index_tree_is_already_
+/// formatted` in `xtask` is what holds the claim: if the renderer ever emits
+/// something rustfmt would rewrite, `cargo fmt --all` and `codegen --check`
+/// would disagree forever, each undoing the other.
+fn write_verbatim(
+    check: bool,
+    path: &Path,
+    content: &str,
+    changed: &mut Vec<PathBuf>,
+) -> anyhow::Result<()> {
     let existing = fs::read_to_string(path).unwrap_or_default();
     if existing == content {
         return Ok(());
@@ -604,6 +623,69 @@ fn cards(
         &stubgen::render_registry(&stubs, slots),
         changed,
     )?;
+    write_index_tree(root, check, &ledger, changed)?;
+    Ok(())
+}
+
+/// Writes `crates/baylee-core/src/generated/index/` — the ledger as Rust.
+///
+/// A *rendering*, exactly like `generated.rs`: `cargo xtask ledger` assigns
+/// and this only draws what was assigned, which is what keeps one writer and
+/// makes `codegen --check` the thing that holds the two in step.
+///
+/// A set file the ledger no longer names is removed rather than left behind.
+/// An orphan there would compile, be declared by nothing in `mod.rs` and be
+/// read by nobody — the same failure an orphaned card file is, and it earns
+/// the same answer.
+fn write_index_tree(
+    root: &Path,
+    check: bool,
+    ledger: &ledger::IndexLedger,
+    changed: &mut Vec<PathBuf>,
+) -> anyhow::Result<()> {
+    let dir = root.join("crates/baylee-core/src/generated/index");
+    let files = cardindex::render(ledger)?;
+    let mut expected: BTreeSet<&str> = BTreeSet::new();
+    for file in &files {
+        expected.insert(file.name.as_str());
+        let path = dir.join(&file.name);
+        // `mod.rs` is the one file here rustfmt has an opinion about: it
+        // reorders `mod` and `pub use` lists by *version* sort, where `40k`
+        // sorts after `5dn` because 40 is more than 5. Rendering them in any
+        // other order and writing them verbatim makes `cargo fmt --all` and
+        // `codegen --check` undo each other forever, which is how this was
+        // found. The set files are constants and rustfmt has nothing to say
+        // about them, so they skip the process spawn — 382 of those apiece,
+        // on every run, to change nothing.
+        if file.name == "mod.rs" {
+            write_or_check(check, &path, &file.content, changed)?;
+        } else {
+            write_verbatim(check, &path, &file.content, changed)?;
+        }
+    }
+    if dir.exists() {
+        for entry in fs::read_dir(&dir)? {
+            let path = entry?.path();
+            if path.extension().is_some_and(|e| e == "rs")
+                && !path
+                    .file_name()
+                    .and_then(|n| n.to_str())
+                    .is_some_and(|n| expected.contains(n))
+            {
+                if check {
+                    changed.push(path.clone());
+                } else {
+                    fs::remove_file(&path)?;
+                    println!("removed {}", path.display());
+                }
+            }
+        }
+    }
+    println!(
+        "card index: {} constants across {} set modules",
+        ledger.entries().len(),
+        files.len() - 1
+    );
     Ok(())
 }
 

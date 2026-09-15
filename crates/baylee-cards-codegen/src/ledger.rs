@@ -12,9 +12,12 @@
 //! its own: the slot is retired rather than handed on, because a deck saved
 //! last year may still name it.
 //!
-//! The file is the source of truth, not a cache — `cargo xtask codegen
-//! --check` fails if a run would change it, so an index can never be assigned
-//! without landing in a commit.
+//! The file is the source of truth, not a cache, and `cargo xtask ledger` is
+//! the only thing that writes it — codegen reads it and refuses a card with
+//! no row, so an index can never be assigned as a side effect of a build.
+//! What codegen *does* write from it is `crates/baylee-core/src/generated/
+//! index/`, the same assignment as Rust constants (see [`crate::cardindex`]),
+//! and `codegen --check` is what holds the two in step.
 //!
 //! # Why the order is written down and not recomputed
 //!
@@ -284,6 +287,23 @@ impl IndexLedger {
     #[must_use]
     pub fn entries(&self) -> &[LedgerEntry] {
         &self.entries
+    }
+
+    /// Builds a ledger from rows without any of the guards `parse` applies.
+    ///
+    /// Test-only, and it exists for one test: `cardindex`'s refusal to render
+    /// two cards claiming one constant cannot be reached through `parse` or
+    /// `assign`, because both refuse a duplicate first. Proving the third
+    /// lock works needs a door past the first two.
+    #[cfg(test)]
+    pub(crate) fn from_entries_unchecked(entries: Vec<LedgerEntry>) -> Self {
+        let mut this = Self {
+            entries,
+            by_card: HashMap::new(),
+            taken: HashSet::new(),
+        };
+        this.sort_by_index();
+        this
     }
 }
 

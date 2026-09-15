@@ -213,6 +213,22 @@ both are load-bearing:
   in its own chronological place. Never edit the ledger by hand; and note
   that codegen does not write it — it reads the row a card needs and fails
   loudly if there is none, which is what keeps the ledger to one writer.
+
+  What codegen *does* write from it is
+  `crates/baylee-core/src/generated/index/`: the same assignment as Rust, one
+  `pub const` per card, one `set_<code>.rs` per first-appearance set, globbed
+  back into one namespace by `mod.rs` so a caller writes
+  `index::LIGHTNING_BOLT` and never learns which set that was. Every module
+  carries the `set_` prefix because three set codes (`2x2`, `40k`, `5dn`)
+  begin with a digit, and a prefix applied to only those three is a rule
+  somebody has to remember. The two ways such a tree fails are both
+  invisible — a module missing from `mod.rs` is merely unreachable, and two
+  sets exporting one name are a glob ambiguity rustc reports at the *use
+  site* — so `mod.rs` ends in a generated test that names one constant from
+  every set module, turning both into build failures today rather than on the
+  day somebody reaches for that card. Card files still carry the number
+  itself (`index = 11391`); switching them to the constant is a separate
+  change.
 - `CardDef::DEFAULT.coverage` is `Coverage::Unimplemented`, so a stub that
   was never finished cannot reach the deckbuilder as playable just because
   a line went missing. An implemented card writes
