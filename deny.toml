@@ -1,4 +1,17 @@
 [advisories]
+ignore = [
+    # `ttf-parser`, whose author has said it will not be maintained further.
+    # It is not ours and it is not bevy's text stack: the chain is
+    # `sctk-adwaita` → `ab_glyph` → `owned_ttf_parser` → here, which is
+    # winit drawing a Wayland titlebar on Linux. The advisory itself says
+    # "No safe upgrade is available!" and names `skrifa` as the replacement
+    # — a move `sctk-adwaita` has to make, not us, so there is nothing here
+    # to act on and an unmaintained-crate notice is not a vulnerability.
+    # `cargo-deny` treats `unmaintained` as an **error** where
+    # `cargo-audit` reports it as a warning, which is why only one of the
+    # two jobs went red on it.
+    "RUSTSEC-2026-0192",
+]
 
 [licenses]
 allow = [
