@@ -8,6 +8,15 @@ on:
 env:
   CARGO_TERM_COLOR: always
 
+# A push supersedes the run before it, and four runs of the same branch were
+# not four verdicts — they were four jobs queueing for the same macOS pool and
+# four `codegen` processes fetching from Scryfall on the same runner IP range,
+# which is what earned the rate limiting. The last commit's verdict is the one
+# that matters; the superseded run is cancelled rather than raced.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   fmt:
     runs-on: ubuntu-latest
@@ -162,8 +171,12 @@ jobs:
       # files has still done the expensive half. `actions/cache`'s own post
       # step would not: it is skipped on a failed job, which is what kept
       # every run of this job starting from an empty cache.
+      # `always()` and not `!cancelled()`, now that a superseded run *is*
+      # cancelled: a job that spent fifty minutes fetching and was then
+      # cancelled has still done the expensive half, and throwing that away
+      # is the exact loop this pair of commits exists to break.
       - uses: actions/cache/save@v4
-        if: ${{ !cancelled() }}
+        if: ${{ always() }}
         continue-on-error: true
         with:
           path: data/scryfall-cache
@@ -185,7 +198,14 @@ jobs:
     # was passed, so ordering the two puts a warm cache under this job on the
     # same key. It costs the parallelism of one job and buys a check that is
     # about the cards rather than about the runner's disk.
+    #
+    # It waits for that job but does not depend on its verdict: the two answer
+    # different questions — `codegen-check` is about the generated files and
+    # `validate` about the card headers — and a plain `needs:` turned every
+    # red `codegen-check` into a `validate` that reported `skipped`, which
+    # says less than either a pass or a failure would.
     needs: codegen-check
+    if: ${{ !cancelled() }}
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/scryfall-cache
