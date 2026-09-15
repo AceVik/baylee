@@ -331,7 +331,12 @@ first of them the gateway sends none and requires no confirmation, which is
 the development default) and
 `BAYLEE_ENGINE_URL` (what an engine is told to dial, default
 `ws://127.0.0.1:{PORT}/engine/ws` — right for one box, wrong the moment an
-agent runs elsewhere). The agent takes `BAYLEE_GATEWAY`, `BAYLEE_AGENT_TOKEN`,
+agent runs elsewhere). Every response carries
+`Access-Control-Allow-Origin: *` and no `Allow-Credentials`, which is what
+lets the browser client read an answer at all: its page is a different origin
+by construction, and the pair is defensible only because this gateway
+authenticates with a bearer token in a header and sets no cookie anywhere.
+The agent takes `BAYLEE_GATEWAY`, `BAYLEE_AGENT_TOKEN`,
 `BAYLEE_AGENT_NAME`, `BAYLEE_AGENT_CAPACITY` (0 = no limit) and
 `BAYLEE_ENGINE_BIN` (default: `baylee-engine-server` beside the agent). An
 attached engine takes `--attach <ws>` `--game <id>` `--token <tok>`, or the

@@ -234,6 +234,7 @@ async fn main() {
             )),
         )
         .route("/images/{id}", get(cosmetics::serve))
+        .layer(axum::middleware::from_fn(cors))
         .with_state(state);
 
     let listener = tokio::net::TcpListener::bind(("0.0.0.0", port))
@@ -1396,6 +1397,77 @@ fn house_deck() -> Result<baylee_cards::decks::LoadedDeck, (StatusCode, Json<Err
         .map_err(|_| err(StatusCode::INTERNAL_SERVER_ERROR, "deck data missing"))?;
     baylee_cards::decks::load_acceptance(&text, "Victory")
         .map_err(|_e| err(StatusCode::INTERNAL_SERVER_ERROR, "house deck missing"))
+}
+
+/// Every response carries the headers a browser needs to read it.
+///
+/// The browser client is served from somewhere else by construction: the page
+/// is a `trunk serve` (or a static host) and the gateway is a different
+/// origin, which `?gateway=…` exists to say. So every request it makes is
+/// cross-origin, and without these headers a browser discards the answer —
+/// a `GET /pool` is a *simple* request that is sent and then thrown away, and
+/// anything carrying `Authorization` is not sent at all, because the
+/// preflight was answered `405 Method Not Allowed`. Measured: a gateway with
+/// no CORS refuses `OPTIONS /auth/login` outright, which is the whole lobby.
+///
+/// `*` rather than an allowlist, and that is a decision rather than a
+/// shortcut. This gateway authenticates with a **bearer token in a header**
+/// and sets no cookie anywhere, so a browser sends nothing ambient with a
+/// cross-origin request: a page on another origin can reach these routes as
+/// an anonymous client and no further, which is exactly what any HTTP client
+/// can already do. `Allow-Credentials` is therefore never sent, and the two
+/// together are the pair that must not drift apart — `*` with credentials is
+/// the combination the fetch spec refuses, and for good reason.
+///
+/// The preflight is answered here rather than routed, because axum resolves a
+/// path to a `MethodRouter` that knows only the methods a handler registered:
+/// an `OPTIONS` to `/auth/login` is a 405 before any handler sees it, and a
+/// per-route `options(…)` would have to be typed out on all sixty routes and
+/// forgotten on the sixty-first.
+async fn cors(
+    request: axum::extract::Request,
+    next: axum::middleware::Next,
+) -> axum::response::Response {
+    use axum::http::{HeaderValue, Method, header};
+
+    /// What the client is allowed to send. `authorization` is the bearer
+    /// token and `content-type` is what makes a JSON body a JSON body — both
+    /// are what turns an otherwise simple request into a preflighted one.
+    const ALLOW_HEADERS: &str = "authorization, content-type";
+    /// Every method this gateway routes.
+    const ALLOW_METHODS: &str = "GET, POST, PUT, DELETE, OPTIONS";
+
+    let preflight = request.method() == Method::OPTIONS;
+    let mut response = if preflight {
+        // Answered whole, and never passed on: the route this is a preflight
+        // *for* has no `OPTIONS` handler and would answer 405.
+        let mut empty = axum::response::Response::new(axum::body::Body::empty());
+        *empty.status_mut() = StatusCode::NO_CONTENT;
+        empty
+    } else {
+        next.run(request).await
+    };
+    let headers = response.headers_mut();
+    headers.insert(
+        header::ACCESS_CONTROL_ALLOW_ORIGIN,
+        HeaderValue::from_static("*"),
+    );
+    if preflight {
+        headers.insert(
+            header::ACCESS_CONTROL_ALLOW_METHODS,
+            HeaderValue::from_static(ALLOW_METHODS),
+        );
+        headers.insert(
+            header::ACCESS_CONTROL_ALLOW_HEADERS,
+            HeaderValue::from_static(ALLOW_HEADERS),
+        );
+        // A day, so a lobby that asks sixty questions asks this one once.
+        headers.insert(
+            header::ACCESS_CONTROL_MAX_AGE,
+            HeaderValue::from_static("86400"),
+        );
+    }
+    response
 }
 
 /// Preset for a human-vs-AI game (house AI plays Victory).

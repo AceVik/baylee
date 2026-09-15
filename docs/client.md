@@ -4499,6 +4499,24 @@ button labels and prompt bar included. `AssetPlugin::meta_check` is
 `cfg`: it is what a repo with no `.meta` file means everywhere, and a browser
 is only where it was noticed.
 
+**The gateway answered no CORS at all, so nothing it said could be read.**
+The page is a `trunk serve` on :8080 and the gateway is not — that is the
+whole reason `?gateway=…` exists — so every request the client makes is
+cross-origin. The two halves fail differently, which is why the test checks
+both: a request carrying `Authorization` is preflighted and was never sent,
+because `OPTIONS /auth/login` was answered `405 Method Not Allowed` (axum
+resolves a path to the methods a handler registered, and none registers
+`OPTIONS`); a plain `GET` is a *simple* request that was sent, answered, and
+then discarded by the browser for want of an `Access-Control-Allow-Origin`.
+The gateway now carries one middleware that answers every preflight `204` and
+puts `Access-Control-Allow-Origin: *` on everything. `*` is a decision:
+this gateway authenticates with a bearer token in a header and sets no cookie
+anywhere, so a cross-origin request brings nothing ambient with it and a
+stranger's page can reach these routes as an anonymous client and no further.
+`Allow-Credentials` is therefore never sent, and
+`crates/baylee-gateway/tests/e2e_cors.rs` asserts its absence beside the
+wildcard — the two are only defensible together.
+
 **The page is not in fullscreen, and never asks to be.** It looks like it:
 `index.html` gives `html`, `body` and the canvas `height: 100%` with
 `overflow: hidden`, so the game occupies the entire viewport with no page

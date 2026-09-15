@@ -380,3 +380,35 @@ pub fn http_bytes(
         .expect("http status");
     (status, raw[split + 4..].to_vec())
 }
+
+/// A request that also says what came back in the **header block**.
+///
+/// [`http`] throws the headers away, which is right for every test that is
+/// about a body and useless for one that is about a header — CORS is decided
+/// entirely in headers, and a preflight has no body at all. `extra` is sent
+/// verbatim, each pair on its own line, because a preflight is defined by
+/// `Origin` and `Access-Control-Request-Method` being present.
+pub fn http_headers(port: u16, method: &str, path: &str, extra: &[(&str, &str)]) -> (u16, String) {
+    use std::io::{Read, Write};
+    let mut stream = std::net::TcpStream::connect(("127.0.0.1", port)).expect("connect http");
+    let mut extras = String::new();
+    for (name, value) in extra {
+        extras.push_str(name);
+        extras.push_str(": ");
+        extras.push_str(value);
+        extras.push_str("\r\n");
+    }
+    let request = format!(
+        "{method} {path} HTTP/1.1\r\nHost: 127.0.0.1\r\n{extras}Content-Length: 0\r\nConnection: close\r\n\r\n"
+    );
+    stream.write_all(request.as_bytes()).expect("write http");
+    let mut raw = String::new();
+    stream.read_to_string(&mut raw).expect("read http");
+    let status: u16 = raw
+        .split_whitespace()
+        .nth(1)
+        .and_then(|s| s.parse().ok())
+        .expect("http status");
+    let head = raw.split("\r\n\r\n").next().unwrap_or("").to_lowercase();
+    (status, head)
+}
