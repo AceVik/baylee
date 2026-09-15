@@ -27,6 +27,8 @@ jobs:
         with:
           components: clippy
       - uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
       - run: cargo clippy --workspace --all-targets -- -D warnings
 
   # The gateway keeps its accounts in PostgreSQL, so the suite needs one.
@@ -62,6 +64,8 @@ jobs:
       - uses: ./.github/actions/linux-deps
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
       - run: cargo test --workspace --all-targets
 
   # Debug-only behavior has bitten before (a `debug_assert!` hid the mana
@@ -89,6 +93,8 @@ jobs:
       - uses: ./.github/actions/linux-deps
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
       - run: cargo test --workspace --all-targets --release
 
   # Every platform this is meant to run on, on its own architecture.
@@ -124,6 +130,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:
+          cache-on-failure: true
           key: ${{ matrix.os }}
       - run: cargo build --workspace --bins
       # `--bins` links every binary; this is the half it does not reach, and
@@ -140,6 +147,8 @@ jobs:
         id: scryfall
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
       - run: cargo run -p xtask -- codegen --check
       # `codegen` is the only command that *fetches*, so it is the only one
       # that has anything to save — and it has to save even when it fails,
@@ -176,6 +185,8 @@ jobs:
       - uses: ./.github/actions/scryfall-cache
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
       - run: cargo run -p xtask -- validate
 
   # The browser client compiles nothing on a native build: its localStorage
@@ -189,6 +200,8 @@ jobs:
         with:
           targets: wasm32-unknown-unknown
       - uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
       - run: cargo check -p baylee-client --target wasm32-unknown-unknown
 
   # Benches run in CI so they never silently rot; the numbers land in the
@@ -201,6 +214,8 @@ jobs:
       - uses: ./.github/actions/linux-deps
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
       # `--bench basics` names the target on purpose. Without it `cargo bench`
       # runs every bench target in the crate, the lib's own libtest harness
       # included, and that harness answers `--quick` with "Unrecognized
@@ -218,6 +233,8 @@ jobs:
         with:
           toolchain: "1.88"
       - uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
       - run: cargo check --workspace --all-targets
 
   deny:
