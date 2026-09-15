@@ -21,6 +21,9 @@ tracing.workspace = true
 tracing-subscriber.workspace = true
 ureq.workspace = true
 
+[dev-dependencies]
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
+
 [[bin]]
 name = "baylee-catalog"
 path = "src/main.rs"

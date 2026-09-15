@@ -301,21 +301,50 @@ impl Catalog {
 
     /// Searches the catalog by name and rules text.
     ///
+    /// One row per **card**, not per printing. The catalog holds every
+    /// printing of every card in every language, so an undeduplicated search
+    /// for `Blitzschlag` answered with twelve rows that were all the same
+    /// card — tle, clb, m11, clb, m10, gn3, 2x2, 4ed, fbb, 2x2, sta, 3ed —
+    /// and a `LIMIT 20` that looked like twenty results was three cards. A
+    /// deck builder asks *which card do you mean*, and that question has one
+    /// answer per `oracle_id`.
+    ///
+    /// Which printing stands for the card is chosen rather than left to the
+    /// planner, because `DISTINCT ON` keeps whichever row its sort saw first
+    /// and a sort with ties is not a sort. In order: the player's own
+    /// language, then the front face, then a printing that actually carries
+    /// a translated type line — 6489 of 59465 German faces have a
+    /// `printed_name` and no `printed_type_line`, which is how a German
+    /// `Blitzschlag` came back headed `Instant` — then the newest printing,
+    /// then the id, so the same query answers the same way twice.
+    ///
+    /// The ranking cannot live in that sort: Postgres requires the
+    /// `DISTINCT ON` expression to lead the `ORDER BY`. So the inner query
+    /// deduplicates and the outer one ranks, and the `LIMIT` goes outside
+    /// with the ranking, where it counts cards instead of rows.
+    ///
     /// # Errors
     /// When the query fails.
     pub async fn search(&self, query: &str, lang: &str, limit: u64) -> Result<Vec<SearchHit>> {
         let sql = format!(
-            "SELECT c.scryfall_id::text AS scryfall_id, c.lang AS lang, \
-                    coalesce(f.printed_name, f.name) AS display_name, \
-                    f.name AS english_name, \
-                    coalesce(f.printed_type_line, f.type_line, '') AS display_type \
-             FROM card_faces f \
-             JOIN cards c ON c.scryfall_id = f.scryfall_id \
-             WHERE c.lang IN ($2, 'en') \
-               AND ({SEARCH_EXPR} @@ plainto_tsquery('simple', $1) \
-                    OR coalesce(f.printed_name, f.name) ILIKE '%' || $1 || '%') \
-             ORDER BY (c.lang = $2) DESC, \
-                      similarity(coalesce(f.printed_name, f.name), $1) DESC \
+            "SELECT scryfall_id, lang, display_name, english_name, display_type FROM ( \
+               SELECT DISTINCT ON (c.oracle_id) \
+                      c.scryfall_id::text AS scryfall_id, c.lang AS lang, \
+                      coalesce(f.printed_name, f.name) AS display_name, \
+                      f.name AS english_name, \
+                      coalesce(f.printed_type_line, f.type_line, '') AS display_type, \
+                      (c.lang = $2) AS own_lang, \
+                      similarity(coalesce(f.printed_name, f.name), $1) AS sim \
+               FROM card_faces f \
+               JOIN cards c ON c.scryfall_id = f.scryfall_id \
+               WHERE c.lang IN ($2, 'en') \
+                 AND ({SEARCH_EXPR} @@ plainto_tsquery('simple', $1) \
+                      OR coalesce(f.printed_name, f.name) ILIKE '%' || $1 || '%') \
+               ORDER BY c.oracle_id, own_lang DESC, f.face_index, \
+                        (f.printed_type_line IS NOT NULL) DESC, \
+                        c.released_at DESC NULLS LAST, c.scryfall_id \
+             ) hits \
+             ORDER BY own_lang DESC, sim DESC, display_name \
              LIMIT $3"
         );
         let rows = self
