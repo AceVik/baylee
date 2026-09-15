@@ -770,6 +770,7 @@ dependencies = [
  "baylee-cards-dsl",
  "baylee-cards-index",
  "baylee-core",
+ "flate2",
  "heck 0.5.0",
  "serde",
  "serde_json",

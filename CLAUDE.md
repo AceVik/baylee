@@ -49,6 +49,7 @@ cargo run -p xtask -- ledger             # assign a CardIndex to every corpus ca
 cargo run -p xtask -- ledger --check     # report what would be assigned instead of writing it
 cargo run -p xtask -- adopt --name "Yavimaya Coast"       # take a generated card off the machine, for good
 cargo run -p xtask -- refresh-oracle                      # rewrite every `//! Oracle:` header from the cached printing
+cargo run -p xtask -- scryfall-cache                      # fill the payload cache and nothing else (cold: ~26 s)
 cargo run -p xtask -- explain --name "Force of Will"      # Scryfall + scripts data side by side
 cargo run -p xtask -- card-batch --cards "A,B"            # LLM task packages for unimplemented cards
 cargo run -p xtask -- transcode-report                        # how far the card transcoder reaches, and what it needs next
@@ -78,6 +79,34 @@ three questions instead of hard-coding one: `--scripts` if what it names
 exists, then `BAYLEE_CARD_SCRIPTS`, then a `cardsfolder` directory found
 within four levels of the repository's parent. `--cache` defaults to
 `data/scryfall-cache`.
+
+**A cold payload cache is one download, not 1365 requests.** `fetch_named`
+answers from disk with no HTTP call at all, so the whole cost of codegen's
+Scryfall half is how the cache gets filled the first time — and filling it one
+card at a time is 1365 requests at a 200 ms pause, which on a hosted runner
+(where an IP is shared) earned thirteen 60-second rate-limit backoffs, 13 of
+28 minutes spent asleep. `scryfall::fill_from_bulk` takes Scryfall's
+`oracle_cards` bulk feed instead, which their guidelines ask for: measured
+cold, 26 s against 28 min, with no per-card request left to make.
+
+Which feed and which key are both measurements rather than preferences.
+`oracle_cards` is one row per oracle card — Scryfall's own default printing,
+which is the choice `/cards/named?exact=` makes; `default_cards` carries every
+English printing, so 1097 of the pool's 1365 names match several rows there.
+Cards are matched on **`oracle_id`** out of the ledger and never on the name,
+because three cards in this pool share a name with a token. Held against the
+1365 payloads fetched one at a time, the feed writes 1359 byte-identical files
+and disagrees on six — and the live API has moved on those six too, so the
+feed introduces no printing this repo would not have fetched anyway. The
+lookup is two-tier, whole name then front face, because the pool names a
+two-faced card by its front face (`Sheoldred`) where the ledger follows
+Scryfall (`Sheoldred // The True Scriptures`); both tiers are unambiguous
+across all 33 694 rows, which is checked rather than assumed, since a
+collision would hand a card another card's payload.
+
+Bulk never fails the run. Whatever the feed did not carry is fetched one card
+at a time behind it, which is what makes the pair self-healing: a stream that
+dies halfway leaves the cards it did write, and they are correct.
 
 Running things:
 

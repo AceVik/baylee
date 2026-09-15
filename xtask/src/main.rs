@@ -243,6 +243,18 @@ enum Cmd {
         #[arg(long, default_value = "data/scryfall-cache")]
         cache: PathBuf,
     },
+    /// Fill the Scryfall payload cache, and nothing else.
+    ///
+    /// What `codegen` does on its way to writing files, as a command of its
+    /// own — so a scheduled job can warm the cache without building the
+    /// generated tree, and without the card-script corpus it would need to
+    /// generate anything. A cold cache is one bulk download and a handful of
+    /// requests; a warm one is no network at all.
+    ScryfallCache {
+        /// Directory for cached Scryfall responses.
+        #[arg(long, default_value = "data/scryfall-cache")]
+        cache: PathBuf,
+    },
     /// Validate card-file conventions (header, coverage, tests).
     Validate,
     /// Take a generated card off the machine, so a person owns it from now on.
@@ -362,6 +374,7 @@ fn main() -> anyhow::Result<()> {
             scripts,
             cache,
         } => card_batch(&root, cards.as_deref(), &out, &scripts, &cache),
+        Cmd::ScryfallCache { cache } => scryfall_cache(&root, &cache),
         Cmd::Validate => validate(&root),
         Cmd::Adopt { name } => adopt(&root, &name),
         Cmd::RefreshOracle { dry_run } => refresh_oracle(&root, dry_run),
@@ -548,6 +561,15 @@ fn cards(
         &cards_dir,
     )?;
     refuse_stale_cycles(&cycles, &claimed)?;
+
+    // Fill a cold cache in one download before asking for anything card by
+    // card. `fetch_named` below reads a cached file with no request at all, so
+    // this decides whether the next loop makes 1365 requests or none — and on
+    // a hosted runner, where an IP is shared, 1365 requests is where the rate
+    // limiter's 60-second backoffs come from. It writes what it can and
+    // returns; whatever the feed did not carry is fetched one at a time below,
+    // which is what makes the pair self-healing.
+    scryfall::fill_from_bulk(&names, agent, cache);
 
     let mut stubs = Vec::with_capacity(names.len());
     for name in &names {
@@ -2982,6 +3004,54 @@ fn check_scope_matches_the_text(
 /// one the generated table is built with.
 fn strip_reminders(text: &str) -> String {
     lines::without_reminder(text)
+}
+
+/// Fills the Scryfall payload cache and reports what it cost.
+///
+/// The same two steps `codegen` takes before it generates anything — one bulk
+/// download for a cold cache, then one request per card the feed did not
+/// carry — with none of the generation behind them. That split is the point:
+/// a scheduled job can keep the cache warm without the card-script corpus,
+/// and without failing on the stale files a pool change legitimately leaves
+/// behind.
+fn scryfall_cache(root: &Path, cache: &Path) -> anyhow::Result<()> {
+    let decks_text = fs::read_to_string(root.join("data/acceptance-decks.txt"))?;
+    let rows = acceptance::parse_decks(&decks_text)?;
+    let pool_text = fs::read_to_string(root.join("data/card-pool.txt")).unwrap_or_default();
+    let names = acceptance::all_names(&rows, &pool_text);
+    let cache = if cache.is_absolute() {
+        cache.to_path_buf()
+    } else {
+        root.join(cache)
+    };
+    let held = |names: &[String]| {
+        names
+            .iter()
+            .filter(|n| cache.join(format!("{}.json", stubgen::slug(n))).exists())
+            .count()
+    };
+    let before = held(&names);
+    println!(
+        "scryfall cache: {before}/{} payloads held in {}",
+        names.len(),
+        cache.display()
+    );
+    let agent = ureq::Agent::new_with_defaults();
+    scryfall::fill_from_bulk(&names, &agent, &cache);
+    // Whatever the bulk feed did not carry, one at a time — the same call
+    // codegen makes, so a card fetched here is byte-identical to one fetched
+    // there. A card Scryfall does not know is fatal, as it is in codegen: a
+    // cache quietly missing a card is a stub generated from nothing.
+    for name in &names {
+        scryfall::fetch_named(name, &agent, &cache)?;
+    }
+    let after = held(&names);
+    println!(
+        "scryfall cache: {after}/{} payloads held ({} fetched this run)",
+        names.len(),
+        after - before
+    );
+    Ok(())
 }
 
 fn validate(root: &Path) -> anyhow::Result<()> {

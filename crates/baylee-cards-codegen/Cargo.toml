@@ -17,3 +17,4 @@ serde_json.workspace = true
 thiserror.workspace = true
 heck.workspace = true
 ureq.workspace = true
+flate2.workspace = true
