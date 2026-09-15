@@ -592,14 +592,24 @@ filter their card mentions once.
 **Reach for the named ones first.** `Filter` carries constants for the
 predicates the pool kept reinventing — `CREATURE`, `ARTIFACT`,
 `ENCHANTMENT`, `LAND`, `PLANESWALKER`, `NONLAND`, `NONCREATURE`,
-`BASIC_LAND`, `NONTOKEN_CREATURE`, `INSTANT_OR_SORCERY`,
-`ARTIFACT_OR_ENCHANTMENT`, `ANOTHER_CREATURE`, `YOUR_CREATURE`,
-`OPPONENT_CREATURE`. "A creature" had been written out as
-`HasType(TypeSet::CREATURE)` in a differently-named `static` in twenty-six
-card files, which is twenty-six chances to type `LacksType` by accident and
-no way to grep for the one that did.
+`BASIC_LAND`, `INSTANT_OR_SORCERY`, `ARTIFACT_OR_ENCHANTMENT`,
+`ARTIFACT_OR_CREATURE`, `ARTIFACT_CREATURE_OR_ENCHANTMENT`,
+`CREATURE_OR_PLANESWALKER`, `NONBASIC_LAND`, `NONTOKEN_CREATURE`,
+`ANOTHER_CREATURE`, `LEGENDARY_CREATURE`, `ATTACKING_CREATURE`,
+`YOUR_CREATURE`, `OPPONENT_CREATURE`, `YOUR_LAND`, `YOUR_BASIC_LAND`,
+`YOUR_ARTIFACT`, `ANOTHER_CREATURE_YOU_CONTROL`. "A creature" had been
+written out as `HasType(TypeSet::CREATURE)` in a differently-named `static`
+in twenty-six card files, which is twenty-six chances to type `LacksType` by
+accident and no way to grep for the one that did.
 
-**First** is meant literally, and the four composite constants are where it
+That list is checked rather than kept:
+`the_authoring_contract_names_every_filter_constant` in `baylee-cards-dsl`
+reads this file and fails on a constant it does not name. A hand-kept list of
+what exists goes stale the first time something is added, and this one had —
+it was six names short of `filter.rs` for exactly as long as nothing compared
+the two.
+
+**First** is meant literally, and the composite constants are where it
 bites: `f!(your CREATURE)` expands to exactly the bytes
 `Filter::YOUR_CREATURE` holds, so the two are one filter with two spellings
 and the constant is the one to write.

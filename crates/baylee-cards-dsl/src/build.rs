@@ -1107,4 +1107,49 @@ mod tests {
             AbilityDef::ActivatedConditional { .. }
         ));
     }
+
+    /// Every `pub const` on [`Filter`] is named in `docs/card-dsl.md`.
+    ///
+    /// The doc's list is the only place an author is told what already
+    /// exists, and a list nothing compares goes stale silently: it sat six
+    /// names short of `filter.rs` — `ARTIFACT_OR_CREATURE`,
+    /// `ARTIFACT_CREATURE_OR_ENCHANTMENT`, `CREATURE_OR_PLANESWALKER`,
+    /// `NONBASIC_LAND`, `YOUR_ARTIFACT`, `ANOTHER_CREATURE_YOU_CONTROL` —
+    /// which is six constants an author would have written out by hand,
+    /// which is what the constants exist to stop.
+    ///
+    /// It reads the two files rather than a list retyped here, because a
+    /// third copy would be the same bug once more. Direction matters: a
+    /// constant must be documented, and the doc is free to say more about
+    /// one than its name.
+    #[test]
+    fn the_authoring_contract_names_every_filter_constant() {
+        let filters = include_str!("filter.rs");
+        let contract = include_str!("../../../docs/card-dsl.md");
+
+        let declared: Vec<&str> = filters
+            .lines()
+            .filter_map(|line| line.trim().strip_prefix("pub const "))
+            .filter_map(|rest| rest.split(':').next())
+            .map(str::trim)
+            .collect();
+
+        assert!(
+            declared.len() > 20,
+            "read {} constants out of filter.rs — the reader is broken, not the doc",
+            declared.len()
+        );
+
+        let missing: Vec<&str> = declared
+            .iter()
+            .copied()
+            .filter(|name| !contract.contains(&format!("`{name}`")))
+            .collect();
+
+        assert!(
+            missing.is_empty(),
+            "docs/card-dsl.md does not name {missing:?} — a constant nobody is told about \
+             is a constant the next card writes out by hand"
+        );
+    }
 }

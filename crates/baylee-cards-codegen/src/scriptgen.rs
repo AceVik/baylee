@@ -360,16 +360,27 @@ impl Tx<'_> {
     /// A valid-string names its clauses in an order of its own, and for a
     /// filter of two or more the corpus prints more than one — so a row is
     /// worth having only where the constant's order is the one the corpus
-    /// predominantly writes. Measured over the reference corpus:
-    /// `Artifact,Creature` 247 files against `Creature,Artifact` 80,
-    /// `Artifact.YouCtrl` 432 against `YouCtrl.Artifact` 27,
-    /// `Creature,Planeswalker` 247 against nought the other way, and
-    /// `Land.nonBasic` 78 against nought. `ANOTHER_CREATURE_YOU_CONTROL` is
-    /// the one that fails that test and the reason the rule is written down:
-    /// its order is `your` before `another`, where the corpus writes
-    /// `Creature.Other+YouCtrl` 381 times against `Creature.YouCtrl+Other`
-    /// 170, so a row would name the rarer spelling and write the commoner
-    /// one out — the table disagreeing with itself on one filter.
+    /// predominantly writes. Measured over the reference corpus, in files,
+    /// with a restriction counted under either joiner (`Land.nonBasic` and
+    /// `Land+nonBasic` are one order written two ways):
+    /// `Artifact,Creature` 247 against `Creature,Artifact` 80,
+    /// `Artifact.YouCtrl` 432 against **nought** the other way,
+    /// `Creature,Planeswalker` 247 against nought,
+    /// `Artifact,Creature,Enchantment` 31 against `Artifact,Enchantment,
+    /// Creature` 13, and `Land.nonBasic` 78 against nought.
+    ///
+    /// The commit that added these rows reported the artifact one as "432
+    /// against `YouCtrl.Artifact` 27", and the 27 was a measurement with an
+    /// unescaped dot: what it found was `YouCtrl,Artifact`, where the comma
+    /// is the corpus's *or* and the string is a different filter entirely.
+    /// No script in the corpus writes the control clause before the noun.
+    ///
+    /// `ANOTHER_CREATURE_YOU_CONTROL` is the one constant that fails the
+    /// test, and the reason the rule is written down: its order is `your`
+    /// before `another`, where the corpus writes `Creature.Other+YouCtrl`
+    /// 381 times against `Creature.YouCtrl+Other` 170, so a row would name
+    /// the rarer spelling and write the commoner one out — the table
+    /// disagreeing with itself on one filter.
     const NAMED: &'static [(&'static str, &'static str)] = &[
         (
             "Filter::And(&[Filter::CREATURE, Filter::ControlledByYou])",
