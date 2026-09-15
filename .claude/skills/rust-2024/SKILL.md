@@ -7,9 +7,14 @@ description: Rust edition 2024 idioms, the toolchain versions this workspace pin
 
 Verified 2026-09-06. Latest stable is **1.98.1** (2026-09-03; a point release
 fixing a vtable miscompilation). This workspace pins `edition = "2024"` and
-`rust-version = "1.88"`, and CI checks the MSRV against exactly 1.88 — so a
-feature stabilised after 1.88 does not exist here, however green it is on your
-local toolchain. Check `Cargo.toml` before reaching for anything recent.
+`rust-version = "1.95"`, and CI checks the MSRV against exactly that number,
+which it reads out of `Cargo.toml` — so a feature stabilised after it does not
+exist here, however green it is on your local toolchain. Check `Cargo.toml`
+before reaching for anything recent, and read the number there rather than
+this sentence: it is the floor `bevy` 0.19.1 sets, so it moves with Bevy.
+It said 1.88 until 15.09.2026 and had been false for months, which cost more
+than a stale comment — `cargo upgrade` is MSRV-aware, believed it, and offered
+to downgrade bevy and sea-orm to honour it.
 
 ## The rules this repo adds on top of the language
 

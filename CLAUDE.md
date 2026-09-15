@@ -350,7 +350,7 @@ CI (`.github/workflows/ci.yml`) runs more than the four commands above: the
 test suite **also in `--release`** (a `debug_assert!` once hid mana payment
 from every release build), `validate`, a
 `wasm32-unknown-unknown` check of the client, benches, an MSRV check against
-exactly 1.88, `cargo-deny`, and `cargo-audit`.
+the `rust-version` this workspace declares, `cargo-deny`, and `cargo-audit`.
 
 **Codegen is a developer's tool and does not run in CI.** It reads the
 card-script reference, which is GPL and deliberately not vendored, so a runner

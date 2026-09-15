@@ -258,19 +258,47 @@ jobs:
       # option" and exit 101 — criterion never sees the flag it is meant for.
       - run: cargo bench -p baylee-engine --bench basics -- --quick
 
-  # The declared MSRV is a promise; stable-only CI would never notice it
-  # drifting (let-chains needed 1.88 while Cargo.toml claimed 1.85).
+  # The declared MSRV is a promise, and two things were wrong with it at once.
+  # The number was false: `Cargo.toml` said 1.88 while `bevy` 0.19.1 declares
+  # `rust-version = "1.95.0"`, so nothing here had built on 1.88 for months —
+  # and `cargo upgrade`, which is MSRV-aware, read our own file and offered to
+  # downgrade bevy and sea-orm to honour it.
+  #
+  # And this job proved nothing. `rust-toolchain.toml` pins `channel =
+  # "stable"`, and a toolchain file beats `rustup default`, which is all
+  # `dtolnay/rust-toolchain` sets — so the 1.88 it installed was never used and
+  # the job was green because it checked stable twice. Run 34990754077 says so
+  # in rustup's own words: "note that the toolchain
+  # 'stable-x86_64-unknown-linux-gnu' is currently in use (overridden by
+  # '/home/runner/work/baylee/baylee/rust-toolchain.toml')".
+  #
+  # `RUSTUP_TOOLCHAIN` is the one override that beats the file — measured, not
+  # assumed: with the file saying stable, `RUSTUP_TOOLCHAIN=nightly rustc
+  # --version` answers nightly. It is exported *before* `rust-cache`, which
+  # hashes `rustc -vV` into its key, so the cache belongs to the compiler that
+  # actually compiles. And the version is read out of `Cargo.toml` rather than
+  # typed here, because a number that appears twice is a number that drifts —
+  # which is how this one came to be 1.88 in two places and true in neither.
   msrv:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/linux-deps
+      - id: declared
+        run: |
+          v=$(sed -n 's/^rust-version = "\(.*\)"$/\1/p' Cargo.toml | head -1)
+          test -n "$v" || { echo "Cargo.toml declares no rust-version"; exit 1; }
+          echo "version=$v" >> "$GITHUB_OUTPUT"
       - uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: "1.88"
+          toolchain: ${{ steps.declared.outputs.version }}
+      - run: echo "RUSTUP_TOOLCHAIN=${{ steps.declared.outputs.version }}" >> "$GITHUB_ENV"
       - uses: Swatinem/rust-cache@v2
         with:
           cache-on-failure: true
+      # In the log, so the next person reading a green tick can see which
+      # compiler earned it. This is the line whose absence hid the bug.
+      - run: rustc --version && cargo --version
       - run: cargo check --workspace --all-targets
 
   deny:

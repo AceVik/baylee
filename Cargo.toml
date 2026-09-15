@@ -5,9 +5,15 @@ members = ["crates/*", "xtask"]
 [workspace.package]
 version = "0.1.0"
 edition = "2024"
-# MSRV: let-chains (stabilized in 1.88) are used across the engine and the
-# gateway. CI builds against exactly this version so the number stays true.
-rust-version = "1.88"
+# MSRV: not a preference but the floor the dependency graph sets. `bevy`
+# 0.19.1 declares `rust-version = "1.95.0"` and `sea-orm` 2.0.2 (through
+# sqlx 0.9.0) declares 1.94.0, so 1.95 is the maximum over the whole resolved
+# graph and nothing here can be built with less. It said 1.88 for a long time,
+# which was not merely stale: `cargo upgrade` is MSRV-aware, read this number,
+# and offered to **downgrade** bevy to 0.17 and sea-orm to 1.1 to honour a
+# promise the code could not keep. CI builds against exactly this version, and
+# reads it from here rather than repeating it.
+rust-version = "1.95"
 license = "AGPL-3.0-only"
 # The AGPL's own "How to Apply" appendix asks for a copyright holder and a
 # way to reach the source, and here both are obligations rather than
