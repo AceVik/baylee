@@ -122,7 +122,13 @@ jobs:
           - os: ubuntu-24.04-arm   # aarch64-unknown-linux-gnu
           - os: windows-latest     # x86_64-pc-windows-msvc
           - os: windows-11-arm     # aarch64-pc-windows-msvc
-          - os: macos-13           # x86_64-apple-darwin
+          # `macos-13` stood here and had been **retired** since 2025-12-08,
+          # following GitHub's N-1 policy after Apple dropped x86_64. Nothing
+          # serves that label any more, so the job never started: it sat in
+          # `queued` for 91 minutes on one run and 55 on another, and a run
+          # with it in the matrix can never reach a conclusion at all. The
+          # documented successor for Intel macOS is `macos-15-intel`.
+          - os: macos-15-intel     # x86_64-apple-darwin
           - os: macos-latest       # aarch64-apple-darwin
     steps:
       - uses: actions/checkout@v4
