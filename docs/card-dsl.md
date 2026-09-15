@@ -199,48 +199,13 @@ both are load-bearing:
   forgotten index into a build failure instead of a card that silently
   resolves as another one.
 
-  Where the number comes from: `baylee_cards_index::ROWS`, the append-only
-  ledger `cargo run -p xtask -- ledger` writes. A `CardIndex` is an identity, not a
-  position — `DeckEntry` stores one, the gateway persists decks made of them,
-  and a replay names them — so a number, once handed out, is never handed to
-  another card. What it numbers is **every card there is** rather than this
-  pool: the corpus `baylee-catalog corpus` scans out of the catalog, in
-  first-appearance order, 33 694 rows of which this repo compiles 1365. So
-  implementing a card inserts nothing — its index was assigned before anybody
-  wrote the file — and the `None`s in `BY_INDEX` are the corpus showing
-  through, not cards that have left. A card this repo implements that the
-  corpus filter drops is named in `data/corpus-keep.tsv` and admitted whole,
-  in its own chronological place. Never edit the ledger by hand; and note
-  that codegen does not write it — it reads the row a card needs and fails
-  loudly if there is none, which is what keeps the ledger to one writer.
-
-  The ledger is a **compiled table** — `crates/baylee-cards-index/src/
-  generated.rs`, one `Row` per card — and was `data/card-index.tsv` until it
-  was not. A data file is a second truth beside the code that nothing checks;
-  a generated table the compiler checks. So `xtask ledger` reads the table it
-  is about to rewrite, one build old, which is safe because assignment only
-  ever appends: a run reading yesterday's table re-derives exactly the rows
-  that table already has and adds the rest. What it cannot do is move one.
-  It is its own crate because the table carries 2.7 MB of `oracle_id`s and
-  names that the rules engine has no use for, and Cargo unifies features
-  across a workspace build — so a feature would not have kept them out of the
-  engine and a crate the engine does not link does.
-
-  What codegen *does* write from it is
-  `crates/baylee-core/src/generated/index/`: the same assignment as Rust, one
-  `pub const` per card, one `set_<code>.rs` per first-appearance set, globbed
-  back into one namespace by `mod.rs` so a caller writes
-  `index::LIGHTNING_BOLT` and never learns which set that was. Every module
-  carries the `set_` prefix because three set codes (`2x2`, `40k`, `5dn`)
-  begin with a digit, and a prefix applied to only those three is a rule
-  somebody has to remember. The two ways such a tree fails are both
-  invisible — a module missing from `mod.rs` is merely unreachable, and two
-  sets exporting one name are a glob ambiguity rustc reports at the *use
-  site* — so `mod.rs` ends in a generated test that names one constant from
-  every set module, turning both into build failures today rather than on the
-  day somebody reaches for that card. Card files still carry the number
-  itself (`index = 11391`); switching them to the constant is a separate
-  change.
+  Where the number comes from, who may write it, and what it survives:
+  `docs/card-identity.md` is normative on all of it. The short of it is that
+  a `CardIndex` is an identity and not a position, assigned over every card
+  there is rather than over this pool, so implementing an old card inserts
+  nothing and a number is never handed to a second card. Card files still
+  carry the number itself (`index = 11391`) rather than `index::MOX_OPAL`;
+  switching them is a separate change.
 - `CardDef::DEFAULT.coverage` is `Coverage::Unimplemented`, so a stub that
   was never finished cannot reach the deckbuilder as playable just because
   a line went missing. An implemented card writes

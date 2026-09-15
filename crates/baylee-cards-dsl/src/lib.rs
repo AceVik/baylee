@@ -53,7 +53,9 @@ pub use static_ability::{Duration, LAYERS, Layer, Modifier, ReplacementRule, Sta
 /// A compiled card definition: zero-cost, `'static`, registry-resident.
 #[derive(Debug)]
 pub struct CardDef {
-    /// Dense runtime index (fast registry lookups).
+    /// Rules identity, assigned once over the whole card corpus and never
+    /// reused (`docs/card-identity.md`). Not a position: most indices name a
+    /// card this repo compiles no `CardDef` for.
     pub index: CardIndex,
     /// Scryfall oracle id — rules identity shared by all printings.
     pub oracle_id: &'static str,

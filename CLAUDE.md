@@ -423,17 +423,19 @@ own crate rather than a feature on `baylee-core`, because the table carries
 2.7 MB of `oracle_id`s and names the rules engine has no use for, and Cargo
 unifies features across a workspace build — one tool asking for the data
 would compile it into everything. The engine does not link the crate, so it
-cannot. That also makes it the place the name tables go when card import
-needs to resolve a name to an index.
+cannot. The **name** table went the other way and lives in `baylee-cards`:
+the pool's 1365 names are already compiled into the engine there as
+`FaceDef::name`, and the corpus's 33 694 are not.
+`docs/card-identity.md` is normative on which handle lives where, what each
+one survives, and which of them may be stored.
 
 Codegen only *reads* the ledger and fails loudly on a card with no row: one
 writer, and it is not the thing that writes card files. What it *does* write
 from the ledger is `crates/baylee-core/src/generated/index/` — the same
 assignment as Rust constants, one `set_<code>.rs` per first-appearance set
 behind a `mod.rs` that globs them into one namespace, so `index::MOX_OPAL`
-resolves without anybody knowing the set. `docs/card-dsl.md` §"Only state
-what the card prints" has the prefix rule and the generated door test, on the
-`CardDef::DEFAULT.index` bullet. The `//!`
+resolves without anybody knowing the set. `docs/card-identity.md`
+§"Who may write what" has the prefix rule and the generated door test. The `//!`
 header (name, cost, oracle text, set, Scryfall id) is the human-verification
 surface and `xtask validate` fails if it drifts from the `CardDef` built below
 it — **and** if its oracle text is not the one Scryfall prints, which is the
