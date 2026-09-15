@@ -19,7 +19,7 @@ card! {
     faces: &[
     face! {
         name: "Hydroelectric Specimen",
-        mana_cost: baylee_core::mana!("{2}{U}"),
+        mana_cost: mana!("{2}{U}"),
         types: TypeSet::CREATURE,
         subtypes: &[subtypes::creature::WEIRD],
         power: Some(1),

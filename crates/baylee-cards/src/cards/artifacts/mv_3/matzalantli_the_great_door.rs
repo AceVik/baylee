@@ -17,7 +17,7 @@ card! {
     faces: &[
     face! {
         name: "Matzalantli, the Great Door",
-        mana_cost: baylee_core::mana!("{3}"),
+        mana_cost: mana!("{3}"),
         types: TypeSet::ARTIFACT,
         supertypes: SupertypeSet::LEGENDARY,
     },

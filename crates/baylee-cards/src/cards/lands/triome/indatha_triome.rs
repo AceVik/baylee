@@ -32,7 +32,7 @@ card! {
             ])]),
         // Cycling {3} (hand-zone ability: discard to draw).
         activated!(Cost {
-                mana: baylee_core::mana!("{3}"),
+                mana: mana!("{3}"),
                 parts: &[CostPart::DiscardSelf],
             }, &[Effect::DrawCards {
                 amount: Amount::Fixed(1),

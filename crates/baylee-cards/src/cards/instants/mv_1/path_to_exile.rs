@@ -11,7 +11,7 @@ card! {
     scryfall_id: "95ca89ea-1200-4bb4-ae4b-af35d3ccd35b",
     faces: &[face! {
         name: "Path to Exile",
-        mana_cost: baylee_core::mana!("{W}"),
+        mana_cost: mana!("{W}"),
         types: TypeSet::INSTANT,
     }],
     color_identity: ColorSet::from_slice(&[Color::White]),

@@ -17,7 +17,7 @@ card! {
     faces: &[
     face! {
         name: "Emeria's Call",
-        mana_cost: baylee_core::mana!("{4}{W}{W}{W}"),
+        mana_cost: mana!("{4}{W}{W}{W}"),
         types: TypeSet::SORCERY,
     },
     face! {

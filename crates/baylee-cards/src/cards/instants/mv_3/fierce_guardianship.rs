@@ -14,7 +14,7 @@ card! {
     scryfall_id: "f7f3dd95-bd14-4e0f-a388-444f9cf1b0dc",
     faces: &[face! {
         name: "Fierce Guardianship",
-        mana_cost: baylee_core::mana!("{2}{U}"),
+        mana_cost: mana!("{2}{U}"),
         types: TypeSet::INSTANT,
         alternative_costs: &[AlternativeCost {
             cost: Cost::FREE,

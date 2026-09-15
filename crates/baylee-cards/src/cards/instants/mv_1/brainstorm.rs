@@ -11,7 +11,7 @@ card! {
     scryfall_id: "b5545882-6963-4729-b2c6-fb4bdc75ffcc",
     faces: &[face! {
         name: "Brainstorm",
-        mana_cost: baylee_core::mana!("{U}"),
+        mana_cost: mana!("{U}"),
         types: TypeSet::INSTANT,
     }],
     color_identity: ColorSet::from_slice(&[Color::Blue]),

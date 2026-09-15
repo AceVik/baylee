@@ -14,7 +14,7 @@ card! {
     scryfall_id: "22b36ad5-bf4d-436a-9c3c-fa4acd0052fe",
     faces: &[face! {
         name: "Snapcaster Mage",
-        mana_cost: baylee_core::mana!("{1}{U}"),
+        mana_cost: mana!("{1}{U}"),
         types: TypeSet::CREATURE,
         subtypes: &[creature::HUMAN, creature::WIZARD],
         power: Some(2),

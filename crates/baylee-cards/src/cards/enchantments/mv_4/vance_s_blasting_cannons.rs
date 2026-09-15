@@ -19,7 +19,7 @@ card! {
     faces: &[
     face! {
         name: "Vance's Blasting Cannons",
-        mana_cost: baylee_core::mana!("{3}{R}"),
+        mana_cost: mana!("{3}{R}"),
         types: TypeSet::ENCHANTMENT,
         supertypes: SupertypeSet::LEGENDARY,
     },

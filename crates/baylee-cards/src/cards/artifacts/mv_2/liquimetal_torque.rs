@@ -12,7 +12,7 @@ card! {
     scryfall_id: "13c6101a-da40-4785-8ccb-4e779bbbdb55",
     faces: &[face! {
         name: "Liquimetal Torque",
-        mana_cost: baylee_core::mana!("{2}"),
+        mana_cost: mana!("{2}"),
         types: TypeSet::ARTIFACT,
     }],
     coverage: Coverage::Implemented,

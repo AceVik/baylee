@@ -13,7 +13,7 @@ card! {
     scryfall_id: "cc3063ec-5ea6-46c1-8331-c740cbaf6c76",
     faces: &[face! {
         name: "Great Divide Guide",
-        mana_cost: baylee_core::mana!("{1}{G}"),
+        mana_cost: mana!("{1}{G}"),
         types: TypeSet::CREATURE,
         subtypes: &[creature::HUMAN, creature::SCOUT, creature::ALLY],
         power: Some(2),

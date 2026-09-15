@@ -22,7 +22,7 @@ card! {
     scryfall_id: "a16fabbe-4557-4067-b882-f2e5dbd8b458",
     faces: &[face! {
         name: "Sword of Hearth and Home",
-        mana_cost: baylee_core::mana!("{3}"),
+        mana_cost: mana!("{3}"),
         types: TypeSet::ARTIFACT,
         subtypes: &[artifact::EQUIPMENT],
     }],
@@ -59,7 +59,7 @@ card! {
                 count_is_x: false,
             })),
         activated!(Cost {
-                mana: baylee_core::mana!("{2}"),
+                mana: mana!("{2}"),
                 parts: &[],
             }, &[Effect::AttachSelf {
                 target: TargetSpec::Object(&CREATURE_YOU_CONTROL),

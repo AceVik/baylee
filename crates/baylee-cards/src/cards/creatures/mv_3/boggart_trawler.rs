@@ -18,7 +18,7 @@ card! {
     faces: &[
     face! {
         name: "Boggart Trawler",
-        mana_cost: baylee_core::mana!("{2}{B}"),
+        mana_cost: mana!("{2}{B}"),
         types: TypeSet::CREATURE,
         subtypes: &[subtypes::creature::GOBLIN],
         power: Some(3),

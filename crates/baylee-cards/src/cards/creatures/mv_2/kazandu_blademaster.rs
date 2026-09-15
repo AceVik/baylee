@@ -14,7 +14,7 @@ card! {
     scryfall_id: "9642bdbf-c03f-4c48-a5c8-c9201a08b834",
     faces: &[face! {
         name: "Kazandu Blademaster",
-        mana_cost: baylee_core::mana!("{W}{W}"),
+        mana_cost: mana!("{W}{W}"),
         types: TypeSet::CREATURE,
         subtypes: &[creature::HUMAN, creature::SOLDIER, creature::ALLY],
         power: Some(1),

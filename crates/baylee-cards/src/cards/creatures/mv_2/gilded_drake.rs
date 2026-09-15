@@ -15,7 +15,7 @@ card! {
     scryfall_id: "8de3fdae-cc2c-4a14-b15b-4fe1a983dfbf",
     faces: &[face! {
         name: "Gilded Drake",
-        mana_cost: baylee_core::mana!("{1}{U}"),
+        mana_cost: mana!("{1}{U}"),
         types: TypeSet::CREATURE,
         subtypes: &[creature::DRAKE],
         power: Some(3),

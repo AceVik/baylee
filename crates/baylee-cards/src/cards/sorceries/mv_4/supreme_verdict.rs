@@ -12,7 +12,7 @@ card! {
     scryfall_id: "3892f1c5-937e-4ef4-b6f9-e0c0ded070d0",
     faces: &[face! {
         name: "Supreme Verdict",
-        mana_cost: baylee_core::mana!("{1}{W}{W}{U}"),
+        mana_cost: mana!("{1}{W}{W}{U}"),
         types: TypeSet::SORCERY,
     }],
     color_identity: ColorSet::from_slice(&[Color::White, Color::Blue]),

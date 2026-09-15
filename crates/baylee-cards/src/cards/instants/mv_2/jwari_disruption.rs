@@ -17,7 +17,7 @@ card! {
     faces: &[
     face! {
         name: "Jwari Disruption",
-        mana_cost: baylee_core::mana!("{1}{U}"),
+        mana_cost: mana!("{1}{U}"),
         types: TypeSet::INSTANT,
     },
     face! {

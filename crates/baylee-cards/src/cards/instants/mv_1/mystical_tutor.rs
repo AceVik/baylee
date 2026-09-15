@@ -11,7 +11,7 @@ card! {
     scryfall_id: "36fa9a0b-b0c9-43ea-ba11-99d7982f974e",
     faces: &[face! {
         name: "Mystical Tutor",
-        mana_cost: baylee_core::mana!("{U}"),
+        mana_cost: mana!("{U}"),
         types: TypeSet::INSTANT,
     }],
     color_identity: ColorSet::from_slice(&[Color::Blue]),

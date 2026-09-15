@@ -18,7 +18,7 @@ card! {
     faces: &[
     face! {
         name: "Kazandu Mammoth",
-        mana_cost: baylee_core::mana!("{1}{G}{G}"),
+        mana_cost: mana!("{1}{G}{G}"),
         types: TypeSet::CREATURE,
         subtypes: &[subtypes::creature::ELEPHANT],
         power: Some(3),

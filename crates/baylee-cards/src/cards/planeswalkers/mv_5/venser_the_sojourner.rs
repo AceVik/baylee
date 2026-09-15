@@ -19,7 +19,7 @@ card! {
     scryfall_id: "8f61a0ea-c2e8-4571-9669-19abd8bbc874",
     faces: &[face! {
         name: "Venser, the Sojourner",
-        mana_cost: baylee_core::mana!("{3}{W}{U}"),
+        mana_cost: mana!("{3}{W}{U}"),
         types: TypeSet::PLANESWALKER,
         supertypes: SupertypeSet::LEGENDARY,
         subtypes: &[planeswalker::VENSER],

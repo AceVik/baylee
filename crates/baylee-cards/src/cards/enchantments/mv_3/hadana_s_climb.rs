@@ -18,7 +18,7 @@ card! {
     faces: &[
     face! {
         name: "Hadana's Climb",
-        mana_cost: baylee_core::mana!("{1}{G}{U}"),
+        mana_cost: mana!("{1}{G}{U}"),
         types: TypeSet::ENCHANTMENT,
         supertypes: SupertypeSet::LEGENDARY,
     },

@@ -21,7 +21,7 @@ card! {
     faces: &[
     face! {
         name: "Twists and Turns",
-        mana_cost: baylee_core::mana!("{G}"),
+        mana_cost: mana!("{G}"),
         types: TypeSet::ENCHANTMENT,
     },
     face! {

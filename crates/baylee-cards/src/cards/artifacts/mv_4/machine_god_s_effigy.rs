@@ -12,7 +12,7 @@ card! {
     scryfall_id: "637f69c2-ba24-42d1-9345-8ebdb04b6904",
     faces: &[face! {
         name: "Machine God's Effigy",
-        mana_cost: baylee_core::mana!("{4}"),
+        mana_cost: mana!("{4}"),
         types: TypeSet::ARTIFACT,
     }],
     // The `{T}: Add {U}` printed in its own text is what makes a colorless

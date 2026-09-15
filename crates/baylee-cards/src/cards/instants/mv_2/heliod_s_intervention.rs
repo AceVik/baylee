@@ -15,7 +15,7 @@ card! {
     scryfall_id: "9519bb3a-bed3-48e8-93ae-9e9b2e7d646a",
     faces: &[face! {
         name: "Heliod's Intervention",
-        mana_cost: baylee_core::mana!("{X}{W}{W}"),
+        mana_cost: mana!("{X}{W}{W}"),
         types: TypeSet::INSTANT,
     }],
     color_identity: ColorSet::from_slice(&[Color::White]),

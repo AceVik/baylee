@@ -17,7 +17,7 @@ card! {
     faces: &[
     face! {
         name: "Sidequest: Catch a Fish",
-        mana_cost: baylee_core::mana!("{2}{W}"),
+        mana_cost: mana!("{2}{W}"),
         types: TypeSet::ENCHANTMENT,
     },
     face! {

@@ -13,7 +13,7 @@ card! {
     scryfall_id: "91eb9067-0bc7-4497-ba9c-c1ea41e5a379",
     faces: &[face! {
         name: "Curse of the Swine",
-        mana_cost: baylee_core::mana!("{X}{U}{U}"),
+        mana_cost: mana!("{X}{U}{U}"),
         types: TypeSet::SORCERY,
     }],
     color_identity: ColorSet::from_slice(&[Color::Blue]),

@@ -17,7 +17,7 @@ card! {
     faces: &[
     face! {
         name: "Agadeem's Awakening",
-        mana_cost: baylee_core::mana!("{X}{B}{B}{B}"),
+        mana_cost: mana!("{X}{B}{B}{B}"),
         types: TypeSet::SORCERY,
     },
     face! {

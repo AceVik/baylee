@@ -16,7 +16,7 @@ card! {
     scryfall_id: "b3770d86-4496-4c06-aab1-2917cfec100e",
     faces: &[face! {
         name: "Luminarch Ascension",
-        mana_cost: baylee_core::mana!("{1}{W}"),
+        mana_cost: mana!("{1}{W}"),
         types: TypeSet::ENCHANTMENT,
     }],
     color_identity: ColorSet::from_slice(&[Color::White]),
@@ -39,7 +39,7 @@ card! {
             }]),
         AbilityDef::ActivatedConditional {
             cost: Cost {
-                mana: baylee_core::mana!("{1}{W}"),
+                mana: mana!("{1}{W}"),
                 parts: &[],
             },
             effects: &[Effect::CreateToken { token: &ANGEL }],

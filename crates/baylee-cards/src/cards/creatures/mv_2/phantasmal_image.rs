@@ -12,7 +12,7 @@ card! {
     scryfall_id: "c1c080cf-a5e8-4d9d-af49-f78588971e87",
     faces: &[face! {
         name: "Phantasmal Image",
-        mana_cost: baylee_core::mana!("{1}{U}"),
+        mana_cost: mana!("{1}{U}"),
         types: TypeSet::CREATURE,
         subtypes: &[creature::ILLUSION],
         power: Some(0),

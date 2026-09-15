@@ -16,7 +16,7 @@ card! {
     scryfall_id: "b26d50dd-54a1-43ce-9884-3999f698d97b",
     faces: &[face! {
         name: "Karmic Guide",
-        mana_cost: baylee_core::mana!("{3}{W}{W}"),
+        mana_cost: mana!("{3}{W}{W}"),
         types: TypeSet::CREATURE,
         subtypes: &[creature::ANGEL, creature::SPIRIT],
         power: Some(2),
@@ -27,7 +27,7 @@ card! {
     coverage: Coverage::Implemented,
     abilities: &[
         AbilityDef::Echo {
-            cost: baylee_core::mana!("{3}{W}{W}"),
+            cost: mana!("{3}{W}{W}"),
         },
         AbilityDef::Static(StaticAbility {
             layer: Layer::Text,

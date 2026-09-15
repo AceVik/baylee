@@ -21,6 +21,6 @@ card! {
     ],
     abilities: &[
         triggered!(Trigger::EntersBattlefield(&Filter::This), &[Effect::mana_of_any_color()]),
-        mana_ability!(Cost::TAP, &[Effect::mana(ManaColor::Colorless, 1)]),
+        mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
     ],
 }

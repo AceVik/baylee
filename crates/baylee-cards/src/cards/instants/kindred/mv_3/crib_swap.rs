@@ -15,7 +15,7 @@ card! {
     scryfall_id: "8f2fb3c6-af75-47a3-9f97-521872c32890",
     faces: &[face! {
         name: "Crib Swap",
-        mana_cost: baylee_core::mana!("{2}{W}"),
+        mana_cost: mana!("{2}{W}"),
         types: TypeSet::KINDRED.union(TypeSet::INSTANT),
         subtypes: &[creature::SHAPESHIFTER],
     }],

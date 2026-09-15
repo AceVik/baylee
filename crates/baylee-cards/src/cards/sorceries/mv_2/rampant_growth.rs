@@ -16,7 +16,7 @@ card! {
     faces: &[
     face! {
         name: "Rampant Growth",
-        mana_cost: baylee_core::mana!("{1}{G}"),
+        mana_cost: mana!("{1}{G}"),
         types: TypeSet::SORCERY,
     },
     ],

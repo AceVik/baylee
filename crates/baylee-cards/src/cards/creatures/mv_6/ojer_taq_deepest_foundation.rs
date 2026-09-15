@@ -22,7 +22,7 @@ card! {
     faces: &[
     face! {
         name: "Ojer Taq, Deepest Foundation",
-        mana_cost: baylee_core::mana!("{4}{W}{W}"),
+        mana_cost: mana!("{4}{W}{W}"),
         types: TypeSet::CREATURE,
         supertypes: SupertypeSet::LEGENDARY,
         subtypes: &[subtypes::creature::GOD],

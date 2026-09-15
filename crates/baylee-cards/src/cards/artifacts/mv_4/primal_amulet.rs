@@ -17,7 +17,7 @@ card! {
     faces: &[
     face! {
         name: "Primal Amulet",
-        mana_cost: baylee_core::mana!("{4}"),
+        mana_cost: mana!("{4}"),
         types: TypeSet::ARTIFACT,
     },
     face! {

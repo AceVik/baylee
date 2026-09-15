@@ -20,7 +20,7 @@ card! {
     faces: &[
     face! {
         name: "Tireless Hauler",
-        mana_cost: baylee_core::mana!("{4}{G}"),
+        mana_cost: mana!("{4}{G}"),
         types: TypeSet::CREATURE,
         subtypes: &[subtypes::creature::HUMAN, subtypes::creature::WEREWOLF],
         power: Some(4),

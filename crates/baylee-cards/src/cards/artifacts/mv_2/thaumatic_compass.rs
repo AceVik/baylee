@@ -18,7 +18,7 @@ card! {
     faces: &[
     face! {
         name: "Thaumatic Compass",
-        mana_cost: baylee_core::mana!("{2}"),
+        mana_cost: mana!("{2}"),
         types: TypeSet::ARTIFACT,
     },
     face! {

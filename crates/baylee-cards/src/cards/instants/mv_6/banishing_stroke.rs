@@ -15,9 +15,9 @@ card! {
     scryfall_id: "aad93570-b50a-405a-ad73-03f97594061f",
     faces: &[face! {
         name: "Banishing Stroke",
-        mana_cost: baylee_core::mana!("{5}{W}"),
+        mana_cost: mana!("{5}{W}"),
         types: TypeSet::INSTANT,
-        miracle: Some(baylee_core::mana!("{W}")),
+        miracle: Some(mana!("{W}")),
     }],
     color_identity: ColorSet::from_slice(&[Color::White]),
     coverage: Coverage::Implemented,

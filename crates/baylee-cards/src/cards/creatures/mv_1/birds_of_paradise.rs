@@ -17,7 +17,7 @@ card! {
     faces: &[
     face! {
         name: "Birds of Paradise",
-        mana_cost: baylee_core::mana!("{G}"),
+        mana_cost: mana!("{G}"),
         types: TypeSet::CREATURE,
         subtypes: &[subtypes::creature::BIRD],
         power: Some(0),
@@ -25,6 +25,6 @@ card! {
     },
     ],
     abilities: &[
-        mana_ability!(Cost::TAP, &[Effect::mana_of_any_color()]),
+        mana_ability!(&[Effect::mana_of_any_color()]),
     ],
 }

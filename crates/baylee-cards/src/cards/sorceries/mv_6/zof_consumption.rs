@@ -17,7 +17,7 @@ card! {
     faces: &[
     face! {
         name: "Zof Consumption",
-        mana_cost: baylee_core::mana!("{4}{B}{B}"),
+        mana_cost: mana!("{4}{B}{B}"),
         types: TypeSet::SORCERY,
     },
     face! {

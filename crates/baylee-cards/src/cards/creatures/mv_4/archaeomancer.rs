@@ -12,7 +12,7 @@ card! {
     scryfall_id: "cc258713-6ce3-44e0-9b4b-8fa7d1d093a1",
     faces: &[face! {
         name: "Archaeomancer",
-        mana_cost: baylee_core::mana!("{2}{U}{U}"),
+        mana_cost: mana!("{2}{U}{U}"),
         types: TypeSet::CREATURE,
         subtypes: &[creature::HUMAN, creature::WIZARD],
         power: Some(1),

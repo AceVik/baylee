@@ -20,7 +20,7 @@ card! {
     faces: &[
     face! {
         name: "Tarrian's Journal",
-        mana_cost: baylee_core::mana!("{1}{B}"),
+        mana_cost: mana!("{1}{B}"),
         types: TypeSet::ARTIFACT,
         supertypes: SupertypeSet::LEGENDARY,
         subtypes: &[subtypes::artifact::BOOK],

@@ -13,7 +13,7 @@ card! {
     scryfall_id: "52884e67-c742-4799-9afd-55bc70b2cf40",
     faces: &[face! {
         name: "Storm of Saruman",
-        mana_cost: baylee_core::mana!("{4}{U}{U}"),
+        mana_cost: mana!("{4}{U}{U}"),
         types: TypeSet::ENCHANTMENT,
     }],
     color_identity: ColorSet::from_slice(&[Color::Blue]),

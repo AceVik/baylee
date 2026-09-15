@@ -19,7 +19,7 @@ card! {
     scryfall_id: "cd702cf1-10ca-4448-9fb1-b6de635e839c",
     faces: &[face! {
         name: "Vendilion Clique",
-        mana_cost: baylee_core::mana!("{1}{U}{U}"),
+        mana_cost: mana!("{1}{U}{U}"),
         types: TypeSet::CREATURE,
         supertypes: SupertypeSet::LEGENDARY,
         subtypes: &[creature::FAERIE, creature::WIZARD],

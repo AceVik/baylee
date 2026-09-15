@@ -11,7 +11,7 @@ card! {
     scryfall_id: "998d0cc8-ca2a-41c3-ab65-d05c26ab8278",
     faces: &[face! {
         name: "Panharmonicon",
-        mana_cost: baylee_core::mana!("{4}"),
+        mana_cost: mana!("{4}"),
         types: TypeSet::ARTIFACT,
     }],
     coverage: Coverage::Implemented,

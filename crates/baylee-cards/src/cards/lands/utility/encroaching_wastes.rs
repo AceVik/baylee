@@ -23,7 +23,7 @@ card! {
     },
     ],
     abilities: &[
-        mana_ability!(Cost::TAP, &[Effect::mana(ManaColor::Colorless, 1)]),
-        activated!(Cost { mana: baylee_core::mana!("{4}"), parts: &[CostPart::TapSelf, CostPart::SacrificeSelf] }, &[Effect::Destroy { target: TargetSpec::Object(&TARGET1) }], target: Some(TargetSpec::Object(&TARGET1))),
+        mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
+        activated!(Cost { mana: mana!("{4}"), parts: &[CostPart::TapSelf, CostPart::SacrificeSelf] }, &[Effect::Destroy { target: TargetSpec::Object(&TARGET1) }], target: Some(TargetSpec::Object(&TARGET1))),
     ],
 }

@@ -17,7 +17,7 @@ card! {
     faces: &[
     face! {
         name: "Rush of Inspiration",
-        mana_cost: baylee_core::mana!("{1}{U/R}{U/R}"),
+        mana_cost: mana!("{1}{U/R}{U/R}"),
         types: TypeSet::INSTANT,
     },
     face! {

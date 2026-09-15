@@ -22,7 +22,7 @@ card! {
     },
     ],
     abilities: &[
-        mana_ability!(Cost::TAP, &[Effect::mana(ManaColor::White, 1)]),
-        activated!(Cost { mana: baylee_core::mana!("{1}{W}"), parts: &[] }, &[Effect::CreateContinuousEffect { layer: Layer::Type, filter: &Filter::This, modifier: Modifier::AddType(TypeSet::CREATURE), duration: Duration::UntilEndOfTurn }, Effect::CreateContinuousEffect { layer: Layer::Type, filter: &Filter::This, modifier: Modifier::AddSubtype(subtypes::creature::SOLDIER), duration: Duration::UntilEndOfTurn }, Effect::CreateContinuousEffect { layer: Layer::Color, filter: &Filter::This, modifier: Modifier::SetColor(ColorSet::from_slice(&[Color::White])), duration: Duration::UntilEndOfTurn }, Effect::CreateContinuousEffect { layer: Layer::PtSet, filter: &Filter::This, modifier: Modifier::SetPT(1, 5), duration: Duration::UntilEndOfTurn }]),
+        mana_ability!(&[Effect::mana(ManaColor::White, 1)]),
+        activated!(Cost { mana: mana!("{1}{W}"), parts: &[] }, &[Effect::CreateContinuousEffect { layer: Layer::Type, filter: &Filter::This, modifier: Modifier::AddType(TypeSet::CREATURE), duration: Duration::UntilEndOfTurn }, Effect::CreateContinuousEffect { layer: Layer::Type, filter: &Filter::This, modifier: Modifier::AddSubtype(subtypes::creature::SOLDIER), duration: Duration::UntilEndOfTurn }, Effect::CreateContinuousEffect { layer: Layer::Color, filter: &Filter::This, modifier: Modifier::SetColor(ColorSet::from_slice(&[Color::White])), duration: Duration::UntilEndOfTurn }, Effect::CreateContinuousEffect { layer: Layer::PtSet, filter: &Filter::This, modifier: Modifier::SetPT(1, 5), duration: Duration::UntilEndOfTurn }]),
     ],
 }

@@ -143,6 +143,41 @@ impl TriggeredParts {
     }
 }
 
+/// The parts of an [`AbilityDef::ModalTriggered`], with rules defaults.
+#[derive(Clone, Copy, Debug)]
+pub struct ModalTriggeredParts {
+    /// What makes it trigger.
+    pub trigger: Trigger,
+    /// The modes to choose from (CR 700.2).
+    pub modes: &'static [SpellMode],
+    /// Whether it fires at most once each turn.
+    pub once_per_turn: bool,
+}
+
+impl ModalTriggeredParts {
+    /// A modal trigger that fires every time, which is CR 603.2: a triggered
+    /// ability triggers whenever its event happens, and the cards that fire
+    /// once a turn say so on their face.
+    #[must_use]
+    pub const fn new(trigger: Trigger, modes: &'static [SpellMode]) -> Self {
+        Self {
+            trigger,
+            modes,
+            once_per_turn: false,
+        }
+    }
+
+    /// Turns the parts into the ability.
+    #[must_use]
+    pub const fn build(self) -> AbilityDef {
+        AbilityDef::ModalTriggered {
+            trigger: self.trigger,
+            modes: self.modes,
+            once_per_turn: self.once_per_turn,
+        }
+    }
+}
+
 /// The parts of an [`AbilityDef::Spell`], with rules defaults.
 #[derive(Clone, Copy, Debug)]
 pub struct SpellParts {
@@ -337,6 +372,24 @@ macro_rules! triggered {
     };
 }
 
+/// A triggered ability the controller picks a mode of:
+/// `modal_triggered!(trigger, modes)` plus what the card adds.
+///
+/// ```ignore
+/// modal_triggered!(Trigger::EntersBattlefield(&Filter::This), MODES)
+/// modal_triggered!(Trigger::Attacks(&Filter::This), MODES, once_per_turn: true)
+/// ```
+#[macro_export]
+macro_rules! modal_triggered {
+    ($trigger:expr, $modes:expr $(, $field:ident : $value:expr)* $(,)?) => {
+        $crate::ModalTriggeredParts {
+            $($field: $value,)*
+            ..$crate::ModalTriggeredParts::new($trigger, $modes)
+        }
+        .build()
+    };
+}
+
 /// An instant's or sorcery's own effect (CR 608.2).
 ///
 /// ```ignore
@@ -401,7 +454,9 @@ pub mod prelude {
         AbilityDef, ActivationCondition, ActivationTiming, ActivationZone, CopyMod, SpellMode,
         StepKind, Trigger, TriggerEventKind,
     };
-    pub use crate::build::{ActivatedParts, LoyaltyParts, SpellParts, TriggeredParts};
+    pub use crate::build::{
+        ActivatedParts, LoyaltyParts, ModalTriggeredParts, SpellParts, TriggeredParts,
+    };
     pub use crate::cost::{AltCondition, AlternativeCost, Cost, CostPart, CostReduction};
     pub use crate::effect::{
         Amount, CounterKind, Effect, Find, ManaRestriction, ManaSource, PlayerRel, SearchDest,
@@ -415,9 +470,18 @@ pub mod prelude {
         ALL_MANA_COLORS, ANY_COLOR_MANA, CardDef, CommanderRule, Coverage, EnterModifier, FaceDef,
         KeywordSet, PartnerKind,
     };
-    pub use crate::{activated, card, face, loyalty, mana_ability, mode, spell, triggered};
+    pub use crate::{
+        activated, card, face, loyalty, mana_ability, modal_triggered, mode, spell, triggered,
+    };
     pub use baylee_core::color::{Color, ColorSet};
     pub use baylee_core::ids::{CardIndex, SubtypeId};
+    /// The one thing every card spells out that the prelude did not carry.
+    ///
+    /// `mana!` is `#[macro_export]`ed from `baylee-core`, so 388 files wrote
+    /// `baylee_core::mana!("{1}{W}")` while importing a prelude whose whole
+    /// purpose is that a card names one crate. Re-exported here, a cost is
+    /// spelled the way every other piece of a card is.
+    pub use baylee_core::mana;
     pub use baylee_core::mana::{ManaColor, ManaCost};
     pub use baylee_core::types::{SupertypeSet, TypeSet};
 }

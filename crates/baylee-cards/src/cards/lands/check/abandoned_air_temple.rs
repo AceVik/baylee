@@ -30,7 +30,7 @@ card! {
     abilities: &[
         mana_ability!(&[Effect::mana(ManaColor::White, 1)]),
         activated!(Cost {
-                mana: baylee_core::mana!("{3}{W}"),
+                mana: mana!("{3}{W}"),
                 parts: &[CostPart::TapSelf],
             }, &[Effect::AddCounterFilter {
                 filter: &YOUR_CREATURES,

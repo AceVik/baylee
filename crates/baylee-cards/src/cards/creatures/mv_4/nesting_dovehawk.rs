@@ -25,7 +25,7 @@ card! {
     scryfall_id: "c58ff93f-7135-40af-92ce-358da48694dc",
     faces: &[face! {
         name: "Nesting Dovehawk",
-        mana_cost: baylee_core::mana!("{3}{W}"),
+        mana_cost: mana!("{3}{W}"),
         types: TypeSet::CREATURE,
         subtypes: &[creature::BIRD],
         power: Some(2),

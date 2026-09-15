@@ -11,7 +11,7 @@ card! {
     scryfall_id: "91fdb56b-54d5-4272-8319-505ff987fe9b",
     faces: &[face! {
         name: "Sol Ring",
-        mana_cost: baylee_core::mana!("{1}"),
+        mana_cost: mana!("{1}"),
         types: TypeSet::ARTIFACT,
     }],
     coverage: Coverage::Implemented,

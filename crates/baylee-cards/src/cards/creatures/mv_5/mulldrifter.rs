@@ -13,14 +13,14 @@ card! {
     scryfall_id: "3de308cc-14ac-407e-99e7-568572ecd0e7",
     faces: &[face! {
         name: "Mulldrifter",
-        mana_cost: baylee_core::mana!("{4}{U}"),
+        mana_cost: mana!("{4}{U}"),
         types: TypeSet::CREATURE,
         subtypes: &[baylee_core::generated::subtypes::creature::ELEMENTAL],
         power: Some(2),
         toughness: Some(2),
         alternative_costs: &[AlternativeCost {
             cost: Cost {
-                mana: baylee_core::mana!("{2}{U}"),
+                mana: mana!("{2}{U}"),
                 parts: &[],
             },
             condition: AltCondition::Always,

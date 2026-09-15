@@ -18,7 +18,7 @@ card! {
     scryfall_id: "086f97e9-8b62-44f3-b467-149c2ac5ca78",
     faces: &[face! {
         name: "Opposition Agent",
-        mana_cost: baylee_core::mana!("{2}{B}"),
+        mana_cost: mana!("{2}{B}"),
         types: TypeSet::CREATURE,
         subtypes: &[creature::HUMAN, creature::ROGUE],
         power: Some(3),

@@ -22,6 +22,6 @@ card! {
     ],
     abilities: &[
         mana_ability!(&[Effect::mana_choice(&[ManaColor::Red, ManaColor::White])]),
-        activated!(Cost { mana: baylee_core::mana!("{4}"), parts: &[CostPart::TapSelf] }, &[Effect::Scry { amount: Amount::Fixed(1) }]),
+        activated!(Cost { mana: mana!("{4}"), parts: &[CostPart::TapSelf] }, &[Effect::Scry { amount: Amount::Fixed(1) }]),
     ],
 }

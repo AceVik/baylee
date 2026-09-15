@@ -17,7 +17,7 @@ card! {
     faces: &[
     face! {
         name: "Suppression Ray",
-        mana_cost: baylee_core::mana!("{3}{W/U}{W/U}"),
+        mana_cost: mana!("{3}{W/U}{W/U}"),
         types: TypeSet::SORCERY,
     },
     face! {

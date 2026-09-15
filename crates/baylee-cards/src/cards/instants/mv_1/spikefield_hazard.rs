@@ -17,7 +17,7 @@ card! {
     faces: &[
     face! {
         name: "Spikefield Hazard",
-        mana_cost: baylee_core::mana!("{R}"),
+        mana_cost: mana!("{R}"),
         types: TypeSet::INSTANT,
     },
     face! {

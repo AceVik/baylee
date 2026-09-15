@@ -19,7 +19,7 @@ card! {
     faces: &[
     face! {
         name: "Blackbloom Rogue",
-        mana_cost: baylee_core::mana!("{2}{B}"),
+        mana_cost: mana!("{2}{B}"),
         types: TypeSet::CREATURE,
         subtypes: &[subtypes::creature::HUMAN, subtypes::creature::ROGUE],
         power: Some(2),

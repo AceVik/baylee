@@ -16,7 +16,7 @@ card! {
     faces: &[
     face! {
         name: "Commander's Sphere",
-        mana_cost: baylee_core::mana!("{3}"),
+        mana_cost: mana!("{3}"),
         types: TypeSet::ARTIFACT,
     },
     ],

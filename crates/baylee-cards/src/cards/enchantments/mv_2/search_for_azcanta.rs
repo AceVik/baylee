@@ -18,7 +18,7 @@ card! {
     faces: &[
     face! {
         name: "Search for Azcanta",
-        mana_cost: baylee_core::mana!("{1}{U}"),
+        mana_cost: mana!("{1}{U}"),
         types: TypeSet::ENCHANTMENT,
         supertypes: SupertypeSet::LEGENDARY,
     },

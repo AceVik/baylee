@@ -18,7 +18,7 @@ card! {
     faces: &[
     face! {
         name: "Akoum Warrior",
-        mana_cost: baylee_core::mana!("{5}{R}"),
+        mana_cost: mana!("{5}{R}"),
         types: TypeSet::CREATURE,
         subtypes: &[subtypes::creature::MINOTAUR, subtypes::creature::WARRIOR],
         power: Some(4),

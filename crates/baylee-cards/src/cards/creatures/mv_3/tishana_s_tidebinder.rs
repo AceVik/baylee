@@ -22,7 +22,7 @@ card! {
     scryfall_id: "907b3d1d-8c85-4707-80b5-c4d832df9846",
     faces: &[face! {
         name: "Tishana's Tidebinder",
-        mana_cost: baylee_core::mana!("{2}{U}"),
+        mana_cost: mana!("{2}{U}"),
         types: TypeSet::CREATURE,
         subtypes: &[creature::MERFOLK, creature::WIZARD],
         power: Some(3),

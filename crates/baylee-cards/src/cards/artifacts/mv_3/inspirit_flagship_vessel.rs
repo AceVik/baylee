@@ -23,7 +23,7 @@ card! {
     scryfall_id: "46900ec7-eb18-45c4-8e90-a48b665cfdee",
     faces: &[face! {
         name: "Inspirit, Flagship Vessel",
-        mana_cost: baylee_core::mana!("{U}{R}{W}"),
+        mana_cost: mana!("{U}{R}{W}"),
         types: TypeSet::ARTIFACT,
         supertypes: SupertypeSet::LEGENDARY,
         subtypes: &[artifact::SPACECRAFT],
@@ -75,12 +75,12 @@ card! {
         }),
         // 1+: modal combat trigger (a +1/+1 counter or two charge
         // counters on up to one other artifact).
-        AbilityDef::ModalTriggered {
-            trigger: Trigger::StepBegin {
+        modal_triggered!(
+            Trigger::StepBegin {
                 step: StepKind::CombatBegin,
                 whose: PlayerRel::You,
             },
-            modes: &[
+            &[
                 // "up to one other target artifact": with nothing else on
                 // the board this trigger still goes on the stack and does
                 // nothing, where a count of exactly one would take it off.
@@ -92,8 +92,7 @@ card! {
                         kind: CounterKind::Charge,
                         amount: Amount::Fixed(2),
                     }], targets: Some(TargetReq::up_to_one(TargetSpec::Object(&OTHER_ARTIFACT)))),
-            ],
-            once_per_turn: false,
-        },
+            ]
+        ),
     ],
 }

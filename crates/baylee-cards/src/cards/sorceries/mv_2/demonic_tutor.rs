@@ -11,7 +11,7 @@ card! {
     scryfall_id: "a24b4cb6-cebb-428b-8654-74347a6a8d63",
     faces: &[face! {
         name: "Demonic Tutor",
-        mana_cost: baylee_core::mana!("{1}{B}"),
+        mana_cost: mana!("{1}{B}"),
         types: TypeSet::SORCERY,
     }],
     color_identity: ColorSet::from_slice(&[Color::Black]),

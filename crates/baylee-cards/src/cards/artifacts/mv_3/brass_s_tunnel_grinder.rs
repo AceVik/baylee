@@ -20,7 +20,7 @@ card! {
     faces: &[
     face! {
         name: "Brass's Tunnel-Grinder",
-        mana_cost: baylee_core::mana!("{2}{R}"),
+        mana_cost: mana!("{2}{R}"),
         types: TypeSet::ARTIFACT,
         supertypes: SupertypeSet::LEGENDARY,
     },

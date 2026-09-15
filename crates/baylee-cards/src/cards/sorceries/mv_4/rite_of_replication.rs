@@ -12,10 +12,10 @@ card! {
     scryfall_id: "5032d71d-d9f8-498c-97d1-271c2e9c1c47",
     faces: &[face! {
         name: "Rite of Replication",
-        mana_cost: baylee_core::mana!("{2}{U}{U}"),
+        mana_cost: mana!("{2}{U}{U}"),
         types: TypeSet::SORCERY,
         additional_costs: &[Cost {
-            mana: baylee_core::mana!("{5}"),
+            mana: mana!("{5}"),
             parts: &[],
         }],
     }],

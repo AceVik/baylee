@@ -12,13 +12,13 @@ card! {
     scryfall_id: "e5142b7a-e580-4737-a4aa-2590f6610ceb",
     faces: &[face! {
         name: "Sensei's Divining Top",
-        mana_cost: baylee_core::mana!("{1}"),
+        mana_cost: mana!("{1}"),
         types: TypeSet::ARTIFACT,
     }],
     coverage: Coverage::Implemented,
     abilities: &[
         activated!(Cost {
-                mana: baylee_core::mana!("{1}"),
+                mana: mana!("{1}"),
                 parts: &[],
             }, &[Effect::ReorderTopLibrary { count: 3 }]),
         activated!(Cost::TAP, &[

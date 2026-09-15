@@ -13,7 +13,7 @@ card! {
     scryfall_id: "9b29492a-8bdd-4806-8d1b-3058ed277cc1",
     faces: &[face! {
         name: "Chromatic Lantern",
-        mana_cost: baylee_core::mana!("{3}"),
+        mana_cost: mana!("{3}"),
         types: TypeSet::ARTIFACT,
     }],
     coverage: Coverage::Implemented,

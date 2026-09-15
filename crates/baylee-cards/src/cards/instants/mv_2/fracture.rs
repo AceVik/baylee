@@ -14,7 +14,7 @@ card! {
     scryfall_id: "cba33bf7-0919-408c-8eb0-0bb9fe920c81",
     faces: &[face! {
         name: "Fracture",
-        mana_cost: baylee_core::mana!("{W}{B}"),
+        mana_cost: mana!("{W}{B}"),
         types: TypeSet::INSTANT,
     }],
     color_identity: ColorSet::from_slice(&[Color::White, Color::Black]),

@@ -31,7 +31,7 @@ card! {
                 ManaColor::Green,
             ])]),
         activated!(Cost {
-                mana: baylee_core::mana!("{3}"),
+                mana: mana!("{3}"),
                 parts: &[CostPart::DiscardSelf],
             }, &[Effect::DrawCards {
                 amount: Amount::Fixed(1),

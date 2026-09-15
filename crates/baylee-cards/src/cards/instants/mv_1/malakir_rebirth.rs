@@ -17,7 +17,7 @@ card! {
     faces: &[
     face! {
         name: "Malakir Rebirth",
-        mana_cost: baylee_core::mana!("{B}"),
+        mana_cost: mana!("{B}"),
         types: TypeSet::INSTANT,
     },
     face! {

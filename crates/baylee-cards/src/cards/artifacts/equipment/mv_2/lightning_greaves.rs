@@ -23,7 +23,7 @@ card! {
     faces: &[
     face! {
         name: "Lightning Greaves",
-        mana_cost: baylee_core::mana!("{2}"),
+        mana_cost: mana!("{2}"),
         types: TypeSet::ARTIFACT,
         subtypes: &[artifact::EQUIPMENT],
     },

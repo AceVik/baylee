@@ -37,7 +37,7 @@ card! {
     scryfall_id: "7f7e780e-fbc5-4dc0-b5c7-efcb8645c7c6",
     faces: &[face! {
         name: "Ertai Resurrected",
-        mana_cost: baylee_core::mana!("{2}{U}{B}"),
+        mana_cost: mana!("{2}{U}{B}"),
         types: TypeSet::CREATURE,
         supertypes: SupertypeSet::LEGENDARY,
         subtypes: &[creature::PHYREXIAN, creature::HUMAN, creature::WIZARD],
@@ -47,14 +47,13 @@ card! {
     color_identity: ColorSet::from_slice(&[Color::Blue, Color::Black]),
     keywords: KeywordSet::FLASH,
     coverage: Coverage::Implemented,
-    abilities: &[AbilityDef::ModalTriggered {
-        trigger: Trigger::EntersBattlefield(&Filter::This),
-        modes: &[
+    abilities: &[modal_triggered!(
+        Trigger::EntersBattlefield(&Filter::This),
+        &[
             mode!(COUNTER_EFFECTS, targets: Some(TargetReq::one(TargetSpec::SpellOrAbility(&Filter::Any)))),
             mode!(DESTROY_EFFECTS, targets: Some(TargetReq::one(TargetSpec::Object(&OTHER_CREATURE_OR_WALKER)))),
             // "Choose up to one" — declining is mode 2 (no effects).
             mode!(&[]),
-        ],
-        once_per_turn: false,
-    }],
+        ]
+    )],
 }

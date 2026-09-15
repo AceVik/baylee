@@ -17,7 +17,7 @@ card! {
     faces: &[
     face! {
         name: "Nature's Lore",
-        mana_cost: baylee_core::mana!("{1}{G}"),
+        mana_cost: mana!("{1}{G}"),
         types: TypeSet::SORCERY,
     },
     ],

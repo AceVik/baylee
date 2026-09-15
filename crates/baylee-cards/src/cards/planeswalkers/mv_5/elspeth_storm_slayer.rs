@@ -25,7 +25,7 @@ card! {
     scryfall_id: "73a065e3-b530-4e62-ab3c-4f6f908184ec",
     faces: &[face! {
         name: "Elspeth, Storm Slayer",
-        mana_cost: baylee_core::mana!("{3}{W}{W}"),
+        mana_cost: mana!("{3}{W}{W}"),
         types: TypeSet::PLANESWALKER,
         supertypes: SupertypeSet::LEGENDARY,
         subtypes: &[planeswalker::ELSPETH],

@@ -14,7 +14,7 @@ card! {
     scryfall_id: "c96763d6-0cea-40ed-afb2-886bfebe50a0",
     faces: &[face! {
         name: "Misdirection",
-        mana_cost: baylee_core::mana!("{3}{U}{U}"),
+        mana_cost: mana!("{3}{U}{U}"),
         types: TypeSet::INSTANT,
         alternative_costs: &[AlternativeCost {
             cost: Cost {

@@ -11,7 +11,7 @@ card! {
     scryfall_id: "4f616706-ec97-4923-bb1e-11a69fbaa1f8",
     faces: &[face! {
         name: "Counterspell",
-        mana_cost: baylee_core::mana!("{U}{U}"),
+        mana_cost: mana!("{U}{U}"),
         types: TypeSet::INSTANT,
     }],
     color_identity: ColorSet::from_slice(&[Color::Blue]),

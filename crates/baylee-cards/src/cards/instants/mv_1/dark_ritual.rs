@@ -14,7 +14,7 @@ card! {
     faces: &[
     face! {
         name: "Dark Ritual",
-        mana_cost: baylee_core::mana!("{B}"),
+        mana_cost: mana!("{B}"),
         types: TypeSet::INSTANT,
     },
     ],

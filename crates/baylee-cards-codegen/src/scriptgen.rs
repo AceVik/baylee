@@ -943,7 +943,7 @@ impl Tx<'_> {
         let mana_expr = if mana.is_empty() {
             "ManaCost::ZERO".to_string()
         } else {
-            format!("baylee_core::mana!(\"{mana}\")")
+            format!("mana!(\"{mana}\")")
         };
         Some(format!(
             "Cost {{ mana: {mana_expr}, parts: &[{}] }}",
@@ -1344,18 +1344,20 @@ impl Tx<'_> {
             };
             let cost = self.cost_expr(&cost)?;
             let mana_ability = chain.effects.iter().all(|e| e.contains("Effect::mana"));
-            let macro_name = if mana_ability {
-                "mana_ability!"
-            } else {
-                "activated!"
-            };
             let target = chain
                 .target
                 .map(|t| format!(", target: Some({t})"))
                 .unwrap_or_default();
-            self.body
-                .abilities
-                .push(format!("{macro_name}({cost}, {effects}{target})"));
+            // `mana_ability!(effects)` *is* `mana_ability!(effects)`
+            // â the macro supplies the tap, because tapping is what almost
+            // every mana ability costs. Writing the cost out again says
+            // nothing and reads as though this one were the exception.
+            let line = match (mana_ability, cost.as_str()) {
+                (true, "Cost::TAP") => format!("mana_ability!({effects}{target})"),
+                (true, _) => format!("mana_ability!({cost}, {effects}{target})"),
+                (false, _) => format!("activated!({cost}, {effects}{target})"),
+            };
+            self.body.abilities.push(line);
         } else {
             let targets = chain
                 .target
@@ -1712,7 +1714,7 @@ mod tests {
         assert_eq!(body.keywords, ["KeywordSet::FLYING"]);
         assert_eq!(
             body.abilities,
-            ["mana_ability!(Cost::TAP, &[Effect::mana_of_any_color()])"]
+            ["mana_ability!(&[Effect::mana_of_any_color()])"]
         );
     }
 
@@ -1725,8 +1727,8 @@ mod tests {
         assert_eq!(
             body.abilities,
             [
-                "mana_ability!(Cost::TAP, &[Effect::mana_choice(&[ManaColor::White, ManaColor::Blue])])",
-                "mana_ability!(Cost::TAP, &[Effect::mana(ManaColor::Colorless, 2)])",
+                "mana_ability!(&[Effect::mana_choice(&[ManaColor::White, ManaColor::Blue])])",
+                "mana_ability!(&[Effect::mana(ManaColor::Colorless, 2)])",
             ]
         );
     }
@@ -1826,14 +1828,14 @@ mod tests {
         assert_eq!(
             both.abilities,
             [
-                "mana_ability!(Cost::TAP, &[Effect::mana(ManaColor::White, 1), Effect::mana(ManaColor::Blue, 1)])"
+                "mana_ability!(&[Effect::mana(ManaColor::White, 1), Effect::mana(ManaColor::Blue, 1)])"
             ]
         );
         let either = read("Name:X\nTypes:Land\nA:AB$ Mana | Cost$ T | Produced$ Combo W U");
         assert_eq!(
             either.abilities,
             [
-                "mana_ability!(Cost::TAP, &[Effect::mana_choice(&[ManaColor::White, ManaColor::Blue])])"
+                "mana_ability!(&[Effect::mana_choice(&[ManaColor::White, ManaColor::Blue])])"
             ]
         );
     }
@@ -1850,7 +1852,7 @@ mod tests {
         assert_eq!(
             body.abilities,
             [
-                "mana_ability!(Cost::TAP, &[Effect::mana_of_any_color().restricted(&SPEND1, SpendRider::None)])"
+                "mana_ability!(&[Effect::mana_of_any_color().restricted(&SPEND1, SpendRider::None)])"
             ]
         );
 

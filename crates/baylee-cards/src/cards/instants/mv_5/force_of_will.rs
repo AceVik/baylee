@@ -15,7 +15,7 @@ card! {
     scryfall_id: "89f612d6-7c59-4a7b-a87d-45f789e88ba5",
     faces: &[face! {
         name: "Force of Will",
-        mana_cost: baylee_core::mana!("{3}{U}{U}"),
+        mana_cost: mana!("{3}{U}{U}"),
         types: TypeSet::INSTANT,
         alternative_costs: &[AlternativeCost {
             cost: Cost {

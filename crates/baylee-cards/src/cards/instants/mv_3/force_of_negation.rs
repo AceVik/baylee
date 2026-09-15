@@ -15,7 +15,7 @@ card! {
     scryfall_id: "1825a719-1b2a-4af9-9cd2-7cb497cd0317",
     faces: &[face! {
         name: "Force of Negation",
-        mana_cost: baylee_core::mana!("{1}{U}{U}"),
+        mana_cost: mana!("{1}{U}{U}"),
         types: TypeSet::INSTANT,
         alternative_costs: &[AlternativeCost {
             cost: Cost {

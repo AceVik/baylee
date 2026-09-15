@@ -24,6 +24,6 @@ card! {
     ],
     abilities: &[
         triggered!(Trigger::EntersBattlefield(&Filter::This), &[Effect::PumpTarget { power: Amount::Fixed(1), toughness: Amount::Fixed(1), keywords: KeywordSet::VIGILANCE, duration: Duration::UntilEndOfTurn }], targets: Some(TargetReq::one(TargetSpec::Object(&TARGET1)))),
-        mana_ability!(Cost::TAP, &[Effect::mana(ManaColor::White, 1)]),
+        mana_ability!(&[Effect::mana(ManaColor::White, 1)]),
     ],
 }

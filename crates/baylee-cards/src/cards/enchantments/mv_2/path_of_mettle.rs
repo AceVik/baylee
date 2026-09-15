@@ -20,7 +20,7 @@ card! {
     faces: &[
     face! {
         name: "Path of Mettle",
-        mana_cost: baylee_core::mana!("{R}{W}"),
+        mana_cost: mana!("{R}{W}"),
         types: TypeSet::ENCHANTMENT,
         supertypes: SupertypeSet::LEGENDARY,
     },

@@ -13,7 +13,7 @@ card! {
     scryfall_id: "1a40e4da-a631-4423-b70f-701b27b09f79",
     faces: &[face! {
         name: "Commander's Insight",
-        mana_cost: baylee_core::mana!("{X}{U}{U}{U}"),
+        mana_cost: mana!("{X}{U}{U}{U}"),
         types: TypeSet::INSTANT,
     }],
     color_identity: ColorSet::from_slice(&[Color::Blue]),

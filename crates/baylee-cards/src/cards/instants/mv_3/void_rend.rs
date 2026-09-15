@@ -12,7 +12,7 @@ card! {
     scryfall_id: "2daab74d-d66b-4164-aa19-24e8d5536f7d",
     faces: &[face! {
         name: "Void Rend",
-        mana_cost: baylee_core::mana!("{W}{U}{B}"),
+        mana_cost: mana!("{W}{U}{B}"),
         types: TypeSet::INSTANT,
     }],
     color_identity: ColorSet::from_slice(&[Color::White, Color::Blue, Color::Black]),

@@ -16,7 +16,7 @@ card! {
     scryfall_id: "861b5889-0183-4bee-afeb-a4b2aa700a8e",
     faces: &[face! {
         name: "Smothering Tithe",
-        mana_cost: baylee_core::mana!("{3}{W}"),
+        mana_cost: mana!("{3}{W}"),
         types: TypeSet::ENCHANTMENT,
     }],
     color_identity: ColorSet::from_slice(&[Color::White]),

@@ -24,7 +24,7 @@ card! {
     scryfall_id: "d1f629fb-b097-4240-8560-ef47f5678f48",
     faces: &[face! {
         name: "Wizard Class",
-        mana_cost: baylee_core::mana!("{U}"),
+        mana_cost: mana!("{U}"),
         types: TypeSet::ENCHANTMENT,
         subtypes: &[enchantment::CLASS],
     }],
@@ -40,7 +40,7 @@ card! {
         // {2}{U}: Level 2 (sorcery speed, requires level 1).
         AbilityDef::ActivatedConditional {
             cost: Cost {
-                mana: baylee_core::mana!("{2}{U}"),
+                mana: mana!("{2}{U}"),
                 parts: &[],
             },
             effects: &[
@@ -61,7 +61,7 @@ card! {
         // {4}{U}: Level 3 (sorcery speed, requires level 2).
         AbilityDef::ActivatedConditional {
             cost: Cost {
-                mana: baylee_core::mana!("{4}{U}"),
+                mana: mana!("{4}{U}"),
                 parts: &[],
             },
             effects: &[

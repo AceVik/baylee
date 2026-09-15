@@ -14,7 +14,7 @@ card! {
     scryfall_id: "6049cc80-1faa-48bf-897e-fefe5a8e7ab2",
     faces: &[face! {
         name: "Umara Raptor",
-        mana_cost: baylee_core::mana!("{2}{U}"),
+        mana_cost: mana!("{2}{U}"),
         types: TypeSet::CREATURE,
         subtypes: &[creature::BIRD, creature::ALLY],
         power: Some(1),

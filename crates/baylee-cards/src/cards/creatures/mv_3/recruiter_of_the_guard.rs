@@ -15,7 +15,7 @@ card! {
     scryfall_id: "8e4c6ba1-1abc-478f-9b7c-97e9e3c92fb0",
     faces: &[face! {
         name: "Recruiter of the Guard",
-        mana_cost: baylee_core::mana!("{2}{W}"),
+        mana_cost: mana!("{2}{W}"),
         types: TypeSet::CREATURE,
         subtypes: &[creature::HUMAN, creature::SOLDIER],
         power: Some(1),

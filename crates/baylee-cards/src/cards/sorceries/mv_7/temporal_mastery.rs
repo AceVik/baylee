@@ -12,9 +12,9 @@ card! {
     scryfall_id: "0f46a800-b443-461d-87e0-5587249a42d8",
     faces: &[face! {
         name: "Temporal Mastery",
-        mana_cost: baylee_core::mana!("{5}{U}{U}"),
+        mana_cost: mana!("{5}{U}{U}"),
         types: TypeSet::SORCERY,
-        miracle: Some(baylee_core::mana!("{1}{U}")),
+        miracle: Some(mana!("{1}{U}")),
     }],
     color_identity: ColorSet::from_slice(&[Color::Blue]),
     coverage: Coverage::Implemented,

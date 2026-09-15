@@ -27,8 +27,8 @@ card! {
     },
     ],
     abilities: &[
-        mana_ability!(Cost::TAP, &[Effect::mana(ManaColor::Colorless, 1)]),
-        mana_ability!(Cost::TAP, &[Effect::mana_of_any_color().restricted(&SPEND1, SpendRider::None)]),
-        activated!(Cost { mana: baylee_core::mana!("{1}"), parts: &[CostPart::TapSelf, CostPart::SacrificeSelf] }, &[Effect::ReturnToHand { target: TargetSpec::Object(&TARGET2) }], target: Some(TargetSpec::Object(&TARGET2))),
+        mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
+        mana_ability!(&[Effect::mana_of_any_color().restricted(&SPEND1, SpendRider::None)]),
+        activated!(Cost { mana: mana!("{1}"), parts: &[CostPart::TapSelf, CostPart::SacrificeSelf] }, &[Effect::ReturnToHand { target: TargetSpec::Object(&TARGET2) }], target: Some(TargetSpec::Object(&TARGET2))),
     ],
 }

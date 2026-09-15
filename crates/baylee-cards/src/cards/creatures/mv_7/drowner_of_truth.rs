@@ -19,7 +19,7 @@ card! {
     faces: &[
     face! {
         name: "Drowner of Truth",
-        mana_cost: baylee_core::mana!("{5}{G/U}{G/U}"),
+        mana_cost: mana!("{5}{G/U}{G/U}"),
         types: TypeSet::CREATURE,
         subtypes: &[subtypes::creature::ELDRAZI],
         power: Some(7),

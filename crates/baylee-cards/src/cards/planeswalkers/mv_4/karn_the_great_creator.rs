@@ -20,7 +20,7 @@ card! {
     scryfall_id: "deb3721d-fba1-444f-8b31-1cd10c94c4a0",
     faces: &[face! {
         name: "Karn, the Great Creator",
-        mana_cost: baylee_core::mana!("{4}"),
+        mana_cost: mana!("{4}"),
         types: TypeSet::PLANESWALKER,
         supertypes: SupertypeSet::LEGENDARY,
         subtypes: &[planeswalker::KARN],

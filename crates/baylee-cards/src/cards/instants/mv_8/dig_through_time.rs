@@ -12,7 +12,7 @@ card! {
     scryfall_id: "020939d6-72f0-4aa0-9ac2-d16cc896cd7f",
     faces: &[face! {
         name: "Dig Through Time",
-        mana_cost: baylee_core::mana!("{6}{U}{U}"),
+        mana_cost: mana!("{6}{U}{U}"),
         types: TypeSet::INSTANT,
         delve: true,
     }],

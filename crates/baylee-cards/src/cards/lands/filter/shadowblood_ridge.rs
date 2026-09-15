@@ -18,6 +18,6 @@ card! {
     },
     ],
     abilities: &[
-        mana_ability!(Cost { mana: baylee_core::mana!("{1}"), parts: &[CostPart::TapSelf] }, &[Effect::mana(ManaColor::Black, 1), Effect::mana(ManaColor::Red, 1)]),
+        mana_ability!(Cost { mana: mana!("{1}"), parts: &[CostPart::TapSelf] }, &[Effect::mana(ManaColor::Black, 1), Effect::mana(ManaColor::Red, 1)]),
     ],
 }

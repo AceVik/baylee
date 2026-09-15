@@ -17,7 +17,7 @@ card! {
     scryfall_id: "662fe50f-d75c-422c-8c6c-1f9b5c4ba21f",
     faces: &[face! {
         name: "Teferi, Time Raveler",
-        mana_cost: baylee_core::mana!("{1}{W}{U}"),
+        mana_cost: mana!("{1}{W}{U}"),
         types: TypeSet::PLANESWALKER,
         supertypes: SupertypeSet::LEGENDARY,
         subtypes: &[planeswalker::TEFERI],

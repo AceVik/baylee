@@ -16,7 +16,7 @@ card! {
     scryfall_id: "70ffc71f-328d-421d-926b-6f2e45ffb812",
     faces: &[face! {
         name: "Helm of the Host",
-        mana_cost: baylee_core::mana!("{4}"),
+        mana_cost: mana!("{4}"),
         types: TypeSet::ARTIFACT,
         supertypes: SupertypeSet::LEGENDARY,
         subtypes: &[artifact::EQUIPMENT],
@@ -35,7 +35,7 @@ card! {
                 ],
             }]),
         activated!(Cost {
-                mana: baylee_core::mana!("{5}"),
+                mana: mana!("{5}"),
                 parts: &[],
             }, &[Effect::AttachSelf {
                 target: TargetSpec::Object(&CREATURE_YOU_CONTROL),

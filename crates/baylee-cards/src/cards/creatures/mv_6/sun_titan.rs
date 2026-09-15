@@ -19,7 +19,7 @@ card! {
     scryfall_id: "3d6eacf2-f6c7-4ede-b5a5-7463602699ae",
     faces: &[face! {
         name: "Sun Titan",
-        mana_cost: baylee_core::mana!("{4}{W}{W}"),
+        mana_cost: mana!("{4}{W}{W}"),
         types: TypeSet::CREATURE,
         subtypes: &[creature::GIANT],
         power: Some(6),

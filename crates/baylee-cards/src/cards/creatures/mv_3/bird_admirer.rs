@@ -22,7 +22,7 @@ card! {
     faces: &[
     face! {
         name: "Bird Admirer",
-        mana_cost: baylee_core::mana!("{2}{G}"),
+        mana_cost: mana!("{2}{G}"),
         types: TypeSet::CREATURE,
         subtypes: &[subtypes::creature::HUMAN, subtypes::creature::ARCHER, subtypes::creature::WEREWOLF],
         power: Some(1),

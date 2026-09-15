@@ -21,7 +21,7 @@ card! {
     faces: &[
     face! {
         name: "Swiftfoot Boots",
-        mana_cost: baylee_core::mana!("{2}"),
+        mana_cost: mana!("{2}"),
         types: TypeSet::ARTIFACT,
         subtypes: &[artifact::EQUIPMENT],
     },
@@ -34,7 +34,7 @@ card! {
         }),
         activated!(
             Cost {
-                mana: baylee_core::mana!("{1}"),
+                mana: mana!("{1}"),
                 parts: &[],
             },
             &[Effect::AttachSelf {

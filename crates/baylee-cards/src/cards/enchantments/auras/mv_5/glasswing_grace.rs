@@ -19,7 +19,7 @@ card! {
     faces: &[
     face! {
         name: "Glasswing Grace",
-        mana_cost: baylee_core::mana!("{3}{W/B}{W/B}"),
+        mana_cost: mana!("{3}{W/B}{W/B}"),
         types: TypeSet::ENCHANTMENT,
         subtypes: &[subtypes::enchantment::AURA],
     },

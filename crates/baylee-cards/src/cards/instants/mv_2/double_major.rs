@@ -14,7 +14,7 @@ card! {
     scryfall_id: "c3d35413-8742-4443-8859-93c91112978d",
     faces: &[face! {
         name: "Double Major",
-        mana_cost: baylee_core::mana!("{G}{U}"),
+        mana_cost: mana!("{G}{U}"),
         types: TypeSet::INSTANT,
     }],
     color_identity: ColorSet::from_slice(&[Color::Blue, Color::Green]),

@@ -19,7 +19,7 @@ card! {
     scryfall_id: "9e83a0ef-4fea-45ba-86c0-130d6687f7fe",
     faces: &[face! {
         name: "Loran of the Third Path",
-        mana_cost: baylee_core::mana!("{2}{W}"),
+        mana_cost: mana!("{2}{W}"),
         types: TypeSet::CREATURE,
         supertypes: SupertypeSet::LEGENDARY,
         subtypes: &[creature::HUMAN, creature::ARTIFICER],

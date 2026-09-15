@@ -13,7 +13,7 @@ card! {
     scryfall_id: "7c024bae-5631-4e20-ac69-df392ac9e109",
     faces: &[face! {
         name: "Orcish Bowmasters",
-        mana_cost: baylee_core::mana!("{1}{B}"),
+        mana_cost: mana!("{1}{B}"),
         types: TypeSet::CREATURE,
         subtypes: &[creature::ORC, creature::ARCHER],
         power: Some(1),

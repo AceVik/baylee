@@ -19,7 +19,7 @@ card! {
     faces: &[
     face! {
         name: "Pinnacle Monk",
-        mana_cost: baylee_core::mana!("{3}{R}{R}"),
+        mana_cost: mana!("{3}{R}{R}"),
         types: TypeSet::CREATURE,
         subtypes: &[subtypes::creature::DJINN, subtypes::creature::MONK],
         power: Some(2),

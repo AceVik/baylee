@@ -15,7 +15,7 @@ card! {
     scryfall_id: "44dcab01-1d13-4dfc-ae2f-fbaa3dd35087",
     faces: &[face! {
         name: "Elesh Norn, Mother of Machines",
-        mana_cost: baylee_core::mana!("{4}{W}"),
+        mana_cost: mana!("{4}{W}"),
         types: TypeSet::CREATURE,
         supertypes: SupertypeSet::LEGENDARY,
         subtypes: &[subtypes::creature::PHYREXIAN, subtypes::creature::PRAETOR],

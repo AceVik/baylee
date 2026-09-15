@@ -19,7 +19,7 @@ card! {
     faces: &[
     face! {
         name: "Growing Rites of Itlimoc",
-        mana_cost: baylee_core::mana!("{2}{G}"),
+        mana_cost: mana!("{2}{G}"),
         types: TypeSet::ENCHANTMENT,
         supertypes: SupertypeSet::LEGENDARY,
     },

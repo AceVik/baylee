@@ -23,7 +23,7 @@ card! {
     },
     face! {
         name: "Mage Siege",
-        mana_cost: baylee_core::mana!("{2}{R}"),
+        mana_cost: mana!("{2}{R}"),
         types: TypeSet::INSTANT,
         subtypes: &[subtypes::spell::ADVENTURE],
     },

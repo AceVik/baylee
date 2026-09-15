@@ -69,7 +69,7 @@ card! {
     faces: &[
         face! {
             name: "Sheoldred",
-            mana_cost: baylee_core::mana!("{3}{B}{B}"),
+            mana_cost: mana!("{3}{B}{B}"),
             types: TypeSet::CREATURE,
             supertypes: SupertypeSet::LEGENDARY,
             subtypes: &[creature::PHYREXIAN, creature::PRAETOR],
@@ -102,7 +102,7 @@ card! {
             }]),
         AbilityDef::ActivatedConditional {
             cost: Cost {
-                mana: baylee_core::mana!("{4}{B}"),
+                mana: mana!("{4}{B}"),
                 parts: &[],
             },
             effects: &[Effect::ExileSelfReturnAsFace { face: 1 }],

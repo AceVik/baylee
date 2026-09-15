@@ -17,7 +17,7 @@ card! {
     faces: &[
     face! {
         name: "Valakut Awakening",
-        mana_cost: baylee_core::mana!("{2}{R}"),
+        mana_cost: mana!("{2}{R}"),
         types: TypeSet::INSTANT,
     },
     face! {

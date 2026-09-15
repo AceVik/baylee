@@ -17,7 +17,7 @@ card! {
     faces: &[
     face! {
         name: "Sink into Stupor",
-        mana_cost: baylee_core::mana!("{1}{U}{U}"),
+        mana_cost: mana!("{1}{U}{U}"),
         types: TypeSet::INSTANT,
     },
     face! {

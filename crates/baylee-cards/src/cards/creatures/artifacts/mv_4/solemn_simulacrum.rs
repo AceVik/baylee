@@ -15,7 +15,7 @@ card! {
     scryfall_id: "daafd816-f7c1-4630-9e5c-a1e5db570a35",
     faces: &[face! {
         name: "Solemn Simulacrum",
-        mana_cost: baylee_core::mana!("{4}"),
+        mana_cost: mana!("{4}"),
         types: TypeSet::CREATURE.union(TypeSet::ARTIFACT),
         subtypes: &[creature::GOLEM],
         power: Some(2),

@@ -15,7 +15,7 @@ card! {
     scryfall_id: "78a538cf-2291-49aa-8429-17d97d454479",
     faces: &[face! {
         name: "Harabaz Druid",
-        mana_cost: baylee_core::mana!("{1}{G}"),
+        mana_cost: mana!("{1}{G}"),
         types: TypeSet::CREATURE,
         subtypes: &[creature::HUMAN, creature::DRUID, creature::ALLY],
         power: Some(0),

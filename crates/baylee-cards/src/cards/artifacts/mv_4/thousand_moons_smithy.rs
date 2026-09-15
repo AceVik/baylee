@@ -19,7 +19,7 @@ card! {
     faces: &[
     face! {
         name: "Thousand Moons Smithy",
-        mana_cost: baylee_core::mana!("{2}{W}{W}"),
+        mana_cost: mana!("{2}{W}{W}"),
         types: TypeSet::ARTIFACT,
         supertypes: SupertypeSet::LEGENDARY,
     },

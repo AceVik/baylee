@@ -17,7 +17,7 @@ card! {
     faces: &[
     face! {
         name: "Revitalizing Repast",
-        mana_cost: baylee_core::mana!("{B/G}"),
+        mana_cost: mana!("{B/G}"),
         types: TypeSet::INSTANT,
     },
     face! {

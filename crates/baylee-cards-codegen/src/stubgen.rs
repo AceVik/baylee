@@ -217,7 +217,7 @@ fn mana_expr(card_name: &str, cost: &str) -> Result<String, CodegenError> {
         cost: cost.to_string(),
         reason,
     })?;
-    Ok(format!("baylee_core::mana!(\"{cost}\")"))
+    Ok(format!("mana!(\"{cost}\")"))
 }
 
 fn pt_expr(value: Option<&str>) -> String {
@@ -935,7 +935,7 @@ mod tests {
         card.toughness = Some("3".to_string());
         card.color_identity = Some(vec!["W".to_string()]);
         let (_, text) = render_stub(&card, 1, &cats, None, &LandCycles::default()).unwrap();
-        assert!(text.contains("mana_cost: baylee_core::mana!(\"{1}{W}\"),"));
+        assert!(text.contains("mana_cost: mana!(\"{1}{W}\"),"));
         assert!(text.contains("power: Some(2),"));
         assert!(text.contains("toughness: Some(3),"));
         assert!(text.contains("supertypes: SupertypeSet::LEGENDARY,"));

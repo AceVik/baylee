@@ -19,7 +19,7 @@ card! {
     faces: &[
     face! {
         name: "Legion's Landing",
-        mana_cost: baylee_core::mana!("{W}"),
+        mana_cost: mana!("{W}"),
         types: TypeSet::ENCHANTMENT,
         supertypes: SupertypeSet::LEGENDARY,
     },

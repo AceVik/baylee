@@ -20,7 +20,7 @@ card! {
     scryfall_id: "f17f85d3-58e5-4128-90c5-98b524256af8",
     faces: &[face! {
         name: "Restoration Angel",
-        mana_cost: baylee_core::mana!("{3}{W}"),
+        mana_cost: mana!("{3}{W}"),
         types: TypeSet::CREATURE,
         subtypes: &[creature::ANGEL],
         power: Some(3),

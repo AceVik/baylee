@@ -20,7 +20,7 @@ card! {
     scryfall_id: "4494dfa1-1343-417e-b0c5-2b096442dd0e",
     faces: &[face! {
         name: "Werefox Bodyguard",
-        mana_cost: baylee_core::mana!("{1}{W}{W}"),
+        mana_cost: mana!("{1}{W}{W}"),
         types: TypeSet::CREATURE,
         subtypes: &[creature::ELF, creature::FOX, creature::KNIGHT],
         power: Some(2),
@@ -39,7 +39,7 @@ card! {
                 count_is_x: false,
             })),
         activated!(Cost {
-                mana: baylee_core::mana!("{1}{W}"),
+                mana: mana!("{1}{W}"),
                 parts: &[CostPart::SacrificeSelf],
             }, &[Effect::GainLife {
                 amount: Amount::Fixed(2),

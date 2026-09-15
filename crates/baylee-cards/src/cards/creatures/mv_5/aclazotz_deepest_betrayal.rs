@@ -23,7 +23,7 @@ card! {
     faces: &[
     face! {
         name: "Aclazotz, Deepest Betrayal",
-        mana_cost: baylee_core::mana!("{3}{B}{B}"),
+        mana_cost: mana!("{3}{B}{B}"),
         types: TypeSet::CREATURE,
         supertypes: SupertypeSet::LEGENDARY,
         subtypes: &[subtypes::creature::BAT, subtypes::creature::GOD],

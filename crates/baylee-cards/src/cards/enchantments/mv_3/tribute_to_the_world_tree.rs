@@ -21,7 +21,7 @@ card! {
     scryfall_id: "c0cdeaba-fc21-44e6-bf99-aa1ff379401b",
     faces: &[face! {
         name: "Tribute to the World Tree",
-        mana_cost: baylee_core::mana!("{G}{G}{G}"),
+        mana_cost: mana!("{G}{G}{G}"),
         types: TypeSet::ENCHANTMENT,
     }],
     color_identity: ColorSet::from_slice(&[Color::Green]),

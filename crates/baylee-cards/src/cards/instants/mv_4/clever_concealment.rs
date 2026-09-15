@@ -15,7 +15,7 @@ card! {
     scryfall_id: "41d45a8a-ea1d-4fbc-86d2-5d6340f3b639",
     faces: &[face! {
         name: "Clever Concealment",
-        mana_cost: baylee_core::mana!("{2}{W}{W}"),
+        mana_cost: mana!("{2}{W}{W}"),
         types: TypeSet::INSTANT,
         convoke: true,
     }],

@@ -13,7 +13,7 @@ card! {
     scryfall_id: "be8439e6-f779-49f0-806a-b04995697a6a",
     faces: &[face! {
         name: "Baleful Strix",
-        mana_cost: baylee_core::mana!("{U}{B}"),
+        mana_cost: mana!("{U}{B}"),
         types: TypeSet::CREATURE.union(TypeSet::ARTIFACT),
         subtypes: &[creature::BIRD],
         power: Some(1),

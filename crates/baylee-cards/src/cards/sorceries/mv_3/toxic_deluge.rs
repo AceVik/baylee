@@ -13,7 +13,7 @@ card! {
     scryfall_id: "de5afccc-8d42-4bd6-b068-b9ea2361655e",
     faces: &[face! {
         name: "Toxic Deluge",
-        mana_cost: baylee_core::mana!("{2}{B}"),
+        mana_cost: mana!("{2}{B}"),
         types: TypeSet::SORCERY,
         mandatory_additional_costs: &[CostPart::PayLifeX],
     }],

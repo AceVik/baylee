@@ -17,7 +17,7 @@ card! {
     faces: &[
     face! {
         name: "Legion Leadership",
-        mana_cost: baylee_core::mana!("{1}{R/W}"),
+        mana_cost: mana!("{1}{R/W}"),
         types: TypeSet::INSTANT,
     },
     face! {

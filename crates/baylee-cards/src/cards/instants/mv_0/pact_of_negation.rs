@@ -14,7 +14,7 @@ card! {
         name: "Pact of Negation",
         // Printed `{0}`; `face!`'s default is *no* cost, which is a
         // different card (CR 202.1a). See `casting::has_a_printed_cost`.
-        mana_cost: baylee_core::mana!("{0}"),
+        mana_cost: mana!("{0}"),
         types: TypeSet::INSTANT,
     }],
     color_identity: ColorSet::from_slice(&[Color::Blue]),
@@ -22,7 +22,7 @@ card! {
     abilities: &[spell!(&[
             Effect::CounterTargetSpell,
             Effect::PayCostOrLoseLater {
-                cost: baylee_core::mana!("{3}{U}{U}"),
+                cost: mana!("{3}{U}{U}"),
             },
         ], targets: Some(TargetReq::one(TargetSpec::Spell(&Filter::Any))))],
 }

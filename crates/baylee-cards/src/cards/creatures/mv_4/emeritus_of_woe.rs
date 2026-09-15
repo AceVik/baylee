@@ -22,7 +22,7 @@ card! {
     scryfall_id: "7eb9e83d-515d-4911-a06b-9982200277b2",
     faces: &[face! {
         name: "Emeritus of Woe",
-        mana_cost: baylee_core::mana!("{3}{B}"),
+        mana_cost: mana!("{3}{B}"),
         types: TypeSet::CREATURE,
         subtypes: &[creature::VAMPIRE, creature::WARLOCK],
         power: Some(5),

@@ -15,7 +15,7 @@ card! {
     scryfall_id: "bac81940-d717-49ff-83b2-16a22bb2c988",
     faces: &[face! {
         name: "Wartime Protestors",
-        mana_cost: baylee_core::mana!("{3}{R}"),
+        mana_cost: mana!("{3}{R}"),
         types: TypeSet::CREATURE,
         subtypes: &[creature::HUMAN, creature::REBEL, creature::ALLY],
         power: Some(4),

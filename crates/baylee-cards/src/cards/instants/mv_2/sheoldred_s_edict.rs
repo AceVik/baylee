@@ -17,7 +17,7 @@ card! {
     scryfall_id: "a9225cc3-90f0-448f-a8d9-7c6c2796d077",
     faces: &[face! {
         name: "Sheoldred's Edict",
-        mana_cost: baylee_core::mana!("{1}{B}"),
+        mana_cost: mana!("{1}{B}"),
         types: TypeSet::INSTANT,
     }],
     color_identity: ColorSet::from_slice(&[Color::Black]),

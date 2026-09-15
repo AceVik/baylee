@@ -15,7 +15,7 @@ card! {
     faces: &[
     face! {
         name: "Llanowar Elves",
-        mana_cost: baylee_core::mana!("{G}"),
+        mana_cost: mana!("{G}"),
         types: TypeSet::CREATURE,
         subtypes: &[subtypes::creature::ELF, subtypes::creature::DRUID],
         power: Some(1),
@@ -23,6 +23,6 @@ card! {
     },
     ],
     abilities: &[
-        mana_ability!(Cost::TAP, &[Effect::mana(ManaColor::Green, 1)]),
+        mana_ability!(&[Effect::mana(ManaColor::Green, 1)]),
     ],
 }

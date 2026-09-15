@@ -18,7 +18,7 @@ card! {
     scryfall_id: "bc010302-e715-4946-89eb-a214e0b836ba",
     faces: &[face! {
         name: "Aminatou, the Fateshifter",
-        mana_cost: baylee_core::mana!("{W}{U}{B}"),
+        mana_cost: mana!("{W}{U}{B}"),
         types: TypeSet::PLANESWALKER,
         supertypes: SupertypeSet::LEGENDARY,
         subtypes: &[planeswalker::AMINATOU],

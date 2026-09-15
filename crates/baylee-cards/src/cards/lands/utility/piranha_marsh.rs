@@ -22,6 +22,6 @@ card! {
     ],
     abilities: &[
         triggered!(Trigger::EntersBattlefield(&Filter::This), &[Effect::LoseLife { amount: Amount::Fixed(1), target: PlayerRel::Chosen }], targets: Some(TargetReq::one(TargetSpec::AnyPlayer))),
-        mana_ability!(Cost::TAP, &[Effect::mana(ManaColor::Black, 1)]),
+        mana_ability!(&[Effect::mana(ManaColor::Black, 1)]),
     ],
 }

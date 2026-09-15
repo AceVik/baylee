@@ -28,7 +28,7 @@ card! {
     scryfall_id: "db7ab081-d6cd-4323-98bf-536e4df95115",
     faces: &[face! {
         name: "Primaris Eliminator",
-        mana_cost: baylee_core::mana!("{4}{B}"),
+        mana_cost: mana!("{4}{B}"),
         types: TypeSet::CREATURE,
         subtypes: &[creature::ASTARTES, creature::WARRIOR],
         power: Some(3),
@@ -36,12 +36,11 @@ card! {
     }],
     color_identity: ColorSet::from_slice(&[Color::Black]),
     coverage: Coverage::Implemented,
-    abilities: &[AbilityDef::ModalTriggered {
-        trigger: Trigger::EntersBattlefield(&Filter::This),
-        modes: &[
+    abilities: &[modal_triggered!(
+        Trigger::EntersBattlefield(&Filter::This),
+        &[
             mode!(DESTROY_EFFECTS, targets: Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE)))),
             mode!(DEBUFF_EFFECTS, targets: Some(TargetReq::one(TargetSpec::AnyPlayer))),
-        ],
-        once_per_turn: false,
-    }],
+        ]
+    )],
 }

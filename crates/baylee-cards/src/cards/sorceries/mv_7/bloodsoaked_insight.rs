@@ -18,7 +18,7 @@ card! {
     faces: &[
     face! {
         name: "Bloodsoaked Insight",
-        mana_cost: baylee_core::mana!("{5}{B/R}{B/R}"),
+        mana_cost: mana!("{5}{B/R}{B/R}"),
         types: TypeSet::SORCERY,
     },
     face! {

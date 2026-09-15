@@ -19,6 +19,6 @@ card! {
     ],
     abilities: &[
         mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
-        mana_ability!(Cost { mana: baylee_core::mana!("{1}"), parts: &[CostPart::TapSelf] }, &[Effect::mana_of_any_color()]),
+        mana_ability!(Cost { mana: mana!("{1}"), parts: &[CostPart::TapSelf] }, &[Effect::mana_of_any_color()]),
     ],
 }

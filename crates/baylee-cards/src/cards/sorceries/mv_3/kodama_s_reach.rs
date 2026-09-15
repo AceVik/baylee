@@ -18,7 +18,7 @@ card! {
     color_identity: ColorSet::from_slice(&[Color::Green]),
     faces: &[face! {
         name: "Kodama's Reach",
-        mana_cost: baylee_core::mana!("{2}{G}"),
+        mana_cost: mana!("{2}{G}"),
         types: TypeSet::SORCERY,
         subtypes: &[subtypes::spell::ARCANE],
     }],

@@ -18,7 +18,7 @@ card! {
     faces: &[
     face! {
         name: "Profane Procession",
-        mana_cost: baylee_core::mana!("{1}{W}{B}"),
+        mana_cost: mana!("{1}{W}{B}"),
         types: TypeSet::ENCHANTMENT,
         supertypes: SupertypeSet::LEGENDARY,
     },

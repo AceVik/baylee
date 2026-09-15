@@ -19,7 +19,7 @@ card! {
     faces: &[
     face! {
         name: "Strength of the Harvest",
-        mana_cost: baylee_core::mana!("{2}{G/W}"),
+        mana_cost: mana!("{2}{G/W}"),
         types: TypeSet::ENCHANTMENT,
         subtypes: &[subtypes::enchantment::AURA],
     },

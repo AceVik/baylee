@@ -15,7 +15,7 @@ card! {
     scryfall_id: "c8817585-0d32-4d56-9142-0d29512e86a9",
     faces: &[face! {
         name: "Jace, the Mind Sculptor",
-        mana_cost: baylee_core::mana!("{2}{U}{U}"),
+        mana_cost: mana!("{2}{U}{U}"),
         types: TypeSet::PLANESWALKER,
         supertypes: SupertypeSet::LEGENDARY,
         subtypes: &[planeswalker::JACE],

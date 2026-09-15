@@ -15,7 +15,7 @@ card! {
     scryfall_id: "9f37c5b6-a59c-45cd-9a99-e9357fe9ea1b",
     faces: &[face! {
         name: "Rhystic Study",
-        mana_cost: baylee_core::mana!("{2}{U}"),
+        mana_cost: mana!("{2}{U}"),
         types: TypeSet::ENCHANTMENT,
     }],
     color_identity: ColorSet::from_slice(&[Color::Blue]),

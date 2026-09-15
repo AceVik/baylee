@@ -17,7 +17,7 @@ card! {
     faces: &[
     face! {
         name: "Khalni Ambush",
-        mana_cost: baylee_core::mana!("{2}{G}"),
+        mana_cost: mana!("{2}{G}"),
         types: TypeSet::INSTANT,
     },
     face! {

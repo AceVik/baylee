@@ -15,7 +15,7 @@ card! {
     scryfall_id: "b0a18f8b-7364-4375-b2e1-e2f15978517f",
     faces: &[face! {
         name: "Katara, the Fearless",
-        mana_cost: baylee_core::mana!("{G}{W}{U}"),
+        mana_cost: mana!("{G}{W}{U}"),
         types: TypeSet::CREATURE,
         supertypes: SupertypeSet::LEGENDARY,
         subtypes: &[creature::HUMAN, creature::WARRIOR, creature::ALLY],

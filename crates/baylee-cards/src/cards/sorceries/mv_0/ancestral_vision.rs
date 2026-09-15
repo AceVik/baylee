@@ -19,7 +19,7 @@ card! {
     abilities: &[
         AbilityDef::Suspend {
             counters: 4,
-            cost: baylee_core::mana!("{U}"),
+            cost: mana!("{U}"),
         },
         spell!(&[Effect::DrawCardsFor {
                 amount: Amount::Fixed(3),

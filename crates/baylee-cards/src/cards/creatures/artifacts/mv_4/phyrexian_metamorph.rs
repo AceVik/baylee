@@ -16,7 +16,7 @@ card! {
     scryfall_id: "a564c2e8-f49f-4ed7-850f-7c8bc92e4926",
     faces: &[face! {
         name: "Phyrexian Metamorph",
-        mana_cost: baylee_core::mana!("{3}{U/P}"),
+        mana_cost: mana!("{3}{U/P}"),
         types: TypeSet::ARTIFACT.union(TypeSet::CREATURE),
         subtypes: &[creature::PHYREXIAN, creature::SHAPESHIFTER],
         power: Some(0),

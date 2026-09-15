@@ -14,7 +14,7 @@ card! {
     scryfall_id: "1625be56-a8e9-44f3-a213-b758bffd447f",
     faces: &[face! {
         name: "Thief of Blood",
-        mana_cost: baylee_core::mana!("{4}{B}{B}"),
+        mana_cost: mana!("{4}{B}{B}"),
         types: TypeSet::CREATURE,
         subtypes: &[creature::VAMPIRE],
         power: Some(1),

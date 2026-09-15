@@ -17,7 +17,7 @@ card! {
     faces: &[
     face! {
         name: "Shatterskull Smashing",
-        mana_cost: baylee_core::mana!("{X}{R}{R}"),
+        mana_cost: mana!("{X}{R}{R}"),
         types: TypeSet::SORCERY,
     },
     face! {

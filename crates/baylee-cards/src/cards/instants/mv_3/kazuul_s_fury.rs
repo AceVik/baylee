@@ -18,7 +18,7 @@ card! {
     faces: &[
     face! {
         name: "Kazuul's Fury",
-        mana_cost: baylee_core::mana!("{2}{R}"),
+        mana_cost: mana!("{2}{R}"),
         types: TypeSet::INSTANT,
     },
     face! {

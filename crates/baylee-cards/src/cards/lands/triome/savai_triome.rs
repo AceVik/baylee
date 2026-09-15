@@ -24,6 +24,6 @@ card! {
     ],
     abilities: &[
         mana_ability!(&[Effect::mana_choice(&[ManaColor::Red, ManaColor::White, ManaColor::Black])]),
-        activated!(Cost { mana: baylee_core::mana!("{3}"), parts: &[CostPart::DiscardSelf] }, &[Effect::DrawCards { amount: Amount::Fixed(1) }], zone: ActivationZone::Hand),
+        activated!(Cost { mana: mana!("{3}"), parts: &[CostPart::DiscardSelf] }, &[Effect::DrawCards { amount: Amount::Fixed(1) }], zone: ActivationZone::Hand),
     ],
 }

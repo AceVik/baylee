@@ -19,7 +19,7 @@ card! {
     scryfall_id: "c41b9ba2-0006-4d8e-b600-efe81ff5e0cc",
     faces: &[face! {
         name: "Spark Double",
-        mana_cost: baylee_core::mana!("{3}{U}"),
+        mana_cost: mana!("{3}{U}"),
         types: TypeSet::CREATURE,
         subtypes: &[creature::ILLUSION],
         power: Some(0),

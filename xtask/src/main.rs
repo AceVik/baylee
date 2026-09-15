@@ -1183,8 +1183,19 @@ fn face_cost(face: &str) -> String {
         return NONE.to_string();
     };
     let rest = &face[pos + "mana_cost: ".len()..];
-    let Some(rest) = rest.strip_prefix("baylee_core::mana!(\"") else {
-        return NONE.to_string();
+    // Either spelling of the macro. It used to read only the qualified one,
+    // and the day `mana!` reached the prelude all 478 costed faces in the
+    // pool read as costing nothing â a reader pinned to one spelling that
+    // answers a *value* when it cannot read, rather than saying so.
+    let rest = rest
+        .strip_prefix("mana!(\"")
+        .or_else(|| rest.strip_prefix("baylee_core::mana!(\""));
+    let Some(rest) = rest else {
+        // A `mana_cost:` written some third way is this function going
+        // blind, not a face with no cost. Callers compare against the
+        // printing, so a sentinel here would read as a disagreement about
+        // the card.
+        return "(unreadable)".to_string();
     };
     match rest.find('"') {
         Some(end) if &rest[..end] != "{0}" => rest[..end].to_string(),

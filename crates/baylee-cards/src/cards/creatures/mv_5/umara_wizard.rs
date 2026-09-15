@@ -18,7 +18,7 @@ card! {
     faces: &[
     face! {
         name: "Umara Wizard",
-        mana_cost: baylee_core::mana!("{4}{U}"),
+        mana_cost: mana!("{4}{U}"),
         types: TypeSet::CREATURE,
         subtypes: &[subtypes::creature::MERFOLK, subtypes::creature::WIZARD],
         power: Some(4),

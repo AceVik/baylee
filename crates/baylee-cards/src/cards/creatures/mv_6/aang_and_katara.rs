@@ -20,7 +20,7 @@ card! {
     scryfall_id: "f333ea01-124f-4125-87ab-609be40e774c",
     faces: &[face! {
         name: "Aang and Katara",
-        mana_cost: baylee_core::mana!("{3}{G}{W}{U}"),
+        mana_cost: mana!("{3}{G}{W}{U}"),
         types: TypeSet::CREATURE,
         supertypes: SupertypeSet::LEGENDARY,
         subtypes: &[creature::HUMAN, creature::AVATAR, creature::ALLY],

@@ -23,7 +23,7 @@ card! {
     },
     face! {
         name: "Faith & Grief",
-        mana_cost: baylee_core::mana!("{3}{W}{W}"),
+        mana_cost: mana!("{3}{W}{W}"),
         types: TypeSet::SORCERY,
         subtypes: &[subtypes::spell::ADVENTURE],
     },

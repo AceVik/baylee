@@ -23,7 +23,7 @@ card! {
     faces: &[
         face! {
             name: "Twining Twins",
-            mana_cost: baylee_core::mana!("{2}{U}{U}"),
+            mana_cost: mana!("{2}{U}{U}"),
             types: TypeSet::CREATURE,
             subtypes: &[creature::FAERIE, creature::WIZARD],
             power: Some(4),
@@ -31,7 +31,7 @@ card! {
         },
         face! {
             name: "Swift Spiral",
-            mana_cost: baylee_core::mana!("{1}{W}"),
+            mana_cost: mana!("{1}{W}"),
             types: TypeSet::INSTANT,
             subtypes: &[spell::ADVENTURE],
             abilities: BACK_ABILITIES,

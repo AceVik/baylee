@@ -17,7 +17,7 @@ card! {
     scryfall_id: "ced43447-fefc-482a-b8fa-33b9616aa532",
     faces: &[face! {
         name: "Ondu Cleric",
-        mana_cost: baylee_core::mana!("{1}{W}"),
+        mana_cost: mana!("{1}{W}"),
         types: TypeSet::CREATURE,
         subtypes: &[
             subtypes::creature::KOR,

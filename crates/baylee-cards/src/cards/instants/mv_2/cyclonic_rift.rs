@@ -23,7 +23,7 @@ card! {
     scryfall_id: "dfb7c4b9-f2f4-4d4e-baf2-86551c8150fe",
     faces: &[face! {
         name: "Cyclonic Rift",
-        mana_cost: baylee_core::mana!("{1}{U}"),
+        mana_cost: mana!("{1}{U}"),
         types: TypeSet::INSTANT,
     }],
     color_identity: ColorSet::from_slice(&[Color::Blue]),
@@ -31,7 +31,7 @@ card! {
     abilities: &[AbilityDef::ModalSpell {
         modes: &[
             mode!(NORMAL_EFFECTS, targets: Some(TargetReq::one(TargetSpec::Object(&NOT_MINE)))),
-            mode!(OVERLOAD_EFFECTS, cost_override: Some(baylee_core::mana!("{6}{U}"))),
+            mode!(OVERLOAD_EFFECTS, cost_override: Some(mana!("{6}{U}"))),
         ],
     }],
 }

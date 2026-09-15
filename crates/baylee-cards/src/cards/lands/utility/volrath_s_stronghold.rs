@@ -23,7 +23,7 @@ card! {
         // the mana from the printed sentence, and the code was written from
         // the header: a free, repeatable recursion of any creature in your
         // graveyard, which is a different card.
-        activated!(Cost { mana: baylee_core::mana!("{1}{B}"), parts: &[CostPart::TapSelf] }, &[Effect::GraveyardToTop {
+        activated!(Cost { mana: mana!("{1}{B}"), parts: &[CostPart::TapSelf] }, &[Effect::GraveyardToTop {
                 target: TargetSpec::CardInGraveyard(&Filter::CREATURE, PlayerRel::You),
             }], target: Some(TargetSpec::CardInGraveyard(&Filter::CREATURE, PlayerRel::You))),
     ],

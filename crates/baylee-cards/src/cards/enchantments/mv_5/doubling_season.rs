@@ -13,7 +13,7 @@ card! {
     scryfall_id: "f2c4f80e-84a0-463b-82c3-5c6503809351",
     faces: &[face! {
         name: "Doubling Season",
-        mana_cost: baylee_core::mana!("{4}{G}"),
+        mana_cost: mana!("{4}{G}"),
         types: TypeSet::ENCHANTMENT,
     }],
     color_identity: ColorSet::from_slice(&[Color::Green]),

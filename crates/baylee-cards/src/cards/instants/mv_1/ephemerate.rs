@@ -15,7 +15,7 @@ card! {
     scryfall_id: "2da5f3f8-5eef-498f-ba2c-2f3fbc3745aa",
     faces: &[face! {
         name: "Ephemerate",
-        mana_cost: baylee_core::mana!("{W}"),
+        mana_cost: mana!("{W}"),
         types: TypeSet::INSTANT,
     }],
     color_identity: ColorSet::from_slice(&[Color::White]),

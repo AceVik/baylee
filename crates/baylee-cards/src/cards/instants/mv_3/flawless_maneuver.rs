@@ -14,7 +14,7 @@ card! {
     scryfall_id: "ab12f69e-1491-47a8-8c46-d85bbf637ff6",
     faces: &[face! {
         name: "Flawless Maneuver",
-        mana_cost: baylee_core::mana!("{2}{W}"),
+        mana_cost: mana!("{2}{W}"),
         types: TypeSet::INSTANT,
         alternative_costs: &[AlternativeCost {
             cost: Cost::FREE,

@@ -17,7 +17,7 @@ card! {
     faces: &[
     face! {
         name: "Pelakka Predation",
-        mana_cost: baylee_core::mana!("{2}{B}"),
+        mana_cost: mana!("{2}{B}"),
         types: TypeSet::SORCERY,
     },
     face! {

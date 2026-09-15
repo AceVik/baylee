@@ -25,7 +25,7 @@ card! {
     faces: &[
         face! {
             name: "Mirrorhall Mimic",
-            mana_cost: baylee_core::mana!("{3}{U}"),
+            mana_cost: mana!("{3}{U}"),
             types: TypeSet::CREATURE,
             subtypes: &[creature::SPIRIT],
             power: Some(0),
@@ -33,7 +33,7 @@ card! {
         },
         face! {
             name: "Ghastly Mimicry",
-            mana_cost: baylee_core::mana!("{3}{U}{U}"),
+            mana_cost: mana!("{3}{U}{U}"),
             types: TypeSet::ENCHANTMENT,
             subtypes: &[enchantment::AURA],
             castable_from_hand: false, // disturb: cast from the graveyard

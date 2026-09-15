@@ -23,7 +23,7 @@ card! {
     },
     face! {
         name: "Reactor Raid",
-        mana_cost: baylee_core::mana!("{2}{B}"),
+        mana_cost: mana!("{2}{B}"),
         types: TypeSet::SORCERY,
         subtypes: &[subtypes::spell::ADVENTURE],
     },

@@ -25,7 +25,7 @@ card! {
     scryfall_id: "60afeb75-2c1e-4634-8c83-88b1dddb77c2",
     faces: &[face! {
         name: "Aether Channeler",
-        mana_cost: baylee_core::mana!("{2}{U}"),
+        mana_cost: mana!("{2}{U}"),
         types: TypeSet::CREATURE,
         subtypes: &[creature::HUMAN, creature::WIZARD],
         power: Some(2),
@@ -33,13 +33,12 @@ card! {
     }],
     color_identity: ColorSet::from_slice(&[Color::Blue]),
     coverage: Coverage::Implemented,
-    abilities: &[AbilityDef::ModalTriggered {
-        trigger: Trigger::EntersBattlefield(&Filter::This),
-        modes: &[
+    abilities: &[modal_triggered!(
+        Trigger::EntersBattlefield(&Filter::This),
+        &[
             mode!(TOKEN_EFFECTS),
             mode!(BOUNCE_EFFECTS, targets: Some(TargetReq::one(TargetSpec::Object(&BOUNCE_TARGET)))),
             mode!(DRAW_EFFECTS),
-        ],
-        once_per_turn: false,
-    }],
+        ]
+    )],
 }

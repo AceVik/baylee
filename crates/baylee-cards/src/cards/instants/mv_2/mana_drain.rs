@@ -11,7 +11,7 @@ card! {
     scryfall_id: "3c429c40-2389-41e5-8681-4bb274e25eba",
     faces: &[face! {
         name: "Mana Drain",
-        mana_cost: baylee_core::mana!("{U}{U}"),
+        mana_cost: mana!("{U}{U}"),
         types: TypeSet::INSTANT,
     }],
     color_identity: ColorSet::from_slice(&[Color::Blue]),

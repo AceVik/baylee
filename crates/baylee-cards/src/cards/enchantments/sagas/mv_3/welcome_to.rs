@@ -22,7 +22,7 @@ card! {
     faces: &[
     face! {
         name: "Welcome to . . .",
-        mana_cost: baylee_core::mana!("{1}{G}{G}"),
+        mana_cost: mana!("{1}{G}{G}"),
         types: TypeSet::ENCHANTMENT,
         subtypes: &[subtypes::enchantment::SAGA],
     },

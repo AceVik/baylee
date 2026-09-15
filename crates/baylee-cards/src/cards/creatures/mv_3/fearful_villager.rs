@@ -20,7 +20,7 @@ card! {
     faces: &[
     face! {
         name: "Fearful Villager",
-        mana_cost: baylee_core::mana!("{2}{R}"),
+        mana_cost: mana!("{2}{R}"),
         types: TypeSet::CREATURE,
         subtypes: &[subtypes::creature::HUMAN, subtypes::creature::WEREWOLF],
         power: Some(2),

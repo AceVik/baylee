@@ -23,7 +23,7 @@ card! {
     },
     face! {
         name: "Lasting Fayth",
-        mana_cost: baylee_core::mana!("{4}{G}{G}"),
+        mana_cost: mana!("{4}{G}{G}"),
         types: TypeSet::SORCERY,
         subtypes: &[subtypes::spell::ADVENTURE],
     },

@@ -19,7 +19,7 @@ card! {
     faces: &[
     face! {
         name: "Golden Guardian",
-        mana_cost: baylee_core::mana!("{4}"),
+        mana_cost: mana!("{4}"),
         types: TypeSet::ARTIFACT.union(TypeSet::CREATURE),
         subtypes: &[subtypes::creature::GOLEM],
         power: Some(4),

@@ -17,7 +17,7 @@ card! {
     faces: &[
     face! {
         name: "Stump Stomp",
-        mana_cost: baylee_core::mana!("{1}{R/G}"),
+        mana_cost: mana!("{1}{R/G}"),
         types: TypeSet::SORCERY,
     },
     face! {

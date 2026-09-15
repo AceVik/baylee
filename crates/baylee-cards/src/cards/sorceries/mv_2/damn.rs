@@ -21,7 +21,7 @@ card! {
     scryfall_id: "84056124-1a6f-4274-bee2-74cf0debddb5",
     faces: &[face! {
         name: "Damn",
-        mana_cost: baylee_core::mana!("{B}{B}"),
+        mana_cost: mana!("{B}{B}"),
         types: TypeSet::SORCERY,
     }],
     color_identity: ColorSet::from_slice(&[Color::Black, Color::White]),
@@ -29,7 +29,7 @@ card! {
     abilities: &[AbilityDef::ModalSpell {
         modes: &[
             mode!(NORMAL_EFFECTS, targets: Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE)))),
-            mode!(OVERLOAD_EFFECTS, cost_override: Some(baylee_core::mana!("{2}{W}{W}"))),
+            mode!(OVERLOAD_EFFECTS, cost_override: Some(mana!("{2}{W}{W}"))),
         ],
     }],
 }

@@ -14,7 +14,7 @@ card! {
     scryfall_id: "9655bbe4-062f-4278-ad05-a326a64c5b69",
     faces: &[face! {
         name: "Privileged Position",
-        mana_cost: baylee_core::mana!("{2}{G/W}{G/W}{G/W}"),
+        mana_cost: mana!("{2}{G/W}{G/W}{G/W}"),
         types: TypeSet::ENCHANTMENT,
     }],
     color_identity: ColorSet::from_slice(&[Color::White, Color::Green]),

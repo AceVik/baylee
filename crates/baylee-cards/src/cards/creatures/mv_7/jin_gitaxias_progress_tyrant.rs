@@ -30,7 +30,7 @@ card! {
     scryfall_id: "c57b4876-5387-4f73-b8e2-8e7bdca8b0bc",
     faces: &[face! {
         name: "Jin-Gitaxias, Progress Tyrant",
-        mana_cost: baylee_core::mana!("{5}{U}{U}"),
+        mana_cost: mana!("{5}{U}{U}"),
         types: TypeSet::CREATURE,
         supertypes: SupertypeSet::LEGENDARY,
         subtypes: &[creature::PHYREXIAN, creature::PRAETOR],

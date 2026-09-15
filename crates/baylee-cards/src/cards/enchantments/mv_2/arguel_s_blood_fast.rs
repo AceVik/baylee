@@ -19,7 +19,7 @@ card! {
     faces: &[
     face! {
         name: "Arguel's Blood Fast",
-        mana_cost: baylee_core::mana!("{1}{B}"),
+        mana_cost: mana!("{1}{B}"),
         types: TypeSet::ENCHANTMENT,
         supertypes: SupertypeSet::LEGENDARY,
     },

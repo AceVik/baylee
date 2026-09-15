@@ -12,9 +12,9 @@ card! {
     scryfall_id: "31a147bb-37ef-4a52-82e2-160a53323516",
     faces: &[face! {
         name: "Entreat the Dead",
-        mana_cost: baylee_core::mana!("{X}{X}{B}{B}{B}"),
+        mana_cost: mana!("{X}{X}{B}{B}{B}"),
         types: TypeSet::SORCERY,
-        miracle: Some(baylee_core::mana!("{X}{B}{B}")),
+        miracle: Some(mana!("{X}{B}{B}")),
     }],
     color_identity: ColorSet::from_slice(&[Color::Black]),
     coverage: Coverage::Implemented,

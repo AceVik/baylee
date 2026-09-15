@@ -13,7 +13,7 @@ card! {
     scryfall_id: "1c9675fb-1a89-420f-aea8-50e0642f549c",
     faces: &[face! {
         name: "Enlightened Tutor",
-        mana_cost: baylee_core::mana!("{W}"),
+        mana_cost: mana!("{W}"),
         types: TypeSet::INSTANT,
     }],
     color_identity: ColorSet::from_slice(&[Color::White]),

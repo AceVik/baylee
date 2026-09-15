@@ -15,7 +15,7 @@ card! {
     scryfall_id: "5cd723c8-4b3d-4fbb-a825-79934279382d",
     faces: &[face! {
         name: "Sea Gate Loremaster",
-        mana_cost: baylee_core::mana!("{4}{U}"),
+        mana_cost: mana!("{4}{U}"),
         types: TypeSet::CREATURE,
         subtypes: &[creature::MERFOLK, creature::WIZARD, creature::ALLY],
         power: Some(1),

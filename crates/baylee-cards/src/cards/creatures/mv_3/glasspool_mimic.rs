@@ -23,7 +23,7 @@ card! {
     faces: &[
         face! {
             name: "Glasspool Mimic",
-            mana_cost: baylee_core::mana!("{2}{U}"),
+            mana_cost: mana!("{2}{U}"),
             types: TypeSet::CREATURE,
             subtypes: &[creature::SHAPESHIFTER, creature::ROGUE],
             power: Some(0),

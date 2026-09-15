@@ -13,7 +13,7 @@ card! {
     scryfall_id: "421089c4-c8d3-48c5-b313-fb1741546271",
     faces: &[face! {
         name: "Darksteel Forge",
-        mana_cost: baylee_core::mana!("{9}"),
+        mana_cost: mana!("{9}"),
         types: TypeSet::ARTIFACT,
     }],
     coverage: Coverage::Implemented,

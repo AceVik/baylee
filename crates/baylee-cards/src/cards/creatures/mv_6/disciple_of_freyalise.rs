@@ -18,7 +18,7 @@ card! {
     faces: &[
     face! {
         name: "Disciple of Freyalise",
-        mana_cost: baylee_core::mana!("{3}{G}{G}{G}"),
+        mana_cost: mana!("{3}{G}{G}{G}"),
         types: TypeSet::CREATURE,
         subtypes: &[subtypes::creature::ELF, subtypes::creature::DRUID],
         power: Some(3),

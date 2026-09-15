@@ -21,7 +21,7 @@ card! {
     scryfall_id: "c303e7e2-cb22-4dea-889f-d03e2494ed0f",
     faces: &[face! {
         name: "Hagra Diabolist",
-        mana_cost: baylee_core::mana!("{4}{B}"),
+        mana_cost: mana!("{4}{B}"),
         types: TypeSet::CREATURE,
         subtypes: &[creature::OGRE, creature::SHAMAN, creature::ALLY],
         power: Some(3),

@@ -18,7 +18,7 @@ card! {
     scryfall_id: "d147dce7-b2dd-426a-9ff7-843d50bb8b01",
     faces: &[face! {
         name: "Halimar Excavator",
-        mana_cost: baylee_core::mana!("{1}{U}"),
+        mana_cost: mana!("{1}{U}"),
         types: TypeSet::CREATURE,
         subtypes: &[creature::HUMAN, creature::WIZARD, creature::ALLY],
         power: Some(1),

@@ -30,7 +30,7 @@ card! {
     scryfall_id: "1246c42d-57c0-4cba-959a-15ad89d8a50b",
     faces: &[face! {
         name: "Maskwood Nexus",
-        mana_cost: baylee_core::mana!("{4}"),
+        mana_cost: mana!("{4}"),
         types: TypeSet::ARTIFACT,
     }],
     coverage: Coverage::Implemented,
@@ -41,7 +41,7 @@ card! {
             modifier: Modifier::AllCreatureTypes,
         }),
         activated!(Cost {
-                mana: baylee_core::mana!("{3}"),
+                mana: mana!("{3}"),
                 parts: &[CostPart::TapSelf],
             }, &[Effect::CreateToken {
                 token: &SHAPESHIFTER_TOKEN,

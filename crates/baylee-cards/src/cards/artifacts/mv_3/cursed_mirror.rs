@@ -13,7 +13,7 @@ card! {
     scryfall_id: "077392b3-6b06-46c8-8737-51e85f690448",
     faces: &[face! {
         name: "Cursed Mirror",
-        mana_cost: baylee_core::mana!("{2}{R}"),
+        mana_cost: mana!("{2}{R}"),
         types: TypeSet::ARTIFACT,
     }],
     color_identity: ColorSet::from_slice(&[Color::Red]),

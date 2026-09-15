@@ -13,7 +13,7 @@ card! {
     scryfall_id: "77e19416-aa6c-46f1-b247-a94da5d1a13a",
     faces: &[face! {
         name: "Venser, Shaper Savant",
-        mana_cost: baylee_core::mana!("{2}{U}{U}"),
+        mana_cost: mana!("{2}{U}{U}"),
         types: TypeSet::CREATURE,
         supertypes: SupertypeSet::LEGENDARY,
         subtypes: &[creature::HUMAN, creature::WIZARD],

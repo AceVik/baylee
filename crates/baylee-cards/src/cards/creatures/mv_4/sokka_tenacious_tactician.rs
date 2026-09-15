@@ -20,7 +20,7 @@ card! {
     scryfall_id: "f0fa5897-1da7-488f-bb19-1632e969c050",
     faces: &[face! {
         name: "Sokka, Tenacious Tactician",
-        mana_cost: baylee_core::mana!("{1}{U}{R}{W}"),
+        mana_cost: mana!("{1}{U}{R}{W}"),
         types: TypeSet::CREATURE,
         supertypes: SupertypeSet::LEGENDARY,
         subtypes: &[creature::HUMAN, creature::WARRIOR, creature::ALLY],

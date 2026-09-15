@@ -23,7 +23,7 @@ card! {
     faces: &[
     face! {
         name: "An Offer You Can't Refuse",
-        mana_cost: baylee_core::mana!("{U}"),
+        mana_cost: mana!("{U}"),
         types: TypeSet::INSTANT,
     },
     ],

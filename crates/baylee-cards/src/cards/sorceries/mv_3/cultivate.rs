@@ -16,7 +16,7 @@ card! {
     color_identity: ColorSet::from_slice(&[Color::Green]),
     faces: &[face! {
         name: "Cultivate",
-        mana_cost: baylee_core::mana!("{2}{G}"),
+        mana_cost: mana!("{2}{G}"),
         types: TypeSet::SORCERY,
     }],
     coverage: Coverage::Implemented,

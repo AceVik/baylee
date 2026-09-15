@@ -11,7 +11,7 @@ card! {
     scryfall_id: "f631447c-36e3-4d82-a658-19c9767a216b",
     faces: &[face! {
         name: "Liquimetal Coating",
-        mana_cost: baylee_core::mana!("{2}"),
+        mana_cost: mana!("{2}"),
         types: TypeSet::ARTIFACT,
     }],
     coverage: Coverage::Implemented,

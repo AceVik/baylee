@@ -52,7 +52,7 @@ card! {
                 filter: &Filter::This,
                 modifier: Modifier::GrantActivated {
                     cost: Cost {
-                        mana: baylee_core::mana!("{2}"),
+                        mana: mana!("{2}"),
                         parts: &[CostPart::TapSelf],
                     },
                     effects: &[Effect::CreateTokenPtPerCount {

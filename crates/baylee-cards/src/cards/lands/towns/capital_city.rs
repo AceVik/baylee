@@ -22,7 +22,7 @@ card! {
     ],
     abilities: &[
         mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
-        mana_ability!(Cost { mana: baylee_core::mana!("{1}"), parts: &[CostPart::TapSelf] }, &[Effect::mana_of_any_color()]),
-        activated!(Cost { mana: baylee_core::mana!("{2}"), parts: &[CostPart::DiscardSelf] }, &[Effect::DrawCards { amount: Amount::Fixed(1) }], zone: ActivationZone::Hand),
+        mana_ability!(Cost { mana: mana!("{1}"), parts: &[CostPart::TapSelf] }, &[Effect::mana_of_any_color()]),
+        activated!(Cost { mana: mana!("{2}"), parts: &[CostPart::DiscardSelf] }, &[Effect::DrawCards { amount: Amount::Fixed(1) }], zone: ActivationZone::Hand),
     ],
 }

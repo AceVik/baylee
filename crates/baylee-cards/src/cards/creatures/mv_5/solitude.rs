@@ -16,7 +16,7 @@ card! {
     scryfall_id: "47a6234f-309f-4e03-9263-66da48b57153",
     faces: &[face! {
         name: "Solitude",
-        mana_cost: baylee_core::mana!("{3}{W}{W}"),
+        mana_cost: mana!("{3}{W}{W}"),
         types: TypeSet::CREATURE,
         subtypes: &[
             baylee_core::generated::subtypes::creature::ELEMENTAL,

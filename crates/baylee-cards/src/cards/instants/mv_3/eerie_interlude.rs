@@ -13,7 +13,7 @@ card! {
     scryfall_id: "4ba9f15f-00d2-4797-9228-91b320e85705",
     faces: &[face! {
         name: "Eerie Interlude",
-        mana_cost: baylee_core::mana!("{2}{W}"),
+        mana_cost: mana!("{2}{W}"),
         types: TypeSet::INSTANT,
     }],
     color_identity: ColorSet::from_slice(&[Color::White]),

@@ -16,7 +16,7 @@ card! {
     faces: &[
     face! {
         name: "Thought Vessel",
-        mana_cost: baylee_core::mana!("{2}"),
+        mana_cost: mana!("{2}"),
         types: TypeSet::ARTIFACT,
     },
     ],

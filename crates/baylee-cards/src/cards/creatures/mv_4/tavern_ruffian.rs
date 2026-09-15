@@ -19,7 +19,7 @@ card! {
     faces: &[
     face! {
         name: "Tavern Ruffian",
-        mana_cost: baylee_core::mana!("{3}{R}"),
+        mana_cost: mana!("{3}{R}"),
         types: TypeSet::CREATURE,
         subtypes: &[subtypes::creature::HUMAN, subtypes::creature::WARRIOR, subtypes::creature::WEREWOLF],
         power: Some(2),

@@ -22,6 +22,6 @@ card! {
     abilities: &[
         triggered!(Trigger::EntersBattlefield(&Filter::This), &[Effect::GainLife { amount: Amount::Fixed(1) }]),
         mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
-        mana_ability!(Cost { mana: baylee_core::mana!("{1}"), parts: &[CostPart::TapSelf] }, &[Effect::mana_choice(&[ManaColor::Blue, ManaColor::Black, ManaColor::Red])]),
+        mana_ability!(Cost { mana: mana!("{1}"), parts: &[CostPart::TapSelf] }, &[Effect::mana_choice(&[ManaColor::Blue, ManaColor::Black, ManaColor::Red])]),
     ],
 }

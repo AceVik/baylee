@@ -20,7 +20,7 @@ card! {
     scryfall_id: "a749c591-2fbe-41d8-ac5b-56ebce82d33e",
     faces: &[face! {
         name: "Spellseeker",
-        mana_cost: baylee_core::mana!("{2}{U}"),
+        mana_cost: mana!("{2}{U}"),
         types: TypeSet::CREATURE,
         subtypes: &[creature::HUMAN, creature::WIZARD],
         power: Some(1),

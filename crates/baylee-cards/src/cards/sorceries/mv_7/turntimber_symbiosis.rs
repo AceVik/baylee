@@ -17,7 +17,7 @@ card! {
     faces: &[
     face! {
         name: "Turntimber Symbiosis",
-        mana_cost: baylee_core::mana!("{4}{G}{G}{G}"),
+        mana_cost: mana!("{4}{G}{G}{G}"),
         types: TypeSet::SORCERY,
     },
     face! {

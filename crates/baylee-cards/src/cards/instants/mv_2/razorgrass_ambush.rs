@@ -17,7 +17,7 @@ card! {
     faces: &[
     face! {
         name: "Razorgrass Ambush",
-        mana_cost: baylee_core::mana!("{1}{W}"),
+        mana_cost: mana!("{1}{W}"),
         types: TypeSet::INSTANT,
     },
     face! {

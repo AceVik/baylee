@@ -16,7 +16,7 @@ card! {
     scryfall_id: "3a8c2a84-e0f2-4611-af3d-42f4578ad4e3",
     faces: &[face! {
         name: "Palace Jailer",
-        mana_cost: baylee_core::mana!("{2}{W}{W}"),
+        mana_cost: mana!("{2}{W}{W}"),
         types: TypeSet::CREATURE,
         subtypes: &[creature::HUMAN, creature::SOLDIER],
         power: Some(2),

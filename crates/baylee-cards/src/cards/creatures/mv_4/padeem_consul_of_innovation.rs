@@ -14,7 +14,7 @@ card! {
     scryfall_id: "00a4aef8-64fc-4e9d-adac-ef4c85d40b4a",
     faces: &[face! {
         name: "Padeem, Consul of Innovation",
-        mana_cost: baylee_core::mana!("{3}{U}"),
+        mana_cost: mana!("{3}{U}"),
         types: TypeSet::CREATURE,
         supertypes: SupertypeSet::LEGENDARY,
         subtypes: &[creature::VEDALKEN, creature::ARTIFICER],

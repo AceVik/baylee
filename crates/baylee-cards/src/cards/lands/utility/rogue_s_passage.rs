@@ -27,7 +27,7 @@ card! {
         mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
         activated!(
             Cost {
-                mana: baylee_core::mana!("{4}"),
+                mana: mana!("{4}"),
                 parts: &[CostPart::TapSelf],
             },
             &[Effect::PumpTarget {

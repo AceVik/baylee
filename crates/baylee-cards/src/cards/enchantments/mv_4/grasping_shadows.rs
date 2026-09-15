@@ -19,7 +19,7 @@ card! {
     faces: &[
     face! {
         name: "Grasping Shadows",
-        mana_cost: baylee_core::mana!("{3}{B}"),
+        mana_cost: mana!("{3}{B}"),
         types: TypeSet::ENCHANTMENT,
     },
     face! {

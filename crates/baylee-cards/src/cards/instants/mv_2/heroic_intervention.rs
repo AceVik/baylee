@@ -13,7 +13,7 @@ card! {
     scryfall_id: "e32c67d1-187f-40df-b3b3-6036f5c92834",
     faces: &[face! {
         name: "Heroic Intervention",
-        mana_cost: baylee_core::mana!("{1}{G}"),
+        mana_cost: mana!("{1}{G}"),
         types: TypeSet::INSTANT,
     }],
     color_identity: ColorSet::from_slice(&[Color::Green]),

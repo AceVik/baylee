@@ -21,7 +21,7 @@ card! {
     },
     ],
     abilities: &[
-        mana_ability!(Cost::TAP, &[Effect::mana(ManaColor::Colorless, 1)]),
+        mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
         activated!(Cost::TAP, &[Effect::UntapTarget, Effect::PumpTarget { power: Amount::Fixed(1), toughness: Amount::Fixed(1), keywords: KeywordSet::EMPTY, duration: Duration::UntilEndOfTurn }], target: Some(TargetSpec::Object(&TARGET1))),
     ],
 }

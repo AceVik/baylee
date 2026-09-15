@@ -18,7 +18,7 @@ card! {
     faces: &[
     face! {
         name: "Witch Enchanter",
-        mana_cost: baylee_core::mana!("{3}{W}"),
+        mana_cost: mana!("{3}{W}"),
         types: TypeSet::CREATURE,
         subtypes: &[subtypes::creature::HUMAN, subtypes::creature::WARLOCK],
         power: Some(2),

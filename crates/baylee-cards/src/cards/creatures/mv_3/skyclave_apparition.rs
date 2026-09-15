@@ -32,7 +32,7 @@ card! {
     scryfall_id: "e671de25-c47c-48a1-919b-6aa30dab142f",
     faces: &[face! {
         name: "Skyclave Apparition",
-        mana_cost: baylee_core::mana!("{1}{W}{W}"),
+        mana_cost: mana!("{1}{W}{W}"),
         types: TypeSet::CREATURE,
         subtypes: &[subtypes::creature::KOR, subtypes::creature::SPIRIT],
         power: Some(2),

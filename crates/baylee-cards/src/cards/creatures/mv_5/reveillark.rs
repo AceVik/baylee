@@ -18,14 +18,14 @@ card! {
     scryfall_id: "53b4dcd6-b1b6-4f1c-9264-e58bdc87399b",
     faces: &[face! {
         name: "Reveillark",
-        mana_cost: baylee_core::mana!("{4}{W}"),
+        mana_cost: mana!("{4}{W}"),
         types: TypeSet::CREATURE,
         subtypes: &[baylee_core::generated::subtypes::creature::ELEMENTAL],
         power: Some(4),
         toughness: Some(3),
         alternative_costs: &[AlternativeCost {
             cost: Cost {
-                mana: baylee_core::mana!("{5}{W}"),
+                mana: mana!("{5}{W}"),
                 parts: &[],
             },
             condition: AltCondition::Always,

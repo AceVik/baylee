@@ -32,7 +32,7 @@ card! {
     scryfall_id: "94f89714-3b26-46a2-b9a8-3e664f391cd9",
     faces: &[face! {
         name: "Mycosynth Lattice",
-        mana_cost: baylee_core::mana!("{6}"),
+        mana_cost: mana!("{6}"),
         types: TypeSet::ARTIFACT,
     }],
     coverage: Coverage::Implemented,

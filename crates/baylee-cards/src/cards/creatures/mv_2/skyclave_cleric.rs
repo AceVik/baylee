@@ -18,7 +18,7 @@ card! {
     faces: &[
     face! {
         name: "Skyclave Cleric",
-        mana_cost: baylee_core::mana!("{1}{W}"),
+        mana_cost: mana!("{1}{W}"),
         types: TypeSet::CREATURE,
         subtypes: &[subtypes::creature::KOR, subtypes::creature::CLERIC],
         power: Some(1),

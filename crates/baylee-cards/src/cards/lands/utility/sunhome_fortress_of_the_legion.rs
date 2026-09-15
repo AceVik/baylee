@@ -21,7 +21,7 @@ card! {
     },
     ],
     abilities: &[
-        mana_ability!(Cost::TAP, &[Effect::mana(ManaColor::Colorless, 1)]),
-        activated!(Cost { mana: baylee_core::mana!("{2}{R}{W}"), parts: &[CostPart::TapSelf] }, &[Effect::PumpTarget { power: Amount::Fixed(0), toughness: Amount::Fixed(0), keywords: KeywordSet::DOUBLE_STRIKE, duration: Duration::UntilEndOfTurn }], target: Some(TargetSpec::Object(&TARGET1))),
+        mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
+        activated!(Cost { mana: mana!("{2}{R}{W}"), parts: &[CostPart::TapSelf] }, &[Effect::PumpTarget { power: Amount::Fixed(0), toughness: Amount::Fixed(0), keywords: KeywordSet::DOUBLE_STRIKE, duration: Duration::UntilEndOfTurn }], target: Some(TargetSpec::Object(&TARGET1))),
     ],
 }

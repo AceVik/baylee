@@ -11,7 +11,7 @@ card! {
     scryfall_id: "8a475868-a335-45e7-9d59-9dc4c2cea1ae",
     faces: &[face! {
         name: "Vanishing Verse",
-        mana_cost: baylee_core::mana!("{W}{B}"),
+        mana_cost: mana!("{W}{B}"),
         types: TypeSet::INSTANT,
     }],
     color_identity: ColorSet::from_slice(&[Color::White, Color::Black]),

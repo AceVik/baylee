@@ -19,7 +19,7 @@ card! {
     abilities: &[
         AbilityDef::Suspend {
             counters: 2,
-            cost: baylee_core::mana!("{1}{B}"),
+            cost: mana!("{1}{B}"),
         },
         spell!(&[Effect::SearchLibrary {
                 filter: &Filter::Any,

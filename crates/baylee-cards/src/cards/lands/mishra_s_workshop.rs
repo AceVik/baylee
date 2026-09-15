@@ -19,6 +19,6 @@ card! {
     },
     ],
     abilities: &[
-        mana_ability!(Cost::TAP, &[Effect::mana(ManaColor::Colorless, 3).restricted(&SPEND1, SpendRider::None)]),
+        mana_ability!(&[Effect::mana(ManaColor::Colorless, 3).restricted(&SPEND1, SpendRider::None)]),
     ],
 }

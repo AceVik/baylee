@@ -11,7 +11,7 @@ card! {
     scryfall_id: "b4e9c870-23c0-413a-ae39-265f09da16d1",
     faces: &[face! {
         name: "Swords to Plowshares",
-        mana_cost: baylee_core::mana!("{W}"),
+        mana_cost: mana!("{W}"),
         types: TypeSet::INSTANT,
     }],
     color_identity: ColorSet::from_slice(&[Color::White]),

@@ -27,7 +27,7 @@ card! {
     coverage: Coverage::Implemented,
     abilities: &[
         mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
-        activated!(Cost { mana: baylee_core::mana!("{1}{U}"), parts: &[CostPart::TapSelf] }, &[Effect::ReturnToHand {
+        activated!(Cost { mana: mana!("{1}{U}"), parts: &[CostPart::TapSelf] }, &[Effect::ReturnToHand {
                 target: TargetSpec::Object(&WIZARD),
             }], target: Some(TargetSpec::Object(&WIZARD))),
     ],

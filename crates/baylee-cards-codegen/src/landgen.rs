@@ -208,7 +208,7 @@ fn parse_cost(text: &str) -> Option<String> {
     let mana_expr = if mana.is_empty() {
         "ManaCost::ZERO".to_string()
     } else {
-        format!("baylee_core::mana!(\"{mana}\")")
+        format!("mana!(\"{mana}\")")
     };
     Some(format!(
         "Cost {{ mana: {mana_expr}, parts: &[{}] }}",
@@ -336,7 +336,7 @@ impl Recognizer<'_> {
         let cost = line.strip_prefix("Cycling ")?.trim();
         symbols(cost)?;
         self.body.abilities.push(format!(
-            "activated!(Cost {{ mana: baylee_core::mana!(\"{cost}\"), parts: &[CostPart::DiscardSelf] }}, &[Effect::DrawCards {{ amount: Amount::Fixed(1) }}], zone: ActivationZone::Hand)"
+            "activated!(Cost {{ mana: mana!(\"{cost}\"), parts: &[CostPart::DiscardSelf] }}, &[Effect::DrawCards {{ amount: Amount::Fixed(1) }}], zone: ActivationZone::Hand)"
         ));
         self.body.notes.push("cycling".to_string());
         Some(())
@@ -719,7 +719,7 @@ mod tests {
         );
         assert_eq!(
             body.abilities[1],
-            "activated!(Cost { mana: baylee_core::mana!(\"{1}\"), parts: &[CostPart::TapSelf, CostPart::SacrificeSelf] }, &[Effect::DrawCards { amount: Amount::Fixed(1) }])"
+            "activated!(Cost { mana: mana!(\"{1}\"), parts: &[CostPart::TapSelf, CostPart::SacrificeSelf] }, &[Effect::DrawCards { amount: Amount::Fixed(1) }])"
         );
     }
 

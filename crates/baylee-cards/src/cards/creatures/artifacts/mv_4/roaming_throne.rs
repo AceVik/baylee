@@ -23,7 +23,7 @@ card! {
     scryfall_id: "32fd8b7c-baf3-4d3d-be6f-044a917b11a0",
     faces: &[face! {
         name: "Roaming Throne",
-        mana_cost: baylee_core::mana!("{4}"),
+        mana_cost: mana!("{4}"),
         types: TypeSet::CREATURE.union(TypeSet::ARTIFACT),
         subtypes: &[creature::GOLEM],
         power: Some(4),

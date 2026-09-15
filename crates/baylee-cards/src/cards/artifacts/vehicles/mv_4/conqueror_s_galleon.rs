@@ -21,7 +21,7 @@ card! {
     faces: &[
     face! {
         name: "Conqueror's Galleon",
-        mana_cost: baylee_core::mana!("{4}"),
+        mana_cost: mana!("{4}"),
         types: TypeSet::ARTIFACT,
         subtypes: &[subtypes::artifact::VEHICLE],
         power: Some(2),

@@ -17,7 +17,7 @@ card! {
     scryfall_id: "578a1846-8c1a-4013-b669-1d3f4ddbbaa3",
     faces: &[face! {
         name: "Reflections of Littjara",
-        mana_cost: baylee_core::mana!("{4}{U}"),
+        mana_cost: mana!("{4}{U}"),
         types: TypeSet::ENCHANTMENT,
         enter_modifiers: &[EnterModifier::ChooseSubtype],
     }],

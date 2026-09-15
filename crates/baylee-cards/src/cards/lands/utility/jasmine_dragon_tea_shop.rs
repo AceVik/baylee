@@ -38,7 +38,7 @@ card! {
                 SpendRider::None,
             )]),
         activated!(Cost {
-                mana: baylee_core::mana!("{5}"),
+                mana: mana!("{5}"),
                 parts: &[CostPart::TapSelf],
             }, &[Effect::CreateToken { token: &ALLY_TOKEN }]),
     ],

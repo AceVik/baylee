@@ -17,7 +17,7 @@ card! {
     scryfall_id: "714c3a1f-7b30-4ed8-8f38-6176758741fb",
     faces: &[face! {
         name: "Sakashima of a Thousand Faces",
-        mana_cost: baylee_core::mana!("{3}{U}"),
+        mana_cost: mana!("{3}{U}"),
         types: TypeSet::CREATURE,
         supertypes: SupertypeSet::LEGENDARY,
         subtypes: &[creature::HUMAN, creature::ROGUE],

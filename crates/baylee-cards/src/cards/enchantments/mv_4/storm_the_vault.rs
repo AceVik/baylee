@@ -19,7 +19,7 @@ card! {
     faces: &[
     face! {
         name: "Storm the Vault",
-        mana_cost: baylee_core::mana!("{2}{U}{R}"),
+        mana_cost: mana!("{2}{U}{R}"),
         types: TypeSet::ENCHANTMENT,
         supertypes: SupertypeSet::LEGENDARY,
     },

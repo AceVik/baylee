@@ -14,7 +14,7 @@ card! {
     scryfall_id: "f2df3258-c053-48a8-974f-d80899b2cd93",
     faces: &[face! {
         name: "Ashiok, Dream Render",
-        mana_cost: baylee_core::mana!("{1}{U/B}{U/B}"),
+        mana_cost: mana!("{1}{U/B}{U/B}"),
         types: TypeSet::PLANESWALKER,
         supertypes: SupertypeSet::LEGENDARY,
         subtypes: &[planeswalker::ASHIOK],

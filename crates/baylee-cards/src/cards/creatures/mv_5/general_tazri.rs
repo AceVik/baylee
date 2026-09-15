@@ -21,7 +21,7 @@ card! {
     scryfall_id: "34e9aa86-1a31-4c0f-928d-923f066286b6",
     faces: &[face! {
         name: "General Tazri",
-        mana_cost: baylee_core::mana!("{4}{W}"),
+        mana_cost: mana!("{4}{W}"),
         types: TypeSet::CREATURE,
         supertypes: SupertypeSet::LEGENDARY,
         subtypes: &[subtypes::creature::HUMAN, subtypes::creature::ALLY],
@@ -44,7 +44,7 @@ card! {
                 optional: true,
             }]),
         activated!(Cost {
-                mana: baylee_core::mana!("{W}{U}{B}{R}{G}"),
+                mana: mana!("{W}{U}{B}{R}{G}"),
                 parts: &[],
             }, &[Effect::PumpFilter {
                 filter: &ALLIES_YOU_CONTROL,

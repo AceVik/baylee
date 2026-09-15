@@ -14,12 +14,12 @@ card! {
     faces: &[
     face! {
         name: "Mind Stone",
-        mana_cost: baylee_core::mana!("{2}"),
+        mana_cost: mana!("{2}"),
         types: TypeSet::ARTIFACT,
     },
     ],
     abilities: &[
-        mana_ability!(Cost::TAP, &[Effect::mana(ManaColor::Colorless, 1)]),
-        activated!(Cost { mana: baylee_core::mana!("{1}"), parts: &[CostPart::TapSelf, CostPart::SacrificeSelf] }, &[Effect::DrawCards { amount: Amount::Fixed(1) }]),
+        mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
+        activated!(Cost { mana: mana!("{1}"), parts: &[CostPart::TapSelf, CostPart::SacrificeSelf] }, &[Effect::DrawCards { amount: Amount::Fixed(1) }]),
     ],
 }

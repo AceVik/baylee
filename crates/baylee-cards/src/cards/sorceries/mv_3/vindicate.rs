@@ -11,7 +11,7 @@ card! {
     scryfall_id: "683c4e13-525c-45c9-8832-bfe67965c34e",
     faces: &[face! {
         name: "Vindicate",
-        mana_cost: baylee_core::mana!("{1}{W}{B}"),
+        mana_cost: mana!("{1}{W}{B}"),
         types: TypeSet::SORCERY,
     }],
     color_identity: ColorSet::from_slice(&[Color::Black, Color::White]),

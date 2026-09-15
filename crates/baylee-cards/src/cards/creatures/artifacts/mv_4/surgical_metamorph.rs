@@ -14,7 +14,7 @@ card! {
     scryfall_id: "1e7aa3a6-4219-4c54-97bd-571680af9e99",
     faces: &[face! {
         name: "Surgical Metamorph",
-        mana_cost: baylee_core::mana!("{3}{U}"),
+        mana_cost: mana!("{3}{U}"),
         types: TypeSet::CREATURE.union(TypeSet::ARTIFACT),
         subtypes: &[creature::PHYREXIAN, creature::SHAPESHIFTER],
         power: Some(0),

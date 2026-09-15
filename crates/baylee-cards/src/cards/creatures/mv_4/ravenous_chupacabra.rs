@@ -14,7 +14,7 @@ card! {
     scryfall_id: "a4dfbac0-1849-41c5-853a-1fee108d0b01",
     faces: &[face! {
         name: "Ravenous Chupacabra",
-        mana_cost: baylee_core::mana!("{2}{B}{B}"),
+        mana_cost: mana!("{2}{B}{B}"),
         types: TypeSet::CREATURE,
         subtypes: &[creature::BEAST, creature::HORROR],
         power: Some(2),

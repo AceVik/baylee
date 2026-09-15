@@ -18,7 +18,7 @@ card! {
     faces: &[
     face! {
         name: "Tangled Florahedron",
-        mana_cost: baylee_core::mana!("{1}{G}"),
+        mana_cost: mana!("{1}{G}"),
         types: TypeSet::CREATURE,
         subtypes: &[subtypes::creature::ELEMENTAL],
         power: Some(1),

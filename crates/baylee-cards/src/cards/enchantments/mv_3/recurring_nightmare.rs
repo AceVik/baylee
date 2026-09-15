@@ -22,7 +22,7 @@ card! {
     scryfall_id: "b50e1800-a45c-43bd-8886-8a06145d9346",
     faces: &[face! {
         name: "Recurring Nightmare",
-        mana_cost: baylee_core::mana!("{2}{B}"),
+        mana_cost: mana!("{2}{B}"),
         types: TypeSet::ENCHANTMENT,
     }],
     color_identity: ColorSet::from_slice(&[Color::Black]),

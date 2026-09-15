@@ -11,7 +11,7 @@ card! {
     scryfall_id: "368b6903-5fc4-43e7-bd44-46b8107c8bb4",
     faces: &[face! {
         name: "Reanimate",
-        mana_cost: baylee_core::mana!("{B}"),
+        mana_cost: mana!("{B}"),
         types: TypeSet::SORCERY,
     }],
     color_identity: ColorSet::from_slice(&[Color::Black]),

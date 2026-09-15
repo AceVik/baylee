@@ -23,7 +23,7 @@ card! {
     },
     face! {
         name: "Overture",
-        mana_cost: baylee_core::mana!("{4}{U}{U}"),
+        mana_cost: mana!("{4}{U}{U}"),
         types: TypeSet::SORCERY,
         subtypes: &[subtypes::spell::ADVENTURE],
     },

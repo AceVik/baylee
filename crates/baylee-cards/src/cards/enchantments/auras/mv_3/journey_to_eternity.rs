@@ -20,7 +20,7 @@ card! {
     faces: &[
     face! {
         name: "Journey to Eternity",
-        mana_cost: baylee_core::mana!("{1}{B}{G}"),
+        mana_cost: mana!("{1}{B}{G}"),
         types: TypeSet::ENCHANTMENT,
         supertypes: SupertypeSet::LEGENDARY,
         subtypes: &[subtypes::enchantment::AURA],

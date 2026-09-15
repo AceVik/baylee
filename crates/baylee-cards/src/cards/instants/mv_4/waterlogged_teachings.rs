@@ -17,7 +17,7 @@ card! {
     faces: &[
     face! {
         name: "Waterlogged Teachings",
-        mana_cost: baylee_core::mana!("{3}{U/B}"),
+        mana_cost: mana!("{3}{U/B}"),
         types: TypeSet::INSTANT,
     },
     face! {

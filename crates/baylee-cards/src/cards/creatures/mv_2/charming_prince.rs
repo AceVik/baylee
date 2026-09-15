@@ -25,7 +25,7 @@ card! {
     scryfall_id: "aa7b47e1-7e32-4f2f-aecf-bac7ca197081",
     faces: &[face! {
         name: "Charming Prince",
-        mana_cost: baylee_core::mana!("{1}{W}"),
+        mana_cost: mana!("{1}{W}"),
         types: TypeSet::CREATURE,
         subtypes: &[creature::HUMAN, creature::NOBLE],
         power: Some(2),
@@ -33,13 +33,12 @@ card! {
     }],
     color_identity: ColorSet::from_slice(&[Color::White]),
     coverage: Coverage::Implemented,
-    abilities: &[AbilityDef::ModalTriggered {
-        trigger: Trigger::EntersBattlefield(&Filter::This),
-        modes: &[
+    abilities: &[modal_triggered!(
+        Trigger::EntersBattlefield(&Filter::This),
+        &[
             mode!(SCRY_EFFECTS),
             mode!(LIFE_EFFECTS),
             mode!(BLINK_EFFECTS, targets: Some(TargetReq::one(TargetSpec::Object(&OTHER_CREATURE_YOU_OWN)))),
-        ],
-        once_per_turn: false,
-    }],
+        ]
+    )],
 }

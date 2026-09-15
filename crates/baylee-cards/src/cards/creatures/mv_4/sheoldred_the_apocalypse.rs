@@ -14,7 +14,7 @@ card! {
     scryfall_id: "d67be074-cdd4-41d9-ac89-0a0456c4e4b2",
     faces: &[face! {
         name: "Sheoldred, the Apocalypse",
-        mana_cost: baylee_core::mana!("{2}{B}{B}"),
+        mana_cost: mana!("{2}{B}{B}"),
         types: TypeSet::CREATURE,
         supertypes: SupertypeSet::LEGENDARY,
         subtypes: &[creature::PHYREXIAN, creature::PRAETOR],

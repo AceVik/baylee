@@ -25,7 +25,7 @@ card! {
     },
     ],
     abilities: &[
-        mana_ability!(Cost::TAP, &[Effect::mana(ManaColor::Black, 1)]),
-        activated!(Cost { mana: baylee_core::mana!("{B}"), parts: &[CostPart::TapSelf] }, &[Effect::PumpTarget { power: Amount::Fixed(0), toughness: Amount::Fixed(0), keywords: KeywordSet::FEAR, duration: Duration::UntilEndOfTurn }], target: Some(TargetSpec::Object(&TARGET1))),
+        mana_ability!(&[Effect::mana(ManaColor::Black, 1)]),
+        activated!(Cost { mana: mana!("{B}"), parts: &[CostPart::TapSelf] }, &[Effect::PumpTarget { power: Amount::Fixed(0), toughness: Amount::Fixed(0), keywords: KeywordSet::FEAR, duration: Duration::UntilEndOfTurn }], target: Some(TargetSpec::Object(&TARGET1))),
     ],
 }

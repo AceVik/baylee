@@ -17,7 +17,7 @@ card! {
     faces: &[
     face! {
         name: "Vastwood Fortification",
-        mana_cost: baylee_core::mana!("{G}"),
+        mana_cost: mana!("{G}"),
         types: TypeSet::INSTANT,
     },
     face! {

@@ -19,7 +19,7 @@ card! {
     faces: &[
     face! {
         name: "Dowsing Device",
-        mana_cost: baylee_core::mana!("{1}{R}"),
+        mana_cost: mana!("{1}{R}"),
         types: TypeSet::ARTIFACT,
     },
     face! {

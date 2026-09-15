@@ -31,10 +31,10 @@ card! {
     scryfall_id: "0c019e76-c88e-4d1b-a546-0f4e462ef44a",
     faces: &[face! {
         name: "Spirit Water Revival",
-        mana_cost: baylee_core::mana!("{1}{U}{U}"),
+        mana_cost: mana!("{1}{U}{U}"),
         types: TypeSet::SORCERY,
         additional_costs: &[Cost {
-            mana: baylee_core::mana!("{6}"),
+            mana: mana!("{6}"),
             parts: &[],
         }],
         convoke: true,

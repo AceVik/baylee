@@ -23,7 +23,7 @@ card! {
     },
     ],
     abilities: &[
-        mana_ability!(Cost::TAP, &[Effect::mana(ManaColor::Green, 1)]),
+        mana_ability!(&[Effect::mana(ManaColor::Green, 1)]),
         triggered!(Trigger::EntersBattlefield(&Filter::This), &[Effect::PumpTarget { power: Amount::Fixed(1), toughness: Amount::Fixed(1), keywords: KeywordSet::EMPTY, duration: Duration::UntilEndOfTurn }], targets: Some(TargetReq::one(TargetSpec::Object(&TARGET1)))),
     ],
 }

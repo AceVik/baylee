@@ -12,7 +12,7 @@ card! {
     scryfall_id: "acba72e1-3f7f-4e5c-af3f-dfe37b5d61f9",
     faces: &[face! {
         name: "Progenitor Mimic",
-        mana_cost: baylee_core::mana!("{4}{G}{U}"),
+        mana_cost: mana!("{4}{G}{U}"),
         types: TypeSet::CREATURE,
         subtypes: &[creature::SHAPESHIFTER],
         power: Some(0),

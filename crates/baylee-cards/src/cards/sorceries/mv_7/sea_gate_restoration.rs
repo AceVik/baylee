@@ -17,7 +17,7 @@ card! {
     faces: &[
     face! {
         name: "Sea Gate Restoration",
-        mana_cost: baylee_core::mana!("{4}{U}{U}{U}"),
+        mana_cost: mana!("{4}{U}{U}{U}"),
         types: TypeSet::SORCERY,
     },
     face! {

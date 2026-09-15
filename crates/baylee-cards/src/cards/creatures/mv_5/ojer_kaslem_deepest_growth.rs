@@ -22,7 +22,7 @@ card! {
     faces: &[
     face! {
         name: "Ojer Kaslem, Deepest Growth",
-        mana_cost: baylee_core::mana!("{3}{G}{G}"),
+        mana_cost: mana!("{3}{G}{G}"),
         types: TypeSet::CREATURE,
         supertypes: SupertypeSet::LEGENDARY,
         subtypes: &[subtypes::creature::GOD],

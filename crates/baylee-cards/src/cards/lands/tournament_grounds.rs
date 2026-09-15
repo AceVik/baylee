@@ -25,7 +25,7 @@ card! {
     },
     ],
     abilities: &[
-        mana_ability!(Cost::TAP, &[Effect::mana(ManaColor::Colorless, 1)]),
-        mana_ability!(Cost::TAP, &[Effect::mana_choice(&[ManaColor::Red, ManaColor::White, ManaColor::Black]).restricted(&SPEND1, SpendRider::None)]),
+        mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
+        mana_ability!(&[Effect::mana_choice(&[ManaColor::Red, ManaColor::White, ManaColor::Black]).restricted(&SPEND1, SpendRider::None)]),
     ],
 }

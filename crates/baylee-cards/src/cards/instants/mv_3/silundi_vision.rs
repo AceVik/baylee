@@ -17,7 +17,7 @@ card! {
     faces: &[
     face! {
         name: "Silundi Vision",
-        mana_cost: baylee_core::mana!("{2}{U}"),
+        mana_cost: mana!("{2}{U}"),
         types: TypeSet::INSTANT,
     },
     face! {

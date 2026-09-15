@@ -20,7 +20,7 @@ card! {
     scryfall_id: "f3537373-ef54-4578-9d05-6216420ee349",
     faces: &[face! {
         name: "Esper Sentinel",
-        mana_cost: baylee_core::mana!("{W}"),
+        mana_cost: mana!("{W}"),
         types: TypeSet::ARTIFACT.union(TypeSet::CREATURE),
         subtypes: &[creature::HUMAN, creature::SOLDIER],
         power: Some(1),

@@ -19,7 +19,7 @@ card! {
     faces: &[
     face! {
         name: "The Everflowing Well",
-        mana_cost: baylee_core::mana!("{2}{U}"),
+        mana_cost: mana!("{2}{U}"),
         types: TypeSet::ARTIFACT,
         supertypes: SupertypeSet::LEGENDARY,
     },

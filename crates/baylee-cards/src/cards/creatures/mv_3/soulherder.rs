@@ -16,7 +16,7 @@ card! {
     scryfall_id: "50bc0f5b-7421-45b9-af85-86dd9821b7d8",
     faces: &[face! {
         name: "Soulherder",
-        mana_cost: baylee_core::mana!("{1}{W}{U}"),
+        mana_cost: mana!("{1}{W}{U}"),
         types: TypeSet::CREATURE,
         subtypes: &[creature::SPIRIT],
         power: Some(1),

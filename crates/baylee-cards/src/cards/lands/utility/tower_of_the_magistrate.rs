@@ -18,7 +18,7 @@ card! {
     abilities: &[
         mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
         activated!(Cost {
-                mana: baylee_core::mana!("{1}"),
+                mana: mana!("{1}"),
                 parts: &[CostPart::TapSelf],
             }, &[Effect::CreateContinuousEffect {
                 layer: Layer::Text,
