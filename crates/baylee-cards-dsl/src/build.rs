@@ -987,6 +987,43 @@ mod tests {
         }
     }
 
+    /// Every modifier that adds or removes an *ability* derives layer 6.
+    ///
+    /// CR 613.1f: "Layer 6: Ability-adding effects, keyword counters,
+    /// ability-removing effects, and effects that say an object can't have
+    /// an ability are applied." That sentence is the whole membership rule,
+    /// so the list below is read off it and not off the function under test.
+    ///
+    /// Two of these used to derive [`Layer::Text`], which is layer 3 and
+    /// belongs to text-changing effects (CR 613.1c). `ProtectionFrom` grants
+    /// a static ability (CR 702.16a opens "Protection is a static ability")
+    /// and `GrantTriggered` grants a triggered one, so both add an ability
+    /// and neither changes a word of text. The pool reaches every layer
+    /// through `Modifier::layer`, so nothing but this assertion stands
+    /// between that arm and the five abilities it decides.
+    #[test]
+    fn granting_an_ability_is_layer_six() {
+        let adds_or_removes_an_ability = [
+            Modifier::AddKeyword(KeywordSet::HASTE),
+            Modifier::RemoveKeyword(KeywordSet::HASTE),
+            Modifier::LoseKeywords,
+            Modifier::GrantsFlashback,
+            Modifier::ProtectionFrom(&Filter::ARTIFACT),
+            Modifier::GrantTriggered {
+                trigger: Trigger::ETB,
+                effects: &[],
+                target: None,
+            },
+        ];
+        for modifier in adds_or_removes_an_ability {
+            assert_eq!(
+                modifier.layer(),
+                Layer::Ability,
+                "{modifier:?} adds or removes an ability, which CR 613.1f puts in layer 6"
+            );
+        }
+    }
+
     /// `chapter!` numbers the chapter and targets nothing unless the card
     /// says "target" (CR 714).
     #[test]

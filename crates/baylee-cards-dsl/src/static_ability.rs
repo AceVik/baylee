@@ -216,18 +216,28 @@ impl Modifier {
     /// the pool put them, and the honest fix is a variant that says "none",
     /// not a different layer.
     ///
-    /// **Three arms are where that bucket and the rules disagree**, and the
-    /// disagreement is preserved here deliberately so that adopting this
-    /// function moves no card. [`Modifier::ProtectionFrom`] grants a keyword
-    /// ability (CR 702.16, cited in `engine/eval.rs`), and
-    /// [`Modifier::GrantTriggered`] grants a triggered one — both are
-    /// ability-adding effects, which is layer 6, and the pool's own
-    /// [`Modifier::GrantActivated`] is already there. Five abilities in the
-    /// pool spell those two as `Text`. Moving them is a rules fix with a
-    /// visible `pool-dump` diff and belongs in its own commit; doing it here
-    /// would hide it inside a refactor that is supposed to change nothing.
-    /// [`Modifier::GrantsFlashback`] is the third and is the mirror image —
-    /// no card in the pool uses it, so it is written where the rules put it.
+    /// **[`Modifier::ProtectionFrom`] and [`Modifier::GrantTriggered`] used
+    /// to sit in that bucket, and it was a rules bug rather than a
+    /// shorthand.** CR 613.1f is "Layer 6: Ability-adding effects, keyword
+    /// counters, ability-removing effects, and effects that say an object
+    /// can't have an ability are applied", and CR 702.16a opens "Protection
+    /// is a static ability" — so an effect granting protection adds an
+    /// ability, exactly like the [`Modifier::GrantActivated`] that was
+    /// already on layer 6 beside it. Granting a *trigger* is the same claim
+    /// with a different kind of ability. `Text` was never a neutral parking
+    /// space for them either: it is layer **3**, which CR 613.1c gives to
+    /// text-changing effects (CR 612), and neither of these changes any
+    /// text.
+    ///
+    /// Five abilities in the pool moved with the fix, and it moved them
+    /// alone: every card reaches the layer through this function or through
+    /// [`static_ability!`](crate::static_ability), so not one card file had
+    /// to be edited. Nothing about the *game* changed, which is the part
+    /// worth being exact about — `layers::apply_modifier` has an empty arm
+    /// for both, protection is read by `eval::protected_from` and a granted
+    /// trigger by `trigger.rs`, and neither of those looks at a layer at
+    /// all. What the layer reaches is the projection's iteration bucket, the
+    /// CR 613.8 dependency sort inside it, and `state::snapshot_hash`.
     #[must_use]
     pub const fn layer(&self) -> Layer {
         match self {
@@ -251,13 +261,20 @@ impl Modifier {
             | Self::AddKeywordIfCountersAtLeast { .. }
             | Self::GrantActivated { .. }
             | Self::GrantsFlashback
-            | Self::CantActivateArtifacts => Layer::Ability,
+            | Self::CantActivateArtifacts
+            // CR 613.1f is the whole argument for these two: "Layer 6:
+            // Ability-adding effects, keyword counters, ability-removing
+            // effects, and effects that say an object can't have an ability
+            // are applied." Protection is an ability — CR 702.16a opens
+            // "Protection is a static ability" — so granting it is an
+            // ability-adding effect, and so is granting a trigger.
+            | Self::ProtectionFrom(_)
+            | Self::GrantTriggered { .. } => Layer::Ability,
             // Layer 7b/7c/7e: power and toughness.
             Self::SetPT(..) => Layer::PtSet,
             Self::ModifyPT(..) | Self::ModifyPTPerCount { .. } => Layer::PtModify,
             Self::SwitchPT => Layer::PtSwitch,
-            // No layer: rules-modifying effects, plus the three arms the
-            // doc comment above names.
+            // No layer: rules-modifying effects.
             Self::LegendRuleOff
             | Self::OpponentsCastAsSorcery
             | Self::PlayersCantLose
@@ -269,9 +286,7 @@ impl Modifier {
             | Self::PlayerHexproof
             | Self::SorceriesHaveFlash
             | Self::ManaIsAnyColor
-            | Self::SearchTakeover
-            | Self::ProtectionFrom(_)
-            | Self::GrantTriggered { .. } => Layer::Text,
+            | Self::SearchTakeover => Layer::Text,
         }
     }
 }
