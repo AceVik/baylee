@@ -52,6 +52,14 @@ card with different finishes are the same card.
 The printed name is the one identifier outside our control that a **player**
 uses, which is why it is the one a deck is stored under.
 
+It also has **two spellings** here, and they are different strings. The ledger
+keeps a card's whole name — `Row::name` for 17140 is `Conqueror's Galleon //
+Conqueror's Foothold` — and the name table keeps the front face alone, one row
+per card, because that is what a deck line says. So a deck line typed the way
+the ledger spells it does not resolve. Back faces and the `A // B` form are a
+widening of `by_name` nobody has asked for yet, and they are worth knowing
+about before someone imports a decklist from a source that writes them.
+
 ## Stored by name, played by index, lived by object
 
 This is the layering worth remembering, because each step is a different
@@ -101,12 +109,14 @@ name in it was already in `baylee-cards` as a `FaceDef::name`.
 
 **The open question here** is that `by_name` gives one `None` for two
 different facts, and the gateway reports both as `unknown card`: a name that
-is no card at all, and a name that is a real card this repo has not
-implemented. The ledger knows the difference — it has all 33 694 — so a second
-lookup in `baylee-cards-index` could say "that card exists, it is not
-playable yet". It would be a *second function with different semantics*, not a
-widening of this one, because the pool is what `by_name` is asked about
-everywhere else.
+is no card at all, and a name that is a real card this build compiles no
+`CardDef` for. Not an *unimplemented* one — a `Coverage::Unimplemented` stub
+is a compiled card, has a row in this table and resolves; what is missing is
+the 32 329 with no file at all. The ledger knows the difference — it has all
+33 694 — so a second lookup in `baylee-cards-index` could say "that card
+exists, this build has no `CardDef` for it". It would be a *second function
+with different semantics*, not a widening of this one, because the pool is
+what `by_name` is asked about everywhere else.
 
 ## Who may write what
 
