@@ -131,14 +131,27 @@ jobs:
           - os: ubuntu-24.04-arm   # aarch64-unknown-linux-gnu
           - os: windows-latest     # x86_64-pc-windows-msvc
           - os: windows-11-arm     # aarch64-pc-windows-msvc
-          # `macos-13` stood here and had been **retired** since 2025-12-08,
-          # following GitHub's N-1 policy after Apple dropped x86_64. Nothing
-          # serves that label any more, so the job never started: it sat in
-          # `queued` for 91 minutes on one run and 55 on another, and a run
-          # with it in the matrix can never reach a conclusion at all. The
-          # documented successor for Intel macOS is `macos-15-intel`.
-          - os: macos-15-intel     # x86_64-apple-darwin
+          # Six targets, five runners: the Apple Silicon runner builds the
+          # Intel slice too.
+          #
+          # `macos-13` stood here as its own row and had been **retired**
+          # since 2025-12-08, following GitHub's N-1 policy after Apple
+          # dropped x86_64 — so the job never started, sat in `queued` for 91
+          # minutes on one run, and kept the whole run from ever concluding.
+          # `macos-15-intel` is the documented successor and would work, but
+          # GitHub has also announced that x86_64 macOS runners go away
+          # entirely when that image retires in autumn 2027, so a row naming
+          # one is a row with a second expiry date on it.
+          #
+          # An arm64 Mac links x86_64 with nothing but `rustup target add`:
+          # the macOS SDK carries both slices, so `rustc --target
+          # x86_64-apple-darwin` produces a real `Mach-O 64-bit executable
+          # x86_64`. Measured on this machine before the row was written.
+          # That is the same **link** the matrix comment above says this job
+          # exists for; what it gives up is *running* the result, which no
+          # row of this matrix does anyway.
           - os: macos-latest       # aarch64-apple-darwin
+            extra-target: x86_64-apple-darwin
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/linux-deps
@@ -153,6 +166,14 @@ jobs:
       # rather than built, because linking test harnesses on six platforms
       # is a cost with no matching failure mode.
       - run: cargo check --workspace --all-targets
+      # The second architecture of a runner that can reach one. Installed
+      # here rather than through the toolchain action's `targets:`, because
+      # that field would have to be handed an empty string on every other
+      # row, and an empty target is not the same thing as no target.
+      - if: matrix.extra-target
+        run: rustup target add ${{ matrix.extra-target }}
+      - if: matrix.extra-target
+        run: cargo build --workspace --bins --target ${{ matrix.extra-target }}
 
   codegen-check:
     runs-on: ubuntu-latest
@@ -164,6 +185,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           cache-on-failure: true
+          shared-key: xtask
       - run: cargo run -p xtask -- codegen --check
       # `codegen` is the only command that *fetches*, so it is the only one
       # that has anything to save — and it has to save even when it fails,
@@ -213,6 +235,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           cache-on-failure: true
+          shared-key: xtask
       - run: cargo run -p xtask -- validate
 
   # The browser client compiles nothing on a native build: its localStorage
