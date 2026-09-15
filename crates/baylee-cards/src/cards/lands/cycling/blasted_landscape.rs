@@ -6,19 +6,23 @@
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 277,
-    oracle_id: "9c8007ac-4b3d-4444-93e9-f583185e5d81",
-    scryfall_id: "55776293-fde5-481e-a069-31721866a7d7",
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Blasted Landscape",
-        types: TypeSet::LAND,
-    },
-    ],
-    abilities: &[
+card!(
+    index = 277,
+    oracle_id = "9c8007ac-4b3d-4444-93e9-f583185e5d81",
+    scryfall_id = "55776293-fde5-481e-a069-31721866a7d7",
+    coverage = Coverage::Implemented,
+    faces = &[face!(name = "Blasted Landscape", types = TypeSet::LAND,),],
+    abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
-        activated!(Cost { mana: mana!("{2}"), parts: &[CostPart::DiscardSelf] }, &[Effect::DrawCards { amount: Amount::Fixed(1) }], zone: ActivationZone::Hand),
+        activated!(
+            Cost {
+                mana: mana!("{2}"),
+                parts: &[CostPart::DiscardSelf]
+            },
+            &[Effect::DrawCards {
+                amount: Amount::Fixed(1)
+            }],
+            zone = ActivationZone::Hand
+        ),
     ],
-}
+);

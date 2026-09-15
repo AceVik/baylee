@@ -8,20 +8,20 @@ use baylee_core::generated::subtypes;
 
 static SEARCH1: Filter = Filter::HasSubtype(subtypes::land::FOREST);
 
-card! {
-    index: 1359,
-    oracle_id: "1b882a0e-0ede-4d1a-bd1a-9b7cffbcde8e",
-    scryfall_id: "99bf792f-963e-4509-8d3c-7db129c6a77f",
-    color_identity: ColorSet::from_slice(&[Color::Green]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Three Visits",
-        mana_cost: mana!("{1}{G}"),
-        types: TypeSet::SORCERY,
-    },
-    ],
-    abilities: &[
-        spell!(&[Effect::SearchLibrary { filter: &SEARCH1, finds: &[Find::BATTLEFIELD], optional: false }]),
-    ],
-}
+card!(
+    index = 1359,
+    oracle_id = "1b882a0e-0ede-4d1a-bd1a-9b7cffbcde8e",
+    scryfall_id = "99bf792f-963e-4509-8d3c-7db129c6a77f",
+    color_identity = ColorSet::from_slice(&[Color::Green]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "Three Visits",
+        mana_cost = mana!("{1}{G}"),
+        types = TypeSet::SORCERY,
+    ),],
+    abilities = &[spell!(&[Effect::SearchLibrary {
+        filter: &SEARCH1,
+        finds: &[Find::BATTLEFIELD],
+        optional: false
+    }]),],
+);

@@ -7,21 +7,27 @@
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 1308,
-    oracle_id: "18b0b583-d17b-4c67-bc67-c4d9aad155c7",
-    scryfall_id: "debf7aac-4d31-49b4-955b-79036258df69",
-    color_identity: ColorSet::from_slice(&[Color::Black, Color::Blue]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Waterfront District",
-        types: TypeSet::LAND,
-        enter_modifiers: &[EnterModifier::Tapped],
-    },
-    ],
-    abilities: &[
+card!(
+    index = 1308,
+    oracle_id = "18b0b583-d17b-4c67-bc67-c4d9aad155c7",
+    scryfall_id = "debf7aac-4d31-49b4-955b-79036258df69",
+    color_identity = ColorSet::from_slice(&[Color::Black, Color::Blue]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "Waterfront District",
+        types = TypeSet::LAND,
+        enter_modifiers = &[EnterModifier::Tapped],
+    ),],
+    abilities = &[
         mana_ability!(&[Effect::mana_choice(&[ManaColor::Blue, ManaColor::Black])]),
-        activated!(Cost { mana: mana!("{2}{U}{B}"), parts: &[CostPart::TapSelf, CostPart::SacrificeSelf] }, &[Effect::DrawCards { amount: Amount::Fixed(1) }]),
+        activated!(
+            Cost {
+                mana: mana!("{2}{U}{B}"),
+                parts: &[CostPart::TapSelf, CostPart::SacrificeSelf]
+            },
+            &[Effect::DrawCards {
+                amount: Amount::Fixed(1)
+            }]
+        ),
     ],
-}
+);

@@ -6,21 +6,17 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-card! {
-    index: 1056,
-    oracle_id: "ca9f660b-e07d-4f42-a46e-abd0ca72510c",
-    scryfall_id: "5474e67c-628f-41b0-aa31-3d85a267265a",
-    color_identity: ColorSet::from_slice(&[Color::Red]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Snow-Covered Mountain",
-        types: TypeSet::LAND,
-        supertypes: SupertypeSet::BASIC.union(SupertypeSet::SNOW),
-        subtypes: &[subtypes::land::MOUNTAIN],
-    },
-    ],
-    abilities: &[
-        mana_ability!(&[Effect::mana(ManaColor::Red, 1)]),
-    ],
-}
+card!(
+    index = 1056,
+    oracle_id = "ca9f660b-e07d-4f42-a46e-abd0ca72510c",
+    scryfall_id = "5474e67c-628f-41b0-aa31-3d85a267265a",
+    color_identity = ColorSet::from_slice(&[Color::Red]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "Snow-Covered Mountain",
+        types = TypeSet::LAND,
+        supertypes = SupertypeSet::BASIC.union(SupertypeSet::SNOW),
+        subtypes = &[subtypes::land::MOUNTAIN],
+    ),],
+    abilities = &[mana_ability!(&[Effect::mana(ManaColor::Red, 1)]),],
+);

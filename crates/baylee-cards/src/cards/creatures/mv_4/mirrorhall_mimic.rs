@@ -18,32 +18,32 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes::{creature, enchantment};
 
-card! {
-    index: 95,
-    oracle_id: "5768fe50-a134-492c-a725-5ed02610c39f",
-    scryfall_id: "823ad188-bd56-476d-9853-bed90bfad582",
-    faces: &[
-        face! {
-            name: "Mirrorhall Mimic",
-            mana_cost: mana!("{3}{U}"),
-            types: TypeSet::CREATURE,
-            subtypes: &[creature::SPIRIT],
-            power: Some(0),
-            toughness: Some(0),
-        },
-        face! {
-            name: "Ghastly Mimicry",
-            mana_cost: mana!("{3}{U}{U}"),
-            types: TypeSet::ENCHANTMENT,
-            subtypes: &[enchantment::AURA],
-            castable_from_hand: false, // disturb: cast from the graveyard
-            disturb: true,
-        },
+card!(
+    index = 95,
+    oracle_id = "5768fe50-a134-492c-a725-5ed02610c39f",
+    scryfall_id = "823ad188-bd56-476d-9853-bed90bfad582",
+    faces = &[
+        face!(
+            name = "Mirrorhall Mimic",
+            mana_cost = mana!("{3}{U}"),
+            types = TypeSet::CREATURE,
+            subtypes = &[creature::SPIRIT],
+            power = Some(0),
+            toughness = Some(0),
+        ),
+        face!(
+            name = "Ghastly Mimicry",
+            mana_cost = mana!("{3}{U}{U}"),
+            types = TypeSet::ENCHANTMENT,
+            subtypes = &[enchantment::AURA],
+            castable_from_hand = false, // disturb: cast from the graveyard
+            disturb = true,
+        ),
     ],
-    color_identity: ColorSet::from_slice(&[Color::Blue]),
-    coverage: Coverage::Implemented,
-    abilities: &[AbilityDef::CopyOnEnter {
+    color_identity = ColorSet::from_slice(&[Color::Blue]),
+    coverage = Coverage::Partial("Ghastly Mimicry\x27s aura ability needs aura attachment"),
+    abilities = &[AbilityDef::CopyOnEnter {
         target: TargetSpec::Object(&Filter::CREATURE),
         mods: &[CopyMod::AddSubtype(creature::SPIRIT)],
     }],
-}
+);

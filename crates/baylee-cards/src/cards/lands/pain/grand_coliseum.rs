@@ -7,20 +7,24 @@
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 569,
-    oracle_id: "1cea9b82-d2e9-4758-8ec8-729fcf4bb7d7",
-    scryfall_id: "b07eb189-559a-4cd5-95ac-f6612fd11cf1",
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Grand Coliseum",
-        types: TypeSet::LAND,
-        enter_modifiers: &[EnterModifier::Tapped],
-    },
-    ],
-    abilities: &[
+card!(
+    index = 569,
+    oracle_id = "1cea9b82-d2e9-4758-8ec8-729fcf4bb7d7",
+    scryfall_id = "b07eb189-559a-4cd5-95ac-f6612fd11cf1",
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "Grand Coliseum",
+        types = TypeSet::LAND,
+        enter_modifiers = &[EnterModifier::Tapped],
+    ),],
+    abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
-        mana_ability!(&[Effect::mana_of_any_color(), Effect::DealDamage { amount: Amount::Fixed(1), target: TargetSpec::Player(PlayerRel::You) }]),
+        mana_ability!(&[
+            Effect::mana_of_any_color(),
+            Effect::DealDamage {
+                amount: Amount::Fixed(1),
+                target: TargetSpec::Player(PlayerRel::You)
+            }
+        ]),
     ],
-}
+);

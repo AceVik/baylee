@@ -8,22 +8,27 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-card! {
-    index: 488,
-    oracle_id: "9d3b60af-3e38-4d36-95fc-11b31c38f955",
-    scryfall_id: "4ad841eb-da0d-43d4-8b60-efe30922990b",
-    color_identity: ColorSet::from_slice(&[Color::Black, Color::Green]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Festering Gulch",
-        types: TypeSet::LAND,
-        subtypes: &[subtypes::land::DESERT],
-        enter_modifiers: &[EnterModifier::Tapped],
-    },
-    ],
-    abilities: &[
-        triggered!(Trigger::EntersBattlefield(&Filter::This), &[Effect::DealDamage { amount: Amount::Fixed(1), target: TargetSpec::Player(PlayerRel::Chosen) }], targets: Some(TargetReq::one(TargetSpec::AnyOpponent))),
+card!(
+    index = 488,
+    oracle_id = "9d3b60af-3e38-4d36-95fc-11b31c38f955",
+    scryfall_id = "4ad841eb-da0d-43d4-8b60-efe30922990b",
+    color_identity = ColorSet::from_slice(&[Color::Black, Color::Green]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "Festering Gulch",
+        types = TypeSet::LAND,
+        subtypes = &[subtypes::land::DESERT],
+        enter_modifiers = &[EnterModifier::Tapped],
+    ),],
+    abilities = &[
+        triggered!(
+            Trigger::EntersBattlefield(&Filter::This),
+            &[Effect::DealDamage {
+                amount: Amount::Fixed(1),
+                target: TargetSpec::Player(PlayerRel::Chosen)
+            }],
+            targets = Some(TargetReq::one(TargetSpec::AnyOpponent))
+        ),
         mana_ability!(&[Effect::mana_choice(&[ManaColor::Black, ManaColor::Green])]),
     ],
-}
+);

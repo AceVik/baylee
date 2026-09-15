@@ -7,21 +7,24 @@
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 811,
-    oracle_id: "6e743fbf-b5b6-4176-a4f2-6933f521f2fe",
-    scryfall_id: "a11a0f9c-2253-468f-a9c0-42e1e38aad96",
-    color_identity: ColorSet::from_slice(&[Color::White]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "New Benalia",
-        types: TypeSet::LAND,
-        enter_modifiers: &[EnterModifier::Tapped],
-    },
-    ],
-    abilities: &[
-        triggered!(Trigger::EntersBattlefield(&Filter::This), &[Effect::Scry { amount: Amount::Fixed(1) }]),
+card!(
+    index = 811,
+    oracle_id = "6e743fbf-b5b6-4176-a4f2-6933f521f2fe",
+    scryfall_id = "a11a0f9c-2253-468f-a9c0-42e1e38aad96",
+    color_identity = ColorSet::from_slice(&[Color::White]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "New Benalia",
+        types = TypeSet::LAND,
+        enter_modifiers = &[EnterModifier::Tapped],
+    ),],
+    abilities = &[
+        triggered!(
+            Trigger::EntersBattlefield(&Filter::This),
+            &[Effect::Scry {
+                amount: Amount::Fixed(1)
+            }]
+        ),
         mana_ability!(&[Effect::mana(ManaColor::White, 1)]),
     ],
-}
+);

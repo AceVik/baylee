@@ -7,20 +7,24 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-card! {
-    index: 846,
-    oracle_id: "b66deeb5-7371-4f06-b10e-d65165bc07b2",
-    scryfall_id: "f7ed919b-95ff-40fe-8f53-5d462c5d0205",
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Painted Bluffs",
-        types: TypeSet::LAND,
-        subtypes: &[subtypes::land::DESERT],
-    },
-    ],
-    abilities: &[
+card!(
+    index = 846,
+    oracle_id = "b66deeb5-7371-4f06-b10e-d65165bc07b2",
+    scryfall_id = "f7ed919b-95ff-40fe-8f53-5d462c5d0205",
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "Painted Bluffs",
+        types = TypeSet::LAND,
+        subtypes = &[subtypes::land::DESERT],
+    ),],
+    abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
-        mana_ability!(Cost { mana: mana!("{1}"), parts: &[CostPart::TapSelf] }, &[Effect::mana_of_any_color()]),
+        mana_ability!(
+            Cost {
+                mana: mana!("{1}"),
+                parts: &[CostPart::TapSelf]
+            },
+            &[Effect::mana_of_any_color()]
+        ),
     ],
-}
+);

@@ -8,20 +8,22 @@ use baylee_cards_dsl::prelude::*;
 
 static CHECK: Filter = Filter::And(&[Filter::ControlledByYou, Filter::LAND]);
 
-card! {
-    index: 844,
-    oracle_id: "709d2f10-1585-48c3-9058-ddd5f62f0452",
-    scryfall_id: "644fb0ed-f434-4cc4-b7e9-a60db5ece2b7",
-    color_identity: ColorSet::from_slice(&[Color::Green, Color::White]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Overgrown Farmland",
-        types: TypeSet::LAND,
-        enter_modifiers: &[EnterModifier::TappedUnlessCount { filter: &CHECK, at_least: 2 }],
-    },
-    ],
-    abilities: &[
-        mana_ability!(&[Effect::mana_choice(&[ManaColor::Green, ManaColor::White])]),
-    ],
-}
+card!(
+    index = 844,
+    oracle_id = "709d2f10-1585-48c3-9058-ddd5f62f0452",
+    scryfall_id = "644fb0ed-f434-4cc4-b7e9-a60db5ece2b7",
+    color_identity = ColorSet::from_slice(&[Color::Green, Color::White]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "Overgrown Farmland",
+        types = TypeSet::LAND,
+        enter_modifiers = &[EnterModifier::TappedUnlessCount {
+            filter: &CHECK,
+            at_least: 2
+        }],
+    ),],
+    abilities = &[mana_ability!(&[Effect::mana_choice(&[
+        ManaColor::Green,
+        ManaColor::White
+    ])]),],
+);

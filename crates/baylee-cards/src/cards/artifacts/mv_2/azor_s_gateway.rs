@@ -9,23 +9,23 @@
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 247,
-    oracle_id: "c0cbb347-b060-43ce-a9c5-8c835be3cf1b",
-    scryfall_id: "303d51ab-b9c4-4647-950f-291daabe7b81",
-    faces: &[
-    face! {
-        name: "Azor's Gateway",
-        mana_cost: mana!("{2}"),
-        types: TypeSet::ARTIFACT,
-        supertypes: SupertypeSet::LEGENDARY,
-    },
-    face! {
-        name: "Sanctum of the Sun",
-        types: TypeSet::LAND,
-        supertypes: SupertypeSet::LEGENDARY,
-    },
+card!(
+    index = 247,
+    oracle_id = "c0cbb347-b060-43ce-a9c5-8c835be3cf1b",
+    scryfall_id = "303d51ab-b9c4-4647-950f-291daabe7b81",
+    faces = &[
+        face!(
+            name = "Azor's Gateway",
+            mana_cost = mana!("{2}"),
+            types = TypeSet::ARTIFACT,
+            supertypes = SupertypeSet::LEGENDARY,
+        ),
+        face!(
+            name = "Sanctum of the Sun",
+            types = TypeSet::LAND,
+            supertypes = SupertypeSet::LEGENDARY,
+        ),
     ],
-}
+);
 
 // TODO(card): implement abilities, see docs/card-dsl.md.

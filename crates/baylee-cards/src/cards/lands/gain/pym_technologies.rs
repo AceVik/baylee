@@ -7,21 +7,24 @@
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 881,
-    oracle_id: "5a8977fc-0732-4807-b876-01819aedd70b",
-    scryfall_id: "1de583ce-e805-45f1-907f-198bc82fd3b5",
-    color_identity: ColorSet::from_slice(&[Color::Green, Color::Blue]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Pym Technologies",
-        types: TypeSet::LAND,
-        enter_modifiers: &[EnterModifier::Tapped],
-    },
-    ],
-    abilities: &[
-        triggered!(Trigger::EntersBattlefield(&Filter::This), &[Effect::GainLife { amount: Amount::Fixed(1) }]),
+card!(
+    index = 881,
+    oracle_id = "5a8977fc-0732-4807-b876-01819aedd70b",
+    scryfall_id = "1de583ce-e805-45f1-907f-198bc82fd3b5",
+    color_identity = ColorSet::from_slice(&[Color::Green, Color::Blue]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "Pym Technologies",
+        types = TypeSet::LAND,
+        enter_modifiers = &[EnterModifier::Tapped],
+    ),],
+    abilities = &[
+        triggered!(
+            Trigger::EntersBattlefield(&Filter::This),
+            &[Effect::GainLife {
+                amount: Amount::Fixed(1)
+            }]
+        ),
         mana_ability!(&[Effect::mana_choice(&[ManaColor::Green, ManaColor::Blue])]),
     ],
-}
+);

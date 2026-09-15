@@ -7,21 +7,24 @@
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 1130,
-    oracle_id: "4139f40a-873b-4842-96a2-b7875de1c20a",
-    scryfall_id: "8817a1d6-ef39-4e7c-8277-74aea012803b",
-    color_identity: ColorSet::from_slice(&[Color::Red, Color::Blue]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "TCRI Building",
-        types: TypeSet::LAND,
-        enter_modifiers: &[EnterModifier::Tapped],
-    },
-    ],
-    abilities: &[
-        triggered!(Trigger::EntersBattlefield(&Filter::This), &[Effect::GainLife { amount: Amount::Fixed(1) }]),
+card!(
+    index = 1130,
+    oracle_id = "4139f40a-873b-4842-96a2-b7875de1c20a",
+    scryfall_id = "8817a1d6-ef39-4e7c-8277-74aea012803b",
+    color_identity = ColorSet::from_slice(&[Color::Red, Color::Blue]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "TCRI Building",
+        types = TypeSet::LAND,
+        enter_modifiers = &[EnterModifier::Tapped],
+    ),],
+    abilities = &[
+        triggered!(
+            Trigger::EntersBattlefield(&Filter::This),
+            &[Effect::GainLife {
+                amount: Amount::Fixed(1)
+            }]
+        ),
         mana_ability!(&[Effect::mana_choice(&[ManaColor::Blue, ManaColor::Red])]),
     ],
-}
+);

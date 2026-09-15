@@ -14,23 +14,26 @@ static CHEAP_SPELL: Filter = Filter::And(&[
     Filter::CmcAtMost(2),
 ]);
 
-card! {
-    index: 155,
-    oracle_id: "47a785ed-8095-4685-8daa-02c4e2b0ffcd",
-    scryfall_id: "a749c591-2fbe-41d8-ac5b-56ebce82d33e",
-    faces: &[face! {
-        name: "Spellseeker",
-        mana_cost: mana!("{2}{U}"),
-        types: TypeSet::CREATURE,
-        subtypes: &[creature::HUMAN, creature::WIZARD],
-        power: Some(1),
-        toughness: Some(1),
-    }],
-    color_identity: ColorSet::from_slice(&[Color::Blue]),
-    coverage: Coverage::Implemented,
-    abilities: &[triggered!(Trigger::EntersBattlefield(&Filter::This), &[Effect::SearchLibrary {
+card!(
+    index = 155,
+    oracle_id = "47a785ed-8095-4685-8daa-02c4e2b0ffcd",
+    scryfall_id = "a749c591-2fbe-41d8-ac5b-56ebce82d33e",
+    faces = &[face!(
+        name = "Spellseeker",
+        mana_cost = mana!("{2}{U}"),
+        types = TypeSet::CREATURE,
+        subtypes = &[creature::HUMAN, creature::WIZARD],
+        power = Some(1),
+        toughness = Some(1),
+    )],
+    color_identity = ColorSet::from_slice(&[Color::Blue]),
+    coverage = Coverage::Implemented,
+    abilities = &[triggered!(
+        Trigger::EntersBattlefield(&Filter::This),
+        &[Effect::SearchLibrary {
             filter: &CHEAP_SPELL,
             finds: &[Find::HAND],
             optional: true,
-        }])],
-}
+        }]
+    )],
+);

@@ -62,21 +62,21 @@ static BACK_ABILITIES: &[AbilityDef] = &[
     },
 ];
 
-card! {
-    index: 143,
-    oracle_id: "97652492-7906-4d79-983c-fa1dc1239eba",
-    scryfall_id: "bf2249e6-af74-4b88-8eb7-144ce8fa7f6b",
-    faces: &[
-        face! {
-            name: "Sheoldred",
-            mana_cost: mana!("{3}{B}{B}"),
-            types: TypeSet::CREATURE,
-            supertypes: SupertypeSet::LEGENDARY,
-            subtypes: &[creature::PHYREXIAN, creature::PRAETOR],
-            power: Some(4),
-            toughness: Some(5),
-        },
-        face! {
+card!(
+    index = 143,
+    oracle_id = "97652492-7906-4d79-983c-fa1dc1239eba",
+    scryfall_id = "bf2249e6-af74-4b88-8eb7-144ce8fa7f6b",
+    faces = &[
+        face!(
+            name = "Sheoldred",
+            mana_cost = mana!("{3}{B}{B}"),
+            types = TypeSet::CREATURE,
+            supertypes = SupertypeSet::LEGENDARY,
+            subtypes = &[creature::PHYREXIAN, creature::PRAETOR],
+            power = Some(4),
+            toughness = Some(5),
+        ),
+        face!(
             // No cost and not castable: this side is reached by the {4}{B}
             // ability above turning the card over (CR 712.2), never by
             // paying for it. It carried a `{2}{B}{B}` the printing does not
@@ -85,21 +85,24 @@ card! {
             // from an MDFC's, so the pool's guard against a free back face
             // saw a cost and let it through while the cast wizard offered
             // The True Scriptures out of hand for five mana.
-            name: "The True Scriptures",
-            types: TypeSet::ENCHANTMENT,
-            subtypes: &[enchantment::SAGA],
-            castable_from_hand: false,
-            abilities: BACK_ABILITIES,
-        },
+            name = "The True Scriptures",
+            types = TypeSet::ENCHANTMENT,
+            subtypes = &[enchantment::SAGA],
+            castable_from_hand = false,
+            abilities = BACK_ABILITIES,
+        ),
     ],
-    color_identity: ColorSet::from_slice(&[Color::Black]),
-    keywords: KeywordSet::MENACE,
-    coverage: Coverage::Partial("chapter I destroys one permanent per opponent without targeting"),
-    abilities: &[
-        triggered!(Trigger::EntersBattlefield(&Filter::This), &[Effect::SacrificeFilter {
+    color_identity = ColorSet::from_slice(&[Color::Black]),
+    keywords = KeywordSet::MENACE,
+    coverage = Coverage::Partial("chapter I destroys one permanent per opponent without targeting"),
+    abilities = &[
+        triggered!(
+            Trigger::EntersBattlefield(&Filter::This),
+            &[Effect::SacrificeFilter {
                 who: PlayerRel::EachOpponent,
                 filter: &NONTOKEN_CREATURE_OR_WALKER,
-            }]),
+            }]
+        ),
         AbilityDef::ActivatedConditional {
             cost: Cost {
                 mana: mana!("{4}{B}"),
@@ -113,4 +116,4 @@ card! {
             condition: ActivationCondition::OpponentGraveyardCountAtLeast(8),
         },
     ],
-}
+);

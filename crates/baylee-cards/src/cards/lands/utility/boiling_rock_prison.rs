@@ -7,21 +7,27 @@
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 295,
-    oracle_id: "6caabc45-4644-4941-a2f3-f04ee7b50a89",
-    scryfall_id: "1c2e2220-54d1-4180-93a0-964e3b0ba8b8",
-    color_identity: ColorSet::from_slice(&[Color::Black, Color::Red]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Boiling Rock Prison",
-        types: TypeSet::LAND,
-        enter_modifiers: &[EnterModifier::Tapped],
-    },
-    ],
-    abilities: &[
+card!(
+    index = 295,
+    oracle_id = "6caabc45-4644-4941-a2f3-f04ee7b50a89",
+    scryfall_id = "1c2e2220-54d1-4180-93a0-964e3b0ba8b8",
+    color_identity = ColorSet::from_slice(&[Color::Black, Color::Red]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "Boiling Rock Prison",
+        types = TypeSet::LAND,
+        enter_modifiers = &[EnterModifier::Tapped],
+    ),],
+    abilities = &[
         mana_ability!(&[Effect::mana_choice(&[ManaColor::Black, ManaColor::Red])]),
-        activated!(Cost { mana: mana!("{4}"), parts: &[CostPart::TapSelf, CostPart::SacrificeSelf] }, &[Effect::DrawCards { amount: Amount::Fixed(1) }]),
+        activated!(
+            Cost {
+                mana: mana!("{4}"),
+                parts: &[CostPart::TapSelf, CostPart::SacrificeSelf]
+            },
+            &[Effect::DrawCards {
+                amount: Amount::Fixed(1)
+            }]
+        ),
     ],
-}
+);

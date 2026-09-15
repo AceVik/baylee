@@ -7,35 +7,38 @@
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 99,
-    oracle_id: "24d0f5e7-0d9e-4b76-900e-a7274e80312d",
-    scryfall_id: "3de308cc-14ac-407e-99e7-568572ecd0e7",
-    faces: &[face! {
-        name: "Mulldrifter",
-        mana_cost: mana!("{4}{U}"),
-        types: TypeSet::CREATURE,
-        subtypes: &[baylee_core::generated::subtypes::creature::ELEMENTAL],
-        power: Some(2),
-        toughness: Some(2),
-        alternative_costs: &[AlternativeCost {
+card!(
+    index = 99,
+    oracle_id = "24d0f5e7-0d9e-4b76-900e-a7274e80312d",
+    scryfall_id = "3de308cc-14ac-407e-99e7-568572ecd0e7",
+    faces = &[face!(
+        name = "Mulldrifter",
+        mana_cost = mana!("{4}{U}"),
+        types = TypeSet::CREATURE,
+        subtypes = &[baylee_core::generated::subtypes::creature::ELEMENTAL],
+        power = Some(2),
+        toughness = Some(2),
+        alternative_costs = &[AlternativeCost {
             cost: Cost {
                 mana: mana!("{2}{U}"),
                 parts: &[],
             },
             condition: AltCondition::Always,
         }],
-    }],
-    color_identity: ColorSet::from_slice(&[Color::Blue]),
-    keywords: KeywordSet::FLYING,
-    coverage: Coverage::Implemented,
-    abilities: &[
-        triggered!(Trigger::EntersBattlefield(&Filter::This), &[Effect::DrawCards {
+    )],
+    color_identity = ColorSet::from_slice(&[Color::Blue]),
+    keywords = KeywordSet::FLYING,
+    coverage = Coverage::Implemented,
+    abilities = &[
+        triggered!(
+            Trigger::EntersBattlefield(&Filter::This),
+            &[Effect::DrawCards {
                 amount: Amount::Fixed(2),
-            }]),
+            }]
+        ),
         triggered!(Trigger::EntersBattlefieldEvoked, &[Effect::SacrificeSelf]),
     ],
-}
+);
 
 // Evoke path: cast for {2}{U}, ETB draws 2, then it is sacrificed.
 // Full path: cast for {4}{U}, it stays.

@@ -7,21 +7,24 @@
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 497,
-    oracle_id: "5554db95-9676-4c24-b82a-8173513d7927",
-    scryfall_id: "7690e624-93c1-46f4-8f33-e28d881787d3",
-    color_identity: ColorSet::from_slice(&[Color::Black, Color::White]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Fisk Tower",
-        types: TypeSet::LAND,
-        enter_modifiers: &[EnterModifier::Tapped],
-    },
-    ],
-    abilities: &[
-        triggered!(Trigger::EntersBattlefield(&Filter::This), &[Effect::GainLife { amount: Amount::Fixed(1) }]),
+card!(
+    index = 497,
+    oracle_id = "5554db95-9676-4c24-b82a-8173513d7927",
+    scryfall_id = "7690e624-93c1-46f4-8f33-e28d881787d3",
+    color_identity = ColorSet::from_slice(&[Color::Black, Color::White]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "Fisk Tower",
+        types = TypeSet::LAND,
+        enter_modifiers = &[EnterModifier::Tapped],
+    ),],
+    abilities = &[
+        triggered!(
+            Trigger::EntersBattlefield(&Filter::This),
+            &[Effect::GainLife {
+                amount: Amount::Fixed(1)
+            }]
+        ),
         mana_ability!(&[Effect::mana_choice(&[ManaColor::White, ManaColor::Black])]),
     ],
-}
+);

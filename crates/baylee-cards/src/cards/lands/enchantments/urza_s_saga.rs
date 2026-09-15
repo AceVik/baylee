@@ -16,17 +16,17 @@ use crate::tokens::CONSTRUCT_0_0 as CONSTRUCT;
 static ARTIFACT_CMC1: Filter = Filter::And(&[Filter::ARTIFACT, Filter::CmcAtMost(1)]);
 static CHAPTER_I_FX: &[Effect] = &[Effect::mana(ManaColor::Colorless, 1)];
 
-card! {
-    index: 179,
-    oracle_id: "4c6a0c30-b547-4eff-8ff4-0ca25803c076",
-    scryfall_id: "c1e0f201-42cb-46a1-901a-65bb4fc18f6c",
-    faces: &[face! {
-        name: "Urza's Saga",
-        types: TypeSet::LAND.union(TypeSet::ENCHANTMENT),
-        subtypes: &[land::URZA_S, enchantment::SAGA],
-    }],
-    coverage: Coverage::Implemented,
-    abilities: &[
+card!(
+    index = 179,
+    oracle_id = "4c6a0c30-b547-4eff-8ff4-0ca25803c076",
+    scryfall_id = "c1e0f201-42cb-46a1-901a-65bb4fc18f6c",
+    faces = &[face!(
+        name = "Urza's Saga",
+        types = TypeSet::LAND.union(TypeSet::ENCHANTMENT),
+        subtypes = &[land::URZA_S, enchantment::SAGA],
+    )],
+    coverage = Coverage::Implemented,
+    abilities = &[
         // Chapter I's granted "{T}: Add {C}" is this baseline mana
         // ability — it covers the same text (CR 714.3a grants it
         // permanently, so the approximation is exact from chapter I on).
@@ -77,4 +77,4 @@ card! {
             targets: None,
         },
     ],
-}
+);

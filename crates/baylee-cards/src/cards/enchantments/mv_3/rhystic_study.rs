@@ -9,20 +9,23 @@ static DRAW_ONE: Effect = Effect::DrawCards {
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 133,
-    oracle_id: "53236dd7-845a-444c-96d5-f41ed7325d8f",
-    scryfall_id: "9f37c5b6-a59c-45cd-9a99-e9357fe9ea1b",
-    faces: &[face! {
-        name: "Rhystic Study",
-        mana_cost: mana!("{2}{U}"),
-        types: TypeSet::ENCHANTMENT,
-    }],
-    color_identity: ColorSet::from_slice(&[Color::Blue]),
-    coverage: Coverage::Implemented,
-    abilities: &[triggered!(Trigger::SpellCast(&Filter::ControlledByOpponent), &[Effect::PlayerMayPayOr {
+card!(
+    index = 133,
+    oracle_id = "53236dd7-845a-444c-96d5-f41ed7325d8f",
+    scryfall_id = "9f37c5b6-a59c-45cd-9a99-e9357fe9ea1b",
+    faces = &[face!(
+        name = "Rhystic Study",
+        mana_cost = mana!("{2}{U}"),
+        types = TypeSet::ENCHANTMENT,
+    )],
+    color_identity = ColorSet::from_slice(&[Color::Blue]),
+    coverage = Coverage::Implemented,
+    abilities = &[triggered!(
+        Trigger::SpellCast(&Filter::ControlledByOpponent),
+        &[Effect::PlayerMayPayOr {
             player: PlayerRel::Opponent,
             mana: Amount::Fixed(1),
             effect: &DRAW_ONE,
-        }])],
-}
+        }]
+    )],
+);

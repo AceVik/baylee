@@ -6,23 +6,27 @@
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 86,
-    oracle_id: "b7d4b7dd-fbb1-4ca3-875f-ef13a95e66ad",
-    scryfall_id: "13c6101a-da40-4785-8ccb-4e779bbbdb55",
-    faces: &[face! {
-        name: "Liquimetal Torque",
-        mana_cost: mana!("{2}"),
-        types: TypeSet::ARTIFACT,
-    }],
-    coverage: Coverage::Implemented,
-    abilities: &[
+card!(
+    index = 86,
+    oracle_id = "b7d4b7dd-fbb1-4ca3-875f-ef13a95e66ad",
+    scryfall_id = "13c6101a-da40-4785-8ccb-4e779bbbdb55",
+    faces = &[face!(
+        name = "Liquimetal Torque",
+        mana_cost = mana!("{2}"),
+        types = TypeSet::ARTIFACT,
+    )],
+    coverage = Coverage::Implemented,
+    abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
-        activated!(Cost::TAP, &[Effect::CreateContinuousEffect {
+        activated!(
+            Cost::TAP,
+            &[Effect::CreateContinuousEffect {
                 layer: Layer::Type,
                 filter: &Filter::This,
                 modifier: Modifier::AddType(TypeSet::ARTIFACT),
                 duration: Duration::UntilEndOfTurn,
-            }], target: Some(TargetSpec::Object(&Filter::NONLAND))),
+            }],
+            target = Some(TargetSpec::Object(&Filter::NONLAND))
+        ),
     ],
-}
+);

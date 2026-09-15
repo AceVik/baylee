@@ -11,17 +11,21 @@ static YOUR_SPELL_OF_CHOSEN_TYPE: Filter =
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 129,
-    oracle_id: "c3fdfb94-2d10-4743-864c-a59fdd57d8b7",
-    scryfall_id: "578a1846-8c1a-4013-b669-1d3f4ddbbaa3",
-    faces: &[face! {
-        name: "Reflections of Littjara",
-        mana_cost: mana!("{4}{U}"),
-        types: TypeSet::ENCHANTMENT,
-        enter_modifiers: &[EnterModifier::ChooseSubtype],
-    }],
-    color_identity: ColorSet::from_slice(&[Color::Blue]),
-    coverage: Coverage::Implemented,
-    abilities: &[triggered!(Trigger::SpellCast(&YOUR_SPELL_OF_CHOSEN_TYPE), &[Effect::CopyTargetSpell { mods: &[] }], targets: Some(TargetReq::one(TargetSpec::EventObject)))],
-}
+card!(
+    index = 129,
+    oracle_id = "c3fdfb94-2d10-4743-864c-a59fdd57d8b7",
+    scryfall_id = "578a1846-8c1a-4013-b669-1d3f4ddbbaa3",
+    faces = &[face!(
+        name = "Reflections of Littjara",
+        mana_cost = mana!("{4}{U}"),
+        types = TypeSet::ENCHANTMENT,
+        enter_modifiers = &[EnterModifier::ChooseSubtype],
+    )],
+    color_identity = ColorSet::from_slice(&[Color::Blue]),
+    coverage = Coverage::Implemented,
+    abilities = &[triggered!(
+        Trigger::SpellCast(&YOUR_SPELL_OF_CHOSEN_TYPE),
+        &[Effect::CopyTargetSpell { mods: &[] }],
+        targets = Some(TargetReq::one(TargetSpec::EventObject))
+    )],
+);

@@ -9,19 +9,22 @@ static ARTIFACT_CREATURE_ENCHANTMENT: Filter =
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 11,
-    oracle_id: "a6898364-c29e-4b97-a500-344efa3ec24a",
-    scryfall_id: "aad93570-b50a-405a-ad73-03f97594061f",
-    faces: &[face! {
-        name: "Banishing Stroke",
-        mana_cost: mana!("{5}{W}"),
-        types: TypeSet::INSTANT,
-        miracle: Some(mana!("{W}")),
-    }],
-    color_identity: ColorSet::from_slice(&[Color::White]),
-    coverage: Coverage::Implemented,
-    abilities: &[spell!(&[Effect::PutTargetOnBottomOfLibrary], targets: Some(TargetReq::one(TargetSpec::Object(
+card!(
+    index = 11,
+    oracle_id = "a6898364-c29e-4b97-a500-344efa3ec24a",
+    scryfall_id = "aad93570-b50a-405a-ad73-03f97594061f",
+    faces = &[face!(
+        name = "Banishing Stroke",
+        mana_cost = mana!("{5}{W}"),
+        types = TypeSet::INSTANT,
+        miracle = Some(mana!("{W}")),
+    )],
+    color_identity = ColorSet::from_slice(&[Color::White]),
+    coverage = Coverage::Implemented,
+    abilities = &[spell!(
+        &[Effect::PutTargetOnBottomOfLibrary],
+        targets = Some(TargetReq::one(TargetSpec::Object(
             &ARTIFACT_CREATURE_ENCHANTMENT,
-        ))))],
-}
+        )))
+    )],
+);

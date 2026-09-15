@@ -8,19 +8,21 @@ use baylee_cards_dsl::prelude::*;
 
 static TARGET1: Filter = Filter::And(&[Filter::ARTIFACT, Filter::Not(&Filter::CREATURE)]);
 
-card! {
-    index: 287,
-    oracle_id: "dd3fd7cd-d8a1-48e2-861d-c7c40086dc75",
-    scryfall_id: "e4c79155-b6d8-46df-891f-487b24c4e0d5",
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Blinkmoth Well",
-        types: TypeSet::LAND,
-    },
-    ],
-    abilities: &[
+card!(
+    index = 287,
+    oracle_id = "dd3fd7cd-d8a1-48e2-861d-c7c40086dc75",
+    scryfall_id = "e4c79155-b6d8-46df-891f-487b24c4e0d5",
+    coverage = Coverage::Implemented,
+    faces = &[face!(name = "Blinkmoth Well", types = TypeSet::LAND,),],
+    abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
-        activated!(Cost { mana: mana!("{2}"), parts: &[CostPart::TapSelf] }, &[Effect::TapTarget], target: Some(TargetSpec::Object(&TARGET1))),
+        activated!(
+            Cost {
+                mana: mana!("{2}"),
+                parts: &[CostPart::TapSelf]
+            },
+            &[Effect::TapTarget],
+            target = Some(TargetSpec::Object(&TARGET1))
+        ),
     ],
-}
+);

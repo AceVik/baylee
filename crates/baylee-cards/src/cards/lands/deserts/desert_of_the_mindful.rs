@@ -8,22 +8,29 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-card! {
-    index: 417,
-    oracle_id: "508f9e7e-2ff7-4593-b0a9-0612d7b5d646",
-    scryfall_id: "517f71a7-ec5b-46a6-b5ff-8c06abf0a630",
-    color_identity: ColorSet::from_slice(&[Color::Blue]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Desert of the Mindful",
-        types: TypeSet::LAND,
-        subtypes: &[subtypes::land::DESERT],
-        enter_modifiers: &[EnterModifier::Tapped],
-    },
-    ],
-    abilities: &[
+card!(
+    index = 417,
+    oracle_id = "508f9e7e-2ff7-4593-b0a9-0612d7b5d646",
+    scryfall_id = "517f71a7-ec5b-46a6-b5ff-8c06abf0a630",
+    color_identity = ColorSet::from_slice(&[Color::Blue]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "Desert of the Mindful",
+        types = TypeSet::LAND,
+        subtypes = &[subtypes::land::DESERT],
+        enter_modifiers = &[EnterModifier::Tapped],
+    ),],
+    abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::Blue, 1)]),
-        activated!(Cost { mana: mana!("{1}{U}"), parts: &[CostPart::DiscardSelf] }, &[Effect::DrawCards { amount: Amount::Fixed(1) }], zone: ActivationZone::Hand),
+        activated!(
+            Cost {
+                mana: mana!("{1}{U}"),
+                parts: &[CostPart::DiscardSelf]
+            },
+            &[Effect::DrawCards {
+                amount: Amount::Fixed(1)
+            }],
+            zone = ActivationZone::Hand
+        ),
     ],
-}
+);

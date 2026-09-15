@@ -14,32 +14,35 @@ static NONCREATURE_SPELL: Filter = Filter::And(&[Filter::ControlledByYou, Filter
 
 use crate::tokens::ALLY_1_1_WHITE as ALLY_TOKEN;
 
-card! {
-    index: 149,
-    oracle_id: "6b68acc2-b9d5-495b-8054-c04bae1349f1",
-    scryfall_id: "f0fa5897-1da7-488f-bb19-1632e969c050",
-    faces: &[face! {
-        name: "Sokka, Tenacious Tactician",
-        mana_cost: mana!("{1}{U}{R}{W}"),
-        types: TypeSet::CREATURE,
-        supertypes: SupertypeSet::LEGENDARY,
-        subtypes: &[creature::HUMAN, creature::WARRIOR, creature::ALLY],
-        power: Some(3),
-        toughness: Some(3),
-    }],
-    color_identity: ColorSet::from_slice(&[Color::White, Color::Blue, Color::Red]),
-    keywords: KeywordSet::MENACE.union(KeywordSet::PROWESS),
-    commander: CommanderRule::Legendary,
-    coverage: Coverage::Implemented,
-    abilities: &[
+card!(
+    index = 149,
+    oracle_id = "6b68acc2-b9d5-495b-8054-c04bae1349f1",
+    scryfall_id = "f0fa5897-1da7-488f-bb19-1632e969c050",
+    faces = &[face!(
+        name = "Sokka, Tenacious Tactician",
+        mana_cost = mana!("{1}{U}{R}{W}"),
+        types = TypeSet::CREATURE,
+        supertypes = SupertypeSet::LEGENDARY,
+        subtypes = &[creature::HUMAN, creature::WARRIOR, creature::ALLY],
+        power = Some(3),
+        toughness = Some(3),
+    )],
+    color_identity = ColorSet::from_slice(&[Color::White, Color::Blue, Color::Red]),
+    keywords = KeywordSet::MENACE.union(KeywordSet::PROWESS),
+    commander = CommanderRule::Legendary,
+    coverage = Coverage::Implemented,
+    abilities = &[
         AbilityDef::Static(StaticAbility {
             layer: Layer::Ability,
             filter: ANOTHER_ALLY,
             modifier: Modifier::AddKeyword(KeywordSet::MENACE.union(KeywordSet::PROWESS)),
         }),
-        triggered!(Trigger::SpellCast(&NONCREATURE_SPELL), &[Effect::CreateTokenN {
+        triggered!(
+            Trigger::SpellCast(&NONCREATURE_SPELL),
+            &[Effect::CreateTokenN {
                 token: &ALLY_TOKEN,
                 amount: Amount::Fixed(1),
-            }]),
+            }]
+        ),
     ],
-}
+);

@@ -6,17 +6,17 @@
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 33,
-    oracle_id: "f8b17b89-26ce-4208-874a-9e1d66514640",
-    scryfall_id: "020939d6-72f0-4aa0-9ac2-d16cc896cd7f",
-    faces: &[face! {
-        name: "Dig Through Time",
-        mana_cost: mana!("{6}{U}{U}"),
-        types: TypeSet::INSTANT,
-        delve: true,
-    }],
-    color_identity: ColorSet::from_slice(&[Color::Blue]),
-    coverage: Coverage::Implemented,
-    abilities: &[spell!(&[Effect::LookAtTopPick { count: 7, pick: 2 }])],
-}
+card!(
+    index = 33,
+    oracle_id = "f8b17b89-26ce-4208-874a-9e1d66514640",
+    scryfall_id = "020939d6-72f0-4aa0-9ac2-d16cc896cd7f",
+    faces = &[face!(
+        name = "Dig Through Time",
+        mana_cost = mana!("{6}{U}{U}"),
+        types = TypeSet::INSTANT,
+        delve = true,
+    )],
+    color_identity = ColorSet::from_slice(&[Color::Blue]),
+    coverage = Coverage::Implemented,
+    abilities = &[spell!(&[Effect::LookAtTopPick { count: 7, pick: 2 }])],
+);

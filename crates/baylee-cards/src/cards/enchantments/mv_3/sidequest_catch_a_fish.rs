@@ -9,22 +9,19 @@
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 1030,
-    oracle_id: "bd7c328e-0380-46f8-bb85-7bf4e201b7ac",
-    scryfall_id: "bdb5452e-d97f-409b-91d0-2664f39b09b8",
-    color_identity: ColorSet::from_slice(&[Color::White]),
-    faces: &[
-    face! {
-        name: "Sidequest: Catch a Fish",
-        mana_cost: mana!("{2}{W}"),
-        types: TypeSet::ENCHANTMENT,
-    },
-    face! {
-        name: "Cooking Campsite",
-        types: TypeSet::LAND,
-    },
+card!(
+    index = 1030,
+    oracle_id = "bd7c328e-0380-46f8-bb85-7bf4e201b7ac",
+    scryfall_id = "bdb5452e-d97f-409b-91d0-2664f39b09b8",
+    color_identity = ColorSet::from_slice(&[Color::White]),
+    faces = &[
+        face!(
+            name = "Sidequest: Catch a Fish",
+            mana_cost = mana!("{2}{W}"),
+            types = TypeSet::ENCHANTMENT,
+        ),
+        face!(name = "Cooking Campsite", types = TypeSet::LAND,),
     ],
-}
+);
 
 // TODO(card): implement abilities, see docs/card-dsl.md.

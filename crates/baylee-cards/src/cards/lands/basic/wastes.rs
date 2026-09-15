@@ -5,19 +5,15 @@
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 1306,
-    oracle_id: "05d24b0c-904a-46b6-b42a-96a4d91a0dd4",
-    scryfall_id: "baf8f4f2-9f25-4cd2-8d78-1041e134aeac",
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Wastes",
-        types: TypeSet::LAND,
-        supertypes: SupertypeSet::BASIC,
-    },
-    ],
-    abilities: &[
-        mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
-    ],
-}
+card!(
+    index = 1306,
+    oracle_id = "05d24b0c-904a-46b6-b42a-96a4d91a0dd4",
+    scryfall_id = "baf8f4f2-9f25-4cd2-8d78-1041e134aeac",
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "Wastes",
+        types = TypeSet::LAND,
+        supertypes = SupertypeSet::BASIC,
+    ),],
+    abilities = &[mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),],
+);

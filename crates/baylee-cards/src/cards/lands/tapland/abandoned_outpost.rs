@@ -7,21 +7,25 @@
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 198,
-    oracle_id: "5a70ccfa-d12d-4e62-a1a4-f05cda2fd442",
-    scryfall_id: "4945031e-1158-474c-9e50-1ec817acc767",
-    color_identity: ColorSet::from_slice(&[Color::White]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Abandoned Outpost",
-        types: TypeSet::LAND,
-        enter_modifiers: &[EnterModifier::Tapped],
-    },
-    ],
-    abilities: &[
+card!(
+    index = 198,
+    oracle_id = "5a70ccfa-d12d-4e62-a1a4-f05cda2fd442",
+    scryfall_id = "4945031e-1158-474c-9e50-1ec817acc767",
+    color_identity = ColorSet::from_slice(&[Color::White]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "Abandoned Outpost",
+        types = TypeSet::LAND,
+        enter_modifiers = &[EnterModifier::Tapped],
+    ),],
+    abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::White, 1)]),
-        mana_ability!(Cost { mana: ManaCost::ZERO, parts: &[CostPart::TapSelf, CostPart::SacrificeSelf] }, &[Effect::mana_of_any_color()]),
+        mana_ability!(
+            Cost {
+                mana: ManaCost::ZERO,
+                parts: &[CostPart::TapSelf, CostPart::SacrificeSelf]
+            },
+            &[Effect::mana_of_any_color()]
+        ),
     ],
-}
+);

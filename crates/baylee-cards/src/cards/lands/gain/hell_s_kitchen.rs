@@ -7,21 +7,24 @@
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 614,
-    oracle_id: "1337d89e-a883-4568-a14f-9ca3305cc3df",
-    scryfall_id: "6137c34e-cc4c-4342-a8e4-cfa9c767c67b",
-    color_identity: ColorSet::from_slice(&[Color::Black, Color::Red]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Hell's Kitchen",
-        types: TypeSet::LAND,
-        enter_modifiers: &[EnterModifier::Tapped],
-    },
-    ],
-    abilities: &[
-        triggered!(Trigger::EntersBattlefield(&Filter::This), &[Effect::GainLife { amount: Amount::Fixed(1) }]),
+card!(
+    index = 614,
+    oracle_id = "1337d89e-a883-4568-a14f-9ca3305cc3df",
+    scryfall_id = "6137c34e-cc4c-4342-a8e4-cfa9c767c67b",
+    color_identity = ColorSet::from_slice(&[Color::Black, Color::Red]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "Hell's Kitchen",
+        types = TypeSet::LAND,
+        enter_modifiers = &[EnterModifier::Tapped],
+    ),],
+    abilities = &[
+        triggered!(
+            Trigger::EntersBattlefield(&Filter::This),
+            &[Effect::GainLife {
+                amount: Amount::Fixed(1)
+            }]
+        ),
         mana_ability!(&[Effect::mana_choice(&[ManaColor::Black, ManaColor::Red])]),
     ],
-}
+);

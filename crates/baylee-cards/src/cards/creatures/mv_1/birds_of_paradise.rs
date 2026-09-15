@@ -7,24 +7,20 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-card! {
-    index: 1346,
-    oracle_id: "d3a0b660-358c-41bd-9cd2-41fbf3491b1a",
-    scryfall_id: "492c2f9a-51e7-4e0f-9899-23bf43ea988b",
-    color_identity: ColorSet::from_slice(&[Color::Green]),
-    keywords: KeywordSet::FLYING,
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Birds of Paradise",
-        mana_cost: mana!("{G}"),
-        types: TypeSet::CREATURE,
-        subtypes: &[subtypes::creature::BIRD],
-        power: Some(0),
-        toughness: Some(1),
-    },
-    ],
-    abilities: &[
-        mana_ability!(&[Effect::mana_of_any_color()]),
-    ],
-}
+card!(
+    index = 1346,
+    oracle_id = "d3a0b660-358c-41bd-9cd2-41fbf3491b1a",
+    scryfall_id = "492c2f9a-51e7-4e0f-9899-23bf43ea988b",
+    color_identity = ColorSet::from_slice(&[Color::Green]),
+    keywords = KeywordSet::FLYING,
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "Birds of Paradise",
+        mana_cost = mana!("{G}"),
+        types = TypeSet::CREATURE,
+        subtypes = &[subtypes::creature::BIRD],
+        power = Some(0),
+        toughness = Some(1),
+    ),],
+    abilities = &[mana_ability!(&[Effect::mana_of_any_color()]),],
+);

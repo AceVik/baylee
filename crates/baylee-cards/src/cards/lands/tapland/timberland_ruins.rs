@@ -7,21 +7,25 @@
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 1201,
-    oracle_id: "29c7f059-2eeb-40f9-8f50-03eba2d0d5e0",
-    scryfall_id: "dd2e8770-c72b-439c-8f79-3aa24646cdd5",
-    color_identity: ColorSet::from_slice(&[Color::Green]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Timberland Ruins",
-        types: TypeSet::LAND,
-        enter_modifiers: &[EnterModifier::Tapped],
-    },
-    ],
-    abilities: &[
+card!(
+    index = 1201,
+    oracle_id = "29c7f059-2eeb-40f9-8f50-03eba2d0d5e0",
+    scryfall_id = "dd2e8770-c72b-439c-8f79-3aa24646cdd5",
+    color_identity = ColorSet::from_slice(&[Color::Green]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "Timberland Ruins",
+        types = TypeSet::LAND,
+        enter_modifiers = &[EnterModifier::Tapped],
+    ),],
+    abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::Green, 1)]),
-        mana_ability!(Cost { mana: ManaCost::ZERO, parts: &[CostPart::TapSelf, CostPart::SacrificeSelf] }, &[Effect::mana_of_any_color()]),
+        mana_ability!(
+            Cost {
+                mana: ManaCost::ZERO,
+                parts: &[CostPart::TapSelf, CostPart::SacrificeSelf]
+            },
+            &[Effect::mana_of_any_color()]
+        ),
     ],
-}
+);

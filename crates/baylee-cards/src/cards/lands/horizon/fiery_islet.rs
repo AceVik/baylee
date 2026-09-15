@@ -6,20 +6,29 @@
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 494,
-    oracle_id: "026f4a4b-eedd-44e1-9d37-ca4fb8d6db98",
-    scryfall_id: "a3aab13c-9d9d-4507-ae5d-da979990ae1b",
-    color_identity: ColorSet::from_slice(&[Color::Red, Color::Blue]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Fiery Islet",
-        types: TypeSet::LAND,
-    },
+card!(
+    index = 494,
+    oracle_id = "026f4a4b-eedd-44e1-9d37-ca4fb8d6db98",
+    scryfall_id = "a3aab13c-9d9d-4507-ae5d-da979990ae1b",
+    color_identity = ColorSet::from_slice(&[Color::Red, Color::Blue]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(name = "Fiery Islet", types = TypeSet::LAND,),],
+    abilities = &[
+        mana_ability!(
+            Cost {
+                mana: ManaCost::ZERO,
+                parts: &[CostPart::TapSelf, CostPart::PayLife(1)]
+            },
+            &[Effect::mana_choice(&[ManaColor::Blue, ManaColor::Red])]
+        ),
+        activated!(
+            Cost {
+                mana: mana!("{1}"),
+                parts: &[CostPart::TapSelf, CostPart::SacrificeSelf]
+            },
+            &[Effect::DrawCards {
+                amount: Amount::Fixed(1)
+            }]
+        ),
     ],
-    abilities: &[
-        mana_ability!(Cost { mana: ManaCost::ZERO, parts: &[CostPart::TapSelf, CostPart::PayLife(1)] }, &[Effect::mana_choice(&[ManaColor::Blue, ManaColor::Red])]),
-        activated!(Cost { mana: mana!("{1}"), parts: &[CostPart::TapSelf, CostPart::SacrificeSelf] }, &[Effect::DrawCards { amount: Amount::Fixed(1) }]),
-    ],
-}
+);

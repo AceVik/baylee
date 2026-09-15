@@ -7,21 +7,27 @@
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 1215,
-    oracle_id: "e90e519d-023e-4d19-85ad-9972a76df3ba",
-    scryfall_id: "e0532304-da6d-45cd-b1e6-4779d3f3b2bc",
-    color_identity: ColorSet::from_slice(&[Color::Black, Color::Red]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Tramway Station",
-        types: TypeSet::LAND,
-        enter_modifiers: &[EnterModifier::Tapped],
-    },
-    ],
-    abilities: &[
+card!(
+    index = 1215,
+    oracle_id = "e90e519d-023e-4d19-85ad-9972a76df3ba",
+    scryfall_id = "e0532304-da6d-45cd-b1e6-4779d3f3b2bc",
+    color_identity = ColorSet::from_slice(&[Color::Black, Color::Red]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "Tramway Station",
+        types = TypeSet::LAND,
+        enter_modifiers = &[EnterModifier::Tapped],
+    ),],
+    abilities = &[
         mana_ability!(&[Effect::mana_choice(&[ManaColor::Black, ManaColor::Red])]),
-        activated!(Cost { mana: mana!("{2}{B}{R}"), parts: &[CostPart::TapSelf, CostPart::SacrificeSelf] }, &[Effect::DrawCards { amount: Amount::Fixed(1) }]),
+        activated!(
+            Cost {
+                mana: mana!("{2}{B}{R}"),
+                parts: &[CostPart::TapSelf, CostPart::SacrificeSelf]
+            },
+            &[Effect::DrawCards {
+                amount: Amount::Fixed(1)
+            }]
+        ),
     ],
-}
+);

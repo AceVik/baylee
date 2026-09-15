@@ -8,17 +8,15 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-card! {
-    index: 1179,
-    oracle_id: "249fdd3e-376c-4ec2-a612-4353e0e61ee2",
-    scryfall_id: "29c91aad-bf33-448e-b122-65940fb2e33b",
-    faces: &[
-    face! {
-        name: "The Seedcore",
-        types: TypeSet::LAND,
-        subtypes: &[subtypes::land::SPHERE],
-    },
-    ],
-}
+card!(
+    index = 1179,
+    oracle_id = "249fdd3e-376c-4ec2-a612-4353e0e61ee2",
+    scryfall_id = "29c91aad-bf33-448e-b122-65940fb2e33b",
+    faces = &[face!(
+        name = "The Seedcore",
+        types = TypeSet::LAND,
+        subtypes = &[subtypes::land::SPHERE],
+    ),],
+);
 
 // TODO(card): implement abilities, see docs/card-dsl.md.

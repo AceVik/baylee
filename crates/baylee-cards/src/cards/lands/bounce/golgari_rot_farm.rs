@@ -7,17 +7,12 @@
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 566,
-    oracle_id: "1b301478-b14f-4ef8-94e6-9647d582eabe",
-    scryfall_id: "42486edd-24b7-4299-84fa-50559917b2a8",
-    color_identity: ColorSet::from_slice(&[Color::Black, Color::Green]),
-    faces: &[
-    face! {
-        name: "Golgari Rot Farm",
-        types: TypeSet::LAND,
-    },
-    ],
-}
+card!(
+    index = 566,
+    oracle_id = "1b301478-b14f-4ef8-94e6-9647d582eabe",
+    scryfall_id = "42486edd-24b7-4299-84fa-50559917b2a8",
+    color_identity = ColorSet::from_slice(&[Color::Black, Color::Green]),
+    faces = &[face!(name = "Golgari Rot Farm", types = TypeSet::LAND,),],
+);
 
 // TODO(card): implement abilities, see docs/card-dsl.md.

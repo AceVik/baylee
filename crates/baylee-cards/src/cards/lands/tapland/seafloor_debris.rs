@@ -7,21 +7,25 @@
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 984,
-    oracle_id: "eef64810-4187-40c1-8e59-1cb8773ebea3",
-    scryfall_id: "9e492399-d514-485a-8cdd-a3797a05e47a",
-    color_identity: ColorSet::from_slice(&[Color::Blue]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Seafloor Debris",
-        types: TypeSet::LAND,
-        enter_modifiers: &[EnterModifier::Tapped],
-    },
-    ],
-    abilities: &[
+card!(
+    index = 984,
+    oracle_id = "eef64810-4187-40c1-8e59-1cb8773ebea3",
+    scryfall_id = "9e492399-d514-485a-8cdd-a3797a05e47a",
+    color_identity = ColorSet::from_slice(&[Color::Blue]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "Seafloor Debris",
+        types = TypeSet::LAND,
+        enter_modifiers = &[EnterModifier::Tapped],
+    ),],
+    abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::Blue, 1)]),
-        mana_ability!(Cost { mana: ManaCost::ZERO, parts: &[CostPart::TapSelf, CostPart::SacrificeSelf] }, &[Effect::mana_of_any_color()]),
+        mana_ability!(
+            Cost {
+                mana: ManaCost::ZERO,
+                parts: &[CostPart::TapSelf, CostPart::SacrificeSelf]
+            },
+            &[Effect::mana_of_any_color()]
+        ),
     ],
-}
+);

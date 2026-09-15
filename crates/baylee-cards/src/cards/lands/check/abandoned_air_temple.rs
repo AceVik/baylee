@@ -16,26 +16,29 @@ static YOUR_CREATURES: Filter = Filter::And(&[Filter::ControlledByYou, Filter::C
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 1,
-    oracle_id: "9575d7ce-f26d-4b90-87a3-6329e9799572",
-    scryfall_id: "9c0433f9-8f1e-4a19-a83f-a41925f1b1a9",
-    faces: &[face! {
-        name: "Abandoned Air Temple",
-        types: TypeSet::LAND,
-        enter_modifiers: &[EnterModifier::TappedUnless(&BASIC_LAND_YOU)],
-    }],
-    color_identity: ColorSet::from_slice(&[Color::White]),
-    coverage: Coverage::Implemented,
-    abilities: &[
+card!(
+    index = 1,
+    oracle_id = "9575d7ce-f26d-4b90-87a3-6329e9799572",
+    scryfall_id = "9c0433f9-8f1e-4a19-a83f-a41925f1b1a9",
+    faces = &[face!(
+        name = "Abandoned Air Temple",
+        types = TypeSet::LAND,
+        enter_modifiers = &[EnterModifier::TappedUnless(&BASIC_LAND_YOU)],
+    )],
+    color_identity = ColorSet::from_slice(&[Color::White]),
+    coverage = Coverage::Implemented,
+    abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::White, 1)]),
-        activated!(Cost {
+        activated!(
+            Cost {
                 mana: mana!("{3}{W}"),
                 parts: &[CostPart::TapSelf],
-            }, &[Effect::AddCounterFilter {
+            },
+            &[Effect::AddCounterFilter {
                 filter: &YOUR_CREATURES,
                 kind: CounterKind::P1P1,
                 amount: Amount::Fixed(1),
-            }]),
+            }]
+        ),
     ],
-}
+);

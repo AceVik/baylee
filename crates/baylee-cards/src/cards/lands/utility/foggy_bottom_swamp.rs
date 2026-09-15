@@ -7,21 +7,27 @@
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 503,
-    oracle_id: "b56bb8cb-457e-4b85-9bf9-5e891e79f1dd",
-    scryfall_id: "226af626-873d-4bd2-b889-000f8316786f",
-    color_identity: ColorSet::from_slice(&[Color::Black, Color::Green]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Foggy Bottom Swamp",
-        types: TypeSet::LAND,
-        enter_modifiers: &[EnterModifier::Tapped],
-    },
-    ],
-    abilities: &[
+card!(
+    index = 503,
+    oracle_id = "b56bb8cb-457e-4b85-9bf9-5e891e79f1dd",
+    scryfall_id = "226af626-873d-4bd2-b889-000f8316786f",
+    color_identity = ColorSet::from_slice(&[Color::Black, Color::Green]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "Foggy Bottom Swamp",
+        types = TypeSet::LAND,
+        enter_modifiers = &[EnterModifier::Tapped],
+    ),],
+    abilities = &[
         mana_ability!(&[Effect::mana_choice(&[ManaColor::Black, ManaColor::Green])]),
-        activated!(Cost { mana: mana!("{4}"), parts: &[CostPart::TapSelf, CostPart::SacrificeSelf] }, &[Effect::DrawCards { amount: Amount::Fixed(1) }]),
+        activated!(
+            Cost {
+                mana: mana!("{4}"),
+                parts: &[CostPart::TapSelf, CostPart::SacrificeSelf]
+            },
+            &[Effect::DrawCards {
+                amount: Amount::Fixed(1)
+            }]
+        ),
     ],
-}
+);

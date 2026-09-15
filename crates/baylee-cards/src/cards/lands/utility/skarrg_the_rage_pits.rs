@@ -8,20 +8,27 @@ use baylee_cards_dsl::prelude::*;
 
 static TARGET1: Filter = Filter::CREATURE;
 
-card! {
-    index: 1039,
-    oracle_id: "92bac34e-2045-4331-842f-185711c1ac56",
-    scryfall_id: "3340d094-fe13-4087-abba-27e8c9a7f3c7",
-    color_identity: ColorSet::from_slice(&[Color::Green, Color::Red]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Skarrg, the Rage Pits",
-        types: TypeSet::LAND,
-    },
-    ],
-    abilities: &[
+card!(
+    index = 1039,
+    oracle_id = "92bac34e-2045-4331-842f-185711c1ac56",
+    scryfall_id = "3340d094-fe13-4087-abba-27e8c9a7f3c7",
+    color_identity = ColorSet::from_slice(&[Color::Green, Color::Red]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(name = "Skarrg, the Rage Pits", types = TypeSet::LAND,),],
+    abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
-        activated!(Cost { mana: mana!("{R}{G}"), parts: &[CostPart::TapSelf] }, &[Effect::PumpTarget { power: Amount::Fixed(1), toughness: Amount::Fixed(1), keywords: KeywordSet::TRAMPLE, duration: Duration::UntilEndOfTurn }], target: Some(TargetSpec::Object(&TARGET1))),
+        activated!(
+            Cost {
+                mana: mana!("{R}{G}"),
+                parts: &[CostPart::TapSelf]
+            },
+            &[Effect::PumpTarget {
+                power: Amount::Fixed(1),
+                toughness: Amount::Fixed(1),
+                keywords: KeywordSet::TRAMPLE,
+                duration: Duration::UntilEndOfTurn
+            }],
+            target = Some(TargetSpec::Object(&TARGET1))
+        ),
     ],
-}
+);

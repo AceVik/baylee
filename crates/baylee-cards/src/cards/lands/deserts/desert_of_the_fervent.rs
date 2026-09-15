@@ -8,22 +8,29 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-card! {
-    index: 414,
-    oracle_id: "311f38a6-f68f-4d30-bc4e-62339f1e0d88",
-    scryfall_id: "f3766140-b755-4e4b-9d98-0cc0b889f15a",
-    color_identity: ColorSet::from_slice(&[Color::Red]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Desert of the Fervent",
-        types: TypeSet::LAND,
-        subtypes: &[subtypes::land::DESERT],
-        enter_modifiers: &[EnterModifier::Tapped],
-    },
-    ],
-    abilities: &[
+card!(
+    index = 414,
+    oracle_id = "311f38a6-f68f-4d30-bc4e-62339f1e0d88",
+    scryfall_id = "f3766140-b755-4e4b-9d98-0cc0b889f15a",
+    color_identity = ColorSet::from_slice(&[Color::Red]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "Desert of the Fervent",
+        types = TypeSet::LAND,
+        subtypes = &[subtypes::land::DESERT],
+        enter_modifiers = &[EnterModifier::Tapped],
+    ),],
+    abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::Red, 1)]),
-        activated!(Cost { mana: mana!("{1}{R}"), parts: &[CostPart::DiscardSelf] }, &[Effect::DrawCards { amount: Amount::Fixed(1) }], zone: ActivationZone::Hand),
+        activated!(
+            Cost {
+                mana: mana!("{1}{R}"),
+                parts: &[CostPart::DiscardSelf]
+            },
+            &[Effect::DrawCards {
+                amount: Amount::Fixed(1)
+            }],
+            zone = ActivationZone::Hand
+        ),
     ],
-}
+);

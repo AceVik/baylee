@@ -8,27 +8,29 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes::planeswalker;
 
-card! {
-    index: 8,
-    oracle_id: "93723b12-db34-4047-885e-8606415b1553",
-    scryfall_id: "f2df3258-c053-48a8-974f-d80899b2cd93",
-    faces: &[face! {
-        name: "Ashiok, Dream Render",
-        mana_cost: mana!("{1}{U/B}{U/B}"),
-        types: TypeSet::PLANESWALKER,
-        supertypes: SupertypeSet::LEGENDARY,
-        subtypes: &[planeswalker::ASHIOK],
-        loyalty: Some(5),
-    }],
-    color_identity: ColorSet::from_slice(&[Color::Blue, Color::Black]),
-    coverage: Coverage::Implemented,
-    abilities: &[
+card!(
+    index = 8,
+    oracle_id = "93723b12-db34-4047-885e-8606415b1553",
+    scryfall_id = "f2df3258-c053-48a8-974f-d80899b2cd93",
+    faces = &[face!(
+        name = "Ashiok, Dream Render",
+        mana_cost = mana!("{1}{U/B}{U/B}"),
+        types = TypeSet::PLANESWALKER,
+        supertypes = SupertypeSet::LEGENDARY,
+        subtypes = &[planeswalker::ASHIOK],
+        loyalty = Some(5),
+    )],
+    color_identity = ColorSet::from_slice(&[Color::Blue, Color::Black]),
+    coverage = Coverage::Implemented,
+    abilities = &[
         AbilityDef::Static(StaticAbility {
             layer: Layer::Text,
             filter: Filter::Any,
             modifier: Modifier::OpponentsCantSearch,
         }),
-        loyalty!(-1, &[
+        loyalty!(
+            -1,
+            &[
                 Effect::Mill {
                     amount: Amount::Fixed(4),
                     target: PlayerRel::ControllerOfTarget,
@@ -36,6 +38,8 @@ card! {
                 Effect::ExileGraveyard {
                     player: PlayerRel::EachOpponent,
                 },
-            ], targets: Some(TargetReq::one(TargetSpec::AnyPlayer))),
+            ],
+            targets = Some(TargetReq::one(TargetSpec::AnyPlayer))
+        ),
     ],
-}
+);

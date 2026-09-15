@@ -8,22 +8,28 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-card! {
-    index: 1165,
-    oracle_id: "e2dd05d5-312e-47f1-873e-c0741ee6ef4a",
-    scryfall_id: "c16f96f5-a2a6-4ac4-bdae-326cee92bf2e",
-    color_identity: ColorSet::from_slice(&[Color::Red]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "The Autonomous Furnace",
-        types: TypeSet::LAND,
-        subtypes: &[subtypes::land::SPHERE],
-        enter_modifiers: &[EnterModifier::Tapped],
-    },
-    ],
-    abilities: &[
+card!(
+    index = 1165,
+    oracle_id = "e2dd05d5-312e-47f1-873e-c0741ee6ef4a",
+    scryfall_id = "c16f96f5-a2a6-4ac4-bdae-326cee92bf2e",
+    color_identity = ColorSet::from_slice(&[Color::Red]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "The Autonomous Furnace",
+        types = TypeSet::LAND,
+        subtypes = &[subtypes::land::SPHERE],
+        enter_modifiers = &[EnterModifier::Tapped],
+    ),],
+    abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::Red, 1)]),
-        activated!(Cost { mana: mana!("{1}{R}"), parts: &[CostPart::TapSelf, CostPart::SacrificeSelf] }, &[Effect::DrawCards { amount: Amount::Fixed(1) }]),
+        activated!(
+            Cost {
+                mana: mana!("{1}{R}"),
+                parts: &[CostPart::TapSelf, CostPart::SacrificeSelf]
+            },
+            &[Effect::DrawCards {
+                amount: Amount::Fixed(1)
+            }]
+        ),
     ],
-}
+);

@@ -7,21 +7,27 @@
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 748,
-    oracle_id: "81763d7d-3897-4be9-bbf6-f6f5dee366ff",
-    scryfall_id: "1d96dd97-ce88-4576-8261-c7866a06275d",
-    color_identity: ColorSet::from_slice(&[Color::Blue]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Memorial to Genius",
-        types: TypeSet::LAND,
-        enter_modifiers: &[EnterModifier::Tapped],
-    },
-    ],
-    abilities: &[
+card!(
+    index = 748,
+    oracle_id = "81763d7d-3897-4be9-bbf6-f6f5dee366ff",
+    scryfall_id = "1d96dd97-ce88-4576-8261-c7866a06275d",
+    color_identity = ColorSet::from_slice(&[Color::Blue]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "Memorial to Genius",
+        types = TypeSet::LAND,
+        enter_modifiers = &[EnterModifier::Tapped],
+    ),],
+    abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::Blue, 1)]),
-        activated!(Cost { mana: mana!("{4}{U}"), parts: &[CostPart::TapSelf, CostPart::SacrificeSelf] }, &[Effect::DrawCards { amount: Amount::Fixed(2) }]),
+        activated!(
+            Cost {
+                mana: mana!("{4}{U}"),
+                parts: &[CostPart::TapSelf, CostPart::SacrificeSelf]
+            },
+            &[Effect::DrawCards {
+                amount: Amount::Fixed(2)
+            }]
+        ),
     ],
-}
+);

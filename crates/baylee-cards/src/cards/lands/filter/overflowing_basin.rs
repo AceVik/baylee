@@ -5,19 +5,21 @@
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 843,
-    oracle_id: "5ac8e01c-b0a7-4855-a122-1cd26b07c4a5",
-    scryfall_id: "6357d665-2b28-4747-ab43-b90176d78d42",
-    color_identity: ColorSet::from_slice(&[Color::Green, Color::Blue]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Overflowing Basin",
-        types: TypeSet::LAND,
-    },
-    ],
-    abilities: &[
-        mana_ability!(Cost { mana: mana!("{1}"), parts: &[CostPart::TapSelf] }, &[Effect::mana(ManaColor::Green, 1), Effect::mana(ManaColor::Blue, 1)]),
-    ],
-}
+card!(
+    index = 843,
+    oracle_id = "5ac8e01c-b0a7-4855-a122-1cd26b07c4a5",
+    scryfall_id = "6357d665-2b28-4747-ab43-b90176d78d42",
+    color_identity = ColorSet::from_slice(&[Color::Green, Color::Blue]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(name = "Overflowing Basin", types = TypeSet::LAND,),],
+    abilities = &[mana_ability!(
+        Cost {
+            mana: mana!("{1}"),
+            parts: &[CostPart::TapSelf]
+        },
+        &[
+            Effect::mana(ManaColor::Green, 1),
+            Effect::mana(ManaColor::Blue, 1)
+        ]
+    ),],
+);

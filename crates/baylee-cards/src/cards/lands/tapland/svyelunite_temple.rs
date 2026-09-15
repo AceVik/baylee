@@ -7,21 +7,25 @@
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 1127,
-    oracle_id: "5578cf33-62f5-456c-a58c-f744a25df79b",
-    scryfall_id: "21fe2f1b-bfd1-4682-ae23-069300de3791",
-    color_identity: ColorSet::from_slice(&[Color::Blue]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Svyelunite Temple",
-        types: TypeSet::LAND,
-        enter_modifiers: &[EnterModifier::Tapped],
-    },
-    ],
-    abilities: &[
+card!(
+    index = 1127,
+    oracle_id = "5578cf33-62f5-456c-a58c-f744a25df79b",
+    scryfall_id = "21fe2f1b-bfd1-4682-ae23-069300de3791",
+    color_identity = ColorSet::from_slice(&[Color::Blue]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "Svyelunite Temple",
+        types = TypeSet::LAND,
+        enter_modifiers = &[EnterModifier::Tapped],
+    ),],
+    abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::Blue, 1)]),
-        mana_ability!(Cost { mana: ManaCost::ZERO, parts: &[CostPart::TapSelf, CostPart::SacrificeSelf] }, &[Effect::mana(ManaColor::Blue, 2)]),
+        mana_ability!(
+            Cost {
+                mana: ManaCost::ZERO,
+                parts: &[CostPart::TapSelf, CostPart::SacrificeSelf]
+            },
+            &[Effect::mana(ManaColor::Blue, 2)]
+        ),
     ],
-}
+);

@@ -7,17 +7,15 @@
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 1019,
-    oracle_id: "2ac34f3e-822d-4fde-99ca-a31c4d9503fd",
-    scryfall_id: "f09d98db-0176-41a7-b99b-ead29876cdab",
-    faces: &[
-    face! {
-        name: "Shimmerdrift Vale",
-        types: TypeSet::LAND,
-        supertypes: SupertypeSet::SNOW,
-    },
-    ],
-}
+card!(
+    index = 1019,
+    oracle_id = "2ac34f3e-822d-4fde-99ca-a31c4d9503fd",
+    scryfall_id = "f09d98db-0176-41a7-b99b-ead29876cdab",
+    faces = &[face!(
+        name = "Shimmerdrift Vale",
+        types = TypeSet::LAND,
+        supertypes = SupertypeSet::SNOW,
+    ),],
+);
 
 // TODO(card): implement abilities, see docs/card-dsl.md.

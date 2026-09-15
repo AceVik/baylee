@@ -10,24 +10,31 @@ use baylee_core::generated::subtypes::creature;
 
 static ENEMY_CREATURE: Filter = Filter::And(&[Filter::ControlledByOpponent, Filter::CREATURE]);
 
-card! {
-    index: 109,
-    oracle_id: "180eda7c-fca2-403b-85cd-8ffebaf9f408",
-    scryfall_id: "3a8c2a84-e0f2-4611-af3d-42f4578ad4e3",
-    faces: &[face! {
-        name: "Palace Jailer",
-        mana_cost: mana!("{2}{W}{W}"),
-        types: TypeSet::CREATURE,
-        subtypes: &[creature::HUMAN, creature::SOLDIER],
-        power: Some(2),
-        toughness: Some(2),
-    }],
-    color_identity: ColorSet::from_slice(&[Color::White]),
-    coverage: Coverage::Implemented,
-    abilities: &[
-        triggered!(Trigger::EntersBattlefield(&Filter::This), &[Effect::BecomeMonarch]),
-        triggered!(Trigger::EntersBattlefield(&Filter::This), &[Effect::ExileLinked {
+card!(
+    index = 109,
+    oracle_id = "180eda7c-fca2-403b-85cd-8ffebaf9f408",
+    scryfall_id = "3a8c2a84-e0f2-4611-af3d-42f4578ad4e3",
+    faces = &[face!(
+        name = "Palace Jailer",
+        mana_cost = mana!("{2}{W}{W}"),
+        types = TypeSet::CREATURE,
+        subtypes = &[creature::HUMAN, creature::SOLDIER],
+        power = Some(2),
+        toughness = Some(2),
+    )],
+    color_identity = ColorSet::from_slice(&[Color::White]),
+    coverage = Coverage::Implemented,
+    abilities = &[
+        triggered!(
+            Trigger::EntersBattlefield(&Filter::This),
+            &[Effect::BecomeMonarch]
+        ),
+        triggered!(
+            Trigger::EntersBattlefield(&Filter::This),
+            &[Effect::ExileLinked {
                 target: TargetSpec::Object(&ENEMY_CREATURE),
-            }], targets: Some(TargetReq::one(TargetSpec::Object(&ENEMY_CREATURE)))),
+            }],
+            targets = Some(TargetReq::one(TargetSpec::Object(&ENEMY_CREATURE)))
+        ),
     ],
-}
+);

@@ -12,19 +12,25 @@ static SEARCH1: Filter = Filter::Or(&[
     Filter::HasSubtype(subtypes::land::ISLAND),
 ]);
 
-card! {
-    index: 500,
-    oracle_id: "9043d8d5-b38a-406f-a44c-49f579c644f0",
-    scryfall_id: "61fc0fba-c285-4fad-85a6-79fd7f3f9c35",
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Flood Plain",
-        types: TypeSet::LAND,
-        enter_modifiers: &[EnterModifier::Tapped],
-    },
-    ],
-    abilities: &[
-        activated!(Cost { mana: ManaCost::ZERO, parts: &[CostPart::TapSelf, CostPart::SacrificeSelf] }, &[Effect::SearchLibrary { filter: &SEARCH1, finds: &[Find::BATTLEFIELD], optional: false }]),
-    ],
-}
+card!(
+    index = 500,
+    oracle_id = "9043d8d5-b38a-406f-a44c-49f579c644f0",
+    scryfall_id = "61fc0fba-c285-4fad-85a6-79fd7f3f9c35",
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "Flood Plain",
+        types = TypeSet::LAND,
+        enter_modifiers = &[EnterModifier::Tapped],
+    ),],
+    abilities = &[activated!(
+        Cost {
+            mana: ManaCost::ZERO,
+            parts: &[CostPart::TapSelf, CostPart::SacrificeSelf]
+        },
+        &[Effect::SearchLibrary {
+            filter: &SEARCH1,
+            finds: &[Find::BATTLEFIELD],
+            optional: false
+        }]
+    ),],
+);

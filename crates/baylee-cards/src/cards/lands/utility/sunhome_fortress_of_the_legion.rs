@@ -8,20 +8,30 @@ use baylee_cards_dsl::prelude::*;
 
 static TARGET1: Filter = Filter::CREATURE;
 
-card! {
-    index: 1113,
-    oracle_id: "a9f8344c-1705-4254-81d6-aa05e0c69c29",
-    scryfall_id: "4ebb97da-e4d5-41ba-9a70-2a1de91f513c",
-    color_identity: ColorSet::from_slice(&[Color::Red, Color::White]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Sunhome, Fortress of the Legion",
-        types: TypeSet::LAND,
-    },
-    ],
-    abilities: &[
+card!(
+    index = 1113,
+    oracle_id = "a9f8344c-1705-4254-81d6-aa05e0c69c29",
+    scryfall_id = "4ebb97da-e4d5-41ba-9a70-2a1de91f513c",
+    color_identity = ColorSet::from_slice(&[Color::Red, Color::White]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "Sunhome, Fortress of the Legion",
+        types = TypeSet::LAND,
+    ),],
+    abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
-        activated!(Cost { mana: mana!("{2}{R}{W}"), parts: &[CostPart::TapSelf] }, &[Effect::PumpTarget { power: Amount::Fixed(0), toughness: Amount::Fixed(0), keywords: KeywordSet::DOUBLE_STRIKE, duration: Duration::UntilEndOfTurn }], target: Some(TargetSpec::Object(&TARGET1))),
+        activated!(
+            Cost {
+                mana: mana!("{2}{R}{W}"),
+                parts: &[CostPart::TapSelf]
+            },
+            &[Effect::PumpTarget {
+                power: Amount::Fixed(0),
+                toughness: Amount::Fixed(0),
+                keywords: KeywordSet::DOUBLE_STRIKE,
+                duration: Duration::UntilEndOfTurn
+            }],
+            target = Some(TargetSpec::Object(&TARGET1))
+        ),
     ],
-}
+);

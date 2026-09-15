@@ -12,18 +12,13 @@
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 937,
-    oracle_id: "f29dc596-2121-4421-8463-15f6c2e8b9b3",
-    scryfall_id: "4493b62b-f354-47ff-9dcf-cc6e29de77c6",
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Rogue's Passage",
-        types: TypeSet::LAND,
-    },
-    ],
-    abilities: &[
+card!(
+    index = 937,
+    oracle_id = "f29dc596-2121-4421-8463-15f6c2e8b9b3",
+    scryfall_id = "4493b62b-f354-47ff-9dcf-cc6e29de77c6",
+    coverage = Coverage::Implemented,
+    faces = &[face!(name = "Rogue's Passage", types = TypeSet::LAND,),],
+    abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
         activated!(
             Cost {
@@ -36,7 +31,7 @@ card! {
                 keywords: KeywordSet::UNBLOCKABLE,
                 duration: Duration::UntilEndOfTurn,
             }],
-            target: Some(TargetSpec::Object(&Filter::CREATURE))
+            target = Some(TargetSpec::Object(&Filter::CREATURE))
         ),
     ],
-}
+);

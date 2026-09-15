@@ -7,21 +7,27 @@
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 302,
-    oracle_id: "19e6ebaf-7148-428f-8c79-1e9e57a4e659",
-    scryfall_id: "9f8a6f93-1fc8-4690-add4-538763277f8e",
-    color_identity: ColorSet::from_slice(&[Color::Green, Color::White]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Botanical Plaza",
-        types: TypeSet::LAND,
-        enter_modifiers: &[EnterModifier::Tapped],
-    },
-    ],
-    abilities: &[
+card!(
+    index = 302,
+    oracle_id = "19e6ebaf-7148-428f-8c79-1e9e57a4e659",
+    scryfall_id = "9f8a6f93-1fc8-4690-add4-538763277f8e",
+    color_identity = ColorSet::from_slice(&[Color::Green, Color::White]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "Botanical Plaza",
+        types = TypeSet::LAND,
+        enter_modifiers = &[EnterModifier::Tapped],
+    ),],
+    abilities = &[
         mana_ability!(&[Effect::mana_choice(&[ManaColor::Green, ManaColor::White])]),
-        activated!(Cost { mana: mana!("{2}{G}{W}"), parts: &[CostPart::TapSelf, CostPart::SacrificeSelf] }, &[Effect::DrawCards { amount: Amount::Fixed(1) }]),
+        activated!(
+            Cost {
+                mana: mana!("{2}{G}{W}"),
+                parts: &[CostPart::TapSelf, CostPart::SacrificeSelf]
+            },
+            &[Effect::DrawCards {
+                amount: Amount::Fixed(1)
+            }]
+        ),
     ],
-}
+);

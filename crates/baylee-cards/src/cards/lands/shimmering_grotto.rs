@@ -6,19 +6,20 @@
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 1020,
-    oracle_id: "bae49475-fe01-400b-8959-f0dde959577c",
-    scryfall_id: "e03f2594-c6e8-4758-86b4-885d1dba3a91",
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Shimmering Grotto",
-        types: TypeSet::LAND,
-    },
-    ],
-    abilities: &[
+card!(
+    index = 1020,
+    oracle_id = "bae49475-fe01-400b-8959-f0dde959577c",
+    scryfall_id = "e03f2594-c6e8-4758-86b4-885d1dba3a91",
+    coverage = Coverage::Implemented,
+    faces = &[face!(name = "Shimmering Grotto", types = TypeSet::LAND,),],
+    abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
-        mana_ability!(Cost { mana: mana!("{1}"), parts: &[CostPart::TapSelf] }, &[Effect::mana_of_any_color()]),
+        mana_ability!(
+            Cost {
+                mana: mana!("{1}"),
+                parts: &[CostPart::TapSelf]
+            },
+            &[Effect::mana_of_any_color()]
+        ),
     ],
-}
+);

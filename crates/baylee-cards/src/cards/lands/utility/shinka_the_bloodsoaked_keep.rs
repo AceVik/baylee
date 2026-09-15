@@ -11,21 +11,31 @@ static TARGET1: Filter = Filter::And(&[
     Filter::HasSupertype(SupertypeSet::LEGENDARY),
 ]);
 
-card! {
-    index: 1022,
-    oracle_id: "255b937f-c9c9-4ae9-815e-17418eba0602",
-    scryfall_id: "d2d5f30e-cc3a-46c1-82a9-2cd73705b2f5",
-    color_identity: ColorSet::from_slice(&[Color::Red]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Shinka, the Bloodsoaked Keep",
-        types: TypeSet::LAND,
-        supertypes: SupertypeSet::LEGENDARY,
-    },
-    ],
-    abilities: &[
+card!(
+    index = 1022,
+    oracle_id = "255b937f-c9c9-4ae9-815e-17418eba0602",
+    scryfall_id = "d2d5f30e-cc3a-46c1-82a9-2cd73705b2f5",
+    color_identity = ColorSet::from_slice(&[Color::Red]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "Shinka, the Bloodsoaked Keep",
+        types = TypeSet::LAND,
+        supertypes = SupertypeSet::LEGENDARY,
+    ),],
+    abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::Red, 1)]),
-        activated!(Cost { mana: mana!("{R}"), parts: &[CostPart::TapSelf] }, &[Effect::PumpTarget { power: Amount::Fixed(0), toughness: Amount::Fixed(0), keywords: KeywordSet::FIRST_STRIKE, duration: Duration::UntilEndOfTurn }], target: Some(TargetSpec::Object(&TARGET1))),
+        activated!(
+            Cost {
+                mana: mana!("{R}"),
+                parts: &[CostPart::TapSelf]
+            },
+            &[Effect::PumpTarget {
+                power: Amount::Fixed(0),
+                toughness: Amount::Fixed(0),
+                keywords: KeywordSet::FIRST_STRIKE,
+                duration: Duration::UntilEndOfTurn
+            }],
+            target = Some(TargetSpec::Object(&TARGET1))
+        ),
     ],
-}
+);

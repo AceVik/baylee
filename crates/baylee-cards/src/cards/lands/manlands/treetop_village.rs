@@ -8,21 +8,56 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-card! {
-    index: 1225,
-    oracle_id: "b53f216d-1592-4eee-b204-502a805fbc8c",
-    scryfall_id: "14394198-0993-46ee-a3ea-5c7084a78772",
-    color_identity: ColorSet::from_slice(&[Color::Green]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Treetop Village",
-        types: TypeSet::LAND,
-        enter_modifiers: &[EnterModifier::Tapped],
-    },
-    ],
-    abilities: &[
+card!(
+    index = 1225,
+    oracle_id = "b53f216d-1592-4eee-b204-502a805fbc8c",
+    scryfall_id = "14394198-0993-46ee-a3ea-5c7084a78772",
+    color_identity = ColorSet::from_slice(&[Color::Green]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "Treetop Village",
+        types = TypeSet::LAND,
+        enter_modifiers = &[EnterModifier::Tapped],
+    ),],
+    abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::Green, 1)]),
-        activated!(Cost { mana: mana!("{1}{G}"), parts: &[] }, &[Effect::CreateContinuousEffect { layer: Layer::Type, filter: &Filter::This, modifier: Modifier::AddType(TypeSet::CREATURE), duration: Duration::UntilEndOfTurn }, Effect::CreateContinuousEffect { layer: Layer::Type, filter: &Filter::This, modifier: Modifier::AddSubtype(subtypes::creature::APE), duration: Duration::UntilEndOfTurn }, Effect::CreateContinuousEffect { layer: Layer::Color, filter: &Filter::This, modifier: Modifier::SetColor(ColorSet::from_slice(&[Color::Green])), duration: Duration::UntilEndOfTurn }, Effect::CreateContinuousEffect { layer: Layer::Ability, filter: &Filter::This, modifier: Modifier::AddKeyword(KeywordSet::TRAMPLE), duration: Duration::UntilEndOfTurn }, Effect::CreateContinuousEffect { layer: Layer::PtSet, filter: &Filter::This, modifier: Modifier::SetPT(3, 3), duration: Duration::UntilEndOfTurn }]),
+        activated!(
+            Cost {
+                mana: mana!("{1}{G}"),
+                parts: &[]
+            },
+            &[
+                Effect::CreateContinuousEffect {
+                    layer: Layer::Type,
+                    filter: &Filter::This,
+                    modifier: Modifier::AddType(TypeSet::CREATURE),
+                    duration: Duration::UntilEndOfTurn
+                },
+                Effect::CreateContinuousEffect {
+                    layer: Layer::Type,
+                    filter: &Filter::This,
+                    modifier: Modifier::AddSubtype(subtypes::creature::APE),
+                    duration: Duration::UntilEndOfTurn
+                },
+                Effect::CreateContinuousEffect {
+                    layer: Layer::Color,
+                    filter: &Filter::This,
+                    modifier: Modifier::SetColor(ColorSet::from_slice(&[Color::Green])),
+                    duration: Duration::UntilEndOfTurn
+                },
+                Effect::CreateContinuousEffect {
+                    layer: Layer::Ability,
+                    filter: &Filter::This,
+                    modifier: Modifier::AddKeyword(KeywordSet::TRAMPLE),
+                    duration: Duration::UntilEndOfTurn
+                },
+                Effect::CreateContinuousEffect {
+                    layer: Layer::PtSet,
+                    filter: &Filter::This,
+                    modifier: Modifier::SetPT(3, 3),
+                    duration: Duration::UntilEndOfTurn
+                }
+            ]
+        ),
     ],
-}
+);

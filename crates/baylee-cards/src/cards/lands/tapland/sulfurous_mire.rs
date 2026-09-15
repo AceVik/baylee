@@ -7,22 +7,21 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-card! {
-    index: 1105,
-    oracle_id: "77cf536e-246e-4c18-8e04-c904fcad3f40",
-    scryfall_id: "35ebe245-ebb5-493c-b9c1-56fbfda9bd66",
-    color_identity: ColorSet::from_slice(&[Color::Black, Color::Red]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Sulfurous Mire",
-        types: TypeSet::LAND,
-        supertypes: SupertypeSet::SNOW,
-        subtypes: &[subtypes::land::SWAMP, subtypes::land::MOUNTAIN],
-        enter_modifiers: &[EnterModifier::Tapped],
-    },
-    ],
-    abilities: &[
-        mana_ability!(&[Effect::mana_choice(&[ManaColor::Black, ManaColor::Red])]),
-    ],
-}
+card!(
+    index = 1105,
+    oracle_id = "77cf536e-246e-4c18-8e04-c904fcad3f40",
+    scryfall_id = "35ebe245-ebb5-493c-b9c1-56fbfda9bd66",
+    color_identity = ColorSet::from_slice(&[Color::Black, Color::Red]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "Sulfurous Mire",
+        types = TypeSet::LAND,
+        supertypes = SupertypeSet::SNOW,
+        subtypes = &[subtypes::land::SWAMP, subtypes::land::MOUNTAIN],
+        enter_modifiers = &[EnterModifier::Tapped],
+    ),],
+    abilities = &[mana_ability!(&[Effect::mana_choice(&[
+        ManaColor::Black,
+        ManaColor::Red
+    ])]),],
+);

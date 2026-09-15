@@ -7,21 +7,27 @@
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 697,
-    oracle_id: "da81b78b-89fd-4fc1-9395-b5b01b96be70",
-    scryfall_id: "8d5f3008-2af8-4e81-8847-1c91f524e747",
-    color_identity: ColorSet::from_slice(&[Color::Green, Color::White]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Kyoshi Village",
-        types: TypeSet::LAND,
-        enter_modifiers: &[EnterModifier::Tapped],
-    },
-    ],
-    abilities: &[
+card!(
+    index = 697,
+    oracle_id = "da81b78b-89fd-4fc1-9395-b5b01b96be70",
+    scryfall_id = "8d5f3008-2af8-4e81-8847-1c91f524e747",
+    color_identity = ColorSet::from_slice(&[Color::Green, Color::White]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "Kyoshi Village",
+        types = TypeSet::LAND,
+        enter_modifiers = &[EnterModifier::Tapped],
+    ),],
+    abilities = &[
         mana_ability!(&[Effect::mana_choice(&[ManaColor::Green, ManaColor::White])]),
-        activated!(Cost { mana: mana!("{4}"), parts: &[CostPart::TapSelf, CostPart::SacrificeSelf] }, &[Effect::DrawCards { amount: Amount::Fixed(1) }]),
+        activated!(
+            Cost {
+                mana: mana!("{4}"),
+                parts: &[CostPart::TapSelf, CostPart::SacrificeSelf]
+            },
+            &[Effect::DrawCards {
+                amount: Amount::Fixed(1)
+            }]
+        ),
     ],
-}
+);

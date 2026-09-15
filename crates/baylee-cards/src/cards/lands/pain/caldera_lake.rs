@@ -7,21 +7,25 @@
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 325,
-    oracle_id: "c737d27b-db14-4bd4-8f16-bcbd4401c47b",
-    scryfall_id: "f79313f8-0b79-4fe3-8eb1-db523587b714",
-    color_identity: ColorSet::from_slice(&[Color::Red, Color::Blue]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Caldera Lake",
-        types: TypeSet::LAND,
-        enter_modifiers: &[EnterModifier::Tapped],
-    },
-    ],
-    abilities: &[
+card!(
+    index = 325,
+    oracle_id = "c737d27b-db14-4bd4-8f16-bcbd4401c47b",
+    scryfall_id = "f79313f8-0b79-4fe3-8eb1-db523587b714",
+    color_identity = ColorSet::from_slice(&[Color::Red, Color::Blue]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "Caldera Lake",
+        types = TypeSet::LAND,
+        enter_modifiers = &[EnterModifier::Tapped],
+    ),],
+    abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
-        mana_ability!(&[Effect::mana_choice(&[ManaColor::Blue, ManaColor::Red]), Effect::DealDamage { amount: Amount::Fixed(1), target: TargetSpec::Player(PlayerRel::You) }]),
+        mana_ability!(&[
+            Effect::mana_choice(&[ManaColor::Blue, ManaColor::Red]),
+            Effect::DealDamage {
+                amount: Amount::Fixed(1),
+                target: TargetSpec::Player(PlayerRel::You)
+            }
+        ]),
     ],
-}
+);

@@ -11,24 +11,24 @@ use baylee_core::generated::subtypes;
 /// A basic land card: the *supertype* Basic plus the land type (CR 205.4a).
 static BASIC_LAND: Filter = Filter::And(&[Filter::HasSupertype(SupertypeSet::BASIC), Filter::LAND]);
 
-card! {
-    index: 195,
-    oracle_id: "1593ea18-2f2f-4ab4-83fb-6ccc0bec8a90",
-    scryfall_id: "90c423cc-1264-4067-9c50-e7c88c68ef2d",
-    color_identity: ColorSet::from_slice(&[Color::Green]),
-    faces: &[face! {
-        name: "Kodama's Reach",
-        mana_cost: mana!("{2}{G}"),
-        types: TypeSet::SORCERY,
-        subtypes: &[subtypes::spell::ARCANE],
-    }],
-    coverage: Coverage::Implemented,
-    abilities: &[spell!(&[Effect::SearchLibrary {
-            filter: &BASIC_LAND,
-            finds: &[Find::BATTLEFIELD_TAPPED, Find::HAND],
-            optional: true, // "up to two"
-        }])],
-}
+card!(
+    index = 195,
+    oracle_id = "1593ea18-2f2f-4ab4-83fb-6ccc0bec8a90",
+    scryfall_id = "90c423cc-1264-4067-9c50-e7c88c68ef2d",
+    color_identity = ColorSet::from_slice(&[Color::Green]),
+    faces = &[face!(
+        name = "Kodama's Reach",
+        mana_cost = mana!("{2}{G}"),
+        types = TypeSet::SORCERY,
+        subtypes = &[subtypes::spell::ARCANE],
+    )],
+    coverage = Coverage::Implemented,
+    abilities = &[spell!(&[Effect::SearchLibrary {
+        filter: &BASIC_LAND,
+        finds: &[Find::BATTLEFIELD_TAPPED, Find::HAND],
+        optional: true, // "up to two"
+    }])],
+);
 
 // Engine-level coverage lives in baylee-engine (search_tests), on Cultivate:
 // the same effect with the same two destinations.

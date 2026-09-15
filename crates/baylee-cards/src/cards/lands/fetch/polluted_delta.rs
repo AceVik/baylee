@@ -13,28 +13,28 @@ static SEARCH_FILTER: Filter = Filter::Or(&[
     Filter::HasSubtype(land::SWAMP),
 ]);
 
-card! {
-    index: 116,
-    oracle_id: "ef86989d-ce80-4e55-aece-7d11710eeffa",
-    scryfall_id: "6e288374-2b71-4ace-b1d2-a19fee6cb4af",
-    faces: &[face! {
-        name: "Polluted Delta",
-        types: TypeSet::LAND,
-    }],
-    coverage: Coverage::Implemented,
-    abilities: &[activated!(Cost {
+card!(
+    index = 116,
+    oracle_id = "ef86989d-ce80-4e55-aece-7d11710eeffa",
+    scryfall_id = "6e288374-2b71-4ace-b1d2-a19fee6cb4af",
+    faces = &[face!(name = "Polluted Delta", types = TypeSet::LAND,)],
+    coverage = Coverage::Implemented,
+    abilities = &[activated!(
+        Cost {
             mana: ManaCost::ZERO,
             parts: &[
                 CostPart::TapSelf,
                 CostPart::SacrificeSelf,
                 CostPart::PayLife(1),
             ],
-        }, &[Effect::SearchLibrary {
+        },
+        &[Effect::SearchLibrary {
             filter: &SEARCH_FILTER,
             finds: &[Find::BATTLEFIELD],
             optional: false,
-        }])],
-}
+        }]
+    )],
+);
 
 // Engine-level test lives in baylee-engine
 // (`a_fetchland_puts_its_land_in_untapped`): activation pays

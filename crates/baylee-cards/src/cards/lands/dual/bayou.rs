@@ -6,20 +6,19 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-card! {
-    index: 267,
-    oracle_id: "b76d1ae6-ad1d-4bac-b4c3-2e03e0e84d9b",
-    scryfall_id: "bd7567df-b4d8-41a8-8eac-c05afa784bfe",
-    color_identity: ColorSet::from_slice(&[Color::Black, Color::Green]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Bayou",
-        types: TypeSet::LAND,
-        subtypes: &[subtypes::land::SWAMP, subtypes::land::FOREST],
-    },
-    ],
-    abilities: &[
-        mana_ability!(&[Effect::mana_choice(&[ManaColor::Black, ManaColor::Green])]),
-    ],
-}
+card!(
+    index = 267,
+    oracle_id = "b76d1ae6-ad1d-4bac-b4c3-2e03e0e84d9b",
+    scryfall_id = "bd7567df-b4d8-41a8-8eac-c05afa784bfe",
+    color_identity = ColorSet::from_slice(&[Color::Black, Color::Green]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "Bayou",
+        types = TypeSet::LAND,
+        subtypes = &[subtypes::land::SWAMP, subtypes::land::FOREST],
+    ),],
+    abilities = &[mana_ability!(&[Effect::mana_choice(&[
+        ManaColor::Black,
+        ManaColor::Green
+    ])]),],
+);

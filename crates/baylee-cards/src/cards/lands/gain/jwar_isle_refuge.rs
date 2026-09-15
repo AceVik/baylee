@@ -7,21 +7,24 @@
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 674,
-    oracle_id: "8b96f837-7c32-473a-b5ae-1d66527eaf7b",
-    scryfall_id: "6d103181-25a1-4928-ac37-adf11038d5b5",
-    color_identity: ColorSet::from_slice(&[Color::Black, Color::Blue]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Jwar Isle Refuge",
-        types: TypeSet::LAND,
-        enter_modifiers: &[EnterModifier::Tapped],
-    },
-    ],
-    abilities: &[
-        triggered!(Trigger::EntersBattlefield(&Filter::This), &[Effect::GainLife { amount: Amount::Fixed(1) }]),
+card!(
+    index = 674,
+    oracle_id = "8b96f837-7c32-473a-b5ae-1d66527eaf7b",
+    scryfall_id = "6d103181-25a1-4928-ac37-adf11038d5b5",
+    color_identity = ColorSet::from_slice(&[Color::Black, Color::Blue]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "Jwar Isle Refuge",
+        types = TypeSet::LAND,
+        enter_modifiers = &[EnterModifier::Tapped],
+    ),],
+    abilities = &[
+        triggered!(
+            Trigger::EntersBattlefield(&Filter::This),
+            &[Effect::GainLife {
+                amount: Amount::Fixed(1)
+            }]
+        ),
         mana_ability!(&[Effect::mana_choice(&[ManaColor::Blue, ManaColor::Black])]),
     ],
-}
+);

@@ -12,19 +12,25 @@ static SEARCH1: Filter = Filter::Or(&[
     Filter::HasSubtype(subtypes::land::MOUNTAIN),
 ]);
 
-card! {
-    index: 936,
-    oracle_id: "8709b5b1-ef9e-45b2-bf4f-ef4c4d613dcd",
-    scryfall_id: "2aa1f7c6-f888-4384-9626-f106571e164c",
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Rocky Tar Pit",
-        types: TypeSet::LAND,
-        enter_modifiers: &[EnterModifier::Tapped],
-    },
-    ],
-    abilities: &[
-        activated!(Cost { mana: ManaCost::ZERO, parts: &[CostPart::TapSelf, CostPart::SacrificeSelf] }, &[Effect::SearchLibrary { filter: &SEARCH1, finds: &[Find::BATTLEFIELD], optional: false }]),
-    ],
-}
+card!(
+    index = 936,
+    oracle_id = "8709b5b1-ef9e-45b2-bf4f-ef4c4d613dcd",
+    scryfall_id = "2aa1f7c6-f888-4384-9626-f106571e164c",
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "Rocky Tar Pit",
+        types = TypeSet::LAND,
+        enter_modifiers = &[EnterModifier::Tapped],
+    ),],
+    abilities = &[activated!(
+        Cost {
+            mana: ManaCost::ZERO,
+            parts: &[CostPart::TapSelf, CostPart::SacrificeSelf]
+        },
+        &[Effect::SearchLibrary {
+            filter: &SEARCH1,
+            finds: &[Find::BATTLEFIELD],
+            optional: false
+        }]
+    ),],
+);

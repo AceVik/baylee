@@ -8,22 +8,27 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-card! {
-    index: 313,
-    oracle_id: "9cbc9f83-8979-42a5-a466-a8d89c8e6de8",
-    scryfall_id: "d61dfeb7-7f6b-4601-8396-2cbb98165489",
-    color_identity: ColorSet::from_slice(&[Color::Green, Color::Red]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Bristling Backwoods",
-        types: TypeSet::LAND,
-        subtypes: &[subtypes::land::DESERT],
-        enter_modifiers: &[EnterModifier::Tapped],
-    },
-    ],
-    abilities: &[
-        triggered!(Trigger::EntersBattlefield(&Filter::This), &[Effect::DealDamage { amount: Amount::Fixed(1), target: TargetSpec::Player(PlayerRel::Chosen) }], targets: Some(TargetReq::one(TargetSpec::AnyOpponent))),
+card!(
+    index = 313,
+    oracle_id = "9cbc9f83-8979-42a5-a466-a8d89c8e6de8",
+    scryfall_id = "d61dfeb7-7f6b-4601-8396-2cbb98165489",
+    color_identity = ColorSet::from_slice(&[Color::Green, Color::Red]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "Bristling Backwoods",
+        types = TypeSet::LAND,
+        subtypes = &[subtypes::land::DESERT],
+        enter_modifiers = &[EnterModifier::Tapped],
+    ),],
+    abilities = &[
+        triggered!(
+            Trigger::EntersBattlefield(&Filter::This),
+            &[Effect::DealDamage {
+                amount: Amount::Fixed(1),
+                target: TargetSpec::Player(PlayerRel::Chosen)
+            }],
+            targets = Some(TargetReq::one(TargetSpec::AnyOpponent))
+        ),
         mana_ability!(&[Effect::mana_choice(&[ManaColor::Red, ManaColor::Green])]),
     ],
-}
+);

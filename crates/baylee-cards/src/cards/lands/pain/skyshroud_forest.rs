@@ -7,21 +7,25 @@
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 1046,
-    oracle_id: "117a5fae-7fc4-4e24-b646-5727ea392fa7",
-    scryfall_id: "ba561609-406d-47c8-9d5b-1fb20ecac916",
-    color_identity: ColorSet::from_slice(&[Color::Green, Color::Blue]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Skyshroud Forest",
-        types: TypeSet::LAND,
-        enter_modifiers: &[EnterModifier::Tapped],
-    },
-    ],
-    abilities: &[
+card!(
+    index = 1046,
+    oracle_id = "117a5fae-7fc4-4e24-b646-5727ea392fa7",
+    scryfall_id = "ba561609-406d-47c8-9d5b-1fb20ecac916",
+    color_identity = ColorSet::from_slice(&[Color::Green, Color::Blue]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "Skyshroud Forest",
+        types = TypeSet::LAND,
+        enter_modifiers = &[EnterModifier::Tapped],
+    ),],
+    abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
-        mana_ability!(&[Effect::mana_choice(&[ManaColor::Green, ManaColor::Blue]), Effect::DealDamage { amount: Amount::Fixed(1), target: TargetSpec::Player(PlayerRel::You) }]),
+        mana_ability!(&[
+            Effect::mana_choice(&[ManaColor::Green, ManaColor::Blue]),
+            Effect::DealDamage {
+                amount: Amount::Fixed(1),
+                target: TargetSpec::Player(PlayerRel::You)
+            }
+        ]),
     ],
-}
+);

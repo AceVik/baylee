@@ -7,21 +7,28 @@
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 992,
-    oracle_id: "8dec6fcf-1254-4b1b-ba23-7a3e492a7241",
-    scryfall_id: "aaa5bee9-3f6a-45b0-a282-6b23222e948f",
-    color_identity: ColorSet::from_slice(&[Color::White]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Secluded Steppe",
-        types: TypeSet::LAND,
-        enter_modifiers: &[EnterModifier::Tapped],
-    },
-    ],
-    abilities: &[
+card!(
+    index = 992,
+    oracle_id = "8dec6fcf-1254-4b1b-ba23-7a3e492a7241",
+    scryfall_id = "aaa5bee9-3f6a-45b0-a282-6b23222e948f",
+    color_identity = ColorSet::from_slice(&[Color::White]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "Secluded Steppe",
+        types = TypeSet::LAND,
+        enter_modifiers = &[EnterModifier::Tapped],
+    ),],
+    abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::White, 1)]),
-        activated!(Cost { mana: mana!("{W}"), parts: &[CostPart::DiscardSelf] }, &[Effect::DrawCards { amount: Amount::Fixed(1) }], zone: ActivationZone::Hand),
+        activated!(
+            Cost {
+                mana: mana!("{W}"),
+                parts: &[CostPart::DiscardSelf]
+            },
+            &[Effect::DrawCards {
+                amount: Amount::Fixed(1)
+            }],
+            zone = ActivationZone::Hand
+        ),
     ],
-}
+);

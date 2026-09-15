@@ -6,20 +6,21 @@
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 717,
-    oracle_id: "32116127-cf96-4a1b-8896-a1ebc087b597",
-    scryfall_id: "266316d3-3bbc-4283-aab8-69629855909f",
-    color_identity: ColorSet::from_slice(&[Color::Black, Color::Green]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Llanowar Wastes",
-        types: TypeSet::LAND,
-    },
-    ],
-    abilities: &[
+card!(
+    index = 717,
+    oracle_id = "32116127-cf96-4a1b-8896-a1ebc087b597",
+    scryfall_id = "266316d3-3bbc-4283-aab8-69629855909f",
+    color_identity = ColorSet::from_slice(&[Color::Black, Color::Green]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(name = "Llanowar Wastes", types = TypeSet::LAND,),],
+    abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
-        mana_ability!(&[Effect::mana_choice(&[ManaColor::Black, ManaColor::Green]), Effect::DealDamage { amount: Amount::Fixed(1), target: TargetSpec::Player(PlayerRel::You) }]),
+        mana_ability!(&[
+            Effect::mana_choice(&[ManaColor::Black, ManaColor::Green]),
+            Effect::DealDamage {
+                amount: Amount::Fixed(1),
+                target: TargetSpec::Player(PlayerRel::You)
+            }
+        ]),
     ],
-}
+);

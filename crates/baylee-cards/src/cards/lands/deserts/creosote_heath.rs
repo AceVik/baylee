@@ -8,22 +8,27 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-card! {
-    index: 384,
-    oracle_id: "c116b787-5f7e-47ef-a694-58709770dd32",
-    scryfall_id: "c5523dac-7aa0-4486-89c8-3b22a1411f26",
-    color_identity: ColorSet::from_slice(&[Color::Green, Color::White]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Creosote Heath",
-        types: TypeSet::LAND,
-        subtypes: &[subtypes::land::DESERT],
-        enter_modifiers: &[EnterModifier::Tapped],
-    },
-    ],
-    abilities: &[
-        triggered!(Trigger::EntersBattlefield(&Filter::This), &[Effect::DealDamage { amount: Amount::Fixed(1), target: TargetSpec::Player(PlayerRel::Chosen) }], targets: Some(TargetReq::one(TargetSpec::AnyOpponent))),
+card!(
+    index = 384,
+    oracle_id = "c116b787-5f7e-47ef-a694-58709770dd32",
+    scryfall_id = "c5523dac-7aa0-4486-89c8-3b22a1411f26",
+    color_identity = ColorSet::from_slice(&[Color::Green, Color::White]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "Creosote Heath",
+        types = TypeSet::LAND,
+        subtypes = &[subtypes::land::DESERT],
+        enter_modifiers = &[EnterModifier::Tapped],
+    ),],
+    abilities = &[
+        triggered!(
+            Trigger::EntersBattlefield(&Filter::This),
+            &[Effect::DealDamage {
+                amount: Amount::Fixed(1),
+                target: TargetSpec::Player(PlayerRel::Chosen)
+            }],
+            targets = Some(TargetReq::one(TargetSpec::AnyOpponent))
+        ),
         mana_ability!(&[Effect::mana_choice(&[ManaColor::White, ManaColor::Green])]),
     ],
-}
+);

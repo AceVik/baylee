@@ -9,21 +9,28 @@ use baylee_cards_dsl::prelude::*;
 
 static TARGET1: Filter = Filter::CREATURE;
 
-card! {
-    index: 960,
-    oracle_id: "08911e8e-cd67-4960-a927-958c33632469",
-    scryfall_id: "c781e932-4605-47aa-add1-4ee62f4e7ead",
-    color_identity: ColorSet::from_slice(&[Color::White]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Sandstone Bridge",
-        types: TypeSet::LAND,
-        enter_modifiers: &[EnterModifier::Tapped],
-    },
-    ],
-    abilities: &[
-        triggered!(Trigger::EntersBattlefield(&Filter::This), &[Effect::PumpTarget { power: Amount::Fixed(1), toughness: Amount::Fixed(1), keywords: KeywordSet::VIGILANCE, duration: Duration::UntilEndOfTurn }], targets: Some(TargetReq::one(TargetSpec::Object(&TARGET1)))),
+card!(
+    index = 960,
+    oracle_id = "08911e8e-cd67-4960-a927-958c33632469",
+    scryfall_id = "c781e932-4605-47aa-add1-4ee62f4e7ead",
+    color_identity = ColorSet::from_slice(&[Color::White]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "Sandstone Bridge",
+        types = TypeSet::LAND,
+        enter_modifiers = &[EnterModifier::Tapped],
+    ),],
+    abilities = &[
+        triggered!(
+            Trigger::EntersBattlefield(&Filter::This),
+            &[Effect::PumpTarget {
+                power: Amount::Fixed(1),
+                toughness: Amount::Fixed(1),
+                keywords: KeywordSet::VIGILANCE,
+                duration: Duration::UntilEndOfTurn
+            }],
+            targets = Some(TargetReq::one(TargetSpec::Object(&TARGET1)))
+        ),
         mana_ability!(&[Effect::mana(ManaColor::White, 1)]),
     ],
-}
+);

@@ -9,20 +9,22 @@ use baylee_core::generated::subtypes;
 
 static TARGET1: Filter = Filter::HasSubtype(subtypes::creature::ELF);
 
-card! {
-    index: 1323,
-    oracle_id: "1275653f-de4e-4fe9-aad8-88555fa11680",
-    scryfall_id: "15a92571-1409-40c3-84c3-da01d6f1b104",
-    color_identity: ColorSet::from_slice(&[Color::Green]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Wirewood Lodge",
-        types: TypeSet::LAND,
-    },
-    ],
-    abilities: &[
+card!(
+    index = 1323,
+    oracle_id = "1275653f-de4e-4fe9-aad8-88555fa11680",
+    scryfall_id = "15a92571-1409-40c3-84c3-da01d6f1b104",
+    color_identity = ColorSet::from_slice(&[Color::Green]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(name = "Wirewood Lodge", types = TypeSet::LAND,),],
+    abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
-        activated!(Cost { mana: mana!("{G}"), parts: &[CostPart::TapSelf] }, &[Effect::UntapTarget], target: Some(TargetSpec::Object(&TARGET1))),
+        activated!(
+            Cost {
+                mana: mana!("{G}"),
+                parts: &[CostPart::TapSelf]
+            },
+            &[Effect::UntapTarget],
+            target = Some(TargetSpec::Object(&TARGET1))
+        ),
     ],
-}
+);

@@ -7,21 +7,28 @@
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 223,
-    oracle_id: "2160849a-184f-4a49-8931-fd021e16f7cb",
-    scryfall_id: "004eefa4-947b-45fc-b45c-5263bfd763bc",
-    color_identity: ColorSet::from_slice(&[Color::Black, Color::Blue, Color::White]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Ancient Spring",
-        types: TypeSet::LAND,
-        enter_modifiers: &[EnterModifier::Tapped],
-    },
-    ],
-    abilities: &[
+card!(
+    index = 223,
+    oracle_id = "2160849a-184f-4a49-8931-fd021e16f7cb",
+    scryfall_id = "004eefa4-947b-45fc-b45c-5263bfd763bc",
+    color_identity = ColorSet::from_slice(&[Color::Black, Color::Blue, Color::White]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "Ancient Spring",
+        types = TypeSet::LAND,
+        enter_modifiers = &[EnterModifier::Tapped],
+    ),],
+    abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::Blue, 1)]),
-        mana_ability!(Cost { mana: ManaCost::ZERO, parts: &[CostPart::TapSelf, CostPart::SacrificeSelf] }, &[Effect::mana(ManaColor::White, 1), Effect::mana(ManaColor::Black, 1)]),
+        mana_ability!(
+            Cost {
+                mana: ManaCost::ZERO,
+                parts: &[CostPart::TapSelf, CostPart::SacrificeSelf]
+            },
+            &[
+                Effect::mana(ManaColor::White, 1),
+                Effect::mana(ManaColor::Black, 1)
+            ]
+        ),
     ],
-}
+);

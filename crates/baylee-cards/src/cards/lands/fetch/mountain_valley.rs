@@ -12,19 +12,25 @@ static SEARCH1: Filter = Filter::Or(&[
     Filter::HasSubtype(subtypes::land::FOREST),
 ]);
 
-card! {
-    index: 788,
-    oracle_id: "0b7393aa-d563-45bc-9946-8e7d1729d498",
-    scryfall_id: "3094800e-9994-47c3-9ebc-536bf5de13cd",
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Mountain Valley",
-        types: TypeSet::LAND,
-        enter_modifiers: &[EnterModifier::Tapped],
-    },
-    ],
-    abilities: &[
-        activated!(Cost { mana: ManaCost::ZERO, parts: &[CostPart::TapSelf, CostPart::SacrificeSelf] }, &[Effect::SearchLibrary { filter: &SEARCH1, finds: &[Find::BATTLEFIELD], optional: false }]),
-    ],
-}
+card!(
+    index = 788,
+    oracle_id = "0b7393aa-d563-45bc-9946-8e7d1729d498",
+    scryfall_id = "3094800e-9994-47c3-9ebc-536bf5de13cd",
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "Mountain Valley",
+        types = TypeSet::LAND,
+        enter_modifiers = &[EnterModifier::Tapped],
+    ),],
+    abilities = &[activated!(
+        Cost {
+            mana: ManaCost::ZERO,
+            parts: &[CostPart::TapSelf, CostPart::SacrificeSelf]
+        },
+        &[Effect::SearchLibrary {
+            filter: &SEARCH1,
+            finds: &[Find::BATTLEFIELD],
+            optional: false
+        }]
+    ),],
+);

@@ -7,21 +7,28 @@
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 1051,
-    oracle_id: "be09e83f-6486-4f42-8d2e-416cb95173f9",
-    scryfall_id: "cbf82db0-26b9-4b32-832b-18710d1010b3",
-    color_identity: ColorSet::from_slice(&[Color::Red]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Smoldering Crater",
-        types: TypeSet::LAND,
-        enter_modifiers: &[EnterModifier::Tapped],
-    },
-    ],
-    abilities: &[
+card!(
+    index = 1051,
+    oracle_id = "be09e83f-6486-4f42-8d2e-416cb95173f9",
+    scryfall_id = "cbf82db0-26b9-4b32-832b-18710d1010b3",
+    color_identity = ColorSet::from_slice(&[Color::Red]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "Smoldering Crater",
+        types = TypeSet::LAND,
+        enter_modifiers = &[EnterModifier::Tapped],
+    ),],
+    abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::Red, 1)]),
-        activated!(Cost { mana: mana!("{2}"), parts: &[CostPart::DiscardSelf] }, &[Effect::DrawCards { amount: Amount::Fixed(1) }], zone: ActivationZone::Hand),
+        activated!(
+            Cost {
+                mana: mana!("{2}"),
+                parts: &[CostPart::DiscardSelf]
+            },
+            &[Effect::DrawCards {
+                amount: Amount::Fixed(1)
+            }],
+            zone = ActivationZone::Hand
+        ),
     ],
-}
+);

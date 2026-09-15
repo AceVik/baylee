@@ -7,18 +7,13 @@ use baylee_cards_dsl::prelude::*;
 
 static SPEND1: Filter = Filter::CREATURE;
 
-card! {
-    index: 225,
-    oracle_id: "0baabe39-72ae-47bd-a095-cbf7eb8a6361",
-    scryfall_id: "136f1e4e-ca24-45cb-a39c-4dd159bb1488",
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Ancient Ziggurat",
-        types: TypeSet::LAND,
-    },
-    ],
-    abilities: &[
-        mana_ability!(&[Effect::mana_of_any_color().restricted(&SPEND1, SpendRider::None)]),
-    ],
-}
+card!(
+    index = 225,
+    oracle_id = "0baabe39-72ae-47bd-a095-cbf7eb8a6361",
+    scryfall_id = "136f1e4e-ca24-45cb-a39c-4dd159bb1488",
+    coverage = Coverage::Implemented,
+    faces = &[face!(name = "Ancient Ziggurat", types = TypeSet::LAND,),],
+    abilities = &[mana_ability!(&[
+        Effect::mana_of_any_color().restricted(&SPEND1, SpendRider::None)
+    ]),],
+);

@@ -7,20 +7,19 @@ use baylee_cards_dsl::prelude::*;
 
 static TARGET1: Filter = Filter::Not(&Filter::CREATURE);
 
-card! {
-    index: 1355,
-    oracle_id: "3407fe41-fdd3-4119-8f70-4bc4590a379f",
-    scryfall_id: "52d58fe4-6070-4022-9cd7-c35a11b44525",
-    color_identity: ColorSet::from_slice(&[Color::Blue]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Negate",
-        mana_cost: mana!("{1}{U}"),
-        types: TypeSet::INSTANT,
-    },
-    ],
-    abilities: &[
-        spell!(&[Effect::CounterTargetSpell], targets: Some(TargetReq::one(TargetSpec::Spell(&TARGET1)))),
-    ],
-}
+card!(
+    index = 1355,
+    oracle_id = "3407fe41-fdd3-4119-8f70-4bc4590a379f",
+    scryfall_id = "52d58fe4-6070-4022-9cd7-c35a11b44525",
+    color_identity = ColorSet::from_slice(&[Color::Blue]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "Negate",
+        mana_cost = mana!("{1}{U}"),
+        types = TypeSet::INSTANT,
+    ),],
+    abilities = &[spell!(
+        &[Effect::CounterTargetSpell],
+        targets = Some(TargetReq::one(TargetSpec::Spell(&TARGET1)))
+    ),],
+);

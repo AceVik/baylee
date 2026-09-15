@@ -8,22 +8,27 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-card! {
-    index: 728,
-    oracle_id: "b6a965eb-cffb-41c1-925a-7cf3e8e2f248",
-    scryfall_id: "988e44c5-4632-4ebb-b6ae-c3886e49d637",
-    color_identity: ColorSet::from_slice(&[Color::Green, Color::Blue]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Lush Oasis",
-        types: TypeSet::LAND,
-        subtypes: &[subtypes::land::DESERT],
-        enter_modifiers: &[EnterModifier::Tapped],
-    },
-    ],
-    abilities: &[
-        triggered!(Trigger::EntersBattlefield(&Filter::This), &[Effect::DealDamage { amount: Amount::Fixed(1), target: TargetSpec::Player(PlayerRel::Chosen) }], targets: Some(TargetReq::one(TargetSpec::AnyOpponent))),
+card!(
+    index = 728,
+    oracle_id = "b6a965eb-cffb-41c1-925a-7cf3e8e2f248",
+    scryfall_id = "988e44c5-4632-4ebb-b6ae-c3886e49d637",
+    color_identity = ColorSet::from_slice(&[Color::Green, Color::Blue]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "Lush Oasis",
+        types = TypeSet::LAND,
+        subtypes = &[subtypes::land::DESERT],
+        enter_modifiers = &[EnterModifier::Tapped],
+    ),],
+    abilities = &[
+        triggered!(
+            Trigger::EntersBattlefield(&Filter::This),
+            &[Effect::DealDamage {
+                amount: Amount::Fixed(1),
+                target: TargetSpec::Player(PlayerRel::Chosen)
+            }],
+            targets = Some(TargetReq::one(TargetSpec::AnyOpponent))
+        ),
         mana_ability!(&[Effect::mana_choice(&[ManaColor::Green, ManaColor::Blue])]),
     ],
-}
+);

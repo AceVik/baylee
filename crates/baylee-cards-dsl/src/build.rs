@@ -268,23 +268,23 @@ impl SpellMode {
 /// falls back to [`CardDef::DEFAULT`](crate::CardDef::DEFAULT).
 ///
 /// ```ignore
-/// card! {
-///     index: 165,
-///     oracle_id: "22e3cf1d-3559-4ce1-954c-8dc815342979",
-///     scryfall_id: "0c2c39fc-b564-4ab5-833c-ff029760b7a7",
-///     faces: &[face! { name: "Taiga", types: TypeSet::LAND, subtypes: SUBS }],
-///     color_identity: ColorSet::from_slice(&[Color::Red, Color::Green]),
-///     coverage: Coverage::Implemented,
-///     abilities: &[mana_ability!(&[Effect::mana_choice(COLORS)])],
-/// }
+/// card!(
+///     index = 165,
+///     oracle_id = "22e3cf1d-3559-4ce1-954c-8dc815342979",
+///     scryfall_id = "0c2c39fc-b564-4ab5-833c-ff029760b7a7",
+///     faces = &[face!(name = "Taiga", types = TypeSet::LAND, subtypes = SUBS)],
+///     color_identity = ColorSet::from_slice(&[Color::Red, Color::Green]),
+///     coverage = Coverage::Implemented,
+///     abilities = &[mana_ability!(&[Effect::mana_choice(COLORS)])],
+/// );
 /// ```
 #[macro_export]
 macro_rules! card {
     (
-        index: $index:literal,
-        oracle_id: $oracle:literal,
-        scryfall_id: $scryfall:literal,
-        $($field:ident : $value:expr),* $(,)?
+        index = $index:literal,
+        oracle_id = $oracle:literal,
+        scryfall_id = $scryfall:literal,
+        $($field:ident = $value:expr),* $(,)?
     ) => {
         /// The compiled definition of this card.
         pub static CARD: $crate::CardDef = $crate::CardDef {
@@ -304,7 +304,7 @@ macro_rules! card {
 /// every card file.
 #[macro_export]
 macro_rules! face {
-    ($($field:ident : $value:expr),* $(,)?) => {
+    ($($field:ident = $value:expr),* $(,)?) => {
         $crate::FaceDef {
             $($field: $value,)*
             ..$crate::FaceDef::DEFAULT
@@ -317,12 +317,12 @@ macro_rules! face {
 ///
 /// ```ignore
 /// activated!(Cost::TAP, EFFECTS)
-/// activated!(Cost::TAP, EFFECTS, target: Some(TargetSpec::Object(&ANY_CREATURE)))
-/// activated!(EQUIP_COST, EFFECTS, timing: ActivationTiming::SorcerySpeed)
+/// activated!(Cost::TAP, EFFECTS, target = Some(TargetSpec::Object(&ANY_CREATURE)))
+/// activated!(EQUIP_COST, EFFECTS, timing = ActivationTiming::SorcerySpeed)
 /// ```
 #[macro_export]
 macro_rules! activated {
-    ($cost:expr, $effects:expr $(, $field:ident : $value:expr)* $(,)?) => {
+    ($cost:expr, $effects:expr $(, $field:ident = $value:expr)* $(,)?) => {
         $crate::ActivatedParts {
             $($field: $value,)*
             ..$crate::ActivatedParts::new($cost, $effects)
@@ -345,7 +345,7 @@ macro_rules! mana_ability {
     ($effects:expr) => {
         $crate::mana_ability!($crate::Cost::TAP, $effects)
     };
-    ($cost:expr, $effects:expr $(, $field:ident : $value:expr)* $(,)?) => {
+    ($cost:expr, $effects:expr $(, $field:ident = $value:expr)* $(,)?) => {
         $crate::ActivatedParts {
             $($field: $value,)*
             ..$crate::ActivatedParts::mana($cost, $effects)
@@ -359,11 +359,11 @@ macro_rules! mana_ability {
 ///
 /// ```ignore
 /// triggered!(Trigger::EntersBattlefield(&Filter::This), EFFECTS)
-/// triggered!(Trigger::Dies(&ALLY), EFFECTS, once_per_turn: true)
+/// triggered!(Trigger::Dies(&ALLY), EFFECTS, once_per_turn = true)
 /// ```
 #[macro_export]
 macro_rules! triggered {
-    ($trigger:expr, $effects:expr $(, $field:ident : $value:expr)* $(,)?) => {
+    ($trigger:expr, $effects:expr $(, $field:ident = $value:expr)* $(,)?) => {
         $crate::TriggeredParts {
             $($field: $value,)*
             ..$crate::TriggeredParts::new($trigger, $effects)
@@ -377,11 +377,11 @@ macro_rules! triggered {
 ///
 /// ```ignore
 /// modal_triggered!(Trigger::EntersBattlefield(&Filter::This), MODES)
-/// modal_triggered!(Trigger::Attacks(&Filter::This), MODES, once_per_turn: true)
+/// modal_triggered!(Trigger::Attacks(&Filter::This), MODES, once_per_turn = true)
 /// ```
 #[macro_export]
 macro_rules! modal_triggered {
-    ($trigger:expr, $modes:expr $(, $field:ident : $value:expr)* $(,)?) => {
+    ($trigger:expr, $modes:expr $(, $field:ident = $value:expr)* $(,)?) => {
         $crate::ModalTriggeredParts {
             $($field: $value,)*
             ..$crate::ModalTriggeredParts::new($trigger, $modes)
@@ -394,11 +394,11 @@ macro_rules! modal_triggered {
 ///
 /// ```ignore
 /// spell!(EFFECTS)
-/// spell!(EFFECTS, targets: Some(TargetReq::one(&ANY_CREATURE)))
+/// spell!(EFFECTS, targets = Some(TargetReq::one(&ANY_CREATURE)))
 /// ```
 #[macro_export]
 macro_rules! spell {
-    ($effects:expr $(, $field:ident : $value:expr)* $(,)?) => {
+    ($effects:expr $(, $field:ident = $value:expr)* $(,)?) => {
         $crate::SpellParts {
             $($field: $value,)*
             ..$crate::SpellParts::new($effects)
@@ -411,12 +411,12 @@ macro_rules! spell {
 ///
 /// ```ignore
 /// loyalty!(1, EFFECTS)
-/// loyalty!(-3, EFFECTS, targets: Some(TargetReq::one(TargetSpec::Object(&ANY_CREATURE))))
-/// loyalty!(1, EFFECTS, targets: Some(TargetReq::up_to_one(TargetSpec::Object(&ANY_ARTIFACT))))
+/// loyalty!(-3, EFFECTS, targets = Some(TargetReq::one(TargetSpec::Object(&ANY_CREATURE))))
+/// loyalty!(1, EFFECTS, targets = Some(TargetReq::up_to_one(TargetSpec::Object(&ANY_ARTIFACT))))
 /// ```
 #[macro_export]
 macro_rules! loyalty {
-    ($cost:expr, $effects:expr $(, $field:ident : $value:expr)* $(,)?) => {
+    ($cost:expr, $effects:expr $(, $field:ident = $value:expr)* $(,)?) => {
         $crate::LoyaltyParts {
             $($field: $value,)*
             ..$crate::LoyaltyParts::new($cost, $effects)
@@ -429,11 +429,11 @@ macro_rules! loyalty {
 ///
 /// ```ignore
 /// mode!(DRAW_EFFECTS)
-/// mode!(BOUNCE_EFFECTS, targets: Some(TargetReq::one(TargetSpec::Object(&BOUNCE_TARGET))))
+/// mode!(BOUNCE_EFFECTS, targets = Some(TargetReq::one(TargetSpec::Object(&BOUNCE_TARGET))))
 /// ```
 #[macro_export]
 macro_rules! mode {
-    ($effects:expr $(, $field:ident : $value:expr)* $(,)?) => {
+    ($effects:expr $(, $field:ident = $value:expr)* $(,)?) => {
         $crate::SpellMode {
             $($field: $value,)*
             ..$crate::SpellMode::new($effects)

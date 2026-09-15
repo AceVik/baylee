@@ -10,22 +10,22 @@ static BLACK_F: Filter = Filter::HasColor(ColorSet::from_slice(&[Color::Black]))
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes::creature;
 
-card! {
-    index: 80,
-    oracle_id: "8c31fec9-e4b3-4761-990e-7be38eb05604",
-    scryfall_id: "b26d50dd-54a1-43ce-9884-3999f698d97b",
-    faces: &[face! {
-        name: "Karmic Guide",
-        mana_cost: mana!("{3}{W}{W}"),
-        types: TypeSet::CREATURE,
-        subtypes: &[creature::ANGEL, creature::SPIRIT],
-        power: Some(2),
-        toughness: Some(2),
-    }],
-    color_identity: ColorSet::from_slice(&[Color::White]),
-    keywords: KeywordSet::FLYING,
-    coverage: Coverage::Implemented,
-    abilities: &[
+card!(
+    index = 80,
+    oracle_id = "8c31fec9-e4b3-4761-990e-7be38eb05604",
+    scryfall_id = "b26d50dd-54a1-43ce-9884-3999f698d97b",
+    faces = &[face!(
+        name = "Karmic Guide",
+        mana_cost = mana!("{3}{W}{W}"),
+        types = TypeSet::CREATURE,
+        subtypes = &[creature::ANGEL, creature::SPIRIT],
+        power = Some(2),
+        toughness = Some(2),
+    )],
+    color_identity = ColorSet::from_slice(&[Color::White]),
+    keywords = KeywordSet::FLYING,
+    coverage = Coverage::Implemented,
+    abilities = &[
         AbilityDef::Echo {
             cost: mana!("{3}{W}{W}"),
         },
@@ -34,11 +34,15 @@ card! {
             filter: Filter::This,
             modifier: Modifier::ProtectionFrom(&BLACK_F),
         }),
-        triggered!(Trigger::EntersBattlefield(&Filter::This), &[Effect::GraveyardToBattlefield {
+        triggered!(
+            Trigger::EntersBattlefield(&Filter::This),
+            &[Effect::GraveyardToBattlefield {
                 target: TargetSpec::CardInGraveyard(&Filter::CREATURE, PlayerRel::You),
-            }], targets: Some(TargetReq::one(TargetSpec::CardInGraveyard(
+            }],
+            targets = Some(TargetReq::one(TargetSpec::CardInGraveyard(
                 &Filter::CREATURE,
                 PlayerRel::You,
-            )))),
+            )))
+        ),
     ],
-}
+);

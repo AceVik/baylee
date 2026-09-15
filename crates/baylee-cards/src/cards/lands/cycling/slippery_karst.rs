@@ -7,21 +7,28 @@
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 1049,
-    oracle_id: "58bfd9a1-67ce-41d0-be38-f05addd1dd9e",
-    scryfall_id: "c41073e8-01cc-4d19-acb5-caaf2861bc6a",
-    color_identity: ColorSet::from_slice(&[Color::Green]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Slippery Karst",
-        types: TypeSet::LAND,
-        enter_modifiers: &[EnterModifier::Tapped],
-    },
-    ],
-    abilities: &[
+card!(
+    index = 1049,
+    oracle_id = "58bfd9a1-67ce-41d0-be38-f05addd1dd9e",
+    scryfall_id = "c41073e8-01cc-4d19-acb5-caaf2861bc6a",
+    color_identity = ColorSet::from_slice(&[Color::Green]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "Slippery Karst",
+        types = TypeSet::LAND,
+        enter_modifiers = &[EnterModifier::Tapped],
+    ),],
+    abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::Green, 1)]),
-        activated!(Cost { mana: mana!("{2}"), parts: &[CostPart::DiscardSelf] }, &[Effect::DrawCards { amount: Amount::Fixed(1) }], zone: ActivationZone::Hand),
+        activated!(
+            Cost {
+                mana: mana!("{2}"),
+                parts: &[CostPart::DiscardSelf]
+            },
+            &[Effect::DrawCards {
+                amount: Amount::Fixed(1)
+            }],
+            zone = ActivationZone::Hand
+        ),
     ],
-}
+);

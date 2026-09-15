@@ -9,22 +9,19 @@
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 1274,
-    oracle_id: "ff0ab867-b710-4b1a-baed-95fc3cf68f79",
-    scryfall_id: "228e551e-023a-4c9a-8f32-58dae6ffdf7f",
-    color_identity: ColorSet::from_slice(&[Color::Red]),
-    faces: &[
-    face! {
-        name: "Valakut Awakening",
-        mana_cost: mana!("{2}{R}"),
-        types: TypeSet::INSTANT,
-    },
-    face! {
-        name: "Valakut Stoneforge",
-        types: TypeSet::LAND,
-    },
+card!(
+    index = 1274,
+    oracle_id = "ff0ab867-b710-4b1a-baed-95fc3cf68f79",
+    scryfall_id = "228e551e-023a-4c9a-8f32-58dae6ffdf7f",
+    color_identity = ColorSet::from_slice(&[Color::Red]),
+    faces = &[
+        face!(
+            name = "Valakut Awakening",
+            mana_cost = mana!("{2}{R}"),
+            types = TypeSet::INSTANT,
+        ),
+        face!(name = "Valakut Stoneforge", types = TypeSet::LAND,),
     ],
-}
+);
 
 // TODO(card): implement abilities, see docs/card-dsl.md.

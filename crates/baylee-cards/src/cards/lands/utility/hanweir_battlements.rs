@@ -7,17 +7,12 @@
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 603,
-    oracle_id: "0e735ba6-7fd1-4d12-b20c-21525dc1e2b5",
-    scryfall_id: "8c0acb91-edfc-43a5-af77-6614327fce43",
-    color_identity: ColorSet::from_slice(&[Color::Red]),
-    faces: &[
-    face! {
-        name: "Hanweir Battlements",
-        types: TypeSet::LAND,
-    },
-    ],
-}
+card!(
+    index = 603,
+    oracle_id = "0e735ba6-7fd1-4d12-b20c-21525dc1e2b5",
+    scryfall_id = "8c0acb91-edfc-43a5-af77-6614327fce43",
+    color_identity = ColorSet::from_slice(&[Color::Red]),
+    faces = &[face!(name = "Hanweir Battlements", types = TypeSet::LAND,),],
+);
 
 // TODO(card): implement abilities, see docs/card-dsl.md.

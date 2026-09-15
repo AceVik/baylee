@@ -8,21 +8,56 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-card! {
-    index: 484,
-    oracle_id: "0c25f6b1-8fb3-4406-9605-0282d2dbbcec",
-    scryfall_id: "8f4ab639-b439-462e-acc3-69b5d6bb29da",
-    color_identity: ColorSet::from_slice(&[Color::Blue]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Faerie Conclave",
-        types: TypeSet::LAND,
-        enter_modifiers: &[EnterModifier::Tapped],
-    },
-    ],
-    abilities: &[
+card!(
+    index = 484,
+    oracle_id = "0c25f6b1-8fb3-4406-9605-0282d2dbbcec",
+    scryfall_id = "8f4ab639-b439-462e-acc3-69b5d6bb29da",
+    color_identity = ColorSet::from_slice(&[Color::Blue]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "Faerie Conclave",
+        types = TypeSet::LAND,
+        enter_modifiers = &[EnterModifier::Tapped],
+    ),],
+    abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::Blue, 1)]),
-        activated!(Cost { mana: mana!("{1}{U}"), parts: &[] }, &[Effect::CreateContinuousEffect { layer: Layer::Type, filter: &Filter::This, modifier: Modifier::AddType(TypeSet::CREATURE), duration: Duration::UntilEndOfTurn }, Effect::CreateContinuousEffect { layer: Layer::Type, filter: &Filter::This, modifier: Modifier::AddSubtype(subtypes::creature::FAERIE), duration: Duration::UntilEndOfTurn }, Effect::CreateContinuousEffect { layer: Layer::Color, filter: &Filter::This, modifier: Modifier::SetColor(ColorSet::from_slice(&[Color::Blue])), duration: Duration::UntilEndOfTurn }, Effect::CreateContinuousEffect { layer: Layer::Ability, filter: &Filter::This, modifier: Modifier::AddKeyword(KeywordSet::FLYING), duration: Duration::UntilEndOfTurn }, Effect::CreateContinuousEffect { layer: Layer::PtSet, filter: &Filter::This, modifier: Modifier::SetPT(2, 1), duration: Duration::UntilEndOfTurn }]),
+        activated!(
+            Cost {
+                mana: mana!("{1}{U}"),
+                parts: &[]
+            },
+            &[
+                Effect::CreateContinuousEffect {
+                    layer: Layer::Type,
+                    filter: &Filter::This,
+                    modifier: Modifier::AddType(TypeSet::CREATURE),
+                    duration: Duration::UntilEndOfTurn
+                },
+                Effect::CreateContinuousEffect {
+                    layer: Layer::Type,
+                    filter: &Filter::This,
+                    modifier: Modifier::AddSubtype(subtypes::creature::FAERIE),
+                    duration: Duration::UntilEndOfTurn
+                },
+                Effect::CreateContinuousEffect {
+                    layer: Layer::Color,
+                    filter: &Filter::This,
+                    modifier: Modifier::SetColor(ColorSet::from_slice(&[Color::Blue])),
+                    duration: Duration::UntilEndOfTurn
+                },
+                Effect::CreateContinuousEffect {
+                    layer: Layer::Ability,
+                    filter: &Filter::This,
+                    modifier: Modifier::AddKeyword(KeywordSet::FLYING),
+                    duration: Duration::UntilEndOfTurn
+                },
+                Effect::CreateContinuousEffect {
+                    layer: Layer::PtSet,
+                    filter: &Filter::This,
+                    modifier: Modifier::SetPT(2, 1),
+                    duration: Duration::UntilEndOfTurn
+                }
+            ]
+        ),
     ],
-}
+);

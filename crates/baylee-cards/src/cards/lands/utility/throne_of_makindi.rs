@@ -7,16 +7,11 @@
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 1197,
-    oracle_id: "7e8198e9-0f3b-420b-ab09-74f13f4fd548",
-    scryfall_id: "d5a0563e-c83b-40df-abf6-51c83bf6792d",
-    faces: &[
-    face! {
-        name: "Throne of Makindi",
-        types: TypeSet::LAND,
-    },
-    ],
-}
+card!(
+    index = 1197,
+    oracle_id = "7e8198e9-0f3b-420b-ab09-74f13f4fd548",
+    scryfall_id = "d5a0563e-c83b-40df-abf6-51c83bf6792d",
+    faces = &[face!(name = "Throne of Makindi", types = TypeSet::LAND,),],
+);
 
 // TODO(card): implement abilities, see docs/card-dsl.md.

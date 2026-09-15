@@ -5,18 +5,17 @@
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 224,
-    oracle_id: "23467047-6dba-4498-b783-1ebc4f74b8c2",
-    scryfall_id: "bd3d4b4b-cf31-4f89-8140-9650edb03c7b",
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Ancient Tomb",
-        types: TypeSet::LAND,
-    },
-    ],
-    abilities: &[
-        mana_ability!(&[Effect::mana(ManaColor::Colorless, 2), Effect::DealDamage { amount: Amount::Fixed(2), target: TargetSpec::Player(PlayerRel::You) }]),
-    ],
-}
+card!(
+    index = 224,
+    oracle_id = "23467047-6dba-4498-b783-1ebc4f74b8c2",
+    scryfall_id = "bd3d4b4b-cf31-4f89-8140-9650edb03c7b",
+    coverage = Coverage::Implemented,
+    faces = &[face!(name = "Ancient Tomb", types = TypeSet::LAND,),],
+    abilities = &[mana_ability!(&[
+        Effect::mana(ManaColor::Colorless, 2),
+        Effect::DealDamage {
+            amount: Amount::Fixed(2),
+            target: TargetSpec::Player(PlayerRel::You)
+        }
+    ]),],
+);

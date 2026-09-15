@@ -5,19 +5,21 @@
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 783,
-    oracle_id: "23bbd091-f6ff-4514-97aa-42c08164b4eb",
-    scryfall_id: "29208018-8079-44bc-b33b-21cda4709bf2",
-    color_identity: ColorSet::from_slice(&[Color::Green, Color::Red]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Mossfire Valley",
-        types: TypeSet::LAND,
-    },
-    ],
-    abilities: &[
-        mana_ability!(Cost { mana: mana!("{1}"), parts: &[CostPart::TapSelf] }, &[Effect::mana(ManaColor::Red, 1), Effect::mana(ManaColor::Green, 1)]),
-    ],
-}
+card!(
+    index = 783,
+    oracle_id = "23bbd091-f6ff-4514-97aa-42c08164b4eb",
+    scryfall_id = "29208018-8079-44bc-b33b-21cda4709bf2",
+    color_identity = ColorSet::from_slice(&[Color::Green, Color::Red]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(name = "Mossfire Valley", types = TypeSet::LAND,),],
+    abilities = &[mana_ability!(
+        Cost {
+            mana: mana!("{1}"),
+            parts: &[CostPart::TapSelf]
+        },
+        &[
+            Effect::mana(ManaColor::Red, 1),
+            Effect::mana(ManaColor::Green, 1)
+        ]
+    ),],
+);

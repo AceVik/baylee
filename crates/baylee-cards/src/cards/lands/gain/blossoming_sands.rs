@@ -7,21 +7,24 @@
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 292,
-    oracle_id: "45429b2c-be3b-4b2e-9bab-a059ccbda8cd",
-    scryfall_id: "0a9df994-e0f4-4919-af99-4f643eb9199c",
-    color_identity: ColorSet::from_slice(&[Color::Green, Color::White]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Blossoming Sands",
-        types: TypeSet::LAND,
-        enter_modifiers: &[EnterModifier::Tapped],
-    },
-    ],
-    abilities: &[
-        triggered!(Trigger::EntersBattlefield(&Filter::This), &[Effect::GainLife { amount: Amount::Fixed(1) }]),
+card!(
+    index = 292,
+    oracle_id = "45429b2c-be3b-4b2e-9bab-a059ccbda8cd",
+    scryfall_id = "0a9df994-e0f4-4919-af99-4f643eb9199c",
+    color_identity = ColorSet::from_slice(&[Color::Green, Color::White]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "Blossoming Sands",
+        types = TypeSet::LAND,
+        enter_modifiers = &[EnterModifier::Tapped],
+    ),],
+    abilities = &[
+        triggered!(
+            Trigger::EntersBattlefield(&Filter::This),
+            &[Effect::GainLife {
+                amount: Amount::Fixed(1)
+            }]
+        ),
         mana_ability!(&[Effect::mana_choice(&[ManaColor::Green, ManaColor::White])]),
     ],
-}
+);

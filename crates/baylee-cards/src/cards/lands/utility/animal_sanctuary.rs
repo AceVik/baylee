@@ -16,19 +16,24 @@ static TARGET1: Filter = Filter::Or(&[
     Filter::HasSubtype(subtypes::creature::SNAKE),
 ]);
 
-card! {
-    index: 226,
-    oracle_id: "f3c40943-1d7c-4ea2-b34f-8df8b6775701",
-    scryfall_id: "f8d7a2c7-666d-4fc6-bac8-ef8eb66e355d",
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Animal Sanctuary",
-        types: TypeSet::LAND,
-    },
-    ],
-    abilities: &[
+card!(
+    index = 226,
+    oracle_id = "f3c40943-1d7c-4ea2-b34f-8df8b6775701",
+    scryfall_id = "f8d7a2c7-666d-4fc6-bac8-ef8eb66e355d",
+    coverage = Coverage::Implemented,
+    faces = &[face!(name = "Animal Sanctuary", types = TypeSet::LAND,),],
+    abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
-        activated!(Cost { mana: mana!("{2}"), parts: &[CostPart::TapSelf] }, &[Effect::AddCounter { kind: CounterKind::P1P1, amount: Amount::Fixed(1) }], target: Some(TargetSpec::Object(&TARGET1))),
+        activated!(
+            Cost {
+                mana: mana!("{2}"),
+                parts: &[CostPart::TapSelf]
+            },
+            &[Effect::AddCounter {
+                kind: CounterKind::P1P1,
+                amount: Amount::Fixed(1)
+            }],
+            target = Some(TargetSpec::Object(&TARGET1))
+        ),
     ],
-}
+);

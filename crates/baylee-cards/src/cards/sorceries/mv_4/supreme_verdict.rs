@@ -6,17 +6,19 @@
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 160,
-    oracle_id: "0230de18-8d15-4cfa-9d42-7ccddd9f9570",
-    scryfall_id: "3892f1c5-937e-4ef4-b6f9-e0c0ded070d0",
-    faces: &[face! {
-        name: "Supreme Verdict",
-        mana_cost: mana!("{1}{W}{W}{U}"),
-        types: TypeSet::SORCERY,
-    }],
-    color_identity: ColorSet::from_slice(&[Color::White, Color::Blue]),
-    keywords: KeywordSet::UNCOUNTERABLE,
-    coverage: Coverage::Implemented,
-    abilities: &[spell!(&[Effect::DestroyAll { filter: &Filter::CREATURE }])],
-}
+card!(
+    index = 160,
+    oracle_id = "0230de18-8d15-4cfa-9d42-7ccddd9f9570",
+    scryfall_id = "3892f1c5-937e-4ef4-b6f9-e0c0ded070d0",
+    faces = &[face!(
+        name = "Supreme Verdict",
+        mana_cost = mana!("{1}{W}{W}{U}"),
+        types = TypeSet::SORCERY,
+    )],
+    color_identity = ColorSet::from_slice(&[Color::White, Color::Blue]),
+    keywords = KeywordSet::UNCOUNTERABLE,
+    coverage = Coverage::Implemented,
+    abilities = &[spell!(&[Effect::DestroyAll {
+        filter: &Filter::CREATURE
+    }])],
+);

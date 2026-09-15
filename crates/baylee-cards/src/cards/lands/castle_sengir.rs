@@ -7,21 +7,28 @@
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 337,
-    oracle_id: "c7f0251a-9341-4ff2-8b15-31c06eb4f2e7",
-    scryfall_id: "16bfba30-4075-4bd6-9e4b-3a37641d43ce",
-    color_identity: ColorSet::from_slice(&[Color::Black, Color::Red, Color::Blue]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Castle Sengir",
-        types: TypeSet::LAND,
-    },
-    ],
-    abilities: &[
+card!(
+    index = 337,
+    oracle_id = "c7f0251a-9341-4ff2-8b15-31c06eb4f2e7",
+    scryfall_id = "16bfba30-4075-4bd6-9e4b-3a37641d43ce",
+    color_identity = ColorSet::from_slice(&[Color::Black, Color::Red, Color::Blue]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(name = "Castle Sengir", types = TypeSet::LAND,),],
+    abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
-        mana_ability!(Cost { mana: mana!("{1}"), parts: &[CostPart::TapSelf] }, &[Effect::mana(ManaColor::Black, 1)]),
-        mana_ability!(Cost { mana: mana!("{2}"), parts: &[CostPart::TapSelf] }, &[Effect::mana_choice(&[ManaColor::Blue, ManaColor::Red])]),
+        mana_ability!(
+            Cost {
+                mana: mana!("{1}"),
+                parts: &[CostPart::TapSelf]
+            },
+            &[Effect::mana(ManaColor::Black, 1)]
+        ),
+        mana_ability!(
+            Cost {
+                mana: mana!("{2}"),
+                parts: &[CostPart::TapSelf]
+            },
+            &[Effect::mana_choice(&[ManaColor::Blue, ManaColor::Red])]
+        ),
     ],
-}
+);

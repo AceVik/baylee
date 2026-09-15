@@ -9,24 +9,24 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes::{self};
 
-card! {
-    index: 39,
-    oracle_id: "5ade11c0-41dd-4b6a-9f5b-c5903a3a0d7f",
-    scryfall_id: "44dcab01-1d13-4dfc-ae2f-fbaa3dd35087",
-    faces: &[face! {
-        name: "Elesh Norn, Mother of Machines",
-        mana_cost: mana!("{4}{W}"),
-        types: TypeSet::CREATURE,
-        supertypes: SupertypeSet::LEGENDARY,
-        subtypes: &[subtypes::creature::PHYREXIAN, subtypes::creature::PRAETOR],
-        power: Some(4),
-        toughness: Some(7),
-    }],
-    color_identity: ColorSet::from_slice(&[Color::White]),
-    keywords: KeywordSet::VIGILANCE,
-    commander: CommanderRule::Legendary,
-    coverage: Coverage::Implemented,
-    abilities: &[
+card!(
+    index = 39,
+    oracle_id = "5ade11c0-41dd-4b6a-9f5b-c5903a3a0d7f",
+    scryfall_id = "44dcab01-1d13-4dfc-ae2f-fbaa3dd35087",
+    faces = &[face!(
+        name = "Elesh Norn, Mother of Machines",
+        mana_cost = mana!("{4}{W}"),
+        types = TypeSet::CREATURE,
+        supertypes = SupertypeSet::LEGENDARY,
+        subtypes = &[subtypes::creature::PHYREXIAN, subtypes::creature::PRAETOR],
+        power = Some(4),
+        toughness = Some(7),
+    )],
+    color_identity = ColorSet::from_slice(&[Color::White]),
+    keywords = KeywordSet::VIGILANCE,
+    commander = CommanderRule::Legendary,
+    coverage = Coverage::Implemented,
+    abilities = &[
         AbilityDef::Replacement(ReplacementRule::TriggerMultiplier {
             source_filter: &Filter::ControlledByYou,
             event: TriggerEventKind::EntersBattlefield,
@@ -36,7 +36,7 @@ card! {
             event: TriggerEventKind::EntersBattlefield,
         }),
     ],
-}
+);
 
 // Engine-level coverage in baylee-engine s6 tests: your rally fires
 // twice, the opponent's rally is fully suppressed.

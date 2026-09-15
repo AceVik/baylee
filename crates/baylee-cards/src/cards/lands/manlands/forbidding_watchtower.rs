@@ -8,21 +8,50 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-card! {
-    index: 508,
-    oracle_id: "cabf7953-0fac-4dbb-b3ae-05e85e02b3fc",
-    scryfall_id: "ac2d2959-6d31-4547-8c04-c19009c94434",
-    color_identity: ColorSet::from_slice(&[Color::White]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Forbidding Watchtower",
-        types: TypeSet::LAND,
-        enter_modifiers: &[EnterModifier::Tapped],
-    },
-    ],
-    abilities: &[
+card!(
+    index = 508,
+    oracle_id = "cabf7953-0fac-4dbb-b3ae-05e85e02b3fc",
+    scryfall_id = "ac2d2959-6d31-4547-8c04-c19009c94434",
+    color_identity = ColorSet::from_slice(&[Color::White]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "Forbidding Watchtower",
+        types = TypeSet::LAND,
+        enter_modifiers = &[EnterModifier::Tapped],
+    ),],
+    abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::White, 1)]),
-        activated!(Cost { mana: mana!("{1}{W}"), parts: &[] }, &[Effect::CreateContinuousEffect { layer: Layer::Type, filter: &Filter::This, modifier: Modifier::AddType(TypeSet::CREATURE), duration: Duration::UntilEndOfTurn }, Effect::CreateContinuousEffect { layer: Layer::Type, filter: &Filter::This, modifier: Modifier::AddSubtype(subtypes::creature::SOLDIER), duration: Duration::UntilEndOfTurn }, Effect::CreateContinuousEffect { layer: Layer::Color, filter: &Filter::This, modifier: Modifier::SetColor(ColorSet::from_slice(&[Color::White])), duration: Duration::UntilEndOfTurn }, Effect::CreateContinuousEffect { layer: Layer::PtSet, filter: &Filter::This, modifier: Modifier::SetPT(1, 5), duration: Duration::UntilEndOfTurn }]),
+        activated!(
+            Cost {
+                mana: mana!("{1}{W}"),
+                parts: &[]
+            },
+            &[
+                Effect::CreateContinuousEffect {
+                    layer: Layer::Type,
+                    filter: &Filter::This,
+                    modifier: Modifier::AddType(TypeSet::CREATURE),
+                    duration: Duration::UntilEndOfTurn
+                },
+                Effect::CreateContinuousEffect {
+                    layer: Layer::Type,
+                    filter: &Filter::This,
+                    modifier: Modifier::AddSubtype(subtypes::creature::SOLDIER),
+                    duration: Duration::UntilEndOfTurn
+                },
+                Effect::CreateContinuousEffect {
+                    layer: Layer::Color,
+                    filter: &Filter::This,
+                    modifier: Modifier::SetColor(ColorSet::from_slice(&[Color::White])),
+                    duration: Duration::UntilEndOfTurn
+                },
+                Effect::CreateContinuousEffect {
+                    layer: Layer::PtSet,
+                    filter: &Filter::This,
+                    modifier: Modifier::SetPT(1, 5),
+                    duration: Duration::UntilEndOfTurn
+                }
+            ]
+        ),
     ],
-}
+);

@@ -14,27 +14,31 @@ static NON_ANGEL_CREATURE_YOU_CONTROL: Filter = Filter::And(&[
     Filter::ControlledByYou,
 ]);
 
-card! {
-    index: 131,
-    oracle_id: "dfbd3afc-9905-4cff-a4f4-df08a4d0a7fa",
-    scryfall_id: "f17f85d3-58e5-4128-90c5-98b524256af8",
-    faces: &[face! {
-        name: "Restoration Angel",
-        mana_cost: mana!("{3}{W}"),
-        types: TypeSet::CREATURE,
-        subtypes: &[creature::ANGEL],
-        power: Some(3),
-        toughness: Some(4),
-    }],
-    color_identity: ColorSet::from_slice(&[Color::White]),
-    keywords: KeywordSet::FLASH.union(KeywordSet::FLYING),
-    coverage: Coverage::Implemented,
-    abilities: &[triggered!(Trigger::EntersBattlefield(&Filter::This), &[Effect::Blink {
+card!(
+    index = 131,
+    oracle_id = "dfbd3afc-9905-4cff-a4f4-df08a4d0a7fa",
+    scryfall_id = "f17f85d3-58e5-4128-90c5-98b524256af8",
+    faces = &[face!(
+        name = "Restoration Angel",
+        mana_cost = mana!("{3}{W}"),
+        types = TypeSet::CREATURE,
+        subtypes = &[creature::ANGEL],
+        power = Some(3),
+        toughness = Some(4),
+    )],
+    color_identity = ColorSet::from_slice(&[Color::White]),
+    keywords = KeywordSet::FLASH.union(KeywordSet::FLYING),
+    coverage = Coverage::Implemented,
+    abilities = &[triggered!(
+        Trigger::EntersBattlefield(&Filter::This),
+        &[Effect::Blink {
             target: TargetSpec::Object(&NON_ANGEL_CREATURE_YOU_CONTROL),
-        }], targets: Some(TargetReq {
+        }],
+        targets = Some(TargetReq {
             spec: TargetSpec::Object(&NON_ANGEL_CREATURE_YOU_CONTROL),
             min: 0,
             max: 1,
             count_is_x: false,
-        }))],
-}
+        })
+    )],
+);

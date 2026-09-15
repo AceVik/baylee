@@ -16,24 +16,32 @@ static CREATURE_YOU_CONTROL: Filter = Filter::And(&[Filter::CREATURE, Filter::Co
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 127,
-    oracle_id: "a6708b11-1bcd-4208-a967-fe91f2e3313c",
-    scryfall_id: "b50e1800-a45c-43bd-8886-8a06145d9346",
-    faces: &[face! {
-        name: "Recurring Nightmare",
-        mana_cost: mana!("{2}{B}"),
-        types: TypeSet::ENCHANTMENT,
-    }],
-    color_identity: ColorSet::from_slice(&[Color::Black]),
-    coverage: Coverage::Partial("a sacrifice cost cannot be chosen during an activation"),
-    abilities: &[activated!(Cost {
+card!(
+    index = 127,
+    oracle_id = "a6708b11-1bcd-4208-a967-fe91f2e3313c",
+    scryfall_id = "b50e1800-a45c-43bd-8886-8a06145d9346",
+    faces = &[face!(
+        name = "Recurring Nightmare",
+        mana_cost = mana!("{2}{B}"),
+        types = TypeSet::ENCHANTMENT,
+    )],
+    color_identity = ColorSet::from_slice(&[Color::Black]),
+    coverage = Coverage::Partial("a sacrifice cost cannot be chosen during an activation"),
+    abilities = &[activated!(
+        Cost {
             mana: ManaCost::ZERO,
             parts: &[
                 CostPart::Sacrifice(&CREATURE_YOU_CONTROL),
                 CostPart::ReturnSelfToHand,
             ],
-        }, &[Effect::GraveyardToBattlefield {
+        },
+        &[Effect::GraveyardToBattlefield {
             target: TargetSpec::CardInGraveyard(&Filter::CREATURE, PlayerRel::You),
-        }], target: Some(TargetSpec::CardInGraveyard(&Filter::CREATURE, PlayerRel::You)), timing: ActivationTiming::SorcerySpeed)],
-}
+        }],
+        target = Some(TargetSpec::CardInGraveyard(
+            &Filter::CREATURE,
+            PlayerRel::You
+        )),
+        timing = ActivationTiming::SorcerySpeed
+    )],
+);

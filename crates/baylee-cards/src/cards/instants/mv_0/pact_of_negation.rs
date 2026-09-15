@@ -6,23 +6,26 @@
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 107,
-    oracle_id: "f3e213a4-ba5a-468a-93b3-c0a34e1bd725",
-    scryfall_id: "1ed4c0bb-b710-44a1-b8bc-6bd11c27b8b8",
-    faces: &[face! {
-        name: "Pact of Negation",
+card!(
+    index = 107,
+    oracle_id = "f3e213a4-ba5a-468a-93b3-c0a34e1bd725",
+    scryfall_id = "1ed4c0bb-b710-44a1-b8bc-6bd11c27b8b8",
+    faces = &[face!(
+        name = "Pact of Negation",
         // Printed `{0}`; `face!`'s default is *no* cost, which is a
         // different card (CR 202.1a). See `casting::has_a_printed_cost`.
-        mana_cost: mana!("{0}"),
-        types: TypeSet::INSTANT,
-    }],
-    color_identity: ColorSet::from_slice(&[Color::Blue]),
-    coverage: Coverage::Implemented,
-    abilities: &[spell!(&[
+        mana_cost = mana!("{0}"),
+        types = TypeSet::INSTANT,
+    )],
+    color_identity = ColorSet::from_slice(&[Color::Blue]),
+    coverage = Coverage::Implemented,
+    abilities = &[spell!(
+        &[
             Effect::CounterTargetSpell,
             Effect::PayCostOrLoseLater {
                 cost: mana!("{3}{U}{U}"),
             },
-        ], targets: Some(TargetReq::one(TargetSpec::Spell(&Filter::Any))))],
-}
+        ],
+        targets = Some(TargetReq::one(TargetSpec::Spell(&Filter::Any)))
+    )],
+);

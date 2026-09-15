@@ -7,21 +7,20 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-card! {
-    index: 777,
-    oracle_id: "58c592ed-20fc-481b-909b-2315567e5f20",
-    scryfall_id: "9c6d0f64-b8e1-41bc-ab86-bd6783daf72a",
-    color_identity: ColorSet::from_slice(&[Color::Red, Color::Blue]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Molten Tributary",
-        types: TypeSet::LAND,
-        subtypes: &[subtypes::land::ISLAND, subtypes::land::MOUNTAIN],
-        enter_modifiers: &[EnterModifier::Tapped],
-    },
-    ],
-    abilities: &[
-        mana_ability!(&[Effect::mana_choice(&[ManaColor::Blue, ManaColor::Red])]),
-    ],
-}
+card!(
+    index = 777,
+    oracle_id = "58c592ed-20fc-481b-909b-2315567e5f20",
+    scryfall_id = "9c6d0f64-b8e1-41bc-ab86-bd6783daf72a",
+    color_identity = ColorSet::from_slice(&[Color::Red, Color::Blue]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "Molten Tributary",
+        types = TypeSet::LAND,
+        subtypes = &[subtypes::land::ISLAND, subtypes::land::MOUNTAIN],
+        enter_modifiers = &[EnterModifier::Tapped],
+    ),],
+    abilities = &[mana_ability!(&[Effect::mana_choice(&[
+        ManaColor::Blue,
+        ManaColor::Red
+    ])]),],
+);

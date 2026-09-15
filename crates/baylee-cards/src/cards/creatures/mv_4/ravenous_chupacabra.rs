@@ -8,21 +8,25 @@ use baylee_core::generated::subtypes::creature;
 
 static ENEMY_CREATURE: Filter = Filter::And(&[Filter::ControlledByOpponent, Filter::CREATURE]);
 
-card! {
-    index: 124,
-    oracle_id: "7b459306-149b-4f43-abc1-2dd70c748c0e",
-    scryfall_id: "a4dfbac0-1849-41c5-853a-1fee108d0b01",
-    faces: &[face! {
-        name: "Ravenous Chupacabra",
-        mana_cost: mana!("{2}{B}{B}"),
-        types: TypeSet::CREATURE,
-        subtypes: &[creature::BEAST, creature::HORROR],
-        power: Some(2),
-        toughness: Some(2),
-    }],
-    color_identity: ColorSet::from_slice(&[Color::Black]),
-    coverage: Coverage::Implemented,
-    abilities: &[triggered!(Trigger::EntersBattlefield(&Filter::This), &[Effect::Destroy {
+card!(
+    index = 124,
+    oracle_id = "7b459306-149b-4f43-abc1-2dd70c748c0e",
+    scryfall_id = "a4dfbac0-1849-41c5-853a-1fee108d0b01",
+    faces = &[face!(
+        name = "Ravenous Chupacabra",
+        mana_cost = mana!("{2}{B}{B}"),
+        types = TypeSet::CREATURE,
+        subtypes = &[creature::BEAST, creature::HORROR],
+        power = Some(2),
+        toughness = Some(2),
+    )],
+    color_identity = ColorSet::from_slice(&[Color::Black]),
+    coverage = Coverage::Implemented,
+    abilities = &[triggered!(
+        Trigger::EntersBattlefield(&Filter::This),
+        &[Effect::Destroy {
             target: TargetSpec::Object(&ENEMY_CREATURE),
-        }], targets: Some(TargetReq::one(TargetSpec::Object(&ENEMY_CREATURE))))],
-}
+        }],
+        targets = Some(TargetReq::one(TargetSpec::Object(&ENEMY_CREATURE)))
+    )],
+);

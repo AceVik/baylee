@@ -6,20 +6,33 @@
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 395,
-    oracle_id: "ca68648f-fe3a-4770-9842-a3dc2310f099",
-    scryfall_id: "55999d8e-50f8-4c8b-a0c3-f3256af62491",
-    color_identity: ColorSet::from_slice(&[Color::Black, Color::Green, Color::Red, Color::Blue, Color::White]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Crystal Quarry",
-        types: TypeSet::LAND,
-    },
-    ],
-    abilities: &[
+card!(
+    index = 395,
+    oracle_id = "ca68648f-fe3a-4770-9842-a3dc2310f099",
+    scryfall_id = "55999d8e-50f8-4c8b-a0c3-f3256af62491",
+    color_identity = ColorSet::from_slice(&[
+        Color::Black,
+        Color::Green,
+        Color::Red,
+        Color::Blue,
+        Color::White
+    ]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(name = "Crystal Quarry", types = TypeSet::LAND,),],
+    abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
-        mana_ability!(Cost { mana: mana!("{5}"), parts: &[CostPart::TapSelf] }, &[Effect::mana(ManaColor::White, 1), Effect::mana(ManaColor::Blue, 1), Effect::mana(ManaColor::Black, 1), Effect::mana(ManaColor::Red, 1), Effect::mana(ManaColor::Green, 1)]),
+        mana_ability!(
+            Cost {
+                mana: mana!("{5}"),
+                parts: &[CostPart::TapSelf]
+            },
+            &[
+                Effect::mana(ManaColor::White, 1),
+                Effect::mana(ManaColor::Blue, 1),
+                Effect::mana(ManaColor::Black, 1),
+                Effect::mana(ManaColor::Red, 1),
+                Effect::mana(ManaColor::Green, 1)
+            ]
+        ),
     ],
-}
+);

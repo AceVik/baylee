@@ -15,20 +15,24 @@ static TARGET2: Filter = Filter::And(&[
     Filter::ControlledByYou,
 ]);
 
-card! {
-    index: 217,
-    oracle_id: "9d293b69-12b7-4b50-a0a7-c4f493dee30b",
-    scryfall_id: "bcb7124c-ba69-4da8-ad81-58f00fd0181d",
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Ally Encampment",
-        types: TypeSet::LAND,
-    },
-    ],
-    abilities: &[
+card!(
+    index = 217,
+    oracle_id = "9d293b69-12b7-4b50-a0a7-c4f493dee30b",
+    scryfall_id = "bcb7124c-ba69-4da8-ad81-58f00fd0181d",
+    coverage = Coverage::Implemented,
+    faces = &[face!(name = "Ally Encampment", types = TypeSet::LAND,),],
+    abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
         mana_ability!(&[Effect::mana_of_any_color().restricted(&SPEND1, SpendRider::None)]),
-        activated!(Cost { mana: mana!("{1}"), parts: &[CostPart::TapSelf, CostPart::SacrificeSelf] }, &[Effect::ReturnToHand { target: TargetSpec::Object(&TARGET2) }], target: Some(TargetSpec::Object(&TARGET2))),
+        activated!(
+            Cost {
+                mana: mana!("{1}"),
+                parts: &[CostPart::TapSelf, CostPart::SacrificeSelf]
+            },
+            &[Effect::ReturnToHand {
+                target: TargetSpec::Object(&TARGET2)
+            }],
+            target = Some(TargetSpec::Object(&TARGET2))
+        ),
     ],
-}
+);

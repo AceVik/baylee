@@ -9,37 +9,52 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes::planeswalker;
 
-card! {
-    index: 76,
-    oracle_id: "7f77a84e-5a4b-4834-aefa-3cecc175ae8e",
-    scryfall_id: "c8817585-0d32-4d56-9142-0d29512e86a9",
-    faces: &[face! {
-        name: "Jace, the Mind Sculptor",
-        mana_cost: mana!("{2}{U}{U}"),
-        types: TypeSet::PLANESWALKER,
-        supertypes: SupertypeSet::LEGENDARY,
-        subtypes: &[planeswalker::JACE],
-        loyalty: Some(3),
-    }],
-    color_identity: ColorSet::from_slice(&[Color::Blue]),
-    commander: CommanderRule::Legendary,
-    coverage: Coverage::Implemented,
-    abilities: &[
-        loyalty!(2, &[Effect::ScryFor {
+card!(
+    index = 76,
+    oracle_id = "7f77a84e-5a4b-4834-aefa-3cecc175ae8e",
+    scryfall_id = "c8817585-0d32-4d56-9142-0d29512e86a9",
+    faces = &[face!(
+        name = "Jace, the Mind Sculptor",
+        mana_cost = mana!("{2}{U}{U}"),
+        types = TypeSet::PLANESWALKER,
+        supertypes = SupertypeSet::LEGENDARY,
+        subtypes = &[planeswalker::JACE],
+        loyalty = Some(3),
+    )],
+    color_identity = ColorSet::from_slice(&[Color::Blue]),
+    commander = CommanderRule::Legendary,
+    coverage = Coverage::Implemented,
+    abilities = &[
+        loyalty!(
+            2,
+            &[Effect::ScryFor {
                 player: PlayerRel::Chosen,
                 amount: Amount::Fixed(1),
-            }], targets: Some(TargetReq::one(TargetSpec::AnyPlayer))),
-        loyalty!(0, &[
+            }],
+            targets = Some(TargetReq::one(TargetSpec::AnyPlayer))
+        ),
+        loyalty!(
+            0,
+            &[
                 Effect::DrawCards {
                     amount: Amount::Fixed(3),
                 },
                 Effect::PutFromHandOnTop { count: 2 },
-            ]),
-        loyalty!(-1, &[Effect::ReturnToHand {
+            ]
+        ),
+        loyalty!(
+            -1,
+            &[Effect::ReturnToHand {
                 target: TargetSpec::Object(&Filter::CREATURE),
-            }], targets: Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE)))),
-        loyalty!(-12, &[Effect::ExileLibraryAndShuffleHand {
+            }],
+            targets = Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE)))
+        ),
+        loyalty!(
+            -12,
+            &[Effect::ExileLibraryAndShuffleHand {
                 player: PlayerRel::Chosen,
-            }], targets: Some(TargetReq::one(TargetSpec::AnyPlayer))),
+            }],
+            targets = Some(TargetReq::one(TargetSpec::AnyPlayer))
+        ),
     ],
-}
+);

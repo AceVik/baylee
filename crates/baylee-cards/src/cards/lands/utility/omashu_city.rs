@@ -7,21 +7,27 @@
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 831,
-    oracle_id: "6f9a4bb2-5959-4a5c-83af-c2729e6673df",
-    scryfall_id: "c21e413b-96ed-4ded-b567-f1647074ce5f",
-    color_identity: ColorSet::from_slice(&[Color::Green, Color::Red]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Omashu City",
-        types: TypeSet::LAND,
-        enter_modifiers: &[EnterModifier::Tapped],
-    },
-    ],
-    abilities: &[
+card!(
+    index = 831,
+    oracle_id = "6f9a4bb2-5959-4a5c-83af-c2729e6673df",
+    scryfall_id = "c21e413b-96ed-4ded-b567-f1647074ce5f",
+    color_identity = ColorSet::from_slice(&[Color::Green, Color::Red]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "Omashu City",
+        types = TypeSet::LAND,
+        enter_modifiers = &[EnterModifier::Tapped],
+    ),],
+    abilities = &[
         mana_ability!(&[Effect::mana_choice(&[ManaColor::Red, ManaColor::Green])]),
-        activated!(Cost { mana: mana!("{4}"), parts: &[CostPart::TapSelf, CostPart::SacrificeSelf] }, &[Effect::DrawCards { amount: Amount::Fixed(1) }]),
+        activated!(
+            Cost {
+                mana: mana!("{4}"),
+                parts: &[CostPart::TapSelf, CostPart::SacrificeSelf]
+            },
+            &[Effect::DrawCards {
+                amount: Amount::Fixed(1)
+            }]
+        ),
     ],
-}
+);

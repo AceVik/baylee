@@ -12,20 +12,27 @@ static TARGET1: Filter = Filter::And(&[
     Filter::HasSubtype(subtypes::creature::SOLDIER),
 ]);
 
-card! {
-    index: 408,
-    oracle_id: "29f27482-724d-4c15-b177-13337246d007",
-    scryfall_id: "12306750-86d6-4f70-820a-365894884e56",
-    color_identity: ColorSet::from_slice(&[Color::White]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Daru Encampment",
-        types: TypeSet::LAND,
-    },
-    ],
-    abilities: &[
+card!(
+    index = 408,
+    oracle_id = "29f27482-724d-4c15-b177-13337246d007",
+    scryfall_id = "12306750-86d6-4f70-820a-365894884e56",
+    color_identity = ColorSet::from_slice(&[Color::White]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(name = "Daru Encampment", types = TypeSet::LAND,),],
+    abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
-        activated!(Cost { mana: mana!("{W}"), parts: &[CostPart::TapSelf] }, &[Effect::PumpTarget { power: Amount::Fixed(1), toughness: Amount::Fixed(1), keywords: KeywordSet::EMPTY, duration: Duration::UntilEndOfTurn }], target: Some(TargetSpec::Object(&TARGET1))),
+        activated!(
+            Cost {
+                mana: mana!("{W}"),
+                parts: &[CostPart::TapSelf]
+            },
+            &[Effect::PumpTarget {
+                power: Amount::Fixed(1),
+                toughness: Amount::Fixed(1),
+                keywords: KeywordSet::EMPTY,
+                duration: Duration::UntilEndOfTurn
+            }],
+            target = Some(TargetSpec::Object(&TARGET1))
+        ),
     ],
-}
+);

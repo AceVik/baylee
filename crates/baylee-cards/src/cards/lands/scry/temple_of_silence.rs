@@ -7,21 +7,24 @@
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 1154,
-    oracle_id: "e6e6fce8-0f6a-4b84-865e-d4e4a4182f9f",
-    scryfall_id: "f7d3770f-cde6-4e29-8cbf-fe841634a5d7",
-    color_identity: ColorSet::from_slice(&[Color::Black, Color::White]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Temple of Silence",
-        types: TypeSet::LAND,
-        enter_modifiers: &[EnterModifier::Tapped],
-    },
-    ],
-    abilities: &[
-        triggered!(Trigger::EntersBattlefield(&Filter::This), &[Effect::Scry { amount: Amount::Fixed(1) }]),
+card!(
+    index = 1154,
+    oracle_id = "e6e6fce8-0f6a-4b84-865e-d4e4a4182f9f",
+    scryfall_id = "f7d3770f-cde6-4e29-8cbf-fe841634a5d7",
+    color_identity = ColorSet::from_slice(&[Color::Black, Color::White]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "Temple of Silence",
+        types = TypeSet::LAND,
+        enter_modifiers = &[EnterModifier::Tapped],
+    ),],
+    abilities = &[
+        triggered!(
+            Trigger::EntersBattlefield(&Filter::This),
+            &[Effect::Scry {
+                amount: Amount::Fixed(1)
+            }]
+        ),
         mana_ability!(&[Effect::mana_choice(&[ManaColor::White, ManaColor::Black])]),
     ],
-}
+);

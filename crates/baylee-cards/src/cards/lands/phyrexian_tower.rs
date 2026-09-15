@@ -6,18 +6,16 @@
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 858,
-    oracle_id: "1861e642-21d5-4232-89f3-b5557f2946c1",
-    scryfall_id: "0b47f6d2-9f65-47a4-bfc4-15619befe53d",
-    color_identity: ColorSet::from_slice(&[Color::Black]),
-    faces: &[
-    face! {
-        name: "Phyrexian Tower",
-        types: TypeSet::LAND,
-        supertypes: SupertypeSet::LEGENDARY,
-    },
-    ],
-}
+card!(
+    index = 858,
+    oracle_id = "1861e642-21d5-4232-89f3-b5557f2946c1",
+    scryfall_id = "0b47f6d2-9f65-47a4-bfc4-15619befe53d",
+    color_identity = ColorSet::from_slice(&[Color::Black]),
+    faces = &[face!(
+        name = "Phyrexian Tower",
+        types = TypeSet::LAND,
+        supertypes = SupertypeSet::LEGENDARY,
+    ),],
+);
 
 // TODO(card): implement abilities, see docs/card-dsl.md.

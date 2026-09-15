@@ -7,21 +7,24 @@
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 1149,
-    oracle_id: "79f94050-d850-41ca-b1db-5ae0cf743f0a",
-    scryfall_id: "cc63cd97-de9e-4d31-babb-aaad1277169e",
-    color_identity: ColorSet::from_slice(&[Color::Red, Color::Blue]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Temple of Epiphany",
-        types: TypeSet::LAND,
-        enter_modifiers: &[EnterModifier::Tapped],
-    },
-    ],
-    abilities: &[
-        triggered!(Trigger::EntersBattlefield(&Filter::This), &[Effect::Scry { amount: Amount::Fixed(1) }]),
+card!(
+    index = 1149,
+    oracle_id = "79f94050-d850-41ca-b1db-5ae0cf743f0a",
+    scryfall_id = "cc63cd97-de9e-4d31-babb-aaad1277169e",
+    color_identity = ColorSet::from_slice(&[Color::Red, Color::Blue]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "Temple of Epiphany",
+        types = TypeSet::LAND,
+        enter_modifiers = &[EnterModifier::Tapped],
+    ),],
+    abilities = &[
+        triggered!(
+            Trigger::EntersBattlefield(&Filter::This),
+            &[Effect::Scry {
+                amount: Amount::Fixed(1)
+            }]
+        ),
         mana_ability!(&[Effect::mana_choice(&[ManaColor::Blue, ManaColor::Red])]),
     ],
-}
+);

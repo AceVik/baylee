@@ -13,20 +13,25 @@ static TRIGGER1: Filter = Filter::And(&[
     Filter::ControlledByYou,
 ]);
 
-card! {
-    index: 1003,
-    oracle_id: "0b504dc6-61cc-4a72-907c-145fa4c72466",
-    scryfall_id: "e1c1fa29-362f-40b4-b67f-513f6592fb3b",
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Seraph Sanctuary",
-        types: TypeSet::LAND,
-    },
-    ],
-    abilities: &[
-        triggered!(Trigger::EntersBattlefield(&Filter::This), &[Effect::GainLife { amount: Amount::Fixed(1) }]),
-        triggered!(Trigger::EntersBattlefield(&TRIGGER1), &[Effect::GainLife { amount: Amount::Fixed(1) }]),
+card!(
+    index = 1003,
+    oracle_id = "0b504dc6-61cc-4a72-907c-145fa4c72466",
+    scryfall_id = "e1c1fa29-362f-40b4-b67f-513f6592fb3b",
+    coverage = Coverage::Implemented,
+    faces = &[face!(name = "Seraph Sanctuary", types = TypeSet::LAND,),],
+    abilities = &[
+        triggered!(
+            Trigger::EntersBattlefield(&Filter::This),
+            &[Effect::GainLife {
+                amount: Amount::Fixed(1)
+            }]
+        ),
+        triggered!(
+            Trigger::EntersBattlefield(&TRIGGER1),
+            &[Effect::GainLife {
+                amount: Amount::Fixed(1)
+            }]
+        ),
         mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
     ],
-}
+);

@@ -7,18 +7,16 @@
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 1145,
-    oracle_id: "ce55657d-d82f-4528-a83e-5cad7de111fd",
-    scryfall_id: "b6ed7ca8-fd91-46e3-9149-a3de23c7078e",
-    color_identity: ColorSet::from_slice(&[Color::Blue]),
-    faces: &[
-    face! {
-        name: "Teferi's Isle",
-        types: TypeSet::LAND,
-        supertypes: SupertypeSet::LEGENDARY,
-    },
-    ],
-}
+card!(
+    index = 1145,
+    oracle_id = "ce55657d-d82f-4528-a83e-5cad7de111fd",
+    scryfall_id = "b6ed7ca8-fd91-46e3-9149-a3de23c7078e",
+    color_identity = ColorSet::from_slice(&[Color::Blue]),
+    faces = &[face!(
+        name = "Teferi's Isle",
+        types = TypeSet::LAND,
+        supertypes = SupertypeSet::LEGENDARY,
+    ),],
+);
 
 // TODO(card): implement abilities, see docs/card-dsl.md.

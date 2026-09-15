@@ -7,16 +7,11 @@
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 1082,
-    oracle_id: "6a4ee425-b3b8-487d-866c-9e2d73682466",
-    scryfall_id: "9979db80-83f6-41ed-aea2-0c222e923add",
-    faces: &[
-    face! {
-        name: "Stardew Valley",
-        types: TypeSet::LAND,
-    },
-    ],
-}
+card!(
+    index = 1082,
+    oracle_id = "6a4ee425-b3b8-487d-866c-9e2d73682466",
+    scryfall_id = "9979db80-83f6-41ed-aea2-0c222e923add",
+    faces = &[face!(name = "Stardew Valley", types = TypeSet::LAND,),],
+);
 
 // TODO(card): implement abilities, see docs/card-dsl.md.

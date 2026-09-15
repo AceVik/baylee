@@ -7,21 +7,24 @@
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 997,
-    oracle_id: "73b3e242-075d-4c4d-9b09-6fef1633c348",
-    scryfall_id: "b474bfdd-e0b2-4b96-b8eb-84ced9ac5a06",
-    color_identity: ColorSet::from_slice(&[Color::Blue, Color::White]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Sejiri Refuge",
-        types: TypeSet::LAND,
-        enter_modifiers: &[EnterModifier::Tapped],
-    },
-    ],
-    abilities: &[
-        triggered!(Trigger::EntersBattlefield(&Filter::This), &[Effect::GainLife { amount: Amount::Fixed(1) }]),
+card!(
+    index = 997,
+    oracle_id = "73b3e242-075d-4c4d-9b09-6fef1633c348",
+    scryfall_id = "b474bfdd-e0b2-4b96-b8eb-84ced9ac5a06",
+    color_identity = ColorSet::from_slice(&[Color::Blue, Color::White]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "Sejiri Refuge",
+        types = TypeSet::LAND,
+        enter_modifiers = &[EnterModifier::Tapped],
+    ),],
+    abilities = &[
+        triggered!(
+            Trigger::EntersBattlefield(&Filter::This),
+            &[Effect::GainLife {
+                amount: Amount::Fixed(1)
+            }]
+        ),
         mana_ability!(&[Effect::mana_choice(&[ManaColor::White, ManaColor::Blue])]),
     ],
-}
+);

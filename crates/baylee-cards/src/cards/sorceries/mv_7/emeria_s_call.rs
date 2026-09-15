@@ -9,22 +9,19 @@
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 469,
-    oracle_id: "6ec2a242-9068-4ee2-8ac8-8341cc570f56",
-    scryfall_id: "c470539a-9cc7-4175-8f7c-c982b6072b6d",
-    color_identity: ColorSet::from_slice(&[Color::White]),
-    faces: &[
-    face! {
-        name: "Emeria's Call",
-        mana_cost: mana!("{4}{W}{W}{W}"),
-        types: TypeSet::SORCERY,
-    },
-    face! {
-        name: "Emeria, Shattered Skyclave",
-        types: TypeSet::LAND,
-    },
+card!(
+    index = 469,
+    oracle_id = "6ec2a242-9068-4ee2-8ac8-8341cc570f56",
+    scryfall_id = "c470539a-9cc7-4175-8f7c-c982b6072b6d",
+    color_identity = ColorSet::from_slice(&[Color::White]),
+    faces = &[
+        face!(
+            name = "Emeria's Call",
+            mana_cost = mana!("{4}{W}{W}{W}"),
+            types = TypeSet::SORCERY,
+        ),
+        face!(name = "Emeria, Shattered Skyclave", types = TypeSet::LAND,),
     ],
-}
+);
 
 // TODO(card): implement abilities, see docs/card-dsl.md.

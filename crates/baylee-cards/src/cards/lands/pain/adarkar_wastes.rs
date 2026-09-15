@@ -6,20 +6,21 @@
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 207,
-    oracle_id: "d5ad26cc-2bdb-46b7-b8bf-dd099d5fa09b",
-    scryfall_id: "42e0aa15-639a-4e88-9bd8-ce5e7c7d7649",
-    color_identity: ColorSet::from_slice(&[Color::Blue, Color::White]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Adarkar Wastes",
-        types: TypeSet::LAND,
-    },
-    ],
-    abilities: &[
+card!(
+    index = 207,
+    oracle_id = "d5ad26cc-2bdb-46b7-b8bf-dd099d5fa09b",
+    scryfall_id = "42e0aa15-639a-4e88-9bd8-ce5e7c7d7649",
+    color_identity = ColorSet::from_slice(&[Color::Blue, Color::White]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(name = "Adarkar Wastes", types = TypeSet::LAND,),],
+    abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
-        mana_ability!(&[Effect::mana_choice(&[ManaColor::White, ManaColor::Blue]), Effect::DealDamage { amount: Amount::Fixed(1), target: TargetSpec::Player(PlayerRel::You) }]),
+        mana_ability!(&[
+            Effect::mana_choice(&[ManaColor::White, ManaColor::Blue]),
+            Effect::DealDamage {
+                amount: Amount::Fixed(1),
+                target: TargetSpec::Player(PlayerRel::You)
+            }
+        ]),
     ],
-}
+);

@@ -14,20 +14,18 @@ use crate::tokens::TREASURE as TREASURE_TOKEN;
 /// "target noncreature spell" — the same filter Negate targets with.
 static NONCREATURE_SPELL: Filter = Filter::NONCREATURE;
 
-card! {
-    index: 1344,
-    oracle_id: "234a734b-ba28-4f1b-9d01-3c3e7d516590",
-    scryfall_id: "a829747f-cf9b-4d81-ba66-9f0630ed4565",
-    color_identity: ColorSet::from_slice(&[Color::Blue]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "An Offer You Can't Refuse",
-        mana_cost: mana!("{U}"),
-        types: TypeSet::INSTANT,
-    },
-    ],
-    abilities: &[spell!(
+card!(
+    index = 1344,
+    oracle_id = "234a734b-ba28-4f1b-9d01-3c3e7d516590",
+    scryfall_id = "a829747f-cf9b-4d81-ba66-9f0630ed4565",
+    color_identity = ColorSet::from_slice(&[Color::Blue]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "An Offer You Can't Refuse",
+        mana_cost = mana!("{U}"),
+        types = TypeSet::INSTANT,
+    ),],
+    abilities = &[spell!(
         &[
             Effect::CounterTargetSpell,
             Effect::CreateTokenForTargetController {
@@ -37,6 +35,6 @@ card! {
                 token: &TREASURE_TOKEN,
             },
         ],
-        targets: Some(TargetReq::one(TargetSpec::Spell(&NONCREATURE_SPELL)))
+        targets = Some(TargetReq::one(TargetSpec::Spell(&NONCREATURE_SPELL)))
     )],
-}
+);

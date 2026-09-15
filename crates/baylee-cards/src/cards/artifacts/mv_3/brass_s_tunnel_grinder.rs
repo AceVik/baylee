@@ -12,25 +12,25 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-card! {
-    index: 309,
-    oracle_id: "af1553eb-4f9f-4335-9078-56649bd8d8fc",
-    scryfall_id: "d61d8895-7f2e-4c77-951f-4f1a49e96f57",
-    color_identity: ColorSet::from_slice(&[Color::Red]),
-    faces: &[
-    face! {
-        name: "Brass's Tunnel-Grinder",
-        mana_cost: mana!("{2}{R}"),
-        types: TypeSet::ARTIFACT,
-        supertypes: SupertypeSet::LEGENDARY,
-    },
-    face! {
-        name: "Tecutlan, the Searing Rift",
-        types: TypeSet::LAND,
-        supertypes: SupertypeSet::LEGENDARY,
-        subtypes: &[subtypes::land::CAVE],
-    },
+card!(
+    index = 309,
+    oracle_id = "af1553eb-4f9f-4335-9078-56649bd8d8fc",
+    scryfall_id = "d61d8895-7f2e-4c77-951f-4f1a49e96f57",
+    color_identity = ColorSet::from_slice(&[Color::Red]),
+    faces = &[
+        face!(
+            name = "Brass's Tunnel-Grinder",
+            mana_cost = mana!("{2}{R}"),
+            types = TypeSet::ARTIFACT,
+            supertypes = SupertypeSet::LEGENDARY,
+        ),
+        face!(
+            name = "Tecutlan, the Searing Rift",
+            types = TypeSet::LAND,
+            supertypes = SupertypeSet::LEGENDARY,
+            subtypes = &[subtypes::land::CAVE],
+        ),
     ],
-}
+);
 
 // TODO(card): implement abilities, see docs/card-dsl.md.

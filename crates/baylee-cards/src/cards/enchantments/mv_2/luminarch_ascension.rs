@@ -10,22 +10,24 @@ use baylee_cards_dsl::prelude::*;
 
 use crate::tokens::ANGEL_4_4_WHITE_FLYING as ANGEL;
 
-card! {
-    index: 88,
-    oracle_id: "90076bf5-aa9a-4a6e-9035-9aa97fd5561e",
-    scryfall_id: "b3770d86-4496-4c06-aab1-2917cfec100e",
-    faces: &[face! {
-        name: "Luminarch Ascension",
-        mana_cost: mana!("{1}{W}"),
-        types: TypeSet::ENCHANTMENT,
-    }],
-    color_identity: ColorSet::from_slice(&[Color::White]),
-    coverage: Coverage::Implemented,
-    abilities: &[
-        triggered!(Trigger::StepBegin {
+card!(
+    index = 88,
+    oracle_id = "90076bf5-aa9a-4a6e-9035-9aa97fd5561e",
+    scryfall_id = "b3770d86-4496-4c06-aab1-2917cfec100e",
+    faces = &[face!(
+        name = "Luminarch Ascension",
+        mana_cost = mana!("{1}{W}"),
+        types = TypeSet::ENCHANTMENT,
+    )],
+    color_identity = ColorSet::from_slice(&[Color::White]),
+    coverage = Coverage::Implemented,
+    abilities = &[
+        triggered!(
+            Trigger::StepBegin {
                 step: StepKind::End,
                 whose: PlayerRel::Opponent,
-            }, &[Effect::IfNotLostLifeThisTurn {
+            },
+            &[Effect::IfNotLostLifeThisTurn {
                 // The "may" sits *inside* the intervening-if: a turn where
                 // you did lose life asks nothing at all, because the
                 // condition is checked on resolution and the ability simply
@@ -36,7 +38,8 @@ card! {
                         amount: Amount::Fixed(1),
                     }],
                 }],
-            }]),
+            }]
+        ),
         AbilityDef::ActivatedConditional {
             cost: Cost {
                 mana: mana!("{1}{W}"),
@@ -50,4 +53,4 @@ card! {
             condition: ActivationCondition::CountersOnSelf(CounterKind::Custom(1), 4),
         },
     ],
-}
+);

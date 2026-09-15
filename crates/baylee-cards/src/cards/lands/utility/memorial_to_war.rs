@@ -9,21 +9,28 @@ use baylee_cards_dsl::prelude::*;
 
 static TARGET1: Filter = Filter::LAND;
 
-card! {
-    index: 751,
-    oracle_id: "f98db69c-b330-4560-ac53-10857674466b",
-    scryfall_id: "c3fe9351-82ad-47b0-b30c-208effbb9f3d",
-    color_identity: ColorSet::from_slice(&[Color::Red]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Memorial to War",
-        types: TypeSet::LAND,
-        enter_modifiers: &[EnterModifier::Tapped],
-    },
-    ],
-    abilities: &[
+card!(
+    index = 751,
+    oracle_id = "f98db69c-b330-4560-ac53-10857674466b",
+    scryfall_id = "c3fe9351-82ad-47b0-b30c-208effbb9f3d",
+    color_identity = ColorSet::from_slice(&[Color::Red]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "Memorial to War",
+        types = TypeSet::LAND,
+        enter_modifiers = &[EnterModifier::Tapped],
+    ),],
+    abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::Red, 1)]),
-        activated!(Cost { mana: mana!("{4}{R}"), parts: &[CostPart::TapSelf, CostPart::SacrificeSelf] }, &[Effect::Destroy { target: TargetSpec::Object(&TARGET1) }], target: Some(TargetSpec::Object(&TARGET1))),
+        activated!(
+            Cost {
+                mana: mana!("{4}{R}"),
+                parts: &[CostPart::TapSelf, CostPart::SacrificeSelf]
+            },
+            &[Effect::Destroy {
+                target: TargetSpec::Object(&TARGET1)
+            }],
+            target = Some(TargetSpec::Object(&TARGET1))
+        ),
     ],
-}
+);

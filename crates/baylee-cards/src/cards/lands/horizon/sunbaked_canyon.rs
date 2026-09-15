@@ -6,20 +6,29 @@
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 1108,
-    oracle_id: "f97fd068-b83a-4621-bf8c-cc96e880ce90",
-    scryfall_id: "c36820fa-ee86-4206-9a0d-737a67cf5208",
-    color_identity: ColorSet::from_slice(&[Color::Red, Color::White]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Sunbaked Canyon",
-        types: TypeSet::LAND,
-    },
+card!(
+    index = 1108,
+    oracle_id = "f97fd068-b83a-4621-bf8c-cc96e880ce90",
+    scryfall_id = "c36820fa-ee86-4206-9a0d-737a67cf5208",
+    color_identity = ColorSet::from_slice(&[Color::Red, Color::White]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(name = "Sunbaked Canyon", types = TypeSet::LAND,),],
+    abilities = &[
+        mana_ability!(
+            Cost {
+                mana: ManaCost::ZERO,
+                parts: &[CostPart::TapSelf, CostPart::PayLife(1)]
+            },
+            &[Effect::mana_choice(&[ManaColor::Red, ManaColor::White])]
+        ),
+        activated!(
+            Cost {
+                mana: mana!("{1}"),
+                parts: &[CostPart::TapSelf, CostPart::SacrificeSelf]
+            },
+            &[Effect::DrawCards {
+                amount: Amount::Fixed(1)
+            }]
+        ),
     ],
-    abilities: &[
-        mana_ability!(Cost { mana: ManaCost::ZERO, parts: &[CostPart::TapSelf, CostPart::PayLife(1)] }, &[Effect::mana_choice(&[ManaColor::Red, ManaColor::White])]),
-        activated!(Cost { mana: mana!("{1}"), parts: &[CostPart::TapSelf, CostPart::SacrificeSelf] }, &[Effect::DrawCards { amount: Amount::Fixed(1) }]),
-    ],
-}
+);

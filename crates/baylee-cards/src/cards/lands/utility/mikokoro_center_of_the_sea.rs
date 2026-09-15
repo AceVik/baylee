@@ -6,20 +6,27 @@
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 756,
-    oracle_id: "a4580a1d-141e-449b-9018-e0258130634b",
-    scryfall_id: "d80eb098-5433-4b1e-aad5-0fd31bf598dd",
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Mikokoro, Center of the Sea",
-        types: TypeSet::LAND,
-        supertypes: SupertypeSet::LEGENDARY,
-    },
-    ],
-    abilities: &[
+card!(
+    index = 756,
+    oracle_id = "a4580a1d-141e-449b-9018-e0258130634b",
+    scryfall_id = "d80eb098-5433-4b1e-aad5-0fd31bf598dd",
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "Mikokoro, Center of the Sea",
+        types = TypeSet::LAND,
+        supertypes = SupertypeSet::LEGENDARY,
+    ),],
+    abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
-        activated!(Cost { mana: mana!("{2}"), parts: &[CostPart::TapSelf] }, &[Effect::DrawCardsFor { amount: Amount::Fixed(1), who: PlayerRel::EachPlayer }]),
+        activated!(
+            Cost {
+                mana: mana!("{2}"),
+                parts: &[CostPart::TapSelf]
+            },
+            &[Effect::DrawCardsFor {
+                amount: Amount::Fixed(1),
+                who: PlayerRel::EachPlayer
+            }]
+        ),
     ],
-}
+);

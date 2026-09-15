@@ -9,22 +9,19 @@
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 998,
-    oracle_id: "d54e4e37-042b-44a5-918d-757308545d4d",
-    scryfall_id: "f25d56f9-aa54-4657-9ac9-e93fbba3e715",
-    color_identity: ColorSet::from_slice(&[Color::White]),
-    faces: &[
-    face! {
-        name: "Sejiri Shelter",
-        mana_cost: mana!("{1}{W}"),
-        types: TypeSet::INSTANT,
-    },
-    face! {
-        name: "Sejiri Glacier",
-        types: TypeSet::LAND,
-    },
+card!(
+    index = 998,
+    oracle_id = "d54e4e37-042b-44a5-918d-757308545d4d",
+    scryfall_id = "f25d56f9-aa54-4657-9ac9-e93fbba3e715",
+    color_identity = ColorSet::from_slice(&[Color::White]),
+    faces = &[
+        face!(
+            name = "Sejiri Shelter",
+            mana_cost = mana!("{1}{W}"),
+            types = TypeSet::INSTANT,
+        ),
+        face!(name = "Sejiri Glacier", types = TypeSet::LAND,),
     ],
-}
+);
 
 // TODO(card): implement abilities, see docs/card-dsl.md.

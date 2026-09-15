@@ -11,21 +11,25 @@ static LEGENDARY_CREATURE: Filter = Filter::And(&[
     Filter::HasSupertype(SupertypeSet::LEGENDARY),
 ]);
 
-card! {
-    index: 79,
-    oracle_id: "59119143-c0fa-49dd-adf0-e2fd3029c48b",
-    scryfall_id: "e52214e1-404a-405a-b08e-20e13c087338",
-    faces: &[face! {
-        name: "Karakas",
-        types: TypeSet::LAND,
-        supertypes: SupertypeSet::LEGENDARY,
-    }],
-    color_identity: ColorSet::from_slice(&[Color::White]),
-    coverage: Coverage::Implemented,
-    abilities: &[
+card!(
+    index = 79,
+    oracle_id = "59119143-c0fa-49dd-adf0-e2fd3029c48b",
+    scryfall_id = "e52214e1-404a-405a-b08e-20e13c087338",
+    faces = &[face!(
+        name = "Karakas",
+        types = TypeSet::LAND,
+        supertypes = SupertypeSet::LEGENDARY,
+    )],
+    color_identity = ColorSet::from_slice(&[Color::White]),
+    coverage = Coverage::Implemented,
+    abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::White, 1)]),
-        activated!(Cost::TAP, &[Effect::ReturnToHand {
+        activated!(
+            Cost::TAP,
+            &[Effect::ReturnToHand {
                 target: TargetSpec::Object(&LEGENDARY_CREATURE),
-            }], target: Some(TargetSpec::Object(&LEGENDARY_CREATURE))),
+            }],
+            target = Some(TargetSpec::Object(&LEGENDARY_CREATURE))
+        ),
     ],
-}
+);

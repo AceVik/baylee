@@ -7,21 +7,20 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-card! {
-    index: 543,
-    oracle_id: "e3b67368-1dd6-419b-a95d-7131b1dba23f",
-    scryfall_id: "6da04570-5d3c-4e9f-a9c1-20589a4bcc24",
-    color_identity: ColorSet::from_slice(&[Color::Black, Color::Red]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Geothermal Bog",
-        types: TypeSet::LAND,
-        subtypes: &[subtypes::land::SWAMP, subtypes::land::MOUNTAIN],
-        enter_modifiers: &[EnterModifier::Tapped],
-    },
-    ],
-    abilities: &[
-        mana_ability!(&[Effect::mana_choice(&[ManaColor::Black, ManaColor::Red])]),
-    ],
-}
+card!(
+    index = 543,
+    oracle_id = "e3b67368-1dd6-419b-a95d-7131b1dba23f",
+    scryfall_id = "6da04570-5d3c-4e9f-a9c1-20589a4bcc24",
+    color_identity = ColorSet::from_slice(&[Color::Black, Color::Red]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "Geothermal Bog",
+        types = TypeSet::LAND,
+        subtypes = &[subtypes::land::SWAMP, subtypes::land::MOUNTAIN],
+        enter_modifiers = &[EnterModifier::Tapped],
+    ),],
+    abilities = &[mana_ability!(&[Effect::mana_choice(&[
+        ManaColor::Black,
+        ManaColor::Red
+    ])]),],
+);

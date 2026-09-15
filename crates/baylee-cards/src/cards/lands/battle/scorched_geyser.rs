@@ -9,21 +9,23 @@ use baylee_core::generated::subtypes;
 
 static CHECK: Filter = Filter::And(&[Filter::ControlledByYou, Filter::BASIC_LAND]);
 
-card! {
-    index: 974,
-    oracle_id: "f808b510-907a-4c3c-aea1-efb825c8e13e",
-    scryfall_id: "43abdfba-0a55-4b8a-858e-3372ee40a579",
-    color_identity: ColorSet::from_slice(&[Color::Red, Color::Blue]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Scorched Geyser",
-        types: TypeSet::LAND,
-        subtypes: &[subtypes::land::ISLAND, subtypes::land::MOUNTAIN],
-        enter_modifiers: &[EnterModifier::TappedUnlessCount { filter: &CHECK, at_least: 2 }],
-    },
-    ],
-    abilities: &[
-        mana_ability!(&[Effect::mana_choice(&[ManaColor::Blue, ManaColor::Red])]),
-    ],
-}
+card!(
+    index = 974,
+    oracle_id = "f808b510-907a-4c3c-aea1-efb825c8e13e",
+    scryfall_id = "43abdfba-0a55-4b8a-858e-3372ee40a579",
+    color_identity = ColorSet::from_slice(&[Color::Red, Color::Blue]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "Scorched Geyser",
+        types = TypeSet::LAND,
+        subtypes = &[subtypes::land::ISLAND, subtypes::land::MOUNTAIN],
+        enter_modifiers = &[EnterModifier::TappedUnlessCount {
+            filter: &CHECK,
+            at_least: 2
+        }],
+    ),],
+    abilities = &[mana_ability!(&[Effect::mana_choice(&[
+        ManaColor::Blue,
+        ManaColor::Red
+    ])]),],
+);

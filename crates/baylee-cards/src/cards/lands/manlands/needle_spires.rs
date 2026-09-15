@@ -8,21 +8,56 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-card! {
-    index: 805,
-    oracle_id: "e7bb8160-0a4b-4e46-b196-7a19fb388d8e",
-    scryfall_id: "4a58a287-e4ca-4c6b-8096-142660cee299",
-    color_identity: ColorSet::from_slice(&[Color::Red, Color::White]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Needle Spires",
-        types: TypeSet::LAND,
-        enter_modifiers: &[EnterModifier::Tapped],
-    },
-    ],
-    abilities: &[
+card!(
+    index = 805,
+    oracle_id = "e7bb8160-0a4b-4e46-b196-7a19fb388d8e",
+    scryfall_id = "4a58a287-e4ca-4c6b-8096-142660cee299",
+    color_identity = ColorSet::from_slice(&[Color::Red, Color::White]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "Needle Spires",
+        types = TypeSet::LAND,
+        enter_modifiers = &[EnterModifier::Tapped],
+    ),],
+    abilities = &[
         mana_ability!(&[Effect::mana_choice(&[ManaColor::Red, ManaColor::White])]),
-        activated!(Cost { mana: mana!("{2}{R}{W}"), parts: &[] }, &[Effect::CreateContinuousEffect { layer: Layer::Type, filter: &Filter::This, modifier: Modifier::AddType(TypeSet::CREATURE), duration: Duration::UntilEndOfTurn }, Effect::CreateContinuousEffect { layer: Layer::Type, filter: &Filter::This, modifier: Modifier::AddSubtype(subtypes::creature::ELEMENTAL), duration: Duration::UntilEndOfTurn }, Effect::CreateContinuousEffect { layer: Layer::Color, filter: &Filter::This, modifier: Modifier::SetColor(ColorSet::from_slice(&[Color::Red, Color::White])), duration: Duration::UntilEndOfTurn }, Effect::CreateContinuousEffect { layer: Layer::Ability, filter: &Filter::This, modifier: Modifier::AddKeyword(KeywordSet::DOUBLE_STRIKE), duration: Duration::UntilEndOfTurn }, Effect::CreateContinuousEffect { layer: Layer::PtSet, filter: &Filter::This, modifier: Modifier::SetPT(2, 1), duration: Duration::UntilEndOfTurn }]),
+        activated!(
+            Cost {
+                mana: mana!("{2}{R}{W}"),
+                parts: &[]
+            },
+            &[
+                Effect::CreateContinuousEffect {
+                    layer: Layer::Type,
+                    filter: &Filter::This,
+                    modifier: Modifier::AddType(TypeSet::CREATURE),
+                    duration: Duration::UntilEndOfTurn
+                },
+                Effect::CreateContinuousEffect {
+                    layer: Layer::Type,
+                    filter: &Filter::This,
+                    modifier: Modifier::AddSubtype(subtypes::creature::ELEMENTAL),
+                    duration: Duration::UntilEndOfTurn
+                },
+                Effect::CreateContinuousEffect {
+                    layer: Layer::Color,
+                    filter: &Filter::This,
+                    modifier: Modifier::SetColor(ColorSet::from_slice(&[Color::Red, Color::White])),
+                    duration: Duration::UntilEndOfTurn
+                },
+                Effect::CreateContinuousEffect {
+                    layer: Layer::Ability,
+                    filter: &Filter::This,
+                    modifier: Modifier::AddKeyword(KeywordSet::DOUBLE_STRIKE),
+                    duration: Duration::UntilEndOfTurn
+                },
+                Effect::CreateContinuousEffect {
+                    layer: Layer::PtSet,
+                    filter: &Filter::This,
+                    modifier: Modifier::SetPT(2, 1),
+                    duration: Duration::UntilEndOfTurn
+                }
+            ]
+        ),
     ],
-}
+);

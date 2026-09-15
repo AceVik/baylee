@@ -7,21 +7,20 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-card! {
-    index: 951,
-    oracle_id: "fb69bc57-f05a-41c2-9b7b-9a9761ef0cd3",
-    scryfall_id: "ee2d6798-b19d-4628-bb57-05663ab4af68",
-    color_identity: ColorSet::from_slice(&[Color::Red, Color::White]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Sacred Peaks",
-        types: TypeSet::LAND,
-        subtypes: &[subtypes::land::MOUNTAIN, subtypes::land::PLAINS],
-        enter_modifiers: &[EnterModifier::Tapped],
-    },
-    ],
-    abilities: &[
-        mana_ability!(&[Effect::mana_choice(&[ManaColor::Red, ManaColor::White])]),
-    ],
-}
+card!(
+    index = 951,
+    oracle_id = "fb69bc57-f05a-41c2-9b7b-9a9761ef0cd3",
+    scryfall_id = "ee2d6798-b19d-4628-bb57-05663ab4af68",
+    color_identity = ColorSet::from_slice(&[Color::Red, Color::White]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "Sacred Peaks",
+        types = TypeSet::LAND,
+        subtypes = &[subtypes::land::MOUNTAIN, subtypes::land::PLAINS],
+        enter_modifiers = &[EnterModifier::Tapped],
+    ),],
+    abilities = &[mana_ability!(&[Effect::mana_choice(&[
+        ManaColor::Red,
+        ManaColor::White
+    ])]),],
+);

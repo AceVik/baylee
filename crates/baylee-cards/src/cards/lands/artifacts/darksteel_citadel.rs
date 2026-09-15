@@ -6,19 +6,15 @@
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 406,
-    oracle_id: "8dc067bf-f78f-4ac4-b6e7-b305c42cf0bc",
-    scryfall_id: "2ba7597d-6d76-45b8-b172-342999e401bd",
-    keywords: KeywordSet::INDESTRUCTIBLE,
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Darksteel Citadel",
-        types: TypeSet::ARTIFACT.union(TypeSet::LAND),
-    },
-    ],
-    abilities: &[
-        mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
-    ],
-}
+card!(
+    index = 406,
+    oracle_id = "8dc067bf-f78f-4ac4-b6e7-b305c42cf0bc",
+    scryfall_id = "2ba7597d-6d76-45b8-b172-342999e401bd",
+    keywords = KeywordSet::INDESTRUCTIBLE,
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "Darksteel Citadel",
+        types = TypeSet::ARTIFACT.union(TypeSet::LAND),
+    ),],
+    abilities = &[mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),],
+);

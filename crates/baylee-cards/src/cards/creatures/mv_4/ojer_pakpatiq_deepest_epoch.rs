@@ -13,27 +13,24 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-card! {
-    index: 828,
-    oracle_id: "34ef174e-1b3d-43d5-9f72-3d35befbdd7f",
-    scryfall_id: "a9d71007-bc04-4dff-ad3f-e2c0b5b4400e",
-    color_identity: ColorSet::from_slice(&[Color::Blue]),
-    commander: CommanderRule::Legendary,
-    faces: &[
-    face! {
-        name: "Ojer Pakpatiq, Deepest Epoch",
-        mana_cost: mana!("{2}{U}{U}"),
-        types: TypeSet::CREATURE,
-        supertypes: SupertypeSet::LEGENDARY,
-        subtypes: &[subtypes::creature::GOD],
-        power: Some(4),
-        toughness: Some(3),
-    },
-    face! {
-        name: "Temple of Cyclical Time",
-        types: TypeSet::LAND,
-    },
+card!(
+    index = 828,
+    oracle_id = "34ef174e-1b3d-43d5-9f72-3d35befbdd7f",
+    scryfall_id = "a9d71007-bc04-4dff-ad3f-e2c0b5b4400e",
+    color_identity = ColorSet::from_slice(&[Color::Blue]),
+    commander = CommanderRule::Legendary,
+    faces = &[
+        face!(
+            name = "Ojer Pakpatiq, Deepest Epoch",
+            mana_cost = mana!("{2}{U}{U}"),
+            types = TypeSet::CREATURE,
+            supertypes = SupertypeSet::LEGENDARY,
+            subtypes = &[subtypes::creature::GOD],
+            power = Some(4),
+            toughness = Some(3),
+        ),
+        face!(name = "Temple of Cyclical Time", types = TypeSet::LAND,),
     ],
-}
+);
 
 // TODO(card): implement abilities, see docs/card-dsl.md.

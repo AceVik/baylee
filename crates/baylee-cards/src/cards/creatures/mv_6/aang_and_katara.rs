@@ -14,36 +14,42 @@ static TAPPED_ARTIFACTS_CREATURES: Filter = Filter::And(&[
 
 use crate::tokens::ALLY_1_1_WHITE as ALLY_TOKEN;
 
-card! {
-    index: 0,
-    oracle_id: "481c3e14-b670-4fab-aa9f-6ce5b514096d",
-    scryfall_id: "f333ea01-124f-4125-87ab-609be40e774c",
-    faces: &[face! {
-        name: "Aang and Katara",
-        mana_cost: mana!("{3}{G}{W}{U}"),
-        types: TypeSet::CREATURE,
-        supertypes: SupertypeSet::LEGENDARY,
-        subtypes: &[creature::HUMAN, creature::AVATAR, creature::ALLY],
-        power: Some(5),
-        toughness: Some(5),
-    }],
-    color_identity: ColorSet::from_slice(&[Color::White, Color::Blue, Color::Green]),
-    commander: CommanderRule::Legendary,
-    coverage: Coverage::Implemented,
-    abilities: &[
-        triggered!(Trigger::EntersBattlefield(&Filter::This), &[Effect::CreateTokenN {
+card!(
+    index = 0,
+    oracle_id = "481c3e14-b670-4fab-aa9f-6ce5b514096d",
+    scryfall_id = "f333ea01-124f-4125-87ab-609be40e774c",
+    faces = &[face!(
+        name = "Aang and Katara",
+        mana_cost = mana!("{3}{G}{W}{U}"),
+        types = TypeSet::CREATURE,
+        supertypes = SupertypeSet::LEGENDARY,
+        subtypes = &[creature::HUMAN, creature::AVATAR, creature::ALLY],
+        power = Some(5),
+        toughness = Some(5),
+    )],
+    color_identity = ColorSet::from_slice(&[Color::White, Color::Blue, Color::Green]),
+    commander = CommanderRule::Legendary,
+    coverage = Coverage::Implemented,
+    abilities = &[
+        triggered!(
+            Trigger::EntersBattlefield(&Filter::This),
+            &[Effect::CreateTokenN {
                 token: &ALLY_TOKEN,
                 amount: Amount::CountOf {
                     filter: &TAPPED_ARTIFACTS_CREATURES,
                     zone: ZoneSel::Battlefield,
                 },
-            }]),
-        triggered!(Trigger::Attacks(&Filter::This), &[Effect::CreateTokenN {
+            }]
+        ),
+        triggered!(
+            Trigger::Attacks(&Filter::This),
+            &[Effect::CreateTokenN {
                 token: &ALLY_TOKEN,
                 amount: Amount::CountOf {
                     filter: &TAPPED_ARTIFACTS_CREATURES,
                     zone: ZoneSel::Battlefield,
                 },
-            }]),
+            }]
+        ),
     ],
-}
+);

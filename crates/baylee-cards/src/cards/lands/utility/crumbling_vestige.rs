@@ -7,20 +7,21 @@
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 389,
-    oracle_id: "3c1fe86a-3696-4634-bc26-cd45846529ec",
-    scryfall_id: "d491c13c-43e3-4ca3-b888-4edd34dfe14a",
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Crumbling Vestige",
-        types: TypeSet::LAND,
-        enter_modifiers: &[EnterModifier::Tapped],
-    },
-    ],
-    abilities: &[
-        triggered!(Trigger::EntersBattlefield(&Filter::This), &[Effect::mana_of_any_color()]),
+card!(
+    index = 389,
+    oracle_id = "3c1fe86a-3696-4634-bc26-cd45846529ec",
+    scryfall_id = "d491c13c-43e3-4ca3-b888-4edd34dfe14a",
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "Crumbling Vestige",
+        types = TypeSet::LAND,
+        enter_modifiers = &[EnterModifier::Tapped],
+    ),],
+    abilities = &[
+        triggered!(
+            Trigger::EntersBattlefield(&Filter::This),
+            &[Effect::mana_of_any_color()]
+        ),
         mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
     ],
-}
+);

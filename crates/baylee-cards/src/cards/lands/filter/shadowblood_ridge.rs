@@ -5,19 +5,21 @@
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 1006,
-    oracle_id: "15687ee3-3cdb-4a8f-a726-46b73bceb792",
-    scryfall_id: "d7af1d6b-ff13-4886-a212-4a6e09153475",
-    color_identity: ColorSet::from_slice(&[Color::Black, Color::Red]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Shadowblood Ridge",
-        types: TypeSet::LAND,
-    },
-    ],
-    abilities: &[
-        mana_ability!(Cost { mana: mana!("{1}"), parts: &[CostPart::TapSelf] }, &[Effect::mana(ManaColor::Black, 1), Effect::mana(ManaColor::Red, 1)]),
-    ],
-}
+card!(
+    index = 1006,
+    oracle_id = "15687ee3-3cdb-4a8f-a726-46b73bceb792",
+    scryfall_id = "d7af1d6b-ff13-4886-a212-4a6e09153475",
+    color_identity = ColorSet::from_slice(&[Color::Black, Color::Red]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(name = "Shadowblood Ridge", types = TypeSet::LAND,),],
+    abilities = &[mana_ability!(
+        Cost {
+            mana: mana!("{1}"),
+            parts: &[CostPart::TapSelf]
+        },
+        &[
+            Effect::mana(ManaColor::Black, 1),
+            Effect::mana(ManaColor::Red, 1)
+        ]
+    ),],
+);

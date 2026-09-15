@@ -11,21 +11,31 @@ static TARGET1: Filter = Filter::And(&[
     Filter::HasSupertype(SupertypeSet::LEGENDARY),
 ]);
 
-card! {
-    index: 830,
-    oracle_id: "3ad69bfb-2e51-4fe9-8d2f-7d071a4f1c69",
-    scryfall_id: "ee8cf7aa-388c-47ec-be59-6ba98f3853cb",
-    color_identity: ColorSet::from_slice(&[Color::Green]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Okina, Temple to the Grandfathers",
-        types: TypeSet::LAND,
-        supertypes: SupertypeSet::LEGENDARY,
-    },
-    ],
-    abilities: &[
+card!(
+    index = 830,
+    oracle_id = "3ad69bfb-2e51-4fe9-8d2f-7d071a4f1c69",
+    scryfall_id = "ee8cf7aa-388c-47ec-be59-6ba98f3853cb",
+    color_identity = ColorSet::from_slice(&[Color::Green]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "Okina, Temple to the Grandfathers",
+        types = TypeSet::LAND,
+        supertypes = SupertypeSet::LEGENDARY,
+    ),],
+    abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::Green, 1)]),
-        activated!(Cost { mana: mana!("{G}"), parts: &[CostPart::TapSelf] }, &[Effect::PumpTarget { power: Amount::Fixed(1), toughness: Amount::Fixed(1), keywords: KeywordSet::EMPTY, duration: Duration::UntilEndOfTurn }], target: Some(TargetSpec::Object(&TARGET1))),
+        activated!(
+            Cost {
+                mana: mana!("{G}"),
+                parts: &[CostPart::TapSelf]
+            },
+            &[Effect::PumpTarget {
+                power: Amount::Fixed(1),
+                toughness: Amount::Fixed(1),
+                keywords: KeywordSet::EMPTY,
+                duration: Duration::UntilEndOfTurn
+            }],
+            target = Some(TargetSpec::Object(&TARGET1))
+        ),
     ],
-}
+);

@@ -10,22 +10,22 @@ use baylee_core::generated::subtypes::creature;
 
 static ARTIFACT_OR_CREATURE: Filter = Filter::Or(&[Filter::ARTIFACT, Filter::CREATURE]);
 
-card! {
-    index: 114,
-    oracle_id: "340bbe8b-e987-4c3e-ab4e-9dee63e57d4f",
-    scryfall_id: "a564c2e8-f49f-4ed7-850f-7c8bc92e4926",
-    faces: &[face! {
-        name: "Phyrexian Metamorph",
-        mana_cost: mana!("{3}{U/P}"),
-        types: TypeSet::ARTIFACT.union(TypeSet::CREATURE),
-        subtypes: &[creature::PHYREXIAN, creature::SHAPESHIFTER],
-        power: Some(0),
-        toughness: Some(0),
-    }],
-    color_identity: ColorSet::from_slice(&[Color::Blue]),
-    coverage: Coverage::Implemented,
-    abilities: &[AbilityDef::CopyOnEnter {
+card!(
+    index = 114,
+    oracle_id = "340bbe8b-e987-4c3e-ab4e-9dee63e57d4f",
+    scryfall_id = "a564c2e8-f49f-4ed7-850f-7c8bc92e4926",
+    faces = &[face!(
+        name = "Phyrexian Metamorph",
+        mana_cost = mana!("{3}{U/P}"),
+        types = TypeSet::ARTIFACT.union(TypeSet::CREATURE),
+        subtypes = &[creature::PHYREXIAN, creature::SHAPESHIFTER],
+        power = Some(0),
+        toughness = Some(0),
+    )],
+    color_identity = ColorSet::from_slice(&[Color::Blue]),
+    coverage = Coverage::Implemented,
+    abilities = &[AbilityDef::CopyOnEnter {
         target: TargetSpec::Object(&ARTIFACT_OR_CREATURE),
         mods: &[CopyMod::AddType(TypeSet::ARTIFACT)],
     }],
-}
+);

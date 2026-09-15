@@ -7,21 +7,28 @@
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 262,
-    oracle_id: "326ba371-124c-4949-a048-3a0c8962e567",
-    scryfall_id: "380eb7fd-bc79-4cad-9c2b-9b2b10761a72",
-    color_identity: ColorSet::from_slice(&[Color::Black]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Barren Moor",
-        types: TypeSet::LAND,
-        enter_modifiers: &[EnterModifier::Tapped],
-    },
-    ],
-    abilities: &[
+card!(
+    index = 262,
+    oracle_id = "326ba371-124c-4949-a048-3a0c8962e567",
+    scryfall_id = "380eb7fd-bc79-4cad-9c2b-9b2b10761a72",
+    color_identity = ColorSet::from_slice(&[Color::Black]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "Barren Moor",
+        types = TypeSet::LAND,
+        enter_modifiers = &[EnterModifier::Tapped],
+    ),],
+    abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::Black, 1)]),
-        activated!(Cost { mana: mana!("{B}"), parts: &[CostPart::DiscardSelf] }, &[Effect::DrawCards { amount: Amount::Fixed(1) }], zone: ActivationZone::Hand),
+        activated!(
+            Cost {
+                mana: mana!("{B}"),
+                parts: &[CostPart::DiscardSelf]
+            },
+            &[Effect::DrawCards {
+                amount: Amount::Fixed(1)
+            }],
+            zone = ActivationZone::Hand
+        ),
     ],
-}
+);

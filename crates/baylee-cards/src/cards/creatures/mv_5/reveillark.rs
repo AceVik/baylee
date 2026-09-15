@@ -12,37 +12,41 @@ static SMALL_CREATURE_GY: Filter = Filter::And(&[
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 132,
-    oracle_id: "1be13ede-98f8-497e-800c-03e5802932b3",
-    scryfall_id: "53b4dcd6-b1b6-4f1c-9264-e58bdc87399b",
-    faces: &[face! {
-        name: "Reveillark",
-        mana_cost: mana!("{4}{W}"),
-        types: TypeSet::CREATURE,
-        subtypes: &[baylee_core::generated::subtypes::creature::ELEMENTAL],
-        power: Some(4),
-        toughness: Some(3),
-        alternative_costs: &[AlternativeCost {
+card!(
+    index = 132,
+    oracle_id = "1be13ede-98f8-497e-800c-03e5802932b3",
+    scryfall_id = "53b4dcd6-b1b6-4f1c-9264-e58bdc87399b",
+    faces = &[face!(
+        name = "Reveillark",
+        mana_cost = mana!("{4}{W}"),
+        types = TypeSet::CREATURE,
+        subtypes = &[baylee_core::generated::subtypes::creature::ELEMENTAL],
+        power = Some(4),
+        toughness = Some(3),
+        alternative_costs = &[AlternativeCost {
             cost: Cost {
                 mana: mana!("{5}{W}"),
                 parts: &[],
             },
             condition: AltCondition::Always,
         }],
-    }],
-    color_identity: ColorSet::from_slice(&[Color::White]),
-    keywords: KeywordSet::FLYING,
-    coverage: Coverage::Implemented,
-    abilities: &[
-        triggered!(Trigger::LeavesBattlefield(&Filter::This), &[Effect::GraveyardToBattlefield {
+    )],
+    color_identity = ColorSet::from_slice(&[Color::White]),
+    keywords = KeywordSet::FLYING,
+    coverage = Coverage::Implemented,
+    abilities = &[
+        triggered!(
+            Trigger::LeavesBattlefield(&Filter::This),
+            &[Effect::GraveyardToBattlefield {
                 target: TargetSpec::CardInGraveyard(&SMALL_CREATURE_GY, PlayerRel::You),
-            }], targets: Some(TargetReq::up_to(
+            }],
+            targets = Some(TargetReq::up_to(
                 TargetSpec::CardInGraveyard(&SMALL_CREATURE_GY, PlayerRel::You),
                 2,
-            ))),
+            ))
+        ),
         triggered!(Trigger::EntersBattlefieldEvoked, &[Effect::SacrificeSelf]),
     ],
-}
+);
 
 // LTB returns up to two small creatures from your graveyard.

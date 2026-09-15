@@ -18,19 +18,19 @@ static LEVEL3_FX: &[Effect] = &[Effect::AddCounter {
     amount: Amount::Fixed(1),
 }];
 
-card! {
-    index: 192,
-    oracle_id: "36f68aa3-9955-46f1-bc87-497f16ef5222",
-    scryfall_id: "d1f629fb-b097-4240-8560-ef47f5678f48",
-    faces: &[face! {
-        name: "Wizard Class",
-        mana_cost: mana!("{U}"),
-        types: TypeSet::ENCHANTMENT,
-        subtypes: &[enchantment::CLASS],
-    }],
-    color_identity: ColorSet::from_slice(&[Color::Blue]),
-    coverage: Coverage::Implemented,
-    abilities: &[
+card!(
+    index = 192,
+    oracle_id = "36f68aa3-9955-46f1-bc87-497f16ef5222",
+    scryfall_id = "d1f629fb-b097-4240-8560-ef47f5678f48",
+    faces = &[face!(
+        name = "Wizard Class",
+        mana_cost = mana!("{U}"),
+        types = TypeSet::ENCHANTMENT,
+        subtypes = &[enchantment::CLASS],
+    )],
+    color_identity = ColorSet::from_slice(&[Color::Blue]),
+    coverage = Coverage::Implemented,
+    abilities = &[
         // Level 1 (printed).
         AbilityDef::Static(StaticAbility {
             layer: Layer::Text,
@@ -87,4 +87,4 @@ card! {
             condition: ActivationCondition::CountersOnSelfExactly(CounterKind::Level, 1),
         },
     ],
-}
+);

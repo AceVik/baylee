@@ -6,20 +6,19 @@
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 954,
-    oracle_id: "6a40823f-130c-4416-a987-75e205d3e1dd",
-    scryfall_id: "3ac23896-d4c9-4543-9edc-1d1bb5c74611",
-    color_identity: ColorSet::from_slice(&[Color::Black, Color::Blue]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Salt Marsh",
-        types: TypeSet::LAND,
-        enter_modifiers: &[EnterModifier::Tapped],
-    },
-    ],
-    abilities: &[
-        mana_ability!(&[Effect::mana_choice(&[ManaColor::Blue, ManaColor::Black])]),
-    ],
-}
+card!(
+    index = 954,
+    oracle_id = "6a40823f-130c-4416-a987-75e205d3e1dd",
+    scryfall_id = "3ac23896-d4c9-4543-9edc-1d1bb5c74611",
+    color_identity = ColorSet::from_slice(&[Color::Black, Color::Blue]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "Salt Marsh",
+        types = TypeSet::LAND,
+        enter_modifiers = &[EnterModifier::Tapped],
+    ),],
+    abilities = &[mana_ability!(&[Effect::mana_choice(&[
+        ManaColor::Blue,
+        ManaColor::Black
+    ])]),],
+);

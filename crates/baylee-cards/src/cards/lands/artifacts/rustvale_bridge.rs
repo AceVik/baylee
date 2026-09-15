@@ -7,21 +7,20 @@
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 949,
-    oracle_id: "a3faf70d-c034-4692-9e92-1922029e3852",
-    scryfall_id: "da54e458-1d4f-45f0-a225-99eb9c4049fb",
-    color_identity: ColorSet::from_slice(&[Color::Red, Color::White]),
-    keywords: KeywordSet::INDESTRUCTIBLE,
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Rustvale Bridge",
-        types: TypeSet::ARTIFACT.union(TypeSet::LAND),
-        enter_modifiers: &[EnterModifier::Tapped],
-    },
-    ],
-    abilities: &[
-        mana_ability!(&[Effect::mana_choice(&[ManaColor::Red, ManaColor::White])]),
-    ],
-}
+card!(
+    index = 949,
+    oracle_id = "a3faf70d-c034-4692-9e92-1922029e3852",
+    scryfall_id = "da54e458-1d4f-45f0-a225-99eb9c4049fb",
+    color_identity = ColorSet::from_slice(&[Color::Red, Color::White]),
+    keywords = KeywordSet::INDESTRUCTIBLE,
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "Rustvale Bridge",
+        types = TypeSet::ARTIFACT.union(TypeSet::LAND),
+        enter_modifiers = &[EnterModifier::Tapped],
+    ),],
+    abilities = &[mana_ability!(&[Effect::mana_choice(&[
+        ManaColor::Red,
+        ManaColor::White
+    ])]),],
+);

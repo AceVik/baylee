@@ -9,22 +9,19 @@
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 689,
-    oracle_id: "37a55560-6e32-4f54-b9a8-fd157aea6eb5",
-    scryfall_id: "99535539-aa73-41ed-86ab-21c97b92620d",
-    color_identity: ColorSet::from_slice(&[Color::Green]),
-    faces: &[
-    face! {
-        name: "Khalni Ambush",
-        mana_cost: mana!("{2}{G}"),
-        types: TypeSet::INSTANT,
-    },
-    face! {
-        name: "Khalni Territory",
-        types: TypeSet::LAND,
-    },
+card!(
+    index = 689,
+    oracle_id = "37a55560-6e32-4f54-b9a8-fd157aea6eb5",
+    scryfall_id = "99535539-aa73-41ed-86ab-21c97b92620d",
+    color_identity = ColorSet::from_slice(&[Color::Green]),
+    faces = &[
+        face!(
+            name = "Khalni Ambush",
+            mana_cost = mana!("{2}{G}"),
+            types = TypeSet::INSTANT,
+        ),
+        face!(name = "Khalni Territory", types = TypeSet::LAND,),
     ],
-}
+);
 
 // TODO(card): implement abilities, see docs/card-dsl.md.

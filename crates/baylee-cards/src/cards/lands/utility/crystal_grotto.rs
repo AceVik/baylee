@@ -7,20 +7,26 @@
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 394,
-    oracle_id: "f15fb0cc-8e96-4f03-94d0-b51410415afd",
-    scryfall_id: "6f6f9d3d-600d-43f3-a915-612e5d53aaa1",
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Crystal Grotto",
-        types: TypeSet::LAND,
-    },
-    ],
-    abilities: &[
-        triggered!(Trigger::EntersBattlefield(&Filter::This), &[Effect::Scry { amount: Amount::Fixed(1) }]),
+card!(
+    index = 394,
+    oracle_id = "f15fb0cc-8e96-4f03-94d0-b51410415afd",
+    scryfall_id = "6f6f9d3d-600d-43f3-a915-612e5d53aaa1",
+    coverage = Coverage::Implemented,
+    faces = &[face!(name = "Crystal Grotto", types = TypeSet::LAND,),],
+    abilities = &[
+        triggered!(
+            Trigger::EntersBattlefield(&Filter::This),
+            &[Effect::Scry {
+                amount: Amount::Fixed(1)
+            }]
+        ),
         mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
-        mana_ability!(Cost { mana: mana!("{1}"), parts: &[CostPart::TapSelf] }, &[Effect::mana_of_any_color()]),
+        mana_ability!(
+            Cost {
+                mana: mana!("{1}"),
+                parts: &[CostPart::TapSelf]
+            },
+            &[Effect::mana_of_any_color()]
+        ),
     ],
-}
+);

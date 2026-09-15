@@ -6,16 +6,11 @@
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 698,
-    oracle_id: "9ec5a487-d8ed-459a-8f58-56f6e9a2dfe8",
-    scryfall_id: "388169df-4cce-452d-9215-e3f814ff4fdf",
-    faces: &[
-    face! {
-        name: "Labyrinth of Skophos",
-        types: TypeSet::LAND,
-    },
-    ],
-}
+card!(
+    index = 698,
+    oracle_id = "9ec5a487-d8ed-459a-8f58-56f6e9a2dfe8",
+    scryfall_id = "388169df-4cce-452d-9215-e3f814ff4fdf",
+    faces = &[face!(name = "Labyrinth of Skophos", types = TypeSet::LAND,),],
+);
 
 // TODO(card): implement abilities, see docs/card-dsl.md.

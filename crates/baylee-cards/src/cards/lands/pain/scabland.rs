@@ -7,21 +7,25 @@
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 969,
-    oracle_id: "2896f01d-003b-4d68-9d0a-64990ba59cbe",
-    scryfall_id: "40642193-712a-495e-9349-6fc8e54a66f4",
-    color_identity: ColorSet::from_slice(&[Color::Red, Color::White]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Scabland",
-        types: TypeSet::LAND,
-        enter_modifiers: &[EnterModifier::Tapped],
-    },
-    ],
-    abilities: &[
+card!(
+    index = 969,
+    oracle_id = "2896f01d-003b-4d68-9d0a-64990ba59cbe",
+    scryfall_id = "40642193-712a-495e-9349-6fc8e54a66f4",
+    color_identity = ColorSet::from_slice(&[Color::Red, Color::White]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "Scabland",
+        types = TypeSet::LAND,
+        enter_modifiers = &[EnterModifier::Tapped],
+    ),],
+    abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
-        mana_ability!(&[Effect::mana_choice(&[ManaColor::Red, ManaColor::White]), Effect::DealDamage { amount: Amount::Fixed(1), target: TargetSpec::Player(PlayerRel::You) }]),
+        mana_ability!(&[
+            Effect::mana_choice(&[ManaColor::Red, ManaColor::White]),
+            Effect::DealDamage {
+                amount: Amount::Fixed(1),
+                target: TargetSpec::Player(PlayerRel::You)
+            }
+        ]),
     ],
-}
+);

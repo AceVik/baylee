@@ -205,7 +205,7 @@ fn push_field(fields: &mut Vec<String>, name: &str, value: &str, default: &str) 
     if value.is_empty() || value == default {
         return;
     }
-    fields.push(format!("{name}: {value}"));
+    fields.push(format!("{name} = {value}"));
 }
 
 fn mana_expr(card_name: &str, cost: &str) -> Result<String, CodegenError> {
@@ -326,14 +326,14 @@ fn render_face(
     } else {
         format!("&[{}]", subtype_paths.join(", "))
     };
-    let mut fields = vec![format!("name: {:?}", f.name)];
+    let mut fields = vec![format!("name = {:?}", f.name)];
     push_field(
         &mut fields,
         "mana_cost",
         &mana_expr(card_name, &f.mana_cost)?,
         "ManaCost::ZERO",
     );
-    fields.push(format!("types: {types}"));
+    fields.push(format!("types = {types}"));
     push_field(&mut fields, "supertypes", &supers, "SupertypeSet::EMPTY");
     push_field(&mut fields, "subtypes", &subtypes, "");
     push_field(&mut fields, "power", &pt_expr(f.power.as_deref()), "None");
@@ -351,7 +351,7 @@ fn render_face(
     );
     if !enter_modifiers.is_empty() {
         fields.push(format!(
-            "enter_modifiers: &[{}]",
+            "enter_modifiers = &[{}]",
             enter_modifiers.join(", ")
         ));
     }
@@ -362,14 +362,14 @@ fn render_face(
     // Left to the default, a back face with no cost is a spell the cast
     // wizard offers for `{0}` — which it did, for a 9/7 Demon.
     if is_back && !types.contains("TypeSet::LAND") && f.mana_cost.is_empty() {
-        fields.push("castable_from_hand: false".to_string());
+        fields.push("castable_from_hand = false".to_string());
     }
 
-    let mut out = String::from("    face! {\n");
+    let mut out = String::from("    face!(\n");
     for field in &fields {
         out.push_str(&format!("        {field},\n"));
     }
-    out.push_str("    },\n");
+    out.push_str("    ),\n");
     for u in unknown {
         out.push_str(&format!(
             "    // FIXME(codegen): unknown type-line word {u:?}\n"
@@ -393,9 +393,9 @@ fn render_card_literal(
     land: Option<&CardBody>,
 ) -> String {
     let mut fields = vec![
-        format!("index: {index}"),
-        format!("oracle_id: {oracle_id:?}"),
-        format!("scryfall_id: {:?}", card.id),
+        format!("index = {index}"),
+        format!("oracle_id = {oracle_id:?}"),
+        format!("scryfall_id = {:?}", card.id),
     ];
     push_field(
         &mut fields,
@@ -418,26 +418,26 @@ fn render_card_literal(
 
     if let Some(land) = land {
         if !land.keywords.is_empty() {
-            fields.push(format!("keywords: {}", join_union_owned(&land.keywords)));
+            fields.push(format!("keywords = {}", join_union_owned(&land.keywords)));
         }
-        fields.push("coverage: Coverage::Implemented".to_string());
+        fields.push("coverage = Coverage::Implemented".to_string());
     }
 
-    let mut out = String::from("card! {\n");
+    let mut out = String::from("card!(\n");
     for field in &fields {
         out.push_str(&format!("    {field},\n"));
     }
-    out.push_str(&format!("    faces: &[\n{face_defs}    ],\n"));
+    out.push_str(&format!("    faces = &[\n{face_defs}    ],\n"));
     if let Some(land) = land
         && !land.abilities.is_empty()
     {
-        out.push_str("    abilities: &[\n");
+        out.push_str("    abilities = &[\n");
         for ability in &land.abilities {
             out.push_str(&format!("        {ability},\n"));
         }
         out.push_str("    ],\n");
     }
-    out.push_str("}\n\n");
+    out.push_str(");\n\n");
     out
 }
 
@@ -839,8 +839,8 @@ mod tests {
         .unwrap();
         // The tail is the macro's job now; what matters is unchanged — a
         // stub states what is printed and nothing else.
-        assert!(text.contains("card! {"));
-        assert!(text.contains("face! {"));
+        assert!(text.contains("card!("));
+        assert!(text.contains("face!("));
         assert!(!text.contains("#![allow("), "the blanket allow is gone");
         for absent in [
             "mana_cost:",
@@ -861,8 +861,8 @@ mod tests {
                 "stub restated the default for {absent}\n{text}"
             );
         }
-        assert!(text.contains("    types: TypeSet::LAND,\n"));
-        assert!(text.contains("    index: 7,\n"));
+        assert!(text.contains("    types = TypeSet::LAND,\n"));
+        assert!(text.contains("    index = 7,\n"));
     }
 
     /// A back face with no printed cost is a transformed back (CR 712.2), and
@@ -888,7 +888,7 @@ mod tests {
 
         card.card_faces = Some(vec![front.clone(), back("Creature — Demon", None)]);
         let (_, text) = render_stub(&card, 0, &cats, None, &LandCycles::default()).unwrap();
-        assert!(text.contains("castable_from_hand: false"), "{text}");
+        assert!(text.contains("castable_from_hand = false"), "{text}");
 
         // The front face is turned over, never cast as a mode — it is what
         // the card *is*, so the line would be a lie there.
@@ -935,11 +935,11 @@ mod tests {
         card.toughness = Some("3".to_string());
         card.color_identity = Some(vec!["W".to_string()]);
         let (_, text) = render_stub(&card, 1, &cats, None, &LandCycles::default()).unwrap();
-        assert!(text.contains("mana_cost: mana!(\"{1}{W}\"),"));
-        assert!(text.contains("power: Some(2),"));
-        assert!(text.contains("toughness: Some(3),"));
-        assert!(text.contains("supertypes: SupertypeSet::LEGENDARY,"));
-        assert!(text.contains("color_identity: ColorSet::from_slice(&[Color::White]),"));
-        assert!(text.contains("commander: CommanderRule::Legendary,"));
+        assert!(text.contains("mana_cost = mana!(\"{1}{W}\"),"));
+        assert!(text.contains("power = Some(2),"));
+        assert!(text.contains("toughness = Some(3),"));
+        assert!(text.contains("supertypes = SupertypeSet::LEGENDARY,"));
+        assert!(text.contains("color_identity = ColorSet::from_slice(&[Color::White]),"));
+        assert!(text.contains("commander = CommanderRule::Legendary,"));
     }
 }

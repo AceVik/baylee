@@ -6,20 +6,21 @@
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 344,
-    oracle_id: "33de01e9-ce5a-42d4-afcb-343cd54a6d80",
-    scryfall_id: "a8a57915-5226-4d3c-ae8e-a55c50f3c131",
-    color_identity: ColorSet::from_slice(&[Color::Black, Color::White]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Caves of Koilos",
-        types: TypeSet::LAND,
-    },
-    ],
-    abilities: &[
+card!(
+    index = 344,
+    oracle_id = "33de01e9-ce5a-42d4-afcb-343cd54a6d80",
+    scryfall_id = "a8a57915-5226-4d3c-ae8e-a55c50f3c131",
+    color_identity = ColorSet::from_slice(&[Color::Black, Color::White]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(name = "Caves of Koilos", types = TypeSet::LAND,),],
+    abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
-        mana_ability!(&[Effect::mana_choice(&[ManaColor::White, ManaColor::Black]), Effect::DealDamage { amount: Amount::Fixed(1), target: TargetSpec::Player(PlayerRel::You) }]),
+        mana_ability!(&[
+            Effect::mana_choice(&[ManaColor::White, ManaColor::Black]),
+            Effect::DealDamage {
+                amount: Amount::Fixed(1),
+                target: TargetSpec::Player(PlayerRel::You)
+            }
+        ]),
     ],
-}
+);

@@ -8,22 +8,37 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-card! {
-    index: 1335,
-    oracle_id: "8291543f-d086-48aa-b2b7-5481ca8c9198",
-    scryfall_id: "54f449ff-4025-465e-9ec5-a5cf42c4c9d3",
-    color_identity: ColorSet::from_slice(&[Color::Black, Color::Red, Color::Blue]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Xander's Lounge",
-        types: TypeSet::LAND,
-        subtypes: &[subtypes::land::ISLAND, subtypes::land::SWAMP, subtypes::land::MOUNTAIN],
-        enter_modifiers: &[EnterModifier::Tapped],
-    },
+card!(
+    index = 1335,
+    oracle_id = "8291543f-d086-48aa-b2b7-5481ca8c9198",
+    scryfall_id = "54f449ff-4025-465e-9ec5-a5cf42c4c9d3",
+    color_identity = ColorSet::from_slice(&[Color::Black, Color::Red, Color::Blue]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "Xander's Lounge",
+        types = TypeSet::LAND,
+        subtypes = &[
+            subtypes::land::ISLAND,
+            subtypes::land::SWAMP,
+            subtypes::land::MOUNTAIN
+        ],
+        enter_modifiers = &[EnterModifier::Tapped],
+    ),],
+    abilities = &[
+        mana_ability!(&[Effect::mana_choice(&[
+            ManaColor::Blue,
+            ManaColor::Black,
+            ManaColor::Red
+        ])]),
+        activated!(
+            Cost {
+                mana: mana!("{3}"),
+                parts: &[CostPart::DiscardSelf]
+            },
+            &[Effect::DrawCards {
+                amount: Amount::Fixed(1)
+            }],
+            zone = ActivationZone::Hand
+        ),
     ],
-    abilities: &[
-        mana_ability!(&[Effect::mana_choice(&[ManaColor::Blue, ManaColor::Black, ManaColor::Red])]),
-        activated!(Cost { mana: mana!("{3}"), parts: &[CostPart::DiscardSelf] }, &[Effect::DrawCards { amount: Amount::Fixed(1) }], zone: ActivationZone::Hand),
-    ],
-}
+);

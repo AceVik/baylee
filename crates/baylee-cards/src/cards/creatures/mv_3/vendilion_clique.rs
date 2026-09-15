@@ -13,24 +13,26 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes::creature;
 
-card! {
-    index: 181,
-    oracle_id: "244d4807-0802-41bc-9460-55ac38a28a72",
-    scryfall_id: "cd702cf1-10ca-4448-9fb1-b6de635e839c",
-    faces: &[face! {
-        name: "Vendilion Clique",
-        mana_cost: mana!("{1}{U}{U}"),
-        types: TypeSet::CREATURE,
-        supertypes: SupertypeSet::LEGENDARY,
-        subtypes: &[creature::FAERIE, creature::WIZARD],
-        power: Some(3),
-        toughness: Some(1),
-    }],
-    color_identity: ColorSet::from_slice(&[Color::Blue]),
-    keywords: KeywordSet::FLASH.union(KeywordSet::FLYING),
-    commander: CommanderRule::Legendary,
-    coverage: Coverage::Implemented,
-    abilities: &[triggered!(Trigger::EntersBattlefield(&Filter::This), &[
+card!(
+    index = 181,
+    oracle_id = "244d4807-0802-41bc-9460-55ac38a28a72",
+    scryfall_id = "cd702cf1-10ca-4448-9fb1-b6de635e839c",
+    faces = &[face!(
+        name = "Vendilion Clique",
+        mana_cost = mana!("{1}{U}{U}"),
+        types = TypeSet::CREATURE,
+        supertypes = SupertypeSet::LEGENDARY,
+        subtypes = &[creature::FAERIE, creature::WIZARD],
+        power = Some(3),
+        toughness = Some(1),
+    )],
+    color_identity = ColorSet::from_slice(&[Color::Blue]),
+    keywords = KeywordSet::FLASH.union(KeywordSet::FLYING),
+    commander = CommanderRule::Legendary,
+    coverage = Coverage::Implemented,
+    abilities = &[triggered!(
+        Trigger::EntersBattlefield(&Filter::This),
+        &[
             Effect::BottomCardFromHand {
                 player: PlayerRel::Chosen,
                 filter: &Filter::NONLAND,
@@ -39,5 +41,7 @@ card! {
                 amount: Amount::Fixed(1),
                 who: PlayerRel::Chosen,
             },
-        ], targets: Some(TargetReq::one(TargetSpec::AnyPlayer)))],
-}
+        ],
+        targets = Some(TargetReq::one(TargetSpec::AnyPlayer))
+    )],
+);

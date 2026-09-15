@@ -6,21 +6,21 @@
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 89,
-    oracle_id: "64ebdd6f-acde-4aab-a86b-2798bad5f70c",
-    scryfall_id: "637f69c2-ba24-42d1-9345-8ebdb04b6904",
-    faces: &[face! {
-        name: "Machine God's Effigy",
-        mana_cost: mana!("{4}"),
-        types: TypeSet::ARTIFACT,
-    }],
+card!(
+    index = 89,
+    oracle_id = "64ebdd6f-acde-4aab-a86b-2798bad5f70c",
+    scryfall_id = "637f69c2-ba24-42d1-9345-8ebdb04b6904",
+    faces = &[face!(
+        name = "Machine God's Effigy",
+        mana_cost = mana!("{4}"),
+        types = TypeSet::ARTIFACT,
+    )],
     // The `{T}: Add {U}` printed in its own text is what makes a colorless
     // artifact blue for deckbuilding (CR 903.4b): a mana symbol in the rules
     // text counts towards color identity even when the card costs {4}.
-    color_identity: ColorSet::from_slice(&[Color::Blue]),
-    coverage: Coverage::Implemented,
-    abilities: &[
+    color_identity = ColorSet::from_slice(&[Color::Blue]),
+    coverage = Coverage::Implemented,
+    abilities = &[
         AbilityDef::CopyOnEnter {
             target: TargetSpec::Object(&Filter::CREATURE),
             mods: &[
@@ -30,4 +30,4 @@ card! {
         },
         mana_ability!(&[Effect::mana(ManaColor::Blue, 1)]),
     ],
-}
+);

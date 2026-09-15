@@ -13,22 +13,19 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-card! {
-    index: 433,
-    oracle_id: "df34a6ad-ae1c-4470-8c9e-49815bba1973",
-    scryfall_id: "514d53be-6ade-4f73-a844-e9ae2dafd6ce",
-    faces: &[
-    face! {
-        name: "Dowsing Dagger",
-        mana_cost: mana!("{2}"),
-        types: TypeSet::ARTIFACT,
-        subtypes: &[subtypes::artifact::EQUIPMENT],
-    },
-    face! {
-        name: "Lost Vale",
-        types: TypeSet::LAND,
-    },
+card!(
+    index = 433,
+    oracle_id = "df34a6ad-ae1c-4470-8c9e-49815bba1973",
+    scryfall_id = "514d53be-6ade-4f73-a844-e9ae2dafd6ce",
+    faces = &[
+        face!(
+            name = "Dowsing Dagger",
+            mana_cost = mana!("{2}"),
+            types = TypeSet::ARTIFACT,
+            subtypes = &[subtypes::artifact::EQUIPMENT],
+        ),
+        face!(name = "Lost Vale", types = TypeSet::LAND,),
     ],
-}
+);
 
 // TODO(card): implement abilities, see docs/card-dsl.md.

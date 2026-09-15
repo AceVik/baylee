@@ -17,25 +17,25 @@ static OTHER_CHOSEN_TYPE_CREATURE_YOU_CONTROL: Filter = Filter::And(&[
     Filter::MatchesChosenTypeOfSource,
 ]);
 
-card! {
-    index: 136,
-    oracle_id: "3640c29b-1534-4952-b297-619ade948431",
-    scryfall_id: "32fd8b7c-baf3-4d3d-be6f-044a917b11a0",
-    faces: &[face! {
-        name: "Roaming Throne",
-        mana_cost: mana!("{4}"),
-        types: TypeSet::CREATURE.union(TypeSet::ARTIFACT),
-        subtypes: &[creature::GOLEM],
-        power: Some(4),
-        toughness: Some(4),
-        enter_modifiers: &[EnterModifier::ChooseSubtype],
-    }],
-    coverage: Coverage::Implemented,
-    abilities: &[
+card!(
+    index = 136,
+    oracle_id = "3640c29b-1534-4952-b297-619ade948431",
+    scryfall_id = "32fd8b7c-baf3-4d3d-be6f-044a917b11a0",
+    faces = &[face!(
+        name = "Roaming Throne",
+        mana_cost = mana!("{4}"),
+        types = TypeSet::CREATURE.union(TypeSet::ARTIFACT),
+        subtypes = &[creature::GOLEM],
+        power = Some(4),
+        toughness = Some(4),
+        enter_modifiers = &[EnterModifier::ChooseSubtype],
+    )],
+    coverage = Coverage::Implemented,
+    abilities = &[
         AbilityDef::Ward { mana: 2 },
         AbilityDef::Replacement(ReplacementRule::TriggerMultiplier {
             source_filter: &OTHER_CHOSEN_TYPE_CREATURE_YOU_CONTROL,
             event: TriggerEventKind::Any,
         }),
     ],
-}
+);

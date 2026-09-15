@@ -9,22 +9,19 @@
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 1098,
-    oracle_id: "eb7b1284-0b2c-4b6a-a389-b2b932838083",
-    scryfall_id: "49974246-0a3b-4ec9-b5ea-2a89df9bb0b5",
-    color_identity: ColorSet::from_slice(&[Color::Green, Color::Red]),
-    faces: &[
-    face! {
-        name: "Stump Stomp",
-        mana_cost: mana!("{1}{R/G}"),
-        types: TypeSet::SORCERY,
-    },
-    face! {
-        name: "Burnwillow Clearing",
-        types: TypeSet::LAND,
-    },
+card!(
+    index = 1098,
+    oracle_id = "eb7b1284-0b2c-4b6a-a389-b2b932838083",
+    scryfall_id = "49974246-0a3b-4ec9-b5ea-2a89df9bb0b5",
+    color_identity = ColorSet::from_slice(&[Color::Green, Color::Red]),
+    faces = &[
+        face!(
+            name = "Stump Stomp",
+            mana_cost = mana!("{1}{R/G}"),
+            types = TypeSet::SORCERY,
+        ),
+        face!(name = "Burnwillow Clearing", types = TypeSet::LAND,),
     ],
-}
+);
 
 // TODO(card): implement abilities, see docs/card-dsl.md.

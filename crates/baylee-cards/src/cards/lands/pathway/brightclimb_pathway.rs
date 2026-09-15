@@ -9,22 +9,19 @@ static BACK_MANA: &[AbilityDef] = &[mana_ability!(&[Effect::mana(ManaColor::Blac
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 16,
-    oracle_id: "1c633e02-95ef-445e-b4e0-fbfbc5ed9cc9",
-    scryfall_id: "d24c3d51-795d-4c01-a34a-3280fccd2d78",
-    faces: &[
-        face! {
-            name: "Brightclimb Pathway",
-            types: TypeSet::LAND,
-        },
-        face! {
-            name: "Grimclimb Pathway",
-            types: TypeSet::LAND,
-            abilities: BACK_MANA,
-        },
+card!(
+    index = 16,
+    oracle_id = "1c633e02-95ef-445e-b4e0-fbfbc5ed9cc9",
+    scryfall_id = "d24c3d51-795d-4c01-a34a-3280fccd2d78",
+    faces = &[
+        face!(name = "Brightclimb Pathway", types = TypeSet::LAND,),
+        face!(
+            name = "Grimclimb Pathway",
+            types = TypeSet::LAND,
+            abilities = BACK_MANA,
+        ),
     ],
-    color_identity: ColorSet::from_slice(&[Color::White, Color::Black]),
-    coverage: Coverage::Implemented,
-    abilities: &[mana_ability!(&[Effect::mana(ManaColor::White, 1)])],
-}
+    color_identity = ColorSet::from_slice(&[Color::White, Color::Black]),
+    coverage = Coverage::Implemented,
+    abilities = &[mana_ability!(&[Effect::mana(ManaColor::White, 1)])],
+);

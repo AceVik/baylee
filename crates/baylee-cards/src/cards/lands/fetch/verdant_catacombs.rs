@@ -11,18 +11,25 @@ static SEARCH1: Filter = Filter::Or(&[
     Filter::HasSubtype(subtypes::land::FOREST),
 ]);
 
-card! {
-    index: 1285,
-    oracle_id: "67d60b24-d429-4ded-90d9-06e49f28c396",
-    scryfall_id: "94c229ea-90da-4aa0-bfda-b162fb3b5b8b",
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Verdant Catacombs",
-        types: TypeSet::LAND,
-    },
-    ],
-    abilities: &[
-        activated!(Cost { mana: ManaCost::ZERO, parts: &[CostPart::TapSelf, CostPart::PayLife(1), CostPart::SacrificeSelf] }, &[Effect::SearchLibrary { filter: &SEARCH1, finds: &[Find::BATTLEFIELD], optional: false }]),
-    ],
-}
+card!(
+    index = 1285,
+    oracle_id = "67d60b24-d429-4ded-90d9-06e49f28c396",
+    scryfall_id = "94c229ea-90da-4aa0-bfda-b162fb3b5b8b",
+    coverage = Coverage::Implemented,
+    faces = &[face!(name = "Verdant Catacombs", types = TypeSet::LAND,),],
+    abilities = &[activated!(
+        Cost {
+            mana: ManaCost::ZERO,
+            parts: &[
+                CostPart::TapSelf,
+                CostPart::PayLife(1),
+                CostPart::SacrificeSelf
+            ]
+        },
+        &[Effect::SearchLibrary {
+            filter: &SEARCH1,
+            finds: &[Find::BATTLEFIELD],
+            optional: false
+        }]
+    ),],
+);

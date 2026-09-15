@@ -6,26 +6,32 @@
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 142,
-    oracle_id: "13575cf9-65c1-4861-b21e-eb2155e07766",
-    scryfall_id: "e5142b7a-e580-4737-a4aa-2590f6610ceb",
-    faces: &[face! {
-        name: "Sensei's Divining Top",
-        mana_cost: mana!("{1}"),
-        types: TypeSet::ARTIFACT,
-    }],
-    coverage: Coverage::Implemented,
-    abilities: &[
-        activated!(Cost {
+card!(
+    index = 142,
+    oracle_id = "13575cf9-65c1-4861-b21e-eb2155e07766",
+    scryfall_id = "e5142b7a-e580-4737-a4aa-2590f6610ceb",
+    faces = &[face!(
+        name = "Sensei's Divining Top",
+        mana_cost = mana!("{1}"),
+        types = TypeSet::ARTIFACT,
+    )],
+    coverage = Coverage::Implemented,
+    abilities = &[
+        activated!(
+            Cost {
                 mana: mana!("{1}"),
                 parts: &[],
-            }, &[Effect::ReorderTopLibrary { count: 3 }]),
-        activated!(Cost::TAP, &[
+            },
+            &[Effect::ReorderTopLibrary { count: 3 }]
+        ),
+        activated!(
+            Cost::TAP,
+            &[
                 Effect::DrawCards {
                     amount: Amount::Fixed(1),
                 },
                 Effect::PutSourceOnTopOfLibrary,
-            ]),
+            ]
+        ),
     ],
-}
+);

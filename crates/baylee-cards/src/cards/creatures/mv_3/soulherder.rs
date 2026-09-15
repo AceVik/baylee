@@ -10,35 +10,42 @@ use baylee_core::generated::subtypes::creature;
 static ANOTHER_CREATURE_YOU_CONTROL: Filter =
     Filter::And(&[Filter::Another, Filter::CREATURE, Filter::ControlledByYou]);
 
-card! {
-    index: 153,
-    oracle_id: "92019547-f6db-4ea6-8356-d0a90ace5662",
-    scryfall_id: "50bc0f5b-7421-45b9-af85-86dd9821b7d8",
-    faces: &[face! {
-        name: "Soulherder",
-        mana_cost: mana!("{1}{W}{U}"),
-        types: TypeSet::CREATURE,
-        subtypes: &[creature::SPIRIT],
-        power: Some(1),
-        toughness: Some(1),
-    }],
-    color_identity: ColorSet::from_slice(&[Color::White, Color::Blue]),
-    coverage: Coverage::Implemented,
-    abilities: &[
-        triggered!(Trigger::ExiledFromBattlefield(&Filter::CREATURE), &[Effect::AddCounter {
+card!(
+    index = 153,
+    oracle_id = "92019547-f6db-4ea6-8356-d0a90ace5662",
+    scryfall_id = "50bc0f5b-7421-45b9-af85-86dd9821b7d8",
+    faces = &[face!(
+        name = "Soulherder",
+        mana_cost = mana!("{1}{W}{U}"),
+        types = TypeSet::CREATURE,
+        subtypes = &[creature::SPIRIT],
+        power = Some(1),
+        toughness = Some(1),
+    )],
+    color_identity = ColorSet::from_slice(&[Color::White, Color::Blue]),
+    coverage = Coverage::Implemented,
+    abilities = &[
+        triggered!(
+            Trigger::ExiledFromBattlefield(&Filter::CREATURE),
+            &[Effect::AddCounter {
                 kind: CounterKind::P1P1,
                 amount: Amount::Fixed(1),
-            }]),
-        triggered!(Trigger::StepBegin {
+            }]
+        ),
+        triggered!(
+            Trigger::StepBegin {
                 step: StepKind::End,
                 whose: PlayerRel::You,
-            }, &[Effect::Blink {
+            },
+            &[Effect::Blink {
                 target: TargetSpec::Object(&ANOTHER_CREATURE_YOU_CONTROL),
-            }], targets: Some(TargetReq {
+            }],
+            targets = Some(TargetReq {
                 spec: TargetSpec::Object(&ANOTHER_CREATURE_YOU_CONTROL),
                 min: 0,
                 max: 1,
                 count_is_x: false,
-            })),
+            })
+        ),
     ],
-}
+);

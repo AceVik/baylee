@@ -16,20 +16,19 @@ static CHECK: Filter = Filter::And(&[
     ]),
 ]);
 
-card! {
-    index: 630,
-    oracle_id: "fb5a3403-7f0b-406c-8c4f-d693be010ca6",
-    scryfall_id: "892451a1-5527-4857-84f8-62028d147489",
-    color_identity: ColorSet::from_slice(&[Color::Green, Color::Blue]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Hinterland Harbor",
-        types: TypeSet::LAND,
-        enter_modifiers: &[EnterModifier::TappedUnless(&CHECK)],
-    },
-    ],
-    abilities: &[
-        mana_ability!(&[Effect::mana_choice(&[ManaColor::Green, ManaColor::Blue])]),
-    ],
-}
+card!(
+    index = 630,
+    oracle_id = "fb5a3403-7f0b-406c-8c4f-d693be010ca6",
+    scryfall_id = "892451a1-5527-4857-84f8-62028d147489",
+    color_identity = ColorSet::from_slice(&[Color::Green, Color::Blue]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "Hinterland Harbor",
+        types = TypeSet::LAND,
+        enter_modifiers = &[EnterModifier::TappedUnless(&CHECK)],
+    ),],
+    abilities = &[mana_ability!(&[Effect::mana_choice(&[
+        ManaColor::Green,
+        ManaColor::Blue
+    ])]),],
+);

@@ -6,20 +6,26 @@
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 1353,
-    oracle_id: "c97361b5-af16-4a7b-af85-a429dbaf4ad2",
-    scryfall_id: "b30a8f92-ce42-4b27-a893-bcf97fde228d",
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Mind Stone",
-        mana_cost: mana!("{2}"),
-        types: TypeSet::ARTIFACT,
-    },
-    ],
-    abilities: &[
+card!(
+    index = 1353,
+    oracle_id = "c97361b5-af16-4a7b-af85-a429dbaf4ad2",
+    scryfall_id = "b30a8f92-ce42-4b27-a893-bcf97fde228d",
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "Mind Stone",
+        mana_cost = mana!("{2}"),
+        types = TypeSet::ARTIFACT,
+    ),],
+    abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
-        activated!(Cost { mana: mana!("{1}"), parts: &[CostPart::TapSelf, CostPart::SacrificeSelf] }, &[Effect::DrawCards { amount: Amount::Fixed(1) }]),
+        activated!(
+            Cost {
+                mana: mana!("{1}"),
+                parts: &[CostPart::TapSelf, CostPart::SacrificeSelf]
+            },
+            &[Effect::DrawCards {
+                amount: Amount::Fixed(1)
+            }]
+        ),
     ],
-}
+);

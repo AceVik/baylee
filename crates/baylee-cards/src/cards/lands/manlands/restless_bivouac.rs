@@ -11,22 +11,58 @@ use baylee_core::generated::subtypes;
 
 static TARGET1: Filter = Filter::And(&[Filter::CREATURE, Filter::ControlledByYou]);
 
-card! {
-    index: 910,
-    oracle_id: "b3c7b46f-c9ab-40ca-b50b-a4e0d0bd9be8",
-    scryfall_id: "b85e0aed-bfb2-4aa8-a754-849c4d9a6a58",
-    color_identity: ColorSet::from_slice(&[Color::Red, Color::White]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Restless Bivouac",
-        types: TypeSet::LAND,
-        enter_modifiers: &[EnterModifier::Tapped],
-    },
-    ],
-    abilities: &[
+card!(
+    index = 910,
+    oracle_id = "b3c7b46f-c9ab-40ca-b50b-a4e0d0bd9be8",
+    scryfall_id = "b85e0aed-bfb2-4aa8-a754-849c4d9a6a58",
+    color_identity = ColorSet::from_slice(&[Color::Red, Color::White]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "Restless Bivouac",
+        types = TypeSet::LAND,
+        enter_modifiers = &[EnterModifier::Tapped],
+    ),],
+    abilities = &[
         mana_ability!(&[Effect::mana_choice(&[ManaColor::Red, ManaColor::White])]),
-        activated!(Cost { mana: mana!("{1}{R}{W}"), parts: &[] }, &[Effect::CreateContinuousEffect { layer: Layer::Type, filter: &Filter::This, modifier: Modifier::AddType(TypeSet::CREATURE), duration: Duration::UntilEndOfTurn }, Effect::CreateContinuousEffect { layer: Layer::Type, filter: &Filter::This, modifier: Modifier::AddSubtype(subtypes::creature::OX), duration: Duration::UntilEndOfTurn }, Effect::CreateContinuousEffect { layer: Layer::Color, filter: &Filter::This, modifier: Modifier::SetColor(ColorSet::from_slice(&[Color::Red, Color::White])), duration: Duration::UntilEndOfTurn }, Effect::CreateContinuousEffect { layer: Layer::PtSet, filter: &Filter::This, modifier: Modifier::SetPT(2, 2), duration: Duration::UntilEndOfTurn }]),
-        triggered!(Trigger::Attacks(&Filter::This), &[Effect::AddCounter { kind: CounterKind::P1P1, amount: Amount::Fixed(1) }], targets: Some(TargetReq::one(TargetSpec::Object(&TARGET1)))),
+        activated!(
+            Cost {
+                mana: mana!("{1}{R}{W}"),
+                parts: &[]
+            },
+            &[
+                Effect::CreateContinuousEffect {
+                    layer: Layer::Type,
+                    filter: &Filter::This,
+                    modifier: Modifier::AddType(TypeSet::CREATURE),
+                    duration: Duration::UntilEndOfTurn
+                },
+                Effect::CreateContinuousEffect {
+                    layer: Layer::Type,
+                    filter: &Filter::This,
+                    modifier: Modifier::AddSubtype(subtypes::creature::OX),
+                    duration: Duration::UntilEndOfTurn
+                },
+                Effect::CreateContinuousEffect {
+                    layer: Layer::Color,
+                    filter: &Filter::This,
+                    modifier: Modifier::SetColor(ColorSet::from_slice(&[Color::Red, Color::White])),
+                    duration: Duration::UntilEndOfTurn
+                },
+                Effect::CreateContinuousEffect {
+                    layer: Layer::PtSet,
+                    filter: &Filter::This,
+                    modifier: Modifier::SetPT(2, 2),
+                    duration: Duration::UntilEndOfTurn
+                }
+            ]
+        ),
+        triggered!(
+            Trigger::Attacks(&Filter::This),
+            &[Effect::AddCounter {
+                kind: CounterKind::P1P1,
+                amount: Amount::Fixed(1)
+            }],
+            targets = Some(TargetReq::one(TargetSpec::Object(&TARGET1)))
+        ),
     ],
-}
+);

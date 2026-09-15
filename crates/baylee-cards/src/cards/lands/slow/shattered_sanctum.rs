@@ -8,20 +8,22 @@ use baylee_cards_dsl::prelude::*;
 
 static CHECK: Filter = Filter::And(&[Filter::ControlledByYou, Filter::LAND]);
 
-card! {
-    index: 1011,
-    oracle_id: "c854ecb0-cc60-4c48-a9aa-7f2348a7a8c6",
-    scryfall_id: "5aa0c810-3b7d-4661-979e-e84fb327742d",
-    color_identity: ColorSet::from_slice(&[Color::Black, Color::White]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Shattered Sanctum",
-        types: TypeSet::LAND,
-        enter_modifiers: &[EnterModifier::TappedUnlessCount { filter: &CHECK, at_least: 2 }],
-    },
-    ],
-    abilities: &[
-        mana_ability!(&[Effect::mana_choice(&[ManaColor::White, ManaColor::Black])]),
-    ],
-}
+card!(
+    index = 1011,
+    oracle_id = "c854ecb0-cc60-4c48-a9aa-7f2348a7a8c6",
+    scryfall_id = "5aa0c810-3b7d-4661-979e-e84fb327742d",
+    color_identity = ColorSet::from_slice(&[Color::Black, Color::White]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "Shattered Sanctum",
+        types = TypeSet::LAND,
+        enter_modifiers = &[EnterModifier::TappedUnlessCount {
+            filter: &CHECK,
+            at_least: 2
+        }],
+    ),],
+    abilities = &[mana_ability!(&[Effect::mana_choice(&[
+        ManaColor::White,
+        ManaColor::Black
+    ])]),],
+);

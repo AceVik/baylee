@@ -7,22 +7,21 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-card! {
-    index: 233,
-    oracle_id: "32fb0096-546c-4633-b6e3-ba3f2d9fa49c",
-    scryfall_id: "b20e3117-f1e4-4449-ae9d-0b66abfc717d",
-    color_identity: ColorSet::from_slice(&[Color::Green, Color::White]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Arctic Treeline",
-        types: TypeSet::LAND,
-        supertypes: SupertypeSet::SNOW,
-        subtypes: &[subtypes::land::FOREST, subtypes::land::PLAINS],
-        enter_modifiers: &[EnterModifier::Tapped],
-    },
-    ],
-    abilities: &[
-        mana_ability!(&[Effect::mana_choice(&[ManaColor::Green, ManaColor::White])]),
-    ],
-}
+card!(
+    index = 233,
+    oracle_id = "32fb0096-546c-4633-b6e3-ba3f2d9fa49c",
+    scryfall_id = "b20e3117-f1e4-4449-ae9d-0b66abfc717d",
+    color_identity = ColorSet::from_slice(&[Color::Green, Color::White]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "Arctic Treeline",
+        types = TypeSet::LAND,
+        supertypes = SupertypeSet::SNOW,
+        subtypes = &[subtypes::land::FOREST, subtypes::land::PLAINS],
+        enter_modifiers = &[EnterModifier::Tapped],
+    ),],
+    abilities = &[mana_ability!(&[Effect::mana_choice(&[
+        ManaColor::Green,
+        ManaColor::White
+    ])]),],
+);

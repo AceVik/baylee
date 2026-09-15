@@ -8,22 +8,29 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-card! {
-    index: 1246,
-    oracle_id: "5a1dfc60-645d-4bc0-8883-e06ed9c80706",
-    scryfall_id: "15848965-01a8-48bf-aa61-8a753339c761",
-    color_identity: ColorSet::from_slice(&[Color::Black, Color::White]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Umbral Expanse",
-        types: TypeSet::LAND,
-        subtypes: &[subtypes::land::PLAINS, subtypes::land::SWAMP],
-        enter_modifiers: &[EnterModifier::Tapped],
-    },
-    ],
-    abilities: &[
+card!(
+    index = 1246,
+    oracle_id = "5a1dfc60-645d-4bc0-8883-e06ed9c80706",
+    scryfall_id = "15848965-01a8-48bf-aa61-8a753339c761",
+    color_identity = ColorSet::from_slice(&[Color::Black, Color::White]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "Umbral Expanse",
+        types = TypeSet::LAND,
+        subtypes = &[subtypes::land::PLAINS, subtypes::land::SWAMP],
+        enter_modifiers = &[EnterModifier::Tapped],
+    ),],
+    abilities = &[
         mana_ability!(&[Effect::mana_choice(&[ManaColor::White, ManaColor::Black])]),
-        activated!(Cost { mana: mana!("{2}"), parts: &[CostPart::DiscardSelf] }, &[Effect::DrawCards { amount: Amount::Fixed(1) }], zone: ActivationZone::Hand),
+        activated!(
+            Cost {
+                mana: mana!("{2}"),
+                parts: &[CostPart::DiscardSelf]
+            },
+            &[Effect::DrawCards {
+                amount: Amount::Fixed(1)
+            }],
+            zone = ActivationZone::Hand
+        ),
     ],
-}
+);

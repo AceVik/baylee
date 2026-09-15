@@ -6,19 +6,19 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-card! {
-    index: 1265,
-    oracle_id: "db6174d7-211d-4817-b8e4-8384594c83f9",
-    scryfall_id: "9e1a9e38-6ffc-490f-b0be-23ba4e8204c6",
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Urborg, Tomb of Yawgmoth",
-        types: TypeSet::LAND,
-        supertypes: SupertypeSet::LEGENDARY,
-    },
-    ],
-    abilities: &[
-        AbilityDef::Static(StaticAbility { layer: Layer::Type, filter: Filter::LAND, modifier: Modifier::AddSubtype(subtypes::land::SWAMP) }),
-    ],
-}
+card!(
+    index = 1265,
+    oracle_id = "db6174d7-211d-4817-b8e4-8384594c83f9",
+    scryfall_id = "9e1a9e38-6ffc-490f-b0be-23ba4e8204c6",
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "Urborg, Tomb of Yawgmoth",
+        types = TypeSet::LAND,
+        supertypes = SupertypeSet::LEGENDARY,
+    ),],
+    abilities = &[AbilityDef::Static(StaticAbility {
+        layer: Layer::Type,
+        filter: Filter::LAND,
+        modifier: Modifier::AddSubtype(subtypes::land::SWAMP)
+    }),],
+);

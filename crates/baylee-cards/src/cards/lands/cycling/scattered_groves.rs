@@ -8,22 +8,29 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-card! {
-    index: 970,
-    oracle_id: "3c87ea85-ca29-45a7-b5b2-758c62898b0a",
-    scryfall_id: "6bd38442-854d-43b1-a80c-9d841c3a304d",
-    color_identity: ColorSet::from_slice(&[Color::Green, Color::White]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Scattered Groves",
-        types: TypeSet::LAND,
-        subtypes: &[subtypes::land::FOREST, subtypes::land::PLAINS],
-        enter_modifiers: &[EnterModifier::Tapped],
-    },
-    ],
-    abilities: &[
+card!(
+    index = 970,
+    oracle_id = "3c87ea85-ca29-45a7-b5b2-758c62898b0a",
+    scryfall_id = "6bd38442-854d-43b1-a80c-9d841c3a304d",
+    color_identity = ColorSet::from_slice(&[Color::Green, Color::White]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "Scattered Groves",
+        types = TypeSet::LAND,
+        subtypes = &[subtypes::land::FOREST, subtypes::land::PLAINS],
+        enter_modifiers = &[EnterModifier::Tapped],
+    ),],
+    abilities = &[
         mana_ability!(&[Effect::mana_choice(&[ManaColor::Green, ManaColor::White])]),
-        activated!(Cost { mana: mana!("{2}"), parts: &[CostPart::DiscardSelf] }, &[Effect::DrawCards { amount: Amount::Fixed(1) }], zone: ActivationZone::Hand),
+        activated!(
+            Cost {
+                mana: mana!("{2}"),
+                parts: &[CostPart::DiscardSelf]
+            },
+            &[Effect::DrawCards {
+                amount: Amount::Fixed(1)
+            }],
+            zone = ActivationZone::Hand
+        ),
     ],
-}
+);

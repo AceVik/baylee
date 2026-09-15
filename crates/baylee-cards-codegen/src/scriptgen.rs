@@ -1346,7 +1346,7 @@ impl Tx<'_> {
             let mana_ability = chain.effects.iter().all(|e| e.contains("Effect::mana"));
             let target = chain
                 .target
-                .map(|t| format!(", target: Some({t})"))
+                .map(|t| format!(", target = Some({t})"))
                 .unwrap_or_default();
             // `mana_ability!(effects)` *is* `mana_ability!(effects)`
             // â the macro supplies the tap, because tapping is what almost
@@ -1361,7 +1361,7 @@ impl Tx<'_> {
         } else {
             let targets = chain
                 .target
-                .map(|t| format!(", targets: Some(TargetReq::one({t}))"))
+                .map(|t| format!(", targets = Some(TargetReq::one({t}))"))
                 .unwrap_or_default();
             self.body
                 .abilities
@@ -1395,7 +1395,7 @@ impl Tx<'_> {
         }
         let targets = chain
             .target
-            .map(|t| format!(", targets: Some(TargetReq::one({t}))"))
+            .map(|t| format!(", targets = Some(TargetReq::one({t}))"))
             .unwrap_or_default();
         self.body.abilities.push(format!(
             "triggered!({trigger}, &[{}]{targets})",
@@ -1701,7 +1701,7 @@ mod tests {
         assert_eq!(body.abilities.len(), 1);
         assert!(body.abilities[0].starts_with("spell!("));
         assert!(body.abilities[0].contains("Effect::DealDamage { amount: Amount::Fixed(3)"));
-        assert!(body.abilities[0].contains("targets: Some(TargetReq::one("));
+        assert!(body.abilities[0].contains("targets = Some(TargetReq::one("));
     }
 
     #[test]
@@ -1776,7 +1776,7 @@ mod tests {
         assert_eq!(
             body.abilities,
             [
-                "triggered!(Trigger::EntersBattlefield(&Filter::This), &[Effect::LoseLife { amount: Amount::Fixed(1), target: PlayerRel::Chosen }], targets: Some(TargetReq::one(TargetSpec::AnyPlayer)))"
+                "triggered!(Trigger::EntersBattlefield(&Filter::This), &[Effect::LoseLife { amount: Amount::Fixed(1), target: PlayerRel::Chosen }], targets = Some(TargetReq::one(TargetSpec::AnyPlayer)))"
             ]
         );
     }
@@ -1834,9 +1834,7 @@ mod tests {
         let either = read("Name:X\nTypes:Land\nA:AB$ Mana | Cost$ T | Produced$ Combo W U");
         assert_eq!(
             either.abilities,
-            [
-                "mana_ability!(&[Effect::mana_choice(&[ManaColor::White, ManaColor::Blue])])"
-            ]
+            ["mana_ability!(&[Effect::mana_choice(&[ManaColor::White, ManaColor::Blue])])"]
         );
     }
 
@@ -1851,9 +1849,7 @@ mod tests {
         );
         assert_eq!(
             body.abilities,
-            [
-                "mana_ability!(&[Effect::mana_of_any_color().restricted(&SPEND1, SpendRider::None)])"
-            ]
+            ["mana_ability!(&[Effect::mana_of_any_color().restricted(&SPEND1, SpendRider::None)])"]
         );
 
         let script = parse(

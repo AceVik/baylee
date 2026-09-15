@@ -7,21 +7,31 @@
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 391,
-    oracle_id: "cc78776b-822b-4f11-8982-0805a25a9d36",
-    scryfall_id: "cab5b199-e79d-4ca9-970c-cfd9df8fd1e4",
-    color_identity: ColorSet::from_slice(&[Color::Black, Color::Red, Color::Blue]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Crypt of the Eternals",
-        types: TypeSet::LAND,
-    },
-    ],
-    abilities: &[
-        triggered!(Trigger::EntersBattlefield(&Filter::This), &[Effect::GainLife { amount: Amount::Fixed(1) }]),
+card!(
+    index = 391,
+    oracle_id = "cc78776b-822b-4f11-8982-0805a25a9d36",
+    scryfall_id = "cab5b199-e79d-4ca9-970c-cfd9df8fd1e4",
+    color_identity = ColorSet::from_slice(&[Color::Black, Color::Red, Color::Blue]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(name = "Crypt of the Eternals", types = TypeSet::LAND,),],
+    abilities = &[
+        triggered!(
+            Trigger::EntersBattlefield(&Filter::This),
+            &[Effect::GainLife {
+                amount: Amount::Fixed(1)
+            }]
+        ),
         mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
-        mana_ability!(Cost { mana: mana!("{1}"), parts: &[CostPart::TapSelf] }, &[Effect::mana_choice(&[ManaColor::Blue, ManaColor::Black, ManaColor::Red])]),
+        mana_ability!(
+            Cost {
+                mana: mana!("{1}"),
+                parts: &[CostPart::TapSelf]
+            },
+            &[Effect::mana_choice(&[
+                ManaColor::Blue,
+                ManaColor::Black,
+                ManaColor::Red
+            ])]
+        ),
     ],
-}
+);

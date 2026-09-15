@@ -11,40 +11,47 @@ use baylee_core::generated::subtypes::planeswalker;
 static BOUNCE_TARGET: Filter =
     Filter::Or(&[Filter::ARTIFACT, Filter::CREATURE, Filter::ENCHANTMENT]);
 
-card! {
-    index: 166,
-    oracle_id: "ae7604bb-4818-45a3-960c-cf3d83f15964",
-    scryfall_id: "662fe50f-d75c-422c-8c6c-1f9b5c4ba21f",
-    faces: &[face! {
-        name: "Teferi, Time Raveler",
-        mana_cost: mana!("{1}{W}{U}"),
-        types: TypeSet::PLANESWALKER,
-        supertypes: SupertypeSet::LEGENDARY,
-        subtypes: &[planeswalker::TEFERI],
-        loyalty: Some(4),
-    }],
-    color_identity: ColorSet::from_slice(&[Color::White, Color::Blue]),
-    commander: CommanderRule::Legendary,
-    coverage: Coverage::Implemented,
-    abilities: &[
+card!(
+    index = 166,
+    oracle_id = "ae7604bb-4818-45a3-960c-cf3d83f15964",
+    scryfall_id = "662fe50f-d75c-422c-8c6c-1f9b5c4ba21f",
+    faces = &[face!(
+        name = "Teferi, Time Raveler",
+        mana_cost = mana!("{1}{W}{U}"),
+        types = TypeSet::PLANESWALKER,
+        supertypes = SupertypeSet::LEGENDARY,
+        subtypes = &[planeswalker::TEFERI],
+        loyalty = Some(4),
+    )],
+    color_identity = ColorSet::from_slice(&[Color::White, Color::Blue]),
+    commander = CommanderRule::Legendary,
+    coverage = Coverage::Implemented,
+    abilities = &[
         AbilityDef::Static(StaticAbility {
             layer: Layer::Text,
             filter: Filter::Any,
             modifier: Modifier::OpponentsCastAsSorcery,
         }),
-        loyalty!(1, &[Effect::CreateContinuousEffect {
+        loyalty!(
+            1,
+            &[Effect::CreateContinuousEffect {
                 layer: Layer::Text,
                 filter: &Filter::Any,
                 modifier: Modifier::SorceriesHaveFlash,
                 duration: Duration::UntilYourNextTurn,
-            }]),
-        loyalty!(-3, &[
+            }]
+        ),
+        loyalty!(
+            -3,
+            &[
                 Effect::ReturnToHand {
                     target: TargetSpec::Object(&BOUNCE_TARGET),
                 },
                 Effect::DrawCards {
                     amount: Amount::Fixed(1),
                 },
-            ], targets: Some(TargetReq::up_to_one(TargetSpec::Object(&BOUNCE_TARGET)))),
+            ],
+            targets = Some(TargetReq::up_to_one(TargetSpec::Object(&BOUNCE_TARGET)))
+        ),
     ],
-}
+);

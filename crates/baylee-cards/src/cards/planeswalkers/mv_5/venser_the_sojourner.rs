@@ -13,38 +13,48 @@ use baylee_core::generated::subtypes::planeswalker;
 static PERMANENT_YOU_OWN: Filter =
     Filter::And(&[Filter::OwnedByYou, Filter::InZone(ZoneRef::Battlefield)]);
 
-card! {
-    index: 183,
-    oracle_id: "a8bf8ff8-d924-4fd2-b5ed-05b38f55325a",
-    scryfall_id: "8f61a0ea-c2e8-4571-9669-19abd8bbc874",
-    faces: &[face! {
-        name: "Venser, the Sojourner",
-        mana_cost: mana!("{3}{W}{U}"),
-        types: TypeSet::PLANESWALKER,
-        supertypes: SupertypeSet::LEGENDARY,
-        subtypes: &[planeswalker::VENSER],
-        loyalty: Some(3),
-    }],
-    color_identity: ColorSet::from_slice(&[Color::White, Color::Blue]),
-    coverage: Coverage::Implemented,
-    abilities: &[
-        loyalty!(2, &[Effect::ExileAndReturnAtEndStep], targets: Some(TargetReq::one(TargetSpec::Object(&PERMANENT_YOU_OWN)))),
-        loyalty!(-1, &[Effect::CreateContinuousEffect {
+card!(
+    index = 183,
+    oracle_id = "a8bf8ff8-d924-4fd2-b5ed-05b38f55325a",
+    scryfall_id = "8f61a0ea-c2e8-4571-9669-19abd8bbc874",
+    faces = &[face!(
+        name = "Venser, the Sojourner",
+        mana_cost = mana!("{3}{W}{U}"),
+        types = TypeSet::PLANESWALKER,
+        supertypes = SupertypeSet::LEGENDARY,
+        subtypes = &[planeswalker::VENSER],
+        loyalty = Some(3),
+    )],
+    color_identity = ColorSet::from_slice(&[Color::White, Color::Blue]),
+    coverage = Coverage::Implemented,
+    abilities = &[
+        loyalty!(
+            2,
+            &[Effect::ExileAndReturnAtEndStep],
+            targets = Some(TargetReq::one(TargetSpec::Object(&PERMANENT_YOU_OWN)))
+        ),
+        loyalty!(
+            -1,
+            &[Effect::CreateContinuousEffect {
                 layer: Layer::Ability,
                 filter: &Filter::CREATURE,
                 modifier: Modifier::AddKeyword(KeywordSet::UNBLOCKABLE),
                 duration: Duration::UntilEndOfTurn,
-            }]),
-        loyalty!(-8, &[Effect::CreateEmblem {
+            }]
+        ),
+        loyalty!(
+            -8,
+            &[Effect::CreateEmblem {
                 abilities: EMBLEM_ABILITIES,
-            }]),
+            }]
+        ),
     ],
-}
+);
 
-static EMBLEM_ABILITIES: &[AbilityDef] = &[
-    triggered!(Trigger::SpellCast(&Filter::ControlledByYou), &[Effect::Exile {
+static EMBLEM_ABILITIES: &[AbilityDef] = &[triggered!(
+    Trigger::SpellCast(&Filter::ControlledByYou),
+    &[Effect::Exile {
         target: TargetSpec::Object(&Filter::Any),
-    }], targets: Some(TargetReq::one(TargetSpec::Object(
-        &Filter::Any,
-    )))),
-];
+    }],
+    targets = Some(TargetReq::one(TargetSpec::Object(&Filter::Any,)))
+)];

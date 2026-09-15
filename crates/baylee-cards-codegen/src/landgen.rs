@@ -336,7 +336,7 @@ impl Recognizer<'_> {
         let cost = line.strip_prefix("Cycling ")?.trim();
         symbols(cost)?;
         self.body.abilities.push(format!(
-            "activated!(Cost {{ mana: mana!(\"{cost}\"), parts: &[CostPart::DiscardSelf] }}, &[Effect::DrawCards {{ amount: Amount::Fixed(1) }}], zone: ActivationZone::Hand)"
+            "activated!(Cost {{ mana: mana!(\"{cost}\"), parts: &[CostPart::DiscardSelf] }}, &[Effect::DrawCards {{ amount: Amount::Fixed(1) }}], zone = ActivationZone::Hand)"
         ));
         self.body.notes.push("cycling".to_string());
         Some(())
@@ -708,7 +708,7 @@ mod tests {
         assert_eq!(body.enter_modifiers, ["EnterModifier::Tapped"]);
         assert_eq!(body.abilities.len(), 2);
         assert!(body.abilities[0].contains("mana_choice"));
-        assert!(body.abilities[1].contains("zone: ActivationZone::Hand"));
+        assert!(body.abilities[1].contains("zone = ActivationZone::Hand"));
     }
 
     #[test]

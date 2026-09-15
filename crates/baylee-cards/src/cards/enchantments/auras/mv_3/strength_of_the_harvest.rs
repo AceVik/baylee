@@ -11,23 +11,20 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-card! {
-    index: 1094,
-    oracle_id: "1a8c996d-ca93-4c17-ace5-66ecd6b99317",
-    scryfall_id: "a7143aa7-b16d-4e63-910c-6ceec55483f3",
-    color_identity: ColorSet::from_slice(&[Color::Green, Color::White]),
-    faces: &[
-    face! {
-        name: "Strength of the Harvest",
-        mana_cost: mana!("{2}{G/W}"),
-        types: TypeSet::ENCHANTMENT,
-        subtypes: &[subtypes::enchantment::AURA],
-    },
-    face! {
-        name: "Haven of the Harvest",
-        types: TypeSet::LAND,
-    },
+card!(
+    index = 1094,
+    oracle_id = "1a8c996d-ca93-4c17-ace5-66ecd6b99317",
+    scryfall_id = "a7143aa7-b16d-4e63-910c-6ceec55483f3",
+    color_identity = ColorSet::from_slice(&[Color::Green, Color::White]),
+    faces = &[
+        face!(
+            name = "Strength of the Harvest",
+            mana_cost = mana!("{2}{G/W}"),
+            types = TypeSet::ENCHANTMENT,
+            subtypes = &[subtypes::enchantment::AURA],
+        ),
+        face!(name = "Haven of the Harvest", types = TypeSet::LAND,),
     ],
-}
+);
 
 // TODO(card): implement abilities, see docs/card-dsl.md.

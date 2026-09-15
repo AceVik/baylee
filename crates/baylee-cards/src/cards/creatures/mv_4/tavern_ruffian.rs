@@ -11,31 +11,35 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-card! {
-    index: 1363,
-    oracle_id: "73a3b9a1-37a0-469a-9557-8c118a1ee78f",
-    scryfall_id: "1d7b2d05-ce5c-4b73-8fa6-d9b69619d58c",
-    color_identity: ColorSet::from_slice(&[Color::Red]),
-    faces: &[
-    face! {
-        name: "Tavern Ruffian",
-        mana_cost: mana!("{3}{R}"),
-        types: TypeSet::CREATURE,
-        subtypes: &[subtypes::creature::HUMAN, subtypes::creature::WARRIOR, subtypes::creature::WEREWOLF],
-        power: Some(2),
-        toughness: Some(5),
-        keywords: KeywordSet::DAYBOUND,
-    },
-    face! {
-        name: "Tavern Smasher",
-        types: TypeSet::CREATURE,
-        subtypes: &[subtypes::creature::WEREWOLF],
-        power: Some(6),
-        toughness: Some(5),
-        castable_from_hand: false,
-        keywords: KeywordSet::NIGHTBOUND,
-        color_indicator: ColorSet::from_slice(&[Color::Red]),
-    },
+card!(
+    index = 1363,
+    oracle_id = "73a3b9a1-37a0-469a-9557-8c118a1ee78f",
+    scryfall_id = "1d7b2d05-ce5c-4b73-8fa6-d9b69619d58c",
+    color_identity = ColorSet::from_slice(&[Color::Red]),
+    faces = &[
+        face!(
+            name = "Tavern Ruffian",
+            mana_cost = mana!("{3}{R}"),
+            types = TypeSet::CREATURE,
+            subtypes = &[
+                subtypes::creature::HUMAN,
+                subtypes::creature::WARRIOR,
+                subtypes::creature::WEREWOLF
+            ],
+            power = Some(2),
+            toughness = Some(5),
+            keywords = KeywordSet::DAYBOUND,
+        ),
+        face!(
+            name = "Tavern Smasher",
+            types = TypeSet::CREATURE,
+            subtypes = &[subtypes::creature::WEREWOLF],
+            power = Some(6),
+            toughness = Some(5),
+            castable_from_hand = false,
+            keywords = KeywordSet::NIGHTBOUND,
+            color_indicator = ColorSet::from_slice(&[Color::Red]),
+        ),
     ],
-    coverage: Coverage::Implemented,
-}
+    coverage = Coverage::Implemented,
+);

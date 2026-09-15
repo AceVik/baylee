@@ -5,19 +5,15 @@
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 1280,
-    oracle_id: "09496421-74e4-466a-9546-56f2a0c8eef4",
-    scryfall_id: "e85e4098-f872-4aa4-a71a-208b6090be28",
-    color_identity: ColorSet::from_slice(&[Color::Black]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Vault of Whispers",
-        types: TypeSet::ARTIFACT.union(TypeSet::LAND),
-    },
-    ],
-    abilities: &[
-        mana_ability!(&[Effect::mana(ManaColor::Black, 1)]),
-    ],
-}
+card!(
+    index = 1280,
+    oracle_id = "09496421-74e4-466a-9546-56f2a0c8eef4",
+    scryfall_id = "e85e4098-f872-4aa4-a71a-208b6090be28",
+    color_identity = ColorSet::from_slice(&[Color::Black]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "Vault of Whispers",
+        types = TypeSet::ARTIFACT.union(TypeSet::LAND),
+    ),],
+    abilities = &[mana_ability!(&[Effect::mana(ManaColor::Black, 1)]),],
+);

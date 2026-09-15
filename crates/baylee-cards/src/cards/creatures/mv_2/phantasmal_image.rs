@@ -6,25 +6,25 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes::creature;
 
-card! {
-    index: 113,
-    oracle_id: "bde94af8-faea-41ff-8eed-ba642eac9968",
-    scryfall_id: "c1c080cf-a5e8-4d9d-af49-f78588971e87",
-    faces: &[face! {
-        name: "Phantasmal Image",
-        mana_cost: mana!("{1}{U}"),
-        types: TypeSet::CREATURE,
-        subtypes: &[creature::ILLUSION],
-        power: Some(0),
-        toughness: Some(0),
-    }],
-    color_identity: ColorSet::from_slice(&[Color::Blue]),
-    coverage: Coverage::Implemented,
-    abilities: &[
+card!(
+    index = 113,
+    oracle_id = "bde94af8-faea-41ff-8eed-ba642eac9968",
+    scryfall_id = "c1c080cf-a5e8-4d9d-af49-f78588971e87",
+    faces = &[face!(
+        name = "Phantasmal Image",
+        mana_cost = mana!("{1}{U}"),
+        types = TypeSet::CREATURE,
+        subtypes = &[creature::ILLUSION],
+        power = Some(0),
+        toughness = Some(0),
+    )],
+    color_identity = ColorSet::from_slice(&[Color::Blue]),
+    coverage = Coverage::Implemented,
+    abilities = &[
         AbilityDef::CopyOnEnter {
             target: TargetSpec::Object(&Filter::CREATURE),
             mods: &[],
         },
         triggered!(Trigger::BecomesTarget, &[Effect::SacrificeSelf]),
     ],
-}
+);

@@ -8,22 +8,27 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-card! {
-    index: 199,
-    oracle_id: "ca7d093c-0533-493f-9ad3-8af30118fbfc",
-    scryfall_id: "19e96521-b4ce-4a36-a887-200e05ccc804",
-    color_identity: ColorSet::from_slice(&[Color::Red, Color::White]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Abraded Bluffs",
-        types: TypeSet::LAND,
-        subtypes: &[subtypes::land::DESERT],
-        enter_modifiers: &[EnterModifier::Tapped],
-    },
-    ],
-    abilities: &[
-        triggered!(Trigger::EntersBattlefield(&Filter::This), &[Effect::DealDamage { amount: Amount::Fixed(1), target: TargetSpec::Player(PlayerRel::Chosen) }], targets: Some(TargetReq::one(TargetSpec::AnyOpponent))),
+card!(
+    index = 199,
+    oracle_id = "ca7d093c-0533-493f-9ad3-8af30118fbfc",
+    scryfall_id = "19e96521-b4ce-4a36-a887-200e05ccc804",
+    color_identity = ColorSet::from_slice(&[Color::Red, Color::White]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "Abraded Bluffs",
+        types = TypeSet::LAND,
+        subtypes = &[subtypes::land::DESERT],
+        enter_modifiers = &[EnterModifier::Tapped],
+    ),],
+    abilities = &[
+        triggered!(
+            Trigger::EntersBattlefield(&Filter::This),
+            &[Effect::DealDamage {
+                amount: Amount::Fixed(1),
+                target: TargetSpec::Player(PlayerRel::Chosen)
+            }],
+            targets = Some(TargetReq::one(TargetSpec::AnyOpponent))
+        ),
         mana_ability!(&[Effect::mana_choice(&[ManaColor::Red, ManaColor::White])]),
     ],
-}
+);

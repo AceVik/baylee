@@ -9,22 +9,24 @@ use crate::filters::ANOTHER_ALLY;
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes::creature;
 
-card! {
-    index: 187,
-    oracle_id: "6557813b-4ee7-4881-a37c-10c8ea097360",
-    scryfall_id: "bac81940-d717-49ff-83b2-16a22bb2c988",
-    faces: &[face! {
-        name: "Wartime Protestors",
-        mana_cost: mana!("{3}{R}"),
-        types: TypeSet::CREATURE,
-        subtypes: &[creature::HUMAN, creature::REBEL, creature::ALLY],
-        power: Some(4),
-        toughness: Some(4),
-    }],
-    color_identity: ColorSet::from_slice(&[Color::Red]),
-    keywords: KeywordSet::HASTE,
-    coverage: Coverage::Implemented,
-    abilities: &[triggered!(Trigger::EntersBattlefield(&ANOTHER_ALLY), &[
+card!(
+    index = 187,
+    oracle_id = "6557813b-4ee7-4881-a37c-10c8ea097360",
+    scryfall_id = "bac81940-d717-49ff-83b2-16a22bb2c988",
+    faces = &[face!(
+        name = "Wartime Protestors",
+        mana_cost = mana!("{3}{R}"),
+        types = TypeSet::CREATURE,
+        subtypes = &[creature::HUMAN, creature::REBEL, creature::ALLY],
+        power = Some(4),
+        toughness = Some(4),
+    )],
+    color_identity = ColorSet::from_slice(&[Color::Red]),
+    keywords = KeywordSet::HASTE,
+    coverage = Coverage::Implemented,
+    abilities = &[triggered!(
+        Trigger::EntersBattlefield(&ANOTHER_ALLY),
+        &[
             Effect::AddCounter {
                 kind: CounterKind::P1P1,
                 amount: Amount::Fixed(1),
@@ -35,5 +37,7 @@ card! {
                 modifier: Modifier::AddKeyword(KeywordSet::HASTE),
                 duration: Duration::UntilEndOfTurn,
             },
-        ], targets: Some(TargetReq::one(TargetSpec::EventObject)))],
-}
+        ],
+        targets = Some(TargetReq::one(TargetSpec::EventObject))
+    )],
+);

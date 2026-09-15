@@ -7,21 +7,20 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-card! {
-    index: 888,
-    oracle_id: "32c91719-f3dd-4cc7-9e32-7d5ccf18f07c",
-    scryfall_id: "466fd4e6-f1dd-40c9-92df-1da48ab729d6",
-    color_identity: ColorSet::from_slice(&[Color::Green, Color::White]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Radiant Grove",
-        types: TypeSet::LAND,
-        subtypes: &[subtypes::land::FOREST, subtypes::land::PLAINS],
-        enter_modifiers: &[EnterModifier::Tapped],
-    },
-    ],
-    abilities: &[
-        mana_ability!(&[Effect::mana_choice(&[ManaColor::Green, ManaColor::White])]),
-    ],
-}
+card!(
+    index = 888,
+    oracle_id = "32c91719-f3dd-4cc7-9e32-7d5ccf18f07c",
+    scryfall_id = "466fd4e6-f1dd-40c9-92df-1da48ab729d6",
+    color_identity = ColorSet::from_slice(&[Color::Green, Color::White]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "Radiant Grove",
+        types = TypeSet::LAND,
+        subtypes = &[subtypes::land::FOREST, subtypes::land::PLAINS],
+        enter_modifiers = &[EnterModifier::Tapped],
+    ),],
+    abilities = &[mana_ability!(&[Effect::mana_choice(&[
+        ManaColor::Green,
+        ManaColor::White
+    ])]),],
+);

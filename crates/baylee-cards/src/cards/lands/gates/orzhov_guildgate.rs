@@ -7,21 +7,20 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-card! {
-    index: 839,
-    oracle_id: "57b37df5-fee4-4720-931f-f0cb0a8b338c",
-    scryfall_id: "a917be03-0c17-4454-b044-c4375e5c8085",
-    color_identity: ColorSet::from_slice(&[Color::Black, Color::White]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Orzhov Guildgate",
-        types: TypeSet::LAND,
-        subtypes: &[subtypes::land::GATE],
-        enter_modifiers: &[EnterModifier::Tapped],
-    },
-    ],
-    abilities: &[
-        mana_ability!(&[Effect::mana_choice(&[ManaColor::White, ManaColor::Black])]),
-    ],
-}
+card!(
+    index = 839,
+    oracle_id = "57b37df5-fee4-4720-931f-f0cb0a8b338c",
+    scryfall_id = "a917be03-0c17-4454-b044-c4375e5c8085",
+    color_identity = ColorSet::from_slice(&[Color::Black, Color::White]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "Orzhov Guildgate",
+        types = TypeSet::LAND,
+        subtypes = &[subtypes::land::GATE],
+        enter_modifiers = &[EnterModifier::Tapped],
+    ),],
+    abilities = &[mana_ability!(&[Effect::mana_choice(&[
+        ManaColor::White,
+        ManaColor::Black
+    ])]),],
+);

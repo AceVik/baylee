@@ -7,21 +7,24 @@
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 24,
-    oracle_id: "54d7d7f8-22cd-4859-b203-924d248b422b",
-    scryfall_id: "1a40e4da-a631-4423-b70f-701b27b09f79",
-    faces: &[face! {
-        name: "Commander's Insight",
-        mana_cost: mana!("{X}{U}{U}{U}"),
-        types: TypeSet::INSTANT,
-    }],
-    color_identity: ColorSet::from_slice(&[Color::Blue]),
-    coverage: Coverage::Implemented,
-    abilities: &[spell!(&[Effect::DrawCardsFor {
+card!(
+    index = 24,
+    oracle_id = "54d7d7f8-22cd-4859-b203-924d248b422b",
+    scryfall_id = "1a40e4da-a631-4423-b70f-701b27b09f79",
+    faces = &[face!(
+        name = "Commander's Insight",
+        mana_cost = mana!("{X}{U}{U}{U}"),
+        types = TypeSet::INSTANT,
+    )],
+    color_identity = ColorSet::from_slice(&[Color::Blue]),
+    coverage = Coverage::Implemented,
+    abilities = &[spell!(
+        &[Effect::DrawCardsFor {
             amount: Amount::XPlusCommanderCasts,
             who: PlayerRel::Chosen,
-        }], targets: Some(TargetReq::one(TargetSpec::AnyPlayer)))],
-}
+        }],
+        targets = Some(TargetReq::one(TargetSpec::AnyPlayer))
+    )],
+);
 
 // X cards for the chosen player.

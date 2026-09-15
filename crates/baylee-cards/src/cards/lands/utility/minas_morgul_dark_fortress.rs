@@ -7,18 +7,16 @@
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 758,
-    oracle_id: "867dbd5a-c3cf-41ce-980b-c9babc6f30f2",
-    scryfall_id: "50f76652-15e7-4190-842e-db6db6d66e91",
-    color_identity: ColorSet::from_slice(&[Color::Black]),
-    faces: &[
-    face! {
-        name: "Minas Morgul, Dark Fortress",
-        types: TypeSet::LAND,
-        supertypes: SupertypeSet::LEGENDARY,
-    },
-    ],
-}
+card!(
+    index = 758,
+    oracle_id = "867dbd5a-c3cf-41ce-980b-c9babc6f30f2",
+    scryfall_id = "50f76652-15e7-4190-842e-db6db6d66e91",
+    color_identity = ColorSet::from_slice(&[Color::Black]),
+    faces = &[face!(
+        name = "Minas Morgul, Dark Fortress",
+        types = TypeSet::LAND,
+        supertypes = SupertypeSet::LEGENDARY,
+    ),],
+);
 
 // TODO(card): implement abilities, see docs/card-dsl.md.

@@ -16,20 +16,19 @@ static CHECK: Filter = Filter::And(&[
     ]),
 ]);
 
-card! {
-    index: 75,
-    oracle_id: "7e5d9efe-48a9-434b-bb09-056e0e09cc9a",
-    scryfall_id: "78814c92-b52c-462a-866f-3e7da9db9f70",
-    color_identity: ColorSet::from_slice(&[Color::Black, Color::White]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Isolated Chapel",
-        types: TypeSet::LAND,
-        enter_modifiers: &[EnterModifier::TappedUnless(&CHECK)],
-    },
-    ],
-    abilities: &[
-        mana_ability!(&[Effect::mana_choice(&[ManaColor::White, ManaColor::Black])]),
-    ],
-}
+card!(
+    index = 75,
+    oracle_id = "7e5d9efe-48a9-434b-bb09-056e0e09cc9a",
+    scryfall_id = "78814c92-b52c-462a-866f-3e7da9db9f70",
+    color_identity = ColorSet::from_slice(&[Color::Black, Color::White]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "Isolated Chapel",
+        types = TypeSet::LAND,
+        enter_modifiers = &[EnterModifier::TappedUnless(&CHECK)],
+    ),],
+    abilities = &[mana_ability!(&[Effect::mana_choice(&[
+        ManaColor::White,
+        ManaColor::Black
+    ])]),],
+);

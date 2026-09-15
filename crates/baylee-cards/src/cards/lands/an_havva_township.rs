@@ -7,21 +7,28 @@
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 220,
-    oracle_id: "40ae17be-9998-4ee4-9d95-82a08895405f",
-    scryfall_id: "9afac347-4316-43e2-848b-e474ed563af6",
-    color_identity: ColorSet::from_slice(&[Color::Green, Color::Red, Color::White]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "An-Havva Township",
-        types: TypeSet::LAND,
-    },
-    ],
-    abilities: &[
+card!(
+    index = 220,
+    oracle_id = "40ae17be-9998-4ee4-9d95-82a08895405f",
+    scryfall_id = "9afac347-4316-43e2-848b-e474ed563af6",
+    color_identity = ColorSet::from_slice(&[Color::Green, Color::Red, Color::White]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(name = "An-Havva Township", types = TypeSet::LAND,),],
+    abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
-        mana_ability!(Cost { mana: mana!("{1}"), parts: &[CostPart::TapSelf] }, &[Effect::mana(ManaColor::Green, 1)]),
-        mana_ability!(Cost { mana: mana!("{2}"), parts: &[CostPart::TapSelf] }, &[Effect::mana_choice(&[ManaColor::Red, ManaColor::White])]),
+        mana_ability!(
+            Cost {
+                mana: mana!("{1}"),
+                parts: &[CostPart::TapSelf]
+            },
+            &[Effect::mana(ManaColor::Green, 1)]
+        ),
+        mana_ability!(
+            Cost {
+                mana: mana!("{2}"),
+                parts: &[CostPart::TapSelf]
+            },
+            &[Effect::mana_choice(&[ManaColor::Red, ManaColor::White])]
+        ),
     ],
-}
+);

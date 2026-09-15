@@ -19,26 +19,29 @@ static DRAW_EFFECTS: &[Effect] = &[Effect::DrawCards {
     amount: Amount::Fixed(1),
 }];
 
-card! {
-    index: 2,
-    oracle_id: "fb220f46-f8b8-4804-baa4-e7d50b4871f7",
-    scryfall_id: "60afeb75-2c1e-4634-8c83-88b1dddb77c2",
-    faces: &[face! {
-        name: "Aether Channeler",
-        mana_cost: mana!("{2}{U}"),
-        types: TypeSet::CREATURE,
-        subtypes: &[creature::HUMAN, creature::WIZARD],
-        power: Some(2),
-        toughness: Some(1),
-    }],
-    color_identity: ColorSet::from_slice(&[Color::Blue]),
-    coverage: Coverage::Implemented,
-    abilities: &[modal_triggered!(
+card!(
+    index = 2,
+    oracle_id = "fb220f46-f8b8-4804-baa4-e7d50b4871f7",
+    scryfall_id = "60afeb75-2c1e-4634-8c83-88b1dddb77c2",
+    faces = &[face!(
+        name = "Aether Channeler",
+        mana_cost = mana!("{2}{U}"),
+        types = TypeSet::CREATURE,
+        subtypes = &[creature::HUMAN, creature::WIZARD],
+        power = Some(2),
+        toughness = Some(1),
+    )],
+    color_identity = ColorSet::from_slice(&[Color::Blue]),
+    coverage = Coverage::Implemented,
+    abilities = &[modal_triggered!(
         Trigger::EntersBattlefield(&Filter::This),
         &[
             mode!(TOKEN_EFFECTS),
-            mode!(BOUNCE_EFFECTS, targets: Some(TargetReq::one(TargetSpec::Object(&BOUNCE_TARGET)))),
+            mode!(
+                BOUNCE_EFFECTS,
+                targets = Some(TargetReq::one(TargetSpec::Object(&BOUNCE_TARGET)))
+            ),
             mode!(DRAW_EFFECTS),
         ]
     )],
-}
+);

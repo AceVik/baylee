@@ -7,21 +7,28 @@
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 869,
-    oracle_id: "9809d975-7ef8-4946-9041-607c4e954b13",
-    scryfall_id: "bb724bec-3509-4f5f-84c0-b1b54063d06f",
-    color_identity: ColorSet::from_slice(&[Color::Black]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Polluted Mire",
-        types: TypeSet::LAND,
-        enter_modifiers: &[EnterModifier::Tapped],
-    },
-    ],
-    abilities: &[
+card!(
+    index = 869,
+    oracle_id = "9809d975-7ef8-4946-9041-607c4e954b13",
+    scryfall_id = "bb724bec-3509-4f5f-84c0-b1b54063d06f",
+    color_identity = ColorSet::from_slice(&[Color::Black]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "Polluted Mire",
+        types = TypeSet::LAND,
+        enter_modifiers = &[EnterModifier::Tapped],
+    ),],
+    abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::Black, 1)]),
-        activated!(Cost { mana: mana!("{2}"), parts: &[CostPart::DiscardSelf] }, &[Effect::DrawCards { amount: Amount::Fixed(1) }], zone: ActivationZone::Hand),
+        activated!(
+            Cost {
+                mana: mana!("{2}"),
+                parts: &[CostPart::DiscardSelf]
+            },
+            &[Effect::DrawCards {
+                amount: Amount::Fixed(1)
+            }],
+            zone = ActivationZone::Hand
+        ),
     ],
-}
+);

@@ -6,20 +6,21 @@
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 1106,
-    oracle_id: "f5c38c01-4a40-469f-91a0-7479daf4e8e7",
-    scryfall_id: "eedb9df2-20d3-4cfd-8aed-336edc37d5a9",
-    color_identity: ColorSet::from_slice(&[Color::Black, Color::Red]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Sulfurous Springs",
-        types: TypeSet::LAND,
-    },
-    ],
-    abilities: &[
+card!(
+    index = 1106,
+    oracle_id = "f5c38c01-4a40-469f-91a0-7479daf4e8e7",
+    scryfall_id = "eedb9df2-20d3-4cfd-8aed-336edc37d5a9",
+    color_identity = ColorSet::from_slice(&[Color::Black, Color::Red]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(name = "Sulfurous Springs", types = TypeSet::LAND,),],
+    abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
-        mana_ability!(&[Effect::mana_choice(&[ManaColor::Black, ManaColor::Red]), Effect::DealDamage { amount: Amount::Fixed(1), target: TargetSpec::Player(PlayerRel::You) }]),
+        mana_ability!(&[
+            Effect::mana_choice(&[ManaColor::Black, ManaColor::Red]),
+            Effect::DealDamage {
+                amount: Amount::Fixed(1),
+                target: TargetSpec::Player(PlayerRel::You)
+            }
+        ]),
     ],
-}
+);

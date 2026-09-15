@@ -9,21 +9,28 @@ use baylee_cards_dsl::prelude::*;
 
 static TARGET1: Filter = Filter::CREATURE;
 
-card! {
-    index: 1237,
-    oracle_id: "62934aab-b6fa-41b2-ac05-d3fa0e3c5a79",
-    scryfall_id: "d0c5c07b-df81-4941-ae7e-2d38e317059d",
-    color_identity: ColorSet::from_slice(&[Color::Green]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Turntimber Grove",
-        types: TypeSet::LAND,
-        enter_modifiers: &[EnterModifier::Tapped],
-    },
-    ],
-    abilities: &[
+card!(
+    index = 1237,
+    oracle_id = "62934aab-b6fa-41b2-ac05-d3fa0e3c5a79",
+    scryfall_id = "d0c5c07b-df81-4941-ae7e-2d38e317059d",
+    color_identity = ColorSet::from_slice(&[Color::Green]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "Turntimber Grove",
+        types = TypeSet::LAND,
+        enter_modifiers = &[EnterModifier::Tapped],
+    ),],
+    abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::Green, 1)]),
-        triggered!(Trigger::EntersBattlefield(&Filter::This), &[Effect::PumpTarget { power: Amount::Fixed(1), toughness: Amount::Fixed(1), keywords: KeywordSet::EMPTY, duration: Duration::UntilEndOfTurn }], targets: Some(TargetReq::one(TargetSpec::Object(&TARGET1)))),
+        triggered!(
+            Trigger::EntersBattlefield(&Filter::This),
+            &[Effect::PumpTarget {
+                power: Amount::Fixed(1),
+                toughness: Amount::Fixed(1),
+                keywords: KeywordSet::EMPTY,
+                duration: Duration::UntilEndOfTurn
+            }],
+            targets = Some(TargetReq::one(TargetSpec::Object(&TARGET1)))
+        ),
     ],
-}
+);

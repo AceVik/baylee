@@ -9,21 +9,23 @@ use baylee_core::generated::subtypes;
 
 static CHECK: Filter = Filter::And(&[Filter::ControlledByYou, Filter::BASIC_LAND]);
 
-card! {
-    index: 1062,
-    oracle_id: "0070db93-142b-4d04-afd3-836792dc134b",
-    scryfall_id: "0a451ab5-6244-48a0-a638-07da72b156b5",
-    color_identity: ColorSet::from_slice(&[Color::Green, Color::Blue]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Sodden Verdure",
-        types: TypeSet::LAND,
-        subtypes: &[subtypes::land::FOREST, subtypes::land::ISLAND],
-        enter_modifiers: &[EnterModifier::TappedUnlessCount { filter: &CHECK, at_least: 2 }],
-    },
-    ],
-    abilities: &[
-        mana_ability!(&[Effect::mana_choice(&[ManaColor::Green, ManaColor::Blue])]),
-    ],
-}
+card!(
+    index = 1062,
+    oracle_id = "0070db93-142b-4d04-afd3-836792dc134b",
+    scryfall_id = "0a451ab5-6244-48a0-a638-07da72b156b5",
+    color_identity = ColorSet::from_slice(&[Color::Green, Color::Blue]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "Sodden Verdure",
+        types = TypeSet::LAND,
+        subtypes = &[subtypes::land::FOREST, subtypes::land::ISLAND],
+        enter_modifiers = &[EnterModifier::TappedUnlessCount {
+            filter: &CHECK,
+            at_least: 2
+        }],
+    ),],
+    abilities = &[mana_ability!(&[Effect::mana_choice(&[
+        ManaColor::Green,
+        ManaColor::Blue
+    ])]),],
+);

@@ -6,20 +6,20 @@
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 815,
-    oracle_id: "4619de7e-3d6e-4c6b-8e6e-e24db324839d",
-    scryfall_id: "a68fbeaa-941f-4d53-becd-f93ed22b9a54",
-    color_identity: ColorSet::from_slice(&[Color::Black, Color::Red, Color::White]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Nomad Outpost",
-        types: TypeSet::LAND,
-        enter_modifiers: &[EnterModifier::Tapped],
-    },
-    ],
-    abilities: &[
-        mana_ability!(&[Effect::mana_choice(&[ManaColor::Red, ManaColor::White, ManaColor::Black])]),
-    ],
-}
+card!(
+    index = 815,
+    oracle_id = "4619de7e-3d6e-4c6b-8e6e-e24db324839d",
+    scryfall_id = "a68fbeaa-941f-4d53-becd-f93ed22b9a54",
+    color_identity = ColorSet::from_slice(&[Color::Black, Color::Red, Color::White]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "Nomad Outpost",
+        types = TypeSet::LAND,
+        enter_modifiers = &[EnterModifier::Tapped],
+    ),],
+    abilities = &[mana_ability!(&[Effect::mana_choice(&[
+        ManaColor::Red,
+        ManaColor::White,
+        ManaColor::Black
+    ])]),],
+);

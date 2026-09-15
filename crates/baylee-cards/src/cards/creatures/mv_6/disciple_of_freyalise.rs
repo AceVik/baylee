@@ -10,25 +10,22 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-card! {
-    index: 430,
-    oracle_id: "2699005b-a471-429f-a9d8-fbf2077ee2fd",
-    scryfall_id: "a8e9ea5a-5e10-4b77-baef-0352ff035483",
-    color_identity: ColorSet::from_slice(&[Color::Green]),
-    faces: &[
-    face! {
-        name: "Disciple of Freyalise",
-        mana_cost: mana!("{3}{G}{G}{G}"),
-        types: TypeSet::CREATURE,
-        subtypes: &[subtypes::creature::ELF, subtypes::creature::DRUID],
-        power: Some(3),
-        toughness: Some(3),
-    },
-    face! {
-        name: "Garden of Freyalise",
-        types: TypeSet::LAND,
-    },
+card!(
+    index = 430,
+    oracle_id = "2699005b-a471-429f-a9d8-fbf2077ee2fd",
+    scryfall_id = "a8e9ea5a-5e10-4b77-baef-0352ff035483",
+    color_identity = ColorSet::from_slice(&[Color::Green]),
+    faces = &[
+        face!(
+            name = "Disciple of Freyalise",
+            mana_cost = mana!("{3}{G}{G}{G}"),
+            types = TypeSet::CREATURE,
+            subtypes = &[subtypes::creature::ELF, subtypes::creature::DRUID],
+            power = Some(3),
+            toughness = Some(3),
+        ),
+        face!(name = "Garden of Freyalise", types = TypeSet::LAND,),
     ],
-}
+);
 
 // TODO(card): implement abilities, see docs/card-dsl.md.

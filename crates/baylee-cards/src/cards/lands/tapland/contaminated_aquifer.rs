@@ -7,21 +7,20 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-card! {
-    index: 371,
-    oracle_id: "c27b771d-b5ec-459a-a101-f078cb8d0184",
-    scryfall_id: "9fad6994-1280-4a8e-a2f5-34b4ed6ef6f5",
-    color_identity: ColorSet::from_slice(&[Color::Black, Color::Blue]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Contaminated Aquifer",
-        types: TypeSet::LAND,
-        subtypes: &[subtypes::land::ISLAND, subtypes::land::SWAMP],
-        enter_modifiers: &[EnterModifier::Tapped],
-    },
-    ],
-    abilities: &[
-        mana_ability!(&[Effect::mana_choice(&[ManaColor::Blue, ManaColor::Black])]),
-    ],
-}
+card!(
+    index = 371,
+    oracle_id = "c27b771d-b5ec-459a-a101-f078cb8d0184",
+    scryfall_id = "9fad6994-1280-4a8e-a2f5-34b4ed6ef6f5",
+    color_identity = ColorSet::from_slice(&[Color::Black, Color::Blue]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "Contaminated Aquifer",
+        types = TypeSet::LAND,
+        subtypes = &[subtypes::land::ISLAND, subtypes::land::SWAMP],
+        enter_modifiers = &[EnterModifier::Tapped],
+    ),],
+    abilities = &[mana_ability!(&[Effect::mana_choice(&[
+        ManaColor::Blue,
+        ManaColor::Black
+    ])]),],
+);

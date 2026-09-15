@@ -15,23 +15,26 @@ static OVERLOAD_EFFECTS: &[Effect] = &[Effect::DestroyAll {
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 30,
-    oracle_id: "b01d61cc-9844-4191-86a0-f2db6d42d6e5",
-    scryfall_id: "84056124-1a6f-4274-bee2-74cf0debddb5",
-    faces: &[face! {
-        name: "Damn",
-        mana_cost: mana!("{B}{B}"),
-        types: TypeSet::SORCERY,
-    }],
-    color_identity: ColorSet::from_slice(&[Color::Black, Color::White]),
-    coverage: Coverage::Implemented,
-    abilities: &[AbilityDef::ModalSpell {
+card!(
+    index = 30,
+    oracle_id = "b01d61cc-9844-4191-86a0-f2db6d42d6e5",
+    scryfall_id = "84056124-1a6f-4274-bee2-74cf0debddb5",
+    faces = &[face!(
+        name = "Damn",
+        mana_cost = mana!("{B}{B}"),
+        types = TypeSet::SORCERY,
+    )],
+    color_identity = ColorSet::from_slice(&[Color::Black, Color::White]),
+    coverage = Coverage::Implemented,
+    abilities = &[AbilityDef::ModalSpell {
         modes: &[
-            mode!(NORMAL_EFFECTS, targets: Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE)))),
-            mode!(OVERLOAD_EFFECTS, cost_override: Some(mana!("{2}{W}{W}"))),
+            mode!(
+                NORMAL_EFFECTS,
+                targets = Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE)))
+            ),
+            mode!(OVERLOAD_EFFECTS, cost_override = Some(mana!("{2}{W}{W}"))),
         ],
     }],
-}
+);
 
 // Overload destroys everything; normal mode only the target.

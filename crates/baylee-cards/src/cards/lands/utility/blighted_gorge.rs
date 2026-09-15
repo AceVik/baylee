@@ -6,20 +6,25 @@
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 282,
-    oracle_id: "c2cb0afd-781f-4cfa-b680-ed1edfa81868",
-    scryfall_id: "f133ba0a-e141-4f57-9819-bc17bbacd7b3",
-    color_identity: ColorSet::from_slice(&[Color::Red]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Blighted Gorge",
-        types: TypeSet::LAND,
-    },
-    ],
-    abilities: &[
+card!(
+    index = 282,
+    oracle_id = "c2cb0afd-781f-4cfa-b680-ed1edfa81868",
+    scryfall_id = "f133ba0a-e141-4f57-9819-bc17bbacd7b3",
+    color_identity = ColorSet::from_slice(&[Color::Red]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(name = "Blighted Gorge", types = TypeSet::LAND,),],
+    abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
-        activated!(Cost { mana: mana!("{4}{R}"), parts: &[CostPart::TapSelf, CostPart::SacrificeSelf] }, &[Effect::DealDamage { amount: Amount::Fixed(2), target: TargetSpec::AnyTarget }], target: Some(TargetSpec::AnyTarget)),
+        activated!(
+            Cost {
+                mana: mana!("{4}{R}"),
+                parts: &[CostPart::TapSelf, CostPart::SacrificeSelf]
+            },
+            &[Effect::DealDamage {
+                amount: Amount::Fixed(2),
+                target: TargetSpec::AnyTarget
+            }],
+            target = Some(TargetSpec::AnyTarget)
+        ),
     ],
-}
+);

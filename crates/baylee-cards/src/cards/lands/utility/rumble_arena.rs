@@ -8,21 +8,27 @@
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 944,
-    oracle_id: "83f2470e-2114-4cd9-ab1a-21b76e9cdf63",
-    scryfall_id: "3f5d2c38-663c-4f64-8cfc-c102462e82ef",
-    keywords: KeywordSet::VIGILANCE,
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Rumble Arena",
-        types: TypeSet::LAND,
-    },
-    ],
-    abilities: &[
-        triggered!(Trigger::EntersBattlefield(&Filter::This), &[Effect::Scry { amount: Amount::Fixed(1) }]),
+card!(
+    index = 944,
+    oracle_id = "83f2470e-2114-4cd9-ab1a-21b76e9cdf63",
+    scryfall_id = "3f5d2c38-663c-4f64-8cfc-c102462e82ef",
+    keywords = KeywordSet::VIGILANCE,
+    coverage = Coverage::Implemented,
+    faces = &[face!(name = "Rumble Arena", types = TypeSet::LAND,),],
+    abilities = &[
+        triggered!(
+            Trigger::EntersBattlefield(&Filter::This),
+            &[Effect::Scry {
+                amount: Amount::Fixed(1)
+            }]
+        ),
         mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
-        mana_ability!(Cost { mana: mana!("{1}"), parts: &[CostPart::TapSelf] }, &[Effect::mana_of_any_color()]),
+        mana_ability!(
+            Cost {
+                mana: mana!("{1}"),
+                parts: &[CostPart::TapSelf]
+            },
+            &[Effect::mana_of_any_color()]
+        ),
     ],
-}
+);

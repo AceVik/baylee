@@ -13,20 +13,20 @@ static SEARCH1: Filter = Filter::Or(&[
     Filter::HasSubtype(subtypes::land::MOUNTAIN),
 ]);
 
-card! {
-    index: 1349,
-    oracle_id: "495e52e6-4c2b-4574-9474-eadbdcc8b4ac",
-    scryfall_id: "c1aac0f5-1d01-4673-b8d3-878d9a1d423c",
-    color_identity: ColorSet::from_slice(&[Color::Green]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Farseek",
-        mana_cost: mana!("{1}{G}"),
-        types: TypeSet::SORCERY,
-    },
-    ],
-    abilities: &[
-        spell!(&[Effect::SearchLibrary { filter: &SEARCH1, finds: &[Find::BATTLEFIELD_TAPPED], optional: false }]),
-    ],
-}
+card!(
+    index = 1349,
+    oracle_id = "495e52e6-4c2b-4574-9474-eadbdcc8b4ac",
+    scryfall_id = "c1aac0f5-1d01-4673-b8d3-878d9a1d423c",
+    color_identity = ColorSet::from_slice(&[Color::Green]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "Farseek",
+        mana_cost = mana!("{1}{G}"),
+        types = TypeSet::SORCERY,
+    ),],
+    abilities = &[spell!(&[Effect::SearchLibrary {
+        filter: &SEARCH1,
+        finds: &[Find::BATTLEFIELD_TAPPED],
+        optional: false
+    }]),],
+);

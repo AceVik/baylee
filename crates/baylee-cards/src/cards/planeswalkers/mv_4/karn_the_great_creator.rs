@@ -14,21 +14,21 @@ static NONCREATURE_ARTIFACT: Filter = Filter::And(&[Filter::ARTIFACT, Filter::NO
 
 static ARTIFACT_YOU_OWN: Filter = Filter::And(&[Filter::OwnedByYou, Filter::ARTIFACT]);
 
-card! {
-    index: 81,
-    oracle_id: "a20dd48d-d344-4db1-b0e9-a2b71c3cc9d1",
-    scryfall_id: "deb3721d-fba1-444f-8b31-1cd10c94c4a0",
-    faces: &[face! {
-        name: "Karn, the Great Creator",
-        mana_cost: mana!("{4}"),
-        types: TypeSet::PLANESWALKER,
-        supertypes: SupertypeSet::LEGENDARY,
-        subtypes: &[planeswalker::KARN],
-        loyalty: Some(5),
-    }],
-    commander: CommanderRule::Legendary,
-    coverage: Coverage::Implemented,
-    abilities: &[
+card!(
+    index = 81,
+    oracle_id = "a20dd48d-d344-4db1-b0e9-a2b71c3cc9d1",
+    scryfall_id = "deb3721d-fba1-444f-8b31-1cd10c94c4a0",
+    faces = &[face!(
+        name = "Karn, the Great Creator",
+        mana_cost = mana!("{4}"),
+        types = TypeSet::PLANESWALKER,
+        supertypes = SupertypeSet::LEGENDARY,
+        subtypes = &[planeswalker::KARN],
+        loyalty = Some(5),
+    )],
+    commander = CommanderRule::Legendary,
+    coverage = Coverage::Implemented,
+    abilities = &[
         AbilityDef::Static(StaticAbility {
             layer: Layer::Ability,
             filter: Filter::Any,
@@ -41,7 +41,9 @@ card! {
         // them on every battlefield. Pointed at an artifact land — mana value
         // nought — that made a 0/0 of every noncreature artifact in the game
         // and the next state-based check swept them all up.
-        loyalty!(1, &[
+        loyalty!(
+            1,
+            &[
                 Effect::CreateContinuousEffect {
                     layer: Layer::Type,
                     filter: &Filter::This,
@@ -54,9 +56,16 @@ card! {
                     toughness: Amount::TargetCmc,
                     duration: Duration::UntilYourNextTurn,
                 },
-            ], targets: Some(TargetReq::up_to_one(TargetSpec::Object(&NONCREATURE_ARTIFACT)))),
-        loyalty!(-2, &[Effect::WishToHand {
+            ],
+            targets = Some(TargetReq::up_to_one(TargetSpec::Object(
+                &NONCREATURE_ARTIFACT
+            )))
+        ),
+        loyalty!(
+            -2,
+            &[Effect::WishToHand {
                 filter: &ARTIFACT_YOU_OWN,
-            }]),
+            }]
+        ),
     ],
-}
+);

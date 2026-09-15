@@ -15,20 +15,18 @@ use baylee_core::generated::subtypes::artifact;
 /// Equip targets "target creature you control" (CR 702.6a).
 static CREATURE_YOU_CONTROL: Filter = Filter::And(&[Filter::CREATURE, Filter::ControlledByYou]);
 
-card! {
-    index: 1351,
-    oracle_id: "ca204b66-8d0c-431a-8d34-282f7c2d17da",
-    scryfall_id: "b61634ae-05be-4b56-8ebb-9d4ade902e42",
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Lightning Greaves",
-        mana_cost: mana!("{2}"),
-        types: TypeSet::ARTIFACT,
-        subtypes: &[artifact::EQUIPMENT],
-    },
-    ],
-    abilities: &[
+card!(
+    index = 1351,
+    oracle_id = "ca204b66-8d0c-431a-8d34-282f7c2d17da",
+    scryfall_id = "b61634ae-05be-4b56-8ebb-9d4ade902e42",
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "Lightning Greaves",
+        mana_cost = mana!("{2}"),
+        types = TypeSet::ARTIFACT,
+        subtypes = &[artifact::EQUIPMENT],
+    ),],
+    abilities = &[
         AbilityDef::Static(StaticAbility {
             layer: Layer::Ability,
             filter: Filter::AttachedToBySource,
@@ -42,8 +40,8 @@ card! {
             &[Effect::AttachSelf {
                 target: TargetSpec::Object(&CREATURE_YOU_CONTROL),
             }],
-            target: Some(TargetSpec::Object(&CREATURE_YOU_CONTROL)),
-            timing: ActivationTiming::SorcerySpeed
+            target = Some(TargetSpec::Object(&CREATURE_YOU_CONTROL)),
+            timing = ActivationTiming::SorcerySpeed
         ),
     ],
-}
+);

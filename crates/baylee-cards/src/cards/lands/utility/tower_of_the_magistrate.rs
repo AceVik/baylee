@@ -6,25 +6,29 @@
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 171,
-    oracle_id: "ac08fae8-208c-4602-8d39-9bfd29b53a5e",
-    scryfall_id: "ee0481db-15ae-46b4-89a3-01c95a9626c7",
-    faces: &[face! {
-        name: "Tower of the Magistrate",
-        types: TypeSet::LAND,
-    }],
-    coverage: Coverage::Implemented,
-    abilities: &[
+card!(
+    index = 171,
+    oracle_id = "ac08fae8-208c-4602-8d39-9bfd29b53a5e",
+    scryfall_id = "ee0481db-15ae-46b4-89a3-01c95a9626c7",
+    faces = &[face!(
+        name = "Tower of the Magistrate",
+        types = TypeSet::LAND,
+    )],
+    coverage = Coverage::Implemented,
+    abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
-        activated!(Cost {
+        activated!(
+            Cost {
                 mana: mana!("{1}"),
                 parts: &[CostPart::TapSelf],
-            }, &[Effect::CreateContinuousEffect {
+            },
+            &[Effect::CreateContinuousEffect {
                 layer: Layer::Text,
                 filter: &Filter::This,
                 modifier: Modifier::ProtectionFrom(&Filter::ARTIFACT),
                 duration: Duration::UntilEndOfTurn,
-            }], target: Some(TargetSpec::Object(&Filter::CREATURE))),
+            }],
+            target = Some(TargetSpec::Object(&Filter::CREATURE))
+        ),
     ],
-}
+);

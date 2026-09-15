@@ -6,19 +6,20 @@
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 616,
-    oracle_id: "829474df-6413-4323-aef6-f878cb0e797c",
-    scryfall_id: "0582b42f-5ae5-4be2-ba2d-ed62b3cb20c5",
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Henge of Ramos",
-        types: TypeSet::LAND,
-    },
-    ],
-    abilities: &[
+card!(
+    index = 616,
+    oracle_id = "829474df-6413-4323-aef6-f878cb0e797c",
+    scryfall_id = "0582b42f-5ae5-4be2-ba2d-ed62b3cb20c5",
+    coverage = Coverage::Implemented,
+    faces = &[face!(name = "Henge of Ramos", types = TypeSet::LAND,),],
+    abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
-        mana_ability!(Cost { mana: mana!("{2}"), parts: &[CostPart::TapSelf] }, &[Effect::mana_of_any_color()]),
+        mana_ability!(
+            Cost {
+                mana: mana!("{2}"),
+                parts: &[CostPart::TapSelf]
+            },
+            &[Effect::mana_of_any_color()]
+        ),
     ],
-}
+);

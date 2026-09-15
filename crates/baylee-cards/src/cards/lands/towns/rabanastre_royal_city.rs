@@ -7,21 +7,20 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-card! {
-    index: 885,
-    oracle_id: "bd39e333-b0b8-4a85-8645-d77f4a3941db",
-    scryfall_id: "c44c9bbe-f4c6-41cf-b3c3-b943f4011bc1",
-    color_identity: ColorSet::from_slice(&[Color::Red, Color::White]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Rabanastre, Royal City",
-        types: TypeSet::LAND,
-        subtypes: &[subtypes::land::TOWN],
-        enter_modifiers: &[EnterModifier::Tapped],
-    },
-    ],
-    abilities: &[
-        mana_ability!(&[Effect::mana_choice(&[ManaColor::Red, ManaColor::White])]),
-    ],
-}
+card!(
+    index = 885,
+    oracle_id = "bd39e333-b0b8-4a85-8645-d77f4a3941db",
+    scryfall_id = "c44c9bbe-f4c6-41cf-b3c3-b943f4011bc1",
+    color_identity = ColorSet::from_slice(&[Color::Red, Color::White]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "Rabanastre, Royal City",
+        types = TypeSet::LAND,
+        subtypes = &[subtypes::land::TOWN],
+        enter_modifiers = &[EnterModifier::Tapped],
+    ),],
+    abilities = &[mana_ability!(&[Effect::mana_choice(&[
+        ManaColor::Red,
+        ManaColor::White
+    ])]),],
+);

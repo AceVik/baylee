@@ -9,21 +9,28 @@ use baylee_cards_dsl::prelude::*;
 
 static TARGET1: Filter = Filter::CREATURE;
 
-card! {
-    index: 720,
-    oracle_id: "7d09b136-525f-49dd-a3a2-dfaca4e8e9a8",
-    scryfall_id: "b88177a2-de41-417d-a8f1-07edf005b453",
-    color_identity: ColorSet::from_slice(&[Color::Red]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Looming Spires",
-        types: TypeSet::LAND,
-        enter_modifiers: &[EnterModifier::Tapped],
-    },
-    ],
-    abilities: &[
-        triggered!(Trigger::EntersBattlefield(&Filter::This), &[Effect::PumpTarget { power: Amount::Fixed(1), toughness: Amount::Fixed(1), keywords: KeywordSet::FIRST_STRIKE, duration: Duration::UntilEndOfTurn }], targets: Some(TargetReq::one(TargetSpec::Object(&TARGET1)))),
+card!(
+    index = 720,
+    oracle_id = "7d09b136-525f-49dd-a3a2-dfaca4e8e9a8",
+    scryfall_id = "b88177a2-de41-417d-a8f1-07edf005b453",
+    color_identity = ColorSet::from_slice(&[Color::Red]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "Looming Spires",
+        types = TypeSet::LAND,
+        enter_modifiers = &[EnterModifier::Tapped],
+    ),],
+    abilities = &[
+        triggered!(
+            Trigger::EntersBattlefield(&Filter::This),
+            &[Effect::PumpTarget {
+                power: Amount::Fixed(1),
+                toughness: Amount::Fixed(1),
+                keywords: KeywordSet::FIRST_STRIKE,
+                duration: Duration::UntilEndOfTurn
+            }],
+            targets = Some(TargetReq::one(TargetSpec::Object(&TARGET1)))
+        ),
         mana_ability!(&[Effect::mana(ManaColor::Red, 1)]),
     ],
-}
+);

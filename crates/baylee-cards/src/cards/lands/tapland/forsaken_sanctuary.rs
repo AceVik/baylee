@@ -6,20 +6,19 @@
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 517,
-    oracle_id: "941b0dd1-0df2-48ee-8829-615e9c3177a7",
-    scryfall_id: "f3e0b983-62e7-43fb-b5d5-402ea60a64d7",
-    color_identity: ColorSet::from_slice(&[Color::Black, Color::White]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Forsaken Sanctuary",
-        types: TypeSet::LAND,
-        enter_modifiers: &[EnterModifier::Tapped],
-    },
-    ],
-    abilities: &[
-        mana_ability!(&[Effect::mana_choice(&[ManaColor::White, ManaColor::Black])]),
-    ],
-}
+card!(
+    index = 517,
+    oracle_id = "941b0dd1-0df2-48ee-8829-615e9c3177a7",
+    scryfall_id = "f3e0b983-62e7-43fb-b5d5-402ea60a64d7",
+    color_identity = ColorSet::from_slice(&[Color::Black, Color::White]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "Forsaken Sanctuary",
+        types = TypeSet::LAND,
+        enter_modifiers = &[EnterModifier::Tapped],
+    ),],
+    abilities = &[mana_ability!(&[Effect::mana_choice(&[
+        ManaColor::White,
+        ManaColor::Black
+    ])]),],
+);

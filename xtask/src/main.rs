@@ -1142,7 +1142,7 @@ fn cached_printing(root: &Path, name: &str) -> Option<serde_json::Value> {
     serde_json::from_str(&fs::read_to_string(path).ok()?).ok()
 }
 
-/// Extracts the first `"`-quoted value after `key` (e.g. `name: "…"`).
+/// Extracts the first `"`-quoted value after `key` (e.g. `name = "…"`).
 fn quoted_value<'a>(content: &'a str, key: &str) -> Option<&'a str> {
     let start = content.find(key)? + key.len();
     let rest = &content[start..];
@@ -1150,10 +1150,10 @@ fn quoted_value<'a>(content: &'a str, key: &str) -> Option<&'a str> {
     Some(&rest[..end])
 }
 
-/// All `mana_cost:` literals in the file (one per face), normalized:
+/// All `mana_cost` literals in the file (one per face), normalized:
 /// `{0}` and `ManaCost::ZERO` are the same thing.
 fn code_costs(content: &str) -> Vec<String> {
-    content.split("face! {").skip(1).map(face_cost).collect()
+    content.split("face!(").skip(1).map(face_cost).collect()
 }
 
 /// The `mana_cost` one `face!` block writes, or `(no cost)` for a face that
@@ -1179,10 +1179,10 @@ fn code_costs(content: &str) -> Vec<String> {
 /// face.
 fn face_cost(face: &str) -> String {
     const NONE: &str = "(no cost)";
-    let Some(pos) = face.find("mana_cost: ") else {
+    let Some(pos) = face.find("mana_cost = ") else {
         return NONE.to_string();
     };
-    let rest = &face[pos + "mana_cost: ".len()..];
+    let rest = &face[pos + "mana_cost = ".len()..];
     // Either spelling of the macro. It used to read only the qualified one,
     // and the day `mana!` reached the prelude all 478 costed faces in the
     // pool read as costing nothing â a reader pinned to one spelling that
@@ -1251,7 +1251,7 @@ fn check_code_matches_the_printing(
             .map(str::to_string)
     };
 
-    let Some(face) = content.find("faces: &[").map(|pos| &content[pos..]) else {
+    let Some(face) = content.find("faces = &[").map(|pos| &content[pos..]) else {
         return;
     };
     // Every face the printing puts a cost on, not the front one alone: an
@@ -1308,12 +1308,12 @@ fn check_code_matches_the_printing(
     let code_costs = code_costs(face);
     // Which of those code faces says `disturb: true`, positionally — the
     // tolerance below is for that field and nothing else. Blocks run to the
-    // next `face! {` and the last to the end of the file, the same reach
+    // next `face!(` and the last to the end of the file, the same reach
     // [`face_cost`] documents.
     let code_disturb: Vec<bool> = face
-        .split("face! {")
+        .split("face!(")
         .skip(1)
-        .map(|block| block.contains("disturb: true"))
+        .map(|block| block.contains("disturb = true"))
         .collect();
     if printed_costs.len() == code_costs.len() {
         for (at, (printed, code)) in printed_costs.iter().zip(&code_costs).enumerate() {
@@ -1336,9 +1336,9 @@ fn check_code_matches_the_printing(
     // way: the payload's front face carries `null` there, so nothing is
     // compared against the back face's number.
     for (key, field) in [
-        ("power", "power: Some("),
-        ("toughness", "toughness: Some("),
-        ("loyalty", "loyalty: Some("),
+        ("power", "power = Some("),
+        ("toughness", "toughness = Some("),
+        ("loyalty", "loyalty = Some("),
     ] {
         let (Some(printed), Some(code)) = (printed(key), field_number(face, field)) else {
             continue;
@@ -2436,8 +2436,8 @@ fn check_header_matches_code(
     // anchor on the `faces` field). MDFC headers read "Front // Back":
     // either side may headline the file's first face.
     let code_name = content
-        .find("faces: &[")
-        .and_then(|pos| quoted_value(&content[pos..], "name: \""));
+        .find("faces = &[")
+        .and_then(|pos| quoted_value(&content[pos..], "name = \""));
     if let Some(code_name) = code_name {
         let matches = head_name.split(" // ").any(|side| side == code_name);
         if !matches {
@@ -2876,7 +2876,7 @@ fn validate(root: &Path) -> anyhow::Result<()> {
             ("oracle id", content.contains("Oracle ID:")),
             (
                 "coverage flag",
-                is_stub || content.contains("coverage: Coverage::"),
+                is_stub || content.contains("coverage = Coverage::"),
             ),
         ] {
             if !check.1 {

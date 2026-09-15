@@ -13,33 +13,41 @@ static SMALL_PERMANENT: Filter = Filter::And(&[
     Filter::Not(&Filter::HasType(TypeSet::SORCERY)),
 ]);
 
-card! {
-    index: 158,
-    oracle_id: "b2e950fb-cb7e-40a0-a311-5bbdd0477b29",
-    scryfall_id: "3d6eacf2-f6c7-4ede-b5a5-7463602699ae",
-    faces: &[face! {
-        name: "Sun Titan",
-        mana_cost: mana!("{4}{W}{W}"),
-        types: TypeSet::CREATURE,
-        subtypes: &[creature::GIANT],
-        power: Some(6),
-        toughness: Some(6),
-    }],
-    color_identity: ColorSet::from_slice(&[Color::White]),
-    keywords: KeywordSet::VIGILANCE,
-    coverage: Coverage::Implemented,
-    abilities: &[
-        triggered!(Trigger::EntersBattlefield(&Filter::This), &[Effect::GraveyardToBattlefield {
+card!(
+    index = 158,
+    oracle_id = "b2e950fb-cb7e-40a0-a311-5bbdd0477b29",
+    scryfall_id = "3d6eacf2-f6c7-4ede-b5a5-7463602699ae",
+    faces = &[face!(
+        name = "Sun Titan",
+        mana_cost = mana!("{4}{W}{W}"),
+        types = TypeSet::CREATURE,
+        subtypes = &[creature::GIANT],
+        power = Some(6),
+        toughness = Some(6),
+    )],
+    color_identity = ColorSet::from_slice(&[Color::White]),
+    keywords = KeywordSet::VIGILANCE,
+    coverage = Coverage::Implemented,
+    abilities = &[
+        triggered!(
+            Trigger::EntersBattlefield(&Filter::This),
+            &[Effect::GraveyardToBattlefield {
                 target: TargetSpec::CardInGraveyard(&SMALL_PERMANENT, PlayerRel::You),
-            }], targets: Some(TargetReq::up_to_one(TargetSpec::CardInGraveyard(
+            }],
+            targets = Some(TargetReq::up_to_one(TargetSpec::CardInGraveyard(
                 &SMALL_PERMANENT,
                 PlayerRel::You,
-            )))),
-        triggered!(Trigger::Attacks(&Filter::This), &[Effect::GraveyardToBattlefield {
+            )))
+        ),
+        triggered!(
+            Trigger::Attacks(&Filter::This),
+            &[Effect::GraveyardToBattlefield {
                 target: TargetSpec::CardInGraveyard(&SMALL_PERMANENT, PlayerRel::You),
-            }], targets: Some(TargetReq::up_to_one(TargetSpec::CardInGraveyard(
+            }],
+            targets = Some(TargetReq::up_to_one(TargetSpec::CardInGraveyard(
                 &SMALL_PERMANENT,
                 PlayerRel::You,
-            )))),
+            )))
+        ),
     ],
-}
+);

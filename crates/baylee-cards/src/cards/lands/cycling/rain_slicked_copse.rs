@@ -8,22 +8,29 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-card! {
-    index: 891,
-    oracle_id: "633a41f0-3889-49a0-b2fc-9baf59f4ddc2",
-    scryfall_id: "3f967dee-1c2e-423a-823b-9fc74e8053bc",
-    color_identity: ColorSet::from_slice(&[Color::Green, Color::Blue]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Rain-Slicked Copse",
-        types: TypeSet::LAND,
-        subtypes: &[subtypes::land::FOREST, subtypes::land::ISLAND],
-        enter_modifiers: &[EnterModifier::Tapped],
-    },
-    ],
-    abilities: &[
+card!(
+    index = 891,
+    oracle_id = "633a41f0-3889-49a0-b2fc-9baf59f4ddc2",
+    scryfall_id = "3f967dee-1c2e-423a-823b-9fc74e8053bc",
+    color_identity = ColorSet::from_slice(&[Color::Green, Color::Blue]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "Rain-Slicked Copse",
+        types = TypeSet::LAND,
+        subtypes = &[subtypes::land::FOREST, subtypes::land::ISLAND],
+        enter_modifiers = &[EnterModifier::Tapped],
+    ),],
+    abilities = &[
         mana_ability!(&[Effect::mana_choice(&[ManaColor::Green, ManaColor::Blue])]),
-        activated!(Cost { mana: mana!("{2}"), parts: &[CostPart::DiscardSelf] }, &[Effect::DrawCards { amount: Amount::Fixed(1) }], zone: ActivationZone::Hand),
+        activated!(
+            Cost {
+                mana: mana!("{2}"),
+                parts: &[CostPart::DiscardSelf]
+            },
+            &[Effect::DrawCards {
+                amount: Amount::Fixed(1)
+            }],
+            zone = ActivationZone::Hand
+        ),
     ],
-}
+);

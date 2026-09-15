@@ -24,30 +24,33 @@ static NEXUS_FILTER: Filter = Filter::And(&[
 
 use crate::tokens::SHAPESHIFTER_2_2_BLUE_CHANGELING as SHAPESHIFTER_TOKEN;
 
-card! {
-    index: 92,
-    oracle_id: "9b2cdbed-c733-409b-b0e4-2c8960c25111",
-    scryfall_id: "1246c42d-57c0-4cba-959a-15ad89d8a50b",
-    faces: &[face! {
-        name: "Maskwood Nexus",
-        mana_cost: mana!("{4}"),
-        types: TypeSet::ARTIFACT,
-    }],
-    coverage: Coverage::Implemented,
-    abilities: &[
+card!(
+    index = 92,
+    oracle_id = "9b2cdbed-c733-409b-b0e4-2c8960c25111",
+    scryfall_id = "1246c42d-57c0-4cba-959a-15ad89d8a50b",
+    faces = &[face!(
+        name = "Maskwood Nexus",
+        mana_cost = mana!("{4}"),
+        types = TypeSet::ARTIFACT,
+    )],
+    coverage = Coverage::Implemented,
+    abilities = &[
         AbilityDef::Static(StaticAbility {
             layer: Layer::Type,
             filter: NEXUS_FILTER,
             modifier: Modifier::AllCreatureTypes,
         }),
-        activated!(Cost {
+        activated!(
+            Cost {
                 mana: mana!("{3}"),
                 parts: &[CostPart::TapSelf],
-            }, &[Effect::CreateToken {
+            },
+            &[Effect::CreateToken {
                 token: &SHAPESHIFTER_TOKEN,
-            }]),
+            }]
+        ),
     ],
-}
+);
 
 // Engine-level coverage lives in baylee-engine (m2 cross-zone test):
 // with Nexus out, a non-Ally creature card in the library counts as an

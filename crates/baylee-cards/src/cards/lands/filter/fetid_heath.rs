@@ -7,24 +7,24 @@
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 49,
-    oracle_id: "42bf259d-4bb9-49c3-b4ec-223dca62f4d6",
-    scryfall_id: "f465ded8-0d38-42ac-bafc-a12185013c5d",
-    faces: &[face! {
-        name: "Fetid Heath",
-        types: TypeSet::LAND,
-    }],
-    color_identity: ColorSet::from_slice(&[Color::White, Color::Black]),
-    coverage: Coverage::Implemented,
-    abilities: &[
+card!(
+    index = 49,
+    oracle_id = "42bf259d-4bb9-49c3-b4ec-223dca62f4d6",
+    scryfall_id = "f465ded8-0d38-42ac-bafc-a12185013c5d",
+    faces = &[face!(name = "Fetid Heath", types = TypeSet::LAND,)],
+    color_identity = ColorSet::from_slice(&[Color::White, Color::Black]),
+    coverage = Coverage::Implemented,
+    abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
-        mana_ability!(Cost {
+        mana_ability!(
+            Cost {
                 mana: mana!("{1}"),
                 parts: &[CostPart::TapSelf],
-            }, &[Effect::mana_combination(
+            },
+            &[Effect::mana_combination(
                 &[ManaColor::White, ManaColor::Black],
                 Amount::Fixed(2),
-            )]),
+            )]
+        ),
     ],
-}
+);

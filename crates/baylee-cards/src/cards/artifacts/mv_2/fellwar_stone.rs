@@ -10,17 +10,15 @@
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 1350,
-    oracle_id: "95560508-7ac9-4be9-8a3f-3c7d5b52807b",
-    scryfall_id: "3ef87948-0ad9-4757-a692-2262c8e24367",
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Fellwar Stone",
-        mana_cost: mana!("{2}"),
-        types: TypeSet::ARTIFACT,
-    },
-    ],
-    abilities: &[mana_ability!(&[Effect::mana_land_color(false)])],
-}
+card!(
+    index = 1350,
+    oracle_id = "95560508-7ac9-4be9-8a3f-3c7d5b52807b",
+    scryfall_id = "3ef87948-0ad9-4757-a692-2262c8e24367",
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "Fellwar Stone",
+        mana_cost = mana!("{2}"),
+        types = TypeSet::ARTIFACT,
+    ),],
+    abilities = &[mana_ability!(&[Effect::mana_land_color(false)])],
+);

@@ -26,17 +26,17 @@ static EVERYTHING: Filter = Filter::Or(&[
     Filter::InZone(ZoneRef::NotBattlefield),
 ]);
 
-card! {
-    index: 100,
-    oracle_id: "ae1f2ab5-c6a5-4d49-a746-3cb4668bf805",
-    scryfall_id: "94f89714-3b26-46a2-b9a8-3e664f391cd9",
-    faces: &[face! {
-        name: "Mycosynth Lattice",
-        mana_cost: mana!("{6}"),
-        types: TypeSet::ARTIFACT,
-    }],
-    coverage: Coverage::Implemented,
-    abilities: &[
+card!(
+    index = 100,
+    oracle_id = "ae1f2ab5-c6a5-4d49-a746-3cb4668bf805",
+    scryfall_id = "94f89714-3b26-46a2-b9a8-3e664f391cd9",
+    faces = &[face!(
+        name = "Mycosynth Lattice",
+        mana_cost = mana!("{6}"),
+        types = TypeSet::ARTIFACT,
+    )],
+    coverage = Coverage::Implemented,
+    abilities = &[
         AbilityDef::Static(StaticAbility {
             layer: Layer::Type,
             filter: PERMANENTS,
@@ -53,4 +53,4 @@ card! {
             modifier: Modifier::ManaIsAnyColor,
         }),
     ],
-}
+);

@@ -5,19 +5,15 @@
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 1224,
-    oracle_id: "8b4aa971-b919-4750-8388-33d4f42c9280",
-    scryfall_id: "3b3134b3-1bad-4b41-9e56-700125ff31fa",
-    color_identity: ColorSet::from_slice(&[Color::Green]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Tree of Tales",
-        types: TypeSet::ARTIFACT.union(TypeSet::LAND),
-    },
-    ],
-    abilities: &[
-        mana_ability!(&[Effect::mana(ManaColor::Green, 1)]),
-    ],
-}
+card!(
+    index = 1224,
+    oracle_id = "8b4aa971-b919-4750-8388-33d4f42c9280",
+    scryfall_id = "3b3134b3-1bad-4b41-9e56-700125ff31fa",
+    color_identity = ColorSet::from_slice(&[Color::Green]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "Tree of Tales",
+        types = TypeSet::ARTIFACT.union(TypeSet::LAND),
+    ),],
+    abilities = &[mana_ability!(&[Effect::mana(ManaColor::Green, 1)]),],
+);

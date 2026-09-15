@@ -7,21 +7,25 @@
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 610,
-    oracle_id: "18cbb47a-85b1-48f6-a024-8c3bbffa0d87",
-    scryfall_id: "6aded00a-0bf3-416e-8eac-15c04554705d",
-    color_identity: ColorSet::from_slice(&[Color::Green]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Havenwood Battleground",
-        types: TypeSet::LAND,
-        enter_modifiers: &[EnterModifier::Tapped],
-    },
-    ],
-    abilities: &[
+card!(
+    index = 610,
+    oracle_id = "18cbb47a-85b1-48f6-a024-8c3bbffa0d87",
+    scryfall_id = "6aded00a-0bf3-416e-8eac-15c04554705d",
+    color_identity = ColorSet::from_slice(&[Color::Green]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "Havenwood Battleground",
+        types = TypeSet::LAND,
+        enter_modifiers = &[EnterModifier::Tapped],
+    ),],
+    abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::Green, 1)]),
-        mana_ability!(Cost { mana: ManaCost::ZERO, parts: &[CostPart::TapSelf, CostPart::SacrificeSelf] }, &[Effect::mana(ManaColor::Green, 2)]),
+        mana_ability!(
+            Cost {
+                mana: ManaCost::ZERO,
+                parts: &[CostPart::TapSelf, CostPart::SacrificeSelf]
+            },
+            &[Effect::mana(ManaColor::Green, 2)]
+        ),
     ],
-}
+);

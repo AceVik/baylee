@@ -11,24 +11,24 @@
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 585,
-    oracle_id: "ea9c459a-6047-43aa-968f-a582be4000e8",
-    scryfall_id: "004524bf-b249-4dac-9c10-44d57143feb9",
-    color_identity: ColorSet::from_slice(&[Color::Green]),
-    faces: &[
-    face! {
-        name: "Growing Rites of Itlimoc",
-        mana_cost: mana!("{2}{G}"),
-        types: TypeSet::ENCHANTMENT,
-        supertypes: SupertypeSet::LEGENDARY,
-    },
-    face! {
-        name: "Itlimoc, Cradle of the Sun",
-        types: TypeSet::LAND,
-        supertypes: SupertypeSet::LEGENDARY,
-    },
+card!(
+    index = 585,
+    oracle_id = "ea9c459a-6047-43aa-968f-a582be4000e8",
+    scryfall_id = "004524bf-b249-4dac-9c10-44d57143feb9",
+    color_identity = ColorSet::from_slice(&[Color::Green]),
+    faces = &[
+        face!(
+            name = "Growing Rites of Itlimoc",
+            mana_cost = mana!("{2}{G}"),
+            types = TypeSet::ENCHANTMENT,
+            supertypes = SupertypeSet::LEGENDARY,
+        ),
+        face!(
+            name = "Itlimoc, Cradle of the Sun",
+            types = TypeSet::LAND,
+            supertypes = SupertypeSet::LEGENDARY,
+        ),
     ],
-}
+);
 
 // TODO(card): implement abilities, see docs/card-dsl.md.

@@ -9,17 +9,15 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-card! {
-    index: 1189,
-    oracle_id: "926ce6a2-7bdd-4380-ac65-bc902ba0c284",
-    scryfall_id: "ef074a2e-a387-4af8-a180-74b145d93992",
-    faces: &[
-    face! {
-        name: "Thran Portal",
-        types: TypeSet::LAND,
-        subtypes: &[subtypes::land::GATE],
-    },
-    ],
-}
+card!(
+    index = 1189,
+    oracle_id = "926ce6a2-7bdd-4380-ac65-bc902ba0c284",
+    scryfall_id = "ef074a2e-a387-4af8-a180-74b145d93992",
+    faces = &[face!(
+        name = "Thran Portal",
+        types = TypeSet::LAND,
+        subtypes = &[subtypes::land::GATE],
+    ),],
+);
 
 // TODO(card): implement abilities, see docs/card-dsl.md.

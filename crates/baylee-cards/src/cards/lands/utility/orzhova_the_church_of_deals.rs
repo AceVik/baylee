@@ -6,20 +6,33 @@
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 840,
-    oracle_id: "8551a9cf-c54b-42d4-92d6-550f4890a3d7",
-    scryfall_id: "9015cc09-56c9-4d8f-b241-a0cfaec7e1f1",
-    color_identity: ColorSet::from_slice(&[Color::Black, Color::White]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Orzhova, the Church of Deals",
-        types: TypeSet::LAND,
-    },
-    ],
-    abilities: &[
+card!(
+    index = 840,
+    oracle_id = "8551a9cf-c54b-42d4-92d6-550f4890a3d7",
+    scryfall_id = "9015cc09-56c9-4d8f-b241-a0cfaec7e1f1",
+    color_identity = ColorSet::from_slice(&[Color::Black, Color::White]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "Orzhova, the Church of Deals",
+        types = TypeSet::LAND,
+    ),],
+    abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
-        activated!(Cost { mana: mana!("{3}{W}{B}"), parts: &[CostPart::TapSelf] }, &[Effect::LoseLife { amount: Amount::Fixed(1), target: PlayerRel::Chosen }, Effect::GainLife { amount: Amount::Fixed(1) }], target: Some(TargetSpec::AnyPlayer)),
+        activated!(
+            Cost {
+                mana: mana!("{3}{W}{B}"),
+                parts: &[CostPart::TapSelf]
+            },
+            &[
+                Effect::LoseLife {
+                    amount: Amount::Fixed(1),
+                    target: PlayerRel::Chosen
+                },
+                Effect::GainLife {
+                    amount: Amount::Fixed(1)
+                }
+            ],
+            target = Some(TargetSpec::AnyPlayer)
+        ),
     ],
-}
+);

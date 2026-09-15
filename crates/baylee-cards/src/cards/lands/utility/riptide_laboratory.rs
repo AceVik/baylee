@@ -15,20 +15,24 @@ static WIZARD: Filter = Filter::And(&[
     Filter::ControlledByYou,
 ]);
 
-card! {
-    index: 134,
-    oracle_id: "444d50dd-a44a-42db-bbf6-d0978e3bd6a3",
-    scryfall_id: "25a9cb87-e572-4885-8561-1d4b158ec7e4",
-    faces: &[face! {
-        name: "Riptide Laboratory",
-        types: TypeSet::LAND,
-    }],
-    color_identity: ColorSet::from_slice(&[Color::Blue]),
-    coverage: Coverage::Implemented,
-    abilities: &[
+card!(
+    index = 134,
+    oracle_id = "444d50dd-a44a-42db-bbf6-d0978e3bd6a3",
+    scryfall_id = "25a9cb87-e572-4885-8561-1d4b158ec7e4",
+    faces = &[face!(name = "Riptide Laboratory", types = TypeSet::LAND,)],
+    color_identity = ColorSet::from_slice(&[Color::Blue]),
+    coverage = Coverage::Implemented,
+    abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
-        activated!(Cost { mana: mana!("{1}{U}"), parts: &[CostPart::TapSelf] }, &[Effect::ReturnToHand {
+        activated!(
+            Cost {
+                mana: mana!("{1}{U}"),
+                parts: &[CostPart::TapSelf]
+            },
+            &[Effect::ReturnToHand {
                 target: TargetSpec::Object(&WIZARD),
-            }], target: Some(TargetSpec::Object(&WIZARD))),
+            }],
+            target = Some(TargetSpec::Object(&WIZARD))
+        ),
     ],
-}
+);

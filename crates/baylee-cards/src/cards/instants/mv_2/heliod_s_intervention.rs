@@ -9,26 +9,32 @@ static ARTIFACT_OR_ENCHANTMENT: Filter = Filter::Or(&[Filter::ARTIFACT, Filter::
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 67,
-    oracle_id: "e7564d66-767c-4cd9-a5f0-0f2488a4a74b",
-    scryfall_id: "9519bb3a-bed3-48e8-93ae-9e9b2e7d646a",
-    faces: &[face! {
-        name: "Heliod's Intervention",
-        mana_cost: mana!("{X}{W}{W}"),
-        types: TypeSet::INSTANT,
-    }],
-    color_identity: ColorSet::from_slice(&[Color::White]),
-    coverage: Coverage::Implemented,
-    abilities: &[AbilityDef::ModalSpell {
+card!(
+    index = 67,
+    oracle_id = "e7564d66-767c-4cd9-a5f0-0f2488a4a74b",
+    scryfall_id = "9519bb3a-bed3-48e8-93ae-9e9b2e7d646a",
+    faces = &[face!(
+        name = "Heliod's Intervention",
+        mana_cost = mana!("{X}{W}{W}"),
+        types = TypeSet::INSTANT,
+    )],
+    color_identity = ColorSet::from_slice(&[Color::White]),
+    coverage = Coverage::Implemented,
+    abilities = &[AbilityDef::ModalSpell {
         modes: &[
-            mode!(&[Effect::Destroy {
+            mode!(
+                &[Effect::Destroy {
                     target: TargetSpec::Object(&ARTIFACT_OR_ENCHANTMENT),
-                }], targets: Some(TargetReq::one(TargetSpec::Object(&ARTIFACT_OR_ENCHANTMENT)))),
-            mode!(&[Effect::GainLifeFor {
+                }],
+                targets = Some(TargetReq::one(TargetSpec::Object(&ARTIFACT_OR_ENCHANTMENT)))
+            ),
+            mode!(
+                &[Effect::GainLifeFor {
                     amount: Amount::DoubleX,
                     who: PlayerRel::Chosen,
-                }], targets: Some(TargetReq::one(TargetSpec::AnyPlayer))),
+                }],
+                targets = Some(TargetReq::one(TargetSpec::AnyPlayer))
+            ),
         ],
     }],
-}
+);

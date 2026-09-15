@@ -15,20 +15,23 @@ static ELSE_COUNTERS: &[Effect] = &[Effect::AddCounter {
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 173,
-    oracle_id: "72deedab-7c17-4505-aeca-4bc8596d80a5",
-    scryfall_id: "c0cdeaba-fc21-44e6-bf99-aa1ff379401b",
-    faces: &[face! {
-        name: "Tribute to the World Tree",
-        mana_cost: mana!("{G}{G}{G}"),
-        types: TypeSet::ENCHANTMENT,
-    }],
-    color_identity: ColorSet::from_slice(&[Color::Green]),
-    coverage: Coverage::Implemented,
-    abilities: &[triggered!(Trigger::EntersBattlefield(&YOUR_CREATURE), &[Effect::IfEventPowerAtLeast {
+card!(
+    index = 173,
+    oracle_id = "72deedab-7c17-4505-aeca-4bc8596d80a5",
+    scryfall_id = "c0cdeaba-fc21-44e6-bf99-aa1ff379401b",
+    faces = &[face!(
+        name = "Tribute to the World Tree",
+        mana_cost = mana!("{G}{G}{G}"),
+        types = TypeSet::ENCHANTMENT,
+    )],
+    color_identity = ColorSet::from_slice(&[Color::Green]),
+    coverage = Coverage::Implemented,
+    abilities = &[triggered!(
+        Trigger::EntersBattlefield(&YOUR_CREATURE),
+        &[Effect::IfEventPowerAtLeast {
             n: 3,
             then: THEN_DRAW,
             otherwise: ELSE_COUNTERS,
-        }])],
-}
+        }]
+    )],
+);

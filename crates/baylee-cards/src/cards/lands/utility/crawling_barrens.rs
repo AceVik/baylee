@@ -6,16 +6,11 @@
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 382,
-    oracle_id: "dfe1a112-97aa-4e81-8431-81552ba2cdcf",
-    scryfall_id: "ac2aff0e-1319-4d3b-903c-fa1ce3db7602",
-    faces: &[
-    face! {
-        name: "Crawling Barrens",
-        types: TypeSet::LAND,
-    },
-    ],
-}
+card!(
+    index = 382,
+    oracle_id = "dfe1a112-97aa-4e81-8431-81552ba2cdcf",
+    scryfall_id = "ac2aff0e-1319-4d3b-903c-fa1ce3db7602",
+    faces = &[face!(name = "Crawling Barrens", types = TypeSet::LAND,),],
+);
 
 // TODO(card): implement abilities, see docs/card-dsl.md.

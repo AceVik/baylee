@@ -6,20 +6,28 @@
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 449,
-    oracle_id: "67b2cd0c-ecc8-4129-b1ac-820c9924190c",
-    scryfall_id: "2d3c85e2-58a5-4469-85ea-7e89268f310c",
-    color_identity: ColorSet::from_slice(&[Color::Black, Color::Blue]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Duskmantle, House of Shadow",
-        types: TypeSet::LAND,
-    },
-    ],
-    abilities: &[
+card!(
+    index = 449,
+    oracle_id = "67b2cd0c-ecc8-4129-b1ac-820c9924190c",
+    scryfall_id = "2d3c85e2-58a5-4469-85ea-7e89268f310c",
+    color_identity = ColorSet::from_slice(&[Color::Black, Color::Blue]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "Duskmantle, House of Shadow",
+        types = TypeSet::LAND,
+    ),],
+    abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
-        activated!(Cost { mana: mana!("{U}{B}"), parts: &[CostPart::TapSelf] }, &[Effect::Mill { amount: Amount::Fixed(1), target: PlayerRel::Chosen }], target: Some(TargetSpec::AnyPlayer)),
+        activated!(
+            Cost {
+                mana: mana!("{U}{B}"),
+                parts: &[CostPart::TapSelf]
+            },
+            &[Effect::Mill {
+                amount: Amount::Fixed(1),
+                target: PlayerRel::Chosen
+            }],
+            target = Some(TargetSpec::AnyPlayer)
+        ),
     ],
-}
+);

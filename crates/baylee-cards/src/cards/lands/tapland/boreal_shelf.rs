@@ -6,21 +6,20 @@
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 297,
-    oracle_id: "20b549e9-26db-40a5-8bcc-e8de6c559d32",
-    scryfall_id: "3f2f8396-72ab-4387-9276-987836427107",
-    color_identity: ColorSet::from_slice(&[Color::Blue, Color::White]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Boreal Shelf",
-        types: TypeSet::LAND,
-        supertypes: SupertypeSet::SNOW,
-        enter_modifiers: &[EnterModifier::Tapped],
-    },
-    ],
-    abilities: &[
-        mana_ability!(&[Effect::mana_choice(&[ManaColor::White, ManaColor::Blue])]),
-    ],
-}
+card!(
+    index = 297,
+    oracle_id = "20b549e9-26db-40a5-8bcc-e8de6c559d32",
+    scryfall_id = "3f2f8396-72ab-4387-9276-987836427107",
+    color_identity = ColorSet::from_slice(&[Color::Blue, Color::White]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "Boreal Shelf",
+        types = TypeSet::LAND,
+        supertypes = SupertypeSet::SNOW,
+        enter_modifiers = &[EnterModifier::Tapped],
+    ),],
+    abilities = &[mana_ability!(&[Effect::mana_choice(&[
+        ManaColor::White,
+        ManaColor::Blue
+    ])]),],
+);

@@ -8,22 +8,29 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-card! {
-    index: 556,
-    oracle_id: "23732d20-aba6-46cc-89d0-0542629bc6b5",
-    scryfall_id: "a01274c2-a8f4-43b5-bd91-c4905b8cee7e",
-    color_identity: ColorSet::from_slice(&[Color::Red, Color::White]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Glittering Massif",
-        types: TypeSet::LAND,
-        subtypes: &[subtypes::land::MOUNTAIN, subtypes::land::PLAINS],
-        enter_modifiers: &[EnterModifier::Tapped],
-    },
-    ],
-    abilities: &[
+card!(
+    index = 556,
+    oracle_id = "23732d20-aba6-46cc-89d0-0542629bc6b5",
+    scryfall_id = "a01274c2-a8f4-43b5-bd91-c4905b8cee7e",
+    color_identity = ColorSet::from_slice(&[Color::Red, Color::White]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "Glittering Massif",
+        types = TypeSet::LAND,
+        subtypes = &[subtypes::land::MOUNTAIN, subtypes::land::PLAINS],
+        enter_modifiers = &[EnterModifier::Tapped],
+    ),],
+    abilities = &[
         mana_ability!(&[Effect::mana_choice(&[ManaColor::Red, ManaColor::White])]),
-        activated!(Cost { mana: mana!("{2}"), parts: &[CostPart::DiscardSelf] }, &[Effect::DrawCards { amount: Amount::Fixed(1) }], zone: ActivationZone::Hand),
+        activated!(
+            Cost {
+                mana: mana!("{2}"),
+                parts: &[CostPart::DiscardSelf]
+            },
+            &[Effect::DrawCards {
+                amount: Amount::Fixed(1)
+            }],
+            zone = ActivationZone::Hand
+        ),
     ],
-}
+);

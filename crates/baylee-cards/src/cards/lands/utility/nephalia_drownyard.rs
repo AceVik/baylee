@@ -6,20 +6,25 @@
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 809,
-    oracle_id: "6429b4ed-1845-4643-9a3d-85f7c12f2bba",
-    scryfall_id: "fe2e25b7-f950-482b-9e35-266b1278a71a",
-    color_identity: ColorSet::from_slice(&[Color::Black, Color::Blue]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Nephalia Drownyard",
-        types: TypeSet::LAND,
-    },
-    ],
-    abilities: &[
+card!(
+    index = 809,
+    oracle_id = "6429b4ed-1845-4643-9a3d-85f7c12f2bba",
+    scryfall_id = "fe2e25b7-f950-482b-9e35-266b1278a71a",
+    color_identity = ColorSet::from_slice(&[Color::Black, Color::Blue]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(name = "Nephalia Drownyard", types = TypeSet::LAND,),],
+    abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
-        activated!(Cost { mana: mana!("{1}{U}{B}"), parts: &[CostPart::TapSelf] }, &[Effect::Mill { amount: Amount::Fixed(3), target: PlayerRel::Chosen }], target: Some(TargetSpec::AnyPlayer)),
+        activated!(
+            Cost {
+                mana: mana!("{1}{U}{B}"),
+                parts: &[CostPart::TapSelf]
+            },
+            &[Effect::Mill {
+                amount: Amount::Fixed(3),
+                target: PlayerRel::Chosen
+            }],
+            target = Some(TargetSpec::AnyPlayer)
+        ),
     ],
-}
+);

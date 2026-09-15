@@ -7,18 +7,16 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-card! {
-    index: 1230,
-    oracle_id: "7b2c7758-2b89-49ff-8838-8dc9880c7209",
-    scryfall_id: "4f39366c-00df-4528-a324-6a89d0c53f0a",
-    color_identity: ColorSet::from_slice(&[Color::Green, Color::Blue, Color::White]),
-    faces: &[
-    face! {
-        name: "Treva's Ruins",
-        types: TypeSet::LAND,
-        subtypes: &[subtypes::land::LAIR],
-    },
-    ],
-}
+card!(
+    index = 1230,
+    oracle_id = "7b2c7758-2b89-49ff-8838-8dc9880c7209",
+    scryfall_id = "4f39366c-00df-4528-a324-6a89d0c53f0a",
+    color_identity = ColorSet::from_slice(&[Color::Green, Color::Blue, Color::White]),
+    faces = &[face!(
+        name = "Treva's Ruins",
+        types = TypeSet::LAND,
+        subtypes = &[subtypes::land::LAIR],
+    ),],
+);
 
 // TODO(card): implement abilities, see docs/card-dsl.md.

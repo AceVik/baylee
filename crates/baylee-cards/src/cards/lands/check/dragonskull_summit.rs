@@ -16,20 +16,19 @@ static CHECK: Filter = Filter::And(&[
     ]),
 ]);
 
-card! {
-    index: 436,
-    oracle_id: "63398c02-6fb1-481d-9d9f-81063532fbc0",
-    scryfall_id: "d20e433a-eb62-4301-bc20-bfe27468b033",
-    color_identity: ColorSet::from_slice(&[Color::Black, Color::Red]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Dragonskull Summit",
-        types: TypeSet::LAND,
-        enter_modifiers: &[EnterModifier::TappedUnless(&CHECK)],
-    },
-    ],
-    abilities: &[
-        mana_ability!(&[Effect::mana_choice(&[ManaColor::Black, ManaColor::Red])]),
-    ],
-}
+card!(
+    index = 436,
+    oracle_id = "63398c02-6fb1-481d-9d9f-81063532fbc0",
+    scryfall_id = "d20e433a-eb62-4301-bc20-bfe27468b033",
+    color_identity = ColorSet::from_slice(&[Color::Black, Color::Red]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "Dragonskull Summit",
+        types = TypeSet::LAND,
+        enter_modifiers = &[EnterModifier::TappedUnless(&CHECK)],
+    ),],
+    abilities = &[mana_ability!(&[Effect::mana_choice(&[
+        ManaColor::Black,
+        ManaColor::Red
+    ])]),],
+);

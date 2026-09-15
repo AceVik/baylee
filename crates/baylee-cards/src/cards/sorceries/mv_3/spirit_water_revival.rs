@@ -25,27 +25,27 @@ static NORMAL_OUTCOME: &[Effect] = &[Effect::DrawCards {
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 156,
-    oracle_id: "68979160-b5ce-4787-8a1e-1f40e614c3b0",
-    scryfall_id: "0c019e76-c88e-4d1b-a546-0f4e462ef44a",
-    faces: &[face! {
-        name: "Spirit Water Revival",
-        mana_cost: mana!("{1}{U}{U}"),
-        types: TypeSet::SORCERY,
-        additional_costs: &[Cost {
+card!(
+    index = 156,
+    oracle_id = "68979160-b5ce-4787-8a1e-1f40e614c3b0",
+    scryfall_id = "0c019e76-c88e-4d1b-a546-0f4e462ef44a",
+    faces = &[face!(
+        name = "Spirit Water Revival",
+        mana_cost = mana!("{1}{U}{U}"),
+        types = TypeSet::SORCERY,
+        additional_costs = &[Cost {
             mana: mana!("{6}"),
             parts: &[],
         }],
-        convoke: true,
-    }],
-    color_identity: ColorSet::from_slice(&[Color::Blue]),
-    coverage: Coverage::Implemented,
-    abilities: &[spell!(&[
-            Effect::IfKicked {
-                then: KICKED_OUTCOME,
-                otherwise: NORMAL_OUTCOME,
-            },
-            Effect::ExileSource,
-        ])],
-}
+        convoke = true,
+    )],
+    color_identity = ColorSet::from_slice(&[Color::Blue]),
+    coverage = Coverage::Implemented,
+    abilities = &[spell!(&[
+        Effect::IfKicked {
+            then: KICKED_OUTCOME,
+            otherwise: NORMAL_OUTCOME,
+        },
+        Effect::ExileSource,
+    ])],
+);

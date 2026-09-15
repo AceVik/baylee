@@ -9,23 +9,25 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes::creature;
 
-card! {
-    index: 94,
-    oracle_id: "017aa9b3-a8ea-4588-9c50-e914a7d8e4ee",
-    scryfall_id: "16448d95-ee21-4def-b880-26f6f159c213",
-    faces: &[face! {
-        name: "Metamorphosis Fanatic",
-        mana_cost: mana!("{4}{B}{B}"),
-        types: TypeSet::CREATURE,
-        subtypes: &[creature::HUMAN, creature::CLERIC],
-        power: Some(4),
-        toughness: Some(4),
-        miracle: Some(mana!("{1}{B}")),
-    }],
-    color_identity: ColorSet::from_slice(&[Color::Black]),
-    keywords: KeywordSet::LIFELINK,
-    coverage: Coverage::Implemented,
-    abilities: &[triggered!(Trigger::EntersBattlefield(&Filter::This), &[
+card!(
+    index = 94,
+    oracle_id = "017aa9b3-a8ea-4588-9c50-e914a7d8e4ee",
+    scryfall_id = "16448d95-ee21-4def-b880-26f6f159c213",
+    faces = &[face!(
+        name = "Metamorphosis Fanatic",
+        mana_cost = mana!("{4}{B}{B}"),
+        types = TypeSet::CREATURE,
+        subtypes = &[creature::HUMAN, creature::CLERIC],
+        power = Some(4),
+        toughness = Some(4),
+        miracle = Some(mana!("{1}{B}")),
+    )],
+    color_identity = ColorSet::from_slice(&[Color::Black]),
+    keywords = KeywordSet::LIFELINK,
+    coverage = Coverage::Implemented,
+    abilities = &[triggered!(
+        Trigger::EntersBattlefield(&Filter::This),
+        &[
             Effect::GraveyardToBattlefield {
                 target: TargetSpec::CardInGraveyard(&Filter::CREATURE, PlayerRel::You),
             },
@@ -33,10 +35,12 @@ card! {
                 kind: CounterKind::Lifelink,
                 amount: Amount::Fixed(1),
             },
-        ], targets: Some(TargetReq {
+        ],
+        targets = Some(TargetReq {
             spec: TargetSpec::CardInGraveyard(&Filter::CREATURE, PlayerRel::You),
             min: 0,
             max: 1,
             count_is_x: false,
-        }))],
-}
+        })
+    )],
+);

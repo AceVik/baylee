@@ -7,17 +7,15 @@
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 632,
-    oracle_id: "d17163d4-dd43-4de6-b7cf-576448160b7f",
-    scryfall_id: "9eb391dc-0378-4793-a5de-899b09792a4b",
-    color_identity: ColorSet::from_slice(&[Color::Black]),
-    faces: &[
-    face! {
-        name: "Hive of the Eye Tyrant",
-        types: TypeSet::LAND,
-    },
-    ],
-}
+card!(
+    index = 632,
+    oracle_id = "d17163d4-dd43-4de6-b7cf-576448160b7f",
+    scryfall_id = "9eb391dc-0378-4793-a5de-899b09792a4b",
+    color_identity = ColorSet::from_slice(&[Color::Black]),
+    faces = &[face!(
+        name = "Hive of the Eye Tyrant",
+        types = TypeSet::LAND,
+    ),],
+);
 
 // TODO(card): implement abilities, see docs/card-dsl.md.

@@ -9,19 +9,22 @@ static YOUR_CREATURE: Filter = Filter::And(&[Filter::ControlledByYou, Filter::CR
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 44,
-    oracle_id: "0fd57894-b917-41c8-a394-360d1d31b236",
-    scryfall_id: "2da5f3f8-5eef-498f-ba2c-2f3fbc3745aa",
-    faces: &[face! {
-        name: "Ephemerate",
-        mana_cost: mana!("{W}"),
-        types: TypeSet::INSTANT,
-    }],
-    color_identity: ColorSet::from_slice(&[Color::White]),
-    keywords: KeywordSet::REBOUND,
-    coverage: Coverage::Implemented,
-    abilities: &[spell!(&[Effect::Blink {
+card!(
+    index = 44,
+    oracle_id = "0fd57894-b917-41c8-a394-360d1d31b236",
+    scryfall_id = "2da5f3f8-5eef-498f-ba2c-2f3fbc3745aa",
+    faces = &[face!(
+        name = "Ephemerate",
+        mana_cost = mana!("{W}"),
+        types = TypeSet::INSTANT,
+    )],
+    color_identity = ColorSet::from_slice(&[Color::White]),
+    keywords = KeywordSet::REBOUND,
+    coverage = Coverage::Implemented,
+    abilities = &[spell!(
+        &[Effect::Blink {
             target: TargetSpec::Object(&YOUR_CREATURE),
-        }], targets: Some(TargetReq::one(TargetSpec::Object(&YOUR_CREATURE))))],
-}
+        }],
+        targets = Some(TargetReq::one(TargetSpec::Object(&YOUR_CREATURE)))
+    )],
+);

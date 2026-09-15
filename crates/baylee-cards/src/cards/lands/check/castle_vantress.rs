@@ -14,21 +14,27 @@ static CHECK: Filter = Filter::And(&[
     Filter::HasSubtype(subtypes::land::ISLAND),
 ]);
 
-card! {
-    index: 338,
-    oracle_id: "cdf41cf4-4e77-453d-be5b-0abbbd358934",
-    scryfall_id: "dead85f7-865c-4f7d-ad6c-014d4e90f8be",
-    color_identity: ColorSet::from_slice(&[Color::Blue]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Castle Vantress",
-        types: TypeSet::LAND,
-        enter_modifiers: &[EnterModifier::TappedUnless(&CHECK)],
-    },
-    ],
-    abilities: &[
+card!(
+    index = 338,
+    oracle_id = "cdf41cf4-4e77-453d-be5b-0abbbd358934",
+    scryfall_id = "dead85f7-865c-4f7d-ad6c-014d4e90f8be",
+    color_identity = ColorSet::from_slice(&[Color::Blue]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "Castle Vantress",
+        types = TypeSet::LAND,
+        enter_modifiers = &[EnterModifier::TappedUnless(&CHECK)],
+    ),],
+    abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::Blue, 1)]),
-        activated!(Cost { mana: mana!("{2}{U}{U}"), parts: &[CostPart::TapSelf] }, &[Effect::Scry { amount: Amount::Fixed(2) }]),
+        activated!(
+            Cost {
+                mana: mana!("{2}{U}{U}"),
+                parts: &[CostPart::TapSelf]
+            },
+            &[Effect::Scry {
+                amount: Amount::Fixed(2)
+            }]
+        ),
     ],
-}
+);

@@ -12,24 +12,24 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes::creature;
 
-card! {
-    index: 105,
-    oracle_id: "1f438b8f-fe23-4f3b-ab2e-f6c33676c462",
-    scryfall_id: "086f97e9-8b62-44f3-b467-149c2ac5ca78",
-    faces: &[face! {
-        name: "Opposition Agent",
-        mana_cost: mana!("{2}{B}"),
-        types: TypeSet::CREATURE,
-        subtypes: &[creature::HUMAN, creature::ROGUE],
-        power: Some(3),
-        toughness: Some(2),
-    }],
-    color_identity: ColorSet::from_slice(&[Color::Black]),
-    keywords: KeywordSet::FLASH,
-    coverage: Coverage::Implemented,
-    abilities: &[AbilityDef::Static(StaticAbility {
+card!(
+    index = 105,
+    oracle_id = "1f438b8f-fe23-4f3b-ab2e-f6c33676c462",
+    scryfall_id = "086f97e9-8b62-44f3-b467-149c2ac5ca78",
+    faces = &[face!(
+        name = "Opposition Agent",
+        mana_cost = mana!("{2}{B}"),
+        types = TypeSet::CREATURE,
+        subtypes = &[creature::HUMAN, creature::ROGUE],
+        power = Some(3),
+        toughness = Some(2),
+    )],
+    color_identity = ColorSet::from_slice(&[Color::Black]),
+    keywords = KeywordSet::FLASH,
+    coverage = Coverage::Implemented,
+    abilities = &[AbilityDef::Static(StaticAbility {
         layer: Layer::Text,
         filter: Filter::Any,
         modifier: Modifier::SearchTakeover,
     })],
-}
+);

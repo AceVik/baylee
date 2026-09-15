@@ -7,21 +7,32 @@
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 536,
-    oracle_id: "6f85c26e-3c87-4112-ad1a-8a5708555a93",
-    scryfall_id: "2627acb7-57d9-4429-9bc5-e7dd444d8d48",
-    color_identity: ColorSet::from_slice(&[Color::Blue, Color::White]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Gates of Istfell",
-        types: TypeSet::LAND,
-        enter_modifiers: &[EnterModifier::Tapped],
-    },
-    ],
-    abilities: &[
+card!(
+    index = 536,
+    oracle_id = "6f85c26e-3c87-4112-ad1a-8a5708555a93",
+    scryfall_id = "2627acb7-57d9-4429-9bc5-e7dd444d8d48",
+    color_identity = ColorSet::from_slice(&[Color::Blue, Color::White]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "Gates of Istfell",
+        types = TypeSet::LAND,
+        enter_modifiers = &[EnterModifier::Tapped],
+    ),],
+    abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::White, 1)]),
-        activated!(Cost { mana: mana!("{2}{W}{U}{U}"), parts: &[CostPart::TapSelf, CostPart::SacrificeSelf] }, &[Effect::GainLife { amount: Amount::Fixed(2) }, Effect::DrawCards { amount: Amount::Fixed(2) }]),
+        activated!(
+            Cost {
+                mana: mana!("{2}{W}{U}{U}"),
+                parts: &[CostPart::TapSelf, CostPart::SacrificeSelf]
+            },
+            &[
+                Effect::GainLife {
+                    amount: Amount::Fixed(2)
+                },
+                Effect::DrawCards {
+                    amount: Amount::Fixed(2)
+                }
+            ]
+        ),
     ],
-}
+);

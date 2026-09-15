@@ -11,21 +11,23 @@ use baylee_core::generated::subtypes::creature;
 static ALLIES_YOU: Filter =
     Filter::And(&[Filter::ControlledByYou, Filter::HasSubtype(creature::ALLY)]);
 
-card! {
-    index: 174,
-    oracle_id: "85cf2403-b419-4364-8ac9-67dd1ceddf9e",
-    scryfall_id: "d3a84a2a-6384-497a-8ee2-de0fa74fcc80",
-    faces: &[face! {
-        name: "Tuktuk Scrapper",
-        mana_cost: mana!("{3}{R}"),
-        types: TypeSet::CREATURE,
-        subtypes: &[creature::GOBLIN, creature::ARTIFICER, creature::ALLY],
-        power: Some(2),
-        toughness: Some(2),
-    }],
-    color_identity: ColorSet::from_slice(&[Color::Red]),
-    coverage: Coverage::Implemented,
-    abilities: &[triggered!(Trigger::EntersBattlefield(&YOUR_ALLIES), &[
+card!(
+    index = 174,
+    oracle_id = "85cf2403-b419-4364-8ac9-67dd1ceddf9e",
+    scryfall_id = "d3a84a2a-6384-497a-8ee2-de0fa74fcc80",
+    faces = &[face!(
+        name = "Tuktuk Scrapper",
+        mana_cost = mana!("{3}{R}"),
+        types = TypeSet::CREATURE,
+        subtypes = &[creature::GOBLIN, creature::ARTIFICER, creature::ALLY],
+        power = Some(2),
+        toughness = Some(2),
+    )],
+    color_identity = ColorSet::from_slice(&[Color::Red]),
+    coverage = Coverage::Implemented,
+    abilities = &[triggered!(
+        Trigger::EntersBattlefield(&YOUR_ALLIES),
+        &[
             Effect::Destroy {
                 target: TargetSpec::Object(&Filter::ARTIFACT),
             },
@@ -35,5 +37,7 @@ card! {
                     zone: ZoneSel::Battlefield,
                 },
             },
-        ], targets: Some(TargetReq::up_to_one(TargetSpec::Object(&Filter::ARTIFACT))))],
-}
+        ],
+        targets = Some(TargetReq::up_to_one(TargetSpec::Object(&Filter::ARTIFACT)))
+    )],
+);

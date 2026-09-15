@@ -16,18 +16,18 @@ static WHITE_F: Filter = Filter::HasColor(ColorSet::from_slice(&[Color::White]))
 static CREATURE_YOU_OWN: Filter = Filter::And(&[Filter::CREATURE, Filter::OwnedByYou]);
 static BASIC_LAND: Filter = Filter::And(&[Filter::HasSupertype(SupertypeSet::BASIC), Filter::LAND]);
 
-card! {
-    index: 163,
-    oracle_id: "913e6182-706a-4872-8c8a-e146b0ae0738",
-    scryfall_id: "a16fabbe-4557-4067-b882-f2e5dbd8b458",
-    faces: &[face! {
-        name: "Sword of Hearth and Home",
-        mana_cost: mana!("{3}"),
-        types: TypeSet::ARTIFACT,
-        subtypes: &[artifact::EQUIPMENT],
-    }],
-    coverage: Coverage::Implemented,
-    abilities: &[
+card!(
+    index = 163,
+    oracle_id = "913e6182-706a-4872-8c8a-e146b0ae0738",
+    scryfall_id = "a16fabbe-4557-4067-b882-f2e5dbd8b458",
+    faces = &[face!(
+        name = "Sword of Hearth and Home",
+        mana_cost = mana!("{3}"),
+        types = TypeSet::ARTIFACT,
+        subtypes = &[artifact::EQUIPMENT],
+    )],
+    coverage = Coverage::Implemented,
+    abilities = &[
         AbilityDef::Static(StaticAbility {
             layer: Layer::PtModify,
             filter: Filter::AttachedToBySource,
@@ -43,7 +43,9 @@ card! {
             filter: Filter::AttachedToBySource,
             modifier: Modifier::ProtectionFrom(&WHITE_F),
         }),
-        triggered!(Trigger::DealsCombatDamageToPlayer(&Filter::AttachedToBySource), &[
+        triggered!(
+            Trigger::DealsCombatDamageToPlayer(&Filter::AttachedToBySource),
+            &[
                 Effect::Blink {
                     target: TargetSpec::Object(&CREATURE_YOU_OWN),
                 },
@@ -52,17 +54,24 @@ card! {
                     finds: &[Find::BATTLEFIELD],
                     optional: true,
                 },
-            ], targets: Some(TargetReq {
+            ],
+            targets = Some(TargetReq {
                 spec: TargetSpec::Object(&CREATURE_YOU_OWN),
                 min: 0,
                 max: 1,
                 count_is_x: false,
-            })),
-        activated!(Cost {
+            })
+        ),
+        activated!(
+            Cost {
                 mana: mana!("{2}"),
                 parts: &[],
-            }, &[Effect::AttachSelf {
+            },
+            &[Effect::AttachSelf {
                 target: TargetSpec::Object(&CREATURE_YOU_CONTROL),
-            }], target: Some(TargetSpec::Object(&CREATURE_YOU_CONTROL)), timing: ActivationTiming::SorcerySpeed),
+            }],
+            target = Some(TargetSpec::Object(&CREATURE_YOU_CONTROL)),
+            timing = ActivationTiming::SorcerySpeed
+        ),
     ],
-}
+);

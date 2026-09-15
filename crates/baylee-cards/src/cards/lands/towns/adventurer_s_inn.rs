@@ -7,20 +7,23 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-card! {
-    index: 208,
-    oracle_id: "232bd88c-ecdb-43dd-b34a-d381cb3bedf2",
-    scryfall_id: "f0da2ee1-986e-4cbf-92eb-d96fdb572ca5",
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Adventurer's Inn",
-        types: TypeSet::LAND,
-        subtypes: &[subtypes::land::TOWN],
-    },
-    ],
-    abilities: &[
-        triggered!(Trigger::EntersBattlefield(&Filter::This), &[Effect::GainLife { amount: Amount::Fixed(2) }]),
+card!(
+    index = 208,
+    oracle_id = "232bd88c-ecdb-43dd-b34a-d381cb3bedf2",
+    scryfall_id = "f0da2ee1-986e-4cbf-92eb-d96fdb572ca5",
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "Adventurer's Inn",
+        types = TypeSet::LAND,
+        subtypes = &[subtypes::land::TOWN],
+    ),],
+    abilities = &[
+        triggered!(
+            Trigger::EntersBattlefield(&Filter::This),
+            &[Effect::GainLife {
+                amount: Amount::Fixed(2)
+            }]
+        ),
         mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
     ],
-}
+);

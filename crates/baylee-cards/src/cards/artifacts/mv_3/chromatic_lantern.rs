@@ -7,17 +7,17 @@
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 19,
-    oracle_id: "539f5396-d99a-417d-a84c-dff7930b5900",
-    scryfall_id: "9b29492a-8bdd-4806-8d1b-3058ed277cc1",
-    faces: &[face! {
-        name: "Chromatic Lantern",
-        mana_cost: mana!("{3}"),
-        types: TypeSet::ARTIFACT,
-    }],
-    coverage: Coverage::Implemented,
-    abilities: &[
+card!(
+    index = 19,
+    oracle_id = "539f5396-d99a-417d-a84c-dff7930b5900",
+    scryfall_id = "9b29492a-8bdd-4806-8d1b-3058ed277cc1",
+    faces = &[face!(
+        name = "Chromatic Lantern",
+        mana_cost = mana!("{3}"),
+        types = TypeSet::ARTIFACT,
+    )],
+    coverage = Coverage::Implemented,
+    abilities = &[
         AbilityDef::Static(StaticAbility {
             layer: Layer::Ability,
             filter: Filter::And(&[Filter::LAND, Filter::ControlledByYou]),
@@ -29,4 +29,4 @@ card! {
         }),
         mana_ability!(&[Effect::mana_choice(ALL_MANA_COLORS)]),
     ],
-}
+);

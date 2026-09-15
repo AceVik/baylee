@@ -7,21 +7,28 @@
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 1104,
-    oracle_id: "bc2906cd-9e0c-4aa8-b656-fb1045d810ac",
-    scryfall_id: "22c66ed6-55fb-4c65-aac4-26d9cc3053b8",
-    color_identity: ColorSet::from_slice(&[Color::Black, Color::Red, Color::Blue]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Sulfur Vent",
-        types: TypeSet::LAND,
-        enter_modifiers: &[EnterModifier::Tapped],
-    },
-    ],
-    abilities: &[
+card!(
+    index = 1104,
+    oracle_id = "bc2906cd-9e0c-4aa8-b656-fb1045d810ac",
+    scryfall_id = "22c66ed6-55fb-4c65-aac4-26d9cc3053b8",
+    color_identity = ColorSet::from_slice(&[Color::Black, Color::Red, Color::Blue]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "Sulfur Vent",
+        types = TypeSet::LAND,
+        enter_modifiers = &[EnterModifier::Tapped],
+    ),],
+    abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::Black, 1)]),
-        mana_ability!(Cost { mana: ManaCost::ZERO, parts: &[CostPart::TapSelf, CostPart::SacrificeSelf] }, &[Effect::mana(ManaColor::Blue, 1), Effect::mana(ManaColor::Red, 1)]),
+        mana_ability!(
+            Cost {
+                mana: ManaCost::ZERO,
+                parts: &[CostPart::TapSelf, CostPart::SacrificeSelf]
+            },
+            &[
+                Effect::mana(ManaColor::Blue, 1),
+                Effect::mana(ManaColor::Red, 1)
+            ]
+        ),
     ],
-}
+);

@@ -12,20 +12,27 @@ static TARGET1: Filter = Filter::And(&[
     Filter::HasSubtype(subtypes::creature::GOBLIN),
 ]);
 
-card! {
-    index: 559,
-    oracle_id: "ad65bb8e-57de-49f3-ba7c-be62cf3fe3df",
-    scryfall_id: "dc36acc6-db4b-45b7-b526-7966ff82a44f",
-    color_identity: ColorSet::from_slice(&[Color::Red]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Goblin Burrows",
-        types: TypeSet::LAND,
-    },
-    ],
-    abilities: &[
+card!(
+    index = 559,
+    oracle_id = "ad65bb8e-57de-49f3-ba7c-be62cf3fe3df",
+    scryfall_id = "dc36acc6-db4b-45b7-b526-7966ff82a44f",
+    color_identity = ColorSet::from_slice(&[Color::Red]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(name = "Goblin Burrows", types = TypeSet::LAND,),],
+    abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
-        activated!(Cost { mana: mana!("{1}{R}"), parts: &[CostPart::TapSelf] }, &[Effect::PumpTarget { power: Amount::Fixed(2), toughness: Amount::Fixed(0), keywords: KeywordSet::EMPTY, duration: Duration::UntilEndOfTurn }], target: Some(TargetSpec::Object(&TARGET1))),
+        activated!(
+            Cost {
+                mana: mana!("{1}{R}"),
+                parts: &[CostPart::TapSelf]
+            },
+            &[Effect::PumpTarget {
+                power: Amount::Fixed(2),
+                toughness: Amount::Fixed(0),
+                keywords: KeywordSet::EMPTY,
+                duration: Duration::UntilEndOfTurn
+            }],
+            target = Some(TargetSpec::Object(&TARGET1))
+        ),
     ],
-}
+);

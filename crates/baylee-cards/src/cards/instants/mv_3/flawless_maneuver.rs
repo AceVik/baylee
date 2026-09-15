@@ -8,25 +8,25 @@ static YOUR_CREATURES: Filter = Filter::And(&[Filter::CREATURE, Filter::Controll
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 51,
-    oracle_id: "4e183439-17d2-47ff-9d99-5e22821d91e3",
-    scryfall_id: "ab12f69e-1491-47a8-8c46-d85bbf637ff6",
-    faces: &[face! {
-        name: "Flawless Maneuver",
-        mana_cost: mana!("{2}{W}"),
-        types: TypeSet::INSTANT,
-        alternative_costs: &[AlternativeCost {
+card!(
+    index = 51,
+    oracle_id = "4e183439-17d2-47ff-9d99-5e22821d91e3",
+    scryfall_id = "ab12f69e-1491-47a8-8c46-d85bbf637ff6",
+    faces = &[face!(
+        name = "Flawless Maneuver",
+        mana_cost = mana!("{2}{W}"),
+        types = TypeSet::INSTANT,
+        alternative_costs = &[AlternativeCost {
             cost: Cost::FREE,
             condition: AltCondition::CommanderControlled,
         }],
-    }],
-    color_identity: ColorSet::from_slice(&[Color::White]),
-    coverage: Coverage::Implemented,
-    abilities: &[spell!(&[Effect::CreateContinuousEffect {
-            layer: Layer::Ability,
-            filter: &YOUR_CREATURES,
-            modifier: Modifier::AddKeyword(KeywordSet::INDESTRUCTIBLE),
-            duration: Duration::UntilEndOfTurn,
-        }])],
-}
+    )],
+    color_identity = ColorSet::from_slice(&[Color::White]),
+    coverage = Coverage::Implemented,
+    abilities = &[spell!(&[Effect::CreateContinuousEffect {
+        layer: Layer::Ability,
+        filter: &YOUR_CREATURES,
+        modifier: Modifier::AddKeyword(KeywordSet::INDESTRUCTIBLE),
+        duration: Duration::UntilEndOfTurn,
+    }])],
+);

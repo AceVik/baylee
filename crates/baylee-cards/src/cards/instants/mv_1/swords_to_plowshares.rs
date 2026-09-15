@@ -5,18 +5,19 @@
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 164,
-    oracle_id: "b1544f21-7e98-461b-aed5-e748b0168c52",
-    scryfall_id: "b4e9c870-23c0-413a-ae39-265f09da16d1",
-    faces: &[face! {
-        name: "Swords to Plowshares",
-        mana_cost: mana!("{W}"),
-        types: TypeSet::INSTANT,
-    }],
-    color_identity: ColorSet::from_slice(&[Color::White]),
-    coverage: Coverage::Implemented,
-    abilities: &[spell!(&[
+card!(
+    index = 164,
+    oracle_id = "b1544f21-7e98-461b-aed5-e748b0168c52",
+    scryfall_id = "b4e9c870-23c0-413a-ae39-265f09da16d1",
+    faces = &[face!(
+        name = "Swords to Plowshares",
+        mana_cost = mana!("{W}"),
+        types = TypeSet::INSTANT,
+    )],
+    color_identity = ColorSet::from_slice(&[Color::White]),
+    coverage = Coverage::Implemented,
+    abilities = &[spell!(
+        &[
             Effect::Exile {
                 target: TargetSpec::Object(&Filter::CREATURE),
             },
@@ -24,8 +25,10 @@ card! {
                 amount: Amount::TargetPower,
                 who: PlayerRel::ControllerOfTarget,
             },
-        ], targets: Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE))))],
-}
+        ],
+        targets = Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE)))
+    )],
+);
 
 // Engine-level coverage via s4 scenario tests: the creature is exiled
 // (not destroyed) and its controller gains life equal to its power.

@@ -10,18 +10,13 @@
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 480,
-    oracle_id: "a75445d3-1303-4bb5-89ad-26ea93fecd48",
-    scryfall_id: "c0318a48-30e4-4ef7-be3d-5e561c5ce428",
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Evolving Wilds",
-        types: TypeSet::LAND,
-    },
-    ],
-    abilities: &[activated!(
+card!(
+    index = 480,
+    oracle_id = "a75445d3-1303-4bb5-89ad-26ea93fecd48",
+    scryfall_id = "c0318a48-30e4-4ef7-be3d-5e561c5ce428",
+    coverage = Coverage::Implemented,
+    faces = &[face!(name = "Evolving Wilds", types = TypeSet::LAND,),],
+    abilities = &[activated!(
         Cost {
             mana: ManaCost::ZERO,
             parts: &[CostPart::TapSelf, CostPart::SacrificeSelf],
@@ -32,4 +27,4 @@ card! {
             optional: false,
         }]
     )],
-}
+);

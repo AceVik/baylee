@@ -8,33 +8,37 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes::{self};
 
-card! {
-    index: 193,
-    oracle_id: "fdd46004-eaba-4024-8687-39b23dc6a58c",
-    scryfall_id: "cc520518-2063-4b57-a0d4-10cf62a7175e",
-    faces: &[face! {
-        name: "Zagoth Triome",
-        types: TypeSet::LAND,
-        subtypes: &[
+card!(
+    index = 193,
+    oracle_id = "fdd46004-eaba-4024-8687-39b23dc6a58c",
+    scryfall_id = "cc520518-2063-4b57-a0d4-10cf62a7175e",
+    faces = &[face!(
+        name = "Zagoth Triome",
+        types = TypeSet::LAND,
+        subtypes = &[
             subtypes::land::SWAMP,
             subtypes::land::FOREST,
             subtypes::land::ISLAND,
         ],
-        enter_modifiers: &[EnterModifier::Tapped],
-    }],
-    color_identity: ColorSet::from_slice(&[Color::Blue, Color::Black, Color::Green]),
-    coverage: Coverage::Implemented,
-    abilities: &[
+        enter_modifiers = &[EnterModifier::Tapped],
+    )],
+    color_identity = ColorSet::from_slice(&[Color::Blue, Color::Black, Color::Green]),
+    coverage = Coverage::Implemented,
+    abilities = &[
         mana_ability!(&[Effect::mana_choice(&[
-                ManaColor::Blue,
-                ManaColor::Black,
-                ManaColor::Green,
-            ])]),
-        activated!(Cost {
+            ManaColor::Blue,
+            ManaColor::Black,
+            ManaColor::Green,
+        ])]),
+        activated!(
+            Cost {
                 mana: mana!("{3}"),
                 parts: &[CostPart::DiscardSelf],
-            }, &[Effect::DrawCards {
+            },
+            &[Effect::DrawCards {
                 amount: Amount::Fixed(1),
-            }], zone: ActivationZone::Hand),
+            }],
+            zone = ActivationZone::Hand
+        ),
     ],
-}
+);

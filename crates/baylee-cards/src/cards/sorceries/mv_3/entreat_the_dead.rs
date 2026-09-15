@@ -6,22 +6,25 @@
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 43,
-    oracle_id: "2de6c3d9-1759-40a2-99c6-8cbe17b4bcdd",
-    scryfall_id: "31a147bb-37ef-4a52-82e2-160a53323516",
-    faces: &[face! {
-        name: "Entreat the Dead",
-        mana_cost: mana!("{X}{X}{B}{B}{B}"),
-        types: TypeSet::SORCERY,
-        miracle: Some(mana!("{X}{B}{B}")),
-    }],
-    color_identity: ColorSet::from_slice(&[Color::Black]),
-    coverage: Coverage::Implemented,
-    abilities: &[spell!(&[Effect::GraveyardToBattlefield {
+card!(
+    index = 43,
+    oracle_id = "2de6c3d9-1759-40a2-99c6-8cbe17b4bcdd",
+    scryfall_id = "31a147bb-37ef-4a52-82e2-160a53323516",
+    faces = &[face!(
+        name = "Entreat the Dead",
+        mana_cost = mana!("{X}{X}{B}{B}{B}"),
+        types = TypeSet::SORCERY,
+        miracle = Some(mana!("{X}{B}{B}")),
+    )],
+    color_identity = ColorSet::from_slice(&[Color::Black]),
+    coverage = Coverage::Implemented,
+    abilities = &[spell!(
+        &[Effect::GraveyardToBattlefield {
             target: TargetSpec::CardInGraveyard(&Filter::CREATURE, PlayerRel::You),
-        }], targets: Some(TargetReq::x_targets(TargetSpec::CardInGraveyard(
+        }],
+        targets = Some(TargetReq::x_targets(TargetSpec::CardInGraveyard(
             &Filter::CREATURE,
             PlayerRel::You,
-        ))))],
-}
+        )))
+    )],
+);

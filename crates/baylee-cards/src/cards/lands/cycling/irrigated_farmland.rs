@@ -8,22 +8,29 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-card! {
-    index: 658,
-    oracle_id: "406eabe2-df62-49e2-bb39-c0227509d875",
-    scryfall_id: "996b4484-a701-409a-822c-aa19be89a2c6",
-    color_identity: ColorSet::from_slice(&[Color::Blue, Color::White]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Irrigated Farmland",
-        types: TypeSet::LAND,
-        subtypes: &[subtypes::land::PLAINS, subtypes::land::ISLAND],
-        enter_modifiers: &[EnterModifier::Tapped],
-    },
-    ],
-    abilities: &[
+card!(
+    index = 658,
+    oracle_id = "406eabe2-df62-49e2-bb39-c0227509d875",
+    scryfall_id = "996b4484-a701-409a-822c-aa19be89a2c6",
+    color_identity = ColorSet::from_slice(&[Color::Blue, Color::White]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "Irrigated Farmland",
+        types = TypeSet::LAND,
+        subtypes = &[subtypes::land::PLAINS, subtypes::land::ISLAND],
+        enter_modifiers = &[EnterModifier::Tapped],
+    ),],
+    abilities = &[
         mana_ability!(&[Effect::mana_choice(&[ManaColor::White, ManaColor::Blue])]),
-        activated!(Cost { mana: mana!("{2}"), parts: &[CostPart::DiscardSelf] }, &[Effect::DrawCards { amount: Amount::Fixed(1) }], zone: ActivationZone::Hand),
+        activated!(
+            Cost {
+                mana: mana!("{2}"),
+                parts: &[CostPart::DiscardSelf]
+            },
+            &[Effect::DrawCards {
+                amount: Amount::Fixed(1)
+            }],
+            zone = ActivationZone::Hand
+        ),
     ],
-}
+);

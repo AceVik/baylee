@@ -8,19 +8,21 @@ use baylee_cards_dsl::prelude::*;
 
 static TARGET1: Filter = Filter::LAND;
 
-card! {
-    index: 923,
-    oracle_id: "f3e8dc56-2810-474e-a6a7-9c3555f94ae9",
-    scryfall_id: "d2507bc2-da17-4e46-b4c5-ba0080ce2c6f",
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Rishadan Port",
-        types: TypeSet::LAND,
-    },
-    ],
-    abilities: &[
+card!(
+    index = 923,
+    oracle_id = "f3e8dc56-2810-474e-a6a7-9c3555f94ae9",
+    scryfall_id = "d2507bc2-da17-4e46-b4c5-ba0080ce2c6f",
+    coverage = Coverage::Implemented,
+    faces = &[face!(name = "Rishadan Port", types = TypeSet::LAND,),],
+    abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
-        activated!(Cost { mana: mana!("{1}"), parts: &[CostPart::TapSelf] }, &[Effect::TapTarget], target: Some(TargetSpec::Object(&TARGET1))),
+        activated!(
+            Cost {
+                mana: mana!("{1}"),
+                parts: &[CostPart::TapSelf]
+            },
+            &[Effect::TapTarget],
+            target = Some(TargetSpec::Object(&TARGET1))
+        ),
     ],
-}
+);

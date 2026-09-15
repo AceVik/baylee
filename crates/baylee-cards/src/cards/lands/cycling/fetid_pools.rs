@@ -8,22 +8,29 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-card! {
-    index: 490,
-    oracle_id: "32b03b48-06da-4a74-a7ac-e5ae39a4f428",
-    scryfall_id: "5fa4556f-2fdc-42e6-98cb-291cee2ca3ac",
-    color_identity: ColorSet::from_slice(&[Color::Black, Color::Blue]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Fetid Pools",
-        types: TypeSet::LAND,
-        subtypes: &[subtypes::land::ISLAND, subtypes::land::SWAMP],
-        enter_modifiers: &[EnterModifier::Tapped],
-    },
-    ],
-    abilities: &[
+card!(
+    index = 490,
+    oracle_id = "32b03b48-06da-4a74-a7ac-e5ae39a4f428",
+    scryfall_id = "5fa4556f-2fdc-42e6-98cb-291cee2ca3ac",
+    color_identity = ColorSet::from_slice(&[Color::Black, Color::Blue]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "Fetid Pools",
+        types = TypeSet::LAND,
+        subtypes = &[subtypes::land::ISLAND, subtypes::land::SWAMP],
+        enter_modifiers = &[EnterModifier::Tapped],
+    ),],
+    abilities = &[
         mana_ability!(&[Effect::mana_choice(&[ManaColor::Blue, ManaColor::Black])]),
-        activated!(Cost { mana: mana!("{2}"), parts: &[CostPart::DiscardSelf] }, &[Effect::DrawCards { amount: Amount::Fixed(1) }], zone: ActivationZone::Hand),
+        activated!(
+            Cost {
+                mana: mana!("{2}"),
+                parts: &[CostPart::DiscardSelf]
+            },
+            &[Effect::DrawCards {
+                amount: Amount::Fixed(1)
+            }],
+            zone = ActivationZone::Hand
+        ),
     ],
-}
+);

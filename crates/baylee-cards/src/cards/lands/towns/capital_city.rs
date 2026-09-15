@@ -8,21 +8,34 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-card! {
-    index: 328,
-    oracle_id: "2c96ab90-155b-4bf4-acc9-65a2f0cd3189",
-    scryfall_id: "f73ce8ec-c916-48eb-ae20-c0d6d03d7145",
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Capital City",
-        types: TypeSet::LAND,
-        subtypes: &[subtypes::land::TOWN],
-    },
-    ],
-    abilities: &[
+card!(
+    index = 328,
+    oracle_id = "2c96ab90-155b-4bf4-acc9-65a2f0cd3189",
+    scryfall_id = "f73ce8ec-c916-48eb-ae20-c0d6d03d7145",
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "Capital City",
+        types = TypeSet::LAND,
+        subtypes = &[subtypes::land::TOWN],
+    ),],
+    abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
-        mana_ability!(Cost { mana: mana!("{1}"), parts: &[CostPart::TapSelf] }, &[Effect::mana_of_any_color()]),
-        activated!(Cost { mana: mana!("{2}"), parts: &[CostPart::DiscardSelf] }, &[Effect::DrawCards { amount: Amount::Fixed(1) }], zone: ActivationZone::Hand),
+        mana_ability!(
+            Cost {
+                mana: mana!("{1}"),
+                parts: &[CostPart::TapSelf]
+            },
+            &[Effect::mana_of_any_color()]
+        ),
+        activated!(
+            Cost {
+                mana: mana!("{2}"),
+                parts: &[CostPart::DiscardSelf]
+            },
+            &[Effect::DrawCards {
+                amount: Amount::Fixed(1)
+            }],
+            zone = ActivationZone::Hand
+        ),
     ],
-}
+);

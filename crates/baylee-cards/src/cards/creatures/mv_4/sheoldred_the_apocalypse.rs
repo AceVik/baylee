@@ -8,30 +8,36 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes::creature;
 
-card! {
-    index: 145,
-    oracle_id: "34f34409-326d-4994-a0ea-1a69aa278f03",
-    scryfall_id: "d67be074-cdd4-41d9-ac89-0a0456c4e4b2",
-    faces: &[face! {
-        name: "Sheoldred, the Apocalypse",
-        mana_cost: mana!("{2}{B}{B}"),
-        types: TypeSet::CREATURE,
-        supertypes: SupertypeSet::LEGENDARY,
-        subtypes: &[creature::PHYREXIAN, creature::PRAETOR],
-        power: Some(4),
-        toughness: Some(5),
-    }],
-    color_identity: ColorSet::from_slice(&[Color::Black]),
-    keywords: KeywordSet::DEATHTOUCH,
-    commander: CommanderRule::Legendary,
-    coverage: Coverage::Implemented,
-    abilities: &[
-        triggered!(Trigger::Draws(PlayerRel::You), &[Effect::GainLife {
+card!(
+    index = 145,
+    oracle_id = "34f34409-326d-4994-a0ea-1a69aa278f03",
+    scryfall_id = "d67be074-cdd4-41d9-ac89-0a0456c4e4b2",
+    faces = &[face!(
+        name = "Sheoldred, the Apocalypse",
+        mana_cost = mana!("{2}{B}{B}"),
+        types = TypeSet::CREATURE,
+        supertypes = SupertypeSet::LEGENDARY,
+        subtypes = &[creature::PHYREXIAN, creature::PRAETOR],
+        power = Some(4),
+        toughness = Some(5),
+    )],
+    color_identity = ColorSet::from_slice(&[Color::Black]),
+    keywords = KeywordSet::DEATHTOUCH,
+    commander = CommanderRule::Legendary,
+    coverage = Coverage::Implemented,
+    abilities = &[
+        triggered!(
+            Trigger::Draws(PlayerRel::You),
+            &[Effect::GainLife {
                 amount: Amount::Fixed(2),
-            }]),
-        triggered!(Trigger::Draws(PlayerRel::Opponent), &[Effect::LoseLife {
+            }]
+        ),
+        triggered!(
+            Trigger::Draws(PlayerRel::Opponent),
+            &[Effect::LoseLife {
                 amount: Amount::Fixed(2),
                 target: PlayerRel::Opponent,
-            }]),
+            }]
+        ),
     ],
-}
+);

@@ -8,22 +8,29 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-card! {
-    index: 489,
-    oracle_id: "bdb9b2ce-342c-4935-8943-d0c3971b1e38",
-    scryfall_id: "f71c87db-54ea-4611-8692-096d9714d854",
-    color_identity: ColorSet::from_slice(&[Color::Black, Color::Green]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Festering Thicket",
-        types: TypeSet::LAND,
-        subtypes: &[subtypes::land::SWAMP, subtypes::land::FOREST],
-        enter_modifiers: &[EnterModifier::Tapped],
-    },
-    ],
-    abilities: &[
+card!(
+    index = 489,
+    oracle_id = "bdb9b2ce-342c-4935-8943-d0c3971b1e38",
+    scryfall_id = "f71c87db-54ea-4611-8692-096d9714d854",
+    color_identity = ColorSet::from_slice(&[Color::Black, Color::Green]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "Festering Thicket",
+        types = TypeSet::LAND,
+        subtypes = &[subtypes::land::SWAMP, subtypes::land::FOREST],
+        enter_modifiers = &[EnterModifier::Tapped],
+    ),],
+    abilities = &[
         mana_ability!(&[Effect::mana_choice(&[ManaColor::Black, ManaColor::Green])]),
-        activated!(Cost { mana: mana!("{2}"), parts: &[CostPart::DiscardSelf] }, &[Effect::DrawCards { amount: Amount::Fixed(1) }], zone: ActivationZone::Hand),
+        activated!(
+            Cost {
+                mana: mana!("{2}"),
+                parts: &[CostPart::DiscardSelf]
+            },
+            &[Effect::DrawCards {
+                amount: Amount::Fixed(1)
+            }],
+            zone = ActivationZone::Hand
+        ),
     ],
-}
+);

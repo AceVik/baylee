@@ -5,19 +5,15 @@
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 988,
-    oracle_id: "39451b4d-cd7a-40da-b457-cb51b609173f",
-    scryfall_id: "57a194b3-2899-4dee-977a-c77df0b94dfe",
-    color_identity: ColorSet::from_slice(&[Color::Blue]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Seat of the Synod",
-        types: TypeSet::ARTIFACT.union(TypeSet::LAND),
-    },
-    ],
-    abilities: &[
-        mana_ability!(&[Effect::mana(ManaColor::Blue, 1)]),
-    ],
-}
+card!(
+    index = 988,
+    oracle_id = "39451b4d-cd7a-40da-b457-cb51b609173f",
+    scryfall_id = "57a194b3-2899-4dee-977a-c77df0b94dfe",
+    color_identity = ColorSet::from_slice(&[Color::Blue]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "Seat of the Synod",
+        types = TypeSet::ARTIFACT.union(TypeSet::LAND),
+    ),],
+    abilities = &[mana_ability!(&[Effect::mana(ManaColor::Blue, 1)]),],
+);

@@ -7,26 +7,28 @@
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 157,
-    oracle_id: "cf5f4860-e805-46a3-9352-a2c583e33403",
-    scryfall_id: "52884e67-c742-4799-9afd-55bc70b2cf40",
-    faces: &[face! {
-        name: "Storm of Saruman",
-        mana_cost: mana!("{4}{U}{U}"),
-        types: TypeSet::ENCHANTMENT,
-    }],
-    color_identity: ColorSet::from_slice(&[Color::Blue]),
-    coverage: Coverage::Implemented,
-    abilities: &[
+card!(
+    index = 157,
+    oracle_id = "cf5f4860-e805-46a3-9352-a2c583e33403",
+    scryfall_id = "52884e67-c742-4799-9afd-55bc70b2cf40",
+    faces = &[face!(
+        name = "Storm of Saruman",
+        mana_cost = mana!("{4}{U}{U}"),
+        types = TypeSet::ENCHANTMENT,
+    )],
+    color_identity = ColorSet::from_slice(&[Color::Blue]),
+    coverage = Coverage::Implemented,
+    abilities = &[
         AbilityDef::Ward { mana: 3 },
-        triggered!(Trigger::NthSpellCast {
+        triggered!(
+            Trigger::NthSpellCast {
                 n: 2,
                 filter: &Filter::ControlledByYou,
-            }, &[Effect::CopyTargetSpell {
-                mods: &[CopyMod::RemoveSupertype(
-                    SupertypeSet::LEGENDARY,
-                )],
-            }], targets: Some(TargetReq::one(TargetSpec::EventObject))),
+            },
+            &[Effect::CopyTargetSpell {
+                mods: &[CopyMod::RemoveSupertype(SupertypeSet::LEGENDARY,)],
+            }],
+            targets = Some(TargetReq::one(TargetSpec::EventObject))
+        ),
     ],
-}
+);

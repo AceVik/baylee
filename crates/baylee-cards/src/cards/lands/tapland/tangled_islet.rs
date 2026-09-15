@@ -7,21 +7,20 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-card! {
-    index: 1138,
-    oracle_id: "4b1f68a2-b606-4c64-bd44-a9714808316d",
-    scryfall_id: "bb1920f1-aab3-4066-8be9-029102886d03",
-    color_identity: ColorSet::from_slice(&[Color::Green, Color::Blue]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Tangled Islet",
-        types: TypeSet::LAND,
-        subtypes: &[subtypes::land::FOREST, subtypes::land::ISLAND],
-        enter_modifiers: &[EnterModifier::Tapped],
-    },
-    ],
-    abilities: &[
-        mana_ability!(&[Effect::mana_choice(&[ManaColor::Green, ManaColor::Blue])]),
-    ],
-}
+card!(
+    index = 1138,
+    oracle_id = "4b1f68a2-b606-4c64-bd44-a9714808316d",
+    scryfall_id = "bb1920f1-aab3-4066-8be9-029102886d03",
+    color_identity = ColorSet::from_slice(&[Color::Green, Color::Blue]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "Tangled Islet",
+        types = TypeSet::LAND,
+        subtypes = &[subtypes::land::FOREST, subtypes::land::ISLAND],
+        enter_modifiers = &[EnterModifier::Tapped],
+    ),],
+    abilities = &[mana_ability!(&[Effect::mana_choice(&[
+        ManaColor::Green,
+        ManaColor::Blue
+    ])]),],
+);

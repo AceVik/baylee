@@ -7,21 +7,20 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-card! {
-    index: 845,
-    oracle_id: "975ec9a3-6f20-4177-8211-82526e092538",
-    scryfall_id: "ad7e18e2-c033-4b6c-86e8-d0e5cc824cfd",
-    color_identity: ColorSet::from_slice(&[Color::Black, Color::Green]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Overgrown Tomb",
-        types: TypeSet::LAND,
-        subtypes: &[subtypes::land::SWAMP, subtypes::land::FOREST],
-        enter_modifiers: &[EnterModifier::TappedOrPayLife(2)],
-    },
-    ],
-    abilities: &[
-        mana_ability!(&[Effect::mana_choice(&[ManaColor::Black, ManaColor::Green])]),
-    ],
-}
+card!(
+    index = 845,
+    oracle_id = "975ec9a3-6f20-4177-8211-82526e092538",
+    scryfall_id = "ad7e18e2-c033-4b6c-86e8-d0e5cc824cfd",
+    color_identity = ColorSet::from_slice(&[Color::Black, Color::Green]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "Overgrown Tomb",
+        types = TypeSet::LAND,
+        subtypes = &[subtypes::land::SWAMP, subtypes::land::FOREST],
+        enter_modifiers = &[EnterModifier::TappedOrPayLife(2)],
+    ),],
+    abilities = &[mana_ability!(&[Effect::mana_choice(&[
+        ManaColor::Black,
+        ManaColor::Green
+    ])]),],
+);

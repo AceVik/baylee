@@ -11,21 +11,31 @@ static TARGET1: Filter = Filter::And(&[
     Filter::HasSupertype(SupertypeSet::LEGENDARY),
 ]);
 
-card! {
-    index: 1028,
-    oracle_id: "008f2698-1721-45a3-8353-10f2f400dc8f",
-    scryfall_id: "099352e2-38c8-4fb4-a25f-6d928aa20f9e",
-    color_identity: ColorSet::from_slice(&[Color::Black]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Shizo, Death's Storehouse",
-        types: TypeSet::LAND,
-        supertypes: SupertypeSet::LEGENDARY,
-    },
-    ],
-    abilities: &[
+card!(
+    index = 1028,
+    oracle_id = "008f2698-1721-45a3-8353-10f2f400dc8f",
+    scryfall_id = "099352e2-38c8-4fb4-a25f-6d928aa20f9e",
+    color_identity = ColorSet::from_slice(&[Color::Black]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "Shizo, Death's Storehouse",
+        types = TypeSet::LAND,
+        supertypes = SupertypeSet::LEGENDARY,
+    ),],
+    abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::Black, 1)]),
-        activated!(Cost { mana: mana!("{B}"), parts: &[CostPart::TapSelf] }, &[Effect::PumpTarget { power: Amount::Fixed(0), toughness: Amount::Fixed(0), keywords: KeywordSet::FEAR, duration: Duration::UntilEndOfTurn }], target: Some(TargetSpec::Object(&TARGET1))),
+        activated!(
+            Cost {
+                mana: mana!("{B}"),
+                parts: &[CostPart::TapSelf]
+            },
+            &[Effect::PumpTarget {
+                power: Amount::Fixed(0),
+                toughness: Amount::Fixed(0),
+                keywords: KeywordSet::FEAR,
+                duration: Duration::UntilEndOfTurn
+            }],
+            target = Some(TargetSpec::Object(&TARGET1))
+        ),
     ],
-}
+);

@@ -5,19 +5,21 @@
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 1120,
-    oracle_id: "8d2b2675-19df-4f40-9e8e-196ec097b91c",
-    scryfall_id: "eae999f9-9c58-4609-8ade-aca0acf07519",
-    color_identity: ColorSet::from_slice(&[Color::Red, Color::White]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Sunscorched Divide",
-        types: TypeSet::LAND,
-    },
-    ],
-    abilities: &[
-        mana_ability!(Cost { mana: mana!("{1}"), parts: &[CostPart::TapSelf] }, &[Effect::mana(ManaColor::Red, 1), Effect::mana(ManaColor::White, 1)]),
-    ],
-}
+card!(
+    index = 1120,
+    oracle_id = "8d2b2675-19df-4f40-9e8e-196ec097b91c",
+    scryfall_id = "eae999f9-9c58-4609-8ade-aca0acf07519",
+    color_identity = ColorSet::from_slice(&[Color::Red, Color::White]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(name = "Sunscorched Divide", types = TypeSet::LAND,),],
+    abilities = &[mana_ability!(
+        Cost {
+            mana: mana!("{1}"),
+            parts: &[CostPart::TapSelf]
+        },
+        &[
+            Effect::mana(ManaColor::Red, 1),
+            Effect::mana(ManaColor::White, 1)
+        ]
+    ),],
+);

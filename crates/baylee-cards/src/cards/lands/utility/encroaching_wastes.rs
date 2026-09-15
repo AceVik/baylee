@@ -11,19 +11,23 @@ static TARGET1: Filter = Filter::And(&[
     Filter::Not(&Filter::HasSupertype(SupertypeSet::BASIC)),
 ]);
 
-card! {
-    index: 471,
-    oracle_id: "43144f06-079b-4515-a03a-01ea3e90d586",
-    scryfall_id: "a591bffd-2f03-48f4-a719-04f2142abd77",
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Encroaching Wastes",
-        types: TypeSet::LAND,
-    },
-    ],
-    abilities: &[
+card!(
+    index = 471,
+    oracle_id = "43144f06-079b-4515-a03a-01ea3e90d586",
+    scryfall_id = "a591bffd-2f03-48f4-a719-04f2142abd77",
+    coverage = Coverage::Implemented,
+    faces = &[face!(name = "Encroaching Wastes", types = TypeSet::LAND,),],
+    abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
-        activated!(Cost { mana: mana!("{4}"), parts: &[CostPart::TapSelf, CostPart::SacrificeSelf] }, &[Effect::Destroy { target: TargetSpec::Object(&TARGET1) }], target: Some(TargetSpec::Object(&TARGET1))),
+        activated!(
+            Cost {
+                mana: mana!("{4}"),
+                parts: &[CostPart::TapSelf, CostPart::SacrificeSelf]
+            },
+            &[Effect::Destroy {
+                target: TargetSpec::Object(&TARGET1)
+            }],
+            target = Some(TargetSpec::Object(&TARGET1))
+        ),
     ],
-}
+);

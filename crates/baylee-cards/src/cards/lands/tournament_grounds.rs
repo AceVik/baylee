@@ -12,20 +12,20 @@ static SPEND1: Filter = Filter::Or(&[
     Filter::HasSubtype(subtypes::artifact::EQUIPMENT),
 ]);
 
-card! {
-    index: 1212,
-    oracle_id: "a3ed5d7f-c554-4d46-86e5-7bb8df2693f6",
-    scryfall_id: "cd438d51-a778-4b38-8b4b-a6a9cd9b4b22",
-    color_identity: ColorSet::from_slice(&[Color::Black, Color::Red, Color::White]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Tournament Grounds",
-        types: TypeSet::LAND,
-    },
-    ],
-    abilities: &[
+card!(
+    index = 1212,
+    oracle_id = "a3ed5d7f-c554-4d46-86e5-7bb8df2693f6",
+    scryfall_id = "cd438d51-a778-4b38-8b4b-a6a9cd9b4b22",
+    color_identity = ColorSet::from_slice(&[Color::Black, Color::Red, Color::White]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(name = "Tournament Grounds", types = TypeSet::LAND,),],
+    abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
-        mana_ability!(&[Effect::mana_choice(&[ManaColor::Red, ManaColor::White, ManaColor::Black]).restricted(&SPEND1, SpendRider::None)]),
+        mana_ability!(&[Effect::mana_choice(&[
+            ManaColor::Red,
+            ManaColor::White,
+            ManaColor::Black
+        ])
+        .restricted(&SPEND1, SpendRider::None)]),
     ],
-}
+);

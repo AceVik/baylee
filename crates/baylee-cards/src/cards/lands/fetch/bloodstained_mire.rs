@@ -13,28 +13,28 @@ static SEARCH_FILTER: Filter = Filter::Or(&[
     Filter::HasSubtype(land::MOUNTAIN),
 ]);
 
-card! {
-    index: 13,
-    oracle_id: "fc0707c7-d504-4ccf-a0d2-3eb6e26e7a57",
-    scryfall_id: "579743fe-f71e-4cb2-8629-d6b02ed1591d",
-    faces: &[face! {
-        name: "Bloodstained Mire",
-        types: TypeSet::LAND,
-    }],
-    coverage: Coverage::Implemented,
-    abilities: &[activated!(Cost {
+card!(
+    index = 13,
+    oracle_id = "fc0707c7-d504-4ccf-a0d2-3eb6e26e7a57",
+    scryfall_id = "579743fe-f71e-4cb2-8629-d6b02ed1591d",
+    faces = &[face!(name = "Bloodstained Mire", types = TypeSet::LAND,)],
+    coverage = Coverage::Implemented,
+    abilities = &[activated!(
+        Cost {
             mana: ManaCost::ZERO,
             parts: &[
                 CostPart::TapSelf,
                 CostPart::SacrificeSelf,
                 CostPart::PayLife(1),
             ],
-        }, &[Effect::SearchLibrary {
+        },
+        &[Effect::SearchLibrary {
             filter: &SEARCH_FILTER,
             finds: &[Find::BATTLEFIELD],
             optional: false,
-        }])],
-}
+        }]
+    )],
+);
 
 // Fetchland family coverage lives in baylee-engine (fetchland test with
 // Polluted Delta + the land-wave group test).

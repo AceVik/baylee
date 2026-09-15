@@ -9,22 +9,67 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-card! {
-    index: 914,
-    oracle_id: "df20f85b-5f81-4ee4-8487-55d90109ac36",
-    scryfall_id: "8a8121c9-2480-419c-aa9c-5b8b55f65014",
-    color_identity: ColorSet::from_slice(&[Color::Black, Color::Blue]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Restless Reef",
-        types: TypeSet::LAND,
-        enter_modifiers: &[EnterModifier::Tapped],
-    },
-    ],
-    abilities: &[
+card!(
+    index = 914,
+    oracle_id = "df20f85b-5f81-4ee4-8487-55d90109ac36",
+    scryfall_id = "8a8121c9-2480-419c-aa9c-5b8b55f65014",
+    color_identity = ColorSet::from_slice(&[Color::Black, Color::Blue]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "Restless Reef",
+        types = TypeSet::LAND,
+        enter_modifiers = &[EnterModifier::Tapped],
+    ),],
+    abilities = &[
         mana_ability!(&[Effect::mana_choice(&[ManaColor::Blue, ManaColor::Black])]),
-        activated!(Cost { mana: mana!("{2}{U}{B}"), parts: &[] }, &[Effect::CreateContinuousEffect { layer: Layer::Type, filter: &Filter::This, modifier: Modifier::AddType(TypeSet::CREATURE), duration: Duration::UntilEndOfTurn }, Effect::CreateContinuousEffect { layer: Layer::Type, filter: &Filter::This, modifier: Modifier::AddSubtype(subtypes::creature::SHARK), duration: Duration::UntilEndOfTurn }, Effect::CreateContinuousEffect { layer: Layer::Color, filter: &Filter::This, modifier: Modifier::SetColor(ColorSet::from_slice(&[Color::Blue, Color::Black])), duration: Duration::UntilEndOfTurn }, Effect::CreateContinuousEffect { layer: Layer::Ability, filter: &Filter::This, modifier: Modifier::AddKeyword(KeywordSet::DEATHTOUCH), duration: Duration::UntilEndOfTurn }, Effect::CreateContinuousEffect { layer: Layer::PtSet, filter: &Filter::This, modifier: Modifier::SetPT(4, 4), duration: Duration::UntilEndOfTurn }]),
-        triggered!(Trigger::Attacks(&Filter::This), &[Effect::Mill { amount: Amount::Fixed(4), target: PlayerRel::Chosen }], targets: Some(TargetReq::one(TargetSpec::AnyPlayer))),
+        activated!(
+            Cost {
+                mana: mana!("{2}{U}{B}"),
+                parts: &[]
+            },
+            &[
+                Effect::CreateContinuousEffect {
+                    layer: Layer::Type,
+                    filter: &Filter::This,
+                    modifier: Modifier::AddType(TypeSet::CREATURE),
+                    duration: Duration::UntilEndOfTurn
+                },
+                Effect::CreateContinuousEffect {
+                    layer: Layer::Type,
+                    filter: &Filter::This,
+                    modifier: Modifier::AddSubtype(subtypes::creature::SHARK),
+                    duration: Duration::UntilEndOfTurn
+                },
+                Effect::CreateContinuousEffect {
+                    layer: Layer::Color,
+                    filter: &Filter::This,
+                    modifier: Modifier::SetColor(ColorSet::from_slice(&[
+                        Color::Blue,
+                        Color::Black
+                    ])),
+                    duration: Duration::UntilEndOfTurn
+                },
+                Effect::CreateContinuousEffect {
+                    layer: Layer::Ability,
+                    filter: &Filter::This,
+                    modifier: Modifier::AddKeyword(KeywordSet::DEATHTOUCH),
+                    duration: Duration::UntilEndOfTurn
+                },
+                Effect::CreateContinuousEffect {
+                    layer: Layer::PtSet,
+                    filter: &Filter::This,
+                    modifier: Modifier::SetPT(4, 4),
+                    duration: Duration::UntilEndOfTurn
+                }
+            ]
+        ),
+        triggered!(
+            Trigger::Attacks(&Filter::This),
+            &[Effect::Mill {
+                amount: Amount::Fixed(4),
+                target: PlayerRel::Chosen
+            }],
+            targets = Some(TargetReq::one(TargetSpec::AnyPlayer))
+        ),
     ],
-}
+);

@@ -7,16 +7,11 @@
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 333,
-    oracle_id: "9bd013df-ad75-4099-940b-1765c58faf26",
-    scryfall_id: "6b39d7a6-ca2d-4376-a18e-efd0138e83bc",
-    faces: &[
-    face! {
-        name: "Castle Doom",
-        types: TypeSet::LAND,
-    },
-    ],
-}
+card!(
+    index = 333,
+    oracle_id = "9bd013df-ad75-4099-940b-1765c58faf26",
+    scryfall_id = "6b39d7a6-ca2d-4376-a18e-efd0138e83bc",
+    faces = &[face!(name = "Castle Doom", types = TypeSet::LAND,),],
+);
 
 // TODO(card): implement abilities, see docs/card-dsl.md.

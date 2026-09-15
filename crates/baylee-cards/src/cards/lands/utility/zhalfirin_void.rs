@@ -6,19 +6,19 @@
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 1340,
-    oracle_id: "13aab4fc-4c89-45e6-8275-b074b00d0ee9",
-    scryfall_id: "d481d871-d1e3-439b-bfd5-5b2212f9b0c8",
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Zhalfirin Void",
-        types: TypeSet::LAND,
-    },
-    ],
-    abilities: &[
-        triggered!(Trigger::EntersBattlefield(&Filter::This), &[Effect::Scry { amount: Amount::Fixed(1) }]),
+card!(
+    index = 1340,
+    oracle_id = "13aab4fc-4c89-45e6-8275-b074b00d0ee9",
+    scryfall_id = "d481d871-d1e3-439b-bfd5-5b2212f9b0c8",
+    coverage = Coverage::Implemented,
+    faces = &[face!(name = "Zhalfirin Void", types = TypeSet::LAND,),],
+    abilities = &[
+        triggered!(
+            Trigger::EntersBattlefield(&Filter::This),
+            &[Effect::Scry {
+                amount: Amount::Fixed(1)
+            }]
+        ),
         mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
     ],
-}
+);

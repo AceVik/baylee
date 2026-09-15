@@ -6,31 +6,34 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes::creature;
 
-card! {
-    index: 121,
-    oracle_id: "88929ea9-900f-4dbb-b16c-cf3bad4e410c",
-    scryfall_id: "acba72e1-3f7f-4e5c-af3f-dfe37b5d61f9",
-    faces: &[face! {
-        name: "Progenitor Mimic",
-        mana_cost: mana!("{4}{G}{U}"),
-        types: TypeSet::CREATURE,
-        subtypes: &[creature::SHAPESHIFTER],
-        power: Some(0),
-        toughness: Some(0),
-    }],
-    color_identity: ColorSet::from_slice(&[Color::Blue, Color::Green]),
-    coverage: Coverage::Implemented,
-    abilities: &[
+card!(
+    index = 121,
+    oracle_id = "88929ea9-900f-4dbb-b16c-cf3bad4e410c",
+    scryfall_id = "acba72e1-3f7f-4e5c-af3f-dfe37b5d61f9",
+    faces = &[face!(
+        name = "Progenitor Mimic",
+        mana_cost = mana!("{4}{G}{U}"),
+        types = TypeSet::CREATURE,
+        subtypes = &[creature::SHAPESHIFTER],
+        power = Some(0),
+        toughness = Some(0),
+    )],
+    color_identity = ColorSet::from_slice(&[Color::Blue, Color::Green]),
+    coverage = Coverage::Implemented,
+    abilities = &[
         AbilityDef::CopyOnEnter {
             target: TargetSpec::Object(&Filter::CREATURE),
             mods: &[],
         },
-        triggered!(Trigger::StepBegin {
+        triggered!(
+            Trigger::StepBegin {
                 step: StepKind::Upkeep,
                 whose: PlayerRel::You,
-            }, &[Effect::CreateTokenCopyOf {
+            },
+            &[Effect::CreateTokenCopyOf {
                 target: None,
                 kicked_bonus: 0,
-            }]),
+            }]
+        ),
     ],
-}
+);

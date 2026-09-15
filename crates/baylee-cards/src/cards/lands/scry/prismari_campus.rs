@@ -7,21 +7,27 @@
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 876,
-    oracle_id: "3a3a1b35-ae4d-49d5-ae09-5a1693ad53ce",
-    scryfall_id: "7c464dee-dd89-4955-ae40-8bb74e9ff42a",
-    color_identity: ColorSet::from_slice(&[Color::Red, Color::Blue]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Prismari Campus",
-        types: TypeSet::LAND,
-        enter_modifiers: &[EnterModifier::Tapped],
-    },
-    ],
-    abilities: &[
+card!(
+    index = 876,
+    oracle_id = "3a3a1b35-ae4d-49d5-ae09-5a1693ad53ce",
+    scryfall_id = "7c464dee-dd89-4955-ae40-8bb74e9ff42a",
+    color_identity = ColorSet::from_slice(&[Color::Red, Color::Blue]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "Prismari Campus",
+        types = TypeSet::LAND,
+        enter_modifiers = &[EnterModifier::Tapped],
+    ),],
+    abilities = &[
         mana_ability!(&[Effect::mana_choice(&[ManaColor::Blue, ManaColor::Red])]),
-        activated!(Cost { mana: mana!("{4}"), parts: &[CostPart::TapSelf] }, &[Effect::Scry { amount: Amount::Fixed(1) }]),
+        activated!(
+            Cost {
+                mana: mana!("{4}"),
+                parts: &[CostPart::TapSelf]
+            },
+            &[Effect::Scry {
+                amount: Amount::Fixed(1)
+            }]
+        ),
     ],
-}
+);

@@ -7,21 +7,28 @@
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 695,
-    oracle_id: "184c5a0d-7654-4421-86e4-7f04bcf49494",
-    scryfall_id: "395fe900-ed19-438e-a658-ed7cf85818e5",
-    color_identity: ColorSet::from_slice(&[Color::Black, Color::Green, Color::Red]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Koskun Keep",
-        types: TypeSet::LAND,
-    },
-    ],
-    abilities: &[
+card!(
+    index = 695,
+    oracle_id = "184c5a0d-7654-4421-86e4-7f04bcf49494",
+    scryfall_id = "395fe900-ed19-438e-a658-ed7cf85818e5",
+    color_identity = ColorSet::from_slice(&[Color::Black, Color::Green, Color::Red]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(name = "Koskun Keep", types = TypeSet::LAND,),],
+    abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
-        mana_ability!(Cost { mana: mana!("{1}"), parts: &[CostPart::TapSelf] }, &[Effect::mana(ManaColor::Red, 1)]),
-        mana_ability!(Cost { mana: mana!("{2}"), parts: &[CostPart::TapSelf] }, &[Effect::mana_choice(&[ManaColor::Black, ManaColor::Green])]),
+        mana_ability!(
+            Cost {
+                mana: mana!("{1}"),
+                parts: &[CostPart::TapSelf]
+            },
+            &[Effect::mana(ManaColor::Red, 1)]
+        ),
+        mana_ability!(
+            Cost {
+                mana: mana!("{2}"),
+                parts: &[CostPart::TapSelf]
+            },
+            &[Effect::mana_choice(&[ManaColor::Black, ManaColor::Green])]
+        ),
     ],
-}
+);

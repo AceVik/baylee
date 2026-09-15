@@ -19,26 +19,28 @@ static YOUR_CREATURES: Filter = Filter::And(&[Filter::ControlledByYou, Filter::C
 
 use crate::tokens::SOLDIER_1_1_WHITE as SOLDIER;
 
-card! {
-    index: 40,
-    oracle_id: "f78af825-023a-42e9-8374-5c52303a1417",
-    scryfall_id: "73a065e3-b530-4e62-ab3c-4f6f908184ec",
-    faces: &[face! {
-        name: "Elspeth, Storm Slayer",
-        mana_cost: mana!("{3}{W}{W}"),
-        types: TypeSet::PLANESWALKER,
-        supertypes: SupertypeSet::LEGENDARY,
-        subtypes: &[planeswalker::ELSPETH],
-        loyalty: Some(5),
-    }],
-    color_identity: ColorSet::from_slice(&[Color::White]),
-    coverage: Coverage::Implemented,
-    abilities: &[
+card!(
+    index = 40,
+    oracle_id = "f78af825-023a-42e9-8374-5c52303a1417",
+    scryfall_id = "73a065e3-b530-4e62-ab3c-4f6f908184ec",
+    faces = &[face!(
+        name = "Elspeth, Storm Slayer",
+        mana_cost = mana!("{3}{W}{W}"),
+        types = TypeSet::PLANESWALKER,
+        supertypes = SupertypeSet::LEGENDARY,
+        subtypes = &[planeswalker::ELSPETH],
+        loyalty = Some(5),
+    )],
+    color_identity = ColorSet::from_slice(&[Color::White]),
+    coverage = Coverage::Implemented,
+    abilities = &[
         AbilityDef::Replacement(ReplacementRule::DoubleTokenCreation {
             controller_filter: &Filter::ControlledByYou,
         }),
         loyalty!(1, &[Effect::CreateToken { token: &SOLDIER }]),
-        loyalty!(0, &[
+        loyalty!(
+            0,
+            &[
                 Effect::AddCounterFilter {
                     filter: &YOUR_CREATURES,
                     kind: CounterKind::P1P1,
@@ -50,9 +52,14 @@ card! {
                     modifier: Modifier::AddKeyword(KeywordSet::FLYING),
                     duration: Duration::UntilYourNextTurn,
                 },
-            ]),
-        loyalty!(-3, &[Effect::Destroy {
+            ]
+        ),
+        loyalty!(
+            -3,
+            &[Effect::Destroy {
                 target: TargetSpec::Object(&BIG_ENEMY_CREATURE),
-            }], targets: Some(TargetReq::one(TargetSpec::Object(&BIG_ENEMY_CREATURE)))),
+            }],
+            targets = Some(TargetReq::one(TargetSpec::Object(&BIG_ENEMY_CREATURE)))
+        ),
     ],
-}
+);

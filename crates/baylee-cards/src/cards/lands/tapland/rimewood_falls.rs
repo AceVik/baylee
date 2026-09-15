@@ -7,22 +7,21 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-card! {
-    index: 922,
-    oracle_id: "983739cd-0b36-40d9-9a03-7b6aa7ffd0df",
-    scryfall_id: "da1db084-f235-4e26-8867-5f0835a0d283",
-    color_identity: ColorSet::from_slice(&[Color::Green, Color::Blue]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Rimewood Falls",
-        types: TypeSet::LAND,
-        supertypes: SupertypeSet::SNOW,
-        subtypes: &[subtypes::land::FOREST, subtypes::land::ISLAND],
-        enter_modifiers: &[EnterModifier::Tapped],
-    },
-    ],
-    abilities: &[
-        mana_ability!(&[Effect::mana_choice(&[ManaColor::Green, ManaColor::Blue])]),
-    ],
-}
+card!(
+    index = 922,
+    oracle_id = "983739cd-0b36-40d9-9a03-7b6aa7ffd0df",
+    scryfall_id = "da1db084-f235-4e26-8867-5f0835a0d283",
+    color_identity = ColorSet::from_slice(&[Color::Green, Color::Blue]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "Rimewood Falls",
+        types = TypeSet::LAND,
+        supertypes = SupertypeSet::SNOW,
+        subtypes = &[subtypes::land::FOREST, subtypes::land::ISLAND],
+        enter_modifiers = &[EnterModifier::Tapped],
+    ),],
+    abilities = &[mana_ability!(&[Effect::mana_choice(&[
+        ManaColor::Green,
+        ManaColor::Blue
+    ])]),],
+);

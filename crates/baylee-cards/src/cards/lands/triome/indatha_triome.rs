@@ -8,34 +8,38 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes::{self};
 
-card! {
-    index: 72,
-    oracle_id: "ec2b3779-55f7-4169-aa66-6312fb52721f",
-    scryfall_id: "2b74bb81-fb9a-40e5-a941-e517430b52f5",
-    faces: &[face! {
-        name: "Indatha Triome",
-        types: TypeSet::LAND,
-        subtypes: &[
+card!(
+    index = 72,
+    oracle_id = "ec2b3779-55f7-4169-aa66-6312fb52721f",
+    scryfall_id = "2b74bb81-fb9a-40e5-a941-e517430b52f5",
+    faces = &[face!(
+        name = "Indatha Triome",
+        types = TypeSet::LAND,
+        subtypes = &[
             subtypes::land::PLAINS,
             subtypes::land::SWAMP,
             subtypes::land::FOREST,
         ],
-        enter_modifiers: &[EnterModifier::Tapped],
-    }],
-    color_identity: ColorSet::from_slice(&[Color::White, Color::Black, Color::Green]),
-    coverage: Coverage::Implemented,
-    abilities: &[
+        enter_modifiers = &[EnterModifier::Tapped],
+    )],
+    color_identity = ColorSet::from_slice(&[Color::White, Color::Black, Color::Green]),
+    coverage = Coverage::Implemented,
+    abilities = &[
         mana_ability!(&[Effect::mana_choice(&[
-                ManaColor::White,
-                ManaColor::Black,
-                ManaColor::Green,
-            ])]),
+            ManaColor::White,
+            ManaColor::Black,
+            ManaColor::Green,
+        ])]),
         // Cycling {3} (hand-zone ability: discard to draw).
-        activated!(Cost {
+        activated!(
+            Cost {
                 mana: mana!("{3}"),
                 parts: &[CostPart::DiscardSelf],
-            }, &[Effect::DrawCards {
+            },
+            &[Effect::DrawCards {
                 amount: Amount::Fixed(1),
-            }], zone: ActivationZone::Hand),
+            }],
+            zone = ActivationZone::Hand
+        ),
     ],
-}
+);

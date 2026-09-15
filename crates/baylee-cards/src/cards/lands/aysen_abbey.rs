@@ -7,21 +7,28 @@
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 246,
-    oracle_id: "6ff85e73-bf7a-4a9c-80ef-6ce76656fab7",
-    scryfall_id: "2a2e669b-61b2-4729-b636-094796fb1d93",
-    color_identity: ColorSet::from_slice(&[Color::Green, Color::Blue, Color::White]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Aysen Abbey",
-        types: TypeSet::LAND,
-    },
-    ],
-    abilities: &[
+card!(
+    index = 246,
+    oracle_id = "6ff85e73-bf7a-4a9c-80ef-6ce76656fab7",
+    scryfall_id = "2a2e669b-61b2-4729-b636-094796fb1d93",
+    color_identity = ColorSet::from_slice(&[Color::Green, Color::Blue, Color::White]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(name = "Aysen Abbey", types = TypeSet::LAND,),],
+    abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
-        mana_ability!(Cost { mana: mana!("{1}"), parts: &[CostPart::TapSelf] }, &[Effect::mana(ManaColor::White, 1)]),
-        mana_ability!(Cost { mana: mana!("{2}"), parts: &[CostPart::TapSelf] }, &[Effect::mana_choice(&[ManaColor::Green, ManaColor::Blue])]),
+        mana_ability!(
+            Cost {
+                mana: mana!("{1}"),
+                parts: &[CostPart::TapSelf]
+            },
+            &[Effect::mana(ManaColor::White, 1)]
+        ),
+        mana_ability!(
+            Cost {
+                mana: mana!("{2}"),
+                parts: &[CostPart::TapSelf]
+            },
+            &[Effect::mana_choice(&[ManaColor::Green, ManaColor::Blue])]
+        ),
     ],
-}
+);

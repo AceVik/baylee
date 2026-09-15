@@ -14,31 +14,35 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-card! {
-    index: 1360,
-    oracle_id: "58bd02ae-2676-4c9c-b24e-2bd51be8bde7",
-    scryfall_id: "71ccc444-54c8-4f7c-a425-82bc3eea1eb0",
-    color_identity: ColorSet::from_slice(&[Color::Green]),
-    faces: &[
-    face! {
-        name: "Bird Admirer",
-        mana_cost: mana!("{2}{G}"),
-        types: TypeSet::CREATURE,
-        subtypes: &[subtypes::creature::HUMAN, subtypes::creature::ARCHER, subtypes::creature::WEREWOLF],
-        power: Some(1),
-        toughness: Some(4),
-        keywords: KeywordSet::REACH.union(KeywordSet::DAYBOUND),
-    },
-    face! {
-        name: "Wing Shredder",
-        types: TypeSet::CREATURE,
-        subtypes: &[subtypes::creature::WEREWOLF],
-        power: Some(3),
-        toughness: Some(5),
-        castable_from_hand: false,
-        keywords: KeywordSet::REACH.union(KeywordSet::NIGHTBOUND),
-        color_indicator: ColorSet::from_slice(&[Color::Green]),
-    },
+card!(
+    index = 1360,
+    oracle_id = "58bd02ae-2676-4c9c-b24e-2bd51be8bde7",
+    scryfall_id = "71ccc444-54c8-4f7c-a425-82bc3eea1eb0",
+    color_identity = ColorSet::from_slice(&[Color::Green]),
+    faces = &[
+        face!(
+            name = "Bird Admirer",
+            mana_cost = mana!("{2}{G}"),
+            types = TypeSet::CREATURE,
+            subtypes = &[
+                subtypes::creature::HUMAN,
+                subtypes::creature::ARCHER,
+                subtypes::creature::WEREWOLF
+            ],
+            power = Some(1),
+            toughness = Some(4),
+            keywords = KeywordSet::REACH.union(KeywordSet::DAYBOUND),
+        ),
+        face!(
+            name = "Wing Shredder",
+            types = TypeSet::CREATURE,
+            subtypes = &[subtypes::creature::WEREWOLF],
+            power = Some(3),
+            toughness = Some(5),
+            castable_from_hand = false,
+            keywords = KeywordSet::REACH.union(KeywordSet::NIGHTBOUND),
+            color_indicator = ColorSet::from_slice(&[Color::Green]),
+        ),
     ],
-    coverage: Coverage::Implemented,
-}
+    coverage = Coverage::Implemented,
+);

@@ -8,25 +8,28 @@ use crate::filters::YOUR_ALLIES;
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes::creature;
 
-card! {
-    index: 177,
-    oracle_id: "a58ee84f-1d9c-4924-b7b1-14a9b2ba3b98",
-    scryfall_id: "6049cc80-1faa-48bf-897e-fefe5a8e7ab2",
-    faces: &[face! {
-        name: "Umara Raptor",
-        mana_cost: mana!("{2}{U}"),
-        types: TypeSet::CREATURE,
-        subtypes: &[creature::BIRD, creature::ALLY],
-        power: Some(1),
-        toughness: Some(1),
-    }],
-    color_identity: ColorSet::from_slice(&[Color::Blue]),
-    keywords: KeywordSet::FLYING,
-    coverage: Coverage::Implemented,
-    abilities: &[triggered!(Trigger::EntersBattlefield(&YOUR_ALLIES), &[Effect::MayDo {
+card!(
+    index = 177,
+    oracle_id = "a58ee84f-1d9c-4924-b7b1-14a9b2ba3b98",
+    scryfall_id = "6049cc80-1faa-48bf-897e-fefe5a8e7ab2",
+    faces = &[face!(
+        name = "Umara Raptor",
+        mana_cost = mana!("{2}{U}"),
+        types = TypeSet::CREATURE,
+        subtypes = &[creature::BIRD, creature::ALLY],
+        power = Some(1),
+        toughness = Some(1),
+    )],
+    color_identity = ColorSet::from_slice(&[Color::Blue]),
+    keywords = KeywordSet::FLYING,
+    coverage = Coverage::Implemented,
+    abilities = &[triggered!(
+        Trigger::EntersBattlefield(&YOUR_ALLIES),
+        &[Effect::MayDo {
             effects: &[Effect::AddCounter {
                 kind: CounterKind::P1P1,
                 amount: Amount::Fixed(1),
             }],
-        }])],
-}
+        }]
+    )],
+);

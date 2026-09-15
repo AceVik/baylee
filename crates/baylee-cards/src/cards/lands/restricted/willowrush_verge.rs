@@ -6,17 +6,12 @@
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 1317,
-    oracle_id: "c52eaa87-9251-4a47-83fd-04e582ade612",
-    scryfall_id: "758d93d5-3f66-4395-a928-000485396c87",
-    color_identity: ColorSet::from_slice(&[Color::Green, Color::Blue]),
-    faces: &[
-    face! {
-        name: "Willowrush Verge",
-        types: TypeSet::LAND,
-    },
-    ],
-}
+card!(
+    index = 1317,
+    oracle_id = "c52eaa87-9251-4a47-83fd-04e582ade612",
+    scryfall_id = "758d93d5-3f66-4395-a928-000485396c87",
+    color_identity = ColorSet::from_slice(&[Color::Green, Color::Blue]),
+    faces = &[face!(name = "Willowrush Verge", types = TypeSet::LAND,),],
+);
 
 // TODO(card): implement abilities, see docs/card-dsl.md.

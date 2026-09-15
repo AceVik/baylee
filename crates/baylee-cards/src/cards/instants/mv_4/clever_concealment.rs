@@ -9,24 +9,27 @@ static YOUR_NONLAND_PERMANENTS: Filter = Filter::And(&[Filter::NONLAND, Filter::
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 22,
-    oracle_id: "42bb7ea9-f6e4-4551-8d93-3b1eae84b865",
-    scryfall_id: "41d45a8a-ea1d-4fbc-86d2-5d6340f3b639",
-    faces: &[face! {
-        name: "Clever Concealment",
-        mana_cost: mana!("{2}{W}{W}"),
-        types: TypeSet::INSTANT,
-        convoke: true,
-    }],
-    color_identity: ColorSet::from_slice(&[Color::White]),
-    coverage: Coverage::Implemented,
-    abilities: &[spell!(&[Effect::PhaseOut {
+card!(
+    index = 22,
+    oracle_id = "42bb7ea9-f6e4-4551-8d93-3b1eae84b865",
+    scryfall_id = "41d45a8a-ea1d-4fbc-86d2-5d6340f3b639",
+    faces = &[face!(
+        name = "Clever Concealment",
+        mana_cost = mana!("{2}{W}{W}"),
+        types = TypeSet::INSTANT,
+        convoke = true,
+    )],
+    color_identity = ColorSet::from_slice(&[Color::White]),
+    coverage = Coverage::Implemented,
+    abilities = &[spell!(
+        &[Effect::PhaseOut {
             target: Some(TargetSpec::Object(&YOUR_NONLAND_PERMANENTS)),
-        }], targets: Some(TargetReq {
+        }],
+        targets = Some(TargetReq {
             spec: TargetSpec::Object(&YOUR_NONLAND_PERMANENTS),
             min: 0,
             max: u8::MAX,
             count_is_x: false,
-        }))],
-}
+        })
+    )],
+);

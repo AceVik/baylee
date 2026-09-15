@@ -8,22 +8,37 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-card! {
-    index: 666,
-    oracle_id: "f5896356-5744-4f7e-a4e5-1cc36dde5958",
-    scryfall_id: "26d40e03-6de4-4373-9fbf-04c1dd79e995",
-    color_identity: ColorSet::from_slice(&[Color::Green, Color::Red, Color::White]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Jetmir's Garden",
-        types: TypeSet::LAND,
-        subtypes: &[subtypes::land::MOUNTAIN, subtypes::land::FOREST, subtypes::land::PLAINS],
-        enter_modifiers: &[EnterModifier::Tapped],
-    },
+card!(
+    index = 666,
+    oracle_id = "f5896356-5744-4f7e-a4e5-1cc36dde5958",
+    scryfall_id = "26d40e03-6de4-4373-9fbf-04c1dd79e995",
+    color_identity = ColorSet::from_slice(&[Color::Green, Color::Red, Color::White]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "Jetmir's Garden",
+        types = TypeSet::LAND,
+        subtypes = &[
+            subtypes::land::MOUNTAIN,
+            subtypes::land::FOREST,
+            subtypes::land::PLAINS
+        ],
+        enter_modifiers = &[EnterModifier::Tapped],
+    ),],
+    abilities = &[
+        mana_ability!(&[Effect::mana_choice(&[
+            ManaColor::Red,
+            ManaColor::Green,
+            ManaColor::White
+        ])]),
+        activated!(
+            Cost {
+                mana: mana!("{3}"),
+                parts: &[CostPart::DiscardSelf]
+            },
+            &[Effect::DrawCards {
+                amount: Amount::Fixed(1)
+            }],
+            zone = ActivationZone::Hand
+        ),
     ],
-    abilities: &[
-        mana_ability!(&[Effect::mana_choice(&[ManaColor::Red, ManaColor::Green, ManaColor::White])]),
-        activated!(Cost { mana: mana!("{3}"), parts: &[CostPart::DiscardSelf] }, &[Effect::DrawCards { amount: Amount::Fixed(1) }], zone: ActivationZone::Hand),
-    ],
-}
+);

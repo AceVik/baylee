@@ -6,23 +6,19 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-card! {
-    index: 1352,
-    oracle_id: "68954295-54e3-4303-a6bc-fc4547a4e3a3",
-    scryfall_id: "6a0b230b-d391-4998-a3f7-7b158a0ec2cd",
-    color_identity: ColorSet::from_slice(&[Color::Green]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Llanowar Elves",
-        mana_cost: mana!("{G}"),
-        types: TypeSet::CREATURE,
-        subtypes: &[subtypes::creature::ELF, subtypes::creature::DRUID],
-        power: Some(1),
-        toughness: Some(1),
-    },
-    ],
-    abilities: &[
-        mana_ability!(&[Effect::mana(ManaColor::Green, 1)]),
-    ],
-}
+card!(
+    index = 1352,
+    oracle_id = "68954295-54e3-4303-a6bc-fc4547a4e3a3",
+    scryfall_id = "6a0b230b-d391-4998-a3f7-7b158a0ec2cd",
+    color_identity = ColorSet::from_slice(&[Color::Green]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "Llanowar Elves",
+        mana_cost = mana!("{G}"),
+        types = TypeSet::CREATURE,
+        subtypes = &[subtypes::creature::ELF, subtypes::creature::DRUID],
+        power = Some(1),
+        toughness = Some(1),
+    ),],
+    abilities = &[mana_ability!(&[Effect::mana(ManaColor::Green, 1)]),],
+);

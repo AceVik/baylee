@@ -8,35 +8,38 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes::creature;
 
-card! {
-    index: 108,
-    oracle_id: "0c7ba712-6a99-4d2f-9242-a2163a11f69c",
-    scryfall_id: "00a4aef8-64fc-4e9d-adac-ef4c85d40b4a",
-    faces: &[face! {
-        name: "Padeem, Consul of Innovation",
-        mana_cost: mana!("{3}{U}"),
-        types: TypeSet::CREATURE,
-        supertypes: SupertypeSet::LEGENDARY,
-        subtypes: &[creature::VEDALKEN, creature::ARTIFICER],
-        power: Some(1),
-        toughness: Some(4),
-    }],
-    color_identity: ColorSet::from_slice(&[Color::Blue]),
-    coverage: Coverage::Implemented,
-    abilities: &[
-        triggered!(Trigger::StepBegin {
+card!(
+    index = 108,
+    oracle_id = "0c7ba712-6a99-4d2f-9242-a2163a11f69c",
+    scryfall_id = "00a4aef8-64fc-4e9d-adac-ef4c85d40b4a",
+    faces = &[face!(
+        name = "Padeem, Consul of Innovation",
+        mana_cost = mana!("{3}{U}"),
+        types = TypeSet::CREATURE,
+        supertypes = SupertypeSet::LEGENDARY,
+        subtypes = &[creature::VEDALKEN, creature::ARTIFICER],
+        power = Some(1),
+        toughness = Some(4),
+    )],
+    color_identity = ColorSet::from_slice(&[Color::Blue]),
+    coverage = Coverage::Implemented,
+    abilities = &[
+        triggered!(
+            Trigger::StepBegin {
                 step: StepKind::Upkeep,
                 whose: PlayerRel::You,
-            }, &[Effect::IfControlGreatestCmc {
+            },
+            &[Effect::IfControlGreatestCmc {
                 filter: &Filter::ARTIFACT,
                 then: &[Effect::DrawCards {
                     amount: Amount::Fixed(1),
                 }],
-            }]),
+            }]
+        ),
         AbilityDef::Static(StaticAbility {
             layer: Layer::Ability,
             filter: Filter::And(&[Filter::ARTIFACT, Filter::ControlledByYou]),
             modifier: Modifier::AddKeyword(KeywordSet::HEXPROOF),
         }),
     ],
-}
+);

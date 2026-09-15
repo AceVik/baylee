@@ -6,20 +6,20 @@
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 388,
-    oracle_id: "7190debf-708b-4f41-9714-0d0a5bd5a74e",
-    scryfall_id: "d28542af-936f-44e5-a4e3-119f23c9f0d6",
-    color_identity: ColorSet::from_slice(&[Color::Black, Color::Red, Color::Blue]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Crumbling Necropolis",
-        types: TypeSet::LAND,
-        enter_modifiers: &[EnterModifier::Tapped],
-    },
-    ],
-    abilities: &[
-        mana_ability!(&[Effect::mana_choice(&[ManaColor::Blue, ManaColor::Black, ManaColor::Red])]),
-    ],
-}
+card!(
+    index = 388,
+    oracle_id = "7190debf-708b-4f41-9714-0d0a5bd5a74e",
+    scryfall_id = "d28542af-936f-44e5-a4e3-119f23c9f0d6",
+    color_identity = ColorSet::from_slice(&[Color::Black, Color::Red, Color::Blue]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "Crumbling Necropolis",
+        types = TypeSet::LAND,
+        enter_modifiers = &[EnterModifier::Tapped],
+    ),],
+    abilities = &[mana_ability!(&[Effect::mana_choice(&[
+        ManaColor::Blue,
+        ManaColor::Black,
+        ManaColor::Red
+    ])]),],
+);

@@ -6,20 +6,27 @@
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 583,
-    oracle_id: "d33c3fbb-8306-4c2d-b0dd-88f12639da94",
-    scryfall_id: "de4b75ad-7539-4184-a940-6014a0327b3a",
-    color_identity: ColorSet::from_slice(&[Color::Green, Color::Red]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Grove of the Burnwillows",
-        types: TypeSet::LAND,
-    },
-    ],
-    abilities: &[
+card!(
+    index = 583,
+    oracle_id = "d33c3fbb-8306-4c2d-b0dd-88f12639da94",
+    scryfall_id = "de4b75ad-7539-4184-a940-6014a0327b3a",
+    color_identity = ColorSet::from_slice(&[Color::Green, Color::Red]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "Grove of the Burnwillows",
+        types = TypeSet::LAND,
+    ),],
+    abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
-        activated!(Cost::TAP, &[Effect::mana_choice(&[ManaColor::Red, ManaColor::Green]), Effect::GainLifeFor { amount: Amount::Fixed(1), who: PlayerRel::Opponent }]),
+        activated!(
+            Cost::TAP,
+            &[
+                Effect::mana_choice(&[ManaColor::Red, ManaColor::Green]),
+                Effect::GainLifeFor {
+                    amount: Amount::Fixed(1),
+                    who: PlayerRel::Opponent
+                }
+            ]
+        ),
     ],
-}
+);

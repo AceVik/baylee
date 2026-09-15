@@ -8,22 +8,37 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-card! {
-    index: 1069,
-    oracle_id: "3123ec89-8e95-4761-ba17-747ec667509f",
-    scryfall_id: "7363f1fb-9af3-4212-921f-d59533faf0e5",
-    color_identity: ColorSet::from_slice(&[Color::Green, Color::Blue, Color::White]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Spara's Headquarters",
-        types: TypeSet::LAND,
-        subtypes: &[subtypes::land::FOREST, subtypes::land::PLAINS, subtypes::land::ISLAND],
-        enter_modifiers: &[EnterModifier::Tapped],
-    },
+card!(
+    index = 1069,
+    oracle_id = "3123ec89-8e95-4761-ba17-747ec667509f",
+    scryfall_id = "7363f1fb-9af3-4212-921f-d59533faf0e5",
+    color_identity = ColorSet::from_slice(&[Color::Green, Color::Blue, Color::White]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "Spara's Headquarters",
+        types = TypeSet::LAND,
+        subtypes = &[
+            subtypes::land::FOREST,
+            subtypes::land::PLAINS,
+            subtypes::land::ISLAND
+        ],
+        enter_modifiers = &[EnterModifier::Tapped],
+    ),],
+    abilities = &[
+        mana_ability!(&[Effect::mana_choice(&[
+            ManaColor::Green,
+            ManaColor::White,
+            ManaColor::Blue
+        ])]),
+        activated!(
+            Cost {
+                mana: mana!("{3}"),
+                parts: &[CostPart::DiscardSelf]
+            },
+            &[Effect::DrawCards {
+                amount: Amount::Fixed(1)
+            }],
+            zone = ActivationZone::Hand
+        ),
     ],
-    abilities: &[
-        mana_ability!(&[Effect::mana_choice(&[ManaColor::Green, ManaColor::White, ManaColor::Blue])]),
-        activated!(Cost { mana: mana!("{3}"), parts: &[CostPart::DiscardSelf] }, &[Effect::DrawCards { amount: Amount::Fixed(1) }], zone: ActivationZone::Hand),
-    ],
-}
+);

@@ -6,20 +6,29 @@
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 1309,
-    oracle_id: "70fa2eba-565e-4fed-adc9-7f5d9fcbf1fa",
-    scryfall_id: "0ab6bfbd-d2e1-4c4c-9f91-6f69c5b8e3bb",
-    color_identity: ColorSet::from_slice(&[Color::Green, Color::Blue]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Waterlogged Grove",
-        types: TypeSet::LAND,
-    },
+card!(
+    index = 1309,
+    oracle_id = "70fa2eba-565e-4fed-adc9-7f5d9fcbf1fa",
+    scryfall_id = "0ab6bfbd-d2e1-4c4c-9f91-6f69c5b8e3bb",
+    color_identity = ColorSet::from_slice(&[Color::Green, Color::Blue]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(name = "Waterlogged Grove", types = TypeSet::LAND,),],
+    abilities = &[
+        mana_ability!(
+            Cost {
+                mana: ManaCost::ZERO,
+                parts: &[CostPart::TapSelf, CostPart::PayLife(1)]
+            },
+            &[Effect::mana_choice(&[ManaColor::Green, ManaColor::Blue])]
+        ),
+        activated!(
+            Cost {
+                mana: mana!("{1}"),
+                parts: &[CostPart::TapSelf, CostPart::SacrificeSelf]
+            },
+            &[Effect::DrawCards {
+                amount: Amount::Fixed(1)
+            }]
+        ),
     ],
-    abilities: &[
-        mana_ability!(Cost { mana: ManaCost::ZERO, parts: &[CostPart::TapSelf, CostPart::PayLife(1)] }, &[Effect::mana_choice(&[ManaColor::Green, ManaColor::Blue])]),
-        activated!(Cost { mana: mana!("{1}"), parts: &[CostPart::TapSelf, CostPart::SacrificeSelf] }, &[Effect::DrawCards { amount: Amount::Fixed(1) }]),
-    ],
-}
+);

@@ -7,21 +7,28 @@
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 1203,
-    oracle_id: "af0ad159-8264-4526-9a95-eddd32c0a13f",
-    scryfall_id: "989b5901-aeb0-4a48-8c53-3b0ec0e0deba",
-    color_identity: ColorSet::from_slice(&[Color::Green, Color::Red, Color::White]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Tinder Farm",
-        types: TypeSet::LAND,
-        enter_modifiers: &[EnterModifier::Tapped],
-    },
-    ],
-    abilities: &[
+card!(
+    index = 1203,
+    oracle_id = "af0ad159-8264-4526-9a95-eddd32c0a13f",
+    scryfall_id = "989b5901-aeb0-4a48-8c53-3b0ec0e0deba",
+    color_identity = ColorSet::from_slice(&[Color::Green, Color::Red, Color::White]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "Tinder Farm",
+        types = TypeSet::LAND,
+        enter_modifiers = &[EnterModifier::Tapped],
+    ),],
+    abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::Green, 1)]),
-        mana_ability!(Cost { mana: ManaCost::ZERO, parts: &[CostPart::TapSelf, CostPart::SacrificeSelf] }, &[Effect::mana(ManaColor::Red, 1), Effect::mana(ManaColor::White, 1)]),
+        mana_ability!(
+            Cost {
+                mana: ManaCost::ZERO,
+                parts: &[CostPart::TapSelf, CostPart::SacrificeSelf]
+            },
+            &[
+                Effect::mana(ManaColor::Red, 1),
+                Effect::mana(ManaColor::White, 1)
+            ]
+        ),
     ],
-}
+);

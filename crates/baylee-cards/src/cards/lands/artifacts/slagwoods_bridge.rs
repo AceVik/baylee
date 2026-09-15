@@ -7,21 +7,20 @@
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 1047,
-    oracle_id: "e040a8e6-b90c-42d1-a1b1-771d954c61ab",
-    scryfall_id: "e51b48e9-a75a-4acd-9462-5e1ac2b0d803",
-    color_identity: ColorSet::from_slice(&[Color::Green, Color::Red]),
-    keywords: KeywordSet::INDESTRUCTIBLE,
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Slagwoods Bridge",
-        types: TypeSet::ARTIFACT.union(TypeSet::LAND),
-        enter_modifiers: &[EnterModifier::Tapped],
-    },
-    ],
-    abilities: &[
-        mana_ability!(&[Effect::mana_choice(&[ManaColor::Red, ManaColor::Green])]),
-    ],
-}
+card!(
+    index = 1047,
+    oracle_id = "e040a8e6-b90c-42d1-a1b1-771d954c61ab",
+    scryfall_id = "e51b48e9-a75a-4acd-9462-5e1ac2b0d803",
+    color_identity = ColorSet::from_slice(&[Color::Green, Color::Red]),
+    keywords = KeywordSet::INDESTRUCTIBLE,
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "Slagwoods Bridge",
+        types = TypeSet::ARTIFACT.union(TypeSet::LAND),
+        enter_modifiers = &[EnterModifier::Tapped],
+    ),],
+    abilities = &[mana_ability!(&[Effect::mana_choice(&[
+        ManaColor::Red,
+        ManaColor::Green
+    ])]),],
+);

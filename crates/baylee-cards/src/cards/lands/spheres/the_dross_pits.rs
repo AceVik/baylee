@@ -8,22 +8,28 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-card! {
-    index: 1169,
-    oracle_id: "8110fe69-c66c-4e2c-86ee-dcc8dc9a13d1",
-    scryfall_id: "19d469f1-2219-4466-9f8a-769ee43e28db",
-    color_identity: ColorSet::from_slice(&[Color::Black]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "The Dross Pits",
-        types: TypeSet::LAND,
-        subtypes: &[subtypes::land::SPHERE],
-        enter_modifiers: &[EnterModifier::Tapped],
-    },
-    ],
-    abilities: &[
+card!(
+    index = 1169,
+    oracle_id = "8110fe69-c66c-4e2c-86ee-dcc8dc9a13d1",
+    scryfall_id = "19d469f1-2219-4466-9f8a-769ee43e28db",
+    color_identity = ColorSet::from_slice(&[Color::Black]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "The Dross Pits",
+        types = TypeSet::LAND,
+        subtypes = &[subtypes::land::SPHERE],
+        enter_modifiers = &[EnterModifier::Tapped],
+    ),],
+    abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::Black, 1)]),
-        activated!(Cost { mana: mana!("{1}{B}"), parts: &[CostPart::TapSelf, CostPart::SacrificeSelf] }, &[Effect::DrawCards { amount: Amount::Fixed(1) }]),
+        activated!(
+            Cost {
+                mana: mana!("{1}{B}"),
+                parts: &[CostPart::TapSelf, CostPart::SacrificeSelf]
+            },
+            &[Effect::DrawCards {
+                amount: Amount::Fixed(1)
+            }]
+        ),
     ],
-}
+);

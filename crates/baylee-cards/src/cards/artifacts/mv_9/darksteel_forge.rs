@@ -7,19 +7,19 @@ static ARTIFACTS_YOURS: Filter = Filter::And(&[Filter::ControlledByYou, Filter::
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 31,
-    oracle_id: "9b3bec05-441f-4fdf-8b51-69fa8613fcd4",
-    scryfall_id: "421089c4-c8d3-48c5-b313-fb1741546271",
-    faces: &[face! {
-        name: "Darksteel Forge",
-        mana_cost: mana!("{9}"),
-        types: TypeSet::ARTIFACT,
-    }],
-    coverage: Coverage::Implemented,
-    abilities: &[AbilityDef::Static(StaticAbility {
+card!(
+    index = 31,
+    oracle_id = "9b3bec05-441f-4fdf-8b51-69fa8613fcd4",
+    scryfall_id = "421089c4-c8d3-48c5-b313-fb1741546271",
+    faces = &[face!(
+        name = "Darksteel Forge",
+        mana_cost = mana!("{9}"),
+        types = TypeSet::ARTIFACT,
+    )],
+    coverage = Coverage::Implemented,
+    abilities = &[AbilityDef::Static(StaticAbility {
         layer: Layer::Ability,
         filter: ARTIFACTS_YOURS,
         modifier: Modifier::AddKeyword(KeywordSet::INDESTRUCTIBLE),
     })],
-}
+);

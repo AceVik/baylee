@@ -8,22 +8,28 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-card! {
-    index: 1171,
-    oracle_id: "8618f8e8-fd86-47e3-905d-e6624b599b9b",
-    scryfall_id: "01d6ba55-7bc0-41c6-84be-8cd528e46a05",
-    color_identity: ColorSet::from_slice(&[Color::White]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "The Fair Basilica",
-        types: TypeSet::LAND,
-        subtypes: &[subtypes::land::SPHERE],
-        enter_modifiers: &[EnterModifier::Tapped],
-    },
-    ],
-    abilities: &[
+card!(
+    index = 1171,
+    oracle_id = "8618f8e8-fd86-47e3-905d-e6624b599b9b",
+    scryfall_id = "01d6ba55-7bc0-41c6-84be-8cd528e46a05",
+    color_identity = ColorSet::from_slice(&[Color::White]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "The Fair Basilica",
+        types = TypeSet::LAND,
+        subtypes = &[subtypes::land::SPHERE],
+        enter_modifiers = &[EnterModifier::Tapped],
+    ),],
+    abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::White, 1)]),
-        activated!(Cost { mana: mana!("{1}{W}"), parts: &[CostPart::TapSelf, CostPart::SacrificeSelf] }, &[Effect::DrawCards { amount: Amount::Fixed(1) }]),
+        activated!(
+            Cost {
+                mana: mana!("{1}{W}"),
+                parts: &[CostPart::TapSelf, CostPart::SacrificeSelf]
+            },
+            &[Effect::DrawCards {
+                amount: Amount::Fixed(1)
+            }]
+        ),
     ],
-}
+);

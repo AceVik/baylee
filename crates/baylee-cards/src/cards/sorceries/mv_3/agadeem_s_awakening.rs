@@ -9,22 +9,19 @@
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 211,
-    oracle_id: "562d71b9-1646-474e-9293-55da6947a758",
-    scryfall_id: "67f4c93b-080c-4196-b095-6a120a221988",
-    color_identity: ColorSet::from_slice(&[Color::Black]),
-    faces: &[
-    face! {
-        name: "Agadeem's Awakening",
-        mana_cost: mana!("{X}{B}{B}{B}"),
-        types: TypeSet::SORCERY,
-    },
-    face! {
-        name: "Agadeem, the Undercrypt",
-        types: TypeSet::LAND,
-    },
+card!(
+    index = 211,
+    oracle_id = "562d71b9-1646-474e-9293-55da6947a758",
+    scryfall_id = "67f4c93b-080c-4196-b095-6a120a221988",
+    color_identity = ColorSet::from_slice(&[Color::Black]),
+    faces = &[
+        face!(
+            name = "Agadeem's Awakening",
+            mana_cost = mana!("{X}{B}{B}{B}"),
+            types = TypeSet::SORCERY,
+        ),
+        face!(name = "Agadeem, the Undercrypt", types = TypeSet::LAND,),
     ],
-}
+);
 
 // TODO(card): implement abilities, see docs/card-dsl.md.

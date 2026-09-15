@@ -6,20 +6,29 @@
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 1031,
-    oracle_id: "fd45063f-c83c-431c-9104-f139c497ec0d",
-    scryfall_id: "ac07e230-0297-4e1d-bdfe-119010e0ad8e",
-    color_identity: ColorSet::from_slice(&[Color::Black, Color::White]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Silent Clearing",
-        types: TypeSet::LAND,
-    },
+card!(
+    index = 1031,
+    oracle_id = "fd45063f-c83c-431c-9104-f139c497ec0d",
+    scryfall_id = "ac07e230-0297-4e1d-bdfe-119010e0ad8e",
+    color_identity = ColorSet::from_slice(&[Color::Black, Color::White]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(name = "Silent Clearing", types = TypeSet::LAND,),],
+    abilities = &[
+        mana_ability!(
+            Cost {
+                mana: ManaCost::ZERO,
+                parts: &[CostPart::TapSelf, CostPart::PayLife(1)]
+            },
+            &[Effect::mana_choice(&[ManaColor::White, ManaColor::Black])]
+        ),
+        activated!(
+            Cost {
+                mana: mana!("{1}"),
+                parts: &[CostPart::TapSelf, CostPart::SacrificeSelf]
+            },
+            &[Effect::DrawCards {
+                amount: Amount::Fixed(1)
+            }]
+        ),
     ],
-    abilities: &[
-        mana_ability!(Cost { mana: ManaCost::ZERO, parts: &[CostPart::TapSelf, CostPart::PayLife(1)] }, &[Effect::mana_choice(&[ManaColor::White, ManaColor::Black])]),
-        activated!(Cost { mana: mana!("{1}"), parts: &[CostPart::TapSelf, CostPart::SacrificeSelf] }, &[Effect::DrawCards { amount: Amount::Fixed(1) }]),
-    ],
-}
+);

@@ -7,26 +7,26 @@
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 172,
-    oracle_id: "afaef788-34d1-460b-b884-9d7ae6ddeb18",
-    scryfall_id: "de5afccc-8d42-4bd6-b068-b9ea2361655e",
-    faces: &[face! {
-        name: "Toxic Deluge",
-        mana_cost: mana!("{2}{B}"),
-        types: TypeSet::SORCERY,
-        mandatory_additional_costs: &[CostPart::PayLifeX],
-    }],
-    color_identity: ColorSet::from_slice(&[Color::Black]),
-    coverage: Coverage::Implemented,
-    abilities: &[spell!(&[Effect::PumpFilter {
-            filter: &Filter::CREATURE,
-            controlled_by: None,
-            power: Amount::NegX,
-            toughness: Amount::NegX,
-            keywords: KeywordSet::EMPTY,
-            duration: Duration::UntilEndOfTurn,
-        }])],
-}
+card!(
+    index = 172,
+    oracle_id = "afaef788-34d1-460b-b884-9d7ae6ddeb18",
+    scryfall_id = "de5afccc-8d42-4bd6-b068-b9ea2361655e",
+    faces = &[face!(
+        name = "Toxic Deluge",
+        mana_cost = mana!("{2}{B}"),
+        types = TypeSet::SORCERY,
+        mandatory_additional_costs = &[CostPart::PayLifeX],
+    )],
+    color_identity = ColorSet::from_slice(&[Color::Black]),
+    coverage = Coverage::Implemented,
+    abilities = &[spell!(&[Effect::PumpFilter {
+        filter: &Filter::CREATURE,
+        controlled_by: None,
+        power: Amount::NegX,
+        toughness: Amount::NegX,
+        keywords: KeywordSet::EMPTY,
+        duration: Duration::UntilEndOfTurn,
+    }])],
+);
 
 // X life paid at cast; all creatures get -X/-X until end of turn.

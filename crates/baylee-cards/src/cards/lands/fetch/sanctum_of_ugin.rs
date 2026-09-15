@@ -6,16 +6,11 @@
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 957,
-    oracle_id: "72cb5dcd-9b24-435c-921a-3766108374c4",
-    scryfall_id: "86798d03-9f2d-46bd-a660-13c8dd5535ce",
-    faces: &[
-    face! {
-        name: "Sanctum of Ugin",
-        types: TypeSet::LAND,
-    },
-    ],
-}
+card!(
+    index = 957,
+    oracle_id = "72cb5dcd-9b24-435c-921a-3766108374c4",
+    scryfall_id = "86798d03-9f2d-46bd-a660-13c8dd5535ce",
+    faces = &[face!(name = "Sanctum of Ugin", types = TypeSet::LAND,),],
+);
 
 // TODO(card): implement abilities, see docs/card-dsl.md.

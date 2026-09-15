@@ -7,21 +7,28 @@
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 1328,
-    oracle_id: "51635f96-af1d-4b33-9118-432495aaf07f",
-    scryfall_id: "cd736532-8e98-4f4a-b48f-a66c57efcbfd",
-    color_identity: ColorSet::from_slice(&[Color::Black, Color::Blue, Color::White]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Wizards' School",
-        types: TypeSet::LAND,
-    },
-    ],
-    abilities: &[
+card!(
+    index = 1328,
+    oracle_id = "51635f96-af1d-4b33-9118-432495aaf07f",
+    scryfall_id = "cd736532-8e98-4f4a-b48f-a66c57efcbfd",
+    color_identity = ColorSet::from_slice(&[Color::Black, Color::Blue, Color::White]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(name = "Wizards' School", types = TypeSet::LAND,),],
+    abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
-        mana_ability!(Cost { mana: mana!("{1}"), parts: &[CostPart::TapSelf] }, &[Effect::mana(ManaColor::Blue, 1)]),
-        mana_ability!(Cost { mana: mana!("{2}"), parts: &[CostPart::TapSelf] }, &[Effect::mana_choice(&[ManaColor::White, ManaColor::Black])]),
+        mana_ability!(
+            Cost {
+                mana: mana!("{1}"),
+                parts: &[CostPart::TapSelf]
+            },
+            &[Effect::mana(ManaColor::Blue, 1)]
+        ),
+        mana_ability!(
+            Cost {
+                mana: mana!("{2}"),
+                parts: &[CostPart::TapSelf]
+            },
+            &[Effect::mana_choice(&[ManaColor::White, ManaColor::Black])]
+        ),
     ],
-}
+);

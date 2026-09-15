@@ -12,31 +12,38 @@ use baylee_core::generated::subtypes::planeswalker;
 
 static OWNED_PERMANENT: Filter = Filter::And(&[Filter::OwnedByYou, Filter::Another]);
 
-card! {
-    index: 3,
-    oracle_id: "3a30089d-cd2d-49be-9b06-7a2454117692",
-    scryfall_id: "bc010302-e715-4946-89eb-a214e0b836ba",
-    faces: &[face! {
-        name: "Aminatou, the Fateshifter",
-        mana_cost: mana!("{W}{U}{B}"),
-        types: TypeSet::PLANESWALKER,
-        supertypes: SupertypeSet::LEGENDARY,
-        subtypes: &[planeswalker::AMINATOU],
-        loyalty: Some(3),
-    }],
-    color_identity: ColorSet::from_slice(&[Color::White, Color::Blue, Color::Black]),
-    commander: CommanderRule::ExplicitlyAllowed,
-    coverage: Coverage::Implemented,
-    abilities: &[
-        loyalty!(1, &[
+card!(
+    index = 3,
+    oracle_id = "3a30089d-cd2d-49be-9b06-7a2454117692",
+    scryfall_id = "bc010302-e715-4946-89eb-a214e0b836ba",
+    faces = &[face!(
+        name = "Aminatou, the Fateshifter",
+        mana_cost = mana!("{W}{U}{B}"),
+        types = TypeSet::PLANESWALKER,
+        supertypes = SupertypeSet::LEGENDARY,
+        subtypes = &[planeswalker::AMINATOU],
+        loyalty = Some(3),
+    )],
+    color_identity = ColorSet::from_slice(&[Color::White, Color::Blue, Color::Black]),
+    commander = CommanderRule::ExplicitlyAllowed,
+    coverage = Coverage::Implemented,
+    abilities = &[
+        loyalty!(
+            1,
+            &[
                 Effect::DrawCards {
                     amount: Amount::Fixed(1),
                 },
                 Effect::PutFromHandOnTop { count: 1 },
-            ]),
-        loyalty!(-1, &[Effect::Blink {
+            ]
+        ),
+        loyalty!(
+            -1,
+            &[Effect::Blink {
                 target: TargetSpec::Object(&OWNED_PERMANENT),
-            }], targets: Some(TargetReq::one(TargetSpec::Object(&OWNED_PERMANENT)))),
+            }],
+            targets = Some(TargetReq::one(TargetSpec::Object(&OWNED_PERMANENT)))
+        ),
         loyalty!(-6, &[Effect::ControlRotation]),
     ],
-}
+);

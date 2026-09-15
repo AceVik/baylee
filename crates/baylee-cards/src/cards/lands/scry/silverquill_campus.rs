@@ -7,21 +7,27 @@
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 1034,
-    oracle_id: "2b65eb80-6fb7-429f-81f2-2fe125eba634",
-    scryfall_id: "354efff0-aea5-4274-94d6-9fce02430255",
-    color_identity: ColorSet::from_slice(&[Color::Black, Color::White]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Silverquill Campus",
-        types: TypeSet::LAND,
-        enter_modifiers: &[EnterModifier::Tapped],
-    },
-    ],
-    abilities: &[
+card!(
+    index = 1034,
+    oracle_id = "2b65eb80-6fb7-429f-81f2-2fe125eba634",
+    scryfall_id = "354efff0-aea5-4274-94d6-9fce02430255",
+    color_identity = ColorSet::from_slice(&[Color::Black, Color::White]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "Silverquill Campus",
+        types = TypeSet::LAND,
+        enter_modifiers = &[EnterModifier::Tapped],
+    ),],
+    abilities = &[
         mana_ability!(&[Effect::mana_choice(&[ManaColor::White, ManaColor::Black])]),
-        activated!(Cost { mana: mana!("{4}"), parts: &[CostPart::TapSelf] }, &[Effect::Scry { amount: Amount::Fixed(1) }]),
+        activated!(
+            Cost {
+                mana: mana!("{4}"),
+                parts: &[CostPart::TapSelf]
+            },
+            &[Effect::Scry {
+                amount: Amount::Fixed(1)
+            }]
+        ),
     ],
-}
+);

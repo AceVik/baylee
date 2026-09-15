@@ -6,19 +6,19 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-card! {
-    index: 1338,
-    oracle_id: "8dd5f5af-d2d8-4356-8617-8381081b930c",
-    scryfall_id: "4e4b6e22-93b2-4896-bba5-0ceaa5d8ea3c",
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Yavimaya, Cradle of Growth",
-        types: TypeSet::LAND,
-        supertypes: SupertypeSet::LEGENDARY,
-    },
-    ],
-    abilities: &[
-        AbilityDef::Static(StaticAbility { layer: Layer::Type, filter: Filter::LAND, modifier: Modifier::AddSubtype(subtypes::land::FOREST) }),
-    ],
-}
+card!(
+    index = 1338,
+    oracle_id = "8dd5f5af-d2d8-4356-8617-8381081b930c",
+    scryfall_id = "4e4b6e22-93b2-4896-bba5-0ceaa5d8ea3c",
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "Yavimaya, Cradle of Growth",
+        types = TypeSet::LAND,
+        supertypes = SupertypeSet::LEGENDARY,
+    ),],
+    abilities = &[AbilityDef::Static(StaticAbility {
+        layer: Layer::Type,
+        filter: Filter::LAND,
+        modifier: Modifier::AddSubtype(subtypes::land::FOREST)
+    }),],
+);

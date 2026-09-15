@@ -16,31 +16,34 @@ use baylee_core::generated::subtypes::creature;
 /// The linked spell: Demonic Tutor (registry card).
 static DEMONIC_TUTOR: CardIndex = CardIndex::new(32);
 
-card! {
-    index: 41,
-    oracle_id: "93056597-b964-421f-be2f-e92abef1c2a4",
-    scryfall_id: "7eb9e83d-515d-4911-a06b-9982200277b2",
-    faces: &[face! {
-        name: "Emeritus of Woe",
-        mana_cost: mana!("{3}{B}"),
-        types: TypeSet::CREATURE,
-        subtypes: &[creature::VAMPIRE, creature::WARLOCK],
-        power: Some(5),
-        toughness: Some(4),
-        enter_modifiers: &[EnterModifier::Prepared],
-    }],
-    color_identity: ColorSet::from_slice(&[Color::Black]),
-    coverage: Coverage::Implemented,
-    abilities: &[
+card!(
+    index = 41,
+    oracle_id = "93056597-b964-421f-be2f-e92abef1c2a4",
+    scryfall_id = "7eb9e83d-515d-4911-a06b-9982200277b2",
+    faces = &[face!(
+        name = "Emeritus of Woe",
+        mana_cost = mana!("{3}{B}"),
+        types = TypeSet::CREATURE,
+        subtypes = &[creature::VAMPIRE, creature::WARLOCK],
+        power = Some(5),
+        toughness = Some(4),
+        enter_modifiers = &[EnterModifier::Prepared],
+    )],
+    color_identity = ColorSet::from_slice(&[Color::Black]),
+    coverage = Coverage::Implemented,
+    abilities = &[
         AbilityDef::Prepared {
             card: DEMONIC_TUTOR,
         },
-        triggered!(Trigger::StepBegin {
+        triggered!(
+            Trigger::StepBegin {
                 step: StepKind::End,
                 whose: PlayerRel::You,
-            }, &[Effect::IfCreaturesDiedAtLeast {
+            },
+            &[Effect::IfCreaturesDiedAtLeast {
                 n: 2,
                 then: &[Effect::BecomePrepared],
-            }]),
+            }]
+        ),
     ],
-}
+);

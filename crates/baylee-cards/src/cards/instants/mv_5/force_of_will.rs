@@ -9,26 +9,29 @@ static BLUE_CARD: Filter = Filter::HasColor(ColorSet::from_slice(&[Color::Blue])
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 54,
-    oracle_id: "956381ba-6d37-4a8a-846c-bad79222dbee",
-    scryfall_id: "89f612d6-7c59-4a7b-a87d-45f789e88ba5",
-    faces: &[face! {
-        name: "Force of Will",
-        mana_cost: mana!("{3}{U}{U}"),
-        types: TypeSet::INSTANT,
-        alternative_costs: &[AlternativeCost {
+card!(
+    index = 54,
+    oracle_id = "956381ba-6d37-4a8a-846c-bad79222dbee",
+    scryfall_id = "89f612d6-7c59-4a7b-a87d-45f789e88ba5",
+    faces = &[face!(
+        name = "Force of Will",
+        mana_cost = mana!("{3}{U}{U}"),
+        types = TypeSet::INSTANT,
+        alternative_costs = &[AlternativeCost {
             cost: Cost {
                 mana: ManaCost::ZERO,
                 parts: &[CostPart::PayLife(1), CostPart::ExileFromHand(&BLUE_CARD)],
             },
             condition: AltCondition::Always,
         }],
-    }],
-    color_identity: ColorSet::from_slice(&[Color::Blue]),
-    coverage: Coverage::Implemented,
-    abilities: &[spell!(&[Effect::CounterTargetSpell], targets: Some(TargetReq::one(TargetSpec::Spell(&Filter::Any))))],
-}
+    )],
+    color_identity = ColorSet::from_slice(&[Color::Blue]),
+    coverage = Coverage::Implemented,
+    abilities = &[spell!(
+        &[Effect::CounterTargetSpell],
+        targets = Some(TargetReq::one(TargetSpec::Spell(&Filter::Any)))
+    )],
+);
 
 // Engine-level coverage in baylee-engine s7 tests: pitching (life +
 // exiled blue card) casts Force of Will with an empty mana pool.

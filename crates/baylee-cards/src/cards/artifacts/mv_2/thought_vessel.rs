@@ -8,19 +8,17 @@
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 1358,
-    oracle_id: "9965d9c5-2ebf-4a6c-930e-55c5890979be",
-    scryfall_id: "ad077996-6b5e-4eb8-bb6e-93d43c5efa8f",
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Thought Vessel",
-        mana_cost: mana!("{2}"),
-        types: TypeSet::ARTIFACT,
-    },
-    ],
-    abilities: &[
+card!(
+    index = 1358,
+    oracle_id = "9965d9c5-2ebf-4a6c-930e-55c5890979be",
+    scryfall_id = "ad077996-6b5e-4eb8-bb6e-93d43c5efa8f",
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "Thought Vessel",
+        mana_cost = mana!("{2}"),
+        types = TypeSet::ARTIFACT,
+    ),],
+    abilities = &[
         AbilityDef::Static(StaticAbility {
             layer: Layer::Text,
             filter: Filter::Any,
@@ -28,4 +26,4 @@ card! {
         }),
         mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
     ],
-}
+);

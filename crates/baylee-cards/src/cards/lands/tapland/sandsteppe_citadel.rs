@@ -6,20 +6,20 @@
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 959,
-    oracle_id: "544dbabd-cbfc-40da-a5ba-2fea9cddb453",
-    scryfall_id: "e7482def-e87e-4a7f-9c18-7859483b2a66",
-    color_identity: ColorSet::from_slice(&[Color::Black, Color::Green, Color::White]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Sandsteppe Citadel",
-        types: TypeSet::LAND,
-        enter_modifiers: &[EnterModifier::Tapped],
-    },
-    ],
-    abilities: &[
-        mana_ability!(&[Effect::mana_choice(&[ManaColor::White, ManaColor::Black, ManaColor::Green])]),
-    ],
-}
+card!(
+    index = 959,
+    oracle_id = "544dbabd-cbfc-40da-a5ba-2fea9cddb453",
+    scryfall_id = "e7482def-e87e-4a7f-9c18-7859483b2a66",
+    color_identity = ColorSet::from_slice(&[Color::Black, Color::Green, Color::White]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "Sandsteppe Citadel",
+        types = TypeSet::LAND,
+        enter_modifiers = &[EnterModifier::Tapped],
+    ),],
+    abilities = &[mana_ability!(&[Effect::mana_choice(&[
+        ManaColor::White,
+        ManaColor::Black,
+        ManaColor::Green
+    ])]),],
+);

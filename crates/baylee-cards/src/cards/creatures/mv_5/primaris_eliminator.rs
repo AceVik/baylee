@@ -22,25 +22,31 @@ static DEBUFF_EFFECTS: &[Effect] = &[Effect::PumpFilter {
     duration: Duration::UntilEndOfTurn,
 }];
 
-card! {
-    index: 118,
-    oracle_id: "7d679591-f8ea-4c4c-ab98-7b9e3438cf57",
-    scryfall_id: "db7ab081-d6cd-4323-98bf-536e4df95115",
-    faces: &[face! {
-        name: "Primaris Eliminator",
-        mana_cost: mana!("{4}{B}"),
-        types: TypeSet::CREATURE,
-        subtypes: &[creature::ASTARTES, creature::WARRIOR],
-        power: Some(3),
-        toughness: Some(2),
-    }],
-    color_identity: ColorSet::from_slice(&[Color::Black]),
-    coverage: Coverage::Implemented,
-    abilities: &[modal_triggered!(
+card!(
+    index = 118,
+    oracle_id = "7d679591-f8ea-4c4c-ab98-7b9e3438cf57",
+    scryfall_id = "db7ab081-d6cd-4323-98bf-536e4df95115",
+    faces = &[face!(
+        name = "Primaris Eliminator",
+        mana_cost = mana!("{4}{B}"),
+        types = TypeSet::CREATURE,
+        subtypes = &[creature::ASTARTES, creature::WARRIOR],
+        power = Some(3),
+        toughness = Some(2),
+    )],
+    color_identity = ColorSet::from_slice(&[Color::Black]),
+    coverage = Coverage::Implemented,
+    abilities = &[modal_triggered!(
         Trigger::EntersBattlefield(&Filter::This),
         &[
-            mode!(DESTROY_EFFECTS, targets: Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE)))),
-            mode!(DEBUFF_EFFECTS, targets: Some(TargetReq::one(TargetSpec::AnyPlayer))),
+            mode!(
+                DESTROY_EFFECTS,
+                targets = Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE)))
+            ),
+            mode!(
+                DEBUFF_EFFECTS,
+                targets = Some(TargetReq::one(TargetSpec::AnyPlayer))
+            ),
         ]
     )],
-}
+);

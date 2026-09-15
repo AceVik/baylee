@@ -7,27 +7,24 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes::creature;
 
-card! {
-    index: 62,
-    oracle_id: "79e69a91-d580-47fb-be76-1e32c50d2fa0",
-    scryfall_id: "cc3063ec-5ea6-46c1-8331-c740cbaf6c76",
-    faces: &[face! {
-        name: "Great Divide Guide",
-        mana_cost: mana!("{1}{G}"),
-        types: TypeSet::CREATURE,
-        subtypes: &[creature::HUMAN, creature::SCOUT, creature::ALLY],
-        power: Some(2),
-        toughness: Some(3),
-    }],
-    color_identity: ColorSet::from_slice(&[Color::Green]),
-    coverage: Coverage::Implemented,
-    abilities: &[AbilityDef::Static(StaticAbility {
+card!(
+    index = 62,
+    oracle_id = "79e69a91-d580-47fb-be76-1e32c50d2fa0",
+    scryfall_id = "cc3063ec-5ea6-46c1-8331-c740cbaf6c76",
+    faces = &[face!(
+        name = "Great Divide Guide",
+        mana_cost = mana!("{1}{G}"),
+        types = TypeSet::CREATURE,
+        subtypes = &[creature::HUMAN, creature::SCOUT, creature::ALLY],
+        power = Some(2),
+        toughness = Some(3),
+    )],
+    color_identity = ColorSet::from_slice(&[Color::Green]),
+    coverage = Coverage::Implemented,
+    abilities = &[AbilityDef::Static(StaticAbility {
         layer: Layer::Ability,
         filter: Filter::And(&[
-            Filter::Or(&[
-                Filter::LAND,
-                Filter::HasSubtype(creature::ALLY),
-            ]),
+            Filter::Or(&[Filter::LAND, Filter::HasSubtype(creature::ALLY),]),
             Filter::ControlledByYou,
         ]),
         modifier: Modifier::GrantActivated {
@@ -36,4 +33,4 @@ card! {
             mana_ability: true,
         },
     })],
-}
+);

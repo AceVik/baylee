@@ -7,22 +7,21 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-card! {
-    index: 551,
-    oracle_id: "5d3563dd-a2c1-463c-a0ed-5ac22388bdbe",
-    scryfall_id: "9de5fadd-4559-479f-b45d-abe792f0f6e5",
-    color_identity: ColorSet::from_slice(&[Color::Blue, Color::White]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Glacial Floodplain",
-        types: TypeSet::LAND,
-        supertypes: SupertypeSet::SNOW,
-        subtypes: &[subtypes::land::PLAINS, subtypes::land::ISLAND],
-        enter_modifiers: &[EnterModifier::Tapped],
-    },
-    ],
-    abilities: &[
-        mana_ability!(&[Effect::mana_choice(&[ManaColor::White, ManaColor::Blue])]),
-    ],
-}
+card!(
+    index = 551,
+    oracle_id = "5d3563dd-a2c1-463c-a0ed-5ac22388bdbe",
+    scryfall_id = "9de5fadd-4559-479f-b45d-abe792f0f6e5",
+    color_identity = ColorSet::from_slice(&[Color::Blue, Color::White]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "Glacial Floodplain",
+        types = TypeSet::LAND,
+        supertypes = SupertypeSet::SNOW,
+        subtypes = &[subtypes::land::PLAINS, subtypes::land::ISLAND],
+        enter_modifiers = &[EnterModifier::Tapped],
+    ),],
+    abilities = &[mana_ability!(&[Effect::mana_choice(&[
+        ManaColor::White,
+        ManaColor::Blue
+    ])]),],
+);

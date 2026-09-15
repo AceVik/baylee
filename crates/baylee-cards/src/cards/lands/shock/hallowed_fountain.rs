@@ -9,17 +9,20 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes::{self};
 
-card! {
-    index: 65,
-    oracle_id: "f1750962-a87c-49f6-b731-02ae971ac6ea",
-    scryfall_id: "b7285986-7e08-4969-86ef-452dc5bfdd9f",
-    faces: &[face! {
-        name: "Hallowed Fountain",
-        types: TypeSet::LAND,
-        subtypes: &[subtypes::land::PLAINS, subtypes::land::ISLAND],
-        enter_modifiers: &[EnterModifier::TappedOrPayLife(2)],
-    }],
-    color_identity: ColorSet::from_slice(&[Color::White, Color::Blue]),
-    coverage: Coverage::Implemented,
-    abilities: &[mana_ability!(&[Effect::mana_choice(&[ManaColor::White, ManaColor::Blue])])],
-}
+card!(
+    index = 65,
+    oracle_id = "f1750962-a87c-49f6-b731-02ae971ac6ea",
+    scryfall_id = "b7285986-7e08-4969-86ef-452dc5bfdd9f",
+    faces = &[face!(
+        name = "Hallowed Fountain",
+        types = TypeSet::LAND,
+        subtypes = &[subtypes::land::PLAINS, subtypes::land::ISLAND],
+        enter_modifiers = &[EnterModifier::TappedOrPayLife(2)],
+    )],
+    color_identity = ColorSet::from_slice(&[Color::White, Color::Blue]),
+    coverage = Coverage::Implemented,
+    abilities = &[mana_ability!(&[Effect::mana_choice(&[
+        ManaColor::White,
+        ManaColor::Blue
+    ])])],
+);

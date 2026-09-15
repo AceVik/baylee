@@ -13,30 +13,36 @@ use baylee_core::generated::subtypes::creature;
 
 static ARTIFACT_OR_ENCHANTMENT: Filter = Filter::Or(&[Filter::ARTIFACT, Filter::ENCHANTMENT]);
 
-card! {
-    index: 87,
-    oracle_id: "b3d81980-76f2-44e2-b1c9-01e30c726312",
-    scryfall_id: "9e83a0ef-4fea-45ba-86c0-130d6687f7fe",
-    faces: &[face! {
-        name: "Loran of the Third Path",
-        mana_cost: mana!("{2}{W}"),
-        types: TypeSet::CREATURE,
-        supertypes: SupertypeSet::LEGENDARY,
-        subtypes: &[creature::HUMAN, creature::ARTIFICER],
-        power: Some(2),
-        toughness: Some(1),
-    }],
-    color_identity: ColorSet::from_slice(&[Color::White]),
-    keywords: KeywordSet::VIGILANCE,
-    commander: CommanderRule::Legendary,
-    coverage: Coverage::Implemented,
-    abilities: &[
-        triggered!(Trigger::EntersBattlefield(&Filter::This), &[Effect::Destroy {
+card!(
+    index = 87,
+    oracle_id = "b3d81980-76f2-44e2-b1c9-01e30c726312",
+    scryfall_id = "9e83a0ef-4fea-45ba-86c0-130d6687f7fe",
+    faces = &[face!(
+        name = "Loran of the Third Path",
+        mana_cost = mana!("{2}{W}"),
+        types = TypeSet::CREATURE,
+        supertypes = SupertypeSet::LEGENDARY,
+        subtypes = &[creature::HUMAN, creature::ARTIFICER],
+        power = Some(2),
+        toughness = Some(1),
+    )],
+    color_identity = ColorSet::from_slice(&[Color::White]),
+    keywords = KeywordSet::VIGILANCE,
+    commander = CommanderRule::Legendary,
+    coverage = Coverage::Implemented,
+    abilities = &[
+        triggered!(
+            Trigger::EntersBattlefield(&Filter::This),
+            &[Effect::Destroy {
                 target: TargetSpec::Object(&ARTIFACT_OR_ENCHANTMENT),
-            }], targets: Some(TargetReq::up_to_one(TargetSpec::Object(
+            }],
+            targets = Some(TargetReq::up_to_one(TargetSpec::Object(
                 &ARTIFACT_OR_ENCHANTMENT,
-            )))),
-        activated!(Cost::TAP, &[
+            )))
+        ),
+        activated!(
+            Cost::TAP,
+            &[
                 Effect::DrawCards {
                     amount: Amount::Fixed(1),
                 },
@@ -44,6 +50,8 @@ card! {
                     amount: Amount::Fixed(1),
                     who: PlayerRel::Chosen,
                 },
-            ], target: Some(TargetSpec::AnyOpponent)),
+            ],
+            target = Some(TargetSpec::AnyOpponent)
+        ),
     ],
-}
+);

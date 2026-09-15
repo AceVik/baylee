@@ -6,19 +6,20 @@
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 973,
-    oracle_id: "5028dfe8-c505-4643-b493-760b1f19d47f",
-    scryfall_id: "1438606d-556d-4b96-9662-fcac051af045",
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "School of the Unseen",
-        types: TypeSet::LAND,
-    },
-    ],
-    abilities: &[
+card!(
+    index = 973,
+    oracle_id = "5028dfe8-c505-4643-b493-760b1f19d47f",
+    scryfall_id = "1438606d-556d-4b96-9662-fcac051af045",
+    coverage = Coverage::Implemented,
+    faces = &[face!(name = "School of the Unseen", types = TypeSet::LAND,),],
+    abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
-        mana_ability!(Cost { mana: mana!("{2}"), parts: &[CostPart::TapSelf] }, &[Effect::mana_of_any_color()]),
+        mana_ability!(
+            Cost {
+                mana: mana!("{2}"),
+                parts: &[CostPart::TapSelf]
+            },
+            &[Effect::mana_of_any_color()]
+        ),
     ],
-}
+);

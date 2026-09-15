@@ -10,25 +10,22 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-card! {
-    index: 1137,
-    oracle_id: "53542c79-a62a-4d6a-97db-5296e9c68302",
-    scryfall_id: "235d1ffc-72aa-40a2-95dc-3f6a8d495061",
-    color_identity: ColorSet::from_slice(&[Color::Green]),
-    faces: &[
-    face! {
-        name: "Tangled Florahedron",
-        mana_cost: mana!("{1}{G}"),
-        types: TypeSet::CREATURE,
-        subtypes: &[subtypes::creature::ELEMENTAL],
-        power: Some(1),
-        toughness: Some(1),
-    },
-    face! {
-        name: "Tangled Vale",
-        types: TypeSet::LAND,
-    },
+card!(
+    index = 1137,
+    oracle_id = "53542c79-a62a-4d6a-97db-5296e9c68302",
+    scryfall_id = "235d1ffc-72aa-40a2-95dc-3f6a8d495061",
+    color_identity = ColorSet::from_slice(&[Color::Green]),
+    faces = &[
+        face!(
+            name = "Tangled Florahedron",
+            mana_cost = mana!("{1}{G}"),
+            types = TypeSet::CREATURE,
+            subtypes = &[subtypes::creature::ELEMENTAL],
+            power = Some(1),
+            toughness = Some(1),
+        ),
+        face!(name = "Tangled Vale", types = TypeSet::LAND,),
     ],
-}
+);
 
 // TODO(card): implement abilities, see docs/card-dsl.md.

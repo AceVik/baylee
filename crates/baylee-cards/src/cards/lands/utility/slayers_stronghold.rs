@@ -8,20 +8,27 @@ use baylee_cards_dsl::prelude::*;
 
 static TARGET1: Filter = Filter::CREATURE;
 
-card! {
-    index: 1048,
-    oracle_id: "2de7367b-a5a4-43f4-8f8f-b931ea28150d",
-    scryfall_id: "3b2c82ea-6793-407c-ac9f-5fc14d4d09ea",
-    color_identity: ColorSet::from_slice(&[Color::Red, Color::White]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Slayers' Stronghold",
-        types: TypeSet::LAND,
-    },
-    ],
-    abilities: &[
+card!(
+    index = 1048,
+    oracle_id = "2de7367b-a5a4-43f4-8f8f-b931ea28150d",
+    scryfall_id = "3b2c82ea-6793-407c-ac9f-5fc14d4d09ea",
+    color_identity = ColorSet::from_slice(&[Color::Red, Color::White]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(name = "Slayers' Stronghold", types = TypeSet::LAND,),],
+    abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
-        activated!(Cost { mana: mana!("{R}{W}"), parts: &[CostPart::TapSelf] }, &[Effect::PumpTarget { power: Amount::Fixed(2), toughness: Amount::Fixed(0), keywords: KeywordSet::VIGILANCE.union(KeywordSet::HASTE), duration: Duration::UntilEndOfTurn }], target: Some(TargetSpec::Object(&TARGET1))),
+        activated!(
+            Cost {
+                mana: mana!("{R}{W}"),
+                parts: &[CostPart::TapSelf]
+            },
+            &[Effect::PumpTarget {
+                power: Amount::Fixed(2),
+                toughness: Amount::Fixed(0),
+                keywords: KeywordSet::VIGILANCE.union(KeywordSet::HASTE),
+                duration: Duration::UntilEndOfTurn
+            }],
+            target = Some(TargetSpec::Object(&TARGET1))
+        ),
     ],
-}
+);

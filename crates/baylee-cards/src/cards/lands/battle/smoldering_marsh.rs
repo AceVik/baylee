@@ -9,21 +9,23 @@ use baylee_core::generated::subtypes;
 
 static CHECK: Filter = Filter::And(&[Filter::ControlledByYou, Filter::BASIC_LAND]);
 
-card! {
-    index: 1052,
-    oracle_id: "390f1b56-264e-4336-83be-dc1fe79bfdcf",
-    scryfall_id: "d707c477-440f-417c-970a-0e7426a58045",
-    color_identity: ColorSet::from_slice(&[Color::Black, Color::Red]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Smoldering Marsh",
-        types: TypeSet::LAND,
-        subtypes: &[subtypes::land::SWAMP, subtypes::land::MOUNTAIN],
-        enter_modifiers: &[EnterModifier::TappedUnlessCount { filter: &CHECK, at_least: 2 }],
-    },
-    ],
-    abilities: &[
-        mana_ability!(&[Effect::mana_choice(&[ManaColor::Black, ManaColor::Red])]),
-    ],
-}
+card!(
+    index = 1052,
+    oracle_id = "390f1b56-264e-4336-83be-dc1fe79bfdcf",
+    scryfall_id = "d707c477-440f-417c-970a-0e7426a58045",
+    color_identity = ColorSet::from_slice(&[Color::Black, Color::Red]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(
+        name = "Smoldering Marsh",
+        types = TypeSet::LAND,
+        subtypes = &[subtypes::land::SWAMP, subtypes::land::MOUNTAIN],
+        enter_modifiers = &[EnterModifier::TappedUnlessCount {
+            filter: &CHECK,
+            at_least: 2
+        }],
+    ),],
+    abilities = &[mana_ability!(&[Effect::mana_choice(&[
+        ManaColor::Black,
+        ManaColor::Red
+    ])]),],
+);

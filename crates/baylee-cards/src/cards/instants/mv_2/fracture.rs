@@ -8,20 +8,23 @@ static ARTIFACT_ENCHANTMENT_OR_WALKER: Filter =
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 56,
-    oracle_id: "f21d0319-0509-4ac1-b6e3-10955a26fd7a",
-    scryfall_id: "cba33bf7-0919-408c-8eb0-0bb9fe920c81",
-    faces: &[face! {
-        name: "Fracture",
-        mana_cost: mana!("{W}{B}"),
-        types: TypeSet::INSTANT,
-    }],
-    color_identity: ColorSet::from_slice(&[Color::White, Color::Black]),
-    coverage: Coverage::Implemented,
-    abilities: &[spell!(&[Effect::Destroy {
+card!(
+    index = 56,
+    oracle_id = "f21d0319-0509-4ac1-b6e3-10955a26fd7a",
+    scryfall_id = "cba33bf7-0919-408c-8eb0-0bb9fe920c81",
+    faces = &[face!(
+        name = "Fracture",
+        mana_cost = mana!("{W}{B}"),
+        types = TypeSet::INSTANT,
+    )],
+    color_identity = ColorSet::from_slice(&[Color::White, Color::Black]),
+    coverage = Coverage::Implemented,
+    abilities = &[spell!(
+        &[Effect::Destroy {
             target: TargetSpec::Object(&ARTIFACT_ENCHANTMENT_OR_WALKER),
-        }], targets: Some(TargetReq::one(TargetSpec::Object(
+        }],
+        targets = Some(TargetReq::one(TargetSpec::Object(
             &ARTIFACT_ENCHANTMENT_OR_WALKER,
-        ))))],
-}
+        )))
+    )],
+);

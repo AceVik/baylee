@@ -6,20 +6,23 @@
 
 use baylee_cards_dsl::prelude::*;
 
-card! {
-    index: 280,
-    oracle_id: "4d722521-0396-48f9-88b2-08b6249f970d",
-    scryfall_id: "a6d03a79-4219-492f-bf9a-0b810e97e5f5",
-    color_identity: ColorSet::from_slice(&[Color::Blue]),
-    coverage: Coverage::Implemented,
-    faces: &[
-    face! {
-        name: "Blighted Cataract",
-        types: TypeSet::LAND,
-    },
-    ],
-    abilities: &[
+card!(
+    index = 280,
+    oracle_id = "4d722521-0396-48f9-88b2-08b6249f970d",
+    scryfall_id = "a6d03a79-4219-492f-bf9a-0b810e97e5f5",
+    color_identity = ColorSet::from_slice(&[Color::Blue]),
+    coverage = Coverage::Implemented,
+    faces = &[face!(name = "Blighted Cataract", types = TypeSet::LAND,),],
+    abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
-        activated!(Cost { mana: mana!("{5}{U}"), parts: &[CostPart::TapSelf, CostPart::SacrificeSelf] }, &[Effect::DrawCards { amount: Amount::Fixed(2) }]),
+        activated!(
+            Cost {
+                mana: mana!("{5}{U}"),
+                parts: &[CostPart::TapSelf, CostPart::SacrificeSelf]
+            },
+            &[Effect::DrawCards {
+                amount: Amount::Fixed(2)
+            }]
+        ),
     ],
-}
+);

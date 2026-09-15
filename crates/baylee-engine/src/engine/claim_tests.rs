@@ -160,7 +160,7 @@ fn printed_text() -> Vec<(CardIndex, String)> {
         if printed.is_empty() {
             continue;
         }
-        let Some(oracle_id) = quoted(&text, "oracle_id: \"") else {
+        let Some(oracle_id) = quoted(&text, "oracle_id = \"") else {
             continue;
         };
         let Some(def) = baylee_cards::by_oracle_id(&oracle_id) else {
