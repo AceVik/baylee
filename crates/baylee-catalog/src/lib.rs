@@ -188,6 +188,22 @@ const VERSION_KEY: &str = "search_projection";
 /// what `TRUNCATE` does for free and why the lock would then be decoration.
 const PROJECT_LOCK: i64 = 0x000b_a11e_eca7_a106;
 
+/// Serialises the DDL in [`Catalog::migrate`].
+///
+/// **`IF NOT EXISTS` is a check and an insert, and nothing holds them
+/// together.** Two sessions migrating at once both find `unaccent` missing,
+/// both insert, and the loser gets `duplicate key value violates unique
+/// constraint "pg_extension_name_index"` — not a wrong schema, but a failed
+/// migration, which is worse than either outcome it was protecting against.
+/// It is invisible wherever the extension already exists, so it does not
+/// happen on a development machine and does happen on a CI server that
+/// starts an empty PostgreSQL and then runs the e2e tests in parallel
+/// schemas: three tests died on it there while every local run was green.
+/// `CREATE TABLE`/`CREATE INDEX IF NOT EXISTS` race the same way, so the
+/// lock is around the whole loop and not around the one statement that was
+/// caught.
+const SCHEMA_LOCK: i64 = 0x000b_a11e_5c4e_3a01;
+
 /// The body of `catalog_norm`, which a query and a stored name are both
 /// folded through.
 ///
@@ -385,12 +401,18 @@ impl Catalog {
     /// When a statement fails — most often a missing `unaccent` extension on
     /// a server where the role may not create extensions.
     pub async fn migrate(&self) -> Result<()> {
+        let tx = self
+            .db
+            .begin()
+            .await
+            .context("opening the schema transaction")?;
+        take_the_schema_lock(&tx).await?;
         for sql in schema_statements() {
-            self.db
-                .execute_raw(Statement::from_string(DbBackend::Postgres, sql.clone()))
+            tx.execute_raw(Statement::from_string(DbBackend::Postgres, sql.clone()))
                 .await
                 .with_context(|| format!("applying schema statement: {sql}"))?;
         }
+        tx.commit().await.context("committing the schema")?;
         self.rebuild_if_stale().await
     }
 
@@ -1070,6 +1092,23 @@ async fn take_the_projection_lock(conn: &impl ConnectionTrait) -> Result<()> {
     ))
     .await
     .context("taking the projection lock")?;
+    Ok(())
+}
+
+/// Holds [`SCHEMA_LOCK`] for the rest of `conn`'s transaction.
+///
+/// The transaction flavour for the reason above it, and because the DDL it
+/// guards is the same transaction: a migration that fails half way releases
+/// the lock by rolling back rather than leaving every later one waiting on a
+/// pooled connection nobody is using.
+async fn take_the_schema_lock(conn: &impl ConnectionTrait) -> Result<()> {
+    conn.execute_raw(Statement::from_sql_and_values(
+        DbBackend::Postgres,
+        "SELECT pg_advisory_xact_lock($1)",
+        [Value::from(SCHEMA_LOCK)],
+    ))
+    .await
+    .context("taking the schema lock")?;
     Ok(())
 }
 
