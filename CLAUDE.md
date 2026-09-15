@@ -391,7 +391,12 @@ The engine is also strictly synchronous — async lives only in `engine-server`,
 (`crates/baylee-cards/src/generated_lines.rs` — which printed sentence each
 ability came from, so a client can draw a stack entry as what the ability
 *does*; `docs/client.md` §"Which ability is on the stack" is normative, and the table is
-two-phase, so a card added by one run gets its row from the next). You then
+two-phase, so a card added by one run gets its row from the next) and the name
+table (`crates/baylee-cards/src/generated_names.rs` — which card a printed
+English name is, which `decks::by_name` answers in one hash instead of walking
+1365 cards; two-phase for the same reason, so the tests in
+`decks::name_table_tests` fail between the run that adds a card and the run
+after it). You then
 edit **only**
 `coverage`, `keywords`, `abilities` in that card's file;
 `index`, `oracle_id`, `scryfall_id` and `faces` stay as generated — except
