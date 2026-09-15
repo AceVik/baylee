@@ -29,6 +29,34 @@ enum Cmd {
         #[arg(long, default_value = "data/scryfall-cache")]
         cache: PathBuf,
     },
+    /// Assign a `CardIndex` to every card in the corpus that has none.
+    ///
+    /// The only thing that writes `data/card-index.tsv`, and the reason
+    /// `codegen` never does: an index assigned as a side effect of a build
+    /// takes its order from whatever happened to be fetched that day. This
+    /// takes its order from the corpus — first appearance, over every card
+    /// that exists — so adopting an old card inserts nothing.
+    ///
+    /// The corpus comes from `baylee-catalog corpus`, which needs a database.
+    /// This half needs only the file it writes, so codegen stays offline.
+    Ledger {
+        /// The corpus, as `baylee-catalog corpus` writes it.
+        #[arg(long, default_value = "data/card-corpus.tsv")]
+        corpus: PathBuf,
+        /// Report what would be assigned instead of writing it.
+        #[arg(long)]
+        check: bool,
+        /// Throw every assignment away and number the corpus from zero.
+        ///
+        /// A card the ledger holds and the corpus does not is carried over
+        /// and named in the output: it is a card this repo implements, and
+        /// dropping its row would leave codegen unable to build it. Every
+        /// stored `CardIndex` anywhere becomes wrong, so this is a
+        /// deliberate, one-off, migrate-or-discard operation and never a part
+        /// of maintenance.
+        #[arg(long)]
+        reseed: bool,
+    },
     /// Measure how well the compiled ability list lines up with the printed sentences.
     ///
     /// A report, not a check: it is the design input for the per-ability
@@ -289,6 +317,11 @@ fn main() -> anyhow::Result<()> {
             scripts,
             cache,
         } => codegen(&root, check, &scripts, &cache),
+        Cmd::Ledger {
+            corpus,
+            check,
+            reseed,
+        } => ledger_cmd(&root, &corpus, check, reseed),
         Cmd::AbilityLines => ability_lines(&root),
         Cmd::PoolDump { out } => pool_dump(&out),
         Cmd::TranscodeReport {
@@ -458,9 +491,7 @@ fn cards(
     // the list is alphabetical, so one new card would otherwise renumber every
     // card after it (see baylee-cards-codegen/src/ledger.rs).
     let ledger_path = root.join("data/card-index.tsv");
-    let mut ledger =
-        ledger::IndexLedger::parse(&fs::read_to_string(&ledger_path).unwrap_or_default())?;
-    let before = ledger.entries().len();
+    let ledger = ledger::IndexLedger::parse(&fs::read_to_string(&ledger_path).unwrap_or_default())?;
     // The taxonomy `cards/` is arranged by is computed per card
     // (`layout::path_for`), so a card's file can be somewhere else than where
     // it belongs — after a type-line correction, or on the run that
@@ -492,7 +523,17 @@ fn cards(
     for name in &names {
         let card = scryfall::fetch_named(name, agent, cache)?;
         let oracle_id = card.oracle_id.clone().unwrap_or_default();
-        let index = ledger.assign(&oracle_id, &card.name);
+        // Codegen reads the ledger and never writes it. Assignment is its own
+        // deliberate step (`cargo xtask ledger`) over the whole card corpus,
+        // because an index assigned as a side effect of a build is an index
+        // whose order depends on what happened to be fetched that day.
+        let Some(index) = ledger.index_of(&oracle_id) else {
+            anyhow::bail!(
+                "{name} ({oracle_id}) has no row in data/card-index.tsv.\n\
+                 Indices are assigned over the whole card corpus and not on \
+                 sight: run `baylee-catalog corpus` and then `cargo xtask ledger`."
+            );
+        };
         let (info, content) = stubgen::render_stub(&card, index, cats, scripts, &cycles)?;
         let stub_path = cards_dir.join(&info.path);
         // A card that already exists somewhere else is *moved*, never
@@ -551,14 +592,10 @@ fn cards(
         &stubgen::render_cards_mod(&stubs),
         changed,
     )?;
-    if ledger.entries().len() > before {
-        println!(
-            "card-index ledger: {} new index/indices assigned",
-            ledger.entries().len() - before
-        );
-    }
+    // The ledger is an input here, not an output: it is written by
+    // `cargo xtask ledger` alone. Rendering it back would be a no-op on a
+    // good tree and a silent repair on a hand-edited one.
     let slots = ledger.slots();
-    write_or_check(check, &ledger_path, &ledger.render(), changed)?;
     write_or_check(
         check,
         &root.join("crates/baylee-cards/src/generated.rs"),
@@ -4238,6 +4275,112 @@ enum Miss {
     /// the ability says about itself. This is the bucket that matters: it
     /// is where a swapped pair and a wrong cost both land.
     NoLineThatSaysThat,
+}
+
+/// Assigns a `CardIndex` to every corpus card that has none.
+///
+/// The corpus arrives already in first-appearance order — release date, then
+/// name, then oracle id, the last of which no two cards share — so this walks
+/// it once and hands out the next free index. That order is the *whole*
+/// assignment rule, which is why it is produced by one query with one `ORDER
+/// BY` rather than reconstructed here.
+///
+/// Appending is the normal case and reseeding is not: a run over a corpus
+/// whose cards all have rows writes nothing and says so. Nothing in here can
+/// move an index that exists — `IndexLedger::assign` returns the stored one —
+/// so the worst a bad corpus file can do is add rows at the end.
+///
+/// `--reseed` is the exception and is a one-off: it reads no ledger at all and
+/// numbers the corpus from zero, because that is what throwing the
+/// assignments away means. Every stored `CardIndex` anywhere becomes wrong, so
+/// it is a deliberate migrate-or-discard operation and never part of
+/// maintenance.
+///
+/// Either way the run ends by asking the **registry** whether every card this
+/// repo compiles got a row, and refuses to write if one did not. That is the
+/// half the corpus cannot know: its filter is Scryfall's vocabulary and says
+/// nothing about what somebody here has implemented, and codegen cannot build
+/// a card with no index. The answer to a refusal is
+/// `data/corpus-keep.tsv`, not a special case in here.
+fn ledger_cmd(root: &Path, corpus: &Path, check: bool, reseed: bool) -> anyhow::Result<()> {
+    let corpus_path = if corpus.is_absolute() {
+        corpus.to_path_buf()
+    } else {
+        root.join(corpus)
+    };
+    let text = fs::read_to_string(&corpus_path).map_err(|e| {
+        anyhow::anyhow!(
+            "reading {} ({e}) — write it with `baylee-catalog corpus`",
+            corpus_path.display()
+        )
+    })?;
+    let ledger_path = root.join("data/card-index.tsv");
+    let mut ledger = if reseed {
+        ledger::IndexLedger::default()
+    } else {
+        ledger::IndexLedger::parse(&fs::read_to_string(&ledger_path).unwrap_or_default())?
+    };
+    let before = ledger.entries().len();
+
+    let mut seen = 0usize;
+    for (n, line) in text.lines().enumerate() {
+        let line = line.trim_end();
+        if line.is_empty() || line.starts_with('#') {
+            continue;
+        }
+        let mut cols = line.splitn(4, '\t');
+        let (Some(oracle_id), Some(_released), Some(set), Some(name)) =
+            (cols.next(), cols.next(), cols.next(), cols.next())
+        else {
+            anyhow::bail!(
+                "{}:{}: expected oracle_id<TAB>released_at<TAB>set<TAB>name, got {line:?}",
+                corpus_path.display(),
+                n + 1
+            );
+        };
+        ledger.assign(oracle_id, name, set)?;
+        seen += 1;
+    }
+
+    // The corpus filter is Scryfall's vocabulary and knows nothing about this
+    // repo, so a card somebody implemented can fall outside it — eight acorn
+    // lands do. Codegen cannot build a card with no index, so a run that would
+    // leave one without a row writes nothing and names it. The fix is a line
+    // in data/corpus-keep.tsv, which puts the card back into the corpus and
+    // lets the same query decide its set and its place in the order.
+    let orphans: Vec<&'static str> = baylee_cards::all()
+        .filter(|def| ledger.index_of(def.oracle_id).is_none())
+        .map(baylee_cards::dsl::CardDef::name)
+        .collect();
+    if !orphans.is_empty() {
+        for name in &orphans {
+            println!("  no row: {name}");
+        }
+        anyhow::bail!(
+            "{} card(s) this repo compiles have no index.\n\
+             Add each one's oracle_id to data/corpus-keep.tsv, rerun \
+             `baylee-catalog corpus`, and try again.",
+            orphans.len()
+        );
+    }
+
+    let assigned = ledger.entries().len() - before;
+    println!(
+        "corpus: {seen} cards, ledger: {} rows ({assigned} newly assigned)",
+        ledger.entries().len()
+    );
+    if assigned == 0 {
+        println!("nothing to assign; {} is unchanged", ledger_path.display());
+        return Ok(());
+    }
+    if check {
+        println!("--check: not written");
+        return Ok(());
+    }
+    fs::write(&ledger_path, ledger.render())
+        .map_err(|e| anyhow::anyhow!("writing {} ({e})", ledger_path.display()))?;
+    println!("wrote {}", ledger_path.display());
+    Ok(())
 }
 
 /// Does the compiled ability list line up with the printed sentences?

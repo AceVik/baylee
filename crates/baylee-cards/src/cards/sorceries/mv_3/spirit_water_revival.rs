@@ -26,7 +26,7 @@ static NORMAL_OUTCOME: &[Effect] = &[Effect::DrawCards {
 use baylee_cards_dsl::prelude::*;
 
 card!(
-    index = 156,
+    index = 31466,
     oracle_id = "68979160-b5ce-4787-8a1e-1f40e614c3b0",
     scryfall_id = "0c019e76-c88e-4d1b-a546-0f4e462ef44a",
     faces = &[face!(

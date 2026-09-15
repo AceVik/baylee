@@ -15,7 +15,7 @@ static NON_ANGEL_CREATURE_YOU_CONTROL: Filter = Filter::And(&[
 ]);
 
 card!(
-    index = 131,
+    index = 12342,
     oracle_id = "dfbd3afc-9905-4cff-a4f4-df08a4d0a7fa",
     scryfall_id = "f17f85d3-58e5-4128-90c5-98b524256af8",
     faces = &[face!(

@@ -15,7 +15,7 @@ static TAPPED_ARTIFACTS_CREATURES: Filter = Filter::And(&[
 use crate::tokens::ALLY_1_1_WHITE as ALLY_TOKEN;
 
 card!(
-    index = 0,
+    index = 31154,
     oracle_id = "481c3e14-b670-4fab-aa9f-6ce5b514096d",
     scryfall_id = "f333ea01-124f-4125-87ab-609be40e774c",
     faces = &[face!(

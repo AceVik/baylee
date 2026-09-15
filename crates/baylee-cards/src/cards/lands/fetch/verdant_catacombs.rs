@@ -12,7 +12,7 @@ static SEARCH1: Filter = Filter::Or(&[
 ]);
 
 card!(
-    index = 1285,
+    index = 10742,
     oracle_id = "67d60b24-d429-4ded-90d9-06e49f28c396",
     scryfall_id = "94c229ea-90da-4aa0-bfda-b162fb3b5b8b",
     coverage = Coverage::Implemented,

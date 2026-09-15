@@ -8,7 +8,7 @@
 use baylee_cards_dsl::prelude::*;
 
 card!(
-    index = 620,
+    index = 28691,
     oracle_id = "382d18a2-438e-4ae7-a83f-1658ef1f9b07",
     scryfall_id = "4ba8f2e7-8357-4862-97dc-1942d066023a",
     faces = &[face!(name = "Hidden Grotto", types = TypeSet::LAND,),],

@@ -14,7 +14,7 @@ static SEARCH_FILTER: Filter = Filter::Or(&[
 ]);
 
 card!(
-    index = 139,
+    index = 10690,
     oracle_id = "cb027150-848c-4a66-88ad-e20222304dd8",
     scryfall_id = "71e491c5-8c07-449b-b2f1-ffa052e6d311",
     faces = &[face!(name = "Scalding Tarn", types = TypeSet::LAND,)],

@@ -7,7 +7,7 @@
 use baylee_cards_dsl::prelude::*;
 
 card!(
-    index = 406,
+    index = 6685,
     oracle_id = "8dc067bf-f78f-4ac4-b6e7-b305c42cf0bc",
     scryfall_id = "2ba7597d-6d76-45b8-b172-342999e401bd",
     keywords = KeywordSet::INDESTRUCTIBLE,

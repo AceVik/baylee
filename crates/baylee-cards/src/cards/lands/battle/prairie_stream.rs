@@ -10,7 +10,7 @@ use baylee_core::generated::subtypes;
 static CHECK: Filter = Filter::And(&[Filter::ControlledByYou, Filter::BASIC_LAND]);
 
 card!(
-    index = 117,
+    index = 15249,
     oracle_id = "5330e24a-8568-446e-840a-594cd08bd1bc",
     scryfall_id = "b2e133b4-2263-4ac2-8d16-7bf307d5e104",
     color_identity = ColorSet::from_slice(&[Color::Blue, Color::White]),

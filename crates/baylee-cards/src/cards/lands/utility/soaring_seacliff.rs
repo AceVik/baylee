@@ -10,7 +10,7 @@ use baylee_cards_dsl::prelude::*;
 static TARGET1: Filter = Filter::CREATURE;
 
 card!(
-    index = 1061,
+    index = 10703,
     oracle_id = "a37544b6-0048-4213-8e40-76ba8a0b6d1b",
     scryfall_id = "651a1a4f-bdaa-44d6-ac45-050894788063",
     color_identity = ColorSet::from_slice(&[Color::Blue]),

@@ -13,7 +13,7 @@ static SPEND1: Filter = Filter::Or(&[
 ]);
 
 card!(
-    index = 1212,
+    index = 19545,
     oracle_id = "a3ed5d7f-c554-4d46-86e5-7bb8df2693f6",
     scryfall_id = "cd438d51-a778-4b38-8b4b-a6a9cd9b4b22",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Red, Color::White]),

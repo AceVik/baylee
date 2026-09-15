@@ -7,7 +7,7 @@
 use baylee_cards_dsl::prelude::*;
 
 card!(
-    index = 582,
+    index = 9948,
     oracle_id = "743f4488-fef1-4f4d-b745-d2de92423e00",
     scryfall_id = "e49dd5f0-1afa-4301-acdb-28424e2553b9",
     faces = &[face!(name = "Grixis Panorama", types = TypeSet::LAND,),],

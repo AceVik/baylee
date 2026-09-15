@@ -45,6 +45,28 @@ pub enum CodegenError {
         /// Line content.
         text: String,
     },
+    /// A card name carries a letter the slug table has no ASCII answer for.
+    ///
+    /// Refused rather than dropped, because the slug becomes a constant's
+    /// name in the ledger and is frozen there: `Barad-dûr` shipped as
+    /// `barad_dr` for as long as the table said nothing about `û`.
+    #[error("no ASCII spelling for '{letter}' in '{name}' — add it to stubgen::TRANSLITERATE")]
+    Untransliterable {
+        /// The card.
+        name: String,
+        /// The letter with no answer.
+        letter: char,
+    },
+    /// Two cards want one constant and no tie-break freed it.
+    #[error("constant {constant} is claimed by both '{held}' and '{wanted}'")]
+    ConstantCollision {
+        /// The contested name.
+        constant: String,
+        /// The card that holds it.
+        held: String,
+        /// The card that wanted it.
+        wanted: String,
+    },
     /// Invalid line in the acceptance deck file.
     #[error("acceptance deck file line {line}: {text}")]
     DeckLine {

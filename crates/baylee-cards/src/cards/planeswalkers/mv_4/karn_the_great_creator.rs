@@ -15,7 +15,7 @@ static NONCREATURE_ARTIFACT: Filter = Filter::And(&[Filter::ARTIFACT, Filter::NO
 static ARTIFACT_YOU_OWN: Filter = Filter::And(&[Filter::OwnedByYou, Filter::ARTIFACT]);
 
 card!(
-    index = 81,
+    index = 18738,
     oracle_id = "a20dd48d-d344-4db1-b0e9-a2b71c3cc9d1",
     scryfall_id = "deb3721d-fba1-444f-8b31-1cd10c94c4a0",
     faces = &[face!(

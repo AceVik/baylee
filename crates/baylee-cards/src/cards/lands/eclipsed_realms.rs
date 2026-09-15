@@ -8,7 +8,7 @@
 use baylee_cards_dsl::prelude::*;
 
 card!(
-    index = 456,
+    index = 31665,
     oracle_id = "5715ed43-395c-4877-99a7-8e28e7bf9dce",
     scryfall_id = "a174f0db-8b4f-4c37-9583-44c92d37b9c0",
     faces = &[face!(name = "Eclipsed Realms", types = TypeSet::LAND,),],

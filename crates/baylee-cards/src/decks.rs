@@ -90,15 +90,18 @@ pub struct LoadedDeck {
 
 /// Resolves a card name to its registry index (linear scan; the
 /// acceptance pool is small).
+///
+/// It walks the **cards** and reads the index each one claims, rather than
+/// counting positions off. An index is assigned over the whole card corpus
+/// and this pool holds 1365 of its 33 694 rows, so a scan of `0..count()`
+/// looks at the first 1365 *slots*, nearly all of them empty, and cannot see
+/// a card past them. Written the old way it answered `None` for almost every
+/// card in the acceptance decks the moment the ledger was seeded.
 #[must_use]
 pub fn by_name(name: &str) -> Option<CardIndex> {
-    (0..crate::count())
-        .map(|i| by_index(CardIndex::new(i as u32)))
-        .zip(0..crate::count())
-        .find_map(|(def, i)| match def {
-            Some(def) if def.name() == name => Some(CardIndex::new(i as u32)),
-            _ => None,
-        })
+    crate::all()
+        .find(|def| def.name() == name)
+        .map(|def| def.index)
 }
 
 /// Loads a named deck from the acceptance text.

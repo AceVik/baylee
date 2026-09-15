@@ -7,7 +7,7 @@
 use baylee_cards_dsl::prelude::*;
 
 card!(
-    index = 1067,
+    index = 29529,
     oracle_id = "3c0f99b8-0222-4fac-932a-eb5d77826564",
     scryfall_id = "642553a7-6d0f-483d-a873-3a703786db42",
     faces = &[face!(name = "Soulstone Sanctuary", types = TypeSet::LAND,),],

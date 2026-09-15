@@ -14,7 +14,7 @@ static PLAINS_OR_SWAMP: Filter = Filter::Or(&[
 ]);
 
 card!(
-    index = 12,
+    index = 29588,
     oracle_id = "2b8144a0-08d2-4c28-9fd7-5d90f90105e4",
     scryfall_id = "52dcdabd-a186-45fe-9fee-6c0f1afeaf16",
     faces = &[face!(name = "Bleachbone Verge", types = TypeSet::LAND,)],

@@ -10,7 +10,7 @@ static HEXPROOF_INDESTRUCTIBLE: KeywordSet = KeywordSet::HEXPROOF.union(KeywordS
 use baylee_cards_dsl::prelude::*;
 
 card!(
-    index = 47,
+    index = 26615,
     oracle_id = "39213de3-6a4a-4879-a7f9-70f45013765e",
     scryfall_id = "9dab0052-7f0c-4b56-847f-20552666a271",
     faces = &[face!(

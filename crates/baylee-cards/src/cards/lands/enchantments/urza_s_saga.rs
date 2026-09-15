@@ -17,7 +17,7 @@ static ARTIFACT_CMC1: Filter = Filter::And(&[Filter::ARTIFACT, Filter::CmcAtMost
 static CHAPTER_I_FX: &[Effect] = &[Effect::mana(ManaColor::Colorless, 1)];
 
 card!(
-    index = 179,
+    index = 21519,
     oracle_id = "4c6a0c30-b547-4eff-8ff4-0ca25803c076",
     scryfall_id = "c1e0f201-42cb-46a1-901a-65bb4fc18f6c",
     faces = &[face!(

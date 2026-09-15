@@ -10,7 +10,7 @@ static YOUR_CREATURE: Filter = Filter::And(&[Filter::ControlledByYou, Filter::CR
 use baylee_cards_dsl::prelude::*;
 
 card!(
-    index = 44,
+    index = 18898,
     oracle_id = "0fd57894-b917-41c8-a394-360d1d31b236",
     scryfall_id = "2da5f3f8-5eef-498f-ba2c-2f3fbc3745aa",
     faces = &[face!(

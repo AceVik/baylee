@@ -9,7 +9,7 @@ use baylee_cards_dsl::prelude::*;
 static TARGET1: Filter = Filter::HasSupertype(SupertypeSet::LEGENDARY);
 
 card!(
-    index = 757,
+    index = 7131,
     oracle_id = "17784f90-89a1-47a5-83ef-ae60dfc30bd1",
     scryfall_id = "7536292c-da25-41c8-ba28-1e35758a7f3d",
     color_identity = ColorSet::from_slice(&[Color::Blue]),

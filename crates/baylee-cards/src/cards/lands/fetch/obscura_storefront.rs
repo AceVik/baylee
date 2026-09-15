@@ -6,7 +6,7 @@
 use baylee_cards_dsl::prelude::*;
 
 card!(
-    index = 825,
+    index = 23309,
     oracle_id = "dc31a6f8-6228-4a25-b937-5d8d78514333",
     scryfall_id = "d8eaf8d2-8029-49d9-a94b-a72dc31fc81f",
     faces = &[face!(name = "Obscura Storefront", types = TypeSet::LAND,),],

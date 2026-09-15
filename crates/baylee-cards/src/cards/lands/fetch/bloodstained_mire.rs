@@ -14,7 +14,7 @@ static SEARCH_FILTER: Filter = Filter::Or(&[
 ]);
 
 card!(
-    index = 13,
+    index = 5735,
     oracle_id = "fc0707c7-d504-4ccf-a0d2-3eb6e26e7a57",
     scryfall_id = "579743fe-f71e-4cb2-8629-d6b02ed1591d",
     faces = &[face!(name = "Bloodstained Mire", types = TypeSet::LAND,)],

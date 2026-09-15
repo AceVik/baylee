@@ -8,7 +8,7 @@ use baylee_cards_dsl::prelude::*;
 use crate::tokens::BOAR_2_2_GREEN as BOAR_TOKEN;
 
 card!(
-    index = 27,
+    index = 13495,
     oracle_id = "5669ea7c-c4fc-494c-896b-4bce9b494817",
     scryfall_id = "91eb9067-0bc7-4497-ba9c-c1ea41e5a379",
     faces = &[face!(

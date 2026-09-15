@@ -16,7 +16,7 @@ use baylee_core::generated::subtypes::{self, creature};
 static ALLY_CARD: Filter = Filter::And(&[Filter::HasSubtype(creature::ALLY), Filter::CREATURE]);
 
 card!(
-    index = 57,
+    index = 15446,
     oracle_id = "b0f19cba-1339-4518-8320-d7b1dcaf2eb0",
     scryfall_id = "34e9aa86-1a31-4c0f-928d-923f066286b6",
     faces = &[face!(

@@ -8,7 +8,7 @@
 use baylee_cards_dsl::prelude::*;
 
 card!(
-    index = 219,
+    index = 29579,
     oracle_id = "fe174586-d36b-40f6-babd-1f98e76eec22",
     scryfall_id = "4f312807-ea2a-4385-8774-4e23b4a5d4a6",
     faces = &[face!(name = "Amonkhet Raceway", types = TypeSet::LAND,),],

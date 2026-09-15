@@ -8,7 +8,7 @@
 use baylee_cards_dsl::prelude::*;
 
 card!(
-    index = 228,
+    index = 17361,
     oracle_id = "3bb518ff-399b-4ce7-b9ad-a1d563dd7792",
     scryfall_id = "581dcadd-7de4-4b39-bab0-d3567194a252",
     faces = &[face!(name = "Arch of Orazca", types = TypeSet::LAND,),],

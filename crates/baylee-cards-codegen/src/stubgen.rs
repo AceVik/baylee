@@ -53,10 +53,97 @@ pub struct StubInfo {
     pub path: String,
 }
 
+/// The Latin letters Magic prints that are not ASCII, and what they are in
+/// ASCII.
+///
+/// Measured over the whole card corpus: sixteen accented letters across
+/// ninety names, plus the five ligatures and strokes that no card prints yet
+/// and that cost nothing to answer in advance. It is a table rather than a
+/// normalisation pass because the alternative is a Unicode dependency in a
+/// build tool for ninety names, and because a table can be *wrong out loud*:
+/// [`untransliterable`] refuses a letter this list has no answer for, so a
+/// future card with a new diacritic stops the generator instead of quietly
+/// losing a character.
+const TRANSLITERATE: &[(char, &str)] = &[
+    ('à', "a"),
+    ('á', "a"),
+    ('â', "a"),
+    ('ä', "a"),
+    ('å', "a"),
+    ('æ', "ae"),
+    ('ç', "c"),
+    ('è', "e"),
+    ('é', "e"),
+    ('ê', "e"),
+    ('ë', "e"),
+    ('í', "i"),
+    ('î', "i"),
+    ('ï', "i"),
+    ('ñ', "n"),
+    ('ó', "o"),
+    ('ô', "o"),
+    ('ö', "o"),
+    ('ø', "o"),
+    ('ō', "o"),
+    ('ú', "u"),
+    ('û', "u"),
+    ('ü', "u"),
+    ('ß', "ss"),
+    ('ł', "l"),
+    ('đ', "d"),
+];
+
+/// The first letter in `name` that [`slug`] would drop rather than fold.
+///
+/// A dropped letter is the one slug failure that leaves no trace: `Dandân`
+/// became `dandn` and `Barad-dûr` became `barad_dr`, and both compiled,
+/// resolved and shipped. Once a slug is frozen in the ledger as a constant's
+/// name, that mangling is permanent — so the step that assigns one asks this
+/// first and refuses.
+///
+/// Punctuation and separators are not letters and are meant to be dropped;
+/// only an alphanumeric character with no ASCII answer is a refusal.
+#[must_use]
+pub fn untransliterable(name: &str) -> Option<char> {
+    name.chars().find(|c| {
+        !c.is_ascii()
+            && c.is_alphanumeric()
+            && !TRANSLITERATE.iter().any(|(from, _)| from == c)
+            && !TRANSLITERATE
+                .iter()
+                .any(|(from, _)| from.to_uppercase().eq(c.to_uppercase()))
+    })
+}
+
+/// Folds the accented Latin a card name may print down to ASCII.
+fn fold(name: &str) -> String {
+    let mut out = String::with_capacity(name.len());
+    for c in name.chars() {
+        if c.is_ascii() {
+            out.push(c);
+        } else if let Some((_, ascii)) = TRANSLITERATE.iter().find(|(from, _)| *from == c) {
+            out.push_str(ascii);
+        } else if let Some((_, ascii)) = TRANSLITERATE
+            .iter()
+            .find(|(from, _)| from.to_uppercase().eq(c.to_uppercase()))
+        {
+            // The uppercase form of a letter the table lists in lowercase.
+            out.push_str(&ascii.to_uppercase());
+        } else {
+            out.push(c);
+        }
+    }
+    out
+}
+
 /// Filesystem-safe module slug for a card name.
+///
+/// Accented Latin is folded to ASCII rather than dropped, so `Barad-dûr` is
+/// `barad_dur`. Anything [`untransliterable`] would name is still dropped
+/// here; the refusal belongs at the one step that sees every name at once.
 #[must_use]
 pub fn slug(name: &str) -> String {
-    let snake = name.to_snake_case();
+    let snake = fold(name).to_snake_case();
     let mut out = String::with_capacity(snake.len());
     for c in snake.chars() {
         if c.is_ascii_alphanumeric() || c == '_' {
@@ -800,6 +887,37 @@ mod tests {
             slug("Jin-Gitaxias, Progress Tyrant"),
             "jin_gitaxias_progress_tyrant"
         );
+    }
+
+    /// Ninety cards in the corpus print an accented letter, and dropping it
+    /// is silent: `barad_dr` compiles, resolves and is wrong forever once a
+    /// ledger has frozen it as a constant's name.
+    #[test]
+    fn an_accented_name_keeps_its_letters() {
+        assert_eq!(slug("Barad-dûr"), "barad_dur");
+        assert_eq!(slug("Dandân"), "dandan");
+        assert_eq!(slug("Ghazbán Ogre"), "ghazban_ogre");
+        assert_eq!(slug("Ifh-Bíff Efreet"), "ifh_biff_efreet");
+        assert_eq!(slug("Séance"), "seance");
+        assert_eq!(slug("Márton Stromgald"), "marton_stromgald");
+        // Uppercase folds to the same letter, and punctuation still goes.
+        assert_eq!(slug("Éowyn, Lady of Rohan"), "eowyn_lady_of_rohan");
+        assert_eq!(slug("Ach! Hans, Run!"), "ach_hans_run");
+        // A digit cannot open a Rust identifier.
+        assert!(slug("1996 World Champion").starts_with("c_"));
+    }
+
+    /// The table is allowed to be incomplete; it is not allowed to be
+    /// incomplete *quietly*. Every letter it answers passes, and one it does
+    /// not is named back to the caller.
+    #[test]
+    fn a_letter_with_no_ascii_answer_is_refused_rather_than_dropped() {
+        assert_eq!(untransliterable("Barad-dûr"), None);
+        assert_eq!(untransliterable("Lightning Bolt"), None);
+        // Punctuation is meant to be dropped and is not a refusal.
+        assert_eq!(untransliterable("Ach! Hans, Run! — again"), None);
+        assert_eq!(untransliterable("稲妻"), Some('稲'));
+        assert_eq!(untransliterable("Ærathi Żmija"), Some('Ż'));
     }
 
     fn bare_card(name: &str, type_line: &str) -> ScryfallCard {

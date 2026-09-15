@@ -20,7 +20,7 @@ static YOUR_CREATURES: Filter = Filter::And(&[Filter::ControlledByYou, Filter::C
 use crate::tokens::SOLDIER_1_1_WHITE as SOLDIER;
 
 card!(
-    index = 40,
+    index = 29953,
     oracle_id = "f78af825-023a-42e9-8374-5c52303a1417",
     scryfall_id = "73a065e3-b530-4e62-ab3c-4f6f908184ec",
     faces = &[face!(

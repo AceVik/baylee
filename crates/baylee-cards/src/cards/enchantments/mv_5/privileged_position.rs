@@ -9,7 +9,7 @@ static OTHER_YOURS: Filter = Filter::And(&[Filter::ControlledByYou, Filter::Anot
 use baylee_cards_dsl::prelude::*;
 
 card!(
-    index = 119,
+    index = 7829,
     oracle_id = "abd62af0-c17d-4f62-af15-9ea83037b990",
     scryfall_id = "9655bbe4-062f-4278-ad05-a326a64c5b69",
     faces = &[face!(

@@ -7,7 +7,7 @@
 use baylee_cards_dsl::prelude::*;
 
 card!(
-    index = 445,
+    index = 15630,
     oracle_id = "c30f9be4-c274-4ad0-b5d7-7d3421aa4277",
     scryfall_id = "dbc8512a-9f6c-40d4-8049-14505e260746",
     faces = &[face!(name = "Drownyard Temple", types = TypeSet::LAND,),],

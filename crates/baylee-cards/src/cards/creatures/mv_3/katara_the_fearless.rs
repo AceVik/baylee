@@ -10,7 +10,7 @@ static YOUR_ALLIES: Filter =
     Filter::And(&[Filter::ControlledByYou, Filter::HasSubtype(creature::ALLY)]);
 
 card!(
-    index = 82,
+    index = 30617,
     oracle_id = "0972d46e-423b-454e-87c7-a2d40fb6fb6d",
     scryfall_id = "b0a18f8b-7364-4375-b2e1-e2f15978517f",
     faces = &[face!(

@@ -13,7 +13,7 @@ use baylee_core::generated::subtypes::planeswalker;
 static OWNED_PERMANENT: Filter = Filter::And(&[Filter::OwnedByYou, Filter::Another]);
 
 card!(
-    index = 3,
+    index = 18071,
     oracle_id = "3a30089d-cd2d-49be-9b06-7a2454117692",
     scryfall_id = "bc010302-e715-4946-89eb-a214e0b836ba",
     faces = &[face!(

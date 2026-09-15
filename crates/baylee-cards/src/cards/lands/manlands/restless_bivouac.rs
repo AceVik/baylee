@@ -12,7 +12,7 @@ use baylee_core::generated::subtypes;
 static TARGET1: Filter = Filter::And(&[Filter::CREATURE, Filter::ControlledByYou]);
 
 card!(
-    index = 910,
+    index = 26414,
     oracle_id = "b3c7b46f-c9ab-40ca-b50b-a4e0d0bd9be8",
     scryfall_id = "b85e0aed-bfb2-4aa8-a754-849c4d9a6a58",
     color_identity = ColorSet::from_slice(&[Color::Red, Color::White]),

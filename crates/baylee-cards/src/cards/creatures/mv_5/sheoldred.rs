@@ -63,7 +63,7 @@ static BACK_ABILITIES: &[AbilityDef] = &[
 ];
 
 card!(
-    index = 143,
+    index = 25710,
     oracle_id = "97652492-7906-4d79-983c-fa1dc1239eba",
     scryfall_id = "bf2249e6-af74-4b88-8eb7-144ce8fa7f6b",
     faces = &[

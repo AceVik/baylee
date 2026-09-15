@@ -7,7 +7,7 @@
 use baylee_cards_dsl::prelude::*;
 
 card!(
-    index = 857,
+    index = 11732,
     oracle_id = "b6cc062c-eb39-46ee-bd6d-17f1db0ac50d",
     scryfall_id = "8d8df09f-d22f-4f29-b920-358433f81b76",
     faces = &[face!(name = "Phyrexia's Core", types = TypeSet::LAND,),],

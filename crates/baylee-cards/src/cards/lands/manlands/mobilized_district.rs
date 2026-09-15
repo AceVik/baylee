@@ -7,7 +7,7 @@
 use baylee_cards_dsl::prelude::*;
 
 card!(
-    index = 774,
+    index = 18763,
     oracle_id = "eb2094cf-b4be-4f52-8615-e179ef7c741d",
     scryfall_id = "c7921b97-083b-480a-a7df-f2ab82e6f8fb",
     faces = &[face!(name = "Mobilized District", types = TypeSet::LAND,),],

@@ -9,7 +9,7 @@ use baylee_cards_dsl::prelude::*;
 static CHECK: Filter = Filter::And(&[Filter::ControlledByYou, Filter::LAND]);
 
 card!(
-    index = 1111,
+    index = 22597,
     oracle_id = "5ad0b405-cca4-475e-985c-4d7e3599d87e",
     scryfall_id = "b34000e9-ff20-4fb4-9d0b-03a172a92457",
     color_identity = ColorSet::from_slice(&[Color::Red, Color::White]),

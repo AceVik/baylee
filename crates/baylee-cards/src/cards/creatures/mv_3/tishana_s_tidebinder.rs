@@ -17,7 +17,7 @@ use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes::creature;
 
 card!(
-    index = 170,
+    index = 27125,
     oracle_id = "2993dc7d-723d-4a9b-94bd-4bb02a9f7243",
     scryfall_id = "907b3d1d-8c85-4707-80b5-c4d832df9846",
     faces = &[face!(

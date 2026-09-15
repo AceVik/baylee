@@ -7,7 +7,7 @@
 use baylee_cards_dsl::prelude::*;
 
 card!(
-    index = 1205,
+    index = 24963,
     oracle_id = "a91f93fd-e428-4a36-b1b3-604b47a34287",
     scryfall_id = "bbb5d40b-f0e1-4e98-b4d3-1ee2cfa5b579",
     faces = &[face!(name = "Tocasia's Dig Site", types = TypeSet::LAND,),],

@@ -2067,3 +2067,22 @@ mod schedule_order_tests;
 
 #[cfg(test)]
 mod cue_feed_tests;
+
+/// A [`baylee_view::PublicObject`] carrying the registry card of that name.
+///
+/// [`baylee_client_core::test_support::printed`] takes the index as a plain
+/// number, and that is only ever right by luck: an index is assigned over the
+/// whole card corpus, of which this pool holds 1365 rows, so the literal that
+/// was Command Tower is now a card nobody implemented — and a test that reads
+/// what the card *says* finds nothing at all. A test that needs only an
+/// identity keeps the numbered helper; this is for the ones that ask the
+/// registry a question.
+#[cfg(test)]
+pub(crate) fn registry_printed(slot: u32, controller: u8, name: &str) -> baylee_view::PublicObject {
+    let index = baylee_cards::decks::by_name(name).expect("a card of that name in the pool");
+    let mut object = baylee_client_core::test_support::printed(slot, controller, name, 0);
+    if let Some(card) = object.card.as_mut() {
+        card.index = index;
+    }
+    object
+}

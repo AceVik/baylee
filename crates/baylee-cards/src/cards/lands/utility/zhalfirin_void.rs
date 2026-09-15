@@ -7,7 +7,7 @@
 use baylee_cards_dsl::prelude::*;
 
 card!(
-    index = 1340,
+    index = 17763,
     oracle_id = "13aab4fc-4c89-45e6-8275-b074b00d0ee9",
     scryfall_id = "d481d871-d1e3-439b-bfd5-5b2212f9b0c8",
     coverage = Coverage::Implemented,

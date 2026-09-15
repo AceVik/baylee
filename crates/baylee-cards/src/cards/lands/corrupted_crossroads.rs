@@ -7,7 +7,7 @@
 use baylee_cards_dsl::prelude::*;
 
 card!(
-    index = 378,
+    index = 15422,
     oracle_id = "6276a985-7630-476d-a94f-6c6adc88f6c4",
     scryfall_id = "7043e193-8051-4f1b-9633-9c1f250d3607",
     faces = &[face!(name = "Corrupted Crossroads", types = TypeSet::LAND,),],

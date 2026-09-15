@@ -19,7 +19,7 @@ use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes::{creature, enchantment};
 
 card!(
-    index = 95,
+    index = 22522,
     oracle_id = "5768fe50-a134-492c-a725-5ed02610c39f",
     scryfall_id = "823ad188-bd56-476d-9853-bed90bfad582",
     faces = &[

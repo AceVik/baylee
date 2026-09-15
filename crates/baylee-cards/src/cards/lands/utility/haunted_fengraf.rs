@@ -7,7 +7,7 @@
 use baylee_cards_dsl::prelude::*;
 
 card!(
-    index = 605,
+    index = 12256,
     oracle_id = "7c6143f3-ad2c-4d7f-9041-aa59f01d8fb7",
     scryfall_id = "97a1d55a-39a8-4bf4-91b7-5565146c9c40",
     faces = &[face!(name = "Haunted Fengraf", types = TypeSet::LAND,),],

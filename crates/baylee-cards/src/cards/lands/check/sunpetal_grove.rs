@@ -17,7 +17,7 @@ static CHECK: Filter = Filter::And(&[
 ]);
 
 card!(
-    index = 1118,
+    index = 10468,
     oracle_id = "402ec768-76fb-474e-ae74-babc90d833c4",
     scryfall_id = "e83092ee-4a90-4eac-915f-3fd01b7d9bd0",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::White]),

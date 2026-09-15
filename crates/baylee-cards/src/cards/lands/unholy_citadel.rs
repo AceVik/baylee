@@ -6,7 +6,7 @@
 use baylee_cards_dsl::prelude::*;
 
 card!(
-    index = 1256,
+    index = 734,
     oracle_id = "d410027b-1c22-461e-939d-06a2c851352e",
     scryfall_id = "9de534ff-fb48-4692-bd0f-dd237ca28502",
     faces = &[face!(name = "Unholy Citadel", types = TypeSet::LAND,),],

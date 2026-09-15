@@ -6,7 +6,7 @@
 use baylee_cards_dsl::prelude::*;
 
 card!(
-    index = 102,
+    index = 1773,
     oracle_id = "fb81f95c-70f8-4eb7-8d15-15d0ae23ec03",
     scryfall_id = "36fa9a0b-b0c9-43ea-ba11-99d7982f974e",
     faces = &[face!(

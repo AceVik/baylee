@@ -25,7 +25,7 @@ static OPPONENT_AIS_SPELL: Filter = Filter::And(&[
 ]);
 
 card!(
-    index = 78,
+    index = 22845,
     oracle_id = "f5daadc1-98ff-480a-82bb-fe7bfaa7b60e",
     scryfall_id = "c57b4876-5387-4f73-b8e2-8e7bdca8b0bc",
     faces = &[face!(

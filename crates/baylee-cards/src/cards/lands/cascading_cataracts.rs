@@ -8,7 +8,7 @@
 use baylee_cards_dsl::prelude::*;
 
 card!(
-    index = 331,
+    index = 16635,
     oracle_id = "d98b4250-3492-4864-9c4c-42db09b3ccd4",
     scryfall_id = "2f3fbd9b-91ab-4691-a916-e20db8ebc513",
     faces = &[face!(name = "Cascading Cataracts", types = TypeSet::LAND,),],

@@ -10,7 +10,7 @@ static ARTIFACT_OR_ENCHANTMENT: Filter = Filter::Or(&[Filter::ARTIFACT, Filter::
 use baylee_cards_dsl::prelude::*;
 
 card!(
-    index = 67,
+    index = 19661,
     oracle_id = "e7564d66-767c-4cd9-a5f0-0f2488a4a74b",
     scryfall_id = "9519bb3a-bed3-48e8-93ae-9e9b2e7d646a",
     faces = &[face!(

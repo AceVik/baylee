@@ -8,7 +8,7 @@ use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
 card!(
-    index = 645,
+    index = 20931,
     oracle_id = "40c5d6fe-854a-436d-9f80-13eb5f1f8f68",
     scryfall_id = "8cff3ef0-4dfb-472e-aa1e-77613dd0f6d8",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Blue]),

@@ -12,7 +12,7 @@ static CREATURE_TOKEN: Filter = Filter::And(&[Filter::CREATURE, Filter::IsToken]
 use baylee_cards_dsl::prelude::*;
 
 card!(
-    index = 144,
+    index = 25304,
     oracle_id = "217062f5-96f1-454c-9507-17f34ef37070",
     scryfall_id = "a9225cc3-90f0-448f-a8d9-7c6c2796d077",
     faces = &[face!(

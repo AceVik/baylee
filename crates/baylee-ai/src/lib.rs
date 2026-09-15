@@ -908,9 +908,14 @@ mod tests {
 
     /// The same permanent, but backed by a real registry card so the
     /// activation policy can read what its abilities cost and do.
-    fn carded(mut object: PublicObject, index: u32, types: TypeSet) -> PublicObject {
+    ///
+    /// Named, not numbered. An index is assigned over the whole card corpus
+    /// rather than over this pool, so the literal that was Arid Mesa is now
+    /// some other card — and a test that reads the abilities off whatever
+    /// landed there fails for a reason that has nothing to do with the agent.
+    fn carded(mut object: PublicObject, name: &str, types: TypeSet) -> PublicObject {
         object.card = Some(baylee_view::CardIdentity {
-            index: baylee_core::ids::CardIndex::new(index),
+            index: baylee_cards::decks::by_name(name).expect("a card of that name in the pool"),
             print: baylee_core::ids::PrintRef::new(0),
             face: 0,
         });
@@ -935,7 +940,11 @@ mod tests {
     /// is what every fetchland in the acceptance decks did until now.
     #[test]
     fn a_fetchland_is_cracked() {
-        let mesa = carded(permanent(obj(1), PlayerId::new(0), 0), 7, TypeSet::LAND);
+        let mesa = carded(
+            permanent(obj(1), PlayerId::new(0), 0),
+            "Arid Mesa",
+            TypeSet::LAND,
+        );
         let v = view(0, &[20, 20], vec![mesa]);
 
         assert_eq!(
@@ -953,7 +962,11 @@ mod tests {
     /// enter-tapped answer keeps.
     #[test]
     fn a_fetchland_is_not_cracked_on_a_low_life_total() {
-        let mesa = carded(permanent(obj(1), PlayerId::new(0), 0), 7, TypeSet::LAND);
+        let mesa = carded(
+            permanent(obj(1), PlayerId::new(0), 0),
+            "Arid Mesa",
+            TypeSet::LAND,
+        );
         let v = view(0, &[6, 20], vec![mesa]);
 
         assert_eq!(
@@ -970,7 +983,7 @@ mod tests {
     fn a_walker_pluses_when_its_ultimate_is_out_of_reach() {
         let jace = carded(
             walker(obj(1), PlayerId::new(0), 3),
-            76,
+            "Jace, the Mind Sculptor",
             TypeSet::PLANESWALKER,
         );
         let v = view(0, &[20, 20], vec![jace]);
@@ -991,7 +1004,7 @@ mod tests {
     fn a_walker_takes_its_ultimate_when_it_is_offered() {
         let jace = carded(
             walker(obj(1), PlayerId::new(0), 12),
-            76,
+            "Jace, the Mind Sculptor",
             TypeSet::PLANESWALKER,
         );
         let v = view(0, &[20, 20], vec![jace]);

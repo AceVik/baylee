@@ -896,7 +896,7 @@ fn mana_choice(lang: Lang, colors: &[ManaColor], amount: u8) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use baylee_client_core::test_support::{ViewBuilder, printed, token};
+    use baylee_client_core::test_support::{ViewBuilder, token};
     use baylee_core::ids::PlayerId;
     use baylee_engine::choice::{GRANTED_ABILITY, LegalActions, PREPARED_CAST, Pending};
 
@@ -1165,9 +1165,8 @@ mod tests {
     /// Still two offers, still tellable apart.
     #[test]
     fn a_restricted_mana_ability_says_what_it_makes() {
-        const JASMINE: u16 = 77;
         let id = ObjectId::new(1, 0);
-        let mut land = printed(1, 0, "Jasmine Dragon Tea Shop", JASMINE);
+        let mut land = crate::registry_printed(1, 0, "Jasmine Dragon Tea Shop");
         land.types = baylee_core::types::TypeSet::LAND;
         land.power = None;
         land.toughness = None;

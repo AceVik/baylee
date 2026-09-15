@@ -14,7 +14,7 @@ use baylee_core::generated::subtypes::artifact;
 static CREATURE_YOU_CONTROL: Filter = Filter::And(&[Filter::CREATURE, Filter::ControlledByYou]);
 
 card!(
-    index = 1357,
+    index = 11929,
     oracle_id = "c8b143ad-43ec-4e0d-a440-e348daa31391",
     scryfall_id = "03f7e9fc-8e59-45c1-90fc-1d04d929b292",
     coverage = Coverage::Implemented,

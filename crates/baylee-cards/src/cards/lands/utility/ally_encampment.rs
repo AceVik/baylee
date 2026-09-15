@@ -16,7 +16,7 @@ static TARGET2: Filter = Filter::And(&[
 ]);
 
 card!(
-    index = 217,
+    index = 15115,
     oracle_id = "9d293b69-12b7-4b50-a0a7-c4f493dee30b",
     scryfall_id = "bcb7124c-ba69-4da8-ad81-58f00fd0181d",
     coverage = Coverage::Implemented,

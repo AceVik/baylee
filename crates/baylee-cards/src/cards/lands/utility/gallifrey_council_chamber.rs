@@ -8,7 +8,7 @@
 use baylee_cards_dsl::prelude::*;
 
 card!(
-    index = 533,
+    index = 26626,
     oracle_id = "26e4b49e-77e7-41d9-94c5-924669a82591",
     scryfall_id = "83d990f5-a7b7-4482-95e6-b03a397192e2",
     faces = &[face!(

@@ -6,7 +6,7 @@
 use baylee_cards_dsl::prelude::*;
 
 card!(
-    index = 661,
+    index = 331,
     oracle_id = "d427e61d-5b30-4d2a-bad2-2e7f016036ca",
     scryfall_id = "17f4a1aa-395f-423c-b70c-00cf178bb84d",
     faces = &[face!(name = "Island of Wak-Wak", types = TypeSet::LAND,),],

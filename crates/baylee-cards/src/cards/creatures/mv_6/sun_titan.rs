@@ -14,7 +14,7 @@ static SMALL_PERMANENT: Filter = Filter::And(&[
 ]);
 
 card!(
-    index = 158,
+    index = 11163,
     oracle_id = "b2e950fb-cb7e-40a0-a311-5bbdd0477b29",
     scryfall_id = "3d6eacf2-f6c7-4ede-b5a5-7463602699ae",
     faces = &[face!(

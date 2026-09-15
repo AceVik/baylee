@@ -14,7 +14,7 @@ static YOUR_CREATURE_OR_WALKER: Filter = Filter::And(&[
 ]);
 
 card!(
-    index = 154,
+    index = 18815,
     oracle_id = "8dcb35e5-ae44-455f-86e3-4a77d496ff34",
     scryfall_id = "c41b9ba2-0006-4d8e-b600-efe81ff5e0cc",
     faces = &[face!(

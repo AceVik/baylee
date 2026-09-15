@@ -10,7 +10,7 @@ use baylee_core::generated::subtypes::creature;
 use crate::tokens::SHAPESHIFTER_1_1_CHANGELING as SHAPESHIFTER_TOKEN;
 
 card!(
-    index = 26,
+    index = 9032,
     oracle_id = "2987c385-011a-4032-a516-a46d1e9dc9e8",
     scryfall_id = "8f2fb3c6-af75-47a3-9f97-521872c32890",
     faces = &[face!(

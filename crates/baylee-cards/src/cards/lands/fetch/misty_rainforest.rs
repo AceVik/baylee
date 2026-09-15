@@ -14,7 +14,7 @@ static SEARCH_FILTER: Filter = Filter::Or(&[
 ]);
 
 card!(
-    index = 97,
+    index = 10648,
     oracle_id = "09dd85aa-47bc-4713-a9b9-8b52ff2285ed",
     scryfall_id = "88231c0d-0cc8-44ec-bf95-81d1710ac141",
     faces = &[face!(name = "Misty Rainforest", types = TypeSet::LAND,)],

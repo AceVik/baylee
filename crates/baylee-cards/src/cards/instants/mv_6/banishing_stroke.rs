@@ -10,7 +10,7 @@ static ARTIFACT_CREATURE_ENCHANTMENT: Filter =
 use baylee_cards_dsl::prelude::*;
 
 card!(
-    index = 11,
+    index = 12357,
     oracle_id = "a6898364-c29e-4b97-a500-344efa3ec24a",
     scryfall_id = "aad93570-b50a-405a-ad73-03f97594061f",
     faces = &[face!(

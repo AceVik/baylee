@@ -167,8 +167,8 @@ pub mod ballroom;
 pub mod banishing_stroke;
 #[path = "lands/fetch/bant_panorama.rs"]
 pub mod bant_panorama;
-#[path = "lands/legendary/barad_dr.rs"]
-pub mod barad_dr;
+#[path = "lands/legendary/barad_dur.rs"]
+pub mod barad_dur;
 #[path = "lands/pain/barbarian_ring.rs"]
 pub mod barbarian_ring;
 #[path = "lands/pathway/barkchannel_pathway.rs"]

@@ -12,7 +12,7 @@ static NONBASIC_LAND: Filter = Filter::And(&[
 ]);
 
 card!(
-    index = 188,
+    index = 2728,
     oracle_id = "09a70ae8-3859-4a09-901d-dce063fa3b5f",
     scryfall_id = "aaafb9bc-7cea-4624-a227-595544fa42b0",
     faces = &[face!(name = "Wasteland", types = TypeSet::LAND,)],

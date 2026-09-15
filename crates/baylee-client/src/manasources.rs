@@ -464,11 +464,11 @@ mod tests {
 
     /// Mox Opal, whose only mana ability is behind metalcraft.
     ///
-    /// `printed` uses the print number as the `CardIndex`, which is what
-    /// makes the registry lookup reach the real card.
+    /// `registry_printed` looks the index up by name, which is what
+    /// makes the ability reading reach the real card.
     fn mox_opal() -> (PlayerView, LegalActions) {
         let id = ObjectId::new(3, 0);
-        let mut mox = baylee_client_core::test_support::printed(3, 0, "Mox Opal", 98);
+        let mut mox = crate::registry_printed(3, 0, "Mox Opal");
         mox.types = baylee_core::types::TypeSet::ARTIFACT;
         mox.power = None;
         mox.toughness = None;
@@ -484,7 +484,7 @@ mod tests {
     /// ability, with `commanders` for the viewing seat left to the caller.
     fn command_tower() -> (PlayerView, LegalActions) {
         let id = ObjectId::new(5, 0);
-        let mut tower = baylee_client_core::test_support::printed(5, 0, "Command Tower", 23);
+        let mut tower = crate::registry_printed(5, 0, "Command Tower");
         tower.types = baylee_core::types::TypeSet::LAND;
         tower.power = None;
         tower.toughness = None;
@@ -496,12 +496,19 @@ mod tests {
         (view, legal)
     }
 
-    /// One of the viewing seat's commanders, by card index.
-    fn commander(name: &str, index: u32) -> baylee_view::CommanderView {
+    /// One of the viewing seat's commanders, named.
+    ///
+    /// The index is looked up rather than passed in beside the name. It used
+    /// to be both, and the pair is only ever right by luck: an index is
+    /// assigned over the whole card corpus, so the number that was General
+    /// Tazri is now some other card entirely, and a test asserting about a
+    /// five-colour identity would have been reading whatever landed there.
+    fn commander(name: &str) -> baylee_view::CommanderView {
+        let index = baylee_cards::decks::by_name(name).expect("a card of that name in the pool");
         baylee_view::CommanderView {
-            object: ObjectId::new(90 + index, 0),
+            object: ObjectId::new(90 + index.get(), 0),
             card: Some(baylee_view::CardIdentity {
-                index: baylee_core::ids::CardIndex::new(index),
+                index,
                 print: baylee_core::ids::PrintRef::new(0),
                 face: 0,
             }),
@@ -519,7 +526,7 @@ mod tests {
     #[test]
     fn a_command_tower_makes_what_the_commander_identity_allows() {
         let (mut view, legal) = command_tower();
-        view.seats[0].commanders = vec![commander("General Tazri", 57)];
+        view.seats[0].commanders = vec![commander("General Tazri")];
 
         let sources = sources(&view, &legal);
         assert_eq!(sources.len(), 1, "one permanent, one source");
@@ -548,11 +555,13 @@ mod tests {
     #[test]
     fn the_identity_is_the_commanders_and_not_the_rainbow() {
         let (mut view, legal) = command_tower();
-        view.seats[0].commanders = vec![commander("Aminatou, the Fateshifter", 3)];
+        view.seats[0].commanders = vec![commander("Aminatou, the Fateshifter")];
         let colors = &sources(&view, &legal)[0].colors;
-        let identity = baylee_cards::by_index(baylee_core::ids::CardIndex::new(3))
-            .expect("a card at 3")
-            .color_identity;
+        let identity = baylee_cards::by_index(
+            baylee_cards::decks::by_name("Aminatou, the Fateshifter").expect("she is in the pool"),
+        )
+        .expect("a card at her index")
+        .color_identity;
         assert_eq!(
             colors.len(),
             identity.iter().count(),
@@ -586,7 +595,7 @@ mod tests {
     #[test]
     fn a_commander_this_seat_cannot_name_is_not_a_colorless_tower() {
         let (mut view, legal) = command_tower();
-        let mut unknown = commander("General Tazri", 57);
+        let mut unknown = commander("General Tazri");
         unknown.card = None;
         view.seats[0].commanders = vec![unknown];
         assert!(sources(&view, &legal).is_empty());

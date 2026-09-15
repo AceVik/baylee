@@ -8,7 +8,7 @@
 use baylee_cards_dsl::prelude::*;
 
 card!(
-    index = 1244,
+    index = 28413,
     oracle_id = "d565cd3d-68d4-4039-9e45-7e69e31d0ffb",
     scryfall_id = "020e1348-1a35-4cc8-bad6-9fbddfa79277",
     faces = &[face!(name = "Ugin's Labyrinth", types = TypeSet::LAND,),],

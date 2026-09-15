@@ -1,11 +1,7 @@
 use super::*;
-use baylee_client_core::test_support::{ViewBuilder, printed, token};
+use baylee_client_core::test_support::{ViewBuilder, token};
 use baylee_core::mana::ManaColor;
 use baylee_engine::choice::GRANTED_ABILITY;
-
-/// Katara, the Fearless — `{G}{W}{U}`, three coloured pips and no
-/// generic, so the tax is visible in the count of lands it takes.
-const KATARA: u16 = 82;
 
 /// `n` lands that each make one mana of any colour, and the engine
 /// offering every one of them.
@@ -34,7 +30,7 @@ fn table_with(lands: usize, commander_casts: u32) -> Duel {
         objects.push(land);
     }
     let ids: Vec<_> = objects.iter().map(|o| o.id).collect();
-    let mut commander = printed(7, 0, "Katara, the Fearless", KATARA);
+    let mut commander = crate::registry_printed(7, 0, "Katara, the Fearless");
     commander.commander = true;
     let mut view = ViewBuilder::new(2)
         .with_battlefield(0, objects)

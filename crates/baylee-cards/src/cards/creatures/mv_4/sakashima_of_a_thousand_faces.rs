@@ -12,7 +12,7 @@ static YOUR_CREATURES: Filter =
     Filter::And(&[Filter::ControlledByYou, Filter::CREATURE, Filter::Another]);
 
 card!(
-    index = 137,
+    index = 20754,
     oracle_id = "8ecdaf4b-4442-42da-9714-4257a83faf50",
     scryfall_id = "714c3a1f-7b30-4ed8-8f38-6176758741fb",
     faces = &[face!(

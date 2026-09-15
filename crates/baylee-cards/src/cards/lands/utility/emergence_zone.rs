@@ -7,7 +7,7 @@
 use baylee_cards_dsl::prelude::*;
 
 card!(
-    index = 468,
+    index = 18681,
     oracle_id = "7536eb66-959d-4dca-9b75-895572ef733c",
     scryfall_id = "ab95f6e7-b806-47fe-a071-6c38b3176d94",
     faces = &[face!(name = "Emergence Zone", types = TypeSet::LAND,),],

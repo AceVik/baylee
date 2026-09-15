@@ -25,7 +25,7 @@ static NEXUS_FILTER: Filter = Filter::And(&[
 use crate::tokens::SHAPESHIFTER_2_2_BLUE_CHANGELING as SHAPESHIFTER_TOKEN;
 
 card!(
-    index = 92,
+    index = 20966,
     oracle_id = "9b2cdbed-c733-409b-b0e4-2c8960c25111",
     scryfall_id = "1246c42d-57c0-4cba-959a-15ad89d8a50b",
     faces = &[face!(

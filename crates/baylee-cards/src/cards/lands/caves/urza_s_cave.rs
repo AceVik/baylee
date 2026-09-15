@@ -10,7 +10,7 @@ use baylee_core::generated::subtypes;
 static SEARCH1: Filter = Filter::LAND;
 
 card!(
-    index = 1266,
+    index = 28419,
     oracle_id = "4474ecee-0ec3-409b-90df-738d9313fe3c",
     scryfall_id = "926916ed-2f22-4ba9-9427-194886ad6c1e",
     coverage = Coverage::Implemented,

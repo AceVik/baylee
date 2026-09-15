@@ -16,7 +16,7 @@ static ELSE_COUNTERS: &[Effect] = &[Effect::AddCounter {
 use baylee_cards_dsl::prelude::*;
 
 card!(
-    index = 173,
+    index = 25753,
     oracle_id = "72deedab-7c17-4505-aeca-4bc8596d80a5",
     scryfall_id = "c0cdeaba-fc21-44e6-bf99-aa1ff379401b",
     faces = &[face!(

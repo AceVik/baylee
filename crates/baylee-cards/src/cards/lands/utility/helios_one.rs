@@ -8,7 +8,7 @@
 use baylee_cards_dsl::prelude::*;
 
 card!(
-    index = 591,
+    index = 27669,
     oracle_id = "cfb1a656-0bf1-484d-b099-33087914250b",
     scryfall_id = "4102d28e-437b-440b-bf9b-8b4f6fb85a6c",
     faces = &[face!(name = "HELIOS One", types = TypeSet::LAND,),],

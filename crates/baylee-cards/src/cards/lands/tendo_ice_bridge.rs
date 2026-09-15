@@ -8,7 +8,7 @@
 use baylee_cards_dsl::prelude::*;
 
 card!(
-    index = 1158,
+    index = 7401,
     oracle_id = "9e006a4b-8dde-4416-8cb4-8401562d0fd5",
     scryfall_id = "d246f521-b9a0-4b4f-b38c-0e4eb4066212",
     faces = &[face!(name = "Tendo Ice Bridge", types = TypeSet::LAND,),],

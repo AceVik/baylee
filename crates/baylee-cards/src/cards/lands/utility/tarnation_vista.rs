@@ -8,7 +8,7 @@
 use baylee_cards_dsl::prelude::*;
 
 card!(
-    index = 1140,
+    index = 28056,
     oracle_id = "b0be3f25-edb1-4299-959c-9aad909730ca",
     scryfall_id = "962552a1-ec34-49e2-a23d-85dfb405d5e0",
     faces = &[face!(name = "Tarnation Vista", types = TypeSet::LAND,),],

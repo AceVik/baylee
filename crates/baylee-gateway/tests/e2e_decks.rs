@@ -282,7 +282,21 @@ fn a_card_always_has_at_least_one_printing_to_choose() {
         "a row names the card behind its printing: {pool}"
     );
 
-    let (status, one) = http(gateway.port, "GET", "/printings?card=1", None, "");
+    // Asked about a card the pool actually holds. It used to ask about index
+    // 1 — fine while the ledger numbered this pool and wrong the moment it
+    // numbered the whole corpus, where index 1 is a card nobody implemented.
+    let card = pool
+        .split("\"index\":")
+        .nth(1)
+        .and_then(|rest| rest.split(|c: char| !c.is_ascii_digit()).next())
+        .expect("the pool names an index");
+    let (status, one) = http(
+        gateway.port,
+        "GET",
+        &format!("/printings?card={card}"),
+        None,
+        "",
+    );
     assert_eq!(status, 200, "{one}");
     assert!(one.contains("\"printings\":["), "{one}");
     assert!(

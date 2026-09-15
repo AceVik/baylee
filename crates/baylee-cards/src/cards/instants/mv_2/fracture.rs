@@ -9,7 +9,7 @@ static ARTIFACT_ENCHANTMENT_OR_WALKER: Filter =
 use baylee_cards_dsl::prelude::*;
 
 card!(
-    index = 56,
+    index = 21218,
     oracle_id = "f21d0319-0509-4ac1-b6e3-10955a26fd7a",
     scryfall_id = "cba33bf7-0919-408c-8eb0-0bb9fe920c81",
     faces = &[face!(

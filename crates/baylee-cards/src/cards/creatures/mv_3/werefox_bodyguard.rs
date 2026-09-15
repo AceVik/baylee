@@ -15,7 +15,7 @@ static OTHER_NON_FOX_CREATURE: Filter = Filter::And(&[
 ]);
 
 card!(
-    index = 190,
+    index = 26515,
     oracle_id = "d5ee2ced-29f4-430f-962e-2f930b92624c",
     scryfall_id = "4494dfa1-1343-417e-b0c5-2b096442dd0e",
     faces = &[face!(

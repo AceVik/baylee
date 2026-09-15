@@ -32,7 +32,7 @@ static DESTROY_EFFECTS: &[Effect] = &[
 ];
 
 card!(
-    index = 45,
+    index = 24129,
     oracle_id = "3d038f7c-95fa-4b71-8f74-b9b4dd45cde0",
     scryfall_id = "7f7e780e-fbc5-4dc0-b5c7-efcb8645c7c6",
     faces = &[face!(

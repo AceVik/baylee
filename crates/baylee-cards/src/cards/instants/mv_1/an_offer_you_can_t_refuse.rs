@@ -15,7 +15,7 @@ use crate::tokens::TREASURE as TREASURE_TOKEN;
 static NONCREATURE_SPELL: Filter = Filter::NONCREATURE;
 
 card!(
-    index = 1344,
+    index = 23106,
     oracle_id = "234a734b-ba28-4f1b-9d01-3c3e7d516590",
     scryfall_id = "a829747f-cf9b-4d81-ba66-9f0630ed4565",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
