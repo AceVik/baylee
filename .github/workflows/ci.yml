@@ -193,12 +193,21 @@ jobs:
       # files has still done the expensive half. `actions/cache`'s own post
       # step would not: it is skipped on a failed job, which is what kept
       # every run of this job starting from an empty cache.
-      # `always()` and not `!cancelled()`, now that a superseded run *is*
-      # cancelled: a job that spent fifty minutes fetching and was then
-      # cancelled has still done the expensive half, and throwing that away
-      # is the exact loop this pair of commits exists to break.
+      # `!cancelled()` and deliberately **not** `always()`, which this job
+      # was given for one commit and which immediately poisoned the key.
+      # `actions/cache/save` refuses to overwrite a key that exists, so the
+      # first writer owns it: a run cancelled by the concurrency group four
+      # minutes in saved a 17 KB directory under the key that the run still
+      # fetching its 1371 payloads was going to write 30 MB to, and the good
+      # cache then had nowhere to go.
+      #
+      # A cancellation is the only way this job ends with a *partial* fetch —
+      # `codegen` fetches the whole pool before it compares anything, so even
+      # a failing run has a complete cache to leave behind, which is the case
+      # `!cancelled()` still covers and the reason the guard is not simply
+      # `success()`.
       - uses: actions/cache/save@v4
-        if: ${{ always() }}
+        if: ${{ !cancelled() }}
         continue-on-error: true
         with:
           path: data/scryfall-cache
