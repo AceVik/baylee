@@ -1,0 +1,12 @@
+[package]
+name = "baylee-cards-index"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "The CardIndex ledger, compiled: which index every card there is owns"
+
+[lints]
+workspace = true
+
+[dependencies]
+baylee-core.workspace = true

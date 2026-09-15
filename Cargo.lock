@@ -768,6 +768,7 @@ name = "baylee-cards-codegen"
 version = "0.1.0"
 dependencies = [
  "baylee-cards-dsl",
+ "baylee-cards-index",
  "baylee-core",
  "heck 0.5.0",
  "serde",
@@ -782,6 +783,13 @@ version = "0.1.0"
 dependencies = [
  "baylee-core",
  "serde",
+]
+
+[[package]]
+name = "baylee-cards-index"
+version = "0.1.0"
+dependencies = [
+ "baylee-core",
 ]
 
 [[package]]
@@ -8898,6 +8906,7 @@ dependencies = [
  "anyhow",
  "baylee-cards",
  "baylee-cards-codegen",
+ "baylee-cards-index",
  "baylee-core",
  "clap",
  "serde_json",

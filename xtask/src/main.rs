@@ -32,11 +32,16 @@ enum Cmd {
     },
     /// Assign a `CardIndex` to every card in the corpus that has none.
     ///
-    /// The only thing that writes `data/card-index.tsv`, and the reason
-    /// `codegen` never does: an index assigned as a side effect of a build
-    /// takes its order from whatever happened to be fetched that day. This
-    /// takes its order from the corpus — first appearance, over every card
-    /// that exists — so adopting an old card inserts nothing.
+    /// The only thing that writes the ledger, and the reason `codegen` never
+    /// does: an index assigned as a side effect of a build takes its order
+    /// from whatever happened to be fetched that day. This takes its order
+    /// from the corpus — first appearance, over every card that exists — so
+    /// adopting an old card inserts nothing.
+    ///
+    /// The ledger is `crates/baylee-cards-index/src/generated.rs`, a compiled
+    /// table rather than a data file, because a data file is a second truth
+    /// beside the code that nothing checks. `data/card-index.tsv` is the half
+    /// being retired and is written alongside it until it goes.
     ///
     /// The corpus comes from `baylee-catalog corpus`, which needs a database.
     /// This half needs only the file it writes, so codegen stays offline.
@@ -4453,17 +4458,39 @@ fn ledger_cmd(root: &Path, corpus: &Path, check: bool, reseed: bool) -> anyhow::
         "corpus: {seen} cards, ledger: {} rows ({assigned} newly assigned)",
         ledger.entries().len()
     );
-    if assigned == 0 {
-        println!("nothing to assign; {} is unchanged", ledger_path.display());
-        return Ok(());
+    // Two renderings of one assignment, and the Rust one is the ledger — the
+    // TSV is the half being retired. They are written together rather than
+    // one from the other, so neither can be a stale view of the other, and a
+    // run with nothing to assign still repairs a file somebody edited.
+    let rows_path = root.join("crates/baylee-cards-index/src/generated.rs");
+    let mut stale: Vec<&PathBuf> = Vec::new();
+    for (path, content) in [
+        (&ledger_path, ledger.render()),
+        (&rows_path, ledger.render_rows()),
+    ] {
+        if fs::read_to_string(path).unwrap_or_default() == content {
+            continue;
+        }
+        stale.push(path);
+        if check {
+            continue;
+        }
+        fs::write(path, &content)
+            .map_err(|e| anyhow::anyhow!("writing {} ({e})", path.display()))?;
+        println!("wrote {}", path.display());
     }
-    if check {
-        println!("--check: not written");
-        return Ok(());
+    if stale.is_empty() {
+        println!("nothing to assign; the ledger is unchanged");
+    } else if check {
+        for path in stale {
+            println!("  would write {}", path.display());
+        }
+    } else {
+        // The assigner reads the table it has just written, so the binary in
+        // `target/` is one assignment behind until the next build. `cargo run`
+        // rebuilds on its own; a cached binary invoked directly does not.
+        println!("rebuild before `cargo xtask codegen` — the table it reads has changed");
     }
-    fs::write(&ledger_path, ledger.render())
-        .map_err(|e| anyhow::anyhow!("writing {} ({e})", ledger_path.display()))?;
-    println!("wrote {}", ledger_path.display());
     Ok(())
 }
 
