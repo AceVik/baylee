@@ -410,7 +410,7 @@ is not an improvement worth having.
 - `AbilityDef::Spell { effects, targets: Option<TargetReq> }`
 - `AbilityDef::Activated { cost, effects, target, timing, mana_ability, zone }`
 - `AbilityDef::Triggered { trigger, effects, targets, once_per_turn }`
-- `AbilityDef::Static(StaticAbility { layer, filter, modifier, cross_zone })`
+- `AbilityDef::Static(StaticAbility { layer, filter, modifier })`
 - `AbilityDef::Replacement(ReplacementRule)` — trigger multipliers/suppressors,
   token/counter doubling
 - `AbilityDef::Loyalty { cost: i8, effects, target }`
@@ -435,11 +435,18 @@ activated!(Cost::TAP, EFFECTS)                        // {T}: …
 activated!(EQUIP, EFFECTS, timing = ActivationTiming::SorcerySpeed)
 triggered!(Trigger::EntersBattlefield(&Filter::This), EFFECTS)
 spell!(EFFECTS)
-spell!(EFFECTS, targets = Some(TargetReq::one(&Filter::CREATURE)))
+spell!(EFFECTS, targets = Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE))))
 loyalty!(-3, EFFECTS, targets = Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE))))
+static_ability!(Filter::YOUR_CREATURE, Modifier::ModifyPT(1, 1))  // an anthem
+chapter!(1, EFFECTS)                                  // one chapter of a saga
+equip!("{2}")                                         // Equip {2}
 modal_triggered!(TRIGGER, &[mode!(SCRY), mode!(LIFE)])  // "choose one" ETB
 mode!(DRAW_EFFECTS)                                   // one arm of a modal
 ```
+
+`TargetReq::one` and `TargetReq::up_to_one` take a `TargetSpec`, never a
+`&Filter` — a target is an object, a player, a spell or a card in a
+graveyard, and the filter is only how an *object* target is picked.
 
 The required arguments come first and positionally, because they are the
 ones an ability cannot be written without; everything after them is
@@ -458,10 +465,37 @@ ones an ability cannot be written without; everything after them is
 bug. That is why it is a default you have to opt *out* of, and why a mana
 ability gets its own macro rather than a flag.
 
-A shape without a macro (`Static`, `Replacement`, `CopyOnEnter`, `Ward`,
-`Suspend`, `ModalSpell`, `SagaChapter`, `Echo`, `Prepared`) is written as
-the plain enum literal — those have no fields the
-rules can supply for you.
+Three of them go one step further and drop a field the card never decided.
+
+`static_ability!(filter, modifier)` has **no layer**, because CR 613.1 makes
+the layer a function of the modifier: "all permanents are artifacts" is layer
+4 whatever a card says. `Modifier::layer` is that function, and it is a
+measurement rather than a preference — over the whole compiled pool, 108
+`layer`/`modifier` pairings used 25 modifiers and put no modifier on two
+different layers. Note that a `StaticAbility` owns its `Filter` **by value**,
+where an `Effect::CreateContinuousEffect` borrows one.
+
+`equip!("{2}")` takes **only the cost**, because CR 702.6 supplies the rest:
+sorcery speed, "target creature you control", and attaching this permanent to
+it. The four Equipment in the pool had each written eight lines with that
+target named twice, over a local `static` that was the same filter each time.
+Equip {0} is `equip!(Cost::FREE)` and not `equip!("{0}")` — a cost with no
+mana cost is not the same data as a mana cost of zero generic.
+
+`activated!` and `mana_ability!` reach `AbilityDef::ActivatedConditional`
+through one optional field, `condition = Some(ActivationCondition::…)`. That
+is the only difference between the twins, which is exactly what makes them
+easy to confuse: six readers across the engine, the client and the pool lints
+once matched `AbilityDef::Activated` alone and skipped every conditional
+ability there was.
+
+A raw literal is still legal everywhere, and
+`lints::every_layer_in_the_pool_is_the_one_its_modifier_derives` is what
+stops one disagreeing with the macro beside it.
+
+A shape without a macro (`Replacement`, `CopyOnEnter`, `Ward`, `Suspend`,
+`ModalSpell`, `Echo`, `Prepared`) is written as the plain enum literal —
+those have no fields the rules can supply for you.
 
 ### As-it-enters modifiers (`FaceDef::enter_modifiers`)
 
@@ -706,13 +740,13 @@ would have been a silent rules bug in a card that still compiled.
 Static anthem via layers (deregisters itself when the source leaves):
 
 ```rust
-abilities = &[AbilityDef::Static(StaticAbility {
-    layer: Layer::PtModify,
-    filter: Filter::YOUR_CREATURE,
-    modifier: Modifier::ModifyPT(1, 1),
-    cross_zone: false,
-})],
+abilities = &[static_ability!(Filter::YOUR_CREATURE, Modifier::ModifyPT(1, 1))],
 ```
+
+There is no layer here and no `cross_zone` either. The layer is derived
+(CR 613.1 — see below), and the flag is gone: an effect that reaches past the
+battlefield says so with a `Filter::InZone`, which is the only statement the
+engine reads.
 
 ## Explicitly not supported yet (M3+)
 

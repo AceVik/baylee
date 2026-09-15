@@ -44,9 +44,13 @@
 //! cannot be forgotten: a trigger has no neutral value, and an ability with
 //! no effects is not an ability.
 
-use crate::ability::{AbilityDef, ActivationTiming, ActivationZone, SpellMode, Trigger};
+use crate::ability::{
+    AbilityDef, ActivationCondition, ActivationTiming, ActivationZone, SpellMode, Trigger,
+};
 use crate::cost::Cost;
 use crate::effect::{Effect, TargetReq, TargetSpec};
+use crate::filter::Filter;
+use crate::static_ability::{Modifier, StaticAbility};
 
 /// The parts of an [`AbilityDef::Activated`], with rules defaults.
 ///
@@ -66,6 +70,17 @@ pub struct ActivatedParts {
     pub mana_ability: bool,
     /// Where it functions.
     pub zone: ActivationZone,
+    /// A precondition the card states (metalcraft, a verge land's
+    /// Plains/Swamp check, a class level).
+    ///
+    /// `None` is the rules default — an ability with no printed condition
+    /// may be activated whenever its cost can be paid — and it is also what
+    /// decides *which ability this is*: [`build`](Self::build) produces an
+    /// [`AbilityDef::ActivatedConditional`] exactly when the card named a
+    /// condition. The two variants are otherwise the same six fields, and
+    /// having one door into both is what stops a card being written as the
+    /// unconditional twin by omission.
+    pub condition: Option<ActivationCondition>,
 }
 
 impl ActivatedParts {
@@ -81,6 +96,7 @@ impl ActivatedParts {
             timing: ActivationTiming::InstantSpeed,
             mana_ability: false,
             zone: ActivationZone::Battlefield,
+            condition: None,
         }
     }
 
@@ -92,16 +108,28 @@ impl ActivatedParts {
         parts
     }
 
-    /// Turns the parts into the ability.
+    /// Turns the parts into the ability — conditional exactly when the card
+    /// named a [`condition`](Self::condition).
     #[must_use]
     pub const fn build(self) -> AbilityDef {
-        AbilityDef::Activated {
-            cost: self.cost,
-            effects: self.effects,
-            target: self.target,
-            timing: self.timing,
-            mana_ability: self.mana_ability,
-            zone: self.zone,
+        match self.condition {
+            None => AbilityDef::Activated {
+                cost: self.cost,
+                effects: self.effects,
+                target: self.target,
+                timing: self.timing,
+                mana_ability: self.mana_ability,
+                zone: self.zone,
+            },
+            Some(condition) => AbilityDef::ActivatedConditional {
+                cost: self.cost,
+                effects: self.effects,
+                target: self.target,
+                timing: self.timing,
+                mana_ability: self.mana_ability,
+                zone: self.zone,
+                condition,
+            },
         }
     }
 }
@@ -240,6 +268,81 @@ impl LoyaltyParts {
     }
 }
 
+/// The parts of an [`AbilityDef::Static`], with the layer derived.
+///
+/// The layer is not a field here, because it is not a decision: it follows
+/// from the modifier, and [`Modifier::layer`] is the table — measured over
+/// the whole pool, where 25 modifiers appeared on 25 layers with no
+/// exception. A card says *what changes* and *to what*; CR 613.1 says when.
+#[derive(Clone, Copy, Debug)]
+pub struct StaticParts {
+    /// Which objects are affected.
+    pub filter: Filter,
+    /// What changes.
+    pub modifier: Modifier,
+}
+
+impl StaticParts {
+    /// A continuous ability applying `modifier` to everything matching
+    /// `filter`, on the layer the modifier belongs to.
+    #[must_use]
+    pub const fn new(filter: Filter, modifier: Modifier) -> Self {
+        Self { filter, modifier }
+    }
+
+    /// Turns the parts into the ability.
+    #[must_use]
+    pub const fn build(self) -> AbilityDef {
+        AbilityDef::Static(StaticAbility {
+            layer: self.modifier.layer(),
+            filter: self.filter,
+            modifier: self.modifier,
+        })
+    }
+}
+
+/// The parts of an [`AbilityDef::SagaChapter`], with rules defaults.
+#[derive(Clone, Copy, Debug)]
+pub struct SagaChapterParts {
+    /// Chapter number (1-based).
+    pub chapter: u8,
+    /// What the chapter does.
+    pub effects: &'static [Effect],
+    /// What it targets, if anything.
+    pub targets: Option<TargetReq>,
+}
+
+impl SagaChapterParts {
+    /// A chapter and its effects, untargeted — a saga chapter targets only
+    /// when the printed chapter says "target".
+    #[must_use]
+    pub const fn new(chapter: u8, effects: &'static [Effect]) -> Self {
+        Self {
+            chapter,
+            effects,
+            targets: None,
+        }
+    }
+
+    /// Turns the parts into the ability.
+    #[must_use]
+    pub const fn build(self) -> AbilityDef {
+        AbilityDef::SagaChapter {
+            chapter: self.chapter,
+            effects: self.effects,
+            targets: self.targets,
+        }
+    }
+}
+
+/// What an equip ability targets: "target creature you control"
+/// (CR 702.6a).
+///
+/// The keyword names it, not the card, so it is spelled once here instead of
+/// in a local `static` per Equipment — and named twice inside each of those,
+/// once for the target requirement and once for what gets attached.
+pub const EQUIP_TARGET: TargetSpec = TargetSpec::Object(&Filter::YOUR_CREATURE);
+
 impl SpellMode {
     /// A mode with these effects: untargeted, and costing whatever the spell
     /// costs — so a mode states only what makes it that mode.
@@ -353,7 +456,12 @@ macro_rules! cost {
 /// activated!(Cost::TAP, EFFECTS)
 /// activated!(Cost::TAP, EFFECTS, target = Some(TargetSpec::Object(&ANY_CREATURE)))
 /// activated!(EQUIP_COST, EFFECTS, timing = ActivationTiming::SorcerySpeed)
+/// activated!(Cost::TAP, EFFECTS, condition = Some(ActivationCondition::ControlCount(&Filter::ARTIFACT, 3)))
 /// ```
+///
+/// `condition =` is what makes an [`AbilityDef::ActivatedConditional`], so a
+/// metalcraft ability is this macro plus one line rather than a
+/// seven-field literal of its own.
 #[macro_export]
 macro_rules! activated {
     ($cost:expr, $effects:expr $(, $field:ident = $value:expr)* $(,)?) => {
@@ -475,6 +583,78 @@ macro_rules! mode {
     };
 }
 
+/// A static (continuous) ability: what changes, and to what.
+///
+/// ```ignore
+/// static_ability!(Filter::AttachedToBySource, Modifier::ModifyPT(2, 2))
+/// static_ability!(Filter::Any, Modifier::AddType(TypeSet::ARTIFACT))
+/// ```
+///
+/// There is no layer argument: [`Modifier::layer`] derives it, which is the
+/// whole reason this macro can be two words. Twenty-nine abilities in the
+/// pool wrote the three-field literal by hand, and a literal is free to
+/// disagree with the rules — `static_ability!` cannot.
+///
+/// The filter is a [`Filter`] **by value**, not a reference: a
+/// `StaticAbility` owns its filter, where an `Effect::CreateContinuousEffect`
+/// borrows one.
+#[macro_export]
+macro_rules! static_ability {
+    ($filter:expr, $modifier:expr $(,)?) => {
+        $crate::StaticParts::new($filter, $modifier).build()
+    };
+}
+
+/// One chapter of a saga (CR 714): `chapter!(1, effects)`.
+///
+/// ```ignore
+/// chapter!(1, &[Effect::Scry { amount: Amount::Fixed(1) }])
+/// chapter!(3, EFFECTS, targets = Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE))))
+/// ```
+#[macro_export]
+macro_rules! chapter {
+    ($chapter:expr, $effects:expr $(, $field:ident = $value:expr)* $(,)?) => {
+        $crate::SagaChapterParts {
+            $($field: $value,)*
+            ..$crate::SagaChapterParts::new($chapter, $effects)
+        }
+        .build()
+    };
+}
+
+/// Equip (CR 702.6): `equip!("{2}")`.
+///
+/// Every part of an equip ability except the cost comes from the keyword's
+/// own definition — sorcery speed (CR 702.6b), "target creature you
+/// control" (CR 702.6a), and attaching this permanent to it — so the cost is
+/// the only thing a card prints and the only thing this takes. The four
+/// Equipment in the pool each wrote it out as eight lines with the target
+/// named twice, over a local `static` that was the same filter each time.
+///
+/// ```ignore
+/// equip!("{2}")        // Equip {2}
+/// equip!(Cost::FREE)   // Equip {0} — not the same data as `cost!("{0}")`
+/// ```
+#[macro_export]
+macro_rules! equip {
+    ($mana:literal) => {
+        $crate::equip!($crate::cost!($mana))
+    };
+    ($cost:expr) => {
+        $crate::ActivatedParts {
+            target: Some($crate::EQUIP_TARGET),
+            timing: $crate::ActivationTiming::SorcerySpeed,
+            ..$crate::ActivatedParts::new(
+                $cost,
+                &[$crate::Effect::AttachSelf {
+                    target: $crate::EQUIP_TARGET,
+                }],
+            )
+        }
+        .build()
+    };
+}
+
 /// Everything a card file needs, in one import.
 ///
 /// A card file used to open with eight `use` lines and
@@ -489,7 +669,8 @@ pub mod prelude {
         StepKind, Trigger, TriggerEventKind,
     };
     pub use crate::build::{
-        ActivatedParts, LoyaltyParts, ModalTriggeredParts, SpellParts, TriggeredParts,
+        ActivatedParts, EQUIP_TARGET, LoyaltyParts, ModalTriggeredParts, SagaChapterParts,
+        SpellParts, StaticParts, TriggeredParts,
     };
     pub use crate::cost::{AltCondition, AlternativeCost, Cost, CostPart, CostReduction};
     pub use crate::effect::{
@@ -505,7 +686,8 @@ pub mod prelude {
         KeywordSet, PartnerKind,
     };
     pub use crate::{
-        activated, card, cost, face, loyalty, mana_ability, modal_triggered, mode, spell, triggered,
+        activated, card, chapter, cost, equip, face, loyalty, mana_ability, modal_triggered, mode,
+        spell, static_ability, triggered,
     };
     pub use baylee_core::color::{Color, ColorSet};
     pub use baylee_core::ids::{CardIndex, SubtypeId};
@@ -518,4 +700,222 @@ pub mod prelude {
     pub use baylee_core::mana;
     pub use baylee_core::mana::{ManaColor, ManaCost};
     pub use baylee_core::types::{SupertypeSet, TypeSet};
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::KeywordSet;
+    use crate::ability::ActivationCondition;
+    use crate::effect::Amount;
+    use crate::static_ability::Layer;
+
+    /// Every macro here has to work in a `static` initializer, which is the
+    /// one thing a unit test cannot assert at runtime: it either compiles or
+    /// it does not.
+    ///
+    /// The nesting is deliberate — an inline filter behind a reference,
+    /// inside a slice, inside a struct, inside a slice, inside a `static` —
+    /// because that is the shape a real card writes and the shape const
+    /// promotion refuses when the same expression is built inside a
+    /// `const fn` from a parameter (E0716).
+    static IN_A_STATIC: [AbilityDef; 4] = [
+        static_ability!(
+            Filter::And(&[Filter::CREATURE, Filter::ControlledByYou]),
+            Modifier::ModifyPT(1, 1)
+        ),
+        chapter!(
+            1,
+            &[Effect::Scry {
+                amount: Amount::Fixed(1)
+            }]
+        ),
+        equip!("{2}"),
+        activated!(
+            Cost::TAP,
+            &[Effect::DrawCards {
+                amount: Amount::Fixed(1)
+            }],
+            condition = Some(ActivationCondition::ControlCount(&Filter::ARTIFACT, 3)),
+        ),
+    ];
+
+    /// `activated!` builds the twin the card asked for, and nothing else
+    /// about the ability changes with it.
+    ///
+    /// The two variants carry the same six fields and differ only in the
+    /// seventh, which is exactly why they are easy to confuse: six readers
+    /// across the engine, the client and these lints once matched
+    /// `AbilityDef::Activated` alone and silently skipped every conditional
+    /// ability in the pool. One `build` reaching both is what stops a card
+    /// being written as the wrong one by omission — and this is the test
+    /// that it does.
+    #[test]
+    fn a_condition_is_the_only_thing_that_makes_the_conditional_twin() {
+        const EFFECTS: &[Effect] = &[Effect::DrawCards {
+            amount: Amount::Fixed(1),
+        }];
+        const METALCRAFT: ActivationCondition =
+            ActivationCondition::ControlCount(&Filter::ARTIFACT, 3);
+
+        assert_eq!(
+            activated!(Cost::TAP, EFFECTS),
+            AbilityDef::Activated {
+                cost: Cost::TAP,
+                effects: EFFECTS,
+                target: None,
+                timing: ActivationTiming::InstantSpeed,
+                mana_ability: false,
+                zone: ActivationZone::Battlefield,
+            },
+            "no condition is the plain ability, at the rules defaults"
+        );
+        assert_eq!(
+            activated!(Cost::TAP, EFFECTS, condition = Some(METALCRAFT)),
+            AbilityDef::ActivatedConditional {
+                cost: Cost::TAP,
+                effects: EFFECTS,
+                target: None,
+                timing: ActivationTiming::InstantSpeed,
+                mana_ability: false,
+                zone: ActivationZone::Battlefield,
+                condition: METALCRAFT,
+            },
+            "the condition moves it to the twin and changes nothing else"
+        );
+    }
+
+    /// A mana ability with a condition is still a mana ability.
+    ///
+    /// Mox Opal is the card: metalcraft on an ability that adds mana. It was
+    /// not expressible before — `mana_ability!` and the conditional variant
+    /// had no door between them — so nothing in the pool exercises this
+    /// combination and the engine's handling of it is **unverified**. The
+    /// test pins what the DSL builds, not what the engine does with it.
+    #[test]
+    fn a_conditional_ability_can_still_be_a_mana_ability() {
+        const EFFECTS: &[Effect] = &[Effect::mana(baylee_core::mana::ManaColor::White, 1)];
+        const METALCRAFT: ActivationCondition =
+            ActivationCondition::ControlCount(&Filter::ARTIFACT, 3);
+
+        let built = mana_ability!(Cost::TAP, EFFECTS, condition = Some(METALCRAFT));
+        match built {
+            AbilityDef::ActivatedConditional {
+                mana_ability,
+                condition,
+                ..
+            } => {
+                assert!(mana_ability, "CR 605.1 does not stop at a precondition");
+                assert_eq!(condition, METALCRAFT);
+            }
+            other => panic!("expected the conditional twin, got {other:?}"),
+        }
+    }
+
+    /// `equip!` is the eight-line literal the four Equipment in the pool
+    /// each wrote by hand.
+    ///
+    /// This is the equivalence the migration rests on, asserted before a
+    /// single card is touched: the macro's expansion and the spelling it
+    /// replaces are the same `AbilityDef`, not merely the same meaning.
+    /// `CREATURE_YOU_CONTROL` below is the local `static` those cards
+    /// declared, copied verbatim.
+    #[test]
+    fn equip_is_the_literal_the_equipment_wrote_out() {
+        static CREATURE_YOU_CONTROL: Filter =
+            Filter::And(&[Filter::CREATURE, Filter::ControlledByYou]);
+        static BY_HAND: AbilityDef = AbilityDef::Activated {
+            cost: Cost {
+                mana: baylee_core::mana!("{2}"),
+                parts: &[],
+            },
+            effects: &[Effect::AttachSelf {
+                target: TargetSpec::Object(&CREATURE_YOU_CONTROL),
+            }],
+            target: Some(TargetSpec::Object(&CREATURE_YOU_CONTROL)),
+            timing: ActivationTiming::SorcerySpeed,
+            mana_ability: false,
+            zone: ActivationZone::Battlefield,
+        };
+
+        assert_eq!(equip!("{2}"), BY_HAND);
+        assert_ne!(
+            equip!(Cost::FREE),
+            equip!("{0}"),
+            "Equip {{0}} is a cost with no mana cost at all, which is not the \
+             same data as a mana cost of zero generic — Lightning Greaves has \
+             to say `Cost::FREE`"
+        );
+    }
+
+    /// `static_ability!` derives the layer, and derives the one the pool
+    /// already used.
+    ///
+    /// Four modifiers, four layers, taken from cards in the pool: Mycosynth
+    /// Lattice (types), Swiftfoot Boots (keywords), an anthem (7c) and a
+    /// Sword's buff. `Modifier::layer` is checked pool-wide by
+    /// `baylee_cards::lints`; what this pins is that the macro reads it.
+    #[test]
+    fn a_static_ability_derives_its_own_layer() {
+        let cases = [
+            (
+                Modifier::AddType(baylee_core::types::TypeSet::ARTIFACT),
+                Layer::Type,
+            ),
+            (Modifier::AddKeyword(KeywordSet::HASTE), Layer::Ability),
+            (Modifier::ModifyPT(2, 2), Layer::PtModify),
+            (Modifier::SetPT(0, 0), Layer::PtSet),
+        ];
+        for (modifier, want) in cases {
+            let AbilityDef::Static(sa) = static_ability!(Filter::Any, modifier) else {
+                panic!("static_ability! must build AbilityDef::Static");
+            };
+            assert_eq!(sa.layer, want, "{modifier:?}");
+            assert_eq!(sa.modifier, modifier);
+            assert_eq!(sa.filter, Filter::Any);
+        }
+    }
+
+    /// `chapter!` numbers the chapter and targets nothing unless the card
+    /// says "target" (CR 714).
+    #[test]
+    fn a_saga_chapter_targets_only_when_it_says_so() {
+        const EFFECTS: &[Effect] = &[Effect::Scry {
+            amount: Amount::Fixed(1),
+        }];
+        assert_eq!(
+            chapter!(2, EFFECTS),
+            AbilityDef::SagaChapter {
+                chapter: 2,
+                effects: EFFECTS,
+                targets: None,
+            }
+        );
+        let req = TargetReq::one(TargetSpec::Object(&Filter::CREATURE));
+        assert_eq!(
+            chapter!(3, EFFECTS, targets = Some(req)),
+            AbilityDef::SagaChapter {
+                chapter: 3,
+                effects: EFFECTS,
+                targets: Some(req),
+            }
+        );
+    }
+
+    /// The `static` above is the point of the whole module; this reads it so
+    /// the compiler cannot decide it is dead code.
+    #[test]
+    fn the_macros_are_usable_in_a_static() {
+        assert_eq!(IN_A_STATIC.len(), 4);
+        assert!(matches!(IN_A_STATIC[0], AbilityDef::Static(_)));
+        assert!(matches!(
+            IN_A_STATIC[1],
+            AbilityDef::SagaChapter { chapter: 1, .. }
+        ));
+        assert!(matches!(IN_A_STATIC[2], AbilityDef::Activated { .. }));
+        assert!(matches!(
+            IN_A_STATIC[3],
+            AbilityDef::ActivatedConditional { .. }
+        ));
+    }
 }

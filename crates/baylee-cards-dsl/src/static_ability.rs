@@ -188,6 +188,94 @@ pub enum Modifier {
     SwitchPT,
 }
 
+impl Modifier {
+    /// The layer this modifier applies in (CR 613.1).
+    ///
+    /// A layer is not a decision a card makes. "All permanents are
+    /// artifacts" is layer 4 because it changes types, and no printing of
+    /// Mycosynth Lattice could make it anything else — so the layer is a
+    /// function of the modifier, and every ability that restated it was a
+    /// chance to write the wrong one. Measured over the whole compiled pool
+    /// before this existed: 108 `layer`/`modifier` pairings, 25 distinct
+    /// modifiers, and **not one** modifier on two different layers. The
+    /// table below is that measurement, which is why
+    /// [`static_ability!`](crate::static_ability) can take two arguments
+    /// and why `every_layer_in_the_pool_is_the_one_its_modifier_derives`
+    /// keeps a hand-written literal from disagreeing with it.
+    ///
+    /// Two groups need reading rather than counting.
+    ///
+    /// **[`Layer::Text`] is doing duty as "no layer at all."** CR 613
+    /// orders *characteristic-changing* effects; a rule-modifying one
+    /// ([`Modifier::NoMaxHandSize`], [`Modifier::PlayersCantLose`],
+    /// [`Modifier::ManaIsAnyColor`], …) changes no characteristic and has no
+    /// place in that order. The engine agrees by construction —
+    /// `layers::apply_modifier` has an explicit empty arm for every one of
+    /// them — so their layer is read only into the effect table's iteration
+    /// order and the snapshot hash. They are on `Text` because that is where
+    /// the pool put them, and the honest fix is a variant that says "none",
+    /// not a different layer.
+    ///
+    /// **Three arms are where that bucket and the rules disagree**, and the
+    /// disagreement is preserved here deliberately so that adopting this
+    /// function moves no card. [`Modifier::ProtectionFrom`] grants a keyword
+    /// ability (CR 702.16, cited in `engine/eval.rs`), and
+    /// [`Modifier::GrantTriggered`] grants a triggered one — both are
+    /// ability-adding effects, which is layer 6, and the pool's own
+    /// [`Modifier::GrantActivated`] is already there. Five abilities in the
+    /// pool spell those two as `Text`. Moving them is a rules fix with a
+    /// visible `pool-dump` diff and belongs in its own commit; doing it here
+    /// would hide it inside a refactor that is supposed to change nothing.
+    /// [`Modifier::GrantsFlashback`] is the third and is the mirror image —
+    /// no card in the pool uses it, so it is written where the rules put it.
+    #[must_use]
+    pub const fn layer(&self) -> Layer {
+        match self {
+            // Layer 1: copy effects.
+            Self::BecomeCopyOf(_) => Layer::Copy,
+            // Layer 2: control-changing effects.
+            Self::GainControl => Layer::Control,
+            // Layer 4: type-changing effects.
+            Self::AddType(_)
+            | Self::RemoveType(_)
+            | Self::AddSubtype(_)
+            | Self::AllCreatureTypes
+            | Self::AllBasicLandTypes
+            | Self::AddTypeIfCountersAtLeast { .. } => Layer::Type,
+            // Layer 5: color-changing effects.
+            Self::AddColor(_) | Self::SetColor(_) => Layer::Color,
+            // Layer 6: ability-adding and -removing effects.
+            Self::AddKeyword(_)
+            | Self::RemoveKeyword(_)
+            | Self::LoseKeywords
+            | Self::AddKeywordIfCountersAtLeast { .. }
+            | Self::GrantActivated { .. }
+            | Self::GrantsFlashback
+            | Self::CantActivateArtifacts => Layer::Ability,
+            // Layer 7b/7c/7e: power and toughness.
+            Self::SetPT(..) => Layer::PtSet,
+            Self::ModifyPT(..) | Self::ModifyPTPerCount { .. } => Layer::PtModify,
+            Self::SwitchPT => Layer::PtSwitch,
+            // No layer: rules-modifying effects, plus the three arms the
+            // doc comment above names.
+            Self::LegendRuleOff
+            | Self::OpponentsCastAsSorcery
+            | Self::PlayersCantLose
+            | Self::CantLoseLife
+            | Self::PreventDamageToIt
+            | Self::PreventDamageFromIt
+            | Self::OpponentsCantSearch
+            | Self::NoMaxHandSize
+            | Self::PlayerHexproof
+            | Self::SorceriesHaveFlash
+            | Self::ManaIsAnyColor
+            | Self::SearchTakeover
+            | Self::ProtectionFrom(_)
+            | Self::GrantTriggered { .. } => Layer::Text,
+        }
+    }
+}
+
 /// A static ability on a card: `modifier` applies to objects matching
 /// `filter` on `layer`, while the source is on the battlefield.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]

@@ -36,6 +36,7 @@
 use crate::dsl::ability::{AbilityDef, SpellMode};
 use crate::dsl::effect::{Effect, ManaSource, TargetSpec};
 use crate::dsl::filter::Filter;
+use crate::dsl::static_ability::{Layer, Modifier};
 use crate::dsl::{CardDef, Color, ColorSet, FaceDef, ManaColor, ManaCost, TypeSet};
 
 /// One `(what it targets, what it does)` pair out of an ability.
@@ -210,6 +211,70 @@ fn target_reuse(ability: &AbilityDef) -> Option<&'static Filter> {
         }
     }
     None
+}
+
+/// Every `(layer, modifier)` pair a continuous effect inside this effect
+/// states, the wrappers included.
+///
+/// The recursion is the one [`swept_filters`] does and for the same reason —
+/// a continuous effect inside a conditional is still a continuous effect,
+/// and the pool has exactly one of those (Jin-Gitaxias's kicked half). The
+/// `_` arm is the same bargain too: an effect that carries no layer has
+/// nothing to say here, and the pair this lint is about can only appear in
+/// the one variant that has both fields.
+fn declared_layers(effect: &Effect) -> Vec<(Layer, Modifier)> {
+    match effect {
+        Effect::CreateContinuousEffect {
+            layer, modifier, ..
+        } => vec![(*layer, *modifier)],
+        Effect::Sequence(effects) => effects.iter().flat_map(declared_layers).collect(),
+        Effect::IfKicked { then, otherwise }
+        | Effect::IfEventPowerAtLeast {
+            then, otherwise, ..
+        } => then
+            .iter()
+            .chain(*otherwise)
+            .flat_map(declared_layers)
+            .collect(),
+        Effect::MayDo { effects: then }
+        | Effect::IfCreaturesDiedAtLeast { then, .. }
+        | Effect::IfNotLostLifeThisTurn { then, .. }
+        | Effect::IfControlGreatestCmc { then, .. } => {
+            then.iter().flat_map(declared_layers).collect()
+        }
+        _ => Vec::new(),
+    }
+}
+
+/// A continuous effect declared on a layer its modifier does not belong to
+/// (CR 613.1).
+///
+/// Returns `(declared, derived, modifier)`, which is what a failure has to
+/// print: the modifier names the effect, and the two layers say which way
+/// round the disagreement is.
+///
+/// This is the lint that lets [`crate::dsl::static_ability!`] take two
+/// arguments. The layer is a function of the modifier — "all permanents are
+/// artifacts" is layer 4 whatever a card says — so
+/// [`Modifier::layer`](crate::dsl::Modifier::layer) is the one answer and a
+/// hand-written literal is free to disagree with it. Measured over the whole
+/// pool before the derivation existed: 108 pairings, 25 modifiers, no
+/// modifier on two layers. That is what makes the table trustworthy and this
+/// sweep is what keeps it so, including for the raw literals that stay raw.
+fn layer_fault(ability: &AbilityDef) -> Option<(Layer, Layer, Modifier)> {
+    let from_static = match ability {
+        AbilityDef::Static(sa) => vec![(sa.layer, sa.modifier)],
+        _ => Vec::new(),
+    };
+    from_static
+        .into_iter()
+        .chain(
+            branches(ability)
+                .into_iter()
+                .flat_map(|branch| branch.effects.iter().flat_map(declared_layers)),
+        )
+        .find(|(declared, modifier)| *declared != modifier.layer())
+        .map(|(declared, modifier)| (declared, modifier.layer(), modifier))
 }
 
 /// Whether an effect adds mana.
@@ -529,6 +594,124 @@ mod tests {
              same filter matches. Inside a continuous effect the DSL spells \
              \"the target\" as `Filter::This`; elsewhere the effect wants a \
              filter of its own.\n{}",
+            wrong.len(),
+            wrong.join("\n")
+        );
+    }
+
+    /// The layer lint fires on a modifier put on the wrong layer, and stays
+    /// quiet on the same modifier put on the right one.
+    ///
+    /// Both halves matter. A sweep that finds nothing over 1365 cards is
+    /// indistinguishable from one that looks at nothing, and a lint that
+    /// fires on everything would be just as useless.
+    #[test]
+    fn the_layer_lint_catches_a_modifier_on_the_wrong_layer() {
+        let wrong = AbilityDef::Static(crate::dsl::StaticAbility {
+            layer: Layer::Color,
+            filter: Filter::Any,
+            modifier: Modifier::AddType(TypeSet::ARTIFACT),
+        });
+        let right = AbilityDef::Static(crate::dsl::StaticAbility {
+            layer: Layer::Type,
+            filter: Filter::Any,
+            modifier: Modifier::AddType(TypeSet::ARTIFACT),
+        });
+        assert_eq!(
+            layer_fault(&wrong),
+            Some((
+                Layer::Color,
+                Layer::Type,
+                Modifier::AddType(TypeSet::ARTIFACT)
+            )),
+            "a type-changing modifier on layer 5 is the mistake this exists for"
+        );
+        assert_eq!(layer_fault(&right), None, "layer 4 is where it belongs");
+
+        // And the same through an effect, which is the other half of the
+        // pool: 78 of the 108 pairings are `CreateContinuousEffect`.
+        let via_effect = AbilityDef::Spell {
+            effects: &[Effect::CreateContinuousEffect {
+                layer: Layer::Text,
+                filter: &Filter::This,
+                modifier: Modifier::ModifyPT(1, 1),
+                duration: Duration::UntilEndOfTurn,
+            }],
+            targets: None,
+        };
+        assert_eq!(
+            layer_fault(&via_effect),
+            Some((Layer::Text, Layer::PtModify, Modifier::ModifyPT(1, 1))),
+            "a pump is layer 7c wherever it is written"
+        );
+    }
+
+    /// The recursion reaches a continuous effect inside a conditional.
+    ///
+    /// The pool has exactly one — Jin-Gitaxias's kicked half — so a walker
+    /// that stopped at the top level would have passed this sweep while
+    /// being blind to the one card that needed it.
+    #[test]
+    fn the_layer_lint_looks_inside_a_conditional() {
+        let nested = AbilityDef::Spell {
+            effects: &[Effect::IfKicked {
+                then: &[Effect::CreateContinuousEffect {
+                    layer: Layer::Copy,
+                    filter: &Filter::This,
+                    modifier: Modifier::AddKeyword(crate::dsl::KeywordSet::FLYING),
+                    duration: Duration::UntilEndOfTurn,
+                }],
+                otherwise: &[],
+            }],
+            targets: None,
+        };
+        assert_eq!(
+            layer_fault(&nested).map(|(declared, derived, _)| (declared, derived)),
+            Some((Layer::Copy, Layer::Ability)),
+            "a granted keyword inside `IfKicked` is still layer 6"
+        );
+    }
+
+    /// Every continuous effect in the pool sits on the layer its modifier
+    /// derives (CR 613.1).
+    ///
+    /// This is what makes the two-argument
+    /// [`crate::dsl::static_ability!`] safe: a card states what changes and
+    /// to what, and the layer follows. A raw literal may still be written,
+    /// and this is what stops one disagreeing with the macro beside it.
+    #[test]
+    fn every_layer_in_the_pool_is_the_one_its_modifier_derives() {
+        let mut wrong = Vec::new();
+        let mut seen = 0_usize;
+        for def in crate::all() {
+            let faces = def.faces.iter().flat_map(|f| f.abilities.iter());
+            for ability in def.abilities.iter().chain(faces) {
+                seen += match ability {
+                    AbilityDef::Static(_) => 1,
+                    _ => 0,
+                } + branches(ability)
+                    .into_iter()
+                    .flat_map(|b| b.effects.iter().flat_map(declared_layers))
+                    .count();
+                if let Some((declared, derived, modifier)) = layer_fault(ability) {
+                    wrong.push(format!(
+                        "{}: {modifier:?} is declared on {declared:?}, derives {derived:?}",
+                        def.name()
+                    ));
+                }
+            }
+        }
+        assert!(
+            seen > 100,
+            "only {seen} layer/modifier pairings found — the walker has gone \
+             blind, and an empty sweep proves nothing"
+        );
+        assert!(
+            wrong.is_empty(),
+            "{} continuous effect(s) name a layer their modifier does not \
+             belong to. The layer is not a card's decision: write \
+             `static_ability!(filter, modifier)` and let `Modifier::layer` \
+             answer.\n{}",
             wrong.len(),
             wrong.join("\n")
         );

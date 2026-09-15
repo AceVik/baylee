@@ -33,7 +33,10 @@ pub use ability::{
     StepKind, Trigger, TriggerEventKind,
 };
 pub use build::prelude;
-pub use build::{ActivatedParts, LoyaltyParts, ModalTriggeredParts, SpellParts, TriggeredParts};
+pub use build::{
+    ActivatedParts, EQUIP_TARGET, LoyaltyParts, ModalTriggeredParts, SagaChapterParts, SpellParts,
+    StaticParts, TriggeredParts,
+};
 pub use cost::{AltCondition, AlternativeCost, Cost, CostPart, CostReduction};
 pub use effect::{
     Amount, CounterKind, Effect, Find, ManaRestriction, ManaSource, PlayerRel, SearchDest,

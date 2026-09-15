@@ -661,9 +661,10 @@ opens with one import, `use baylee_cards_dsl::prelude::*;`. `card!` and
 `face!` are the `CardDef`/`FaceDef` literals with their `..DEFAULT` tail
 supplied (and `card!` writes the doc comment on the `pub static CARD` it
 defines); `mana_ability!`, `activated!`, `triggered!`, `spell!`, `loyalty!`,
-`modal_triggered!` and `mode!` do the same for the six ability shapes that
-make up most of the pool. **Never restate a default** — that rule is why all
-of it exists. Every one of them is invoked with parentheses and takes its
+`static_ability!`, `chapter!`, `modal_triggered!` and `mode!` do the same for
+the ability shapes that make up most of the pool, and `equip!` for the one
+keyword whose whole ability is defined by the rules. **Never restate a
+default** — that rule is why all of it exists. Every one of them is invoked with parentheses and takes its
 optional fields as `field = value`: a macro called with braces is left
 unformatted by rustfmt in its entirety, and `field: value` is not an
 expression, so the brace form put the whole pool outside `cargo fmt --check`
@@ -677,6 +678,21 @@ instead of a flag — an ability wrongly marked `true` would silently skip the
 stack, and nothing in the test suite reads that as a rules bug. Fields with no
 rules answer (a trigger, an effect list) are positional arguments, so they
 cannot be forgotten.
+
+Two of them take the rule one step further and remove a field the card never
+decided. `static_ability!(filter, modifier)` has **no layer argument**:
+CR 613.1 makes the layer a function of the modifier, and `Modifier::layer` is
+that function — derived from the compiled pool, where 108 `layer`/`modifier`
+pairings used 25 modifiers and put no modifier on two different layers.
+`equip!("{2}")` takes only the cost, because CR 702.6 supplies everything
+else — sorcery speed, "target creature you control", and attaching this
+permanent to it. A raw literal is still allowed in both places, and
+`lints::every_layer_in_the_pool_is_the_one_its_modifier_derives` is what
+stops one disagreeing with the macro beside it. `activated!` and
+`mana_ability!` reach `AbilityDef::ActivatedConditional` through one optional
+`condition = Some(…)`, which is the only difference between the twins — six
+readers across the engine, the client and the lints once matched the
+unconditional one alone.
 
 A cost is `cost!`, which reads left to right the way the card prints it —
 `cost!("{1}{G}", TapSelf, SacrificeSelf)`, `cost!(TapSelf, SacrificeSelf,
