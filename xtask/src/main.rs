@@ -1,8 +1,8 @@
 //! xtask — baylee development tasks (codegen, card explanation, …).
 
 use baylee_cards_codegen::{
-    acceptance, cardindex, catalog, landgen, layout, ledger, lines, scriptgen, scripts, scryfall,
-    stubgen,
+    acceptance, cardindex, catalog, landgen, layout, ledger, lines, names, scriptgen, scripts,
+    scryfall, stubgen,
 };
 use clap::{Parser, Subcommand};
 use std::collections::{BTreeMap, BTreeSet};
@@ -818,6 +818,18 @@ fn codegen(root: &Path, check: bool, scripts_dir: &Path, cache: &Path) -> anyhow
         &mut changed,
     )?;
 
+    // 5. Which card a printed English name is → generated_names.rs.
+    //    Beside stage 4 and not beside the registry, for its reason: this
+    //    is built from the **compiled** pool, so it is two-phase in the
+    //    same way and `--check` is what makes the second run a build
+    //    failure rather than a name that silently resolves to nothing.
+    write_or_check(
+        check,
+        &root.join("crates/baylee-cards/src/generated_names.rs"),
+        &render_name_table()?,
+        &mut changed,
+    )?;
+
     if check {
         if changed.is_empty() {
             println!("codegen check: up to date");
@@ -1331,7 +1343,7 @@ fn face_cost(face: &str) -> String {
     let rest = &face[pos + "mana_cost = ".len()..];
     // Either spelling of the macro. It used to read only the qualified one,
     // and the day `mana!` reached the prelude all 478 costed faces in the
-    // pool read as costing nothing â a reader pinned to one spelling that
+    // pool read as costing nothing — a reader pinned to one spelling that
     // answers a *value* when it cannot read, rather than saying so.
     let rest = rest
         .strip_prefix("mana!(\"")
@@ -3072,6 +3084,7 @@ fn validate(root: &Path) -> anyhow::Result<()> {
             &mut problems,
         );
     }
+    check_no_name_is_claimed_twice(&mut problems);
     report_what_the_sweeps_reached(&tally, header_types, &mut problems);
     if problems > 0 {
         anyhow::bail!("{problems} convention problem(s) found");
@@ -4632,4 +4645,43 @@ fn ability_lines(root: &Path) -> anyhow::Result<()> {
         println!("  {line}");
     }
     Ok(())
+}
+
+/// Renders `crates/baylee-cards/src/generated_names.rs`: the pool's names
+/// placed in a perfect hash, so resolving one costs a hash and a string
+/// compare instead of a walk over 1365 cards.
+///
+/// The names come from the pool **compiled into this binary** — the same
+/// source stage 4 reads and for the same reason: `CardDef::name()` is what
+/// `by_name` has to answer for, so taking the names from anywhere else
+/// would build a table about a different set of strings than the one being
+/// looked up. Two-phase like stage 4, and `codegen --check` is the guard.
+fn render_name_table() -> anyhow::Result<String> {
+    let entries: Vec<(&str, u32)> = baylee_cards::all()
+        .map(|def| (def.name(), def.index.get()))
+        .collect();
+    Ok(names::render(&entries)?)
+}
+
+/// Two cards in the pool printing the same English name.
+///
+/// A name is what a deck list carries, so a name claimed twice is a deck row
+/// with no answer: `decks::by_name` has to pick one and whichever it picks is
+/// wrong for somebody. `codegen` already refuses to build the name table over
+/// such a pair — the perfect hash cannot separate two identical keys — but
+/// that failure arrives while generating rather than while reading, and this
+/// command is the one a person runs to ask whether the pool is sound.
+fn check_no_name_is_claimed_twice(problems: &mut usize) {
+    let mut seen: BTreeMap<&str, Vec<&str>> = BTreeMap::new();
+    for def in baylee_cards::all() {
+        seen.entry(def.name()).or_default().push(def.oracle_id);
+    }
+    for (name, oracle_ids) in seen.iter().filter(|(_, ids)| ids.len() > 1) {
+        eprintln!(
+            "{name}: {} cards print this name ({})",
+            oracle_ids.len(),
+            oracle_ids.join(", ")
+        );
+        *problems += 1;
+    }
 }

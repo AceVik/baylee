@@ -16,6 +16,7 @@ pub mod landgen;
 pub mod layout;
 pub mod ledger;
 pub mod lines;
+pub mod names;
 pub mod scriptgen;
 pub mod scripts;
 pub mod scryfall;

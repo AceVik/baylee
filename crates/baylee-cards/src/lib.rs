@@ -19,6 +19,8 @@ pub mod filters;
 pub mod generated;
 /// Generated: which printed sentence each ability came from.
 pub mod generated_lines;
+/// Generated: the name table — which card a printed English name is.
+pub mod generated_names;
 /// Which printed sentence an ability came from (the reader of
 /// [`generated_lines`]).
 pub mod lines;

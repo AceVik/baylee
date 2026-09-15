@@ -88,20 +88,36 @@ pub struct LoadedDeck {
     pub commanders: Vec<DeckCard>,
 }
 
-/// Resolves a card name to its registry index (linear scan; the
-/// acceptance pool is small).
+/// Resolves a card name to its registry index, in constant time.
 ///
-/// It walks the **cards** and reads the index each one claims, rather than
-/// counting positions off. An index is assigned over the whole card corpus
-/// and this pool holds 1365 of its 33 694 rows, so a scan of `0..count()`
-/// looks at the first 1365 *slots*, nearly all of them empty, and cannot see
-/// a card past them. Written the old way it answered `None` for almost every
-/// card in the acceptance decks the moment the ledger was seeded.
+/// The pool's names are placed in a perfect hash when
+/// [`generated_names`](crate::generated_names) is written, so this is one
+/// hash, one array read and one string compare. It was a walk over all 1365
+/// cards with a compare each — which the gateway ran once per row of every
+/// deck it stored, and every self-play harness ran per card of every deck it
+/// dealt.
+///
+/// **The compare is not a formality.** A perfect hash is perfect only over
+/// the names it was built from: a string the pool does not have lands in
+/// some slot as well, so without reading back the spelling that lives there
+/// this would answer a *wrong card* rather than `None`.
+///
+/// What it answers about is the **pool** — the cards this engine can build —
+/// and deliberately not the 33 694-row corpus in `baylee-cards-index`. A
+/// deck row naming a card that exists but is unimplemented has to fail here,
+/// because the `CardIndex` it would otherwise get back resolves to no
+/// `CardDef`; and the corpus names are not compiled into this crate, which
+/// the engine links. Telling a player *which* of the two a name is needs a
+/// second lookup, not a wider table.
 #[must_use]
 pub fn by_name(name: &str) -> Option<CardIndex> {
-    crate::all()
-        .find(|def| def.name() == name)
-        .map(|def| def.index)
+    use crate::generated_names::{EMPTY, NAMES, SLOTS, TABLE};
+    let at = SLOTS[TABLE.slot(name.as_bytes())];
+    if at == EMPTY {
+        return None;
+    }
+    let (spelling, index) = NAMES[at as usize];
+    (spelling == name).then_some(index)
 }
 
 /// Loads a named deck from the acceptance text.
@@ -583,6 +599,79 @@ mod tests {
                 card.index
             );
             assert_eq!(card.print.finish, Finish::Normal);
+        }
+    }
+}
+
+#[cfg(test)]
+mod name_table_tests {
+    use super::by_name;
+    use crate::generated_names::NAMES;
+    use std::collections::HashMap;
+
+    #[test]
+    fn every_card_in_the_pool_finds_itself_by_name() {
+        for def in crate::all() {
+            assert_eq!(
+                by_name(def.name()),
+                Some(def.index),
+                "{} does not resolve to itself",
+                def.name()
+            );
+        }
+    }
+
+    /// The table is regenerated from the compiled pool, so a card added
+    /// without a second `codegen` run would leave it short. `codegen --check`
+    /// says the same thing in CI; this says it to whoever is working.
+    #[test]
+    fn the_table_holds_the_whole_pool_and_nothing_else() {
+        assert_eq!(NAMES.len(), crate::count());
+        for (spelling, index) in NAMES {
+            let def = crate::by_index(index).expect("a name resolves to a card in the pool");
+            assert_eq!(def.name(), spelling);
+        }
+    }
+
+    /// The owner's invariant, and the reason the generator can build the hash
+    /// at all: two cards with one name have no answer `by_name` could give.
+    #[test]
+    fn no_two_cards_in_the_pool_share_a_name() {
+        let mut seen: HashMap<&str, &str> = HashMap::new();
+        for def in crate::all() {
+            if let Some(other) = seen.insert(def.name(), def.name()) {
+                panic!("two cards are named {}: {other}", def.name());
+            }
+        }
+    }
+
+    /// A perfect hash answers for *every* string, so the spelling stored
+    /// beside the answer is what separates "no such card" from the wrong one.
+    ///
+    /// Deleting the comparison in `by_name` fails this about nine hundred
+    /// times: two thirds of the table's slots are occupied, so that is
+    /// roughly how often a name nobody prints lands on top of a real card.
+    #[test]
+    fn a_name_the_pool_does_not_have_never_answers_a_card() {
+        let mut mutants: Vec<String> = Vec::new();
+        for def in crate::all() {
+            mutants.push(format!("{}x", def.name()));
+            mutants.push(def.name().to_lowercase());
+            let mut short = def.name().to_string();
+            short.pop();
+            mutants.push(short);
+        }
+        mutants.push(String::new());
+        mutants.push("Not A Card At All".into());
+        for m in &mutants {
+            if let Some(index) = by_name(m) {
+                let def = crate::by_index(index).expect("in the pool");
+                assert_eq!(
+                    def.name(),
+                    m.as_str(),
+                    "{m:?} resolved to a card that is not called that"
+                );
+            }
         }
     }
 }

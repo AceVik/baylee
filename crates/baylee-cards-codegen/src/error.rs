@@ -68,6 +68,45 @@ pub enum CodegenError {
         /// The card that wanted it.
         wanted: String,
     },
+    /// Two cards in the pool print the same English name.
+    ///
+    /// There is no answer `by_name` could give for such a name, and the
+    /// perfect hash cannot be built over the pair at all — identical keys
+    /// hash identically and no displacement separates them. Named here so
+    /// the failure says which card rather than "no seed worked".
+    #[error("two cards are named '{name}' (entries {first} and {again})")]
+    DuplicateCardName {
+        /// The contested name.
+        name: String,
+        /// Position of the first card with it.
+        first: usize,
+        /// Position of the second.
+        again: usize,
+    },
+    /// No seed placed the name set in a perfect hash.
+    ///
+    /// Not expected to happen: the table is two thirds full and a bucket may
+    /// be displaced a million times. It is a bail rather than an `expect`
+    /// because the alternative is a table that silently lost a card.
+    #[error("no perfect hash for {keys} card names in {seeds} seeds")]
+    NoPerfectHash {
+        /// How many names were being placed.
+        keys: usize,
+        /// How many seeds were tried.
+        seeds: u64,
+    },
+    /// The pool outgrew the slot table's `u16`.
+    ///
+    /// Unreachable at 1365 cards and checked anyway, because the failure it
+    /// prevents is a position that wraps into the empty marker — a card that
+    /// silently stops resolving rather than a build that stops.
+    #[error("the pool has {cards} names; the slot table holds at most {limit}")]
+    PoolTooLarge {
+        /// How many names were being placed.
+        cards: usize,
+        /// What fits.
+        limit: usize,
+    },
     /// Invalid line in the acceptance deck file.
     #[error("acceptance deck file line {line}: {text}")]
     DeckLine {

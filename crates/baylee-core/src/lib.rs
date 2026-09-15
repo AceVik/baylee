@@ -54,6 +54,7 @@ pub mod generated {
 pub mod ids;
 pub mod mana;
 pub mod oracle;
+pub mod phf;
 pub mod preset;
 pub mod types;
 
