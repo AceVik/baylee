@@ -983,19 +983,23 @@ mod tests {
         assert!(text.contains("card!("));
         assert!(text.contains("face!("));
         assert!(!text.contains("#![allow("), "the blanket allow is gone");
+        // Spelled with the `=` the macros take, not the `:` a struct
+        // literal took: since the pool moved to `field = value` a stub
+        // cannot contain `mana_cost:` whatever it restates, so the list
+        // below had stopped being able to fail at all.
         for absent in [
-            "mana_cost:",
-            "supertypes:",
-            "subtypes:",
-            "power:",
-            "toughness:",
-            "loyalty:",
-            "color_identity:",
-            "keywords:",
-            "commander:",
-            "partner:",
-            "alternative_costs:",
-            "castable_from_hand:",
+            "mana_cost =",
+            "supertypes =",
+            "subtypes =",
+            "power =",
+            "toughness =",
+            "loyalty =",
+            "color_identity =",
+            "keywords =",
+            "commander =",
+            "partner =",
+            "alternative_costs =",
+            "castable_from_hand =",
         ] {
             assert!(
                 !text.contains(absent),

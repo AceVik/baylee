@@ -552,9 +552,17 @@ match on `"<field> = "`. Card files are ordinary rustfmt output since the
 macros moved to parentheses, so a value too long for its line is wrapped onto
 the next one — `coverage =\n        Coverage::Partial(…)` — and every reader
 that matched the unwrapped spelling read that card as having no coverage flag
-at all. Seven textual readers of the pool have now been found answering a
+at all. **Eleven** textual readers of the pool have now been found answering a
 question they could not see; three of them were blind from the day they were
-written.
+written, and four went blind the day the macros moved — `cross-read`, both
+halves of `validate`'s header-against-code identity check, and a stubgen
+assertion that no longer had a spelling it could fail on. Each of those four
+matched `"<field>: "`, the struct-literal spelling, which not one of the 1365
+card files has contained since. Only one of them said so: `cross-read` carries
+a bound on how many cards it may read and refused at nought against a floor of
+190, while the other three ran green over the whole pool and compared nothing.
+**That is the argument for the bound, not for the care** — a reader that
+reports a population is worth more than one that is merely correct today.
 
 #### Two readers write finished cards
 
