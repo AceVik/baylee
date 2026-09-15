@@ -1,0 +1,78 @@
+# Keeps the Scryfall payload cache from expiring, and fills it when the pool
+# has moved.
+#
+# GitHub deletes an Actions cache that has not been **accessed** for 7 days,
+# and every access resets that clock. Nothing else stands between the current
+# setup and "fetched once and cached for good": a quiet fortnight — a holiday,
+# a branch nobody pushed — and the next run starts cold. A restore is an
+# access, so most of the time this workflow's whole job is to touch the cache.
+#
+# Twice a week rather than weekly, because the window is exactly 7 days and a
+# scheduled run is not punctual: GitHub queues `schedule:` at low priority and
+# delays it by up to an hour or more under load. Two touches leave three days
+# of slack instead of none.
+#
+# The second half is the pool moving. The key is the card ledger, so adding a
+# card makes a new key and the cache behind it is cold — and while that cold
+# case is now one bulk download rather than 1365 requests, doing it here means
+# the *first* push after a set release already finds a warm cache. The fill is
+# `xtask scryfall-cache` and not `codegen`, because codegen needs the
+# card-script corpus this runner does not have and would fail on the stale
+# files a pool change legitimately leaves behind.
+#
+# Note for a long quiet stretch: GitHub disables `schedule:` triggers on a
+# repository with no commits for 60 days and emails the owner. The
+# `workflow_dispatch` below is the manual door back in.
+name: scryfall-cache
+
+on:
+  schedule:
+    # Mondays and Thursdays. An odd minute deliberately: the top of the hour
+    # is the busiest slot on GitHub's scheduler and the most delayed.
+    - cron: '17 4 * * 1,4'
+  workflow_dispatch:
+
+concurrency:
+  group: scryfall-cache
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  keep-warm:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # The restore *is* the keep-alive: this is the access that resets the
+      # 7-day clock, and on the common path the job does nothing else.
+      - uses: ./.github/actions/scryfall-cache
+        id: scryfall
+      - id: held
+        shell: bash
+        run: |
+          count=$(find data/scryfall-cache -name '*.json' 2>/dev/null | wc -l | tr -d ' ')
+          echo "count=$count" >> "$GITHUB_OUTPUT"
+          echo "scryfall cache holds $count payloads under ${{ steps.scryfall.outputs.key }}"
+      # Only when the exact key missed. A restore-key fallback counts as a
+      # miss here on purpose: it means the ledger has moved and the cache is
+      # short of the cards the new pool wants.
+      - uses: dtolnay/rust-toolchain@stable
+        if: steps.scryfall.outputs.cache-hit != 'true'
+      - uses: Swatinem/rust-cache@v2
+        if: steps.scryfall.outputs.cache-hit != 'true'
+        with:
+          cache-on-failure: true
+          shared-key: xtask
+      - if: steps.scryfall.outputs.cache-hit != 'true'
+        run: cargo run -p xtask -- scryfall-cache
+      # `actions/cache/save` refuses to overwrite a key that exists, so this
+      # only ever writes the *new* key — which is exactly what a moved ledger
+      # produces. `continue-on-error` because a cache that could not be saved
+      # is a slow next run, not a broken one.
+      - uses: actions/cache/save@v4
+        if: ${{ steps.scryfall.outputs.cache-hit != 'true' && !cancelled() }}
+        continue-on-error: true
+        with:
+          path: data/scryfall-cache
+          key: ${{ steps.scryfall.outputs.key }}

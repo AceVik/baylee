@@ -10,6 +10,12 @@ outputs:
       rather than recomputed at the call site, so the restore and the save
       cannot drift apart.
     value: ${{ steps.key.outputs.key }}
+  cache-hit:
+    description: >
+      `true` only when the **exact** key was restored. A `restore-keys`
+      fallback is deliberately not a hit: it means the ledger has moved and
+      the cache is short of the cards the new pool wants.
+    value: ${{ steps.restore.outputs.cache-hit }}
 
 runs:
   using: composite
@@ -46,6 +52,7 @@ runs:
       shell: bash
       run: echo "key=scryfall-cache-${{ hashFiles('crates/baylee-cards-index/src/generated.rs') }}" >> "$GITHUB_OUTPUT"
     - uses: actions/cache/restore@v4
+      id: restore
       with:
         path: data/scryfall-cache
         key: ${{ steps.key.outputs.key }}
