@@ -37,20 +37,8 @@ card!(
     )],
     coverage = Coverage::Implemented,
     abilities = &[
-        AbilityDef::Static(StaticAbility {
-            layer: Layer::Type,
-            filter: PERMANENTS,
-            modifier: Modifier::AddType(TypeSet::ARTIFACT),
-        }),
-        AbilityDef::Static(StaticAbility {
-            layer: Layer::Color,
-            filter: EVERYTHING,
-            modifier: Modifier::SetColor(ColorSet::EMPTY),
-        }),
-        AbilityDef::Static(StaticAbility {
-            layer: Layer::Text,
-            filter: Filter::Any,
-            modifier: Modifier::ManaIsAnyColor,
-        }),
+        static_ability!(PERMANENTS, Modifier::AddType(TypeSet::ARTIFACT)),
+        static_ability!(EVERYTHING, Modifier::SetColor(ColorSet::EMPTY)),
+        static_ability!(Filter::Any, Modifier::ManaIsAnyColor),
     ],
 );

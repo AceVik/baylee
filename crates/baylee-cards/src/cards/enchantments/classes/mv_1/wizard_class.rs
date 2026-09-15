@@ -12,11 +12,14 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes::enchantment;
 
-static YOUR_CREATURE: Filter = Filter::And(&[Filter::CREATURE, Filter::ControlledByYou]);
-static LEVEL3_FX: &[Effect] = &[Effect::AddCounter {
-    kind: CounterKind::P1P1,
+/// Gaining a level is one lore-free counter plus whatever the new level
+/// says, and the level it is gained *from* is the precondition — which is
+/// why both are `activated!` with a `condition` rather than two ability
+/// kinds.
+const LEVEL_UP: Effect = Effect::AddCounter {
+    kind: CounterKind::Level,
     amount: Amount::Fixed(1),
-}];
+};
 
 card!(
     index = 22003,
@@ -32,53 +35,40 @@ card!(
     coverage = Coverage::Implemented,
     abilities = &[
         // Level 1 (printed).
-        AbilityDef::Static(StaticAbility {
-            layer: Layer::Text,
-            filter: Filter::Any,
-            modifier: Modifier::NoMaxHandSize,
-        }),
+        static_ability!(Filter::Any, Modifier::NoMaxHandSize),
         // {2}{U}: Level 2 (sorcery speed, requires level 1).
-        AbilityDef::ActivatedConditional {
-            cost: cost!("{2}{U}"),
-            effects: &[
-                Effect::AddCounter {
-                    kind: CounterKind::Level,
-                    amount: Amount::Fixed(1),
-                },
-                Effect::DrawCards {
-                    amount: Amount::Fixed(2),
-                },
-            ],
-            target: None,
-            timing: ActivationTiming::SorcerySpeed,
-            mana_ability: false,
-            zone: ActivationZone::Battlefield,
-            condition: ActivationCondition::CountersOnSelfExactly(CounterKind::Level, 0),
-        },
+        activated!(
+            cost!("{2}{U}"),
+            &[LEVEL_UP, Effect::draw(2)],
+            timing = ActivationTiming::SorcerySpeed,
+            condition = Some(ActivationCondition::CountersOnSelfExactly(
+                CounterKind::Level,
+                0
+            )),
+        ),
         // {4}{U}: Level 3 (sorcery speed, requires level 2).
-        AbilityDef::ActivatedConditional {
-            cost: cost!("{4}{U}"),
-            effects: &[
-                Effect::AddCounter {
-                    kind: CounterKind::Level,
-                    amount: Amount::Fixed(1),
-                },
-                Effect::CreateContinuousEffect {
-                    layer: Layer::Text,
-                    filter: &Filter::This,
-                    modifier: Modifier::GrantTriggered {
+        activated!(
+            cost!("{4}{U}"),
+            &[
+                LEVEL_UP,
+                Effect::continuous(
+                    &Filter::This,
+                    Modifier::GrantTriggered {
                         trigger: Trigger::Draws(PlayerRel::You),
-                        effects: LEVEL3_FX,
-                        target: Some(TargetSpec::Object(&YOUR_CREATURE)),
+                        effects: &[Effect::AddCounter {
+                            kind: CounterKind::P1P1,
+                            amount: Amount::Fixed(1),
+                        }],
+                        target: Some(TargetSpec::Object(&Filter::YOUR_CREATURE)),
                     },
-                    duration: Duration::WhileSourceOnBattlefield,
-                },
+                    Duration::WhileSourceOnBattlefield,
+                ),
             ],
-            target: None,
-            timing: ActivationTiming::SorcerySpeed,
-            mana_ability: false,
-            zone: ActivationZone::Battlefield,
-            condition: ActivationCondition::CountersOnSelfExactly(CounterKind::Level, 1),
-        },
+            timing = ActivationTiming::SorcerySpeed,
+            condition = Some(ActivationCondition::CountersOnSelfExactly(
+                CounterKind::Level,
+                1
+            )),
+        ),
     ],
 );

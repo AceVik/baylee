@@ -13,8 +13,6 @@ use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes::{enchantment, land};
 
 use crate::tokens::CONSTRUCT_0_0 as CONSTRUCT;
-static ARTIFACT_CMC1: Filter = Filter::And(&[Filter::ARTIFACT, Filter::CmcAtMost(1)]);
-static CHAPTER_I_FX: &[Effect] = &[Effect::mana(ManaColor::Colorless, 1)];
 
 card!(
     index = 21519,
@@ -31,26 +29,23 @@ card!(
         // ability — it covers the same text (CR 714.3a grants it
         // permanently, so the approximation is exact from chapter I on).
         mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
-        AbilityDef::SagaChapter {
-            chapter: 1,
-            effects: &[Effect::CreateContinuousEffect {
-                layer: Layer::Ability,
-                filter: &Filter::This,
-                modifier: Modifier::GrantActivated {
+        chapter!(
+            1,
+            &[Effect::continuous(
+                &Filter::This,
+                Modifier::GrantActivated {
                     cost: Cost::TAP,
-                    effects: CHAPTER_I_FX,
+                    effects: &[Effect::mana(ManaColor::Colorless, 1)],
                     mana_ability: true,
                 },
-                duration: Duration::WhileSourceOnBattlefield,
-            }],
-            targets: None,
-        },
-        AbilityDef::SagaChapter {
-            chapter: 2,
-            effects: &[Effect::CreateContinuousEffect {
-                layer: Layer::Ability,
-                filter: &Filter::This,
-                modifier: Modifier::GrantActivated {
+                Duration::WhileSourceOnBattlefield,
+            )]
+        ),
+        chapter!(
+            2,
+            &[Effect::continuous(
+                &Filter::This,
+                Modifier::GrantActivated {
                     cost: cost!("{2}", TapSelf),
                     effects: &[Effect::CreateTokenPtPerCount {
                         token: &CONSTRUCT,
@@ -60,18 +55,16 @@ card!(
                     }],
                     mana_ability: false,
                 },
-                duration: Duration::WhileSourceOnBattlefield,
-            }],
-            targets: None,
-        },
-        AbilityDef::SagaChapter {
-            chapter: 3,
-            effects: &[Effect::SearchLibrary {
-                filter: &ARTIFACT_CMC1,
+                Duration::WhileSourceOnBattlefield,
+            )]
+        ),
+        chapter!(
+            3,
+            &[Effect::SearchLibrary {
+                filter: &Filter::And(&[Filter::ARTIFACT, Filter::CmcAtMost(1)]),
                 finds: &[Find::BATTLEFIELD],
                 optional: false,
-            }],
-            targets: None,
-        },
+            }]
+        ),
     ],
 );
