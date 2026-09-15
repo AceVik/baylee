@@ -88,7 +88,7 @@ trunk serve index.html --release                         # from crates/baylee-cl
 BAYLEE_AGENT_TOKEN=$(openssl rand -hex 32) ./target/debug/baylee-gateway   # accounts/decks/lobby/proxy, 0.0.0.0:28766
 BAYLEE_AGENT_TOKEN=<the same> ./target/debug/baylee-agent                  # starts one engine per game
 ./target/debug/baylee-engine-server                      # dev harness only, 127.0.0.1:28765
-cargo bench -p baylee-engine -- --quick                  # numbers to compare against docs/perf-baseline.md
+cargo bench -p baylee-engine --bench basics -- --quick                  # numbers to compare against docs/perf-baseline.md
 ```
 
 `dev-control` opens a loopback HTTP harness (`/health`, `/state`, `/key`,

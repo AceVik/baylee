@@ -177,7 +177,11 @@ jobs:
       - uses: ./.github/actions/linux-deps
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
-      - run: cargo bench -p baylee-engine -- --quick
+      # `--bench basics` names the target on purpose. Without it `cargo bench`
+      # runs every bench target in the crate, the lib's own libtest harness
+      # included, and that harness answers `--quick` with "Unrecognized
+      # option" and exit 101 — criterion never sees the flag it is meant for.
+      - run: cargo bench -p baylee-engine --bench basics -- --quick
 
   # The declared MSRV is a promise; stable-only CI would never notice it
   # drifting (let-chains needed 1.88 while Cargo.toml claimed 1.85).
