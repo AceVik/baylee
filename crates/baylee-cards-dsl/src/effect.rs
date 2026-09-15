@@ -997,6 +997,113 @@ pub enum Effect {
 }
 
 impl Effect {
+    /// "Draw a card." / "Draw three cards."
+    ///
+    /// # The verbs, and where they stop
+    ///
+    /// This and the seven below are the printed sentence as one call. The
+    /// precedent is [`Effect::mana`] directly underneath: it has 219 uses in
+    /// the pool against **zero** raw `AddMana` literals, so a verb that
+    /// reads like the card is adopted without anybody being told to.
+    ///
+    /// Two rules keep that from becoming a second language.
+    ///
+    /// **One verb per variant, and only where the variant has one answer to
+    /// give.** `Effect::SearchLibrary { filter, finds, optional }` has three
+    /// fields and two of them are real choices ("you may", and whether what
+    /// is found goes to hand or battlefield), so it stays a literal — a
+    /// `search` / `may_search` / `search_to_hand` family is how a vocabulary
+    /// turns into a phrasebook. Thirty-four cards write it out and that is
+    /// the right number.
+    ///
+    /// **The name is the word the card prints**, where the card prints one.
+    /// "Draw", "scry", "destroy", "exile" are all oracle text.
+    /// [`Effect::blink`] is the exception the engine already made — there is
+    /// no printed verb for "exile it, then return it to the battlefield",
+    /// and `Blink` is both the variant's name and what the word means at a
+    /// table. `return_to_hand` is *not* called `bounce` for the mirror
+    /// reason: oracle says "return … to its owner's hand", the engine says
+    /// `ReturnToHand`, and a third word buys nine characters and costs a
+    /// reader grepping the card's own header.
+    ///
+    /// A fixed count is the argument, because 83 of the pool's 84 draws are
+    /// fixed; the one that is not (and anything with `{X}`) writes the
+    /// literal, exactly as [`Effect::mana_dynamic`] sits beside
+    /// [`Effect::mana`].
+    #[must_use]
+    pub const fn draw(cards: u32) -> Self {
+        Self::DrawCards {
+            amount: Amount::Fixed(cards),
+        }
+    }
+
+    /// "Scry 2."
+    #[must_use]
+    pub const fn scry(cards: u32) -> Self {
+        Self::Scry {
+            amount: Amount::Fixed(cards),
+        }
+    }
+
+    /// "You gain 3 life."
+    #[must_use]
+    pub const fn gain_life(life: u32) -> Self {
+        Self::GainLife {
+            amount: Amount::Fixed(life),
+        }
+    }
+
+    /// "Destroy target …"
+    #[must_use]
+    pub const fn destroy(target: TargetSpec) -> Self {
+        Self::Destroy { target }
+    }
+
+    /// "Exile target …"
+    #[must_use]
+    pub const fn exile(target: TargetSpec) -> Self {
+        Self::Exile { target }
+    }
+
+    /// "Exile target …, then return it to the battlefield under its owner's
+    /// control."
+    #[must_use]
+    pub const fn blink(target: TargetSpec) -> Self {
+        Self::Blink { target }
+    }
+
+    /// "Return target … to its owner's hand."
+    #[must_use]
+    pub const fn return_to_hand(target: TargetSpec) -> Self {
+        Self::ReturnToHand { target }
+    }
+
+    /// A continuous effect this resolution creates, on the layer its
+    /// modifier belongs to (CR 613.1).
+    ///
+    /// The layer is derived by [`crate::Modifier::layer`], for the reason
+    /// [`crate::static_ability!`] gives: it is a function of the modifier
+    /// and never a decision the card makes. Seventy-nine effects in the pool
+    /// restated it, which is seventy-nine chances to write the wrong one —
+    /// and `baylee_cards::lints` sweeps every last one of them.
+    ///
+    /// `filter` is `&Filter::This` for "the target", which is how a
+    /// continuous effect says it; a filter naming a *kind* of object here is
+    /// the Karn bug, and there is a lint for that too.
+    #[must_use]
+    pub const fn continuous(
+        filter: &'static Filter,
+        modifier: crate::static_ability::Modifier,
+        duration: crate::static_ability::Duration,
+    ) -> Self {
+        Self::CreateContinuousEffect {
+            layer: modifier.layer(),
+            filter,
+            modifier,
+            duration,
+        }
+    }
+
     /// `Add {G}` / `Add {C}{C}` — a fixed amount of one named color.
     ///
     /// The unified [`Effect::AddMana`] answers three questions at once, and
@@ -1122,5 +1229,81 @@ impl Effect {
             combination,
             restriction: Some(ManaRestriction { filter, rider }),
         }
+    }
+}
+
+#[cfg(test)]
+mod verb_tests {
+    use super::*;
+    use crate::ability::Trigger;
+    use crate::static_ability::{Duration, Layer, Modifier};
+
+    /// Every verb is the literal it replaces.
+    ///
+    /// A verb is only worth having if adopting it is free, and "free" here
+    /// means the same `Effect` value and not a near-enough one. There was no
+    /// test of this shape for `Effect::mana` either, which has 219 uses.
+    #[test]
+    fn a_verb_is_the_literal_it_replaces() {
+        assert_eq!(
+            Effect::draw(3),
+            Effect::DrawCards {
+                amount: Amount::Fixed(3)
+            }
+        );
+        assert_eq!(
+            Effect::scry(2),
+            Effect::Scry {
+                amount: Amount::Fixed(2)
+            }
+        );
+        assert_eq!(
+            Effect::gain_life(4),
+            Effect::GainLife {
+                amount: Amount::Fixed(4)
+            }
+        );
+
+        let target = TargetSpec::Object(&Filter::CREATURE);
+        assert_eq!(Effect::destroy(target), Effect::Destroy { target });
+        assert_eq!(Effect::exile(target), Effect::Exile { target });
+        assert_eq!(Effect::blink(target), Effect::Blink { target });
+        assert_eq!(
+            Effect::return_to_hand(target),
+            Effect::ReturnToHand { target }
+        );
+    }
+
+    /// `Effect::continuous` derives the layer, and derives the one the
+    /// seventy-nine effects in the pool already state.
+    #[test]
+    fn a_continuous_effect_derives_its_own_layer() {
+        assert_eq!(
+            Effect::continuous(
+                &Filter::This,
+                Modifier::ModifyPT(1, 1),
+                Duration::UntilEndOfTurn,
+            ),
+            Effect::CreateContinuousEffect {
+                layer: Layer::PtModify,
+                filter: &Filter::This,
+                modifier: Modifier::ModifyPT(1, 1),
+                duration: Duration::UntilEndOfTurn,
+            }
+        );
+        let Effect::CreateContinuousEffect { layer, .. } = Effect::continuous(
+            &Filter::Any,
+            Modifier::AddType(baylee_core::types::TypeSet::ARTIFACT),
+            Duration::WhileSourceOnBattlefield,
+        ) else {
+            panic!("continuous must build CreateContinuousEffect");
+        };
+        assert_eq!(layer, Layer::Type, "a type change is layer 4 (CR 613.1)");
+    }
+
+    /// `Trigger::ETB` is the enter-trigger 99 of the pool's 110 spell out.
+    #[test]
+    fn etb_is_the_trigger_the_pool_writes_a_hundred_times() {
+        assert_eq!(Trigger::ETB, Trigger::EntersBattlefield(&Filter::This));
     }
 }

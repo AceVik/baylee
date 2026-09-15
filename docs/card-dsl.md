@@ -514,6 +514,11 @@ on `obj.chosen_subtype`; creatures also gain the subtype in their base).
 `FirstNoncreatureSpellCast(rel)`, `Attacks(filter)`, `BecomesTarget`,
 `EntersBattlefieldEvoked`, `StepBegin { step, whose }`.
 
+`Trigger::ETB` is `EntersBattlefield(&Filter::This)`, which 99 of the pool's
+110 enter-triggers are. It is a constant and not a macro because there is
+nothing to parameterise: a trigger pointed at anything other than the source
+keeps the variant and its filter.
+
 ### Target specs (`TargetSpec`)
 
 `Object(filter)`, `Spell(filter)`, `StackOrBattlefield(filter)`,
@@ -551,10 +556,33 @@ opponent and no choice at all — is a different card.
 (Roaming Throne & co.), `InZone(ZoneRef)` (incl. `NotBattlefield` for
 cross-zone effects).
 
+**Write them with `f!`, adjectives then noun.**
+
+```rust
+f!(CREATURE)                              // Filter::CREATURE itself
+f!(your CREATURE)                         // a creature you control
+f!(another nontoken CREATURE)
+f!(owned Filter::HasSubtype(ally::ALLY))  // an Ally you own
+```
+
+The adjective list is closed — `your`, `opponents`, `owned`, `another`,
+`token`, `nontoken`, `tapped`, `untapped`, `attacking`, `colorless` — and
+each one is a single nullary `Filter` variant. Anything that takes an
+argument stays a variant (`Filter::HasColor(…)`, `Filter::CmcAtMost(1)`),
+because `f!` is a shorter spelling of the filters we already have and not a
+second filter language: it can say nothing `Filter` cannot.
+
+It is a macro rather than a `const fn` because combining filters means
+building a `&'static [Filter]` from parameters, and a slice built from a
+parameter inside a `const fn` cannot be promoted to `'static` (E0716). A
+macro expands in the caller's `static`, where the slice promotes like any
+other literal.
+
 **Compose them inline.** In `static` context a slice promotes to `'static`
-automatically, so `Filter::And(&[Filter::CREATURE, Filter::ControlledByYou])`
-needs no named `static` at all. Give a filter a name only when the same card
-refers to it twice.
+automatically, so `f!(your CREATURE)` needs no named `static` at all. Give a
+filter a name only when the same card refers to it **twice** — that is the
+whole rule, and 123 of the pool's 159 local filter statics are named for a
+filter their card mentions once.
 
 **Reach for the named ones first.** `Filter` carries constants for the
 predicates the pool kept reinventing — `CREATURE`, `ARTIFACT`,
@@ -573,6 +601,26 @@ written twice; one card's own compound filter stays in that card's file,
 where the oracle sentence it encodes is a line above it.
 
 ### Effects (ops)
+
+**The common ones have a verb**, and the verb is the word the card prints:
+`Effect::draw(1)`, `scry(2)`, `gain_life(3)`, `destroy(t)`, `exile(t)`,
+`blink(t)`, `return_to_hand(t)`, and `continuous(filter, modifier, duration)`
+with the layer derived. `Effect::mana` is the precedent — 219 uses in the
+pool against zero raw `AddMana` literals.
+
+Two rules keep that from growing into a phrasebook. **One verb per variant,
+and only where the variant has one answer to give**: `SearchLibrary { filter,
+finds, optional }` has two real choices in it, so it stays a literal rather
+than becoming a `search` / `may_search` / `search_to_hand` family. And **the
+name is the printed word** where there is one; `blink` is the exception the
+engine already made, because "exile it, then return it" has no printed verb.
+`return_to_hand` is deliberately *not* `bounce`: oracle and the engine both
+already name it, and a third word costs a reader grepping the card's own
+`//! Oracle:` header.
+
+A fixed count is the argument (83 of the pool's 84 draws are fixed);
+`{X}` and anything else writes the literal, the way `Effect::mana_dynamic`
+sits beside `Effect::mana`.
 
 Life/draw: `GainLife`, `GainLifeFor`, `GainLifeDoubleX`, `LoseLife`,
 `DrawCards`, `DrawCardsFor`, `Scry`, `ScryFor`, `Mill`,

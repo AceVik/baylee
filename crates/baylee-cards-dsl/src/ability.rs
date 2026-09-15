@@ -102,6 +102,19 @@ pub enum Trigger {
     },
 }
 
+impl Trigger {
+    /// "When this enters the battlefield…" — the trigger 99 of the pool's
+    /// 110 enter-triggers are.
+    ///
+    /// `etb` is the word this is called at a table, and it is not a third
+    /// name for anything: it abbreviates the older printed wording ("enters
+    /// the battlefield") *and* [`Trigger::EntersBattlefield`]. The other ten
+    /// triggers point at something other than the source and keep the
+    /// variant with its filter, which is the whole reason this is a
+    /// constant and not a macro — there is nothing to parameterise.
+    pub const ETB: Self = Self::EntersBattlefield(&Filter::This);
+}
+
 /// An ability definition on a [`crate::CardDef`].
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum AbilityDef {

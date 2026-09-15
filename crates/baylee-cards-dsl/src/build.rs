@@ -415,6 +415,98 @@ macro_rules! face {
     };
 }
 
+/// A filter, written the way the card says it: adjectives, then the noun.
+///
+/// ```ignore
+/// f!(CREATURE)                       // a creature
+/// f!(your CREATURE)                  // a creature you control
+/// f!(another nontoken CREATURE)      // another nontoken creature
+/// f!(your Filter::HasSubtype(ally::ALLY))   // an Ally you control
+/// ```
+///
+/// # Why a macro and not a function
+///
+/// A `const fn` cannot do this. Combining filters means building a
+/// `&'static [Filter]` from its *parameters*, and a slice built from a
+/// parameter inside a `const fn` cannot be promoted to `'static` (E0716). A
+/// macro expands in the caller's `static` or `const`, where the slice
+/// promotes like any other literal — which is also why a card needs no local
+/// `static` for a filter it mentions once.
+///
+/// # What it may say
+///
+/// The adjective list is **closed**, and every entry is one nullary
+/// [`Filter`] variant (or `Not` of one): `your`, `opponents`, `owned`,
+/// `another`, `token`, `nontoken`, `tapped`, `untapped`, `attacking`,
+/// `colorless`. The noun is a bare identifier resolved as `Filter::$noun`
+/// (`CREATURE`, `LAND`, `BASIC_LAND`, `NONLAND`, `INSTANT_OR_SORCERY`, …) or
+/// any `Filter` expression.
+///
+/// Anything that takes an argument stays a variant —
+/// `Filter::HasColor(ColorSet::of(Color::Green))`, `Filter::CmcAtMost(1)` —
+/// because the point is a shorter spelling of the filters we already have,
+/// not a second filter language. `f!` can say nothing `Filter` cannot.
+///
+/// The expansion is `Filter::And(&[noun, adjectives…])` in written order, so
+/// `f!(your CREATURE)` is the same **data** as [`Filter::YOUR_CREATURE`] and
+/// not merely the same meaning — which is what makes replacing a
+/// hand-written `static` with it provably free, and is asserted by
+/// `the_filter_macro_spells_the_constants_it_replaces`.
+#[macro_export]
+macro_rules! f {
+    ($($spelling:tt)+) => { $crate::__f_adjectives!([] $($spelling)+) };
+}
+
+/// The accumulator behind [`f!`](crate::f).
+///
+/// Separate because a muncher cannot be its own entry point: an arm that
+/// re-enters `f!` would match `f!`'s own catch-all and recurse for ever on a
+/// misspelled adjective, where this reports an unmatched rule.
+#[doc(hidden)]
+#[macro_export]
+macro_rules! __f_adjectives {
+    ([$($acc:expr),*] your $($rest:tt)+) => {
+        $crate::__f_adjectives!([$($acc,)* $crate::Filter::ControlledByYou] $($rest)+)
+    };
+    ([$($acc:expr),*] opponents $($rest:tt)+) => {
+        $crate::__f_adjectives!([$($acc,)* $crate::Filter::ControlledByOpponent] $($rest)+)
+    };
+    ([$($acc:expr),*] owned $($rest:tt)+) => {
+        $crate::__f_adjectives!([$($acc,)* $crate::Filter::OwnedByYou] $($rest)+)
+    };
+    ([$($acc:expr),*] another $($rest:tt)+) => {
+        $crate::__f_adjectives!([$($acc,)* $crate::Filter::Another] $($rest)+)
+    };
+    ([$($acc:expr),*] token $($rest:tt)+) => {
+        $crate::__f_adjectives!([$($acc,)* $crate::Filter::IsToken] $($rest)+)
+    };
+    ([$($acc:expr),*] nontoken $($rest:tt)+) => {
+        $crate::__f_adjectives!([$($acc,)* $crate::Filter::Not(&$crate::Filter::IsToken)] $($rest)+)
+    };
+    ([$($acc:expr),*] tapped $($rest:tt)+) => {
+        $crate::__f_adjectives!([$($acc,)* $crate::Filter::Tapped] $($rest)+)
+    };
+    ([$($acc:expr),*] untapped $($rest:tt)+) => {
+        $crate::__f_adjectives!([$($acc,)* $crate::Filter::Untapped] $($rest)+)
+    };
+    ([$($acc:expr),*] attacking $($rest:tt)+) => {
+        $crate::__f_adjectives!([$($acc,)* $crate::Filter::Attacking] $($rest)+)
+    };
+    ([$($acc:expr),*] colorless $($rest:tt)+) => {
+        $crate::__f_adjectives!([$($acc,)* $crate::Filter::IsColorless] $($rest)+)
+    };
+    // The noun, with nothing in front of it: the constant itself, so
+    // `f!(CREATURE)` is `Filter::CREATURE` and not a one-element `And`.
+    ([] $noun:ident) => { $crate::Filter::$noun };
+    ([$($acc:expr),+] $noun:ident) => {
+        $crate::Filter::And(&[$crate::Filter::$noun, $($acc),+])
+    };
+    ([] $noun:expr) => { $noun };
+    ([$($acc:expr),+] $noun:expr) => {
+        $crate::Filter::And(&[$noun, $($acc),+])
+    };
+}
+
 /// A cost, written the way the card prints it: mana first, then the rest.
 ///
 /// ```ignore
@@ -686,8 +778,8 @@ pub mod prelude {
         KeywordSet, PartnerKind,
     };
     pub use crate::{
-        activated, card, chapter, cost, equip, face, loyalty, mana_ability, modal_triggered, mode,
-        spell, static_ability, triggered,
+        activated, card, chapter, cost, equip, f, face, loyalty, mana_ability, modal_triggered,
+        mode, spell, static_ability, triggered,
     };
     pub use baylee_core::color::{Color, ColorSet};
     pub use baylee_core::ids::{CardIndex, SubtypeId};
@@ -720,22 +812,12 @@ mod tests {
     /// promotion refuses when the same expression is built inside a
     /// `const fn` from a parameter (E0716).
     static IN_A_STATIC: [AbilityDef; 4] = [
-        static_ability!(
-            Filter::And(&[Filter::CREATURE, Filter::ControlledByYou]),
-            Modifier::ModifyPT(1, 1)
-        ),
-        chapter!(
-            1,
-            &[Effect::Scry {
-                amount: Amount::Fixed(1)
-            }]
-        ),
+        static_ability!(f!(your CREATURE), Modifier::ModifyPT(1, 1)),
+        chapter!(1, &[Effect::scry(1)]),
         equip!("{2}"),
         activated!(
             Cost::TAP,
-            &[Effect::DrawCards {
-                amount: Amount::Fixed(1)
-            }],
+            &[Effect::draw(1)],
             condition = Some(ActivationCondition::ControlCount(&Filter::ARTIFACT, 3)),
         ),
     ];
@@ -899,6 +981,47 @@ mod tests {
                 effects: EFFECTS,
                 targets: Some(req),
             }
+        );
+    }
+
+    /// The filter macro spells the composite constants it is meant to
+    /// replace — the same data, not merely the same meaning.
+    ///
+    /// This is the assertion the filter half of the migration rests on. A
+    /// card file that swaps a hand-written `static CREATURE_YOU_CONTROL` for
+    /// `f!(your CREATURE)` moves no byte of the compiled pool, and that has
+    /// to be provable before 159 local statics are touched — the order of
+    /// the clauses inside an `And` is part of the data, so "a creature you
+    /// control" written the other way round would be a different filter that
+    /// happens to match the same objects.
+    #[test]
+    fn the_filter_macro_spells_the_constants_it_replaces() {
+        assert_eq!(f!(your CREATURE), Filter::YOUR_CREATURE);
+        assert_eq!(f!(opponents CREATURE), Filter::OPPONENT_CREATURE);
+        assert_eq!(f!(another CREATURE), Filter::ANOTHER_CREATURE);
+        assert_eq!(f!(nontoken CREATURE), Filter::NONTOKEN_CREATURE);
+        assert_eq!(
+            f!(CREATURE),
+            Filter::CREATURE,
+            "a bare noun is the constant itself, not a one-element And"
+        );
+    }
+
+    /// Adjectives stack in written order, and a noun may be any filter.
+    #[test]
+    fn the_filter_macro_reads_left_to_right() {
+        assert_eq!(
+            f!(another nontoken CREATURE),
+            Filter::And(&[
+                Filter::CREATURE,
+                Filter::Another,
+                Filter::Not(&Filter::IsToken),
+            ])
+        );
+        assert_eq!(
+            f!(your Filter::CmcAtMost(1)),
+            Filter::And(&[Filter::CmcAtMost(1), Filter::ControlledByYou]),
+            "the noun may be any Filter expression, which is where f! stops"
         );
     }
 
