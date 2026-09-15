@@ -837,3 +837,83 @@ async fn a_corrected_type_name_survives_the_next_migration() {
 
     sandbox.close().await;
 }
+
+/// A Secret Lair prints a different name on the card and the real one in
+/// small type beside it. The rules never see it — `oracle_id` and the Oracle
+/// name are unchanged — but a player holding the cardboard reads the printed
+/// one, so the search has to answer it, and answer it as a **name**.
+///
+/// The decoy is what makes that second half a claim rather than a hope. A
+/// flavor name reaches `tsv` as well as `names_norm`, so a card found only
+/// through the text tier still comes back — ranked beside every card whose
+/// rules text happens to mention the words, and behind a shorter one. Only
+/// the fenced `names_norm` entry puts it at the tier a name belongs to.
+///
+/// Both printings are asked about, because a flavor name belongs to the
+/// printing and not the card: Command Tower carries six of them, and a
+/// projection that kept one printing per language would answer the first
+/// query and silently fail the second.
+#[tokio::test]
+async fn a_card_is_found_by_the_name_a_secret_lair_printed_on_it() {
+    let sandbox = Sandbox::open("flavor").await;
+    let tower = "dddddddd-0000-4000-8000-000000000001";
+    let printing = |id: &str, num: &str, flavor: &str| scryfall::Card {
+        id: id.to_string(),
+        oracle_id: Some(tower.to_string()),
+        lang: "en".to_string(),
+        set: "sld".to_string(),
+        collector_number: num.to_string(),
+        released_at: Some("2023-01-01".to_string()),
+        name: "Command Tower".to_string(),
+        type_line: Some("Land".to_string()),
+        flavor_name: Some(flavor.to_string()),
+        ..scryfall::Card::default()
+    };
+    sandbox
+        .fill(&[
+            printing("00000000-0000-4000-8000-0000000000a1", "1", "Cybertron"),
+            printing("00000000-0000-4000-8000-0000000000a2", "2", "Croft Manor"),
+            // Shorter name, same words in its rules text: it wins every
+            // tie-break the ranking has left once the tiers are equal.
+            scryfall::Card {
+                id: "00000000-0000-4000-8000-0000000000a3".to_string(),
+                oracle_id: Some("dddddddd-0000-4000-8000-000000000002".to_string()),
+                lang: "en".to_string(),
+                set: "usg".to_string(),
+                released_at: Some("1998-10-12".to_string()),
+                name: "Decoy".to_string(),
+                type_line: Some("Instant".to_string()),
+                oracle_text: Some("Cybertron and Croft Manor are not places.".to_string()),
+                ..scryfall::Card::default()
+            },
+        ])
+        .await;
+
+    for printed in ["Cybertron", "Croft Manor"] {
+        let hits = sandbox
+            .catalog
+            .search(printed, "en", 20)
+            .await
+            .expect("searching by a printed name");
+        assert_eq!(
+            hits.first().map(|h| h.english_name.as_str()),
+            Some("Command Tower"),
+            "{printed} is a name, and did not outrank a card that merely says it: {hits:?}"
+        );
+        assert!(
+            hits.iter().any(|h| h.english_name == "Decoy"),
+            "{printed} stopped reaching the text tier at all: {hits:?}"
+        );
+    }
+
+    // The counter-test: a name nobody printed still finds nothing, so the
+    // join widened the search rather than loosening it.
+    let none = sandbox
+        .catalog
+        .search("Autobot City", "en", 20)
+        .await
+        .expect("searching for a name that was never printed");
+    assert!(none.is_empty(), "an unprinted name matched: {none:?}");
+
+    sandbox.close().await;
+}

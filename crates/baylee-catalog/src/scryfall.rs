@@ -26,6 +26,17 @@ pub struct Card {
     /// Set code.
     #[serde(default)]
     pub set: String,
+    /// What kind of set that is — `core`, `expansion`, `commander`, `box`,
+    /// `funny`, `memorabilia`, `token`, `alchemy`, …
+    ///
+    /// Stored because it is the one field that separates a card from a thing
+    /// shaped like one, and it says so in Scryfall's own words rather than in
+    /// a list of set codes this repo would have to keep. A Secret Lair is
+    /// `box` and its cards are cards; Mystery Booster playtest cards and the
+    /// Un-sets are `funny`; art cards and challenge-deck cards are
+    /// `memorabilia`. Which of those the card corpus admits is decided where
+    /// the corpus is built, not here.
+    pub set_type: Option<String>,
     /// Collector number within the set.
     #[serde(default)]
     pub collector_number: String,
@@ -64,6 +75,15 @@ pub struct Card {
     pub name: String,
     /// Name as printed in this printing's language.
     pub printed_name: Option<String>,
+    /// The just-for-fun name a printing carries instead of the card's own.
+    ///
+    /// Neither a translation nor a name in the rules sense: `name` stays the
+    /// Oracle name and `oracle_id` is unchanged, and the physical card prints
+    /// the real name in small type beside it. A Secret Lair Abrade is sold as
+    /// "You're Gonna Need a Bigger Boat" and *is* Abrade. It belongs to the
+    /// **printing** rather than the card — Command Tower has six of them — so
+    /// it reaches search and never the rules.
+    pub flavor_name: Option<String>,
     /// English type line.
     pub type_line: Option<String>,
     /// Type line as printed.
@@ -98,6 +118,12 @@ pub struct Face {
     pub name: String,
     /// Name as printed.
     pub printed_name: Option<String>,
+    /// This face's just-for-fun name; see [`Card::flavor_name`].
+    ///
+    /// A face carries its own because the two halves of a reversible card can
+    /// disagree: one printing of Birds of Paradise is "African Swallow" on the
+    /// front and "European Swallow" on the back.
+    pub flavor_name: Option<String>,
     /// English type line.
     pub type_line: Option<String>,
     /// Type line as printed.
@@ -124,11 +150,21 @@ impl Card {
         if let Some(faces) = &self.card_faces
             && !faces.is_empty()
         {
-            return faces.clone();
+            // A flavor name sits on the faces of a reversible card and on the
+            // card itself elsewhere, so a face that has none inherits the
+            // card's rather than dropping it.
+            return faces
+                .iter()
+                .map(|f| Face {
+                    flavor_name: f.flavor_name.clone().or_else(|| self.flavor_name.clone()),
+                    ..f.clone()
+                })
+                .collect();
         }
         vec![Face {
             name: self.name.clone(),
             printed_name: self.printed_name.clone(),
+            flavor_name: self.flavor_name.clone(),
             type_line: self.type_line.clone(),
             printed_type_line: self.printed_type_line.clone(),
             oracle_text: self.oracle_text.clone(),
@@ -255,5 +291,55 @@ mod tests {
         assert_eq!(card.lang, "de");
         assert_eq!(card.printed_name.as_deref(), Some("Wald"));
         assert!(card.is_storable());
+    }
+
+    /// A flavor name is the printing's, not the card's, and Scryfall puts it
+    /// in two different places: on the card for an ordinary printing, on each
+    /// face for a reversible one whose halves disagree. Both have to reach
+    /// `faces()`, or the search loses the name a player is holding.
+    #[test]
+    fn a_flavor_name_reaches_the_face_from_wherever_scryfall_put_it() {
+        let single: Card = serde_json::from_str(
+            r#"{"id":"a","oracle_id":"b","lang":"en","set":"sld",
+                "collector_number":"1","name":"Abrade",
+                "flavor_name":"You're Gonna Need a Bigger Boat",
+                "type_line":"Instant"}"#,
+        )
+        .expect("decodes");
+        assert_eq!(
+            single.faces()[0].flavor_name.as_deref(),
+            Some("You're Gonna Need a Bigger Boat"),
+            "a card-level flavor name has to reach the one face"
+        );
+        assert_eq!(single.name, "Abrade", "the Oracle name is untouched");
+
+        let reversible: Card = serde_json::from_str(
+            r#"{"id":"c","oracle_id":"d","lang":"en","set":"sld",
+                "collector_number":"2","name":"Birds of Paradise // Birds of Paradise",
+                "layout":"reversible_card",
+                "card_faces":[
+                  {"name":"Birds of Paradise","flavor_name":"African Swallow"},
+                  {"name":"Birds of Paradise","flavor_name":"European Swallow"}]}"#,
+        )
+        .expect("decodes");
+        let faces = reversible.faces();
+        assert_eq!(faces[0].flavor_name.as_deref(), Some("African Swallow"));
+        assert_eq!(faces[1].flavor_name.as_deref(), Some("European Swallow"));
+
+        // A multi-face card whose faces carry none inherits the card's.
+        let inherited: Card = serde_json::from_str(
+            r#"{"id":"e","oracle_id":"f","lang":"en","set":"sld",
+                "collector_number":"3","name":"A // B","layout":"split",
+                "flavor_name":"Megatron",
+                "card_faces":[{"name":"A"},{"name":"B"}]}"#,
+        )
+        .expect("decodes");
+        assert!(
+            inherited
+                .faces()
+                .iter()
+                .all(|f| f.flavor_name.as_deref() == Some("Megatron")),
+            "a face with no flavor name of its own takes the card's"
+        );
     }
 }

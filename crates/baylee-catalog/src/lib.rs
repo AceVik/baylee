@@ -172,7 +172,7 @@ pub struct Catalog {
 ///
 /// Bump it whenever the projection's *content* changes — the fill query, one
 /// of the two function bodies, or a column's meaning.
-const SCHEMA_VERSION: i32 = 2;
+const SCHEMA_VERSION: i32 = 3;
 
 /// The key `SCHEMA_VERSION` is stamped under.
 const VERSION_KEY: &str = "search_projection";
@@ -262,6 +262,20 @@ const BIGRAMS_BODY: &str = "SELECT coalesce(array_agg(DISTINCT g), '{}'::text[])
 /// alone, the card type. The second is what catches the 28 faces whose exact
 /// combination of supertypes was never printed abroad, which would otherwise
 /// get no word at all.
+///
+/// The second `LEFT JOIN` carries **flavor names** — the just-for-fun name a
+/// Secret Lair prints instead of the card's own, with the real one in small
+/// type beside it. It is joined separately, and not folded into the inner
+/// query, because that one keeps one printing per language (`DISTINCT ON`)
+/// and a flavor name belongs to the *printing*: Command Tower has six of
+/// them, and picking one printing would throw five away. 476 cards in 661
+/// printings carry one. They reach `names_norm`, so typing `Cybertron` finds
+/// Command Tower at the same tier as typing its own name, and `bg` follows
+/// because it is `GENERATED` from that column. They reach neither `names` —
+/// which answers "what is this card called in your language", and a flavor
+/// name is not a language — nor anything the rules read: `oracle_id` and the
+/// Oracle name are unchanged, which is the whole reason this is a search
+/// concern and not a card one.
 const PROJECT_SQL: &str = "\
     WITH face AS ( \
       SELECT DISTINCT ON (c.oracle_id, cf.face_index) \
@@ -271,8 +285,10 @@ const PROJECT_SQL: &str = "\
       ORDER BY c.oracle_id, cf.face_index, (c.lang = 'en') DESC, c.scryfall_id \
     ) \
     INSERT INTO card_search (oracle_id, face_index, names, names_norm, tsv) \
-    SELECT p.oracle_id, p.face_index, p.names, p.names_norm, \
+    SELECT p.oracle_id, p.face_index, p.names, \
+           p.names_norm || coalesce(v.extra_norm, ''), \
            p.tsv || coalesce(t.extra, ''::tsvector) \
+                 || coalesce(v.extra_tsv, ''::tsvector) \
     FROM ( \
       SELECT oracle_id, face_index, \
              jsonb_object_agg(lang, nm) AS names, \
@@ -303,7 +319,16 @@ const PROJECT_SQL: &str = "\
         FROM face WHERE type_line LIKE '% — %' \
       ) w JOIN type_names d USING (english) \
       GROUP BY w.oracle_id, w.face_index \
-    ) t USING (oracle_id, face_index)";
+    ) t USING (oracle_id, face_index) \
+    LEFT JOIN ( \
+      SELECT c.oracle_id, f.face_index, \
+             ' ' || catalog_norm(string_agg(DISTINCT f.flavor_name, ' | ')) || ' |' \
+               AS extra_norm, \
+             to_tsvector('simple', string_agg(DISTINCT f.flavor_name, ' ')) AS extra_tsv \
+      FROM cards c JOIN card_faces f USING (scryfall_id) \
+      WHERE f.flavor_name IS NOT NULL AND f.flavor_name <> '' \
+      GROUP BY c.oracle_id, f.face_index \
+    ) v USING (oracle_id, face_index)";
 
 /// The columns one printing binds in `upsert_cards`, in bind order.
 ///
@@ -311,10 +336,10 @@ const PROJECT_SQL: &str = "\
 /// three places apart; a mismatch makes Postgres reject the whole batch, so
 /// the list lives here and the tests hold the other two against it.
 const CARD_INSERT_COLUMNS: &str = "scryfall_id, oracle_id, lang, set_code, collector_number, \
-     rarity, layout, released_at, set_name, artist, finishes, frame_effects, border_color, promo";
+     rarity, layout, released_at, set_name, artist, finishes, frame_effects, border_color, promo, set_type";
 
 /// How many columns that is.
-const CARD_COLUMNS: usize = 14;
+const CARD_COLUMNS: usize = 15;
 
 impl Catalog {
     /// Connects to Postgres.
@@ -802,6 +827,7 @@ impl Catalog {
             values.push(Value::from(card.frame_effects.join(",")));
             values.push(Value::from(card.border_color.clone()));
             values.push(Value::from(card.promo));
+            values.push(Value::from(card.set_type.clone()));
         }
         sql.push_str(
             " ON CONFLICT (scryfall_id) DO UPDATE SET \
@@ -811,7 +837,8 @@ impl Catalog {
              released_at = EXCLUDED.released_at, set_name = EXCLUDED.set_name, \
              artist = EXCLUDED.artist, finishes = EXCLUDED.finishes, \
              frame_effects = EXCLUDED.frame_effects, border_color = EXCLUDED.border_color, \
-             promo = EXCLUDED.promo, updated_at = now()",
+             promo = EXCLUDED.promo, set_type = EXCLUDED.set_type, \
+             updated_at = now()",
         );
         self.db
             .execute_raw(Statement::from_sql_and_values(
@@ -828,20 +855,21 @@ impl Catalog {
     async fn upsert_faces(&self, cards: &[&scryfall::Card]) -> Result<()> {
         let mut sql = String::from(
             "INSERT INTO card_faces \
-             (scryfall_id, face_index, name, printed_name, type_line, printed_type_line, \
+             (scryfall_id, face_index, name, printed_name, flavor_name, \
+              type_line, printed_type_line, \
               oracle_text, printed_text, mana_cost, power, toughness, loyalty) VALUES ",
         );
         let mut values: Vec<Value> = Vec::new();
         let mut n = 0usize;
         for card in cards {
             for (index, face) in card.faces().into_iter().enumerate() {
-                let base = n * 12;
+                let base = n * 13;
                 if n > 0 {
                     sql.push(',');
                 }
                 let _ = write!(
                     sql,
-                    "(${}::uuid,${},${},${},${},${},${},${},${},${},${},${})",
+                    "(${}::uuid,${},${},${},${},${},${},${},${},${},${},${},${})",
                     base + 1,
                     base + 2,
                     base + 3,
@@ -853,12 +881,14 @@ impl Catalog {
                     base + 9,
                     base + 10,
                     base + 11,
-                    base + 12
+                    base + 12,
+                    base + 13
                 );
                 values.push(Value::from(card.id.clone()));
                 values.push(Value::from(index as i16));
                 values.push(Value::from(face.name));
                 values.push(Value::from(face.printed_name));
+                values.push(Value::from(face.flavor_name));
                 values.push(Value::from(face.type_line));
                 values.push(Value::from(face.printed_type_line));
                 values.push(Value::from(face.oracle_text));
@@ -876,6 +906,7 @@ impl Catalog {
         sql.push_str(
             " ON CONFLICT (scryfall_id, face_index) DO UPDATE SET \
              name = EXCLUDED.name, printed_name = EXCLUDED.printed_name, \
+             flavor_name = EXCLUDED.flavor_name, \
              type_line = EXCLUDED.type_line, printed_type_line = EXCLUDED.printed_type_line, \
              oracle_text = EXCLUDED.oracle_text, printed_text = EXCLUDED.printed_text, \
              mana_cost = EXCLUDED.mana_cost, power = EXCLUDED.power, \
@@ -1048,6 +1079,7 @@ fn schema_statements() -> Vec<String> {
             frame_effects    text NOT NULL DEFAULT '',
             border_color     text,
             promo            boolean NOT NULL DEFAULT false,
+            set_type         text,
             updated_at       timestamptz NOT NULL DEFAULT now()
         )"
         .to_string(),
@@ -1061,7 +1093,8 @@ fn schema_statements() -> Vec<String> {
              ADD COLUMN IF NOT EXISTS finishes text NOT NULL DEFAULT 'nonfoil', \
              ADD COLUMN IF NOT EXISTS frame_effects text NOT NULL DEFAULT '', \
              ADD COLUMN IF NOT EXISTS border_color text, \
-             ADD COLUMN IF NOT EXISTS promo boolean NOT NULL DEFAULT false"
+             ADD COLUMN IF NOT EXISTS promo boolean NOT NULL DEFAULT false, \
+             ADD COLUMN IF NOT EXISTS set_type text"
             .to_string(),
         // `released_at` was stored as text, which sorted correctly only by
         // the accident that Scryfall writes ISO dates — and every one of the
@@ -1090,6 +1123,7 @@ fn schema_statements() -> Vec<String> {
             face_index        smallint NOT NULL,
             name              text NOT NULL DEFAULT '',
             printed_name      text,
+            flavor_name       text,
             type_line         text,
             printed_type_line text,
             oracle_text       text,
@@ -1101,6 +1135,10 @@ fn schema_statements() -> Vec<String> {
             PRIMARY KEY (scryfall_id, face_index)
         )"
         .to_string(),
+        // `CREATE TABLE IF NOT EXISTS` does nothing to a table that exists, so
+        // a catalog ingested before flavor names knew about them needs the
+        // column added. The projection's version stamp then refills it.
+        "ALTER TABLE card_faces ADD COLUMN IF NOT EXISTS flavor_name text".to_string(),
         // The lookup that serves every game: identity, then language.
         "CREATE INDEX IF NOT EXISTS cards_oracle_lang ON cards (oracle_id, lang)".to_string(),
         // What the projection is stamped with, so an upgrade can be told from
@@ -1482,6 +1520,40 @@ mod tests {
         assert!(
             sql.contains("position('| ' || q.n || ' |' in s.names_norm)"),
             "the exact tier stopped reading the fence"
+        );
+    }
+
+    /// A flavor name belongs to a *printing*, and the inner query keeps one
+    /// printing per language. Command Tower carries six of them, so folding
+    /// the lookup in there would keep whichever printing `DISTINCT ON` chose
+    /// and throw the other five away — a search that finds `Cybertron` and
+    /// not `Croft Manor`, with nothing to show it happened. It is therefore
+    /// its own join over every printing, and it has to keep writing the
+    /// fence, or the names it adds rank as substrings instead of as names.
+    #[test]
+    fn every_flavor_name_a_card_was_ever_printed_under_is_searchable() {
+        let start = PROJECT_SQL
+            .find("f.flavor_name")
+            .expect("the projection stopped reading flavor names");
+        let join = PROJECT_SQL[..start]
+            .rfind("LEFT JOIN (")
+            .expect("flavor names are not inside a join of their own");
+        let branch = &PROJECT_SQL[join..];
+        assert!(
+            !branch.contains("DISTINCT ON"),
+            "the flavor-name join picks one printing per card:\n{branch}"
+        );
+        assert!(
+            branch.contains("string_agg(DISTINCT f.flavor_name"),
+            "the flavor-name join stopped collecting every printing's name"
+        );
+        assert!(
+            branch.contains("' ' || catalog_norm(") && branch.contains("|| ' |'"),
+            "the flavor names stopped being fenced like every other name"
+        );
+        assert!(
+            PROJECT_SQL.contains("p.names_norm || coalesce(v.extra_norm, '')"),
+            "the flavor names are computed and then not appended"
         );
     }
 
