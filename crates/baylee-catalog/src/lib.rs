@@ -336,10 +336,11 @@ const PROJECT_SQL: &str = "\
 /// three places apart; a mismatch makes Postgres reject the whole batch, so
 /// the list lives here and the tests hold the other two against it.
 const CARD_INSERT_COLUMNS: &str = "scryfall_id, oracle_id, lang, set_code, collector_number, \
-     rarity, layout, released_at, set_name, artist, finishes, frame_effects, border_color, promo, set_type";
+     rarity, layout, released_at, set_name, artist, finishes, frame_effects, border_color, promo, set_type, \
+     digital, games";
 
 /// How many columns that is.
-const CARD_COLUMNS: usize = 15;
+const CARD_COLUMNS: usize = 17;
 
 impl Catalog {
     /// Connects to Postgres.
@@ -487,6 +488,50 @@ impl Catalog {
             let _ = writeln!(out, "{english}\t{lang}\t{printed}");
         }
         tx.rollback().await.context("closing the mining scan")?;
+        Ok(out)
+    }
+
+    /// Every card in the corpus, first appearance first, as a TSV.
+    ///
+    /// A developer's tool and not an install step, like
+    /// [`Self::mine_type_names`]: it needs a catalog ingested in every
+    /// language, and what it writes is the input `cargo xtask ledger` turns
+    /// into `data/card-index.tsv`. Nothing at runtime reads it.
+    ///
+    /// Columns are `oracle_id`, `released_at`, `set_code`, `name`. The
+    /// assignment itself happens in codegen, which owns the ledger's format
+    /// and the slug rule — this half only says which cards there are and in
+    /// which order, which is the half that needs a database.
+    ///
+    /// The name is the whole card's — `Fire // Ice`, not `Fire` — because
+    /// that is what a decklist writes and what the ledger has always
+    /// recorded. The constant is named after the front face, and codegen
+    /// splits it off, because that is the face the file and the registry are
+    /// keyed on.
+    ///
+    /// `keep` is `data/corpus-keep.tsv`'s oracle ids — cards admitted whatever
+    /// the filter says, because this repo implements them. See [`CORPUS_SQL`].
+    ///
+    /// # Errors
+    /// When the scan fails or a row is missing a column.
+    pub async fn card_corpus(&self, keep: &[String]) -> Result<String> {
+        let rows = self
+            .db
+            .query_all_raw(Statement::from_sql_and_values(
+                DbBackend::Postgres,
+                CORPUS_SQL,
+                [keep.join(",").into()],
+            ))
+            .await
+            .context("scanning the card corpus")?;
+        let mut out = String::with_capacity(rows.len() * 80);
+        for row in &rows {
+            let oracle_id: String = row.try_get("", "oracle_id")?;
+            let released_at: String = row.try_get("", "released_at")?;
+            let set_code: String = row.try_get("", "set_code")?;
+            let name: String = row.try_get("", "name")?;
+            let _ = writeln!(out, "{oracle_id}\t{released_at}\t{set_code}\t{name}");
+        }
         Ok(out)
     }
 
@@ -781,7 +826,53 @@ impl Catalog {
         }
         self.upsert_cards(&storable).await?;
         self.upsert_faces(&storable).await?;
+        self.upsert_legalities(&storable).await?;
         Ok(storable.len())
+    }
+
+    /// The `card_legalities` half of a batch upsert.
+    ///
+    /// One row per card and not per printing, so a batch of 500 printings of
+    /// forty cards writes forty rows. The batch is deduplicated here rather
+    /// than left to `ON CONFLICT`, because Postgres refuses a statement that
+    /// names one key twice ("cannot affect row a second time") — and every
+    /// printing of a card carries the same answer, so the first is as good as
+    /// any.
+    async fn upsert_legalities(&self, cards: &[&scryfall::Card]) -> Result<()> {
+        let mut seen: std::collections::BTreeMap<&str, &scryfall::Card> =
+            std::collections::BTreeMap::new();
+        for card in cards {
+            if let Some(oracle_id) = card.oracle_id.as_deref()
+                && !card.legalities.is_empty()
+            {
+                seen.entry(oracle_id).or_insert(card);
+            }
+        }
+        if seen.is_empty() {
+            return Ok(());
+        }
+        let mut sql = String::from("INSERT INTO card_legalities (oracle_id, legalities) VALUES ");
+        let mut values: Vec<Value> = Vec::with_capacity(seen.len() * 2);
+        for (n, (oracle_id, card)) in seen.iter().enumerate() {
+            if n > 0 {
+                sql.push(',');
+            }
+            let _ = write!(sql, "(${}::uuid,${}::jsonb)", n * 2 + 1, n * 2 + 2);
+            values.push(Value::from((*oracle_id).to_string()));
+            values.push(Value::from(
+                serde_json::to_string(&card.legalities).unwrap_or_else(|_| "{}".to_string()),
+            ));
+        }
+        sql.push_str(" ON CONFLICT (oracle_id) DO UPDATE SET legalities = EXCLUDED.legalities");
+        self.db
+            .execute_raw(Statement::from_sql_and_values(
+                DbBackend::Postgres,
+                &sql,
+                values,
+            ))
+            .await
+            .context("upserting legalities")?;
+        Ok(())
     }
 
     /// The `cards` half of a batch upsert.
@@ -828,6 +919,8 @@ impl Catalog {
             values.push(Value::from(card.border_color.clone()));
             values.push(Value::from(card.promo));
             values.push(Value::from(card.set_type.clone()));
+            values.push(Value::from(card.digital));
+            values.push(Value::from(card.games.join(",")));
         }
         sql.push_str(
             " ON CONFLICT (scryfall_id) DO UPDATE SET \
@@ -838,6 +931,7 @@ impl Catalog {
              artist = EXCLUDED.artist, finishes = EXCLUDED.finishes, \
              frame_effects = EXCLUDED.frame_effects, border_color = EXCLUDED.border_color, \
              promo = EXCLUDED.promo, set_type = EXCLUDED.set_type, \
+             digital = EXCLUDED.digital, games = EXCLUDED.games, \
              updated_at = now()",
         );
         self.db
@@ -1027,6 +1121,73 @@ async fn rebuild_the_projection(conn: &impl ConnectionTrait) -> Result<()> {
     Ok(())
 }
 
+/// The card corpus, in the order the cards first appeared.
+///
+/// This is where a `CardIndex` comes from. An index is assigned by first
+/// appearance and never moves again, so the order below is the only thing
+/// that decides one, and it has to be **total**: release date, then the
+/// English name, then the oracle id, which no two cards share. Two rows that
+/// tie on all three are the same card.
+///
+/// "First appearance" is the earliest printing in *any* language, because
+/// that is when the card appeared; English only breaks a tie on the same day,
+/// so the set recorded beside it is the one a person would name.
+///
+/// Three clauses decide what counts as a card at all, and all three are
+/// Scryfall's own words rather than a list of set codes this repo would have
+/// to keep correct. `set_type` drops the sets that print souvenirs:
+/// `memorabilia` is art cards and the challenge decks, `token` is what it
+/// says. `layout` drops the things shaped like cards that turn up inside
+/// ordinary sets — a Commander Collection's Snake token is `arsenal`, not
+/// `token`. What is left keeps every layout the rules have a type for, planes
+/// and schemes and Vanguard avatars included, because [`baylee_core`]'s type
+/// bits already do.
+///
+/// The third clause is the interesting one, and it is why a joke set is not
+/// dropped wholesale. Unfinity printed 266 tournament-legal cards beside its
+/// acorn ones — same set, same black border — so neither `set_type` nor the
+/// border colour separates them. Legality does, in its weakest sense:
+/// `not_legal` means no format has ever heard of the card, while `banned` is
+/// a real card that a format has an opinion about. It is asked **only**
+/// inside a joke set, because planes, schemes and Vanguard avatars are
+/// `not_legal` too and are perfectly real.
+///
+/// All three sit inside one `OR`, because a rule this crate owns cannot see
+/// the other half of the question. `data/corpus-keep.tsv` names the cards
+/// *this repo implements* and the rule drops — eight acorn lands written
+/// before it existed — and codegen cannot build a card with no row in the
+/// ledger, so dropping one is not a tidier corpus but a card that stops
+/// compiling. A kept card is admitted whole rather than appended: its set and
+/// its place in the order come out of this same query, which is the only
+/// reason the `set` column beside it is worth freezing.
+///
+/// [`baylee_core`]: https://docs.rs/baylee-core
+const CORPUS_SQL: &str = "\
+    WITH first_printing AS ( \
+      SELECT DISTINCT ON (c.oracle_id) \
+             c.oracle_id, c.scryfall_id, c.released_at, c.set_code \
+      FROM cards c \
+      WHERE c.released_at IS NOT NULL \
+        AND (c.oracle_id::text = ANY(string_to_array($1, ',')) OR ( \
+          coalesce(c.set_type, '') NOT IN ('memorabilia', 'token') \
+          AND (coalesce(c.set_type, '') <> 'funny' OR EXISTS ( \
+                SELECT 1 FROM card_legalities g \
+                WHERE g.oracle_id = c.oracle_id \
+                  AND coalesce(g.legalities ->> 'vintage', 'not_legal') \
+                        <> 'not_legal')) \
+          AND coalesce(c.layout, '') \
+                NOT IN ('token', 'double_faced_token', 'art_series', 'emblem'))) \
+      ORDER BY c.oracle_id, c.released_at, (c.lang = 'en') DESC, \
+               c.set_code, c.collector_number \
+    ) \
+    SELECT p.oracle_id::text AS oracle_id, p.released_at::text AS released_at, \
+           p.set_code AS set_code, \
+           string_agg(f.name, ' // ' ORDER BY f.face_index) AS name \
+    FROM first_printing p JOIN card_faces f USING (scryfall_id) \
+    WHERE f.name <> '' \
+    GROUP BY p.oracle_id, p.released_at, p.set_code \
+    ORDER BY released_at, name, oracle_id";
+
 /// A comma-joined column back into a list, without empty entries.
 ///
 /// `finishes` and `frame_effects` are short, closed sets of tags; storing them
@@ -1052,8 +1213,14 @@ fn split_list(joined: &str) -> Vec<String> {
 /// Kept as plain DDL rather than a migration chain: the catalog is a cache of
 /// someone else's data, so the recovery for any schema problem is to drop it
 /// and ingest again, and a version table would only add ceremony to that.
+///
+/// This half is what Scryfall handed over — the printings, their faces and
+/// what each format says about the card — and each table's
+/// `ADD COLUMN IF NOT EXISTS` sits with it rather than in a block of its own,
+/// because the question a reader has is "does this catalog have `set_type`",
+/// not "which release added it".
 fn schema_statements() -> Vec<String> {
-    vec![
+    let mut statements = vec![
         // `WITH SCHEMA public` and not merely `IF NOT EXISTS`. A test runs the
         // whole catalog in a schema of its own, and an unqualified
         // `CREATE EXTENSION` installs into the *first* schema on the path —
@@ -1080,6 +1247,8 @@ fn schema_statements() -> Vec<String> {
             border_color     text,
             promo            boolean NOT NULL DEFAULT false,
             set_type         text,
+            digital          boolean NOT NULL DEFAULT false,
+            games            text NOT NULL DEFAULT '',
             updated_at       timestamptz NOT NULL DEFAULT now()
         )"
         .to_string(),
@@ -1094,7 +1263,9 @@ fn schema_statements() -> Vec<String> {
              ADD COLUMN IF NOT EXISTS frame_effects text NOT NULL DEFAULT '', \
              ADD COLUMN IF NOT EXISTS border_color text, \
              ADD COLUMN IF NOT EXISTS promo boolean NOT NULL DEFAULT false, \
-             ADD COLUMN IF NOT EXISTS set_type text"
+             ADD COLUMN IF NOT EXISTS set_type text, \
+             ADD COLUMN IF NOT EXISTS digital boolean NOT NULL DEFAULT false, \
+             ADD COLUMN IF NOT EXISTS games text NOT NULL DEFAULT ''"
             .to_string(),
         // `released_at` was stored as text, which sorted correctly only by
         // the accident that Scryfall writes ISO dates — and every one of the
@@ -1141,6 +1312,43 @@ fn schema_statements() -> Vec<String> {
         "ALTER TABLE card_faces ADD COLUMN IF NOT EXISTS flavor_name text".to_string(),
         // The lookup that serves every game: identity, then language.
         "CREATE INDEX IF NOT EXISTS cards_oracle_lang ON cards (oracle_id, lang)".to_string(),
+        // What each format says about a card, as Scryfall's own map:
+        // `{"commander": "legal", "modern": "banned", …}` over two dozen
+        // formats.
+        //
+        // Keyed on `oracle_id` and not on a printing, which is the whole
+        // reason it is its own table: legality is a property of the *card*,
+        // so storing it beside a printing would keep the same answer 542 177
+        // times. `jsonb` rather than a row per format, because every caller
+        // wants the whole map for one card, and a GIN index still answers
+        // `legalities ->> 'commander' = 'legal'` across the catalog.
+        //
+        // The deckbuilder is what will want it — "may this card go in this
+        // deck" is a format question, and the pool it offers has had no way
+        // to ask one. The corpus asks something much weaker: whether *any*
+        // format has heard of the card.
+        "CREATE TABLE IF NOT EXISTS card_legalities (
+            oracle_id  uuid PRIMARY KEY,
+            legalities jsonb NOT NULL DEFAULT '{}'::jsonb
+        )"
+        .to_string(),
+        "CREATE INDEX IF NOT EXISTS card_legalities_gin \
+             ON card_legalities USING gin (legalities)"
+            .to_string(),
+    ];
+    statements.extend(projection_schema());
+    statements
+}
+
+/// The projection the search reads, and the stamp that says which version of
+/// it is stored.
+///
+/// The other half of [`schema_statements`], and the seam is the one the crate
+/// already thinks along: everything above is what Scryfall handed over, and
+/// everything here is derived from it and thrown away whenever the derivation
+/// changes.
+fn projection_schema() -> Vec<String> {
+    vec![
         // What the projection is stamped with, so an upgrade can be told from
         // a fresh install.
         "CREATE TABLE IF NOT EXISTS catalog_meta (
@@ -1554,6 +1762,57 @@ mod tests {
         assert!(
             PROJECT_SQL.contains("p.names_norm || coalesce(v.extra_norm, '')"),
             "the flavor names are computed and then not appended"
+        );
+    }
+
+    /// A kept card has to escape **every** clause, not the last one written.
+    ///
+    /// The three filters were `AND`ed in a row and the keep-list was wrapped
+    /// round them afterwards, which is exactly the edit an added fourth clause
+    /// undoes by accident: append it after the closing bracket and an acorn
+    /// land is dropped again, silently, by a rule that never mentions it.
+    /// So this reads the bracket back rather than trusting the shape.
+    #[test]
+    fn a_card_the_repo_implements_escapes_the_whole_filter_and_not_part_of_it() {
+        let start = CORPUS_SQL
+            .find("AND (c.oracle_id::text = ANY(string_to_array($1")
+            .map(|at| at + "AND ".len())
+            .expect("the corpus stopped reading the keep-list");
+
+        // Walk to the bracket the keep clause opened. Every filter has to be
+        // inside it; what follows may only be the ORDER BY that closes the CTE.
+        let body = &CORPUS_SQL[start..];
+        let mut depth = 0i32;
+        let mut end = body.len();
+        for (at, ch) in body.char_indices() {
+            match ch {
+                '(' => depth += 1,
+                ')' => {
+                    depth -= 1;
+                    if depth == 0 {
+                        end = at;
+                        break;
+                    }
+                }
+                _ => {}
+            }
+        }
+        let inside = &body[..end];
+        assert!(
+            inside.contains(") OR ("),
+            "the keep-list is not the left branch of an OR:\n{inside}"
+        );
+        for clause in ["set_type", "layout", "vintage"] {
+            assert!(
+                inside.contains(clause),
+                "the {clause} filter is outside the keep-list's bracket, so a \
+                 kept card is still dropped by it"
+            );
+        }
+        let after = &body[end..];
+        assert!(
+            !after.contains("AND"),
+            "a filter was added after the keep-list stopped applying:\n{after}"
         );
     }
 

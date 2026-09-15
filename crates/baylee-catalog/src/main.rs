@@ -49,6 +49,21 @@ enum Cmd {
         #[arg(long, default_value = "data/type-names.tsv")]
         out: String,
     },
+    /// Write the card corpus — the input a `CardIndex` is assigned from.
+    ///
+    /// A developer's tool like `mine-types`: it needs a catalog ingested in
+    /// every language, and what it writes is fed to `cargo xtask ledger`.
+    Corpus {
+        /// Where to write it.
+        #[arg(long, default_value = "data/card-corpus.tsv")]
+        out: String,
+        /// Cards to admit whatever the filter says, one oracle id per line.
+        ///
+        /// The hand-kept half of the corpus: cards this repo implements that
+        /// Scryfall's own vocabulary drops. A missing file is an empty list.
+        #[arg(long, default_value = "data/corpus-keep.tsv")]
+        keep: String,
+    },
     /// Search the catalog, to check an install.
     Search {
         /// What to look for.
@@ -102,6 +117,13 @@ async fn main() -> Result<()> {
             std::fs::write(&out, &tsv).with_context(|| format!("writing {out}"))?;
             println!("mined {rows} names into {out}");
         }
+        Cmd::Corpus { out, keep } => {
+            let kept = read_keep_list(&keep)?;
+            let tsv = catalog.card_corpus(&kept).await?;
+            let rows = tsv.lines().count();
+            std::fs::write(&out, &tsv).with_context(|| format!("writing {out}"))?;
+            println!("{rows} cards into {out} ({} kept by hand)", kept.len());
+        }
         Cmd::Search { query, lang } => {
             for hit in catalog.search(&query, &lang, 20).await? {
                 println!("{:<8} {:<40} {}", hit.lang, hit.name, hit.type_line);
@@ -109,4 +131,31 @@ async fn main() -> Result<()> {
         }
     }
     Ok(())
+}
+
+/// Reads the corpus keep-list: the first column of every non-comment line.
+///
+/// A missing file is an empty list, not an error — the keep-list is an
+/// exception register, and a checkout that has none is the ordinary case.
+/// A malformed *line* is different: it would silently drop a card the repo
+/// implements, so an id that is not a uuid is refused.
+fn read_keep_list(path: &str) -> anyhow::Result<Vec<String>> {
+    let Ok(text) = std::fs::read_to_string(path) else {
+        return Ok(Vec::new());
+    };
+    let mut ids = Vec::new();
+    for (n, line) in text.lines().enumerate() {
+        let line = line.trim();
+        if line.is_empty() || line.starts_with('#') {
+            continue;
+        }
+        let id = line.split('\t').next().unwrap_or_default().trim();
+        anyhow::ensure!(
+            id.len() == 36 && id.bytes().all(|b| b.is_ascii_hexdigit() || b == b'-'),
+            "{path}:{}: {id:?} is not an oracle id",
+            n + 1
+        );
+        ids.push(id.to_owned());
+    }
+    Ok(ids)
 }

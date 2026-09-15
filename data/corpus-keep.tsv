@@ -1,0 +1,32 @@
+# Cards the corpus rule excludes and this repo implements anyway.
+#
+# `baylee-catalog corpus` decides what gets a `CardIndex` from Scryfall's own
+# vocabulary — set type, layout, and Vintage legality inside a joke set. That
+# rule is right about Magic and blind to this repo: a card somebody sat down
+# and wrote a `CardDef` for needs an index whatever Scryfall says about it,
+# because codegen cannot build a card that has no row in the ledger.
+#
+# So this is the hand-kept, additive half, like `data/land-cycles.tsv`: every
+# line names a card the rule drops and says why it stays. Adding one here and
+# rerunning `baylee-catalog corpus` is the documented answer when
+# `cargo xtask ledger` reports a card with no row. Removing a line is only
+# safe while the ledger has no row for that card yet — an assignment is frozen,
+# so a card that has one keeps it whether or not this file still names it.
+#
+# A kept card is admitted whole: its row is the corpus query's own, so its
+# first-printing set and its place in the order are decided by the same rule
+# as every other card's.
+#
+# The eight below are all silver-bordered lands — `set_type = 'funny'` with
+# `vintage = 'not_legal'`, which is what the joke-set clause drops. They were
+# implemented before that rule existed and no acceptance deck plays one.
+#
+# oracle_id	name	why
+b6be7abe-cee3-418f-bf52-8b5405e3462f	R&D's Secret Lair	Unhinged (unh), 2004
+e043a795-6936-4d7e-9a77-e0175a27c8f5	City of Ass	Unhinged (unh), 2004
+1017088c-08a3-45d9-a7f7-01fb2f309717	Secret Base	Unstable (ust), 2017
+84d89a3d-4b28-4e19-8298-737ec6a06238	Watermarket	Unstable (ust), 2017
+8375aaaa-edc2-4a0c-98f6-af07d61ebd0a	Underdome	Unsanctioned (und), 2020
+19d34126-8266-4da1-b7ef-67ecfa2dbbee	Nearby Planet	Unfinity (unf), 2022
+6538fb05-7cc6-4bb9-9b57-11f4f07b5e59	Urza's Fun House	Unfinity (unf), 2022
+eb6a0eb4-994a-4516-9339-c22e62c40a95	The Big Top	Unfinity (unf), 2022

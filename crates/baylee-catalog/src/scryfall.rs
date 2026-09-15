@@ -68,6 +68,28 @@ pub struct Card {
     /// Whether this printing is a promo.
     #[serde(default)]
     pub promo: bool,
+    /// Whether this printing exists only inside a client.
+    #[serde(default)]
+    pub digital: bool,
+    /// Which games this printing was published in — `paper`, `arena`, `mtgo`.
+    ///
+    /// Stored beside `digital` rather than instead of it, because the two say
+    /// different things and the useful question is about neither on its own.
+    /// "Digital-only *card*" is not a property of a printing at all: it is
+    /// *no printing of this card lists `paper`*, which only the whole set of
+    /// a card's printings can answer.
+    #[serde(default)]
+    pub games: Vec<String>,
+    /// Format to legality (`legal`, `banned`, `restricted`, `not_legal`).
+    ///
+    /// Only Vintage's is stored, and only one thing is asked of it: whether
+    /// the card is in a format's pool **at all**. `not_legal` means no format
+    /// has ever heard of it, which is what separates an Un-set's acorn cards
+    /// from the tournament-legal cards printed in the same joke set — a line
+    /// neither `set_type` nor the border colour draws, because Unfinity
+    /// prints both, black-bordered, side by side. `banned` is a real card.
+    #[serde(default)]
+    pub legalities: std::collections::BTreeMap<String, String>,
 
     // ---- single-face fields (absent on multi-face layouts) --------------
     /// English name.
@@ -174,6 +196,21 @@ impl Card {
             toughness: self.toughness.clone(),
             loyalty: self.loyalty.clone(),
         }]
+    }
+
+    /// Vintage's verdict on this card, `not_legal` when nothing says
+    /// otherwise.
+    ///
+    /// Vintage because it is the widest constructed pool there is: a card no
+    /// format admits is `not_legal` here too, and nothing else has to be
+    /// asked. What it is *not* is a playability test — planes, schemes and
+    /// Vanguard avatars are `not_legal` and are perfectly real cards, which
+    /// is why the corpus only consults it inside a joke set.
+    #[must_use]
+    pub fn vintage_legality(&self) -> &str {
+        self.legalities
+            .get("vintage")
+            .map_or("not_legal", String::as_str)
     }
 
     /// The finishes this printing was sold in, never empty.
