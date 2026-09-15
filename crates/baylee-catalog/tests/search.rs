@@ -736,3 +736,104 @@ async fn a_release_date_is_stored_as_a_date_and_an_old_catalog_converts() {
 
     sandbox.close().await;
 }
+
+/// A card nobody ever printed in German is still found by a German word.
+///
+/// This is the half the projection could not do on its own. Merging every
+/// *printed* type line into one `tsvector` already makes `同盟者` and `Ally`
+/// reach the same cards — but only cards somebody printed that way, and 3634
+/// cards in the live catalog have no German printing at all. Here the card
+/// exists only in English, and a German player typing the German word for its
+/// subtype has to find it anyway.
+///
+/// It is also what pins `data/type-names.tsv` to the build: the assertion
+/// passes only if the seeded dictionary carries `Ally` in German, so a
+/// migration that stopped shipping the file fails here rather than silently
+/// answering less.
+#[tokio::test]
+async fn a_card_printed_in_no_german_is_found_by_a_german_type_word() {
+    let sandbox = Sandbox::open("translated").await;
+    sandbox
+        .fill(&[scryfall::Card {
+            id: "00000000-0000-4000-8000-000000000401".to_string(),
+            oracle_id: Some("eeeeeeee-0000-4000-8000-000000000401".to_string()),
+            lang: "en".to_string(),
+            set: "zen".to_string(),
+            released_at: Some("2009-10-02".to_string()),
+            name: "Hagra Diabolist".to_string(),
+            type_line: Some("Creature — Human Shaman Ally".to_string()),
+            ..scryfall::Card::default()
+        }])
+        .await;
+
+    for (word, what) in [
+        ("Verbündeter", "the subtype"),
+        ("Schamane", "a second subtype"),
+        ("Kreatur", "the card type"),
+    ] {
+        let hits = sandbox
+            .catalog
+            .search(word, "de", 20)
+            .await
+            .expect("searching in German");
+        assert_eq!(
+            hits.len(),
+            1,
+            "{what} `{word}` found: {hits:?} — is it in data/type-names.tsv?"
+        );
+        assert_eq!(hits[0].name, "Hagra Diabolist");
+    }
+
+    // The English words keep working, and the card is still answered as the
+    // English printing it is — translating the *index* translates no text.
+    let english = sandbox
+        .catalog
+        .search("Ally", "de", 20)
+        .await
+        .expect("searching in English");
+    assert_eq!(english.len(), 1, "the English word still finds it");
+    assert_eq!(english[0].lang, "en");
+    assert_eq!(english[0].type_line, "Creature — Human Shaman Ally");
+
+    sandbox.close().await;
+}
+
+/// A type name a self-hoster corrected is not overwritten by the next start.
+///
+/// `migrate` is run on every gateway start, so the seed runs again every
+/// time. `ON CONFLICT DO NOTHING` is what makes that harmless, and it is the
+/// same promise `languages` makes — a row is a starting point, not a
+/// setting the catalog keeps resetting.
+#[tokio::test]
+async fn a_corrected_type_name_survives_the_next_migration() {
+    let sandbox = Sandbox::open("corrected").await;
+    sandbox
+        .admin
+        .execute_unprepared(&format!(
+            "UPDATE \"{}\".type_names SET printed = 'Gefährte' \
+             WHERE english = 'Ally' AND lang = 'de'",
+            sandbox.schema
+        ))
+        .await
+        .expect("correcting a name");
+
+    sandbox.catalog.migrate().await.expect("migrating again");
+
+    let row = sandbox
+        .admin
+        .query_one_raw(sea_orm::Statement::from_string(
+            sea_orm::DbBackend::Postgres,
+            format!(
+                "SELECT printed FROM \"{}\".type_names \
+                 WHERE english = 'Ally' AND lang = 'de'",
+                sandbox.schema
+            ),
+        ))
+        .await
+        .expect("reading the corrected name")
+        .expect("the row is still there");
+    let printed: String = row.try_get("", "printed").expect("the printed column");
+    assert_eq!(printed, "Gefährte");
+
+    sandbox.close().await;
+}

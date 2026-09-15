@@ -39,6 +39,16 @@ enum Cmd {
         #[arg(long)]
         english_only: bool,
     },
+    /// Read what each type and subtype is called, out of the printings.
+    ///
+    /// A developer's tool, not an install step: it needs a catalog ingested
+    /// in every language, and what it writes is committed as
+    /// `data/type-names.tsv`. An install reads the committed file.
+    MineTypes {
+        /// Where to write the dictionary.
+        #[arg(long, default_value = "data/type-names.tsv")]
+        out: String,
+    },
     /// Search the catalog, to check an install.
     Search {
         /// What to look for.
@@ -85,6 +95,12 @@ async fn main() -> Result<()> {
                 "stored {stored} printings ({} total)",
                 catalog.count().await?
             );
+        }
+        Cmd::MineTypes { out } => {
+            let tsv = catalog.mine_type_names().await?;
+            let rows = tsv.lines().count();
+            std::fs::write(&out, &tsv).with_context(|| format!("writing {out}"))?;
+            println!("mined {rows} names into {out}");
         }
         Cmd::Search { query, lang } => {
             for hit in catalog.search(&query, &lang, 20).await? {

@@ -157,10 +157,11 @@ three index definitions and two queries the planner shapes, where
 ```bash
 docker compose up -d                                     # postgres 18 on :5432
 export DATABASE_URL=postgres://baylee:baylee@127.0.0.1:5432/baylee
-cargo run -p baylee-catalog -- ingest                     # every language: 542k printings, ~3 min, 590 MB
+cargo run -p baylee-catalog -- ingest                     # every language: 542k printings, ~3 min, 606 MB
 cargo run -p baylee-catalog -- ingest --english-only      # ~118k English printings, ~30 s
 cargo run -p baylee-catalog -- search "lightning bolt"
 cargo run -p baylee-catalog -- project                    # rebuild the search projection alone
+cargo run -p baylee-catalog -- mine-types                 # rewrite data/type-names.tsv (needs every language)
 ```
 
 **Every language is the default and English is the opt-out**, which is the
@@ -170,7 +171,7 @@ with the language it is set to and falls back to English printing by printing
 — so an English-only catalog is not a smaller install, it is a client that
 quietly speaks English to everyone. Measured on this machine: `all_cards` is
 392 MB compressed, stores 542 142 printings in 19 languages in about three
-minutes, and leaves the database at 590 MB against the 118k rows
+minutes, and leaves the database at 606 MB against the 118k rows
 `--english-only` stores. Run it with `RUST_LOG=baylee_catalog=info`: a plain
 `RUST_LOG=info` puts every `INSERT` through the tracing subscriber and writes
 a 92 MB log for one ingest.
@@ -196,8 +197,49 @@ pattern is not padded and the index could not serve the query that needed it.
 Measured against the live catalog, after against before: `稲妻` 1.7 ms against
 2742, `li` 44 against 2132, `creature` 90 against 190, `flying` 17 against 81,
 `aether` 1.9 against 12, and `Ｌｉｇｈｔｎｉｎｇ` — full-width Latin off a
-Japanese keyboard — 2.1 ms against no answer at all. It costs 215 MB and
+Japanese keyboard — 2.1 ms against no answer at all. It costs 230 MB and
 replaces 124 MB of index.
+
+**A card is findable in a language nobody printed it in.** Merging every
+printed type line into that one `tsvector` already makes `同盟者`, `Ally` and
+`Kleriker` reach the right cards — but only cards somebody printed that way,
+and 3634 cards have no German printing at all. So the projection joins
+`type_names`, a committed dictionary of what each type and subtype is called,
+and puts those words in whether or not the printing exists. It closes 89.5% of
+the subtype occurrences on those 3634 cards, against none before, and
+`Verbündeter` answers in 4.6 ms.
+
+The dictionary is keyed on the **English name**, which is Scryfall's own key —
+deliberately not on `baylee_core::SubtypeId`, because those ids are a running
+index into one sorted range partitioned by kind, so one new creature type
+renumbers every artifact, enchantment, land, planeswalker and spell subtype
+after it, and a catalog keyed that way would need 542 177 printings re-ingested
+whenever a set ships. It is mined by `baylee-catalog mine-types` against a full
+catalog and committed as `data/type-names.tsv`, the same bargain as
+`data/card-index.tsv`: mining needs every language ingested and CI has an empty
+Postgres, so the file is the artifact and the command is the developer's tool.
+
+Three readings fill it, each allowed to write only a pair it understood in
+full. The type line's left side as one phrase (a supertype is never
+decomposed — `Basic Land` is one German word for two). Cards with exactly one
+subtype, which is the clean signal and reaches 316 of 506 in German. Then
+**subtraction**: a card whose printed segment tokenises into forms already
+known plus exactly one leftover, against exactly one unknown English subtype.
+That third reading is where `Druid`, `Warlock`, `Advisor`, `Ninja` and `Ally`
+come from — 62 more subtypes and 79.7% → 89.4% coverage — and there is no
+fourth, because what is left does not fall to more passes. Where readings
+disagree the most frequent form wins and the newest printing breaks a tie,
+which is not a style choice: 48 of 317 German cells hold several forms, and
+they are old type lines and errata (`Löwe` and `Tiger` on cards Scryfall now
+calls `Cat`). Both rules agree everywhere but `Orgg`, a 2–2 tie.
+
+Two shapes were tried and rejected on measurement. Matching the dictionary
+with a padded `LIKE` would also find a *multi-word* subtype, and costs 22.8 s
+against 1.3 s — a nested loop rejecting 178 million pairs — to reach the one
+multi-word subtype Magic prints, `Time Lord`, which no printing translates
+anyway. And translating in a second `UPDATE` after the `INSERT` writes every
+row twice: `card_search` 215 MB → 413 MB, while the stored text grew only
+76 MB → 85 MB. Folded into the `INSERT` it is 230 MB and 23.8 s against 32.8.
 
 The only extension it needs is `unaccent`, installed `WITH SCHEMA public`
 deliberately: a test runs the whole catalog in a schema of its own, and both

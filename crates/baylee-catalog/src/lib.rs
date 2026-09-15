@@ -172,7 +172,7 @@ pub struct Catalog {
 ///
 /// Bump it whenever the projection's *content* changes — the fill query, one
 /// of the two function bodies, or a column's meaning.
-const SCHEMA_VERSION: i32 = 1;
+const SCHEMA_VERSION: i32 = 2;
 
 /// The key `SCHEMA_VERSION` is stamped under.
 const VERSION_KEY: &str = "search_projection";
@@ -226,24 +226,84 @@ const BIGRAMS_BODY: &str = "SELECT coalesce(array_agg(DISTINCT g), '{}'::text[])
 /// 6489 of 59 465 German faces have a `printed_name` and no
 /// `printed_type_line`, and taking one of those heads a German card
 /// `Instant`.
+///
+/// The `LEFT JOIN` is the half that reaches cards nobody printed abroad.
+/// Merging every printed type line already makes `同盟者`, `Ally` and
+/// `Kleriker` reach the right cards — but only cards somebody printed that
+/// way, and **3634 cards have no German printing at all**. So `type_names`
+/// says what `Ally` is called in ten languages and the words go in whether or
+/// not the printing exists. Measured here: 89.5% of the subtype occurrences
+/// on those 3634 cards can be named in German, against none before.
+///
+/// It is a join inside this `INSERT` and not an `UPDATE` afterwards, which is
+/// the shape it was written in first. Both produce the same `tsvector` —
+/// `tsv || tsv` deduplicates the tokens — but the update writes every row a
+/// second time, and the whole cost of the translation turned out to be that
+/// second write. Measured on the live catalog, `card_search` in total:
+/// **215 MB** before any of this, **413 MB** written twice, **230 MB** as it
+/// stands. The stored text grew 76 MB to 85 MB in both, so the translation
+/// itself costs 15 MB and the other 183 MB was the rewrite. A `VACUUM` finds
+/// nothing to report about it either, because the dead half is reusable space
+/// inside the files rather than dead tuples, and only the next `TRUNCATE`
+/// gives it back. The join is also the faster of the two: 23.8 s against
+/// 32.8 s for a full rebuild.
+///
+/// The dictionary is joined on **whole words**, not with a `LIKE` over the
+/// type line. Padding the line and matching `'% ' || english || ' %'` would
+/// also find a *multi-word* subtype, and that shape was measured too: 22.8 s
+/// against 1.3 s, a nested loop rejecting 178 million pairs. Magic prints
+/// exactly one multi-word subtype, `Time Lord`, which no printing anywhere
+/// translates — so the general shape costs seventeen times the time to reach
+/// a card that is unsearchable in German either way.
+///
+/// The left side of the type line is looked up twice: as the whole phrase
+/// (`Legendary Creature` is `Legendäre Kreatur`, and a supertype is never
+/// decomposed — `Basic Land` is one German word for two) and as its last word
+/// alone, the card type. The second is what catches the 28 faces whose exact
+/// combination of supertypes was never printed abroad, which would otherwise
+/// get no word at all.
 const PROJECT_SQL: &str = "\
+    WITH face AS ( \
+      SELECT DISTINCT ON (c.oracle_id, cf.face_index) \
+             c.oracle_id, cf.face_index, cf.type_line \
+      FROM cards c JOIN card_faces cf USING (scryfall_id) \
+      WHERE cf.type_line IS NOT NULL \
+      ORDER BY c.oracle_id, cf.face_index, (c.lang = 'en') DESC, c.scryfall_id \
+    ) \
     INSERT INTO card_search (oracle_id, face_index, names, names_norm, tsv) \
-    SELECT oracle_id, face_index, \
-           jsonb_object_agg(lang, nm), \
-           '| ' || catalog_norm(string_agg(DISTINCT nm, ' | ')) || ' |', \
-           to_tsvector('simple', string_agg(nm || ' ' || tl || ' ' || tx, ' ')) \
+    SELECT p.oracle_id, p.face_index, p.names, p.names_norm, \
+           p.tsv || coalesce(t.extra, ''::tsvector) \
     FROM ( \
-      SELECT DISTINCT ON (c.oracle_id, c.lang, f.face_index) \
-             c.oracle_id, c.lang AS lang, f.face_index, \
-             coalesce(f.printed_name, f.name) AS nm, \
-             coalesce(f.printed_type_line, f.type_line, '') AS tl, \
-             coalesce(f.printed_text, f.oracle_text, '') AS tx \
-      FROM cards c JOIN card_faces f USING (scryfall_id) \
-      ORDER BY c.oracle_id, c.lang, f.face_index, \
-               (f.printed_type_line IS NOT NULL) DESC, \
-               c.released_at DESC NULLS LAST, c.scryfall_id \
-    ) one_per_language \
-    GROUP BY oracle_id, face_index";
+      SELECT oracle_id, face_index, \
+             jsonb_object_agg(lang, nm) AS names, \
+             '| ' || catalog_norm(string_agg(DISTINCT nm, ' | ')) || ' |' AS names_norm, \
+             to_tsvector('simple', string_agg(nm || ' ' || tl || ' ' || tx, ' ')) AS tsv \
+      FROM ( \
+        SELECT DISTINCT ON (c.oracle_id, c.lang, f.face_index) \
+               c.oracle_id, c.lang AS lang, f.face_index, \
+               coalesce(f.printed_name, f.name) AS nm, \
+               coalesce(f.printed_type_line, f.type_line, '') AS tl, \
+               coalesce(f.printed_text, f.oracle_text, '') AS tx \
+        FROM cards c JOIN card_faces f USING (scryfall_id) \
+        ORDER BY c.oracle_id, c.lang, f.face_index, \
+                 (f.printed_type_line IS NOT NULL) DESC, \
+                 c.released_at DESC NULLS LAST, c.scryfall_id \
+      ) one_per_language \
+      GROUP BY oracle_id, face_index \
+    ) p LEFT JOIN ( \
+      SELECT w.oracle_id, w.face_index, \
+             to_tsvector('simple', string_agg(DISTINCT d.printed, ' ')) AS extra \
+      FROM ( \
+        SELECT oracle_id, face_index, split_part(type_line, ' — ', 1) AS english FROM face \
+        UNION ALL \
+        SELECT oracle_id, face_index, regexp_replace(split_part(type_line, ' — ', 1), '^.* ', '') \
+        FROM face \
+        UNION ALL \
+        SELECT oracle_id, face_index, unnest(string_to_array(split_part(type_line, ' — ', 2), ' ')) \
+        FROM face WHERE type_line LIKE '% — %' \
+      ) w JOIN type_names d USING (english) \
+      GROUP BY w.oracle_id, w.face_index \
+    ) t USING (oracle_id, face_index)";
 
 /// The columns one printing binds in `upsert_cards`, in bind order.
 ///
@@ -359,6 +419,50 @@ impl Catalog {
         rebuild_the_projection(&tx).await?;
         tx.commit().await.context("committing the projection")?;
         self.analyze_projection().await
+    }
+
+    /// Reads what each type and subtype is called, out of the printings.
+    ///
+    /// The developer's half of `data/type-names.tsv`: run it against a full
+    /// catalog and commit what comes out. It answers with the file's own
+    /// contents — `english\tlang\tprinted`, sorted — so the caller writes and
+    /// the diff is readable.
+    ///
+    /// Everything it needs is already on the row. Scryfall gives every
+    /// foreign face its English `type_line` beside the `printed_type_line`,
+    /// so a pair is one row and no join through the English printing is
+    /// needed — which is also why the eight cards with no English printing
+    /// are no trouble here.
+    ///
+    /// Three rounds, and the second is where most languages stop being
+    /// guesswork. See [`MINE_ROUNDS`] for what each one claims.
+    ///
+    /// # Errors
+    /// When a statement fails, most often because the catalog holds only the
+    /// English feed and there is nothing to read.
+    pub async fn mine_type_names(&self) -> Result<String> {
+        let tx = self.db.begin().await.context("opening the mining scan")?;
+        for (round, sql) in MINE_ROUNDS.iter().enumerate() {
+            tx.execute_raw(Statement::from_string(DbBackend::Postgres, *sql))
+                .await
+                .with_context(|| format!("mining round {round}"))?;
+        }
+        let rows = tx
+            .query_all_raw(Statement::from_string(
+                DbBackend::Postgres,
+                "SELECT english, lang, printed FROM mined ORDER BY english, lang",
+            ))
+            .await
+            .context("reading the mined dictionary")?;
+        let mut out = String::new();
+        for row in &rows {
+            let english: String = row.try_get("", "english")?;
+            let lang: String = row.try_get("", "lang")?;
+            let printed: String = row.try_get("", "printed")?;
+            let _ = writeln!(out, "{english}\t{lang}\t{printed}");
+        }
+        tx.rollback().await.context("closing the mining scan")?;
+        Ok(out)
     }
 
     /// Gives the planner the row counts the rebuild just changed.
@@ -1053,6 +1157,21 @@ fn schema_statements() -> Vec<String> {
            EXECUTE format('DROP INDEX IF EXISTS %I.card_faces_name_trgm', current_schema()); \
          END $drop$"
             .to_string(),
+    ]
+    .into_iter()
+    .chain(reference_tables())
+    .collect()
+}
+
+/// The two tables that are seeded rather than derived.
+///
+/// Both answer a question the printings cannot: `SELECT DISTINCT lang` gives
+/// codes and not the name a person picks from, and no row anywhere says what
+/// `Ally` is called in German. Both are seeded `ON CONFLICT DO NOTHING`, so a
+/// self-hoster may correct a row and keep the correction across every later
+/// start.
+fn reference_tables() -> Vec<String> {
+    vec![
         // Which languages exist, named in themselves. A player picking a
         // language reads its own name for it, never an English one — this is
         // the table a picker is drawn from, and it is the catalog's because
@@ -1063,6 +1182,25 @@ fn schema_statements() -> Vec<String> {
         )"
         .to_string(),
         language_seed(),
+        // What every card type and subtype is called in each language.
+        //
+        // Keyed on the **English name**, which is Scryfall's own key and the
+        // one thing both halves of this workspace already agree on without
+        // sharing a build. Not on `baylee_core::SubtypeId`: those ids are a
+        // running index into one alphabetically sorted range partitioned by
+        // kind, so a single new creature type renumbers every artifact,
+        // enchantment, land, planeswalker and spell subtype after it — and a
+        // catalog keyed that way would need 542 177 printings re-ingested
+        // every time Scryfall publishes a new set.
+        "CREATE TABLE IF NOT EXISTS type_names (
+            english text NOT NULL,
+            lang text NOT NULL,
+            printed text NOT NULL,
+            PRIMARY KEY (english, lang)
+        )"
+        .to_string(),
+        "CREATE INDEX IF NOT EXISTS type_names_english ON type_names (english)".to_string(),
+        type_name_seed(),
     ]
 }
 
@@ -1099,6 +1237,136 @@ fn language_seed() -> String {
         .collect();
     format!(
         "INSERT INTO languages (code, name) VALUES {} ON CONFLICT (code) DO NOTHING",
+        rows.join(", ")
+    )
+}
+
+/// The three readings [`Catalog::mine_type_names`] makes, in order.
+///
+/// Each one may only write a pair it understood in full, which is the same
+/// rule the card transcoder obeys and for the same reason: a wrong row here
+/// is a German word attached to the wrong cards in everybody's search, and
+/// nothing downstream can tell it from a right one.
+///
+/// **Round 0, the type line's left side**, as one phrase. Supertypes are not
+/// decomposed — German prints `Basic Land` as `Standardland`, one word for
+/// two, and Spanish lowercases and reorders its adjectives.
+///
+/// **Round 1, cards with exactly one subtype.** The clean signal: the whole
+/// printed segment is the whole translation, with nothing to split. It
+/// reaches 316 of the 506 subtypes in German.
+///
+/// **Round 2, subtraction.** A card with several subtypes whose printed
+/// segment tokenises into forms round 0 and 1 already know, plus exactly one
+/// leftover, and whose English segment has exactly one unknown — then the two
+/// leftovers are each other. This is what `Druid`, `Warlock`, `Advisor`,
+/// `Ninja` and `Ally` come from: 62 more subtypes in German, and 79.7% to
+/// 89.4% of the subtype occurrences on cards with no German printing. There
+/// is no round 3; the remainder does not fall to more passes, it falls to
+/// Wizards printing those cards in German.
+///
+/// Where the rounds disagree, the **most frequent** form wins and the
+/// **newest** printing breaks a tie. That is not a style choice: 48 of 317
+/// German cells hold more than one form, and reading them showed the extra
+/// forms are old type lines and errata — `Löwe` and `Tiger` on cards Scryfall
+/// now calls `Cat`, `Engellegende` from when Legend was a card type. Both
+/// rules agree everywhere but one cell (`Orgg`, a 2–2 tie the newest printing
+/// settles), so the tiebreak is doing exactly the work it claims to.
+const MINE_ROUNDS: [&str; 4] = [
+    "CREATE TEMP TABLE mined (english text, lang text, printed text, round int) ON COMMIT DROP",
+    // Round 0: the left side.
+    "INSERT INTO mined \
+     SELECT DISTINCT ON (english, lang) english, lang, printed, 0 FROM ( \
+       SELECT c.lang, c.released_at, \
+              CASE WHEN f.type_line LIKE '% — %' \
+                   THEN split_part(f.type_line, ' — ', 1) ELSE f.type_line END AS english, \
+              btrim(CASE WHEN f.printed_type_line ~ '( — | : |～| - )' \
+                         THEN regexp_replace(f.printed_type_line, '( — | : |～| - ).*$', '') \
+                         ELSE f.printed_type_line END) AS printed \
+       FROM cards c JOIN card_faces f USING (scryfall_id) \
+       WHERE c.lang <> 'en' AND f.printed_type_line IS NOT NULL AND f.type_line IS NOT NULL \
+     ) p WHERE printed <> '' \
+     GROUP BY english, lang, printed \
+     ORDER BY english, lang, count(*) DESC, max(released_at) DESC NULLS LAST, printed",
+    // Round 1: one subtype, one translation.
+    "INSERT INTO mined \
+     SELECT DISTINCT ON (english, lang) english, lang, printed, 1 FROM ( \
+       SELECT lang, released_at, subs[1] AS english, printed FROM ( \
+         SELECT c.lang, c.released_at, \
+                string_to_array(split_part(f.type_line, ' — ', 2), ' ') AS subs, \
+                btrim(regexp_replace(f.printed_type_line, '^.*?( — | : |～| - )', '')) AS printed \
+         FROM cards c JOIN card_faces f USING (scryfall_id) \
+         WHERE c.lang <> 'en' AND f.printed_type_line IS NOT NULL \
+           AND f.type_line LIKE '% — %' AND f.printed_type_line ~ '( — | : |～| - )' \
+       ) seg WHERE array_length(subs, 1) = 1 AND subs[1] <> '' \
+     ) s WHERE printed <> '' \
+     GROUP BY english, lang, printed \
+     ORDER BY english, lang, count(*) DESC, max(released_at) DESC NULLS LAST, printed",
+    // Round 2: strike out what is already known and see what is left.
+    //
+    // The tokeniser has to serve every language at once: German separates
+    // subtypes with a comma, Japanese with `・`, Simplified Chinese with `／`,
+    // and the Romance languages with a space and sometimes a conjunction
+    // (`humain et clerc`), which is not a subtype and would otherwise be
+    // learned as one the first time both its neighbours were known.
+    "INSERT INTO mined \
+     SELECT DISTINCT ON (english, lang) english, lang, printed, 2 FROM ( \
+       SELECT lang, released_at, unknown[1] AS english, leftover[1] AS printed FROM ( \
+         SELECT s.lang, s.released_at, \
+                (SELECT array_agg(x) FROM unnest(s.subs) x WHERE x <> '' \
+                  AND NOT EXISTS (SELECT 1 FROM mined d \
+                                   WHERE d.lang = s.lang AND d.english = x)) AS unknown, \
+                (SELECT array_agg(t) FROM unnest( \
+                   regexp_split_to_array(s.printed, '[,、，／/・]|\\s+')) t \
+                  WHERE btrim(t) <> '' \
+                    AND lower(t) NOT IN ('et', 'y', 'e', 'and', 'und', 'i', 'ed', '和') \
+                    AND NOT EXISTS (SELECT 1 FROM mined d \
+                                     WHERE d.lang = s.lang \
+                                       AND lower(d.printed) = lower(t))) AS leftover \
+         FROM ( \
+           SELECT c.lang, c.released_at, \
+                  string_to_array(split_part(f.type_line, ' — ', 2), ' ') AS subs, \
+                  btrim(regexp_replace(f.printed_type_line, '^.*?( — | : |～| - )', '')) AS printed \
+           FROM cards c JOIN card_faces f USING (scryfall_id) \
+           WHERE c.lang <> 'en' AND f.printed_type_line IS NOT NULL \
+             AND f.type_line LIKE '% — %' AND f.printed_type_line ~ '( — | : |～| - )' \
+         ) s WHERE array_length(s.subs, 1) > 1 \
+       ) c WHERE array_length(unknown, 1) = 1 AND array_length(leftover, 1) = 1 \
+     ) s \
+     GROUP BY english, lang, printed \
+     ORDER BY english, lang, count(*) DESC, max(released_at) DESC NULLS LAST, printed",
+];
+
+/// The mined dictionary, committed rather than derived at install time.
+///
+/// Mining it needs a *full* catalog — every language, 542 177 printings — and
+/// CI has an empty Postgres, so the file is the artifact and
+/// `baylee-catalog mine-types` is the developer's tool that rewrites it. Same
+/// bargain as `data/card-index.tsv`.
+const TYPE_NAMES_TSV: &str = include_str!("../../../data/type-names.tsv");
+
+/// What each type and subtype is called, as one `INSERT`.
+///
+/// `ON CONFLICT DO NOTHING` so a self-hoster may correct a row and keep it,
+/// exactly as [`language_seed`] allows.
+fn type_name_seed() -> String {
+    let rows: Vec<String> = TYPE_NAMES_TSV
+        .lines()
+        .filter_map(|line| {
+            let mut cell = line.split('\t');
+            let (english, lang, printed) = (cell.next()?, cell.next()?, cell.next()?);
+            let q = |s: &str| s.replace('\'', "''");
+            Some(format!(
+                "('{}', '{}', '{}')",
+                q(english),
+                q(lang),
+                q(printed)
+            ))
+        })
+        .collect();
+    format!(
+        "INSERT INTO type_names (english, lang, printed) VALUES {} \
+         ON CONFLICT (english, lang) DO NOTHING",
         rows.join(", ")
     )
 }
