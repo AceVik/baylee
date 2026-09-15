@@ -157,7 +157,7 @@ three index definitions and two queries the planner shapes, where
 ```bash
 docker compose up -d                                     # postgres 18 on :5432
 export DATABASE_URL=postgres://baylee:baylee@127.0.0.1:5432/baylee
-cargo run -p baylee-catalog -- ingest                     # every language: 542k printings, ~3 min, 596 MB
+cargo run -p baylee-catalog -- ingest                     # every language: 542k printings, ~3 min, 590 MB
 cargo run -p baylee-catalog -- ingest --english-only      # ~118k English printings, ~30 s
 cargo run -p baylee-catalog -- search "lightning bolt"
 cargo run -p baylee-catalog -- project                    # rebuild the search projection alone
@@ -170,7 +170,7 @@ with the language it is set to and falls back to English printing by printing
 — so an English-only catalog is not a smaller install, it is a client that
 quietly speaks English to everyone. Measured on this machine: `all_cards` is
 392 MB compressed, stores 542 142 printings in 19 languages in about three
-minutes, and leaves the database at 596 MB against the 118k rows
+minutes, and leaves the database at 590 MB against the 118k rows
 `--english-only` stores. Run it with `RUST_LOG=baylee_catalog=info`: a plain
 `RUST_LOG=info` puts every `INSERT` through the tracing subscriber and writes
 a 92 MB log for one ingest.
@@ -204,7 +204,26 @@ deliberately: a test runs the whole catalog in a schema of its own, and both
 an unqualified `CREATE EXTENSION` and an unqualified `DROP INDEX` reach out
 of that sandbox — the first leaves the extension where the next
 `DROP SCHEMA … CASCADE` destroys it, the second deletes the developer's own
-indexes. Both were observed, not imagined.
+indexes. Both were observed, not imagined, and so is the third: a migration
+asking `information_schema.columns` whether a column still needs converting is
+asking about *every* schema on the path, and fires the conversion on a table
+that has already had it. Every such lookup carries
+`table_schema = current_schema()`, and two tests keep a second schema *behind*
+the sandbox so the reach is observable rather than argued about.
+
+**What the catalog stores as what** was re-measured rather than tidied.
+`released_at` is a `date`: it sorted correctly as text only by the accident
+that Scryfall writes ISO, all 542 177 rows converted losslessly, and `cards`
+went 84 MB → 81 MB. The rest of that clean-up was **declined on the
+measurement**. `finishes` and `frame_effects` as `text[]` take `cards` to
+98 MB, because an array's header costs more than the seven distinct strings
+`finishes` ever holds and nothing queries into either column. `rarity`,
+`layout` and `border_color` as enums save about 1 MB and buy no honesty,
+because nothing branches on the values — `layout` is written and never read
+at all, and the other two pass through `Printing` to the wire as strings —
+while an enum turns Scryfall's next new `layout` into a failed ingest. A
+`date` renders itself through the server's `DateStyle`, so the reader says
+`to_char(released_at, 'YYYY-MM-DD')` and never `::text`.
 
 Without an **ingest** the gateway still runs every game and simply serves no
 card text; the client then draws faces from what the engine projects. Without

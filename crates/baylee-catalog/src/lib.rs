@@ -541,13 +541,19 @@ impl Catalog {
         if oracle_ids.is_empty() {
             return Ok(Vec::new());
         }
+        // `to_char` and deliberately not `::text`: a `date` renders itself
+        // through the server's `DateStyle`, so a self-hoster running
+        // `SQL, MDY` would put `02/18/2022` on a wire this crate pins to ISO.
+        // `to_char` names the format and answers the same string on every
+        // server. The empty string for a printing with no date is what the
+        // column said before it was a date, and `Printing` is a wire shape.
         let sql = "\
             SELECT c.scryfall_id::text AS scryfall_id, c.oracle_id::text AS oracle_id, \
                    c.lang AS lang, c.set_code AS set_code, \
                    coalesce(c.set_name, '') AS set_name, \
                    c.collector_number AS collector_number, \
                    coalesce(c.rarity, '') AS rarity, \
-                   coalesce(c.released_at, '') AS released_at, \
+                   coalesce(to_char(c.released_at, 'YYYY-MM-DD'), '') AS released_at, \
                    coalesce(c.artist, '') AS artist, \
                    coalesce(c.finishes, 'nonfoil') AS finishes, \
                    coalesce(c.frame_effects, '') AS frame_effects, \
@@ -659,14 +665,23 @@ impl Catalog {
                 sql.push(',');
             }
             sql.push('(');
-            for k in 0..CARD_COLUMNS {
+            for (k, column) in CARD_INSERT_COLUMNS.split(", ").enumerate() {
                 if k > 0 {
                     sql.push(',');
                 }
-                // The two uuid columns come first; everything after them is
-                // text or boolean, which Postgres infers from the column.
-                let cast = if k < 2 { "::uuid" } else { "" };
-                let _ = write!(sql, "${}{cast}", base + k + 1);
+                let at = base + k + 1;
+                // Everything a `scryfall::Card` carries is a `String` or a
+                // `bool` and Postgres infers most of them from the column.
+                // The three it cannot are named here rather than counted to,
+                // so adding a column ahead of one of them cannot move it.
+                let _ = match column {
+                    "scryfall_id" | "oracle_id" => write!(sql, "${at}::uuid"),
+                    // An omitted `released_at` binds as null and the cast is
+                    // what tells Postgres which kind of null; an *empty* one
+                    // would be `''::date`, which is an error and not a null.
+                    "released_at" => write!(sql, "nullif(${at}, '')::date"),
+                    _ => write!(sql, "${at}"),
+                };
             }
             sql.push(')');
             values.push(Value::from(card.id.clone()));
@@ -882,6 +897,12 @@ async fn rebuild_the_projection(conn: &impl ConnectionTrait) -> Result<()> {
 /// `finishes` and `frame_effects` are short, closed sets of tags; storing them
 /// as text keeps the whole crate on one `Value` type and one parameter
 /// binding, and neither is ever queried *into* — only read back with the row.
+///
+/// `text[]` is the obvious correction and it was measured before it was
+/// declined: the same 542 177 rows written with both columns as arrays make
+/// `cards` **98 MB against 79 MB**, because an array's header costs more than
+/// the seven distinct strings `finishes` ever holds. A `@>` nobody writes is
+/// not worth 19 MB.
 fn split_list(joined: &str) -> Vec<String> {
     joined
         .split(',')
@@ -916,7 +937,7 @@ fn schema_statements() -> Vec<String> {
             collector_number text NOT NULL DEFAULT '',
             rarity           text,
             layout           text,
-            released_at      text,
+            released_at      date,
             set_name         text,
             artist           text,
             finishes         text NOT NULL DEFAULT 'nonfoil',
@@ -937,6 +958,28 @@ fn schema_statements() -> Vec<String> {
              ADD COLUMN IF NOT EXISTS frame_effects text NOT NULL DEFAULT '', \
              ADD COLUMN IF NOT EXISTS border_color text, \
              ADD COLUMN IF NOT EXISTS promo boolean NOT NULL DEFAULT false"
+            .to_string(),
+        // `released_at` was stored as text, which sorted correctly only by
+        // the accident that Scryfall writes ISO dates — and every one of the
+        // 542 177 printings in the live catalog is well-formed, which is what
+        // makes this conversion lossless rather than hopeful. It is a `date`
+        // now: 5824 kB of text becomes 2118 kB, and a release date is a date.
+        //
+        // `current_schema()` and not a bare lookup, for the third time in
+        // this file: `information_schema.columns` describes every schema on
+        // the path, so a test sandbox would find `public.cards` already
+        // converted and skip its own table. The same reach that took away
+        // `unaccent` and deleted two live indexes.
+        "DO $retype$ BEGIN \
+           IF EXISTS (SELECT 1 FROM information_schema.columns \
+                      WHERE table_schema = current_schema() \
+                        AND table_name = 'cards' \
+                        AND column_name = 'released_at' \
+                        AND data_type = 'text') THEN \
+             ALTER TABLE cards \
+               ALTER COLUMN released_at TYPE date USING nullif(released_at, '')::date; \
+           END IF; \
+         END $retype$"
             .to_string(),
         "CREATE TABLE IF NOT EXISTS card_faces (
             scryfall_id       uuid NOT NULL REFERENCES cards(scryfall_id) ON DELETE CASCADE,

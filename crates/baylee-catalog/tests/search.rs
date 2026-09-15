@@ -115,6 +115,25 @@ impl Sandbox {
         row.try_get("", "there").expect("a boolean")
     }
 
+    /// What Postgres says a column in this sandbox's own schema is.
+    async fn column_type(&self, table: &str, column: &str) -> String {
+        let row = self
+            .admin
+            .query_one_raw(Statement::from_string(
+                DbBackend::Postgres,
+                format!(
+                    "SELECT data_type FROM information_schema.columns \
+                     WHERE table_schema = '{}' AND table_name = '{table}' \
+                       AND column_name = '{column}'",
+                    self.schema
+                ),
+            ))
+            .await
+            .expect("asking what a column is")
+            .expect("no such column");
+        row.try_get("", "data_type").expect("a type name")
+    }
+
     /// Upsert, then project — in that order, because the search reads the
     /// projection and `upsert` deliberately does not write it.
     async fn fill(&self, cards: &[scryfall::Card]) {
@@ -606,6 +625,114 @@ async fn a_card_printed_in_no_language_the_player_reads_is_not_counted() {
         .await
         .expect("searching in Japanese");
     assert_eq!(both.len(), 2, "a Japanese player sees both: {both:?}");
+
+    sandbox.close().await;
+}
+
+/// A release date is a date, and a catalog that stored it as text converts.
+///
+/// Three things have to hold at once and none of them fails at compile time.
+/// The bind is a `String` going into a `date` column, so the placeholder has
+/// to cast; `printings()` renders the column back to the ISO string its wire
+/// shape promises, which `to_char` does and `::text` only does on a server
+/// whose `DateStyle` happens to be ISO; and an install that predates the
+/// change has to convert itself, so the column is put back to `text` here and
+/// `migrate()` is asked to find it.
+#[tokio::test]
+async fn a_release_date_is_stored_as_a_date_and_an_old_catalog_converts() {
+    let sandbox = Sandbox::open_behind("retype").await;
+    let mut cards = one_card_five_ways();
+    // Scryfall omits `released_at` on a printing that has no release date —
+    // a null, which the bind has to tell apart from a date it cannot parse.
+    cards.push(scryfall::Card {
+        released_at: None,
+        ..printing(
+            "00000000-0000-4000-8000-000000000006",
+            "en",
+            "sld",
+            "",
+            None,
+            None,
+        )
+    });
+    sandbox.fill(&cards).await;
+
+    assert_eq!(sandbox.column_type("cards", "released_at").await, "date");
+    let iso = |hits: &[baylee_catalog::Printing]| {
+        let mut dates: Vec<String> = hits.iter().map(|p| p.released_at.clone()).collect();
+        dates.sort();
+        dates.dedup();
+        dates
+    };
+    let before = sandbox
+        .catalog
+        .printings(&[BOLT.to_string()])
+        .await
+        .expect("listing printings");
+    assert_eq!(
+        iso(&before),
+        vec![
+            String::new(),
+            "1993-08-05".to_string(),
+            "2009-07-17".to_string(),
+            "2010-07-16".to_string(),
+            "2022-07-08".to_string(),
+            "2025-11-21".to_string(),
+        ],
+        "the wire wants ISO whatever the server's DateStyle is, \
+         and an empty string for a printing that has no date"
+    );
+
+    // What an install from before this change looks like. Asserted, because a
+    // conversion test that starts already converted proves nothing.
+    sandbox
+        .admin
+        .execute_unprepared(&format!(
+            "ALTER TABLE \"{}\".cards ALTER COLUMN released_at TYPE text \
+             USING to_char(released_at, 'YYYY-MM-DD')",
+            sandbox.schema
+        ))
+        .await
+        .expect("putting the column back to text");
+    assert_eq!(sandbox.column_type("cards", "released_at").await, "text");
+
+    sandbox.catalog.migrate().await.expect("migrating again");
+
+    assert_eq!(
+        sandbox.column_type("cards", "released_at").await,
+        "date",
+        "migrate() left an older catalog on text"
+    );
+    let after = sandbox
+        .catalog
+        .printings(&[BOLT.to_string()])
+        .await
+        .expect("listing printings after the conversion");
+    assert_eq!(iso(&after), iso(&before), "a date was lost in the crossing");
+
+    // And once more, with an *older* catalog sitting behind this one on the
+    // path — which is what makes the guard's `current_schema()` load-bearing
+    // rather than decorative. Without it the guard reads
+    // `information_schema.columns` for every schema on the path, sees the
+    // stranger's `text`, and runs `ALTER … USING nullif(released_at, '')` on
+    // a column that is already a `date`: `invalid input syntax for type
+    // date: ""`, and every migration against this server fails until the
+    // stranger is converted too.
+    let behind = sandbox.behind.clone().expect("a schema behind this one");
+    sandbox
+        .admin
+        .execute_unprepared(&format!(
+            "CREATE TABLE \"{behind}\".cards (released_at text)"
+        ))
+        .await
+        .expect("planting an older catalog behind this one");
+
+    sandbox
+        .catalog
+        .migrate()
+        .await
+        .expect("migrating with a stranger's text column on the path");
+    assert_eq!(sandbox.column_type("cards", "released_at").await, "date");
 
     sandbox.close().await;
 }

@@ -33,7 +33,8 @@ pub struct Card {
     pub rarity: Option<String>,
     /// Layout (`normal`, `modal_dfc`, `split`, …).
     pub layout: Option<String>,
-    /// Release date (ISO-8601; sorts correctly as text).
+    /// Release date, ISO-8601. Stored as a `date`, so it is parsed on the
+    /// way in rather than trusted to sort as text.
     pub released_at: Option<String>,
 
     // ---- what distinguishes one printing from another ------------------
