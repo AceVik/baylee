@@ -672,9 +672,10 @@ lets a land make), because a client cannot run the layer system. Hidden
 information has no field to leak through: libraries are counts,
 another seat's hand is a count, a face-down permanent's `card` is `None` for
 anyone not entitled to look, and `crates/baylee-gamehost/src/view.rs` has a
-test per sentence of that. `VIEW_VERSION` (`crates/baylee-view/src/lib.rs`,
-currently 17) is asserted in gamehost and client tests — bump it on any breaking
-view change so a client refuses a host it cannot render.
+test per sentence of that. `VIEW_VERSION` (`crates/baylee-view/src/lib.rs:41`,
+read there rather than restated here — this file has been stale on it twice)
+is asserted in gamehost and client tests — bump it on any breaking view change
+so a client refuses a host it cannot render.
 
 The last of those is the one that says why the whole field exists.
 `PublicObject::granted_mana` is not decoration: an ability a continuous effect
