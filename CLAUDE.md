@@ -218,8 +218,8 @@ index into one sorted range partitioned by kind, so one new creature type
 renumbers every artifact, enchantment, land, planeswalker and spell subtype
 after it, and a catalog keyed that way would need 542 177 printings re-ingested
 whenever a set ships. It is mined by `baylee-catalog mine-types` against a full
-catalog and committed as `data/type-names.tsv`, the same bargain as
-`data/card-index.tsv`: mining needs every language ingested and CI has an empty
+catalog and committed as `data/type-names.tsv`, the same bargain as the
+CardIndex ledger: mining needs every language ingested and CI has an empty
 Postgres, so the file is the artifact and the command is the developer's tool.
 
 Three readings fill it, each allowed to write only a pair it understood in
@@ -399,13 +399,28 @@ for the three fields a face has no printed data for in the Scryfall payload
 codegen reads: `keywords`, `color_indicator` and `castable_from_hand`, which
 a transforming double-faced card needs on its back face and which are added
 by hand. The index
-comes from the append-only ledger `data/card-index.tsv`, which numbers **every
-card there is** and not this pool — `cargo run -p xtask -- ledger` assigns it
-over the corpus `cargo run -p baylee-catalog -- corpus` scans, 33 694 rows of
-which this repo compiles 1365 — so implementing a card inserts nothing and
-renumbers nothing, and a `CardIndex` is what saved decks and replays name. A
-card this repo implements that the corpus filter drops is named in
-`data/corpus-keep.tsv`, the hand-kept additive half, and is admitted whole.
+comes from the append-only ledger `baylee_cards_index::ROWS`, which numbers
+**every card there is** and not this pool — `cargo run -p xtask -- ledger`
+assigns it over the corpus `cargo run -p baylee-catalog -- corpus` scans,
+33 694 rows of which this repo compiles 1365 — so implementing a card inserts
+nothing and renumbers nothing, and a `CardIndex` is what saved decks and
+replays name. A card this repo implements that the corpus filter drops is
+named in `data/corpus-keep.tsv`, the hand-kept additive half, and is admitted
+whole.
+
+The ledger is a **compiled table**, and was `data/card-index.tsv` until it was
+not. A data file is a second truth beside the code: nobody reads it and the
+compiler does not check it — a generated table it checks. So
+`crates/baylee-cards-index` *is* the ledger, one `Row` per card, and
+`xtask ledger` reads the table it is about to rewrite: safe because
+assignment only ever appends, and the build is what checks what came out. Its
+own crate rather than a feature on `baylee-core`, because the table carries
+2.7 MB of `oracle_id`s and names the rules engine has no use for, and Cargo
+unifies features across a workspace build — one tool asking for the data
+would compile it into everything. The engine does not link the crate, so it
+cannot. That also makes it the place the name tables go when card import
+needs to resolve a name to an index.
+
 Codegen only *reads* the ledger and fails loudly on a card with no row: one
 writer, and it is not the thing that writes card files. What it *does* write
 from the ledger is `crates/baylee-core/src/generated/index/` — the same

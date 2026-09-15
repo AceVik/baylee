@@ -24,6 +24,6 @@ runs:
     - uses: actions/cache@v4
       with:
         path: data/scryfall-cache
-        key: scryfall-cache-${{ hashFiles('data/card-index.tsv') }}
+        key: scryfall-cache-${{ hashFiles('crates/baylee-cards-index/src/generated.rs') }}
         restore-keys: |
           scryfall-cache-

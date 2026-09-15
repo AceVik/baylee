@@ -37,12 +37,13 @@ pub enum CodegenError {
         /// Parser message.
         reason: &'static str,
     },
-    /// Invalid line in the `CardIndex` ledger.
-    #[error("card-index ledger line {line}: {text}")]
+    /// A `CardIndex` ledger row claiming an index, a card or a constant that
+    /// an earlier row already holds.
+    #[error("card-index ledger row {line}: {text}")]
     LedgerLine {
-        /// 1-based line number.
+        /// 1-based position in the table.
         line: usize,
-        /// Line content.
+        /// What the row claimed.
         text: String,
     },
     /// A card name carries a letter the slug table has no ASCII answer for.

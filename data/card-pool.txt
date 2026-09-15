@@ -3,7 +3,7 @@
 # The acceptance decks (data/acceptance-decks.txt) are the architecture proof
 # and say exactly what they say. A card implemented because someone wants to
 # play it belongs here instead. Both lists feed one registry, and the
-# CardIndex ledger (data/card-index.tsv) keeps either from disturbing the
+# CardIndex ledger (crates/baylee-cards-index) keeps either from disturbing
 # other: a name added here takes the next free index and moves nothing.
 #
 # Names must match Scryfall exactly. `cargo run -p xtask -- codegen` turns a

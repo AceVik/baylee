@@ -183,7 +183,7 @@ mod tests {
 
     /// An index is an identity, not a position: `DeckEntry` stores one, the
     /// gateway persists decks made of them, and a replay names them. They are
-    /// handed out by `data/card-index.tsv` (append-only) rather than by a
+    /// handed out by the append-only `CardIndex` ledger rather than by a
     /// card's place in the alphabetically sorted pool, which is what used to
     /// renumber every card after any newly added one — silently pointing
     /// every saved deck at a different card.

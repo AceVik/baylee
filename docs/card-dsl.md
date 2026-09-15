@@ -199,8 +199,8 @@ both are load-bearing:
   forgotten index into a build failure instead of a card that silently
   resolves as another one.
 
-  Where the number comes from: `data/card-index.tsv`, the append-only ledger
-  `cargo run -p xtask -- ledger` writes. A `CardIndex` is an identity, not a
+  Where the number comes from: `baylee_cards_index::ROWS`, the append-only
+  ledger `cargo run -p xtask -- ledger` writes. A `CardIndex` is an identity, not a
   position — `DeckEntry` stores one, the gateway persists decks made of them,
   and a replay names them — so a number, once handed out, is never handed to
   another card. What it numbers is **every card there is** rather than this
@@ -213,6 +213,18 @@ both are load-bearing:
   in its own chronological place. Never edit the ledger by hand; and note
   that codegen does not write it — it reads the row a card needs and fails
   loudly if there is none, which is what keeps the ledger to one writer.
+
+  The ledger is a **compiled table** — `crates/baylee-cards-index/src/
+  generated.rs`, one `Row` per card — and was `data/card-index.tsv` until it
+  was not. A data file is a second truth beside the code that nothing checks;
+  a generated table the compiler checks. So `xtask ledger` reads the table it
+  is about to rewrite, one build old, which is safe because assignment only
+  ever appends: a run reading yesterday's table re-derives exactly the rows
+  that table already has and adds the rest. What it cannot do is move one.
+  It is its own crate because the table carries 2.7 MB of `oracle_id`s and
+  names that the rules engine has no use for, and Cargo unifies features
+  across a workspace build — so a feature would not have kept them out of the
+  engine and a crate the engine does not link does.
 
   What codegen *does* write from it is
   `crates/baylee-core/src/generated/index/`: the same assignment as Rust, one

@@ -40,8 +40,9 @@ enum Cmd {
     ///
     /// The ledger is `crates/baylee-cards-index/src/generated.rs`, a compiled
     /// table rather than a data file, because a data file is a second truth
-    /// beside the code that nothing checks. `data/card-index.tsv` is the half
-    /// being retired and is written alongside it until it goes.
+    /// beside the code that nothing checks. So this reads the table it is
+    /// about to write — one build old, which is safe because assignment only
+    /// ever appends — and the build is what checks what came out.
     ///
     /// The corpus comes from `baylee-catalog corpus`, which needs a database.
     /// This half needs only the file it writes, so codegen stays offline.
@@ -516,8 +517,11 @@ fn cards(
     // Indices come from the ledger, never from a card's position in this list:
     // the list is alphabetical, so one new card would otherwise renumber every
     // card after it (see baylee-cards-codegen/src/ledger.rs).
-    let ledger_path = root.join("data/card-index.tsv");
-    let ledger = ledger::IndexLedger::parse(&fs::read_to_string(&ledger_path).unwrap_or_default())?;
+    // Read from the compiled table, which means this run sees the ledger as
+    // of the last build. That is the right way round: `cargo run` rebuilds
+    // before it runs, and a card assigned since would fail the `no row` check
+    // below rather than be given an index here.
+    let ledger = ledger::IndexLedger::from_rows(&baylee_cards_index::ROWS)?;
     // The taxonomy `cards/` is arranged by is computed per card
     // (`layout::path_for`), so a card's file can be somewhere else than where
     // it belongs — after a type-line correction, or on the run that
@@ -555,7 +559,7 @@ fn cards(
         // whose order depends on what happened to be fetched that day.
         let Some(index) = ledger.index_of(&oracle_id) else {
             anyhow::bail!(
-                "{name} ({oracle_id}) has no row in data/card-index.tsv.\n\
+                "{name} ({oracle_id}) has no row in the CardIndex ledger.\n\
                  Indices are assigned over the whole card corpus and not on \
                  sight: run `baylee-catalog corpus` and then `cargo xtask ledger`."
             );
@@ -4403,11 +4407,15 @@ fn ledger_cmd(root: &Path, corpus: &Path, check: bool, reseed: bool) -> anyhow::
             corpus_path.display()
         )
     })?;
-    let ledger_path = root.join("data/card-index.tsv");
+    // The file this writes is the source of the binary writing it, which is
+    // the same shape as the orphan guard below linking `baylee_cards::all()`.
+    // It is safe because assignment only ever appends: a run reading a table
+    // one build old re-derives exactly the rows that table already has, and
+    // adds the rest. What it cannot do is move one.
     let mut ledger = if reseed {
         ledger::IndexLedger::default()
     } else {
-        ledger::IndexLedger::parse(&fs::read_to_string(&ledger_path).unwrap_or_default())?
+        ledger::IndexLedger::from_rows(&baylee_cards_index::ROWS)?
     };
     let before = ledger.entries().len();
 
@@ -4458,39 +4466,25 @@ fn ledger_cmd(root: &Path, corpus: &Path, check: bool, reseed: bool) -> anyhow::
         "corpus: {seen} cards, ledger: {} rows ({assigned} newly assigned)",
         ledger.entries().len()
     );
-    // Two renderings of one assignment, and the Rust one is the ledger — the
-    // TSV is the half being retired. They are written together rather than
-    // one from the other, so neither can be a stale view of the other, and a
-    // run with nothing to assign still repairs a file somebody edited.
+    // Rendered and compared rather than appended to, so a run with nothing to
+    // assign still repairs a table somebody edited by hand.
     let rows_path = root.join("crates/baylee-cards-index/src/generated.rs");
-    let mut stale: Vec<&PathBuf> = Vec::new();
-    for (path, content) in [
-        (&ledger_path, ledger.render()),
-        (&rows_path, ledger.render_rows()),
-    ] {
-        if fs::read_to_string(path).unwrap_or_default() == content {
-            continue;
-        }
-        stale.push(path);
-        if check {
-            continue;
-        }
-        fs::write(path, &content)
-            .map_err(|e| anyhow::anyhow!("writing {} ({e})", path.display()))?;
-        println!("wrote {}", path.display());
+    let content = ledger.render_rows();
+    if fs::read_to_string(&rows_path).unwrap_or_default() == content {
+        println!("nothing to assign; {} is unchanged", rows_path.display());
+        return Ok(());
     }
-    if stale.is_empty() {
-        println!("nothing to assign; the ledger is unchanged");
-    } else if check {
-        for path in stale {
-            println!("  would write {}", path.display());
-        }
-    } else {
-        // The assigner reads the table it has just written, so the binary in
-        // `target/` is one assignment behind until the next build. `cargo run`
-        // rebuilds on its own; a cached binary invoked directly does not.
-        println!("rebuild before `cargo xtask codegen` — the table it reads has changed");
+    if check {
+        println!("--check: would write {}", rows_path.display());
+        return Ok(());
     }
+    fs::write(&rows_path, &content)
+        .map_err(|e| anyhow::anyhow!("writing {} ({e})", rows_path.display()))?;
+    println!("wrote {}", rows_path.display());
+    // The assigner reads the table it has just written, so the binary in
+    // `target/` is one assignment behind until the next build. `cargo run`
+    // rebuilds on its own; a cached binary invoked directly does not.
+    println!("rebuild before `cargo xtask codegen` — the table it reads has changed");
     Ok(())
 }
 

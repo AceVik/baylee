@@ -496,7 +496,7 @@ impl Catalog {
     /// A developer's tool and not an install step, like
     /// [`Self::mine_type_names`]: it needs a catalog ingested in every
     /// language, and what it writes is the input `cargo xtask ledger` turns
-    /// into `data/card-index.tsv`. Nothing at runtime reads it.
+    /// into the `CardIndex` ledger. Nothing at runtime reads it.
     ///
     /// Columns are `oracle_id`, `released_at`, `set_code`, `name`. The
     /// assignment itself happens in codegen, which owns the ledger's format
@@ -1588,7 +1588,7 @@ const MINE_ROUNDS: [&str; 4] = [
 /// Mining it needs a *full* catalog — every language, 542 177 printings — and
 /// CI has an empty Postgres, so the file is the artifact and
 /// `baylee-catalog mine-types` is the developer's tool that rewrites it. Same
-/// bargain as `data/card-index.tsv`.
+/// bargain as the `CardIndex` ledger.
 const TYPE_NAMES_TSV: &str = include_str!("../../../data/type-names.tsv");
 
 /// What each type and subtype is called, as one `INSERT`.

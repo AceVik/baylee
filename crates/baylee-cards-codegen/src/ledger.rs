@@ -7,17 +7,23 @@
 //! naming them. Renumbering pointed every saved deck at a different card, and
 //! nothing would have said so.
 //!
-//! Assignments therefore live in `data/card-index.tsv` and are append-only. A
-//! card new to the corpus takes the next free index. A card that leaves keeps
-//! its own: the slot is retired rather than handed on, because a deck saved
-//! last year may still name it.
+//! Assignments therefore live in `baylee_cards_index::ROWS` and are
+//! append-only. A card new to the corpus takes the next free index. A card
+//! that leaves keeps its own: the slot is retired rather than handed on,
+//! because a deck saved last year may still name it.
 //!
-//! The file is the source of truth, not a cache, and `cargo xtask ledger` is
-//! the only thing that writes it — codegen reads it and refuses a card with
-//! no row, so an index can never be assigned as a side effect of a build.
-//! What codegen *does* write from it is `crates/baylee-core/src/generated/
-//! index/`, the same assignment as Rust constants (see [`crate::cardindex`]),
-//! and `codegen --check` is what holds the two in step.
+//! That table is a **compiled** one, and was `data/card-index.tsv` until it
+//! was not. A data file is a second truth beside the code: nobody reads it
+//! and the compiler does not check it. A generated table it checks, which is
+//! why the ledger is now Rust and why this module reads it with
+//! [`IndexLedger::from_rows`] rather than by parsing anything.
+//!
+//! `cargo xtask ledger` is the only thing that writes it — codegen reads it
+//! and refuses a card with no row, so an index can never be assigned as a
+//! side effect of a build. What codegen *does* write from it is
+//! `crates/baylee-core/src/generated/index/`, the same assignment as Rust
+//! constants (see [`crate::cardindex`]), and `codegen --check` is what holds
+//! the two in step.
 //!
 //! # Why the order is written down and not recomputed
 //!
@@ -87,30 +93,6 @@ impl PartialEq for IndexLedger {
 
 impl Eq for IndexLedger {}
 
-const HEADER: &str = "\
-# CardIndex ledger — assigned once, never reused, never reordered.
-#
-# A card's index is its permanent rules identity: DeckEntry stores one, the
-# gateway persists decks made of them, and a replay names them. So this file
-# is append-only. A new card takes the next free index; a card that leaves the
-# corpus retires its own and the slot stays empty.
-#
-# Indices are assigned by first appearance over the whole card corpus, not
-# over the cards this repo implements — so adopting an old card inserts
-# nothing. The order is written down rather than recomputed, because what it
-# derives from (release dates, the corpus filter, Scryfall's own errata) is
-# not a constant.
-#
-# index, oracle_id, const and set are FROZEN: the workspace names them.
-# name follows Scryfall, so a rename shows in the diff.
-#
-# Seeded by `baylee-catalog corpus` + `cargo xtask ledger`; read by
-# `cargo xtask codegen`, which never assigns. `codegen --check` fails if a run
-# would change this file, so no index is assigned outside a commit.
-#
-# index\toracle_id\tconst\tset\tname
-";
-
 /// What `baylee-cards-index`'s `generated.rs` opens with.
 ///
 /// Short on purpose: the crate's own `lib.rs` carries the reasoning, and a
@@ -138,57 +120,12 @@ use baylee_core::ids::CardIndex;
 ";
 
 impl IndexLedger {
-    /// Reads a ledger file. An empty or missing file is an empty ledger.
-    ///
-    /// # Errors
-    /// If a line is not `index<TAB>oracle_id<TAB>const<TAB>set<TAB>name`, or
-    /// if two entries claim the same index, card, or constant.
-    pub fn parse(text: &str) -> Result<Self, CodegenError> {
-        let mut this = Self::default();
-        let mut seen_index: HashSet<u32> = HashSet::new();
-        for (n, line) in text.lines().enumerate() {
-            let line = line.trim_end();
-            if line.is_empty() || line.starts_with('#') {
-                continue;
-            }
-            let bad = || CodegenError::LedgerLine {
-                line: n + 1,
-                text: line.to_string(),
-            };
-            let mut cols = line.splitn(5, '\t');
-            let index: u32 = cols.next().ok_or_else(bad)?.parse().map_err(|_| bad())?;
-            let oracle_id = cols.next().ok_or_else(bad)?.to_string();
-            let constant = cols.next().ok_or_else(bad)?.to_string();
-            let set = cols.next().ok_or_else(bad)?.to_string();
-            let name = cols.next().unwrap_or("").to_string();
-            if oracle_id.is_empty() || constant.is_empty() {
-                return Err(bad());
-            }
-            if !seen_index.insert(index)
-                || this.by_card.contains_key(&oracle_id)
-                || !this.taken.insert(constant.clone())
-            {
-                return Err(bad());
-            }
-            this.by_card.insert(oracle_id.clone(), this.entries.len());
-            this.entries.push(LedgerEntry {
-                index,
-                oracle_id,
-                constant,
-                set,
-                name,
-            });
-        }
-        this.sort_by_index();
-        Ok(this)
-    }
-
     /// Reads the ledger out of the compiled table.
     ///
-    /// The same three locks `parse` applies — no index, no card and no
-    /// constant twice — because what the compiler checks about the table is
-    /// its *shape*, and none of those three is a shape: two rows naming one
-    /// `oracle_id` are as well-typed as any other two.
+    /// Three locks — no index, no card and no constant twice — because what
+    /// the compiler checks about the table is its *shape*, and none of those
+    /// three is a shape: two rows naming one `oracle_id` are as well-typed as
+    /// any other two.
     ///
     /// # Errors
     /// If two rows claim the same index, card, or constant.
@@ -207,7 +144,11 @@ impl IndexLedger {
             {
                 return Err(CodegenError::LedgerLine {
                     line: n + 1,
-                    text: format!("{index}\t{}\t{}", row.oracle_id, row.constant),
+                    text: format!(
+                        "index {index}, oracle {}, constant {} — one of the three \
+                         is already claimed",
+                        row.oracle_id, row.constant
+                    ),
                 });
             }
             this.by_card
@@ -233,20 +174,6 @@ impl IndexLedger {
             .enumerate()
             .map(|(i, e)| (e.oracle_id.clone(), i))
             .collect();
-    }
-
-    /// Renders the file this ledger came from (byte-stable for a given state).
-    #[must_use]
-    pub fn render(&self) -> String {
-        let mut out = String::from(HEADER);
-        for e in &self.entries {
-            let _ = writeln!(
-                out,
-                "{}\t{}\t{}\t{}\t{}",
-                e.index, e.oracle_id, e.constant, e.set, e.name
-            );
-        }
-        out
     }
 
     /// Renders `baylee-cards-index`'s `generated.rs` — the ledger itself.
@@ -384,11 +311,11 @@ impl IndexLedger {
         &self.entries
     }
 
-    /// Builds a ledger from rows without any of the guards `parse` applies.
+    /// Builds a ledger from rows without any of the guards the readers apply.
     ///
     /// Test-only, and it exists for one test: `cardindex`'s refusal to render
-    /// two cards claiming one constant cannot be reached through `parse` or
-    /// `assign`, because both refuse a duplicate first. Proving the third
+    /// two cards claiming one constant cannot be reached through `from_rows`
+    /// or `assign`, because both refuse a duplicate first. Proving the third
     /// lock works needs a door past the first two.
     #[cfg(test)]
     pub(crate) fn from_entries_unchecked(entries: Vec<LedgerEntry>) -> Self {
@@ -399,6 +326,27 @@ impl IndexLedger {
         };
         this.sort_by_index();
         this
+    }
+}
+
+/// One table row, spelled out for a test.
+///
+/// The real table is 33 694 of these and is generated; a test wants two or
+/// three, and wants them without naming the struct's five fields each time.
+#[cfg(test)]
+pub(crate) const fn row(
+    index: u32,
+    oracle_id: &'static str,
+    constant: &'static str,
+    set: &'static str,
+    name: &'static str,
+) -> baylee_cards_index::Row {
+    baylee_cards_index::Row {
+        index: baylee_core::ids::CardIndex::new(index),
+        oracle_id,
+        constant,
+        set,
+        name,
     }
 }
 
@@ -448,35 +396,60 @@ mod tests {
     /// not the hole, because a deck saved last year may still name it.
     #[test]
     fn a_hole_is_never_refilled() {
-        let text = "0\toracle-a\tA\tlea\tA\n2\toracle-c\tC\tlea\tC\n";
-        let mut l = IndexLedger::parse(text).expect("parses");
+        let mut l = IndexLedger::from_rows(&[
+            row(0, "oracle-a", "A", "lea", "A"),
+            row(2, "oracle-c", "C", "lea", "C"),
+        ])
+        .expect("reads");
         assert_eq!(l.slots(), 3, "index 1 is retired but still occupies a slot");
         assert_eq!(assign(&mut l, "oracle-d", "D"), 3);
     }
 
+    /// A two-faced card is filed under its front face and keeps its whole
+    /// name, and both halves survive the rendering: the constant is what card
+    /// files write, the name is what the doc line beside it reads.
     #[test]
-    fn round_trips_through_the_file() {
+    fn a_card_with_two_faces_is_named_by_its_front_one() {
         let mut l = IndexLedger::default();
         assign(&mut l, "oracle-a", "Ancestral Recall");
         assign(&mut l, "oracle-b", "Fire // Ice");
-        let reparsed = IndexLedger::parse(&l.render()).expect("parses");
-        assert_eq!(reparsed, l);
         assert_eq!(l.entries()[1].constant, "FIRE", "the front face names it");
         assert_eq!(l.entries()[1].name, "Fire // Ice", "the whole name is kept");
+        assert!(l.render_rows().contains(
+            r#"Row { index: CardIndex::new(1), oracle_id: "oracle-b", constant: "FIRE", set: "tst", name: "Fire // Ice" },"#
+        ));
+    }
+
+    /// The one thing about the rendering that could break on a card nobody
+    /// was thinking about. Seven names in the corpus carry a `"`, so the
+    /// emitted literal has to be Rust's own escaping and not a quote
+    /// concatenated by hand.
+    #[test]
+    fn a_name_with_a_quote_in_it_comes_out_as_valid_rust() {
+        let mut l = IndexLedger::default();
+        l.assign("oracle-a", "Ach! Hans, Run!", "unh")
+            .expect("assigns");
+        l.entries.get_mut(0).expect("one row").name = r#"He said "run""#.to_string();
+        assert!(
+            l.render_rows().contains(r#"name: "He said \"run\"" }"#),
+            "{}",
+            l.render_rows()
+        );
     }
 
     #[test]
     fn rejects_a_duplicate_index_card_or_constant() {
-        assert!(IndexLedger::parse("0\toracle-a\tA\tlea\tA\n1\toracle-b\tB\tlea\tB\n").is_ok());
+        // The table's *shape* is the compiler's to check — a row with four
+        // fields does not build. What it cannot see is a value used twice,
+        // which is exactly these three.
+        let a = row(0, "oracle-a", "A", "lea", "A");
+        assert!(IndexLedger::from_rows(&[a, row(1, "oracle-b", "B", "lea", "B")]).is_ok());
         // same index
-        assert!(IndexLedger::parse("0\toracle-a\tA\tlea\tA\n0\toracle-b\tB\tlea\tB\n").is_err());
+        assert!(IndexLedger::from_rows(&[a, row(0, "oracle-b", "B", "lea", "B")]).is_err());
         // same card
-        assert!(IndexLedger::parse("0\toracle-a\tA\tlea\tA\n1\toracle-a\tB\tlea\tB\n").is_err());
+        assert!(IndexLedger::from_rows(&[a, row(1, "oracle-a", "B", "lea", "B")]).is_err());
         // same constant
-        assert!(IndexLedger::parse("0\toracle-a\tA\tlea\tA\n1\toracle-b\tA\tlea\tB\n").is_err());
-        assert!(IndexLedger::parse("nope\toracle-a\tA\tlea\tA\n").is_err());
-        assert!(IndexLedger::parse("0\t\tA\tlea\tA\n").is_err());
-        assert!(IndexLedger::parse("0\toracle-a\t\tlea\tA\n").is_err());
+        assert!(IndexLedger::from_rows(&[a, row(1, "oracle-b", "A", "lea", "B")]).is_err());
     }
 
     /// Two cards of one name take the bare constant and then the set; the
@@ -504,27 +477,15 @@ mod tests {
         assert_eq!(l.entries()[0].constant, "BARAD_DUR");
     }
 
+    /// The ledger the workspace actually ships, read through the same door
+    /// codegen reads it through. It is a real check and not a smoke test: the
+    /// three locks in `from_rows` are the ones the compiler cannot apply, and
+    /// 33 694 rows is where a duplicate would be.
     #[test]
-    fn comments_and_blank_lines_are_not_entries() {
-        let l = IndexLedger::parse("# a comment\n\n0\toracle-a\tA\tlea\tA\n").expect("parses");
-        assert_eq!(l.entries().len(), 1);
-    }
-
-    /// The migration, held against itself while both halves exist.
-    ///
-    /// `data/card-index.tsv` is being retired in favour of the compiled
-    /// table, and the whole claim is that the move carries every column. So
-    /// the table is read back, rendered as the file it replaces, and compared
-    /// to the committed bytes. This test is the reason the TSV may be deleted
-    /// afterwards — and it goes with it, because nothing then remains to
-    /// compare against.
-    #[test]
-    fn the_compiled_table_says_exactly_what_the_file_it_replaces_says() {
-        let from_table = IndexLedger::from_rows(&baylee_cards_index::ROWS).expect("reads");
-        let committed = include_str!("../../../data/card-index.tsv");
-        assert_eq!(from_table.entries().len(), 33_694);
-        assert_eq!(from_table.render(), committed);
-        assert_eq!(from_table, IndexLedger::parse(committed).expect("parses"));
+    fn the_shipped_table_reads_back_whole() {
+        let l = IndexLedger::from_rows(&baylee_cards_index::ROWS).expect("reads");
+        assert_eq!(l.entries().len(), baylee_cards_index::ROWS.len());
+        assert_eq!(l.slots(), l.entries().len(), "the table has no holes");
     }
 
     /// The table is written without running rustfmt over it — 5.4 MB through
