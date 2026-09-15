@@ -7,9 +7,6 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes::artifact;
 
-/// Equip targets "target creature you control" (CR 702.6a).
-static CREATURE_YOU_CONTROL: Filter = Filter::And(&[Filter::CREATURE, Filter::ControlledByYou]);
-
 card!(
     index = 17621,
     oracle_id = "83b43aba-bf9c-4da2-967d-9daa632e97d2",
@@ -37,13 +34,6 @@ card!(
                 ],
             }]
         ),
-        activated!(
-            cost!("{5}"),
-            &[Effect::AttachSelf {
-                target: TargetSpec::Object(&CREATURE_YOU_CONTROL),
-            }],
-            target = Some(TargetSpec::Object(&CREATURE_YOU_CONTROL)),
-            timing = ActivationTiming::SorcerySpeed
-        ),
+        equip!("{5}"),
     ],
 );

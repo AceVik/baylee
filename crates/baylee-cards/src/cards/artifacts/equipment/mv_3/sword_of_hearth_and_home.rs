@@ -9,12 +9,10 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes::artifact;
 
-/// Equip targets "target creature you control" (CR 702.6a).
-static CREATURE_YOU_CONTROL: Filter = Filter::And(&[Filter::CREATURE, Filter::ControlledByYou]);
-static GREEN_F: Filter = Filter::HasColor(ColorSet::from_slice(&[Color::Green]));
-static WHITE_F: Filter = Filter::HasColor(ColorSet::from_slice(&[Color::White]));
-static CREATURE_YOU_OWN: Filter = Filter::And(&[Filter::CREATURE, Filter::OwnedByYou]);
-static BASIC_LAND: Filter = Filter::And(&[Filter::HasSupertype(SupertypeSet::BASIC), Filter::LAND]);
+/// Named because the trigger says it twice: what is exiled, and what may be
+/// chosen as the target. Every other filter on this card is written where it
+/// is read.
+static CREATURE_YOU_OWN: Filter = f!(owned CREATURE);
 
 card!(
     index = 21510,
@@ -28,47 +26,27 @@ card!(
     )],
     coverage = Coverage::Implemented,
     abilities = &[
-        AbilityDef::Static(StaticAbility {
-            layer: Layer::PtModify,
-            filter: Filter::AttachedToBySource,
-            modifier: Modifier::ModifyPT(2, 2),
-        }),
-        AbilityDef::Static(StaticAbility {
-            layer: Layer::Text,
-            filter: Filter::AttachedToBySource,
-            modifier: Modifier::ProtectionFrom(&GREEN_F),
-        }),
-        AbilityDef::Static(StaticAbility {
-            layer: Layer::Text,
-            filter: Filter::AttachedToBySource,
-            modifier: Modifier::ProtectionFrom(&WHITE_F),
-        }),
+        static_ability!(Filter::AttachedToBySource, Modifier::ModifyPT(2, 2)),
+        static_ability!(
+            Filter::AttachedToBySource,
+            Modifier::ProtectionFrom(&Filter::HasColor(ColorSet::from_slice(&[Color::Green])))
+        ),
+        static_ability!(
+            Filter::AttachedToBySource,
+            Modifier::ProtectionFrom(&Filter::HasColor(ColorSet::from_slice(&[Color::White])))
+        ),
         triggered!(
             Trigger::DealsCombatDamageToPlayer(&Filter::AttachedToBySource),
             &[
-                Effect::Blink {
-                    target: TargetSpec::Object(&CREATURE_YOU_OWN),
-                },
+                Effect::blink(TargetSpec::Object(&CREATURE_YOU_OWN)),
                 Effect::SearchLibrary {
-                    filter: &BASIC_LAND,
+                    filter: &Filter::BASIC_LAND,
                     finds: &[Find::BATTLEFIELD],
                     optional: true,
                 },
             ],
-            targets = Some(TargetReq {
-                spec: TargetSpec::Object(&CREATURE_YOU_OWN),
-                min: 0,
-                max: 1,
-                count_is_x: false,
-            })
+            targets = Some(TargetReq::up_to_one(TargetSpec::Object(&CREATURE_YOU_OWN)))
         ),
-        activated!(
-            cost!("{2}"),
-            &[Effect::AttachSelf {
-                target: TargetSpec::Object(&CREATURE_YOU_CONTROL),
-            }],
-            target = Some(TargetSpec::Object(&CREATURE_YOU_CONTROL)),
-            timing = ActivationTiming::SorcerySpeed
-        ),
+        equip!("{2}"),
     ],
 );

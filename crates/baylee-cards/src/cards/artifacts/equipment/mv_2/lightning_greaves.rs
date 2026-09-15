@@ -7,13 +7,12 @@
 // Equip {0} is a cost of no mana and no parts at all: equipping does not tap
 // the Equipment, and it stays sorcery-speed (CR 702.6b). What makes Lightning
 // Greaves what it is, is that the cost is nothing — not that it is faster
-// than every other Equipment.
+// than every other Equipment. `Cost::FREE` rather than `equip!("{0}")`,
+// because a cost with no mana cost is not the same data as a mana cost of
+// zero generic.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes::artifact;
-
-/// Equip targets "target creature you control" (CR 702.6a).
-static CREATURE_YOU_CONTROL: Filter = Filter::And(&[Filter::CREATURE, Filter::ControlledByYou]);
 
 card!(
     index = 6487,
@@ -27,18 +26,10 @@ card!(
         subtypes = &[artifact::EQUIPMENT],
     ),],
     abilities = &[
-        AbilityDef::Static(StaticAbility {
-            layer: Layer::Ability,
-            filter: Filter::AttachedToBySource,
-            modifier: Modifier::AddKeyword(KeywordSet::HASTE.union(KeywordSet::SHROUD)),
-        }),
-        activated!(
-            Cost::FREE,
-            &[Effect::AttachSelf {
-                target: TargetSpec::Object(&CREATURE_YOU_CONTROL),
-            }],
-            target = Some(TargetSpec::Object(&CREATURE_YOU_CONTROL)),
-            timing = ActivationTiming::SorcerySpeed
+        static_ability!(
+            Filter::AttachedToBySource,
+            Modifier::AddKeyword(KeywordSet::HASTE.union(KeywordSet::SHROUD))
         ),
+        equip!(Cost::FREE),
     ],
 );

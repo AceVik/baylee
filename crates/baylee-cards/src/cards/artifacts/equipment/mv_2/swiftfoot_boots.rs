@@ -10,9 +10,6 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes::artifact;
 
-/// Equip targets "target creature you control" (CR 702.6a).
-static CREATURE_YOU_CONTROL: Filter = Filter::And(&[Filter::CREATURE, Filter::ControlledByYou]);
-
 card!(
     index = 11929,
     oracle_id = "c8b143ad-43ec-4e0d-a440-e348daa31391",
@@ -25,18 +22,10 @@ card!(
         subtypes = &[artifact::EQUIPMENT],
     ),],
     abilities = &[
-        AbilityDef::Static(StaticAbility {
-            layer: Layer::Ability,
-            filter: Filter::AttachedToBySource,
-            modifier: Modifier::AddKeyword(KeywordSet::HEXPROOF.union(KeywordSet::HASTE)),
-        }),
-        activated!(
-            cost!("{1}"),
-            &[Effect::AttachSelf {
-                target: TargetSpec::Object(&CREATURE_YOU_CONTROL),
-            }],
-            target = Some(TargetSpec::Object(&CREATURE_YOU_CONTROL)),
-            timing = ActivationTiming::SorcerySpeed
+        static_ability!(
+            Filter::AttachedToBySource,
+            Modifier::AddKeyword(KeywordSet::HEXPROOF.union(KeywordSet::HASTE))
         ),
+        equip!("{1}"),
     ],
 );
