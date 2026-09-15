@@ -215,6 +215,16 @@ jobs:
 
   audit:
     runs-on: ubuntu-latest
+    # `audit-check` reports through a **check run**, which is a write, and
+    # this workflow's `GITHUB_TOKEN` is read-only: the job failed with
+    # "Resource not accessible by integration" before it had looked at a
+    # single advisory. Named on the job rather than raised repository-wide,
+    # because a permission granted to one job is the one the other thirteen
+    # do not get — and `contents: read` has to be restated, since a
+    # `permissions` block replaces the defaults rather than adding to them.
+    permissions:
+      contents: read
+      checks: write
     steps:
       - uses: actions/checkout@v4
       - uses: rustsec/audit-check@v2
