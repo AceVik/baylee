@@ -24,6 +24,16 @@ pub static YOUR_ALLIES: Filter = Filter::And(&[
     Filter::Or(&[Filter::This, Filter::HasSubtype(creature::ALLY)]),
 ]);
 
+/// "An Ally you control" — the tribe, the source included, nothing else.
+///
+/// The third of the three, and the one six card files had written out under
+/// three different names: `ALLIES_YOU` four times, `ALLY_YOU` once, and
+/// `YOUR_ALLIES` once — that last one shadowing the constant above it, which
+/// is a *different* filter. Which is the whole argument for this file: the
+/// same name meaning two things is worse than no name at all.
+pub static YOUR_ALLY: Filter =
+    Filter::And(&[Filter::ControlledByYou, Filter::HasSubtype(creature::ALLY)]);
+
 /// "Another Ally you control" — the same tribe, excluding the source.
 pub static ANOTHER_ALLY: Filter = Filter::And(&[
     Filter::ControlledByYou,

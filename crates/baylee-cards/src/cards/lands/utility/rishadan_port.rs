@@ -6,8 +6,6 @@
 
 use baylee_cards_dsl::prelude::*;
 
-static TARGET1: Filter = Filter::LAND;
-
 card!(
     index = index::RISHADAN_PORT,
     oracle_id = "f3e8dc56-2810-474e-a6a7-9c3555f94ae9",
@@ -19,7 +17,7 @@ card!(
         activated!(
             cost!("{1}", TapSelf),
             &[Effect::TapTarget],
-            target = Some(TargetSpec::Object(&TARGET1))
+            target = Some(TargetSpec::Object(&Filter::LAND))
         ),
     ],
 );

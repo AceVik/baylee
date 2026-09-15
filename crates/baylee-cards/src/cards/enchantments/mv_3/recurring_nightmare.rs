@@ -12,8 +12,6 @@
 // `Implemented` the day an activation can suspend on a choice during cost
 // payment, the way the cast wizard already does for `ExileFromHand`.
 
-static CREATURE_YOU_CONTROL: Filter = Filter::And(&[Filter::CREATURE, Filter::ControlledByYou]);
-
 use baylee_cards_dsl::prelude::*;
 
 card!(
@@ -28,7 +26,7 @@ card!(
     color_identity = ColorSet::from_slice(&[Color::Black]),
     coverage = Coverage::Partial("a sacrifice cost cannot be chosen during an activation"),
     abilities = &[activated!(
-        cost!(Sacrifice(&CREATURE_YOU_CONTROL), ReturnSelfToHand),
+        cost!(Sacrifice(&Filter::YOUR_CREATURE), ReturnSelfToHand),
         &[Effect::GraveyardToBattlefield {
             target: TargetSpec::CardInGraveyard(&Filter::CREATURE, PlayerRel::You),
         }],

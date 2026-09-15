@@ -5,8 +5,6 @@
 //! Set: OTC #81 — Outlaws of Thunder Junction Commander | Scryfall ID: 9519bb3a-bed3-48e8-93ae-9e9b2e7d646a | Oracle ID: e7564d66-767c-4cd9-a5f0-0f2488a4a74b
 // IMPLEMENTED — both modes (X-target destroy / 2X lifegain).
 
-static ARTIFACT_OR_ENCHANTMENT: Filter = Filter::Or(&[Filter::ARTIFACT, Filter::ENCHANTMENT]);
-
 use baylee_cards_dsl::prelude::*;
 
 card!(
@@ -24,9 +22,11 @@ card!(
         modes: &[
             mode!(
                 &[Effect::destroy(TargetSpec::Object(
-                    &ARTIFACT_OR_ENCHANTMENT
+                    &Filter::ARTIFACT_OR_ENCHANTMENT
                 ))],
-                targets = Some(TargetReq::one(TargetSpec::Object(&ARTIFACT_OR_ENCHANTMENT)))
+                targets = Some(TargetReq::one(TargetSpec::Object(
+                    &Filter::ARTIFACT_OR_ENCHANTMENT
+                )))
             ),
             mode!(
                 &[Effect::GainLifeFor {

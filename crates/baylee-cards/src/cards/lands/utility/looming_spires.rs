@@ -7,8 +7,6 @@
 
 use baylee_cards_dsl::prelude::*;
 
-static TARGET1: Filter = Filter::CREATURE;
-
 card!(
     index = index::LOOMING_SPIRES,
     oracle_id = "7d09b136-525f-49dd-a3a2-dfaca4e8e9a8",
@@ -29,7 +27,7 @@ card!(
                 keywords: KeywordSet::FIRST_STRIKE,
                 duration: Duration::UntilEndOfTurn
             }],
-            targets = Some(TargetReq::one(TargetSpec::Object(&TARGET1)))
+            targets = Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE)))
         ),
         mana_ability!(&[Effect::mana(ManaColor::Red, 1)]),
     ],

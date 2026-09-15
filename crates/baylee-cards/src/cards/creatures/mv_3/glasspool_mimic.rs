@@ -4,15 +4,13 @@
 //! Oracle: {T}: Add {U}.
 //! Set: ZNR #60 — Zendikar Rising | Scryfall ID: 5adcb500-8c77-4925-8e2c-1243502827d1 | Oracle ID: c178953c-3888-4edd-9d0c-265bd82b1d24
 // IMPLEMENTED — clone-with-extra-subtypes front (CopyOnEnter) + MDFC
-// land back playable via the face-choice land play.
+// land back playable via the face-choice land play. The copy target is "a
+// creature **you control**": the card was printed as "any creature on the
+// battlefield" and errata'd, and copying across the table is a different
+// card.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes::creature;
-
-/// "A creature **you control**". The card was printed as "any creature on
-/// the battlefield" and errata'd; copying across the table is a different
-/// card, and the header here had kept the old wording.
-static MINE: Filter = Filter::And(&[Filter::CREATURE, Filter::ControlledByYou]);
 
 static SHORE_MANA: &[AbilityDef] = &[mana_ability!(&[Effect::mana(ManaColor::Blue, 1)])];
 
@@ -39,7 +37,7 @@ card!(
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     coverage = Coverage::Implemented,
     abilities = &[AbilityDef::CopyOnEnter {
-        target: TargetSpec::Object(&MINE),
+        target: TargetSpec::Object(&Filter::YOUR_CREATURE),
         mods: &[
             CopyMod::AddSubtype(creature::SHAPESHIFTER),
             CopyMod::AddSubtype(creature::ROGUE),

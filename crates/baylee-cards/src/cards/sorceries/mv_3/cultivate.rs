@@ -6,9 +6,6 @@
 
 use baylee_cards_dsl::prelude::*;
 
-/// A basic land card: the *supertype* Basic plus the land type (CR 205.4a).
-static BASIC_LAND: Filter = Filter::And(&[Filter::HasSupertype(SupertypeSet::BASIC), Filter::LAND]);
-
 card!(
     index = index::CULTIVATE,
     oracle_id = "8b755881-a72d-4e21-a369-d2924eb4585a",
@@ -24,7 +21,7 @@ card!(
     // the order here is the order the text names them, and it is the order a
     // single find falls back to.
     abilities = &[spell!(&[Effect::SearchLibrary {
-        filter: &BASIC_LAND,
+        filter: &Filter::BASIC_LAND,
         finds: &[Find::BATTLEFIELD_TAPPED, Find::HAND],
         optional: true, // "up to two"
     }])],

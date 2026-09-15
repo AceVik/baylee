@@ -6,11 +6,6 @@
 
 use baylee_cards_dsl::prelude::*;
 
-static TARGET1: Filter = Filter::And(&[
-    Filter::CREATURE,
-    Filter::HasSupertype(SupertypeSet::LEGENDARY),
-]);
-
 card!(
     index = index::SHIZO_DEATH_S_STOREHOUSE,
     oracle_id = "008f2698-1721-45a3-8353-10f2f400dc8f",
@@ -32,7 +27,7 @@ card!(
                 keywords: KeywordSet::FEAR,
                 duration: Duration::UntilEndOfTurn
             }],
-            target = Some(TargetSpec::Object(&TARGET1))
+            target = Some(TargetSpec::Object(&Filter::LEGENDARY_CREATURE))
         ),
     ],
 );

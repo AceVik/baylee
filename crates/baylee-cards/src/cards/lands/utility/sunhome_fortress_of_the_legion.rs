@@ -6,8 +6,6 @@
 
 use baylee_cards_dsl::prelude::*;
 
-static TARGET1: Filter = Filter::CREATURE;
-
 card!(
     index = index::SUNHOME_FORTRESS_OF_THE_LEGION,
     oracle_id = "a9f8344c-1705-4254-81d6-aa05e0c69c29",
@@ -28,7 +26,7 @@ card!(
                 keywords: KeywordSet::DOUBLE_STRIKE,
                 duration: Duration::UntilEndOfTurn
             }],
-            target = Some(TargetSpec::Object(&TARGET1))
+            target = Some(TargetSpec::Object(&Filter::CREATURE))
         ),
     ],
 );

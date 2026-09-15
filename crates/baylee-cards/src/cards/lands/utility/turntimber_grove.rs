@@ -7,8 +7,6 @@
 
 use baylee_cards_dsl::prelude::*;
 
-static TARGET1: Filter = Filter::CREATURE;
-
 card!(
     index = index::TURNTIMBER_GROVE,
     oracle_id = "62934aab-b6fa-41b2-ac05-d3fa0e3c5a79",
@@ -30,7 +28,7 @@ card!(
                 keywords: KeywordSet::EMPTY,
                 duration: Duration::UntilEndOfTurn
             }],
-            targets = Some(TargetReq::one(TargetSpec::Object(&TARGET1)))
+            targets = Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE)))
         ),
     ],
 );

@@ -3,11 +3,9 @@
 //! Set: ZEN #63 — Zendikar | Scryfall ID: 5cd723c8-4b3d-4fbb-a825-79934279382d | Oracle ID: 6eed122b-9760-47fd-8ba2-adeda8054e0d
 // IMPLEMENTED — tap to draw per Ally.
 
+use crate::filters::YOUR_ALLY;
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes::creature;
-
-static ALLY_YOU: Filter =
-    Filter::And(&[Filter::ControlledByYou, Filter::HasSubtype(creature::ALLY)]);
 
 card!(
     index = index::SEA_GATE_LOREMASTER,
@@ -27,7 +25,7 @@ card!(
         Cost::TAP,
         &[Effect::DrawCards {
             amount: Amount::CountOf {
-                filter: &ALLY_YOU,
+                filter: &YOUR_ALLY,
                 zone: ZoneSel::Battlefield,
             },
         }]

@@ -3,11 +3,9 @@
 //! Set: TLA #230 — Avatar: The Last Airbender | Scryfall ID: b0a18f8b-7364-4375-b2e1-e2f15978517f | Oracle ID: 0972d46e-423b-454e-87c7-a2d40fb6fb6d
 // IMPLEMENTED — Ally trigger multiplication for your permanents.
 
+use crate::filters::YOUR_ALLY;
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes::creature;
-
-static YOUR_ALLIES: Filter =
-    Filter::And(&[Filter::ControlledByYou, Filter::HasSubtype(creature::ALLY)]);
 
 card!(
     index = index::KATARA_THE_FEARLESS,
@@ -27,7 +25,7 @@ card!(
     coverage = Coverage::Implemented,
     abilities = &[AbilityDef::Replacement(
         ReplacementRule::TriggerMultiplier {
-            source_filter: &YOUR_ALLIES,
+            source_filter: &YOUR_ALLY,
             event: TriggerEventKind::Any,
         },
     )],

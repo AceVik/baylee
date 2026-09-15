@@ -5,8 +5,6 @@
 
 use baylee_cards_dsl::prelude::*;
 
-static SPEND1: Filter = Filter::ARTIFACT;
-
 card!(
     index = index::MISHRA_S_WORKSHOP,
     oracle_id = "ba284fe6-bb29-455c-8321-9714a0cdc05e",
@@ -14,6 +12,6 @@ card!(
     coverage = Coverage::Implemented,
     faces = &[face!(name = "Mishra's Workshop", types = TypeSet::LAND,),],
     abilities = &[mana_ability!(&[
-        Effect::mana(ManaColor::Colorless, 3).restricted(&SPEND1, SpendRider::None)
+        Effect::mana(ManaColor::Colorless, 3).restricted(&Filter::ARTIFACT, SpendRider::None)
     ]),],
 );

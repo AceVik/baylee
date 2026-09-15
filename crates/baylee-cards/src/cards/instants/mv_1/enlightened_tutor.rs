@@ -3,8 +3,6 @@
 //! Set: DMR #6 — Dominaria Remastered | Scryfall ID: 1c9675fb-1a89-420f-aea8-50e0642f549c | Oracle ID: c5229c17-b7be-4b05-b683-f2277edc4849
 // IMPLEMENTED — filtered tutor to the top of the library (reveal is M3).
 
-static FIND: Filter = Filter::Or(&[Filter::ARTIFACT, Filter::ENCHANTMENT]);
-
 use baylee_cards_dsl::prelude::*;
 
 card!(
@@ -19,7 +17,7 @@ card!(
     color_identity = ColorSet::from_slice(&[Color::White]),
     coverage = Coverage::Implemented,
     abilities = &[spell!(&[Effect::SearchLibrary {
-        filter: &FIND,
+        filter: &Filter::ARTIFACT_OR_ENCHANTMENT,
         finds: &[Find::TOP_OF_LIBRARY],
         optional: false,
     }])],

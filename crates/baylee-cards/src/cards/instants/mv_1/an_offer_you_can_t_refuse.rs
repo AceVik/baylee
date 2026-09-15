@@ -11,9 +11,6 @@ use baylee_cards_dsl::prelude::*;
 
 use crate::tokens::TREASURE as TREASURE_TOKEN;
 
-/// "target noncreature spell" — the same filter Negate targets with.
-static NONCREATURE_SPELL: Filter = Filter::NONCREATURE;
-
 card!(
     index = index::AN_OFFER_YOU_CAN_T_REFUSE,
     oracle_id = "234a734b-ba28-4f1b-9d01-3c3e7d516590",
@@ -35,6 +32,6 @@ card!(
                 token: &TREASURE_TOKEN,
             },
         ],
-        targets = Some(TargetReq::one(TargetSpec::Spell(&NONCREATURE_SPELL)))
+        targets = Some(TargetReq::one(TargetSpec::Spell(&Filter::NONCREATURE)))
     )],
 );

@@ -59,7 +59,17 @@ impl CardBody {
     /// `static` — so this is legibility and not necessity. What it buys is
     /// that a target the card computes is named once, above the literal,
     /// where the reader meets it before the ability that aims with it.
+    ///
+    /// A filter that is *already* a name buys none of that, so it is handed
+    /// straight back: `static TARGET1: Filter = Filter::CREATURE;` gives one
+    /// spelling of "a creature" a second, card-local spelling, which is the
+    /// duplication this was meant to prevent. Fifteen generated cards
+    /// carried a `static` whose whole body was a bare constant — eight of
+    /// them that one.
     pub fn filter_static(&mut self, prefix: &str, expr: &str) -> String {
+        if !expr.contains(['(', '[', ',', ' ']) {
+            return expr.to_string();
+        }
         let n = self.statics.matches("static ").count() + 1;
         let name = format!("{prefix}{n}");
         let _ = write!(self.statics, "static {name}: Filter = {expr};\n\n");

@@ -3,11 +3,9 @@
 //! Set: WWK #105 — Worldwake | Scryfall ID: 78a538cf-2291-49aa-8429-17d97d454479 | Oracle ID: ead985ec-f29f-4a3b-b8b1-061142cc5bd1
 // IMPLEMENTED — dynamic Ally mana (choose a color, X = Allies).
 
+use crate::filters::YOUR_ALLY;
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes::creature;
-
-static ALLIES_YOU: Filter =
-    Filter::And(&[Filter::ControlledByYou, Filter::HasSubtype(creature::ALLY)]);
 
 card!(
     index = index::HARABAZ_DRUID,
@@ -26,7 +24,7 @@ card!(
     abilities = &[mana_ability!(&[Effect::mana_choice_dynamic(
         ALL_MANA_COLORS,
         Amount::CountOf {
-            filter: &ALLIES_YOU,
+            filter: &YOUR_ALLY,
             zone: ZoneSel::Battlefield,
         },
     )])],

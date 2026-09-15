@@ -3,7 +3,6 @@
 //! Set: MOM #211 — March of the Machine | Scryfall ID: c0cdeaba-fc21-44e6-bf99-aa1ff379401b | Oracle ID: 72deedab-7c17-4505-aeca-4bc8596d80a5
 // IMPLEMENTED — power-conditional ETB trigger (draw or two counters).
 
-static YOUR_CREATURE: Filter = Filter::And(&[Filter::CREATURE, Filter::ControlledByYou]);
 static THEN_DRAW: &[Effect] = &[Effect::draw(1)];
 // The nested resolution targets the event object (the entering creature).
 static ELSE_COUNTERS: &[Effect] = &[Effect::AddCounter {
@@ -25,7 +24,7 @@ card!(
     color_identity = ColorSet::from_slice(&[Color::Green]),
     coverage = Coverage::Implemented,
     abilities = &[triggered!(
-        Trigger::EntersBattlefield(&YOUR_CREATURE),
+        Trigger::EntersBattlefield(&Filter::YOUR_CREATURE),
         &[Effect::IfEventPowerAtLeast {
             n: 3,
             then: THEN_DRAW,

@@ -11,10 +11,11 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes::{creature, spell};
 
-static NONTOKEN_CREATURE: Filter = Filter::And(&[Filter::CREATURE, Filter::Not(&Filter::IsToken)]);
 static BACK_ABILITIES: &[AbilityDef] = &[spell!(
     &[Effect::ExileAndReturnAtEndStep],
-    targets = Some(TargetReq::one(TargetSpec::Object(&NONTOKEN_CREATURE)))
+    targets = Some(TargetReq::one(TargetSpec::Object(
+        &Filter::NONTOKEN_CREATURE
+    )))
 )];
 
 card!(

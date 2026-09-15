@@ -4,8 +4,6 @@
 //! Set: CMM #24 — Commander Masters | Scryfall ID: ab12f69e-1491-47a8-8c46-d85bbf637ff6 | Oracle ID: 4e183439-17d2-47ff-9d99-5e22821d91e3
 // IMPLEMENTED — commander-conditional free cast + team indestructible.
 
-static YOUR_CREATURES: Filter = Filter::And(&[Filter::CREATURE, Filter::ControlledByYou]);
-
 use baylee_cards_dsl::prelude::*;
 
 card!(
@@ -24,7 +22,7 @@ card!(
     color_identity = ColorSet::from_slice(&[Color::White]),
     coverage = Coverage::Implemented,
     abilities = &[spell!(&[Effect::continuous(
-        &YOUR_CREATURES,
+        &Filter::YOUR_CREATURE,
         Modifier::AddKeyword(KeywordSet::INDESTRUCTIBLE),
         Duration::UntilEndOfTurn
     )])],

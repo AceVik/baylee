@@ -6,7 +6,6 @@
 //! Set: ONE #108 — Phyrexia: All Will Be One | Scryfall ID: a9225cc3-90f0-448f-a8d9-7c6c2796d077 | Oracle ID: 217062f5-96f1-454c-9507-17f34ef37070
 // IMPLEMENTED — all three edict modes (per-opponent sacrifice choice).
 
-static NONTOKEN_CREATURE: Filter = Filter::And(&[Filter::CREATURE, Filter::Not(&Filter::IsToken)]);
 static CREATURE_TOKEN: Filter = Filter::And(&[Filter::CREATURE, Filter::IsToken]);
 
 use baylee_cards_dsl::prelude::*;
@@ -26,7 +25,7 @@ card!(
         modes: &[
             mode!(&[Effect::SacrificeFilter {
                 who: PlayerRel::EachOpponent,
-                filter: &NONTOKEN_CREATURE,
+                filter: &Filter::NONTOKEN_CREATURE,
             }]),
             mode!(&[Effect::SacrificeFilter {
                 who: PlayerRel::EachOpponent,

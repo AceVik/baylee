@@ -331,11 +331,62 @@ impl Tx<'_> {
                 _ => format!("Filter::And(&[{}])", clauses.join(", ")),
             });
         }
-        Some(match alternatives.len() {
+        let expr = match alternatives.len() {
             0 => return None,
             1 => alternatives.remove(0),
             _ => format!("Filter::Or(&[{}])", alternatives.join(", ")),
-        })
+        };
+        Some(Self::named_constant(&expr))
+    }
+
+    /// The named constants on `Filter`, against what this reader would
+    /// otherwise write out.
+    ///
+    /// Every pair is the **same bytes** — clause order included — which is
+    /// what makes the substitution invisible to `pool-dump` and is why the
+    /// table is a lookup rather than a second way of building a filter. The
+    /// ones the DSL spells in the other order (`BASIC_LAND` is supertype
+    /// first) are deliberately absent: a constant that reordered the clauses
+    /// would be the same *meaning* and a different dump, which is a separate
+    /// argument and belongs in a separate commit.
+    const NAMED: &'static [(&'static str, &'static str)] = &[
+        (
+            "Filter::And(&[Filter::CREATURE, Filter::ControlledByYou])",
+            "Filter::YOUR_CREATURE",
+        ),
+        (
+            "Filter::And(&[Filter::CREATURE, Filter::ControlledByOpponent])",
+            "Filter::OPPONENT_CREATURE",
+        ),
+        (
+            "Filter::And(&[Filter::CREATURE, Filter::Another])",
+            "Filter::ANOTHER_CREATURE",
+        ),
+        (
+            "Filter::And(&[Filter::CREATURE, Filter::Not(&Filter::IsToken)])",
+            "Filter::NONTOKEN_CREATURE",
+        ),
+        (
+            "Filter::And(&[Filter::CREATURE, Filter::HasSupertype(SupertypeSet::LEGENDARY)])",
+            "Filter::LEGENDARY_CREATURE",
+        ),
+        (
+            "Filter::Or(&[Filter::ARTIFACT, Filter::ENCHANTMENT])",
+            "Filter::ARTIFACT_OR_ENCHANTMENT",
+        ),
+        (
+            "Filter::Or(&[Filter::HasType(TypeSet::INSTANT), Filter::HasType(TypeSet::SORCERY)])",
+            "Filter::INSTANT_OR_SORCERY",
+        ),
+    ];
+
+    /// The name for a filter the DSL already has one for, or the expression
+    /// unchanged.
+    fn named_constant(expr: &str) -> String {
+        Self::NAMED
+            .iter()
+            .find(|(written, _)| *written == expr)
+            .map_or_else(|| expr.to_string(), |(_, name)| (*name).to_string())
     }
 
     /// A `ValidTgts$` value as a `TargetSpec` expression.
@@ -1669,6 +1720,66 @@ mod tests {
         transcode(&parse(text), &cats()).is_none()
     }
 
+    fn filter(valid: &str) -> String {
+        let svars = BTreeMap::new();
+        let cats = cats();
+        let tx = Tx {
+            svars: &svars,
+            cats: &cats,
+            body: CardBody::default(),
+            unclaimed: std::cell::RefCell::new(None),
+        };
+        tx.filter_expr(valid).expect("the valid-string is read")
+    }
+
+    /// Every entry in `Tx::NAMED` is reachable from a valid-string the corpus
+    /// actually prints — a table row nothing produces is a claim no run
+    /// checks. The pairing itself is proved elsewhere and more strongly: the
+    /// pool dump is byte-identical across this substitution, which it could
+    /// not be if a constant held the clauses in another order.
+    #[test]
+    fn a_filter_the_dsl_already_names_is_written_as_that_name() {
+        assert_eq!(filter("Creature.YouCtrl"), "Filter::YOUR_CREATURE");
+        assert_eq!(filter("Creature.OppCtrl"), "Filter::OPPONENT_CREATURE");
+        assert_eq!(filter("Creature.Other"), "Filter::ANOTHER_CREATURE");
+        assert_eq!(filter("Creature.nonToken"), "Filter::NONTOKEN_CREATURE");
+        assert_eq!(filter("Creature.Legendary"), "Filter::LEGENDARY_CREATURE");
+        assert_eq!(
+            filter("Artifact,Enchantment"),
+            "Filter::ARTIFACT_OR_ENCHANTMENT"
+        );
+        assert_eq!(filter("Instant,Sorcery"), "Filter::INSTANT_OR_SORCERY");
+        // The counter-test: a filter with no constant is still written out,
+        // and one the DSL spells in the other order is left alone rather
+        // than quietly reordered.
+        assert_eq!(
+            filter("Creature.tapped"),
+            "Filter::And(&[Filter::CREATURE, Filter::Tapped])"
+        );
+        assert_eq!(
+            filter("Land.Basic"),
+            "Filter::And(&[Filter::LAND, Filter::HasSupertype(SupertypeSet::BASIC)])"
+        );
+    }
+
+    /// A filter that is already a name is not given a second one. Fifteen
+    /// generated cards carried a `static` that was one bare constant, eight
+    /// of them `static TARGET1: Filter = Filter::CREATURE;`, which is the
+    /// duplication the hoist exists to prevent.
+    #[test]
+    fn a_filter_that_is_already_a_name_is_not_hoisted_into_a_static() {
+        let body = read(
+            "Name:X\nManaCost:R\nTypes:Instant\n\
+             A:SP$ DealDamage | ValidTgts$ Creature | NumDmg$ 2 | SpellDescription$ deals 2 damage.",
+        );
+        assert!(body.statics.is_empty(), "{}", body.statics);
+        assert!(
+            body.abilities[0].contains("TargetSpec::Object(&Filter::CREATURE)"),
+            "{}",
+            body.abilities[0]
+        );
+    }
+
     #[test]
     fn a_damage_spell_keeps_its_target_and_its_amount() {
         let body = read(
@@ -1825,7 +1936,9 @@ mod tests {
         );
         assert_eq!(
             body.abilities,
-            ["mana_ability!(&[Effect::mana_of_any_color().restricted(&SPEND1, SpendRider::None)])"]
+            [
+                "mana_ability!(&[Effect::mana_of_any_color().restricted(&Filter::CREATURE, SpendRider::None)])"
+            ]
         );
 
         let script = parse(

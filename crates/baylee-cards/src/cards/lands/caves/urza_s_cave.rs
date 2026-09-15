@@ -7,8 +7,6 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-static SEARCH1: Filter = Filter::LAND;
-
 card!(
     index = index::URZA_S_CAVE,
     oracle_id = "4474ecee-0ec3-409b-90df-738d9313fe3c",
@@ -24,7 +22,7 @@ card!(
         activated!(
             cost!("{3}", TapSelf, SacrificeSelf),
             &[Effect::SearchLibrary {
-                filter: &SEARCH1,
+                filter: &Filter::LAND,
                 finds: &[Find::BATTLEFIELD_TAPPED],
                 optional: false
             }]

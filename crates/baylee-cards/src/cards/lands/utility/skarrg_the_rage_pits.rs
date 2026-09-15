@@ -6,8 +6,6 @@
 
 use baylee_cards_dsl::prelude::*;
 
-static TARGET1: Filter = Filter::CREATURE;
-
 card!(
     index = index::SKARRG_THE_RAGE_PITS,
     oracle_id = "92bac34e-2045-4331-842f-185711c1ac56",
@@ -25,7 +23,7 @@ card!(
                 keywords: KeywordSet::TRAMPLE,
                 duration: Duration::UntilEndOfTurn
             }],
-            target = Some(TargetSpec::Object(&TARGET1))
+            target = Some(TargetSpec::Object(&Filter::CREATURE))
         ),
     ],
 );

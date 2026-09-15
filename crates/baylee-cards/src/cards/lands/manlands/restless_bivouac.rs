@@ -9,8 +9,6 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-static TARGET1: Filter = Filter::And(&[Filter::CREATURE, Filter::ControlledByYou]);
-
 card!(
     index = index::RESTLESS_BIVOUAC,
     oracle_id = "b3c7b46f-c9ab-40ca-b50b-a4e0d0bd9be8",
@@ -55,7 +53,7 @@ card!(
                 kind: CounterKind::P1P1,
                 amount: Amount::Fixed(1)
             }],
-            targets = Some(TargetReq::one(TargetSpec::Object(&TARGET1)))
+            targets = Some(TargetReq::one(TargetSpec::Object(&Filter::YOUR_CREATURE)))
         ),
     ],
 );

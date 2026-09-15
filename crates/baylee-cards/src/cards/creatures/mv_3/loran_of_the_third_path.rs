@@ -11,8 +11,6 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes::creature;
 
-static ARTIFACT_OR_ENCHANTMENT: Filter = Filter::Or(&[Filter::ARTIFACT, Filter::ENCHANTMENT]);
-
 card!(
     index = index::LORAN_OF_THE_THIRD_PATH,
     oracle_id = "b3d81980-76f2-44e2-b1c9-01e30c726312",
@@ -34,10 +32,10 @@ card!(
         triggered!(
             Trigger::EntersBattlefield(&Filter::This),
             &[Effect::destroy(TargetSpec::Object(
-                &ARTIFACT_OR_ENCHANTMENT
+                &Filter::ARTIFACT_OR_ENCHANTMENT
             ))],
             targets = Some(TargetReq::up_to_one(TargetSpec::Object(
-                &ARTIFACT_OR_ENCHANTMENT,
+                &Filter::ARTIFACT_OR_ENCHANTMENT,
             )))
         ),
         activated!(

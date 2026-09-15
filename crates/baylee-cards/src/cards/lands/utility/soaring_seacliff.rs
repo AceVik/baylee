@@ -7,8 +7,6 @@
 
 use baylee_cards_dsl::prelude::*;
 
-static TARGET1: Filter = Filter::CREATURE;
-
 card!(
     index = index::SOARING_SEACLIFF,
     oracle_id = "a37544b6-0048-4213-8e40-76ba8a0b6d1b",
@@ -30,7 +28,7 @@ card!(
                 keywords: KeywordSet::FLYING,
                 duration: Duration::UntilEndOfTurn
             }],
-            targets = Some(TargetReq::one(TargetSpec::Object(&TARGET1)))
+            targets = Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE)))
         ),
     ],
 );

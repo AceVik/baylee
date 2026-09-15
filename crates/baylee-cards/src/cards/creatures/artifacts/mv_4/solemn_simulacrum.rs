@@ -7,8 +7,6 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes::creature;
 
-static BASIC_LAND: Filter = Filter::And(&[Filter::HasSupertype(SupertypeSet::BASIC), Filter::LAND]);
-
 card!(
     index = index::SOLEMN_SIMULACRUM,
     oracle_id = "00c0543c-2a1f-4425-8283-4062d74a1637",
@@ -26,7 +24,7 @@ card!(
         triggered!(
             Trigger::EntersBattlefield(&Filter::This),
             &[Effect::SearchLibrary {
-                filter: &BASIC_LAND,
+                filter: &Filter::BASIC_LAND,
                 finds: &[Find::BATTLEFIELD_TAPPED],
                 optional: true,
             }]

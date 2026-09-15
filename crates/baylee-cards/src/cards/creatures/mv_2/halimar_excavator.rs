@@ -5,12 +5,9 @@
 // the ability is not optional: with no other legal choice the controller
 // has to point it at themselves.
 
-use crate::filters::YOUR_ALLIES;
+use crate::filters::{YOUR_ALLIES, YOUR_ALLY};
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes::creature;
-
-static ALLIES_YOU: Filter =
-    Filter::And(&[Filter::ControlledByYou, Filter::HasSubtype(creature::ALLY)]);
 
 card!(
     index = index::HALIMAR_EXCAVATOR,
@@ -30,7 +27,7 @@ card!(
         Trigger::EntersBattlefield(&YOUR_ALLIES),
         &[Effect::Mill {
             amount: Amount::CountOf {
-                filter: &ALLIES_YOU,
+                filter: &YOUR_ALLY,
                 zone: ZoneSel::Battlefield,
             },
             target: PlayerRel::Chosen,

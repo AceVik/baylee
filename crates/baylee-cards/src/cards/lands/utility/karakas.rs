@@ -6,11 +6,6 @@
 
 use baylee_cards_dsl::prelude::*;
 
-static LEGENDARY_CREATURE: Filter = Filter::And(&[
-    Filter::CREATURE,
-    Filter::HasSupertype(SupertypeSet::LEGENDARY),
-]);
-
 card!(
     index = index::KARAKAS,
     oracle_id = "59119143-c0fa-49dd-adf0-e2fd3029c48b",
@@ -26,8 +21,10 @@ card!(
         mana_ability!(&[Effect::mana(ManaColor::White, 1)]),
         activated!(
             Cost::TAP,
-            &[Effect::bounce(TargetSpec::Object(&LEGENDARY_CREATURE))],
-            target = Some(TargetSpec::Object(&LEGENDARY_CREATURE))
+            &[Effect::bounce(TargetSpec::Object(
+                &Filter::LEGENDARY_CREATURE
+            ))],
+            target = Some(TargetSpec::Object(&Filter::LEGENDARY_CREATURE))
         ),
     ],
 );

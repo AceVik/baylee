@@ -7,8 +7,6 @@
 
 use baylee_cards_dsl::prelude::*;
 
-static TARGET1: Filter = Filter::LAND;
-
 card!(
     index = index::MEMORIAL_TO_WAR,
     oracle_id = "f98db69c-b330-4560-ac53-10857674466b",
@@ -24,8 +22,8 @@ card!(
         mana_ability!(&[Effect::mana(ManaColor::Red, 1)]),
         activated!(
             cost!("{4}{R}", TapSelf, SacrificeSelf),
-            &[Effect::destroy(TargetSpec::Object(&TARGET1))],
-            target = Some(TargetSpec::Object(&TARGET1))
+            &[Effect::destroy(TargetSpec::Object(&Filter::LAND))],
+            target = Some(TargetSpec::Object(&Filter::LAND))
         ),
     ],
 );

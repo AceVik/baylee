@@ -7,8 +7,6 @@
 
 use baylee_cards_dsl::prelude::*;
 
-static TARGET1: Filter = Filter::CREATURE;
-
 card!(
     index = index::TEETERING_PEAKS,
     oracle_id = "4a9437a6-4e61-48b6-8194-1c6ba6432250",
@@ -30,7 +28,7 @@ card!(
                 keywords: KeywordSet::EMPTY,
                 duration: Duration::UntilEndOfTurn
             }],
-            targets = Some(TargetReq::one(TargetSpec::Object(&TARGET1)))
+            targets = Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE)))
         ),
     ],
 );

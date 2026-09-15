@@ -121,7 +121,8 @@ impl Filter {
     pub const NONLAND: Self = Self::LacksType(TypeSet::LAND);
     /// Anything that is not a creature.
     pub const NONCREATURE: Self = Self::LacksType(TypeSet::CREATURE);
-    /// A basic land.
+    /// A basic land — the *supertype* Basic plus the land type (CR 205.4a),
+    /// which is why it is two clauses and not a type check.
     ///
     /// The clause order is the one the pool already used, so swapping a
     /// hand-written filter for this constant is provably the same data and
@@ -138,6 +139,14 @@ impl Filter {
     pub const NONTOKEN_CREATURE: Self = Self::And(&[Self::CREATURE, Self::Not(&Self::IsToken)]);
     /// A creature other than the source ("another creature").
     pub const ANOTHER_CREATURE: Self = Self::And(&[Self::CREATURE, Self::Another]);
+    /// A legendary creature.
+    ///
+    /// Noun first, like its neighbours and like [`f!`](crate::f) — four card
+    /// files had written this out, three of them generated, and the order
+    /// they all used is the one kept here so that the swap is provably the
+    /// same data.
+    pub const LEGENDARY_CREATURE: Self =
+        Self::And(&[Self::CREATURE, Self::HasSupertype(SupertypeSet::LEGENDARY)]);
     /// A creature you control.
     pub const YOUR_CREATURE: Self = Self::And(&[Self::CREATURE, Self::ControlledByYou]);
     /// A creature an opponent controls.

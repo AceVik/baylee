@@ -8,12 +8,9 @@
 // choosing a target on announcement and the "may" on resolution, so a player
 // who would rather see what happens first has to commit one step early.
 
-use crate::filters::YOUR_ALLIES;
+use crate::filters::{YOUR_ALLIES, YOUR_ALLY};
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes::creature;
-
-static ALLIES_YOU: Filter =
-    Filter::And(&[Filter::ControlledByYou, Filter::HasSubtype(creature::ALLY)]);
 
 card!(
     index = index::HAGRA_DIABOLIST,
@@ -33,7 +30,7 @@ card!(
         Trigger::EntersBattlefield(&YOUR_ALLIES),
         &[Effect::LoseLife {
             amount: Amount::CountOf {
-                filter: &ALLIES_YOU,
+                filter: &YOUR_ALLY,
                 zone: ZoneSel::Battlefield,
             },
             target: PlayerRel::Chosen,

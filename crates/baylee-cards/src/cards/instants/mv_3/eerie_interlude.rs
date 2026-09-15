@@ -3,8 +3,6 @@
 //! Set: KHC #22 — Kaldheim Commander | Scryfall ID: 4ba9f15f-00d2-4797-9228-91b320e85705 | Oracle ID: 0634091a-a74c-4cea-b6d1-7324a725554a
 // IMPLEMENTED — mass end-step blink of your creatures.
 
-static YOUR_CREATURES: Filter = Filter::And(&[Filter::CREATURE, Filter::ControlledByYou]);
-
 use baylee_cards_dsl::prelude::*;
 
 card!(
@@ -21,7 +19,7 @@ card!(
     abilities = &[spell!(
         &[Effect::ExileAndReturnAtEndStep],
         targets = Some(TargetReq {
-            spec: TargetSpec::Object(&YOUR_CREATURES),
+            spec: TargetSpec::Object(&Filter::YOUR_CREATURE),
             min: 0,
             max: 255,
             count_is_x: false,

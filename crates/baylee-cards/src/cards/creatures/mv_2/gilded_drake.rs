@@ -7,8 +7,6 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes::creature;
 
-static OPPONENT_CREATURE: Filter = Filter::And(&[Filter::CREATURE, Filter::ControlledByOpponent]);
-
 card!(
     index = index::GILDED_DRAKE,
     oracle_id = "7f06c098-6482-4bf3-a9a1-110d6d5b5703",
@@ -28,7 +26,7 @@ card!(
         Trigger::EntersBattlefield(&Filter::This),
         &[Effect::ExchangeControlOrSacrifice],
         targets = Some(TargetReq {
-            spec: TargetSpec::Object(&OPPONENT_CREATURE),
+            spec: TargetSpec::Object(&Filter::OPPONENT_CREATURE),
             min: 0,
             max: 1,
             count_is_x: false,
