@@ -147,6 +147,17 @@ jobs:
   # and P/T through a "fix"), which stable clippy and the tests cannot see.
   validate:
     runs-on: ubuntu-latest
+    # `validate` reads a cache it cannot fill. It looks every printing up
+    # through `cached_printing`, a pure read with no network at all, so on a
+    # cold cache it does not fetch — it compares nothing and says so ("only 0
+    # comparisons were made against the printings; the sweep is not reaching
+    # the pool"), which is the failure it is written to have rather than
+    # reporting a clean pool. `codegen` is the one command that fetches, and
+    # `scryfall::fetch_named` writes each payload whether or not `--check`
+    # was passed, so ordering the two puts a warm cache under this job on the
+    # same key. It costs the parallelism of one job and buys a check that is
+    # about the cards rather than about the runner's disk.
+    needs: codegen-check
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/scryfall-cache

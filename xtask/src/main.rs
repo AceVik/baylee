@@ -1912,9 +1912,11 @@ struct PrintingTally {
 /// The floor under each count in [`PrintingTally`].
 ///
 /// Absolute numbers rather than a fraction of whatever happened to be on
-/// disk, because `data/scryfall-cache` is **tracked**: a fresh checkout has
-/// the same payloads CI does, so there is no honest reason for the count to
-/// drop. Each is the measured number with slack for cards leaving the pool.
+/// disk, because every run is meant to have the same payloads: the cache is
+/// not tracked (it is somebody else's card data, `docs/legal.md` §3), so CI
+/// restores it and `codegen` fetches what is missing, and a checkout that
+/// ran neither has no honest reason to compare fewer cards. Each is the
+/// measured number with slack for cards leaving the pool.
 /// The shape is `baylee_cards::lints`' own — "the sweep is not reaching the
 /// pool" — and it exists for the same reason: a checker that silently stops
 /// checking reports a clean pool.
