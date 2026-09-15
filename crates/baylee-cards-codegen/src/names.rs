@@ -330,6 +330,9 @@ mod tests {
     #[test]
     fn a_name_with_a_quote_in_it_comes_out_as_valid_rust() {
         let out = render(&[("Ach! Hans, Run!", 1), ("Yawgmoth's Will", 2)]).expect("rendered");
-        assert!(out.contains(r#"("Yawgmoth's Will", CardIndex::new(2))"#), "{out}");
+        assert!(
+            out.contains(r#"("Yawgmoth's Will", CardIndex::new(2))"#),
+            "{out}"
+        );
     }
 }
