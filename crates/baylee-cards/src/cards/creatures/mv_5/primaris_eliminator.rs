@@ -35,7 +35,7 @@ card!(
     color_identity = ColorSet::from_slice(&[Color::Black]),
     coverage = Coverage::Implemented,
     abilities = &[modal_triggered!(
-        Trigger::EntersBattlefield(&Filter::This),
+        Trigger::ETB,
         &[
             mode!(
                 DESTROY_EFFECTS,

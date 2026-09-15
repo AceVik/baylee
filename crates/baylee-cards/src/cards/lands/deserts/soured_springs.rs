@@ -22,7 +22,7 @@ card!(
     ),],
     abilities = &[
         triggered!(
-            Trigger::EntersBattlefield(&Filter::This),
+            Trigger::ETB,
             &[Effect::DealDamage {
                 amount: Amount::Fixed(1),
                 target: TargetSpec::Player(PlayerRel::Chosen)

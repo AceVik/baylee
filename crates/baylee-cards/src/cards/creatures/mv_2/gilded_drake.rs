@@ -23,7 +23,7 @@ card!(
     keywords = KeywordSet::FLYING,
     coverage = Coverage::Implemented,
     abilities = &[triggered!(
-        Trigger::EntersBattlefield(&Filter::This),
+        Trigger::ETB,
         &[Effect::ExchangeControlOrSacrifice],
         targets = Some(TargetReq {
             spec: TargetSpec::Object(&Filter::OPPONENT_CREATURE),

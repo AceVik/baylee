@@ -25,7 +25,7 @@ card!(
     commander = CommanderRule::Legendary,
     coverage = Coverage::Implemented,
     abilities = &[triggered!(
-        Trigger::EntersBattlefield(&Filter::This),
+        Trigger::ETB,
         &[Effect::bounce(TargetSpec::StackOrBattlefield(&Filter::Any))],
         targets = Some(TargetReq::one(
             TargetSpec::StackOrBattlefield(&Filter::Any,)

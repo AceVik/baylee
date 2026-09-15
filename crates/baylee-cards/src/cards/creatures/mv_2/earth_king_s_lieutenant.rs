@@ -26,7 +26,7 @@ card!(
     coverage = Coverage::Implemented,
     abilities = &[
         triggered!(
-            Trigger::EntersBattlefield(&Filter::This),
+            Trigger::ETB,
             &[Effect::AddCounterFilter {
                 filter: &ANOTHER_ALLY,
                 kind: CounterKind::P1P1,

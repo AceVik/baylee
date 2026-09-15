@@ -22,7 +22,7 @@ card!(
     coverage = Coverage::Implemented,
     abilities = &[
         triggered!(
-            Trigger::EntersBattlefield(&Filter::This),
+            Trigger::ETB,
             &[Effect::SearchLibrary {
                 filter: &Filter::BASIC_LAND,
                 finds: &[Find::BATTLEFIELD_TAPPED],

@@ -40,7 +40,7 @@ card!(
     coverage = Coverage::Implemented,
     abilities = &[
         triggered!(
-            Trigger::EntersBattlefield(&Filter::This),
+            Trigger::ETB,
             PING_THEN_AMASS,
             targets = Some(TargetReq::one(TargetSpec::AnyTarget))
         ),

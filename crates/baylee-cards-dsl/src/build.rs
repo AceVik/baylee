@@ -615,7 +615,7 @@ macro_rules! mana_ability {
 /// adds.
 ///
 /// ```ignore
-/// triggered!(Trigger::EntersBattlefield(&Filter::This), EFFECTS)
+/// triggered!(Trigger::ETB, EFFECTS)
 /// triggered!(Trigger::Dies(&ALLY), EFFECTS, once_per_turn = true)
 /// ```
 #[macro_export]
@@ -633,7 +633,7 @@ macro_rules! triggered {
 /// `modal_triggered!(trigger, modes)` plus what the card adds.
 ///
 /// ```ignore
-/// modal_triggered!(Trigger::EntersBattlefield(&Filter::This), MODES)
+/// modal_triggered!(Trigger::ETB, MODES)
 /// modal_triggered!(Trigger::Attacks(&Filter::This), MODES, once_per_turn = true)
 /// ```
 #[macro_export]

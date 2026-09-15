@@ -32,7 +32,7 @@ card!(
     keywords = KeywordSet::FLASH,
     coverage = Coverage::Partial("loses all abilities reaches only keywords"),
     abilities = &[triggered!(
-        Trigger::EntersBattlefield(&Filter::This),
+        Trigger::ETB,
         &[
             Effect::CounterTargetAbility,
             Effect::TargetSourceLosesAbilities {

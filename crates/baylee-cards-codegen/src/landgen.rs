@@ -337,7 +337,7 @@ impl Recognizer<'_> {
         let rest = line.strip_prefix("When this land enters, ")?;
         let effects = parse_effect(rest)?;
         self.body.abilities.push(format!(
-            "triggered!(Trigger::EntersBattlefield(&Filter::This), &[{}])",
+            "triggered!(Trigger::ETB, &[{}])",
             effects.join(", ")
         ));
         Some(())
@@ -719,9 +719,14 @@ mod tests {
             "Land",
             "This land enters tapped.\nWhen this land enters, you gain 1 life.\n{T}: Add {W} or {B}.",
         );
-        assert!(body.abilities.iter().any(
-            |a| a.contains("Trigger::EntersBattlefield") && a.contains("Effect::gain_life(1)")
-        ));
+        assert!(
+            body.abilities
+                .iter()
+                .any(|a| a.contains("Trigger::ETB") && a.contains("Effect::gain_life(1)")),
+            "a land's enter-trigger points at the land, which is what the \
+             constant spells: {:?}",
+            body.abilities
+        );
     }
 
     #[test]

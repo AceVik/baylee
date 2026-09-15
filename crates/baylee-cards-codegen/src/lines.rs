@@ -882,7 +882,7 @@ mod tests {
                     Whenever this creature enters or attacks, you may return \
                     target permanent card from your graveyard to the battlefield.";
         let abilities = [
-            triggered!(Trigger::EntersBattlefield(&Filter::This), draw(1)),
+            triggered!(Trigger::ETB, draw(1)),
             triggered!(Trigger::Attacks(&Filter::This), draw(1)),
         ];
         assert_eq!(map(&abilities, text).lines, vec![Some(1), Some(1)]);
@@ -900,7 +900,7 @@ mod tests {
                     When this creature enters, draw two cards.\n\
                     Evoke {2}{U}";
         let abilities = [
-            triggered!(Trigger::EntersBattlefield(&Filter::This), draw(2)),
+            triggered!(Trigger::ETB, draw(2)),
             triggered!(Trigger::EntersBattlefieldEvoked, &[]),
         ];
         assert_eq!(map(&abilities, text).lines, vec![Some(1), None]);
@@ -952,7 +952,7 @@ mod tests {
                     except the first one they draw in each of their draw steps, this \
                     creature deals 1 damage to any target.";
         let abilities = [
-            triggered!(Trigger::EntersBattlefield(&Filter::This), draw(1)),
+            triggered!(Trigger::ETB, draw(1)),
             triggered!(Trigger::DrawsExceptFirst(PlayerRel::Opponent), draw(1)),
         ];
         let found = map(&abilities, text);

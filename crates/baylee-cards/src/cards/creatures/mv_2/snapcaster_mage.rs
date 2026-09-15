@@ -24,7 +24,7 @@ card!(
     keywords = KeywordSet::FLASH,
     coverage = Coverage::Implemented,
     abilities = &[triggered!(
-        Trigger::EntersBattlefield(&Filter::This),
+        Trigger::ETB,
         &[Effect::GrantFlashback],
         targets = Some(TargetReq::one(TargetSpec::CardInGraveyard(
             &Filter::INSTANT_OR_SORCERY,

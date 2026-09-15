@@ -31,7 +31,7 @@ card!(
     commander = CommanderRule::Legendary,
     coverage = Coverage::Implemented,
     abilities = &[triggered!(
-        Trigger::EntersBattlefield(&Filter::This),
+        Trigger::ETB,
         &[
             Effect::BottomCardFromHand {
                 player: PlayerRel::Chosen,

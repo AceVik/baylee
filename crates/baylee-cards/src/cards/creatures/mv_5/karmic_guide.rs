@@ -31,7 +31,7 @@ card!(
         },
         static_ability!(Filter::This, Modifier::ProtectionFrom(&BLACK_F)),
         triggered!(
-            Trigger::EntersBattlefield(&Filter::This),
+            Trigger::ETB,
             &[Effect::GraveyardToBattlefield {
                 target: TargetSpec::CardInGraveyard(&Filter::CREATURE, PlayerRel::You),
             }],

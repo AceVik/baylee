@@ -21,7 +21,7 @@ card!(
     color_identity = ColorSet::from_slice(&[Color::Black]),
     coverage = Coverage::Implemented,
     abilities = &[triggered!(
-        Trigger::EntersBattlefield(&Filter::This),
+        Trigger::ETB,
         &[Effect::destroy(TargetSpec::Object(
             &Filter::OPPONENT_CREATURE
         ))],

@@ -21,7 +21,7 @@ card!(
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     coverage = Coverage::Implemented,
     abilities = &[triggered!(
-        Trigger::EntersBattlefield(&Filter::This),
+        Trigger::ETB,
         &[Effect::GraveyardToHand {
             target: TargetSpec::CardInGraveyard(&Filter::INSTANT_OR_SORCERY, PlayerRel::You),
         }],

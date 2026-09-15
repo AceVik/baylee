@@ -32,6 +32,18 @@
 //! hands it the broken shape and watches it fire. A sweep over 1365 cards
 //! that finds nothing is otherwise indistinguishable from one that checks
 //! nothing.
+//!
+//! # The one lint that reads text
+//!
+//! `no_card_writes_an_enter_trigger_out_by_hand` breaks the rule above, and
+//! the reason it has to is the reason it is worth having.
+//! `Trigger::ETB` is a `const` holding exactly
+//! `Trigger::EntersBattlefield(&Filter::This)`, so the two are the same
+//! bytes and no lint reading `CardDef` can tell them apart — the difference
+//! exists only in the source, which is the only place it matters. It is the
+//! same bargain the DSL's named filters make: a shape with two spellings is
+//! a shape with two names, and the cheapest moment to refuse the second one
+//! is before it is written a hundredth time.
 
 use crate::dsl::ability::{AbilityDef, SpellMode};
 use crate::dsl::effect::{Effect, ManaSource, TargetSpec};
@@ -1161,6 +1173,65 @@ mod tests {
             "{} card(s) disagree with CR 306.5b about loyalty.\n{}",
             wrong.len(),
             wrong.join("\n")
+        );
+    }
+
+    /// No card file spells an enter-trigger out; they all say `Trigger::ETB`.
+    ///
+    /// The pool wrote `Trigger::EntersBattlefield(&Filter::This)` ninety-nine
+    /// times while the constant that *is* those bytes had nought uses, so
+    /// this is the shape that was just swept and the guard that keeps it
+    /// swept. Sixty-six of the ninety-nine were the transcoder's output and
+    /// are held by the emitter as well; the other thirty-three are held by
+    /// nothing else.
+    ///
+    /// Whitespace is collapsed before matching, because rustfmt wraps a long
+    /// call and a reader that matched the unwrapped spelling would read a
+    /// wrapped card as clean — which is how seven textual readers of this
+    /// pool have already been blind.
+    ///
+    /// An enter-trigger pointing at something *other* than the source keeps
+    /// the variant and its filter: eleven of the pool's hundred and ten do,
+    /// and this says nothing about them.
+    #[test]
+    fn no_card_writes_an_enter_trigger_out_by_hand() {
+        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src/cards");
+        let mut offenders = Vec::new();
+        let mut stack = vec![root.clone()];
+        let mut files = 0usize;
+        while let Some(dir) = stack.pop() {
+            for entry in std::fs::read_dir(&dir).expect("the card tree is readable") {
+                let path = entry.expect("a readable directory entry").path();
+                if path.is_dir() {
+                    stack.push(path);
+                } else if path.extension().is_some_and(|e| e == "rs") {
+                    files += 1;
+                    let text = std::fs::read_to_string(&path).expect("a readable card file");
+                    let flat = text.split_whitespace().collect::<Vec<_>>().join(" ");
+                    if flat.contains("Trigger::EntersBattlefield( &Filter::This")
+                        || flat.contains("Trigger::EntersBattlefield(&Filter::This")
+                    {
+                        offenders.push(
+                            path.strip_prefix(&root)
+                                .unwrap_or(&path)
+                                .display()
+                                .to_string(),
+                        );
+                    }
+                }
+            }
+        }
+
+        assert!(
+            files > 1000,
+            "walked {files} card files — the walk is broken, not the pool"
+        );
+        assert!(
+            offenders.is_empty(),
+            "{} card(s) spell an enter-trigger out where `Trigger::ETB` is \
+             the same bytes and the word said at a table:\n{}",
+            offenders.len(),
+            offenders.join("\n")
         );
     }
 }

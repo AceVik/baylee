@@ -26,7 +26,7 @@ card!(
     keywords = KeywordSet::LIFELINK,
     coverage = Coverage::Implemented,
     abilities = &[triggered!(
-        Trigger::EntersBattlefield(&Filter::This),
+        Trigger::ETB,
         &[
             Effect::GraveyardToBattlefield {
                 target: TargetSpec::CardInGraveyard(&Filter::CREATURE, PlayerRel::You),

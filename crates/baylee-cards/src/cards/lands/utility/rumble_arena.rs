@@ -16,10 +16,7 @@ card!(
     coverage = Coverage::Implemented,
     faces = &[face!(name = "Rumble Arena", types = TypeSet::LAND,),],
     abilities = &[
-        triggered!(
-            Trigger::EntersBattlefield(&Filter::This),
-            &[Effect::scry(1)]
-        ),
+        triggered!(Trigger::ETB, &[Effect::scry(1)]),
         mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
         mana_ability!(cost!("{1}", TapSelf), &[Effect::mana_of_any_color()]),
     ],

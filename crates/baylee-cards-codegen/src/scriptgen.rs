@@ -1064,6 +1064,14 @@ impl Tx<'_> {
                     format!("&{}", self.body.filter_static("TRIGGER", &expr))
                 };
                 match (origin.as_str(), dest.as_str()) {
+                    // `Trigger::ETB` is the same bytes as the variant with
+                    // `&Filter::This` in it, and is what the DSL carries the
+                    // constant for: ninety-nine of the pool's hundred and ten
+                    // enter-triggers point at the source, so the long form is
+                    // the rare one and deserves to look rare.
+                    ("Any", "Battlefield") if filter == "&Filter::This" => {
+                        Some("Trigger::ETB".to_string())
+                    }
                     ("Any", "Battlefield") => Some(format!("Trigger::EntersBattlefield({filter})")),
                     ("Battlefield", "Graveyard") => Some(format!("Trigger::Dies({filter})")),
                     _ => self.deny(format!("trigger on a move from {origin} to {dest}")),
@@ -1923,7 +1931,7 @@ mod tests {
         );
         assert_eq!(
             body.abilities,
-            ["triggered!(Trigger::EntersBattlefield(&Filter::This), &[Effect::gain_life(2)])"]
+            ["triggered!(Trigger::ETB, &[Effect::gain_life(2)])"]
         );
     }
 
@@ -1955,7 +1963,7 @@ mod tests {
         assert_eq!(
             body.abilities,
             [
-                "triggered!(Trigger::EntersBattlefield(&Filter::This), &[Effect::LoseLife { amount: Amount::Fixed(1), target: PlayerRel::Chosen }], targets = Some(TargetReq::one(TargetSpec::AnyPlayer)))"
+                "triggered!(Trigger::ETB, &[Effect::LoseLife { amount: Amount::Fixed(1), target: PlayerRel::Chosen }], targets = Some(TargetReq::one(TargetSpec::AnyPlayer)))"
             ]
         );
     }

@@ -20,10 +20,7 @@ card!(
     coverage = Coverage::Implemented,
     faces = &[face!(name = "Seraph Sanctuary", types = TypeSet::LAND,),],
     abilities = &[
-        triggered!(
-            Trigger::EntersBattlefield(&Filter::This),
-            &[Effect::gain_life(1)]
-        ),
+        triggered!(Trigger::ETB, &[Effect::gain_life(1)]),
         triggered!(
             Trigger::EntersBattlefield(&TRIGGER1),
             &[Effect::gain_life(1)]

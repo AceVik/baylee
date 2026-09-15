@@ -22,8 +22,5 @@ card!(
     color_identity = ColorSet::from_slice(&[Color::Blue, Color::Black]),
     keywords = KeywordSet::FLYING.union(KeywordSet::DEATHTOUCH),
     coverage = Coverage::Implemented,
-    abilities = &[triggered!(
-        Trigger::EntersBattlefield(&Filter::This),
-        &[Effect::draw(1)]
-    )],
+    abilities = &[triggered!(Trigger::ETB, &[Effect::draw(1)])],
 );

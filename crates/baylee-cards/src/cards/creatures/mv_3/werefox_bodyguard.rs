@@ -31,7 +31,7 @@ card!(
     coverage = Coverage::Implemented,
     abilities = &[
         triggered!(
-            Trigger::EntersBattlefield(&Filter::This),
+            Trigger::ETB,
             &[Effect::ExileLinked {
                 target: TargetSpec::Object(&OTHER_NON_FOX_CREATURE),
             }],

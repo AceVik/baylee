@@ -27,10 +27,7 @@ card!(
     keywords = KeywordSet::FLYING,
     coverage = Coverage::Implemented,
     abilities = &[
-        triggered!(
-            Trigger::EntersBattlefield(&Filter::This),
-            &[Effect::draw(2)]
-        ),
+        triggered!(Trigger::ETB, &[Effect::draw(2)]),
         triggered!(Trigger::EntersBattlefieldEvoked, &[Effect::SacrificeSelf]),
     ],
 );

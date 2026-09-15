@@ -39,7 +39,7 @@ card!(
     coverage = Coverage::Implemented,
     abilities = &[
         triggered!(
-            Trigger::EntersBattlefield(&Filter::This),
+            Trigger::ETB,
             &[Effect::SearchLibrary {
                 filter: &ALLY_CARD,
                 finds: &[Find::HAND],

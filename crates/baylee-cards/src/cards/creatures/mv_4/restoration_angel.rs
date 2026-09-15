@@ -30,7 +30,7 @@ card!(
     keywords = KeywordSet::FLASH.union(KeywordSet::FLYING),
     coverage = Coverage::Implemented,
     abilities = &[triggered!(
-        Trigger::EntersBattlefield(&Filter::This),
+        Trigger::ETB,
         &[Effect::blink(TargetSpec::Object(
             &NON_ANGEL_CREATURE_YOU_CONTROL
         ))],

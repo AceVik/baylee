@@ -13,10 +13,7 @@ card!(
     coverage = Coverage::Implemented,
     faces = &[face!(name = "Zhalfirin Void", types = TypeSet::LAND,),],
     abilities = &[
-        triggered!(
-            Trigger::EntersBattlefield(&Filter::This),
-            &[Effect::scry(1)]
-        ),
+        triggered!(Trigger::ETB, &[Effect::scry(1)]),
         mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
     ],
 );

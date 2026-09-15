@@ -44,7 +44,7 @@ card!(
     keywords = KeywordSet::FLASH,
     coverage = Coverage::Implemented,
     abilities = &[modal_triggered!(
-        Trigger::EntersBattlefield(&Filter::This),
+        Trigger::ETB,
         &[
             mode!(
                 COUNTER_EFFECTS,

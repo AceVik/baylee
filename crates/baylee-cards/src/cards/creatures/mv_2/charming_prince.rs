@@ -30,7 +30,7 @@ card!(
     color_identity = ColorSet::from_slice(&[Color::White]),
     coverage = Coverage::Implemented,
     abilities = &[modal_triggered!(
-        Trigger::EntersBattlefield(&Filter::This),
+        Trigger::ETB,
         &[
             mode!(SCRY_EFFECTS),
             mode!(LIFE_EFFECTS),

@@ -23,7 +23,7 @@ card!(
     abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::Black, 1)]),
         triggered!(
-            Trigger::EntersBattlefield(&Filter::This),
+            Trigger::ETB,
             &[Effect::ExileGraveyard {
                 player: PlayerRel::Chosen,
             }],

@@ -438,7 +438,7 @@ mana_ability!(&[Effect::mana(ManaColor::Green, 1)])   // {T}: Add {G}
 mana_ability!(SAC_COST, ANY_COLOR_MANA)               // any other cost
 activated!(Cost::TAP, EFFECTS)                        // {T}: …
 activated!(EQUIP, EFFECTS, timing = ActivationTiming::SorcerySpeed)
-triggered!(Trigger::EntersBattlefield(&Filter::This), EFFECTS)
+triggered!(Trigger::ETB, EFFECTS)                     // when this enters
 spell!(EFFECTS)
 spell!(EFFECTS, targets = Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE))))
 loyalty!(-3, EFFECTS, targets = Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE))))

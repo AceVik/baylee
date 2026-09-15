@@ -19,10 +19,7 @@ card!(
         enter_modifiers = &[EnterModifier::Tapped],
     ),],
     abilities = &[
-        triggered!(
-            Trigger::EntersBattlefield(&Filter::This),
-            &[Effect::gain_life(2)]
-        ),
+        triggered!(Trigger::ETB, &[Effect::gain_life(2)]),
         mana_ability!(&[Effect::mana(ManaColor::White, 1)]),
     ],
 );

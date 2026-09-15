@@ -23,12 +23,9 @@ card!(
     color_identity = ColorSet::from_slice(&[Color::White]),
     coverage = Coverage::Implemented,
     abilities = &[
+        triggered!(Trigger::ETB, &[Effect::BecomeMonarch]),
         triggered!(
-            Trigger::EntersBattlefield(&Filter::This),
-            &[Effect::BecomeMonarch]
-        ),
-        triggered!(
-            Trigger::EntersBattlefield(&Filter::This),
+            Trigger::ETB,
             &[Effect::ExileLinked {
                 target: TargetSpec::Object(&Filter::OPPONENT_CREATURE),
             }],

@@ -24,7 +24,7 @@ card!(
     color_identity = ColorSet::from_slice(&[Color::White]),
     coverage = Coverage::Implemented,
     abilities = &[triggered!(
-        Trigger::EntersBattlefield(&Filter::This),
+        Trigger::ETB,
         &[Effect::SearchLibrary {
             filter: &TOUGH_CREATURE,
             finds: &[Find::HAND],

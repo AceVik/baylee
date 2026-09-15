@@ -20,7 +20,7 @@ card!(
     ),],
     abilities = &[
         triggered!(
-            Trigger::EntersBattlefield(&Filter::This),
+            Trigger::ETB,
             &[Effect::PumpTarget {
                 power: Amount::Fixed(1),
                 toughness: Amount::Fixed(1),

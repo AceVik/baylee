@@ -42,7 +42,7 @@ card!(
     coverage = Coverage::Implemented,
     abilities = &[
         triggered!(
-            Trigger::EntersBattlefield(&Filter::This),
+            Trigger::ETB,
             &[Effect::ExileLinked {
                 target: TargetSpec::Object(&TARGET_F),
             }],

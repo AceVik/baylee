@@ -15,10 +15,7 @@ card!(
     coverage = Coverage::Implemented,
     faces = &[face!(name = "Crypt of the Eternals", types = TypeSet::LAND,),],
     abilities = &[
-        triggered!(
-            Trigger::EntersBattlefield(&Filter::This),
-            &[Effect::gain_life(1)]
-        ),
+        triggered!(Trigger::ETB, &[Effect::gain_life(1)]),
         mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
         mana_ability!(
             cost!("{1}", TapSelf),

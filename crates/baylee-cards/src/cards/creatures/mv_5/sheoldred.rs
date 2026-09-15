@@ -93,7 +93,7 @@ card!(
     coverage = Coverage::Partial("chapter I destroys one permanent per opponent without targeting"),
     abilities = &[
         triggered!(
-            Trigger::EntersBattlefield(&Filter::This),
+            Trigger::ETB,
             &[Effect::SacrificeFilter {
                 who: PlayerRel::EachOpponent,
                 filter: &NONTOKEN_CREATURE_OR_WALKER,

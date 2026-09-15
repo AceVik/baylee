@@ -30,7 +30,7 @@ card!(
     coverage = Coverage::Implemented,
     abilities = &[
         triggered!(
-            Trigger::EntersBattlefield(&Filter::This),
+            Trigger::ETB,
             &[Effect::destroy(TargetSpec::Object(
                 &Filter::ARTIFACT_OR_ENCHANTMENT
             ))],

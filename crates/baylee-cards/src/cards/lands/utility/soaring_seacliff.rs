@@ -21,7 +21,7 @@ card!(
     abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::Blue, 1)]),
         triggered!(
-            Trigger::EntersBattlefield(&Filter::This),
+            Trigger::ETB,
             &[Effect::PumpTarget {
                 power: Amount::Fixed(0),
                 toughness: Amount::Fixed(0),

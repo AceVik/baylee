@@ -34,7 +34,7 @@ card!(
     coverage = Coverage::Implemented,
     abilities = &[
         triggered!(
-            Trigger::EntersBattlefield(&Filter::This),
+            Trigger::ETB,
             &[
                 Effect::exile(TargetSpec::Object(&Filter::ANOTHER_CREATURE)),
                 Effect::GainLifeFor {

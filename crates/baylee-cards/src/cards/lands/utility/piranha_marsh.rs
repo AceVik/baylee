@@ -20,7 +20,7 @@ card!(
     ),],
     abilities = &[
         triggered!(
-            Trigger::EntersBattlefield(&Filter::This),
+            Trigger::ETB,
             &[Effect::LoseLife {
                 amount: Amount::Fixed(1),
                 target: PlayerRel::Chosen
