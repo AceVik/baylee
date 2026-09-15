@@ -348,25 +348,18 @@ mod tests {
     /// `TokenDef` literal in a card file compiles and works, but it has no
     /// id, so the token loses its art the moment it reaches the table — the
     /// bug Urza's Saga and Skyclave Apparition both carried.
+    ///
+    /// Through [`crate::tests::every_card_file`], because this read `src/cards`
+    /// with a flat `read_dir` for as long as the taxonomy has existed — one
+    /// `mod.rs` and no cards, an empty worklist reported as a clean pool.
     #[test]
     fn no_card_file_defines_its_own_token() {
-        let dir = concat!(env!("CARGO_MANIFEST_DIR"), "/src/cards");
         let mut offenders = Vec::new();
-        for entry in std::fs::read_dir(dir).expect("cards dir") {
-            let path = entry.expect("dir entry").path();
-            if path.extension().is_none_or(|e| e != "rs") {
-                continue;
-            }
-            let text = std::fs::read_to_string(&path).expect("read card");
+        for (name, text) in crate::tests::every_card_file() {
             // The import line names the type without constructing one; a
             // literal is the `TokenDef {` that follows a `static` or `let`.
             if text.contains("TokenDef {") {
-                offenders.push(
-                    path.file_name()
-                        .expect("file name")
-                        .to_string_lossy()
-                        .into_owned(),
-                );
+                offenders.push(name);
             }
         }
         offenders.sort();

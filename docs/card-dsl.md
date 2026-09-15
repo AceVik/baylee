@@ -8,7 +8,7 @@ Never hack around the DSL; extend the DSL instead (in a new milestone).
 ## File standard (one file per card)
 
 Location: under `crates/baylee-cards/src/cards/`, in the branch the card's own
-type line puts it in — `instants/mv_1/lightning_bolt.rs`. The next section is
+type line puts it in — `instants/mv_1/swords_to_plowshares.rs`. The next section is
 the whole rule; `cargo xtask codegen` computes it, so never place or move a
 card file by hand. Header is mandatory and must be kept truthful (it's the
 human-verification surface):
@@ -152,22 +152,22 @@ Two things keep the tree honest, and both are `codegen`'s:
 card file ends its literals with a struct-update tail:
 
 ```rust
-card! {
-    index: 104,
-    oracle_id: "f4232466-dd6a-49bf-be6c-95905c3ded17",
-    scryfall_id: "ced43447-fefc-482a-b8fa-33b9616aa532",
-    faces: &[face! {
-        name: "Ondu Cleric",
-        mana_cost: baylee_core::mana!("{1}{W}"),
-        types: TypeSet::CREATURE,
-        subtypes: &[creature::HUMAN, creature::CLERIC, creature::ALLY],
-        power: Some(1),
-        toughness: Some(1),
-    }],
-    color_identity: ColorSet::from_slice(&[Color::White]),
-    coverage: Coverage::Implemented,
-    abilities: &[/* … */],
-}
+card!(
+    index = 104,
+    oracle_id = "f4232466-dd6a-49bf-be6c-95905c3ded17",
+    scryfall_id = "ced43447-fefc-482a-b8fa-33b9616aa532",
+    faces = &[face!(
+        name = "Ondu Cleric",
+        mana_cost = mana!("{1}{W}"),
+        types = TypeSet::CREATURE,
+        subtypes = &[creature::KOR, creature::CLERIC, creature::ALLY],
+        power = Some(1),
+        toughness = Some(1),
+    )],
+    color_identity = ColorSet::from_slice(&[Color::White]),
+    coverage = Coverage::Implemented,
+    abilities = &[/* … */],
+);
 ```
 
 `card!` and `face!` *are* those literals — they expand to `CardDef { … ,
@@ -176,8 +176,17 @@ come with them: the tail can no longer be forgotten, and `card!` writes the
 doc comment on the `pub static CARD` it defines. The three identity fields
 are mandatory and come first, in the order codegen writes them.
 
-Never write a field back just to restate its default (`loyalty: None`,
-`delve: false`, `partner: PartnerKind::None`, …) — a reviewer should be able
+**Parentheses and `=`, never braces and `:`** — in every macro in this
+document, and it is a rules of the language rather than a house style.
+rustfmt leaves a macro invoked with braces alone entirely, and `field: value`
+is not an expression, so it could not format the body even if it entered it.
+One knob written the old way therefore switches formatting off for the whole
+call: `coverage: Coverage::Implemented` in a generator emit is what left 384
+card files unformatted while `cargo fmt --check` stayed green. Written
+`card!(field = value)`, every card in the pool is ordinary rustfmt output.
+
+Never write a field back just to restate its default (`loyalty = None`,
+`delve = false`, `partner = PartnerKind::None`, …) — a reviewer should be able
 to read the literal as the card's printed face. Adding a field to `FaceDef`
 then costs one line in `baylee-cards-dsl` instead of one line in ~200 card
 files.
@@ -201,7 +210,7 @@ both are load-bearing:
 - `CardDef::DEFAULT.coverage` is `Coverage::Unimplemented`, so a stub that
   was never finished cannot reach the deckbuilder as playable just because
   a line went missing. An implemented card writes
-  `coverage: Coverage::Implemented` by hand.
+  `coverage = Coverage::Implemented` by hand.
 
 `FaceDef::DEFAULT.castable_from_hand` is `true`; disturb backs, adventure
 backs and the back face of a **transforming** double-faced card opt out. The
@@ -215,7 +224,7 @@ Ormendahl, Profane Prince a 9/7.
 
 A **stub writes the line itself**, so this is only ever hand-written on a
 card a reader could not finish: `stubgen::render_face` emits
-`castable_from_hand: false` for any back face that prints no mana cost and
+`castable_from_hand = false` for any back face that prints no mana cost and
 is not a land, that being what separates the two layouts — an MDFC's back, a
 disturb back and an adventure all print one.
 `a_back_face_with_no_printed_cost_is_never_castable_from_the_hand` in
@@ -287,7 +296,7 @@ cannot say — not to get past a transcoding bug, which belongs in the reader
 where it also fixes the cards you have not looked at.
 
 `xtask validate` reports the split, which is the number to watch: **1365
-cards, 572 finished — 212 hand-owned, 360 machine-owned — and 793 stubs.**
+cards, 590 finished — 207 hand-owned, 383 machine-owned — and 775 stubs.**
 
 It also holds a card against its **printing** — Scryfall's own payload in
 `data/scryfall-cache`, which is tracked, so a fresh checkout checks exactly
@@ -404,7 +413,7 @@ is not an improvement worth having.
 
 #### Write them through the macros
 
-The five shapes that make up most of the pool have a macro that supplies the
+The six shapes that make up most of the pool have a macro that supplies the
 fields the rules already imply, so an ability states what the card says and
 nothing more:
 
@@ -412,17 +421,18 @@ nothing more:
 mana_ability!(&[Effect::mana(ManaColor::Green, 1)])   // {T}: Add {G}
 mana_ability!(SAC_COST, ANY_COLOR_MANA)               // any other cost
 activated!(Cost::TAP, EFFECTS)                        // {T}: …
-activated!(EQUIP, EFFECTS, timing: ActivationTiming::SorcerySpeed)
+activated!(EQUIP, EFFECTS, timing = ActivationTiming::SorcerySpeed)
 triggered!(Trigger::EntersBattlefield(&Filter::This), EFFECTS)
 spell!(EFFECTS)
-spell!(EFFECTS, targets: Some(TargetReq::one(&Filter::CREATURE)))
-loyalty!(-3, EFFECTS, targets: Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE))))
+spell!(EFFECTS, targets = Some(TargetReq::one(&Filter::CREATURE)))
+loyalty!(-3, EFFECTS, targets = Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE))))
+modal_triggered!(TRIGGER, &[mode!(SCRY), mode!(LIFE)])  // "choose one" ETB
 mode!(DRAW_EFFECTS)                                   // one arm of a modal
 ```
 
 The required arguments come first and positionally, because they are the
 ones an ability cannot be written without; everything after them is
-`field: value` in any order, and anything left out takes its rules default:
+`field = value` in any order, and anything left out takes its rules default:
 
 | field | default | why that is the rules answer |
 | --- | --- | --- |
@@ -432,14 +442,14 @@ ones an ability cannot be written without; everything after them is
 | `target` / `targets` | `None` | an ability targets only when it says "target" |
 | `once_per_turn` | `false` | a trigger fires on every occurrence |
 
-`mana_ability: false` is the load-bearing one: an ability wrongly marked
+`mana_ability = false` is the load-bearing one: an ability wrongly marked
 `true` would silently skip the stack, and no test would read that as a rules
 bug. That is why it is a default you have to opt *out* of, and why a mana
 ability gets its own macro rather than a flag.
 
 A shape without a macro (`Static`, `Replacement`, `CopyOnEnter`, `Ward`,
-`Suspend`, `ModalSpell`, `ModalTriggered`, `SagaChapter`, `Echo`,
-`Prepared`) is written as the plain enum literal — those have no fields the
+`Suspend`, `ModalSpell`, `SagaChapter`, `Echo`, `Prepared`) is written as
+the plain enum literal — those have no fields the
 rules can supply for you.
 
 ### As-it-enters modifiers (`FaceDef::enter_modifiers`)
@@ -594,7 +604,7 @@ ask which — so it declines any land with more than one, and such a land taps
 for nothing at all unless the card supplies the choice itself:
 
 ```rust
-abilities: &[mana_ability!(&[Effect::mana_choice(&[
+abilities = &[mana_ability!(&[Effect::mana_choice(&[
     ManaColor::White,
     ManaColor::Black,
 ])])],
@@ -629,7 +639,7 @@ amount. Harabaz Druid was written with the wrong one and paid X² mana.
 Fetchland (activated with composite cost + filtered search):
 
 ```rust
-abilities: &[activated!(
+abilities = &[activated!(
     Cost {
         mana: ManaCost::ZERO,
         parts: &[CostPart::TapSelf, CostPart::SacrificeSelf, CostPart::PayLife(1)],
@@ -674,7 +684,7 @@ Rally trigger (filter "self or another Ally you control"):
 ```rust
 use crate::filters::YOUR_ALLIES;
 
-abilities: &[triggered!(
+abilities = &[triggered!(
     Trigger::EntersBattlefield(&YOUR_ALLIES),
     &[Effect::GainLife { amount: Amount::Fixed(1) }]
 )],
@@ -688,7 +698,7 @@ would have been a silent rules bug in a card that still compiled.
 Static anthem via layers (deregisters itself when the source leaves):
 
 ```rust
-abilities: &[AbilityDef::Static(StaticAbility {
+abilities = &[AbilityDef::Static(StaticAbility {
     layer: Layer::PtModify,
     filter: Filter::YOUR_CREATURE,
     modifier: Modifier::ModifyPT(1, 1),

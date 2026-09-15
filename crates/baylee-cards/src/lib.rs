@@ -418,7 +418,7 @@ mod tests {
     ///
     /// So this walks, and panics on an empty result rather than handing back
     /// a list a caller would read as "nothing is wrong".
-    fn every_card_file() -> Vec<(String, String)> {
+    pub(crate) fn every_card_file() -> Vec<(String, String)> {
         let root = std::path::PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/src/cards"));
         let mut found = Vec::new();
         let mut stack = vec![root.clone()];

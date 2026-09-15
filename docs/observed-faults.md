@@ -1798,7 +1798,7 @@ instead of `c.mana_cost` made Mox Opal uncastable.
 The pool half is the same class as entry 31's DSL note and was live rather
 than theoretical: `face!`'s default cost is the *blank* one, and **Mox Opal**
 and **Pact of Negation** both print `{0}` and both omitted the field, so both
-were sitting in the blank set. They now say `mana_cost: mana!("{0}")`.
+were sitting in the blank set. They now say `mana_cost = mana!("{0}")`.
 Codegen has always emitted the distinction correctly — these two are
 hand-written files. `offer_tests::a_face_with_no_mana_cost_has_another_way_
 out_of_the_hand` is the guard: a face may print no cost only if the card
@@ -1903,7 +1903,7 @@ does not — it returns to ask the question, and neither it nor the
 `PlanKind::Trigger` handler that answers it ever writes `ability_fires`, so a
 once-a-turn trigger that targets by any other spec would fire on every event
 it saw. Nothing in the pool is that shape: Jin-Gitaxias, Progress Tyrant is
-the only `once_per_turn: true` there is, and both of its abilities target
+the only `once_per_turn = true` there is, and both of its abilities target
 `EventObject`. A line the targeted path is owed, then, rather than a fault
 anyone can reach.
 

@@ -483,13 +483,18 @@ A card file is written with the macros in `baylee-cards-dsl/src/build.rs` and
 opens with one import, `use baylee_cards_dsl::prelude::*;`. `card!` and
 `face!` are the `CardDef`/`FaceDef` literals with their `..DEFAULT` tail
 supplied (and `card!` writes the doc comment on the `pub static CARD` it
-defines); `mana_ability!`, `activated!`, `triggered!`, `spell!`, `loyalty!`
-and `mode!` do the same for the five ability shapes that make up most of the
-pool. **Never restate a default** — that rule is why all of it exists.
+defines); `mana_ability!`, `activated!`, `triggered!`, `spell!`, `loyalty!`,
+`modal_triggered!` and `mode!` do the same for the six ability shapes that
+make up most of the pool. **Never restate a default** — that rule is why all
+of it exists. Every one of them is invoked with parentheses and takes its
+optional fields as `field = value`: a macro called with braces is left
+unformatted by rustfmt in its entirety, and `field: value` is not an
+expression, so the brace form put the whole pool outside `cargo fmt --check`
+while that gate stayed green.
 
 What is load-bearing about the ability macros is that their defaults are
 *rules* defaults, not merely common ones: instant speed is CR 602.2, the
-battlefield is CR 113.6, and `mana_ability: false` is CR 605.1 making a mana
+battlefield is CR 113.6, and `mana_ability = false` is CR 605.1 making a mana
 ability the exception. That last one is why a mana ability has its own macro
 instead of a flag — an ability wrongly marked `true` would silently skip the
 stack, and nothing in the test suite reads that as a rules bug. Fields with no
