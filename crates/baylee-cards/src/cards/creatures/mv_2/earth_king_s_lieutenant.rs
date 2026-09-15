@@ -10,7 +10,7 @@ use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes::creature;
 
 card!(
-    index = 31247,
+    index = index::EARTH_KING_S_LIEUTENANT,
     oracle_id = "9da9248d-1201-447f-b6c2-2b64af4f71c4",
     scryfall_id = "4533d155-5c56-41a5-9d76-2d1414ac47c9",
     faces = &[face!(

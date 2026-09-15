@@ -10,7 +10,7 @@ static DRAW_ONE: Effect = Effect::DrawCards {
 use baylee_cards_dsl::prelude::*;
 
 card!(
-    index = 4440,
+    index = index::RHYSTIC_STUDY,
     oracle_id = "53236dd7-845a-444c-96d5-f41ed7325d8f",
     scryfall_id = "9f37c5b6-a59c-45cd-9a99-e9357fe9ea1b",
     faces = &[face!(

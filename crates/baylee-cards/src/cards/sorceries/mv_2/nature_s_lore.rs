@@ -9,7 +9,7 @@ use baylee_core::generated::subtypes;
 static SEARCH1: Filter = Filter::HasSubtype(subtypes::land::FOREST);
 
 card!(
-    index = 1210,
+    index = index::NATURE_S_LORE,
     oracle_id = "78826359-fe63-44ad-adc4-a17ffcd710e4",
     scryfall_id = "7afc4a15-5ff8-457a-aa62-803b2d78d912",
     color_identity = ColorSet::from_slice(&[Color::Green]),

@@ -14,7 +14,7 @@ static PERMANENT_YOU_OWN: Filter =
     Filter::And(&[Filter::OwnedByYou, Filter::InZone(ZoneRef::Battlefield)]);
 
 card!(
-    index = 11480,
+    index = index::VENSER_THE_SOJOURNER,
     oracle_id = "a8bf8ff8-d924-4fd2-b5ed-05b38f55325a",
     scryfall_id = "8f61a0ea-c2e8-4571-9669-19abd8bbc874",
     faces = &[face!(

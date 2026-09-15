@@ -10,7 +10,7 @@ use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
 card!(
-    index = 30740,
+    index = index::KAVARON_MEMORIAL_WORLD,
     oracle_id = "4fa826ca-d361-4391-ad0d-989ebcfa4a91",
     scryfall_id = "60f3ca25-9dcc-4781-bf7b-ab6736d8db29",
     color_identity = ColorSet::from_slice(&[Color::Red]),

@@ -11,7 +11,7 @@
 use baylee_cards_dsl::prelude::*;
 
 card!(
-    index = 17422,
+    index = index::HADANA_S_CLIMB,
     oracle_id = "93b91d18-6acf-42e5-9a31-bc6e01f90c1f",
     scryfall_id = "8e7554bc-8583-4059-8895-c3845bc27ae3",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::Blue]),

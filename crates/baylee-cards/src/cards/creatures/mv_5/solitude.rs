@@ -11,7 +11,7 @@ static WHITE_CARD: Filter = Filter::HasColor(ColorSet::from_slice(&[Color::White
 use baylee_cards_dsl::prelude::*;
 
 card!(
-    index = 21506,
+    index = index::SOLITUDE,
     oracle_id = "dcb9c2a7-ae54-4ddc-a567-640bf4bf4366",
     scryfall_id = "47a6234f-309f-4e03-9263-66da48b57153",
     faces = &[face!(

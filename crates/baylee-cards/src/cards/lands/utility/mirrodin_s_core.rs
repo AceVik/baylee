@@ -8,7 +8,7 @@
 use baylee_cards_dsl::prelude::*;
 
 card!(
-    index = 6736,
+    index = index::MIRRODIN_S_CORE,
     oracle_id = "ea53adbe-3f9a-4847-87c7-723ac2789918",
     scryfall_id = "c0a9fbb3-9fe4-4ec6-82f0-3bb101524e1e",
     faces = &[face!(name = "Mirrodin's Core", types = TypeSet::LAND,),],

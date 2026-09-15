@@ -16,7 +16,7 @@ static OVERLOAD_EFFECTS: &[Effect] = &[Effect::ReturnAllToHand {
 use baylee_cards_dsl::prelude::*;
 
 card!(
-    index = 12780,
+    index = index::CYCLONIC_RIFT,
     oracle_id = "d75b9c82-1b49-4c3e-a1b5-aeef57d6644b",
     scryfall_id = "dfb7c4b9-f2f4-4d4e-baf2-86551c8150fe",
     faces = &[face!(

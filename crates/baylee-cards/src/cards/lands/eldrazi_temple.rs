@@ -7,7 +7,7 @@
 use baylee_cards_dsl::prelude::*;
 
 card!(
-    index = 10946,
+    index = index::ELDRAZI_TEMPLE,
     oracle_id = "7fab8d65-af51-47d3-8f10-2676bf6e8ba3",
     scryfall_id = "cbab7e1f-305e-4733-aa70-b27285740925",
     faces = &[face!(name = "Eldrazi Temple", types = TypeSet::LAND,),],

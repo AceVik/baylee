@@ -6,6 +6,7 @@
 use crate::body::CardBody;
 use crate::catalog::SubtypeCatalogs;
 use crate::error::CodegenError;
+use crate::ledger::LedgerEntry;
 use crate::scryfall::{ScryfallCard, ScryfallFace};
 use baylee_core::mana::ManaCost;
 use baylee_core::types::{SupertypeSet, TypeSet};
@@ -473,14 +474,14 @@ fn render_face(
 /// playable until somebody writes the line by hand.
 fn render_card_literal(
     card: &ScryfallCard,
-    index: u32,
+    constant: &str,
     oracle_id: &str,
     faces: &[FaceData],
     face_defs: &str,
     land: Option<&CardBody>,
 ) -> String {
     let mut fields = vec![
-        format!("index = {index}"),
+        format!("index = index::{constant}"),
         format!("oracle_id = {oracle_id:?}"),
         format!("scryfall_id = {:?}", card.id),
     ];
@@ -565,7 +566,7 @@ pub fn set_line(
 /// [`CodegenError::Mana`] when a mana cost fails validation.
 pub fn render_stub(
     card: &ScryfallCard,
-    index: u32,
+    row: &LedgerEntry,
     cats: &SubtypeCatalogs,
     scripts: Option<&crate::scriptgen::ScriptLookup>,
     cycles: &crate::layout::LandCycles,
@@ -662,7 +663,14 @@ pub fn render_stub(
         };
         face_defs.push_str(&render_face(&card.name, f, cats, enters, i > 0)?);
     }
-    let literal = render_card_literal(card, index, &oracle_id, &faces, &face_defs, land.as_ref());
+    let literal = render_card_literal(
+        card,
+        &row.constant,
+        &oracle_id,
+        &faces,
+        &face_defs,
+        land.as_ref(),
+    );
     let statics = land.as_ref().map_or("", |b| b.statics.as_str());
     // Only when something names one: an unused import is a warning now that
     // the stub no longer carries a blanket `allow`. The card literal counts
@@ -693,7 +701,7 @@ pub fn render_stub(
             path: crate::layout::path_for(card, &slug, cycles),
             slug,
             oracle_id,
-            index,
+            index: row.index,
         },
         out,
     ))
@@ -920,6 +928,21 @@ mod tests {
         assert_eq!(untransliterable("Ærathi Żmija"), Some('Ż'));
     }
 
+    /// The ledger row a stub is written from.
+    ///
+    /// The constant is the row's, never re-derived from the name: that is the
+    /// whole reason `render_stub` takes a row instead of a number, so a test
+    /// that spelled it out of `name` would be testing the wrong thing.
+    fn row(index: u32, constant: &str) -> LedgerEntry {
+        LedgerEntry {
+            index,
+            oracle_id: "11111111-1111-1111-1111-111111111111".to_string(),
+            constant: constant.to_string(),
+            set: "tst".to_string(),
+            name: "Nothing".to_string(),
+        }
+    }
+
     fn bare_card(name: &str, type_line: &str) -> ScryfallCard {
         ScryfallCard {
             id: "00000000-0000-0000-0000-000000000000".to_string(),
@@ -949,7 +972,7 @@ mod tests {
         let cats = SubtypeCatalogs::default();
         let (_, text) = render_stub(
             &bare_card("Nothing", "Land"),
-            7,
+            &row(7, "NOTHING"),
             &cats,
             None,
             &LandCycles::default(),
@@ -980,7 +1003,7 @@ mod tests {
             );
         }
         assert!(text.contains("    types = TypeSet::LAND,\n"));
-        assert!(text.contains("    index = 7,\n"));
+        assert!(text.contains("    index = index::NOTHING,\n"));
     }
 
     /// A back face with no printed cost is a transformed back (CR 712.2), and
@@ -1005,7 +1028,8 @@ mod tests {
         let front = back("Land", None);
 
         card.card_faces = Some(vec![front.clone(), back("Creature — Demon", None)]);
-        let (_, text) = render_stub(&card, 0, &cats, None, &LandCycles::default()).unwrap();
+        let (_, text) =
+            render_stub(&card, &row(0, "FRONT"), &cats, None, &LandCycles::default()).unwrap();
         assert!(text.contains("castable_from_hand = false"), "{text}");
 
         // The front face is turned over, never cast as a mode — it is what
@@ -1017,12 +1041,14 @@ mod tests {
             front.clone(),
             back("Creature — Demon", Some("{2}{B}")),
         ]);
-        let (_, text) = render_stub(&card, 0, &cats, None, &LandCycles::default()).unwrap();
+        let (_, text) =
+            render_stub(&card, &row(0, "FRONT"), &cats, None, &LandCycles::default()).unwrap();
         assert!(!text.contains("castable_from_hand"), "{text}");
 
         // A land back is played, not cast; the wizard skips it on its own.
         card.card_faces = Some(vec![front, back("Land", None)]);
-        let (_, text) = render_stub(&card, 0, &cats, None, &LandCycles::default()).unwrap();
+        let (_, text) =
+            render_stub(&card, &row(0, "FRONT"), &cats, None, &LandCycles::default()).unwrap();
         assert!(!text.contains("castable_from_hand"), "{text}");
     }
 
@@ -1033,7 +1059,7 @@ mod tests {
         let cats = SubtypeCatalogs::default();
         let (_, text) = render_stub(
             &bare_card("Nothing", "Land"),
-            0,
+            &row(0, "NOTHING"),
             &cats,
             None,
             &LandCycles::default(),
@@ -1052,7 +1078,14 @@ mod tests {
         card.power = Some("2".to_string());
         card.toughness = Some("3".to_string());
         card.color_identity = Some(vec!["W".to_string()]);
-        let (_, text) = render_stub(&card, 1, &cats, None, &LandCycles::default()).unwrap();
+        let (_, text) = render_stub(
+            &card,
+            &row(1, "SOMETHING"),
+            &cats,
+            None,
+            &LandCycles::default(),
+        )
+        .unwrap();
         assert!(text.contains("mana_cost = mana!(\"{1}{W}\"),"));
         assert!(text.contains("power = Some(2),"));
         assert!(text.contains("toughness = Some(3),"));

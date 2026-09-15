@@ -8,7 +8,7 @@
 use baylee_cards_dsl::prelude::*;
 
 card!(
-    index = 9562,
+    index = index::MYSTIC_GATE,
     oracle_id = "e9f5feb2-2c1a-46ce-885a-4f378d7d10af",
     scryfall_id = "6f99714f-43bc-4048-b650-97dfef4c10fe",
     faces = &[face!(name = "Mystic Gate", types = TypeSet::LAND,)],

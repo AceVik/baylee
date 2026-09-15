@@ -12,7 +12,7 @@ static TARGET1: Filter = Filter::And(&[
 ]);
 
 card!(
-    index = 7202,
+    index = index::SHIZO_DEATH_S_STOREHOUSE,
     oracle_id = "008f2698-1721-45a3-8353-10f2f400dc8f",
     scryfall_id = "099352e2-38c8-4fb4-a25f-6d928aa20f9e",
     color_identity = ColorSet::from_slice(&[Color::Black]),

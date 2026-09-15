@@ -440,7 +440,10 @@ edit **only**
 for the three fields a face has no printed data for in the Scryfall payload
 codegen reads: `keywords`, `color_indicator` and `castable_from_hand`, which
 a transforming double-faced card needs on its back face and which are added
-by hand. The index
+by hand. A card *names* its index rather than spelling a number —
+`index = index::MOX_OPAL`, the constant the ledger froze — and `card!` takes
+that field as a `path`, so a bare number is a compile error at the matcher.
+The index
 comes from the append-only ledger `baylee_cards_index::ROWS`, which numbers
 **every card there is** and not this pool — `cargo run -p xtask -- ledger`
 assigns it over the corpus `cargo run -p baylee-catalog -- corpus` scans,

@@ -13,7 +13,7 @@ static SMALL_CREATURE_GY: Filter = Filter::And(&[
 use baylee_cards_dsl::prelude::*;
 
 card!(
-    index = 9362,
+    index = index::REVEILLARK,
     oracle_id = "1be13ede-98f8-497e-800c-03e5802932b3",
     scryfall_id = "53b4dcd6-b1b6-4f1c-9264-e58bdc87399b",
     faces = &[face!(

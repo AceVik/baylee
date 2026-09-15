@@ -8,7 +8,7 @@
 use baylee_cards_dsl::prelude::*;
 
 card!(
-    index = 29583,
+    index = index::AVISHKAR_RACEWAY,
     oracle_id = "e2c35551-1ba5-4424-baf9-821b49bbcc8c",
     scryfall_id = "08a6b378-c7fa-4226-a310-4ee7e550b4d6",
     faces = &[face!(name = "Avishkar Raceway", types = TypeSet::LAND,),],

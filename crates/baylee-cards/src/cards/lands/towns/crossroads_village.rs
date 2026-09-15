@@ -8,7 +8,7 @@ use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
 card!(
-    index = 30283,
+    index = index::CROSSROADS_VILLAGE,
     oracle_id = "b26cfeb0-7bbe-4d93-8eed-e832f175a80c",
     scryfall_id = "64db46d4-f91f-49cc-971c-b8e19f0c4ea9",
     faces = &[face!(

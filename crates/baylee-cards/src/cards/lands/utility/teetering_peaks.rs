@@ -10,7 +10,7 @@ use baylee_cards_dsl::prelude::*;
 static TARGET1: Filter = Filter::CREATURE;
 
 card!(
-    index = 10720,
+    index = index::TEETERING_PEAKS,
     oracle_id = "4a9437a6-4e61-48b6-8194-1c6ba6432250",
     scryfall_id = "e56aca36-bb51-45e3-9ef9-9f9f2aa1e088",
     color_identity = ColorSet::from_slice(&[Color::Red]),

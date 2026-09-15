@@ -17,7 +17,7 @@ static CREATURE_YOU_CONTROL: Filter = Filter::And(&[Filter::CREATURE, Filter::Co
 use baylee_cards_dsl::prelude::*;
 
 card!(
-    index = 2969,
+    index = index::RECURRING_NIGHTMARE,
     oracle_id = "a6708b11-1bcd-4208-a967-fe91f2e3313c",
     scryfall_id = "b50e1800-a45c-43bd-8886-8a06145d9346",
     faces = &[face!(

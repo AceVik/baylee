@@ -7,7 +7,7 @@
 use baylee_cards_dsl::prelude::*;
 
 card!(
-    index = 19824,
+    index = index::UNDERDOME,
     oracle_id = "8375aaaa-edc2-4a0c-98f6-af07d61ebd0a",
     scryfall_id = "d5c362ea-16e2-4c13-bed2-735c8c09d975",
     faces = &[face!(name = "Underdome", types = TypeSet::LAND,),],

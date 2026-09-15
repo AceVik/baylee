@@ -10,7 +10,7 @@
 use baylee_cards_dsl::prelude::*;
 
 card!(
-    index = 20563,
+    index = index::SONG_MAD_TREACHERY,
     oracle_id = "81b61770-2ed5-4a50-84d0-97790002fc5a",
     scryfall_id = "782ca27f-9f18-476c-b582-89c06fb2e322",
     color_identity = ColorSet::from_slice(&[Color::Red]),

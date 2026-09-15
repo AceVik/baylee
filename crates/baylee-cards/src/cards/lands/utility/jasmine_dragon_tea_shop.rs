@@ -16,7 +16,7 @@ use baylee_core::generated::subtypes::creature;
 use crate::tokens::ALLY_1_1_WHITE as ALLY_TOKEN;
 
 card!(
-    index = 31340,
+    index = index::JASMINE_DRAGON_TEA_SHOP,
     oracle_id = "d9a24444-289f-473f-9985-8df275257555",
     scryfall_id = "da2c83d4-a95f-47ff-a08f-694eb78d6b9b",
     faces = &[face!(

@@ -12,7 +12,7 @@ static LEGENDARY_CREATURE: Filter = Filter::And(&[
 ]);
 
 card!(
-    index = 597,
+    index = index::KARAKAS,
     oracle_id = "59119143-c0fa-49dd-adf0-e2fd3029c48b",
     scryfall_id = "e52214e1-404a-405a-b08e-20e13c087338",
     faces = &[face!(

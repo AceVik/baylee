@@ -10,7 +10,7 @@ use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
 card!(
-    index = 30618,
+    index = index::ADAGIA_WINDSWEPT_BASTION,
     oracle_id = "70d35dbd-1d91-4a2a-a643-6870d168f4f5",
     scryfall_id = "c634273a-94b0-4104-9d10-ae522ece1fc7",
     color_identity = ColorSet::from_slice(&[Color::White]),

@@ -10,7 +10,7 @@ use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
 card!(
-    index = 30877,
+    index = index::UTHROS_TITANIC_GODCORE,
     oracle_id = "df08ac72-010f-42f8-beb3-6d645c638e1e",
     scryfall_id = "11da39d6-cfa6-498d-91b1-11454cc7e5a3",
     color_identity = ColorSet::from_slice(&[Color::Blue]),

@@ -7,7 +7,7 @@
 use baylee_cards_dsl::prelude::*;
 
 card!(
-    index = 18088,
+    index = index::FORGE_OF_HEROES,
     oracle_id = "77807103-bcd5-479f-bedd-f5d97aa6d3d2",
     scryfall_id = "5f11f053-5150-4a76-b2ca-9df3a0629911",
     faces = &[face!(name = "Forge of Heroes", types = TypeSet::LAND,),],

@@ -15,7 +15,7 @@ static CHEAP_SPELL: Filter = Filter::And(&[
 ]);
 
 card!(
-    index = 17830,
+    index = index::SPELLSEEKER,
     oracle_id = "47a785ed-8095-4685-8daa-02c4e2b0ffcd",
     scryfall_id = "a749c591-2fbe-41d8-ac5b-56ebce82d33e",
     faces = &[face!(

@@ -24,7 +24,7 @@ static PING_THEN_AMASS: &[Effect] = &[
 ];
 
 card!(
-    index = 26056,
+    index = index::ORCISH_BOWMASTERS,
     oracle_id = "ea5103f5-27e0-4eb1-902c-7f34652d6bf3",
     scryfall_id = "7c024bae-5631-4e20-ac69-df392ac9e109",
     faces = &[face!(

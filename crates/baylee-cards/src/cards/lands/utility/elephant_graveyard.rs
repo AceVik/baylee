@@ -7,7 +7,7 @@
 use baylee_cards_dsl::prelude::*;
 
 card!(
-    index = 317,
+    index = index::ELEPHANT_GRAVEYARD,
     oracle_id = "8ada7388-fd8b-434c-a17a-bce19cf3e615",
     scryfall_id = "88e7d9d5-3bca-4791-b850-5ae104706042",
     faces = &[face!(name = "Elephant Graveyard", types = TypeSet::LAND,),],

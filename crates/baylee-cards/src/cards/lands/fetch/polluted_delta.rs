@@ -14,7 +14,7 @@ static SEARCH_FILTER: Filter = Filter::Or(&[
 ]);
 
 card!(
-    index = 5903,
+    index = index::POLLUTED_DELTA,
     oracle_id = "ef86989d-ce80-4e55-aece-7d11710eeffa",
     scryfall_id = "6e288374-2b71-4ace-b1d2-a19fee6cb4af",
     faces = &[face!(name = "Polluted Delta", types = TypeSet::LAND,)],

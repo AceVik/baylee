@@ -8,7 +8,7 @@ static FIND: Filter = Filter::Or(&[Filter::ARTIFACT, Filter::ENCHANTMENT]);
 use baylee_cards_dsl::prelude::*;
 
 card!(
-    index = 1683,
+    index = index::ENLIGHTENED_TUTOR,
     oracle_id = "c5229c17-b7be-4b05-b683-f2277edc4849",
     scryfall_id = "1c9675fb-1a89-420f-aea8-50e0642f549c",
     faces = &[face!(

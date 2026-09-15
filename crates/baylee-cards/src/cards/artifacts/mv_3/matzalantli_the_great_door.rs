@@ -11,7 +11,7 @@
 use baylee_cards_dsl::prelude::*;
 
 card!(
-    index = 26998,
+    index = index::MATZALANTLI_THE_GREAT_DOOR,
     oracle_id = "16182e01-22ff-4786-985d-919b47c4aa4d",
     scryfall_id = "b4c31b29-06ba-436d-a3d9-18f4796c39be",
     faces = &[

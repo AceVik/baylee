@@ -11,7 +11,7 @@ use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
 card!(
-    index = 30605,
+    index = index::ZANARKAND_ANCIENT_METROPOLIS,
     oracle_id = "5f2b3ea8-99ee-47a4-8a1c-4b27478d524c",
     scryfall_id = "881e4c00-3b9a-47a1-bf66-1badda994c88",
     color_identity = ColorSet::from_slice(&[Color::Green]),

@@ -10,7 +10,7 @@ static BLUE_CARD: Filter = Filter::HasColor(ColorSet::from_slice(&[Color::Blue])
 use baylee_cards_dsl::prelude::*;
 
 card!(
-    index = 18913,
+    index = index::FORCE_OF_NEGATION,
     oracle_id = "ac2173f9-f223-440a-9231-fd98762bdc6f",
     scryfall_id = "1825a719-1b2a-4af9-9cd2-7cb497cd0317",
     faces = &[face!(

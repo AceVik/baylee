@@ -8,7 +8,7 @@ use baylee_cards_dsl::prelude::*;
 static SPEND1: Filter = Filter::ARTIFACT;
 
 card!(
-    index = 414,
+    index = index::MISHRA_S_WORKSHOP,
     oracle_id = "ba284fe6-bb29-455c-8321-9714a0cdc05e",
     scryfall_id = "aac0c8df-f01d-4178-8d66-ee603f814d24",
     coverage = Coverage::Implemented,

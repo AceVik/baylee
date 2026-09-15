@@ -6,7 +6,7 @@
 use baylee_cards_dsl::prelude::*;
 
 card!(
-    index = 4868,
+    index = index::METEOR_CRATER,
     oracle_id = "ebddf68c-1b22-4313-83e1-13a5c1aec19e",
     scryfall_id = "043a2299-1cfc-4732-a10a-58c773b9992c",
     faces = &[face!(name = "Meteor Crater", types = TypeSet::LAND,),],

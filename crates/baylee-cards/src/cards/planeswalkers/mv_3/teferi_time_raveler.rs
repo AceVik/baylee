@@ -12,7 +12,7 @@ static BOUNCE_TARGET: Filter =
     Filter::Or(&[Filter::ARTIFACT, Filter::CREATURE, Filter::ENCHANTMENT]);
 
 card!(
-    index = 18828,
+    index = index::TEFERI_TIME_RAVELER,
     oracle_id = "ae7604bb-4818-45a3-960c-cf3d83f15964",
     scryfall_id = "662fe50f-d75c-422c-8c6c-1f9b5c4ba21f",
     faces = &[face!(

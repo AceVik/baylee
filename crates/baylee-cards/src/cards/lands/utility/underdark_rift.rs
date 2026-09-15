@@ -7,7 +7,7 @@
 use baylee_cards_dsl::prelude::*;
 
 card!(
-    index = 21980,
+    index = index::UNDERDARK_RIFT,
     oracle_id = "199c7604-6b4b-4cec-b6c2-b6b2918b11c8",
     scryfall_id = "da7b5c5b-fba1-4993-9779-bef96bcb0064",
     faces = &[face!(name = "Underdark Rift", types = TypeSet::LAND,),],

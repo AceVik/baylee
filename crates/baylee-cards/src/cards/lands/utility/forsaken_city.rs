@@ -8,7 +8,7 @@
 use baylee_cards_dsl::prelude::*;
 
 card!(
-    index = 4839,
+    index = index::FORSAKEN_CITY,
     oracle_id = "6bb00a28-8b5a-4049-93b7-3db02de88aeb",
     scryfall_id = "676703fe-bd80-413c-8704-1da5d3248b7e",
     faces = &[face!(name = "Forsaken City", types = TypeSet::LAND,),],

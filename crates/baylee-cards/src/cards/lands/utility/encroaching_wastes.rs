@@ -12,7 +12,7 @@ static TARGET1: Filter = Filter::And(&[
 ]);
 
 card!(
-    index = 13366,
+    index = index::ENCROACHING_WASTES,
     oracle_id = "43144f06-079b-4515-a03a-01ea3e90d586",
     scryfall_id = "a591bffd-2f03-48f4-a719-04f2142abd77",
     coverage = Coverage::Implemented,

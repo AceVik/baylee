@@ -14,7 +14,7 @@ static TRIGGER1: Filter = Filter::And(&[
 ]);
 
 card!(
-    index = 12503,
+    index = index::SERAPH_SANCTUARY,
     oracle_id = "0b504dc6-61cc-4a72-907c-145fa4c72466",
     scryfall_id = "e1c1fa29-362f-40b4-b67f-513f6592fb3b",
     coverage = Coverage::Implemented,

@@ -7,7 +7,7 @@ use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
 card!(
-    index = 1269,
+    index = index::SNOW_COVERED_SWAMP,
     oracle_id = "d8239a86-7184-4005-ba1e-2dddcd756c47",
     scryfall_id = "6aa85af8-15f5-4620-8aea-0b45c28372ed",
     color_identity = ColorSet::from_slice(&[Color::Black]),

@@ -8,7 +8,7 @@ use baylee_cards_dsl::prelude::*;
 static SPEND1: Filter = Filter::CREATURE;
 
 card!(
-    index = 10091,
+    index = index::ANCIENT_ZIGGURAT,
     oracle_id = "0baabe39-72ae-47bd-a095-cbf7eb8a6361",
     scryfall_id = "136f1e4e-ca24-45cb-a39c-4dd159bb1488",
     coverage = Coverage::Implemented,

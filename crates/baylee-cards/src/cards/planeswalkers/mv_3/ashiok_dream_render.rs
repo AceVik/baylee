@@ -9,7 +9,7 @@ use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes::planeswalker;
 
 card!(
-    index = 18626,
+    index = index::ASHIOK_DREAM_RENDER,
     oracle_id = "93723b12-db34-4047-885e-8606415b1553",
     scryfall_id = "f2df3258-c053-48a8-974f-d80899b2cd93",
     faces = &[face!(

@@ -9,7 +9,7 @@
 use baylee_cards_dsl::prelude::*;
 
 card!(
-    index = 10637,
+    index = index::MAGOSI_THE_WATERVEIL,
     oracle_id = "4bdffa67-e6b3-4588-b76e-c11db6f043ca",
     scryfall_id = "3c84cf70-4164-47ea-8da1-c0ca1ac132e1",
     color_identity = ColorSet::from_slice(&[Color::Blue]),

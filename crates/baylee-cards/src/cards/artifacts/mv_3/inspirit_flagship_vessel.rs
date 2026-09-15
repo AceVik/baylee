@@ -18,7 +18,7 @@ static OTHER_ARTIFACT: Filter = Filter::And(&[Filter::Another, Filter::ARTIFACT]
 static HEXPROOF_INDESTRUCTIBLE: KeywordSet = KeywordSet::HEXPROOF.union(KeywordSet::INDESTRUCTIBLE);
 
 card!(
-    index = 30732,
+    index = index::INSPIRIT_FLAGSHIP_VESSEL,
     oracle_id = "554df866-3dbb-4811-8573-6033481591aa",
     scryfall_id = "46900ec7-eb18-45c4-8e90-a48b665cfdee",
     faces = &[face!(

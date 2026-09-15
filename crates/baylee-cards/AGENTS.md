@@ -27,9 +27,11 @@ contract in `docs/card-dsl.md` exactly. Your task per card:
    new `Effect`/`Modifier`/`Filter` variants — if you need one, stop and
    flag the card instead.
 5. Every macro takes parentheses and `field = value`, never braces and
-   `field: value` — `card!(index = 104, …)`, `face!(name = "…", …)`,
-   `spell!(EFFECTS, targets = Some(…))`. The brace form compiles and then
-   silently exempts the whole file from `cargo fmt`.
+   `field: value` — `card!(index = index::ONDU_CLERIC, …)`,
+   `face!(name = "…", …)`, `spell!(EFFECTS, targets = Some(…))`. The brace
+   form compiles and then silently exempts the whole file from `cargo fmt`.
+   `index` is the constant `codegen` generated for this card and never a
+   number: the macro takes a path, so `index = 104` does not compile.
 6. **Write no tests in the card file.** None of the 1365 card files has a
    `#[cfg(test)]` module and none should: `xtask validate` already checks the
    data (cost, types, subtypes, colour identity) against the `//!` header for

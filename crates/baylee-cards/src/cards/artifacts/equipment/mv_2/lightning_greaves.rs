@@ -15,7 +15,7 @@ use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes::artifact;
 
 card!(
-    index = 6487,
+    index = index::LIGHTNING_GREAVES,
     oracle_id = "ca204b66-8d0c-431a-8d34-282f7c2d17da",
     scryfall_id = "b61634ae-05be-4b56-8ebb-9d4ade902e42",
     coverage = Coverage::Implemented,

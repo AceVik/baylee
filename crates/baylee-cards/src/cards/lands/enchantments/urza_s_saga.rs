@@ -15,7 +15,7 @@ use baylee_core::generated::subtypes::{enchantment, land};
 use crate::tokens::CONSTRUCT_0_0 as CONSTRUCT;
 
 card!(
-    index = 21519,
+    index = index::URZA_S_SAGA,
     oracle_id = "4c6a0c30-b547-4eff-8ff4-0ca25803c076",
     scryfall_id = "c1e0f201-42cb-46a1-901a-65bb4fc18f6c",
     faces = &[face!(

@@ -11,7 +11,7 @@ use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
 card!(
-    index = 30383,
+    index = index::LINDBLUM_INDUSTRIAL_REGENCY,
     oracle_id = "4cc014f3-05e0-442e-9dee-03eab1aa65a3",
     scryfall_id = "548dd152-f0b6-4e8f-9afc-a4ec1671b648",
     color_identity = ColorSet::from_slice(&[Color::Red]),

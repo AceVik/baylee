@@ -9,7 +9,7 @@
 use baylee_cards_dsl::prelude::*;
 
 card!(
-    index = 24715,
+    index = index::ARGOTH_SANCTUM_OF_NATURE,
     oracle_id = "62648946-1708-48f4-ba40-c057563ab11b",
     scryfall_id = "b29c9e4f-7b98-4610-a681-ae6297e8fc72",
     color_identity = ColorSet::from_slice(&[Color::Green]),

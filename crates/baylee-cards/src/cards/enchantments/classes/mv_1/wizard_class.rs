@@ -22,7 +22,7 @@ const LEVEL_UP: Effect = Effect::AddCounter {
 };
 
 card!(
-    index = 22003,
+    index = index::WIZARD_CLASS,
     oracle_id = "36f68aa3-9955-46f1-bc87-497f16ef5222",
     scryfall_id = "d1f629fb-b097-4240-8560-ef47f5678f48",
     faces = &[face!(

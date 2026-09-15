@@ -10,7 +10,7 @@ use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes::planeswalker;
 
 card!(
-    index = 10812,
+    index = index::JACE_THE_MIND_SCULPTOR,
     oracle_id = "7f77a84e-5a4b-4834-aefa-3cecc175ae8e",
     scryfall_id = "c8817585-0d32-4d56-9142-0d29512e86a9",
     faces = &[face!(

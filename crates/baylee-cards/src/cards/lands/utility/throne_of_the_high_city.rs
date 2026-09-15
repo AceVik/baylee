@@ -7,7 +7,7 @@
 use baylee_cards_dsl::prelude::*;
 
 card!(
-    index = 16110,
+    index = index::THRONE_OF_THE_HIGH_CITY,
     oracle_id = "9684447a-5955-4bc7-8ad0-8bb8b316873b",
     scryfall_id = "6aac7a6d-90c7-4fe7-b6d3-f63a7170ee96",
     faces = &[face!(

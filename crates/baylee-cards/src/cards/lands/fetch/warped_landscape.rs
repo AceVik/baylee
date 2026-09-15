@@ -7,7 +7,7 @@
 use baylee_cards_dsl::prelude::*;
 
 card!(
-    index = 15826,
+    index = index::WARPED_LANDSCAPE,
     oracle_id = "543e6bb3-a867-43bf-a737-2f5d6d8dc631",
     scryfall_id = "3d313741-af67-47fd-9beb-8abc7d554715",
     faces = &[face!(name = "Warped Landscape", types = TypeSet::LAND,),],

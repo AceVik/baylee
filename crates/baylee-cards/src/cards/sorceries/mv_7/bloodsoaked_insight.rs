@@ -11,7 +11,7 @@
 use baylee_cards_dsl::prelude::*;
 
 card!(
-    index = 28153,
+    index = index::BLOODSOAKED_INSIGHT,
     oracle_id = "c52fc8a1-43c6-41f8-b010-03be7c89ef1d",
     scryfall_id = "0a08e0d2-1e60-47f5-9228-4c11a127089d",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Red]),

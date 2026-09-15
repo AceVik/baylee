@@ -17,7 +17,7 @@ static MINE: Filter = Filter::And(&[Filter::CREATURE, Filter::ControlledByYou]);
 static SHORE_MANA: &[AbilityDef] = &[mana_ability!(&[Effect::mana(ManaColor::Blue, 1)])];
 
 card!(
-    index = 20428,
+    index = index::GLASSPOOL_MIMIC,
     oracle_id = "c178953c-3888-4edd-9d0c-265bd82b1d24",
     scryfall_id = "5adcb500-8c77-4925-8e2c-1243502827d1",
     faces = &[

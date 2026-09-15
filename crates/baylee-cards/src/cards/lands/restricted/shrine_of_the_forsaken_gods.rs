@@ -7,7 +7,7 @@
 use baylee_cards_dsl::prelude::*;
 
 card!(
-    index = 15282,
+    index = index::SHRINE_OF_THE_FORSAKEN_GODS,
     oracle_id = "8ea46945-d5ab-4209-b473-4769e7b8b962",
     scryfall_id = "4472d5fb-ca8f-43d0-a95d-5bd8bdb6a02d",
     faces = &[face!(

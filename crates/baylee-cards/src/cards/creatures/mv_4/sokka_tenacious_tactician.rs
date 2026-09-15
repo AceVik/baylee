@@ -15,7 +15,7 @@ static NONCREATURE_SPELL: Filter = Filter::And(&[Filter::ControlledByYou, Filter
 use crate::tokens::ALLY_1_1_WHITE as ALLY_TOKEN;
 
 card!(
-    index = 31457,
+    index = index::SOKKA_TENACIOUS_TACTICIAN,
     oracle_id = "6b68acc2-b9d5-495b-8054-c04bae1349f1",
     scryfall_id = "f0fa5897-1da7-488f-bb19-1632e969c050",
     faces = &[face!(

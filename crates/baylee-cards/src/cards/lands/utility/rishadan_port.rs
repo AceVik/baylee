@@ -9,7 +9,7 @@ use baylee_cards_dsl::prelude::*;
 static TARGET1: Filter = Filter::LAND;
 
 card!(
-    index = 4110,
+    index = index::RISHADAN_PORT,
     oracle_id = "f3e8dc56-2810-474e-a6a7-9c3555f94ae9",
     scryfall_id = "d2507bc2-da17-4e46-b4c5-ba0080ce2c6f",
     coverage = Coverage::Implemented,

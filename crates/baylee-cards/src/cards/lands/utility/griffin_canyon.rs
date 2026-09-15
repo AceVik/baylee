@@ -10,7 +10,7 @@ use baylee_core::generated::subtypes;
 static TARGET1: Filter = Filter::HasSubtype(subtypes::creature::GRIFFIN);
 
 card!(
-    index = 1971,
+    index = index::GRIFFIN_CANYON,
     oracle_id = "ba642c8b-9ade-4501-8393-672fd53d4955",
     scryfall_id = "705d8194-3ad0-41b7-ae32-9c0cd8cd46b9",
     coverage = Coverage::Implemented,

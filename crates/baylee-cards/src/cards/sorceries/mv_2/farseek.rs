@@ -14,7 +14,7 @@ static SEARCH1: Filter = Filter::Or(&[
 ]);
 
 card!(
-    index = 7742,
+    index = index::FARSEEK,
     oracle_id = "495e52e6-4c2b-4574-9474-eadbdcc8b4ac",
     scryfall_id = "c1aac0f5-1d01-4673-b8d3-878d9a1d423c",
     color_identity = ColorSet::from_slice(&[Color::Green]),

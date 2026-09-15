@@ -7,7 +7,7 @@ use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
 card!(
-    index = 21522,
+    index = index::YAVIMAYA_CRADLE_OF_GROWTH,
     oracle_id = "8dd5f5af-d2d8-4356-8617-8381081b930c",
     scryfall_id = "4e4b6e22-93b2-4896-bba5-0ceaa5d8ea3c",
     coverage = Coverage::Implemented,

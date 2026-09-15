@@ -11,7 +11,7 @@ use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes::artifact;
 
 card!(
-    index = 11929,
+    index = index::SWIFTFOOT_BOOTS,
     oracle_id = "c8b143ad-43ec-4e0d-a440-e348daa31391",
     scryfall_id = "03f7e9fc-8e59-45c1-90fc-1d04d929b292",
     coverage = Coverage::Implemented,

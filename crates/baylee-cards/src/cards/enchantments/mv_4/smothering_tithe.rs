@@ -11,7 +11,7 @@ static MAKE_TREASURE: Effect = Effect::CreateToken {
 };
 
 card!(
-    index = 18568,
+    index = index::SMOTHERING_TITHE,
     oracle_id = "153376c9-dffd-458c-8ce3-a4c8269bc4e9",
     scryfall_id = "861b5889-0183-4bee-afeb-a4b2aa700a8e",
     faces = &[face!(

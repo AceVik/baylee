@@ -13,7 +13,7 @@
 use baylee_cards_dsl::prelude::*;
 
 card!(
-    index = 12886,
+    index = index::ROGUE_S_PASSAGE,
     oracle_id = "f29dc596-2121-4421-8463-15f6c2e8b9b3",
     scryfall_id = "4493b62b-f354-47ff-9dcf-cc6e29de77c6",
     coverage = Coverage::Implemented,

@@ -13,7 +13,7 @@ static CHOSEN_TYPE_CREATURE_SPELL: Filter =
 use baylee_cards_dsl::prelude::*;
 
 card!(
-    index = 12374,
+    index = index::CAVERN_OF_SOULS,
     oracle_id = "89ca686a-7c72-4d8f-9290-e89635624a83",
     scryfall_id = "3aad15a2-8a1b-4460-9b06-e85863081878",
     faces = &[face!(

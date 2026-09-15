@@ -11,7 +11,7 @@ use baylee_core::generated::subtypes::creature;
 static ENEMY_CREATURE: Filter = Filter::And(&[Filter::ControlledByOpponent, Filter::CREATURE]);
 
 card!(
-    index = 16084,
+    index = index::PALACE_JAILER,
     oracle_id = "180eda7c-fca2-403b-85cd-8ffebaf9f408",
     scryfall_id = "3a8c2a84-e0f2-4611-af3d-42f4578ad4e3",
     faces = &[face!(

@@ -153,7 +153,7 @@ card file ends its literals with a struct-update tail:
 
 ```rust
 card!(
-    index = 104,
+    index = index::ONDU_CLERIC,
     oracle_id = "f4232466-dd6a-49bf-be6c-95905c3ded17",
     scryfall_id = "ced43447-fefc-482a-b8fa-33b9616aa532",
     faces = &[face!(
@@ -203,9 +203,12 @@ both are load-bearing:
   `docs/card-identity.md` is normative on all of it. The short of it is that
   a `CardIndex` is an identity and not a position, assigned over every card
   there is rather than over this pool, so implementing an old card inserts
-  nothing and a number is never handed to a second card. Card files still
-  carry the number itself (`index = 11391`) rather than `index::MOX_OPAL`;
-  switching them is a separate change.
+  nothing and a number is never handed to a second card. A card *names* that
+  identity — `index = index::MOX_OPAL`, never `index = 11391` — and the
+  macro's fragment specifier is `path`, so a bare number is refused by the
+  matcher before the type system is reached (`no rules expected 240`). That
+  is the same argument as `every_card_sits_at_the_index_it_claims` made one
+  step earlier: a digit typed wrong used to be a card that compiled.
 - `CardDef::DEFAULT.coverage` is `Coverage::Unimplemented`, so a stub that
   was never finished cannot reach the deckbuilder as playable just because
   a line went missing. An implemented card writes

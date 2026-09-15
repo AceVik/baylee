@@ -17,7 +17,7 @@ static CHECK: Filter = Filter::And(&[
 ]);
 
 card!(
-    index = 12181,
+    index = index::WOODLAND_CEMETERY,
     oracle_id = "c9fe1383-1331-4a58-a45a-3320250221a9",
     scryfall_id = "4d6f6c96-f813-4864-b4e1-b2a0aa8be1e8",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Green]),

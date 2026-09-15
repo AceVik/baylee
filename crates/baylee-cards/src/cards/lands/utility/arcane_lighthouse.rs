@@ -7,7 +7,7 @@
 use baylee_cards_dsl::prelude::*;
 
 card!(
-    index = 14471,
+    index = index::ARCANE_LIGHTHOUSE,
     oracle_id = "30ac68e6-160a-41f9-9f0f-0e0eef383150",
     scryfall_id = "e2384e42-2442-4b40-9bae-8db470d2fb8c",
     faces = &[face!(name = "Arcane Lighthouse", types = TypeSet::LAND,),],

@@ -7,7 +7,7 @@
 use baylee_cards_dsl::prelude::*;
 
 card!(
-    index = 18226,
+    index = index::GUILDMAGES_FORUM,
     oracle_id = "ace6403d-9fac-4d0f-a6ea-eb2ff3da259d",
     scryfall_id = "cba12bda-d460-4206-8469-4357c967b9b8",
     faces = &[face!(name = "Guildmages' Forum", types = TypeSet::LAND,),],

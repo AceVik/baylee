@@ -14,7 +14,7 @@ use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes::creature;
 
 card!(
-    index = 9397,
+    index = index::VENDILION_CLIQUE,
     oracle_id = "244d4807-0802-41bc-9460-55ac38a28a72",
     scryfall_id = "cd702cf1-10ca-4448-9fb1-b6de635e839c",
     faces = &[face!(

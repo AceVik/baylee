@@ -13,7 +13,7 @@ static TARGET1: Filter = Filter::And(&[
 ]);
 
 card!(
-    index = 5773,
+    index = index::DARU_ENCAMPMENT,
     oracle_id = "29f27482-724d-4c15-b177-13337246d007",
     scryfall_id = "12306750-86d6-4f70-820a-365894884e56",
     color_identity = ColorSet::from_slice(&[Color::White]),

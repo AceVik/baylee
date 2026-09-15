@@ -14,7 +14,7 @@ static SPEND1: Filter = Filter::Or(&[
 ]);
 
 card!(
-    index = 31544,
+    index = index::WHITE_LOTUS_HIDEOUT,
     oracle_id = "2cdbfda3-98fc-4108-b551-c7049168924e",
     scryfall_id = "24d1e22c-0d99-4ed5-94f0-fd055fd8e2be",
     coverage = Coverage::Implemented,

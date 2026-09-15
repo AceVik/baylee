@@ -12,7 +12,7 @@ use baylee_core::generated::subtypes;
 static BASIC_LAND: Filter = Filter::And(&[Filter::HasSupertype(SupertypeSet::BASIC), Filter::LAND]);
 
 card!(
-    index = 7111,
+    index = index::KODAMA_S_REACH,
     oracle_id = "1593ea18-2f2f-4ab4-83fb-6ccc0bec8a90",
     scryfall_id = "90c423cc-1264-4067-9c50-e7c88c68ef2d",
     color_identity = ColorSet::from_slice(&[Color::Green]),

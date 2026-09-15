@@ -7,7 +7,7 @@
 use baylee_cards_dsl::prelude::*;
 
 card!(
-    index = 8381,
+    index = index::ANCESTRAL_VISION,
     oracle_id = "9728dec9-d482-4c7a-8cdc-44d010dc878d",
     scryfall_id = "9ec075ba-db56-4dcf-b1dc-fe6270b7ab36",
     faces = &[face!(name = "Ancestral Vision", types = TypeSet::SORCERY,)],

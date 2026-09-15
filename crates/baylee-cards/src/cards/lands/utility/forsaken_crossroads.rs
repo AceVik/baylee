@@ -9,7 +9,7 @@
 use baylee_cards_dsl::prelude::*;
 
 card!(
-    index = 22669,
+    index = index::FORSAKEN_CROSSROADS,
     oracle_id = "c70598e1-30c6-4f92-a265-34a7a73bc2b8",
     scryfall_id = "56491238-5228-4bdd-994c-0849a59ebc2c",
     faces = &[face!(name = "Forsaken Crossroads", types = TypeSet::LAND,),],

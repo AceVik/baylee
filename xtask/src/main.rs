@@ -579,14 +579,18 @@ fn cards(
         // deliberate step (`cargo xtask ledger`) over the whole card corpus,
         // because an index assigned as a side effect of a build is an index
         // whose order depends on what happened to be fetched that day.
-        let Some(index) = ledger.index_of(&oracle_id) else {
+        //
+        // The whole row rather than the number: a card file names its index
+        // (`index = index::TAIGA`), and the constant is frozen in the ledger
+        // precisely so nothing re-derives it from a name Scryfall may rename.
+        let Some(row) = ledger.entry_of(&oracle_id) else {
             anyhow::bail!(
                 "{name} ({oracle_id}) has no row in the CardIndex ledger.\n\
                  Indices are assigned over the whole card corpus and not on \
                  sight: run `baylee-catalog corpus` and then `cargo xtask ledger`."
             );
         };
-        let (info, content) = stubgen::render_stub(&card, index, cats, scripts, &cycles)?;
+        let (info, content) = stubgen::render_stub(&card, row, cats, scripts, &cycles)?;
         let stub_path = cards_dir.join(&info.path);
         // A card that already exists somewhere else is *moved*, never
         // rewritten at the new path and left behind at the old one — an

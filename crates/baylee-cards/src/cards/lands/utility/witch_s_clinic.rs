@@ -7,7 +7,7 @@
 use baylee_cards_dsl::prelude::*;
 
 card!(
-    index = 21440,
+    index = index::WITCH_S_CLINIC,
     oracle_id = "05899372-9784-4bdb-9c28-504c71fed906",
     scryfall_id = "d2422e3e-a923-4516-b87c-cac748354dca",
     faces = &[face!(name = "Witch's Clinic", types = TypeSet::LAND,),],

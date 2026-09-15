@@ -18,7 +18,7 @@ static OTHER_CHOSEN_TYPE_CREATURE_YOU_CONTROL: Filter = Filter::And(&[
 ]);
 
 card!(
-    index = 27058,
+    index = index::ROAMING_THRONE,
     oracle_id = "3640c29b-1534-4952-b297-619ade948431",
     scryfall_id = "32fd8b7c-baf3-4d3d-be6f-044a917b11a0",
     faces = &[face!(

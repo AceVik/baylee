@@ -20,7 +20,7 @@ static OTHER_CREATURE_YOU_OWN: Filter =
     Filter::And(&[Filter::Another, Filter::CREATURE, Filter::OwnedByYou]);
 
 card!(
-    index = 19339,
+    index = index::CHARMING_PRINCE,
     oracle_id = "c48d844c-3976-4fa5-8e0d-3f0e535e7619",
     scryfall_id = "aa7b47e1-7e32-4f2f-aecf-bac7ca197081",
     faces = &[face!(

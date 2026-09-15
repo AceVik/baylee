@@ -13,7 +13,7 @@ static TARGET1: Filter = Filter::And(&[
 ]);
 
 card!(
-    index = 5829,
+    index = index::GOBLIN_BURROWS,
     oracle_id = "ad65bb8e-57de-49f3-ba7c-be62cf3fe3df",
     scryfall_id = "dc36acc6-db4b-45b7-b526-7966ff82a44f",
     color_identity = ColorSet::from_slice(&[Color::Red]),

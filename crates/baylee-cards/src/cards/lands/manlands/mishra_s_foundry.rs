@@ -8,7 +8,7 @@
 use baylee_cards_dsl::prelude::*;
 
 card!(
-    index = 24850,
+    index = index::MISHRA_S_FOUNDRY,
     oracle_id = "b43e9772-6ad4-49c7-9557-b18ee1e4587d",
     scryfall_id = "da7699b2-e1af-4bc0-8c5b-84ba3e868d7c",
     faces = &[face!(name = "Mishra's Foundry", types = TypeSet::LAND,),],

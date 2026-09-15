@@ -18,7 +18,7 @@ static BACK_ABILITIES: &[AbilityDef] = &[spell!(
 )];
 
 card!(
-    index = 26496,
+    index = index::TWINING_TWINS,
     oracle_id = "105aea98-8eb9-4fb2-a0cb-7c7513317c5b",
     scryfall_id = "043718ea-59f6-4d1a-94c5-271704c1a38a",
     faces = &[

@@ -16,7 +16,7 @@ static WIZARD: Filter = Filter::And(&[
 ]);
 
 card!(
-    index = 5918,
+    index = index::RIPTIDE_LABORATORY,
     oracle_id = "444d50dd-a44a-42db-bbf6-d0978e3bd6a3",
     scryfall_id = "25a9cb87-e572-4885-8561-1d4b158ec7e4",
     faces = &[face!(name = "Riptide Laboratory", types = TypeSet::LAND,)],

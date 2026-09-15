@@ -9,7 +9,7 @@
 use baylee_cards_dsl::prelude::*;
 
 card!(
-    index = 31436,
+    index = index::RUMBLE_ARENA,
     oracle_id = "83f2470e-2114-4cd9-ab1a-21b76e9cdf63",
     scryfall_id = "3f5d2c38-663c-4f64-8cfc-c102462e82ef",
     keywords = KeywordSet::VIGILANCE,

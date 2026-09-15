@@ -8,7 +8,7 @@
 use baylee_cards_dsl::prelude::*;
 
 card!(
-    index = 4487,
+    index = index::WINTERMOON_MESA,
     oracle_id = "a4a6f95e-856c-4eb5-82ba-b2406be22b23",
     scryfall_id = "f07144a6-6e47-4315-8353-f8958f014f41",
     faces = &[face!(name = "Wintermoon Mesa", types = TypeSet::LAND,),],

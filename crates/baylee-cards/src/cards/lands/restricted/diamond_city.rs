@@ -8,7 +8,7 @@
 use baylee_cards_dsl::prelude::*;
 
 card!(
-    index = 27653,
+    index = index::DIAMOND_CITY,
     oracle_id = "88e29d50-1680-495d-be84-b92b4c9e636f",
     scryfall_id = "3e9bd49a-e9f1-4543-b04a-777a9e5a55ec",
     faces = &[face!(name = "Diamond City", types = TypeSet::LAND,),],

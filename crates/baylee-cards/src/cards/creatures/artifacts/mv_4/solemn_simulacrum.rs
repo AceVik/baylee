@@ -10,7 +10,7 @@ use baylee_core::generated::subtypes::creature;
 static BASIC_LAND: Filter = Filter::And(&[Filter::HasSupertype(SupertypeSet::BASIC), Filter::LAND]);
 
 card!(
-    index = 6583,
+    index = index::SOLEMN_SIMULACRUM,
     oracle_id = "00c0543c-2a1f-4425-8283-4062d74a1637",
     scryfall_id = "daafd816-f7c1-4630-9e5c-a1e5db570a35",
     faces = &[face!(

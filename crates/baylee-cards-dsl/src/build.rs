@@ -370,9 +370,19 @@ impl SpellMode {
 /// one thing a card file may never invent. Everything else is optional and
 /// falls back to [`CardDef::DEFAULT`](crate::CardDef::DEFAULT).
 ///
+/// `index` is a **path** and not a number, which is the rule rather than a
+/// convenience: a card *names* its index, it does not compute one. The ledger
+/// froze a constant for every card there is
+/// ([`index`](baylee_core::generated::index), all of them in one namespace),
+/// so `index = index::TAIGA` is the only spelling that says which card this
+/// is — `index = 240` says only that somebody typed a number, and a number
+/// typed one digit wrong names a different card that compiles. The fragment
+/// specifier is what enforces it: `240` and `CardIndex::new(240)` are both
+/// rejected by the matcher, before the type system is reached.
+///
 /// ```ignore
 /// card!(
-///     index = 165,
+///     index = index::TAIGA,
 ///     oracle_id = "22e3cf1d-3559-4ce1-954c-8dc815342979",
 ///     scryfall_id = "0c2c39fc-b564-4ab5-833c-ff029760b7a7",
 ///     faces = &[face!(name = "Taiga", types = TypeSet::LAND, subtypes = SUBS)],
@@ -384,14 +394,14 @@ impl SpellMode {
 #[macro_export]
 macro_rules! card {
     (
-        index = $index:literal,
+        index = $index:path,
         oracle_id = $oracle:literal,
         scryfall_id = $scryfall:literal,
         $($field:ident = $value:expr),* $(,)?
     ) => {
         /// The compiled definition of this card.
         pub static CARD: $crate::CardDef = $crate::CardDef {
-            index: $crate::CardIndex::new($index),
+            index: $index,
             oracle_id: $oracle,
             scryfall_id: $scryfall,
             $($field: $value,)*
@@ -790,6 +800,12 @@ pub mod prelude {
         mode, spell, static_ability, triggered,
     };
     pub use baylee_core::color::{Color, ColorSet};
+    /// Every card's `CardIndex` under the name the ledger froze for it.
+    ///
+    /// The *module*, not its contents: a card writes `index::TAIGA`, which
+    /// reads as the sentence it is, where a glob would put 33694 bare
+    /// constants into the namespace every card file opens with.
+    pub use baylee_core::generated::index;
     pub use baylee_core::ids::{CardIndex, SubtypeId};
     /// The one thing every card spells out that the prelude did not carry.
     ///

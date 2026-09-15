@@ -8,7 +8,7 @@
 use baylee_cards_dsl::prelude::*;
 
 card!(
-    index = 15024,
+    index = index::MAGE_RING_NETWORK,
     oracle_id = "136596a0-b179-40be-b42d-c0b992621c95",
     scryfall_id = "f060ea2b-717a-47ae-a4d6-b0594e838459",
     faces = &[face!(name = "Mage-Ring Network", types = TypeSet::LAND,),],

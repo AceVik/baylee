@@ -7,7 +7,7 @@
 use baylee_cards_dsl::prelude::*;
 
 card!(
-    index = 18932,
+    index = index::HALL_OF_HELIOD_S_GENEROSITY,
     oracle_id = "2fc070dc-f2f7-4648-8069-31d74790a39c",
     scryfall_id = "f08dfd99-59fa-4a6c-bd69-c647f639de4d",
     color_identity = ColorSet::from_slice(&[Color::White]),

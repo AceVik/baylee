@@ -8,7 +8,7 @@ use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
 card!(
-    index = 30338,
+    index = index::GOHN_TOWN_OF_RUIN,
     oracle_id = "13fbd525-c9ee-4bd6-b269-94fb264024b6",
     scryfall_id = "99582781-613e-4a33-aec7-7569b4a961aa",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Green]),

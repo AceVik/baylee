@@ -20,7 +20,7 @@ static CREATURE_TOKEN_YOU_CONTROL: Filter =
     Filter::And(&[Filter::IsToken, Filter::CREATURE, Filter::ControlledByYou]);
 
 card!(
-    index = 25639,
+    index = index::NESTING_DOVEHAWK,
     oracle_id = "fe8fc442-ed17-40b2-8624-69f2eed3f9be",
     scryfall_id = "c58ff93f-7135-40af-92ce-358da48694dc",
     faces = &[face!(

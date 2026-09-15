@@ -16,7 +16,7 @@ static OVERLOAD_EFFECTS: &[Effect] = &[Effect::DestroyAll {
 use baylee_cards_dsl::prelude::*;
 
 card!(
-    index = 21462,
+    index = index::DAMN,
     oracle_id = "b01d61cc-9844-4191-86a0-f2db6d42d6e5",
     scryfall_id = "84056124-1a6f-4274-bee2-74cf0debddb5",
     faces = &[face!(

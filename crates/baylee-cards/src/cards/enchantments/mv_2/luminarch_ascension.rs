@@ -11,7 +11,7 @@ use baylee_cards_dsl::prelude::*;
 use crate::tokens::ANGEL_4_4_WHITE_FLYING as ANGEL;
 
 card!(
-    index = 10635,
+    index = index::LUMINARCH_ASCENSION,
     oracle_id = "90076bf5-aa9a-4a6e-9035-9aa97fd5561e",
     scryfall_id = "b3770d86-4496-4c06-aab1-2917cfec100e",
     faces = &[face!(

@@ -17,7 +17,7 @@ static TARGET1: Filter = Filter::Or(&[
 ]);
 
 card!(
-    index = 20129,
+    index = index::ANIMAL_SANCTUARY,
     oracle_id = "f3c40943-1d7c-4ea2-b34f-8df8b6775701",
     scryfall_id = "f8d7a2c7-666d-4fc6-bac8-ef8eb66e355d",
     coverage = Coverage::Implemented,

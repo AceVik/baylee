@@ -6,7 +6,7 @@
 use baylee_cards_dsl::prelude::*;
 
 card!(
-    index = 18978,
+    index = index::PRISMATIC_VISTA,
     oracle_id = "032b8a0d-491a-4a12-ab9f-689010054d5b",
     scryfall_id = "e37da81e-be12-45a2-9128-376f1ad7b3e8",
     faces = &[face!(name = "Prismatic Vista", types = TypeSet::LAND,),],

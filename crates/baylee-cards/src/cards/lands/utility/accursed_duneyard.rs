@@ -7,7 +7,7 @@
 use baylee_cards_dsl::prelude::*;
 
 card!(
-    index = 29567,
+    index = index::ACCURSED_DUNEYARD,
     oracle_id = "48edc348-93f6-4dce-9cc4-7244d76b6f4a",
     scryfall_id = "bd9e6ba8-1c5e-4416-8bff-90db3b3b1f41",
     faces = &[face!(name = "Accursed Duneyard", types = TypeSet::LAND,),],

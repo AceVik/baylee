@@ -9,7 +9,7 @@
 use baylee_cards_dsl::prelude::*;
 
 card!(
-    index = 26290,
+    index = index::EDGEWALL_INN,
     oracle_id = "4dfd33e8-7e30-493b-8564-f7df5f0257aa",
     scryfall_id = "ec435e54-628a-43bd-8804-cbc37e375bce",
     faces = &[face!(name = "Edgewall Inn", types = TypeSet::LAND,),],

@@ -9,7 +9,7 @@ static ATTACKING_CREATURE: Filter = Filter::And(&[Filter::CREATURE, Filter::Atta
 use baylee_cards_dsl::prelude::*;
 
 card!(
-    index = 4252,
+    index = index::KOR_HAVEN,
     oracle_id = "276cece9-f9f2-46e6-ae76-daddaa2fb9ab",
     scryfall_id = "3d5529ca-5c20-4dfd-8595-96d6dfa6debe",
     faces = &[face!(

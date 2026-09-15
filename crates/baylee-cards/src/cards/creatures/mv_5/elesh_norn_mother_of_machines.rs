@@ -10,7 +10,7 @@ use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes::{self};
 
 card!(
-    index = 25100,
+    index = index::ELESH_NORN_MOTHER_OF_MACHINES,
     oracle_id = "5ade11c0-41dd-4b6a-9f5b-c5903a3a0d7f",
     scryfall_id = "44dcab01-1d13-4dfc-ae2f-fbaa3dd35087",
     faces = &[face!(

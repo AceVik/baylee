@@ -9,7 +9,7 @@
 use baylee_cards_dsl::prelude::*;
 
 card!(
-    index = 32346,
+    index = index::PETRIFIED_HAMLET,
     oracle_id = "78a2972c-14f4-41f3-99f9-167948bdd73a",
     scryfall_id = "355dd460-b0e9-41f2-a058-b7f7e39ac387",
     faces = &[face!(name = "Petrified Hamlet", types = TypeSet::LAND,),],

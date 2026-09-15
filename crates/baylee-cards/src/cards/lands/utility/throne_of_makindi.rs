@@ -8,7 +8,7 @@
 use baylee_cards_dsl::prelude::*;
 
 card!(
-    index = 20588,
+    index = index::THRONE_OF_MAKINDI,
     oracle_id = "7e8198e9-0f3b-420b-ab09-74f13f4fd548",
     scryfall_id = "d5a0563e-c83b-40df-abf6-51c83bf6792d",
     faces = &[face!(name = "Throne of Makindi", types = TypeSet::LAND,),],

@@ -9,7 +9,7 @@
 use baylee_cards_dsl::prelude::*;
 
 card!(
-    index = 1105,
+    index = index::GLACIAL_CHASM,
     oracle_id = "73e7a2ad-d11c-4867-b97d-f971809da778",
     scryfall_id = "0c008129-daba-46bc-829c-d2c0c13ecdd3",
     faces = &[face!(name = "Glacial Chasm", types = TypeSet::LAND,),],

@@ -7,7 +7,7 @@
 use baylee_cards_dsl::prelude::*;
 
 card!(
-    index = 11542,
+    index = index::INKMOTH_NEXUS,
     oracle_id = "675281ff-b81f-4e5e-9f85-9f8cd202b50b",
     scryfall_id = "ec50c1c3-885e-47d3-ada7-cc0edbf09df1",
     faces = &[face!(name = "Inkmoth Nexus", types = TypeSet::LAND,),],

@@ -10,7 +10,7 @@ static COLORS: &[ManaColor] = &[ManaColor::Black, ManaColor::Red];
 static SUBS: &[SubtypeId] = &[land::SWAMP, land::MOUNTAIN];
 
 card!(
-    index = 9,
+    index = index::BADLANDS,
     oracle_id = "13ff3222-91cb-4796-a34e-899ed817694c",
     scryfall_id = "73403d04-fe97-4830-8b80-16dd1a1a6cc1",
     faces = &[face!(

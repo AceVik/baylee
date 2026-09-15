@@ -18,7 +18,7 @@ static DRAW_EFFECTS: &[Effect] = &[Effect::DrawCards {
 }];
 
 card!(
-    index = 24064,
+    index = index::AETHER_CHANNELER,
     oracle_id = "fb220f46-f8b8-4804-baa4-e7d50b4871f7",
     scryfall_id = "60afeb75-2c1e-4634-8c83-88b1dddb77c2",
     faces = &[face!(

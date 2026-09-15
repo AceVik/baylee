@@ -17,7 +17,7 @@ use baylee_core::generated::subtypes::creature;
 static DEMONIC_TUTOR: CardIndex = CardIndex::new(61);
 
 card!(
-    index = 32230,
+    index = index::EMERITUS_OF_WOE,
     oracle_id = "93056597-b964-421f-be2f-e92abef1c2a4",
     scryfall_id = "7eb9e83d-515d-4911-a06b-9982200277b2",
     faces = &[face!(

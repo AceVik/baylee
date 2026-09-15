@@ -6,7 +6,7 @@
 use baylee_cards_dsl::prelude::*;
 
 card!(
-    index = 23355,
+    index = index::RIVETEERS_OVERLOOK,
     oracle_id = "5548ff43-e5f6-4a63-8562-a2b1de06d6f5",
     scryfall_id = "65ce9590-87c0-4057-bddb-fadc0de552f6",
     faces = &[face!(name = "Riveteers Overlook", types = TypeSet::LAND,),],

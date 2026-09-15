@@ -14,7 +14,7 @@ static COMMANDER_TYPE_CREATURE_SPELL: Filter =
 use baylee_cards_dsl::prelude::*;
 
 card!(
-    index = 17091,
+    index = index::PATH_OF_ANCESTRY,
     oracle_id = "b473e293-59e3-4e04-acf2-622604aeb25f",
     scryfall_id = "b1aaa7b0-1cac-4a92-b880-7ef1ac00618f",
     faces = &[face!(

@@ -159,9 +159,15 @@ One writer each, and that is what keeps the numbers still:
   so the generator there writes different files than the machine that
   committed them.
 
-Card files still carry the number itself (`index = 11391`) rather than
-`index::MOX_OPAL`; switching them is a separate change, waiting on the macro
-and Card-DSL review.
+A card file **names** its index — `index = index::MOX_OPAL` — and the `card!`
+macro takes that field as a `path` rather than a literal, so a bare `11391` is
+refused by the matcher before the type system is reached. The reason is the
+one this whole page is about: a number says only that somebody typed a number,
+and a digit typed wrong names a different card that compiles. The constant is
+read out of the ledger row and never re-derived from the name, which is what
+the frozen `const` column is for — `render_stub` takes the whole
+`LedgerEntry`, so the generator cannot spell a constant the ledger did not
+freeze.
 
 ## What is not card identity
 

@@ -12,7 +12,7 @@ static TARGET1: Filter = Filter::And(&[
 ]);
 
 card!(
-    index = 7155,
+    index = index::OKINA_TEMPLE_TO_THE_GRANDFATHERS,
     oracle_id = "3ad69bfb-2e51-4fe9-8d2f-7d071a4f1c69",
     scryfall_id = "ee8cf7aa-388c-47ec-be59-6ba98f3853cb",
     color_identity = ColorSet::from_slice(&[Color::Green]),

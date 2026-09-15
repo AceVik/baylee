@@ -8,7 +8,7 @@
 use baylee_cards_dsl::prelude::*;
 
 card!(
-    index = 29715,
+    index = index::MURAGANDA_RACEWAY,
     oracle_id = "b5fa5651-d714-44d6-867b-be0e3224b7ed",
     scryfall_id = "5041ae16-29ff-4ad5-8a37-4736e9409294",
     faces = &[face!(name = "Muraganda Raceway", types = TypeSet::LAND,),],

@@ -8,7 +8,7 @@
 use baylee_cards_dsl::prelude::*;
 
 card!(
-    index = 11512,
+    index = index::CONTESTED_WAR_ZONE,
     oracle_id = "ed73de2b-d7f4-48d9-9be2-aa9d111b7aa7",
     scryfall_id = "bee9b696-5203-4235-9bdd-f2a389d69813",
     faces = &[face!(name = "Contested War Zone", types = TypeSet::LAND,),],

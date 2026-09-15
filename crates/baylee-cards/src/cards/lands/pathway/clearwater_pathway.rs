@@ -10,7 +10,7 @@ static BACK_MANA: &[AbilityDef] = &[mana_ability!(&[Effect::mana(ManaColor::Blac
 use baylee_cards_dsl::prelude::*;
 
 card!(
-    index = 20389,
+    index = index::CLEARWATER_PATHWAY,
     oracle_id = "144119bc-7fd1-45c5-9e29-f742e7c255ac",
     scryfall_id = "b4b99ebb-0d54-4fe5-a495-979aaa564aa8",
     faces = &[

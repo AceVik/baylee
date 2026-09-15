@@ -27,7 +27,7 @@ static TARGET_F: Filter = Filter::And(&[
 use crate::tokens::ILLUSION_X_BLUE as ILLUSION;
 
 card!(
-    index = 20551,
+    index = index::SKYCLAVE_APPARITION,
     oracle_id = "d90af00a-d322-4265-9954-7b1e80702e18",
     scryfall_id = "e671de25-c47c-48a1-919b-6aa30dab142f",
     faces = &[face!(

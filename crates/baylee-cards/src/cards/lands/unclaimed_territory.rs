@@ -8,7 +8,7 @@
 use baylee_cards_dsl::prelude::*;
 
 card!(
-    index = 17331,
+    index = index::UNCLAIMED_TERRITORY,
     oracle_id = "584b15f2-6ae9-413a-8b8d-9244dbea4878",
     scryfall_id = "d3782952-3839-4a94-95bc-716611d3ece6",
     faces = &[face!(name = "Unclaimed Territory", types = TypeSet::LAND,),],

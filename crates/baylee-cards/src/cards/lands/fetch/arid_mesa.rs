@@ -14,7 +14,7 @@ static SEARCH_FILTER: Filter = Filter::Or(&[
 ]);
 
 card!(
-    index = 10536,
+    index = index::ARID_MESA,
     oracle_id = "c5acf2a5-40f4-433d-a74d-1cb56c521464",
     scryfall_id = "25ac5405-df7b-4097-914a-022cb18e20d4",
     faces = &[face!(name = "Arid Mesa", types = TypeSet::LAND,)],

@@ -8,7 +8,7 @@
 use baylee_cards_dsl::prelude::*;
 
 card!(
-    index = 33160,
+    index = index::STARDEW_VALLEY,
     oracle_id = "6a4ee425-b3b8-487d-866c-9e2d73682466",
     scryfall_id = "9979db80-83f6-41ed-aea2-0c222e923add",
     faces = &[face!(name = "Stardew Valley", types = TypeSet::LAND,),],

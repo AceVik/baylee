@@ -14,7 +14,7 @@ use baylee_core::generated::subtypes::creature;
 static ARTIFACT_OR_ENCHANTMENT: Filter = Filter::Or(&[Filter::ARTIFACT, Filter::ENCHANTMENT]);
 
 card!(
-    index = 24833,
+    index = index::LORAN_OF_THE_THIRD_PATH,
     oracle_id = "b3d81980-76f2-44e2-b1c9-01e30c726312",
     scryfall_id = "9e83a0ef-4fea-45ba-86c0-130d6687f7fe",
     faces = &[face!(

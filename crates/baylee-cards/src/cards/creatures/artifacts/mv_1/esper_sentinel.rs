@@ -15,7 +15,7 @@ static DRAW_ONE: Effect = Effect::DrawCards {
 };
 
 card!(
-    index = 21468,
+    index = index::ESPER_SENTINEL,
     oracle_id = "5def9f38-0a0b-4e8d-9f9d-29dcb46520b4",
     scryfall_id = "f3537373-ef54-4578-9d05-6216420ee349",
     faces = &[face!(

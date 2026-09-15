@@ -2,10 +2,11 @@
 //!
 //! `baylee_cards_index::ROWS` is the assignment; this is the same assignment
 //! written in the language the rest of the workspace is written in. A card
-//! file says `index = 11391` today, which is a number nobody can read. The
-//! point of the tree is that it can say `MOX_OPAL` instead — and that a wrong
-//! index then becomes a name that does not exist, instead of a card that
-//! quietly resolves as another one.
+//! file used to say `index = 11391`, which is a number nobody can read; it
+//! says `index = index::MOX_OPAL` instead, and a wrong index is a name that
+//! does not exist rather than a card that quietly resolves as another one.
+//! `card!` takes the field as a `path`, so the old spelling is refused by the
+//! matcher and cannot come back.
 //!
 //! # Why one file per set
 //!
