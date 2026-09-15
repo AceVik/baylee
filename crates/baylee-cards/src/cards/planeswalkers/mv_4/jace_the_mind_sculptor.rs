@@ -44,9 +44,7 @@ card!(
         ),
         loyalty!(
             -1,
-            &[Effect::ReturnToHand {
-                target: TargetSpec::Object(&Filter::CREATURE),
-            }],
+            &[Effect::bounce(TargetSpec::Object(&Filter::CREATURE))],
             targets = Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE)))
         ),
         loyalty!(

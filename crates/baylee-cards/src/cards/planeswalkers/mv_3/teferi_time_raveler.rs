@@ -44,9 +44,7 @@ card!(
         loyalty!(
             -3,
             &[
-                Effect::ReturnToHand {
-                    target: TargetSpec::Object(&BOUNCE_TARGET),
-                },
+                Effect::bounce(TargetSpec::Object(&BOUNCE_TARGET)),
                 Effect::DrawCards {
                     amount: Amount::Fixed(1),
                 },

@@ -604,7 +604,7 @@ where the oracle sentence it encodes is a line above it.
 
 **The common ones have a verb**, and the verb is the word the card prints:
 `Effect::draw(1)`, `scry(2)`, `gain_life(3)`, `destroy(t)`, `exile(t)`,
-`blink(t)`, `return_to_hand(t)`, and `continuous(filter, modifier, duration)`
+`blink(t)`, `bounce(t)`, and `continuous(filter, modifier, duration)`
 with the layer derived. `Effect::mana` is the precedent — 219 uses in the
 pool against zero raw `AddMana` literals.
 
@@ -612,11 +612,18 @@ Two rules keep that from growing into a phrasebook. **One verb per variant,
 and only where the variant has one answer to give**: `SearchLibrary { filter,
 finds, optional }` has two real choices in it, so it stays a literal rather
 than becoming a `search` / `may_search` / `search_to_hand` family. And **the
-name is the printed word** where there is one; `blink` is the exception the
-engine already made, because "exile it, then return it" has no printed verb.
-`return_to_hand` is deliberately *not* `bounce`: oracle and the engine both
-already name it, and a third word costs a reader grepping the card's own
-`//! Oracle:` header.
+name is the word this pool already says**, which is usually the printed one;
+`blink` and `bounce` are the two that are not. Neither is a coinage: the
+engine named `Blink` because "exile it, then return it" has no printed verb,
+and `bounce` was in this repository before there was a verb to hang it on —
+Cyclonic Rift's comment calls both of its modes a bounce and Aether
+Channeler's effect list is `BOUNCE_EFFECTS`. Both are paid for the same way:
+neither word appears in any `//! Oracle:` header, so a grep from the printed
+sentence to the code stops at these two and nowhere else.
+
+`ReturnAllToHand` is the counter-example that keeps the first rule honest —
+Cyclonic Rift's overloaded half, one use, a filter *and* an `opponents_only`
+flag — so it stays a literal.
 
 A fixed count is the argument (83 of the pool's 84 draws are fixed);
 `{X}` and anything else writes the literal, the way `Effect::mana_dynamic`

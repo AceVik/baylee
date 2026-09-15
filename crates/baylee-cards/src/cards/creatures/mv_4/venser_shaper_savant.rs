@@ -26,9 +26,7 @@ card!(
     coverage = Coverage::Implemented,
     abilities = &[triggered!(
         Trigger::EntersBattlefield(&Filter::This),
-        &[Effect::ReturnToHand {
-            target: TargetSpec::StackOrBattlefield(&Filter::Any),
-        }],
+        &[Effect::bounce(TargetSpec::StackOrBattlefield(&Filter::Any))],
         targets = Some(TargetReq::one(
             TargetSpec::StackOrBattlefield(&Filter::Any,)
         ))

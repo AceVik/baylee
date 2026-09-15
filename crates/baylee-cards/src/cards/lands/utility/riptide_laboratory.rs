@@ -26,9 +26,7 @@ card!(
         mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
         activated!(
             cost!("{1}{U}", TapSelf),
-            &[Effect::ReturnToHand {
-                target: TargetSpec::Object(&WIZARD),
-            }],
+            &[Effect::bounce(TargetSpec::Object(&WIZARD))],
             target = Some(TargetSpec::Object(&WIZARD))
         ),
     ],

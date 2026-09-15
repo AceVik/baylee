@@ -1016,15 +1016,23 @@ impl Effect {
     /// turns into a phrasebook. Thirty-four cards write it out and that is
     /// the right number.
     ///
-    /// **The name is the word the card prints**, where the card prints one.
-    /// "Draw", "scry", "destroy", "exile" are all oracle text.
-    /// [`Effect::blink`] is the exception the engine already made — there is
-    /// no printed verb for "exile it, then return it to the battlefield",
-    /// and `Blink` is both the variant's name and what the word means at a
-    /// table. `return_to_hand` is *not* called `bounce` for the mirror
-    /// reason: oracle says "return … to its owner's hand", the engine says
-    /// `ReturnToHand`, and a third word buys nine characters and costs a
-    /// reader grepping the card's own header.
+    /// **The name is the word this pool already says**, which is usually the
+    /// printed one. "Draw", "scry", "destroy", "exile" are all oracle text.
+    /// [`Effect::blink`] is what the engine had already named a thing oracle
+    /// spells out in a clause ("exile it, then return it to the
+    /// battlefield"), and [`Effect::bounce`] is the same shape from the other
+    /// direction: the printing says "return … to its owner's hand" and the
+    /// variant says `ReturnToHand`, but the table says bounce, and so did
+    /// this repository before there was a verb — Cyclonic Rift's own comment
+    /// calls both of its modes a bounce and Aether Channeler's effect list is
+    /// named `BOUNCE_EFFECTS`. That is the owner's decision and it is paid
+    /// for: `bounce` is a word no `//! Oracle:` header carries, so a grep
+    /// from the printed sentence to the code stops here and at `blink`.
+    ///
+    /// It buys nothing where the variant is not one answer.
+    /// [`Effect::ReturnAllToHand`] is the overloaded half of the same card
+    /// and takes a filter *and* an `opponents_only` flag, so it stays a
+    /// literal under the rule above — one use, two real choices.
     ///
     /// A fixed count is the argument, because 83 of the pool's 84 draws are
     /// fixed; the one that is not (and anything with `{X}`) writes the
@@ -1074,7 +1082,7 @@ impl Effect {
 
     /// "Return target … to its owner's hand."
     #[must_use]
-    pub const fn return_to_hand(target: TargetSpec) -> Self {
+    pub const fn bounce(target: TargetSpec) -> Self {
         Self::ReturnToHand { target }
     }
 
@@ -1268,10 +1276,7 @@ mod verb_tests {
         assert_eq!(Effect::destroy(target), Effect::Destroy { target });
         assert_eq!(Effect::exile(target), Effect::Exile { target });
         assert_eq!(Effect::blink(target), Effect::Blink { target });
-        assert_eq!(
-            Effect::return_to_hand(target),
-            Effect::ReturnToHand { target }
-        );
+        assert_eq!(Effect::bounce(target), Effect::ReturnToHand { target });
     }
 
     /// `Effect::continuous` derives the layer, and derives the one the

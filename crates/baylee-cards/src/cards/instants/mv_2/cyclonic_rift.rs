@@ -7,9 +7,7 @@
 
 static NOT_MINE: Filter = Filter::And(&[Filter::Not(&Filter::ControlledByYou), Filter::NONLAND]);
 
-static NORMAL_EFFECTS: &[Effect] = &[Effect::ReturnToHand {
-    target: TargetSpec::Object(&NOT_MINE),
-}];
+static NORMAL_EFFECTS: &[Effect] = &[Effect::bounce(TargetSpec::Object(&NOT_MINE))];
 static OVERLOAD_EFFECTS: &[Effect] = &[Effect::ReturnAllToHand {
     filter: &Filter::NONLAND,
     opponents_only: true,

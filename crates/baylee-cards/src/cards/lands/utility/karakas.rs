@@ -26,9 +26,7 @@ card!(
         mana_ability!(&[Effect::mana(ManaColor::White, 1)]),
         activated!(
             Cost::TAP,
-            &[Effect::ReturnToHand {
-                target: TargetSpec::Object(&LEGENDARY_CREATURE),
-            }],
+            &[Effect::bounce(TargetSpec::Object(&LEGENDARY_CREATURE))],
             target = Some(TargetSpec::Object(&LEGENDARY_CREATURE))
         ),
     ],
