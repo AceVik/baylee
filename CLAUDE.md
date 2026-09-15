@@ -411,8 +411,9 @@ writer, and it is not the thing that writes card files. What it *does* write
 from the ledger is `crates/baylee-core/src/generated/index/` — the same
 assignment as Rust constants, one `set_<code>.rs` per first-appearance set
 behind a `mod.rs` that globs them into one namespace, so `index::MOX_OPAL`
-resolves without anybody knowing the set. `docs/card-dsl.md` §"Two defaults"
-has the prefix rule and the generated door test. The `//!`
+resolves without anybody knowing the set. `docs/card-dsl.md` §"Only state
+what the card prints" has the prefix rule and the generated door test, on the
+`CardDef::DEFAULT.index` bullet. The `//!`
 header (name, cost, oracle text, set, Scryfall id) is the human-verification
 surface and `xtask validate` fails if it drifts from the `CardDef` built below
 it — **and** if its oracle text is not the one Scryfall prints, which is the
