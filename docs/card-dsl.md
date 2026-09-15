@@ -726,6 +726,27 @@ before reading them — `Effect` and `Filter` account for most of it, which is
 the usual case rather than a surprise: what is missing is normally a variant
 that cannot be *said*, not a subsystem that is absent.
 
+It is a **snapshot with a date on it**, and the date is the point: the batch
+read a DSL that has moved since. `EnterModifier::TappedUnlessCount` landed at
+7b989538 on 10.09, five days after the batch, and **eight** rows here still
+say "`EnterModifier` has no variant for count-based entry conditions" — which
+was true when it was written and names a variant that exists today. Three of
+the eight are the ones it reaches ("two or more basic lands", "two or more
+other lands"); the other five are a *different* gap the row does not
+distinguish, because `at_least` has no counterpart — three fastlands print
+"two or **fewer** other lands" and two invert the sentence entirely ("*if* you
+control two or more, this land enters tapped"). So a row is a lead and never a
+worklist item: check that the variant it names is still absent, and read the
+printed sentence rather than the row's summary of it. The list below is where
+a blocker goes once it has been re-read.
+
+The other half of the same question is measured continuously and needs no such
+care. `cargo run -p xtask -- transcode-report` ranks what the *whole* script
+corpus is refused for — 3364 of 33 826 read in full as of 15.09, with
+`Enchant` (1207) and the `Token` effect (1111) at the top — computed against
+the DSL as it stands rather than as it stood. Read that for **order**, and
+these 115 rows for what a specific sentence cannot say.
+
 The 48 land implementations that same batch produced are **not** in the tree.
 They were written against the flat `cards/` layout and the pre-taxonomy
 macros, so every one of them collides with the file standing there today.
