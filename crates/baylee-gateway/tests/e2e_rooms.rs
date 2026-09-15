@@ -265,7 +265,7 @@ async fn the_room_passes_to_whoever_has_been_there_longest() {
     let (_, listing) = http(port, "GET", "/lobby/games", Some(&early), "");
     assert!(listing.contains(&game_id), "the room outlives its host");
     assert!(
-        listing.contains("\"host\":\"earlysix\""),
+        listing.contains("\"host\":\"earlysix#"),
         "arrival order, not seat order: {listing}"
     );
 
@@ -278,7 +278,7 @@ async fn the_room_passes_to_whoever_has_been_there_longest() {
         "{\"seat\":1}",
     );
     assert_eq!(status, 200, "{body}");
-    assert!(body.contains("\"host\":\"latesix\""), "{body}");
+    assert!(body.contains("\"host\":\"latesix#"), "{body}");
 }
 
 #[tokio::test]

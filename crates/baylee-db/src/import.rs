@@ -23,8 +23,8 @@ use crate::entity::prelude::*;
 use crate::entity::{account, client_settings, confirmation, deck, session_token, standing_answer};
 use anyhow::{Context, Result};
 use sea_orm::{
-    ActiveValue::Set, ConnectionTrait, DatabaseConnection, EntityTrait, PaginatorTrait,
-    TransactionTrait,
+    ActiveValue::{NotSet, Set},
+    ConnectionTrait, DatabaseConnection, EntityTrait, PaginatorTrait, TransactionTrait,
 };
 use serde::Deserialize;
 use std::collections::HashMap;
@@ -266,6 +266,11 @@ pub fn plan(legacy: &Legacy, now: OffsetDateTime) -> Plan {
                 id: Set(id),
                 email: Set(a.email.clone()),
                 display_name: Set(a.display_name.clone()),
+                // The tag is the database's. An imported account is a new
+                // one as far as the sequence is concerned, and it gets its
+                // number in whatever order the file hands them over — the
+                // old store had nothing to carry in.
+                tag: NotSet,
                 password_hash: Set(a.password_hash.clone()),
                 created_at: Set(at(a.created_at)),
                 confirmed_at: Set(a.confirmed_at.map(at)),

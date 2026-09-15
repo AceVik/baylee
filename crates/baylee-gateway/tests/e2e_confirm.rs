@@ -322,18 +322,82 @@ fn a_second_registration_says_no_more_than_the_first() {
     );
     assert_eq!(body, first, "the two answers differ, which is the leak");
 
-    // A display name is unique too, and that refusal used to be its own
-    // lookup.
+    // A display name is **not** unique, and this is where that stops being
+    // a claim in a doc comment. The second `twice` is a second account.
     let (status, body) = register(gw.port, "other@example.com", "twice", "en");
-    assert_eq!(status, 200, "a taken display name: {body}");
+    assert_eq!(status, 200, "a name shared with somebody: {body}");
     assert_eq!(body, first, "the two answers differ, which is the leak");
 
-    // And the account that was there first is untouched by either.
+    // The account that was there first is untouched, and the second one
+    // exists — which is the half the old rule got wrong.
     let (status, body) = sign_in(gw.port, "twice@example.com");
     assert_eq!(status, 200, "the original account still signs in: {body}");
+    let mine = token_of(&body);
     let (status, body) = sign_in(gw.port, "other@example.com");
-    assert_eq!(
-        status, 401,
-        "the refused registration made no account: {body}"
+    assert_eq!(status, 200, "the second `twice` must exist: {body}");
+    let theirs = token_of(&body);
+
+    // And what tells them apart is the tag, which each of them can read off
+    // their own profile and neither of them chose.
+    let (status, my_profile) = http(gw.port, "GET", "/me", Some(&mine), "");
+    assert_eq!(status, 200, "/me: {my_profile}");
+    let (status, their_profile) = http(gw.port, "GET", "/me", Some(&theirs), "");
+    assert_eq!(status, 200, "/me: {their_profile}");
+    assert!(
+        my_profile.contains("\"display_name\":\"Twice\""),
+        "{my_profile}"
     );
+    assert!(
+        their_profile.contains("\"display_name\":\"twice\""),
+        "{their_profile}"
+    );
+    assert_ne!(
+        handle_of(&my_profile),
+        handle_of(&their_profile),
+        "two players called twice were handed the same handle"
+    );
+
+    // The tag is how one of them finds the other, and a bare name is not.
+    let (status, found) = http(
+        gw.port,
+        "GET",
+        &format!("/players/%23{}", tag_of(&their_profile)),
+        Some(&mine),
+        "",
+    );
+    assert_eq!(status, 200, "looking somebody up by tag: {found}");
+    assert_eq!(handle_of(&found), handle_of(&their_profile));
+
+    let (status, refused) = http(gw.port, "GET", "/players/twice", Some(&mine), "");
+    assert_eq!(
+        status, 400,
+        "a bare name is not a handle — it would answer for whichever twice \
+         registered first: {refused}"
+    );
+}
+
+/// The session token out of a sign-in answer.
+fn token_of(body: &str) -> String {
+    field(body, "token")
+}
+
+/// The `handle` field out of a `/me` or `/players` answer.
+fn handle_of(body: &str) -> String {
+    field(body, "handle")
+}
+
+/// The `tag` field out of a `/me` answer.
+fn tag_of(body: &str) -> String {
+    field(body, "tag")
+}
+
+/// One string field out of a flat JSON object, without a parser.
+fn field(body: &str, name: &str) -> String {
+    let key = format!("\"{name}\":\"");
+    let from = body
+        .find(&key)
+        .unwrap_or_else(|| panic!("no {name} in {body}"))
+        + key.len();
+    let rest = &body[from..];
+    rest[..rest.find('"').expect("unterminated string")].to_string()
 }

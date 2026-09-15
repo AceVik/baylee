@@ -721,9 +721,16 @@ the room on, and so does leaving: a room passes to whoever **joined earliest**
 and is closed only when nobody is left in it. A non-empty `password` locks the
 room; the listing carries `"locked"` and never the password.
 
-`GET /lobby/games` describes the whole arrangement in display names, never
+`GET /lobby/games` describes the whole arrangement in **handles**, never
 account ids, with `you`/`yours` answering "is that me" and `startable` saying
-whether the host's button would do anything. It answers **one page** —
+whether the host's button would do anything. A handle is `Alice#af03`: a
+display name is not unique, and `account.tag` — an identity column drawn as
+lowercase hex, padded to four digits and allowed to grow past them — is what
+tells two Alices apart. `store::display_names` is the one place the two
+halves are joined, so every roster and every `GameSetup` carries a handle and
+nothing below the gateway knows a tag exists;
+`crates/baylee-gateway/src/handle.rs` renders and parses it, and
+`docs/protocol.md` §"A name is not a claim" is normative. It answers **one page** —
 `{games, total, offset, limit}`, searched with `q` over a table's name and its
 host's — in a **fixed total order** (waiting first, then newest, then id),
 because games live in a `HashMap` and paging an unordered collection hands out

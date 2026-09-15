@@ -20,8 +20,9 @@
 use baylee_db::entity::prelude::*;
 use baylee_db::entity::{account, client_settings, deck, session_token};
 use sea_orm::{
-    ActiveValue::Set, ColumnTrait, ConnectionTrait, Database, DatabaseConnection, EntityTrait,
-    PaginatorTrait, QueryFilter,
+    ActiveValue::{NotSet, Set},
+    ColumnTrait, ConnectionTrait, Database, DatabaseConnection, EntityTrait, PaginatorTrait,
+    QueryFilter,
 };
 use time::OffsetDateTime;
 use uuid::Uuid;
@@ -89,10 +90,20 @@ impl Sandbox {
 
 /// One account, ready to insert.
 fn an_account(email: &str) -> account::ActiveModel {
+    named(email, email.split('@').next().unwrap_or(email))
+}
+
+/// One account under a name of its own, for the tests about what a name is
+/// allowed to be.
+fn named(email: &str, display_name: &str) -> account::ActiveModel {
     account::ActiveModel {
         id: Set(Uuid::now_v7()),
         email: Set(email.to_owned()),
-        display_name: Set(email.split('@').next().unwrap_or(email).to_owned()),
+        display_name: Set(display_name.to_owned()),
+        // The database hands this out. Setting it here would be the one
+        // way to collide with a later registration, because an explicit
+        // value does not move the sequence.
+        tag: NotSet,
         password_hash: Set("$argon2id$v=19$m=19456,t=2,p=1$c2FsdA$aGFzaA".to_owned()),
         created_at: Set(OffsetDateTime::now_utc()),
         confirmed_at: Set(None),
@@ -140,6 +151,67 @@ async fn an_address_is_taken_whatever_its_case() {
         second.is_err(),
         "the same address in a different case registered a second time"
     );
+
+    sandbox.close().await;
+}
+
+/// A display name is not a claim. Two players may both be Alice, and what
+/// tells them apart is the number the database hands out.
+///
+/// This is the test that would have failed before `account.tag` existed —
+/// a `unique (lower(display_name))` index refused the second Alice — and it
+/// is the whole reason the column is here.
+#[tokio::test]
+async fn two_players_may_both_be_called_alice() {
+    let sandbox = Sandbox::open("alice").await;
+
+    let first = Account::insert(named("one@example.com", "Alice"))
+        .exec_with_returning(&sandbox.db)
+        .await
+        .expect("the first Alice registers");
+    let second = Account::insert(named("two@example.com", "alice"))
+        .exec_with_returning(&sandbox.db)
+        .await
+        .expect("the second Alice registers, in a different case");
+
+    assert_eq!(first.display_name, "Alice");
+    assert_eq!(second.display_name, "alice");
+    assert_ne!(
+        first.tag, second.tag,
+        "two accounts were handed the same tag"
+    );
+
+    sandbox.close().await;
+}
+
+/// The tag is an identity column, so nothing in the gateway picks one and
+/// two registrations cannot race for the same number.
+#[tokio::test]
+async fn a_tag_is_the_databases_to_hand_out() {
+    let sandbox = Sandbox::open("tag").await;
+
+    let made = Account::insert(an_account("first@example.com"))
+        .exec_with_returning(&sandbox.db)
+        .await
+        .expect("registering");
+    assert_eq!(made.tag, 1, "the first account in a fresh schema is #0001");
+
+    let next = Account::insert(an_account("second@example.com"))
+        .exec_with_returning(&sandbox.db)
+        .await
+        .expect("registering");
+    assert_eq!(next.tag, 2);
+
+    // And the column refuses a second account the same number, which is
+    // what makes a tag a way to find somebody.
+    let clash = sandbox
+        .db
+        .execute_unprepared(
+            "INSERT INTO account (id, email, display_name, tag, password_hash, created_at, lang) \
+             VALUES (gen_random_uuid(), 'third@example.com', 'Third', 2, 'x', now(), 'de')",
+        )
+        .await;
+    assert!(clash.is_err(), "two accounts were given tag 2");
 
     sandbox.close().await;
 }

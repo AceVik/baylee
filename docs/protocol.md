@@ -580,6 +580,42 @@ trying a log-in that is going to be refused. The mail itself is written in
 the `lang` the account registered with — kept on the account, so a resend
 months later still lands in the language the player signed up in.
 
+## A name is not a claim: `Alice#af03`
+
+A display name is **not** unique. Two players may both register as Alice, and
+what tells them apart is `account.tag` — an identity column, so the database
+hands it out and nothing in the gateway picks one.
+
+A tag is drawn as **lowercase hex, padded to four digits and allowed to grow
+past them**: `#0001`, `#af03`, `#10000` for the account after the sixty-five
+thousand five hundred and thirty-sixth. That last case is the whole reason
+the width is not fixed. Discord's four digits worked because the pair
+`(name, discriminator)` was the identity — two people could both be `#0001`
+under different names — and a tag that is unique on its own is a user number
+instead, which runs out.
+
+A handle is `name` + `#` + that, which is why
+`auth::valid_display_name` refuses `#` inside a name, along with `@` (a name
+on a screen that also shows addresses) and spaces. A name is three to sixteen
+ASCII letters and digits with `_` and `-` between them, beginning and ending
+on a letter or a digit.
+
+Where a handle appears: every `player` and `host` in the lobby listing, every
+`SeatIdentity.display_name` in a `GameStatic` roster, and `/me`. Nothing
+*below* the gateway knows a tag exists — the view still carries one string,
+and `store::display_names` is the single place the two halves are joined.
+
+`GET /players/{handle}` is how one player finds another: `Alice%23af03`, or
+`%23af03` when all that was pasted was the tag. A bare `Alice` is a `400`,
+because `af03` is itself a legal display name and a lookup that guessed
+between the two would answer differently depending on who had registered
+first. It answers `{id, display_name, tag, handle}` — never an address — and
+needs a session, because the tags are sequential.
+
+That sequence is a registration counter and the design accepts it: it is the
+same thing a BattleTag leaks, and the price of a tag a person can read out
+over voice chat rather than a second UUID.
+
 ## From an account to a seat
 
 The websocket below is opened with a *seat token*. There is one way to be
@@ -594,6 +630,8 @@ from a curl recipe into a contract:
 | confirm | `GET /auth/confirm?token=…` (the link in the mail) | `{"ok":true}` |
 | send it again | `POST /auth/confirm/resend` `{email}` | `{"ok":true}`, always |
 | sign in | `POST /auth/login` `{email, password}` | `{token, expires_at}` |
+| who am I | `GET /me` | `{id, email, display_name, tag, handle}` |
+| who is that | `GET /players/{handle}` | `{id, display_name, tag, handle}`, `400` without a `#`, `404` for nobody |
 | decks | `GET /decks` | `[{id, name, cards, sideboard, commander}]` |
 | one deck | `GET /decks/{id}` | `{id, name, cards:[…], sideboard:[…], commander}` |
 | save a deck | `POST /decks` `{name, cards:["N Card Name"], sideboard, commander}` | `{deck_id}` |
@@ -768,7 +806,7 @@ One game in that page reads:
                "deck": "", "ready": true } ] }
 ```
 
-Never an account id — a `player` is a display name, and `you` / `yours` answer
+Never an account id — a `player` is a handle (`Alice#af03`), and `you` / `yours` answer
 "is that me" without the listing having to carry anyone's account. `kind` is
 `"human"` or `"ai"`, and `ai` names a difficulty from `AIProfile::NAMED`
 (`novice`, `steady`, `sharp`); one that does not exist is a `400` rather than a

@@ -10,6 +10,7 @@ mod art;
 mod auth;
 mod cosmetics;
 mod engine;
+mod handle;
 mod lobby;
 mod mail;
 mod pool;
@@ -28,7 +29,7 @@ use serde::{Deserialize, Serialize};
 use std::net::{IpAddr, SocketAddr};
 use std::path::PathBuf;
 use std::sync::Arc;
-use store::{Account, Confirmation, Deck, StoredToken};
+use store::{Confirmation, Deck, StoredToken};
 use tracing_subscriber::EnvFilter;
 
 /// Shared gateway state.
@@ -182,6 +183,7 @@ async fn main() {
         .route("/auth/confirm/resend", post(resend_confirmation))
         .route("/auth/logout", post(logout))
         .route("/me", get(me))
+        .route("/players/{handle}", get(player))
         .route("/decks", get(list_decks).post(create_deck))
         .route(
             "/decks/{id}",
@@ -577,15 +579,20 @@ async fn register(
         return Err(err(StatusCode::BAD_REQUEST, "invalid password"));
     }
     // Anti-enumeration: identical response AND identical work whether or
-    // not the e-mail/display name was free — hashing always (~100 ms),
-    // so timing can't tell "taken" (fast reject) from "created".
-    // Argon2 is deliberately expensive and runs off the async worker.
+    // not the e-mail was free — hashing always (~100 ms), so timing can't
+    // tell "taken" (fast reject) from "created". Argon2 is deliberately
+    // expensive and runs off the async worker.
+    //
+    // A display name is no longer among the things that can be taken, which
+    // makes this strictly stronger than it was: a refusal used to be able to
+    // mean "that name exists", and the only thing it can mean now is that
+    // the address does.
     let password = body.password.clone();
     let password_hash = tokio::task::spawn_blocking(move || auth::hash_password(&password))
         .await
         .map_err(|_| err(StatusCode::INTERNAL_SERVER_ERROR, "hashing failed"))?;
     let now = auth::now_secs();
-    let account = Account {
+    let account = store::NewAccount {
         id: auth::new_id(),
         email: body.email.to_lowercase(),
         display_name: body.display_name,
@@ -597,15 +604,17 @@ async fn register(
         confirmed_at: (!state.mail.required()).then_some(now),
         lang: body.lang,
     };
-    let id = account.id.clone();
     // The refusal is the unique index's, not a check's. Reading "is this
     // address free" and then writing is two statements another registration
     // can slip between, and both of them would have read "free".
+    //
+    // What comes back is the row the database made: the tag is its to hand
+    // out, so the account only exists in full once it has been written.
     let created = store::create_account(&state.db, account)
         .await
         .map_err(|e| db_down(&e))?;
-    if created {
-        mail_confirmation(&state, &id).await;
+    if let Some(made) = &created {
+        mail_confirmation(&state, &made.id).await;
     }
     // Anti-enumeration again, and the reason the mail is sent before the
     // answer rather than after it: the answer is the same either way, so it
@@ -899,6 +908,42 @@ async fn me(
         "id": account.id,
         "email": account.email,
         "display_name": account.display_name,
+        // The two halves separately, because this is the one caller that
+        // wants them apart: a settings screen shows the name in a field a
+        // player can edit and the tag beside it as something they cannot.
+        "tag": handle::tag_text(account.tag),
+        "handle": handle::handle(&account.display_name, account.tag),
+    })))
+}
+
+/// The account a handle names.
+///
+/// `GET /players/Alice%23af03`, or `GET /players/%23af03` when all that was
+/// pasted was the tag. What comes back is what one player may know about
+/// another: the id, the name and the tag — never the address.
+///
+/// Behind a session, because the tags are sequential and walking them would
+/// otherwise list every account on the gateway to anyone who asked. A signed
+/// -in player can still walk them, which is the cost of a tag a person can
+/// type; it is the same cost a `BattleTag` has, and the reason this answers
+/// nothing an opponent could not read off a lobby row.
+async fn player(
+    State(state): State<Shared>,
+    headers: HeaderMap,
+    Path(typed): Path<String>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorBody>)> {
+    let _ = authed(&state, &headers).await?;
+    let tag = handle::parse_tag(&typed)
+        .ok_or_else(|| err(StatusCode::BAD_REQUEST, "a handle carries a #tag"))?;
+    let found = store::account_by_tag(&state.db, tag)
+        .await
+        .map_err(|e| db_down(&e))?
+        .ok_or_else(|| err(StatusCode::NOT_FOUND, "no such player"))?;
+    Ok(Json(serde_json::json!({
+        "id": found.id,
+        "display_name": found.display_name,
+        "tag": handle::tag_text(found.tag),
+        "handle": handle::handle(&found.display_name, found.tag),
     })))
 }
 

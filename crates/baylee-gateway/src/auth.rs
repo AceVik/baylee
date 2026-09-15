@@ -219,9 +219,31 @@ pub fn valid_email(email: &str) -> bool {
 }
 
 /// Display-name validation (shown to other players).
+///
+/// Three to sixteen characters, ASCII letters and digits with `_` and `-`
+/// between them, beginning and ending on a letter or a digit.
+///
+/// Sixteen rather than thirty-two because the name is drawn on a seat's own
+/// bar, where the shelf projects 151 px on an eight-seat ring and a long
+/// name is what pushes that bar down a density. The character set is a
+/// refusal list as much as an allow list: `@` would make a name look like an
+/// address on a screen that also shows addresses, a space makes two names
+/// that read alike (`Alice Smith` and `Alice  Smith`), and `#` is the one
+/// character that must never appear in a name, because [`crate::handle`]
+/// puts it between a name and a tag. A leading or trailing `_` is the
+/// cheapest way to dress a name up as somebody else's.
+///
+/// What this no longer does is decide who gets the name. Names are not
+/// unique — `Alice#3f0a` and `Alice#af03` are two people — so this refuses
+/// *shapes*, never claims.
 #[must_use]
 pub fn valid_display_name(name: &str) -> bool {
-    (3..=32).contains(&name.len())
+    if !(3..=16).contains(&name.len()) {
+        return false;
+    }
+    let plain = |c: Option<char>| c.is_some_and(|c| c.is_ascii_alphanumeric());
+    plain(name.chars().next())
+        && plain(name.chars().next_back())
         && name
             .chars()
             .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-')
@@ -293,6 +315,16 @@ mod tests {
         assert!(!valid_display_name("ab"));
         assert!(!valid_display_name("has space"));
         assert!(!valid_display_name("emoji🎉"));
+        // Sixteen, not thirty-two.
+        assert!(valid_display_name("sixteen_chars_yz"));
+        assert!(!valid_display_name("seventeen_chars_x"));
+        // An address is not a name, and a name may not carry the one
+        // character that separates a name from its tag.
+        assert!(!valid_display_name("alice@example.com"));
+        assert!(!valid_display_name("Alice#af03"));
+        // Dressing a name up as somebody else's with a separator on the end.
+        assert!(!valid_display_name("_Alice"));
+        assert!(!valid_display_name("Alice-"));
     }
 
     #[test]

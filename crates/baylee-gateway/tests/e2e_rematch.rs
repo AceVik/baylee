@@ -220,10 +220,13 @@ async fn both_players_press_rematch_and_land_at_the_same_new_table() {
     let statics_b = opening(&mut ws_b).await;
     assert_eq!(statics_a.your_seat, baylee_core::ids::PlayerId::new(0));
     assert_eq!(statics_b.your_seat, baylee_core::ids::PlayerId::new(1));
-    assert_eq!(
-        statics_a.seat_name(baylee_core::ids::PlayerId::new(1)),
-        "ben_rematch",
-        "the same two people, in the same two chairs"
+    // A roster carries `name#tag`, because a display name is not unique.
+    assert!(
+        statics_a
+            .seat_name(baylee_core::ids::PlayerId::new(1))
+            .starts_with("ben_rematch#"),
+        "the same two people, in the same two chairs: {}",
+        statics_a.seat_name(baylee_core::ids::PlayerId::new(1))
     );
 
     agent.abort();
@@ -385,9 +388,12 @@ async fn the_room_answers_to_its_own_id_as_well() {
     let statics = opening(&mut ws_a).await;
     opening(&mut ws_b).await;
     assert_eq!(statics.your_seat, baylee_core::ids::PlayerId::new(0));
-    assert_eq!(
-        statics.seat_name(baylee_core::ids::PlayerId::new(1)),
-        "gus_rematch"
+    assert!(
+        statics
+            .seat_name(baylee_core::ids::PlayerId::new(1))
+            .starts_with("gus_rematch#"),
+        "{}",
+        statics.seat_name(baylee_core::ids::PlayerId::new(1))
     );
 
     agent.abort();

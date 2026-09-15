@@ -157,13 +157,19 @@ async fn human_vs_human_both_seats_receive_updates() {
     let statics: baylee_view::GameStatic =
         serde_json::from_slice(&msg.static_json).expect("static json");
     assert_eq!(statics.your_seat, baylee_core::ids::PlayerId::new(1));
-    assert_eq!(
-        statics.seat_name(baylee_core::ids::PlayerId::new(0)),
-        "alice_hvh"
-    );
-    assert_eq!(
-        statics.seat_name(baylee_core::ids::PlayerId::new(1)),
-        "bob_hvh"
+    // A roster carries handles, not bare names: a display name is not
+    // unique, so two players called Alice at one table would otherwise be
+    // one name twice. Nothing below the gateway knows a tag exists — the
+    // view still carries a string — which is why this is asserted on its
+    // shape rather than on a field.
+    let alice = statics.seat_name(baylee_core::ids::PlayerId::new(0));
+    let bob = statics.seat_name(baylee_core::ids::PlayerId::new(1));
+    assert!(alice.starts_with("alice_hvh#"), "{alice}");
+    assert!(bob.starts_with("bob_hvh#"), "{bob}");
+    assert_ne!(
+        alice.rsplit('#').next(),
+        bob.rsplit('#').next(),
+        "two seats were handed the same tag: {alice} / {bob}"
     );
     assert!(
         statics.prints.iter().any(Option::is_some),

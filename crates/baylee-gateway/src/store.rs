@@ -34,13 +34,37 @@ use baylee_db::entity::{
     account, client_settings, confirmation, deck, session_token, standing_answer,
 };
 use sea_orm::{
-    ActiveValue::Set,
+    ActiveValue::{NotSet, Set},
     ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, QueryOrder,
     sea_query::{Expr, ExprTrait, Func, OnConflict},
 };
 use std::collections::HashMap;
 use time::OffsetDateTime;
 use uuid::Uuid;
+
+/// What a registration supplies, which is everything the database does not.
+///
+/// Separate from [`Account`] so a caller *cannot* supply a tag: it is an
+/// identity column, and a value written into it by hand would not move the
+/// sequence and would collide with a later registration. The id is still
+/// the gateway's for now; that is the next thing to move.
+#[derive(Clone, Debug)]
+pub struct NewAccount {
+    /// Account id (`UUIDv7`).
+    pub id: String,
+    /// Login e-mail.
+    pub email: String,
+    /// Display name shown in the lobby. Not unique.
+    pub display_name: String,
+    /// Argon2id PHC password hash.
+    pub password_hash: String,
+    /// Created at (unix seconds).
+    pub created_at: u64,
+    /// When the address was confirmed, if it has been.
+    pub confirmed_at: Option<u64>,
+    /// The language the account registered in, for the mail it is sent.
+    pub lang: String,
+}
 
 /// A registered account. The username is the e-mail address; the
 /// display name is shown to other players.
@@ -50,12 +74,12 @@ pub struct Account {
     pub id: String,
     /// Login e-mail (lowercased, unique).
     pub email: String,
-    /// Display name shown in the lobby (unique, case-insensitively).
+    /// Display name shown in the lobby. Not unique — [`Account::tag`] is.
     pub display_name: String,
+    /// The discriminator, handed out by the database. See [`crate::handle`].
+    pub tag: i32,
     /// Argon2id PHC password hash.
     pub password_hash: String,
-    /// Created at (unix seconds).
-    pub created_at: u64,
     /// When the address was confirmed, if it has been.
     ///
     /// `None` on a gateway that sends mail means the account cannot log in
@@ -178,8 +202,8 @@ impl From<account::Model> for Account {
             id: id(row.id),
             email: row.email,
             display_name: row.display_name,
+            tag: row.tag,
             password_hash: row.password_hash,
-            created_at: secs(row.created_at),
             confirmed_at: row.confirmed_at.map(secs),
             lang: row.lang,
         }
@@ -243,7 +267,13 @@ pub async fn account_by_email(db: &DatabaseConnection, email: &str) -> Result<Op
         .map(Into::into))
 }
 
-/// Display names for a set of account ids, for the lobby's rosters.
+/// Handles for a set of account ids, for the lobby's rosters.
+///
+/// `Alice#af03`, not `Alice`: a display name is no longer unique, so a
+/// roster of bare names would put two people called Alice at one table with
+/// nothing between them. This is the only place the two halves are joined —
+/// every roster and every `GameSetup` goes through here, and nothing below
+/// the gateway ever learns that a tag exists.
 ///
 /// One query rather than one per seat: a full table at eight chairs was eight
 /// round trips to name eight people.
@@ -264,33 +294,57 @@ pub async fn display_names(
         .all(db)
         .await?
         .into_iter()
-        .map(|row| (id(row.id), row.display_name))
+        .map(|row| {
+            (
+                id(row.id),
+                crate::handle::handle(&row.display_name, row.tag),
+            )
+        })
         .collect())
 }
 
-/// Write a new account, answering `false` when the address or the display
-/// name is already taken.
+/// The account a tag names, for a player looking somebody up.
+///
+/// # Errors
+///
+/// If the database refuses.
+pub async fn account_by_tag(db: &DatabaseConnection, tag: i32) -> Result<Option<Account>> {
+    Ok(Accounts::find()
+        .filter(account::Column::Tag.eq(tag))
+        .one(db)
+        .await?
+        .map(Into::into))
+}
+
+/// Write a new account, answering `None` when the address is already taken.
 ///
 /// The refusal comes from the unique index rather than from a check, which is
 /// what closes the window the file-backed version had: two registrations of
-/// one address could both read "free" and both write.
+/// one address could both read "free" and both write. A *display name* is no
+/// longer among the things that can be taken.
+///
+/// What comes back is the row the database made, not the one that went in,
+/// because the tag is the database's to hand out: [`account::Column::Tag`]
+/// is an identity column and is `NotSet` on the way in. The caller needs it
+/// — the confirmation mail names the account it is about.
 ///
 /// # Errors
 ///
 /// If the database refuses for any reason other than that clash.
-pub async fn create_account(db: &DatabaseConnection, new: Account) -> Result<bool> {
+pub async fn create_account(db: &DatabaseConnection, new: NewAccount) -> Result<Option<Account>> {
     let row = account::ActiveModel {
         id: Set(uuid(&new.id).unwrap_or_else(Uuid::now_v7)),
         email: Set(new.email),
         display_name: Set(new.display_name),
+        tag: NotSet,
         password_hash: Set(new.password_hash),
         created_at: Set(at(new.created_at)),
         confirmed_at: Set(new.confirmed_at.map(at)),
         lang: Set(new.lang),
     };
-    match Accounts::insert(row).exec(db).await {
-        Ok(_) => Ok(true),
-        Err(e) if is_taken(&e) => Ok(false),
+    match Accounts::insert(row).exec_with_returning(db).await {
+        Ok(made) => Ok(Some(made.into())),
+        Err(e) if is_taken(&e) => Ok(None),
         Err(e) => Err(e.into()),
     }
 }

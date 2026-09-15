@@ -17,9 +17,16 @@ pub struct Model {
     /// rather than by lowercasing the column, because the address a
     /// confirmation mail is sent to should be the one its owner recognises.
     pub email: String,
-    /// Display name, unique case-insensitively for the same reason and by
-    /// the same means.
+    /// Display name. **Not** unique: two players may both be Alice.
     pub display_name: String,
+    /// The discriminator that tells two Alices apart, rendered to a player
+    /// as lowercase hex — `Alice#af03`.
+    ///
+    /// An identity column, so the database hands it out and the gateway
+    /// never picks one. It is therefore also a registration counter, which
+    /// is a leak the design accepts: the same one a `BattleTag` has, and the
+    /// price of a tag you can type at somebody rather than a second UUID.
+    pub tag: i32,
     /// Argon2id PHC hash. Never a password.
     pub password_hash: String,
     /// When the account was created.
