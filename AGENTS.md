@@ -8,7 +8,8 @@
 - Format: `cargo fmt --all`
 - Codegen (regenerate subtypes, card stubs, registry, scripts index):
   `cargo run -p xtask -- codegen`
-- Codegen reproducibility check (CI): `cargo run -p xtask -- codegen --check`
+- Codegen reproducibility check (developer's machine, **not** CI — a runner has
+  no card-script reference): `cargo run -p xtask -- codegen --check`
 - Explain a card (Scryfall data + card-script reference script side by side):
   `cargo run -p xtask -- explain --name "Force of Will"`
 - Run the Bevy duel client (vs AI): `cargo run -p baylee-client`

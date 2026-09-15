@@ -38,7 +38,7 @@ runs:
     #
     # This restores and does **not** save, which is the whole point of the
     # split. `actions/cache` saves in a post step, and that post step is
-    # **skipped when the job fails** — so a `codegen-check` that failed for
+    # **skipped when the job fails** — so a fetching job that failed for
     # any reason at all left no cache behind, the next run started cold, and
     # fetching 1371 payloads at Scryfall's rate limit took it 28 minutes
     # before it could fail again. Measured on run 34969174505: the restore

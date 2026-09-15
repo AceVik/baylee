@@ -566,7 +566,9 @@ a loyalty ability draws as what it does instead of as `+1`.
 Three things about it are load-bearing. It is **generated**, because the
 answer is read out of the English oracle text against the compiled ability
 list and a running game holds neither — `xtask` is the one place that links
-both, and `codegen --check` is what keeps the table from going stale. The unit
+both, and `codegen --check` on a developer's machine is what keeps the table
+from going stale (it cannot run in CI: a runner has no card-script
+reference). The unit
 is a **face**, because abilities are per face (`abilities_for_face`, and a
 back face never inherits) while `AbilityRef` carries no face: whoever looks a
 line up supplies it, and for a stack entry that is *not* the face the source

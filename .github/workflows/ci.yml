@@ -175,7 +175,20 @@ jobs:
       - if: matrix.extra-target
         run: cargo build --workspace --bins --target ${{ matrix.extra-target }}
 
-  codegen-check:
+  # Cards are not generated here, and the job that tried to is gone. `codegen`
+  # reads the external card-script reference, which is GPL and deliberately
+  # not vendored (`NOTICE`), so a runner has none of it — `note: card-script
+  # reference not found at …/mtg/card-scripts, skipping index` — and the
+  # generator then writes different files than the machine that committed
+  # them: run 34990754077 reported 85 stale files, 79 of them for no reason
+  # but the absent corpus. Generating a card is a developer's job, and what
+  # comes out of it is committed code the compiler and the tests already
+  # check. What CI checks about the *cards* is this job: every `//! Oracle:`
+  # header against the CardDef the code builds, and against the oracle text
+  # and type line Scryfall prints — drift that stable clippy and the tests
+  # cannot see, and it has caught a card carrying the wrong cost and P/T
+  # through a "fix".
+  validate:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -186,66 +199,31 @@ jobs:
         with:
           cache-on-failure: true
           shared-key: xtask
-      - run: cargo run -p xtask -- codegen --check
-      # `codegen` is the only command that *fetches*, so it is the only one
-      # that has anything to save — and it has to save even when it fails,
-      # because a job that fetched for half an hour and then reported stale
-      # files has still done the expensive half. `actions/cache`'s own post
-      # step would not: it is skipped on a failed job, which is what kept
-      # every run of this job starting from an empty cache.
-      # `!cancelled()` and deliberately **not** `always()`, which this job
-      # was given for one commit and which immediately poisoned the key.
-      # `actions/cache/save` refuses to overwrite a key that exists, so the
-      # first writer owns it: a run cancelled by the concurrency group four
-      # minutes in saved a 17 KB directory under the key that the run still
-      # fetching its 1371 payloads was going to write 30 MB to, and the good
-      # cache then had nowhere to go.
-      #
-      # A cancellation is the only way this job ends with a *partial* fetch —
-      # `codegen` fetches the whole pool before it compares anything, so even
-      # a failing run has a complete cache to leave behind, which is the case
-      # `!cancelled()` still covers and the reason the guard is not simply
-      # `success()`.
+      # `validate` reads a cache it cannot fill. It looks every printing up
+      # through `cached_printing`, a pure read with no network at all, so on a
+      # cold cache it compares nothing and says so ("only 0 comparisons were
+      # made against the printings; the sweep is not reaching the pool")
+      # rather than reporting a clean pool. Filling it used to be `codegen`'s
+      # side effect, which is how a check about card headers came to depend on
+      # a generator. `xtask scryfall-cache` is the command that fetches and
+      # does nothing else, and it is one bulk download — 2.3 s on this runner,
+      # measured cold in run 34990754077.
+      - run: cargo run -p xtask -- scryfall-cache
+      - run: cargo run -p xtask -- validate
+      # The fetch is the expensive half, so it is saved even when the
+      # comparison fails: `actions/cache`'s own post step is skipped on a
+      # failed job, which is what kept every run of this job starting from an
+      # empty cache. `!cancelled()` and deliberately **not** `always()`, which
+      # this job was given for one commit and which immediately poisoned the
+      # key — `actions/cache/save` refuses to overwrite a key that exists, so
+      # a run cancelled four minutes in saved a 17 KB directory under the key
+      # the full fetch was going to write 30 MB to.
       - uses: actions/cache/save@v4
         if: ${{ !cancelled() }}
         continue-on-error: true
         with:
           path: data/scryfall-cache
           key: ${{ steps.scryfall.outputs.key }}
-
-  # The card data is only as good as this check: it re-reads the acceptance
-  # list and compares every card's doc header against the CardDef the code
-  # actually builds. It has caught real drift (a card carrying the wrong cost
-  # and P/T through a "fix"), which stable clippy and the tests cannot see.
-  validate:
-    runs-on: ubuntu-latest
-    # `validate` reads a cache it cannot fill. It looks every printing up
-    # through `cached_printing`, a pure read with no network at all, so on a
-    # cold cache it does not fetch — it compares nothing and says so ("only 0
-    # comparisons were made against the printings; the sweep is not reaching
-    # the pool"), which is the failure it is written to have rather than
-    # reporting a clean pool. `codegen` is the one command that fetches, and
-    # `scryfall::fetch_named` writes each payload whether or not `--check`
-    # was passed, so ordering the two puts a warm cache under this job on the
-    # same key. It costs the parallelism of one job and buys a check that is
-    # about the cards rather than about the runner's disk.
-    #
-    # It waits for that job but does not depend on its verdict: the two answer
-    # different questions — `codegen-check` is about the generated files and
-    # `validate` about the card headers — and a plain `needs:` turned every
-    # red `codegen-check` into a `validate` that reported `skipped`, which
-    # says less than either a pass or a failure would.
-    needs: codegen-check
-    if: ${{ !cancelled() }}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: ./.github/actions/scryfall-cache
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
-        with:
-          cache-on-failure: true
-          shared-key: xtask
-      - run: cargo run -p xtask -- validate
 
   # The browser client compiles nothing on a native build: its localStorage
   # settings and Web Crypto entropy live behind `cfg(target_arch = "wasm32")`

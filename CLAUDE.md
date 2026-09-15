@@ -43,7 +43,7 @@ Card, codegen, and data tooling (`xtask`):
 
 ```bash
 cargo run -p xtask -- codegen            # regen subtypes, card stubs, registry, scripts index
-cargo run -p xtask -- codegen --check    # CI: fail if generated files are stale
+cargo run -p xtask -- codegen --check    # fail if generated files are stale (developer's machine only)
 cargo run -p xtask -- validate           # card headers vs. the CardDef the code builds
 cargo run -p xtask -- ledger             # assign a CardIndex to every corpus card that has none
 cargo run -p xtask -- ledger --check     # report what would be assigned instead of writing it
@@ -348,9 +348,17 @@ process. In a browser the same handover is `?game=…&token=…` on the page URL
 
 CI (`.github/workflows/ci.yml`) runs more than the four commands above: the
 test suite **also in `--release`** (a `debug_assert!` once hid mana payment
-from every release build), `codegen --check`, `validate`, a
+from every release build), `validate`, a
 `wasm32-unknown-unknown` check of the client, benches, an MSRV check against
 exactly 1.88, `cargo-deny`, and `cargo-audit`.
+
+**Codegen is a developer's tool and does not run in CI.** It reads the
+card-script reference, which is GPL and deliberately not vendored, so a runner
+has none of it and the generator writes different files there than on the
+machine that committed them — `codegen --check` reported 79 cards stale for
+that reason alone, in a job that could never have passed. A card is generated
+here and committed as code; what CI checks about it is `validate`, which
+compares the committed code against the printing rather than regenerating it.
 
 ## Architecture
 

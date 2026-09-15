@@ -153,8 +153,11 @@ One writer each, and that is what keeps the numbers still:
 - **The name table** — codegen again, from the pool it compiles, which makes
   it two-phase like the ability-line table: a card added by the run that
   writes the table gets its row on the *next* run, and `decks::name_table_tests`
-  is red in between. `codegen --check` in CI is what turns a forgotten second
-  run into a build failure.
+  is red in between. `decks::name_table_tests` is what turns a forgotten second
+  run into a build failure, and it is a test rather than `codegen --check`
+  because codegen does not run in CI: a runner has no card-script reference,
+  so the generator there writes different files than the machine that
+  committed them.
 
 Card files still carry the number itself (`index = 11391`) rather than
 `index::MOX_OPAL`; switching them is a separate change, waiting on the macro
