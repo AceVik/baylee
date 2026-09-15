@@ -8,8 +8,6 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes::creature;
 
-static ENEMY_CREATURE: Filter = Filter::And(&[Filter::ControlledByOpponent, Filter::CREATURE]);
-
 card!(
     index = index::PALACE_JAILER,
     oracle_id = "180eda7c-fca2-403b-85cd-8ffebaf9f408",
@@ -32,9 +30,11 @@ card!(
         triggered!(
             Trigger::EntersBattlefield(&Filter::This),
             &[Effect::ExileLinked {
-                target: TargetSpec::Object(&ENEMY_CREATURE),
+                target: TargetSpec::Object(&Filter::OPPONENT_CREATURE),
             }],
-            targets = Some(TargetReq::one(TargetSpec::Object(&ENEMY_CREATURE)))
+            targets = Some(TargetReq::one(TargetSpec::Object(
+                &Filter::OPPONENT_CREATURE
+            )))
         ),
     ],
 );

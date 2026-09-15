@@ -7,8 +7,6 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-static CHECK: Filter = Filter::And(&[Filter::ControlledByYou, Filter::BASIC_LAND]);
-
 card!(
     index = index::CINDER_GLADE,
     oracle_id = "dfac0258-e148-4d7d-8ded-fc2466d9caa6",
@@ -20,7 +18,7 @@ card!(
         types = TypeSet::LAND,
         subtypes = &[subtypes::land::MOUNTAIN, subtypes::land::FOREST],
         enter_modifiers = &[EnterModifier::TappedUnlessCount {
-            filter: &CHECK,
+            filter: &Filter::YOUR_BASIC_LAND,
             at_least: 2
         }],
     ),],

@@ -4,8 +4,6 @@
 // IMPLEMENTED — copies the creature spell and strips LEGENDARY from the copy
 // (CR 707.10), so the legend rule does not eat it when both resolve.
 
-static YOUR_CREATURE_SPELL: Filter = Filter::And(&[Filter::ControlledByYou, Filter::CREATURE]);
-
 use baylee_cards_dsl::prelude::*;
 
 card!(
@@ -23,6 +21,6 @@ card!(
         &[Effect::CopyTargetSpell {
             mods: &[CopyMod::RemoveSupertype(SupertypeSet::LEGENDARY,)],
         }],
-        targets = Some(TargetReq::one(TargetSpec::Spell(&YOUR_CREATURE_SPELL)))
+        targets = Some(TargetReq::one(TargetSpec::Spell(&Filter::YOUR_CREATURE)))
     )],
 );

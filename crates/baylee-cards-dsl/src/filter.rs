@@ -147,8 +147,30 @@ impl Filter {
     /// same data.
     pub const LEGENDARY_CREATURE: Self =
         Self::And(&[Self::CREATURE, Self::HasSupertype(SupertypeSet::LEGENDARY)]);
+    /// A creature that is attacking.
+    pub const ATTACKING_CREATURE: Self = Self::And(&[Self::CREATURE, Self::Attacking]);
     /// A creature you control.
     pub const YOUR_CREATURE: Self = Self::And(&[Self::CREATURE, Self::ControlledByYou]);
     /// A creature an opponent controls.
     pub const OPPONENT_CREATURE: Self = Self::And(&[Self::CREATURE, Self::ControlledByOpponent]);
+    /// A land you control.
+    ///
+    /// Noun first, and here that is a decision rather than a habit: the pool
+    /// wrote this one adjective first, so the byte-identical spelling would
+    /// have been `And(&[ControlledByYou, LAND])` — and that is the one order
+    /// this constant may not have, because [`f!`](crate::f) expands
+    /// `f!(your LAND)` noun first and a constant the macro cannot spell is a
+    /// filter with two names again. So the clauses moved instead: ten slow
+    /// lands count this one and the commit that reordered them names every
+    /// card whose dump changed.
+    pub const YOUR_LAND: Self = Self::And(&[Self::LAND, Self::ControlledByYou]);
+    /// A basic land you control.
+    ///
+    /// Noun first for the reason [`Self::YOUR_LAND`] gives; the noun is
+    /// [`Self::BASIC_LAND`], so this nests rather than listing three
+    /// clauses, which is what `f!(your BASIC_LAND)` builds — and is why the
+    /// ten battle lands that count it are the only cards that may use it.
+    /// A card that flattens the three clauses is a different filter and
+    /// keeps its own.
+    pub const YOUR_BASIC_LAND: Self = Self::And(&[Self::BASIC_LAND, Self::ControlledByYou]);
 }

@@ -15,7 +15,6 @@ static BIG_ENEMY_CREATURE: Filter = Filter::And(&[
     Filter::CREATURE,
     Filter::CmcAtLeast(3),
 ]);
-static YOUR_CREATURES: Filter = Filter::And(&[Filter::ControlledByYou, Filter::CREATURE]);
 
 use crate::tokens::SOLDIER_1_1_WHITE as SOLDIER;
 
@@ -42,12 +41,12 @@ card!(
             0,
             &[
                 Effect::AddCounterFilter {
-                    filter: &YOUR_CREATURES,
+                    filter: &Filter::YOUR_CREATURE,
                     kind: CounterKind::P1P1,
                     amount: Amount::Fixed(1),
                 },
                 Effect::continuous(
-                    &YOUR_CREATURES,
+                    &Filter::YOUR_CREATURE,
                     Modifier::AddKeyword(KeywordSet::FLYING),
                     Duration::UntilYourNextTurn
                 ),

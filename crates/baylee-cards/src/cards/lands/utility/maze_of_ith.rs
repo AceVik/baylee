@@ -3,8 +3,6 @@
 //! Set: DMR #250 — Dominaria Remastered | Scryfall ID: 5889fde1-730d-43d0-aaa4-499784a80530 | Oracle ID: 38a12bd7-4394-44a8-91a0-6a4ff7fa4f71
 // IMPLEMENTED — untap + damage prevention to/from the target until EOT.
 
-static ATTACKING_CREATURE: Filter = Filter::And(&[Filter::CREATURE, Filter::Attacking]);
-
 use baylee_cards_dsl::prelude::*;
 
 card!(
@@ -28,6 +26,6 @@ card!(
                 Duration::UntilEndOfTurn
             ),
         ],
-        target = Some(TargetSpec::Object(&ATTACKING_CREATURE))
+        target = Some(TargetSpec::Object(&Filter::ATTACKING_CREATURE))
     )],
 );

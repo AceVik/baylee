@@ -6,8 +6,6 @@
 
 use baylee_cards_dsl::prelude::*;
 
-static CHECK: Filter = Filter::And(&[Filter::ControlledByYou, Filter::LAND]);
-
 card!(
     index = index::DREAMROOT_CASCADE,
     oracle_id = "dd8538e6-cd5f-4a88-aff5-eb5e76ce8ddb",
@@ -18,7 +16,7 @@ card!(
         name = "Dreamroot Cascade",
         types = TypeSet::LAND,
         enter_modifiers = &[EnterModifier::TappedUnlessCount {
-            filter: &CHECK,
+            filter: &Filter::YOUR_LAND,
             at_least: 2
         }],
     ),],

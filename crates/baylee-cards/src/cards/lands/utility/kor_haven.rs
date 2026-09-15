@@ -4,8 +4,6 @@
 //! Set: NEM #141 — Nemesis | Scryfall ID: 3d5529ca-5c20-4dfd-8595-96d6dfa6debe | Oracle ID: 276cece9-f9f2-46e6-ae76-daddaa2fb9ab
 // IMPLEMENTED — {C} mana + attacking-creature damage prevention.
 
-static ATTACKING_CREATURE: Filter = Filter::And(&[Filter::CREATURE, Filter::Attacking]);
-
 use baylee_cards_dsl::prelude::*;
 
 card!(
@@ -28,7 +26,7 @@ card!(
                 Modifier::PreventDamageFromIt,
                 Duration::UntilEndOfTurn
             )],
-            target = Some(TargetSpec::Object(&ATTACKING_CREATURE))
+            target = Some(TargetSpec::Object(&Filter::ATTACKING_CREATURE))
         ),
     ],
 );

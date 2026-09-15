@@ -5,8 +5,6 @@
 // IMPLEMENTED — blink + rebound (exile on resolution, free re-cast at
 // your next upkeep).
 
-static YOUR_CREATURE: Filter = Filter::And(&[Filter::ControlledByYou, Filter::CREATURE]);
-
 use baylee_cards_dsl::prelude::*;
 
 card!(
@@ -22,7 +20,7 @@ card!(
     keywords = KeywordSet::REBOUND,
     coverage = Coverage::Implemented,
     abilities = &[spell!(
-        &[Effect::blink(TargetSpec::Object(&YOUR_CREATURE))],
-        targets = Some(TargetReq::one(TargetSpec::Object(&YOUR_CREATURE)))
+        &[Effect::blink(TargetSpec::Object(&Filter::YOUR_CREATURE))],
+        targets = Some(TargetReq::one(TargetSpec::Object(&Filter::YOUR_CREATURE)))
     )],
 );

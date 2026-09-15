@@ -6,8 +6,6 @@
 
 use baylee_cards_dsl::prelude::*;
 
-static CHECK: Filter = Filter::And(&[Filter::ControlledByYou, Filter::LAND]);
-
 card!(
     index = index::ROCKFALL_VALE,
     oracle_id = "185c70c1-8403-4ae5-b45d-3679d4ee092a",
@@ -18,7 +16,7 @@ card!(
         name = "Rockfall Vale",
         types = TypeSet::LAND,
         enter_modifiers = &[EnterModifier::TappedUnlessCount {
-            filter: &CHECK,
+            filter: &Filter::YOUR_LAND,
             at_least: 2
         }],
     ),],

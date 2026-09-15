@@ -8,8 +8,8 @@ use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
 static CHECK: Filter = Filter::And(&[
-    Filter::ControlledByYou,
     Filter::LAND,
+    Filter::ControlledByYou,
     Filter::Or(&[
         Filter::HasSubtype(subtypes::land::FOREST),
         Filter::HasSubtype(subtypes::land::ISLAND),

@@ -6,8 +6,6 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes::creature;
 
-static ENEMY_CREATURE: Filter = Filter::And(&[Filter::ControlledByOpponent, Filter::CREATURE]);
-
 card!(
     index = index::RAVENOUS_CHUPACABRA,
     oracle_id = "7b459306-149b-4f43-abc1-2dd70c748c0e",
@@ -24,7 +22,11 @@ card!(
     coverage = Coverage::Implemented,
     abilities = &[triggered!(
         Trigger::EntersBattlefield(&Filter::This),
-        &[Effect::destroy(TargetSpec::Object(&ENEMY_CREATURE))],
-        targets = Some(TargetReq::one(TargetSpec::Object(&ENEMY_CREATURE)))
+        &[Effect::destroy(TargetSpec::Object(
+            &Filter::OPPONENT_CREATURE
+        ))],
+        targets = Some(TargetReq::one(TargetSpec::Object(
+            &Filter::OPPONENT_CREATURE
+        )))
     )],
 );

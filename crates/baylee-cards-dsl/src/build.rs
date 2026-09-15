@@ -1024,6 +1024,14 @@ mod tests {
         assert_eq!(f!(opponents CREATURE), Filter::OPPONENT_CREATURE);
         assert_eq!(f!(another CREATURE), Filter::ANOTHER_CREATURE);
         assert_eq!(f!(nontoken CREATURE), Filter::NONTOKEN_CREATURE);
+        assert_eq!(f!(attacking CREATURE), Filter::ATTACKING_CREATURE);
+        // The two the pool had written the other way round. They are here
+        // because this assertion is what decided their order: a constant
+        // adjective first would have been the byte-identical spelling and
+        // would have made `f!(your LAND)` a *different* filter from
+        // `Filter::YOUR_LAND`, which is the duplication both exist to end.
+        assert_eq!(f!(your LAND), Filter::YOUR_LAND);
+        assert_eq!(f!(your BASIC_LAND), Filter::YOUR_BASIC_LAND);
         assert_eq!(
             f!(CREATURE),
             Filter::CREATURE,

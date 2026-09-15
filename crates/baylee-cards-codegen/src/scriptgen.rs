@@ -344,11 +344,12 @@ impl Tx<'_> {
     ///
     /// Every pair is the **same bytes** — clause order included — which is
     /// what makes the substitution invisible to `pool-dump` and is why the
-    /// table is a lookup rather than a second way of building a filter. The
-    /// ones the DSL spells in the other order (`BASIC_LAND` is supertype
-    /// first) are deliberately absent: a constant that reordered the clauses
-    /// would be the same *meaning* and a different dump, which is a separate
-    /// argument and belongs in a separate commit.
+    /// table is a lookup rather than a second way of building a filter. A
+    /// constant this reader cannot reach byte for byte is therefore absent
+    /// rather than approximated: `BASIC_LAND` is supertype first, and
+    /// `YOUR_BASIC_LAND` nests it, where a script filter reading
+    /// `Land.Basic.YouCtrl` builds three flat clauses. `YOUR_LAND` is here
+    /// because it is noun first, which is the order this reader writes.
     const NAMED: &'static [(&'static str, &'static str)] = &[
         (
             "Filter::And(&[Filter::CREATURE, Filter::ControlledByYou])",
@@ -369,6 +370,14 @@ impl Tx<'_> {
         (
             "Filter::And(&[Filter::CREATURE, Filter::HasSupertype(SupertypeSet::LEGENDARY)])",
             "Filter::LEGENDARY_CREATURE",
+        ),
+        (
+            "Filter::And(&[Filter::CREATURE, Filter::Attacking])",
+            "Filter::ATTACKING_CREATURE",
+        ),
+        (
+            "Filter::And(&[Filter::LAND, Filter::ControlledByYou])",
+            "Filter::YOUR_LAND",
         ),
         (
             "Filter::Or(&[Filter::ARTIFACT, Filter::ENCHANTMENT])",
@@ -1744,6 +1753,8 @@ mod tests {
         assert_eq!(filter("Creature.Other"), "Filter::ANOTHER_CREATURE");
         assert_eq!(filter("Creature.nonToken"), "Filter::NONTOKEN_CREATURE");
         assert_eq!(filter("Creature.Legendary"), "Filter::LEGENDARY_CREATURE");
+        assert_eq!(filter("Creature.attacking"), "Filter::ATTACKING_CREATURE");
+        assert_eq!(filter("Land.YouCtrl"), "Filter::YOUR_LAND");
         assert_eq!(
             filter("Artifact,Enchantment"),
             "Filter::ARTIFACT_OR_ENCHANTMENT"
@@ -1759,6 +1770,12 @@ mod tests {
         assert_eq!(
             filter("Land.Basic"),
             "Filter::And(&[Filter::LAND, Filter::HasSupertype(SupertypeSet::BASIC)])"
+        );
+        assert_eq!(
+            filter("Land.Basic+YouCtrl"),
+            "Filter::And(&[Filter::LAND, Filter::HasSupertype(SupertypeSet::BASIC), \
+             Filter::ControlledByYou])",
+            "three flat clauses are not the nested YOUR_BASIC_LAND"
         );
     }
 

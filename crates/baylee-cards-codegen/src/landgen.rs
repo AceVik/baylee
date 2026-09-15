@@ -219,17 +219,17 @@ fn sentences(line: &str) -> Vec<String> {
 /// **not** carry, and deliberately: "two or fewer other lands" is the fast
 /// lands and is the opposite comparison, and "three or more other Islands"
 /// is a cycle whose second sentence the reader cannot read regardless.
+///
+/// Both filters are a name the DSL already carries, so neither is hoisted:
+/// a `static CHECK: Filter = Filter::YOUR_LAND;` would give one spelling of
+/// "a land you control" a second, card-local one on each of twenty lands.
 const COUNTED: [(&str, &str, &str); 2] = [
     (
         " or more basic lands",
-        "Filter::And(&[\n    Filter::ControlledByYou,\n    Filter::BASIC_LAND,\n])",
+        "Filter::YOUR_BASIC_LAND",
         "battle land",
     ),
-    (
-        " or more other lands",
-        "Filter::And(&[\n    Filter::ControlledByYou,\n    Filter::LAND,\n])",
-        "slow land",
-    ),
+    (" or more other lands", "Filter::YOUR_LAND", "slow land"),
 ];
 
 struct Recognizer<'a> {
@@ -265,8 +265,12 @@ impl Recognizer<'_> {
                 clauses.join(",\n        ")
             )
         };
+        // Noun first, like every other filter the DSL spells — and flat, not
+        // `[Filter::YOUR_LAND, {inner}]`: nesting is a different shape and
+        // not a reordering, which is more than an equivalence proof over
+        // clause order can vouch for.
         Some(self.named_filter(&format!(
-            "Filter::And(&[\n    Filter::ControlledByYou,\n    Filter::LAND,\n    {inner},\n])"
+            "Filter::And(&[\n    Filter::LAND,\n    Filter::ControlledByYou,\n    {inner},\n])"
         )))
     }
 
@@ -358,9 +362,8 @@ impl Recognizer<'_> {
                 else {
                     continue;
                 };
-                let name = self.named_filter(filter);
                 self.body.enter_modifiers.push(format!(
-                    "EnterModifier::TappedUnlessCount {{ filter: &{name}, at_least: {n} }}"
+                    "EnterModifier::TappedUnlessCount {{ filter: &{filter}, at_least: {n} }}"
                 ));
                 self.body.notes.push(note.to_string());
                 return Some(());
@@ -779,10 +782,9 @@ mod tests {
         );
         assert_eq!(
             body.enter_modifiers,
-            ["EnterModifier::TappedUnlessCount { filter: &CHECK, at_least: 2 }"]
+            ["EnterModifier::TappedUnlessCount { filter: &Filter::YOUR_LAND, at_least: 2 }"]
         );
-        assert!(body.statics.contains("Filter::LAND"));
-        assert!(!body.statics.contains("BASIC"));
+        assert!(body.statics.is_empty(), "{}", body.statics);
     }
 
     /// The battle lands: a condition that **counts**, and counts *basic*
@@ -795,9 +797,9 @@ mod tests {
         );
         assert_eq!(
             body.enter_modifiers,
-            ["EnterModifier::TappedUnlessCount { filter: &CHECK, at_least: 2 }"]
+            ["EnterModifier::TappedUnlessCount { filter: &Filter::YOUR_BASIC_LAND, at_least: 2 }"]
         );
-        assert!(body.statics.contains("Filter::BASIC_LAND"));
+        assert!(body.statics.is_empty(), "{}", body.statics);
         assert_eq!(
             body.abilities,
             ["mana_ability!(&[Effect::mana_choice(&[ManaColor::Blue, ManaColor::Black])])"]

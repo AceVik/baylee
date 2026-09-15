@@ -12,7 +12,6 @@ static BASIC_LAND_YOU: Filter = Filter::And(&[
     Filter::LAND,
     Filter::HasSupertype(SupertypeSet::BASIC),
 ]);
-static YOUR_CREATURES: Filter = Filter::And(&[Filter::ControlledByYou, Filter::CREATURE]);
 
 use baylee_cards_dsl::prelude::*;
 
@@ -32,7 +31,7 @@ card!(
         activated!(
             cost!("{3}{W}", TapSelf),
             &[Effect::AddCounterFilter {
-                filter: &YOUR_CREATURES,
+                filter: &Filter::YOUR_CREATURE,
                 kind: CounterKind::P1P1,
                 amount: Amount::Fixed(1),
             }]

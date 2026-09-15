@@ -3,13 +3,9 @@
 //! Set: ZEN #30 — Zendikar | Scryfall ID: ced43447-fefc-482a-b8fa-33b9616aa532 | Oracle ID: f4232466-dd6a-49bf-be6c-95905c3ded17
 // IMPLEMENTED — rally: ETB of self or another Ally you control → gain 1 life.
 
-use crate::filters::YOUR_ALLIES;
+use crate::filters::{YOUR_ALLIES, YOUR_ALLY};
 use baylee_cards_dsl::prelude::*;
-use baylee_core::generated::subtypes::{self, creature};
-
-// "Ondu Cleric or another Ally … under your control"
-static ALLIES_YOU_CONTROL: Filter =
-    Filter::And(&[Filter::HasSubtype(creature::ALLY), Filter::ControlledByYou]);
+use baylee_core::generated::subtypes;
 
 card!(
     index = index::ONDU_CLERIC,
@@ -34,7 +30,7 @@ card!(
         &[Effect::MayDo {
             effects: &[Effect::GainLife {
                 amount: Amount::CountOf {
-                    filter: &ALLIES_YOU_CONTROL,
+                    filter: &YOUR_ALLY,
                     zone: ZoneSel::Battlefield,
                 },
             }],
