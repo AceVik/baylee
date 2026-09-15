@@ -125,6 +125,10 @@ pub async fn bulk(catalog: &Catalog, feed: Feed) -> Result<usize> {
         .join()
         .map_err(|_| anyhow::anyhow!("bulk reader thread panicked"))??;
     catalog.analyze().await?;
+    // Once, at the end. One row of the projection is a `GROUP BY` over every
+    // printing of one card in every language, so a batch of four hundred
+    // cannot say which rows it changed without reading the rest back anyway.
+    catalog.project().await?;
     tracing::info!(stored, "ingest complete");
     Ok(stored)
 }

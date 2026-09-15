@@ -15,12 +15,12 @@
 //!
 //! # Why hand-written SQL here and entities next door
 //!
-//! The whole value of this crate is in three index definitions and two
-//! queries: a lateral join that resolves "the same card in my language", and a
-//! trigram/full-text search that has to stay on its index. Both are shaped by
-//! the query planner rather than by the entity model, so they are written as
-//! SQL and `SeaORM` supplies the pool, the parameter binding and the backend
-//! abstraction.
+//! The whole value of this crate is in one projection and two queries: a
+//! lateral join that resolves "the same card in my language", and a search
+//! that has to stay off a sequential scan over half a million printings.
+//! Both are shaped by the query planner rather than by the entity model, so
+//! they are written as SQL and `SeaORM` supplies the pool, the parameter
+//! binding and the backend abstraction.
 //!
 //! [`baylee_db`] is the same database and the opposite case, and the two
 //! together are what the choice actually looks like: two dozen small,
@@ -47,7 +47,9 @@ pub mod ingest;
 pub mod scryfall;
 
 use anyhow::{Context, Result};
-use sea_orm::{ConnectionTrait, Database, DatabaseConnection, DbBackend, Statement, Value};
+use sea_orm::{
+    ConnectionTrait, Database, DatabaseConnection, DbBackend, Statement, TransactionTrait, Value,
+};
 use serde::{Deserialize, Serialize};
 use std::fmt::Write as _;
 
@@ -158,16 +160,90 @@ pub struct Catalog {
     db: DatabaseConnection,
 }
 
-/// The searchable text of a face, as one expression.
+/// What [`Catalog::project`] writes, as a number this code owns.
 ///
-/// Written once because the GIN index and the `WHERE` clause must be
-/// character-for-character identical or Postgres silently falls back to a
-/// sequential scan over every printing — which is exactly the failure this
-/// crate exists to avoid, and it is invisible until the table is large.
-const SEARCH_EXPR: &str = "to_tsvector('simple', \
-     coalesce(f.printed_name, f.name) || ' ' || \
-     coalesce(f.printed_type_line, f.type_line, '') || ' ' || \
-     coalesce(f.printed_text, f.oracle_text, ''))";
+/// `CREATE TABLE IF NOT EXISTS` cannot tell a fresh install from an upgrade:
+/// a self-hoster who pulls this version has a full `cards` and an empty
+/// `card_search`, and a search over an empty projection answers nothing, for
+/// ever, without erroring. So the projection carries a version and
+/// [`Catalog::migrate`] rebuilds whenever it does not match. That is also the
+/// only thing that catches a changed [`BIGRAMS_BODY`]: `CREATE OR REPLACE`
+/// leaves the arrays already in the stored column exactly as they were.
+///
+/// Bump it whenever the projection's *content* changes — the fill query, one
+/// of the two function bodies, or a column's meaning.
+const SCHEMA_VERSION: i32 = 1;
+
+/// The key `SCHEMA_VERSION` is stamped under.
+const VERSION_KEY: &str = "search_projection";
+
+/// The advisory lock a rebuild holds.
+///
+/// Two gateways starting against one database both find the version stale,
+/// and the lock is where the second one stops — but only because the
+/// staleness question is asked *inside* the transaction that holds it
+/// ([`Catalog::rebuild_if_stale`]). The loser waits, asks again, reads the
+/// version the winner stamped, and does nothing. A lock taken after the
+/// question would serialise two rebuilds rather than prevent one, which is
+/// what `TRUNCATE` does for free and why the lock would then be decoration.
+const PROJECT_LOCK: i64 = 0x000b_a11e_eca7_a106;
+
+/// The body of `catalog_norm`, which a query and a stored name are both
+/// folded through.
+///
+/// Three foldings, and each one is a language this catalog serves. `NFKC`
+/// turns the full-width Latin a Japanese keyboard produces (`Ｌｉｇｈｔｎｉｎｇ`)
+/// into the ASCII a deck builder stores; `unaccent` makes `Æther` reachable
+/// by typing `aether`; `lower` is the rest. `unaccent`'s two-argument form is
+/// used rather than the one-argument one because only the two-argument form
+/// is `IMMUTABLE` — naming the dictionary is what makes this function honest
+/// about being one.
+const NORM_BODY: &str = "SELECT lower(unaccent('unaccent', normalize(s, NFKC)))";
+
+/// The body of `catalog_bigrams`, which the name index is built from.
+///
+/// Bigrams rather than trigrams, and the reason is a two-character card name.
+/// `pg_trgm` pads a whole *word*, so `show_trgm('稲妻')` does return three
+/// trigrams — but a `%稲妻%` pattern is not padded, so the index it built
+/// could not serve the query that needed it, and a search for `稲妻` was a
+/// sequential scan over 554 242 faces at 2742 ms. Every non-ASCII character
+/// is also indexed on its own, because `島` is a card name and a whole word.
+const BIGRAMS_BODY: &str = "SELECT coalesce(array_agg(DISTINCT g), '{}'::text[]) FROM ( \
+       SELECT substr(s, i, 2) AS g FROM generate_series(1, greatest(length(s) - 1, 0)) i \
+       UNION ALL \
+       SELECT substr(s, i, 1) FROM generate_series(1, length(s)) i \
+        WHERE substr(s, i, 1) !~ '[[:ascii:]]' \
+     ) t";
+
+/// Fills `card_search` from `cards` and `card_faces`.
+///
+/// The inner query is one row per *printed text* — `DISTINCT ON (oracle_id,
+/// lang, face_index)` over 542 177 printings leaves 296 313 — and the outer
+/// one collapses those to 41 991 oracle faces, each carrying every language
+/// it is printed in. Which printing speaks for a language is decided here
+/// rather than in the search, and the order is the one the search used to
+/// carry: a printing that actually has a translated type line first, because
+/// 6489 of 59 465 German faces have a `printed_name` and no
+/// `printed_type_line`, and taking one of those heads a German card
+/// `Instant`.
+const PROJECT_SQL: &str = "\
+    INSERT INTO card_search (oracle_id, face_index, names, names_norm, tsv) \
+    SELECT oracle_id, face_index, \
+           jsonb_object_agg(lang, nm), \
+           '| ' || catalog_norm(string_agg(DISTINCT nm, ' | ')) || ' |', \
+           to_tsvector('simple', string_agg(nm || ' ' || tl || ' ' || tx, ' ')) \
+    FROM ( \
+      SELECT DISTINCT ON (c.oracle_id, c.lang, f.face_index) \
+             c.oracle_id, c.lang AS lang, f.face_index, \
+             coalesce(f.printed_name, f.name) AS nm, \
+             coalesce(f.printed_type_line, f.type_line, '') AS tl, \
+             coalesce(f.printed_text, f.oracle_text, '') AS tx \
+      FROM cards c JOIN card_faces f USING (scryfall_id) \
+      ORDER BY c.oracle_id, c.lang, f.face_index, \
+               (f.printed_type_line IS NOT NULL) DESC, \
+               c.released_at DESC NULLS LAST, c.scryfall_id \
+    ) one_per_language \
+    GROUP BY oracle_id, face_index";
 
 /// The columns one printing binds in `upsert_cards`, in bind order.
 ///
@@ -206,14 +282,22 @@ impl Catalog {
         Self { db }
     }
 
-    /// Creates the schema if it is not there yet.
+    /// Creates the schema if it is not there yet, and rebuilds the search
+    /// projection if it is stale.
     ///
     /// Idempotent, so it is safe to run on every gateway start; the ingest
     /// calls it too, so a fresh database needs no separate migration step.
     ///
+    /// The second half is the one that is easy to leave out. DDL alone brings
+    /// an upgrading install an *empty* `card_search` beside a full `cards`,
+    /// and nothing about that is an error — the search simply answers nothing
+    /// until somebody re-ingests half a gigabyte. So a projection that is
+    /// empty while `cards` is not, or one stamped at a different
+    /// [`SCHEMA_VERSION`], is rebuilt here.
+    ///
     /// # Errors
-    /// When a statement fails — most often a missing `pg_trgm` extension on a
-    /// server where the role may not create extensions.
+    /// When a statement fails — most often a missing `unaccent` extension on
+    /// a server where the role may not create extensions.
     pub async fn migrate(&self) -> Result<()> {
         for sql in schema_statements() {
             self.db
@@ -221,6 +305,68 @@ impl Catalog {
                 .await
                 .with_context(|| format!("applying schema statement: {sql}"))?;
         }
+        self.rebuild_if_stale().await
+    }
+
+    /// Rebuilds the projection if it is stale, and only ever once.
+    ///
+    /// The question and the answer are one transaction, which is the whole of
+    /// [`PROJECT_LOCK`]'s purpose: a second gateway blocks on the lock, then
+    /// asks a staleness question that the first one has already answered by
+    /// stamping the version. Asking outside the lock and rebuilding inside it
+    /// would let both of them through.
+    async fn rebuild_if_stale(&self) -> Result<()> {
+        let tx = self
+            .db
+            .begin()
+            .await
+            .context("opening the projection transaction")?;
+        take_the_projection_lock(&tx).await?;
+        if !projection_is_stale(&tx).await? {
+            tx.rollback()
+                .await
+                .context("releasing the projection lock")?;
+            return Ok(());
+        }
+        rebuild_the_projection(&tx).await?;
+        tx.commit().await.context("committing the projection")?;
+        self.analyze_projection().await
+    }
+
+    /// Rebuilds `card_search` from `cards` and `card_faces`.
+    ///
+    /// Wholesale rather than incrementally, and that is the point: one row of
+    /// the projection is a `GROUP BY` over every printing of one card in
+    /// every language, so a batch of four hundred printings touches rows it
+    /// cannot enumerate without reading the others back anyway. An ingest is
+    /// dozens of batches and one projection — twenty-one seconds on a full
+    /// 542 177-printing catalog, against the three minutes the ingest itself
+    /// takes — so this is called once at the end, never per batch.
+    ///
+    /// Unconditional, unlike [`Self::rebuild_if_stale`]: an ingest has just
+    /// changed what the projection is built from, and the version it is
+    /// stamped at says nothing about that.
+    ///
+    /// # Errors
+    /// When a statement fails.
+    pub async fn project(&self) -> Result<()> {
+        let tx = self
+            .db
+            .begin()
+            .await
+            .context("opening the projection transaction")?;
+        take_the_projection_lock(&tx).await?;
+        rebuild_the_projection(&tx).await?;
+        tx.commit().await.context("committing the projection")?;
+        self.analyze_projection().await
+    }
+
+    /// Gives the planner the row counts the rebuild just changed.
+    async fn analyze_projection(&self) -> Result<()> {
+        self.db
+            .execute_unprepared("ANALYZE card_search")
+            .await
+            .context("analyzing the projection")?;
         Ok(())
     }
 
@@ -309,49 +455,57 @@ impl Catalog {
     /// deck builder asks *which card do you mean*, and that question has one
     /// answer per `oracle_id`.
     ///
-    /// Which printing stands for the card is chosen rather than left to the
-    /// planner, because `DISTINCT ON` keeps whichever row its sort saw first
-    /// and a sort with ties is not a sort. In order: the player's own
-    /// language, then the front face, then a printing that actually carries
-    /// a translated type line — 6489 of 59465 German faces have a
-    /// `printed_name` and no `printed_type_line`, which is how a German
-    /// `Blitzschlag` came back headed `Instant` — then the newest printing,
-    /// then the id, so the same query answers the same way twice.
+    /// Which printing stands for the card is chosen in [`Catalog::project`]
+    /// rather than here, because `DISTINCT ON` keeps whichever row its sort
+    /// saw first and a sort with ties is not a sort.
     ///
-    /// The ranking cannot live in that sort: Postgres requires the
-    /// `DISTINCT ON` expression to lead the `ORDER BY`. So the inner query
-    /// deduplicates and the outer one ranks, and the `LIMIT` goes outside
-    /// with the ranking, where it counts cards instead of rows.
+    /// # Why a name and a rules text are never in one predicate
+    ///
+    /// They used to be, joined by `OR`, and that single `OR` is what made
+    /// this the slowest query in the workspace. An expression predicate the
+    /// planner can index and an `ILIKE '%…%'` it cannot are unsatisfiable
+    /// together by any index, so Postgres took the only plan left — a
+    /// sequential scan building a `tsvector` for each of 554 242 faces, 4.9 µs
+    /// a row, **2742 ms** for `稲妻` and 2132 ms for `li`. The cost was never
+    /// the tokenizer and no extension would have moved it.
+    ///
+    /// So the two questions are asked separately over one projection and
+    /// unioned. A name match also carries a *tier* — the whole name, a name
+    /// starting with the query, a word inside a name starting with it, or the
+    /// query anywhere in a name — and a rules-text match ranks below all
+    /// four. The tiers are asked with `position()` rather than `LIKE` so a
+    /// player may type `100%` without escaping anything, and `card_search`
+    /// stores its names fenced in `| ` separators so one `position()` can ask
+    /// "at the start of *a* name" over all of them at once.
+    ///
+    /// The representative printing is resolved **after** the `LIMIT`: the
+    /// ranking needs only what the projection already holds, so the join back
+    /// to `cards` and `card_faces` runs over the twenty rows that survived
+    /// instead of over every printing of every match.
+    ///
+    /// Measured against the live catalog, this query against the one it
+    /// replaced: `稲妻` 2742 → 1.6 ms, `li` 2132 → 42 ms, `creature` 190 →
+    /// 67 ms, `flying` 81 → 14 ms, `aether` 12 → 1.8 ms, and
+    /// `Ｌｉｇｈｔｎｉｎｇ` from no answer at all to 1.2 ms.
+    ///
+    /// An empty query is answered here rather than in Postgres: every name
+    /// contains the empty string, so tier 1 matches all 41 991 rows and the
+    /// server ranks the whole projection to hand back twenty — 175 ms to say
+    /// nothing. A *short* query is the client's own decision and is not
+    /// second-guessed: one ASCII letter costs 202 ms and is a real search.
     ///
     /// # Errors
     /// When the query fails.
     pub async fn search(&self, query: &str, lang: &str, limit: u64) -> Result<Vec<SearchHit>> {
-        let sql = format!(
-            "SELECT scryfall_id, lang, display_name, english_name, display_type FROM ( \
-               SELECT DISTINCT ON (c.oracle_id) \
-                      c.scryfall_id::text AS scryfall_id, c.lang AS lang, \
-                      coalesce(f.printed_name, f.name) AS display_name, \
-                      f.name AS english_name, \
-                      coalesce(f.printed_type_line, f.type_line, '') AS display_type, \
-                      (c.lang = $2) AS own_lang, \
-                      similarity(coalesce(f.printed_name, f.name), $1) AS sim \
-               FROM card_faces f \
-               JOIN cards c ON c.scryfall_id = f.scryfall_id \
-               WHERE c.lang IN ($2, 'en') \
-                 AND ({SEARCH_EXPR} @@ plainto_tsquery('simple', $1) \
-                      OR coalesce(f.printed_name, f.name) ILIKE '%' || $1 || '%') \
-               ORDER BY c.oracle_id, own_lang DESC, f.face_index, \
-                        (f.printed_type_line IS NOT NULL) DESC, \
-                        c.released_at DESC NULLS LAST, c.scryfall_id \
-             ) hits \
-             ORDER BY own_lang DESC, sim DESC, display_name \
-             LIMIT $3"
-        );
+        if query.trim().is_empty() {
+            return Ok(Vec::new());
+        }
+        let sql = search_sql();
         let rows = self
             .db
             .query_all_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
-                &sql,
+                sql,
                 [
                     Value::from(query.to_string()),
                     Value::from(lang.to_string()),
@@ -659,6 +813,70 @@ impl Catalog {
     }
 }
 
+/// Holds [`PROJECT_LOCK`] for the rest of `conn`'s transaction.
+///
+/// `pg_advisory_xact_lock` and not the session flavour: a pooled connection
+/// outlives the work, and a session lock left on one would stop every later
+/// rebuild rather than this one.
+async fn take_the_projection_lock(conn: &impl ConnectionTrait) -> Result<()> {
+    conn.execute_raw(Statement::from_sql_and_values(
+        DbBackend::Postgres,
+        "SELECT pg_advisory_xact_lock($1)",
+        [Value::from(PROJECT_LOCK)],
+    ))
+    .await
+    .context("taking the projection lock")?;
+    Ok(())
+}
+
+/// Whether `card_search` needs rebuilding.
+///
+/// Asked of whatever connection is in hand, because where it is asked is what
+/// makes [`PROJECT_LOCK`] worth taking: inside the locked transaction it is a
+/// second gateway reading the first one's answer.
+async fn projection_is_stale(conn: &impl ConnectionTrait) -> Result<bool> {
+    let row = conn
+        .query_one_raw(Statement::from_sql_and_values(
+            DbBackend::Postgres,
+            "SELECT (SELECT value FROM catalog_meta WHERE key = $1) AS stamped, \
+                    EXISTS (SELECT 1 FROM card_search) AS projected, \
+                    EXISTS (SELECT 1 FROM cards) AS ingested",
+            [Value::from(VERSION_KEY.to_string())],
+        ))
+        .await
+        .context("reading the projection's version")?
+        .context("the version query returned no row")?;
+    let stamped: Option<String> = row.try_get("", "stamped")?;
+    let projected: bool = row.try_get("", "projected")?;
+    let ingested: bool = row.try_get("", "ingested")?;
+    Ok(stamped.as_deref() != Some(&SCHEMA_VERSION.to_string()) || (ingested && !projected))
+}
+
+/// Empties `card_search`, fills it, and stamps the version it was built at.
+///
+/// The stamp is the last statement and shares the caller's transaction, so a
+/// rebuild that fails halfway leaves the old version standing and is tried
+/// again on the next start.
+async fn rebuild_the_projection(conn: &impl ConnectionTrait) -> Result<()> {
+    for sql in ["TRUNCATE card_search", PROJECT_SQL] {
+        conn.execute_raw(Statement::from_string(DbBackend::Postgres, sql))
+            .await
+            .with_context(|| format!("projecting: {sql}"))?;
+    }
+    conn.execute_raw(Statement::from_sql_and_values(
+        DbBackend::Postgres,
+        "INSERT INTO catalog_meta (key, value) VALUES ($1, $2) \
+         ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value",
+        [
+            Value::from(VERSION_KEY.to_string()),
+            Value::from(SCHEMA_VERSION.to_string()),
+        ],
+    ))
+    .await
+    .context("stamping the projection's version")?;
+    Ok(())
+}
+
 /// A comma-joined column back into a list, without empty entries.
 ///
 /// `finishes` and `frame_effects` are short, closed sets of tags; storing them
@@ -679,13 +897,17 @@ fn split_list(joined: &str) -> Vec<String> {
 /// someone else's data, so the recovery for any schema problem is to drop it
 /// and ingest again, and a version table would only add ceremony to that.
 fn schema_statements() -> Vec<String> {
-    // The index is declared on the table itself, so it carries no alias; the
-    // query joins the table as `f`. Same expression, one prefix apart.
-    let indexed_expr = SEARCH_EXPR.replace("f.", "");
     vec![
-        // Trigram matching for "name starts with / contains", which a deck
-        // builder's type-ahead needs and full-text search cannot do.
-        "CREATE EXTENSION IF NOT EXISTS pg_trgm".to_string(),
+        // `WITH SCHEMA public` and not merely `IF NOT EXISTS`. A test runs the
+        // whole catalog in a schema of its own, and an unqualified
+        // `CREATE EXTENSION` installs into the *first* schema on the path —
+        // so the first test to run would put `unaccent` in its own sandbox,
+        // `IF NOT EXISTS` is database-wide and would make every later test
+        // skip creating it, and dropping that sandbox takes the extension
+        // with it. Demonstrated live while writing this: one
+        // `DROP SCHEMA … CASCADE` removed `unaccent` from the development
+        // database and the next ingest could not normalise a name.
+        "CREATE EXTENSION IF NOT EXISTS unaccent WITH SCHEMA public".to_string(),
         "CREATE TABLE IF NOT EXISTS cards (
             scryfall_id      uuid PRIMARY KEY,
             oracle_id        uuid NOT NULL,
@@ -734,33 +956,221 @@ fn schema_statements() -> Vec<String> {
         .to_string(),
         // The lookup that serves every game: identity, then language.
         "CREATE INDEX IF NOT EXISTS cards_oracle_lang ON cards (oracle_id, lang)".to_string(),
+        // What the projection is stamped with, so an upgrade can be told from
+        // a fresh install.
+        "CREATE TABLE IF NOT EXISTS catalog_meta (
+            key   text PRIMARY KEY,
+            value text NOT NULL
+        )"
+        .to_string(),
         format!(
-            "CREATE INDEX IF NOT EXISTS card_faces_search ON card_faces USING gin ({indexed_expr})"
+            "CREATE OR REPLACE FUNCTION catalog_norm(s text) RETURNS text \
+                 LANGUAGE sql IMMUTABLE STRICT PARALLEL SAFE AS $fn$ {NORM_BODY} $fn$"
         ),
-        "CREATE INDEX IF NOT EXISTS card_faces_name_trgm ON card_faces \
-         USING gin (coalesce(printed_name, name) gin_trgm_ops)"
+        format!(
+            "CREATE OR REPLACE FUNCTION catalog_bigrams(s text) RETURNS text[] \
+                 LANGUAGE sql IMMUTABLE STRICT PARALLEL SAFE AS $fn$ {BIGRAMS_BODY} $fn$"
+        ),
+        // The search projection: one row per oracle face, every language that
+        // face prints in, and the two things a search asks about.
+        //
+        // `bg` is `GENERATED` and `names_norm` is not, and the asymmetry is
+        // the point. `catalog_bigrams` is genuinely immutable over its
+        // argument, so Postgres may store its result; `catalog_norm` reaches
+        // an extension's dictionary through the search path, which is a
+        // promise this crate keeps rather than one the server can enforce —
+        // so its result is written by `project()`, where a rebuild can
+        // correct it, and never by the server behind the code's back.
+        "CREATE TABLE IF NOT EXISTS card_search (
+            oracle_id  uuid NOT NULL,
+            face_index smallint NOT NULL,
+            names      jsonb NOT NULL,
+            names_norm text NOT NULL,
+            tsv        tsvector NOT NULL,
+            bg         text[] GENERATED ALWAYS AS (catalog_bigrams(names_norm)) STORED,
+            PRIMARY KEY (oracle_id, face_index)
+        )"
+        .to_string(),
+        "CREATE INDEX IF NOT EXISTS card_search_bg ON card_search USING gin (bg)".to_string(),
+        "CREATE INDEX IF NOT EXISTS card_search_tsv ON card_search USING gin (tsv)".to_string(),
+        // The two the projection replaces. Left in place they would cost an
+        // existing install 124 MB to answer nothing: 74 MB of expression GIN
+        // over 554 242 faces and 50 MB of trigrams over the same names the
+        // projection now holds 41 991 of.
+        //
+        // Named through `current_schema()` and not bare, which is the one
+        // asymmetry in this list. Every `CREATE … IF NOT EXISTS` above builds
+        // in the schema it is run in; a bare `DROP … IF EXISTS` **resolves
+        // along the whole search path** and reaches out of it. A test runs
+        // the catalog in a sandbox schema with `public` behind it, so the
+        // first such test dropped the developer's live indexes — observed,
+        // not imagined, while writing this.
+        "DO $drop$ BEGIN \
+           EXECUTE format('DROP INDEX IF EXISTS %I.card_faces_search', current_schema()); \
+           EXECUTE format('DROP INDEX IF EXISTS %I.card_faces_name_trgm', current_schema()); \
+         END $drop$"
             .to_string(),
+        // Which languages exist, named in themselves. A player picking a
+        // language reads its own name for it, never an English one — this is
+        // the table a picker is drawn from, and it is the catalog's because
+        // the catalog is what knows which of them a card is printed in.
+        "CREATE TABLE IF NOT EXISTS languages (
+            code text PRIMARY KEY,
+            name text NOT NULL
+        )"
+        .to_string(),
+        language_seed(),
     ]
+}
+
+/// Every language Scryfall prints a card in, named in itself.
+///
+/// Seeded rather than derived, because `SELECT DISTINCT lang` gives codes and
+/// not names, and a name is what a person picks from. `ON CONFLICT DO NOTHING`
+/// so a self-hoster may correct or add a row and keep it.
+fn language_seed() -> String {
+    const LANGUAGES: [(&str, &str); 19] = [
+        ("en", "English"),
+        ("es", "Español"),
+        ("fr", "Français"),
+        ("de", "Deutsch"),
+        ("it", "Italiano"),
+        ("pt", "Português"),
+        ("ja", "日本語"),
+        ("ko", "한국어"),
+        ("ru", "Русский"),
+        ("zhs", "简体中文"),
+        ("zht", "繁體中文"),
+        ("he", "עברית"),
+        ("la", "Latina"),
+        ("grc", "Ἑλληνική"),
+        ("ar", "العربية"),
+        ("sa", "संस्कृतम्"),
+        ("ph", "Phyrexian"),
+        ("qya", "Quenya"),
+        ("dw", "Dwarvish"),
+    ];
+    let rows: Vec<String> = LANGUAGES
+        .iter()
+        .map(|(code, name)| format!("('{code}', '{name}')"))
+        .collect();
+    format!(
+        "INSERT INTO languages (code, name) VALUES {} ON CONFLICT (code) DO NOTHING",
+        rows.join(", ")
+    )
+}
+
+/// The search, as one statement, so a test can read the shape of it.
+///
+/// It is a free function rather than a `const` because the tests below assert
+/// about its *structure* — that the two tiers are unioned rather than `OR`ed,
+/// and that the fence the tiers read is the one the projection writes — and a
+/// constant would say nothing about where either half is used.
+///
+/// The `LIMIT` sits at the end of `ranked`, so the rows it counts have to be
+/// rows `picked` can still resolve. `card_search` holds one row per card in
+/// *every* language, and `picked` keeps only a printing in the asked-for
+/// language or in English — so a card with neither would be counted against
+/// the limit and then vanish, and a caller asking for twenty would be handed
+/// nineteen. Eight cards in this catalog have no English printing at all
+/// (the Japanese Dreamcast promos, `psdg`), which is few enough that the
+/// symptom would have been read as a search that simply found less.
+fn search_sql() -> &'static str {
+    "\
+        WITH q AS (SELECT catalog_norm($1) AS n, $1 AS raw, $2 AS lang), \
+        named AS ( \
+          SELECT s.oracle_id, s.face_index, \
+                 CASE WHEN position('| ' || q.n || ' |' in s.names_norm) > 0 THEN 0 \
+                      WHEN position('| ' || q.n in s.names_norm) > 0 THEN 1 \
+                      WHEN position(' ' || q.n in s.names_norm) > 0 THEN 2 \
+                      ELSE 3 END AS tier \
+          FROM card_search s CROSS JOIN q \
+          WHERE s.bg @> catalog_bigrams(q.n) \
+            AND position(q.n in s.names_norm) > 0 \
+        ), \
+        texted AS ( \
+          SELECT s.oracle_id, s.face_index, 4 AS tier \
+          FROM card_search s CROSS JOIN q \
+          WHERE s.tsv @@ plainto_tsquery('simple', q.raw) \
+        ), \
+        hit AS ( \
+          SELECT DISTINCT ON (oracle_id) oracle_id, face_index, tier \
+          FROM (SELECT * FROM named UNION ALL SELECT * FROM texted) tiers \
+          ORDER BY oracle_id, tier, face_index \
+        ), \
+        ranked AS ( \
+          SELECT h.oracle_id, h.face_index, \
+                 row_number() OVER ( \
+                   ORDER BY h.tier, jsonb_exists(s.names, q.lang) DESC, \
+                            length(coalesce(s.names ->> q.lang, s.names ->> 'en', '')), \
+                            coalesce(s.names ->> q.lang, s.names ->> 'en') \
+                 ) AS nth \
+          FROM hit h JOIN card_search s USING (oracle_id, face_index) CROSS JOIN q \
+          WHERE jsonb_exists(s.names, q.lang) OR jsonb_exists(s.names, 'en') \
+          ORDER BY nth \
+          LIMIT $3 \
+        ), \
+        picked AS ( \
+          SELECT DISTINCT ON (r.oracle_id) r.nth, \
+                 c.scryfall_id::text AS scryfall_id, c.lang AS lang, \
+                 coalesce(f.printed_name, f.name) AS display_name, \
+                 f.name AS english_name, \
+                 coalesce(f.printed_type_line, f.type_line, '') AS display_type \
+          FROM ranked r \
+          JOIN cards c ON c.oracle_id = r.oracle_id \
+          JOIN card_faces f ON f.scryfall_id = c.scryfall_id \
+                           AND f.face_index = r.face_index \
+          CROSS JOIN q \
+          WHERE c.lang IN (q.lang, 'en') \
+          ORDER BY r.oracle_id, (c.lang = q.lang) DESC, \
+                   (f.printed_type_line IS NOT NULL) DESC, \
+                   c.released_at DESC NULLS LAST, c.scryfall_id \
+        ) \
+        SELECT scryfall_id, lang, display_name, english_name, display_type \
+        FROM picked ORDER BY nth"
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    /// The index and the `WHERE` clause are built from the same constant, but
-    /// the index drops the table alias. If that ever diverges the search still
-    /// returns correct rows — by scanning the whole table — so no test would
-    /// notice without pinning the shape here.
+    /// A name predicate and a rules-text predicate in one `OR` is the defect
+    /// this projection exists to undo: no index can satisfy both at once, so
+    /// Postgres builds a `tsvector` for every row instead — 2742 ms for
+    /// `稲妻` against the live catalog. It would come back as an
+    /// *optimisation* ("one pass over one table"), and it would still be
+    /// correct, which is why nothing else would catch it.
     #[test]
-    fn the_search_index_matches_the_search_expression() {
-        let index = schema_statements()
-            .into_iter()
-            .find(|s| s.contains("card_faces_search"))
-            .expect("the search index is part of the schema");
-        let aliasless = SEARCH_EXPR.replace("f.", "");
+    fn the_name_and_the_rules_text_are_never_asked_in_one_predicate() {
+        let sql = search_sql();
+        let named = sql.find("named AS").expect("the name tier");
+        let texted = sql.find("texted AS").expect("the text tier");
+        let between = &sql[named..texted];
         assert!(
-            index.contains(&aliasless),
-            "index expression drifted from SEARCH_EXPR:\n{index}"
+            !between.contains(" OR "),
+            "the name tier's WHERE grew an OR:\n{between}"
+        );
+        assert!(
+            sql.contains("UNION ALL"),
+            "the two tiers have to be unioned, not joined"
+        );
+    }
+
+    /// The names are fenced in separators so one `position()` can ask "at the
+    /// start of *a* name" across every language a card prints in. If the fill
+    /// query stops writing the fence, every tier test silently answers 3 —
+    /// the search still works, and ranks a substring match as highly as an
+    /// exact one.
+    #[test]
+    fn the_fence_the_tiers_read_is_the_fence_the_projection_writes() {
+        assert!(
+            PROJECT_SQL.contains("'| ' || catalog_norm(") && PROJECT_SQL.contains("|| ' |'"),
+            "the projection stopped fencing names_norm"
+        );
+        let sql = search_sql();
+        assert!(
+            sql.contains("position('| ' || q.n || ' |' in s.names_norm)"),
+            "the exact tier stopped reading the fence"
         );
     }
 
@@ -787,14 +1197,87 @@ mod tests {
         );
     }
 
+    /// A `DROP` is the one statement here that can reach out of the schema it
+    /// is run in: `CREATE … IF NOT EXISTS` builds in `current_schema()`, but
+    /// a bare `DROP … IF EXISTS` resolves along the whole search path. A test
+    /// puts the catalog in a sandbox schema with `public` behind it, so an
+    /// unqualified drop there deletes the *developer's* index — which is
+    /// exactly what happened the first time this ran.
+    #[test]
+    fn nothing_is_dropped_outside_the_schema_it_was_created_in() {
+        for sql in schema_statements() {
+            if !sql.contains("DROP ") {
+                continue;
+            }
+            assert!(
+                sql.contains("current_schema()"),
+                "a drop that can reach past its own schema:\n{sql}"
+            );
+        }
+    }
+
     /// Every statement has to be safe to run against an existing database,
     /// because the gateway applies them on every start.
+    ///
+    /// Four spellings say that, not one. `IF NOT EXISTS` creates what is
+    /// missing, `IF EXISTS` drops what is left over, `CREATE OR REPLACE`
+    /// writes a function body over whatever is there, and `ON CONFLICT` seeds
+    /// a row without minding that it is already seeded.
     #[test]
     fn every_schema_statement_is_idempotent() {
         for sql in schema_statements() {
-            assert!(sql.contains("IF NOT EXISTS"), "not idempotent: {sql}");
+            assert!(
+                [
+                    "IF NOT EXISTS",
+                    "IF EXISTS",
+                    "CREATE OR REPLACE",
+                    "ON CONFLICT"
+                ]
+                .iter()
+                .any(|guard| sql.contains(guard)),
+                "not idempotent: {sql}"
+            );
         }
     }
+
+    /// The projection's plain columns are written by `project()` and its one
+    /// generated column by the server. Making `names_norm` generated too
+    /// would be the obvious tidying-up and would be wrong: it is folded
+    /// through an extension's dictionary that the search path resolves, and a
+    /// `STORED` column computed from that is recomputed only when the row is
+    /// written — so a rebuild could not correct it.
+    #[test]
+    fn only_the_bigrams_are_generated() {
+        let table = schema_statements()
+            .into_iter()
+            .find(|s| s.contains("CREATE TABLE IF NOT EXISTS card_search"))
+            .expect("the projection is part of the schema");
+        assert_eq!(
+            table.matches("GENERATED").count(),
+            1,
+            "exactly one column of the projection is the server's to compute:\n{table}"
+        );
+        assert!(
+            table.contains("bg         text[] GENERATED"),
+            "and it is the bigram array:\n{table}"
+        );
+    }
+
+    /// Every language a card in the catalog is printed in has a name a person
+    /// can read, and the codes are Scryfall's rather than ISO's — `zhs` and
+    /// `zht` are language codes nowhere else.
+    #[test]
+    fn every_language_the_catalog_stores_is_named_in_itself() {
+        let seed = language_seed();
+        // Measured against the live catalog: `SELECT DISTINCT lang FROM cards`.
+        for code in [
+            "en", "ja", "fr", "de", "es", "it", "zhs", "pt", "zht", "ru", "ko", "ph", "qya", "dw",
+            "grc", "ar", "la", "sa", "he",
+        ] {
+            assert!(seed.contains(&format!("('{code}', ")), "no name for {code}");
+        }
+    }
+
     /// The insert binds one placeholder per column, and the count is written
     /// separately from the list. Postgres would reject the batch, but only
     /// against a live database — and nothing in CI has one.

@@ -157,9 +157,10 @@ three index definitions and two queries the planner shapes, where
 ```bash
 docker compose up -d                                     # postgres 18 on :5432
 export DATABASE_URL=postgres://baylee:baylee@127.0.0.1:5432/baylee
-cargo run -p baylee-catalog -- ingest                     # every language: 542k printings, ~3 min, 593 MB
+cargo run -p baylee-catalog -- ingest                     # every language: 542k printings, ~3 min, 596 MB
 cargo run -p baylee-catalog -- ingest --english-only      # ~118k English printings, ~30 s
 cargo run -p baylee-catalog -- search "lightning bolt"
+cargo run -p baylee-catalog -- project                    # rebuild the search projection alone
 ```
 
 **Every language is the default and English is the opt-out**, which is the
@@ -169,10 +170,41 @@ with the language it is set to and falls back to English printing by printing
 — so an English-only catalog is not a smaller install, it is a client that
 quietly speaks English to everyone. Measured on this machine: `all_cards` is
 392 MB compressed, stores 542 142 printings in 19 languages in about three
-minutes, and leaves the database at 593 MB against the 118k rows
+minutes, and leaves the database at 596 MB against the 118k rows
 `--english-only` stores. Run it with `RUST_LOG=baylee_catalog=info`: a plain
 `RUST_LOG=info` puts every `INSERT` through the tracing subscriber and writes
 a 92 MB log for one ingest.
+
+**The search does not read those rows.** It reads `card_search`, one row per
+oracle face rather than per printing — 41 991 against 554 242 — carrying every
+language that face prints in, a fenced and Unicode-folded form of its names,
+a bigram array with a GIN over it, and a `tsvector` of the rules text with
+another. `Catalog::project()` rebuilds it wholesale at the end of an ingest,
+and `migrate()` rebuilds it when its stamped version does not match the code's
+or when it is empty beside a full `cards` — which is the upgrade an existing
+install would otherwise come up silently broken from, because an empty
+projection answers every search with nothing and never errors.
+
+Two rules hold it, and both were paid for. **A name and a rules text are
+never in one predicate**: an indexable expression `OR`ed with an
+unindexable `ILIKE '%…%'` is satisfiable by no index at all, so Postgres
+built a `tsvector` per row over the whole table — 2742 ms for `稲妻`, 2132 ms
+for `li`. The tiers are unioned instead, and the representative printing is
+resolved *after* the `LIMIT`. And **bigrams, not trigrams**: `pg_trgm` pads a
+whole word, so `show_trgm('稲妻')` does return three trigrams, but a `%…%`
+pattern is not padded and the index could not serve the query that needed it.
+Measured against the live catalog, after against before: `稲妻` 1.7 ms against
+2742, `li` 44 against 2132, `creature` 90 against 190, `flying` 17 against 81,
+`aether` 1.9 against 12, and `Ｌｉｇｈｔｎｉｎｇ` — full-width Latin off a
+Japanese keyboard — 2.1 ms against no answer at all. It costs 215 MB and
+replaces 124 MB of index.
+
+The only extension it needs is `unaccent`, installed `WITH SCHEMA public`
+deliberately: a test runs the whole catalog in a schema of its own, and both
+an unqualified `CREATE EXTENSION` and an unqualified `DROP INDEX` reach out
+of that sandbox — the first leaves the extension where the next
+`DROP SCHEMA … CASCADE` destroys it, the second deletes the developer's own
+indexes. Both were observed, not imagined.
 
 Without an **ingest** the gateway still runs every game and simply serves no
 card text; the client then draws faces from what the engine projects. Without

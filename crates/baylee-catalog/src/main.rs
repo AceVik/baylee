@@ -31,6 +31,8 @@ struct Cli {
 enum Cmd {
     /// Create the schema (idempotent).
     Migrate,
+    /// Rebuild the search projection from what is already stored.
+    Project,
     /// Download a Scryfall bulk feed and store every card in it.
     Ingest {
         /// Ingest English only instead of every language.
@@ -65,6 +67,11 @@ async fn main() -> Result<()> {
         Cmd::Migrate => {
             catalog.migrate().await?;
             println!("schema is up to date");
+        }
+        Cmd::Project => {
+            catalog.migrate().await?;
+            catalog.project().await?;
+            println!("search projection rebuilt");
         }
         Cmd::Ingest { english_only } => {
             catalog.migrate().await?;
