@@ -18,6 +18,17 @@ allow = [
     # `quoted_printable`, which lettre uses to encode a mail body. Zero-clause
     # BSD: permissive with no attribution requirement at all.
     "0BSD",
+    # `encase`, `encase_derive`, `encase_derive_impl` — wgpu's uniform-buffer
+    # layout crates, reached through bevy's renderer. MIT No Attribution is
+    # MIT with the attribution clause struck, so it is strictly weaker than
+    # the `MIT` already above it and stands here for the same reason `0BSD`
+    # does: an allowlist says what was read, not what was convenient.
+    "MIT-0",
+    # `webpki-root-certs`, the Mozilla CA bundle `ureq` verifies TLS against.
+    # A *data* licence rather than a code one, which is why it is neither MIT
+    # nor Apache: permissive, and it governs the certificate list rather than
+    # any code we compile.
+    "CDLA-Permissive-2.0",
     "OFL-1.1",
 ]
 
