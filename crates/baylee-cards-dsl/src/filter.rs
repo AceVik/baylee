@@ -135,6 +135,25 @@ impl Filter {
     ]);
     /// An artifact or an enchantment.
     pub const ARTIFACT_OR_ENCHANTMENT: Self = Self::Or(&[Self::ARTIFACT, Self::ENCHANTMENT]);
+    /// An artifact or a creature — what a clone copies and what half the
+    /// removal in this pool points at.
+    pub const ARTIFACT_OR_CREATURE: Self = Self::Or(&[Self::ARTIFACT, Self::CREATURE]);
+    /// An artifact, a creature, or an enchantment.
+    pub const ARTIFACT_CREATURE_OR_ENCHANTMENT: Self =
+        Self::Or(&[Self::ARTIFACT, Self::CREATURE, Self::ENCHANTMENT]);
+    /// A creature or a planeswalker — the two things damage and destruction
+    /// point at, and the most-written filter in the pool that had no name:
+    /// four writings in three card files, one of which wrote it twice.
+    pub const CREATURE_OR_PLANESWALKER: Self = Self::Or(&[Self::CREATURE, Self::PLANESWALKER]);
+    /// A land that is not basic.
+    ///
+    /// `Not(&HasSupertype(BASIC))` and not a `LacksSupertype`, because that
+    /// is the spelling both writings already used and the one the script
+    /// reader builds from `Land.nonBasic`.
+    pub const NONBASIC_LAND: Self = Self::And(&[
+        Self::LAND,
+        Self::Not(&Self::HasSupertype(SupertypeSet::BASIC)),
+    ]);
     /// A creature that is not a token.
     pub const NONTOKEN_CREATURE: Self = Self::And(&[Self::CREATURE, Self::Not(&Self::IsToken)]);
     /// A creature other than the source ("another creature").
@@ -173,4 +192,25 @@ impl Filter {
     /// A card that flattens the three clauses is a different filter and
     /// keeps its own.
     pub const YOUR_BASIC_LAND: Self = Self::And(&[Self::BASIC_LAND, Self::ControlledByYou]);
+    /// An artifact you control.
+    pub const YOUR_ARTIFACT: Self = Self::And(&[Self::ARTIFACT, Self::ControlledByYou]);
+    /// A creature you control other than the source — "another creature you
+    /// control".
+    ///
+    /// Spelled out rather than shortened to `ANOTHER_YOUR_CREATURE`, because
+    /// [`Self::ANOTHER_CREATURE`] is already taken and means something else:
+    /// a creature other than the source, *whoever* controls it. The two
+    /// differ by one clause and by every card that reads them, so the longer
+    /// name is the cheap half of that bargain.
+    ///
+    /// The clause order is `your` before `another`, which matches
+    /// `ANOTHER_ALLY` in `baylee-cards`. It has to be *a* choice rather than
+    /// the obvious one, because this is the first constant whose English
+    /// [`f!`](crate::f) can spell two ways: `f!(your another CREATURE)` is
+    /// this, and `f!(another your CREATURE)` is the same objects in a
+    /// different order — a different `Filter` and a different hash.
+    /// `the_filter_macro_cannot_be_trusted_to_spell_an_order` in `build.rs`
+    /// is that fact as a build failure.
+    pub const ANOTHER_CREATURE_YOU_CONTROL: Self =
+        Self::And(&[Self::CREATURE, Self::ControlledByYou, Self::Another]);
 }

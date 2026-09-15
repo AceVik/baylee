@@ -4,9 +4,6 @@
 //! Set: C18 #63 — Commander 2018 | Scryfall ID: aad93570-b50a-405a-ad73-03f97594061f | Oracle ID: a6898364-c29e-4b97-a500-344efa3ec24a
 // IMPLEMENTED — bottom-of-library removal + miracle cast.
 
-static ARTIFACT_CREATURE_ENCHANTMENT: Filter =
-    Filter::Or(&[Filter::ARTIFACT, Filter::CREATURE, Filter::ENCHANTMENT]);
-
 use baylee_cards_dsl::prelude::*;
 
 card!(
@@ -24,7 +21,7 @@ card!(
     abilities = &[spell!(
         &[Effect::PutTargetOnBottomOfLibrary],
         targets = Some(TargetReq::one(TargetSpec::Object(
-            &ARTIFACT_CREATURE_ENCHANTMENT,
+            &Filter::ARTIFACT_CREATURE_OR_ENCHANTMENT,
         )))
     )],
 );

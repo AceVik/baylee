@@ -350,6 +350,20 @@ impl Tx<'_> {
     /// `YOUR_BASIC_LAND` nests it, where a script filter reading
     /// `Land.Basic.YouCtrl` builds three flat clauses. `YOUR_LAND` is here
     /// because it is noun first, which is the order this reader writes.
+    ///
+    /// A valid-string names its clauses in an order of its own, and for a
+    /// filter of two or more the corpus prints more than one — so a row is
+    /// worth having only where the constant's order is the one the corpus
+    /// predominantly writes. Measured over the reference corpus:
+    /// `Artifact,Creature` 247 files against `Creature,Artifact` 80,
+    /// `Artifact.YouCtrl` 432 against `YouCtrl.Artifact` 27,
+    /// `Creature,Planeswalker` 247 against nought the other way, and
+    /// `Land.nonBasic` 78 against nought. `ANOTHER_CREATURE_YOU_CONTROL` is
+    /// the one that fails that test and the reason the rule is written down:
+    /// its order is `your` before `another`, where the corpus writes
+    /// `Creature.Other+YouCtrl` 381 times against `Creature.YouCtrl+Other`
+    /// 170, so a row would name the rarer spelling and write the commoner
+    /// one out — the table disagreeing with itself on one filter.
     const NAMED: &'static [(&'static str, &'static str)] = &[
         (
             "Filter::And(&[Filter::CREATURE, Filter::ControlledByYou])",
@@ -380,8 +394,28 @@ impl Tx<'_> {
             "Filter::YOUR_LAND",
         ),
         (
+            "Filter::And(&[Filter::ARTIFACT, Filter::ControlledByYou])",
+            "Filter::YOUR_ARTIFACT",
+        ),
+        (
+            "Filter::And(&[Filter::LAND, Filter::Not(&Filter::HasSupertype(SupertypeSet::BASIC))])",
+            "Filter::NONBASIC_LAND",
+        ),
+        (
             "Filter::Or(&[Filter::ARTIFACT, Filter::ENCHANTMENT])",
             "Filter::ARTIFACT_OR_ENCHANTMENT",
+        ),
+        (
+            "Filter::Or(&[Filter::ARTIFACT, Filter::CREATURE])",
+            "Filter::ARTIFACT_OR_CREATURE",
+        ),
+        (
+            "Filter::Or(&[Filter::ARTIFACT, Filter::CREATURE, Filter::ENCHANTMENT])",
+            "Filter::ARTIFACT_CREATURE_OR_ENCHANTMENT",
+        ),
+        (
+            "Filter::Or(&[Filter::CREATURE, Filter::PLANESWALKER])",
+            "Filter::CREATURE_OR_PLANESWALKER",
         ),
         (
             "Filter::Or(&[Filter::HasType(TypeSet::INSTANT), Filter::HasType(TypeSet::SORCERY)])",
@@ -1755,9 +1789,20 @@ mod tests {
         assert_eq!(filter("Creature.Legendary"), "Filter::LEGENDARY_CREATURE");
         assert_eq!(filter("Creature.attacking"), "Filter::ATTACKING_CREATURE");
         assert_eq!(filter("Land.YouCtrl"), "Filter::YOUR_LAND");
+        assert_eq!(filter("Artifact.YouCtrl"), "Filter::YOUR_ARTIFACT");
+        assert_eq!(filter("Land.nonBasic"), "Filter::NONBASIC_LAND");
         assert_eq!(
             filter("Artifact,Enchantment"),
             "Filter::ARTIFACT_OR_ENCHANTMENT"
+        );
+        assert_eq!(filter("Artifact,Creature"), "Filter::ARTIFACT_OR_CREATURE");
+        assert_eq!(
+            filter("Artifact,Creature,Enchantment"),
+            "Filter::ARTIFACT_CREATURE_OR_ENCHANTMENT"
+        );
+        assert_eq!(
+            filter("Creature,Planeswalker"),
+            "Filter::CREATURE_OR_PLANESWALKER"
         );
         assert_eq!(filter("Instant,Sorcery"), "Filter::INSTANT_OR_SORCERY");
         // The counter-test: a filter with no constant is still written out,
@@ -1776,6 +1821,19 @@ mod tests {
             "Filter::And(&[Filter::LAND, Filter::HasSupertype(SupertypeSet::BASIC), \
              Filter::ControlledByYou])",
             "three flat clauses are not the nested YOUR_BASIC_LAND"
+        );
+        // The two the corpus writes both ways round. Neither reordering is
+        // this reader's to make, so the rarer spelling is written out and
+        // "another creature you control" reaches no name at all — see the
+        // measurement on `NAMED`.
+        assert_eq!(
+            filter("Creature,Artifact"),
+            "Filter::Or(&[Filter::CREATURE, Filter::ARTIFACT])"
+        );
+        assert_eq!(
+            filter("Creature.Other+YouCtrl"),
+            "Filter::And(&[Filter::CREATURE, Filter::Another, Filter::ControlledByYou])",
+            "the commoner spelling builds the order ANOTHER_CREATURE_YOU_CONTROL does not have"
         );
     }
 

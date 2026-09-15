@@ -12,8 +12,6 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes::artifact;
 
-static ANOTHER_CREATURE: Filter =
-    Filter::And(&[Filter::Another, Filter::CREATURE, Filter::ControlledByYou]);
 static OTHER_ARTIFACT: Filter = Filter::And(&[Filter::Another, Filter::ARTIFACT]);
 static HEXPROOF_INDESTRUCTIBLE: KeywordSet = KeywordSet::HEXPROOF.union(KeywordSet::INDESTRUCTIBLE);
 
@@ -47,7 +45,7 @@ card!(
                     amount: Amount::TargetPower,
                 },
             ],
-            target = Some(TargetSpec::Object(&ANOTHER_CREATURE)),
+            target = Some(TargetSpec::Object(&Filter::ANOTHER_CREATURE_YOU_CONTROL)),
             timing = ActivationTiming::SorcerySpeed
         ),
         static_ability!(

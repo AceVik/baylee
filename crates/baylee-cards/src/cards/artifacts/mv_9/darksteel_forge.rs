@@ -3,8 +3,6 @@
 //! Set: 2XM #248 — Double Masters | Scryfall ID: 421089c4-c8d3-48c5-b313-fb1741546271 | Oracle ID: 9b3bec05-441f-4fdf-8b51-69fa8613fcd4
 // IMPLEMENTED — indestructible grant to your artifacts (layer 6).
 
-static ARTIFACTS_YOURS: Filter = Filter::And(&[Filter::ControlledByYou, Filter::ARTIFACT]);
-
 use baylee_cards_dsl::prelude::*;
 
 card!(
@@ -18,7 +16,7 @@ card!(
     )],
     coverage = Coverage::Implemented,
     abilities = &[static_ability!(
-        ARTIFACTS_YOURS,
+        Filter::YOUR_ARTIFACT,
         Modifier::AddKeyword(KeywordSet::INDESTRUCTIBLE)
     )],
 );

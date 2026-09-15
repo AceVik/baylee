@@ -7,9 +7,6 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes::creature;
 
-static ANOTHER_CREATURE_YOU_CONTROL: Filter =
-    Filter::And(&[Filter::Another, Filter::CREATURE, Filter::ControlledByYou]);
-
 card!(
     index = index::SOULHERDER,
     oracle_id = "92019547-f6db-4ea6-8356-d0a90ace5662",
@@ -38,10 +35,10 @@ card!(
                 whose: PlayerRel::You,
             },
             &[Effect::blink(TargetSpec::Object(
-                &ANOTHER_CREATURE_YOU_CONTROL
+                &Filter::ANOTHER_CREATURE_YOU_CONTROL
             ))],
             targets = Some(TargetReq {
-                spec: TargetSpec::Object(&ANOTHER_CREATURE_YOU_CONTROL),
+                spec: TargetSpec::Object(&Filter::ANOTHER_CREATURE_YOU_CONTROL),
                 min: 0,
                 max: 1,
                 count_is_x: false,

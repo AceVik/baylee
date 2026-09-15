@@ -8,9 +8,6 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes::planeswalker;
 
-static BOUNCE_TARGET: Filter =
-    Filter::Or(&[Filter::ARTIFACT, Filter::CREATURE, Filter::ENCHANTMENT]);
-
 card!(
     index = index::TEFERI_TIME_RAVELER,
     oracle_id = "ae7604bb-4818-45a3-960c-cf3d83f15964",
@@ -39,10 +36,14 @@ card!(
         loyalty!(
             -3,
             &[
-                Effect::bounce(TargetSpec::Object(&BOUNCE_TARGET)),
+                Effect::bounce(TargetSpec::Object(
+                    &Filter::ARTIFACT_CREATURE_OR_ENCHANTMENT
+                )),
                 Effect::draw(1),
             ],
-            targets = Some(TargetReq::up_to_one(TargetSpec::Object(&BOUNCE_TARGET)))
+            targets = Some(TargetReq::up_to_one(TargetSpec::Object(
+                &Filter::ARTIFACT_CREATURE_OR_ENCHANTMENT
+            )))
         ),
     ],
 );

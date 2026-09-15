@@ -7,22 +7,21 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes::creature;
 
-static YOUR_AIS_SPELL: Filter = Filter::And(&[
-    Filter::ControlledByYou,
-    Filter::Or(&[
-        Filter::ARTIFACT,
-        Filter::HasType(TypeSet::INSTANT),
-        Filter::HasType(TypeSet::SORCERY),
-    ]),
+/// "An artifact, instant, or sorcery spell" — both triggers read the same
+/// clause, so the card writes it once.
+///
+/// A `const` and not a `static`, because a `static` cannot be read in
+/// another `static`'s initializer. It stays in this file rather than joining
+/// `crate::filters`: one card wanting a filter twice is not two cards
+/// wanting it, and this one is the printed sentence of Jin-Gitaxias.
+const AIS_SPELL: Filter = Filter::Or(&[
+    Filter::ARTIFACT,
+    Filter::HasType(TypeSet::INSTANT),
+    Filter::HasType(TypeSet::SORCERY),
 ]);
-static OPPONENT_AIS_SPELL: Filter = Filter::And(&[
-    Filter::ControlledByOpponent,
-    Filter::Or(&[
-        Filter::ARTIFACT,
-        Filter::HasType(TypeSet::INSTANT),
-        Filter::HasType(TypeSet::SORCERY),
-    ]),
-]);
+
+static YOUR_AIS_SPELL: Filter = Filter::And(&[Filter::ControlledByYou, AIS_SPELL]);
+static OPPONENT_AIS_SPELL: Filter = Filter::And(&[Filter::ControlledByOpponent, AIS_SPELL]);
 
 card!(
     index = index::JIN_GITAXIAS_PROGRESS_TYRANT,

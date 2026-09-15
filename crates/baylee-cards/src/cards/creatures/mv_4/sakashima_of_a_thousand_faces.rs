@@ -8,9 +8,6 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes::creature;
 
-static YOUR_CREATURES: Filter =
-    Filter::And(&[Filter::ControlledByYou, Filter::CREATURE, Filter::Another]);
-
 card!(
     index = index::SAKASHIMA_OF_A_THOUSAND_FACES,
     oracle_id = "8ecdaf4b-4442-42da-9714-4257a83faf50",
@@ -30,7 +27,7 @@ card!(
     coverage = Coverage::Implemented,
     abilities = &[
         AbilityDef::CopyOnEnter {
-            target: TargetSpec::Object(&YOUR_CREATURES),
+            target: TargetSpec::Object(&Filter::ANOTHER_CREATURE_YOU_CONTROL),
             mods: &[],
         },
         static_ability!(Filter::Any, Modifier::LegendRuleOff),

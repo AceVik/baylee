@@ -9,7 +9,7 @@ use baylee_core::generated::subtypes::creature;
 static TAPPED_ARTIFACTS_CREATURES: Filter = Filter::And(&[
     Filter::ControlledByYou,
     Filter::Tapped,
-    Filter::Or(&[Filter::ARTIFACT, Filter::CREATURE]),
+    Filter::ARTIFACT_OR_CREATURE,
 ]);
 
 use crate::tokens::ALLY_1_1_WHITE as ALLY_TOKEN;

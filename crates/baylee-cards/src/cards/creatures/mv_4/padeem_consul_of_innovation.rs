@@ -35,7 +35,7 @@ card!(
             }]
         ),
         static_ability!(
-            Filter::And(&[Filter::ARTIFACT, Filter::ControlledByYou]),
+            Filter::YOUR_ARTIFACT,
             Modifier::AddKeyword(KeywordSet::HEXPROOF)
         ),
     ],

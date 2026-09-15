@@ -8,10 +8,8 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes::creature;
 
-static YOUR_CREATURE_OR_WALKER: Filter = Filter::And(&[
-    Filter::Or(&[Filter::CREATURE, Filter::PLANESWALKER]),
-    Filter::ControlledByYou,
-]);
+static YOUR_CREATURE_OR_WALKER: Filter =
+    Filter::And(&[Filter::CREATURE_OR_PLANESWALKER, Filter::ControlledByYou]);
 
 card!(
     index = index::SPARK_DOUBLE,

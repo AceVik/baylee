@@ -10,10 +10,8 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes::creature;
 
-static OTHER_CREATURE_OR_WALKER: Filter = Filter::And(&[
-    Filter::Another,
-    Filter::Or(&[Filter::CREATURE, Filter::PLANESWALKER]),
-]);
+static OTHER_CREATURE_OR_WALKER: Filter =
+    Filter::And(&[Filter::Another, Filter::CREATURE_OR_PLANESWALKER]);
 static COUNTER_EFFECTS: &[Effect] = &[
     Effect::CounterTargetSpellOrAbility,
     Effect::DrawCardsFor {

@@ -16,9 +16,8 @@ use baylee_core::generated::subtypes::{creature, enchantment};
 
 static NONTOKEN_CREATURE_OR_WALKER: Filter = Filter::And(&[
     Filter::Not(&Filter::IsToken),
-    Filter::Or(&[Filter::CREATURE, Filter::PLANESWALKER]),
+    Filter::CREATURE_OR_PLANESWALKER,
 ]);
-static CREATURE_OR_WALKER: Filter = Filter::Or(&[Filter::CREATURE, Filter::PLANESWALKER]);
 
 static BACK_ABILITIES: &[AbilityDef] = &[
     // NOT SUPPORTED: chapter I prints "For each opponent, destroy up to one
@@ -34,7 +33,7 @@ static BACK_ABILITIES: &[AbilityDef] = &[
         1,
         &[Effect::DestroyChosenForPlayers {
             who: PlayerRel::EachOpponent,
-            filter: &CREATURE_OR_WALKER,
+            filter: &Filter::CREATURE_OR_PLANESWALKER,
         }]
     ),
     chapter!(

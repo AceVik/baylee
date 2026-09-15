@@ -452,6 +452,11 @@ macro_rules! face {
 /// (`CREATURE`, `LAND`, `BASIC_LAND`, `NONLAND`, `INSTANT_OR_SORCERY`, …) or
 /// any `Filter` expression.
 ///
+/// A bare identifier is therefore always a constant **on `Filter`** and never
+/// a name in the card's own file: `f!(your AIS_SPELL)` expands to
+/// `Filter::AIS_SPELL` and fails to compile, whatever `AIS_SPELL` the card
+/// declared above it. A card-local filter is composed by hand.
+///
 /// Anything that takes an argument stays a variant —
 /// `Filter::HasColor(ColorSet::of(Color::Green))`, `Filter::CmcAtMost(1)` —
 /// because the point is a shorter spelling of the filters we already have,
@@ -1032,6 +1037,11 @@ mod tests {
         // `Filter::YOUR_LAND`, which is the duplication both exist to end.
         assert_eq!(f!(your LAND), Filter::YOUR_LAND);
         assert_eq!(f!(your BASIC_LAND), Filter::YOUR_BASIC_LAND);
+        assert_eq!(f!(your ARTIFACT), Filter::YOUR_ARTIFACT);
+        assert_eq!(
+            f!(your another CREATURE),
+            Filter::ANOTHER_CREATURE_YOU_CONTROL
+        );
         assert_eq!(
             f!(CREATURE),
             Filter::CREATURE,
@@ -1054,6 +1064,30 @@ mod tests {
             f!(your Filter::CmcAtMost(1)),
             Filter::And(&[Filter::CmcAtMost(1), Filter::ControlledByYou]),
             "the noun may be any Filter expression, which is where f! stops"
+        );
+    }
+
+    /// Two adjectives, one English phrase, two different filters.
+    ///
+    /// `f!` stacks adjectives in the order they are written, so "another
+    /// creature you control" has two spellings and they are not the same
+    /// data: `And(&[CREATURE, ControlledByYou, Another])` against
+    /// `And(&[CREATURE, Another, ControlledByYou])`. Nothing would catch a
+    /// card reaching for the second one — both compile, both match the same
+    /// objects, and the only reader that can tell them apart is
+    /// `state::filter_hash`. So the constant picks one and this pins the
+    /// hazard: it is the reason [`Filter::ANOTHER_CREATURE_YOU_CONTROL`]
+    /// exists as a name rather than as a macro call in three card files.
+    ///
+    /// The one-adjective constants have no such choice to make, which is why
+    /// this is the first test in the file that asserts an inequality.
+    #[test]
+    fn the_filter_macro_cannot_be_trusted_to_spell_an_order() {
+        assert_ne!(f!(your another CREATURE), f!(another your CREATURE));
+        assert_eq!(
+            f!(your another CREATURE),
+            Filter::ANOTHER_CREATURE_YOU_CONTROL,
+            "the constant is the `your`-first spelling, like ANOTHER_ALLY"
         );
     }
 

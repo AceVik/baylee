@@ -8,8 +8,6 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes::creature;
 
-static ARTIFACT_OR_CREATURE: Filter = Filter::Or(&[Filter::ARTIFACT, Filter::CREATURE]);
-
 card!(
     index = index::PHYREXIAN_METAMORPH,
     oracle_id = "340bbe8b-e987-4c3e-ab4e-9dee63e57d4f",
@@ -25,7 +23,7 @@ card!(
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     coverage = Coverage::Implemented,
     abilities = &[AbilityDef::CopyOnEnter {
-        target: TargetSpec::Object(&ARTIFACT_OR_CREATURE),
+        target: TargetSpec::Object(&Filter::ARTIFACT_OR_CREATURE),
         mods: &[CopyMod::AddType(TypeSet::ARTIFACT)],
     }],
 );

@@ -6,11 +6,6 @@
 
 use baylee_cards_dsl::prelude::*;
 
-static NONBASIC_LAND: Filter = Filter::And(&[
-    Filter::LAND,
-    Filter::Not(&Filter::HasSupertype(SupertypeSet::BASIC)),
-]);
-
 card!(
     index = index::WASTELAND,
     oracle_id = "09a70ae8-3859-4a09-901d-dce063fa3b5f",
@@ -21,8 +16,8 @@ card!(
         mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
         activated!(
             cost!(TapSelf, SacrificeSelf),
-            &[Effect::destroy(TargetSpec::Object(&NONBASIC_LAND))],
-            target = Some(TargetSpec::Object(&NONBASIC_LAND))
+            &[Effect::destroy(TargetSpec::Object(&Filter::NONBASIC_LAND))],
+            target = Some(TargetSpec::Object(&Filter::NONBASIC_LAND))
         ),
     ],
 );
