@@ -25,9 +25,20 @@ pub enum Filter {
     Or(&'static [Filter]),
     /// Must not match.
     Not(&'static Filter),
-    /// Has all of these types.
+    /// Has at least one of these types.
+    ///
+    /// *One* of them, not all: `eval` asks `types.intersects(t)`, so
+    /// `HasType(INSTANT.union(SORCERY))` is "an instant or a sorcery" and
+    /// not "both at once", which nothing is. Every writing in this pool
+    /// names a single type, so the doc that said "all" had never been wrong
+    /// about a card — it was wrong about the one thing
+    /// [`Self::LacksType`] is the negation of.
     HasType(TypeSet),
-    /// Has none of these types.
+    /// Has none of these types — the exact negation of [`Self::HasType`],
+    /// and therefore the one spelling for "not a creature". `Not(&HasType(t))`
+    /// matches the same objects and is a different `Filter`: only
+    /// `state::filter_hash` can tell them apart, and a filter with two
+    /// spellings is a filter with two names.
     LacksType(TypeSet),
     /// Has all of these supertypes.
     HasSupertype(SupertypeSet),

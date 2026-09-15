@@ -292,8 +292,14 @@ impl Tx<'_> {
                     "untapped" => "Filter::Untapped".to_string(),
                     "token" => "Filter::IsToken".to_string(),
                     "nonToken" | "!token" => "Filter::Not(&Filter::IsToken)".to_string(),
-                    "nonLand" => "Filter::Not(&Filter::LAND)".to_string(),
-                    "nonCreature" => "Filter::Not(&Filter::CREATURE)".to_string(),
+                    // `LacksType` and not `Not(&…)`: the two are the same
+                    // predicate (`eval.rs` negates one line to get the
+                    // other) and the DSL already carries a name for each,
+                    // so writing the negation out would give "not a
+                    // creature" a second spelling that only `filter_hash`
+                    // can tell from the first.
+                    "nonLand" => "Filter::NONLAND".to_string(),
+                    "nonCreature" => "Filter::NONCREATURE".to_string(),
                     // Supertypes read like subtypes in a script filter but are
                     // a different set on the card (CR 205.4).
                     "Basic" => "Filter::HasSupertype(SupertypeSet::BASIC)".to_string(),

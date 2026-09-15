@@ -9,8 +9,8 @@ use baylee_core::generated::subtypes::creature;
 
 static SMALL_PERMANENT: Filter = Filter::And(&[
     Filter::CmcAtMost(3),
-    Filter::Not(&Filter::HasType(TypeSet::INSTANT)),
-    Filter::Not(&Filter::HasType(TypeSet::SORCERY)),
+    Filter::LacksType(TypeSet::INSTANT),
+    Filter::LacksType(TypeSet::SORCERY),
 ]);
 
 card!(

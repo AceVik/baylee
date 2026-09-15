@@ -6,7 +6,7 @@
 
 use baylee_cards_dsl::prelude::*;
 
-static TARGET1: Filter = Filter::And(&[Filter::ARTIFACT, Filter::Not(&Filter::CREATURE)]);
+static TARGET1: Filter = Filter::And(&[Filter::ARTIFACT, Filter::NONCREATURE]);
 
 card!(
     index = index::BLINKMOTH_WELL,

@@ -5,8 +5,6 @@
 
 use baylee_cards_dsl::prelude::*;
 
-static TARGET1: Filter = Filter::Not(&Filter::CREATURE);
-
 card!(
     index = index::NEGATE,
     oracle_id = "3407fe41-fdd3-4119-8f70-4bc4590a379f",
@@ -20,6 +18,6 @@ card!(
     ),],
     abilities = &[spell!(
         &[Effect::CounterTargetSpell],
-        targets = Some(TargetReq::one(TargetSpec::Spell(&TARGET1)))
+        targets = Some(TargetReq::one(TargetSpec::Spell(&Filter::NONCREATURE)))
     ),],
 );

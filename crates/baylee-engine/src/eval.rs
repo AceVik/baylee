@@ -587,4 +587,86 @@ mod tests {
             "hexproof kept working in the graveyard"
         );
     }
+
+    /// `LacksType(t)` and `Not(&HasType(t))` are the same predicate, which
+    /// is what lets the pool spell "not a creature" exactly one way.
+    ///
+    /// The two arms of the `match` above are literal negations of each
+    /// other, so this could be read off the source — and that is precisely
+    /// why it is worth a test: the equivalence is an *invariant* the card
+    /// pool now depends on, not an accident of how those two lines happen
+    /// to be written today. Every type, and both answers, so a rule that
+    /// stopped negating would fail here rather than in a card.
+    #[test]
+    fn lacking_a_type_is_not_having_it() {
+        // Written out in pairs rather than built in the loop: `Not` holds a
+        // `&'static Filter`, and a reference taken to a value made from a
+        // loop variable cannot be promoted (E0716). The pairing is the
+        // assertion, so writing it is no loss.
+        static NEGATIONS: &[(TypeSet, Filter, Filter)] = &[
+            (
+                TypeSet::ARTIFACT,
+                Filter::LacksType(TypeSet::ARTIFACT),
+                Filter::Not(&Filter::HasType(TypeSet::ARTIFACT)),
+            ),
+            (
+                TypeSet::CREATURE,
+                Filter::LacksType(TypeSet::CREATURE),
+                Filter::Not(&Filter::HasType(TypeSet::CREATURE)),
+            ),
+            (
+                TypeSet::ENCHANTMENT,
+                Filter::LacksType(TypeSet::ENCHANTMENT),
+                Filter::Not(&Filter::HasType(TypeSet::ENCHANTMENT)),
+            ),
+            (
+                TypeSet::INSTANT,
+                Filter::LacksType(TypeSet::INSTANT),
+                Filter::Not(&Filter::HasType(TypeSet::INSTANT)),
+            ),
+            (
+                TypeSet::KINDRED,
+                Filter::LacksType(TypeSet::KINDRED),
+                Filter::Not(&Filter::HasType(TypeSet::KINDRED)),
+            ),
+            (
+                TypeSet::LAND,
+                Filter::LacksType(TypeSet::LAND),
+                Filter::Not(&Filter::HasType(TypeSet::LAND)),
+            ),
+            (
+                TypeSet::PLANESWALKER,
+                Filter::LacksType(TypeSet::PLANESWALKER),
+                Filter::Not(&Filter::HasType(TypeSet::PLANESWALKER)),
+            ),
+            (
+                TypeSet::SORCERY,
+                Filter::LacksType(TypeSet::SORCERY),
+                Filter::Not(&Filter::HasType(TypeSet::SORCERY)),
+            ),
+            (
+                TypeSet::BATTLE,
+                Filter::LacksType(TypeSet::BATTLE),
+                Filter::Not(&Filter::HasType(TypeSet::BATTLE)),
+            ),
+        ];
+
+        let mut state = empty_state();
+        let obj = creature(&mut state, P0, KeywordSet::EMPTY);
+        let object = state.object(obj).expect("just created");
+        for (t, lacks, negated) in NEGATIONS {
+            assert_eq!(
+                matches(lacks, &state, object, P0, obj),
+                matches(negated, &state, object, P0, obj),
+                "LacksType and Not(HasType) disagreed about {t:?}"
+            );
+        }
+
+        // The counter-test: the object really is a creature and really is
+        // not a land, so the loop above compared both answers and not one
+        // answer nine times.
+        assert!(matches(&Filter::CREATURE, &state, object, P0, obj));
+        assert!(matches(&Filter::NONLAND, &state, object, P0, obj));
+        assert!(!matches(&Filter::NONCREATURE, &state, object, P0, obj));
+    }
 }

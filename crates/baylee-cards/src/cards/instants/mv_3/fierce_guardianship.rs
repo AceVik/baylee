@@ -4,8 +4,6 @@
 //! Set: CMM #94 — Commander Masters | Scryfall ID: f7f3dd95-bd14-4e0f-a388-444f9cf1b0dc | Oracle ID: d09c9cba-fdd2-479b-ad5d-d05181c3e3f9
 // IMPLEMENTED — commander-conditional free cast + noncreature counter.
 
-static NONCREATURE_SPELL: Filter = Filter::Not(&Filter::CREATURE);
-
 use baylee_cards_dsl::prelude::*;
 
 card!(
@@ -25,6 +23,6 @@ card!(
     coverage = Coverage::Implemented,
     abilities = &[spell!(
         &[Effect::CounterTargetSpell],
-        targets = Some(TargetReq::one(TargetSpec::Spell(&NONCREATURE_SPELL)))
+        targets = Some(TargetReq::one(TargetSpec::Spell(&Filter::NONCREATURE)))
     )],
 );
