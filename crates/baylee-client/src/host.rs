@@ -6,6 +6,8 @@
 //! differ only in which host is installed, and every system above this line is
 //! written once.
 
+#[cfg(all(feature = "dev-control", not(target_arch = "wasm32")))]
+use baylee_cards::decks::DevZone;
 use baylee_core::ids::PlayerId;
 use baylee_core::preset::GamePreset;
 use baylee_engine::choice::{Pending, PlayerAction};
@@ -275,21 +277,6 @@ pub fn deal_the_dev_board(preset: &mut GamePreset) {
     deal_the_dev_zone(preset, "BAYLEE_DEV_SEAT_HAND", DevZone::Hand);
 }
 
-/// Which of the two zones a hand-dealt card is being put in.
-#[cfg(all(feature = "dev-control", not(target_arch = "wasm32")))]
-#[derive(Clone, Copy, PartialEq, Eq)]
-enum DevZone {
-    /// `starting_battlefield`, appended to: a board is a list of permanents.
-    Battlefield,
-    /// `starting_hand`, **replacing** whatever would have been drawn.
-    ///
-    /// It has to replace rather than append, because a `starting_hand` is the
-    /// whole opening hand and a seat that was given one is not dealt seven on
-    /// top of it. So an empty `BAYLEE_DEV_SEAT_HAND` leaves the deal alone and
-    /// a non-empty one is the hand, exactly.
-    Hand,
-}
-
 /// The half of [`deal_the_dev_board`] that reads one variable into one zone.
 ///
 /// `BAYLEE_DEV_SEAT_HAND` exists for the same reason the board variable does,
@@ -300,6 +287,11 @@ enum DevZone {
 /// cast it is asked before anything is tapped"): Reveillark and six open
 /// Plains are two variables and no duel played into position.
 ///
+/// The dealing itself is `baylee_cards::decks::deal_named`, which takes the
+/// spec as an argument and reads no environment — the gateway deals the same
+/// list behind its own `dev-table` feature, and one parser is what keeps a
+/// board dealt there from being a different board.
+///
 /// # Panics
 ///
 /// As [`deal_the_dev_board`], and for its reasons.
@@ -308,67 +300,8 @@ fn deal_the_dev_zone(preset: &mut GamePreset, variable: &str, zone: DevZone) {
     let Ok(spec) = std::env::var(variable) else {
         return;
     };
-    for wanted in spec.split(';').map(str::trim).filter(|s| !s.is_empty()) {
-        let (seat, name) = match wanted.split_once(':') {
-            Some((before, after)) if before.trim().parse::<usize>().is_ok() => (
-                before.trim().parse::<usize>().unwrap_or_default(),
-                after.trim(),
-            ),
-            _ => (0, wanted),
-        };
-        let card = baylee_cards::all()
-            .find(|def| {
-                def.faces
-                    .first()
-                    .is_some_and(|face| face.name.eq_ignore_ascii_case(name))
-            })
-            .unwrap_or_else(|| panic!("{variable}: no card named `{name}`"));
-        // The card's **own** printing, and not `PrintRef::new(0)`.
-        //
-        // Print 0 is whatever the first card of the first decklist happened
-        // to resolve to, so a dealt board wore a stranger's picture — and now
-        // that a stack entry draws its printed sentence, it would have asked
-        // the catalog for a stranger's text as well. That is the one failure
-        // this harness must not have: a measurement of a board it never
-        // dealt. The entry is appended to the game's own print table, which
-        // is what a seat's entitlement is counted against, and deduplicated
-        // because a board may deal two of a card.
-        //
-        // It asks `decks::reference_print` rather than building the same
-        // three fields a second time, because the dedup compares the **whole**
-        // struct and the two constructions have to be identical for it to fire
-        // at all. This line wrote `"EN"` where a decklist writes `"en"`, so
-        // every dealt card the deck already carried was appended a second time
-        // under the same printing id — and `cardtext::absorb`, which files an
-        // answer against the first index claiming that id, left the dealt copy
-        // with no card text whatsoever. Six of ten cards on a hand-dealt board
-        // came out blank, which reads exactly like a hole in the catalog and
-        // is not one.
-        let want = baylee_cards::decks::reference_print(card.index);
-        assert!(
-            !want.scryfall_id.is_nil(),
-            "{variable}: `{name}` has no printing id to draw"
-        );
-        let print = if let Some(pos) = preset.prints.iter().position(|p| *p == want) {
-            pos
-        } else {
-            preset.prints.push(want);
-            preset.prints.len() - 1
-        };
-        let print = u16::try_from(print)
-            .unwrap_or_else(|_| panic!("{variable}: this game has too many printings"));
-        let chair = preset
-            .seats
-            .get_mut(seat)
-            .unwrap_or_else(|| panic!("{variable}: this game has no seat {seat}"));
-        let entry = baylee_core::preset::DeckEntry {
-            card: card.index,
-            print: baylee_core::ids::PrintRef::new(print),
-        };
-        match zone {
-            DevZone::Battlefield => chair.starting_battlefield.push(entry),
-            DevZone::Hand => chair.starting_hand.get_or_insert_default().push(entry),
-        }
+    if let Err(why) = baylee_cards::decks::deal_named(preset, &spec, zone) {
+        panic!("{variable}: {why}");
     }
 }
 

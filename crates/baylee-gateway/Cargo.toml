@@ -8,6 +8,14 @@ description = "Gateway: accounts, decks, lobby, and game hosting for baylee"
 [lints]
 workspace = true
 
+[features]
+# A developer's table: `BAYLEE_DEV_SEAT_BOARD` puts named cards on named
+# seats' battlefields before turn one, through the same parser the client's
+# offline harness uses. Off by default, because a gateway is somebody's
+# server and one that seats cards from its environment is a table its
+# operator can stack in silence.
+dev-table = []
+
 [dependencies]
 anyhow.workspace = true
 argon2.workspace = true

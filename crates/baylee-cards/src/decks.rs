@@ -473,6 +473,105 @@ pub fn probe_deck(card: CardIndex, copies: usize, size: usize) -> Option<LoadedD
         commanders: vec![],
     })
 }
+/// Which zone a hand-dealt card goes into.
+///
+/// The two differ in more than a field name. A board is a *list* of
+/// permanents and is appended to; a `starting_hand` is the whole opening hand
+/// and **replaces** the deal for the seat it names, so an empty spec leaves
+/// the deal alone and a non-empty one is the hand, exactly.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum DevZone {
+    /// [`SeatSpec::starting_battlefield`], appended to.
+    Battlefield,
+    /// [`SeatSpec::starting_hand`], replacing whatever would have been drawn.
+    Hand,
+}
+
+/// Deals a hand-written list of cards into one zone of a preset.
+///
+/// The spec is a **semicolon**-separated list of card names, each optionally
+/// prefixed with a seat and a colon: `Kazandu Blademaster; 1:Baleful Strix`
+/// puts the first on seat 0's side and the second on seat 1's. The separator
+/// is a semicolon because a comma is part of a card's name far too often —
+/// "Sokka, Tenacious Tactician" — and a colon only counts as a seat prefix
+/// when what precedes it is a number, for the same reason.
+///
+/// The cards arrive before turn one, through the same `SeatSpec` fields the
+/// duel-flow tests use, so the engine treats them exactly as it treats a boss
+/// board or a puzzle. It exists because the alternative is playing a duel
+/// into position, and a singleton in a ninety-card deck is not something a
+/// game reaches on request.
+///
+/// It takes the spec as an **argument** and reads no environment of its own.
+/// Every caller is a development harness that has already decided it is one,
+/// and a library that seated cards straight from the environment would put
+/// that decision somewhere no binary gates it: the client's `dev-control` and
+/// the gateway's `dev-table` are the two gates, and both call this.
+///
+/// # Errors
+///
+/// On a card name no printing in the registry answers to, a seat this game
+/// does not have, or a card with no printing id to draw. Never silently,
+/// because a typo that dealt nothing turns "this card does not work" into a
+/// conclusion about the rules.
+pub fn deal_named(preset: &mut GamePreset, spec: &str, zone: DevZone) -> Result<(), String> {
+    for wanted in spec.split(';').map(str::trim).filter(|s| !s.is_empty()) {
+        let (seat, name) = match wanted.split_once(':') {
+            Some((before, after)) if before.trim().parse::<usize>().is_ok() => (
+                before.trim().parse::<usize>().unwrap_or_default(),
+                after.trim(),
+            ),
+            _ => (0, wanted),
+        };
+        let card = crate::all()
+            .find(|def| {
+                def.faces
+                    .first()
+                    .is_some_and(|face| face.name.eq_ignore_ascii_case(name))
+            })
+            .ok_or_else(|| format!("no card named `{name}`"))?;
+        // The card's **own** printing, and not `PrintRef::new(0)`.
+        //
+        // Print 0 is whatever the first card of the first decklist happened
+        // to resolve to, so a dealt board wore a stranger's picture — and now
+        // that a stack entry draws its printed sentence, it would have asked
+        // the catalog for a stranger's text as well. That is the one failure
+        // this must not have: a measurement of a board it never dealt. The
+        // entry is appended to the game's own print table, which is what a
+        // seat's entitlement is counted against, and deduplicated because a
+        // board may deal two of a card.
+        //
+        // It asks [`reference_print`] rather than building the same three
+        // fields a second time, because the dedup compares the **whole**
+        // struct and the two constructions have to be identical for it to
+        // fire at all. This line once wrote `"EN"` where a decklist writes
+        // `"en"`, so every dealt card the deck already carried was appended a
+        // second time under the same printing id — and `cardtext::absorb`,
+        // which files an answer against the first index claiming that id,
+        // left the dealt copy with no card text whatsoever. Six of ten cards
+        // on a hand-dealt board came out blank, which reads exactly like a
+        // hole in the catalog and is not one.
+        let want = reference_print(card.index);
+        if want.scryfall_id.is_nil() {
+            return Err(format!("`{name}` has no printing id to draw"));
+        }
+        let print = print_ref_for(&mut preset.prints, &want);
+        let chair = preset
+            .seats
+            .get_mut(seat)
+            .ok_or_else(|| format!("this game has no seat {seat}"))?;
+        let entry = DeckEntry {
+            card: card.index,
+            print,
+        };
+        match zone {
+            DevZone::Battlefield => chair.starting_battlefield.push(entry),
+            DevZone::Hand => chair.starting_hand.get_or_insert_default().push(entry),
+        }
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

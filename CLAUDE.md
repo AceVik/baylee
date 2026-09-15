@@ -331,7 +331,15 @@ first of them the gateway sends none and requires no confirmation, which is
 the development default) and
 `BAYLEE_ENGINE_URL` (what an engine is told to dial, default
 `ws://127.0.0.1:{PORT}/engine/ws` — right for one box, wrong the moment an
-agent runs elsewhere). Every response carries
+agent runs elsewhere). Built `--features dev-table` it also reads
+`BAYLEE_DEV_SEAT_BOARD` — the same semicolon-separated `0:Reflecting Pool;
+1:Reflecting Pool` the client's offline harness takes, through the same
+parser (`baylee_cards::decks::deal_named`), putting those cards on those
+seats' battlefields before turn one. A **feature** and not merely a variable,
+because a gateway is somebody's server and one that seats cards from its own
+environment is a table its operator can stack in silence; a spec that does
+not resolve refuses to start the gateway rather than failing at the moment
+somebody presses Start. Every response carries
 `Access-Control-Allow-Origin: *` and no `Allow-Credentials`, which is what
 lets the browser client read an answer at all: its page is a different origin
 by construction, and the pair is defensible only because this gateway

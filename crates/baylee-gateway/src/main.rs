@@ -137,6 +137,7 @@ async fn main() {
         .ok()
         .and_then(|p| p.parse().ok())
         .unwrap_or(28766);
+    validate_the_dev_board();
     let store_path = std::env::var("STORE_PATH")
         .map_or_else(|_| PathBuf::from("gateway-store.json"), PathBuf::from);
     let db = open_database(&store_path).await;
@@ -1470,6 +1471,93 @@ async fn cors(
     response
 }
 
+/// The cards this gateway puts on every named seat's battlefield before turn
+/// one, read from `BAYLEE_DEV_SEAT_BOARD`.
+///
+/// Same variable and same parser as the client's offline harness
+/// (`baylee_cards::decks::deal_named`) — `0:Reflecting Pool; 1:Reflecting
+/// Pool` seats one on each side of a duel — because a board dealt here and a
+/// board dealt there have to be the same board or neither is evidence about
+/// the other.
+///
+/// Behind the `dev-table` feature, and not merely behind the variable. A
+/// gateway is somebody's server, and one that seats cards from its own
+/// environment is a table whose operator can stack it silently; the feature
+/// is what keeps those routes out of a build meant to be run for other
+/// people. `validate_the_dev_board` refuses to start a gateway whose spec
+/// does not resolve, so a failure here is a name that stopped resolving
+/// mid-run rather than a typo.
+#[cfg(feature = "dev-table")]
+fn deal_the_dev_board(
+    preset: &mut baylee_core::preset::GamePreset,
+) -> Result<(), (StatusCode, Json<ErrorBody>)> {
+    let Ok(spec) = std::env::var("BAYLEE_DEV_SEAT_BOARD") else {
+        return Ok(());
+    };
+    baylee_cards::decks::deal_named(preset, &spec, baylee_cards::decks::DevZone::Battlefield)
+        .map_err(|why| {
+            tracing::error!("BAYLEE_DEV_SEAT_BOARD: {why}");
+            err(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "the dev board could not be dealt",
+            )
+        })
+}
+
+/// No board is dealt in a build without the `dev-table` feature.
+#[cfg(not(feature = "dev-table"))]
+#[expect(
+    clippy::unnecessary_wraps,
+    reason = "the shape is the feature-gated twin's"
+)]
+fn deal_the_dev_board(
+    _preset: &mut baylee_core::preset::GamePreset,
+) -> Result<(), (StatusCode, Json<ErrorBody>)> {
+    Ok(())
+}
+
+/// Refuses to start on a `BAYLEE_DEV_SEAT_BOARD` that does not resolve.
+///
+/// The spec is dealt into a throwaway table of `MAX_SEATS` chairs, which is
+/// every name and every seat index the real thing could be asked for — so a
+/// typo is a gateway that does not come up, and not a room that refuses to
+/// start with two people already sitting at it. `dev-reload` sets the
+/// precedent: a development switch that quietly does nothing is worse than
+/// one that is loud.
+///
+/// # Panics
+///
+/// On a name the registry does not answer to, deliberately.
+#[cfg(feature = "dev-table")]
+fn validate_the_dev_board() {
+    let Ok(spec) = std::env::var("BAYLEE_DEV_SEAT_BOARD") else {
+        return;
+    };
+    // Eight chairs because `GamePreset::validate` bounds a table at eight,
+    // and empty decks because only the names and the seat indices are being
+    // resolved here — the real preset is built per room, from real decks.
+    let empty = baylee_cards::decks::LoadedDeck {
+        name: String::new(),
+        main: vec![],
+        sideboard: vec![],
+        commanders: vec![],
+    };
+    let chairs = [&empty; 8];
+    let mut probe = baylee_cards::decks::preset_for_all(0, &chairs);
+    if let Err(why) = baylee_cards::decks::deal_named(
+        &mut probe,
+        &spec,
+        baylee_cards::decks::DevZone::Battlefield,
+    ) {
+        panic!("BAYLEE_DEV_SEAT_BOARD: {why}");
+    }
+    tracing::info!("BAYLEE_DEV_SEAT_BOARD is set: every game starts with `{spec}` on the table");
+}
+
+/// Nothing to validate in a build without the `dev-table` feature.
+#[cfg(not(feature = "dev-table"))]
+fn validate_the_dev_board() {}
+
 /// Preset for a human-vs-AI game (house AI plays Victory).
 fn ai_preset(
     deck: &Deck,
@@ -1477,7 +1565,9 @@ fn ai_preset(
 ) -> Result<baylee_core::preset::GamePreset, (StatusCode, Json<ErrorBody>)> {
     let house = house_deck()?;
     let player = loaded_deck(deck)?;
-    Ok(baylee_cards::decks::preset_for(seed, &player, &house))
+    let mut preset = baylee_cards::decks::preset_for(seed, &player, &house);
+    deal_the_dev_board(&mut preset)?;
+    Ok(preset)
 }
 
 /// Looks a deck up and checks it belongs to the account asking for it.
@@ -1530,6 +1620,7 @@ fn room_preset(
         };
         spec.team = seat.team;
     }
+    deal_the_dev_board(&mut preset)?;
     // The engine refuses a table with only one side on it, and so does the
     // lobby — here rather than at the first state-based action, so the room
     // says why instead of starting a game that is already over.
