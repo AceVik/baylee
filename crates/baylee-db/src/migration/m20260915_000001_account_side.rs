@@ -25,7 +25,7 @@
 
 use sea_orm_migration::prelude::*;
 use sea_orm_migration::schema::{
-    array, big_integer, boolean, integer, json_binary, pk_uuid, text, text_null,
+    array, big_integer, binary, boolean, integer, json_binary, pk_uuid, text, text_null,
     timestamp_with_time_zone, timestamp_with_time_zone_null, uuid,
 };
 
@@ -127,7 +127,10 @@ async fn credentials(manager: &SchemaManager<'_>) -> Result<(), DbErr> {
             Table::create()
                 .table(SessionToken::Table)
                 .if_not_exists()
-                .col(text(SessionToken::TokenHash).primary_key())
+                // A digest, stored as the bytes it is. `text` was sixty-four
+                // hex characters for thirty-two bytes of hash, in a column
+                // that would have taken `hello`.
+                .col(binary(SessionToken::TokenHash).primary_key())
                 .col(uuid(SessionToken::AccountId))
                 .col(timestamp_with_time_zone(SessionToken::ExpiresAt))
                 .foreign_key(&mut cascade_to_account(
@@ -144,7 +147,7 @@ async fn credentials(manager: &SchemaManager<'_>) -> Result<(), DbErr> {
             Table::create()
                 .table(Confirmation::Table)
                 .if_not_exists()
-                .col(text(Confirmation::TokenHash).primary_key())
+                .col(binary(Confirmation::TokenHash).primary_key())
                 .col(uuid(Confirmation::AccountId))
                 .col(timestamp_with_time_zone(Confirmation::ExpiresAt))
                 .foreign_key(&mut cascade_to_account(

@@ -99,8 +99,8 @@ pub struct Account {
 /// row that grants an account to whoever can read the table.
 #[derive(Clone, Debug)]
 pub struct Confirmation {
-    /// SHA-256 of the token in the link.
-    pub token_hash: String,
+    /// SHA-256 of the token in the link, as bytes.
+    pub token_hash: Vec<u8>,
     /// The account it confirms.
     pub account_id: String,
     /// Expiry (unix seconds). A link that never expired would be a password
@@ -111,8 +111,8 @@ pub struct Confirmation {
 /// A stored session token (only the SHA-256 hash is kept).
 #[derive(Clone, Debug)]
 pub struct StoredToken {
-    /// SHA-256 of the bearer token.
-    pub token_hash: String,
+    /// SHA-256 of the bearer token, as bytes.
+    pub token_hash: Vec<u8>,
     /// Owning account id.
     pub account_id: String,
     /// Expiry (unix seconds, sliding).
@@ -440,7 +440,7 @@ pub async fn resolve_token(
     token: &str,
     now: u64,
 ) -> Result<Option<String>> {
-    let hash = auth::token_hash(token);
+    let hash = auth::token_digest(token);
     let Some(row) = Sessions::find_by_id(hash.clone()).one(db).await? else {
         return Ok(None);
     };
@@ -467,7 +467,7 @@ pub async fn resolve_token(
 ///
 /// If the database refuses.
 pub async fn drop_token(db: &DatabaseConnection, token: &str) -> Result<()> {
-    Sessions::delete_by_id(auth::token_hash(token))
+    Sessions::delete_by_id(auth::token_digest(token))
         .exec(db)
         .await?;
     Ok(())
@@ -546,7 +546,7 @@ pub async fn put_confirmation(db: &DatabaseConnection, link: Confirmation) -> Re
 /// If the database refuses.
 pub async fn take_confirmation(
     db: &DatabaseConnection,
-    token_hash: &str,
+    token_hash: &[u8],
 ) -> Result<Option<Confirmation>> {
     let found = Confirmations::find_by_id(token_hash.to_owned())
         .one(db)

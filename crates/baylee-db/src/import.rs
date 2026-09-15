@@ -352,7 +352,7 @@ impl<'a> Owners<'a> {
             .filter_map(|t| {
                 Some(session_token::ActiveModel {
                     account_id: Set(self.owner(&t.account_id)?),
-                    token_hash: Set(t.token_hash.clone()),
+                    token_hash: Set(from_hex(&t.token_hash)?),
                     expires_at: Set(at(t.expires_at)),
                 })
             })
@@ -366,7 +366,7 @@ impl<'a> Owners<'a> {
             .filter_map(|c| {
                 Some(confirmation::ActiveModel {
                     account_id: Set(self.owner(&c.account_id)?),
-                    token_hash: Set(c.token_hash.clone()),
+                    token_hash: Set(from_hex(&c.token_hash)?),
                     expires_at: Set(at(c.expires_at)),
                 })
             })
@@ -508,3 +508,19 @@ pub fn imported_name(path: &Path) -> std::path::PathBuf {
 
 #[cfg(test)]
 mod tests;
+
+/// The bytes behind a hex string, or `None` if it is not one.
+///
+/// The old store kept a session's SHA-256 as sixty-four hex characters and
+/// the column is `bytea` now. A row whose hash is not hex is a row nothing
+/// could ever match anyway — `filter_map` drops it, which is the same answer
+/// the importer already gives a token whose account is gone.
+fn from_hex(s: &str) -> Option<Vec<u8>> {
+    if !s.len().is_multiple_of(2) {
+        return None;
+    }
+    (0..s.len())
+        .step_by(2)
+        .map(|n| u8::from_str_radix(s.get(n..n + 2)?, 16).ok())
+        .collect()
+}

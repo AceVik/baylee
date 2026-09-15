@@ -480,7 +480,7 @@ async fn mail_confirmation(state: &Shared, account_id: &str) {
         return;
     };
     let link = Confirmation {
-        token_hash: auth::token_hash(&issued.token),
+        token_hash: auth::token_digest(&issued.token),
         account_id: account_id.to_string(),
         expires_at: now + CONFIRM_TTL_SECS,
     };
@@ -511,7 +511,7 @@ async fn confirm(
     let now = auth::now_secs();
     // Read and removed in one step, so a link followed twice works once —
     // including when the second request is a mail client prefetching it.
-    let found = store::take_confirmation(&state.db, &auth::token_hash(&query.token))
+    let found = store::take_confirmation(&state.db, &auth::token_digest(&query.token))
         .await
         .map_err(|e| db_down(&e))?;
     let Some(found) = found else {
@@ -676,7 +676,7 @@ async fn login(
     store::put_token(
         &state.db,
         StoredToken {
-            token_hash: auth::token_hash(&issued.token),
+            token_hash: auth::token_digest(&issued.token),
             account_id,
             expires_at: issued.expires_at,
         },

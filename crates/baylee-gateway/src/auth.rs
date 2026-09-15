@@ -62,12 +62,26 @@ pub fn verify_password(stored: Option<&str>, password: &str) -> bool {
         .is_ok()
 }
 
-/// SHA-256 of a token — the only form stored.
+/// SHA-256 of a token, as the thirty-two bytes it is — the only form stored.
+///
+/// The database column is `bytea`, so nothing encodes on the way in and
+/// nothing decodes on the way out. A hash is not text; storing it as sixty-
+/// four hex characters was twice the bytes and a column that would accept
+/// `hello`.
 #[must_use]
-pub fn token_hash(token: &str) -> String {
+pub fn token_digest(token: &str) -> Vec<u8> {
     let mut h = Sha256::new();
     h.update(token.as_bytes());
-    hex_lower(&h.finalize())
+    h.finalize().to_vec()
+}
+
+/// The same digest as hex, for the things that are not rows.
+///
+/// A room's password and a seat's token are compared inside a `HashMap` the
+/// gateway holds, never stored, so they are strings and stay strings.
+#[must_use]
+pub fn token_hash(token: &str) -> String {
+    hex_lower(&token_digest(token))
 }
 
 /// A fresh 256-bit bearer token (hex).

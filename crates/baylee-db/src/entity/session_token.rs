@@ -13,7 +13,7 @@ pub struct Model {
     /// SHA-256 of the bearer token, hex. The key, because it is the only
     /// thing this row is ever found by.
     #[sea_orm(primary_key, auto_increment = false)]
-    pub token_hash: String,
+    pub token_hash: Vec<u8>,
     /// Whose session it is.
     pub account_id: Uuid,
     /// When it lapses. Slid forward on use — see

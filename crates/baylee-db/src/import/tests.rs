@@ -128,3 +128,18 @@ fn an_empty_store_imports_as_nothing() {
     let made = plan(&read_legacy("{}").unwrap(), OffsetDateTime::UNIX_EPOCH);
     assert!(made.tally().is_empty());
 }
+
+/// The old store kept a session's SHA-256 as hex and the column is `bytea`.
+/// A hash that is not hex is a row nothing could ever match, so it is
+/// dropped the way a token whose account is gone already was — never
+/// imported as something else.
+#[test]
+fn a_hash_that_is_not_hex_is_dropped_rather_than_mangled() {
+    assert_eq!(from_hex("00ff10"), Some(vec![0x00, 0xff, 0x10]));
+    assert_eq!(from_hex(""), Some(Vec::new()));
+    assert_eq!(from_hex("f"), None, "an odd length is not a byte string");
+    assert_eq!(from_hex("zz"), None);
+    assert_eq!(from_hex("00zz"), None);
+    // The real shape: sixty-four characters for thirty-two bytes.
+    assert_eq!(from_hex(&"a".repeat(64)).map(|b| b.len()), Some(32));
+}

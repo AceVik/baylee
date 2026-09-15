@@ -12,7 +12,7 @@ use sea_orm::entity::prelude::*;
 pub struct Model {
     /// SHA-256 of the token in the link, hex.
     #[sea_orm(primary_key, auto_increment = false)]
-    pub token_hash: String,
+    pub token_hash: Vec<u8>,
     /// The account it confirms.
     pub account_id: Uuid,
     /// When the link stops working.

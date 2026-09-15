@@ -304,7 +304,7 @@ async fn deleting_an_account_takes_everything_it_owned() {
     .expect("a deck saves");
 
     SessionToken::insert(session_token::ActiveModel {
-        token_hash: Set("f".repeat(64)),
+        token_hash: Set(vec![0xff; 32]),
         account_id: Set(id),
         expires_at: Set(OffsetDateTime::now_utc()),
     })
