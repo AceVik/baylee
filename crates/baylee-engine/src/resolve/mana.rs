@@ -115,7 +115,9 @@ pub(super) fn add(
 }
 
 /// The colors this source can produce right now.
-fn colors_of(state: &GameState, you: PlayerId, source: ManaSource) -> Vec<ManaColor> {
+///
+/// Re-exported as `resolve::colors_of`, where the reason is written down.
+pub fn colors_of(state: &GameState, you: PlayerId, source: ManaSource) -> Vec<ManaColor> {
     match source {
         ManaSource::Fixed(color) => vec![color],
         ManaSource::Choice(colors) => colors.to_vec(),

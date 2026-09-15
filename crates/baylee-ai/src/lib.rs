@@ -573,6 +573,7 @@ mod tests {
             stack_item: None,
             summoning_sick: false,
             granted_mana: None,
+            board_mana: None,
         }
     }
 

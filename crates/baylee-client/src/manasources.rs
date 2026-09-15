@@ -147,7 +147,7 @@ fn mana_ability(
     // Druid's X would leave a board half tapped. A bubble asks a smaller
     // question and takes it — see [`offers`].
     let amount = amount?;
-    let colors = produced_colors(view, source)?;
+    let colors = produced_colors(view, id, index, source)?;
     Some(Source {
         id,
         tap: Tap::Ability(index),
@@ -162,23 +162,37 @@ fn mana_ability(
 /// answer without one, which is why [`baylee_cards_dsl::mana_shape`] stops
 /// one step earlier and hands the `ManaSource` back for a caller holding a
 /// [`PlayerView`] to finish.
+///
+/// Those two are finished by **reading the answer**, not by working it out.
+/// Reflecting Pool, Exotic Orchard and Fellwar Stone want the union of
+/// `produced_colors` over the lands of one side of the table, and that is a
+/// *projected* characteristic — a Chromatic Lantern's grant is in it and so
+/// is a land that has lost its abilities — which no registry carries and no
+/// client can compute. So `baylee-gamehost` resolves both through the
+/// engine's own `resolve::colors_of` and puts the result on the permanent
+/// (`PublicObject::board_mana`), exactly as it does for a granted ability.
+/// Before that existed this arm answered `None` and a Reflecting Pool was
+/// dead mana: it counted for nothing in a plan, lit up for nothing in hand,
+/// and could not be tapped by hand either.
+///
+/// `object` and `index` are what turn the view's answer back into *this*
+/// ability's: the host named which printed ability it resolved, and a
+/// permanent with a second mana ability beside it must not read the first
+/// one's colours onto the second's row.
 pub(crate) fn produced_colors(
     view: &PlayerView,
+    object: baylee_core::ids::ObjectId,
+    index: u32,
     source: baylee_cards_dsl::ManaSource,
 ) -> Option<Vec<baylee_core::mana::ManaColor>> {
     match source {
         baylee_cards_dsl::ManaSource::Fixed(color) => Some(vec![color]),
         baylee_cards_dsl::ManaSource::Choice(colors) => Some(colors.to_vec()),
-        baylee_cards_dsl::ManaSource::CommanderIdentity => commander_identity(view),
-        // Reflecting Pool and Exotic Orchard read the *projected*
-        // `produced_colors` of every land on one side of the table, and no
-        // view carries that — a Chromatic Lantern's grant is in there, and so
-        // is a land that has lost its abilities. Reading it back out of the
-        // registry would over-count, which is the direction that leaves a
-        // board half tapped when the engine refuses the colour. It wants the
-        // treatment `PublicObject::granted_mana` got: a projection from
-        // gamehost, which is the only side that can see it.
-        baylee_cards_dsl::ManaSource::LandColor { .. } => None,
+        baylee_cards_dsl::ManaSource::CommanderIdentity
+        | baylee_cards_dsl::ManaSource::LandColor { .. } => {
+            let board = view.object(object)?.board_mana.as_ref()?;
+            (board.index == index).then(|| board.colors.clone())
+        }
     }
 }
 
@@ -245,7 +259,10 @@ pub fn offers(
                         ..
                     },
                 ) => baylee_cards_dsl::mana_offer(cost, effects).and_then(|(source, amount)| {
-                    Some((produced_colors(view, source)?, amount.is_some()))
+                    Some((
+                        produced_colors(view, object, index, source)?,
+                        amount.is_some(),
+                    ))
                 }),
                 _ => None,
             },
@@ -298,42 +315,6 @@ pub(crate) fn countable(view: &PlayerView, object: baylee_core::ids::ObjectId, t
         // Being unable to say "this is X" is not the same as saying it is.
         _ => true,
     }
-}
-
-/// The colours a Command Tower makes for the viewing seat.
-///
-/// The same answer `resolve::mana::colors_of` gives, read off the same two
-/// facts: colour identity is a property of the commander *card* wherever it
-/// is (CR 903.4), so this is the union over the seat's designated commanders
-/// and not over the command zone — an Arcane Signet that stopped producing
-/// the moment its commander was cast would be the bug on the engine's side,
-/// and it would be this one here too.
-///
-/// Two answers that are easy to get backwards, and they are opposite:
-///
-/// - **No commanders at all** is a colourless answer, not a refusal. The
-///   ability still resolves in a non-commander game and `{C}` is what is
-///   left, which is what the engine does — and the offline house duel is
-///   exactly that game, so it is the common case rather than the exotic one.
-/// - **A commander this seat cannot name** is a refusal, not a colourless
-///   answer. The engine will offer the colours its identity allows, and a
-///   client that answered `{C}` would stall the run at the colour prompt
-///   with the Tower already tapped.
-fn commander_identity(view: &PlayerView) -> Option<Vec<baylee_core::mana::ManaColor>> {
-    let seat = view.seat(view.seat)?;
-    let mut identity = baylee_core::color::ColorSet::EMPTY;
-    for commander in &seat.commanders {
-        let card = commander.card.as_ref()?;
-        identity = identity.union(baylee_cards::by_index(card.index)?.color_identity);
-    }
-    let colors: Vec<_> = identity
-        .iter()
-        .map(baylee_core::mana::ManaColor::from_color)
-        .collect();
-    if colors.is_empty() {
-        return Some(vec![baylee_core::mana::ManaColor::Colorless]);
-    }
-    Some(colors)
 }
 
 /// The mana a continuous effect grants `object` the ability to make.
@@ -496,24 +477,17 @@ mod tests {
         (view, legal)
     }
 
-    /// One of the viewing seat's commanders, named.
+    /// What the host projected onto a permanent for ability `index`.
     ///
-    /// The index is looked up rather than passed in beside the name. It used
-    /// to be both, and the pair is only ever right by luck: an index is
-    /// assigned over the whole card corpus, so the number that was General
-    /// Tazri is now some other card entirely, and a test asserting about a
-    /// five-colour identity would have been reading whatever landed there.
-    fn commander(name: &str) -> baylee_view::CommanderView {
-        let index = baylee_cards::decks::by_name(name).expect("a card of that name in the pool");
-        baylee_view::CommanderView {
-            object: ObjectId::new(90 + index.get(), 0),
-            card: Some(baylee_view::CardIdentity {
-                index,
-                print: baylee_core::ids::PrintRef::new(0),
-                face: 0,
-            }),
-            name: name.to_string(),
-            casts: 0,
+    /// The colours are the caller's, because that is the point of every test
+    /// below: this side of the wire no longer derives them from anything, so
+    /// a test that computed them here would be asserting about its own
+    /// arithmetic. Whether the projection is *right* is
+    /// `baylee-gamehost`'s question, and is asked there against a real board.
+    fn projected(colors: &[baylee_core::mana::ManaColor], index: u32) -> baylee_view::BoardMana {
+        baylee_view::BoardMana {
+            index,
+            colors: colors.to_vec(),
         }
     }
 
@@ -524,9 +498,10 @@ mod tests {
     /// Harabaz Druid in hand cost `{1}{G}` and the Tower had to be tapped by
     /// hand.
     #[test]
-    fn a_command_tower_makes_what_the_commander_identity_allows() {
+    fn a_command_tower_makes_what_the_host_projected_onto_it() {
+        use baylee_core::mana::ManaColor::{Black, Blue, Green, Red, White};
         let (mut view, legal) = command_tower();
-        view.seats[0].commanders = vec![commander("General Tazri")];
+        view.battlefield[0].board_mana = Some(projected(&[White, Blue, Black, Red, Green], 0));
 
         let sources = sources(&view, &legal);
         assert_eq!(sources.len(), 1, "one permanent, one source");
@@ -537,14 +512,12 @@ mod tests {
             "Tazri's activated ability costs one of each"
         );
         assert!(
-            sources[0]
-                .colors
-                .contains(&baylee_core::mana::ManaColor::Green),
+            sources[0].colors.contains(&Green),
             "the green the Druid needed"
         );
     }
 
-    /// A narrower commander, so the same land makes fewer colours. Worth its
+    /// A narrower identity, so the same land makes fewer colours. Worth its
     /// own test because a five-colour answer that happened to be a constant
     /// would pass the one above and would tap the Tower for green in a deck
     /// that has none — which is the plan the engine refuses at the colour
@@ -553,32 +526,23 @@ mod tests {
     /// Aminatou, the Fateshifter is `{W}{U}{B}` and is the other seat's
     /// commander in the game this was reported from.
     #[test]
-    fn the_identity_is_the_commanders_and_not_the_rainbow() {
+    fn the_land_says_what_it_was_told_and_not_the_rainbow() {
+        use baylee_core::mana::ManaColor::{Black, Blue, White};
         let (mut view, legal) = command_tower();
-        view.seats[0].commanders = vec![commander("Aminatou, the Fateshifter")];
+        view.battlefield[0].board_mana = Some(projected(&[White, Blue, Black], 0));
         let colors = &sources(&view, &legal)[0].colors;
-        let identity = baylee_cards::by_index(
-            baylee_cards::decks::by_name("Aminatou, the Fateshifter").expect("she is in the pool"),
-        )
-        .expect("a card at her index")
-        .color_identity;
-        assert_eq!(
-            colors.len(),
-            identity.iter().count(),
-            "one mana colour per colour of the commander's identity"
-        );
-        assert!(
-            colors.len() < 5,
-            "not every deck is five colours: {colors:?}"
-        );
+        assert_eq!(colors, &vec![White, Blue, Black]);
     }
 
     /// The offline house duel, which is not a commander game at all: the
     /// ability still resolves and colourless is what is left (the engine's
-    /// own fallback). A refusal here would be the common case failing.
+    /// own fallback, which the host projects like any other answer). A
+    /// refusal here would be the common case failing.
     #[test]
-    fn a_tower_with_no_commander_at_the_table_taps_for_colorless() {
-        let (view, legal) = command_tower();
+    fn a_tower_projected_colorless_taps_for_colorless() {
+        let (mut view, legal) = command_tower();
+        view.battlefield[0].board_mana =
+            Some(projected(&[baylee_core::mana::ManaColor::Colorless], 0));
         let sources = sources(&view, &legal);
         assert_eq!(sources.len(), 1);
         assert_eq!(
@@ -588,17 +552,30 @@ mod tests {
     }
 
     /// And the opposite answer to the one above, which is the whole reason
-    /// they are two tests: a commander this seat cannot name is a *refusal*.
-    /// The engine will offer the colours that identity allows, so a client
-    /// answering `{C}` stalls the run at the colour prompt with the Tower
-    /// already tapped.
+    /// they are two tests: no projection at all is a *refusal*. The host
+    /// leaves the field empty only when there is nothing to plan with — a
+    /// Reflecting Pool beside no lands — and a client that read that as `{C}`
+    /// would stall the run at the colour prompt with the land already tapped.
     #[test]
-    fn a_commander_this_seat_cannot_name_is_not_a_colorless_tower() {
-        let (mut view, legal) = command_tower();
-        let mut unknown = commander("General Tazri");
-        unknown.card = None;
-        view.seats[0].commanders = vec![unknown];
+    fn a_land_the_host_projected_nothing_for_is_not_a_source() {
+        let (view, legal) = command_tower();
+        assert!(view.battlefield[0].board_mana.is_none());
         assert!(sources(&view, &legal).is_empty());
+    }
+
+    /// The projection names *which* ability it resolved, and that index is
+    /// read rather than trusted. A permanent with a second mana ability
+    /// beside the board-dependent one would otherwise wear the first one's
+    /// colours on the second one's row — one field on the object, two rows
+    /// that could claim it.
+    #[test]
+    fn a_projection_for_another_ability_is_not_this_ones_colours() {
+        let (mut view, legal) = command_tower();
+        view.battlefield[0].board_mana = Some(projected(&[baylee_core::mana::ManaColor::Green], 1));
+        assert!(
+            sources(&view, &legal).is_empty(),
+            "the engine offered ability 0 and the host answered about ability 1"
+        );
     }
 
     /// A mana ability with a condition on it is still a mana ability

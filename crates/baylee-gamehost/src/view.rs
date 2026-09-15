@@ -232,6 +232,14 @@ fn public_object(state: &GameState, id: ObjectId, seat: PlayerId) -> Option<Publ
         granted_mana: (obj.kind == ObjectKind::Permanent)
             .then(|| granted_mana(state, id))
             .flatten(),
+        // Permanents only, for the reason the two fields above are: nothing
+        // else can be tapped. Not gated on `known` either, and it does not
+        // need to be: the abilities are read through the object's own
+        // *projected* list, so a permanent that has lost its abilities — the
+        // shape anything face-down will have to take — offers none to read.
+        board_mana: (obj.kind == ObjectKind::Permanent)
+            .then(|| board_mana(state, id))
+            .flatten(),
     })
 }
 
@@ -257,6 +265,84 @@ fn granted_mana(state: &GameState, id: ObjectId) -> Option<baylee_view::GrantedM
                 slot: u32::try_from(slot).unwrap_or(u32::MAX),
                 colors: mana.colors,
                 amount: mana.amount,
+            })
+        })
+}
+
+/// Which colours a printed mana ability of `id` makes, when the printing does
+/// not say.
+///
+/// The twin of [`granted_mana`] one row along, and the same division of
+/// labour: that one covers an ability that is on no card, this one an ability
+/// that is on the card and still cannot be read off it. Reflecting Pool,
+/// Exotic Orchard and Fellwar Stone read the union of `produced_colors` over
+/// the lands of one side of the table; Command Tower, Arcane Signet,
+/// Commander's Sphere and Path of Ancestry read a seat's commander identity.
+/// This crate is again the one that can see both halves — `mana_shape` says
+/// which question the card is asking, `resolve::colors_of` is the engine's
+/// own answer to it, and it is the very function that hands the mana out when
+/// the permanent is tapped, so what the planner is told cannot drift from
+/// what it gets.
+///
+/// Not hidden information: the permanent is on the battlefield, every land
+/// the union reads is too, and a commander is designated openly (CR 903.3).
+///
+/// The **first** printed ability that needs a board and has an answer, which
+/// is the bargain [`granted_mana`] makes for the same reason: a permanent is
+/// tapped once, so one is all a plan can spend. No card in the pool prints
+/// two, and a permanent that did would have its second refused rather than
+/// guessed at — a refusal costs one tap by hand, a wrong answer strands a
+/// mana run with the permanent already tapped.
+///
+/// An ability that currently makes **nothing** is skipped, and if it was the
+/// only one the answer is `None`. A Reflecting Pool contributes no colour to
+/// the union it reads (CR 106.7, through `Characteristics::produced_colors`),
+/// so a lone Pool taps for no colour at all — and "no colours" and "no such
+/// ability" are the same answer to every caller: there is no tap here to plan
+/// with.
+fn board_mana(state: &GameState, id: ObjectId) -> Option<baylee_view::BoardMana> {
+    let obj = state.object(id)?;
+    // `abilities` and not `by_index`: it is the one accessor that answers for
+    // an emblem, a token and a copy, and — the case that matters here — for a
+    // permanent whose printed list a continuous effect has replaced.
+    obj.abilities(&crate::session::RegistryLookup)
+        .iter()
+        .enumerate()
+        .find_map(|(index, ability)| {
+            // `ActivatedConditional` beside `Activated`, because a mana
+            // ability with a condition on it is still a mana ability and
+            // reading only the first variant is the mistake six readers
+            // across this workspace made before it had a name.
+            let (AbilityDef::Activated {
+                cost,
+                effects,
+                mana_ability: true,
+                ..
+            }
+            | AbilityDef::ActivatedConditional {
+                cost,
+                effects,
+                mana_ability: true,
+                ..
+            }) = ability
+            else {
+                return None;
+            };
+            let (source, _, _) = baylee_cards_dsl::mana_shape(cost, effects)?;
+            // Everything the card can answer alone stays the card's: a Forest
+            // and a Birds of Paradise have nothing to gain from a projection
+            // and would cost the wire a colour list each.
+            if !matches!(
+                source,
+                baylee_cards_dsl::ManaSource::CommanderIdentity
+                    | baylee_cards_dsl::ManaSource::LandColor { .. }
+            ) {
+                return None;
+            }
+            let colors = baylee_engine::resolve::colors_of(state, obj.controller, source);
+            (!colors.is_empty()).then(|| baylee_view::BoardMana {
+                index: u32::try_from(index).unwrap_or(u32::MAX),
+                colors,
             })
         })
 }
@@ -1752,5 +1838,246 @@ mod tests {
             None,
             "an empty list cannot be the source of an ability, and shares an address"
         );
+    }
+
+    use baylee_core::mana::ManaColor;
+    use baylee_engine::choice::{Pending, PlayerAction};
+
+    /// The four cards whose mana nothing but a board can name.
+    fn card_named(oracle: &str) -> CardIndex {
+        by_oracle_id(oracle).expect("the card is in the pool").index
+    }
+
+    fn reflecting_pool() -> CardIndex {
+        card_named("67f43ac6-2a58-4b53-b5d7-0330e2a252e2")
+    }
+
+    fn exotic_orchard() -> CardIndex {
+        card_named("27b047e3-0d41-45e2-98e9-9391d7923a1e")
+    }
+
+    fn fellwar_stone() -> CardIndex {
+        card_named("95560508-7ac9-4be9-8a3f-3c7d5b52807b")
+    }
+
+    fn command_tower() -> CardIndex {
+        card_named("0895c9b7-ae7d-4bb3-af17-3b75deb50a25")
+    }
+
+    fn forest() -> CardIndex {
+        card_named("b34bb2dc-c1af-4d77-b0b3-a0fb342a5fc6")
+    }
+
+    fn plains() -> CardIndex {
+        card_named("bc71ebf6-2056-41f7-be35-b2e5c34afa99")
+    }
+
+    /// A duel with a named board on each side, past the mulligans.
+    ///
+    /// The preset is `mixed_print_preset`'s, so the library is Islands and
+    /// nothing draws a card that matters; what each test writes is the two
+    /// `starting_battlefield`s, which is the only input `board_mana` reads.
+    fn board(seat0: &[CardIndex], seat1: &[CardIndex]) -> (Engine<Registry>, PlayerView) {
+        let entry = |&card: &CardIndex| DeckEntry {
+            card,
+            print: PrintRef::new(0),
+        };
+        let mut preset = mixed_print_preset();
+        preset.seats[0].starting_battlefield = seat0.iter().map(entry).collect();
+        preset.seats[1].starting_battlefield = seat1.iter().map(entry).collect();
+
+        let mut engine = Engine::new(&preset, Registry).expect("game starts");
+        for _ in 0..2 {
+            let Pending::Mulligan { player, .. } = engine.pending().clone() else {
+                panic!("expected a mulligan")
+            };
+            engine.apply(player, PlayerAction::MulliganKeep).unwrap();
+        }
+        let view = player_view(engine.state(), PlayerId::new(0), None, 1, None, false);
+        (engine, view)
+    }
+
+    /// What the host projected onto the one permanent of that name.
+    fn projection<'a>(view: &'a PlayerView, name: &str) -> Option<&'a baylee_view::BoardMana> {
+        view.battlefield
+            .iter()
+            .find(|o| o.name == name)
+            .unwrap_or_else(|| panic!("{name} is on the battlefield"))
+            .board_mana
+            .as_ref()
+    }
+
+    /// The defect this whole field exists for, measured at the board it was
+    /// found on. A Reflecting Pool beside a Forest and a Plains makes white
+    /// and green — and said nothing at all before, because the colours are a
+    /// union over `produced_colors`, a *projected* characteristic no view
+    /// carried. In the game it was found in, a `{3}{R}` creature would not
+    /// arm with four untapped lands on the table.
+    #[test]
+    fn a_reflecting_pool_says_what_the_lands_beside_it_make() {
+        let (_, view) = board(&[reflecting_pool(), forest(), plains()], &[]);
+        let pool = projection(&view, "Reflecting Pool").expect("the Pool has a board to read");
+        assert_eq!(
+            pool.colors,
+            vec![ManaColor::White, ManaColor::Green],
+            "the union of what the lands you control could produce"
+        );
+    }
+
+    /// And the other half of that comparison, which is what makes the first
+    /// one a measurement: a Pool with no other land is a Pool that makes
+    /// nothing, and the host says so by projecting nothing at all. A client
+    /// that read an empty list as "any colour" would tap it and stall.
+    #[test]
+    fn a_lone_reflecting_pool_is_nothing_to_plan_with() {
+        let (_, view) = board(&[reflecting_pool()], &[forest()]);
+        assert!(
+            projection(&view, "Reflecting Pool").is_none(),
+            "the Pool contributes nothing to its own union, and the Forest is not yours"
+        );
+    }
+
+    /// Exotic Orchard reads the *other* side of the table, which is the same
+    /// rule with `mine` flipped — and the case a projection built from "the
+    /// lands I can see" would get exactly backwards.
+    #[test]
+    fn an_exotic_orchard_reads_the_other_seats_lands() {
+        let (_, view) = board(&[exotic_orchard(), forest()], &[plains()]);
+        let orchard = projection(&view, "Exotic Orchard").expect("the opponent has a land");
+        assert_eq!(
+            orchard.colors,
+            vec![ManaColor::White],
+            "the Plains opposite, and not the Forest beside it"
+        );
+    }
+
+    /// Fellwar Stone is the same source on a card that is not a land, which
+    /// is why the projection is offered for every permanent rather than for
+    /// lands alone.
+    #[test]
+    fn a_fellwar_stone_is_a_board_reader_that_is_not_a_land() {
+        let (_, view) = board(&[fellwar_stone()], &[forest(), plains()]);
+        let stone = projection(&view, "Fellwar Stone").expect("the opponent has lands");
+        assert_eq!(stone.colors, vec![ManaColor::White, ManaColor::Green]);
+    }
+
+    /// A Forest carries none, and that is the economy of the field: what a
+    /// card can answer on its own stays on the card, so the wire pays a
+    /// colour list only for the four permanents that need one.
+    #[test]
+    fn a_forest_needs_no_projection() {
+        let (_, view) = board(&[forest(), plains()], &[]);
+        assert!(projection(&view, "Forest").is_none());
+        assert!(projection(&view, "Plains").is_none());
+    }
+
+    /// The second board-dependent source, folded into the same field so that
+    /// the two are never resolved on different sides of the wire. A Command
+    /// Tower with no commander at the table is the offline house duel, where
+    /// colourless is what the engine's own fallback leaves.
+    #[test]
+    fn a_command_tower_at_a_table_with_no_commander_is_colorless() {
+        let (_, view) = board(&[command_tower()], &[]);
+        let tower = projection(&view, "Command Tower").expect("the fallback is still an answer");
+        assert_eq!(tower.colors, vec![ManaColor::Colorless]);
+    }
+
+    /// And at a Commander table it is the commanders' identity — seat 0 has
+    /// two, so this is also the case a projection reading one commander would
+    /// get wrong.
+    #[test]
+    fn a_command_tower_is_its_seats_commander_identity() {
+        let mut preset = commander_preset();
+        let tower = DeckEntry {
+            card: command_tower(),
+            print: PrintRef::new(0),
+        };
+        preset.seats[0].starting_battlefield.push(tower);
+        let mut engine = Engine::new(&preset, Registry).expect("game starts");
+        for _ in 0..2 {
+            let Pending::Mulligan { player, .. } = engine.pending().clone() else {
+                panic!("expected a mulligan")
+            };
+            engine.apply(player, PlayerAction::MulliganKeep).unwrap();
+        }
+        let view = player_view(engine.state(), PlayerId::new(0), None, 1, None, false);
+
+        let identity = |card: CardIndex| {
+            baylee_cards::by_index(card)
+                .expect("a card at that index")
+                .color_identity
+        };
+        // Katara is `{G}{W}{U}` and Elesh Norn `{4}{W}`, so the union is
+        // Katara's — which is worth saying out loud, because it means this
+        // fixture cannot show a projection that reads only the first
+        // commander. What it can show is the exact answer and its opposite:
+        // three named colours, and not the five a constant would give.
+        let both = identity(katara()).union(identity(elesh_norn()));
+        let projected = projection(&view, "Command Tower").expect("a commander game");
+        assert_eq!(
+            projected.colors,
+            vec![ManaColor::White, ManaColor::Blue, ManaColor::Green],
+            "one mana colour per colour of the seat's commanders together"
+        );
+        assert_eq!(projected.colors.len(), both.iter().count());
+        assert!(
+            projected.colors.len() < 5,
+            "not every commander is five colours, and a Tower that said so \
+             would tap for a red the engine then refuses"
+        );
+    }
+
+    /// The agreement test, and the one that makes the rest worth anything.
+    /// The projection is a promise about what the engine will offer, so a
+    /// colour list that disagreed with the engine's own `ChooseColor` would
+    /// be a land the planner taps and a payment that then fails — worse than
+    /// saying nothing. Both sides are the same function by construction;
+    /// this is what stops that staying true only by construction.
+    #[test]
+    fn the_projected_colors_are_the_ones_the_engine_then_offers() {
+        let (mut engine, view) = board(&[reflecting_pool(), forest(), plains()], &[]);
+        let pool = view
+            .battlefield
+            .iter()
+            .find(|o| o.name == "Reflecting Pool")
+            .expect("the Pool is on the battlefield");
+        let projected = pool
+            .board_mana
+            .as_ref()
+            .expect("a board to read")
+            .colors
+            .clone();
+
+        for _ in 0..30 {
+            let Pending::Priority { player, legal } = engine.pending().clone() else {
+                panic!("expected priority")
+            };
+            if player != PlayerId::new(0) {
+                engine.apply(player, PlayerAction::PassPriority).unwrap();
+                continue;
+            }
+            assert!(
+                legal.abilities.contains(&(pool.id, 0)),
+                "the engine offers the ability the projection is about"
+            );
+            engine
+                .apply(
+                    player,
+                    PlayerAction::ActivateAbility {
+                        source: pool.id,
+                        ability_index: 0,
+                    },
+                )
+                .unwrap();
+            let Pending::ChooseColor { options, .. } = engine.pending().clone() else {
+                panic!("a Pool with two colours beside it asks which one")
+            };
+            assert_eq!(
+                options, projected,
+                "the view promised what the engine then offered"
+            );
+            return;
+        }
+        panic!("seat 0 never got priority");
     }
 }

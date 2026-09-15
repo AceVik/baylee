@@ -38,7 +38,7 @@ use serde::{Deserialize, Serialize};
 
 /// Protocol version of the view payload. Bumped on any breaking change so a
 /// client can refuse a host it cannot render rather than mis-rendering it.
-pub const VIEW_VERSION: u32 = 18;
+pub const VIEW_VERSION: u32 = 19;
 
 // ---------------------------------------------------------------- turn shape
 
@@ -572,6 +572,36 @@ pub struct PublicObject {
     /// `None` for everything that has no such ability, and for a granted
     /// ability too complicated to reduce to "n mana of these colours".
     pub granted_mana: Option<GrantedMana>,
+    /// Which colours a **printed** mana ability of this permanent makes, when
+    /// the printing does not say.
+    ///
+    /// The field beside it covers an ability that is on no card; this one
+    /// covers an ability that is, and still cannot be read alone. Reflecting
+    /// Pool, Exotic Orchard and Fellwar Stone are "one mana of any type that
+    /// a land on *that* side of the table could produce", and Command Tower,
+    /// Arcane Signet, Commander's Sphere and Path of Ancestry are "any colour
+    /// in your commander's identity" — the words are printed, the answer is
+    /// the board's.
+    ///
+    /// It is the first that needs a board and no other, which is the same
+    /// bargain [`GrantedMana::slot`] strikes: no card in the pool prints two,
+    /// and a permanent that did would have its second refused rather than
+    /// guessed at — a refused tap costs a player one manual tap, and a wrong
+    /// one strands a mana run with the permanent already tapped.
+    ///
+    /// **Colours only, and no amount.** The ability is printed, so how much
+    /// it makes is on the card and the client reads it there; the colours are
+    /// the one thing that is not. The union a Reflecting Pool reads is over
+    /// `produced_colors`, which is a *projected* characteristic — an animated
+    /// land, a land that has lost its abilities and a Chromatic Lantern's
+    /// grant are all in it and none of them is in the registry — so a client
+    /// re-deriving it would over-count, and over-counting is the direction
+    /// that leaves a board half tapped when the engine refuses the colour.
+    ///
+    /// `None` means there is nothing here to plan with: no such ability, or
+    /// one that makes nothing right now. A lone Reflecting Pool contributes
+    /// nothing to the union it reads, so it taps for no colour at all.
+    pub board_mana: Option<BoardMana>,
 }
 
 /// Mana a granted ability makes, as much of it as a planner can use.
@@ -594,6 +624,30 @@ pub struct GrantedMana {
     pub colors: Vec<baylee_core::mana::ManaColor>,
     /// How much, of whichever colour is chosen.
     pub amount: u8,
+}
+
+/// Which colours a printed mana ability makes, once a board has been read.
+///
+/// The counterpart of [`GrantedMana`] for an ability that *is* printed —
+/// see [`PublicObject::board_mana`] for which cards these are and why the
+/// answer cannot be worked out from the card.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct BoardMana {
+    /// Which of the permanent's printed abilities this is, counting from 0 on
+    /// the face it is showing.
+    ///
+    /// The same numbering `AbilityRef` uses and the same one a client indexes
+    /// the registry with, so it addresses the ability directly instead of
+    /// being matched by shape. Carried for the reason [`GrantedMana::slot`]
+    /// is: a permanent whose mana ability is not its first — Commander's
+    /// Sphere prints a sacrifice ability beside it — would otherwise have the
+    /// colours read onto the wrong row.
+    pub index: u32,
+    /// The colours it may make. More than one means the ability asks.
+    ///
+    /// Never empty: an ability that makes nothing right now is reported as no
+    /// [`PublicObject::board_mana`] at all.
+    pub colors: Vec<baylee_core::mana::ManaColor>,
 }
 
 impl PublicObject {
@@ -1170,6 +1224,7 @@ mod tests {
             stack_item: None,
             summoning_sick: false,
             granted_mana: None,
+            board_mana: None,
         }
     }
 

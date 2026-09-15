@@ -26,6 +26,21 @@ mod mana;
 mod tokens;
 mod zones;
 
+/// Which colours a mana source can produce right now, at this board.
+///
+/// Exported because `baylee-gamehost` projects the answer into the view
+/// (`PublicObject::board_mana`) and a client cannot work it out: a Reflecting
+/// Pool's colours are the union of `produced_colors` over one side's lands,
+/// which is a *projected* characteristic no registry carries, and a Command
+/// Tower's are its controller's commanders' identity. A second copy of either
+/// fold would be a second answer, and the one that disagreed would be a
+/// permanent the planner counts on and the engine refuses.
+///
+/// This is the same function [`add_mana`](mana) calls on the way to handing
+/// the mana out, which is the whole point of exporting it rather than writing
+/// a projection beside it.
+pub use mana::colors_of;
+
 /// A running effect resolution (continuation).
 #[derive(Clone, Debug)]
 pub struct Resolution {

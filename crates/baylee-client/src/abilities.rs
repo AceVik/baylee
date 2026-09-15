@@ -730,11 +730,21 @@ fn printed_label(lang: Lang, view: &PlayerView, object: ObjectId, index: u32) ->
             // A mana ability the planner refuses still has to say what it
             // makes. `manasources` reads it through `simple_mana`, which
             // refuses restricted mana on purpose and correctly; the button
-            // reads it through `mana_made`, which does not, because "{T}"
-            // beside "Tap for {C}" is the shape this whole path was reported
-            // as broken in.
-            if let Some((mana, true)) = baylee_cards_dsl::mana_made(cost, effects) {
-                let colors = mana_choice(lang, &mana.colors, mana.amount);
+            // must not, because "{T}" beside "Tap for {C}" is the shape this
+            // whole path was reported as broken in.
+            //
+            // Read through `mana_shape` and `produced_colors` rather than
+            // through `mana_made`, which is the same reading with the two
+            // board-dependent sources knocked out of it. Path of Ancestry is
+            // restricted *and* reads its colours off a commander's identity,
+            // so it fell through both halves and drew the bare "{T}" this
+            // branch exists to prevent.
+            if let Some((source, Some(amount), true)) = baylee_cards_dsl::mana_shape(cost, effects)
+                && let Some(colors) =
+                    crate::manasources::produced_colors(view, object, index, source)
+                && !colors.is_empty()
+            {
+                let colors = mana_choice(lang, &colors, amount);
                 return Phrase::TapForRestricted.fill(lang, &[&colors]);
             }
             // And a mana ability whose amount is a count of the board is
@@ -745,7 +755,8 @@ fn printed_label(lang: Lang, view: &PlayerView, object: ObjectId, index: u32) ->
             // "{T}" beside a cost reading "{T}", which is the shape this
             // whole path was reported as broken in once already.
             if let Some((source, None)) = baylee_cards_dsl::mana_offer(cost, effects)
-                && let Some(colors) = crate::manasources::produced_colors(view, source)
+                && let Some(colors) =
+                    crate::manasources::produced_colors(view, object, index, source)
                 && !colors.is_empty()
             {
                 let colors = mana_choice(lang, &colors, 1);
