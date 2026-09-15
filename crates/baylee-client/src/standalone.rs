@@ -66,6 +66,21 @@ pub fn run() {
             // from the repo root or anywhere else); trunk copies that
             // dir to `dist/assets`, the browser's asset root.
             file_path: asset_root().to_string(),
+            // This repo ships no `.meta` file at all — `find assets -name
+            // '*.meta'` is empty — so the default `Always` asks for a
+            // sibling that never exists, and what happens next is not a 404.
+            // A static host for a single-page app answers an unknown path
+            // with `index.html` and a **200**, so bevy read a page of HTML
+            // as a RON `AssetMetaMinimal`, failed, and treated the *asset*
+            // as failed with it: measured in Chrome against `trunk serve`,
+            // all eight fonts errored and the browser client drew no text
+            // anywhere — no life totals, no prompt, no button labels — while
+            // the table, the cards and their Scryfall art (which come over
+            // HTTP and not through the asset server) rendered perfectly. It
+            // is set for every platform and not behind a `cfg`, because
+            // `Never` is what this repo means everywhere and a browser is
+            // only where it was noticed.
+            meta_check: bevy::asset::AssetMetaCheck::Never,
             ..default()
         });
     // What this build refuses to let a driver do. Empty everywhere but on a

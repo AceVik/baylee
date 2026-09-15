@@ -4475,6 +4475,39 @@ the short one is that a resolver failure against a crate that plainly exists
 is a claim about the local index until a `curl https://index.crates.io/…` says
 otherwise.
 
+## Playing it in a browser
+
+A `wasm32-unknown-unknown` check says the client *compiles* for a browser. It
+says nothing about whether it runs in one, and until 16.09.2026 nobody had
+played a game there. Two things were broken, neither of them in the renderer,
+and no gate this repo has could have seen either.
+
+**Every font failed to load, so the browser client drew no text at all.**
+Bevy's asset server asks for an `<asset>.meta` sibling before the asset
+itself, and this repo ships none — natively that is a 404 and the default
+meta is used. A static host for a single-page application answers an unknown
+path with `index.html` and a **200**, so bevy read a page of HTML as a RON
+`AssetMetaMinimal`, failed, and failed the *asset* with it. Measured against
+`trunk serve`: `GET /assets/fonts/AlegreyaSans-Regular.ttf` is 200 and
+263 804 bytes, the same path plus `.meta` is 200 and `text/html`, and all
+eight fonts error. What that looks like from the outside is the part worth
+keeping: the felt, the mats, the cards and their Scryfall art all draw
+perfectly — those come over HTTP and never through the asset server — and
+every glyph the client renders itself is simply not there, life totals,
+button labels and prompt bar included. `AssetPlugin::meta_check` is
+`AssetMetaCheck::Never` now, set for every platform rather than behind a
+`cfg`: it is what a repo with no `.meta` file means everywhere, and a browser
+is only where it was noticed.
+
+**The page is not in fullscreen, and never asks to be.** It looks like it:
+`index.html` gives `html`, `body` and the canvas `height: 100%` with
+`overflow: hidden`, so the game occupies the entire viewport with no page
+around it. Measured in Chrome, `document.fullscreenElement` is `null` and the
+console carries no gesture refusal, and `Window::set_maximized` — which the
+native build calls — is an explicit no-op in winit's web backend. So a
+browser window that fills the screen is Chrome's own window doing it. Framing
+the canvas is a change to that stylesheet and to nothing in Rust.
+
 ## Verification
 
 - `cargo test -p baylee-client --test duel_flow` plays real games headlessly
