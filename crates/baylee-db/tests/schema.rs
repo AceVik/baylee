@@ -155,6 +155,67 @@ async fn an_address_is_taken_whatever_its_case() {
     sandbox.close().await;
 }
 
+/// The key is the database's, and it is a `UUIDv7`.
+///
+/// `Uuid::now_v7()` in the gateway would be ordered by *that gateway's*
+/// clock. Several gateways behind one database each write at their own
+/// right-hand edge and between them scatter the b-tree exactly the way a
+/// `UUIDv4` would — which is the whole reason the key is a v7 at all. One
+/// database has one clock.
+#[tokio::test]
+async fn postgres_mints_the_keys() {
+    let sandbox = Sandbox::open("mint").await;
+
+    let first = Account::insert(an_account("minted@example.com"))
+        .exec_with_returning(&sandbox.db)
+        .await
+        .expect("registering without an id");
+    let second = Account::insert(an_account("later@example.com"))
+        .exec_with_returning(&sandbox.db)
+        .await
+        .expect("registering again");
+
+    assert_eq!(first.id.get_version_num(), 7, "{}", first.id);
+    assert_eq!(second.id.get_version_num(), 7, "{}", second.id);
+    assert!(
+        first.id < second.id,
+        "two keys minted in order must sort in order: {} then {}",
+        first.id,
+        second.id
+    );
+
+    // A deck's key comes the same way, and hangs off the account that was
+    // just minted one.
+    let deck = Deck::insert(deck::ActiveModel {
+        id: NotSet,
+        account_id: Set(first.id),
+        name: Set("Mono Red".to_owned()),
+        cards: Set(vec!["4 Lightning Bolt".to_owned()]),
+        sideboard: Set(Vec::new()),
+        commander: Set(None),
+        sleeve: Set(None),
+        playmat: Set(None),
+        updated_at: Set(OffsetDateTime::now_utc()),
+    })
+    .exec_with_returning(&sandbox.db)
+    .await
+    .expect("a deck saves without an id");
+    assert_eq!(deck.id.get_version_num(), 7, "{}", deck.id);
+
+    // And a default is not a prohibition: the importer carries the ids an
+    // older store already handed out.
+    let carried = Uuid::now_v7();
+    let mut brought = an_account("imported@example.com");
+    brought.id = Set(carried);
+    let kept = Account::insert(brought)
+        .exec_with_returning(&sandbox.db)
+        .await
+        .expect("an imported account keeps its id");
+    assert_eq!(kept.id, carried);
+
+    sandbox.close().await;
+}
+
 /// A display name is not a claim. Two players may both be Alice, and what
 /// tells them apart is the number the database hands out.
 ///

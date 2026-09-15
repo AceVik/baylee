@@ -44,14 +44,14 @@ use uuid::Uuid;
 
 /// What a registration supplies, which is everything the database does not.
 ///
-/// Separate from [`Account`] so a caller *cannot* supply a tag: it is an
-/// identity column, and a value written into it by hand would not move the
-/// sequence and would collide with a later registration. The id is still
-/// the gateway's for now; that is the next thing to move.
+/// Separate from [`Account`] so a caller *cannot* supply a tag or an id.
+/// The tag is an identity column, and a value written into it by hand would
+/// not move the sequence and would collide with a later registration; the
+/// id is `DEFAULT uuidv7()`, and a `UUIDv7` minted by a gateway is ordered
+/// by *that gateway's* clock, which is the one thing several of them behind
+/// one database cannot agree on.
 #[derive(Clone, Debug)]
 pub struct NewAccount {
-    /// Account id (`UUIDv7`).
-    pub id: String,
     /// Login e-mail.
     pub email: String,
     /// Display name shown in the lobby. Not unique.
@@ -117,6 +117,28 @@ pub struct StoredToken {
     pub account_id: String,
     /// Expiry (unix seconds, sliding).
     pub expires_at: u64,
+}
+
+/// What saving a new deck supplies: everything but the id, which the
+/// database mints.
+#[derive(Clone, Debug)]
+pub struct NewDeck {
+    /// Whose deck it is.
+    pub account_id: String,
+    /// What the player called it.
+    pub name: String,
+    /// The main deck, as `"N Card Name"` rows.
+    pub cards: Vec<String>,
+    /// The sideboard, in the same spelling.
+    pub sideboard: Vec<String>,
+    /// The commander, if the deck has one.
+    pub commander: Option<String>,
+    /// Image id of the sleeve.
+    pub sleeve: Option<String>,
+    /// Image id of the playmat.
+    pub playmat: Option<String>,
+    /// Last written (unix seconds).
+    pub updated_at: u64,
 }
 
 /// A player's deck (card names; resolved against the registry at use).
@@ -333,7 +355,7 @@ pub async fn account_by_tag(db: &DatabaseConnection, tag: i32) -> Result<Option<
 /// If the database refuses for any reason other than that clash.
 pub async fn create_account(db: &DatabaseConnection, new: NewAccount) -> Result<Option<Account>> {
     let row = account::ActiveModel {
-        id: Set(uuid(&new.id).unwrap_or_else(Uuid::now_v7)),
+        id: NotSet,
         email: Set(new.email),
         display_name: Set(new.display_name),
         tag: NotSet,
@@ -599,6 +621,38 @@ pub async fn decks_by_id(
         .into_iter()
         .map(|row| (id(row.id), row.into()))
         .collect())
+}
+
+/// Save a new deck and answer with the id the database gave it.
+///
+/// Separate from [`put_deck`] because the two are different statements once
+/// the id is the database's: this one inserts and reads the key back, and
+/// `put_deck` is the upsert that an edit of an existing deck goes through.
+/// One function doing both would have to decide which it was by looking at
+/// whether an id was set, which is exactly the "is it there yet" reasoning
+/// the id moved to the database to be rid of.
+///
+/// # Errors
+///
+/// If the database refuses.
+pub async fn create_deck(db: &DatabaseConnection, new: NewDeck) -> Result<Option<String>> {
+    let Some(account_id) = uuid(&new.account_id) else {
+        return Ok(None);
+    };
+    let made = Decks::insert(deck::ActiveModel {
+        id: NotSet,
+        account_id: Set(account_id),
+        name: Set(new.name),
+        cards: Set(new.cards),
+        sideboard: Set(new.sideboard),
+        commander: Set(new.commander),
+        sleeve: Set(new.sleeve),
+        playmat: Set(new.playmat),
+        updated_at: Set(at(new.updated_at)),
+    })
+    .exec_with_returning(db)
+    .await?;
+    Ok(Some(id(made.id)))
 }
 
 /// Write a deck, replacing one of the same id.

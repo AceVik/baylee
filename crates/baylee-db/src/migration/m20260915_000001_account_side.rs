@@ -70,7 +70,10 @@ async fn accounts(manager: &SchemaManager<'_>) -> Result<(), DbErr> {
             Table::create()
                 .table(Account::Table)
                 .if_not_exists()
-                .col(pk_uuid(Account::Id))
+                // Minted by the database. See the crate doc: a `UUIDv7` is
+                // ordered by the clock of whoever made it, and two gateways
+                // have two clocks.
+                .col(pk_uuid(Account::Id).default(Expr::cust("uuidv7()")))
                 .col(text(Account::Email))
                 .col(text(Account::DisplayName))
                 // The discriminator: what tells two players called Alice
@@ -194,7 +197,7 @@ async fn decks(manager: &SchemaManager<'_>) -> Result<(), DbErr> {
             Table::create()
                 .table(Deck::Table)
                 .if_not_exists()
-                .col(pk_uuid(Deck::Id))
+                .col(pk_uuid(Deck::Id).default(Expr::cust("uuidv7()")))
                 .col(uuid(Deck::AccountId))
                 .col(text(Deck::Name))
                 .col(array(Deck::Cards, ColumnType::Text))

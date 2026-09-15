@@ -285,7 +285,13 @@ pub fn valid_password(email: &str, display_name: &str, password: &str) -> bool {
     !COMMON.iter().any(|c| password.eq_ignore_ascii_case(c))
 }
 
-/// A fresh `UUIDv7` for entity ids.
+/// A fresh `UUIDv7` for something that lives only in this process.
+///
+/// A game, a room and an agent are named by one of these, and none of them
+/// is a row: the lobby is a `HashMap` that dies with the gateway. Anything
+/// that *is* a row — an account, a deck — is given its id by Postgres
+/// (`DEFAULT uuidv7()`), because a `UUIDv7` is ordered by the clock of
+/// whatever minted it and several gateways have several clocks.
 #[must_use]
 pub fn new_id() -> String {
     Uuid::now_v7().to_string()

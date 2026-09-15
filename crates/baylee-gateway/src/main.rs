@@ -593,7 +593,6 @@ async fn register(
         .map_err(|_| err(StatusCode::INTERNAL_SERVER_ERROR, "hashing failed"))?;
     let now = auth::now_secs();
     let account = store::NewAccount {
-        id: auth::new_id(),
         email: body.email.to_lowercase(),
         display_name: body.display_name,
         password_hash,
@@ -1171,21 +1170,22 @@ async fn create_deck(
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorBody>)> {
     let account_id = authed(&state, &headers).await?;
     validate_deck(&body)?;
-    let deck = Deck {
-        id: auth::new_id(),
-        account_id,
-        name: body.name,
-        cards: body.cards,
-        sideboard: body.sideboard,
-        commander: body.commander,
-        sleeve: body.sleeve,
-        playmat: body.playmat,
-        updated_at: auth::now_secs(),
-    };
-    let id = deck.id.clone();
-    store::put_deck(&state.db, deck)
-        .await
-        .map_err(|e| db_down(&e))?;
+    let id = store::create_deck(
+        &state.db,
+        store::NewDeck {
+            account_id,
+            name: body.name,
+            cards: body.cards,
+            sideboard: body.sideboard,
+            commander: body.commander,
+            sleeve: body.sleeve,
+            playmat: body.playmat,
+            updated_at: auth::now_secs(),
+        },
+    )
+    .await
+    .map_err(|e| db_down(&e))?
+    .ok_or_else(|| err(StatusCode::INTERNAL_SERVER_ERROR, "account gone"))?;
     Ok(Json(serde_json::json!({ "deck_id": id })))
 }
 

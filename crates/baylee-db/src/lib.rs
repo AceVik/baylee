@@ -40,9 +40,18 @@
 //! An account and a deck are named by a `UUIDv7`: unique without asking the
 //! database, and *time-ordered*, so a b-tree index on the primary key gets
 //! inserts at the right-hand edge instead of scattered through the tree the
-//! way `UUIDv4` does. They were already `UUIDv7` as strings; what changes is
-//! that Postgres now knows it, which is 16 bytes instead of 36 and a
-//! comparison instead of a `strcmp`.
+//! way `UUIDv4` does. The column is a `uuid`, which is 16 bytes instead of
+//! 36 and a comparison instead of a `strcmp`.
+//!
+//! **Postgres mints them**, not the gateway: the columns are `DEFAULT
+//! uuidv7()`, which PostgreSQL 18 has natively. The reason is the property
+//! above. A `UUIDv7` is time-ordered by the clock of whatever made it, so
+//! several gateways behind one database each write at their own right-hand
+//! edge and between them scatter the index exactly the way v4 would — and
+//! the clock they disagree about is the one thing none of them can fix. One
+//! database has one clock. A default is not a prohibition, so the importer
+//! still writes the ids an older store already had; what it removes is the
+//! gateway *choosing* one when nothing had asked it to.
 //!
 //! Three tables are keyed by something else, and that is not an oversight. A
 //! session token and a confirmation link are looked up by the SHA-256 of the
