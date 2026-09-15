@@ -404,10 +404,10 @@ fn collect_for_objects(
                     // does fire once for a whole batch — Storm the Vault.
                     // That is a trigger of its own and not the default:
                     // Storm the Vault is an unimplemented stub, no card in
-                    // the pool encodes it, and the transcoder refuses
-                    // Forge's batch modes outright, so nothing was relying
-                    // on the accident. Giving it a `Trigger` variant is
-                    // what the card will want, not this line.
+                    // the pool encodes it, and the transcoder refuses the
+                    // reference's batch modes outright, so nothing was
+                    // relying on the accident. Giving it a `Trigger` variant
+                    // is what the card will want, not this line.
                 }
             }
         }
