@@ -2657,21 +2657,33 @@ fn check_header_matches_code(
             *problems += 1;
         }
     }
-    for (label, key) in [
-        ("Scryfall ID", "scryfall_id: \""),
-        ("Oracle ID", "oracle_id: \""),
-    ] {
+    // `knob` and never a literal `"<field>: \""`: a card file writes
+    // `scryfall_id = "…"`, so the colon spelling matched nought of the 1365
+    // and `code_value` was `None` for every card — which this comparison
+    // answers by saying nothing, so it ran on every card and compared none.
+    // A missing half is *also* reported now, because "the header and the
+    // code agree" and "one of them is not there" are different answers and
+    // only one of them was being given.
+    for (label, field) in [("Scryfall ID", "scryfall_id"), ("Oracle ID", "oracle_id")] {
         let header_has = content
             .lines()
             .find(|l| l.starts_with("//!") && l.contains(label))
             .and_then(|l| l.split(&format!("{label}: ")).nth(1))
             .map(|v| v.split([' ', '|']).next().unwrap_or("").trim());
-        let code_value = quoted_value(content, key);
-        if let (Some(h), Some(c)) = (header_has, code_value)
-            && h != c
-        {
-            println!("{slug}: header {label} {h:?} != code {c:?}");
-            *problems += 1;
+        let code_value = knob(content, field)
+            .and_then(|v| v.strip_prefix('"'))
+            .and_then(|v| v.split_once('"'))
+            .map(|(id, _)| id);
+        match (header_has, code_value) {
+            (Some(h), Some(c)) if h != c => {
+                println!("{slug}: header {label} {h:?} != code {c:?}");
+                *problems += 1;
+            }
+            (Some(_), None) => {
+                println!("{slug}: header carries a {label} and the code writes none");
+                *problems += 1;
+            }
+            _ => {}
         }
     }
 }
@@ -4207,6 +4219,10 @@ fn cross_read(root: &Path, scripts_dir: &Path, samples: usize) -> anyhow::Result
 
     let files = card_files(&root.join("crates/baylee-cards/src/cards"))?;
     let (mut machine, mut not_implemented, mut no_script) = (0, 0, 0);
+    // Two drops that used to be anonymous. A `continue` with no
+    // counter is how a reader loses a whole population and still
+    // prints a report, so both are named and both are reported.
+    let (mut unnamed, mut unregistered) = (0usize, 0usize);
     let (mut compared, mut agreed, mut in_full) = (0usize, 0usize, 0usize);
     let (mut shapes, mut uncountable) = (0usize, 0usize);
     let mut unreadable: BTreeMap<String, usize> = BTreeMap::new();
@@ -4227,14 +4243,24 @@ fn cross_read(root: &Path, scripts_dir: &Path, samples: usize) -> anyhow::Result
             machine += 1;
             continue;
         }
-        let Some(oracle_id) = text
-            .split_once("oracle_id: \"")
-            .and_then(|(_, rest)| rest.split_once('"'))
+        // `knob` and not a literal match, for the reason CLAUDE.md gives
+        // about every textual reader of this pool: a card file writes
+        // `oracle_id = "…"` and this line spelled it `oracle_id: "…"`, which
+        // nought of the 1365 card files have ever contained. Every card fell
+        // through the `continue` below it, silently, and the report went on
+        // printing — it was the population bound above that said so, which
+        // is the third time a reader here has answered a question it could
+        // not see.
+        let Some(oracle_id) = knob(&text, "oracle_id")
+            .and_then(|v| v.strip_prefix('"'))
+            .and_then(|v| v.split_once('"'))
             .map(|(id, _)| id)
         else {
+            unnamed += 1;
             continue;
         };
         let Some(def) = baylee_cards::by_oracle_id(oracle_id) else {
+            unregistered += 1;
             continue;
         };
         if !matches!(def.coverage, baylee_cards::dsl::Coverage::Implemented) {
@@ -4378,7 +4404,8 @@ fn cross_read(root: &Path, scripts_dir: &Path, samples: usize) -> anyhow::Result
     }
     println!(
         "  skipped: {machine} machine-owned, {not_implemented} not implemented, \
-         {no_script} with no reference script"
+         {no_script} with no reference script, {unnamed} with no readable \
+         `oracle_id`, {unregistered} the registry does not carry"
     );
 
     if !(READ_FLOOR..=READ_CEILING).contains(&compared)
