@@ -286,6 +286,29 @@ quarter of the brightness it needed, and
 `the_felt_is_dark_enough_to_read_cards_against` passed every run because it
 only ever bounded the bright end. It bounds both now.
 
+### Two costs every generated surface pays
+
+A redesign that was shown live and turned down — a granite slab with runes
+breathing on `globals.time` — measured two things that outlive the look it
+was measuring. Neither is visible from the arithmetic, and both apply to any
+surface this client computes rather than loads:
+
+- **Texture size is paid on the main thread, at every duel start.** The
+  buffer is built where the frame is, so it is not a memory decision: a
+  2048 × 1200 slab froze a debug build for ten seconds before the first card
+  was drawn. The felt and the mats are the sizes they are because of that.
+- **A grain whose period falls under about four pixels is aliasing, not
+  stone.** Noise frequency and texture size are therefore one decision and
+  not two — raising a surface's detail without growing its buffer buys
+  shimmer at exactly the angle this table is seen from.
+
+The rest of that branch is either landed or unwanted. What was structural in
+it arrived by other routes — the slab cut from `TableLayout::extent` rather
+than a fixed sheet, the layout built against the canvas the table is *seen*
+through, and the pod depth taken from what three lanes of cards need — and
+what is left is the look itself, which was the part that was turned down. The
+code is at the tag `archive/table-redesign-wip` if it is ever wanted back.
+
 ## The air over the table
 
 Six things can be in it — leaves, mist, embers, shafts of light, fog and

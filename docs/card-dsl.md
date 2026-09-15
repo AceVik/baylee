@@ -716,6 +716,23 @@ abilities = &[AbilityDef::Static(StaticAbility {
 
 ## Explicitly not supported yet (M3+)
 
+This list is hand-kept, and it has a **measured counterpart**.
+`data/card-refusals.tsv` carries 121 rows from the card batch of 4.–5.09.2026,
+115 of them genuine refusals: each names the printed sentence, what the DSL
+cannot express *in the DSL's own vocabulary*, and the nearest variant that
+does exist. `tools/cardbatch/README.md` §"The refusal file" is why those two
+columns are shaped that way, and the shape of the answers is worth knowing
+before reading them — `Effect` and `Filter` account for most of it, which is
+the usual case rather than a surprise: what is missing is normally a variant
+that cannot be *said*, not a subsystem that is absent.
+
+The 48 land implementations that same batch produced are **not** in the tree.
+They were written against the flat `cards/` layout and the pre-taxonomy
+macros, so every one of them collides with the file standing there today.
+They are at the tag `archive/gemini-batch`, to be read as a reference when
+those cards are taken up — and taking them up is worth doing *after* a DSL
+change rather than before, or they are written twice.
+
 Landed since the freeze (no longer blockers): MDFC face casting, miracle,
 delve, convoke, flashback grants, protection (damage/target/block),
 until-EOT layer-1 copies, extra turns, lifelink counters, search locks,
