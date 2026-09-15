@@ -9,8 +9,11 @@
 //!
 //! What this module adds is the two things only a gateway has. A catalog
 //! fills in rules text and localized names ([`enrich`], [`name_cards`]), and
-//! neither is available without `DATABASE_URL` — a gateway without one still
-//! has a working deck builder, it just cannot show text or translate a name.
+//! neither is available until one has been ingested. The database is no
+//! longer the optional half — a gateway without `DATABASE_URL` refuses to
+//! start at all, because that is where the accounts live — but an *empty*
+//! one still leaves a working deck builder that cannot show text or
+//! translate a name.
 //! And the answer is sent **whole** (a few hundred rows), which is what lets a
 //! client filter at keystroke latency instead of asking per letter. When the
 //! registry outgrows one response this is where paging goes; the shape of the

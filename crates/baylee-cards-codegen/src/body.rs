@@ -17,9 +17,8 @@ use std::fmt::Write as _;
 /// three times on a fetchland and is not what a reader is checking.
 ///
 /// The three forms are the card's, not the code's: an empty cost is
-/// `Cost::FREE`, a bare tap is `Cost::TAP` (a third of every activated
-/// ability in the pool), and everything else reads left to right the way the
-/// card prints it — mana, then the rest.
+/// `Cost::FREE`, a bare tap is `Cost::TAP`, and everything else reads left to
+/// right the way the card prints it — mana, then the rest.
 #[must_use]
 pub fn cost_literal(mana: &str, parts: &[String]) -> String {
     match (mana.is_empty(), parts) {

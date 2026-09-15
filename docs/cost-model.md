@@ -3,11 +3,20 @@
 A cost is a mana part plus non-mana parts:
 
 ```rust
-struct Cost { mana: ManaCost, parts: SmallVec<[CostPart; 4]> }
-enum CostPart { Tap(Filter), Untap(Filter), Sacrifice(Filter), ExileFrom(Zone, Filter),
-                Discard(Filter), PayLife(u16), RemoveCounter{..}, Mill(u16),
-                ReturnToHand(Filter), Reveal(Filter), Custom(..) }
+struct Cost { mana: ManaCost, parts: &'static [CostPart] }
+enum CostPart { TapSelf, UntapSelf, SacrificeSelf, Sacrifice(&'static Filter),
+                PayLife(u16), PayLifeX, Discard(&'static Filter), DiscardSelf,
+                ExileSelf, ExileFromHand(&'static Filter), ReturnSelfToHand }
 ```
+
+That is the type as it stands (`baylee-cards-dsl/src/cost.rs`), and the
+sketch it replaces is why it is written out here: the parts are `*Self` where
+a cost pays with the source and take a `Filter` only where a choice is
+genuinely open. A card file never writes the struct — `cost!("{1}{G}",
+TapSelf, SacrificeSelf)` reads left to right the way the card prints it, with
+`Cost::FREE` and `Cost::TAP` for the empty cost and a bare `{T}`.
+`docs/card-dsl.md` is normative on the spelling, including which four parts
+an activated ability may not carry.
 
 Four orthogonal concepts:
 

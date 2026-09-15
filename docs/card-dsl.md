@@ -177,7 +177,7 @@ doc comment on the `pub static CARD` it defines. The three identity fields
 are mandatory and come first, in the order codegen writes them.
 
 **Parentheses and `=`, never braces and `:`** — in every macro in this
-document, and it is a rules of the language rather than a house style.
+document, and it is rustfmt's rule rather than a house style.
 rustfmt leaves a macro invoked with braces alone entirely, and `field: value`
 is not an expression, so it could not format the body even if it entered it.
 One knob written the old way therefore switches formatting off for the whole
@@ -240,7 +240,7 @@ none of them per face:
 
 - `keywords`. `CardDef::keywords_for_face` gives face 0 the card-level set
   when the face states none of its own, and gives a back face **only** what
-  it prints. So an ordinary card still writes one `keywords:` line, and a
+  it prints. So an ordinary card still writes one `keywords =` line, and a
   transforming card writes one per face — including the keyword both faces
   share, which is written twice on purpose. Daybound is printed on a front
   face and nightbound on a back one (CR 702.145a), and a card that stated
@@ -362,8 +362,9 @@ express at all yet.
   `ExileSelf`, `ExileFromHand(filter)`, `ReturnSelfToHand`.
 
   `Cost::FREE` is the empty cost and `Cost::TAP` a bare `{T}` — the two the
-  macro would spell with no argument and one, and the two that between them
-  are a third of the activated abilities in the pool. `Cost { mana, parts }`
+  macro would spell with no argument and one, and between them what two
+  thirds of the pool's activated abilities cost (444 of 644 today, 432 of
+  them written as the one-argument `mana_ability!`). `Cost { mana, parts }`
   is still the struct underneath and is what a *reader* in
   `baylee-cards-codegen` builds; card files say `cost!`.
 
