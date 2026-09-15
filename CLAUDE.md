@@ -376,6 +376,16 @@ files goes through `card_files` in `xtask` for the same reason the rules gate
 excludes only the client: a non-recursive `read_dir` over a tree finds
 nothing and reports an empty worklist as an answer.
 
+Which files to read is one question and **what a file says** is the other, and
+it has the same answer: `knob(content, field)` in `xtask`, never a literal
+match on `"<field> = "`. Card files are ordinary rustfmt output since the
+macros moved to parentheses, so a value too long for its line is wrapped onto
+the next one — `coverage =\n        Coverage::Partial(…)` — and every reader
+that matched the unwrapped spelling read that card as having no coverage flag
+at all. Seven textual readers of the pool have now been found answering a
+question they could not see; three of them were blind from the day they were
+written.
+
 #### Two readers write finished cards
 
 A stub is not always a stub. `codegen` runs two readers before it falls back

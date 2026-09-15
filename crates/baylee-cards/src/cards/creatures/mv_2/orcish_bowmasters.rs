@@ -7,6 +7,22 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes::creature;
 
+/// The card prints one ability with two triggers, and the engine has no
+/// "enters or draws" trigger, so it is written twice. The effects are named
+/// once rather than typed twice: they were typed twice, and the second copy
+/// lost the damage.
+static PING_THEN_AMASS: &[Effect] = &[
+    Effect::DealDamage {
+        amount: Amount::Fixed(1),
+        target: TargetSpec::AnyTarget,
+    },
+    Effect::Amass {
+        token: &crate::tokens::ARMY_0_0_BLACK,
+        subtype: creature::ORC,
+        amount: 1,
+    },
+];
+
 card!(
     index = 106,
     oracle_id = "ea5103f5-27e0-4eb1-902c-7f34652d6bf3",
@@ -25,25 +41,13 @@ card!(
     abilities = &[
         triggered!(
             Trigger::EntersBattlefield(&Filter::This),
-            &[
-                Effect::DealDamage {
-                    amount: Amount::Fixed(1),
-                    target: TargetSpec::Player(PlayerRel::Opponent),
-                },
-                Effect::Amass {
-                    token: &crate::tokens::ARMY_0_0_BLACK,
-                    subtype: creature::ORC,
-                    amount: 1,
-                },
-            ]
+            PING_THEN_AMASS,
+            targets = Some(TargetReq::one(TargetSpec::AnyTarget))
         ),
         triggered!(
             Trigger::DrawsExceptFirst(PlayerRel::Opponent),
-            &[Effect::Amass {
-                token: &crate::tokens::ARMY_0_0_BLACK,
-                subtype: creature::ORC,
-                amount: 1,
-            }]
+            PING_THEN_AMASS,
+            targets = Some(TargetReq::one(TargetSpec::AnyTarget))
         ),
     ],
 );

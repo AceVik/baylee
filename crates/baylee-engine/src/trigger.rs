@@ -620,8 +620,21 @@ fn matches(
                 PlayerRel::Opponent => state.is_opponent(*player, you),
                 _ => true,
             };
-            // The event fires from the SECOND card drawn onward.
-            player_matches && count > 1
+            // "except the first one they draw in each of their draw steps"
+            // is about a draw *step*, not about a turn. A draw on somebody
+            // else's turn is never in this player's draw step, so it always
+            // fires â which is the case Orcish Bowmasters is played for
+            // (Brainstorm, Rhystic Study, a Howling Mine on my turn), and
+            // the old `count > 1` read it as the opponent's excepted first
+            // draw and fired nothing at all.
+            //
+            // The exception left: a draw during their own upkeep makes the
+            // draw-step draw the second of the turn, and that one fires
+            // although it is the step's first. Closing it wants a per-step
+            // counter beside `per_turn.draws`.
+            let their_draw_step =
+                state.turn.active == *player && state.turn.step == crate::turn::Step::Draw;
+            player_matches && !(their_draw_step && count <= 1)
         }
         (Trigger::FirstNoncreatureSpellCast(rel), GameEvent::SpellCast { object, player }) => {
             let player_matches = match rel {
