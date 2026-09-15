@@ -560,7 +560,7 @@ cross-zone effects).
 
 ```rust
 f!(CREATURE)                              // Filter::CREATURE itself
-f!(your CREATURE)                         // a creature you control
+f!(owned CREATURE)                        // a creature you own
 f!(another nontoken CREATURE)
 f!(owned Filter::HasSubtype(ally::ALLY))  // an Ally you own
 ```
@@ -579,7 +579,7 @@ macro expands in the caller's `static`, where the slice promotes like any
 other literal.
 
 **Compose them inline.** In `static` context a slice promotes to `'static`
-automatically, so `f!(your CREATURE)` needs no named `static` at all. Give a
+automatically, so `f!(owned CREATURE)` needs no named `static` at all. Give a
 filter a name only when the same card refers to it **twice** — that is the
 whole rule, and 123 of the pool's 159 local filter statics are named for a
 filter their card mentions once.
@@ -593,6 +593,14 @@ predicates the pool kept reinventing — `CREATURE`, `ARTIFACT`,
 `HasType(TypeSet::CREATURE)` in a differently-named `static` in twenty-six
 card files, which is twenty-six chances to type `LacksType` by accident and
 no way to grep for the one that did.
+
+**First** is meant literally, and the four composite constants are where it
+bites: `f!(your CREATURE)` expands to exactly the bytes
+`Filter::YOUR_CREATURE` holds, so the two are one filter with two spellings
+and the constant is the one to write.
+`the_filter_macro_spells_the_constants_it_replaces` is what keeps the pair
+from drifting. `f!` is for the combination no constant carries — which is
+most of them, since a constant earns its place by being wanted twice.
 
 A filter that is about *this pool* rather than about Magic goes in
 `crates/baylee-cards/src/filters.rs` (`YOUR_ALLIES`, `ANOTHER_ALLY`), beside

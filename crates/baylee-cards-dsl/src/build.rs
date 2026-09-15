@@ -418,8 +418,8 @@ macro_rules! face {
 /// A filter, written the way the card says it: adjectives, then the noun.
 ///
 /// ```ignore
-/// f!(CREATURE)                       // a creature
-/// f!(your CREATURE)                  // a creature you control
+/// f!(CREATURE)                       // Filter::CREATURE itself
+/// f!(owned CREATURE)                 // a creature you own
 /// f!(another nontoken CREATURE)      // another nontoken creature
 /// f!(your Filter::HasSubtype(ally::ALLY))   // an Ally you control
 /// ```
@@ -452,6 +452,14 @@ macro_rules! face {
 /// not merely the same meaning — which is what makes replacing a
 /// hand-written `static` with it provably free, and is asserted by
 /// `the_filter_macro_spells_the_constants_it_replaces`.
+///
+/// That equality is also the one place `f!` is the **wrong** spelling. Where
+/// a constant already carries the combination, the constant is what a card
+/// writes: a filter with two names is the duplication the named predicates
+/// were collected to end, and `Filter::YOUR_CREATURE` had nought uses in the
+/// pool while twenty-six files spelled a creature out by hand. `f!` is for
+/// the combination no constant carries — which is most of them, a constant
+/// earning its place by being wanted twice.
 #[macro_export]
 macro_rules! f {
     ($($spelling:tt)+) => { $crate::__f_adjectives!([] $($spelling)+) };
