@@ -45,6 +45,8 @@ Card, codegen, and data tooling (`xtask`):
 cargo run -p xtask -- codegen            # regen subtypes, card stubs, registry, scripts index
 cargo run -p xtask -- codegen --check    # CI: fail if generated files are stale
 cargo run -p xtask -- validate           # card headers vs. the CardDef the code builds
+cargo run -p xtask -- ledger             # assign a CardIndex to every corpus card that has none
+cargo run -p xtask -- ledger --check     # report what would be assigned instead of writing it
 cargo run -p xtask -- adopt --name "Yavimaya Coast"       # take a generated card off the machine, for good
 cargo run -p xtask -- refresh-oracle                      # rewrite every `//! Oracle:` header from the cached printing
 cargo run -p xtask -- explain --name "Force of Will"      # Scryfall + scripts data side by side
@@ -162,6 +164,7 @@ cargo run -p baylee-catalog -- ingest --english-only      # ~118k English printi
 cargo run -p baylee-catalog -- search "lightning bolt"
 cargo run -p baylee-catalog -- project                    # rebuild the search projection alone
 cargo run -p baylee-catalog -- mine-types                 # rewrite data/type-names.tsv (needs every language)
+cargo run -p baylee-catalog -- corpus                     # the cards an index is assigned over, for `xtask ledger`
 ```
 
 **Every language is the default and English is the opt-out**, which is the
@@ -396,9 +399,15 @@ for the three fields a face has no printed data for in the Scryfall payload
 codegen reads: `keywords`, `color_indicator` and `castable_from_hand`, which
 a transforming double-faced card needs on its back face and which are added
 by hand. The index
-comes from the append-only ledger `data/card-index.tsv`, so a new card never
-renumbers an existing one — a `CardIndex` is what saved decks and replays
-name. The `//!`
+comes from the append-only ledger `data/card-index.tsv`, which numbers **every
+card there is** and not this pool — `cargo run -p xtask -- ledger` assigns it
+over the corpus `cargo run -p baylee-catalog -- corpus` scans, 33 694 rows of
+which this repo compiles 1365 — so implementing a card inserts nothing and
+renumbers nothing, and a `CardIndex` is what saved decks and replays name. A
+card this repo implements that the corpus filter drops is named in
+`data/corpus-keep.tsv`, the hand-kept additive half, and is admitted whole.
+Codegen only *reads* the ledger and fails loudly on a card with no row: one
+writer, and it is not the thing that writes card files. The `//!`
 header (name, cost, oracle text, set, Scryfall id) is the human-verification
 surface and `xtask validate` fails if it drifts from the `CardDef` built below
 it — **and** if its oracle text is not the one Scryfall prints, which is the

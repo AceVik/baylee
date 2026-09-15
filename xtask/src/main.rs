@@ -48,12 +48,14 @@ enum Cmd {
         check: bool,
         /// Throw every assignment away and number the corpus from zero.
         ///
-        /// A card the ledger holds and the corpus does not is carried over
-        /// and named in the output: it is a card this repo implements, and
-        /// dropping its row would leave codegen unable to build it. Every
-        /// stored `CardIndex` anywhere becomes wrong, so this is a
-        /// deliberate, one-off, migrate-or-discard operation and never a part
-        /// of maintenance.
+        /// It reads no ledger at all — nothing is carried over, because a
+        /// carried row is the one number the corpus did not produce. What
+        /// protects a card this repo implements is the check at the end: the
+        /// run asks the **registry** whether every compiled card got a row
+        /// and refuses to write if one did not, and the answer to a refusal
+        /// is `data/corpus-keep.tsv`. Every stored `CardIndex` anywhere
+        /// becomes wrong, so this is a deliberate, one-off,
+        /// migrate-or-discard operation and never a part of maintenance.
         #[arg(long)]
         reseed: bool,
     },

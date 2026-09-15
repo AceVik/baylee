@@ -33,3 +33,10 @@ deck-images/
 .claude/settings.local.json
 .claude/scheduled_tasks.lock
 .claude/worktrees/
+
+# the corpus `baylee-catalog corpus` scans out of the database and
+# `xtask ledger` reads — both default to this path. It is a 2.7 MB rendering
+# of a query, regenerated whenever the catalog is, and it is not the ledger:
+# `data/card-index.tsv` is the committed half and this is the input that
+# produced it.
+/data/card-corpus.tsv

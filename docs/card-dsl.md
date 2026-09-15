@@ -200,13 +200,19 @@ both are load-bearing:
   resolves as another one.
 
   Where the number comes from: `data/card-index.tsv`, the append-only ledger
-  codegen keeps. A `CardIndex` is an identity, not a position — `DeckEntry`
-  stores one, the gateway persists decks made of them, and a replay names
-  them — so adding a card takes the next free index and never renumbers a
-  card that is already there. A card that leaves the pool retires its index;
-  the slot stays empty (`BY_INDEX` holds `None` there) rather than being
-  handed to someone else. Never edit the ledger by hand: `codegen --check`
-  fails if a run would change it.
+  `cargo run -p xtask -- ledger` writes. A `CardIndex` is an identity, not a
+  position — `DeckEntry` stores one, the gateway persists decks made of them,
+  and a replay names them — so a number, once handed out, is never handed to
+  another card. What it numbers is **every card there is** rather than this
+  pool: the corpus `baylee-catalog corpus` scans out of the catalog, in
+  first-appearance order, 33 694 rows of which this repo compiles 1365. So
+  implementing a card inserts nothing — its index was assigned before anybody
+  wrote the file — and the `None`s in `BY_INDEX` are the corpus showing
+  through, not cards that have left. A card this repo implements that the
+  corpus filter drops is named in `data/corpus-keep.tsv` and admitted whole,
+  in its own chronological place. Never edit the ledger by hand; and note
+  that codegen does not write it — it reads the row a card needs and fails
+  loudly if there is none, which is what keeps the ledger to one writer.
 - `CardDef::DEFAULT.coverage` is `Coverage::Unimplemented`, so a stub that
   was never finished cannot reach the deckbuilder as playable just because
   a line went missing. An implemented card writes
