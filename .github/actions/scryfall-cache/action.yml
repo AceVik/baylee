@@ -1,7 +1,15 @@
 name: scryfall-cache
 description: >
-  Restores the Scryfall payload cache that codegen and validate read, and
-  saves it again for the next run.
+  Restores the Scryfall payload cache that codegen and validate read. Saving
+  it again is the fetching job's own step, for the reason below.
+
+outputs:
+  key:
+    description: >
+      The key a job that fetched payloads should save the cache under. Exposed
+      rather than recomputed at the call site, so the restore and the save
+      cannot drift apart.
+    value: ${{ steps.key.outputs.key }}
 
 runs:
   using: composite
@@ -21,9 +29,25 @@ runs:
     # A complete miss is not a failure: `xtask` fetches what it does not
     # find, inside Scryfall's rate limit. It is slow (minutes, not seconds),
     # which is the whole reason for the restore-key fallback.
-    - uses: actions/cache@v4
+    #
+    # This restores and does **not** save, which is the whole point of the
+    # split. `actions/cache` saves in a post step, and that post step is
+    # **skipped when the job fails** — so a `codegen-check` that failed for
+    # any reason at all left no cache behind, the next run started cold, and
+    # fetching 1371 payloads at Scryfall's rate limit took it 28 minutes
+    # before it could fail again. Measured on run 34969174505: the restore
+    # said "Cache not found for input keys: scryfall-cache-…,
+    # scryfall-cache-" — not even the fallback prefix matched, because no
+    # run had ever got far enough to write one — and the post step ended
+    # `outcome=skipped`. The fetching job saves with `actions/cache/save`
+    # under `!cancelled()` instead, so a red job still leaves a warm cache
+    # for the next one.
+    - id: key
+      shell: bash
+      run: echo "key=scryfall-cache-${{ hashFiles('crates/baylee-cards-index/src/generated.rs') }}" >> "$GITHUB_OUTPUT"
+    - uses: actions/cache/restore@v4
       with:
         path: data/scryfall-cache
-        key: scryfall-cache-${{ hashFiles('crates/baylee-cards-index/src/generated.rs') }}
+        key: ${{ steps.key.outputs.key }}
         restore-keys: |
           scryfall-cache-

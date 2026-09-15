@@ -137,9 +137,22 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/scryfall-cache
+        id: scryfall
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - run: cargo run -p xtask -- codegen --check
+      # `codegen` is the only command that *fetches*, so it is the only one
+      # that has anything to save — and it has to save even when it fails,
+      # because a job that fetched for half an hour and then reported stale
+      # files has still done the expensive half. `actions/cache`'s own post
+      # step would not: it is skipped on a failed job, which is what kept
+      # every run of this job starting from an empty cache.
+      - uses: actions/cache/save@v4
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        with:
+          path: data/scryfall-cache
+          key: ${{ steps.scryfall.outputs.key }}
 
   # The card data is only as good as this check: it re-reads the acceptance
   # list and compares every card's doc header against the CardDef the code
