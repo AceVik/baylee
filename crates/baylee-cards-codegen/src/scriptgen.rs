@@ -479,10 +479,12 @@ impl Tx<'_> {
                 )]
             }
             "GainLife" => {
-                let n = amount(&p.take("LifeAmount")?, self.svars)?;
+                let n = plain_number(&p.take("LifeAmount")?, self.svars)?;
                 match Self::player_rel_of(p.take("Defined").as_deref(), target)? {
-                    "PlayerRel::You" => vec![format!("Effect::GainLife {{ amount: {n} }}")],
-                    who => vec![format!("Effect::GainLifeFor {{ amount: {n}, who: {who} }}")],
+                    "PlayerRel::You" => vec![format!("Effect::gain_life({n})")],
+                    who => vec![format!(
+                        "Effect::GainLifeFor {{ amount: Amount::Fixed({n}), who: {who} }}"
+                    )],
                 }
             }
             "LoseLife" => {
@@ -491,11 +493,11 @@ impl Tx<'_> {
                 vec![format!("Effect::LoseLife {{ amount: {n}, target: {who} }}")]
             }
             "Draw" => {
-                let n = amount(p.take("NumCards").as_deref().unwrap_or("1"), self.svars)?;
+                let n = plain_number(p.take("NumCards").as_deref().unwrap_or("1"), self.svars)?;
                 match Self::player_rel_of(p.take("Defined").as_deref(), target)? {
-                    "PlayerRel::You" => vec![format!("Effect::DrawCards {{ amount: {n} }}")],
+                    "PlayerRel::You" => vec![format!("Effect::draw({n})")],
                     who => vec![format!(
-                        "Effect::DrawCardsFor {{ amount: {n}, who: {who} }}"
+                        "Effect::DrawCardsFor {{ amount: Amount::Fixed({n}), who: {who} }}"
                     )],
                 }
             }
@@ -532,7 +534,7 @@ impl Tx<'_> {
             }
             "Scry" => {
                 let n = plain_number(p.take("ScryNum").as_deref().unwrap_or("1"), self.svars)?;
-                vec![format!("Effect::Scry {{ amount: Amount::Fixed({n}) }}")]
+                vec![format!("Effect::scry({n})")]
             }
             "Mana" => self.mana_effect(p)?,
             "Destroy" => {
@@ -545,7 +547,7 @@ impl Tx<'_> {
                 if p.take("NoRegen").is_some_and(|v| v != "True") {
                     return None;
                 }
-                vec![format!("Effect::Destroy {{ target: {aimed} }}")]
+                vec![format!("Effect::destroy({aimed})")]
             }
             "Animate" => self.animate_effect(p, target)?,
             "Pump" => self.pump_effect(p, aimed)?,
@@ -595,7 +597,7 @@ impl Tx<'_> {
                 };
                 format!("Modifier::AddSubtype({path})")
             };
-            out.push(Self::animate_expr("Layer::Type", &modifier));
+            out.push(Self::animate_expr(&modifier));
         }
         // Layer 5: colour. Without `OverwriteColors$ True` the card keeps
         // the colours it had, which is `AddColor` (CR 613.1c).
@@ -607,13 +609,10 @@ impl Tx<'_> {
                 return None;
             };
             let which = if overwrite { "SetColor" } else { "AddColor" };
-            out.push(Self::animate_expr(
-                "Layer::Color",
-                &format!(
-                    "Modifier::{which}(ColorSet::from_slice(&[{}]))",
-                    colors.join(", ")
-                ),
-            ));
+            out.push(Self::animate_expr(&format!(
+                "Modifier::{which}(ColorSet::from_slice(&[{}]))",
+                colors.join(", ")
+            )));
         }
         // Layer 6: keywords it gains.
         if let Some(raw) = p.take("Keywords") {
@@ -624,10 +623,9 @@ impl Tx<'_> {
             };
             let joined =
                 each.join(".union(") + &")".repeat(raw.split('&').count().saturating_sub(1));
-            out.push(Self::animate_expr(
-                "Layer::Ability",
-                &format!("Modifier::AddKeyword({joined})"),
-            ));
+            out.push(Self::animate_expr(&format!(
+                "Modifier::AddKeyword({joined})"
+            )));
         }
         // Layer 7b: the printed P/T it takes on. Both halves or neither —
         // `SetPT` sets both, and half a set would invent the other.
@@ -635,10 +633,9 @@ impl Tx<'_> {
             (Some(power), Some(toughness)) => {
                 let power: i16 = power.parse().ok()?;
                 let toughness: i16 = toughness.parse().ok()?;
-                out.push(Self::animate_expr(
-                    "Layer::PtSet",
-                    &format!("Modifier::SetPT({power}, {toughness})"),
-                ));
+                out.push(Self::animate_expr(&format!(
+                    "Modifier::SetPT({power}, {toughness})"
+                )));
             }
             (None, None) => {}
             _ => {
@@ -653,12 +650,13 @@ impl Tx<'_> {
         Some(out)
     }
 
-    /// One layer of an [`Self::animate_effect`], as the `Effect` literal.
-    fn animate_expr(layer: &str, modifier: &str) -> String {
-        format!(
-            "Effect::CreateContinuousEffect {{ layer: {layer}, filter: &Filter::This, \
-             modifier: {modifier}, duration: Duration::UntilEndOfTurn }}"
-        )
+    /// One layer of an [`Self::animate_effect`], as the `Effect` expression.
+    ///
+    /// No layer is passed in because none is written out: `Effect::continuous`
+    /// derives it from the modifier the way CR 613.1 does, so the emitter
+    /// cannot name a layer that disagrees with what it is applying.
+    fn animate_expr(modifier: &str) -> String {
+        format!("Effect::continuous(&Filter::This, {modifier}, Duration::UntilEndOfTurn)")
     }
 
     /// `Pump`: `NumAtt$ +2 | NumDef$ +2 | KW$ Trample`, the commonest
@@ -746,12 +744,8 @@ impl Tx<'_> {
             return None;
         }
         Some(match (origin.as_str(), destination.as_str(), itself) {
-            ("Battlefield", "Hand", false) => {
-                vec![format!("Effect::ReturnToHand {{ target: {target} }}")]
-            }
-            ("Battlefield", "Exile", false) => {
-                vec![format!("Effect::Exile {{ target: {target} }}")]
-            }
+            ("Battlefield", "Hand", false) => vec![format!("Effect::bounce({target})")],
+            ("Battlefield", "Exile", false) => vec![format!("Effect::exile({target})")],
             ("Battlefield", "Exile", true) => vec!["Effect::ExileSource".to_string()],
             _ => {
                 self.note(format!("`ChangeZone` {origin} to {destination}"));
@@ -1166,7 +1160,6 @@ impl Tx<'_> {
                 return None;
             };
             out.push(Self::static_expr(
-                "Layer::PtModify",
                 filter,
                 &format!("Modifier::ModifyPT({power}, {tough})"),
             ));
@@ -1185,7 +1178,6 @@ impl Tx<'_> {
                 return None;
             };
             out.push(Self::static_expr(
-                "Layer::PtSet",
                 filter,
                 &format!("Modifier::SetPT({power}, {tough})"),
             ));
@@ -1217,7 +1209,6 @@ impl Tx<'_> {
                     .fold(head.clone(), |acc, b| format!("{acc}.union({b})"))
             })?;
             out.push(Self::static_expr(
-                "Layer::Ability",
                 filter,
                 &format!("Modifier::{modifier}({set})"),
             ));
@@ -1252,14 +1243,12 @@ impl Tx<'_> {
                     .iter()
                     .fold((*head).to_string(), |acc, t| format!("{acc}.union({t})"));
                 out.push(Self::static_expr(
-                    "Layer::Type",
                     filter,
                     &format!("Modifier::{modifier}({set})"),
                 ));
             }
             for path in subtypes {
                 out.push(Self::static_expr(
-                    "Layer::Type",
                     filter,
                     &format!("Modifier::AddSubtype({path})"),
                 ));
@@ -1289,7 +1278,6 @@ impl Tx<'_> {
                 });
             }
             out.push(Self::static_expr(
-                "Layer::Color",
                 filter,
                 &format!(
                     "Modifier::{modifier}(ColorSet::from_slice(&[{}]))",
@@ -1301,11 +1289,12 @@ impl Tx<'_> {
     }
 
     /// One `AbilityDef::Static` expression.
-    fn static_expr(layer: &str, filter: &str, modifier: &str) -> String {
-        format!(
-            "AbilityDef::Static(StaticAbility {{ layer: {layer}, filter: {filter}, \
-             modifier: {modifier} }})"
-        )
+    ///
+    /// `static_ability!` takes no layer for the same reason [`Self::animate_expr`]
+    /// passes none: CR 613.1 makes the layer a function of the modifier, and
+    /// `Modifier::layer` is that function.
+    fn static_expr(filter: &str, modifier: &str) -> String {
+        format!("static_ability!({filter}, {modifier})")
     }
 
     fn activated_or_spell(&mut self, spec: &str) -> Option<()> {
@@ -1731,9 +1720,7 @@ mod tests {
         );
         assert_eq!(
             body.abilities,
-            [
-                "triggered!(Trigger::EntersBattlefield(&Filter::This), &[Effect::GainLife { amount: Amount::Fixed(2) }])"
-            ]
+            ["triggered!(Trigger::EntersBattlefield(&Filter::This), &[Effect::gain_life(2)])"]
         );
     }
 
@@ -1747,7 +1734,7 @@ mod tests {
         assert_eq!(
             body.abilities,
             [
-                "spell!(&[Effect::DrawCards { amount: Amount::Fixed(2) }, Effect::LoseLife { amount: Amount::Fixed(2), target: PlayerRel::You }])"
+                "spell!(&[Effect::draw(2), Effect::LoseLife { amount: Amount::Fixed(2), target: PlayerRel::You }])"
             ]
         );
     }
@@ -1860,12 +1847,14 @@ mod tests {
              A:AB$ Animate | Cost$ 1 G | Defined$ Self | Power$ 3 | Toughness$ 3 | Types$ Creature,Goblin | Colors$ Green | OverwriteColors$ True | Keywords$ Trample",
         );
         let a = body.abilities.join("");
+        // No layer is written: `Effect::continuous` derives it from the
+        // modifier (CR 613.1), so the modifier *is* the layer claim here.
         for expected in [
-            "layer: Layer::Type, filter: &Filter::This, modifier: Modifier::AddType(TypeSet::CREATURE)",
-            "modifier: Modifier::AddSubtype(subtypes::creature::GOBLIN)",
-            "layer: Layer::Color, filter: &Filter::This, modifier: Modifier::SetColor(ColorSet::from_slice(&[Color::Green]))",
-            "layer: Layer::Ability, filter: &Filter::This, modifier: Modifier::AddKeyword(KeywordSet::TRAMPLE)",
-            "layer: Layer::PtSet, filter: &Filter::This, modifier: Modifier::SetPT(3, 3)",
+            "Effect::continuous(&Filter::This, Modifier::AddType(TypeSet::CREATURE), Duration::UntilEndOfTurn)",
+            "Modifier::AddSubtype(subtypes::creature::GOBLIN)",
+            "Effect::continuous(&Filter::This, Modifier::SetColor(ColorSet::from_slice(&[Color::Green])), Duration::UntilEndOfTurn)",
+            "Effect::continuous(&Filter::This, Modifier::AddKeyword(KeywordSet::TRAMPLE), Duration::UntilEndOfTurn)",
+            "Effect::continuous(&Filter::This, Modifier::SetPT(3, 3), Duration::UntilEndOfTurn)",
         ] {
             assert!(a.contains(expected), "missing `{expected}` in {a}");
         }
@@ -2024,8 +2013,10 @@ mod tests {
              Description$ Other Goblins you control get +1/+0.\n",
         );
         let a = body.abilities.join("\n");
-        assert!(a.contains("Layer::PtModify"), "7c, not 7b: {a}");
-        assert!(a.contains("Modifier::ModifyPT(1, 0)"), "+1/+0: {a}");
+        // `ModifyPT` *is* the "7c, not 7b" claim now: the macro takes no
+        // layer and `Modifier::layer` derives one from the other.
+        assert!(a.starts_with("static_ability!("), "{a}");
+        assert!(a.contains("Modifier::ModifyPT(1, 0)"), "+1/+0, 7c: {a}");
         assert!(
             a.contains("Filter::Another"),
             "\"other\" is part of the filter: {a}"
@@ -2047,8 +2038,15 @@ mod tests {
         );
         assert_eq!(body.abilities.len(), 2, "{:?}", body.abilities);
         let a = body.abilities.join("\n");
-        assert!(a.contains("Layer::PtModify") && a.contains("Modifier::ModifyPT(1, 1)"));
-        assert!(a.contains("Layer::Ability") && a.contains("KeywordSet::FLYING"));
+        // Each layer is named by its modifier rather than beside it — the
+        // macro takes none, and `Modifier::layer` derives it. What order the
+        // two are written in says nothing: the engine sorts a continuous
+        // effect by its layer, not by where it sat in an ability list.
+        assert!(a.contains("Modifier::ModifyPT(1, 1)"), "7c: {a}");
+        assert!(
+            a.contains("Modifier::AddKeyword(KeywordSet::FLYING)"),
+            "6: {a}"
+        );
     }
 
     #[test]
@@ -2247,13 +2245,13 @@ mod tests {
             "Name:X\nTypes:Instant\n\
              A:SP$ ChangeZone | Origin$ Battlefield | Destination$ Hand | ValidTgts$ Creature\n",
         );
-        assert!(body.abilities.join("").contains("Effect::ReturnToHand"));
+        assert!(body.abilities.join("").contains("Effect::bounce("));
 
         let body = read(
             "Name:X\nTypes:Instant\n\
              A:SP$ ChangeZone | Origin$ Battlefield | Destination$ Exile | ValidTgts$ Creature\n",
         );
-        assert!(body.abilities.join("").contains("Effect::Exile"));
+        assert!(body.abilities.join("").contains("Effect::exile("));
 
         let body = read(
             "Name:X\nTypes:Creature\n\

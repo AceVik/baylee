@@ -18,11 +18,6 @@ card!(
             cost!(TapSelf, PayLife(1)),
             &[Effect::mana_choice(&[ManaColor::Red, ManaColor::White])]
         ),
-        activated!(
-            cost!("{1}", TapSelf, SacrificeSelf),
-            &[Effect::DrawCards {
-                amount: Amount::Fixed(1)
-            }]
-        ),
+        activated!(cost!("{1}", TapSelf, SacrificeSelf), &[Effect::draw(1)]),
     ],
 );

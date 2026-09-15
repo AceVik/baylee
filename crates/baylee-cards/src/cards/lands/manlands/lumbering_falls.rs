@@ -24,39 +24,31 @@ card!(
         activated!(
             cost!("{2}{G}{U}"),
             &[
-                Effect::CreateContinuousEffect {
-                    layer: Layer::Type,
-                    filter: &Filter::This,
-                    modifier: Modifier::AddType(TypeSet::CREATURE),
-                    duration: Duration::UntilEndOfTurn
-                },
-                Effect::CreateContinuousEffect {
-                    layer: Layer::Type,
-                    filter: &Filter::This,
-                    modifier: Modifier::AddSubtype(subtypes::creature::ELEMENTAL),
-                    duration: Duration::UntilEndOfTurn
-                },
-                Effect::CreateContinuousEffect {
-                    layer: Layer::Color,
-                    filter: &Filter::This,
-                    modifier: Modifier::SetColor(ColorSet::from_slice(&[
-                        Color::Green,
-                        Color::Blue
-                    ])),
-                    duration: Duration::UntilEndOfTurn
-                },
-                Effect::CreateContinuousEffect {
-                    layer: Layer::Ability,
-                    filter: &Filter::This,
-                    modifier: Modifier::AddKeyword(KeywordSet::HEXPROOF),
-                    duration: Duration::UntilEndOfTurn
-                },
-                Effect::CreateContinuousEffect {
-                    layer: Layer::PtSet,
-                    filter: &Filter::This,
-                    modifier: Modifier::SetPT(3, 3),
-                    duration: Duration::UntilEndOfTurn
-                }
+                Effect::continuous(
+                    &Filter::This,
+                    Modifier::AddType(TypeSet::CREATURE),
+                    Duration::UntilEndOfTurn
+                ),
+                Effect::continuous(
+                    &Filter::This,
+                    Modifier::AddSubtype(subtypes::creature::ELEMENTAL),
+                    Duration::UntilEndOfTurn
+                ),
+                Effect::continuous(
+                    &Filter::This,
+                    Modifier::SetColor(ColorSet::from_slice(&[Color::Green, Color::Blue])),
+                    Duration::UntilEndOfTurn
+                ),
+                Effect::continuous(
+                    &Filter::This,
+                    Modifier::AddKeyword(KeywordSet::HEXPROOF),
+                    Duration::UntilEndOfTurn
+                ),
+                Effect::continuous(
+                    &Filter::This,
+                    Modifier::SetPT(3, 3),
+                    Duration::UntilEndOfTurn
+                )
             ]
         ),
     ],

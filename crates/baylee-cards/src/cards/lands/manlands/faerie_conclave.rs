@@ -24,36 +24,31 @@ card!(
         activated!(
             cost!("{1}{U}"),
             &[
-                Effect::CreateContinuousEffect {
-                    layer: Layer::Type,
-                    filter: &Filter::This,
-                    modifier: Modifier::AddType(TypeSet::CREATURE),
-                    duration: Duration::UntilEndOfTurn
-                },
-                Effect::CreateContinuousEffect {
-                    layer: Layer::Type,
-                    filter: &Filter::This,
-                    modifier: Modifier::AddSubtype(subtypes::creature::FAERIE),
-                    duration: Duration::UntilEndOfTurn
-                },
-                Effect::CreateContinuousEffect {
-                    layer: Layer::Color,
-                    filter: &Filter::This,
-                    modifier: Modifier::SetColor(ColorSet::from_slice(&[Color::Blue])),
-                    duration: Duration::UntilEndOfTurn
-                },
-                Effect::CreateContinuousEffect {
-                    layer: Layer::Ability,
-                    filter: &Filter::This,
-                    modifier: Modifier::AddKeyword(KeywordSet::FLYING),
-                    duration: Duration::UntilEndOfTurn
-                },
-                Effect::CreateContinuousEffect {
-                    layer: Layer::PtSet,
-                    filter: &Filter::This,
-                    modifier: Modifier::SetPT(2, 1),
-                    duration: Duration::UntilEndOfTurn
-                }
+                Effect::continuous(
+                    &Filter::This,
+                    Modifier::AddType(TypeSet::CREATURE),
+                    Duration::UntilEndOfTurn
+                ),
+                Effect::continuous(
+                    &Filter::This,
+                    Modifier::AddSubtype(subtypes::creature::FAERIE),
+                    Duration::UntilEndOfTurn
+                ),
+                Effect::continuous(
+                    &Filter::This,
+                    Modifier::SetColor(ColorSet::from_slice(&[Color::Blue])),
+                    Duration::UntilEndOfTurn
+                ),
+                Effect::continuous(
+                    &Filter::This,
+                    Modifier::AddKeyword(KeywordSet::FLYING),
+                    Duration::UntilEndOfTurn
+                ),
+                Effect::continuous(
+                    &Filter::This,
+                    Modifier::SetPT(2, 1),
+                    Duration::UntilEndOfTurn
+                )
             ]
         ),
     ],

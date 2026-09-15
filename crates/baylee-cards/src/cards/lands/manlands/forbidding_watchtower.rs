@@ -24,30 +24,26 @@ card!(
         activated!(
             cost!("{1}{W}"),
             &[
-                Effect::CreateContinuousEffect {
-                    layer: Layer::Type,
-                    filter: &Filter::This,
-                    modifier: Modifier::AddType(TypeSet::CREATURE),
-                    duration: Duration::UntilEndOfTurn
-                },
-                Effect::CreateContinuousEffect {
-                    layer: Layer::Type,
-                    filter: &Filter::This,
-                    modifier: Modifier::AddSubtype(subtypes::creature::SOLDIER),
-                    duration: Duration::UntilEndOfTurn
-                },
-                Effect::CreateContinuousEffect {
-                    layer: Layer::Color,
-                    filter: &Filter::This,
-                    modifier: Modifier::SetColor(ColorSet::from_slice(&[Color::White])),
-                    duration: Duration::UntilEndOfTurn
-                },
-                Effect::CreateContinuousEffect {
-                    layer: Layer::PtSet,
-                    filter: &Filter::This,
-                    modifier: Modifier::SetPT(1, 5),
-                    duration: Duration::UntilEndOfTurn
-                }
+                Effect::continuous(
+                    &Filter::This,
+                    Modifier::AddType(TypeSet::CREATURE),
+                    Duration::UntilEndOfTurn
+                ),
+                Effect::continuous(
+                    &Filter::This,
+                    Modifier::AddSubtype(subtypes::creature::SOLDIER),
+                    Duration::UntilEndOfTurn
+                ),
+                Effect::continuous(
+                    &Filter::This,
+                    Modifier::SetColor(ColorSet::from_slice(&[Color::White])),
+                    Duration::UntilEndOfTurn
+                ),
+                Effect::continuous(
+                    &Filter::This,
+                    Modifier::SetPT(1, 5),
+                    Duration::UntilEndOfTurn
+                )
             ]
         ),
     ],

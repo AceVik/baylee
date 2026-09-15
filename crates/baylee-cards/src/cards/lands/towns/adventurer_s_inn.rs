@@ -20,9 +20,7 @@ card!(
     abilities = &[
         triggered!(
             Trigger::EntersBattlefield(&Filter::This),
-            &[Effect::GainLife {
-                amount: Amount::Fixed(2)
-            }]
+            &[Effect::gain_life(2)]
         ),
         mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
     ],

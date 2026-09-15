@@ -15,11 +15,6 @@ card!(
     faces = &[face!(name = "Blighted Cataract", types = TypeSet::LAND,),],
     abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
-        activated!(
-            cost!("{5}{U}", TapSelf, SacrificeSelf),
-            &[Effect::DrawCards {
-                amount: Amount::Fixed(2)
-            }]
-        ),
+        activated!(cost!("{5}{U}", TapSelf, SacrificeSelf), &[Effect::draw(2)]),
     ],
 );

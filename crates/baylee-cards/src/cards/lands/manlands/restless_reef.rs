@@ -25,39 +25,31 @@ card!(
         activated!(
             cost!("{2}{U}{B}"),
             &[
-                Effect::CreateContinuousEffect {
-                    layer: Layer::Type,
-                    filter: &Filter::This,
-                    modifier: Modifier::AddType(TypeSet::CREATURE),
-                    duration: Duration::UntilEndOfTurn
-                },
-                Effect::CreateContinuousEffect {
-                    layer: Layer::Type,
-                    filter: &Filter::This,
-                    modifier: Modifier::AddSubtype(subtypes::creature::SHARK),
-                    duration: Duration::UntilEndOfTurn
-                },
-                Effect::CreateContinuousEffect {
-                    layer: Layer::Color,
-                    filter: &Filter::This,
-                    modifier: Modifier::SetColor(ColorSet::from_slice(&[
-                        Color::Blue,
-                        Color::Black
-                    ])),
-                    duration: Duration::UntilEndOfTurn
-                },
-                Effect::CreateContinuousEffect {
-                    layer: Layer::Ability,
-                    filter: &Filter::This,
-                    modifier: Modifier::AddKeyword(KeywordSet::DEATHTOUCH),
-                    duration: Duration::UntilEndOfTurn
-                },
-                Effect::CreateContinuousEffect {
-                    layer: Layer::PtSet,
-                    filter: &Filter::This,
-                    modifier: Modifier::SetPT(4, 4),
-                    duration: Duration::UntilEndOfTurn
-                }
+                Effect::continuous(
+                    &Filter::This,
+                    Modifier::AddType(TypeSet::CREATURE),
+                    Duration::UntilEndOfTurn
+                ),
+                Effect::continuous(
+                    &Filter::This,
+                    Modifier::AddSubtype(subtypes::creature::SHARK),
+                    Duration::UntilEndOfTurn
+                ),
+                Effect::continuous(
+                    &Filter::This,
+                    Modifier::SetColor(ColorSet::from_slice(&[Color::Blue, Color::Black])),
+                    Duration::UntilEndOfTurn
+                ),
+                Effect::continuous(
+                    &Filter::This,
+                    Modifier::AddKeyword(KeywordSet::DEATHTOUCH),
+                    Duration::UntilEndOfTurn
+                ),
+                Effect::continuous(
+                    &Filter::This,
+                    Modifier::SetPT(4, 4),
+                    Duration::UntilEndOfTurn
+                )
             ]
         ),
         triggered!(

@@ -22,14 +22,7 @@ card!(
         mana_ability!(&[Effect::mana(ManaColor::White, 1)]),
         activated!(
             cost!("{2}{W}{U}{U}", TapSelf, SacrificeSelf),
-            &[
-                Effect::GainLife {
-                    amount: Amount::Fixed(2)
-                },
-                Effect::DrawCards {
-                    amount: Amount::Fixed(2)
-                }
-            ]
+            &[Effect::gain_life(2), Effect::draw(2)]
         ),
     ],
 );

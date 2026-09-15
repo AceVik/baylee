@@ -15,9 +15,7 @@ card!(
     abilities = &[
         triggered!(
             Trigger::EntersBattlefield(&Filter::This),
-            &[Effect::Scry {
-                amount: Amount::Fixed(1)
-            }]
+            &[Effect::scry(1)]
         ),
         mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
     ],

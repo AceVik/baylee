@@ -25,9 +25,7 @@ card!(
                     amount: Amount::Fixed(1),
                     target: PlayerRel::Chosen
                 },
-                Effect::GainLife {
-                    amount: Amount::Fixed(1)
-                }
+                Effect::gain_life(1)
             ],
             target = Some(TargetSpec::AnyPlayer)
         ),

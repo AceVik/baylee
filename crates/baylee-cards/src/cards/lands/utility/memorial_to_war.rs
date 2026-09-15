@@ -24,9 +24,7 @@ card!(
         mana_ability!(&[Effect::mana(ManaColor::Red, 1)]),
         activated!(
             cost!("{4}{R}", TapSelf, SacrificeSelf),
-            &[Effect::Destroy {
-                target: TargetSpec::Object(&TARGET1)
-            }],
+            &[Effect::destroy(TargetSpec::Object(&TARGET1))],
             target = Some(TargetSpec::Object(&TARGET1))
         ),
     ],

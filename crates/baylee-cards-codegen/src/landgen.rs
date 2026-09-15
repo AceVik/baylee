@@ -152,20 +152,15 @@ fn parse_effect(sentence: &str) -> Option<Vec<String>> {
         if tail != "card" && tail != "cards" {
             return None;
         }
-        return Some(vec![format!(
-            "Effect::DrawCards {{ amount: Amount::Fixed({n}) }}"
-        )]);
+        return Some(vec![format!("Effect::draw({n})")]);
     }
     if let Some(rest) = lower.strip_prefix("scry ") {
         let n = number(rest.trim())?;
-        return Some(vec![format!(
-            "Effect::Scry {{ amount: Amount::Fixed({n}) }}"
-        )]);
+        return Some(vec![format!("Effect::scry({n})")]);
     }
     if let Some(rest) = lower.strip_prefix("you gain ") {
         let n = number(rest.split_whitespace().next()?)?;
-        return (rest.ends_with(" life"))
-            .then(|| vec![format!("Effect::GainLife {{ amount: Amount::Fixed({n}) }}")]);
+        return (rest.ends_with(" life")).then(|| vec![format!("Effect::gain_life({n})")]);
     }
     if let Some(rest) = lower.strip_prefix("this land deals ") {
         let mut words = rest.split_whitespace();
@@ -277,9 +272,12 @@ impl Recognizer<'_> {
 
     /// Hoists a filter expression into a `static` and answers with its name.
     ///
-    /// A `Filter` in an `EnterModifier` is a `&'static`, so it cannot be
-    /// written inline; the numbering is shared so that two clauses on one
-    /// card cannot both be called `CHECK`.
+    /// Not because it has to be: a `&Filter::And(&[…])` inside a `static`
+    /// promotes to `&'static` and compiles, which is how Urza's Saga writes
+    /// one by hand. It is hoisted because a land's check filter is three
+    /// clauses deep and reads as a sentence of its own above the card rather
+    /// than as a parenthesis inside an `EnterModifier`. The numbering is
+    /// shared so that two clauses on one card cannot both be called `CHECK`.
     fn named_filter(&mut self, expr: &str) -> String {
         self.filter_count += 1;
         let name = if self.filter_count == 1 {
@@ -325,7 +323,7 @@ impl Recognizer<'_> {
         let cost = line.strip_prefix("Cycling ")?.trim();
         symbols(cost)?;
         self.body.abilities.push(format!(
-            "activated!(cost!(\"{cost}\", DiscardSelf), &[Effect::DrawCards {{ amount: Amount::Fixed(1) }}], zone = ActivationZone::Hand)"
+            "activated!(cost!(\"{cost}\", DiscardSelf), &[Effect::draw(1)], zone = ActivationZone::Hand)"
         ));
         self.body.notes.push("cycling".to_string());
         Some(())
@@ -708,7 +706,7 @@ mod tests {
         );
         assert_eq!(
             body.abilities[1],
-            "activated!(cost!(\"{1}\", TapSelf, SacrificeSelf), &[Effect::DrawCards { amount: Amount::Fixed(1) }])"
+            "activated!(cost!(\"{1}\", TapSelf, SacrificeSelf), &[Effect::draw(1)])"
         );
     }
 
@@ -718,11 +716,9 @@ mod tests {
             "Land",
             "This land enters tapped.\nWhen this land enters, you gain 1 life.\n{T}: Add {W} or {B}.",
         );
-        assert!(
-            body.abilities
-                .iter()
-                .any(|a| a.contains("Trigger::EntersBattlefield") && a.contains("GainLife"))
-        );
+        assert!(body.abilities.iter().any(
+            |a| a.contains("Trigger::EntersBattlefield") && a.contains("Effect::gain_life(1)")
+        ));
     }
 
     #[test]
@@ -829,7 +825,7 @@ mod tests {
             "Land",
             "{T}: Add {C}.\n{1}, {T}, Sacrifice this land: Draw a card.",
         );
-        assert!(body.abilities[1].contains("Effect::DrawCards"));
+        assert!(body.abilities[1].contains("Effect::draw(1)"));
     }
 
     /// Nonland cards, and lands that are also creatures, are not this

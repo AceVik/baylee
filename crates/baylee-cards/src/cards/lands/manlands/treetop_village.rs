@@ -24,36 +24,31 @@ card!(
         activated!(
             cost!("{1}{G}"),
             &[
-                Effect::CreateContinuousEffect {
-                    layer: Layer::Type,
-                    filter: &Filter::This,
-                    modifier: Modifier::AddType(TypeSet::CREATURE),
-                    duration: Duration::UntilEndOfTurn
-                },
-                Effect::CreateContinuousEffect {
-                    layer: Layer::Type,
-                    filter: &Filter::This,
-                    modifier: Modifier::AddSubtype(subtypes::creature::APE),
-                    duration: Duration::UntilEndOfTurn
-                },
-                Effect::CreateContinuousEffect {
-                    layer: Layer::Color,
-                    filter: &Filter::This,
-                    modifier: Modifier::SetColor(ColorSet::from_slice(&[Color::Green])),
-                    duration: Duration::UntilEndOfTurn
-                },
-                Effect::CreateContinuousEffect {
-                    layer: Layer::Ability,
-                    filter: &Filter::This,
-                    modifier: Modifier::AddKeyword(KeywordSet::TRAMPLE),
-                    duration: Duration::UntilEndOfTurn
-                },
-                Effect::CreateContinuousEffect {
-                    layer: Layer::PtSet,
-                    filter: &Filter::This,
-                    modifier: Modifier::SetPT(3, 3),
-                    duration: Duration::UntilEndOfTurn
-                }
+                Effect::continuous(
+                    &Filter::This,
+                    Modifier::AddType(TypeSet::CREATURE),
+                    Duration::UntilEndOfTurn
+                ),
+                Effect::continuous(
+                    &Filter::This,
+                    Modifier::AddSubtype(subtypes::creature::APE),
+                    Duration::UntilEndOfTurn
+                ),
+                Effect::continuous(
+                    &Filter::This,
+                    Modifier::SetColor(ColorSet::from_slice(&[Color::Green])),
+                    Duration::UntilEndOfTurn
+                ),
+                Effect::continuous(
+                    &Filter::This,
+                    Modifier::AddKeyword(KeywordSet::TRAMPLE),
+                    Duration::UntilEndOfTurn
+                ),
+                Effect::continuous(
+                    &Filter::This,
+                    Modifier::SetPT(3, 3),
+                    Duration::UntilEndOfTurn
+                )
             ]
         ),
     ],

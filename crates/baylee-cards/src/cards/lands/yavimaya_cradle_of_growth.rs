@@ -16,9 +16,8 @@ card!(
         types = TypeSet::LAND,
         supertypes = SupertypeSet::LEGENDARY,
     ),],
-    abilities = &[AbilityDef::Static(StaticAbility {
-        layer: Layer::Type,
-        filter: Filter::LAND,
-        modifier: Modifier::AddSubtype(subtypes::land::FOREST)
-    }),],
+    abilities = &[static_ability!(
+        Filter::LAND,
+        Modifier::AddSubtype(subtypes::land::FOREST)
+    ),],
 );

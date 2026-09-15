@@ -20,11 +20,6 @@ card!(
     ),],
     abilities = &[
         mana_ability!(&[Effect::mana_choice(&[ManaColor::Black, ManaColor::Green])]),
-        activated!(
-            cost!("{4}", TapSelf, SacrificeSelf),
-            &[Effect::DrawCards {
-                amount: Amount::Fixed(1)
-            }]
-        ),
+        activated!(cost!("{4}", TapSelf, SacrificeSelf), &[Effect::draw(1)]),
     ],
 );

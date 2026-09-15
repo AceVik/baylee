@@ -54,8 +54,11 @@ impl CardBody {
 
     /// Declares a `static <NAME>: Filter = <expr>;` and returns its name.
     ///
-    /// `TargetSpec::Object` and friends hold `&'static Filter`, so a filter
-    /// built from a card's own text has to be hoisted out of the literal.
+    /// `TargetSpec::Object` and friends hold a `&'static Filter`, and a
+    /// borrow of a `Filter` literal promotes to exactly that inside a
+    /// `static` — so this is legibility and not necessity. What it buys is
+    /// that a target the card computes is named once, above the literal,
+    /// where the reader meets it before the ability that aims with it.
     pub fn filter_static(&mut self, prefix: &str, expr: &str) -> String {
         let n = self.statics.matches("static ").count() + 1;
         let name = format!("{prefix}{n}");

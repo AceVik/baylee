@@ -22,9 +22,7 @@ card!(
         mana_ability!(&[Effect::mana(ManaColor::Green, 1)]),
         activated!(
             cost!("{G}", DiscardSelf),
-            &[Effect::DrawCards {
-                amount: Amount::Fixed(1)
-            }],
+            &[Effect::draw(1)],
             zone = ActivationZone::Hand
         ),
     ],
