@@ -228,6 +228,13 @@ jobs:
   # The browser client compiles nothing on a native build: its localStorage
   # settings and Web Crypto entropy live behind `cfg(target_arch = "wasm32")`
   # and would rot unnoticed without a target-specific job.
+  #
+  # All five crates are named rather than the client alone, and that is not
+  # redundancy: cargo unifies features across the members a command selects,
+  # so `-p baylee-client` resolves the other four with whatever the client
+  # happens to ask for. Naming them is what checks that each one still
+  # compiles for this target on its *own* default features, which is the
+  # promise the architecture section of CLAUDE.md makes about them.
   wasm:
     runs-on: ubuntu-latest
     steps:
@@ -238,7 +245,14 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           cache-on-failure: true
-      - run: cargo check -p baylee-client --target wasm32-unknown-unknown
+      - run: >-
+          cargo check
+          -p baylee-core
+          -p baylee-protocol
+          -p baylee-view
+          -p baylee-client-core
+          -p baylee-client
+          --target wasm32-unknown-unknown
 
   # Benches run in CI so they never silently rot; the numbers land in the
   # job log for comparison against docs/perf-baseline.md (manual check —

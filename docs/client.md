@@ -4479,9 +4479,15 @@ otherwise.
 
 - `cargo test -p baylee-client --test duel_flow` plays real games headlessly
   through the client's own path (host → view → board model → interaction).
-- The wasm CI job type-checks `baylee-client` for `wasm32-unknown-unknown`.
-  The browser-only paths (settings storage, entropy) compile nowhere else,
-  so without that job they rot silently.
+- The wasm CI job type-checks all five crates that must keep compiling for
+  `wasm32-unknown-unknown` — `baylee-core`, `-protocol`, `-view`,
+  `-client-core`, `-client`. The browser-only paths (settings storage,
+  entropy) compile nowhere else, so without that job they rot silently. It
+  ran as a second workflow of its own until 15.09.2026, which meant
+  `baylee-client` was checked twice on every push and the copy outside
+  `ci.yml` was outside its `concurrency` group as well — so a superseded
+  push cancelled the whole gate *except* the wasm half, which ran to
+  completion on a commit nobody was waiting for.
 - Browser entropy is the `wasm_js` feature on `getrandom`, and nothing else.
   It used to need a `getrandom_backend` cfg in `.cargo/config.toml` beside it —
   `getrandom` 0.4 dropped that value from the ones it declares, so the flag

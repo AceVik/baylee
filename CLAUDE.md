@@ -349,7 +349,8 @@ process. In a browser the same handover is `?game=…&token=…` on the page URL
 CI (`.github/workflows/ci.yml`) runs more than the four commands above: the
 test suite **also in `--release`** (a `debug_assert!` once hid mana payment
 from every release build), `validate`, a
-`wasm32-unknown-unknown` check of the client, benches, an MSRV check against
+`wasm32-unknown-unknown` check of the five crates that must keep compiling
+for it, benches, an MSRV check against
 the `rust-version` this workspace declares, `cargo-deny`, and `cargo-audit`.
 
 **Codegen is a developer's tool and does not run in CI.** It reads the
