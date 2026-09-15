@@ -29,9 +29,7 @@ card!(
     abilities = &[
         triggered!(
             Trigger::EntersBattlefield(&Filter::This),
-            &[Effect::DrawCards {
-                amount: Amount::Fixed(2),
-            }]
+            &[Effect::draw(2)]
         ),
         triggered!(Trigger::EntersBattlefieldEvoked, &[Effect::SacrificeSelf]),
     ],

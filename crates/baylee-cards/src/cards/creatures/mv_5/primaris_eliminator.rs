@@ -10,9 +10,7 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes::creature;
 
-static DESTROY_EFFECTS: &[Effect] = &[Effect::Destroy {
-    target: TargetSpec::Object(&Filter::CREATURE),
-}];
+static DESTROY_EFFECTS: &[Effect] = &[Effect::destroy(TargetSpec::Object(&Filter::CREATURE))];
 static DEBUFF_EFFECTS: &[Effect] = &[Effect::PumpFilter {
     filter: &Filter::CREATURE,
     controlled_by: Some(PlayerRel::Chosen),

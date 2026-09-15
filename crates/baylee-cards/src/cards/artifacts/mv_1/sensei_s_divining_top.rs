@@ -20,12 +20,7 @@ card!(
         activated!(cost!("{1}"), &[Effect::ReorderTopLibrary { count: 3 }]),
         activated!(
             Cost::TAP,
-            &[
-                Effect::DrawCards {
-                    amount: Amount::Fixed(1),
-                },
-                Effect::PutSourceOnTopOfLibrary,
-            ]
+            &[Effect::draw(1), Effect::PutSourceOnTopOfLibrary,]
         ),
     ],
 );

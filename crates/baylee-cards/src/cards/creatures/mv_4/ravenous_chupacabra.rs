@@ -24,9 +24,7 @@ card!(
     coverage = Coverage::Implemented,
     abilities = &[triggered!(
         Trigger::EntersBattlefield(&Filter::This),
-        &[Effect::Destroy {
-            target: TargetSpec::Object(&ENEMY_CREATURE),
-        }],
+        &[Effect::destroy(TargetSpec::Object(&ENEMY_CREATURE))],
         targets = Some(TargetReq::one(TargetSpec::Object(&ENEMY_CREATURE)))
     )],
 );

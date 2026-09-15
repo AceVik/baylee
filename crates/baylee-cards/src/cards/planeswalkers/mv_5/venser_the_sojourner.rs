@@ -35,12 +35,11 @@ card!(
         ),
         loyalty!(
             -1,
-            &[Effect::CreateContinuousEffect {
-                layer: Layer::Ability,
-                filter: &Filter::CREATURE,
-                modifier: Modifier::AddKeyword(KeywordSet::UNBLOCKABLE),
-                duration: Duration::UntilEndOfTurn,
-            }]
+            &[Effect::continuous(
+                &Filter::CREATURE,
+                Modifier::AddKeyword(KeywordSet::UNBLOCKABLE),
+                Duration::UntilEndOfTurn
+            )]
         ),
         loyalty!(
             -8,
@@ -53,8 +52,6 @@ card!(
 
 static EMBLEM_ABILITIES: &[AbilityDef] = &[triggered!(
     Trigger::SpellCast(&Filter::ControlledByYou),
-    &[Effect::Exile {
-        target: TargetSpec::Object(&Filter::Any),
-    }],
+    &[Effect::exile(TargetSpec::Object(&Filter::Any))],
     targets = Some(TargetReq::one(TargetSpec::Object(&Filter::Any,)))
 )];

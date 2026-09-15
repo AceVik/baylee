@@ -17,9 +17,8 @@ card!(
         types = TypeSet::ARTIFACT,
     )],
     coverage = Coverage::Implemented,
-    abilities = &[AbilityDef::Static(StaticAbility {
-        layer: Layer::Ability,
-        filter: ARTIFACTS_YOURS,
-        modifier: Modifier::AddKeyword(KeywordSet::INDESTRUCTIBLE),
-    })],
+    abilities = &[static_ability!(
+        ARTIFACTS_YOURS,
+        Modifier::AddKeyword(KeywordSet::INDESTRUCTIBLE)
+    )],
 );

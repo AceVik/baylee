@@ -30,17 +30,16 @@ static BACK_ABILITIES: &[AbilityDef] = &[
     // resolution instead, which reaches the same board and skips the
     // targeting rules: hexproof, ward and protection do not answer it, and
     // nothing triggers on becoming a target.
-    AbilityDef::SagaChapter {
-        chapter: 1,
-        effects: &[Effect::DestroyChosenForPlayers {
+    chapter!(
+        1,
+        &[Effect::DestroyChosenForPlayers {
             who: PlayerRel::EachOpponent,
             filter: &CREATURE_OR_WALKER,
-        }],
-        targets: None,
-    },
-    AbilityDef::SagaChapter {
-        chapter: 2,
-        effects: &[
+        }]
+    ),
+    chapter!(
+        2,
+        &[
             Effect::DiscardForPlayers {
                 who: PlayerRel::EachOpponent,
                 count: 3,
@@ -49,17 +48,15 @@ static BACK_ABILITIES: &[AbilityDef] = &[
                 amount: Amount::Fixed(3),
                 target: PlayerRel::EachOpponent,
             },
-        ],
-        targets: None,
-    },
-    AbilityDef::SagaChapter {
-        chapter: 3,
-        effects: &[
+        ]
+    ),
+    chapter!(
+        3,
+        &[
             Effect::AllGraveyardCreaturesToBattlefield,
             Effect::ExileSelfReturnAsFace { face: 0 },
-        ],
-        targets: None,
-    },
+        ]
+    ),
 ];
 
 card!(
@@ -103,14 +100,11 @@ card!(
                 filter: &NONTOKEN_CREATURE_OR_WALKER,
             }]
         ),
-        AbilityDef::ActivatedConditional {
-            cost: cost!("{4}{B}"),
-            effects: &[Effect::ExileSelfReturnAsFace { face: 1 }],
-            target: None,
-            timing: ActivationTiming::SorcerySpeed,
-            mana_ability: false,
-            zone: ActivationZone::Battlefield,
-            condition: ActivationCondition::OpponentGraveyardCountAtLeast(8),
-        },
+        activated!(
+            cost!("{4}{B}"),
+            &[Effect::ExileSelfReturnAsFace { face: 1 }],
+            timing = ActivationTiming::SorcerySpeed,
+            condition = Some(ActivationCondition::OpponentGraveyardCountAtLeast(8))
+        ),
     ],
 );

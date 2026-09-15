@@ -33,10 +33,6 @@ card!(
             target: TargetSpec::Object(&YOUR_CREATURES),
             mods: &[],
         },
-        AbilityDef::Static(StaticAbility {
-            layer: Layer::Text,
-            filter: Filter::Any,
-            modifier: Modifier::LegendRuleOff,
-        }),
+        static_ability!(Filter::Any, Modifier::LegendRuleOff),
     ],
 );

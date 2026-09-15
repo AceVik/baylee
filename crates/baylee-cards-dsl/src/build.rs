@@ -718,7 +718,7 @@ macro_rules! static_ability {
 /// One chapter of a saga (CR 714): `chapter!(1, effects)`.
 ///
 /// ```ignore
-/// chapter!(1, &[Effect::Scry { amount: Amount::Fixed(1) }])
+/// chapter!(1, &[Effect::scry(1)])
 /// chapter!(3, EFFECTS, targets = Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE))))
 /// ```
 #[macro_export]

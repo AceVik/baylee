@@ -46,19 +46,16 @@ card!(
                     kind: CounterKind::P1P1,
                     amount: Amount::Fixed(1),
                 },
-                Effect::CreateContinuousEffect {
-                    layer: Layer::Ability,
-                    filter: &YOUR_CREATURES,
-                    modifier: Modifier::AddKeyword(KeywordSet::FLYING),
-                    duration: Duration::UntilYourNextTurn,
-                },
+                Effect::continuous(
+                    &YOUR_CREATURES,
+                    Modifier::AddKeyword(KeywordSet::FLYING),
+                    Duration::UntilYourNextTurn
+                ),
             ]
         ),
         loyalty!(
             -3,
-            &[Effect::Destroy {
-                target: TargetSpec::Object(&BIG_ENEMY_CREATURE),
-            }],
+            &[Effect::destroy(TargetSpec::Object(&BIG_ENEMY_CREATURE))],
             targets = Some(TargetReq::one(TargetSpec::Object(&BIG_ENEMY_CREATURE)))
         ),
     ],

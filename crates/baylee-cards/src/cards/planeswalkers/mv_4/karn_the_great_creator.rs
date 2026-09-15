@@ -29,11 +29,7 @@ card!(
     commander = CommanderRule::Legendary,
     coverage = Coverage::Implemented,
     abilities = &[
-        AbilityDef::Static(StaticAbility {
-            layer: Layer::Ability,
-            filter: Filter::Any,
-            modifier: Modifier::CantActivateArtifacts,
-        }),
+        static_ability!(Filter::Any, Modifier::CantActivateArtifacts),
         // Both halves name **the target** and nothing else. They were written
         // with the same filter the targeting used, which reads as the same
         // sentence and is not: a filter says "every noncreature artifact",
@@ -44,12 +40,11 @@ card!(
         loyalty!(
             1,
             &[
-                Effect::CreateContinuousEffect {
-                    layer: Layer::Type,
-                    filter: &Filter::This,
-                    modifier: Modifier::AddType(TypeSet::CREATURE),
-                    duration: Duration::UntilYourNextTurn,
-                },
+                Effect::continuous(
+                    &Filter::This,
+                    Modifier::AddType(TypeSet::CREATURE),
+                    Duration::UntilYourNextTurn
+                ),
                 Effect::SetPTFilter {
                     filter: &Filter::This,
                     power: Amount::TargetCmc,

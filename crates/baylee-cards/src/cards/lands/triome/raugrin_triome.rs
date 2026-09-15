@@ -32,9 +32,7 @@ card!(
         ])]),
         activated!(
             cost!("{3}", DiscardSelf),
-            &[Effect::DrawCards {
-                amount: Amount::Fixed(1),
-            }],
+            &[Effect::draw(1)],
             zone = ActivationZone::Hand
         ),
     ],

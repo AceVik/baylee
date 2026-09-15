@@ -35,12 +35,7 @@ card!(
         ),
         loyalty!(
             0,
-            &[
-                Effect::DrawCards {
-                    amount: Amount::Fixed(3),
-                },
-                Effect::PutFromHandOnTop { count: 2 },
-            ]
+            &[Effect::draw(3), Effect::PutFromHandOnTop { count: 2 },]
         ),
         loyalty!(
             -1,

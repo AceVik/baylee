@@ -21,16 +21,15 @@ card!(
     )],
     color_identity = ColorSet::from_slice(&[Color::Green]),
     coverage = Coverage::Implemented,
-    abilities = &[AbilityDef::Static(StaticAbility {
-        layer: Layer::Ability,
-        filter: Filter::And(&[
+    abilities = &[static_ability!(
+        Filter::And(&[
             Filter::Or(&[Filter::LAND, Filter::HasSubtype(creature::ALLY),]),
             Filter::ControlledByYou,
         ]),
-        modifier: Modifier::GrantActivated {
+        Modifier::GrantActivated {
             cost: Cost::TAP,
             effects: ANY_COLOR_MANA,
             mana_ability: true,
-        },
-    })],
+        }
+    )],
 );

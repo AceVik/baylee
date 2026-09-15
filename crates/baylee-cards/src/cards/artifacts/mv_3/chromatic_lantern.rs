@@ -18,15 +18,14 @@ card!(
     )],
     coverage = Coverage::Implemented,
     abilities = &[
-        AbilityDef::Static(StaticAbility {
-            layer: Layer::Ability,
-            filter: Filter::And(&[Filter::LAND, Filter::ControlledByYou]),
-            modifier: Modifier::GrantActivated {
+        static_ability!(
+            Filter::And(&[Filter::LAND, Filter::ControlledByYou]),
+            Modifier::GrantActivated {
                 cost: Cost::TAP,
                 effects: ANY_COLOR_MANA,
                 mana_ability: true,
-            },
-        }),
+            }
+        ),
         mana_ability!(&[Effect::mana_choice(ALL_MANA_COLORS)]),
     ],
 );

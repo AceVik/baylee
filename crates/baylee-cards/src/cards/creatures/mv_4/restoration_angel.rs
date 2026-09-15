@@ -31,9 +31,9 @@ card!(
     coverage = Coverage::Implemented,
     abilities = &[triggered!(
         Trigger::EntersBattlefield(&Filter::This),
-        &[Effect::Blink {
-            target: TargetSpec::Object(&NON_ANGEL_CREATURE_YOU_CONTROL),
-        }],
+        &[Effect::blink(TargetSpec::Object(
+            &NON_ANGEL_CREATURE_YOU_CONTROL
+        ))],
         targets = Some(TargetReq {
             spec: TargetSpec::Object(&NON_ANGEL_CREATURE_YOU_CONTROL),
             min: 0,

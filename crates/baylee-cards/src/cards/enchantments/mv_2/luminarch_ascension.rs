@@ -40,14 +40,13 @@ card!(
                 }],
             }]
         ),
-        AbilityDef::ActivatedConditional {
-            cost: cost!("{1}{W}"),
-            effects: &[Effect::CreateToken { token: &ANGEL }],
-            target: None,
-            timing: ActivationTiming::InstantSpeed,
-            mana_ability: false,
-            zone: ActivationZone::Battlefield,
-            condition: ActivationCondition::CountersOnSelf(CounterKind::Custom(1), 4),
-        },
+        activated!(
+            cost!("{1}{W}"),
+            &[Effect::CreateToken { token: &ANGEL }],
+            condition = Some(ActivationCondition::CountersOnSelf(
+                CounterKind::Custom(1),
+                4
+            ))
+        ),
     ],
 );

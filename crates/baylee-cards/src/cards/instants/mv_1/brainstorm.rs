@@ -17,9 +17,7 @@ card!(
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     coverage = Coverage::Implemented,
     abilities = &[spell!(&[
-        Effect::DrawCards {
-            amount: Amount::Fixed(3),
-        },
+        Effect::draw(3),
         Effect::PutFromHandOnTop { count: 2 },
     ])],
 );

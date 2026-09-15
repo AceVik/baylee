@@ -13,11 +13,7 @@ card!(
     faces = &[face!(name = "Reliquary Tower", types = TypeSet::LAND,)],
     coverage = Coverage::Implemented,
     abilities = &[
-        AbilityDef::Static(StaticAbility {
-            layer: Layer::Text,
-            filter: Filter::Any,
-            modifier: Modifier::NoMaxHandSize,
-        }),
+        static_ability!(Filter::Any, Modifier::NoMaxHandSize),
         mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
     ],
 );

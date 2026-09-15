@@ -21,29 +21,25 @@ card!(
     color_identity = ColorSet::from_slice(&[Color::White]),
     coverage = Coverage::Implemented,
     abilities = &[spell!(&[
-        Effect::CreateContinuousEffect {
-            layer: Layer::Ability,
-            filter: &Filter::CREATURE,
-            modifier: Modifier::AddKeyword(HEXPROOF_INDESTRUCTIBLE),
-            duration: Duration::UntilEndOfTurn,
-        },
-        Effect::CreateContinuousEffect {
-            layer: Layer::Text,
-            filter: &Filter::Any,
-            modifier: Modifier::CantLoseLife,
-            duration: Duration::UntilEndOfTurn,
-        },
-        Effect::CreateContinuousEffect {
-            layer: Layer::Text,
-            filter: &Filter::Any,
-            modifier: Modifier::PlayersCantLose,
-            duration: Duration::UntilEndOfTurn,
-        },
-        Effect::CreateContinuousEffect {
-            layer: Layer::Text,
-            filter: &Filter::Any,
-            modifier: Modifier::PlayerHexproof,
-            duration: Duration::UntilEndOfTurn,
-        },
+        Effect::continuous(
+            &Filter::CREATURE,
+            Modifier::AddKeyword(HEXPROOF_INDESTRUCTIBLE),
+            Duration::UntilEndOfTurn
+        ),
+        Effect::continuous(
+            &Filter::Any,
+            Modifier::CantLoseLife,
+            Duration::UntilEndOfTurn
+        ),
+        Effect::continuous(
+            &Filter::Any,
+            Modifier::PlayersCantLose,
+            Duration::UntilEndOfTurn
+        ),
+        Effect::continuous(
+            &Filter::Any,
+            Modifier::PlayerHexproof,
+            Duration::UntilEndOfTurn
+        ),
     ])],
 );

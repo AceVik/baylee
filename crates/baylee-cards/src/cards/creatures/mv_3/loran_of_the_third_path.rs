@@ -33,9 +33,9 @@ card!(
     abilities = &[
         triggered!(
             Trigger::EntersBattlefield(&Filter::This),
-            &[Effect::Destroy {
-                target: TargetSpec::Object(&ARTIFACT_OR_ENCHANTMENT),
-            }],
+            &[Effect::destroy(TargetSpec::Object(
+                &ARTIFACT_OR_ENCHANTMENT
+            ))],
             targets = Some(TargetReq::up_to_one(TargetSpec::Object(
                 &ARTIFACT_OR_ENCHANTMENT,
             )))
@@ -43,9 +43,7 @@ card!(
         activated!(
             Cost::TAP,
             &[
-                Effect::DrawCards {
-                    amount: Amount::Fixed(1),
-                },
+                Effect::draw(1),
                 Effect::DrawCardsFor {
                     amount: Amount::Fixed(1),
                     who: PlayerRel::Chosen,

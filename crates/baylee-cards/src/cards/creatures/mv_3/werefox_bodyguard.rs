@@ -42,11 +42,6 @@ card!(
                 count_is_x: false,
             })
         ),
-        activated!(
-            cost!("{1}{W}", SacrificeSelf),
-            &[Effect::GainLife {
-                amount: Amount::Fixed(2),
-            }]
-        ),
+        activated!(cost!("{1}{W}", SacrificeSelf), &[Effect::gain_life(2)]),
     ],
 );

@@ -28,9 +28,7 @@ card!(
     abilities = &[triggered!(
         Trigger::EntersBattlefield(&YOUR_ALLIES),
         &[
-            Effect::Destroy {
-                target: TargetSpec::Object(&Filter::ARTIFACT),
-            },
+            Effect::destroy(TargetSpec::Object(&Filter::ARTIFACT)),
             Effect::DealDamageToTargetController {
                 amount: Amount::CountOf {
                     filter: &ALLIES_YOU,

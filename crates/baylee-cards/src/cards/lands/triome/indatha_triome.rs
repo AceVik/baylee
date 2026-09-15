@@ -33,9 +33,7 @@ card!(
         // Cycling {3} (hand-zone ability: discard to draw).
         activated!(
             cost!("{3}", DiscardSelf),
-            &[Effect::DrawCards {
-                amount: Amount::Fixed(1),
-            }],
+            &[Effect::draw(1)],
             zone = ActivationZone::Hand
         ),
     ],

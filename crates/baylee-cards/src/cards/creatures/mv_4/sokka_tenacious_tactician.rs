@@ -32,11 +32,10 @@ card!(
     commander = CommanderRule::Legendary,
     coverage = Coverage::Implemented,
     abilities = &[
-        AbilityDef::Static(StaticAbility {
-            layer: Layer::Ability,
-            filter: ANOTHER_ALLY,
-            modifier: Modifier::AddKeyword(KeywordSet::MENACE.union(KeywordSet::PROWESS)),
-        }),
+        static_ability!(
+            ANOTHER_ALLY,
+            Modifier::AddKeyword(KeywordSet::MENACE.union(KeywordSet::PROWESS))
+        ),
         triggered!(
             Trigger::SpellCast(&NONCREATURE_SPELL),
             &[Effect::CreateTokenN {

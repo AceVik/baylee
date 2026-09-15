@@ -24,8 +24,6 @@ card!(
     coverage = Coverage::Implemented,
     abilities = &[triggered!(
         Trigger::EntersBattlefield(&Filter::This),
-        &[Effect::DrawCards {
-            amount: Amount::Fixed(1),
-        }]
+        &[Effect::draw(1)]
     )],
 );

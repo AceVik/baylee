@@ -31,12 +31,11 @@ card!(
                 kind: CounterKind::P1P1,
                 amount: Amount::Fixed(1),
             },
-            Effect::CreateContinuousEffect {
-                layer: Layer::Ability,
-                filter: &Filter::This,
-                modifier: Modifier::AddKeyword(KeywordSet::HASTE),
-                duration: Duration::UntilEndOfTurn,
-            },
+            Effect::continuous(
+                &Filter::This,
+                Modifier::AddKeyword(KeywordSet::HASTE),
+                Duration::UntilEndOfTurn
+            ),
         ],
         targets = Some(TargetReq::one(TargetSpec::EventObject))
     )],

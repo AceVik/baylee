@@ -21,9 +21,7 @@ card!(
         mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
         activated!(
             cost!(TapSelf, SacrificeSelf),
-            &[Effect::Destroy {
-                target: TargetSpec::Object(&NONBASIC_LAND),
-            }],
+            &[Effect::destroy(TargetSpec::Object(&NONBASIC_LAND))],
             target = Some(TargetSpec::Object(&NONBASIC_LAND))
         ),
     ],

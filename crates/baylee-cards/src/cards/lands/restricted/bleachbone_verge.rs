@@ -22,14 +22,10 @@ card!(
     coverage = Coverage::Implemented,
     abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::Black, 1)]),
-        AbilityDef::ActivatedConditional {
-            cost: Cost::TAP,
-            effects: &[Effect::mana(ManaColor::White, 1)],
-            target: None,
-            timing: ActivationTiming::InstantSpeed,
-            mana_ability: true,
-            zone: ActivationZone::Battlefield,
-            condition: ActivationCondition::ControlCount(&PLAINS_OR_SWAMP, 1),
-        },
+        mana_ability!(
+            Cost::TAP,
+            &[Effect::mana(ManaColor::White, 1)],
+            condition = Some(ActivationCondition::ControlCount(&PLAINS_OR_SWAMP, 1))
+        ),
     ],
 );

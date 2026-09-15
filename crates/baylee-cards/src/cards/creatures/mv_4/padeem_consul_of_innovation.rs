@@ -31,15 +31,12 @@ card!(
             },
             &[Effect::IfControlGreatestCmc {
                 filter: &Filter::ARTIFACT,
-                then: &[Effect::DrawCards {
-                    amount: Amount::Fixed(1),
-                }],
+                then: &[Effect::draw(1)],
             }]
         ),
-        AbilityDef::Static(StaticAbility {
-            layer: Layer::Ability,
-            filter: Filter::And(&[Filter::ARTIFACT, Filter::ControlledByYou]),
-            modifier: Modifier::AddKeyword(KeywordSet::HEXPROOF),
-        }),
+        static_ability!(
+            Filter::And(&[Filter::ARTIFACT, Filter::ControlledByYou]),
+            Modifier::AddKeyword(KeywordSet::HEXPROOF)
+        ),
     ],
 );

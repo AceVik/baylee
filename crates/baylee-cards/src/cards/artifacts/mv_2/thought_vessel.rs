@@ -19,11 +19,7 @@ card!(
         types = TypeSet::ARTIFACT,
     ),],
     abilities = &[
-        AbilityDef::Static(StaticAbility {
-            layer: Layer::Text,
-            filter: Filter::Any,
-            modifier: Modifier::NoMaxHandSize,
-        }),
+        static_ability!(Filter::Any, Modifier::NoMaxHandSize),
         mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
     ],
 );

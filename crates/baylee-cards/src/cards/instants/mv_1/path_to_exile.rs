@@ -18,9 +18,7 @@ card!(
     coverage = Coverage::Implemented,
     abilities = &[spell!(
         &[
-            Effect::Exile {
-                target: TargetSpec::Object(&Filter::CREATURE),
-            },
+            Effect::exile(TargetSpec::Object(&Filter::CREATURE)),
             Effect::OptionalBasicLandSearchFor {
                 player: PlayerRel::ControllerOfTarget,
             },

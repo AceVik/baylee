@@ -614,9 +614,12 @@ one `SUPPORTED_APIS` already answers — the copy would rot the first time a
 rule learned a new key, and a stale worklist is worse than none.
 
 The current top entry, `S:` static abilities, is *partly* read: `Mode$
-Continuous` becomes one `AbilityDef::Static` per layer it touches, because a
+Continuous` becomes one `static_ability!` per layer it touches, because a
 printed sentence usually is several ("get +1/+1 and have flying" is layers 7c
-and 6, applied in that order by CR 613.1). What is left there needs genuinely
+and 6, and CR 613.1 applies 6 first). Which layer that is nobody writes down:
+`Modifier::layer` derives it, so the emitter names the modifier and the layer
+follows, and the order the two abilities happen to sit in says nothing at all.
+What is left there needs genuinely
 new rules — `IsPresent`/`Condition` (a static that is only sometimes on),
 `AddAbility`/`AddTrigger` (granting an ability rather than a bit).
 

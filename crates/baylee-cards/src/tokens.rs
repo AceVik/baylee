@@ -22,12 +22,11 @@
 //! token on the battlefield was inert whatever its name said.
 
 use baylee_cards_dsl::{
-    AbilityDef, ActivationTiming, ActivationZone, Amount, Cost, CostPart, Effect, Filter,
-    KeywordSet, TokenDef,
+    AbilityDef, Effect, Filter, KeywordSet, TokenDef, activated, cost, mana_ability,
 };
 use baylee_core::color::{Color, ColorSet};
 use baylee_core::generated::subtypes::{artifact, creature};
-use baylee_core::mana::{ManaColor, ManaCost};
+use baylee_core::mana::ManaColor;
 use baylee_core::types::TypeSet;
 
 /// The five colors, for "any color" mana abilities.
@@ -40,69 +39,30 @@ static ANY_COLOR: &[ManaColor] = &[
 ];
 
 /// `{T}, Sacrifice this artifact: Add one mana of any color.` (Treasure)
-static SACRIFICE_FOR_ANY_COLOR: &[AbilityDef] = &[AbilityDef::Activated {
-    cost: Cost {
-        mana: ManaCost::ZERO,
-        parts: &[CostPart::TapSelf, CostPart::SacrificeSelf],
-    },
-    effects: &[Effect::mana_choice(ANY_COLOR)],
-    target: None,
-    timing: ActivationTiming::InstantSpeed,
-    // A mana ability (CR 605.1a): no target, adds mana, is not itself an
-    // activated ability that uses the stack — which is what lets a Treasure
-    // be cracked while paying for a spell.
-    mana_ability: true,
-    zone: ActivationZone::Battlefield,
-}];
+// A mana ability (CR 605.1a): no target, adds mana, is not itself an
+// activated ability that uses the stack — which is what lets a Treasure be
+// cracked while paying for a spell. `mana_ability!` is that statement; the
+// flag it sets is the one a card must never write by hand.
+static SACRIFICE_FOR_ANY_COLOR: &[AbilityDef] = &[mana_ability!(
+    cost!(TapSelf, SacrificeSelf),
+    &[Effect::mana_choice(ANY_COLOR)]
+)];
 
 /// `{2}, Sacrifice this artifact: Draw a card.` (Clue)
-static SACRIFICE_TO_DRAW: &[AbilityDef] = &[AbilityDef::Activated {
-    cost: Cost {
-        mana: ManaCost::parse("{2}"),
-        parts: &[CostPart::SacrificeSelf],
-    },
-    effects: &[Effect::DrawCards {
-        amount: Amount::Fixed(1),
-    }],
-    target: None,
-    timing: ActivationTiming::InstantSpeed,
-    mana_ability: false,
-    zone: ActivationZone::Battlefield,
-}];
+static SACRIFICE_TO_DRAW: &[AbilityDef] =
+    &[activated!(cost!("{2}", SacrificeSelf), &[Effect::draw(1)])];
 
 /// `{2}, {T}, Sacrifice this artifact: You gain 3 life.` (Food)
-static SACRIFICE_TO_GAIN_LIFE: &[AbilityDef] = &[AbilityDef::Activated {
-    cost: Cost {
-        mana: ManaCost::parse("{2}"),
-        parts: &[CostPart::TapSelf, CostPart::SacrificeSelf],
-    },
-    effects: &[Effect::GainLife {
-        amount: Amount::Fixed(3),
-    }],
-    target: None,
-    timing: ActivationTiming::InstantSpeed,
-    mana_ability: false,
-    zone: ActivationZone::Battlefield,
-}];
+static SACRIFICE_TO_GAIN_LIFE: &[AbilityDef] = &[activated!(
+    cost!("{2}", TapSelf, SacrificeSelf),
+    &[Effect::gain_life(3)]
+)];
 
 /// `{1}, {T}, Discard a card, Sacrifice this artifact: Draw a card.` (Blood)
-static SACRIFICE_TO_LOOT: &[AbilityDef] = &[AbilityDef::Activated {
-    cost: Cost {
-        mana: ManaCost::parse("{1}"),
-        parts: &[
-            CostPart::TapSelf,
-            CostPart::Discard(&Filter::Any),
-            CostPart::SacrificeSelf,
-        ],
-    },
-    effects: &[Effect::DrawCards {
-        amount: Amount::Fixed(1),
-    }],
-    target: None,
-    timing: ActivationTiming::InstantSpeed,
-    mana_ability: false,
-    zone: ActivationZone::Battlefield,
-}];
+static SACRIFICE_TO_LOOT: &[AbilityDef] = &[activated!(
+    cost!("{1}", TapSelf, Discard(&Filter::Any), SacrificeSelf),
+    &[Effect::draw(1)]
+)];
 
 /// 1/1 white Ally (Aang and Katara, Jasmine Dragon Tea Shop, Sokka).
 pub static ALLY_1_1_WHITE: TokenDef = TokenDef {

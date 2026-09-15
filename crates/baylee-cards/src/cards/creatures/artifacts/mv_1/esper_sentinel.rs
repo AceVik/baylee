@@ -10,9 +10,7 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes::creature;
 
-static DRAW_ONE: Effect = Effect::DrawCards {
-    amount: Amount::Fixed(1),
-};
+static DRAW_ONE: Effect = Effect::draw(1);
 
 card!(
     index = index::ESPER_SENTINEL,

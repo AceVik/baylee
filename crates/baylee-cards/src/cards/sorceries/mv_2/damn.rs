@@ -6,9 +6,7 @@
 // destroyed this way can't be regenerated" is vacuous: the engine has no
 // regeneration mechanic yet; noted for the roadmap's regeneration family.)
 
-static NORMAL_EFFECTS: &[Effect] = &[Effect::Destroy {
-    target: TargetSpec::Object(&Filter::CREATURE),
-}];
+static NORMAL_EFFECTS: &[Effect] = &[Effect::destroy(TargetSpec::Object(&Filter::CREATURE))];
 static OVERLOAD_EFFECTS: &[Effect] = &[Effect::DestroyAll {
     filter: &Filter::CREATURE,
 }];

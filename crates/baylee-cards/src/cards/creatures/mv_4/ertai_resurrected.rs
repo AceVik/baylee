@@ -22,9 +22,7 @@ static COUNTER_EFFECTS: &[Effect] = &[
     },
 ];
 static DESTROY_EFFECTS: &[Effect] = &[
-    Effect::Destroy {
-        target: TargetSpec::Object(&OTHER_CREATURE_OR_WALKER),
-    },
+    Effect::destroy(TargetSpec::Object(&OTHER_CREATURE_OR_WALKER)),
     Effect::DrawCardsFor {
         amount: Amount::Fixed(1),
         who: PlayerRel::ControllerOfTarget,

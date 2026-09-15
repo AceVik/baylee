@@ -19,9 +19,7 @@ card!(
     keywords = KeywordSet::UNCOUNTERABLE,
     coverage = Coverage::Implemented,
     abilities = &[spell!(
-        &[Effect::Destroy {
-            target: TargetSpec::Object(&Filter::NONLAND),
-        }],
+        &[Effect::destroy(TargetSpec::Object(&Filter::NONLAND))],
         targets = Some(TargetReq::one(TargetSpec::Object(&Filter::NONLAND)))
     )],
 );

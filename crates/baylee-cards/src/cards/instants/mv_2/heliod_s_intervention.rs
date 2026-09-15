@@ -23,9 +23,9 @@ card!(
     abilities = &[AbilityDef::ModalSpell {
         modes: &[
             mode!(
-                &[Effect::Destroy {
-                    target: TargetSpec::Object(&ARTIFACT_OR_ENCHANTMENT),
-                }],
+                &[Effect::destroy(TargetSpec::Object(
+                    &ARTIFACT_OR_ENCHANTMENT
+                ))],
                 targets = Some(TargetReq::one(TargetSpec::Object(&ARTIFACT_OR_ENCHANTMENT)))
             ),
             mode!(

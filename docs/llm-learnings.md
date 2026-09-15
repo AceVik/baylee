@@ -137,7 +137,9 @@ Open milestones discovered tonight:
 - Saga machinery (CR 714): lore counter + chapter trigger on ETB
   (apply_enter_modifiers) and after each draw step
   (saga_draw_step_counters at the FirstMain→Combat transition); chapter
-  abilities are `AbilityDef::SagaChapter { chapter, effects, target }`
+  abilities are `AbilityDef::SagaChapter { chapter, effects, targets }` —
+  written `chapter!(1, effects)`, which supplies the `targets: None` a
+  chapter has unless the printed chapter says "target" —
   reusing the whole trigger/target/resolution machinery; sacrifice after
   the final chapter in finish_resolution (counters >= max chapter).
 - `Modifier::GrantActivated { cost, effects, mana_ability }` — granted

@@ -29,11 +29,7 @@ card!(
         AbilityDef::Echo {
             cost: mana!("{3}{W}{W}"),
         },
-        AbilityDef::Static(StaticAbility {
-            layer: Layer::Text,
-            filter: Filter::This,
-            modifier: Modifier::ProtectionFrom(&BLACK_F),
-        }),
+        static_ability!(Filter::This, Modifier::ProtectionFrom(&BLACK_F)),
         triggered!(
             Trigger::EntersBattlefield(&Filter::This),
             &[Effect::GraveyardToBattlefield {

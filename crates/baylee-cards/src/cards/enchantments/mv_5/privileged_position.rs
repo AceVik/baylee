@@ -19,9 +19,8 @@ card!(
     )],
     color_identity = ColorSet::from_slice(&[Color::White, Color::Green]),
     coverage = Coverage::Implemented,
-    abilities = &[AbilityDef::Static(StaticAbility {
-        layer: Layer::Ability,
-        filter: OTHER_YOURS,
-        modifier: Modifier::AddKeyword(KeywordSet::HEXPROOF),
-    })],
+    abilities = &[static_ability!(
+        OTHER_YOURS,
+        Modifier::AddKeyword(KeywordSet::HEXPROOF)
+    )],
 );

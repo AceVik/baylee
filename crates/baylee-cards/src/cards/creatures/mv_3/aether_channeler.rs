@@ -13,9 +13,7 @@ use crate::tokens::BIRD_1_1_WHITE_FLYING as BIRD_TOKEN;
 static TOKEN_EFFECTS: &[Effect] = &[Effect::CreateToken { token: &BIRD_TOKEN }];
 static BOUNCE_TARGET: Filter = Filter::And(&[Filter::NONLAND, Filter::Another]);
 static BOUNCE_EFFECTS: &[Effect] = &[Effect::bounce(TargetSpec::Object(&BOUNCE_TARGET))];
-static DRAW_EFFECTS: &[Effect] = &[Effect::DrawCards {
-    amount: Amount::Fixed(1),
-}];
+static DRAW_EFFECTS: &[Effect] = &[Effect::draw(1)];
 
 card!(
     index = index::AETHER_CHANNELER,

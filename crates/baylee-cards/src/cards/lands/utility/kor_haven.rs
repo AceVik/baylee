@@ -23,12 +23,11 @@ card!(
         mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
         activated!(
             cost!("{1}{W}", TapSelf),
-            &[Effect::CreateContinuousEffect {
-                layer: Layer::Text,
-                filter: &Filter::This,
-                modifier: Modifier::PreventDamageFromIt,
-                duration: Duration::UntilEndOfTurn,
-            }],
+            &[Effect::continuous(
+                &Filter::This,
+                Modifier::PreventDamageFromIt,
+                Duration::UntilEndOfTurn
+            )],
             target = Some(TargetSpec::Object(&ATTACKING_CREATURE))
         ),
     ],

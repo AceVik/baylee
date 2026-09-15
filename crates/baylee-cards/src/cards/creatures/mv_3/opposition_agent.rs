@@ -27,9 +27,5 @@ card!(
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::FLASH,
     coverage = Coverage::Implemented,
-    abilities = &[AbilityDef::Static(StaticAbility {
-        layer: Layer::Text,
-        filter: Filter::Any,
-        modifier: Modifier::SearchTakeover,
-    })],
+    abilities = &[static_ability!(Filter::Any, Modifier::SearchTakeover)],
 );

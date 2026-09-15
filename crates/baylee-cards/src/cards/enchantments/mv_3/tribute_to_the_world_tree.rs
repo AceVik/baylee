@@ -4,9 +4,7 @@
 // IMPLEMENTED — power-conditional ETB trigger (draw or two counters).
 
 static YOUR_CREATURE: Filter = Filter::And(&[Filter::CREATURE, Filter::ControlledByYou]);
-static THEN_DRAW: &[Effect] = &[Effect::DrawCards {
-    amount: Amount::Fixed(1),
-}];
+static THEN_DRAW: &[Effect] = &[Effect::draw(1)];
 // The nested resolution targets the event object (the entering creature).
 static ELSE_COUNTERS: &[Effect] = &[Effect::AddCounter {
     kind: CounterKind::P1P1,

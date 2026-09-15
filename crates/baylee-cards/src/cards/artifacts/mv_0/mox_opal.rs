@@ -20,13 +20,9 @@ card!(
         supertypes = SupertypeSet::LEGENDARY,
     )],
     coverage = Coverage::Implemented,
-    abilities = &[AbilityDef::ActivatedConditional {
-        cost: Cost::TAP,
-        effects: &[Effect::mana_choice(ALL_MANA_COLORS)],
-        target: None,
-        timing: ActivationTiming::InstantSpeed,
-        mana_ability: true,
-        zone: ActivationZone::Battlefield,
-        condition: ActivationCondition::ControlCount(&Filter::ARTIFACT, 3),
-    }],
+    abilities = &[mana_ability!(
+        Cost::TAP,
+        &[Effect::mana_choice(ALL_MANA_COLORS)],
+        condition = Some(ActivationCondition::ControlCount(&Filter::ARTIFACT, 3))
+    )],
 );

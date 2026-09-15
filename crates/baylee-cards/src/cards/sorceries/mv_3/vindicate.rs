@@ -17,9 +17,7 @@ card!(
     color_identity = ColorSet::from_slice(&[Color::Black, Color::White]),
     coverage = Coverage::Implemented,
     abilities = &[spell!(
-        &[Effect::Destroy {
-            target: TargetSpec::Object(&Filter::Any),
-        }],
+        &[Effect::destroy(TargetSpec::Object(&Filter::Any))],
         targets = Some(TargetReq::one(TargetSpec::Object(&Filter::Any)))
     )],
 );

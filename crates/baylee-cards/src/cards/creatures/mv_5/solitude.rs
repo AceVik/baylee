@@ -36,9 +36,7 @@ card!(
         triggered!(
             Trigger::EntersBattlefield(&Filter::This),
             &[
-                Effect::Exile {
-                    target: TargetSpec::Object(&Filter::ANOTHER_CREATURE),
-                },
+                Effect::exile(TargetSpec::Object(&Filter::ANOTHER_CREATURE)),
                 Effect::GainLifeFor {
                     amount: Amount::TargetPower,
                     who: PlayerRel::ControllerOfTarget,

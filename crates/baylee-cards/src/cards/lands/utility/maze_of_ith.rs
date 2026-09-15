@@ -17,18 +17,16 @@ card!(
         Cost::TAP,
         &[
             Effect::UntapTarget,
-            Effect::CreateContinuousEffect {
-                layer: Layer::Text,
-                filter: &Filter::This,
-                modifier: Modifier::PreventDamageToIt,
-                duration: Duration::UntilEndOfTurn,
-            },
-            Effect::CreateContinuousEffect {
-                layer: Layer::Text,
-                filter: &Filter::This,
-                modifier: Modifier::PreventDamageFromIt,
-                duration: Duration::UntilEndOfTurn,
-            },
+            Effect::continuous(
+                &Filter::This,
+                Modifier::PreventDamageToIt,
+                Duration::UntilEndOfTurn
+            ),
+            Effect::continuous(
+                &Filter::This,
+                Modifier::PreventDamageFromIt,
+                Duration::UntilEndOfTurn
+            ),
         ],
         target = Some(TargetSpec::Object(&ATTACKING_CREATURE))
     )],

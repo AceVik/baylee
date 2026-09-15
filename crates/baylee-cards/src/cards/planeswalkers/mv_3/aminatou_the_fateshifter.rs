@@ -30,18 +30,11 @@ card!(
     abilities = &[
         loyalty!(
             1,
-            &[
-                Effect::DrawCards {
-                    amount: Amount::Fixed(1),
-                },
-                Effect::PutFromHandOnTop { count: 1 },
-            ]
+            &[Effect::draw(1), Effect::PutFromHandOnTop { count: 1 },]
         ),
         loyalty!(
             -1,
-            &[Effect::Blink {
-                target: TargetSpec::Object(&OWNED_PERMANENT),
-            }],
+            &[Effect::blink(TargetSpec::Object(&OWNED_PERMANENT))],
             targets = Some(TargetReq::one(TargetSpec::Object(&OWNED_PERMANENT)))
         ),
         loyalty!(-6, &[Effect::ControlRotation]),

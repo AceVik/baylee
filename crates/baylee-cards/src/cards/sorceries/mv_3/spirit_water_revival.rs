@@ -9,19 +9,14 @@
 
 static KICKED_OUTCOME: &[Effect] = &[
     Effect::ShuffleGraveyardIntoLibrary,
-    Effect::DrawCards {
-        amount: Amount::Fixed(7),
-    },
-    Effect::CreateContinuousEffect {
-        layer: Layer::Text,
-        filter: &Filter::Any,
-        modifier: Modifier::NoMaxHandSize,
-        duration: Duration::Indefinitely,
-    },
+    Effect::draw(7),
+    Effect::continuous(
+        &Filter::Any,
+        Modifier::NoMaxHandSize,
+        Duration::Indefinitely,
+    ),
 ];
-static NORMAL_OUTCOME: &[Effect] = &[Effect::DrawCards {
-    amount: Amount::Fixed(2),
-}];
+static NORMAL_OUTCOME: &[Effect] = &[Effect::draw(2)];
 
 use baylee_cards_dsl::prelude::*;
 

@@ -35,11 +35,7 @@ card!(
     )],
     coverage = Coverage::Implemented,
     abilities = &[
-        AbilityDef::Static(StaticAbility {
-            layer: Layer::Type,
-            filter: NEXUS_FILTER,
-            modifier: Modifier::AllCreatureTypes,
-        }),
+        static_ability!(NEXUS_FILTER, Modifier::AllCreatureTypes),
         activated!(
             cost!("{3}", TapSelf),
             &[Effect::CreateToken {

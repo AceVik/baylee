@@ -37,9 +37,9 @@ card!(
                 step: StepKind::End,
                 whose: PlayerRel::You,
             },
-            &[Effect::Blink {
-                target: TargetSpec::Object(&ANOTHER_CREATURE_YOU_CONTROL),
-            }],
+            &[Effect::blink(TargetSpec::Object(
+                &ANOTHER_CREATURE_YOU_CONTROL
+            ))],
             targets = Some(TargetReq {
                 spec: TargetSpec::Object(&ANOTHER_CREATURE_YOU_CONTROL),
                 min: 0,

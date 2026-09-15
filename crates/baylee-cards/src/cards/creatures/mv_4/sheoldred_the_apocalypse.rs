@@ -26,12 +26,7 @@ card!(
     commander = CommanderRule::Legendary,
     coverage = Coverage::Implemented,
     abilities = &[
-        triggered!(
-            Trigger::Draws(PlayerRel::You),
-            &[Effect::GainLife {
-                amount: Amount::Fixed(2),
-            }]
-        ),
+        triggered!(Trigger::Draws(PlayerRel::You), &[Effect::gain_life(2)]),
         triggered!(
             Trigger::Draws(PlayerRel::Opponent),
             &[Effect::LoseLife {

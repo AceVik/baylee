@@ -23,11 +23,7 @@ card!(
     color_identity = ColorSet::from_slice(&[Color::Blue, Color::Black]),
     coverage = Coverage::Implemented,
     abilities = &[
-        AbilityDef::Static(StaticAbility {
-            layer: Layer::Text,
-            filter: Filter::Any,
-            modifier: Modifier::OpponentsCantSearch,
-        }),
+        static_ability!(Filter::Any, Modifier::OpponentsCantSearch),
         loyalty!(
             -1,
             &[

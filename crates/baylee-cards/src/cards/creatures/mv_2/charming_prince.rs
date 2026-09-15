@@ -9,12 +9,8 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes::creature;
 
-static SCRY_EFFECTS: &[Effect] = &[Effect::Scry {
-    amount: Amount::Fixed(2),
-}];
-static LIFE_EFFECTS: &[Effect] = &[Effect::GainLife {
-    amount: Amount::Fixed(3),
-}];
+static SCRY_EFFECTS: &[Effect] = &[Effect::scry(2)];
+static LIFE_EFFECTS: &[Effect] = &[Effect::gain_life(3)];
 static BLINK_EFFECTS: &[Effect] = &[Effect::ExileAndReturnAtEndStep];
 static OTHER_CREATURE_YOU_OWN: Filter =
     Filter::And(&[Filter::Another, Filter::CREATURE, Filter::OwnedByYou]);

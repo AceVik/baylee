@@ -3,9 +3,7 @@
 //! Set: J22 #114 — Jumpstart 2022 | Scryfall ID: 9f37c5b6-a59c-45cd-9a99-e9357fe9ea1b | Oracle ID: 53236dd7-845a-444c-96d5-f41ed7325d8f
 // IMPLEMENTED — opponent-choice {1} tax on opponents' spells.
 
-static DRAW_ONE: Effect = Effect::DrawCards {
-    amount: Amount::Fixed(1),
-};
+static DRAW_ONE: Effect = Effect::draw(1);
 
 use baylee_cards_dsl::prelude::*;
 

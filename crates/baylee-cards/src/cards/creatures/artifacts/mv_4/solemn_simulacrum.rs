@@ -31,11 +31,6 @@ card!(
                 optional: true,
             }]
         ),
-        triggered!(
-            Trigger::Dies(&Filter::This),
-            &[Effect::DrawCards {
-                amount: Amount::Fixed(1),
-            }]
-        ),
+        triggered!(Trigger::Dies(&Filter::This), &[Effect::draw(1)]),
     ],
 );

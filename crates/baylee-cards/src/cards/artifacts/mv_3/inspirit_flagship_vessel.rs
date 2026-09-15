@@ -50,30 +50,27 @@ card!(
             target = Some(TargetSpec::Object(&ANOTHER_CREATURE)),
             timing = ActivationTiming::SorcerySpeed
         ),
-        AbilityDef::Static(StaticAbility {
-            layer: Layer::Type,
-            filter: Filter::This,
-            modifier: Modifier::AddTypeIfCountersAtLeast {
+        static_ability!(
+            Filter::This,
+            Modifier::AddTypeIfCountersAtLeast {
                 kind: CounterKind::Charge,
                 at_least: 8,
                 types: TypeSet::CREATURE,
-            },
-        }),
-        AbilityDef::Static(StaticAbility {
-            layer: Layer::Ability,
-            filter: Filter::This,
-            modifier: Modifier::AddKeywordIfCountersAtLeast {
+            }
+        ),
+        static_ability!(
+            Filter::This,
+            Modifier::AddKeywordIfCountersAtLeast {
                 kind: CounterKind::Charge,
                 at_least: 8,
                 keywords: KeywordSet::FLYING,
-            },
-        }),
+            }
+        ),
         // Other artifacts you control have hexproof and indestructible.
-        AbilityDef::Static(StaticAbility {
-            layer: Layer::Ability,
-            filter: Filter::And(&[Filter::ARTIFACT, Filter::ControlledByYou, Filter::Another,]),
-            modifier: Modifier::AddKeyword(HEXPROOF_INDESTRUCTIBLE),
-        }),
+        static_ability!(
+            Filter::And(&[Filter::ARTIFACT, Filter::ControlledByYou, Filter::Another,]),
+            Modifier::AddKeyword(HEXPROOF_INDESTRUCTIBLE)
+        ),
         // 1+: modal combat trigger (a +1/+1 counter or two charge
         // counters on up to one other artifact).
         modal_triggered!(

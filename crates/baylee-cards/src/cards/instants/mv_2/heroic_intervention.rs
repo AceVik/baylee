@@ -18,10 +18,9 @@ card!(
     )],
     color_identity = ColorSet::from_slice(&[Color::Green]),
     coverage = Coverage::Implemented,
-    abilities = &[spell!(&[Effect::CreateContinuousEffect {
-        layer: Layer::Ability,
-        filter: &Filter::ControlledByYou,
-        modifier: Modifier::AddKeyword(HEXPROOF_INDESTRUCTIBLE),
-        duration: Duration::UntilEndOfTurn,
-    }])],
+    abilities = &[spell!(&[Effect::continuous(
+        &Filter::ControlledByYou,
+        Modifier::AddKeyword(HEXPROOF_INDESTRUCTIBLE),
+        Duration::UntilEndOfTurn
+    )])],
 );

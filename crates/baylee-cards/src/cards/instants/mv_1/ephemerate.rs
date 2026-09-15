@@ -22,9 +22,7 @@ card!(
     keywords = KeywordSet::REBOUND,
     coverage = Coverage::Implemented,
     abilities = &[spell!(
-        &[Effect::Blink {
-            target: TargetSpec::Object(&YOUR_CREATURE),
-        }],
+        &[Effect::blink(TargetSpec::Object(&YOUR_CREATURE))],
         targets = Some(TargetReq::one(TargetSpec::Object(&YOUR_CREATURE)))
     )],
 );

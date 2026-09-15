@@ -17,9 +17,7 @@ card!(
     color_identity = ColorSet::from_slice(&[Color::White, Color::Black]),
     coverage = Coverage::Implemented,
     abilities = &[spell!(
-        &[Effect::Exile {
-            target: TargetSpec::Object(&Filter::Monocolored),
-        }],
+        &[Effect::exile(TargetSpec::Object(&Filter::Monocolored))],
         targets = Some(TargetReq::one(TargetSpec::Object(&Filter::Monocolored)))
     )],
 );

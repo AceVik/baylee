@@ -413,7 +413,9 @@ is not an improvement worth having.
 - `AbilityDef::Spell { effects, targets: Option<TargetReq> }`
 - `AbilityDef::Activated { cost, effects, target, timing, mana_ability, zone }`
 - `AbilityDef::Triggered { trigger, effects, targets, once_per_turn }`
-- `AbilityDef::Static(StaticAbility { layer, filter, modifier })`
+- `AbilityDef::Static(StaticAbility { layer, filter, modifier })` — written
+  `static_ability!(filter, modifier)`, which takes no layer: CR 613.1 makes it
+  a function of the modifier and `Modifier::layer` is that function
 - `AbilityDef::Replacement(ReplacementRule)` — trigger multipliers/suppressors,
   token/counter doubling
 - `AbilityDef::Loyalty { cost: i8, effects, target }`
@@ -794,7 +796,7 @@ use crate::filters::YOUR_ALLIES;
 
 abilities = &[triggered!(
     Trigger::EntersBattlefield(&YOUR_ALLIES),
-    &[Effect::GainLife { amount: Amount::Fixed(1) }]
+    &[Effect::gain_life(1)]
 )],
 ```
 

@@ -27,27 +27,20 @@ card!(
     commander = CommanderRule::Legendary,
     coverage = Coverage::Implemented,
     abilities = &[
-        AbilityDef::Static(StaticAbility {
-            layer: Layer::Text,
-            filter: Filter::Any,
-            modifier: Modifier::OpponentsCastAsSorcery,
-        }),
+        static_ability!(Filter::Any, Modifier::OpponentsCastAsSorcery),
         loyalty!(
             1,
-            &[Effect::CreateContinuousEffect {
-                layer: Layer::Text,
-                filter: &Filter::Any,
-                modifier: Modifier::SorceriesHaveFlash,
-                duration: Duration::UntilYourNextTurn,
-            }]
+            &[Effect::continuous(
+                &Filter::Any,
+                Modifier::SorceriesHaveFlash,
+                Duration::UntilYourNextTurn
+            )]
         ),
         loyalty!(
             -3,
             &[
                 Effect::bounce(TargetSpec::Object(&BOUNCE_TARGET)),
-                Effect::DrawCards {
-                    amount: Amount::Fixed(1),
-                },
+                Effect::draw(1),
             ],
             targets = Some(TargetReq::up_to_one(TargetSpec::Object(&BOUNCE_TARGET)))
         ),

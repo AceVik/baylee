@@ -20,9 +20,9 @@ card!(
     color_identity = ColorSet::from_slice(&[Color::White, Color::Black]),
     coverage = Coverage::Implemented,
     abilities = &[spell!(
-        &[Effect::Destroy {
-            target: TargetSpec::Object(&ARTIFACT_ENCHANTMENT_OR_WALKER),
-        }],
+        &[Effect::destroy(TargetSpec::Object(
+            &ARTIFACT_ENCHANTMENT_OR_WALKER
+        ))],
         targets = Some(TargetReq::one(TargetSpec::Object(
             &ARTIFACT_ENCHANTMENT_OR_WALKER,
         )))
