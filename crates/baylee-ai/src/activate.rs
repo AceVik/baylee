@@ -93,23 +93,34 @@ fn activated(def: &'static AbilityDef) -> Option<(&'static Cost, &'static [Effec
 ///
 /// [`CostPart::PayLifeX`] is left out on purpose: X may be zero, and a cost
 /// that may be nothing is not a cost that limits anything.
+///
+/// The `match` is **exhaustive with no wildcard**, and it is written that way
+/// because the list it replaces was a `matches!` that had gone one part
+/// short. `TapOther` was added for the convoke lands and nothing here
+/// classified it, so Earthcraft — whose whole cost is "Tap an untapped
+/// creature you control", with no mana and no `{T}` of its own — came out as
+/// a cost that consumes nothing, and the house AI declined to untap a basic
+/// land with it for as long as the card existed. A positive list answers a
+/// new variant with silence; a `match` answers it with a compile error.
 fn consumes(cost: &Cost) -> bool {
     cost.mana != ManaCost::ZERO
-        || cost.parts.iter().any(|part| {
-            matches!(
-                part,
-                CostPart::TapSelf
-                    | CostPart::UntapSelf
-                    | CostPart::SacrificeSelf
-                    | CostPart::Sacrifice(_)
-                    | CostPart::Discard(_)
-                    | CostPart::DiscardSelf
-                    | CostPart::ExileSelf
-                    | CostPart::ExileFromHand(_)
-                    | CostPart::ReturnSelfToHand
-                    | CostPart::PayLife(_)
-                    | CostPart::RemoveCounterSelf { .. }
-            )
+        || cost.parts.iter().any(|part| match part {
+            CostPart::TapSelf
+            | CostPart::UntapSelf
+            | CostPart::SacrificeSelf
+            | CostPart::Sacrifice(_)
+            | CostPart::Discard(_)
+            | CostPart::DiscardSelf
+            | CostPart::ExileSelf
+            | CostPart::ExileFromHand(_)
+            | CostPart::ReturnSelfToHand
+            | CostPart::PayLife(_)
+            | CostPart::RemoveCounterSelf { .. }
+            // A creature that paid is a creature that cannot pay again, and
+            // it is the *board* that shrinks rather than the source — which
+            // is the same limit, read one permanent over.
+            | CostPart::TapOther(_) => true,
+            CostPart::PayLifeX => false,
         })
 }
 
@@ -339,6 +350,14 @@ mod tests {
                 parts: &[CostPart::SacrificeSelf],
             }),
             "sacrificing the source was not counted as consuming it"
+        );
+        assert!(
+            consumes(&Cost {
+                mana: ManaCost::ZERO,
+                parts: &[CostPart::TapOther(&baylee_cards_dsl::Filter::YOUR_CREATURE)],
+            }),
+            "Earthcraft: the whole cost is somebody else's tap, and a creature \
+             that paid cannot pay again"
         );
     }
 
