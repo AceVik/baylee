@@ -10,16 +10,15 @@
 //! played here, against a land built for it, the way `m2_tests` plays the
 //! layer system against a lattice nobody printed.
 
+use super::synthetic::{
+    SyntheticLookup, forest, keep_mulligans, land, permanents, preset, tap_every_land, tapped,
+    walk_past,
+};
 use super::*;
 use baylee_cards_dsl::{
-    AbilityDef, ActivationLimit, ActivationTiming, ActivationZone, CardDef, CommanderRule, Cost,
-    Coverage, Effect, FaceDef, Filter, KeywordSet, Layer, ManaColor, Modifier, StaticAbility,
+    AbilityDef, ActivationLimit, ActivationTiming, ActivationZone, Cost, Effect, Filter, Layer,
+    ManaColor, Modifier, StaticAbility,
 };
-use baylee_core::ids::{CardIndex, PrintRef};
-use baylee_core::preset::{
-    AIProfile, DeckEntry, Finish, FormatId, GamePreset, PrintInfo, SeatController, SeatSpec,
-};
-use baylee_core::types::{SupertypeSet, TypeSet};
 
 // ---------------------------------------------------------------- fixtures
 
@@ -72,200 +71,11 @@ static FROZEN_ABILITIES: &[AbilityDef] = &[
     },
 ];
 
-fn face(name: &'static str) -> FaceDef {
-    FaceDef {
-        name,
-        mana_cost: baylee_core::mana::ManaCost::ZERO,
-        types: TypeSet::LAND,
-        supertypes: SupertypeSet::EMPTY,
-        subtypes: &[],
-        power: None,
-        toughness: None,
-        loyalty: None,
-        alternative_costs: &[],
-        additional_costs: &[],
-        mandatory_additional_costs: &[],
-        enter_modifiers: &[],
-        abilities: &[],
-        keywords: KeywordSet::EMPTY,
-        color_indicator: baylee_core::color::ColorSet::EMPTY,
-        castable_from_hand: false,
-        miracle: None,
-        delve: false,
-        convoke: false,
-        cost_reduction: None,
-        disturb: false,
-        adventure: false,
-    }
-}
-
-fn def(index: u32, name: &'static str, abilities: &'static [AbilityDef]) -> CardDef {
-    CardDef {
-        index: CardIndex::new(index),
-        oracle_id: "test",
-        scryfall_id: "test",
-        faces: Box::leak(Box::new([face(name)])),
-        color_identity: baylee_core::color::ColorSet::EMPTY,
-        keywords: KeywordSet::EMPTY,
-        commander: CommanderRule::NotEligible,
-        partner: baylee_cards_dsl::PartnerKind::None,
-        coverage: Coverage::Implemented,
-        abilities,
-    }
-}
-
-struct TestLookup {
-    storage: &'static CardDef,
-    frozen: &'static CardDef,
-}
-
-impl TestLookup {
-    fn new() -> Self {
-        Self {
-            storage: Box::leak(Box::new(def(
-                STORAGE_BASIN,
-                "Storage Basin",
-                BASIN_ABILITIES,
-            ))),
-            frozen: Box::leak(Box::new(def(
-                FROZEN_BASIN,
-                "Frozen Basin",
-                FROZEN_ABILITIES,
-            ))),
-        }
-    }
-}
-
-impl CardLookup for TestLookup {
-    fn card(&self, index: CardIndex) -> Option<&'static CardDef> {
-        match index.get() {
-            STORAGE_BASIN => Some(self.storage),
-            FROZEN_BASIN => Some(self.frozen),
-            _ => baylee_cards::by_index(index),
-        }
-    }
-}
-
-fn forest() -> u32 {
-    baylee_cards::by_oracle_id("b34bb2dc-c1af-4d77-b0b3-a0fb342a5fc6")
-        .expect("Forest exists")
-        .index
-        .get()
-}
-
-fn entry(card: u32) -> DeckEntry {
-    DeckEntry {
-        card: CardIndex::new(card),
-        print: PrintRef::new(0),
-    }
-}
-
-fn preset(seed: u64, battlefield: &[u32]) -> GamePreset {
-    let deck: Vec<DeckEntry> = (0..60).map(|_| entry(forest())).collect();
-    let seat = |bf: &[u32]| SeatSpec {
-        controller: SeatController::Ai(AIProfile::default()),
-        capabilities: baylee_core::preset::SeatCapabilities {
-            dev_commands: true,
-            see_hidden: false,
-        },
-        deck: deck.clone(),
-        sideboard: vec![],
-        commanders: vec![],
-        starting_life: None,
-        starting_hand: Some(vec![]),
-        starting_battlefield: bf.iter().map(|c| entry(*c)).collect(),
-        emblems: vec![],
-        team: None,
-    };
-    GamePreset {
-        format: FormatId::Freeform,
-        seed,
-        house_rules: HouseRules::default(),
-        modifiers: vec![],
-        prints: vec![PrintInfo {
-            scryfall_id: uuid::Uuid::nil(),
-            lang: "EN".into(),
-            finish: Finish::Normal,
-        }],
-        seats: vec![seat(battlefield), seat(&[])],
-    }
-}
-
-fn keep_mulligans(engine: &mut Engine<TestLookup>) {
-    for _ in 0..2 {
-        match engine.pending().clone() {
-            Pending::Mulligan { player, .. } => {
-                engine.apply(player, PlayerAction::MulliganKeep).unwrap();
-            }
-            other => panic!("expected mulligan, got {other:?}"),
-        }
-    }
-}
-
-fn permanents(engine: &Engine<TestLookup>, index: u32) -> Vec<ObjectId> {
-    engine
-        .state()
-        .zones
-        .list(ZoneLocation::Battlefield)
-        .iter()
-        .copied()
-        .filter(|id| {
-            engine
-                .state()
-                .object(*id)
-                .is_some_and(|o| o.card.is_some_and(|c| c.index.get() == index))
-        })
-        .collect()
-}
-
-fn tapped(engine: &Engine<TestLookup>, id: ObjectId) -> bool {
-    engine
-        .state()
-        .object(id)
-        .is_some_and(|o| o.status.contains(Status::TAPPED))
-}
-
-/// Taps every land on `seat`'s battlefield for mana, through the offer.
-///
-/// Through `legal.abilities` and not `legal.mana_abilities`: the second
-/// carries the CR 305.6 shortcut for a land's *intrinsic* mana, which a
-/// land whose mana comes from a printed ability does not have. Reading the
-/// wrong list here is how a test once tapped two of three lands and
-/// believed it had tapped all of them.
-fn tap_every_land(engine: &mut Engine<TestLookup>, seat: PlayerId) {
-    for _ in 0..8 {
-        let Pending::Priority { player, legal } = engine.pending().clone() else {
-            break;
-        };
-        if player != seat {
-            engine.apply(player, PlayerAction::PassPriority).unwrap();
-            continue;
-        }
-        let next = legal
-            .abilities
-            .iter()
-            .copied()
-            .find(|(id, _)| !tapped(engine, *id))
-            .or_else(|| legal.mana_abilities.first().map(|id| (*id, 0)));
-        let Some((source, ability_index)) = next else {
-            break;
-        };
-        if legal.mana_abilities.contains(&source) {
-            engine
-                .apply(seat, PlayerAction::ActivateManaAbility { source })
-                .expect("the engine takes the land mana it offered");
-        } else {
-            engine
-                .apply(
-                    seat,
-                    PlayerAction::ActivateAbility {
-                        source,
-                        ability_index,
-                    },
-                )
-                .expect("the engine takes the ability it offered");
-        }
-    }
+fn lookup() -> SyntheticLookup {
+    SyntheticLookup::new(vec![
+        land(STORAGE_BASIN, "Storage Basin", BASIN_ABILITIES),
+        land(FROZEN_BASIN, "Frozen Basin", FROZEN_ABILITIES),
+    ])
 }
 
 /// Passes priority until the untap step asks its question, or until the
@@ -274,7 +84,7 @@ fn tap_every_land(engine: &mut Engine<TestLookup>, seat: PlayerId) {
 /// Bounded rather than `loop`: a question that never arrives is the whole
 /// failure this is testing for, and a hang reports it as a timeout with no
 /// state to read.
-fn pass_until_question(engine: &mut Engine<TestLookup>) -> bool {
+fn pass_until_question(engine: &mut Engine<SyntheticLookup>) -> bool {
     for _ in 0..200 {
         match engine.pending().clone() {
             Pending::ChooseCards { prompt, .. } => {
@@ -291,37 +101,6 @@ fn pass_until_question(engine: &mut Engine<TestLookup>) -> bool {
     false
 }
 
-/// Answers the questions a turn asks on the way round, and nothing else.
-///
-/// Priority is passed and combat is declined; anything else is a question
-/// this board should not be able to ask, and the caller says so. Listing
-/// them rather than answering whatever arrives is what keeps the untap
-/// question from being swallowed by a driver that answers everything.
-fn walk_past(engine: &mut Engine<TestLookup>, pending: &Pending) -> bool {
-    match pending {
-        Pending::Priority { player, .. } => {
-            engine.apply(*player, PlayerAction::PassPriority).unwrap();
-            true
-        }
-        Pending::ChooseAttackers { player, .. } => {
-            engine
-                .apply(
-                    *player,
-                    PlayerAction::DeclareAttackers { attackers: vec![] },
-                )
-                .unwrap();
-            true
-        }
-        Pending::ChooseBlockers { player, .. } => {
-            engine
-                .apply(*player, PlayerAction::DeclareBlockers { blockers: vec![] })
-                .unwrap();
-            true
-        }
-        _ => false,
-    }
-}
-
 // ------------------------------------------------------------------- tests
 
 /// The whole sentence, in one turn cycle: the question is asked, it is
@@ -334,7 +113,7 @@ fn walk_past(engine: &mut Engine<TestLookup>, pending: &Pending) -> bool {
 #[test]
 fn the_permanent_named_in_the_answer_stays_tapped_and_the_rest_untap() {
     let f = forest();
-    let mut engine = Engine::new(&preset(11, &[STORAGE_BASIN, f, f]), TestLookup::new()).unwrap();
+    let mut engine = Engine::new(&preset(11, &[STORAGE_BASIN, f, f]), lookup()).unwrap();
     keep_mulligans(&mut engine);
     let p0 = PlayerId::new(0);
     let basin = permanents(&engine, STORAGE_BASIN)[0];
@@ -380,7 +159,7 @@ fn the_permanent_named_in_the_answer_stays_tapped_and_the_rest_untap() {
 #[test]
 fn an_empty_answer_untaps_the_permanent_like_any_other() {
     let f = forest();
-    let mut engine = Engine::new(&preset(12, &[STORAGE_BASIN, f]), TestLookup::new()).unwrap();
+    let mut engine = Engine::new(&preset(12, &[STORAGE_BASIN, f]), lookup()).unwrap();
     keep_mulligans(&mut engine);
     let p0 = PlayerId::new(0);
     let basin = permanents(&engine, STORAGE_BASIN)[0];
@@ -418,7 +197,7 @@ fn an_empty_answer_untaps_the_permanent_like_any_other() {
 #[test]
 fn a_permanent_that_cannot_untap_anyway_is_never_asked_about() {
     let f = forest();
-    let mut engine = Engine::new(&preset(13, &[FROZEN_BASIN, f]), TestLookup::new()).unwrap();
+    let mut engine = Engine::new(&preset(13, &[FROZEN_BASIN, f]), lookup()).unwrap();
     keep_mulligans(&mut engine);
     let p0 = PlayerId::new(0);
     let basin = permanents(&engine, FROZEN_BASIN)[0];
