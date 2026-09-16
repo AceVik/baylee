@@ -431,6 +431,11 @@ pub fn seed_graveyard(engine: &mut Engine<RegistryLookup>, seat: PlayerId, n: us
             )
             .expect("the harness moves a card");
     }
+    // The offer was computed when priority was granted, which was before
+    // this. An ability that reads a graveyard is withheld while no graveyard
+    // holds what it needs, so without this the seeding is invisible to the
+    // very question it was done for.
+    engine.refresh_offer();
 }
 
 /// Advances until `seat` holds priority in their first main phase, however

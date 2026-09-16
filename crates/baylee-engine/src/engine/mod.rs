@@ -370,6 +370,35 @@ impl<L: CardLookup> Engine<L> {
             .then_some(&mut self.state)
     }
 
+    /// Republish the priority offer after the board was rewritten behind the
+    /// engine's back.
+    ///
+    /// [`Engine::dev_state_mut`] hands out the whole state and nothing asks
+    /// the question again afterwards: `compute_legal` ran when priority was
+    /// granted, so a card moved by a dev command leaves `Pending::Priority`
+    /// describing a board that no longer exists. Most seeding never notices
+    /// — a permanent put on the battlefield is read off the state by
+    /// whatever looks at it next — and it is wrong for everything the
+    /// *offer* is a function of. The measured case is Deathrite Shaman:
+    /// "exile target land card from a graveyard" is withheld while no
+    /// graveyard holds a land (CR 601.2c has the same shape for a spell), so
+    /// seeding two Forests after priority left the ability off
+    /// `legal.abilities` with both of them sitting there.
+    ///
+    /// Only a priority offer is rebuilt. Every other `Pending` is a question
+    /// with a fixed set of answers — which blocker, which mode — that the
+    /// asking code computed from the board it meant; recomputing one here
+    /// would be a second answer to a question already asked.
+    pub fn refresh_offer(&mut self) {
+        let Pending::Priority { player, .. } = self.pending else {
+            return;
+        };
+        self.pending = Pending::Priority {
+            player,
+            legal: Box::new(self.compute_legal(player)),
+        };
+    }
+
     /// What a seat may do beyond answering its own choices.
     #[must_use]
     pub fn capabilities(&self, seat: PlayerId) -> baylee_core::preset::SeatCapabilities {
