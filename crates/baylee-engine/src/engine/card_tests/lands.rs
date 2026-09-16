@@ -3535,3 +3535,401 @@ fn every_land_of_the_cycle_pays_out_in_its_own_colour() {
         );
     }
 }
+
+// oracle_id = "977c2f33-b622-4172-9efb-7f523becd32b"
+fn blazemire_verge() -> CardIndex {
+    card_index("977c2f33-b622-4172-9efb-7f523becd32b")
+}
+// oracle_id = "b2eb7a64-a307-4a78-a25d-63fb3ae1e237"
+fn cryptic_caves() -> CardIndex {
+    card_index("b2eb7a64-a307-4a78-a25d-63fb3ae1e237")
+}
+// oracle_id = "f1e9abfb-c3c8-483e-b446-5c2afc9f6394"
+fn floodfarm_verge() -> CardIndex {
+    card_index("f1e9abfb-c3c8-483e-b446-5c2afc9f6394")
+}
+// oracle_id = "d71bda4c-3dee-4398-8fd0-f77d8743b887"
+fn gloomlake_verge() -> CardIndex {
+    card_index("d71bda4c-3dee-4398-8fd0-f77d8743b887")
+}
+// oracle_id = "cce328b9-6100-417e-9ddf-808bbe3e3bc5"
+fn hushwood_verge() -> CardIndex {
+    card_index("cce328b9-6100-417e-9ddf-808bbe3e3bc5")
+}
+// oracle_id = "d7e1d4eb-1d4e-460e-9304-7db9ab50ccb5"
+fn nimbus_maze() -> CardIndex {
+    card_index("d7e1d4eb-1d4e-460e-9304-7db9ab50ccb5")
+}
+// oracle_id = "2550099d-b3e2-4eb6-9f36-0fc412828ca6"
+fn rivendell() -> CardIndex {
+    card_index("2550099d-b3e2-4eb6-9f36-0fc412828ca6")
+}
+// oracle_id = "510a6ac5-f098-4145-ac07-771b1b6f7cdf"
+fn riverpyre_verge() -> CardIndex {
+    card_index("510a6ac5-f098-4145-ac07-771b1b6f7cdf")
+}
+// oracle_id = "55a519b4-61cb-448a-875b-4d6dbe00580f"
+fn spire_of_industry() -> CardIndex {
+    card_index("55a519b4-61cb-448a-875b-4d6dbe00580f")
+}
+// oracle_id = "a202276b-1f1b-4277-95ee-26877a204f5e"
+fn sunbillow_verge() -> CardIndex {
+    card_index("a202276b-1f1b-4277-95ee-26877a204f5e")
+}
+// oracle_id = "439de49b-1091-4688-9ffb-80a025df31c2"
+fn tainted_field() -> CardIndex {
+    card_index("439de49b-1091-4688-9ffb-80a025df31c2")
+}
+// oracle_id = "0222414f-98b5-458a-a0fd-831a66cd8b07"
+fn tainted_isle() -> CardIndex {
+    card_index("0222414f-98b5-458a-a0fd-831a66cd8b07")
+}
+// oracle_id = "b2bae7fc-0668-4b34-9cd6-0d80aea52275"
+fn tainted_peak() -> CardIndex {
+    card_index("b2bae7fc-0668-4b34-9cd6-0d80aea52275")
+}
+// oracle_id = "fa6d05a1-3df4-4751-b1a0-8d9693faec73"
+fn tainted_wood() -> CardIndex {
+    card_index("fa6d05a1-3df4-4751-b1a0-8d9693faec73")
+}
+// oracle_id = "cfdd5dc6-593e-495a-8cfe-3a56b3c4c7df"
+fn temple_of_the_false_god() -> CardIndex {
+    card_index("cfdd5dc6-593e-495a-8cfe-3a56b3c4c7df")
+}
+// oracle_id = "e861bc08-4f0b-4d22-9b85-9d20227fd5b4"
+fn thornspire_verge() -> CardIndex {
+    card_index("e861bc08-4f0b-4d22-9b85-9d20227fd5b4")
+}
+// oracle_id = "c6e0574c-3e2b-4c40-b17a-05bce3d49309"
+fn wastewood_verge() -> CardIndex {
+    card_index("c6e0574c-3e2b-4c40-b17a-05bce3d49309")
+}
+// oracle_id = "c52eaa87-9251-4a47-83fd-04e582ade612"
+fn willowrush_verge() -> CardIndex {
+    card_index("c52eaa87-9251-4a47-83fd-04e582ade612")
+}
+
+// oracle_id = "a3fb7228-e76b-4e96-a40e-20b5fed75685"
+fn mountain() -> CardIndex {
+    card_index("a3fb7228-e76b-4e96-a40e-20b5fed75685")
+}
+
+/// Whether printed ability `index` of `card` is on the table right now.
+///
+/// The mirror of [`activate`], which panics when it is not — and the half
+/// this batch of lands actually needs, because "Activate only if …" is a
+/// sentence about when the ability is **not** offered.
+#[track_caller]
+fn offered(engine: &Engine<RegistryLookup>, card: CardIndex, index: u32) -> bool {
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    legal.abilities.iter().any(|(id, ai)| {
+        *ai == index
+            && engine
+                .state()
+                .object(*id)
+                .is_some_and(|o| o.card.is_some_and(|c| c.index == card))
+    })
+}
+
+/// The verge cycle and Nimbus Maze: "{T}: Add {X}. Activate only if you
+/// control a <land type> or a <land type>."
+///
+/// Eleven lands, each played twice — once for each land type its clause
+/// names — because the clause is an `Or` and a reader that dropped one arm
+/// would still pass a test that only ever tried the other. The board starts
+/// with the verge alone, which is the half that says the condition is doing
+/// anything at all: the unconditional ability beside it is offered in the
+/// same breath, so an absent second ability is the clause and not an empty
+/// list.
+///
+/// The land that satisfies the clause is then **played from hand**, so what
+/// is asserted is a condition re-read between two priorities rather than
+/// one decided when the game was laid out.
+///
+/// Bleachbone Verge rides along although it is hand-written and older: it
+/// is the same sentence written by a person, and this is the one place the
+/// two spellings of `Condition::ControlCount` are held against each other
+/// in play.
+#[test]
+fn a_verge_adds_its_second_colour_only_beside_the_land_its_clause_names() {
+    let p0 = PlayerId::new(0);
+    for (seed, card, key, colour) in [
+        (901, blazemire_verge(), swamp(), ManaColor::Red),
+        (902, blazemire_verge(), mountain(), ManaColor::Red),
+        (903, bleachbone_verge(), plains(), ManaColor::White),
+        (904, bleachbone_verge(), swamp(), ManaColor::White),
+        (905, floodfarm_verge(), plains(), ManaColor::Blue),
+        (906, floodfarm_verge(), island(), ManaColor::Blue),
+        (907, gloomlake_verge(), island(), ManaColor::Black),
+        (908, gloomlake_verge(), swamp(), ManaColor::Black),
+        (909, hushwood_verge(), forest(), ManaColor::White),
+        (910, hushwood_verge(), plains(), ManaColor::White),
+        (911, riverpyre_verge(), island(), ManaColor::Blue),
+        (912, riverpyre_verge(), mountain(), ManaColor::Blue),
+        (913, sunbillow_verge(), mountain(), ManaColor::Red),
+        (914, sunbillow_verge(), plains(), ManaColor::Red),
+        (915, thornspire_verge(), mountain(), ManaColor::Green),
+        (916, thornspire_verge(), forest(), ManaColor::Green),
+        (917, wastewood_verge(), swamp(), ManaColor::Black),
+        (918, wastewood_verge(), forest(), ManaColor::Black),
+        (919, willowrush_verge(), forest(), ManaColor::Green),
+        (920, willowrush_verge(), island(), ManaColor::Green),
+        // Nimbus Maze prints the pair the other way round — the Island
+        // makes the {W} and the Plains the {U} — which is exactly the
+        // reading a transcoder could get backwards in silence.
+        (921, nimbus_maze(), island(), ManaColor::White),
+        (922, nimbus_maze(), plains(), ManaColor::Blue),
+    ] {
+        let index = if card == nimbus_maze() && colour == ManaColor::Blue {
+            2
+        } else {
+            1
+        };
+        let mut engine = Duel::new(seed, forest())
+            .battlefield(0, &[card])
+            .hand(0, &[key])
+            .start();
+        keep_mulligans(&mut engine);
+        reach_main_phase(&mut engine, p0);
+
+        assert!(
+            offered(&engine, card, 0),
+            "seed {seed}: the ability with no clause is offered"
+        );
+        assert!(
+            !offered(&engine, card, index),
+            "seed {seed}: and the one with a clause is not, with nothing beside it"
+        );
+
+        play_land(&mut engine, p0, key);
+        assert!(
+            offered(&engine, card, index),
+            "seed {seed}: the land it names arrived"
+        );
+        activate(&mut engine, p0, card, index);
+        assert_eq!(
+            engine.state().players[0].mana_pool.available(colour),
+            1,
+            "seed {seed}: and it added {colour:?}"
+        );
+    }
+}
+
+/// The four tainted lands: "{T}: Add {B} or {X}. Activate only if you
+/// control a Swamp."
+///
+/// One ability that makes either of two colours, so what is played here is
+/// the choice as well as the clause: the options offered are asserted as a
+/// pair, and the answer given is the second of them, because a reader that
+/// wrote one colour twice would pass a test that took the first.
+#[test]
+fn a_tainted_land_offers_both_of_its_colours_and_only_beside_a_swamp() {
+    let p0 = PlayerId::new(0);
+    for (seed, card, colours) in [
+        (930, tainted_field(), [ManaColor::White, ManaColor::Black]),
+        (931, tainted_isle(), [ManaColor::Blue, ManaColor::Black]),
+        (932, tainted_peak(), [ManaColor::Black, ManaColor::Red]),
+        (933, tainted_wood(), [ManaColor::Black, ManaColor::Green]),
+    ] {
+        let mut engine = Duel::new(seed, forest())
+            .battlefield(0, &[card])
+            .hand(0, &[swamp()])
+            .start();
+        keep_mulligans(&mut engine);
+        reach_main_phase(&mut engine, p0);
+
+        assert!(
+            !offered(&engine, card, 1),
+            "seed {seed}: no Swamp, no coloured half"
+        );
+        play_land(&mut engine, p0, swamp());
+        assert!(offered(&engine, card, 1), "seed {seed}: the Swamp arrived");
+
+        activate(&mut engine, p0, card, 1);
+        let Pending::ChooseColor { options, .. } = engine.pending().clone() else {
+            panic!(
+                "seed {seed}: expected a colour to pick, got {:?}",
+                engine.pending()
+            )
+        };
+        assert_eq!(
+            options,
+            colours.to_vec(),
+            "seed {seed}: both printed colours"
+        );
+        engine
+            .apply(p0, PlayerAction::ChooseColor(colours[1]))
+            .expect("the colour offered is a legal answer");
+        assert_eq!(
+            engine.state().players[0].mana_pool.available(colours[1]),
+            1,
+            "seed {seed}: the colour chosen is the colour added"
+        );
+    }
+}
+
+/// Temple of the False God and Cryptic Caves: "Activate only if you control
+/// five or more lands."
+///
+/// The other shape `Condition::ControlCount` takes — a threshold rather
+/// than "at least one" — and the fifth land is played to cross it, so an
+/// off-by-one in either direction is visible. The Temple is the pool's one
+/// land that prints *nothing* but a conditional ability, which is why it is
+/// worth its own row: there is no unconditional half to fall back on, and a
+/// clause read as always-false would leave it a land that does nothing at
+/// all.
+#[test]
+fn the_fifth_land_is_what_turns_a_count_of_five_true() {
+    let p0 = PlayerId::new(0);
+
+    let mut engine = Duel::new(940, forest())
+        .battlefield(
+            0,
+            &[temple_of_the_false_god(), forest(), forest(), forest()],
+        )
+        .hand(0, &[forest()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    assert!(
+        !offered(&engine, temple_of_the_false_god(), 0),
+        "four lands is not five"
+    );
+    play_land(&mut engine, p0, forest());
+    assert!(
+        offered(&engine, temple_of_the_false_god(), 0),
+        "and the fifth is"
+    );
+    activate(&mut engine, p0, temple_of_the_false_god(), 0);
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Colorless),
+        2,
+        "{{C}}{{C}}, both of them"
+    );
+
+    // Cryptic Caves counts the same way and then spends itself.
+    let mut engine = Duel::new(941, forest())
+        .battlefield(0, &[cryptic_caves(), forest(), forest(), forest()])
+        .hand(0, &[forest()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    // The mana comes first, and that ordering is the test: an ability whose
+    // `{1}` nobody can pay is missing from the offer for a reason that has
+    // nothing to do with its clause, and asserting on the difference would
+    // then prove only that the Forests were untapped.
+    tap_all_mana(&mut engine, p0);
+    assert!(
+        !offered(&engine, cryptic_caves(), 1),
+        "four lands is not five"
+    );
+    play_land(&mut engine, p0, forest());
+    assert!(offered(&engine, cryptic_caves(), 1), "and the fifth is");
+
+    let hand = engine.state().zones.list(ZoneLocation::Hand(p0)).len();
+    activate(&mut engine, p0, cryptic_caves(), 1);
+    for _ in 0..4 {
+        if engine.state().zones.list(ZoneLocation::Hand(p0)).len() > hand {
+            break;
+        }
+        let Pending::Priority { player, .. } = engine.pending().clone() else {
+            panic!("unexpected while resolving: {:?}", engine.pending())
+        };
+        engine.apply(player, PlayerAction::PassPriority).unwrap();
+    }
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Hand(p0)).len(),
+        hand + 1,
+        "the card it drew"
+    );
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Graveyard(p0)).len(),
+        1,
+        "and the land it sacrificed to draw it"
+    );
+}
+
+/// Spire of Industry and Rivendell, whose clauses ask about something that
+/// is not a land at all: an artifact, and a legendary creature.
+///
+/// Both are laid out twice rather than played into, because what satisfies
+/// them is not a land and could not be put on the table by playing one.
+/// Rivendell's ability is not a mana ability either — it goes on the stack
+/// like any other — so what the second half asserts is that it was allowed
+/// on at all.
+#[test]
+fn a_clause_may_ask_about_an_artifact_or_a_legend_instead() {
+    let p0 = PlayerId::new(0);
+
+    let mut engine = Duel::new(950, forest())
+        .battlefield(0, &[spire_of_industry()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    assert!(
+        !offered(&engine, spire_of_industry(), 1),
+        "no artifact, no coloured mana"
+    );
+
+    let mut engine = Duel::new(951, forest())
+        .battlefield(0, &[spire_of_industry(), lightning_greaves()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    assert!(
+        offered(&engine, spire_of_industry(), 1),
+        "an Equipment is an artifact"
+    );
+    let life = engine.state().players[0].life;
+    activate(&mut engine, p0, spire_of_industry(), 1);
+    let Pending::ChooseColor { .. } = engine.pending().clone() else {
+        panic!("expected any colour, got {:?}", engine.pending())
+    };
+    engine
+        .apply(p0, PlayerAction::ChooseColor(ManaColor::Green))
+        .expect("any colour includes green");
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Green),
+        1,
+        "one mana of the colour chosen"
+    );
+    assert_eq!(
+        engine.state().players[0].life,
+        life - 1,
+        "and the life the cost asked for"
+    );
+
+    let mut engine = Duel::new(952, forest())
+        .battlefield(0, &[rivendell(), island(), forest()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    tap_all_mana(&mut engine, p0);
+    assert!(
+        !offered(&engine, rivendell(), 1),
+        "no legendary creature, no scry"
+    );
+
+    let mut engine = Duel::new(953, forest())
+        .battlefield(0, &[rivendell(), jin_gitaxias(), island(), forest()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    tap_all_mana(&mut engine, p0);
+    assert!(
+        offered(&engine, rivendell(), 1),
+        "Jin-Gitaxias is a legendary creature"
+    );
+    activate(&mut engine, p0, rivendell(), 1);
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Stack).len(),
+        1,
+        "the scry is an ordinary activated ability and uses the stack"
+    );
+}

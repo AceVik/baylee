@@ -1606,12 +1606,32 @@ impl Tx<'_> {
         // reason the cost does: it restricts activating it, not what happens
         // when it resolves.
         let limit = probe.take("ActivationLimit");
+        // And so does the clause, which on an `A:` line is a restriction on
+        // activating rather than CR 603.4's intervening `if`: the reference
+        // spells a resolution-time condition `ConditionPresent$`, a
+        // different key on a different line (1521 of them, all on `SVar:`),
+        // and this reader claims neither it nor its family.
+        let condition = self.condition(&mut probe)?;
         let mut chain = Chain::default();
         // The cost belongs to the ability, not to the effect chain, so it is
-        // removed from the spec before the chain reads it.
+        // removed from the spec before the chain reads it. The clause's keys
+        // go with it, but **only** once the clause was read: a line carrying
+        // `PresentZone$` and no `IsPresent$` at all keeps it, and refuses one
+        // level down as the unclaimed parameter it is.
+        let claimed: &[&str] = if condition.is_empty() {
+            &[]
+        } else {
+            &[
+                "IsPresent$",
+                "PresentZone$",
+                "PresentCompare$",
+                "PresentDefined$",
+            ]
+        };
         let stripped: Vec<&str> = spec
             .split(" | ")
             .filter(|part| !part.starts_with("Cost$") && !part.starts_with("ActivationLimit$"))
+            .filter(|part| !claimed.iter().any(|key| part.starts_with(key)))
             .collect();
         self.chain(&stripped.join(" | "), &mut chain)?;
         if chain.effects.is_empty() {
@@ -1642,14 +1662,21 @@ impl Tx<'_> {
                     format!(", limit = ActivationLimit::PerTurn({n})")
                 }
             };
-            // `mana_ability!(effects)` *is* `mana_ability!(effects)`
+            // `mana_ability!(effects)` *is* `mana_ability!({T}, effects)`
             // — the macro supplies the tap, because tapping is what almost
             // every mana ability costs. Writing the cost out again says
             // nothing and reads as though this one were the exception.
+            //
+            // The short form takes the cost as its *only* positional
+            // argument, so it is right exactly while there is nothing else
+            // to say: `mana_ability!(&[…], limit = …)` would bind the
+            // effects where the cost goes and `limit = …` — an assignment
+            // expression, and so a legal one — where the effects go.
+            let extras = format!("{target}{limit}{condition}");
             let line = match (mana_ability, cost.as_str()) {
-                (true, "Cost::TAP") => format!("mana_ability!({effects}{target}{limit})"),
-                (true, _) => format!("mana_ability!({cost}, {effects}{target}{limit})"),
-                (false, _) => format!("activated!({cost}, {effects}{target}{limit})"),
+                (true, "Cost::TAP") if extras.is_empty() => format!("mana_ability!({effects})"),
+                (true, _) => format!("mana_ability!({cost}, {effects}{extras})"),
+                (false, _) => format!("activated!({cost}, {effects}{extras})"),
             };
             self.body.abilities.push(line);
         } else {
@@ -1658,6 +1685,12 @@ impl Tx<'_> {
                 // key to restrict and dropping it quietly would be the
                 // unclaimed-parameter fault one level down.
                 return self.deny("`ActivationLimit$` on a spell line".to_string());
+            }
+            if !condition.is_empty() {
+                // The same, for the same reason: `spell!` has no
+                // precondition, and a restriction on casting is a rule this
+                // DSL does not have (CR 601.2 has no place for one).
+                return self.deny("`IsPresent$` on a spell line".to_string());
             }
             let targets = chain
                 .target
@@ -2267,7 +2300,7 @@ mod tests {
     fn cats() -> SubtypeCatalogs {
         let mut c = SubtypeCatalogs {
             creature: vec!["Goblin".into(), "Wizard".into()],
-            land: vec!["Forest".into()],
+            land: vec!["Forest".into(), "Island".into(), "Mountain".into()],
             ..SubtypeCatalogs::default()
         };
         c.normalize();
@@ -2751,6 +2784,69 @@ mod tests {
             )),
             "the filter it named: {}",
             body.statics
+        );
+    }
+
+    /// The same family on an `A:` line, where it restricts *activating*
+    /// rather than resolving: "Add {U}. Activate only if you control an
+    /// Island or a Mountain."
+    ///
+    /// The verge lands are the shape worth testing, because the pool holds
+    /// a hand-written one — Bleachbone Verge — that says the same thing
+    /// with the same `Condition::ControlCount`, so this is the one place a
+    /// reader and a person can be held against each other.
+    ///
+    /// It is also the arity trap: the one-argument `mana_ability!` takes
+    /// the **cost** as its only positional argument, so a condition beside
+    /// it has to spell `Cost::TAP` out or the effects would bind where the
+    /// cost goes.
+    #[test]
+    fn an_activation_clause_becomes_the_condition_on_the_ability() {
+        let script = "Name:Riverpyre Verge\nManaCost:no cost\nTypes:Land\n\
+             A:AB$ Mana | Cost$ T | Produced$ U | \
+             IsPresent$ Island.YouCtrl,Mountain.YouCtrl | SpellDescription$ Add {U}.\n";
+        let body = read(script);
+        assert_eq!(
+            body.abilities,
+            [concat!(
+                "mana_ability!(Cost::TAP, &[Effect::mana(ManaColor::Blue, 1)], ",
+                "condition = Some(Condition::ControlCount(&CHECK1, 1)))"
+            )]
+        );
+        assert!(
+            body.statics.contains(concat!(
+                "static CHECK1: Filter = Filter::Or(&[",
+                "Filter::And(&[Filter::HasSubtype(subtypes::land::ISLAND), Filter::ControlledByYou]), ",
+                "Filter::And(&[Filter::HasSubtype(subtypes::land::MOUNTAIN), Filter::ControlledByYou])]);"
+            )),
+            "the filter it named: {}",
+            body.statics
+        );
+
+        // A spell is cast and not activated, so there is nothing for the
+        // clause to restrict: `spell!` has no precondition and the line
+        // refuses by name rather than casting unconditionally.
+        let spell = parse(
+            "Name:X\nManaCost:U\nTypes:Instant\n\
+             A:SP$ Draw | NumCards$ 1 | IsPresent$ Island.YouCtrl\n",
+        );
+        assert!(transcode(&spell, &cats()).is_none());
+        assert_eq!(
+            refusal_reason(&spell, &cats()).as_deref(),
+            Some("`IsPresent$` on a spell line")
+        );
+
+        // And the family's other keys are claimed only where the clause
+        // itself was read: a `PresentZone$` with no `IsPresent$` beside it
+        // is still an unclaimed parameter, and still refuses the card.
+        let lone = parse(
+            "Name:X\nManaCost:no cost\nTypes:Land\n\
+             A:AB$ Mana | Cost$ T | Produced$ U | PresentZone$ Graveyard\n",
+        );
+        assert!(transcode(&lone, &cats()).is_none());
+        assert_eq!(
+            refusal_reason(&lone, &cats()).as_deref(),
+            Some("unclaimed parameter `Mana.PresentZone`")
         );
     }
 
