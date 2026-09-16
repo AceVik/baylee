@@ -13,12 +13,6 @@ static CHECK1: Filter = Filter::And(&[
     Filter::ControlledByYou,
 ]);
 
-static CHECK2: Filter = Filter::And(&[
-    Filter::CREATURE,
-    Filter::HasSupertype(SupertypeSet::LEGENDARY),
-    Filter::ControlledByYou,
-]);
-
 card!(
     index = index::RIVENDELL,
     oracle_id = "2550099d-b3e2-4eb6-9f36-0fc412828ca6",
@@ -36,7 +30,7 @@ card!(
         activated!(
             cost!("{1}{U}", TapSelf),
             &[Effect::scry(2)],
-            condition = Some(Condition::ControlCount(&CHECK2, 1))
+            condition = Some(Condition::ControlCount(&CHECK1, 1))
         ),
     ],
 );

@@ -70,9 +70,62 @@ impl CardBody {
         if !expr.contains(['(', '[', ',', ' ']) {
             return expr.to_string();
         }
+        // And the same filter written twice in one card is one filter, for
+        // the same reason: Rivendell prints "a legendary creature you
+        // control" in two sentences — the clause it enters under and the
+        // clause its ability asks — and was given two byte-identical
+        // statics, which is one thing under two names in a file whose whole
+        // job is to be read.
+        if let Some(name) = self.declared(prefix, expr) {
+            return name;
+        }
         let n = self.statics.matches("static ").count() + 1;
         let name = format!("{prefix}{n}");
         let _ = write!(self.statics, "static {name}: Filter = {expr};\n\n");
         name
+    }
+
+    /// The name this card already gave `expr`, if it gave it one.
+    ///
+    /// Matched on the **whole** declaration rather than by searching for the
+    /// expression anywhere in the text, because one filter is often a
+    /// substring of another: `Filter::And(&[A, B])` sits inside
+    /// `Filter::Or(&[Filter::And(&[A, B]), C])`, and a contains-test would
+    /// hand back the name of a filter that says something else.
+    ///
+    /// The prefix has to match too. A name is what the card calls the
+    /// thing, so `TARGET1` reused as the `CHECK` of a clause would read as
+    /// an ability aiming at what it is asking about.
+    fn declared(&self, prefix: &str, expr: &str) -> Option<String> {
+        self.statics.split("static ").skip(1).find_map(|block| {
+            let (name, rest) = block.split_once(": Filter = ")?;
+            let body = rest.strip_suffix(";\n\n")?;
+            (name.starts_with(prefix) && body == expr).then(|| name.to_string())
+        })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::CardBody;
+
+    /// Two sentences about the same filter are one `static`, and two
+    /// sentences about different ones are two — including the pair where
+    /// one filter is spelled inside the other, which is where a reader that
+    /// searched the text for the expression would go wrong.
+    #[test]
+    fn one_filter_is_named_once_however_often_the_card_says_it() {
+        let inner = "Filter::And(&[Filter::CREATURE, Filter::ControlledByYou])";
+        let outer = format!("Filter::Or(&[{inner}, Filter::LAND])");
+        let mut body = CardBody::default();
+        assert_eq!(body.filter_static("CHECK", inner), "CHECK1");
+        assert_eq!(body.filter_static("CHECK", inner), "CHECK1", "the same one");
+        assert_eq!(body.filter_static("CHECK", &outer), "CHECK2", "a wider one");
+        assert_eq!(
+            body.filter_static("TARGET", inner),
+            "TARGET3",
+            "the same expression under another prefix is another name"
+        );
+        assert_eq!(body.statics.matches("static ").count(), 3);
     }
 }
