@@ -632,11 +632,16 @@ from a curl recipe into a contract:
 | sign in | `POST /auth/login` `{email, password}` | `{token, expires_at}` |
 | who am I | `GET /me` | `{id, email, display_name, tag, handle}` |
 | who is that | `GET /players/{handle}` | `{id, display_name, tag, handle}`, `400` without a `#`, `404` for nobody |
-| decks | `GET /decks` | `[{id, name, cards, sideboard, commander}]` |
-| one deck | `GET /decks/{id}` | `{id, name, cards:[…], sideboard:[…], commander}` |
-| save a deck | `POST /decks` `{name, cards:["N Card Name"], sideboard, commander}` | `{deck_id}` |
+| decks | `GET /decks` | `[{id, name, cards, sideboard, commanders, sleeve, playmat}]` |
+| one deck | `GET /decks/{id}` | `{id, kind, name, format, description, cards:[…], sideboard:[…], commanders:[…], version}` |
+| save a deck | `POST /decks` `{name, cards:["N Card Name"], sideboard, commanders, format?, description?, summary?}` | `{deck_id}` |
 | edit one | `PUT /decks/{id}` — same body | `204` |
 | throw one away | `DELETE /decks/{id}` | `204` |
+| what anybody may play | `GET /decks/shared` | `[{id, kind, name, format, description, cards, sideboard, commanders, version}]` |
+| take a copy | `POST /decks/{id}/copy` | `{deck_id}` |
+| what it used to be | `GET /decks/{id}/history` | `{version, updated_at, past:[{version, cards, sideboard, commanders, summary, superseded_at}]}` |
+| one earlier state | `GET /decks/{id}/versions/{v}` | that state's rows in full, plus `current` |
+| put one back | `POST /decks/{id}/versions/{v}/revert` | `{version}` — the **new** number |
 | upload a sleeve or mat | `POST /images?kind=sleeve\|playmat`, the image as the raw body | `{id, kind}` |
 | fetch one | `GET /images/{id}` | the stored JPEG |
 | what a table wears | `GET /games/{id}/cosmetics?token=…` | `{"<seat>":{sleeve, playmat}}` |
@@ -654,6 +659,37 @@ Everything but the two auth calls, `/auth/config`, `/pool` and `/printings`
 takes `Authorization: Bearer <token>`. A refusal is `{"error":"…"}` with a
 status, and the string is written to be shown to a player as-is — the lobby
 does.
+
+**A deck has a kind, and only one of the three has an owner.** `account` is
+a player's own; `preconstructed` is a retail product; `house` is what this
+project publishes to be played with. The database holds both halves of that
+with a `CHECK` — `(kind = 'account') = (account_id IS NOT NULL)` — so a
+house deck cannot acquire an owner and a player's deck cannot lose one, and
+`GET /decks` (yours) and `GET /decks/shared` (everyone's) are two questions
+rather than one filtered list. `POST /decks/{id}/copy` is how the second
+becomes the first: the copy is an ordinary deck of the caller's own, naming
+what it came from as `copied_from` plus `copied_version` — the *state* that
+was copied, so it still says what it came from after the original has moved
+on. A copy starts with the generated card back, because a sleeve and a mat
+are pictures the image store hands out by account.
+
+**A deck's history is what it no longer holds.** The deck row is the
+present and carries `version`; `deck_version` holds only states that have
+been left behind, so the two can never disagree about what the deck holds
+now — and `GET /decks/{id}/history` therefore returns the past *underneath*
+a `version` that is the deck itself. A save that changes no list writes no
+version. `POST /decks/{id}/versions/{v}/revert` is **not** a rewind: it
+saves version *v*'s lists as a new change, archiving the present exactly as
+any other save does, and answers the new number. So a revert is revertible
+and nothing in a history is ever removed or rewritten — which is also why
+`(deck_id, version)` is a primary key with no `ON CONFLICT`: a racing save
+fails loudly rather than quietly writing a second past.
+
+`commanders` is a list because of the partner rule (CR 702.124), and the
+gateway checks it: at most two, each one a card the rules may seat, and the
+pair itself legal under `baylee_cards::decks::may_lead_together`. A `/pool`
+row carries `commander` as *eligibility* and no `PartnerKind`, so the
+builder can still only name one — the pool row is the thing to widen.
 
 **`POST /lobby/games/{id}/seat` is the way back to a chair you are already
 in**, and it is not a join. It names no deck, moves nobody, and changes
