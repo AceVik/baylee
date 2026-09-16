@@ -188,6 +188,14 @@ fn parse_cost(text: &str) -> Option<String> {
             && let Some(n) = rest.strip_suffix(" life").and_then(number)
         {
             parts.push(format!("PayLife({n})"));
+        } else if token == "Tap an untapped creature you control" {
+            // The convoke land's other half. One printed phrase and no noun
+            // parsing at all, which is the honesty rule rather than laziness:
+            // the same sentence names a Gate on Heap Gate and a *legendary*
+            // creature on Dungeon Descent, and a reader that guessed at the
+            // noun would emit a filter nobody wrote. Those refuse here and
+            // stay stubs until the phrase is read for real.
+            parts.push("TapOther(&Filter::YOUR_CREATURE)".to_string());
         } else if token.starts_with('{') && symbols(token).is_some() {
             if !mana.is_empty() {
                 return None;
@@ -711,6 +719,40 @@ mod tests {
             body.abilities[1],
             "activated!(cost!(\"{1}\", TapSelf, SacrificeSelf), &[Effect::draw(1)])"
         );
+    }
+
+    /// The convoke land, which is two mana abilities on one `{T}` and the
+    /// only land shape whose cost taps something that is not itself.
+    #[test]
+    fn a_convoke_land_taps_a_creature_beside_its_own_tap() {
+        let body = read(
+            "Land — Desert",
+            "{T}: Add {C}.\n{T}, Tap an untapped creature you control: Add one mana of any color.",
+        );
+        assert_eq!(
+            body.abilities[1],
+            concat!(
+                "mana_ability!(cost!(TapSelf, TapOther(&Filter::YOUR_CREATURE)), ",
+                "&[Effect::mana_of_any_color()])"
+            )
+        );
+    }
+
+    /// The same sentence with a different noun, which this reader cannot
+    /// build a filter for — so the card is refused whole rather than
+    /// transcoded with a creature filter it never printed. Heap Gate and
+    /// Dungeon Descent are the two live cases.
+    #[test]
+    fn the_same_phrase_with_another_noun_refuses_the_card() {
+        for noun in ["Gate", "legendary creature", "artifact"] {
+            let oracle = format!(
+                "{{T}}: Add {{C}}.\n{{T}}, Tap an untapped {noun} you control: Add one mana of any color."
+            );
+            assert!(
+                super::read(&card("Land", &oracle), &cats()).is_err(),
+                "an unread noun has to refuse the card: {noun}"
+            );
+        }
     }
 
     #[test]
