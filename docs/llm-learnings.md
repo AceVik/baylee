@@ -653,3 +653,81 @@ Two lessons, and the second is the one worth keeping:
   and a `codegen --check` that passed, and it did not work. Card data being
   well-formed says nothing about the rules behind it running. The mechanic
   has to be *played* once in an engine test, and the test has to be run.
+
+## 2026-09-16 — two cheap models, 27 cards, and the eight tests that failed
+
+The four Commander decks' open stubs, split into two disjoint batches and
+handed to **Gemini 3.8 Flash** (through `agy`) and **DeepSeek V4.1 Flash**
+(through its Anthropic-shaped API, non-agentic: one cacheable 241 KB prefix
+holding `docs/card-dsl.md`, the whole DSL vocabulary, `filters.rs`,
+`tokens.rs` and four finished cards). Both lanes wrote files and neither ran
+`cargo`; the build, the tests and the commit stayed here. 27 cards landed —
+24 `Coverage::Partial`, 3 `Implemented` — taking the pool from 718 to 745
+finished.
+
+Then the same DeepSeek lane was asked for **one engine test per card**, with
+the testkit, the shared helpers, the choice taxonomy and one whole finished
+test file as its context. Twenty-seven came back and **nineteen passed on
+the first build**. That ratio is the entry: a model that cannot run the code
+writes a plausible test, and plausible is not the same as right.
+
+### Seven of the eight failures were the *harness*, not the card
+
+Each is now a comment in the test where the next reader will need it, and
+each belongs in the next batch's prompt:
+
+1. **`tap_all_mana` is the intrinsic list.** It taps what CR 305.6 gives a
+   basic land type, so it taps a Forest and never Mana Vault, whose `{T}` is
+   a printed ability activated by index. Three of the 27 assumed it meant
+   "tap everything that makes mana".
+2. **Affordability is read off the mana *pool*, not off what could still be
+   tapped.** This one cost three tests in three different disguises:
+   Endurance's printed `{1}{G}{G}` was not an option beside its evoke cost,
+   so the wizard had one mode and never asked; Malevolent Hermit's `{U}`
+   ability was missing from the offer entirely; and Mystic Remora's `{4}`
+   was never asked at all, because `Effect::PlayerMayPayOr` fires its
+   fallback outright at a seat whose pool cannot cover the tax. The last of
+   those is an engine simplification worth knowing: a player may in the
+   rules tap lands *during* resolution, and here they may not.
+3. **"You control a commander" is a battlefield sentence.**
+   `casting::controls_a_commander` asks the zone, so a commander waiting in
+   the command zone does not turn on Deflecting Swat's free cast.
+4. **A target requirement that is only a player arrives as
+   `Pending::ChoosePlayer`.** The cast wizard branches on
+   `TargetSpec::AnyPlayer` *before* the object half of targeting, so there
+   is no `ChooseTargets` with an empty object list to inspect.
+5. **A gap-strike needs a control that is not confounded.** Archon of
+   Emeria's missing "nonbasic lands your opponents control enter tapped" was
+   struck by playing Irrigated Farmland, which enters tapped by its own
+   text: the assertion would have passed for a reason with nothing to do
+   with the Archon.
+
+### The eighth was a wrong card, and a gate caught it
+
+Mikaeus, the Unhallowed claimed intimidate on his face and granted undying
+through a static. **No engine rule reads either bit** — `ENFORCED` in
+`keyword_tests` is the list — and the two halves were treated completely
+differently: the face failed the lint on the first compile, and the grant
+was invisible, because `CardDef::all_keywords` reads faces. Worse, the test
+DeepSeek wrote *agreed with the wrong card*: it asserted that the Elf came
+back. A model writes the test its own card deserves, so a test passing is
+evidence about the pair and not about the card.
+
+Both bits came off the card, and the lint now reads every `KeywordSet` in
+the card's whole `Debug` rendering instead of a list of places to look
+(`no_card_mentions_a_keyword_the_engine_ignores`).
+
+### Prompt rules this batch earns
+
+- Never claim a keyword outside `keyword_tests::ENFORCED`, on a face **or**
+  through `Modifier::AddKeyword`, a pump's `keywords`, or a `CopyMod`.
+- Before asserting that an ability is offered or a spell castable, put the
+  mana in the pool: `tap_all_mana` first, and add lands until the pool
+  covers the cost twice over if a tax is to be *asked* rather than skipped.
+- `tap_all_mana` does not tap a nonland permanent's printed mana ability.
+- Read the question shape off `choice.rs` rather than assuming
+  `ChooseTargets`: a player-only requirement is `ChoosePlayer`, a cost
+  sacrifice is `ChooseCards { prompt: CostSacrifice }`, an alternative cost
+  is `ChooseCastMode` — and only when more than one mode is affordable.
+- When striking a `Coverage::Partial` gap, pick a control that cannot
+  produce the asserted outcome for any other reason.

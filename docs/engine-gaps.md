@@ -634,6 +634,18 @@ land with "enters tapped unless you pay 1 life", through
 and tap lands (Command Bridge) profit only with G1's `CostPart`s — 31 of the
 36 hang on that.
 
+**(f)** A second sentence of that effect is simplified in a way nothing
+records: `resolve/mod.rs` fires the *fallback* outright when the asked
+player's **mana pool** does not already cover the tax ("if they can't pay,
+the fallback fires immediately"). CR 605.3a says the opposite in as many
+words — a player may activate a mana ability "whenever a rule or effect asks
+for a mana payment, even if it's in the middle of … resolving an ability" —
+so a seat with four untapped Swamps and an empty pool is here never asked at
+all. Measured on Mystic Remora, whose `{4}` simply did not
+appear; the Remora's engine test taps the lands first and says why. Whether
+this becomes a real payment window is the same decision as the mana
+planner's, and it is bigger than the field change above.
+
 ### 5. G5 — no "doesn't untap" — **the mandatory half shipped (2026-09-16)**
 
 `Modifier::DoesNotUntap`, read by `progress::untap_step`, and Basalt Monolith
