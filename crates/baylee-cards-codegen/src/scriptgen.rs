@@ -1131,7 +1131,24 @@ impl Tx<'_> {
 
     /// `T:Mode$ …` as a `Trigger` expression.
     fn trigger_expr(&mut self, p: &mut Params, mode: &str) -> Option<String> {
-        p.take("TriggerZones");
+        // Where the ability triggers **from**. This used to be taken and
+        // thrown away, which is the one thing this reader is not allowed to
+        // do: `AbilityDef::Triggered` carries no zone, the engine collects
+        // triggers off the battlefield (plus CR 603.10's look-back and the
+        // command zone's emblems), so a `TriggerZones$ Graveyard` read as an
+        // ordinary trigger is a card whose ability can never fire and a
+        // `Coverage::Implemented` that says otherwise.
+        //
+        // Five corpus scripts were being read this way, and all five are
+        // Vanguard avatars whose trigger fires from the command zone:
+        // Fallen Angel, Gerrard, Rofellos, Royal Assassin and Rumbling Slum.
+        // None of them is a card this pool compiles — `Vanguard` is not a
+        // card type here — so nothing in the tree changes, which is what
+        // makes this the cheapest possible moment to shut the door.
+        match p.take("TriggerZones").as_deref() {
+            None | Some("Battlefield") => {}
+            Some(zones) => return self.deny(format!("`TriggerZones$ {zones}`")),
+        }
         match mode {
             "ChangesZone" => {
                 let origin = p.take("Origin");
@@ -2518,6 +2535,37 @@ mod tests {
         let text = body.abilities.join("\n");
         assert!(text.contains("Effect::PumpFilter"), "{text}");
         assert!(text.contains("filter: &Filter::This"), "{text}");
+    }
+
+    /// A trigger that fires from somewhere other than the battlefield is
+    /// refused, rather than quietly relocated to it.
+    ///
+    /// `AbilityDef::Triggered` carries no zone and the engine collects
+    /// triggers off the battlefield, so a `TriggerZones$ Command` read as
+    /// an ordinary trigger is an ability that can never fire on a card
+    /// claiming `Coverage::Implemented` — worse than the stub it replaced.
+    /// The same line without the key is read as it always was, which is the
+    /// half that says the refusal is about the zone and not about the
+    /// trigger.
+    #[test]
+    fn a_trigger_that_fires_from_another_zone_is_refused_rather_than_relocated() {
+        let elsewhere = "Name:X\nTypes:Creature\nPT:1/1\n\
+             T:Mode$ ChangesZone | TriggerZones$ Command | Origin$ Battlefield | \
+             Destination$ Graveyard | ValidCard$ Creature.YouCtrl | Execute$ TrigDraw\n\
+             SVar:TrigDraw:DB$ Draw | NumCards$ 1\n";
+        let parsed = parse(elsewhere);
+        assert!(transcode(&parsed, &cats()).is_none());
+        assert_eq!(
+            refusal_reason(&parsed, &cats()).as_deref(),
+            Some("`TriggerZones$ Command`")
+        );
+
+        let here = parse(&elsewhere.replace("TriggerZones$ Command", "TriggerZones$ Battlefield"));
+        assert!(
+            transcode(&here, &cats()).is_some(),
+            "the same trigger on the battlefield: {:?}",
+            refusal_reason(&here, &cats())
+        );
     }
 
     /// A counter word the DSL registry has an id for reaches the card as
