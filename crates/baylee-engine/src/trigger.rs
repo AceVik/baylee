@@ -290,17 +290,7 @@ fn collect_for_objects(
             else {
                 continue;
             };
-            let applies = match &fx.filter {
-                crate::effects::EffectFilter::ObjectIs(id) => *id == permanent,
-                crate::effects::EffectFilter::Dsl(filter) => eval::matches(
-                    filter,
-                    state,
-                    obj,
-                    fx.controller,
-                    fx.source.unwrap_or(permanent),
-                ),
-            };
-            if !applies {
+            if !crate::effects::applies_to(state, fx, obj) {
                 continue;
             }
             for entry in events {

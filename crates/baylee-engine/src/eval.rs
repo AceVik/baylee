@@ -269,17 +269,8 @@ pub fn protected_from(state: &GameState, object: ObjectId, source: ObjectId) -> 
         let baylee_cards_dsl::Modifier::ProtectionFrom(f) = fx.modifier else {
             return false;
         };
-        let applies = match &fx.filter {
-            crate::effects::EffectFilter::ObjectIs(id) => *id == object,
-            crate::effects::EffectFilter::Dsl(filter) => matches(
-                filter,
-                state,
-                obj,
-                fx.controller,
-                fx.source.unwrap_or(object),
-            ),
-        };
-        applies && matches(f, state, src, fx.controller, fx.source.unwrap_or(source))
+        crate::effects::applies_to(state, fx, obj)
+            && matches(f, state, src, fx.controller, fx.source.unwrap_or(source))
     })
 }
 

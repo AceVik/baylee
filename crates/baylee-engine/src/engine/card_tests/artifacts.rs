@@ -1393,3 +1393,171 @@ fn skullclamp_clamps_a_one_one_into_the_graveyard_and_draws_two_for_it() {
          without filling the hand would satisfy the count above"
     );
 }
+
+// oracle_id = "6b8cf2a0-b045-4d91-9d91-c602d40c6237"
+fn basalt_monolith() -> CardIndex {
+    card_index("6b8cf2a0-b045-4d91-9d91-c602d40c6237")
+}
+
+/// Basalt Monolith ({3}): "This artifact doesn't untap during your untap
+/// step. {T}: Add {C}{C}{C}. {3}: Untap this artifact."
+///
+/// **The three Forests are the test, not the scenery.** A permanent that is
+/// still tapped after an untap step proves nothing on its own — an untap
+/// step that never ran leaves everything tapped and passes. The Forests are
+/// tapped in the same turn as the Monolith and have to come back in the same
+/// step it does not, which is what tells a rule from a missing turn.
+///
+/// The rule is CR 502.3: the active player *determines* which of their
+/// permanents untap, and "effects can keep one or more of a player's
+/// permanents from untapping". What kind of effect that is, is CR 613.11 —
+/// one that modifies a game rule rather than an object — so nothing about
+/// the Monolith's characteristics changes and the untap step reads the
+/// effect table instead.
+///
+/// The card's own way out is played too: `{3}` untaps it at instant speed,
+/// and the artifact then taps for `{C}{C}{C}` again, which is the whole
+/// printed card in one scenario.
+#[test]
+fn basalt_monolith_stays_tapped_while_the_lands_beside_it_untap() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(7731, forest())
+        .battlefield(0, &[basalt_monolith(), forest(), forest(), forest()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let monolith =
+        on_battlefield(&engine, p0, basalt_monolith()).expect("the Monolith is on the table");
+    let forests: Vec<ObjectId> = engine
+        .state()
+        .zones
+        .list(ZoneLocation::Battlefield)
+        .iter()
+        .copied()
+        .filter(|id| {
+            engine
+                .state()
+                .object(*id)
+                .is_some_and(|o| o.card.is_some_and(|c| c.index == forest()))
+        })
+        .collect();
+    assert_eq!(forests.len(), 3, "three Forests were dealt");
+
+    tap_all_mana(&mut engine, p0);
+    // Index 1: the static ability is index 0 and takes no activation.
+    activate(&mut engine, p0, basalt_monolith(), 1);
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Colorless),
+        3,
+        "{{C}}{{C}}{{C}} off the Monolith, and no stack: a mana ability \
+         resolves as it is activated (CR 605.3b)"
+    );
+    assert!(is_tapped(&engine, monolith), "which tapped it");
+    assert!(
+        forests.iter().all(|id| is_tapped(&engine, *id)),
+        "and the Forests are tapped in the same turn"
+    );
+
+    // Through the opponent's turn and back, because `walk_to_own_main`
+    // answers "you are already there" from the main phase this started in.
+    reach_their_main_phase(&mut engine, PlayerId::new(1));
+    assert!(
+        walk_to_own_main(&mut engine, p0),
+        "the Monolith's controller takes another turn"
+    );
+    assert!(
+        forests.iter().all(|id| !is_tapped(&engine, *id)),
+        "the untap step ran: every Forest is back. Without this the \
+         assertion below is satisfied by a game that never reached CR 502.3"
+    );
+    assert!(
+        is_tapped(&engine, monolith),
+        "and the Monolith alone stayed down — the printed sentence is an \
+         effect that keeps a permanent from untapping (CR 502.3), not a \
+         characteristic anything projects (CR 613.11)"
+    );
+
+    // The card's own way out, at index 2.
+    tap_all_mana(&mut engine, p0);
+    activate(&mut engine, p0, basalt_monolith(), 2);
+    assert!(
+        !stack_is_empty(&engine),
+        "untapping is no mana ability, so it uses the stack"
+    );
+    assert!(is_tapped(&engine, monolith), "and has not happened yet");
+    pass_until(&mut engine, stack_is_empty);
+    assert!(
+        !is_tapped(&engine, monolith),
+        "{{3}} buys the untap the untap step would not give"
+    );
+
+    activate(&mut engine, p0, basalt_monolith(), 1);
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Colorless),
+        3,
+        "and it taps for three again, which is what the card is for"
+    );
+}
+
+// oracle_id = "229d6627-1292-4ae1-8849-b0f956fa6540"
+fn grim_monolith() -> CardIndex {
+    card_index("229d6627-1292-4ae1-8849-b0f956fa6540")
+}
+
+/// Grim Monolith ({2}): the same held-down artifact for one mana less, and
+/// the untap costs `{4}` where Basalt Monolith's costs `{3}`.
+///
+/// Written because the difference is the *only* thing a second copy of the
+/// rule is worth testing. The three colourless the artifact just made are
+/// not four, so the way out is not even offered — an ability nobody is
+/// offered is how every cost this engine cannot pay is refused, and asking
+/// the offer is what tells a `{4}` in the card file from a `{3}`.
+#[test]
+fn grim_monolith_asks_four_for_the_untap_its_untap_step_will_not_give() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(9902, forest())
+        .battlefield(0, &[grim_monolith(), forest(), forest(), forest()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let monolith =
+        on_battlefield(&engine, p0, grim_monolith()).expect("the Monolith is on the table");
+    let offered = |engine: &Engine<RegistryLookup>| -> bool {
+        matches!(
+            engine.pending(),
+            Pending::Priority { legal, .. } if legal.abilities.contains(&(monolith, 2))
+        )
+    };
+
+    activate(&mut engine, p0, grim_monolith(), 1);
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Colorless),
+        3,
+        "three colourless off the artifact"
+    );
+    assert!(
+        !offered(&engine),
+        "and three is not four: the untap is not offered, which is how a \
+         cost this board cannot pay is refused"
+    );
+
+    tap_all_mana(&mut engine, p0);
+    assert!(offered(&engine), "with the Forests it is six, and it is");
+
+    assert!(is_tapped(&engine, monolith), "still tapped for now");
+    reach_their_main_phase(&mut engine, PlayerId::new(1));
+    assert!(walk_to_own_main(&mut engine, p0), "back to its controller");
+    assert!(
+        is_tapped(&engine, monolith),
+        "and the untap step left it alone, the same rule Basalt Monolith \
+         prints (CR 502.3)"
+    );
+}

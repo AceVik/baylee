@@ -2866,6 +2866,35 @@ impl<L: CardLookup> Engine<L> {
         }
     }
 
+    /// Whether an effect keeps `id` from untapping this untap step
+    /// (CR 502.3, and CR 613.11 for what kind of effect that is).
+    ///
+    /// One condition, and the missing second one is worth saying out loud:
+    /// **whose** untap step is already answered by the loop that calls
+    /// this. CR 502.3 untaps the permanents *the active player controls*
+    /// and no others, and every printing of the sentence names that same
+    /// player — Basalt Monolith says "during **your** untap step" about
+    /// itself, Paralyze says "during **its controller's** untap step" about
+    /// the creature it enchants, and the card-script reference writes both
+    /// as `ValidStepTurnToController$ You`, where "you" is the *affected*
+    /// card's controller rather than the effect's.
+    ///
+    /// Reading it as the effect's controller instead would have been a
+    /// one-word mistake that worked on the monoliths — an ability a
+    /// permanent has about itself puts all three players on the same seat —
+    /// and broke the 45 Auras that are the commonest printing of this
+    /// sentence: the Aura's controller is the one player whose untap step
+    /// the enchanted creature never untaps in anyway.
+    fn keeps_tapped(&self, id: ObjectId) -> bool {
+        let Some(obj) = self.state.object(id) else {
+            return false;
+        };
+        self.state.effects.iter().any(|fx| {
+            matches!(fx.modifier, baylee_cards_dsl::Modifier::DoesNotUntap)
+                && crate::effects::applies_to(&self.state, fx, obj)
+        })
+    }
+
     pub(crate) fn untap_step(&mut self) {
         let active = self.state.turn.active;
         let battlefield = self.state.zones.list(ZoneLocation::Battlefield).clone();
@@ -2887,12 +2916,22 @@ impl<L: CardLookup> Engine<L> {
             }
         }
         self.check_day_night();
+        // CR 502.3, the third turn-based action: "the active player
+        // determines which permanents they control will untap. Then they
+        // untap them all simultaneously. … effects can keep one or more of
+        // a player's permanents from untapping."
+        //
+        // The determination is the `keeps_tapped` call, and it is read off
+        // the effect table rather than off a projection: what a
+        // "doesn't untap" effect modifies is a rule and not a
+        // characteristic (CR 613.11), so there is nothing on the permanent
+        // to look at.
         for id in battlefield {
             let tapped = self
                 .state
                 .object(id)
                 .is_some_and(|o| o.controller == active && o.status.contains(Status::TAPPED));
-            if tapped {
+            if tapped && !self.keeps_tapped(id) {
                 if let Some(obj) = self.state.object_mut(id) {
                     obj.status.remove(Status::TAPPED);
                 }

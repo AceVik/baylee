@@ -634,7 +634,65 @@ land with "enters tapped unless you pay 1 life", through
 and tap lands (Command Bridge) profit only with G1's `CostPart`s — 31 of the
 36 hang on that.
 
-### 5. G5 — no "doesn't untap"
+### 5. G5 — no "doesn't untap" — **the mandatory half shipped (2026-09-16)**
+
+`Modifier::DoesNotUntap`, read by `progress::untap_step`, and Basalt Monolith
+and Grim Monolith are `Coverage::Implemented`. What shipped is the sentence
+with no choice and no duration in it; the other two are named at the end of
+this entry.
+
+**The design note below was wrong about the layer and is corrected here.** It
+proposed layer 6. CR 613.1f is layer 6 and it is about *abilities*; "doesn't
+untap" grants none. CR 502.3 is the rule being modified — "the active player
+determines which permanents they control will untap … effects can keep one or
+more of a player's permanents from untapping" — and CR 613.11 puts a
+continuous effect that modifies a game rule outside the layer order
+altogether. So it went where this repo already puts those: the `Layer::Text`
+bucket that `Modifier::layer` documents as "no layer at all", beside
+`NoMaxHandSize` and `PlayerHexproof`. Giving that bucket an honest `None`
+variant is still owed and is still a separate commit.
+
+**Whose untap step turned out not to be a question.** The obvious reading —
+the effect's controller's — works on the two monoliths, where an ability a
+permanent has about itself puts effect controller, permanent controller and
+active player on one seat. It does nothing at all on the commonest printing:
+45 of the 136 scripts the rule reads write `ValidCard$ …EnchantedBy`, which
+is an Aura, and Paralyze says "enchanted
+creature doesn't untap during **its controller's** untap step", which is the
+one player whose untap step the Aura's controller is not taking. The
+card-script reference writes both as `ValidStepTurnToController$ You`, so its
+"you" is the affected card's controller. CR 502.3 untaps the active player's
+permanents and no others, so by the time the untap step asks, there is no
+second player left to distinguish — and the engine carries no condition for
+it.
+
+The transcoder reads the reference's `R:Event$ Untap | … | Layer$ CantHappen`
+as a **static ability**, which is the same disagreement stated once more: the
+reference models it as a replacement, the rules make it a continuous effect
+replacing no event. Requiring `Layer$ CantHappen` is what keeps out the two
+scripts that really do replace an untap — one removes a counter instead, one
+puts two on. 136 of the 157 are the shape the rule reads; of the other 21,
+those two replace something, two name a step other than `You`, one lives in
+the command zone, and sixteen carry a further key (`Secondary$`,
+`IsPresent$`, `CheckSVar$`, `AddSVar$`, `SVarCompare$`, `EnduringStory$`).
+All of them stay refused with a reason.
+
+**What is still open here**, and each is its own commit:
+
+- **"You may choose not to untap"** — the five Ice Age storage lands and Ice
+  Floe. CR 502.3 gives the active player that determination, so it is a
+  *question* asked during the untap step, and CR 502.4's "no player receives
+  priority" does not forbid it — a determination is not priority.
+- **"Doesn't untap during your next untap step"** — the ten filter lands and
+  exert, which want `Duration::UntilYourNextUntapStep` on a created effect
+  rather than a static ability.
+- **The five depletion lands** need `Filter::HasCounter(CounterKind, u8)`,
+  which the pool still has no way to say; their scripts carry
+  `ValidCard$ Card.Self+counters_GE1_DEPLETION` and are refused on the filter.
+
+The reading below is what motivated the work and is kept as the argument.
+
+### 5b. G5 — the original note
 
 **(a)** `ReplacementRule`
 (`crates/baylee-cards-dsl/src/static_ability.rs:336-368` according to view

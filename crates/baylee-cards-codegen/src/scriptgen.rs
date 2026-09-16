@@ -109,6 +109,12 @@ const PROSE_KEYS: &[&str] = &[
     "AICheckSVar",
     "AISVarCompare",
     "AIPreference",
+    // Which mana the reference's own AI should rather spend — twelve
+    // scripts, and every value it takes is a colour, `Treasure` or
+    // `NotSameCard` (measured 2026-09-16). It changes no rule, which is
+    // the only thing that puts a key on this list; it is here because
+    // Basalt Monolith prints it beside `AILogic`, not to move a number.
+    "AIManaPref",
     "AICurse",
     "PrecostDesc",
     "CostDesc",
@@ -1222,6 +1228,9 @@ impl Tx<'_> {
         let Some((event, mut p)) = Params::parse(spec) else {
             return self.deny("an `R:` line with no `$` in it".to_string());
         };
+        if event == "Untap" {
+            return self.does_not_untap(&mut p);
+        }
         if event != "Moved" {
             self.note(format!("replacement `R: Event$ {event}`"));
             return None;
@@ -1280,6 +1289,81 @@ impl Tx<'_> {
             return None;
         }
         self.body.enter_modifiers.push(modifier);
+        Some(())
+    }
+
+    /// `R:Event$ Untap | … | Layer$ CantHappen` as
+    /// `Modifier::DoesNotUntap`.
+    ///
+    /// **A static ability and not a replacement**, although the reference
+    /// writes it on an `R:` line. CR 502.3 makes untapping a turn-based
+    /// action whose *determination* an effect changes, and CR 613.11 calls
+    /// that a continuous effect modifying a game rule — there is no event
+    /// being replaced with another. `Layer$ CantHappen` is the reference's
+    /// own word for the same thing, and requiring it is what keeps the two
+    /// scripts that really do replace the untap (with a counter removal)
+    /// out of this rule.
+    ///
+    /// 157 scripts print the line and 136 are exactly this shape. Every key
+    /// is claimed or the card is refused, which is what leaves the rest
+    /// out: `IsPresent$` is a static that is only sometimes on,
+    /// `CheckSVar$` a computed condition, `ReplaceWith$` a real
+    /// replacement, and `Secondary$` a reference-side marker that is not on
+    /// the prose list and will not be put there to move a number.
+    fn does_not_untap(&mut self, p: &mut Params) -> Option<()> {
+        p.drop_prose();
+        // The battlefield is where a permanent untaps, and it is CR 113.6's
+        // default — written out on 96 of the scripts and left off the other
+        // 40. `Command` is Kaito's, which is a different card entirely.
+        if let Some(zone) = p.take("ActiveZones")
+            && zone != "Battlefield"
+        {
+            self.note(format!("a `doesn't untap` from `ActiveZones$ {zone}`"));
+            return None;
+        }
+        // Whose untap step. Every printing says "your", and the variant is
+        // documented as the effect controller's — so anything else here is
+        // a rule this side cannot say rather than one it may assume.
+        match p.take("ValidStepTurnToController").as_deref() {
+            Some("You") => {}
+            other => {
+                return self.deny(format!(
+                    "a `doesn't untap` during `{}`",
+                    other.unwrap_or("any untap step")
+                ));
+            }
+        }
+        match p.take("Layer").as_deref() {
+            Some("CantHappen") => {}
+            other => {
+                return self.deny(format!(
+                    "an untap replacement on layer `{}`",
+                    other.unwrap_or("none")
+                ));
+            }
+        }
+        let Some(valid) = p.take("ValidCard") else {
+            return self.deny("a `doesn't untap` with no `ValidCard$`".to_string());
+        };
+        // Inlined rather than hoisted into a `static`, the way the `S:` path
+        // one function down does it: `static_ability!` is a `const fn` over
+        // a `Filter` *value*, and a `static` item cannot be read in a const
+        // context.
+        let filter = if valid == "Card.Self" {
+            "Filter::This".to_string()
+        } else {
+            self.filter_expr(&valid)?
+        };
+        if !p.exhausted() {
+            self.note(format!(
+                "a `doesn't untap` with `{}`",
+                p.first_key().unwrap_or_default()
+            ));
+            return None;
+        }
+        self.body
+            .abilities
+            .push(Self::static_expr(&filter, "Modifier::DoesNotUntap"));
         Some(())
     }
 
@@ -2320,6 +2404,35 @@ mod tests {
         assert!(text.contains("toughness: Amount::NegXFixed(1)"), "{text}");
     }
 
+    /// "Doesn't untap during your untap step" is an `R:` line in the
+    /// reference and a **static ability** here, because CR 613.11 makes it a
+    /// continuous effect modifying a game rule rather than a replacement of
+    /// any event. Basalt Monolith is the card, and the whole of it is read:
+    /// the rule, the mana ability and the way out.
+    #[test]
+    fn a_cant_happen_untap_replacement_is_a_static_ability() {
+        let body = read(
+            "Name:Basalt Monolith\nManaCost:3\nTypes:Artifact\n\
+             R:Event$ Untap | ValidCard$ Card.Self | ValidStepTurnToController$ You | \
+             Layer$ CantHappen | Description$ This artifact doesn't untap.\n\
+             A:AB$ Mana | Cost$ T | Produced$ C | Amount$ 3\n\
+             A:AB$ Untap | Cost$ 3\n",
+        );
+        assert_eq!(
+            body.abilities,
+            [
+                "static_ability!(Filter::This, Modifier::DoesNotUntap)",
+                "mana_ability!(&[Effect::mana(ManaColor::Colorless, 3)])",
+                "activated!(cost!(\"{3}\"), &[Effect::UntapSelf])",
+            ]
+        );
+        assert!(
+            body.statics.is_empty(),
+            "`Card.Self` is `Filter::This` and needs no `static`: {}",
+            body.statics
+        );
+    }
+
     /// `Defined$ Self` is the source, not the target, even inside an
     /// ability that has one.
     #[test]
@@ -2798,6 +2911,27 @@ mod tests {
                  A:AB$ Untap | Cost$ Return<X/Forest> | ValidTgts$ Creature",
                 "a cost returning `X` permanents",
             ),
+            // "Doesn't untap" is a rule about *your* untap step and about
+            // nothing else this reader can say. Both keys are required
+            // rather than defaulted: one script leaves the step off and two
+            // replace the untap with a counter removal instead of stopping
+            // it, and neither is this modifier.
+            (
+                "Name:X\nTypes:Artifact\n\
+                 R:Event$ Untap | ValidCard$ Card.Self | Layer$ CantHappen",
+                "a `doesn't untap` during `any untap step`",
+            ),
+            (
+                "Name:X\nTypes:Artifact\n\
+                 R:Event$ Untap | ValidCard$ Card.Self | \
+                 ValidStepTurnToController$ You | ReplaceWith$ RepRemoveCounter",
+                "an untap replacement on layer `none`",
+            ),
+            (
+                "Name:X\nTypes:Artifact\nR:Event$ Untap | \
+                 ValidStepTurnToController$ You | Layer$ CantHappen",
+                "a `doesn't untap` with no `ValidCard$`",
+            ),
             // The one `transcode` refuses after every rule has been read.
             (
                 "Name:X\nTypes:Creature",
@@ -2841,6 +2975,12 @@ mod tests {
              A:AB$ Untap | Cost$ Return<1/Forest> | ValidTgts$ Creature",
             "Name:X\nTypes:Creature\n\
              A:AB$ Untap | Cost$ Return<1/CARDNAME> | ValidTgts$ Creature",
+            "Name:X\nTypes:Artifact\n\
+             R:Event$ Untap | ValidCard$ Card.Self | \
+             ValidStepTurnToController$ You | Layer$ CantHappen",
+            "Name:X\nTypes:Artifact\n\
+             R:Event$ Untap | ActiveZones$ Battlefield | ValidCard$ Card.Self | \
+             ValidStepTurnToController$ You | Layer$ CantHappen",
         ] {
             let parsed = parse(script);
             assert!(

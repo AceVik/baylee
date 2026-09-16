@@ -131,6 +131,39 @@ pub enum Modifier {
     /// makes the search choices and the found cards go to exile playable
     /// by them (Opposition Agent).
     SearchTakeover,
+    /// The affected permanent does not untap during the untap step of the
+    /// effect's controller (Basalt Monolith, Grim Monolith).
+    ///
+    /// **A rule, not a characteristic.** CR 502.3 is the turn-based action
+    /// this changes — "the active player determines which permanents they
+    /// control will untap … effects can keep one or more of a player's
+    /// permanents from untapping" — and CR 613.11 puts an effect that
+    /// modifies a game rule outside the layer order entirely. So it lives in
+    /// the `Layer::Text` bucket beside [`Self::NoMaxHandSize`] and the rest,
+    /// which [`Modifier::layer`] documents as "no layer at all". Layer 6
+    /// would be wrong on the rules: CR 613.1f is about *abilities*, and this
+    /// grants none.
+    ///
+    /// **Whose untap step is the affected permanent's controller's**, and
+    /// that is not the same as the effect's controller. Basalt Monolith says
+    /// "during **your** untap step" about itself and Paralyze says "during
+    /// **its controller's** untap step" about the creature it enchants; the
+    /// card-script reference writes both as
+    /// `ValidStepTurnToController$ You`, so its "you" is the affected card's
+    /// controller and not the Aura's. The engine needs no condition for it
+    /// at all: CR 502.3 untaps the permanents the active player controls and
+    /// no others, so by the time `progress::untap_step` asks, that player is
+    /// the only answer left. Reading it the other way would have worked on
+    /// the two monoliths — an ability a permanent has about *itself* puts
+    /// all three players on one seat — and done nothing at all on the 45
+    /// Auras that are the commonest printing of this sentence.
+    ///
+    /// **Not the same as the other two sentences Magic prints here.** "You
+    /// may choose not to untap" is a question CR 502.3 lets the active
+    /// player answer, and "doesn't untap during your **next** untap step" is
+    /// a created effect with a duration. Neither is this, and neither is
+    /// spelled with this variant.
+    DoesNotUntap,
     /// The affected object gains types while it has at least N counters
     /// of a kind (station's "artifact creature at 8+").
     AddTypeIfCountersAtLeast {
@@ -286,7 +319,8 @@ impl Modifier {
             | Self::PlayerHexproof
             | Self::SorceriesHaveFlash
             | Self::ManaIsAnyColor
-            | Self::SearchTakeover => Layer::Text,
+            | Self::SearchTakeover
+            | Self::DoesNotUntap => Layer::Text,
         }
     }
 }

@@ -547,7 +547,10 @@ fn apply(
         | Modifier::SorceriesHaveFlash
         | Modifier::GrantTriggered { .. }
         | Modifier::ManaIsAnyColor
-        | Modifier::SearchTakeover => {}
+        | Modifier::SearchTakeover
+        // CR 613.11: a rule, so there is no characteristic to write. The
+        // untap step reads it (`progress::untap_step`).
+        | Modifier::DoesNotUntap => {}
         Modifier::ModifyPT(p, t) => {
             if let Some(power) = &mut c.power {
                 *power = power.saturating_add(*p);

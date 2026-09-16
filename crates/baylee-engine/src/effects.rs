@@ -79,7 +79,11 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::PlayerHexproof
         | Modifier::SorceriesHaveFlash
         | Modifier::ManaIsAnyColor
-        | Modifier::SearchTakeover => false,
+        | Modifier::SearchTakeover
+        // CR 611.2c locks the set for an effect that changes
+        // characteristics or control; this changes a rule, so a permanent
+        // that arrives later and matches the filter is kept tapped too.
+        | Modifier::DoesNotUntap => false,
     }
 }
 
@@ -198,22 +202,49 @@ pub fn granted_activated(
         else {
             return None;
         };
-        let applies = match &fx.filter {
-            EffectFilter::ObjectIs(id) => *id == source,
-            EffectFilter::Dsl(filter) => crate::eval::matches(
-                filter,
-                state,
-                obj,
-                fx.controller,
-                fx.source.unwrap_or(source),
-            ),
-        };
-        applies.then_some(GrantedAbility {
+        applies_to(state, fx, obj).then_some(GrantedAbility {
             cost: *cost,
             effects,
             mana_ability: *mana_ability,
         })
     })
+}
+
+/// Whether a continuous effect reaches `obj`.
+///
+/// The one reader of "is this effect about this object", and it was three
+/// byte-identical copies before it was a function — in `granted_activated`
+/// below, in `eval::protected_from` and in `trigger.rs`'s granted-trigger
+/// walk. Three copies of a predicate is three chances for one of them to
+/// answer a new [`EffectFilter`] variant differently from its neighbours,
+/// and the fourth caller (`progress::untap_step`) is what made writing it
+/// out a fourth time the wrong move.
+///
+/// `fx.source.unwrap_or(obj.id)` is the "this" a filter is resolved
+/// against. An effect with no source is an emblem's or a rule's, and there
+/// is nothing better to point [`Filter::This`] at than the object being
+/// asked about — which is what all three copies already did.
+///
+/// Not [`crate::layers`]'s `matches_projected`: that one asks the same
+/// question of a *projection being built*, where reading a characteristic
+/// this effect is about to change is the CR 613.8 dependency problem. Here
+/// the projection is finished.
+#[must_use]
+pub fn applies_to(
+    state: &crate::state::GameState,
+    fx: &ContinuousEffect,
+    obj: &crate::object::GameObject,
+) -> bool {
+    match &fx.filter {
+        EffectFilter::ObjectIs(id) => *id == obj.id,
+        EffectFilter::Dsl(filter) => crate::eval::matches(
+            filter,
+            state,
+            obj,
+            fx.controller,
+            fx.source.unwrap_or(obj.id),
+        ),
+    }
 }
 
 /// One granted activated ability, as the engine and the view both read it.
