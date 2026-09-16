@@ -1,0 +1,799 @@
+//! Behavioral card tests on the shared [`testkit`]: the pattern for the
+//! card pool going forward. Each test is deliberately small — the kit
+//! carries the duel plumbing, the test carries only the card's rules
+//! text as a scenario.
+//!
+//! # Where a test sits
+//!
+//! A test goes with **the card it plays**, under the same door `cards/`
+//! puts that card behind — a creature's scenario in `creatures`, a land's
+//! in `lands`. A scenario that reaches a *rule* rather than a card is in
+//! `rules`: it still plays a printing, because the engine advances no
+//! other way, but the card there is an example and not the subject.
+//!
+//! # What stays here, and why it has to
+//!
+//! Every non-test item — the card handles, `activate`, `keywords`,
+//! `tap_all_mana`, `library_size` — stays in this file. That is not tidiness
+//! but visibility: a child module reaches its parent's private items through
+//! `use super::*`, and a **sibling** reaches nothing at all. A helper moved
+//! into `creatures` would be invisible to `lands`, and the twenty of them
+//! that the pool's tests lean on are shared across every door. So the split
+//! moves `#[test]` functions and nothing else, which is also what makes it
+//! reviewable: no item was rewritten, only re-filed.
+
+mod artifacts;
+mod creatures;
+mod enchantments;
+mod instants;
+mod lands;
+mod planeswalkers;
+mod rules;
+mod sorceries;
+
+use super::testkit::*;
+
+use super::*;
+
+use baylee_core::mana::ManaColor;
+
+fn forest() -> baylee_core::ids::CardIndex {
+    card_index("b34bb2dc-c1af-4d77-b0b3-a0fb342a5fc6")
+}
+
+fn plains() -> baylee_core::ids::CardIndex {
+    card_index("bc71ebf6-2056-41f7-be35-b2e5c34afa99")
+}
+
+fn island() -> baylee_core::ids::CardIndex {
+    card_index("b2c6aa39-2d2a-459c-a555-fb48ba993373")
+}
+
+fn earth_king_s_lieutenant() -> baylee_core::ids::CardIndex {
+    card_index("9da9248d-1201-447f-b6c2-2b64af4f71c4")
+}
+
+fn ondu_cleric() -> baylee_core::ids::CardIndex {
+    card_index("f4232466-dd6a-49bf-be6c-95905c3ded17")
+}
+
+fn counterspell() -> baylee_core::ids::CardIndex {
+    card_index("cc187110-1148-4090-bbb8-e205694a39f5")
+}
+
+fn jin_gitaxias() -> baylee_core::ids::CardIndex {
+    card_index("f5daadc1-98ff-480a-82bb-fe7bfaa7b60e")
+}
+
+fn swords_to_plowshares() -> baylee_core::ids::CardIndex {
+    card_index("b1544f21-7e98-461b-aed5-e748b0168c52")
+}
+
+fn storm_of_saruman() -> baylee_core::ids::CardIndex {
+    card_index("cf5f4860-e805-46a3-9352-a2c583e33403")
+}
+
+fn karn_the_great_creator() -> baylee_core::ids::CardIndex {
+    card_index("a20dd48d-d344-4db1-b0e9-a2b71c3cc9d1")
+}
+
+fn chromatic_lantern() -> baylee_core::ids::CardIndex {
+    card_index("539f5396-d99a-417d-a84c-dff7930b5900")
+}
+
+fn abraded_bluffs() -> baylee_core::ids::CardIndex {
+    card_index("ca7d093c-0533-493f-9ad3-8af30118fbfc")
+}
+
+fn treetop_village() -> baylee_core::ids::CardIndex {
+    card_index("b53f216d-1592-4eee-b204-502a805fbc8c")
+}
+
+fn great_divide_guide() -> baylee_core::ids::CardIndex {
+    card_index("79e69a91-d580-47fb-be76-1e32c50d2fa0")
+}
+
+fn swamp() -> baylee_core::ids::CardIndex {
+    card_index("56719f6a-1a6c-4c0a-8d21-18f7d7350b68")
+}
+
+fn badlands() -> baylee_core::ids::CardIndex {
+    card_index("13ff3222-91cb-4796-a34e-899ed817694c")
+}
+
+fn lightning_greaves() -> baylee_core::ids::CardIndex {
+    card_index("ca204b66-8d0c-431a-8d34-282f7c2d17da")
+}
+
+fn llanowar_elves() -> baylee_core::ids::CardIndex {
+    card_index("68954295-54e3-4303-a6bc-fc4547a4e3a3")
+}
+
+fn fellwar_stone() -> baylee_core::ids::CardIndex {
+    card_index("95560508-7ac9-4be9-8a3f-3c7d5b52807b")
+}
+
+fn an_offer_you_cant_refuse() -> baylee_core::ids::CardIndex {
+    card_index("234a734b-ba28-4f1b-9d01-3c3e7d516590")
+}
+
+fn dark_ritual() -> baylee_core::ids::CardIndex {
+    card_index("53f7c868-b03e-4fc2-8dcf-a75bbfa3272b")
+}
+
+/// Activates printed ability `index` of `card`.
+#[track_caller]
+fn activate(
+    engine: &mut Engine<RegistryLookup>,
+    seat: PlayerId,
+    card: baylee_core::ids::CardIndex,
+    index: u32,
+) {
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    let (source, ability_index) = legal
+        .abilities
+        .iter()
+        .copied()
+        .find(|(id, ai)| {
+            *ai == index
+                && engine
+                    .state()
+                    .object(*id)
+                    .is_some_and(|o| o.card.is_some_and(|c| c.index == card))
+        })
+        .expect("the ability is offered");
+    engine
+        .apply(
+            seat,
+            PlayerAction::ActivateAbility {
+                source,
+                ability_index,
+            },
+        )
+        .expect("the ability activates");
+}
+
+/// The keywords a battlefield object has *after* the layer system has run,
+/// which is the only reading that can see a granted one.
+fn keywords(
+    engine: &Engine<RegistryLookup>,
+    object: baylee_core::ids::ObjectId,
+) -> baylee_cards_dsl::KeywordSet {
+    engine
+        .state()
+        .object(object)
+        .expect("object exists")
+        .characteristics()
+        .keywords
+}
+
+/// Taps everything that makes mana for `seat`, which is what a player does
+/// before casting.
+#[track_caller]
+fn tap_all_mana(engine: &mut Engine<RegistryLookup>, seat: PlayerId) {
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    for source in legal.mana_abilities.clone() {
+        engine
+            .apply(seat, PlayerAction::ActivateManaAbility { source })
+            .unwrap();
+    }
+}
+
+fn rogue_s_passage() -> baylee_core::ids::CardIndex {
+    card_index("f29dc596-2121-4421-8463-15f6c2e8b9b3")
+}
+
+fn mox_opal() -> baylee_core::ids::CardIndex {
+    card_index("de2440de-e948-4811-903c-0bbe376ff64d")
+}
+
+fn liquimetal_coating() -> baylee_core::ids::CardIndex {
+    card_index("f4bdc551-c2eb-4a34-a3e3-b4a017c925af")
+}
+
+fn sunken_hollow() -> baylee_core::ids::CardIndex {
+    card_index("cd2c90ac-2b04-461c-92f3-939871b6b6a3")
+}
+
+/// `Land — Plains Island`, and **nonbasic**: the bystander that separates
+/// "an Island" from "a basic land".
+fn irrigated_farmland() -> baylee_core::ids::CardIndex {
+    card_index("406eabe2-df62-49e2-bb39-c0227509d875")
+}
+
+/// Whether the land `seat` just played came in tapped.
+#[track_caller]
+fn entered_tapped(engine: &Engine<RegistryLookup>, land: baylee_core::ids::ObjectId) -> bool {
+    engine
+        .state()
+        .object(land)
+        .expect("the land is on the battlefield")
+        .status
+        .contains(crate::object::Status::TAPPED)
+}
+
+/// Plays `card` out of `seat`'s hand and answers with the object it became.
+#[track_caller]
+fn play_land(
+    engine: &mut Engine<RegistryLookup>,
+    seat: PlayerId,
+    card: baylee_core::ids::CardIndex,
+) -> baylee_core::ids::ObjectId {
+    let land = in_hand(engine, seat, card).expect("the land is in hand");
+    engine
+        .apply(seat, PlayerAction::PlayLand { card: land })
+        .unwrap();
+    land
+}
+
+fn deserted_beach() -> baylee_core::ids::CardIndex {
+    card_index("f0ec8681-da50-466b-8cdd-1dc710deccd9")
+}
+
+/// The lands whose own enters-tapped-unless filter matches the land printing
+/// it, and therefore the exact set that
+/// [`a_slow_land_counts_the_other_lands_and_never_itself`] speaks for.
+const LANDS_THAT_WOULD_COUNT_THEMSELVES: &[&str] = &[
+    "Deathcap Glade",
+    "Deserted Beach",
+    "Dreamroot Cascade",
+    "Haunted Ridge",
+    "Overgrown Farmland",
+    "Rockfall Vale",
+    "Shattered Sanctum",
+    "Shipwreck Marsh",
+    "Stormcarved Coast",
+    "Sundown Pass",
+];
+
+fn skyclave_apparition() -> baylee_core::ids::CardIndex {
+    card_index("d90af00a-d322-4265-9954-7b1e80702e18")
+}
+
+/// Casts the Apparition on p0's first main phase and leaves it on the
+/// stack, with `their_board` standing across the table.
+fn a_skyclave_over(their_board: &[baylee_core::ids::CardIndex]) -> Engine<RegistryLookup> {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(201, forest())
+        .battlefield(0, &[plains(), plains(), plains()])
+        .hand(0, &[skyclave_apparition()])
+        .battlefield(1, their_board)
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("a main phase hands priority back");
+    };
+    for source in legal.mana_abilities.clone() {
+        engine
+            .apply(p0, PlayerAction::ActivateManaAbility { source })
+            .unwrap();
+    }
+    let card = in_hand(&engine, p0, skyclave_apparition()).expect("the Apparition is in hand");
+    engine
+        .apply(p0, PlayerAction::CastSpell { card })
+        .expect("three Plains pay {1}{W}{W}");
+    engine
+}
+
+fn eerie_interlude() -> baylee_core::ids::CardIndex {
+    card_index("0634091a-a74c-4cea-b6d1-7324a725554a")
+}
+
+fn nephalia_drownyard() -> baylee_core::ids::CardIndex {
+    card_index("6429b4ed-1845-4643-9a3d-85f7c12f2bba")
+}
+
+fn blighted_gorge() -> baylee_core::ids::CardIndex {
+    card_index("c2cb0afd-781f-4cfa-b680-ed1edfa81868")
+}
+
+fn mountain() -> baylee_core::ids::CardIndex {
+    card_index("a3fb7228-e76b-4e96-a40e-20b5fed75685")
+}
+
+fn library_size(engine: &Engine<RegistryLookup>, seat: PlayerId) -> usize {
+    engine
+        .state()
+        .zones
+        .list(crate::zone::ZoneLocation::Library(seat))
+        .len()
+}
+
+fn wizard_class() -> baylee_core::ids::CardIndex {
+    card_index("36f68aa3-9955-46f1-bc87-497f16ef5222")
+}
+
+fn bleachbone_verge() -> baylee_core::ids::CardIndex {
+    card_index("2b8144a0-08d2-4c28-9fd7-5d90f90105e4")
+}
+
+/// Taps every mana source `seat` has, except the ones printed `skip`.
+///
+/// [`tap_mana_except`] keeps one object; this keeps a whole printing, which
+/// is how a test says "leave the Plains for the instant I am holding".
+fn tap_all_mana_but(
+    engine: &mut Engine<RegistryLookup>,
+    seat: PlayerId,
+    skip: Option<baylee_core::ids::CardIndex>,
+) {
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    for source in legal.mana_abilities {
+        let printed = engine
+            .state()
+            .object(source)
+            .and_then(|o| o.card)
+            .map(|c| c.index);
+        if skip.is_some() && printed == skip {
+            continue;
+        }
+        engine
+            .apply(seat, PlayerAction::ActivateManaAbility { source })
+            .unwrap();
+    }
+}
+
+fn baleful_strix() -> baylee_core::ids::CardIndex {
+    card_index("37688720-03de-4eca-a82d-a0afe8d58adc")
+}
+
+fn tishanas_tidebinder() -> baylee_core::ids::CardIndex {
+    card_index("2993dc7d-723d-4a9b-94bd-4bb02a9f7243")
+}
+
+/// A Baleful Strix under a Tishana's Tidebinder that countered its
+/// enters-trigger. Answers `(engine, p0, p1, strix)` with the counter
+/// resolved and the stack empty.
+///
+/// p0 keeps a Plains and Swords to Plowshares in reserve, for the half of
+/// the sentence that asks what happens when the Tidebinder leaves.
+fn a_strix_the_tidebinder_answered() -> (Engine<RegistryLookup>, PlayerId, PlayerId, ObjectId) {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(23, island())
+        .battlefield(0, &[island(), swamp(), plains()])
+        .hand(0, &[baleful_strix(), swords_to_plowshares()])
+        .battlefield(1, &[island(), island(), island()])
+        .hand(1, &[tishanas_tidebinder()])
+        .start();
+    keep_mulligans(&mut engine);
+
+    reach_main_phase(&mut engine, p0);
+    let strix_card = in_hand(&engine, p0, baleful_strix()).expect("the strix is in hand");
+    tap_all_mana_but(&mut engine, p0, Some(plains()));
+    engine
+        .apply(p0, PlayerAction::CastSpell { card: strix_card })
+        .unwrap();
+
+    // Let the Strix resolve; its enters-trigger is what the Tidebinder is
+    // here for, so stop as soon as that is on the stack with p1 to answer.
+    pass_until(&mut engine, |e| {
+        on_battlefield(e, p0, baleful_strix()).is_some()
+            && !stack_is_empty(e)
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p1)
+    });
+    let strix = on_battlefield(&engine, p0, baleful_strix()).expect("the strix landed");
+    let trigger = engine.state().zones.list(crate::zone::ZoneLocation::Stack)[0];
+
+    tap_all_mana_but(&mut engine, p1, None);
+    let tide_card = in_hand(&engine, p1, tishanas_tidebinder()).expect("the tidebinder is in hand");
+    engine
+        .apply(p1, PlayerAction::CastSpell { card: tide_card })
+        .unwrap();
+
+    // The Tidebinder resolves and its own enters-trigger asks for a target.
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        unreachable!("pass_until only stops on a target choice")
+    };
+    assert!(
+        options.contains(&trigger),
+        "the strix's enters-trigger was not offered as a target: {options:?}"
+    );
+    engine
+        .apply(
+            p1,
+            PlayerAction::ChooseObjects {
+                objects: vec![trigger],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    (engine, p0, p1, strix)
+}
+
+/// The keywords of `object`, as the layers project them.
+fn keywords_of(engine: &Engine<RegistryLookup>, object: ObjectId) -> baylee_cards_dsl::KeywordSet {
+    engine
+        .state()
+        .object(object)
+        .expect("the object is still there")
+        .characteristics()
+        .keywords
+}
+
+fn path_to_exile() -> baylee_core::ids::CardIndex {
+    card_index("d683d985-9888-4d21-8b5f-69e69ce4a03b")
+}
+
+/// Every land `seat` controls, in battlefield order.
+fn lands_of(engine: &Engine<RegistryLookup>, seat: PlayerId) -> Vec<baylee_core::ids::ObjectId> {
+    engine
+        .state()
+        .zones
+        .list(crate::zone::ZoneLocation::Battlefield)
+        .iter()
+        .copied()
+        .filter(|id| {
+            engine.state().object(*id).is_some_and(|o| {
+                o.controller == seat && o.characteristics().types.contains(TypeSet::LAND)
+            })
+        })
+        .collect()
+}
+
+fn bojuka_bog() -> baylee_core::ids::CardIndex {
+    card_index("04b7362d-0490-4cb0-b5d7-2a7732f659ce")
+}
+
+fn aang_and_katara() -> baylee_core::ids::CardIndex {
+    card_index("481c3e14-b670-4fab-aa9f-6ce5b514096d")
+}
+
+fn wartime_protestors() -> baylee_core::ids::CardIndex {
+    card_index("6557813b-4ee7-4881-a37c-10c8ea097360")
+}
+
+fn aminatou() -> baylee_core::ids::CardIndex {
+    card_index("3a30089d-cd2d-49be-9b06-7a2454117692")
+}
+
+/// The tokens `seat` controls, in arrival order.
+fn tokens_of(engine: &Engine<RegistryLookup>, seat: PlayerId) -> Vec<baylee_core::ids::ObjectId> {
+    engine
+        .state()
+        .zones
+        .list(crate::zone::ZoneLocation::Battlefield)
+        .iter()
+        .copied()
+        .filter(|id| {
+            engine
+                .state()
+                .object(*id)
+                .is_some_and(|o| o.card.is_none() && o.controller == seat)
+        })
+        .collect()
+}
+
+fn aether_channeler() -> baylee_core::ids::CardIndex {
+    card_index("fb220f46-f8b8-4804-baa4-e7d50b4871f7")
+}
+
+/// Casts Aether Channeler off three Islands and hands the engine back
+/// standing on its modal trigger's question.
+///
+/// Four tests share it because the four things worth proving about a modal
+/// trigger are one question, two answers and a mode that is not offered —
+/// and until the collection arm existed, *none of them was reachable*.
+/// `AbilityDef::ModalTriggered` was skipped by both loops in `trigger.rs`,
+/// so the ability never became a `PendingTrigger`, never reached the stack
+/// and was never asked about: the card resolved, nothing happened, and no
+/// error was reported (entry 34).
+#[track_caller]
+fn a_modal_trigger_asks(
+    seed: u64,
+    opponent_board: &[baylee_core::ids::CardIndex],
+) -> Engine<RegistryLookup> {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(seed, island())
+        .battlefield(0, &[island(), island(), island()])
+        .battlefield(1, opponent_board)
+        .hand(0, &[aether_channeler()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    cast_from_hand(&mut engine, p0, aether_channeler());
+    // Priority passes until the spell resolves and its ETB trigger asks.
+    for _ in 0..20 {
+        if matches!(engine.pending(), Pending::ChooseCastMode { .. }) {
+            return engine;
+        }
+        let Pending::Priority { player, .. } = engine.pending().clone() else {
+            panic!(
+                "a modal trigger asked nothing and the game moved on — got {:?}. \
+                 That is entry 34: the ability is never collected, so the card \
+                 resolves and does nothing at all.",
+                engine.pending()
+            )
+        };
+        engine.apply(player, PlayerAction::PassPriority).unwrap();
+    }
+    panic!("the modal trigger never asked for its mode")
+}
+
+fn ertai_resurrected() -> baylee_core::ids::CardIndex {
+    card_index("3d038f7c-95fa-4b71-8f74-b9b4dd45cde0")
+}
+
+fn panharmonicon() -> baylee_core::ids::CardIndex {
+    card_index("76678885-3674-443d-b9a2-2a460cf6aac0")
+}
+
+fn umara_raptor() -> baylee_core::ids::CardIndex {
+    card_index("a58ee84f-1d9c-4924-b7b1-14a9b2ba3b98")
+}
+
+fn solitude() -> baylee_core::ids::CardIndex {
+    card_index("dcb9c2a7-ae54-4ddc-a567-640bf4bf4366")
+}
+
+/// Every battlefield permanent a seat controls that was printed from `card`.
+///
+/// [`on_battlefield`] answers the first; this answers all of them, which is
+/// what taps *some* of a seat's lands and leaves the rest untapped.
+fn all_on_battlefield(
+    engine: &Engine<RegistryLookup>,
+    seat: PlayerId,
+    card: baylee_core::ids::CardIndex,
+) -> Vec<baylee_core::ids::ObjectId> {
+    engine
+        .state()
+        .zones
+        .list(crate::zone::ZoneLocation::Battlefield)
+        .iter()
+        .copied()
+        .filter(|id| {
+            engine
+                .state()
+                .object(*id)
+                .is_some_and(|o| o.controller == seat && o.card.is_some_and(|c| c.index == card))
+        })
+        .collect()
+}
+
+/// A 1/1 Umara Raptor that put its own rally counter on itself, so the
+/// creature standing on the battlefield is a 2/2 and the card it was
+/// printed from is not.
+///
+/// Both tests below need exactly that: a target whose projected power and
+/// whose printed power disagree, so the life gained says which of the two
+/// the effect read. Only the Islands are tapped for the Raptor — a pool of
+/// eight mana pays `{2}` with whatever it likes, and it spent the white the
+/// second spell needs.
+fn a_two_two_raptor(
+    seed: u64,
+    spell: baylee_core::ids::CardIndex,
+    extra: &[baylee_core::ids::CardIndex],
+) -> Engine<RegistryLookup> {
+    let p0 = PlayerId::new(0);
+    let mut board = vec![
+        island(),
+        island(),
+        island(),
+        plains(),
+        plains(),
+        plains(),
+        plains(),
+        plains(),
+    ];
+    board.extend_from_slice(extra);
+    let mut engine = Duel::new(seed, island())
+        .battlefield(0, &board)
+        .hand(0, &[umara_raptor(), spell])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    for source in all_on_battlefield(&engine, p0, island()) {
+        engine
+            .apply(p0, PlayerAction::ActivateManaAbility { source })
+            .unwrap();
+    }
+    let raptor = in_hand(&engine, p0, umara_raptor()).expect("the Raptor is in hand");
+    engine
+        .apply(p0, PlayerAction::CastSpell { card: raptor })
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    let bird = on_battlefield(&engine, p0, umara_raptor()).expect("the Raptor resolved");
+    assert_eq!(
+        engine
+            .state()
+            .object(bird)
+            .and_then(|o| o.characteristics().power),
+        Some(2),
+        "the rally trigger put a +1/+1 counter on it",
+    );
+    for source in all_on_battlefield(&engine, p0, plains()) {
+        engine
+            .apply(p0, PlayerAction::ActivateManaAbility { source })
+            .unwrap();
+    }
+    engine
+}
+
+fn inspirit_flagship_vessel() -> baylee_core::ids::CardIndex {
+    card_index("554df866-3dbb-4811-8573-6033481591aa")
+}
+
+fn sheoldred_the_apocalypse() -> baylee_core::ids::CardIndex {
+    card_index("34f34409-326d-4994-a0ea-1a69aa278f03")
+}
+
+fn toxic_deluge() -> baylee_core::ids::CardIndex {
+    card_index("afaef788-34d1-460b-b884-9d7ae6ddeb18")
+}
+
+fn darksteel_forge() -> baylee_core::ids::CardIndex {
+    card_index("9b3bec05-441f-4fdf-8b51-69fa8613fcd4")
+}
+
+fn primaris_eliminator() -> baylee_core::ids::CardIndex {
+    card_index("7d679591-f8ea-4c4c-ab98-7b9e3438cf57")
+}
+
+fn mystical_tutor() -> baylee_core::ids::CardIndex {
+    card_index("fb81f95c-70f8-4eb7-8d15-15d0ae23ec03")
+}
+
+fn halimar_excavator() -> baylee_core::ids::CardIndex {
+    card_index("fd3e37c9-93bf-4f3e-a279-22afbffd8d43")
+}
+
+fn hagra_diabolist() -> baylee_core::ids::CardIndex {
+    card_index("5e2c1e0e-0a10-416a-9b50-96ee0cbbc24e")
+}
+
+fn vendilion_clique() -> baylee_core::ids::CardIndex {
+    card_index("244d4807-0802-41bc-9460-55ac38a28a72")
+}
+
+fn loran_of_the_third_path() -> baylee_core::ids::CardIndex {
+    card_index("b3d81980-76f2-44e2-b1c9-01e30c726312")
+}
+
+/// A Hagra Diabolist cast and its rally trigger waiting on a target.
+fn hagra_on_the_table() -> Engine<RegistryLookup> {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(19, swamp())
+        .battlefield(0, &[swamp(), swamp(), swamp(), swamp(), swamp()])
+        .hand(0, &[hagra_diabolist()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+    cast_from_hand(&mut engine, p0, hagra_diabolist());
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    engine
+}
+
+fn luminarch_ascension() -> baylee_core::ids::CardIndex {
+    card_index("90076bf5-aa9a-4a6e-9035-9aa97fd5561e")
+}
+
+/// An Ondu Cleric cast, with its rally trigger asking whether to take the
+/// life it offers.
+///
+/// Two tests over one builder rather than two arms of one, for the reason
+/// the Hagra pair has: the second answer wants the same open board the
+/// first one spent.
+fn a_cleric_asking() -> Engine<RegistryLookup> {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(41, plains())
+        .battlefield(0, &[plains(), plains()])
+        .hand(0, &[ondu_cleric()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+    cast_from_hand(&mut engine, p0, ondu_cleric());
+    pass_until(&mut engine, |e| {
+        matches!(
+            e.pending(),
+            Pending::YesNo {
+                prompt: crate::choice::YesNoPrompt::MayDo,
+                ..
+            }
+        )
+    });
+    engine
+}
+
+fn jace_the_mind_sculptor() -> baylee_core::ids::CardIndex {
+    card_index("7f77a84e-5a4b-4834-aefa-3cecc175ae8e")
+}
+
+fn venser_the_sojourner() -> baylee_core::ids::CardIndex {
+    card_index("a8bf8ff8-d924-4fd2-b5ed-05b38f55325a")
+}
+
+/// The types an object has after the layer system has run — the only
+/// reading that can see a type a continuous effect added.
+fn types(
+    engine: &Engine<RegistryLookup>,
+    object: baylee_core::ids::ObjectId,
+) -> baylee_core::types::TypeSet {
+    engine
+        .state()
+        .object(object)
+        .expect("object exists")
+        .characteristics()
+        .types
+}
+
+fn mycosynth_lattice() -> baylee_core::ids::CardIndex {
+    card_index("ae1f2ab5-c6a5-4d49-a746-3cb4668bf805")
+}
+
+fn brainstorm() -> baylee_core::ids::CardIndex {
+    card_index("36cd2364-d113-47d1-b2c4-b088d9eb88dd")
+}
+
+fn enlightened_tutor() -> baylee_core::ids::CardIndex {
+    card_index("c5229c17-b7be-4b05-b683-f2277edc4849")
+}
+
+fn arid_mesa() -> baylee_core::ids::CardIndex {
+    card_index("c5acf2a5-40f4-433d-a74d-1cb56c521464")
+}
+
+fn prairie_stream() -> baylee_core::ids::CardIndex {
+    card_index("5330e24a-8568-446e-840a-594cd08bd1bc")
+}
+
+fn orcish_bowmasters() -> baylee_core::ids::CardIndex {
+    card_index("ea5103f5-27e0-4eb1-902c-7f34652d6bf3")
+}
+
+fn mikokoro() -> baylee_core::ids::CardIndex {
+    card_index("a4580a1d-141e-449b-9018-e0258130634b")
+}
+
+/// Answers whatever stands between here and the next quiet priority, and
+/// says whether a target was ever asked for.
+///
+/// Written for a *trigger* that targets, which nothing in the pool had until
+/// Orcish Bowmasters: a loop that merely tolerates `ChooseTargets` passes
+/// whether the question is asked or not, which is how the card sat in the
+/// pool marked `Implemented` and pointed at nobody.
+fn settle_aiming_at(engine: &mut Engine<RegistryLookup>, face: PlayerId) -> bool {
+    let mut asked = false;
+    for _ in 0..40 {
+        match engine.pending().clone() {
+            Pending::ChooseTargets { player, .. } => {
+                asked = true;
+                engine
+                    .apply(
+                        player,
+                        PlayerAction::ChooseTargets {
+                            objects: vec![],
+                            players: vec![face],
+                        },
+                    )
+                    .expect("a face is a legal target for `any target`");
+            }
+            Pending::Priority { player, .. } => {
+                engine.apply(player, PlayerAction::PassPriority).unwrap();
+            }
+            _ => break,
+        }
+    }
+    asked
+}
+
+fn myr_retriever() -> baylee_core::ids::CardIndex {
+    card_index("d07d3be3-f69d-4484-8467-cffd43871788")
+}
+
+fn vindicate() -> baylee_core::ids::CardIndex {
+    card_index("63c1ac21-e3d8-40c2-8c09-3f31c52992ef")
+}
+
+fn ashnods_altar() -> baylee_core::ids::CardIndex {
+    card_index("4d18bcba-a346-445e-a182-6cc30b7e066d")
+}
