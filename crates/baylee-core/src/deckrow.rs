@@ -35,6 +35,37 @@ use std::fmt;
 /// claiming four billion copies is a denial of service, not a deck.
 pub const MAX_COUNT: u32 = 1_000_000;
 
+/// How much note one row may carry, in characters.
+///
+/// The same argument as [`MAX_COUNT`], for the same reason: a note is free
+/// text and a deck is a thing a stranger can `POST`. Long enough for the
+/// sentence somebody writes about why a card is in the deck; far short of a
+/// document.
+pub const MAX_NOTE: usize = 500;
+
+/// What fences a note off from the card it is about.
+///
+/// A note cannot be one more trailing group, because the groups are
+/// recognised by *shape* and an unrecognised trailing word deliberately stays
+/// part of the name — which is what keeps `Erase (Not the Urza's Legacy One)`
+/// readable, and what would eat every note that did not happen to look like a
+/// set code. So it is fenced, with the marker every other deck format on the
+/// internet already uses for the same job.
+///
+/// The fence is safe to spend, and that is measured rather than assumed: of
+/// the 33 694 names in the `CardIndex` ledger — every card there is, not this
+/// pool — **none contains a `#` at all**, let alone one with a space in front
+/// of it. `no_card_name_could_be_mistaken_for_a_note` is that measurement as
+/// a test, so a future card called `Card #1` fails the build here instead of
+/// losing half its name in somebody's deck.
+///
+/// It is the *marker* and not the whole separator: a row is written with a
+/// space after it as well (`1 Sol Ring # ramp`), and read as everything past
+/// the marker, trimmed. Reading the trailing space too would make
+/// `1 Sol Ring #` — a row somebody started a note on and did not — a card
+/// called `Sol Ring #`.
+pub const NOTE_FENCE: &str = " #";
+
 /// A printing choice, as a deck row names it.
 ///
 /// Every field is optional and they narrow independently: a row may say only
@@ -86,6 +117,12 @@ pub struct Row {
     pub name: String,
     /// The printing the owner picked, as far as they picked one.
     pub print: PrintChoice,
+    /// What the owner wrote about this card, after the [`NOTE_FENCE`].
+    ///
+    /// The deck's own business and nothing else's: no rule, no route and no
+    /// renderer reads it, and it travels with the row so that a deck exported
+    /// to a text file and imported again still says why the card is in it.
+    pub note: Option<String>,
 }
 
 impl Row {
@@ -96,6 +133,7 @@ impl Row {
             count,
             name: name.into(),
             print: PrintChoice::default(),
+            note: None,
         }
     }
 }
@@ -115,6 +153,9 @@ pub enum RowError {
     /// A `[xx]` group that is not a language code.
     #[error("a language is two or three letters")]
     Lang,
+    /// A note longer than [`MAX_NOTE`].
+    #[error("a card's note is at most 500 characters")]
+    Note,
 }
 
 /// The marker a finish is written with, and back again.
@@ -148,6 +189,10 @@ fn parse_finish(marker: &str) -> Result<Finish, RowError> {
 /// not matter, because no two of them can be confused for each other and
 /// insisting on an order would only make hand-written lists fail.
 ///
+/// The note is cut off **first**, at the [`NOTE_FENCE`], because it is free
+/// text and everything below this line reads by shape. A note saying
+/// `(M11) foil` would otherwise be read as a printing the owner never chose.
+///
 /// # Errors
 /// [`RowError`] when the row has no count, or when a group it does recognise
 /// is malformed. An unrecognised trailing word is *not* an error: it stays
@@ -155,6 +200,23 @@ fn parse_finish(marker: &str) -> Result<Finish, RowError> {
 /// Legacy One)` readable.
 pub fn parse(row: &str) -> Result<Row, RowError> {
     let row = row.trim();
+    // The first fence wins, so a note may contain the marker itself.
+    let (row, note) = match row.split_once(NOTE_FENCE) {
+        Some((head, tail)) => {
+            let tail = tail.trim();
+            if tail.chars().count() > MAX_NOTE {
+                return Err(RowError::Note);
+            }
+            // `1 Sol Ring # ` is a row with an empty note, which is a row
+            // with no note: writing it back would produce a bare fence, and
+            // the round-trip has to hold.
+            (
+                head.trim_end(),
+                (!tail.is_empty()).then(|| tail.to_string()),
+            )
+        }
+        None => (row, None),
+    };
     let (count, rest) = row.split_once(' ').ok_or(RowError::Shape)?;
     let count: u32 = count.trim().parse().map_err(|_| RowError::Count)?;
     if count == 0 || count > MAX_COUNT {
@@ -217,7 +279,12 @@ pub fn parse(row: &str) -> Result<Row, RowError> {
     if name.is_empty() {
         return Err(RowError::Shape);
     }
-    Ok(Row { count, name, print })
+    Ok(Row {
+        count,
+        name,
+        print,
+        note,
+    })
 }
 
 /// What one trailing token is.
@@ -304,6 +371,10 @@ impl fmt::Display for Row {
         if let Some(id) = &self.print.scryfall_id {
             write!(f, " scryfall={id}")?;
         }
+        // Last, because it is the one thing that may hold anything at all.
+        if let Some(note) = &self.note {
+            write!(f, "{NOTE_FENCE} {note}")?;
+        }
         Ok(())
     }
 }
@@ -320,6 +391,67 @@ mod tests {
         assert!(row.print.is_empty(), "no printing was named");
         assert_eq!(row.print.finish_or_default(), Finish::Normal);
         assert_eq!(row.print.lang_or_default(), "en");
+    }
+
+    #[test]
+    fn a_row_carries_what_its_owner_wrote_about_the_card() {
+        let row = parse("1 Sol Ring # der beste Stein im Deck").expect("a noted row");
+        assert_eq!(row.name, "Sol Ring", "the fence ends the name");
+        assert_eq!(row.note.as_deref(), Some("der beste Stein im Deck"));
+        assert_eq!(row.to_string(), "1 Sol Ring # der beste Stein im Deck");
+    }
+
+    /// The note is cut before anything is read by shape, so what a note says
+    /// is never mistaken for what the owner chose.
+    #[test]
+    fn a_note_that_looks_like_a_printing_is_still_a_note() {
+        let row = parse("1 Sol Ring # lieber die (M11) in *F*").expect("a noted row");
+        assert_eq!(row.name, "Sol Ring");
+        assert!(row.print.is_empty(), "nothing in the note was chosen");
+        assert_eq!(row.note.as_deref(), Some("lieber die (M11) in *F*"));
+    }
+
+    /// A note sits behind the printing, and both survive the round trip.
+    #[test]
+    fn a_printing_and_a_note_do_not_disturb_each_other() {
+        let text = "2 Lightning Bolt (M11) 149 [de] *F* # die deutsche";
+        let row = parse(text).expect("a full row");
+        assert_eq!(row.name, "Lightning Bolt");
+        assert_eq!(row.print.set.as_deref(), Some("M11"));
+        assert_eq!(row.print.finish, Some(Finish::Foil));
+        assert_eq!(row.note.as_deref(), Some("die deutsche"));
+        assert_eq!(row.to_string(), text, "the row writes back as it was read");
+    }
+
+    /// The counter-half: a row that says nothing extra says nothing extra,
+    /// so every deck saved before notes existed is byte-identical after one.
+    #[test]
+    fn a_row_with_no_note_writes_no_fence() {
+        let row = parse("4 Lightning Bolt").expect("a plain row");
+        assert_eq!(row.note, None);
+        assert_eq!(row.to_string(), "4 Lightning Bolt");
+        // An empty note is no note, or the round trip would grow a bare fence.
+        let empty = parse("4 Lightning Bolt # ").expect("a row with nothing after the fence");
+        assert_eq!(empty.note, None);
+        assert_eq!(empty.to_string(), "4 Lightning Bolt");
+    }
+
+    #[test]
+    fn a_note_has_a_ceiling_like_every_other_field() {
+        let long = format!("1 Sol Ring # {}", "x".repeat(MAX_NOTE + 1));
+        assert_eq!(parse(&long), Err(RowError::Note));
+        let fits = format!("1 Sol Ring # {}", "x".repeat(MAX_NOTE));
+        assert!(parse(&fits).is_ok(), "the ceiling itself is allowed");
+    }
+
+    /// A card whose *name* holds the marker would be cut in half. No card
+    /// does — `no_card_name_could_be_mistaken_for_a_note` in
+    /// `baylee-cards-index` is that claim over all 33 694 of them, because
+    /// this crate does not link the ledger. What is checked here is that the
+    /// two halves agree about the spelling.
+    #[test]
+    fn the_fence_is_what_the_ledger_is_held_against() {
+        assert_eq!(NOTE_FENCE, " #");
     }
 
     #[test]

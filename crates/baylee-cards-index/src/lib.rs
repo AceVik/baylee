@@ -105,4 +105,44 @@ mod tests {
              the two cards rather than refuse"
         );
     }
+
+    /// A deck row fences its owner's note off with
+    /// [`baylee_core::deckrow::NOTE_FENCE`], and everything before the fence
+    /// is the card. That is only safe while no card is named with one, so the
+    /// claim is measured against every card there is rather than against the
+    /// pool — this table is the one place that population exists.
+    ///
+    /// The bare `#` is checked too, and it is the more useful half: it is
+    /// what a new set would have to print before the spelling of the fence
+    /// mattered at all, and it fails here with the card's name in hand
+    /// instead of in somebody's deck.
+    #[test]
+    fn no_card_name_could_be_mistaken_for_a_note() {
+        let fenced: Vec<&str> = ROWS
+            .iter()
+            .map(|r| r.name)
+            .filter(|n| n.contains(baylee_core::deckrow::NOTE_FENCE))
+            .collect();
+        assert!(
+            fenced.is_empty(),
+            "a card name holds the note fence and would be cut in half: {fenced:?}"
+        );
+
+        let hashed: Vec<&str> = ROWS
+            .iter()
+            .map(|r| r.name)
+            .filter(|n| n.contains('#'))
+            .collect();
+        assert!(
+            hashed.is_empty(),
+            "a card name holds a '#'; the deck row's note fence is one space \
+             away from eating it: {hashed:?}"
+        );
+
+        // The counter-half: the filter above is capable of finding one.
+        assert!(
+            "Card # 1".contains(baylee_core::deckrow::NOTE_FENCE),
+            "the fence is spelled the way this test looks for it"
+        );
+    }
 }
