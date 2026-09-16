@@ -2972,3 +2972,85 @@ sits in front of the button it labels.
     table is now zoomed". `camera_controls` and `hud::scrolls` read that off
     the same `Pointer<Scroll>` stream rather than through a flag one sets and
     the other clears, so neither has to run first.
+
+## Fourteenth pass, 2026-09-16 — found while implementing the card pool
+
+Both of these are **open**, and both are queued behind the current card batch
+and its tests at the owner's word. They are written down here rather than
+carried in a head because the first is the largest single reason the pool
+gives for a card being only partly there, and the second is wrong in a way
+nothing on screen would ever say.
+
+### 55. A cost that asks which permanent to sacrifice is payable by nobody — CONFIRMED
+
+`CostPart::Sacrifice(&Filter)` and `CostPart::Discard(&Filter)` can be written
+by a card, and there is no path in the engine that pays either of them.
+
+Three readers, all agreeing, none of them the one that should have:
+
+- `abilities::choice_cost_unpayable` (`crates/baylee-engine/src/engine/abilities.rs:32`)
+  matches exactly those two, and `can_afford` refuses the whole cost on it
+  (`:551`). So an activated ability carrying one is never offered.
+- The casting wizard's alternative-cost payment names both in its
+  *already skipped* arm (`crates/baylee-engine/src/engine/cast_wizard.rs:912`),
+  and so does the mandatory-additional-cost payment (`:959`) — which, as its
+  own comment says, has no `can_afford` in front of it at all and would cast
+  straight past them.
+- `paid_as_an_alternative_cost` (`:110`) and
+  `paid_as_a_mandatory_additional_cost` (`:127`) list what those two arms *do*
+  pay: life and an exile from hand. Neither list has ever held a choice cost.
+
+`choice_cost_unpayable`'s doc says what it is waiting for — *"the day an
+activation can ask a player which card to discard, this answers `false` and
+every reader relaxes at once"* — so the refusal is honest. What it costs is
+counted: **five** cards in the pool carry such a cost, and the five
+`Coverage::Partial` reasons they give are the largest single group among the
+29 the pool has — four say *"a sacrifice cost cannot be chosen during an
+activation"* (Ashnod's Altar, Viscera Seer, Recurring Nightmare, Krark-Clan
+Ironworks) and one says it of a discard (Survival of the Fittest). The second
+group is two.
+
+What makes this an entry rather than a missing subsystem is that the
+machinery is already in the tree, and on the wrong side of a wall. **Convoke
+already asks a question while a cost is being paid**: `WizardStage::Convoke`
+(`cast_wizard.rs:706`, `:721`) raises a bounded selection over permanents
+through the ordinary pending taxonomy, labelled `TargetPrompt::Convoke` (`:741`)
+so it does not read as targeting (CR 702.51). An activation has no wizard, and
+that is the whole of the difference. This is the shape `Effect::PumpTarget`
+had — `PumpFilter`, `EffectFilter::ObjectIs` and the layer machinery were all
+present and the DSL simply could not *say* the thing — so the work to look for
+first is the staged activation, not a new cost system.
+
+### 56. Aminatou's rotation turns a table of four into a table of two — CONFIRMED
+
+`Effect::ControlRotation` (`crates/baylee-engine/src/resolve/mod.rs:1515`)
+moves every nonland permanent to `PlayerId::new(1 - obj.controller.get())`.
+That is a swap between seats 0 and 1, and it is the right answer at exactly
+one table size. At three seats it hands seat 2's board to seat 1 — `1 - 2`
+underflows the seat index — and at four it leaves two players untouched while
+two trade. The comment above it says so (*"heads-up"*), which makes it a known
+narrowing rather than a mistake; what makes it a fault is that nothing says so
+anywhere a player or a build could see it.
+
+The printed line is a direction, not a swap: *"Choose left or right. Each
+player gains control of all nonland permanents other than Aminatou controlled
+by the next player in the chosen direction."* One direction is chosen once and
+applies to every seat, which is why asking the controller *which of your two
+neighbours* answers the whole question — pick your left neighbour and every
+player gains from their own left neighbour. At two seats both neighbours are
+the same player and the question has one answer, which is what makes today's
+code right there and is also the reason a duel need not be asked.
+
+And the card claims more than it does.
+`crates/baylee-cards/src/cards/planeswalkers/mv_3/aminatou_the_fateshifter.rs`
+carries `coverage = Coverage::Implemented` under its own header comment
+reading `// PARTIAL — +1 and −1 implemented; −6 needs directional multiplayer
+control rotation`. The two contradict each other and the header is the one
+telling the truth, so the deckbuilder offers the card as rules-complete.
+
+The cost of the honest shape is measured rather than guessed:
+`Pending::ChoosePlayer` carries no prompt field, so the question would arrive
+at a client as a bare *"choose a player"*. Giving it one — the same move
+`TargetPrompt` already is for `ChooseTargets`, and for the same stated reason —
+touches 45 mentions across 19 files, the client and the house AI among them,
+so it is a full-gate change and not a rules-gate one.
