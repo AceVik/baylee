@@ -1315,6 +1315,11 @@ messages! {
     CostRemoveCounter { en: "Remove a counter", de: "Entferne eine Marke" },
     /// Remove {0} counters
     CostRemoveCounters { en: "Remove {0} counters", de: "Entferne {0} Marken" },
+    /// The storage lands' cost, whose number the player picks on activation
+    /// — so the button says what is about to be asked rather than a count
+    /// nobody has chosen yet. "Any number" is one of the two printed
+    /// spellings and the friendlier one; the other is "Remove X".
+    CostRemoveCountersX { en: "Remove any number of counters", de: "Entferne beliebig viele Marken" },
     /// Rules text unavailable
     NoRulesTextHere { en: "Rules text unavailable", de: "Regeltext nicht verfügbar" },
 

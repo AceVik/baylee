@@ -213,6 +213,7 @@ fn parts_payable(view: &PlayerView, card: ObjectId, parts: &[CostPart]) -> bool 
         | CostPart::ExileSelf
         | CostPart::ReturnSelfToHand
         | CostPart::RemoveCounterSelf { .. }
+        | CostPart::RemoveCounterSelfX { .. }
         | CostPart::PayLifeX => false,
     })
 }

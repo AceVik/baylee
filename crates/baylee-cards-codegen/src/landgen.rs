@@ -82,23 +82,23 @@ fn number(word: &str) -> Option<u32> {
 
 /// The counters a land prints, and how a card file spells each one.
 ///
-/// Three words, and the pool decides which three. `charge` is a
-/// [`CounterKind`] variant because the rules know the word; `depletion` and
-/// `mining` are ids the DSL's `counters` module assigns, because nothing in
-/// the rules has ever heard of them — the card that prints one says what
-/// happens when it runs out and that is all they are.
+/// Four words, and the pool decides which four. `charge` is a
+/// [`CounterKind`] variant because the rules know the word; `depletion`,
+/// `mining` and `storage` are ids the DSL's `counters` module assigns,
+/// because nothing in the rules has ever heard of them — the card that
+/// prints one says what happens when it runs out and that is all they are.
 ///
-/// What is **not** here is the point of having a table. `storage` and
-/// `verse` are printed by lands in this pool and have no id yet, so the
-/// cards that print them refuse and stay stubs; a reader that took the
-/// number and threw the noun away would give Bottomless Vault a charge
-/// counter and a land that untaps for free.
+/// What is **not** here is the point of having a table. `verse` is printed
+/// by a land in this pool and has no id, so the card that prints it refuses
+/// and stays a stub; a reader that took the number and threw the noun away
+/// would give a land a counter its own text never mentions.
 ///
 /// [`CounterKind`]: baylee_cards_dsl::CounterKind
-const COUNTERS: [(&str, &str); 3] = [
+const COUNTERS: [(&str, &str); 4] = [
     ("charge", "CounterKind::Charge"),
     ("depletion", "counters::DEPLETION"),
     ("mining", "counters::MINING"),
+    ("storage", "counters::STORAGE"),
 ];
 
 /// `"depletion"` → `"counters::DEPLETION"`; a counter with no id → `None`.
@@ -178,9 +178,35 @@ fn parse_add(rest: &str) -> Option<Vec<String>> {
 
 /// One sentence of an ability's effect, for abilities that are not mana
 /// abilities.
-fn parse_effect(sentence: &str) -> Option<Vec<String>> {
+fn parse_effect(sentence: &str, announced: Option<&'static str>) -> Option<Vec<String>> {
     let s = sentence.trim().trim_end_matches('.');
     let lower = s.to_lowercase();
+    // "Add {W} for each storage counter removed this way" — the other half
+    // of a storage land, and the only sentence in this reader that depends
+    // on the *cost* beside it. `announced` is the counter whose number the
+    // cost asked for, and the two nouns have to be the same one: a card
+    // adding mana for each charge counter while its cost removed storage
+    // counters would be a sentence this did not read, whoever printed it.
+    //
+    // Above the plain `Add ` arm, which claims the same prefix and would
+    // hand `parse_add` a phrase with prose in it.
+    if let Some(rest) = s.strip_prefix("Add ")
+        && let Some((symbol, tail)) = rest.split_once(" for each ")
+        && let Some(noun) = tail.strip_suffix(" counter removed this way")
+    {
+        let syms = symbols(symbol)?;
+        let [only] = syms.as_slice() else {
+            return None;
+        };
+        let color = symbol_color(only)?;
+        if counter_kind(noun)? != announced? {
+            return None;
+        }
+        // `Amount::X` and not a count of what is on the land: the counters
+        // are gone by the time this runs, and the number the player
+        // announced is what the cost took off.
+        return Some(vec![format!("Effect::mana_dynamic({color}, Amount::X)")]);
+    }
     if let Some(rest) = s.strip_prefix("Add ") {
         return parse_add(rest);
     }
@@ -245,9 +271,10 @@ fn parse_effect(sentence: &str) -> Option<Vec<String>> {
 }
 
 /// The activation cost left of the colon.
-fn parse_cost(text: &str) -> Option<String> {
+fn parse_cost(text: &str) -> Option<(String, Option<&'static str>)> {
     let mut mana = String::new();
     let mut parts: Vec<String> = Vec::new();
+    let mut announced: Option<&'static str> = None;
     for token in text.split(", ") {
         let token = token.trim();
         if token == "{T}" {
@@ -275,6 +302,19 @@ fn parse_cost(text: &str) -> Option<String> {
             // permanent and Magic prints nothing that multiplies a removal,
             // so this one is arithmetic and that one is a replacement effect.
             parts.push(format!("RemoveCounterSelf {{ kind: {kind}, n: {n} }}"));
+        } else if let Some(kind) = token
+            .strip_prefix("Remove any number of ")
+            .or_else(|| token.strip_prefix("Remove X "))
+            .and_then(|rest| rest.strip_suffix(" counters from this land"))
+            .and_then(counter_kind)
+        {
+            // Two printed spellings, one rule: the storage lands say "any
+            // number of" eleven times and "X" six, and both mean a number
+            // the player announces as the ability is activated. Read into
+            // one `CostPart` because the effect reads both back the same
+            // way, as `Amount::X`.
+            parts.push(format!("RemoveCounterSelfX {{ kind: {kind} }}"));
+            announced = Some(kind);
         } else if token.starts_with('{') && symbols(token).is_some() {
             if !mana.is_empty() {
                 return None;
@@ -284,7 +324,7 @@ fn parse_cost(text: &str) -> Option<String> {
             return None;
         }
     }
-    Some(crate::body::cost_literal(&mana, &parts))
+    Some((crate::body::cost_literal(&mana, &parts), announced))
 }
 
 /// Splits a line into sentences, keeping `{1}, {T}: …` colons intact.
@@ -383,11 +423,11 @@ impl Recognizer<'_> {
     /// An `{T}: Add …` style line, with any rider sentences that follow.
     fn activated_line(&mut self, line: &str) -> Option<()> {
         let (left, right) = line.split_once(": ")?;
-        let cost = parse_cost(left)?;
+        let (cost, announced) = parse_cost(left)?;
         let mut effects = Vec::new();
         let mut is_mana = false;
         for (i, sentence) in sentences(right).iter().enumerate() {
-            let parsed = parse_effect(sentence)?;
+            let parsed = parse_effect(sentence, announced)?;
             if i == 0 {
                 is_mana = sentence.starts_with("Add ");
             }
@@ -422,7 +462,8 @@ impl Recognizer<'_> {
 
     fn etb_trigger(&mut self, line: &str) -> Option<()> {
         let rest = line.strip_prefix("When this land enters, ")?;
-        let effects = parse_effect(rest)?;
+        // A trigger has no cost, so nothing announced a number to it.
+        let effects = parse_effect(rest, None)?;
         self.body.abilities.push(format!(
             "triggered!(Trigger::ETB, &[{}])",
             effects.join(", ")
@@ -1003,14 +1044,14 @@ mod tests {
     /// that name one — and now in the fourth, which is the clause that ends
     /// a depletion land.
     ///
-    /// The storage lands print exactly these phrases with "storage" in them
-    /// and nobody has assigned that word an id. Reading the number and
-    /// dropping the noun would hand Bottomless Vault a charge counter — a
-    /// land that untaps for free — so the whole card is refused instead, and
-    /// this is the test that it is.
+    /// Verse counters are printed by a land in this pool and nobody has
+    /// assigned that word an id. Reading the number and dropping the noun
+    /// would hand the card a charge counter and an ability that spends one
+    /// — so the whole card is refused instead, and this is the test that it
+    /// is.
     #[test]
     fn a_counter_the_dsl_cannot_name_refuses_the_card() {
-        for noun in ["storage", "verse"] {
+        for noun in ["verse"] {
             for oracle in [
                 format!(
                     "This land enters tapped with two {noun} counters on it.\n{{T}}: Add {{R}}."
@@ -1047,16 +1088,115 @@ mod tests {
             "If there are no counters on this land, sacrifice it",
         ] {
             assert_eq!(
-                super::parse_effect(tail),
+                super::parse_effect(tail, None),
                 None,
                 "a sentence this did not read has to refuse: {tail}"
             );
         }
         assert!(
-            super::parse_effect("If there are no depletion counters on this land, sacrifice it")
-                .is_some(),
+            super::parse_effect(
+                "If there are no depletion counters on this land, sacrifice it",
+                None,
+            )
+            .is_some(),
             "and the one the card prints has to be read"
         );
+    }
+
+    /// A storage land, whole: bank a counter a turn, then spend any number
+    /// of them at once.
+    ///
+    /// Two sentences that only make sense together. The cost announces a
+    /// number and names no figure; the effect says "for each storage counter
+    /// removed this way", which is that same number and is written
+    /// `Amount::X` — not a count of what is on the land, because by the time
+    /// the mana is added the counters are gone.
+    #[test]
+    fn a_storage_land_banks_a_counter_and_spends_any_number_of_them() {
+        let body = read(
+            "Land",
+            "This land enters tapped.\n{T}: Put a storage counter on this land.\n\
+             {T}, Remove any number of storage counters from this land: \
+             Add {W} for each storage counter removed this way.",
+        );
+        assert_eq!(body.enter_modifiers, ["EnterModifier::Tapped"]);
+        assert_eq!(
+            body.abilities,
+            [
+                concat!(
+                    "activated!(Cost::TAP, &[Effect::AddCounter { kind: counters::STORAGE, ",
+                    "amount: Amount::Fixed(1) }])"
+                ),
+                concat!(
+                    "mana_ability!(cost!(TapSelf, RemoveCounterSelfX { kind: counters::STORAGE ",
+                    "}), &[Effect::mana_dynamic(ManaColor::White, Amount::X)])"
+                ),
+            ]
+        );
+    }
+
+    /// The other printed spelling of the same cost, on the cycle that pays
+    /// mana for its counters instead of tapping.
+    ///
+    /// The effect is *not* read here and the card is refused: "Add X mana in
+    /// any combination of {G} and/or {W}" is a sentence this reader does not
+    /// know yet. That is the honesty rule doing its job on a card whose cost
+    /// it understood perfectly — half a card is not a card.
+    #[test]
+    fn remove_x_is_the_same_cost_and_does_not_rescue_an_unread_effect() {
+        assert_eq!(
+            super::parse_cost("{1}, Remove X storage counters from this land"),
+            Some((
+                "cost!(\"{1}\", RemoveCounterSelfX { kind: counters::STORAGE })".to_string(),
+                Some("counters::STORAGE"),
+            ))
+        );
+        assert!(
+            super::read(
+                &card(
+                    "Land",
+                    "{T}: Add {C}.\n{1}, {T}: Put a storage counter on this land.\n\
+                     {1}, Remove X storage counters from this land: \
+                     Add X mana in any combination of {G} and/or {W}.",
+                ),
+                &cats()
+            )
+            .is_err(),
+            "the effect is not readable yet, so neither is the card"
+        );
+    }
+
+    /// The effect reads the cost beside it, which is the one place in this
+    /// reader where a sentence is not self-contained.
+    ///
+    /// None of these four is printed by any card. Each is one word away from
+    /// the sentence that is, and a reader loose enough to take any of them
+    /// would emit a land that makes mana out of counters it never removed.
+    #[test]
+    fn mana_for_each_counter_removed_has_to_match_the_cost_that_removed_it() {
+        let storage = Some("counters::STORAGE");
+        assert!(
+            super::parse_effect("Add {W} for each storage counter removed this way", storage)
+                .is_some(),
+            "the sentence the card prints"
+        );
+        for (sentence, announced) in [
+            // The cost announced nothing: no number was ever chosen.
+            ("Add {W} for each storage counter removed this way", None),
+            // The cost announced another counter.
+            ("Add {W} for each charge counter removed this way", storage),
+            // A counter with no id at all.
+            ("Add {W} for each verse counter removed this way", storage),
+            // Counters on the land, which is a different card (City of
+            // Shadows) and a different amount.
+            ("Add {W} for each storage counter on this land", storage),
+        ] {
+            assert_eq!(
+                super::parse_effect(sentence, announced),
+                None,
+                "a sentence this did not read has to refuse: {sentence}"
+            );
+        }
     }
 
     /// Every counter this reader can spell is one the DSL actually assigns.
@@ -1115,7 +1255,7 @@ mod tests {
         assert_eq!(super::counter_phrase("two charge counter"), None);
         assert_eq!(super::counter_phrase("a charge counters"), None);
         assert_eq!(super::counter_phrase("a +1/+1 counter"), None);
-        assert_eq!(super::counter_phrase("two storage counters"), None);
+        assert_eq!(super::counter_phrase("two verse counters"), None);
         assert_eq!(super::counter_phrase("two counters"), None);
     }
 

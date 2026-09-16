@@ -1716,7 +1716,11 @@ impl<L: CardLookup> Engine<L> {
                 effects: resolve::flatten(effects),
                 pc: 0,
                 targets: obj.targets.clone(),
-                x: None,
+                // Zero on every ability the pool prints today, and read
+                // rather than assumed because an activation with a counter-X
+                // cost writes one here (`push_ability_to_stack`). `Some(0)`
+                // and `None` are the same number to `eval::amount`.
+                x: Some(obj.x_value),
                 chosen_player: obj.chosen_player,
                 target_players: obj.target_players,
                 event_object: obj.event_object,

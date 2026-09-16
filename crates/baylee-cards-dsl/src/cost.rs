@@ -80,6 +80,38 @@ pub enum CostPart {
         /// How many.
         n: u16,
     },
+    /// Remove a number of counters of a kind from the source, **the number
+    /// chosen as the ability is activated**.
+    ///
+    /// The storage lands, and nothing else: counted over every
+    /// `//! Oracle:` header on 2026-09-16, **17** cards print a counter cost
+    /// with no number in it, all seventeen of them storage counters, in two
+    /// printed spellings — "Remove **any number of** storage counters from
+    /// this land" on eleven and "Remove **X** storage counters from this
+    /// land" on six. What the effect then says is the same sentence twice:
+    /// "Add {W} for each storage counter removed this way" and "Add X mana
+    /// in any combination of {W} and/or {U}" both mean *the number that came
+    /// off*, which is why both read it back as [`crate::Amount::X`] and why
+    /// this is one variant rather than two.
+    ///
+    /// **The two spellings are not the same rule, and the engine asks once.**
+    /// An X is announced with the ability (CR 601.2b, reached from
+    /// CR 602.2b), before targets are chosen; "any number" is a choice made
+    /// as the cost is *paid* (CR 601.2h), after them. This engine asks at
+    /// the earlier of the two moments for both, which is legal for the first
+    /// and observable for the second only on a card that chose targets in
+    /// between — and there is none: of those seventeen headers, **zero**
+    /// print the word "target" anywhere in the line. Asking first is also
+    /// the strictly more capable order, because a `TargetReq` may count
+    /// itself in X.
+    ///
+    /// **Zero is a legal answer**, so an ability whose only counter cost is
+    /// this one can always be activated — a storage land with nothing stored
+    /// taps for no mana. That is Magic, not a hole; see `can_afford`.
+    RemoveCounterSelfX {
+        /// Which counter.
+        kind: crate::effect::CounterKind,
+    },
 }
 
 /// A conditional cost reduction printed on a card (Surgical Metamorph).

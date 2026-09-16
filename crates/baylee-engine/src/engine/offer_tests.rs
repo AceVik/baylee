@@ -612,6 +612,81 @@ fn nothing_in_the_pool_carries_an_activated_cost_the_engine_would_skip() {
     );
 }
 
+/// Every counter-X cost in the pool sits on a **mana** ability, and the one
+/// line of `start_activation` that says otherwise has no card behind it.
+///
+/// `RemoveCounterSelfX` announces a number (CR 601.2b), and the number then
+/// has to reach the effects. There are two doors for that and they are not
+/// the same code: a mana ability resolves immediately (CR 605.3b) and gets
+/// its X straight into the `Resolution`, while an ability that uses the
+/// stack has to have it written onto the stacked object as `x_value`. The
+/// second door is written and is played by nothing — all seventeen cards
+/// that print this cost print `Add …` behind it — so the comment beside it
+/// makes a claim about the whole pool, and this is what holds the claim.
+///
+/// It is written the way the *memory* of the last two says to write one:
+/// both directions. The count is a floor rather than an equality, because
+/// the population grows with every storage land `landgen` learns to read and
+/// an exact number would make a new card fail a test it has nothing to do
+/// with — but a floor of six is what stops the scan passing over an empty
+/// pool, which is how a claim like this goes quietly vacuous.
+///
+/// If it ever fails, the fix is not to widen it. A card that pays counters
+/// into an ability that uses the stack is a card that has to be *played* in
+/// an engine test, because `x_value` is a write nobody has ever read back.
+#[test]
+fn every_counter_x_cost_in_the_pool_is_on_a_mana_ability() {
+    let mut carried = Vec::new();
+    let mut offenders = Vec::new();
+    let mut check = |who: &str, ability: &AbilityDef| {
+        let (AbilityDef::Activated {
+            cost, mana_ability, ..
+        }
+        | AbilityDef::ActivatedConditional {
+            cost, mana_ability, ..
+        }) = ability
+        else {
+            return;
+        };
+        if !cost
+            .parts
+            .iter()
+            .any(|p| matches!(p, baylee_cards_dsl::CostPart::RemoveCounterSelfX { .. }))
+        {
+            return;
+        }
+        carried.push(who.to_string());
+        if !mana_ability {
+            offenders.push(who.to_string());
+        }
+    };
+    for def in baylee_cards::all() {
+        for face in 0..def.faces.len() {
+            for ability in def.abilities_for_face(face) {
+                check(def.name(), ability);
+            }
+        }
+    }
+    for token in baylee_cards::tokens::ALL {
+        for ability in token.abilities {
+            check(token.name, ability);
+        }
+    }
+    assert!(
+        offenders.is_empty(),
+        "a counter-X cost on an ability that uses the stack: the announced \
+         number now travels as `x_value` on the stacked object, which no \
+         card has ever played — give it an engine test before trusting it: \
+         {offenders:?}"
+    );
+    assert!(
+        carried.len() >= 6,
+        "only {} cards carry a counter-X cost, so this scan is close to \
+         asserting nothing: {carried:?}",
+        carried.len()
+    );
+}
+
 /// The same class once more, on the side of the line where the parts above
 /// *are* paid — because "the casting wizard pays it" turned out to be a claim
 /// that has to name **which** of a spell's three cost lists.

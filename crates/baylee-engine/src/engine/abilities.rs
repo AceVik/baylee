@@ -34,8 +34,45 @@ use baylee_cards_dsl::ActivationZone;
 /// `offer_tests::nothing_in_the_pool_carries_an_activated_cost_the_engine_would_skip`,
 /// and why nothing here refuses: the parts are correct where they are used,
 /// and the guard is what keeps them from being used anywhere else.
+///
+/// Exhaustive on purpose, and this is the enum where that matters most: a
+/// `matches!` answers a *new* cost part with `false`, which here means "pay
+/// it for real" and is the safe direction — but the same shape one function
+/// down in `can_afford` answered `CostPart::TapOther` with silence and lost
+/// the house AI a card. A part added to this enum should have to say which
+/// side of this line it is on, in one word, at compile time.
 pub(crate) const fn paid_by_the_casting_wizard(part: &CostPart) -> bool {
-    matches!(part, CostPart::ExileFromHand(_) | CostPart::PayLifeX)
+    match part {
+        CostPart::ExileFromHand(_) | CostPart::PayLifeX => true,
+        CostPart::TapSelf
+        | CostPart::UntapSelf
+        | CostPart::SacrificeSelf
+        | CostPart::Sacrifice(_)
+        | CostPart::PayLife(_)
+        | CostPart::Discard(_)
+        | CostPart::TapOther(_)
+        | CostPart::DiscardSelf
+        | CostPart::ExileSelf
+        | CostPart::ReturnSelfToHand
+        | CostPart::RemoveCounterSelf { .. }
+        | CostPart::RemoveCounterSelfX { .. } => false,
+    }
+}
+
+/// The counter a cost asks the player for a *number* of, if it asks at all.
+///
+/// A finder rather than a classifier, which is why the `_` arm is honest
+/// here and is not in `paid_by_the_casting_wizard` above: the question is
+/// "is this that one variant", and a part added tomorrow is not it.
+///
+/// One part at most. A cost with two of these would be two numbers and one
+/// answer, and `activation_x` holds one — the pool prints seventeen such
+/// costs and every one of them removes a single kind.
+fn counter_x_part(cost: &Cost) -> Option<baylee_cards_dsl::CounterKind> {
+    cost.parts.iter().find_map(|part| match part {
+        CostPart::RemoveCounterSelfX { kind } => Some(*kind),
+        _ => None,
+    })
 }
 
 impl<L: CardLookup> Engine<L> {
@@ -594,10 +631,20 @@ impl<L: CardLookup> Engine<L> {
                 // activated ability, and
                 // `offer_tests::nothing_in_the_pool_carries_an_activated_cost_the_engine_would_skip`
                 // is what keeps it that way.
+                //
+                // `RemoveCounterSelfX` is in the same list for a different
+                // reason and is **always affordable, deliberately**: zero is
+                // a legal answer to "remove any number of storage counters",
+                // so a storage land with nothing stored may still be tapped
+                // for no mana at all — that is the card, not a hole. Nothing
+                // loops on it because every cost that prints it prints `{T}`
+                // or a mana part beside it, which is what
+                // `baylee_ai::activate::consumes` reads.
                 CostPart::SacrificeSelf
                 | CostPart::DiscardSelf
                 | CostPart::ExileSelf
                 | CostPart::ReturnSelfToHand
+                | CostPart::RemoveCounterSelfX { .. }
                 | CostPart::PayLifeX => {}
             }
         }
@@ -790,7 +837,9 @@ impl<L: CardLookup> Engine<L> {
                 "a granted ability cannot ask for its cost yet",
             ));
         }
-        self.pay_cost(player, source, &cost, &[])?;
+        // A granted ability carries no counter cost — nothing in the pool
+        // grants one — so there is no number to announce and none to pay.
+        self.pay_cost(player, source, &cost, &[], 0)?;
         if mana_ability {
             let mut res = crate::resolve::Resolution {
                 source,
@@ -975,6 +1024,38 @@ impl<L: CardLookup> Engine<L> {
             ));
         }
         let _ = zone;
+        // CR 601.2b, and it sits *above* the targets below because that is
+        // the order the rule puts them in: a number announced with the
+        // ability, then the targets, then the payment. "Remove any number of
+        // storage counters" names no number and neither does "Remove X
+        // storage counters", so the player is asked for one, bounded by what
+        // is actually on the source — an answer above that bound would be a
+        // cost nothing could pay, and the bound is the whole of the
+        // legality here because zero is allowed.
+        //
+        // Reached only through the offer guard in `apply`, which refuses an
+        // ability `legal.abilities` does not carry, so nobody is asked a
+        // number for an activation `can_afford` has already ruled out.
+        if let Some(kind) = counter_x_part(&cost)
+            && self.activation_x.is_none()
+        {
+            let max = u32::from(
+                self.state
+                    .object(source)
+                    .map_or(0, |o| o.counters.get(kind)),
+            );
+            self.pending_plan = Some(PlanKind::ChooseActivationX {
+                source,
+                ability_index,
+            });
+            self.pending = Pending::ChooseNumber {
+                player,
+                min: 0,
+                max,
+            };
+            self.awaiting_answer = true;
+            return Ok(());
+        }
         // Targets, unless the answer is already in hand — and it is in hand
         // when *either* half of it is. Asking only about the objects sent an
         // ability whose targets are all players straight back to the same
@@ -1002,6 +1083,9 @@ impl<L: CardLookup> Engine<L> {
             // disagreement this engine treats as the worst kind.
             let player_options = eval::target_player_options(&self.state, &spec, player);
             if options.is_empty() && player_options.is_empty() {
+                // The number was answered before this question was asked, so
+                // an activation that dies here has one to throw away.
+                self.activation_x = None;
                 return Err(EngineError::IllegalAction("no legal targets"));
             }
             self.pending_plan = Some(PlanKind::ActivateAbility {
@@ -1021,6 +1105,7 @@ impl<L: CardLookup> Engine<L> {
         }
         if !self.can_afford(player, source, &cost) {
             self.activation_cost_choices.clear();
+            self.activation_x = None;
             return Err(EngineError::IllegalAction("cannot pay the cost"));
         }
         // CR 601.2h, and the one step of it the player has to take: a cost
@@ -1053,6 +1138,7 @@ impl<L: CardLookup> Engine<L> {
             // boundary.
             if options.is_empty() {
                 self.activation_cost_choices.clear();
+                self.activation_x = None;
                 return Err(EngineError::IllegalAction("nothing can pay this cost"));
             }
             self.pending_plan = Some(PlanKind::PayActivationCost {
@@ -1072,7 +1158,10 @@ impl<L: CardLookup> Engine<L> {
             return Ok(());
         }
         let answers = std::mem::take(&mut self.activation_cost_choices);
-        self.pay_cost(player, source, &cost, &answers)?;
+        // Taken rather than read, for `activation_cost_choices`' reason one
+        // line up: the number belongs to this activation and to no other.
+        let x = self.activation_x.take().unwrap_or(0);
+        self.pay_cost(player, source, &cost, &answers, x)?;
         if mana_ability {
             // Mana abilities resolve immediately, without the stack
             // (CR 605.3b). Choice-mana abilities (any-color lands, Command
@@ -1084,7 +1173,11 @@ impl<L: CardLookup> Engine<L> {
                 effects: resolve::flatten(effects),
                 pc: 0,
                 targets,
-                x: None,
+                // The number this activation announced, which is what every
+                // `Amount::X` in its effects reads: "Add {W} for each storage
+                // counter removed this way" is the counters that just came
+                // off as a cost.
+                x: Some(x),
                 chosen_player: None,
                 target_players: baylee_core::ids::SeatSet::new(),
                 event_object: None,
@@ -1104,7 +1197,21 @@ impl<L: CardLookup> Engine<L> {
                 }
             }
         } else {
-            self.push_ability_to_stack(player, source, ability_index, targets);
+            let ability = self.push_ability_to_stack(player, source, ability_index, targets);
+            // The number this activation announced, carried on the ability
+            // the way a spell carries its own X (CR 601.2b). No card in the
+            // pool prints a counter-X cost on an ability that uses the stack
+            // — all seventeen are mana abilities, which resolve without one
+            // — so this line has no card behind it and is here because the
+            // alternative is an ability that pays for X and resolves with
+            // nought. That is a claim about the pool rather than about this
+            // function, so it is held by a scan and not by this comment:
+            // `offer_tests::every_counter_x_cost_in_the_pool_is_on_a_mana_ability`.
+            if x > 0
+                && let Some(obj) = self.state.object_mut(ability)
+            {
+                obj.x_value = x;
+            }
             // The seats that were targeted, written onto the ability now
             // that there is one — the same two fields the trigger path
             // writes, and for the same reason: `target_players` is the set
@@ -1114,8 +1221,7 @@ impl<L: CardLookup> Engine<L> {
             // below stacks whatever a sacrifice cost triggered, and that
             // lands above this ability.
             if !chosen_players.is_empty()
-                && let Some(top) = self.state.zones.list(ZoneLocation::Stack).last().copied()
-                && let Some(obj) = self.state.object_mut(top)
+                && let Some(obj) = self.state.object_mut(ability)
             {
                 obj.target_players = chosen_players.iter().copied().collect();
                 if let [only] = chosen_players[..] {
@@ -1355,12 +1461,14 @@ impl<L: CardLookup> Engine<L> {
     /// and refusing is the point: the failure mode
     /// [`paid_by_the_casting_wizard`] documents is a part silently skipped,
     /// and a free sacrifice is worse than a refused activation.
+    #[allow(clippy::too_many_lines)] // one arm per `CostPart`, and the list is the point
     pub(crate) fn pay_cost(
         &mut self,
         player: PlayerId,
         source: ObjectId,
         cost: &Cost,
         chosen: &[ObjectId],
+        x: u32,
     ) -> Result<(), EngineError> {
         let mut answers = chosen.iter().copied();
         if !cost.mana.is_empty() {
@@ -1468,6 +1576,22 @@ impl<L: CardLookup> Engine<L> {
                         ));
                     }
                 }
+                // The number the player announced, through the same door as
+                // the fixed one above — a removal takes no multiplier either
+                // way (CR 614.16 is about counters being *put* on). The
+                // refusal is the same too, and is not dead code: the bound
+                // was read when the question was asked, and a counter can
+                // leave in between (Thief of Blood in response).
+                CostPart::RemoveCounterSelfX { kind } => {
+                    let want = u16::try_from(x).unwrap_or(u16::MAX);
+                    if crate::replacement::remove_counters(&mut self.state, source, *kind, want)
+                        < want
+                    {
+                        return Err(EngineError::IllegalAction(
+                            "not enough counters to pay the cost",
+                        ));
+                    }
+                }
                 // The parts that had to ask, paid with the answers in the
                 // order they were asked for, through the same doors as the
                 // `SacrificeSelf`, `DiscardSelf` and `TapSelf` arms above —
@@ -1501,13 +1625,17 @@ impl<L: CardLookup> Engine<L> {
     /// between them on `ObjectKind::Emblem`, which is the wrong question —
     /// what this needs to know is whether the source has a card, and an
     /// emblem is only one of the things that has none.
+    ///
+    /// Returns the ability object it made, because two callers need it back
+    /// and both used to find it by reading the top of the stack — true, and
+    /// true only because nothing runs in between.
     pub(crate) fn push_ability_to_stack(
         &mut self,
         controller: PlayerId,
         source: ObjectId,
         ability_index: u32,
         targets: SmallVec<[ObjectId; 2]>,
-    ) {
+    ) -> ObjectId {
         // An emblem (CR 114.2), a token and a token copy have no card, and
         // the handle a client is given says so. What resolves is the list
         // captured below (CR 608.2), as for any ability.
@@ -1572,5 +1700,6 @@ impl<L: CardLookup> Engine<L> {
             ability_index,
             controller,
         });
+        id
     }
 }

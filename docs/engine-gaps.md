@@ -118,9 +118,9 @@ met where the ranking is.
 
 | # | Gap | Cards (basis) | Depth | Lever | Rule or case | Blocked together with |
 | --- | --- | --- | --- | --- | --- | --- |
-| 1 | **G2** A counter as a cost, fixed number — **shipped**, see §1 | 40 cards (re-measured), 17 of them X storage lands | 1 | 20–40 | **case** | the X half with G1 |
+| 1 | **G2** A counter as a cost, fixed number **and** X — **both shipped**, see §1 | 40 cards (re-measured); the 17 X storage lands reach 6 today, 5 more on one `landgen` reading | 1 (fixed) / 3 (X) | 20–40 | **case**, then a stage | — |
 | 2 | **G3** Surveil | 32 headers (by hand), 29 script | 1 | 32 | **case** | — |
-| 3 | **G1** An activation asks a question — the chooser half **shipped**, X still open, see §3 | 50 headers with Sacrifice/Discard only (by hand); +9 tapXType, +4 crew, +20 script-counted activation costs, +~20 storage lands | 3 | ~27 | **new rule** on an existing seam | G2's X, G14, `offers`#2 |
+| 3 | **G1** An activation asks a question — the chooser half and the counter-X half **shipped**, see §3 | 50 headers with Sacrifice/Discard only (by hand); +9 tapXType, +4 crew, +20 script-counted activation costs, +~20 storage lands | 3 | ~27 | **new rule** on an existing seam | G2's X, G14, `offers`#2 |
 | 4 | **G4** "unless you pay" takes a `Cost` | 17 headers (by hand), 36 script | 2 | 9–18 | **case** (field change) | 31 of the 36 need G1's CostParts |
 | 5 | **G5** "doesn't untap" | 22 headers (by hand), 20 script | 2 | 11 | **new rule** (small) | 5 depletion lands also G2 |
 | 6 | **G6** A chosen color | 29 headers (by hand, incl. "chosen color"), 24 script | 3 | ~10 | **new rule** | — |
@@ -151,7 +151,7 @@ met where the ranking is.
 Each entry is the same five: **(a)** what was found, **(b)** where it changes,
 **(c)** the shape, **(d)** the test that proves it, **(e)** the first card.
 
-### 1. G2 — a cost cannot take a counter off — **the fixed-number half shipped**
+### 1. G2 — a cost cannot take a counter off — **both halves shipped**
 
 The entry below is what the audit proposed; what follows it is what was
 measured when the work was actually done, because three of the audit's numbers
@@ -261,11 +261,84 @@ reason the module header gives: an ability that also does something else is
 one a player should decide about themselves. The engine offers them
 normally; it is the plan that leaves them out.
 
-**Still open, and it is the X half.** The storage lands need an X in an
-*activation* cost, which is exactly what does not exist: the documentation at
-`abilities.rs:1375ff` says itself that `PayLifeX` is paid by the cast wizard
-and skipped by `pay_cost`. X in an activation is G1's question. Devoted Druid
-(`PutCounterSelf` plus an activation limit, G10) is the other piece.
+The storage lands land in the same place by a **different** door, which is
+worth writing down because the two look alike and are not. Their X line *is*
+a single `AddMana`, so `mana_shape` reads it and hands back
+`Some((source, None, …))` — the `None` being `Amount::X`, a number this side
+of the wire has no board to work out. `manasources::mana_ability` then
+refuses it at `let amount = amount?;`. So the planner does not count a storage land, and
+that is the right answer rather than a hole: a plan that guessed at X would
+tap a land for mana that never arrived. The mana **bubble** asks the smaller
+question and still draws the pip.
+
+#### The X half, and what it cost (2026-09-16)
+
+The audit's remaining half was "the storage lands need an X in an *activation*
+cost, which is exactly what does not exist" — `PayLifeX` is paid by the cast
+wizard and skipped by `pay_cost`, so there was no door for a number announced
+outside a spell. That is now **`CostPart::RemoveCounterSelfX { kind }`**, and
+it turned out to be a stage rather than a subsystem: everything a number needs
+already existed for spells, and the work was giving an activation a way in.
+
+**Shipped.** A stage in `start_activation` that sits *above* the target block,
+because that is the order CR 601.2b puts them in and CR 602.2b applies it to
+an activation: announce the number, then choose targets, then pay. It reuses
+`Pending::ChooseNumber` / `PlayerAction::ChooseNumber` — the client already
+draws a number picker — and parks the activation in `Engine::activation_x`
+over the answer. Two things ask for a number now, so `PlanKind::ChooseActivationX`
+is what tells them apart, and it has to be read *before* the cast wizard's
+`expect`, which is the whole reason that branch is where it is. The announced
+X then reaches the effects by both doors: a mana ability resolves immediately
+(CR 605.3b) with `Resolution.x = Some(x)`, and a stacked activation writes it
+to the ability object's `x_value` — a field spells have always filled and
+which `progress.rs` then threw away, passing `x: None` into every ability
+resolution. The second door is written and **nothing plays it**: all
+seventeen cards print `Add …` behind the cost, so every one of them is a mana
+ability. That is a pool-wide claim in a comment, which is the shape that has
+been wrong twice here, so it is held by
+`offer_tests::every_counter_x_cost_in_the_pool_is_on_a_mana_ability` — both
+directions, so the scan cannot pass over an empty pool either.
+
+**The bound is the whole of the legality.** `can_afford` has nothing to refuse
+— "any number" includes none, so the ability is affordable whatever the
+permanent carries — and the only illegal answer is one larger than the
+counters actually there, which is `Pending::ChooseNumber`'s own `max`. That
+also makes the stage safe where it sits: it is reached only through `apply`'s
+offer guard, so nobody is asked a number for an activation `can_afford` has
+already ruled out.
+
+**The 17 is not 17 cards of reach, and it never was.** Counted again by hand
+over the headers, the 17 split four ways:
+
+- **6 shipped here** — the five Mercadian Masques storage lands (Fountain of
+  Cho, Saprazzan Cove, Subterranean Hangar, Mercadian Bazaar, Rushwood Grove)
+  and Mage-Ring Network, which prints three abilities where they print two.
+- **5 need one more `landgen` reading**, not an engine change: the Time Spiral
+  cycle (Calciform Pools, Dreadship Reef, Fungal Reaches, Molten Slagheap,
+  Saltcrusted Steppe) says `Add X mana in any combination of {W} and/or {U}`,
+  and `Effect::mana_combination` has existed since Mystic Gate. Their cost is
+  also the shape with no `{T}` in it — `{1}, Remove X storage counters` — so
+  they are worth reading for that alone. Cascading Cataracts is not one of the
+  17 and falls out of the same work: `Add five mana in any combination of
+  colors` is the fixed-number form of the same sentence, and its other line —
+  a bare `Indestructible` — `landgen` already reads.
+- **5 are blocked on G5** — Bottomless Vault, Dwarven Hold, Hollow Trees,
+  Icatian Store and Sand Silos each print "You may choose not to untap this
+  land during your untap step" *and* "At the beginning of your upkeep, if this
+  land is tapped, put a storage counter on it". Their removal line reads
+  today; the rest of the card does not.
+- **1 is Crucible of the Spirit Dragon**, which needs a spend restriction that
+  reaches activated abilities ("Spend this mana only to cast Dragon spells or
+  activate abilities of Dragons").
+
+City of Shadows sits next to all of them and is a different gap: it *counts*
+storage counters rather than removing them (`{T}: Add {C} for each storage
+counter on this land`) and pays for them with `{T}, Exile a creature you
+control`, so it wants an `Amount` that reads the source's counters and a
+`CostPart::Exile(filter)`.
+
+Devoted Druid (`PutCounterSelf` plus an activation limit, G10) is the other
+piece of G2 and is untouched.
 
 ### 2. G3 — no Surveil
 

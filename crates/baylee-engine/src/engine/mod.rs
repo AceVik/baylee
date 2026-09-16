@@ -133,6 +133,20 @@ pub struct Engine<L: CardLookup> {
     /// question forever. Every path that can refuse the activation clears it
     /// on the way out.
     activation_cost_choices: Vec<ObjectId>,
+    /// The number a pending activation's counter cost was given (CR 601.2b).
+    ///
+    /// The third field in this family and the one asked *first*: a cost that
+    /// says "remove any number of storage counters" names no number, and an
+    /// X is announced before targets are chosen. `start_activation` asks for
+    /// it, `apply` puts the answer here and re-enters, and the same number
+    /// is both what `pay_cost` takes off the source and the `Amount::X`
+    /// every effect of that ability reads back.
+    ///
+    /// Cleared where [`Engine::activation_cost_choices`] is — on a fresh
+    /// press and on every path that refuses — for the same reason twice
+    /// over: a stale answer here would pay the *next* activation's cost with
+    /// the last one's number and never ask again.
+    activation_x: Option<u32>,
     /// The ability list the next push to the stack should use instead of
     /// asking the source — read before its cost is paid, or carried on a
     /// trigger that is looking back in time.
@@ -300,6 +314,18 @@ enum PlanKind {
         /// Ability index.
         ability_index: u32,
     },
+    /// An activation waiting for the number its counter cost asks for.
+    ///
+    /// Carries nothing but the ability, because it is the *first* question
+    /// an activation asks: no target has been chosen yet and no cost answer
+    /// has been given, so there is nothing else to hand back on the
+    /// re-entry.
+    ChooseActivationX {
+        /// The permanent whose ability is being activated.
+        source: ObjectId,
+        /// Ability index.
+        ability_index: u32,
+    },
     /// An activation waiting for one of its cost's answers (CR 601.2h).
     ///
     /// The whole answered half of the activation travels on the plan,
@@ -359,6 +385,7 @@ impl<L: CardLookup> Engine<L> {
             loyalty_player_choice: None,
             activation_target_players: Vec::new(),
             activation_cost_choices: Vec::new(),
+            activation_x: None,
             activating_abilities: None,
             entry_scan_seq: 0,
             delayed_queue: VecDeque::new(),

@@ -116,6 +116,13 @@ fn consumes(cost: &Cost) -> bool {
             | CostPart::ReturnSelfToHand
             | CostPart::PayLife(_)
             | CostPart::RemoveCounterSelf { .. }
+            // A number the seat announces, and the agent announces the
+            // smallest one it is offered — so this alone would take nothing
+            // off and repeat for ever. It is `true` because every cost in
+            // the pool that carries it also carries a `{T}` or a mana part,
+            // and because the conservative answer to "can this repeat?" is
+            // the one that does not hang the game.
+            | CostPart::RemoveCounterSelfX { .. }
             // A creature that paid is a creature that cannot pay again, and
             // it is the *board* that shrinks rather than the source — which
             // is the same limit, read one permanent over.

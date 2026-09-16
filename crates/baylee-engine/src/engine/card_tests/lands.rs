@@ -2472,3 +2472,409 @@ fn gemstone_mine_dies_on_the_far_side_of_the_colour_it_asks_for() {
          sacrificed it"
     );
 }
+
+// oracle_id = "0799df10-b489-4f79-bf98-7a0c500b46a1"
+fn fountain_of_cho() -> CardIndex {
+    card_index("0799df10-b489-4f79-bf98-7a0c500b46a1")
+}
+
+// oracle_id = "136596a0-b179-40be-b42d-c0b992621c95"
+fn mage_ring_network() -> CardIndex {
+    card_index("136596a0-b179-40be-b42d-c0b992621c95")
+}
+
+// oracle_id = "f7dda04a-c9c6-4952-9bbc-87e3c7480347"
+fn saprazzan_cove() -> CardIndex {
+    card_index("f7dda04a-c9c6-4952-9bbc-87e3c7480347")
+}
+
+// oracle_id = "0bbd5a04-c281-4afb-98a1-657b4eca102c"
+fn subterranean_hangar() -> CardIndex {
+    card_index("0bbd5a04-c281-4afb-98a1-657b4eca102c")
+}
+
+// oracle_id = "b02ab3c7-fe4a-443c-b860-ba971d3301b0"
+fn mercadian_bazaar() -> CardIndex {
+    card_index("b02ab3c7-fe4a-443c-b860-ba971d3301b0")
+}
+
+// oracle_id = "ccb2f92e-69c0-415c-81cd-52c384b3b233"
+fn rushwood_grove() -> CardIndex {
+    card_index("ccb2f92e-69c0-415c-81cd-52c384b3b233")
+}
+
+/// Activates a storage land's banking line and lets it resolve.
+///
+/// `{T}: Put a storage counter on this land` produces no mana, so it is not
+/// a mana ability (CR 605.1a) and it uses the stack — the counter is not
+/// there until it resolves. That is the reason this is a helper and not a
+/// bare `apply`: a test that read the count straight after the press would
+/// be reading the board before the ability had done anything, and would
+/// then "prove" the storing line broken on every card that has one.
+///
+/// It also asserts what the press did *not* do. Banking names its own
+/// number, so the engine must come straight back to priority — a
+/// `ChooseNumber` here would mean the question had attached itself to the
+/// permanent rather than to the cost part that announces one.
+#[track_caller]
+fn store_a_counter(
+    engine: &mut Engine<RegistryLookup>,
+    seat: PlayerId,
+    land: ObjectId,
+    ability_index: u32,
+) {
+    engine
+        .apply(
+            seat,
+            PlayerAction::ActivateAbility {
+                source: land,
+                ability_index,
+            },
+        )
+        .expect("an untapped land may bank a counter");
+    assert!(
+        matches!(engine.pending(), Pending::Priority { .. }),
+        "banking a counter announces nothing: {:?}",
+        engine.pending()
+    );
+    pass_until(engine, stack_is_empty);
+}
+
+/// Presses the storage line and answers `x`, returning the bound the engine
+/// offered.
+///
+/// It is written as one step because the two halves are one decision: the
+/// bound is the only thing the question carries, so a test that read it
+/// without answering, or answered without reading it, would be asserting
+/// half of what happened.
+#[track_caller]
+fn spend_storage(
+    engine: &mut Engine<RegistryLookup>,
+    seat: PlayerId,
+    land: ObjectId,
+    ability_index: u32,
+    x: u32,
+) -> (u32, u32) {
+    engine
+        .apply(
+            seat,
+            PlayerAction::ActivateAbility {
+                source: land,
+                ability_index,
+            },
+        )
+        .expect("the tap is the only part of this cost that can be refused");
+    let Pending::ChooseNumber {
+        player, min, max, ..
+    } = engine.pending().clone()
+    else {
+        panic!(
+            "`Remove any number of storage counters` names no number: {:?}",
+            engine.pending()
+        )
+    };
+    assert_eq!(player, seat, "the activating player announces the number");
+    engine
+        .apply(seat, PlayerAction::ChooseNumber(x))
+        .expect("a number inside the offered range");
+    (min, max)
+}
+
+/// Fountain of Cho: `{T}: Put a storage counter on this land.` and
+/// `{T}, Remove any number of storage counters from this land: Add {W} for
+/// each storage counter removed this way.`
+///
+/// The number in that second line is **announced as the ability is
+/// activated** (CR 601.2b, reached from CR 602.2b), which is a stage the
+/// engine did not have: every cost part until now was a fixed quantity a
+/// card printed, so `start_activation` walked from the zone check straight
+/// to targets. `CostPart::RemoveCounterSelfX` is the first part that asks
+/// the player a question *before* the payment, and X is then the same X the
+/// effect reads — the cost and the mana are two halves of one number.
+///
+/// What this test is built around is the **bound**, because the bound is the
+/// whole of the legality. Zero is a legal announcement, so `can_afford` has
+/// nothing to refuse and the ability is offered whatever the land carries;
+/// the only wrong answer is one larger than the counters actually there.
+/// So the arc is four activations of the same land across four of its
+/// controller's turns, and each of them asserts the bound the engine offers:
+///
+/// - stored twice, `max` is 2, and 3 is refused;
+/// - spend 1, and the *next* press offers 1 — which is the assertion the
+///   test exists for. It fails two different ways: an `activation_x` left
+///   over from the first press would skip the question entirely, and a
+///   payment that never removed the counters would still offer 2;
+/// - spend the last one, and the press after that offers 0, the land still
+///   answering for an ability whose only legal announcement is nothing at
+///   all. A zero announcement adds no mana, which is the other half of
+///   "zero is legal" and the half a `1.max(x)` anywhere would break.
+#[test]
+#[allow(clippy::too_many_lines)] // four activations of one land, and each is an assertion
+fn a_storage_land_asks_how_many_counters_and_the_bound_shrinks_with_them() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(881, forest())
+        .hand(0, &[fountain_of_cho()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let land = play_land(&mut engine, p0, fountain_of_cho());
+    assert!(
+        entered_tapped(&engine, land),
+        "Fountain of Cho prints `This land enters tapped`"
+    );
+    assert_eq!(
+        counters_on(&engine, land, counters::STORAGE),
+        0,
+        "and it arrives empty: the counters are banked one turn at a time"
+    );
+
+    // Two turns of `{T}: Put a storage counter on this land.`
+    for banked in 1..=2u16 {
+        cross_into_the_next_own_main(&mut engine, p0);
+        store_a_counter(&mut engine, p0, land, 0);
+        assert_eq!(
+            counters_on(&engine, land, counters::STORAGE),
+            banked,
+            "one counter per activation, and the land is spent for the turn"
+        );
+        assert!(is_tapped(&engine, land), "which is what `{{T}}` means");
+    }
+
+    // Two counters, so two is the most that may be announced.
+    cross_into_the_next_own_main(&mut engine, p0);
+    engine
+        .apply(
+            p0,
+            PlayerAction::ActivateAbility {
+                source: land,
+                ability_index: 1,
+            },
+        )
+        .expect("the storage line is activatable");
+    let Pending::ChooseNumber { min, max, .. } = engine.pending().clone() else {
+        panic!("expected a number, got {:?}", engine.pending())
+    };
+    assert_eq!(
+        (min, max),
+        (0, 2),
+        "`any number` is bounded below by nothing and above by the counters \
+         that are actually on the land"
+    );
+    assert!(
+        engine.apply(p0, PlayerAction::ChooseNumber(3)).is_err(),
+        "three counters is a cost nothing on this land could pay"
+    );
+    engine
+        .apply(p0, PlayerAction::ChooseNumber(1))
+        .expect("one of the two is an answer inside the range");
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::White),
+        1,
+        "one counter removed this way is one {{W}}"
+    );
+    assert_eq!(
+        counters_on(&engine, land, counters::STORAGE),
+        1,
+        "and exactly the announced number came off — the other is still banked"
+    );
+
+    // The assertion the test is for: the bound moved with the counters.
+    cross_into_the_next_own_main(&mut engine, p0);
+    assert_eq!(
+        spend_storage(&mut engine, p0, land, 1, 1),
+        (0, 1),
+        "one counter left, so one is the most the next activation may announce"
+    );
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::White),
+        1,
+        "and the mana follows the number that was just announced, not the \
+         one announced last turn"
+    );
+    assert_eq!(counters_on(&engine, land, counters::STORAGE), 0);
+
+    // Empty, and still a legal activation — for nothing.
+    cross_into_the_next_own_main(&mut engine, p0);
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        legal.abilities.contains(&(land, 1)),
+        "`any number` includes none, so there is no counter count at which \
+         the ability stops being affordable: {:?}",
+        legal.abilities
+    );
+    assert_eq!(
+        spend_storage(&mut engine, p0, land, 1, 0),
+        (0, 0),
+        "with nothing banked, nothing is the only thing that may be announced"
+    );
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::White),
+        0,
+        "and none of a counter is none of a mana"
+    );
+    assert!(
+        is_tapped(&engine, land),
+        "the tap was still paid, whatever the announced number was"
+    );
+    assert!(
+        in_graveyard(&engine, p0, fountain_of_cho()).is_none(),
+        "and the land is still a land: unlike the depletion cycle, nothing \
+         here sacrifices anything when the counters run out"
+    );
+}
+
+/// Mage-Ring Network, which prints three abilities where the five Mercadian
+/// Masques lands print two: `{T}: Add {C}.`, `{1}, {T}: Put a storage counter
+/// on this land.` and the storage line itself. Seven of the pool's seventeen
+/// counter-X lands have three ability lines — the five Time Spiral ones and
+/// Crucible of the Spirit Dragon are the rest — so this is a shape rather
+/// than a card; it is simply the only one of them the engine can play today.
+///
+/// It is the discriminating card for **where the question comes from**.
+/// Fountain of Cho alone cannot tell "this ability announces a number" from
+/// "this card announces a number", because every ability it prints that
+/// could ask does ask. Here the same permanent carries a plain mana ability
+/// and a storage line, so a question attached to the source rather than to
+/// `CostPart::RemoveCounterSelfX` would fire on `{T}: Add {C}` too — and
+/// that is asserted directly.
+///
+/// The `{1}` is the other half. A cost with a mana part *and* an announced
+/// number is the shape that would break an implementation that took the X
+/// question as the whole of the cost: the generic mana still has to come out
+/// of the pool, and it does, one Forest's worth.
+#[test]
+fn only_the_storage_line_of_mage_ring_network_asks_for_a_number() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(883, forest())
+        .battlefield(0, &[mage_ring_network(), forest()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let net = on_battlefield(&engine, p0, mage_ring_network()).expect("the land is on the table");
+
+    // `{1}, {T}: Put a storage counter on this land.` — the Forest pays the
+    // generic, and the land is the one thing that must not.
+    tap_mana_except(&mut engine, p0, net);
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Green),
+        1,
+        "one Forest, floating"
+    );
+    store_a_counter(&mut engine, p0, net, 1);
+    assert_eq!(counters_on(&engine, net, counters::STORAGE), 1);
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Green),
+        0,
+        "and the {{1}} really was paid out of the pool"
+    );
+
+    // `{T}: Add {C}.` — the same permanent, a counter on it, and no question.
+    cross_into_the_next_own_main(&mut engine, p0);
+    engine
+        .apply(
+            p0,
+            PlayerAction::ActivateAbility {
+                source: net,
+                ability_index: 0,
+            },
+        )
+        .expect("a printed mana ability of an untapped land");
+    assert!(
+        matches!(engine.pending(), Pending::Priority { .. }),
+        "the number belongs to the cost that removes counters, not to the \
+         land that has some: {:?}",
+        engine.pending()
+    );
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Colorless),
+        1,
+        "one colourless, and none of it came from the counter"
+    );
+    assert_eq!(
+        counters_on(&engine, net, counters::STORAGE),
+        1,
+        "which is still sitting there untouched"
+    );
+
+    // And the storage line, which does ask.
+    cross_into_the_next_own_main(&mut engine, p0);
+    assert_eq!(
+        spend_storage(&mut engine, p0, net, 2, 1),
+        (0, 1),
+        "one banked counter is a bound of one"
+    );
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Colorless),
+        1,
+        "`Add {{C}} for each storage counter removed this way`"
+    );
+    assert_eq!(counters_on(&engine, net, counters::STORAGE), 0);
+}
+
+/// The five Mercadian Masques storage lands, which are a cycle: Fountain of
+/// Cho, Saprazzan Cove, Subterranean Hangar, Mercadian Bazaar and Rushwood
+/// Grove print one text with one symbol changed.
+///
+/// So this is the reader's test rather than the engine's. The engine sees
+/// `Effect::mana_dynamic(<colour>, Amount::X)` five times and cannot tell
+/// which colour is right; only the printed text can, and `landgen` is what
+/// read it. Five lands banked and spent in one turn each, and the pool
+/// afterwards is one of every colour — a cycle member reading the wrong
+/// symbol, or all five reading the first one, fails on the count.
+#[test]
+fn the_storage_cycle_spends_its_counter_for_the_colour_it_prints() {
+    let p0 = PlayerId::new(0);
+    let cycle = [
+        (fountain_of_cho(), ManaColor::White),
+        (saprazzan_cove(), ManaColor::Blue),
+        (subterranean_hangar(), ManaColor::Black),
+        (mercadian_bazaar(), ManaColor::Red),
+        (rushwood_grove(), ManaColor::Green),
+    ];
+    let mut engine = Duel::new(887, forest())
+        .battlefield(0, &cycle.map(|(card, _)| card))
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let lands: Vec<ObjectId> = cycle
+        .iter()
+        .map(|(card, _)| on_battlefield(&engine, p0, *card).expect("the land is on the table"))
+        .collect();
+    for land in &lands {
+        store_a_counter(&mut engine, p0, *land, 0);
+        assert_eq!(counters_on(&engine, *land, counters::STORAGE), 1);
+    }
+
+    cross_into_the_next_own_main(&mut engine, p0);
+    for (land, (_, color)) in lands.iter().zip(cycle) {
+        assert_eq!(
+            spend_storage(&mut engine, p0, *land, 1, 1),
+            (0, 1),
+            "one counter each, so one is each land's bound"
+        );
+        assert_eq!(
+            engine.state().players[0].mana_pool.available(color),
+            1,
+            "and each of them spends it for the symbol it prints"
+        );
+        assert_eq!(counters_on(&engine, *land, counters::STORAGE), 0);
+    }
+}

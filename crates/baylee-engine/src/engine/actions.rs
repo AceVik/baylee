@@ -312,6 +312,20 @@ impl<L: CardLookup> Engine<L> {
                         "number outside the offered range",
                     ));
                 }
+                // Two things ask for a number, and only one of them is the
+                // cast wizard. An activation announcing the X of a counter
+                // cost (CR 601.2b) has no wizard at all, so the plan is what
+                // tells them apart and it has to be read *before* the
+                // `expect` below — which is the whole reason the branch is
+                // here rather than after it.
+                if let Some(PlanKind::ChooseActivationX {
+                    source,
+                    ability_index,
+                }) = self.pending_plan.take()
+                {
+                    self.activation_x = Some(n);
+                    return self.start_activation(player, source, ability_index, SmallVec::new());
+                }
                 let mut wizard = self.cast_wizard.take().expect("wizard active");
                 wizard.x = n;
                 wizard.stage = cast_wizard::WizardStage::Targets;
@@ -357,6 +371,7 @@ impl<L: CardLookup> Engine<L> {
                 // through its questions would otherwise hand what it had
                 // collected to the next one.
                 self.activation_cost_choices.clear();
+                self.activation_x = None;
                 self.start_activation(player, source, ability_index, SmallVec::new())
             }
             (Pending::Priority { player: p, legal }, PlayerAction::Suspend { card })
@@ -482,6 +497,13 @@ impl<L: CardLookup> Engine<L> {
                 let plan = self.pending_plan.take().expect("target plan set");
                 let targets: SmallVec<[ObjectId; 2]> = objects.into_iter().collect();
                 match plan {
+                    // Answered with a number and taken off the plan there, so
+                    // a target choice can never be carrying one. Named rather
+                    // than left to a wildcard, because the next plan that is
+                    // answered somewhere else should have to say so here.
+                    PlanKind::ChooseActivationX { .. } => {
+                        unreachable!("activation-number plans are answered via ChooseNumber")
+                    }
                     PlanKind::ActivateAbility {
                         source,
                         ability_index,

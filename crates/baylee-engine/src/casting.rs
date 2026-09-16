@@ -914,6 +914,10 @@ fn alternative_parts_payable(
         CostPart::RemoveCounterSelf { kind, n } => state
             .object(card)
             .is_some_and(|o| o.counters.get(*kind) >= *n),
+        // The rest are payable, most of them because they are paid off the
+        // card or the board rather than out of a count. `RemoveCounterSelfX`
+        // joins them for its own reason: zero is a legal number to announce,
+        // so there is nothing here an alternative cost could fail to pay.
         CostPart::TapSelf
         | CostPart::UntapSelf
         | CostPart::SacrificeSelf
@@ -923,6 +927,7 @@ fn alternative_parts_payable(
         | CostPart::DiscardSelf
         | CostPart::ExileSelf
         | CostPart::ReturnSelfToHand
+        | CostPart::RemoveCounterSelfX { .. }
         | CostPart::PayLifeX => true,
     })
 }

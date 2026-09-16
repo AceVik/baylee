@@ -57,15 +57,20 @@ pub const DEPLETION: CounterKind = CounterKind::Custom(2);
 /// Mining counters (Gemstone Mine).
 pub const MINING: CounterKind = CounterKind::Custom(3);
 
+/// Storage counters — the seventeen lands that bank mana a turn at a time
+/// (Fountain of Cho, Mage-Ring Network, Calciform Pools, …).
+pub const STORAGE: CounterKind = CounterKind::Custom(4);
+
 /// Every id this module assigns, with the word it stands for.
 ///
 /// It exists so the ids can be checked rather than trusted, which is the
-/// whole difference between a registry and three numbers that happen not to
+/// whole difference between a registry and a handful of numbers that happen not to
 /// clash today.
 pub const ASSIGNED: &[(&str, CounterKind)] = &[
     ("quest", QUEST),
     ("depletion", DEPLETION),
     ("mining", MINING),
+    ("storage", STORAGE),
 ];
 
 #[cfg(test)]

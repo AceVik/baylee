@@ -510,7 +510,8 @@ const fn needs_the_source(part: &CostPart) -> bool {
         | CostPart::DiscardSelf
         | CostPart::ExileSelf
         | CostPart::ReturnSelfToHand
-        | CostPart::RemoveCounterSelf { .. } => true,
+        | CostPart::RemoveCounterSelf { .. }
+        | CostPart::RemoveCounterSelfX { .. } => true,
         // These ask a *player* something, or ask about another permanent.
         // None of them looks the source up, so none of them cares whether it
         // is still there.
@@ -534,6 +535,7 @@ const fn moves_the_source(part: &CostPart) -> bool {
         CostPart::TapSelf
         | CostPart::UntapSelf
         | CostPart::RemoveCounterSelf { .. }
+        | CostPart::RemoveCounterSelfX { .. }
         | CostPart::Sacrifice(_)
         | CostPart::Discard(_)
         | CostPart::TapOther(_)
