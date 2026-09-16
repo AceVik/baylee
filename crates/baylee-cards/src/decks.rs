@@ -314,15 +314,17 @@ fn print_ref_for(prints: &mut Vec<PrintInfo>, print: &PrintInfo) -> PrintRef {
 
 /// What a card brings to the question "may these two lead one deck".
 ///
-/// Four facts, and no card index: the rule is about characteristics, so
-/// keeping it that way is what lets it be tested against pairs the pool does
-/// not happen to contain — the pool has exactly one card with a partner
-/// ability today, so a rule that could only be exercised through the
-/// registry could only ever be shown refusing.
+/// Five facts, of which the index is one, because `PartnerWith` names a card
+/// and names it by [`CardIndex`]. That keeps the rule testable against pairs
+/// the pool does not happen to contain, which is the property it was built
+/// for: the ledger numbers every card there is, so `index::TYMNA_THE_WEAVER`
+/// resolves whether or not this build compiles a `CardDef` for her, while a
+/// rule reachable only through the registry could only ever be shown
+/// refusing — the pool holds exactly one card with a partner ability.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct Leader<'a> {
-    /// The card's English name, which is what `PartnerWith` names.
-    pub name: &'a str,
+pub struct Leader {
+    /// The card's rules identity, which is what `PartnerWith` names.
+    pub index: CardIndex,
     /// Whether the card may lead a deck at all (CR 903.3).
     pub eligible: bool,
     /// Which partner family it is in (CR 702.124).
@@ -350,7 +352,7 @@ pub fn may_lead_together(a: &Leader, b: &Leader) -> bool {
         (PartnerKind::Partner, PartnerKind::Partner)
         | (PartnerKind::FriendsForever, PartnerKind::FriendsForever) => true,
         (PartnerKind::PartnerWith(mine), PartnerKind::PartnerWith(theirs)) => {
-            mine == b.name && theirs == a.name
+            mine == b.index && theirs == a.index
         }
         (PartnerKind::DoctorsCompanion, _) => b.doctor,
         (_, PartnerKind::DoctorsCompanion) => a.doctor,
@@ -365,11 +367,11 @@ pub fn may_lead_together(a: &Leader, b: &Leader) -> bool {
 /// `None` for an index this build does not have, which a caller turns into
 /// "unknown card" rather than into "not a legal pair".
 #[must_use]
-pub fn leader_of(index: CardIndex) -> Option<Leader<'static>> {
+pub fn leader_of(index: CardIndex) -> Option<Leader> {
     let def = crate::by_index(index)?;
     let face = &def.faces[0];
     Some(Leader {
-        name: face.name,
+        index: def.index,
         eligible: !matches!(def.commander, CommanderRule::NotEligible),
         partner: def.partner,
         doctor: face.subtypes.contains(&subtypes::creature::DOCTOR),
@@ -846,9 +848,11 @@ mod name_table_tests {
 mod partner_tests {
     use super::*;
 
-    fn leader(name: &'static str, partner: PartnerKind) -> Leader<'static> {
+    use baylee_core::generated::index;
+
+    fn leader(index: CardIndex, partner: PartnerKind) -> Leader {
         Leader {
-            name,
+            index,
             eligible: true,
             partner,
             doctor: false,
@@ -856,17 +860,19 @@ mod partner_tests {
         }
     }
 
-    /// Both halves of every arm, which is the point of the rule taking
-    /// characteristics rather than a registry index: the pool holds exactly
-    /// one card with a partner ability, so nothing built out of it could
-    /// ever show this function saying yes.
+    /// Both halves of every arm, which is the point of a [`Leader`] being
+    /// built by hand rather than read out of the registry: the pool holds
+    /// exactly one card with a partner ability, so nothing built out of the
+    /// compiled pool could ever show this function saying yes. The indices
+    /// are real all the same — the ledger numbers every card there is, so a
+    /// pair this build compiles neither half of is still named exactly.
     #[test]
     fn two_leaders_pair_only_the_five_ways_the_rules_allow() {
-        let thrasios = leader("Thrasios, Triton Hero", PartnerKind::Partner);
-        let tymna = leader("Tymna the Weaver", PartnerKind::Partner);
+        let thrasios = leader(index::THRASIOS_TRITON_HERO, PartnerKind::Partner);
+        let tymna = leader(index::TYMNA_THE_WEAVER, PartnerKind::Partner);
         assert!(may_lead_together(&thrasios, &tymna), "both have partner");
 
-        let alone = leader("Katara, the Fearless", PartnerKind::None);
+        let alone = leader(index::KATARA_THE_FEARLESS, PartnerKind::None);
         assert!(
             !may_lead_together(&thrasios, &alone),
             "one partner and one ordinary legend is not a pair"
@@ -879,16 +885,16 @@ mod partner_tests {
         // `Partner with` is a named pair, and naming is not mutual by
         // accident: a card is only paired by the card that names it back.
         let pir = leader(
-            "Pir, Imaginative Rascal",
-            PartnerKind::PartnerWith("Toothy, Imaginary Friend"),
+            index::PIR_IMAGINATIVE_RASCAL,
+            PartnerKind::PartnerWith(index::TOOTHY_IMAGINARY_FRIEND),
         );
         let toothy = leader(
-            "Toothy, Imaginary Friend",
-            PartnerKind::PartnerWith("Pir, Imaginative Rascal"),
+            index::TOOTHY_IMAGINARY_FRIEND,
+            PartnerKind::PartnerWith(index::PIR_IMAGINATIVE_RASCAL),
         );
         let stranger = leader(
-            "Someone Else",
-            PartnerKind::PartnerWith("Toothy, Imaginary Friend"),
+            index::SAKASHIMA_OF_A_THOUSAND_FACES,
+            PartnerKind::PartnerWith(index::TOOTHY_IMAGINARY_FRIEND),
         );
         assert!(may_lead_together(&pir, &toothy));
         assert!(may_lead_together(&toothy, &pir), "and the other way round");
@@ -897,16 +903,16 @@ mod partner_tests {
             "naming a card does not make it name you back"
         );
 
-        let a = leader("Wilson, Refined Grizzly", PartnerKind::FriendsForever);
-        let b = leader("Zinnia, Valley's Voice", PartnerKind::FriendsForever);
+        let a = leader(index::WILSON_REFINED_GRIZZLY, PartnerKind::FriendsForever);
+        let b = leader(index::ZINNIA_VALLEY_S_VOICE, PartnerKind::FriendsForever);
         assert!(may_lead_together(&a, &b));
         assert!(
             !may_lead_together(&a, &thrasios),
             "friends forever does not pair with partner"
         );
 
-        let companion = leader("Rose Tyler", PartnerKind::DoctorsCompanion);
-        let mut doctor = leader("The Tenth Doctor", PartnerKind::None);
+        let companion = leader(index::ROSE_TYLER, PartnerKind::DoctorsCompanion);
+        let mut doctor = leader(index::THE_TENTH_DOCTOR, PartnerKind::None);
         doctor.doctor = true;
         assert!(may_lead_together(&companion, &doctor));
         assert!(may_lead_together(&doctor, &companion), "either order");
@@ -915,8 +921,11 @@ mod partner_tests {
             "a companion needs an actual Doctor"
         );
 
-        let chooser = leader("Wilson, Refined Grizzly", PartnerKind::ChooseABackground);
-        let mut background = leader("Criminal Past", PartnerKind::None);
+        let chooser = leader(
+            index::WILSON_REFINED_GRIZZLY,
+            PartnerKind::ChooseABackground,
+        );
+        let mut background = leader(index::CRIMINAL_PAST, PartnerKind::None);
         background.background = true;
         assert!(may_lead_together(&chooser, &background));
         assert!(
@@ -928,9 +937,9 @@ mod partner_tests {
     /// A card that may not lead a deck may not lead half of one either.
     #[test]
     fn a_card_that_cannot_be_a_commander_cannot_be_a_partner() {
-        let mut ineligible = leader("Llanowar Elves", PartnerKind::Partner);
+        let mut ineligible = leader(index::LLANOWAR_ELVES, PartnerKind::Partner);
         ineligible.eligible = false;
-        let partner = leader("Thrasios, Triton Hero", PartnerKind::Partner);
+        let partner = leader(index::THRASIOS_TRITON_HERO, PartnerKind::Partner);
         assert!(!may_lead_together(&ineligible, &partner));
         assert!(!may_lead_together(&partner, &ineligible));
         // The counter-half: the same pair with eligibility restored does.
@@ -947,7 +956,7 @@ mod partner_tests {
     fn the_registry_supplies_what_the_rule_asks_for() {
         let index = by_name("Sakashima of a Thousand Faces").expect("in the pool");
         let read = leader_of(index).expect("a card in the pool has a leader reading");
-        assert_eq!(read.name, "Sakashima of a Thousand Faces");
+        assert_eq!(read.index, index);
         assert!(read.eligible, "a legendary creature may lead a deck");
         assert_eq!(read.partner, PartnerKind::Partner);
 

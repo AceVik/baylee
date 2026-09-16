@@ -590,7 +590,7 @@ fn cards(
                  sight: run `baylee-catalog corpus` and then `cargo xtask ledger`."
             );
         };
-        let (info, content) = stubgen::render_stub(&card, row, cats, scripts, &cycles)?;
+        let (info, content) = stubgen::render_stub(&card, row, &ledger, cats, scripts, &cycles)?;
         let stub_path = cards_dir.join(&info.path);
         // A card that already exists somewhere else is *moved*, never
         // rewritten at the new path and left behind at the old one — an

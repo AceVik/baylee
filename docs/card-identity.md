@@ -83,6 +83,35 @@ guards against that today beyond the rename showing up in the ledger's diff,
 which is why `Row::name` is the one field of five the ledger does not call
 frozen.
 
+### When a card names another card
+
+Magic prints exactly one sentence in which a card names another card by name:
+`Partner with <name>` (CR 702.124b). It is stored as an index like everything
+else — `PartnerKind::PartnerWith(CardIndex)` — and the resolution happens at
+codegen time, in `IndexLedger::entry_named`, so the printed name never leaves
+the generator.
+
+Three reasons, and the first is the one that decided it. The deckbuilder is
+where the fact is used, and a `PoolCard` already carries `index`: "may these
+two lead one deck" is then one integer compare, rather than a name match that
+would have to pick between the card's whole name (`Sheoldred // The True
+Scriptures`, which is what the ledger stores) and its front face
+(`Sheoldred`, which is what the pool stores and what the printed sentence
+says). Second, the ledger numbers **every card there is**, so
+`index::TOOTHY_IMAGINARY_FRIEND` resolves whether or not this repo compiles a
+`CardDef` for Toothy — a name would have had to survive the same trip
+unchecked. Third, a misspelled name compiles and then pairs with nothing, in
+silence, for as long as nobody plays that pair; a misspelled constant does
+not compile. The generator emitted exactly that bug for as long as the field
+was a string: the reminder text rides on the same printed line, so what it
+wrote was `PartnerWith("Toothy, Imaginary Friend (When this creature enters,
+…)")`.
+
+The lookup is two-tier — whole name, then front face — and refuses on zero
+matches **and** on several, which is the whole safety argument for looking a
+name up at all: the corpus is append-only, and a set shipping two cards of
+one name would otherwise hand one of them the other's index.
+
 ## Three lookups, and what `None` means in each
 
 | Lookup | Cost | Answers `None` when |

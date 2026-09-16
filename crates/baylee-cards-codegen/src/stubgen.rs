@@ -6,7 +6,7 @@
 use crate::body::CardBody;
 use crate::catalog::SubtypeCatalogs;
 use crate::error::CodegenError;
-use crate::ledger::LedgerEntry;
+use crate::ledger::{IndexLedger, LedgerEntry};
 use crate::scryfall::{ScryfallCard, ScryfallFace};
 use baylee_core::mana::ManaCost;
 use baylee_core::types::{SupertypeSet, TypeSet};
@@ -358,7 +358,7 @@ fn commander_rule(faces: &[FaceData]) -> &'static str {
     }
 }
 
-fn partner_kind(faces: &[FaceData]) -> String {
+fn partner_kind(faces: &[FaceData], ledger: &IndexLedger) -> Result<String, CodegenError> {
     let oracle = faces
         .iter()
         .map(|f| f.oracle_text.as_str())
@@ -366,14 +366,14 @@ fn partner_kind(faces: &[FaceData]) -> String {
         .join("\n");
     for line in oracle.lines() {
         if let Some(rest) = line.strip_prefix("Partner with ") {
-            let name = rest.trim().trim_end_matches(['.', ',']);
-            return format!(
-                "PartnerKind::PartnerWith(\"{}\")",
-                name.replace('"', "\\\"")
-            );
+            let entry = partner_named(rest, ledger)?;
+            return Ok(format!(
+                "PartnerKind::PartnerWith(index::{})",
+                entry.constant
+            ));
         }
     }
-    if oracle.contains("Doctor's companion") {
+    Ok(if oracle.contains("Doctor's companion") {
         "PartnerKind::DoctorsCompanion".to_string()
     } else if oracle.contains("Choose a Background") {
         "PartnerKind::ChooseABackground".to_string()
@@ -386,6 +386,34 @@ fn partner_kind(faces: &[FaceData]) -> String {
         "PartnerKind::Partner".to_string()
     } else {
         "PartnerKind::None".to_string()
+    })
+}
+
+/// The card a `Partner with ` line names, read out of the ledger.
+///
+/// The rest of the line is tried whole first and only then with its reminder
+/// text cut away, in that order, because a card whose *name* carries a
+/// bracket would be destroyed by cutting first. That the reminder is there
+/// at all is not a guess: it sits on the same line, which is exactly how
+/// bare `Partner` is recognised a few lines above (`starts_with("Partner
+/// (")`). Reading it the other way round left the name as `Toothy,
+/// Imaginary Friend (When this creature enters, …)` and emitted it as a
+/// string that compiled and paired with nothing.
+///
+/// The second reading's error is the one reported, because it names what the
+/// line was actually asking for.
+fn partner_named<'a>(rest: &str, ledger: &'a IndexLedger) -> Result<&'a LedgerEntry, CodegenError> {
+    let whole = rest.trim().trim_end_matches(['.', ',']);
+    let cut = whole
+        .split(" (")
+        .next()
+        .unwrap_or(whole)
+        .trim()
+        .trim_end_matches(['.', ',']);
+    match ledger.entry_named(whole) {
+        Ok(entry) => Ok(entry),
+        Err(whole_err) if cut == whole => Err(whole_err),
+        Err(_) => ledger.entry_named(cut),
     }
 }
 
@@ -479,7 +507,8 @@ fn render_card_literal(
     faces: &[FaceData],
     face_defs: &str,
     land: Option<&CardBody>,
-) -> String {
+    ledger: &IndexLedger,
+) -> Result<String, CodegenError> {
     let mut fields = vec![
         format!("index = index::{constant}"),
         format!("oracle_id = {oracle_id:?}"),
@@ -500,7 +529,7 @@ fn render_card_literal(
     push_field(
         &mut fields,
         "partner",
-        &partner_kind(faces),
+        &partner_kind(faces, ledger)?,
         "PartnerKind::None",
     );
 
@@ -526,7 +555,7 @@ fn render_card_literal(
         out.push_str("    ],\n");
     }
     out.push_str(");\n\n");
-    out
+    Ok(out)
 }
 
 fn join_union_owned(bits: &[String]) -> String {
@@ -567,6 +596,7 @@ pub fn set_line(
 pub fn render_stub(
     card: &ScryfallCard,
     row: &LedgerEntry,
+    ledger: &IndexLedger,
     cats: &SubtypeCatalogs,
     scripts: Option<&crate::scriptgen::ScriptLookup>,
     cycles: &crate::layout::LandCycles,
@@ -670,7 +700,8 @@ pub fn render_stub(
         &faces,
         &face_defs,
         land.as_ref(),
-    );
+        ledger,
+    )?;
     let statics = land.as_ref().map_or("", |b| b.statics.as_str());
     // Only when something names one: an unused import is a warning now that
     // the stub no longer carries a blanket `allow`. The card literal counts
@@ -943,6 +974,116 @@ mod tests {
         }
     }
 
+    /// A card whose printed text is one line, for the partner tests.
+    fn card_saying(name: &str, oracle: &str) -> ScryfallCard {
+        let mut card = bare_card(name, "Legendary Creature — Human");
+        card.oracle_text = Some(oracle.to_string());
+        card
+    }
+
+    fn partner_of(card: &ScryfallCard, ledger: &IndexLedger) -> Result<String, CodegenError> {
+        partner_kind(&faces_of(card), ledger)
+    }
+
+    /// `Partner with` is the one place a card names another card, and what
+    /// it emits is the `CardIndex` constant the ledger froze — not the
+    /// printed name. A name would have to survive codegen, the wire and the
+    /// deckbuilder unchecked; a misspelled constant does not compile.
+    ///
+    /// Read against the *real* ledger rather than a fixture, because the
+    /// claim is that the corpus carries every card a printed sentence could
+    /// name — including one this repo compiles no `CardDef` for. Toothy is
+    /// exactly that card.
+    #[test]
+    fn a_partner_with_line_becomes_the_constant_the_ledger_froze() {
+        let ledger = IndexLedger::from_rows(&baylee_cards_index::ROWS).expect("the ledger loads");
+        let card = card_saying(
+            "Pir, Imaginative Rascal",
+            "Partner with Toothy, Imaginary Friend (When this creature enters, \
+             target opponent may put this card into its owner's library third \
+             from the top.)",
+        );
+        assert_eq!(
+            partner_of(&card, &ledger).expect("Toothy is a card"),
+            "PartnerKind::PartnerWith(index::TOOTHY_IMAGINARY_FRIEND)",
+            "the reminder text rides on the same line and must be cut off the name"
+        );
+    }
+
+    /// A name the ledger does not carry is a misreading of the printed text,
+    /// and codegen refuses rather than falling through to `None`. Falling
+    /// through is the failure that has no symptom: the card compiles, claims
+    /// no partner ability, and is quietly unpairable forever.
+    #[test]
+    fn a_partner_with_line_naming_no_card_is_refused() {
+        let ledger = IndexLedger::from_rows(&baylee_cards_index::ROWS).expect("the ledger loads");
+        let card = card_saying("Somebody", "Partner with Nobody At All");
+        let err = partner_of(&card, &ledger).expect_err("no such card");
+        assert!(
+            format!("{err}").contains("Nobody At All"),
+            "the refusal names what the line asked for: {err}"
+        );
+    }
+
+    /// The printed sentence names a front face; the ledger stores whole
+    /// names. The second tier is what closes that gap, and it must not be
+    /// reached by a card the first tier already answered.
+    #[test]
+    fn a_partner_with_line_may_name_a_front_face() {
+        let ledger = IndexLedger::from_rows(&[
+            baylee_cards_index::Row {
+                index: baylee_core::ids::CardIndex::new(1),
+                oracle_id: "a",
+                constant: "SPLIT_CARD",
+                set: "tst",
+                name: "Split // Card",
+            },
+            baylee_cards_index::Row {
+                index: baylee_core::ids::CardIndex::new(2),
+                oracle_id: "b",
+                constant: "WHOLE",
+                set: "tst",
+                name: "Whole",
+            },
+        ])
+        .expect("two rows");
+        assert_eq!(
+            partner_of(&card_saying("X", "Partner with Split"), &ledger).expect("front face"),
+            "PartnerKind::PartnerWith(index::SPLIT_CARD)"
+        );
+        assert_eq!(
+            partner_of(&card_saying("X", "Partner with Whole"), &ledger).expect("whole name"),
+            "PartnerKind::PartnerWith(index::WHOLE)"
+        );
+    }
+
+    /// Two cards of one name cannot both be meant, so the run stops instead
+    /// of handing one of them the other's index. The corpus is append-only,
+    /// so this is the shape a future set breaks, not a shape it has today.
+    #[test]
+    fn a_partner_with_line_naming_two_cards_is_refused() {
+        let ledger = IndexLedger::from_rows(&[
+            baylee_cards_index::Row {
+                index: baylee_core::ids::CardIndex::new(1),
+                oracle_id: "a",
+                constant: "TWIN_ONE",
+                set: "tst",
+                name: "Twin",
+            },
+            baylee_cards_index::Row {
+                index: baylee_core::ids::CardIndex::new(2),
+                oracle_id: "b",
+                constant: "TWIN_TWO",
+                set: "ts2",
+                name: "Twin",
+            },
+        ])
+        .expect("two rows");
+        let err =
+            partner_of(&card_saying("X", "Partner with Twin"), &ledger).expect_err("ambiguous");
+        assert!(format!("{err}").contains("share the name"), "{err}");
+    }
+
     fn bare_card(name: &str, type_line: &str) -> ScryfallCard {
         ScryfallCard {
             id: "00000000-0000-0000-0000-000000000000".to_string(),
@@ -973,6 +1114,7 @@ mod tests {
         let (_, text) = render_stub(
             &bare_card("Nothing", "Land"),
             &row(7, "NOTHING"),
+            &IndexLedger::default(),
             &cats,
             None,
             &LandCycles::default(),
@@ -1032,8 +1174,15 @@ mod tests {
         let front = back("Land", None);
 
         card.card_faces = Some(vec![front.clone(), back("Creature — Demon", None)]);
-        let (_, text) =
-            render_stub(&card, &row(0, "FRONT"), &cats, None, &LandCycles::default()).unwrap();
+        let (_, text) = render_stub(
+            &card,
+            &row(0, "FRONT"),
+            &IndexLedger::default(),
+            &cats,
+            None,
+            &LandCycles::default(),
+        )
+        .unwrap();
         assert!(text.contains("castable_from_hand = false"), "{text}");
 
         // The front face is turned over, never cast as a mode — it is what
@@ -1045,14 +1194,28 @@ mod tests {
             front.clone(),
             back("Creature — Demon", Some("{2}{B}")),
         ]);
-        let (_, text) =
-            render_stub(&card, &row(0, "FRONT"), &cats, None, &LandCycles::default()).unwrap();
+        let (_, text) = render_stub(
+            &card,
+            &row(0, "FRONT"),
+            &IndexLedger::default(),
+            &cats,
+            None,
+            &LandCycles::default(),
+        )
+        .unwrap();
         assert!(!text.contains("castable_from_hand"), "{text}");
 
         // A land back is played, not cast; the wizard skips it on its own.
         card.card_faces = Some(vec![front, back("Land", None)]);
-        let (_, text) =
-            render_stub(&card, &row(0, "FRONT"), &cats, None, &LandCycles::default()).unwrap();
+        let (_, text) = render_stub(
+            &card,
+            &row(0, "FRONT"),
+            &IndexLedger::default(),
+            &cats,
+            None,
+            &LandCycles::default(),
+        )
+        .unwrap();
         assert!(!text.contains("castable_from_hand"), "{text}");
     }
 
@@ -1064,6 +1227,7 @@ mod tests {
         let (_, text) = render_stub(
             &bare_card("Nothing", "Land"),
             &row(0, "NOTHING"),
+            &IndexLedger::default(),
             &cats,
             None,
             &LandCycles::default(),
@@ -1085,6 +1249,7 @@ mod tests {
         let (_, text) = render_stub(
             &card,
             &row(1, "SOMETHING"),
+            &IndexLedger::default(),
             &cats,
             None,
             &LandCycles::default(),

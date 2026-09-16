@@ -429,8 +429,22 @@ pub enum PartnerKind {
     None,
     /// "Partner" (pairs with any other generic Partner).
     Partner,
-    /// "Partner with <name>".
-    PartnerWith(&'static str),
+    /// "Partner with <name>", carrying the named card's [`CardIndex`].
+    ///
+    /// The printed sentence names a card by its English name and this does
+    /// not, for three reasons. The ledger numbers every card there is, so
+    /// `index::TOOTHY_IMAGINARY_FRIEND` resolves whether or not this repo
+    /// compiles Toothy — a name would have had to survive the same trip
+    /// unchecked. A misspelled name compiles and then pairs with nothing,
+    /// in silence, for as long as nobody plays the pair; a misspelled
+    /// constant does not compile. And a name reaches the deckbuilder as a
+    /// second thing to match: a `PoolCard` already carries `index`, so
+    /// "may these two lead together" is one integer compare rather than a
+    /// name comparison that would have to pick between the card's whole
+    /// name (`Sheoldred // The True Scriptures`, which is what the ledger
+    /// stores) and its front face (`Sheoldred`, which is what the pool
+    /// stores and what `Partner with` prints).
+    PartnerWith(CardIndex),
     /// "Choose a Background".
     ChooseABackground,
     /// "Friends forever".

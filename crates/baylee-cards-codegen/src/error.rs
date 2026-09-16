@@ -46,6 +46,17 @@ pub enum CodegenError {
         /// What the row claimed.
         text: String,
     },
+    /// A printed `Partner with <name>` naming no card, or naming several.
+    ///
+    /// The one place a card names another card, so the one place a printed
+    /// name has to be resolved against the ledger rather than merely copied.
+    #[error("`Partner with {name}`: {reason}")]
+    PartnerName {
+        /// The name as the printed line gave it.
+        name: String,
+        /// Why no single row answers for it.
+        reason: String,
+    },
     /// A card name carries a letter the slug table has no ASCII answer for.
     ///
     /// Refused rather than dropped, because the slug becomes a constant's

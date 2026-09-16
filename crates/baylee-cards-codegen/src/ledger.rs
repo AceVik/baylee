@@ -216,6 +216,73 @@ impl IndexLedger {
         self.by_card.get(oracle_id).map(|&i| &self.entries[i])
     }
 
+    /// The row a *printed name* belongs to, for the one place a card names
+    /// another card: `Partner with <name>` (CR 702.124b).
+    ///
+    /// Two tiers, whole name and then front face, because the ledger follows
+    /// Scryfall (`Sheoldred // The True Scriptures`) where a printed sentence
+    /// names the front face (`Sheoldred`). The tiers are separate rather than
+    /// merged so a front face can never answer for a card whose *whole* name
+    /// somebody else also prints.
+    ///
+    /// Zero matches and several matches are both refusals, and that is the
+    /// whole safety argument for looking a name up at all: the corpus is
+    /// append-only and a set shipping two cards of one name would otherwise
+    /// hand one of them the other's index. There is no global injectivity
+    /// test to keep in step, because a collision is refused here, by name,
+    /// in the run that meets it.
+    ///
+    /// A linear scan over 33 694 rows, deliberately: it runs only for a card
+    /// that actually prints `Partner with`, which in this pool is none of
+    /// them, so a map maintained through [`Self::assign`] would cost more to
+    /// keep honest than the scan costs to run.
+    ///
+    /// # Errors
+    /// If no row carries the name, or if more than one does.
+    pub fn entry_named(&self, name: &str) -> Result<&LedgerEntry, CodegenError> {
+        for (tier, hits) in [
+            ("name", self.rows_where(|e| e.name == name)),
+            (
+                "front face",
+                self.rows_where(|e| e.name.split(" // ").next() == Some(name)),
+            ),
+        ] {
+            match hits.as_slice() {
+                [] => {}
+                [one] => return Ok(one),
+                several => {
+                    return Err(CodegenError::PartnerName {
+                        name: name.to_string(),
+                        reason: format!(
+                            "{} cards share the {tier} ({}), so the line cannot \
+                             say which one it means",
+                            several.len(),
+                            several
+                                .iter()
+                                .map(|e| e.oracle_id.as_str())
+                                .collect::<Vec<_>>()
+                                .join(", ")
+                        ),
+                    });
+                }
+            }
+        }
+        Err(CodegenError::PartnerName {
+            name: name.to_string(),
+            reason: "no card in the ledger carries that name. The ledger \
+                     numbers every card there is, so a name it does not carry \
+                     is a misreading of the printed line rather than a card \
+                     the corpus is missing — check that the reminder text was \
+                     cut off before running `baylee-catalog corpus` and \
+                     `cargo xtask ledger`"
+                .to_string(),
+        })
+    }
+
+    fn rows_where(&self, mut pred: impl FnMut(&LedgerEntry) -> bool) -> Vec<&LedgerEntry> {
+        self.entries.iter().filter(|e| pred(e)).collect()
+    }
+
     /// The card's index, assigning the next free one if it has none.
     ///
     /// A card already in the ledger keeps its index, its constant and its set
