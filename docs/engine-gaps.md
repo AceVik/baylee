@@ -219,12 +219,53 @@ for the cost (no multiplier exists in Magic for a removal). Seven cards came
 out of `landgen` in full: the five Vivid lands, Mirrodin's Core and Tendo Ice
 Bridge.
 
+**Also shipped: the clause that ends the card.** `Effect::IfNoCountersOnSelf
+{ kind, then }` is "If there are no depletion counters on this land, sacrifice
+it", an ordinary effect in the same list as the mana rather than a trigger or
+a state-based action, because that is how all six cards that print it print
+it. Six is the whole pool: the five Mercadian Masques depletion lands and
+Gemstone Mine, which says "mining" where they say "depletion". It made the
+audit's `(e)` wrong in a useful direction — Gemstone Mine is not the worse
+first card, it is the *better* one, because "add one mana of any color"
+suspends the resolution on a colour question and the sacrifice is on the far
+side of the answer. That shape is not new: every pain land prints a colour
+question with an effect behind it. What was new is that **no engine test had
+ever played one**, so the resume-then-trailing-effect path was live and
+unproven, and the Gemstone Mine test now covers it for all of them.
+
+Those two counters are the first entries in
+**`baylee_cards_dsl::counters`**, which is where a `CounterKind::Custom` id is
+assigned. Before it there was one such id, written as a bare
+`CounterKind::Custom(1)` on Luminarch Ascension — a number the next card had
+no way to know was taken; it is `counters::QUEST` now.
+
+**A hole that comes with them, and it is a client one.** The view projects a
+custom counter as `CounterKind::Custom(u32)` and `CounterKind::badge()`
+answers "•", so Gemstone Mine's three mining counters — the card's whole
+clock — draw as three dots. The view's own doc says the id is preserved "so a
+client can render an unknown counter by name", and there is no table to turn
+an id into a name. The answer is **a counter name table in `GameStatic`**,
+sent once per game beside the print table, not a wire variant per printed
+word: this pool alone prints 38 distinct counter words (counted over the
+`//! Oracle:` headers) against the eleven `CounterKind` names, and each of
+the rest would be a `VIEW_VERSION` bump to teach the engine nothing. It is
+not blocking — a
+depletion land is played off its badge-less counter today the same way the
+engine plays it — and it wants its own commit in the client.
+
+The second client consequence is older and is not about counters at all.
+`manaread::mana_shape` reads an ability as mana only when its effect list is
+exactly one `AddMana`, so every one of these six lands is invisible to the
+mana **planner** — the same way every pain land already is, and for the
+reason the module header gives: an ability that also does something else is
+one a player should decide about themselves. The engine offers them
+normally; it is the plan that leaves them out.
+
 **Still open, and it is the X half.** The storage lands need an X in an
 *activation* cost, which is exactly what does not exist: the documentation at
 `abilities.rs:1375ff` says itself that `PayLifeX` is paid by the cast wizard
-and skipped by `pay_cost`. X in an activation is G1's question. The depletion
-lands (`Effect::IfNoCountersOnSelf`) and Devoted Druid (`PutCounterSelf` plus
-an activation limit, G10) are the other two pieces.
+and skipped by `pay_cost`. X in an activation is G1's question. Devoted Druid
+(`PutCounterSelf` plus an activation limit, G10) is the other piece.
 
 ### 2. G3 — no Surveil
 

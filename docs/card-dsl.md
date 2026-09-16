@@ -371,6 +371,17 @@ express at all yet.
   parentheses". The order of the parts is the printed order and is
   load-bearing: `docs/cost-model.md` has the rule and the lint that holds it.
 
+  **Which counter** is a `CounterKind`, and there are two ways to name one.
+  Eleven counters have a variant because the rules know them — `P1P1`,
+  `M1M1`, `Loyalty`, `Lore`, `Time`, `Charge`, `Poison`, `Energy`, `Rad`,
+  `Lifelink`, `Level`. Every other counter Magic prints is a word and a
+  number the rules have never heard of, and those are `CounterKind::Custom`
+  ids **assigned in `baylee_cards_dsl::counters`**: a card writes
+  `counters::DEPLETION`, never a bare `CounterKind::Custom(2)`. Adding one is
+  a constant with a doc comment naming the printed word; a bare number is the
+  collision the module exists to prevent, and the prelude carries `counters`
+  the way it carries `index`.
+
   `Cost::FREE` is the empty cost and `Cost::TAP` a bare `{T}` — the two the
   macro would spell with no argument and one, and between them what two
   thirds of the pool's activated abilities cost (444 of 644 today, 432 of
@@ -695,7 +706,18 @@ Costs/taxes: `PlayerMayPayOr`, `AddCounter`, `AddCounterFilter`,
 `DrainAllCountersIntoSelf` (Thief of Blood), `AddMana`,
 `DelayedManaAtNextFirstMain` (Mana Drain), `SacrificeSelf`,
 `PayCostOrLoseLater`, `ExileTargetsCreateTokens`.
-Conditional: `IfEventPowerAtLeast` (Tribute to the World Tree).
+Conditional: `IfKicked { then, otherwise }`, `IfEventPowerAtLeast { n, then,
+otherwise }` (Tribute to the World Tree), and four that run `then` or nothing
+— `IfCreaturesDiedAtLeast { n, then }`, `IfNotLostLifeThisTurn { then }`
+(Luminarch Ascension), `IfControlGreatestCmc { filter, then }` (Padeem) and
+`IfNoCountersOnSelf { kind, then }`. The last is the sentence the six
+counter-sacrifice lands end with — "If there are no depletion counters on
+this land, sacrifice it" — and it is an ordinary effect in the same list as
+the mana, because that is how the card prints it: `mana_ability!(cost!(TapSelf,
+RemoveCounterSelf { kind: counters::DEPLETION, n: 1 }), &[Effect::mana(ManaColor::Black, 2),
+Effect::IfNoCountersOnSelf { kind: counters::DEPLETION, then: &[Effect::SacrificeSelf] }])`.
+Magic prints the comparison against zero and no other, which is why there is
+no threshold field.
 Optional: `MayDo { effects }` — the printed "you may", wrapping the whole
 clause the word covers. It asks the controller and runs `effects` only on a
 yes, so it is the right variant **only** when the card prints the word and

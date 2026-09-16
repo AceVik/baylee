@@ -34,7 +34,7 @@ card!(
                 // does nothing (CR 603.4).
                 then: &[Effect::MayDo {
                     effects: &[Effect::AddCounter {
-                        kind: CounterKind::Custom(1),
+                        kind: counters::QUEST,
                         amount: Amount::Fixed(1),
                     }],
                 }],
@@ -43,10 +43,7 @@ card!(
         activated!(
             cost!("{1}{W}"),
             &[Effect::CreateToken { token: &ANGEL }],
-            condition = Some(ActivationCondition::CountersOnSelf(
-                CounterKind::Custom(1),
-                4
-            ))
+            condition = Some(ActivationCondition::CountersOnSelf(counters::QUEST, 4))
         ),
     ],
 );

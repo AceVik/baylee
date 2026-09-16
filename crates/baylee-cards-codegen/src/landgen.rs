@@ -80,30 +80,47 @@ fn number(word: &str) -> Option<u32> {
     })
 }
 
-/// `"two charge counters"` → `2`; every other counter → `None`.
+/// The counters a land prints, and how a card file spells each one.
 ///
-/// The noun is read and not skipped over, which is the same rule the convoke
-/// land's phrase obeys one function down. `Charge` is the one counter the DSL
-/// names that a land prints, and it is far from the only one a land prints:
-/// the depletion lands take "depletion counters" off themselves in exactly
-/// this sentence and the storage lands take "storage counters", both of which
-/// are `CounterKind::Custom` ids nobody has assigned. A reader that took the
+/// Three words, and the pool decides which three. `charge` is a
+/// [`CounterKind`] variant because the rules know the word; `depletion` and
+/// `mining` are ids the DSL's `counters` module assigns, because nothing in
+/// the rules has ever heard of them — the card that prints one says what
+/// happens when it runs out and that is all they are.
+///
+/// What is **not** here is the point of having a table. `storage` and
+/// `verse` are printed by lands in this pool and have no id yet, so the
+/// cards that print them refuse and stay stubs; a reader that took the
 /// number and threw the noun away would give Bottomless Vault a charge
-/// counter and a land that untaps for free — so the word is matched, and
-/// everything else stays a stub until its kind exists.
+/// counter and a land that untaps for free.
+///
+/// [`CounterKind`]: baylee_cards_dsl::CounterKind
+const COUNTERS: [(&str, &str); 3] = [
+    ("charge", "CounterKind::Charge"),
+    ("depletion", "counters::DEPLETION"),
+    ("mining", "counters::MINING"),
+];
+
+/// `"depletion"` → `"counters::DEPLETION"`; a counter with no id → `None`.
+fn counter_kind(noun: &str) -> Option<&'static str> {
+    COUNTERS
+        .iter()
+        .find_map(|(word, spelling)| (*word == noun).then_some(*spelling))
+}
+
+/// `"two depletion counters"` → `("counters::DEPLETION", 2)`.
 ///
 /// The plural has to agree, for the reason the noun is read at all: a
 /// mismatch is a phrase this did not actually understand, and the pool
 /// prints none.
-fn charge_counters(phrase: &str) -> Option<u16> {
-    let (count, noun) = phrase.split_once(' ')?;
+fn counter_phrase(phrase: &str) -> Option<(&'static str, u16)> {
+    let (count, rest) = phrase.split_once(' ')?;
     let n = number(count)?;
-    let plural = if n == 1 {
-        "charge counter"
-    } else {
-        "charge counters"
-    };
-    (noun == plural).then(|| u16::try_from(n).ok())?
+    let (noun, tail) = rest.split_once(' ')?;
+    if tail != if n == 1 { "counter" } else { "counters" } {
+        return None;
+    }
+    Some((counter_kind(noun)?, u16::try_from(n).ok()?))
 }
 
 /// Removes reminder text and normalises whitespace.
@@ -190,13 +207,29 @@ fn parse_effect(sentence: &str) -> Option<Vec<String>> {
     }
     if let Some(rest) = s.strip_prefix("Put ")
         && let Some(phrase) = rest.strip_suffix(" on this land")
-        && let Some(n) = charge_counters(phrase)
+        && let Some((kind, n)) = counter_phrase(phrase)
     {
         // No target, which is what `Effect::AddCounter` reads as "the source"
         // — Mirrodin's Core's `{T}: Put a charge counter on this land`, the
         // half that fills the land the removal above empties.
         return Some(vec![format!(
-            "Effect::AddCounter {{ kind: CounterKind::Charge, amount: Amount::Fixed({n}) }}"
+            "Effect::AddCounter {{ kind: {kind}, amount: Amount::Fixed({n}) }}"
+        )]);
+    }
+    // "If there are no depletion counters on this land, sacrifice it." —
+    // the clause that finishes the depletion lands' and Gemstone Mine's one
+    // ability, and an effect in the same list as the mana rather than a
+    // trigger, because that is how the card prints it. The counter kind is
+    // read here too: "if there are no storage counters" is a card this
+    // cannot write, and reading it as depletion would sacrifice a land that
+    // is meant to keep filling up.
+    if let Some(rest) = s.strip_prefix("If there are no ")
+        && let Some(noun) = rest
+            .strip_suffix(" counters on this land, sacrifice it")
+            .and_then(counter_kind)
+    {
+        return Some(vec![format!(
+            "Effect::IfNoCountersOnSelf {{ kind: {noun}, then: &[Effect::SacrificeSelf] }}"
         )]);
     }
     if let Some(rest) = lower.strip_prefix("this land deals ") {
@@ -235,15 +268,13 @@ fn parse_cost(text: &str) -> Option<String> {
             parts.push("TapOther(&Filter::YOUR_CREATURE)".to_string());
         } else if let Some(rest) = token.strip_prefix("Remove ")
             && let Some(phrase) = rest.strip_suffix(" from this land")
-            && let Some(n) = charge_counters(phrase)
+            && let Some((kind, n)) = counter_phrase(phrase)
         {
             // A counter paid as a cost, which is not the door the counters a
             // land *enters* with take: CR 614.16 doubles what is put on a
             // permanent and Magic prints nothing that multiplies a removal,
             // so this one is arithmetic and that one is a replacement effect.
-            parts.push(format!(
-                "RemoveCounterSelf {{ kind: CounterKind::Charge, n: {n} }}"
-            ));
+            parts.push(format!("RemoveCounterSelf {{ kind: {kind}, n: {n} }}"));
         } else if token.starts_with('{') && symbols(token).is_some() {
             if !mana.is_empty() {
                 return None;
@@ -418,13 +449,13 @@ impl Recognizer<'_> {
         // were a prefix test; it is an equality test, so this sits after it
         // and the reading is the same either way.
         if let Some(rest) = line.strip_prefix("This land enters tapped with ")
-            && let Some(n) = rest.strip_suffix(" on it").and_then(charge_counters)
+            && let Some((kind, n)) = rest.strip_suffix(" on it").and_then(counter_phrase)
         {
             self.body
                 .enter_modifiers
                 .push("EnterModifier::Tapped".into());
             self.body.enter_modifiers.push(format!(
-                "EnterModifier::WithCounters {{ kind: CounterKind::Charge, n: {n} }}"
+                "EnterModifier::WithCounters {{ kind: {kind}, n: {n} }}"
             ));
             self.body
                 .notes
@@ -435,10 +466,10 @@ impl Recognizer<'_> {
         // enters untapped and still brings its counter, which is the whole
         // difference between it and the Vivid lands.
         if let Some(rest) = line.strip_prefix("This land enters with ")
-            && let Some(n) = rest.strip_suffix(" on it").and_then(charge_counters)
+            && let Some((kind, n)) = rest.strip_suffix(" on it").and_then(counter_phrase)
         {
             self.body.enter_modifiers.push(format!(
-                "EnterModifier::WithCounters {{ kind: CounterKind::Charge, n: {n} }}"
+                "EnterModifier::WithCounters {{ kind: {kind}, n: {n} }}"
             ));
             self.body.notes.push("enters with counters".to_string());
             return Some(());
@@ -906,18 +937,80 @@ mod tests {
         );
     }
 
-    /// Every counter a land prints that is not a charge counter, in all three
-    /// sentences that name one.
+    /// A depletion land, whole: two counters on arrival, a counter off as a
+    /// cost, and the clause that ends the card.
     ///
-    /// The depletion lands and the storage lands print exactly these phrases
-    /// with another noun in them, and their counters are
-    /// `CounterKind::Custom` ids nobody has assigned. Reading the number and
+    /// The point of reading it here rather than only in the engine is which
+    /// *macro* comes out. `activated_line` decides "mana ability" from the
+    /// first sentence alone, so a trailing sacrifice must not turn the line
+    /// into an `activated!` — a land whose mana went on the stack would ask
+    /// for priority in the middle of paying for a spell (CR 605.3b).
+    #[test]
+    fn a_depletion_land_spends_a_counter_and_sacrifices_itself_at_nought() {
+        let body = read(
+            "Land",
+            "This land enters tapped with two depletion counters on it.\n\
+             {T}, Remove a depletion counter from this land: Add {B}{B}. \
+             If there are no depletion counters on this land, sacrifice it.",
+        );
+        assert_eq!(
+            body.enter_modifiers,
+            [
+                "EnterModifier::Tapped",
+                "EnterModifier::WithCounters { kind: counters::DEPLETION, n: 2 }",
+            ]
+        );
+        assert_eq!(
+            body.abilities,
+            [concat!(
+                "mana_ability!(cost!(TapSelf, RemoveCounterSelf { kind: counters::DEPLETION, ",
+                "n: 1 }), &[Effect::mana(ManaColor::Black, 2), ",
+                "Effect::IfNoCountersOnSelf { kind: counters::DEPLETION, ",
+                "then: &[Effect::SacrificeSelf] }])"
+            )],
+            "one ability, two effects, and still a mana ability"
+        );
+    }
+
+    /// Gemstone Mine: the same card with another noun and another colour
+    /// clause, which is what says the noun is a parameter rather than a
+    /// second copy of the rule.
+    #[test]
+    fn the_same_clause_reads_a_mining_counter_and_an_untapped_arrival() {
+        let body = read(
+            "Land",
+            "This land enters with three mining counters on it.\n\
+             {T}, Remove a mining counter from this land: Add one mana of any color. \
+             If there are no mining counters on this land, sacrifice it.",
+        );
+        assert_eq!(
+            body.enter_modifiers,
+            ["EnterModifier::WithCounters { kind: counters::MINING, n: 3 }"],
+            "no `Tapped`, because the card does not print the word"
+        );
+        assert_eq!(
+            body.abilities,
+            [concat!(
+                "mana_ability!(cost!(TapSelf, RemoveCounterSelf { kind: counters::MINING, ",
+                "n: 1 }), &[Effect::mana_of_any_color(), ",
+                "Effect::IfNoCountersOnSelf { kind: counters::MINING, ",
+                "then: &[Effect::SacrificeSelf] }])"
+            )]
+        );
+    }
+
+    /// Every counter a land prints that has no id, in all three sentences
+    /// that name one — and now in the fourth, which is the clause that ends
+    /// a depletion land.
+    ///
+    /// The storage lands print exactly these phrases with "storage" in them
+    /// and nobody has assigned that word an id. Reading the number and
     /// dropping the noun would hand Bottomless Vault a charge counter — a
     /// land that untaps for free — so the whole card is refused instead, and
     /// this is the test that it is.
     #[test]
     fn a_counter_the_dsl_cannot_name_refuses_the_card() {
-        for noun in ["depletion", "storage", "verse"] {
+        for noun in ["storage", "verse"] {
             for oracle in [
                 format!(
                     "This land enters tapped with two {noun} counters on it.\n{{T}}: Add {{R}}."
@@ -927,6 +1020,9 @@ mod tests {
                     "{{T}}: Add {{C}}.\n{{T}}, Remove a {noun} counter from this land: Add one mana of any color."
                 ),
                 format!("{{T}}: Add {{C}}.\n{{T}}: Put a {noun} counter on this land."),
+                format!(
+                    "{{T}}: Add {{C}}. If there are no {noun} counters on this land, sacrifice it."
+                ),
             ] {
                 assert!(
                     super::read(&card("Land", &oracle), &cats()).is_err(),
@@ -936,17 +1032,91 @@ mod tests {
         }
     }
 
+    /// The clause is matched whole, which is the difference between reading
+    /// a sentence and recognising three of its words.
+    ///
+    /// None of these four is printed by any card, and that is the point: a
+    /// reader loose enough to accept one of them is loose enough to accept
+    /// a sentence Wizards prints next year that means something else.
+    #[test]
+    fn a_near_miss_of_the_sacrifice_clause_is_not_that_clause() {
+        for tail in [
+            "If there are no depletion counters on this land, destroy it",
+            "If there is no depletion counter on this land, sacrifice it",
+            "If there are no depletion counters on this creature, sacrifice it",
+            "If there are no counters on this land, sacrifice it",
+        ] {
+            assert_eq!(
+                super::parse_effect(tail),
+                None,
+                "a sentence this did not read has to refuse: {tail}"
+            );
+        }
+        assert!(
+            super::parse_effect("If there are no depletion counters on this land, sacrifice it")
+                .is_some(),
+            "and the one the card prints has to be read"
+        );
+    }
+
+    /// Every counter this reader can spell is one the DSL actually assigns.
+    ///
+    /// `COUNTERS` is a second copy of a fact that lives in
+    /// `baylee_cards_dsl::counters`, and the compiler catches only half of a
+    /// disagreement: a spelling that names no constant fails to build the
+    /// card it wrote, but a **word** invented here would happily emit
+    /// `counters::DEPLETION` for a counter nobody has ever printed. So the
+    /// pair is asserted rather than trusted — the same bargain as the
+    /// authoring contract's list of cost parts.
+    #[test]
+    fn every_counter_this_reads_is_one_the_dsl_assigns() {
+        use baylee_cards_dsl::counters::ASSIGNED;
+        for (word, spelling) in super::COUNTERS {
+            let Some(name) = spelling.strip_prefix("counters::") else {
+                assert!(
+                    spelling.starts_with("CounterKind::"),
+                    "{word} is spelled as neither an assigned id nor a \
+                     named kind: {spelling}"
+                );
+                continue;
+            };
+            assert!(
+                ASSIGNED.iter().any(|(assigned, _)| *assigned == word),
+                "{word} is a counter this reader names and the DSL does not \
+                 assign"
+            );
+            assert_eq!(
+                name,
+                word.to_uppercase(),
+                "the constant and the printed word have to be the same word"
+            );
+        }
+    }
+
     /// And the number has to agree with its noun, which is the cheap half of
     /// reading the phrase at all: a singular beside a plural is a sentence
     /// this did not parse, whatever else it matched.
     #[test]
     fn a_count_that_disagrees_with_its_noun_is_not_a_phrase_this_read() {
-        assert_eq!(super::charge_counters("two charge counters"), Some(2));
-        assert_eq!(super::charge_counters("a charge counter"), Some(1));
-        assert_eq!(super::charge_counters("one charge counter"), Some(1));
-        assert_eq!(super::charge_counters("two charge counter"), None);
-        assert_eq!(super::charge_counters("a charge counters"), None);
-        assert_eq!(super::charge_counters("a +1/+1 counter"), None);
+        let charge = "CounterKind::Charge";
+        assert_eq!(
+            super::counter_phrase("two charge counters"),
+            Some((charge, 2))
+        );
+        assert_eq!(super::counter_phrase("a charge counter"), Some((charge, 1)));
+        assert_eq!(
+            super::counter_phrase("one charge counter"),
+            Some((charge, 1))
+        );
+        assert_eq!(
+            super::counter_phrase("three mining counters"),
+            Some(("counters::MINING", 3))
+        );
+        assert_eq!(super::counter_phrase("two charge counter"), None);
+        assert_eq!(super::counter_phrase("a charge counters"), None);
+        assert_eq!(super::counter_phrase("a +1/+1 counter"), None);
+        assert_eq!(super::counter_phrase("two storage counters"), None);
+        assert_eq!(super::counter_phrase("two counters"), None);
     }
 
     #[test]

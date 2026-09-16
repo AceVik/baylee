@@ -613,6 +613,36 @@ pub enum Effect {
         /// Effects when the condition holds.
         then: &'static [Effect],
     },
+    /// Branch: the source has no counters of this kind left.
+    ///
+    /// "**If** there are no depletion counters on this land, sacrifice it"
+    /// — the second half of the sentence whose first half is the mana, and
+    /// an ordinary effect rather than a trigger or a state-based action,
+    /// because that is how the card prints it. The ability removes a
+    /// counter as a cost ([`crate::CostPart::RemoveCounterSelf`]), makes its
+    /// mana, and then asks this; a land activated for the last time is
+    /// therefore in the graveyard before anybody gets priority back
+    /// (CR 605.3b).
+    ///
+    /// Counted over every `//! Oracle:` header on 2026-09-16, the pool
+    /// prints the sentence on exactly **six** cards: the five Mercadian
+    /// Masques depletion lands and Gemstone Mine, which says "mining"
+    /// where they say "depletion" and is otherwise the same card. That is
+    /// why the kind is a parameter and the "no" is not: Magic prints the
+    /// comparison against zero and no other, so a threshold field would be
+    /// a number no card has ever written.
+    ///
+    /// The source must still be there for the condition to hold. "There
+    /// are no counters on this land" presupposes the land, and a permanent
+    /// that has already left has no counters in exactly the way an empty
+    /// set does not — reading the absent object as zero would sacrifice
+    /// something twice.
+    IfNoCountersOnSelf {
+        /// Which counter has to have run out.
+        kind: CounterKind,
+        /// Effects when it has (`&[Effect::SacrificeSelf]`, on all six).
+        then: &'static [Effect],
+    },
     /// Branch on the event object's power (Tribute to the World Tree):
     /// `then` when power >= `n`, else `otherwise`.
     IfEventPowerAtLeast {

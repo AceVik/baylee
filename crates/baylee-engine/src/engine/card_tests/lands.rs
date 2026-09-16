@@ -3,6 +3,7 @@
 
 #[allow(clippy::wildcard_imports)] // this module's own vocabulary
 use super::*;
+use baylee_cards_dsl::counters;
 
 /// Abraded Bluffs: "When this land enters, it deals 1 damage to target
 /// opponent." Two things are being asserted, and the card was broken on
@@ -1877,17 +1878,6 @@ fn doubling_season() -> CardIndex {
     card_index("01546b7d-a233-4176-8843-d732074dc5b6")
 }
 
-/// How many charge counters are on `id`.
-#[track_caller]
-fn charge_counters(engine: &Engine<RegistryLookup>, id: ObjectId) -> u16 {
-    engine
-        .state()
-        .object(id)
-        .expect("the permanent is on the battlefield")
-        .counters
-        .get(CounterKind::Charge)
-}
-
 /// The Vivid cycle: "This land enters tapped with two charge counters on it."
 ///
 /// Five cards one rule wrote, played one per turn, and the reason they are
@@ -1920,7 +1910,7 @@ fn the_vivid_cycle_arrives_tapped_and_brings_two_counters_with_it() {
             "vivid land {n}: the sentence says tapped"
         );
         assert_eq!(
-            charge_counters(&engine, land),
+            counters_on(&engine, land, CounterKind::Charge),
             2,
             "vivid land {n}: and the same sentence says two charge counters"
         );
@@ -1968,7 +1958,7 @@ fn a_vivid_land_pays_a_counter_for_a_colour_it_could_not_otherwise_make() {
             legal.abilities.contains(&(land, 1)),
             "turn {turn}: {} counter(s) left, so the any-colour line is on \
              offer: {:?}",
-            charge_counters(&engine, land),
+            counters_on(&engine, land, CounterKind::Charge),
             legal.abilities
         );
 
@@ -1995,7 +1985,7 @@ fn a_vivid_land_pays_a_counter_for_a_colour_it_could_not_otherwise_make() {
             .expect("a colour the engine offered");
 
         assert_eq!(
-            charge_counters(&engine, land),
+            counters_on(&engine, land, CounterKind::Charge),
             1 - turn,
             "turn {turn}: exactly one counter came off"
         );
@@ -2016,7 +2006,11 @@ fn a_vivid_land_pays_a_counter_for_a_colour_it_could_not_otherwise_make() {
     let Pending::Priority { legal, .. } = engine.pending().clone() else {
         panic!("expected priority, got {:?}", engine.pending())
     };
-    assert_eq!(charge_counters(&engine, land), 0, "both counters are spent");
+    assert_eq!(
+        counters_on(&engine, land, CounterKind::Charge),
+        0,
+        "both counters are spent"
+    );
     assert!(
         !legal.abilities.contains(&(land, 1)),
         "an untapped land with no counters cannot pay the any-colour line: \
@@ -2051,7 +2045,11 @@ fn tendo_ice_bridge_enters_untapped_and_spends_its_one_counter_at_once() {
         !entered_tapped(&engine, land),
         "the printing does not say tapped"
     );
-    assert_eq!(charge_counters(&engine, land), 1, "and it says one counter");
+    assert_eq!(
+        counters_on(&engine, land, CounterKind::Charge),
+        1,
+        "and it says one counter"
+    );
 
     engine
         .apply(
@@ -2069,7 +2067,11 @@ fn tendo_ice_bridge_enters_untapped_and_spends_its_one_counter_at_once() {
         .apply(p0, PlayerAction::ChooseColor(ManaColor::Green))
         .expect("a colour the engine offered");
 
-    assert_eq!(charge_counters(&engine, land), 0, "the counter is gone");
+    assert_eq!(
+        counters_on(&engine, land, CounterKind::Charge),
+        0,
+        "the counter is gone"
+    );
     assert_eq!(
         engine.state().players[0]
             .mana_pool
@@ -2109,7 +2111,11 @@ fn mirrodin_s_core_fills_itself_and_then_spends_what_it_put_on() {
 
     let land = play_land(&mut engine, p0, mirrodin_s_core());
     assert!(!entered_tapped(&engine, land), "the Core enters untapped");
-    assert_eq!(charge_counters(&engine, land), 0, "and empty");
+    assert_eq!(
+        counters_on(&engine, land, CounterKind::Charge),
+        0,
+        "and empty"
+    );
 
     // Ability 1 is not a mana ability, so it uses the stack (CR 605.1).
     engine
@@ -2144,7 +2150,11 @@ fn mirrodin_s_core_fills_itself_and_then_spends_what_it_put_on() {
         .apply(p0, PlayerAction::ChooseColor(ManaColor::White))
         .expect("a colour the engine offered");
 
-    assert_eq!(charge_counters(&engine, land), 0, "and it is empty again");
+    assert_eq!(
+        counters_on(&engine, land, CounterKind::Charge),
+        0,
+        "and it is empty again"
+    );
     assert_eq!(
         engine.state().players[0]
             .mana_pool
@@ -2176,7 +2186,7 @@ fn a_doubler_doubles_the_counters_a_land_arrives_with_and_never_the_cost() {
 
     let land = play_land(&mut engine, p0, vivid_crag());
     assert_eq!(
-        charge_counters(&engine, land),
+        counters_on(&engine, land, CounterKind::Charge),
         4,
         "two printed counters, put on as the land enters, doubled once"
     );
@@ -2196,9 +2206,269 @@ fn a_doubler_doubles_the_counters_a_land_arrives_with_and_never_the_cost() {
         .expect("a colour the engine offered");
 
     assert_eq!(
-        charge_counters(&engine, land),
+        counters_on(&engine, land, CounterKind::Charge),
         3,
         "a cost of one counter is a cost of one counter — a doubler has \
          nothing to say about a removal"
+    );
+}
+
+// oracle_id = "26259c65-8f4e-42a6-b8a7-f65c36d35c4d"
+fn hickory_woodlot() -> CardIndex {
+    card_index("26259c65-8f4e-42a6-b8a7-f65c36d35c4d")
+}
+
+// oracle_id = "a176924c-78fc-4151-b2b5-1547b1114a40"
+fn peat_bog() -> CardIndex {
+    card_index("a176924c-78fc-4151-b2b5-1547b1114a40")
+}
+
+// oracle_id = "2c38f4c7-1b3f-42b4-a175-edab7acd6cc6"
+fn remote_farm() -> CardIndex {
+    card_index("2c38f4c7-1b3f-42b4-a175-edab7acd6cc6")
+}
+
+// oracle_id = "c8e0a1a5-8188-4677-9d8a-a18eb593343a"
+fn sandstone_needle() -> CardIndex {
+    card_index("c8e0a1a5-8188-4677-9d8a-a18eb593343a")
+}
+
+// oracle_id = "e4e6e796-39ce-4a63-8c61-c7c956d75d78"
+fn saprazzan_skerry() -> CardIndex {
+    card_index("e4e6e796-39ce-4a63-8c61-c7c956d75d78")
+}
+
+// oracle_id = "0c828f10-4775-492f-9224-1e2814ad2cad"
+fn gemstone_mine() -> CardIndex {
+    card_index("0c828f10-4775-492f-9224-1e2814ad2cad")
+}
+
+/// How many counters of `kind` are on `id`.
+///
+/// The kind is a parameter and not a second helper per counter, which is
+/// what these tests need it to be: a depletion land's whole point is that
+/// its counters are *not* charge counters, and asking the same question
+/// twice with two nouns is how that is asserted.
+#[track_caller]
+fn counters_on(engine: &Engine<RegistryLookup>, id: ObjectId, kind: CounterKind) -> u16 {
+    engine
+        .state()
+        .object(id)
+        .expect("the card is still an object")
+        .counters
+        .get(kind)
+}
+
+/// The five Mercadian Masques depletion lands: "This land enters tapped
+/// with two depletion counters on it."
+///
+/// One sentence the Vivid cycle also prints, with one word changed, and the
+/// word is the whole test. A depletion counter is not a charge counter —
+/// it is `counters::DEPLETION`, an id assigned in the DSL rather than a
+/// rules kind — so both are asserted on every land: two of the one and none
+/// of the other. A reader that took the number out of the phrase and threw
+/// the noun away would pass the first assertion and fail the second, which
+/// is exactly the failure that would otherwise have shipped five lands
+/// spending counters they never arrived with.
+#[test]
+fn the_depletion_cycle_arrives_tapped_with_counters_of_its_own_kind() {
+    let p0 = PlayerId::new(0);
+    let cycle = [
+        hickory_woodlot(),
+        peat_bog(),
+        remote_farm(),
+        sandstone_needle(),
+        saprazzan_skerry(),
+    ];
+    let mut engine = Duel::new(551, forest()).hand(0, &cycle).start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    for (n, card) in cycle.into_iter().enumerate() {
+        let land = play_land(&mut engine, p0, card);
+        assert!(
+            entered_tapped(&engine, land),
+            "depletion land {n}: the sentence says tapped"
+        );
+        assert_eq!(
+            counters_on(&engine, land, counters::DEPLETION),
+            2,
+            "depletion land {n}: and the same sentence says two depletion \
+             counters"
+        );
+        assert_eq!(
+            counters_on(&engine, land, CounterKind::Charge),
+            0,
+            "depletion land {n}: depletion and charge are two counters, and \
+             this is the assertion a reader that dropped the noun fails"
+        );
+        cross_into_the_next_own_main(&mut engine, p0);
+    }
+}
+
+/// Peat Bog's whole life: "{T}, Remove a depletion counter from this land:
+/// Add {B}{B}. If there are no depletion counters on this land, sacrifice
+/// it."
+///
+/// Two mana twice and then the land is gone, which is three things at once
+/// and they are three different mechanisms. The cost takes a counter off
+/// (arithmetic, no chooser). The first effect makes the mana. The second
+/// effect reads the counters the cost just spent and, on the second
+/// activation only, sacrifices the source — an ordinary effect in the same
+/// list, because that is how the card prints it, and not a state-based
+/// action that would fire somewhere else entirely.
+///
+/// What the order of the two effects does **not** decide is the mana: the
+/// pool belongs to the player and not to the land, so a sacrifice running
+/// first would still leave {B}{B} behind. Gemstone Mine is where the order
+/// is observable, and that is the test below.
+#[test]
+fn a_depletion_land_pays_twice_and_the_second_payment_kills_it() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(552, forest()).hand(0, &[peat_bog()]).start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let land = play_land(&mut engine, p0, peat_bog());
+    assert!(entered_tapped(&engine, land), "it arrives tapped");
+
+    for turn in 0..2u16 {
+        cross_into_the_next_own_main(&mut engine, p0);
+        let Pending::Priority { legal, .. } = engine.pending().clone() else {
+            panic!("expected priority, got {:?}", engine.pending())
+        };
+        assert!(
+            legal.abilities.contains(&(land, 0)),
+            "turn {turn}: {} counter(s) left, so the line is payable: {:?}",
+            counters_on(&engine, land, counters::DEPLETION),
+            legal.abilities
+        );
+
+        engine
+            .apply(
+                p0,
+                PlayerAction::ActivateAbility {
+                    source: land,
+                    ability_index: 0,
+                },
+            )
+            .expect("a counter is there to pay with");
+
+        // {B}{B} names its colour, so nothing is asked and the whole
+        // ability — cost, mana and the clause after it — is over already.
+        assert!(
+            matches!(engine.pending(), Pending::Priority { .. }),
+            "turn {turn}: a fixed colour asks nobody anything: {:?}",
+            engine.pending()
+        );
+        assert_eq!(
+            engine.state().players[0]
+                .mana_pool
+                .available(ManaColor::Black),
+            2,
+            "turn {turn}: two black, which is what the land prints"
+        );
+    }
+
+    assert!(
+        in_graveyard(&engine, p0, peat_bog()).is_some(),
+        "the second activation left no depletion counters, so the same \
+         ability that made the mana sacrificed the land"
+    );
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        !legal.abilities.iter().any(|(id, _)| *id == land),
+        "and a land in a graveyard is offered nothing: {:?}",
+        legal.abilities
+    );
+}
+
+/// Gemstone Mine, which is the same card asked one question: "Add one mana
+/// of any color."
+///
+/// That question is the reason it is a separate test. A colour choice
+/// **suspends** the resolution (CR 605.3b resolves a mana ability without
+/// the stack, but a choice still parks it in `Engine::resolution`), so the
+/// sacrifice clause is on the far side of an answer the player has not
+/// given yet.
+///
+/// The shape is not new — every pain land has it, `{T}: Add {W} or {U}.
+/// This land deals 1 damage to you.` being a colour question with an effect
+/// behind it — but no engine test had ever played one. So this is the first
+/// test of the resume-then-trailing-effect path, and what it covers is
+/// wider than the one card.
+///
+/// So the middle of the last activation is asserted, and it is the whole
+/// point of the test: the cost has been paid (no counters left) and the
+/// land is **still on the battlefield**, because the effect that kills it
+/// has not run. Answer the colour and both halves land together.
+#[test]
+fn gemstone_mine_dies_on_the_far_side_of_the_colour_it_asks_for() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(553, forest()).hand(0, &[gemstone_mine()]).start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let land = play_land(&mut engine, p0, gemstone_mine());
+    assert!(
+        !entered_tapped(&engine, land),
+        "Gemstone Mine prints no `tapped`, so it works the turn it arrives"
+    );
+    assert_eq!(
+        counters_on(&engine, land, counters::MINING),
+        3,
+        "three mining counters, which is three activations"
+    );
+
+    for turn in 0..3u16 {
+        if turn > 0 {
+            cross_into_the_next_own_main(&mut engine, p0);
+        }
+        engine
+            .apply(
+                p0,
+                PlayerAction::ActivateAbility {
+                    source: land,
+                    ability_index: 0,
+                },
+            )
+            .expect("a mining counter is there to pay with");
+
+        let Pending::ChooseColor { options, .. } = engine.pending().clone() else {
+            panic!(
+                "turn {turn}: any colour is a choice: {:?}",
+                engine.pending()
+            )
+        };
+        assert_eq!(options.len(), 5, "turn {turn}: all five colours");
+        assert_eq!(
+            counters_on(&engine, land, counters::MINING),
+            2 - turn,
+            "turn {turn}: the cost is paid before the question is asked"
+        );
+        assert!(
+            in_graveyard(&engine, p0, gemstone_mine()).is_none(),
+            "turn {turn}: and the clause that would sacrifice it has not run \
+             yet, because the resolution is parked on this question"
+        );
+
+        engine
+            .apply(p0, PlayerAction::ChooseColor(ManaColor::Green))
+            .expect("a colour the engine offered");
+        assert_eq!(
+            engine.state().players[0]
+                .mana_pool
+                .available(ManaColor::Green),
+            1,
+            "turn {turn}: one green, from a land that prints no green symbol"
+        );
+    }
+
+    assert!(
+        in_graveyard(&engine, p0, gemstone_mine()).is_some(),
+        "the third answer emptied the land and the clause after the mana \
+         sacrificed it"
     );
 }

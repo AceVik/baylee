@@ -796,6 +796,13 @@ pub mod prelude {
         SpellParts, StaticParts, TriggeredParts,
     };
     pub use crate::cost::{AltCondition, AlternativeCost, Cost, CostPart, CostReduction};
+    /// The ids assigned to the counters that carry no rule of their own.
+    ///
+    /// The *module*, for [`index`]'s reason one import down: a card writes
+    /// `counters::DEPLETION`, which names the printed word, where a glob
+    /// would put every counter this pool has ever needed into the namespace
+    /// of every card file.
+    pub use crate::counters;
     pub use crate::effect::{
         Amount, CounterKind, Effect, Find, ManaRestriction, ManaSource, PlayerRel, SearchDest,
         SpendRider, TargetReq, TargetSpec, TokenDef, ZoneSel,

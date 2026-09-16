@@ -178,7 +178,7 @@ fn an_optional_clause_inside_a_condition_is_offered_once_and_taken_once() {
             .object(ascension)
             .expect("still on the battlefield")
             .counters
-            .get(crate::object::CounterKind::Custom(1)),
+            .get(baylee_cards_dsl::counters::QUEST),
         1,
         "one offer, one counter"
     );

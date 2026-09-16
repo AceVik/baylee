@@ -1620,6 +1620,18 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
             }
             None
         }
+        Effect::IfNoCountersOnSelf { kind, then } => {
+            // `is_some_and` and not `map_or(true, …)`: a source that is no
+            // longer on the battlefield has not run out of counters, it has
+            // stopped being a thing the sentence is about.
+            if state
+                .object(res.source)
+                .is_some_and(|o| o.counters.get(kind) == 0)
+            {
+                return run_nested(state, res, then);
+            }
+            None
+        }
         Effect::IfEventPowerAtLeast { n, then, otherwise } => {
             let power = res
                 .event_object

@@ -177,9 +177,8 @@ fn swept_filters(effect: &Effect) -> Vec<&'static Filter> {
         Effect::MayDo { effects: then }
         | Effect::IfCreaturesDiedAtLeast { then, .. }
         | Effect::IfNotLostLifeThisTurn { then, .. }
-        | Effect::IfControlGreatestCmc { then, .. } => {
-            then.iter().flat_map(swept_filters).collect()
-        }
+        | Effect::IfControlGreatestCmc { then, .. }
+        | Effect::IfNoCountersOnSelf { then, .. } => then.iter().flat_map(swept_filters).collect(),
         _ => Vec::new(),
     }
 }
@@ -252,7 +251,8 @@ fn declared_layers(effect: &Effect) -> Vec<(Layer, Modifier)> {
         Effect::MayDo { effects: then }
         | Effect::IfCreaturesDiedAtLeast { then, .. }
         | Effect::IfNotLostLifeThisTurn { then, .. }
-        | Effect::IfControlGreatestCmc { then, .. } => {
+        | Effect::IfControlGreatestCmc { then, .. }
+        | Effect::IfNoCountersOnSelf { then, .. } => {
             then.iter().flat_map(declared_layers).collect()
         }
         _ => Vec::new(),
@@ -389,7 +389,8 @@ fn mana_symbol_colors(effect: &Effect) -> ColorSet {
         Effect::MayDo { effects: then }
         | Effect::IfCreaturesDiedAtLeast { then, .. }
         | Effect::IfNotLostLifeThisTurn { then, .. }
-        | Effect::IfControlGreatestCmc { then, .. } => then.iter().fold(ColorSet::EMPTY, union),
+        | Effect::IfControlGreatestCmc { then, .. }
+        | Effect::IfNoCountersOnSelf { then, .. } => then.iter().fold(ColorSet::EMPTY, union),
         _ => ColorSet::EMPTY,
     }
 }
