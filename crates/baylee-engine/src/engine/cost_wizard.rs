@@ -59,7 +59,10 @@ use crate::state::GameState;
 pub(crate) const fn needs_an_answer(part: &CostPart) -> bool {
     matches!(
         part,
-        CostPart::Sacrifice(_) | CostPart::Discard(_) | CostPart::TapOther(_)
+        CostPart::Sacrifice(_)
+            | CostPart::Discard(_)
+            | CostPart::TapOther(_)
+            | CostPart::ReturnToHand(_)
     )
 }
 
@@ -97,6 +100,18 @@ pub(crate) fn asking_parts(cost: &Cost) -> impl Iterator<Item = &CostPart> {
 /// Magic prints, and being wrong in this direction offers a player less than
 /// the card allows rather than handing them an opponent's permanent.
 ///
+/// [`CostPart::ReturnToHand`] is the second of that kind and the measurement
+/// behind it is stronger: 71 scripts in the card-script reference print a
+/// return cost naming something other than the source, and **all 71** print
+/// "you control". The filter says it too — the transcoder writes
+/// `Filter::ControlledByYou` into every one it emits — and this line is the
+/// second half of the same answer rather than a substitute for it, which is
+/// Earthcraft's arrangement one variant up.
+///
+/// What it does *not* borrow from `TapOther` is "untapped". A Forest tapped
+/// for `{G}` is the cost Quirion Ranger was printed to pay, so the word is
+/// absent here and lives in the filter on the six costs that print it.
+///
 /// What the rule does supply there is "untapped": CR 118.3 says a permanent
 /// that is already tapped cannot be tapped to pay a cost, whether or not the
 /// card thought to say so. Summoning sickness is deliberately *not* read —
@@ -110,13 +125,17 @@ pub(crate) fn options(
     part: &CostPart,
 ) -> Vec<ObjectId> {
     let (zone, controlled, untapped) = match part {
-        CostPart::Sacrifice(_) => (ZoneLocation::Battlefield, true, false),
+        CostPart::Sacrifice(_) | CostPart::ReturnToHand(_) => {
+            (ZoneLocation::Battlefield, true, false)
+        }
         CostPart::TapOther(_) => (ZoneLocation::Battlefield, true, true),
         CostPart::Discard(_) => (ZoneLocation::Hand(player), false, false),
         _ => return Vec::new(),
     };
-    let (CostPart::Sacrifice(filter) | CostPart::Discard(filter) | CostPart::TapOther(filter)) =
-        part
+    let (CostPart::Sacrifice(filter)
+    | CostPart::Discard(filter)
+    | CostPart::TapOther(filter)
+    | CostPart::ReturnToHand(filter)) = part
     else {
         return Vec::new();
     };
@@ -140,6 +159,7 @@ pub(crate) const fn prompt(part: &CostPart) -> ChoicePrompt {
     match part {
         CostPart::Discard(_) => ChoicePrompt::CostDiscard,
         CostPart::TapOther(_) => ChoicePrompt::CostTap,
+        CostPart::ReturnToHand(_) => ChoicePrompt::CostReturn,
         _ => ChoicePrompt::CostSacrifice,
     }
 }
@@ -155,9 +175,14 @@ pub(crate) const fn prompt(part: &CostPart) -> ChoicePrompt {
 /// [`GameEvent::ObjectTapped`] it records: an ability that triggers on a
 /// creature becoming tapped may not see one of the two and miss the other.
 ///
+/// A return goes through the same door to a different zone, which is the
+/// `ReturnSelfToHand` arm of `pay_cost` one file over: a permanent bounced
+/// to pay a cost and one that bounced itself are the same event.
+///
 /// The part is passed in rather than inferred from the object, because the
 /// object cannot say it. A creature on the battlefield is a legal answer to
-/// both a sacrifice and a tap, and the two are opposite outcomes.
+/// a sacrifice, a tap and a return alike, and the three are different
+/// outcomes.
 ///
 /// The legality of the answer is checked by `apply` against the very list
 /// [`options`] produced, before this is ever reached. This re-reads the owner
@@ -179,11 +204,14 @@ pub(crate) fn pay(
         return Ok(());
     }
     let owner = state.object(chosen).map_or(player, |o| o.owner);
-    state.move_object(
-        chosen,
-        ZoneLocation::Graveyard(owner),
-        ZonePosition::Top,
-        Cause::Cost,
-    )?;
+    // Owner's hand, never the payer's: CR 400.3 puts a returned card in the
+    // zone of the player who owns it, and a Forest borrowed off somebody
+    // else's battlefield goes home rather than joining the borrower's hand.
+    let to = if matches!(part, CostPart::ReturnToHand(_)) {
+        ZoneLocation::Hand(owner)
+    } else {
+        ZoneLocation::Graveyard(owner)
+    };
+    state.move_object(chosen, to, ZonePosition::Top, Cause::Cost)?;
     Ok(())
 }

@@ -416,14 +416,18 @@ pub fn ending_reason(lang: Lang, result: &GameResult) -> Option<String> {
 /// not a selection) and `Generic` is the plain noun, which is honest: the
 /// engine did not say what it was for either.
 ///
-/// The last three are the other thing that is part of a cost and, unlike
+/// The last four are the other thing that is part of a cost and, unlike
 /// delve, are one card rather than a heap of them: `CostSacrifice`,
-/// `CostDiscard` and `CostTap` arrive while CR 601.2h is being paid, so each
+/// `CostDiscard`, `CostTap` and `CostReturn` arrive while CR 601.2h is being
+/// paid, so each
 /// gets a noun that says what happens to the card rather than sharing delve's
 /// "spend what you have" line. A player who is told only "choose 1 card"
 /// while paying for Survival of the Fittest cannot tell the discard from the
-/// creature it fetches — and the tap is the one whose card *survives*, which
-/// nobody would guess from a sacrifice's wording.
+/// creature it fetches — and the tap and the return are the two whose card
+/// *survives*, which nobody would guess from a sacrifice's wording. Those
+/// two are not one noun either: Quirion Ranger's Forest may already be
+/// tapped, and a player reading "untapped permanent to tap" over their own
+/// lands would look for the wrong one.
 fn choice_noun(reason: ChoicePrompt) -> (Phrase, Phrase) {
     match reason {
         ChoicePrompt::SearchLibrary => (Phrase::NounCardFromLibrary, Phrase::NounCardsFromLibrary),
@@ -436,6 +440,10 @@ fn choice_noun(reason: ChoicePrompt) -> (Phrase, Phrase) {
         ),
         ChoicePrompt::CostDiscard => (Phrase::NounCardToDiscard, Phrase::NounCardsToDiscard),
         ChoicePrompt::CostTap => (Phrase::NounPermanentToTap, Phrase::NounPermanentsToTap),
+        ChoicePrompt::CostReturn => (
+            Phrase::NounPermanentToReturn,
+            Phrase::NounPermanentsToReturn,
+        ),
         ChoicePrompt::Delve | ChoicePrompt::Generic => (Phrase::NounCard, Phrase::NounCards),
     }
 }

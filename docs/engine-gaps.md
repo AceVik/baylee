@@ -406,12 +406,12 @@ same commit.
 
 **Devoted Druid never needed an activation limit** — its ability prints no
 limit at all. **Wall of Roots** is the card that does, and it shipped the same
-day; the section below it is that work. What is left in the neighbourhood is
-**Quirion Ranger and Scryb Ranger**, which print the same "activate only once
-each turn" over a cost the DSL cannot say yet — "Return a Forest you control
-to its owner's hand" is `CostPart::ReturnToHand(filter)`, a choice over a
-filter, which is the `Sacrifice(filter)` seam (`cost_wizard`) one more time
-rather than a new one.
+day; the section below it is that work. **Quirion Ranger** followed it and is
+the section after that: the same "activate only once each turn" over
+`CostPart::ReturnToHand(filter)`, which turned out to be the
+`Sacrifice(filter)` seam (`cost_wizard`) one more time rather than a new one.
+**Scryb Ranger** prints the identical ability and is still a stub, for a
+reason that has nothing to do with costs — see "Protection" below.
 
 `Effect::UntapSelf`'s own reach in this pool is **three** cards: Devoted
 Druid, which plays, plus Basalt Monolith and Grim Monolith, which also print
@@ -457,6 +457,57 @@ times — the same value, spelled the way a player says it, so no existing card
 file moved. Wall of Roots comes out of `xtask codegen` whole, which makes it
 the second card in a row that the transcoder finished with no hand-written
 line.
+
+#### A cost that hands a permanent back: Quirion Ranger (2026-09-16)
+
+`CostPart::ReturnToHand(&Filter)`, the fourth part that has to ask a question
+and the second whose answer is still standing afterwards. Measured over the
+card-script reference: **88** scripts print a return cost, 17 of them naming
+the source (`ReturnSelfToHand`, which already existed) and **71** naming
+something else — and all 71 of those print "you control". That is said
+twice on purpose: the transcoder writes `Filter::ControlledByYou` into the
+filter it emits (and `validate`'s scope check is what insisted, which is the
+guard doing its job), and `cost_wizard::options` draws the same line over the
+battlefield. No rule requires it the way CR 701.21a requires it of a
+sacrifice; the cards do, and Earthcraft's `TapOther` is arranged the same
+way.
+
+**What it does not borrow is "untapped".** CR 118.3 gives a *tap* cost that
+word and `TapOther` reads it; a return cost has no such rule, and taking it
+anyway would have deleted the card: Quirion Ranger's play is to tap the Forest
+for `{G}` and then return it, with the mana staying in the pool (CR 106.4)
+while the land goes to the hand. The six costs in the corpus that do want an
+untapped one print the word in their own filter, which is where a printed word
+belongs.
+
+**One permanent per part**, for `Sacrifice(filter)`'s reason. Of the 78 return
+costs written across those scripts, 64 return one, eight return two (Gush),
+five return three (Thwart) and one returns X; the transcoder refuses the last
+fourteen by name rather than paying one of them and calling the card done.
+
+The question arrives as `Pending::ChooseCards` under a new
+`ChoicePrompt::CostReturn` — not `CostSacrifice`, because a player shown
+"which one are you giving up" over their own lands would decline a cost that
+hands the land straight back, and not `CostTap` either, because that one says
+"untapped" in the sentence itself. `quirion_ranger_bounces_a_tapped_forest_and_only_once_a_turn`
+plays all of it, and deals **two** Forests deliberately: with one, the ability
+would stop being offered because the cost had become unpayable, and the test
+would pass with no activation limit in the engine at all.
+
+Quirion Ranger comes out of `xtask codegen` whole, and it is the only card
+that does — the rule changes no other file in the pool. Urban Retreat and
+Magosi print a return cost too and are still refused, each for a second reason
+of its own.
+
+**Protection.** Scryb Ranger prints the same ability and stays a stub, because
+"protection from blue" (CR 702.16) is a mechanic this engine does not have.
+`KeywordSet::PROTECTION_BLACK` is a bit and **nothing in `baylee-engine` reads
+it** (grepped here), so the four things protection does — damage prevention,
+attaching, blocking, targeting — happen to a protected creature anyway. Three
+cards in the pool print it: Karmic Guide, Scryb Ranger and Yawgmoth, Thran
+Physician. A bit per colour is the wrong shape for the third of those, which
+protects from a creature *type*, so this is a gap with a design question in
+it rather than a missing case.
 
 ### 2. G3 — no Surveil
 

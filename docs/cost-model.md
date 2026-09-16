@@ -7,7 +7,7 @@ struct Cost { mana: ManaCost, parts: &'static [CostPart] }
 enum CostPart { TapSelf, UntapSelf, SacrificeSelf, Sacrifice(&'static Filter),
                 PayLife(u16), PayLifeX, Discard(&'static Filter), DiscardSelf,
                 ExileSelf, ExileFromHand(&'static Filter), ReturnSelfToHand,
-                TapOther(&'static Filter),
+                TapOther(&'static Filter), ReturnToHand(&'static Filter),
                 RemoveCounterSelf { kind: CounterKind, n: u16 } }
 ```
 

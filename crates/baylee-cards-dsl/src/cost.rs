@@ -46,6 +46,38 @@ pub enum CostPart {
     ExileSelf,
     /// Return the source to its owner's hand (Recurring Nightmare).
     ReturnSelfToHand,
+    /// Return a permanent matching the filter to its owner's hand (choice at
+    /// payment).
+    ///
+    /// The source is not it, for [`CostPart::TapOther`]'s reason one variant
+    /// up: Quirion Ranger bounces a Forest and never itself, and Recurring
+    /// Nightmare bounces itself and nothing else, so the two are separate
+    /// variants rather than one with a self-filter.
+    ///
+    /// **Whose** is carried here rather than left to the filter, the way
+    /// `cost_wizard::options` reads it: counted over the card-script
+    /// reference on 2026-09-16, **71** scripts print a return cost naming
+    /// something other than the source, and all 71 print "you control" —
+    /// three of them word it differently (Tameshi's own oracle drops the
+    /// "to", Arcanis says "a creature you control with mana value X",
+    /// Kaito says "creatures you control") and none of them returns an
+    /// opponent's permanent. No rule requires it the way CR 701.21a does for
+    /// a sacrifice; the cards do.
+    ///
+    /// **One permanent**, for [`CostPart::Sacrifice`]'s reason: a cost that
+    /// bounces two is two parts and two questions. Of the 78 such costs
+    /// written across those scripts, 64 return one, eight return two (Gush's
+    /// Islands), five return three (Thwart's) and one returns X — and the
+    /// transcoder refuses the last fourteen by name rather than quietly
+    /// paying one of them.
+    ///
+    /// Nothing here says "untapped". Tapping a Forest for `{G}` and *then*
+    /// returning it is the whole play — the mana stays in the pool
+    /// (CR 106.4) while the land goes to the hand — so a rule borrowed from
+    /// [`CostPart::TapOther`] would take the card's point away. The six
+    /// costs that do want an untapped one (Coral Atoll's cycle) print the
+    /// word in the filter, which is where a printed word belongs.
+    ReturnToHand(&'static Filter),
     /// Exile a card from your hand matching the filter (pitch costs).
     ExileFromHand(&'static Filter),
     /// Pay life equal to the spell's X value (Toxic Deluge).

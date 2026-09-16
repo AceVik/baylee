@@ -51,6 +51,7 @@ pub(crate) const fn paid_by_the_casting_wizard(part: &CostPart) -> bool {
         | CostPart::PayLife(_)
         | CostPart::Discard(_)
         | CostPart::TapOther(_)
+        | CostPart::ReturnToHand(_)
         | CostPart::DiscardSelf
         | CostPart::ExileSelf
         | CostPart::ReturnSelfToHand
@@ -651,7 +652,10 @@ impl<L: CardLookup> Engine<L> {
                 // the player is shown a moment later — an offer whose
                 // payment then finds nothing is the contradiction
                 // `offer_tests` exists to catch.
-                CostPart::Sacrifice(_) | CostPart::Discard(_) | CostPart::TapOther(_) => {
+                CostPart::Sacrifice(_)
+                | CostPart::Discard(_)
+                | CostPart::TapOther(_)
+                | CostPart::ReturnToHand(_) => {
                     if cost_wizard::options(&self.state, player, source, part).is_empty() {
                         return false;
                     }
@@ -1679,7 +1683,10 @@ impl<L: CardLookup> Engine<L> {
                 // so a sacrifice a player chose and one the card named
                 // cannot come out as two different events, and neither can
                 // a tap.
-                CostPart::Sacrifice(_) | CostPart::Discard(_) | CostPart::TapOther(_) => {
+                CostPart::Sacrifice(_)
+                | CostPart::Discard(_)
+                | CostPart::TapOther(_)
+                | CostPart::ReturnToHand(_) => {
                     let Some(card) = answers.next() else {
                         return Err(EngineError::IllegalAction(
                             "a cost that has to ask reached the payer unanswered",

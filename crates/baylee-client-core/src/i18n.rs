@@ -967,6 +967,16 @@ messages! {
         en: "untapped permanents to tap",
         de: "ungetappte bleibende Karten, die getappt werden",
     },
+    /// permanent to return to its owner's hand
+    NounPermanentToReturn {
+        en: "permanent to return to its owner's hand",
+        de: "bleibende Karte, die auf die Hand ihres Besitzers zurückgenommen wird",
+    },
+    /// permanents to return to their owners' hands
+    NounPermanentsToReturn {
+        en: "permanents to return to their owners' hands",
+        de: "bleibende Karten, die auf die Hand ihres Besitzers zurückgenommen werden",
+    },
     /// Convoke: tap creatures or artifacts to help pay
     ConvokeToHelpPay { en: "Tap creatures or artifacts to help pay — each pays for one", de: "Tippe Kreaturen oder Artefakte an, um mitzubezahlen — jedes zahlt eins" },
     /// Delve: exile cards from your graveyard to help pay
@@ -1295,6 +1305,13 @@ messages! {
     CostExileThis { en: "Exile this", de: "Schicke dies ins Exil" },
     /// Return this
     CostReturnThis { en: "Return this", de: "Nimm dies zurück" },
+    /// Return another
+    ///
+    /// Not [`Self::CostReturnThis`], for [`Self::CostTapAnother`]'s reason
+    /// one phrase down: Quirion Ranger returns a Forest and Recurring
+    /// Nightmare returns itself, and a player told "Return this" over the
+    /// Ranger would read its own death into a cost that only bounces a land.
+    CostReturnAnother { en: "Return another", de: "Nimm eine andere zurück" },
     /// Exile a card
     CostExileACard { en: "Exile a card", de: "Schicke eine Karte ins Exil" },
     /// Tap another
@@ -1670,6 +1687,10 @@ mod tests {
             ),
             (Phrase::NounCardToDiscard, Phrase::NounCardsToDiscard),
             (Phrase::NounPermanentToTap, Phrase::NounPermanentsToTap),
+            (
+                Phrase::NounPermanentToReturn,
+                Phrase::NounPermanentsToReturn,
+            ),
         ];
         for (one, many) in pairs {
             for lang in Lang::ALL {

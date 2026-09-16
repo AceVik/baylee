@@ -280,6 +280,16 @@ pub enum ChoicePrompt {
     /// "untapped"; nothing in the rules supplies "you control", so the card
     /// prints it and `cost_wizard::options` draws the line anyway.
     CostTap,
+    /// "Return a Forest you control to its owner's hand" in an activation
+    /// cost (Quirion Ranger).
+    ///
+    /// The second whose answer survives, and the word matters for the same
+    /// reason [`Self::CostTap`] earned its own: a player shown "which one
+    /// are you giving up" over their own lands would decline a cost that
+    /// hands the land back. What the two do not share is which permanents
+    /// are on the menu — a tap wants an untapped one (CR 118.3), a return
+    /// takes either, and tapping the Forest for mana *first* is the play.
+    CostReturn,
     /// Generic selection.
     Generic,
 }

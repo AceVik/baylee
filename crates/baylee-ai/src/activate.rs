@@ -132,7 +132,11 @@ fn consumes(cost: &Cost) -> bool {
             // A creature that paid is a creature that cannot pay again, and
             // it is the *board* that shrinks rather than the source — which
             // is the same limit, read one permanent over.
-            | CostPart::TapOther(_) => true,
+            | CostPart::TapOther(_)
+            // A permanent returned to a hand leaves the battlefield, so the
+            // board shrinks the same way — more so than a tap, which leaves
+            // the permanent where it was.
+            | CostPart::ReturnToHand(_) => true,
             CostPart::PayLifeX => false,
         })
 }

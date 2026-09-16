@@ -1019,11 +1019,14 @@ impl Tx<'_> {
 
     /// A `Cost$` value as a `Cost` expression, plus whether it taps.
     ///
-    /// Takes `&self` only so that an unreadable token can name itself. A cost
-    /// is where the widest variety of the corpus's syntax shows up — `Discard<…>`,
-    /// `Exile<…>`, `tapXType<…>` — and a report saying "a cost" would send
-    /// the reader back to the script to find out which.
-    fn cost_expr(&self, raw: &str) -> Option<String> {
+    /// An unreadable token names itself: a cost is where the widest variety
+    /// of the corpus's syntax shows up — `Discard<…>`, `Exile<…>`,
+    /// `tapXType<…>` — and a report saying "a cost" would send the reader
+    /// back to the script to find out which.
+    ///
+    /// `&mut self` because one part carries a filter, and a filter is
+    /// declared as a `static` above the card the way a target's is.
+    fn cost_expr(&mut self, raw: &str) -> Option<String> {
         let mut mana = String::new();
         let mut parts: Vec<String> = Vec::new();
         for token in raw.split_whitespace() {
@@ -1050,6 +1053,55 @@ impl Tx<'_> {
                     return self.deny(format!("counter `{kind}`"));
                 };
                 parts.push(format!("PutCounterSelf {{ kind: {kind}, n: {n} }}"));
+            } else if let Some(body) = token
+                .strip_prefix("Return<")
+                .and_then(|t| t.strip_suffix('>'))
+            {
+                // "Return a Forest you control to its owner's hand" as a
+                // cost. Three fields at most — a count, a filter and the
+                // prose the corpus writes for its own interface, which this
+                // side has no use for because the card's printed sentence is
+                // already the label.
+                let mut fields = body.splitn(3, '/');
+                let (Some(n), Some(spec)) = (fields.next(), fields.next()) else {
+                    return self.deny(format!("return cost `{token}`"));
+                };
+                // One permanent per part, which is what `CostPart` carries.
+                // Fourteen of the corpus's 78 return costs bounce two, three
+                // or X, and paying one of them would be a discount.
+                if n != "1" {
+                    return self.deny(format!("a cost returning `{n}` permanents"));
+                }
+                if spec == "CARDNAME" {
+                    parts.push("ReturnSelfToHand".to_string());
+                } else {
+                    // "You control" is added where the script does not say
+                    // it, which is the one place this reader writes a clause
+                    // it did not read. The printed card says it — all 71 of
+                    // the corpus's non-source return costs do — and the
+                    // engine draws the same line in `cost_wizard::options`,
+                    // so a filter without it would be the card and the
+                    // engine disagreeing on the same menu. Appended per
+                    // alternative, because a valid-string's commas are `Or`
+                    // and a clause glued to the end would narrow only the
+                    // last branch.
+                    let spec: String = spec
+                        .split(',')
+                        .map(|alt| {
+                            if alt.contains("YouCtrl") {
+                                alt.to_string()
+                            } else if alt.contains('.') {
+                                format!("{alt}+YouCtrl")
+                            } else {
+                                format!("{alt}.YouCtrl")
+                            }
+                        })
+                        .collect::<Vec<_>>()
+                        .join(",");
+                    let expr = self.filter_expr(&spec)?;
+                    let name = self.body.filter_static("COST", &expr);
+                    parts.push(format!("ReturnToHand(&{name})"));
+                }
             } else if let Some(n) = token
                 .strip_prefix("PayLife<")
                 .and_then(|t| t.strip_suffix('>'))
@@ -2305,6 +2357,52 @@ mod tests {
         );
     }
 
+    /// `Cost$ Return<1/Forest>` is a permanent the *player* names, so it
+    /// comes out as a filter and a `static` above the card, the way a
+    /// target's does — and `Return<1/CARDNAME>` is the source and carries no
+    /// filter at all. Quirion Ranger and Recurring Nightmare print the two
+    /// halves, which is why one rule reads both.
+    #[test]
+    fn a_return_cost_is_a_filter_unless_it_names_the_card_itself() {
+        let body = read(
+            "Name:Quirion Ranger\nManaCost:G\nTypes:Creature Elf Ranger\nPT:1/1\n\
+             A:AB$ Untap | Cost$ Return<1/Forest> | ValidTgts$ Creature | ActivationLimit$ 1\n",
+        );
+        assert!(
+            body.statics.contains(
+                "static COST1: Filter = Filter::And(&[Filter::HasSubtype(subtypes::land::FOREST), \
+                 Filter::ControlledByYou]);"
+            ),
+            "{}",
+            body.statics
+        );
+        assert_eq!(
+            body.abilities,
+            [
+                "activated!(cost!(ReturnToHand(&COST1)), &[Effect::UntapTarget], \
+                 target = Some(TargetSpec::Object(&Filter::CREATURE)), \
+                 limit = ActivationLimit::PerTurn(1))",
+            ]
+        );
+
+        let itself = read(
+            "Name:X\nManaCost:2 B\nTypes:Enchantment\n\
+             A:AB$ Untap | Cost$ Return<1/CARDNAME> | ValidTgts$ Creature\n",
+        );
+        assert_eq!(
+            itself.abilities,
+            [
+                "activated!(cost!(ReturnSelfToHand), &[Effect::UntapTarget], \
+              target = Some(TargetSpec::Object(&Filter::CREATURE)))"
+            ],
+        );
+        assert!(
+            itself.statics.is_empty(),
+            "the source needs no filter: {}",
+            itself.statics
+        );
+    }
+
     /// The other half of the same rule: with a valid-string the untap is the
     /// chosen permanent's, and the ability carries the target it was read
     /// from. Asserted beside the self case so neither can quietly become the
@@ -2686,6 +2784,19 @@ mod tests {
                  A:AB$ PutCounter | Cost$ T | CounterType$ P1M1 | CounterNum$ 1",
                 "counter `P1M1`",
             ),
+            // A return cost carries one permanent, so a count above one is
+            // refused by that count rather than paid one short. Fourteen of
+            // the corpus's 78 return costs print two, three or X.
+            (
+                "Name:X\nTypes:Creature\n\
+                 A:AB$ Untap | Cost$ Return<2/Forest> | ValidTgts$ Creature",
+                "a cost returning `2` permanents",
+            ),
+            (
+                "Name:X\nTypes:Creature\n\
+                 A:AB$ Untap | Cost$ Return<X/Forest> | ValidTgts$ Creature",
+                "a cost returning `X` permanents",
+            ),
             // The one `transcode` refuses after every rule has been read.
             (
                 "Name:X\nTypes:Creature",
@@ -2725,6 +2836,10 @@ mod tests {
              A:AB$ Mana | Cost$ T | Produced$ G | ActivationLimit$ 1",
             "Name:X\nTypes:Creature\n\
              A:AB$ PutCounter | Cost$ T | CounterType$ M0M1 | CounterNum$ 1",
+            "Name:X\nTypes:Creature\n\
+             A:AB$ Untap | Cost$ Return<1/Forest> | ValidTgts$ Creature",
+            "Name:X\nTypes:Creature\n\
+             A:AB$ Untap | Cost$ Return<1/CARDNAME> | ValidTgts$ Creature",
         ] {
             let parsed = parse(script);
             assert!(

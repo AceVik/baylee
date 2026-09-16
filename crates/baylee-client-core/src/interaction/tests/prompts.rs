@@ -199,8 +199,10 @@ fn four_card_choices_read_as_four_different_decisions() {
         line(ChoicePrompt::CostDiscard, 2, 2, Lang::De),
         "Wähle 2 Karten, die abgeworfen werden"
     );
-    // The one asking cost whose card survives being named, which is the
-    // whole reason it does not share the sacrifice's sentence.
+    // The two asking costs whose card survives being named, which is the
+    // whole reason neither shares the sacrifice's sentence — and why they do
+    // not share each other's: a tap wants an untapped permanent (CR 118.3)
+    // and Quirion Ranger's Forest is usually tapped when it is returned.
     assert_eq!(
         line(ChoicePrompt::CostTap, 1, 1, Lang::En),
         "Choose 1 untapped permanent to tap"
@@ -208,6 +210,14 @@ fn four_card_choices_read_as_four_different_decisions() {
     assert_eq!(
         line(ChoicePrompt::CostTap, 1, 1, Lang::De),
         "Wähle 1 ungetappte bleibende Karte, die getappt wird"
+    );
+    assert_eq!(
+        line(ChoicePrompt::CostReturn, 1, 1, Lang::En),
+        "Choose 1 permanent to return to its owner's hand"
+    );
+    assert_eq!(
+        line(ChoicePrompt::CostReturn, 1, 1, Lang::De),
+        "Wähle 1 bleibende Karte, die auf die Hand ihres Besitzers zurückgenommen wird"
     );
 
     // And the whole of AS's second half: one card is never "card(s)".

@@ -814,6 +814,12 @@ fn parts_fit(parts: &[CostPart], lower: &str) -> bool {
         CostPart::Discard(_) => lower.contains("discard"),
         CostPart::Sacrifice(_) | CostPart::SacrificeSelf => lower.contains("sacrifice"),
         CostPart::ExileSelf => lower.contains("exile"),
+        // As loose as the two above it, and for the same reason: the word is
+        // what the card prints, and a sentence whose *effect* also returns
+        // something ("Return a Forest you control …: Untap target creature"
+        // does not, but Flooded Shoreline's does) is still a sentence that
+        // names this cost.
+        CostPart::ReturnToHand(_) => lower.contains("return"),
         _ => false,
     })
 }
