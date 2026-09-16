@@ -28,11 +28,13 @@ deck-images/
 # local configuration (see .env.example)
 .env
 
-# Claude Code: the skills under .claude/skills are project knowledge and are
-# tracked; everything else in there is per-machine state.
+# Claude Code: the skills under .claude/skills, the hooks under .claude/hooks
+# and .claude/settings.json are project knowledge and are tracked; everything
+# else in there is per-machine state.
 .claude/settings.local.json
 .claude/scheduled_tasks.lock
 .claude/worktrees/
+.claude/card-test-debt
 
 # the corpus `baylee-catalog corpus` scans out of the database and
 # `xtask ledger` reads — both default to this path. It is a 2.4 MB rendering

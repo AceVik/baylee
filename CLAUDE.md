@@ -740,7 +740,26 @@ card files.
 
 Several tests exist purely to turn convention into a build failure — a card
 sitting at the wrong `CardIndex`, or a card claiming a keyword no rule reads.
-Expect that shape when adding data. For a change that is meant to move no
+Expect that shape when adding data.
+
+**A card that is added, fixed or refactored is played once in an engine
+test**, and `.claude/hooks/require-card-tests.py` is what asks for it: a
+`Stop` hook that lists every card written this session whose `oracle_id`
+appears in none of `crates/baylee-engine/src/engine/*_tests.rs`. The id and
+not the name, because `card_tests.rs` addresses a card as
+`card_index("<oracle id>")` and a name would be satisfied by a doc comment
+mentioning it. A restored stub owes nothing — a refusal is a correct outcome.
+The test does **not** go in the card file: that module stays empty for the
+reason above, and what is worth proving is that the engine does what the
+printed sentence says, which only playing it can show.
+
+A **fix** owes a second test, and a different one. A card that was wrong was
+wrong because a rule was wrong, and the rule is where hundreds of other cards
+live — so the regression test belongs beside the rule it broke, and has to be
+a test that fails against the old code. Writing only the card's own scenario
+repairs one card and leaves the next fifty to be found by a player. That is
+the same argument as "fix the reader, never the card" one section up, and it
+is why the hook says both halves out loud. For a change that is meant to move no
 rules at all, `cargo run -p xtask -- pool-dump --out <path>` renders every
 compiled `CardDef`; take one before and one after and diff. That is what held
 the macro refactor of all 197 card files to a byte-identical pool.
