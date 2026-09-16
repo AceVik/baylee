@@ -257,8 +257,8 @@ pub enum ChoicePrompt {
     Delve,
     /// "Sacrifice a creature" in an activation cost (CR 701.21a).
     ///
-    /// The second and third prompts here that are part of a *cost* rather
-    /// than an effect, for the reason [`Self::Delve`] gives: a question a
+    /// The second, third and fourth prompts here that are part of a *cost*
+    /// rather than an effect, for the reason [`Self::Delve`] gives: a question a
     /// player is being asked in order to pay is a different question from a
     /// search, and a client that cannot tell them apart asks somebody to
     /// "choose a card" while what it means is "which one are you giving up".
@@ -271,6 +271,15 @@ pub enum ChoicePrompt {
     CostSacrifice,
     /// "Discard a card" in an activation cost (CR 701.9a).
     CostDiscard,
+    /// "Tap an untapped creature you control" in an activation cost.
+    ///
+    /// The one of the three whose answer is not destroyed, which is why it
+    /// needs its own word rather than sharing the sacrifice's: a player told
+    /// "choose a permanent to sacrifice" over a menu of their own creatures
+    /// would decline a cost that only taps one. CR 118.3 supplies the
+    /// "untapped"; nothing in the rules supplies "you control", so the card
+    /// prints it and `cost_wizard::options` draws the line anyway.
+    CostTap,
     /// Generic selection.
     Generic,
 }

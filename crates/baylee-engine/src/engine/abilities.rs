@@ -567,7 +567,7 @@ impl<L: CardLookup> Engine<L> {
                 // the player is shown a moment later — an offer whose
                 // payment then finds nothing is the contradiction
                 // `offer_tests` exists to catch.
-                CostPart::Sacrifice(_) | CostPart::Discard(_) => {
+                CostPart::Sacrifice(_) | CostPart::Discard(_) | CostPart::TapOther(_) => {
                     if cost_wizard::options(&self.state, player, source, part).is_empty() {
                         return false;
                     }
@@ -1433,18 +1433,18 @@ impl<L: CardLookup> Engine<L> {
                 // compile error in this match.
                 CostPart::ExileFromHand(_) | CostPart::PayLifeX => {}
                 // The parts that had to ask, paid with the answers in the
-                // order they were asked for. Both put the card in its
-                // owner's graveyard under `Cause::Cost` through the same
-                // door as `SacrificeSelf` and `DiscardSelf` above, so a
-                // sacrifice a player chose and one the card named cannot
-                // come out as two different events.
-                CostPart::Sacrifice(_) | CostPart::Discard(_) => {
+                // order they were asked for, through the same doors as the
+                // `SacrificeSelf`, `DiscardSelf` and `TapSelf` arms above —
+                // so a sacrifice a player chose and one the card named
+                // cannot come out as two different events, and neither can
+                // a tap.
+                CostPart::Sacrifice(_) | CostPart::Discard(_) | CostPart::TapOther(_) => {
                     let Some(card) = answers.next() else {
                         return Err(EngineError::IllegalAction(
                             "a cost that has to ask reached the payer unanswered",
                         ));
                     };
-                    cost_wizard::pay(&mut self.state, player, card)?;
+                    cost_wizard::pay(&mut self.state, player, part, card)?;
                 }
             }
         }

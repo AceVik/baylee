@@ -41,7 +41,10 @@
 //! parts against a board where two filters may overlap, which is a real
 //! question and not one a card is asking yet.
 
-use super::{Cause, Cost, CostPart, EngineError, ObjectId, PlayerId, ZoneLocation, ZonePosition};
+use super::{
+    Cause, Cost, CostPart, EngineError, GameEvent, ObjectId, PlayerId, Status, ZoneLocation,
+    ZonePosition,
+};
 use crate::choice::ChoicePrompt;
 use crate::eval;
 use crate::state::GameState;
@@ -54,7 +57,10 @@ use crate::state::GameState;
 /// [`options`] instead, which is a question about the board rather than
 /// about the engine's own limits.
 pub(crate) const fn needs_an_answer(part: &CostPart) -> bool {
-    matches!(part, CostPart::Sacrifice(_) | CostPart::Discard(_))
+    matches!(
+        part,
+        CostPart::Sacrifice(_) | CostPart::Discard(_) | CostPart::TapOther(_)
+    )
 }
 
 /// How many answers a cost needs before it can be paid.
@@ -83,18 +89,35 @@ pub(crate) fn asking_parts(cost: &Cost) -> impl Iterator<Item = &CostPart> {
 /// Survival of the Fittest prints `Discard(&Filter::CREATURE)` with no
 /// "you control" in it at all, and reading that filter alone over every hand
 /// at the table would have offered an opponent's card.
+///
+/// [`CostPart::TapOther`] is the one where no rule says whose — the card
+/// prints "a creature **you control**" and all thirteen in this pool do — so
+/// the same line is drawn here anyway, deliberately narrower than the rules
+/// require. A cost paid by tapping something across the table is not a thing
+/// Magic prints, and being wrong in this direction offers a player less than
+/// the card allows rather than handing them an opponent's permanent.
+///
+/// What the rule does supply there is "untapped": CR 118.3 says a permanent
+/// that is already tapped cannot be tapped to pay a cost, whether or not the
+/// card thought to say so. Summoning sickness is deliberately *not* read —
+/// CR 302.6 restricts a creature's own `{T}` ability and says nothing about
+/// a creature being tapped to pay for somebody else's, which is why a
+/// freshly cast Bird can pay Earthcraft the turn it arrives.
 pub(crate) fn options(
     state: &GameState,
     player: PlayerId,
     source: ObjectId,
     part: &CostPart,
 ) -> Vec<ObjectId> {
-    let (zone, controlled) = match part {
-        CostPart::Sacrifice(_) => (ZoneLocation::Battlefield, true),
-        CostPart::Discard(_) => (ZoneLocation::Hand(player), false),
+    let (zone, controlled, untapped) = match part {
+        CostPart::Sacrifice(_) => (ZoneLocation::Battlefield, true, false),
+        CostPart::TapOther(_) => (ZoneLocation::Battlefield, true, true),
+        CostPart::Discard(_) => (ZoneLocation::Hand(player), false, false),
         _ => return Vec::new(),
     };
-    let (CostPart::Sacrifice(filter) | CostPart::Discard(filter)) = part else {
+    let (CostPart::Sacrifice(filter) | CostPart::Discard(filter) | CostPart::TapOther(filter)) =
+        part
+    else {
         return Vec::new();
     };
     state
@@ -104,6 +127,7 @@ pub(crate) fn options(
         .filter(|id| {
             state.object(**id).is_some_and(|o| {
                 (!controlled || o.controller == player)
+                    && (!untapped || !o.status.contains(Status::TAPPED))
                     && eval::matches(filter, state, o, player, source)
             })
         })
@@ -115,17 +139,25 @@ pub(crate) fn options(
 pub(crate) const fn prompt(part: &CostPart) -> ChoicePrompt {
     match part {
         CostPart::Discard(_) => ChoicePrompt::CostDiscard,
+        CostPart::TapOther(_) => ChoicePrompt::CostTap,
         _ => ChoicePrompt::CostSacrifice,
     }
 }
 
 /// Pays one asking part with the object the player named.
 ///
-/// Both kinds put a card in its owner's graveyard through
+/// A sacrifice and a discard put a card in its owner's graveyard through
 /// [`GameState::move_object`] under [`Cause::Cost`], which is what the
 /// `SacrificeSelf` and `DiscardSelf` arms of `pay_cost` already do — the same
 /// door, so a sacrifice chosen by a player and a sacrifice printed on the
-/// card cannot come out as two different events.
+/// card cannot come out as two different events. A tap goes through the
+/// `TapSelf` arm's door for the same reason, down to the
+/// [`GameEvent::ObjectTapped`] it records: an ability that triggers on a
+/// creature becoming tapped may not see one of the two and miss the other.
+///
+/// The part is passed in rather than inferred from the object, because the
+/// object cannot say it. A creature on the battlefield is a legal answer to
+/// both a sacrifice and a tap, and the two are opposite outcomes.
 ///
 /// The legality of the answer is checked by `apply` against the very list
 /// [`options`] produced, before this is ever reached. This re-reads the owner
@@ -133,8 +165,19 @@ pub(crate) const fn prompt(part: &CostPart) -> ChoicePrompt {
 pub(crate) fn pay(
     state: &mut GameState,
     player: PlayerId,
+    part: &CostPart,
     chosen: ObjectId,
 ) -> Result<(), EngineError> {
+    if matches!(part, CostPart::TapOther(_)) {
+        if let Some(obj) = state.object_mut(chosen) {
+            obj.status.insert(Status::TAPPED);
+        }
+        state.journal.record(GameEvent::ObjectTapped {
+            object: chosen,
+            cause: Cause::Cost,
+        });
+        return Ok(());
+    }
     let owner = state.object(chosen).map_or(player, |o| o.owner);
     state.move_object(
         chosen,

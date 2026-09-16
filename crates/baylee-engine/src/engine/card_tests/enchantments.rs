@@ -1247,3 +1247,184 @@ fn a_reconfigured_elf_is_a_vehicle_nobody_can_crew_and_keeps_its_creature_types(
          become expressible and the card is no longer Coverage::Partial"
     );
 }
+
+// oracle_id = "50aa7aff-1f01-4224-9a83-01f74d703ec2"
+fn earthcraft() -> baylee_core::ids::CardIndex {
+    card_index("50aa7aff-1f01-4224-9a83-01f74d703ec2")
+}
+
+/// Earthcraft ({1}{G}): "Tap an untapped creature you control: Untap target
+/// basic land."
+///
+/// The pool's first `CostPart::TapOther`, and the one asking cost whose
+/// answer is still on the battlefield afterwards. That is the half a reader
+/// of the card cannot settle and the reason the cost has its own prompt: a
+/// player shown `ChoicePrompt::CostSacrifice` over their own creatures would
+/// decline a cost that only taps one.
+///
+/// Both enumerations are struck, and the menu is asserted by exact equality
+/// rather than by what it contains. The tapped Elf is mine and is refused by
+/// CR 118.3 — a permanent already tapped cannot be tapped to pay a cost,
+/// whether or not the card thought to say "untapped". The opponent's Elf is
+/// untapped and is refused because no rule makes a cost reach across the
+/// table, so `cost_wizard::options` draws that line itself. The Earthcraft
+/// is neither, and is on nobody's menu.
+///
+/// The creature that *does* pay arrived this turn, which is the claim the
+/// card is silent about and the rules are not: CR 302.6 restricts a
+/// creature's own `{T}` ability and says nothing about it being tapped to
+/// pay for somebody else's, so a Bird cast this turn can already work the
+/// land. Reading `cost_wizard` alone would not settle it — `can_afford`'s
+/// `TapSelf` arm *does* ask about summoning sickness, one arm away.
+///
+/// The target list is the other half. "Target basic land" carries no "you
+/// control", so the opponent's Forest is on it and the Badlands beside it is
+/// not — a dual land is no basic land however many basic types it has.
+#[allow(clippy::too_many_lines)] // one activation, two enumerations, and a tap that is not a sacrifice
+#[test]
+fn earthcraft_taps_a_summoning_sick_creature_to_untap_a_land() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(97, forest())
+        .battlefield(0, &[earthcraft(), forest(), llanowar_elves()])
+        .hand(0, &[llanowar_elves()])
+        .battlefield(1, &[llanowar_elves(), forest(), badlands()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let craft = on_battlefield(&engine, p0, earthcraft()).expect("the Earthcraft is out");
+    let veteran = on_battlefield(&engine, p0, llanowar_elves()).expect("the Elf that was here");
+    let land = on_battlefield(&engine, p0, forest()).expect("my Forest");
+    let their_land = on_battlefield(&engine, p1, forest()).expect("their Forest");
+    let their_dual = on_battlefield(&engine, p1, badlands()).expect("their Badlands");
+    let their_elf = on_battlefield(&engine, p1, llanowar_elves()).expect("their Elf");
+
+    // The older Elf is tapped by hand and the Forest by the cast, which is
+    // what puts a tapped creature of my own on the board to be refused and
+    // leaves the newcomer as the only untapped one. By hand because a
+    // printed `mana_ability!` is an ordinary `(source, index)` in
+    // `legal.abilities` — `legal.mana_abilities` is the CR 305.6 shortcut,
+    // lands and granted abilities, and `cast_from_hand` walks only that.
+    engine
+        .apply(
+            p0,
+            PlayerAction::ActivateAbility {
+                source: veteran,
+                ability_index: 0,
+            },
+        )
+        .expect("the Elf taps for {G}");
+    cast_from_hand(&mut engine, p0, llanowar_elves());
+    pass_until(&mut engine, stack_is_empty);
+    let rookie = engine
+        .state()
+        .zones
+        .list(ZoneLocation::Battlefield)
+        .iter()
+        .copied()
+        .find(|id| {
+            *id != veteran
+                && engine.state().object(*id).is_some_and(|o| {
+                    o.controller == p0 && o.card.is_some_and(|c| c.index == llanowar_elves())
+                })
+        })
+        .expect("the Elf cast this turn is on the battlefield");
+    assert!(
+        is_tapped(&engine, veteran),
+        "the older Elf paid for the cast"
+    );
+    assert!(is_tapped(&engine, land), "and so did my Forest");
+    assert!(!is_tapped(&engine, rookie), "the newcomer arrived untapped");
+
+    activate(&mut engine, p0, earthcraft(), 0);
+
+    // CR 601.2c: targets first, and "basic land" says nothing about whose.
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!("the untap asks which land: {:?}", engine.pending())
+    };
+    assert!(
+        options.contains(&land) && options.contains(&their_land),
+        "either side of the table prints a basic land: {options:?}"
+    );
+    assert!(
+        !options.contains(&their_dual),
+        "a dual land is no basic land, whatever types it has: {options:?}"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![land],
+                players: Vec::new(),
+            },
+        )
+        .expect("my own tapped Forest is one of the legal targets");
+
+    // CR 601.2h, and the one step of it the player takes.
+    let Pending::ChooseCards {
+        player,
+        options,
+        min,
+        max,
+        prompt,
+    } = engine.pending().clone()
+    else {
+        panic!(
+            "the cost asks which creature to tap: {:?}",
+            engine.pending()
+        )
+    };
+    assert_eq!(player, p0, "the activating seat is the one asked");
+    assert_eq!(
+        prompt,
+        crate::choice::ChoicePrompt::CostTap,
+        "not `CostSacrifice`: the creature named here is still standing \
+         afterwards, and the two questions cannot share a word"
+    );
+    assert_eq!((min, max), (1, 1), "one creature, and exactly one");
+    assert_eq!(
+        options,
+        vec![rookie],
+        "the only untapped creature this seat controls. The older Elf \
+         {veteran:?} is tapped (CR 118.3), the Earthcraft {craft:?} is no \
+         creature, and the Elf {their_elf:?} across the table is not mine \
+         to tap"
+    );
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![rookie],
+            },
+        )
+        .expect("a creature that arrived this turn may still be tapped for a cost");
+
+    assert!(
+        is_tapped(&engine, rookie),
+        "the cost is paid, so the creature named is tapped"
+    );
+    assert!(
+        on_battlefield(&engine, p0, llanowar_elves()).is_some()
+            && engine.state().object(rookie).is_some(),
+        "and it is still on the battlefield: a tap is not a sacrifice"
+    );
+    assert!(
+        !stack_is_empty(&engine),
+        "the ability is not a mana ability (CR 605.1), so it uses the stack"
+    );
+    assert!(
+        is_tapped(&engine, land),
+        "and nothing has untapped yet — the effect happens on resolution"
+    );
+
+    pass_until(&mut engine, stack_is_empty);
+    assert!(
+        !is_tapped(&engine, land),
+        "the targeted basic land is untapped"
+    );
+    assert!(
+        is_tapped(&engine, rookie),
+        "and the creature that paid stays tapped: the cost is not refunded"
+    );
+}

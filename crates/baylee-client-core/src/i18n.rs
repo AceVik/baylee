@@ -957,6 +957,16 @@ messages! {
     NounCardToDiscard { en: "card to discard", de: "Karte, die abgeworfen wird" },
     /// cards to discard
     NounCardsToDiscard { en: "cards to discard", de: "Karten, die abgeworfen werden" },
+    /// untapped permanent to tap
+    NounPermanentToTap {
+        en: "untapped permanent to tap",
+        de: "ungetappte bleibende Karte, die getappt wird",
+    },
+    /// untapped permanents to tap
+    NounPermanentsToTap {
+        en: "untapped permanents to tap",
+        de: "ungetappte bleibende Karten, die getappt werden",
+    },
     /// Convoke: tap creatures or artifacts to help pay
     ConvokeToHelpPay { en: "Tap creatures or artifacts to help pay — each pays for one", de: "Tippe Kreaturen oder Artefakte an, um mitzubezahlen — jedes zahlt eins" },
     /// Delve: exile cards from your graveyard to help pay
@@ -1287,6 +1297,12 @@ messages! {
     CostReturnThis { en: "Return this", de: "Nimm dies zurück" },
     /// Exile a card
     CostExileACard { en: "Exile a card", de: "Schicke eine Karte ins Exil" },
+    /// Tap another
+    ///
+    /// Not "{T}", which is the source tapping itself and is the symbol the
+    /// card prints beside this one — Earthcraft's neighbours all read
+    /// "{T}, Tap an untapped creature you control".
+    CostTapAnother { en: "Tap another", de: "Tappe eine andere" },
     /// Rules text unavailable
     NoRulesTextHere { en: "Rules text unavailable", de: "Regeltext nicht verfügbar" },
 
@@ -1632,6 +1648,7 @@ mod tests {
                 Phrase::NounPermanentsToSacrifice,
             ),
             (Phrase::NounCardToDiscard, Phrase::NounCardsToDiscard),
+            (Phrase::NounPermanentToTap, Phrase::NounPermanentsToTap),
         ];
         for (one, many) in pairs {
             for lang in Lang::ALL {

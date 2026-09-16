@@ -911,6 +911,7 @@ fn alternative_parts_payable(
         | CostPart::SacrificeSelf
         | CostPart::Sacrifice(_)
         | CostPart::Discard(_)
+        | CostPart::TapOther(_)
         | CostPart::DiscardSelf
         | CostPart::ExileSelf
         | CostPart::ReturnSelfToHand

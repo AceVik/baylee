@@ -39,8 +39,9 @@
 //!   pitch on Force of Will, Force of Negation, Misdirection and Solitude,
 //!   and the one non-mana part in this pool that a seat's view can answer.
 //!
-//! Anything else — another filter shape, a sacrifice, a discard — takes the
-//! way off the list rather than being guessed at.
+//! Anything else — another filter shape, a sacrifice, a discard, a tap of
+//! something other than the source — takes the way off the list rather than
+//! being guessed at.
 //!
 //! # And what it does not reach
 //!
@@ -196,17 +197,18 @@ fn parts_payable(view: &PlayerView, card: ObjectId, parts: &[CostPart]) -> bool 
         // Refused, not because they cannot be paid, but because nothing in
         // this pool prints one on an alternative cost and a reader that
         // guessed would be guessing about a card nobody can test against.
-        // `Sacrifice` and `Discard` an *activation* can now ask about
-        // (`engine::cost_wizard`), but a spell's alternative cost still has
-        // nobody to ask, so `cast_wizard::paid_as_an_alternative_cost` does
-        // not name them and no card in the pool prints one there; the rest
-        // are paid off the source and would be safe to admit the day a card
-        // wants them.
+        // `Sacrifice`, `Discard` and `TapOther` an *activation* can now ask
+        // about (`engine::cost_wizard`), but a spell's alternative cost
+        // still has nobody to ask, so
+        // `cast_wizard::paid_as_an_alternative_cost` does not name them and
+        // no card in the pool prints one there; the rest are paid off the
+        // source and would be safe to admit the day a card wants them.
         CostPart::TapSelf
         | CostPart::UntapSelf
         | CostPart::SacrificeSelf
         | CostPart::Sacrifice(_)
         | CostPart::Discard(_)
+        | CostPart::TapOther(_)
         | CostPart::DiscardSelf
         | CostPart::ExileSelf
         | CostPart::ReturnSelfToHand

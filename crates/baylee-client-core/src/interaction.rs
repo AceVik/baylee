@@ -408,7 +408,7 @@ pub fn ending_reason(lang: Lang, result: &GameResult) -> Option<String> {
 
 /// What a card choice is *for*, as the noun it counts — both forms.
 ///
-/// [`ChoicePrompt`] has eight variants and the prompt bar used to read one of
+/// [`ChoicePrompt`] has nine variants and the prompt bar used to read one of
 /// them. A library search, a scry, a put-back and a wish are four different
 /// decisions and were four copies of the same sentence, so a player could not
 /// tell whether they were fetching something, burying it or bringing it in
@@ -416,12 +416,14 @@ pub fn ending_reason(lang: Lang, result: &GameResult) -> Option<String> {
 /// not a selection) and `Generic` is the plain noun, which is honest: the
 /// engine did not say what it was for either.
 ///
-/// The last two are the other thing that is part of a cost and, unlike delve,
-/// is one card rather than a heap of them: `CostSacrifice` and `CostDiscard`
-/// arrive while CR 601.2h is being paid, so they get a noun that says what
-/// happens to the card rather than sharing delve's "spend what you have"
-/// line. A player who is told only "choose 1 card" while paying for Survival
-/// of the Fittest cannot tell the discard from the creature it fetches.
+/// The last three are the other thing that is part of a cost and, unlike
+/// delve, are one card rather than a heap of them: `CostSacrifice`,
+/// `CostDiscard` and `CostTap` arrive while CR 601.2h is being paid, so each
+/// gets a noun that says what happens to the card rather than sharing delve's
+/// "spend what you have" line. A player who is told only "choose 1 card"
+/// while paying for Survival of the Fittest cannot tell the discard from the
+/// creature it fetches — and the tap is the one whose card *survives*, which
+/// nobody would guess from a sacrifice's wording.
 fn choice_noun(reason: ChoicePrompt) -> (Phrase, Phrase) {
     match reason {
         ChoicePrompt::SearchLibrary => (Phrase::NounCardFromLibrary, Phrase::NounCardsFromLibrary),
@@ -433,6 +435,7 @@ fn choice_noun(reason: ChoicePrompt) -> (Phrase, Phrase) {
             Phrase::NounPermanentsToSacrifice,
         ),
         ChoicePrompt::CostDiscard => (Phrase::NounCardToDiscard, Phrase::NounCardsToDiscard),
+        ChoicePrompt::CostTap => (Phrase::NounPermanentToTap, Phrase::NounPermanentsToTap),
         ChoicePrompt::Delve | ChoicePrompt::Generic => (Phrase::NounCard, Phrase::NounCards),
     }
 }

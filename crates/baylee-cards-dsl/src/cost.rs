@@ -18,6 +18,28 @@ pub enum CostPart {
     PayLife(u16),
     /// Discard a card matching the filter (choice at payment).
     Discard(&'static Filter),
+    /// Tap an untapped permanent matching the filter (choice at payment).
+    ///
+    /// The source is not it: `{T}` is [`CostPart::TapSelf`], and most of the
+    /// cards that print this print both — "{T}, Tap an untapped creature you
+    /// control: Add one mana of any color". Earthcraft is the exception that
+    /// makes it worth two variants rather than a flag on one: it taps a
+    /// creature and never itself.
+    ///
+    /// The filter carries both printed halves, what kind and whose; what the
+    /// *rule* supplies is the word "untapped", because CR 118.3 says a
+    /// permanent that is already tapped cannot be tapped to pay a cost
+    /// whether or not the card bothered to say so.
+    ///
+    /// **One permanent, named by a filter**, which is where this stops.
+    /// Counted by hand over the `//! Oracle:` headers on 2026-09-16,
+    /// thirteen cards in the pool print "tap an untapped …": nine are this
+    /// shape; Grove of the Guardian taps *two* and Secluded Starforge taps
+    /// *X*, which want a count this variant does not carry; and Command
+    /// Bridge and Public Thoroughfare print it inside "sacrifice this unless
+    /// you tap …", which is a replacement on a trigger and not an activation
+    /// cost at all.
+    TapOther(&'static Filter),
     /// Discard the source card itself (cycling).
     DiscardSelf,
     /// Exile the source.

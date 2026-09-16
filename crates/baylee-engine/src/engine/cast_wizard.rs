@@ -914,6 +914,7 @@ impl<L: CardLookup> Engine<L> {
                     | CostPart::DiscardSelf
                     | CostPart::ExileSelf
                     | CostPart::ReturnSelfToHand
+                    | CostPart::TapOther(_)
                     | CostPart::PayLifeX => {}
                 }
             }
@@ -951,13 +952,14 @@ impl<L: CardLookup> Engine<L> {
                 // Already skipped, by [`paid_as_a_mandatory_additional_cost`]
                 // above, and named for the reason the alternative-cost match
                 // names its own — with the sharper edge that no `can_afford`
-                // guards this list, so the two choice costs are skipped here
-                // rather than refused.
+                // guards this list, so the three asking costs are skipped
+                // here rather than refused.
                 CostPart::TapSelf
                 | CostPart::UntapSelf
                 | CostPart::SacrificeSelf
                 | CostPart::Sacrifice(_)
                 | CostPart::Discard(_)
+                | CostPart::TapOther(_)
                 | CostPart::DiscardSelf
                 | CostPart::ExileSelf
                 | CostPart::ReturnSelfToHand

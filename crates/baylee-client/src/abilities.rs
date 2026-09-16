@@ -831,6 +831,7 @@ fn cost_label(lang: Lang, cost: &Cost) -> Option<String> {
             CostPart::ExileSelf => Phrase::CostExileThis.text(lang).to_string(),
             CostPart::ReturnSelfToHand => Phrase::CostReturnThis.text(lang).to_string(),
             CostPart::ExileFromHand(_) => Phrase::CostExileACard.text(lang).to_string(),
+            CostPart::TapOther(_) => Phrase::CostTapAnother.text(lang).to_string(),
         });
     }
     (!parts.is_empty()).then(|| parts.join(COST_JOIN))

@@ -199,6 +199,16 @@ fn four_card_choices_read_as_four_different_decisions() {
         line(ChoicePrompt::CostDiscard, 2, 2, Lang::De),
         "Wähle 2 Karten, die abgeworfen werden"
     );
+    // The one asking cost whose card survives being named, which is the
+    // whole reason it does not share the sacrifice's sentence.
+    assert_eq!(
+        line(ChoicePrompt::CostTap, 1, 1, Lang::En),
+        "Choose 1 untapped permanent to tap"
+    );
+    assert_eq!(
+        line(ChoicePrompt::CostTap, 1, 1, Lang::De),
+        "Wähle 1 ungetappte bleibende Karte, die getappt wird"
+    );
 
     // And the whole of AS's second half: one card is never "card(s)".
     for lang in Lang::ALL {
