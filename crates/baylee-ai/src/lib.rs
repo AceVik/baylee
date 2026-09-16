@@ -221,7 +221,8 @@ impl HeuristicAgent {
             }
             // Who may attack and what may be attacked both come from the
             // choice: the engine is the only thing that knows a Wall may
-            // not swing and which planeswalker is attackable (CR 508.1a).
+            // not swing (CR 508.1a) and which planeswalker is attackable
+            // (CR 508.1b).
             Pending::ChooseAttackers {
                 attackers: squad,
                 defenders,

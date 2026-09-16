@@ -101,7 +101,9 @@ call over two that agree today.
 
 - Targets are **distinct** (CR 601.2c). Naming the same object twice for a
   two-target spell is an illegal answer, not a double hit.
-- A teammate's permanents are **legal** targets (CR 115.4). The engine must
+- A teammate's permanents are **legal** targets (CR 115.2). The rule limits
+  targets by *zone* and names no controller at all, which is why this is the
+  absence of a restriction rather than a rule of its own. The engine must
   offer them; not shooting your own side is the *agent's* judgement, not the
   engine's legality check.
 - "Any number of target …" is min 0. A legal answer of *no* targets is a
@@ -119,7 +121,7 @@ combat damage, end of combat. First strike inserts an extra damage step.
 lists (CR 509.1a). Flying, menace, protection and "can't be blocked by" all
 live in the pairing. An engine should answer it — enumerate the legal
 pairings — rather than hand a client two flat lists and hope. Likewise which
-defender may be attacked (CR 508.1a) is the engine's answer, because a
+defender may be attacked (CR 508.1b) is the engine's answer, because a
 planeswalker's attackability is not a property of the attacker.
 
 Damage maths that heuristics routinely get wrong:

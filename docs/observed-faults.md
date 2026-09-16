@@ -1811,9 +1811,10 @@ timing one: a blank cost is payable by an empty pool, so a suspend-only card
 was lit indigo with a plan of no taps at all, and the click armed a run that
 finished at once and asked the engine to cast a card it will never offer.
 
-Noted and not fixed: `progress.rs` cites CR 702.61 for the suspend countdown
-and `actions.rs` cites CR 702.62 for the suspend cost. One of the two is
-wrong; neither was verified here.
+Noted here and fixed later: `progress.rs` cited CR 702.61 for the suspend
+countdown while `actions.rs` cited CR 702.62 for the suspend cost, and one of
+the two had to be wrong. Suspend is CR 702.62, so the countdown was the wrong
+half; it was corrected with the rest of the tree's citations.
 
 ### 33. The self-play harness was calling finished games loops — FIXED
 
