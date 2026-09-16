@@ -1610,3 +1610,200 @@ fn a_creature_tutor_passes_over_sixty_forests_and_leaves_the_elf_on_top() {
          what it found — and shows only that"
     );
 }
+
+// oracle_id = "5b5bf1fa-6502-4790-b66b-f0f8504ebc7c"
+fn cabal_ritual() -> CardIndex {
+    card_index("5b5bf1fa-6502-4790-b66b-f0f8504ebc7c")
+}
+
+/// "Add {B}{B}{B}." The pool is read on both sides of the resolution: two
+/// Swamps float {B}{B}, the cast takes both of them, and what stands in the
+/// pool afterwards is three black and nothing at all beside it.
+///
+/// Reading the card file cannot say this. `Effect::mana(ManaColor::Black, 3)`
+/// is an amount and a colour on paper; whether the engine puts three *black*
+/// into the caster's pool — rather than one, or three colourless, or three
+/// carrying a rider `total()` counts and `available()` does not — is visible
+/// only by casting the spell and looking. The empty pool between the cast and
+/// the resolution is what makes those three the spell's own rather than
+/// change the Swamps left behind, and the other five colours read at zero are
+/// the half that fails against an engine adding mana generously.
+///
+/// The threshold line is `Coverage::Partial` and is not what this proves: the
+/// graveyard stays empty, so the printed default is the only branch here.
+#[test]
+fn a_ritual_adds_three_black_and_leaves_nothing_else_floating() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(59, forest())
+        // Exactly two, so the {1}{B} is paid to the last mana: a third Swamp
+        // would leave a black floating that the assertion below could not
+        // tell from the spell's own.
+        .battlefield(0, &[swamp(), swamp()])
+        .hand(0, &[cabal_ritual()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "the pool starts empty, so everything counted below arrived during \
+         this test"
+    );
+
+    let ritual = in_hand(&engine, p0, cabal_ritual()).expect("the Ritual is in hand");
+    tap_all_mana(&mut engine, p0);
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Black),
+        2,
+        "two Swamps and nothing else, so {{B}}{{B}} is the whole board's worth"
+    );
+
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        legal.castable.contains(&ritual),
+        "{{B}}{{B}} floating against a cost of {{1}}{{B}}: the engine offers \
+         the Ritual, and the test presses what was offered"
+    );
+    engine
+        .apply(p0, PlayerAction::CastSpell { card: ritual })
+        .expect("the spell the offer just quoted");
+
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "{{1}}{{B}} took both Swamps' mana, so the pool is empty while the \
+         spell is on the stack — whatever is in it after this is the \
+         Ritual's"
+    );
+
+    pass_until(&mut engine, stack_is_empty);
+
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(
+        pool.available(ManaColor::Black),
+        3,
+        "\"Add {{B}}{{B}}{{B}}\" is three black mana, and it is black rather \
+         than the generic a cost would accept anywhere"
+    );
+    assert_eq!(
+        pool.total(),
+        3,
+        "three and no fourth, and none of them restricted: `total()` counts \
+         the riders `available()` cannot see"
+    );
+    for color in ManaColor::ALL {
+        if color == ManaColor::Black {
+            continue;
+        }
+        assert_eq!(
+            pool.available(color),
+            0,
+            "the Ritual adds one colour, and {color:?} is not it"
+        );
+    }
+    assert!(
+        in_graveyard(&engine, p0, cabal_ritual()).is_some(),
+        "the mana is there because the instant resolved, and a resolved \
+         instant lies in its owner's graveyard (CR 608.2m)"
+    );
+}
+
+// oracle_id = "133c99c0-3652-410f-8100-68015a47af9f"
+fn dispatch() -> baylee_core::ids::CardIndex {
+    card_index("133c99c0-3652-410f-8100-68015a47af9f")
+}
+
+/// Dispatch, {W}: "Tap target creature." — the half of the card that is
+/// built, played against a board that leaves the other half nothing to say.
+///
+/// The card is `Coverage::Partial`: the metalcraft line that exiles the
+/// creature is not modelled. p0 controls one Plains and no artifact at all,
+/// so the unbuilt clause has nothing to fire on and this scenario stays the
+/// same scenario once it is built — nothing below asserts about it either
+/// way.
+///
+/// Reading the card cannot replace this, because every assertion here is
+/// about what the *engine* offered and did. "Target creature" is a filter,
+/// and the two mistakes it can make are both visible in one target list: the
+/// Plains p0 just tapped for the spell is a permanent and is not offered,
+/// and both of p1's Elves are, so naming one is a real choice rather than
+/// the only legal answer. Then the tap has to be a change: both Elves are
+/// read untapped before the cast, and afterwards exactly the named one is
+/// tapped. A resolution that tapped everything, or that tapped nothing on a
+/// board that had started tapped, passes neither half.
+#[test]
+fn dispatch_taps_the_creature_it_names_and_leaves_the_one_beside_it_untapped() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(97, plains())
+        .battlefield(0, &[plains()])
+        .hand(0, &[dispatch()])
+        .battlefield(1, &[llanowar_elves(), llanowar_elves()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    let land = on_battlefield(&engine, p0, plains()).expect("p0's one Plains");
+    let elves = all_on_battlefield(&engine, p1, llanowar_elves());
+    assert_eq!(
+        elves.len(),
+        2,
+        "two Elves were seeded across the table: {elves:?}"
+    );
+    let (named, bystander) = (elves[0], elves[1]);
+    assert!(
+        !is_tapped(&engine, named) && !is_tapped(&engine, bystander),
+        "both creatures stand untapped, so the tap below is a change and \
+         not the state they were seeded in"
+    );
+
+    // The one Plains is the whole of p0's mana, so this is exactly {W}.
+    cast_from_hand(&mut engine, p0, dispatch());
+
+    let Pending::ChooseTargets {
+        player, options, ..
+    } = engine.pending().clone()
+    else {
+        panic!(
+            "\"Tap target creature\" asked for no target — got {:?}",
+            engine.pending()
+        )
+    };
+    assert_eq!(player, p0, "their spell, their target");
+    assert!(
+        options.contains(&named) && options.contains(&bystander),
+        "both of the opponent's creatures are legal targets, so naming one \
+         is a choice: {options:?}"
+    );
+    assert!(
+        !options.contains(&land),
+        "\"target creature\" — the Plains that paid for the spell is a \
+         permanent and not one of them: {options:?}"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![named],
+            },
+        )
+        .expect("an untapped creature across the table is a legal target");
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        is_tapped(&engine, named),
+        "\"Tap target creature.\" — the creature the spell named"
+    );
+    assert!(
+        !is_tapped(&engine, bystander),
+        "and only that one: the creature beside it was never a target"
+    );
+    assert!(
+        in_graveyard(&engine, p0, dispatch()).is_some(),
+        "a resolved instant goes to its owner's graveyard"
+    );
+}

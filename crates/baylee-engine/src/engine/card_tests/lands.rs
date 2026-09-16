@@ -865,3 +865,700 @@ fn a_counted_mana_ability_counts_your_creatures_and_nobody_elses() {
          assumed"
     );
 }
+
+// oracle_id = "a3da7d5b-2c2b-45fe-b9c5-413b8c8fc0a2"
+fn academy_ruins() -> CardIndex {
+    card_index("a3da7d5b-2c2b-45fe-b9c5-413b8c8fc0a2")
+}
+
+/// Walks to `seat`'s **next** first main phase, across the turn in between.
+///
+/// Neither of the two walkers already here can do it. `walk_to_own_main`
+/// answers "we are there" at once when the game is standing in that very
+/// phase, and `pass_until` has no arm for the discard the opponent owes at
+/// their own cleanup — seven cards kept plus the draw of their turn is eight,
+/// and the walk dies on a question it cannot answer. So the one thing an
+/// untap step is needed for, a land that spent its `{T}` last turn, had no
+/// road to it. `answer_one` is the shared driver that does have both arms.
+#[track_caller]
+fn cross_into_the_next_own_main(engine: &mut Engine<RegistryLookup>, seat: PlayerId) {
+    let from = engine.state().turn.number;
+    for _ in 0..200 {
+        if engine.state().turn.number > from
+            && matches!(engine.state().turn.phase, Phase::FirstMain)
+            && engine.state().turn.active == seat
+            && matches!(engine.pending(), Pending::Priority { player, .. } if *player == seat)
+        {
+            return;
+        }
+        let (player, action) = answer_one(engine).expect("a rest on the way to the next turn");
+        engine.apply(player, action).expect("the answer is legal");
+    }
+    panic!("never reached {seat:?}'s next main phase");
+}
+
+/// Academy Ruins: "{T}: Add {C}." and "{1}{U}, {T}: Put target artifact card
+/// from **your** graveyard on top of **your** library."
+///
+/// The word this test exists for is *your*, twice. `TargetSpec::CardInGraveyard`
+/// carries a `PlayerRel`, and a relation that widened to the table would be
+/// invisible in the card file — the printing and the code would agree word for
+/// word while the engine offered the artifact lying in the opponent's
+/// graveyard. Reading the card cannot tell the two apart; only asking the
+/// engine what it offers can.
+///
+/// It is struck at both readers, because there are two. The offer withholds
+/// an ability with no legal target, so with `{U}{U}` floating, the land
+/// untapped, their Fellwar Stone in their graveyard and a Forest of my own in
+/// mine, `(ruins, 1)` must not be offered at all; one artifact card of my own
+/// into my graveyard and it must appear. Then the `ChooseTargets` enumeration
+/// is read directly: my Greaves in it, their Stone not, and my Forest not —
+/// the third being the filter rather than the relation, so a fix that widened
+/// `Filter::ARTIFACT` could not pass here either.
+///
+/// The mana half is the other printed sentence, and it needs the untap step:
+/// the `{T}` in the recursion's cost is the same tap. Which list the ability
+/// lands in is asserted rather than assumed — `legal.mana_abilities` is the
+/// CR 305.6 shortcut for a land's intrinsic basic-type mana and the Ruins
+/// print no basic type, so their own `{T}: Add {C}` is an ordinary activation
+/// in `legal.abilities`, pressed by index like any other.
+#[test]
+#[allow(clippy::too_many_lines)] // two printed sentences, and an untap step between them
+fn academy_ruins_reach_only_the_artifacts_in_your_own_graveyard() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(311, forest())
+        .battlefield(
+            0,
+            &[academy_ruins(), island(), island(), lightning_greaves()],
+        )
+        .battlefield(1, &[fellwar_stone()])
+        .start();
+    keep_mulligans(&mut engine);
+
+    // Their artifact into their graveyard, and a card of mine into mine. The
+    // library is Forests, so what seeding puts in my graveyard is a land: the
+    // filter has something to reject that the relation would have allowed.
+    let stone = on_battlefield(&engine, p1, fellwar_stone()).expect("their Stone is on the table");
+    let state = engine
+        .dev_state_mut(p1)
+        .expect("the harness may set boards up");
+    crate::sba::destroy(state, stone);
+    seed_graveyard(&mut engine, p0, 1);
+
+    reach_main_phase(&mut engine, p0);
+    let ruins = on_battlefield(&engine, p0, academy_ruins()).expect("the Ruins are on the table");
+    let greaves =
+        on_battlefield(&engine, p0, lightning_greaves()).expect("the Greaves are on the table");
+    // The land's own tap is part of the recursion's cost, so it is the one
+    // permanent that must not be spent on the mana.
+    tap_mana_except(&mut engine, p0, ruins);
+
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        !legal.mana_abilities.contains(&ruins),
+        "the Ruins print no basic land type, so the CR 305.6 shortcut is not \
+         theirs: their mana comes from a printed ability"
+    );
+    assert!(
+        legal.abilities.contains(&(ruins, 0)),
+        "and that printed ability is offered like any other activation: {:?}",
+        legal.abilities
+    );
+    assert!(
+        !legal.abilities.contains(&(ruins, 1)),
+        "the mana is floating and the land is untapped, so the only thing \
+         standing between the recursion and the offer is its target: an \
+         artifact card in the *opponent's* graveyard is none, and neither is \
+         the land in my own: {:?}",
+        legal.abilities
+    );
+
+    // One artifact card of my own into my graveyard, and nothing else changes.
+    let state = engine
+        .dev_state_mut(p0)
+        .expect("the harness may set boards up");
+    crate::sba::destroy(state, greaves);
+    engine.refresh_offer();
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        legal.abilities.contains(&(ruins, 1)),
+        "with an artifact card of my own lying there the ability has a target \
+         and is offered: {:?}",
+        legal.abilities
+    );
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ActivateAbility {
+                source: ruins,
+                ability_index: 1,
+            },
+        )
+        .expect("two Islands pay the {1}{U}");
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!("the recursion asks which card: {:?}", engine.pending())
+    };
+    let their_stone = in_graveyard(&engine, p1, fellwar_stone()).expect("their Stone is in theirs");
+    let my_forest = in_graveyard(&engine, p0, forest()).expect("a land of mine is in mine");
+    assert!(
+        options.contains(&greaves),
+        "my own artifact card is the target: {options:?}"
+    );
+    assert!(
+        !options.contains(&their_stone),
+        "and an artifact card in the opponent's graveyard is not, because the \
+         card says *your* graveyard: {options:?}"
+    );
+    assert!(
+        !options.contains(&my_forest),
+        "nor is a card of mine that is no artifact: {options:?}"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![greaves],
+            },
+        )
+        .expect("the Greaves are one of the legal targets");
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        in_graveyard(&engine, p0, lightning_greaves()).is_none(),
+        "the ability resolved and the Greaves left the graveyard"
+    );
+    let top = *engine
+        .state()
+        .zones
+        .list(ZoneLocation::Library(p0))
+        .last()
+        .expect("p0 still has a library");
+    assert_eq!(
+        top, greaves,
+        "and they are the card on top of my own library"
+    );
+    assert_eq!(
+        in_graveyard(&engine, p1, fellwar_stone()),
+        Some(their_stone),
+        "one graveyard was reachable and the other was never touched"
+    );
+    assert!(
+        is_tapped(&engine, ruins),
+        "the {{T}} in the cost tapped the land"
+    );
+
+    // The second reading of "on top", and the one a player sees: the untap
+    // step comes, the draw comes, and what arrives is the Greaves.
+    cross_into_the_next_own_main(&mut engine, p0);
+    assert!(
+        in_hand(&engine, p0, lightning_greaves()).is_some(),
+        "the card that was put on top is the card that was drawn"
+    );
+
+    // The other printed sentence, on the land the untap step gave back.
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        !is_tapped(&engine, ruins),
+        "the untap step gave the land back"
+    );
+    assert!(
+        legal.abilities.contains(&(ruins, 0)),
+        "and the mana ability is offered again: {:?}",
+        legal.abilities
+    );
+    let before = engine.state().players[0]
+        .mana_pool
+        .available(ManaColor::Colorless);
+    engine
+        .apply(
+            p0,
+            PlayerAction::ActivateAbility {
+                source: ruins,
+                ability_index: 0,
+            },
+        )
+        .expect("a mana ability whose whole cost is the tap");
+    assert!(
+        matches!(engine.pending(), Pending::Priority { .. }),
+        "a fixed {{C}} asks nothing and never reaches the stack (CR 605.1): {:?}",
+        engine.pending()
+    );
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Colorless),
+        before + 1,
+        "one colourless mana in the pool, which is what the land adds"
+    );
+    assert!(is_tapped(&engine, ruins), "and the land is tapped for it");
+}
+
+// oracle_id = "3644f316-f9a3-46c9-9b1e-747f86cf4ead"
+fn buried_ruin() -> CardIndex {
+    card_index("3644f316-f9a3-46c9-9b1e-747f86cf4ead")
+}
+
+/// Puts a named card out of `seat`'s hand into `seat`'s graveyard, and
+/// answers with the object it became.
+///
+/// [`seed_graveyard`] takes whatever is on top of the library, which is the
+/// filler printing and nothing else. A test that has to tell an artifact card
+/// in the graveyard from a creature card beside it needs to name both, so it
+/// deals them into the opening hand and buries them by name. The id is
+/// handed back because an object changes id when it changes zone (CR 400.7),
+/// and the id a target list is compared against has to be the one the card
+/// has *in the graveyard*.
+#[track_caller]
+fn bury_from_hand(
+    engine: &mut Engine<RegistryLookup>,
+    seat: PlayerId,
+    card: CardIndex,
+) -> ObjectId {
+    let held = in_hand(engine, seat, card).expect("the card starts in hand");
+    let buried = engine
+        .dev_state_mut(seat)
+        .expect("the harness may set boards up")
+        .move_object(
+            held,
+            ZoneLocation::Graveyard(seat),
+            crate::zone::ZonePosition::Top,
+            crate::event::Cause::Effect,
+        )
+        .expect("the harness moves a card");
+    // The offer standing in `pending` was computed before this, and an
+    // ability that reads a graveyard is withheld while no graveyard holds
+    // what it needs.
+    engine.refresh_offer();
+    buried
+}
+
+/// Buried Ruin: "{2}, {T}, Sacrifice this land: Return target artifact card
+/// from your graveyard to your hand."
+///
+/// Three clauses of that sentence are only readable by playing it. **Your**
+/// graveyard: an artifact card lying in the opponent's is not an answer, and
+/// a `PlayerRel` read as "any" would offer it. **Artifact** card: a creature
+/// card in your own graveyard is not an answer either, and the two wrong
+/// readings are different bugs, so both are on the table at once — while the
+/// only artifact card in the game sits across from you the ability is
+/// withheld outright, which is `ability_has_a_target` agreeing with `apply`
+/// rather than the client lighting up a land that refuses the click.
+///
+/// And the sacrifice is a **cost**, not the effect: the land is already in
+/// its owner's graveyard while the ability is still sitting on the stack, so
+/// a card that spent it as part of resolving would return the artifact and
+/// keep the land. The two mana are floating before any of this is asked, so
+/// an ability that is not offered is not offered for want of a target.
+#[test]
+fn buried_ruin_pays_itself_into_the_graveyard_and_returns_only_your_own_artifact_card() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(311, forest())
+        .battlefield(0, &[buried_ruin(), forest(), forest()])
+        .hand(0, &[quiet_artifact(), llanowar_elves()])
+        .hand(1, &[quiet_artifact()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+    let ruin = on_battlefield(&engine, p0, buried_ruin()).expect("the Ruin is on the table");
+
+    // A creature card in my graveyard and an artifact card in theirs: every
+    // near miss the target spec has to reject, and nothing it may accept.
+    let elf = bury_from_hand(&mut engine, p0, llanowar_elves());
+    let theirs = bury_from_hand(&mut engine, p1, quiet_artifact());
+    assert!(
+        in_graveyard(&engine, p1, quiet_artifact()).is_some(),
+        "an artifact card really is lying in the other graveyard, so the \
+         refusal below is about whose it is"
+    );
+
+    // Its own tap is part of the cost, so the Ruin is the one land that must
+    // not be spent on the {2}.
+    tap_mana_except(&mut engine, p0, ruin);
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("still priority, got {:?}", engine.pending())
+    };
+    assert!(
+        !legal.abilities.contains(&(ruin, 1)),
+        "with two mana floating and no artifact card of my own in the \
+         graveyard, the ability has nothing to point at: {:?}",
+        legal.abilities
+    );
+
+    let mine = bury_from_hand(&mut engine, p0, quiet_artifact());
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("still priority, got {:?}", engine.pending())
+    };
+    assert!(
+        legal.abilities.contains(&(ruin, 1)),
+        "and with one it is offered: {:?}",
+        legal.abilities
+    );
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ActivateAbility {
+                source: ruin,
+                ability_index: 1,
+            },
+        )
+        .expect("two Forests pay {2}");
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!("the return asks which card: {:?}", engine.pending())
+    };
+    assert!(
+        options.contains(&mine),
+        "my own artifact card is the answer: {options:?}"
+    );
+    assert!(
+        !options.contains(&elf),
+        "a creature card in the same graveyard is not an artifact card: \
+         {options:?}"
+    );
+    assert!(
+        !options.contains(&theirs),
+        "and an artifact card in their graveyard is not in *your* graveyard: \
+         {options:?}"
+    );
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![mine],
+            },
+        )
+        .expect("the one legal target");
+
+    // CR 601.2h: the costs are paid on activation. The land is gone before
+    // anything resolves.
+    assert!(
+        !stack_is_empty(&engine),
+        "the ability is on the stack and has not resolved yet"
+    );
+    assert!(
+        on_battlefield(&engine, p0, buried_ruin()).is_none(),
+        "the sacrifice is a cost, so the land left the battlefield to pay it"
+    );
+    assert!(
+        in_graveyard(&engine, p0, buried_ruin()).is_some(),
+        "and a sacrificed permanent goes to its owner's graveyard (CR 701.17a)"
+    );
+
+    pass_until(&mut engine, stack_is_empty);
+    assert!(
+        in_hand(&engine, p0, quiet_artifact()).is_some(),
+        "the artifact card came back to hand"
+    );
+    assert!(
+        in_graveyard(&engine, p0, quiet_artifact()).is_none(),
+        "and it is no longer in the graveyard it came from"
+    );
+    assert!(
+        in_graveyard(&engine, p1, quiet_artifact()).is_some(),
+        "their artifact card was never touched"
+    );
+    assert!(
+        in_graveyard(&engine, p0, llanowar_elves()).is_some(),
+        "nor was the creature card lying beside mine"
+    );
+}
+
+// oracle_id = "e996cd67-739c-40f4-b276-0042acf26c71"
+/// Dryad Arbor, the pool's one Land Creature, under a name of its own: the
+/// fixture of the same card in `instants.rs` is a sibling module's private
+/// item and reaches nothing here.
+fn the_land_creature() -> CardIndex {
+    card_index("e996cd67-739c-40f4-b276-0042acf26c71")
+}
+
+/// Dryad Arbor prints no rules text at all — its whole card is reminder
+/// text saying it is affected by summoning sickness and has "{T}: Add {G}".
+///
+/// So nothing in the card file can say whether the engine applies CR 302.6
+/// to it: the sentence is true only if `summoning_sick` reads the
+/// *projected* types, finds CREATURE on something that is also a LAND, and
+/// both offer paths consult it. Two Arbors on one board answer that in one
+/// priority — one seated before the game began, one played from hand this
+/// turn, the same printing, both untapped, differing in nothing but when
+/// they arrived.
+///
+/// Both lists are read, because this card is offered its {G} twice and the
+/// two offers are gated in different functions: the intrinsic Forest tap
+/// through `casting::can_activate_mana` into `LegalActions::mana_abilities`
+/// (CR 305.6), and the printed `{T}: Add {G}` through `can_afford` into
+/// `LegalActions::abilities`. A test that read one list would not see the
+/// other going wrong. The pool-wide land-mana sweep skips this card by
+/// name, calling it a question for a sickness test rather than a mana one;
+/// this is that test.
+#[test]
+fn a_land_creature_played_this_turn_makes_no_mana_and_a_seated_one_does() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(59, forest())
+        .battlefield(0, &[the_land_creature()])
+        .hand(0, &[the_land_creature()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    let preset = on_battlefield(&engine, p0, the_land_creature()).expect("the seated Arbor");
+    let fresh = play_land(&mut engine, p0, the_land_creature());
+    assert_ne!(preset, fresh, "two Arbors, not one object read twice");
+    assert_eq!(
+        all_on_battlefield(&engine, p0, the_land_creature()).len(),
+        2,
+        "the land drop put the second Arbor on the battlefield"
+    );
+
+    // The control, and the reason the two halves are one board: whatever
+    // the engine withholds from the Arbor played this turn, it cannot be
+    // withholding it for being tapped or for not being a creature.
+    for id in [preset, fresh] {
+        assert!(
+            types(&engine, id).contains(TypeSet::CREATURE),
+            "an Arbor is a creature"
+        );
+        assert!(
+            types(&engine, id).contains(TypeSet::LAND),
+            "and a land at the same time"
+        );
+        assert!(!is_tapped(&engine, id), "both Arbors stand untapped");
+    }
+
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!(
+            "a land drop hands priority back, got {:?}",
+            engine.pending()
+        )
+    };
+    assert!(
+        legal.mana_abilities.contains(&preset),
+        "the seated Arbor was refused the Forest tap CR 305.6 gives it"
+    );
+    assert!(
+        legal.abilities.contains(&(preset, 0)),
+        "and the {{T}}: Add {{G}} it actually prints"
+    );
+    assert!(
+        !legal.mana_abilities.contains(&fresh),
+        "an Arbor played this turn was offered the Forest tap anyway"
+    );
+    assert!(
+        !legal.abilities.iter().any(|(id, _)| *id == fresh),
+        "an Arbor played this turn was offered its printed {{T}} anyway"
+    );
+
+    // The enumeration and the validation read one predicate, so naming the
+    // action the offer withheld has to be refused as well — otherwise a
+    // client could reach past the list it was given.
+    assert!(
+        engine
+            .apply(p0, PlayerAction::ActivateManaAbility { source: fresh })
+            .is_err(),
+        "the engine tapped a summoning-sick Arbor for its intrinsic mana"
+    );
+    assert!(
+        engine
+            .apply(
+                p0,
+                PlayerAction::ActivateAbility {
+                    source: fresh,
+                    ability_index: 0,
+                },
+            )
+            .is_err(),
+        "the engine tapped a summoning-sick Arbor for its printed mana"
+    );
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "two refusals still made mana"
+    );
+
+    // The other half of the sentence: the same printing, seated since
+    // before the turn began, pays its own {T} and adds the green.
+    engine
+        .apply(
+            p0,
+            PlayerAction::ActivateAbility {
+                source: preset,
+                ability_index: 0,
+            },
+        )
+        .expect("the seated Arbor taps for {G}");
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(pool.total(), 1, "one activation, one mana");
+    assert_eq!(
+        pool.available(ManaColor::Green),
+        1,
+        "and it is the colour the card prints"
+    );
+    assert!(is_tapped(&engine, preset), "paying {{T}} left it tapped");
+    assert!(
+        !is_tapped(&engine, fresh),
+        "while the Arbor that could not be activated is still untapped"
+    );
+}
+
+// oracle_id = "1861e642-21d5-4232-89f3-b5557f2946c1"
+fn phyrexian_tower() -> CardIndex {
+    card_index("1861e642-21d5-4232-89f3-b5557f2946c1")
+}
+
+/// Phyrexian Tower: "{T}: Add {C}." and "{T}, Sacrifice a creature: Add
+/// {B}{B}."
+///
+/// The card stands at `Coverage::Partial` and this is the whole of that
+/// claim, both halves in one board. The first line is an ordinary printed
+/// mana ability and works. The second carries `Sacrifice(&Filter::YOUR_CREATURE)`
+/// in its cost, and no engine path can suspend an activation to ask *which*
+/// creature while the cost is being paid — `abilities::choice_cost_unpayable`
+/// puts `CostPart::Sacrifice` out of `can_afford`'s reach — so the ability is
+/// never offered. The Tower plays as though the second line were not printed,
+/// which is what the `Partial` promises a player.
+///
+/// This is the same gap
+/// `ashnods_altar_offers_nothing_while_a_cost_cannot_ask_which_creature`
+/// records, and the reason it is worth a second test is that the Tower is the
+/// version that can be read *against itself*: the two lines sit on one
+/// permanent and share a `{T}`. So the offer is not merely empty. It names
+/// ability 0 and not ability 1, which says the Tower is untapped, the offer is
+/// alive, and what is missing from it is exactly the sacrifice cost — a
+/// distinction the Altar's single-ability board cannot draw.
+///
+/// It is written to **fail** the day the gap closes: two Elves stand beside
+/// the Tower to be eaten, so when an activation learns to ask that question
+/// the index list becomes `[0, 1]` and this breaks. Flipping `Partial` to
+/// `Implemented` is what closes it.
+///
+/// The counter-halves: the creature count is taken before the measurement, so
+/// an absent index 1 is the cost refusing and not an empty table; pressing the
+/// ability by hand afterwards is refused, so it is unreachable rather than
+/// merely unlisted; and the refusal leaves the Tower untapped and the pool
+/// empty, so nothing of the two-part cost was paid on the way out. Then the
+/// line that does work is played, and `{C}` is read out of the pool
+/// immediately after `apply`, which is where a mana ability puts it (CR 605.1).
+#[test]
+#[allow(clippy::too_many_lines)] // one board read from both ends: the offer, then the refusal
+fn the_tower_taps_for_colorless_and_never_offers_to_eat_a_creature() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(313, swamp())
+        .battlefield(0, &[phyrexian_tower(), llanowar_elves(), llanowar_elves()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let tower = on_battlefield(&engine, p0, phyrexian_tower()).expect("the Tower is on the table");
+    let fodder = |e: &Engine<RegistryLookup>| {
+        e.state()
+            .zones
+            .list(ZoneLocation::Battlefield)
+            .iter()
+            .filter(|id| {
+                e.state().object(**id).is_some_and(|o| {
+                    o.controller == p0 && o.characteristics().types.contains(TypeSet::CREATURE)
+                })
+            })
+            .count()
+    };
+    assert_eq!(
+        fodder(&engine),
+        2,
+        "two creatures stand beside the Tower, so an absent index 1 below is \
+         the cost refusing and not an empty table"
+    );
+
+    let Pending::Priority { player, legal } = engine.pending().clone() else {
+        panic!("expected a quiet main phase, got {:?}", engine.pending())
+    };
+    assert_eq!(player, p0, "and it is the Tower's controller who holds it");
+    assert!(
+        !legal.mana_abilities.contains(&tower),
+        "the Tower prints no basic land type, so it is no CR 305.6 shortcut: \
+         its mana belongs to `legal.abilities` and not to this list: {:?}",
+        legal.mana_abilities
+    );
+
+    let offered: Vec<u32> = legal
+        .abilities
+        .iter()
+        .filter(|(source, _)| *source == tower)
+        .map(|(_, index)| *index)
+        .collect();
+    assert_eq!(
+        offered.as_slice(),
+        [0],
+        "the Tower offers `{{T}}: Add {{C}}` and nothing else. `[0, 1]` here \
+         means the engine offered a sacrifice cost it cannot pay, which is the \
+         offer/apply contradiction `offer_tests` exists for — \
+         `abilities::choice_cost_unpayable` was walked past, and the second \
+         assertion below is where it will be taken back. `[]` means the whole \
+         offer is dead and nothing on this board can be read at all. Got: \
+         {offered:?}"
+    );
+
+    // Unreachable rather than merely unlisted — and the {T} half of the cost
+    // is not paid on the way out either.
+    assert!(
+        engine
+            .apply(
+                p0,
+                PlayerAction::ActivateAbility {
+                    source: tower,
+                    ability_index: 1,
+                }
+            )
+            .is_err(),
+        "pressing `{{T}}, Sacrifice a creature: Add {{B}}{{B}}` by hand is refused"
+    );
+    assert!(
+        !is_tapped(&engine, tower),
+        "a refused activation pays no part of its cost, so the Tower is still untapped"
+    );
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Black),
+        0,
+        "and no {{B}}{{B}} reached the pool"
+    );
+    assert_eq!(
+        fodder(&engine),
+        2,
+        "and no creature was eaten for it either"
+    );
+
+    // The half that works.
+    engine
+        .apply(
+            p0,
+            PlayerAction::ActivateAbility {
+                source: tower,
+                ability_index: 0,
+            },
+        )
+        .expect("`{T}: Add {C}` is offered, so it activates");
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(
+        pool.available(ManaColor::Colorless),
+        1,
+        "a mana ability skips the stack (CR 605.1), so the {{C}} is in the pool \
+         the moment the activation is applied"
+    );
+    assert_eq!(
+        pool.available(ManaColor::Black),
+        0,
+        "and it is the first line that was activated, not the second"
+    );
+    assert!(
+        is_tapped(&engine, tower),
+        "the {{T}} in that line's cost was paid"
+    );
+}
