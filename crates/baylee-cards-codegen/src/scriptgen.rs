@@ -1670,12 +1670,135 @@ impl Tx<'_> {
         Some(())
     }
 
+    /// The reference's `IsPresent$` family as an intervening-`if` clause
+    /// (CR 603.4).
+    ///
+    /// What comes back is the macro argument and not the condition: three
+    /// answers fit in one `Option<String>` that way — `None` is a line
+    /// refused with a reason, an empty string one that prints no clause at
+    /// all, and anything else the `, condition = Some(…)` to splice in.
+    /// `triggered!`, `activated!` and `mana_ability!` all spell the field
+    /// the same, so the next caller needs no second shape.
+    ///
+    /// The family is seven keys and they are read here once, rather than at
+    /// each `Mode$` that might carry them: 605 `T:` lines in the corpus
+    /// write `IsPresent$`, spread across every trigger mode there is.
+    ///
+    /// **Two sentences come out of it**, and which one depends on what the
+    /// clause is *about*. `PresentDefined$ Self`, or a valid-string whose
+    /// every alternative pins the object with `Self`, is a clause about
+    /// this card — `Condition::SourceMatches`. Anything else is a count,
+    /// and a count is only readable here when the filter says whose: every
+    /// alternative has to carry `YouCtrl`, or the sentence is "there exists
+    /// a creature" and `Condition::ControlCount` would answer a narrower
+    /// question than the card asks.
+    ///
+    /// **The zone is written into the filter**, and that is not a
+    /// redundancy. `IsPresent$` asks whether an object is present *in a
+    /// zone* — `PresentZone$`, defaulting to the battlefield — so the
+    /// clause about this card is "this permanent is on the battlefield and
+    /// matches", and a filter that left the zone out would be a different
+    /// sentence at CR 603.4's **second** check: the source is a battlefield
+    /// permanent when the trigger is collected, and need not still be one
+    /// when the ability resolves. This engine keeps an object's id across a
+    /// zone change, so `SourceMatches` on its own answers for a card that
+    /// has died. What is cleared on the way out (CR 400.7) is the half a
+    /// permanent has — status, damage, counters — so `Card.tapped` would
+    /// have been right by accident, and `Card.Self+YouCtrl` wrong, since a
+    /// card in a graveyard keeps the controller it had.
+    ///
+    /// `NoResolvingCheck$ True` is the one that has to be named rather than
+    /// ignored: 61 scripts carry it, and it is the reference opting *out*
+    /// of CR 603.4's second check — a clause asked once instead of twice,
+    /// which this DSL cannot say at all.
+    fn condition(&mut self, p: &mut Params) -> Option<String> {
+        let Some(valid) = p.take("IsPresent") else {
+            return Some(String::new());
+        };
+        if p.take("NoResolvingCheck").is_some() {
+            return self.deny("`NoResolvingCheck$`, a clause checked once".to_string());
+        }
+        if p.take("IsPresent2").is_some() {
+            return self.deny("a second `IsPresent2$` clause".to_string());
+        }
+        if let Some(who) = p.take("PresentPlayer") {
+            return self.deny(format!("`PresentPlayer$ {who}`"));
+        }
+        match p.take("PresentZone").as_deref() {
+            None | Some("Battlefield") => {}
+            Some(zone) => return self.deny(format!("`PresentZone$ {zone}`")),
+        }
+        let compare = p
+            .take("PresentCompare")
+            .unwrap_or_else(|| "GE1".to_string());
+        let pins_self = |alt: &str| alt.split(['.', '+']).any(|atom| atom.trim() == "Self");
+        let about_source = match p.take("PresentDefined").as_deref() {
+            Some("Self") => true,
+            Some(other) => return self.deny(format!("`PresentDefined$ {other}`")),
+            None => valid.split(',').all(pins_self),
+        };
+        // Both readings need a number before the filter is worth building,
+        // so that a refusal names the clause rather than an atom inside it.
+        let count = if about_source {
+            if compare != "GE1" {
+                return self.deny(format!("a clause about this card compared `{compare}`"));
+            }
+            None
+        } else {
+            let Some(n) = compare
+                .strip_prefix("GE")
+                .and_then(|n| n.parse::<u8>().ok())
+            else {
+                return self.deny(format!("`PresentCompare$ {compare}`"));
+            };
+            if !valid
+                .split(',')
+                .all(|alt| alt.split(['.', '+']).any(|atom| atom.trim() == "YouCtrl"))
+            {
+                return self.deny(format!("`IsPresent$ {valid}`, a count with no player"));
+            }
+            // And a count says nothing about the card that states it.
+            // `eval::condition_holds` walks a battlefield handing each
+            // candidate its *own* id as the object a filter's `This` and
+            // `Another` compare against, so "another creature you control"
+            // would count nothing at all — 28 corpus lines write one, and
+            // a trigger that can never fire is exactly the wrong card the
+            // honest-stub rule exists to refuse.
+            if valid.split(',').any(|alt| {
+                alt.split(['.', '+'])
+                    .any(|a| matches!(a.trim(), "Self" | "Other"))
+            }) {
+                return self.deny(format!(
+                    "`IsPresent$ {valid}`, a count relative to this card"
+                ));
+            }
+            Some(n)
+        };
+        let expr = self.filter_expr(&valid)?;
+        let clause = match count {
+            None => {
+                let zoned = on_the_battlefield(&expr);
+                let name = self.body.filter_static("CHECK", &zoned);
+                format!("Condition::SourceMatches(&{name})")
+            }
+            // `ControlCount` counts one player's battlefield and nothing
+            // else, so the zone and the player are both already in the
+            // sentence it is.
+            Some(n) => {
+                let name = self.body.filter_static("CHECK", &expr);
+                format!("Condition::ControlCount(&{name}, {n})")
+            }
+        };
+        Some(format!(", condition = Some({clause})"))
+    }
+
     fn triggered(&mut self, spec: &str) -> Option<()> {
         let Some((mode, mut p)) = Params::parse(spec) else {
             return self.deny("a `T:` line with no `$` in it".to_string());
         };
         p.drop_prose();
         let trigger = self.trigger_expr(&mut p, &mode)?;
+        let condition = self.condition(&mut p)?;
         let Some(execute) = p.take("Execute") else {
             return self.deny(format!("a `{mode}` trigger with no `Execute$`"));
         };
@@ -1698,10 +1821,28 @@ impl Tx<'_> {
             .map(|t| format!(", targets = Some(TargetReq::one({t}))"))
             .unwrap_or_default();
         self.body.abilities.push(format!(
-            "triggered!({trigger}, &[{}]{targets})",
+            "triggered!({trigger}, &[{}]{targets}{condition})",
             chain.effects.join(", ")
         ));
         Some(())
+    }
+}
+
+/// A filter expression with "and it is on the battlefield" added to it.
+///
+/// One `Filter::And` and never one inside another: an already-conjoined
+/// expression is spliced open, so `Card.Self+YouCtrl` writes three clauses
+/// in a row rather than a pair holding a pair. The splice is safe on the
+/// text because `filter_expr` returns one complete expression, so a leading
+/// `Filter::And(&[` is closed by the trailing `])` and by nothing else.
+fn on_the_battlefield(expr: &str) -> String {
+    const ZONE: &str = "Filter::InZone(ZoneRef::Battlefield)";
+    match expr
+        .strip_prefix("Filter::And(&[")
+        .and_then(|rest| rest.strip_suffix("])"))
+    {
+        Some(clauses) => format!("Filter::And(&[{ZONE}, {clauses}])"),
+        None => format!("Filter::And(&[{ZONE}, {expr}])"),
     }
 }
 
@@ -2535,6 +2676,163 @@ mod tests {
         let text = body.abilities.join("\n");
         assert!(text.contains("Effect::PumpFilter"), "{text}");
         assert!(text.contains("filter: &Filter::This"), "{text}");
+    }
+
+    /// The storage lands' own clause: `PresentDefined$ Self | IsPresent$
+    /// Card.tapped` as an intervening `if` about this card.
+    ///
+    /// `landgen` reads the same card from the printed text and writes a
+    /// bare `Filter::Tapped` for the same ability, and the two are meant to
+    /// differ. "If this land is tapped" is a sentence about a permanent,
+    /// and a land that has left the battlefield is not tapped; `IsPresent$`
+    /// is a question about a *zone*, with the predicate hung off it. Each
+    /// reader translates the sentence it was handed, and the extra clause
+    /// is true whenever the shorter one is.
+    #[test]
+    fn a_clause_about_this_card_becomes_a_condition_on_the_trigger() {
+        let body = read(
+            "Name:Bottomless Vault\nManaCost:no cost\nTypes:Land\n\
+             T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | PresentDefined$ Self | \
+             IsPresent$ Card.tapped | Execute$ TrigStore\n\
+             SVar:TrigStore:DB$ PutCounter | Defined$ Self | CounterType$ STORAGE | \
+             CounterNum$ 1\n",
+        );
+        assert_eq!(
+            body.abilities,
+            [concat!(
+                "triggered!(Trigger::StepBegin { step: StepKind::Upkeep, whose: PlayerRel::You }, ",
+                "&[Effect::AddCounter { kind: counters::STORAGE, amount: Amount::Fixed(1) }], ",
+                "condition = Some(Condition::SourceMatches(&CHECK1)))"
+            )]
+        );
+        assert!(
+            body.statics.contains(concat!(
+                "static CHECK1: Filter = ",
+                "Filter::And(&[Filter::InZone(ZoneRef::Battlefield), Filter::Tapped]);"
+            )),
+            "the filter it named: {}",
+            body.statics
+        );
+    }
+
+    /// The same clause written without `PresentDefined$`, which is what the
+    /// corpus does four times out of five: of the `T:` lines whose clause
+    /// is about this card, 155 pin it in the valid-string alone against 38
+    /// that say `PresentDefined$ Self`.
+    ///
+    /// A reader that missed the pin would not refuse these — it would
+    /// *write* them, as a count of the permanents you control, and this one
+    /// says `YouCtrl` so nothing downstream could tell. That is the whole
+    /// argument for the case: `Card.Self` on its own would be caught by
+    /// `ControlCount`'s own guard, and the shape that names a player would
+    /// not.
+    ///
+    /// It is also the splice: the zone goes in beside the clauses the
+    /// valid-string named, not around the pair of them.
+    #[test]
+    fn a_valid_string_that_pins_the_source_is_also_a_clause_about_this_card() {
+        let body = read(
+            "Name:X\nManaCost:W\nTypes:Enchantment\n\
+             T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | \
+             IsPresent$ Card.Self+YouCtrl+YouOwn | Execute$ TrigDraw\n\
+             SVar:TrigDraw:DB$ Draw | NumCards$ 1\n",
+        );
+        assert_eq!(
+            body.abilities,
+            [concat!(
+                "triggered!(Trigger::StepBegin { step: StepKind::Upkeep, whose: PlayerRel::You }, ",
+                "&[Effect::draw(1)], condition = Some(Condition::SourceMatches(&CHECK1)))"
+            )]
+        );
+        assert!(
+            body.statics.contains(concat!(
+                "static CHECK1: Filter = Filter::And(&[Filter::InZone(ZoneRef::Battlefield), ",
+                "Filter::This, Filter::ControlledByYou, Filter::OwnedByYou]);"
+            )),
+            "the filter it named: {}",
+            body.statics
+        );
+    }
+
+    /// A clause that counts instead: "if you control two or more
+    /// creatures".
+    ///
+    /// `Condition::ControlCount` is only the right reading while the
+    /// valid-string says *whose* — the reference writes the controller into
+    /// the filter, and a filter that does not name one is asking whether
+    /// such a permanent exists at all, which is a wider question than the
+    /// DSL has a sentence for. So the second half of this test is the same
+    /// clause with `YouCtrl` taken off, refused by name.
+    #[test]
+    fn a_clause_that_counts_needs_the_filter_to_say_whose() {
+        let script = "Name:X\nManaCost:G\nTypes:Creature Elf\nPT:1/1\n\
+             T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | \
+             IsPresent$ Creature.YouCtrl | PresentCompare$ GE2 | Execute$ TrigDraw\n\
+             SVar:TrigDraw:DB$ Draw | NumCards$ 1\n";
+        let body = read(script);
+        assert_eq!(
+            body.abilities,
+            [concat!(
+                "triggered!(Trigger::StepBegin { step: StepKind::Upkeep, whose: PlayerRel::You }, ",
+                "&[Effect::draw(1)], ",
+                "condition = Some(Condition::ControlCount(&Filter::YOUR_CREATURE, 2)))"
+            )]
+        );
+
+        let anyone = parse(&script.replace("Creature.YouCtrl", "Creature"));
+        assert!(transcode(&anyone, &cats()).is_none());
+        assert_eq!(
+            refusal_reason(&anyone, &cats()).as_deref(),
+            Some("`IsPresent$ Creature`, a count with no player")
+        );
+
+        // The same trap one atom further in, and the one that would have
+        // been written rather than refused: `Other` is a filter about the
+        // card stating the clause, which a count has no room for.
+        let another = parse(&script.replace("Creature.YouCtrl", "Creature.Other+YouCtrl"));
+        assert!(transcode(&another, &cats()).is_none());
+        assert_eq!(
+            refusal_reason(&another, &cats()).as_deref(),
+            Some("`IsPresent$ Creature.Other+YouCtrl`, a count relative to this card")
+        );
+    }
+
+    /// Every other key of the family refuses by name, and the reasons are
+    /// what a worklist is made of.
+    ///
+    /// `NoResolvingCheck$ True` is the one that matters most and is easiest
+    /// to read past: it is the reference opting *out* of CR 603.4's second
+    /// check — the clause asked once instead of twice — and a reader that
+    /// dropped the key would write a card that behaves differently from the
+    /// script it came from, in the one direction nothing would notice.
+    #[test]
+    fn the_rest_of_the_condition_family_refuses_by_name() {
+        let base = "Name:X\nManaCost:G\nTypes:Creature Elf\nPT:1/1\n\
+             T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | \
+             IsPresent$ Creature.YouCtrl | {EXTRA}Execute$ TrigDraw\n\
+             SVar:TrigDraw:DB$ Draw | NumCards$ 1\n";
+        for (extra, reason) in [
+            (
+                "NoResolvingCheck$ True | ",
+                "`NoResolvingCheck$`, a clause checked once",
+            ),
+            ("IsPresent2$ Card.Self | ", "a second `IsPresent2$` clause"),
+            ("PresentPlayer$ You | ", "`PresentPlayer$ You`"),
+            ("PresentZone$ Graveyard | ", "`PresentZone$ Graveyard`"),
+            ("PresentCompare$ EQ0 | ", "`PresentCompare$ EQ0`"),
+            (
+                "PresentDefined$ Remembered | ",
+                "`PresentDefined$ Remembered`",
+            ),
+        ] {
+            let parsed = parse(&base.replace("{EXTRA}", extra));
+            assert!(transcode(&parsed, &cats()).is_none(), "{extra}");
+            assert_eq!(
+                refusal_reason(&parsed, &cats()).as_deref(),
+                Some(reason),
+                "{extra}"
+            );
+        }
     }
 
     /// A trigger that fires from somewhere other than the battlefield is
