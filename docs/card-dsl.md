@@ -482,6 +482,7 @@ activated!(Cost::TAP, EFFECTS)                        // {T}: …
 activated!(EQUIP, EFFECTS, timing = ActivationTiming::SorcerySpeed)
 mana_ability!(COST, EFFECTS, limit = ActivationLimit::PerTurn(1))  // "only once each turn"
 triggered!(Trigger::ETB, EFFECTS)                     // when this enters
+triggered!(UPKEEP, EFFECTS, condition = Some(Condition::SourceMatches(&Filter::Tapped)))
 spell!(EFFECTS)
 spell!(EFFECTS, targets = Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE))))
 loyalty!(-3, EFFECTS, targets = Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE))))
@@ -507,6 +508,7 @@ ones an ability cannot be written without; everything after them is
 | `zone` | `Battlefield` | CR 113.6 |
 | `target` / `targets` | `None` | an ability targets only when it says "target" |
 | `once_per_turn` | `false` | a trigger fires on every occurrence |
+| `condition` | `None` | most triggers print no intervening `if` |
 
 `mana_ability = false` is the load-bearing one: an ability wrongly marked
 `true` would silently skip the stack, and no test would read that as a rules
@@ -542,8 +544,34 @@ not activation-specific — it was called `ActivationCondition` after its one
 reader. `ControlCount(&filter, n)` is metalcraft and the verge lands,
 `OpponentGraveyardCountAtLeast(n)` is Sheoldred's flip,
 `CountersOnSelf(kind, n)` and `CountersOnSelfExactly(kind, n)` read the
-permanent the ability is printed on. One reader answers all of them,
-`eval::condition_holds`.
+permanent the ability is printed on, and `SourceMatches(&filter)` points a
+filter back at that permanent — "if this land is tapped". One reader
+answers all of them, `eval::condition_holds`.
+
+`triggered!` and `modal_triggered!` take the same vocabulary as
+`condition = Some(…)`, and there it is the printed **intervening `if`**
+(CR 603.4): the `if` that stands between the trigger event and the effect.
+Write it there and the rule that comes with it is free — the ability does
+not trigger at all while the clause is false, and one that did trigger is
+removed from the stack and does nothing if the clause has stopped being
+true by the time it would resolve. The two `if`s are easy to confuse and
+the difference is where the word sits on the card:
+
+```text
+At the beginning of your upkeep, if this land is tapped, put a counter on it.
+                                 ^ intervening: condition = Some(…)
+When this creature dies, if it had a +1/+1 counter on it, draw a card.
+                         ^ intervening: condition = Some(…)
+When this enters, choose one — if you control a Forest, …
+                               ^ inside the effect: an Effect, not a condition
+```
+
+A reference script writes the first kind as `IsPresent$` / `PresentDefined$`
+on the `T:` line, and the second as a condition inside the `SVar` chain.
+
+The vocabulary is the five sentences listed above and nothing else. A clause
+it cannot say yet is a `Coverage::Partial` with the reason written out, never
+a variant invented at the card.
 
 `limit = ActivationLimit::PerTurn(n)` is "activate only once each turn" and
 its cousins — the default is `Unlimited`, because CR 602.2 caps an

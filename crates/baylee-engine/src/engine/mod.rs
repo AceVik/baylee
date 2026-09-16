@@ -620,6 +620,8 @@ mod combo_tests;
 #[cfg(test)]
 mod commander_tests;
 #[cfg(test)]
+mod condition_tests;
+#[cfg(test)]
 mod convoke_tests;
 #[cfg(test)]
 mod day_night_tests;

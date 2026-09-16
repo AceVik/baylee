@@ -318,7 +318,32 @@ pub fn condition_holds(
         Condition::CountersOnSelfExactly(kind, n) => state
             .object(source)
             .is_some_and(|o| o.counters.get(kind) == u16::from(n)),
+        // `is_some_and`, so a source that is no longer in the arena does not
+        // match: an ability is a separate object from its source the moment
+        // it goes on the stack (CR 113.7a), and "if this land is tapped"
+        // asked of a land that has left the battlefield has nothing to be
+        // true of. Every other sentence here already fails the same way.
+        Condition::SourceMatches(filter) => state
+            .object(source)
+            .is_some_and(|o| matches(filter, state, o, you, source)),
     }
+}
+
+/// The intervening-`if` clause of a triggered ability (CR 603.4), asked of
+/// an ability that may not print one at all.
+///
+/// An absent clause is the trivially true one, so this is what both of the
+/// rule's two checks call: the clause is asked once where the ability would
+/// trigger and once where it would resolve, and the two must be the same
+/// question or a card would trigger on one reading and vanish on the other.
+#[must_use]
+pub fn intervening_if(
+    state: &GameState,
+    condition: Option<Condition>,
+    you: PlayerId,
+    source: ObjectId,
+) -> bool {
+    condition.is_none_or(|c| condition_holds(state, you, source, c))
 }
 
 /// Protection (CR 702.16): does `object` have protection from a filter

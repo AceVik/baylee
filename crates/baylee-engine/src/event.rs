@@ -181,6 +181,22 @@ pub enum GameEvent {
         /// The object.
         object: ObjectId,
     },
+    /// A spell or ability left the stack **without resolving**.
+    ///
+    /// Today that is one rule: a triggered ability whose intervening-`if`
+    /// clause has stopped being true "is removed from the stack and does
+    /// nothing" (CR 603.4). The rule this shares a door with is CR 608.2b,
+    /// where a spell or ability all of whose targets have become illegal
+    /// does not resolve either — a check this engine does not make yet, and
+    /// which is named in `docs/engine-gaps.md`.
+    ///
+    /// It is deliberately not [`GameEvent::SpellCountered`]: nothing
+    /// countered this, and a card that cares about being countered would
+    /// read one as the other.
+    StackObjectDidNotResolve {
+        /// The object.
+        object: ObjectId,
+    },
     /// A triggered/activated ability was put on the stack.
     AbilityTriggered {
         /// The ability object on the stack.

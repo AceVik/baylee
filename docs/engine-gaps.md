@@ -696,17 +696,58 @@ written exactly that way on all 45 scripts that print it — as a
 All six pool cards that print the sentence are still stubs, and for reasons
 that have nothing to do with it, which `xtask explain` now says per card: the
 five storage lands (Fallen Empires, not Ice Age — Ice Floe is the Ice Age
-one) are refused on `PresentDefined$ Self | IsPresent$ Card.tapped`, an
-intervening-if condition on a trigger (CR 603.4) that `AbilityDef::Triggered`
-cannot carry; Ice Floe on a `withoutFlying` filter atom. The mechanism is
+one) are refused on `PresentDefined$ Self | IsPresent$ Card.tapped`, the
+reference's spelling of the intervening-`if` clause (CR 603.4) — which the
+DSL can now say and the transcoder still cannot read; Ice Floe on a
+`withoutFlying` filter atom. The mechanism is
 therefore played in `engine::untap_tests` against a land built for it, the
 way `m2_tests` plays the layer system against a lattice nobody printed.
 
+**The intervening-`if` clause shipped next (2026-09-16), and no card reaches
+it yet either.** `AbilityDef::Triggered` and `AbilityDef::ModalTriggered`
+carry `condition: Option<Condition>` — the same vocabulary an activated
+ability's precondition uses, because the sentence is about the game and not
+about how the ability gets used — and `eval::intervening_if` answers it at
+both of CR 603.4's checks: `trigger::collect` before the ability triggers at
+all, `progress::resolve_stack_top` before it resolves. A clause that has
+stopped being true takes the ability off the stack with a
+`GameEvent::StackObjectDidNotResolve` and it does nothing. `Condition` gained
+one variant for it, `SourceMatches(&Filter)` — "if this land is tapped",
+which is what most of the reference's `PresentDefined$ Self` writes. It is
+played in `engine::condition_tests` against synthetic lands, with the four
+injections (no first check, no second check, either check asking the wrong
+player) each caught by the test that is about it.
+
+**28 cards in the pool print an intervening `if`** and 25 of them are stubs.
+Of the three that are not, one is the rule half-written: **Padeem, Consul of
+Innovation** carries "if you control the artifact with the greatest mana
+value" as `Effect::IfControlGreatestCmc` *inside* its effect, which is the
+second check without the first — so its ability goes on the stack when it
+should not, and if the board makes the clause true while the trigger is
+waiting there, Padeem draws a card the printed card does not draw. Moving it wants a `Condition` for
+"controls the greatest-CMC permanent matching a filter", which the vocabulary
+does not have. The other two, Luminarch Ascension ("if you didn't lose life
+this turn") and Emeritus of Woe ("if two or more creatures died this turn"),
+ask about the turn's history, which nothing here can say at all.
+
+Two shapes deliberately **do not** carry a clause. A saga chapter
+(`AbilityDef::SagaChapter`) prints none — CR 714 fires it off the lore
+counter — and a granted trigger (`Modifier::GrantTriggered`) carries the
+trigger and the effects of the ability it grants, not a printed sentence of
+its own; a card that grants an ability *with* an intervening `if` would want
+the field there too, and none does.
+
 **What is still open here**, and each is its own commit:
 
-- **An intervening-if condition on a triggered ability** (CR 603.4), which
-  is what the five storage lands are waiting on — and it is checked twice,
-  once when the ability would trigger and once as it resolves.
+- **The five storage lands themselves.** The engine half is done; what is
+  left is `landgen` reading the two printed sentences ("you may choose not to
+  untap …" and the upkeep trigger with its clause) so the cards are
+  generated, and `scriptgen` reading the reference's `IsPresent$` family on a
+  `T:` line so the corpus gain comes with them.
+- **CR 608.2b's target re-check**, which is the same door: a spell or ability
+  all of whose targets have become illegal does not resolve either. Nothing
+  here checks that yet, and the removal path
+  `progress::resolve_stack_top` now has is where it goes.
 - **"Doesn't untap during your next untap step"** — the ten filter lands and
   exert, which want `Duration::UntilYourNextUntapStep` on a created effect
   rather than a static ability.

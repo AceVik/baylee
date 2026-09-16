@@ -10,7 +10,7 @@ use crate::eval;
 use crate::event::GameEvent;
 use crate::state::{CardLookup, GameState};
 use crate::zone::{Zone, ZoneLocation};
-use baylee_cards_dsl::{AbilityDef, PlayerRel, StepKind, Trigger};
+use baylee_cards_dsl::{AbilityDef, Condition, PlayerRel, StepKind, Trigger};
 use baylee_core::ids::{ObjectId, PlayerId};
 
 /// A triggered ability waiting to go on the stack.
@@ -57,26 +57,43 @@ pub struct PendingTrigger {
     pub chosen_mode: Option<u8>,
 }
 
-/// The trigger condition and the once-a-turn clause of an ability that has
-/// them, whatever shape it is written in.
+/// What every triggered ability says about *whether* it fires, whatever
+/// shape it is written in.
 ///
 /// `AbilityDef::ModalTriggered` is a triggered ability — the modes are what
 /// it *does*, not whether it fires — and reading only `Triggered` here is
 /// what made five cards in the pool resolve to nothing at all (entry 34 in
 /// `docs/observed-faults.md`). Both collection loops ask through this
-/// function so the pair cannot drift again.
-const fn triggered_parts(ability: &'static AbilityDef) -> Option<(&'static Trigger, bool)> {
+/// function so the pair cannot drift again, and a struct rather than a
+/// tuple so that the next thing a trigger carries is one field here and no
+/// churn at the three places that read it.
+struct Firing {
+    /// The event it listens for.
+    trigger: &'static Trigger,
+    /// Whether it fires at most once each turn.
+    once_per_turn: bool,
+    /// The intervening-`if` clause, if the card prints one (CR 603.4).
+    condition: Option<Condition>,
+}
+
+const fn triggered_parts(ability: &'static AbilityDef) -> Option<Firing> {
     match ability {
         AbilityDef::Triggered {
             trigger,
             once_per_turn,
+            condition,
             ..
         }
         | AbilityDef::ModalTriggered {
             trigger,
             once_per_turn,
+            condition,
             ..
-        } => Some((trigger, *once_per_turn)),
+        } => Some(Firing {
+            trigger,
+            once_per_turn: *once_per_turn,
+            condition: *condition,
+        }),
         _ => None,
     }
 }
@@ -110,9 +127,14 @@ pub fn collect(state: &GameState, lookup: &impl CardLookup, from_seq: u64) -> Ve
                 continue;
             };
             for (index, ability) in abilities.iter().enumerate() {
-                let Some((trigger, once_per_turn)) = triggered_parts(ability) else {
+                let Some(firing) = triggered_parts(ability) else {
                     continue;
                 };
+                let trigger = firing.trigger;
+                // CR 603.4's first check, as in the battlefield loop below.
+                if !eval::intervening_if(state, firing.condition, obj.controller, emblem) {
+                    continue;
+                }
                 for entry in events {
                     if matches(trigger, &entry.event, state, emblem, obj.controller) {
                         let times = trigger_count(state, trigger, emblem, obj.controller)
@@ -127,7 +149,7 @@ pub fn collect(state: &GameState, lookup: &impl CardLookup, from_seq: u64) -> Ve
                                 timestamp: obj.timestamp,
                                 event_object,
                                 synthetic_effects: None,
-                                once_per_turn,
+                                once_per_turn: firing.once_per_turn,
                                 synthetic_target: None,
                                 chosen_mode: None,
                             });
@@ -356,10 +378,19 @@ fn collect_for_objects(
             }
         }
         for (index, ability) in abilities.iter().enumerate() {
-            let Some((trigger, once_per_turn)) = triggered_parts(ability) else {
+            let Some(firing) = triggered_parts(ability) else {
                 continue;
             };
+            let trigger = firing.trigger;
             if !all_kinds && !matches!(trigger, Trigger::LeavesBattlefield(_) | Trigger::Dies(_)) {
+                continue;
+            }
+            // CR 603.4, the first of its two checks: an ability whose
+            // intervening-`if` clause is false does not trigger at all.
+            // Before `trigger_count`, so a trigger multiplier has nothing
+            // to double — Panharmonicon doubles a trigger, not a
+            // non-trigger.
+            if !eval::intervening_if(state, firing.condition, obj.controller, permanent) {
                 continue;
             }
             for entry in events {
@@ -376,7 +407,7 @@ fn collect_for_objects(
                             timestamp: obj.timestamp,
                             event_object,
                             synthetic_effects: None,
-                            once_per_turn,
+                            once_per_turn: firing.once_per_turn,
                             synthetic_target: None,
                             chosen_mode: None,
                         });

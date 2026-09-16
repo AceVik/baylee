@@ -57,6 +57,7 @@ static LOOPING_CARD: CardDef = CardDef {
             effects: BLINK_SELF,
             targets: Some(TargetReq::one(TargetSpec::ThisObject)),
             once_per_turn: false,
+            condition: None,
         },
         // Sustains it: the creature that comes back enters, and asks to be
         // blinked again.
@@ -65,6 +66,7 @@ static LOOPING_CARD: CardDef = CardDef {
             effects: BLINK_SELF,
             targets: Some(TargetReq::one(TargetSpec::ThisObject)),
             once_per_turn: false,
+            condition: None,
         },
     ],
     ..CardDef::DEFAULT

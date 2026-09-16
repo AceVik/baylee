@@ -90,6 +90,18 @@ pub enum Condition {
     CountersOnSelf(crate::effect::CounterKind, u8),
     /// The source has EXACTLY N counters of a kind (class level gating).
     CountersOnSelfExactly(crate::effect::CounterKind, u8),
+    /// The source itself matches the filter — "if this land is tapped".
+    ///
+    /// The other four sentences here count something the source is not;
+    /// this one is a filter pointed back at the object that states it,
+    /// which is what the storage lands' upkeep trigger asks and what most
+    /// of the reference corpus's `PresentDefined$ Self` writes.
+    ///
+    /// A source that is no longer there does **not** match: the ability is
+    /// a separate object from the moment it goes on the stack (CR 113.7a),
+    /// so a land that left the battlefield between the trigger and its
+    /// resolution leaves "this land is tapped" with nothing to be true of.
+    SourceMatches(&'static Filter),
 }
 
 /// Trigger conditions for triggered abilities.
@@ -197,6 +209,16 @@ pub enum AbilityDef {
         targets: Option<crate::effect::TargetReq>,
         /// Fires at most once each turn (Jin-Gitaxias).
         once_per_turn: bool,
+        /// The intervening-`if` clause, if the card prints one (CR 603.4).
+        ///
+        /// `if` between the trigger event and the effect — "at the
+        /// beginning of your upkeep, **if this land is tapped**, put a
+        /// storage counter on it" — and it is not the same word as the
+        /// `if` inside an effect. This one is asked **twice**: the ability
+        /// does not trigger at all while it is false, and an ability that
+        /// did trigger is removed from the stack and does nothing if it
+        /// has stopped being true by the time it would resolve.
+        condition: Option<Condition>,
     },
     /// Ward {N}: "whenever this becomes the target of a spell or ability
     /// an opponent controls, counter it unless that player pays {N}".
@@ -313,6 +335,15 @@ pub enum AbilityDef {
         modes: &'static [SpellMode],
         /// Fires at most once each turn.
         once_per_turn: bool,
+        /// The intervening-`if` clause, as on [`AbilityDef::Triggered`].
+        ///
+        /// No card in the pool prints a modal trigger with one. The field
+        /// is here because this variant is the *forgotten twin* — six
+        /// readers across the engine, the client and the lints once
+        /// matched only the unmodal one — and a second door into
+        /// `trigger.rs` that could not carry a condition is exactly how
+        /// the omission would be found again, one card at a time.
+        condition: Option<Condition>,
     },
 }
 

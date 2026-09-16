@@ -115,6 +115,37 @@ most once per event, CR 614.5), applied, journaled; matching triggers are
 collected and stacked APNAP (per-player ordering via ChoiceRequest).
 SBAs run as a fixpoint before every priority grant (plus format SBAs).
 
+### The clause that is asked twice (CR 603.4)
+A triggered ability may print an **intervening `if`** — the `if` between the
+trigger event and the effect, as in "at the beginning of your upkeep, if this
+land is tapped, put a storage counter on it". It is one clause and two
+checks, and this engine makes both through one reader,
+`eval::intervening_if`:
+
+- **When it would trigger.** `trigger::collect` skips the ability entirely
+  while the clause is false, in both of its loops (battlefield/look-back and
+  the command zone's emblems), and *before* `trigger_count` — a trigger
+  multiplier doubles a trigger, not a non-trigger.
+- **When it would resolve.** `Progress::resolve_stack_top` asks again before
+  it records anything, and an ability whose clause has stopped being true is
+  removed from the stack and does nothing: `GameEvent::StackObjectDidNotResolve`,
+  then the object ceases to exist the way a countered ability does
+  (CR 608.2n). The order matters — the journal used to record
+  `StackObjectResolved` before the branch that decides, and an entry saying
+  an ability resolved followed by one saying it did not is a different rule
+  to everything that reads the log.
+
+Both checks ask the clause of the **ability's own controller** and its own
+source, read off the object on the stack rather than off the permanent: the
+two have been separate objects since it was put there (CR 113.7a), and a
+source that has left the battlefield is exactly the case a clause about it
+has to be able to fail on.
+
+CR 608.2b's target re-check is the same door and is **not** written yet: a
+spell or ability all of whose targets have become illegal also does not
+resolve, and `engine-gaps.md` records it. The removal path above is where it
+will go.
+
 ### The one check in the fixpoint that is not a state-based action
 Daybound and nightbound (CR 702.145c–g) are checked as their own step of
 `Progress::run_machine`, between the state-based actions and the trigger

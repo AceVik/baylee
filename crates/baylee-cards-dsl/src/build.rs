@@ -156,10 +156,13 @@ pub struct TriggeredParts {
     pub targets: Option<TargetReq>,
     /// Whether it fires at most once each turn.
     pub once_per_turn: bool,
+    /// The intervening-`if` clause, if the card prints one (CR 603.4).
+    pub condition: Option<Condition>,
 }
 
 impl TriggeredParts {
-    /// A trigger and its effects, untargeted and firing every time.
+    /// A trigger and its effects, untargeted, unconditional, and firing
+    /// every time.
     #[must_use]
     pub const fn new(trigger: Trigger, effects: &'static [Effect]) -> Self {
         Self {
@@ -167,6 +170,7 @@ impl TriggeredParts {
             effects,
             targets: None,
             once_per_turn: false,
+            condition: None,
         }
     }
 
@@ -178,6 +182,7 @@ impl TriggeredParts {
             effects: self.effects,
             targets: self.targets,
             once_per_turn: self.once_per_turn,
+            condition: self.condition,
         }
     }
 }
@@ -191,6 +196,8 @@ pub struct ModalTriggeredParts {
     pub modes: &'static [SpellMode],
     /// Whether it fires at most once each turn.
     pub once_per_turn: bool,
+    /// The intervening-`if` clause, if the card prints one (CR 603.4).
+    pub condition: Option<Condition>,
 }
 
 impl ModalTriggeredParts {
@@ -203,6 +210,7 @@ impl ModalTriggeredParts {
             trigger,
             modes,
             once_per_turn: false,
+            condition: None,
         }
     }
 
@@ -213,6 +221,7 @@ impl ModalTriggeredParts {
             trigger: self.trigger,
             modes: self.modes,
             once_per_turn: self.once_per_turn,
+            condition: self.condition,
         }
     }
 }
@@ -633,9 +642,15 @@ macro_rules! mana_ability {
 /// A triggered ability: `triggered!(trigger, effects)` plus what the card
 /// adds.
 ///
+/// `condition` is the printed intervening-`if` clause and nothing else
+/// (CR 603.4) — the `if` that stands between the trigger event and the
+/// effect, asked when the ability would trigger and again as it resolves.
+/// An `if` *inside* what the ability does is an effect and stays one.
+///
 /// ```ignore
 /// triggered!(Trigger::ETB, EFFECTS)
 /// triggered!(Trigger::Dies(&ALLY), EFFECTS, once_per_turn = true)
+/// triggered!(UPKEEP, EFFECTS, condition = Some(Condition::SourceMatches(&Filter::Tapped)))
 /// ```
 #[macro_export]
 macro_rules! triggered {
@@ -655,6 +670,8 @@ macro_rules! triggered {
 /// modal_triggered!(Trigger::ETB, MODES)
 /// modal_triggered!(Trigger::Attacks(&Filter::This), MODES, once_per_turn = true)
 /// ```
+///
+/// It takes `condition` on the same terms as [`triggered!`].
 #[macro_export]
 macro_rules! modal_triggered {
     ($trigger:expr, $modes:expr $(, $field:ident = $value:expr)* $(,)?) => {

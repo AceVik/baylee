@@ -1579,11 +1579,67 @@ impl<L: CardLookup> Engine<L> {
         }
     }
 
+    /// Whether the top of the stack printed an intervening-`if` clause that
+    /// has stopped being true (CR 603.4's second check).
+    ///
+    /// The clause is asked of the ability's own controller and its own
+    /// source, both read off the object on the stack rather than off the
+    /// permanent: the two have been separate objects since it was put there
+    /// (CR 113.7a), and a source that has left the battlefield in the
+    /// meantime is exactly the case the clause has to be able to fail on.
+    ///
+    /// Only a *triggered* ability has one. An activated ability's condition
+    /// is a restriction on activating it, spent once at CR 602.5, and the
+    /// synthetic keyword triggers (prowess, ward) print no clause at all.
+    fn intervening_if_failed(&self, on_stack: ObjectId) -> bool {
+        let Some(obj) = self.state.object(on_stack) else {
+            return false;
+        };
+        if obj.kind != ObjectKind::AbilityOnStack {
+            return false;
+        }
+        let Some(loc) = obj.ability else {
+            return false;
+        };
+        if loc.index == baylee_core::ids::AbilityRef::SYNTHETIC {
+            return false;
+        }
+        let abilities = obj.own_abilities.unwrap_or_else(|| {
+            self.state
+                .object(loc.source)
+                .map_or(&[][..], |o| o.abilities(&self.lookup))
+        });
+        let condition = match abilities.get(loc.index as usize) {
+            Some(
+                AbilityDef::Triggered { condition, .. }
+                | AbilityDef::ModalTriggered { condition, .. },
+            ) => *condition,
+            _ => None,
+        };
+        !crate::eval::intervening_if(&self.state, condition, obj.controller, loc.source)
+    }
+
     #[allow(clippy::too_many_lines)] // resolution dispatch is a flat router; extraction would obscure it
     pub(crate) fn resolve_stack_top(&mut self) {
         let Some(&top) = self.state.zones.list(ZoneLocation::Stack).last() else {
             return;
         };
+        // CR 603.4, asked before anything records that this resolved: an
+        // ability whose intervening-`if` clause is no longer true "is removed
+        // from the stack and does nothing". Not a counter and not a
+        // resolution — a journal that said `StackObjectResolved` here and
+        // then took the ability away would be describing a different rule to
+        // everything that reads it.
+        if self.intervening_if_failed(top) {
+            self.state
+                .journal
+                .record(GameEvent::StackObjectDidNotResolve { object: top });
+            // As when an ability is countered: an ability on the stack
+            // ceases to exist rather than going anywhere (CR 608.2n).
+            self.state.zones.remove(top, ZoneLocation::Stack);
+            let _ = self.state.arena.remove(top);
+            return;
+        }
         self.state
             .journal
             .record(GameEvent::StackObjectResolved { object: top });
