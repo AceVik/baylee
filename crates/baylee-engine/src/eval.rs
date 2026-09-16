@@ -66,10 +66,24 @@ pub fn matches_projected(
             .object(this)
             .and_then(|src| src.chosen_subtype)
             .is_some_and(|s| chars.subtypes.contains(s)),
-        Filter::AttachedToBySource => state
-            .object(this)
-            .and_then(|src| src.attached_to)
-            .is_some_and(|attached| attached == obj.id),
+        // The live attachment first, then what `this` was wearing the moment
+        // `obj` left the battlefield (CR 603.10a). The fallback is what lets
+        // "whenever equipped creature dies" fire at all: the state-based
+        // actions unattach the Equipment in the same `sba::run` fixpoint that
+        // killed its host, and triggers are collected after it. It cannot
+        // reach anything else — `ltb_attachments` only ever names a host that
+        // is off the battlefield, and the move that brings one back clears
+        // its entry first.
+        Filter::AttachedToBySource => {
+            state
+                .object(this)
+                .and_then(|src| src.attached_to)
+                .is_some_and(|attached| attached == obj.id)
+                || state
+                    .ltb_attachments
+                    .iter()
+                    .any(|(host, worn)| *host == obj.id && worn.contains(&this))
+        }
         Filter::SharesSubtypeWithCommander => {
             // Eight `AND`s per commander, not one probe per subtype id.
             // The marker list rather than the command zone, for the reason

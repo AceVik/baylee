@@ -1117,3 +1117,146 @@ fn the_enterprise_d_stations_only_as_a_sorcery_and_never_in_its_own_end_step() {
         "\"Station only as a sorcery\" — your own end step is not a main phase"
     );
 }
+
+// oracle_id = "65986c1b-8e51-4604-b685-d82fa7d1263a"
+fn skullclamp() -> baylee_core::ids::CardIndex {
+    card_index("65986c1b-8e51-4604-b685-d82fa7d1263a")
+}
+
+/// Skullclamp: "Equipped creature gets +1/-1. Whenever equipped creature
+/// dies, draw two cards. Equip {1}."
+///
+/// The famous play is the whole card in one move, and nothing short of
+/// playing it can see either half. A 1/1 Llanowar Elves takes the clamp and
+/// becomes a 2/0, which CR 704.5f puts into the graveyard before anybody
+/// receives priority — so the static's `(2, 0)` is never a projection a test
+/// can read, and the creature dying is the only evidence that it applied.
+/// Reading the card file says the opposite of what happens: `+1/-1` looks
+/// like a downgrade, not a kill.
+///
+/// The draw is the half nothing else in the pool reaches: no other card
+/// carries `Trigger::Dies(&Filter::AttachedToBySource)`, a filter that asks
+/// the *source* what it is holding about a creature that has already left
+/// the battlefield. CR 603.10a is what makes that answerable — the ability
+/// looks back to the game immediately before the event, when the Elves were
+/// equipped — and the attachment state-based actions (CR 704.5m-p) that let
+/// a hostless Equipment go are the thing the look-back has to see past.
+///
+/// The second Llanowar Elves is the other half of every comparison: it
+/// stands beside the first, unequipped, and is a live 1/1 when the dust
+/// settles. "Equipped creature" is not "creatures you control", and a static
+/// that had lost its filter would have killed the pair.
+#[test]
+fn skullclamp_clamps_a_one_one_into_the_graveyard_and_draws_two_for_it() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(59, forest())
+        .battlefield(
+            0,
+            &[
+                forest(),
+                forest(),
+                skullclamp(),
+                llanowar_elves(),
+                llanowar_elves(),
+            ],
+        )
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let elves = all_on_battlefield(&engine, p0, llanowar_elves());
+    assert_eq!(elves.len(), 2, "two Elves, one of which stays unequipped");
+    let (host, bystander) = (elves[0], elves[1]);
+    let equipment = on_battlefield(&engine, p0, skullclamp()).expect("the Equipment is out");
+    assert_eq!(
+        pt(&engine, host),
+        (1, 1),
+        "a printed 1/1 while the clamp holds nobody"
+    );
+    assert!(
+        engine
+            .state()
+            .object(equipment)
+            .is_some_and(|o| o.attached_to.is_none()),
+        "nothing is equipped yet"
+    );
+
+    let library_before = library_size(&engine, p0);
+    let hand_before = engine
+        .state()
+        .zones
+        .list(crate::zone::ZoneLocation::Hand(p0))
+        .len();
+
+    // Equip {1} (CR 702.6). The Elves are left untapped: they make mana
+    // themselves, and a host that had paid for its own clamp would still
+    // die, which would make the tapping impossible to read back afterwards.
+    tap_all_mana_but(&mut engine, p0, Some(llanowar_elves()));
+    // Ability 0 is the static, 1 the death trigger, 2 the equip.
+    activate(&mut engine, p0, skullclamp(), 2);
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!(
+            "equip targets a creature you control, got {:?}",
+            engine.pending()
+        )
+    };
+    assert_eq!(
+        options.len(),
+        2,
+        "both Elves are creatures you control: {options:?}"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![host],
+            },
+        )
+        .unwrap();
+
+    // The equip resolves, the host's toughness reaches zero, and whatever
+    // that death put on the stack resolves behind it.
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        in_graveyard(&engine, p0, llanowar_elves()).is_some(),
+        "+1/-1 on a 1/1 is a 2/0, and CR 704.5f puts it in the graveyard"
+    );
+    assert_eq!(
+        all_on_battlefield(&engine, p0, llanowar_elves()),
+        vec![bystander],
+        "the clamp modifies the creature it is attached to and no other"
+    );
+    assert_eq!(
+        pt(&engine, bystander),
+        (1, 1),
+        "the Elves nobody equipped are the 1/1 they were printed as"
+    );
+    assert!(
+        on_battlefield(&engine, p0, skullclamp()).is_some(),
+        "the Equipment outlives the host it killed"
+    );
+
+    assert_eq!(
+        library_size(&engine, p0),
+        library_before - 2,
+        "\"whenever equipped creature dies, draw two cards\" — two off the \
+         top of the library. Zero here is the look-back gap: the host's \
+         death (CR 704.5f) and the Equipment coming unattached (CR 704.5m-p) \
+         happen in one `sba::run` pass, and the whole fixpoint runs to \
+         quiescence before `collect_triggers`, so the `Trigger::Dies` arm \
+         evaluates `Filter::AttachedToBySource` against an `attached_to` \
+         that has already been cleared. CR 603.10a wants the value from \
+         immediately before the event"
+    );
+    assert_eq!(
+        engine
+            .state()
+            .zones
+            .list(crate::zone::ZoneLocation::Hand(p0))
+            .len(),
+        hand_before + 2,
+        "and the two cards are in hand — a draw that emptied the library \
+         without filling the hand would satisfy the count above"
+    );
+}

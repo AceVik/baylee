@@ -442,6 +442,26 @@ pub struct GameState {
     /// while a list that is empty in almost every game state is a `Vec`
     /// header once.
     pub ltb_abilities: Vec<(ObjectId, &'static [baylee_cards_dsl::AbilityDef])>,
+    /// What was attached to a permanent the moment it left the battlefield.
+    ///
+    /// The other half of CR 603.10a, and it is needed for the same reason and
+    /// at the same moment. `Filter::AttachedToBySource` reads the Equipment's
+    /// *live* `attached_to`, and the state-based actions have let go of the
+    /// host by the time triggers are collected: CR 704.5f puts the creature
+    /// in the graveyard and CR 704.5n unattaches the Equipment, both inside
+    /// one `sba::run` fixpoint that runs to quiescence before
+    /// `collect_triggers`. So "whenever equipped creature dies" was asked of
+    /// an Equipment wearing nobody, and Skullclamp clamped a 1/1 into the
+    /// graveyard and drew its controller nothing at all.
+    ///
+    /// Keyed by the **host** that departed, one entry at most, written on
+    /// every departure from the battlefield and removed on every other move
+    /// — the lifetime of [`Self::ltb_abilities`] exactly, and it is what
+    /// makes the fallback safe to consult from `eval::matches` in general: an
+    /// entry only ever names an object that is not on the battlefield, so no
+    /// layer projection can see it, and an object that comes back has its
+    /// entry cleared by the very move that brings it back.
+    pub ltb_attachments: Vec<(ObjectId, Vec<ObjectId>)>,
     /// Each seat's commanders (CR 903.3), by seat index.
     ///
     /// The list is the marker, and it has to be: commander-ness belongs to
@@ -609,6 +629,7 @@ impl GameState {
             commander_redirect: Vec::new(),
             pending_copied_faces: Vec::new(),
             ltb_abilities: Vec::new(),
+            ltb_attachments: Vec::new(),
             commanders: vec![Vec::new(); preset.seats.len()],
             monarch: None,
             day_night: None,
@@ -1245,6 +1266,25 @@ impl GameState {
             && let Some(abilities) = departing
         {
             self.ltb_abilities.push((id, abilities));
+        }
+        // Read here and not after the state-based actions, for the reason the
+        // field's doc gives: this is the last statement at which the
+        // Equipment still says what it was on.
+        self.ltb_attachments.retain(|(other, _)| *other != id);
+        if from_zone == Zone::Battlefield {
+            let worn: Vec<ObjectId> = self
+                .zones
+                .list(ZoneLocation::Battlefield)
+                .iter()
+                .filter(|other| {
+                    self.object(**other)
+                        .is_some_and(|o| o.attached_to == Some(id))
+                })
+                .copied()
+                .collect();
+            if !worn.is_empty() {
+                self.ltb_attachments.push((id, worn));
+            }
         }
         {
             let obj = self.object_mut(id).expect("checked above");
@@ -2369,6 +2409,72 @@ mod tests {
         let mut twin = GameState::from_preset(&make_preset(7), &RegistryLookup).unwrap();
         assert_eq!(twin.draw_cards(PlayerId::new(0), 1), drawn);
         assert_eq!(state.snapshot_hash(), twin.snapshot_hash());
+    }
+
+    /// The attachment look-back is written on a departure and gone on the
+    /// way back.
+    ///
+    /// The behaviour it exists for is a card test — Skullclamp drawing two
+    /// when the creature it clamped dies — and that test cannot see the half
+    /// that matters here. `eval::matches` consults `ltb_attachments` for
+    /// *every* `Filter::AttachedToBySource`, not only during a trigger scan,
+    /// so an entry that outlived its departure would make an unattached
+    /// Equipment go on granting to a host that came back: the same
+    /// `ObjectId` returns to the battlefield (CR 400.7 makes it a new object,
+    /// not a new id) and the stale pairing would answer for it.
+    ///
+    /// Both halves are struck, which is the whole of the test: the entry is
+    /// there after the host leaves, and it is gone after the host moves
+    /// again.
+    #[test]
+    fn what_a_permanent_wore_is_remembered_across_one_departure_and_no_further() {
+        let mut state = GameState::from_preset(&make_preset(11), &RegistryLookup).unwrap();
+        let p0 = PlayerId::new(0);
+        let host = state.draw_cards(p0, 1)[0];
+        let worn = state.draw_cards(p0, 1)[0];
+        for id in [host, worn] {
+            state
+                .move_object(
+                    id,
+                    ZoneLocation::Battlefield,
+                    crate::zone::ZonePosition::Top,
+                    crate::event::Cause::Effect,
+                )
+                .unwrap();
+        }
+        state.object_mut(worn).unwrap().attached_to = Some(host);
+        assert!(
+            state.ltb_attachments.is_empty(),
+            "nothing has left the battlefield yet"
+        );
+
+        state
+            .move_object(
+                host,
+                ZoneLocation::Graveyard(p0),
+                crate::zone::ZonePosition::Top,
+                crate::event::Cause::Effect,
+            )
+            .unwrap();
+        assert_eq!(
+            state.ltb_attachments,
+            vec![(host, vec![worn])],
+            "the host left wearing something and the look-back says what"
+        );
+
+        state
+            .move_object(
+                host,
+                ZoneLocation::Battlefield,
+                crate::zone::ZonePosition::Top,
+                crate::event::Cause::Effect,
+            )
+            .unwrap();
+        assert!(
+            state.ltb_attachments.is_empty(),
+            "and the move that brings it back clears the pairing, or an \
+             Equipment attached to nobody would go on granting to it"
+        );
     }
 
     #[test]
