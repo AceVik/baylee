@@ -3054,3 +3054,47 @@ at a client as a bare *"choose a player"*. Giving it one — the same move
 `TargetPrompt` already is for `ChooseTargets`, and for the same stated reason —
 touches 45 mentions across 19 files, the client and the house AI among them,
 so it is a full-gate change and not a rules-gate one.
+
+### 57. Every basic land in the pool offers its mana twice — CONFIRMED, harmless to the plan and visible to the player
+
+CR 305.6 gives a land with a basic land subtype the intrinsic ability
+`{T}: Add {G}` and prints nothing on the card. Ten of the pool's twelve basic
+land cards spell that ability out anyway as `abilities = &[mana_ability!(…)]`
+— the five basics and their five snow counterparts; Wastes and Snow-Covered
+Wastes have no basic land subtype and are correct as they stand. The
+convention is not confined to basics: Taiga does the same, and so does every
+dual, which is why this is a pool-wide reading rather than ten files.
+
+The consequence is in the offer. `abilities.rs` pushes the land into
+`legal.mana_abilities` because `casting::can_activate_mana` answers for the
+subtype, and the same land's printed ability into `legal.abilities` as
+`(land, 0)` — two entries for one permanent, both making one green mana.
+`manasources::offers` faithfully turns that into two `Offer`s, one
+`Tap::Intrinsic` and one `Tap::Ability(0)`.
+
+**The mana planner does not double-count**, and that was the open question.
+`manaplan::pours` is a colour-wise union over a permanent's offers rather than
+a list of its abilities — *"a permanent taps once"* — and its tie-break
+prefers the intrinsic shortcut, so a Forest comes to exactly one green pip.
+The arithmetic is right.
+
+What is not right is the sheet the player reads. `abilities::pour_out` keeps
+every offer the header did **not** stand for as a written row, deliberately
+and for a good reason: a second way to tap the same permanent is not
+interchangeable with the first. Here the two are interchangeable, so a Forest
+draws one green pip **and** a written `{T}: Add {G}` beneath it — a question
+with two answers that do the same thing. That reasoning is what makes this a
+fault in the *cards* rather than in `pour_out`: the row is correct about what
+the engine offered, and the engine was offering a duplicate.
+
+Two shapes close it, and they are not equivalent. Deleting the printed
+`mana_ability!` from the ten cards is the smaller change and leaves the pool
+inconsistent with every dual beside them. Teaching `can_activate_mana` to
+withhold the CR 305.6 shortcut where the card prints the same ability itself
+is one place instead of ten and reaches the duals too, and it is the one that
+needs a test per branch, because the shortcut is what the client's
+`Tap::Intrinsic` is built on and a land that lost it would stop pouring
+without anything failing.
+
+Not yet measured: whether the house AI's mana counting has the same union, or
+counts `mana_abilities` and `abilities` separately.
