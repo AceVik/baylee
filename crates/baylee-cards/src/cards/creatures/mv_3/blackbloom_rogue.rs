@@ -14,7 +14,7 @@
 // and a modifier, with nowhere to put a condition, and a `Filter` asks about
 // an object — its types, its controller, its zone — never about how many
 // cards a graveyard holds, so there is no way to say the *while* half of the
-// sentence. `ActivationCondition::OpponentGraveyardCountAtLeast(8)` states
+// sentence. `Condition::OpponentGraveyardCountAtLeast(8)` states
 // exactly this condition and gates an activated ability alone.
 // The modifier is left off the card rather than written unconditionally: a
 // bare `Modifier::ModifyPT(3, 0)` would be a permanent 5/3, stronger than the

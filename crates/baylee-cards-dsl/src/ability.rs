@@ -61,9 +61,25 @@ pub enum StepKind {
     End,
 }
 
-/// A precondition for activating an ability (metalcraft, verge lands).
+/// A sentence a card states about the game, for an ability that only does
+/// something while it is true.
+///
+/// It was `ActivationCondition` and named for its one reader — metalcraft
+/// and the verge lands, gating [`AbilityDef::ActivatedConditional`]. The
+/// name was the accident: a condition is about the *game*, not about how
+/// the ability that states it gets used, and Magic asks the same sentences
+/// of a triggered ability's intervening-`if` clause (CR 603.4). One
+/// vocabulary, and one reader in `eval::condition_holds`, which is what
+/// keeps the two from drifting into different answers to the same words.
+///
+/// What differs between the two is not the sentence but **when it is
+/// asked**: an activation condition is checked once, when the ability
+/// would be activated (CR 602.5 — "a player can't begin to activate an
+/// ability that's prohibited from being activated"), and an intervening
+/// `if` is checked twice — once when the ability would trigger and again
+/// as it resolves.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
-pub enum ActivationCondition {
+pub enum Condition {
     /// You control at least N permanents matching the filter.
     ControlCount(&'static Filter, u8),
     /// An opponent has at least N cards in their graveyard (Sheoldred's
@@ -206,7 +222,7 @@ pub enum AbilityDef {
         /// Where it may be activated.
         zone: ActivationZone,
         /// The precondition.
-        condition: ActivationCondition,
+        condition: Condition,
         /// "Activate only once each turn", if the card prints one.
         limit: ActivationLimit,
     },

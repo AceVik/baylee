@@ -41,10 +41,7 @@ card!(
             cost!("{2}{U}"),
             &[LEVEL_UP, Effect::draw(2)],
             timing = ActivationTiming::SorcerySpeed,
-            condition = Some(ActivationCondition::CountersOnSelfExactly(
-                CounterKind::Level,
-                0
-            )),
+            condition = Some(Condition::CountersOnSelfExactly(CounterKind::Level, 0)),
         ),
         // {4}{U}: Level 3 (sorcery speed, requires level 2).
         activated!(
@@ -65,10 +62,7 @@ card!(
                 ),
             ],
             timing = ActivationTiming::SorcerySpeed,
-            condition = Some(ActivationCondition::CountersOnSelfExactly(
-                CounterKind::Level,
-                1
-            )),
+            condition = Some(Condition::CountersOnSelfExactly(CounterKind::Level, 1)),
         ),
     ],
 );

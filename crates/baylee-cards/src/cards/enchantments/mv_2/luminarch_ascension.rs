@@ -43,7 +43,7 @@ card!(
         activated!(
             cost!("{1}{W}"),
             &[Effect::CreateToken { token: &ANGEL }],
-            condition = Some(ActivationCondition::CountersOnSelf(counters::QUEST, 4))
+            condition = Some(Condition::CountersOnSelf(counters::QUEST, 4))
         ),
     ],
 );

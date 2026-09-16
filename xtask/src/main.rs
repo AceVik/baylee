@@ -2963,8 +2963,8 @@ fn with_oracle_header(text: &str, printed: &str) -> Option<String> {
 /// Every entry here is a sentence the DSL says another way, and naming the
 /// way is the point: an exception with no reason is a card nobody looked at.
 const SCOPE_EXCEPTIONS: &[(&str, &str)] = &[
-    ("Bleachbone Verge", "an ActivationCondition, not a filter"),
-    ("Mox Opal", "metalcraft is an ActivationCondition"),
+    ("Bleachbone Verge", "an Condition, not a filter"),
+    ("Mox Opal", "metalcraft is an Condition"),
     ("Fierce Guardianship", "an AlternativeCost condition"),
     (
         "Deadly Rollick",

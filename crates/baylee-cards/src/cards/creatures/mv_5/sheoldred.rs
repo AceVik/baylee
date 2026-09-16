@@ -103,7 +103,7 @@ card!(
             cost!("{4}{B}"),
             &[Effect::ExileSelfReturnAsFace { face: 1 }],
             timing = ActivationTiming::SorcerySpeed,
-            condition = Some(ActivationCondition::OpponentGraveyardCountAtLeast(8))
+            condition = Some(Condition::OpponentGraveyardCountAtLeast(8))
         ),
     ],
 );

@@ -902,7 +902,7 @@ name for it):
    "whenever you activate an exhaust ability" — so exhaust is a keyword other
    cards read, and folding it into a number would lose the thing they read.
    The only remaining per-game card is Urza's Fun House, which also needs an
-   `ActivationCondition` for the Urzatron and is blocked on that first.
+   `Condition` for the Urzatron and is blocked on that first.
 
    The tally is `GameState::ability_fires`, the map once-per-turn *triggers*
    already used: the same key `(object, ability index)`, the same clearing at

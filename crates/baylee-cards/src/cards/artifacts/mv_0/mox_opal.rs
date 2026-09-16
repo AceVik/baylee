@@ -2,7 +2,7 @@
 //! Oracle: Metalcraft — {T}: Add one mana of any color. Activate only if you control three or more artifacts.
 //! Set: 2XM #275 — Double Masters | Scryfall ID: 56001a36-126b-4c08-af98-a6cc4d84210e | Oracle ID: de2440de-e948-4811-903c-0bbe376ff64d
 // IMPLEMENTED — metalcraft: the mana ability activates only with 3+
-// artifacts under your control (ActivationCondition::ControlCount).
+// artifacts under your control (Condition::ControlCount).
 
 use baylee_cards_dsl::prelude::*;
 
@@ -23,6 +23,6 @@ card!(
     abilities = &[mana_ability!(
         Cost::TAP,
         &[Effect::mana_choice(ALL_MANA_COLORS)],
-        condition = Some(ActivationCondition::ControlCount(&Filter::ARTIFACT, 3))
+        condition = Some(Condition::ControlCount(&Filter::ARTIFACT, 3))
     )],
 );

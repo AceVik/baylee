@@ -133,7 +133,7 @@ section C maps onto these or onto section A.
 
 | # | Hook | Shape | Size | Unblocks (acceptance) |
 |---|------|-------|------|-----------------------|
-| B1 | **Legality/activation conditions** | `ActivationCondition` on `AbilityDef::Activated` (ControlCount(filter), IfNotStartingPlayer, OnlyIfAttacked, etc.), checked in `can_afford`/legal enumeration | S | Mox Opal, Bleachbone Verge; future: metalcraft family, boast, imprinted abilities |
+| B1 | **Legality/activation conditions** | `Condition` on `AbilityDef::Activated` (ControlCount(filter), IfNotStartingPlayer, OnlyIfAttacked, etc.), checked in `can_afford`/legal enumeration | S | Mox Opal, Bleachbone Verge; future: metalcraft family, boast, imprinted abilities |
 | B2 | **Cost reducers** | `Modifier::ReduceCost(filter, n)` consulted in `cast_options`/`wizard_cost` | S | Surgical Metamorph; future: affinity, goblin/tribal reducers, medallions |
 | B3 | **Ability-granting statics** | `Modifier::GrantAbility(&'static AbilityDef)` — characteristics projection exposes granted abilities to activation enumeration | M | Chromatic Lantern, Urza's Saga ch. I/II; future: Nicol Bolas-style grants, level-up |
 | B4 | **Mana provenance** | pool entries carry optional source object + rider; wizard checks riders on spend (uncounterable, restricted, scry-trigger) | M | Cavern of Souls, Path of Ancestry |

@@ -6,7 +6,7 @@
 use crate::object::{GameObject, Status};
 use crate::state::GameState;
 use crate::zone::ZoneLocation;
-use baylee_cards_dsl::{Amount, Filter, PlayerRel, TargetSpec, ZoneSel};
+use baylee_cards_dsl::{Amount, Condition, Filter, PlayerRel, TargetSpec, ZoneSel};
 use baylee_core::ids::{ObjectId, PlayerId};
 
 /// Evaluates a [`Filter`] against an object.
@@ -255,6 +255,69 @@ pub fn amount(
                 })
                 .count() as u32
         }
+    }
+}
+
+/// Whether a card's stated [`Condition`] holds right now.
+///
+/// One vocabulary and one reading, for every ability kind that states a
+/// condition. It began as `Engine::check_activation_condition`, a method
+/// answering it for `AbilityDef::ActivatedConditional` alone — but a
+/// condition is a sentence about the game and not about how the ability
+/// gets used, and the intervening-`if` clause of CR 603.4 asks the same
+/// sentence of a *triggered* ability. A second copy over there would have
+/// been the third byte-identical reading of a DSL predicate this engine has
+/// grown, which is the shape [`crate::effects::applies_to`] was extracted
+/// to stop.
+///
+/// A free function over [`GameState`] rather than a method, because the
+/// callers no longer share a receiver: `crate::trigger::collect` is handed
+/// a state and a lookup and has no `Engine` to ask.
+///
+/// `you` is the ability's controller and `source` the object it is printed
+/// on; both matter — `ControlCount` counts one player's battlefield and
+/// `CountersOnSelf` reads one permanent. A `source` that has left the game
+/// answers **false** for the counter conditions, which is the honest
+/// answer: a permanent that is gone has no counters on it.
+///
+/// **It reads the state it is called in**, which is what the two CR 603.4
+/// checks want and is worth saying because the first of them is not quite
+/// the trigger event's own moment: triggers are collected in a sweep over
+/// new journal entries, so a condition is read when the sweep runs rather
+/// than at the instant the event happened. For a turn-based trigger — the
+/// upkeep, which is where this clause is commonest — the sweep is the next
+/// thing that runs and the two are the same moment.
+#[must_use]
+pub fn condition_holds(
+    state: &GameState,
+    you: PlayerId,
+    source: ObjectId,
+    condition: Condition,
+) -> bool {
+    match condition {
+        Condition::ControlCount(filter, min) => {
+            let count = state
+                .zones
+                .list(ZoneLocation::Battlefield)
+                .iter()
+                .filter(|id| {
+                    state.object(**id).is_some_and(|o| {
+                        o.controller == you && matches(filter, state, o, you, **id)
+                    })
+                })
+                .count();
+            count >= min as usize
+        }
+        Condition::OpponentGraveyardCountAtLeast(min) => (0..state.players.len())
+            .map(|i| PlayerId::new(i as u8))
+            .filter(|id| state.is_opponent(*id, you))
+            .any(|id| state.zones.list(ZoneLocation::Graveyard(id)).len() >= min as usize),
+        Condition::CountersOnSelf(kind, min) => state
+            .object(source)
+            .is_some_and(|o| o.counters.get(kind) >= u16::from(min)),
+        Condition::CountersOnSelfExactly(kind, n) => state
+            .object(source)
+            .is_some_and(|o| o.counters.get(kind) == u16::from(n)),
     }
 }
 

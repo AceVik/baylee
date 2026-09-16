@@ -47,8 +47,7 @@
 //! no effects is not an ability.
 
 use crate::ability::{
-    AbilityDef, ActivationCondition, ActivationLimit, ActivationTiming, ActivationZone, SpellMode,
-    Trigger,
+    AbilityDef, ActivationLimit, ActivationTiming, ActivationZone, Condition, SpellMode, Trigger,
 };
 use crate::cost::Cost;
 use crate::effect::{Effect, TargetReq, TargetSpec};
@@ -83,7 +82,7 @@ pub struct ActivatedParts {
     /// condition. The two variants are otherwise the same six fields, and
     /// having one door into both is what stops a card being written as the
     /// unconditional twin by omission.
-    pub condition: Option<ActivationCondition>,
+    pub condition: Option<Condition>,
     /// How often it may be activated in a turn.
     ///
     /// [`ActivationLimit::Unlimited`] is the rules default: nothing caps an
@@ -591,7 +590,7 @@ macro_rules! cost {
 /// activated!(Cost::TAP, EFFECTS)
 /// activated!(Cost::TAP, EFFECTS, target = Some(TargetSpec::Object(&ANY_CREATURE)))
 /// activated!(EQUIP_COST, EFFECTS, timing = ActivationTiming::SorcerySpeed)
-/// activated!(Cost::TAP, EFFECTS, condition = Some(ActivationCondition::ControlCount(&Filter::ARTIFACT, 3)))
+/// activated!(Cost::TAP, EFFECTS, condition = Some(Condition::ControlCount(&Filter::ARTIFACT, 3)))
 /// ```
 ///
 /// `condition =` is what makes an [`AbilityDef::ActivatedConditional`], so a
@@ -800,8 +799,8 @@ macro_rules! equip {
 /// documents the static it defines.
 pub mod prelude {
     pub use crate::ability::{
-        AbilityDef, ActivationCondition, ActivationLimit, ActivationTiming, ActivationZone,
-        CopyMod, SpellMode, StepKind, Trigger, TriggerEventKind,
+        AbilityDef, ActivationLimit, ActivationTiming, ActivationZone, Condition, CopyMod,
+        SpellMode, StepKind, Trigger, TriggerEventKind,
     };
     pub use crate::build::{
         ActivatedParts, EQUIP_TARGET, LoyaltyParts, ModalTriggeredParts, SagaChapterParts,
@@ -854,7 +853,7 @@ pub mod prelude {
 mod tests {
     use super::*;
     use crate::KeywordSet;
-    use crate::ability::ActivationCondition;
+    use crate::ability::Condition;
     use crate::cost::CostPart;
     use crate::effect::{Amount, CounterKind};
     use crate::static_ability::Layer;
@@ -875,7 +874,7 @@ mod tests {
         activated!(
             Cost::TAP,
             &[Effect::draw(1)],
-            condition = Some(ActivationCondition::ControlCount(&Filter::ARTIFACT, 3)),
+            condition = Some(Condition::ControlCount(&Filter::ARTIFACT, 3)),
         ),
     ];
 
@@ -894,8 +893,7 @@ mod tests {
         const EFFECTS: &[Effect] = &[Effect::DrawCards {
             amount: Amount::Fixed(1),
         }];
-        const METALCRAFT: ActivationCondition =
-            ActivationCondition::ControlCount(&Filter::ARTIFACT, 3);
+        const METALCRAFT: Condition = Condition::ControlCount(&Filter::ARTIFACT, 3);
 
         assert_eq!(
             activated!(Cost::TAP, EFFECTS),
@@ -936,8 +934,7 @@ mod tests {
     #[test]
     fn a_conditional_ability_can_still_be_a_mana_ability() {
         const EFFECTS: &[Effect] = &[Effect::mana(baylee_core::mana::ManaColor::White, 1)];
-        const METALCRAFT: ActivationCondition =
-            ActivationCondition::ControlCount(&Filter::ARTIFACT, 3);
+        const METALCRAFT: Condition = Condition::ControlCount(&Filter::ARTIFACT, 3);
 
         let built = mana_ability!(Cost::TAP, EFFECTS, condition = Some(METALCRAFT));
         match built {

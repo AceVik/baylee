@@ -7,7 +7,7 @@
 // back out of your graveyard and grows Liliana by a +1/+1 counter.
 // NOT SUPPORTED: "Exhaust" — "(Activate each exhaust ability only once.)"
 // Besides its cost and its timing, the one thing an activated ability may
-// state is an `ActivationCondition`, and all four of its cases read a board
+// state is an `Condition`, and all four of its cases read a board
 // fact: a permanent count, a counter count on the source, an opponent's
 // graveyard count. None of them can ask what this ability has already done,
 // and no object records it, so the once-per-game half of the keyword has

@@ -157,7 +157,7 @@ Open milestones discovered tonight:
 - **Data catch**: the sheoldred.rs stub header had the WRONG oracle text
   (the Apocalypse's draw triggers). The real MOM Sheoldred: 4/5 menace,
   ETB edict, {4}{B} flip (sorcery, opponent gy >= 8 — new
-  `ActivationCondition::OpponentGraveyardCountAtLeast`). Lesson: verify
+  `Condition::OpponentGraveyardCountAtLeast`). Lesson: verify
   stub headers against Scryfall for cards that share names with other
   printings (Sheoldred × 2 in the pool).
 - Coverage now: **161 Implemented, 33 Partial, 0 Unimplemented**.

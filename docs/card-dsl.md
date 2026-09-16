@@ -531,11 +531,19 @@ Equip {0} is `equip!(Cost::FREE)` and not `equip!("{0}")` — a cost with no
 mana cost is not the same data as a mana cost of zero generic.
 
 `activated!` and `mana_ability!` reach `AbilityDef::ActivatedConditional`
-through one optional field, `condition = Some(ActivationCondition::…)`. That
+through one optional field, `condition = Some(Condition::…)`. That
 is the only difference between the twins, which is exactly what makes them
 easy to confuse: six readers across the engine, the client and the pool lints
 once matched `AbilityDef::Activated` alone and skipped every conditional
 ability there was.
+
+`Condition` is the shared vocabulary for "only while this is true" and is
+not activation-specific — it was called `ActivationCondition` after its one
+reader. `ControlCount(&filter, n)` is metalcraft and the verge lands,
+`OpponentGraveyardCountAtLeast(n)` is Sheoldred's flip,
+`CountersOnSelf(kind, n)` and `CountersOnSelfExactly(kind, n)` read the
+permanent the ability is printed on. One reader answers all of them,
+`eval::condition_holds`.
 
 `limit = ActivationLimit::PerTurn(n)` is "activate only once each turn" and
 its cousins — the default is `Unlimited`, because CR 602.2 caps an

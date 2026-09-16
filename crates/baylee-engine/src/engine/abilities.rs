@@ -252,7 +252,7 @@ impl<L: CardLookup> Engine<L> {
                         if self.activation_limit_spent(id, i as u32, *limit) {
                             continue;
                         }
-                        if !self.check_activation_condition(player, id, *condition) {
+                        if !crate::eval::condition_holds(&self.state, player, id, *condition) {
                             continue;
                         }
                         if !self.ability_has_a_target(
@@ -413,7 +413,7 @@ impl<L: CardLookup> Engine<L> {
                         if self.activation_limit_spent(card, i as u32, *limit) {
                             continue;
                         }
-                        if !self.check_activation_condition(player, card, *condition) {
+                        if !crate::eval::condition_holds(&self.state, player, card, *condition) {
                             continue;
                         }
                         if self.can_afford(player, card, cost) {
@@ -538,47 +538,6 @@ impl<L: CardLookup> Engine<L> {
                     .unwrap_or(0)
                     >= u32::from(n)
             }
-        }
-    }
-
-    /// Precondition check for `ActivatedConditional` abilities (B1).
-    pub(crate) fn check_activation_condition(
-        &self,
-        player: PlayerId,
-        source: ObjectId,
-        condition: baylee_cards_dsl::ActivationCondition,
-    ) -> bool {
-        match condition {
-            baylee_cards_dsl::ActivationCondition::ControlCount(filter, min) => {
-                let count = self
-                    .state
-                    .zones
-                    .list(ZoneLocation::Battlefield)
-                    .iter()
-                    .filter(|id| {
-                        self.state.object(**id).is_some_and(|o| {
-                            o.controller == player
-                                && crate::eval::matches(filter, &self.state, o, player, **id)
-                        })
-                    })
-                    .count();
-                count >= min as usize
-            }
-            baylee_cards_dsl::ActivationCondition::OpponentGraveyardCountAtLeast(min) => (0..self
-                .state
-                .players
-                .len())
-                .map(|i| PlayerId::new(i as u8))
-                .filter(|id| self.state.is_opponent(*id, player))
-                .any(|id| self.state.zones.list(ZoneLocation::Graveyard(id)).len() >= min as usize),
-            baylee_cards_dsl::ActivationCondition::CountersOnSelf(kind, min) => self
-                .state
-                .object(source)
-                .is_some_and(|o| o.counters.get(kind) >= u16::from(min)),
-            baylee_cards_dsl::ActivationCondition::CountersOnSelfExactly(kind, n) => self
-                .state
-                .object(source)
-                .is_some_and(|o| o.counters.get(kind) == u16::from(n)),
         }
     }
 
@@ -1054,7 +1013,7 @@ impl<L: CardLookup> Engine<L> {
                     limit,
                     ..
                 } => {
-                    if !self.check_activation_condition(player, source, *condition) {
+                    if !crate::eval::condition_holds(&self.state, player, source, *condition) {
                         return Err(EngineError::IllegalAction("activation condition not met"));
                     }
                     (*cost, *effects, *target, *mana_ability, *zone, *limit)

@@ -3,7 +3,7 @@
 //! Oracle: {T}: Add {W}. Activate only if you control a Plains or a Swamp.
 //! Set: DFT #250 — Aetherdrift | Scryfall ID: 52dcdabd-a186-45fe-9fee-6c0f1afeaf16 | Oracle ID: 2b8144a0-08d2-4c28-9fd7-5d90f90105e4
 // IMPLEMENTED — {B} always; {W} only with a Plains or Swamp under your
-// control (ActivationCondition::ControlCount).
+// control (Condition::ControlCount).
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes::land;
@@ -25,7 +25,7 @@ card!(
         mana_ability!(
             Cost::TAP,
             &[Effect::mana(ManaColor::White, 1)],
-            condition = Some(ActivationCondition::ControlCount(&PLAINS_OR_SWAMP, 1))
+            condition = Some(Condition::ControlCount(&PLAINS_OR_SWAMP, 1))
         ),
     ],
 );
