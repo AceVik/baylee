@@ -164,6 +164,31 @@ pub enum Modifier {
     /// a created effect with a duration. Neither is this, and neither is
     /// spelled with this variant.
     DoesNotUntap,
+    /// The affected permanent's controller may choose to leave it tapped
+    /// during their untap step (the Fallen Empires storage lands, Ice Floe).
+    ///
+    /// The other half of CR 502.3, and the half that is a *question* rather
+    /// than an effect: "the active player **determines** which permanents
+    /// they control will untap". Without a card saying so that
+    /// determination has one legal answer — all of them — so the engine
+    /// never had to ask; this variant is what gives a permanent a second
+    /// answer. It is a rules-modifying effect for the same reason
+    /// [`Self::DoesNotUntap`] is (CR 613.11), and lives in the same
+    /// `Layer::Text` bucket.
+    ///
+    /// **The question is asked, not the priority.** CR 502.4 says no player
+    /// receives priority during the untap step, which forbids casting and
+    /// activating there — it does not forbid the turn-based action from
+    /// taking the answer CR 502.3 asks its own player for. The engine
+    /// therefore suspends inside the untap step with a
+    /// [`crate::choice::Pending::ChooseCards`] and never grants priority.
+    ///
+    /// **It is not the opposite of [`Self::DoesNotUntap`] and the two
+    /// compose.** A permanent kept from untapping by an effect has nothing
+    /// to decide, so it is not on the menu at all: an offer whose every
+    /// answer does the same thing is the offer/apply contradiction this
+    /// engine treats as its worst kind.
+    MayChooseNotToUntap,
     /// The affected object gains types while it has at least N counters
     /// of a kind (station's "artifact creature at 8+").
     AddTypeIfCountersAtLeast {
@@ -320,7 +345,8 @@ impl Modifier {
             | Self::SorceriesHaveFlash
             | Self::ManaIsAnyColor
             | Self::SearchTakeover
-            | Self::DoesNotUntap => Layer::Text,
+            | Self::DoesNotUntap
+            | Self::MayChooseNotToUntap => Layer::Text,
         }
     }
 }

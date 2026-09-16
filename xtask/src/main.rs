@@ -3334,7 +3334,28 @@ fn explain(root: &Path, name: &str, scripts_dir: &Path, cache: &Path) -> anyhow:
         if let Some(rel) = index.get(name) {
             let script = scripts_root(root, scripts_dir).join(rel);
             println!("== card-script reference ({}) ==", script.display());
-            println!("{}", fs::read_to_string(&script).unwrap_or_default());
+            let text = fs::read_to_string(&script).unwrap_or_default();
+            println!("{text}");
+            // What the transcoder makes of it, which is the question a
+            // person opening this tool on a stub is actually asking. It was
+            // answerable only by a corpus-wide `transcode-report` run,
+            // whose ranking is about the corpus and not about this card.
+            let mut cats = catalog::SubtypeCatalogs {
+                creature: scryfall::fetch_catalog("creature-types", &agent, &cache)?,
+                artifact: scryfall::fetch_catalog("artifact-types", &agent, &cache)?,
+                enchantment: scryfall::fetch_catalog("enchantment-types", &agent, &cache)?,
+                land: scryfall::fetch_catalog("land-types", &agent, &cache)?,
+                planeswalker: scryfall::fetch_catalog("planeswalker-types", &agent, &cache)?,
+                spell: scryfall::fetch_catalog("spell-types", &agent, &cache)?,
+            };
+            cats.normalize();
+            let parsed = scriptgen::parse(&text);
+            println!("== transcoder ==");
+            if scriptgen::transcode(&parsed, &cats).is_some() {
+                println!("read in full");
+            } else {
+                println!("refused: {}", refusal_cause(&parsed, &cats));
+            }
         } else {
             println!("card-script reference: no script found for {name:?}");
         }
@@ -3918,7 +3939,7 @@ fn refusal_cause(script: &scriptgen::CardScript, cats: &catalog::SubtypeCatalogs
         return format!("unmodelled line kind `{head}:`");
     }
     for line in &script.keywords {
-        if scriptgen::keyword_const_of(line).is_none() {
+        if !scriptgen::keyword_line_is_read(line) {
             let head = line.split(':').next().unwrap_or(line);
             let head = head.split(' ').next().unwrap_or(head);
             return format!("keyword `{head}`");
@@ -4140,6 +4161,11 @@ impl Shape {
                 // them as the activations they are, and without this every
                 // equipment in the pool disagreed.
                 "Equip" | "Cycling" => out.activated += 1,
+                // And one is a static ability wearing them: "you may choose
+                // not to untap" has no parameters, so the reference files it
+                // as a keyword, while the DSL writes it as the
+                // `static_ability!` CR 613.11 makes it.
+                _ if scriptgen::keyword_static_of(keyword).is_some() => out.statics += 1,
                 // **One unread clause and the script is not counted.** This
                 // is the transcoder's own honesty rule at a shallower depth,
                 // and it is what separates a report from a guess. The corpus
@@ -4360,6 +4386,10 @@ fn cross_read(root: &Path, scripts_dir: &Path, samples: usize) -> anyhow::Result
         for line in &script.keywords {
             match scriptgen::keyword_const_of(line).and_then(keyword_bit) {
                 Some(bit) => script_bits = script_bits.union(bit),
+                // Read, and deliberately not a bit: a `K:` line the
+                // transcoder turns into a static ability says nothing about
+                // this card's `KeywordSet` either way.
+                None if scriptgen::keyword_static_of(line).is_some() => {}
                 None => every_keyword_read = false,
             }
         }

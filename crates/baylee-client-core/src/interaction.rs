@@ -408,7 +408,7 @@ pub fn ending_reason(lang: Lang, result: &GameResult) -> Option<String> {
 
 /// What a card choice is *for*, as the noun it counts — both forms.
 ///
-/// [`ChoicePrompt`] has nine variants and the prompt bar used to read one of
+/// [`ChoicePrompt`] has eleven variants and the prompt bar used to read one of
 /// them. A library search, a scry, a put-back and a wish are four different
 /// decisions and were four copies of the same sentence, so a player could not
 /// tell whether they were fetching something, burying it or bringing it in
@@ -428,6 +428,12 @@ pub fn ending_reason(lang: Lang, result: &GameResult) -> Option<String> {
 /// two are not one noun either: Quirion Ranger's Forest may already be
 /// tapped, and a player reading "untapped permanent to tap" over their own
 /// lands would look for the wrong one.
+///
+/// `LeaveTapped` is the one that is neither: the untap step asking the
+/// active player which of their permanents stay tapped (CR 502.3). Its noun
+/// says what *not* choosing does, because the empty answer is the whole
+/// board untapping and a player shown "permanent to untap" over a menu of
+/// one would read the question backwards.
 fn choice_noun(reason: ChoicePrompt) -> (Phrase, Phrase) {
     match reason {
         ChoicePrompt::SearchLibrary => (Phrase::NounCardFromLibrary, Phrase::NounCardsFromLibrary),
@@ -443,6 +449,10 @@ fn choice_noun(reason: ChoicePrompt) -> (Phrase, Phrase) {
         ChoicePrompt::CostReturn => (
             Phrase::NounPermanentToReturn,
             Phrase::NounPermanentsToReturn,
+        ),
+        ChoicePrompt::LeaveTapped => (
+            Phrase::NounPermanentToLeaveTapped,
+            Phrase::NounPermanentsToLeaveTapped,
         ),
         ChoicePrompt::Delve | ChoicePrompt::Generic => (Phrase::NounCard, Phrase::NounCards),
     }

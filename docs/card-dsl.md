@@ -771,7 +771,8 @@ Modal/sequence: `Sequence(&[..])`.
 `LoseKeywords`, `ModifyPT`, `SetPT`, `SwitchPT`, `LegendRuleOff`,
 `CantActivateArtifacts`, `OpponentsCastAsSorcery`, `PlayersCantLose`,
 `CantLoseLife`, `PreventDamageToIt`, `PreventDamageFromIt`,
-`OpponentsCantSearch`, `NoMaxHandSize`, `GainControl`, `DoesNotUntap`.
+`OpponentsCantSearch`, `NoMaxHandSize`, `GainControl`, `DoesNotUntap`,
+`MayChooseNotToUntap`.
 
 `DoesNotUntap` is Basalt Monolith's whole special clause and needs neither a
 filter beyond `Filter::This` nor a duration. It changes a **rule** and not a
@@ -780,9 +781,18 @@ CR 613.11 puts such an effect outside the layer order — so it sits in the
 `Layer::Text` bucket with the other rules-modifiers and `progress::untap_step`
 reads it. Whose untap step is not a field: CR 502.3 only untaps the active
 player's permanents, which is the same player every printing of the sentence
-names. It is **not** the way to say "you may choose not to untap" (a question
-the active player answers) or "doesn't untap during your *next* untap step"
-(a created effect with a duration); neither of those exists yet.
+names. It is **not** the way to say "doesn't untap during your *next* untap
+step" — that is a created effect with a duration, and does not exist yet.
+
+`MayChooseNotToUntap` is the other half of the same rule and the storage
+lands' clause: CR 502.3 has the active player *determine* which of their
+permanents untap, and this variant is what gives that determination a second
+answer. The engine then suspends inside the untap step with a
+`Pending::ChooseCards` whose answer names what stays tapped — no priority is
+granted, which CR 502.4 forbids and this is not. It takes `Filter::This` and
+no duration like its neighbour, and the two compose: a permanent an effect
+already keeps from untapping is left off the menu, because both answers to
+that question would do the same thing.
 
 `GainControl` is layer 2 and must be paired with `Layer::Control` — any
 other layer applies it out of order with respect to the effects that read

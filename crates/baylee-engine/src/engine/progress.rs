@@ -340,10 +340,7 @@ impl<L: CardLookup> Engine<L> {
     /// was produced (loop must stop).
     pub(crate) fn progress_step(&mut self) -> bool {
         match self.state.turn.step {
-            Step::Untap => {
-                self.untap_step();
-                false
-            }
+            Step::Untap => self.untap_step(),
             Step::Cleanup => self.cleanup_step(),
             Step::DeclareAttackers if self.combat_declared != CombatDeclared::Attackers => {
                 let attacker = self.state.turn.active;
@@ -2895,7 +2892,56 @@ impl<L: CardLookup> Engine<L> {
         })
     }
 
-    pub(crate) fn untap_step(&mut self) {
+    /// The permanents CR 502.3 lets the active player decide about.
+    ///
+    /// Three conditions, and the third is the one that is easy to leave out.
+    /// Tapped, because an untapped permanent has nothing to determine.
+    /// Controlled by the active player, because CR 502.3 is only ever about
+    /// their permanents. And **not already kept from untapping** — a Basalt
+    /// Monolith that also said "you may choose not to untap" would otherwise
+    /// be offered a question whose two answers do the same thing, which is
+    /// the offer that contradicts its own apply.
+    fn untap_optional(&self) -> Vec<ObjectId> {
+        let active = self.state.turn.active;
+        self.state
+            .zones
+            .list(ZoneLocation::Battlefield)
+            .iter()
+            .copied()
+            .filter(|id| {
+                let Some(obj) = self.state.object(*id) else {
+                    return false;
+                };
+                obj.controller == active
+                    && obj.status.contains(Status::TAPPED)
+                    && !self.keeps_tapped(*id)
+                    && self.state.effects.iter().any(|fx| {
+                        matches!(fx.modifier, baylee_cards_dsl::Modifier::MayChooseNotToUntap)
+                            && crate::effects::applies_to(&self.state, fx, obj)
+                    })
+            })
+            .collect()
+    }
+
+    /// The untap step, up to the point where it may have to ask.
+    ///
+    /// Returns `true` when it suspended on a question, which is the
+    /// contract [`Self::progress_step`] has with every other step.
+    ///
+    /// The split is where CR 502.3's two halves already are. Phasing
+    /// (CR 702.26a) and the day/night check (CR 502.2) come first and
+    /// happen exactly once; then "the active player **determines** which
+    /// permanents they control will untap", which is a question whenever a
+    /// permanent gives it a second answer; then "they untap them all
+    /// simultaneously", which is [`Self::finish_untap_step`] and is
+    /// reachable from either side of the question. Nothing before the
+    /// suspension may run again on the way back, which is why the resume
+    /// path enters at the second function rather than re-entering this one.
+    ///
+    /// **No priority is granted here.** CR 502.4 says no player receives
+    /// priority during the untap step; it does not say the turn-based
+    /// action may not take the answer its own rule asks a player for.
+    pub(crate) fn untap_step(&mut self) -> bool {
         let active = self.state.turn.active;
         let battlefield = self.state.zones.list(ZoneLocation::Battlefield).clone();
         // Phasing: phased-out permanents the active player controls phase
@@ -2918,20 +2964,49 @@ impl<L: CardLookup> Engine<L> {
         self.check_day_night();
         // CR 502.3, the third turn-based action: "the active player
         // determines which permanents they control will untap. Then they
-        // untap them all simultaneously. … effects can keep one or more of
-        // a player's permanents from untapping."
-        //
-        // The determination is the `keeps_tapped` call, and it is read off
-        // the effect table rather than off a projection: what a
-        // "doesn't untap" effect modifies is a rule and not a
-        // characteristic (CR 613.11), so there is nothing on the permanent
-        // to look at.
+        // untap them all simultaneously."
+        let optional = self.untap_optional();
+        if optional.is_empty() {
+            self.finish_untap_step(&[]);
+            return false;
+        }
+        // The answer names the permanents that stay tapped, so an empty one
+        // is "untap everything" — the determination every board without
+        // such a permanent makes, and the one an automated seat produces by
+        // answering the minimum.
+        let max = u8::try_from(optional.len()).unwrap_or(u8::MAX);
+        self.pending_plan = Some(PlanKind::UntapChoice);
+        self.pending = Pending::ChooseCards {
+            player: active,
+            options: optional,
+            min: 0,
+            max,
+            prompt: crate::choice::ChoicePrompt::LeaveTapped,
+        };
+        self.awaiting_answer = true;
+        true
+    }
+
+    /// "Then they untap them all simultaneously" (CR 502.3), with `kept`
+    /// left out of it.
+    ///
+    /// `kept` has been checked against the very list [`Self::untap_optional`]
+    /// produced before this is reached, so it is read and not re-validated —
+    /// the same arrangement `cost_wizard::pay` has with its own menu.
+    ///
+    /// The `keeps_tapped` half is read off the effect table rather than off
+    /// a projection: what a "doesn't untap" effect modifies is a rule and
+    /// not a characteristic (CR 613.11), so there is nothing on the
+    /// permanent to look at.
+    pub(crate) fn finish_untap_step(&mut self, kept: &[ObjectId]) {
+        let active = self.state.turn.active;
+        let battlefield = self.state.zones.list(ZoneLocation::Battlefield).clone();
         for id in battlefield {
             let tapped = self
                 .state
                 .object(id)
                 .is_some_and(|o| o.controller == active && o.status.contains(Status::TAPPED));
-            if tapped && !self.keeps_tapped(id) {
+            if tapped && !kept.contains(&id) && !self.keeps_tapped(id) {
                 if let Some(obj) = self.state.object_mut(id) {
                     obj.status.remove(Status::TAPPED);
                 }

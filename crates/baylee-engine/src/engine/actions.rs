@@ -541,6 +541,15 @@ impl<L: CardLookup> Engine<L> {
                             "an activation cost is not a target choice",
                         ));
                     }
+                    // Same reason, one step further out: the untap step's
+                    // determination is not targeting at all (CR 115.1), and
+                    // the step it belongs to grants nobody priority to cast
+                    // anything that could be.
+                    PlanKind::UntapChoice => {
+                        return Err(EngineError::IllegalAction(
+                            "the untap determination is not a target choice",
+                        ));
+                    }
                     PlanKind::Trigger {
                         source,
                         ability_index,
@@ -970,6 +979,15 @@ impl<L: CardLookup> Engine<L> {
                         self.activation_cost_choices.extend(objects);
                         self.activation_target_players = target_players;
                         return self.start_activation(player, source, ability_index, targets);
+                    }
+                    // The untap step's determination (CR 502.3). The answer
+                    // names what stays tapped, and the step carries on from
+                    // "then they untap them all simultaneously" — never
+                    // from the top, where phasing and the day/night check
+                    // have already happened.
+                    Some(PlanKind::UntapChoice) => {
+                        self.finish_untap_step(&objects);
+                        return Ok(());
                     }
                     other => self.pending_plan = other,
                 }

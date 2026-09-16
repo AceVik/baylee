@@ -290,6 +290,17 @@ pub enum ChoicePrompt {
     /// are on the menu — a tap wants an untapped one (CR 118.3), a return
     /// takes either, and tapping the Forest for mana *first* is the play.
     CostReturn,
+    /// "Which of these do you want to leave tapped?" — the untap step's own
+    /// determination (CR 502.3), on the permanents that print
+    /// "you may choose not to untap".
+    ///
+    /// The only prompt here that is neither a cost nor an effect: it is a
+    /// turn-based action asking the question its own rule gives the active
+    /// player. It is phrased as what stays tapped rather than what untaps
+    /// because the menu holds only the permanents with a second answer —
+    /// listing everything the player controls would ask them to re-confirm
+    /// the whole board every turn.
+    LeaveTapped,
     /// Generic selection.
     Generic,
 }

@@ -2210,6 +2210,7 @@ fn hash_modifier(h: &mut Hasher, m: &baylee_cards_dsl::Modifier) {
         M::ManaIsAnyColor => h.u8(31),
         M::SearchTakeover => h.u8(34),
         M::DoesNotUntap => h.u8(36),
+        M::MayChooseNotToUntap => h.u8(37),
         M::AddTypeIfCountersAtLeast { at_least, .. } => {
             h.u8(32);
             h.u8(*at_least);

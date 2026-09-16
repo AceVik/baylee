@@ -677,12 +677,36 @@ the command zone, and sixteen carry a further key (`Secondary$`,
 `IsPresent$`, `CheckSVar$`, `AddSVar$`, `SVarCompare$`, `EnduringStory$`).
 All of them stay refused with a reason.
 
+**The optional half shipped next (2026-09-16), and no card reaches it yet.**
+`Modifier::MayChooseNotToUntap` gives CR 502.3's determination a second
+answer. It sits in the same `Layer::Text` bucket as `DoesNotUntap` and for
+the same CR 613.11 reason, so §5b's "both on layer 6" is wrong about this
+one too. `progress::untap_step` splits at exactly the point the rule does —
+phasing and the day/night check, then the determination, then "they untap
+them all simultaneously" — and suspends in the middle with a
+`Pending::ChooseCards` whose answer names what stays tapped. CR 502.4 grants
+nobody priority there and this grants none; a turn-based action taking the
+answer its own rule asks for is not priority. A permanent already held by a
+`DoesNotUntap` is left off the menu, because both answers to that question
+do the same thing. The transcoder reads the reference's one `K:` line for
+it — `K:You may choose not to untap CARDNAME during your untap step.`,
+written exactly that way on all 45 scripts that print it — as a
+`static_ability!` rather than a keyword bit.
+
+All six pool cards that print the sentence are still stubs, and for reasons
+that have nothing to do with it, which `xtask explain` now says per card: the
+five storage lands (Fallen Empires, not Ice Age — Ice Floe is the Ice Age
+one) are refused on `PresentDefined$ Self | IsPresent$ Card.tapped`, an
+intervening-if condition on a trigger (CR 603.4) that `AbilityDef::Triggered`
+cannot carry; Ice Floe on a `withoutFlying` filter atom. The mechanism is
+therefore played in `engine::untap_tests` against a land built for it, the
+way `m2_tests` plays the layer system against a lattice nobody printed.
+
 **What is still open here**, and each is its own commit:
 
-- **"You may choose not to untap"** — the five Ice Age storage lands and Ice
-  Floe. CR 502.3 gives the active player that determination, so it is a
-  *question* asked during the untap step, and CR 502.4's "no player receives
-  priority" does not forbid it — a determination is not priority.
+- **An intervening-if condition on a triggered ability** (CR 603.4), which
+  is what the five storage lands are waiting on — and it is checked twice,
+  once when the ability would trigger and once as it resolves.
 - **"Doesn't untap during your next untap step"** — the ten filter lands and
   exert, which want `Duration::UntilYourNextUntapStep` on a created effect
   rather than a static ability.

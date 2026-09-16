@@ -291,6 +291,12 @@ enum PlanKind {
         /// The queued trigger.
         trigger: crate::trigger::PendingTrigger,
     },
+    /// The untap step's own determination (CR 502.3), waiting for the
+    /// active player to say which permanents stay tapped.
+    ///
+    /// The one plan with no fields: what it is about is the step the game
+    /// is in, and the step cannot have moved on while the question stands.
+    UntapChoice,
     /// A loyalty ability waiting for its target player.
     LoyaltyPlayer {
         /// The walker.
@@ -670,6 +676,8 @@ pub(crate) mod testkit;
 mod tests;
 #[cfg(test)]
 mod token_tests;
+#[cfg(test)]
+mod untap_tests;
 #[cfg(test)]
 mod vocabulary_tests;
 #[cfg(test)]

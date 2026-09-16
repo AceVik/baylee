@@ -1809,6 +1809,26 @@ fn card_type_const(word: &str) -> Option<&'static str> {
 /// flanking. Four of them were already on cards; the other six were waiting
 /// for the pool to grow into them. A keyword returns here on the commit that
 /// gives it a rule, not before.
+/// A keyword line → a `static_ability!` on this card, for the one printed
+/// sentence the reference files as a keyword and the rules make a static
+/// ability.
+///
+/// "You may choose not to untap CARDNAME during your untap step" is not a
+/// keyword at all (CR 702 lists none like it); the reference keeps it on a
+/// `K:` line because it has no parameters, which is also why it can be read
+/// by matching the whole sentence. It is written exactly one way across the
+/// 45 scripts that print it, so the match is the literal string and not a
+/// pattern — anything else that ever lands on a `K:` line is a keyword or a
+/// refusal, as before.
+fn keyword_static(line: &str) -> Option<&'static str> {
+    match line.trim() {
+        "You may choose not to untap CARDNAME during your untap step." => {
+            Some("Modifier::MayChooseNotToUntap")
+        }
+        _ => None,
+    }
+}
+
 fn keyword_const(line: &str) -> Option<&'static str> {
     Some(match line.trim() {
         "Flying" => "KeywordSet::FLYING",
@@ -1849,6 +1869,12 @@ pub fn transcode(script: &CardScript, cats: &SubtypeCatalogs) -> Option<CardBody
         unclaimed: std::cell::RefCell::new(None),
     };
     for line in &script.keywords {
+        if let Some(modifier) = keyword_static(line) {
+            tx.body
+                .abilities
+                .push(Tx::static_expr("Filter::This", modifier));
+            continue;
+        }
         tx.body.keywords.push(keyword_const(line)?.to_string());
     }
     for (kind, spec) in &script.rules {
@@ -1883,7 +1909,7 @@ pub fn refusal_reason(script: &CardScript, cats: &SubtypeCatalogs) -> Option<Str
         unclaimed: std::cell::RefCell::new(None),
     };
     for line in &script.keywords {
-        if keyword_const(line).is_none() {
+        if keyword_const(line).is_none() && keyword_static(line).is_none() {
             let head = line.split(':').next().unwrap_or(line);
             let head = head.split(' ').next().unwrap_or(head);
             return Some(format!("keyword `{head}`"));
@@ -1969,6 +1995,25 @@ pub fn apis_used(spec: &str, svars: &BTreeMap<String, String>) -> Vec<String> {
 #[must_use]
 pub fn keyword_const_of(line: &str) -> Option<&'static str> {
     keyword_const(line)
+}
+
+/// The `K:` lines that are a static ability rather than a bit, for a
+/// reporter that has to tell the two apart.
+#[must_use]
+pub fn keyword_static_of(line: &str) -> Option<&'static str> {
+    keyword_static(line)
+}
+
+/// Whether a `K:` line is read at all — as a bit, or as a static ability.
+///
+/// The question every reporter outside this module is really asking. There
+/// are four loops over `script.keywords` in the workspace and only one of
+/// them transcodes; the other three name what blocked a card, and a
+/// reporter that knew about bits alone went on blaming the `K:` line of
+/// every card the bits half had stopped blocking.
+#[must_use]
+pub fn keyword_line_is_read(line: &str) -> bool {
+    keyword_const(line).is_some() || keyword_static(line).is_some()
 }
 
 /// Every distinct mechanic a script touches, as flat strings.
@@ -2444,6 +2489,44 @@ mod tests {
         let text = body.abilities.join("\n");
         assert!(text.contains("Effect::PumpFilter"), "{text}");
         assert!(text.contains("filter: &Filter::This"), "{text}");
+    }
+
+    /// The one `K:` line that is a static ability rather than a bit.
+    ///
+    /// The reference files "you may choose not to untap" as a keyword
+    /// because it takes no parameters; the rules make it a continuous
+    /// effect that modifies CR 502.3's turn-based action. So it lands in
+    /// `abilities` beside the card's own, and leaves `keywords` alone —
+    /// a bit there would be a keyword no engine rule reads.
+    #[test]
+    fn the_may_not_untap_keyword_is_a_static_ability_and_not_a_bit() {
+        let body = read(
+            "Name:Bottomless Vault\nManaCost:no cost\nTypes:Land\n\
+             K:You may choose not to untap CARDNAME during your untap step.\n\
+             A:AB$ Mana | Cost$ T | Produced$ B | Amount$ 1\n",
+        );
+        assert_eq!(
+            body.abilities,
+            [
+                "static_ability!(Filter::This, Modifier::MayChooseNotToUntap)",
+                "mana_ability!(&[Effect::mana(ManaColor::Black, 1)])",
+            ]
+        );
+        assert!(body.keywords.is_empty(), "{:?}", body.keywords);
+
+        // One word off the printed sentence and it is an unread keyword
+        // again. The match is the whole line on purpose: every one of the
+        // 45 scripts that print this writes it exactly one way, so a
+        // looser reading would only ever be reading something else.
+        let parsed = parse(
+            "Name:X\nTypes:Land\n\
+             K:You may choose not to untap CARDNAME during your upkeep.\n",
+        );
+        assert!(transcode(&parsed, &cats()).is_none());
+        assert_eq!(
+            refusal_reason(&parsed, &cats()).as_deref(),
+            Some("keyword `You`")
+        );
     }
 
     /// `AB$ Untap` says what it untaps by what it leaves *out*, and

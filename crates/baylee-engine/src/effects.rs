@@ -83,7 +83,8 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         // CR 611.2c locks the set for an effect that changes
         // characteristics or control; this changes a rule, so a permanent
         // that arrives later and matches the filter is kept tapped too.
-        | Modifier::DoesNotUntap => false,
+        | Modifier::DoesNotUntap
+        | Modifier::MayChooseNotToUntap => false,
     }
 }
 

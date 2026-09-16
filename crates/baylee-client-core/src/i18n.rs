@@ -977,6 +977,16 @@ messages! {
         en: "permanents to return to their owners' hands",
         de: "bleibende Karten, die auf die Hand ihres Besitzers zurückgenommen werden",
     },
+    /// permanent to leave tapped
+    NounPermanentToLeaveTapped {
+        en: "permanent to leave tapped",
+        de: "bleibende Karte, die getappt bleibt",
+    },
+    /// permanents to leave tapped
+    NounPermanentsToLeaveTapped {
+        en: "permanents to leave tapped",
+        de: "bleibende Karten, die getappt bleiben",
+    },
     /// Convoke: tap creatures or artifacts to help pay
     ConvokeToHelpPay { en: "Tap creatures or artifacts to help pay — each pays for one", de: "Tippe Kreaturen oder Artefakte an, um mitzubezahlen — jedes zahlt eins" },
     /// Delve: exile cards from your graveyard to help pay
@@ -1690,6 +1700,10 @@ mod tests {
             (
                 Phrase::NounPermanentToReturn,
                 Phrase::NounPermanentsToReturn,
+            ),
+            (
+                Phrase::NounPermanentToLeaveTapped,
+                Phrase::NounPermanentsToLeaveTapped,
             ),
         ];
         for (one, many) in pairs {

@@ -286,10 +286,20 @@ impl HeuristicAgent {
                 // subtraction `can_cast` made to decide the spell was
                 // affordable at all. Taking it is taking the offer the
                 // agent was already answering.
-                let n = if prompt == ChoicePrompt::Delve || max <= 2 {
-                    max
-                } else {
-                    min
+                //
+                // The untap step's determination is the one question in the
+                // family where `max` is the *harmful* answer: every
+                // permanent named there stays tapped, so the `max <= 2`
+                // shortcut would have left a storage land tapped for the
+                // rest of the game. Untapping costs nothing, which is what
+                // `min` says. Whether a storage land is worth leaving
+                // tapped is a real judgement and not one this heuristic
+                // makes.
+                let n = match prompt {
+                    ChoicePrompt::Delve => max,
+                    ChoicePrompt::LeaveTapped => min,
+                    _ if max <= 2 => max,
+                    _ => min,
                 };
                 PlayerAction::ChooseObjects {
                     objects: options[..(n as usize).min(options.len())].to_vec(),
@@ -1068,5 +1078,43 @@ mod tests {
             objects.is_empty(),
             "a pile that costs nothing to decline is still declined"
         );
+    }
+
+    /// The untap step's determination, where naming a permanent is what
+    /// costs something.
+    ///
+    /// A one-permanent menu is the shape the storage lands ask with, and it
+    /// is the shape the `max <= 2` shortcut answers with `max`: the agent
+    /// would have named the land every turn and never untapped it again.
+    /// The second half is the counter-test — the same tiny menu under a
+    /// different prompt is still answered with `max`, so this is about the
+    /// prompt and not about the size.
+    #[test]
+    fn the_untap_determination_is_answered_by_untapping() {
+        let v = view(0, &[20, 20], vec![]);
+        let menu = |prompt| Pending::ChooseCards {
+            player: PlayerId::new(0),
+            options: vec![obj(10)],
+            min: 0,
+            max: 1,
+            prompt,
+        };
+
+        let PlayerAction::ChooseObjects { objects } =
+            agent().act(&v, &menu(ChoicePrompt::LeaveTapped))
+        else {
+            panic!("expected a card choice")
+        };
+        assert!(
+            objects.is_empty(),
+            "naming it would leave it tapped for the rest of the game"
+        );
+
+        let PlayerAction::ChooseObjects { objects } =
+            agent().act(&v, &menu(ChoicePrompt::SearchLibrary))
+        else {
+            panic!("expected a card choice")
+        };
+        assert_eq!(objects.len(), 1, "a short menu is otherwise taken whole");
     }
 }
