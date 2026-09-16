@@ -3042,7 +3042,15 @@ fn check_scope_matches_the_text(
     let says_you = printed.contains("you control");
     let says_theirs =
         printed.contains("opponent controls") || printed.contains("opponents control");
-    let filters_you = built.contains("ControlledByYou");
+    // `Condition::ControlCount` is the second spelling of "you control", and
+    // not a filter at all: `eval::condition_holds` counts only permanents
+    // whose `controller == you` and hands the filter each candidate's own id,
+    // so the filter inside it says *what* to count and never whose. A card
+    // whose only such clause is a count — "activate only if you control an
+    // Island", "if you control three or more artifacts" — would otherwise be
+    // asked for a `ControlledByYou` that would change nothing, and eighteen
+    // generated lands landed in one commit with exactly that shape.
+    let filters_you = built.contains("ControlledByYou") || built.contains("ControlCount(");
     let filters_theirs = built.contains("ControlledByOpponent");
 
     if says_you && !filters_you {

@@ -3933,3 +3933,988 @@ fn a_clause_may_ask_about_an_artifact_or_a_legend_instead() {
         "the scry is an ordinary activated ability and uses the stack"
     );
 }
+
+// oracle_id = "bf1341dd-41a3-49f6-87ec-63170dde4324"
+fn boseiju_who_endures() -> CardIndex {
+    card_index("bf1341dd-41a3-49f6-87ec-63170dde4324")
+}
+
+/// Boseiju, Who Endures is a Legendary Land that prints two implemented
+/// things: "{T}: Add {G}", and "Channel — {1}{G}, Discard this card: Destroy
+/// target artifact, enchantment, or nonbasic land an opponent controls."
+///
+/// One game reads both, because the land half pays for the channel half: the
+/// first copy is played as the land drop and tapped for the green in the
+/// cost, while the second copy stays in hand and is activated *from there*,
+/// so the discard that leaves it in a graveyard is a cost being paid and not
+/// a land drop being made.
+///
+/// The menu the activation offers is the whole grammar of the sentence. The
+/// opponent's Sol Ring and their Badlands are on it; the basic Forest beside
+/// them is not, which is the one thing "nonbasic land" is worth; the Sol Ring
+/// under Boseiju's own controller is on it, because "an opponent controls"
+/// sits on the land and not on the artifact; and the nonbasic land this seat
+/// already has on the battlefield is *not* on it, because that clause does
+/// read the controller. The `Coverage::Partial` gaps — the per-legend cost
+/// reduction and the search the victim is granted — are deliberately left
+/// unasserted: nothing here may search anybody's library.
+#[test]
+#[allow(clippy::too_many_lines)] // both printed lines, and the second one's menu
+fn boseiju_taps_for_green_and_channels_itself_away_for_an_artifact_or_a_nonbasic_land() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(29, forest())
+        .battlefield(0, &[forest(), quiet_artifact()])
+        .hand(0, &[boseiju_who_endures(), boseiju_who_endures()])
+        .battlefield(1, &[quiet_artifact(), badlands(), forest()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    // The land half, first. A land with no basic land type is no CR 305.6
+    // source: "{T}: Add {G}" is a printed ability, offered as (source, 0) in
+    // `abilities` and pressed by index rather than by `tap_all_mana`.
+    play_land(&mut engine, p0, boseiju_who_endures());
+    activate(&mut engine, p0, boseiju_who_endures(), 0);
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Green),
+        1,
+        "CR 605.3b: the green is in the pool the moment the land is tapped, \
+         with nothing on the stack"
+    );
+
+    // The rest of {1}{G}, in the pool *before* the activation is asked for:
+    // an activation this board cannot pay for is one the engine never offers.
+    tap_all_mana(&mut engine, p0);
+    let pool_before = engine.state().players[0].mana_pool.total();
+    assert!(
+        pool_before >= 2,
+        "the channel's {{1}}{{G}} has to be covered by the pool: {pool_before}"
+    );
+
+    let rock = on_battlefield(&engine, p1, quiet_artifact()).expect("their Sol Ring stands");
+    let their_land = on_battlefield(&engine, p1, badlands()).expect("their Badlands stands");
+    let their_forest = on_battlefield(&engine, p1, forest()).expect("their basic Forest stands");
+    let my_rock = on_battlefield(&engine, p0, quiet_artifact()).expect("my own Sol Ring stands");
+    let my_boseiju =
+        on_battlefield(&engine, p0, boseiju_who_endures()).expect("the played copy stands");
+
+    // Ability 1 is the channel; ability 0 is the mana ability the copy on the
+    // battlefield is already using.
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        legal.abilities.iter().any(|(source, index)| *index == 1
+            && engine
+                .state()
+                .object(*source)
+                .is_some_and(|o| o.card.is_some_and(|c| c.index == boseiju_who_endures()))),
+        "the card still in hand offers its channel: {:?}",
+        legal.abilities
+    );
+    activate(&mut engine, p0, boseiju_who_endures(), 1);
+
+    let Pending::ChooseTargets {
+        player, options, ..
+    } = engine.pending().clone()
+    else {
+        panic!(
+            "the channel destroys one target and asks which, got {:?}",
+            engine.pending()
+        )
+    };
+    assert_eq!(player, p0, "the seat that activated names the target");
+    assert!(
+        options.contains(&rock),
+        "\"target artifact\" reaches across the table: {options:?}"
+    );
+    assert!(
+        options.contains(&their_land),
+        "\"nonbasic land an opponent controls\": {options:?}"
+    );
+    assert!(
+        options.contains(&my_rock),
+        "the controller clause sits on the land, so an artifact of your own \
+         is a legal target too: {options:?}"
+    );
+    assert!(
+        !options.contains(&their_forest),
+        "and a basic land is not a nonbasic land — the control for the word \
+         \"nonbasic\", on a side of the table the controller clause cannot \
+         explain away: {options:?}"
+    );
+    assert!(
+        !options.contains(&my_boseiju),
+        "while this land *is* nonbasic and is not an opponent's, so the two \
+         clauses are read separately: {options:?}"
+    );
+    assert_eq!(
+        options.len(),
+        3,
+        "the two artifacts and the Badlands are the whole menu: {options:?}"
+    );
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![rock],
+            },
+        )
+        .expect("the Sol Ring was one of the options");
+    pass_until(&mut engine, |e| at_rest(e, p0));
+
+    assert!(
+        in_graveyard(&engine, p1, quiet_artifact()).is_some(),
+        "\"destroy target artifact\": the Sol Ring is in its owner's graveyard"
+    );
+    assert!(
+        on_battlefield(&engine, p1, badlands()).is_some(),
+        "and only the permanent that was named: the Badlands still stands"
+    );
+    assert!(
+        on_battlefield(&engine, p0, quiet_artifact()).is_some(),
+        "and nothing of this seat's was touched"
+    );
+    assert!(
+        in_graveyard(&engine, p0, boseiju_who_endures()).is_some(),
+        "\"Discard this card\" as the cost: the copy activated from hand is in \
+         its owner's graveyard"
+    );
+    assert!(
+        on_battlefield(&engine, p0, boseiju_who_endures()).is_some(),
+        "while the copy played as a land is still on the battlefield — the \
+         discard took the card that was activated and not the other printing"
+    );
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        pool_before - 2,
+        "{{1}}{{G}} left the pool, so the ability was paid for and not free"
+    );
+}
+
+fn cephalid_coliseum() -> CardIndex {
+    card_index("c733873e-77db-471f-8061-139db24f7e7c")
+}
+
+/// Cephalid Coliseum's mana ability is a whole sentence and not the usual
+/// "{T}: Add {U}": the same tap also deals 1 damage to the land's own
+/// controller. Because that tap is a printed ability rather than a basic
+/// land type (CR 305.6), `tap_all_mana` never finds it and the land is
+/// pressed by index — one activation then has to do three things at once,
+/// put the {U} in the pool with no stack (CR 605.3b), take the life off
+/// `p0` alone, and leave the Forest beside it standing, which is what says
+/// the mana and the damage both came off the Coliseum and not off the
+/// board. The threshold half of the card is the `Coverage::Partial` gap and
+/// is deliberately never pressed.
+#[test]
+fn cephalid_coliseum_taps_for_blue_and_deals_its_own_controller_one_damage() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(881, forest())
+        .battlefield(0, &[forest()])
+        .hand(0, &[cephalid_coliseum()])
+        .life(0, 20)
+        .life(1, 20)
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    // A real land drop, so a replacement effect would be seen: the printed
+    // card has no enters-tapped clause and the land arrives upright.
+    let land = play_land(&mut engine, p0, cephalid_coliseum());
+    let bystander = on_battlefield(&engine, p0, forest()).expect("the Forest is out");
+    assert!(
+        !is_tapped(&engine, land),
+        "no enters-tapped clause, so the land drop leaves it upright"
+    );
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "nothing floats before the tap"
+    );
+
+    // Ability 0 is "{T}: Add {U}. This land deals 1 damage to you."
+    activate(&mut engine, p0, cephalid_coliseum(), 0);
+
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(pool.available(ManaColor::Blue), 1, "{{T}}: Add {{U}}");
+    assert_eq!(pool.total(), 1, "one mana, off one tap");
+    assert!(
+        stack_is_empty(&engine),
+        "CR 605.3b: a mana ability uses no stack, so nothing is waiting to resolve"
+    );
+    assert!(is_tapped(&engine, land), "the land paid its own {{T}}");
+    assert!(
+        !is_tapped(&engine, bystander),
+        "and the Forest beside it never moved, so the {{U}} has no other \
+         source on this board"
+    );
+    assert_eq!(
+        engine.state().players[0].life,
+        19,
+        "\"This land deals 1 damage to you\" — the land's controller pays \
+         for the mana it makes"
+    );
+    assert_eq!(
+        engine.state().players[1].life,
+        20,
+        "and it is \"you\": the damage never crosses the table"
+    );
+    assert!(
+        matches!(engine.pending(), Pending::Priority { player, .. } if *player == p0),
+        "the seat holds priority again, got {:?}",
+        engine.pending()
+    );
+}
+
+// oracle_id = "c0adbddc-b070-4c5f-afe0-0474c72a9251"
+fn gemstone_caverns() -> CardIndex {
+    card_index("c0adbddc-b070-4c5f-afe0-0474c72a9251")
+}
+
+/// Gemstone Caverns is `Coverage::Partial`: the pre-game luck counter that
+/// would turn its tap into "one mana of any color" cannot be expressed, and
+/// what is built is the plain `{T}: Add {C}` on a legendary nonbasic land.
+/// So the whole supported half is one play — put the land down and tap it —
+/// and the pool afterwards holds exactly one *colourless* mana, which is the
+/// negative that tells "Add {C}" apart from the unimplemented replacement:
+/// nothing was ever asked to name a color.
+/// The Caverns is the only permanent on the board (the 60-card backing deck
+/// is a library and no land of it was played), so the colourless mana has no
+/// other source to have come from, and the printed `{T}` is paid by the land
+/// itself rather than through the basic-land-type shortcut of CR 305.6.
+#[test]
+fn gemstone_caverns_taps_for_one_colourless_and_names_no_colour() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(19, forest())
+        .hand(0, &[gemstone_caverns()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    let card = in_hand(&engine, p0, gemstone_caverns()).expect("the Caverns are in hand");
+    engine
+        .apply(p0, PlayerAction::PlayLand { card })
+        .expect("a land drop on an empty board");
+    let caverns = on_battlefield(&engine, p0, gemstone_caverns()).expect("the land hit the table");
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "a land nobody tapped is no mana"
+    );
+
+    // `{T}: Add {C}` is a printed ability on a nonbasic land, so it is an
+    // ordinary entry in `abilities` and not the intrinsic CR 305.6 list.
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!(
+            "playing a land leaves the seat holding priority: {:?}",
+            engine.pending()
+        )
+    };
+    assert!(
+        legal.abilities.contains(&(caverns, 0)),
+        "the land's own {{T}} is offered like any other printed ability: {:?}",
+        legal.abilities
+    );
+    activate(&mut engine, p0, gemstone_caverns(), 0);
+
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(
+        pool.available(ManaColor::Colorless),
+        1,
+        "`Add {{C}}` is the half of the card that is written"
+    );
+    assert_eq!(
+        pool.total(),
+        1,
+        "and nothing came with it: only the one mana ability resolved"
+    );
+    assert!(
+        is_tapped(&engine, caverns),
+        "the {{T}} was paid by the Caverns"
+    );
+    assert!(
+        stack_is_empty(&engine),
+        "CR 605.3b: a mana ability never uses the stack"
+    );
+    assert!(
+        matches!(engine.pending(), Pending::Priority { player, .. } if *player == p0),
+        "so the seat is back where it was and was never asked for a color — \
+         the luck-counter replacement is not in play: {:?}",
+        engine.pending()
+    );
+}
+
+// oracle_id = "91d4a5fe-fd6d-4b14-a63f-61b4d0ecd9c4"
+fn inventors_fair() -> CardIndex {
+    card_index("91d4a5fe-fd6d-4b14-a63f-61b4d0ecd9c4")
+}
+
+/// Inventors' Fair — a legendary land printing "{T}: Add {C}", an upkeep
+/// trigger that gains 1 life whenever you control three or more artifacts,
+/// and "{4}, {T}, Sacrifice this land: search your library for an artifact
+/// card … Activate only if you control three or more artifacts."
+///
+/// Both artifact-gated halves are read off two boards that differ only in the
+/// count: two artifacts against three. The smaller board reaches its own main
+/// phase on twenty life and floats the tutor's whole {4} across two tapped
+/// Sol Rings without being offered it, so the missing third artifact is the
+/// only thing that can be withholding either line; the larger board is one
+/// life up on the same walk, is offered the tutor, and pays for it with the
+/// land — which is in its owner's graveyard afterwards. The land's own {T} is
+/// pressed on the smaller board too, so all three printed lines are played and
+/// neither refusal can be blamed on a tapped land or a missing mana ability.
+#[test]
+#[allow(clippy::too_many_lines)] // two boards, because the gate has two answers
+fn inventors_fair_gates_its_lifegain_and_its_tutor_on_three_artifacts() {
+    let p0 = PlayerId::new(0);
+
+    // Two artifacts: the printed count is one short, and the tutor's {4} is
+    // floating before the offer is read.
+    let mut poor = Duel::new(31, quiet_artifact())
+        .battlefield(0, &[inventors_fair(), quiet_artifact(), quiet_artifact()])
+        .life(0, 20)
+        .life(1, 20)
+        .start();
+    keep_mulligans(&mut poor);
+    assert!(walk_to_own_main(&mut poor, p0), "p0 reaches its own main");
+    assert_eq!(
+        poor.state().players[0].life,
+        20,
+        "two artifacts is not three, so the upkeep trigger gained nothing",
+    );
+
+    let held = on_battlefield(&poor, p0, inventors_fair()).expect("the Fair is on the table");
+    for _ in 0..2 {
+        activate(&mut poor, p0, quiet_artifact(), 0);
+    }
+    assert_eq!(
+        poor.state().players[0]
+            .mana_pool
+            .available(ManaColor::Colorless),
+        4,
+        "two Sol Rings pay {{C}}{{C}} apiece",
+    );
+    let Pending::Priority { legal, .. } = poor.pending().clone() else {
+        panic!("expected priority, got {:?}", poor.pending())
+    };
+    assert!(
+        !legal.abilities.contains(&(held, 2)),
+        "the tutor's whole {{4}} is in the pool and the land is untapped, so \
+         only the two-artifact board withholds it: {:?}",
+        legal.abilities,
+    );
+
+    // Ability 1 is the printed "{T}: Add {C}".
+    activate(&mut poor, p0, inventors_fair(), 1);
+    assert_eq!(
+        poor.state().players[0]
+            .mana_pool
+            .available(ManaColor::Colorless),
+        5,
+        "the Fair's own tap added the single colorless it prints",
+    );
+    assert!(is_tapped(&poor, held), "which tapped the land");
+    assert!(
+        stack_is_empty(&poor),
+        "CR 605.3b: a mana ability never uses the stack",
+    );
+
+    // Three artifacts: the same two readings, both the other way round.
+    let mut rich = Duel::new(31, quiet_artifact())
+        .battlefield(
+            0,
+            &[
+                inventors_fair(),
+                quiet_artifact(),
+                quiet_artifact(),
+                quiet_artifact(),
+            ],
+        )
+        .life(0, 20)
+        .life(1, 20)
+        .start();
+    keep_mulligans(&mut rich);
+    assert!(walk_to_own_main(&mut rich, p0), "p0 reaches its own main");
+    assert_eq!(
+        rich.state().players[0].life,
+        21,
+        "three artifacts at the beginning of your upkeep is one life",
+    );
+
+    let fair = on_battlefield(&rich, p0, inventors_fair()).expect("the Fair is on the table");
+    for _ in 0..3 {
+        activate(&mut rich, p0, quiet_artifact(), 0);
+    }
+    let Pending::Priority { legal, .. } = rich.pending().clone() else {
+        panic!("expected priority, got {:?}", rich.pending())
+    };
+    assert_eq!(
+        rich.state().players[0]
+            .mana_pool
+            .available(ManaColor::Colorless),
+        6,
+        "three Sol Rings, which is the tutor's {{4}} and then some",
+    );
+    assert!(
+        legal.abilities.contains(&(fair, 2)),
+        "the same count that fired the trigger now opens the tutor: {:?}",
+        legal.abilities,
+    );
+
+    let library_before = library_size(&rich, p0);
+    let hand_before = rich.state().zones.list(ZoneLocation::Hand(p0)).len();
+
+    // Ability 2 is the tutor, whose cost is {4}, {T} and the sacrifice. It is
+    // an ordinary activated ability, so the costs are paid now and the search
+    // is a question the *resolution* asks: the stack is in between.
+    activate(&mut rich, p0, inventors_fair(), 2);
+    pass_until(&mut rich, |e| {
+        matches!(e.pending(), Pending::ChooseCards { .. })
+    });
+    let Pending::ChooseCards {
+        player,
+        options,
+        prompt,
+        ..
+    } = rich.pending().clone()
+    else {
+        panic!("the search asks which artifact, got {:?}", rich.pending())
+    };
+    assert_eq!(player, p0, "the seat that paid is the seat that searches");
+    assert_eq!(
+        prompt,
+        crate::choice::ChoicePrompt::SearchLibrary,
+        "a search of the library, not a cost being paid",
+    );
+    assert!(
+        !options.is_empty(),
+        "the deck this duel was dealt is made of artifacts",
+    );
+    let found = options[0];
+    rich.apply(
+        p0,
+        PlayerAction::ChooseObjects {
+            objects: vec![found],
+        },
+    )
+    .expect("a card the search offered");
+    pass_until(&mut rich, |e| at_rest(e, p0));
+
+    assert_eq!(
+        library_size(&rich, p0),
+        library_before - 1,
+        "\"search your library for an artifact card\" — one card left it",
+    );
+    assert_eq!(
+        rich.state().zones.list(ZoneLocation::Hand(p0)).len(),
+        hand_before + 1,
+        "and arrived in hand",
+    );
+    assert!(
+        on_battlefield(&rich, p0, inventors_fair()).is_none(),
+        "the sacrifice is paid from the battlefield",
+    );
+    assert!(
+        in_graveyard(&rich, p0, inventors_fair()).is_some(),
+        "so the land is in its owner's graveyard",
+    );
+}
+
+// oracle_id = "e9b6a394-691c-425a-9307-76d8edc7375e"
+fn otawara_soaring_city() -> CardIndex {
+    card_index("e9b6a394-691c-425a-9307-76d8edc7375e")
+}
+
+/// Otawara, Soaring City prints a plain `{T}: Add {U}` and, beside it, a
+/// Channel line that is not a land ability at all: "{3}{U}, Discard this
+/// card: Return target artifact, creature, enchantment, or planeswalker to
+/// its owner's hand", activated from hand. This plays the Channel half, so
+/// both readings that make it what it is are struck: the card leaves the
+/// *hand* as a cost — the graveyard and not the battlefield has to hold it
+/// afterwards — and the creature across the table is bounced to its owner's
+/// hand while the Forest beside it, a land and so none of the four named
+/// card types, is never offered as a target in the first place.
+#[test]
+fn otawara_channels_from_hand_to_bounce_a_creature_and_discards_itself() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(97, island())
+        .battlefield(0, &[island(), island(), island(), island()])
+        .hand(0, &[otawara_soaring_city()])
+        .battlefield(1, &[llanowar_elves(), forest()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(
+        walk_to_own_main(&mut engine, p0),
+        "p0 reaches its own first main"
+    );
+    assert!(
+        in_hand(&engine, p0, otawara_soaring_city()).is_some(),
+        "the Channel line is activated from hand, which is where the card is"
+    );
+
+    // The cost is {3}{U} and the engine reads it off the *pool*, so the mana
+    // goes in first: four Islands are the basic land type of CR 305.6, which
+    // is the whole of what `tap_all_mana` taps.
+    tap_all_mana(&mut engine, p0);
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Blue),
+        4,
+        "four Islands pay three generic and the one blue"
+    );
+
+    let their_elves = on_battlefield(&engine, p1, llanowar_elves()).expect("their Elves are out");
+    let their_forest = on_battlefield(&engine, p1, forest()).expect("their Forest is out");
+    let library_after_channel = library_size(&engine, p0);
+
+    // Ability 1 is the Channel line. Ability 0 is the printed mana ability,
+    // which a card in hand cannot pay a {T} for and so is never offered.
+    activate(&mut engine, p0, otawara_soaring_city(), 1);
+
+    let Pending::ChooseTargets {
+        player,
+        options,
+        min,
+        max,
+        ..
+    } = engine.pending().clone()
+    else {
+        panic!(
+            "the Channel line asks for its target before anything is paid, got {:?}",
+            engine.pending()
+        )
+    };
+    assert_eq!(player, p0, "the activating seat names the target");
+    assert_eq!((min, max), (1, 1), "exactly one permanent comes back");
+    assert!(
+        options.contains(&their_elves),
+        "\"target artifact, creature, …\" reaches across the table: {options:?}"
+    );
+    assert!(
+        !options.contains(&their_forest),
+        "a land is none of the four card types the sentence names: {options:?}"
+    );
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![their_elves],
+            },
+        )
+        .expect("the creature the question offered is the one it was aimed at");
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        in_graveyard(&engine, p0, otawara_soaring_city()).is_some(),
+        "discarding this card is the cost, so it never reached the battlefield \
+         and lies in its owner's graveyard"
+    );
+    assert!(
+        on_battlefield(&engine, p1, llanowar_elves()).is_none(),
+        "the Elf left the battlefield"
+    );
+    assert!(
+        in_hand(&engine, p1, llanowar_elves()).is_some(),
+        "…to its *owner's* hand, the seat that cast nothing"
+    );
+    assert!(
+        on_battlefield(&engine, p1, forest()).is_some(),
+        "and the permanent that was never a legal target never moved"
+    );
+    assert_eq!(
+        library_size(&engine, p0),
+        library_after_channel,
+        "a bounce draws nothing, for either seat"
+    );
+}
+
+fn raucous_theater() -> CardIndex {
+    card_index("04e5e84f-8fd4-43ab-8f9d-5b24646f7ae5")
+}
+
+/// Raucous Theater prints `Land — Swamp Mountain`, "This land enters tapped"
+/// and "{T}: Add {B} or {R}"; the file's `Coverage::Partial` note drops the
+/// enters-surveil clause, so what is tested here is the tapped entry and the
+/// colour question. The land is *played*, not seated: a `starting_battlefield`
+/// permanent is a placement with no entry for a replacement effect to look at,
+/// so a board built that way arrives untapped whatever the card says. The
+/// following untap step is the other half — this is a tapped entry, not a
+/// permanent held down (CR 502.3) — and the dropped clause is asserted as the
+/// question that never came: no card choice followed the entry and the top of
+/// the library is where it was, which a surveil 1 would have looked at.
+#[test]
+fn raucous_theater_enters_tapped_and_taps_for_black_or_red() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .hand(0, &[raucous_theater()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let library_before = library_size(&engine, p0);
+    let top_before = engine
+        .state()
+        .zones
+        .list(ZoneLocation::Library(p0))
+        .last()
+        .copied()
+        .expect("p0 has a library");
+
+    let land = play_land(&mut engine, p0, raucous_theater());
+    assert!(
+        is_tapped(&engine, land),
+        "\"This land enters tapped\", read off a real land drop"
+    );
+    assert!(
+        matches!(engine.pending(), Pending::Priority { player, .. } if *player == p0),
+        "the dropped paragraph asks nothing on the way in, got {:?}",
+        engine.pending()
+    );
+    assert_eq!(
+        library_size(&engine, p0),
+        library_before,
+        "surveil 1 looks at the top card and draws nothing"
+    );
+    assert_eq!(
+        engine
+            .state()
+            .zones
+            .list(ZoneLocation::Library(p0))
+            .last()
+            .copied(),
+        Some(top_before),
+        "and with no surveil the card it would have looked at is still there"
+    );
+    assert!(
+        in_graveyard(&engine, p0, forest()).is_none(),
+        "no Forest of the filler library was put into a graveyard"
+    );
+
+    // One turn cycle: an entry that taps is not a permanent that never untaps.
+    reach_their_main_phase(&mut engine, p1);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 takes another turn");
+    assert!(
+        !is_tapped(&engine, land),
+        "the untap step gives the land back, so it entered tapped and was \
+         not held down"
+    );
+
+    // Ability 0 is the printed "{T}: Add {B} or {R}".
+    activate(&mut engine, p0, raucous_theater(), 0);
+    let Pending::ChooseColor { player, options } = engine.pending().clone() else {
+        panic!(
+            "\"Add {{B}} or {{R}}\" is a question, got {:?}",
+            engine.pending()
+        )
+    };
+    assert_eq!(player, p0, "the land's controller names the colour");
+    assert_eq!(
+        options.len(),
+        2,
+        "two colours and nothing else: {options:?}"
+    );
+    assert!(
+        options.contains(&ManaColor::Black) && options.contains(&ManaColor::Red),
+        "{{B}} and {{R}} are the whole of the sentence: {options:?}"
+    );
+
+    engine
+        .apply(p0, PlayerAction::ChooseColor(ManaColor::Red))
+        .expect("red was one of the colours it offered");
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(
+        pool.available(ManaColor::Red),
+        1,
+        "the colour that was named, off the land's own {{T}}"
+    );
+    assert_eq!(pool.total(), 1, "one mana, and nothing beside it");
+    assert!(is_tapped(&engine, land), "which tapped the land");
+    assert!(
+        stack_is_empty(&engine),
+        "CR 605.3b: a mana ability uses no stack"
+    );
+}
+
+// oracle_id = "ac2dd694-d2f1-4025-8400-12332bdc882a"
+fn takenuma_abandoned_mire() -> CardIndex {
+    card_index("ac2dd694-d2f1-4025-8400-12332bdc882a")
+}
+
+/// Takenuma, Abandoned Mire is a legendary land with no enter modifier, and
+/// the half of it that is written is `{T}: Add {B}`. The card prints no basic
+/// land type, so this tap is a *printed* ability and `tap_all_mana` — the
+/// CR 305.6 intrinsic list — never touches it, which is why it is pressed by
+/// index instead. A Forest stands untapped beside it as the control: black
+/// mana in the pool while the only other land on the board has not moved can
+/// have come from nowhere else. The channel line is the `Coverage::Partial`
+/// gap, so it is asserted as an absence — nothing discards the card, and it
+/// is still on the battlefield in nobody's graveyard afterwards.
+#[test]
+fn takenuma_abandoned_mire_taps_for_black_and_offers_no_channel() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(97, forest())
+        .battlefield(0, &[forest()])
+        .hand(0, &[takenuma_abandoned_mire()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let forest_land = on_battlefield(&engine, p0, forest()).expect("the Forest is out");
+    let land = play_land(&mut engine, p0, takenuma_abandoned_mire());
+    assert!(
+        !entered_tapped(&engine, land),
+        "the card prints no enter modifier, so it lands untapped"
+    );
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "playing a land makes no mana by itself"
+    );
+
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!(
+            "the land drop leaves the seat holding priority: {:?}",
+            engine.pending()
+        )
+    };
+    assert!(
+        legal.abilities.contains(&(land, 0)),
+        "the land's own {{T}}: Add {{B}} is offered: {:?}",
+        legal.abilities
+    );
+    assert!(
+        !legal.mana_abilities.contains(&land),
+        "a printed tap is no basic land type (CR 305.6), so `tap_all_mana` \
+         would never press it: {:?}",
+        legal.mana_abilities
+    );
+
+    activate(&mut engine, p0, takenuma_abandoned_mire(), 0);
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(
+        pool.available(ManaColor::Black),
+        1,
+        "{{B}}, off the land's own tap"
+    );
+    assert_eq!(pool.total(), 1, "one mana and nothing else came with it");
+    assert!(is_tapped(&engine, land), "the land paid its own {{T}}");
+    assert!(
+        !is_tapped(&engine, forest_land),
+        "and the untapped Forest is the control: the black mana has no other \
+         source on this board"
+    );
+    assert!(
+        stack_is_empty(&engine),
+        "CR 605.3b: a mana ability uses no stack"
+    );
+    assert!(
+        on_battlefield(&engine, p0, takenuma_abandoned_mire()).is_some(),
+        "the channel line is the gap, so nothing discarded the card for it"
+    );
+    assert!(
+        in_graveyard(&engine, p0, takenuma_abandoned_mire()).is_none(),
+        "and no three cards were milled into anybody's graveyard"
+    );
+}
+
+// oracle_id = "d2bcff58-7a8a-46ef-b6b3-39501d4c8e6e"
+fn thundering_falls() -> CardIndex {
+    card_index("d2bcff58-7a8a-46ef-b6b3-39501d4c8e6e")
+}
+
+/// Thundering Falls — Land — Island Mountain: "This land enters tapped.
+/// {T}: Add {U} or {R}. When this land enters, surveil 1."
+///
+/// The land is *played* rather than seeded, because a permanent placed with
+/// `starting_battlefield` is a `Cause::Setup` placement that no entry
+/// replacement effect ever looks at — so only a real land drop can show the
+/// printed tapped entry, and answering nothing on the way in is where the
+/// file's `Coverage::Partial` gap shows itself: a surveil would have to
+/// arrive as a `ChooseCards` question, and the library is the length it was.
+/// The next turn then reads two things at once — the untap step stands the
+/// land back up, so the tapped status belonged to the entry and not to the
+/// card, and the printed `{T}` ability offers exactly blue and red, which is
+/// the choice the card has to print for itself because two basic land types
+/// cannot express "or".
+#[test]
+fn thundering_falls_enters_tapped_then_taps_for_blue_or_red() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(29, forest())
+        .battlefield(0, &[forest()])
+        .hand(0, &[thundering_falls()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let library_before = library_size(&engine, p0);
+    let falls = play_land(&mut engine, p0, thundering_falls());
+    assert!(
+        entered_tapped(&engine, falls),
+        "\"This land enters tapped\" — and it was played, so the entry \
+         modifier is the only thing that could have tapped it"
+    );
+    assert!(
+        at_rest(&engine, p0),
+        "the entry asked nothing: the dropped surveil 1 arrives as a card \
+         question and there was none, got {:?}",
+        engine.pending()
+    );
+    assert_eq!(
+        library_size(&engine, p0),
+        library_before,
+        "and nothing moved a card: the `Coverage::Partial` gap is a silence, \
+         not a scry to the bottom or a mill"
+    );
+
+    // A whole turn cycle, so CR 502.3's untap step is what stands the land
+    // back up — the reading above is the entry, not a permanent condition.
+    reach_their_main_phase(&mut engine, p1);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 takes another turn");
+    assert!(
+        !entered_tapped(&engine, falls),
+        "no effect holds this land down, so the untap step untapped it"
+    );
+
+    // Ability 0 is the printed "{T}: Add {U} or {R}."
+    activate(&mut engine, p0, thundering_falls(), 0);
+    let Pending::ChooseColor { player, options } = engine.pending().clone() else {
+        panic!(
+            "`Add {{U}} or {{R}}` is a question, got {:?}",
+            engine.pending()
+        )
+    };
+    assert_eq!(player, p0, "the activating seat is the one that names it");
+    assert_eq!(
+        options.len(),
+        2,
+        "two colours and no third thing: {options:?}"
+    );
+    assert!(
+        options.contains(&ManaColor::Blue) && options.contains(&ManaColor::Red),
+        "\"or {{R}}\" is on the menu with the {{U}} an Island would make: \
+         {options:?}"
+    );
+
+    engine
+        .apply(p0, PlayerAction::ChooseColor(ManaColor::Blue))
+        .expect("blue was one of the colours it offered");
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(
+        pool.available(ManaColor::Blue),
+        1,
+        "the colour that was named, and not a default"
+    );
+    assert_eq!(
+        pool.available(ManaColor::Red),
+        0,
+        "the other half of the choice was not handed over as well"
+    );
+    assert_eq!(pool.total(), 1, "one mana, off one tap");
+    assert!(is_tapped(&engine, falls), "the land paid its own {{T}}");
+    assert!(
+        stack_is_empty(&engine),
+        "CR 605.3b: a mana ability uses no stack, so nothing is waiting to \
+         resolve"
+    );
+}
+
+// oracle_id = "08d80efc-9542-4ba2-824c-c8615d8d07f2"
+fn undercity_sewers() -> CardIndex {
+    card_index("08d80efc-9542-4ba2-824c-c8615d8d07f2")
+}
+
+/// Undercity Sewers is a Land — Island Swamp whose printed sentences are
+/// "This land enters tapped" and "{T}: Add {U} or {B}"; the enters-surveil
+/// is the `Coverage::Partial` gap, because no effect can look at the top
+/// card and then either keep it or bin it. The land is *played* rather than
+/// seeded onto the battlefield, which is the only way the tapped entry is a
+/// rule at all: `starting_battlefield` places a permanent with
+/// `Cause::Setup`, and no replacement effect looks at a placement. The turn
+/// cycle that follows keeps the second half honest — the same permanent is
+/// untapped again afterwards, so the {T} this test pays is a real cost on a
+/// real land and not a free tap on a frozen one.
+#[test]
+fn undercity_sewers_enters_tapped_and_taps_for_blue_or_black() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+
+    // The entry, with the control beside it: the same helper, the same seat,
+    // the same first main phase — a Forest, which arrives untapped. Without
+    // that, the assertion below would hold for a harness that taps whatever
+    // it plays.
+    let (mut engine, land) = play_land_face(undercity_sewers(), 0)
+        .expect("a land in hand, on an empty board, in a first main phase");
+    let (control_engine, forest) =
+        play_land_face(basic_forest(), 0).expect("and the same for a basic Forest");
+    assert!(
+        entered_tapped(&engine, land),
+        "\"This land enters tapped.\""
+    );
+    assert!(
+        !entered_tapped(&control_engine, forest),
+        "the harness' own land drop taps nothing by itself"
+    );
+
+    // Through the opponent's turn and back: `walk_to_own_main` answers "you
+    // are already there" from the main phase this started in, so the walk has
+    // to leave it first.
+    reach_their_main_phase(&mut engine, p1);
+    assert!(
+        walk_to_own_main(&mut engine, p0),
+        "p0 takes another turn and reaches its own main phase"
+    );
+    assert!(
+        !is_tapped(&engine, land),
+        "the untap step gives the Sewers back, so the sentence above was the \
+         entry and not a permanent that never untaps"
+    );
+
+    // {T}: Add {U} or {B}. Both basic land types sit on one face, so the card
+    // prints the ability itself and it is pressed like any other — and it
+    // asks which of the two colours this tap is for.
+    activate(&mut engine, p0, undercity_sewers(), 0);
+    let Pending::ChooseColor { player, options } = engine.pending().clone() else {
+        panic!(
+            "\"Add {{U}} or {{B}}\" is a question, got {:?}",
+            engine.pending()
+        )
+    };
+    assert_eq!(player, p0, "the seat that tapped names the colour");
+    assert_eq!(
+        options.len(),
+        2,
+        "the two colours it prints and no third: {options:?}"
+    );
+    assert!(options.contains(&ManaColor::Blue), "{options:?}");
+    assert!(options.contains(&ManaColor::Black), "{options:?}");
+
+    engine
+        .apply(p0, PlayerAction::ChooseColor(ManaColor::Black))
+        .expect("black was one of the two it offered");
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(
+        pool.available(ManaColor::Black),
+        1,
+        "the colour that was named, and not a default"
+    );
+    assert_eq!(
+        pool.available(ManaColor::Blue),
+        0,
+        "the other half of the choice was not paid"
+    );
+    assert_eq!(pool.total(), 1, "one mana off one tap");
+    assert!(is_tapped(&engine, land), "the land paid its own {{T}}");
+    assert!(
+        stack_is_empty(&engine),
+        "CR 605.3b: a mana ability uses no stack, so nothing is waiting to \
+         resolve"
+    );
+}

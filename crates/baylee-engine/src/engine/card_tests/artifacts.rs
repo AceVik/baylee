@@ -1963,3 +1963,291 @@ fn mox_diamond_taps_for_one_mana_of_the_color_its_controller_names() {
          other source on this board"
     );
 }
+
+// oracle_id = "66d41377-626d-4ae6-ba86-17bf0c8b3362"
+fn nim_deathmantle() -> CardIndex {
+    card_index("66d41377-626d-4ae6-ba86-17bf0c8b3362")
+}
+
+/// Nim Deathmantle prints four clauses and three of them are written: the
+/// equipped creature gets +2/+2, is black, and is a Zombie, and the Equip is
+/// `{4}`. The statics are `Filter::AttachedToBySource`, so the only reading
+/// worth playing is the one that tells the creature the Equipment *holds*
+/// from every other creature in the game — which is why the Elves across the
+/// table are read, and why the host is a `(1, 1)` before the equip and a
+/// `(3, 3)` after it. The six Forests are the other half: they pay the `{2}`
+/// and leave exactly the `{4}` the equip charges, so the artifact arrives by
+/// being cast and the cost that lands the keywords on the host is a real
+/// payment out of the pool rather than a label.
+#[test]
+fn nim_deathmantle_equips_for_four_and_clamps_only_the_creature_it_holds() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(41, forest())
+        .battlefield(
+            0,
+            &[
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                llanowar_elves(),
+            ],
+        )
+        .battlefield(1, &[llanowar_elves()])
+        .hand(0, &[nim_deathmantle()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    let host = on_battlefield(&engine, p0, llanowar_elves()).expect("my Elves are out");
+    let theirs = on_battlefield(&engine, p1, llanowar_elves()).expect("their Elves are out");
+    assert_eq!(pt(&engine, host), (1, 1), "nothing is equipped yet");
+
+    // The artifact has to arrive, not merely be believed in: six tapped
+    // Forests pay the {2} and leave exactly the {4} the equip asks for.
+    cast_from_hand(&mut engine, p0, nim_deathmantle());
+    pass_until(&mut engine, stack_is_empty);
+    let mantle = on_battlefield(&engine, p0, nim_deathmantle()).expect("the Deathmantle resolved");
+    assert!(
+        engine
+            .state()
+            .object(mantle)
+            .is_some_and(|o| o.attached_to.is_none()),
+        "an Equipment enters holding nobody"
+    );
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        4,
+        "the {{2}} is spent and the {{4}} the equip will charge is still in the pool"
+    );
+    assert_eq!(
+        pt(&engine, host),
+        (1, 1),
+        "an Equipment attached to nothing modifies nothing"
+    );
+
+    // Equip {4}: ability 3 on the card, behind the three statics that do the
+    // granting. That it is offered at all is the pool reading above.
+    activate(&mut engine, p0, nim_deathmantle(), 3);
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!(
+            "equip targets a creature you control, got {:?}",
+            engine.pending()
+        )
+    };
+    assert_eq!(
+        options,
+        vec![host],
+        "target creature *you* control — the Elves across the table are not offered"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![host],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, |e| {
+        e.state()
+            .object(mantle)
+            .is_some_and(|o| o.attached_to == Some(host))
+    });
+
+    assert_eq!(
+        pt(&engine, host),
+        (3, 3),
+        "+2/+2 for the creature the Equipment holds"
+    );
+    assert_eq!(
+        pt(&engine, theirs),
+        (1, 1),
+        "and nothing at all for a creature it does not hold"
+    );
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "the equip's {{4}} came out of the pool"
+    );
+}
+
+// oracle_id = "49136bdc-bc50-49a2-999a-1ef9c16ea130"
+fn smugglers_copter() -> CardIndex {
+    card_index("49136bdc-bc50-49a2-999a-1ef9c16ea130")
+}
+
+/// Smuggler's Copter — {2}, a 3/3 Vehicle with flying and an attack trigger:
+/// "Whenever this Vehicle attacks or blocks, you may draw a card. If you do,
+/// discard a card." Crew 1 is not expressible and is written nowhere on the
+/// card, so nothing on it can ever animate it; what is left to play is the
+/// cast, the body and the keyword, and then the consequence of the missing
+/// cost — the 3/3 flier the combat step never offers as an attacker, against
+/// the clean control of an untapped Elf beside it that the same offer does
+/// name.
+#[test]
+fn smugglers_copter_lands_as_a_flying_three_three_the_combat_step_never_offers() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(1313, forest())
+        .battlefield(0, &[forest(), forest(), quiet_creature()])
+        .hand(0, &[smugglers_copter()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    // {2} off two Forests. The Elf is a *printed* mana ability, so
+    // `cast_from_hand` taps the lands and leaves the creature standing.
+    cast_from_hand(&mut engine, p0, smugglers_copter());
+    pass_until(&mut engine, stack_is_empty);
+    let copter = on_battlefield(&engine, p0, smugglers_copter()).expect("the Copter resolved");
+    let elves = on_battlefield(&engine, p0, quiet_creature()).expect("the Elf is on the table");
+
+    let kinds = types(&engine, copter);
+    assert!(
+        kinds.contains(TypeSet::ARTIFACT) && !kinds.contains(TypeSet::CREATURE),
+        "CR 301.7: a Vehicle is an artifact and nothing else until a crew \
+         payment animates it, and Crew 1 has no spelling in this engine: {kinds:?}"
+    );
+    assert_eq!(pt(&engine, copter), (3, 3), "the body the card prints");
+    assert!(
+        keywords(&engine, copter).contains(KeywordSet::FLYING),
+        "the printed flying line reaches the permanent"
+    );
+
+    // The gap, and its control. The trigger is `Trigger::Attacks(Filter::This)`,
+    // so it wants this permanent in the attack declaration — which wants a
+    // creature, which wants the crew cost the card file says cannot be written.
+    // The Elf is the control: an untapped creature under the same seat is
+    // offered, so an offer without the Copter is the missing crew and not a
+    // combat step that never came.
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseAttackers { .. })
+    });
+    let Pending::ChooseAttackers { attackers, .. } = engine.pending().clone() else {
+        unreachable!("pass_until stops on nothing but the attack declaration")
+    };
+    assert!(
+        attackers.contains(&elves),
+        "an untapped 1/1 with no text of its own may attack: {attackers:?}"
+    );
+    assert!(
+        !attackers.contains(&copter),
+        "the 3/3 flier may not: its numbers and its flying are printed, but \
+         the only thing that turns a Vehicle into a creature is the crew \
+         payment this card cannot carry: {attackers:?}"
+    );
+}
+
+// oracle_id = "215c287d-56a5-46da-b49e-8524b6d320a4"
+fn sword_of_the_meek() -> CardIndex {
+    card_index("215c287d-56a5-46da-b49e-8524b6d320a4")
+}
+
+/// Sword of the Meek is `Coverage::Partial`: the printed static ("equipped
+/// creature gets +1/+2") and the equip {2} are written, while the graveyard
+/// return-and-attach trigger for a 1/1 entering is not. Two printed words
+/// hold the written half up, and each needs a different bystander. "Equipped
+/// creature" is not "creatures you control", so one unequipped Elf beside the
+/// host is a live 1/1 at the end — and "you" is not "the table", so the Elf
+/// across it must stay a printed 1/1 too. +1/+2 on a printed 1/1 reads
+/// `(2, 3)`: a `(2, 2)` would mean the power was read twice and a `(1, 3)`
+/// that the +1 was never applied at all.
+#[test]
+fn sword_of_the_meek_arms_the_creature_it_targets_and_no_other() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                llanowar_elves(),
+                llanowar_elves(),
+            ],
+        )
+        .hand(0, &[sword_of_the_meek()])
+        .battlefield(1, &[llanowar_elves()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let elves = all_on_battlefield(&engine, p0, llanowar_elves());
+    assert_eq!(elves.len(), 2, "two Elves, one of which stays bare");
+    let (host, bystander) = (elves[0], elves[1]);
+    let theirs = on_battlefield(&engine, p1, llanowar_elves()).expect("an Elf across the table");
+    assert_eq!(pt(&engine, host), (1, 1), "a printed 1/1 before the Sword");
+
+    // {2} off two of the four Forests; the other two pay the equip.
+    cast_from_hand(&mut engine, p0, sword_of_the_meek());
+    pass_until(&mut engine, stack_is_empty);
+    let sword = on_battlefield(&engine, p0, sword_of_the_meek()).expect("the Sword resolved");
+    assert!(
+        engine
+            .state()
+            .object(sword)
+            .is_some_and(|o| o.attached_to.is_none()),
+        "with nothing chosen yet it enters holding nobody"
+    );
+    assert_eq!(
+        pt(&engine, host),
+        (1, 1),
+        "an Equipment attached to nothing modifies nothing"
+    );
+
+    // Ability 1 is Equip {2}; ability 0 is the static that grants.
+    tap_all_mana(&mut engine, p0);
+    activate(&mut engine, p0, sword_of_the_meek(), 1);
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!(
+            "equip targets a creature you control, got {:?}",
+            engine.pending()
+        )
+    };
+    assert!(
+        options.contains(&host) && options.contains(&bystander),
+        "both creatures you control may be armed: {options:?}"
+    );
+    assert!(
+        !options.contains(&theirs),
+        "\"target creature *you* control\" declines the Elf across the table: {options:?}"
+    );
+    assert!(
+        !options.contains(&sword),
+        "the Equipment is an artifact and no creature: {options:?}"
+    );
+    assert_eq!(options.len(), 2, "and those two are the whole menu");
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![host],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, |e| {
+        e.state()
+            .object(sword)
+            .is_some_and(|o| o.attached_to == Some(host))
+    });
+
+    assert_eq!(
+        pt(&engine, host),
+        (2, 3),
+        "+1/+2 on the creature the Sword is attached to"
+    );
+    assert_eq!(
+        pt(&engine, bystander),
+        (1, 1),
+        "the Elf nobody equipped is still the 1/1 it was printed as"
+    );
+    assert_eq!(
+        pt(&engine, theirs),
+        (1, 1),
+        "the static reaches the equipped creature and never across the table"
+    );
+}
