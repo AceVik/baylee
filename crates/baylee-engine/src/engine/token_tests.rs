@@ -260,7 +260,7 @@ fn amass_makes_an_army_instead_of_growing_the_orc_that_cast_it() {
     // The ETB deals 1 damage to any target and amasses Orcs 1. The arrow is
     // aimed at the opponent's face on purpose: this arm used to answer with
     // `options.first()`, and once the ability started actually asking, the
-    // first option was the Bowmasters itself â a 1/1 shooting itself dead,
+    // first option was the Bowmasters itself — a 1/1 shooting itself dead,
     // three assertions below.
     for _ in 0..40 {
         if !tokens_on_battlefield(&engine).is_empty() {

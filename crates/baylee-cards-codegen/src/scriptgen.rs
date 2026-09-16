@@ -1643,7 +1643,7 @@ impl Tx<'_> {
                 }
             };
             // `mana_ability!(effects)` *is* `mana_ability!(effects)`
-            // â the macro supplies the tap, because tapping is what almost
+            // — the macro supplies the tap, because tapping is what almost
             // every mana ability costs. Writing the cost out again says
             // nothing and reads as though this one were the exception.
             let line = match (mana_ability, cost.as_str()) {

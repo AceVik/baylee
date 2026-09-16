@@ -644,7 +644,7 @@ fn matches(
             // "except the first one they draw in each of their draw steps"
             // is about a draw *step*, not about a turn. A draw on somebody
             // else's turn is never in this player's draw step, so it always
-            // fires â which is the case Orcish Bowmasters is played for
+            // fires — which is the case Orcish Bowmasters is played for
             // (Brainstorm, Rhystic Study, a Howling Mine on my turn), and
             // the old `count > 1` read it as the opponent's excepted first
             // draw and fired nothing at all.
