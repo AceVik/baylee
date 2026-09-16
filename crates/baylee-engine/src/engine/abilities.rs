@@ -160,22 +160,16 @@ impl<L: CardLookup> Engine<L> {
                 legal.castable.push(card);
             }
         }
-        // Flashback: granted cards in your graveyard are castable.
+        // Flashback (CR 702.34) and disturb (CR 702.146): a card in your own
+        // graveyard is castable when a grant or a printed face says so, and
+        // `can_cast` asks both of those itself — for a graveyard card it is
+        // exactly `flashback_ok || disturb_ok` that keeps it out of
+        // `CastError::NotInHand`. So this sweep asks nothing. The pre-check
+        // it used to carry was not a fast path, it was a second opinion:
+        // it recognised only the `EffectFilter::ObjectIs` shape of a grant
+        // and hid every filtered one from the offer.
         for &card in self.state.zones.list(ZoneLocation::Graveyard(player)) {
-            let granted = self.state.effects.iter().any(|fx| {
-                matches!(fx.modifier, baylee_cards_dsl::Modifier::GrantsFlashback)
-                    && matches!(&fx.filter, crate::effects::EffectFilter::ObjectIs(id) if *id == card)
-            });
-            // Disturb: a face with disturb is castable from the graveyard.
-            let disturb = self
-                .state
-                .object(card)
-                .and_then(|o| o.card)
-                .and_then(|c| self.lookup.card(c.index))
-                .is_some_and(|def| def.faces.iter().any(|f| f.disturb));
-            if (granted || disturb)
-                && casting::can_cast(&self.state, &self.lookup, player, card).is_ok()
-            {
+            if casting::can_cast(&self.state, &self.lookup, player, card).is_ok() {
                 legal.castable.push(card);
             }
         }

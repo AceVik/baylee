@@ -1026,3 +1026,25 @@ name for it):
   is put on the stack as a copy", because `CopyTargetSpell` deliberately does
   not journal it (CR 707.10). That is not a missing variant but a missing
   *observability*.
+- **A resolved effect whose filter reaches another zone never locks its set**
+  (`past_in_flames`, found 2026-09-17 while the flashback reader was being
+  repaired). CR 611.2c: a continuous effect from a *resolving* spell that
+  modifies characteristics affects the objects it found when it began, and
+  the set does not change afterwards — which is why `resolve::bound_now`
+  enumerates the battlefield and registers one `EffectFilter::ObjectIs` per
+  object it matched. It cannot do that for a filter naming another zone
+  ("each instant and sorcery card **in your graveyard**"): enumerating it
+  would mean walking every zone the filter could mean, and narrowing to the
+  battlefield would silently drop the rest. So those stay
+  `EffectFilter::Dsl`, asked again on every read — a static ability's
+  semantics on an effect the rule says is not one. Two consequences are
+  visible at the table with Past in Flames, the pool's only such card: an
+  instant that reaches the graveyard *after* it resolves gains flashback
+  that turn, and Past in Flames itself gains flashback once it lands in the
+  graveyard, so it can be cast a second time for `{3}{R}`. Neither is
+  asserted anywhere — `flashback_tests` and the card's own test are about
+  the grant being *read*, and enshrining the wrong set would be worse than
+  leaving it uncovered. The fix is one function: `bound_now` already has the
+  right shape, and what it needs is an object walk that is not
+  `zones.list(Battlefield)`. It is the same seam escape and Underworld
+  Breach will land on.

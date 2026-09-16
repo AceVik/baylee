@@ -127,6 +127,10 @@ fn dark_ritual() -> CardIndex {
     card_index("53f7c868-b03e-4fc2-8dcf-a75bbfa3272b")
 }
 
+fn past_in_flames() -> CardIndex {
+    card_index("37a18736-5fe2-4897-809b-013497bdd890")
+}
+
 /// Activates printed ability `index` of `card`.
 #[track_caller]
 fn activate(engine: &mut Engine<RegistryLookup>, seat: PlayerId, card: CardIndex, index: u32) {

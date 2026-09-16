@@ -481,6 +481,33 @@ pub(crate) fn timing_allows(
     true
 }
 
+/// Whether a continuous effect grants `card` flashback (CR 702.34) right now.
+///
+/// One reader, because a grant arrives in either of two shapes and a caller
+/// that knew only one of them offered nothing. `Effect::GrantFlashback`
+/// names its target and registers `EffectFilter::ObjectIs`; a card whose
+/// sentence is about a *set* — "each instant and sorcery card in your
+/// graveyard" — resolves through `bound_now`, which cannot enumerate a
+/// filter reaching past the battlefield and so registers
+/// `EffectFilter::Dsl`. Both readers of the grant matched `ObjectIs` alone,
+/// so the second shape granted flashback to nobody: the effect was in the
+/// table, `legal.castable` held no graveyard card, and nothing said why.
+///
+/// [`crate::effects::applies_to`] is the function that already answers both,
+/// and is what `granted_activated`, `eval::protected_from` and the granted-
+/// trigger walk ask. A third hand-rolled `matches!` beside them was the
+/// defect waiting to happen, and it happened.
+#[must_use]
+pub fn flashback_granted(state: &GameState, card: ObjectId) -> bool {
+    let Some(obj) = state.object(card) else {
+        return false;
+    };
+    state.effects.iter().any(|fx| {
+        matches!(fx.modifier, baylee_cards_dsl::Modifier::GrantsFlashback)
+            && crate::effects::applies_to(state, fx, obj)
+    })
+}
+
 /// Whether `card` can be cast by `player` right now (printed cost or any
 /// alternative/mode).
 ///
@@ -498,11 +525,7 @@ pub fn can_cast(
     let in_own_graveyard = obj.zone == Zone::Graveyard && obj.zone_owner == Some(player);
     // Flashback (CR 702.34): a granted card may be cast from its owner's
     // graveyard.
-    let flashback_ok =
-        !in_hand && in_own_graveyard && state.effects.iter().any(|fx| {
-            matches!(fx.modifier, baylee_cards_dsl::Modifier::GrantsFlashback)
-                && matches!(&fx.filter, crate::effects::EffectFilter::ObjectIs(id) if *id == card)
-        });
+    let flashback_ok = !in_hand && in_own_graveyard && flashback_granted(state, card);
     // Disturb (CR 702.146): a face with disturb is castable from the
     // owner's graveyard.
     let disturb_ok = !in_hand

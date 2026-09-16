@@ -629,6 +629,8 @@ mod day_night_tests;
 mod draw_tests;
 #[cfg(test)]
 mod enter_tests;
+#[cfg(test)]
+mod flashback_tests;
 
 #[cfg(test)]
 mod house_rules_tests;
