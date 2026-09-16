@@ -1188,3 +1188,181 @@ Fearful Villager // Fearsome Werewolf
 Harvesttide Infiltrator // Harvesttide Assailant
 Tavern Ruffian // Tavern Smasher
 Tireless Hauler // Dire-Strain Brawler
+
+# The four Commander decks — Kenrith, Breya, Kess and Tayam — that arrived as
+# a decklist and had to be turned into cards. 262 distinct names between them;
+# these are the 172 the pool did not already have. They were chosen to cover as
+# much of Magic as four legal decks can, so this section is wide rather than
+# deep: sacrifice loops, artifact combo, graveyard recursion and a five-colour
+# goodstuff shell, and the lands that make all four castable.
+Abrupt Decay
+Academy Rector
+Ad Nauseam
+Aether Spellbomb
+Agatha's Soul Cauldron
+Arcbound Ravager
+Archon of Emeria
+Ashnod's Altar
+Avacyn's Pilgrim
+Aven Mindcensor
+Basalt Monolith
+Birgi, God of Storytelling
+Blood Artist
+Bloom Tender
+Borg Queen, Perfection Manifest
+Borne Upon a Wind
+Brad Boimler, Eager Ensign
+Braided Net
+Brain Freeze
+Brazen Borrower
+Breya, Etherium Shaper
+Cabal Ritual
+Carpet of Flowers
+Carrion Feeder
+Chord of Calling
+Chromatic Sphere
+Chrome Mox
+Collector Ouphe
+Dauthi Voidwalker
+Deadly Rollick
+Deathrite Shaman
+Deflecting Swat
+Delighted Halfling
+Demonic Consultation
+Derevi, Empyrial Tactician
+Devoted Druid
+Disciple of the Vault
+Dispatch
+Dragon's Rage Channeler
+Drannith Magistrate
+Dualcaster Mage
+Dwalin, Weaponmaster
+Earthcraft
+Eladamri's Call
+Eldritch Evolution
+Elvish Mystic
+Emiel the Blessed
+Emry, Lurker of the Loch
+Endurance
+Eternal Witness
+Expressive Iteration
+Fable of the Mirror-Breaker
+Fabricate
+Faeburrow Elder
+Faithless Looting
+Fatehold Chronologist // Peer Review
+Finale of Devastation
+Fire // Ice
+Flusterstorm
+Frantic Search
+Gamble
+Geist of Saint Thalia
+Gemrazer
+Gitaxian Probe
+Goblin Engineer
+Goblin Welder
+Golgari Thug
+Grand Abolisher
+Gravecrawler
+Green Sun's Zenith
+Grim Monolith
+Grinding Station
+Grist, the Hunger Tide
+Hapatra, Vizier of Poisons
+Hermit Druid
+Intuition
+Jeska's Will
+Kenrith, the Returned King
+Kess, Dissident Mage
+Kitchen Finks
+Krark-Clan Ironworks
+Lake-town Lookout
+Ledger Shredder
+Liliana the Repentant
+Lion's Eye Diamond
+Lotleth Troll
+Lotus Cobra
+Lotus Petal
+Luminous Broodmoth
+Malevolent Hermit
+Mana Vault
+Marionette Apprentice
+Mental Misstep
+Mikaeus, the Unhallowed
+Mizzix's Mastery
+Mox Diamond
+Myr Retriever
+Mystic Forge
+Mystic Remora
+Necropotence
+Neoform
+Nettlecyst
+Nim Deathmantle
+Open Communications
+Oswald Fiddlebender
+Past in Flames
+Phyrexian Fleshgorger
+Quirion Ranger
+Rabbit Battery
+Ragavan, Nimble Pilferer
+Ranger-Captain of Eos
+Renegade Rallier
+Reshape
+Rishkar, Peema Renegade
+Rite of Flame
+Safehold Elite
+Saffi Eriksdotter
+Scavenging Ooze
+Scrap Trawler
+Scryb Ranger
+Seven of Nine
+Sevinne's Reclamation
+Silence
+Simulacrum Synthesizer
+Skullclamp
+Smuggler's Copter
+Spirit of the Labyrinth
+Stingcaster Mage
+Stitcher's Supplier
+Storm-Kiln Artist
+Strangleroot Geist
+Sudden Spoiling
+Survival of the Fittest
+Swan Song
+Swift Reconfiguration
+Sword of the Meek
+Sylvan Library
+Tainted Pact
+Talisman of Dominance
+Talisman of Progress
+Tayam, Luminous Enigma
+Teferi's Protection
+Thassa's Oracle
+The One Ring
+Theorist's Proxy
+Thopter Foundry
+Thorin Oakenshield
+Thought Monitor
+Time Sieve
+Training Grounds
+Treasure Cruise
+Twinflame
+U.S.S. Enterprise-D, Galaxy-Class
+Underworld Breach
+Urza, Lord High Artificer
+Vampiric Tutor
+Veil of Summer
+Viscera Seer
+Vizier of Remedies
+Walking Ballista
+Wall of Roots
+Wheel of Fortune
+Whir of Invention
+White Plume Adventurer
+Windfall
+Wishclaw Talisman
+Worldly Tutor
+Yawgmoth, Thran Physician
+Yawgmoth's Will
+Young Wolf
+Zulaport Cutthroat
