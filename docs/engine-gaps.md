@@ -120,7 +120,7 @@ met where the ranking is.
 | --- | --- | --- | --- | --- | --- | --- |
 | 1 | **G2** A counter as a cost, fixed number — **shipped**, see §1 | 43 cards (re-measured), 17 of them X storage lands | 1 | 20–40 | **case** | the X half with G1 |
 | 2 | **G3** Surveil | 32 headers (by hand), 29 script | 1 | 32 | **case** | — |
-| 3 | **G1** An activation asks a question | 50 headers with Sacrifice/Discard only (by hand); +9 tapXType, +4 crew, +20 script-counted activation costs, +~20 storage lands | 3 | ~27 | **new rule** on an existing seam | G2's X, G14, `offers`#2 |
+| 3 | **G1** An activation asks a question — the chooser half **shipped**, X still open, see §3 | 50 headers with Sacrifice/Discard only (by hand); +9 tapXType, +4 crew, +20 script-counted activation costs, +~20 storage lands | 3 | ~27 | **new rule** on an existing seam | G2's X, G14, `offers`#2 |
 | 4 | **G4** "unless you pay" takes a `Cost` | 17 headers (by hand), 36 script | 2 | 9–18 | **case** (field change) | 31 of the 36 need G1's CostParts |
 | 5 | **G5** "doesn't untap" | 22 headers (by hand), 20 script | 2 | 11 | **new rule** (small) | 5 depletion lands also G2 |
 | 6 | **G6** A chosen color | 29 headers (by hand, incl. "chosen color"), 24 script | 3 | ~10 | **new rule** | — |
@@ -247,7 +247,9 @@ twin.
 This is the purest case of "existing rule, missing case" in the whole list: 32
 cards for one enum variant beside one that is already standing there.
 
-### 3. G1 — an activation cannot ask a question while its cost is being paid
+### 3. G1 — an activation cannot ask a question while its cost is being paid — **the chooser half shipped**
+
+The entry below is what the audit proposed. `cost_wizard.rs` is what was built, and it is `partial`'s shape: `ChoicePrompt::CostSacrifice` / `CostDiscard` / `CostTap` on the existing `Pending::ChooseCards` and no new plan kind. `choice_cost_unpayable` is gone, `can_afford` asks the same `cost_wizard::options` the player is about to be shown, and `CostPart` gained `TapOther(&Filter)` with it. Viscera Seer, Ashnod's Altar, Recurring Nightmare, Krark-Clan Ironworks and Survival of the Fittest are all `Coverage::Implemented`. **What is left is X in an activation cost** — G2's storage-land half and G22 — which is a different question with a different answer.
 
 > **Closed.** `engine::cost_wizard` asks the question and `start_activation`
 > carries the answers back through `PlanKind::PayActivationCost`, so
@@ -294,7 +296,10 @@ the mana pool is **untouched** when a cost is refused — that is the side
 finding view `offers` made, and the one place where this rule destroys state
 today. Alongside it, `offer_tests.rs:441`/`:490` and
 `no_implemented_card_hides_an_ability_the_engine_will_never_offer` keep
-running as the existing guards.
+running as the existing guards. (That last one no longer exists: it was a
+guard about the *limitation*, so it was deleted with the limitation, and
+`nothing_in_the_pool_carries_an_activated_cost_the_engine_would_skip` is what
+remains of the pair.)
 **(e)** **Viscera Seer**: one line, `cost!(Sacrifice(&Filter::YOUR_CREATURE))`
 is already written, and the card is `Partial` for that alone. Krark-Clan
 Ironworks and Survival of the Fittest fall in the same commit.

@@ -378,43 +378,45 @@ express at all yet.
   is still the struct underneath and is what a *reader* in
   `baylee-cards-codegen` builds; card files say `cost!`.
 
-Four of those may not appear on an **activated** ability, and one that carries
-them fails the build rather than shipping. `Sacrifice(filter)` and
-`Discard(filter)` name something to choose and an activation has nowhere to ask
-the question, so `can_afford` refuses the cost and the ability is never offered
-at all — the card is inert while the deckbuilder lists it as playable.
-`ExileFromHand(filter)` and `PayLifeX` are the opposite and the worse half:
-they are paid in the cast wizard, which an activation never enters, so the
-ability *is* offered and the part is silently skipped — a pitch cost that
-exiles nothing. Both are guarded pool-wide in
-`baylee-engine/src/engine/offer_tests.rs`
-(`no_implemented_card_hides_an_ability_the_engine_will_never_offer`, its token
-twin, and `nothing_in_the_pool_carries_an_activated_cost_the_engine_would_skip`).
-The way out differs between the two pairs, and what separates them is the
-deckbuilder. A `Sacrifice`/`Discard` activation may stay on the card under
-`Coverage::Partial("…")` with a `// NOT SUPPORTED:` comment, like any other
-unread clause: the ability is never offered, so the card plays exactly as
-though the line were not printed, which is what `Partial` promises about it.
-An `ExileFromHand`/`PayLifeX` activation may not. A partial card is offered as
-playable and dealt into real decks, so the label would ship a pitch cost that
-exiles nothing rather than excuse it — that ability comes **off** the card,
-leaving the `// NOT SUPPORTED:` line to say what was dropped. Recurring
-Nightmare is the one partial card of the first kind in the pool, and it goes
-back to `Implemented` the day an activation can suspend on a choice during
-cost payment.
+**Two** of those may not appear on an **activated** ability, and one that
+carries them fails the build rather than shipping. `ExileFromHand(filter)` and
+`PayLifeX` are paid in the cast wizard, which an activation never enters, so
+the ability *is* offered and the part is silently skipped — a pitch cost that
+exiles nothing, and an activation that succeeds, which is why no test of an
+action can fail on it. `nothing_in_the_pool_carries_an_activated_cost_the_engine_would_skip`
+in `baylee-engine/src/engine/offer_tests.rs` is the pool-wide guard.
 
-On a **spell** the four are not interchangeable either, because a spell has
+There is no way out of that one and `Coverage::Partial` is not it: a partial
+card is offered as playable and dealt into real decks, so the label would ship
+the pitch cost that exiles nothing rather than excuse it. The ability comes
+**off** the card, leaving a `// NOT SUPPORTED:` line to say what was dropped.
+
+`Sacrifice(filter)`, `Discard(filter)` and `TapOther(filter)` used to be on
+that list and are not any more. They name something to choose, an activation
+had nowhere to ask, and `can_afford` refused them outright — so the two guards
+that stood beside the one above (`no_implemented_card_hides_an_ability_the_engine_will_never_offer`
+and its token twin) were about a *limitation* rather than a rule. `cost_wizard`
+is the limitation's end: the engine suspends the activation on a
+`Pending::ChooseCards`, the player answers, and `can_afford` asks the same
+`cost_wizard::options` the player is about to be shown — so the cost is
+refused only on a board that really has nothing to pay it with. Those two
+guards are gone with it, and Viscera Seer, Krark-Clan Ironworks, Survival of
+the Fittest and Recurring Nightmare are all `Coverage::Implemented`.
+
+On a **spell** the parts are not interchangeable either, because a spell has
 three cost lists and no two of them are paid by the same code. Each pays
 exactly what its bullet above says and walks past the rest, so a part written
 on the wrong list is a spell cast without paying it —
 `offer_tests::no_spell_cost_list_carries_a_part_its_payment_walks_past` is the
 build failure, and `cast_wizard`'s two predicates are what it reads, so the
-guard and the payment cannot drift. `Sacrifice(filter)` and `Discard(filter)`
-are paid on **no** list at all: an alternative cost is the one list `can_afford`
-gates, so writing one there is refused rather than skipped — but the offer is
-computed from the alternative's *mana* alone, so the card is listed as castable
-and the wizard then has nothing to offer. A dead offer instead of a free spell
-is not an improvement worth having.
+guard and the payment cannot drift. `Sacrifice(filter)`, `Discard(filter)` and
+`TapOther(filter)` are paid on **no** list at all: an alternative cost is the
+one list `can_afford` gates, so writing one there is refused rather than
+skipped — a dead offer instead of a free spell, which is not an improvement
+worth having either. `cost_wizard` does not reach here, and that is the line
+between the two halves: an *activation* can suspend on a question, a **cast**
+already has a wizard of its own and a second one inside it is a stage nobody
+has built.
 
 ### Ability kinds
 
