@@ -56,11 +56,12 @@ const SEED: u64 = 4_211;
 /// It is now every implemented card the engine draws a button for on this
 /// board: no board is abandoned on the way in and none is abandoned tapping
 /// its mana. What is left out is *not* simply "cards with no activated
-/// ability". An ability whose cost `can_afford` refuses to offer is a card
-/// that arrives, is asked, and answers with nothing — counted here exactly
-/// as a vanilla creature is. Recurring Nightmare is that shape (a sacrifice
-/// cost is a choice an activation cannot make yet), and it left the
-/// implemented pool by hand rather than by anything this number can see.
+/// ability". An ability `can_afford` refuses on *this* board is a card that
+/// arrives, is asked, and answers with nothing — counted here exactly as a
+/// vanilla creature is. That used to include every sacrifice and discard cost
+/// on every board, because nothing could ask which card; since `cost_wizard`
+/// it is an ordinary board reading, and the six cards that carried such a
+/// cost are pressed here like any other.
 const COVERAGE_FLOOR: usize = 417;
 
 /// The floor under the deeds driven all the way back to a quiet priority.
@@ -323,212 +324,238 @@ fn every_offered_ability_can_be_activated() {
     );
 }
 
-/// The one live disagreement of this shape that the sweep's board cannot
-/// reach, given the board it needs.
+/// Recurring Nightmare: "Sacrifice a creature, Return this enchantment to
+/// its owner's hand: Return target creature card from your graveyard to the
+/// battlefield."
 ///
-/// Recurring Nightmare's only ability is `Sacrifice a creature, Return this
-/// enchantment to its owner's hand: Return target creature card from your
-/// graveyard to the battlefield`, and [`probe`] stands a card up beside
-/// twenty basics on a board with no creature and an empty graveyard. Both
-/// halves are missing there, and `legal_actions` asks about the *target*
-/// before it asks about the cost, so the sweep finds a card with nothing to
-/// press and says nothing about it.
+/// The card this module used to prove the engine was *silent* about. A cost
+/// that says "a creature" names none, and `can_afford` refused the part
+/// rather than asking, so the only ability on the card was never offered and
+/// the guard standing here asserted that absence. `cost_wizard` closed it,
+/// and the claim turns over: the ability is offered, pressed, its target
+/// chosen, its cost answered, and the creature card comes back.
 ///
-/// Given both halves the offer went out and `pay_cost` then refused it:
-/// [`CostPart::Sacrifice`] and [`CostPart::Discard`] are choice costs no
-/// activation can pay yet, and `can_afford` passed them in a silent no-op
-/// arm. So the engine offered a card's only ability and took it back — on a
-/// card the deckbuilder was listing as playable.
+/// Two enumerations, each read with both halves struck, because reading the
+/// card cannot tell either list from a wider one. The target list carries
+/// the creature card in *my* graveyard and neither the opponent's Elf nor
+/// the land of mine lying beside it. The cost list carries the creature I
+/// control and neither the opponent's — CR 701.21a lets a player sacrifice
+/// only a permanent they control — nor my land, nor the enchantment asking
+/// the question, which is mine and is no creature.
 ///
-/// [`CostPart::Sacrifice`]: baylee_cards_dsl::CostPart::Sacrifice
-/// [`CostPart::Discard`]: baylee_cards_dsl::CostPart::Discard
+/// The `prompt` is asserted with them. `ChoicePrompt::CostSacrifice` inside
+/// a `Pending::ChooseCards` is the whole of what tells a client that this is
+/// a cost being paid and not a search, and choosing what to sacrifice is not
+/// targeting (CR 115.1) — the same list arriving as `ChooseTargets` would
+/// give a hexproof creature a say in whether its own controller may eat it.
+/// A test that read the options alone would pass against
+/// `ChoicePrompt::Generic`.
+///
+/// The last claim is about where the bounce lives, and it is the one a
+/// reader of the card file cannot settle. Everything before the colon is the
+/// cost (CR 602.1a), so `ReturnSelfToHand` belongs where the card file puts
+/// it, and the difference is observable: once the cost is paid the
+/// enchantment is in its owner's hand while its ability is still on the
+/// stack (CR 113.7a). Written as an effect instead, it would be sitting on
+/// the battlefield at that moment.
+#[allow(clippy::too_many_lines)] // two enumerations, and a cost paid between them
 #[test]
-fn an_ability_the_engine_cannot_pay_for_is_never_offered() {
-    let seat = PlayerId::new(0);
+fn an_ability_whose_cost_asks_a_question_is_offered_and_paid() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let nightmare = card_index("a6708b11-1bcd-4208-a967-fe91f2e3313c");
     let elves = card_index("68954295-54e3-4303-a6bc-fc4547a4e3a3");
     let forest = card_index("b34bb2dc-c1af-4d77-b0b3-a0fb342a5fc6");
     let mut engine = Duel::new(SEED, forest)
-        .battlefield(0, &[nightmare, elves, elves])
+        .battlefield(0, &[nightmare, forest, elves, elves])
+        .battlefield(1, &[elves, elves])
         .start();
-    // One of the two Elves into the graveyard: the ability wants a creature
-    // to sacrifice *and* a creature card to bring back, and without the
-    // second the offer is refused for want of a target long before anything
-    // asks whether the cost is payable.
-    let doomed = on_battlefield(&engine, seat, elves).expect("an Elf on the battlefield");
-    sba::destroy(
-        engine
-            .dev_state_mut(seat)
-            .expect("the test kit grants dev commands"),
-        doomed,
-    );
+    // One Elf per seat into its own graveyard, and one card off my library
+    // on top of mine. The ability wants a creature to sacrifice *and* a
+    // creature card to bring back; the two extra cards are the ones each
+    // list has to reject — the one in the wrong graveyard, and the one that
+    // is no creature.
+    for seat in [p0, p1] {
+        let doomed = on_battlefield(&engine, seat, elves).expect("an Elf on the battlefield");
+        sba::destroy(
+            engine
+                .dev_state_mut(seat)
+                .expect("the test kit grants dev commands"),
+            doomed,
+        );
+    }
+    seed_graveyard(&mut engine, p0, 1);
     assert!(
-        walk_to_own_main(&mut engine, seat),
+        walk_to_own_main(&mut engine, p0),
         "the board never reached seat 0's own main phase"
     );
-    assert!(
-        engine
-            .state()
-            .zones
-            .list(ZoneLocation::Graveyard(seat))
-            .iter()
-            .any(|id| engine
-                .state()
-                .object(*id)
-                .is_some_and(|o| o.card.is_some_and(|c| c.index == elves))),
-        "the probe needs a creature card in the graveyard to be worth anything"
-    );
-    assert!(
-        on_battlefield(&engine, seat, elves).is_some(),
-        "the probe needs a creature left to sacrifice"
-    );
-    let source = on_battlefield(&engine, seat, nightmare).expect("Recurring Nightmare in play");
+
+    let source = on_battlefield(&engine, p0, nightmare).expect("Recurring Nightmare in play");
+    let survivor = on_battlefield(&engine, p0, elves).expect("a creature left to sacrifice");
+    let land = on_battlefield(&engine, p0, forest).expect("a land of my own");
+    let theirs = on_battlefield(&engine, p1, elves).expect("a creature of theirs");
+    let mine_dead = in_graveyard(&engine, p0, elves).expect("a creature card in my graveyard");
+    let theirs_dead = in_graveyard(&engine, p1, elves).expect("a creature card in theirs");
+    let my_land_card = in_graveyard(&engine, p0, forest).expect("a land card in mine");
 
     let Pending::Priority { legal, .. } = engine.pending().clone() else {
         panic!("expected priority, got {:?}", engine.pending())
     };
-    let offered: Vec<u32> = legal
-        .abilities
-        .iter()
-        .filter(|(who, _)| *who == source)
-        .map(|(_, index)| *index)
-        .collect();
     assert!(
-        offered.is_empty(),
-        "the engine offered Recurring Nightmare's ability {offered:?}, whose \
-         cost `pay_cost` cannot pay"
+        legal.abilities.contains(&(source, 0)),
+        "a creature to sacrifice and a creature card to return: the card's \
+         only ability is offered: {:?}",
+        legal.abilities
     );
-    // The other probe, asked the same question: refused at the door, with
-    // nothing paid on the way to the refusal.
-    let refused = engine.apply(
-        seat,
-        PlayerAction::ActivateAbility {
-            source,
-            ability_index: 0,
-        },
+    engine
+        .apply(
+            p0,
+            PlayerAction::ActivateAbility {
+                source,
+                ability_index: 0,
+            },
+        )
+        .expect("what the engine offers, the engine accepts");
+
+    // CR 601.2c, and the printed word is *your*.
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!("the reanimation asks which card: {:?}", engine.pending())
+    };
+    assert!(
+        options.contains(&mine_dead),
+        "the creature card in my own graveyard is the target: {options:?}"
     );
     assert!(
-        matches!(
-            refused,
-            Err(EngineError::IllegalAction("ability not activatable"))
-        ),
-        "the activation should agree with the offer, and answered {refused:?}"
+        !options.contains(&theirs_dead),
+        "the one lying in theirs is not: {options:?}"
+    );
+    assert!(
+        !options.contains(&my_land_card),
+        "nor is a card of mine that is no creature: {options:?}"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![mine_dead],
+                players: Vec::new(),
+            },
+        )
+        .expect("the Elf in my graveyard is one of the legal targets");
+
+    // CR 601.2h, and the one step of it the player takes.
+    let Pending::ChooseCards {
+        options,
+        min,
+        max,
+        prompt,
+        ..
+    } = engine.pending().clone()
+    else {
+        panic!(
+            "the cost asks which creature to sacrifice: {:?}",
+            engine.pending()
+        )
+    };
+    assert_eq!(
+        prompt,
+        crate::choice::ChoicePrompt::CostSacrifice,
+        "the variant is what says a cost is being paid rather than a \
+         graveyard searched"
+    );
+    assert_eq!((min, max), (1, 1), "one creature, and exactly one");
+    assert!(
+        options.contains(&survivor),
+        "the creature I control is what pays the cost: {options:?}"
+    );
+    assert!(
+        !options.contains(&theirs),
+        "a creature I do not control is not, whatever the filter says: \
+         CR 701.21a lets a player sacrifice only a permanent they control: \
+         {options:?}"
+    );
+    assert!(
+        !options.contains(&land),
+        "nor is a permanent of mine that is no creature: {options:?}"
+    );
+    assert!(
+        !options.contains(&source),
+        "and least of all the enchantment asking the question: {options:?}"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![survivor],
+            },
+        )
+        .expect("the Elf is one of the answers the engine listed");
+
+    // Both halves of the cost are paid before the ability is on the stack,
+    // and both are visible from here.
+    assert!(
+        engine
+            .state()
+            .zones
+            .list(ZoneLocation::Graveyard(p0))
+            .contains(&survivor),
+        "the creature the player named is in its owner's graveyard"
+    );
+    assert!(
+        on_battlefield(&engine, p0, nightmare).is_none()
+            && in_hand(&engine, p0, nightmare).is_some(),
+        "and the enchantment is in its owner's hand: the bounce is printed \
+         before the colon, so it is a cost and is paid now"
+    );
+    assert!(
+        !stack_is_empty(&engine),
+        "the ability is on the stack all the same, its source in a hand \
+         (CR 113.7a)"
+    );
+
+    pass_until(&mut engine, stack_is_empty);
+    assert!(
+        engine
+            .state()
+            .zones
+            .list(ZoneLocation::Battlefield)
+            .contains(&mine_dead),
+        "the targeted creature card is back on the battlefield"
+    );
+    assert_eq!(
+        engine.state().object(mine_dead).map(|o| o.controller),
+        Some(p0),
+        "under the player whose ability returned it"
+    );
+    assert_eq!(
+        in_graveyard(&engine, p1, elves),
+        Some(theirs_dead),
+        "and the other graveyard was never touched"
     );
 }
 
-/// The class that card is one member of, guarded where the sweep cannot look.
-///
-/// An ability whose cost `can_afford` refuses unconditionally is never
-/// offered, so [`COVERAGE_FLOOR`] counts the card exactly as it counts a
-/// vanilla creature: it arrives, is asked, and answers with nothing. The
-/// sweep cannot *report* the next Recurring Nightmare — it can only fail to
-/// mention it — while the deckbuilder goes on listing the card as playable
-/// and it sits in a deck doing nothing at all.
-///
-/// So this half is static and pool-wide, in the shape of
-/// `keyword_tests::no_card_claims_a_keyword_the_engine_ignores`: a card that
-/// prints such a cost says `Coverage::Partial` with the reason on it, or the
-/// build fails. Recurring Nightmare was moved by hand; this is what stops
-/// the next one arriving as playable.
-///
-/// Activated abilities only, and both spellings of one
-/// ([`AbilityDef::ActivatedConditional`] is the same ability with a
-/// precondition, and reading only the first is how six other places got this
-/// wrong). A spell's alternative or additional cost is a different path
-/// entirely — it is paid in the casting wizard, which does have somewhere to
-/// ask — and neither `can_afford` nor `pay_cost` is ever shown one.
-#[test]
-fn no_implemented_card_hides_an_ability_the_engine_will_never_offer() {
-    let mut offenders = Vec::new();
-    for def in baylee_cards::all().filter(|d| d.is_implemented()) {
-        for face in 0..def.faces.len() {
-            for ability in def.abilities_for_face(face) {
-                let (AbilityDef::Activated { cost, .. }
-                | AbilityDef::ActivatedConditional { cost, .. }) = ability
-                else {
-                    continue;
-                };
-                for part in cost.parts {
-                    if crate::engine::abilities::choice_cost_unpayable(part) {
-                        offenders.push(format!("{} — {part:?}", def.name()));
-                    }
-                }
-            }
-        }
-    }
-    assert!(
-        offenders.is_empty(),
-        "an implemented card carries an activated ability the engine will \
-         never offer, because `can_afford` refuses its cost on every board: \
-         {offenders:?}"
-    );
-}
+// The two guards this file used to carry here, and why they are gone.
+//
+// Until `cost_wizard` existed, `can_afford` refused `CostPart::Sacrifice`
+// and `CostPart::Discard` on every board, so an ability carrying one was
+// never offered and the sweep above counted the card exactly as it counts a
+// vanilla creature — it arrives, is asked, and answers with nothing. Two
+// static pool-wide guards stood here for that reason: one requiring every
+// implemented card with such a cost to say `Coverage::Partial`, and one
+// saying the same of the tokens `cards/` does not hold, with the Blood
+// token excused by name because no card in the pool makes one.
+//
+// Both were about a limitation rather than a rule, and the limitation is
+// gone: the sweep presses those abilities now like any other, and Blood's
+// `{1}, {T}, Discard a card, Sacrifice this artifact: Draw a card` is live
+// the day a card creates one. What is left of their argument is the test
+// below, which is about a cost the engine would accept and then *skip* —
+// the failure that ends in no error at all.
 
-/// The tokens carrying such an ability, and why each is not a live defect.
+/// The failure that survived the pair above, and the one no test of an
+/// action could fail on.
 ///
-/// A name and a reason, the way `keyword_tests::ENFORCED` is a keyword and
-/// the rule that reads it: a list nobody can grow without writing down what
-/// they are excusing. Both halves are checked below, so an entry that stops
-/// being true fails as loudly as a token that stops being listed.
-const INERT_TOKENS: &[(&str, &str)] = &[(
-    "Blood",
-    "`{1}, {T}, Discard a card, Sacrifice this artifact: Draw a card` — the \
-     discard is a choice an activation has nowhere to make, and no card in \
-     the pool creates a Blood token, so nothing is ever offered it",
-)];
-
-/// [`no_implemented_card_hides_an_ability_the_engine_will_never_offer`], for
-/// the permanents no card prints.
-///
-/// A token is a permanent `legal_actions` asks `can_afford` about like any
-/// other, and `tokens::ALL` sits *beside* `cards/` rather than inside it,
-/// which is how the first pass at this class walked straight past Blood. The
-/// day a card creates one, its only ability is never offered and the player
-/// is handed an artifact that does nothing at all — the same defect as the
-/// card half, arriving through a door the card half cannot see.
-#[test]
-fn no_token_carries_an_ability_the_engine_will_never_offer() {
-    let mut offenders = Vec::new();
-    let mut still_inert = Vec::new();
-    for token in baylee_cards::tokens::ALL {
-        let excused = INERT_TOKENS.iter().any(|(name, _)| *name == token.name);
-        for ability in token.abilities {
-            let (AbilityDef::Activated { cost, .. }
-            | AbilityDef::ActivatedConditional { cost, .. }) = ability
-            else {
-                continue;
-            };
-            for part in cost.parts {
-                if !crate::engine::abilities::choice_cost_unpayable(part) {
-                    continue;
-                }
-                if excused {
-                    still_inert.push(token.name);
-                } else {
-                    offenders.push(format!("{} — {part:?}", token.name));
-                }
-            }
-        }
-    }
-    assert!(
-        offenders.is_empty(),
-        "a token carries an activated ability the engine will never offer, \
-         because `can_afford` refuses its cost on every board: {offenders:?}"
-    );
-    for (name, why) in INERT_TOKENS {
-        assert!(
-            still_inert.contains(name),
-            "{name} is excused here for a cost it no longer has — {why}; take \
-             the entry out of INERT_TOKENS"
-        );
-    }
-}
-
-/// The twin of that pair, and the one no test of an action could fail on.
-///
-/// [`no_implemented_card_hides_an_ability_the_engine_will_never_offer`] and
-/// its token half are about a cost the engine *refuses*. This is about a cost
-/// the engine forgets: `ExileFromHand` and `PayLifeX` are paid in the casting
+/// Those two were about a cost the engine *refused*. This is about a cost the
+/// engine forgets: `ExileFromHand` and `PayLifeX` are paid in the casting
 /// wizard, so `can_afford` accepts them and `pay_cost` walks past them —
 /// right for Force of Will's pitch and Toxic Deluge's X, and on an activated
 /// ability a pitch cost that exiles nothing. The activation succeeds, which
@@ -536,8 +563,8 @@ fn no_token_carries_an_ability_the_engine_will_never_offer() {
 /// still in a hand that was supposed to have paid it.
 ///
 /// Both doors in one test, because neither has anything to excuse. No card
-/// and no token prints such a cost today, so there is no [`INERT_TOKENS`]
-/// half to keep honest — the message says which one arrived and that is
+/// and no token prints such a cost today, so there is no list of excused
+/// tokens to keep honest — the message says which one arrived and that is
 /// enough.
 ///
 /// Every card, and deliberately not only the implemented ones — which is the

@@ -350,6 +350,13 @@ impl<L: CardLookup> Engine<L> {
                 if !legal.abilities.contains(&(source, ability_index)) {
                     return Err(EngineError::IllegalAction("ability not activatable"));
                 }
+                // A fresh press starts with nothing answered. The field is
+                // accumulated across several `apply` calls, so the one place
+                // it can be cleared without losing an answer is the moment a
+                // new activation begins — an activation refused halfway
+                // through its questions would otherwise hand what it had
+                // collected to the next one.
+                self.activation_cost_choices.clear();
                 self.start_activation(player, source, ability_index, SmallVec::new())
             }
             (Pending::Priority { player: p, legal }, PlayerAction::Suspend { card })
@@ -502,6 +509,15 @@ impl<L: CardLookup> Engine<L> {
                             self.activation_target_players.clone_from(&players);
                             self.start_activation(player, source, ability_index, targets)?;
                         }
+                    }
+                    // Set only beside a `Pending::ChooseCards`, and answered
+                    // in that arm. Named rather than swept into a `_` so a
+                    // new `PlanKind` is still a compile error here, which is
+                    // how this arm came to be written at all.
+                    PlanKind::PayActivationCost { .. } => {
+                        return Err(EngineError::IllegalAction(
+                            "an activation cost is not a target choice",
+                        ));
                     }
                     PlanKind::Trigger {
                         source,
@@ -916,6 +932,24 @@ impl<L: CardLookup> Engine<L> {
                     wizard.stage = cast_wizard::WizardStage::Convoke;
                     self.cast_wizard = Some(wizard);
                     return self.advance_cast_wizard();
+                }
+                // Activation-cost path: the answer to "sacrifice a creature"
+                // or "discard a card". It goes back into the same
+                // `start_activation` the target answer re-enters, one
+                // question further down CR 601.2's checklist, carrying the
+                // halves that function takes out of the engine on entry.
+                match self.pending_plan.take() {
+                    Some(PlanKind::PayActivationCost {
+                        source,
+                        ability_index,
+                        targets,
+                        target_players,
+                    }) => {
+                        self.activation_cost_choices.extend(objects);
+                        self.activation_target_players = target_players;
+                        return self.start_activation(player, source, ability_index, targets);
+                    }
+                    other => self.pending_plan = other,
                 }
                 let mut res = self.resolution.take().expect("resolution suspended");
                 match resolve::resume(&mut self.state, &mut res, &objects) {

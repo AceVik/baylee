@@ -196,9 +196,12 @@ fn parts_payable(view: &PlayerView, card: ObjectId, parts: &[CostPart]) -> bool 
         // Refused, not because they cannot be paid, but because nothing in
         // this pool prints one on an alternative cost and a reader that
         // guessed would be guessing about a card nobody can test against.
-        // `Sacrifice` and `Discard` the engine refuses outright
-        // (`choice_cost_unpayable`); the rest are paid off the source and
-        // would be safe to admit the day a card wants them.
+        // `Sacrifice` and `Discard` an *activation* can now ask about
+        // (`engine::cost_wizard`), but a spell's alternative cost still has
+        // nobody to ask, so `cast_wizard::paid_as_an_alternative_cost` does
+        // not name them and no card in the pool prints one there; the rest
+        // are paid off the source and would be safe to admit the day a card
+        // wants them.
         CostPart::TapSelf
         | CostPart::UntapSelf
         | CostPart::SacrificeSelf

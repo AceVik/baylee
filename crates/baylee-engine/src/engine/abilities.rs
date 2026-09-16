@@ -2,58 +2,34 @@ use super::{
     AbilityDef, AbilityLoc, ActivationTiming, CardLookup, Cause, Cost, CostPart, Engine,
     EngineError, GameEvent, GameObject, LegalActions, NameRef, ObjectId, ObjectKind, Pending,
     Phase, PlanKind, PlayerId, Resolution, SmallVec, Status, TypeSet, Zone, ZoneLocation,
-    ZonePosition, casting, eval, mana_pay, resolve,
+    ZonePosition, casting, cost_wizard, eval, mana_pay, resolve,
 };
 use crate::choice::TargetPrompt;
 use baylee_cards_dsl::ActivationZone;
 
-/// The cost parts no activation can pay, whatever the board says.
-///
-/// Both of them name something to *choose*, and `pay_cost` answers both with
-/// "choice costs are not supported yet (M2)": an activation has nowhere to
-/// ask a player which permanent to sacrifice or which card to discard.
-/// `can_afford` therefore refuses them for that reason rather than for
-/// anything it can see on the board, which is the whole point — it is what
-/// `legal_actions` gates the offer on, and an offer the payment refuses is
-/// the engine lighting a permanent up and then punishing the player for
-/// pressing it. Recurring Nightmare is the one card in the pool that reaches
-/// it, and its `{0}` mana cost is why nothing was visibly lost: `pay_cost`
-/// refuses these *after* emptying the pool for the mana half and applying
-/// every earlier part, and it does not rewind.
-///
-/// A predicate rather than a list written out wherever it is needed, because
-/// the second reader is a pool-wide guard —
-/// `offer_tests::no_implemented_card_hides_an_ability_the_engine_will_never_offer`
-/// — and a card carrying such a cost has an ability the offer sweep can
-/// never press, which looks from there exactly like a card with no ability
-/// at all. Anything `can_afford` comes to refuse unconditionally belongs
-/// here, and the day an activation can ask a player which card to discard,
-/// this answers `false` and every reader relaxes at once.
-pub(crate) const fn choice_cost_unpayable(part: &CostPart) -> bool {
-    matches!(part, CostPart::Sacrifice(_) | CostPart::Discard(_))
-}
-
 /// The cost parts an activation would leave unpaid, and think it had paid.
 ///
-/// The twin of [`choice_cost_unpayable`], and the worse half of the pair.
-/// Both of these are paid in `cast_wizard` — the pitch of Force of Will, the
-/// X of Toxic Deluge — which is a path `pay_cost` is never shown, so it walks
-/// past both. For a spell's alternative or additional cost that is exactly
-/// right. For an **activated** ability there is no wizard, and the ability is
+/// These are paid in `cast_wizard` — the pitch of Force of Will, the X of
+/// Toxic Deluge — which is a path `pay_cost` is never shown, so it walks past
+/// both. For a spell's alternative or additional cost that is exactly right.
+/// For an **activated** ability there is no wizard, and the ability is
 /// offered, pressed, and its part silently not paid — a pitch cost that
 /// exiles nothing.
 ///
-/// `can_afford` is no longer the other half of that sentence. It reads
-/// `ExileFromHand` for real now (there has to be a card to exile, or the
-/// offer is dead), and the wizard caps `PayLifeX` at the caster's life — so
-/// what is left here is a part that would be *accepted and then skipped*,
-/// which is still the whole of the danger for an activation.
+/// This used to have a twin, `choice_cost_unpayable`, which named the parts an
+/// activation could not pay *at all* — a sacrifice or a discard, because
+/// nothing could ask which one. `cost_wizard` asks now, so that half is gone
+/// and what is left here is the opposite failure: a part that would be
+/// *accepted and then skipped*. `can_afford` is no longer the other half of
+/// the sentence either. It reads `ExileFromHand` for real (there has to be a
+/// card to exile, or the offer is dead), and the wizard caps `PayLifeX` at
+/// the caster's life.
 ///
-/// So the two failures are opposites, and this one is invisible from further
-/// away. A choice cost is offered and then refused, which at least ends in an
-/// error; this is offered and then granted for free, and the activation
-/// *succeeds* — no test of an action can fail on it, and the only evidence is
-/// the card still sitting in a hand that should have paid it. Which is why
+/// That makes this the invisible one of the two failures. A cost that cannot
+/// be paid ends in an error; this is offered and then granted for free, and
+/// the activation *succeeds* — no test of an action can fail on it, and the
+/// only evidence is the card still sitting in a hand that should have paid
+/// it. Which is why
 /// the reader that matters is a pool-wide guard,
 /// `offer_tests::nothing_in_the_pool_carries_an_activated_cost_the_engine_would_skip`,
 /// and why nothing here refuses: the parts are correct where they are used,
@@ -548,9 +524,6 @@ impl<L: CardLookup> Engine<L> {
             return false;
         }
         for part in cost.parts {
-            if choice_cost_unpayable(part) {
-                return false;
-            }
             match part {
                 // CR 302.6, second sentence: a creature's activated ability
                 // with the tap or the untap symbol in its cost cannot be
@@ -588,10 +561,17 @@ impl<L: CardLookup> Engine<L> {
                         return false;
                     }
                 }
-                // Already refused, by [`choice_cost_unpayable`] above. Named
-                // here rather than swept into a `_` so that a new `CostPart`
-                // is still a compile error in this match.
-                CostPart::Sacrifice(_) | CostPart::Discard(_) => return false,
+                // A cost that has to ask a question, asked of the board
+                // instead of refused outright. `cost_wizard::options` is the
+                // one reader of "what may pay this", and it is the same list
+                // the player is shown a moment later — an offer whose
+                // payment then finds nothing is the contradiction
+                // `offer_tests` exists to catch.
+                CostPart::Sacrifice(_) | CostPart::Discard(_) => {
+                    if cost_wizard::options(&self.state, player, source, part).is_empty() {
+                        return false;
+                    }
+                }
                 // The first four are paid off the source alone, so there is
                 // nothing about the board to ask. `PayLifeX` is
                 // [`paid_by_the_casting_wizard`]: accepted here and skipped
@@ -787,7 +767,17 @@ impl<L: CardLookup> Engine<L> {
             .nth(slot as usize)
             .ok_or(EngineError::IllegalAction("no granted ability"))?;
         let (cost, effects, mana_ability) = (granted.cost, granted.effects, granted.mana_ability);
-        self.pay_cost(player, source, &cost)?;
+        // A granted ability has no stage that asks, so a granted cost that
+        // needs an answer is refused *here* rather than by the payer — which
+        // is the difference between an activation that does not happen and
+        // one whose mana is gone. Nothing in the pool grants such a cost
+        // today; `offer_tests`' pool-wide sweep is what keeps it that way.
+        if cost.parts.iter().any(cost_wizard::needs_an_answer) {
+            return Err(EngineError::IllegalAction(
+                "a granted ability cannot ask for its cost yet",
+            ));
+        }
+        self.pay_cost(player, source, &cost, &[])?;
         if mana_ability {
             let mut res = crate::resolve::Resolution {
                 source,
@@ -1017,9 +1007,59 @@ impl<L: CardLookup> Engine<L> {
             return Ok(());
         }
         if !self.can_afford(player, source, &cost) {
+            self.activation_cost_choices.clear();
             return Err(EngineError::IllegalAction("cannot pay the cost"));
         }
-        self.pay_cost(player, source, &cost)?;
+        // CR 601.2h, and the one step of it the player has to take: a cost
+        // that says "sacrifice a creature" names no creature. Asked after
+        // `can_afford` and never before it, so nobody is made to choose what
+        // to give up for an activation that cannot happen — and asked one
+        // part at a time, because a cost with two asking parts is two
+        // questions and answering them together would lose which answer
+        // belongs to which.
+        let wanted = cost_wizard::answers_wanted(&cost);
+        if self.activation_cost_choices.len() < wanted {
+            let asked = self.activation_cost_choices.len();
+            let part = cost_wizard::asking_parts(&cost)
+                .nth(asked)
+                .expect("fewer answers in hand than the cost has asking parts");
+            let mut options = cost_wizard::options(&self.state, player, source, part);
+            // Nothing is paid until every question has an answer (CR 601.2h
+            // pays the whole cost at once), so the board the second question
+            // is asked of still holds the object the first one named. Taking
+            // the answers so far off the menu is what stops a cost with two
+            // sacrifice parts from eating one permanent twice. No card in
+            // the pool prints such a cost today; this is one line and is
+            // right for the one that does.
+            options.retain(|id| !self.activation_cost_choices.contains(id));
+            let prompt = cost_wizard::prompt(part);
+            // `can_afford` asked the same question of the same function a
+            // moment ago, so an empty list here is not a board this engine
+            // can be in. Refusing rather than asserting all the same: this
+            // is a rules path, and one process per game is the panic
+            // boundary.
+            if options.is_empty() {
+                self.activation_cost_choices.clear();
+                return Err(EngineError::IllegalAction("nothing can pay this cost"));
+            }
+            self.pending_plan = Some(PlanKind::PayActivationCost {
+                source,
+                ability_index,
+                targets,
+                target_players: chosen_players,
+            });
+            self.pending = Pending::ChooseCards {
+                player,
+                options,
+                min: 1,
+                max: 1,
+                prompt,
+            };
+            self.awaiting_answer = true;
+            return Ok(());
+        }
+        let answers = std::mem::take(&mut self.activation_cost_choices);
+        self.pay_cost(player, source, &cost, &answers)?;
         if mana_ability {
             // Mana abilities resolve immediately, without the stack
             // (CR 605.3b). Choice-mana abilities (any-color lands, Command
@@ -1284,12 +1324,32 @@ impl<L: CardLookup> Engine<L> {
         Ok(())
     }
 
+    /// Pays a cost in the order the card prints it.
+    ///
+    /// `chosen` carries the answers to the parts that had to ask — a
+    /// sacrifice, a discard — one per asking part and in the same order, put
+    /// there by the stage in [`cost_wizard`] that asked. Two of the three
+    /// callers pass an empty slice, and threading it is still the cheaper
+    /// shape than the alternatives: paying those parts outside this function
+    /// would either pay them out of the printed order or need a second payer
+    /// beside this one, and a cost paid in two places is a cost that can be
+    /// paid twice.
+    ///
+    /// # Errors
+    /// [`EngineError::IllegalAction`] when the mana is not there, when a
+    /// move refuses, or when an asking part has no answer left — the last of
+    /// which means a caller paid without going through the stage that asks,
+    /// and refusing is the point: the failure mode
+    /// [`paid_by_the_casting_wizard`] documents is a part silently skipped,
+    /// and a free sacrifice is worse than a refused activation.
     pub(crate) fn pay_cost(
         &mut self,
         player: PlayerId,
         source: ObjectId,
         cost: &Cost,
+        chosen: &[ObjectId],
     ) -> Result<(), EngineError> {
+        let mut answers = chosen.iter().copied();
         if !cost.mana.is_empty() {
             // Mycosynth Lattice: any mana pays any pip (read before the pool
             // is borrowed mutably).
@@ -1372,10 +1432,19 @@ impl<L: CardLookup> Engine<L> {
                 // swept into a `_` so that a new `CostPart` is still a
                 // compile error in this match.
                 CostPart::ExileFromHand(_) | CostPart::PayLifeX => {}
+                // The parts that had to ask, paid with the answers in the
+                // order they were asked for. Both put the card in its
+                // owner's graveyard under `Cause::Cost` through the same
+                // door as `SacrificeSelf` and `DiscardSelf` above, so a
+                // sacrifice a player chose and one the card named cannot
+                // come out as two different events.
                 CostPart::Sacrifice(_) | CostPart::Discard(_) => {
-                    return Err(EngineError::IllegalAction(
-                        "choice costs are not supported yet (M2)",
-                    ));
+                    let Some(card) = answers.next() else {
+                        return Err(EngineError::IllegalAction(
+                            "a cost that has to ask reached the payer unanswered",
+                        ));
+                    };
+                    cost_wizard::pay(&mut self.state, player, card)?;
                 }
             }
         }

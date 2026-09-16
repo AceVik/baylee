@@ -1249,7 +1249,7 @@ fn buried_ruin_pays_itself_into_the_graveyard_and_returns_only_your_own_artifact
     );
     assert!(
         in_graveyard(&engine, p0, buried_ruin()).is_some(),
-        "and a sacrificed permanent goes to its owner's graveyard (CR 701.17a)"
+        "and a sacrificed permanent goes to its owner's graveyard (CR 701.21a)"
     );
 
     pass_until(&mut engine, stack_is_empty);
@@ -1415,64 +1415,64 @@ fn phyrexian_tower() -> CardIndex {
 /// Phyrexian Tower: "{T}: Add {C}." and "{T}, Sacrifice a creature: Add
 /// {B}{B}."
 ///
-/// The card stands at `Coverage::Partial` and this is the whole of that
-/// claim, both halves in one board. The first line is an ordinary printed
-/// mana ability and works. The second carries `Sacrifice(&Filter::YOUR_CREATURE)`
-/// in its cost, and no engine path can suspend an activation to ask *which*
-/// creature while the cost is being paid — `abilities::choice_cost_unpayable`
-/// puts `CostPart::Sacrifice` out of `can_afford`'s reach — so the ability is
-/// never offered. The Tower plays as though the second line were not printed,
-/// which is what the `Partial` promises a player.
+/// Two printed mana abilities on one permanent, and they share a `{T}`. That
+/// is what this card proves and no other board can: the second line names no
+/// creature, so the engine has to stop and ask which one (CR 601.2h), and the
+/// moment it is paid the first line must be gone from the offer, because the
+/// Tower is tapped.
 ///
-/// This is the same gap
-/// `ashnods_altar_offers_nothing_while_a_cost_cannot_ask_which_creature`
-/// records, and the reason it is worth a second test is that the Tower is the
-/// version that can be read *against itself*: the two lines sit on one
-/// permanent and share a `{T}`. So the offer is not merely empty. It names
-/// ability 0 and not ability 1, which says the Tower is untapped, the offer is
-/// alive, and what is missing from it is exactly the sacrifice cost — a
-/// distinction the Altar's single-ability board cannot draw.
+/// Reading the card cannot replace it. The printed sentences say nothing
+/// about *whose* creature may be eaten or whether a land counts as one, and
+/// the answer to both comes from the rules rather than the card: CR 701.21a
+/// lets a player sacrifice only a permanent they control, so the opponent's
+/// Elf is not on the list, and the Tower itself is a land and not fodder for
+/// its own mouth. `Filter::YOUR_CREATURE` in the cost would be satisfied by a
+/// list built any number of wrong ways; this is the list the player is handed.
 ///
-/// It is written to **fail** the day the gap closes: two Elves stand beside
-/// the Tower to be eaten, so when an activation learns to ask that question
-/// the index list becomes `[0, 1]` and this breaks. Flipping `Partial` to
-/// `Implemented` is what closes it.
+/// The question arrives as `Pending::ChooseCards` with
+/// `ChoicePrompt::CostSacrifice`, which is asserted here rather than the
+/// options alone: choosing what to sacrifice is not targeting (CR 115.1), and
+/// the prompt is the only thing that tells a client this is a cost being paid
+/// and not a search. A test that read the list and ignored the label would
+/// pass against `ChoicePrompt::Generic`.
 ///
-/// The counter-halves: the creature count is taken before the measurement, so
-/// an absent index 1 is the cost refusing and not an empty table; pressing the
-/// ability by hand afterwards is refused, so it is unreachable rather than
-/// merely unlisted; and the refusal leaves the Tower untapped and the pool
-/// empty, so nothing of the two-part cost was paid on the way out. Then the
-/// line that does work is played, and `{C}` is read out of the pool
-/// immediately after `apply`, which is where a mana ability puts it (CR 605.1).
+/// The counter-halves, most of them the ones this test was born with. Two
+/// Elves stand under the Tower, so a two-entry list is the filter answering
+/// and not an empty table; the Tower is absent from `legal.mana_abilities`,
+/// because it prints no basic land type and is no CR 305.6 shortcut; the
+/// `{B}{B}` is read out of the pool immediately after the answer, which is
+/// where a mana ability puts it (CR 605.3b), and no `{C}` is there beside it,
+/// so it is the second line that was activated and not the first. Then both
+/// lines are pressed by hand against the tapped Tower and both are refused,
+/// with the board still at priority — nobody was shown a sacrifice question
+/// for an activation that cannot happen, which is the order `start_activation`
+/// promises and nothing else pins.
+#[allow(clippy::too_many_lines)] // one board read end to end: the offer, the question, the spent {T}
 #[test]
-#[allow(clippy::too_many_lines)] // one board read from both ends: the offer, then the refusal
-fn the_tower_taps_for_colorless_and_never_offers_to_eat_a_creature() {
+fn the_tower_eats_one_creature_and_the_shared_tap_closes_both_lines() {
     let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
     let mut engine = Duel::new(313, swamp())
         .battlefield(0, &[phyrexian_tower(), llanowar_elves(), llanowar_elves()])
+        .battlefield(1, &[llanowar_elves()])
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
 
     let tower = on_battlefield(&engine, p0, phyrexian_tower()).expect("the Tower is on the table");
-    let fodder = |e: &Engine<RegistryLookup>| {
-        e.state()
-            .zones
-            .list(ZoneLocation::Battlefield)
-            .iter()
-            .filter(|id| {
-                e.state().object(**id).is_some_and(|o| {
-                    o.controller == p0 && o.characteristics().types.contains(TypeSet::CREATURE)
-                })
-            })
-            .count()
-    };
+    let fodder = mine(&engine, p0, llanowar_elves(), Zone::Battlefield);
     assert_eq!(
-        fodder(&engine),
+        fodder.len(),
         2,
-        "two creatures stand beside the Tower, so an absent index 1 below is \
-         the cost refusing and not an empty table"
+        "two creatures stand beside the Tower, so the two-entry list below is \
+         the filter answering and not an empty table"
+    );
+    let theirs = mine(&engine, p1, llanowar_elves(), Zone::Battlefield);
+    assert_eq!(
+        theirs.len(),
+        1,
+        "and the opponent has one of their own, so its absence below is a rule \
+         and not a missing creature"
     );
 
     let Pending::Priority { player, legal } = engine.pending().clone() else {
@@ -1494,71 +1494,158 @@ fn the_tower_taps_for_colorless_and_never_offers_to_eat_a_creature() {
         .collect();
     assert_eq!(
         offered.as_slice(),
-        [0],
-        "the Tower offers `{{T}}: Add {{C}}` and nothing else. `[0, 1]` here \
-         means the engine offered a sacrifice cost it cannot pay, which is the \
-         offer/apply contradiction `offer_tests` exists for — \
-         `abilities::choice_cost_unpayable` was walked past, and the second \
-         assertion below is where it will be taken back. `[]` means the whole \
-         offer is dead and nothing on this board can be read at all. Got: \
-         {offered:?}"
+        [0, 1],
+        "both printed lines are offered: the Tower is untapped, so `{{T}}: Add \
+         {{C}}` is payable, and two creatures stand under it, so `{{T}}, \
+         Sacrifice a creature: Add {{B}}{{B}}` is too. `[0]` means the \
+         sacrifice cost is being refused for the board instead of asked \
+         about. Got: {offered:?}"
     );
 
-    // Unreachable rather than merely unlisted — and the {T} half of the cost
-    // is not paid on the way out either.
-    assert!(
-        engine
-            .apply(
-                p0,
-                PlayerAction::ActivateAbility {
-                    source: tower,
-                    ability_index: 1,
-                }
-            )
-            .is_err(),
-        "pressing `{{T}}, Sacrifice a creature: Add {{B}}{{B}}` by hand is refused"
-    );
-    assert!(
-        !is_tapped(&engine, tower),
-        "a refused activation pays no part of its cost, so the Tower is still untapped"
-    );
-    assert_eq!(
-        engine.state().players[0]
-            .mana_pool
-            .available(ManaColor::Black),
-        0,
-        "and no {{B}}{{B}} reached the pool"
-    );
-    assert_eq!(
-        fodder(&engine),
-        2,
-        "and no creature was eaten for it either"
-    );
-
-    // The half that works.
+    // CR 601.2h: the cost names no creature, so the player is asked which.
     engine
         .apply(
             p0,
             PlayerAction::ActivateAbility {
                 source: tower,
-                ability_index: 0,
+                ability_index: 1,
             },
         )
-        .expect("`{T}: Add {C}` is offered, so it activates");
-    let pool = &engine.state().players[0].mana_pool;
+        .expect("the sacrifice line is offered, so it activates");
+    let Pending::ChooseCards {
+        player,
+        options,
+        min,
+        max,
+        prompt,
+    } = engine.pending().clone()
+    else {
+        panic!(
+            "paying `Sacrifice a creature` asks which one, and the engine is \
+             at {:?}",
+            engine.pending()
+        )
+    };
+    assert_eq!(player, p0, "the question goes to the activating player");
+    assert_eq!((min, max), (1, 1), "one creature, no more and no fewer");
     assert_eq!(
-        pool.available(ManaColor::Colorless),
-        1,
-        "a mana ability skips the stack (CR 605.1), so the {{C}} is in the pool \
-         the moment the activation is applied"
+        prompt,
+        crate::choice::ChoicePrompt::CostSacrifice,
+        "a cost is not a search (CR 115.1), and the prompt is the only thing \
+         that says so to a client"
     );
     assert_eq!(
+        options.len(),
+        2,
+        "both Elves under the Tower may be eaten, and nothing else: {options:?}"
+    );
+    assert!(
+        options.contains(&fodder[0]) && options.contains(&fodder[1]),
+        "each of the controller's own creatures is on the list: {options:?}"
+    );
+    assert!(
+        !options.contains(&tower),
+        "the Tower is a land, so it is no creature to feed itself: {options:?}"
+    );
+    assert!(
+        !options.contains(&theirs[0]),
+        "and CR 701.21a lets a player sacrifice only what they control, so the \
+         opponent's Elf is not on the menu: {options:?}"
+    );
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![fodder[0]],
+            },
+        )
+        .expect("the answer names a creature the engine itself offered");
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(
         pool.available(ManaColor::Black),
+        2,
+        "a mana ability resolves without the stack (CR 605.3b), so the \
+         {{B}}{{B}} is in the pool the moment the cost is answered"
+    );
+    assert_eq!(
+        pool.available(ManaColor::Colorless),
         0,
-        "and it is the first line that was activated, not the second"
+        "and it is the second line that was activated, not the first"
     );
     assert!(
         is_tapped(&engine, tower),
-        "the {{T}} in that line's cost was paid"
+        "the {{T}} half of the cost was paid"
+    );
+    assert_eq!(
+        mine(&engine, p0, llanowar_elves(), Zone::Battlefield).len(),
+        1,
+        "exactly one Elf was eaten for it"
+    );
+    assert_eq!(
+        mine(&engine, p0, llanowar_elves(), Zone::Graveyard).len(),
+        1,
+        "and it is in its owner's graveyard, which is where a sacrifice puts it"
+    );
+    assert_eq!(
+        mine(&engine, p1, llanowar_elves(), Zone::Battlefield).len(),
+        1,
+        "while the opponent's creature never moved"
+    );
+
+    // The shared {T} is spent, so both lines are gone — not merely the one
+    // that was activated.
+    let Pending::Priority { player, legal } = engine.pending().clone() else {
+        panic!(
+            "a mana ability hands priority straight back, and the engine is at \
+             {:?}",
+            engine.pending()
+        )
+    };
+    assert_eq!(player, p0, "and to the same player");
+    let after: Vec<u32> = legal
+        .abilities
+        .iter()
+        .filter(|(source, _)| *source == tower)
+        .map(|(_, index)| *index)
+        .collect();
+    assert!(
+        after.is_empty(),
+        "both printed lines cost `{{T}}` and the Tower is tapped, so neither is \
+         offered again this turn. Got: {after:?}"
+    );
+
+    for index in [0, 1] {
+        assert!(
+            engine
+                .apply(
+                    p0,
+                    PlayerAction::ActivateAbility {
+                        source: tower,
+                        ability_index: index,
+                    }
+                )
+                .is_err(),
+            "pressing line {index} by hand is refused too, so it is unreachable \
+             rather than merely unlisted"
+        );
+        assert!(
+            matches!(engine.pending(), Pending::Priority { .. }),
+            "and the refusal of line {index} asks nothing: a sacrifice question \
+             is put only after the cost is known to be payable, so nobody is \
+             made to give up a creature for an activation that cannot happen"
+        );
+    }
+    assert_eq!(
+        mine(&engine, p0, llanowar_elves(), Zone::Battlefield).len(),
+        1,
+        "and the surviving Elf survived the two refusals as well"
+    );
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Colorless),
+        0,
+        "with no {{C}} squeezed out of a tapped Tower"
     );
 }

@@ -369,56 +369,137 @@ fn a_stationed_spacecraft_becomes_the_creature_it_prints() {
 
 /// Ashnod's Altar ({3}): "Sacrifice a creature: Add {C}{C}."
 ///
-/// The card stands at `Coverage::Partial`, and this is the sentence that
-/// claim is made of. `cost!(Sacrifice(&Filter::YOUR_CREATURE))` says the
-/// printed line exactly; what no engine path can do is suspend an activation
-/// to ask *which* creature while the cost is being paid, so `can_afford`
-/// refuses a filtered choice cost outright and the ability is never offered.
-/// The Altar plays as though the line were not printed, which is what the
-/// `Partial` promises a player.
+/// The inversion of the test that stood here. The cost names no creature,
+/// and while an activation had nowhere to ask which one, `can_afford`
+/// refused `CostPart::Sacrifice` outright and the Altar was never offered
+/// at all — so the card stood at `Coverage::Partial` and this test asserted
+/// an empty offer. `cost_wizard` asks the question now, and the Altar plays
+/// the line it prints.
 ///
-/// The test is therefore that nothing is offered, and it is written to
-/// **fail** the day that stops being true: when an activation can ask that
-/// question, five creatures standing beside the Altar will make this break,
-/// and flipping `Partial` to `Implemented` is what closes it. A card whose
-/// honesty note nothing checks is a note that outlives its reason —
-/// `offer_tests` says no *implemented* card may hide an unofferable ability,
-/// and this is the other direction, which nothing said.
+/// Reading the card cannot replace playing it, because every half of the
+/// sentence is the engine's answer rather than the card's. Which creatures
+/// the question offers is a board reading (`CR 701.21a`: a player
+/// sacrifices only a permanent *they control*), so the opponent's Elves are
+/// the counter-half and so is the Altar itself, which is an artifact and no
+/// creature — a filter that let either one in would read the same in the
+/// card file. And "Add {C}{C}" is a mana ability (`CR 605.1`), so it uses no
+/// stack (`CR 605.3b`) and the mana is in the pool the moment the answer is
+/// applied, with the creature already in its owner's graveyard.
 ///
-/// The counter-half is the board: there are creatures to feed it, so an empty
-/// offer is the cost refusing and not a table with nothing on it.
+/// The refused answer is the other probe: the engine validates against the
+/// very list it published, so naming the opponent's Elves is rejected and
+/// the question still stands.
+#[allow(clippy::too_many_lines)] // one activation, every gate it passes asserted
 #[test]
-fn ashnods_altar_offers_nothing_while_a_cost_cannot_ask_which_creature() {
-    let seat = PlayerId::new(0);
-    let Some((engine, altars)) = arena(ashnods_altar()) else {
-        panic!("the Altar is in the pool and stands on a board")
+fn ashnods_altar_eats_the_creature_you_name_and_pays_two_colorless() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(71, forest())
+        .battlefield(0, &[ashnods_altar(), llanowar_elves(), forest()])
+        .battlefield(1, &[llanowar_elves()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let altar = on_battlefield(&engine, p0, ashnods_altar()).expect("the Altar stands");
+    let fodder = on_battlefield(&engine, p0, llanowar_elves()).expect("my Elves stand");
+    let land = on_battlefield(&engine, p0, forest()).expect("my Forest stands");
+    let theirs = on_battlefield(&engine, p1, llanowar_elves()).expect("their Elves stand");
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
     };
-    let fodder = engine
-        .state()
-        .zones
-        .list(ZoneLocation::Battlefield)
-        .iter()
-        .filter(|id| {
-            engine.state().object(**id).is_some_and(|o| {
-                o.controller == seat && o.characteristics().types.contains(TypeSet::CREATURE)
-            })
-        })
-        .count();
     assert!(
-        fodder >= 2,
-        "the board has creatures to sacrifice, so an empty offer below is the \
-         cost and not an empty table: {fodder}"
+        legal.abilities.contains(&(altar, 0)),
+        "the Altar's only line is offered now that a cost can ask: {:?}",
+        legal.abilities
+    );
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "nothing floats before the Altar eats"
     );
 
-    let Pending::Priority { legal, .. } = engine.pending().clone() else {
-        panic!("the arena leaves the seat at a quiet main phase")
+    activate(&mut engine, p0, ashnods_altar(), 0);
+    let Pending::ChooseCards {
+        options,
+        min,
+        max,
+        prompt,
+        ..
+    } = engine.pending().clone()
+    else {
+        panic!("the cost asks which creature, got {:?}", engine.pending())
     };
-    let offered = deeds(&legal, &altars);
+    assert_eq!(
+        prompt,
+        crate::choice::ChoicePrompt::CostSacrifice,
+        "the variant is what tells a client this is a cost and not a search"
+    );
+    assert_eq!((min, max), (1, 1), "one creature, and the cost asks once");
+    assert_eq!(
+        options,
+        vec![fodder],
+        "the creature you control is the whole of the answer"
+    );
     assert!(
-        offered.is_empty(),
-        "a sacrifice cost cannot be chosen during an activation, so the Altar \
-         offers nothing at all — if this fires, `pay_cost` learned to ask and \
-         Ashnod's Altar is no longer Coverage::Partial: {offered:?}"
+        !options.contains(&altar),
+        "the Altar is an artifact: it cannot eat itself"
+    );
+    assert!(!options.contains(&land), "a land is no creature");
+    assert!(
+        !options.contains(&theirs),
+        "`CR 701.21a`: an opponent's creature is not yours to sacrifice"
+    );
+
+    let refused = engine.apply(
+        p0,
+        PlayerAction::ChooseObjects {
+            objects: vec![theirs],
+        },
+    );
+    assert!(
+        matches!(
+            refused,
+            Err(EngineError::IllegalAction("invalid card selection"))
+        ),
+        "the answer is validated against the list that was published: {refused:?}"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![fodder],
+            },
+        )
+        .expect("the creature the question offered pays the cost");
+
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(
+        pool.available(ManaColor::Colorless),
+        2,
+        "`Add {{C}}{{C}}` is in the pool the moment the answer lands"
+    );
+    assert_eq!(pool.total(), 2, "and nothing else came with it");
+    assert!(
+        stack_is_empty(&engine),
+        "`CR 605.3b`: a mana ability never uses the stack"
+    );
+    assert!(
+        matches!(engine.pending(), Pending::Priority { player, .. } if *player == p0),
+        "the seat holds priority again, got {:?}",
+        engine.pending()
+    );
+    assert!(
+        on_battlefield(&engine, p0, llanowar_elves()).is_none(),
+        "the sacrificed creature left the battlefield"
+    );
+    assert!(
+        in_graveyard(&engine, p0, llanowar_elves()).is_some(),
+        "and is in its owner's graveyard"
+    );
+    assert!(
+        on_battlefield(&engine, p1, llanowar_elves()).is_some(),
+        "the opponent's Elves never moved"
     );
 }
 
@@ -429,124 +510,162 @@ fn krark_clan_ironworks() -> baylee_core::ids::CardIndex {
 
 /// Krark-Clan Ironworks ({4}): "Sacrifice an artifact: Add {C}{C}."
 ///
-/// A `Coverage::Partial` has two halves and this strikes both. The half that
-/// works is the card: it is cast off five Forests and resolves onto the
-/// battlefield as an artifact — which is also what makes it its own fodder,
-/// since "an artifact" is `Filter::YOUR_ARTIFACT` and the Ironworks is one.
-/// The half that does not is the only line it prints: no engine path can
-/// suspend an activation to ask *which* artifact while the cost is being
-/// paid, so `abilities::choice_cost_unpayable` puts `CostPart::Sacrifice`
-/// out of `can_afford`'s reach and the ability is never offered. The
-/// Ironworks plays as though the line were not printed, which is exactly
-/// what the `Partial` promises a player.
+/// The cost names no artifact, so the engine asks which one — and the card
+/// it asks about is the card asking: the Ironworks is an artifact, so it is
+/// on its own menu and the answer given here is itself. That is the half a
+/// filter which quietly excluded the source would lose, and it would lose it
+/// silently, because every assertion about the Sol Ring beside it would go
+/// on passing.
 ///
-/// This is the sibling of
-/// `ashnods_altar_offers_nothing_while_a_cost_cannot_ask_which_creature`, one
-/// card type up, and it is written to **fail** the day the gap closes: when
-/// an activation learns to ask that question, two artifacts standing beside
-/// this one will break the assertion, and flipping `Partial` to
-/// `Implemented` is what closes it. A honesty note nothing checks is a note
-/// that outlives its reason.
+/// Both halves of the menu are struck. It holds the two artifacts this seat
+/// controls and nothing else: the Elves are a creature and no artifact, and
+/// the Sol Ring across the table is an artifact this seat does not control,
+/// which `cost_wizard::options` refuses as a rule rather than leaving to
+/// `Filter::YOUR_ARTIFACT`. The `prompt` is asserted with the options,
+/// because the variant is the whole of what tells a client that this is a
+/// cost being paid and not a search — and choosing what to sacrifice is not
+/// targeting (CR 115.1), which is why the question arrives as `ChooseCards`
+/// at all. An answer the question did not enumerate is refused before
+/// anything moves.
 ///
-/// Two counter-halves keep the empty offer from being an empty table. There
-/// are exactly two artifacts on the board to eat, counted rather than
-/// assumed. And the Sol Ring is deliberately the one mana source left
-/// untapped, so the very list that fails to name the Ironworks still names
-/// *an artifact's* mana ability: the offer is alive, and what is missing
-/// from it is this cost. Pressing the button by hand afterwards is refused
-/// and the pool stays where it was — the ability is unreachable, not merely
-/// unlisted.
+/// Reading the card cannot replace playing it. Until an activation could
+/// suspend at CR 601.2h the ability was never offered, and this test asserted
+/// exactly that; what it asserts now is that pressing it eats the Ironworks,
+/// leaves the Sol Ring standing, puts the card in its owner's graveyard and
+/// adds {C}{C} without ever using the stack (CR 605.3b).
+#[allow(clippy::too_many_lines)] // one menu, both halves struck, and the sacrifice followed home
 #[test]
-fn the_ironworks_resolves_and_then_offers_no_way_to_eat_an_artifact_for_mana() {
+fn the_ironworks_is_on_its_own_menu_and_eats_itself_for_two_colorless() {
     let p0 = PlayerId::new(0);
-    // Five Forests pay the {4} with the Sol Ring still untapped.
-    let mut board = vec![forest(); 5];
-    board.push(quiet_artifact());
+    let p1 = PlayerId::new(1);
+    // The Elves are the creature that is not an artifact card.
+    let board = [krark_clan_ironworks(), quiet_artifact(), llanowar_elves()];
     let mut engine = Duel::new(41, forest())
         .battlefield(0, &board)
-        .hand(0, &[krark_clan_ironworks()])
+        // An artifact across the table: "sacrifice an artifact" is not an
+        // invitation to eat somebody else's.
+        .battlefield(1, &[quiet_artifact()])
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
 
-    // The Sol Ring is the fodder and the control both, so it is the one
-    // source that must not be spent on the casting.
+    let iron = on_battlefield(&engine, p0, krark_clan_ironworks()).expect("the Ironworks stands");
     let rock = on_battlefield(&engine, p0, quiet_artifact()).expect("the Sol Ring stands");
-    tap_mana_except(&mut engine, p0, rock);
-    let spell = in_hand(&engine, p0, krark_clan_ironworks()).expect("the Ironworks is in hand");
-    engine
-        .apply(p0, PlayerAction::CastSpell { card: spell })
-        .expect("five Forests pay {4}");
-    pass_until(&mut engine, stack_is_empty);
-
-    let iron = on_battlefield(&engine, p0, krark_clan_ironworks())
-        .expect("the Ironworks resolved onto the battlefield");
-    let fodder = engine
-        .state()
-        .zones
-        .list(crate::zone::ZoneLocation::Battlefield)
-        .iter()
-        .filter(|id| {
-            engine.state().object(**id).is_some_and(|o| {
-                o.controller == p0
-                    && o.characteristics()
-                        .types
-                        .contains(baylee_core::types::TypeSet::ARTIFACT)
-            })
-        })
-        .count();
-    assert_eq!(
-        fodder, 2,
-        "the Sol Ring and — because the filter is `an artifact` — the \
-         Ironworks itself are both things it could eat, so the empty offer \
-         below is the cost and not an empty table"
-    );
+    let elves = on_battlefield(&engine, p0, llanowar_elves()).expect("the Elves are out");
+    let theirs = on_battlefield(&engine, p1, quiet_artifact()).expect("their Sol Ring stands");
 
     let Pending::Priority { player, legal } = engine.pending().clone() else {
-        panic!(
-            "the spell resolved, so the seat is back at a quiet priority: {:?}",
-            engine.pending()
-        )
+        panic!("the seat holds a quiet main phase: {:?}", engine.pending())
     };
-    assert_eq!(player, p0, "and it is the seat that cast it");
-    assert!(
-        legal.abilities.contains(&(rock, 0)),
-        "the Sol Ring was kept untapped on purpose: this list still names an \
-         artifact's mana ability, so it is alive: {:?}",
-        legal.abilities
-    );
-
+    assert_eq!(player, p0, "and it is the seat with the Ironworks");
     let offered = deeds(&legal, &[iron]);
     assert!(
-        offered.is_empty(),
-        "a sacrifice cost cannot be chosen during an activation, so the \
-         Ironworks offers nothing at all — if this fires, `pay_cost` learned \
-         to ask and Krark-Clan Ironworks is no longer Coverage::Partial: \
-         {offered:?}"
+        matches!(offered[..], [(0, Deed::Ability(0))]),
+        "there is an artifact to eat, so the one line the Ironworks prints is \
+         offered: {offered:?}"
     );
 
     let before = engine.state().players[0]
         .mana_pool
         .available(ManaColor::Colorless);
+    engine
+        .apply(
+            p0,
+            PlayerAction::ActivateAbility {
+                source: iron,
+                ability_index: 0,
+            },
+        )
+        .expect("the cost asks which artifact instead of refusing");
+
+    let Pending::ChooseCards {
+        player,
+        options,
+        min,
+        max,
+        prompt,
+    } = engine.pending().clone()
+    else {
+        panic!(
+            "the sacrifice is chosen before it is paid: {:?}",
+            engine.pending()
+        )
+    };
+    assert_eq!(player, p0, "the activating seat is the one asked");
+    assert_eq!(
+        prompt,
+        crate::choice::ChoicePrompt::CostSacrifice,
+        "a cost and not a search, which is all a client has to tell the two \
+         apart"
+    );
+    assert_eq!((min, max), (1, 1), "one artifact, no more and no fewer");
+    assert!(
+        options.contains(&iron),
+        "the Ironworks is an artifact, so it is on its own menu: {options:?}"
+    );
+    assert!(
+        options.contains(&rock),
+        "and so is the Sol Ring beside it: {options:?}"
+    );
+    assert!(
+        !options.contains(&elves),
+        "the Elves are a creature: 'an artifact' is read, not skipped: \
+         {options:?}"
+    );
+    assert!(
+        !options.contains(&theirs),
+        "a seat sacrifices only what it controls, whatever the filter says: \
+         {options:?}"
+    );
+    assert_eq!(options.len(), 2, "and those two are the whole menu");
+
     assert!(
         engine
             .apply(
                 p0,
-                PlayerAction::ActivateAbility {
-                    source: iron,
-                    ability_index: 0,
-                }
+                PlayerAction::ChooseObjects {
+                    objects: vec![theirs],
+                },
             )
             .is_err(),
-        "and the ability is unreachable rather than merely unlisted: pressing \
-         it is refused"
+        "an answer the question did not enumerate is refused"
+    );
+    assert!(
+        on_battlefield(&engine, p1, quiet_artifact()).is_some(),
+        "and the refusal costs the other seat nothing"
+    );
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![iron],
+            },
+        )
+        .expect("the Ironworks may eat itself");
+
+    assert!(
+        on_battlefield(&engine, p0, krark_clan_ironworks()).is_none(),
+        "it ate itself, so it is no longer on the battlefield"
+    );
+    assert!(
+        in_graveyard(&engine, p0, krark_clan_ironworks()).is_some(),
+        "a sacrificed permanent goes to its owner's graveyard"
+    );
+    assert!(
+        on_battlefield(&engine, p0, quiet_artifact()).is_some(),
+        "and only the artifact that was named: the Sol Ring still stands"
+    );
+    assert!(
+        stack_is_empty(&engine),
+        "a mana ability uses no stack, so nothing was put on one"
     );
     assert_eq!(
         engine.state().players[0]
             .mana_pool
             .available(ManaColor::Colorless),
-        before,
-        "no {{C}}{{C}} reached the pool"
+        before + 2,
+        "{{C}}{{C}} reached the pool"
     );
 }
 

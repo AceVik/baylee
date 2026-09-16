@@ -119,6 +119,20 @@ pub struct Engine<L: CardLookup> {
     /// nothing to buys nothing. It is taken at the top of that function, so
     /// an activation refused after `apply` set it cannot hand it on.
     activation_target_players: Vec<PlayerId>,
+    /// The objects named for a pending activation's *cost* (CR 601.2h).
+    ///
+    /// The same bargain as `activation_target_players` one field up, and one
+    /// step later in the same checklist: `apply` appends an answer and
+    /// re-enters `start_activation`, which counts what is here against what
+    /// the cost still wants and either asks again or pays. In the order the
+    /// cost prints its parts, so the nth answer pays the nth asking part.
+    ///
+    /// Taken at the moment the cost is paid rather than at the top of
+    /// `start_activation`, because unlike the seats it is being *accumulated*
+    /// across several answers — clearing it on entry would ask the first
+    /// question forever. Every path that can refuse the activation clears it
+    /// on the way out.
+    activation_cost_choices: Vec<ObjectId>,
     /// The ability list the next push to the stack should use instead of
     /// asking the source — read before its cost is paid, or carried on a
     /// trigger that is looking back in time.
@@ -286,6 +300,24 @@ enum PlanKind {
         /// Ability index.
         ability_index: u32,
     },
+    /// An activation waiting for one of its cost's answers (CR 601.2h).
+    ///
+    /// The whole answered half of the activation travels on the plan,
+    /// because `start_activation` takes `activation_target_players` out of
+    /// the engine at its first statement — an activation refused further
+    /// down must not leave it standing for the next one — so a re-entry that
+    /// did not carry the seats back would drop every "target player" an
+    /// ability had already been pointed at.
+    PayActivationCost {
+        /// The permanent whose ability is being activated.
+        source: ObjectId,
+        /// Ability index.
+        ability_index: u32,
+        /// The targets already chosen (CR 601.2c comes first).
+        targets: SmallVec<[ObjectId; 2]>,
+        /// The seats already chosen, put back before the re-entry.
+        target_players: Vec<PlayerId>,
+    },
 }
 
 impl<L: CardLookup> Engine<L> {
@@ -326,6 +358,7 @@ impl<L: CardLookup> Engine<L> {
             agreed_draw: false,
             loyalty_player_choice: None,
             activation_target_players: Vec::new(),
+            activation_cost_choices: Vec::new(),
             activating_abilities: None,
             entry_scan_seq: 0,
             delayed_queue: VecDeque::new(),
@@ -530,6 +563,7 @@ impl<L: CardLookup> Engine<L> {
 mod abilities;
 mod actions;
 mod cast_wizard;
+mod cost_wizard;
 mod progress;
 
 #[cfg(test)]

@@ -1,17 +1,13 @@
 //! Survival of the Fittest — {1}{G} — Enchantment
 //! Oracle: {G}, Discard a creature card: Search your library for a creature card, reveal that card, put it into your hand, then shuffle.
 //! Set: TPR #199 — Tempest Remastered | Scryfall ID: 4ef0d7f9-ddb9-4e83-a9bf-09bec22fc80d | Oracle ID: 119d719d-e965-45b4-9bc9-ac03211b10c2
-// PARTIAL — a repeatable creature tutor into your hand, paid for by pitching
-// a creature card. The reveal and the shuffle are the engine's own: a search
-// narrower than "a card" that ends in a hidden zone shows what it found.
-// NOT SUPPORTED: `Discard a creature card` as part of the cost. A cost that
-// names something to *choose* has nothing to ask the question with —
-// `pay_cost` refuses `CostPart::Discard` outright — so the ability is
-// unpayable and `can_afford` therefore declines to offer it at all. The card
-// plays exactly as though the line were not printed, which is what `Partial`
-// promises about it; it goes to `Implemented` the day an activation can
-// suspend on a choice during cost payment, the way the cast wizard already
-// does for `ExileFromHand`.
+// IMPLEMENTED — a repeatable creature tutor into your hand, paid for by
+// pitching a creature card. The reveal and the shuffle are the engine's own:
+// a search narrower than "a card" that ends in a hidden zone shows what it
+// found. The pool's one `CostPart::Discard`, so the hand-only menu
+// `engine::cost_wizard` puts in front of the player is driven by this card
+// alone — `Filter::CREATURE` says nothing about whose hand, and the rule
+// (CR 701.9a) is what limits it to your own.
 
 use baylee_cards_dsl::prelude::*;
 
@@ -25,7 +21,7 @@ card!(
         mana_cost = mana!("{1}{G}"),
         types = TypeSet::ENCHANTMENT,
     ),],
-    coverage = Coverage::Partial("a discard cost cannot be chosen during an activation"),
+    coverage = Coverage::Implemented,
     abilities = &[activated!(
         cost!("{G}", Discard(&Filter::CREATURE)),
         &[Effect::SearchLibrary {

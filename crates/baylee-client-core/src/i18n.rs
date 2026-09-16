@@ -943,6 +943,20 @@ messages! {
     NounCardOutside { en: "card from outside the game", de: "Karte von außerhalb der Partie" },
     /// cards from outside the game
     NounCardsOutside { en: "cards from outside the game", de: "Karten von außerhalb der Partie" },
+    /// permanent to sacrifice
+    NounPermanentToSacrifice {
+        en: "permanent to sacrifice",
+        de: "bleibende Karte, die geopfert wird",
+    },
+    /// permanents to sacrifice
+    NounPermanentsToSacrifice {
+        en: "permanents to sacrifice",
+        de: "bleibende Karten, die geopfert werden",
+    },
+    /// card to discard
+    NounCardToDiscard { en: "card to discard", de: "Karte, die abgeworfen wird" },
+    /// cards to discard
+    NounCardsToDiscard { en: "cards to discard", de: "Karten, die abgeworfen werden" },
     /// Convoke: tap creatures or artifacts to help pay
     ConvokeToHelpPay { en: "Tap creatures or artifacts to help pay — each pays for one", de: "Tippe Kreaturen oder Artefakte an, um mitzubezahlen — jedes zahlt eins" },
     /// Delve: exile cards from your graveyard to help pay
@@ -1613,6 +1627,11 @@ mod tests {
             (Phrase::NounCardToBottom, Phrase::NounCardsToBottom),
             (Phrase::NounCardToTop, Phrase::NounCardsToTop),
             (Phrase::NounCardOutside, Phrase::NounCardsOutside),
+            (
+                Phrase::NounPermanentToSacrifice,
+                Phrase::NounPermanentsToSacrifice,
+            ),
+            (Phrase::NounCardToDiscard, Phrase::NounCardsToDiscard),
         ];
         for (one, many) in pairs {
             for lang in Lang::ALL {

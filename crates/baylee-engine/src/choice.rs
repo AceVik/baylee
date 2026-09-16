@@ -255,6 +255,22 @@ pub enum ChoicePrompt {
     /// answering below it leaves a cast that cannot pay. The house AI reads
     /// this variant for exactly that reason.
     Delve,
+    /// "Sacrifice a creature" in an activation cost (CR 701.21a).
+    ///
+    /// The second and third prompts here that are part of a *cost* rather
+    /// than an effect, for the reason [`Self::Delve`] gives: a question a
+    /// player is being asked in order to pay is a different question from a
+    /// search, and a client that cannot tell them apart asks somebody to
+    /// "choose a card" while what it means is "which one are you giving up".
+    ///
+    /// Not a target (CR 115.1). `Pending::ChooseCards` and not
+    /// `ChooseTargets` is what says so, and it matters on the board: a
+    /// creature with hexproof can be sacrificed to its own controller's
+    /// outlet, and nothing "becomes the target of" an ability by being eaten
+    /// by one.
+    CostSacrifice,
+    /// "Discard a card" in an activation cost (CR 701.9a).
+    CostDiscard,
     /// Generic selection.
     Generic,
 }

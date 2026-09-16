@@ -180,6 +180,25 @@ fn four_card_choices_read_as_four_different_decisions() {
         line(ChoicePrompt::Delve, 0, 4, Lang::En),
         "Exile cards from your graveyard to help pay — each pays for one"
     );
+    // The other two costs are the opposite case: one named card, and the
+    // player has to be told what happens to it. Both languages, because the
+    // German is a relative clause and agrees with the number.
+    assert_eq!(
+        line(ChoicePrompt::CostSacrifice, 1, 1, Lang::En),
+        "Choose 1 permanent to sacrifice"
+    );
+    assert_eq!(
+        line(ChoicePrompt::CostSacrifice, 1, 1, Lang::De),
+        "Wähle 1 bleibende Karte, die geopfert wird"
+    );
+    assert_eq!(
+        line(ChoicePrompt::CostDiscard, 1, 1, Lang::En),
+        "Choose 1 card to discard"
+    );
+    assert_eq!(
+        line(ChoicePrompt::CostDiscard, 2, 2, Lang::De),
+        "Wähle 2 Karten, die abgeworfen werden"
+    );
 
     // And the whole of AS's second half: one card is never "card(s)".
     for lang in Lang::ALL {

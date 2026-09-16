@@ -85,13 +85,14 @@ pub(crate) struct CastWizard {
 /// cost.
 ///
 /// A spell has three cost lists and no two of them are paid by the same code,
-/// so "the wizard pays it" is a claim that has to name which list. This one is
-/// gated on the way in — `can_afford` at the option scan refuses
-/// [`abilities::choice_cost_unpayable`], which is why Recurring Nightmare's
-/// shape on an alternative cost is a refused mode rather than a free spell,
-/// and refuses an `ExileFromHand` with nothing in hand to match it — and
-/// everything the gate lets through and this predicate does not name is paid
-/// by nobody.
+/// so "the wizard pays it" is a claim that has to name which list. Everything
+/// the option scan lets through and this predicate does not name is paid by
+/// nobody — including a sacrifice or a discard, which an *activation* can now
+/// ask about (`engine::cost_wizard`) and a spell's alternative cost still
+/// cannot. That is the reason the pool-wide guard below is the gate here and
+/// `can_afford` is not: `can_afford` used to refuse those two parts on every
+/// board and no longer does, so what stops a spell being cast for free is a
+/// build failure and not a board question.
 ///
 /// It is a *dead offer* only when the printed cost is unaffordable, which is
 /// the one case `casting.rs` reads this list at all: its `any_alt` probe sits
@@ -105,8 +106,6 @@ pub(crate) struct CastWizard {
 ///
 /// Held pool-wide by
 /// `offer_tests::no_spell_cost_list_carries_a_part_its_payment_walks_past`.
-///
-/// [`abilities::choice_cost_unpayable`]: super::abilities
 pub(crate) const fn paid_as_an_alternative_cost(part: &CostPart) -> bool {
     matches!(part, CostPart::PayLife(_) | CostPart::ExileFromHand(_))
 }

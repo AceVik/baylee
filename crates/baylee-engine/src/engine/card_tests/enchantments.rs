@@ -190,34 +190,53 @@ fn survival_of_the_fittest() -> baylee_core::ids::CardIndex {
 }
 
 /// Survival of the Fittest ({1}{G}): "{G}, Discard a creature card: Search
-/// your library for a creature card, reveal that card, put it into your hand,
-/// then shuffle." The card says `Coverage::Partial`, so both of its halves are
-/// here — a test that played only the working one would read as though the
-/// card were finished.
+/// your library for a creature card, reveal that card, put it into your
+/// hand, then shuffle." A cost that says "a creature card" names none, so
+/// the engine has to ask before it may be paid (CR 601.2h) — and this is
+/// the board that drives `ChoicePrompt::CostDiscard` and the hand-only
+/// option list behind it.
 ///
-/// The half that works is the enchantment itself: it is cast off the engine's
-/// own offer and resolves onto the battlefield.
+/// Reading the card cannot replace playing it, because the card is the half
+/// that does not say who may be asked for what. Its filter is a bare
+/// `Filter::CREATURE` with no "you control" in it at all, and a hand is a
+/// hidden zone the printed line says nothing about; the rule that a player
+/// discards from their own hand is CR 701.9a and lives in `cost_wizard`.
+/// So three bystanders stand beside the Elves to say what the list is not:
+/// a Forest and a Counterspell in the same hand, which are cards but not
+/// creature cards, and a Llanowar Elves in the **opponent's** hand, which is
+/// a creature card but not one this player may discard. Reading the filter
+/// alone over every hand at the table would have offered that last one.
 ///
-/// The half that does not is the ability, and what this pins is the *reason*,
-/// because "no ability was offered" is also what a card with no ability at all
-/// looks like. `legal_actions` gates an activation in a fixed order — the
-/// right zone, the right timing, a legal target, then `can_afford` — and this
-/// board answers yes to the first three: the enchantment is on the
-/// battlefield, the ability is instant speed, and it targets nothing. Inside
-/// `can_afford` the mana is asked first, and a Forest kept back from the cast
-/// puts the green mana it wants in the pool; the discard has a creature card
-/// in hand to take. The only gate left is `choice_cost_unpayable`, which
-/// refuses `CostPart::Discard` outright — so the ability is on no list the
-/// engine offers, and an activation sent anyway is refused at the same door.
-/// That is exactly what the `NOT SUPPORTED` comment on the card claims, and
-/// the day an activation can ask which card to discard, this is the test that
-/// fails.
+/// The prompt is asserted beside the options, because the variant is what
+/// tells a client this is a cost and not a search: the same ability publishes
+/// a second `Pending::ChooseCards` two steps later carrying
+/// `ChoicePrompt::SearchLibrary`, and a test that ignored the field would
+/// pass with the two swapped. `ChooseCards` and not `ChooseTargets` is the
+/// other half of that: choosing what to discard is not targeting (CR 115.1).
+///
+/// What the old test pinned — an ability the engine offered to nobody — is
+/// gone. The ability is on the list, the question comes before anything is
+/// paid, and the green mana and the chosen card are both spent when it is
+/// answered.
+#[allow(clippy::too_many_lines)] // one activation, from the offer to what the search found
 #[test]
-fn survival_of_the_fittest_resolves_but_its_discard_ability_is_never_offered() {
-    let p0 = PlayerId::new(0);
-    let mut engine = Duel::new(41, forest())
+fn survival_of_the_fittest_asks_which_creature_card_to_discard() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    // The library is creature cards, so the search the cost pays for has
+    // something to find — and a different creature from the one in hand, so
+    // the card that paid and the card that was found cannot be confused.
+    let mut engine = Duel::new(41, ondu_cleric())
         .battlefield(0, &[forest(), forest(), forest()])
-        .hand(0, &[survival_of_the_fittest(), llanowar_elves()])
+        .hand(
+            0,
+            &[
+                survival_of_the_fittest(),
+                llanowar_elves(),
+                forest(),
+                counterspell(),
+            ],
+        )
+        .hand(1, &[llanowar_elves()])
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
@@ -235,82 +254,175 @@ fn survival_of_the_fittest_resolves_but_its_discard_ability_is_never_offered() {
     engine
         .apply(p0, PlayerAction::CastSpell { card: spell })
         .expect("a two-mana enchantment off two Forests");
-
-    // It arrives by resolving off the stack, not by being placed there.
     pass_until(&mut engine, |e| at_rest(e, p0));
     let survival = on_battlefield(&engine, p0, survival_of_the_fittest())
         .expect("Survival of the Fittest resolved onto the battlefield");
-    assert!(
-        engine
-            .state()
-            .object(survival)
-            .is_some_and(|o| o.characteristics().types.contains(TypeSet::ENCHANTMENT)),
-        "and it is there as an enchantment"
-    );
-
-    // Every gate the offer asks before the cost is now answered, and so is the
-    // mana half of the cost itself.
     engine
         .apply(p0, PlayerAction::ActivateManaAbility { source: spare })
         .expect("the Forest that was kept back still taps");
-    let pool = &engine.state().players[0].mana_pool;
     assert_eq!(
-        pool.available(ManaColor::Green),
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Green),
         1,
         "the green mana the ability asks for is in the pool"
     );
-    // And the half that names a card to choose has something to choose.
-    assert!(
-        in_hand(&engine, p0, llanowar_elves()).is_some(),
-        "a creature card is in hand for the discard to take"
-    );
-    // The gap is the engine's and not the card file's: the ability is printed
-    // in the compiled pool, with the discard on it.
-    let def = baylee_cards::by_index(survival_of_the_fittest()).expect("the card is compiled in");
-    let prints_a_discard = def.abilities.iter().any(|ability| match ability {
-        baylee_cards_dsl::AbilityDef::Activated { cost, .. } => cost
-            .parts
-            .iter()
-            .any(|part| matches!(part, baylee_cards_dsl::CostPart::Discard(_))),
-        _ => false,
-    });
-    assert!(
-        prints_a_discard,
-        "the card prints an activated ability whose cost is a discard"
-    );
 
-    // With nothing else left to refuse it for, the ability is offered on no
-    // list at all.
+    // The one creature card in hand, and the three cards that are not it.
+    let elves = in_hand(&engine, p0, llanowar_elves()).expect("a creature card is in hand");
+    let land_in_hand = in_hand(&engine, p0, forest()).expect("a land card is in hand");
+    let instant_in_hand = in_hand(&engine, p0, counterspell()).expect("an instant is in hand");
+    let theirs = in_hand(&engine, p1, llanowar_elves()).expect("seat 1 holds a creature card too");
+
+    // The offer the old gap withheld: a cost that has to ask is now asked of
+    // the board instead of refused outright.
     let Pending::Priority { legal, .. } = engine.pending().clone() else {
         panic!("expected priority, got {:?}", engine.pending())
     };
-    let offered: Vec<u32> = legal
-        .abilities
-        .iter()
-        .filter(|(who, _)| *who == survival)
-        .map(|(_, index)| *index)
-        .collect();
     assert!(
-        offered.is_empty(),
-        "the engine offered {offered:?} on a cost `pay_cost` cannot pay"
+        legal.abilities.contains(&(survival, 0)),
+        "the enchantment's own ability is on no list: {:?}",
+        legal.abilities
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ActivateAbility {
+                source: survival,
+                ability_index: 0,
+            },
+        )
+        .expect("the activation the offer promised");
+
+    let Pending::ChooseCards {
+        player,
+        options,
+        min,
+        max,
+        prompt,
+    } = engine.pending().clone()
+    else {
+        panic!(
+            "a cost that names a card to choose has to ask, and got {:?}",
+            engine.pending()
+        )
+    };
+    assert_eq!(player, p0, "a player discards from their own hand");
+    assert_eq!(
+        (min, max),
+        (1, 1),
+        "one creature card, no more and no fewer"
+    );
+    assert_eq!(
+        prompt,
+        crate::choice::ChoicePrompt::CostDiscard,
+        "the prompt is what tells a client this is a cost and not a search"
+    );
+    assert!(
+        options.contains(&elves),
+        "the creature card in hand pays this cost, and was not offered: {options:?}"
+    );
+    assert!(
+        !options.contains(&land_in_hand),
+        "a Forest in hand is a card and not a creature card"
+    );
+    assert!(
+        !options.contains(&instant_in_hand),
+        "and neither is a Counterspell"
+    );
+    assert!(
+        !options.contains(&theirs),
+        "the opponent's creature card is in the opponent's hand"
+    );
+    // Seat 0 takes the first turn and skips its draw (CR 103.8), so the hand
+    // is exactly what the duel dealt, less the enchantment it cast.
+    assert_eq!(options.len(), 1, "and nothing else at all: {options:?}");
+
+    // The question comes before the payment (CR 601.2h): the mana is still in
+    // the pool and the card is still in hand, so nobody is made to choose
+    // what to give up for an activation that cannot happen.
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Green),
+        1,
+        "the mana half of the cost is unspent while the question stands"
+    );
+    assert!(
+        engine
+            .state()
+            .zones
+            .list(ZoneLocation::Hand(p0))
+            .contains(&elves),
+        "and so is the card the question is about"
     );
 
-    // Asked the other way round, the engine agrees with its own offer — and
-    // refuses at the door, before `start_activation` has emptied a pool or
-    // taken a card, so there is nothing half-paid to look for afterwards.
-    let refused = engine.apply(
-        p0,
-        PlayerAction::ActivateAbility {
-            source: survival,
-            ability_index: 0,
-        },
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![elves],
+            },
+        )
+        .expect("the answer comes off the list the engine published");
+    assert_eq!(
+        in_graveyard(&engine, p0, llanowar_elves()),
+        Some(elves),
+        "the discarded card is in its owner's graveyard"
     );
     assert!(
+        !engine
+            .state()
+            .zones
+            .list(ZoneLocation::Hand(p0))
+            .contains(&elves),
+        "and it left the hand to get there"
+    );
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Green),
+        0,
+        "the mana half of the cost was paid with it"
+    );
+
+    // What the cost bought. The same ability asks again, and the second
+    // question carries the prompt a search carries.
+    pass_until(&mut engine, |e| {
         matches!(
-            refused,
-            Err(EngineError::IllegalAction("ability not activatable"))
-        ),
-        "the activation should agree with the offer, and answered {refused:?}"
+            e.pending(),
+            Pending::ChooseCards {
+                prompt: crate::choice::ChoicePrompt::SearchLibrary,
+                ..
+            }
+        )
+    });
+    let Pending::ChooseCards { options, .. } = engine.pending().clone() else {
+        unreachable!("pass_until stopped on the search")
+    };
+    let found = *options.first().expect("the library holds creature cards");
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![found],
+            },
+        )
+        .expect("a creature card off the list the search published");
+    assert!(
+        engine
+            .state()
+            .zones
+            .list(ZoneLocation::Hand(p0))
+            .contains(&found),
+        "the card the search found is in hand"
+    );
+    assert!(
+        engine
+            .state()
+            .object(found)
+            .is_some_and(|o| o.characteristics().types.contains(TypeSet::CREATURE)),
+        "and it is a creature card, which is all the ability may take"
     );
 }
 

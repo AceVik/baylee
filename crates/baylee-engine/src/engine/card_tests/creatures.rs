@@ -4244,41 +4244,48 @@ fn viscera_seer() -> baylee_core::ids::CardIndex {
 
 /// Viscera Seer ({B}, 1/1 Vampire Wizard): "Sacrifice a creature: Scry 1."
 ///
-/// The card stands at `Coverage::Partial` and both halves of that claim are
-/// struck here, because a test that only played the half that works would
-/// say the card is fine and the note beneath it is decoration.
+/// The cost is the whole ability, so nothing here can be read off the card.
+/// The printed sentence names no creature, and what a player is handed is a
+/// question — which one — asked between the targets there are none of
+/// (CR 601.2c) and the payment (CR 601.2h). It arrives as
+/// `Pending::ChooseCards` with `ChoicePrompt::CostSacrifice`, because
+/// choosing what to sacrifice is not targeting (CR 115.1), and the variant
+/// is asserted beside the options: a list alone passes against
+/// `ChoicePrompt::Generic`, which tells a client to say "choose a card"
+/// where what the game means is "which one are you giving up".
 ///
-/// The half that works is the body: she is cast for {B} off one Swamp,
-/// resolves as the 1/1 the printing says, and attacks for one on her
-/// controller's next turn. That is the whole of what a player gets from this
-/// card today, and it is worth a real cast rather than a seeded battlefield —
-/// a 1/1 nobody paid for proves nothing about a one-drop.
+/// Both halves of that menu are struck. It holds the Elf **and the Seer
+/// herself**, who is a creature her controller controls and so is her own
+/// fodder; it holds neither the opponent's Cleric — CR 701.21a only lets a
+/// player sacrifice a permanent they control — nor the Swamp beside her,
+/// which is not a creature. Naming the Cleric anyway is refused, so the
+/// list is the enumeration `apply` validates against and not a hint.
 ///
-/// The half that does not is the printed line. No engine path can suspend an
-/// activation to ask *which* creature is being eaten while the cost is being
-/// paid, so `abilities::choice_cost_unpayable` has `can_afford` decline a
-/// filtered sacrifice cost outright and the ability is never offered. It is
-/// the Seer's only ability, so she plays exactly as though the line were not
-/// printed — the same gap Ashnod's Altar stands in.
+/// She is eaten from on the turn she was cast, which the cost allows:
+/// CR 302.6 holds back an ability with `{T}` in its cost and this one has
+/// none, so summoning sickness is not what decides who may be sacrificed.
 ///
-/// "Nothing is offered" is an assertion an empty board would also produce, so
-/// three things keep it honest. There is a creature to eat beside the Seer's
-/// own body, so the cost has fodder and the refusal is the cost's. The offer
-/// is read on the turn *after* she was cast, so she has been controlled since
-/// the turn began and summoning sickness (CR 302.6) is not what is declining
-/// — the cost carries no tap symbol for it to decline anyway. And the pool is
-/// asked whether the card still claims less than `Implemented`, so a coverage
-/// flag flipped without the engine learning to ask the question breaks here.
+/// Then the two things paying it does. The Elf lies in the graveyard while
+/// the ability is still on the stack — a cost is paid on activation, not on
+/// resolution — and the scry that follows *moves* a card rather than merely
+/// asking a question: the card looked at is on the bottom afterwards, the
+/// one beneath it is the new top, and the library is the length it was,
+/// because scry reorders and draws nothing.
 ///
-/// It is written to **fail** the day the gap closes: when an activation can
-/// ask which creature, a Seer standing beside an Elf will offer something,
-/// and flipping `Partial` to `Implemented` is what closes this test.
+/// The second activation is the case the printed sentence hides. Her own
+/// body is all that is left on the menu, the cost takes her off the
+/// battlefield before the ability resolves, and the ability resolves anyway
+/// — it exists on the stack independently of its source (CR 113.7a). That
+/// scry bottoms nothing, which is the other half of "you may put that card
+/// on the bottom": the card that was on top is still on top.
+#[allow(clippy::too_many_lines)] // one game, two activations, both scries
 #[test]
-fn a_cast_viscera_seer_swings_for_one_and_is_never_offered_a_creature_to_eat() {
+fn viscera_seer_eats_the_elf_then_herself_and_scries_for_each() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut engine = Duel::new(23, swamp())
         .battlefield(0, &[swamp(), llanowar_elves()])
         .hand(0, &[viscera_seer()])
+        .battlefield(1, &[ondu_cleric()])
         .start();
     keep_mulligans(&mut engine);
     reach_their_main_phase(&mut engine, p0);
@@ -4290,83 +4297,249 @@ fn a_cast_viscera_seer_swings_for_one_and_is_never_offered_a_creature_to_eat() {
     });
     let seer = on_battlefield(&engine, p0, viscera_seer()).expect("the Seer resolved");
     assert_eq!(pt(&engine, seer), (1, 1), "the printed body arrived");
-
-    // Her controller's next main phase: she has been controlled since this
-    // turn began, so nothing below can be blamed on summoning sickness.
-    let cast_on = engine.state().turn.number;
-    pass_until(&mut engine, |e| {
-        e.state().turn.number > cast_on
-            && e.state().turn.active == p0
-            && matches!(e.state().turn.phase, Phase::FirstMain)
-            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p0)
-    });
-    assert_eq!(
-        on_battlefield(&engine, p0, viscera_seer()),
-        Some(seer),
-        "the Seer survived to her controller's next turn"
-    );
     let elf = on_battlefield(&engine, p0, llanowar_elves()).expect("the fodder stands");
+    let land = on_battlefield(&engine, p0, swamp()).expect("the Swamp that paid for her");
+    let theirs = on_battlefield(&engine, p1, ondu_cleric()).expect("the opponent has a creature");
 
     let Pending::Priority { legal, .. } = engine.pending().clone() else {
-        unreachable!("the walk above waited for exactly this")
+        panic!(
+            "a main phase hands priority back, got {:?}",
+            engine.pending()
+        )
     };
     let offered = deeds(&legal, &[seer]);
     assert!(
-        offered.is_empty(),
-        "a sacrifice cost cannot be chosen during an activation, so the Seer \
-         offers nothing at all although two creatures — the Elf and her own \
-         body — stand ready to be eaten. If this fires, `pay_cost` learned to \
-         ask and Viscera Seer is no longer Coverage::Partial: {offered:?}"
+        matches!(offered.as_slice(), [(0, Deed::Ability(0))]),
+        "her one printed ability is offered, because something on the board \
+         can pay for it: {offered:?}"
     );
     let def = baylee_cards::by_index(viscera_seer()).expect("the Seer is in the pool");
     assert!(
-        !def.is_implemented(),
-        "and the card still says so, so the empty offer above is the promise \
-         the deckbuilder makes about this card rather than a silent hole in it"
+        def.is_implemented(),
+        "and the card says the same to the deckbuilder, which is the promise \
+         the rest of this test is the evidence for"
     );
 
-    // Naming it anyway eats nothing: the answer is refused and every creature
-    // is still standing where it was.
+    engine
+        .apply(
+            p0,
+            PlayerAction::ActivateAbility {
+                source: seer,
+                ability_index: 0,
+            },
+        )
+        .expect("the ability the offer just named");
+
+    // CR 601.2h, and the question this card is written about.
+    let Pending::ChooseCards {
+        player,
+        options,
+        min,
+        max,
+        prompt,
+    } = engine.pending().clone()
+    else {
+        panic!("paying asks which creature, got {:?}", engine.pending())
+    };
+    assert_eq!(player, p0, "her controller decides what she eats");
+    assert_eq!(
+        prompt,
+        crate::choice::ChoicePrompt::CostSacrifice,
+        "the question is part of a cost, and the variant is the only thing \
+         that says so — it is not a search and it is not a target"
+    );
+    assert_eq!(
+        (min, max),
+        (1, 1),
+        "one creature exactly: the cost is neither optional nor a pile"
+    );
+    assert!(
+        options.contains(&elf),
+        "the Elf is a creature her controller controls: {options:?}"
+    );
+    assert!(
+        options.contains(&seer),
+        "and so is the Seer, so she is on her own menu (CR 701.21a): \
+         {options:?}"
+    );
+    assert!(
+        !options.contains(&theirs),
+        "the opponent's Cleric is a creature and is not this player's to \
+         sacrifice (CR 701.21a): {options:?}"
+    );
+    assert!(
+        !options.contains(&land),
+        "and a Swamp is not a creature at all: {options:?}"
+    );
     assert!(
         engine
             .apply(
                 p0,
-                PlayerAction::ActivateAbility {
-                    source: seer,
-                    ability_index: 0,
+                PlayerAction::ChooseObjects {
+                    objects: vec![theirs],
                 },
             )
             .is_err(),
-        "an ability the offer never named cannot be activated by naming it"
-    );
-    assert_eq!(
-        on_battlefield(&engine, p0, llanowar_elves()),
-        Some(elf),
-        "no creature was sacrificed"
-    );
-    assert!(
-        in_graveyard(&engine, p0, llanowar_elves()).is_none(),
-        "and nothing of seat 0's is lying in a graveyard"
+        "the list is the enumeration the answer is validated against, so a \
+         creature it never held cannot be eaten by naming it"
     );
 
-    // What the Seer is today, played out to the end: a one-drop that swings.
-    let before = engine.state().players[1].life;
+    // The cards the scry is about to look at, read after the answer but
+    // before the ability resolves. The list's last entry is the top of the
+    // library and its first is the bottom.
+    engine
+        .apply(p0, PlayerAction::ChooseObjects { objects: vec![elf] })
+        .expect("one of the two creatures just offered");
+    assert!(
+        on_battlefield(&engine, p0, llanowar_elves()).is_none(),
+        "the Elf left the battlefield the moment the cost was paid"
+    );
+    assert!(
+        in_graveyard(&engine, p0, llanowar_elves()).is_some(),
+        "and is in its owner's graveyard while the ability is still on the \
+         stack: a cost is paid on activation, not on resolution"
+    );
+    assert!(
+        !stack_is_empty(&engine),
+        "the ability it paid for is waiting to resolve"
+    );
+
+    let library_before = engine.state().zones.list(ZoneLocation::Library(p0)).clone();
+    let top = *library_before.last().expect("p0 has a library");
+    let second = library_before[library_before.len() - 2];
+
     pass_until(&mut engine, |e| {
-        matches!(e.pending(), Pending::ChooseAttackers { .. })
+        matches!(e.pending(), Pending::ChooseCards { .. })
     });
+    let Pending::ChooseCards {
+        options,
+        min,
+        max,
+        prompt,
+        ..
+    } = engine.pending().clone()
+    else {
+        unreachable!("the predicate just matched")
+    };
+    assert_eq!(
+        prompt,
+        crate::choice::ChoicePrompt::ScryBottom,
+        "the cost is behind her; this question is the effect she was paid for"
+    );
+    assert_eq!(options, vec![top], "scry 1 looks at exactly the top card");
+    assert_eq!(
+        (min, max),
+        (0, 1),
+        "\"you **may** put that card on the bottom\""
+    );
+    engine
+        .apply(p0, PlayerAction::ChooseObjects { objects: vec![top] })
+        .expect("the card just looked at");
+    pass_until(&mut engine, |e| at_rest(e, p0));
+
+    let library = engine.state().zones.list(ZoneLocation::Library(p0)).clone();
+    assert_eq!(
+        library.first().copied(),
+        Some(top),
+        "the card she looked at is on the bottom"
+    );
+    assert_eq!(
+        library.last().copied(),
+        Some(second),
+        "the one beneath it is the new top"
+    );
+    assert_eq!(
+        library.len(),
+        library_before.len(),
+        "and scry drew nothing on the way"
+    );
+
+    // Again, with nothing left to eat but herself.
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        unreachable!("`at_rest` waited for exactly this")
+    };
+    let offered = deeds(&legal, &[seer]);
+    assert!(
+        matches!(offered.as_slice(), [(0, Deed::Ability(0))]),
+        "she is still an outlet, now with her own body as the fodder: \
+         {offered:?}"
+    );
     engine
         .apply(
             p0,
-            PlayerAction::DeclareAttackers {
-                attackers: vec![(seer, baylee_core::ids::Defender::Player(p1))],
+            PlayerAction::ActivateAbility {
+                source: seer,
+                ability_index: 0,
             },
         )
-        .expect("a 1/1 out since the turn began may attack");
-    pass_until(&mut engine, |e| e.state().players[1].life < before);
+        .expect("an outlet with one creature left is an outlet");
+    let Pending::ChooseCards {
+        options, prompt, ..
+    } = engine.pending().clone()
+    else {
+        panic!("paying asks which creature, got {:?}", engine.pending())
+    };
+    assert_eq!(prompt, crate::choice::ChoicePrompt::CostSacrifice);
     assert_eq!(
-        engine.state().players[1].life,
-        before - 1,
-        "one point of Vampire Wizard, which is all this card does today"
+        options,
+        vec![seer],
+        "the Elf is eaten and the Cleric is not hers, so her own body is the \
+         whole menu"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![seer],
+            },
+        )
+        .expect("a creature may be sacrificed to its own ability");
+    assert!(
+        on_battlefield(&engine, p0, viscera_seer()).is_none(),
+        "she ate herself to pay for the ability"
+    );
+    assert!(
+        in_graveyard(&engine, p0, viscera_seer()).is_some(),
+        "and lies in the graveyard beside the Elf"
+    );
+
+    // CR 113.7a: the ability is on the stack and its source is gone, and it
+    // still does what it says.
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseCards { .. })
+    });
+    let Pending::ChooseCards {
+        options, prompt, ..
+    } = engine.pending().clone()
+    else {
+        unreachable!("the predicate just matched")
+    };
+    assert_eq!(prompt, crate::choice::ChoicePrompt::ScryBottom);
+    assert_eq!(
+        options,
+        vec![second],
+        "the top card, which is the one the first scry left there"
+    );
+    engine
+        .apply(p0, PlayerAction::ChooseObjects { objects: vec![] })
+        .expect("bottoming nothing is an answer scry allows");
+    pass_until(&mut engine, |e| at_rest(e, p0));
+
+    let library_after = engine.state().zones.list(ZoneLocation::Library(p0)).clone();
+    assert_eq!(
+        library_after.last().copied(),
+        Some(second),
+        "nothing was chosen, so the card looked at stayed on top"
+    );
+    assert_eq!(
+        library_after.len(),
+        library.len(),
+        "and this scry drew nothing either"
+    );
+    assert_eq!(
+        on_battlefield(&engine, p1, ondu_cleric()),
+        Some(theirs),
+        "the opponent's creature was never on the menu and never left"
     );
 }
 
