@@ -892,6 +892,19 @@ name for it):
 - **G1 side finding**: `pay_cost` empties the mana pool before returning `Err`
   for those same two CostParts, with no rollback. State damage, not a missing
   capability.
+- **A counted condition cannot say "another"**: `Condition::ControlCount`
+  walks the battlefield in `eval::condition_holds` and calls `matches(filter,
+  state, o, you, **id)` — each candidate's *own* id as the object a filter's
+  `This` and `Another` compare against, where `SourceMatches` passes the
+  source. So `Another` is false for every candidate and `This` true for all
+  of them: "if you control another creature" counts nothing whatever and the
+  trigger can never fire. Latent in the pool — both cards that carry a
+  `ControlCount` name a filter that is about nobody in particular — and
+  `scriptgen` refuses the 14 corpus scripts that would need it (`a count
+  relative to this card`) rather than writing a card that does nothing. The
+  repair is one argument; what it needs first is a decision about which
+  object a *counted* filter is relative to, which is why it is written down
+  here rather than changed.
 
 ---
 
