@@ -93,6 +93,26 @@ mod tests {
         }
     }
 
+    /// The word is what a *reader* matches on, and the constant that holds
+    /// the id is that word in capitals — which is only well defined while
+    /// every word is lowercase ASCII with nothing in it that shifts case
+    /// oddly. `scriptgen::assigned_counter` turns a reference script's
+    /// `CounterType$ STORAGE` into `counters::STORAGE` by exactly that
+    /// rule, so a word written any other way here would emit a constant
+    /// that does not exist.
+    #[test]
+    fn every_assigned_word_is_lowercase_ascii() {
+        for (word, _) in ASSIGNED {
+            assert!(
+                !word.is_empty()
+                    && word
+                        .chars()
+                        .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit()),
+                "{word} is not a lowercase ASCII word"
+            );
+        }
+    }
+
     /// And every one of them is a `Custom` id, which is what says this
     /// module is about the counters the rules have nothing to say about.
     /// A word that earns a rule earns a variant instead, and moving it

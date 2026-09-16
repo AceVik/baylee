@@ -1695,12 +1695,16 @@ impl Tx<'_> {
 /// meaning one thing on a card's ability and another on its cost, and
 /// nothing in the build would notice — the two never meet.
 ///
-/// Only the kinds the rules know are here — the nine named ones plus the
-/// P/T family below. Every other counter Magic prints is a
-/// `CounterKind::Custom` id assigned in `baylee_cards_dsl::counters`, and
-/// assigning one is a decision with a printed word behind it rather than
-/// something a reader may do on the way past — so an unknown code refuses
-/// the card.
+/// Only the kinds the rules know are written out here — the nine named ones
+/// plus the P/T family below. Every other counter Magic prints is a
+/// `CounterKind::Custom` id, and assigning one is a decision with a printed
+/// word behind it rather than something a reader may do on the way past. So
+/// the ids are **not** assigned here: `baylee_cards_dsl::counters::ASSIGNED`
+/// is the registry, this reads it, and a code that is in neither place
+/// refuses the card. Deriving the table instead of retyping it is the
+/// difference between a registry and two lists of numbers that happen to
+/// agree — and the registry is on the other side of the seam anyway, since
+/// what a generated card writes is the *constant*, `counters::STORAGE`.
 ///
 /// `Lifelink` is spelled the way it looks. Every other named code here is
 /// shouted and a *keyword* counter is written as the keyword (`Flying`,
@@ -1728,10 +1732,28 @@ fn counter_kind(code: &str) -> Option<String> {
             "RAD" => "CounterKind::Rad",
             "LEVEL" => "CounterKind::Level",
             "Lifelink" => "CounterKind::Lifelink",
-            _ => return None,
+            _ => return assigned_counter(code),
         }
         .to_string(),
     )
+}
+
+/// A counter word the DSL has already given a `Custom` id, as the constant
+/// that names it.
+///
+/// The match is on the **word**, case-folded, because the two sides spell it
+/// differently on purpose: the registry writes what a player says
+/// (`"storage"`), the reference shouts a code (`STORAGE`), and the constant
+/// is the word in capitals. `counters::ASSIGNED`'s own test keeps every word
+/// lowercase ASCII, which is what makes that last step well defined rather
+/// than a guess — and the generated card naming a constant that does not
+/// exist would not compile, so the build is the second check.
+fn assigned_counter(code: &str) -> Option<String> {
+    let word = code.to_ascii_lowercase();
+    baylee_cards_dsl::counters::ASSIGNED
+        .iter()
+        .find(|(assigned, _)| *assigned == word)
+        .map(|(assigned, _)| format!("counters::{}", assigned.to_ascii_uppercase()))
 }
 
 /// `P1P1`, `M0M1`, `P2P2` — a +X/+Y or -X/-Y counter (CR 122.1a).
@@ -2498,6 +2520,33 @@ mod tests {
         assert!(text.contains("filter: &Filter::This"), "{text}");
     }
 
+    /// A counter word the DSL registry has an id for reaches the card as
+    /// the constant, on both the rules that read a counter code.
+    ///
+    /// The effect and the cost are tested together on purpose: they are
+    /// two callers of one function precisely so that `STORAGE` cannot come
+    /// out as two different counters, and a test that only exercised one of
+    /// them would not notice if that stopped being true. No card prints
+    /// storage counters as a *cost* in this direction — the cost half of
+    /// this script is written for the shared table and not for a printing.
+    #[test]
+    fn an_assigned_counter_word_reaches_the_card_as_its_constant() {
+        let body = read(
+            "Name:Crucible\nManaCost:no cost\nTypes:Land\n\
+             A:AB$ PutCounter | Cost$ T | CounterType$ STORAGE | CounterNum$ 1\n\
+             A:AB$ Untap | Cost$ AddCounter<1/STORAGE>\n",
+        );
+        let text = body.abilities.join("\n");
+        assert!(
+            text.contains("kind: counters::STORAGE"),
+            "the effect: {text}"
+        );
+        assert!(
+            text.contains("PutCounterSelf { kind: counters::STORAGE"),
+            "the cost: {text}"
+        );
+    }
+
     /// The one `K:` line that is a static ability rather than a bit.
     ///
     /// The reference files "you may choose not to untap" as a keyword
@@ -2949,17 +2998,19 @@ mod tests {
                  SVar:Second:DB$ DealDamage | ValidTgts$ Player | NumDmg$ 1",
                 "two different targets in one chain",
             ),
-            // Both doors a counter noun comes through. Quest counters are
-            // `counters::QUEST`, a `Custom` id with a printed word behind
-            // it, and neither door may invent one.
+            // Both doors a counter noun comes through. A word the registry
+            // has not assigned an id to is refused at each of them, and
+            // neither door may invent one — `counters::ASSIGNED` is where
+            // that decision is made. Hatchling counters are printed on one
+            // card in the corpus and have no id.
             (
                 "Name:X\nTypes:Creature\n\
-                 A:AB$ PutCounter | Cost$ T | CounterType$ QUEST | CounterNum$ 1",
-                "counter `QUEST`",
+                 A:AB$ PutCounter | Cost$ T | CounterType$ HATCHLING | CounterNum$ 1",
+                "counter `HATCHLING`",
             ),
             (
-                "Name:X\nTypes:Creature\nA:AB$ Untap | Cost$ AddCounter<1/QUEST>",
-                "counter `QUEST`",
+                "Name:X\nTypes:Creature\nA:AB$ Untap | Cost$ AddCounter<1/HATCHLING>",
+                "counter `HATCHLING`",
             ),
             // The count is read before the noun, and it is a number or
             // nothing: every one of the 434 `AddCounter<…>` costs in the
