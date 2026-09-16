@@ -110,6 +110,15 @@ enum Cmd {
         /// finish, which is the one a player would notice.
         #[arg(long)]
         stubs: bool,
+        /// How many refusal causes to rank. 0 prints every one of them.
+        ///
+        /// The ranking is long — a corpus run distinguishes several hundred
+        /// causes — and the tail is where a mechanic this project is *about
+        /// to* write sits, because a rule nothing needs yet blocks a handful
+        /// of scripts rather than a thousand. The default is a screenful,
+        /// and what it leaves out is counted rather than dropped in silence.
+        #[arg(long, default_value_t = 30)]
+        causes: usize,
     },
     /// Read every hand-written card a second way and report the disagreements.
     ///
@@ -379,7 +388,8 @@ fn main() -> anyhow::Result<()> {
             samples,
             stubs,
             reason,
-        } => transcode_report(&root, &scripts, samples, stubs, reason.as_deref()),
+            causes,
+        } => transcode_report(&root, &scripts, samples, stubs, reason.as_deref(), causes),
         Cmd::CrossRead { scripts, samples } => cross_read(&root, &scripts, samples),
         Cmd::CrCheck { rules, all } => cr_check::run(&root, &rules, all),
         Cmd::LandReport {
@@ -3664,6 +3674,7 @@ fn transcode_report(
     samples: usize,
     stubs: bool,
     reason: Option<&str>,
+    top: usize,
 ) -> anyhow::Result<()> {
     let dir = scripts_root(root, scripts_dir);
     let cache = root.join("data/scryfall-cache");
@@ -3735,8 +3746,20 @@ fn transcode_report(
     let mut ranked: Vec<(&String, &usize)> = causes.iter().collect();
     ranked.sort_by(|a, b| b.1.cmp(a.1));
     println!("what the refused scripts need next:");
-    for (cause, n) in ranked.into_iter().take(30) {
+    let top = if top == 0 { ranked.len() } else { top };
+    for (cause, n) in ranked.iter().take(top) {
         println!("  {n:>6}  {cause}");
+    }
+    // What a cap leaves out is said out loud. A ranking that simply stopped
+    // at thirty read as the whole list, and a cause this project was about
+    // to write — `Phase.PresentDefined`, five of our own stubs — sat below
+    // the line where nothing could see it.
+    if let Some(rest) = ranked.get(top..).filter(|rest| !rest.is_empty()) {
+        let scripts: usize = rest.iter().map(|(_, n)| **n).sum();
+        println!(
+            "  {} more causes not shown, over {scripts} scripts (--causes 0 for all)",
+            rest.len()
+        );
     }
     Ok(())
 }
