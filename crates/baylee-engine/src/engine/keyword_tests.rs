@@ -390,3 +390,72 @@ fn ward_paid_lets_the_spell_through_and_costs_the_mana() {
         "the tax was paid, so Path resolved and exiled its target",
     );
 }
+
+/// Every `KeywordSet` a card *mentions*, and not only the ones on its faces.
+///
+/// The sweep above reads `CardDef::all_keywords`, which is the faces, and a
+/// keyword is grantable from at least four other places: `Modifier::AddKeyword`
+/// in a static, the `keywords` field of `Effect::PumpFilter` and of
+/// `Effect::PumpTarget`, and `CopyMod::AddKeyword`. Mikaeus, the Unhallowed
+/// granted undying through the first of them and the face sweep saw nothing,
+/// while the intimidate on his own face failed loudly — the same card, the
+/// same inert bit, one of them caught.
+///
+/// So this walks the card's whole **`Debug` rendering** rather than a list of
+/// places to look. `KeywordSet` is a newtype over `u128` and renders as
+/// `KeywordSet(4194304)` wherever it sits, however deep — inside a `MayDo`
+/// inside a mode inside a chapter — so a nesting shape nobody thought of is
+/// read for free, and a field added tomorrow needs no edit here. That is the
+/// whole reason for a spelling nobody would choose for a getter: a positive
+/// list of grant sites goes silent on the fifth one, and this cannot.
+///
+/// It counts *mentions*, which is deliberately wider than "grants". A card
+/// that removes a keyword no rule reads, or filters for one, is saying
+/// something the table cannot hear either.
+#[test]
+fn no_card_mentions_a_keyword_the_engine_ignores() {
+    let enforced = enforced().bits();
+    let (mut read, mut mention_one) = (0, 0);
+    for (oracle_id, def) in baylee_cards::generated::ALL {
+        let (mut mentioned, mut sets) = (0u128, 0);
+        let rendering = format!("{def:?}");
+        for tail in rendering.split("KeywordSet(").skip(1) {
+            let digits: String = tail.chars().take_while(char::is_ascii_digit).collect();
+            mentioned |= digits
+                .parse::<u128>()
+                .expect("a KeywordSet renders its bits");
+            sets += 1;
+        }
+        read += usize::from(sets > 0);
+        mention_one += usize::from(mentioned != 0);
+        let unknown = mentioned & !enforced;
+        assert_eq!(
+            unknown, 0,
+            "{} ({oracle_id}) names a keyword no engine rule reads (bits {:#x}); \
+             a face, a static's `AddKeyword`, a pump's `keywords` or a `CopyMod` \
+             — implement it and add it to ENFORCED, or take it off the card",
+            def.faces[0].name, unknown,
+        );
+    }
+    // The two bounds this reader owes, because a rendering that stopped
+    // carrying the newtype's name would find nothing and pass over the whole
+    // pool in silence. Every card has a face and every face has the field,
+    // so the first is exact; the second is the claim that the sweep reaches
+    // past the faces at all — 115 cards name a keyword against the 77 whose
+    // own faces print one.
+    assert_eq!(
+        read,
+        baylee_cards::generated::ALL.len(),
+        "a card whose rendering carries no `KeywordSet` at all: every face has \
+         the field, so the spelling this sweep matches on has changed"
+    );
+    let on_faces = baylee_cards::generated::ALL
+        .iter()
+        .filter(|(_, def)| def.all_keywords().bits() != 0)
+        .count();
+    assert!(
+        mention_one > on_faces,
+        "{mention_one} cards name a keyword and {on_faces} print one, so the \
+         sweep is reading no further than `all_keywords` already did"
+    );
+}
