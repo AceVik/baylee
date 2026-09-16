@@ -108,6 +108,7 @@ fn consumes(cost: &Cost) -> bool {
                     | CostPart::ExileFromHand(_)
                     | CostPart::ReturnSelfToHand
                     | CostPart::PayLife(_)
+                    | CostPart::RemoveCounterSelf { .. }
             )
         })
 }

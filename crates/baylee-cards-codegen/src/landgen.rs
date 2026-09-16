@@ -80,6 +80,32 @@ fn number(word: &str) -> Option<u32> {
     })
 }
 
+/// `"two charge counters"` → `2`; every other counter → `None`.
+///
+/// The noun is read and not skipped over, which is the same rule the convoke
+/// land's phrase obeys one function down. `Charge` is the one counter the DSL
+/// names that a land prints, and it is far from the only one a land prints:
+/// the depletion lands take "depletion counters" off themselves in exactly
+/// this sentence and the storage lands take "storage counters", both of which
+/// are `CounterKind::Custom` ids nobody has assigned. A reader that took the
+/// number and threw the noun away would give Bottomless Vault a charge
+/// counter and a land that untaps for free — so the word is matched, and
+/// everything else stays a stub until its kind exists.
+///
+/// The plural has to agree, for the reason the noun is read at all: a
+/// mismatch is a phrase this did not actually understand, and the pool
+/// prints none.
+fn charge_counters(phrase: &str) -> Option<u16> {
+    let (count, noun) = phrase.split_once(' ')?;
+    let n = number(count)?;
+    let plural = if n == 1 {
+        "charge counter"
+    } else {
+        "charge counters"
+    };
+    (noun == plural).then(|| u16::try_from(n).ok())?
+}
+
 /// Removes reminder text and normalises whitespace.
 ///
 /// Reminder text is parenthesised by definition (CR 207.2), carries no rules
@@ -162,6 +188,17 @@ fn parse_effect(sentence: &str) -> Option<Vec<String>> {
         let n = number(rest.split_whitespace().next()?)?;
         return (rest.ends_with(" life")).then(|| vec![format!("Effect::gain_life({n})")]);
     }
+    if let Some(rest) = s.strip_prefix("Put ")
+        && let Some(phrase) = rest.strip_suffix(" on this land")
+        && let Some(n) = charge_counters(phrase)
+    {
+        // No target, which is what `Effect::AddCounter` reads as "the source"
+        // — Mirrodin's Core's `{T}: Put a charge counter on this land`, the
+        // half that fills the land the removal above empties.
+        return Some(vec![format!(
+            "Effect::AddCounter {{ kind: CounterKind::Charge, amount: Amount::Fixed({n}) }}"
+        )]);
+    }
     if let Some(rest) = lower.strip_prefix("this land deals ") {
         let mut words = rest.split_whitespace();
         let n = number(words.next()?)?;
@@ -196,6 +233,17 @@ fn parse_cost(text: &str) -> Option<String> {
             // noun would emit a filter nobody wrote. Those refuse here and
             // stay stubs until the phrase is read for real.
             parts.push("TapOther(&Filter::YOUR_CREATURE)".to_string());
+        } else if let Some(rest) = token.strip_prefix("Remove ")
+            && let Some(phrase) = rest.strip_suffix(" from this land")
+            && let Some(n) = charge_counters(phrase)
+        {
+            // A counter paid as a cost, which is not the door the counters a
+            // land *enters* with take: CR 614.16 doubles what is put on a
+            // permanent and Magic prints nothing that multiplies a removal,
+            // so this one is arithmetic and that one is a replacement effect.
+            parts.push(format!(
+                "RemoveCounterSelf {{ kind: CounterKind::Charge, n: {n} }}"
+            ));
         } else if token.starts_with('{') && symbols(token).is_some() {
             if !mana.is_empty() {
                 return None;
@@ -357,6 +405,42 @@ impl Recognizer<'_> {
                 .enter_modifiers
                 .push("EnterModifier::Tapped".into());
             self.body.notes.push("enters tapped".to_string());
+            return Some(());
+        }
+        // Two modifiers out of one sentence, and they are two rules: a Vivid
+        // land enters tapped *and* enters with counters, both as replacement
+        // effects applied to the same event (CR 614.1c). The engine's list is
+        // a list of modifiers rather than of sentences, so the sentence that
+        // says both pushes both — and the order between them does not matter,
+        // which is why nothing here states one.
+        //
+        // Before the plain `enters tapped` arm would have to be, if that arm
+        // were a prefix test; it is an equality test, so this sits after it
+        // and the reading is the same either way.
+        if let Some(rest) = line.strip_prefix("This land enters tapped with ")
+            && let Some(n) = rest.strip_suffix(" on it").and_then(charge_counters)
+        {
+            self.body
+                .enter_modifiers
+                .push("EnterModifier::Tapped".into());
+            self.body.enter_modifiers.push(format!(
+                "EnterModifier::WithCounters {{ kind: CounterKind::Charge, n: {n} }}"
+            ));
+            self.body
+                .notes
+                .push("enters tapped with counters".to_string());
+            return Some(());
+        }
+        // The same sentence without the word "tapped" — Tendo Ice Bridge
+        // enters untapped and still brings its counter, which is the whole
+        // difference between it and the Vivid lands.
+        if let Some(rest) = line.strip_prefix("This land enters with ")
+            && let Some(n) = rest.strip_suffix(" on it").and_then(charge_counters)
+        {
+            self.body.enter_modifiers.push(format!(
+                "EnterModifier::WithCounters {{ kind: CounterKind::Charge, n: {n} }}"
+            ));
+            self.body.notes.push("enters with counters".to_string());
             return Some(());
         }
         // Before the checkland below it, which claims the same prefix and
@@ -753,6 +837,116 @@ mod tests {
                 "an unread noun has to refuse the card: {noun}"
             );
         }
+    }
+
+    /// The Vivid lands, which are the pool's whole shape for a permanent that
+    /// arrives with counters and then spends them.
+    ///
+    /// One printed sentence, two modifiers, and an activation cost that is
+    /// not the tap — held together because the card is worth nothing if
+    /// either half is read alone: a land that enters with counters and cannot
+    /// spend them is a tapland, and one that spends counters it never gets is
+    /// an ability nothing can afford.
+    #[test]
+    fn a_vivid_land_enters_tapped_with_counters_and_spends_one_for_any_colour() {
+        let body = read(
+            "Land",
+            "This land enters tapped with two charge counters on it.\n{T}: Add {R}.\n\
+             {T}, Remove a charge counter from this land: Add one mana of any color.",
+        );
+        assert_eq!(
+            body.enter_modifiers,
+            [
+                "EnterModifier::Tapped",
+                "EnterModifier::WithCounters { kind: CounterKind::Charge, n: 2 }",
+            ],
+            "the one sentence says both, so it pushes both"
+        );
+        assert_eq!(
+            body.abilities[1],
+            concat!(
+                "mana_ability!(cost!(TapSelf, RemoveCounterSelf { kind: CounterKind::Charge, ",
+                "n: 1 }), &[Effect::mana_of_any_color()])"
+            )
+        );
+    }
+
+    /// Tendo Ice Bridge, which is the same card without the word "tapped" —
+    /// and the reason the two sentences are read by two arms rather than by
+    /// one with an optional word in it.
+    #[test]
+    fn a_counter_land_can_enter_untapped_and_still_bring_its_counter() {
+        let body = read(
+            "Land",
+            "This land enters with a charge counter on it.\n{T}: Add {C}.\n\
+             {T}, Remove a charge counter from this land: Add one mana of any color.",
+        );
+        assert_eq!(
+            body.enter_modifiers,
+            ["EnterModifier::WithCounters { kind: CounterKind::Charge, n: 1 }"],
+            "no `Tapped`, because the card does not print the word"
+        );
+    }
+
+    /// Mirrodin's Core fills itself, which is the other half of the same
+    /// counter and the one that goes through the *placing* door.
+    #[test]
+    fn a_land_that_puts_a_counter_on_itself_needs_no_target() {
+        let body = read(
+            "Land",
+            "{T}: Add {C}.\n{T}: Put a charge counter on this land.\n\
+             {T}, Remove a charge counter from this land: Add one mana of any color.",
+        );
+        assert_eq!(
+            body.abilities[1],
+            concat!(
+                "activated!(Cost::TAP, &[Effect::AddCounter { kind: CounterKind::Charge, ",
+                "amount: Amount::Fixed(1) }])"
+            )
+        );
+    }
+
+    /// Every counter a land prints that is not a charge counter, in all three
+    /// sentences that name one.
+    ///
+    /// The depletion lands and the storage lands print exactly these phrases
+    /// with another noun in them, and their counters are
+    /// `CounterKind::Custom` ids nobody has assigned. Reading the number and
+    /// dropping the noun would hand Bottomless Vault a charge counter — a
+    /// land that untaps for free — so the whole card is refused instead, and
+    /// this is the test that it is.
+    #[test]
+    fn a_counter_the_dsl_cannot_name_refuses_the_card() {
+        for noun in ["depletion", "storage", "verse"] {
+            for oracle in [
+                format!(
+                    "This land enters tapped with two {noun} counters on it.\n{{T}}: Add {{R}}."
+                ),
+                format!("This land enters with a {noun} counter on it.\n{{T}}: Add {{R}}."),
+                format!(
+                    "{{T}}: Add {{C}}.\n{{T}}, Remove a {noun} counter from this land: Add one mana of any color."
+                ),
+                format!("{{T}}: Add {{C}}.\n{{T}}: Put a {noun} counter on this land."),
+            ] {
+                assert!(
+                    super::read(&card("Land", &oracle), &cats()).is_err(),
+                    "a counter with no kind has to refuse the card: {oracle}"
+                );
+            }
+        }
+    }
+
+    /// And the number has to agree with its noun, which is the cheap half of
+    /// reading the phrase at all: a singular beside a plural is a sentence
+    /// this did not parse, whatever else it matched.
+    #[test]
+    fn a_count_that_disagrees_with_its_noun_is_not_a_phrase_this_read() {
+        assert_eq!(super::charge_counters("two charge counters"), Some(2));
+        assert_eq!(super::charge_counters("a charge counter"), Some(1));
+        assert_eq!(super::charge_counters("one charge counter"), Some(1));
+        assert_eq!(super::charge_counters("two charge counter"), None);
+        assert_eq!(super::charge_counters("a charge counters"), None);
+        assert_eq!(super::charge_counters("a +1/+1 counter"), None);
     }
 
     #[test]

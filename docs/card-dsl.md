@@ -361,7 +361,15 @@ express at all yet.
 
   The parts: `TapSelf`, `UntapSelf`, `SacrificeSelf`, `Sacrifice(filter)`,
   `Discard(filter)`, `DiscardSelf` (cycling), `PayLife(n)`, `PayLifeX`,
-  `ExileSelf`, `ExileFromHand(filter)`, `ReturnSelfToHand`.
+  `ExileSelf`, `ExileFromHand(filter)`, `ReturnSelfToHand`,
+  `TapOther(filter)` (the convoke lands, Earthcraft),
+  `RemoveCounterSelf { kind, n }` (the Vivid lands, Tendo Ice Bridge).
+
+  A part with **named fields** keeps its braces —
+  `cost!(TapSelf, RemoveCounterSelf { kind: CounterKind::Charge, n: 1 })` —
+  which is the third shape the macro reads after "a word" and "a word with
+  parentheses". The order of the parts is the printed order and is
+  load-bearing: `docs/cost-model.md` has the rule and the lint that holds it.
 
   `Cost::FREE` is the empty cost and `Cost::TAP` a bare `{T}` — the two the
   macro would spell with no argument and one, and between them what two

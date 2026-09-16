@@ -134,3 +134,46 @@ pub fn record_counters(
     }
     state.invalidate_projections();
 }
+
+/// Takes `n` counters of `kind` off `id`, records the change, and answers how
+/// many actually came off.
+///
+/// The sibling of [`record_counters`] and in this module for the reason that
+/// one is: the journal entry and the projection invalidation are part of the
+/// door. A +1/+1 counter spent on Walking Ballista's ping makes the creature
+/// smaller, and a removal that skipped the invalidation would leave it drawn
+/// at its old size and, worse, leave the state-based action that kills it at
+/// nought toughness reading a cached projection.
+///
+/// It takes no multiplier, and that is the asymmetry rather than an omission:
+/// CR 614.16 and the counter-doubling replacements are about counters being
+/// **put** on a permanent, and Magic prints nothing that multiplies a
+/// removal. A cost of one counter is a cost of one counter under any number
+/// of Doubling Seasons.
+///
+/// It also saturates rather than refusing. Every caller has already checked
+/// that enough are there — `can_afford` for a cost, the rules for everything
+/// else — and a door that could half-fail would make the two answers
+/// disagree at the one moment it matters.
+pub fn remove_counters(
+    state: &mut GameState,
+    id: ObjectId,
+    kind: baylee_cards_dsl::CounterKind,
+    n: u16,
+) -> u16 {
+    let mut taken = 0;
+    if let Some(obj) = state.object_mut(id) {
+        let old = obj.counters.get(kind);
+        taken = old.min(n);
+        let new = old - taken;
+        obj.counters.set(kind, new);
+        state.journal.record(GameEvent::CounterChanged {
+            object: id,
+            kind,
+            old,
+            new,
+        });
+    }
+    state.invalidate_projections();
+    taken
+}

@@ -1303,6 +1303,18 @@ messages! {
     /// card prints beside this one — Earthcraft's neighbours all read
     /// "{T}, Tap an untapped creature you control".
     CostTapAnother { en: "Tap another", de: "Tappe eine andere" },
+    /// Remove a counter
+    ///
+    /// Which counter is deliberately not named. Nothing on this side of the
+    /// wire knows a counter's *name* — the plate draws kinds as coloured
+    /// chips and has no word for any of them — so spelling one here would
+    /// mean inventing a second naming table for eleven kinds to serve the
+    /// one land that needs it. The card's own printed line says "a charge
+    /// counter" a few millimetres away, and no permanent in this pool pays
+    /// with one kind while carrying another.
+    CostRemoveCounter { en: "Remove a counter", de: "Entferne eine Marke" },
+    /// Remove {0} counters
+    CostRemoveCounters { en: "Remove {0} counters", de: "Entferne {0} Marken" },
     /// Rules text unavailable
     NoRulesTextHere { en: "Rules text unavailable", de: "Regeltext nicht verfügbar" },
 

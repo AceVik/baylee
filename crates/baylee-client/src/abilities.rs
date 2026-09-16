@@ -832,6 +832,12 @@ fn cost_label(lang: Lang, cost: &Cost) -> Option<String> {
             CostPart::ReturnSelfToHand => Phrase::CostReturnThis.text(lang).to_string(),
             CostPart::ExileFromHand(_) => Phrase::CostExileACard.text(lang).to_string(),
             CostPart::TapOther(_) => Phrase::CostTapAnother.text(lang).to_string(),
+            CostPart::RemoveCounterSelf { n: 1, .. } => {
+                Phrase::CostRemoveCounter.text(lang).to_string()
+            }
+            CostPart::RemoveCounterSelf { n, .. } => {
+                Phrase::CostRemoveCounters.fill(lang, &[&n.to_string()])
+            }
         });
     }
     (!parts.is_empty()).then(|| parts.join(COST_JOIN))

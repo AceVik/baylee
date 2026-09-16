@@ -1836,3 +1836,369 @@ fn a_convoke_land_taps_a_creature_of_yours_for_a_colour_of_your_choosing() {
         );
     }
 }
+
+// oracle_id = "d8e2efe0-33a4-4303-9e83-ac42ea5df8cb"
+fn vivid_crag() -> CardIndex {
+    card_index("d8e2efe0-33a4-4303-9e83-ac42ea5df8cb")
+}
+
+// oracle_id = "2da7c49f-cc1e-45d9-9cbf-067e92b0daef"
+fn vivid_creek() -> CardIndex {
+    card_index("2da7c49f-cc1e-45d9-9cbf-067e92b0daef")
+}
+
+// oracle_id = "b7a68899-c0d3-49e0-854b-19268ae9b89d"
+fn vivid_grove() -> CardIndex {
+    card_index("b7a68899-c0d3-49e0-854b-19268ae9b89d")
+}
+
+// oracle_id = "20b32052-f66f-4eb8-b56e-00d531907f19"
+fn vivid_marsh() -> CardIndex {
+    card_index("20b32052-f66f-4eb8-b56e-00d531907f19")
+}
+
+// oracle_id = "dee99df5-628f-4a4e-a203-4dfddc927373"
+fn vivid_meadow() -> CardIndex {
+    card_index("dee99df5-628f-4a4e-a203-4dfddc927373")
+}
+
+// oracle_id = "9e006a4b-8dde-4416-8cb4-8401562d0fd5"
+fn tendo_ice_bridge() -> CardIndex {
+    card_index("9e006a4b-8dde-4416-8cb4-8401562d0fd5")
+}
+
+// oracle_id = "ea53adbe-3f9a-4847-87c7-723ac2789918"
+fn mirrodin_s_core() -> CardIndex {
+    card_index("ea53adbe-3f9a-4847-87c7-723ac2789918")
+}
+
+// oracle_id = "01546b7d-a233-4176-8843-d732074dc5b6"
+fn doubling_season() -> CardIndex {
+    card_index("01546b7d-a233-4176-8843-d732074dc5b6")
+}
+
+/// How many charge counters are on `id`.
+#[track_caller]
+fn charge_counters(engine: &Engine<RegistryLookup>, id: ObjectId) -> u16 {
+    engine
+        .state()
+        .object(id)
+        .expect("the permanent is on the battlefield")
+        .counters
+        .get(CounterKind::Charge)
+}
+
+/// The Vivid cycle: "This land enters tapped with two charge counters on it."
+///
+/// Five cards one rule wrote, played one per turn, and the reason they are
+/// one test is the reason the convoke lands are: a difference between them
+/// would be a difference in the printing, not in the code.
+///
+/// What is being proved is that **one sentence is two replacement effects**
+/// (CR 614.1c). `EnterModifier` is a list rather than a shape, so "tapped"
+/// and "with two charge counters" are two entries applied to the same event,
+/// and a reader that took only the first would leave five ordinary taplands
+/// in the pool with an ability nothing could ever afford.
+#[test]
+fn the_vivid_cycle_arrives_tapped_and_brings_two_counters_with_it() {
+    let p0 = PlayerId::new(0);
+    let cycle = [
+        vivid_crag(),
+        vivid_creek(),
+        vivid_grove(),
+        vivid_marsh(),
+        vivid_meadow(),
+    ];
+    let mut engine = Duel::new(541, forest()).hand(0, &cycle).start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    for (n, card) in cycle.into_iter().enumerate() {
+        let land = play_land(&mut engine, p0, card);
+        assert!(
+            entered_tapped(&engine, land),
+            "vivid land {n}: the sentence says tapped"
+        );
+        assert_eq!(
+            charge_counters(&engine, land),
+            2,
+            "vivid land {n}: and the same sentence says two charge counters"
+        );
+        cross_into_the_next_own_main(&mut engine, p0);
+    }
+}
+
+/// The other half of the Vivid land, which is the counter being **spent**.
+///
+/// One land, three turns, and the arc is the whole point: two counters means
+/// exactly two activations of the any-colour line, and the third turn is
+/// where the ability stops being offered while the land's own `{T}: Add {R}`
+/// stays. That last assertion is what separates "the counter ran out" from
+/// "the land is tapped", which every earlier turn would have confused.
+///
+/// Nothing is asked of the player about the cost, and that is deliberate:
+/// the counters come off the source and the source is not a choice, so
+/// [`CostPart::RemoveCounterSelf`] goes straight to the colour question
+/// (CR 605.3b) rather than through a chooser with one legal answer.
+///
+/// [`CostPart::RemoveCounterSelf`]: baylee_cards_dsl::CostPart::RemoveCounterSelf
+#[test]
+fn a_vivid_land_pays_a_counter_for_a_colour_it_could_not_otherwise_make() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(542, forest()).hand(0, &[vivid_crag()]).start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let land = play_land(&mut engine, p0, vivid_crag());
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        !legal.abilities.contains(&(land, 1)),
+        "the turn it arrives it is tapped, so neither line is payable: {:?}",
+        legal.abilities
+    );
+
+    for turn in 0..2u16 {
+        cross_into_the_next_own_main(&mut engine, p0);
+        let Pending::Priority { legal, .. } = engine.pending().clone() else {
+            panic!("expected priority, got {:?}", engine.pending())
+        };
+        assert!(
+            legal.abilities.contains(&(land, 1)),
+            "turn {turn}: {} counter(s) left, so the any-colour line is on \
+             offer: {:?}",
+            charge_counters(&engine, land),
+            legal.abilities
+        );
+
+        engine
+            .apply(
+                p0,
+                PlayerAction::ActivateAbility {
+                    source: land,
+                    ability_index: 1,
+                },
+            )
+            .expect("a counter is there to pay with");
+
+        // Straight to the colour: the cost asked nobody anything.
+        let Pending::ChooseColor { options, .. } = engine.pending().clone() else {
+            panic!(
+                "turn {turn}: any colour is a choice and the cost is not: {:?}",
+                engine.pending()
+            )
+        };
+        assert_eq!(options.len(), 5, "turn {turn}: all five colours");
+        engine
+            .apply(p0, PlayerAction::ChooseColor(ManaColor::Blue))
+            .expect("a colour the engine offered");
+
+        assert_eq!(
+            charge_counters(&engine, land),
+            1 - turn,
+            "turn {turn}: exactly one counter came off"
+        );
+        assert_eq!(
+            engine.state().players[0]
+                .mana_pool
+                .available(ManaColor::Blue),
+            1,
+            "turn {turn}: and a blue mana a Vivid Crag's own line cannot make"
+        );
+        assert!(
+            is_tapped(&engine, land),
+            "turn {turn}: the {{T}} was paid too"
+        );
+    }
+
+    cross_into_the_next_own_main(&mut engine, p0);
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert_eq!(charge_counters(&engine, land), 0, "both counters are spent");
+    assert!(
+        !legal.abilities.contains(&(land, 1)),
+        "an untapped land with no counters cannot pay the any-colour line: \
+         {:?}",
+        legal.abilities
+    );
+    assert!(
+        legal.abilities.contains(&(land, 0)),
+        "and its own {{T}}: Add {{R}} is untouched, which is what says the \
+         refusal above is about the counter and not about the tap: {:?}",
+        legal.abilities
+    );
+}
+
+/// Tendo Ice Bridge: "This land enters **with** a charge counter on it."
+///
+/// The same sentence as the Vivid cycle's without the word "tapped", and it
+/// is a separate card rather than a parameter because the difference is the
+/// whole card: Tendo is usable the turn it is played, so the counter is
+/// spent on that turn's colour instead of next turn's.
+#[test]
+fn tendo_ice_bridge_enters_untapped_and_spends_its_one_counter_at_once() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(543, forest())
+        .hand(0, &[tendo_ice_bridge()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let land = play_land(&mut engine, p0, tendo_ice_bridge());
+    assert!(
+        !entered_tapped(&engine, land),
+        "the printing does not say tapped"
+    );
+    assert_eq!(charge_counters(&engine, land), 1, "and it says one counter");
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ActivateAbility {
+                source: land,
+                ability_index: 1,
+            },
+        )
+        .expect("the counter arrived with the land and can be spent at once");
+    let Pending::ChooseColor { .. } = engine.pending().clone() else {
+        panic!("any colour is a choice: {:?}", engine.pending())
+    };
+    engine
+        .apply(p0, PlayerAction::ChooseColor(ManaColor::Green))
+        .expect("a colour the engine offered");
+
+    assert_eq!(charge_counters(&engine, land), 0, "the counter is gone");
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Green),
+        1,
+        "and green came out of a land that otherwise makes {{C}}"
+    );
+
+    cross_into_the_next_own_main(&mut engine, p0);
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        legal.abilities.contains(&(land, 0)) && !legal.abilities.contains(&(land, 1)),
+        "untapped again, and only the line that costs no counter is offered: \
+         {:?}",
+        legal.abilities
+    );
+}
+
+/// Mirrodin's Core, which is the only land in the pool that fills itself.
+///
+/// Both counter doors on one card and one turn apart, which is why it is
+/// worth a test of its own: `{T}: Put a charge counter on this land` is an
+/// **effect** and goes through `replacement::put_counters`, while
+/// `{T}, Remove a charge counter from this land` is a **cost** and goes
+/// through `replacement::remove_counters`. A card that could do only the
+/// first would be a land that fills up and never spends.
+#[test]
+fn mirrodin_s_core_fills_itself_and_then_spends_what_it_put_on() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(544, forest())
+        .hand(0, &[mirrodin_s_core()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let land = play_land(&mut engine, p0, mirrodin_s_core());
+    assert!(!entered_tapped(&engine, land), "the Core enters untapped");
+    assert_eq!(charge_counters(&engine, land), 0, "and empty");
+
+    // Ability 1 is not a mana ability, so it uses the stack (CR 605.1).
+    engine
+        .apply(
+            p0,
+            PlayerAction::ActivateAbility {
+                source: land,
+                ability_index: 1,
+            },
+        )
+        .expect("the Core may charge itself");
+    pass_until(&mut engine, stack_is_empty);
+    assert!(
+        is_tapped(&engine, land),
+        "it charged itself with its own {{T}}"
+    );
+
+    cross_into_the_next_own_main(&mut engine, p0);
+    engine
+        .apply(
+            p0,
+            PlayerAction::ActivateAbility {
+                source: land,
+                ability_index: 2,
+            },
+        )
+        .expect("the counter it put on itself is the one it spends");
+    let Pending::ChooseColor { .. } = engine.pending().clone() else {
+        panic!("any colour is a choice: {:?}", engine.pending())
+    };
+    engine
+        .apply(p0, PlayerAction::ChooseColor(ManaColor::White))
+        .expect("a colour the engine offered");
+
+    assert_eq!(charge_counters(&engine, land), 0, "and it is empty again");
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::White),
+        1,
+    );
+}
+
+/// CR 614.16 has a direction, and this is it.
+///
+/// A counter-doubling replacement applies to counters being **put** on a
+/// permanent — the two a Vivid land enters with are exactly that (CR 614.1c),
+/// so under a Doubling Season it enters with four. Nothing in Magic
+/// multiplies a counter being *removed*, which is why
+/// `replacement::remove_counters` takes no multiplier at all: the cost is one
+/// counter under any number of Doubling Seasons.
+///
+/// Both halves in one game, because a removal that doubled would be invisible
+/// against a land that entered with the wrong number anyway.
+#[test]
+fn a_doubler_doubles_the_counters_a_land_arrives_with_and_never_the_cost() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(545, forest())
+        .battlefield(0, &[doubling_season()])
+        .hand(0, &[vivid_crag()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let land = play_land(&mut engine, p0, vivid_crag());
+    assert_eq!(
+        charge_counters(&engine, land),
+        4,
+        "two printed counters, put on as the land enters, doubled once"
+    );
+
+    cross_into_the_next_own_main(&mut engine, p0);
+    engine
+        .apply(
+            p0,
+            PlayerAction::ActivateAbility {
+                source: land,
+                ability_index: 1,
+            },
+        )
+        .expect("four counters is enough for one");
+    engine
+        .apply(p0, PlayerAction::ChooseColor(ManaColor::Blue))
+        .expect("a colour the engine offered");
+
+    assert_eq!(
+        charge_counters(&engine, land),
+        3,
+        "a cost of one counter is a cost of one counter — a doubler has \
+         nothing to say about a removal"
+    );
+}

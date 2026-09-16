@@ -320,6 +320,25 @@ pub enum EnterModifier {
     ChooseSubtype,
     /// Enters with the prepared marker (Emeritus of Woe).
     Prepared,
+    /// "This enters with N [kind] counters on it" (the Vivid lands, Tendo
+    /// Ice Bridge, the storage lands, Wishclaw Talisman).
+    ///
+    /// A replacement effect like every other modifier here (CR 614.1c), and
+    /// that is the load-bearing part rather than a citation: a counter
+    /// doubler applies to what a replacement effect places (CR 614.16), so
+    /// a Vivid land arriving under a Doubling Season brings four charge
+    /// counters and not two. The engine therefore puts them through
+    /// `replacement::put_counters`, the same door a resolving spell uses,
+    /// and inherits that for nothing.
+    ///
+    /// **Not** the same thing as a counter paid as a cost, which takes the
+    /// other door on purpose — see [`crate::CostPart::RemoveCounterSelf`].
+    WithCounters {
+        /// Which counter.
+        kind: crate::effect::CounterKind,
+        /// How many, before any replacement multiplies them.
+        n: u16,
+    },
 }
 
 /// Simple keyword abilities as a bitset.

@@ -46,6 +46,7 @@
 //! is before it is written a hundredth time.
 
 use crate::dsl::ability::{AbilityDef, SpellMode};
+use crate::dsl::cost::CostPart;
 use crate::dsl::effect::{Effect, ManaSource, TargetSpec};
 use crate::dsl::filter::Filter;
 use crate::dsl::static_ability::{Layer, Modifier};
@@ -491,6 +492,123 @@ fn pt_fault(face: &FaceDef) -> Option<&'static str> {
 /// (CR 306.5b).
 fn loyalty_fault(face: &FaceDef) -> bool {
     face.types.contains(TypeSet::PLANESWALKER) && face.loyalty.is_none()
+}
+
+/// Does paying this part ask the engine for the source, where the source
+/// still is?
+///
+/// **Exhaustive with no wildcard**, for the reason [`branches`] is: a new
+/// [`CostPart`] has to be classified here before the crate compiles, and the
+/// cost of getting that wrong is a lint that passes over the one shape it
+/// was written to find.
+const fn needs_the_source(part: &CostPart) -> bool {
+    match part {
+        CostPart::TapSelf
+        | CostPart::UntapSelf
+        | CostPart::SacrificeSelf
+        | CostPart::DiscardSelf
+        | CostPart::ExileSelf
+        | CostPart::ReturnSelfToHand
+        | CostPart::RemoveCounterSelf { .. } => true,
+        // These ask a *player* something, or ask about another permanent.
+        // None of them looks the source up, so none of them cares whether it
+        // is still there.
+        CostPart::Sacrifice(_)
+        | CostPart::Discard(_)
+        | CostPart::TapOther(_)
+        | CostPart::PayLife(_)
+        | CostPart::PayLifeX
+        | CostPart::ExileFromHand(_) => false,
+    }
+}
+
+/// Does paying this part move the source out of the zone it is being paid
+/// in?
+const fn moves_the_source(part: &CostPart) -> bool {
+    match part {
+        CostPart::SacrificeSelf
+        | CostPart::DiscardSelf
+        | CostPart::ExileSelf
+        | CostPart::ReturnSelfToHand => true,
+        CostPart::TapSelf
+        | CostPart::UntapSelf
+        | CostPart::RemoveCounterSelf { .. }
+        | CostPart::Sacrifice(_)
+        | CostPart::Discard(_)
+        | CostPart::TapOther(_)
+        | CostPart::PayLife(_)
+        | CostPart::PayLifeX
+        | CostPart::ExileFromHand(_) => false,
+    }
+}
+
+/// The first part of a cost that is paid after the source has already left,
+/// as `(what moved it, what then asked for it)`.
+///
+/// `Engine::pay_cost` walks a cost's parts in the order the card prints
+/// them, and four of them move the source somewhere else. Everything after
+/// one of those is asked of an object that is no longer where it was looked
+/// for — and each one fails a different quiet way. `TapSelf` taps nothing
+/// and journals that it did. `RemoveCounterSelf` finds no counters, refuses,
+/// and leaves the cost **half paid**: the permanent is already in the
+/// graveyard and the ability was never activated.
+///
+/// It is decidable here, without an engine and without a board, because
+/// Magic prints these in one order and one only — "{T}, Sacrifice this
+/// land:", "Remove two pressure counters and sacrifice this" — so a cost
+/// written the other way round is a transcription, not a card. That is what
+/// makes a lint the right answer rather than a runtime refusal: the engine
+/// would be refusing something no printing asks for, at the one moment a
+/// player cannot be told why.
+fn cost_order_fault(parts: &[CostPart]) -> Option<(CostPart, CostPart)> {
+    let mut gone: Option<CostPart> = None;
+    for part in parts {
+        if let Some(mover) = gone
+            && needs_the_source(part)
+        {
+            return Some((mover, *part));
+        }
+        if moves_the_source(part) {
+            gone = Some(*part);
+        }
+    }
+    None
+}
+
+/// Every cost list an ability carries, as the parts `pay_cost` would walk.
+///
+/// Two sources and they are not the same shape: an activated ability's own
+/// cost, and the cost of an activated ability a continuous effect *grants*,
+/// which is printed on no card and is reached exactly the way
+/// [`layer_fault`] reaches a modifier — from the static ability, and from
+/// every effect that creates one.
+fn cost_lists(ability: &AbilityDef) -> Vec<&'static [CostPart]> {
+    let own = match ability {
+        AbilityDef::Activated { cost, .. } | AbilityDef::ActivatedConditional { cost, .. } => {
+            vec![cost.parts]
+        }
+        _ => Vec::new(),
+    };
+    let from_static = match ability {
+        AbilityDef::Static(sa) => vec![sa.modifier],
+        _ => Vec::new(),
+    };
+    own.into_iter()
+        .chain(
+            from_static
+                .into_iter()
+                .chain(
+                    branches(ability)
+                        .into_iter()
+                        .flat_map(|branch| branch.effects.iter().flat_map(declared_layers))
+                        .map(|(_, modifier)| modifier),
+                )
+                .filter_map(|modifier| match modifier {
+                    Modifier::GrantActivated { cost, .. } => Some(cost.parts),
+                    _ => None,
+                }),
+        )
+        .collect()
 }
 
 #[cfg(test)]
@@ -1103,6 +1221,101 @@ mod tests {
         assert!(
             wrong.is_empty(),
             "{} face(s) disagree with CR 208.1 about their own body.\n{}",
+            wrong.len(),
+            wrong.join("\n")
+        );
+    }
+
+    /// The cost this lint exists for, written the one way round that breaks.
+    ///
+    /// Zero cards in the pool are built this way, so the sweep below finds
+    /// nothing and would find nothing if it read no costs at all. This is
+    /// the half that makes the other half mean something: the sacrifice
+    /// first, the counter after it, exactly as a transcription of "remove
+    /// two pressure counters and sacrifice this" would come out if the two
+    /// clauses were read in the order a careless reader meets them.
+    #[test]
+    fn the_order_lint_catches_a_cost_that_spends_a_permanent_it_already_gave_up() {
+        const BROKEN: &[CostPart] = &[
+            CostPart::SacrificeSelf,
+            CostPart::RemoveCounterSelf {
+                kind: crate::dsl::CounterKind::P1P1,
+                n: 2,
+            },
+        ];
+        const PRINTED: &[CostPart] = &[
+            CostPart::RemoveCounterSelf {
+                kind: crate::dsl::CounterKind::P1P1,
+                n: 2,
+            },
+            CostPart::SacrificeSelf,
+        ];
+
+        assert_eq!(
+            cost_order_fault(BROKEN),
+            Some((
+                CostPart::SacrificeSelf,
+                CostPart::RemoveCounterSelf {
+                    kind: crate::dsl::CounterKind::P1P1,
+                    n: 2,
+                },
+            )),
+            "a counter spent after the permanent is in the graveyard",
+        );
+        assert_eq!(
+            cost_order_fault(PRINTED),
+            None,
+            "and the printed order is fine, which is the whole point",
+        );
+        assert_eq!(
+            cost_order_fault(&[CostPart::SacrificeSelf, CostPart::PayLife(1)]),
+            None,
+            "a part that never looks the source up does not care that it is gone",
+        );
+        assert_eq!(
+            cost_order_fault(&[CostPart::TapSelf, CostPart::SacrificeSelf]),
+            None,
+            "and a fetchland is not a finding",
+        );
+    }
+
+    /// No cost in the pool pays a part after the source it names is gone.
+    #[test]
+    fn no_cost_asks_for_a_permanent_it_has_already_spent() {
+        let mut wrong = Vec::new();
+        let mut read = 0usize;
+        let mut check = |who: &str, ability: &AbilityDef| {
+            for parts in cost_lists(ability) {
+                read += 1;
+                if let Some((mover, then)) = cost_order_fault(parts) {
+                    wrong.push(format!("{who} — {mover:?} and then {then:?}"));
+                }
+            }
+        };
+        for def in crate::all() {
+            for face in 0..def.faces.len() {
+                for ability in def.abilities_for_face(face) {
+                    check(def.name(), ability);
+                }
+            }
+        }
+        for token in crate::tokens::ALL {
+            for ability in token.abilities {
+                check(token.name, ability);
+            }
+        }
+        // The floor, for the reason `cross-read` carries one: a sweep that
+        // read nothing reports the same "no offenders" as one that read the
+        // pool. Measured at 725 cost lists on 2026-09-16.
+        assert!(
+            read >= 600,
+            "read {read} activation cost lists out of the pool, which is not the pool"
+        );
+        assert!(
+            wrong.is_empty(),
+            "{} cost(s) pay a part after the source is gone — `pay_cost` walks \
+             them in printed order, so the second one is asked of an object \
+             that has left the battlefield.\n{}",
             wrong.len(),
             wrong.join("\n")
         );

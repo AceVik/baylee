@@ -50,6 +50,34 @@ pub enum CostPart {
     ExileFromHand(&'static Filter),
     /// Pay life equal to the spell's X value (Toxic Deluge).
     PayLifeX,
+    /// Remove N counters of a kind from the source.
+    ///
+    /// **The counters come off the source and nowhere else**, which is not
+    /// a simplification but what the pool prints. Counted over every
+    /// `//! Oracle:` header on 2026-09-16, 32 activated abilities in this
+    /// pool name a counter in their cost; 31 of them take it off the
+    /// permanent whose ability it is, and the odd one out is Tayam,
+    /// Luminous Enigma — "Remove three counters from among creatures you
+    /// control" — which is a question to the player and belongs with the
+    /// [`CostPart::Sacrifice`] family rather than here.
+    ///
+    /// So this asks nobody anything: `can_afford` is
+    /// `counters.get(kind) >= n` and the payment is arithmetic. That is
+    /// the whole reason it is its own variant — writing it as a chooser
+    /// with one legal answer would put a prompt in front of a player for a
+    /// decision the card never offered.
+    ///
+    /// It is a **cost**, so the counters leave without a replacement
+    /// effect getting a word in — the doubling rules are about counters
+    /// being *placed* (CR 614.16), and there is no rule that multiplies a
+    /// removal. The counters a permanent arrives with are the opposite
+    /// case and take the opposite door: [`crate::EnterModifier::WithCounters`].
+    RemoveCounterSelf {
+        /// Which counter.
+        kind: crate::effect::CounterKind,
+        /// How many.
+        n: u16,
+    },
 }
 
 /// A conditional cost reduction printed on a card (Surgical Metamorph).

@@ -538,6 +538,7 @@ macro_rules! __f_adjectives {
 /// cost!("{1}{G}", TapSelf, SacrificeSelf)       // {1}{G}, {T}, Sacrifice this: …
 /// cost!(TapSelf, SacrificeSelf, PayLife(1))     // a fetchland
 /// cost!("{3}", DiscardSelf)                     // cycling
+/// cost!(TapSelf, RemoveCounterSelf { kind: CounterKind::Charge, n: 1 })
 /// ```
 ///
 /// The mana string is the one the card prints and goes through
@@ -546,20 +547,27 @@ macro_rules! __f_adjectives {
 /// because the prefix is the same word three times on a fetchland and is not
 /// what a reader is checking.
 ///
+/// A part with **named fields** is written with its braces, which is the last
+/// line above and the reason this macro reads three shapes rather than two.
+/// The counter costs are a family — one kind, one count, and more of them
+/// coming — and `RemoveCounterSelf(CounterKind::Charge, 1)` would put a bare
+/// `1` in front of a reader with nothing saying what it counts. The braces
+/// cost one token and say it.
+///
 /// [`Cost::FREE`](crate::Cost::FREE) is the empty cost; there is nothing for
 /// `cost!()` to read, so it is not a form.
 #[macro_export]
 macro_rules! cost {
-    ($mana:literal $(, $part:ident $(($($arg:expr),* $(,)?))? )* $(,)?) => {
+    ($mana:literal $(, $part:ident $(($($arg:expr),* $(,)?))? $({$($f:ident: $v:expr),* $(,)?})? )* $(,)?) => {
         $crate::Cost {
             mana: $crate::mana!($mana),
-            parts: &[$($crate::CostPart::$part $(($($arg),*))?),*],
+            parts: &[$($crate::CostPart::$part $(($($arg),*))? $({$($f: $v),*})?),*],
         }
     };
-    ($($part:ident $(($($arg:expr),* $(,)?))? ),+ $(,)?) => {
+    ($($part:ident $(($($arg:expr),* $(,)?))? $({$($f:ident: $v:expr),* $(,)?})? ),+ $(,)?) => {
         $crate::Cost {
             mana: $crate::ManaCost::ZERO,
-            parts: &[$($crate::CostPart::$part $(($($arg),*))?),+],
+            parts: &[$($crate::CostPart::$part $(($($arg),*))? $({$($f: $v),*})?),+],
         }
     };
 }
@@ -828,7 +836,8 @@ mod tests {
     use super::*;
     use crate::KeywordSet;
     use crate::ability::ActivationCondition;
-    use crate::effect::Amount;
+    use crate::cost::CostPart;
+    use crate::effect::{Amount, CounterKind};
     use crate::static_ability::Layer;
 
     /// Every macro here has to work in a `static` initializer, which is the
@@ -1128,6 +1137,62 @@ mod tests {
         );
     }
 
+    /// `cost!` reads a part written with braces, in either of its two forms
+    /// and beside the other two spellings.
+    ///
+    /// The third shape was added for the counter costs, and it is the one
+    /// that could have been left out by mistake: a part with named fields is
+    /// a *third* thing after "a word" and "a word with parentheses", and a
+    /// macro that reads two of the three fails at the call site with
+    /// "no rules expected this token", which reads as though the variant is
+    /// the problem. So both arms are exercised — with mana and without — and
+    /// so is the mixture, because the arms repeat the optional groups per
+    /// part and a mistake there only shows when two parts disagree.
+    #[test]
+    fn a_cost_part_with_named_fields_is_written_with_its_braces() {
+        const CHARGE: CostPart = CostPart::RemoveCounterSelf {
+            kind: CounterKind::Charge,
+            n: 1,
+        };
+
+        assert_eq!(
+            cost!(
+                TapSelf,
+                RemoveCounterSelf {
+                    kind: CounterKind::Charge,
+                    n: 1
+                }
+            )
+            .parts,
+            &[CostPart::TapSelf, CHARGE]
+        );
+        assert_eq!(
+            cost!(
+                "{1}",
+                RemoveCounterSelf {
+                    kind: CounterKind::Charge,
+                    n: 1
+                },
+                PayLife(2)
+            )
+            .parts,
+            &[CHARGE, CostPart::PayLife(2)],
+            "the braced part sits between two spellings that are not braced",
+        );
+        assert_eq!(
+            cost!(
+                "{1}",
+                RemoveCounterSelf {
+                    kind: CounterKind::Charge,
+                    n: 1
+                },
+            )
+            .mana,
+            crate::mana!("{1}"),
+            "and a trailing comma after it is still a trailing comma",
+        );
+    }
+
     /// The `static` above is the point of the whole module; this reads it so
     /// the compiler cannot decide it is dead code.
     #[test]
@@ -1187,6 +1252,65 @@ mod tests {
             missing.is_empty(),
             "docs/card-dsl.md does not name {missing:?} — a constant nobody is told about \
              is a constant the next card writes out by hand"
+        );
+    }
+
+    /// Every [`CostPart`] variant is named in `docs/card-dsl.md`.
+    ///
+    /// The same bargain as the filter contract above, and it is here because
+    /// the list went stale in silence: `TapOther` was added for the convoke
+    /// lands and the doc's eleven names stayed eleven, so the one document
+    /// that tells a card author what a cost may say did not mention the part
+    /// that had just been built. The list is short enough that nobody
+    /// notices it is one short.
+    ///
+    /// The doc spells a part with its payload — `` `TapOther(filter)` ``,
+    /// `` `RemoveCounterSelf { kind, n }` `` — so what is checked is the
+    /// name at the start of a backticked span, not the bare name. Anything
+    /// stricter would be a test about how the prose is punctuated.
+    #[test]
+    fn the_authoring_contract_names_every_cost_part() {
+        let costs = include_str!("cost.rs");
+        let contract = include_str!("../../../docs/card-dsl.md");
+
+        let body = costs
+            .split_once("pub enum CostPart {")
+            .expect("cost.rs declares the enum")
+            .1
+            .split_once("\n}\n")
+            .expect("and closes it")
+            .0;
+        let declared: Vec<&str> = body
+            .lines()
+            .filter_map(|line| line.strip_prefix("    "))
+            .filter(|rest| rest.starts_with(|c: char| c.is_ascii_uppercase()))
+            .map(|rest| {
+                rest.split(|c: char| !c.is_ascii_alphanumeric())
+                    .next()
+                    .unwrap_or(rest)
+            })
+            .collect();
+
+        assert!(
+            declared.len() >= 10,
+            "read {declared:?} out of cost.rs — the reader is broken, not the doc"
+        );
+
+        let missing: Vec<&str> = declared
+            .iter()
+            .copied()
+            .filter(|name| {
+                !["`", "(", " "]
+                    .iter()
+                    .any(|tail| contract.contains(&format!("`{name}{tail}")))
+            })
+            .collect();
+
+        assert!(
+            missing.is_empty(),
+            "docs/card-dsl.md does not name {missing:?} — the authoring \
+             contract is where a card author is told what a cost may say, \
+             and a part missing from it is a part nobody writes"
         );
     }
 }

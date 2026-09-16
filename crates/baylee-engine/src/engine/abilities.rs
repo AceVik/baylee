@@ -572,6 +572,19 @@ impl<L: CardLookup> Engine<L> {
                         return false;
                     }
                 }
+                // Arithmetic on the source, and nobody is asked anything:
+                // 31 of the pool's 32 counter costs take the counters off
+                // the permanent whose ability it is, so there is exactly one
+                // legal answer and it is not a question. See
+                // `CostPart::RemoveCounterSelf`.
+                CostPart::RemoveCounterSelf { kind, n } => {
+                    let Some(obj) = self.state.object(source) else {
+                        return false;
+                    };
+                    if obj.counters.get(*kind) < *n {
+                        return false;
+                    }
+                }
                 // The first four are paid off the source alone, so there is
                 // nothing about the board to ask. `PayLifeX` is
                 // [`paid_by_the_casting_wizard`]: accepted here and skipped
@@ -1432,6 +1445,29 @@ impl<L: CardLookup> Engine<L> {
                 // swept into a `_` so that a new `CostPart` is still a
                 // compile error in this match.
                 CostPart::ExileFromHand(_) | CostPart::PayLifeX => {}
+                // Through the removal door rather than off the object by
+                // hand, because the journal entry and the projection
+                // invalidation live there: a +1/+1 counter spent on Walking
+                // Ballista's ping makes the creature smaller, and the
+                // state-based action that then kills it reads a projection
+                // this is what refreshes.
+                //
+                // Refusing an object with too few is `can_afford`'s job and
+                // already done — but a cost is paid part by part, and a
+                // part that *empties* the source (a sacrifice, an exile, a
+                // bounce) may sit before this one in the printed order. So
+                // the refusal is here too, after the door has said how many
+                // it actually found, and it is a refusal rather than a
+                // saturating shrug: paying two counters out of a permanent
+                // holding one is not a discount.
+                CostPart::RemoveCounterSelf { kind, n } => {
+                    if crate::replacement::remove_counters(&mut self.state, source, *kind, *n) < *n
+                    {
+                        return Err(EngineError::IllegalAction(
+                            "not enough counters to pay the cost",
+                        ));
+                    }
+                }
                 // The parts that had to ask, paid with the answers in the
                 // order they were asked for, through the same doors as the
                 // `SacrificeSelf`, `DiscardSelf` and `TapSelf` arms above —

@@ -661,6 +661,15 @@ impl<L: CardLookup> Engine<L> {
                             changed = true;
                         }
                     }
+                    // CR 614.1c: "this enters with N counters on it" is a
+                    // replacement effect, so it goes through the door that
+                    // lets a counter doubler have its say — a Vivid land
+                    // under a Doubling Season brings four charge counters,
+                    // not two (CR 614.16).
+                    EnterModifier::WithCounters { kind, n } => {
+                        crate::replacement::put_counters(&mut self.state, id, *kind, *n);
+                        changed = true;
+                    }
                     EnterModifier::Prepared => {
                         if let Some(obj) = self.state.object_mut(id)
                             && !obj.riders.contains(&crate::object::Rider::Prepared)

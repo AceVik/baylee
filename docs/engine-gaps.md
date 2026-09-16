@@ -118,7 +118,7 @@ met where the ranking is.
 
 | # | Gap | Cards (basis) | Depth | Lever | Rule or case | Blocked together with |
 | --- | --- | --- | --- | --- | --- | --- |
-| 1 | **G2** A counter as a cost, fixed number | 40 headers (counted by hand here), ~20 of them a fixed number | 1 | 20–40 | **case** | the X half with G1 |
+| 1 | **G2** A counter as a cost, fixed number — **shipped**, see §1 | 43 cards (re-measured), 17 of them X storage lands | 1 | 20–40 | **case** | the X half with G1 |
 | 2 | **G3** Surveil | 32 headers (by hand), 29 script | 1 | 32 | **case** | — |
 | 3 | **G1** An activation asks a question | 50 headers with Sacrifice/Discard only (by hand); +9 tapXType, +4 crew, +20 script-counted activation costs, +~20 storage lands | 3 | ~27 | **new rule** on an existing seam | G2's X, G14, `offers`#2 |
 | 4 | **G4** "unless you pay" takes a `Cost` | 17 headers (by hand), 36 script | 2 | 9–18 | **case** (field change) | 31 of the 36 need G1's CostParts |
@@ -151,7 +151,11 @@ met where the ranking is.
 Each entry is the same five: **(a)** what was found, **(b)** where it changes,
 **(c)** the shape, **(d)** the test that proves it, **(e)** the first card.
 
-### 1. G2 — a cost cannot take a counter off
+### 1. G2 — a cost cannot take a counter off — **the fixed-number half shipped**
+
+The entry below is what the audit proposed; what follows it is what was
+measured when the work was actually done, because three of the audit's numbers
+were wrong and one of its names was.
 
 **(a)** `CostPart` (`crates/baylee-cards-dsl/src/cost.rs:8-31`, read here) has
 eleven variants and not one of them names a counter. The *arithmetic* already
@@ -178,16 +182,41 @@ is exactly "{T}, Remove a charge counter: Add one mana of any color", one
 clause and no second one. Gemstone Mine is the worse first card, because its
 "if there are no counters, sacrifice it" is a second sentence.
 
-**Where the line runs:** the other half of the 40 are storage lands with
-`SubCounter<X/STORAGE>` (`bottomless_vault`, `calciform_pools`,
-`molten_slagheap`, `dwarven_hold`, `icatian_store`, `subterranean_hangar`,
-`mage_ring_network`, `mercadian_bazaar`, `sand_silos`, `fungal_reaches`,
-`dreadship_reef`, `hollow_trees`, `saltcrusted_steppe`,
-`crucible_of_the_spirit_dragon`, …). Those need an X in an *activation* cost,
-and that is exactly what does not exist: the documentation at
+#### What was measured when it was built (2026-09-16)
+
+Counted over every `//! Oracle:` header in the pool rather than by hand:
+**43** cards print a counter in an activation cost, not 40. **32** of them are
+activated abilities; **31** of those take the counter off the source, and the
+one exception is **Tayam, Luminous Enigma** — "Remove three counters from
+among creatures you control", which is a question to a player and belongs with
+the `Sacrifice(_)` family. So the variant shipped is `RemoveCounterSelf`, not
+`RemoveCounter`: naming the source in the variant is what lets `can_afford` be
+`counters.get(kind) >= n` and the payment be arithmetic, instead of putting a
+chooser with one legal answer in front of a player. Tayam gets
+`CostPart::RemoveCounterAmong` when G1 lands, and is the reason that is a
+second variant rather than a wider first one.
+
+And **17** of the pool's lands are X/any-number storage lands, not the "~20
+of them a fixed number" the ranking assumed — the split is closer to even than
+the entry reads.
+
+**Shipped:** `CostPart::RemoveCounterSelf { kind, n }` and
+`EnterModifier::WithCounters { kind, n }`, which are one unit rather than two
+because neither is a card on its own: a land that enters with counters and
+cannot spend them is a tapland, and an ability that spends counters a land
+never gets is an ability nothing can afford. They take opposite doors —
+`replacement::put_counters` for the counters a permanent arrives with
+(CR 614.1c, so a Doubling Season applies) and `replacement::remove_counters`
+for the cost (no multiplier exists in Magic for a removal). Seven cards came
+out of `landgen` in full: the five Vivid lands, Mirrodin's Core and Tendo Ice
+Bridge.
+
+**Still open, and it is the X half.** The storage lands need an X in an
+*activation* cost, which is exactly what does not exist: the documentation at
 `abilities.rs:1375ff` says itself that `PayLifeX` is paid by the cast wizard
-and skipped by `pay_cost`. X in an activation is G1's question. Hence 20/1
-stands firm here and 40/1 only together with G1.
+and skipped by `pay_cost`. X in an activation is G1's question. The depletion
+lands (`Effect::IfNoCountersOnSelf`) and Devoted Druid (`PutCounterSelf` plus
+an activation limit, G10) are the other two pieces.
 
 ### 2. G3 — no Surveil
 
@@ -373,8 +402,9 @@ because a `ManaSource::Choice` would pass the first.
 **Existing rule, missing case** (the machinery stands, what is missing is a
 name for it):
 
-- **G2** — the counter arithmetic including the journal entry exists in the
-  loyalty block and is merely unreachable.
+- **G2** — the counter arithmetic including the journal entry existed in the
+  loyalty block and was merely unreachable; `replacement::remove_counters` is
+  the door it was lifted into.
 - **G3** — Scry and Mill are there; Surveil is their third combination.
 - **G4** — `Cost` instead of `Amount`, a field change.
 - **G13 Affinity** — `casting::printed_reduction` is the place the sum is

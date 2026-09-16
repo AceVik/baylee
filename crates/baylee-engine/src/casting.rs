@@ -906,6 +906,14 @@ fn alternative_parts_payable(
     parts.iter().all(|part| match part {
         CostPart::PayLife(n) => state.can_pay_life(player, i32::from(*n)),
         CostPart::ExileFromHand(filter) => !pitchable(state, player, card, filter).is_empty(),
+        // The same question `can_afford` asks of an activation, asked of the
+        // card about to be cast. It answers `false` for every card in hand,
+        // because a card in a hand carries no counters — and that is the
+        // truthful answer rather than a special case: an alternative cost
+        // this pool does not print is not silently declared payable.
+        CostPart::RemoveCounterSelf { kind, n } => state
+            .object(card)
+            .is_some_and(|o| o.counters.get(*kind) >= *n),
         CostPart::TapSelf
         | CostPart::UntapSelf
         | CostPart::SacrificeSelf
