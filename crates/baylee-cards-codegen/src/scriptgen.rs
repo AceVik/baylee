@@ -1537,6 +1537,19 @@ fn card_type_const(word: &str) -> Option<&'static str> {
 /// A keyword line → the bit in our `KeywordSet`, for the keywords that
 /// are text-independent (CR 702). Parameterized keywords are data, not bits,
 /// and are refused here on purpose.
+///
+/// So are the keywords **no engine rule reads**, which is the same honesty
+/// rule one step earlier. A bit the layer system carries and combat never
+/// asks about is worse than a stub: the card says `Coverage::Implemented`,
+/// the view draws the sheath, the deckbuilder offers it as playable, and the
+/// creature is blocked as if it had nothing. The table therefore lists only
+/// what `keyword_tests::ENFORCED` lists, and the gate that found this —
+/// `no_card_claims_a_keyword_the_engine_ignores` — is what fires when the
+/// two drift. Ten entries came off it for that reason: fear, intimidate,
+/// shadow, horsemanship, infect, wither, persist, undying, skulk and
+/// flanking. Four of them were already on cards; the other six were waiting
+/// for the pool to grow into them. A keyword returns here on the commit that
+/// gives it a rule, not before.
 fn keyword_const(line: &str) -> Option<&'static str> {
     Some(match line.trim() {
         "Flying" => "KeywordSet::FLYING",
@@ -1554,17 +1567,7 @@ fn keyword_const(line: &str) -> Option<&'static str> {
         "Defender" => "KeywordSet::DEFENDER",
         "Flash" => "KeywordSet::FLASH",
         "Shroud" => "KeywordSet::SHROUD",
-        "Fear" => "KeywordSet::FEAR",
-        "Intimidate" => "KeywordSet::INTIMIDATE",
-        "Shadow" => "KeywordSet::SHADOW",
-        "Horsemanship" => "KeywordSet::HORSEMANSHIP",
-        "Infect" => "KeywordSet::INFECT",
-        "Wither" => "KeywordSet::WITHER",
-        "Persist" => "KeywordSet::PERSIST",
-        "Undying" => "KeywordSet::UNDYING",
         "Prowess" => "KeywordSet::PROWESS",
-        "Skulk" => "KeywordSet::SKULK",
-        "Flanking" => "KeywordSet::FLANKING",
         "Changeling" => "KeywordSet::CHANGELING",
         _ => return None,
     })
