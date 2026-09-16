@@ -88,7 +88,11 @@ fn a_hand_typed_id_is_minted_once_and_reused() {
     let made = plan(&read_legacy(&text).unwrap(), OffsetDateTime::UNIX_EPOCH);
 
     assert_eq!(made.tally().orphans, 0, "the deck still finds its owner");
-    assert_eq!(set(&made.decks[0].account_id), set(&made.accounts[0].id));
+    assert_eq!(
+        set(&made.decks[0].account_id).as_ref(),
+        Some(set(&made.accounts[0].id)),
+        "the deck is still the account's own"
+    );
     assert_eq!(
         set(&made.accounts[0].id).get_version_num(),
         7,

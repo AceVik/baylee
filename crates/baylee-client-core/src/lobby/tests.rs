@@ -19,7 +19,7 @@ fn seated_lobby() -> Lobby {
             id: "d1".to_string(),
             name: "Allytifact".to_string(),
             cards: 60,
-            commander: None,
+            commanders: Vec::new(),
         }])),
         Some(LobbyRequest::ListGames(lobby.query()))
     );
@@ -37,7 +37,7 @@ fn offline_lobby() -> Lobby {
             id: "d1".to_string(),
             name: "Allytifact".to_string(),
             cards: 60,
-            commander: None,
+            commanders: Vec::new(),
         }])),
         Some(LobbyRequest::ListGames(lobby.query()))
     );
@@ -1106,7 +1106,7 @@ fn saving_a_deck_re_reads_the_list() {
             name: "Starter".to_string(),
             cards: rows,
             sideboard: vec![],
-            commander: None,
+            commanders: Vec::new(),
         })
     );
     assert_eq!(
@@ -1188,7 +1188,7 @@ fn only_a_waiting_table_with_a_free_seat_is_joinable() {
 #[test]
 fn the_gateways_own_json_decodes() {
     let decks: Vec<DeckSummary> =
-        serde_json::from_str(r#"[{"id":"d1","name":"Allytifact","cards":60,"commander":null}]"#)
+        serde_json::from_str(r#"[{"id":"d1","name":"Allytifact","cards":60,"commanders":[]}]"#)
             .expect("deck list");
     assert_eq!(decks[0].name, "Allytifact");
     let listing: GameListing = serde_json::from_str(
@@ -1352,7 +1352,7 @@ fn editing_a_deck_asks_for_its_rows() {
         name: "Burn".to_string(),
         cards: 2,
         sideboard: 0,
-        commander: None,
+        commanders: Vec::new(),
     }]));
     lobby.apply(LobbyEvent::Games(GameListing::default()));
     assert_eq!(
@@ -1375,7 +1375,7 @@ fn a_deck_loaded_before_the_pool_still_resolves() {
             name: "Trees".to_string(),
             cards: vec!["3 Forest".to_string()],
             sideboard: vec![],
-            commander: None,
+            commanders: Vec::new(),
         }),
         Some(LobbyRequest::LoadPool),
         "the rows arrived first; the pool is still needed"
@@ -1433,7 +1433,7 @@ fn the_builder_refuses_to_save_what_the_gateway_would_reject() {
             name: "Trees".to_string(),
             cards: vec!["1 Forest".to_string()],
             sideboard: vec![],
-            commander: None,
+            commanders: Vec::new(),
         })
     );
     assert_eq!(
@@ -1461,7 +1461,7 @@ fn the_builder_refuses_to_save_what_the_gateway_would_reject() {
             name: "Trees II".to_string(),
             cards: vec!["1 Forest".to_string()],
             sideboard: vec![],
-            commander: None,
+            commanders: Vec::new(),
         })
     );
 }
@@ -1476,7 +1476,7 @@ fn deleting_a_deck_re_reads_the_list() {
         name: "Burn".to_string(),
         cards: 2,
         sideboard: 0,
-        commander: None,
+        commanders: Vec::new(),
     }]));
     lobby.apply(LobbyEvent::Games(GameListing::default()));
     assert_eq!(

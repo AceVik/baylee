@@ -1122,7 +1122,7 @@ fn card_menu(
     // Only cards the rules can seat get the option: the gateway refuses the
     // rest on save, and an offer that ends in a refusal is worse than none.
     if deck.card(slot).is_some_and(|card| card.commander) {
-        let leading = deck.commander() == Some(slot);
+        let leading = deck.is_commander(slot);
         let button = chip(
             commands,
             fonts,

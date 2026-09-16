@@ -277,7 +277,7 @@ fn a_loaded_deck_round_trips() {
         "Burn",
         &["4 Lightning Bolt".to_string(), "20 Forest".to_string()],
         &["2 Wrath of God".to_string()],
-        None,
+        &[],
     );
     assert_eq!(b.name(), "Burn");
     assert_eq!(b.editing(), Some("deck-1"));
@@ -294,12 +294,42 @@ fn a_loaded_deck_round_trips() {
     assert_eq!(deck_id.as_deref(), Some("deck-1"), "it updates the deck");
 }
 
+/// A note on a row survives being reopened and saved again.
+///
+/// The builder has no field for one yet, which is exactly why this test
+/// exists: a builder that read the row and forgot the note would delete
+/// every note in the deck on the next save, for rows the player never
+/// touched — the same failure the printing had before it travelled with the
+/// row, and just as silent.
+#[test]
+fn a_note_on_a_row_is_not_lost_by_reopening_the_deck() {
+    let mut b = builder();
+    b.load(
+        "deck-1",
+        "Burn",
+        &[
+            "4 Lightning Bolt # der Grund fürs ganze Deck".to_string(),
+            "20 Forest".to_string(),
+        ],
+        &[],
+        &[],
+    );
+    assert_eq!(
+        b.rows(Zone::Main),
+        vec![
+            "4 Lightning Bolt # der Grund fürs ganze Deck".to_string(),
+            "20 Forest".to_string(),
+        ],
+        "the note came back out with the row it belongs to"
+    );
+}
+
 /// A card the pool no longer has is named, not dropped. Silently losing a
 /// card on the next save is the one outcome a deck builder must not have.
 #[test]
 fn a_card_the_pool_lost_is_reported_not_dropped() {
     let mut b = builder();
-    b.load("d", "Old", &["1 Black Lotus".to_string()], &[], None);
+    b.load("d", "Old", &["1 Black Lotus".to_string()], &[], &[]);
     assert_eq!(b.missing(), ["Black Lotus"]);
     assert!(!b.saveable(), "and it refuses to save over the loss");
     assert!(
@@ -331,7 +361,7 @@ fn each_lists_cap_holds_on_its_own() {
 #[test]
 fn a_new_deck_is_not_the_old_one() {
     let mut b = builder();
-    b.load("deck-1", "Burn", &["1 Forest".to_string()], &[], None);
+    b.load("deck-1", "Burn", &["1 Forest".to_string()], &[], &[]);
     b.start_new();
     assert_eq!(b.editing(), None);
     assert!(b.name().is_empty());
@@ -624,7 +654,7 @@ fn a_loaded_deck_keeps_the_printings_it_was_saved_with() {
             "1 Lightning Bolt".to_string(),
         ],
         &[],
-        None,
+        &[],
     );
     assert!(builder.missing().is_empty(), "{:?}", builder.missing());
     assert_eq!(
@@ -654,7 +684,7 @@ fn removing_takes_the_most_recent_printing_first() {
             "1 Lightning Bolt (M11) 149 *F*".to_string(),
         ],
         &[],
-        None,
+        &[],
     );
     assert!(builder.remove(0, Zone::Main));
     assert_eq!(builder.rows(Zone::Main), vec!["1 Lightning Bolt"]);
@@ -686,7 +716,7 @@ fn a_card_that_cannot_lead_a_deck_is_refused_as_its_commander() {
     let mut b = commander_pool();
     let bears = b.slot_of("Grizzly Bears").unwrap();
     assert!(!b.set_commander(bears));
-    assert_eq!(b.commander(), None);
+    assert!(b.commanders().is_empty());
 }
 
 /// A commander is one of the cards in the deck, so naming one that is not
@@ -697,9 +727,9 @@ fn naming_a_commander_seats_it_in_the_deck() {
     let mut b = commander_pool();
     let nissa = b.slot_of("Nissa, Who Shakes the World").unwrap();
     assert!(b.set_commander(nissa));
-    assert_eq!(b.commander(), Some(nissa));
+    assert_eq!(b.commanders(), [nissa]);
     assert_eq!(b.count_of(nissa, Zone::Main), 1);
-    assert_eq!(b.commander_name(), Some("Nissa, Who Shakes the World"));
+    assert_eq!(b.commander_names(), ["Nissa, Who Shakes the World"]);
 }
 
 /// Clearing the mark leaves the card where it is: a player demoting their
@@ -710,7 +740,7 @@ fn clearing_the_commander_keeps_the_card() {
     let nissa = b.slot_of("Nissa, Who Shakes the World").unwrap();
     b.set_commander(nissa);
     b.clear_commander();
-    assert_eq!(b.commander(), None);
+    assert!(b.commanders().is_empty());
     assert_eq!(b.count_of(nissa, Zone::Main), 1);
 }
 
@@ -721,10 +751,10 @@ fn a_commander_survives_a_save_and_a_reload() {
     let mut b = commander_pool();
     let nissa = b.slot_of("Nissa, Who Shakes the World").unwrap();
     b.set_commander(nissa);
-    let Some(crate::lobby::LobbyRequest::SaveDeck { commander, .. }) = b.save() else {
+    let Some(crate::lobby::LobbyRequest::SaveDeck { commanders, .. }) = b.save() else {
         panic!("a named deck with cards saves");
     };
-    assert_eq!(commander.as_deref(), Some("Nissa, Who Shakes the World"));
+    assert_eq!(commanders, ["Nissa, Who Shakes the World"]);
 
     // Loaded into a builder whose pool has not arrived yet.
     let mut fresh = DeckBuilder::new();
@@ -733,11 +763,10 @@ fn a_commander_survives_a_save_and_a_reload() {
         "Superfriends",
         &["1 Nissa, Who Shakes the World".to_string()],
         &[],
-        Some("Nissa, Who Shakes the World"),
+        &["Nissa, Who Shakes the World".to_string()],
     );
-    assert_eq!(
-        fresh.commander(),
-        None,
+    assert!(
+        fresh.commanders().is_empty(),
         "no pool, nothing to resolve against"
     );
     let mut cards = pool();
@@ -751,7 +780,7 @@ fn a_commander_survives_a_save_and_a_reload() {
     general.commander = true;
     cards.push(general);
     fresh.set_pool(cards, true);
-    assert_eq!(fresh.commander_name(), Some("Nissa, Who Shakes the World"));
+    assert_eq!(fresh.commander_names(), ["Nissa, Who Shakes the World"]);
 }
 
 /// Moving a card between the lists must not quietly reprint it: the
@@ -795,10 +824,10 @@ fn a_stored_commander_the_rules_no_longer_seat_is_not_marked() {
         "Old deck",
         &["1 Grizzly Bears".to_string()],
         &[],
-        Some("Grizzly Bears"),
+        &["Grizzly Bears".to_string()],
     );
-    assert_eq!(b.commander(), None, "the mark is refused");
-    assert_eq!(b.commander_name(), None, "and never reaches the wire");
+    assert!(b.commanders().is_empty(), "the mark is refused");
+    assert!(b.commander_names().is_empty(), "and never reaches the wire");
     let problems = b.problems(Lang::En);
     assert!(
         problems
@@ -818,7 +847,7 @@ fn a_stale_commander_is_caught_when_the_pool_arrives_late() {
         "Old deck",
         &["1 Grizzly Bears".to_string()],
         &[],
-        Some("Grizzly Bears"),
+        &["Grizzly Bears".to_string()],
     );
     let mut cards = pool();
     let mut general = card(
@@ -831,7 +860,7 @@ fn a_stale_commander_is_caught_when_the_pool_arrives_late() {
     general.commander = true;
     cards.push(general);
     b.set_pool(cards, true);
-    assert_eq!(b.commander(), None);
+    assert!(b.commanders().is_empty());
     assert!(
         b.problems(Lang::En)
             .iter()
@@ -849,7 +878,7 @@ fn naming_a_new_commander_answers_the_stale_one() {
         "Old deck",
         &["1 Grizzly Bears".to_string()],
         &[],
-        Some("Grizzly Bears"),
+        &["Grizzly Bears".to_string()],
     );
     let nissa = b.slot_of("Nissa, Who Shakes the World").unwrap();
     assert!(b.set_commander(nissa));

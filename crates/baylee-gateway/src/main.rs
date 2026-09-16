@@ -185,11 +185,7 @@ async fn main() {
         .route("/auth/logout", post(logout))
         .route("/me", get(me))
         .route("/players/{handle}", get(player))
-        .route("/decks", get(list_decks).post(create_deck))
-        .route(
-            "/decks/{id}",
-            get(get_deck).put(update_deck).delete(delete_deck),
-        )
+        .merge(deck_routes())
         .route("/lobby/games", get(list_games).post(create_game))
         .route("/automation", get(list_automation).put(set_automation))
         .route("/settings", get(get_settings).put(put_settings))
@@ -957,7 +953,32 @@ struct DeckBody {
     /// Optional: a deck saved without one simply has no sideboard.
     #[serde(default)]
     sideboard: Vec<String>,
+    /// The deck's commanders: none, one, or two under the partner rule.
+    #[serde(default)]
+    commanders: Vec<String>,
+    /// The one commander an older client sends.
+    ///
+    /// A reader's tolerance, not a second field: a build made before the
+    /// partner rule existed still saves decks, and refusing it would lose
+    /// the commander rather than the feature. Nothing writes this back.
+    #[serde(default)]
     commander: Option<String>,
+    /// What the deck plays. A body that does not say keeps what the deck
+    /// already said, and a new deck that does not say is read off its
+    /// commander — the same sentence `baylee_cards::decks::format_of` reads.
+    #[serde(default)]
+    format: Option<String>,
+    /// What the deck is for, in its owner's words. Absent leaves it alone;
+    /// an empty string clears it.
+    #[serde(default)]
+    description: Option<String>,
+    /// What this change was called, for the deck's history.
+    ///
+    /// Only read when the cards actually change — a save that renames the
+    /// deck writes no version, so there is nothing for a summary to be
+    /// attached to.
+    #[serde(default)]
+    summary: Option<String>,
     /// Image id of the deck's sleeve, from `POST /images?kind=sleeve`.
     ///
     /// Not validated against the image store: a sleeve that is not there is a
@@ -969,6 +990,22 @@ struct DeckBody {
     /// Image id of the deck's playmat.
     #[serde(default)]
     playmat: Option<String>,
+}
+
+impl DeckBody {
+    /// The commanders this request names, however it named them.
+    ///
+    /// One list out of two fields: `commanders` is what a current client
+    /// sends and `commander` is what an older one sends, and a body that
+    /// somehow carries both is read as the list — the newer field is the one
+    /// that can say everything the older one can.
+    fn commander_names(&self) -> Vec<String> {
+        if self.commanders.is_empty() {
+            self.commander.clone().into_iter().collect()
+        } else {
+            self.commanders.clone()
+        }
+    }
 }
 
 /// Hard cap on the expanded card count of one deck. Comfortably above
@@ -1032,6 +1069,9 @@ fn parse_deck_lines(lines: &[String]) -> Result<Vec<ParsedLine>, (StatusCode, Js
             baylee_core::deckrow::RowError::Lang => {
                 err(StatusCode::BAD_REQUEST, "unknown language")
             }
+            baylee_core::deckrow::RowError::Note => {
+                err(StatusCode::BAD_REQUEST, "card note too long")
+            }
             baylee_core::deckrow::RowError::Shape => {
                 err(StatusCode::BAD_REQUEST, "malformed card line")
             }
@@ -1093,24 +1133,41 @@ fn validate_deck(body: &DeckBody) -> Result<(), (StatusCode, Json<ErrorBody>)> {
     // The same parser, so a sideboard cannot hold what a deck could not.
     parse_deck_lines(&body.cards)?;
     parse_deck_lines(&body.sideboard)?;
-    if let Some(c) = &body.commander {
-        // Two questions, not one. The name has to resolve, *and* the card
-        // it resolves to has to be allowed to lead a deck (CR 903.3): the
-        // check used to stop at the first, so any card in the pool could be
-        // named as a commander and the engine would seat it in the command
-        // zone without complaint.
-        let Some(index) = baylee_cards::decks::by_name(c) else {
+    // Three questions, not one. Every name has to resolve, every card it
+    // resolves to has to be allowed to lead a deck (CR 903.3) — the check
+    // used to stop at the first, so any card in the pool could be named as a
+    // commander and the engine would seat it without complaint — and a
+    // second one has to be allowed to lead it *with the first*.
+    let named = body.commander_names();
+    if named.len() > 2 {
+        return Err(err(
+            StatusCode::BAD_REQUEST,
+            "a deck has at most two commanders",
+        ));
+    }
+    let mut leaders = Vec::with_capacity(named.len());
+    for name in &named {
+        let Some(index) = baylee_cards::decks::by_name(name) else {
             return Err(err(StatusCode::BAD_REQUEST, "unknown commander"));
         };
-        let eligible = baylee_cards::by_index(index).is_some_and(|def| {
-            !matches!(def.commander, baylee_cards_dsl::CommanderRule::NotEligible)
-        });
-        if !eligible {
+        let Some(leader) = baylee_cards::decks::leader_of(index) else {
+            return Err(err(StatusCode::BAD_REQUEST, "unknown commander"));
+        };
+        if !leader.eligible {
             return Err(err(
                 StatusCode::BAD_REQUEST,
                 "that card cannot be a commander",
             ));
         }
+        leaders.push(leader);
+    }
+    if let [first, second] = leaders.as_slice()
+        && !baylee_cards::decks::may_lead_together(first, second)
+    {
+        return Err(err(
+            StatusCode::BAD_REQUEST,
+            "those two cards cannot lead one deck",
+        ));
     }
     Ok(())
 }
@@ -1132,7 +1189,7 @@ async fn list_decks(
                 "name": d.name,
                 "cards": d.cards.len(),
                 "sideboard": d.sideboard.len(),
-                "commander": d.commander,
+                "commanders": d.commanders,
                 "sleeve": d.sleeve,
                 "playmat": d.playmat,
             })
@@ -1147,19 +1204,19 @@ async fn get_deck(
     Path(id): Path<String>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorBody>)> {
     let account_id = authed(&state, &headers).await?;
-    let deck = store::deck(&state.db, &id)
-        .await
-        .map_err(|e| db_down(&e))?
-        .ok_or_else(|| err(StatusCode::NOT_FOUND, "no such deck"))?;
-    if deck.account_id != account_id {
-        return Err(err(StatusCode::FORBIDDEN, "not your deck"));
-    }
+    let deck = readable_deck(&state, &id, &account_id).await?;
     Ok(Json(serde_json::json!({
         "id": deck.id,
+        "kind": deck.kind,
         "name": deck.name,
+        "format": deck.format,
+        "description": deck.description,
+        "version": deck.version,
+        "copied_from": deck.origin.as_ref().map(|(deck, _)| deck.clone()),
+        "copied_version": deck.origin.as_ref().map(|(_, version)| *version),
         "cards": deck.cards,
         "sideboard": deck.sideboard,
-        "commander": deck.commander,
+        "commanders": deck.commanders,
         "sleeve": deck.sleeve,
         "playmat": deck.playmat,
     })))
@@ -1172,14 +1229,22 @@ async fn create_deck(
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorBody>)> {
     let account_id = authed(&state, &headers).await?;
     validate_deck(&body)?;
+    let commanders = body.commander_names();
+    let format = body
+        .format
+        .clone()
+        .unwrap_or_else(|| format_of(&commanders));
     let id = store::create_deck(
         &state.db,
         store::NewDeck {
             account_id,
             name: body.name,
+            format,
+            description: body.description.filter(|d| !d.is_empty()),
+            origin: None,
             cards: body.cards,
             sideboard: body.sideboard,
-            commander: body.commander,
+            commanders,
             sleeve: body.sleeve,
             playmat: body.playmat,
             updated_at: auth::now_secs(),
@@ -1206,22 +1271,273 @@ async fn update_deck(
     if deck.account_id != account_id {
         return Err(err(StatusCode::FORBIDDEN, "not your deck"));
     }
+    let commanders = body.commander_names();
+    let format = body.format.clone().unwrap_or_else(|| deck.format.clone());
+    let description = match body.description {
+        // An empty string is somebody clearing the field; leaving it out is
+        // somebody saving a deck without touching it.
+        Some(text) if text.is_empty() => None,
+        Some(text) => Some(text),
+        None => deck.description.clone(),
+    };
     store::put_deck(
         &state.db,
         Deck {
             name: body.name,
+            format,
+            description,
             cards: body.cards,
             sideboard: body.sideboard,
-            commander: body.commander,
+            commanders,
             sleeve: body.sleeve,
             playmat: body.playmat,
             updated_at: auth::now_secs(),
             ..deck
         },
+        body.summary.filter(|s| !s.is_empty()),
     )
     .await
     .map_err(|e| db_down(&e))?;
     Ok(StatusCode::NO_CONTENT)
+}
+
+/// Everything a deck is reached through, in one place.
+///
+/// Split off the router `main` builds because there are now eight of them —
+/// the deck itself, the shared decks anybody may take, and the history. It
+/// is also the one place where the order matters: `/decks/shared` is a
+/// static segment and has to be matched as one rather than as a deck whose
+/// id is the word "shared".
+fn deck_routes() -> Router<Shared> {
+    Router::new()
+        .route("/decks", get(list_decks).post(create_deck))
+        .route("/decks/shared", get(list_shared_decks))
+        .route(
+            "/decks/{id}",
+            get(get_deck).put(update_deck).delete(delete_deck),
+        )
+        .route("/decks/{id}/copy", post(copy_deck))
+        .route("/decks/{id}/history", get(deck_history))
+        .route("/decks/{id}/versions/{version}", get(deck_version))
+        .route("/decks/{id}/versions/{version}/revert", post(revert_deck))
+}
+
+/// What a deck plays, when nobody said.
+///
+/// A deck that named a commander is playing Commander — the same sentence
+/// `baylee_cards::decks::format_of` reads off a loaded deck, said here about
+/// a deck that is only a list of rows so far.
+fn format_of(commanders: &[String]) -> String {
+    if commanders.is_empty() {
+        "freeform".to_string()
+    } else {
+        "commander".to_string()
+    }
+}
+
+/// The decks anybody may play: what this project publishes and what came in
+/// a box.
+///
+/// Readable by any signed-in account and owned by none of them, which is
+/// what makes them the thing a copy starts from.
+async fn list_shared_decks(
+    State(state): State<Shared>,
+    headers: HeaderMap,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorBody>)> {
+    let _ = authed(&state, &headers).await?;
+    let decks: Vec<_> = store::shared_decks(&state.db)
+        .await
+        .map_err(|e| db_down(&e))?
+        .iter()
+        .map(|d| {
+            serde_json::json!({
+                "id": d.id,
+                "kind": d.kind,
+                "name": d.name,
+                "format": d.format,
+                "description": d.description,
+                "cards": d.cards.len(),
+                "sideboard": d.sideboard.len(),
+                "commanders": d.commanders,
+                "version": d.version,
+            })
+        })
+        .collect();
+    Ok(Json(serde_json::json!(decks)))
+}
+
+/// One deck's history: every state it no longer holds, newest first.
+///
+/// The current cards are **not** in the list — they are the deck, and
+/// `version` says which number they carry. A caller drawing a timeline puts
+/// the deck at the top and these underneath it.
+async fn deck_history(
+    State(state): State<Shared>,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorBody>)> {
+    let account_id = authed(&state, &headers).await?;
+    let deck = readable_deck(&state, &id, &account_id).await?;
+    let past: Vec<_> = store::deck_history(&state.db, &id)
+        .await
+        .map_err(|e| db_down(&e))?
+        .iter()
+        .map(|v| {
+            serde_json::json!({
+                "version": v.version,
+                "cards": v.cards.len(),
+                "sideboard": v.sideboard.len(),
+                "commanders": v.commanders,
+                "summary": v.summary,
+                "superseded_at": v.superseded_at,
+            })
+        })
+        .collect();
+    Ok(Json(serde_json::json!({
+        "version": deck.version,
+        "updated_at": deck.updated_at,
+        "past": past,
+    })))
+}
+
+/// One superseded state, in full.
+async fn deck_version(
+    State(state): State<Shared>,
+    headers: HeaderMap,
+    Path((id, version)): Path<(String, i32)>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorBody>)> {
+    let account_id = authed(&state, &headers).await?;
+    let deck = readable_deck(&state, &id, &account_id).await?;
+    if version == deck.version {
+        // The current state is not in the history table and never will be.
+        // Answering it from the deck itself is what makes "show me version
+        // N" a question the caller can ask about any N it was given.
+        return Ok(Json(serde_json::json!({
+            "version": deck.version,
+            "cards": deck.cards,
+            "sideboard": deck.sideboard,
+            "commanders": deck.commanders,
+            "current": true,
+        })));
+    }
+    let past = store::deck_at_version(&state.db, &id, version)
+        .await
+        .map_err(|e| db_down(&e))?
+        .ok_or_else(|| err(StatusCode::NOT_FOUND, "no such version"))?;
+    Ok(Json(serde_json::json!({
+        "version": past.version,
+        "cards": past.cards,
+        "sideboard": past.sideboard,
+        "commanders": past.commanders,
+        "summary": past.summary,
+        "superseded_at": past.superseded_at,
+        "current": false,
+    })))
+}
+
+/// Put an earlier state back, as a new change.
+///
+/// Not a rewind: the deck's present is archived exactly as any other save
+/// archives it, and the old lists become the new head one version higher.
+/// So a revert can itself be reverted, and nothing in the history is ever
+/// removed or rewritten.
+async fn revert_deck(
+    State(state): State<Shared>,
+    headers: HeaderMap,
+    Path((id, version)): Path<(String, i32)>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorBody>)> {
+    let account_id = authed(&state, &headers).await?;
+    let deck = store::deck(&state.db, &id)
+        .await
+        .map_err(|e| db_down(&e))?
+        .ok_or_else(|| err(StatusCode::NOT_FOUND, "no such deck"))?;
+    if deck.account_id != account_id {
+        return Err(err(StatusCode::FORBIDDEN, "not your deck"));
+    }
+    if version == deck.version {
+        return Err(err(
+            StatusCode::CONFLICT,
+            "that is the deck's current state",
+        ));
+    }
+    let past = store::deck_at_version(&state.db, &id, version)
+        .await
+        .map_err(|e| db_down(&e))?
+        .ok_or_else(|| err(StatusCode::NOT_FOUND, "no such version"))?;
+    let next = deck.version + 1;
+    store::put_deck(
+        &state.db,
+        Deck {
+            cards: past.cards,
+            sideboard: past.sideboard,
+            commanders: past.commanders,
+            updated_at: auth::now_secs(),
+            ..deck
+        },
+        Some(format!("zurück auf Version {version}")),
+    )
+    .await
+    .map_err(|e| db_down(&e))?;
+    Ok(Json(serde_json::json!({ "version": next })))
+}
+
+/// Take a copy of a deck anybody may play, as an account's own.
+///
+/// The copy is an ordinary account deck from the moment it exists — its own
+/// history starts at version 1 — and it remembers which deck and which of
+/// that deck's versions it came from, so "this is the Kess precon as it was"
+/// survives the original moving on.
+async fn copy_deck(
+    State(state): State<Shared>,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorBody>)> {
+    let account_id = authed(&state, &headers).await?;
+    let source = readable_deck(&state, &id, &account_id).await?;
+    let copy = store::create_deck(
+        &state.db,
+        store::NewDeck {
+            account_id,
+            name: source.name.clone(),
+            format: source.format.clone(),
+            description: source.description.clone(),
+            origin: Some((source.id.clone(), source.version)),
+            cards: source.cards.clone(),
+            sideboard: source.sideboard.clone(),
+            commanders: source.commanders.clone(),
+            // The sleeve and the mat are pictures somebody uploaded, and the
+            // image store hands them out by account. A copy starts with the
+            // generated back rather than a reference it may not be able to
+            // read.
+            sleeve: None,
+            playmat: None,
+            updated_at: auth::now_secs(),
+        },
+    )
+    .await
+    .map_err(|e| db_down(&e))?
+    .ok_or_else(|| err(StatusCode::INTERNAL_SERVER_ERROR, "account gone"))?;
+    Ok(Json(serde_json::json!({ "deck_id": copy })))
+}
+
+/// A deck this account may read: their own, or one that belongs to nobody.
+///
+/// The two are one question because every route that shows a deck asks it,
+/// and a route that asked only the first would make a house deck invisible
+/// to the player it was published for.
+async fn readable_deck(
+    state: &Shared,
+    id: &str,
+    account_id: &str,
+) -> Result<store::Deck, (StatusCode, Json<ErrorBody>)> {
+    let deck = store::deck(&state.db, id)
+        .await
+        .map_err(|e| db_down(&e))?
+        .ok_or_else(|| err(StatusCode::NOT_FOUND, "no such deck"))?;
+    if deck.kind == baylee_db::entity::deck::KIND_ACCOUNT && deck.account_id != account_id {
+        return Err(err(StatusCode::FORBIDDEN, "not your deck"));
+    }
+    Ok(deck)
 }
 
 async fn delete_deck(
@@ -1352,18 +1668,18 @@ fn loaded_deck(
     // cardboard they picked. A name that resolves to no row at all — a deck
     // posted straight to the API — still gets its commander, at the
     // registry's reference printing.
+    //
+    // Each leader in turn, so a deck led by two of them loses both from the
+    // library and neither of them twice.
     let commanders = deck
-        .commander
-        .as_deref()
-        .and_then(baylee_cards::decks::by_name)
-        .map(|index| {
-            let card = match main.iter().position(|c| c.index == index) {
-                Some(at) => main.remove(at),
-                None => baylee_cards::decks::DeckCard::plain(index),
-            };
-            vec![card]
+        .commanders
+        .iter()
+        .filter_map(|name| baylee_cards::decks::by_name(name))
+        .map(|index| match main.iter().position(|c| c.index == index) {
+            Some(at) => main.remove(at),
+            None => baylee_cards::decks::DeckCard::plain(index),
         })
-        .unwrap_or_default();
+        .collect();
     Ok(baylee_cards::decks::LoadedDeck {
         name: deck.name.clone(),
         main,

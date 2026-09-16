@@ -312,3 +312,261 @@ fn a_card_always_has_at_least_one_printing_to_choose() {
     let (status, answer) = http(gateway.port, "GET", "/printings?card=999999", None, "");
     assert_eq!(status, 404, "{answer}");
 }
+
+/// Every change to a deck's cards is a version somebody can go back to.
+///
+/// The whole of the owner's ask, end to end: save, change, look at what the
+/// deck used to be, put it back — and then put the putting-back back, which
+/// is the part that says a revert is a change like any other rather than a
+/// rewind that erases one.
+#[test]
+fn a_deck_remembers_every_state_it_has_been_in() {
+    let gateway = spawn_gateway("history");
+    let token = login(gateway.port, "historian@example.test", "Historian");
+
+    let first = r#"{"name":"Strixes","cards":["4 Baleful Strix","20 Forest"],
+                    "commander":null,"description":"erster Wurf"}"#;
+    let (status, saved) = http(gateway.port, "POST", "/decks", Some(&token), first);
+    assert_eq!(status, 200, "{saved}");
+    let id = json_field(&saved, "deck_id").to_string();
+
+    // A new deck is version 1 with nothing behind it.
+    let (status, history) = http(
+        gateway.port,
+        "GET",
+        &format!("/decks/{id}/history"),
+        Some(&token),
+        "",
+    );
+    assert_eq!(status, 200, "{history}");
+    assert!(history.contains("\"version\":1"), "{history}");
+    assert!(
+        history.contains("\"past\":[]"),
+        "nothing to undo yet: {history}"
+    );
+
+    // Change the cards.
+    let second = r#"{"name":"Strixes","cards":["4 Baleful Strix","4 Counterspell","20 Island"],
+                     "commander":null,"summary":"Wald raus, Insel rein"}"#;
+    let (status, body) = http(
+        gateway.port,
+        "PUT",
+        &format!("/decks/{id}"),
+        Some(&token),
+        second,
+    );
+    assert_eq!(status, 204, "{body}");
+
+    let (status, history) = http(
+        gateway.port,
+        "GET",
+        &format!("/decks/{id}/history"),
+        Some(&token),
+        "",
+    );
+    assert_eq!(status, 200, "{history}");
+    assert!(
+        history.contains("\"version\":2"),
+        "the deck moved on: {history}"
+    );
+    assert!(
+        history.contains("Wald raus, Insel rein"),
+        "the change says what it was: {history}"
+    );
+
+    // The old state is readable in full, and it is the one that was replaced.
+    let (status, old) = http(
+        gateway.port,
+        "GET",
+        &format!("/decks/{id}/versions/1"),
+        Some(&token),
+        "",
+    );
+    assert_eq!(status, 200, "{old}");
+    assert!(old.contains("20 Forest"), "{old}");
+    assert!(
+        !old.contains("20 Island"),
+        "version 1 never had islands: {old}"
+    );
+    assert!(old.contains("\"current\":false"), "{old}");
+
+    // And so is the current one, from the deck rather than from the history.
+    let (status, now) = http(
+        gateway.port,
+        "GET",
+        &format!("/decks/{id}/versions/2"),
+        Some(&token),
+        "",
+    );
+    assert_eq!(status, 200, "{now}");
+    assert!(now.contains("\"current\":true"), "{now}");
+    assert!(now.contains("20 Island"), "{now}");
+
+    // What going back does with all of this is the next test.
+}
+
+/// Putting an earlier state back is a change like any other.
+///
+/// Not a rewind: the deck's present is archived exactly as any save archives
+/// it, and the old lists become the head one version higher — so a revert
+/// can itself be reverted and nothing in the history is ever removed.
+#[test]
+fn going_back_is_a_change_and_not_an_erasure() {
+    let gateway = spawn_gateway("revert");
+    let token = login(gateway.port, "reverter@example.test", "Reverter");
+
+    let first = r#"{"name":"Strixes","cards":["4 Baleful Strix","20 Forest"],
+                    "commander":null,"description":"erster Wurf"}"#;
+    let (status, saved) = http(gateway.port, "POST", "/decks", Some(&token), first);
+    assert_eq!(status, 200, "{saved}");
+    let id = json_field(&saved, "deck_id").to_string();
+
+    let second = r#"{"name":"Strixes","cards":["4 Baleful Strix","4 Counterspell","20 Island"],
+                     "commander":null,"summary":"Wald raus, Insel rein"}"#;
+    let (status, body) = http(
+        gateway.port,
+        "PUT",
+        &format!("/decks/{id}"),
+        Some(&token),
+        second,
+    );
+    assert_eq!(status, 204, "{body}");
+
+    // Go back.
+    let (status, reverted) = http(
+        gateway.port,
+        "POST",
+        &format!("/decks/{id}/versions/1/revert"),
+        Some(&token),
+        "",
+    );
+    assert_eq!(status, 200, "{reverted}");
+    assert!(
+        reverted.contains("\"version\":3"),
+        "a revert is the next version, not a rewind to the old number: {reverted}"
+    );
+
+    let (status, deck) = http(
+        gateway.port,
+        "GET",
+        &format!("/decks/{id}"),
+        Some(&token),
+        "",
+    );
+    assert_eq!(status, 200, "{deck}");
+    assert!(deck.contains("20 Forest"), "the forests are back: {deck}");
+    assert!(deck.contains("\"version\":3"), "{deck}");
+    assert!(
+        deck.contains("erster Wurf"),
+        "a revert of the cards left the description alone: {deck}"
+    );
+
+    // The state the revert replaced is itself in the history now, so the
+    // islands can be brought back. Nothing was erased.
+    let (status, again) = http(
+        gateway.port,
+        "POST",
+        &format!("/decks/{id}/versions/2/revert"),
+        Some(&token),
+        "",
+    );
+    assert_eq!(status, 200, "{again}");
+    let (status, deck) = http(
+        gateway.port,
+        "GET",
+        &format!("/decks/{id}"),
+        Some(&token),
+        "",
+    );
+    assert_eq!(status, 200, "{deck}");
+    assert!(deck.contains("20 Island"), "{deck}");
+    assert!(deck.contains("\"version\":4"), "{deck}");
+
+    // The counter-half: saving without touching the cards writes no version.
+    let renamed = r#"{"name":"Strixes, second edition",
+                      "cards":["4 Baleful Strix","4 Counterspell","20 Island"],
+                      "commander":null}"#;
+    let (status, body) = http(
+        gateway.port,
+        "PUT",
+        &format!("/decks/{id}"),
+        Some(&token),
+        renamed,
+    );
+    assert_eq!(status, 204, "{body}");
+    let (status, deck) = http(
+        gateway.port,
+        "GET",
+        &format!("/decks/{id}"),
+        Some(&token),
+        "",
+    );
+    assert_eq!(status, 200, "{deck}");
+    assert!(
+        deck.contains("\"version\":4"),
+        "a rename is not an edit of the cards: {deck}"
+    );
+    assert!(deck.contains("second edition"), "{deck}");
+}
+
+/// The four house decks are there to be played and to be copied.
+#[test]
+fn the_house_decks_belong_to_nobody_and_anybody_may_take_a_copy() {
+    let gateway = spawn_gateway("house");
+    let token = login(gateway.port, "copier@example.test", "Copier");
+
+    let (status, shared) = http(gateway.port, "GET", "/decks/shared", Some(&token), "");
+    assert_eq!(status, 200, "{shared}");
+    assert!(shared.contains("\"kind\":\"house\""), "{shared}");
+    assert!(shared.contains("Breya, Etherium Shaper"), "{shared}");
+    assert!(shared.contains("Kenrith, the Returned King"), "{shared}");
+    assert!(shared.contains("Kess, Dissident Mage"), "{shared}");
+    assert!(shared.contains("Tayam, Luminous Enigma"), "{shared}");
+    assert!(shared.contains("\"cards\":99"), "{shared}");
+
+    // A player's own list is still their own: the house decks are not in it.
+    let (status, mine) = http(gateway.port, "GET", "/decks", Some(&token), "");
+    assert_eq!(status, 200, "{mine}");
+    assert_eq!(mine.trim(), "[]", "a new account owns no decks: {mine}");
+
+    let id = json_field(&shared, "id").to_string();
+    let (status, copied) = http(
+        gateway.port,
+        "POST",
+        &format!("/decks/{id}/copy"),
+        Some(&token),
+        "",
+    );
+    assert_eq!(status, 200, "{copied}");
+    let copy = json_field(&copied, "deck_id").to_string();
+
+    let (status, deck) = http(
+        gateway.port,
+        "GET",
+        &format!("/decks/{copy}"),
+        Some(&token),
+        "",
+    );
+    assert_eq!(status, 200, "{deck}");
+    assert!(
+        deck.contains("\"kind\":\"account\""),
+        "a copy is the copier's own deck: {deck}"
+    );
+    assert!(
+        deck.contains(&format!("\"copied_from\":\"{id}\"")),
+        "the copy remembers what it came from: {deck}"
+    );
+    assert!(
+        deck.contains("\"copied_version\":1"),
+        "and which state of it: {deck}"
+    );
+    assert!(
+        deck.contains("\"version\":1"),
+        "its own history starts over: {deck}"
+    );
+
+    // And now it is in the player's list, where the original never was.
+    let (status, mine) = http(gateway.port, "GET", "/decks", Some(&token), "");
+    assert_eq!(status, 200, "{mine}");
+    assert!(mine.contains("\"cards\":99"), "{mine}");
+}

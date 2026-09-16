@@ -18,7 +18,7 @@
 //! saying that a schema works when nothing had asked it to do anything.
 
 use baylee_db::entity::prelude::*;
-use baylee_db::entity::{account, client_settings, deck, session_token};
+use baylee_db::entity::{account, client_settings, deck, deck_version, session_token};
 use sea_orm::{
     ActiveValue::{NotSet, Set},
     ColumnTrait, ConnectionTrait, Database, DatabaseConnection, EntityTrait, PaginatorTrait,
@@ -188,11 +188,17 @@ async fn postgres_mints_the_keys() {
     // just minted one.
     let deck = Deck::insert(deck::ActiveModel {
         id: NotSet,
-        account_id: Set(first.id),
+        account_id: Set(Some(first.id)),
+        kind: Set(deck::KIND_ACCOUNT.to_owned()),
+        format: Set("freeform".to_owned()),
+        description: Set(None),
+        copied_from: Set(None),
+        copied_version: Set(None),
+        version: Set(1),
         name: Set("Mono Red".to_owned()),
         cards: Set(vec!["4 Lightning Bolt".to_owned()]),
         sideboard: Set(Vec::new()),
-        commander: Set(None),
+        commanders: Set(Vec::new()),
         sleeve: Set(None),
         playmat: Set(None),
         updated_at: Set(OffsetDateTime::now_utc()),
@@ -214,6 +220,194 @@ async fn postgres_mints_the_keys() {
     assert_eq!(kept.id, carried);
 
     sandbox.close().await;
+}
+
+/// The four house decks are in every database, and they belong to nobody.
+///
+/// A migration that seeds is a migration whose data is part of the schema:
+/// there is no file to forget to load and no first-run step to skip, which
+/// is the whole reason they are here rather than in a `.json` beside the
+/// binary.
+#[tokio::test]
+async fn every_database_comes_with_the_house_decks() {
+    let sandbox = Sandbox::open("house").await;
+
+    let house = Deck::find()
+        .filter(deck::Column::Kind.eq(deck::KIND_HOUSE))
+        .all(&sandbox.db)
+        .await
+        .expect("reading the house decks");
+    assert_eq!(house.len(), 4, "four decks ship with the schema");
+
+    for seeded in &house {
+        assert!(
+            seeded.account_id.is_none(),
+            "{} belongs to somebody",
+            seeded.name
+        );
+        assert_eq!(seeded.format, "commander");
+        assert_eq!(
+            seeded.cards.len(),
+            99,
+            "{} is 99 cards beside its commander",
+            seeded.name
+        );
+        assert_eq!(
+            seeded.commanders,
+            vec![seeded.name.clone()],
+            "each of these decks is named after the one commander it plays"
+        );
+        assert!(
+            seeded.description.is_some(),
+            "{} says what it is for",
+            seeded.name
+        );
+        assert_eq!(seeded.version, 1, "nobody has changed it yet");
+    }
+
+    // The counter-half: a player asking for *their* decks sees none of them,
+    // which is what `account_id IS NULL` is for.
+    let mine = Deck::find()
+        .filter(deck::Column::AccountId.eq(Uuid::now_v7()))
+        .count(&sandbox.db)
+        .await
+        .expect("counting one account's decks");
+    assert_eq!(mine, 0, "a house deck is nobody's deck");
+
+    sandbox.close().await;
+}
+
+/// A deck's owner and its kind are one statement, and the database holds
+/// both halves of it.
+///
+/// Either way round is a real accident: a house deck with an owner hands one
+/// player a deck everybody is meant to share, and an account deck with none
+/// is a deck that survives `DELETE FROM account`.
+#[tokio::test]
+async fn a_deck_that_belongs_to_nobody_must_say_so() {
+    let sandbox = Sandbox::open("kindcheck").await;
+    let account = an_account("owner@example.com");
+    let Set(id) = account.id else { unreachable!() };
+    Account::insert(account).exec(&sandbox.db).await.unwrap();
+
+    let mut orphan = a_deck(None, "nobody's");
+    orphan.kind = Set(deck::KIND_ACCOUNT.to_owned());
+    assert!(
+        Deck::insert(orphan).exec(&sandbox.db).await.is_err(),
+        "an account deck with no account was accepted"
+    );
+
+    let mut claimed = a_deck(Some(id), "everybody's");
+    claimed.kind = Set(deck::KIND_HOUSE.to_owned());
+    assert!(
+        Deck::insert(claimed).exec(&sandbox.db).await.is_err(),
+        "a house deck with an owner was accepted"
+    );
+
+    let mut invented = a_deck(Some(id), "mine");
+    invented.kind = Set("legendary".to_owned());
+    assert!(
+        Deck::insert(invented).exec(&sandbox.db).await.is_err(),
+        "a kind nobody has heard of was accepted"
+    );
+
+    // And the two shapes that are right still go in.
+    Deck::insert(a_deck(Some(id), "mine"))
+        .exec(&sandbox.db)
+        .await
+        .expect("an account deck with an owner");
+    let mut published = a_deck(None, "everybody's");
+    published.kind = Set(deck::KIND_PRECONSTRUCTED.to_owned());
+    Deck::insert(published)
+        .exec(&sandbox.db)
+        .await
+        .expect("a preconstructed deck with no owner");
+
+    sandbox.close().await;
+}
+
+/// The history is the deck's past, and only one row may ever claim to be a
+/// given version of it.
+///
+/// That is the primary key doing the work, and it is the difference between
+/// two saves racing and a forked history nobody can read back.
+#[tokio::test]
+async fn a_version_number_belongs_to_one_state() {
+    let sandbox = Sandbox::open("history").await;
+    let account = an_account("historian@example.com");
+    let Set(owner) = account.id else {
+        unreachable!()
+    };
+    Account::insert(account).exec(&sandbox.db).await.unwrap();
+
+    let deck = Deck::insert(a_deck(Some(owner), "in progress"))
+        .exec_with_returning(&sandbox.db)
+        .await
+        .expect("a deck saves");
+
+    DeckVersion::insert(a_version(deck.id, 1, &["4 Lightning Bolt"]))
+        .exec(&sandbox.db)
+        .await
+        .expect("the state it used to hold");
+    assert!(
+        DeckVersion::insert(a_version(deck.id, 1, &["4 Shock"]))
+            .exec(&sandbox.db)
+            .await
+            .is_err(),
+        "a second version 1 was accepted, and the history has forked"
+    );
+    DeckVersion::insert(a_version(deck.id, 2, &["4 Shock"]))
+        .exec(&sandbox.db)
+        .await
+        .expect("the next version is a different number");
+
+    // A deleted deck takes its past with it: history that outlived its deck
+    // would be rows nothing can ever name again.
+    Deck::delete_by_id(deck.id)
+        .exec(&sandbox.db)
+        .await
+        .expect("deleting the deck");
+    let left = DeckVersion::find()
+        .count(&sandbox.db)
+        .await
+        .expect("counting what is left");
+    assert_eq!(left, 0, "the deck's history outlived the deck");
+
+    sandbox.close().await;
+}
+
+/// A deck, ready to insert.
+fn a_deck(owner: Option<Uuid>, name: &str) -> deck::ActiveModel {
+    deck::ActiveModel {
+        id: NotSet,
+        account_id: Set(owner),
+        kind: Set(deck::KIND_ACCOUNT.to_owned()),
+        name: Set(name.to_owned()),
+        format: Set("freeform".to_owned()),
+        description: Set(None),
+        copied_from: Set(None),
+        copied_version: Set(None),
+        version: Set(1),
+        cards: Set(vec!["4 Lightning Bolt".to_owned()]),
+        sideboard: Set(Vec::new()),
+        commanders: Set(Vec::new()),
+        sleeve: Set(None),
+        playmat: Set(None),
+        updated_at: Set(OffsetDateTime::now_utc()),
+    }
+}
+
+/// One superseded state, ready to insert.
+fn a_version(deck_id: Uuid, version: i32, cards: &[&str]) -> deck_version::ActiveModel {
+    deck_version::ActiveModel {
+        deck_id: Set(deck_id),
+        version: Set(version),
+        cards: Set(cards.iter().map(|c| (*c).to_owned()).collect()),
+        sideboard: Set(Vec::new()),
+        commanders: Set(Vec::new()),
+        summary: Set(None),
+        superseded_at: Set(OffsetDateTime::now_utc()),
+    }
 }
 
 /// A display name is not a claim. Two players may both be Alice, and what
@@ -290,11 +484,17 @@ async fn deleting_an_account_takes_everything_it_owned() {
 
     Deck::insert(deck::ActiveModel {
         id: Set(Uuid::now_v7()),
-        account_id: Set(id),
+        account_id: Set(Some(id)),
+        kind: Set(deck::KIND_ACCOUNT.to_owned()),
+        format: Set("freeform".to_owned()),
+        description: Set(None),
+        copied_from: Set(None),
+        copied_version: Set(None),
+        version: Set(1),
         name: Set("Mono Green".to_owned()),
         cards: Set(vec!["4 Llanowar Elves".to_owned(), "20 Forest".to_owned()]),
         sideboard: Set(Vec::new()),
-        commander: Set(None),
+        commanders: Set(Vec::new()),
         sleeve: Set(None),
         playmat: Set(None),
         updated_at: Set(OffsetDateTime::now_utc()),
@@ -324,7 +524,14 @@ async fn deleting_an_account_takes_everything_it_owned() {
     // The decklist survives the round trip as an ordered array, which is the
     // one thing `text[]` has to do that a join table with a position column
     // would have done more elaborately.
-    let saved = Deck::find().one(&sandbox.db).await.unwrap().unwrap();
+    // Whose deck, explicitly: every database ships with the four house
+    // decks, so "the deck" is no longer a question with one answer.
+    let saved = Deck::find()
+        .filter(deck::Column::AccountId.eq(id))
+        .one(&sandbox.db)
+        .await
+        .unwrap()
+        .unwrap();
     assert_eq!(saved.cards, ["4 Llanowar Elves", "20 Forest"]);
 
     Account::delete_by_id(id).exec(&sandbox.db).await.unwrap();
@@ -434,8 +641,13 @@ async fn a_store_file_becomes_the_tables_it_describes() {
     );
     assert!(saved.confirmed_at.is_some());
 
-    let deck = Deck::find().one(&sandbox.db).await.unwrap().unwrap();
-    assert_eq!(deck.account_id, saved.id, "the deck found its owner");
+    let deck = Deck::find()
+        .filter(deck::Column::AccountId.eq(saved.id))
+        .one(&sandbox.db)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(deck.account_id, Some(saved.id), "the deck found its owner");
     assert_eq!(deck.sideboard, ["2 Naturalize"]);
 
     // The reserved ability index counts down from `u32::MAX`, which is why

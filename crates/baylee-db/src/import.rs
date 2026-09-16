@@ -332,11 +332,31 @@ impl<'a> Owners<'a> {
                 let account_id = self.owner(&d.account_id)?;
                 Some(deck::ActiveModel {
                     id: Set(id_of(&d.id, &mut self.minted)),
-                    account_id: Set(account_id),
+                    account_id: Set(Some(account_id)),
+                    // Everything the old file could hold was a deck somebody
+                    // owned: it had no way to say otherwise, and the store it
+                    // came from had no kinds. The format follows the same
+                    // sentence the migration backfills with, so an imported
+                    // deck and a migrated one describe themselves alike.
+                    kind: Set(deck::KIND_ACCOUNT.to_string()),
+                    format: Set(if d.commander.is_some() {
+                        "commander".to_string()
+                    } else {
+                        "freeform".to_string()
+                    }),
+                    description: Set(None),
+                    copied_from: Set(None),
+                    copied_version: Set(None),
+                    // Version 1 with nothing behind it, which is true: this
+                    // is the first state of the deck that this database has
+                    // ever held.
+                    version: Set(1),
                     name: Set(d.name.clone()),
                     cards: Set(d.cards.clone()),
                     sideboard: Set(d.sideboard.clone()),
-                    commander: Set(d.commander.clone()),
+                    // The file format had one commander and no way to say
+                    // two, so the list it becomes is however many that was.
+                    commanders: Set(d.commander.clone().into_iter().collect()),
                     sleeve: Set(d.sleeve.clone()),
                     playmat: Set(d.playmat.clone()),
                     updated_at: Set(at(d.updated_at)),

@@ -51,7 +51,7 @@ fn every_request_hits_the_route_the_gateway_serves() {
                 name: "d".to_string(),
                 cards: vec!["1 Forest".to_string()],
                 sideboard: Vec::new(),
-                commander: None,
+                commanders: Vec::new(),
             },
             "POST",
             "http://gw/decks",
@@ -62,7 +62,7 @@ fn every_request_hits_the_route_the_gateway_serves() {
                 name: "d".to_string(),
                 cards: vec!["1 Forest".to_string()],
                 sideboard: Vec::new(),
-                commander: None,
+                commanders: Vec::new(),
             },
             "PUT",
             "http://gw/decks/d1",
@@ -171,7 +171,7 @@ fn the_bodies_carry_the_field_names_the_gateway_deserialises() {
             name: "Starter".to_string(),
             cards: vec!["1 Forest".to_string()],
             sideboard: vec!["2 Naturalize".to_string()],
-            commander: None,
+            commanders: Vec::new(),
         },
     );
     assert_eq!(
@@ -180,7 +180,7 @@ fn the_bodies_carry_the_field_names_the_gateway_deserialises() {
             "name": "Starter",
             "cards": ["1 Forest"],
             "sideboard": ["2 Naturalize"],
-            "commander": null
+            "commanders": []
         })
     );
     let (game, _) = build(
@@ -313,7 +313,7 @@ fn a_json_body_says_so() {
             name: "d".to_string(),
             cards: vec!["1 Forest".to_string()],
             sideboard: Vec::new(),
-            commander: None,
+            commanders: Vec::new(),
         },
     );
     assert_eq!(built.headers.get("Content-Type"), Some("application/json"));
@@ -337,7 +337,7 @@ fn the_gateways_own_answers_decode() {
             Expect::Decks,
             &answer(
                 200,
-                r#"[{"id":"d1","name":"Allytifact","cards":96,"commander":null}]"#
+                r#"[{"id":"d1","name":"Allytifact","cards":96,"commanders":[]}]"#
             )
         ),
         LobbyEvent::Decks(vec![DeckSummary {
@@ -345,7 +345,7 @@ fn the_gateways_own_answers_decode() {
             name: "Allytifact".to_string(),
             cards: 96,
             sideboard: 0,
-            commander: None,
+            commanders: Vec::new(),
         }])
     );
     assert_eq!(
@@ -638,7 +638,7 @@ fn the_table_screen_builds_once_there_is_a_deck() {
             name: "Allytifact".to_string(),
             cards: 96,
             sideboard: 0,
-            commander: None,
+            commanders: Vec::new(),
         }]));
         state
             .lobby
@@ -1005,7 +1005,7 @@ fn a_table_we_are_waiting_at_is_announced_and_not_sat_at() {
             name: "Allytifact".to_string(),
             cards: 96,
             sideboard: 0,
-            commander: None,
+            commanders: Vec::new(),
         }]));
         state.lobby.apply(LobbyEvent::Games(GameListing::default()));
         state.lobby.host(GameMode::Open);
@@ -1492,7 +1492,7 @@ fn stocked(app: &mut App) {
         name: "Allytifact".to_string(),
         cards: 96,
         sideboard: 0,
-        commander: None,
+        commanders: Vec::new(),
     }]));
     state.lobby.apply(LobbyEvent::Pool {
         cards: pool_cards(),
@@ -2202,7 +2202,7 @@ fn the_pool_and_a_saved_deck_decode() {
             &answer(
                 200,
                 r#"{"id":"d1","name":"Elves","cards":["4 Llanowar Elves"],
-                   "sideboard":["1 Forest"],"commander":null}"#
+                   "sideboard":["1 Forest"],"commanders":[]}"#
             )
         ),
         LobbyEvent::DeckLoaded {
@@ -2210,7 +2210,7 @@ fn the_pool_and_a_saved_deck_decode() {
             name: "Elves".to_string(),
             cards: vec!["4 Llanowar Elves".to_string()],
             sideboard: vec!["1 Forest".to_string()],
-            commander: None,
+            commanders: Vec::new(),
         }
     );
     assert_eq!(

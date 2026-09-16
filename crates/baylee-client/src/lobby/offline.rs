@@ -57,8 +57,13 @@ struct StoredDeck {
     cards: Vec<String>,
     #[serde(default)]
     sideboard: Vec<String>,
+    /// None, one, or two under the partner rule. A file written before
+    /// there could be two names a `commander` string this no longer reads,
+    /// so such a deck comes back with an empty command zone rather than
+    /// with a name in the wrong shape — the builder says so, and one save
+    /// puts it right.
     #[serde(default)]
-    commander: Option<String>,
+    commanders: Vec<String>,
     #[serde(default)]
     sleeve: Option<String>,
     #[serde(default)]
@@ -235,7 +240,7 @@ impl Offline {
                         name: d.name.clone(),
                         cards: d.cards.len(),
                         sideboard: d.sideboard.len(),
-                        commander: d.commander.clone(),
+                        commanders: d.commanders.clone(),
                     })
                     .collect(),
             ),
@@ -259,7 +264,7 @@ impl Offline {
                     name: d.name.clone(),
                     cards: d.cards.clone(),
                     sideboard: d.sideboard.clone(),
-                    commander: d.commander.clone(),
+                    commanders: d.commanders.clone(),
                 },
             ),
             LobbyRequest::SaveDeck {
@@ -267,8 +272,8 @@ impl Offline {
                 name,
                 cards,
                 sideboard,
-                commander,
-            } => self.save_deck(deck_id, name, cards, sideboard, commander),
+                commanders,
+            } => self.save_deck(deck_id, name, cards, sideboard, commanders),
             LobbyRequest::DeleteDeck { deck_id } => {
                 self.decks.retain(|d| d.id != deck_id);
                 self.forget_deck(&deck_id);
@@ -368,7 +373,7 @@ impl Offline {
         name: String,
         cards: Vec<String>,
         sideboard: Vec<String>,
-        commander: Option<String>,
+        commanders: Vec<String>,
     ) -> LobbyEvent {
         // An edit of a built-in becomes a deck of the player's own. The file
         // it came from is read every launch, so writing over it would be a
@@ -383,7 +388,7 @@ impl Offline {
             name,
             cards,
             sideboard,
-            commander,
+            commanders,
             sleeve: None,
             playmat: None,
             updated_at: 0,
@@ -502,7 +507,7 @@ impl Offline {
                 &deck.name,
                 &deck.cards,
                 &deck.sideboard,
-                deck.commander.as_deref(),
+                &deck.commanders,
             ) {
                 Ok(loaded_deck) => loaded.push(loaded_deck),
                 Err(why) => return LobbyEvent::Failed(format!("{}: {why}", deck.name)),
@@ -592,11 +597,12 @@ fn builtin_decks() -> Vec<StoredDeck> {
                 name,
                 cards: rows_of(&deck.main),
                 sideboard: rows_of(&deck.sideboard),
-                commander: deck
+                commanders: deck
                     .commanders
-                    .first()
-                    .and_then(|c| baylee_cards::by_index(c.index))
-                    .map(|def| def.name().to_string()),
+                    .iter()
+                    .filter_map(|c| baylee_cards::by_index(c.index))
+                    .map(|def| def.name().to_string())
+                    .collect(),
                 sleeve: None,
                 playmat: None,
                 updated_at: 0,
@@ -867,7 +873,7 @@ mod tests {
             name: "Mine".to_string(),
             cards: vec!["4 Island".to_string()],
             sideboard: vec![],
-            commander: None,
+            commanders: vec![],
         }) else {
             panic!("saving answers a save")
         };
@@ -896,7 +902,7 @@ mod tests {
             name: "Allytifact, edited".to_string(),
             cards: vec!["4 Island".to_string()],
             sideboard: vec![],
-            commander: None,
+            commanders: vec![],
         }) else {
             panic!("saving answers a save")
         };

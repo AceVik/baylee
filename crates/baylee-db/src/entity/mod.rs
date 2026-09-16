@@ -1,4 +1,4 @@
-//! The six tables, one module each.
+//! The seven tables, one module each.
 //!
 //! Each is a `SeaORM` entity rather than a hand-written statement, so a
 //! column's Postgres type and its Rust type are declared in one place and a
@@ -18,6 +18,7 @@ pub mod account;
 pub mod client_settings;
 pub mod confirmation;
 pub mod deck;
+pub mod deck_version;
 pub mod session_token;
 pub mod standing_answer;
 
@@ -27,6 +28,7 @@ pub mod prelude {
     pub use super::client_settings::Entity as ClientSettings;
     pub use super::confirmation::Entity as Confirmation;
     pub use super::deck::Entity as Deck;
+    pub use super::deck_version::Entity as DeckVersion;
     pub use super::session_token::Entity as SessionToken;
     pub use super::standing_answer::Entity as StandingAnswer;
 }

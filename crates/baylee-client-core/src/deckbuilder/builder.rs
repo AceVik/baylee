@@ -555,6 +555,7 @@ impl DeckBuilder {
                 slot,
                 count: 1,
                 print,
+                note: None,
             });
         }
         self.dirty = true;
@@ -903,18 +904,29 @@ impl DeckBuilder {
 
     // ------------------------------------------------------- the commander
 
-    /// The deck's commander, as a slot in the pool.
+    /// The deck's commanders, as slots in the pool.
+    ///
+    /// Two of them under the partner rule (CR 702.124), and the order is the
+    /// order they were named in.
     #[must_use]
-    pub fn commander(&self) -> Option<usize> {
-        self.commander
+    pub fn commanders(&self) -> &[usize] {
+        &self.commanders
     }
 
-    /// The commander's English name — what the gateway is told.
+    /// Whether this slot is one of them.
     #[must_use]
-    pub fn commander_name(&self) -> Option<&str> {
-        self.commander
-            .and_then(|slot| self.pool.get(slot))
-            .map(|card| card.english_name.as_str())
+    pub fn is_commander(&self, slot: usize) -> bool {
+        self.commanders.contains(&slot)
+    }
+
+    /// The commanders' English names — what the gateway is told.
+    #[must_use]
+    pub fn commander_names(&self) -> Vec<String> {
+        self.commanders
+            .iter()
+            .filter_map(|slot| self.pool.get(*slot))
+            .map(|card| card.english_name.clone())
+            .collect()
     }
 
     /// Makes a card the deck's commander.
@@ -926,27 +938,38 @@ impl DeckBuilder {
     /// A commander is also a card in the deck, so this puts one there if it
     /// is not already: choosing a leader that is not in the ninety-nine is a
     /// deck nobody meant to build.
+    ///
+    /// **This sets one**, and a deck that already had two comes back with
+    /// one. The partner rule (CR 702.124) needs to know which partner family
+    /// each card is in, and a `/pool` row does not carry that yet — it
+    /// carries `commander`, which is eligibility and not pairing. Offering a
+    /// second leader out of what this crate can see would mean offering
+    /// pairs the gateway then refuses, and "if the button is live, the deck
+    /// saves" is the rule the builder is built around. What this side does
+    /// guarantee is that it never *loses* one: a stored deck's leaders are
+    /// kept as they were until the player names a different one.
     pub fn set_commander(&mut self, slot: usize) -> bool {
         if !self.pool.get(slot).is_some_and(|card| card.commander) {
             return false;
         }
+        if self.commanders == [slot] {
+            return true;
+        }
         if self.count_of(slot, Zone::Main) == 0 {
             self.add(slot, Zone::Main);
         }
-        if self.commander != Some(slot) {
-            self.commander = Some(slot);
-            self.dirty = true;
-        }
+        self.commanders = vec![slot];
+        self.dirty = true;
         self.stale_commander = None;
         true
     }
 
-    /// Takes the commander mark off, leaving the card in the deck.
+    /// Takes every commander mark off, leaving the cards in the deck.
     pub fn clear_commander(&mut self) {
         // Both taken, then asked: `||` would short-circuit past the second
         // one and leave a warning standing about a deck that no longer has
         // the mark it is about.
-        let marked = self.commander.take().is_some();
+        let marked = !std::mem::take(&mut self.commanders).is_empty();
         let stale = self.stale_commander.take().is_some();
         if marked || stale {
             self.dirty = true;
@@ -997,6 +1020,7 @@ impl DeckBuilder {
                         count: u32::from(entry.count),
                         name: card.english_name.clone(),
                         print: entry.print.clone(),
+                        note: entry.note.clone(),
                     }
                     .to_string(),
                 )
@@ -1015,7 +1039,7 @@ impl DeckBuilder {
             name: self.name.trim().to_string(),
             cards: self.rows(Zone::Main),
             sideboard: self.rows(Zone::Side),
-            commander: self.commander_name().map(ToString::to_string),
+            commanders: self.commander_names(),
         })
     }
 
@@ -1041,8 +1065,8 @@ impl DeckBuilder {
         self.zone = Zone::Main;
         self.dirty = false;
         self.inspecting = None;
-        self.commander = None;
-        self.pending_commander = None;
+        self.commanders.clear();
+        self.pending_commander.clear();
         self.stale_commander = None;
         // A nameless deck cannot be saved, so that is where the caret starts.
         self.focus_on(BuildField::Name);
@@ -1062,14 +1086,14 @@ impl DeckBuilder {
         name: &str,
         cards: &[String],
         sideboard: &[String],
-        commander: Option<&str>,
+        commanders: &[String],
     ) {
         self.start_new();
         self.editing = Some(id.to_string());
         self.name = name.to_string();
-        // The commander is a name too, and races the pool the same way its
+        // A commander is a name too, and races the pool the same way its
         // rows do.
-        self.pending_commander = commander.map(ToString::to_string);
+        self.pending_commander = commanders.to_vec();
         for (rows, zone) in [(cards, Zone::Main), (sideboard, Zone::Side)] {
             for row in rows {
                 match baylee_core::deckrow::parse(row) {
@@ -1077,12 +1101,13 @@ impl DeckBuilder {
                     // saved again has to come back out the way it went in, or
                     // editing one line would quietly strip every other line's
                     // foils.
-                    Ok(parsed) => self.pending.push((
-                        u16::try_from(parsed.count).unwrap_or(u16::MAX),
-                        parsed.name,
+                    Ok(parsed) => self.pending.push(Held {
+                        count: u16::try_from(parsed.count).unwrap_or(u16::MAX),
+                        name: parsed.name,
                         zone,
-                        parsed.print,
-                    )),
+                        print: parsed.print,
+                        note: parsed.note,
+                    }),
                     // A malformed row will never resolve, whatever the pool
                     // holds, so it is missing right away.
                     Err(_) => self.missing.push(row.clone()),
@@ -1097,10 +1122,12 @@ impl DeckBuilder {
 
     /// Turns held rows into deck entries, as far as the pool allows.
     fn resolve_pending(&mut self) {
-        if let Some(name) = self.pending_commander.clone()
-            && let Some(slot) = self.slot_of(&name)
-        {
-            self.pending_commander = None;
+        for name in std::mem::take(&mut self.pending_commander) {
+            let Some(slot) = self.slot_of(&name) else {
+                // No pool yet, or no such card: keep holding the name.
+                self.pending_commander.push(name);
+                continue;
+            };
             // The same question `set_commander` asks, and for the same
             // reason: a mark the rules will not seat is one the gateway
             // refuses on save. Asking it in only one of the two places meant
@@ -1108,7 +1135,15 @@ impl DeckBuilder {
             // from — and the mark that got there that way looked exactly
             // like one the player had chosen.
             if self.pool.get(slot).is_some_and(|card| card.commander) {
-                self.commander = Some(slot);
+                // Pushed rather than `set_commander`ed: a stored deck's
+                // leaders are already in its rows, and re-adding them here
+                // would put a second copy of each in the library. The pair's
+                // legality is the gateway's to refuse on save; a deck that
+                // is already stored is not the place to start arguing about
+                // it, or reopening one would silently drop a commander.
+                if !self.commanders.contains(&slot) {
+                    self.commanders.push(slot);
+                }
             } else {
                 self.stale_commander = Some(name);
             }
@@ -1117,7 +1152,14 @@ impl DeckBuilder {
             return;
         }
         let held = std::mem::take(&mut self.pending);
-        for (count, name, zone, print) in held {
+        for Held {
+            count,
+            name,
+            zone,
+            print,
+            note,
+        } in held
+        {
             match self.slot_of(&name) {
                 Some(slot) => {
                     let entries = match zone {
@@ -1131,12 +1173,23 @@ impl DeckBuilder {
                         .find(|e| e.slot == slot && e.print == print)
                     {
                         Some(entry) => entry.count = entry.count.saturating_add(count),
-                        None => entries.push(Entry { slot, count, print }),
+                        None => entries.push(Entry {
+                            slot,
+                            count,
+                            print,
+                            note,
+                        }),
                     }
                 }
                 None if self.loaded() => self.missing.push(name),
                 // No pool yet: keep holding it.
-                None => self.pending.push((count, name, zone, print)),
+                None => self.pending.push(Held {
+                    count,
+                    name,
+                    zone,
+                    print,
+                    note,
+                }),
             }
         }
         self.sort_zone(Zone::Main);

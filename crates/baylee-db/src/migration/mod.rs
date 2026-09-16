@@ -7,7 +7,9 @@
 
 use sea_orm_migration::prelude::*;
 
+mod house_decks;
 mod m20260915_000001_account_side;
+mod m20260916_000002_deck_kinds_and_history;
 
 /// The migrator the gateway runs on connect.
 pub struct Migrator;
@@ -15,6 +17,9 @@ pub struct Migrator;
 #[async_trait::async_trait]
 impl MigratorTrait for Migrator {
     fn migrations() -> Vec<Box<dyn MigrationTrait>> {
-        vec![Box::new(m20260915_000001_account_side::Migration)]
+        vec![
+            Box::new(m20260915_000001_account_side::Migration),
+            Box::new(m20260916_000002_deck_kinds_and_history::Migration),
+        ]
     }
 }

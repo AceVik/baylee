@@ -109,13 +109,13 @@ pub(super) fn build(
             name,
             cards,
             sideboard,
-            commander,
+            commanders,
         } => {
             let body = serde_json::json!({
                 "name": name,
                 "cards": cards,
                 "sideboard": sideboard,
-                "commander": commander,
+                "commanders": commanders,
             });
             match deck_id {
                 // Editing an existing deck overwrites it; without an id this
@@ -346,7 +346,7 @@ pub(super) fn decode(lang: Lang, expect: Expect, response: &ehttp::Response) -> 
         #[serde(default)]
         sideboard: Vec<String>,
         #[serde(default)]
-        commander: Option<String>,
+        commanders: Vec<String>,
     }
 
     let body = response.text().unwrap_or_default();
@@ -389,7 +389,7 @@ pub(super) fn decode(lang: Lang, expect: Expect, response: &ehttp::Response) -> 
                 name: d.name,
                 cards: d.cards,
                 sideboard: d.sideboard,
-                commander: d.commander,
+                commanders: d.commanders,
             },
         ),
         Expect::LoggedIn => serde_json::from_str::<TokenBody>(body).map_or_else(

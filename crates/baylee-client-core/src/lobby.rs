@@ -126,9 +126,10 @@ pub struct DeckSummary {
     /// Number of stored sideboard lines.
     #[serde(default)]
     pub sideboard: usize,
-    /// The commander, for the deck formats that name one.
+    /// The commanders, for the deck formats that name one — or two, under
+    /// the partner rule.
     #[serde(default)]
-    pub commander: Option<String>,
+    pub commanders: Vec<String>,
 }
 
 /// The fewest chairs a table may have.
@@ -438,8 +439,8 @@ pub enum LobbyRequest {
         cards: Vec<String>,
         /// Its sideboard rows, in the same form.
         sideboard: Vec<String>,
-        /// The card that leads it, when it is a commander deck.
-        commander: Option<String>,
+        /// The cards that lead it, when it is a commander deck.
+        commanders: Vec<String>,
     },
     /// `DELETE /decks/{id}`.
     DeleteDeck {
@@ -585,8 +586,8 @@ pub enum LobbyEvent {
         cards: Vec<String>,
         /// Its sideboard rows.
         sideboard: Vec<String>,
-        /// The card that leads it, when it is a commander deck.
-        commander: Option<String>,
+        /// The cards that lead it, when it is a commander deck.
+        commanders: Vec<String>,
     },
     /// A deck was saved. `deck_id` is the id `POST /decks` hands back for a
     /// *new* deck; an edit answers `204` and carries none, having had one.
@@ -1192,7 +1193,7 @@ impl Lobby {
             name: name.to_string(),
             cards,
             sideboard: Vec::new(),
-            commander: None,
+            commanders: Vec::new(),
         })
     }
 
@@ -1764,10 +1765,10 @@ impl Lobby {
                 name,
                 cards,
                 sideboard,
-                commander,
+                commanders,
             } => {
                 self.builder
-                    .load(&id, &name, &cards, &sideboard, commander.as_deref());
+                    .load(&id, &name, &cards, &sideboard, &commanders);
                 self.clear_status();
                 // The pool may not have arrived yet — the rows are held by
                 // name until it does, which is why loading is safe either way.

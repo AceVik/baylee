@@ -28,14 +28,15 @@ use baylee_db::entity::account::Entity as Accounts;
 use baylee_db::entity::client_settings::Entity as Settings;
 use baylee_db::entity::confirmation::Entity as Confirmations;
 use baylee_db::entity::deck::Entity as Decks;
+use baylee_db::entity::deck_version::Entity as DeckVersions;
 use baylee_db::entity::session_token::Entity as Sessions;
 use baylee_db::entity::standing_answer::Entity as Answers;
 use baylee_db::entity::{
-    account, client_settings, confirmation, deck, session_token, standing_answer,
+    account, client_settings, confirmation, deck, deck_version, session_token, standing_answer,
 };
 use sea_orm::{
     ActiveValue::{NotSet, Set},
-    ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, QueryOrder,
+    ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, QueryOrder, TransactionTrait,
     sea_query::{Expr, ExprTrait, Func, OnConflict},
 };
 use std::collections::HashMap;
@@ -127,12 +128,20 @@ pub struct NewDeck {
     pub account_id: String,
     /// What the player called it.
     pub name: String,
+    /// What it plays (`commander`, `freeform`, …).
+    pub format: String,
+    /// What the deck is for, in its owner's words.
+    pub description: Option<String>,
+    /// The deck this one was copied from, and which of its versions — both
+    /// or neither, because half an answer names a deck without saying what
+    /// of it was taken.
+    pub origin: Option<(String, i32)>,
     /// The main deck, as `"N Card Name"` rows.
     pub cards: Vec<String>,
     /// The sideboard, in the same spelling.
     pub sideboard: Vec<String>,
-    /// The commander, if the deck has one.
-    pub commander: Option<String>,
+    /// The commanders — none, one, or two under the partner rule.
+    pub commanders: Vec<String>,
     /// Image id of the sleeve.
     pub sleeve: Option<String>,
     /// Image id of the playmat.
@@ -146,17 +155,30 @@ pub struct NewDeck {
 pub struct Deck {
     /// Deck id (`UUIDv7`).
     pub id: String,
-    /// Owning account id.
+    /// Owning account id — empty for a deck nobody owns, which is every
+    /// kind but `account`.
     pub account_id: String,
+    /// Which kind of deck this is: `account`, `preconstructed` or `house`.
+    pub kind: String,
     /// Deck name.
     pub name: String,
+    /// What it plays (`commander`, `freeform`, …).
+    pub format: String,
+    /// What the deck is for, in its owner's words.
+    pub description: Option<String>,
+    /// The deck this one was copied from, and which of its versions.
+    pub origin: Option<(String, i32)>,
+    /// The version the cards below are. Every save that changes them leaves
+    /// the state it replaced behind and raises this by one.
+    pub version: i32,
     /// Card lines (`"N Card Name"`).
     pub cards: Vec<String>,
     /// Sideboard lines, in the same form. Cards outside the game a seat may
     /// reach; never shuffled into the library.
     pub sideboard: Vec<String>,
-    /// Commander card name, if any.
-    pub commander: Option<String>,
+    /// The deck's commanders: none, one, or two under the partner rule
+    /// (CR 702.124).
+    pub commanders: Vec<String>,
     /// Image id of the sleeve this deck's cards show face-down. `None` means
     /// the client draws its own generated back.
     pub sleeve: Option<String>,
@@ -236,14 +258,58 @@ impl From<deck::Model> for Deck {
     fn from(row: deck::Model) -> Self {
         Self {
             id: id(row.id),
-            account_id: id(row.account_id),
+            // A deck nobody owns carries no account, and the empty string is
+            // what "nobody" reads as on this side — every route that cares
+            // compares it against the account asking, and no account has an
+            // empty id.
+            account_id: row.account_id.map(id).unwrap_or_default(),
+            kind: row.kind,
             name: row.name,
+            format: row.format,
+            description: row.description,
+            // Both halves or neither: the column pair can hold one without
+            // the other and that would be an origin nobody can read.
+            origin: row
+                .copied_from
+                .zip(row.copied_version)
+                .map(|(deck, version)| (id(deck), version)),
+            version: row.version,
             cards: row.cards,
             sideboard: row.sideboard,
-            commander: row.commander,
+            commanders: row.commanders,
             sleeve: row.sleeve,
             playmat: row.playmat,
             updated_at: secs(row.updated_at),
+        }
+    }
+}
+
+/// One state a deck used to hold.
+#[derive(Clone, Debug)]
+pub struct DeckVersion {
+    /// Which version it was.
+    pub version: i32,
+    /// The main deck it held.
+    pub cards: Vec<String>,
+    /// The sideboard it held.
+    pub sideboard: Vec<String>,
+    /// The commanders it had.
+    pub commanders: Vec<String>,
+    /// What the change that replaced it was called.
+    pub summary: Option<String>,
+    /// When it stopped being current (unix seconds).
+    pub superseded_at: u64,
+}
+
+impl From<deck_version::Model> for DeckVersion {
+    fn from(row: deck_version::Model) -> Self {
+        Self {
+            version: row.version,
+            cards: row.cards,
+            sideboard: row.sideboard,
+            commanders: row.commanders,
+            summary: row.summary,
+            superseded_at: secs(row.superseded_at),
         }
     }
 }
@@ -639,13 +705,27 @@ pub async fn create_deck(db: &DatabaseConnection, new: NewDeck) -> Result<Option
     let Some(account_id) = uuid(&new.account_id) else {
         return Ok(None);
     };
+    let (copied_from, copied_version) = match new.origin {
+        Some((deck, version)) => (uuid(&deck), Some(version)),
+        None => (None, None),
+    };
     let made = Decks::insert(deck::ActiveModel {
         id: NotSet,
-        account_id: Set(account_id),
+        account_id: Set(Some(account_id)),
+        // This route is a player saving their own deck, and that is the only
+        // thing it can make. A house or preconstructed deck is seeded, not
+        // posted, so `kind` is not something a request may choose — a route
+        // that took it would let any account publish a deck to everybody.
+        kind: Set(deck::KIND_ACCOUNT.to_string()),
         name: Set(new.name),
+        format: Set(new.format),
+        description: Set(new.description),
+        copied_from: Set(copied_from),
+        copied_version: Set(copied_version),
+        version: Set(1),
         cards: Set(new.cards),
         sideboard: Set(new.sideboard),
-        commander: Set(new.commander),
+        commanders: Set(new.commanders),
         sleeve: Set(new.sleeve),
         playmat: Set(new.playmat),
         updated_at: Set(at(new.updated_at)),
@@ -655,22 +735,90 @@ pub async fn create_deck(db: &DatabaseConnection, new: NewDeck) -> Result<Option
     Ok(Some(id(made.id)))
 }
 
-/// Write a deck, replacing one of the same id.
+/// Whether two deck states are the same cards.
+///
+/// What counts as a *change* for the history, and it is deliberately only
+/// the cards: renaming a deck, giving it a description or picking a new
+/// sleeve is not an edit anybody wants to roll back, and a version row per
+/// rename would bury the ones that matter. The owner asked for the history
+/// of the **cards**.
+fn same_cards(
+    before: &deck::Model,
+    cards: &[String],
+    sideboard: &[String],
+    commanders: &[String],
+) -> bool {
+    before.cards == cards && before.sideboard == sideboard && before.commanders == commanders
+}
+
+/// Write a deck, replacing one of the same id, and leave what it held
+/// behind.
+///
+/// The history is written **here** and not by a route, because a save that
+/// forgot to archive would be a change nobody can roll back and nothing
+/// would say so. One transaction: read what is there, copy it into
+/// `deck_version` under the version number it was, write the new state one
+/// version higher.
+///
+/// A save that changes nothing about the cards writes no version. Renaming a
+/// deck, describing it or picking a new sleeve is not an edit anybody wants
+/// to undo, and a row for each of those would bury the ones that are — see
+/// [`same_cards`].
+///
+/// `summary` is what the change was called, in the words of whoever made it.
 ///
 /// # Errors
 ///
 /// If the database refuses.
-pub async fn put_deck(db: &DatabaseConnection, saved: Deck) -> Result<()> {
-    let (Some(id), Some(account_id)) = (uuid(&saved.id), uuid(&saved.account_id)) else {
+pub async fn put_deck(db: &DatabaseConnection, saved: Deck, summary: Option<String>) -> Result<()> {
+    let Some(id) = uuid(&saved.id) else {
         return Ok(());
     };
+    let account_id = uuid(&saved.account_id);
+    let (copied_from, copied_version) = match &saved.origin {
+        Some((deck, version)) => (uuid(deck), Some(*version)),
+        None => (None, None),
+    };
+
+    let tx = db.begin().await?;
+    let before = Decks::find_by_id(id).one(&tx).await?;
+    let version = match &before {
+        Some(row) if same_cards(row, &saved.cards, &saved.sideboard, &saved.commanders) => {
+            row.version
+        }
+        Some(row) => {
+            DeckVersions::insert(deck_version::ActiveModel {
+                deck_id: Set(id),
+                version: Set(row.version),
+                cards: Set(row.cards.clone()),
+                sideboard: Set(row.sideboard.clone()),
+                commanders: Set(row.commanders.clone()),
+                summary: Set(summary),
+                superseded_at: Set(at(saved.updated_at)),
+            })
+            .exec(&tx)
+            .await?;
+            // No `ON CONFLICT`: the primary key is `(deck_id, version)`, so
+            // two saves racing on one deck make the second one fail here
+            // rather than quietly writing a second past for the same number.
+            row.version + 1
+        }
+        None => 1,
+    };
+
     Decks::insert(deck::ActiveModel {
         id: Set(id),
         account_id: Set(account_id),
+        kind: Set(saved.kind),
         name: Set(saved.name),
+        format: Set(saved.format),
+        description: Set(saved.description),
+        copied_from: Set(copied_from),
+        copied_version: Set(copied_version),
+        version: Set(version),
         cards: Set(saved.cards),
         sideboard: Set(saved.sideboard),
-        commander: Set(saved.commander),
+        commanders: Set(saved.commanders),
         sleeve: Set(saved.sleeve),
         playmat: Set(saved.playmat),
         updated_at: Set(at(saved.updated_at)),
@@ -679,18 +827,85 @@ pub async fn put_deck(db: &DatabaseConnection, saved: Deck) -> Result<()> {
         OnConflict::column(deck::Column::Id)
             .update_columns([
                 deck::Column::Name,
+                deck::Column::Format,
+                deck::Column::Description,
+                deck::Column::Version,
                 deck::Column::Cards,
                 deck::Column::Sideboard,
-                deck::Column::Commander,
+                deck::Column::Commanders,
                 deck::Column::Sleeve,
                 deck::Column::Playmat,
                 deck::Column::UpdatedAt,
             ])
             .to_owned(),
     )
-    .exec(db)
+    .exec(&tx)
     .await?;
+    tx.commit().await?;
     Ok(())
+}
+
+/// One deck's history, newest first — every state it no longer holds.
+///
+/// The current cards are not in it; they are on the deck itself, at
+/// [`Deck::version`]. A caller drawing a timeline puts the deck at the top
+/// and these underneath it.
+///
+/// # Errors
+///
+/// If the database refuses.
+pub async fn deck_history(db: &DatabaseConnection, deck_id: &str) -> Result<Vec<DeckVersion>> {
+    let Some(id) = uuid(deck_id) else {
+        return Ok(Vec::new());
+    };
+    Ok(DeckVersions::find()
+        .filter(deck_version::Column::DeckId.eq(id))
+        .order_by_desc(deck_version::Column::Version)
+        .all(db)
+        .await?
+        .into_iter()
+        .map(Into::into)
+        .collect())
+}
+
+/// One superseded state of one deck.
+///
+/// # Errors
+///
+/// If the database refuses.
+pub async fn deck_at_version(
+    db: &DatabaseConnection,
+    deck_id: &str,
+    version: i32,
+) -> Result<Option<DeckVersion>> {
+    let Some(id) = uuid(deck_id) else {
+        return Ok(None);
+    };
+    Ok(DeckVersions::find_by_id((id, version))
+        .one(db)
+        .await?
+        .map(Into::into))
+}
+
+/// The decks that belong to nobody: what the house publishes and what came
+/// in a box.
+///
+/// Its own query rather than a filter on [`decks_of`], because it is a
+/// different question with a different index — `deck_account_recent` is on
+/// `account_id`, which is null for every row this asks about.
+///
+/// # Errors
+///
+/// If the database refuses.
+pub async fn shared_decks(db: &DatabaseConnection) -> Result<Vec<Deck>> {
+    Ok(Decks::find()
+        .filter(deck::Column::Kind.ne(deck::KIND_ACCOUNT))
+        .order_by_desc(deck::Column::UpdatedAt)
+        .all(db)
+        .await?
+        .into_iter()
+        .map(Into::into)
+        .collect())
 }
 
 /// Delete one of an account's decks, answering whether it was theirs to

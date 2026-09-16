@@ -388,6 +388,29 @@ pub struct Entry {
     /// — that is what a deck list says and what a collection holds. The copy
     /// limit does not follow: it is on the card.
     pub print: PrintChoice,
+    /// What the owner wrote about this row, after the deck format's note
+    /// fence.
+    ///
+    /// Carried and not yet editable here. The builder has no field for it,
+    /// but a deck whose rows hold notes is reopened, resolved and saved
+    /// again through this struct — and a note this side dropped would be a
+    /// note the next save deleted, silently, for every row the player did
+    /// not touch. The same argument as the printing beside it.
+    pub note: Option<String>,
+}
+
+/// One row of a loaded deck, waiting for the pool to say which card it is.
+///
+/// A struct rather than a tuple because it is five things now, and the two
+/// that are easiest to swap by accident — the printing and the note — are
+/// both optional and both about the same row.
+#[derive(Clone, Debug)]
+struct Held {
+    count: u16,
+    name: String,
+    zone: Zone,
+    print: PrintChoice,
+    note: Option<String>,
 }
 
 /// The printing picker: one card, every printing of it, and the choice.
@@ -607,7 +630,7 @@ pub struct DeckBuilder {
     /// Rows a loaded deck named that the pool cannot resolve *yet*, because
     /// the pool has not arrived. Held rather than dropped; see
     /// [`DeckBuilder::load`].
-    pending: Vec<(u16, String, Zone, PrintChoice)>,
+    pending: Vec<Held>,
     /// Cards a loaded deck named that the pool does not have. Kept so the
     /// player is told, rather than losing them silently on the next save.
     missing: Vec<String>,
@@ -615,15 +638,16 @@ pub struct DeckBuilder {
     has_text: bool,
     /// The card whose full text is on screen, as a slot in the pool.
     inspecting: Option<usize>,
-    /// The deck's commander, as a slot in the pool.
+    /// The deck's commanders, as slots in the pool.
     ///
-    /// A slot rather than a name so it survives a language change: the row a
+    /// Slots rather than names so they survive a language change: the row a
     /// deck stores is the English name, and the pool is what maps between
-    /// them. `None` for every deck that is not a commander deck, which is
-    /// most of them.
-    commander: Option<usize>,
-    /// A loaded deck's commander name, until the pool can resolve it.
-    pending_commander: Option<String>,
+    /// them. Empty for every deck that is not a commander deck, which is
+    /// most of them, and at most two — the partner rule (CR 702.124) is the
+    /// only thing that makes it more than one.
+    commanders: Vec<usize>,
+    /// A loaded deck's commander names, until the pool can resolve them.
+    pending_commander: Vec<String>,
     /// A loaded deck's commander that the pool resolves but the rules will
     /// not seat. The mark is not taken; the name is kept so it can be said.
     ///
