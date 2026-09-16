@@ -1811,10 +1811,16 @@ timing one: a blank cost is payable by an empty pool, so a suspend-only card
 was lit indigo with a plan of no taps at all, and the click armed a run that
 finished at once and asked the engine to cast a card it will never offer.
 
-Noted here and fixed later: `progress.rs` cited CR 702.61 for the suspend
-countdown while `actions.rs` cited CR 702.62 for the suspend cost, and one of
-the two had to be wrong. Suspend is CR 702.62, so the countdown was the wrong
+Noted here and fixed later: `progress.rs` cited rule 702.61 for the suspend
+countdown while `actions.rs` cited 702.62 for the suspend cost, and one of the
+two had to be wrong. Suspend is CR 702.62, so the countdown was the wrong
 half; it was corrected with the rest of the tree's citations.
+
+The two numbers above are written without their `CR` on purpose. They are a
+record of what a file *used* to say, and `xtask cr-check` reads every `CR`
+followed by a rule-shaped number as a claim about the rules — which this
+sentence is not making. A log that quotes an old wrong citation in the
+citing spelling is a finding the tool can never clear.
 
 ### 33. The self-play harness was calling finished games loops — FIXED
 

@@ -1,5 +1,7 @@
 //! xtask — baylee development tasks (codegen, card explanation, …).
 
+mod cr_check;
+
 use baylee_cards_codegen::{
     acceptance, cardindex, catalog, landgen, layout, ledger, lines, names, scriptgen, scripts,
     scryfall, stubgen,
@@ -164,6 +166,33 @@ enum Cmd {
         /// Print this many disagreeing cards with the script that caused it.
         #[arg(long, default_value_t = 0)]
         samples: usize,
+    },
+    /// Hold every `CR` citation in the tree against a local rules copy.
+    ///
+    /// A report and not a gate, for a reason that is not taste: the rules
+    /// text is Wizards' and is deliberately not vendored (`docs/legal.md`
+    /// §2), so CI has no copy and nothing in the test suite can read one.
+    /// The citations rot anyway — an audit of all 1693 of them found 246
+    /// naming the wrong rule, because Wizards renumbers a section whenever
+    /// they insert a keyword action into it and sacrifice moved from 701.19a
+    /// to 701.21a without anybody here touching a file.
+    ///
+    /// It checks two mechanical things. That the number exists at all. And
+    /// that a line using one of the rules' **own** heading words — every
+    /// `701.N` is a keyword action and every `702.N` a keyword ability —
+    /// cites a number under that word. The second is the one worth having,
+    /// because it is the exact shape the drift takes: the prose stays right
+    /// and the number slides out from under it.
+    ///
+    /// `xtask/src/cr_check.rs` has the four rules that keep it quiet on the
+    /// correct citations, each of which was added because it fired on one.
+    CrCheck {
+        /// A Comprehensive Rules text, relative to the repository or absolute.
+        #[arg(long, default_value = "../mtg/MagicCompRules.txt")]
+        rules: PathBuf,
+        /// Print every citation beside the rule it names, not just the findings.
+        #[arg(long)]
+        all: bool,
     },
     /// Rank the land sentences `landgen` cannot read yet.
     ///
@@ -352,6 +381,7 @@ fn main() -> anyhow::Result<()> {
             reason,
         } => transcode_report(&root, &scripts, samples, stubs, reason.as_deref()),
         Cmd::CrossRead { scripts, samples } => cross_read(&root, &scripts, samples),
+        Cmd::CrCheck { rules, all } => cr_check::run(&root, &rules, all),
         Cmd::LandReport {
             samples,
             worklist,

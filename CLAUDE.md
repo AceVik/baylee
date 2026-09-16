@@ -54,6 +54,7 @@ cargo run -p xtask -- explain --name "Force of Will"      # Scryfall + scripts d
 cargo run -p xtask -- card-batch --cards "A,B"            # LLM task packages for unimplemented cards
 cargo run -p xtask -- transcode-report                        # how far the card transcoder reaches, and what it needs next
 cargo run -p xtask -- cross-read                          # every hand-written card read a second way, and the disagreements
+cargo run -p xtask -- cr-check                            # every CR citation against a local rules copy (needs one; see below)
 cargo run -p xtask -- pool-dump --out /tmp/pool.txt       # every CardDef, for refactor equivalence diffs
 cargo run -p xtask -- dev-table --seats 4 --ai sharp      # a seated dev ticket (add --play to launch the client)
 cargo run -p xtask -- dev-table --seats 3 --teams 1,1,2   # the same, as a 2v1
@@ -79,6 +80,22 @@ three questions instead of hard-coding one: `--scripts` if what it names
 exists, then `BAYLEE_CARD_SCRIPTS`, then a `cardsfolder` directory found
 within four levels of the repository's parent. `--cache` defaults to
 `data/scryfall-cache`.
+
+`cr-check` reads a second external text on the same terms and finds it the
+same three ways: a Comprehensive Rules `.txt`, which is Wizards' and is not
+vendored either (`docs/legal.md` §2), named by `--rules`, then
+`BAYLEE_COMP_RULES`, then any `MagicCompRules*.txt` within four levels of the
+parent — and with none of them it says so and checks nothing, because CI has
+no copy. It asks two mechanical questions of every citation in the tree:
+that the number exists, and that a line using one of the rules' **own**
+heading words (every `701.N` is a keyword action, every `702.N` a keyword
+ability) cites a number under that word. The second is the shape the rot
+takes. Wizards renumber a section whenever they insert a keyword action into
+it, so sacrifice moved from 701.19a to 701.21a with nobody here touching a
+file, and an audit of every citation in the tree found **246** naming the
+wrong rule. One consequence for a writer: a line that *records* an old wrong
+citation writes the number without its `CR`, or it is a finding nothing can
+ever clear.
 
 **A cold payload cache is one download, not 1365 requests.** `fetch_named`
 answers from disk with no HTTP call at all, so the whole cost of codegen's
