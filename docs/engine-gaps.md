@@ -677,7 +677,7 @@ the command zone, and sixteen carry a further key (`Secondary$`,
 `IsPresent$`, `CheckSVar$`, `AddSVar$`, `SVarCompare$`, `EnduringStory$`).
 All of them stay refused with a reason.
 
-**The optional half shipped next (2026-09-16), and no card reaches it yet.**
+**The optional half shipped next (2026-09-16).**
 `Modifier::MayChooseNotToUntap` gives CR 502.3's determination a second
 answer. It sits in the same `Layer::Text` bucket as `DoesNotUntap` and for
 the same CR 613.11 reason, so §5b's "both on layer 6" is wrong about this
@@ -693,18 +693,22 @@ it — `K:You may choose not to untap CARDNAME during your untap step.`,
 written exactly that way on all 45 scripts that print it — as a
 `static_ability!` rather than a keyword bit.
 
-All six pool cards that print the sentence are still stubs, and for reasons
-that have nothing to do with it, which `xtask explain` now says per card: the
-five storage lands (Fallen Empires, not Ice Age — Ice Floe is the Ice Age
-one) are refused on `PresentDefined$ Self | IsPresent$ Card.tapped`, the
-reference's spelling of the intervening-`if` clause (CR 603.4) — which the
-DSL can now say and the transcoder still cannot read; Ice Floe on a
-`withoutFlying` filter atom. The mechanism is
-therefore played in `engine::untap_tests` against a land built for it, the
-way `m2_tests` plays the layer system against a lattice nobody printed.
+**Five of the six pool cards that print the sentence now play it.** The
+Fallen Empires storage cycle — Bottomless Vault, Dwarven Hold, Hollow Trees,
+Icatian Store, Sand Silos — is generated whole by `landgen` from its printed
+text, and `card_tests::lands` plays both answers to the determination in one
+game: left tapped it banks a storage counter at the upkeep, untapped it
+banks nothing. The sixth, Ice Floe (Ice Age, not Fallen Empires), is still a
+stub on a `withoutFlying` filter atom, which has nothing to do with this
+sentence. The **transcoder** still refuses all five —
+`PresentDefined$ Self | IsPresent$ Card.tapped` is the reference's spelling
+of the intervening-`if` clause and no rule reads it yet — so the two readers
+disagree about these cards today, and `landgen` is the one that is right.
+The mechanism itself is also played against lands built for it, in
+`engine::untap_tests` and `engine::condition_tests`, the way `m2_tests`
+plays the layer system against a lattice nobody printed.
 
-**The intervening-`if` clause shipped next (2026-09-16), and no card reaches
-it yet either.** `AbilityDef::Triggered` and `AbilityDef::ModalTriggered`
+**The intervening-`if` clause shipped next (2026-09-16).** `AbilityDef::Triggered` and `AbilityDef::ModalTriggered`
 carry `condition: Option<Condition>` — the same vocabulary an activated
 ability's precondition uses, because the sentence is about the game and not
 about how the ability gets used — and `eval::intervening_if` answers it at
@@ -718,15 +722,16 @@ played in `engine::condition_tests` against synthetic lands, with the four
 injections (no first check, no second check, either check asking the wrong
 player) each caught by the test that is about it.
 
-**28 cards in the pool print an intervening `if`** and 25 of them are stubs.
-Of the three that are not, one is the rule half-written: **Padeem, Consul of
+**28 cards in the pool print an intervening `if`** — 25 were stubs, and the
+five storage lands are the first of them to come off that list. Of the three
+that were not stubs, one is the rule half-written: **Padeem, Consul of
 Innovation** carries "if you control the artifact with the greatest mana
 value" as `Effect::IfControlGreatestCmc` *inside* its effect, which is the
 second check without the first — so its ability goes on the stack when it
 should not, and if the board makes the clause true while the trigger is
-waiting there, Padeem draws a card the printed card does not draw. Moving it wants a `Condition` for
-"controls the greatest-CMC permanent matching a filter", which the vocabulary
-does not have. The other two, Luminarch Ascension ("if you didn't lose life
+waiting there, Padeem draws a card the printed card does not draw. Moving it
+wants a `Condition` for "controls the greatest-CMC permanent matching a
+filter", which the vocabulary does not have. The other two, Luminarch Ascension ("if you didn't lose life
 this turn") and Emeritus of Woe ("if two or more creatures died this turn"),
 ask about the turn's history, which nothing here can say at all.
 
@@ -739,11 +744,14 @@ the field there too, and none does.
 
 **What is still open here**, and each is its own commit:
 
-- **The five storage lands themselves.** The engine half is done; what is
-  left is `landgen` reading the two printed sentences ("you may choose not to
-  untap …" and the upkeep trigger with its clause) so the cards are
-  generated, and `scriptgen` reading the reference's `IsPresent$` family on a
-  `T:` line so the corpus gain comes with them.
+- **The transcoder's `IsPresent$` family.** `landgen` reads the storage
+  lands' clause from the printed text and `scriptgen` reads nothing of it,
+  so the corpus gain the same DSL work should have paid for is still
+  unclaimed: 605 `T:` lines and 533 `S:` lines in the reference carry
+  `IsPresent$`, and 61 scripts carry `NoResolvingCheck$ True` — the
+  reference opting *out* of CR 603.4's second check, which this DSL cannot
+  say at all and which has to be a named refusal rather than a silent
+  reading.
 - **CR 608.2b's target re-check**, which is the same door: a spell or ability
   all of whose targets have become illegal does not resolve either. Nothing
   here checks that yet, and the removal path
