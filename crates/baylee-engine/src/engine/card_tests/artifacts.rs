@@ -1147,6 +1147,7 @@ fn skullclamp() -> baylee_core::ids::CardIndex {
 /// settles. "Equipped creature" is not "creatures you control", and a static
 /// that had lost its filter would have killed the pair.
 #[test]
+#[allow(clippy::too_many_lines)] // one play proving a static, an equip and a look-back trigger
 fn skullclamp_clamps_a_one_one_into_the_graveyard_and_draws_two_for_it() {
     let p0 = PlayerId::new(0);
     let mut engine = Duel::new(59, forest())
@@ -1235,6 +1236,19 @@ fn skullclamp_clamps_a_one_one_into_the_graveyard_and_draws_two_for_it() {
     assert!(
         on_battlefield(&engine, p0, skullclamp()).is_some(),
         "the Equipment outlives the host it killed"
+    );
+    // The look-back is a fallback inside `Filter::AttachedToBySource`, so it
+    // is reachable from the layer projection and not only from the trigger
+    // scan. This is the bound on it: the dead Elves reads its printed 1/1 in
+    // the graveyard. A 2/0 here would mean the clamp is still modifying a
+    // creature it let go of — the `ltb_attachments` entry cross-firing into
+    // the projection — and the fallback would have to be scoped to the scan
+    // instead of living in `eval::matches`.
+    let dead = in_graveyard(&engine, p0, llanowar_elves()).expect("checked above");
+    assert_eq!(
+        pt(&engine, dead),
+        (1, 1),
+        "the clamp does not reach into the graveyard after its host"
     );
 
     assert_eq!(
