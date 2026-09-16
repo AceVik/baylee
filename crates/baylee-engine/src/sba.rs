@@ -137,6 +137,10 @@ pub fn run(state: &mut GameState) -> SbaOutcome {
     outcome.changed |= run_attachment_sbas(state);
 
     // --- +1/+1 vs -1/-1 annihilation (CR 704.5q) -------------------------
+    // That pair and no other. `CounterKind` says every +X/+Y counter in one
+    // variant now, so it would be an easy and wrong generalisation to cancel
+    // a -0/-1 against a +1/+1: the rule names the two counters by their
+    // printed words, and a Wall of Roots wearing both keeps both.
     for id in state.zones.list(ZoneLocation::Battlefield).clone() {
         let Some(obj) = state.object(id) else {
             continue;

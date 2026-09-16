@@ -174,25 +174,36 @@ pub fn recompute_with(state: &GameState, obj: &GameObject, plan: &LayerPlan) -> 
     }
 }
 
-/// Layer 7d: +1/+1 and -1/-1 counters (CR 613.4c) — applied inside the
-/// layer loop so they land BEFORE the 7e power/toughness switch.
+/// Layer 7c: counters that modify power and toughness (CR 613.4c) —
+/// applied inside the layer loop so they land BEFORE the 7d switch.
+///
+/// Every counter the permanent wears is asked, rather than the two the pool
+/// used to print: CR 122.1a gives a +X/+Y counter its own arithmetic, and
+/// Wall of Roots' -0/-1 subtracts a toughness and no power. Power and
+/// toughness are therefore summed apart — one shared delta is right only
+/// while every counter is symmetric, which was true of +1/+1 and -1/-1 and
+/// is true of nothing else.
 fn apply_pt_counters(c: &mut Characteristics, obj: &GameObject) {
     if !c.types.contains(baylee_core::types::TypeSet::CREATURE) {
         return;
     }
-    let plus =
-        i16::try_from(obj.counters.get(crate::object::CounterKind::P1P1)).unwrap_or(i16::MAX);
-    let minus =
-        i16::try_from(obj.counters.get(crate::object::CounterKind::M1M1)).unwrap_or(i16::MAX);
-    let delta = plus - minus;
-    if delta == 0 {
+    let (mut dp, mut dt) = (0i16, 0i16);
+    for (kind, n) in obj.counters.iter() {
+        let Some((per_power, per_toughness)) = kind.power_toughness() else {
+            continue;
+        };
+        let n = i16::try_from(n).unwrap_or(i16::MAX);
+        dp = dp.saturating_add(per_power.saturating_mul(n));
+        dt = dt.saturating_add(per_toughness.saturating_mul(n));
+    }
+    if dp == 0 && dt == 0 {
         return;
     }
     if let Some(p) = &mut c.power {
-        *p = p.saturating_add(delta);
+        *p = p.saturating_add(dp);
     }
     if let Some(t) = &mut c.toughness {
-        *t = t.saturating_add(delta);
+        *t = t.saturating_add(dt);
     }
 }
 

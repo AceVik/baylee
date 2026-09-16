@@ -587,8 +587,8 @@ impl Tally {
                 };
                 (
                     object.id,
-                    of(CounterKind::PlusOnePlusOne),
-                    of(CounterKind::MinusOneMinusOne),
+                    of(CounterKind::PLUS_ONE),
+                    of(CounterKind::MINUS_ONE),
                 )
             })
             .collect();
@@ -903,8 +903,8 @@ mod tests {
     fn creature(slot: u32, plus: u16, minus: u16) -> baylee_view::PublicObject {
         let mut object = crate::test_support::token(slot, 0, "a creature", 2, 2);
         for (kind, count) in [
-            (CounterKind::PlusOnePlusOne, plus),
-            (CounterKind::MinusOneMinusOne, minus),
+            (CounterKind::PLUS_ONE, plus),
+            (CounterKind::MINUS_ONE, minus),
         ] {
             if count > 0 {
                 object

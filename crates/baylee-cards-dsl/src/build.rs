@@ -39,13 +39,16 @@
 //! - `target` / `targets: None` — an ability targets only when it says
 //!   "target".
 //! - `once_per_turn: false` — a trigger fires every time its event happens.
+//! - `limit: Unlimited` — CR 602.2: nothing caps an activation but the cost,
+//!   and a card that caps it prints the sentence.
 //!
 //! Anything with no rules default is a parameter of `new` instead, so it
 //! cannot be forgotten: a trigger has no neutral value, and an ability with
 //! no effects is not an ability.
 
 use crate::ability::{
-    AbilityDef, ActivationCondition, ActivationTiming, ActivationZone, SpellMode, Trigger,
+    AbilityDef, ActivationCondition, ActivationLimit, ActivationTiming, ActivationZone, SpellMode,
+    Trigger,
 };
 use crate::cost::Cost;
 use crate::effect::{Effect, TargetReq, TargetSpec};
@@ -81,6 +84,12 @@ pub struct ActivatedParts {
     /// having one door into both is what stops a card being written as the
     /// unconditional twin by omission.
     pub condition: Option<ActivationCondition>,
+    /// How often it may be activated in a turn.
+    ///
+    /// [`ActivationLimit::Unlimited`] is the rules default: nothing caps an
+    /// activation but the cost (CR 602.2), and a card that caps it prints
+    /// the sentence.
+    pub limit: ActivationLimit,
 }
 
 impl ActivatedParts {
@@ -97,6 +106,7 @@ impl ActivatedParts {
             mana_ability: false,
             zone: ActivationZone::Battlefield,
             condition: None,
+            limit: ActivationLimit::Unlimited,
         }
     }
 
@@ -120,6 +130,7 @@ impl ActivatedParts {
                 timing: self.timing,
                 mana_ability: self.mana_ability,
                 zone: self.zone,
+                limit: self.limit,
             },
             Some(condition) => AbilityDef::ActivatedConditional {
                 cost: self.cost,
@@ -129,6 +140,7 @@ impl ActivatedParts {
                 mana_ability: self.mana_ability,
                 zone: self.zone,
                 condition,
+                limit: self.limit,
             },
         }
     }
@@ -788,8 +800,8 @@ macro_rules! equip {
 /// documents the static it defines.
 pub mod prelude {
     pub use crate::ability::{
-        AbilityDef, ActivationCondition, ActivationTiming, ActivationZone, CopyMod, SpellMode,
-        StepKind, Trigger, TriggerEventKind,
+        AbilityDef, ActivationCondition, ActivationLimit, ActivationTiming, ActivationZone,
+        CopyMod, SpellMode, StepKind, Trigger, TriggerEventKind,
     };
     pub use crate::build::{
         ActivatedParts, EQUIP_TARGET, LoyaltyParts, ModalTriggeredParts, SagaChapterParts,
@@ -894,6 +906,7 @@ mod tests {
                 timing: ActivationTiming::InstantSpeed,
                 mana_ability: false,
                 zone: ActivationZone::Battlefield,
+                limit: ActivationLimit::Unlimited,
             },
             "no condition is the plain ability, at the rules defaults"
         );
@@ -907,6 +920,7 @@ mod tests {
                 mana_ability: false,
                 zone: ActivationZone::Battlefield,
                 condition: METALCRAFT,
+                limit: ActivationLimit::Unlimited,
             },
             "the condition moves it to the twin and changes nothing else"
         );
@@ -963,6 +977,7 @@ mod tests {
             timing: ActivationTiming::SorcerySpeed,
             mana_ability: false,
             zone: ActivationZone::Battlefield,
+            limit: ActivationLimit::Unlimited,
         };
 
         assert_eq!(equip!("{2}"), BY_HAND);

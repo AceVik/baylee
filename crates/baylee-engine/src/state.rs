@@ -486,7 +486,19 @@ pub struct GameState {
     pub previous_turn: Option<PreviousTurn>,
     /// The player who took the first turn (Surgical Metamorph & co.).
     pub starting_player: PlayerId,
-    /// Per-turn fire counts for once-per-turn triggers (reset each turn).
+    /// How often an ability of an object has been used this turn, cleared as
+    /// a turn begins.
+    ///
+    /// Two clauses share it because they are the same count: "this ability
+    /// triggers only once each turn" (Jin-Gitaxias) and "activate only once
+    /// each turn" (Wall of Roots). The key is the object and the ability
+    /// index, so a permanent that leaves the battlefield and comes back
+    /// starts over — CR 400.7 rather than a convenience.
+    ///
+    /// It is hashed into [`Self::loop_signature`], because what is left of a
+    /// limit decides what is offered. `Engine::loyalty_used_this_turn` is
+    /// the same kind of state and is **not** hashed, because it does not
+    /// live here; that is a known hole and not this field's.
     pub ability_fires: rustc_hash::FxHashMap<(ObjectId, u32), u32>,
     /// Seeded randomness.
     pub rng: GameRng,
@@ -1783,6 +1795,29 @@ impl GameState {
             h.u32(position(b.blocker));
             h.u32(position(b.attacker));
         }
+        // What has already been used this turn, which is rules-visible: an
+        // ability that prints "activate only once each turn" is *offered* in
+        // one of these states and not in the other, so two boards alike in
+        // everything else are not the same state. Left out, a loop detector
+        // would call them one and could declare a draw on a game that still
+        // had a move in it.
+        //
+        // Sorted, because iterating the map in its own order would make the
+        // signature depend on insertion — the rule this engine keeps
+        // everywhere for determinism. The object is hashed by its canonical
+        // position for the reason every other reference here is.
+        let mut used: Vec<(u32, u32, u32)> = self
+            .ability_fires
+            .iter()
+            .map(|((id, index), n)| (position(*id), *index, *n))
+            .collect();
+        used.sort_unstable();
+        h.usize(used.len());
+        for (obj, index, n) in used {
+            h.u32(obj);
+            h.u32(index);
+            h.u32(n);
+        }
         h.finish()
     }
 
@@ -1926,7 +1961,7 @@ fn hash_object_situation(h: &mut Hasher, obj: &GameObject, position: &impl Fn(Ob
     let counters: Vec<_> = obj.counters.iter().collect();
     h.usize(counters.len());
     for (kind, n) in counters {
-        h.u8(counter_tag(kind));
+        hash_counter(h, kind);
         h.u16(n);
     }
     h.u16(obj.damage);
@@ -1987,7 +2022,7 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
     let counters: Vec<_> = obj.counters.iter().collect();
     h.usize(counters.len());
     for (kind, n) in counters {
-        h.u8(counter_tag(kind));
+        hash_counter(h, kind);
         h.u16(n);
     }
     h.u16(obj.damage);
@@ -2206,20 +2241,40 @@ fn hash_modifier(h: &mut Hasher, m: &baylee_cards_dsl::Modifier) {
     }
 }
 
-fn counter_tag(kind: CounterKind) -> u8 {
+/// Writes a counter kind into a hash.
+///
+/// A function rather than the one-byte tag it used to be, because a P/T
+/// counter carries two numbers: `Plus { power: 0, toughness: 1 }` and
+/// `Plus { power: 1, toughness: 0 }` are different counters and folding
+/// them onto one byte would make two different boards hash alike.
+fn hash_counter(h: &mut Hasher, kind: CounterKind) {
     match kind {
-        CounterKind::P1P1 => 1,
-        CounterKind::M1M1 => 2,
-        CounterKind::Loyalty => 3,
-        CounterKind::Lore => 4,
-        CounterKind::Time => 5,
-        CounterKind::Charge => 6,
-        CounterKind::Poison => 7,
-        CounterKind::Energy => 8,
-        CounterKind::Rad => 9,
-        CounterKind::Lifelink => 10,
-        CounterKind::Level => 11,
-        CounterKind::Custom(id) => 100u8.saturating_add((id % 100) as u8),
+        CounterKind::Plus { power, toughness } => {
+            h.u8(1);
+            h.u8(power);
+            h.u8(toughness);
+        }
+        CounterKind::Minus { power, toughness } => {
+            h.u8(2);
+            h.u8(power);
+            h.u8(toughness);
+        }
+        CounterKind::Loyalty => h.u8(3),
+        CounterKind::Lore => h.u8(4),
+        CounterKind::Time => h.u8(5),
+        CounterKind::Charge => h.u8(6),
+        CounterKind::Poison => h.u8(7),
+        CounterKind::Energy => h.u8(8),
+        CounterKind::Rad => h.u8(9),
+        CounterKind::Lifelink => h.u8(10),
+        CounterKind::Level => h.u8(11),
+        // The id is hashed whole. Folding it modulo 100 was safe while every
+        // tag was one byte and is not worth keeping now that the function
+        // writes as many as it likes.
+        CounterKind::Custom(id) => {
+            h.u8(12);
+            h.u16(id);
+        }
     }
 }
 
@@ -2525,6 +2580,121 @@ mod tests {
                 .unwrap()
                 .kind,
             ObjectKind::Permanent
+        );
+    }
+    /// Two counters a one-byte tag would have collapsed hash apart.
+    ///
+    /// `CounterKind` says every +X/+Y counter in one variant, so the pair of
+    /// numbers *is* the counter (CR 122.1a): a creature wearing a -0/-1 and
+    /// one wearing a -1/-0 are two boards, and a determinism hash that could
+    /// not tell them apart would let a replay diverge in silence. The
+    /// equalities are the half that makes the inequalities worth anything —
+    /// a hash that answered "different" to everything would pass the first
+    /// three assertions on its own.
+    #[test]
+    fn a_counter_is_hashed_by_its_two_numbers_and_not_by_a_tag() {
+        use baylee_cards_dsl::CounterKind as K;
+
+        let with = |kind: K| {
+            let mut state =
+                GameState::from_preset(&make_preset(7), &RegistryLookup).expect("game starts");
+            let owner = PlayerId::new(0);
+            let name = state.names.intern("Test Permanent");
+            let id = state.create_bare(
+                owner,
+                ObjectKind::Permanent,
+                name,
+                ZoneLocation::Battlefield,
+            );
+            state
+                .object_mut(id)
+                .expect("just created")
+                .counters
+                .add(kind, 1);
+            state.snapshot_hash()
+        };
+
+        let toughness = with(K::Minus {
+            power: 0,
+            toughness: 1,
+        });
+        assert_ne!(
+            toughness,
+            with(K::Minus {
+                power: 1,
+                toughness: 0
+            }),
+            "-0/-1 and -1/-0 take different numbers off and are different counters"
+        );
+        assert_ne!(
+            toughness,
+            with(K::Plus {
+                power: 0,
+                toughness: 1
+            }),
+            "and the sign is part of the counter, not a way of reading it"
+        );
+        assert_ne!(
+            toughness,
+            with(K::Charge),
+            "a counter with a word for a name is not one with numbers"
+        );
+        assert_eq!(
+            toughness,
+            with(K::Minus {
+                power: 0,
+                toughness: 1
+            }),
+            "the same counter on the same board is the same state"
+        );
+        assert_eq!(
+            with(K::M1M1),
+            with(K::Minus {
+                power: 1,
+                toughness: 1
+            }),
+            "and the constant is a spelling of the general form, not a second counter"
+        );
+    }
+    /// What an ability has already been used for this turn is part of the
+    /// state a loop detector compares.
+    ///
+    /// "Activate only once each turn" makes the tally decide what is
+    /// *offered*, so two boards alike in everything else are not the same
+    /// board. Left out of [`GameState::loop_signature`], Brent's algorithm
+    /// would call them one and could declare a draw on a game that still had
+    /// a move in it.
+    #[test]
+    fn what_has_been_used_this_turn_is_part_of_the_loop_signature() {
+        let mut state =
+            GameState::from_preset(&make_preset(9), &RegistryLookup).expect("game starts");
+        let owner = PlayerId::new(0);
+        let name = state.names.intern("Test Permanent");
+        let id = state.create_bare(
+            owner,
+            ObjectKind::Permanent,
+            name,
+            ZoneLocation::Battlefield,
+        );
+
+        let untouched = state.loop_signature();
+        state.ability_fires.insert((id, 0), 1);
+        let spent = state.loop_signature();
+        assert_ne!(
+            untouched, spent,
+            "an ability used once this turn is a different state from one used none"
+        );
+        state.ability_fires.insert((id, 0), 2);
+        assert_ne!(
+            spent,
+            state.loop_signature(),
+            "and the count matters, not merely the presence — `PerTurn(2)` exists"
+        );
+        state.ability_fires.clear();
+        assert_eq!(
+            untouched,
+            state.loop_signature(),
+            "cleared is back to where it started, which is what a turn boundary does"
         );
     }
 }

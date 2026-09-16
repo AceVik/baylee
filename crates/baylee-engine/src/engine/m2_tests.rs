@@ -20,6 +20,7 @@ const STEAL_SPELL: u32 = 1004;
 const KROSA_SPELL: u32 = 1005;
 const BOLT_SPELL: u32 = 1006;
 const CONDITIONAL_CYCLER: u32 = 1007;
+const LIMITED_FONT: u32 = 1008;
 
 static CREATURE_F: Filter = Filter::HasType(TypeSet::CREATURE);
 static CREATURE_YOU: Filter =
@@ -83,6 +84,7 @@ struct TestLookup {
     krosa_spell: &'static CardDef,
     bolt_spell: &'static CardDef,
     conditional_cycler: &'static CardDef,
+    limited_font: &'static CardDef,
 }
 
 static ANTHEM_ABILITIES: &[AbilityDef] = &[AbilityDef::Static(StaticAbility {
@@ -168,6 +170,27 @@ static CYCLER_ABILITIES: &[AbilityDef] = &[AbilityDef::ActivatedConditional {
     mana_ability: false,
     zone: baylee_cards_dsl::ActivationZone::Hand,
     condition: baylee_cards_dsl::ActivationCondition::ControlCount(&LAND_F, 1),
+    limit: baylee_cards_dsl::ActivationLimit::Unlimited,
+}];
+
+/// A limit on the *conditional* twin, which no card in the pool prints
+/// either: Wall of Roots' "activate only once each turn" sits on a plain
+/// `Activated`, so the arm beside it in both offer scans has nothing to hold
+/// it. The two arms are four lines apart and were written in one edit, which
+/// is exactly the shape that goes wrong later — `ActivatedConditional` has
+/// been a forgotten twin here before, in six readers at once.
+///
+/// Free, because the cost is not what this is about, and a draw so that
+/// taking it is visible.
+static FONT_ABILITIES: &[AbilityDef] = &[AbilityDef::ActivatedConditional {
+    cost: baylee_cards_dsl::Cost::FREE,
+    effects: CYCLER_EFFECTS,
+    target: None,
+    timing: baylee_cards_dsl::ActivationTiming::InstantSpeed,
+    mana_ability: false,
+    zone: baylee_cards_dsl::ActivationZone::Battlefield,
+    condition: baylee_cards_dsl::ActivationCondition::ControlCount(&LAND_F, 1),
+    limit: baylee_cards_dsl::ActivationLimit::PerTurn(1),
 }];
 
 impl TestLookup {
@@ -207,6 +230,11 @@ impl TestLookup {
             face("Bolt Spell", "{G}", TypeSet::INSTANT, None),
             BOLT_ABILITIES,
         )));
+        let limited_font: &'static CardDef = Box::leak(Box::new(def(
+            LIMITED_FONT,
+            face("Limited Font", "{1}", TypeSet::ARTIFACT, None),
+            FONT_ABILITIES,
+        )));
         let conditional_cycler: &'static CardDef = Box::leak(Box::new(def(
             CONDITIONAL_CYCLER,
             face(
@@ -226,6 +254,7 @@ impl TestLookup {
             krosa_spell,
             bolt_spell,
             conditional_cycler,
+            limited_font,
         }
     }
 }
@@ -241,6 +270,7 @@ impl CardLookup for TestLookup {
             KROSA_SPELL => Some(self.krosa_spell),
             BOLT_SPELL => Some(self.bolt_spell),
             CONDITIONAL_CYCLER => Some(self.conditional_cycler),
+            LIMITED_FONT => Some(self.limited_font),
             _ => baylee_cards::by_index(index),
         }
     }
@@ -954,5 +984,82 @@ fn a_conditional_hand_ability_is_offered_once_its_condition_holds() {
         ready.state().zones.list(ZoneLocation::Hand(p0)).len(),
         hand_before,
         "one card left the hand as a cost and one was drawn"
+    );
+}
+
+/// The activation limit on the conditional twin, and the tally keyed by
+/// object rather than by card.
+///
+/// Wall of Roots holds the plain `Activated` arm in `card_tests`. This holds
+/// the one beside it, which no printed card reaches: the two were written in
+/// one edit and sit four lines apart, which is the shape a later edit gets
+/// half of — `ActivatedConditional` has been a forgotten twin in this repo
+/// before, in six readers at once.
+///
+/// Two copies, because "once each turn" is a sentence about the *permanent*
+/// and not about the card: `GameState::ability_fires` is keyed on the object
+/// id, so one Font being spent must leave the other alone. A tally keyed on
+/// the card index would pass every assertion above this one.
+#[test]
+fn an_activation_limit_is_spent_per_permanent_and_not_per_card() {
+    let p0 = PlayerId::new(0);
+    let forest = card_index("b34bb2dc-c1af-4d77-b0b3-a0fb342a5fc6").get();
+    let mut engine = Engine::new(
+        &preset_bf(37, &[forest, LIMITED_FONT, LIMITED_FONT], &[]),
+        TestLookup::new(),
+    )
+    .unwrap();
+    keep_mulligans(&mut engine);
+
+    let fonts: Vec<ObjectId> = engine
+        .state()
+        .zones
+        .list(ZoneLocation::Battlefield)
+        .iter()
+        .copied()
+        .filter(|id| {
+            engine
+                .state()
+                .object(*id)
+                .is_some_and(|o| o.card.is_some_and(|c| c.index.get() == LIMITED_FONT))
+        })
+        .collect();
+    assert_eq!(fonts.len(), 2, "two Fonts on the battlefield");
+
+    let legal = offer_to(&mut engine, p0);
+    for font in &fonts {
+        assert!(
+            legal.abilities.contains(&(*font, 0)),
+            "a land is out, so the condition holds and both are offered"
+        );
+    }
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ActivateAbility {
+                source: fonts[0],
+                ability_index: 0,
+            },
+        )
+        .expect("the engine takes the ability it offered");
+    for _ in 0..10 {
+        if engine.state().zones.stack_is_empty() {
+            break;
+        }
+        let Pending::Priority { player, .. } = engine.pending().clone() else {
+            panic!("expected priority, got {:?}", engine.pending())
+        };
+        engine.apply(player, PlayerAction::PassPriority).unwrap();
+    }
+
+    let legal = offer_to(&mut engine, p0);
+    assert!(
+        !legal.abilities.contains(&(fonts[0], 0)),
+        "the one that was used is spent for the turn"
+    );
+    assert!(
+        legal.abilities.contains(&(fonts[1], 0)),
+        "and the other one has not been used at all"
     );
 }

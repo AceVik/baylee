@@ -252,8 +252,10 @@ pub const TINT_MORE: u32 = 10;
 #[must_use]
 pub const fn tint_of(kind: CounterKind) -> u32 {
     match kind {
-        CounterKind::PlusOnePlusOne => TINT_PLUS,
-        CounterKind::MinusOneMinusOne => TINT_MINUS,
+        // Every +X/+Y counter, not only the +1/+1 — a -0/-1 is a minus
+        // counter and reads as one.
+        CounterKind::Plus { .. } => TINT_PLUS,
+        CounterKind::Minus { .. } => TINT_MINUS,
         CounterKind::Charge => TINT_CHARGE,
         CounterKind::Lore => TINT_LORE,
         CounterKind::Time => TINT_TIME,
@@ -275,8 +277,8 @@ pub const fn tint_of(kind: CounterKind) -> u32 {
 /// counter does not reshuffle the chips it already had.
 fn order_key(kind: CounterKind) -> (u8, u32) {
     let rank = match kind {
-        CounterKind::PlusOnePlusOne => 0,
-        CounterKind::MinusOneMinusOne => 1,
+        CounterKind::Plus { .. } => 0,
+        CounterKind::Minus { .. } => 1,
         CounterKind::Lore => 2,
         CounterKind::Loyalty => 3,
         CounterKind::Charge => 4,
@@ -290,8 +292,14 @@ fn order_key(kind: CounterKind) -> (u8, u32) {
     };
     // Two custom counters would otherwise tie, and a tie is a pair of chips
     // that can swap places between frames for no reason a player can see.
+    // Two P/T counters of the same sign tie for the same reason, so their
+    // two numbers break it — a +1/+1 sorts before a +2/+2, and a creature
+    // wearing a -0/-1 and a -1/-1 keeps them in that order.
     let id = match kind {
         CounterKind::Custom(id) => id,
+        CounterKind::Plus { power, toughness } | CounterKind::Minus { power, toughness } => {
+            u32::from(power) << 8 | u32::from(toughness)
+        }
         _ => 0,
     };
     (rank, id)
@@ -771,7 +779,7 @@ mod tests {
     /// dropped the chip would be showing two different permanents identically.
     #[test]
     fn a_counter_that_moved_the_numbers_is_still_a_chip() {
-        for kind in [CounterKind::PlusOnePlusOne, CounterKind::MinusOneMinusOne] {
+        for kind in [CounterKind::PLUS_ONE, CounterKind::MINUS_ONE] {
             let body = CardGroup {
                 counters: counted(&[(kind, 2)]),
                 ..group(Some(3), Some(3), None)
@@ -819,7 +827,7 @@ mod tests {
     #[test]
     fn every_chip_survives_the_packing() {
         let three = with_counters(counted(&[
-            (CounterKind::PlusOnePlusOne, 1),
+            (CounterKind::PLUS_ONE, 1),
             (CounterKind::Charge, 12),
             (CounterKind::Time, 4000),
         ]));

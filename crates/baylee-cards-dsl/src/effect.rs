@@ -15,10 +15,33 @@ use baylee_core::types::{SupertypeSet, TypeSet};
 /// reference counters without engine dependencies.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, serde::Serialize, serde::Deserialize)]
 pub enum CounterKind {
-    /// +1/+1.
-    P1P1,
-    /// −1/−1.
-    M1M1,
+    /// A +X/+Y counter (CR 122.1a): it adds X to power and Y to toughness.
+    ///
+    /// One variant rather than a name per printed pair, because the rule is
+    /// one rule and the pairs are open-ended — the reference corpus prints
+    /// eleven of them (`P1P1`, `P1P0`, `P2P2`, `P0P1`, `P1P2`, and the
+    /// mirrors), and a table of names would go silent on the twelfth.
+    /// [`Self::P1P1`] is the const for the one Magic prints everywhere.
+    Plus {
+        /// X.
+        power: u8,
+        /// Y.
+        toughness: u8,
+    },
+    /// A −X/−Y counter (CR 122.1a): it subtracts. The mirror of
+    /// [`Self::Plus`], and a separate variant rather than one signed pair
+    /// because the sign is part of what the counter *is*: CR 122.1a names
+    /// exactly these two forms, CR 704.5q annihilates the +1/+1 against the
+    /// −1/−1 and nothing else, and a card that counts its −0/−1 counters
+    /// must not be answered with +0/−1 ones. Every P/T code the reference
+    /// corpus prints is single-signed, which is the same fact measured from
+    /// the other side.
+    Minus {
+        /// X.
+        power: u8,
+        /// Y.
+        toughness: u8,
+    },
     /// Loyalty.
     Loyalty,
     /// Lore (sagas).
@@ -39,6 +62,40 @@ pub enum CounterKind {
     Level,
     /// Card-specific counters.
     Custom(u16),
+}
+
+impl CounterKind {
+    /// The +1/+1 counter, which Magic prints on more cards than every other
+    /// P/T pair together (2528 reference scripts against 195).
+    ///
+    /// A constant and not a variant, so that there is exactly one value for
+    /// it: `Plus { power: 1, toughness: 1 }` and this name are the same
+    /// value and compare equal, where a variant beside the general form
+    /// would be two spellings nothing could keep in step.
+    pub const P1P1: Self = Self::Plus {
+        power: 1,
+        toughness: 1,
+    };
+    /// The −1/−1 counter — [`Self::P1P1`]'s partner in CR 704.5q.
+    pub const M1M1: Self = Self::Minus {
+        power: 1,
+        toughness: 1,
+    };
+
+    /// What this counter adds to power and toughness (CR 122.1a), or `None`
+    /// for a counter that changes neither.
+    ///
+    /// The one place the arithmetic is written. Layer 7c (CR 613.4c) sums it
+    /// over every counter a permanent wears, which is what lets a creature
+    /// carry a −0/−1 and a +1/+1 at once without either being special-cased.
+    #[must_use]
+    pub const fn power_toughness(self) -> Option<(i16, i16)> {
+        match self {
+            Self::Plus { power, toughness } => Some((power as i16, toughness as i16)),
+            Self::Minus { power, toughness } => Some((-(power as i16), -(toughness as i16))),
+            _ => None,
+        }
+    }
 }
 
 /// Definition of a token a card can create.

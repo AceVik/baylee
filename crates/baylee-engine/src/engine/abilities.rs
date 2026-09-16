@@ -5,7 +5,7 @@ use super::{
     ZonePosition, casting, cost_wizard, eval, mana_pay, resolve,
 };
 use crate::choice::TargetPrompt;
-use baylee_cards_dsl::ActivationZone;
+use baylee_cards_dsl::{ActivationLimit, ActivationZone};
 
 /// The cost parts an activation would leave unpaid, and think it had paid.
 ///
@@ -210,12 +210,16 @@ impl<L: CardLookup> Engine<L> {
                         timing,
                         zone,
                         target,
+                        limit,
                         ..
                     } => {
                         if *zone != ActivationZone::Battlefield {
                             continue; // hand-zone abilities are scanned below
                         }
                         if *timing == ActivationTiming::SorcerySpeed && !sorcery_timing {
+                            continue;
+                        }
+                        if self.activation_limit_spent(id, i as u32, *limit) {
                             continue;
                         }
                         if !self.ability_has_a_target(
@@ -235,12 +239,16 @@ impl<L: CardLookup> Engine<L> {
                         zone,
                         condition,
                         target,
+                        limit,
                         ..
                     } => {
                         if *zone != ActivationZone::Battlefield {
                             continue;
                         }
                         if *timing == ActivationTiming::SorcerySpeed && !sorcery_timing {
+                            continue;
+                        }
+                        if self.activation_limit_spent(id, i as u32, *limit) {
                             continue;
                         }
                         if !self.check_activation_condition(player, id, *condition) {
@@ -361,12 +369,19 @@ impl<L: CardLookup> Engine<L> {
             {
                 match ability {
                     AbilityDef::Activated {
-                        cost, timing, zone, ..
+                        cost,
+                        timing,
+                        zone,
+                        limit,
+                        ..
                     } => {
                         if *zone != ActivationZone::Hand {
                             continue;
                         }
                         if *timing == ActivationTiming::SorcerySpeed && !sorcery_timing {
+                            continue;
+                        }
+                        if self.activation_limit_spent(card, i as u32, *limit) {
                             continue;
                         }
                         if self.can_afford(player, card, cost) {
@@ -378,6 +393,7 @@ impl<L: CardLookup> Engine<L> {
                         timing,
                         zone,
                         condition,
+                        limit,
                         ..
                     } => {
                         // The same ability with a precondition on it — the
@@ -391,6 +407,9 @@ impl<L: CardLookup> Engine<L> {
                             continue;
                         }
                         if *timing == ActivationTiming::SorcerySpeed && !sorcery_timing {
+                            continue;
+                        }
+                        if self.activation_limit_spent(card, i as u32, *limit) {
                             continue;
                         }
                         if !self.check_activation_condition(player, card, *condition) {
@@ -492,6 +511,33 @@ impl<L: CardLookup> Engine<L> {
                     baylee_cards_dsl::Modifier::CantActivateArtifacts
                 ) && self.state.is_opponent(obj.controller, fx.controller)
             })
+    }
+
+    /// Whether a printed "activate only once each turn" has already been
+    /// spent on this ability this turn.
+    ///
+    /// The tally is [`GameState::ability_fires`], shared with once-per-turn
+    /// triggers: both are counts of *this ability of this object* within a
+    /// turn, both are keyed the same way, and both are cleared as a turn
+    /// begins. The key carries the object, so a permanent that leaves and
+    /// comes back is a new object with a fresh count — which is CR 400.7
+    /// rather than a convenience.
+    ///
+    /// Asked on the offering side, so an exhausted ability is simply not in
+    /// `legal.abilities`; `apply`'s offer guard is then the whole of the
+    /// refusal, the way it is for every other activation restriction.
+    fn activation_limit_spent(&self, source: ObjectId, index: u32, limit: ActivationLimit) -> bool {
+        match limit {
+            ActivationLimit::Unlimited => false,
+            ActivationLimit::PerTurn(n) => {
+                self.state
+                    .ability_fires
+                    .get(&(source, index))
+                    .copied()
+                    .unwrap_or(0)
+                    >= u32::from(n)
+            }
+        }
     }
 
     /// Precondition check for `ActivatedConditional` abilities (B1).
@@ -960,7 +1006,7 @@ impl<L: CardLookup> Engine<L> {
         {
             return self.start_loyalty_activation(player, source, ability_index, targets, *cost);
         }
-        let (cost, effects, target, mana_ability, zone) = {
+        let (cost, effects, target, mana_ability, zone, limit) = {
             let obj = self
                 .state
                 .object(source)
@@ -991,8 +1037,9 @@ impl<L: CardLookup> Engine<L> {
                     target,
                     mana_ability,
                     zone,
+                    limit,
                     ..
-                } => (*cost, *effects, *target, *mana_ability, *zone),
+                } => (*cost, *effects, *target, *mana_ability, *zone, *limit),
                 AbilityDef::ActivatedConditional {
                     cost,
                     effects,
@@ -1000,12 +1047,13 @@ impl<L: CardLookup> Engine<L> {
                     mana_ability,
                     zone,
                     condition,
+                    limit,
                     ..
                 } => {
                     if !self.check_activation_condition(player, source, *condition) {
                         return Err(EngineError::IllegalAction("activation condition not met"));
                     }
-                    (*cost, *effects, *target, *mana_ability, *zone)
+                    (*cost, *effects, *target, *mana_ability, *zone, *limit)
                 }
                 _ => return Err(EngineError::IllegalAction("not an activated ability")),
             }
@@ -1171,6 +1219,19 @@ impl<L: CardLookup> Engine<L> {
         // line up: the number belongs to this activation and to no other.
         let x = self.activation_x.take().unwrap_or(0);
         self.pay_cost(player, source, &cost, &answers, x)?;
+        // "Activate only once each turn" is spent *here* and not at the
+        // offer, because this is the line the rules count: CR 602.2 makes
+        // activating an ability putting it on the stack and paying its
+        // costs, and every path above this one still ends in a refusal or a
+        // question. An activation abandoned over a target choice has
+        // announced nothing.
+        if let ActivationLimit::PerTurn(_) = limit {
+            *self
+                .state
+                .ability_fires
+                .entry((source, ability_index))
+                .or_insert(0) += 1;
+        }
         if mana_ability {
             // Mana abilities resolve immediately, without the stack
             // (CR 605.3b). Choice-mana abilities (any-color lands, Command

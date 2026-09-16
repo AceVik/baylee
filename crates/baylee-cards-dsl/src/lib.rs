@@ -30,8 +30,8 @@ pub const ALL_MANA_COLORS: &[baylee_core::mana::ManaColor] = &[
 pub static ANY_COLOR_MANA: &[crate::effect::Effect] = &[crate::effect::Effect::mana_of_any_color()];
 
 pub use ability::{
-    AbilityDef, ActivationCondition, ActivationTiming, ActivationZone, CopyMod, SpellMode,
-    StepKind, Trigger, TriggerEventKind,
+    AbilityDef, ActivationCondition, ActivationLimit, ActivationTiming, ActivationZone, CopyMod,
+    SpellMode, StepKind, Trigger, TriggerEventKind,
 };
 pub use build::prelude;
 pub use build::{

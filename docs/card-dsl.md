@@ -378,10 +378,20 @@ express at all yet.
   parentheses". The order of the parts is the printed order and is
   load-bearing: `docs/cost-model.md` has the rule and the lint that holds it.
 
-  **Which counter** is a `CounterKind`, and there are two ways to name one.
-  Eleven counters have a variant because the rules know them — `P1P1`,
-  `M1M1`, `Loyalty`, `Lore`, `Time`, `Charge`, `Poison`, `Energy`, `Rad`,
-  `Lifelink`, `Level`. Every other counter Magic prints is a word and a
+  **Which counter** is a `CounterKind`, and there are three ways to name one.
+  Nine counters have a variant because the rules know them by a word —
+  `Loyalty`, `Lore`, `Time`, `Charge`, `Poison`, `Energy`, `Rad`,
+  `Lifelink`, `Level`. Every counter that changes power and toughness is
+  `Plus { power, toughness }` or `Minus { power, toughness }`, one variant
+  for each of CR 122.1a's two forms, because the rule is one rule over an
+  open-ended set of pairs — Magic prints eleven of them and a name apiece
+  would go silent on the twelfth. `CounterKind::P1P1` and
+  `CounterKind::M1M1` are **constants** for the two Magic prints everywhere:
+  the same value, spelled the way a player says it, so a card writes
+  `CounterKind::P1P1` and never `Plus { power: 1, toughness: 1 }`. Only
+  those two are annihilated against each other (CR 704.5q); a -0/-1 and a
+  +1/+1 both stay.
+  Every other counter Magic prints is a word and a
   number the rules have never heard of, and those are `CounterKind::Custom`
   ids **assigned in `baylee_cards_dsl::counters`**: a card writes
   `counters::DEPLETION`, never a bare `CounterKind::Custom(2)`. Adding one is
@@ -466,6 +476,7 @@ mana_ability!(&[Effect::mana(ManaColor::Green, 1)])   // {T}: Add {G}
 mana_ability!(SAC_COST, ANY_COLOR_MANA)               // any other cost
 activated!(Cost::TAP, EFFECTS)                        // {T}: …
 activated!(EQUIP, EFFECTS, timing = ActivationTiming::SorcerySpeed)
+mana_ability!(COST, EFFECTS, limit = ActivationLimit::PerTurn(1))  // "only once each turn"
 triggered!(Trigger::ETB, EFFECTS)                     // when this enters
 spell!(EFFECTS)
 spell!(EFFECTS, targets = Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE))))
@@ -521,6 +532,15 @@ is the only difference between the twins, which is exactly what makes them
 easy to confuse: six readers across the engine, the client and the pool lints
 once matched `AbilityDef::Activated` alone and skipped every conditional
 ability there was.
+
+`limit = ActivationLimit::PerTurn(n)` is "activate only once each turn" and
+its cousins — the default is `Unlimited`, because CR 602.2 caps an
+activation by nothing but its cost. It is a limit per **permanent** and per
+turn, not per card and not per *your* turn: two Wall of Roots each get their
+own, and a Wall used on your turn is available again on the opponent's.
+There is no per-*game* variant; the cards that want one print the exhaust
+keyword, which other cards look for ("whenever you activate an exhaust
+ability") and which is therefore a keyword bit rather than a number.
 
 A raw literal is still legal everywhere, and
 `lints::every_layer_in_the_pool_is_the_one_its_modifier_derives` is what

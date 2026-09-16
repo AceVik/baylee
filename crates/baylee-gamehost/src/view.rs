@@ -67,8 +67,8 @@ const fn step(s: EngineStep) -> Step {
 const fn counter(kind: baylee_cards_dsl::CounterKind) -> CounterKind {
     use baylee_cards_dsl::CounterKind as K;
     match kind {
-        K::P1P1 => CounterKind::PlusOnePlusOne,
-        K::M1M1 => CounterKind::MinusOneMinusOne,
+        K::Plus { power, toughness } => CounterKind::Plus { power, toughness },
+        K::Minus { power, toughness } => CounterKind::Minus { power, toughness },
         K::Loyalty => CounterKind::Loyalty,
         K::Lore => CounterKind::Lore,
         K::Time => CounterKind::Time,

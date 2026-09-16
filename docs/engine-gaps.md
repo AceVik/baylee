@@ -133,7 +133,7 @@ met where the ranking is.
 | 13 | **G22** Activation cost reduction | 11 activated + 9 spells (`dsl`) | 2–3 | ~4 | spells: **case**; activation: **rule** (no seam) | — |
 | 14 | **G23** The ActivationTiming window | 5 (`offers`) | 2 | 2.5 | **case** | — |
 | 15 | **G16** Servo/Germ + `last_created` | 2 | 1 (data) + 2 (handle) | ~2 | data: **case**; handle: **rule** | — |
-| 16 | **G10** An activation ceiling | **contradictory: 3 against 5** | 2 | 2 | **case** (field) plus a tally | — |
+| 16 | **G10** An activation ceiling — **the per-turn half shipped**, see §5.5 | 3 per-turn (Wall of Roots plays; the two Rangers wait on a cost), 2 per-game that want a keyword instead | 2 | 2 | **case** (field) plus a tally | — |
 | 17 | **G13** Affinity | 2 | 1 | 2 | **case** | — |
 | 18 | **G14** A non-target choice | 2 plus populate | 2 | ~1.5 | **new rule**, G1's primitive | G1 |
 | 19 | **G11** A graveyard cast with its own cost | 3 | 2 | 1.5 | **case** (field change `bool` → struct) | — |
@@ -404,20 +404,59 @@ rule — thin enough to be worth a tripwire, which is
 a rule that claims the key later has to answer the loyalty question in the
 same commit.
 
-**What is left of G2 is the activation limit (G10), and Devoted Druid never
-needed it** — its ability prints no limit. **Wall of Roots** is the card that
-does ("Activate only once each turn"), and it owes a second thing besides: its
-counter is `-0/-1`, and `M0M1` is not in `CounterKind`. That wants a
-rules-bearing variant rather than a `Custom` id, because CR 122.1a makes a
--X/-Y counter subtract in layer 7c and the engine has to read it; a `Custom`
-id is a word on a badge and nothing else. Quirion Ranger and Scryb Ranger are
-the neighbouring untap-yourself cards and want `CostPart::ReturnToHand(filter)`.
+**Devoted Druid never needed an activation limit** — its ability prints no
+limit at all. **Wall of Roots** is the card that does, and it shipped the same
+day; the section below it is that work. What is left in the neighbourhood is
+**Quirion Ranger and Scryb Ranger**, which print the same "activate only once
+each turn" over a cost the DSL cannot say yet — "Return a Forest you control
+to its owner's hand" is `CostPart::ReturnToHand(filter)`, a choice over a
+filter, which is the `Sacrifice(filter)` seam (`cost_wizard`) one more time
+rather than a new one.
 
 `Effect::UntapSelf`'s own reach in this pool is **three** cards: Devoted
 Druid, which plays, plus Basalt Monolith and Grim Monolith, which also print
 "doesn't untap during your untap step" and are now waiting on **G5 alone**.
 (Frantic Search, Restless Ridgeline and Song-Mad Treachery untap *something
 else* without targeting it — a different effect, not this one.)
+
+#### And the last piece: Wall of Roots (2026-09-16)
+
+Two things, one card, and the second of them is G10 — see §5.5 for the
+activation limit and why it has no per-game half.
+
+The first is the **counter**. Wall of Roots pays with a −0/−1, and
+`CounterKind` had no name for it. It has none now either, and that is the
+point: `P1P1` and `M1M1` stopped being variants and became **constants** of
+`Plus { power, toughness }` and `Minus { power, toughness }`, which is CR
+122.1a's own two forms. Eleven distinct P/T codes appear in the reference
+corpus (`P1P0`, `P2P2`, `P0P1`, `M2M2`, `M0M2`, `P1P2`, `M2M1`, `M1M0` beside
+the three the pool prints), so a variant per printed pair would have gone
+silent on the twelfth — the fault this repo has met twice under the name
+"positive lists go silent on a new variant". Every P/T code is single-signed,
+in the corpus and in the rule, which is why there are two variants and not
+one signed pair.
+
+Three consequences, each with a test:
+
+- **Layer 7c sums power and toughness apart** (CR 613.4c). One shared delta
+  is right only while every counter is symmetric, which was true of the two
+  the pool used to print and is true of nothing else. A Wall wearing a +1/+1
+  and a −0/−1 is a **1/5**.
+- **The annihilation stays narrow.** CR 704.5q cancels a +1/+1 against a
+  −1/−1 and no other pair, so the same Wall keeps both counters. Generalising
+  that SBA to "any plus against any minus" is one line away and now strikes a
+  test.
+- **The hash writes both numbers.** `counter_tag`'s one byte became
+  `hash_counter`, because `Minus { 0, 1 }` and `Minus { 1, 0 }` are different
+  boards and a determinism hash that folded them together would let a replay
+  diverge in silence.
+
+The transcoder reads the pair by shape (`PxPy` / `MxMy`, mixed signs
+refused) and still writes `CounterKind::P1P1` for the one Magic prints 2528
+times — the same value, spelled the way a player says it, so no existing card
+file moved. Wall of Roots comes out of `xtask codegen` whole, which makes it
+the second card in a row that the transcoder finished with no hand-written
+line.
 
 ### 2. G3 — no Surveil
 
@@ -631,7 +670,9 @@ name for it):
   through `eval::protected_from`; **`can_attack` does not** and reads only
   zone, controller, type, DEFENDER, TAPPED and summoning sickness. Half case,
   half rule.
-- **G23** and **G10** — one field each on both activation arms.
+- **G23** — one field on both activation arms. (**G10** was the other half
+  of this line and shipped on 2026-09-16: one field, both arms, and a tally
+  that already existed for triggers.)
 - **G11** — `Rider::Flashback` and the exiling on resolution exist in the
   engine according to view `partial`; only the DSL door is missing (`bool` →
   struct).
@@ -716,6 +757,28 @@ name for it):
    each turn" were counted by hand here, one of them (Jin-Gitaxias) a
    **trigger** that `once_per_turn` already covers — so 3 activated ones plus
    the two special cases.
+
+   **Decided on 2026-09-16, and the second half was decided against.**
+   `ActivationLimit { Unlimited, PerTurn(u8) }` shipped — `u8` and not a flag
+   because the reference corpus prints `ActivationLimit$ 2` seven times and
+   `3` three times beside `1`'s 323. There is **no `PerGame`**, and that is a
+   measurement: the corpus spells exhaust as its own key (`Exhaust$ True`),
+   separately from `ActivationLimit$`, and Rangers' Aetherhive triggers on
+   "whenever you activate an exhaust ability" — so exhaust is a keyword other
+   cards read, and folding it into a number would lose the thing they read.
+   The only remaining per-game card is Urza's Fun House, which also needs an
+   `ActivationCondition` for the Urzatron and is blocked on that first.
+
+   The tally is `GameState::ability_fires`, the map once-per-turn *triggers*
+   already used: the same key `(object, ability index)`, the same clearing at
+   the turn boundary, and the same consequence that a permanent which leaves
+   and returns starts over (CR 400.7). It is keyed on the object rather than
+   the card, so two Wall of Roots have one each; and it is now hashed into
+   `loop_signature`, because what is left of a limit decides what is offered
+   and two boards that disagree about it are not one board.
+   `Engine::loyalty_used_this_turn` is the same kind of state, is **not**
+   hashed, and does not live in `GameState` — a known hole, named here rather
+   than fixed.
 
 6. **"No modifier takes anything away."** View `partial` says of Tishana's
    Tidebinder that the giving half exists (`GrantActivated`, `GrantTriggered`)

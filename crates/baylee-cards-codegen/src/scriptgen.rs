@@ -1448,12 +1448,16 @@ impl Tx<'_> {
         };
         probe.drop_prose();
         let cost = probe.take("Cost");
+        // "Activate only once each turn" belongs to the ability for the same
+        // reason the cost does: it restricts activating it, not what happens
+        // when it resolves.
+        let limit = probe.take("ActivationLimit");
         let mut chain = Chain::default();
         // The cost belongs to the ability, not to the effect chain, so it is
         // removed from the spec before the chain reads it.
         let stripped: Vec<&str> = spec
             .split(" | ")
-            .filter(|part| !part.starts_with("Cost$"))
+            .filter(|part| !part.starts_with("Cost$") && !part.starts_with("ActivationLimit$"))
             .collect();
         self.chain(&stripped.join(" | "), &mut chain)?;
         if chain.effects.is_empty() {
@@ -1470,17 +1474,37 @@ impl Tx<'_> {
                 .target
                 .map(|t| format!(", target = Some({t})"))
                 .unwrap_or_default();
+            let limit = match limit {
+                None => String::new(),
+                Some(n) => {
+                    let Ok(n) = n.parse::<u8>() else {
+                        // `GE4` and `X` are the corpus's other two spellings
+                        // (5 scripts between them) and neither is a count
+                        // this side can read: one is a *threshold* on the
+                        // counters already spent, the other a number the
+                        // board works out.
+                        return self.deny(format!("activation limit `{n}`"));
+                    };
+                    format!(", limit = ActivationLimit::PerTurn({n})")
+                }
+            };
             // `mana_ability!(effects)` *is* `mana_ability!(effects)`
             // â the macro supplies the tap, because tapping is what almost
             // every mana ability costs. Writing the cost out again says
             // nothing and reads as though this one were the exception.
             let line = match (mana_ability, cost.as_str()) {
-                (true, "Cost::TAP") => format!("mana_ability!({effects}{target})"),
-                (true, _) => format!("mana_ability!({cost}, {effects}{target})"),
-                (false, _) => format!("activated!({cost}, {effects}{target})"),
+                (true, "Cost::TAP") => format!("mana_ability!({effects}{target}{limit})"),
+                (true, _) => format!("mana_ability!({cost}, {effects}{target}{limit})"),
+                (false, _) => format!("activated!({cost}, {effects}{target}{limit})"),
             };
             self.body.abilities.push(line);
         } else {
+            if limit.is_some() {
+                // A spell is cast, not activated, so there is nothing for the
+                // key to restrict and dropping it quietly would be the
+                // unclaimed-parameter fault one level down.
+                return self.deny("`ActivationLimit$` on a spell line".to_string());
+            }
             let targets = chain
                 .target
                 .map(|t| format!(", targets = Some(TargetReq::one({t}))"))
@@ -1534,33 +1558,69 @@ impl Tx<'_> {
 /// meaning one thing on a card's ability and another on its cost, and
 /// nothing in the build would notice — the two never meet.
 ///
-/// Only the eleven kinds the rules know are here. Every other counter Magic
-/// prints is a `CounterKind::Custom` id assigned in
-/// `baylee_cards_dsl::counters`, and assigning one is a decision with a
-/// printed word behind it rather than something a reader may do on the way
-/// past — so an unknown code refuses the card.
+/// Only the kinds the rules know are here — the nine named ones plus the
+/// P/T family below. Every other counter Magic prints is a
+/// `CounterKind::Custom` id assigned in `baylee_cards_dsl::counters`, and
+/// assigning one is a decision with a printed word behind it rather than
+/// something a reader may do on the way past — so an unknown code refuses
+/// the card.
 ///
-/// `Lifelink` is spelled the way it looks. Every other code here is shouted
-/// and a *keyword* counter is written as the keyword (`Flying`,
+/// `Lifelink` is spelled the way it looks. Every other named code here is
+/// shouted and a *keyword* counter is written as the keyword (`Flying`,
 /// `Indestructible`, and lifelink, which is the one of those the engine reads
 /// — `layers.rs` grants the keyword from it). The corpus is not consistent
 /// about this beyond the two groups: it prints `Stun` 72 times and `STUN` 22.
 /// So a code is matched exactly as the script spells it, and one spelled the
 /// other way refuses the card rather than being guessed at.
-fn counter_kind(code: &str) -> Option<&'static str> {
-    Some(match code {
-        "P1P1" => "CounterKind::P1P1",
-        "M1M1" => "CounterKind::M1M1",
-        "LOYALTY" => "CounterKind::Loyalty",
-        "LORE" => "CounterKind::Lore",
-        "TIME" => "CounterKind::Time",
-        "CHARGE" => "CounterKind::Charge",
-        "POISON" => "CounterKind::Poison",
-        "ENERGY" => "CounterKind::Energy",
-        "RAD" => "CounterKind::Rad",
-        "LEVEL" => "CounterKind::Level",
-        "Lifelink" => "CounterKind::Lifelink",
+///
+/// `PxPy` and `MxMy` are read by [`pt_counter`] instead of by name, because
+/// CR 122.1a is one rule over an open-ended set of pairs: the corpus prints
+/// eleven of them and a table of names would go silent on the twelfth.
+fn counter_kind(code: &str) -> Option<String> {
+    if let Some(pt) = pt_counter(code) {
+        return Some(pt);
+    }
+    Some(
+        match code {
+            "LOYALTY" => "CounterKind::Loyalty",
+            "LORE" => "CounterKind::Lore",
+            "TIME" => "CounterKind::Time",
+            "CHARGE" => "CounterKind::Charge",
+            "POISON" => "CounterKind::Poison",
+            "ENERGY" => "CounterKind::Energy",
+            "RAD" => "CounterKind::Rad",
+            "LEVEL" => "CounterKind::Level",
+            "Lifelink" => "CounterKind::Lifelink",
+            _ => return None,
+        }
+        .to_string(),
+    )
+}
+
+/// `P1P1`, `M0M1`, `P2P2` — a +X/+Y or -X/-Y counter (CR 122.1a).
+///
+/// The sign letter is the same on both halves in every one of the eleven
+/// codes the corpus prints, which is the rule's own two forms; a mixed pair
+/// is refused rather than guessed at, because `CounterKind` cannot say one.
+fn pt_counter(code: &str) -> Option<String> {
+    let (sign, rest) = code.split_at_checked(1)?;
+    let variant = match sign {
+        "P" => "Plus",
+        "M" => "Minus",
         _ => return None,
+    };
+    let (power, toughness) = rest.split_once(sign)?;
+    let power: u8 = power.parse().ok()?;
+    let toughness: u8 = toughness.parse().ok()?;
+    // The two Magic prints everywhere are written as the constants that name
+    // them. They are the same *value* as the general form — `CounterKind`
+    // has one variant for all of them — so this is a spelling and not a
+    // second meaning, and it keeps 2528 scripts' worth of cards reading
+    // `CounterKind::P1P1` the way a player says it.
+    Some(match (variant, power, toughness) {
+        ("Plus", 1, 1) => "CounterKind::P1P1".to_string(),
+        ("Minus", 1, 1) => "CounterKind::M1M1".to_string(),
+        _ => format!("CounterKind::{variant} {{ power: {power}, toughness: {toughness} }}"),
     })
 }
 
@@ -2261,6 +2321,51 @@ mod tests {
         assert!(text.contains("target = Some("), "{text}");
     }
 
+    /// Wall of Roots is two rules in one line: a counter the DSL had no name
+    /// for, and a sentence that caps the activation.
+    ///
+    /// `M0M1` is read by shape rather than by name — CR 122.1a is one rule
+    /// over an open-ended set of pairs, and the corpus prints eleven of them
+    /// — while `P1P1` and `M1M1` keep the constants that spell them, which
+    /// are the *same value* and not a second meaning. That is the half worth
+    /// asserting both ways: a rule that emitted the general form for +1/+1
+    /// would rewrite hundreds of cards to say the same thing longer.
+    #[test]
+    fn a_wall_that_wears_its_own_counters_reads_as_one_mana_ability() {
+        let body = read(
+            "Name:Wall of Roots\nManaCost:1 G\nTypes:Creature Plant Wall\nPT:0/5\n\
+             K:Defender\n\
+             A:AB$ Mana | Cost$ AddCounter<1/M0M1> | Produced$ G | ActivationLimit$ 1\n",
+        );
+        assert_eq!(
+            body.abilities,
+            [
+                "mana_ability!(cost!(PutCounterSelf { kind: CounterKind::Minus { power: 0, \
+                 toughness: 1 }, n: 1 }), &[Effect::mana(ManaColor::Green, 1)], \
+                 limit = ActivationLimit::PerTurn(1))"
+            ]
+        );
+
+        // The two Magic prints everywhere keep their names.
+        let body = read(
+            "Name:X\nTypes:Creature Goblin\nPT:1/1\n\
+             A:AB$ PutCounter | Cost$ T | CounterType$ P1P1 | CounterNum$ 1\n",
+        );
+        let text = body.abilities.join("\n");
+        assert!(text.contains("CounterKind::P1P1"), "{text}");
+
+        // And a limit of more than one is a count, not a flag.
+        let body = read(
+            "Name:X\nTypes:Creature Goblin\nPT:1/1\n\
+             A:AB$ Draw | Cost$ 1 | NumCards$ 1 | ActivationLimit$ 2\n",
+        );
+        let text = body.abilities.join("\n");
+        assert!(
+            text.contains("limit = ActivationLimit::PerTurn(2)"),
+            "{text}"
+        );
+    }
+
     /// A loyalty cost is not an ordinary counter cost. 413 scripts in the
     /// corpus print `Cost$ AddCounter<n/LOYALTY>`, and reading one as a
     /// `PutCounterSelf` would make a planeswalker's `+1` an ability anybody
@@ -2494,6 +2599,7 @@ mod tests {
     /// of the corpus that bucket is now empty, and this is the part of
     /// that measurement a build can make.
     #[test]
+    #[allow(clippy::too_many_lines)] // one case per refusal point, and the list is the point
     fn a_refused_script_always_says_why() {
         // One per refusal point that used to be silent. The expected string
         // is spelled out rather than merely asserted non-empty, because
@@ -2561,6 +2667,25 @@ mod tests {
                 "Name:X\nTypes:Creature\nA:AB$ Untap | Cost$ AddCounter<X/M1M1>",
                 "counter count `X`",
             ),
+            // The two activation limits that are not a count. `GE4` is a
+            // threshold on what has already been spent and `X` a number the
+            // board works out; five corpus scripts print them between them.
+            (
+                "Name:X\nTypes:Creature\n\
+                 A:AB$ Draw | Cost$ T | NumCards$ 1 | ActivationLimit$ GE4",
+                "activation limit `GE4`",
+            ),
+            (
+                "Name:X\nTypes:Instant\nA:SP$ Draw | NumCards$ 1 | ActivationLimit$ 1",
+                "`ActivationLimit$` on a spell line",
+            ),
+            // A mixed-sign P/T counter is not a counter Magic prints, and
+            // `CounterKind` has no way to say one.
+            (
+                "Name:X\nTypes:Creature\n\
+                 A:AB$ PutCounter | Cost$ T | CounterType$ P1M1 | CounterNum$ 1",
+                "counter `P1M1`",
+            ),
             // The one `transcode` refuses after every rule has been read.
             (
                 "Name:X\nTypes:Creature",
@@ -2596,6 +2721,10 @@ mod tests {
             "Name:X\nTypes:Creature\n\
              A:AB$ PutCounter | Cost$ T | CounterType$ P1P1 | CounterNum$ 1",
             "Name:X\nTypes:Creature\nA:AB$ Untap | Cost$ AddCounter<1/M1M1>",
+            "Name:X\nTypes:Creature\n\
+             A:AB$ Mana | Cost$ T | Produced$ G | ActivationLimit$ 1",
+            "Name:X\nTypes:Creature\n\
+             A:AB$ PutCounter | Cost$ T | CounterType$ M0M1 | CounterNum$ 1",
         ] {
             let parsed = parse(script);
             assert!(

@@ -13,6 +13,32 @@ pub enum ActivationTiming {
     SorcerySpeed,
 }
 
+/// How often an activated ability may be used in one turn.
+///
+/// "Activate only once each turn" (Wall of Roots, Quirion Ranger, Scryb
+/// Ranger) — a restriction on *activating*, so it is checked and recorded
+/// where an activation is announced and paid for (CR 602.2), not where the
+/// ability resolves. The tally is per object, so a permanent that leaves the
+/// battlefield and comes back may be used again: CR 400.7 makes it a new
+/// object with no memory of the old one.
+///
+/// **Each turn, not each of your turns.** A mana ability is activatable
+/// whenever its controller has priority, so a Wall of Roots used on its
+/// own turn is available again on the opponent's.
+///
+/// There is no per-*game* variant, and that is a measurement rather than an
+/// omission: the only cards that want one are Urza's Fun House, which also
+/// needs a condition the DSL cannot say, and the exhaust keyword — and
+/// exhaust is a keyword other cards look for ("whenever you activate an
+/// exhaust ability"), so it is a keyword bit and not a number.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum ActivationLimit {
+    /// No printed limit — as often as its cost can be paid (CR 602.2).
+    Unlimited,
+    /// At most this many activations per turn, per object.
+    PerTurn(u8),
+}
+
 /// Where an activated ability may be activated from.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum ActivationZone {
@@ -142,6 +168,8 @@ pub enum AbilityDef {
         mana_ability: bool,
         /// Where the ability may be activated from (cycling = from hand).
         zone: ActivationZone,
+        /// "Activate only once each turn", if the card prints one.
+        limit: ActivationLimit,
     },
     /// Triggered ability (`when/whenever/at …, effect`).
     Triggered {
@@ -179,6 +207,8 @@ pub enum AbilityDef {
         zone: ActivationZone,
         /// The precondition.
         condition: ActivationCondition,
+        /// "Activate only once each turn", if the card prints one.
+        limit: ActivationLimit,
     },
     /// One chapter of a saga (CR 714): triggers when the corresponding
     /// lore counter is added.

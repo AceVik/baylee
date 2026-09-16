@@ -949,7 +949,7 @@ mod tests {
     /// And the mana lint bites in both directions.
     #[test]
     fn the_mana_lint_catches_both_halves_of_cr_605_1() {
-        use crate::dsl::ability::{ActivationTiming, ActivationZone};
+        use crate::dsl::ability::{ActivationLimit, ActivationTiming, ActivationZone};
         use crate::dsl::effect::Amount;
         static MANA: [Effect; 1] = [Effect::mana(baylee_core::mana::ManaColor::Green, 1)];
         static DRAW: [Effect; 1] = [Effect::DrawCards {
@@ -963,6 +963,7 @@ mod tests {
             timing: ActivationTiming::InstantSpeed,
             mana_ability: false,
             zone: ActivationZone::Battlefield,
+            limit: ActivationLimit::Unlimited,
         };
         assert!(
             mana_ability_fault(&unmarked).is_some(),
@@ -976,6 +977,7 @@ mod tests {
             timing: ActivationTiming::InstantSpeed,
             mana_ability: true,
             zone: ActivationZone::Battlefield,
+            limit: ActivationLimit::Unlimited,
         };
         assert!(
             mana_ability_fault(&lying).is_some(),
@@ -992,7 +994,7 @@ mod tests {
     /// and the 102 double-faced cards whose payload the cache files under a
     /// two-face slug are reached like any other.
     fn effigy(identity: ColorSet) -> CardDef {
-        use crate::dsl::ability::{ActivationTiming, ActivationZone};
+        use crate::dsl::ability::{ActivationLimit, ActivationTiming, ActivationZone};
         static BLUE: [Effect; 1] = [Effect::mana(ManaColor::Blue, 1)];
         static TAPS_FOR_BLUE: [AbilityDef; 1] = [AbilityDef::Activated {
             cost: crate::dsl::cost::Cost::TAP,
@@ -1001,6 +1003,7 @@ mod tests {
             timing: ActivationTiming::InstantSpeed,
             mana_ability: true,
             zone: ActivationZone::Battlefield,
+            limit: ActivationLimit::Unlimited,
         }];
         static FACES: [FaceDef; 1] = [FaceDef {
             name: "Machine God's Effigy",
@@ -1053,6 +1056,7 @@ mod tests {
             timing: crate::dsl::ability::ActivationTiming::InstantSpeed,
             mana_ability: true,
             zone: crate::dsl::ability::ActivationZone::Battlefield,
+            limit: crate::dsl::ability::ActivationLimit::Unlimited,
         }];
         static ON_THE_FACE: [FaceDef; 1] = [FaceDef {
             name: "a land that taps for green",
@@ -1073,6 +1077,7 @@ mod tests {
             timing: crate::dsl::ability::ActivationTiming::InstantSpeed,
             mana_ability: false,
             zone: crate::dsl::ability::ActivationZone::Battlefield,
+            limit: crate::dsl::ability::ActivationLimit::Unlimited,
         }];
         assert_eq!(
             identity_gap(&CardDef {

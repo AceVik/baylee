@@ -31,6 +31,8 @@
 
 #![warn(missing_docs)]
 
+use std::borrow::Cow;
+
 use baylee_core::color::ColorSet;
 use baylee_core::ids::{AbilityRef, CardIndex, Defender, ObjectId, PlayerId, PrintRef};
 use baylee_core::types::{SubtypeSet, SupertypeSet, TypeSet};
@@ -38,7 +40,7 @@ use serde::{Deserialize, Serialize};
 
 /// Protocol version of the view payload. Bumped on any breaking change so a
 /// client can refuse a host it cannot render rather than mis-rendering it.
-pub const VIEW_VERSION: u32 = 19;
+pub const VIEW_VERSION: u32 = 20;
 
 // ---------------------------------------------------------------- turn shape
 
@@ -147,10 +149,20 @@ impl Step {
 /// it.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
 pub enum CounterKind {
-    /// +1/+1 counter.
-    PlusOnePlusOne,
-    /// -1/-1 counter.
-    MinusOneMinusOne,
+    /// A +X/+Y counter (CR 122.1a).
+    Plus {
+        /// X.
+        power: u8,
+        /// Y.
+        toughness: u8,
+    },
+    /// A -X/-Y counter (CR 122.1a).
+    Minus {
+        /// X.
+        power: u8,
+        /// Y.
+        toughness: u8,
+    },
     /// Loyalty counter.
     Loyalty,
     /// Lore counter (sagas).
@@ -174,29 +186,47 @@ pub enum CounterKind {
 }
 
 impl CounterKind {
+    /// The +1/+1 counter, as one value rather than a second spelling of it.
+    pub const PLUS_ONE: Self = Self::Plus {
+        power: 1,
+        toughness: 1,
+    };
+    /// The -1/-1 counter.
+    pub const MINUS_ONE: Self = Self::Minus {
+        power: 1,
+        toughness: 1,
+    };
+
     /// Whether the counter changes power/toughness, which a client renders on
     /// the card face rather than as a badge.
     #[must_use]
     pub const fn is_power_toughness(self) -> bool {
-        matches!(self, Self::PlusOnePlusOne | Self::MinusOneMinusOne)
+        matches!(self, Self::Plus { .. } | Self::Minus { .. })
     }
 
     /// A short badge label.
+    ///
+    /// Borrowed for every counter whose name is a word and owned for a P/T
+    /// counter, whose name is its two numbers — a `-0/-1` badge cannot be a
+    /// `&'static str` because the pair is open-ended (CR 122.1a), and the
+    /// two common ones are still handed back without allocating.
     #[must_use]
-    pub fn badge(self) -> &'static str {
+    pub fn badge(self) -> Cow<'static, str> {
         match self {
-            Self::PlusOnePlusOne => "+1/+1",
-            Self::MinusOneMinusOne => "-1/-1",
-            Self::Loyalty => "LOY",
-            Self::Lore => "LORE",
-            Self::Time => "TIME",
-            Self::Charge => "CHG",
-            Self::Poison => "PSN",
-            Self::Energy => "NRG",
-            Self::Rad => "RAD",
-            Self::Lifelink => "LL",
-            Self::Level => "LVL",
-            Self::Custom(_) => "•",
+            Self::PLUS_ONE => Cow::Borrowed("+1/+1"),
+            Self::MINUS_ONE => Cow::Borrowed("-1/-1"),
+            Self::Plus { power, toughness } => Cow::Owned(format!("+{power}/+{toughness}")),
+            Self::Minus { power, toughness } => Cow::Owned(format!("-{power}/-{toughness}")),
+            Self::Loyalty => Cow::Borrowed("LOY"),
+            Self::Lore => Cow::Borrowed("LORE"),
+            Self::Time => Cow::Borrowed("TIME"),
+            Self::Charge => Cow::Borrowed("CHG"),
+            Self::Poison => Cow::Borrowed("PSN"),
+            Self::Energy => Cow::Borrowed("NRG"),
+            Self::Rad => Cow::Borrowed("RAD"),
+            Self::Lifelink => Cow::Borrowed("LL"),
+            Self::Level => Cow::Borrowed("LVL"),
+            Self::Custom(_) => Cow::Borrowed("•"),
         }
     }
 }
@@ -1308,7 +1338,7 @@ mod tests {
         // Nor may a counter difference be hidden.
         let mut countered = obj(5, 0);
         countered.counters = vec![CounterEntry {
-            kind: CounterKind::PlusOnePlusOne,
+            kind: CounterKind::PLUS_ONE,
             count: 1,
         }];
         assert_ne!(a.summary_key(), countered.summary_key());
@@ -1328,7 +1358,7 @@ mod tests {
         let mut b = obj(2, 0);
         a.counters = vec![
             CounterEntry {
-                kind: CounterKind::PlusOnePlusOne,
+                kind: CounterKind::PLUS_ONE,
                 count: 2,
             },
             CounterEntry {
@@ -1342,7 +1372,7 @@ mod tests {
                 count: 1,
             },
             CounterEntry {
-                kind: CounterKind::PlusOnePlusOne,
+                kind: CounterKind::PLUS_ONE,
                 count: 2,
             },
         ];
