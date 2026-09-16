@@ -462,9 +462,11 @@ line.
 
 `CostPart::ReturnToHand(&Filter)`, the fourth part that has to ask a question
 and the second whose answer is still standing afterwards. Measured over the
-card-script reference: **88** scripts print a return cost, 17 of them naming
-the source (`ReturnSelfToHand`, which already existed) and **71** naming
-something else — and all 71 of those print "you control". That is said
+card-script reference, counting `Cost$` alone — `UnlessCost$` ends in the same
+four characters and is a different key, which the first measurement folded in
+and a second one separated: **69** scripts print a return cost, 17 of them
+naming the source (`ReturnSelfToHand`, which already existed) and **52**
+naming something else — and all 52 of those print "you control". That is said
 twice on purpose: the transcoder writes `Filter::ControlledByYou` into the
 filter it emits (and `validate`'s scope check is what insisted, which is the
 guard doing its job), and `cost_wizard::options` draws the same line over the
@@ -476,14 +478,14 @@ way.
 word and `TapOther` reads it; a return cost has no such rule, and taking it
 anyway would have deleted the card: Quirion Ranger's play is to tap the Forest
 for `{G}` and then return it, with the mana staying in the pool (CR 106.4)
-while the land goes to the hand. The six costs in the corpus that do want an
-untapped one print the word in their own filter, which is where a printed word
-belongs.
+while the land goes to the hand. **No** `Cost$` in the corpus asks for an
+untapped one; the six that do are `UnlessCost$` on the karoo lands, which is a
+replacement on a trigger and not an activation cost at all.
 
-**One permanent per part**, for `Sacrifice(filter)`'s reason. Of the 78 return
-costs written across those scripts, 64 return one, eight return two (Gush),
-five return three (Thwart) and one returns X; the transcoder refuses the last
-fourteen by name rather than paying one of them and calling the card done.
+**One permanent per part**, for `Sacrifice(filter)`'s reason. Of those 52, 41
+return one, six return two (Gush), four return three (Thwart) and one returns
+X; the transcoder refuses the last eleven by name rather than paying one of
+them and calling the card done.
 
 The question arrives as `Pending::ChooseCards` under a new
 `ChoicePrompt::CostReturn` — not `CostSacrifice`, because a player shown

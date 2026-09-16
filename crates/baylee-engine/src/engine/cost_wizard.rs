@@ -101,8 +101,8 @@ pub(crate) fn asking_parts(cost: &Cost) -> impl Iterator<Item = &CostPart> {
 /// the card allows rather than handing them an opponent's permanent.
 ///
 /// [`CostPart::ReturnToHand`] is the second of that kind and the measurement
-/// behind it is stronger: 71 scripts in the card-script reference print a
-/// return cost naming something other than the source, and **all 71** print
+/// behind it is stronger: 52 `Cost$` lines in the card-script reference print
+/// a return cost naming something other than the source, and **all 52** print
 /// "you control". The filter says it too — the transcoder writes
 /// `Filter::ControlledByYou` into every one it emits — and this line is the
 /// second half of the same answer rather than a substitute for it, which is

@@ -54,29 +54,30 @@ pub enum CostPart {
     /// Nightmare bounces itself and nothing else, so the two are separate
     /// variants rather than one with a self-filter.
     ///
-    /// **Whose** is carried here rather than left to the filter, the way
-    /// `cost_wizard::options` reads it: counted over the card-script
-    /// reference on 2026-09-16, **71** scripts print a return cost naming
-    /// something other than the source, and all 71 print "you control" —
-    /// three of them word it differently (Tameshi's own oracle drops the
-    /// "to", Arcanis says "a creature you control with mana value X",
-    /// Kaito says "creatures you control") and none of them returns an
-    /// opponent's permanent. No rule requires it the way CR 701.21a does for
-    /// a sacrifice; the cards do.
+    /// **Whose** is said twice, here and in the filter the transcoder emits.
+    /// Counted over the card-script reference on 2026-09-16, and counting
+    /// `Cost$` alone — `UnlessCost$` ends in the same four characters and is
+    /// a different key, which a first measurement folded in — **69** scripts
+    /// print a return cost, 17 of them naming the source and **52** naming
+    /// something else. All 52 print "you control", three of them wording it
+    /// differently (Tameshi's oracle drops the "to", Arcanis says "a
+    /// creature you control with mana value X", Kaito says "creatures you
+    /// control"). No rule requires it the way CR 701.21a does for a
+    /// sacrifice; the cards do.
     ///
     /// **One permanent**, for [`CostPart::Sacrifice`]'s reason: a cost that
-    /// bounces two is two parts and two questions. Of the 78 such costs
-    /// written across those scripts, 64 return one, eight return two (Gush's
-    /// Islands), five return three (Thwart's) and one returns X — and the
-    /// transcoder refuses the last fourteen by name rather than quietly
-    /// paying one of them.
+    /// bounces two is two parts and two questions. Of those 52, **41** return
+    /// one, six return two (Gush's Islands), four return three (Thwart's)
+    /// and one returns X — and the transcoder refuses the last eleven by
+    /// name rather than quietly paying one of them.
     ///
-    /// Nothing here says "untapped". Tapping a Forest for `{G}` and *then*
-    /// returning it is the whole play — the mana stays in the pool
-    /// (CR 106.4) while the land goes to the hand — so a rule borrowed from
-    /// [`CostPart::TapOther`] would take the card's point away. The six
-    /// costs that do want an untapped one (Coral Atoll's cycle) print the
-    /// word in the filter, which is where a printed word belongs.
+    /// Nothing here says "untapped", and nothing in the corpus asks for it
+    /// either: **no** activation or spell cost prints the word. Tapping a
+    /// Forest for `{G}` and *then* returning it is the whole play — the mana
+    /// stays in the pool (CR 106.4) while the land goes to the hand — so a
+    /// rule borrowed from [`CostPart::TapOther`] would take the card's point
+    /// away. The six that do want an untapped one are all `UnlessCost$` on
+    /// the karoo lands, which is a replacement on a trigger and not this.
     ReturnToHand(&'static Filter),
     /// Exile a card from your hand matching the filter (pitch costs).
     ExileFromHand(&'static Filter),

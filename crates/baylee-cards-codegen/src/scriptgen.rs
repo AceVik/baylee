@@ -1067,8 +1067,9 @@ impl Tx<'_> {
                     return self.deny(format!("return cost `{token}`"));
                 };
                 // One permanent per part, which is what `CostPart` carries.
-                // Fourteen of the corpus's 78 return costs bounce two, three
-                // or X, and paying one of them would be a discount.
+                // Eleven of the corpus's 52 non-source return costs bounce
+                // two, three or X, and paying one of them would be a
+                // discount.
                 if n != "1" {
                     return self.deny(format!("a cost returning `{n}` permanents"));
                 }
@@ -1077,7 +1078,7 @@ impl Tx<'_> {
                 } else {
                     // "You control" is added where the script does not say
                     // it, which is the one place this reader writes a clause
-                    // it did not read. The printed card says it — all 71 of
+                    // it did not read. The printed card says it — all 52 of
                     // the corpus's non-source return costs do — and the
                     // engine draws the same line in `cost_wizard::options`,
                     // so a filter without it would be the card and the

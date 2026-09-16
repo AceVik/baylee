@@ -422,8 +422,9 @@ card is offered as playable and dealt into real decks, so the label would ship
 the pitch cost that exiles nothing rather than excuse it. The ability comes
 **off** the card, leaving a `// NOT SUPPORTED:` line to say what was dropped.
 
-`Sacrifice(filter)`, `Discard(filter)`, `TapOther(filter)` and
-`ReturnToHand(filter)` used to be on that list and are not any more. They name something to choose, an activation
+`Sacrifice(filter)`, `Discard(filter)` and `TapOther(filter)` used to be on
+that list and are not any more, and `ReturnToHand(filter)` was written after
+it was already gone. They name something to choose, an activation
 had nowhere to ask, and `can_afford` refused them outright — so the two guards
 that stood beside the one above (`no_implemented_card_hides_an_ability_the_engine_will_never_offer`
 and its token twin) were about a *limitation* rather than a rule. `cost_wizard`
