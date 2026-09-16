@@ -2006,11 +2006,18 @@ pub fn keyword_static_of(line: &str) -> Option<&'static str> {
 
 /// Whether a `K:` line is read at all — as a bit, or as a static ability.
 ///
-/// The question every reporter outside this module is really asking. There
-/// are four loops over `script.keywords` in the workspace and only one of
-/// them transcodes; the other three name what blocked a card, and a
-/// reporter that knew about bits alone went on blaming the `K:` line of
-/// every card the bits half had stopped blocking.
+/// The question a reporter outside this module is usually asking. There are
+/// **six** loops over `script.keywords` in the workspace and exactly one of
+/// them transcodes: [`transcode`] here, [`refusal_reason`] and [`atoms`]
+/// beside it, and three in `xtask` — `refusal_cause` and the two halves of
+/// `cross-read`. A reader that knew about bits alone would go on blaming
+/// the `K:` line of every card the static half had stopped blocking, which
+/// is the failure this exists to prevent.
+///
+/// It is not the answer for all of them. `refusal_cause` asks this;
+/// `cross-read` asks [`keyword_static_of`] instead, because it has to
+/// *count* a static ability rather than merely allow it, and `atoms` names
+/// what a script uses and so asks neither.
 #[must_use]
 pub fn keyword_line_is_read(line: &str) -> bool {
     keyword_const(line).is_some() || keyword_static(line).is_some()
