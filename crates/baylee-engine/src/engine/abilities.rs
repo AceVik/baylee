@@ -55,7 +55,8 @@ pub(crate) const fn paid_by_the_casting_wizard(part: &CostPart) -> bool {
         | CostPart::ExileSelf
         | CostPart::ReturnSelfToHand
         | CostPart::RemoveCounterSelf { .. }
-        | CostPart::RemoveCounterSelfX { .. } => false,
+        | CostPart::RemoveCounterSelfX { .. }
+        | CostPart::PutCounterSelf { .. } => false,
     }
 }
 
@@ -640,11 +641,19 @@ impl<L: CardLookup> Engine<L> {
                 // loops on it because every cost that prints it prints `{T}`
                 // or a mana part beside it, which is what
                 // `baylee_ai::activate::consumes` reads.
+                //
+                // `PutCounterSelf` is the third reason in the same list: a
+                // permanent can always take a counter, so there is nothing
+                // to check. What bounds it is the counter, not the offer —
+                // Devoted Druid's second -1/-1 leaves a 0/0 that CR 704.5f
+                // puts in the graveyard, and a permanent in a graveyard is
+                // offered nothing.
                 CostPart::SacrificeSelf
                 | CostPart::DiscardSelf
                 | CostPart::ExileSelf
                 | CostPart::ReturnSelfToHand
                 | CostPart::RemoveCounterSelfX { .. }
+                | CostPart::PutCounterSelf { .. }
                 | CostPart::PayLifeX => {}
             }
         }
@@ -1582,6 +1591,17 @@ impl<L: CardLookup> Engine<L> {
                 // refusal is the same too, and is not dead code: the bound
                 // was read when the question was asked, and a counter can
                 // leave in between (Thief of Blood in response).
+                // `record_counters` and not `put_counters`, which is the
+                // door that applies the doubling replacements. CR 614.16:
+                // "if an effect would put one or more counters on a
+                // permanent" applies to what the effect of a resolving spell
+                // or ability puts there and to what another replacement puts
+                // there — a cost is neither. Doubling Season is the pool's
+                // only such replacement and prints exactly that wording, so
+                // this is the measured answer and not a cautious one.
+                CostPart::PutCounterSelf { kind, n } => {
+                    crate::replacement::record_counters(&mut self.state, source, *kind, *n);
+                }
                 CostPart::RemoveCounterSelfX { kind } => {
                     let want = u16::try_from(x).unwrap_or(u16::MAX);
                     if crate::replacement::remove_counters(&mut self.state, source, *kind, want)

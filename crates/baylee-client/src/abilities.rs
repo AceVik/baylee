@@ -841,6 +841,10 @@ fn cost_label(lang: Lang, cost: &Cost) -> Option<String> {
             CostPart::RemoveCounterSelfX { .. } => {
                 Phrase::CostRemoveCountersX.text(lang).to_string()
             }
+            CostPart::PutCounterSelf { n: 1, .. } => Phrase::CostPutCounter.text(lang).to_string(),
+            CostPart::PutCounterSelf { n, .. } => {
+                Phrase::CostPutCounters.fill(lang, &[&n.to_string()])
+            }
         });
     }
     (!parts.is_empty()).then(|| parts.join(COST_JOIN))

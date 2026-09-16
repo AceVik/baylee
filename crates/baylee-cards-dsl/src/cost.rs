@@ -112,6 +112,31 @@ pub enum CostPart {
         /// Which counter.
         kind: crate::effect::CounterKind,
     },
+    /// Put counters **on** the source as a cost — the other direction of
+    /// [`Self::RemoveCounterSelf`], and the one that is never refused.
+    ///
+    /// "Put a -1/-1 counter on this creature: Untap this creature."
+    /// (Devoted Druid). A permanent can always take a counter, so
+    /// `can_afford` has nothing to check and the limit on repeating it is
+    /// what the counters *do*: Devoted Druid is 0/2, and the third payment
+    /// is the one that never happens, because the second leaves a 0/0 that
+    /// a state-based action puts in the graveyard (CR 704.5f).
+    ///
+    /// **No doubler applies, and that is a rule rather than a shortcut.**
+    /// CR 614.16 says a replacement reading "if an effect would put one or
+    /// more counters on a permanent" applies when *the effect of a resolving
+    /// spell or ability* puts them, and when another replacement or
+    /// prevention effect does — paying a cost is neither. So this goes
+    /// through `replacement::record_counters`, the same door a Saga's
+    /// turn-based lore counter takes, and not `put_counters`. Doubling
+    /// Season is the pool's only such replacement and prints exactly that
+    /// wording.
+    PutCounterSelf {
+        /// Which counter.
+        kind: crate::effect::CounterKind,
+        /// How many.
+        n: u16,
+    },
 }
 
 /// A conditional cost reduction printed on a card (Surgical Metamorph).

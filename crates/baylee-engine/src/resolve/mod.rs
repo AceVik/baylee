@@ -1809,10 +1809,16 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
         }
         Effect::UntapTarget => {
             for &target in &res.targets {
-                if let Some(obj) = state.object_mut(target) {
-                    obj.status.remove(crate::object::Status::TAPPED);
-                }
+                untap(state, target);
             }
+            None
+        }
+        // "Untap this artifact." The source and not a target, so nothing is
+        // chosen and nothing can be made an illegal choice; a source that has
+        // left the battlefield untaps nothing, which `untap` answers by
+        // finding no object rather than by a check here.
+        Effect::UntapSelf => {
+            untap(state, res.source);
             None
         }
         Effect::TargetSourceLosesAbilities { source_filter } => {
@@ -1943,6 +1949,43 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
             unreachable!("choice ops dispatch to exec_choice")
         }
     }
+}
+
+/// Untaps one permanent and says so.
+///
+/// One door for both untap **effects**, and it exists because the two used
+/// to disagree with the third. The untap step journals
+/// `GameEvent::ObjectUntapped` (CR 502.3); `Effect::UntapTarget` wrote the
+/// bit and journalled nothing, so an untap from an effect was invisible to
+/// anything reading the game's own record of what happened — a replay, a
+/// client's log, and any "becomes untapped" trigger the DSL might learn.
+///
+/// That was latent rather than broken: `AbilityDef::Trigger` has
+/// `BecomesTapped` and no untapped twin, so nothing could have been
+/// listening. Latent is the state a rule is in just before somebody adds the
+/// trigger and cannot work out why it never fires, so the fix comes with the
+/// second effect rather than after it, and
+/// `card_tests::lands::deserted_temple_says_so_when_it_untaps_a_land` is
+/// what holds it — a test on the *older* variant, because that is the one
+/// that was wrong.
+///
+/// A permanent that is already untapped is left alone and journals nothing:
+/// untapping an untapped permanent is not an event, and recording one would
+/// put a "became untapped" in the log for a permanent that did not.
+fn untap(state: &mut GameState, id: ObjectId) {
+    let tapped = state
+        .object(id)
+        .is_some_and(|o| o.status.contains(crate::object::Status::TAPPED));
+    if !tapped {
+        return;
+    }
+    if let Some(obj) = state.object_mut(id) {
+        obj.status.remove(crate::object::Status::TAPPED);
+    }
+    state.journal.record(GameEvent::ObjectUntapped {
+        object: id,
+        cause: Cause::Effect,
+    });
 }
 
 fn change_controller(state: &mut GameState, target: ObjectId, new_controller: PlayerId) {

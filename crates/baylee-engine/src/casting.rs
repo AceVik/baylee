@@ -928,6 +928,7 @@ fn alternative_parts_payable(
         | CostPart::ExileSelf
         | CostPart::ReturnSelfToHand
         | CostPart::RemoveCounterSelfX { .. }
+        | CostPart::PutCounterSelf { .. }
         | CostPart::PayLifeX => true,
     })
 }

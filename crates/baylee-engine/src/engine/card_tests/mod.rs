@@ -778,6 +778,31 @@ fn ashnods_altar() -> CardIndex {
     card_index("4d18bcba-a346-445e-a182-6cc30b7e066d")
 }
 
+/// How many counters of `kind` are on `id`.
+///
+/// The kind is a parameter and not a second helper per counter, which is
+/// what these tests need it to be: a depletion land's whole point is that
+/// its counters are *not* charge counters, and asking the same question
+/// twice with two nouns is how that is asserted.
+///
+/// It lived in `lands` until Devoted Druid wanted it — counters are not a
+/// land mechanic, they are a permanent one, and a helper that two card-type
+/// modules need belongs where both can see it rather than being written a
+/// second time with the same words.
+#[track_caller]
+fn counters_on(
+    engine: &Engine<RegistryLookup>,
+    id: ObjectId,
+    kind: baylee_cards_dsl::CounterKind,
+) -> u16 {
+    engine
+        .state()
+        .object(id)
+        .expect("the card is still an object")
+        .counters
+        .get(kind)
+}
+
 /// Whether a permanent still on the battlefield is tapped.
 ///
 /// Panics when the object is gone, deliberately: every caller is asking

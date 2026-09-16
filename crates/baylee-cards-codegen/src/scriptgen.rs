@@ -618,18 +618,9 @@ impl Tx<'_> {
                 vec![format!("Effect::Mill {{ amount: {n}, target: {who} }}")]
             }
             "PutCounter" => {
-                let kind = match p.take("CounterType")?.as_str() {
-                    "P1P1" => "CounterKind::P1P1",
-                    "M1M1" => "CounterKind::M1M1",
-                    "LOYALTY" => "CounterKind::Loyalty",
-                    "LORE" => "CounterKind::Lore",
-                    "TIME" => "CounterKind::Time",
-                    "CHARGE" => "CounterKind::Charge",
-                    "POISON" => "CounterKind::Poison",
-                    "ENERGY" => "CounterKind::Energy",
-                    "RAD" => "CounterKind::Rad",
-                    "LEVEL" => "CounterKind::Level",
-                    _ => return None,
+                let code = p.take("CounterType")?;
+                let Some(kind) = counter_kind(&code) else {
+                    return self.deny(format!("counter `{code}`"));
                 };
                 let n = amount(p.take("CounterNum").as_deref().unwrap_or("1"), self.svars)?;
                 // `AddCounter` puts them on the first target, or on the
@@ -664,7 +655,17 @@ impl Tx<'_> {
             "Pump" => self.pump_effect(p, aimed)?,
             "ChangeZone" => self.change_zone(p, target)?,
             "Tap" => vec!["Effect::TapTarget".to_string()],
-            "Untap" => vec!["Effect::UntapTarget".to_string()],
+            // `AB$ Untap` with no `ValidTgts$` is the source, not a target
+            // — Basalt Monolith's "{3}: Untap this artifact". Read as
+            // `UntapTarget` it would walk an empty `res.targets` and untap
+            // nothing at all, which is a card that compiles, claims
+            // `Implemented` and does nothing. Nothing in the pool was
+            // written that way (asserted in `untap_tests`); it was one
+            // reference script away from being.
+            "Untap" => match target {
+                Some(_) => vec!["Effect::UntapTarget".to_string()],
+                None => vec!["Effect::UntapSelf".to_string()],
+            },
             "Counter" => {
                 if p.take("TargetType").as_deref() != Some("Spell") {
                     return None;
@@ -1032,6 +1033,23 @@ impl Tx<'_> {
                 parts.push("UntapSelf".to_string());
             } else if token.starts_with("Sac<1/CARDNAME") {
                 parts.push("SacrificeSelf".to_string());
+            } else if let Some((n, kind)) = token
+                .strip_prefix("AddCounter<")
+                .and_then(|t| t.strip_suffix('>'))
+                .and_then(|t| t.split_once('/'))
+            {
+                // "Put a -1/-1 counter on this creature" as a cost. The
+                // counter noun goes through the same table the `PutCounter`
+                // *effect* reads, so the two cannot come to disagree about
+                // what `M1M1` is — and a noun the DSL has no kind for takes
+                // the card off the list rather than guessing at one.
+                let Ok(n) = n.parse::<u16>() else {
+                    return self.deny(format!("counter count `{n}`"));
+                };
+                let Some(kind) = counter_kind(kind) else {
+                    return self.deny(format!("counter `{kind}`"));
+                };
+                parts.push(format!("PutCounterSelf {{ kind: {kind}, n: {n} }}"));
             } else if let Some(n) = token
                 .strip_prefix("PayLife<")
                 .and_then(|t| t.strip_suffix('>'))
@@ -1507,6 +1525,43 @@ impl Tx<'_> {
         ));
         Some(())
     }
+}
+
+/// A reference-script counter code as the `CounterKind` spelling for it.
+///
+/// Read by two rules that must not disagree: the `PutCounter` *effect* and
+/// the `AddCounter<n/KIND>` *cost*. Written twice, `M1M1` could end up
+/// meaning one thing on a card's ability and another on its cost, and
+/// nothing in the build would notice — the two never meet.
+///
+/// Only the eleven kinds the rules know are here. Every other counter Magic
+/// prints is a `CounterKind::Custom` id assigned in
+/// `baylee_cards_dsl::counters`, and assigning one is a decision with a
+/// printed word behind it rather than something a reader may do on the way
+/// past — so an unknown code refuses the card.
+///
+/// `Lifelink` is spelled the way it looks. Every other code here is shouted
+/// and a *keyword* counter is written as the keyword (`Flying`,
+/// `Indestructible`, and lifelink, which is the one of those the engine reads
+/// — `layers.rs` grants the keyword from it). The corpus is not consistent
+/// about this beyond the two groups: it prints `Stun` 72 times and `STUN` 22.
+/// So a code is matched exactly as the script spells it, and one spelled the
+/// other way refuses the card rather than being guessed at.
+fn counter_kind(code: &str) -> Option<&'static str> {
+    Some(match code {
+        "P1P1" => "CounterKind::P1P1",
+        "M1M1" => "CounterKind::M1M1",
+        "LOYALTY" => "CounterKind::Loyalty",
+        "LORE" => "CounterKind::Lore",
+        "TIME" => "CounterKind::Time",
+        "CHARGE" => "CounterKind::Charge",
+        "POISON" => "CounterKind::Poison",
+        "ENERGY" => "CounterKind::Energy",
+        "RAD" => "CounterKind::Rad",
+        "LEVEL" => "CounterKind::Level",
+        "Lifelink" => "CounterKind::Lifelink",
+        _ => return None,
+    })
 }
 
 /// A script colour word as our `Color` constant.
@@ -2165,6 +2220,72 @@ mod tests {
         assert!(text.contains("filter: &Filter::This"), "{text}");
     }
 
+    /// `AB$ Untap` says what it untaps by what it leaves *out*, and
+    /// `Cost$ AddCounter<n/KIND>` is a counter paid rather than a counter an
+    /// effect puts on. Devoted Druid prints both in one line, which is why
+    /// it is the card read here.
+    ///
+    /// CR 115.1c is why the untap cannot be one rule with a self-filter: an
+    /// ability whose script names no `ValidTgts$` has no target, and
+    /// `UntapTarget` would walk an empty `res.targets` and untap nothing.
+    #[test]
+    fn an_untap_with_no_valid_string_untaps_the_source_that_paid_for_it() {
+        let body = read(
+            "Name:Devoted Druid\nManaCost:1 G\nTypes:Creature Elf Druid\nPT:0/2\n\
+             A:AB$ Mana | Cost$ T | Produced$ G | SpellDescription$ Add {G}.\n\
+             A:AB$ Untap | Cost$ AddCounter<1/M1M1> | SpellDescription$ Untap CARDNAME.\n",
+        );
+        assert_eq!(
+            body.abilities,
+            [
+                "mana_ability!(&[Effect::mana(ManaColor::Green, 1)])",
+                "activated!(cost!(PutCounterSelf { kind: CounterKind::M1M1, n: 1 }), \
+                 &[Effect::UntapSelf])",
+            ]
+        );
+    }
+
+    /// The other half of the same rule: with a valid-string the untap is the
+    /// chosen permanent's, and the ability carries the target it was read
+    /// from. Asserted beside the self case so neither can quietly become the
+    /// other.
+    #[test]
+    fn an_untap_with_a_valid_string_untaps_the_chosen_permanent() {
+        let body = read(
+            "Name:X\nManaCost:1 U\nTypes:Creature Goblin\nPT:1/1\n\
+             A:AB$ Untap | Cost$ T | ValidTgts$ Creature | TgtPrompt$ Select target creature\n",
+        );
+        let text = body.abilities.join("\n");
+        assert!(text.contains("Effect::UntapTarget"), "{text}");
+        assert!(!text.contains("Effect::UntapSelf"), "{text}");
+        assert!(text.contains("target = Some("), "{text}");
+    }
+
+    /// A loyalty cost is not an ordinary counter cost. 413 scripts in the
+    /// corpus print `Cost$ AddCounter<n/LOYALTY>`, and reading one as a
+    /// `PutCounterSelf` would make a planeswalker's `+1` an ability anybody
+    /// may activate at instant speed as often as they like — CR 606.3 allows
+    /// it once a turn and only when a sorcery could be cast, and
+    /// `activated!` says neither.
+    ///
+    /// Nothing in `cost_expr` knows that. What refuses the card is
+    /// `Planeswalker$ True`, which sits on every loyalty ability and is
+    /// claimed by no rule, so the refusal happens before the cost is read.
+    /// That makes this test a tripwire as much as a check: a rule that
+    /// claims the key later has to answer the loyalty question in the same
+    /// commit, or this fails.
+    #[test]
+    fn a_loyalty_cost_does_not_become_an_ordinary_counter_cost() {
+        let script = "Name:X\nManaCost:2 W W\nTypes:Legendary Planeswalker Ajani\nLoyalty:4\n\
+                      A:AB$ PutCounter | Cost$ AddCounter<1/LOYALTY> | Planeswalker$ True | \
+                      CounterType$ P1P1 | CounterNum$ 1 | ValidTgts$ Creature";
+        assert!(refused(script));
+        assert_eq!(
+            refusal_reason(&parse(script), &cats()).as_deref(),
+            Some("unclaimed parameter `PutCounter.Planeswalker`")
+        );
+    }
+
     /// A pump that grants keywords carries them in the same effect — and
     /// a "keyword" that is really a sentence refuses the card.
     #[test]
@@ -2420,6 +2541,26 @@ mod tests {
                  SVar:Second:DB$ DealDamage | ValidTgts$ Player | NumDmg$ 1",
                 "two different targets in one chain",
             ),
+            // Both doors a counter noun comes through. Quest counters are
+            // `counters::QUEST`, a `Custom` id with a printed word behind
+            // it, and neither door may invent one.
+            (
+                "Name:X\nTypes:Creature\n\
+                 A:AB$ PutCounter | Cost$ T | CounterType$ QUEST | CounterNum$ 1",
+                "counter `QUEST`",
+            ),
+            (
+                "Name:X\nTypes:Creature\nA:AB$ Untap | Cost$ AddCounter<1/QUEST>",
+                "counter `QUEST`",
+            ),
+            // The count is read before the noun, and it is a number or
+            // nothing: every one of the 434 `AddCounter<…>` costs in the
+            // corpus writes a literal 0-4, and an announced X in a cost is
+            // `RemoveCounterSelfX`'s stage, not this one.
+            (
+                "Name:X\nTypes:Creature\nA:AB$ Untap | Cost$ AddCounter<X/M1M1>",
+                "counter count `X`",
+            ),
             // The one `transcode` refuses after every rule has been read.
             (
                 "Name:X\nTypes:Creature",
@@ -2452,6 +2593,9 @@ mod tests {
              T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | \
              ValidCard$ Card.Self | Execute$ TrigDraw\n\
              SVar:TrigDraw:DB$ Draw | NumCards$ 1",
+            "Name:X\nTypes:Creature\n\
+             A:AB$ PutCounter | Cost$ T | CounterType$ P1P1 | CounterNum$ 1",
+            "Name:X\nTypes:Creature\nA:AB$ Untap | Cost$ AddCounter<1/M1M1>",
         ] {
             let parsed = parse(script);
             assert!(

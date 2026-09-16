@@ -118,7 +118,7 @@ met where the ranking is.
 
 | # | Gap | Cards (basis) | Depth | Lever | Rule or case | Blocked together with |
 | --- | --- | --- | --- | --- | --- | --- |
-| 1 | **G2** A counter as a cost, fixed number **and** X — **both shipped**, see §1 | 40 cards (re-measured); 11 of the 17 X storage lands play today, the other 6 wait on G5 and a spend restriction | 1 (fixed) / 3 (X) | 20–40 | **case**, then a stage | — |
+| 1 | **G2** A counter as a cost, removed or put on — **all three doors shipped**, see §1 | 40 cards (re-measured); 11 of the 17 X storage lands play today, the other 6 wait on G5 and a spend restriction | 1 (fixed) / 3 (X) | 20–40 | **case**, then a stage | — |
 | 2 | **G3** Surveil | 32 headers (by hand), 29 script | 1 | 32 | **case** | — |
 | 3 | **G1** An activation asks a question — the chooser half and the counter-X half **shipped**, see §3 | 50 headers with Sacrifice/Discard only (by hand); +9 tapXType, +4 crew, +20 script-counted activation costs, +~20 storage lands | 3 | ~27 | **new rule** on an existing seam | G2's X, G14, `offers`#2 |
 | 4 | **G4** "unless you pay" takes a `Cost` | 17 headers (by hand), 36 script | 2 | 9–18 | **case** (field change) | 31 of the 36 need G1's CostParts |
@@ -151,7 +151,7 @@ met where the ranking is.
 Each entry is the same five: **(a)** what was found, **(b)** where it changes,
 **(c)** the shape, **(d)** the test that proves it, **(e)** the first card.
 
-### 1. G2 — a cost cannot take a counter off — **both halves shipped**
+### 1. G2 — a cost cannot take a counter off — **shipped, and a third door with it**
 
 The entry below is what the audit proposed; what follows it is what was
 measured when the work was actually done, because three of the audit's numbers
@@ -349,8 +349,75 @@ counter on this land`) and pays for them with `{T}, Exile a creature you
 control`, so it wants an `Amount` that reads the source's counters and a
 `CostPart::Exile(filter)`.
 
-Devoted Druid (`PutCounterSelf` plus an activation limit, G10) is the other
-piece of G2 and is untouched.
+#### The third door: a counter *put on* as a cost (2026-09-16)
+
+**`CostPart::PutCounterSelf { kind, n }`** finishes the family, and it is a
+third rule rather than the second one read backwards. The three doors and
+their three answers, each read out of the rules rather than recalled:
+
+- counters a permanent **arrives** with → `replacement::put_counters`, and a
+  doubler applies (CR 614.1c);
+- a counter **removed** as a cost → `replacement::remove_counters`, and no
+  multiplier for a removal exists in Magic;
+- a counter **put on** as a cost → **`replacement::record_counters`**, doubled
+  by nothing at all. CR 614.16 gives a replacement reading "if an effect would
+  put one or more counters on a permanent" only the effects of resolving
+  spells and abilities and other replacement effects, and **paying a cost is
+  neither**. Doubling Season is this pool's only such replacement and prints
+  exactly that wording.
+
+The third is the one that would have been silently wrong, so it is the one
+with a card behind it: `card_tests::creatures::a_counter_paid_as_a_cost_is_not_doubled`
+pays Devoted Druid's cost with a Season on the battlefield and reads a -1/-1
+Druid, not a -2/-2 one.
+
+**`Effect::UntapSelf`** is the other half of the card, and it is not
+`UntapTarget` with a self-filter: CR 115.1c makes an activated ability
+targeted only when it says "target [something]", so an untap that says none
+has no target to walk. Writing the sibling found the **older** variant wrong
+in a quieter way — `Effect::UntapTarget` wrote the status bit in silence,
+while `GameEvent::ObjectUntapped` was journalled only by the untap step
+(`Cause::TurnBased`). Both now go through one `resolve::untap`, which
+journals `Cause::Effect` and does nothing to a permanent already untapped.
+No `BecomesUntapped` trigger exists in the DSL and no card in the pool prints
+one, so it was latent rather than live — which is exactly why the regression
+test is on Deserted Temple, the variant that was wrong, and not on the new
+one.
+
+**Devoted Druid is the card, and the transcoder writes all of it.** Two rules:
+`Cost$ AddCounter<n/KIND>` reads as `PutCounterSelf` through the same
+counter-noun table the `PutCounter` *effect* reads — written once so the two
+cannot come to disagree about what `M1M1` is — and `AB$ Untap` splits on
+whether the script names a `ValidTgts$` at all. The first is narrow
+(`AddCounter<1/M1M1>` appears eleven times in the corpus and none of the other
+ten is in this pool); the second was a **hole**, because every `AB$ Untap`
+with no valid-string had been reading as `UntapTarget`, which unties nothing.
+
+**What that cost must not reach is a planeswalker.** 413 corpus scripts print
+`Cost$ AddCounter<n/LOYALTY>`, and reading one as an ordinary activation would
+make a `+1` an ability anybody may use at instant speed as often as they like,
+where CR 606.3 allows it once a turn and only when a sorcery could be cast.
+Nothing in `cost_expr` knows that. What refuses those cards is
+`Planeswalker$ True`, which sits on every loyalty ability and is claimed by no
+rule — thin enough to be worth a tripwire, which is
+`scriptgen::tests::a_loyalty_cost_does_not_become_an_ordinary_counter_cost`:
+a rule that claims the key later has to answer the loyalty question in the
+same commit.
+
+**What is left of G2 is the activation limit (G10), and Devoted Druid never
+needed it** — its ability prints no limit. **Wall of Roots** is the card that
+does ("Activate only once each turn"), and it owes a second thing besides: its
+counter is `-0/-1`, and `M0M1` is not in `CounterKind`. That wants a
+rules-bearing variant rather than a `Custom` id, because CR 122.1a makes a
+-X/-Y counter subtract in layer 7c and the engine has to read it; a `Custom`
+id is a word on a badge and nothing else. Quirion Ranger and Scryb Ranger are
+the neighbouring untap-yourself cards and want `CostPart::ReturnToHand(filter)`.
+
+`Effect::UntapSelf`'s own reach in this pool is **three** cards: Devoted
+Druid, which plays, plus Basalt Monolith and Grim Monolith, which also print
+"doesn't untap during your untap step" and are now waiting on **G5 alone**.
+(Frantic Search, Restless Ridgeline and Song-Mad Treachery untap *something
+else* without targeting it — a different effect, not this one.)
 
 ### 2. G3 — no Surveil
 
@@ -501,7 +568,10 @@ step, it is still tapped; then a counter-check with a second permanent that
 does untap in the same step — without that counter-check the test only proves
 that the untap step did not run at all.
 **(e)** **Basalt Monolith**: the rule is the card's only special clause, and
-it needs neither a filter predicate nor a duration, only `DoesNotUntap`.
+it needs neither a filter predicate nor a duration, only `DoesNotUntap`. Its
+*other* clause shipped with G2 — `{3}: Untap this artifact` is
+`Effect::UntapSelf` — so Basalt Monolith and Grim Monolith are now waiting on
+this gap and nothing else.
 
 "New rule" — but a small one: the untap step is a place in the code, not a
 subsystem.

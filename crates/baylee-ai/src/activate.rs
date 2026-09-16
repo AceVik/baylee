@@ -123,6 +123,12 @@ fn consumes(cost: &Cost) -> bool {
             // and because the conservative answer to "can this repeat?" is
             // the one that does not hang the game.
             | CostPart::RemoveCounterSelfX { .. }
+            // A counter put **on** the source changes the source, so the
+            // next offer is built from a different board. The bound is the
+            // counter rather than the cost: Devoted Druid's -1/-1s reach its
+            // toughness and a state-based action takes it away, and Wall of
+            // Roots carries an activation limit beside it.
+            | CostPart::PutCounterSelf { .. }
             // A creature that paid is a creature that cannot pay again, and
             // it is the *board* that shrinks rather than the source — which
             // is the same limit, read one permanent over.

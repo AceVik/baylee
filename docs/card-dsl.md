@@ -366,7 +366,11 @@ express at all yet.
   `RemoveCounterSelf { kind, n }` (the Vivid lands, Tendo Ice Bridge),
   `RemoveCounterSelfX { kind }` (the storage lands: a number the player
   chooses as the ability is activated, bounded by the counters on the source
-  and allowed to be zero, which the effects read back as `Amount::X`).
+  and allowed to be zero, which the effects read back as `Amount::X`),
+  `PutCounterSelf { kind, n }` (Devoted Druid: a counter put *on* the source,
+  never refused — a permanent can always take one — and never doubled,
+  because CR 614.16 gives a counter-doubling replacement the effects of
+  resolving spells and abilities and not costs).
 
   A part with **named fields** keeps its braces —
   `cost!(TapSelf, RemoveCounterSelf { kind: CounterKind::Charge, n: 1 })` —
@@ -729,7 +733,10 @@ player lose life" is a `TargetReq` with a minimum of zero, "you may pay 2
 life" as a land enters is an `EnterModifier`, and "you may play those cards"
 is a permission with nothing to ask. `xtask validate` holds every card
 printing "you may" against that list and says which construct it accepted.
-Utility: `UntapTarget`, `NegXFixed` (amount), `CreateTokenCopyOfFirstToken`,
+Utility: `UntapTarget`, `UntapSelf` (the source, with no target and no
+question — CR 115.1c makes an activated ability targeted only when it says
+the word, so "untap this creature" is the second variant and not the first
+pointed at itself), `NegXFixed` (amount), `CreateTokenCopyOfFirstToken`,
 `BecomeMonarch`, `Sequence(&[..])`.
 Modal/sequence: `Sequence(&[..])`.
 

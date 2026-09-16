@@ -1320,6 +1320,10 @@ messages! {
     /// nobody has chosen yet. "Any number" is one of the two printed
     /// spellings and the friendlier one; the other is "Remove X".
     CostRemoveCountersX { en: "Remove any number of counters", de: "Entferne beliebig viele Marken" },
+    /// Put a counter on this
+    CostPutCounter { en: "Put a counter on this", de: "Lege eine Marke darauf" },
+    /// Put {0} counters on this
+    CostPutCounters { en: "Put {0} counters on this", de: "Lege {0} Marken darauf" },
     /// Rules text unavailable
     NoRulesTextHere { en: "Rules text unavailable", de: "Regeltext nicht verfügbar" },
 

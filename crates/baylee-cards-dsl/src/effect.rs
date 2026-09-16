@@ -479,6 +479,23 @@ pub enum Effect {
     TapTarget,
     /// Untap each target.
     UntapTarget,
+    /// Untap the source permanent, which names no target and asks nobody
+    /// anything (Basalt Monolith's `{3}: Untap this artifact`).
+    ///
+    /// Not [`Self::UntapTarget`] with a self-filter. "Untap this artifact"
+    /// is not a targeted ability — CR 115.1c makes an activated ability
+    /// targeted only when it says the phrase "target [something]" — so it
+    /// cannot be made illegal by hexproof or shroud, and — the difference a
+    /// player sees — is not asked about: a `TargetSpec` puts a
+    /// `Pending::ChooseTargets` with exactly one legal answer in front of
+    /// somebody.
+    ///
+    /// Three cards in this pool print it: Devoted Druid, which plays, and
+    /// Basalt Monolith and Grim Monolith, which also print "doesn't untap
+    /// during your untap step" and wait on G5. (Frantic Search, Restless
+    /// Ridgeline and Song-Mad Treachery untap *something else* without
+    /// targeting it, which is a different effect and not this one.)
+    UntapSelf,
     /// Exile each target; return it to the battlefield under its owner's
     /// control at the beginning of the next end step (Venser +2).
     ExileAndReturnAtEndStep,
