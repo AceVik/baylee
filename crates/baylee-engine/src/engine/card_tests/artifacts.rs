@@ -18,7 +18,7 @@ fn lightning_greaves_grants_both_keywords_to_what_it_is_attached_to() {
     let elves = on_battlefield(&engine, p0, llanowar_elves()).expect("elves deployed");
     let greaves = on_battlefield(&engine, p0, lightning_greaves()).expect("greaves deployed");
     assert!(
-        !keywords(&engine, elves).contains(baylee_cards_dsl::KeywordSet::HASTE),
+        !keywords(&engine, elves).contains(KeywordSet::HASTE),
         "nothing is equipped yet"
     );
 
@@ -48,15 +48,15 @@ fn lightning_greaves_grants_both_keywords_to_what_it_is_attached_to() {
     });
     let kw = keywords(&engine, elves);
     assert!(
-        kw.contains(baylee_cards_dsl::KeywordSet::HASTE),
+        kw.contains(KeywordSet::HASTE),
         "equipped creature has haste"
     );
     assert!(
-        kw.contains(baylee_cards_dsl::KeywordSet::SHROUD),
+        kw.contains(KeywordSet::SHROUD),
         "equipped creature has shroud"
     );
     assert!(
-        !keywords(&engine, greaves).contains(baylee_cards_dsl::KeywordSet::SHROUD),
+        !keywords(&engine, greaves).contains(KeywordSet::SHROUD),
         "the Equipment grants the keywords, it does not keep them"
     );
 }
@@ -171,11 +171,7 @@ fn panharmonicon_doubles_a_modal_trigger_and_each_copy_picks_its_own_mode() {
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
-    let hand_before = engine
-        .state()
-        .zones
-        .list(crate::zone::ZoneLocation::Hand(p0))
-        .len();
+    let hand_before = engine.state().zones.list(ZoneLocation::Hand(p0)).len();
     cast_from_hand(&mut engine, p0, aether_channeler());
     let tokens_before = tokens_of(&engine, p0).len();
 
@@ -189,7 +185,7 @@ fn panharmonicon_doubles_a_modal_trigger_and_each_copy_picks_its_own_mode() {
         };
         options
             .iter()
-            .position(|o| matches!(o.kind, crate::choice::CastModeKind::Mode(m) if m == mode))
+            .position(|o| matches!(o.kind, CastModeKind::Mode(m) if m == mode))
             .expect("the mode is offered")
     };
 
@@ -218,11 +214,7 @@ fn panharmonicon_doubles_a_modal_trigger_and_each_copy_picks_its_own_mode() {
         "one Bird, from the copy that chose the token mode",
     );
     assert_eq!(
-        engine
-            .state()
-            .zones
-            .list(crate::zone::ZoneLocation::Hand(p0))
-            .len(),
+        engine.state().zones.list(ZoneLocation::Hand(p0)).len(),
         hand_before,
         "the Channeler left the hand and the draw put one card back",
     );
@@ -277,7 +269,7 @@ fn stationing_a_creature_reads_the_power_it_still_has() {
         engine
             .state()
             .object(vessel)
-            .map(|o| o.counters.get(baylee_cards_dsl::CounterKind::Charge)),
+            .map(|o| o.counters.get(CounterKind::Charge)),
         Some(2),
         "the Raptor's power on the battlefield, counter and all",
     );
@@ -318,7 +310,7 @@ fn a_permanent_that_enters_under_a_static_grant_is_projected_against_it() {
             .expect("the Ring is an object")
             .characteristics()
             .keywords
-            .contains(baylee_cards_dsl::KeywordSet::INDESTRUCTIBLE),
+            .contains(KeywordSet::INDESTRUCTIBLE),
         "the Forge grants indestructible to artifacts that arrive after it too",
     );
 }
@@ -345,14 +337,14 @@ fn a_stationed_spacecraft_becomes_the_creature_it_prints() {
             .expect("the Vessel is an object")
             .characteristics()
             .types
-            .contains(baylee_core::types::TypeSet::CREATURE),
+            .contains(TypeSet::CREATURE),
         "an unstationed Spacecraft is no creature",
     );
 
     let state = engine
         .dev_state_mut(p0)
         .expect("the harness may set boards up");
-    crate::replacement::put_counters(state, vessel, baylee_cards_dsl::CounterKind::Charge, 8);
+    crate::replacement::put_counters(state, vessel, CounterKind::Charge, 8);
     assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
 
     assert!(
@@ -365,7 +357,7 @@ fn a_stationed_spacecraft_becomes_the_creature_it_prints() {
         .expect("the Vessel is an object")
         .characteristics();
     assert!(
-        chars.types.contains(baylee_core::types::TypeSet::CREATURE),
+        chars.types.contains(TypeSet::CREATURE),
         "at 8+ it is an artifact creature",
     );
     assert_eq!(
@@ -404,14 +396,11 @@ fn ashnods_altar_offers_nothing_while_a_cost_cannot_ask_which_creature() {
     let fodder = engine
         .state()
         .zones
-        .list(crate::zone::ZoneLocation::Battlefield)
+        .list(ZoneLocation::Battlefield)
         .iter()
         .filter(|id| {
             engine.state().object(**id).is_some_and(|o| {
-                o.controller == seat
-                    && o.characteristics()
-                        .types
-                        .contains(baylee_core::types::TypeSet::CREATURE)
+                o.controller == seat && o.characteristics().types.contains(TypeSet::CREATURE)
             })
         })
         .count();

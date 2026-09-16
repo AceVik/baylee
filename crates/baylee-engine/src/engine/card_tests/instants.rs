@@ -24,10 +24,7 @@ fn counterspell_counters_a_creature_spell() {
             .apply(p0, PlayerAction::ActivateManaAbility { source })
             .unwrap();
     }
-    let cleric = engine
-        .state()
-        .zones
-        .list(crate::zone::ZoneLocation::Hand(p0))[0];
+    let cleric = engine.state().zones.list(ZoneLocation::Hand(p0))[0];
     engine
         .apply(p0, PlayerAction::CastSpell { card: cleric })
         .unwrap();
@@ -43,10 +40,7 @@ fn counterspell_counters_a_creature_spell() {
             .apply(p1, PlayerAction::ActivateManaAbility { source })
             .unwrap();
     }
-    let cs = engine
-        .state()
-        .zones
-        .list(crate::zone::ZoneLocation::Hand(p1))[0];
+    let cs = engine.state().zones.list(ZoneLocation::Hand(p1))[0];
     engine
         .apply(p1, PlayerAction::CastSpell { card: cs })
         .unwrap();
@@ -66,7 +60,7 @@ fn counterspell_counters_a_creature_spell() {
     pass_until(&mut engine, |e| {
         e.state()
             .zones
-            .list(crate::zone::ZoneLocation::Graveyard(p0))
+            .list(ZoneLocation::Graveyard(p0))
             .iter()
             .any(|id| {
                 e.state()
@@ -129,10 +123,7 @@ fn an_offer_you_cant_refuse_pays_the_countered_spells_controller() {
     reach_main_phase(&mut engine, p0);
     engine.apply(p0, PlayerAction::PassPriority).unwrap();
     tap_all_mana(&mut engine, p1);
-    let ritual = engine
-        .state()
-        .zones
-        .list(crate::zone::ZoneLocation::Hand(p1))[0];
+    let ritual = engine.state().zones.list(ZoneLocation::Hand(p1))[0];
     engine
         .apply(p1, PlayerAction::CastSpell { card: ritual })
         .unwrap();
@@ -140,10 +131,7 @@ fn an_offer_you_cant_refuse_pays_the_countered_spells_controller() {
     // p0 answers that: tap the Island, counter the Ritual.
     engine.apply(p1, PlayerAction::PassPriority).unwrap();
     tap_all_mana(&mut engine, p0);
-    let offer = engine
-        .state()
-        .zones
-        .list(crate::zone::ZoneLocation::Hand(p0))[0];
+    let offer = engine.state().zones.list(ZoneLocation::Hand(p0))[0];
     engine
         .apply(p0, PlayerAction::CastSpell { card: offer })
         .unwrap();
@@ -163,7 +151,7 @@ fn an_offer_you_cant_refuse_pays_the_countered_spells_controller() {
     let treasures = |e: &Engine<RegistryLookup>, seat: PlayerId| {
         e.state()
             .zones
-            .list(crate::zone::ZoneLocation::Battlefield)
+            .list(ZoneLocation::Battlefield)
             .iter()
             .filter(|id| {
                 e.state()
@@ -303,7 +291,7 @@ fn path_to_exile_offers_the_ramp_to_the_creatures_controller() {
     // The removal half happened too, and on the right card.
     assert_eq!(
         engine.state().object(victim).map(|o| o.zone),
-        Some(crate::zone::Zone::Exile),
+        Some(Zone::Exile),
         "the creature is exiled, not destroyed"
     );
 
@@ -367,7 +355,7 @@ fn a_tutor_to_the_top_leaves_its_card_on_top() {
         engine
             .state()
             .zones
-            .list(crate::zone::ZoneLocation::Library(p0))
+            .list(ZoneLocation::Library(p0))
             .last()
             .copied(),
         Some(found),
@@ -397,10 +385,10 @@ fn an_instant_does_not_land_on_the_battlefield_under_mycosynth_lattice() {
     let lattice = on_battlefield(&engine, p0, mycosynth_lattice()).expect("lattice deployed");
     let land = on_battlefield(&engine, p0, island()).expect("island deployed");
     assert!(
-        types(&engine, land).intersects(baylee_core::types::TypeSet::ARTIFACT),
+        types(&engine, land).intersects(TypeSet::ARTIFACT),
         "a permanent still is an artifact — the card's own rules text"
     );
-    assert!(types(&engine, lattice).intersects(baylee_core::types::TypeSet::ARTIFACT));
+    assert!(types(&engine, lattice).intersects(TypeSet::ARTIFACT));
 
     let Pending::Priority { legal, .. } = engine.pending().clone() else {
         panic!("expected priority, got {:?}", engine.pending())
@@ -410,10 +398,7 @@ fn an_instant_does_not_land_on_the_battlefield_under_mycosynth_lattice() {
             .apply(p0, PlayerAction::ActivateManaAbility { source })
             .unwrap();
     }
-    let bolt = engine
-        .state()
-        .zones
-        .list(crate::zone::ZoneLocation::Hand(p0))[0];
+    let bolt = engine.state().zones.list(ZoneLocation::Hand(p0))[0];
     engine
         .apply(p0, PlayerAction::CastSpell { card: bolt })
         .unwrap();
@@ -422,16 +407,12 @@ fn an_instant_does_not_land_on_the_battlefield_under_mycosynth_lattice() {
     // a spell, and this is the reading `finalize_spell` goes on to make.
     engine.apply(p0, PlayerAction::PassPriority).unwrap();
     assert_eq!(
-        engine
-            .state()
-            .zones
-            .list(crate::zone::ZoneLocation::Stack)
-            .len(),
+        engine.state().zones.list(ZoneLocation::Stack).len(),
         1,
         "the spell should still be on the stack here"
     );
     assert!(
-        !types(&engine, bolt).intersects(baylee_core::types::TypeSet::ARTIFACT),
+        !types(&engine, bolt).intersects(TypeSet::ARTIFACT),
         "the Lattice reached the stack: an instant spell became an artifact spell"
     );
 
@@ -470,10 +451,7 @@ fn a_library_card_is_not_an_artifact_under_mycosynth_lattice() {
             .apply(p0, PlayerAction::ActivateManaAbility { source })
             .unwrap();
     }
-    let tutor = engine
-        .state()
-        .zones
-        .list(crate::zone::ZoneLocation::Hand(p0))[0];
+    let tutor = engine.state().zones.list(ZoneLocation::Hand(p0))[0];
     engine
         .apply(p0, PlayerAction::CastSpell { card: tutor })
         .unwrap();
@@ -492,16 +470,12 @@ fn a_library_card_is_not_an_artifact_under_mycosynth_lattice() {
     );
     let land = on_battlefield(&engine, p0, plains()).expect("plains deployed");
     assert!(
-        types(&engine, land).intersects(baylee_core::types::TypeSet::ARTIFACT),
+        types(&engine, land).intersects(TypeSet::ARTIFACT),
         "a permanent is still an artifact"
     );
-    for &id in engine
-        .state()
-        .zones
-        .list(crate::zone::ZoneLocation::Library(p0))
-    {
+    for &id in engine.state().zones.list(ZoneLocation::Library(p0)) {
         assert!(
-            !types(&engine, id).intersects(baylee_core::types::TypeSet::ARTIFACT),
+            !types(&engine, id).intersects(TypeSet::ARTIFACT),
             "a card in the library is not a permanent and gains nothing"
         );
     }

@@ -19,10 +19,7 @@ fn karn_minus_two_pulls_an_artifact_from_outside_the_game() {
         .start();
     keep_mulligans(&mut engine);
 
-    let library = engine
-        .state()
-        .zones
-        .list(crate::zone::ZoneLocation::Library(p0));
+    let library = engine.state().zones.list(ZoneLocation::Library(p0));
     assert!(
         !library.iter().any(|id| {
             engine
@@ -82,7 +79,7 @@ fn karn_minus_two_pulls_an_artifact_from_outside_the_game() {
         engine
             .state()
             .zones
-            .list(crate::zone::ZoneLocation::Hand(p0))
+            .list(ZoneLocation::Hand(p0))
             .contains(&wanted),
         "the wished-for card is in hand"
     );
@@ -143,7 +140,7 @@ fn karn_plus_one_animates_the_target_and_nothing_else() {
         engine
             .state()
             .zones
-            .list(crate::zone::ZoneLocation::Graveyard(p0))
+            .list(ZoneLocation::Graveyard(p0))
             .iter()
             .any(|id| {
                 engine
@@ -207,10 +204,7 @@ fn karn_minus_two_never_offers_the_library() {
     for id in &offered {
         let zone = engine.state().object(*id).map(|o| o.zone);
         assert!(
-            matches!(
-                zone,
-                Some(crate::zone::Zone::OutsideGame | crate::zone::Zone::Exile)
-            ),
+            matches!(zone, Some(Zone::OutsideGame | Zone::Exile)),
             "the wish offered a card in {zone:?}"
         );
     }
@@ -244,7 +238,7 @@ fn a_blinked_permanent_comes_back_untapped() {
             .object(land)
             .expect("the land is there")
             .status
-            .contains(crate::object::Status::TAPPED),
+            .contains(Status::TAPPED),
         "the land is tapped before the flicker",
     );
 
@@ -270,11 +264,8 @@ fn a_blinked_permanent_comes_back_untapped() {
     pass_until(&mut engine, |e| {
         e.state()
             .object(land)
-            .is_some_and(|o| o.zone == crate::zone::Zone::Battlefield)
-            && e.state()
-                .zones
-                .list(crate::zone::ZoneLocation::Stack)
-                .is_empty()
+            .is_some_and(|o| o.zone == Zone::Battlefield)
+            && e.state().zones.list(ZoneLocation::Stack).is_empty()
     });
     assert!(
         !engine
@@ -282,7 +273,7 @@ fn a_blinked_permanent_comes_back_untapped() {
             .object(land)
             .expect("the land came back")
             .status
-            .contains(crate::object::Status::TAPPED),
+            .contains(Status::TAPPED),
         "a permanent that changed zones is a new object and enters untapped",
     );
 }
@@ -317,7 +308,7 @@ fn jace_looks_at_a_targets_library_and_the_controller_decides() {
     let top_of_theirs = *engine
         .state()
         .zones
-        .list(crate::zone::ZoneLocation::Library(p1))
+        .list(ZoneLocation::Library(p1))
         .last()
         .expect("the opponent has a library");
 
@@ -372,7 +363,7 @@ fn jace_looks_at_a_targets_library_and_the_controller_decides() {
         engine
             .state()
             .zones
-            .list(crate::zone::ZoneLocation::Library(p1))
+            .list(ZoneLocation::Library(p1))
             .first()
             .copied(),
         Some(top_of_theirs),
@@ -423,7 +414,7 @@ fn an_ally_returning_at_the_end_step_still_rallies_the_board() {
             .object(guide)
             .expect("the guide is on the battlefield")
             .counters
-            .get(baylee_cards_dsl::CounterKind::P1P1),
+            .get(CounterKind::P1P1),
         0,
         "nothing has rallied yet"
     );
@@ -448,7 +439,7 @@ fn an_ally_returning_at_the_end_step_still_rallies_the_board() {
     pass_until(&mut engine, |e| {
         e.state()
             .object(guide)
-            .is_some_and(|o| o.zone == crate::zone::Zone::Exile)
+            .is_some_and(|o| o.zone == Zone::Exile)
     });
 
     // Then the end step brings it back, and everything the return sets off
@@ -456,11 +447,8 @@ fn an_ally_returning_at_the_end_step_still_rallies_the_board() {
     pass_until(&mut engine, |e| {
         e.state()
             .object(guide)
-            .is_some_and(|o| o.zone == crate::zone::Zone::Battlefield)
-            && e.state()
-                .zones
-                .list(crate::zone::ZoneLocation::Stack)
-                .is_empty()
+            .is_some_and(|o| o.zone == Zone::Battlefield)
+            && e.state().zones.list(ZoneLocation::Stack).is_empty()
             && matches!(e.pending(), Pending::Priority { .. })
     });
 
@@ -470,12 +458,12 @@ fn an_ally_returning_at_the_end_step_still_rallies_the_board() {
             .object(guide)
             .expect("the guide came back")
             .counters
-            .get(baylee_cards_dsl::CounterKind::P1P1),
+            .get(CounterKind::P1P1),
         1,
         "the Protestors' rally trigger did not see the Ally come back"
     );
     assert!(
-        keywords(&engine, guide).contains(baylee_cards_dsl::KeywordSet::HASTE),
+        keywords(&engine, guide).contains(KeywordSet::HASTE),
         "and the same trigger grants haste until end of turn"
     );
 }

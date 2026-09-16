@@ -27,8 +27,7 @@ fn tishanas_tidebinder_strips_the_permanent_whose_ability_it_countered() {
     let (engine, _p0, _p1, strix) = a_strix_the_tidebinder_answered();
     let keywords = keywords_of(&engine, strix);
     assert!(
-        !keywords.contains(baylee_cards_dsl::KeywordSet::FLYING)
-            && !keywords.contains(baylee_cards_dsl::KeywordSet::DEATHTOUCH),
+        !keywords.contains(KeywordSet::FLYING) && !keywords.contains(KeywordSet::DEATHTOUCH),
         "the strix kept {keywords:?} after its ability was countered"
     );
     assert!(
@@ -56,7 +55,7 @@ fn a_modal_trigger_offers_every_mode_it_can_legally_choose() {
     let modes: Vec<usize> = options
         .iter()
         .filter_map(|o| match o.kind {
-            crate::choice::CastModeKind::Mode(m) => Some(m),
+            CastModeKind::Mode(m) => Some(m),
             _ => None,
         })
         .collect();
@@ -85,7 +84,7 @@ fn a_modal_trigger_resolves_the_mode_that_was_chosen() {
             .expect("the token exists")
             .characteristics()
             .keywords
-            .contains(baylee_cards_dsl::KeywordSet::FLYING),
+            .contains(KeywordSet::FLYING),
         "a 1/1 white Bird with flying",
     );
 }
@@ -140,7 +139,7 @@ fn a_mode_with_no_legal_target_is_not_offered() {
     let modes: Vec<usize> = options
         .iter()
         .filter_map(|o| match o.kind {
-            crate::choice::CastModeKind::Mode(m) => Some(m),
+            CastModeKind::Mode(m) => Some(m),
             _ => None,
         })
         .collect();
@@ -207,7 +206,7 @@ fn hagra_diabolist_drains_the_player_it_named() {
     let allies = engine
         .state()
         .zones
-        .list(crate::zone::ZoneLocation::Battlefield)
+        .list(ZoneLocation::Battlefield)
         .iter()
         .filter(|id| {
             engine.state().object(**id).is_some_and(|o| {

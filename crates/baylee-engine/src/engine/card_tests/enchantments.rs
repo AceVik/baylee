@@ -31,10 +31,7 @@ fn storm_of_saruman_copies_only_the_second_spell() {
     }
 
     // First spell: no trigger, so it simply resolves and exiles the cleric.
-    let first = engine
-        .state()
-        .zones
-        .list(crate::zone::ZoneLocation::Hand(p0))[0];
+    let first = engine.state().zones.list(ZoneLocation::Hand(p0))[0];
     engine
         .apply(p0, PlayerAction::CastSpell { card: first })
         .unwrap();
@@ -57,10 +54,7 @@ fn storm_of_saruman_copies_only_the_second_spell() {
     });
 
     // Second spell: the trigger copies it, and the copy may be retargeted.
-    let second = engine
-        .state()
-        .zones
-        .list(crate::zone::ZoneLocation::Hand(p0))[0];
+    let second = engine.state().zones.list(ZoneLocation::Hand(p0))[0];
     engine
         .apply(p0, PlayerAction::CastSpell { card: second })
         .unwrap();
@@ -120,11 +114,7 @@ fn a_class_can_be_levelled_and_the_level_up_resolves() {
 
     let class = on_battlefield(&engine, p0, wizard_class()).expect("the Class is on the table");
     tap_mana_except(&mut engine, p0, class);
-    let before = engine
-        .state()
-        .zones
-        .list(crate::zone::ZoneLocation::Hand(p0))
-        .len();
+    let before = engine.state().zones.list(ZoneLocation::Hand(p0)).len();
 
     engine
         .apply(
@@ -143,16 +133,12 @@ fn a_class_can_be_levelled_and_the_level_up_resolves() {
             .object(class)
             .expect("the Class survived its own ability")
             .counters
-            .get(baylee_cards_dsl::CounterKind::Level),
+            .get(CounterKind::Level),
         1,
         "one level counter, so the Class is level 2"
     );
     assert_eq!(
-        engine
-            .state()
-            .zones
-            .list(crate::zone::ZoneLocation::Hand(p0))
-            .len(),
+        engine.state().zones.list(ZoneLocation::Hand(p0)).len(),
         before + 2,
         "becoming level 2 drew two cards"
     );
@@ -179,7 +165,7 @@ fn an_optional_clause_inside_a_condition_is_offered_once_and_taken_once() {
         matches!(
             e.pending(),
             Pending::YesNo {
-                prompt: crate::choice::YesNoPrompt::MayDo,
+                prompt: YesNoPrompt::MayDo,
                 ..
             }
         )

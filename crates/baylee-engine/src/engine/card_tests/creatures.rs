@@ -26,10 +26,7 @@ fn earth_king_s_lieutenant_etb_counters_other_allies() {
             .apply(p0, PlayerAction::ActivateManaAbility { source })
             .unwrap();
     }
-    let lieutenant = engine
-        .state()
-        .zones
-        .list(crate::zone::ZoneLocation::Hand(p0))[0];
+    let lieutenant = engine.state().zones.list(ZoneLocation::Hand(p0))[0];
     engine
         .apply(p0, PlayerAction::CastSpell { card: lieutenant })
         .unwrap();
@@ -67,10 +64,7 @@ fn jin_gitaxias_copy_may_be_given_a_new_target() {
             .apply(p0, PlayerAction::ActivateManaAbility { source })
             .unwrap();
     }
-    let swords = engine
-        .state()
-        .zones
-        .list(crate::zone::ZoneLocation::Hand(p0))[0];
+    let swords = engine.state().zones.list(ZoneLocation::Hand(p0))[0];
     engine
         .apply(p0, PlayerAction::CastSpell { card: swords })
         .unwrap();
@@ -172,7 +166,7 @@ fn a_granted_mana_ability_is_activatable_the_way_it_is_offered() {
             .object(guide)
             .expect("the guide is still there")
             .status
-            .contains(crate::object::Status::TAPPED),
+            .contains(Status::TAPPED),
         "paying {{T}} left it tapped"
     );
     let pool = &engine.state().players[0].mana_pool;
@@ -292,8 +286,7 @@ fn the_strix_takes_its_keywords_back_when_the_tidebinder_leaves() {
 
     let keywords = keywords_of(&engine, strix);
     assert!(
-        keywords.contains(baylee_cards_dsl::KeywordSet::FLYING)
-            && keywords.contains(baylee_cards_dsl::KeywordSet::DEATHTOUCH),
+        keywords.contains(KeywordSet::FLYING) && keywords.contains(KeywordSet::DEATHTOUCH),
         "the tidebinder is gone and the strix is still stripped: {keywords:?}"
     );
 }
@@ -356,10 +349,7 @@ fn a_rally_trigger_fires_once_for_every_ally_that_entered() {
     assert_eq!(tokens.len(), 3, "one Ally per tapped artifact");
     // Let the three rally triggers resolve.
     pass_until(&mut engine, |e| {
-        e.state()
-            .zones
-            .list(crate::zone::ZoneLocation::Stack)
-            .is_empty()
+        e.state().zones.list(ZoneLocation::Stack).is_empty()
             && matches!(e.pending(), Pending::Priority { .. })
     });
 
@@ -369,12 +359,12 @@ fn a_rally_trigger_fires_once_for_every_ally_that_entered() {
             .object(token)
             .expect("the token is still here");
         assert_eq!(
-            obj.counters.get(baylee_cards_dsl::CounterKind::P1P1),
+            obj.counters.get(CounterKind::P1P1),
             1,
             "token {n} was answered exactly once"
         );
         assert!(
-            keywords(&engine, token).contains(baylee_cards_dsl::KeywordSet::HASTE),
+            keywords(&engine, token).contains(KeywordSet::HASTE),
             "token {n} gained haste"
         );
     }
@@ -386,7 +376,7 @@ fn a_rally_trigger_fires_once_for_every_ally_that_entered() {
             .object(protestors)
             .expect("the source is on the battlefield")
             .counters
-            .get(baylee_cards_dsl::CounterKind::P1P1),
+            .get(CounterKind::P1P1),
         0,
         "the trigger says `another Ally`",
     );
@@ -409,11 +399,7 @@ fn ertais_chosen_mode_destroys_and_lets_its_victim_draw() {
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
     let elves = on_battlefield(&engine, p1, quiet_creature()).expect("the opponent's creature");
-    let hand_before = engine
-        .state()
-        .zones
-        .list(crate::zone::ZoneLocation::Hand(p1))
-        .len();
+    let hand_before = engine.state().zones.list(ZoneLocation::Hand(p1)).len();
     cast_from_hand(&mut engine, p0, ertai_resurrected());
     pass_until(&mut engine, |e| {
         matches!(e.pending(), Pending::ChooseCastMode { .. })
@@ -430,7 +416,7 @@ fn ertais_chosen_mode_destroys_and_lets_its_victim_draw() {
     let modes: Vec<usize> = options
         .iter()
         .filter_map(|o| match o.kind {
-            crate::choice::CastModeKind::Mode(m) => Some(m),
+            CastModeKind::Mode(m) => Some(m),
             _ => None,
         })
         .collect();
@@ -469,11 +455,7 @@ fn ertais_chosen_mode_destroys_and_lets_its_victim_draw() {
         "the targeted creature was destroyed",
     );
     assert_eq!(
-        engine
-            .state()
-            .zones
-            .list(crate::zone::ZoneLocation::Hand(p1))
-            .len(),
+        engine.state().zones.list(ZoneLocation::Hand(p1)).len(),
         hand_before + 1,
         "\"its controller draws a card\" — the *target's* controller, not \
          Ertai's; `PlayerRel::ControllerOfTarget` has never resolved for a \
@@ -653,7 +635,7 @@ fn answering_a_granted_triggers_target_takes_only_itself_off_the_queue() {
         engine
             .state()
             .object(elves)
-            .map(|o| o.counters.get(baylee_cards_dsl::CounterKind::P1P1)),
+            .map(|o| o.counters.get(CounterKind::P1P1)),
         Some(1),
         "the granted trigger put its own counter down",
     );
@@ -737,7 +719,7 @@ fn primaris_eliminators_hyperfrag_shrinks_only_the_player_it_named() {
     };
     let hyperfrag = options
         .iter()
-        .position(|o| matches!(o.kind, crate::choice::CastModeKind::Mode(1)))
+        .position(|o| matches!(o.kind, CastModeKind::Mode(1)))
         .expect("the Hyperfrag Round is offered");
     engine
         .apply(p0, PlayerAction::ChooseMode(hyperfrag))
@@ -793,11 +775,7 @@ fn halimar_excavator_mills_the_player_it_targeted() {
         .start();
     keep_mulligans(&mut engine);
     assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
-    let graveyard_before = engine
-        .state()
-        .zones
-        .list(crate::zone::ZoneLocation::Graveyard(p0))
-        .len();
+    let graveyard_before = engine.state().zones.list(ZoneLocation::Graveyard(p0)).len();
 
     cast_from_hand(&mut engine, p0, halimar_excavator());
     pass_until(&mut engine, |e| {
@@ -830,11 +808,7 @@ fn halimar_excavator_mills_the_player_it_targeted() {
     pass_until(&mut engine, stack_is_empty);
 
     assert_eq!(
-        engine
-            .state()
-            .zones
-            .list(crate::zone::ZoneLocation::Graveyard(p0))
-            .len(),
+        engine.state().zones.list(ZoneLocation::Graveyard(p0)).len(),
         graveyard_before + 1,
         "one Ally on the battlefield, so the player it named mills one card",
     );
@@ -875,16 +849,8 @@ fn vendilion_clique_may_be_pointed_at_its_own_controller() {
     assert!(player_options.contains(&p1), "and so is the opponent");
     assert_eq!(min, 1, "the trigger is not optional; the card choice is");
 
-    let hand_before = engine
-        .state()
-        .zones
-        .list(crate::zone::ZoneLocation::Hand(p0))
-        .len();
-    let library_before = engine
-        .state()
-        .zones
-        .list(crate::zone::ZoneLocation::Library(p0))
-        .len();
+    let hand_before = engine.state().zones.list(ZoneLocation::Hand(p0)).len();
+    let library_before = engine.state().zones.list(ZoneLocation::Library(p0)).len();
     engine
         .apply(
             p0,
@@ -927,20 +893,12 @@ fn vendilion_clique_may_be_pointed_at_its_own_controller() {
     // the opponent, who used to be the only seat this could reach, is
     // untouched.
     assert_eq!(
-        engine
-            .state()
-            .zones
-            .list(crate::zone::ZoneLocation::Hand(p0))
-            .len(),
+        engine.state().zones.list(ZoneLocation::Hand(p0)).len(),
         hand_before,
         "bottomed one and drew one",
     );
     assert_eq!(
-        engine
-            .state()
-            .zones
-            .list(crate::zone::ZoneLocation::Library(p0))
-            .len(),
+        engine.state().zones.list(ZoneLocation::Library(p0)).len(),
         library_before,
         "the card went under the library the draw came off",
     );
@@ -969,16 +927,8 @@ fn loran_draws_for_the_one_opponent_she_named() {
         .find(|(id, _)| *id == loran)
         .expect("Loran's tap ability is offered");
     let (hand0, hand1) = (
-        engine
-            .state()
-            .zones
-            .list(crate::zone::ZoneLocation::Hand(p0))
-            .len(),
-        engine
-            .state()
-            .zones
-            .list(crate::zone::ZoneLocation::Hand(p1))
-            .len(),
+        engine.state().zones.list(ZoneLocation::Hand(p0)).len(),
+        engine.state().zones.list(ZoneLocation::Hand(p1)).len(),
     );
     engine
         .apply(
@@ -1017,20 +967,12 @@ fn loran_draws_for_the_one_opponent_she_named() {
         .unwrap();
     pass_until(&mut engine, stack_is_empty);
     assert_eq!(
-        engine
-            .state()
-            .zones
-            .list(crate::zone::ZoneLocation::Hand(p0))
-            .len(),
+        engine.state().zones.list(ZoneLocation::Hand(p0)).len(),
         hand0 + 1,
         "you draw",
     );
     assert_eq!(
-        engine
-            .state()
-            .zones
-            .list(crate::zone::ZoneLocation::Hand(p1))
-            .len(),
+        engine.state().zones.list(ZoneLocation::Hand(p1)).len(),
         hand1 + 1,
         "and so does the opponent you named",
     );

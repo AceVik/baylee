@@ -22,7 +22,7 @@ fn an_enters_trigger_can_burn_target_opponent_but_never_its_controller() {
     let land = engine
         .state()
         .zones
-        .list(crate::zone::ZoneLocation::Hand(p0))
+        .list(ZoneLocation::Hand(p0))
         .iter()
         .copied()
         .find(|id| {
@@ -177,7 +177,7 @@ fn an_animated_land_becomes_a_creature_and_stays_a_land() {
             .expect("village exists")
             .characteristics()
             .keywords
-            .contains(baylee_cards_dsl::KeywordSet::TRAMPLE),
+            .contains(KeywordSet::TRAMPLE),
         "with trample"
     );
 }
@@ -221,7 +221,7 @@ fn rogue_s_passage_takes_its_target_out_of_the_blockers_offer() {
             && matches!(e.state().turn.phase, Phase::FirstMain)
     });
     assert!(
-        !keywords(&engine, elves).contains(baylee_cards_dsl::KeywordSet::UNBLOCKABLE),
+        !keywords(&engine, elves).contains(KeywordSet::UNBLOCKABLE),
         "nothing has been activated yet"
     );
 
@@ -242,10 +242,10 @@ fn rogue_s_passage_takes_its_target_out_of_the_blockers_offer() {
         )
         .unwrap();
     pass_until(&mut engine, |e| {
-        keywords(e, elves).contains(baylee_cards_dsl::KeywordSet::UNBLOCKABLE)
+        keywords(e, elves).contains(KeywordSet::UNBLOCKABLE)
     });
     assert!(
-        !keywords(&engine, cleric).contains(baylee_cards_dsl::KeywordSet::UNBLOCKABLE),
+        !keywords(&engine, cleric).contains(KeywordSet::UNBLOCKABLE),
         "the grant names the target and nothing else"
     );
 
@@ -257,8 +257,8 @@ fn rogue_s_passage_takes_its_target_out_of_the_blockers_offer() {
             p0,
             PlayerAction::DeclareAttackers {
                 attackers: vec![
-                    (elves, baylee_core::ids::Defender::Player(p1)),
-                    (cleric, baylee_core::ids::Defender::Player(p1)),
+                    (elves, Defender::Player(p1)),
+                    (cleric, Defender::Player(p1)),
                 ],
             },
         )
@@ -675,21 +675,13 @@ fn bojuka_bog_exiles_only_the_graveyard_it_targeted() {
 
     seed_graveyard(&mut engine, p0, 3);
     seed_graveyard(&mut engine, p1, 3);
-    let mine_before = engine
-        .state()
-        .zones
-        .list(crate::zone::ZoneLocation::Graveyard(p0))
-        .len();
+    let mine_before = engine.state().zones.list(ZoneLocation::Graveyard(p0)).len();
     assert_eq!(
         mine_before, 3,
         "both graveyards start with something in them"
     );
     assert_eq!(
-        engine
-            .state()
-            .zones
-            .list(crate::zone::ZoneLocation::Graveyard(p1))
-            .len(),
+        engine.state().zones.list(ZoneLocation::Graveyard(p1)).len(),
         3
     );
 
@@ -729,26 +721,15 @@ fn bojuka_bog_exiles_only_the_graveyard_it_targeted() {
         .expect("the bog points at the opponent");
 
     pass_until(&mut engine, |e| {
-        e.state()
-            .zones
-            .list(crate::zone::ZoneLocation::Graveyard(p1))
-            .is_empty()
+        e.state().zones.list(ZoneLocation::Graveyard(p1)).is_empty()
     });
     assert_eq!(
-        engine
-            .state()
-            .zones
-            .list(crate::zone::ZoneLocation::Exile(p1))
-            .len(),
+        engine.state().zones.list(ZoneLocation::Exile(p1)).len(),
         3,
         "the cards are exiled, not merely gone"
     );
     assert_eq!(
-        engine
-            .state()
-            .zones
-            .list(crate::zone::ZoneLocation::Graveyard(p0))
-            .len(),
+        engine.state().zones.list(ZoneLocation::Graveyard(p0)).len(),
         mine_before,
         "one graveyard was named and only that one is emptied"
     );
@@ -800,9 +781,9 @@ fn a_fetched_battle_land_counts_the_basics_it_finds() {
         .unwrap();
 
     let obj = engine.state().object(found).expect("the land arrived");
-    assert_eq!(obj.zone, crate::zone::Zone::Battlefield);
+    assert_eq!(obj.zone, Zone::Battlefield);
     assert!(
-        obj.status.contains(crate::object::Status::TAPPED),
+        obj.status.contains(Status::TAPPED),
         "one Plains is not two basic lands"
     );
 }
