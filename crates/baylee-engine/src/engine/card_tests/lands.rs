@@ -2878,3 +2878,309 @@ fn the_storage_cycle_spends_its_counter_for_the_colour_it_prints() {
         assert_eq!(counters_on(&engine, *land, counters::STORAGE), 0);
     }
 }
+
+// oracle_id = "2031bc31-81cc-407a-8615-29832f586bbc"
+fn calciform_pools() -> CardIndex {
+    card_index("2031bc31-81cc-407a-8615-29832f586bbc")
+}
+
+// oracle_id = "130a8cf5-1354-4d17-91c8-c073642eb3db"
+fn dreadship_reef() -> CardIndex {
+    card_index("130a8cf5-1354-4d17-91c8-c073642eb3db")
+}
+
+// oracle_id = "6f18ea44-3efa-4a45-abc6-86a0627e40f2"
+fn fungal_reaches() -> CardIndex {
+    card_index("6f18ea44-3efa-4a45-abc6-86a0627e40f2")
+}
+
+// oracle_id = "33587cb2-0fd3-4e4c-bc5e-e7299cc9dab5"
+fn molten_slagheap() -> CardIndex {
+    card_index("33587cb2-0fd3-4e4c-bc5e-e7299cc9dab5")
+}
+
+// oracle_id = "021e4165-2f02-4bd4-86ca-cb7bf4c9e23d"
+fn saltcrusted_steppe() -> CardIndex {
+    card_index("021e4165-2f02-4bd4-86ca-cb7bf4c9e23d")
+}
+
+// oracle_id = "d98b4250-3492-4864-9c4c-42db09b3ccd4"
+fn cascading_cataracts() -> CardIndex {
+    card_index("d98b4250-3492-4864-9c4c-42db09b3ccd4")
+}
+
+/// Calciform Pools: `{1}, Remove X storage counters from this land: Add X
+/// mana in any combination of {W} and/or {U}.`
+///
+/// The Mercadian Masques cycle pays a tap and pours one colour; this one
+/// pays **mana instead of the tap** and pours a *combination*, and each of
+/// those is a thing no test has held yet.
+///
+/// - **No `{T}` in the cost.** The land is tapped for the whole of this
+///   test — it spent its tap banking the counter — and spends them anyway,
+///   in the same turn it banked the second one. A cost read as "the
+///   announcement plus a tap" would refuse every activation here.
+/// - **A pick per mana**, which the rules have no number for: "in any
+///   combination" appears nowhere in the Comprehensive Rules, so it is card
+///   text and the choices are made while the effect is applied like any
+///   other (CR 608.2d). `combination: true` is where that lives here. Two
+///   counters ask *twice*, not once, and the two answers may differ — which
+///   is the whole difference from Harabaz Druid's "add X mana of any one
+///   color", one pick for the whole amount. The assertion that catches a
+///   reader confusing them is that the pool ends with one white *and* one
+///   blue: one pick for both would make two of whichever was named.
+/// - **The options are the card's own two colours**, which is where the
+///   reader is struck. `colors_of` hands `ManaSource::Choice` straight back,
+///   so `Pending::ChooseColor.options` is the list `landgen` emitted.
+#[test]
+fn a_storage_land_that_pays_mana_pours_its_counters_into_two_colours() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(911, forest())
+        .battlefield(0, &[calciform_pools(), forest(), forest(), forest()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let pools = on_battlefield(&engine, p0, calciform_pools()).expect("the land is on the table");
+
+    // Two turns of `{1}, {T}: Put a storage counter on this land.`
+    for banked in 1..=2u16 {
+        if banked > 1 {
+            cross_into_the_next_own_main(&mut engine, p0);
+        }
+        tap_mana_except(&mut engine, p0, pools);
+        store_a_counter(&mut engine, p0, pools, 1);
+        assert_eq!(counters_on(&engine, pools, counters::STORAGE), banked);
+        assert!(
+            is_tapped(&engine, pools),
+            "which is what its `{{T}}` pays for"
+        );
+    }
+
+    // The same turn the second counter was banked in, with the land tapped.
+    assert_eq!(
+        spend_storage(&mut engine, p0, pools, 2, 2),
+        (0, 2),
+        "two counters banked, two announceable — and the tap the banking \
+         line spent is not part of this cost"
+    );
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Green),
+        1,
+        "three Forests paid two {{1}}s, and the third is still floating"
+    );
+
+    // Two picks, and they may differ.
+    let Pending::ChooseColor { options, .. } = engine.pending().clone() else {
+        panic!("a combination asks a colour: {:?}", engine.pending())
+    };
+    assert_eq!(
+        options,
+        vec![ManaColor::White, ManaColor::Blue],
+        "and the colours offered are the two the card prints, in its order"
+    );
+    engine
+        .apply(p0, PlayerAction::ChooseColor(ManaColor::White))
+        .expect("a colour the engine offered");
+    let Pending::ChooseColor { options, .. } = engine.pending().clone() else {
+        panic!(
+            "`in any combination` is one pick per mana, so the second is \
+             still to come: {:?}",
+            engine.pending()
+        )
+    };
+    assert_eq!(options, vec![ManaColor::White, ManaColor::Blue]);
+    engine
+        .apply(p0, PlayerAction::ChooseColor(ManaColor::Blue))
+        .expect("and the second answer need not be the first");
+
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(
+        (
+            pool.available(ManaColor::White),
+            pool.available(ManaColor::Blue)
+        ),
+        (1, 1),
+        "one of each: a reader that took this for `any one color` would \
+         have made two of whichever was named first"
+    );
+    assert_eq!(counters_on(&engine, pools, counters::STORAGE), 0);
+}
+
+/// Cascading Cataracts: `{5}, {T}: Add five mana in any combination of
+/// colors.`
+///
+/// The fixed-number form of the same sentence, and the one that says the
+/// number is not the counter-X machinery wearing a hat: nothing announces
+/// anything here, the cost has no counter in it at all, and five picks still
+/// come out — `Amount::Fixed(5)` with `combination: true`.
+///
+/// Five colours offered rather than two, which is the other half of the
+/// reading: `ALL_MANA_COLORS` against the `and/or` pair above.
+#[test]
+fn cascading_cataracts_asks_five_times_and_offers_every_colour() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(913, forest())
+        .battlefield(
+            0,
+            &[
+                cascading_cataracts(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+            ],
+        )
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let land =
+        on_battlefield(&engine, p0, cascading_cataracts()).expect("the land is on the table");
+
+    tap_mana_except(&mut engine, p0, land);
+    engine
+        .apply(
+            p0,
+            PlayerAction::ActivateAbility {
+                source: land,
+                ability_index: 1,
+            },
+        )
+        .expect("five Forests pay the {5}");
+    assert!(
+        matches!(engine.pending(), Pending::ChooseColor { .. }),
+        "no counter is announced here, so the colour is the first question: \
+         {:?}",
+        engine.pending()
+    );
+
+    for (i, color) in [
+        ManaColor::White,
+        ManaColor::Blue,
+        ManaColor::Black,
+        ManaColor::Red,
+        ManaColor::Green,
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        let Pending::ChooseColor { options, .. } = engine.pending().clone() else {
+            panic!("pick {i} of five: {:?}", engine.pending())
+        };
+        assert_eq!(
+            options.len(),
+            5,
+            "pick {i}: `any combination of colors` is all five, every time"
+        );
+        engine
+            .apply(p0, PlayerAction::ChooseColor(color))
+            .expect("a colour the engine offered");
+    }
+
+    assert!(
+        matches!(engine.pending(), Pending::Priority { .. }),
+        "five picks and no sixth: {:?}",
+        engine.pending()
+    );
+    let pool = &engine.state().players[0].mana_pool;
+    for color in [
+        ManaColor::White,
+        ManaColor::Blue,
+        ManaColor::Black,
+        ManaColor::Red,
+        ManaColor::Green,
+    ] {
+        assert_eq!(
+            pool.available(color),
+            1,
+            "five mana, one of each, which is what five separate picks buys"
+        );
+    }
+}
+
+/// The five Time Spiral storage lands, which print one text with one pair of
+/// symbols changed.
+///
+/// The engine sees `Effect::mana_combination(&[_, _], Amount::X)` five times
+/// and cannot tell a right pair from a wrong one; `Pending::ChooseColor`'s
+/// options are `landgen`'s emitted list handed straight back, so this is the
+/// reader on trial. Two lands sharing a pair, or all five reading the first
+/// one, fails here.
+#[test]
+fn the_time_spiral_storage_cycle_offers_the_pair_each_land_prints() {
+    let p0 = PlayerId::new(0);
+    let cycle = [
+        (calciform_pools(), [ManaColor::White, ManaColor::Blue]),
+        (dreadship_reef(), [ManaColor::Blue, ManaColor::Black]),
+        (molten_slagheap(), [ManaColor::Black, ManaColor::Red]),
+        (fungal_reaches(), [ManaColor::Red, ManaColor::Green]),
+        (saltcrusted_steppe(), [ManaColor::Green, ManaColor::White]),
+    ];
+    let mut board: Vec<CardIndex> = cycle.iter().map(|(card, _)| *card).collect();
+    board.extend(std::iter::repeat_n(forest(), 5));
+    let mut engine = Duel::new(917, forest()).battlefield(0, &board).start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let lands: Vec<ObjectId> = cycle
+        .iter()
+        .map(|(card, _)| on_battlefield(&engine, p0, *card).expect("the land is on the table"))
+        .collect();
+
+    // Five Forests bank five counters, one per land.
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    for source in legal.mana_abilities.clone() {
+        engine
+            .apply(p0, PlayerAction::ActivateManaAbility { source })
+            .unwrap();
+    }
+    for land in &lands {
+        store_a_counter(&mut engine, p0, *land, 1);
+        assert_eq!(counters_on(&engine, *land, counters::STORAGE), 1);
+    }
+
+    // And the next turn spends them, five more Forests paying the five {1}s.
+    cross_into_the_next_own_main(&mut engine, p0);
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    for source in legal.mana_abilities.clone() {
+        engine
+            .apply(p0, PlayerAction::ActivateManaAbility { source })
+            .unwrap();
+    }
+    for (land, (_, pair)) in lands.iter().zip(cycle) {
+        assert_eq!(
+            spend_storage(&mut engine, p0, *land, 2, 1),
+            (0, 1),
+            "one counter each, so one is each land's bound"
+        );
+        let Pending::ChooseColor { options, .. } = engine.pending().clone() else {
+            panic!("one counter buys one pick: {:?}", engine.pending())
+        };
+        assert_eq!(
+            options,
+            pair.to_vec(),
+            "each land offers the pair it prints and no other"
+        );
+        // The delta and not the total, because the `{1}` of the *next*
+        // activation is paid out of the same pool and may well be paid with
+        // the mana this one just made — which is a legal thing for a player
+        // to do and would make a sweep at the end read the wrong number for
+        // a reason that has nothing to do with the cycle.
+        let before = engine.state().players[0].mana_pool.available(pair[1]);
+        engine
+            .apply(p0, PlayerAction::ChooseColor(pair[1]))
+            .expect("a colour the engine offered");
+        assert_eq!(
+            engine.state().players[0].mana_pool.available(pair[1]),
+            before + 1,
+            "one counter, one mana, of the colour that was picked"
+        );
+        assert_eq!(counters_on(&engine, *land, counters::STORAGE), 0);
+    }
+}

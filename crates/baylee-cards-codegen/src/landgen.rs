@@ -142,10 +142,66 @@ fn strip_reminders(line: &str) -> String {
 }
 
 /// `"Add {G} or {W}"` → the `Effect` expressions it produces.
-fn parse_add(rest: &str) -> Option<Vec<String>> {
+///
+/// `announced` is the counter the cost beside this asked for a *number* of,
+/// which one of these sentences needs: "Add X mana …" reads that number back
+/// as `Amount::X`, and with nothing announced `Amount::X` evaluates to nought
+/// — a land that taps for nothing while its file claims otherwise.
+fn parse_add(rest: &str, announced: Option<&'static str>) -> Option<Vec<String>> {
     let rest = rest.trim();
     if rest == "one mana of any color" {
         return Some(vec!["Effect::mana_of_any_color()".to_string()]);
+    }
+    // "X mana in any combination of {W} and/or {U}" (the five Time Spiral
+    // storage lands) and "five mana in any combination of colors"
+    // (Cascading Cataracts, Great Hall of the Citadel, Baxter Building).
+    //
+    // **"In any combination" is a pick per mana**, which is the whole of
+    // what distinguishes this from `mana_choice_dynamic`: Harabaz Druid's
+    // "add X mana of any one color" asks once for the whole amount, and a
+    // card read with the wrong one of the two lets a player make {W}{U}{B}
+    // where the card says three of one colour, or the reverse. The engine
+    // has carried the difference since Mystic Gate — `combination: true`
+    // splits the amount into `n` picks of one in `resolve::mana::add_mana`
+    // — so this rule adds a reading and no rule at all.
+    //
+    // Nine cards in the pool print the phrase and this reads **all nine
+    // sentences** — measured one at a time, not assumed. Six of the cards
+    // come out; the other three refuse on a clause that is not this one
+    // ("Spend this mana only to …" twice, an `Activate only if` condition
+    // once), which is the honesty rule holding a card back over a sentence
+    // this reader never claimed.
+    if let Some((head, tail)) = rest.split_once(" mana in any combination of ") {
+        let amount = if head == "X" {
+            // The cost has to have asked for a number. Nothing in the pool
+            // prints "Add X mana" beside a cost that announces none, and a
+            // card that did would tap for nought — so it refuses instead.
+            announced?;
+            "Amount::X".to_string()
+        } else {
+            format!("Amount::Fixed({})", number(head)?)
+        };
+        let colors = if tail == "colors" {
+            "ALL_MANA_COLORS".to_string()
+        } else {
+            // "{W} and/or {U}". A three-colour spelling would be
+            // "{W}, {U}, and/or {B}", which this split leaves with a comma
+            // in the first half and `symbols` then refuses — no card in the
+            // pool prints one, and inventing the reading would be a filter
+            // nobody wrote.
+            let mut out = Vec::new();
+            for alt in tail.split(" and/or ") {
+                let syms = symbols(alt.trim())?;
+                let [only] = syms.as_slice() else {
+                    return None;
+                };
+                out.push(symbol_color(only)?);
+            }
+            format!("&[{}]", out.join(", "))
+        };
+        return Some(vec![format!(
+            "Effect::mana_combination({colors}, {amount})"
+        )]);
     }
     // "{W}, {U}, or {B}" / "{G} or {W}" — a choice of one.
     if rest.contains(" or ") {
@@ -208,7 +264,7 @@ fn parse_effect(sentence: &str, announced: Option<&'static str>) -> Option<Vec<S
         return Some(vec![format!("Effect::mana_dynamic({color}, Amount::X)")]);
     }
     if let Some(rest) = s.strip_prefix("Add ") {
-        return parse_add(rest);
+        return parse_add(rest, announced);
     }
     if let Some(rest) = lower.strip_prefix("draw ") {
         // The tail has to be read, not skipped. "Draw a card if you control
@@ -1135,15 +1191,19 @@ mod tests {
         );
     }
 
-    /// The other printed spelling of the same cost, on the cycle that pays
-    /// mana for its counters instead of tapping.
+    /// The Time Spiral storage cycle, whole — the other printed spelling of
+    /// the same cost, on the five lands that pay mana for their counters
+    /// instead of tapping.
     ///
-    /// The effect is *not* read here and the card is refused: "Add X mana in
-    /// any combination of {G} and/or {W}" is a sentence this reader does not
-    /// know yet. That is the honesty rule doing its job on a card whose cost
-    /// it understood perfectly — half a card is not a card.
+    /// Three things this asserts that the Mercadian Masques cycle cannot.
+    /// The cost carries **mana and an announced number and no `{T}`**, which
+    /// is the shape that would break a reader treating the announcement as
+    /// the whole cost. The mana line is a *combination* — a pick per mana,
+    /// so three counters here can buy `{W}{U}{W}` where Fountain of Cho's
+    /// three buy `{W}{W}{W}`. And the `{1}` on the banking line is a second
+    /// cost on the same card, so nothing about the land is `Cost::TAP`.
     #[test]
-    fn remove_x_is_the_same_cost_and_does_not_rescue_an_unread_effect() {
+    fn a_storage_land_can_pour_its_counters_into_two_colours_at_once() {
         assert_eq!(
             super::parse_cost("{1}, Remove X storage counters from this land"),
             Some((
@@ -1151,19 +1211,123 @@ mod tests {
                 Some("counters::STORAGE"),
             ))
         );
-        assert!(
-            super::read(
-                &card(
-                    "Land",
-                    "{T}: Add {C}.\n{1}, {T}: Put a storage counter on this land.\n\
-                     {1}, Remove X storage counters from this land: \
-                     Add X mana in any combination of {G} and/or {W}.",
-                ),
-                &cats()
-            )
-            .is_err(),
-            "the effect is not readable yet, so neither is the card"
+        let body = read(
+            "Land",
+            "{T}: Add {C}.\n{1}, {T}: Put a storage counter on this land.\n\
+             {1}, Remove X storage counters from this land: \
+             Add X mana in any combination of {G} and/or {W}.",
         );
+        assert_eq!(
+            body.abilities,
+            [
+                "mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)])",
+                concat!(
+                    "activated!(cost!(\"{1}\", TapSelf), &[Effect::AddCounter { kind: ",
+                    "counters::STORAGE, amount: Amount::Fixed(1) }])"
+                ),
+                concat!(
+                    "mana_ability!(cost!(\"{1}\", RemoveCounterSelfX { kind: counters::STORAGE ",
+                    "}), &[Effect::mana_combination(&[ManaColor::Green, ManaColor::White], ",
+                    "Amount::X)])"
+                ),
+            ]
+        );
+    }
+
+    /// The same sentence with a number in it instead of an X, which is
+    /// Cascading Cataracts — and which needs no cost to have announced
+    /// anything.
+    ///
+    /// It is the pair to the guard below: the *fixed* form is self-contained
+    /// and the *X* form is not, so one reads off a bare `{5}, {T}` and the
+    /// other refuses on it. Its keyword line rides along, which is the rest
+    /// of that card.
+    #[test]
+    fn a_fixed_combination_reads_without_an_announced_number() {
+        let body = read(
+            "Land",
+            "Indestructible\n{T}: Add {C}.\n\
+             {5}, {T}: Add five mana in any combination of colors.",
+        );
+        assert_eq!(body.keywords, ["KeywordSet::INDESTRUCTIBLE"]);
+        assert_eq!(
+            body.abilities,
+            [
+                "mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)])",
+                concat!(
+                    "mana_ability!(cost!(\"{5}\", TapSelf), ",
+                    "&[Effect::mana_combination(ALL_MANA_COLORS, Amount::Fixed(5))])"
+                ),
+            ]
+        );
+    }
+
+    /// `Amount::X` with nothing to read it from is nought, so "Add X mana"
+    /// beside a cost that announced no number has to refuse.
+    ///
+    /// No card prints that pair — this is the guard on a reader, not on a
+    /// printing — and the counter-test beside it is the card that does: one
+    /// word of the cost changed, and the same sentence reads.
+    #[test]
+    fn x_mana_needs_a_cost_that_announced_a_number() {
+        assert_eq!(
+            super::parse_effect("Add X mana in any combination of {G} and/or {W}", None),
+            None,
+            "nothing announced a number, so X is nought and the card is a lie"
+        );
+        assert!(
+            super::parse_effect(
+                "Add X mana in any combination of {G} and/or {W}",
+                Some("counters::STORAGE"),
+            )
+            .is_some(),
+            "and the cost the card actually prints beside it makes it read"
+        );
+    }
+
+    /// Three cards print the phrase and are still refused, each on a clause
+    /// that has nothing to do with mana.
+    ///
+    /// Great Hall of the Citadel and Crucible of the Spirit Dragon both say
+    /// "Spend this mana only to …", which this reader does not read, and
+    /// Baxter Building hangs an `Activate only if` condition off a draw.
+    ///
+    /// **The mana sentence is asserted to read first**, and that is the
+    /// whole test rather than a preamble: `is_err()` is satisfied by a
+    /// refusal from *any* clause, so without the two lines above it this
+    /// would pass just as well if the combination rule had quietly stopped
+    /// working — it would be a test named after one cause and held up by
+    /// another.
+    #[test]
+    fn a_spend_restriction_still_refuses_a_land_whose_mana_reads() {
+        assert!(
+            super::parse_effect("Add two mana in any combination of colors", None).is_some(),
+            "the mana half of Great Hall of the Citadel reads on its own"
+        );
+        assert!(
+            super::parse_effect(
+                "Add X mana in any combination of colors",
+                Some("counters::STORAGE"),
+            )
+            .is_some(),
+            "and so does Crucible of the Spirit Dragon's"
+        );
+        for text in [
+            "{T}: Add {C}.\n{1}, {T}: Add two mana in any combination of colors. \
+             Spend this mana only to cast legendary spells.",
+            "{T}: Add {C}.\n{1}, {T}: Put a storage counter on this land.\n\
+             {T}, Remove X storage counters from this land: \
+             Add X mana in any combination of colors. Spend this mana only to \
+             cast Dragon spells or activate abilities of Dragons.",
+            "{T}: Add {C}.\n{4}, {T}: Add four mana in any combination of colors.\n\
+             {4}, {T}: Draw a card. Activate only if you control a creature \
+             with toughness 4 or greater.",
+        ] {
+            assert!(
+                super::read(&card("Land", text), &cats()).is_err(),
+                "one unread clause refuses the whole card: {text}"
+            );
+        }
     }
 
     /// The effect reads the cost beside it, which is the one place in this

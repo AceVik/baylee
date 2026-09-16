@@ -118,7 +118,7 @@ met where the ranking is.
 
 | # | Gap | Cards (basis) | Depth | Lever | Rule or case | Blocked together with |
 | --- | --- | --- | --- | --- | --- | --- |
-| 1 | **G2** A counter as a cost, fixed number **and** X — **both shipped**, see §1 | 40 cards (re-measured); the 17 X storage lands reach 6 today, 5 more on one `landgen` reading | 1 (fixed) / 3 (X) | 20–40 | **case**, then a stage | — |
+| 1 | **G2** A counter as a cost, fixed number **and** X — **both shipped**, see §1 | 40 cards (re-measured); 11 of the 17 X storage lands play today, the other 6 wait on G5 and a spend restriction | 1 (fixed) / 3 (X) | 20–40 | **case**, then a stage | — |
 | 2 | **G3** Surveil | 32 headers (by hand), 29 script | 1 | 32 | **case** | — |
 | 3 | **G1** An activation asks a question — the chooser half and the counter-X half **shipped**, see §3 | 50 headers with Sacrifice/Discard only (by hand); +9 tapXType, +4 crew, +20 script-counted activation costs, +~20 storage lands | 3 | ~27 | **new rule** on an existing seam | G2's X, G14, `offers`#2 |
 | 4 | **G4** "unless you pay" takes a `Cost` | 17 headers (by hand), 36 script | 2 | 9–18 | **case** (field change) | 31 of the 36 need G1's CostParts |
@@ -310,18 +310,30 @@ already ruled out.
 **The 17 is not 17 cards of reach, and it never was.** Counted again by hand
 over the headers, the 17 split four ways:
 
-- **6 shipped here** — the five Mercadian Masques storage lands (Fountain of
+- **6 shipped with the cost itself** — the five Mercadian Masques storage
+  lands (Fountain of
   Cho, Saprazzan Cove, Subterranean Hangar, Mercadian Bazaar, Rushwood Grove)
   and Mage-Ring Network, which prints three abilities where they print two.
-- **5 need one more `landgen` reading**, not an engine change: the Time Spiral
-  cycle (Calciform Pools, Dreadship Reef, Fungal Reaches, Molten Slagheap,
-  Saltcrusted Steppe) says `Add X mana in any combination of {W} and/or {U}`,
-  and `Effect::mana_combination` has existed since Mystic Gate. Their cost is
-  also the shape with no `{T}` in it — `{1}, Remove X storage counters` — so
-  they are worth reading for that alone. Cascading Cataracts is not one of the
-  17 and falls out of the same work: `Add five mana in any combination of
+- **5 more shipped on one `landgen` reading** and no engine change at all: the
+  Time Spiral cycle (Calciform Pools, Dreadship Reef, Fungal Reaches, Molten
+  Slagheap, Saltcrusted Steppe) says `Add X mana in any combination of {W}
+  and/or {U}`, and `Effect::mana_combination` has taken an `Amount` since
+  Mystic Gate — `resolve::mana::add_mana` splits it into that many picks of
+  one, and `Amount::X` reads back what the cost announced. Their cost is also
+  the shape with **no `{T}`** in it (`{1}, Remove X storage counters`), so a
+  tapped one still spends its counters. Cascading Cataracts is not one of the
+  17 and fell out of the same reading: `Add five mana in any combination of
   colors` is the fixed-number form of the same sentence, and its other line —
-  a bare `Indestructible` — `landgen` already reads.
+  a bare `Indestructible` — `landgen` already read.
+
+  Nine cards in the pool print "in any combination" and the reader now reads
+  **all nine sentences** — measured one at a time rather than counted off the
+  cards that came out. Six cards were written; the other three refuse on a
+  clause that has nothing to do with mana. Great Hall of the Citadel and
+  Crucible of the Spirit Dragon both say "Spend this mana only to …", and
+  Baxter Building hangs an `Activate only if` condition off a draw. Sentences
+  read and cards written are two different counts, and reading the second as
+  the first is how a reader gets described as narrower than it is.
 - **5 are blocked on G5** — Bottomless Vault, Dwarven Hold, Hollow Trees,
   Icatian Store and Sand Silos each print "You may choose not to untap this
   land during your untap step" *and* "At the beginning of your upkeep, if this

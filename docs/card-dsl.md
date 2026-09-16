@@ -792,7 +792,12 @@ Effect::mana_of_any_color().restricted(&FILTER, SpendRider::Uncounterable)
 
 `mana_combination` is not decoration: "in any combination of colors" is one
 color pick *per mana*, while a plain choice picks one color for the whole
-amount. Harabaz Druid was written with the wrong one and paid X² mana.
+amount. Harabaz Druid was written with the wrong one and paid X² mana. Its
+`Amount` is the ordinary one and carries `Amount::X` as readily as a number:
+the Time Spiral storage lands print "Add X mana in any combination of {W}
+and/or {U}", where X is what their own `RemoveCounterSelfX` announced, and
+`resolve::mana::add_mana` splits whatever the amount evaluates to into that
+many picks of one.
 
 Fetchland (activated with composite cost + filtered search):
 
