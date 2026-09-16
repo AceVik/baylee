@@ -4549,3 +4549,154 @@ fn an_opponents_extra_draw_fires_an_arrow_as_well_as_an_orc() {
         "an opponent's extra draw costs them a life, not only a token"
     );
 }
+
+fn myr_retriever() -> baylee_core::ids::CardIndex {
+    card_index("d07d3be3-f69d-4484-8467-cffd43871788")
+}
+fn vindicate() -> baylee_core::ids::CardIndex {
+    card_index("63c1ac21-e3d8-40c2-8c09-3f31c52992ef")
+}
+
+/// Myr Retriever ({2}, 1/1): "When this creature dies, return **another**
+/// target artifact card from your graveyard to your hand."
+///
+/// The word the whole card turns on is `another`, and it is load-bearing in a
+/// way no other dies trigger's is: by the time the ability is put on the
+/// stack the Myr is itself an artifact card lying in that same graveyard
+/// (CR 603.6d, CR 400.7), so a trigger that read "target artifact card" would
+/// offer the Myr its own corpse and return it to hand every time — a
+/// two-mana artifact that recurs itself forever, which is not the card.
+///
+/// Both halves are struck, and on the ids the cards have **after** the move:
+/// comparing against the Myr's battlefield id would pass however wrong the
+/// filter was, because an object changes id when it changes zone.
+///
+/// The library is filled with an artifact rather than a basic land, which is
+/// what gives `seed_graveyard` an artifact card to put there — the Myr needs
+/// something legal to point at or the trigger would be removed from the stack
+/// for having no legal target, and the interesting assertion would never be
+/// reached.
+#[test]
+fn a_dying_myr_returns_another_artifact_card_and_never_its_own_corpse() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, quiet_artifact())
+        .battlefield(0, &[myr_retriever()])
+        .battlefield(1, &[plains(), swamp(), plains()])
+        .hand(1, &[vindicate()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    seed_graveyard(&mut engine, p0, 1);
+    assert!(
+        in_graveyard(&engine, p0, quiet_artifact()).is_some(),
+        "an artifact card is waiting in the graveyard"
+    );
+
+    reach_their_main_phase(&mut engine, p1);
+    let myr = on_battlefield(&engine, p0, myr_retriever()).expect("the Myr is out");
+    cast_from_hand(&mut engine, p1, vindicate());
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    engine
+        .apply(p1, PlayerAction::ChooseObjects { objects: vec![myr] })
+        .expect("their removal may point at an ordinary creature");
+
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        unreachable!("the loop above waited for exactly this")
+    };
+    let corpse = in_graveyard(&engine, p0, myr_retriever()).expect("the Myr died");
+    let other = in_graveyard(&engine, p0, quiet_artifact()).expect("and it is not alone");
+    assert!(
+        !options.contains(&corpse),
+        "`another` keeps the Myr from targeting itself in the graveyard it is \
+         now lying in: {options:?}"
+    );
+    assert!(
+        options.contains(&other),
+        "and the other artifact card is offered: {options:?}"
+    );
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![other],
+            },
+        )
+        .expect("the one legal target");
+    pass_until(&mut engine, stack_is_empty);
+    assert!(
+        in_hand(&engine, p0, quiet_artifact()).is_some(),
+        "the artifact card came back to hand"
+    );
+    assert!(
+        in_graveyard(&engine, p0, myr_retriever()).is_some(),
+        "and the Myr stayed where it fell"
+    );
+}
+
+fn ashnods_altar() -> baylee_core::ids::CardIndex {
+    card_index("4d18bcba-a346-445e-a182-6cc30b7e066d")
+}
+
+/// Ashnod's Altar ({3}): "Sacrifice a creature: Add {C}{C}."
+///
+/// The card stands at `Coverage::Partial`, and this is the sentence that
+/// claim is made of. `cost!(Sacrifice(&Filter::YOUR_CREATURE))` says the
+/// printed line exactly; what no engine path can do is suspend an activation
+/// to ask *which* creature while the cost is being paid, so `can_afford`
+/// refuses a filtered choice cost outright and the ability is never offered.
+/// The Altar plays as though the line were not printed, which is what the
+/// `Partial` promises a player.
+///
+/// The test is therefore that nothing is offered, and it is written to
+/// **fail** the day that stops being true: when an activation can ask that
+/// question, five creatures standing beside the Altar will make this break,
+/// and flipping `Partial` to `Implemented` is what closes it. A card whose
+/// honesty note nothing checks is a note that outlives its reason —
+/// `offer_tests` says no *implemented* card may hide an unofferable ability,
+/// and this is the other direction, which nothing said.
+///
+/// The counter-half is the board: there are creatures to feed it, so an empty
+/// offer is the cost refusing and not a table with nothing on it.
+#[test]
+fn ashnods_altar_offers_nothing_while_a_cost_cannot_ask_which_creature() {
+    let seat = PlayerId::new(0);
+    let Some((engine, altars)) = arena(ashnods_altar()) else {
+        panic!("the Altar is in the pool and stands on a board")
+    };
+    let fodder = engine
+        .state()
+        .zones
+        .list(crate::zone::ZoneLocation::Battlefield)
+        .iter()
+        .filter(|id| {
+            engine.state().object(**id).is_some_and(|o| {
+                o.controller == seat
+                    && o.characteristics()
+                        .types
+                        .contains(baylee_core::types::TypeSet::CREATURE)
+            })
+        })
+        .count();
+    assert!(
+        fodder >= 2,
+        "the board has creatures to sacrifice, so an empty offer below is the \
+         cost and not an empty table: {fodder}"
+    );
+
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("the arena leaves the seat at a quiet main phase")
+    };
+    let offered = deeds(&legal, &altars);
+    assert!(
+        offered.is_empty(),
+        "a sacrifice cost cannot be chosen during an activation, so the Altar \
+         offers nothing at all — if this fires, `pay_cost` learned to ask and \
+         Ashnod's Altar is no longer Coverage::Partial: {offered:?}"
+    );
+}
