@@ -1807,3 +1807,268 @@ fn dispatch_taps_the_creature_it_names_and_leaves_the_one_beside_it_untapped() {
         "a resolved instant goes to its owner's graveyard"
     );
 }
+
+// oracle_id = "ce19962d-94f9-4b2b-b668-963c0acce308"
+fn borne_upon_a_wind() -> CardIndex {
+    card_index("ce19962d-94f9-4b2b-b668-963c0acce308")
+}
+
+/// Borne Upon a Wind ({1}{U}, instant): "You may cast spells this turn as
+/// though they had flash. Draw a card." The flash grant is the card's
+/// `Coverage::Partial` gap — no modifier hands out a turn-long casting
+/// permission — so this plays the half that is written, off two Islands in a
+/// first main phase. The draw is asserted on the *card* rather than on a
+/// count: the object that was on top of the library is the one that arrives
+/// in hand, which is what tells a draw from a spell that merely left the hand.
+#[test]
+fn borne_upon_a_wind_draws_the_top_card_and_lands_in_the_graveyard() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(83, island())
+        .battlefield(0, &[island(), island()])
+        .hand(0, &[borne_upon_a_wind()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let library_before = engine
+        .state()
+        .zones
+        .list(crate::zone::ZoneLocation::Library(p0))
+        .clone();
+    let top = *library_before
+        .last()
+        .expect("p0 has a library to draw from");
+    let hand_before = engine
+        .state()
+        .zones
+        .list(crate::zone::ZoneLocation::Hand(p0))
+        .len();
+    assert!(
+        in_hand(&engine, p0, borne_upon_a_wind()).is_some(),
+        "the instant starts in hand"
+    );
+
+    cast_from_hand(&mut engine, p0, borne_upon_a_wind());
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        in_graveyard(&engine, p0, borne_upon_a_wind()).is_some(),
+        "an instant that has resolved is put into its owner's graveyard"
+    );
+    assert_eq!(
+        library_size(&engine, p0),
+        library_before.len() - 1,
+        "\"Draw a card\" is exactly one off the top, and not two"
+    );
+    assert!(
+        engine
+            .state()
+            .zones
+            .list(crate::zone::ZoneLocation::Hand(p0))
+            .contains(&top),
+        "the card drawn is the one that was on top of the library"
+    );
+    assert_eq!(
+        engine
+            .state()
+            .zones
+            .list(crate::zone::ZoneLocation::Hand(p0))
+            .len(),
+        hand_before,
+        "the spell left the hand and one card replaced it — a draw of zero \
+         would leave one fewer"
+    );
+}
+
+fn deflecting_swat() -> CardIndex {
+    card_index("ae120613-97d6-4393-b39d-c3e6c076f5d6")
+}
+
+/// Deflecting Swat asks `{2}{R}` and none of it while its caster *controls* a
+/// commander, and it hands them the target spell to aim somewhere else. Both
+/// printed clauses are one scenario: p1 points Swords to Plowshares at p0's
+/// Llanowar Elves, and p0 — four spent Swamps, no mana in the pool and a
+/// commander standing on the battlefield — casts the Swat for free and turns
+/// the Swords onto p1's own Umara Raptor. A card that charged `{2}{R}` would
+/// be refused outright here, so the cast itself is the free-cost proof; a Swat
+/// that resolved without asking for new targets would exile the Elves, so the
+/// two creatures' zones say whether the redirection happened at all.
+///
+/// The commander is *played* rather than seated, because "you control a
+/// commander" is a battlefield sentence (`casting::controls_a_commander`) and
+/// one waiting in the command zone is not controlled — which is what the
+/// first draft of this test assumed, and the empty `castable` list it got
+/// back is exactly what that mistake looks like.
+#[allow(clippy::too_many_lines)] // a commander cast, an opponent's spell, and the redirection of it
+#[test]
+fn deflecting_swat_redirects_a_spell_for_free_while_a_commander_stands() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(977, forest())
+        .commander(0, &[sheoldred_the_apocalypse()])
+        .battlefield(0, &[swamp(), swamp(), swamp(), swamp(), llanowar_elves()])
+        .hand(0, &[deflecting_swat()])
+        .battlefield(1, &[plains(), umara_raptor()])
+        .hand(1, &[swords_to_plowshares()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    // The four Swamps pay the commander's {2}{B}{B} and nothing else: the
+    // pool p0 answers p1's spell out of is empty.
+    tap_all_mana(&mut engine, p0);
+    let commander = engine
+        .state()
+        .zones
+        .list(ZoneLocation::Command(p0))
+        .first()
+        .copied()
+        .expect("Sheoldred starts in the command zone");
+    engine
+        .apply(p0, PlayerAction::CastSpell { card: commander })
+        .expect("four Swamps pay {2}{B}{B}");
+    pass_until(&mut engine, |e| {
+        on_battlefield(e, p0, sheoldred_the_apocalypse()).is_some() && stack_is_empty(e)
+    });
+
+    // p1 aims the Swords at the Elves — the play the Swat exists to undo.
+    reach_their_main_phase(&mut engine, p1);
+    let elves = on_battlefield(&engine, p0, llanowar_elves()).expect("the Elves are out");
+    let raptor = on_battlefield(&engine, p1, umara_raptor()).expect("the Raptor is out");
+    cast_from_hand(&mut engine, p1, swords_to_plowshares());
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!(
+            "Swords to Plowshares asks what it is aimed at, got {:?}",
+            engine.pending()
+        )
+    };
+    assert!(
+        options.contains(&elves),
+        "the creature across the table is a legal target: {options:?}"
+    );
+    engine
+        .apply(
+            p1,
+            PlayerAction::ChooseObjects {
+                objects: vec![elves],
+            },
+        )
+        .unwrap();
+
+    // The caster takes priority back; hand it over so the seat with the Swat
+    // gets to answer with the Swords standing on the stack.
+    let Pending::Priority { player, .. } = engine.pending().clone() else {
+        panic!(
+            "a spell on the stack hands priority back, got {:?}",
+            engine.pending()
+        )
+    };
+    engine.apply(player, PlayerAction::PassPriority).unwrap();
+    let swords = engine
+        .state()
+        .zones
+        .list(ZoneLocation::Stack)
+        .iter()
+        .copied()
+        .find(|id| {
+            engine
+                .state()
+                .object(*id)
+                .is_some_and(|o| o.card.is_some_and(|c| c.index == swords_to_plowshares()))
+        })
+        .expect("the Swords is on the stack");
+
+    let Pending::Priority { player, legal } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert_eq!(player, p0, "the seat that is not casting gets to respond");
+    let swat = in_hand(&engine, p0, deflecting_swat()).expect("the Swat is in hand");
+    assert!(
+        legal.castable.contains(&swat),
+        "the commander on the battlefield is what offers the free cast, and \
+         p0's pool is empty: {:?}",
+        legal.castable
+    );
+
+    engine
+        .apply(p0, PlayerAction::CastSpell { card: swat })
+        .expect("the Swat is cast for nothing");
+    if let Pending::ChooseCastMode { options, .. } = engine.pending().clone() {
+        let free = options
+            .iter()
+            .position(|o| matches!(o.kind, CastModeKind::Alternative(_)))
+            .expect("the free alternative is one of the modes offered");
+        engine.apply(p0, PlayerAction::ChooseMode(free)).unwrap();
+    }
+
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!(
+            "the Swat asks for a spell or ability, got {:?}",
+            engine.pending()
+        )
+    };
+    assert!(
+        options.contains(&swords),
+        "the Swords on the stack is what there is to turn: {options:?}"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![swords],
+            },
+        )
+        .unwrap();
+
+    // The Swat resolves, and the question it asks next is where the Swords
+    // points now.
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    let Pending::ChooseTargets {
+        player, options, ..
+    } = engine.pending().clone()
+    else {
+        unreachable!("the predicate just matched")
+    };
+    assert_eq!(
+        player, p0,
+        "\"you may choose new targets\": the Swat's caster"
+    );
+    assert!(
+        options.contains(&raptor) && options.contains(&elves),
+        "both creatures on the table are legal for the spell being aimed: \
+         {options:?}"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![raptor],
+            },
+        )
+        .unwrap();
+
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        on_battlefield(&engine, p0, llanowar_elves()).is_some(),
+        "the Swords was aimed away, so the Elves it was cast at are still there"
+    );
+    assert!(
+        on_battlefield(&engine, p1, umara_raptor()).is_none(),
+        "and the Raptor took the exile instead"
+    );
+    assert!(
+        engine
+            .state()
+            .zones
+            .list(ZoneLocation::Exile(p1))
+            .iter()
+            .any(|id| engine
+                .state()
+                .object(*id)
+                .is_some_and(|o| o.card.is_some_and(|c| c.index == umara_raptor()))),
+        "\"exile target creature\": the redirected spell resolved, so the \
+         redirection was a real change of target and not a fizzle"
+    );
+}

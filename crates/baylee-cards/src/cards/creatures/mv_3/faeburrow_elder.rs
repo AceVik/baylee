@@ -3,7 +3,7 @@
 //! Oracle: This creature gets +1/+1 for each color among permanents you control.
 //! Oracle: {T}: For each color among permanents you control, add one mana of that color.
 //! Set: ECC #53 — Lorwyn Eclipsed Commander | Scryfall ID: 145dcac4-2c53-4ae9-9ede-24dc07474b01 | Oracle ID: 70a6f08e-854d-4e2f-9d8c-c45ec3231157
-// GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
+// PARTIAL — vigilance; P/T scaling and mana production based on colors among permanents you control are not in the DSL.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
@@ -13,6 +13,10 @@ card!(
     oracle_id = "70a6f08e-854d-4e2f-9d8c-c45ec3231157",
     scryfall_id = "145dcac4-2c53-4ae9-9ede-24dc07474b01",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::White]),
+    keywords = KeywordSet::VIGILANCE,
+    coverage = Coverage::Partial(
+        "color-count P/T scaling and color-count mana production are not supported"
+    ),
     faces = &[face!(
         name = "Faeburrow Elder",
         mana_cost = mana!("{1}{G}{W}"),
@@ -21,6 +25,8 @@ card!(
         power = Some(0),
         toughness = Some(0),
     ),],
+    abilities = &[
+        // NOT SUPPORTED: This creature gets +1/+1 for each color among permanents you control.
+        // NOT SUPPORTED: {T}: For each color among permanents you control, add one mana of that color.
+    ],
 );
-
-// TODO(card): implement abilities, see docs/card-dsl.md.

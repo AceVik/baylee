@@ -1561,3 +1561,405 @@ fn grim_monolith_asks_four_for_the_untap_its_untap_step_will_not_give() {
          prints (CR 502.3)"
     );
 }
+
+fn grinding_station() -> CardIndex {
+    card_index("0fcd476f-4db8-4293-9388-1678a0043c9e")
+}
+
+/// Grinding Station — {2} artifact: "{T}, Sacrifice an artifact: Target
+/// player mills three cards" and "Whenever an artifact enters, you may untap
+/// Grinding Station."
+///
+/// The sacrifice names no artifact of its own, so the engine has to ask which
+/// one, and that menu is half the proof: both artifacts this seat controls —
+/// the Station is an artifact, so it sits on its own menu — and neither the
+/// Elves beside them nor the Sol Ring across the table, which CR 701.21a keeps
+/// off it. Eating the Sol Ring rather than the Station is what leaves the
+/// second sentence something to do: the Station is still tapped from paying
+/// its own cost when a second Sol Ring enters, so nothing but the may-untap
+/// trigger can stand it back up.
+#[allow(clippy::too_many_lines)] // two printed sentences, and the second needs the first to have happened
+#[test]
+fn grinding_station_mills_three_for_an_artifact_and_untaps_for_one_entering() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(41, forest())
+        .battlefield(
+            0,
+            &[forest(), forest(), forest(), forest(), llanowar_elves()],
+        )
+        .hand(0, &[grinding_station(), quiet_artifact(), quiet_artifact()])
+        // An artifact on the other side of the table: "sacrifice an artifact"
+        // is not an invitation to eat somebody else's.
+        .battlefield(1, &[quiet_artifact()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    cast_from_hand(&mut engine, p0, grinding_station());
+    pass_until(&mut engine, stack_is_empty);
+    let station = on_battlefield(&engine, p0, grinding_station()).expect("the Station resolved");
+    // The artifact the Station is about to eat.
+    cast_from_hand(&mut engine, p0, quiet_artifact());
+    pass_until(&mut engine, stack_is_empty);
+    let ring = on_battlefield(&engine, p0, quiet_artifact()).expect("the Sol Ring resolved");
+    let elves = on_battlefield(&engine, p0, llanowar_elves()).expect("the Elves are out");
+    let theirs = on_battlefield(&engine, p1, quiet_artifact()).expect("their Sol Ring is out");
+
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("the seat holds a quiet main phase: {:?}", engine.pending())
+    };
+    assert!(
+        legal.abilities.contains(&(station, 0)),
+        "{{T}} is paid by an untapped Station with an artifact to eat, so its \
+         one line is offered: {:?}",
+        legal.abilities
+    );
+
+    let library_before = library_size(&engine, p1);
+    let graveyard_before = engine.state().zones.list(ZoneLocation::Graveyard(p1)).len();
+
+    activate(&mut engine, p0, grinding_station(), 0);
+
+    // The two questions one activation asks: who is milled (CR 601.2c) and
+    // which artifact is sacrificed (CR 601.2h). Answered in the order they
+    // arrive rather than in the order they are expected.
+    let mut asked_whom = false;
+    let mut menu: Vec<ObjectId> = Vec::new();
+    for _ in 0..12 {
+        if asked_whom && !menu.is_empty() {
+            break;
+        }
+        match engine.pending().clone() {
+            Pending::ChooseTargets {
+                player,
+                player_options,
+                ..
+            } => {
+                assert!(
+                    player_options.contains(&p1),
+                    "\"target player\" reaches across the table: {player_options:?}"
+                );
+                engine
+                    .apply(
+                        player,
+                        PlayerAction::ChooseTargets {
+                            objects: vec![],
+                            players: vec![p1],
+                        },
+                    )
+                    .unwrap();
+                asked_whom = true;
+            }
+            Pending::ChoosePlayer { player, options } => {
+                assert!(options.contains(&p1), "both seats are legal: {options:?}");
+                engine
+                    .apply(player, PlayerAction::ChoosePlayer(p1))
+                    .unwrap();
+                asked_whom = true;
+            }
+            Pending::ChooseCards {
+                player,
+                options,
+                min,
+                max,
+                prompt,
+            } => {
+                assert_eq!(
+                    prompt,
+                    crate::choice::ChoicePrompt::CostSacrifice,
+                    "a cost and not a search, which is all a client has to tell \
+                     the two apart"
+                );
+                assert_eq!((min, max), (1, 1), "one artifact, no more and no fewer");
+                menu = options;
+                let fodder = on_battlefield(&engine, p0, quiet_artifact())
+                    .expect("the Sol Ring is still standing to be eaten");
+                engine
+                    .apply(
+                        player,
+                        PlayerAction::ChooseObjects {
+                            objects: vec![fodder],
+                        },
+                    )
+                    .unwrap();
+            }
+            Pending::Priority { player, .. } => {
+                engine.apply(player, PlayerAction::PassPriority).unwrap();
+            }
+            other => panic!("unexpected while the Station's activation resolves: {other:?}"),
+        }
+    }
+    assert!(asked_whom, "milling \"target player\" is a target choice");
+    assert_eq!(
+        menu.len(),
+        2,
+        "the two artifacts this seat controls: {menu:?}"
+    );
+    assert!(
+        menu.contains(&station),
+        "the Station is an artifact, so it is on its own menu: {menu:?}"
+    );
+    assert!(
+        menu.contains(&ring),
+        "and so is the Sol Ring beside it: {menu:?}"
+    );
+    assert!(
+        !menu.contains(&elves),
+        "the Elves are a creature: \"an artifact\" is read, not skipped: {menu:?}"
+    );
+    assert!(
+        !menu.contains(&theirs),
+        "a seat sacrifices only what it controls, whatever the filter says: {menu:?}"
+    );
+
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        is_tapped(&engine, station),
+        "tapping the Station paid the other half of the cost"
+    );
+    assert!(
+        on_battlefield(&engine, p0, grinding_station()).is_some(),
+        "the Station ate the Sol Ring and not itself"
+    );
+    assert!(
+        in_graveyard(&engine, p0, quiet_artifact()).is_some(),
+        "and the artifact it ate is in its owner's graveyard"
+    );
+    assert_eq!(
+        library_size(&engine, p1),
+        library_before - 3,
+        "\"target player mills three cards\""
+    );
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Graveyard(p1)).len(),
+        graveyard_before + 3,
+        "three cards off the top of that player's library and into their graveyard"
+    );
+
+    // The second printed sentence. The Station is tapped and stays that way
+    // until an artifact enters; the Sol Ring still in hand is that artifact.
+    cast_from_hand(&mut engine, p0, quiet_artifact());
+    pass_until(&mut engine, |e| !is_tapped(e, station));
+    assert!(
+        on_battlefield(&engine, p0, quiet_artifact()).is_some(),
+        "a second Sol Ring resolved"
+    );
+    assert!(
+        !is_tapped(&engine, station),
+        "\"whenever an artifact enters, you may untap this artifact\""
+    );
+}
+
+// oracle_id = "736892cb-a34b-4bb9-b56c-e26e3db207a2"
+fn mana_vault() -> CardIndex {
+    card_index("736892cb-a34b-4bb9-b56c-e26e3db207a2")
+}
+
+/// Mana Vault's `Coverage::Partial` note leaves three printed sentences
+/// live: it does not untap during its controller's untap step, it taps for
+/// {C}{C}{C}, and its draw-step trigger charges a *tapped* Vault one life.
+/// One turn cycle reads all three at once, because each is what keeps the
+/// others honest — the Forests beside it coming back in the same step proves
+/// the untap step really ran (CR 502.3) rather than the game never
+/// advancing, the three colourless are the mana ability landing with no
+/// stack (CR 605.3b), and the life p0 is missing on the following draw step
+/// fires only because the artifact is *still* tapped. The `{4}` upkeep untap
+/// payment is the clause the file says is not written, so nothing here
+/// presses it.
+#[test]
+fn mana_vault_taps_for_three_never_untaps_and_bites_its_controller_on_the_draw_step() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(5171, forest())
+        .battlefield(0, &[mana_vault(), forest(), forest(), forest()])
+        .life(0, 20)
+        .life(1, 20)
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let vault = on_battlefield(&engine, p0, mana_vault()).expect("the Vault is on the table");
+    let forests = all_on_battlefield(&engine, p0, forest());
+    assert_eq!(forests.len(), 3, "three Forests were dealt beside it");
+
+    // `tap_all_mana` is the *intrinsic* list — the basic land types of
+    // CR 305.6 — so it taps the three Forests and never the Vault, whose
+    // {T} is a printed ability like any other and is activated by index.
+    tap_all_mana(&mut engine, p0);
+    activate(&mut engine, p0, mana_vault(), 1);
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Colorless),
+        3,
+        "{{T}}: Add {{C}}{{C}}{{C}}, in the pool the moment it is activated"
+    );
+    assert!(is_tapped(&engine, vault), "which tapped the Vault");
+    assert!(
+        forests.iter().all(|id| is_tapped(&engine, *id)),
+        "and the Forests were tapped in the same turn"
+    );
+
+    // Across the opponent's turn and back. The Vault's draw-step trigger
+    // fires on p0's *own* draw step, so the one question this walk can meet
+    // is who the damage is aimed at — answered with p0, which is what "you"
+    // means on the card.
+    reach_their_main_phase(&mut engine, p1);
+    let mut reached_next_main = false;
+    for _ in 0..300 {
+        if matches!(engine.state().turn.phase, Phase::FirstMain)
+            && engine.state().turn.active == p0
+            && matches!(engine.pending(), Pending::Priority { player, .. } if *player == p0)
+        {
+            reached_next_main = true;
+            break;
+        }
+        match engine.pending().clone() {
+            Pending::Priority { player, .. } => {
+                engine.apply(player, PlayerAction::PassPriority).unwrap();
+            }
+            Pending::ChooseAttackers { player, .. } => {
+                engine
+                    .apply(player, PlayerAction::DeclareAttackers { attackers: vec![] })
+                    .unwrap();
+            }
+            Pending::ChooseBlockers { player, .. } => {
+                engine
+                    .apply(player, PlayerAction::DeclareBlockers { blockers: vec![] })
+                    .unwrap();
+            }
+            Pending::ChooseTargets {
+                player,
+                options,
+                player_options,
+                ..
+            } => {
+                let players: Vec<PlayerId> = player_options.into_iter().take(1).collect();
+                let objects = if players.is_empty() {
+                    options.into_iter().take(1).collect()
+                } else {
+                    Vec::new()
+                };
+                engine
+                    .apply(player, PlayerAction::ChooseTargets { objects, players })
+                    .unwrap();
+            }
+            other => panic!("unexpected on the way to the next turn: {other:?}"),
+        }
+    }
+    assert!(reached_next_main, "the game walks a whole turn cycle");
+
+    assert!(
+        forests.iter().all(|id| !is_tapped(&engine, *id)),
+        "the untap step ran: every Forest came back"
+    );
+    assert!(
+        is_tapped(&engine, vault),
+        "and the Vault alone stayed down — \"This artifact doesn't untap \
+         during your untap step\" (CR 502.3), an effect rather than a \
+         characteristic"
+    );
+    assert_eq!(
+        engine.state().players[0].life,
+        19,
+        "\"At the beginning of your draw step, if this artifact is tapped, it \
+         deals 1 damage to you\" — the life is gone only because the untap \
+         step left the artifact tapped"
+    );
+    assert_eq!(
+        engine.state().players[1].life,
+        20,
+        "and the damage belongs to the Vault's controller, not the opponent"
+    );
+}
+
+// oracle_id = "f3c5978a-70fa-431f-933b-b954bd0db0ea"
+fn mox_diamond() -> CardIndex {
+    card_index("f3c5978a-70fa-431f-933b-b954bd0db0ea")
+}
+
+/// Mox Diamond — {0} artifact. Its printed entry is a *replacement* ("If this
+/// artifact would enter, you may discard a land card instead…; if you don't,
+/// put it into its owner's graveyard"), and that is the `Coverage::Partial`
+/// gap: the artifact enters unconditionally and its controller keeps the land.
+/// What is left to play is the mana ability — "{T}: Add one mana of **any**
+/// color" — so the card is cast for {0}, resolves, and is tapped.
+///
+/// Black mana in the pool while the only untapped land beside it is a Forest
+/// is the reading that no other source could have produced: it separates the
+/// Mox's own tap from a land that happened to pay. And the question it asks is
+/// five colors wide with no colorless on it, which is "any color" (CR 105.4)
+/// and never something narrower.
+#[test]
+fn mox_diamond_taps_for_one_mana_of_the_color_its_controller_names() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(17, forest())
+        .battlefield(0, &[forest()])
+        .hand(0, &[mox_diamond()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    // {0} spends nothing, so the pool is empty before the tap and whatever is
+    // in it afterwards came off the Mox.
+    let card = in_hand(&engine, p0, mox_diamond()).expect("the Mox is in hand");
+    engine
+        .apply(p0, PlayerAction::CastSpell { card })
+        .expect("{0} is affordable on an empty board");
+    pass_until(&mut engine, |e| at_rest(e, p0));
+    let mox = on_battlefield(&engine, p0, mox_diamond()).expect("the Mox resolved onto the table");
+    let land = on_battlefield(&engine, p0, forest()).expect("the Forest is still out");
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "no land was tapped to pay for a zero-cost artifact"
+    );
+
+    // Ability 0 is the printed "{T}: Add one mana of any color."
+    activate(&mut engine, p0, mox_diamond(), 0);
+    let Pending::ChooseColor { player, options } = engine.pending().clone() else {
+        panic!("`any color` is a question, got {:?}", engine.pending())
+    };
+    assert_eq!(player, p0, "the activating seat is the one that names it");
+    for color in [
+        ManaColor::White,
+        ManaColor::Blue,
+        ManaColor::Black,
+        ManaColor::Red,
+        ManaColor::Green,
+    ] {
+        assert!(
+            options.contains(&color),
+            "\"any color\" includes {color:?}: {options:?}"
+        );
+    }
+    assert_eq!(
+        options.len(),
+        5,
+        "the five colors of the game, and colorless is no color at all \
+         (CR 105.4): {options:?}"
+    );
+
+    engine
+        .apply(p0, PlayerAction::ChooseColor(ManaColor::Black))
+        .expect("black was one of the colors it offered");
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(
+        pool.available(ManaColor::Black),
+        1,
+        "the color that was named, and not a default"
+    );
+    assert_eq!(pool.total(), 1, "one mana, off one tap");
+    assert!(
+        stack_is_empty(&engine),
+        "CR 605.3b: a mana ability uses no stack, so nothing is waiting to resolve"
+    );
+    assert!(is_tapped(&engine, mox), "the Mox paid its own {{T}}");
+    assert!(
+        !is_tapped(&engine, land),
+        "and the Forest beside it never moved, so the black mana has no \
+         other source on this board"
+    );
+}

@@ -1428,3 +1428,148 @@ fn earthcraft_taps_a_summoning_sick_creature_to_untap_a_land() {
         "and the creature that paid stays tapped: the cost is not refunded"
     );
 }
+
+// oracle_id = "8a52f3c0-2552-4425-b2e3-5496eb2232a7"
+fn mystic_remora() -> CardIndex {
+    card_index("8a52f3c0-2552-4425-b2e3-5496eb2232a7")
+}
+
+/// Mystic Remora is `Coverage::Partial`: the tax trigger is written and
+/// cumulative upkeep {1} is not, so the scenario is fought on the
+/// *opponent's* turn, where the missing clause would never fire anyway — age
+/// counters go on at the Remora's own controller's upkeep, and this game ends
+/// before that.
+///
+/// Both words of the filter are struck as well as the sentence read: the Sol
+/// Ring its own controller casts is a noncreature spell that costs nobody a
+/// card, so "an opponent casts" is doing work, and the Dark Ritual it does
+/// react to is that opponent's noncreature spell.
+///
+/// What is asked is asserted down to the number — `{4}` of the player who
+/// cast, never the `{1}` the upkeep clause would have charged — and with the
+/// tax declined the payment is a card: one off the top of, and one into the
+/// hand of, the seat that controls the Remora.
+#[test]
+fn mystic_remora_taxes_an_opponents_noncreature_spell_and_draws_when_they_decline() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    // Three Islands pay {U} for the Remora and leave the Ring's {1} behind
+    // it; p1's five Swamps and a Forest cast the Ritual with {4} still
+    // floating, and the Elves stay back as the creature spell the trigger
+    // must not notice.
+    let mut engine = Duel::new(87, island())
+        .battlefield(0, &[island(), island(), island()])
+        .hand(0, &[mystic_remora(), quiet_artifact()])
+        .battlefield(1, &[swamp(), swamp(), swamp(), swamp(), swamp(), forest()])
+        .hand(1, &[dark_ritual(), llanowar_elves()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches a main phase");
+
+    cast_from_hand(&mut engine, p0, mystic_remora());
+    pass_until(&mut engine, |e| at_rest(e, p0));
+    assert!(
+        on_battlefield(&engine, p0, mystic_remora()).is_some(),
+        "the Remora resolved and stands on p0's battlefield"
+    );
+
+    // "an opponent casts": a noncreature spell of the Remora's own
+    // controller's is nothing to it, so the Ring costs a card out of hand
+    // and nothing comes back.
+    let hand_before_own_spell = engine
+        .state()
+        .zones
+        .list(crate::zone::ZoneLocation::Hand(p0))
+        .len();
+    cast_from_hand(&mut engine, p0, quiet_artifact());
+    pass_until(&mut engine, |e| at_rest(e, p0));
+    assert_eq!(
+        engine
+            .state()
+            .zones
+            .list(crate::zone::ZoneLocation::Hand(p0))
+            .len(),
+        hand_before_own_spell - 1,
+        "the Ring left p0's hand and nothing came back: the trigger watches \
+         the spells of the Remora's opponents, not its controller's"
+    );
+
+    reach_their_main_phase(&mut engine, p1);
+    // p1's lands are tapped *before* the Ritual is cast, and there are five
+    // of them for a reason: the tax is offered only to a player whose pool
+    // already covers it (`PlayerMayPayOr` fires its fallback outright when
+    // it does not), so a seat with an empty pool would be handed the card
+    // without ever being asked — the question this test is about would
+    // simply not exist.
+    tap_all_mana(&mut engine, p1);
+    let library_before = library_size(&engine, p0);
+    let hand_before_tax = engine
+        .state()
+        .zones
+        .list(crate::zone::ZoneLocation::Hand(p0))
+        .len();
+
+    cast_from_hand(&mut engine, p1, dark_ritual());
+    pass_until(&mut engine, |e| {
+        matches!(
+            e.pending(),
+            Pending::YesNo {
+                prompt: YesNoPrompt::PayTax { .. },
+                ..
+            }
+        )
+    });
+    let Pending::YesNo { player, prompt, .. } = engine.pending().clone() else {
+        unreachable!("the predicate just matched")
+    };
+    assert_eq!(
+        player, p1,
+        "the tax is asked of the player who cast the spell it taxes"
+    );
+    assert_eq!(
+        prompt,
+        YesNoPrompt::PayTax { mana: 4 },
+        "\"unless that player pays {{4}}\" — and not the {{1}} the upkeep \
+         clause this card cannot express would charge"
+    );
+
+    engine
+        .apply(p1, PlayerAction::YesNo(false))
+        .expect("declining is one of the two answers the question offered");
+    pass_until(&mut engine, |e| at_rest(e, p1));
+    assert_eq!(
+        library_size(&engine, p0),
+        library_before - 1,
+        "the declined tax pays the Remora's controller a card off the top"
+    );
+    assert_eq!(
+        engine
+            .state()
+            .zones
+            .list(crate::zone::ZoneLocation::Hand(p0))
+            .len(),
+        hand_before_tax + 1,
+        "and that card arrives: one that left the library without being \
+         drawn would satisfy the count above"
+    );
+
+    // The creature spell is not what the trigger is written for, and p1 has
+    // the Ritual's black mana to pay the Elves' {G} with beside the green
+    // already floating.
+    let hand_before_elf = engine
+        .state()
+        .zones
+        .list(crate::zone::ZoneLocation::Hand(p0))
+        .len();
+    cast_from_hand(&mut engine, p1, llanowar_elves());
+    pass_until(&mut engine, |e| at_rest(e, p1));
+    assert_eq!(
+        engine
+            .state()
+            .zones
+            .list(crate::zone::ZoneLocation::Hand(p0))
+            .len(),
+        hand_before_elf,
+        "\"a noncreature spell\": an Elf cast across the table asks for no tax \
+         and hands out no card"
+    );
+}

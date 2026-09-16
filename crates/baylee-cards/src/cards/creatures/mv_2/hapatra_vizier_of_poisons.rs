@@ -2,7 +2,9 @@
 //! Oracle: Whenever Hapatra deals combat damage to a player, you may put a -1/-1 counter on target creature.
 //! Oracle: Whenever you put one or more -1/-1 counters on a creature, create a 1/1 green Snake creature token with deathtouch.
 //! Set: ECC #123 — Lorwyn Eclipsed Commander | Scryfall ID: d19e17fc-ae3e-4533-ab94-70d5f2e1b8cd | Oracle ID: a8ddea1c-8d80-49c1-a5b4-630d5e51d66e
-// GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
+// PARTIAL — the combat-damage trigger puts a -1/-1 counter on up to one
+// target creature ("you may" is the target count); the second trigger has
+// no DSL variant.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
@@ -22,6 +24,19 @@ card!(
         power = Some(2),
         toughness = Some(2),
     ),],
+    coverage = Coverage::Partial("no Trigger variant for counters being put on a creature"),
+    abilities = &[triggered!(
+        Trigger::DealsCombatDamageToPlayer(&Filter::This),
+        &[Effect::AddCounter {
+            kind: CounterKind::M1M1,
+            amount: Amount::Fixed(1),
+        }],
+        targets = Some(TargetReq::up_to_one(TargetSpec::Object(&Filter::CREATURE))),
+    )],
 );
 
-// TODO(card): implement abilities, see docs/card-dsl.md.
+// NOT SUPPORTED: "Whenever you put one or more -1/-1 counters on a creature,
+// create a 1/1 green Snake creature token with deathtouch." — no `Trigger`
+// fires on counters being placed on a permanent (`TriggerEventKind` has only
+// `EntersBattlefield`/`Any`, and replaces trigger *rules* rather than
+// counters), and the token it makes has no entry in `crate::tokens`.

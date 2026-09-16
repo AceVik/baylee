@@ -2981,6 +2981,10 @@ const SCOPE_EXCEPTIONS: &[(&str, &str)] = &[
         "the same cycle, the same AlternativeCost condition",
     ),
     (
+        "Deflecting Swat",
+        "the third of that cycle, and the same condition again",
+    ),
+    (
         "Strength of the Harvest",
         "ModifyPTPerCount already counts the effect controller's side only",
     ),
