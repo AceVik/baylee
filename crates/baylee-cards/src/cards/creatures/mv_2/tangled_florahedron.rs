@@ -5,10 +5,14 @@
 //! Set: ZNR #211 — Zendikar Rising | Scryfall ID: 235d1ffc-72aa-40a2-95dc-3f6a8d495061 | Oracle ID: 53542c79-a62a-4d6a-97db-5296e9c68302
 //! Face: Tangled Florahedron — {1}{G} — Creature — Elemental
 //! Face: Tangled Vale —  — Land
-// GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
+// IMPLEMENTED — both faces tap for {G}: a 1/1 mana creature on the front,
+// and on the back an MDFC land reached by the face choice on a land play
+// (CR 712.4a), which comes down tapped.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
+
+static VALE_MANA: &[AbilityDef] = &[mana_ability!(&[Effect::mana(ManaColor::Green, 1)])];
 
 card!(
     index = index::TANGLED_FLORAHEDRON,
@@ -24,8 +28,18 @@ card!(
             power = Some(1),
             toughness = Some(1),
         ),
-        face!(name = "Tangled Vale", types = TypeSet::LAND,),
+        face!(
+            name = "Tangled Vale",
+            types = TypeSet::LAND,
+            abilities = VALE_MANA,
+            enter_modifiers = &[EnterModifier::Tapped],
+        ),
     ],
+    coverage = Coverage::Implemented,
+    abilities = &[mana_ability!(&[Effect::mana(ManaColor::Green, 1)])],
 );
 
-// TODO(card): implement abilities, see docs/card-dsl.md.
+// Engine-level test belongs in baylee-engine (mdfc_tests): the front face is
+// a creature whose {T} is summoning-sick the turn it enters (CR 302.6), while
+// the back face is offered as a land play, enters tapped, and taps for {G}
+// once it untaps.

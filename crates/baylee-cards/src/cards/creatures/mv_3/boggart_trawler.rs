@@ -5,10 +5,14 @@
 //! Set: MH3 #243 — Modern Horizons 3 | Scryfall ID: d0d484a6-5610-4f1d-95ec-eda273c255e4 | Oracle ID: 727f3201-1cfc-4ab2-9dfe-be4f7251f42f
 //! Face: Boggart Trawler — {2}{B} — Creature — Goblin
 //! Face: Boggart Bog —  — Land
-// GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
+// IMPLEMENTED — the Goblin front exiles a chosen player's graveyard on its own
+// ETB; the modal back is reached by the face-choice land play (CR 712.4a),
+// asks for 3 life as it enters or comes down tapped, and taps for {B}.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
+
+static BOG_MANA: &[AbilityDef] = &[mana_ability!(&[Effect::mana(ManaColor::Black, 1)])];
 
 card!(
     index = index::BOGGART_TRAWLER,
@@ -24,8 +28,24 @@ card!(
             power = Some(3),
             toughness = Some(1),
         ),
-        face!(name = "Boggart Bog", types = TypeSet::LAND,),
+        face!(
+            name = "Boggart Bog",
+            types = TypeSet::LAND,
+            abilities = BOG_MANA,
+            enter_modifiers = &[EnterModifier::TappedOrPayLife(3)],
+        ),
     ],
+    coverage = Coverage::Implemented,
+    abilities = &[triggered!(
+        Trigger::ETB,
+        &[Effect::ExileGraveyard {
+            player: PlayerRel::Chosen,
+        }],
+        targets = Some(TargetReq::one(TargetSpec::AnyPlayer))
+    )],
 );
 
-// TODO(card): implement abilities, see docs/card-dsl.md.
+// Engine-level test belongs in baylee-engine (mdfc_tests): the creature front
+// asks for a player and empties that graveyard on entry, while the back face
+// is offered as a second `CastModeKind::PlayLandFace` on a land play, puts up
+// the pay-3-life-or-enter-tapped question, and taps for {B}.

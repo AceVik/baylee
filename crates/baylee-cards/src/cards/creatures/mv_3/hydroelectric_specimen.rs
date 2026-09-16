@@ -6,10 +6,19 @@
 //! Set: MH3 #240 — Modern Horizons 3 | Scryfall ID: 8689ecd7-e9a6-458b-99d2-6dbaca527f00 | Oracle ID: 573151f0-00d4-4a8a-8a09-745c5f376532
 //! Face: Hydroelectric Specimen — {2}{U} — Creature — Weird
 //! Face: Hydroelectric Laboratory —  — Land
-// GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
+// PARTIAL — a flash creature that hijacks removal: its enter trigger aims
+// target instant or sorcery on the stack at the Weird itself. The back is an
+// MDFC land reached by the face choice on a land play (CR 712.4a), paying 3
+// life to avoid coming in tapped, and taps for {U}.
+// NOT SUPPORTED: "with a single target". No `Filter` asks an object how many
+// targets it has, so `TargetSpec::Spell` can only narrow the spell by its
+// printed characteristics; the trigger therefore also offers a spell with two
+// targets, which `Effect::RedirectTarget` would collapse onto one.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
+
+static LABORATORY_MANA: &[AbilityDef] = &[mana_ability!(&[Effect::mana(ManaColor::Blue, 1)])];
 
 card!(
     index = index::HYDROELECTRIC_SPECIMEN,
@@ -25,8 +34,29 @@ card!(
             power = Some(1),
             toughness = Some(4),
         ),
-        face!(name = "Hydroelectric Laboratory", types = TypeSet::LAND,),
+        face!(
+            name = "Hydroelectric Laboratory",
+            types = TypeSet::LAND,
+            abilities = LABORATORY_MANA,
+            enter_modifiers = &[EnterModifier::TappedOrPayLife(3)],
+        ),
     ],
+    keywords = KeywordSet::FLASH,
+    coverage = Coverage::Partial("cannot restrict the target to a spell with a single target"),
+    abilities = &[triggered!(
+        Trigger::ETB,
+        &[Effect::MayDo {
+            effects: &[Effect::RedirectTarget {
+                new_filter: &Filter::This,
+            }],
+        }],
+        targets = Some(TargetReq::one(TargetSpec::Spell(
+            &Filter::INSTANT_OR_SORCERY
+        )))
+    )],
 );
 
-// TODO(card): implement abilities, see docs/card-dsl.md.
+// Engine-level test belongs in baylee-engine (card_tests): flash the Weird in
+// while an opponent's Lightning Bolt targets something else, say yes to the
+// enter trigger, and the Bolt resolves on the Weird; the back face is played
+// as a land, pays 3 life to come in untapped, and taps for {U}.

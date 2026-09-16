@@ -1,7 +1,8 @@
 //! Vampiric Tutor — {B} — Instant
 //! Oracle: Search your library for a card, then shuffle and put that card on top. You lose 2 life.
 //! Set: DMR #108 — Dominaria Remastered | Scryfall ID: 34a0203f-9cce-43a4-9cb7-8ce6647895cd | Oracle ID: ededbdae-d9dc-4206-9335-d7158f2d7700
-// GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
+// IMPLEMENTED — unfiltered tutor that shuffles and puts the found card on
+// top of the library, then costs its caster two life.
 
 use baylee_cards_dsl::prelude::*;
 
@@ -15,6 +16,16 @@ card!(
         mana_cost = mana!("{B}"),
         types = TypeSet::INSTANT,
     ),],
+    coverage = Coverage::Implemented,
+    abilities = &[spell!(&[
+        Effect::SearchLibrary {
+            filter: &Filter::Any,
+            finds: &[Find::TOP_OF_LIBRARY],
+            optional: false,
+        },
+        Effect::LoseLife {
+            amount: Amount::Fixed(2),
+            target: PlayerRel::You,
+        },
+    ])],
 );
-
-// TODO(card): implement abilities, see docs/card-dsl.md.

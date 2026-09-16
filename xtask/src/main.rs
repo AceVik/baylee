@@ -2937,6 +2937,14 @@ const SCOPE_EXCEPTIONS: &[(&str, &str)] = &[
     ("Mox Opal", "metalcraft is an ActivationCondition"),
     ("Fierce Guardianship", "an AlternativeCost condition"),
     (
+        "Deadly Rollick",
+        "the same cycle, the same AlternativeCost condition",
+    ),
+    (
+        "Strength of the Harvest",
+        "ModifyPTPerCount already counts the effect controller's side only",
+    ),
+    (
         "Reflecting Pool",
         "\"any type a land you control could produce\" is its own mana rule",
     ),

@@ -578,7 +578,23 @@ pub struct LegalActions {
     pub lands: Vec<ObjectId>,
     /// Castable cards in hand (timing + mana verified).
     pub castable: Vec<ObjectId>,
-    /// Mana abilities activatable on the battlefield.
+    /// The CR 305.6 shortcut, and **not** every mana ability on the table.
+    ///
+    /// A permanent is named here when it taps for mana it has by virtue of a
+    /// *basic land type* (`casting::intrinsic_mana`), or when a continuous
+    /// effect granted it a mana ability. Those two have no printed ability to
+    /// point at, so they are answered with `ActivateManaAbility { source }`,
+    /// which carries no index.
+    ///
+    /// A mana ability a card actually **prints** — Sol Ring's `{T}: Add
+    /// {C}{C}`, a nonbasic land's own tap, Deathrite Shaman's — is an
+    /// ordinary entry in [`Self::abilities`] as `(source, index)` and is
+    /// pressed with `ActivateAbility`. It is a mana ability in the rules
+    /// (CR 605.1) and never appears in this list.
+    ///
+    /// Six engine tests were written against the broader reading of this
+    /// field in one batch and all six failed the same way, which is why the
+    /// narrower one is spelled out here rather than left to be rediscovered.
     pub mana_abilities: Vec<ObjectId>,
     /// Activated abilities available on controlled permanents:
     /// `(source, ability_index)`.

@@ -2,7 +2,7 @@
 //! Oracle: If you control a commander, you may cast this spell without paying its mana cost.
 //! Oracle: Exile target creature.
 //! Set: CMM #147 — Commander Masters | Scryfall ID: 0e13f735-54fa-42b6-aea4-ced33811d7d4 | Oracle ID: 0456ec64-2c81-4763-a352-8ff64a4c3d6b
-// GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
+// IMPLEMENTED — commander-conditional free cast + exile removal.
 
 use baylee_cards_dsl::prelude::*;
 
@@ -15,7 +15,14 @@ card!(
         name = "Deadly Rollick",
         mana_cost = mana!("{3}{B}"),
         types = TypeSet::INSTANT,
+        alternative_costs = &[AlternativeCost {
+            cost: Cost::FREE,
+            condition: AltCondition::CommanderControlled,
+        }],
     ),],
+    coverage = Coverage::Implemented,
+    abilities = &[spell!(
+        &[Effect::exile(TargetSpec::Object(&Filter::CREATURE))],
+        targets = Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE)))
+    )],
 );
-
-// TODO(card): implement abilities, see docs/card-dsl.md.

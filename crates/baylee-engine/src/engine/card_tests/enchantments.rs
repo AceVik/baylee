@@ -183,3 +183,955 @@ fn an_optional_clause_inside_a_condition_is_offered_once_and_taken_once() {
         "one offer, one counter"
     );
 }
+
+// oracle_id = "119d719d-e965-45b4-9bc9-ac03211b10c2"
+fn survival_of_the_fittest() -> baylee_core::ids::CardIndex {
+    card_index("119d719d-e965-45b4-9bc9-ac03211b10c2")
+}
+
+/// Survival of the Fittest ({1}{G}): "{G}, Discard a creature card: Search
+/// your library for a creature card, reveal that card, put it into your hand,
+/// then shuffle." The card says `Coverage::Partial`, so both of its halves are
+/// here — a test that played only the working one would read as though the
+/// card were finished.
+///
+/// The half that works is the enchantment itself: it is cast off the engine's
+/// own offer and resolves onto the battlefield.
+///
+/// The half that does not is the ability, and what this pins is the *reason*,
+/// because "no ability was offered" is also what a card with no ability at all
+/// looks like. `legal_actions` gates an activation in a fixed order — the
+/// right zone, the right timing, a legal target, then `can_afford` — and this
+/// board answers yes to the first three: the enchantment is on the
+/// battlefield, the ability is instant speed, and it targets nothing. Inside
+/// `can_afford` the mana is asked first, and a Forest kept back from the cast
+/// puts the green mana it wants in the pool; the discard has a creature card
+/// in hand to take. The only gate left is `choice_cost_unpayable`, which
+/// refuses `CostPart::Discard` outright — so the ability is on no list the
+/// engine offers, and an activation sent anyway is refused at the same door.
+/// That is exactly what the `NOT SUPPORTED` comment on the card claims, and
+/// the day an activation can ask which card to discard, this is the test that
+/// fails.
+#[test]
+fn survival_of_the_fittest_resolves_but_its_discard_ability_is_never_offered() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(41, forest())
+        .battlefield(0, &[forest(), forest(), forest()])
+        .hand(0, &[survival_of_the_fittest(), llanowar_elves()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    // Two Forests pay the {1}{G}. The third is kept back on purpose: the
+    // ability's own mana has to be *in the pool* when the offer is read,
+    // because `can_afford` asks the pool and never what the board could still
+    // tap.
+    let forests = mine(&engine, p0, forest(), crate::zone::Zone::Battlefield);
+    assert_eq!(forests.len(), 3, "three Forests were dealt to seat 0");
+    let spare = forests[2];
+    tap_mana_except(&mut engine, p0, spare);
+    let spell =
+        in_hand(&engine, p0, survival_of_the_fittest()).expect("the enchantment is in hand");
+    engine
+        .apply(p0, PlayerAction::CastSpell { card: spell })
+        .expect("a two-mana enchantment off two Forests");
+
+    // It arrives by resolving off the stack, not by being placed there.
+    pass_until(&mut engine, |e| at_rest(e, p0));
+    let survival = on_battlefield(&engine, p0, survival_of_the_fittest())
+        .expect("Survival of the Fittest resolved onto the battlefield");
+    assert!(
+        engine
+            .state()
+            .object(survival)
+            .is_some_and(|o| o.characteristics().types.contains(TypeSet::ENCHANTMENT)),
+        "and it is there as an enchantment"
+    );
+
+    // Every gate the offer asks before the cost is now answered, and so is the
+    // mana half of the cost itself.
+    engine
+        .apply(p0, PlayerAction::ActivateManaAbility { source: spare })
+        .expect("the Forest that was kept back still taps");
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(
+        pool.available(ManaColor::Green),
+        1,
+        "the green mana the ability asks for is in the pool"
+    );
+    // And the half that names a card to choose has something to choose.
+    assert!(
+        in_hand(&engine, p0, llanowar_elves()).is_some(),
+        "a creature card is in hand for the discard to take"
+    );
+    // The gap is the engine's and not the card file's: the ability is printed
+    // in the compiled pool, with the discard on it.
+    let def = baylee_cards::by_index(survival_of_the_fittest()).expect("the card is compiled in");
+    let prints_a_discard = def.abilities.iter().any(|ability| match ability {
+        baylee_cards_dsl::AbilityDef::Activated { cost, .. } => cost
+            .parts
+            .iter()
+            .any(|part| matches!(part, baylee_cards_dsl::CostPart::Discard(_))),
+        _ => false,
+    });
+    assert!(
+        prints_a_discard,
+        "the card prints an activated ability whose cost is a discard"
+    );
+
+    // With nothing else left to refuse it for, the ability is offered on no
+    // list at all.
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    let offered: Vec<u32> = legal
+        .abilities
+        .iter()
+        .filter(|(who, _)| *who == survival)
+        .map(|(_, index)| *index)
+        .collect();
+    assert!(
+        offered.is_empty(),
+        "the engine offered {offered:?} on a cost `pay_cost` cannot pay"
+    );
+
+    // Asked the other way round, the engine agrees with its own offer — and
+    // refuses at the door, before `start_activation` has emptied a pool or
+    // taken a card, so there is nothing half-paid to look for afterwards.
+    let refused = engine.apply(
+        p0,
+        PlayerAction::ActivateAbility {
+            source: survival,
+            ability_index: 0,
+        },
+    );
+    assert!(
+        matches!(
+            refused,
+            Err(EngineError::IllegalAction("ability not activatable"))
+        ),
+        "the activation should agree with the offer, and answered {refused:?}"
+    );
+}
+
+// oracle_id = "3a3e8c9b-e458-4661-980d-0a84a4c2452b"
+
+/// Glasswing Grace // Age-Graced Chapel ({3}{W/B}{W/B}, MH3): a modal
+/// double-faced card whose front is an Aura and whose back, Age-Graced
+/// Chapel, is a land that enters tapped and taps for {W} or {B}.
+fn glasswing_grace() -> CardIndex {
+    card_index("3a3e8c9b-e458-4661-980d-0a84a4c2452b")
+}
+
+/// Casts the Aura on seat 0's Llanowar Elves and hands back the board it
+/// left: the engine, seat 0's enchanted Elves, seat 1's untouched Elves and
+/// the Aura permanent. A Swords to Plowshares is left in hand for the caller
+/// that wants the host gone.
+///
+/// The second Elves is the control the whole thing rests on. "Enchanted
+/// creature gets +2/+2" is one `Filter::AttachedToBySource`, and a filter that
+/// had come out as "every creature" would read exactly the same on a board
+/// with only one creature on it.
+#[track_caller]
+fn a_glasswing_on_the_elves() -> (Engine<RegistryLookup>, ObjectId, ObjectId, ObjectId) {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(517, forest())
+        .battlefield(
+            0,
+            &[
+                plains(),
+                plains(),
+                plains(),
+                plains(),
+                plains(),
+                llanowar_elves(),
+            ],
+        )
+        .battlefield(1, &[llanowar_elves()])
+        .hand(0, &[glasswing_grace(), swords_to_plowshares()])
+        .start();
+    keep_mulligans(&mut engine);
+    let mine = on_battlefield(&engine, p0, llanowar_elves()).expect("my elves deployed");
+    let theirs = on_battlefield(&engine, p1, llanowar_elves()).expect("their elves deployed");
+    assert_eq!(pt(&engine, mine), (1, 1), "Llanowar Elves prints 1/1");
+
+    reach_main_phase(&mut engine, p0);
+    // Five Plains, and the Elves is not among the mana `cast_from_hand` taps:
+    // `legal.mana_abilities` is the CR 305.6 shortcut, which only a land with
+    // a basic land type is on. So the pool is five white against
+    // {3}{W/B}{W/B}, and `mana_pay::pay` spends the hybrids before the
+    // generic — white twice, then three more for the {3}.
+    cast_from_hand(&mut engine, p0, glasswing_grace());
+
+    // "Enchant creature" (CR 303.4a): an Aura spell requires a target, which
+    // its enchant ability defines, so the question is asked as it is cast and
+    // not on the way onto the battlefield. The Chapel is never offered
+    // beside it: a land back face is played and never cast
+    // (`casting::castable_back_faces` drops it), so the wizard has one option
+    // and asks no mode at all.
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!(
+            "an Aura spell targets as it is cast, got {:?}",
+            engine.pending()
+        )
+    };
+    assert!(
+        options.contains(&mine) && options.contains(&theirs),
+        "any creature may be enchanted, and the board has two: {options:?}"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![mine],
+            },
+        )
+        .unwrap();
+
+    pass_until(&mut engine, |e| at_rest(e, p0));
+    let aura =
+        on_battlefield(&engine, p0, glasswing_grace()).expect("the Aura resolved onto the table");
+    (engine, mine, theirs, aura)
+}
+
+/// "Enchanted creature gets +2/+2 and has flying and lifelink." One printed
+/// sentence and two layers — CR 613.1 applies layer 6 (the keywords) before
+/// layer 7c (the P/T change) — so the only reading that can see both at once
+/// is the creature's projected characteristics, taken after the layers ran.
+///
+/// It also pins where the effect lands. The Aura arrives attached to the
+/// creature its spell targeted, the grant follows that attachment, and
+/// neither half reaches the identical Elves the opponent controls.
+#[test]
+fn glasswing_grace_gives_the_creature_it_enchants_plus_two_two_flying_and_lifelink() {
+    let (engine, mine, theirs, aura) = a_glasswing_on_the_elves();
+
+    assert_eq!(
+        engine
+            .state()
+            .object(aura)
+            .and_then(|o| o.attached_to)
+            .expect("the Aura is attached to something"),
+        mine,
+        "an Aura enters attached to the creature its spell targeted"
+    );
+    assert_eq!(pt(&engine, mine), (3, 3), "+2/+2 on a 1/1");
+    let kw = keywords(&engine, mine);
+    assert!(
+        kw.contains(KeywordSet::FLYING),
+        "the enchanted creature has flying"
+    );
+    assert!(
+        kw.contains(KeywordSet::LIFELINK),
+        "the enchanted creature has lifelink"
+    );
+
+    // The Aura grants; it does not keep.
+    assert!(
+        !keywords(&engine, aura).contains(KeywordSet::FLYING),
+        "the Aura itself is no flier"
+    );
+    // And the creature it is not attached to is the card it always was.
+    assert_eq!(
+        pt(&engine, theirs),
+        (1, 1),
+        "the opponent's Elves is enchanted by nothing"
+    );
+    assert!(
+        !keywords(&engine, theirs).contains(KeywordSet::FLYING),
+        "and picked up no keyword either"
+    );
+}
+
+/// CR 704.5m: an Aura attached to an illegal permanent — or to nothing at all
+/// — is put into its owner's graveyard as a state-based action.
+///
+/// Exiling the host is the cleanest way to ask it, because nothing else in
+/// the scenario touches the Aura: it is on the battlefield, its creature
+/// leaves, and the only rule that can move it is that one. An Aura that
+/// stayed would go on granting +2/+2 to an object that is no longer there.
+#[test]
+fn a_glasswing_grace_falls_into_the_graveyard_when_its_creature_is_exiled() {
+    let p0 = PlayerId::new(0);
+    let (mut engine, mine, _theirs, aura) = a_glasswing_on_the_elves();
+
+    // Back to an own first main phase — the phase is named rather than left
+    // to `at_rest`, which is already true in turn three's upkeep — where five
+    // Plains have untapped and the Swords left in hand is castable.
+    pass_until(&mut engine, |e| {
+        e.state().turn.number >= 3
+            && e.state().turn.active == p0
+            && matches!(e.state().turn.phase, Phase::FirstMain)
+            && at_rest(e, p0)
+    });
+    assert!(
+        engine
+            .state()
+            .object(aura)
+            .is_some_and(|o| o.zone == Zone::Battlefield),
+        "the Aura is still on the battlefield before the removal"
+    );
+
+    cast_from_hand(&mut engine, p0, swords_to_plowshares());
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!(
+            "Swords to Plowshares targets a creature, got {:?}",
+            engine.pending()
+        )
+    };
+    assert!(
+        options.contains(&mine),
+        "the enchanted creature is a legal target"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![mine],
+            },
+        )
+        .unwrap();
+
+    pass_until(&mut engine, |e| at_rest(e, p0));
+    assert!(
+        engine
+            .state()
+            .object(mine)
+            .is_none_or(|o| o.zone != Zone::Battlefield),
+        "the host was exiled"
+    );
+    assert!(
+        on_battlefield(&engine, p0, glasswing_grace()).is_none(),
+        "the Aura did not stay on the battlefield with nothing to enchant"
+    );
+    assert!(
+        in_graveyard(&engine, p0, glasswing_grace()).is_some(),
+        "an Aura enchanting nothing goes to its owner's graveyard (CR 704.5m)"
+    );
+}
+
+/// The back face. "Age-Graced Chapel — Land. This land enters tapped.
+/// {T}: Add {W} or {B}." CR 712.8: a player playing a modal double-faced
+/// card as a land chooses one of its faces that's a land — it is *played*
+/// as a land drop rather than cast, and what arrives is that land, with
+/// none of the Aura's printed statics on it.
+///
+/// The pool-wide land sweep cannot speak for this card: `land_mana_tests`
+/// sweeps only the faces that arrive untapped and counts the rest, and this
+/// one is exactly that.
+#[test]
+fn age_graced_chapel_is_played_as_a_tapped_land_that_taps_for_white_or_black() {
+    let p0 = PlayerId::new(0);
+    let (mut engine, chapel) =
+        play_land_face(glasswing_grace(), 1).expect("the back face is a land and can be played");
+
+    let kinds = types(&engine, chapel);
+    assert!(
+        kinds.contains(TypeSet::LAND),
+        "the face that was played is the land"
+    );
+    assert!(
+        !kinds.contains(TypeSet::ENCHANTMENT),
+        "and it is not the Aura on the other side"
+    );
+    assert!(
+        entered_tapped(&engine, chapel),
+        "\"This land enters tapped.\""
+    );
+
+    // Its own untap step gives it back, which is the first moment the {T} in
+    // the ability's cost is payable at all.
+    pass_until(&mut engine, |e| {
+        e.state().turn.number >= 3
+            && e.state().turn.active == p0
+            && matches!(e.state().turn.phase, Phase::FirstMain)
+            && at_rest(e, p0)
+    });
+    assert!(
+        !is_tapped(&engine, chapel),
+        "the untap step untapped the Chapel"
+    );
+
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        !legal.mana_abilities.contains(&chapel),
+        "the Chapel prints no basic land type, so there is no CR 305.6 shortcut"
+    );
+    let offered: Vec<u32> = legal
+        .abilities
+        .iter()
+        .filter(|(who, _)| *who == chapel)
+        .map(|(_, index)| *index)
+        .collect();
+    assert_eq!(
+        offered,
+        vec![0],
+        "the land face offers its own mana ability and nothing the Aura printed"
+    );
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ActivateAbility {
+                source: chapel,
+                ability_index: 0,
+            },
+        )
+        .expect("an untapped land activates its own {T} ability");
+    let Pending::ChooseColor { options, .. } = engine.pending().clone() else {
+        panic!(
+            "\"Add {{W}} or {{B}}\" asks which, got {:?}",
+            engine.pending()
+        )
+    };
+    assert_eq!(
+        options,
+        vec![ManaColor::White, ManaColor::Black],
+        "the two colours the Chapel prints, and only those"
+    );
+    engine
+        .apply(p0, PlayerAction::ChooseColor(ManaColor::Black))
+        .expect("black came out of its own list");
+
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(
+        pool.available(ManaColor::Black),
+        1,
+        "one black mana in the pool"
+    );
+    assert_eq!(
+        pool.available(ManaColor::White),
+        0,
+        "and nothing of the colour that was not chosen"
+    );
+    assert!(
+        is_tapped(&engine, chapel),
+        "the {{T}} in the ability's cost"
+    );
+}
+
+// oracle_id = "1a8c996d-ca93-4c17-ace5-66ecd6b99317"
+
+/// Strength of the Harvest // Haven of the Harvest ({2}{G/W}) — a modal
+/// double-faced card whose front is an Aura and whose back is a land.
+fn strength_of_the_harvest() -> CardIndex {
+    card_index("1a8c996d-ca93-4c17-ace5-66ecd6b99317")
+}
+
+/// "Enchant creature. Enchanted creature gets +1/+1 for each creature
+/// and/or enchantment you control."
+///
+/// Three printed claims, and the board is built so that each one moves a
+/// number the others cannot. The Aura spell *targets* as it is cast — an
+/// Aura spell requires a target, defined by its enchant ability
+/// (CR 303.4a) — and the offer is asserted as a whole rather than searched:
+/// four Forests stand beside the one creature, so "enchant **creature**"
+/// is the difference between one option and five.
+///
+/// The permanent then arrives attached to what it chose, which is read off
+/// `attached_to` and confirmed a second way by the Aura still being on the
+/// battlefield at all: an Aura attached to nothing is put into its owner's
+/// graveyard by a state-based action (CR 704.5m).
+///
+/// The count is the half that says which two types are read. A Llanowar
+/// Elves alone would leave a 2/2 whether the Aura counted enchantments or
+/// not; the Aura **is** an enchantment its controller controls, so it counts
+/// itself and the Elf comes out a 3/3. Four Forests are on the table and
+/// none of them counts, which is what "creature and/or enchantment" excludes
+/// — counting every permanent would read 7/7 here.
+///
+/// And casting a second Elf afterwards is what makes it "for each" rather
+/// than a number fixed as the Aura entered: the projection is read again and
+/// the enchanted creature goes to 4/4, while the newcomer — which the Aura
+/// is not attached to — stays the 1/1 it was printed as.
+#[test]
+fn the_harvest_aura_swells_only_its_own_creature_and_recounts_the_board_each_time() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(311, forest())
+        .battlefield(
+            0,
+            &[forest(), forest(), forest(), forest(), llanowar_elves()],
+        )
+        .hand(0, &[strength_of_the_harvest(), llanowar_elves()])
+        .start();
+    keep_mulligans(&mut engine);
+    // Crosses a turn boundary if the seed puts p0 on the draw, which
+    // `reach_main_phase` cannot: the combat on the way asks for attackers.
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    let elf = on_battlefield(&engine, p0, llanowar_elves()).expect("the Elf is on the table");
+    assert_eq!(
+        pt(&engine, elf),
+        (1, 1),
+        "a Llanowar Elves is a 1/1 before anything enchants it"
+    );
+
+    // Four Forests: three pay {2}{G/W} — the hybrid takes green — and the
+    // fourth stays floating for the second Elf, which has to be cast in this
+    // same main phase because a pool empties when the step ends (CR 500.4).
+    tap_all_mana(&mut engine, p0);
+    let spell = in_hand(&engine, p0, strength_of_the_harvest()).expect("the Aura is in hand");
+    engine
+        .apply(p0, PlayerAction::CastSpell { card: spell })
+        .expect("{2}{G/W} off four Forests");
+
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!(
+            "an Aura spell requires a target defined by its enchant ability \
+             (CR 303.4a) — got {:?}",
+            engine.pending()
+        )
+    };
+    assert_eq!(
+        options,
+        [elf],
+        "\"enchant creature\" reaches the one creature on the table and none \
+         of the four Forests standing beside it"
+    );
+    engine
+        .apply(p0, PlayerAction::ChooseObjects { objects: vec![elf] })
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+
+    let aura = on_battlefield(&engine, p0, strength_of_the_harvest())
+        .expect("the Aura resolved onto the battlefield and stayed there");
+    assert_eq!(
+        engine
+            .state()
+            .object(aura)
+            .and_then(|o| o.attached_to)
+            .expect("the Aura is attached to something"),
+        elf,
+        "an Aura enters the battlefield attached to the object its spell \
+         targeted; attached to nothing it would already be in its owner's \
+         graveyard (CR 704.5m)"
+    );
+    assert_eq!(
+        pt(&engine, elf),
+        (3, 3),
+        "one creature (the Elf) and one enchantment (the Aura itself) — and \
+         not one of the four Forests"
+    );
+
+    let second = in_hand(&engine, p0, llanowar_elves()).expect("the second Elf is in hand");
+    engine
+        .apply(p0, PlayerAction::CastSpell { card: second })
+        .expect("{G} off the Forest left floating");
+    pass_until(&mut engine, stack_is_empty);
+
+    let elves = all_on_battlefield(&engine, p0, llanowar_elves());
+    assert_eq!(elves.len(), 2, "the second Elf resolved");
+    assert_eq!(
+        pt(&engine, elf),
+        (4, 4),
+        "\"for each\" is read on every projection, so a creature arriving \
+         after the Aura counts too"
+    );
+    let newcomer = elves
+        .into_iter()
+        .find(|id| *id != elf)
+        .expect("the one that is not the enchanted Elf");
+    assert_eq!(
+        pt(&engine, newcomer),
+        (1, 1),
+        "only the *enchanted* creature gets the bonus — the filter is the \
+         Aura's own host, not every creature you control"
+    );
+}
+
+/// "Haven of the Harvest — Land. This land enters tapped. {T}: Add {G} or
+/// {W}."
+///
+/// A player playing a modal double-faced card as a land chooses one of its
+/// faces that's a land before putting it onto the battlefield, and it enters
+/// with that face up (CR 712.12). Only the back face of this card is a land,
+/// so there is exactly one choice to make and the engine makes it: the card
+/// arrives as face 1, a Land with none of the Aura's text on it.
+///
+/// It has to be a real land drop rather than a seeded battlefield, because
+/// "this land enters tapped" is a replacement effect and a permanent placed
+/// on the board never enters at all — the tapped assertion would pass on a
+/// card that printed nothing of the kind.
+///
+/// Then the mana ability, which is the rest of the face: the land untaps on
+/// its controller's next turn, and what it offers is asked of the offer
+/// first — one printed ability and no CR 305.6 shortcut, because the Haven
+/// prints no basic land type — and then of the pool, which ends up holding
+/// one mana of the colour chosen and none of the other. "{G} **or** {W}" is
+/// the claim that a single {T} producing both would pass.
+#[test]
+fn the_harvest_land_face_enters_tapped_and_taps_for_green_or_white() {
+    let p0 = PlayerId::new(0);
+    let (mut engine, land) = play_land_face(strength_of_the_harvest(), 1)
+        .unwrap_or_else(|why| panic!("Haven of the Harvest {why}"));
+
+    let printed = types(&engine, land);
+    assert!(
+        printed.contains(TypeSet::LAND),
+        "the face that was played is the Land: {printed:?}"
+    );
+    assert!(
+        !printed.contains(TypeSet::ENCHANTMENT),
+        "and it carries none of the Aura face's types: {printed:?}"
+    );
+    assert!(
+        entered_tapped(&engine, land),
+        "\"This land enters tapped.\""
+    );
+
+    // Its own untap step is the first moment it can be tapped for mana.
+    pass_until(&mut engine, |e| !is_tapped(e, land));
+    reach_main_phase(&mut engine, p0);
+
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        !legal.mana_abilities.contains(&land),
+        "the Haven prints no basic land type, so nothing offers it the \
+         intrinsic tap of CR 305.6"
+    );
+    let offered: Vec<u32> = legal
+        .abilities
+        .iter()
+        .filter(|(who, _)| *who == land)
+        .map(|(_, index)| *index)
+        .collect();
+    assert_eq!(
+        offered,
+        [0],
+        "the land face offers its own printed mana ability and nothing the \
+         Aura face wrote"
+    );
+
+    activate(&mut engine, p0, strength_of_the_harvest(), 0);
+    let Pending::ChooseColor { options, .. } = engine.pending().clone() else {
+        panic!(
+            "\"Add {{G}} or {{W}}\" is a choice of two colours — got {:?}",
+            engine.pending()
+        )
+    };
+    assert_eq!(
+        options,
+        [ManaColor::Green, ManaColor::White],
+        "the two the card prints, in the order it prints them, and no third"
+    );
+    engine
+        .apply(p0, PlayerAction::ChooseColor(ManaColor::White))
+        .expect("white is one of the two offered");
+
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(
+        pool.available(ManaColor::White),
+        1,
+        "one white mana in the pool, which is what the ability produces"
+    );
+    assert_eq!(
+        pool.available(ManaColor::Green),
+        0,
+        "and none of the colour that was not chosen — the card prints \
+         \"or\", not both"
+    );
+    assert!(
+        is_tapped(&engine, land),
+        "and the {{T}} in the ability's cost spent the land"
+    );
+}
+
+// oracle_id = "5d47e820-913f-441a-a6cc-37ab3181d79a"
+fn swift_reconfiguration() -> CardIndex {
+    card_index("5d47e820-913f-441a-a6cc-37ab3181d79a")
+}
+
+/// `Artifact — Vehicle`, 3/3, and — uncrewed — no creature at all.
+///
+/// It is on this board for the half of "enchant creature or Vehicle" that a
+/// creature cannot stand for: a Vehicle is a legal host precisely because it
+/// is *not* a creature, so a filter that read the printed line as "enchant
+/// creature" would still pass every other assertion here.
+fn smugglers_copter() -> CardIndex {
+    card_index("49136bdc-bc50-49a2-999a-1ef9c16ea130")
+}
+
+/// Swift Reconfiguration ({W}, Aura): "Flash. Enchant creature or Vehicle.
+/// Enchanted permanent is a Vehicle artifact with crew 5 and it loses all
+/// other card types."
+///
+/// The half that works, played the way the card is played: held through the
+/// opponent's turn and flashed onto one of their creatures in their own main
+/// phase, which is a cast no sorcery-speed Aura could make (CR 702.8a). The
+/// second sentence is struck on the offer rather than on the answer, on all
+/// three of its words: the two Elves are on the list, the uncrewed Smuggler's
+/// Copter is on it because a *Vehicle* is the other half and not because it
+/// is a creature — it is not one — and the Plains standing beside them is on
+/// neither, which is the difference between "enchant creature or Vehicle"
+/// and "enchant permanent". What the third sentence then does is read off the layer
+/// system — layer 4, where the artifact type is added, Vehicle is added as a
+/// subtype and every other card type is taken away (CR 613.1d) — and off
+/// combat, because an uncrewed Vehicle is not a creature and CR 508.1a only
+/// ever declares creatures as attackers.
+///
+/// The second Elf is the control and carries the whole assertion: both of
+/// them start the turn identical and only one is enchanted, so "the engine
+/// did not offer it" cannot be a summoning-sick, tapped or otherwise
+/// uninteresting board. One is offered as an attacker and the other is not.
+#[test]
+#[allow(clippy::too_many_lines)] // one scenario, read in order: cast, resolve, combat
+fn a_flashed_reconfiguration_makes_an_attacker_a_vehicle_that_cannot_be_declared() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(61, forest())
+        .battlefield(0, &[plains(), smugglers_copter()])
+        .hand(0, &[swift_reconfiguration()])
+        .battlefield(1, &[llanowar_elves(), llanowar_elves()])
+        .start();
+    keep_mulligans(&mut engine);
+    let my_plains = on_battlefield(&engine, p0, plains()).expect("one Plains, and it pays {W}");
+    let copter = on_battlefield(&engine, p0, smugglers_copter()).expect("an uncrewed Vehicle");
+    let elves = mine(&engine, p1, llanowar_elves(), Zone::Battlefield);
+    assert_eq!(elves.len(), 2, "two Elves, one enchanted and one not");
+    let (enchanted, bystander) = (elves[0], elves[1]);
+    assert!(
+        types(&engine, enchanted).contains(TypeSet::CREATURE)
+            && !types(&engine, enchanted).contains(TypeSet::ARTIFACT),
+        "it begins the turn as a plain creature"
+    );
+
+    // Their turn, their main phase, and the Aura is still in hand: that is
+    // the only window in which flash is the reason it can be cast at all.
+    pass_until(&mut engine, |e| {
+        matches!(e.state().turn.phase, Phase::FirstMain)
+            && e.state().turn.active == p1
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p0)
+    });
+    let card = in_hand(&engine, p0, swift_reconfiguration()).expect("held through their turn");
+    tap_all_mana(&mut engine, p0);
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        legal.castable.contains(&card),
+        "flash puts the Aura on offer while the other seat is the active player"
+    );
+    engine
+        .apply(p0, PlayerAction::CastSpell { card })
+        .expect("one Plains pays {W}");
+
+    // "Enchant creature or Vehicle": the Aura picks its host as it is cast,
+    // and a land is on neither half of that.
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!(
+            "an Aura chooses what it enchants as it is cast, got {:?}",
+            engine.pending()
+        )
+    };
+    assert!(
+        options.contains(&enchanted) && options.contains(&bystander),
+        "both creatures are legal hosts: {options:?}"
+    );
+    assert!(
+        options.contains(&copter),
+        "and so is the Vehicle, which is the half of the line no creature can \
+         stand for — it is on the list because it is a Vehicle and not \
+         because it is a creature, which it is not: {options:?}"
+    );
+    assert!(
+        !options.contains(&my_plains),
+        "while the land is on neither half, which is the word the printed \
+         line does not say: {options:?}"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![enchanted],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, |e| {
+        on_battlefield(e, p0, swift_reconfiguration()).is_some()
+    });
+
+    let aura = on_battlefield(&engine, p0, swift_reconfiguration()).expect("the Aura resolved");
+    assert_eq!(
+        engine.state().object(aura).and_then(|o| o.attached_to),
+        Some(enchanted),
+        "and arrived attached to the creature it targeted"
+    );
+    let now = types(&engine, enchanted);
+    assert!(
+        now.contains(TypeSet::ARTIFACT) && !now.contains(TypeSet::CREATURE),
+        "it is an artifact and has lost every other card type: {now:?}"
+    );
+    assert!(
+        engine
+            .state()
+            .object(enchanted)
+            .expect("the host is still on the battlefield")
+            .characteristics()
+            .subtypes
+            .contains(baylee_core::generated::subtypes::artifact::VEHICLE),
+        "and a Vehicle"
+    );
+
+    // CR 508.1a declares creatures, so an uncrewed Vehicle is not on the list
+    // — while the Elf beside it, identical in every other way, is.
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseAttackers { .. })
+    });
+    assert_eq!(
+        engine.state().object(aura).and_then(|o| o.attached_to),
+        Some(enchanted),
+        "and it is still attached after the state-based actions have run, \
+         with its host no longer a creature (CR 704.5m)"
+    );
+    let Pending::ChooseAttackers { attackers, .. } = engine.pending().clone() else {
+        unreachable!("pass_until only stops on the attacker declaration")
+    };
+    assert!(
+        attackers.contains(&bystander),
+        "the untouched Elf attacks, so the board itself is not the reason"
+    );
+    assert!(
+        !attackers.contains(&enchanted),
+        "the enchanted one is no creature and may not be declared: {attackers:?}"
+    );
+}
+
+/// The two halves the card's `Coverage::Partial` is about, on a board built
+/// so that both of them are visible at once.
+///
+/// **`with crew 5` is not written.** Five untapped Llanowar Elves stand
+/// beside the enchanted permanent — total power exactly 5, which is what the
+/// printed crew cost asks for — and the offer the engine makes on that
+/// permanent is *exactly* its host's own printed "`{T}`: Add `{G}`", at index
+/// 0. An equality and not an emptiness, because an emptiness here would have
+/// been wrong rather than weak: a **printed** mana ability is enumerated into
+/// `LegalActions::abilities` like any other activated ability —
+/// `mana_abilities` is the CR 305.6 land shortcut plus what a continuous
+/// effect *granted* — so the Elf under the Aura was never going to offer
+/// nothing. The equality keeps what the emptiness was reaching for (the
+/// engine is looking at this object) and still fails the moment a second
+/// entry appears. The card's own `NOT SUPPORTED` note says why none does: no
+/// `CostPart` chooses a set of other creatures and reads a total power off
+/// it, so nothing grants a crew ability in the first place. Crew would arrive
+/// through `Modifier::GrantActivated`, offered at a `choice::granted_ability`
+/// index beside the printed one — offered, which is to say *payable*, since
+/// `can_afford` gates the offer. That is what the five untapped Elves are
+/// for: with total power exactly 5 standing by, the day crew is written is
+/// the day it is affordable, and this assertion is red.
+///
+/// **A card type does not take its subtypes with it.** `Modifier::RemoveType`
+/// clears bits in the projected `types` and nothing subtracts a subtype, so
+/// the Elf Druid under the Aura projects as `Artifact — Elf Druid Vehicle`.
+/// It is not a creature, which is what every rule this card reaches asks
+/// first, but a count of Elves would still find it.
+#[test]
+#[allow(clippy::too_many_lines)] // both halves of `Coverage::Partial` on one board
+fn a_reconfigured_elf_is_a_vehicle_nobody_can_crew_and_keeps_its_creature_types() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(62, forest())
+        .battlefield(
+            0,
+            &[
+                plains(),
+                llanowar_elves(),
+                llanowar_elves(),
+                llanowar_elves(),
+                llanowar_elves(),
+                llanowar_elves(),
+                llanowar_elves(),
+            ],
+        )
+        .hand(0, &[swift_reconfiguration()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    let elves = mine(&engine, p0, llanowar_elves(), Zone::Battlefield);
+    assert_eq!(elves.len(), 6, "one to enchant and five to crew with");
+    let (host, crew) = (elves[0], &elves[1..]);
+
+    // Only the Plains pays: the Elves have to stay untapped, because an
+    // already-tapped crew would be a second reason for the offer to be absent.
+    tap_all_mana_but(&mut engine, p0, Some(llanowar_elves()));
+    let card = in_hand(&engine, p0, swift_reconfiguration()).expect("the Aura is in hand");
+    engine
+        .apply(p0, PlayerAction::CastSpell { card })
+        .expect("one Plains pays {W}");
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!(
+            "expected the Aura's host choice, got {:?}",
+            engine.pending()
+        )
+    };
+    assert!(options.contains(&host), "my own Elf is a legal host");
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![host],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, |e| at_rest(e, p0));
+
+    let now = types(&engine, host);
+    assert!(
+        now.contains(TypeSet::ARTIFACT) && !now.contains(TypeSet::CREATURE),
+        "the Aura resolved and rewrote what the permanent is: {now:?}"
+    );
+
+    // The board could pay crew 5 twice over if there were a crew cost to pay.
+    assert!(
+        crew.iter().all(|id| !is_tapped(&engine, *id)),
+        "every creature that would crew it is untapped"
+    );
+    let total: i16 = crew.iter().map(|id| pt(&engine, *id).0).sum();
+    assert_eq!(total, 5, "five untapped 1/1s: total power exactly 5");
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    let offered: Vec<u32> = legal
+        .abilities
+        .iter()
+        .filter(|(who, _)| *who == host)
+        .map(|(_, index)| *index)
+        .collect();
+    assert_eq!(
+        offered,
+        [0_u32],
+        "the permanent still offers exactly one thing, and it is the Elf's \
+         own printed ability at index 0 — `{{T}}: Add {{G}}`, which a printed \
+         mana ability is listed under here rather than in `mana_abilities`. \
+         `with crew 5` is the card's NOT SUPPORTED clause, so no second entry \
+         at a `choice::granted_ability` index stands beside it"
+    );
+    assert!(
+        !types(&engine, host).contains(TypeSet::CREATURE),
+        "and with nothing to crew it, it never becomes a creature again"
+    );
+
+    // The other half of `Coverage::Partial`: losing the card type leaves the
+    // creature types behind.
+    let c = engine
+        .state()
+        .object(host)
+        .expect("the host is still on the battlefield")
+        .characteristics();
+    assert!(
+        c.subtypes
+            .contains(baylee_core::generated::subtypes::artifact::VEHICLE),
+        "Vehicle was added"
+    );
+    assert!(
+        c.subtypes
+            .contains(baylee_core::generated::subtypes::creature::ELF)
+            && c.subtypes
+                .contains(baylee_core::generated::subtypes::creature::DRUID),
+        "and Elf and Druid were not taken away with the creature type: no \
+         `Modifier` subtracts a subtype. When this fires, the clause has \
+         become expressible and the card is no longer Coverage::Partial"
+    );
+}

@@ -421,3 +421,699 @@ fn ashnods_altar_offers_nothing_while_a_cost_cannot_ask_which_creature() {
          Ashnod's Altar is no longer Coverage::Partial: {offered:?}"
     );
 }
+
+// oracle_id = "68e1f7e0-a9b3-437f-8086-0c0cb85f2880"
+fn krark_clan_ironworks() -> baylee_core::ids::CardIndex {
+    card_index("68e1f7e0-a9b3-437f-8086-0c0cb85f2880")
+}
+
+/// Krark-Clan Ironworks ({4}): "Sacrifice an artifact: Add {C}{C}."
+///
+/// A `Coverage::Partial` has two halves and this strikes both. The half that
+/// works is the card: it is cast off five Forests and resolves onto the
+/// battlefield as an artifact — which is also what makes it its own fodder,
+/// since "an artifact" is `Filter::YOUR_ARTIFACT` and the Ironworks is one.
+/// The half that does not is the only line it prints: no engine path can
+/// suspend an activation to ask *which* artifact while the cost is being
+/// paid, so `abilities::choice_cost_unpayable` puts `CostPart::Sacrifice`
+/// out of `can_afford`'s reach and the ability is never offered. The
+/// Ironworks plays as though the line were not printed, which is exactly
+/// what the `Partial` promises a player.
+///
+/// This is the sibling of
+/// `ashnods_altar_offers_nothing_while_a_cost_cannot_ask_which_creature`, one
+/// card type up, and it is written to **fail** the day the gap closes: when
+/// an activation learns to ask that question, two artifacts standing beside
+/// this one will break the assertion, and flipping `Partial` to
+/// `Implemented` is what closes it. A honesty note nothing checks is a note
+/// that outlives its reason.
+///
+/// Two counter-halves keep the empty offer from being an empty table. There
+/// are exactly two artifacts on the board to eat, counted rather than
+/// assumed. And the Sol Ring is deliberately the one mana source left
+/// untapped, so the very list that fails to name the Ironworks still names
+/// *an artifact's* mana ability: the offer is alive, and what is missing
+/// from it is this cost. Pressing the button by hand afterwards is refused
+/// and the pool stays where it was — the ability is unreachable, not merely
+/// unlisted.
+#[test]
+fn the_ironworks_resolves_and_then_offers_no_way_to_eat_an_artifact_for_mana() {
+    let p0 = PlayerId::new(0);
+    // Five Forests pay the {4} with the Sol Ring still untapped.
+    let mut board = vec![forest(); 5];
+    board.push(quiet_artifact());
+    let mut engine = Duel::new(41, forest())
+        .battlefield(0, &board)
+        .hand(0, &[krark_clan_ironworks()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    // The Sol Ring is the fodder and the control both, so it is the one
+    // source that must not be spent on the casting.
+    let rock = on_battlefield(&engine, p0, quiet_artifact()).expect("the Sol Ring stands");
+    tap_mana_except(&mut engine, p0, rock);
+    let spell = in_hand(&engine, p0, krark_clan_ironworks()).expect("the Ironworks is in hand");
+    engine
+        .apply(p0, PlayerAction::CastSpell { card: spell })
+        .expect("five Forests pay {4}");
+    pass_until(&mut engine, stack_is_empty);
+
+    let iron = on_battlefield(&engine, p0, krark_clan_ironworks())
+        .expect("the Ironworks resolved onto the battlefield");
+    let fodder = engine
+        .state()
+        .zones
+        .list(crate::zone::ZoneLocation::Battlefield)
+        .iter()
+        .filter(|id| {
+            engine.state().object(**id).is_some_and(|o| {
+                o.controller == p0
+                    && o.characteristics()
+                        .types
+                        .contains(baylee_core::types::TypeSet::ARTIFACT)
+            })
+        })
+        .count();
+    assert_eq!(
+        fodder, 2,
+        "the Sol Ring and — because the filter is `an artifact` — the \
+         Ironworks itself are both things it could eat, so the empty offer \
+         below is the cost and not an empty table"
+    );
+
+    let Pending::Priority { player, legal } = engine.pending().clone() else {
+        panic!(
+            "the spell resolved, so the seat is back at a quiet priority: {:?}",
+            engine.pending()
+        )
+    };
+    assert_eq!(player, p0, "and it is the seat that cast it");
+    assert!(
+        legal.abilities.contains(&(rock, 0)),
+        "the Sol Ring was kept untapped on purpose: this list still names an \
+         artifact's mana ability, so it is alive: {:?}",
+        legal.abilities
+    );
+
+    let offered = deeds(&legal, &[iron]);
+    assert!(
+        offered.is_empty(),
+        "a sacrifice cost cannot be chosen during an activation, so the \
+         Ironworks offers nothing at all — if this fires, `pay_cost` learned \
+         to ask and Krark-Clan Ironworks is no longer Coverage::Partial: \
+         {offered:?}"
+    );
+
+    let before = engine.state().players[0]
+        .mana_pool
+        .available(ManaColor::Colorless);
+    assert!(
+        engine
+            .apply(
+                p0,
+                PlayerAction::ActivateAbility {
+                    source: iron,
+                    ability_index: 0,
+                }
+            )
+            .is_err(),
+        "and the ability is unreachable rather than merely unlisted: pressing \
+         it is refused"
+    );
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Colorless),
+        before,
+        "no {{C}}{{C}} reached the pool"
+    );
+}
+
+// oracle_id = "04c7f4fe-2098-4311-866d-6733c08d5178"
+fn nettlecyst() -> baylee_core::ids::CardIndex {
+    card_index("04c7f4fe-2098-4311-866d-6733c08d5178")
+}
+
+/// Nettlecyst is `Coverage::Partial`, and both halves of that are one
+/// scenario. It is cast, and the living weapon line — "create a 0/0 black
+/// Phyrexian Germ creature token, then attach this to it" — is the gap: no
+/// token arrives and the Equipment enters holding nobody, so it has to be
+/// equipped by hand like any other. That is the half that is written, and
+/// with it the static: "equipped creature gets +1/+1 for each artifact
+/// and/or enchantment you control".
+///
+/// Three artifacts stand on the table on purpose — Nettlecyst itself, a Sol
+/// Ring under the same seat, and a Sol Ring across it. `+2/+2` is the only
+/// answer that both counts the Equipment and refuses the opponent's rock:
+/// `+1/+1` would mean it never counted itself (the filter says nothing about
+/// `Another`), `+3/+3` that "you control" was never read. The fourth
+/// artifact is cast *after* the equip, so the count is shown to be read off
+/// the board rather than frozen at the moment the Equipment was attached.
+#[test]
+fn nettlecyst_arrives_without_its_germ_and_then_grows_with_the_artifacts_you_control() {
+    let p0 = PlayerId::new(0);
+    let mut board = vec![forest(); 6];
+    board.extend([quiet_artifact(), llanowar_elves()]);
+    let mut engine = Duel::new(41, forest())
+        .battlefield(0, &board)
+        .hand(0, &[nettlecyst(), quiet_artifact()])
+        // A creature on the other side, so "target creature you control" has
+        // something it must decline to offer.
+        .battlefield(1, &[quiet_artifact(), llanowar_elves()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let elves = on_battlefield(&engine, p0, llanowar_elves()).expect("the Elves are out");
+    assert_eq!(pt(&engine, elves), (1, 1), "a printed 1/1, holding nothing");
+
+    // Living weapon: the half the card refuses to write.
+    cast_from_hand(&mut engine, p0, nettlecyst());
+    pass_until(&mut engine, stack_is_empty);
+    let cyst = on_battlefield(&engine, p0, nettlecyst()).expect("the Equipment resolved");
+    assert!(
+        tokens_of(&engine, p0).is_empty(),
+        "no Germ: the living weapon line is the `Coverage::Partial` gap"
+    );
+    assert!(
+        engine
+            .state()
+            .object(cyst)
+            .is_some_and(|o| o.attached_to.is_none()),
+        "with no Germ to attach itself to, it enters holding nobody"
+    );
+    assert_eq!(
+        pt(&engine, elves),
+        (1, 1),
+        "an Equipment attached to nothing modifies nothing"
+    );
+
+    // Equip {2} (CR 702.6): the half that is written.
+    // Ability 1 is the equip; ability 0 is the static that grows the host.
+    activate(&mut engine, p0, nettlecyst(), 1);
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!(
+            "equip targets a creature you control, got {:?}",
+            engine.pending()
+        )
+    };
+    assert_eq!(
+        options,
+        vec![elves],
+        "target creature *you* control — the Elves across the table are not offered"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![elves],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, |e| {
+        e.state()
+            .object(cyst)
+            .is_some_and(|o| o.attached_to == Some(elves))
+    });
+
+    assert_eq!(
+        pt(&engine, elves),
+        (3, 3),
+        "+1/+1 for Nettlecyst itself and +1/+1 for the Sol Ring beside it, \
+         and nothing at all for the Sol Ring the opponent controls"
+    );
+
+    // And the count is a count: a fourth artifact under the same seat is a
+    // third +1/+1, on a creature that was equipped two casts ago.
+    cast_from_hand(&mut engine, p0, quiet_artifact());
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        pt(&engine, elves),
+        (4, 4),
+        "the static reads the board it is on, not the board it was equipped on"
+    );
+}
+
+// oracle_id = "eb7a1f21-a66d-415b-8520-710b44890bb6"
+fn simulacrum_synthesizer() -> baylee_core::ids::CardIndex {
+    card_index("eb7a1f21-a66d-415b-8520-710b44890bb6")
+}
+
+/// How many artifacts `seat` controls, read after the layer system has run.
+///
+/// The counter-half of the Construct's own arithmetic: `ModifyPTPerCount`
+/// counts the permanents the *effect's controller* controls, so the reading
+/// is only worth anything with an opponent's artifacts standing on the same
+/// battlefield and left out by the count rather than by the board.
+fn artifacts_of(engine: &Engine<RegistryLookup>, seat: PlayerId) -> usize {
+    engine
+        .state()
+        .zones
+        .list(crate::zone::ZoneLocation::Battlefield)
+        .iter()
+        .filter(|id| {
+            engine.state().object(**id).is_some_and(|o| {
+                o.controller == seat
+                    && o.characteristics()
+                        .types
+                        .contains(baylee_core::types::TypeSet::ARTIFACT)
+            })
+        })
+        .count()
+}
+
+/// Simulacrum Synthesizer ({2}{U}): "When this artifact enters, scry 2.
+/// Whenever **another** artifact you control with mana value 3 or greater
+/// enters, create a 0/0 colorless Construct artifact creature token with
+/// 'This token gets +1/+1 for each artifact you control.'"
+///
+/// Both printed sentences are played in one first main phase, off one
+/// tapping of six Islands: a mana pool empties when a step or phase ends
+/// (CR 500.4) and this test never leaves that phase, so the {3} left over
+/// from casting the Synthesizer is what the second artifact is cast with.
+///
+/// The word the second sentence turns on is `another`, and it is struck
+/// first: the Synthesizer is itself an artifact of mana value 3 entering
+/// under its own controller, so a filter without that word would hand out
+/// a Construct beside its own scry. The board is read after the entry
+/// trigger has finished, and there is no token on it.
+///
+/// Then Chromatic Lantern, which is the {3} artifact the card is written
+/// about, and the Construct that follows it is a **3/3** — the Synthesizer,
+/// the Lantern, and the token itself, which is an artifact creature and so
+/// counts itself. Two readings hold that number down from either side. The
+/// opponent's two artifacts do not count, because the modifier counts what
+/// the effect's controller controls and the card prints "each artifact
+/// **you** control": three, never five. And exactly one token arrives — the
+/// Construct is another artifact you control entering, but a token has no
+/// mana cost, and the mana value of an object with no mana cost is 0
+/// (CR 202.3a), so it is never an artifact "with mana value 3 or greater"
+/// and cannot feed the ability that made it.
+///
+/// The scry half is asserted as a **move** and not as a question that was
+/// asked: the card chosen off the top lies on the bottom afterwards, the one
+/// left alone is the new top card, and the library is the length it was —
+/// scry looks and reorders, and draws nothing.
+#[test]
+fn simulacrum_synthesizer_scries_on_arrival_and_builds_only_for_another_artifact() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[island(), island(), island(), island(), island(), island()],
+        )
+        .hand(0, &[simulacrum_synthesizer(), chromatic_lantern()])
+        .battlefield(1, &[quiet_artifact(), quiet_artifact()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    // The two cards the scry is about to look at, named before anything is
+    // cast. The list's last entry is the top of the library and its first is
+    // the bottom — the order `Effect::Scry` reads the top `n` in, and the
+    // end `ZonePosition::Bottom` writes to.
+    let library_before = engine
+        .state()
+        .zones
+        .list(crate::zone::ZoneLocation::Library(p0))
+        .clone();
+    let top = *library_before.last().expect("p0 has a library");
+    let second = library_before[library_before.len() - 2];
+
+    cast_from_hand(&mut engine, p0, simulacrum_synthesizer());
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseCards { .. })
+    });
+    let Pending::ChooseCards {
+        player,
+        options,
+        min,
+        max,
+        prompt,
+    } = engine.pending().clone()
+    else {
+        unreachable!("the predicate just matched")
+    };
+    assert_eq!(player, p0, "the Synthesizer's controller does the looking");
+    assert_eq!(prompt, crate::choice::ChoicePrompt::ScryBottom);
+    assert_eq!(options, vec![top, second], "the top two cards, top first");
+    assert_eq!(
+        (min, max),
+        (0, 2),
+        "either, both or neither may be bottomed"
+    );
+
+    engine
+        .apply(p0, PlayerAction::ChooseObjects { objects: vec![top] })
+        .expect("one of the two just looked at");
+    pass_until(&mut engine, |e| at_rest(e, p0));
+
+    let library = engine
+        .state()
+        .zones
+        .list(crate::zone::ZoneLocation::Library(p0))
+        .clone();
+    assert_eq!(
+        library.first().copied(),
+        Some(top),
+        "the chosen card is bottomed"
+    );
+    assert_eq!(
+        library.last().copied(),
+        Some(second),
+        "the other is the new top"
+    );
+    assert_eq!(library.len(), library_before.len(), "scry draws nothing");
+
+    // `another`: a mana value 3 artifact just entered under p0's control and
+    // it was the Synthesizer itself, so the second ability must not see it.
+    let synthesizer = on_battlefield(&engine, p0, simulacrum_synthesizer());
+    assert!(synthesizer.is_some(), "the Synthesizer resolved");
+    assert!(
+        tokens_of(&engine, p0).is_empty(),
+        "and built nothing for itself"
+    );
+
+    // {3} of the six Islands is still floating, and the Lantern is the other
+    // artifact — mana value 3 exactly — that the second sentence is about.
+    cast_from_hand(&mut engine, p0, chromatic_lantern());
+    pass_until(&mut engine, |e| {
+        stack_is_empty(e) && matches!(e.pending(), Pending::Priority { .. })
+    });
+
+    let tokens = tokens_of(&engine, p0);
+    assert_eq!(
+        tokens.len(),
+        1,
+        "one Construct for the Lantern, and none for the Construct itself"
+    );
+    let construct = tokens[0];
+    let kinds = types(&engine, construct);
+    assert!(
+        kinds.contains(baylee_core::types::TypeSet::ARTIFACT)
+            && kinds.contains(baylee_core::types::TypeSet::CREATURE),
+        "the token counts itself because it is an artifact creature: {kinds:?}"
+    );
+    assert_eq!(
+        (artifacts_of(&engine, p0), artifacts_of(&engine, p1)),
+        (3, 2),
+        "Synthesizer, Lantern and Construct on this side; two on the other"
+    );
+    assert_eq!(
+        pt(&engine, construct),
+        (3, 3),
+        "+1/+1 for each artifact *you* control: three, and never the five \
+         standing on the battlefield"
+    );
+}
+
+// oracle_id = "d95af032-3efd-40c7-8229-ade9d974934f"
+fn u_s_s_enterprise_d() -> CardIndex {
+    card_index("d95af032-3efd-40c7-8229-ade9d974934f")
+}
+
+/// The quietest seven-power body in the pool, and the reason these tests
+/// reach the printed "7+" through the printed ability instead of through
+/// `put_counters`.
+///
+/// Phyrexian Fleshgorger is a `7/5` whose menace, lifelink and ward are all
+/// still an unimplemented stub, so on a battlefield it is a body and nothing
+/// else — and one station of it is exactly seven charge counters, which is
+/// the threshold the Spacecraft prints rather than one past it. Nothing in
+/// the engine's setup path reads `coverage`, so a stub is admitted on
+/// `starting_battlefield` like any other printing.
+fn phyrexian_fleshgorger() -> CardIndex {
+    card_index("d3a5a830-cd14-49da-9412-c50049c74c92")
+}
+
+/// Charge counters on the Spacecraft: what Station pays in, and what both
+/// the type line and the keywords key off at 7+.
+#[track_caller]
+fn enterprise_d_charge_counters(engine: &Engine<RegistryLookup>, ship: ObjectId) -> u16 {
+    engine
+        .state()
+        .object(ship)
+        .expect("the Spacecraft is an object")
+        .counters
+        .get(CounterKind::Charge)
+}
+
+/// The board every scenario starts from: the Spacecraft, a seven-power crew
+/// and a one-power crew under the same seat, and a third creature across the
+/// table that "another creature **you control**" has to decline.
+fn an_enterprise_d_with_a_crew(
+    seed: u64,
+) -> (Engine<RegistryLookup>, ObjectId, ObjectId, ObjectId) {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(seed, island())
+        .battlefield(
+            0,
+            &[
+                u_s_s_enterprise_d(),
+                phyrexian_fleshgorger(),
+                llanowar_elves(),
+            ],
+        )
+        .battlefield(1, &[llanowar_elves()])
+        .start();
+    keep_mulligans(&mut engine);
+    // `walk_to_own_main` rather than `reach_main_phase`: station is sorcery
+    // speed, so the scenario needs p0's *own* main phase, and which seat the
+    // seed put on the play decides whether a whole turn is in the way.
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+    let ship = on_battlefield(&engine, p0, u_s_s_enterprise_d()).expect("the Spacecraft is out");
+    let crew = on_battlefield(&engine, p0, phyrexian_fleshgorger()).expect("the Wurm is out");
+    let elves = on_battlefield(&engine, p0, llanowar_elves()).expect("your own Elves are out");
+    (engine, ship, crew, elves)
+}
+
+/// Whether the Spacecraft's Station ability is among the activations the
+/// seat holding priority is being offered *right now*.
+///
+/// The Spacecraft's only activated ability is Station, so naming the object
+/// is enough — the two statics behind it are never offered at all.
+#[track_caller]
+fn station_the_enterprise_d_is_offered(engine: &Engine<RegistryLookup>, ship: ObjectId) -> bool {
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    legal.abilities.iter().any(|(source, _)| *source == ship)
+}
+
+/// Stations `crew`: presses the Spacecraft's printed Station ability
+/// (ability 0 — the two statics behind it are 1 and 2), aims it at `crew`,
+/// lets it resolve, and hands back the options the choice enumerated.
+///
+/// The options are the return value because the printed cost is "Tap
+/// **another** creature you control", and that word is only readable in what
+/// the engine was willing to offer.
+#[track_caller]
+fn station_the_enterprise_d(
+    engine: &mut Engine<RegistryLookup>,
+    seat: PlayerId,
+    crew: ObjectId,
+) -> Vec<ObjectId> {
+    activate(engine, seat, u_s_s_enterprise_d(), 0);
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!(
+            "station asks for another creature you control, got {:?}",
+            engine.pending()
+        )
+    };
+    engine
+        .apply(
+            seat,
+            PlayerAction::ChooseObjects {
+                objects: vec![crew],
+            },
+        )
+        .expect("the crew it was aimed at was one of the options");
+    pass_until(engine, stack_is_empty);
+    options
+}
+
+/// "Station (Tap another creature you control: Put charge counters equal to
+/// its power on this Spacecraft. Station only as a sorcery.)" — the half of
+/// this `Coverage::Partial` that is written, and beside it the half that is
+/// not.
+///
+/// The crew is a 7/5, so a count of seven is the only answer that reads the
+/// creature's power at all: one would mean a counter per station, and five
+/// that toughness was read instead. The Elves across the table are the
+/// counter-half of "you control" and your own Elves are there so an empty
+/// exclusion is not an empty board.
+///
+/// The gap is the printed trigger: "Whenever one or more charge counters are
+/// put on U.S.S. Enterprise-D for the first time each turn, exile the top
+/// card of your library. You may play that card this turn." No `Trigger`
+/// fires on counters being put on an object and no `Effect` grants
+/// permission to play a card out of exile, so the line is left off the card
+/// entirely and this station must move neither the library nor exile. It is
+/// asserted rather than merely noted so that the day a counter trigger
+/// exists, this goes red and `Coverage::Partial` is what gets revisited.
+#[test]
+fn stationing_the_enterprise_d_taps_its_crew_for_that_creatures_power_and_exiles_nothing() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let (mut engine, ship, crew, elves) = an_enterprise_d_with_a_crew(61);
+    let theirs = on_battlefield(&engine, p1, llanowar_elves()).expect("an Elf across the table");
+    assert_eq!(
+        enterprise_d_charge_counters(&engine, ship),
+        0,
+        "nothing has been stationed yet"
+    );
+    let library = library_size(&engine, p0);
+    let exiled = engine.state().zones.list(ZoneLocation::Exile(p0)).len();
+
+    let offered = station_the_enterprise_d(&mut engine, p0, crew);
+    assert!(
+        offered.contains(&crew) && offered.contains(&elves),
+        "both creatures under your own control are crew: {offered:?}"
+    );
+    assert!(
+        !offered.contains(&theirs),
+        "\"another creature you control\" declines the Elf across the table"
+    );
+
+    assert!(
+        engine
+            .state()
+            .object(crew)
+            .expect("the Wurm is still an object")
+            .status
+            .contains(Status::TAPPED),
+        "stationing taps the creature it is aimed at"
+    );
+    assert_eq!(
+        enterprise_d_charge_counters(&engine, ship),
+        7,
+        "charge counters equal to the crew's power, not one per station"
+    );
+
+    assert_eq!(
+        library_size(&engine, p0),
+        library,
+        "the first-time-each-turn trigger is the `Coverage::Partial` gap: \
+         counters went on and the top of the library stayed where it was"
+    );
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Exile(p0)).len(),
+        exiled,
+        "and nothing was exiled for you to play this turn"
+    );
+}
+
+/// "It's an artifact creature at 7+" and "7+ | Flying, vigilance": both
+/// thresholds, crossed by the printed ability rather than by the harness.
+///
+/// Seven counters exactly is the load-bearing number. An off-by-one in
+/// either static — `at_least: 8`, or a `>` where the card says `7+` — leaves
+/// a Spacecraft that is still not a creature here, and the unstationed board
+/// above it is the other side of the same claim: at zero counters it is an
+/// artifact with no keywords at all.
+///
+/// The second station is what "another" is really worth. In the test above,
+/// the Spacecraft was no creature at all, so leaving it out of the options
+/// proves nothing about the word; here it *is* a creature and its own
+/// ability still must not offer it. That the tapped Wurm is offered a second
+/// time is an observation and not an assertion — the card models the tap as
+/// `Effect::TapTarget` rather than as a cost, which is a deviation from the
+/// printed "Tap another creature you control:" that belongs to a different
+/// test than this one.
+#[test]
+fn an_enterprise_d_at_seven_charge_counters_flies_with_vigilance_and_still_cannot_crew_itself() {
+    let p0 = PlayerId::new(0);
+    let (mut engine, ship, crew, elves) = an_enterprise_d_with_a_crew(62);
+    assert!(
+        !engine
+            .state()
+            .object(ship)
+            .expect("the Spacecraft is an object")
+            .characteristics()
+            .types
+            .contains(TypeSet::CREATURE),
+        "at zero counters it is an artifact and nothing else"
+    );
+    assert!(
+        !keywords(&engine, ship).contains(KeywordSet::FLYING),
+        "and the 7+ line grants nothing yet"
+    );
+
+    station_the_enterprise_d(&mut engine, p0, crew);
+    assert_eq!(
+        enterprise_d_charge_counters(&engine, ship),
+        7,
+        "the crew's seven power, which is exactly the printed threshold"
+    );
+    let types = engine
+        .state()
+        .object(ship)
+        .expect("a stationed Spacecraft is still on the battlefield")
+        .characteristics()
+        .types;
+    assert!(
+        types.contains(TypeSet::ARTIFACT) && types.contains(TypeSet::CREATURE),
+        "\"It's an artifact creature at 7+\""
+    );
+    assert_eq!(
+        pt(&engine, ship),
+        (4, 5),
+        "with the body the card prints, so no state-based check eats it"
+    );
+    let granted = keywords(&engine, ship);
+    assert!(granted.contains(KeywordSet::FLYING), "7+ | Flying");
+    assert!(granted.contains(KeywordSet::VIGILANCE), "7+ | vigilance");
+
+    let offered = station_the_enterprise_d(&mut engine, p0, elves);
+    assert!(
+        !offered.contains(&ship),
+        "\"another creature you control\" — a Spacecraft that has become a \
+         creature still may not station itself"
+    );
+    assert!(
+        offered.contains(&elves),
+        "while the other creature you control is still crew: {offered:?}"
+    );
+    assert_eq!(
+        enterprise_d_charge_counters(&engine, ship),
+        8,
+        "the Elves' one power on top of the seven already there"
+    );
+}
+
+/// "Station only as a sorcery." — the third printed clause of the
+/// parenthetical, and the one neither test above touches.
+///
+/// The negative needs its own anchor: an ability that is offered nowhere
+/// would satisfy "not offered in the end step" for free. So the same board
+/// is read twice — at p0's own main phase with the stack empty, where every
+/// condition CR 307.1 puts on a sorcery holds, and then at p0's own **end
+/// step**, where only the phase has changed. The end step rather than the
+/// opponent's turn because the active player is the one guaranteed to open
+/// that priority round (CR 117.3a), so the scenario never has to wait on a
+/// seat the engine might have nothing to ask.
+#[test]
+fn the_enterprise_d_stations_only_as_a_sorcery_and_never_in_its_own_end_step() {
+    let p0 = PlayerId::new(0);
+    let (mut engine, ship, ..) = an_enterprise_d_with_a_crew(63);
+    assert!(
+        station_the_enterprise_d_is_offered(&engine, ship),
+        "at your own main phase with an empty stack, station is a sorcery you may take"
+    );
+
+    pass_until(&mut engine, |e| {
+        matches!(e.state().turn.phase, Phase::Ending)
+            && e.state().turn.active == p0
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p0)
+    });
+    assert_eq!(
+        enterprise_d_charge_counters(&engine, ship),
+        0,
+        "nothing stationed on the way, so the ability is still there to offer"
+    );
+    assert!(
+        !station_the_enterprise_d_is_offered(&engine, ship),
+        "\"Station only as a sorcery\" — your own end step is not a main phase"
+    );
+}

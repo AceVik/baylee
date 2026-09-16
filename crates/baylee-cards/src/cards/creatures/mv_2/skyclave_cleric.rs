@@ -5,10 +5,14 @@
 //! Set: ZNR #40 — Zendikar Rising | Scryfall ID: 014027c4-7f9d-4096-b308-ea4be574c0d4 | Oracle ID: da9e3910-9a1c-43a9-9138-ca971b2bccae
 //! Face: Skyclave Cleric — {1}{W} — Creature — Kor Cleric
 //! Face: Skyclave Basilica —  — Land
-// GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
+// IMPLEMENTED — the creature front gains 2 life on its own ETB; the modal
+// back is reached by the face-choice land play (CR 712.4a), comes in tapped
+// and taps for {W}.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
+
+static BASILICA_MANA: &[AbilityDef] = &[mana_ability!(&[Effect::mana(ManaColor::White, 1)])];
 
 card!(
     index = index::SKYCLAVE_CLERIC,
@@ -24,8 +28,13 @@ card!(
             power = Some(1),
             toughness = Some(3),
         ),
-        face!(name = "Skyclave Basilica", types = TypeSet::LAND,),
+        face!(
+            name = "Skyclave Basilica",
+            types = TypeSet::LAND,
+            abilities = BASILICA_MANA,
+            enter_modifiers = &[EnterModifier::Tapped],
+        ),
     ],
+    coverage = Coverage::Implemented,
+    abilities = &[triggered!(Trigger::ETB, &[Effect::gain_life(2)])],
 );
-
-// TODO(card): implement abilities, see docs/card-dsl.md.

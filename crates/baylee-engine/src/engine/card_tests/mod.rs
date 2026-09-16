@@ -718,6 +718,10 @@ fn arid_mesa() -> CardIndex {
     card_index("c5acf2a5-40f4-433d-a74d-1cb56c521464")
 }
 
+fn gaea_s_cradle() -> CardIndex {
+    card_index("7c427c3d-ecd8-45ef-bebd-8f10f4a311db")
+}
+
 fn prairie_stream() -> CardIndex {
     card_index("5330e24a-8568-446e-840a-594cd08bd1bc")
 }
@@ -772,4 +776,18 @@ fn vindicate() -> CardIndex {
 
 fn ashnods_altar() -> CardIndex {
     card_index("4d18bcba-a346-445e-a182-6cc30b7e066d")
+}
+
+/// Whether a permanent still on the battlefield is tapped.
+///
+/// Panics when the object is gone, deliberately: every caller is asking
+/// about a permanent it has just put on the table, so a missing object is a
+/// broken assumption and not the answer `false`.
+fn is_tapped(engine: &Engine<RegistryLookup>, id: ObjectId) -> bool {
+    engine
+        .state()
+        .object(id)
+        .expect("the permanent is still on the table")
+        .status
+        .contains(Status::TAPPED)
 }
