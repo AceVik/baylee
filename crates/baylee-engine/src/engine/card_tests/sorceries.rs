@@ -220,11 +220,11 @@ fn open_communications() -> baylee_core::ids::CardIndex {
 /// which is the signature of a cantrip and not of a spell that merely left
 /// the hand, because a `Draw a card.` that did nothing would leave the hand
 /// one smaller. The card is then in its owner's graveyard, where a resolved
-/// spell goes (CR 608.2m), which is also what puts the second half in reach.
+/// spell goes (CR 608.2n), which is also what puts the second half in reach.
 ///
 /// **What it does not do.** `Beam me up` is unwritten: `AlternativeCost`
 /// carries no zone and the one graveyard cast a face can print is
-/// `FaceDef::disturb` (CR 702.112), which pays the *face's* own mana cost —
+/// `FaceDef::disturb` (CR 702.146), which pays the *face's* own mana cost —
 /// {U} here, not the printed {2}{U} — so the card may only ever be cast from
 /// hand. The board is built so that nothing else can be the reason: the card
 /// is in its owner's graveyard, a creature the additional cost could return
@@ -296,7 +296,7 @@ fn open_communications_draws_a_card_and_is_never_castable_out_of_the_graveyard()
          its replacement"
     );
     let grave = in_graveyard(&engine, p0, open_communications())
-        .expect("the resolved sorcery is a card in its owner's graveyard (CR 608.2m)");
+        .expect("the resolved sorcery is a card in its owner's graveyard (CR 608.2n)");
 
     // Everything `Beam me up` asks for is on the table before the question is
     // put: the creature it would return, and the mana it would cost.
@@ -754,7 +754,7 @@ fn rite_of_flame_spends_one_red_and_leaves_two_spendable_in_the_pool() {
     );
     assert!(
         in_graveyard(&engine, p0, rite_of_flame()).is_some(),
-        "a resolved sorcery is put into its owner's graveyard (CR 608.2m)"
+        "a resolved sorcery is put into its owner's graveyard (CR 608.2n)"
     );
 
     let Pending::Priority { legal, .. } = engine.pending().clone() else {

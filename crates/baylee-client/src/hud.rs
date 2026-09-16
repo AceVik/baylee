@@ -446,7 +446,7 @@ pub enum MenuAction {
     /// Leave the game (sends the engine's own concession).
     Concede,
     /// Offer a draw: every other player still in the game has to accept
-    /// (CR 104.4a).
+    /// (CR 104.4i).
     OfferDraw,
     /// Cancel a running priority hold, so the seat is asked again.
     ///

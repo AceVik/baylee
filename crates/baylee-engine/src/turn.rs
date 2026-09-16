@@ -25,7 +25,7 @@ pub enum Phase {
 ///
 /// Three phases have steps and the citation is one apiece: the beginning
 /// phase (CR 501.1), the combat phase (CR 506.1) and the ending phase
-/// (CR 512.1). The two main phases have none — CR 505.1 is what says so, and
+/// (CR 512.1). The two main phases have none — CR 505.2 is what says so, and
 /// it was the number written here for both of these enums.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
 pub enum Step {
@@ -99,12 +99,12 @@ impl TurnInfo {
     }
 }
 
-/// The game's day/night designation (CR 731.1).
+/// The game's day/night designation (CR 730.1).
 ///
 /// A designation belongs to the *game*, not to a player or a permanent, so
 /// it sits beside the monarch on [`crate::state::GameState`] rather than on
 /// anything in a zone. It is wrapped in an `Option` there because a game
-/// starts with **neither** designation, and CR 731.1's last sentence is
+/// starts with **neither** designation, and CR 730.1's last sentence is
 /// what makes that an `Option` rather than a third variant: once the game
 /// has become day or night it has exactly one of the two from that point
 /// forward, so the field only ever goes `None -> Some` and never back.

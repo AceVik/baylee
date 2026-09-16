@@ -39,7 +39,7 @@ Maze of Ith, Urza's Saga (partial), Venser the Sojourner (partial) plus the
 - Counter-ability machinery: `Effect::CounterTargetAbility`,
   `TargetSpec::AbilityOnStack`, `TargetSourceLosesAbilities` (Tishana). The
   rider does NOT read `res.targets` — by the time it runs, the ability that
-  was targeted has ceased to exist (CR 608.2k) and its `ObjectId` resolves to
+  was targeted has ceased to exist (CR 701.6a) and its `ObjectId` resolves to
   nothing. It reads `Resolution::countered_source`, which the counter writes
   down before removing the object, so the rider has to follow the counter in
   the same effect list.
@@ -89,7 +89,7 @@ Open milestones discovered tonight:
   hash-based loop detection (key = state hash + player + turn + phase +
   step + pending kind — engine-side fields like pass counters are NOT in
   the snapshot hash, and the pending kind matters: priority-after-declare
-  is rules-correct, CR 506.2).
+  is rules-correct, CR 508.2).
 - **Self-play found 4 real engine bugs that 59 green unit tests missed:**
   1. `resolve::exec` router missed 3 choice ops (AddManaChoice,
      AddManaCommanderIdentity, PayLifeOrEnterTapped) → latent
@@ -432,7 +432,7 @@ described, silently, for as long as the parser has existed. Both acceptance
 decks have sideboard sections, so this was live, not theoretical.
 
 Karn's −2 then became small: sideboard cards materialise into a
-`Zone::OutsideGame` — not a zone in the rules (CR 400.1 says those cards are
+`Zone::OutsideGame` — not a zone in the rules (CR 400.11 says those cards are
 in *no* zone), but they need object ids for a choice to offer them, and a home
 makes them impossible to confuse with cards in the game. `Effect::WishToHand`
 reads that zone plus your own exile.

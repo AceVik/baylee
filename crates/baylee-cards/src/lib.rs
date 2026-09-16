@@ -150,7 +150,7 @@ mod tests {
     /// and so were Ormendahl, Creeping Inn and an airborne school.
     ///
     /// The marker is the **printed cost**, not nightbound: every back a
-    /// player may cast prints one — an MDFC's (CR 712.2), a disturb back's,
+    /// player may cast prints one — an MDFC's (CR 712.3), a disturb back's,
     /// an adventure's — and a transformed back prints none. Reading
     /// nightbound instead would have guarded the five werewolves and let the
     /// next Delver of Secrets through, which is what happened: three cards in

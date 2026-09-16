@@ -97,7 +97,7 @@ fn first_draw_of_turn_offers_miracle_and_casts_at_miracle_cost() {
         match engine.pending().clone() {
             Pending::Priority { player, legal } if player == p0 => {
                 // Only in the two steps this test ever spends mana in. A pool
-                // empties as the step ends (CR 500.4), so islands tapped in
+                // empties as the step ends (CR 500.5), so islands tapped in
                 // the upkeep are islands wasted — and the miracle is paid for
                 // in the draw step, where the reveal happens.
                 if let Some(&source) = legal
@@ -232,7 +232,7 @@ fn declining_miracle_keeps_the_card_in_hand() {
         match engine.pending().clone() {
             Pending::Priority { player, legal } if player == p0 => {
                 // Only in the two steps this test ever spends mana in. A pool
-                // empties as the step ends (CR 500.4), so islands tapped in
+                // empties as the step ends (CR 500.5), so islands tapped in
                 // the upkeep are islands wasted — and the miracle is paid for
                 // in the draw step, where the reveal happens.
                 if let Some(&source) = legal

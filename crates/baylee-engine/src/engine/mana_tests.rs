@@ -369,7 +369,7 @@ fn reflecting_pool_offers_what_the_other_lands_produce() {
 }
 
 /// With no other land, the Pool has nothing to reflect and produces no mana
-/// at all — the ability still resolves (CR 106.6a), it just adds nothing.
+/// at all — the ability still resolves (CR 106.5), it just adds nothing.
 #[test]
 fn a_lone_reflecting_pool_produces_nothing() {
     let p0 = PlayerId::new(0);
@@ -405,7 +405,7 @@ fn tap_a_land(engine: &mut Engine<RegistryLookup>, seat: PlayerId) {
         .expect("the land taps");
 }
 
-/// CR 500.4: "When a step or phase ends, any unused mana left in a player's
+/// CR 500.5: "When a step or phase ends, any unused mana left in a player's
 /// mana pool empties." CR 106.4 says the same thing from the other side —
 /// "Each player's mana pool empties at the end of each step and phase."
 ///

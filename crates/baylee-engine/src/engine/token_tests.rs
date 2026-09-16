@@ -225,7 +225,7 @@ fn a_treasure_carries_the_ability_printed_on_it() {
     );
 }
 
-/// CR 701.44a: amass chooses an *Army*. Searching for the named creature
+/// CR 701.47a: amass chooses an *Army*. Searching for the named creature
 /// type instead meant "amass Orcs 1" grew Orcish Bowmasters — an Orc Archer,
 /// and no Army at all — rather than creating the Army it is supposed to.
 #[test]
@@ -309,7 +309,7 @@ fn amass_makes_an_army_instead_of_growing_the_orc_that_cast_it() {
         chars
             .subtypes
             .contains(baylee_core::generated::subtypes::creature::ORC),
-        "and amass Orcs made it an Orc too (CR 701.44b)"
+        "and amass Orcs made it an Orc too (CR 701.47a)"
     );
     assert!(
         chars.colors.contains(baylee_core::color::Color::Black),

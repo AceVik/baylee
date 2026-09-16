@@ -4,7 +4,7 @@
 //! nothing else. "Opponent" (CR 102.3) stops meaning "another seat" and
 //! starts meaning "a seat on another side", which is why every rule that
 //! says opponent goes through [`GameState::is_opponent`]. And the game ends
-//! when one *side* is left rather than one player (CR 104.2b), which is why
+//! when one *side* is left rather than one player (CR 104.2c), which is why
 //! a lone survivor with two dead teammates still wins for the team.
 //!
 //! Turns stay individual and life totals stay separate — that is what makes
@@ -202,7 +202,7 @@ fn the_game_ends_when_one_team_is_left_standing() {
 
 #[test]
 fn a_sole_survivor_wins_for_the_whole_team() {
-    // CR 104.2b: the team wins, not the seat that happened to survive. Seat
+    // CR 104.2c: the team wins, not the seat that happened to survive. Seat
     // 1 is on the winning team and dead, and the result still names the team.
     let mut engine = table(&[Some(1), Some(1), None], &[], 19);
     engine.state.players[1].life = 0;

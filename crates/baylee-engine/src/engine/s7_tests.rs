@@ -105,7 +105,7 @@ fn keep_mulligans(engine: &mut Engine<RegistryLookup>) {
 
 /// Whether mana made now can still be spent on a spell cast now.
 ///
-/// A pool empties as the step ends (CR 500.4), so a driver loop that taps
+/// A pool empties as the step ends (CR 500.5), so a driver loop that taps
 /// every land the moment one is offered spends its whole board in the upkeep
 /// and reaches the main phase with nothing — and then never casts anything at
 /// all.

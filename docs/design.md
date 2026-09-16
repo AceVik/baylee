@@ -1246,7 +1246,7 @@ this batch is a bump to **12**.
 - **`LossReason` per seat**, so a concession is not drawn as a death, and so a
   future rating can tell concede from timeout from disconnect.
 - **Combat damage division.** The engine divides automatically in blocker
-  order; under post-Foundations CR 510.1a that is a player's decision being made
+  order; under post-Foundations CR 510.1c that is a player's decision being made
   for them. A 6/6 blocked by a 2/2 and a 4/4 should be able to put all six into
   the 4/4.
 - **Trigger ordering**, **split piles**, **modal min/max** (choose two, choose

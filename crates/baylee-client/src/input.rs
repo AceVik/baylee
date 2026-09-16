@@ -258,7 +258,7 @@ pub fn activate_card(duel: &mut Duel, object: ObjectId) -> Answer {
     // *After* the cast, which is a decision and not an accident: a card that
     // could be cast and suspended on the same click is two deeds and this
     // path would silently pick one. No card in the pool is both — every
-    // suspend card there prints no mana cost, so CR 202.1a keeps it out of
+    // suspend card there prints no mana cost, so CR 202.1b keeps it out of
     // `castable` entirely — and `no_suspend_card_in_the_pool_is_also_castable`
     // is what says so, because the day one is, this line has to become a
     // chooser rather than an order.

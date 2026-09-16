@@ -203,7 +203,7 @@ const SENSEIS_DIVINING_TOP: &str = "13575cf9-65c1-4861-b21e-eb2155e07766";
 /// Replication points at.
 const GREAT_DIVIDE_GUIDE: &str = "79e69a91-d580-47fb-be76-1e32c50d2fa0";
 /// Brightclimb Pathway // Grimclimb Pathway: two land faces, so playing it is
-/// a question about which one (CR 712.4a).
+/// a question about which one (CR 712.12).
 const BRIGHTCLIMB_PATHWAY: &str = "1c633e02-95ef-445e-b4e0-fbfbc5ed9cc9";
 
 /// One card, at the default printing.
@@ -414,7 +414,7 @@ impl Client {
                     //
                     // In the seat's own main phase, though, and not the first
                     // priority it is given. Mana empties at the end of every
-                    // step (CR 500.4), so a loop that tapped out in upkeep
+                    // step (CR 500.5), so a loop that tapped out in upkeep
                     // arrived at the main phase with eighteen tapped lands and
                     // an uncastable hand — which is exactly what it did.
                     interaction.activate(source, 0)
@@ -427,7 +427,7 @@ impl Client {
                     // and only in a main phase — but every one of them is in
                     // `abilities` as well, so reaching them here tapped the
                     // whole board in the upkeep, where the pool then emptied
-                    // (CR 500.4) and left the main phase with eighteen tapped
+                    // (CR 500.5) and left the main phase with eighteen tapped
                     // lands and an uncastable hand. It cost this suite three
                     // whole questions, and the mana that made it work was
                     // mana no rule allows to still be there.

@@ -86,7 +86,7 @@ frozen.
 ### When a card names another card
 
 Magic prints exactly one sentence in which a card names another card by name:
-`Partner with <name>` (CR 702.124b). It is stored as an index like everything
+`Partner with <name>` (CR 702.124j). It is stored as an index like everything
 else — `PartnerKind::PartnerWith(CardIndex)` — and the resolution happens at
 codegen time, in `IndexLedger::entry_named`, so the printed name never leaves
 the generator.

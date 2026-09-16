@@ -39,7 +39,7 @@ fn a_suspend_card_taps_its_island_and_then_suspends() {
 
     // The engine offers neither half of it yet, which is the whole problem:
     // the {U} is still in the Island. And it is not castable at any point —
-    // a card with no mana cost cannot be cast (CR 202.1a).
+    // a card with no mana cost cannot be cast (CR 202.1b).
     assert!(
         !table.legal().suspendable.contains(&vision),
         "the cost is not floating, so the engine offers no suspend"
@@ -156,7 +156,7 @@ fn a_suspend_card_taps_its_island_and_then_suspends() {
 /// `activate_card` reads `play_card` first and `suspend` after it, which is
 /// an *order* and would be a silent choice on a card that offered both — and
 /// there is no undo for either. The pool makes the question moot: a suspend
-/// card prints no mana cost, so CR 202.1a keeps it out of `castable`
+/// card prints no mana cost, so CR 202.1b keeps it out of `castable`
 /// altogether. This is that claim as a build failure rather than a comment,
 /// because the first card that breaks it needs a chooser and not an order.
 #[test]

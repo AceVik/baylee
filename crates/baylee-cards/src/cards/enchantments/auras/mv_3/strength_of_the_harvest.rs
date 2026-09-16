@@ -22,7 +22,7 @@ use baylee_core::generated::subtypes;
 static CREATURE_OR_ENCHANTMENT: Filter = Filter::Or(&[Filter::CREATURE, Filter::ENCHANTMENT]);
 
 /// The back face's own ability list: a modal back is a different face of the
-/// same card (CR 712.2), so the land taps for mana and carries none of the
+/// same card (CR 712.8f), so the land taps for mana and carries none of the
 /// Aura's statics.
 static HAVEN_MANA: &[AbilityDef] = &[mana_ability!(&[Effect::mana_choice(&[
     ManaColor::Green,

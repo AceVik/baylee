@@ -8,7 +8,7 @@
 //! Face: Mystic Peak —  — Land
 // IMPLEMENTED — a prowess Djinn Monk whose own ETB buys one instant or
 // sorcery back out of your graveyard; the modal back is reached by the face
-// choice on a land play (CR 712.4a), asks for 3 life as it enters or comes
+// choice on a land play (CR 712.12), asks for 3 life as it enters or comes
 // down tapped, and taps for {R}.
 
 use baylee_cards_dsl::prelude::*;

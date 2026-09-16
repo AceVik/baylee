@@ -157,8 +157,8 @@ pub fn printed_reduction(
 /// spell", or a card never offered that the player would have paid for.
 ///
 /// A land back is *played* rather than cast (CR 305.1) and a disturb back is
-/// cast from the graveyard on its own branch (CR 702.112), so what is left is
-/// an MDFC's back (CR 712.4a) and an adventure (CR 715). Whether the card may
+/// cast from the graveyard on its own branch (CR 702.146a), so what is left is
+/// an MDFC's back (CR 712.11b) and an adventure (CR 715). Whether the card may
 /// be cast from where it lies at all is settled before this is asked, so the
 /// only zone question left is the one CR 715.3d asks: a card exiled *on its
 /// adventure* may be cast as the creature and not as the adventure again —
@@ -399,7 +399,7 @@ pub(crate) fn wild_or_not(wild: bool, pool: &ManaPool, cost: &ManaCost) -> bool 
 /// Pays `cost` from `pool`, honouring a mana-conversion effect.
 ///
 /// `wild` comes from [`mana_is_wild`], read before the pool is borrowed.
-/// Whether a face prints a mana cost at all (CR 202.1a).
+/// Whether a face prints a mana cost at all (CR 202.1b).
 ///
 /// A card with **no** mana cost cannot be cast unless something else gives it
 /// a cost or lets it be cast without paying one — and that is a different
@@ -503,7 +503,7 @@ pub fn can_cast(
             matches!(fx.modifier, baylee_cards_dsl::Modifier::GrantsFlashback)
                 && matches!(&fx.filter, crate::effects::EffectFilter::ObjectIs(id) if *id == card)
         });
-    // Disturb (CR 702.112): a face with disturb is castable from the
+    // Disturb (CR 702.146): a face with disturb is castable from the
     // owner's graveyard.
     let disturb_ok = !in_hand
         && in_own_graveyard
@@ -571,7 +571,7 @@ pub fn can_cast(
             &cost.with_more_generic(tax).with_less_generic(reduction),
         )
     };
-    // A disturb cast is not the front face at any price. CR 702.112 casts the
+    // A disturb cast is not the front face at any price. CR 702.146 casts the
     // card *transformed*, for the back's disturb cost, and `cast_options` has
     // always known it — its disturb branch returns the backs and nothing
     // else, so there is no front-cost option here for this probe to be
@@ -596,7 +596,7 @@ pub fn can_cast(
     // Printed cost probed with X = 0, and after a reduction printed on the
     // card itself; the full payment is validated when the wizard finishes.
     // A face with no printed cost has no normal way to be cast at all
-    // (CR 202.1a) and falls straight through to the alternatives.
+    // (CR 202.1b) and falls straight through to the alternatives.
     let normal_cost = c
         .mana_cost
         .with_less_generic(printed_face.map_or(0, |face| printed_reduction(state, face, player)));

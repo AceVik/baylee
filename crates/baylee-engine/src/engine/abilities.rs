@@ -79,7 +79,7 @@ impl<L: CardLookup> Engine<L> {
             let any_face_is_land = if obj.characteristics().types.contains(TypeSet::LAND) {
                 true
             } else {
-                // MDFC: a back land face is playable (CR 712.4a).
+                // MDFC: a back land face is playable (CR 712.12).
                 obj.card
                     .and_then(|c| self.lookup.card(c.index))
                     .is_some_and(|def| def.faces.iter().any(|f| f.types.contains(TypeSet::LAND)))
@@ -1205,7 +1205,7 @@ impl<L: CardLookup> Engine<L> {
             };
             (card, *effects, *targets)
         };
-        // Loyalty cost is paid at activation (CR 606.3) — after checking
+        // Loyalty cost is paid at activation (CR 606.4) — after checking
         // that required targets exist, before targeting.
         let old = self.state.object(source).map_or(0, |o| {
             o.counters.get(baylee_cards_dsl::CounterKind::Loyalty)
@@ -1485,7 +1485,7 @@ impl<L: CardLookup> Engine<L> {
             .object(source)
             .map_or(NameRef::new(0), |o| o.base.name);
         let base = self.state.bare_base(name);
-        // CR 608.2: the ability on the stack exists independently of the
+        // CR 113.7a: the ability on the stack exists independently of the
         // permanent it came from, so it takes the list `index` points into
         // with it. Reading it back off the source at resolution time was
         // right only while a source's abilities could not change under it —

@@ -164,7 +164,7 @@ pub fn name_of(
 /// What one *named* face of a card is called, in the player's own language.
 ///
 /// [`name_of`] answers for the face an object is showing. This answers for a
-/// face it is being *offered*: a pathway (CR 712.4a) is one object showing one
+/// face it is being *offered*: a pathway (CR 712.12) is one object showing one
 /// of its two land faces, and the question is about both of them.
 ///
 /// The hand is searched first and by hand, because

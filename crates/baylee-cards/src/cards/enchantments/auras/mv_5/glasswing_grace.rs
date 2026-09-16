@@ -15,7 +15,7 @@ use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
 /// The back face's own ability list: a modal back is a different face of the
-/// same card (CR 712.2), so the land taps for mana and carries none of the
+/// same card (CR 712.3), so the land taps for mana and carries none of the
 /// Aura's statics.
 static CHAPEL_MANA: &[AbilityDef] = &[mana_ability!(&[Effect::mana_choice(&[
     ManaColor::White,

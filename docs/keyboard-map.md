@@ -82,7 +82,7 @@ to say "X is my whole hand of lands".
 ## Combat
 
 Combat is the one choice where clicking a creature is not enough — the engine
-also asks *what* it is attacking (CR 508.1a), and only it knows which
+also asks *what* it is attacking (CR 508.1b), and only it knows which
 planeswalkers are legal defenders. So the client carries a **focus**: the
 thing the next declaration will be pointed at.
 

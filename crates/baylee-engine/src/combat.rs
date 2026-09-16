@@ -9,7 +9,7 @@
 //! and its loyalty comes off (CR 306.8). Battles are the remaining case.
 //!
 //! Not yet: the attacking player's *choice* of damage assignment order
-//! among multiple blockers (CR 509.2) — the declaration order stands in
+//! among multiple blockers (CR 510.1c) — the declaration order stands in
 //! for it.
 
 use crate::event::{DamageTarget, GameEvent};
@@ -139,7 +139,7 @@ pub fn can_attack(state: &GameState, player: PlayerId, creature: ObjectId) -> bo
 
 /// Everything `player` may declare an attack against right now: each
 /// surviving opponent, and every planeswalker those opponents control
-/// (CR 508.1a).
+/// (CR 506.2).
 ///
 /// An opponent, not another player: a teammate cannot be attacked, and
 /// neither can a planeswalker they control, because the walker filter reads
@@ -259,7 +259,7 @@ pub fn can_block(
     if kw(a, K::UNBLOCKABLE) {
         return false;
     }
-    // Protection (CR 702.16d): can't be blocked by matching creatures.
+    // Protection (CR 702.16f): can't be blocked by matching creatures.
     if crate::eval::protected_from(state, attacker, blocker) {
         return false;
     }
@@ -282,7 +282,7 @@ fn strikes_now(state: &GameState, creature: ObjectId, first_strike_step: bool) -
 }
 
 /// How much damage from `source` is lethal to `target` right now
-/// (CR 510.1c): toughness minus damage already marked, or 1 if the source
+/// (CR 702.19b): toughness minus damage already marked, or 1 if the source
 /// has deathtouch (CR 702.2b — *any* nonzero damage is lethal).
 fn lethal_damage(state: &GameState, source: ObjectId, target: ObjectId) -> i16 {
     if has_keyword(state, source, K::DEATHTOUCH) {

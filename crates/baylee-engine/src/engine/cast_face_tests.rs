@@ -11,7 +11,7 @@
 //! `convoke_tests` holds the four that were about *price*. These two are
 //! about *which face*, and the offer was reading the front one in both:
 //!
-//! - Disturb (CR 702.112) casts the card transformed, for the back's own
+//! - Disturb (CR 702.146) casts the card transformed, for the back's own
 //!   disturb cost, and the wizard has always known it — its disturb branch
 //!   returns the backs and nothing else. The offer probed the front's mana
 //!   cost, so Mirrorhall Mimic (`{3}{U}` in front of a `{3}{U}{U}` disturb)

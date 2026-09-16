@@ -26,7 +26,7 @@ card!(
     coverage = Coverage::Implemented,
     abilities = &[
         // Chapter I's granted "{T}: Add {C}" is this baseline mana
-        // ability — it covers the same text (CR 714.3a grants it
+        // ability — it covers the same text (CR 611.2a grants it
         // permanently, so the approximation is exact from chapter I on).
         mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
         chapter!(

@@ -128,7 +128,7 @@ fn drive_until(
                 } else if player == p0
                     && !legal.mana_abilities.is_empty()
                     // Only where the mana can be spent. A pool empties as the
-                    // step ends (CR 500.4), so a land tapped in the upkeep is
+                    // step ends (CR 500.5), so a land tapped in the upkeep is
                     // a land wasted and this loop never reaches a cast.
                     && matches!(
                         engine.state().turn.phase,
@@ -438,7 +438,7 @@ fn skyclave_exiles_and_owner_gets_illusion() {
                         .unwrap();
                 } else if !legal.mana_abilities.is_empty()
                     // Only where the mana can be spent. A pool empties as the
-                    // step ends (CR 500.4), so a land tapped in the upkeep is
+                    // step ends (CR 500.5), so a land tapped in the upkeep is
                     // a land wasted and this loop never reaches a cast.
                     && matches!(
                         engine.state().turn.phase,

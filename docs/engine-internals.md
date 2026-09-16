@@ -69,7 +69,7 @@ because CR 302.6 wants control held *continuously* since the turn began.
 
 ## Combat
 An attack names a `Defender` — a player or one of the defending player's
-planeswalkers (CR 508.1a); battles will be the third case, and every match
+planeswalkers (CR 506.2); battles will be the third case, and every match
 on the enum is written so adding one is a compile error. The engine
 enumerates both halves of the declaration into `Pending::ChooseAttackers` —
 which creatures may attack and which defenders may be attacked — and
@@ -99,7 +99,7 @@ teammate is not an opponent but is certainly another player.
 The game is decided between sides, not heads: `game_result()` counts the
 distinct sides still standing, so one side left is a win and none is a draw.
 The winner is a `Victor` — a seat or a team — because a team wins as a team
-however many of its members died getting there (CR 104.2b);
+however many of its members died getting there (CR 104.2c);
 `Session::winning_seats` turns one back into the seat list `GameEnded`
 carries. `GamePreset::validate` refuses a table where every seat shares a
 team, which would otherwise be over at the first state-based-action pass.
@@ -154,7 +154,7 @@ it had just declined to touch.
 `GameState::transform` is the door that journals `Transformed`. Its
 neighbour `switch_face` does the same work silently and is what the modal
 paths call, because choosing which face of an MDFC to cast or to play as a
-land is not a transform (CR 712.4a).
+land is not a transform (CR 712.11b and CR 712.12).
 
 ### A replacement that has to ask (CR 903.9b)
 `GameState::move_object` is the one funnel every zone change goes through,
@@ -186,7 +186,7 @@ put-backs (`AwaitingOp::PutBackOnTop`, `BottomFromHand`), and
 
 ### The replacements that multiply, and their three doors
 Doubling Season and its kin do not rewrite an event; they multiply what an
-effect produces (CR 614.1 for tokens, CR 614.2 for counters), so they live
+effect produces (CR 614.16 for tokens, CR 614.16 for counters), so they live
 in `engine/replacement.rs` and are read at the moment of production rather
 than in the propose/apply funnel above. There are three doors and every
 producing effect goes through one of them:

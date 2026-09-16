@@ -405,7 +405,7 @@ fn a_helm_on_a_legend_makes_two_copies_the_legend_rule_lets_stand() {
 /// The same Helm, with the Doubling Season across the table.
 ///
 /// A doubling that read "a token is created" rather than "*you* create a
-/// token" (CR 614.12) would double this too, and the test above could not
+/// token" (CR 614.16) would double this too, and the test above could not
 /// tell the difference: two tokens is two tokens whichever enchantment
 /// caused them.
 #[test]

@@ -138,7 +138,7 @@ pub(super) fn deal_to_object_with_loyalty(
     if n <= 0 {
         return;
     }
-    // Protection (CR 702.16b): matching sources deal no damage.
+    // Protection (CR 702.16e): matching sources deal no damage.
     if eval::protected_from(state, target, source) {
         return;
     }

@@ -54,7 +54,7 @@ pub fn token_multiplier(state: &GameState, recipient: PlayerId) -> u32 {
 }
 
 /// How many times over counters put on `target` are actually put on it
-/// (CR 614.2).
+/// (CR 614.16).
 ///
 /// The mirror of [`token_multiplier`] and read the other way round, because
 /// this rule's filter is over the **object receiving them**: "a permanent

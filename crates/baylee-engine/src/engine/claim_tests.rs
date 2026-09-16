@@ -522,7 +522,7 @@ fn claims_of(blob: &str) -> Vec<Claim> {
 /// a permanent moving.
 ///
 /// Exile takes any origin, the stack included, and that is not the same
-/// mistake: a resolving spell goes to its owner's *graveyard* (CR 608.2m),
+/// mistake: a resolving spell goes to its owner's *graveyard* (CR 608.2n),
 /// so a spell that leaves the stack for exile is a spell that said it would.
 /// Temporal Mastery prints "Exile Temporal Mastery." and the first run of
 /// this sweep reported it, which is how the exception got measured rather

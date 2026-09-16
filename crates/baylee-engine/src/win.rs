@@ -15,7 +15,7 @@ pub struct GameResult {
 /// Who a game was won by.
 ///
 /// A team wins as a team, including when only one of its members is still
-/// alive (CR 104.2b: a player who has left the game is still on the team
+/// alive (CR 104.2c: a player who has left the game is still on the team
 /// that wins), so the winner of a team game is the team and not the seat
 /// that happened to survive.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
@@ -40,9 +40,9 @@ impl Victor {
 /// Why the game ended.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
 pub enum EndReason {
-    /// All opponents lost (CR 104.1).
+    /// All opponents lost (CR 104.2a).
     LastPlayerStanding,
-    /// Every seat still in the game plays for one team (CR 104.2b).
+    /// Every seat still in the game plays for one team (CR 104.2c).
     LastTeamStanding,
     /// A player won by effect (M2).
     EffectWin,

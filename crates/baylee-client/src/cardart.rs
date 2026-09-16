@@ -35,7 +35,7 @@ pub fn of(index: CardIndex) -> Option<&'static str> {
 /// faces carries it.
 ///
 /// A face rather than a card, because a copy of a transformed permanent takes
-/// the name of the face that is *up* (CR 707.2 through CR 711.4a), and a
+/// the name of the face that is *up* (CR 707.2 through CR 707.8), and a
 /// lookup answering only an index would draw the front of a card the table is
 /// showing the back of.
 ///

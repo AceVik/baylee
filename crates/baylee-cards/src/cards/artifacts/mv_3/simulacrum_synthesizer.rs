@@ -15,7 +15,7 @@ use crate::tokens::CONSTRUCT_0_0 as CONSTRUCT;
 /// `Another` is the whole of the word the card prints: the Synthesizer is
 /// itself a {2}{U} artifact, so without it the card would trigger on its own
 /// arrival and hand out a Construct beside the scry. A token has no mana cost
-/// and so mana value 0 (CR 202.3b), which is why the Constructs this makes
+/// and so mana value 0 (CR 202.3a), which is why the Constructs this makes
 /// never feed each other.
 static ANOTHER_BIG_ARTIFACT_YOU_CONTROL: Filter = Filter::And(&[
     Filter::YOUR_ARTIFACT,

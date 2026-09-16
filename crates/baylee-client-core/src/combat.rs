@@ -35,7 +35,7 @@ use baylee_view::PlayerView;
 
 /// What a combat line points at.
 ///
-/// An attack ends at a seat or at one of its planeswalkers (CR 508.1a); a
+/// An attack ends at a seat or at one of its planeswalkers (CR 506.2); a
 /// block ends at the attacker being blocked, which is always an object. One
 /// enum for both, because the renderer resolves an end to a position on the
 /// table and a seat has one as much as a card does.

@@ -7,7 +7,7 @@
 //! Face: Tangled Vale —  — Land
 // IMPLEMENTED — both faces tap for {G}: a 1/1 mana creature on the front,
 // and on the back an MDFC land reached by the face choice on a land play
-// (CR 712.4a), which comes down tapped.
+// (CR 712.12), which comes down tapped.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;

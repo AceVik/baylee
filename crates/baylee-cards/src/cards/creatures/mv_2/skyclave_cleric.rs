@@ -6,7 +6,7 @@
 //! Face: Skyclave Cleric — {1}{W} — Creature — Kor Cleric
 //! Face: Skyclave Basilica —  — Land
 // IMPLEMENTED — the creature front gains 2 life on its own ETB; the modal
-// back is reached by the face-choice land play (CR 712.4a), comes in tapped
+// back is reached by the face-choice land play (CR 712.12), comes in tapped
 // and taps for {W}.
 
 use baylee_cards_dsl::prelude::*;

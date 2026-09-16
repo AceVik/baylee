@@ -108,7 +108,7 @@ mod tests {
         assert!(!sorcery_window(&view));
         assert!(
             !allows(&view, TypeSet::ARTIFACT, false),
-            "an artifact is sorcery-speed like any other permanent (CR 601.3)"
+            "an artifact is sorcery-speed like any other permanent (CR 301.1)"
         );
     }
 

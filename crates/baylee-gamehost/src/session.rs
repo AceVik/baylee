@@ -288,7 +288,7 @@ impl Session {
 
     /// The seats that won: one for a solo winner, every seat on the team for
     /// a team win — the dead ones included, because a team wins as a team
-    /// (CR 104.2b) — and none at all for a draw.
+    /// (CR 104.2c) — and none at all for a draw.
     ///
     /// It lives here rather than in the engine because a `Victor::Team` names
     /// a team and a client's roster names seats, and the seat roster is what

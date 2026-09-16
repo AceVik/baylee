@@ -29,7 +29,7 @@ card!(
         // is *not* a mana ability: it targets, and CR 605.1a puts a targeted
         // ability on the stack however much mana it makes. Both halves of
         // that are the macro's defaults — `mana_ability = false` (CR 605.1)
-        // and instant-speed timing (CR 602.2) — so neither is restated.
+        // and instant-speed timing (CR 117.1b) — so neither is restated.
         activated!(
             Cost::TAP,
             &[

@@ -336,7 +336,7 @@ fn run_attachment_sbas(state: &mut GameState) -> bool {
             state.object(host).is_some_and(|h| {
                 h.zone == crate::zone::Zone::Battlefield
                     && h.kind == ObjectKind::Permanent
-                    // CR 303.4f: an Aura can't enchant an Aura it is
+                    // CR 303.4d: an Aura can't enchant an Aura it is
                     // attached to being itself; self-attachment is never
                     // legal for either kind.
                     && host != id
@@ -387,7 +387,7 @@ pub fn apply_legend_choice(
     }
 }
 
-/// Destroys a permanent (CR 701.7a), unless it can't be.
+/// Destroys a permanent (CR 701.8a), unless it can't be.
 ///
 /// Indestructible is a property of the permanent and not of the spell that
 /// named it (CR 702.12b), so the question is asked once here rather than at

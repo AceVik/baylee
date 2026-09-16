@@ -711,7 +711,7 @@ impl Tx<'_> {
             out.push(Self::animate_expr(&modifier));
         }
         // Layer 5: colour. Without `OverwriteColors$ True` the card keeps
-        // the colours it had, which is `AddColor` (CR 613.1c).
+        // the colours it had, which is `AddColor` (CR 105.3).
         if let Some(raw) = p.take("Colors") {
             let overwrite = p.take("OverwriteColors").as_deref() == Some("True");
             let colors: Option<Vec<&str>> = raw.split(',').map(|c| color_const(c.trim())).collect();
@@ -828,14 +828,14 @@ impl Tx<'_> {
     /// not a translation of `Destination$` — and a pair with no effect
     /// refuses rather than reaching for the nearest one. Battlefield →
     /// Graveyard is the pair that makes the point: it is *not* `Destroy`,
-    /// which checks indestructible (CR 700.4), and generating one for the
+    /// which checks indestructible (CR 702.12b), and generating one for the
     /// other would quietly kill creatures that survive.
     fn change_zone(&mut self, p: &mut Params, target: Option<&str>) -> Option<Vec<String>> {
         let origin = p.take("Origin")?;
         let destination = p.take("Destination")?;
         // A library search is a different effect, not a zone change with a
         // hidden target: a card in a library cannot be targeted at all
-        // (CR 115.4 needs a visible object), so `Effect::SearchLibrary`
+        // (CR 115.2 needs a visible object), so `Effect::SearchLibrary`
         // *finds* rather than moves, and carries the shuffle with it.
         if origin == "Library" {
             return self.search_library(p, &destination, target);
@@ -909,9 +909,16 @@ impl Tx<'_> {
                 return None;
             }
         };
-        // Claimed rather than read: `Mandatory$ True` is the default, our
-        // search always shuffles (CR 701.19d), and `Hidden$ True` only says
-        // the library is a hidden zone, which it is.
+        // Claimed rather than read: `Mandatory$ True` is the default, every
+        // search this emitter writes shuffles afterwards, and `Hidden$ True`
+        // only says the library is a hidden zone, which it is.
+        //
+        // The shuffle is *this emitter's* convention and not a rule — no
+        // sub-rule of CR 701.23 makes a search shuffle; the card's own "then
+        // shuffle" is what does, as the separate action CR 701.24 names. So
+        // `Shuffle$ False` has to be refused here rather than read, because
+        // nothing downstream can express a search that leaves the library in
+        // order.
         for (key, expected) in [
             ("Mandatory", "True"),
             ("Shuffle", "True"),
@@ -2478,7 +2485,7 @@ mod tests {
 
     #[test]
     fn putting_a_creature_in_a_graveyard_is_not_destroying_it() {
-        // CR 700.4: destruction checks indestructible and a zone change does
+        // CR 701.8b: destruction checks indestructible and a zone change does
         // not, so the nearest effect is the wrong effect — a card written
         // this way would quietly kill creatures that survive.
         assert!(refused(

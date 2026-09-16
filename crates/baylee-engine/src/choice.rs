@@ -67,7 +67,7 @@ pub enum Pending {
         /// What may be attacked: each surviving opponent, plus every
         /// planeswalker they control. Carried in the request because a
         /// client cannot derive "which permanents are planeswalkers I may
-        /// attack" from the view without re-implementing CR 508.1a.
+        /// attack" from the view without re-implementing CR 506.2.
         defenders: Vec<baylee_core::ids::Defender>,
     },
     /// Declare blockers (combat).
@@ -165,7 +165,7 @@ pub enum Pending {
         /// A handle and not a name, for the reason the engine carries no card
         /// text at all — the same rule that makes an ability an
         /// [`baylee_core::ids::AbilityRef`]. Two land faces of a pathway
-        /// (CR 712.4a) differ in nothing a [`CastModeDesc`] carries: same
+        /// (CR 712.12) differ in nothing a [`CastModeDesc`] carries: same
         /// kind, same empty cost, different printed name. Without this the
         /// client draws two identical buttons and the choice is blind.
         object: ObjectId,
@@ -220,7 +220,7 @@ pub enum CastModeKind {
     /// A spell mode (overload and friends).
     Mode(usize),
     /// Cast a non-front face for its own printed cost — an MDFC's back
-    /// (CR 712.4a), an adventure (CR 715), a disturb back (CR 702.112).
+    /// (CR 712.11b), an adventure (CR 715), a disturb back (CR 702.146).
     ///
     /// It used to name The True Scriptures, which is none of those: a
     /// *transformed* back is reached by turning the card over and never by
@@ -228,7 +228,7 @@ pub enum CastModeKind {
     /// carried a cost the printing does not have. Swift Spiral, on the back
     /// of Twining Twins, is the pool's real example.
     Face(usize),
-    /// Play a specific land face of an MDFC (pathways; CR 712.4a).
+    /// Play a specific land face of an MDFC (pathways; CR 712.12).
     PlayLandFace(usize),
     /// Miracle cast (CR 702.94).
     Miracle,
@@ -323,7 +323,7 @@ pub enum YesNoPrompt {
         /// The drawn card.
         card: baylee_core::ids::ObjectId,
     },
-    /// "A draw was offered. Accept?" (CR 104.4a). Everyone still in the
+    /// "A draw was offered. Accept?" (CR 104.4i). Everyone still in the
     /// game has to say yes; one no and play continues where it left off.
     DrawOffer {
         /// The player who offered.
@@ -681,7 +681,7 @@ pub enum PlayerAction {
     /// Declare attackers with what each one attacks.
     DeclareAttackers {
         /// `(attacker, defender)` pairs. The defender is a player or one
-        /// of that player's planeswalkers (CR 508.1a).
+        /// of that player's planeswalkers (CR 506.2).
         attackers: Vec<(ObjectId, baylee_core::ids::Defender)>,
     },
     /// Declare blockers.
@@ -732,7 +732,7 @@ pub enum PlayerAction {
     YesNo(bool),
     /// Concede the game.
     Concede,
-    /// Offer a draw to every other player still in the game (CR 104.4a).
+    /// Offer a draw to every other player still in the game (CR 104.4i).
     OfferDraw,
     /// Change when this seat wants to be offered priority.
     ///

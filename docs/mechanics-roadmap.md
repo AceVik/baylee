@@ -83,7 +83,7 @@ a player cannot see either the tax they are about to pay or the counter
 that is about to kill them.
 
 Planeswalkers: loyalty abilities/costs, 0-loyalty death, damage →
-loyalty removal, **being attacked** (CR 508.1a — an attack names a
+loyalty removal, **being attacked** (CR 508.1b — an attack names a
 `Defender`, which is a player or one of their planeswalkers; trample goes
 to whatever the creature is attacking, and an attack on a walker that has
 left deals nothing to anyone).
@@ -207,7 +207,7 @@ the clause is currently vacuous rather than wrong.
 
 What it needs when a regenerating card arrives: a per-object shield count
 cleared at cleanup, consumed by destruction instead of the object dying
-(tap, remove from combat, clear marked damage — CR 701.15), and a flag on
+(tap, remove from combat, clear marked damage — CR 701.19), and a flag on
 the destroying effect for the "can't be regenerated" clause that already
 appears on several cards. Size S–M. Deliberately not built ahead of a
 card: an effect with no card to exercise it is the exact shape of

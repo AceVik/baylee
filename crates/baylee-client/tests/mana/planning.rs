@@ -360,6 +360,6 @@ fn a_land_that_asks_which_colour_is_not_tapped_until_the_answer() {
     );
     assert!(
         table.view().stack.is_empty(),
-        "a mana ability never uses the stack (CR 605.3a)"
+        "a mana ability never uses the stack (CR 605.3b)"
     );
 }

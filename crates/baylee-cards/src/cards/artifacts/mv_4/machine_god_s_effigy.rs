@@ -16,7 +16,7 @@ card!(
         types = TypeSet::ARTIFACT,
     )],
     // The `{T}: Add {U}` printed in its own text is what makes a colorless
-    // artifact blue for deckbuilding (CR 903.4b): a mana symbol in the rules
+    // artifact blue for deckbuilding (CR 903.4): a mana symbol in the rules
     // text counts towards color identity even when the card costs {4}.
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     coverage = Coverage::Implemented,

@@ -941,7 +941,7 @@ fn hinge(
         ))
         .id();
     // The designation stands beside the number, where a fact about the game
-    // already lives. It appears once and never leaves (CR 731.1), which is
+    // already lives. It appears once and never leaves (CR 730.1), which is
     // why the hinge widens rather than reserving a slot.
     if let Some(now) = view.day_night {
         let (mark, tone) = designation_of(now);

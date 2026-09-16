@@ -40,7 +40,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                 if let Some(obj) = state.object_mut(target_id) {
                     obj.kind = ObjectKind::Permanent;
                     // Blink returns under its OWNER's control (Eerie
-                    // Interlude, Momentary Blink family, CR 610.1 note:
+                    // Interlude, Momentary Blink family, CR 610.3c note:
                     // "return … under its owner's control").
                     obj.set_controller(owner);
                 }

@@ -463,7 +463,7 @@ fn ertais_chosen_mode_destroys_and_lets_its_victim_draw() {
     );
 }
 
-/// CR 608.2g: an effect that needs information about an object no longer in
+/// CR 608.2h: an effect that needs information about an object no longer in
 /// the zone it was expected to be in uses that object's last known
 /// information.
 ///
@@ -1067,7 +1067,7 @@ fn an_opponents_extra_draw_fires_an_arrow_as_well_as_an_orc() {
 /// The word the whole card turns on is `another`, and it is load-bearing in a
 /// way no other dies trigger's is: by the time the ability is put on the
 /// stack the Myr is itself an artifact card lying in that same graveyard
-/// (CR 603.6d, CR 400.7), so a trigger that read "target artifact card" would
+/// (CR 603.6c, CR 400.7), so a trigger that read "target artifact card" would
 /// offer the Myr its own corpse and return it to hand every time — a
 /// two-mana artifact that recurs itself forever, which is not the card.
 ///
@@ -1703,7 +1703,7 @@ fn the_borrower_flashes_out_of_its_own_adventure_and_then_blocks_a_ground_creatu
     );
 
     // Still the same step, so what the theft did not spend is still in the
-    // pool — a step's end is what empties it (CR 500.4).
+    // pool — a step's end is what empties it (CR 500.5).
     assert!(
         engine.state().players[0].mana_pool.total() >= 3,
         "three of the six Islands are unspent, which is the creature's price"
@@ -3695,7 +3695,7 @@ fn a_hasty_wizard_flashes_back_a_spent_swords_and_swings_the_turn_it_lands() {
     let life_before = engine.state().players[1].life;
 
     // Six lands, tapped once. A mana pool empties at the end of a step
-    // (CR 500.4) and nothing between here and the attack ends one, so all
+    // (CR 500.5) and nothing between here and the attack ends one, so all
     // three casts — {W}, {1}{R}, {W} again — are paid out of this pool.
     tap_all_mana(&mut engine, p0);
 
@@ -4562,7 +4562,7 @@ fn akoum_warrior() -> CardIndex {
 /// only that the compiled card carries the bit, and it would fail one line
 /// ahead of the damage it is supposed to be evidence for.
 ///
-/// The cast says the other half of CR 712.4a on the way in. One card in hand
+/// The cast says the other half of CR 712.11b on the way in. One card in hand
 /// is offered twice — as a land drop *and* as a spell — and the land back is
 /// never a cast mode, so a card whose only castable face is the front asks no
 /// question and goes straight onto the stack.
@@ -4601,7 +4601,7 @@ fn akoum_warrior_tramples_three_points_past_the_elf_that_chumps_it() {
         .expect("six Mountains pay for a six-drop");
     assert!(
         matches!(engine.pending(), Pending::Priority { .. }),
-        "the land back is played and never cast (CR 712.4a), so the front is \
+        "the land back is played and never cast (CR 712.12), so the front is \
          the only castable face and nothing is asked: {:?}",
         engine.pending()
     );
@@ -4653,7 +4653,7 @@ fn akoum_warrior_tramples_three_points_past_the_elf_that_chumps_it() {
 
 /// The back face, Akoum Teeth: "This land enters tapped." and "{T}: Add {R}."
 ///
-/// A land face is *played*, not cast (CR 712.4a), and this card prints only
+/// A land face is *played*, not cast (CR 712.12), and this card prints only
 /// one of them, so the land drop resolves straight to face 1 with no face
 /// choice to make. Three printed claims follow from that and are struck here:
 /// what arrives is a land rather than the 4/5 Minotaur on the other side, it
@@ -4755,7 +4755,7 @@ fn blackbloom_rogue() -> CardIndex {
 }
 
 /// "This land enters tapped. {T}: Add {B}." — the back face, reached the way
-/// CR 712.4a says a player reaches it: the card is **played as a land**, not
+/// CR 712.12 says a player reaches it: the card is **played as a land**, not
 /// cast. The front face is a creature, so exactly one face is a land and the
 /// engine switches to it with no question asked; the `ChooseCastMode` list
 /// pathways get is for a card whose *both* faces are lands.
@@ -4927,7 +4927,7 @@ fn a_blackbloom_rogue_stays_a_two_three_though_their_graveyard_holds_eight() {
 }
 
 /// "Menace (This creature can't be blocked except by two or more creatures.)"
-/// — CR 702.110, played out in combat, which is the only place the word
+/// — CR 702.111b, played out in combat, which is the only place the word
 /// means anything.
 ///
 /// Two untapped Elves stand across the table, so the sentence's own escape
@@ -5064,7 +5064,7 @@ fn a_blackbloom_rogue_s_menace_is_offered_to_no_blocker_at_all() {
 
 // oracle_id = "727f3201-1cfc-4ab2-9dfe-be4f7251f42f"
 
-/// Boggart Trawler // Boggart Bog — a modal double-faced card (CR 712.4a)
+/// Boggart Trawler // Boggart Bog — a modal double-faced card (CR 712.3)
 /// whose front is a {2}{B} 3/1 Goblin and whose back is a land.
 fn boggart_trawler() -> CardIndex {
     card_index("727f3201-1cfc-4ab2-9dfe-be4f7251f42f")
@@ -5161,7 +5161,7 @@ fn boggart_trawler_exiles_only_the_graveyard_its_enters_trigger_points_at() {
 /// "As this land enters, you may pay 3 life. If you don't, it enters
 /// tapped." — and then "{T}: Add {B}."
 ///
-/// The back face is a land, so it is *played* rather than cast (CR 712.4a),
+/// The back face is a land, so it is *played* rather than cast (CR 712.12),
 /// and it is the card's only land face: the engine switches to it with no
 /// mode question at all, which is what the face assertion pins down. What
 /// follows is the `as … enters` replacement (CR 614.1c) being a real
@@ -5258,7 +5258,7 @@ fn boggart_bog_pays_three_life_to_land_untapped_and_taps_for_black() {
 ///
 /// The second half is what keeps the negative assertion honest. "The ability
 /// is not offered" is also what a Bog with no mana ability at all would say,
-/// so the test stays on the board until the next untap step (CR 502.1) and
+/// so the test stays on the board until the next untap step (CR 502.3) and
 /// presses the same index: what withheld it was the {T} in its own cost and
 /// nothing else.
 #[test]
@@ -5641,7 +5641,7 @@ fn the_weirds_trigger_offers_a_spell_holding_two_targets_and_exiles_only_one() {
 ///
 /// There is no face choice on the way, and that is worth saying out loud: the
 /// card file calls the back "an MDFC land reached by the face choice"
-/// (CR 712.4a), but the engine only asks when *both* faces are lands, the way
+/// (CR 712.12), but the engine only asks when *both* faces are lands, the way
 /// a pathway prints them. Here the front is a creature, so exactly one face
 /// answers `TypeSet::LAND` and the engine switches to it itself.
 #[track_caller]
@@ -6146,7 +6146,7 @@ fn a_mystic_peak_asking(seed: u64) -> (Engine<RegistryLookup>, PlayerId, ObjectI
 /// Mystic Peak, the back face: "As this land enters, you may pay 3 life. If
 /// you don't, it enters tapped." and "{T}: Add {R}."
 ///
-/// The face is reached by *playing the card as a land* (CR 712.4a), and this
+/// The face is reached by *playing the card as a land* (CR 712.12), and this
 /// card is the shape that is offered no mode choice at all: only one of its
 /// two faces is a land, so the engine plays that one the way it plays
 /// Glasspool Shore — which is why the first thing asserted is the face index
@@ -6255,7 +6255,7 @@ fn mystic_peak_is_the_only_land_face_and_buys_itself_untapped_for_three_life() {
 // oracle_id = "da9e3910-9a1c-43a9-9138-ca971b2bccae"
 
 /// Skyclave Cleric // Skyclave Basilica, the modal double-faced card whose
-/// two faces are a creature and a land (CR 712.4a).
+/// two faces are a creature and a land (CR 712.3).
 fn skyclave_cleric() -> CardIndex {
     card_index("da9e3910-9a1c-43a9-9138-ca971b2bccae")
 }
@@ -6315,7 +6315,7 @@ fn skyclave_clerics_creature_front_gains_its_controller_two_life_on_entry() {
 ///
 /// Only one of the two faces is a land, so this card takes the Glasspool
 /// Shore path and not the pathway one: the engine switches to face 1 itself
-/// and asks no face question, there being only one face to play (CR 712.4a).
+/// and asks no face question, there being only one face to play (CR 712.12).
 /// Four printed sentences are then held against the board — it arrives as the
 /// *land* Skyclave Basilica and not as a creature, it arrives tapped, it
 /// triggers nothing (a back face carries only the abilities it prints, and
@@ -6473,7 +6473,7 @@ fn florahedron_to_next_main(engine: &mut Engine<RegistryLookup>, seat: PlayerId)
 /// of a card whose mana ability nobody wrote.
 ///
 /// The board is read once before the cast for the other printed fact: one
-/// card, two ways to play it (CR 712.4a), so the engine offers the same
+/// card, two ways to play it (CR 712.12), so the engine offers the same
 /// object as a creature spell *and* as a land drop in one priority window.
 #[test]
 fn a_florahedron_cast_as_a_creature_waits_a_turn_before_it_taps_for_green() {
@@ -6498,7 +6498,7 @@ fn a_florahedron_cast_as_a_creature_waits_a_turn_before_it_taps_for_green() {
     );
     assert!(
         legal.lands.contains(&card),
-        "and the same card in the same window is a land drop (CR 712.4a): \
+        "and the same card in the same window is a land drop (CR 712.12): \
          one card, two ways to play it",
     );
 
@@ -6555,7 +6555,7 @@ fn a_florahedron_cast_as_a_creature_waits_a_turn_before_it_taps_for_green() {
 /// Tangled Vale, the back face: "Land. This land enters tapped. {T}: Add
 /// {G}."
 ///
-/// Only one of this card's two faces is a land, so CR 712.4a's face choice
+/// Only one of this card's two faces is a land, so CR 712.12's face choice
 /// is not a *question* here — the engine switches to that face and plays it,
 /// which is Glasspool Shore's shape and not a pathway's. What the scenario
 /// is really about is the two sentences printed under the type line: the
@@ -6580,7 +6580,7 @@ fn a_florahedron_played_as_tangled_vale_enters_tapped_and_taps_for_green_next_tu
     let vale = play_land(&mut engine, p0, tangled_florahedron());
     assert!(
         matches!(engine.pending(), Pending::Priority { player, .. } if *player == p0),
-        "one land face, so nothing is asked (CR 712.4a): the engine takes the \
+        "one land face, so nothing is asked (CR 712.12): the engine takes the \
          face the card prints, plays it, and hands the same seat its priority \
          back — got {:?}",
         engine.pending(),
@@ -6588,7 +6588,7 @@ fn a_florahedron_played_as_tangled_vale_enters_tapped_and_taps_for_green_next_tu
     let obj = engine.state().object(vale).expect("the land is in play");
     assert_eq!(
         obj.face_index, 1,
-        "a land drop reaches the back face (CR 712.4a)",
+        "a land drop reaches the back face (CR 712.12)",
     );
     assert_eq!(
         engine.state().names.get(obj.characteristics().name),
@@ -7072,7 +7072,7 @@ fn witch_enchanter_destroys_an_opponents_artifact_and_is_never_offered_its_own()
 /// Witch-Blessed Meadow, the back face: "As this land enters, you may pay 3
 /// life. If you don't, it enters tapped." and "{T}: Add {W}".
 ///
-/// That a *creature* card is a legal land drop is CR 712.4a, and it is read
+/// That a *creature* card is a legal land drop is CR 712.12, and it is read
 /// off `legal.lands` rather than assumed: the front face is a Human Warlock,
 /// so an offer that looked only at the front would never name the card and
 /// the `PlayLand` below would be refused for a reason that has nothing to do
@@ -7097,7 +7097,7 @@ fn witch_blessed_meadow_pays_three_life_to_arrive_untapped_and_taps_for_white() 
     };
     assert!(
         legal.lands.contains(&card),
-        "CR 712.4a: a card whose back face is a land is a legal land drop, \
+        "CR 712.12: a card whose back face is a land is a legal land drop, \
          however the front face reads"
     );
 

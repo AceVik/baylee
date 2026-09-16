@@ -9,7 +9,7 @@
 use baylee_cards_dsl::prelude::*;
 
 // Creatures you control (battlefield), creature spells you control (stack),
-// creature cards you own that aren't on the battlefield — CR 613.4 layer 4.
+// creature cards you own that aren't on the battlefield — CR 613.1d layer 4.
 static NEXUS_FILTER: Filter = Filter::And(&[
     Filter::CREATURE,
     Filter::Or(&[

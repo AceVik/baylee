@@ -217,7 +217,7 @@ impl IndexLedger {
     }
 
     /// The row a *printed name* belongs to, for the one place a card names
-    /// another card: `Partner with <name>` (CR 702.124b).
+    /// another card: `Partner with <name>` (CR 702.124j).
     ///
     /// Two tiers, whole name and then front face, because the ledger follows
     /// Scryfall (`Sheoldred // The True Scriptures`) where a printed sentence

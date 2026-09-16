@@ -6,7 +6,7 @@
 //!
 //! 1. The first mulligan is free (CR 103.5 charges for every one).
 //! 2. With three or more players nobody skips their first draw step
-//!    (CR 103.8a skips it for the starting player in *every* game).
+//!    (CR 103.8c skips it for the starting player in *every* game).
 //! 3. A real endless loop resolves once and is then broken (CR 104.4b makes
 //!    it a draw) — covered in `loop_tests`, since it needs a loop to run.
 

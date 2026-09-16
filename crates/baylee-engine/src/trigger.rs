@@ -227,7 +227,7 @@ fn collect_for_objects(
         // CR 603.10a: the look-back scan asks an object that has already
         // arrived somewhere else, and what it must see is the abilities that
         // existed "immediately prior to the event". A copy gives its rules
-        // text back on the way out (CR 707.2a), so `abilities` would answer
+        // text back on the way out (CR 400.7), so `abilities` would answer
         // with the printed card — which is how a Phyrexian Metamorph that had
         // copied Solemn Simulacrum died without drawing anybody a card.
         // `None` on everything that was never a copy: the printed list did

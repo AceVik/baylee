@@ -220,7 +220,7 @@ fn panharmonicon_doubles_a_modal_trigger_and_each_copy_picks_its_own_mode() {
     );
 }
 
-/// The other half of CR 608.2g's question, and the one with no mutant: an
+/// The other half of CR 608.2h's question, and the one with no mutant: an
 /// effect that changes its target and then reads it, while the target is
 /// still exactly where the resolution left it.
 ///
@@ -809,7 +809,7 @@ fn artifacts_of(engine: &Engine<RegistryLookup>, seat: PlayerId) -> usize {
 ///
 /// Both printed sentences are played in one first main phase, off one
 /// tapping of six Islands: a mana pool empties when a step or phase ends
-/// (CR 500.4) and this test never leaves that phase, so the {3} left over
+/// (CR 500.5) and this test never leaves that phase, so the {3} left over
 /// from casting the Synthesizer is what the second artifact is cast with.
 ///
 /// The word the second sentence turns on is `another`, and it is struck

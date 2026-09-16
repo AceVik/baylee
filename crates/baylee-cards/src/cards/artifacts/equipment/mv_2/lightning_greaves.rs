@@ -5,7 +5,7 @@
 // IMPLEMENTED — one static granting both keywords, plus equip.
 //
 // Equip {0} is a cost of no mana and no parts at all: equipping does not tap
-// the Equipment, and it stays sorcery-speed (CR 702.6b). What makes Lightning
+// the Equipment, and it stays sorcery-speed (CR 702.6a). What makes Lightning
 // Greaves what it is, is that the cost is nothing — not that it is faster
 // than every other Equipment. `Cost::FREE` rather than `equip!("{0}")`,
 // because a cost with no mana cost is not the same data as a mana cost of

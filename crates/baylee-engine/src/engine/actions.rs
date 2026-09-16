@@ -30,7 +30,7 @@ impl<L: CardLookup> Engine<L> {
         self.awaiting_answer = true;
     }
 
-    /// Offers a draw to every other player still in the game (CR 104.4a).
+    /// Offers a draw to every other player still in the game (CR 104.4i).
     ///
     /// Only from your own priority: the offer suspends a decision that has to
     /// be handed back untouched if anyone refuses, and priority is the only
@@ -167,7 +167,7 @@ impl<L: CardLookup> Engine<L> {
                 if !legal.lands.contains(&card) {
                     return Err(EngineError::IllegalAction("land not playable now"));
                 }
-                // MDFC: which land face is played (CR 712.4a)?
+                // MDFC: which land face is played (CR 712.12)?
                 let land_faces: Vec<usize> = self
                     .state
                     .object(card)
@@ -689,7 +689,7 @@ impl<L: CardLookup> Engine<L> {
                 Ok(())
             }
             (Pending::YesNo { player: p, .. }, PlayerAction::YesNo(answer)) if *p == player => {
-                // A draw offer: unanimous or nothing (CR 104.4a).
+                // A draw offer: unanimous or nothing (CR 104.4i).
                 if matches!(self.pending_plan, Some(PlanKind::DrawOffer { .. })) {
                     let Some(PlanKind::DrawOffer {
                         proposer,
@@ -1180,7 +1180,7 @@ impl<L: CardLookup> Engine<L> {
             }
             seen.push(*blocker);
         }
-        // Menace: needs two blockers per attacker (CR 702.110).
+        // Menace: needs two blockers per attacker (CR 702.111b).
         for attacker in &self.state.combat.attackers {
             let has_menace = self.state.object(attacker.creature).is_some_and(|o| {
                 o.characteristics()

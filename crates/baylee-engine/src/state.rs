@@ -426,7 +426,7 @@ pub struct GameState {
     /// explicit about what it must see there: the game looks back "using the
     /// existence of those abilities and the appearance of objects immediately
     /// prior to the event". Not only the appearance. [`Self::move_object`]
-    /// has by then given the copy back — CR 707.2a, the card in the graveyard
+    /// has by then given the copy back — CR 400.7, the card in the graveyard
     /// is the printed card — so the scan was asking a Phyrexian Metamorph
     /// whether it had a dies trigger, and it does not: the copy of Solemn
     /// Simulacrum died and drew nobody a card.
@@ -723,7 +723,7 @@ impl GameState {
             }
             state.shuffle_library(player);
             // The sideboard is created but never shuffled in. These cards are
-            // outside the game (CR 400.1) until a wish reaches them; folding
+            // outside the game (CR 400.11a) until a wish reaches them; folding
             // them into the library would silently make every deck bigger
             // than the one the player registered.
             for &entry in &seat.sideboard {
@@ -932,7 +932,8 @@ impl GameState {
     /// [`Self::switch_face`] is the other half of this and stays silent,
     /// because its callers are not transforms: choosing which face of a
     /// modal card to cast or to play as a land puts a card onto the stack
-    /// or the battlefield face up (CR 712.4a) — nothing turned over, and a
+    /// or the battlefield face up (CR 712.11b for the cast, CR 712.12 for
+    /// the land play) — nothing turned over, and a
     /// "transformed" entry there would fire every trigger that watches for
     /// one. Anything that turns an existing permanent over comes here.
     ///
@@ -957,7 +958,8 @@ impl GameState {
     }
 
     /// Switches an object to another face of its card (MDFC cast/land
-    /// play, CR 712.4): rebuilds base characteristics from the face and
+    /// play, CR 712.11b and CR 712.12): rebuilds base characteristics from
+    /// the face and
     /// invalidates the layered projection cache.
     ///
     /// This is the mechanism, not the rules action — see [`Self::transform`]
@@ -1136,11 +1138,11 @@ impl GameState {
         self.arena.get(id)
     }
 
-    /// The game becomes day, or day becomes night's opposite (CR 731.1).
+    /// The game becomes day, or day becomes night's opposite (CR 730.1).
     ///
     /// Every route to the designation goes through this door and
     /// [`Self::become_night`], so that "it becomes day" is journalled once
-    /// and in one place — CR 731.1a's "night becomes day" is the same
+    /// and in one place — CR 730.1a's "night becomes day" is the same
     /// event, the game losing one designation and gaining the other, and a
     /// card that triggers on it has one entry to read. Setting the field
     /// directly would record nothing.
@@ -1148,7 +1150,7 @@ impl GameState {
         self.set_designation(DayNight::Day);
     }
 
-    /// The game becomes night (CR 731.1). See [`Self::become_day`].
+    /// The game becomes night (CR 730.1). See [`Self::become_day`].
     pub fn become_night(&mut self) {
         self.set_designation(DayNight::Night);
     }
@@ -1337,7 +1339,7 @@ impl GameState {
             //
             // Only for a card-backed object, because for every other kind
             // `own_abilities` *is* the object — an emblem (CR 114.2) and a
-            // triggered ability on the stack (CR 608.2, which is why it
+            // triggered ability on the stack (CR 113.7a, which is why it
             // captured its list) have no card to fall back to.
             if obj.card.is_some() {
                 if let Some(original) = obj.original_base.take() {

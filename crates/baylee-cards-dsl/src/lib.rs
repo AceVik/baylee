@@ -220,7 +220,7 @@ pub struct FaceDef {
     /// claiming both at once would be a permanent that is simultaneously
     /// the thing that turns over at night and the thing that turns back.
     pub keywords: KeywordSet,
-    /// Color indicator (CR 105.2c): the dot printed on a face with no mana
+    /// Color indicator (CR 202.2e): the dot printed on a face with no mana
     /// cost, which is where its color comes from.
     ///
     /// Empty on every face that has a cost — the cost already says it. It
@@ -243,7 +243,7 @@ pub struct FaceDef {
     pub convoke: bool,
     /// A conditional cost reduction printed on the card.
     pub cost_reduction: Option<crate::cost::CostReduction>,
-    /// Disturb (CR 702.112): this face may be cast from the graveyard
+    /// Disturb (CR 702.146): this face may be cast from the graveyard
     /// for its mana cost; exile it after.
     pub disturb: bool,
     /// Adventure (CR 715): this face is an Adventure spell — when it

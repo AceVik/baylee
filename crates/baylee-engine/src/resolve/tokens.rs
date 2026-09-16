@@ -27,7 +27,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             subtype,
             amount,
         } => {
-            // CR 701.44a: choose an *Army* you control — not a creature of the
+            // CR 701.47a: choose an *Army* you control — not a creature of the
             // named type. Searching for the named type instead is how "amass
             // Orcs 1" used to grow Orcish Bowmasters itself, which is an Orc
             // Archer and no Army at all.
@@ -57,7 +57,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             // would silently pick for the player; leaving it is a known
             // undercount, and the honest one until the choice exists.
             let target_id = army.unwrap_or_else(|| create_token(state, you, token, None));
-            // CR 701.44b: the Army becomes the named type in addition to its
+            // CR 701.47a: the Army becomes the named type in addition to its
             // other types, whether it was just created or was already there.
             // Written into the base rather than registered as a continuous
             // effect because it has no duration and an Army is always a

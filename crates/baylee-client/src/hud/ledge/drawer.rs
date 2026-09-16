@@ -549,7 +549,7 @@ fn combat_lines(
         return;
     };
     // Combat is the one choice where clicking a creature is not enough: the
-    // engine asks *which* defender (CR 508.1a), and a player who cannot see
+    // engine asks *which* defender (CR 508.1b), and a player who cannot see
     // the answer is guessing. This line says where the aim points and how many
     // declarations stand, and it is the same aim the keyboard cycles.
     if let Some(aim) = duel

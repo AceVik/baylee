@@ -736,7 +736,7 @@ because a keymap is stored per account). The three differ only in **who
 supplies the second half**, and each difference is a fact the engine gives us.
 
 Attacking, the player supplies both halves: the engine lists the defenders
-(CR 508.1a) and the client carries a focus so the next creature tapped goes
+(CR 506.2) and the client carries a focus so the next creature tapped goes
 against the one aimed at. Blocking, the second half is somebody else's
 standing declaration, already on the felt from `view.combat`, and it is the
 one case where aiming changes what is offered: `BlockOption` is per blocker,

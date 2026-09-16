@@ -784,11 +784,11 @@ pub enum Effect {
         /// What.
         token: &'static TokenDef,
     },
-    /// Amass N (CR 701.44): put N +1/+1 counters on an Army you control, or
+    /// Amass N (CR 701.47): put N +1/+1 counters on an Army you control, or
     /// create `token` first if you control none.
     ///
     /// `subtype` is the type the mechanic names — "amass Orcs 1" makes the
-    /// Army an Orc Army in addition to its other types (CR 701.44b), whether
+    /// Army an Orc Army in addition to its other types (CR 701.47a), whether
     /// it was just created or was already on the battlefield. The token comes
     /// from the card rather than the engine because the rules kernel does not
     /// know the token registry, and because a token without a registry entry

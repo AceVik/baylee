@@ -623,7 +623,7 @@ fn a_glasswing_grace_falls_into_the_graveyard_when_its_creature_is_exiled() {
 }
 
 /// The back face. "Age-Graced Chapel — Land. This land enters tapped.
-/// {T}: Add {W} or {B}." CR 712.8: a player playing a modal double-faced
+/// {T}: Add {W} or {B}." CR 712.12: a player playing a modal double-faced
 /// card as a land chooses one of its faces that's a land — it is *played*
 /// as a land drop rather than cast, and what arrives is that land, with
 /// none of the Aura's printed statics on it.
@@ -782,7 +782,7 @@ fn the_harvest_aura_swells_only_its_own_creature_and_recounts_the_board_each_tim
 
     // Four Forests: three pay {2}{G/W} — the hybrid takes green — and the
     // fourth stays floating for the second Elf, which has to be cast in this
-    // same main phase because a pool empties when the step ends (CR 500.4).
+    // same main phase because a pool empties when the step ends (CR 500.5).
     tap_all_mana(&mut engine, p0);
     let spell = in_hand(&engine, p0, strength_of_the_harvest()).expect("the Aura is in hand");
     engine

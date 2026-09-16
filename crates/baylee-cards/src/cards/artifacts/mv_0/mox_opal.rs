@@ -13,7 +13,7 @@ card!(
     faces = &[face!(
         name = "Mox Opal",
         // Printed `{0}`, which is not the same thing as no cost at all
-        // (CR 202.1a) — and `face!`'s default is the blank one. See
+        // (CR 202.1b) — and `face!`'s default is the blank one. See
         // `casting::has_a_printed_cost`.
         mana_cost = mana!("{0}"),
         types = TypeSet::ARTIFACT,

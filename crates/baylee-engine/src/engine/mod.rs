@@ -173,7 +173,7 @@ pub struct Engine<L: CardLookup> {
     cast_wizard: Option<cast_wizard::CastWizard>,
     /// Triggers collected but not yet stacked (target choices first).
     trigger_queue: VecDeque<trigger::PendingTrigger>,
-    /// Every player still in the game accepted a draw offer (CR 104.4a).
+    /// Every player still in the game accepted a draw offer (CR 104.4i).
     agreed_draw: bool,
     /// Per-seat automation: when to offer priority, which yes/no
     /// questions to answer without asking (see `choice::Automation`).
@@ -284,7 +284,7 @@ enum PlanKind {
         /// Ability index.
         ability_index: u32,
     },
-    /// A draw offer working its way around the table (CR 104.4a).
+    /// A draw offer working its way around the table (CR 104.4i).
     DrawOffer {
         /// Who offered the draw.
         proposer: PlayerId,

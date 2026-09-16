@@ -6,7 +6,7 @@
 //! Face: Boggart Trawler — {2}{B} — Creature — Goblin
 //! Face: Boggart Bog —  — Land
 // IMPLEMENTED — the Goblin front exiles a chosen player's graveyard on its own
-// ETB; the modal back is reached by the face-choice land play (CR 712.4a),
+// ETB; the modal back is reached by the face-choice land play (CR 712.12),
 // asks for 3 life as it enters or comes down tapped, and taps for {B}.
 
 use baylee_cards_dsl::prelude::*;

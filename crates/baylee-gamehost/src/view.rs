@@ -85,7 +85,7 @@ const fn counter(kind: baylee_cards_dsl::CounterKind) -> CounterKind {
 /// Whether `seat` is entitled to know what card backs `obj`.
 ///
 /// Face-down permanents are the one case where two seats looking at the same
-/// battlefield legitimately see different things (CR 707.2): the controller
+/// battlefield legitimately see different things (CR 708.5): the controller
 /// knows what they played, everyone else sees a blank. Returning `None` for
 /// the card identity — rather than sending it and trusting the client to hide
 /// it — is what makes the leak unrepresentable.
@@ -1117,7 +1117,7 @@ mod tests {
     }
 
     /// Two seats looking at the same battlefield see different things when a
-    /// permanent is face down (CR 707.2): its controller knows what they
+    /// permanent is face down (CR 708.5): its controller knows what they
     /// played, everyone else gets a blank with no card identity at all.
     #[test]
     fn a_face_down_permanent_is_blank_to_everyone_but_its_controller() {

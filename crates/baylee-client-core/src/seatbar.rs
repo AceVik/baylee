@@ -277,7 +277,7 @@ const LIFE_W: f32 = 48.0;
 /// designation to put beside the turn number (CR 731).
 ///
 /// It widens exactly once and never narrows: a designation never goes back to
-/// neither (CR 731.1), so this is not a reserved slot but a cell that grows
+/// neither (CR 730.1), so this is not a reserved slot but a cell that grows
 /// on the turn the first werewolf resolves.
 const HINGE_W: f32 = 36.0;
 const HINGE_W_DESIGNATED: f32 = 52.0;

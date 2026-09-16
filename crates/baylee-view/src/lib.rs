@@ -60,7 +60,7 @@ pub enum Phase {
     Ending,
 }
 
-/// The game's day/night designation (CR 731.1).
+/// The game's day/night designation (CR 730.1).
 ///
 /// Wire-stable for the reason [`Phase`] is, and `Option`al where it is
 /// carried: a game starts with neither designation and keeps having neither
@@ -936,7 +936,7 @@ pub struct AttackerView {
     /// The attacking creature.
     pub creature: ObjectId,
     /// What it attacks: the defending player, or one of their
-    /// planeswalkers (CR 508.1a).
+    /// planeswalkers (CR 506.2).
     pub defending: Defender,
     /// Whether it was blocked, which is **not** the same question as whether
     /// anything is blocking it now (CR 509.1h).

@@ -25,7 +25,7 @@
 //! declaration.
 //!
 //! What an attacker may be sent *at* is different: `ChooseAttackers` carries
-//! its defender list, because "which planeswalkers may I attack" (CR 508.1a)
+//! its defender list, because "which planeswalkers may I attack" (CR 506.2)
 //! is a rules question and re-deriving it client-side would be a second,
 //! divergent implementation of it.
 
@@ -159,7 +159,7 @@ pub enum Prompt {
         ///
         /// Carried because two options can be identical in everything a
         /// [`CastModeDesc`] holds and differ only in the name they print: a
-        /// pathway's two land faces (CR 712.4a) are the same kind at the same
+        /// pathway's two land faces (CR 712.12) are the same kind at the same
         /// empty cost. This is the handle the label is resolved through.
         object: ObjectId,
         /// The offered options.
@@ -656,7 +656,7 @@ impl Interaction {
             },
             // The defender list comes from the engine rather than the
             // client: it is the one place that knows which planeswalkers
-            // are attackable (CR 508.1a), and the engine validates a
+            // are attackable (CR 506.2), and the engine validates a
             // declaration against exactly this list.
             Pending::ChooseAttackers {
                 attackers,

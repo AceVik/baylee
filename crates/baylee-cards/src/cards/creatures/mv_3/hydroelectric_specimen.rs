@@ -8,7 +8,7 @@
 //! Face: Hydroelectric Laboratory —  — Land
 // PARTIAL — a flash creature that hijacks removal: its enter trigger aims
 // target instant or sorcery on the stack at the Weird itself. The back is an
-// MDFC land reached by the face choice on a land play (CR 712.4a), paying 3
+// MDFC land reached by the face choice on a land play (CR 712.12), paying 3
 // life to avoid coming in tapped, and taps for {U}.
 // NOT SUPPORTED: "with a single target". No `Filter` asks an object how many
 // targets it has, so `TargetSpec::Spell` can only narrow the spell by its

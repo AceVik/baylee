@@ -1037,7 +1037,7 @@ fn a_declined_flusterstorm_counters_the_spell_and_never_copies_itself() {
     );
     assert!(
         in_graveyard(&engine, p1, dark_ritual()).is_some(),
-        "a countered spell goes to its owner's graveyard (CR 701.5a)"
+        "a countered spell goes to its owner's graveyard (CR 701.6a)"
     );
     assert!(
         in_graveyard(&engine, p0, flusterstorm()).is_some(),
@@ -1148,7 +1148,7 @@ fn a_frantic_search_choosing_its_lands() -> (Engine<RegistryLookup>, ObjectId, V
 /// printed card names no target, so on paper the lands are picked as it
 /// resolves and nothing about them has to be targetable; the DSL says "up
 /// to three" with a `TargetReq`, so they are named as the spell is cast
-/// (CR 601.2c) and a land with shroud (CR 702.18b) is not offered at all.
+/// (CR 601.2c) and a land with shroud (CR 702.18a) is not offered at all.
 /// Dryad Arbor under Lightning Greaves is that land — on the battlefield,
 /// a land, and missing from the choice.
 #[test]
@@ -1290,7 +1290,7 @@ fn a_two_mana_spell_is_no_target_and_the_one_mana_spell_behind_it_is_countered()
     engine.apply(p0, PlayerAction::PassPriority).unwrap();
 
     // p1 answers by emptying both Islands into the pool. The mana stays there
-    // for the rest of the phase (CR 500.4 empties a pool at the end of a
+    // for the rest of the phase (CR 500.5 empties a pool at the end of a
     // *step*), which is what lets the same board be asked twice.
     let Pending::Priority { player, .. } = engine.pending().clone() else {
         panic!("expected p1 priority, got {:?}", engine.pending())
@@ -1709,7 +1709,7 @@ fn a_ritual_adds_three_black_and_leaves_nothing_else_floating() {
     assert!(
         in_graveyard(&engine, p0, cabal_ritual()).is_some(),
         "the mana is there because the instant resolved, and a resolved \
-         instant lies in its owner's graveyard (CR 608.2m)"
+         instant lies in its owner's graveyard (CR 608.2n)"
     );
 }
 

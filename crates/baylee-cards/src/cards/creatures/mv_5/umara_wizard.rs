@@ -7,7 +7,7 @@
 //! Face: Umara Skyfalls —  — Land
 // IMPLEMENTED — a Merfolk Wizard that gains flying until end of turn every
 // time you cast an instant, a sorcery or a Wizard spell; the back is an MDFC
-// land reached by the face choice on a land play (CR 712.4a), which comes
+// land reached by the face choice on a land play (CR 712.12), which comes
 // down tapped and taps for {U}.
 
 use baylee_cards_dsl::prelude::*;

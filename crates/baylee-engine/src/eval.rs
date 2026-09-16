@@ -283,7 +283,7 @@ pub fn protected_from(state: &GameState, object: ObjectId, source: ObjectId) -> 
     })
 }
 
-/// Hexproof (CR 702.11b) and shroud (CR 702.18b): does `object` refuse to
+/// Hexproof (CR 702.11b) and shroud (CR 702.18a): does `object` refuse to
 /// be targeted by a spell or ability `you` control?
 ///
 /// Both keywords function only while the object is on the battlefield —
@@ -463,7 +463,7 @@ pub fn target_options(
         | TargetSpec::AnyPlayer
         | TargetSpec::AnyOpponent => vec![],
     };
-    // Protection (CR 702.16c) keeps out matching sources; hexproof and
+    // Protection (CR 702.16b) keeps out matching sources; hexproof and
     // shroud (CR 702.11b/702.18b) keep out whole classes of chooser.
     options
         .into_iter()
@@ -567,7 +567,7 @@ mod tests {
         );
     }
 
-    /// Shroud (CR 702.18b) stops everyone, controller included — that is
+    /// Shroud (CR 702.18a) stops everyone, controller included — that is
     /// the whole difference between the two keywords.
     #[test]
     fn shroud_hides_a_creature_from_everyone() {

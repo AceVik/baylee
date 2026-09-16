@@ -13,7 +13,7 @@ card!(
     faces = &[face!(
         name = "Pact of Negation",
         // Printed `{0}`; `face!`'s default is *no* cost, which is a
-        // different card (CR 202.1a). See `casting::has_a_printed_cost`.
+        // different card (CR 202.1b). See `casting::has_a_printed_cost`.
         mana_cost = mana!("{0}"),
         types = TypeSet::INSTANT,
     )],

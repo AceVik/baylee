@@ -2836,7 +2836,7 @@ The day/night designation (CR 731) is drawn beside the turn number, on the
 hinge between a seat's counts and its steps. It is not drawn
 at all when the game has neither designation, which is every game with no
 daybound card in it, and no slot is held for one: a game that has become day
-or night has exactly one of the two from that point forward (CR 731.1), so
+or night has exactly one of the two from that point forward (CR 730.1), so
 the block appears once and its arrival *is* the announcement — which is why
 the hinge *widens* when it comes rather than reserving room for it. The caret
 rule above — draw it always and let it go `Color::NONE` — is for a marker that

@@ -232,7 +232,7 @@ impl core::fmt::Display for ObjectId {
 /// What an attack is aimed at (CR 506.2).
 ///
 /// A creature does not attack a *player*; it attacks a **defender**, and
-/// the defending player's planeswalkers are defenders too (CR 508.1a).
+/// the defending player's planeswalkers are defenders too (CR 506.2).
 /// Modelling that as a plain [`PlayerId`] made planeswalkers unattackable
 /// by construction, which is why this handle exists. Battles (CR 310) join
 /// the enum as a third case when they arrive; every match on it is written

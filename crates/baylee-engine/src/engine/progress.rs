@@ -458,7 +458,7 @@ impl<L: CardLookup> Engine<L> {
                 // from the pool and CR 601.2g is compressed away. Asked at
                 // the moment of the draw, a miracle was a question nobody
                 // could ever answer yes to: the previous step ended, so the
-                // pool was empty (CR 500.4), and the turn-based draw comes
+                // pool was empty (CR 500.5), and the turn-based draw comes
                 // before anybody holds priority (CR 504.1, then CR 504.2).
                 // Answered either way, the round that follows is the one the
                 // rules give the step anyway.
@@ -616,7 +616,7 @@ impl<L: CardLookup> Engine<L> {
                 changed = true;
             }
             // Clone-on-enter: offer the copy choice before anything else
-            // for this permanent (CR 614.4).
+            // for this permanent (CR 616.1c).
             if self.check_copy_on_enter(id) {
                 return true;
             }
@@ -1176,7 +1176,7 @@ impl<L: CardLookup> Engine<L> {
 
     pub(crate) fn game_result(&self) -> Option<GameResult> {
         // An agreed draw ends the game with players still alive, so it has
-        // to be checked before the last-player-standing count (CR 104.4a).
+        // to be checked before the last-player-standing count (CR 104.4i).
         if self.agreed_draw {
             return Some(GameResult {
                 winner: None,
@@ -1187,7 +1187,7 @@ impl<L: CardLookup> Engine<L> {
         // is a side of one, so a game with no teams in it counts exactly the
         // players it counted before. A team wins the moment nobody from
         // another side is left standing, however many of its own members
-        // died getting there (CR 104.2b).
+        // died getting there (CR 104.2c).
         let mut sides: Vec<Side> = Vec::new();
         for player in self.alive_players() {
             let side = self.state.side_of(player);
@@ -1590,7 +1590,7 @@ impl<L: CardLookup> Engine<L> {
             // token's definition or a copy's, all the same case by then. It
             // is read from the ability object rather than from the source
             // because the two have been separate objects since it was put
-            // there (CR 608.2): the source may have died, changed face, or
+            // there (CR 113.7a): the source may have died, changed face, or
             // stopped being a copy in the meantime.
             let abilities = obj.own_abilities.unwrap_or_else(|| {
                 self.state
@@ -1961,7 +1961,7 @@ impl<L: CardLookup> Engine<L> {
             .object(res.on_stack)
             .is_some_and(|o| o.kind == ObjectKind::AbilityOnStack)
         {
-            // Abilities on the stack simply cease to exist (CR 608.2k).
+            // Abilities on the stack simply cease to exist (CR 608.2n).
             //
             // CR 714.4's sacrifice used to be spelled out here, on the way
             // past: a resolving chapter carried its own Saga to the
@@ -2698,7 +2698,7 @@ impl<L: CardLookup> Engine<L> {
     /// to pay for.
     pub(crate) fn advance_step(&mut self) {
         // The step that is ending, ends: every player's mana pool empties
-        // (CR 500.4, and CR 106.4 from the other side). This is the only
+        // (CR 500.5, and CR 106.4 from the other side). This is the only
         // place a step or phase ever changes, and it is *before* the match
         // because the turn-based actions in those arms belong to the step
         // being entered — the draw of CR 504.1 happens in the draw step, not
@@ -2802,7 +2802,7 @@ impl<L: CardLookup> Engine<L> {
             phase: next_phase,
             step: next_step,
         });
-        // Monarch: at the beginning of the monarch's end step, draw (CR 718.4).
+        // Monarch: at the beginning of the monarch's end step, draw (CR 724.2).
         if next_step == Step::End
             && let Some(monarch) = self.state.monarch
         {
@@ -2835,7 +2835,7 @@ impl<L: CardLookup> Engine<L> {
     /// where it is, in either direction.
     ///
     /// A game with neither designation skips the check entirely and keeps
-    /// having neither (CR 731.2c) — which is every game in this pool that
+    /// having neither (CR 730.2c) — which is every game in this pool that
     /// has no daybound card in it, so the common case costs two compares.
     ///
     /// CR 502.2a states a variant for the shared team turns option, which
@@ -2857,7 +2857,7 @@ impl<L: CardLookup> Engine<L> {
         let active = self.state.turn.active;
         let battlefield = self.state.zones.list(ZoneLocation::Battlefield).clone();
         // Phasing: phased-out permanents the active player controls phase
-        // back in at the untap step (CR 702.26b).
+        // back in at the untap step (CR 702.26a).
         for id in &battlefield {
             let phased = self
                 .state

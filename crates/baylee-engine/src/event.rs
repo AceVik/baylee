@@ -248,9 +248,9 @@ pub enum GameEvent {
         /// Whether it is now phased out.
         phased_out: bool,
     },
-    /// The game became day or night (CR 731.1).
+    /// The game became day or night (CR 730.1).
     ///
-    /// One event for both directions, because CR 731.1a defines "night
+    /// One event for both directions, because CR 730.1a defines "night
     /// becomes day" as a single change — losing one designation and
     /// gaining the other — and the game's first designation is the same
     /// change from nothing.

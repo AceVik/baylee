@@ -134,7 +134,7 @@ pub fn reachable_modes(
             out.push(ReachableMode { kind, cost, plan });
         }
     };
-    // CR 202.1a: a face with no printed cost has no printed way to be cast,
+    // CR 202.1b: a face with no printed cost has no printed way to be cast,
     // which is the rule `casting::has_a_printed_cost` states engine-side and
     // the one that keeps a suspend-only card off this list.
     if face.mana_cost.symbols().next().is_some() {

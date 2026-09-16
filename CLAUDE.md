@@ -416,7 +416,7 @@ layer above:
 engine publishes a `Pending` with *enumerated legal actions*, and
 `apply` validates the answer against that same enumeration. A client cannot
 name an option the engine did not offer — combat is the clearest case: which
-creatures may attack, which defenders may be attacked (CR 508.1a) and which
+creatures may attack, which defenders may be attacked (CR 508.1b) and which
 blocker may be paired with which attacker all come from
 `Pending::ChooseAttackers` / `ChooseBlockers`, not from the client's own
 candidate list.
@@ -699,7 +699,7 @@ expression, so the brace form put the whole pool outside `cargo fmt --check`
 while that gate stayed green.
 
 What is load-bearing about the ability macros is that their defaults are
-*rules* defaults, not merely common ones: instant speed is CR 602.2, the
+*rules* defaults, not merely common ones: instant speed is CR 117.1b, the
 battlefield is CR 113.6, and `mana_ability = false` is CR 605.1 making a mana
 ability the exception. That last one is why a mana ability has its own macro
 instead of a flag — an ability wrongly marked `true` would silently skip the

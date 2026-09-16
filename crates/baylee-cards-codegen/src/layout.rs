@@ -15,7 +15,7 @@
 //!   in exactly one place. Land comes first because a land prints no mana
 //!   cost, which keeps every mana-less card inside the one branch that has no
 //!   `mv_` level; Kindred comes last so Crib Swap is an instant rather than a
-//!   kindred (CR 205.1a lists the types, not an order — this one is ours).
+//!   kindred (CR 205.2a lists the types, not an order — this one is ours).
 //! - **The front face decides**, whatever the layout. A transforming back is
 //!   not a card a player ever holds, and a modal back is the same card seen
 //!   from the other side (CR 712.2); filing by either would give Westvale
@@ -32,7 +32,7 @@
 //!   | 0 | the `Basic` supertype | `lands/basic` |
 //!   | 1 | a second card type or defining subtype | `lands/creatures` |
 //!   | 2 | the hand-kept cycle map ([`LandCycles`]) | `lands/fetch` |
-//!   | 3 | a printed nonbasic land subtype (CR 305.6) | `lands/deserts` |
+//!   | 3 | a printed nonbasic land subtype (CR 205.3i) | `lands/deserts` |
 //!   | 4 | what the printed text *does* (`land_role`) | `lands/utility` |
 //!   | 5 | how many basic land types it prints | `lands/dual` |
 //!

@@ -89,7 +89,7 @@ Four rules, all of them in `baylee-cards-codegen/src/layout.rs`:
   an Artifact Creature is a creature that happens to be an artifact and is
   never in two places. Land leads because a land prints no mana cost, which
   keeps every mana-less card in the one branch that has no `mv_` level;
-  Kindred trails so Crib Swap is an instant. CR 205.1a lists the types and
+  Kindred trails so Crib Swap is an instant. CR 205.2a lists the types and
   states no order — this one is ours.
 - **The front face decides**, whatever the layout. A transforming back is not
   a card anyone holds and a modal back is the same card from the other side
@@ -248,7 +248,7 @@ none of them per face:
   face and nightbound on a back one (CR 702.145a), and a card that stated
   either for the whole card would be a permanent that turns over at night
   and turns back in the same breath.
-- `color_indicator` (CR 105.2c). A face with no mana cost has nothing else
+- `color_indicator` (CR 202.2e). A face with no mana cost has nothing else
   to say what colour it is; Dire-Strain Brawler is green only because of the
   dot printed on it.
 - `castable_from_hand`, above.
@@ -459,7 +459,7 @@ ones an ability cannot be written without; everything after them is
 
 | field | default | why that is the rules answer |
 | --- | --- | --- |
-| `timing` | `InstantSpeed` | CR 602.2 — unless the card restricts it |
+| `timing` | `InstantSpeed` | CR 117.1b — unless the card restricts it |
 | `mana_ability` | `false` | CR 605.1 makes it the exception |
 | `zone` | `Battlefield` | CR 113.6 |
 | `target` / `targets` | `None` | an ability targets only when it says "target" |

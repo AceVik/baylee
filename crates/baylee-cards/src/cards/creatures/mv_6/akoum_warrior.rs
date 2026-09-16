@@ -6,7 +6,7 @@
 //! Face: Akoum Warrior — {5}{R} — Creature — Minotaur Warrior
 //! Face: Akoum Teeth —  — Land
 // IMPLEMENTED — a trampling creature on the front; the back is an MDFC land
-// reached by the face choice on a land play (CR 712.4a), which comes down
+// reached by the face choice on a land play (CR 712.12), which comes down
 // tapped and taps for {R}.
 
 use baylee_cards_dsl::prelude::*;

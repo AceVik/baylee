@@ -1,4 +1,4 @@
-//! The copy that does not last: Cursed Mirror's, which is a `Layer::Copy` effect with `Duration::UntilEndOfTurn`, and Glasspool Mimic's, which ends when the object does at a zone change (CR 400.7). What such a copy may do while it lasts, what has to be handed back when it stops — the rules text, which is not layer-projected and so was written onto the object, and the effect-table entries registered from it — what a copy *of* one comes down as, and which values it took in the first place, since a +1/+1 counter is not copiable (CR 707.2). The ordering question lives here too, because only these paths raise it: whether what a copy's arrival registers is in place before the trigger that same arrival caused is collected. An ability already on the stack is its own object and outlives all of it (CR 608.2); a copy that simply stands there carrying what it copied is `copied_abilities`.
+//! The copy that does not last: Cursed Mirror's, which is a `Layer::Copy` effect with `Duration::UntilEndOfTurn`, and Glasspool Mimic's, which ends when the object does at a zone change (CR 400.7). What such a copy may do while it lasts, what has to be handed back when it stops — the rules text, which is not layer-projected and so was written onto the object, and the effect-table entries registered from it — what a copy *of* one comes down as, and which values it took in the first place, since a +1/+1 counter is not copiable (CR 707.2). The ordering question lives here too, because only these paths raise it: whether what a copy's arrival registers is in place before the trigger that same arrival caused is collected. An ability already on the stack is its own object and outlives all of it (CR 113.7a); a copy that simply stands there carrying what it copied is `copied_abilities`.
 
 #[allow(clippy::wildcard_imports)] // this module's own vocabulary
 use super::*;
@@ -120,7 +120,7 @@ fn a_mimic_that_copied_a_wizard_comes_home_a_mimic() {
 /// (`{1}{W}, Sacrifice this creature: You gain 2 life`), so a Glasspool Mimic
 /// copying it is in the graveyard *before* the ability resolves — and stops
 /// being a copy on the way (CR 400.7). The ability does not care: it has been
-/// its own object on the stack since it was activated (CR 608.2). Read back
+/// its own object on the stack since it was activated (CR 113.7a). Read back
 /// off the source at resolution time it would find Glasspool Mimic's own
 /// one-entry list and index 1 in it, which is nothing at all.
 #[test]

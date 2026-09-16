@@ -216,7 +216,7 @@ fn mismatch(
             format!("{:?}", face.mana_cost),
             format!("{:?}", c.mana_cost),
         ),
-        // CR 105.2c, stated here a second time on purpose: a face's colors
+        // CR 105.2, stated here a second time on purpose: a face's colors
         // are the colors of its cost, plus the indicator a face with no cost
         // prints instead of one.
         Field::Colors => {
@@ -391,7 +391,7 @@ const CHECK_FLOOR: usize = 11000;
 /// And the one bound that is a **ceiling** rather than a floor.
 ///
 /// A few cards cannot be measured this way and are right not to be. A clone
-/// placed with nothing to copy is a 0/0 and dies to CR 704.5a; an Aura placed
+/// placed with nothing to copy is a 0/0 and dies to CR 704.5f; an Aura placed
 /// attached to nothing goes to the graveyard under CR 704.5m; and Karmic
 /// Guide is sacrificed in the first upkeep because echo (CR 702.30a) came due
 /// on a board with no mana on it — the engine does not even ask, there being

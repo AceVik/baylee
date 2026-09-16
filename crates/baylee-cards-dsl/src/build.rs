@@ -27,7 +27,7 @@
 //! silent, not merely what most cards happen to do — which is the only thing
 //! that makes omitting a field safe:
 //!
-//! - `timing: InstantSpeed` — CR 602.2: an activated ability may be
+//! - `timing: InstantSpeed` — CR 117.1b: an activated ability may be
 //!   activated whenever its controller has priority, unless the card
 //!   restricts it.
 //! - `mana_ability: false` — CR 605.1 makes a mana ability the *exception*
@@ -740,7 +740,7 @@ macro_rules! chapter {
 /// Equip (CR 702.6): `equip!("{2}")`.
 ///
 /// Every part of an equip ability except the cost comes from the keyword's
-/// own definition — sorcery speed (CR 702.6b), "target creature you
+/// own definition — sorcery speed (CR 702.6a), "target creature you
 /// control" (CR 702.6a), and attaching this permanent to it — so the cost is
 /// the only thing a card prints and the only thing this takes. The four
 /// Equipment in the pool each wrote it out as eight lines with the target

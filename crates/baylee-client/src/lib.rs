@@ -836,7 +836,7 @@ impl Duel {
     ///
     /// `Engine::offer_draw` refuses anything but the offerer's own priority,
     /// because the offer suspends a decision that has to be handed back
-    /// untouched if anyone refuses (CR 104.4a). The button was drawn live
+    /// untouched if anyone refuses (CR 104.4i). The button was drawn live
     /// whatever the game was doing, so the usual answer to pressing it was an
     /// `IllegalAction` in the prompt bar.
     ///
@@ -1896,7 +1896,7 @@ fn reachable(duel: &Duel) -> std::collections::HashSet<ObjectId> {
         // Types off the view, because those are the *projected* ones; flash
         // off the printed card, because a `HandObject` carries no keywords.
         .filter(|card| baylee_client_core::timing::allows(view, card.types, has_flash(card.card)))
-        // And it has to print a cost at all (CR 202.1a). A blank cost is
+        // And it has to print a cost at all (CR 202.1b). A blank cost is
         // payable by an empty pool, so a suspend-only card was "reachable"
         // with a plan of no taps at all: the click armed a run, the run
         // finished at once and asked the engine to cast a card it will never

@@ -1,4 +1,4 @@
-//! Agreed draws (CR 104.4a): unanimous or nothing.
+//! Agreed draws (CR 104.4i): unanimous or nothing.
 
 use super::testkit::*;
 use super::*;

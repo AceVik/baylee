@@ -220,7 +220,7 @@ fn the_copy_fires_the_enters_trigger_it_copied() {
 /// The third of the three places a permanent's rules text is read, after the
 /// offer and the trigger scan: its **static** abilities, which are
 /// continuous effects the machine registers rather than anything a player
-/// takes (CR 611.2).
+/// takes (CR 611.3).
 ///
 /// Great Divide Guide gives each land and Ally its controller has
 /// "{T}: Add one mana of any color", so the copy gives them to *mine*. Sea
@@ -733,7 +733,7 @@ fn no_card_becomes_a_copy_carrying_a_printed_static_unnoticed() {
 /// Simulacrum, died in combat, and drew nobody a card. Three steps and the
 /// ability was gone before anything could see it: `move_object` gives a
 /// card-backed object its printed rules text back on the way off the
-/// battlefield (CR 707.2a — the card in the graveyard is the printed card),
+/// battlefield (CR 400.7 — the card in the graveyard is the printed card),
 /// the look-back scan then reads the object *as it is now*, and what it finds
 /// there is a Metamorph, whose one ability is "enter as a copy" and whose
 /// index 1 does not exist at all.

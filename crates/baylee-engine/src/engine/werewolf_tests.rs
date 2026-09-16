@@ -129,7 +129,7 @@ fn day_turns_a_nightbound_permanent_back() {
     assert_eq!(pt(&engine, wolf), (2, 5));
 }
 
-/// CR 105.2c: the back face has no mana cost and takes its color from the
+/// CR 202.2e: the back face has no mana cost and takes its color from the
 /// indicator printed on it. Nothing else says Dire-Strain Brawler is green,
 /// so without the indicator every werewolf stopped being a color the moment
 /// it turned over — and "target green creature" would have missed it.

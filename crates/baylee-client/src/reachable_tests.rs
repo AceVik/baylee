@@ -17,7 +17,7 @@ use baylee_view::{CardIdentity, HandObject};
 /// are both satisfied trivially by a card that prints no mana cost at all
 /// — cmc zero, no colours — and Ancestral Vision is a single-faced
 /// sorcery at index 4, so this picked it first and every reach test below
-/// was built on a card CR 202.1a says can never be cast for mana.
+/// was built on a card CR 202.1b says can never be cast for mana.
 fn a_cheap_sorcery() -> &'static baylee_cards_dsl::CardDef {
     const GREEN: ColorSet = ColorSet::of(Color::Green);
     baylee_cards::all()

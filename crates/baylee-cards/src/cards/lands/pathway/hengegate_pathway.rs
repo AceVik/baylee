@@ -2,7 +2,7 @@
 //! Oracle: {T}: Add {W}.
 //! Oracle: {T}: Add {U}.
 //! Set: KHM #260 — Kaldheim | Scryfall ID: 7ef37cb3-d803-47d7-8a01-9c803aa2eadc | Oracle ID: 461b3f2f-fcee-4160-abfa-061f8b6a784f
-// IMPLEMENTED — MDFC land-face choice on play (CR 712.4a) + per-face
+// IMPLEMENTED — MDFC land-face choice on play (CR 712.12) + per-face
 // mana abilities.
 
 static BACK_MANA: &[AbilityDef] = &[mana_ability!(&[Effect::mana(ManaColor::Blue, 1)])];

@@ -66,7 +66,7 @@ pub const CARD_ASPECT: f32 = CARD_WIDTH / CARD_HEIGHT;
 pub const STAGE_STEP: f32 = CARD_HEIGHT * 0.5;
 /// The room one card needs along a lane, however it is turned.
 ///
-/// A card taps by rotating a quarter turn about its own centre (CR 701.21),
+/// A card taps by rotating a quarter turn about its own centre (CR 701.26),
 /// so the space it claims in a row is its *longest* dimension and not its
 /// width. Every cell in a lane is that wide, tapped or not, and the two
 /// things that buys are worth the quarter of a card of air around an

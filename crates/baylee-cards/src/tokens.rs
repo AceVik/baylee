@@ -93,7 +93,7 @@ pub static ANGEL_4_4_WHITE_FLYING: TokenDef = TokenDef {
     ..TokenDef::DEFAULT
 };
 
-/// 0/0 black Army (amass, CR 701.44a — the token the mechanic creates when
+/// 0/0 black Army (amass, CR 701.47a — the token the mechanic creates when
 /// you control no Army; the counters go on afterwards, and "amass Orcs"
 /// adds the Orc type on top of this).
 pub static ARMY_0_0_BLACK: TokenDef = TokenDef {

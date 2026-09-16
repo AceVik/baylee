@@ -95,7 +95,7 @@ These four came from one game and have not been investigated yet.
 ### 4. "Mein Mana ist verschwunden"
 
 Floating mana lost when it should have been held. Needs the step it emptied at
-— mana empties at the end of each step and phase (CR 500.4), so the question is
+— mana empties at the end of each step and phase (CR 500.5), so the question is
 whether it emptied *early*.
 
 ### 5. "Beim Gegner wurde das Mana nicht enttappt"
@@ -105,7 +105,7 @@ Read as: the opponent's lands were not untapped in their untap step.
 ### 6. An ability whose source was exiled in response
 
 Ondu Cleric's enter trigger was on the stack; Path to Exile exiled the Cleric;
-the ability did not do what the owner expected. CR 608.2 is the rule that an
+the ability did not do what the owner expected. CR 113.7a is the rule that an
 ability on the stack is independent of its source.
 
 ### 7. Path to Exile gave no life — MISATTRIBUTED, and it uncovered a real one
@@ -1776,7 +1776,7 @@ which is the change to make when a card that needs it arrives.
 ### 32. A card with no mana cost was castable for nothing — FIXED
 
 Found while wiring entry 31's client half, on the same card. Ancestral Vision
-prints **no** mana cost, which CR 202.1a says is not the same thing as a cost
+prints **no** mana cost, which CR 202.1b says is not the same thing as a cost
 of `{0}`: a card with no mana cost cannot be cast unless something gives it an
 alternative cost or lets it be cast without paying one. Every affordability
 probe in `casting.rs` asks only whether the pool covers the cost, and a pool
@@ -2117,7 +2117,7 @@ battlefield and Path was countered.
 Found by the sweep entry 36 asks for, and **older than 36**: the cause is a
 line `move_object` has had all along.
 
-CR 608.2g: an effect that needs information about an object which is no longer
+CR 608.2h: an effect that needs information about an object which is no longer
 in the zone it was expected to be in uses that object's *last known
 information*. This engine kept no such snapshot. `Amount::TargetPower` is
 documented as "the power of the first target (last known characteristics)" and

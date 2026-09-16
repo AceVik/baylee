@@ -228,7 +228,7 @@ const MAX_COPY_DEPTH: u8 = 8;
 /// what it was when the copy was made. A Mirror that became an Elf and
 /// whose Elf then died reverts to being an artifact, and a copy of that
 /// Mirror misses the "except it has haste" the Mirror's own copy effect
-/// granted — CR 706.2 makes an except clause copiable, and the mods are
+/// granted — CR 707.9a makes an except clause copiable, and the mods are
 /// registered as their own effects in layers 4 and 6 where nothing marks
 /// them as part of a copy. Both want the same change: the effect should
 /// carry a snapshot, not an id.
@@ -545,7 +545,7 @@ fn apply(
                 *toughness = toughness.saturating_add(*t);
             }
         }
-        // CR 613.3d, layer 7b: a *setting* effect gives the permanent that
+        // CR 613.4b, layer 7b: a *setting* effect gives the permanent that
         // power and toughness outright. The test is whether it is a creature
         // *now* — layer 4 has already run — and not whether it was printed
         // with a P/T box: an animated land has none, and guarding on the

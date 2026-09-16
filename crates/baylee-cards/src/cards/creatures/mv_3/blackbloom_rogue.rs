@@ -7,7 +7,7 @@
 //! Face: Blackbloom Rogue — {2}{B} — Creature — Human Rogue
 //! Face: Blackbloom Bog —  — Land
 // PARTIAL — a 2/3 Rogue with menace on the front; the back is an MDFC land
-// reached by the face choice on a land play (CR 712.4a), which comes down
+// reached by the face choice on a land play (CR 712.12), which comes down
 // tapped and taps for {B}.
 // NOT SUPPORTED: "This creature gets +3/+0 as long as an opponent has eight
 // or more cards in their graveyard." A `StaticAbility` is a layer, a filter
@@ -56,4 +56,4 @@ card!(
 // Behaviour belongs in `baylee-engine`'s `mdfc_tests`: the front face is the
 // only one that is not a land, so a land play resolves straight to face 1,
 // which enters tapped and taps for {B} once it untaps; cast as a creature it
-// is a 2/3 that one blocker may not block on its own (CR 702.110).
+// is a 2/3 that one blocker may not block on its own (CR 702.111b).

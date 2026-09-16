@@ -396,7 +396,7 @@ per-player hidden-information filtering (`FullView`/`Delta`), timers
 
 That seam has since paid for itself three times, and every time the feature
 was filed under v2 before anyone checked what it actually touched: the copy
-target re-choice (CR 707.10c), the agreed draw (CR 104.4a), and attacking
+target re-choice (CR 707.10c), the agreed draw (CR 104.4i), and attacking
 planeswalkers all shipped as `Pending`/`PlayerAction` changes with **no
 proto change at all**. Before scheduling something behind protocol v2,
 check whether it needs the wire or only the taxonomy the wire carries.
@@ -1078,7 +1078,7 @@ rather than `(ObjectId, PlayerId)`, where `Defender` is
 `Player(PlayerId)` or `Planeswalker(ObjectId)`. `Pending::ChooseAttackers`
 now carries the legal `defenders` list, and the engine validates a
 declaration against exactly that list — "which planeswalkers may I attack"
-(CR 508.1a) is a rules question, and a client re-deriving it would be a
+(CR 506.2) is a rules question, and a client re-deriving it would be a
 second, divergent implementation of the rule. `AttackerView::defending`
 changed the same way, which is what took **`VIEW_VERSION` from 2 to 3**;
 a client checks that on `HelloAck` and refuses a host it cannot render.

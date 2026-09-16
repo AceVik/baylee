@@ -327,7 +327,7 @@ fn ward_declined_counters_the_spell_that_targeted_it() {
     );
     assert!(
         in_graveyard(&engine, p1, path_to_exile()).is_some(),
-        "a countered spell goes to its owner's graveyard (CR 701.5a)",
+        "a countered spell goes to its owner's graveyard (CR 701.6a)",
     );
     assert_eq!(
         engine.state().players[1].mana_pool.total(),

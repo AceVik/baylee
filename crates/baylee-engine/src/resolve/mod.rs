@@ -96,7 +96,7 @@ pub struct Resolution {
     /// ability, then strip the permanent it came from — and the second half
     /// has no way of its own to name that permanent: both read the same
     /// target, and an ability that has been countered ceases to exist
-    /// (CR 608.2k), so the lookup finds nothing. It found nothing for as
+    /// (CR 701.6a), so the lookup finds nothing. It found nothing for as
     /// long as the card existed, and the rider had never once fired. The
     /// counter writes the answer down here on its way past instead, which
     /// is what makes the pair independent of the order the card lists them
@@ -104,7 +104,7 @@ pub struct Resolution {
     pub countered_source: Option<ObjectId>,
     /// What this resolution's targets looked like when it began.
     ///
-    /// CR 608.2g: an effect that needs information about an object which is
+    /// CR 608.2h: an effect that needs information about an object which is
     /// no longer in the zone it was expected to be in uses that object's
     /// *last known information*. A resolution expects its targets where they
     /// were when it started, so that is when the snapshot is taken — by
@@ -323,7 +323,7 @@ fn reveals(
 }
 
 /// The first target's characteristics, as the effect asking is entitled to
-/// see them (CR 608.2g).
+/// see them (CR 608.2h).
 ///
 /// Live while the object is still where the resolution left it, and the
 /// snapshot [`run`] took once it is not. Swords to Plowshares is the card
@@ -495,7 +495,7 @@ pub enum Flow {
 /// Runs a resolution until it completes or suspends on a choice.
 #[must_use]
 pub fn run(state: &mut GameState, res: &mut Resolution) -> Flow {
-    // The moment CR 608.2g measures from. `run` is re-entered after every
+    // The moment CR 608.2h measures from. `run` is re-entered after every
     // suspended choice, so this has to be the *first* entry and not any
     // entry, which is what the `Option` says.
     if res.target_lki.is_none() {
@@ -1115,7 +1115,7 @@ fn exec_choice(state: &mut GameState, res: &mut Resolution, op: Effect) -> Optio
                 .copied()
                 .collect();
             if options.is_empty() {
-                // Hidden zone: failing to find is always legal (CR 701.19).
+                // Hidden zone: failing to find is always legal (CR 701.23b).
                 state.shuffle_library(you);
                 return None;
             }
@@ -1581,7 +1581,7 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
         }
         Effect::IfNotLostLifeThisTurn { then } => {
             // Journal scan since turn start: any LifeChanged for `you`
-            // with new < old is a life loss (CR 119.4a note).
+            // with new < old is a life loss (CR 119.3 note).
             let lost = state.journal.entries()[state.turn_start_seq as usize..]
                 .iter()
                 .any(|e| match &e.event {

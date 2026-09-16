@@ -2,7 +2,7 @@
 //! Oracle: {T}: Add {U}.
 //! Oracle: {T}: Add {B}.
 //! Set: ZNR #260 — Zendikar Rising | Scryfall ID: b4b99ebb-0d54-4fe5-a495-979aaa564aa8 | Oracle ID: 144119bc-7fd1-45c5-9e29-f742e7c255ac
-// IMPLEMENTED — MDFC land-face choice on play (CR 712.4a) + per-face
+// IMPLEMENTED — MDFC land-face choice on play (CR 712.12) + per-face
 // mana abilities.
 
 static BACK_MANA: &[AbilityDef] = &[mana_ability!(&[Effect::mana(ManaColor::Black, 1)])];

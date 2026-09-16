@@ -209,7 +209,7 @@ impl Characteristics {
         Self {
             name,
             mana_cost: f.mana_cost,
-            // CR 105.2c: a face with no mana cost takes its color from the
+            // CR 202.2e: a face with no mana cost takes its color from the
             // indicator printed on it. The union rather than an either/or,
             // because the two never coexist on a printed face and a card
             // that somehow stated both should be the sum, not one of them.
@@ -543,11 +543,11 @@ pub struct GameObject {
     /// it — the board saw an Ally enter and the Lieutenant beside it grew,
     /// while the copy's own enters-trigger never fired. An **ability on the
     /// stack** captures its source's list as it is put there, because it
-    /// exists independently of that source afterwards (CR 608.2) and the
+    /// exists independently of that source afterwards (CR 113.7a) and the
     /// source may already have stopped being a copy by the time it resolves.
     ///
     /// Stored rather than derived because the copiable values are fixed as
-    /// the copy is made (CR 707.2a) and the original may leave; one field
+    /// the copy is made (CR 707.2b) and the original may leave; one field
     /// rather than two because an emblem is never a copy and the extra
     /// `Option<&[_]>` is 16 bytes on every object in every AI ply.
     ///

@@ -4,7 +4,7 @@
 //!
 //! The last of those is the reason this module's name is a half-truth worth
 //! knowing about. Nothing in a `CardDef` says which layout a card was
-//! printed in, so an MDFC's back — a face a player may cast (CR 712.4a) —
+//! printed in, so an MDFC's back — a face a player may cast (CR 712.11b) —
 //! and a transformed back — one they may only turn the card over to reach
 //! (CR 712.2) — differ by exactly one hand-set field, `castable_from_hand`,
 //! and by the cost the printing puts on the face. Sheoldred was filed here
@@ -248,7 +248,7 @@ fn the_true_scriptures_is_turned_over_and_never_cast() {
         match engine.pending().clone() {
             Pending::Priority { player, legal } if player == p0 => {
                 // Tap all available mana first — in a main phase, because a
-                // pool empties as the step ends (CR 500.4) and a swamp tapped
+                // pool empties as the step ends (CR 500.5) and a swamp tapped
                 // in the upkeep buys nothing at sorcery speed.
                 if let Some(&source) = legal
                     .mana_abilities

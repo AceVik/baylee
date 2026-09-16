@@ -7,7 +7,7 @@
 //! Face: Witch-Blessed Meadow —  — Land
 // IMPLEMENTED — the Warlock front destroys an opponent's artifact or
 // enchantment on its own ETB; the modal back is reached by the face-choice
-// land play (CR 712.4a), asks for 3 life as it enters or comes down tapped,
+// land play (CR 712.12), asks for 3 life as it enters or comes down tapped,
 // and taps for {W}.
 
 use baylee_cards_dsl::prelude::*;

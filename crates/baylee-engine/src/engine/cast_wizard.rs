@@ -333,7 +333,7 @@ impl<L: CardLookup> Engine<L> {
                 .any(|a| matches!(a, baylee_cards_dsl::AbilityDef::Spell { .. }))
             && !face.types.is_permanent();
         // Normal cost (X probed with 0; the real check happens at payment).
-        // Guarded by the same CR 202.1a question `can_cast` asks, and for the
+        // Guarded by the same CR 202.1b question `can_cast` asks, and for the
         // reason every probe in this function is paired with one there: an
         // option offered here that the offer does not know about is a mode a
         // player can pick and be refused for.
@@ -367,7 +367,7 @@ impl<L: CardLookup> Engine<L> {
                 cost: alt.cost.mana.with_more_generic(tax),
             });
         }
-        // MDFC backs (CR 712.4a) and adventures (CR 715), through the reader
+        // MDFC backs (CR 712.11b) and adventures (CR 715), through the reader
         // `can_cast` uses — land faces are played and disturb backs came out
         // above. This loop asked the faces and nothing else, so the adventure
         // was offered again out of the exile its own resolution had put the
@@ -1015,7 +1015,7 @@ impl<L: CardLookup> Engine<L> {
                 c.casts = c.casts.saturating_add(1);
             }
         }
-        // MDFC back-face cast: the object becomes its chosen face (CR 712.4).
+        // MDFC back-face cast: the object becomes its chosen face (CR 712.11b).
         if let Some(CastModeKind::Face(i)) = wizard.option {
             let def = self
                 .state

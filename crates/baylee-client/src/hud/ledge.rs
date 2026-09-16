@@ -1133,7 +1133,7 @@ fn ways_out(
     }
     let armed = revision.concede_armed;
     if !armed {
-        // A draw needs this seat's own priority (CR 104.4a, and `offer_draw`
+        // A draw needs this seat's own priority (CR 104.4i, and `offer_draw`
         // refuses anything else), so the button says so rather than being a
         // live control whose usual answer is a refusal in the sentence above.
         let weight = if revision.can_offer_draw {

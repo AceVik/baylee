@@ -1,4 +1,4 @@
-//! A static ability on one permanent reaching another, and exactly how far it reaches: hexproof from a Privileged Position or a pair of Swiftfoot Boots, shroud from Lightning Greaves, indestructible from a Darksteel Forge, and the two points of power a Sword of Hearth and Home hands the creature wearing it, which Esper Sentinel's `{X}` tax then reads back off it. Every grant is asked from both seats, because hexproof stops opponents and shroud stops everybody (CR 702.11b, CR 702.18b) and a test that only ever asks the opponent cannot tell the two keywords apart — and the grant that arrives through an *attachment* is asked beside an unequipped neighbour, which is the only thing that says the filter did not reach the whole board. Indestructible is read off the battlefield rather than off the options list, because it never stopped the targeting (CR 702.12b). An ability a copy brought with it is not a grant; that is `copied_abilities`.
+//! A static ability on one permanent reaching another, and exactly how far it reaches: hexproof from a Privileged Position or a pair of Swiftfoot Boots, shroud from Lightning Greaves, indestructible from a Darksteel Forge, and the two points of power a Sword of Hearth and Home hands the creature wearing it, which Esper Sentinel's `{X}` tax then reads back off it. Every grant is asked from both seats, because hexproof stops opponents and shroud stops everybody (CR 702.11b, CR 702.18a) and a test that only ever asks the opponent cannot tell the two keywords apart — and the grant that arrives through an *attachment* is asked beside an unequipped neighbour, which is the only thing that says the filter did not reach the whole board. Indestructible is read off the battlefield rather than off the options list, because it never stopped the targeting (CR 702.12b). An ability a copy brought with it is not a grant; that is `copied_abilities`.
 
 #[allow(clippy::wildcard_imports)] // this module's own vocabulary
 use super::*;
@@ -79,7 +79,7 @@ fn your_own_removal_still_reaches_the_creature_you_gave_hexproof() {
 ///
 /// The counterpart to the two above, on the distinction the two keywords
 /// exist for: shroud is "can't be the target of spells or abilities"
-/// (CR 702.18b) full stop, so the same seat that granted it is refused —
+/// (CR 702.18a) full stop, so the same seat that granted it is refused —
 /// which is the whole reason a player equips Greaves and then complains
 /// they cannot aura the creature. The unequipped creature beside it is the
 /// bystander, and it says the refusal came from the attachment rather than
@@ -140,7 +140,7 @@ fn greaves_hide_the_creature_they_are_on_from_you_too() {
     let options = target_options(&engine);
     assert!(
         !options.contains(&equipped),
-        "shroud refuses its own controller as well (CR 702.18b): {options:?}"
+        "shroud refuses its own controller as well (CR 702.18a): {options:?}"
     );
     assert!(
         options.contains(&bystander),

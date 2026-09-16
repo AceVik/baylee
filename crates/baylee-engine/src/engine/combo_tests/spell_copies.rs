@@ -506,7 +506,7 @@ fn a_prepared_cast_copies_a_sorcery_and_waits_for_a_sorcery_moment() {
     );
 
     // Their turn, and this seat holding priority in it. The mana floated
-    // above is gone (CR 500.4), so the two Swamps left standing are what
+    // above is gone (CR 500.5), so the two Swamps left standing are what
     // pays for the attempt.
     pass_until(&mut engine, |e| {
         matches!(e.state().turn.phase, Phase::FirstMain)

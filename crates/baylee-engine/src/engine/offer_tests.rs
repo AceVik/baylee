@@ -778,7 +778,7 @@ fn a_suspend_card_is_offered_only_once_its_cost_is_on_the_table() {
         legal.suspendable
     );
     // And it is not castable either, at any point in this test. Ancestral
-    // Vision prints *no* mana cost, which CR 202.1a says is not a cost of
+    // Vision prints *no* mana cost, which CR 202.1b says is not a cost of
     // zero: the only way it leaves this hand is the suspend ability. It was
     // in `castable` here — a free "target player draws three cards" for
     // anybody who reached their own main phase.
@@ -858,7 +858,7 @@ fn a_printed_zero_is_a_cost_and_the_spell_is_still_castable() {
 
 /// Only a card with another way out of the hand prints no mana cost.
 ///
-/// The pool-wide half of CR 202.1a, and the guard on the data rather than on
+/// The pool-wide half of CR 202.1b, and the guard on the data rather than on
 /// the rule: `face!`'s default cost is the *blank* one, so a hand-written
 /// card that prints `{0}` and simply omits the field used to be
 /// indistinguishable from Ancestral Vision — and is now uncastable instead of
