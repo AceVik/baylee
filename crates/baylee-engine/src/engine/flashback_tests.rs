@@ -56,26 +56,46 @@ fn swamp() -> CardIndex {
     card_index("56719f6a-1a6c-4c0a-8d21-18f7d7350b68")
 }
 
+fn plains() -> CardIndex {
+    card_index("bc71ebf6-2056-41f7-be35-b2e5c34afa99")
+}
+
+fn swords_to_plowshares() -> CardIndex {
+    card_index("b1544f21-7e98-461b-aed5-e748b0168c52")
+}
+
 /// A seat at its own main phase with `{B}` floating, a Dark Ritual in its
 /// graveyard and a Llanowar Elves beside it.
+#[track_caller]
+fn bench() -> (Engine<RegistryLookup>, ObjectId, ObjectId) {
+    bench_for(swamp(), dark_ritual(), ManaColor::Black)
+}
+
+/// A seat at its own main phase with one `land` tapped for `color`, `spell`
+/// in its own graveyard and a Llanowar Elves beside it.
 ///
 /// The Elf is the filter's control and the reason the filler deck is a
 /// creature: "each instant and sorcery card" is a filter, and only a card
 /// in the same zone that the filter must *not* reach can say so. Every
-/// assertion about the Ritual would pass just as well against a grant that
+/// assertion about the spell would pass just as well against a grant that
 /// had lost its type half.
 ///
-/// The Swamp is tapped *here* and not at the moment of casting, because
+/// The land is tapped *here* and not at the moment of casting, because
 /// `legal.castable` is read off the mana pool rather than off tappable
 /// lands: with nothing floating the offer is empty whatever the rule says,
 /// and the "not castable yet" assertion below would pass against a grant
-/// that worked perfectly.
+/// that worked perfectly. Both spells cost one coloured mana, so one
+/// untapped land is the whole board.
 #[track_caller]
-fn bench() -> (Engine<RegistryLookup>, ObjectId, ObjectId) {
+fn bench_for(
+    land: CardIndex,
+    spell: CardIndex,
+    color: ManaColor,
+) -> (Engine<RegistryLookup>, ObjectId, ObjectId) {
     let p0 = PlayerId::new(0);
     let mut engine = Duel::new(SEED, llanowar_elves())
-        .battlefield(0, &[swamp()])
-        .hand(0, &[dark_ritual()])
+        .battlefield(0, &[land])
+        .hand(0, &[spell])
         .start();
     keep_mulligans(&mut engine);
     assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
@@ -83,15 +103,15 @@ fn bench() -> (Engine<RegistryLookup>, ObjectId, ObjectId) {
     seed_graveyard(&mut engine, p0, 1);
     let elf = in_graveyard(&engine, p0, llanowar_elves()).expect("the seeded Elf");
 
-    // Straight from hand to graveyard: casting it would spend the Swamp the
+    // Straight from hand to graveyard: casting it would spend the land the
     // flashback cast below needs, and the sentence under test is about a
     // card lying in a graveyard however it got there.
-    let ritual = in_hand(&engine, p0, dark_ritual()).expect("the Ritual is in hand");
+    let card = in_hand(&engine, p0, spell).expect("the spell is in hand");
     engine
         .dev_state_mut(p0)
         .expect("the harness may set boards up")
         .move_object(
-            ritual,
+            card,
             ZoneLocation::Graveyard(p0),
             ZonePosition::Top,
             crate::event::Cause::Effect,
@@ -105,14 +125,12 @@ fn bench() -> (Engine<RegistryLookup>, ObjectId, ObjectId) {
     for source in legal.mana_abilities.clone() {
         engine
             .apply(p0, PlayerAction::ActivateManaAbility { source })
-            .expect("the Swamp taps for {B}");
+            .expect("the land taps for its own colour");
     }
     assert_eq!(
-        engine.state().players[0]
-            .mana_pool
-            .available(ManaColor::Black),
+        engine.state().players[0].mana_pool.available(color),
         1,
-        "the Ritual's own {{B}} is floating, so an empty offer below is about \
+        "the spell's own mana is floating, so an empty offer below is about \
          the grant and not about the mana"
     );
 
@@ -120,11 +138,11 @@ fn bench() -> (Engine<RegistryLookup>, ObjectId, ObjectId) {
         panic!("expected priority, got {:?}", engine.pending())
     };
     assert!(
-        !legal.castable.contains(&ritual) && !legal.castable.contains(&elf),
+        !legal.castable.contains(&card) && !legal.castable.contains(&elf),
         "a card in a graveyard is castable only once something says so: {:?}",
         legal.castable
     );
-    (engine, ritual, elf)
+    (engine, card, elf)
 }
 
 /// Registers a flashback grant behind the engine's back and republishes the
@@ -241,5 +259,69 @@ fn a_named_grant_offers_exactly_the_card_it_names() {
         !legal.castable.contains(&elf),
         "and names nothing else: {:?}",
         legal.castable
+    );
+}
+
+/// A granted card with nothing to point at is not offered (CR 601.2c).
+///
+/// The offer's four branches ask two questions each — can this be paid for,
+/// and does its front face have a legal target — and the graveyard branch
+/// asked only the first. Three of the four carried `has_a_legal_target`,
+/// which is exactly the shape of defect that survives review: the branch
+/// reads correctly and is missing a line its neighbours have.
+///
+/// Swords to Plowshares is the smallest case in the pool, "exile target
+/// creature" on a board with no creature anywhere. The grant is asserted
+/// separately through [`casting::flashback_granted`], because otherwise an
+/// empty offer would prove nothing — it is what a grant that never applied
+/// looks like too. And `apply` is asked as well as the offer: those two
+/// disagreeing is the whole cost of the defect, a card a player may press
+/// and the engine then refuses.
+#[test]
+fn a_granted_card_with_no_legal_target_is_not_offered() {
+    let p0 = PlayerId::new(0);
+    let (mut engine, swords, _elf) = bench_for(plains(), swords_to_plowshares(), ManaColor::White);
+
+    grant_flashback(
+        &mut engine,
+        p0,
+        EffectFilter::Dsl(&INSTANT_OR_SORCERY_IN_YOUR_GRAVEYARD),
+    );
+
+    assert!(
+        casting::flashback_granted(engine.state(), swords),
+        "the grant reaches it, so an empty offer below is about the target"
+    );
+    assert!(
+        engine
+            .state()
+            .zones
+            .list(ZoneLocation::Battlefield)
+            .iter()
+            .all(|id| {
+                engine.state().object(*id).is_some_and(|o| {
+                    !o.characteristics()
+                        .types
+                        .contains(baylee_core::types::TypeSet::CREATURE)
+                })
+            }),
+        "no seat has a creature, so \"target creature\" names nothing"
+    );
+
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        !legal.castable.contains(&swords),
+        "CR 601.2c: a spell whose only target requirement cannot be met is \
+         not castable, granted or not: {:?}",
+        legal.castable
+    );
+    assert!(
+        engine
+            .apply(p0, PlayerAction::CastSpell { card: swords })
+            .is_err(),
+        "and the gate behind the offer says the same, so a player who \
+         pressed it anyway is refused rather than stuck"
     );
 }

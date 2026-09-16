@@ -169,7 +169,9 @@ impl<L: CardLookup> Engine<L> {
         // it recognised only the `EffectFilter::ObjectIs` shape of a grant
         // and hid every filtered one from the offer.
         for &card in self.state.zones.list(ZoneLocation::Graveyard(player)) {
-            if casting::can_cast(&self.state, &self.lookup, player, card).is_ok() {
+            if casting::can_cast(&self.state, &self.lookup, player, card).is_ok()
+                && self.has_a_legal_target(player, card)
+            {
                 legal.castable.push(card);
             }
         }
