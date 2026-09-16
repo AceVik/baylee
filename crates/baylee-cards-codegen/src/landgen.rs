@@ -516,6 +516,57 @@ impl Recognizer<'_> {
         Some(())
     }
 
+    /// "You may choose not to untap this land during your untap step."
+    ///
+    /// A whole-line match, as in the transcoder and for the same reason:
+    /// all six printings in this pool write it exactly this way, so a
+    /// looser reading could only ever be reading something else. It is a
+    /// static ability rather than a keyword bit — the rules make it a
+    /// continuous effect modifying CR 502.3's turn-based action.
+    fn may_not_untap_line(&mut self, line: &str) -> Option<()> {
+        (line == "You may choose not to untap this land during your untap step").then(|| {
+            self.body
+                .abilities
+                .push("static_ability!(Filter::This, Modifier::MayChooseNotToUntap)".to_string());
+            self.body.notes.push("may choose not to untap".to_string());
+        })
+    }
+
+    /// "At the beginning of your upkeep, if this land is tapped, put a
+    /// storage counter on it."
+    ///
+    /// The storage lands' banking trigger, and the pool's one printing of
+    /// an intervening-`if` clause on a land (CR 603.4): the ability does
+    /// not trigger while the land is untapped, and is removed from the
+    /// stack if the land has untapped by the time it would resolve. The
+    /// clause travels to the card as `condition = Some(…)`, which is the
+    /// only place that rule can be written down.
+    ///
+    /// The effect is read by the shared reader, so a counter noun with no
+    /// id refuses the card the way it does everywhere else. `on it` is
+    /// rewritten to `on this land` first, which is safe in **this** shape
+    /// and nowhere else: the clause immediately before it says what "it"
+    /// is, so the pronoun has one referent by construction.
+    fn upkeep_if_tapped(&mut self, line: &str) -> Option<()> {
+        let rest =
+            line.strip_prefix("At the beginning of your upkeep, if this land is tapped, ")?;
+        let sentence = format!(
+            "{}{}",
+            rest.chars().next()?.to_uppercase(),
+            rest.get(1..)?.replace(" on it", " on this land")
+        );
+        let effects = parse_effect(&sentence, None)?;
+        self.body.abilities.push(format!(
+            "triggered!(Trigger::StepBegin {{ step: StepKind::Upkeep, whose: PlayerRel::You }}, \
+             &[{}], condition = Some(Condition::SourceMatches(&Filter::Tapped)))",
+            effects.join(", ")
+        ));
+        self.body
+            .notes
+            .push("upkeep trigger with an intervening if".to_string());
+        Some(())
+    }
+
     fn etb_trigger(&mut self, line: &str) -> Option<()> {
         let rest = line.strip_prefix("When this land enters, ")?;
         // A trigger has no cost, so nothing announced a number to it.
@@ -627,6 +678,8 @@ impl Recognizer<'_> {
         // activated ability is recognised by the colon that separates its
         // cost from its effect.
         self.enters_line(line)
+            .or_else(|| self.may_not_untap_line(line))
+            .or_else(|| self.upkeep_if_tapped(line))
             .or_else(|| self.etb_trigger(line))
             .or_else(|| self.cycling_line(line))
             .or_else(|| self.activated_line(line))
@@ -1189,6 +1242,71 @@ mod tests {
                 ),
             ]
         );
+    }
+
+    /// The Fallen Empires storage cycle, whole — the five lands whose
+    /// counter comes from an upkeep trigger instead of an activation.
+    ///
+    /// Every clause of Bottomless Vault, and the two new ones are what the
+    /// cycle was waiting for: "you may choose not to untap" as a static
+    /// ability, and the upkeep trigger with its intervening `if` carried as
+    /// a `condition` rather than dropped. A dropped clause here would be a
+    /// land that banks a counter every upkeep whether or not it is tapped,
+    /// which is not a card anybody printed.
+    #[test]
+    fn a_fallen_empires_storage_land_reads_whole() {
+        let body = read(
+            "Land",
+            "This land enters tapped.\n\
+             You may choose not to untap this land during your untap step.\n\
+             At the beginning of your upkeep, if this land is tapped, \
+             put a storage counter on it.\n\
+             {T}, Remove any number of storage counters from this land: \
+             Add {B} for each storage counter removed this way.",
+        );
+        assert_eq!(body.enter_modifiers, ["EnterModifier::Tapped"]);
+        assert_eq!(
+            body.abilities,
+            [
+                "static_ability!(Filter::This, Modifier::MayChooseNotToUntap)",
+                concat!(
+                    "triggered!(Trigger::StepBegin { step: StepKind::Upkeep, whose: ",
+                    "PlayerRel::You }, &[Effect::AddCounter { kind: counters::STORAGE, ",
+                    "amount: Amount::Fixed(1) }], condition = ",
+                    "Some(Condition::SourceMatches(&Filter::Tapped)))"
+                ),
+                concat!(
+                    "mana_ability!(cost!(TapSelf, RemoveCounterSelfX { kind: counters::STORAGE ",
+                    "}), &[Effect::mana_dynamic(ManaColor::Black, Amount::X)])"
+                ),
+            ]
+        );
+    }
+
+    /// One word off either new sentence and the land is a stub again.
+    ///
+    /// The untap line is matched whole, as in the transcoder; the upkeep
+    /// trigger is matched on its clause, so a trigger with a *different*
+    /// intervening `if` must not be read as this one — the condition would
+    /// be a sentence the card does not print.
+    #[test]
+    fn a_neighbouring_sentence_is_not_read_as_either_of_them() {
+        for line in [
+            "You may choose not to untap this land during your upkeep",
+            "At the beginning of your end step, if this land is tapped, \
+             put a storage counter on it",
+            "At the beginning of your upkeep, if this land is untapped, \
+             put a storage counter on it",
+            "At the beginning of your upkeep, if this land is tapped, \
+             put a verse counter on it",
+        ] {
+            let card = card("Land", &format!("{line}."));
+            assert_eq!(
+                super::read(&card, &cats()).err(),
+                Some(LandRefusal::UnreadLine(line.to_string())),
+                "{line}"
+            );
+        }
     }
 
     /// The Time Spiral storage cycle, whole — the other printed spelling of

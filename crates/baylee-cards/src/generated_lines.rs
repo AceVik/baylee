@@ -1114,6 +1114,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[],
     &[],
     &[],
+    // Bottomless Vault
+    &[FaceLines {
+        sentences: 4,
+        stackable: 1,
+        lines: &[None, Some(2), Some(3)],
+        modes: &[],
+        alternatives: &[],
+    }],
     &[],
     &[],
     &[],
@@ -1125,8 +1133,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[],
     &[],
     &[],
-    &[],
-    &[],
+    // Dwarven Hold
+    &[FaceLines {
+        sentences: 4,
+        stackable: 1,
+        lines: &[None, Some(2), Some(3)],
+        modes: &[],
+        alternatives: &[],
+    }],
     &[],
     // Dwarven Ruins
     &[FaceLines {
@@ -1173,6 +1187,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     }],
     &[],
     &[],
+    // Hollow Trees
+    &[FaceLines {
+        sentences: 4,
+        stackable: 1,
+        lines: &[None, Some(2), Some(3)],
+        modes: &[],
+        alternatives: &[],
+    }],
     &[],
     &[],
     &[],
@@ -1186,8 +1208,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[],
     &[],
     &[],
-    &[],
-    &[],
+    // Icatian Store
+    &[FaceLines {
+        sentences: 4,
+        stackable: 1,
+        lines: &[None, Some(2), Some(3)],
+        modes: &[],
+        alternatives: &[],
+    }],
     &[],
     &[],
     &[],
@@ -1213,7 +1241,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // Sand Silos
+    &[FaceLines {
+        sentences: 4,
+        stackable: 1,
+        lines: &[None, Some(2), Some(3)],
+        modes: &[],
+        alternatives: &[],
+    }],
     &[],
     &[],
     &[],

@@ -224,6 +224,19 @@ pub fn pass_until(
             } => {
                 engine.apply(player, PlayerAction::YesNo(true)).unwrap();
             }
+            // The untap step's determination, answered by untapping —
+            // the same reading as `answer_one`, and for the same reason. A
+            // test whose subject is that question answers it itself and
+            // never gets here.
+            Pending::ChooseCards {
+                player,
+                prompt: crate::choice::ChoicePrompt::LeaveTapped,
+                ..
+            } => {
+                engine
+                    .apply(player, PlayerAction::ChooseObjects { objects: vec![] })
+                    .unwrap();
+            }
             other => panic!("unexpected while passing: {other:?}"),
         }
     }
@@ -873,9 +886,20 @@ pub fn answer_one(engine: &Engine<RegistryLookup>) -> Result<(PlayerId, PlayerAc
             options,
             min,
             max,
-            ..
+            prompt,
         } => {
-            let want = usize::from(min).max(1).min(usize::from(max));
+            // One of these is answered the other way round. The untap
+            // step's determination (CR 502.3) asks which permanents stay
+            // tapped, so naming one is the *unusual* answer — a driver
+            // that took the first option would leave a storage land tapped
+            // for the rest of the game and bank it a counter every upkeep.
+            // Every other card question here is "choose one", where
+            // choosing nothing exercises nothing.
+            let want = if prompt == crate::choice::ChoicePrompt::LeaveTapped {
+                0
+            } else {
+                usize::from(min).max(1).min(usize::from(max))
+            };
             (
                 player,
                 PlayerAction::ChooseObjects {

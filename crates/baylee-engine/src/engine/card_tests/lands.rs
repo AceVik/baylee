@@ -3312,3 +3312,226 @@ fn deserted_temple_says_so_when_it_untaps_a_land() {
          and a journal that said otherwise would be inventing an event"
     );
 }
+
+// oracle_id = "e43413e4-be17-49af-978a-26210d05f52a"
+fn bottomless_vault() -> CardIndex {
+    card_index("e43413e4-be17-49af-978a-26210d05f52a")
+}
+
+// oracle_id = "4a6625bd-3dd2-45f1-8dc9-034c833fa90c"
+fn dwarven_hold() -> CardIndex {
+    card_index("4a6625bd-3dd2-45f1-8dc9-034c833fa90c")
+}
+
+// oracle_id = "3348df85-e61c-47b5-857d-c79befb38a8a"
+fn hollow_trees() -> CardIndex {
+    card_index("3348df85-e61c-47b5-857d-c79befb38a8a")
+}
+
+// oracle_id = "87a0e0b9-6c2d-47a4-a3ed-7e0ae62fbffc"
+fn icatian_store() -> CardIndex {
+    card_index("87a0e0b9-6c2d-47a4-a3ed-7e0ae62fbffc")
+}
+
+// oracle_id = "48a830f1-8965-4f97-b3d8-ca98eab1ba33"
+fn sand_silos() -> CardIndex {
+    card_index("48a830f1-8965-4f97-b3d8-ca98eab1ba33")
+}
+
+/// Walks until the untap step asks which permanents stay tapped, and hands
+/// the question back unanswered.
+///
+/// `answer_one` answers this one by untapping, which is the right reading
+/// for a driver on its way past — and wrong for a test whose subject it is.
+/// So the check comes first, before anything is applied.
+#[track_caller]
+fn walk_to_the_untap_question(engine: &mut Engine<RegistryLookup>) -> (PlayerId, Vec<ObjectId>) {
+    for _ in 0..200 {
+        if let Pending::ChooseCards {
+            player,
+            options,
+            prompt: crate::choice::ChoicePrompt::LeaveTapped,
+            ..
+        } = engine.pending().clone()
+        {
+            return (player, options);
+        }
+        let (player, action) = answer_one(engine).expect("a rest on the way to the untap step");
+        engine.apply(player, action).expect("the answer is legal");
+    }
+    panic!("the untap step never asked");
+}
+
+/// Walks to `seat`'s main phase **of the turn it is already in**.
+///
+/// [`cross_into_the_next_own_main`] waits for the turn number to change,
+/// which is one turn too far from inside the untap step of the turn that
+/// matters.
+#[track_caller]
+fn on_to_this_turn_s_main(engine: &mut Engine<RegistryLookup>, seat: PlayerId) {
+    for _ in 0..200 {
+        if matches!(engine.state().turn.phase, Phase::FirstMain)
+            && engine.state().turn.active == seat
+            && matches!(engine.pending(), Pending::Priority { player, .. } if *player == seat)
+        {
+            return;
+        }
+        let (player, action) = answer_one(engine).expect("a rest on the way to the main phase");
+        engine.apply(player, action).expect("the answer is legal");
+    }
+    panic!("never reached this turn's main phase");
+}
+
+/// Bottomless Vault, whole: `This land enters tapped.` / `You may choose
+/// not to untap this land during your untap step.` / `At the beginning of
+/// your upkeep, if this land is tapped, put a storage counter on it.` /
+/// `{T}, Remove any number of storage counters from this land: Add {B} for
+/// each storage counter removed this way.`
+///
+/// The Fallen Empires storage cycle is the pool's one printing of an
+/// intervening-`if` clause on a land, and the whole card is built around
+/// the player's answer to CR 502.3's determination: a land left tapped
+/// banks a counter at the next upkeep, and a land that untaps does not.
+/// Both answers are played here in one game, because either on its own
+/// proves nothing — a trigger that never fires passes the second half, and
+/// a trigger that ignores its clause passes the first.
+///
+/// The counters are then spent, which is what says the two halves are one
+/// card: the number announced at CR 601.2b is the number of {B} that
+/// arrives.
+#[test]
+fn a_storage_land_banks_a_counter_only_on_the_upkeeps_it_spent_tapped() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(884, forest())
+        .hand(0, &[bottomless_vault()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let land = play_land(&mut engine, p0, bottomless_vault());
+    assert!(
+        entered_tapped(&engine, land),
+        "Bottomless Vault prints `This land enters tapped`"
+    );
+    assert_eq!(
+        counters_on(&engine, land, counters::STORAGE),
+        0,
+        "and arrives empty"
+    );
+
+    // First own untap step: the land is the one permanent that prints the
+    // sentence, and the answer is to leave it tapped.
+    let (player, options) = walk_to_the_untap_question(&mut engine);
+    assert_eq!(player, p0, "the active player makes the determination");
+    assert_eq!(
+        options,
+        vec![land],
+        "the Forests untap without being asked about"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![land],
+            },
+        )
+        .expect("leaving it tapped is an answer to the question asked");
+    on_to_this_turn_s_main(&mut engine, p0);
+    assert!(is_tapped(&engine, land), "it stayed tapped");
+    assert_eq!(
+        counters_on(&engine, land, counters::STORAGE),
+        1,
+        "so the upkeep trigger's clause was true and it banked one"
+    );
+
+    // Second own untap step, answered the other way: the land untaps, the
+    // clause is false at the beginning of the upkeep, and nothing is banked.
+    let (_, options) = walk_to_the_untap_question(&mut engine);
+    assert_eq!(options, vec![land], "the same question, a turn later");
+    engine
+        .apply(p0, PlayerAction::ChooseObjects { objects: vec![] })
+        .expect("untapping it is the other answer");
+    on_to_this_turn_s_main(&mut engine, p0);
+    assert!(!is_tapped(&engine, land), "it untapped");
+    assert_eq!(
+        counters_on(&engine, land, counters::STORAGE),
+        1,
+        "and an untapped land banks nothing: the clause is checked, not \
+         assumed"
+    );
+
+    // And the counter is spendable, one {B} for one counter.
+    let (min, max) = spend_storage(&mut engine, p0, land, 2, 1);
+    assert_eq!(
+        (min, max),
+        (0, 1),
+        "`any number` is bounded above by what the land actually carries"
+    );
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Black),
+        1,
+        "one storage counter removed this way is one {{B}}"
+    );
+    assert_eq!(
+        counters_on(&engine, land, counters::STORAGE),
+        0,
+        "and the counter is gone, because removing it was the cost"
+    );
+}
+
+/// The cycle is one card printed five times, and the only thing that
+/// differs is the colour it banks.
+///
+/// Worth playing all five rather than reading the files: they are generated
+/// from the printed text by one rule, so a colour read off the wrong
+/// sentence would be identical in every file and invisible to any amount of
+/// re-reading. Each land is kept tapped for one upkeep and then spent.
+#[test]
+fn every_land_of_the_cycle_pays_out_in_its_own_colour() {
+    let p0 = PlayerId::new(0);
+    for (seed, card, color) in [
+        (885, bottomless_vault(), ManaColor::Black),
+        (886, dwarven_hold(), ManaColor::Red),
+        (887, hollow_trees(), ManaColor::Green),
+        (888, icatian_store(), ManaColor::White),
+        (889, sand_silos(), ManaColor::Blue),
+    ] {
+        let mut engine = Duel::new(seed, forest()).hand(0, &[card]).start();
+        keep_mulligans(&mut engine);
+        reach_main_phase(&mut engine, p0);
+        let land = play_land(&mut engine, p0, card);
+
+        let (_, options) = walk_to_the_untap_question(&mut engine);
+        assert_eq!(options, vec![land], "{color:?}");
+        engine
+            .apply(
+                p0,
+                PlayerAction::ChooseObjects {
+                    objects: vec![land],
+                },
+            )
+            .expect("leaving it tapped");
+        on_to_this_turn_s_main(&mut engine, p0);
+        assert_eq!(
+            counters_on(&engine, land, counters::STORAGE),
+            1,
+            "{color:?} banked one at its upkeep"
+        );
+
+        let (_, options) = walk_to_the_untap_question(&mut engine);
+        assert_eq!(options, vec![land], "{color:?}");
+        engine
+            .apply(p0, PlayerAction::ChooseObjects { objects: vec![] })
+            .expect("untapping it");
+        on_to_this_turn_s_main(&mut engine, p0);
+
+        spend_storage(&mut engine, p0, land, 2, 1);
+        assert_eq!(
+            engine.state().players[0].mana_pool.available(color),
+            1,
+            "one counter, one {color:?}"
+        );
+    }
+}
