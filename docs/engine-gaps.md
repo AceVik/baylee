@@ -118,7 +118,7 @@ met where the ranking is.
 
 | # | Gap | Cards (basis) | Depth | Lever | Rule or case | Blocked together with |
 | --- | --- | --- | --- | --- | --- | --- |
-| 1 | **G2** A counter as a cost, fixed number — **shipped**, see §1 | 43 cards (re-measured), 17 of them X storage lands | 1 | 20–40 | **case** | the X half with G1 |
+| 1 | **G2** A counter as a cost, fixed number — **shipped**, see §1 | 40 cards (re-measured), 17 of them X storage lands | 1 | 20–40 | **case** | the X half with G1 |
 | 2 | **G3** Surveil | 32 headers (by hand), 29 script | 1 | 32 | **case** | — |
 | 3 | **G1** An activation asks a question — the chooser half **shipped**, X still open, see §3 | 50 headers with Sacrifice/Discard only (by hand); +9 tapXType, +4 crew, +20 script-counted activation costs, +~20 storage lands | 3 | ~27 | **new rule** on an existing seam | G2's X, G14, `offers`#2 |
 | 4 | **G4** "unless you pay" takes a `Cost` | 17 headers (by hand), 36 script | 2 | 9–18 | **case** (field change) | 31 of the 36 need G1's CostParts |
@@ -184,21 +184,29 @@ clause and no second one. Gemstone Mine is the worse first card, because its
 
 #### What was measured when it was built (2026-09-16)
 
-Counted over every `//! Oracle:` header in the pool rather than by hand:
-**43** cards print a counter in an activation cost, not 40. **32** of them are
-activated abilities; **31** of those take the counter off the source, and the
+Counted over every `//! Oracle:` header, taking the text left of the colon as
+the cost: **40** cards remove a counter in an activation cost, which is the
+audit's number. The *split* is not. **17** of them are storage lands taking
+`X` or "any number of" counters, against the "~20 of them a fixed number" the
+ranking assumed, so the two halves are 17 and 23 rather than 20 and 20.
+
+Of the 23 with a fixed number, **22 take the counter off the source** and the
 one exception is **Tayam, Luminous Enigma** — "Remove three counters from
 among creatures you control", which is a question to a player and belongs with
 the `Sacrifice(_)` family. So the variant shipped is `RemoveCounterSelf`, not
 `RemoveCounter`: naming the source in the variant is what lets `can_afford` be
 `counters.get(kind) >= n` and the payment be arithmetic, instead of putting a
 chooser with one legal answer in front of a player. Tayam gets
-`CostPart::RemoveCounterAmong` when G1 lands, and is the reason that is a
-second variant rather than a wider first one.
+`CostPart::RemoveCounterAmong`, and the seam it needs — `cost_wizard`, an
+activation suspended on a `Pending::ChooseCards` — already exists, so it is a
+second variant rather than a wider first one and not a second gap.
 
-And **17** of the pool's lands are X/any-number storage lands, not the "~20
-of them a fixed number" the ranking assumed — the split is closer to even than
-the entry reads.
+Three of the 23 print the removal **and then** something that moves the
+permanent: Hellion Crucible ("…and sacrifice it"), Magosi, the Waterveil
+("…and return it to its owner's hand") and Trenzalore Clocktower ("…and exile
+it"). They are why the cost-order lint is worth having rather than a
+hypothetical: written the other way round, each pays a counter off an object
+that has already left the battlefield.
 
 **Shipped:** `CostPart::RemoveCounterSelf { kind, n }` and
 `EnterModifier::WithCounters { kind, n }`, which are one unit rather than two

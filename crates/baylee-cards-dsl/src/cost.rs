@@ -54,12 +54,14 @@ pub enum CostPart {
     ///
     /// **The counters come off the source and nowhere else**, which is not
     /// a simplification but what the pool prints. Counted over every
-    /// `//! Oracle:` header on 2026-09-16, 32 activated abilities in this
-    /// pool name a counter in their cost; 31 of them take it off the
-    /// permanent whose ability it is, and the odd one out is Tayam,
-    /// Luminous Enigma — "Remove three counters from among creatures you
-    /// control" — which is a question to the player and belongs with the
-    /// [`CostPart::Sacrifice`] family rather than here.
+    /// `//! Oracle:` header on 2026-09-16, taking the text left of the colon
+    /// as the cost: **40** cards remove a counter in an activation cost and
+    /// **39** of them take it off the permanent whose ability it is — all
+    /// seventeen storage lands included, which say "from this land" to the
+    /// word. The odd one out is Tayam, Luminous Enigma — "Remove three
+    /// counters from among creatures you control" — which is a question to
+    /// the player and belongs with the [`CostPart::Sacrifice`] family rather
+    /// than here.
     ///
     /// So this asks nobody anything: `can_afford` is
     /// `counters.get(kind) >= n` and the payment is arithmetic. That is

@@ -573,7 +573,7 @@ impl<L: CardLookup> Engine<L> {
                     }
                 }
                 // Arithmetic on the source, and nobody is asked anything:
-                // 31 of the pool's 32 counter costs take the counters off
+                // 39 of the pool's 40 counter costs take the counters off
                 // the permanent whose ability it is, so there is exactly one
                 // legal answer and it is not a question. See
                 // `CostPart::RemoveCounterSelf`.
