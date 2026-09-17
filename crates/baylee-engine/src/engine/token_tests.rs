@@ -583,10 +583,10 @@ fn power_and_toughness(engine: &Engine<RegistryLookup>, id: ObjectId) -> (i16, i
 ///
 /// Sliver Hive is absent and is named here rather than left out quietly: its
 /// ability is "activate only if you control a Sliver", and there is no Sliver
-/// creature in this pool for [`testkit::arena`] to put on the board — the
-/// only thing that could satisfy it is the changeling token Abundant
-/// Countryside makes, two lands and eleven mana away. Its
-/// `e7286688-ffbe-4d25-ad55-27990f005368` is played by nothing yet.
+/// creature in this pool for [`testkit::arena`] to put on the board. It has
+/// a test of its own — `a_changeling_token_is_the_sliver_sliver_hive_asks_for`
+/// — built on the one thing in the pool that can satisfy it, the changeling
+/// token the land beside it in this same batch makes.
 const TOKEN_LANDS: &[(&str, &str, usize, &str)] = &[
     (
         "f8f4fc60-725d-46d8-8e8f-e68e00d20589",
@@ -807,4 +807,153 @@ fn thopter_foundry_makes_the_thopter_its_text_promises() {
         );
     }
     assert_eq!(made, 1, "one activation, one Thopter");
+}
+
+/// Sliver Hive is the twelfth card of the batch and the one
+/// [`testkit::arena`] cannot press: "activate only if you control a Sliver",
+/// and this pool prints no Sliver creature at all. The only thing that can
+/// satisfy it is a changeling — CR 702.73, every creature type — and the
+/// pool has exactly one way to get one: Abundant Countryside, the land
+/// standing beside it in the same batch.
+///
+/// So the board is built by hand, and the test says the whole sentence in
+/// order: the ability is **not** offered first, the Shapeshifter arrives,
+/// and then it is. The first half is what makes the second worth anything —
+/// without it this would pass just as well against a card with no condition
+/// on it.
+#[test]
+fn a_changeling_token_is_the_sliver_sliver_hive_asks_for() {
+    let seat = PlayerId::new(0);
+    let hive = card_index("e7286688-ffbe-4d25-ad55-27990f005368");
+    let countryside = card_index("e3eb6f90-ccfc-41e7-bff6-0b378226bc7e");
+
+    let mut field = vec![hive, countryside];
+    field.extend(testkit::basics());
+    let mut engine = Duel::new(testkit::SEED, testkit::basic_forest())
+        .battlefield(0, &field)
+        .start();
+    assert!(
+        testkit::walk_to_own_main(&mut engine, seat),
+        "seat 0 reaches its own main phase"
+    );
+
+    let hive_object = *testkit::mine(&engine, seat, hive, crate::zone::Zone::Battlefield)
+        .first()
+        .expect("the Hive is on the battlefield");
+    let country_object = *testkit::mine(&engine, seat, countryside, crate::zone::Zone::Battlefield)
+        .first()
+        .expect("the Countryside is on the battlefield");
+
+    // Eleven generic between the two abilities, off twenty basics. The two
+    // lands under test keep their own {T} — an ability whose cost taps its
+    // source must not have spent the source paying for the mana.
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("seat 0 does not hold priority");
+    };
+    for source in legal.mana_abilities {
+        if source == hive_object || source == country_object {
+            continue;
+        }
+        engine
+            .apply(seat, PlayerAction::ActivateManaAbility { source })
+            .expect("a basic taps for its own mana");
+    }
+
+    let hive_before = abilities_offered_on(&engine, hive_object);
+
+    let (_, deed) = *testkit::presses(&offered(&engine), std::slice::from_ref(&country_object))
+        .last()
+        .expect("the Countryside offers its token ability");
+    engine
+        .apply(seat, deed.action(country_object))
+        .expect("the Countryside refused its own offer");
+    match testkit::drive_to_rest(&mut engine, seat) {
+        testkit::Rest::Reached => {}
+        other => panic!("the Shapeshifter never arrived: {other:?}"),
+    }
+    let shapeshifter = *tokens_on_battlefield(&engine)
+        .first()
+        .expect("the Countryside made a Shapeshifter");
+    assert!(
+        engine
+            .state()
+            .object(shapeshifter)
+            .expect("it is on the battlefield")
+            .characteristics()
+            .subtypes
+            .contains(baylee_core::generated::subtypes::creature::SLIVER),
+        "a changeling is every creature type, Sliver included (CR 702.73)"
+    );
+
+    // The condition, said as a difference rather than as an index: the Hive
+    // prints three abilities and two of them are mana, so "is anything
+    // offered" is answered `true` on an empty board. What the Shapeshifter
+    // changes is that **one more** is.
+    let hive_after = abilities_offered_on(&engine, hive_object);
+    let gained: Vec<u32> = hive_after
+        .iter()
+        .copied()
+        .filter(|i| !hive_before.contains(i))
+        .collect();
+    assert_eq!(
+        gained.len(),
+        1,
+        "the Shapeshifter unlocked exactly one ability on the Hive \
+         (before {hive_before:?}, after {hive_after:?})"
+    );
+    engine
+        .apply(
+            seat,
+            PlayerAction::ActivateAbility {
+                source: hive_object,
+                ability_index: gained[0],
+            },
+        )
+        .expect("the Hive refused its own offer");
+    match testkit::drive_to_rest(&mut engine, seat) {
+        testkit::Rest::Reached => {}
+        other => panic!("the Sliver never arrived: {other:?}"),
+    }
+
+    let sliver = *tokens_on_battlefield(&engine)
+        .iter()
+        .find(|id| **id != shapeshifter)
+        .expect("the Hive made a second token");
+    let def = engine
+        .state()
+        .object(sliver)
+        .expect("it is on the battlefield")
+        .token
+        .expect("it knows what it is");
+    assert_eq!(def.name, "Sliver");
+    assert_eq!((def.power, def.toughness), (Some(1), Some(1)));
+    assert_ne!(
+        baylee_cards::tokens::token_id(def),
+        u16::MAX,
+        "and an id the client can key art on"
+    );
+}
+
+/// What the seat is being offered right now.
+fn offered(engine: &Engine<RegistryLookup>) -> LegalActions {
+    match engine.pending() {
+        Pending::Priority { legal, .. } => (**legal).clone(),
+        other => panic!("expected a priority, got {other:?}"),
+    }
+}
+
+/// Which of `object`'s abilities the seat is being offered.
+///
+/// `LegalActions::abilities` lists a mana ability beside every other, so a
+/// conditional ability can only be seen as a *change* in this set.
+fn abilities_offered_on(
+    engine: &Engine<RegistryLookup>,
+    object: ObjectId,
+) -> std::collections::BTreeSet<u32> {
+    offered(engine)
+        .abilities
+        .iter()
+        .filter(|(source, _)| *source == object)
+        .map(|(_, index)| *index)
+        .collect()
 }
