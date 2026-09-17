@@ -4300,14 +4300,21 @@ fn cross_read(root: &Path, scripts_dir: &Path, samples: usize) -> anyhow::Result
     // Floors alone would have caught neither: the marker bug made the
     // hand-written population *larger* (336 rather than 207), so a minimum
     // passed it while the report filled with a rule disagreeing with itself.
-    // These are the reach measured on 2026-09-11 — 204 cards read, 141 of
-    // them counted, 22 transcoded in full — with room either way for
+    // These are the reach measured on 2026-09-17 — 245 cards read, 181 of
+    // them counted, 26 transcoded in full — with room either way for
     // ordinary movement in the pool and none for a whole population
     // appearing or vanishing.
-    const READ_FLOOR: usize = 190;
-    const READ_CEILING: usize = 240;
-    const COUNTED_FLOOR: usize = 128;
-    const IN_FULL_FLOOR: usize = 18;
+    //
+    // The window is re-centred rather than widened, and it is worth saying
+    // why it had to move at all: the previous one was measured at 204 cards
+    // on 2026-09-11 and the hand-written pool has since grown past its
+    // ceiling by ordinary work. That is the bound doing its job — it asked a
+    // person to look — and the answer is a new measurement, never a ceiling
+    // raised far enough not to ask again.
+    const READ_FLOOR: usize = 225;
+    const READ_CEILING: usize = 295;
+    const COUNTED_FLOOR: usize = 165;
+    const IN_FULL_FLOOR: usize = 22;
 
     let cache = root.join("data/scryfall-cache");
     let agent = ureq::Agent::new_with_defaults();
