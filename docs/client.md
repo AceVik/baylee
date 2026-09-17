@@ -20,11 +20,18 @@ The lobby backdrop remains separate from the duel.
 `felt.wgsl` draws smoked glass above winding water and lava channels. Water
 ripples and caustics travel faster than the molten crust; their confluence
 cools into dark obsidian with a restrained steam veil. Fixed banks keep the
-motion legible as flow. Everything stays in the existing opaque pass. This is a
+motion legible as flow. Tributaries sit at golden-section offsets and use
+61.8% of the main channels’ width; nearest-channel selection shares the same
+noise samples across all branches. Everything stays in the existing opaque pass. This is a
 stylised glass material, without screen-space refraction or a render target.
 Table corners use 6.5% of the short axis. Wide duels use a 0.62 camera lean
 and tighter framing; smaller windows and multiplayer rings retain the original
 camera. Hover lifts were lowered to keep picking stable at the steeper angle.
+
+Cards sit 0.028 units above the glass with contact shadows, a narrow subdued
+stock highlight, and minimal ambient sheen to retain printed contrast. The
+summoning-sickness veil keeps its breathing/ring cues with only a slight cool
+cast. The compass turn numeral uses bold, centered serif type.
 
 Battlefield outlines enclose **only the three card lanes**. The reserved
 centre-facing band is outside the outline: compact name/life/hand/counters
@@ -1449,16 +1456,16 @@ separation is the whole grammar:
 
   What "asleep" is drawn as is a **white balance and a blanket** (`SLEEP_*`,
   written out in both card shaders and compared by a test). The face goes
-  cold under a moon, and a soft veil lies heavier at the foot of the card than
+  slightly cool under a moon, and a soft veil lies heavier at the foot of the card than
   at the head, its upper hem rising and falling on a five-second breath. It
   used to be a uniform four-percent luminance dip, and that is nothing on art
   whose own luminance varies by forty points: the two channels a face has
   spare are *colour cast* and *shape*, and the old drawing used neither.
   Asleep is not disabled, so desaturation — which is what reads as "greyed
-  out" — stays a minority of the effect at 22%, and the body (power,
+  out" — stays a minority of the effect at 8%, and the body (power,
   toughness, marked damage, counters) is composited after this block and stays
   crisp, which draws "still blocks perfectly well" for free. The cast is
-  bounded: red stays red, green goes teal, white goes coldest, and pushing it
+  bounded: red stays red, green stays green, white takes a slight cool cast, and pushing it
   further would start deciding a card's colour identity for it, which is the
   one thing an unlit stage exists to protect.
 

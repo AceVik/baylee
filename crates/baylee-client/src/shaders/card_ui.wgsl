@@ -103,7 +103,7 @@ const STILL_TILT: f32 = 0.524;
 /// the same one the table draws, from the same shared function, so a card
 /// picked up off the table keeps the light it caught.
 const METAL_GLOSS: f32 = 0.20;
-const METAL_FLOOR: f32 = 0.02;
+const METAL_FLOOR: f32 = 0.004;
 const METAL_TONE: vec3<f32> = vec3<f32>(1.0, 0.975, 0.925);
 const METAL_GRAIN: f32 = 0.35;
 
@@ -128,11 +128,11 @@ const METAL_GRAIN: f32 = 0.35;
 /// block and stays crisp, which draws the second half of that claim for free.
 ///
 /// `SLEEP_MOON` is multiplicative and bounded on purpose. Red stays red,
-/// green goes teal, and white goes coldest, which is what white does under a
-/// moon. Pushing the mix further would start deciding a card's colour
+/// green stays green, and white takes only a slight cool cast. Pushing the
+/// mix further would start deciding a card's colour
 /// identity for it, and that is the one thing an unlit stage exists to
 /// protect. `SLEEP_LIFT` is the other half of the same observation: moonlit
-/// shadows go navy rather than black.
+/// shadows retain contrast instead of turning into a blue wash.
 ///
 /// Five seconds is a sleeping adult's twelve breaths a minute, and it is
 /// clear of every other clock a card can wear — the chase, the sheaths, the
@@ -151,10 +151,10 @@ const SLEEP_SWAY: f32 = 0.05;
 const SLEEP_ABOVE: f32 = 0.30;
 const SLEEP_BELOW: f32 = 0.22;
 const SLEEP_FLOOR: f32 = 0.45;
-const SLEEP_DESAT: f32 = 0.22;
-const SLEEP_DIM: f32 = 0.22;
-const SLEEP_MOON: vec3<f32> = vec3<f32>(0.74, 0.82, 1.0);
-const SLEEP_LIFT: vec3<f32> = vec3<f32>(0.02, 0.03, 0.06);
+const SLEEP_DESAT: f32 = 0.08;
+const SLEEP_DIM: f32 = 0.12;
+const SLEEP_MOON: vec3<f32> = vec3<f32>(0.94, 0.96, 1.0);
+const SLEEP_LIFT: vec3<f32> = vec3<f32>(0.008, 0.010, 0.016);
 
 /// The water a creature that has only just arrived is still settling into.
 ///

@@ -238,17 +238,41 @@ fn hairline(distance: f32, width: f32, pixel: f32) -> f32 {
 /// The cloth at a point of table, in display-referred colour.
 // Polished smoked glass over slow elemental strata. Bounded noise work,
 // no refraction buffer and no additional full-screen pass.
-// Two winding channels meet in an obsidian estuary. The banks stay fixed;
+// Branching channels meet in an obsidian estuary. The banks stay fixed;
 // texture travels along the channel, so this reads as flow rather than pulsing noise.
 fn glass_at(p: vec2<f32>) -> vec3<f32> {
     let t = globals.time * params.motion;
     let bend = sin(p.y * 0.31) * 1.65 + sin(p.y * 0.71 + 0.6) * 0.48;
     let confluence = 1.0 - smoothstep(0.0, 7.5, abs(p.y));
-    let water_axis = bend - 2.0 * (1.0 - confluence);
-    let lava_axis = bend + 2.0 * (1.0 - confluence);
+    // Golden-section tributaries widen the composition without repeating it
+    // as a grid. Pick the nearest channel before shading: extra branches add
+    // only distance arithmetic, not another set of fractal-noise samples.
+    let golden = 0.618034;
+    let branch_span = params.span.x * (golden - 0.5);
+    let fork = smoothstep(-params.span.y * 0.19, params.span.y * 0.31, p.y);
     let bank = (vnoise(p * 0.75) - 0.5) * 0.38;
-    let water_d = abs(p.x - water_axis + bank);
-    let lava_d = abs(p.x - lava_axis - bank);
+    var water_axis = bend - 2.0 * (1.0 - confluence);
+    var lava_axis = bend + 2.0 * (1.0 - confluence);
+    var water_width = 1.0;
+    var lava_width = 1.0;
+    for (var i = 0; i < 2; i += 1) {
+        let side = select(-1.0, 1.0, i == 1);
+        let spread = select(fork, 1.0 - fork, i == 1);
+        let tributary = branch_span * (1.0 + golden * spread);
+        let meander = sin(p.y * 0.46 + side * 2.4) * 0.62;
+        let water_branch = bend + side * tributary + meander;
+        let lava_branch = bend + side * tributary * golden - meander;
+        if abs(p.x - water_branch + bank) / golden < abs(p.x - water_axis + bank) / water_width {
+            water_axis = water_branch;
+            water_width = golden;
+        }
+        if abs(p.x - lava_branch - bank) / golden < abs(p.x - lava_axis - bank) / lava_width {
+            lava_axis = lava_branch;
+            lava_width = golden;
+        }
+    }
+    let water_d = abs(p.x - water_axis + bank) / water_width;
+    let lava_d = abs(p.x - lava_axis - bank) / lava_width;
     let water = 1.0 - smoothstep(0.72, 1.38, water_d);
     let lava = 1.0 - smoothstep(0.60, 1.18, lava_d);
     let silt = fbm2(p * 0.34);

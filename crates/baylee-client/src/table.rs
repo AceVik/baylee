@@ -48,7 +48,7 @@ use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
 /// z-fight with the felt.
 const TABLE_Y: f32 = 0.0;
 /// Vertical gap between the felt and a card.
-pub(crate) const CARD_LIFT: f32 = 0.01;
+pub(crate) const CARD_LIFT: f32 = 0.028;
 /// Where a seat's mat sits: above the felt, below everything played on it.
 pub(crate) const ZONE_LIFT: f32 = 0.002;
 /// Where the glow under a mat sits — below the mat, above the felt.

@@ -125,9 +125,10 @@ const CHASE_STILL: f32 = 0.32;
 /// is that a player who is not looking for it sees a table with a light over
 /// it rather than a table of shiny cards.
 const LAMP: vec3<f32> = vec3<f32>(-0.32, 0.86, -0.40);
-const METAL_POWER: f32 = 18.0;
+const METAL_POWER: f32 = 48.0;
+const METAL_SPECULAR: f32 = 0.045;
 const METAL_GLOSS: f32 = 0.20;
-const METAL_FLOOR: f32 = 0.02;
+const METAL_FLOOR: f32 = 0.004;
 const METAL_TONE: vec3<f32> = vec3<f32>(1.0, 0.975, 0.925);
 
 /// How much of the highlight the surface's own grain eats.
@@ -158,11 +159,11 @@ const METAL_GRAIN: f32 = 0.35;
 /// block and stays crisp, which draws the second half of that claim for free.
 ///
 /// `SLEEP_MOON` is multiplicative and bounded on purpose. Red stays red,
-/// green goes teal, and white goes coldest, which is what white does under a
-/// moon. Pushing the mix further would start deciding a card's colour
+/// green stays green, and white takes only a slight cool cast. Pushing the
+/// mix further would start deciding a card's colour
 /// identity for it, and that is the one thing an unlit stage exists to
 /// protect. `SLEEP_LIFT` is the other half of the same observation: moonlit
-/// shadows go navy rather than black.
+/// shadows retain contrast instead of turning into a blue wash.
 ///
 /// Five seconds is a sleeping adult's twelve breaths a minute, and it is
 /// clear of every other clock a card can wear — the chase, the sheaths, the
@@ -181,10 +182,10 @@ const SLEEP_SWAY: f32 = 0.05;
 const SLEEP_ABOVE: f32 = 0.30;
 const SLEEP_BELOW: f32 = 0.22;
 const SLEEP_FLOOR: f32 = 0.45;
-const SLEEP_DESAT: f32 = 0.22;
-const SLEEP_DIM: f32 = 0.22;
-const SLEEP_MOON: vec3<f32> = vec3<f32>(0.74, 0.82, 1.0);
-const SLEEP_LIFT: vec3<f32> = vec3<f32>(0.02, 0.03, 0.06);
+const SLEEP_DESAT: f32 = 0.08;
+const SLEEP_DIM: f32 = 0.12;
+const SLEEP_MOON: vec3<f32> = vec3<f32>(0.94, 0.96, 1.0);
+const SLEEP_LIFT: vec3<f32> = vec3<f32>(0.008, 0.010, 0.016);
 
 /// The water a creature that has only just arrived is still settling into.
 ///
@@ -382,7 +383,7 @@ fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
     let plain = select(0.0, travel, door == DOOR_NONE);
     color = vec4<f32>(
         color.rgb
-            + METAL_TONE * (METAL_FLOOR + METAL_GLOSS * (spec + plain)) * brushed,
+            + METAL_TONE * (METAL_FLOOR + METAL_SPECULAR * spec + METAL_GLOSS * plain) * brushed,
         color.a,
     );
     // The door itself, over the coating rather than inside it: a bounce, an

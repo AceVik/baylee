@@ -571,7 +571,9 @@ pub(super) fn spawn_turn(
     let number = commands
         .spawn((
             Text::new(view.turn.to_string()),
-            tf_serif(fonts, 34.0, 600),
+            tf_serif(fonts, 34.0, 800),
+            TextLayout::justify(Justify::Center),
+            bevy::text::LineHeight::Px(34.0),
             TextColor(palette::CANDLE),
             Pickable::IGNORE,
         ))
