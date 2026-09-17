@@ -149,9 +149,9 @@ fn under_lamp(linear: vec3<f32>, table: vec2<f32>) -> vec3<f32> {
 }
 
 /// Threads per table unit. A card is one unit wide, so this is how many
-/// threads cross a card: enough that the cloth has a tooth at reading
-/// distance, few enough that it never turns into stripes.
-const WEAVE: f32 = 5.5;
+/// threads cross a card. Fine enough to read as cloth rather than a checker
+/// grid; the pixel footprint fades it away before it can alias.
+const WEAVE: f32 = 11.0;
 
 /// How far in from the cloth's edge the crest of the roll catches the light,
 /// in table units, and how much of a lift it gets there.
@@ -227,16 +227,17 @@ fn sd_round_box(p: vec2<f32>, half: vec2<f32>, r: f32) -> f32 {
 }
 
 /// The cloth at a point of table, in display-referred colour.
-fn baize_at(p: vec2<f32>) -> vec3<f32> {
+fn baize_at(p: vec2<f32>, footprint: vec2<f32>) -> vec3<f32> {
     // Big soft blotches of wear, then a fine grain and the weave on top —
     // the same three layers the CPU reference mixes, at table frequencies
     // rather than texel ones.
     let wear = fbm2(p * 0.085 + 3.1);
     let grain = fbm2(p * 4.2 + 17.9);
     let weave = sin(p.x * WEAVE * TAU) * sin(p.y * WEAVE * TAU) * 0.5 + 0.5;
+    let resolved = vec2<f32>(1.0) - smoothstep(vec2<f32>(0.2), vec2<f32>(0.5), footprint * WEAVE);
 
     var colour = mix(FELT_CLOTH, FELT_WORN, pow(wear, 1.6));
-    let lift = (grain - 0.5) * 0.030 + (weave - 0.5) * 0.012;
+    let lift = (grain - 0.5) * 0.030 + (weave - 0.5) * 0.006 * resolved.x * resolved.y;
     return colour + vec3<f32>(lift);
 }
 
@@ -248,6 +249,8 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     // because a duel is symmetric about both axes, and wrong at three.
     // `to_world` is `(x, height, -y)`, so this is exactly its inverse.
     let table = vec2<f32>(in.world_position.x, -in.world_position.z);
+    // Derivatives precede the surface branches, including the apron return.
+    let footprint = fwidth(table);
     let half = params.span * 0.5;
 
     // The apron: the wall of the slab. Told apart by its normal, which is the
@@ -281,7 +284,7 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
         // shadow the middle of a big table falls into — that is the lamp
         // below — and no longer a ring painted round the play area.
         let crest = 1.0 - smoothstep(0.0, ROLL, inset);
-        colour = baize_at(table) + vec3<f32>(crest * ROLL_LIGHT);
+        colour = baize_at(table, footprint) + vec3<f32>(crest * ROLL_LIGHT);
         // A hair of the lamp spills off the rail onto the cloth beside it,
         // and no further. Without it the rail reads as a sticker.
         lamp_here = crest * 0.35;

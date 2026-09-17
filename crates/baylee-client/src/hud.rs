@@ -1007,6 +1007,13 @@ pub(crate) mod palette {
     /// Soft shadow under raised elements.
     pub const SHADOW: Color = Color::srgba(0.0, 0.0, 0.0, 0.55);
 
+    /// Recessed backing within a split seat bar's measured ink bounds.
+    pub const SEAT_BACKING: Color = Color::srgba(0.025, 0.045, 0.038, 0.60);
+    /// Small standing-stop accent, distinct from the current phase's gold fill.
+    pub const SEAT_STOP: Color = Color::srgb(0.88, 0.83, 0.69);
+    /// Pointer feedback on a phase tile; not a standing-order fill.
+    pub const SEAT_STEP_HOVER: Color = Color::srgba(0.88, 0.83, 0.69, 0.10);
+
     /// Parchment, matching the middle of
     /// [`tabletop::parchment`](baylee_client_core::tabletop::parchment) —
     /// and, since this value, the card shader's own `PARCHMENT`.

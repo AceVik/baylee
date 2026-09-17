@@ -160,18 +160,9 @@ const TILE_GAP: [f32; 5] = [3.0, 3.0, 3.0, 3.0, 2.0];
 /// renderer widens these gaps further and leaves the tight ones alone, so
 /// the hierarchy grows rather than washing out.
 ///
-/// Three times the tile gap was the first answer, and it is a claim about a
-/// *floor* — which only the split form actually reaches, and which it
-/// reaches on the seat nobody thought to look at. A duel's far shelf is
-/// shorter than its near one (1069 px against 1127 at the reference window),
-/// so its tiles hit their cap with four pixels left over and the bar was
-/// photographed with ten pixels between its phases against three inside
-/// them. That is a boundary a viewer has to look for. Five times is the
-/// floor now; the near seat never notices, because its slack put it at 24.5
-/// either way, and the far seat gives up a pixel and a half of tile for a
-/// division that reads. The ladder forms keep three: their tiles are a fixed
-/// width, so raising the floor there raises [`Density::min_length`] and
-/// moves the rungs of the ladder, and no four-seat bar has been measured.
+/// Split phases keep at least five times the inner gap, even as taller tiles
+/// take more of the shelf's slack. The ladder keeps its existing three-times
+/// spacing so its width thresholds do not move.
 const PHASE_GAP: [f32; 5] = [15.0, 9.0, 9.0, 9.0, 6.0];
 
 /// How wide and how tall one step tile is drawn, per density.
@@ -181,8 +172,8 @@ const PHASE_GAP: [f32; 5] = [15.0, 9.0, 9.0, 9.0, 6.0];
 /// table the camera has least room for — its ledge projects under thirty
 /// pixels deep at the reference window — so a bar whose tiles were 24 tall
 /// everywhere could not be drawn on it without standing on the creature lane.
-const TILE_W: [f32; 5] = [36.0, 40.0, 30.0, 11.0, 8.0];
-const TILE_H: [f32; 5] = [16.0, 24.0, 24.0, 12.0, 10.0];
+const TILE_W: [f32; 5] = [40.0, 40.0, 30.0, 11.0, 8.0];
+const TILE_H: [f32; 5] = [20.0, 24.0, 24.0, 12.0, 10.0];
 
 /// The widest a [`Density::Split`] *step* tile is drawn.
 ///
@@ -193,12 +184,9 @@ const TILE_H: [f32; 5] = [16.0, 24.0, 24.0, 12.0, 10.0];
 /// and starts reading as a ribbon, and the slack left over goes into the
 /// phase gaps, so the row still spans the whole shelf.
 ///
-/// Four and a half, written as the multiple rather than as the number,
-/// because the proportion is the rule and the height is what may change. It
-/// was four, which left a duel's 1165-pixel ledge with two hundred pixels
-/// nothing could take — spread over eleven equal gaps, that is precisely the
-/// twelve-scattered-pills arrangement this replaced. A half a tile more each
-/// and [`MAIN_SPAN`] take the ink to within a phase gap of the ends.
+/// Four and a half times the height: 90 px at the current split size.
+/// [`MAIN_SPAN`] gives main phases twice that share; remaining slack goes
+/// only into the phase gaps.
 const SPLIT_TILE_W_MAX: f32 = TILE_H[0] * 4.5;
 
 /// How many step tiles wide a main phase is drawn.
@@ -222,11 +210,8 @@ const MAIN_SPAN: f32 = 2.0;
 
 /// The gap between the two rows of a [`Density::Split`] bar.
 ///
-/// Nothing at all, and deliberately less than [`CELL_GAP`]: the rows are one
-/// bar about one seat, and a gap wide enough to read as a division would make
-/// the phase line look like it belonged to the table rather than to the mat it
-/// is written on. It was zero, with the tile's halo ring as the only air
-/// between them; the halo is gone, so the air is stated instead of borrowed.
+/// Less than [`CELL_GAP`]: the rows belong to one seat. Two pixels separate
+/// the current-step under-tick from the identity row without dividing the bar.
 const SPLIT_ROW_GAP: f32 = 2.0;
 
 /// How tall the identity row of a [`Density::Split`] bar is drawn.
@@ -235,13 +220,10 @@ const SPLIT_ROW_GAP: f32 = 2.0;
 /// for the tallest numeral on it rather than for a control, which is what
 /// makes the two rows fit on a shelf a single full-size row nearly fills.
 ///
-/// Fourteen made it a *caption*: [`Cell::fits`] cut the name and the life
-/// total to 12 pt to keep their descenders inside, so the half of the bar
-/// that says **who** was drawn smaller than the half that says *when*, pinned
-/// under it with no gap. Eighteen gives both their own size back. The shelf
-/// was never the constraint — a duel projects 55 and 61 px of ledge against
-/// an ink height that goes 34 → 40.
-const SPLIT_IDENTITY_H: f32 = 18.0;
+/// Room for an 18 px life total and a 14 px name. Together with the tiles,
+/// under-tick allowance and row gap, the split form needs 48 px of depth;
+/// shallower shelves still use the single-row ladder.
+const SPLIT_IDENTITY_H: f32 = 22.0;
 
 /// How far outside a tile the outermost ink on a bar stands.
 ///
@@ -421,7 +403,7 @@ impl Density {
     /// ran out after the counts and left four fifths of itself empty. Now the
     /// tiles have the whole edge and the turn number closes the row beneath
     /// them — still one bar about one seat, and still touching the tiles it
-    /// belongs to, because the two rows have no gap between them at all.
+    /// belongs to, separated by only [`SPLIT_ROW_GAP`].
     ///
     /// [`Self::cells`] stays the canonical list of what a form carries, and
     /// `every_row_is_dealt_from_the_cells_the_form_carries` is what stops the
@@ -462,7 +444,7 @@ impl Density {
             Cell::Caret => CARET_W,
             Cell::Swatch => SWATCH_W,
             Cell::Name => self.name_width(),
-            Cell::Life => LIFE_W,
+            Cell::Life => LIFE_W + if self.is_split() { 12.0 } else { 0.0 },
             Cell::Count(zone) => zone.width(),
             Cell::Hinge => {
                 if designated {
@@ -583,7 +565,8 @@ impl Density {
         if self.is_split() { SPLIT_ROW_GAP } else { 0.0 }
     }
 
-    /// How tall the **drawn** part of a bar is: the tile and its now-ring.
+    /// How tall the **drawn** part of a bar is, including its current-step
+    /// under-tick and, in the split form, the identity row.
     ///
     /// This is the number a shelf's projected depth is measured against,
     /// because it is the ink that must sit on the ledge rather than on the
@@ -841,11 +824,8 @@ mod tests {
     /// pixels on one cell rather than a relayout.
     ///
     /// The **bar** may grow by less than the cell, and on a split bar it
-    /// grows by nothing at all: the hinge stands on the identity row, which
-    /// is 405 long against the steps row's 489, so sixteen more pixels of
-    /// turn number are absorbed by a row that had eighty-four to spare. That
-    /// is the widening being one cell rather than a relayout, seen from the
-    /// other side.
+    /// grows by nothing at all: the hinge stands on the shorter identity row,
+    /// so sixteen more pixels of turn number still fit beneath the steps.
     #[test]
     fn a_designation_widens_one_cell() {
         for density in Density::ALL {

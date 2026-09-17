@@ -528,12 +528,29 @@ fn spawn_bar(
                 row_gap: px(density.row_gap()),
                 ..default()
             },
-            // No fill and no rim: the ledge is the ground and the mat's own
-            // rim is the frame. A panel here would be the tab strip again,
-            // moved onto the felt.
+            // The hitbox stays transparent; backing must fit the ink bounds.
             Pickable::IGNORE,
         ))
         .id();
+
+    if density.is_split() {
+        let backing = commands
+            .spawn((
+                Node {
+                    position_type: PositionType::Absolute,
+                    left: px(0),
+                    top: px((density.height() - density.ink_height()) * 0.5),
+                    width: percent(100),
+                    height: px(density.ink_height()),
+                    border_radius: BorderRadius::all(px(TILE_RADIUS)),
+                    ..default()
+                },
+                BackgroundColor(palette::SEAT_BACKING),
+                Pickable::IGNORE,
+            ))
+            .id();
+        commands.entity(bar).add_child(backing);
+    }
 
     for (index, cells) in density.rows().into_iter().enumerate() {
         let height = row_height(density, index);
@@ -587,7 +604,7 @@ fn spawn_bar(
                 Cell::Caret => caret(commands, view, seat, fonts, width, height),
                 Cell::Swatch => swatch(commands, view, statics, seat, width, height),
                 Cell::Name => name(commands, lang, view, statics, seat, fonts, width, height),
-                Cell::Life => life(commands, seat, fonts, width, height),
+                Cell::Life => life(commands, seat, fonts, width, height, density),
                 Cell::Count(zone) => count(commands, view, seat, zone, fonts, width, height),
                 Cell::Hinge => hinge(commands, view, seat, fonts, width, height),
                 Cell::Steps => steps(
@@ -601,24 +618,15 @@ fn spawn_bar(
     bar
 }
 
-/// How tall one row of a bar is drawn.
-///
-/// The whole box for a single-row form. For [`Density::Split`] the steps take
-/// the tile and its now-ring and the identity row takes its own smaller
-/// height, which is what lets two rows stand where one full-size row nearly
-/// filled the shelf.
 /// A type size that fits the row it is written on.
 ///
-/// Every identity cell asks for the size it wants and gets the size its row
-/// has room for. The identity row of a split bar is fourteen pixels tall —
-/// less than half the box a single-row bar gets — and a fourteen-point life
-/// total in a fourteen-pixel row is a numeral with its descender cut off. One
-/// rule here rather than a size table per form, so a row that changes height
-/// is the only thing that has to change.
+/// Leave room for descenders even in the smaller fallback forms.
 fn fits(pt: f32, height: f32) -> f32 {
     pt.min(height - 2.0)
 }
 
+/// A split phase row includes the under-tick; its identity row has its own
+/// height. Single-row forms use the whole transparent hitbox.
 fn row_height(density: Density, index: usize) -> f32 {
     if !density.is_split() {
         density.height()
@@ -635,23 +643,9 @@ const DEAD_INK: f32 = 0.28;
 
 /// How faint a step the standing orders skip is written.
 ///
-/// Measured over the ledge, which is (26, 55, 39): half-alpha parchment
-/// composites to (132, 141, 122), **3.75:1**. That is above the 3:1 a
-/// graphical object needs to be made out and below what a paragraph wants,
-/// which is the right side of both lines for a label the player is not being
-/// asked to read — a skip is the step the game will pass straight through.
-const SKIP_INK: f32 = 0.50;
-
-/// The ground under a step a standing order stops at.
-///
-/// [`crate::hud::palette::PARCHMENT`] at 14%, written out because a colour
-/// with an alpha is not a `const fn` away from one without. Faint enough to
-/// be a *ground* rather than a chip — a shade over the shelf it sits on and
-/// no more — and that is the whole signal: a lit label on a raised ground
-/// beside dim labels on bare cloth. A luminance difference
-/// rather than a hue one, which is what a green felt makes of any attempt to
-/// say go/stop in colour.
-const STOP_GROUND: Color = Color::srgba(0.88, 0.83, 0.69, 0.14);
+/// Still readable: the absence of the stop accent carries the standing order,
+/// so the label need not fade to a watermark. Contrast needs a live composite.
+const SKIP_INK: f32 = 0.68;
 
 /// The corner a step tile is cut with.
 const TILE_RADIUS: f32 = 3.0;
@@ -768,7 +762,7 @@ fn name(
             node,
             children![(
                 Text::new(display),
-                tf(fonts, fits(13.0, height)),
+                tf(fonts, fits(14.0, height)),
                 TextColor(ink_of(seat)),
                 TextLayout::linebreak(bevy::text::LineBreak::NoWrap),
                 Pickable::IGNORE,
@@ -806,6 +800,7 @@ fn life(
     fonts: &UiFonts,
     width: f32,
     height: f32,
+    density: Density,
 ) -> Entity {
     let low = seat.life <= 5 && !seat.has_lost;
     let heart = if low {
@@ -836,7 +831,10 @@ fn life(
                 Pickable::IGNORE,
                 children![(
                     TextSpan::new(format!(" {}", seat.life)),
-                    tf(fonts, fits(14.0, height)),
+                    tf(
+                        fonts,
+                        fits(if density.is_split() { 18.0 } else { 14.0 }, height),
+                    ),
                     TextColor(numeral),
                     Pickable::IGNORE,
                 )],
@@ -1124,46 +1122,15 @@ struct TileState {
     lost: bool,
 }
 
-/// One step tile: **ink on a shelf, not a chip on it**.
+/// One step tile, with separate channels for each claim:
 ///
-/// The bar shipped with its hierarchy upside down. A *skip* is what most
-/// steps are — the standing orders stop at four or five of the twelve — and
-/// the skip wore [`palette::DANGER`], so the alarm colour was painted on the
-/// ordinary case while the deliberate one got a quiet parchment frame. Every
-/// live tile was framed and filled either way, which is twelve stadiums
-/// across a 1127 px shelf: a browser toolbar laid on a card table. It also
-/// made the bar *opaque*, and the ledge is crossed by things the table draws
-/// — a combat line to the far seat, a card lifting under the pointer, a
-/// permanent falling in from `ENTRANCE_RISE` — so twelve solid chips floated
-/// over all of them.
+/// - A small top accent marks a standing stop; skipped labels are quieter.
+/// - Gold fill is the active seat's current live step. Other current steps
+///   keep their under-tick, including untap and cleanup.
+/// - A frame is keyboard selection, never a standing order.
+/// - Lost seats and non-priority steps keep their dim ink and no stop accent.
 ///
-/// So the rare state is the marked one, and the channels are:
-///
-/// - **The ground is the standing order.** A stop is `PARCHMENT` at 0.14
-///   with its glyph at full ink (6.99:1 on that ground); a skip is ink at
-///   half alpha on bare cloth (3.75:1 — above the 3:1 a graphical object
-///   needs, below what text wants, which is right for a label nobody is
-///   being asked to read). That is a *luminance* difference rather than a
-///   hue one, which is the red/green failure the old comment here set out to
-///   avoid and then walked into from the other side.
-/// - **A solid fill is "here, now"**, on the active seat's bar only, with
-///   [`palette::PARCHMENT_INK`] on it — the same solid-warm-with-dark-ink the
-///   prompt slip's own button uses. The two-ring halo went with it: the rings
-///   existed because a shadow drawn through a 10% fill lit the whole tile,
-///   and a solid fill has no such problem.
-/// - **A frame is keyboard focus, and nothing else.** A frame is the shape of
-///   a control, so it now appears exactly when one is being operated.
-/// - **A dead step** (untap, cleanup — CR 502.4, CR 514.3a) is the dimmest
-///   ink there is and has no ground at all. Its 4% ground was added when it
-///   was the only bare word on a row of chips; the whole row is bare words
-///   now, so the two dead ones are simply the faintest, at the two ends,
-///   which is what they are.
-///
-/// Time as a fourth channel is **dropped**. Position already carries it — the
-/// row reads left to right at every seat because the bar rotates with the
-/// mat, and the gold tile says where the game is, so "behind" is "left of the
-/// gold one". Keeping it would have collided with the skip alpha: a skipped
-/// step ahead and a stop behind would both have been half-lit.
+/// Position carries past/future; another fade would collide with skipped ink.
 #[allow(clippy::too_many_lines)] // one tile, three channels, one flat build
 fn spawn_tile(
     commands: &mut Commands,
@@ -1184,15 +1151,9 @@ fn spawn_tile(
     } else {
         palette::PARCHMENT
     };
-    let fill = if here {
-        palette::ACTIVE
-    } else if dead || state.skipped {
-        Color::NONE
-    } else {
-        STOP_GROUND
-    };
+    let fill = if here { palette::ACTIVE } else { Color::NONE };
     // A frame is the shape of a control, so it is drawn exactly when one is
-    // being operated. Everything else a tile has to say is said by its ground.
+    // being operated, independently of the stop accent and current-step fill.
     let frame = if state.selected && state.live {
         palette::ACCENT
     } else {
@@ -1218,11 +1179,9 @@ fn spawn_tile(
                 flex_direction: FlexDirection::Row,
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
-                column_gap: px(3),
+                column_gap: px(2),
                 border: UiRect::all(px(border)),
-                // Three, not `btn_radius`'s six: on a 16 px tile six is a
-                // stadium, and a stadium is the browser chip this row was
-                // being read as. Three is a tab on a ruler.
+                // A ruler tab, not a rounded browser chip.
                 border_radius: BorderRadius::all(px(TILE_RADIUS)),
                 ..default()
             },
@@ -1245,7 +1204,8 @@ fn spawn_tile(
             let label = commands
                 .spawn((
                     Text::new(short),
-                    tf_bold(fonts, 8.0),
+                    tf_bold(fonts, if density.is_split() { 10.5 } else { 10.0 }),
+                    TextLayout::linebreak(bevy::text::LineBreak::NoWrap),
                     TextColor(ink),
                     Pickable::IGNORE,
                 ))
@@ -1254,14 +1214,42 @@ fn spawn_tile(
         }
     }
 
+    if state.live && !state.skipped && !state.lost {
+        let marker = commands
+            .spawn((
+                Node {
+                    position_type: PositionType::Absolute,
+                    left: px(if density.tiles_have_glyphs() {
+                        4.0
+                    } else {
+                        1.0
+                    }),
+                    top: px(0),
+                    width: px(if density.tiles_have_glyphs() {
+                        8.0
+                    } else {
+                        3.0
+                    }),
+                    height: px(2),
+                    border_radius: BorderRadius::all(px(1)),
+                    ..default()
+                },
+                BackgroundColor(if here {
+                    palette::PARCHMENT_INK
+                } else {
+                    palette::SEAT_STOP
+                }),
+                Pickable::IGNORE,
+            ))
+            .id();
+        commands.entity(tile).add_child(marker);
+    }
+
     if state.live {
-        // A skipped tile rests on nothing, and `Feel` mixes towards white
-        // while *keeping alpha* — so a base of `Color::NONE` is a control
-        // that does not answer the pointer at all. Its hover is therefore
-        // stated rather than derived, and what it shows is the ground a
-        // click would put there: hovering a skip previews the stop.
+        // Transparent tiles need an explicit hover target: `Feel` preserves
+        // alpha. The wash is pointer feedback, not a preview of a stop.
         let feel = if fill == Color::NONE {
-            Feel::rising_to(fill, STOP_GROUND)
+            Feel::rising_to(fill, palette::SEAT_STEP_HOVER)
         } else {
             Feel::new(fill)
         };
@@ -1315,6 +1303,7 @@ fn cell_node(width: f32, height: f32) -> Node {
     Node {
         width: px(width),
         height: px(height),
+        flex_shrink: 0.0,
         flex_direction: FlexDirection::Row,
         align_items: AlignItems::Center,
         justify_content: JustifyContent::Center,

@@ -452,7 +452,17 @@ impl CameraRig {
         let Some((min, max)) = layout.extent() else {
             return Self::default();
         };
-        let (min, max) = (min - Vec2::splat(AIR), max + Vec2::splat(AIR));
+        // A wide duel can show the table's depth without foreshortening side
+        // seats. Blend in as the window grows; rings and small windows keep
+        // the readable plan view and its breathing room.
+        let framing = if layout.slots.len() == 2 && canvas.aspect() >= 1.4 {
+            ((canvas.window.x - 800.0) / 480.0).clamp(0.0, 1.0)
+        } else {
+            0.0
+        };
+        let tilt = CAMERA_LEAN + (DUEL_LEAN - CAMERA_LEAN) * framing;
+        let air = AIR - 0.5 * framing;
+        let (min, max) = (min - Vec2::splat(air), max + Vec2::splat(air));
         let span = max - min;
 
         // The free band, as normalised device coordinates: +1 is the top of
@@ -465,8 +475,8 @@ impl CameraRig {
         // Vertically this is exact: `ground` is linear in the eye distance,
         // so the distance at which the table's far edge lands on `top` and
         // its near edge on `bottom` is one division.
-        let g_top = ground(top);
-        let g_bottom = ground(bottom);
+        let g_top = ground(top, tilt);
+        let g_bottom = ground(bottom, tilt);
         let deep = span.y / (g_top - g_bottom).max(1e-3);
         // Horizontally, every corner is asked, and each one asks about its own
         // depth. A perspective camera sees less of the felt where the felt is
@@ -482,10 +492,10 @@ impl CameraRig {
         // both, so each *pair* gives a division and the widest pair wins.
         let mean = f32::midpoint(g_top, g_bottom);
         let middle = f32::midpoint(min.y, max.y);
-        let k = CAMERA_LEAN / (1.0 + CAMERA_LEAN * CAMERA_LEAN).sqrt();
+        let k = tilt / (1.0 + tilt * tilt).sqrt();
         let scale = (half_fov().tan() * aspect).max(1e-3);
         let carry = k.mul_add(mean, 1.0);
-        let corners = layout.corners(AIR);
+        let corners = layout.corners(air);
         let mut wide: f32 = 0.0;
         for a in &corners {
             for b in &corners {
@@ -503,7 +513,7 @@ impl CameraRig {
         // tab strip. Clamped first, a table too big for `MAX_DISTANCE` keeps
         // its far edge pinned and overflows at the bottom, which is the
         // graceful direction.
-        let lean = (1.0 + CAMERA_LEAN * CAMERA_LEAN).sqrt();
+        let lean = (1.0 + tilt * tilt).sqrt();
         let eye = deep
             .max(wide)
             .clamp(Self::MIN_DISTANCE * lean, Self::MAX_DISTANCE * lean);
@@ -549,11 +559,7 @@ impl CameraRig {
             // Table space to world: `+y` away from the local seat is `-z`.
             target: Vec2::new(look.x, -look.y),
             yaw: 0.0,
-            // Every line above was solved at `CAMERA_LEAN`, so this is the
-            // one answer it can give. A shot the player has tilted is a shot
-            // they have taken over, and `frame_table` has stopped writing
-            // here by then.
-            lean: CAMERA_LEAN,
+            lean: tilt,
         }
     }
 }
@@ -573,10 +579,9 @@ impl CameraRig {
 /// being displayed. It is also roughly where [`GLOW_SPREAD`] fades out, so the
 /// halo under an active seat's mat stays in frame with it.
 ///
-/// It went from 2.0 to this when the sky arrived, and the cost was measured
-/// rather than guessed: a card is drawn about nine per cent smaller, and what
-/// it buys is a table standing in a room instead of a surface filling the
-/// window. Everything past [`SLAB_MARGIN`] is sky.
+/// Wide duels bring this down to three units, keeping the leather rail and
+/// a little sky visible. Smaller windows and rings retain the full margin
+/// to preserve their readability. Everything past [`SLAB_MARGIN`] is sky.
 const AIR: f32 = 3.5;
 const _: () = assert!(AIR > ZONE_MARGIN);
 
@@ -591,7 +596,7 @@ fn half_fov() -> f32 {
 /// Take `s` to be table-space distance from the look point along the
 /// screen-vertical, positive away from the local seat, and `q` to be
 /// normalised device y. With the eye at distance `D` and the lean written as
-/// `L` = [`CAMERA_LEAN`], `C = 1/√(1+L²)`, the camera-space depth and height
+/// `L`, `C = 1/√(1+L²)`, the camera-space depth and height
 /// of that point work out to
 ///
 /// ```text
@@ -600,12 +605,12 @@ fn half_fov() -> f32 {
 ///
 /// — the cross terms cancel, which is the whole reason this is arithmetic and
 /// not a projection matrix. So `q = height / (depth · tan(fov/2))`, and solved
-/// the other way `s = D · ground(q)`. Being *linear in `D`* is what lets
+/// the other way `s = D · ground(q, L)`. Being *linear in `D`* is what lets
 /// [`CameraRig::home`] invert it with a division instead of a search.
-fn ground(q: f32) -> f32 {
+fn ground(q: f32, lean: f32) -> f32 {
     let t = half_fov().tan();
-    let c = 1.0 / (1.0 + CAMERA_LEAN * CAMERA_LEAN).sqrt();
-    q * t / (c * q.mul_add(-CAMERA_LEAN * t, 1.0))
+    let c = 1.0 / (1.0 + lean * lean).sqrt();
+    q * t / (c * q.mul_add(-lean * t, 1.0))
 }
 
 /// The part of the window the table is actually seen through.
@@ -786,6 +791,9 @@ pub fn frame_table(
 /// all. So the angle is paid for in width and in nothing else, which is the
 /// honest way to sell it.
 const CAMERA_LEAN: f32 = 0.36;
+
+/// About 27° off vertical for a wide duel; rings retain [`CAMERA_LEAN`].
+const DUEL_LEAN: f32 = 0.50;
 
 /// The camera's vertical field of view, in radians.
 ///

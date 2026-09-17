@@ -14,7 +14,7 @@ fn seats(n: u8) -> Vec<PlayerId> {
 /// projection, and a test that reused the inverse would agree with it
 /// however wrong both were.
 fn project(rig: CameraRig, canvas: Canvas, table: Vec2) -> Vec2 {
-    let lean = CAMERA_LEAN;
+    let lean = rig.lean;
     let eye = rig.distance * (1.0 + lean * lean).sqrt();
     let cos = 1.0 / (1.0 + lean * lean).sqrt();
     let t = (FOV * 0.5).tan();
@@ -26,6 +26,20 @@ fn project(rig: CameraRig, canvas: Canvas, table: Vec2) -> Vec2 {
         (table.x - rig.target.x) / (depth * t * aspect),
         cos * s / (depth * t),
     )
+}
+
+#[test]
+fn only_a_wide_duel_takes_the_more_oblique_shot() {
+    let desktop = Canvas::hud(WINDOW);
+    let portrait = Canvas::hud(Vec2::new(430.0, 932.0));
+    let duel = TableLayout::new(&seats(2), desktop.aspect(), None);
+    let ring = TableLayout::new(&seats(4), desktop.aspect(), None);
+    let phone = TableLayout::new(&seats(2), portrait.aspect(), None);
+    let wide = CameraRig::home(&duel, desktop);
+    let pod = CameraRig::home(&ring, desktop);
+    let narrow = CameraRig::home(&phone, portrait);
+    assert!(wide.lean > pod.lean);
+    assert_eq!(pod.lean, narrow.lean);
 }
 
 /// Every seat's bar fits the shelf it is written on, at every table.
@@ -540,11 +554,11 @@ fn the_table_sits_in_the_middle_of_what_can_be_seen() {
         let layout = TableLayout::new(&seats(n), 2.01, None);
         let rig = CameraRig::home(&layout, canvas);
         let (min, max) = layout.extent().expect("a seated table has an extent");
-        let eye = rig.distance * (1.0 + CAMERA_LEAN * CAMERA_LEAN).sqrt();
+        let eye = rig.distance * (1.0 + rig.lean * rig.lean).sqrt();
         // The rig stores world x/z; `+y` away from the local seat is `-z`.
         let along = -rig.target.y;
-        let behind = eye * ground(top) - (max.y - along);
-        let ahead = (min.y - along) - eye * ground(bottom);
+        let behind = eye * ground(top, rig.lean) - (max.y - along);
+        let ahead = (min.y - along) - eye * ground(bottom, rig.lean);
         assert!(
             (behind - ahead).abs() < 0.1,
             "{n} seats: {behind:.2} units of felt behind the far seat \
