@@ -663,6 +663,22 @@ hundreds of cards at once, which is what `Pump` did: it was the top blocker at ~
 scripts, and `Effect::PumpTarget` moved the transcoder from 1886 to 2545
 scripts read in full.
 
+**`--stubs` is the ranking that ships cards, and the plain one is not.** The
+report's default population is all 33 826 reference scripts, which measures the
+DSL; `transcode-report --stubs` ranks only the scripts belonging to this pool's
+own unfinished cards — 737 of the 745 stubs have one — and the two orders
+disagree so sharply that the corpus one is a trap when the goal is a card.
+Measured on 17.09: `Charm` is 618 corpus-wide and **2** here, an unreadable
+`Pump` value 477 and **6**, the `DamageDone` trigger 442 and **1**,
+`ChangesZone.OptionalDecider` 439 and **0**. Three commits that day moved the
+corpus by 282 scripts and this pool by *no card at all*, which is not a
+failure of those commits — a stub is by construction a card no reader could
+write, so the residue's blockers are its own and nothing else's. The pool's
+real top entries are `AlternateMode:` (89, two-faced cards), the `Moved`
+replacement family (74 across six entries), `ETBReplacement` (31) and an
+unreadable `Mana` value (28). Rank corpus-wide to grow the DSL; rank
+`--stubs` to finish cards, and say which one a commit was aiming at.
+
 That entry is also the cautionary tale about reading the report as a list of
 missing *subsystems*. `Pump` did not need a new one: `PumpFilter`,
 `EffectFilter::ObjectIs` and the `Layer::PtModify` machinery were all already
