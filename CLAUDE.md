@@ -681,6 +681,31 @@ first refusal (`scriptgen::unclaimed_parameter`), and the entry splits into an
 API with no rule at all (a missing effect) and a rule that met a value it
 cannot say (a missing case in one that exists), which are different work.
 
+A refused *value* is named by what it resolves through and never by its own
+spelling, for the same reason. `token amount \`X\`` was the largest token
+blocker at 122 scripts and was one entry standing for thirty different
+questions: of the 356 scripts writing `TokenAmount$ X`, 58 define
+`SVar:X:Count$xPaid` — the number the player announced, which `Amount::X`
+reads straight back — and the rest count opponents, damage dealt, creatures in
+a graveyard. Naming the definition split the entry into the counts it is
+really made of, and dropped it out of the top twenty where it had been
+outranking work that was genuinely one rule. The letter is what the corpus
+writes; the count is what the DSL is missing.
+
+Reading an announced number also has a half that is invisible at the use site:
+a **triggered** ability announces no `X`, so `Amount::X` there is
+`x.unwrap_or(0)` — a card that compiles, claims `Implemented` and makes
+nothing. `Tx::has_x` is set per rules line rather than per script, because one
+card writes both kinds.
+
+The eight scripts that refusal still holds back are the *next* entry rather
+than a settled answer. They are the Verdeloth shape — "kicker {X}; when this
+enters, if it was kicked, create X tokens" — and CR 107.3m is already
+implemented for the neighbouring case: `EnterModifier::WithCounters` reads the
+announced number off the object's `x_value` and only while the arrival came
+off the stack. A triggered ability reading the same field is one rule, not a
+subsystem.
+
 The rule that still holds: a key claimed there has to be claimed by a *rule*,
 never by adding it to `PROSE_KEYS` to make the number move. And the reason
 the transcoder reports rather than a table listing each rule's keys is the

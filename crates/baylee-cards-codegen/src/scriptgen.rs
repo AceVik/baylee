@@ -189,6 +189,14 @@ struct Tx<'a> {
     /// missing directory as the top blocker would send somebody to write a
     /// rule that already exists.
     tokens: Option<&'a TokenLookup>,
+    /// Whether the rules line being read announces an `X` of its own.
+    ///
+    /// True for `A:` — a spell's X is chosen on the stack (CR 601.2b) and an
+    /// activated ability's on activation, and the engine reads both back as
+    /// `Amount::X`. False for `T:`, `S:` and `R:`, where nothing announced a
+    /// number and `Amount::X` would silently evaluate to nought. Set per
+    /// line rather than per script, because one card writes both.
+    has_x: bool,
     body: CardBody,
     /// The first `Api.Key` no rule claimed, if that is why this
     /// script was refused. Recorded rather than derived, because a
@@ -198,10 +206,29 @@ struct Tx<'a> {
 }
 
 /// A whole number, or an `SVar` that resolves to one.
-fn amount(raw: &str, svars: &BTreeMap<String, String>) -> Option<String> {
+fn amount(raw: &str, svars: &BTreeMap<String, String>, has_x: bool) -> Option<String> {
     let raw = raw.trim().trim_start_matches('+');
     if let Ok(n) = raw.parse::<i64>() {
         return Some(format!("Amount::Fixed({n})"));
+    }
+    // `X` is the number the player announced, and `Amount::X` is how the
+    // engine reads it back — off the spell for a cast and off
+    // `Engine::activation_x` for an activation. Two things have to be true
+    // before that is the right reading, and both are checked because
+    // neither is visible at the use site.
+    //
+    // The corpus's `X` is only *sometimes* that number: of the 356 scripts
+    // that write `TokenAmount$ X`, 58 define `SVar:X:Count$xPaid` and the
+    // rest count something — damage dealt, opponents, creatures in a
+    // graveyard. So the definition is demanded rather than assumed.
+    //
+    // And `has_x` is the other half: a **triggered** ability announces no
+    // number, so `Amount::X` would evaluate to `x.unwrap_or(0)` — a card
+    // that compiles, claims `Implemented` and makes nothing at all, which
+    // is exactly the outcome the honest-stub rule exists to prevent.
+    if raw == "X" {
+        return (has_x && svars.get("X").map(String::as_str) == Some("Count$xPaid"))
+            .then(|| "Amount::X".to_string());
     }
     let resolved = svars.get(raw)?;
     let n = resolved.trim().parse::<i64>().ok()?;
@@ -600,7 +627,7 @@ impl Tx<'_> {
         let aimed = target.unwrap_or("TargetSpec::AnyPlayer");
         Some(match api {
             "DealDamage" => {
-                let n = amount(&p.take("NumDmg")?, self.svars)?;
+                let n = amount(&p.take("NumDmg")?, self.svars, self.has_x)?;
                 let to = match p.take("Defined").as_deref() {
                     None => aimed.to_string(),
                     Some("You") => "TargetSpec::Player(PlayerRel::You)".to_string(),
@@ -621,7 +648,7 @@ impl Tx<'_> {
                 }
             }
             "LoseLife" => {
-                let n = amount(&p.take("LifeAmount")?, self.svars)?;
+                let n = amount(&p.take("LifeAmount")?, self.svars, self.has_x)?;
                 let who = Self::player_rel_of(p.take("Defined").as_deref(), target)?;
                 vec![format!("Effect::LoseLife {{ amount: {n}, target: {who} }}")]
             }
@@ -635,7 +662,7 @@ impl Tx<'_> {
                 }
             }
             "Mill" => {
-                let n = amount(&p.take("NumCards")?, self.svars)?;
+                let n = amount(&p.take("NumCards")?, self.svars, self.has_x)?;
                 let who = Self::player_rel_of(p.take("Defined").as_deref(), target)?;
                 vec![format!("Effect::Mill {{ amount: {n}, target: {who} }}")]
             }
@@ -644,7 +671,11 @@ impl Tx<'_> {
                 let Some(kind) = counter_kind(&code) else {
                     return self.deny(format!("counter `{code}`"));
                 };
-                let n = amount(p.take("CounterNum").as_deref().unwrap_or("1"), self.svars)?;
+                let n = amount(
+                    p.take("CounterNum").as_deref().unwrap_or("1"),
+                    self.svars,
+                    self.has_x,
+                )?;
                 // `AddCounter` puts them on the first target, or on the
                 // source when the ability has none — which is exactly what
                 // `Defined` means here.
@@ -745,12 +776,17 @@ impl Tx<'_> {
         let token = format!("&generated_tokens::{}", body.constant);
         let amount = match p.take("TokenAmount") {
             None => None,
-            Some(raw) => match amount(&raw, self.svars) {
-                // `X`, `Y` and a computed `SVar` are the 315 the corpus
-                // writes that this cannot: the engine can resolve
-                // `Amount::X`, but nothing here can say whether the script's
-                // `X` is the one the spell was paid for.
-                None => return self.deny(format!("token amount `{raw}`")),
+            Some(raw) => match amount(&raw, self.svars, self.has_x) {
+                // A refusal names the `SVar` the amount resolves *through*
+                // and not merely the letter, because `X` is what 356 scripts
+                // write and each of them means it by a different count —
+                // the letter alone ranks one entry that is really thirty.
+                None => {
+                    return match self.svars.get(&raw) {
+                        Some(how) => self.deny(format!("token amount `{raw}` = `{how}`")),
+                        None => self.deny(format!("token amount `{raw}`")),
+                    };
+                }
                 Some(a) => Some(a),
             },
         };
@@ -1407,6 +1443,7 @@ impl Tx<'_> {
     }
 
     fn rule(&mut self, kind: char, spec: &str) -> Option<()> {
+        self.has_x = kind == 'A';
         match kind {
             'A' => self.activated_or_spell(spec),
             'T' => self.triggered(spec),
@@ -2334,14 +2371,9 @@ fn keyword_enter_modifier(line: &str, svars: &BTreeMap<String, String>) -> Optio
     {
         return None;
     }
-    let amount = if raw == "X" {
-        if svars.get("X").map(String::as_str) != Some("Count$xPaid") {
-            return None;
-        }
-        "Amount::X".to_string()
-    } else {
-        amount(raw, svars)?
-    };
+    // `true`: an `etbCounter` rides on the permanent's own spell, and a spell
+    // announces its `X` — the same number `Amount::X` reads back.
+    let amount = amount(raw, svars, true)?;
     Some(format!(
         "EnterModifier::WithCounters {{ kind: {kind}, amount: {amount} }}"
     ))
@@ -2365,6 +2397,7 @@ pub fn transcode(
         svars: &script.svars,
         cats,
         tokens,
+        has_x: false,
         body: CardBody::default(),
         unclaimed: std::cell::RefCell::new(None),
     };
@@ -2404,6 +2437,7 @@ pub fn refusal_reason(
         svars: &script.svars,
         cats,
         tokens,
+        has_x: false,
         body: CardBody::default(),
         unclaimed: std::cell::RefCell::new(None),
     };
@@ -2675,6 +2709,7 @@ mod tests {
             svars: &svars,
             cats: &cats,
             tokens: None,
+            has_x: false,
             body: CardBody::default(),
             unclaimed: std::cell::RefCell::new(None),
         };
@@ -3517,6 +3552,7 @@ mod tests {
             svars: &svars,
             cats: &cats,
             tokens: None,
+            has_x: false,
             body: CardBody::default(),
             unclaimed: std::cell::RefCell::new(None),
         };
@@ -4162,6 +4198,60 @@ mod tests {
                 .contains("Effect::CreateToken { token: &generated_tokens::GOBLIN_1_1_RED }"),
             "{}",
             body.abilities[0]
+        );
+    }
+
+    /// The number a player announced is a token amount, and only on a line
+    /// that announced one.
+    ///
+    /// `X` is what 359 of the corpus's `TokenAmount$` values are — 356
+    /// scripts, a few of which write it twice — and it is
+    /// the same letter for thirty different counts: 58 of those scripts
+    /// define `SVar:X:Count$xPaid` — the X paid for — and the rest count
+    /// opponents, damage dealt, creatures in a graveyard. `Amount::X` reads
+    /// back only the first of them, so the definition is demanded.
+    ///
+    /// The second half is the one that is invisible at the use site. A
+    /// **triggered** ability announces no number at all, so `Amount::X`
+    /// there is `x.unwrap_or(0)`: a card that compiles, claims
+    /// `Implemented` and makes nothing. Both counter-cases below are
+    /// refused by the same rule, and each names what it resolved through so
+    /// the report ranks the count rather than the letter.
+    #[test]
+    fn an_x_is_a_token_amount_only_where_a_player_announced_one() {
+        let body = read_with_tokens(
+            "Name:X\nTypes:Sorcery\nA:SP$ Token | Cost$ X G | TokenScript$ r_1_1_goblin \
+             | TokenOwner$ You | TokenAmount$ X\nSVar:X:Count$xPaid",
+        );
+        assert!(
+            body.abilities[0].contains(
+                "Effect::CreateTokenN { token: &generated_tokens::GOBLIN_1_1_RED, \
+                 amount: Amount::X }"
+            ),
+            "{}",
+            body.abilities[0]
+        );
+
+        // The same `X`, counted a way nothing here can say.
+        let domain = parse(
+            "Name:X\nTypes:Sorcery\nA:SP$ Token | Cost$ G | TokenScript$ r_1_1_goblin \
+             | TokenOwner$ You | TokenAmount$ X\nSVar:X:Count$Domain",
+        );
+        assert_eq!(
+            refusal_reason(&domain, &cats(), Some(&tokens())).as_deref(),
+            Some("token amount `X` = `Count$Domain`")
+        );
+
+        // The right definition on a line that announces nothing.
+        let triggered = parse(
+            "Name:X\nTypes:Creature Goblin\nPT:1/1\n\
+             T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self \
+             | Execute$ TrigToken\nSVar:TrigToken:DB$ Token | TokenScript$ r_1_1_goblin \
+             | TokenOwner$ You | TokenAmount$ X\nSVar:X:Count$xPaid",
+        );
+        assert_eq!(
+            refusal_reason(&triggered, &cats(), Some(&tokens())).as_deref(),
+            Some("token amount `X` = `Count$xPaid`")
         );
     }
 

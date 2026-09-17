@@ -1033,7 +1033,7 @@ a blocker goes once it has been re-read.
 
 The other half of the same question is measured continuously and needs no such
 care. `cargo run -p xtask -- transcode-report` ranks what the *whole* script
-corpus is refused for — 3889 of 33 826 read in full as of 17.09, with
+corpus is refused for — 3898 of 33 826 read in full as of 17.09, with
 `AlternateMode:` (887), the `SpellCast` trigger (836) and `Charm` (609) at
 the top — computed against the DSL as it stands rather than as it stood. The
 line under it says the same of the reference's **token** scripts (624 of 852,
