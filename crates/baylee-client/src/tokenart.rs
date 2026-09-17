@@ -60,10 +60,33 @@ mod tests {
     /// The registry and the client have to agree about what a token id is:
     /// the number the engine stamps on the object is an index into `ALL`, and
     /// this is the only place that reads it back.
+    ///
+    /// A token with no printing chosen for it is the *other* half of that
+    /// agreement and not an omission: [`super::of`] answers `None` and the
+    /// chit is drawn from its face, which is what an empty `scryfall_id`
+    /// means. This test asked `Some(token.scryfall_id)` of every row, which
+    /// was true only while every token in the table was one a person had
+    /// written — the first token a reader wrote broke it, and the thing it
+    /// broke on was the fallback working.
+    ///
+    /// The floor is the fourteen the ledger was seeded with, so a table that
+    /// lost every picture it has fails here rather than passing an
+    /// assertion about nothing.
     #[test]
     fn every_token_the_registry_defines_can_be_drawn() {
+        let mut printed = 0usize;
         for (i, token) in baylee_cards::tokens::ALL.iter().enumerate() {
             let id = u16::try_from(i).expect("a token id fits in u16");
+            if token.scryfall_id.is_empty() {
+                assert_eq!(
+                    super::of(id),
+                    None,
+                    "{} has no printing chosen and must fall back to its face",
+                    token.name
+                );
+                continue;
+            }
+            printed += 1;
             assert_eq!(
                 super::of(id),
                 Some(token.scryfall_id),
@@ -71,6 +94,10 @@ mod tests {
                 token.name
             );
         }
+        assert!(
+            printed >= 14,
+            "only {printed} tokens wear a printing; the ledger was seeded with fourteen"
+        );
         assert_eq!(
             super::of(u16::MAX),
             None,
