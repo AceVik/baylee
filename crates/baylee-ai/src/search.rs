@@ -188,8 +188,8 @@ fn fight(a: Fighter, blockers: &[Fighter], mask: u32) -> Result {
 
 struct Counterblock {
     used: u32,
-    // Net player damage, material lost, then material committed to blocking.
-    value: (i32, i64, i64),
+    // Commander lethal, net damage, material lost, then material committed.
+    value: (bool, i32, i64, i64),
 }
 
 struct Counterattack {
@@ -200,10 +200,15 @@ struct Counterattack {
 impl Counterattack {
     /// These exchanges depend on public characteristics, not on the root
     /// attack. Cache them once; a leaf only filters out unavailable blockers.
-    fn new(casualty: u32, enemy: Fighter, defenders: &[Fighter]) -> Self {
+    fn new(casualty: u32, enemy: Fighter, defenders: &[Fighter], commander_remaining: i32) -> Self {
         let mut choices = vec![Counterblock {
             used: 0,
-            value: (fight(enemy, &[], 0).damage, 0, 0),
+            value: (
+                fight(enemy, &[], 0).damage >= commander_remaining,
+                fight(enemy, &[], 0).damage,
+                0,
+                0,
+            ),
         }];
         for (i, &a) in defenders.iter().enumerate() {
             if !could_block(enemy, a) {
@@ -213,7 +218,12 @@ impl Counterattack {
                 let r = fight(enemy, &[a], 1);
                 choices.push(Counterblock {
                     used: 1 << i,
-                    value: (r.damage - r.enemy_gain, r.material, worth(a)),
+                    value: (
+                        r.damage >= commander_remaining,
+                        r.damage - r.enemy_gain,
+                        r.material,
+                        worth(a),
+                    ),
                 });
             }
             if has(enemy, KeywordSet::MENACE.union(KeywordSet::TRAMPLE)) {
@@ -224,7 +234,12 @@ impl Counterattack {
                     let r = fight(enemy, &[a, b], 3);
                     choices.push(Counterblock {
                         used: (1 << i) | (1 << j),
-                        value: (r.damage - r.enemy_gain, r.material, worth(a) + worth(b)),
+                        value: (
+                            r.damage >= commander_remaining,
+                            r.damage - r.enemy_gain,
+                            r.material,
+                            worth(a) + worth(b),
+                        ),
                     });
                 }
             }
@@ -305,8 +320,8 @@ impl Position {
         if self.horizon < 2 {
             return value;
         }
-        let (incoming, losses) = self.retaliation(going, outcomes);
-        if incoming >= self.life + balance.gain {
+        let (commander_lethal, incoming, losses) = self.retaliation(going, outcomes);
+        if commander_lethal || incoming >= self.life + balance.gain {
             return -WIN + value;
         }
         value -= i64::from(incoming) * 50 + losses / 2;
@@ -315,7 +330,7 @@ impl Position {
 
     /// A conservative continuation: enemies may decline exchanges that would
     /// feed us life. Evasion goes first, and menace needs two actual blockers.
-    fn retaliation(&self, going: u32, outcomes: &[Result; MAX]) -> (i32, i64) {
+    fn retaliation(&self, going: u32, outcomes: &[Result; MAX]) -> (bool, i32, i64) {
         let dead = outcomes.iter().fold(0, |m, r| m | r.dead);
         let mut used = 0_u32;
         for (i, f) in self.attackers.iter().enumerate() {
@@ -327,6 +342,7 @@ impl Position {
         }
         let mut incoming = 0;
         let mut losses = 0;
+        let mut commander_lethal = false;
         for enemy in &self.retaliation {
             if dead & enemy.casualty != 0 {
                 continue;
@@ -334,11 +350,12 @@ impl Position {
             // Not blocking is always present, so at least one choice fits.
             if let Some(best) = enemy.choices.iter().find(|choice| choice.used & used == 0) {
                 used |= best.used;
-                incoming += best.value.0.max(0);
-                losses += best.value.1.max(0);
+                commander_lethal |= best.value.0;
+                incoming += best.value.1.max(0);
+                losses += best.value.2.max(0);
             }
         }
-        (incoming, losses)
+        (commander_lethal, incoming, losses)
     }
 }
 
@@ -491,10 +508,11 @@ fn attack_position(
             (
                 if i < blockers.len() { 1 << i } else { 0 },
                 refreshed(o, *f),
+                commander_remaining(view, view.seat, o.id),
             )
         })
         .collect();
-    retaliation.sort_by_key(|(_, f)| {
+    retaliation.sort_by_key(|(_, f, _)| {
         (
             defenders.iter().filter(|&&d| could_block(*f, d)).count(),
             std::cmp::Reverse(f.power),
@@ -520,8 +538,8 @@ fn attack_position(
             retaliation: if profile.lookahead >= 2 {
                 retaliation
                     .into_iter()
-                    .filter(|(_, f)| !has(*f, KeywordSet::DEFENDER))
-                    .map(|(mask, f)| Counterattack::new(mask, f, &defenders))
+                    .filter(|(_, f, _)| !has(*f, KeywordSet::DEFENDER))
+                    .map(|(mask, f, remaining)| Counterattack::new(mask, f, &defenders, remaining))
                     .collect()
             } else {
                 Vec::new()

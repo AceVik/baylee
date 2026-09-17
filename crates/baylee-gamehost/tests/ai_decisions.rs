@@ -124,6 +124,76 @@ fn the_ai_casts_both_commanders_with_independent_cast_counts() {
     panic!("six correctly coloured lands must deploy both three-mana commanders");
 }
 
+#[test]
+fn an_x_draw_spell_pays_for_x_and_draws_for_its_caster() {
+    let preset = position(
+        &["Commander's Insight"],
+        &["Island", "Island", "Island", "Island", "Island"],
+    );
+    let mut engine = Engine::new(&preset, RegistryLookup).unwrap();
+    let agent = HeuristicAgent::new(AIProfile::EXPERT);
+    let mut chosen_x = false;
+    for seq in 0..100 {
+        let pending = engine.pending();
+        let seat = pending_player(pending).unwrap();
+        let view = player_view(engine.state(), seat, Some(seat), seq, Some(pending), false);
+        if chosen_x && view.hand.len() == 2 && seat == PlayerId::new(0) {
+            assert_eq!(view.seats[1].hand_count, 0);
+            return;
+        }
+        let action = match pending {
+            Pending::Mulligan { .. } => PlayerAction::MulliganKeep,
+            Pending::Priority { .. } if seat == PlayerId::new(1) => PlayerAction::PassPriority,
+            _ => agent.act_with_context(&view, pending, &engine.decision_context()),
+        };
+        if matches!(pending, Pending::ChooseNumber { .. }) {
+            assert_eq!(action, PlayerAction::ChooseNumber(2));
+            chosen_x = true;
+        }
+        if matches!(pending, Pending::ChoosePlayer { .. }) {
+            assert_eq!(
+                action,
+                PlayerAction::ChoosePlayer(PlayerId::new(0)),
+                "draw effects belong to the caster"
+            );
+        }
+        engine
+            .apply(seat, action)
+            .expect("X mana and target are legal");
+    }
+    panic!("the two-card draw must resolve");
+}
+
+#[test]
+fn x_cannot_demand_more_graveyard_targets_than_exist() {
+    let preset = position(
+        &["Entreat the Dead"],
+        &["Swamp", "Swamp", "Swamp", "Swamp", "Swamp"],
+    );
+    let mut engine = Engine::new(&preset, RegistryLookup).unwrap();
+    let agent = HeuristicAgent::new(AIProfile::EXPERT);
+    for seq in 0..80 {
+        let pending = engine.pending();
+        let seat = pending_player(pending).unwrap();
+        let view = player_view(engine.state(), seat, Some(seat), seq, Some(pending), false);
+        if view.turn > 1 {
+            return;
+        }
+        let action = match pending {
+            Pending::Mulligan { .. } => PlayerAction::MulliganKeep,
+            Pending::Priority { .. } if seat == PlayerId::new(1) => PlayerAction::PassPriority,
+            _ => agent.act_with_context(&view, pending, &engine.decision_context()),
+        };
+        if matches!(pending, Pending::ChooseNumber { .. }) {
+            assert_eq!(action, PlayerAction::ChooseNumber(0));
+        }
+        engine
+            .apply(seat, action)
+            .expect("no under-targeted X cast may roll back");
+    }
+    panic!("the decision must make progress");
+}
+
 struct CombatCards(Vec<&'static baylee_cards_dsl::CardDef>);
 
 impl baylee_engine::state::CardLookup for CombatCards {

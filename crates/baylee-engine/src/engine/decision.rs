@@ -22,6 +22,8 @@ pub struct DecisionContext<'a> {
     pub life_x: bool,
     /// X already announced for targeting and resolution.
     pub x: u32,
+    /// Available distinct targets when the spell requires exactly X targets.
+    pub x_targets: Option<u32>,
 }
 
 /// Effects of the chosen ability or mode. An unknown ability stays unknown.
@@ -79,6 +81,25 @@ impl<L: CardLookup> Engine<L> {
                     .get(face)
                     .is_some_and(|f| f.mandatory_additional_costs.contains(&CostPart::PayLifeX)),
                 x: wizard.x,
+                x_targets: self
+                    .wizard_target_req(wizard)
+                    .filter(|req| req.count_is_x)
+                    .map(|req| {
+                        let objects = crate::eval::target_options(
+                            &req.spec,
+                            &self.state,
+                            wizard.player,
+                            wizard.card,
+                        )
+                        .len();
+                        let players = crate::eval::target_player_options(
+                            &self.state,
+                            &req.spec,
+                            wizard.player,
+                        )
+                        .len();
+                        u32::try_from(objects + players).unwrap_or(u32::MAX)
+                    }),
             };
         }
         let handle = match self.pending_plan {

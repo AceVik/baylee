@@ -416,14 +416,9 @@ impl HeuristicAgent {
             Pending::ChooseNumber { min, max, .. } => {
                 PlayerAction::ChooseNumber(self.number(view, min, max, context))
             }
-            Pending::ChoosePlayer { options, .. } => PlayerAction::ChoosePlayer(
-                options
-                    .iter()
-                    .copied()
-                    .find(|p| self.hostile(*p, player))
-                    .or_else(|| options.iter().copied().find(|p| *p != player))
-                    .unwrap_or(options[0]),
-            ),
+            Pending::ChoosePlayer { options, .. } => {
+                PlayerAction::ChoosePlayer(self.player_target(view, &options, context))
+            }
             Pending::ChooseCastMode { options, .. } => PlayerAction::ChooseMode(
                 options
                     .iter()
@@ -875,6 +870,57 @@ mod tests {
         v.seats[0].mana_pool.black = 0;
         v.seats[0].mana_pool.blue = 2;
         assert_eq!(agent.act(&v, &pending), PlayerAction::YesNo(true));
+    }
+
+    #[test]
+    fn a_counterspell_does_not_counter_its_own_spell_to_answer_an_enemy_ability() {
+        let mut v = view(0, &[20, 20], vec![]);
+        v.hand = vec![hand_card(3, "Counterspell")];
+        let mut friendly = carded(permanent(obj(1), v.seat, 0), "Brainstorm", TypeSet::INSTANT);
+        friendly.stack_item = Some(baylee_view::StackItem::Spell);
+        let mut enemy = permanent(obj(2), PlayerId::new(1), 0);
+        enemy.stack_item = Some(baylee_view::StackItem::Ability {
+            source: obj(99),
+            ability: None,
+            text: None,
+        });
+        v.stack = vec![friendly, enemy];
+        let pending = Pending::Priority {
+            player: v.seat,
+            legal: Box::new(baylee_engine::choice::LegalActions {
+                castable: vec![obj(3)],
+                ..Default::default()
+            }),
+        };
+        assert_eq!(
+            HeuristicAgent::new(AIProfile::EXPERT).act(&v, &pending),
+            PlayerAction::PassPriority
+        );
+    }
+
+    #[test]
+    fn expert_keeps_a_blocker_against_lethal_commander_retaliation() {
+        let mut enemy = permanent(obj(2), PlayerId::new(1), 2);
+        enemy.commander = true;
+        enemy.status = ObjectStatus::TAPPED;
+        let mut v = view(
+            0,
+            &[40, 40],
+            vec![permanent(obj(1), PlayerId::new(0), 6), enemy],
+        );
+        v.seats[0].commander_damage = vec![baylee_view::CommanderDamage {
+            source: obj(2),
+            amount: 19,
+        }];
+        let pending = Pending::ChooseAttackers {
+            player: v.seat,
+            attackers: vec![obj(1)],
+            defenders: vec![Defender::Player(PlayerId::new(1))],
+        };
+        assert_eq!(
+            HeuristicAgent::new(AIProfile::EXPERT).act(&v, &pending),
+            PlayerAction::DeclareAttackers { attackers: vec![] }
+        );
     }
 
     #[test]

@@ -18,7 +18,18 @@ pub(crate) struct Meaning {
     pub destroy: bool,
     pub counter: bool,
     pub draw: u32,
+    commander_draws: u32,
     pub value: i64,
+}
+
+impl Meaning {
+    pub(crate) fn draws(self, view: &PlayerView) -> u32 {
+        let casts = view
+            .seat(view.seat)
+            .map_or(0, |s| s.commanders.iter().map(|c| c.casts).sum::<u32>());
+        self.draw
+            .saturating_add(self.commander_draws.saturating_mul(casts))
+    }
 }
 
 fn amount(n: Amount, x: u32) -> i32 {
@@ -34,6 +45,7 @@ fn amount(n: Amount, x: u32) -> i32 {
 
 /// A deliberately partial evaluation vocabulary. Unsupported effects are not
 /// mistaken for removal; the coverage ledger records what remains to model.
+#[allow(clippy::too_many_lines)] // the partial effect vocabulary stays in one auditable table
 pub(crate) fn meaning(effects: &[Effect], x: u32) -> Meaning {
     let mut result = Meaning::default();
     for effect in effects {
@@ -102,11 +114,25 @@ pub(crate) fn meaning(effects: &[Effect], x: u32) -> Meaning {
             | Effect::UntapTarget
             | Effect::GrantFlashback
             | Effect::GraveyardToHand { .. }
-            | Effect::GraveyardToTop { .. } => m.benefit = 1,
+            | Effect::GraveyardToTop { .. }
+            | Effect::GainLifeFor {
+                who: baylee_cards_dsl::PlayerRel::Chosen,
+                ..
+            } => m.benefit = 1,
             Effect::TapTarget => m.benefit = -1,
-            Effect::DrawCards { amount: n } => {
+            Effect::DrawCards { amount: n } | Effect::DrawCardsFor { amount: n, .. } => {
                 m.draw = u32::try_from(amount(*n, x)).unwrap_or(0);
+                m.commander_draws = u32::from(matches!(n, Amount::XPlusCommanderCasts));
                 m.value = i64::from(m.draw) * 400;
+                if matches!(
+                    effect,
+                    Effect::DrawCardsFor {
+                        who: baylee_cards_dsl::PlayerRel::Chosen,
+                        ..
+                    }
+                ) {
+                    m.benefit = 1;
+                }
             }
             Effect::PutFromHandOnTop { count } => m.value = -i64::from(*count) * 250,
             Effect::Scry { .. } | Effect::ScryFor { .. } | Effect::Surveil { .. } => m.value = 140,
@@ -121,6 +147,7 @@ pub(crate) fn meaning(effects: &[Effect], x: u32) -> Meaning {
         result.benefit += m.benefit;
         result.damage = result.damage.saturating_add(m.damage);
         result.draw = result.draw.saturating_add(m.draw);
+        result.commander_draws = result.commander_draws.saturating_add(m.commander_draws);
         result.value += m.value;
         result.removal |= m.removal;
         result.destroy |= m.destroy;
@@ -257,6 +284,44 @@ impl HeuristicAgent {
             objects: selected,
             players: seats,
         })
+    }
+
+    pub(crate) fn player_target(
+        &self,
+        view: &PlayerView,
+        options: &[PlayerId],
+        context: &DecisionContext<'_>,
+    ) -> PlayerId {
+        let m = meaning(context.effects, context.x);
+        options
+            .iter()
+            .copied()
+            .rev()
+            .max_by_key(|&p| {
+                let enemy = self.hostile(p, view.seat);
+                if m.draws(view) > 0
+                    && enemy
+                    && view
+                        .seat(p)
+                        .is_some_and(|s| m.draws(view) > s.library_count)
+                {
+                    return 1_000_000;
+                }
+                if m.benefit > 0 {
+                    if p == view.seat {
+                        200
+                    } else if enemy {
+                        -100
+                    } else {
+                        100
+                    }
+                } else if enemy {
+                    100
+                } else {
+                    0
+                }
+            })
+            .unwrap_or(options[0])
     }
 
     pub(crate) fn effect_value(&self, view: &PlayerView, effects: &[Effect]) -> i64 {

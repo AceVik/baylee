@@ -105,6 +105,7 @@ fn priority(c: &mut Criterion) {
     c.bench_function("priority/8lands-4spells/expert", |b| {
         b.iter(|| black_box(agent.act(black_box(&casting), black_box(&pending))));
     });
+    scouted_priority(c, &casting, &pending, &agent);
     let pending = Pending::ChooseColor {
         player: casting.seat,
         options: vec![
@@ -115,6 +116,58 @@ fn priority(c: &mut Criterion) {
     };
     c.bench_function("mana-choice/8lands-4spells/expert", |b| {
         b.iter(|| black_box(agent.act(black_box(&casting), black_box(&pending))));
+    });
+}
+
+fn scouted_priority(
+    c: &mut Criterion,
+    view: &baylee_view::PlayerView,
+    pending: &Pending,
+    agent: &HeuristicAgent,
+) {
+    use baylee_ai::intelligence::{DeckIntel, ScoutedSeat, ScoutingReport};
+    let cards: Vec<_> = view
+        .hand
+        .iter()
+        .map(|c| c.card.index)
+        .cycle()
+        .take(100)
+        .collect();
+    let own = DeckIntel::new(cards.clone(), vec![]);
+    let enemy = DeckIntel::new(cards.clone(), vec![]);
+    let context = baylee_engine::engine::DecisionContext::default();
+    // Includes report allocation/copies and the policy, but not host view
+    // construction. Immutable deck analysis is benchmarked independently.
+    c.bench_function("priority/scouted-8lands-4spells/expert", |b| {
+        b.iter(|| {
+            let report = ScoutingReport {
+                seats: vec![
+                    ScoutedSeat {
+                        player: view.seat,
+                        deck: &own,
+                        hand: Some(cards[..4].to_vec()),
+                        library: Some(cards[..3].to_vec()),
+                        sideboard: None,
+                    },
+                    ScoutedSeat {
+                        player: PlayerId::new(1),
+                        deck: &enemy,
+                        hand: Some(cards[..7].to_vec()),
+                        library: Some(cards[..3].to_vec()),
+                        sideboard: None,
+                    },
+                ],
+            };
+            black_box(agent.act_with_scouting(
+                black_box(view),
+                black_box(pending),
+                &context,
+                &report,
+            ))
+        });
+    });
+    c.bench_function("setup/deck-100-cards", |b| {
+        b.iter(|| black_box(DeckIntel::new(cards.clone(), vec![])));
     });
 }
 criterion_group!(benches, combat, priority);

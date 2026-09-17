@@ -761,7 +761,7 @@ impl<L: CardLookup> Engine<L> {
         &def.faces[face_index]
     }
 
-    fn wizard_target_req(&self, wizard: &CastWizard) -> Option<TargetReq> {
+    pub(super) fn wizard_target_req(&self, wizard: &CastWizard) -> Option<TargetReq> {
         let def = self
             .state
             .object(wizard.card)

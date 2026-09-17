@@ -1,5 +1,5 @@
-//! Decisions about the hand and mana use only printed cards and the seat's
-//! own view. In particular, an unseen card never acquires a registry identity.
+//! Hand and mana decisions use legal offers and printed properties. A private
+//! scouting summary may adjust values without supplying actionable hidden ids.
 
 use baylee_cards_dsl::{AbilityDef, Effect, FaceDef, KeywordSet, ManaSource};
 use baylee_client_core::manaplan::{self, Source, Tap};
@@ -58,7 +58,7 @@ impl HeuristicAgent {
         if context.life_x {
             // Pay the smallest amount giving the best exchange; preserving
             // life and friendly creatures matters more than maximizing X.
-            return (min..=max.min(u32::try_from(seat.life - 1).unwrap_or(0)))
+            return (min..=max.min(u32::try_from(seat.life.saturating_sub(1)).unwrap_or(0)))
                 .max_by_key(|&x| {
                     let material: i64 = view
                         .battlefield
@@ -86,11 +86,11 @@ impl HeuristicAgent {
         else {
             return min;
         };
-        (min..=max)
+        (min..=max.min(context.x_targets.unwrap_or(max)))
             .rev()
             .find(|&x| {
                 manaplan::plan(&cost.with_x(x), &seat.mana_pool, &[]).is_some()
-                    && crate::tactics::meaning(context.effects, x).draw < seat.library_count
+                    && crate::tactics::meaning(context.effects, x).draws(view) < seat.library_count
             })
             .unwrap_or(min)
     }
@@ -500,10 +500,6 @@ impl HeuristicAgent {
             AbilityDef::Spell { effects, .. } => Some(*effects),
             _ => None,
         });
-        let enemy_stack = view
-            .stack
-            .iter()
-            .any(|o| self.hostile(o.controller, view.seat));
         let enemy_board = view
             .battlefield
             .iter()
@@ -528,7 +524,23 @@ impl HeuristicAgent {
             if matches!(effect, Effect::PayCostOrLoseLater { .. }) {
                 return -10_000;
             }
-            if counter(effect) && !enemy_stack {
+            if counter(effect)
+                && !view.stack.iter().any(|o| {
+                    self.hostile(o.controller, view.seat)
+                        && match effect {
+                            Effect::CounterTargetSpell | Effect::CounterTargetSpellToExile => {
+                                !matches!(
+                                    o.stack_item,
+                                    Some(baylee_view::StackItem::Ability { .. })
+                                )
+                            }
+                            Effect::CounterTargetAbility => {
+                                matches!(o.stack_item, Some(baylee_view::StackItem::Ability { .. }))
+                            }
+                            _ => true,
+                        }
+                })
+            {
                 return -10_000;
             }
             if removal(effect) && !enemy_board {
@@ -542,7 +554,9 @@ impl HeuristicAgent {
             }
             if matches!(
                 effect,
-                Effect::DrawCards { .. } | Effect::LookAtTopPick { .. }
+                Effect::DrawCards { .. }
+                    | Effect::DrawCardsFor { .. }
+                    | Effect::LookAtTopPick { .. }
             ) {
                 value += 300 + self.strategy.draw_bonus;
             }
