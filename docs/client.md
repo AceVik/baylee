@@ -8,6 +8,50 @@ Bevy 2.5D duel client. Three crates, split by what can be tested without a GPU.
 | `baylee-client-core` | Table layout, board model, interaction state machine, image policy | no |
 | `baylee-client` | Bevy plugin: 3D stage, overlay, input, texture cache | yes |
 
+## Table presentation (17 September 2026)
+
+The current table uses warm golden-hour daylight, cool cloud shadows, and
+an indigo night with moving aurora and stars. The sky's eased day/night value
+also grades the glass. Rules day/night still overrides the ambient preference.
+The old land-driven atmosphere renderer and its full-table blended shader have
+been removed; atmosphere intensity now controls the sky's aurora and sparks.
+The lobby backdrop remains separate from the duel.
+
+`felt.wgsl` draws smoked glass with analytic sky reflections, caustics and slow
+ice, molten and grass-like strata in the existing opaque pass. This is a
+stylised glass material, without screen-space refraction or a render target.
+Table corners use 6.5% of the short axis. Wide duels use a 0.62 camera lean
+and tighter framing; smaller windows and multiplayer rings retain the original
+camera. Hover lifts were lowered to keep picking stable at the steeper angle.
+
+Battlefield outlines enclose **only the three card lanes**. The reserved
+centre-facing band is outside the outline: compact name/life/hand/counters
+at the owner's left, and a separate phase track beside it. Library, graveyard
+and exile counts sit beyond their respective piles, icon above number. Life
+uses a 24-point numeral with an 18-point icon. Poison and energy appear only
+when nonzero; the wire view does not expose player experience or charge.
+All these anchors follow the projected table, with upright text at every seat.
+
+Proximity groups related stats; type size establishes their hierarchy. Gold
+marks the active turn, with a secondary cool accent for priority. Phase groups
+keep their chronological positions, offer a full name on hover, and preserve
+keyboard stop toggles. Phase lighting is anchored to the game step, so a new
+snapshot cannot restart its transition. `tableicons` is the audited Mana /
+Font Awesome map; tests check it against the bundled font files.
+
+The central compass shows just the turn number. Its stones breathe, and its
+ring advances one mechanical detent per turn over 1.15 seconds. A short gear
+and catch sound is synthesised once and follows the sound preference. Joining
+a game does not rotate or play it; priority changes do not move it. Reduced
+motion settles the ring immediately and freezes the shader clocks.
+
+The information drawer shares the action dock material. Its bottom remains
+open, and its measured width removes the action rail's top tooling across
+the join. Both keep their normal outer edges.
+
+This section supersedes the older descriptions of the cloth, weather overlay,
+and information panels inside the mat below.
+
 ## The wire view
 
 A client cannot run the layer system, so `PublicObject` carries **projected**

@@ -40,6 +40,7 @@ struct MatParams {
     rim: f32,
     /// 1 while this is the seat whose turn it is, 0 otherwise.
     on_turn: f32,
+    priority: f32,
     /// The clock the travelling light runs on: `MOVING` or `STILL`, the same
     /// two values the cards, the felt and the sky use.
     motion: f32,
@@ -169,7 +170,14 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     // position: that would have to be un-rotated by the seat's facing first,
     // and a seat's facing is a matrix this shader is not given.
     let p = (in.uv - vec2<f32>(0.5)) * params.size;
-    let d = sd_round_box(p, half, min(params.corner, min(half.x, half.y)));
+    // The information band is outside the battlefield. Crop it before
+    // constructing the rim so no outline encloses names, life or phases.
+    // Lane coordinates remain unchanged: cards keep all three existing rows.
+    let band = params.size.y * LEDGE_FRAC;
+    let sign = select(1.0, -1.0, params.ledge_outer > 0.5);
+    let field_half = vec2<f32>(half.x, half.y - band * 0.5);
+    let field_p = p - vec2<f32>(0.0, band * sign * 0.5);
+    let d = sd_round_box(field_p, field_half, min(params.corner, min(field_half.x, field_half.y)));
 
     // One pixel of edge, whatever the mat's size and wherever the camera is.
     let aa = max(fwidth(d), 1e-5);
@@ -213,11 +221,10 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     // The ledge's own boundary is a seam too, and a brighter one: it is where
     // a seat's ground stops being a place cards stand on and becomes a shelf
     // they are described on.
-    let ledge_seam = clamp(1.0 - abs(from_shelf - LEDGE_FRAC) / SEAM_W, 0.0, 1.0) * SEAM * LEDGE_SEAM;
     // Dividers end in engraved shoulders rather than crossing the whole
     // field like spreadsheet rules. The lane boundaries do not move.
     let seam_end = smoothstep(0.015, 0.065, in.uv.x) * (1.0 - smoothstep(0.935, 0.985, in.uv.x));
-    let seam = max(lane_seam * seam_end, ledge_seam);
+    let seam = lane_seam * seam_end;
 
     // The rim: the one part meant to be read from across the table, since it
     // is what carries the seat's colour.
@@ -235,7 +242,7 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     // seconds; `breath` is the whole rim rising and falling together on its
     // own seven-second clock; and `TURN_BASE` is the light both of them move
     // over, which is what makes it a glow rather than a signal.
-    let turn = atan2(p.y * half.x, p.x * half.y) / TAU + 0.5;
+    let turn = atan2(field_p.y * field_half.x, field_p.x * field_half.y) / TAU + 0.5;
     let lead = fract(globals.time * params.motion / TURN_SECONDS);
     // A circular distance gives the swell a soft front as well as a tail:
     // no jump from zero to full light when the travelling phase wraps.
@@ -248,7 +255,10 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     );
     let reach = smoothstep(0.0, TURN_REACH, falloff);
     let flow = TURN_BASE + (1.0 - TURN_BASE) * swell;
-    let running = params.on_turn * flow * breath * reach * TURN_LIGHT;
+    let halo = exp(-inset * 7.5);
+    let running = params.on_turn * (0.58 + 0.42 * flow * breath) * halo * 0.95
+        + params.priority * (0.30 + 0.10 * breath) * halo;
+
 
     // Brightness scales the alpha, not the colour, which is the one thing
     // that changed meaning when the mat stopped being a white texture under a
@@ -264,6 +274,8 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     let resolved = 1.0 - smoothstep(0.2, 0.6, max(footprint.x, footprint.y) * 95.0);
     let surface = lane * (0.86 + 0.14 * cos(p.y * 1.4)) + (grain - 0.5) * 0.002 * resolved;
     let value = (surface + seam + border * RIM_LIGHT + running + tooling * 0.085) * params.accent.w;
-    let colour = mix(mix(vec3<f32>(1.0), params.accent.rgb, hue), FRAME_INK, tooling);
+    let base_colour = mix(vec3<f32>(1.0), params.accent.rgb, hue);
+    let signal_colour = mix(params.accent.rgb, vec3<f32>(0.25, 0.72, 0.82), params.priority * 0.20);
+    let colour = mix(mix(base_colour, signal_colour, clamp(running * 12.0, 0.0, 1.0)), FRAME_INK, tooling * 0.5);
     return vec4<f32>(colour, clamp(value, 0.0, 1.0) * coverage);
 }

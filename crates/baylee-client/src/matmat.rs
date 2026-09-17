@@ -53,6 +53,8 @@ pub struct MatParams {
     /// other question, and on any turn where an opponent responds to
     /// something the two have different answers.
     pub on_turn: f32,
+    /// Secondary cyan signal while this seat holds priority.
+    pub priority: f32,
     /// The clock the travelling light runs on: [`MOVING`](crate::cardmat::MOVING)
     /// or [`STILL`](crate::cardmat::STILL).
     pub motion: f32,

@@ -105,3 +105,5 @@ pub use prefs::{Action, AutoRule, AutoRules, Chord, Keymap, Preferences};
 /// Re-exported wire types, so a downstream crate needs one dependency to talk
 /// to a host and render the result.
 pub use baylee_view as view;
+
+pub mod tableicons;

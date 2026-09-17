@@ -37,7 +37,7 @@ struct SkyParams {
     /// The clock everything moves on: 1 normally, 0 for reduce-motion.
     motion: f32,
     /// Padding to the 16-byte boundary a uniform needs.
-    pad: f32,
+    budget: f32,
 }
 
 @group(#{MATERIAL_BIND_GROUP}) @binding(0) var<uniform> params: SkyParams;
@@ -45,10 +45,10 @@ struct SkyParams {
 const TAU: f32 = 6.2831855;
 
 // The day sky, display-referred like every colour this project writes down.
-const DAY_HIGH: vec3<f32> = vec3<f32>(0.30, 0.49, 0.66);
-const DAY_LOW: vec3<f32> = vec3<f32>(0.70, 0.79, 0.80);
-const CLOUD_LIT: vec3<f32> = vec3<f32>(0.96, 0.93, 0.84);
-const CLOUD_SHADE: vec3<f32> = vec3<f32>(0.48, 0.62, 0.71);
+const DAY_HIGH: vec3<f32> = vec3<f32>(0.19, 0.34, 0.49);
+const DAY_LOW: vec3<f32> = vec3<f32>(0.91, 0.73, 0.48);
+const CLOUD_LIT: vec3<f32> = vec3<f32>(1.00, 0.90, 0.68);
+const CLOUD_SHADE: vec3<f32> = vec3<f32>(0.40, 0.46, 0.55);
 const SUN_CORE: vec3<f32> = vec3<f32>(1.000, 0.976, 0.855);
 
 // Blue-black air matches the mineral table and the hand's dark ground.
@@ -68,8 +68,8 @@ const DUSK_WARM: vec3<f32> = vec3<f32>(0.976, 0.510, 0.278);
 /// Opposite upper corners so that neither is ever behind the table, and so
 /// that a dusk has both of them in frame at once — which is the one moment
 /// this sky has that neither of its ends does.
-const SUN_AT: vec2<f32> = vec2<f32>(0.135, 0.140);
-const MOON_AT: vec2<f32> = vec2<f32>(-0.115, 0.110);
+const SUN_AT: vec2<f32> = vec2<f32>(0.064, 0.082);
+const MOON_AT: vec2<f32> = vec2<f32>(-0.060, 0.080);
 
 // Small, because the wedge is small. Measured off a screenshot rather than
 // chosen: the sky the player actually sees at the opening shot is about a
@@ -88,7 +88,7 @@ const MOON_BITE: vec2<f32> = vec2<f32>(0.017, -0.011);
 /// look at the sky and it is going somewhere, look at a card and the sky is
 /// not what you notice. The two decks and the sun's rim are all scaled off
 /// this, so the deck, its veil and the lit edges stay in step.
-const DRIFT: f32 = 0.012;
+const DRIFT: f32 = 0.020;
 /// How fast a star finishes one twinkle.
 const TWINKLE: f32 = 1.7;
 
@@ -130,7 +130,7 @@ fn fbm(p: vec2<f32>) -> f32 {
     var amplitude = 0.5;
     var total = 0.0;
     var at = p;
-    for (var i = 0; i < 3; i = i + 1) {
+    for (var i = 0; i < 5; i = i + 1) {
         sum = sum + amplitude * vnoise(at);
         total = total + amplitude;
         at = at * 2.07;
@@ -162,18 +162,19 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
 
     let t = globals.time * params.motion;
 
+    // Golden-hour daylight: honey highlights above cool slate cloud shadows.
     // ---- day ----------------------------------------------------------
     var lit = mix(DAY_HIGH, DAY_LOW, smoothstep(0.0, 1.0, uv.y));
 
     if params.day > 0.001 {
     // Two decks, the upper one thinner and faster, so the sky has a depth to
     // it rather than one sheet of noise sliding past.
-    let deck = fbm(p * 2.4 + vec2<f32>(t * DRIFT, t * DRIFT * 0.30));
-    let veil = fbm(p * 5.1 + vec2<f32>(t * DRIFT * 2.1, -t * DRIFT * 0.4) + 21.7);
+    let deck = fbm(p * 4.8 + vec2<f32>(t * DRIFT, t * DRIFT * 0.30));
+    let veil = fbm(p * 9.1 + vec2<f32>(t * DRIFT * 2.1, -t * DRIFT * 0.4) + 21.7);
     // Shaped hard: `smoothstep` on the field is what turns noise into cloud
     // with sky between it, and a linear field is the flat grey overcast that
     // every first attempt at this produces.
-    let body = smoothstep(0.46, 0.72, deck * 0.75 + veil * 0.25);
+    let body = smoothstep(0.38, 0.67, deck * 0.75 + veil * 0.25);
     // The rim: cloud is brightest on the side the sun is on, and the cheap
     // way to say so without a gradient is to sample the field again a little
     // way towards the sun and take the difference.
@@ -181,10 +182,10 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     let ahead = smoothstep(
         0.46,
         0.72,
-        fbm((p + towards * 0.035) * 2.4 + vec2<f32>(t * DRIFT, t * DRIFT * 0.30))
+        fbm((p + towards * 0.035) * 4.8 + vec2<f32>(t * DRIFT, t * DRIFT * 0.30))
     );
     let rim = clamp(body - ahead, 0.0, 1.0);
-    let cloud = mix(CLOUD_SHADE, CLOUD_LIT, clamp(body * 0.55 + rim * 2.2, 0.0, 1.0));
+    let cloud = mix(CLOUD_SHADE, CLOUD_LIT, clamp(0.36 + body * 0.38 + veil * 0.25 + rim * 3.5, 0.0, 1.0));
     lit = mix(lit, cloud, body);
 
     // The sun: a hard core, a corona, and a wide bloom that the cloud in
@@ -195,13 +196,13 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     // 0.55 of the screen at 0.30 and washed out the tab strip in the corner
     // it stands in. A sun is allowed to be the brightest thing on screen and
     // is not allowed to make the interface in front of it unreadable.
-    let corona = halo(ds, SUN_R, 0.13) * 0.60 + halo(ds, SUN_R, 0.38) * 0.18;
+    let corona = halo(ds, SUN_R, 0.13) * 0.60 + halo(ds, SUN_R, 0.38) * 0.24;
     lit += SUN_CORE * corona * 0.45 * (1.0 - body * 0.65);
     lit = mix(lit, SUN_CORE, disc * (1.0 - body * 0.45));
 
     let ray_angle = atan2(p.y - sun.y, p.x - sun.x);
     let rays = pow(max(0.0, sin(ray_angle * 11.0 + 0.08 * sin(t * 0.12))), 8.0);
-    lit += SUN_CORE * rays * halo(ds, SUN_R, 0.38) * 0.016
+    lit += SUN_CORE * rays * halo(ds, SUN_R, 0.38) * 0.032
         * smoothstep(SUN_R, SUN_R * 2.5, ds) * (1.0 - body);
     }
 
@@ -263,8 +264,16 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     let gauze = exp(-pow((curtain - 0.23) * 16.0, 2.0));
     let filaments = 0.65 + 0.35 * sin(p.x * 38.0 + deep * 6.0 + t * 0.15);
     dark += mix(vec3<f32>(0.075, 0.20, 0.17), vec3<f32>(0.11, 0.10, 0.23), uv.x)
-        * gauze * filaments * 0.55;
+        * gauze * filaments * 1.15 * params.budget;
     }
+
+    // Drifting sparks belong to the night sky, not to the lands in play.
+    let dust_cell = p * 24.0 + vec2<f32>(t * 0.025, t * 0.045);
+    let dust_id = floor(dust_cell);
+    let dust_seed = hash2(dust_id + 83.0);
+    let dust = 1.0 - smoothstep(0.012, 0.065, length(fract(dust_cell) - 0.5));
+    dark += vec3<f32>(0.25, 0.60, 0.68) * dust * step(0.91, dust_seed)
+        * (0.55 + 0.45 * sin(t * 0.7 + dust_seed * TAU)) * params.budget;
 
     // ---- the two of them, and the light between them -------------------
     var sky = mix(dark, lit, params.day);

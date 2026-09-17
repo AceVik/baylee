@@ -1,34 +1,6 @@
-//! The table's surface: midnight mineral cloth inside an aged champagne rail,
-//! on a slab with a thickness to it. It was casino baize until the September
-//! 2026 redesign; `tabletop::FELT_CLOTH` is the colour, not this sentence.
-//!
-//! A material of its own rather than a [`StandardMaterial`] with a texture on
-//! it, for one reason: the table is thirty-five units across and a card is
-//! about 114 physical pixels at this camera, so cloth sharp enough to read
-//! would want four thousand texels — and generating 2048 already costs 1.6
-//! seconds in a debug build every time the table is re-cut. Arithmetic has no
-//! resolution.
-//!
-//! It is also **unlit**, like the cards and unlike a `StandardMaterial`. The
-//! stage carries no light at all — scene lighting on card art would make
-//! colour identity unreadable, which is the one thing this table may not do —
-//! so a lit slab would mean introducing a lamp for the benefit of one object
-//! and then keeping every other object out of its way. The rail's roll and
-//! the apron's fall-off are painted instead, which is the honest way to do it
-//! at a camera this close to overhead: a real specular lobe would track the
-//! viewer and drag along behind the cards every time the table was turned.
-//!
-//! Everything else under the cards stays a `StandardMaterial` — the mats, the
-//! medallion, the glow — because none of it moves.
-//!
-//! # What this replaced
-//!
-//! A slab of dark timber with a channel of resin poured through it, and the
-//! reason it is gone is not that it was badly drawn: it was ornament that
-//! nobody at a card table expects to find, and it put a bright moving surface
-//! down the middle of the board. The phase lamp it carried is the part worth
-//! keeping, and it is kept — it runs round the rail now, which is the one
-//! part of the table no card is ever laid on.
+//! Smoked glass over animated elemental strata, with a mechanical compass.
+//! Analytic reflections and caustics keep the surface in one opaque pass;
+//! card art stays unlit and independent of the eased day/night exposure.
 
 use baylee_client_core::tabletop;
 use bevy::asset::embedded_asset;
@@ -61,21 +33,6 @@ pub struct FeltParams {
     /// nothing here knows a transition is happening, and the table follows
     /// the sky because both read the same number.
     pub ambient: Vec4,
-    /// The weather's own tint: `rgb` a second multiplier on the table's
-    /// colour, `w` unused.
-    ///
-    /// Straight out of
-    /// [`Weather::grade`](baylee_client_core::atmosphere::Weather::grade),
-    /// and a field of its own rather than folded into [`Self::ambient`]
-    /// because the two are scaled by different things — the sky's light
-    /// arrives at a strength that depends on the hour, and the weather's does
-    /// not. Multiplied together, a forest would stop being green at noon.
-    ///
-    /// A multiply and not a mix, for the reason this file keeps repeating:
-    /// there is no light in this scene and there cannot be one. `(1, 1, 1)`
-    /// is a table with nothing in the air over it, and is what the slab is
-    /// cut with.
-    pub weather: Vec4,
     /// How hard the first four flames of the firewheel burn, 0 to 1: white,
     /// blue, black, red.
     ///
@@ -114,6 +71,8 @@ pub struct FeltParams {
     pub gain: f32,
     /// How thick the slab is, so the apron can be shaded down its height.
     pub thickness: f32,
+    /// Mechanical compass angle, in radians.
+    pub rotation: f32,
 }
 
 /// How bright the rail burns at the top of combat.

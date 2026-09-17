@@ -329,7 +329,14 @@ const RAIL_WEAVE: f32 = 0.20;
 /// zero — and these nodes are respawned on every pointer move. A division
 /// there is a NaN aspect for one frame, every time.
 fn hang(
-    nodes: Query<(&ComputedNode, &MaterialNode<FrontalMaterial>), With<Hanging>>,
+    nodes: Query<
+        (
+            &ComputedNode,
+            &bevy::ui::UiGlobalTransform,
+            &MaterialNode<FrontalMaterial>,
+        ),
+        With<Hanging>,
+    >,
     materials: Option<ResMut<Assets<FrontalMaterial>>>,
     prefs: Option<Res<crate::prefs::Prefs>>,
     time: Res<Time<Virtual>>,
@@ -338,7 +345,18 @@ fn hang(
         return;
     };
     let still = prefs.is_some_and(|p| p.all().reduce_motion);
-    for (computed, handle) in &nodes {
+    let opening = nodes.iter().find_map(|(computed, transform, handle)| {
+        let material = materials.get(&handle.0)?;
+        if material.params.surface.w <= 0.5 {
+            return None;
+        }
+        let half = computed.size().x * transform.matrix2.x_axis.length() * 0.5;
+        Some((
+            transform.translation.x - half,
+            transform.translation.x + half,
+        ))
+    });
+    for (computed, transform, handle) in &nodes {
         let size = computed.size() * computed.inverse_scale_factor;
         if size.y <= 0.0 {
             continue;
@@ -346,6 +364,15 @@ fn hang(
         let Some(mut material) = materials.get_mut(&handle.0) else {
             continue;
         };
+        if (0.5..1.5).contains(&material.params.surface.y) && material.params.surface.w <= 0.5 {
+            let width = computed.size().x.max(1.0);
+            let left = transform.translation.x - width * 0.5;
+            let (centre, half) = opening.map_or((0.0, 0.0), |(a, b)| {
+                ((a.midpoint(b) - left) / width, (b - a) * 0.5 / width)
+            });
+            material.params.surface.z = centre;
+            material.params.surface.w = -half;
+        }
         material.params.aspect = size.x / size.y;
         material.params.height = size.y;
         material.params.energy = f32::from(u8::from(!still));

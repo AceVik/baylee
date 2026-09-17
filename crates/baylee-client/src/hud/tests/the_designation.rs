@@ -116,15 +116,10 @@ fn the_designation_does_not_borrow_a_step_glyph() {
             .map(|(at, _)| src[at + 1..at + 9].to_string())
             .collect()
     };
-    let steps = glyphs(
-        include_str!("../rail.rs")
-            .split_once("fn row_visual")
-            .expect("the steps' glyphs are still there")
-            .1
-            .split_once("\n}")
-            .expect("and the table still closes")
-            .0,
-    );
+    let steps: Vec<String> = baylee_client_core::tableicons::PHASES
+        .iter()
+        .map(|glyph| format!("\\u{{{:x}}}", *glyph as u32))
+        .collect();
     let bar = include_str!("../seatbar.rs");
     let designation = glyphs(
         bar.split_once("fn designation_of")

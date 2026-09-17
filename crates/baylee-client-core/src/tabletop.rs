@@ -191,7 +191,7 @@ pub const RAIL_WIDTH: f32 = 0.55;
 /// edge, and a backdrop nothing ever shows is a backdrop worth nothing.
 #[must_use]
 pub fn table_corner(span: Vec2) -> f32 {
-    span.min_element() * 0.11
+    span.min_element() * 0.065
 }
 
 /// The felt: casino baize, rough and woven, worn lighter towards the middle
@@ -1561,11 +1561,11 @@ mod tests {
         let span = Vec2::new(34.0, 26.0);
         let r = table_corner(span);
         assert!(
-            r > span.min_element() * 0.08,
+            r > span.min_element() * 0.04,
             "a {r} corner on a {span:?} table reads as a bevel, not a corner"
         );
         assert!(
-            r < span.min_element() * 0.28,
+            r < span.min_element() * 0.10,
             "a {r} corner is a racetrack again"
         );
         // And it is drawn as a curve, not as one flat cut: the deepest point

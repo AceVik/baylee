@@ -481,8 +481,8 @@ messages! {
     Atmosphere { en: "Atmosphere", de: "Atmosphäre" },
     /// What the weather is for, in one line.
     AtmosphereWhy {
-        en: "Air over the table, from the lands on it. Never over a card.",
-        de: "Luft über dem Tisch, aus den Ländern darauf. Nie über einer Karte.",
+        en: "Aurora and drifting stars in the night sky.",
+        de: "Polarlichter und wandernde Sterne am Nachthimmel.",
     },
     /// No weather at all.
     AtmosphereOff { en: "Off", de: "Aus" },

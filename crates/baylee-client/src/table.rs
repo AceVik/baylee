@@ -53,20 +53,6 @@ pub(crate) const CARD_LIFT: f32 = 0.01;
 pub(crate) const ZONE_LIFT: f32 = 0.002;
 /// Where the glow under a mat sits — below the mat, above the felt.
 const GLOW_LIFT: f32 = 0.001;
-/// Where the weather over the table is painted.
-///
-/// Above every mark that belongs to the table itself — the glow, the
-/// a seat's mat — and **below** the contact shadow a card casts
-/// (`CARD_LIFT * 0.5`, so 0.005) and therefore below the card. That ordering
-/// is the whole of the promise that the air never covers a card: the cards
-/// are opaque and write depth, so a blended surface underneath them is
-/// rejected by the depth test at every pixel a card occupies. It is geometry,
-/// not discipline, and `the_air_lies_under_everything_a_card_casts` in
-/// [`crate::atmosphere`] is what keeps it that way.
-pub(crate) const ATMOSPHERE_LIFT: f32 = 0.0035;
-const _: () = assert!(ATMOSPHERE_LIFT > ZONE_LIFT);
-const _: () = assert!(ATMOSPHERE_LIFT < CARD_LIFT * 0.5);
-
 /// Turns a lift into the order the transparent pass draws it in.
 ///
 /// The ladder above has always carried the comment *"the order of these
@@ -271,10 +257,10 @@ fn stack_layers(under: usize) -> usize {
 /// `card_ui.wgsl`, which moved no card at all (`sheen.rs`). `docs/client.md`
 /// ("The pointer only speaks when it moves") has the measurements that tell
 /// the three apart, and is normative on which is which.
-const HOVER_LIFT: f32 = 0.05;
+const HOVER_LIFT: f32 = 0.04;
 const HOVER_SCALE: f32 = 1.06;
 /// Lift and scale for a card chosen for the pending choice (clearly "in").
-const SELECTED_LIFT: f32 = 0.10;
+const SELECTED_LIFT: f32 = 0.08;
 const SELECTED_SCALE: f32 = 1.12;
 
 /// The steepest shot the camera ever takes.
@@ -485,7 +471,7 @@ impl CameraRig {
             0.0
         };
         let tilt = CAMERA_LEAN + (DUEL_LEAN - CAMERA_LEAN) * framing;
-        let air = AIR - 0.5 * framing;
+        let air = AIR - 1.2 * framing;
         let (min, max) = (min - Vec2::splat(air), max + Vec2::splat(air));
         let span = max - min;
 
@@ -816,8 +802,8 @@ pub fn frame_table(
 /// honest way to sell it.
 const CAMERA_LEAN: f32 = 0.36;
 
-/// About 27° off vertical for a wide duel; rings retain [`CAMERA_LEAN`].
-const DUEL_LEAN: f32 = 0.50;
+/// About 32° off vertical for a wide duel; rings retain [`CAMERA_LEAN`].
+const DUEL_LEAN: f32 = 0.62;
 
 /// The camera's vertical field of view, in radians.
 ///
@@ -2297,6 +2283,11 @@ fn mat_params(
         corner: tabletop::MAT_CORNER,
         rim: tabletop::MAT_RIM,
         on_turn: if mood.on_turn { 1.0 } else { 0.0 },
+        priority: if mood.standing == Standing::Priority {
+            1.0
+        } else {
+            0.0
+        },
         motion: if moving {
             crate::cardmat::MOVING
         } else {
@@ -2396,6 +2387,7 @@ fn firewheel_of(
 /// moves: a lamp that reached its target and kept writing would touch a
 /// material every frame for the rest of the game, which is exactly the
 /// garbage [`sync_zones`] exists to avoid.
+#[allow(clippy::too_many_lines)] // slab creation and incremental material update share one state
 pub fn sync_table(
     mut commands: Commands,
     time: Res<Time>,
@@ -2459,6 +2451,7 @@ pub fn sync_table(
         // No slab yet. Cut one, and let the next frame light it.
         commands.spawn((
             DuelStage,
+            crate::compass::Compass::default(),
             Slab {
                 cut: span,
                 shown: Vec4::ZERO,
@@ -2483,11 +2476,6 @@ pub fn sync_table(
                     // own colour is what `a = 0` means, so a table that is
                     // cut before the first `sync_sky` is simply the table.
                     ambient: Vec4::new(1.0, 1.0, 1.0, 0.0),
-                    // Still air, for the same reason: the cloth's own colour
-                    // is what a multiplier of one means, so a table cut
-                    // before anything has read the battlefield is simply the
-                    // table.
-                    weather: Vec4::ONE,
                     flames: Vec4::ZERO,
                     flames_tail: Vec4::new(0.0, up.x, up.y, 0.0),
                     span,
@@ -2496,6 +2484,7 @@ pub fn sync_table(
                     motion,
                     gain: crate::feltmat::WASH_GAIN,
                     thickness: TABLE_THICKNESS,
+                    rotation: 0.0,
                 },
             })),
             Transform::from_xyz(0.0, TABLE_Y, 0.0)
@@ -2561,26 +2550,6 @@ fn slab_mesh(span: Vec2) -> Mesh {
         tabletop::table_corner(span),
         0.0,
         -TABLE_THICKNESS,
-        SLAB_SEGMENTS,
-    )
-}
-
-/// The slab's outline with no body under it: the racetrack as a single flat
-/// face.
-///
-/// The same cut as [`slab_mesh`], which is the point — the weather has to
-/// stop exactly where the table does, or a leaf falls through the sky in the
-/// corners the racetrack gives away. Passing the same height for the top and
-/// the bottom leaves the wall's quads with no area at all, so they rasterise
-/// to nothing and there is no second surface to z-fight with the felt's own
-/// apron.
-pub(crate) fn flat_table_mesh(span: Vec2) -> Mesh {
-    rounded_slab_mesh(
-        span.x,
-        span.y,
-        tabletop::table_corner(span),
-        0.0,
-        0.0,
         SLAB_SEGMENTS,
     )
 }

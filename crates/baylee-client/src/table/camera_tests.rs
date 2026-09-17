@@ -948,7 +948,7 @@ fn every_panel_stays_on_its_own_seats_band() {
                     })
                     .fold(f32::INFINITY, f32::min)
             };
-            for panel in [Panel::Identity, Panel::Phases, Panel::Counts] {
+            for panel in [Panel::Identity, Panel::Phases] {
                 let (corner, tilt, scale) = pose_on(corners, panel);
                 let middle = corner + panel.size() * 0.5;
                 let half = panel.size() * scale * 0.5;

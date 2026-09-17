@@ -492,13 +492,11 @@ pub fn sync_seat_bars(
         ))
         .id();
 
+    attached::spawn_turn(&mut commands, root, view, &fonts);
     for (index, seat) in view.seats.iter().enumerate() {
         let Some(shelf) = shelves.of(seat.player) else {
             continue;
         };
-        let surface = cloth
-            .as_mut()
-            .and_then(|cloth| cloth.seat(index, materials.as_deref_mut()));
         // At overview scale retain the tiny legacy marks; focusing a seat
         // restores the complete, battlefield-attached furniture.
         if shelf.density != Density::Mark {
@@ -511,10 +509,12 @@ pub fn sync_seat_bars(
                 seat,
                 &orders,
                 &fonts,
-                surface,
             );
             continue;
         }
+        let surface = cloth
+            .as_mut()
+            .and_then(|cloth| cloth.seat(index, materials.as_deref_mut()));
         let bar = spawn_bar(
             &mut commands,
             lang,
@@ -945,7 +945,7 @@ fn life(
     let heart = if low {
         palette::DANGER
     } else {
-        palette::ACCENT
+        palette::PARCHMENT_EDGE
     };
     let numeral = if seat.has_lost {
         ink_of(seat)
@@ -970,8 +970,12 @@ fn life(
             node,
             BackgroundColor(Color::NONE),
             children![(
-                Text::new(glyph::HEART.to_string()),
-                icon_tf(fonts, fits(11.0, height)),
+                Text::new(baylee_client_core::tableicons::LIFE.to_string()),
+                table_icon_tf(
+                    fonts,
+                    baylee_client_core::tableicons::LIFE,
+                    fits(18.0, height)
+                ),
                 bevy::text::LineHeight::Px(height),
                 TextColor(heart),
                 Pickable::IGNORE,
@@ -981,7 +985,7 @@ fn life(
                         fonts,
                         fits(
                             if density.is_split() {
-                                if height > 40.0 { 38.0 } else { 26.0 }
+                                if height > 40.0 { 28.0 } else { 24.0 }
                             } else {
                                 16.0
                             },
@@ -1084,7 +1088,7 @@ fn hinge(
             cell_node(width, height),
             Pickable::IGNORE,
             children![(
-                Text::new(format!("T{}", view.turn)),
+                Text::new(view.turn.to_string()),
                 tf(fonts, fits(13.0, height)),
                 TextColor(palette::ACTIVE),
                 Pickable::IGNORE,
@@ -1346,11 +1350,21 @@ fn spawn_tile(
         ))
         .id();
 
+    if state.now && state.gold {
+        commands.entity(tile).insert((
+            PhaseNow::default(),
+            BoxShadow(vec![ShadowStyle {
+                color: Color::NONE,
+                ..default()
+            }]),
+        ));
+    }
+
     if density.tiles_have_glyphs() {
         let glyph = commands
             .spawn((
                 Text::new(icon.to_string()),
-                icon_tf(fonts, 10.0),
+                table_icon_tf(fonts, icon, 13.0),
                 TextColor(ink),
                 Pickable::IGNORE,
             ))

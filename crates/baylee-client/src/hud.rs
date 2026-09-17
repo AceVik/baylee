@@ -279,6 +279,15 @@ pub(crate) fn icon_tf(fonts: &UiFonts, size: f32) -> TextFont {
     }
 }
 
+/// Picks the face for the audited table icon set.
+pub(crate) fn table_icon_tf(fonts: &UiFonts, glyph: char, size: f32) -> TextFont {
+    let mut font = icon_tf(fonts, size);
+    if baylee_client_core::tableicons::is_mana(glyph) {
+        font.font = bevy::text::FontSource::Handle(fonts.mana.clone());
+    }
+    font
+}
+
 // Font Awesome glyph codepoints used across the overlay (fa-solid-900).
 pub(crate) mod glyph {
     /// Heart (life total).
@@ -1706,3 +1715,5 @@ pub use stack::{StackMotion, ease_the_stack_in};
 pub(crate) use tray::band_of;
 pub(crate) use tray::dim_the_table;
 pub use tray::{TrayRevision, sync_tray};
+
+pub(crate) use seatbar::attached::describe_phase;

@@ -93,8 +93,8 @@ pub struct SkyParams {
     /// [`STILL`](crate::cardmat::STILL), the same two values the cards and
     /// the table use.
     pub motion: f32,
-    /// Padding to the 16-byte boundary a uniform needs.
-    pub pad: f32,
+    /// Atmosphere preference: scales aurora and suspended sparks.
+    pub budget: f32,
 }
 
 /// The sky.
@@ -181,7 +181,7 @@ pub fn hang_sky(
                     day: start.day,
                     glow: start.glow,
                     motion: crate::cardmat::MOVING,
-                    pad: 0.0,
+                    budget: 1.0,
                 },
             })),
             // The camera looks down its own −z, so the sky stands there,
@@ -297,15 +297,17 @@ pub fn sync_sky(
     // Daylight lifts the mineral surface as well as warming it. Work on
     // the effective multiplier so night remains exactly the existing grade.
     let base = Vec3::ONE.lerp(Vec3::from_array(lit.rgb), lit.strength);
-    let daylight = Vec3::ONE.lerp(Vec3::new(2.4, 2.25, 2.0), next.day);
+    let daylight = Vec3::ONE.lerp(Vec3::new(2.25, 1.90, 1.45), next.day);
     light.0 = (base * daylight).extend(1.0);
 
     let Some(mut material) = materials.get_mut(&handle.0) else {
         return;
     };
+    let budget = settings.atmosphere.budget();
     let still = (next.day - sky.shown.day).abs() <= f32::EPSILON
         && (next.glow - sky.shown.glow).abs() <= f32::EPSILON
-        && (material.params.motion - motion).abs() <= f32::EPSILON;
+        && (material.params.motion - motion).abs() <= f32::EPSILON
+        && (material.params.budget - budget).abs() <= f32::EPSILON;
     if still {
         return;
     }
@@ -313,6 +315,7 @@ pub fn sync_sky(
     material.params.day = next.day;
     material.params.glow = next.glow;
     material.params.motion = motion;
+    material.params.budget = budget;
 }
 
 /// The player's own local hour, with its minutes as a fraction.
@@ -368,5 +371,22 @@ mod transition_tests {
         let (phase, rate) = sky_target(SkyMode::Night, None, 12.0);
         assert!(phase.day.abs() < f32::EPSILON);
         assert!((rate - FADE_RATE).abs() < f32::EPSILON);
+    }
+}
+
+#[cfg(test)]
+mod shader_tests {
+    #[test]
+    fn sky_shader_compiles() {
+        crate::cardmat::tests::check_wgsl(
+            include_str!("shaders/sky.wgsl"),
+            "
+struct VertexOutput { @builtin(position) position: vec4<f32>, };
+struct Globals { time: f32 };
+struct View { viewport: vec4<f32> };
+@group(0) @binding(11) var<uniform> globals: Globals;
+@group(0) @binding(0) var<uniform> view: View;
+",
+        );
     }
 }

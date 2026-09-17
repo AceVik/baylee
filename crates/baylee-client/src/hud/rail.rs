@@ -25,24 +25,26 @@ use baylee_client_core::combat::{Combat, LineEnd};
 
 /// Icon and the short rail label for a rail row.
 pub(super) fn row_visual(row: RailRow) -> (char, &'static str) {
-    match row {
-        // A rotate-back arrow rather than the sun it used to be: the sun is
-        // the day designation's glyph now, and two of them a hundred pixels
-        // apart in one strip would say the untap step *is* the daytime.
-        // Untapping is turning a card back, which is what this draws.
-        RailRow::Untap => ('\u{f0e2}', "UNT"),
-        RailRow::Upkeep => ('\u{f0ad}', "UPK"),
-        RailRow::Draw => ('\u{f063}', "DRW"),
-        RailRow::Main1 => ('\u{f024}', "M1"),
-        RailRow::CombatBegin => ('\u{f71d}', "CBT"),
-        RailRow::Attackers => ('\u{f70c}', "ATK"),
-        RailRow::Blockers => ('\u{f3ed}', "BLK"),
-        RailRow::Damage => ('\u{f6e2}', "DMG"),
-        RailRow::CombatEnd => ('\u{f11e}', "EOC"),
-        RailRow::Main2 => ('\u{f024}', "M2"),
-        RailRow::EndStep => ('\u{f253}', "END"),
-        RailRow::Cleanup => ('\u{f51a}', "CLN"),
-    }
+    let index = match row {
+        RailRow::Untap => 0,
+        RailRow::Upkeep => 1,
+        RailRow::Draw => 2,
+        RailRow::Main1 => 3,
+        RailRow::CombatBegin => 4,
+        RailRow::Attackers => 5,
+        RailRow::Blockers => 6,
+        RailRow::Damage => 7,
+        RailRow::CombatEnd => 8,
+        RailRow::Main2 => 9,
+        RailRow::EndStep => 10,
+        RailRow::Cleanup => 11,
+    };
+    (
+        baylee_client_core::tableicons::PHASES[index],
+        [
+            "UNT", "UPK", "DRW", "M1", "CBT", "ATK", "BLK", "DMG", "EOC", "M2", "END", "CLN",
+        ][index],
+    )
 }
 
 /// The designation the flash last saw, and when it changed.
@@ -133,6 +135,8 @@ const NOW_SPREAD: f32 = 2.0;
 /// is a fight the frame order decides.
 pub fn light_the_current_step(
     time: Res<Time>,
+    duel: Option<Res<Duel>>,
+    mut transition: Local<Option<(u32, baylee_view::Step, f32)>>,
     prefs: Option<Res<crate::prefs::Prefs>>,
     mut steps: Query<(&mut PhaseNow, &mut BorderColor, &mut BoxShadow)>,
 ) {
@@ -142,11 +146,29 @@ pub fn light_the_current_step(
     } else {
         1.0 - (-LIGHT_RATE * time.delta_secs()).exp()
     };
+    let anchored = duel
+        .as_ref()
+        .and_then(|duel| duel.view.as_ref())
+        .map(|view| {
+            let changed =
+                transition.is_none_or(|(turn, phase, _)| turn != view.turn || phase != view.step);
+            if changed {
+                *transition = Some((view.turn, view.step, time.elapsed_secs()));
+            }
+            let at = transition
+                .as_ref()
+                .map_or(time.elapsed_secs(), |(_, _, at)| *at);
+            if still {
+                1.0
+            } else {
+                1.0 - (-LIGHT_RATE * (time.elapsed_secs() - at)).exp()
+            }
+        });
     for (mut now, mut border, mut shadow) in &mut steps {
         if now.lit >= 1.0 {
             continue;
         }
-        now.lit = (now.lit + (1.0 - now.lit) * step).min(1.0);
+        now.lit = anchored.unwrap_or_else(|| (now.lit + (1.0 - now.lit) * step).min(1.0));
         if now.lit > 0.999 {
             now.lit = 1.0;
         }

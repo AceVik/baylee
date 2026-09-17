@@ -1274,6 +1274,29 @@ fn source(bytes: Vec<u8>) -> AudioSource {
     }
 }
 
+/// A quiet gear train with a low resonant catch, synthesised once per client.
+/// Stereo PCM shares the ordinary sound preference and owns no shipped asset.
+pub(crate) fn compass_voice() -> AudioSource {
+    let frames = (RATE * 1.25) as usize;
+    let mut samples = Vec::with_capacity(frames * 2);
+    for i in 0..frames {
+        let t = i as f32 / RATE;
+        let mut sample = 0.0;
+        for j in 0..9 {
+            let at = j as f32 * 0.105;
+            let age = t - at;
+            if age >= 0.0 {
+                sample += (age * 1800.0).sin() * (-age * 95.0).exp() * 0.045;
+                sample += (age * 460.0).sin() * (-age * 30.0).exp() * 0.025;
+            }
+        }
+        let catch = (t - 1.02).max(0.0);
+        sample += (catch * 610.0).sin() * (-catch * 28.0).exp() * 0.11;
+        samples.extend_from_slice(&[sample, sample]);
+    }
+    source(wav(&samples))
+}
+
 /// The synthesised table, one entry per cue.
 ///
 /// A list of pairs rather than an array indexed by the enum, because a
@@ -1335,6 +1358,7 @@ pub fn voice_the_cues(mut commands: Commands, sources: Option<ResMut<Assets<Audi
     let Some(mut sources) = sources else {
         return;
     };
+    commands.insert_resource(crate::compass::CompassVoice(sources.add(compass_voice())));
     let mut voices = Vec::with_capacity(Cue::ALL.len());
     for (cue, recipe) in &RECIPES {
         let bytes = wav(&render(recipe));

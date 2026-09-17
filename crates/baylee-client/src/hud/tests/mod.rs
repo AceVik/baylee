@@ -93,3 +93,25 @@ fn a_text_span_never_takes_the_hover_from_the_control_it_is_in() {
         "only {seen} spans found, so the scan has gone blind"
     );
 }
+
+#[test]
+fn table_icons_exist_in_the_bundled_faces() {
+    use baylee_client_core::tableicons;
+    let mana = swash::FontRef::from_index(include_bytes!("../../../assets/fonts/mana.ttf"), 0)
+        .expect("Mana face");
+    let awesome =
+        swash::FontRef::from_index(include_bytes!("../../../assets/fonts/fa-solid-900.ttf"), 0)
+            .expect("fallback face");
+    for glyph in tableicons::PHASES
+        .into_iter()
+        .chain(tableicons::ZONES)
+        .chain([tableicons::LIFE, tableicons::POISON, tableicons::ENERGY])
+    {
+        let face = if tableicons::is_mana(glyph) {
+            mana
+        } else {
+            awesome
+        };
+        assert_ne!(face.charmap().map(glyph), 0, "missing icon {glyph:?}");
+    }
+}

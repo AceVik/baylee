@@ -49,13 +49,6 @@ struct FeltParams {
     /// own — a wash that went blue after sunset would be saying something
     /// about the turn that was not true.
     ambient: vec4<f32>,
-    /// The weather in the air over the table: `rgb` a second multiplier on
-    /// the table's own colour, `w` unused. `(1, 1, 1)` is still air.
-    ///
-    /// Its own field and not folded into `ambient`, because the sky's light
-    /// arrives at a strength that depends on the hour and the weather's does
-    /// not — multiplied together, a forest would stop being green at noon.
-    weather: vec4<f32>,
     /// How hard the first four flames of the firewheel burn, 0 to 1: white,
     /// blue, black, red. `baylee_client_core::firewheel` is normative.
     flames: vec4<f32>,
@@ -82,6 +75,7 @@ struct FeltParams {
     gain: f32,
     /// How thick the slab is, so the apron can be shaded down its height.
     thickness: f32,
+    rotation: f32,
 }
 
 @group(#{MATERIAL_BIND_GROUP}) @binding(0) var<uniform> params: FeltParams;
@@ -119,22 +113,6 @@ const TAU: f32 = 6.2831855;
 /// own hue and turn the baize grey at both ends of the day.
 fn under_sky(linear: vec3<f32>) -> vec3<f32> {
     return mix(linear, linear * params.ambient.rgb, params.ambient.a);
-}
-
-/// The same cloth with weather in the air over it.
-///
-/// `baylee_client_core::atmosphere` builds this so that its Rec.709 luma is
-/// exactly 1 however many kinds of land are on the table, which is the one
-/// property that matters: the eye reads a change in *lightness* on the cloth
-/// as a change in the room, and a change in the room behind a card is exactly
-/// what would make the card harder to judge. Hue may move; brightness may not.
-///
-/// Unscaled, unlike `under_sky` — the strength is already in the number,
-/// because how much of it there is was decided by how many forests are on the
-/// table and by what the player asked for, and neither of those is the
-/// shader's business.
-fn under_weather(linear: vec3<f32>) -> vec3<f32> {
-    return linear * params.weather.rgb;
 }
 
 /// The lamp over the table: how far its pool reaches as a fraction of the
@@ -258,21 +236,27 @@ fn hairline(distance: f32, width: f32, pixel: f32) -> f32 {
 }
 
 /// The cloth at a point of table, in display-referred colour.
-fn baize_at(p: vec2<f32>, footprint: vec2<f32>) -> vec3<f32> {
-    // Big soft blotches of wear, then a fine grain and the weave on top —
-    // the same three layers the CPU reference mixes, at table frequencies
-    // rather than texel ones.
-    let wear = fbm2(p * 0.085 + 3.1);
-    let grain = fbm2(p * 4.2 + 17.9);
-    let weave = sin(p.x * WEAVE * TAU) * sin(p.y * WEAVE * TAU) * 0.5 + 0.5;
-    let resolved = vec2<f32>(1.0) - smoothstep(vec2<f32>(0.2), vec2<f32>(0.5), footprint * WEAVE);
-
-    var colour = mix(FELT_CLOTH, FELT_WORN, pow(wear, 1.6));
-    let lift = (grain - 0.5) * 0.022 + (weave - 0.5) * 0.006 * resolved.x * resolved.y;
-    // A barely raised mineral vein breaks up the broad surface; it is fixed
-    // in the cloth, unlike the light passing over the separate metal inlay.
-    let vein = pow(1.0 - abs(sin(p.x * 0.37 + p.y * 0.61 + wear * 8.0)), 12.0);
-    return colour + vec3<f32>(lift + vein * 0.009);
+// Polished smoked glass over slow elemental strata. Bounded noise work,
+// no refraction buffer and no additional full-screen pass.
+fn glass_at(p: vec2<f32>) -> vec3<f32> {
+    let t = globals.time * params.motion;
+    let warp = fbm2(p * 0.24 + vec2<f32>(t * 0.018, -t * 0.012));
+    let strata = fbm2(p * 0.42 + vec2<f32>(warp * 1.2, t * 0.018));
+    let fissure = abs(sin(p.x * 0.46 + p.y * 0.73 + warp * 6.0));
+    let ice = pow(1.0 - fissure, 18.0);
+    let molten = pow(1.0 - abs(sin(p.x * 0.53 - p.y * 0.32 + strata * 2.5)), 22.0);
+    let grass = sin(p.y * 3.5 + warp * 8.0 + t * 0.18) * 0.5 + 0.5;
+    let side = smoothstep(-params.span.x * 0.25, params.span.x * 0.25, p.x);
+    var colour = mix(FELT_CLOTH * 0.66, FELT_WORN * 0.84, strata);
+    colour += vec3<f32>(0.10, 0.31, 0.42) * ice * (1.0 - side) * 0.16;
+    colour += vec3<f32>(0.55, 0.13, 0.035) * molten * side * 0.24;
+    colour += vec3<f32>(0.08, 0.12, 0.055) * grass * strata * 0.11;
+    // Broad reflected sky and a narrow travelling caustic reveal a smooth
+    // upper surface while the deeper veins retain their darker troughs.
+    let reflection = exp(-pow((p.y + p.x * 0.28 + 2.5) * 0.23, 2.0));
+    let caustic = pow(max(0.0, sin(p.x * 0.32 + p.y * 0.18 + warp * 1.8 + t * 0.09)), 24.0);
+    colour += vec3<f32>(0.18, 0.26, 0.30) * (reflection * 0.24 + caustic * 0.055);
+    return colour;
 }
 
 // Five enamel stones set into the compass. Mana still controls their light,
@@ -292,22 +276,22 @@ fn inlay_stone(i: u32) -> vec3<f32> {
 fn firewheel(start: vec3<f32>, table: vec2<f32>, pixel: f32, t: f32) -> vec3<f32> {
     var lit = start;
     for (var i = 0u; i < 5u; i = i + 1u) {
-        let angle = 1.5707964 - TAU * f32(i) / 5.0;
+        let angle = 1.5707964 - TAU * f32(i) / 5.0 + params.rotation;
         let axis = vec2<f32>(cos(angle), sin(angle));
         let tangent = vec2<f32>(-axis.y, axis.x);
         let p = table - axis * 0.68;
         let diamond = abs(dot(p, tangent)) * 0.85 + abs(dot(p, axis)) * 0.58;
         var strength = params.flames_tail.x;
         if i < 4u { strength = params.flames[i]; }
-        let breath = 0.90 + 0.10 * sin(t * 0.65 + f32(i) * 1.7);
+        let breath = 0.72 + 0.28 * sin(t * 1.25 + f32(i) * 1.7);
         let body = 1.0 - smoothstep(0.105 - pixel, 0.105 + pixel, diamond);
         let rim = hairline(diamond - 0.12, 0.009, pixel);
         let facet = smoothstep(-0.13, 0.13, dot(p, axis + tangent));
         let tint = to_linear(inlay_stone(i));
-        lit = mix(lit, tint * (0.30 + 0.38 * facet + 0.24 * strength), body);
+        lit = mix(lit, tint * (0.48 + 0.50 * facet + 0.50 * strength) * breath, body);
         lit = mix(lit, to_linear(GILT) * 0.55, rim * 0.7);
         let glow = 1.0 - smoothstep(0.06, 0.36, length(p));
-        lit += tint * glow * glow * (0.012 + 0.045 * strength) * breath;
+        lit += tint * glow * glow * (0.12 + 0.30 * strength) * breath;
     }
     return lit;
 }
@@ -338,7 +322,7 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
         let shade = mix(1.15, 0.42, drop) * mix(0.78, 1.0, faces);
         let trim = 1.0 - smoothstep(0.025, 0.09, abs(drop - 0.28));
         let apron = to_linear(APRON * shade + vec3<f32>((grain - 0.5) * 0.012) + ENGRAVING * trim * 0.22);
-        return vec4<f32>(under_weather(under_sky(under_lamp(apron, table))), 1.0);
+        return vec4<f32>(under_sky(under_lamp(apron, table)), 1.0);
     }
 
     // One field decides the whole top. `outer` is the mesh's own boundary
@@ -357,7 +341,7 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
         // shadow the middle of a big table falls into — that is the lamp
         // below — and no longer a ring painted round the play area.
         let crest = 1.0 - smoothstep(0.0, ROLL, inset);
-        colour = baize_at(table, footprint) + vec3<f32>(crest * ROLL_LIGHT);
+        colour = glass_at(table) + vec3<f32>(crest * ROLL_LIGHT);
         // A hair of the lamp spills off the rail onto the cloth beside it,
         // and no further. Without it the rail reads as a sticker.
         lamp_here = crest * 0.35;
@@ -398,7 +382,7 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     // animated wash ever crosses card artwork.
     let radius = length(table);
     let compass = hairline(radius - 1.30, 0.008, pixel);
-    let breaks = pow(abs(sin(atan2(table.y, table.x) * 10.0)), 14.0);
+    let breaks = pow(abs(sin((atan2(table.y, table.x) - params.rotation) * 10.0)), 14.0);
     let ticks = hairline(radius - 1.41, 0.065, pixel) * breaks;
     colour = mix(colour, ENGRAVING, (compass * 0.22 + ticks * 0.16) * smoothstep(0.4, 0.8, inset));
 
@@ -455,7 +439,7 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     // The lamp reaches the table's own colour and stops there: the phase
     // light is something the table *emits*, and a step that dimmed towards
     // the ends of the slab would be saying something untrue about the turn.
-    var lit = under_weather(under_sky(under_lamp(to_linear(colour), table)));
+    var lit = under_sky(under_lamp(to_linear(colour), table));
 
     // The firewheel, inside its own reach and nowhere else. The branch is
     // the budget as well as the shape: five flames cost nothing at all over

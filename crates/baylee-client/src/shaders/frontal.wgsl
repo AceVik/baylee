@@ -161,7 +161,12 @@ fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
     let rail = params.surface.y > 0.5 && !seat;
     let side = min(across, w - across);
     let foot = select(h - y, h + 1.0, params.surface.w > 0.5);
-    let frame_depth = min(depth, min(side, foot));
+    // Negative w on the action rail is the drawer's half-width in UVs;
+    // z is its centre. Suppress all tooling across the shared opening.
+    let joined = params.surface.w < 0.0
+        && abs(in.uv.x - params.surface.z) < -params.surface.w;
+    let top_depth = select(depth, h + 1.0, joined);
+    let frame_depth = min(top_depth, min(side, foot));
     let inset = abs(frame_depth - select(7.0, 2.5, seat || rail));
     let tooling = 1.0 - smoothstep(0.35, 1.15, inset);
     let edge_light = (1.0 - smoothstep(0.0, 2.0, frame_depth)) * 0.45;
@@ -201,7 +206,7 @@ fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
     // and whose `lip.rgb` is therefore black: without it every fragment
     // *outside* the arc would satisfy `depth < 0` and the corner's own
     // anti-aliased rim would be painted black instead of dyed.
-    let on_the_lip = select(0.0, 1.0, depth >= 0.0 && depth < params.lip.w);
+    let on_the_lip = select(0.0, 1.0, depth >= 0.0 && depth < params.lip.w && !joined);
     alpha = mix(alpha, 1.0, on_the_lip);
 
     // And the cut comes **after** the lip, because the lip writes an opaque

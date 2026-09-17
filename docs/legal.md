@@ -152,3 +152,9 @@ Urheber- und Medienrecht.
    It is **not committed** — 1371 files of it were, until it was taken out.
    CI restores it from its own cache and `xtask` refetches whatever is
    missing, so holding the line costs nothing.
+
+The table UI icon map (`baylee-client-core/src/tableicons.rs`) was checked on
+17.09.2026 against the same policy table and the upstream Mana 1.18 stylesheet
+(https://github.com/andrewgioia/mana/blob/master/css/mana.css). It uses zone,
+untap, sorcery, combat/ability and counter marks, with generic end/cleanup
+controls from Font Awesome. It adds no logos or faction watermarks.
