@@ -538,6 +538,18 @@ A mechanic the DSL cannot express gets `Coverage::Partial("reason")` and a
 `docs/card-dsl.md` is the authoring contract, `docs/llm-learnings.md` gets
 updated after every card batch.
 
+A batch is handed to one of the two cheap-model lanes in `scripts/llm/` —
+one script per (model, job) pair over a shared `lane.py`, with the four
+prompt contracts beside them in `prompts/`. Its `README.md` is normative on
+the one rule that is not obvious: **whoever wrote the card does not write
+its test.** A card and its test from the same model share that model's
+misreading, which is how Mikaeus got a green test asserting that two
+keyword bits no engine rule reads worked. The lanes are also scarce in
+different units — DeepSeek is billed per token and is cheap, Gemini costs no
+money and spends a refreshing time quota — so they are planned in cards and
+in minutes respectively. No lane runs cargo, and no `xtask codegen` runs
+while a card batch is in flight.
+
 **Where a card's file sits is codegen's to say, never yours.** `cards/` is a
 taxonomy rather than a flat list of slugs —
 `<card type>/<second type or defining subtype>/mv_<mana value>/<slug>.rs`,

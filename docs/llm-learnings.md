@@ -23,10 +23,10 @@ that survived the header check and compiled; an honest refusal naming the
 missing DSL variant is a **correct** outcome and is counted separately, not
 as a failure.
 
-| Lane | Cards asked | Written | Honest refusals | Input tokens per 30 cards |
-|---|---|---|---|---|
-| DeepSeek V4.1 Flash (`deepseek-flash[1m]`, API, non-agentic) | 91 | 42 (46%) | 48 | ~0.1–0.4M (241 KB prefix, cached) |
-| Gemini 3.8 Flash high (`agy`, agentic, one session per batch) | 93 | 19 (20%) | 73 | ~110–190M (measured off the transcript) |
+| Lane | Cards asked | Written | Honest refusals | Input per 30 cards | What that costs |
+|---|---|---|---|---|---|
+| DeepSeek V4.1 Flash (`deepseek-flash[1m]`, API, non-agentic) | 91 | 42 (46%) | 48 | ~0.1–0.4M tokens (241 KB prefix, cached) | money, and very little of it |
+| Gemini 3.8 Flash high (`agy`, agentic, one session per batch) | 93 | 19 (20%) | 73 | ~110–190M tokens (measured off the transcript) | nothing — a subscription, bounded by a **time quota that refreshes** |
 
 Round three is what those two totals fell on: 32 and 33 cards over the last
 65 open stubs of the four decks, of which 6 and 3 were written. That is not
@@ -39,14 +39,23 @@ rather than half-building them.
 | DeepSeek V4.1 Flash | 55 | 55 (2 needed a bigger `max_tokens`) | 44 (80%) |
 | Gemini 3.8 Flash high | 5 | 4 + 1 correct refusal | 3 of 4 |
 
-**Read that cost column twice.** The difference is not a factor of two, it
-is two to three orders of magnitude, and it is structural rather than a
-tuning mistake: an agentic session re-reads the repository for itself and
-pays the growing transcript on every step (369 steps for 30 cards), while
-the API lane sends one cacheable 241 KB context and a stub. Both were
-*measured* — `agy-batch.py` reads the prefix sum out of the session's own
-sqlite transcript — because an earlier unmeasured fan-out spent an estimated
-2.2 billion input tokens before anybody noticed.
+**Read that last column before the one beside it.** The token difference is
+two to three orders of magnitude and it is structural rather than a tuning
+mistake: an agentic session re-reads the repository for itself and pays the
+growing transcript on every step (369 steps for 30 cards), while the API
+lane sends one cacheable 241 KB context and a stub. Both were *measured* —
+`lane.transcript` reads the prefix sum out of the session's own sqlite
+transcript — because an earlier unmeasured fan-out spent an estimated 2.2
+billion input tokens before anybody noticed.
+
+But those tokens are **not a bill**. The Gemini lane runs under a
+subscription and costs no money at all; what it spends is a time quota that
+refreshes. So the two lanes are scarce in different units, and planning has
+to use each one's own: DeepSeek in cards per batch, Gemini in **minutes**.
+The token figure stays worth reading there as the reason a session is slow,
+and as the thing batch size actually buys back — five tests in one session
+cost 46 steps each, the same work split into a single-card session cost 88,
+and nearly all of that gap is orientation paid once.
 
 **They are good at different things, and the numbers say which.** DeepSeek
 writes more than twice as many cards per attempt and every generated engine
@@ -89,12 +98,17 @@ have written around it; a model reading somebody else's card refused to.
 
 **What that says about where each lane belongs.** DeepSeek is the volume
 lane: cheap, parallel, twice the write rate, and its tests now compile and
-pass first time. Gemini is the *reading* lane — expensive per card and
-worth it where the answer is a judgement about whether something can be
-said at all, because its refusals are precise engine tickets and, as of
-this round, one of them was a defect rather than a gap. Spot-checks should
-thin out on DeepSeek's volume first; a Gemini refusal stays worth reading
-in full.
+pass first time. Gemini is the *reading* lane — slow per card in the unit
+that lane is actually scarce in, and worth those minutes where the answer is
+a judgement about whether something can be said at all, because its refusals
+are precise engine tickets and, as of this round, one of them was a defect
+rather than a gap. Spot-checks should thin out on DeepSeek's volume first; a
+Gemini refusal stays worth reading in full.
+
+Both lanes now live in `scripts/llm/`, one script per (model, job) pair over
+a shared `lane.py`, with the four prompt contracts beside them in
+`prompts/`. They used to be scratchpad files, which made the trust being
+built here last exactly as long as one session.
 
 ## Prompt learnings
 

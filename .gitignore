@@ -42,3 +42,7 @@ deck-images/
 # `crates/baylee-cards-index/src/generated.rs` is the committed half and this
 # is the input that produced it.
 /data/card-corpus.tsv
+
+# Python bytecode from the card lanes in scripts/llm/.
+__pycache__/
+*.pyc
