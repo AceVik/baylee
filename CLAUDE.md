@@ -700,6 +700,17 @@ top ten did not move at all. The cause going to zero is the measure of the
 rule; the cards finished is the measure of the residue, and the two are not
 the same number.
 
+The same "first refusal" rule makes the ranking **overstate** an entry that
+sits in front of a card with two of them, which is why the top one is the
+worst buy on the list. `AlternateMode:` was 91 pool stubs; reading only the
+front half of every two-faced script — a throwaway patch, not a commit — left
+**16** of 729 read in full, so at most 16 of those 91 could ever become cards
+and the true figure is lower still, because the back face has to read too and
+a Split or an Adventure is not its front half at all. An entry standing for
+*n* cards is worth *n* only where the card has one way left to fail. Before
+committing to the top of the list, cut the blocker out and see what is behind
+it.
+
 That entry is also the cautionary tale about reading the report as a list of
 missing *subsystems*. `Pump` did not need a new one: `PumpFilter`,
 `EffectFilter::ObjectIs` and the `Layer::PtModify` machinery were all already
