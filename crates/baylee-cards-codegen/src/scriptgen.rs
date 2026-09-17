@@ -2640,14 +2640,22 @@ mod tests {
                 "u_1_1_wizard_flying",
                 "Name:Wizard\nTypes:Creature Wizard\nColors:blue\nPT:1/1\nK:Flying",
             ),
-            // A token that carries an ability, which is what 184 of the
-            // reference's 852 token scripts do and what [`crate::tokengen`]
-            // refuses: the definition it would write is a permanent that
-            // does nothing.
+            // A token that carries an ability, which is what 190 of the
+            // reference's 852 token scripts do: the definition names it, and
+            // the constant does not — two Goblins that differ only there are
+            // one name.
             (
                 "r_1_1_goblin_sac",
                 "Name:Goblin\nTypes:Creature Goblin\nColors:red\nPT:1/1\n\
-                 A:AB$ Mana | Cost$ T Sac<1/CARDNAME> | Produced$ Any",
+                 A:AB$ Mana | Cost$ T Sac<1/CARDNAME/this token> | Produced$ Any",
+            ),
+            // And one whose ability makes a token, which is the shape
+            // [`crate::tokengen`] refuses: it hands the transcoder no
+            // lookup, so a token cannot read another token into existence.
+            (
+                "r_1_1_goblin_maker",
+                "Name:Goblin\nTypes:Creature Goblin\nColors:red\nPT:1/1\n\
+                 A:AB$ Token | Cost$ T | TokenScript$ r_1_1_goblin | TokenOwner$ You",
             ),
         ])
     }
@@ -4126,17 +4134,34 @@ mod tests {
     /// alternative is a card that puts an inert permanent on the battlefield
     /// and claims `Implemented` — a Treasure that cannot be sacrificed for
     /// mana is not a Treasure.
+    ///
+    /// This used to be asserted *of* the Treasure, because a token with an
+    /// ability was refused outright. It is now asserted of the shape that is
+    /// still refused — a token whose ability makes a token — and the
+    /// Treasure is the case below.
     #[test]
     fn a_token_that_cannot_be_read_refuses_the_card() {
-        assert!(refused_with_tokens(
-            "Name:X\nTypes:Instant\nA:SP$ Token | TokenScript$ r_1_1_goblin_sac | TokenOwner$ You"
-        ));
-        let script = parse(
+        let line = "Name:X\nTypes:Instant\nA:SP$ Token | TokenScript$ r_1_1_goblin_maker | TokenOwner$ You";
+        assert!(refused_with_tokens(line));
+        assert_eq!(
+            refusal_reason(&parse(line), &cats(), Some(&tokens())).as_deref(),
+            Some("token script `r_1_1_goblin_maker`")
+        );
+    }
+
+    /// And the card that makes an ability-bearing token names it like any
+    /// other. The 98 cards that create a Treasure are what this is about:
+    /// they were refused, whole, because the Treasure was.
+    #[test]
+    fn a_card_may_make_a_token_that_carries_an_ability() {
+        let body = read_with_tokens(
             "Name:X\nTypes:Instant\nA:SP$ Token | TokenScript$ r_1_1_goblin_sac | TokenOwner$ You",
         );
-        assert_eq!(
-            refusal_reason(&script, &cats(), Some(&tokens())).as_deref(),
-            Some("token script `r_1_1_goblin_sac`")
+        assert!(
+            body.abilities[0]
+                .contains("Effect::CreateToken { token: &generated_tokens::GOBLIN_1_1_RED }"),
+            "{}",
+            body.abilities[0]
         );
     }
 

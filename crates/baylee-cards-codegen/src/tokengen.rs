@@ -1,8 +1,11 @@
 //! Reads a reference **token** script into a [`TokenDef`] literal.
 //!
 //! A token script is a card script with almost everything taken out — a name,
-//! a colour word, a type line and a power/toughness — so it is read here
-//! rather than by [`scriptgen`](crate::scriptgen), which is about abilities.
+//! a colour word, a type line, a power/toughness, and sometimes an ability.
+//! Everything but the ability is read here; the ability is read by
+//! [`scriptgen`](crate::scriptgen), because `TokenDef::abilities` is the same
+//! `AbilityDef` slice a card face carries and the engine reads it the same
+//! way, so a second transcoder would be a second reading of one language.
 //! The same rule holds as everywhere else in this crate: **one unread line
 //! and the token is refused**, because a token the engine creates with the
 //! wrong colour or a missing keyword is worse than a card that stays a stub.
@@ -35,9 +38,18 @@
 //! 1/1 white Soldier against a 1/1 white *enchantment* Soldier — and a
 //! collision is not a cosmetic problem here: two permanents sharing a
 //! constant share an id, and one of them reaches the table wearing the
-//! other's picture. Over the reference's 852 token scripts the rule reads
-//! 586 in full and gives them 586 distinct names, with no name claimed by
-//! two different definitions.
+//! other's picture.
+//!
+//! The one thing the name leaves out is the **abilities**, and that is a
+//! hole rather than a decision. The reference prints `b_1_1_skeleton` beside
+//! `b_1_1_skeleton_regenerate`, so two different definitions come out under
+//! one name — `cargo run -p xtask -- transcode-report` counts them and says
+//! which, because a number in a comment here would be a number nobody could
+//! ask for and would be wrong after the next rule. Naming a token after its
+//! abilities as well is *a* way out; what is done instead is that
+//! [`crate::tokenledger::assign`] refuses the collision, so the day this
+//! pool reaches for both halves of such a pair it stops the run and hands a
+//! person the example rather than the id.
 //!
 //! The evidence that it is the naming a person reaches for is that it is the
 //! naming a person reached for: of the nine hand-written tokens this reader
@@ -72,9 +84,19 @@ pub struct TokenBody {
 /// which this side has no use for — a token has no printing to hold a header
 /// against. Every other head refuses the token, and each of them is a real
 /// shape in the reference: `Text` is rules text ("this creature is all
-/// colors"), `S`/`T`/`A`/`SVar`/`R`/`Loyalty` are abilities, and
-/// `AlternateMode` is a second face.
+/// colors"), `Loyalty` is a planeswalker token's starting loyalty, which
+/// [`TokenDef`] has no field for, and `AlternateMode` is a second face.
 const IGNORED: &[&str] = &["ManaCost", "Oracle"];
+
+/// The line heads [`scriptgen`](crate::scriptgen) reads, not this module.
+///
+/// A token's abilities are a card's abilities — `TokenDef::abilities` is the
+/// same `AbilityDef` slice a `FaceDef` carries, and the engine reads it the
+/// same way — so there is one transcoder for both and this side merely gets
+/// out of its way. `K` is **not** on the list: a keyword is a bit on the
+/// token rather than an ability, and the transcoder would read it a second
+/// time into a card's `keywords`, which a token has its own field for.
+const TRANSCODED: &[&str] = &["A", "T", "S", "R", "SVar"];
 
 /// The card types a token may be made of, and the constant each one is.
 ///
@@ -103,11 +125,15 @@ const SUPERTYPES: &[(&str, &str)] = &[
 
 /// Reads a token script, or refuses it.
 ///
-/// `None` is an honest refusal and the commonest outcome after success: 266
-/// of the reference's 852 token scripts are refused, 184 of them for carrying
-/// an ability and 62 for a size the card that makes the token computes. A
-/// token whose ability this cannot write is one the engine would put on the
-/// battlefield inert, which is worse than a card that stays a stub.
+/// `None` is an honest refusal, and a token whose ability this cannot write
+/// is one the engine would put on the battlefield inert — which is worse
+/// than a card that stays a stub, because the deckbuilder offers a card
+/// marked `Implemented` as playable.
+///
+/// How often that happens is counted by [`TokenLookup::reach`] and printed
+/// by `xtask transcode-report`, not written down here: the reasons move
+/// every time a rule is added, and a doc comment that named them would be a
+/// worklist with nothing keeping it true.
 #[must_use]
 pub fn read(text: &str, cats: &SubtypeCatalogs) -> Option<TokenBody> {
     let (mut name, mut colors, mut types, mut pt) = (None, None, None, None);
@@ -125,6 +151,7 @@ pub fn read(text: &str, cats: &SubtypeCatalogs) -> Option<TokenBody> {
             "PT" => pt = Some(rest.trim().to_string()),
             "K" => keywords.push(crate::scriptgen::keyword_const_of(rest)?),
             _ if IGNORED.contains(&head) => {}
+            _ if TRANSCODED.contains(&head) => {}
             _ => return None,
         }
     }
@@ -162,6 +189,7 @@ pub fn read(text: &str, cats: &SubtypeCatalogs) -> Option<TokenBody> {
         Some(raw) => Some(color_line(raw)?),
         None => None,
     };
+    let abilities = abilities(text, cats)?;
 
     let mut literal = String::with_capacity(256);
     literal.push_str("TokenDef {\n");
@@ -185,6 +213,9 @@ pub fn read(text: &str, cats: &SubtypeCatalogs) -> Option<TokenBody> {
     if !keywords.is_empty() {
         let _ = writeln!(literal, "    keywords: {},", union_of(&keywords));
     }
+    if !abilities.is_empty() {
+        let _ = writeln!(literal, "    abilities: &[{}],", abilities.join(", "));
+    }
     literal.push_str("    ..TokenDef::DEFAULT\n}");
 
     Some(TokenBody {
@@ -207,6 +238,54 @@ pub fn read(text: &str, cats: &SubtypeCatalogs) -> Option<TokenBody> {
         literal,
         modules: types.modules,
     })
+}
+
+/// The abilities a token script prints, read by the card transcoder.
+///
+/// `Some(vec![])` is a token with no rules line at all, `None` a refusal.
+///
+/// Three things are refused here that a *card* would be given, and each is
+/// a field a [`TokenDef`] does not have. A `static` above the definition —
+/// what a filter too long to inline becomes — has nowhere to go in a
+/// generated file two hundred tokens share, and two tokens would claim the
+/// name `TARGET1`. An `EnterModifier` is a card entering with counters on
+/// it, which the effect that *creates* a token says instead. And a
+/// `KeywordSet` produced by a rule rather than by a `K:` line would be a
+/// second writer of the field read above.
+///
+/// The transcoder is handed **no token lookup**, so a token whose ability
+/// creates another token refuses itself — `token_effect` already says "with
+/// no token scripts to read it against". That is a named refusal rather than
+/// a special case, and it is what makes recursion impossible: a script that
+/// made a copy of itself would otherwise read forever, and a definition
+/// naming `generated_tokens::` from inside `generated_tokens.rs` would have
+/// to be ordered as well as written.
+fn abilities(text: &str, cats: &SubtypeCatalogs) -> Option<Vec<String>> {
+    let mut script = crate::scriptgen::parse(text);
+    if script.rules.is_empty() && script.svars.is_empty() {
+        return Some(Vec::new());
+    }
+    // A head this module read is not a head the transcoder may read again,
+    // and a head neither of them knows has already refused the token above
+    // — except a malformed `SVar:` with no second colon, which only the
+    // parser sees.
+    if !script.unknown_lines.is_empty() {
+        return None;
+    }
+    script.keywords.clear();
+    let body = crate::scriptgen::transcode(&script, cats, None)?;
+    if !body.statics.is_empty() || !body.enter_modifiers.is_empty() || !body.keywords.is_empty() {
+        return None;
+    }
+    // The generated file opens the card DSL's prelude, which carries no
+    // `subtypes` module: a card names one by hand beside it. Nothing reaches
+    // here today — a filter naming a subtype is long enough to have become a
+    // `static` and been refused one line up — and this is the door being
+    // shut rather than a case being handled.
+    if body.abilities.iter().any(|a| a.contains("subtypes::")) {
+        return None;
+    }
+    Some(body.abilities)
 }
 
 /// A colour word list as a `ColorSet` expression plus the words themselves.
@@ -571,6 +650,75 @@ impl TokenLookup {
             Source::Held(held) => read(held.get(stem)?, cats),
         }
     }
+
+    /// The script a stem names, whichever half of the lookup holds it.
+    fn text(&self, stem: &str) -> Option<String> {
+        match &self.source {
+            Source::Dir(root) => std::fs::read_to_string(root.join(format!("{stem}.txt"))).ok(),
+            Source::Held(held) => held.get(stem).cloned(),
+        }
+    }
+
+    /// How far this reader gets over the whole corpus.
+    ///
+    /// Counted rather than remembered. Every one of these numbers used to
+    /// sit in a doc comment as "measured", which is a number that is right
+    /// on the day it is typed and silently wrong after the next rule — and
+    /// the naming collision in particular is a fact about the corpus that
+    /// only a count can keep honest.
+    #[must_use]
+    pub fn reach(&self, cats: &SubtypeCatalogs) -> TokenReach {
+        let mut out = TokenReach {
+            total: self.stems.len(),
+            ..TokenReach::default()
+        };
+        let mut names: std::collections::BTreeMap<String, std::collections::BTreeSet<String>> =
+            std::collections::BTreeMap::new();
+        for stem in &self.stems {
+            let Some(text) = self.text(stem) else {
+                continue;
+            };
+            let prints = text.lines().any(|line| {
+                line.split_once(':')
+                    .is_some_and(|(head, _)| TRANSCODED.contains(&head))
+            });
+            out.with_ability += usize::from(prints);
+            if let Some(body) = read(&text, cats) {
+                out.read += 1;
+                out.ability_read += usize::from(prints);
+                names.entry(body.constant).or_default().insert(body.literal);
+            }
+        }
+        out.names = names.len();
+        out.collisions = names
+            .iter()
+            .filter(|(_, defs)| defs.len() > 1)
+            .map(|(name, _)| name.clone())
+            .collect();
+        out
+    }
+}
+
+/// How far [`read`] reaches over a whole token corpus. See
+/// [`TokenLookup::reach`].
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
+pub struct TokenReach {
+    /// Token scripts in the corpus.
+    pub total: usize,
+    /// Of those, the ones read in full.
+    pub read: usize,
+    /// Scripts that print at least one rules line.
+    pub with_ability: usize,
+    /// Of those, the ones read in full.
+    pub ability_read: usize,
+    /// Distinct constant names over everything read.
+    pub names: usize,
+    /// Names two different definitions claim, which is two tokens at one id.
+    ///
+    /// Named rather than counted, because four is a number somebody can act
+    /// on and "four" is not: each of these is a pair the naming rule cannot
+    /// tell apart, and the fix for it is decided by looking at the pair.
+    pub collisions: Vec<String>,
 }
 
 #[cfg(test)]
@@ -722,6 +870,82 @@ mod tests {
         );
     }
 
+    /// A token's abilities are read by the transcoder that reads a card's,
+    /// and come out spelled the way a card spells them.
+    ///
+    /// Treasure is the case the pool actually waits on — 98 of the
+    /// reference's cards name `c_a_treasure_sac` — and it is also the one
+    /// that has to come out as a **mana ability**: CR 605.1 makes that the
+    /// exception, and a Treasure whose ability used the stack could not be
+    /// cracked to pay for the spell it is being cracked for. Nothing in the
+    /// engine's tests would read that as a rules bug.
+    ///
+    /// The Skeleton beside it is the other half of the same claim: an
+    /// ordinary activated ability stays ordinary.
+    #[test]
+    fn a_token_that_prints_an_ability_carries_it() {
+        let treasure = read(
+            "Name:Treasure Token\nManaCost:no cost\nTypes:Artifact Treasure\n\
+             A:AB$ Mana | Cost$ T Sac<1/CARDNAME/this token> | Produced$ Any | Amount$ 1",
+            &cats(),
+        )
+        .expect("the Treasure is read in full");
+        assert!(
+            treasure.literal.contains(
+                "abilities: &[mana_ability!(cost!(TapSelf, SacrificeSelf), \
+                 &[Effect::mana_of_any_color()])],"
+            ),
+            "{}",
+            treasure.literal
+        );
+
+        let food = read(
+            "Name:Food Token\nManaCost:no cost\nTypes:Artifact Treasure\n\
+             A:AB$ GainLife | Cost$ 2 T Sac<1/CARDNAME/this token> | LifeAmount$ 3",
+            &cats(),
+        )
+        .expect("the Food is read in full");
+        assert!(
+            food.literal.contains(
+                "abilities: &[activated!(cost!(\"{2}\", TapSelf, SacrificeSelf), \
+                 &[Effect::gain_life(3)])],"
+            ),
+            "{}",
+            food.literal
+        );
+    }
+
+    /// An ability is not part of the constant's name, and that is a hole
+    /// this reader may not fill on its own.
+    ///
+    /// The reference prints `b_1_1_skeleton` beside `b_1_1_skeleton_regenerate`
+    /// and `g_2_2_ooze` beside `g_2_2_ooze_mitotic` — 18 of its 832 naming
+    /// groups hold more than one behaviour — so two different definitions
+    /// come out under one name. In an append-only table that is two tokens
+    /// at one id, and one of them on the table wearing the other's picture.
+    ///
+    /// Naming a token after its abilities as well is *a* way out and is not
+    /// taken here on a guess: what the ledger does instead is refuse the
+    /// collision by name ([`crate::tokenledger::LedgerError::Collision`]),
+    /// so the day this pool reaches for both halves of such a pair it stops
+    /// the run and hands a person the example.
+    #[test]
+    fn two_tokens_that_differ_only_in_their_ability_share_a_name() {
+        let plain = read(
+            "Name:Soldier Token\nColors:white\nTypes:Creature Soldier\nPT:1/1",
+            &cats(),
+        )
+        .expect("read");
+        let drawing = read(
+            "Name:Soldier Token\nColors:white\nTypes:Creature Soldier\nPT:1/1\n\
+             A:AB$ Draw | Cost$ T | NumCards$ 1",
+            &cats(),
+        )
+        .expect("read");
+        assert_eq!(plain.constant, drawing.constant, "one name");
+        assert_ne!(plain.literal, drawing.literal, "two definitions");
+    }
+
     /// One unread line and the token is refused. Each of these is a real
     /// shape in the reference, and each would have produced a token that is
     /// wrong rather than missing.
@@ -731,11 +955,17 @@ mod tests {
             // Rules text, which this reader does not model at all.
             "Name:Horror Token\nColors:white\nTypes:Creature Soldier\nPT:1/1\n\
              Text:This creature is all colors.",
-            // An ability, in each of the four shapes the reference writes.
-            "Name:Soldier Token\nColors:white\nTypes:Creature Soldier\nPT:1/1\nA:AB$ Draw | Cost$ T",
+            // An ability the transcoder cannot write. Four shapes, and each
+            // is unread for its own reason: a trigger with no `Execute$`, a
+            // static naming no modifier, an `SVar` no rule reaches, and an
+            // ability that creates a token — which is refused because this
+            // reader hands the transcoder no token lookup, so the reference's
+            // Mitotic Ooze cannot read itself into existence.
             "Name:Soldier Token\nColors:white\nTypes:Creature Soldier\nPT:1/1\nT:Mode$ Attacks",
             "Name:Soldier Token\nColors:white\nTypes:Creature Soldier\nPT:1/1\nS:Mode$ Continuous",
             "Name:Soldier Token\nColors:white\nTypes:Creature Soldier\nPT:1/1\nSVar:X:Count$Valid",
+            "Name:Soldier Token\nColors:white\nTypes:Creature Soldier\nPT:2/2\n\
+             A:AB$ Token | Cost$ T | TokenScript$ w_1_1_soldier | TokenOwner$ You",
             // A second face.
             "Name:Soldier Token\nColors:white\nTypes:Creature Soldier\nPT:1/1\nAlternateMode:Double",
             // A computed size.

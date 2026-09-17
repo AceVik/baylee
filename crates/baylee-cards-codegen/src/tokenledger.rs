@@ -277,7 +277,7 @@ pub fn assign(
         if known.contains(&body.constant) {
             if let Some(entry) = out.iter().find(|e| e.constant == body.constant)
                 && let Body::Generated { literal, .. } = &entry.body
-                && *literal != body.literal
+                && !same_definition(literal, &body.literal)
             {
                 return Err(LedgerError::Collision(body.constant.clone()));
             }
@@ -285,7 +285,7 @@ pub fn assign(
         }
         if let Some(other) = generated
             .iter()
-            .find(|o| o.constant == body.constant && o.literal != body.literal)
+            .find(|o| o.constant == body.constant && !same_definition(&o.literal, &body.literal))
         {
             return Err(LedgerError::Collision(other.constant.clone()));
         }
@@ -302,6 +302,25 @@ pub fn assign(
     Ok(out)
 }
 
+/// Whether two `TokenDef` literals say the same thing.
+///
+/// Not `==`, for the reason [`parse`] gives about reading rustfmt's output:
+/// one side of this comparison came back out of the formatted file and the
+/// other was just built, so a definition long enough to be wrapped disagrees
+/// with itself. That is not a theory — the first token to carry an ability
+/// was `ELDRAZI_SPAWN_0_1`, whose `abilities: &[mana_ability!(…)]` rustfmt
+/// breaks over four lines, and the second `codegen` run refused it as two
+/// tokens at one name.
+///
+/// Whitespace is dropped rather than collapsed, and that is safe **only**
+/// because this answers a yes/no question: `name: "Eldrazi Spawn"` becomes
+/// `name:"EldraziSpawn"` on both sides alike, so two definitions agree
+/// exactly when they agreed before. Nothing here may be shown to anybody.
+fn same_definition(a: &str, b: &str) -> bool {
+    let bare = |s: &str| -> String { s.chars().filter(|c| !c.is_whitespace()).collect() };
+    bare(a) == bare(b)
+}
+
 /// Renders the ledger as `crates/baylee-cards/src/generated_tokens.rs`.
 ///
 /// [`parse`] reads exactly what this writes, and `codegen --check` is what
@@ -311,9 +330,16 @@ pub fn assign(
 pub fn render(entries: &[Entry]) -> String {
     let mut modules: BTreeSet<&str> = BTreeSet::new();
     let mut any_generated = false;
+    let mut any_ability = false;
     for entry in entries {
-        if let Body::Generated { modules: m, .. } = &entry.body {
+        if let Body::Generated {
+            modules: m,
+            literal,
+            ..
+        } = &entry.body
+        {
             any_generated = true;
+            any_ability |= literal.contains("abilities:");
             modules.extend(m.iter().map(String::as_str));
         }
     }
@@ -359,6 +385,16 @@ pub fn render(entries: &[Entry]) -> String {
     }
     if any_generated {
         out.push_str("use baylee_cards_dsl::KeywordSet;\n");
+        // An ability is written with the card DSL's macros, so a token that
+        // carries one needs what a card file opens with. Added beside the
+        // narrow imports rather than instead of them: an explicit `use`
+        // shadows a glob, so the two agree, and a ledger with no ability in
+        // it keeps exactly the imports it uses — which is what
+        // `a_ledger_of_hand_written_tokens_imports_nothing_it_does_not_use`
+        // is about.
+        if any_ability {
+            out.push_str("use baylee_cards_dsl::prelude::*;\n");
+        }
         out.push_str("use baylee_core::color::{Color, ColorSet};\n");
         if !modules.is_empty() {
             let list: Vec<&str> = modules.into_iter().collect();
@@ -561,6 +597,37 @@ mod tests {
             assign(Vec::new(), &[], &pair),
             Err(LedgerError::Collision("BIRD_1_1_WHITE".into()))
         );
+    }
+
+    /// And the same definition wrapped by the formatter is **not** two
+    /// tokens. One side of the comparison came back out of the written file
+    /// and the other was just built, so a literal long enough for rustfmt to
+    /// break disagreed with itself — which is what the first token to carry
+    /// an ability did on the second `codegen` run of the day it was written.
+    ///
+    /// Asserted beside the collision it must not become, because a
+    /// comparison loose enough to forgive a line break is one that could
+    /// forgive a difference, and only the pair says it does not.
+    #[test]
+    fn the_formatter_breaking_a_line_is_not_a_second_token() {
+        let written = "TokenDef {\n    name: \"Eldrazi Spawn\",\n    \
+                       abilities: &[mana_ability!(\n        cost!(SacrificeSelf),\n        \
+                       &[Effect::mana(ManaColor::Colorless, 1)]\n    )],\n}";
+        let built = "TokenDef {\n    name: \"Eldrazi Spawn\",\n    \
+                     abilities: &[mana_ability!(cost!(SacrificeSelf), \
+                     &[Effect::mana(ManaColor::Colorless, 1)])],\n}";
+        assert_ne!(written, built, "the two spellings really do differ");
+        let existing = vec![Entry {
+            constant: "ELDRAZI_SPAWN_0_1".into(),
+            body: Body::Generated {
+                doc: "0/1 colorless Eldrazi Spawn.".into(),
+                literal: written.into(),
+                modules: vec!["creature".into()],
+            },
+        }];
+        let again = [generated("ELDRAZI_SPAWN_0_1", built)];
+        let out = assign(existing, &[], &again).expect("one token, two spellings");
+        assert_eq!(out.len(), 1);
     }
 
     /// A hand-written token that has been deleted takes its id with it, and

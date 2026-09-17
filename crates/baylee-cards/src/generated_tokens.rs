@@ -30,6 +30,7 @@ pub use crate::tokens::{
 };
 use baylee_cards_dsl::KeywordSet;
 use baylee_cards_dsl::TokenDef;
+use baylee_cards_dsl::prelude::*;
 use baylee_core::color::{Color, ColorSet};
 use baylee_core::generated::subtypes::creature;
 use baylee_core::types::{SupertypeSet, TypeSet};
@@ -527,6 +528,56 @@ pub static HUMAN_CLERIC_1_1_WHITE_BLACK: TokenDef = TokenDef {
     ..TokenDef::DEFAULT
 };
 
+/// 0/1 colorless Eldrazi Spawn.
+pub static ELDRAZI_SPAWN_0_1: TokenDef = TokenDef {
+    name: "Eldrazi Spawn",
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::ELDRAZI, creature::SPAWN],
+    power: Some(0),
+    toughness: Some(1),
+    abilities: &[mana_ability!(
+        cost!(SacrificeSelf),
+        &[Effect::mana(ManaColor::Colorless, 1)]
+    )],
+    ..TokenDef::DEFAULT
+};
+
+/// 1/1 colorless Eldrazi Scion.
+pub static ELDRAZI_SCION_1_1: TokenDef = TokenDef {
+    name: "Eldrazi Scion",
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::ELDRAZI, creature::SCION],
+    power: Some(1),
+    toughness: Some(1),
+    abilities: &[mana_ability!(
+        cost!(SacrificeSelf),
+        &[Effect::mana(ManaColor::Colorless, 1)]
+    )],
+    ..TokenDef::DEFAULT
+};
+
+/// 2/2 green Bird.
+pub static BIRD_2_2_GREEN: TokenDef = TokenDef {
+    name: "Bird",
+    colors: ColorSet::from_slice(&[Color::Green]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::BIRD],
+    power: Some(2),
+    toughness: Some(2),
+    abilities: &[triggered!(
+        Trigger::EntersBattlefield(&Filter::YOUR_LAND),
+        &[Effect::PumpFilter {
+            filter: &Filter::This,
+            controlled_by: None,
+            power: Amount::Fixed(1),
+            toughness: Amount::Fixed(0),
+            keywords: KeywordSet::EMPTY,
+            duration: Duration::UntilEndOfTurn
+        }]
+    )],
+    ..TokenDef::DEFAULT
+};
+
 /// Every token there is, in the order ids were assigned.
 pub static ALL: &[&TokenDef] = &[
     &tokens::ALLY_1_1_WHITE,
@@ -587,6 +638,9 @@ pub static ALL: &[&TokenDef] = &[
     &ANGEL_WARRIOR_4_4_WHITE_FLYING,
     &ANGEL_WARRIOR_4_4_WHITE_FLYING_VIGILANCE,
     &HUMAN_CLERIC_1_1_WHITE_BLACK,
+    &ELDRAZI_SPAWN_0_1,
+    &ELDRAZI_SCION_1_1,
+    &BIRD_2_2_GREEN,
 ];
 
 /// The entries a reader wrote, as a subset of [`ALL`] — never a second
@@ -636,4 +690,7 @@ pub static GENERATED: &[&TokenDef] = &[
     &ANGEL_WARRIOR_4_4_WHITE_FLYING,
     &ANGEL_WARRIOR_4_4_WHITE_FLYING_VIGILANCE,
     &HUMAN_CLERIC_1_1_WHITE_BLACK,
+    &ELDRAZI_SPAWN_0_1,
+    &ELDRAZI_SCION_1_1,
+    &BIRD_2_2_GREEN,
 ];

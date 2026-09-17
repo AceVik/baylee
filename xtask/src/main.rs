@@ -3857,6 +3857,30 @@ fn transcode_report(
         "transcoder: {read} / {total} scripts read in full ({}%)",
         (read * 100).checked_div(total).unwrap_or(0)
     );
+    // The token half, which is the same reader's reach over a second corpus
+    // and was a number nobody could ask for. A token's abilities are read by
+    // the transcoder above, so the two move together — and the collision
+    // count is the one fact here that is about the *naming* rule rather than
+    // about the DSL, which is why it is printed even when it is nought.
+    if let Some(tokens) = &tokens {
+        let reach = tokens.reach(&cats);
+        println!(
+            "token scripts: {} / {} read in full, {} / {} of those that print a rules line; \
+             {} names, {} claimed by two definitions",
+            reach.read,
+            reach.total,
+            reach.ability_read,
+            reach.with_ability,
+            reach.names,
+            reach.collisions.len(),
+        );
+        if !reach.collisions.is_empty() {
+            println!(
+                "  two definitions at one name: {}",
+                reach.collisions.join(", ")
+            );
+        }
+    }
     if let Some((_, cards)) = &wanted {
         println!(
             "  over our own stubs: {} of {cards} have a reference script",

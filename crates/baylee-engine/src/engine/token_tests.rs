@@ -642,6 +642,12 @@ const TOKEN_LANDS: &[(&str, &str, usize, &str)] = &[
         1,
         "Saproling",
     ),
+    (
+        "49e43de3-460b-4562-aef6-da43bd56debc",
+        "Spawning Bed",
+        3,
+        "Eldrazi Scion",
+    ),
 ];
 
 /// Every one of them, pressed on a board that can pay for it.
@@ -931,6 +937,159 @@ fn a_changeling_token_is_the_sliver_sliver_hive_asks_for() {
         baylee_cards::tokens::token_id(def),
         u16::MAX,
         "and an id the client can key art on"
+    );
+}
+
+/// A token a *reader* wrote carries the ability it prints, and the engine
+/// offers it.
+///
+/// This is the whole of what changed: `TokenDef::abilities` has existed since
+/// Treasure, but only a person could fill it, so every generated token was a
+/// permanent that did nothing. Spawning Bed's three Eldrazi Scions each print
+/// "Sacrifice this token: Add {C}", and the test spends one of them — an
+/// ability that reaches the offer list, pays its own cost and leaves mana
+/// floating is an ability, where a definition compared against a literal only
+/// says a reader typed one.
+#[test]
+fn a_generated_token_can_be_sacrificed_for_the_mana_it_prints() {
+    let seat = PlayerId::new(0);
+    let spawning_bed = card_index("49e43de3-460b-4562-aef6-da43bd56debc");
+    let (mut engine, objects) = testkit::arena(spawning_bed).expect("a board for Spawning Bed");
+    let offers = testkit::presses(&offered(&engine), &objects);
+
+    // The land's own token ability, found by pressing each offer on a board
+    // of its own — which is what `every_land_that_prints_a_token_ability…`
+    // does and for the same reason: a land that makes tokens also taps.
+    let mut scions = Vec::new();
+    for (slot, deed) in offers {
+        let (mut probe, probe_objects) = testkit::arena(spawning_bed).expect("a board");
+        if probe.apply(seat, deed.action(probe_objects[slot])).is_err() {
+            continue;
+        }
+        if !matches!(
+            testkit::drive_to_rest(&mut probe, seat),
+            testkit::Rest::Reached
+        ) {
+            continue;
+        }
+        let made = tokens_on_battlefield(&probe);
+        if made.len() == 3 {
+            scions = made;
+            engine = probe;
+            break;
+        }
+    }
+    assert_eq!(scions.len(), 3, "Spawning Bed makes three Eldrazi Scions");
+
+    let scion = scions[0];
+    let abilities = abilities_offered_on(&engine, scion);
+    assert_eq!(
+        abilities.len(),
+        1,
+        "the Scion offers exactly its own sacrifice outlet, got {abilities:?}"
+    );
+    let index = *abilities.iter().next().expect("one ability");
+
+    let before = engine.state().players[0].mana_pool.total();
+    engine
+        .apply(
+            seat,
+            PlayerAction::ActivateAbility {
+                source: scion,
+                ability_index: index,
+            },
+        )
+        .expect("the engine offered it, so it takes it");
+    assert!(
+        engine.state().object(scion).is_none(),
+        "the Scion paid for its own ability with itself"
+    );
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        before + 1,
+        "and left one mana floating"
+    );
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(baylee_core::mana::ManaColor::Colorless),
+        1,
+        "colorless, which is what the token prints"
+    );
+    assert_eq!(
+        tokens_on_battlefield(&engine).len(),
+        2,
+        "and the other two are untouched"
+    );
+}
+
+/// The other card the `DB$ Token` batch's tokeniser fix finished, played.
+///
+/// It makes no token at all and is here because it is the second card the
+/// same run wrote: three printed sentences, three abilities, and the middle
+/// one is the reason it was refused before — `Cost$ T` is trivial, but the
+/// *search* below it costs `Sac<1/CARDNAME/this land>`, whose prose the cost
+/// tokeniser used to cut in half.
+///
+/// The search finds nothing, and that is asserted rather than worked
+/// around: this pool compiles no Dragon card at all (the only file naming
+/// `creature::DRAGON` is this one), so "put it into your hand" has nothing
+/// to put. What the ability still has to do is pay its own cost — and a land
+/// that sacrificed itself for a card it did not find is the whole of what a
+/// player would notice.
+#[test]
+fn maelstrom_of_the_spirit_dragon_taps_two_ways_and_hunts_a_dragon() {
+    let seat = PlayerId::new(0);
+    let card = card_index("49e9fba7-8465-4bbb-95db-73a7e149f494");
+    let (engine, objects) = testkit::arena(card).expect("a board for the Maelstrom");
+    let land = objects[0];
+    assert_eq!(
+        abilities_offered_on(&engine, land).len(),
+        3,
+        "three printed sentences, three abilities"
+    );
+
+    let mut outcomes = Vec::new();
+    for (slot, deed) in testkit::presses(&offered(&engine), &objects) {
+        let (mut probe, probe_objects) = testkit::arena(card).expect("a board");
+        if probe.apply(seat, deed.action(probe_objects[slot])).is_err() {
+            continue;
+        }
+        if !matches!(
+            testkit::drive_to_rest(&mut probe, seat),
+            testkit::Rest::Reached
+        ) {
+            continue;
+        }
+        let pool = &probe.state().players[0].mana_pool;
+        // The **zone** and not `state().object(…)`: a sacrificed *card* goes
+        // to a graveyard and is still an object there, where a sacrificed
+        // token ceases to exist and stops resolving. Asking the way the
+        // Scion above is asked reported a land that had sacrificed itself as
+        // still on the battlefield.
+        outcomes.push((
+            pool.available(baylee_core::mana::ManaColor::Colorless),
+            pool.restricted().len(),
+            !probe
+                .state()
+                .zones
+                .list(ZoneLocation::Battlefield)
+                .contains(&probe_objects[0]),
+        ));
+    }
+
+    let colorless = outcomes.iter().filter(|o| o.0 == 1 && o.1 == 0).count();
+    assert_eq!(colorless, 1, "one sentence adds {{C}}: {outcomes:?}");
+    let restricted = outcomes.iter().filter(|o| o.1 == 1).count();
+    assert_eq!(
+        restricted, 1,
+        "one adds a mana that may only be spent on a Dragon or an Omen: {outcomes:?}"
+    );
+    let sacrificed: Vec<_> = outcomes.iter().filter(|o| o.2).collect();
+    assert_eq!(
+        sacrificed.len(),
+        1,
+        "and one sacrifices the land: {outcomes:?}"
     );
 }
 

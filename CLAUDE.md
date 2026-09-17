@@ -633,9 +633,32 @@ the card stays an honest `Coverage::Unimplemented` stub. A generated
 backwards would be worse than generating nothing: the deckbuilder offers
 `Implemented` cards as playable.
 
+There is a **third** corpus behind the second, and one reader over both.
+`crates/baylee-cards-codegen/src/tokengen.rs` reads a reference *token*
+script into a `TokenDef` — a name, colours, a type line, a size, keyword bits
+— and hands its `A:`/`T:`/`S:`/`SVar:` lines to `scriptgen`, because
+`TokenDef::abilities` is the same `AbilityDef` slice a card face carries and
+the engine reads it the same way. A token that carries an ability is 190 of
+the reference's 852 scripts and, through the cards that name them, far more
+than that: `c_a_treasure_sac` alone is 98. What `tokengen` refuses rather
+than handles is a field `TokenDef` has no room for — a `static` filter, an
+`EnterModifier`, a keyword a rule produced — and a token whose ability makes
+a token, which it refuses by handing the transcoder **no** token lookup, so
+recursion is impossible without a depth counter.
+
+What the token's name leaves out is the abilities, and that is a **hole with
+a guard rather than a rule**. `SKELETON_1_1_BLACK` is both halves of
+`b_1_1_skeleton` / `b_1_1_skeleton_regenerate`, and a token's place in
+`generated_tokens::ALL` is the id a client keys its art off — so two
+definitions at one name is one of them wearing the other's picture.
+`transcode-report` counts and names them (four in the reference today) and
+`tokenledger::assign` refuses the pair, so the day this pool reaches for both
+halves of one it stops the run and hands a person the example. Naming a token
+after its abilities is *a* way out and is not taken on a guess.
+
 `cargo run -p xtask -- transcode-report` says how far the transcoder reaches
-and ranks what the refused scripts need next. The ceiling is **our** DSL, not
-the corpus's — extend the DSL and the transcoder converts the gain into
+over both corpora and ranks what the refused scripts need next. The ceiling
+is **our** DSL, not the corpus's — extend the DSL and the transcoder converts the gain into
 hundreds of cards at once, which is what `Pump` did: it was the top blocker at ~2300
 scripts, and `Effect::PumpTarget` moved the transcoder from 1886 to 2545
 scripts read in full.
@@ -683,7 +706,7 @@ in the reader and never in the card: one rule wrote hundreds of files, so
 patching the one in front of you leaves the rest broken and is reverted on the
 next run anyway. `cargo run -p xtask -- adopt --name "<card>"` is the way out
 — it strips the marker and hands the file over for good. `validate` reports
-the split (328 hand-owned, 461 machine-owned, 747 stubs), which is the number
+the split (328 hand-owned, 463 machine-owned, 745 stubs), which is the number
 to watch: a machine-owned card is a rule's output, and a rule is testable.
 The markers are named here and not quoted, and `stubgen::is_machine_owned` is
 the only thing that should ever ask: `cross-read`'s first draft retyped the
