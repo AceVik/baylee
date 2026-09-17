@@ -531,6 +531,16 @@ accident, and arithmetic borrows nothing.
   `hud/seatbar/attached.rs` owns their drawing; the smallest overview keeps
   the legacy `Mark` fallback. Historical shelf geometry below still controls
   card-lane reservations and fallback density, not desktop panel bounds.
+
+  Where the fallback starts is worth knowing rather than discovering at a
+  table. Photographed on a 1728×1052 window: **four** seats still get the
+  panels, rotated with their mats — a side seat's name and life read down its
+  outer edge and its twelve phase glyphs run along the top of its own mat.
+  **Eight** seats do not: every bar drops to `Mark`, which is a row of pips
+  and a priority stroke, so nobody's life total is on the screen at all. That
+  is the fallback behaving as designed and it is also the hole in it, and the
+  design says where the way out is — focusing a seat is what restores the
+  attached presentation to it.
 - Seats sit on a ring, local seat at the near edge, opponents clockwise **in
   turn order** — the player on your left acts after you. Allies share a side
   and face the same way; everybody else has a side to themselves.
