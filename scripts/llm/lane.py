@@ -33,6 +33,8 @@ import pathlib
 import sqlite3
 import subprocess
 import time
+import urllib.error
+import urllib.request
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 
@@ -136,11 +138,19 @@ def pack(files: list[str], examples: list[str] = (), heading: str = "") -> str:
     return "".join(parts)
 
 
+DEEPSEEK_URL = "https://api.deepseek.com/anthropic/v1/messages?beta=true"
+
+
 def ask_deepseek(prefix: str, rules: str, body_text: str, max_tokens: int) -> str:
     """One question, with `prefix` marked cacheable.
 
-    `curl` rather than a client library so the lane has no dependency to
-    install: this has to run on whatever machine the batch is started from.
+    `urllib` from the standard library rather than a client library, so the
+    lane has nothing to install and runs on whatever machine the batch is
+    started from — and rather than `curl`, which is how this was first
+    written and which is wrong for one specific reason: a header passed as
+    `-H "x-api-key: …"` is an **argument**, and arguments are world-readable
+    on this machine. Any local process can run `ps` for the length of the
+    request. In-process there is no argument vector to read.
     """
     request = {
         "model": DEEPSEEK_MODEL,
@@ -153,21 +163,24 @@ def ask_deepseek(prefix: str, rules: str, body_text: str, max_tokens: int) -> st
             {"role": "user", "content": f"{rules}\n\n```rust\n{body_text}\n```"}
         ],
     }
-    out = subprocess.run(
-        [
-            "curl", "-sS", "--max-time", "900",
-            "https://api.deepseek.com/anthropic/v1/messages?beta=true",
-            "-H", f"x-api-key: {deepseek_key()}",
-            "-H", "anthropic-version: 2023-06-01",
-            "-H", "content-type: application/json",
-            "--data-binary", "@-",
-        ],
-        input=json.dumps(request),
-        capture_output=True,
-        text=True,
-        check=False,
-    ).stdout
-    answer = json.loads(out)
+    req = urllib.request.Request(
+        DEEPSEEK_URL,
+        data=json.dumps(request).encode("utf-8"),
+        headers={
+            "x-api-key": deepseek_key(),
+            "anthropic-version": "2023-06-01",
+            "content-type": "application/json",
+        },
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=900) as resp:
+            answer = json.loads(resp.read().decode("utf-8"))
+    except urllib.error.HTTPError as exc:
+        # The API puts its reason in the body of a 4xx, and the body is the
+        # thing worth reporting — `HTTP Error 400: Bad Request` names
+        # nothing. Truncated, because it is going into a one-line report.
+        raise RuntimeError(f"HTTP {exc.code}: {exc.read().decode('utf-8', 'replace')[:200]}") from exc
     if "error" in answer:
         raise RuntimeError(json.dumps(answer["error"])[:200])
     return "".join(b.get("text", "") for b in answer["content"] if b["type"] == "text")
@@ -205,17 +218,41 @@ def transcript(db: pathlib.Path):
 def run_gemini(prompt: str, minutes: int):
     """One `agy` session, and what it cost.
 
+    **This runs an agent with its permission prompts turned off**, in the
+    repository root, unattended. That is a deliberate choice and not an
+    oversight: the session's whole job is to write thirty card files over
+    ten minutes with nobody watching, and an agent that stops on the first
+    write is not a batch lane. It is worth being clear about what it buys
+    and what it costs.
+
+    What bounds it is not the agent, so it has to be the caller:
+
+    - **Start from a clean tree.** Both card lanes print what git says they
+      touched afterwards, because the session's own summary is a claim and
+      a file it reported and never saved reads identically.
+    - **The prompt is ours**, assembled here from a contract in `prompts/`
+      and a worklist of repo-relative paths. The session then reads card
+      files, which carry oracle text fetched from Scryfall — so a batch is
+      not a place to point at arbitrary content, and a worklist is written
+      by hand rather than taken from anywhere.
+    - **Never while something else is writing cards**, and never beside
+      `xtask codegen`, which rewrites every file carrying the stub marker.
+
+    Set `BAYLEE_LLM_AGY_PERMISSIONS=ask` to drop the flag and answer the
+    prompts yourself — right for trying a new contract on two cards,
+    useless for a batch of thirty.
+
     Returns `(completed_process, seconds, steps, bytes_sent)`, with the last
     two `None` when no new transcript appeared — a session that left none is
     a session that never started, and saying so beats reporting a zero.
     """
+    argv = ["agy", "-p", prompt, "--model", GEMINI_MODEL, "--print-timeout", f"{minutes}m"]
+    if os.environ.get("BAYLEE_LLM_AGY_PERMISSIONS") != "ask":
+        argv.append("--dangerously-skip-permissions")
     before = {p.name for p in GEMINI_CONVERSATIONS.glob("*.db")}
     started = time.time()
     proc = subprocess.run(
-        [
-            "agy", "-p", prompt, "--model", GEMINI_MODEL,
-            "--print-timeout", f"{minutes}m", "--dangerously-skip-permissions",
-        ],
+        argv,
         cwd=ROOT,
         capture_output=True,
         text=True,

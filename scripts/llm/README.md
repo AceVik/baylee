@@ -87,6 +87,30 @@ The DeepSeek key comes from `DEEPSEEK_API_KEY`, or from
 `~/.local/share/opencode/auth.json` under `deepseek.key`. It is read into a
 variable and never printed.
 
+## What these scripts are allowed to do
+
+Worth reading once, because two of the four are not ordinary scripts.
+
+**`cards_gemini.py` and `tests_gemini.py` run an agent with its permission
+prompts turned off**, in the repository root, unattended
+(`--dangerously-skip-permissions`). That is deliberate — a session whose job
+is thirty card files over ten minutes cannot stop at the first write — and
+it means nothing inside the run bounds what the agent touches. What bounds
+it is the caller: start from a clean tree, and read the `N von M Dateien
+angefasst` line the lane prints, which asks *git* rather than the model.
+`BAYLEE_LLM_AGY_PERMISSIONS=ask` drops the flag when you want to watch a new
+contract on two cards.
+
+The prompt is assembled here, from a contract in `prompts/` and a worklist
+of repo-relative paths — so write the worklist by hand. The session then
+reads card files, whose oracle text came from Scryfall; that is ordinary,
+but it is the reason a batch is not a place to point at arbitrary content.
+
+**The DeepSeek lanes send one HTTPS request per card and write files.** The
+key goes in a header through `urllib`, never into a process argument, which
+is what a `curl` call would have done — arguments are world-readable on this
+machine for as long as the request lasts.
+
 ## Three rules the coordinator keeps
 
 1. **No lane runs cargo.** The build belongs to the coordinator; a model
