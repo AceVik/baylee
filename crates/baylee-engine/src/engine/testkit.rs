@@ -224,13 +224,19 @@ pub fn pass_until(
             } => {
                 engine.apply(player, PlayerAction::YesNo(true)).unwrap();
             }
-            // The untap step's determination, answered by untapping —
-            // the same reading as `answer_one`, and for the same reason. A
-            // test whose subject is that question answers it itself and
-            // never gets here.
+            // The untap step's determination, and a surveil, answered by
+            // taking the option that moves nothing — the same reading as
+            // `answer_one`, and for the same reason. A test whose subject is
+            // either question answers it itself and never gets here.
+            //
+            // For the surveil that is "keep everything on top", which is the
+            // answer that leaves the library exactly as a test that walked
+            // past a surveil land expected to find it.
             Pending::ChooseCards {
                 player,
-                prompt: crate::choice::ChoicePrompt::LeaveTapped,
+                prompt:
+                    crate::choice::ChoicePrompt::LeaveTapped
+                    | crate::choice::ChoicePrompt::SurveilGraveyard,
                 ..
             } => {
                 engine

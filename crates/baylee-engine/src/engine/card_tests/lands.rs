@@ -3,6 +3,7 @@
 
 #[allow(clippy::wildcard_imports)] // this module's own vocabulary
 use super::*;
+use crate::choice::ChoicePrompt;
 use baylee_cards_dsl::counters;
 
 /// Abraded Bluffs: "When this land enters, it deals 1 damage to target
@@ -1531,7 +1532,7 @@ fn the_tower_eats_one_creature_and_the_shared_tap_closes_both_lines() {
     assert_eq!((min, max), (1, 1), "one creature, no more and no fewer");
     assert_eq!(
         prompt,
-        crate::choice::ChoicePrompt::CostSacrifice,
+        ChoicePrompt::CostSacrifice,
         "a cost is not a search (CR 115.1), and the prompt is the only thing \
          that says so to a client"
     );
@@ -1757,7 +1758,7 @@ fn a_convoke_land_taps_a_creature_of_yours_for_a_colour_of_your_choosing() {
         };
         assert_eq!(
             prompt,
-            crate::choice::ChoicePrompt::CostTap,
+            ChoicePrompt::CostTap,
             "land {land_index}: a tap, and not a sacrifice"
         );
         assert_eq!((min, max), (1, 1), "land {land_index}: one creature");
@@ -3350,7 +3351,7 @@ fn walk_to_the_untap_question(engine: &mut Engine<RegistryLookup>) -> (PlayerId,
         if let Pending::ChooseCards {
             player,
             options,
-            prompt: crate::choice::ChoicePrompt::LeaveTapped,
+            prompt: ChoicePrompt::LeaveTapped,
             ..
         } = engine.pending().clone()
         {
@@ -4387,7 +4388,7 @@ fn inventors_fair_gates_its_lifegain_and_its_tutor_on_three_artifacts() {
     assert_eq!(player, p0, "the seat that paid is the seat that searches");
     assert_eq!(
         prompt,
-        crate::choice::ChoicePrompt::SearchLibrary,
+        ChoicePrompt::SearchLibrary,
         "a search of the library, not a cost being paid",
     );
     assert!(
@@ -4535,20 +4536,54 @@ fn otawara_channels_from_hand_to_bounce_a_creature_and_discards_itself() {
     );
 }
 
+/// Walks to the surveil question and reads what it offers.
+///
+/// Four tests ask it, which is why it is a helper: "When this land enters,
+/// surveil 1" is an ordinary trigger, so it uses the stack and every one of
+/// them has to pass priority to it first — and a walk written four times is
+/// a walk that drifts.
+#[track_caller]
+fn surveil_offer(engine: &mut Engine<RegistryLookup>, seat: PlayerId) -> (Vec<ObjectId>, u8, u8) {
+    pass_until(engine, |e| {
+        matches!(
+            e.pending(),
+            Pending::ChooseCards {
+                prompt: ChoicePrompt::SurveilGraveyard,
+                ..
+            }
+        )
+    });
+    let Pending::ChooseCards {
+        player,
+        options,
+        min,
+        max,
+        ..
+    } = engine.pending().clone()
+    else {
+        unreachable!("the walk above stops on nothing else");
+    };
+    assert_eq!(player, seat, "the seat that surveils is the seat asked");
+    (options, min, max)
+}
+
 fn raucous_theater() -> CardIndex {
     card_index("04e5e84f-8fd4-43ab-8f9d-5b24646f7ae5")
 }
 
-/// Raucous Theater prints `Land — Swamp Mountain`, "This land enters tapped"
-/// and "{T}: Add {B} or {R}"; the file's `Coverage::Partial` note drops the
-/// enters-surveil clause, so what is tested here is the tapped entry and the
-/// colour question. The land is *played*, not seated: a `starting_battlefield`
-/// permanent is a placement with no entry for a replacement effect to look at,
-/// so a board built that way arrives untapped whatever the card says. The
-/// following untap step is the other half — this is a tapped entry, not a
-/// permanent held down (CR 502.3) — and the dropped clause is asserted as the
-/// question that never came: no card choice followed the entry and the top of
-/// the library is where it was, which a surveil 1 would have looked at.
+/// Raucous Theater prints `Land — Swamp Mountain`, "This land enters tapped",
+/// "{T}: Add {B} or {R}" and "When this land enters, surveil 1" — and all
+/// three are read here. The land is *played*, not seated: a
+/// `starting_battlefield` permanent is a placement with no entry for a
+/// replacement effect to look at, so a board built that way arrives untapped
+/// whatever the card says. The following untap step is the other half — this
+/// is a tapped entry, not a permanent held down (CR 502.3).
+///
+/// This is the *binning* direction of CR 701.25a: the one card the surveil
+/// looked at is put into the graveyard, and both zones are counted, because
+/// "look at the top card" and "put it in the graveyard" are different halves
+/// and a surveil that quietly did neither would pass a test that only counted
+/// the library. Thundering Falls below is the keeping direction.
 #[test]
 fn raucous_theater_enters_tapped_and_taps_for_black_or_red() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
@@ -4572,29 +4607,38 @@ fn raucous_theater_enters_tapped_and_taps_for_black_or_red() {
         is_tapped(&engine, land),
         "\"This land enters tapped\", read off a real land drop"
     );
-    assert!(
-        matches!(engine.pending(), Pending::Priority { player, .. } if *player == p0),
-        "the dropped paragraph asks nothing on the way in, got {:?}",
-        engine.pending()
+
+    // "When this land enters, surveil 1."
+    let (options, min, max) = surveil_offer(&mut engine, p0);
+    assert_eq!(
+        options,
+        vec![top_before],
+        "surveil 1 looks at exactly the top card of its own library"
     );
+    assert_eq!(
+        (min, max),
+        (0, 1),
+        "any number of them, which here is 0 or 1"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![top_before],
+            },
+        )
+        .expect("the card it just looked at");
+
     assert_eq!(
         library_size(&engine, p0),
-        library_before,
-        "surveil 1 looks at the top card and draws nothing"
+        library_before - 1,
+        "the card it binned left the library"
     );
     assert_eq!(
-        engine
-            .state()
-            .zones
-            .list(ZoneLocation::Library(p0))
-            .last()
-            .copied(),
+        in_graveyard(&engine, p0, forest()),
         Some(top_before),
-        "and with no surveil the card it would have looked at is still there"
-    );
-    assert!(
-        in_graveyard(&engine, p0, forest()).is_none(),
-        "no Forest of the filler library was put into a graveyard"
+        "and it is in the graveyard, which is where a surveil differs from a \
+         scry"
     );
 
     // One turn cycle: an entry that taps is not a permanent that never untaps.
@@ -4735,14 +4779,17 @@ fn thundering_falls() -> CardIndex {
 /// The land is *played* rather than seeded, because a permanent placed with
 /// `starting_battlefield` is a `Cause::Setup` placement that no entry
 /// replacement effect ever looks at — so only a real land drop can show the
-/// printed tapped entry, and answering nothing on the way in is where the
-/// file's `Coverage::Partial` gap shows itself: a surveil would have to
-/// arrive as a `ChooseCards` question, and the library is the length it was.
-/// The next turn then reads two things at once — the untap step stands the
-/// land back up, so the tapped status belonged to the entry and not to the
-/// card, and the printed `{T}` ability offers exactly blue and red, which is
-/// the choice the card has to print for itself because two basic land types
-/// cannot express "or".
+/// printed tapped entry. The next turn then reads two things at once — the
+/// untap step stands the land back up, so the tapped status belonged to the
+/// entry and not to the card, and the printed `{T}` ability offers exactly
+/// blue and red, which is the choice the card has to print for itself because
+/// two basic land types cannot express "or".
+///
+/// The surveil is the **keeping** direction here, which is the half that is
+/// easy to get wrong and impossible to see: answering "none of them" has to
+/// leave the card exactly where it was. A surveil that binned on an empty
+/// answer, or that dropped the card out of the library into nothing, would
+/// look identical from the battlefield. Raucous Theater above bins.
 #[test]
 fn thundering_falls_enters_tapped_then_taps_for_blue_or_red() {
     let p0 = PlayerId::new(0);
@@ -4755,23 +4802,42 @@ fn thundering_falls_enters_tapped_then_taps_for_blue_or_red() {
     reach_main_phase(&mut engine, p0);
 
     let library_before = library_size(&engine, p0);
+    let top_before = engine
+        .state()
+        .zones
+        .list(ZoneLocation::Library(p0))
+        .last()
+        .copied()
+        .expect("p0 has a library");
     let falls = play_land(&mut engine, p0, thundering_falls());
     assert!(
         entered_tapped(&engine, falls),
         "\"This land enters tapped\" — and it was played, so the entry \
          modifier is the only thing that could have tapped it"
     );
-    assert!(
-        at_rest(&engine, p0),
-        "the entry asked nothing: the dropped surveil 1 arrives as a card \
-         question and there was none, got {:?}",
-        engine.pending()
-    );
+
+    let _ = surveil_offer(&mut engine, p0);
+    engine
+        .apply(p0, PlayerAction::ChooseObjects { objects: vec![] })
+        .expect("keeping everything is an answer (CR 701.25a: \"any number\")");
     assert_eq!(
         library_size(&engine, p0),
         library_before,
-        "and nothing moved a card: the `Coverage::Partial` gap is a silence, \
-         not a scry to the bottom or a mill"
+        "nothing was put into a graveyard, so nothing left the library"
+    );
+    assert_eq!(
+        engine
+            .state()
+            .zones
+            .list(ZoneLocation::Library(p0))
+            .last()
+            .copied(),
+        Some(top_before),
+        "and the card that was looked at is still the top one"
+    );
+    assert!(
+        in_graveyard(&engine, p0, forest()).is_none(),
+        "no Forest of the filler library reached a graveyard"
     );
 
     // A whole turn cycle, so CR 502.3's untap step is what stands the land
@@ -4832,9 +4898,10 @@ fn undercity_sewers() -> CardIndex {
 }
 
 /// Undercity Sewers is a Land — Island Swamp whose printed sentences are
-/// "This land enters tapped" and "{T}: Add {U} or {B}"; the enters-surveil
-/// is the `Coverage::Partial` gap, because no effect can look at the top
-/// card and then either keep it or bin it. The land is *played* rather than
+/// "This land enters tapped", "{T}: Add {U} or {B}" and an enters-surveil.
+/// The surveil is the subject of the two tests above and is merely walked
+/// past here — `pass_until` keeps everything, which is why this test may
+/// count a library at all. The land is *played* rather than
 /// seeded onto the battlefield, which is the only way the tapped entry is a
 /// rule at all: `starting_battlefield` places a permanent with
 /// `Cause::Setup`, and no replacement effect looks at a placement. The turn
@@ -5477,4 +5544,324 @@ fn a_reflecting_pool_sees_the_colour_a_neighbour_was_told_to_make() {
         1,
         "and nothing else: the Haven makes one thing"
     );
+}
+
+/// Every land in the pool whose *entry* surveils, minus the three with tests
+/// of their own above.
+///
+/// The Murders at Karlov Manor duals and the three Deserts that follow them
+/// print one sentence between them — "When this land enters, surveil 1" —
+/// and a table is what says so. The `bin` column walks both answers down the
+/// list, because "put it in the graveyard" and "leave it on top" are the two
+/// halves of CR 701.25a and a surveil that ignored the answer would satisfy
+/// either one alone.
+const ENTRY_SURVEIL_LANDS: [(&str, &str, bool); 10] = [
+    (
+        "b33656ae-3473-4223-845f-f9147f87678b",
+        "Commercial District",
+        true,
+    ),
+    (
+        "9ea747cf-5d04-4aa7-bdc3-8145860cd1ba",
+        "Elegant Parlor",
+        false,
+    ),
+    ("ca4b6689-04ee-4227-9bdc-cb5a9590c745", "Hedge Maze", true),
+    (
+        "d51831b1-7394-456e-a1de-6787a59f5932",
+        "Lush Portico",
+        false,
+    ),
+    (
+        "ccfb8b4d-651c-418a-aa19-cb23105b3f2f",
+        "Meticulous Archive",
+        true,
+    ),
+    (
+        "216a2a92-9ca3-4ca3-8af7-686c13b04290",
+        "Shadowy Backstreet",
+        false,
+    ),
+    (
+        "840119bf-e60f-4ff7-9c9b-d420d09df545",
+        "Underground Mortuary",
+        true,
+    ),
+    (
+        "37f924e1-7c25-4f06-88bb-054693a21e5a",
+        "Conduit Pylons",
+        false,
+    ),
+    (
+        "382d18a2-438e-4ae7-a83f-1658ef1f9b07",
+        "Hidden Grotto",
+        true,
+    ),
+    (
+        "a3648376-dc8b-409b-b2d1-c29e326a059c",
+        "Surveillance Room",
+        false,
+    ),
+];
+
+/// "When this land enters, surveil 1."
+///
+/// The trigger is an ordinary one — it uses the stack, so the question
+/// arrives as it resolves rather than on the way in, which is what tells it
+/// apart from the `EnterModifier` clauses the same cards print.
+#[test]
+fn a_land_that_surveils_as_it_enters_looks_at_exactly_one_card() {
+    let p0 = PlayerId::new(0);
+    for (seed, (oracle, name, bin)) in ENTRY_SURVEIL_LANDS.iter().enumerate() {
+        let land = card_index(oracle);
+        let seed = 740 + u64::try_from(seed).expect("ten rows");
+        let mut engine = Duel::new(seed, forest()).hand(0, &[land]).start();
+        keep_mulligans(&mut engine);
+        reach_main_phase(&mut engine, p0);
+
+        let library_before = library_size(&engine, p0);
+        let top_before = engine
+            .state()
+            .zones
+            .list(ZoneLocation::Library(p0))
+            .last()
+            .copied()
+            .expect("p0 has a library");
+        play_land(&mut engine, p0, land);
+
+        let (options, min, max) = surveil_offer(&mut engine, p0);
+        assert_eq!(
+            options,
+            vec![top_before],
+            "{name}: surveil 1 looks at exactly the top card"
+        );
+        assert_eq!((min, max), (0, 1), "{name}: any number of the one it saw");
+
+        let answer = if *bin { vec![top_before] } else { Vec::new() };
+        engine
+            .apply(p0, PlayerAction::ChooseObjects { objects: answer })
+            .expect("both answers are legal");
+        if *bin {
+            assert_eq!(
+                library_size(&engine, p0),
+                library_before - 1,
+                "{name}: the card it binned left the library"
+            );
+            assert_eq!(
+                in_graveyard(&engine, p0, forest()),
+                Some(top_before),
+                "{name}: and reached the graveyard, which is the whole \
+                 difference from a scry"
+            );
+        } else {
+            assert_eq!(
+                library_size(&engine, p0),
+                library_before,
+                "{name}: keeping it moved nothing"
+            );
+            assert_eq!(
+                engine
+                    .state()
+                    .zones
+                    .list(ZoneLocation::Library(p0))
+                    .last()
+                    .copied(),
+                Some(top_before),
+                "{name}: and left it where it was, on top"
+            );
+        }
+    }
+}
+
+/// Every land in the pool that surveils for a **cost**, with the number it
+/// looks at and the basics that pay for it — one land per mana of the
+/// printed cost, and the colours it names.
+///
+/// The fixture *is* the assertion about the cost. A transcoded `{2}{R}{W}`
+/// that came out `{5}` or `{2}{G}{U}` would not be offered over this board
+/// at all, and one that came out `{3}` would leave a mana floating, which
+/// the test counts. None of that is visible over a board of twenty basics,
+/// which is what this table replaced.
+const COST_SURVEIL_LANDS: [(&str, &str, u8, &[ManaColor]); 12] = [
+    (
+        "a32e08fa-bea4-4ba9-a126-9bf0a91f67e2",
+        "Fields of Strife",
+        1,
+        &[
+            ManaColor::Red,
+            ManaColor::White,
+            ManaColor::Red,
+            ManaColor::White,
+        ],
+    ),
+    (
+        "349ea6c7-6b3e-417f-b082-b712e2b1635b",
+        "Forum of Amity",
+        1,
+        &[
+            ManaColor::White,
+            ManaColor::Black,
+            ManaColor::White,
+            ManaColor::Black,
+        ],
+    ),
+    (
+        "4eb428ab-f5b0-46ca-98dd-b3466a91ef97",
+        "Kishla Village",
+        2,
+        &[ManaColor::Green; 4],
+    ),
+    (
+        "676141c3-a433-4aba-86fb-729628f96dfa",
+        "Ominous Asylum",
+        1,
+        &[ManaColor::Green; 4],
+    ),
+    (
+        "638ff242-63d5-457d-a7a6-40ad51052e2e",
+        "Paradox Gardens",
+        1,
+        &[
+            ManaColor::Green,
+            ManaColor::Blue,
+            ManaColor::Green,
+            ManaColor::Blue,
+        ],
+    ),
+    (
+        "1af15c1d-a41c-44cc-9614-d72694dd26e8",
+        "Savage Mansion",
+        1,
+        &[ManaColor::Green; 4],
+    ),
+    (
+        "80f08b47-a237-4efd-8d86-dfe35a816b0e",
+        "Sinister Hideout",
+        1,
+        &[ManaColor::Green; 4],
+    ),
+    (
+        "33a4e73d-d93a-4b6f-88ff-cd53f20d178c",
+        "Spectacle Summit",
+        1,
+        &[
+            ManaColor::Blue,
+            ManaColor::Red,
+            ManaColor::Blue,
+            ManaColor::Red,
+        ],
+    ),
+    (
+        "6ef30340-a26d-49aa-bc86-0b8aa5252f87",
+        "Suburban Sanctuary",
+        1,
+        &[ManaColor::Green; 4],
+    ),
+    (
+        "595f0eb5-f521-4174-9c48-b89e85ea907c",
+        "Titan's Grave",
+        1,
+        &[
+            ManaColor::Black,
+            ManaColor::Green,
+            ManaColor::Black,
+            ManaColor::Green,
+        ],
+    ),
+    (
+        "a91f93fd-e428-4a36-b1b3-604b47a34287",
+        "Tocasia's Dig Site",
+        1,
+        &[ManaColor::Green; 3],
+    ),
+    (
+        "98e547de-b963-4ee4-9a08-67bae010734b",
+        "University Campus",
+        1,
+        &[ManaColor::Green; 4],
+    ),
+];
+
+/// The basic land that taps for one colour.
+fn basic_of(color: ManaColor) -> CardIndex {
+    let slot = match color {
+        ManaColor::White => 0,
+        ManaColor::Blue => 1,
+        ManaColor::Black => 2,
+        ManaColor::Red => 3,
+        ManaColor::Green => 4,
+        ManaColor::Colorless => unreachable!("no basic taps for colorless"),
+    };
+    baylee_cards::decks::basic_lands()[slot].expect("the pool has all five basics")
+}
+
+/// "{2}{R}{W}, {T}: Surveil 1." — the same effect reached through an
+/// activated ability, which is a different path: it goes on the stack, its
+/// `{T}` is part of the cost rather than the land's own mana tap, and the
+/// question only arrives once it resolves.
+///
+/// The board is the land plus exactly the basics its cost names, and every
+/// one of them is tapped before the ability is pressed — so the cost is
+/// bounded from both sides: too expensive and the ability is never offered,
+/// too cheap and a mana is left floating. Kishla Village is the row that
+/// makes the amount worth carrying: it is the pool's only surveil 2, and a
+/// reader that had defaulted to 1 would pass every other row.
+#[test]
+fn a_land_that_surveils_for_a_cost_looks_at_the_number_it_prints() {
+    let p0 = PlayerId::new(0);
+    for (seed, (oracle, name, amount, pays)) in COST_SURVEIL_LANDS.iter().enumerate() {
+        let land = card_index(oracle);
+        let seed = 760 + u64::try_from(seed).expect("twelve rows");
+        let mut field = vec![land];
+        field.extend(pays.iter().copied().map(basic_of));
+        let mut engine = Duel::new(seed, forest()).battlefield(0, &field).start();
+        keep_mulligans(&mut engine);
+        reach_main_phase(&mut engine, p0);
+
+        let object = on_battlefield(&engine, p0, land).expect("the land was seated");
+        let library_before = library_size(&engine, p0);
+        let graves_before = engine.state().zones.list(ZoneLocation::Graveyard(p0)).len();
+        // Everything but the land itself: its own `{T}` belongs to the cost
+        // of the ability under test, not to paying for it.
+        tap_mana_except(&mut engine, p0, object);
+        // Ability 0 is the printed mana tap; ability 1 is the surveil.
+        activate(&mut engine, p0, land, 1);
+
+        let (options, _, max) = surveil_offer(&mut engine, p0);
+        assert_eq!(
+            options.len(),
+            *amount as usize,
+            "{name}: surveil {amount} looks at {amount} card(s)"
+        );
+        assert_eq!(max, *amount, "{name}: and may bin all of them");
+        assert!(
+            is_tapped(&engine, object),
+            "{name}: the {{T}} in the cost was paid by this land"
+        );
+        assert_eq!(
+            engine.state().players[0].mana_pool.total(),
+            0,
+            "{name}: the cost spent every mana the board could make, so it is \
+             the cost the card prints and not a cheaper one"
+        );
+
+        engine
+            .apply(
+                p0,
+                PlayerAction::ChooseObjects {
+                    objects: options.clone(),
+                },
+            )
+            .expect("binning everything it looked at");
+        assert_eq!(
+            library_size(&engine, p0),
+            library_before - *amount as usize,
+            "{name}: the cards it binned left the library"
+        );
+        assert_eq!(
+            engine.state().zones.list(ZoneLocation::Graveyard(p0)).len(),
+            graves_before + *amount as usize,
+            "{name}: and arrived in the graveyard, all of them"
+        );
+    }
 }

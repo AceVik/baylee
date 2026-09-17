@@ -767,6 +767,22 @@ pub enum Effect {
         /// How many.
         amount: Amount,
     },
+    /// Surveil N (CR 701.25a).
+    ///
+    /// Its own variant rather than a flag on [`Self::Scry`], because the two
+    /// differ in where the cards a player does *not* keep end up — and a
+    /// graveyard is a public zone somebody else's card reads. Delirium,
+    /// threshold, escape and every "whenever a creature card is put into a
+    /// graveyard" trigger can see a surveil and can never see a scry.
+    ///
+    /// No `SurveilFor`: every one of the reference corpus's 228 surveil
+    /// lines is the controller's own library, and a card that made somebody
+    /// else surveil would be putting cards into *their* graveyard, which is
+    /// a different sentence rather than a parameter.
+    Surveil {
+        /// How many.
+        amount: Amount,
+    },
     /// A relative player scries N (Jace's +2).
     ScryFor {
         /// Who.
@@ -1173,6 +1189,14 @@ impl Effect {
         }
     }
 
+    /// "Surveil 1."
+    #[must_use]
+    pub const fn surveil(cards: u32) -> Self {
+        Self::Surveil {
+            amount: Amount::Fixed(cards),
+        }
+    }
+
     /// "You gain 3 life."
     #[must_use]
     pub const fn gain_life(life: u32) -> Self {
@@ -1406,6 +1430,12 @@ mod verb_tests {
             Effect::scry(2),
             Effect::Scry {
                 amount: Amount::Fixed(2)
+            }
+        );
+        assert_eq!(
+            Effect::surveil(1),
+            Effect::Surveil {
+                amount: Amount::Fixed(1)
             }
         );
         assert_eq!(

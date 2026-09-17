@@ -171,7 +171,14 @@ fn harmless(effect: &Effect) -> bool {
     match effect {
         Effect::Sequence(inner) => inner.iter().all(harmless),
         Effect::MayDo { effects } => effects.iter().all(harmless),
-        Effect::PutSourceOnTopOfLibrary => true,
+        // A surveil is the second of these, and it is the split these two
+        // functions exist for. This agent answers a surveil by keeping
+        // everything — it cannot read a card well enough to decide one is
+        // worth binning — so a surveil never costs it anything and never
+        // wins it anything either. Calling it a gain would have it paying
+        // `{2}{U}` for a no-op; leaving it out of *both* would have it
+        // declining a draw that happened to surveil alongside.
+        Effect::PutSourceOnTopOfLibrary | Effect::Surveil { .. } => true,
         e => gains(e),
     }
 }
@@ -404,6 +411,18 @@ mod tests {
             amount: Amount::Fixed(1),
             target: baylee_cards_dsl::PlayerRel::You,
         }));
+    }
+
+    /// A surveil is harmless and is not a gain, and the pair is the point.
+    ///
+    /// This agent answers a surveil by keeping everything, so an ability
+    /// whose whole text is a surveil buys it nothing — but one that draws a
+    /// card *and* surveils is still worth the mana. Merging these two lists
+    /// would cost one of the two.
+    #[test]
+    fn a_surveil_is_harmless_and_is_not_a_gain() {
+        assert!(harmless(&Effect::surveil(1)));
+        assert!(!gains(&Effect::surveil(1)));
     }
 
     /// Sensei's Divining Top draws *and* puts itself back. Reading only the

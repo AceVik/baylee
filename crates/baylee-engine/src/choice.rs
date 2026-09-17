@@ -241,6 +241,16 @@ pub enum ChoicePrompt {
     SearchLibrary,
     /// Scry: choose cards for the bottom; the rest stays on top.
     ScryBottom,
+    /// Surveil: choose cards for the graveyard; the rest stays on top
+    /// (CR 701.25a).
+    ///
+    /// Not [`Self::ScryBottom`] with a different destination, because the
+    /// two questions are not the same question: a card sent to the bottom
+    /// is still in the library and a card sent to a graveyard is in a zone
+    /// everybody can read. A player shown "which card goes to the bottom"
+    /// while the answer feeds their own delirium is being asked the wrong
+    /// thing.
+    SurveilGraveyard,
     /// Put cards from your hand on top of your library (chosen order).
     PutBackOnTop,
     /// A wish: cards from outside the game, or face-up in your exile.

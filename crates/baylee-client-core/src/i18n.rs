@@ -929,6 +929,16 @@ messages! {
     NounCardToBottom { en: "card to put on the bottom", de: "Karte, die nach unten geht" },
     /// cards to put on the bottom
     NounCardsToBottom { en: "cards to put on the bottom", de: "Karten, die nach unten gehen" },
+    /// card to put into your graveyard
+    NounCardToGraveyard {
+        en: "card to put into your graveyard",
+        de: "Karte, die auf deinen Friedhof geht",
+    },
+    /// cards to put into your graveyard
+    NounCardsToGraveyard {
+        en: "cards to put into your graveyard",
+        de: "Karten, die auf deinen Friedhof gehen",
+    },
     /// card to put on top of your library
     NounCardToTop {
         en: "card to put on top of your library",
@@ -1689,6 +1699,7 @@ mod tests {
             (Phrase::NounTarget, Phrase::NounTargets),
             (Phrase::NounCardFromLibrary, Phrase::NounCardsFromLibrary),
             (Phrase::NounCardToBottom, Phrase::NounCardsToBottom),
+            (Phrase::NounCardToGraveyard, Phrase::NounCardsToGraveyard),
             (Phrase::NounCardToTop, Phrase::NounCardsToTop),
             (Phrase::NounCardOutside, Phrase::NounCardsOutside),
             (

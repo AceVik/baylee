@@ -295,9 +295,17 @@ impl HeuristicAgent {
                 // `min` says. Whether a storage land is worth leaving
                 // tapped is a real judgement and not one this heuristic
                 // makes.
+                // A surveil is the second, and it is worse than the untap
+                // step's: a card put into the graveyard does not come back,
+                // and a surveil is *usually* 1 or 2, so the `max <= 2`
+                // shortcut would have milled the top of this agent's own
+                // library every time a surveil resolved. Keeping the card
+                // is always legal and costs nothing; deciding a card is bad
+                // enough to bin needs to know what it is, which this
+                // heuristic does not.
                 let n = match prompt {
                     ChoicePrompt::Delve => max,
-                    ChoicePrompt::LeaveTapped => min,
+                    ChoicePrompt::LeaveTapped | ChoicePrompt::SurveilGraveyard => min,
                     _ if max <= 2 => max,
                     _ => min,
                 };
@@ -1081,6 +1089,25 @@ mod tests {
         assert!(
             objects.is_empty(),
             "a pile that costs nothing to decline is still declined"
+        );
+
+        // A surveil is the one where the `max <= 2` shortcut is actively
+        // harmful, because the pile it names goes to a graveyard and does
+        // not come back. It is also the shape the shortcut would have
+        // caught: a surveil is 1 or 2 on every card in the pool.
+        let small = Pending::ChooseCards {
+            player: PlayerId::new(0),
+            options: graveyard[..2].to_vec(),
+            min: 0,
+            max: 2,
+            prompt: ChoicePrompt::SurveilGraveyard,
+        };
+        let PlayerAction::ChooseObjects { objects } = agent().act(&v, &small) else {
+            panic!("expected a card choice")
+        };
+        assert!(
+            objects.is_empty(),
+            "the agent keeps what it cannot read, so a surveil mills it nothing"
         );
     }
 

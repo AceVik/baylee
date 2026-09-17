@@ -1048,24 +1048,24 @@ a blocker goes once it has been re-read.
 
 The other half of the same question is measured continuously and needs no such
 care. `cargo run -p xtask -- transcode-report` ranks what the *whole* script
-corpus is refused for — 4137 of 33 826 read in full as of 17.09, with
+corpus is refused for — 4210 of 33 826 read in full as of 17.09, with
 `AlternateMode:` (887), `Charm` (618) and an unreadable value in `Pump` (481)
 at the top — computed against the DSL as it stands rather than as it stood. The
-line under it says the same of the reference's **token** scripts (624 of 852,
-and 38 of the 184 that print a rules line), because a token's abilities are
+line under it says the same of the reference's **token** scripts (625 of 852,
+and 39 of the 184 that print a rules line), because a token's abilities are
 read by this same transcoder.
 
 **Add `--stubs` when the goal is a card rather than the DSL.** That ranks the
-same question over this pool's own unfinished cards — 714 of the 722 stubs
+same question over this pool's own unfinished cards — 692 of the 700 stubs
 have a reference script — and it is a different list, not a shorter one:
 `Charm` is 618 corpus-wide and 2 here, the `Pump` value 481 and 6, the
 `DamageDone` trigger 443 and 1. What actually holds this pool's stubs shut is
-`AlternateMode:` (89), `ETBReplacement` (31), an unreadable `Mana` value (28)
-and `Surveil` (25) — the `Moved` replacement family was 74 across six entries
-until two of those six sentences were read, which is what turned eight lands
-into cards. A stub is by construction a card no reader could write, so
-corpus-wide progress reaches none of them until one of *their* blockers
-falls.
+`AlternateMode:` (89), an unreadable `Mana` value (29), `Sacrifice` (24) and a
+`ChangeZone` with neither a target nor a `Defined$` (23) — `Surveil` was 25
+until CR 701.25 was implemented, which is what turned twenty-two lands into
+cards, and `ETBReplacement` was 31 before that. A stub is by construction a
+card no reader could write, so corpus-wide progress reaches none of them until
+one of *their* blockers falls.
 
 Read one of those for **order** — whichever matches what the work is for —
 and these 115 rows for what a specific sentence cannot say.

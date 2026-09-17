@@ -184,6 +184,14 @@ pub enum AwaitingOp {
         /// into another's.
         player: PlayerId,
     },
+    /// Surveil: chosen cards go to the graveyard, the rest stays on top
+    /// (CR 701.25a).
+    ///
+    /// No `player` field beside [`Self::Scry`]'s: a surveil is always the
+    /// controller's own library, and the graveyard the cards land in is the
+    /// owner's whatever a card might say. See [`Effect::Surveil`] for why
+    /// there is no version of this that names somebody else.
+    Surveil,
     /// The controller decides whether to take an optional clause
     /// ([`Effect::MayDo`]).
     MayDo {
@@ -827,6 +835,23 @@ pub fn resume(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]) 
                 );
             }
         }
+        AwaitingOp::Surveil => {
+            // Chosen cards go to their owner's graveyard; the rest stays on
+            // top in its original relative order (CR 701.25a says "in any
+            // order", and this is the same approximation the scry above
+            // makes). The owner and not the controller: a card only ever
+            // goes to its owner's graveyard, and a surveil that took a
+            // stolen card would still put it back where it came from.
+            for &card in chosen {
+                let owner = state.object(card).map_or(res.controller, |o| o.owner);
+                let _ = state.move_object(
+                    card,
+                    ZoneLocation::Graveyard(owner),
+                    ZonePosition::Top,
+                    Cause::Effect,
+                );
+            }
+        }
         AwaitingOp::PutBackOnTop => {
             // Chosen cards go on top in chosen order (last chosen = top).
             for &card in chosen {
@@ -1063,6 +1088,7 @@ fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> Option<Pendi
     match op {
         Effect::SearchLibrary { .. }
         | Effect::Scry { .. }
+        | Effect::Surveil { .. }
         | Effect::ScryFor { .. }
         | Effect::PutFromHandOnTop { .. }
         | Effect::OptionalBasicLandSearchFor { .. }
@@ -1195,6 +1221,31 @@ fn exec_choice(state: &mut GameState, res: &mut Resolution, op: Effect) -> Optio
                 min: 0,
                 max: n as u8,
                 prompt: ChoicePrompt::ScryBottom,
+            })
+        }
+        Effect::Surveil { amount } => {
+            let n = eval::amount(&amount, state, you, res.source, res.x) as usize;
+            let looked: Vec<ObjectId> = state
+                .zones
+                .list(ZoneLocation::Library(you))
+                .iter()
+                .rev()
+                .take(n)
+                .copied()
+                .collect();
+            // CR 701.25c: surveil 0 is not a surveil event at all, and an
+            // empty library is the same nothing. Returning `None` here is
+            // what makes that true — the resolution simply goes on.
+            if looked.is_empty() {
+                return None;
+            }
+            res.awaiting = Some(AwaitingOp::Surveil);
+            Some(Pending::ChooseCards {
+                player: you,
+                options: looked,
+                min: 0,
+                max: n as u8,
+                prompt: ChoicePrompt::SurveilGraveyard,
             })
         }
         Effect::PutFromHandOnTop { count } => {
@@ -1938,6 +1989,7 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
         Effect::GrantSubtype { .. } => None, // M2 (continuous effects)
         Effect::SearchLibrary { .. }
         | Effect::Scry { .. }
+        | Effect::Surveil { .. }
         | Effect::ScryFor { .. }
         | Effect::PutFromHandOnTop { .. }
         | Effect::OptionalBasicLandSearchFor { .. }

@@ -691,6 +691,21 @@ impl Tx<'_> {
                 let n = plain_number(p.take("ScryNum").as_deref().unwrap_or("1"), self.svars)?;
                 vec![format!("Effect::scry({n})")]
             }
+            "Surveil" => {
+                // `Amount$` and never `Defined$`: not one of the reference
+                // corpus's 228 surveil lines names a player, because a
+                // surveil is the controller's own library by construction
+                // (CR 701.25a). 224 of them write `Amount$` and 219 of those
+                // write a plain number; the rest announce an `X`, and the
+                // constructor only fits the first kind.
+                let raw = p.take("Amount")?;
+                if let Some(n) = plain_number(&raw, self.svars) {
+                    vec![format!("Effect::surveil({n})")]
+                } else {
+                    let n = amount(&raw, self.svars, self.has_x)?;
+                    vec![format!("Effect::Surveil {{ amount: {n} }}")]
+                }
+            }
             "Mana" => self.mana_effect(p)?,
             "Destroy" => {
                 // `NoRegen$ True` is vacuous here and may be consumed:
@@ -2739,6 +2754,7 @@ pub const SUPPORTED_APIS: &[&str] = &[
     "Draw",
     "Mill",
     "Scry",
+    "Surveil",
     "Mana",
     "Destroy",
     "Tap",

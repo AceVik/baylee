@@ -438,6 +438,9 @@ fn choice_noun(reason: ChoicePrompt) -> (Phrase, Phrase) {
     match reason {
         ChoicePrompt::SearchLibrary => (Phrase::NounCardFromLibrary, Phrase::NounCardsFromLibrary),
         ChoicePrompt::ScryBottom => (Phrase::NounCardToBottom, Phrase::NounCardsToBottom),
+        ChoicePrompt::SurveilGraveyard => {
+            (Phrase::NounCardToGraveyard, Phrase::NounCardsToGraveyard)
+        }
         ChoicePrompt::PutBackOnTop => (Phrase::NounCardToTop, Phrase::NounCardsToTop),
         ChoicePrompt::Wish => (Phrase::NounCardOutside, Phrase::NounCardsOutside),
         ChoicePrompt::CostSacrifice => (
