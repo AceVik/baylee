@@ -2113,6 +2113,23 @@ impl Tx<'_> {
         let Some(execute) = p.take("Execute") else {
             return self.deny(format!("a `{mode}` trigger with no `Execute$`"));
         };
+        // "When …, you may …" (CR 603.5): the ability triggers and goes on
+        // the stack whatever its controller intends, and the choice is made
+        // as it resolves. That is `Effect::MayDo` exactly, and it is where
+        // the pool's hand-written "may" triggers already put it.
+        //
+        // `You` and nothing else. 1506 of the corpus's 1584
+        // `OptionalDecider$` values are `You`, which `Effect::MayDo` asks by
+        // construction — the resolver puts the question to the resolving
+        // ability's controller. Every other value names somebody else
+        // (`TriggeredCardController`, `EnchantedController`, `Opponent`) and
+        // no effect here can ask them, so they are refused by name rather
+        // than quietly asked of the wrong player.
+        let may = match p.take("OptionalDecider").as_deref() {
+            None => false,
+            Some("You") => true,
+            Some(other) => return self.deny(format!("a `may` decided by `{other}`")),
+        };
         if !p.exhausted() {
             if let Some(key) = p.first_key() {
                 return self.deny(format!("unclaimed parameter `{mode}.{key}`"));
@@ -2131,9 +2148,24 @@ impl Tx<'_> {
             .target
             .map(|t| format!(", targets = Some(TargetReq::one({t}))"))
             .unwrap_or_default();
+        // The targets stay **outside** the `may`, and the two rules say why:
+        // CR 603.3d chose them when the ability went on the stack, CR 603.5
+        // puts the choice at resolution. A declined "may" is therefore an
+        // ability that targeted and then did nothing, which is what hoisting
+        // `chain.target` into the macro's own field already gives.
+        //
+        // And the wrap is around the **whole** list rather than each effect,
+        // because the printed word covers a whole clause: Ondu Cleric's "you
+        // may gain life equal to the number of Allies you control" is one
+        // decision, not one per operation it expands into.
+        let effects = chain.effects.join(", ");
+        let effects = if may {
+            format!("Effect::MayDo {{ effects: &[{effects}] }}")
+        } else {
+            effects
+        };
         self.body.abilities.push(format!(
-            "triggered!({trigger}, &[{}]{targets}{condition})",
-            chain.effects.join(", ")
+            "triggered!({trigger}, &[{effects}]{targets}{condition})"
         ));
         Some(())
     }
@@ -3003,6 +3035,89 @@ mod tests {
                 refusal_reason(&script, &cats(), None).as_deref(),
                 Some(why),
                 "{line}"
+            );
+        }
+    }
+
+    /// "When this enters, you may …" is one decision over the whole clause.
+    ///
+    /// CR 603.5: an optional triggered ability goes on the stack whatever
+    /// its controller intends, and the choice is made as it resolves — which
+    /// is `Effect::MayDo`, asked of the resolving ability's controller. The
+    /// three shapes that must not become one are refused instead:
+    ///
+    /// * a decider who is not the controller, which no effect here can ask;
+    /// * a `may` whose clause is "pay this cost, then …" — the reference
+    ///   writes that as a `Cost$` on the executed sub-ability, and 183 of
+    ///   the 1442 `OptionalDecider$ You` triggers do. Read as a bare `MayDo`
+    ///   it would be a free effect under `Coverage::Implemented`, for
+    ///   hundreds of cards at once, so the counter-case is pinned here and
+    ///   not merely inferred from where `Cost$` is claimed;
+    /// * the same key on a **sub-ability** (83 in the corpus), where
+    ///   declining skips the rest of the chain rather than one step, and so
+    ///   is not this shape at all.
+    #[test]
+    fn a_may_on_a_trigger_wraps_the_whole_clause() {
+        let body = read(
+            "Name:X\nTypes:Creature Goblin\nPT:1/1\n\
+             T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self \
+             | OptionalDecider$ You | Execute$ TrigGain | TriggerDescription$ you may gain 2 life.\n\
+             SVar:TrigGain:DB$ GainLife | LifeAmount$ 2",
+        );
+        assert_eq!(
+            body.abilities,
+            ["triggered!(Trigger::ETB, &[Effect::MayDo { effects: &[Effect::gain_life(2)] }])"]
+        );
+
+        // A target is chosen when the ability goes on the stack (CR 603.3d)
+        // and the `may` is answered as it resolves, so the target stays
+        // outside the wrap.
+        let targeted = read(
+            "Name:X\nTypes:Creature Goblin\nPT:1/1\n\
+             T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self \
+             | OptionalDecider$ You | Execute$ TrigLose | TriggerDescription$ you may drain.\n\
+             SVar:TrigLose:DB$ LoseLife | ValidTgts$ Player | LifeAmount$ 1",
+        );
+        assert_eq!(
+            targeted.abilities,
+            [
+                "triggered!(Trigger::ETB, &[Effect::MayDo { effects: &[Effect::LoseLife { \
+                 amount: Amount::Fixed(1), target: PlayerRel::Chosen }] }], \
+                 targets = Some(TargetReq::one(TargetSpec::AnyPlayer)))"
+            ]
+        );
+
+        for (lines, why) in [
+            (
+                "T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield \
+                 | ValidCard$ Card.Self | OptionalDecider$ TriggeredCardController \
+                 | Execute$ TrigGain | TriggerDescription$ x.\n\
+                 SVar:TrigGain:DB$ GainLife | LifeAmount$ 2",
+                "a `may` decided by `TriggeredCardController`",
+            ),
+            (
+                // Ruin Processor's shape: "you may put a card an opponent
+                // owns from exile into that player's graveyard. If you
+                // do, you gain 5 life."
+                "T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield \
+                 | ValidCard$ Card.Self | OptionalDecider$ You | Execute$ TrigGain \
+                 | TriggerDescription$ x.\n\
+                 SVar:TrigGain:AB$ GainLife | Cost$ Sac<1/Creature.YouCtrl/a creature> \
+                 | LifeAmount$ 5",
+                "unclaimed parameter `GainLife.Cost`",
+            ),
+            (
+                "T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield \
+                 | ValidCard$ Card.Self | Execute$ TrigGain | TriggerDescription$ x.\n\
+                 SVar:TrigGain:DB$ GainLife | LifeAmount$ 2 | OptionalDecider$ You",
+                "unclaimed parameter `GainLife.OptionalDecider`",
+            ),
+        ] {
+            let script = parse(&format!("Name:X\nTypes:Creature Goblin\nPT:1/1\n{lines}"));
+            assert_eq!(
+                refusal_reason(&script, &cats(), None).as_deref(),
+                Some(why),
+                "{lines}"
             );
         }
     }
