@@ -191,7 +191,7 @@ fn a_sheet_is_brought_inside_the_band_it_stands_in() {
 /// band — which is what keeps the resize handle reachable.
 #[test]
 fn a_sheet_cannot_be_dragged_or_stretched_out_of_reach() {
-    let band = (1728.0, 776.0);
+    let band = (1728.0, 900.0);
     let home = Placement::centred(band);
 
     let nudged = home.moved_by((40.0, -25.0), band);

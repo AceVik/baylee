@@ -86,7 +86,6 @@ fn the_parchment_covers_the_padding_it_lies_under() {
 
     for (name, source) in [
         ("the hover preview", include_str!("../slip.rs")),
-        ("the ability sheet", include_str!("../sheet.rs")),
         ("the end screen", include_str!("../finish.rs")),
     ] {
         assert!(
@@ -99,6 +98,10 @@ fn the_parchment_covers_the_padding_it_lies_under() {
              its padding flat"
         );
     }
+    assert!(
+        !include_str!("../sheet.rs").contains("sheet_surface("),
+        "the abilities use the table glass surface"
+    );
     // And the browser stays a panel: a sheet put back on it is the
     // material decision of §1.3 being undone by accident.
     assert!(

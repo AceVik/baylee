@@ -498,7 +498,7 @@ impl Placement {
     /// else: the owner asked for a bigger picture on each row, and a column
     /// ten pixels wider is ten pixels of row. [`Self::MIN_W`] moved with it,
     /// both being the same row with a different amount of name left in it.
-    pub const DEFAULT_W: f32 = 702.0;
+    pub const DEFAULT_W: f32 = 900.0;
     /// The chrome, and seven rows and a **half**.
     ///
     /// The half row is the point. A grid was cut to four whole rows because
@@ -528,7 +528,7 @@ impl Placement {
     /// day. That is one row of chrome and one gap — 30 px — and the sheet
     /// gives them back rather than keeping them as an eighth row: the count
     /// of rows is what the owner chose, the chrome is what it costs.
-    pub const DEFAULT_H: f32 = 668.0;
+    pub const DEFAULT_H: f32 = 738.0;
     /// The clear the sheet keeps between itself and the band's edge.
     const MARGIN: f32 = 12.0;
 

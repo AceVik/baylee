@@ -197,6 +197,7 @@ pub fn settle(
     let still = prefs.is_some_and(|p| p.all().reduce_motion);
     let dt = time.delta_secs();
     let armed = duel.armed.as_ref().map(|a| a.object);
+    let hovered = duel.hovered;
     let touched = &mut *touched;
 
     // A backstop, and it is meant to be one. `input::pointer` ends by reading
@@ -215,15 +216,17 @@ pub fn settle(
     // here is what lets it travel, and disarming travel back; it is made only
     // for a card the hand is actually drawing, so an armed permanent on the
     // felt puts nothing in this map.
-    if let Some(armed) = armed
-        && nodes.iter().any(|(card, _)| card.object == armed)
-    {
-        touched.cards.entry(armed).or_default();
+    for object in [armed, hovered].into_iter().flatten() {
+        if nodes.iter().any(|(card, _)| card.object == object) {
+            touched.cards.entry(object).or_default();
+        }
     }
 
     for (object, touch) in &mut touched.cards {
         let rest = if armed == Some(*object) {
             -crate::hud::ARMED_RAISE
+        } else if hovered == Some(*object) {
+            -crate::hud::HOVER_RAISE
         } else {
             0.0
         };
@@ -253,7 +256,10 @@ pub fn settle(
     // until something else rebuilds the row.
     let held = touched.under_the_finger;
     touched.cards.retain(|object, touch| {
-        Some(*object) == held || Some(*object) == armed || !touch.is_settled()
+        Some(*object) == held
+            || Some(*object) == armed
+            || Some(*object) == hovered
+            || !touch.is_settled()
     });
 }
 
@@ -512,6 +518,19 @@ mod running {
             "the card is still {} dark",
             alpha_of(&app, shade)
         );
+    }
+
+    #[test]
+    fn hovering_lifts_a_card_and_leaving_returns_it_to_the_row() {
+        let (mut app, object, card, _) = harness();
+        app.world_mut().resource_mut::<crate::Duel>().hovered = Some(object);
+        tick(&mut app, 1.0 / 60.0);
+        assert!(top_of(&app, card) < 0.0 && top_of(&app, card) > -crate::hud::HOVER_RAISE);
+        tick(&mut app, 1.0);
+        assert!((top_of(&app, card) + crate::hud::HOVER_RAISE).abs() < 0.05);
+        app.world_mut().resource_mut::<crate::Duel>().hovered = None;
+        tick(&mut app, 1.0);
+        assert!(top_of(&app, card).abs() < 0.05);
     }
 
     /// A card armed from the keyboard travels out of the row instead of

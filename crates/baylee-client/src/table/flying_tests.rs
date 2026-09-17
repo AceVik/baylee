@@ -199,7 +199,8 @@ fn a_card_in_the_air(app: &mut App, height: f32, floating: bool) -> Entity {
             object: obj(1),
             count: 1,
         },
-        Transform::from_xyz(0.0, TABLE_Y + CARD_LIFT + height, 0.0),
+        Transform::from_xyz(0.0, TABLE_Y + CARD_LIFT + height, 0.0)
+            .with_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2)),
     ));
     if floating {
         card.insert(Floating);
@@ -229,7 +230,7 @@ fn a_flier_leaves_its_shadow_on_the_table() {
 
     let shadow = shadow_of(&mut app);
     let card = *app.world().entity(card).get::<Transform>().unwrap();
-    let on_the_felt = card.translation.y + shadow.translation.z;
+    let on_the_felt = card.to_matrix().transform_point3(shadow.translation).y;
     assert!(
         (on_the_felt - (TABLE_Y + CARD_LIFT * 0.5)).abs() < 1e-5,
         "the shadow is {on_the_felt} above the felt and not {}",
@@ -301,4 +302,38 @@ fn a_shadow_does_not_follow_a_card_out_of_the_game() {
         was,
         "a card that has left the table was still being grounded"
     );
+}
+
+#[test]
+fn banking_shadows_stay_flat_but_follow_a_tapped_creatures_heading() {
+    let mut app = App::new();
+    app.add_systems(Update, ground_the_shadows);
+    let entity = a_card_in_the_air(&mut app, airborne::RESTING, true);
+    let card = Transform::from_xyz(0.0, CARD_LIFT + airborne::RESTING, 0.0).with_rotation(
+        Quat::from_rotation_y(1.5)
+            * Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2)
+            * Quat::from_rotation_y(0.02),
+    );
+    app.world_mut().entity_mut(entity).insert(card);
+    app.update();
+    let shadow = shadow_of(&mut app);
+    let world = card.to_matrix() * shadow.to_matrix();
+    assert!(world.transform_vector3(Vec3::Z).normalize().dot(Vec3::Y) > 0.9999);
+    let right = card.rotation * Vec3::X;
+    let heading = Vec3::new(right.x, 0.0, right.z).normalize();
+    assert!(world.transform_vector3(Vec3::X).normalize().dot(heading) > 0.9999);
+    assert!((world.transform_point3(Vec3::ZERO).y - CARD_LIFT * 0.5).abs() < 1e-5);
+}
+
+#[test]
+fn losing_flying_restores_the_original_contact_shadow() {
+    let mut app = App::new();
+    app.add_systems(Update, ground_the_shadows);
+    let entity = a_card_in_the_air(&mut app, airborne::RESTING, true);
+    let original = shadow_of(&mut app);
+    app.update();
+    assert_ne!(shadow_of(&mut app), original);
+    app.world_mut().entity_mut(entity).remove::<Floating>();
+    app.update();
+    assert_eq!(shadow_of(&mut app), original);
 }

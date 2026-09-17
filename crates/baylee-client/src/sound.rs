@@ -959,7 +959,27 @@ fn burst(cue: Cue, count: u8) -> Vec<Recipe> {
 /// D has been struck first — the ear has heard the whole chord. The length it
 /// was buying comes from the compound decay, the beat between the paired
 /// fundamentals and the room instead.
-const RECIPES: [(Cue, Recipe); 8] = [
+const RECIPES: [(Cue, Recipe); 10] = [
+    (
+        Cue::FirstStrike,
+        Recipe {
+            strikes: &[blow(0.0, note::D5, 0.86, mallet::HARD, 0.24, 0.65)],
+            thuds: &[(0.035, 0.48)],
+            len: 1.2,
+            peak: 0.48,
+            room: Where::Here,
+        },
+    ),
+    (
+        Cue::CombatStrike,
+        Recipe {
+            strikes: &[blow(0.018, note::D3, 0.9, mallet::HARD, 0.42, 0.62)],
+            thuds: &[(0.0, 1.0), (0.045, 0.3)],
+            len: 1.6,
+            peak: 0.65,
+            room: Where::Here,
+        },
+    ),
     (
         Cue::MyLifeLost,
         Recipe {
@@ -1453,7 +1473,7 @@ fn peak_of(beat: Beat) -> f32 {
 /// Endings are not in it, because an ending is not ranked — it is alone.
 fn rank(cue: Cue) -> u8 {
     match cue {
-        Cue::Refused => 0,
+        Cue::Refused | Cue::FirstStrike | Cue::CombatStrike => 0,
         Cue::MyLifeLost | Cue::MyLifeGained => 1,
         Cue::TheirLifeLost | Cue::TheirLifeGained => 2,
         Cue::CreatureShrank => 3,

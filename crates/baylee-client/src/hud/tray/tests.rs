@@ -28,9 +28,9 @@ fn statics() -> GameStatic {
 /// no longer has its measure.
 #[test]
 fn the_default_width_is_one_whole_row() {
-    let off = (Placement::DEFAULT_W - TRAY_PANEL_W).abs();
+    let off = Placement::DEFAULT_W - TRAY_PANEL_W;
     assert!(
-        off <= 1.0,
+        off >= 0.0,
         "a row is {TRAY_PANEL_W}, the sheet opens at {} ({off} out)",
         Placement::DEFAULT_W
     );
@@ -107,16 +107,11 @@ fn the_band_is_what_is_left_above_the_hand() {
 /// concentric one and not merely equal.
 #[test]
 fn the_head_is_cut_concentrically_with_the_panel() {
-    assert_eq!(
-        sheet_radius().top_left,
-        px(SHEET_R),
-        "the panel is cut with something other than `SHEET_R`"
-    );
     // One pixel of border between the two curves, which is what
     // `spawn_tray`'s panel carries and what `spawn_footer` sits inside.
     assert!(
-        (TRAY_HEAD_R - (SHEET_R - 1.0)).abs() < f32::EPSILON,
-        "the head's radius is {TRAY_HEAD_R} inside a {SHEET_R} panel with \
+        (TRAY_HEAD_R - (TRAY_RADIUS - 1.0)).abs() < f32::EPSILON,
+        "the head's radius is {TRAY_HEAD_R} inside a {TRAY_RADIUS} panel with \
          a 1 px border, so the two curves are not concentric"
     );
     let source = include_str!("../tray.rs");

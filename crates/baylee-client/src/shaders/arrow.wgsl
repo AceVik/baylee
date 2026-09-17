@@ -131,7 +131,8 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
 
     let aa = max(fwidth(d), 1e-5);
     let coverage = clamp(0.5 + (stroke - d) / aa, 0.0, 1.0);
-    if coverage <= 0.0 {
+    let halo = exp(-max(d - stroke, 0.0) / max(params.width * 1.8, aa)) * 0.26;
+    if coverage + halo < 0.015 {
         discard;
     }
 
@@ -142,5 +143,7 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     let dash = smoothstep(0.0, 0.18, phase) - smoothstep(0.62, 0.92, phase);
     let lit = select(mix(0.45, 1.0, dash), 1.0, t >= base);
 
-    return vec4<f32>(params.color.rgb, params.color.a * lit * coverage);
+    let core = 1.0 - smoothstep(0.0, stroke * 0.55, d);
+    let ink = mix(params.color.rgb, vec3<f32>(1.0, 0.91, 0.72), core * 0.55);
+    return vec4<f32>(ink, params.color.a * (lit * coverage + halo * (1.0 - coverage)));
 }

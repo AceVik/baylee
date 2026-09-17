@@ -66,6 +66,7 @@ pub mod prose;
 pub mod reconnect;
 pub mod seatbar;
 pub mod sky;
+pub mod strike;
 pub mod tabletop;
 pub mod textbuf;
 pub mod timing;

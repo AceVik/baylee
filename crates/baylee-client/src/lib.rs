@@ -44,6 +44,7 @@ pub mod cardmat;
 pub mod cardtext;
 pub mod castmodes;
 pub mod choices;
+mod combatfx;
 pub mod combatlines;
 pub mod compass;
 pub mod depart;
@@ -531,6 +532,8 @@ pub struct Duel {
     /// [`crate::sound::play_the_cues`]. Nothing about audio is in it; see
     /// [`baylee_client_core::cue`].
     pub cues: baylee_client_core::cue::Cues,
+    /// Strikes waiting for their visual presentation, read at snapshot edges.
+    pub strikes: Vec<baylee_client_core::strike::Strike>,
     /// What has been typed into the creature-type filter.
     ///
     /// It lives here and not on the `Interaction` because the interaction is
@@ -639,6 +642,8 @@ impl Duel {
         // One reading of the difference, two things told about it: the number
         // over the bar and the sound in the room are the same event on the
         // same clock, which is what `Change::started` is for.
+        let strikes = baylee_client_core::strike::between(self.view.as_ref(), &view);
+        self.strikes.extend(strikes);
         let changes = self.life_flash.read(&view.seats);
         self.cues.note_life(&changes, view.seat);
         // The same edge, the second reading: a card that arrived in this hand
@@ -907,6 +912,8 @@ pub struct DuelPlugin {
 /// stack row spawned this frame is spawned at rest, so without the ordering
 /// it is drawn once at full strength before its arrival is ever applied.
 fn add_present_systems(app: &mut App) {
+    app.init_resource::<hud::StackFold>()
+        .init_resource::<hud::TrayReveal>();
     app.add_systems(
         Update,
         (
@@ -930,7 +937,14 @@ fn add_present_systems(app: &mut App) {
             // instead of skipping it. The third reads where the glide left
             // each card and puts a flying one's shadow back on the felt, so
             // it comes after both.
-            (table::glide, table::retire, table::ground_the_shadows).chain(),
+            (
+                combatfx::animate.before(table::sync_scene),
+                combatfx::age.before(table::sync_scene),
+                table::glide.after(table::sync_scene),
+                table::retire,
+                table::ground_the_shadows,
+            )
+                .chain(),
             // After the glide, and deliberately: a line is welded to where
             // its two cards *are* this frame, so it has to be computed once
             // they have moved.
@@ -949,6 +963,8 @@ fn add_present_systems(app: &mut App) {
                 hud::light_the_current_step,
                 hud::flash_the_designation,
                 hud::ease_the_stack_in.after(hud::sync_overlay),
+                hud::fold_the_stack.after(hud::sync_overlay),
+                hud::reveal_tray.after(hud::sync_tray),
                 // The same ordering, and the same reason: the slip under
                 // the hover preview is spawned written, and this is what
                 // takes the ink back off and washes it on.
@@ -1068,6 +1084,7 @@ fn add_present_systems(app: &mut App) {
     app.add_systems(
         Update,
         sound::play_the_cues
+            .after(combatfx::age)
             .in_set(DuelSet::Present)
             .run_if(not(in_state(DuelPhase::Closed))),
     );

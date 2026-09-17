@@ -46,7 +46,7 @@ use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
 
 /// Height of the table surface; cards float a hair above it so they never
 /// z-fight with the felt.
-const TABLE_Y: f32 = 0.0;
+pub(crate) const TABLE_Y: f32 = 0.0;
 /// Vertical gap between the felt and a card.
 pub(crate) const CARD_LIFT: f32 = 0.028;
 /// Where a seat's mat sits: above the felt, below everything played on it.
@@ -968,6 +968,25 @@ impl Lens {
         ))
     }
 
+    /// Intersects a screen point with a horizontal plane in the table scene.
+    pub(crate) fn on_plane(&self, screen: Vec2, height: f32) -> Option<Vec3> {
+        let ndc = Vec2::new(
+            screen.x / self.window.x * 2.0 - 1.0,
+            1.0 - screen.y / self.window.y * 2.0,
+        );
+        // Double precision avoids cancellation between the near/far ray points.
+        let inverse = self.clip_from_world.as_dmat4().inverse();
+        let ndc = ndc.as_dvec2();
+        let near = inverse.project_point3(ndc.extend(-1.0));
+        let far = inverse.project_point3(ndc.extend(1.0));
+        let direction = far - near;
+        if direction.y.abs() < 1e-6 {
+            return None;
+        }
+        let t = (f64::from(height) - near.y) / direction.y;
+        (t >= 0.0).then_some((near + direction * t).as_vec3())
+    }
+
     /// Four table points projected, in the order they were given.
     ///
     /// `None` if any of them is behind the eye, because three corners of a
@@ -1131,100 +1150,77 @@ pub struct Motion {
 pub fn glide(
     time: Res<Time>,
     prefs: Res<crate::prefs::Prefs>,
-    mut cards: Query<(&Motion, &mut Transform)>,
+    mut cards: Query<(&Motion, &mut Transform, Option<&crate::combatfx::Recoil>)>,
 ) {
     let still = prefs.all().reduce_motion;
     let t = 1.0 - (-SETTLE * time.delta_secs()).exp();
-    for (motion, mut transform) in &mut cards {
-        let there = transform
-            .translation
-            .distance_squared(motion.target.translation)
-            < SETTLED * SETTLED
-            && transform.rotation.angle_between(motion.target.rotation) < SETTLED
-            && transform.scale.distance_squared(motion.target.scale) < SETTLED * SETTLED;
+    for (motion, mut transform, recoil) in &mut cards {
+        let mut target = motion.target;
+        if !still && let Some(recoil) = recoil {
+            target.translation += recoil.offset(time.elapsed_secs());
+        }
+        let there = transform.translation.distance_squared(target.translation) < SETTLED * SETTLED
+            && transform.rotation.angle_between(target.rotation) < SETTLED
+            && transform.scale.distance_squared(target.scale) < SETTLED * SETTLED;
         if still || there {
-            if *transform != motion.target {
-                *transform = motion.target;
+            if *transform != target {
+                *transform = target;
             }
             continue;
         }
-        transform.translation = transform.translation.lerp(motion.target.translation, t);
-        transform.rotation = transform.rotation.slerp(motion.target.rotation, t);
-        transform.scale = transform.scale.lerp(motion.target.scale, t);
+        transform.translation = transform.translation.lerp(target.translation, t);
+        transform.rotation = transform.rotation.slerp(target.rotation, t);
+        transform.scale = transform.scale.lerp(target.scale, t);
     }
 }
 
-/// A card that is in the air and still in the game.
-///
-/// [`CardVisual`] is the second half and not decoration: a card on its way out
-/// of the game loses it, and [`retire`] throws that card [`BOUNCE_RISE`] into
-/// the air — a height nothing here is meant to answer. `Without<CardShadow>`
-/// is what tells Bevy the two queries below cannot name one entity, so it
-/// hands out the one `&mut Transform` this system asks for.
-type Aloft = (With<Floating>, With<CardVisual>, Without<CardShadow>);
+/// Only live cards own grounded shadows; departing cards keep their exit pose.
+/// The exclusion makes the card and shadow transform queries disjoint.
+type ShadowOwners = (With<CardVisual>, Without<CardShadow>);
 
-/// Leaves a flying creature's contact shadow on the table.
-///
-/// A card's shadow is a child of the card, which is what keeps it under a
-/// tapped card with nothing having to rotate it — and it means that a card
-/// which rises carries its shadow up with it, glued to its own underside. For
-/// a card that lies on the felt that is invisible and correct. For one that
-/// is a foot above it, it is the whole cue thrown away: the shadow is the
-/// only thing this camera has to say how high something is, because a twenty
-/// degree lean turns a card's rise into two or three pixels of parallax and
-/// nothing else.
-///
-/// So the shadow is put back where it belongs, every frame, from where the
-/// card actually **is**:
-///
-/// - the *height* is read off the parent's live [`Transform`] and not off
-///   [`Motion::target`], because a card halfway through a glide is halfway
-///   and its shadow has to agree with the picture rather than with the plan;
-/// - the local `z` it is written to is the card's own axis — a card is laid
-///   flat by a quarter turn about x, so local `+z` is world `+y` and the tap
-///   turns about that same axis and leaves it alone — divided by the parent's
-///   scale, because a hovered card is 6% larger and its children with it;
-/// - the *spread* grows with the height by [`DECK_SHADOW_SPREAD`], the same
-///   coefficient a thick pile's shadow already grows by, so a flier and a
-///   deck of the same height cast the same shadow. It is capped at
-///   [`FLOAT_SHADOW_CAP`], because the height read here is the *whole* rise
-///   and a flier the pointer is resting on carries a hover lift on top of
-///   its own: the cap is what stops that from spreading a lane-sized pool
-///   under one card. A card on its way out of the game — [`retire`] throws
-///   one [`BOUNCE_RISE`] into the air — is not this system's to worry
-///   about, because it loses [`CardVisual`] on the way and [`Aloft`] then
-///   does not match it at all.
-///
-/// The formula is general and reproduces what a resting card is given at
-/// spawn, so lifting the [`Floating`] filter would give a *hovered* card a
-/// shadow that answers too. That is deliberately not done here: it is a
-/// change to how the pointer reads, which is not what this is about, and a
-/// card in a pile's hover fan is tilted — `local z` is not world up for it,
-/// and the formula would put its shadow through the felt.
+/// Ground flying shadows using the card's live pose, preserving its tapped
+/// heading while removing its bank. Spread grows with height up to a fixed cap.
+/// Remember the original child pose so losing flying restores a contact shadow;
+/// ordinary cards and pile fans retain their existing shadows.
 pub fn ground_the_shadows(
-    cards: Query<&Transform, Aloft>,
-    mut shadows: Query<(&ChildOf, &mut Transform), With<CardShadow>>,
+    cards: Query<(&Transform, Has<Floating>), ShadowOwners>,
+    mut shadows: Query<(Entity, &ChildOf, &mut Transform), With<CardShadow>>,
+    mut resting: Local<HashMap<Entity, Transform>>,
 ) {
-    for (parent, mut at) in &mut shadows {
-        let Ok(card) = cards.get(parent.parent()) else {
+    resting.retain(|entity, _| shadows.get(*entity).is_ok());
+    for (entity, parent, mut at) in &mut shadows {
+        let Ok((card, flying)) = cards.get(parent.parent()) else {
+            resting.remove(&entity);
             continue;
         };
+        if !flying {
+            if let Some(original) = resting.remove(&entity) {
+                *at = original;
+            }
+            continue;
+        }
+        resting.entry(entity).or_insert(*at);
         // How far off the felt the card itself is. `CARD_LIFT` is the hair
         // every card is given so it does not z-fight the cloth, so a card
         // lying down measures zero here and its shadow keeps the placement it
         // was spawned with.
         let height = (card.translation.y - TABLE_Y - CARD_LIFT).max(0.0);
-        // The *position* is divided by the parent's scale and the spread is
-        // not, and the asymmetry is the point. A child's offset is scaled
-        // along with it, so a fixed world height has to be asked for in the
-        // parent's units; a shadow's size, on the other hand, is meant to
-        // follow the card — a card 6% larger under the pointer casts a
-        // shadow 6% larger, as it always has.
-        let scale = card.scale.z.abs().max(1e-4);
         let spread = 1.0 + height.min(FLOAT_SHADOW_CAP) * DECK_SHADOW_SPREAD;
-        let down = (card.translation.y - TABLE_Y - CARD_LIFT * 0.5) / scale;
-        let wanted =
-            Transform::from_xyz(0.0, 0.0, -down).with_scale(Vec3::new(spread, spread, 1.0));
+        // Undo the parent bank so the shadow remains flat on the table.
+        let ground = Vec3::new(
+            card.translation.x + height * 0.12,
+            TABLE_Y + CARD_LIFT * 0.5,
+            card.translation.z + height * 0.18,
+        );
+        let right = card.rotation * Vec3::X;
+        let yaw = (-right.z).atan2(right.x);
+        let wanted = Transform {
+            translation: card.to_matrix().inverse().transform_point3(ground),
+            rotation: card.rotation.inverse()
+                * Quat::from_rotation_y(yaw)
+                * Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2),
+            scale: Vec3::new(spread, spread, 1.0),
+        };
         if *at != wanted {
             *at = wanted;
         }
@@ -3222,6 +3218,18 @@ pub fn sync_scene(
             placement.tapped,
             placement.lift + deck + float,
         );
+        if placement.flying
+            && !still
+            && !placement.selected
+            && !placement.offer.armed
+            && hovered != Some(placement.object)
+        {
+            let phase = airborne::phase(placement.object) * std::f32::consts::TAU;
+            let t = time.elapsed_secs_wrapped();
+            // Subtle bank and pitch, through the regular glide.
+            transform.rotation *= Quat::from_rotation_x((t * 1.15 + phase).sin() * 0.012)
+                * Quat::from_rotation_y((t * 0.83 + phase).cos() * 0.016);
+        }
         // A card in a fan is tipped up and turned; everything else about it —
         // where it stands, the deck under it, the hover lift below — is the
         // same arithmetic every other card gets.

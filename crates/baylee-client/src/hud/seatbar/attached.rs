@@ -155,6 +155,19 @@ pub(crate) fn pose_on(corners: [Vec2; 4], panel: Panel) -> (Vec2, f32, f32) {
     )
 }
 
+/// Screen-space centre of the life value, sharing the identity's placement.
+pub(crate) fn life_anchor(
+    slot: &baylee_client_core::layout::SeatSlot,
+    lens: &crate::table::Lens,
+) -> Option<Vec2> {
+    let (corner, angle, scale) = pose_on(lens.corners(slot.ledge_corners())?, Panel::Identity);
+    let centre = corner + Panel::Identity.size() * 0.5;
+    Some(
+        centre
+            + Rot2::radians(angle) * (Vec2::new(36.0, 43.0) - Panel::Identity.size() * 0.5) * scale,
+    )
+}
+
 fn frame(commands: &mut Commands, root: Entity, player: PlayerId, panel: Panel) -> Entity {
     let size = panel.size();
     let entity = commands

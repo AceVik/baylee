@@ -44,7 +44,7 @@ use bevy::prelude::*;
 const LINE_Y: f32 = 0.005;
 
 /// Half the width of an arrow's shaft, in table units — a fortieth of a card.
-const SHAFT: f32 = CARD_WIDTH * 0.025;
+const SHAFT: f32 = CARD_WIDTH * 0.032;
 
 /// Half the width of the head where it is widest.
 ///
@@ -62,7 +62,7 @@ const HEAD_WIDTH: f32 = SHAFT * 4.0;
 const HEAD_FRAC: f32 = 0.13;
 
 /// How far an arrow bows off its own chord, as a fraction of that chord.
-const BOW: f32 = 0.14;
+const BOW: f32 = 0.09;
 
 /// The most it may bow, in table units.
 ///
@@ -150,15 +150,19 @@ fn tint(kind: LineKind, standing: bool) -> Color {
     base.with_alpha(if standing { STANDING } else { PROPOSED })
 }
 
-/// Where a line aimed at a seat ends.
-///
-/// Not the mat's centre, which is underneath that seat's own cards: the
-/// near edge, so an attack reaches the front of the defender's play area and
-/// stops there. Moving in from the centre by half the mat's depth is the
-/// same edge whichever way the seat is turned.
+/// Aim at the displayed life value, sharing the identity's projection.
+/// The ledge fallback is used only before a camera/window exists.
+pub(crate) fn player_end(slot: &SeatSlot, lens: Option<&crate::table::Lens>) -> Vec3 {
+    lens.and_then(|lens| {
+        crate::hud::seatbar::attached::life_anchor(slot, lens)
+            .and_then(|point| lens.on_plane(point, LINE_Y))
+    })
+    .unwrap_or_else(|| to_world(seat_anchor(slot), LINE_Y))
+}
+
 fn seat_anchor(slot: &SeatSlot) -> Vec2 {
-    let inward = slot.center.normalize_or_zero();
-    slot.center - inward * (slot.mat_depth() / 2.0)
+    let [a, b, _, d] = slot.ledge_corners();
+    a.midpoint(d).lerp(b, 0.12)
 }
 
 /// Brings the drawn arrows in line with the combat the model reports.
@@ -169,6 +173,8 @@ fn seat_anchor(slot: &SeatSlot) -> Vec2 {
 pub fn sync_combat_lines(
     mut commands: Commands,
     duel: Res<Duel>,
+    shown: Option<Res<crate::table::ShownRig>>,
+    windows: Query<&Window>,
     prefs: Res<crate::prefs::Prefs>,
     mut assets: ResMut<LineAssets>,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -184,7 +190,12 @@ pub fn sync_combat_lines(
         With<CombatLine>,
     >,
 ) {
-    let wanted = wanted_lines(&duel, &cards);
+    let lens = shown
+        .as_ref()
+        .and_then(|s| s.rig())
+        .zip(windows.single().ok())
+        .map(|(rig, w)| crate::table::Lens::new(rig, Vec2::new(w.width(), w.height())));
+    let wanted = wanted_lines(&duel, &cards, lens.as_ref());
     let motion = crate::cardmat::motion_of(prefs.all().reduce_motion);
 
     // Reused in a stable order. Query iteration follows archetype order,
@@ -249,6 +260,7 @@ pub fn sync_combat_lines(
 fn wanted_lines(
     duel: &Duel,
     cards: &Query<(&CardVisual, &Transform), Without<CombatLine>>,
+    lens: Option<&crate::table::Lens>,
 ) -> Vec<(Line, Vec3, Vec3)> {
     let (Some(view), Some(layout)) = (duel.view.as_ref(), duel.layout.as_ref()) else {
         return Vec::new();
@@ -268,9 +280,7 @@ fn wanted_lines(
     };
     let at_end = |end: LineEnd| match end {
         LineEnd::Object(id) => at_object(id),
-        LineEnd::Seat(player) => layout
-            .slot(player)
-            .map(|slot| to_world(seat_anchor(slot), LINE_Y)),
+        LineEnd::Seat(player) => layout.slot(player).map(|slot| player_end(slot, lens)),
     };
 
     combat
@@ -388,6 +398,8 @@ const BEAT: f32 = 1.15;
 pub fn sync_focus_ring(
     mut commands: Commands,
     duel: Res<Duel>,
+    shown: Option<Res<crate::table::ShownRig>>,
+    windows: Query<&Window>,
     time: Res<Time>,
     prefs: Res<crate::prefs::Prefs>,
     mut assets: ResMut<FocusAssets>,
@@ -396,7 +408,12 @@ pub fn sync_focus_ring(
     cards: Query<(&CardVisual, &Transform), Without<FocusRing>>,
     mut ring: Query<(Entity, &mut Transform), With<FocusRing>>,
 ) {
-    let at = focus_position(&duel, &cards);
+    let lens = shown
+        .as_ref()
+        .and_then(|s| s.rig())
+        .zip(windows.single().ok())
+        .map(|(rig, w)| crate::table::Lens::new(rig, Vec2::new(w.width(), w.height())));
+    let at = focus_position(&duel, &cards, lens.as_ref());
     let Some(at) = at else {
         for (entity, _) in &ring {
             commands.entity(entity).despawn();
@@ -451,6 +468,7 @@ pub fn sync_focus_ring(
 fn focus_position(
     duel: &Duel,
     cards: &Query<(&CardVisual, &Transform), Without<FocusRing>>,
+    lens: Option<&crate::table::Lens>,
 ) -> Option<Vec3> {
     let view = duel.view.as_ref()?;
     let layout = duel.layout.as_ref()?;
@@ -460,15 +478,35 @@ fn focus_position(
             .iter()
             .find(|(card, _)| card.object == id)
             .map(|(_, at)| Vec3::new(at.translation.x, LINE_Y, at.translation.z)),
-        LineEnd::Seat(player) => layout
-            .slot(player)
-            .map(|slot| to_world(seat_anchor(slot), LINE_Y)),
+        LineEnd::Seat(player) => layout.slot(player).map(|slot| player_end(slot, lens)),
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn player_arrows_project_to_the_life_value_on_both_sides() {
+        use crate::table::{CameraRig, Canvas, Lens};
+        use baylee_client_core::layout::TableLayout;
+        use baylee_core::ids::PlayerId;
+        let layout = TableLayout::new(
+            &[PlayerId::new(0), PlayerId::new(1)],
+            16.0 / 9.0,
+            Some(PlayerId::new(0)),
+        );
+        let canvas = Canvas::hud(Vec2::new(1728.0, 1052.0));
+        let lens = Lens::new(CameraRig::home(&layout, canvas), canvas.window);
+        for slot in &layout.slots {
+            let expected = crate::hud::seatbar::attached::life_anchor(slot, &lens).unwrap();
+            let actual = lens.project_world(player_end(slot, Some(&lens))).unwrap();
+            assert!(
+                actual.distance(expected) < 0.1,
+                "{actual:?} vs {expected:?}"
+            );
+        }
+    }
 
     #[test]
     fn the_ring_breathes_at_the_shaders_tempo() {
@@ -647,7 +685,7 @@ mod tests {
     }
 
     #[test]
-    fn a_seat_is_aimed_at_from_the_near_edge_of_its_mat() {
+    fn a_seat_is_aimed_at_its_identity_side() {
         use baylee_client_core::layout::TableLayout;
         use baylee_core::ids::PlayerId;
 
@@ -659,8 +697,8 @@ mod tests {
         let slot = layout.slot(PlayerId::new(1)).expect("the opposing seat");
         let anchor = seat_anchor(slot);
         assert!(
-            anchor.length() < slot.center.length(),
-            "the anchor is nearer the middle of the table than the mat's centre"
+            anchor.distance(slot.ledge_corners()[0]) < anchor.distance(slot.ledge_corners()[1]),
+            "the anchor belongs to the identity end of the ledge"
         );
     }
 }

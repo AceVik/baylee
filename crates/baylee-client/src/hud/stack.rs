@@ -66,6 +66,59 @@ use super::*;
 use baylee_client_core::card_face::TextBlock;
 use baylee_client_core::manapip;
 
+/// Remember the user's choice across retained HUD rebuilds.
+#[derive(Resource)]
+pub struct StackFold {
+    collapsed: bool,
+    open: f32,
+}
+impl Default for StackFold {
+    fn default() -> Self {
+        Self {
+            collapsed: false,
+            open: 1.0,
+        }
+    }
+}
+#[derive(Component)]
+pub struct StackBody;
+#[derive(Component)]
+pub struct StackToggle;
+
+/// Animate clipping instead of scaling text, so the stack remains readable.
+pub fn fold_the_stack(
+    time: Res<Time>,
+    prefs: Res<crate::prefs::Prefs>,
+    mut fold: ResMut<StackFold>,
+    windows: Query<&Window>,
+    mut bodies: Query<(&mut Node, &mut Visibility), With<StackBody>>,
+    mut toggles: Query<&mut Text, With<StackToggle>>,
+) {
+    let target = if fold.collapsed { 0.0 } else { 1.0 };
+    fold.open = if prefs.all().reduce_motion {
+        target
+    } else {
+        fold.open + (target - fold.open) * (1.0 - (-16.0 * time.delta_secs()).exp())
+    };
+    if (fold.open - target).abs() < 0.001 {
+        fold.open = target;
+    }
+    let cap = windows
+        .single()
+        .map_or(460.0, |w| (w.height() * 0.62 - 58.0).max(80.0));
+    for (mut node, mut visibility) in &mut bodies {
+        node.max_height = px(cap * fold.open);
+        *visibility = if fold.open == 0.0 {
+            Visibility::Hidden
+        } else {
+            Visibility::Inherited
+        };
+    }
+    for mut text in &mut toggles {
+        **text = if fold.collapsed { "+" } else { "−" }.into();
+    }
+}
+
 /// The card a stack entry is drawn at, at the top of the panel.
 const STACK_CARD_W: f32 = 72.0;
 /// Height of that card.
@@ -284,11 +337,11 @@ impl Picks<'_> {
     fn light(&self, object: ObjectId) -> Option<BoxShadow> {
         let hovered = self.hovered == Some(object);
         if self.selected.contains(&object) {
-            return Some(super::hand::halo(palette::ACCENT, 1.0));
+            return Some(super::hand::halo(palette::CANDLE, 1.0));
         }
         if self.selectable.contains(&object) {
             return Some(super::hand::halo(
-                palette::ACCENT,
+                palette::CANDLE,
                 if hovered { 0.85 } else { 0.70 },
             ));
         }
@@ -677,18 +730,20 @@ pub(super) fn spawn_stack_panel(
                 row_gap: px(6),
                 padding: UiRect::all(px(10)),
                 overflow: Overflow::clip(),
-                border_radius: BorderRadius::all(px(8)),
+                border_radius: BorderRadius::all(px(5)),
+                border: UiRect::all(px(1)),
                 ..default()
             },
-            BackgroundColor(palette::PANEL),
+            BackgroundColor(palette::DIALOG),
+            BorderColor::all(palette::DIALOG_LINE),
             ZIndex(Z_STACK),
             upward_shadow(),
             Pickable::IGNORE,
-            Arriving::fill(key, palette::PANEL.alpha()),
+            Arriving::fill(key, palette::DIALOG.alpha()),
             ArrivingRow {
                 lift: PANEL_LIFT,
                 from: 1.0,
-                rail: Color::NONE,
+                rail: palette::DIALOG_LINE,
             },
         ))
         .id();
@@ -734,8 +789,8 @@ pub(super) fn spawn_stack_panel(
                         border_radius: BorderRadius::all(px(8)),
                         ..default()
                     },
-                    BackgroundColor(palette::PANEL_LIT),
-                    Arriving::fill(key, palette::PANEL_LIT.alpha()),
+                    BackgroundColor(palette::DIALOG_LIT),
+                    Arriving::fill(key, palette::DIALOG_LIT.alpha()),
                     children![(
                         Text::new(board.stack.len().to_string()),
                         tf(fonts, 13.0),
@@ -770,6 +825,54 @@ pub(super) fn spawn_stack_panel(
         commands.entity(head).add_child(waiting);
     }
 
+    let toggle = commands
+        .spawn((
+            Button,
+            Node {
+                width: px(28),
+                height: px(26),
+                flex_shrink: 0.0,
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+                border: UiRect::all(px(1)),
+                border_radius: BorderRadius::all(px(4)),
+                ..default()
+            },
+            BackgroundColor(palette::DIALOG_LIT),
+            BorderColor::all(palette::DIALOG_LINE),
+            Feel::tinting_to(palette::DIALOG_LIT, palette::CANDLE_WASH_LIT),
+            children![(
+                StackToggle,
+                Text::new("−"),
+                tf_bold(fonts, 19.0),
+                TextColor(palette::CANDLE),
+                Pickable::IGNORE
+            )],
+        ))
+        .observe(
+            |mut click: On<Pointer<Click>>, mut fold: ResMut<StackFold>| {
+                click.propagate(false);
+                fold.collapsed = !fold.collapsed;
+            },
+        )
+        .id();
+    commands.entity(head).add_child(toggle);
+    let body = commands
+        .spawn((
+            StackBody,
+            Scrolls,
+            Node {
+                flex_direction: FlexDirection::Column,
+                row_gap: px(6),
+                overflow: Overflow::scroll_y(),
+                min_height: px(0),
+                ..default()
+            },
+            ScrollPosition::default(),
+        ))
+        .id();
+    commands.entity(panel).add_child(body);
+
     let shown = board.stack.len().min(1 + STACK_COMPACT_ROWS);
     for item in board.stack.iter().take(shown) {
         let entry = spawn_stack_entry(
@@ -786,7 +889,7 @@ pub(super) fn spawn_stack_panel(
             faces,
             cards.as_deref_mut(),
         );
-        commands.entity(panel).add_child(entry);
+        commands.entity(body).add_child(entry);
     }
 
     if let Some(hidden) = board.stack.len().checked_sub(shown).filter(|n| *n > 0) {
@@ -805,7 +908,7 @@ pub(super) fn spawn_stack_panel(
                 )],
             ))
             .id();
-        commands.entity(panel).add_child(more);
+        commands.entity(body).add_child(more);
     }
     panel
 }
@@ -854,16 +957,16 @@ fn spawn_stack_entry(
         if hovered {
             palette::PANEL_HOT
         } else {
-            palette::PANEL_LIT
+            palette::DIALOG_LIT
         }
     } else if item.depth == 1 {
-        palette::PANEL_LIT.with_alpha(if hovered { 0.62 } else { 0.45 })
+        palette::DIALOG_LIT.with_alpha(if hovered { 0.62 } else { 0.45 })
     } else if hovered {
-        palette::PANEL_LIT.with_alpha(0.30)
+        palette::DIALOG_LIT.with_alpha(0.30)
     } else {
         Color::NONE
     };
-    let rail = if full { palette::ACCENT } else { Color::NONE };
+    let rail = if full { palette::CANDLE } else { Color::NONE };
     let row = commands
         .spawn((
             Node {
@@ -952,7 +1055,7 @@ fn spawn_stack_entry(
     // faces in the pool are longer than one line of it; a **queued** name is
     // cut to fit one line, because its height is what the panel is budgeted
     // against and at 267 px every face in the pool fits on it anyway.
-    let ink = if full { palette::ACCENT } else { palette::INK };
+    let ink = if full { palette::CANDLE } else { palette::INK };
     let size = if full {
         STACK_NAME_PT
     } else {
@@ -1214,7 +1317,7 @@ fn spawn_walker_line(
         loy,
         STACK_SENTENCE_PT * STACK_INITIAL,
         palette::INK,
-        palette::PANEL_LIT,
+        palette::DIALOG_LIT,
     );
     // There is no subtree opacity in `bevy_ui`, so each piece of the badge
     // arrives on the row's own progress or none of it does — and a solid mark
@@ -1227,7 +1330,7 @@ fn spawn_walker_line(
     }
     commands
         .entity(badge.numeral)
-        .insert(Arriving::ink(key, palette::PANEL_LIT.alpha()));
+        .insert(Arriving::ink(key, palette::DIALOG_LIT.alpha()));
     commands.entity(seat).add_child(badge.root);
     commands.entity(line).add_children(&[seat, sentence]);
     line
@@ -1272,8 +1375,8 @@ fn spawn_stack_targets(
             .spawn((
                 Text::new("→"),
                 tf(fonts, 14.0),
-                TextColor(palette::ACCENT),
-                Arriving::ink(key, palette::ACCENT.alpha()),
+                TextColor(palette::CANDLE),
+                Arriving::ink(key, palette::CANDLE.alpha()),
                 // A label, and the row's hover is the row's — as above.
                 Pickable::IGNORE,
             ))
@@ -1343,9 +1446,9 @@ fn spawn_stack_card(
                 overflow: Overflow::clip(),
                 ..default()
             },
-            BackgroundColor(palette::PANEL_LIT),
+            BackgroundColor(palette::DIALOG_LIT),
             soft_shadow(),
-            Arriving::fill(key, palette::PANEL_LIT.alpha()),
+            Arriving::fill(key, palette::DIALOG_LIT.alpha()),
         ))
         .id();
     // Who speaks for this picture. A stack card is drawn an inch across —
@@ -1404,7 +1507,7 @@ fn spawn_stack_card(
                 bottom: px(0),
                 ..default()
             },
-            BackgroundColor(palette::PANEL_LIT.with_alpha(0.0)),
+            BackgroundColor(palette::DIALOG_LIT.with_alpha(0.0)),
             Pickable::IGNORE,
             Arriving::veil(key),
         ))
@@ -1478,9 +1581,9 @@ fn spawn_stack_target(
                 border_radius: BorderRadius::all(px(9)),
                 ..default()
             },
-            BackgroundColor(palette::PANEL_LIT),
+            BackgroundColor(palette::DIALOG_LIT),
             Pickable::IGNORE,
-            Arriving::fill(key, palette::PANEL_LIT.alpha()),
+            Arriving::fill(key, palette::DIALOG_LIT.alpha()),
         ))
         .id();
     if let Some(glyph) = glyph {
@@ -1820,12 +1923,12 @@ mod tests {
             .world_mut()
             .spawn((
                 Node::default(),
-                BackgroundColor(palette::PANEL_LIT),
-                Arriving::fill(key, palette::PANEL_LIT.alpha()),
+                BackgroundColor(palette::DIALOG_LIT),
+                Arriving::fill(key, palette::DIALOG_LIT.alpha()),
                 ArrivingRow {
                     lift: ARRIVE_LIFT,
                     from: ARRIVE_SCALE,
-                    rail: palette::ACCENT,
+                    rail: palette::CANDLE,
                 },
             ))
             .id();
@@ -1883,7 +1986,7 @@ mod tests {
         a_frame(&mut app);
         let part = alpha_of(&app, row);
         assert!(
-            part > 0.0 && part < palette::PANEL_LIT.alpha(),
+            part > 0.0 && part < palette::DIALOG_LIT.alpha(),
             "one frame in, the row is part way: {part}"
         );
         assert!(lift_of(&app, row) < -0.5, "and still above its place");
@@ -1903,7 +2006,7 @@ mod tests {
             a_frame(&mut app);
         }
         assert!(
-            (alpha_of(&app, row) - palette::PANEL_LIT.alpha()).abs() < 1e-4,
+            (alpha_of(&app, row) - palette::DIALOG_LIT.alpha()).abs() < 1e-4,
             "the row lands at the alpha it was drawn in"
         );
         assert!(lift_of(&app, row).abs() < 1e-4, "and at its resting place");
@@ -1961,13 +2064,13 @@ mod tests {
         a_frame(&mut app);
 
         assert!(
-            (alpha_of(&app, stepped) - palette::PANEL_LIT.alpha()).abs() < 1e-4,
+            (alpha_of(&app, stepped) - palette::DIALOG_LIT.alpha()).abs() < 1e-4,
             "the demoted row stood where it was"
         );
         assert!(lift_of(&app, stepped).abs() < 1e-4, "and did not drop in");
         let arriving = alpha_of(&app, landed);
         assert!(
-            arriving > 0.0 && arriving < palette::PANEL_LIT.alpha(),
+            arriving > 0.0 && arriving < palette::DIALOG_LIT.alpha(),
             "while the spell that did land is still arriving: {arriving}"
         );
     }
@@ -1985,7 +2088,7 @@ mod tests {
         a_frame(&mut app);
         let partway = alpha_of(&app, top);
         assert!(
-            partway > 0.0 && partway < palette::PANEL_LIT.alpha() * 0.9,
+            partway > 0.0 && partway < palette::DIALOG_LIT.alpha() * 0.9,
             "the row under test has to still be arriving: {partway}"
         );
 
@@ -1998,7 +2101,7 @@ mod tests {
 
         let carried = alpha_of(&app, stepped);
         assert!(
-            carried > partway && carried < palette::PANEL_LIT.alpha() * 0.95,
+            carried > partway && carried < palette::DIALOG_LIT.alpha() * 0.95,
             "it continues from {partway}, it does not jump to full: {carried}"
         );
     }
@@ -2019,7 +2122,7 @@ mod tests {
         a_frame(&mut app);
         let part = alpha_of(&app, full);
         assert!(
-            part > 0.0 && part < palette::PANEL_LIT.alpha(),
+            part > 0.0 && part < palette::DIALOG_LIT.alpha(),
             "a resolution is meant to be seen: {part}"
         );
     }
@@ -2091,8 +2194,8 @@ mod tests {
                 .top
                 .to_srgba();
             // Whiter than the accent it settles at: `INK` is brighter in
-            // every channel, and red is where the two differ most.
-            if rail.red > palette::ACCENT.to_srgba().red * 1.1 {
+            // every channel; green carries the contrast against warm gold.
+            if rail.green > palette::CANDLE.to_srgba().green * 1.1 {
                 seen_warmer = true;
             }
         }
@@ -2108,7 +2211,7 @@ mod tests {
             .expect("a Node always has one")
             .top
             .to_srgba();
-        let accent = palette::ACCENT.to_srgba();
+        let accent = palette::CANDLE.to_srgba();
         assert!(
             (settled.red - accent.red).abs() < 0.02
                 && (settled.green - accent.green).abs() < 0.02
@@ -2126,7 +2229,7 @@ mod tests {
         let (row, _) = a_row(&mut app, key);
         a_frame(&mut app);
         assert!(
-            (alpha_of(&app, row) - palette::PANEL_LIT.alpha()).abs() < 1e-4,
+            (alpha_of(&app, row) - palette::DIALOG_LIT.alpha()).abs() < 1e-4,
             "there on the first frame"
         );
         assert!(lift_of(&app, row).abs() < 1e-4);
@@ -2209,6 +2312,47 @@ mod tests {
         assert!(
             app.world().resource::<StackMotion>().rows.is_empty(),
             "the panel emptied and took its progress with it"
+        );
+    }
+}
+
+#[cfg(test)]
+mod folding_tests {
+    use super::*;
+    #[test]
+    fn folding_survives_rebuilds_and_reopens() {
+        let mut app = App::new();
+        app.init_resource::<Time>()
+            .init_resource::<crate::prefs::Prefs>()
+            .init_resource::<StackFold>()
+            .add_systems(Update, fold_the_stack);
+        let body = app.world_mut().spawn((StackBody, Node::default())).id();
+        app.world_mut().resource_mut::<StackFold>().collapsed = true;
+        let frame = |app: &mut App| {
+            app.world_mut()
+                .resource_mut::<Time>()
+                .advance_by(std::time::Duration::from_secs_f32(0.016));
+            app.update();
+        };
+        frame(&mut app);
+        let progress = app.world().resource::<StackFold>().open;
+        assert!(progress > 0.0 && progress < 1.0);
+        app.world_mut().entity_mut(body).despawn();
+        let rebuilt = app.world_mut().spawn((StackBody, Node::default())).id();
+        frame(&mut app);
+        assert!(app.world().resource::<StackFold>().open < progress);
+        for _ in 0..40 {
+            frame(&mut app);
+        }
+        assert_eq!(
+            *app.world().get::<Visibility>(rebuilt).unwrap(),
+            Visibility::Hidden
+        );
+        app.world_mut().resource_mut::<StackFold>().collapsed = false;
+        frame(&mut app);
+        assert_eq!(
+            *app.world().get::<Visibility>(rebuilt).unwrap(),
+            Visibility::Inherited
         );
     }
 }

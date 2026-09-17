@@ -1112,18 +1112,6 @@ pub(crate) mod palette {
     pub const PARCHMENT_SOFT: Color = Color::srgb(0.290, 0.251, 0.204);
     /// Brass: the answer a sheet is asking for.
     pub const BRASS: Color = Color::srgb(0.788, 0.635, 0.153);
-    /// The accent on parchment — a sheet's own heading, set in the house
-    /// colour rather than in body ink.
-    ///
-    /// [`BRASS`] is a *light*: it fills a keycap, a wash, a border, each of
-    /// which is its own ground. As letters on [`PARCHMENT`] it measures
-    /// 1.6:1, which is why nothing on a sheet is written in it. This is the
-    /// same hue taken down to an ink weight — every channel of [`BRASS`] at
-    /// 0.53, which keeps the mix exactly and lands on 4.8:1 — the contrast
-    /// the parchment's own danger ink carried, which retired with the prompt
-    /// slip in §10.2 step 6 (the shelf and the drawer say danger in
-    /// [`DANGER`], on dialog and not on paper).
-    pub const INK_BRASS: Color = Color::srgb(0.418, 0.337, 0.081);
     /// The shadow a sheet lying above the table casts.
     pub const SHEET_SHADOW: Color = Color::srgba(0.0, 0.0, 0.0, 0.66);
 
@@ -1736,6 +1724,8 @@ use stack::spawn_stack_panel;
 
 pub(crate) use finish::{FinishExits, despawn_finish, settle_the_sheet, spawn_finish};
 pub use hand::apply_hand_scroll;
+/// Gentle lift while inspecting a hand card.
+pub(crate) const HOVER_RAISE: f32 = 12.0;
 pub use hand::{ARMED_RAISE, HAND_ZONE_H, LEDGE_H, OVERLAY_CARD_H, OVERLAY_CARD_W};
 /// The one line the actions row carries, which `frontal` paints because the
 /// row is drawn by a `MaterialNode` and a border on one is a question.
@@ -1758,10 +1748,10 @@ pub use sheet::{
     place_ability_sheet, sync_ability_sheet, zoom_the_sheet,
 };
 pub use slip::{SlipWash, wash_the_slip_in};
-pub use stack::{StackMotion, ease_the_stack_in};
+pub use stack::{StackFold, StackMotion, ease_the_stack_in, fold_the_stack};
 pub(crate) use tray::band_of;
 pub(crate) use tray::dim_the_table;
-pub use tray::{TrayRevision, sync_tray};
+pub use tray::{TrayReveal, TrayRevision, reveal_tray, sync_tray};
 
 pub(crate) use seatbar::attached::describe_phase;
 pub(crate) use seatbar::attached::highlight_player;

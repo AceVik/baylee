@@ -841,6 +841,37 @@ than guessed at. All 9 modes and all 8 alternative costs in the pool map, and
 rather than a floor: an ability may honestly have no sentence, a mode never
 can.
 
+### Combat and table panels (September 2026)
+
+Combat arrows use the projected life-value anchor from the seat identity,
+including opposite seats and camera rotation. Object defenders still use the
+actual card position. Their continuous warm core, soft halo and moving current
+keep attack and block paths readable without hiding card faces.
+
+`client-core::strike::between` reads damage-step edges, using the previous
+battlefield so creatures killed by that damage still participate. A first
+snapshot and repeated snapshots are silent. `combatfx` presents first strike
+as a short gold slash and normal strike as an amber impact with a heavier
+synthesised cue. The card's lunge is a temporary offset to its glide goal;
+there is no accumulating transform or rules change. Live impact geometry is
+capped at 48 entities. Reduced motion keeps the cards still and sound continues
+to respect the sound preference.
+
+The stack, zone browser and ability menu share the table's dark surface and
+gold accents. The stack's plus/minus button animates a clipped, scrollable body;
+its title and count remain visible. Its fold progress survives HUD rebuilds.
+The zone browser opens at 900 × 738 logical pixels, fitted to its available
+band, and its entrance does not restart when filtering or receiving artwork.
+The ability panel has a 440-pixel maximum width and high-contrast keycaps.
+Where printed text is unavailable, known effects receive brief translated
+action labels; these are categories, not replacement rules text.
+
+Hand hover raises a card by 12 pixels through the existing touch spring and
+keeps that card in front. Flying creatures gently bank through their motion
+target, and inverse-parent shadow transforms keep their shadows flat on the
+table while they bank and tap. Losing flying restores the original contact
+shadow. Inspection and reduced motion stop the idle banking.
+
 ### The stack panel draws it
 
 `hud::spawn_stack_panel` is where that stops being theory. Each entry is a

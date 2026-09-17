@@ -1,4 +1,4 @@
-//! The ability sheet: what a permanent can do, on parchment, beside the card.
+//! The ability sheet: actions on smoked glass beside their permanent.
 //!
 //! It replaces a row of buttons in the prompt bar. Those buttons carried the
 //! ability's *cost* as their whole label — `{2}, {T}` — because a button on a
@@ -6,12 +6,12 @@
 //! never what it did, and the bar was at the bottom of the window while the
 //! permanent was on the table.
 //!
-//! What is here is a sheet of paper laid beside the card it belongs to: the
+//! The glass panel beside the card names the
 //! permanent's name, and a numbered row per thing it can do with the
 //! ability's own printed sentence on it. The cost is under the key that arms
 //! it, in a narrow column down the left — the two marks a player scans rather
 //! than reads, with the whole of the rest of the row left to the sentence.
-//! `docs/redesign-proposal.md` §7 is the design.
+//! Its dark surface and gold accents match the table controls.
 //!
 //! # Two trees, because two things change at different rates
 //!
@@ -54,7 +54,7 @@ const SHEET_MIN: f32 = 230.0;
 /// wrap, which is what a *maximum* is for. It also keeps a sheet standing
 /// beside a permanent in the middle lane clear of both window edges, which
 /// the fixed width was chosen for and is the one job it was doing well.
-const SHEET_MAX: f32 = 380.0;
+const SHEET_MAX: f32 = 440.0;
 
 /// The air between the card and the sheet's near edge.
 ///
@@ -73,18 +73,6 @@ const SHEET_GAP: f32 = 18.0;
 /// edge and the other half is under the paper. Small — it is a tail, and a
 /// tail that could be mistaken for a control would be one.
 const NUB: f32 = 14.0;
-
-/// How much light the paper has lost where the nub lies on it.
-///
-/// The nub carries the sheet's own grain, which is what makes it the same
-/// material — and stretching a 512-pixel sheet of parchment into fourteen
-/// pixels shows the *whole* of it, the bright middle included, while the
-/// sheet under it at that point is showing its own vignetted rim. Measured on
-/// the running client: the paper beside the nub is 203,187,148 and the nub's
-/// face came out 215,201,163. This is the rim's share of the middle's light,
-/// which is the one number that closes it — and it is a tint on the image and
-/// not a second colour, so the grain still shows through.
-const NUB_TONE: f32 = 0.945;
 
 /// How close to the window's edge the sheet may come.
 const SHEET_MARGIN: f32 = 12.0;
@@ -133,7 +121,7 @@ const POUR_RING: f32 = 5.0;
 /// The air between two pips.
 const POUR_AIR: f32 = 4.0;
 
-/// How much of [`palette::PARCHMENT_EDGE`] the header of pips is washed in.
+/// How much of [`palette::DIALOG_LINE`] the header of pips is washed in.
 ///
 /// The hairline that parts the head from the list, widened into a field. The
 /// owner asked for the mana row to stand out, and the sheet has exactly three
@@ -220,7 +208,7 @@ const COST_MARKS: f32 = 3.0 * COST_MARK + 2.0 * crate::manaui::air(ROW_PT);
 /// The air over and under the hairline beneath a cost set as a title.
 const COST_TITLE_AIR: f32 = 3.0;
 
-/// How much of [`palette::PARCHMENT_EDGE`] a title's hairline is drawn in.
+/// How much of [`palette::DIALOG_LINE`] a title's hairline is drawn in.
 ///
 /// Softer than [`rule`], which parts the sheet's *kinds of writing* — the
 /// name from the rows, the rows from the footer. This one parts a cost from
@@ -256,16 +244,16 @@ const ARMED_WASH: Color = Color::srgba(0.788, 0.635, 0.153, 0.16);
 /// for all three states instead of three hand-tuned literals.
 const ROW_PRESS: f32 = 0.10;
 
-/// The dish the close button sits in — [`palette::PARCHMENT_INK`] at 5%.
+/// The dish the close button sits in — [`palette::INK`] at 5%.
 ///
 /// A resting state at all, which the other controls on this sheet do without,
 /// because a **finger** has no hover: on a tablet the cross would otherwise be
 /// a glyph floating on paper with nothing to say it is a target. Five per cent
 /// is a press in the paper rather than a button on it.
-const CLOSE_REST: Color = Color::srgba(0.098, 0.082, 0.062, 0.05);
+const CLOSE_REST: Color = Color::srgba(0.92, 0.77, 0.46, 0.08);
 
 /// The same with the pointer on it.
-const CLOSE_HOT: Color = Color::srgba(0.098, 0.082, 0.062, 0.14);
+const CLOSE_HOT: Color = Color::srgba(0.92, 0.77, 0.46, 0.20);
 
 /// The wash under the row the keyboard is on.
 ///
@@ -276,7 +264,7 @@ const CLOSE_HOT: Color = Color::srgba(0.098, 0.082, 0.062, 0.14);
 /// done*), and a row that is both showed only the louder of them.
 const PICKED_WASH: Color = Color::srgba(0.788, 0.635, 0.153, 0.08);
 
-/// The ink the keyboard's own cursor is drawn in — [`palette::INK_BRASS`].
+/// The ink the keyboard's own cursor is drawn in — [`palette::CANDLE`].
 ///
 /// **Brass at ink weight says where the keyboard is; brass as a light says
 /// what it has done.** A mark two or three pixels wide is carried by its
@@ -291,7 +279,7 @@ const PICKED_WASH: Color = Color::srgba(0.788, 0.635, 0.153, 0.08);
 /// the cursor at once. The cost is that this accent now says two things on
 /// one sheet — whose list it is, in the head's letters, and where the keyboard
 /// is, as a bar — told apart by shape.
-const PICK_MARK: Color = palette::INK_BRASS;
+const PICK_MARK: Color = palette::CANDLE;
 
 /// How wide the bar down the left edge of the row the keyboard is on.
 ///
@@ -326,7 +314,7 @@ const PICK_RING: f32 = 2.0;
 /// is why this is composited here and not layered there.
 fn pressed(rest: Color) -> Color {
     let rest = rest.to_srgba();
-    let ink = palette::PARCHMENT_INK.to_srgba();
+    let ink = palette::INK.to_srgba();
     // Never zero — the ink is opaque enough to divide by on its own — so the
     // resting alpha is free to be zero.
     let alpha = ROW_PRESS + rest.alpha * (1.0 - ROW_PRESS);
@@ -415,7 +403,7 @@ fn put_nub(at: &Placement, node: &mut Node, edge: &mut BorderColor) {
     // turn clockwise, so the box's `right` and `bottom` become the pair
     // pointing down and its `top` and `left` the pair pointing up. The other
     // two lie on the paper and carry no ink — see [`SheetNub`].
-    let ink = palette::PARCHMENT_EDGE;
+    let ink = palette::DIALOG_LINE;
     *edge = if at.below {
         BorderColor {
             top: ink,
@@ -464,7 +452,7 @@ pub struct SheetClose;
 ///
 /// It is the **only** thing the sheet attaches to the table, and that is a
 /// decision rather than an omission. A `SheetHalo` used to ring the card as
-/// well — [`palette::PARCHMENT_EDGE`] at the sheet's own weight, so paper,
+/// well — [`palette::DIALOG_LINE`] at the sheet's own weight, so paper,
 /// tail and ring would read as one gesture in one material. On the running
 /// client it read as a gold frame round the card instead, and the owner asked
 /// for it off. The tail already says which card the paper is about, from the
@@ -675,7 +663,7 @@ pub fn sync_ability_sheet(
 /// the window's top-left corner, which is where an unplaced absolute node is.
 fn spawn_trim(
     commands: &mut Commands,
-    sheets: &UiSheets,
+    _sheets: &UiSheets,
     fresh: bool,
     standing: Option<Placement>,
 ) -> Entity {
@@ -701,14 +689,7 @@ fn spawn_trim(
                 scale: arrive,
                 ..UiTransform::IDENTITY
             },
-            // No ground of its own. The grain below covers the *padding* box,
-            // and a `BackgroundColor` reaches under the border as well — so a
-            // flat [`palette::PARCHMENT`] here survived the grain as a
-            // one-pixel bright rim on the two edges the placer leaves clear,
-            // which at a forty-five degree angle is an antialiased light line
-            // down each side of the diamond. Measured: 213 against the
-            // paper's 203, and the last thing drawing an outline round a tail
-            // that is meant to have none.
+            // The inset face leaves the two outward borders visible.
             BackgroundColor(Color::NONE),
             // Written by the placer, which is the only thing that knows which
             // two of the four edges are the ones facing out — or carried
@@ -716,22 +697,7 @@ fn spawn_trim(
             nub_edge,
         ))
         .id();
-    // **The nub is cut from the same paper, and this is what says so.** It
-    // was a flat [`palette::PARCHMENT`] diamond — 224,212,176 — lying on a
-    // sheet whose face is the *stretched grain*, measured at 203,187,148. Its
-    // inner half therefore painted a bright flat patch on grained paper and
-    // the outer half a bright flat tail, which is the whole reason it read as
-    // its own element rather than as the sheet's corner: a tail of paper and
-    // the paper it is torn from cannot be two materials. The geometry was
-    // right all along — only `NUB·√2/2` of it stands proud — so nothing here
-    // moves it or grows it.
-    //
-    // An absolute child inset to zero rather than [`sheet_surface`], which
-    // carries the sheet's own 13-pixel corner and would round a 14-pixel
-    // square into a circle, and rather than [`sheet`] on the nub itself,
-    // which paints the *content* box and would leave the border ring flat.
-    // The rotation and the opening scale propagate to it; the grain is noise
-    // and has no up.
+    // Match the panel surface through the attached corner and its opening.
     let grain = commands
         .spawn((
             Node {
@@ -742,10 +708,7 @@ fn spawn_trim(
                 bottom: px(0),
                 ..default()
             },
-            ImageNode {
-                color: Color::srgb(NUB_TONE, NUB_TONE, NUB_TONE),
-                ..sheet(sheets)
-            },
+            BackgroundColor(palette::DIALOG),
             Pickable::IGNORE,
         ))
         .id();
@@ -758,7 +721,7 @@ fn spawn_trim(
 fn spawn_sheet(
     commands: &mut Commands,
     fonts: &UiFonts,
-    sheets: &UiSheets,
+    _sheets: &UiSheets,
     faces: &crate::cardtext::CardTexts,
     lang: Lang,
     duel: &Duel,
@@ -855,8 +818,8 @@ fn spawn_sheet(
                 Visibility::Hidden
             },
             node,
-            BackgroundColor(palette::PARCHMENT),
-            BorderColor::all(palette::PARCHMENT_EDGE),
+            BackgroundColor(palette::DIALOG),
+            BorderColor::all(palette::DIALOG_LINE),
             // The house's own, which stands the sheet further off the table
             // than the shallower one written out here did: this is a piece of
             // paper lying *over* the board, not a panel in the same plane as
@@ -871,7 +834,7 @@ fn spawn_sheet(
             // back to the top of the list a player was reading.
         ))
         .id();
-    commands.spawn(sheet_surface(sheets)).insert(ChildOf(sheet));
+    // The glass panel owns its surface; no opaque parchment overlay.
 
     if bubble {
         // No head and no footer. The head names the permanent, which is
@@ -923,6 +886,7 @@ fn spawn_sheet(
             object,
             index,
             &options[index],
+            lang,
             digit,
             armed == Some(index),
             duel.ability_pick == index,
@@ -998,7 +962,7 @@ fn spawn_head(
             // letters here, which `the_parchment_writes_no_letters_in_brass`
             // holds.
             tf_bold(fonts, 16.0),
-            TextColor(palette::INK_BRASS),
+            TextColor(palette::CANDLE),
             Node {
                 // It takes the slack, so the cross is against the right
                 // margin whatever the name is and however wide the sheet
@@ -1042,7 +1006,7 @@ fn spawn_head(
             tf_bold(fonts, 18.0),
             // The same grey as the way out in the footer. The two are one
             // door drawn twice, once for each hand.
-            TextColor(palette::SLIP_ASIDE),
+            TextColor(palette::MUTED),
             Pickable::IGNORE,
         ))
         .id();
@@ -1116,7 +1080,7 @@ fn spawn_foot(
             .spawn((
                 Text::new(text),
                 tf(fonts, size),
-                TextColor(palette::SLIP_ASIDE),
+                TextColor(palette::MUTED),
                 Pickable::IGNORE,
             ))
             .id()
@@ -1144,7 +1108,7 @@ fn spawn_foot(
             palette::BRASS,
             // Dark on gold. White on brass fails contrast, and an armed row
             // is the one a player is about to commit to.
-            palette::PARCHMENT_INK,
+            palette::INK,
             FOOT_PT,
         );
         commands.entity(left).add_child(key);
@@ -1179,10 +1143,10 @@ fn spawn_foot(
         commands,
         fonts,
         &baylee_client_core::prefs::Chord::key("Escape").display(),
-        palette::SLIP_GHOST,
+        palette::MUTED,
         // The same grey as the words beside it, so the cap and its sentence
         // are one aside instead of a black key with a quiet label.
-        palette::SLIP_ASIDE,
+        palette::MUTED,
         EXIT_PT,
     );
     commands.entity(right).add_child(key);
@@ -1225,11 +1189,15 @@ fn cap(
         fonts,
         legend,
         fill,
-        ink,
-        if fill == palette::BRASS {
-            palette::PARCHMENT_INK
+        if fill.alpha() > 0.4 {
+            palette::DIALOG
         } else {
-            palette::PARCHMENT_SOFT
+            ink
+        },
+        if fill == palette::BRASS {
+            palette::DIALOG
+        } else {
+            palette::MUTED
         },
         size,
     )
@@ -1248,7 +1216,7 @@ fn rule(commands: &mut Commands, above: f32) -> Entity {
                 margin: UiRect::new(px(SHEET_PAD_X), px(SHEET_PAD_X), px(above), px(2)),
                 ..default()
             },
-            BackgroundColor(palette::PARCHMENT_EDGE),
+            BackgroundColor(palette::DIALOG_LINE),
             Pickable::IGNORE,
         ))
         .id()
@@ -1346,7 +1314,7 @@ fn spawn_cost_column(
             cost,
             ROW_PT,
             COST_MARK,
-            palette::SLIP_SOFT,
+            palette::MUTED,
         );
         commands.entity(purse).add_child(pips);
     }
@@ -1378,14 +1346,8 @@ fn spawn_cost_title(commands: &mut Commands, fonts: &UiFonts, cost: &str) -> Ent
             Pickable::IGNORE,
         ))
         .id();
-    let line = crate::manaui::spawn_rich_marks(
-        commands,
-        fonts,
-        cost,
-        ROW_PT,
-        COST_MARK,
-        palette::SLIP_SOFT,
-    );
+    let line =
+        crate::manaui::spawn_rich_marks(commands, fonts, cost, ROW_PT, COST_MARK, palette::MUTED);
     commands.entity(holder).add_child(line);
     let hair = commands
         .spawn((
@@ -1394,7 +1356,7 @@ fn spawn_cost_title(commands: &mut Commands, fonts: &UiFonts, cost: &str) -> Ent
                 margin: UiRect::top(px(COST_TITLE_AIR)),
                 ..default()
             },
-            BackgroundColor(palette::PARCHMENT_EDGE.with_alpha(COST_RULE_WASH)),
+            BackgroundColor(palette::DIALOG_LINE.with_alpha(COST_RULE_WASH)),
             Pickable::IGNORE,
         ))
         .id();
@@ -1442,7 +1404,7 @@ fn spawn_pour_strip(
                 border_radius: BorderRadius::all(px(KEYCAP_R)),
                 ..default()
             },
-            BackgroundColor(palette::PARCHMENT_EDGE.with_alpha(POUR_BAND_WASH)),
+            BackgroundColor(palette::DIALOG_LINE.with_alpha(POUR_BAND_WASH)),
             Pickable::IGNORE,
         ))
         .id();
@@ -1490,7 +1452,7 @@ fn spawn_prefix(commands: &mut Commands, fonts: &UiFonts, text: &str) -> Entity 
         .spawn((
             Text::new(text.to_string()),
             crate::hud::tf(fonts, POUR_MARK * 0.8),
-            TextColor(palette::SLIP_INK),
+            TextColor(palette::INK),
             Node {
                 // The bubble's own `column_gap` is the air between two pips,
                 // which is too little between a word and a symbol.
@@ -1580,6 +1542,7 @@ fn spawn_row(
     object: ObjectId,
     index: usize,
     option: &crate::abilities::AbilityOption,
+    lang: Lang,
     digit: char,
     armed: bool,
     picked: bool,
@@ -1630,11 +1593,11 @@ fn spawn_row(
         if armed {
             palette::BRASS
         } else {
-            palette::SLIP_GHOST
+            palette::MUTED
         },
         // Dark on gold in both states. White on brass fails contrast, and an
         // armed row is the one a player is about to commit to.
-        palette::PARCHMENT_INK,
+        palette::INK,
         ROW_CAP_PT,
     );
     // What the ability *does*, if the card's text is here to say it, and what
@@ -1642,7 +1605,15 @@ fn spawn_row(
     // which is the cost. Read here rather than where it is drawn, because the
     // cost column is decided by it and stands to the left of the sentence.
     let printed = row_text(faces, duel, object, option);
-    let cost = row_cost(option, printed.is_some());
+    let fallback = duel
+        .view
+        .as_ref()
+        .and_then(|view| crate::abilities::effect_label(lang, view, &option.action));
+    let cost = if fallback.is_some() {
+        option.cost.as_deref()
+    } else {
+        row_cost(option, printed.is_some())
+    };
     // **Cost, sentence, key**, in that order across the row. The cost is what
     // a player checks first ("can I afford this") and the key is what they
     // press last, so the row is read in the order it is used; and both ends
@@ -1684,11 +1655,15 @@ fn spawn_row(
         let title = spawn_cost_title(commands, fonts, cost);
         commands.entity(says).add_child(title);
     }
-    let blocks = printed.unwrap_or_else(|| vec![TextBlock::Rules(option.label.clone())]);
+    let blocks = printed.unwrap_or_else(|| {
+        vec![TextBlock::Rules(
+            fallback.unwrap_or_else(|| option.label.clone()),
+        )]
+    });
     for block in blocks {
         let (words, colour) = match &block {
-            TextBlock::Rules(t) => (t.clone(), palette::SLIP_INK),
-            TextBlock::Reminder(t) => (t.clone(), palette::SLIP_ASIDE),
+            TextBlock::Rules(t) => (t.clone(), palette::INK),
+            TextBlock::Reminder(t) => (t.clone(), palette::MUTED),
         };
         let line = crate::manaui::spawn_rich(commands, fonts, &words, ROW_PT, colour);
         commands.entity(says).add_child(line);
@@ -1731,7 +1706,7 @@ fn spawn_pager(
         fonts,
         &abilitysheet::PAGER.to_string(),
         Color::NONE,
-        palette::PARCHMENT_INK,
+        palette::INK,
         ROW_CAP_PT,
     );
     commands.entity(row).add_child(keycap);
@@ -1741,7 +1716,7 @@ fn spawn_pager(
                 Phrase::SheetMorePage.fill(lang, &[&(page + 1).to_string(), &pages.to_string()]),
             ),
             tf_bold(fonts, 12.0),
-            TextColor(palette::SLIP_SOFT),
+            TextColor(palette::MUTED),
             Pickable::IGNORE,
         ))
         .id();
@@ -2271,7 +2246,7 @@ mod running {
     ///
     /// The rule above only says what brass may not do. This is the other half:
     /// the sheet still wants its own accent — the owner asked for the card's
-    /// name in the house colour — and [`palette::INK_BRASS`] is that hue taken
+    /// name in the house colour — and [`palette::CANDLE`] is that hue taken
     /// down until it carries. Both sides are measured, because a palette entry
     /// nudged for looks is exactly how the unreadable one got there.
     #[test]
@@ -2296,26 +2271,12 @@ mod running {
             (one.max(two) + 0.05) / (one.min(two) + 0.05)
         }
 
-        let light = contrast(palette::BRASS, palette::PARCHMENT);
-        assert!(
-            light < 2.0,
-            "brass is a light and this test's premise is that it cannot be read: {light:.2}:1"
-        );
-        let ink = contrast(palette::INK_BRASS, palette::PARCHMENT);
-        assert!(
-            ink >= 4.5,
-            "the sheet's accent has to carry body text: {ink:.2}:1"
-        );
-        // And it is still brass rather than brown: the mix is the same, only
-        // the level is lower, so every channel stands in the same ratio.
-        let (was, now) = (palette::BRASS.to_srgba(), palette::INK_BRASS.to_srgba());
-        let drift = (was.red / was.green - now.red / now.green)
-            .abs()
-            .max((was.blue / was.green - now.blue / now.green).abs());
-        assert!(
-            drift < 0.01,
-            "the ink drifted off brass's hue by {drift:.3}"
-        );
+        for ink in [palette::CANDLE, palette::INK, palette::MUTED] {
+            assert!(
+                contrast(ink, palette::DIALOG) >= 4.5,
+                "the glass sheet must carry its heading and text"
+            );
+        }
     }
 
     /// The cursor's mark carries on every ground it can land on.
@@ -2359,12 +2320,12 @@ mod running {
             )
         }
 
-        let paper = palette::PARCHMENT;
+        let paper = palette::DIALOG;
         let grounds = [
             ("the paper", paper),
             (
                 "the band under the pips",
-                over(palette::PARCHMENT_EDGE.with_alpha(POUR_BAND_WASH), paper),
+                over(palette::DIALOG_LINE.with_alpha(POUR_BAND_WASH), paper),
             ),
             ("an armed row", over(ARMED_WASH, paper)),
         ];
@@ -2373,11 +2334,6 @@ mod running {
             assert!(
                 mark >= 3.0,
                 "the cursor has to be visible on {what}: {mark:.2}:1"
-            );
-            let light = contrast(palette::BRASS, ground);
-            assert!(
-                light < 2.0,
-                "this test's premise is that brass cannot be a mark on {what}: {light:.2}:1"
             );
         }
     }

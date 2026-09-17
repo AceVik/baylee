@@ -808,6 +808,59 @@ fn printed_sentence(
     })
 }
 
+/// Short action categories while printed text is unavailable. These are labels,
+/// never substitute rules text; unknown compound effects keep the numbered fallback.
+pub(crate) fn effect_label(lang: Lang, view: &PlayerView, action: &PlayerAction) -> Option<String> {
+    let PlayerAction::ActivateAbility {
+        source,
+        ability_index,
+    } = action
+    else {
+        return None;
+    };
+    let effects = match crate::manasources::ability_at(view, *source, *ability_index)? {
+        AbilityDef::Activated { effects, .. }
+        | AbilityDef::ActivatedConditional { effects, .. }
+        | AbilityDef::Loyalty { effects, .. } => *effects,
+        _ => return None,
+    };
+    let names: Option<Vec<_>> = effects
+        .iter()
+        .map(|effect| effect_name(lang, effect))
+        .collect();
+    names
+        .filter(|names| !names.is_empty())
+        .map(|names| names.join(" · "))
+}
+
+fn effect_name(lang: Lang, effect: &baylee_cards_dsl::Effect) -> Option<&'static str> {
+    use baylee_cards_dsl::Effect;
+    let (en, de) = match effect {
+        Effect::GainLife { .. } | Effect::GainLifeFor { .. } => {
+            ("Gain life", "Lebenspunkte erhalten")
+        }
+        Effect::DrawCards { .. } | Effect::DrawCardsFor { .. } => ("Draw cards", "Karten ziehen"),
+        Effect::AddCounter { .. } | Effect::AddCounterFilter { .. } => {
+            ("Add counters", "Marken hinzufügen")
+        }
+        Effect::PumpFilter { .. } | Effect::PumpTarget { .. } => {
+            ("Change power / abilities", "Werte / Fähigkeiten ändern")
+        }
+        Effect::UntapSelf | Effect::UntapTarget => ("Untap", "Enttappen"),
+        Effect::SearchLibrary { .. } => ("Search library", "Bibliothek durchsuchen"),
+        Effect::Scry { .. } | Effect::ScryFor { .. } => ("Scry", "Hellsicht"),
+        Effect::DealDamage { .. } => ("Deal damage", "Schaden zufügen"),
+        Effect::Destroy { .. } | Effect::DestroyAll { .. } => ("Destroy", "Zerstören"),
+        Effect::Exile { .. } => ("Exile", "Ins Exil schicken"),
+        Effect::ReturnToHand { .. } => ("Return to hand", "Auf die Hand zurückbringen"),
+        Effect::CreateToken { .. } | Effect::CreateTokenN { .. } => {
+            ("Create tokens", "Spielsteine erzeugen")
+        }
+        _ => return None,
+    };
+    Some(if lang == Lang::De { de } else { en })
+}
+
 /// What an activated ability costs, as one short string.
 ///
 /// `None` for a free ability: "" is not a button and "Free" would be a claim
@@ -922,6 +975,28 @@ fn mana_choice(lang: Lang, colors: &[ManaColor], amount: u8) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn offline_ability_labels_distinguish_effects_without_guessing_rules_text() {
+        let card = crate::registry_printed(1, 0, "Kenrith, the Returned King");
+        let view = baylee_client_core::test_support::ViewBuilder::new(2)
+            .with_battlefield(0, vec![card])
+            .build();
+        for (ability_index, label) in [
+            (1, "Marken hinzufügen"),
+            (2, "Lebenspunkte erhalten"),
+            (3, "Karten ziehen"),
+        ] {
+            let action = PlayerAction::ActivateAbility {
+                source: ObjectId::new(1, 0),
+                ability_index,
+            };
+            assert_eq!(
+                effect_label(Lang::De, &view, &action).as_deref(),
+                Some(label)
+            );
+        }
+    }
+
     use baylee_client_core::test_support::{ViewBuilder, token};
     use baylee_core::ids::PlayerId;
     use baylee_engine::choice::{GRANTED_ABILITY, LegalActions, PREPARED_CAST, Pending};

@@ -53,6 +53,34 @@
 use super::*;
 use baylee_client_core::browser::{BrowseRow, BrowseZone, Browser, Names, ViewMode, grid_across};
 
+/// Opening progress survives filter, tab and card-art rebuilds.
+#[derive(Resource, Default)]
+pub struct TrayReveal(f32);
+
+/// A restrained entrance, with readable text and no animation on filtering.
+pub fn reveal_tray(
+    time: Res<Time>,
+    duel: Res<Duel>,
+    prefs: Res<crate::prefs::Prefs>,
+    mut reveal: ResMut<TrayReveal>,
+    mut panels: Query<&mut UiTransform, With<TrayPanel>>,
+) {
+    if !duel.browser.is_open() {
+        reveal.0 = 0.0;
+        return;
+    }
+    reveal.0 = if prefs.all().reduce_motion {
+        1.0
+    } else {
+        (reveal.0 + time.delta_secs() / 0.20).min(1.0)
+    };
+    let eased = 1.0 - (1.0 - reveal.0).powi(3);
+    for mut transform in &mut panels {
+        transform.scale = Vec2::splat(0.965 + 0.035 * eased);
+        transform.translation.y = px((1.0 - eased) * 12.0);
+    }
+}
+
 /// The thumbnail on a row.
 ///
 /// Small on purpose: it is there to be *recognised*, not read — the name is
@@ -245,7 +273,8 @@ const TRAY_TAB_BOX: f32 = 12.0;
 ///
 /// Derived and not chosen, so that moving [`super::SHEET_R`] moves both curves
 /// together. `the_head_is_cut_concentrically_with_the_panel` is what holds it.
-const TRAY_HEAD_R: f32 = super::SHEET_R - 1.0;
+const TRAY_RADIUS: f32 = 5.0;
+const TRAY_HEAD_R: f32 = TRAY_RADIUS - 1.0;
 /// The footer band's.
 const TRAY_FOOT_PAD: f32 = 11.0;
 
@@ -280,7 +309,7 @@ const TRAY_CHROME_H: f32 =
 /// default at 768 of the 850 the band has at 1738, which is a dialog that
 /// reads as a screen.
 #[cfg(test)]
-const TRAY_ROWS: f32 = 7.5;
+const TRAY_ROWS: f32 = 8.5;
 
 /// What the dialog was last drawn from.
 ///
@@ -874,7 +903,7 @@ pub(super) fn spawn_tray(
                 flex_direction: FlexDirection::Column,
                 border: UiRect::all(px(1)),
                 overflow: Overflow::clip(),
-                border_radius: sheet_radius(),
+                border_radius: BorderRadius::all(px(TRAY_RADIUS)),
                 ..default()
             },
             BackgroundColor(palette::DIALOG),

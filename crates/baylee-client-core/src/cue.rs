@@ -51,6 +51,10 @@ use baylee_view::{CounterKind, PlayerView};
 /// match arm is a thing to get backwards.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Cue {
+    /// The swift first combat strike.
+    FirstStrike,
+    /// The ordinary combat impact.
+    CombatStrike,
     /// This seat lost life.
     MyLifeLost,
     /// This seat gained life.
@@ -99,7 +103,9 @@ impl Cue {
     /// test. `every_cue_is_in_all` holds the two together by counting the
     /// arms of [`Cue::name`], which the compiler already forces to be
     /// exhaustive.
-    pub const ALL: [Self; 12] = [
+    pub const ALL: [Self; 14] = [
+        Self::FirstStrike,
+        Self::CombatStrike,
         Self::MyLifeLost,
         Self::MyLifeGained,
         Self::TheirLifeLost,
@@ -121,6 +127,8 @@ impl Cue {
     #[must_use]
     pub fn name(self) -> &'static str {
         match self {
+            Self::FirstStrike => "FirstStrike",
+            Self::CombatStrike => "CombatStrike",
             Self::MyLifeLost => "MyLifeLost",
             Self::MyLifeGained => "MyLifeGained",
             Self::TheirLifeLost => "TheirLifeLost",
