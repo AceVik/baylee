@@ -2072,3 +2072,163 @@ fn deflecting_swat_redirects_a_spell_for_free_while_a_commander_stands() {
          redirection was a real change of target and not a fizzle"
     );
 }
+
+/// Swan Song — {U} instant: "Counter target enchantment, instant, or sorcery spell.
+/// Its controller creates a 2/2 blue Bird creature token with flying."
+///
+/// Creating the 2/2 blue Bird token is the `Coverage::Partial` gap due to a missing
+/// token definition. This scenario proves the counter half: an opponent casts Dark
+/// Ritual, Swan Song targets and counters it to the graveyard, preventing mana
+/// generation, and no Bird token is created.
+#[test]
+fn swan_song_counters_an_instant_spell_without_granting_a_bird_token() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[island()])
+        .hand(0, &[swan_song()])
+        .battlefield(1, &[swamp()])
+        .hand(1, &[dark_ritual()])
+        .start();
+    keep_mulligans(&mut engine);
+
+    reach_main_phase(&mut engine, p0);
+    // p0 passes; p1 casts Dark Ritual during p0's main phase.
+    engine.apply(p0, PlayerAction::PassPriority).unwrap();
+    tap_all_mana(&mut engine, p1);
+    let ritual = in_hand(&engine, p1, dark_ritual()).expect("dark ritual is in hand");
+    engine
+        .apply(p1, PlayerAction::CastSpell { card: ritual })
+        .unwrap();
+
+    // p1 passes priority with Dark Ritual on the stack.
+    engine.apply(p1, PlayerAction::PassPriority).unwrap();
+
+    // p0 answers: tap Island for {U} and cast Swan Song targeting Dark Ritual.
+    tap_all_mana(&mut engine, p0);
+    let song = in_hand(&engine, p0, swan_song()).expect("swan song is in hand");
+    engine
+        .apply(p0, PlayerAction::CastSpell { card: song })
+        .unwrap();
+
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!(
+            "expected target choice for swan song, got {:?}",
+            engine.pending()
+        )
+    };
+    assert_eq!(
+        options,
+        vec![ritual],
+        "Dark Ritual is an instant spell and thus a legal target"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![ritual],
+            },
+        )
+        .unwrap();
+
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(
+        in_graveyard(&engine, p1, dark_ritual()),
+        Some(ritual),
+        "Dark Ritual was countered into the graveyard"
+    );
+    assert_eq!(
+        engine.state().players[1]
+            .mana_pool
+            .available(ManaColor::Black),
+        0,
+        "Dark Ritual never resolved, so no black mana was added"
+    );
+    assert_eq!(
+        in_graveyard(&engine, p0, swan_song()),
+        Some(song),
+        "Swan Song resolved into its owner's graveyard"
+    );
+    assert!(
+        tokens_of(&engine, p1).is_empty(),
+        "no Bird token created due to Coverage::Partial gap"
+    );
+}
+
+/// Teferi's Protection — {2}{W} instant: "Until your next turn, your life
+/// total can't change and you gain protection from everything. All
+/// permanents you control phase out. Exile Teferi's Protection."
+///
+/// One of those four sentences is expressible and three are the
+/// `Coverage::Partial` gap, so the test is the exile plus the shape of what
+/// is missing. The exile is read in its own right because it is the clause
+/// that was *built and then undone*: `Effect::ExileSource` moved the card
+/// off the stack and `finalize_spell` fetched it back into the graveyard,
+/// which the rules test beside it
+/// ([`super::rules`]) now holds shut.
+///
+/// The three missing clauses are read as one absence rather than three,
+/// and deliberately: "your life total can't change" and "you gain
+/// protection from everything" would both be continuous effects, and the
+/// spell registers none at all. The phase-out is read on the permanent
+/// itself, because `Status::PHASED_OUT` exists and nothing set it — an
+/// Elf that is still an ordinary untapped creature after the spell
+/// resolved is the printed sentence not happening.
+#[test]
+fn teferis_protection_exiles_itself_and_leaves_everything_else_exactly_as_it_was() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, plains())
+        .battlefield(0, &[plains(), plains(), plains(), llanowar_elves()])
+        .hand(0, &[teferis_protection()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    let elf = on_battlefield(&engine, p0, llanowar_elves()).expect("the Elf is on the table");
+    let effects_before = engine.state().effects.iter().count();
+    let life_before = engine.state().players[0].life;
+
+    cast_from_hand(&mut engine, p0, teferis_protection());
+    pass_until(&mut engine, |e| at_rest(e, p0));
+
+    assert!(
+        engine
+            .state()
+            .zones
+            .list(ZoneLocation::Exile(p0))
+            .iter()
+            .any(|id| {
+                engine
+                    .state()
+                    .object(*id)
+                    .is_some_and(|o| o.card.is_some_and(|c| c.index == teferis_protection()))
+            }),
+        "\"Exile Teferi's Protection\" is the one clause the DSL can say"
+    );
+
+    assert_eq!(
+        engine.state().effects.iter().count(),
+        effects_before,
+        "\"your life total can't change\" and \"you gain protection from \
+         everything\" are both continuous effects, and the spell registered \
+         neither"
+    );
+    assert_eq!(
+        engine.state().players[0].life,
+        life_before,
+        "and nothing touched the life total the first of them is about"
+    );
+    assert!(
+        engine
+            .state()
+            .object(elf)
+            .is_some_and(|o| !o.status.contains(Status::PHASED_OUT)),
+        "\"All permanents you control phase out\" — the status exists and \
+         nothing set it, so the Elf is an ordinary creature still"
+    );
+    assert!(
+        on_battlefield(&engine, p0, llanowar_elves()).is_some(),
+        "and it is still on the battlefield, where a phased-out permanent \
+         would also be"
+    );
+}

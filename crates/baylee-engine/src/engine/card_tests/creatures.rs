@@ -11453,3 +11453,389 @@ fn yawgmoth_pays_a_life_and_another_creature_for_a_minus_counter_and_a_card() {
         "\"and draw a card\": one off the top of the library"
     );
 }
+
+/// Young Wolf is a printed 1/1 Wolf for {G}, and its only rules text is
+/// undying — the `Coverage::Partial` gap, since no keyword bit carries it and
+/// the DSL cannot return the source card from the graveyard with a +1/+1
+/// counter. This scenario plays the body that *is* implemented (cast for
+/// {G}, standing as a 1/1) and then reads the gap through a genuine
+/// battlefield-to-graveyard death, which is exactly what undying answers: the
+/// Wolf is fed to Ashnod's Altar's own sacrifice cost and simply stays in the
+/// graveyard. An exile would be no proof — a card exiled never triggers
+/// undying either — so the sacrifice is the clean control (CR 700.4), and the
+/// missing returning 1/1 with a counter is the much-printed clause and
+/// nothing else.
+#[test]
+fn young_wolf_lands_as_a_one_one_and_stays_dead_where_undying_would_return_it() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[ashnods_altar(), forest()])
+        .hand(0, &[young_wolf()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    // {G} off the Forest. The printed 1/1 body is the whole of what the
+    // engine implements of this card.
+    cast_from_hand(&mut engine, p0, young_wolf());
+    pass_until(&mut engine, |e| at_rest(e, p0));
+    let wolf = on_battlefield(&engine, p0, young_wolf()).expect("the Wolf resolved");
+    assert_eq!(pt(&engine, wolf), (1, 1), "the printed 1/1 body");
+    assert!(
+        types(&engine, wolf).contains(TypeSet::CREATURE),
+        "and it is a creature"
+    );
+
+    // The Altar's cost is "sacrifice a creature," which CR 700.4 counts as
+    // dying — the very event undying watches for.
+    activate(&mut engine, p0, ashnods_altar(), 0);
+    let Pending::ChooseCards { options, .. } = engine.pending().clone() else {
+        panic!(
+            "the sacrifice asks which creature, got {:?}",
+            engine.pending()
+        )
+    };
+    assert!(
+        options.contains(&wolf),
+        "the Wolf is the creature the Altar may eat: {options:?}"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![wolf],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, |e| at_rest(e, p0));
+
+    assert!(
+        in_graveyard(&engine, p0, young_wolf()).is_some(),
+        "the sacrificed Wolf is in its owner's graveyard"
+    );
+    assert!(
+        on_battlefield(&engine, p0, young_wolf()).is_none(),
+        "and nothing returned it with a +1/+1 counter — undying is the \
+         `Coverage::Partial` gap"
+    );
+}
+
+/// Theorist's Proxy — {1}{U}, a 0/3 Illusion — prints flash, "When this
+/// creature enters, empower Jace 3." and "{U}, Sacrifice this creature: The
+/// next spell you cast this turn can't be countered."
+///
+/// Flash is the written half, and p0's own end step is the board that reads
+/// it: five tapped Islands pay for either spell in hand, so the only thing
+/// separating the 0/3 from the {2}{U} Aether Channeler beside it is that one
+/// of them may be cast once the main phases are gone. The other two lines are
+/// the `Coverage::Partial` gap and are read as absences — no Jace token
+/// arrives with it, and the sacrifice line stays unoffered with the creature
+/// on the table and the {U} it costs still floating in the pool.
+#[test]
+fn theorist_s_proxy_flashes_in_after_the_main_phase_and_offers_neither_of_its_other_lines() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[island(), island(), island(), island(), island()])
+        .hand(0, &[theorist_s_proxy(), aether_channeler()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    // Out of the main phases and into the end step, which is instant timing:
+    // sorcery speed ends with the postcombat main, and the cleanup the
+    // nine-card opening hand owes lies beyond the priority asked here.
+    pass_until(&mut engine, |e| {
+        matches!(e.state().turn.phase, Phase::Ending)
+            && e.state().turn.active == p0
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p0)
+    });
+
+    // Mana first: `castable` is verified against the pool, and five blue
+    // cover both spells at once.
+    tap_all_mana(&mut engine, p0);
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    let card = in_hand(&engine, p0, theorist_s_proxy()).expect("the Proxy is in hand");
+    let channeler = in_hand(&engine, p0, aether_channeler()).expect("the Channeler is in hand");
+    assert!(
+        legal.castable.contains(&card),
+        "flash: a creature may be cast with no main phase open, and the pool \
+         covers it: {:?}",
+        legal.castable
+    );
+    assert!(
+        !legal.castable.contains(&channeler),
+        "the same five blue buy the Channeler's {{2}}{{U}} and it is still \
+         not offered, so what keeps it off this list is the timing and not \
+         the mana: {:?}",
+        legal.castable
+    );
+
+    engine
+        .apply(p0, PlayerAction::CastSpell { card })
+        .expect("{1}{U} out of the pool pays for the flashed creature");
+    pass_until(&mut engine, |e| {
+        stack_is_empty(e)
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p0)
+    });
+
+    let proxy = on_battlefield(&engine, p0, theorist_s_proxy()).expect("the Proxy resolved");
+    assert_eq!(pt(&engine, proxy), (0, 3), "the body the card prints");
+    assert!(
+        tokens_of(&engine, p0).is_empty(),
+        "empower is the `Coverage::Partial` gap: `crate::tokens` holds no Jace \
+         planeswalker token, so nothing arrives beside it"
+    );
+
+    // The second gap, with its cost payable: three of the five Islands' blue
+    // are left over, and the creature the sacrifice would eat is the Proxy.
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!(
+            "the Proxy's controller holds priority again: {:?}",
+            engine.pending()
+        )
+    };
+    assert!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Blue)
+            >= 1,
+        "the {{U}} the sacrifice asks for is right there in the pool"
+    );
+    assert!(
+        !legal.abilities.iter().any(|(source, _)| *source == proxy),
+        "and `{{U}}, Sacrifice this creature` is offered nowhere all the same: \
+         that line is not written at all: {:?}",
+        legal.abilities
+    );
+}
+
+/// Thorin Oakenshield is `Coverage::Partial`: the printed **trample** is
+/// enforced, while storied and the enduring-story ward grant are not. The
+/// board is the smallest one that tells the enforced half from the missing
+/// one — a 3/2 trampler attacking into a 1/1 — because the two excess points
+/// of damage reaching the defending player are the only evidence that
+/// trample is *applied* and not merely printed: a keyword the engine ignored
+/// would leave that player at twenty. Casting it off a Mountain and a Plains,
+/// and walking through a whole turn so the Dwarf is no longer summoning sick,
+/// is the rest of the printed card arriving in a real game before it swings.
+#[test]
+fn thorin_oakenshield_casts_as_a_three_two_and_its_trample_spills_over_a_blocker() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[mountain(), plains()])
+        .hand(0, &[thorin_oakenshield()])
+        .battlefield(1, &[llanowar_elves()])
+        .life(0, 20)
+        .life(1, 20)
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    // A real cast: {R} off the Mountain and {W} off the Plains.
+    cast_from_hand(&mut engine, p0, thorin_oakenshield());
+    pass_until(&mut engine, |e| {
+        stack_is_empty(e) && on_battlefield(e, p0, thorin_oakenshield()).is_some()
+    });
+    let thorin = on_battlefield(&engine, p0, thorin_oakenshield()).expect("Thorin resolved");
+    assert_eq!(pt(&engine, thorin), (3, 2), "the printed 3/2 body");
+    assert!(
+        keywords(&engine, thorin).contains(KeywordSet::TRAMPLE),
+        "the printed trample reaches the permanent"
+    );
+
+    // Through p1's turn and back, so the Dwarf is no longer summoning sick.
+    reach_their_main_phase(&mut engine, p1);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 takes another turn");
+
+    // Declare Thorin as the only attacker, aimed at the only opponent: the
+    // defender is taken straight out of the request the engine published
+    // rather than built by hand.
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseAttackers { .. })
+    });
+    let Pending::ChooseAttackers {
+        attackers,
+        defenders,
+        ..
+    } = engine.pending().clone()
+    else {
+        unreachable!("pass_until stops on nothing but the attack declaration")
+    };
+    assert!(
+        attackers.contains(&thorin),
+        "an untapped, no-longer-sick Thorin may attack: {attackers:?}"
+    );
+    assert_eq!(defenders.len(), 1, "one opponent to attack in a duel");
+    let target = defenders
+        .into_iter()
+        .next()
+        .expect("the duel publishes its one defender");
+    engine
+        .apply(
+            p0,
+            PlayerAction::DeclareAttackers {
+                attackers: vec![(thorin, target)],
+            },
+        )
+        .unwrap();
+
+    // The 1/1 Elf blocks: one point of lethal damage, two trampling over.
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseBlockers { .. })
+    });
+    let Pending::ChooseBlockers { blockers, .. } = engine.pending().clone() else {
+        unreachable!("pass_until stops on nothing but the block declaration")
+    };
+    let elves = on_battlefield(&engine, p1, llanowar_elves()).expect("the blocker is out");
+    assert!(
+        blockers
+            .iter()
+            .any(|b| b.blocker == elves && b.attackers.contains(&thorin)),
+        "the Elves may block Thorin: {blockers:?}"
+    );
+    engine
+        .apply(
+            p1,
+            PlayerAction::DeclareBlockers {
+                blockers: vec![(elves, thorin)],
+            },
+        )
+        .unwrap();
+
+    // Through the combat damage step.
+    pass_until(&mut engine, |e| e.state().players[1].life < 20);
+
+    assert_eq!(
+        engine.state().players[1].life,
+        18,
+        "three trampling power: one point is lethal to the 1/1 and the other \
+         two go over the top, which is the keyword being applied"
+    );
+    assert!(
+        in_graveyard(&engine, p1, llanowar_elves()).is_some(),
+        "the blocker took lethal damage and died"
+    );
+    assert_eq!(
+        engine.state().players[0].life,
+        20,
+        "the 1/1's single point of return damage is marked on Thorin, not on its controller"
+    );
+    assert!(
+        on_battlefield(&engine, p0, thorin_oakenshield()).is_some(),
+        "a 3/2 with one damage marked survives its own attack"
+    );
+}
+
+/// Walking Ballista — {X}{X} artifact creature: "This creature enters with X +1/+1
+/// counters on it. {4}: Put a +1/+1 counter on this creature. Remove a +1/+1 counter
+/// from this creature: It deals 1 damage to any target."
+///
+/// Entering with X counters is the `Coverage::Partial` gap, so the harness seeds one
+/// counter before state-based actions check the 0/0 body. The scenario tests both
+/// implemented activated abilities: paying {4} adds a counter (growing it to 2/2),
+/// and removing a counter pays the cost to deal 1 damage to the opponent.
+#[test]
+fn walking_ballista_grows_with_mana_and_removes_a_counter_to_deal_damage() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[walking_ballista(), forest(), forest(), forest(), forest()],
+        )
+        .life(1, 20)
+        .start();
+
+    let ballista =
+        on_battlefield(&engine, p0, walking_ballista()).expect("the Ballista is on the table");
+
+    // "Enters with X +1/+1 counters" is the Partial gap, so the counter it needs to
+    // survive the SBA 0-toughness check is planted by the harness before mulligans.
+    {
+        let state = engine
+            .dev_state_mut(p0)
+            .expect("the harness may set boards up");
+        crate::replacement::put_counters(state, ballista, CounterKind::P1P1, 1);
+    }
+
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    assert_eq!(
+        counters_on(&engine, ballista, CounterKind::P1P1),
+        1,
+        "one counter planted by the harness"
+    );
+    assert_eq!(pt(&engine, ballista), (1, 1), "starts as a 1/1");
+
+    // Ability 0: {4}: Put a +1/+1 counter on this creature.
+    tap_all_mana(&mut engine, p0);
+    assert_eq!(engine.state().players[0].mana_pool.total(), 4);
+    activate(&mut engine, p0, walking_ballista(), 0);
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(
+        counters_on(&engine, ballista, CounterKind::P1P1),
+        2,
+        "{{4}} added a second +1/+1 counter"
+    );
+    assert_eq!(pt(&engine, ballista), (2, 2), "grew to 2/2");
+
+    // Ability 1: Remove a +1/+1 counter from this creature: It deals 1 damage to any target.
+    activate(&mut engine, p0, walking_ballista(), 1);
+    let Pending::ChooseTargets { player_options, .. } = engine.pending().clone() else {
+        panic!("ability 1 targets any target, got {:?}", engine.pending())
+    };
+    assert!(
+        player_options.contains(&p1),
+        "the opponent is a legal target for any target"
+    );
+    // The target is chosen before the cost is paid (CR 601.2c against CR
+    // 601.2h, the last step of an activation), so the counter is still on
+    // the creature while this question is open — it is not a cost the
+    // engine takes as the ability is announced.
+    assert_eq!(
+        counters_on(&engine, ballista, CounterKind::P1P1),
+        2,
+        "the counter is still there while the target is being chosen"
+    );
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![],
+                players: vec![p1],
+            },
+        )
+        .expect("targeting the opponent is legal");
+
+    // Now the activation is complete and the cost has been paid, with the
+    // ability still on the stack: the second counter is gone and the body
+    // it was holding up is a 1/1 again.
+    assert_eq!(
+        counters_on(&engine, ballista, CounterKind::P1P1),
+        1,
+        "removing a +1/+1 counter is the whole cost, and it is paid here"
+    );
+    assert_eq!(pt(&engine, ballista), (1, 1), "shrank back to 1/1");
+
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(
+        engine.state().players[1].life,
+        19,
+        "opponent took 1 damage from the ping"
+    );
+    assert_eq!(
+        counters_on(&engine, ballista, CounterKind::P1P1),
+        1,
+        "Ballista retains its remaining counter"
+    );
+    assert!(
+        on_battlefield(&engine, p0, walking_ballista()).is_some(),
+        "Ballista survived on the battlefield"
+    );
+}

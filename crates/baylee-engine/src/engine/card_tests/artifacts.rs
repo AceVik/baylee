@@ -2251,3 +2251,102 @@ fn sword_of_the_meek_arms_the_creature_it_targets_and_no_other() {
         "the static reaches the equipped creature and never across the table"
     );
 }
+
+/// Thopter Foundry — {W/B}{U} artifact: "{1}, Sacrifice a nontoken artifact:
+/// Create a 1/1 blue Thopter artifact creature token with flying. You gain 1 life."
+///
+/// Creating the 1/1 blue Thopter token is the `Coverage::Partial` gap because the
+/// token pool lacks a definition for it. This scenario tests the implemented half:
+/// paying {1} and sacrificing another nontoken artifact puts the activated
+/// ability on the stack, and upon resolution the controller gains 1 life without
+/// generating a token.
+#[test]
+fn thopter_foundry_sacrifices_an_artifact_for_one_mana_and_gains_one_life() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[thopter_foundry(), quiet_artifact(), forest()])
+        .life(0, 20)
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let foundry = on_battlefield(&engine, p0, thopter_foundry()).expect("foundry is on the table");
+    let fodder = on_battlefield(&engine, p0, quiet_artifact()).expect("the fodder artifact is out");
+    let land = on_battlefield(&engine, p0, forest()).expect("forest is on the table");
+
+    tap_all_mana(&mut engine, p0);
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        1,
+        "one mana floating from the forest"
+    );
+
+    activate(&mut engine, p0, thopter_foundry(), 0);
+    let Pending::ChooseCards {
+        options,
+        min,
+        max,
+        prompt,
+        ..
+    } = engine.pending().clone()
+    else {
+        panic!(
+            "the activation cost asks which artifact to sacrifice, got {:?}",
+            engine.pending()
+        )
+    };
+    assert_eq!(
+        prompt,
+        crate::choice::ChoicePrompt::CostSacrifice,
+        "sacrifice prompt indicates cost payment"
+    );
+    assert_eq!((min, max), (1, 1), "sacrifice exactly one artifact");
+    assert!(
+        options.contains(&fodder),
+        "the other artifact is a nontoken artifact"
+    );
+    assert!(
+        options.contains(&foundry),
+        "Thopter Foundry itself is a nontoken artifact"
+    );
+    assert!(!options.contains(&land), "a basic land is not an artifact");
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![fodder],
+            },
+        )
+        .expect("sacrificing the other artifact pays the cost");
+
+    assert!(
+        in_graveyard(&engine, p0, quiet_artifact()).is_some(),
+        "the sacrificed artifact was moved to the graveyard"
+    );
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "the {{1}} mana cost was consumed from the pool"
+    );
+    assert!(
+        !stack_is_empty(&engine),
+        "the activated ability is now on the stack"
+    );
+
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(
+        engine.state().players[0].life,
+        21,
+        "controller gained 1 life upon resolution"
+    );
+    assert!(
+        tokens_of(&engine, p0).is_empty(),
+        "no Thopter token created due to Coverage::Partial gap"
+    );
+    assert!(
+        on_battlefield(&engine, p0, thopter_foundry()).is_some(),
+        "Thopter Foundry remains on the battlefield"
+    );
+}

@@ -115,6 +115,38 @@ fn llanowar_elves() -> CardIndex {
     card_index("68954295-54e3-4303-a6bc-fc4547a4e3a3")
 }
 
+fn thopter_foundry() -> CardIndex {
+    card_index("88bef744-550e-4f33-b1ff-a8ee990ec754")
+}
+
+fn walking_ballista() -> CardIndex {
+    card_index("4b515bb0-f275-4400-8032-3173b799ab40")
+}
+
+fn swan_song() -> CardIndex {
+    card_index("8ddfc283-c9b4-41a5-af88-cf0068e986cc")
+}
+
+fn gamble() -> CardIndex {
+    card_index("a54f0869-94c8-42af-9080-166efb9486a4")
+}
+
+fn teferis_protection() -> CardIndex {
+    card_index("0d4ecdb1-ec90-497f-a7a4-1c68092b8757")
+}
+
+fn young_wolf() -> CardIndex {
+    card_index("8b492764-10b6-4506-be11-22daa9220a91")
+}
+
+fn theorist_s_proxy() -> CardIndex {
+    card_index("0089acfe-da66-4dd7-b1e5-4d7407f58257")
+}
+
+fn thorin_oakenshield() -> CardIndex {
+    card_index("bdd41af0-bbd1-4ecd-a699-99f006f5e5ce")
+}
+
 fn fellwar_stone() -> CardIndex {
     card_index("95560508-7ac9-4be9-8a3f-3c7d5b52807b")
 }
