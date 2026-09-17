@@ -11,6 +11,7 @@
 //! from it, and amass finds an Army rather than any creature of the named
 //! type.
 
+use super::testkit;
 use super::testkit::{Duel, RegistryLookup, card_index, keep_mulligans, reach_main_phase};
 use super::*;
 use crate::zone::ZoneLocation;
@@ -562,4 +563,189 @@ fn power_and_toughness(engine: &Engine<RegistryLookup>, id: ObjectId) -> (i16, i
         c.power.expect("a creature has power"),
         c.toughness.expect("a creature has toughness"),
     )
+}
+
+// ---------------------------------------------------------------------------
+// The lands the transcoder finished from a `DB$ Token` line
+//
+// Eleven cards, one rule's output, and what is worth proving is the same for
+// each: that the sentence the card prints puts the token the card names on
+// the battlefield. A test per card would be eleven copies of one walk, so the
+// activated ten are a table and the one with a trigger is its own test —
+// which is the shape the two halves actually differ in.
+//
+// The table holds the printed sentence's own numbers, not the code's: how
+// many tokens, and what they are called. That is the whole point of having
+// it, because the code is what is under test.
+// ---------------------------------------------------------------------------
+
+/// `(oracle id, the card, how many tokens it makes, what they are called)`.
+///
+/// Sliver Hive is absent and is named here rather than left out quietly: its
+/// ability is "activate only if you control a Sliver", and there is no Sliver
+/// creature in this pool for [`testkit::arena`] to put on the board — the
+/// only thing that could satisfy it is the changeling token Abundant
+/// Countryside makes, two lands and eleven mana away. Its
+/// `e7286688-ffbe-4d25-ad55-27990f005368` is played by nothing yet.
+const TOKEN_LANDS: &[(&str, &str, usize, &str)] = &[
+    (
+        "f8f4fc60-725d-46d8-8e8f-e68e00d20589",
+        "Castle Ardenvale",
+        1,
+        "Human",
+    ),
+    (
+        "e3eb6f90-ccfc-41e7-bff6-0b378226bc7e",
+        "Abundant Countryside",
+        1,
+        "Shapeshifter",
+    ),
+    (
+        "0498ea14-53d9-4655-a616-0ff3cf73de4e",
+        "Foundry of the Consuls",
+        2,
+        "Thopter",
+    ),
+    (
+        "963f2848-15bd-441b-a55c-635f53b7b63f",
+        "Gargoyle Castle",
+        1,
+        "Gargoyle",
+    ),
+    (
+        "2e413d18-2c55-49be-9e49-54d170c978a2",
+        "Gnottvold Slumbermound",
+        1,
+        "Troll Warrior",
+    ),
+    (
+        "79638767-fbc7-451a-b29f-d93f2ac6f102",
+        "Kher Keep",
+        1,
+        "Kobolds of Kher Keep",
+    ),
+    (
+        "eb8ec34c-ae07-4a09-940f-ee965146a787",
+        "Memorial to Glory",
+        2,
+        "Soldier",
+    ),
+    (
+        "5a620d20-f14e-43d0-8e57-c2a197e2ec51",
+        "Urza's Factory",
+        1,
+        "Assembly-Worker",
+    ),
+    (
+        "88fb9e82-28b9-4275-a1e2-cb3a9bfda127",
+        "Vitu-Ghazi, the City-Tree",
+        1,
+        "Saproling",
+    ),
+];
+
+/// Every one of them, pressed on a board that can pay for it.
+///
+/// Every offer is pressed and not just the first, each on a board of its
+/// own: a land that makes a token also taps for mana, and which of the two
+/// is ability 0 is a fact about the order the card happens to list them in.
+/// A test that pressed the first one measured Castle Ardenvale's mana
+/// ability and reported that the card makes no token.
+///
+/// The assertion that matters twice over is the **id**: a token the ledger
+/// never numbered reaches the table wearing no picture at all, and that is
+/// the failure a card file cannot show, because the card names a constant
+/// whether or not the constant has a row.
+#[test]
+fn every_land_that_prints_a_token_ability_makes_the_token_it_names() {
+    let seat = PlayerId::new(0);
+    for (oracle, name, count, token_name) in TOKEN_LANDS {
+        let card = card_index(oracle);
+        let (engine, objects) = testkit::arena(card).unwrap_or_else(|| panic!("{name}: no board"));
+        let Pending::Priority { legal, .. } = engine.pending().clone() else {
+            panic!("{name}: the arena did not end at a priority");
+        };
+        let offers = testkit::presses(&legal, &objects);
+        assert!(!offers.is_empty(), "{name}: was offered nothing to press");
+
+        let mut made = Vec::new();
+        for (slot, deed) in offers {
+            let (mut engine, objects) =
+                testkit::arena(card).unwrap_or_else(|| panic!("{name}: no board"));
+            engine
+                .apply(seat, deed.action(objects[slot]))
+                .unwrap_or_else(|err| panic!("{name}: refused its own offer: {err:?}"));
+            match testkit::drive_to_rest(&mut engine, seat) {
+                testkit::Rest::Reached => {}
+                other => panic!("{name}: {other:?}"),
+            }
+            let tokens = tokens_on_battlefield(&engine);
+            if tokens.is_empty() {
+                continue;
+            }
+            for id in &tokens {
+                let def = engine
+                    .state()
+                    .object(*id)
+                    .expect("the token is on the battlefield")
+                    .token
+                    .unwrap_or_else(|| panic!("{name}: made a token that is not one"));
+                assert_eq!(def.name, *token_name, "{name}: made the wrong token");
+                assert_ne!(
+                    baylee_cards::tokens::token_id(def),
+                    u16::MAX,
+                    "{name}: made a token the ledger never numbered, so it has no art key"
+                );
+            }
+            made.push(tokens.len());
+        }
+        assert_eq!(
+            made,
+            vec![*count],
+            "{name}: one ability makes {count} {token_name}(s) and nothing else makes any"
+        );
+    }
+}
+
+/// Khalni Garden is the only one of the eleven whose token comes off a
+/// trigger, and it has to be *played* rather than placed: a starting
+/// battlefield is a placement and nothing that enters fires from it, so a
+/// board built the other way would count no token and pass for the wrong
+/// reason.
+#[test]
+fn a_land_that_makes_a_token_as_it_enters_makes_one() {
+    let khalni_garden = card_index("b2d5ba45-8674-4428-89db-c2bbbf0bf5c5");
+    let (mut engine, land) =
+        testkit::play_land_face(khalni_garden, 0).expect("Khalni Garden is playable on turn one");
+    let seat = PlayerId::new(0);
+    assert!(
+        tokens_on_battlefield(&engine).is_empty(),
+        "the trigger is still on the stack"
+    );
+    match testkit::drive_to_rest(&mut engine, seat) {
+        testkit::Rest::Reached => {}
+        other => panic!("the trigger never resolved: {other:?}"),
+    }
+
+    let tokens = tokens_on_battlefield(&engine);
+    assert_eq!(tokens.len(), 1, "one Plant, off one trigger");
+    let def = engine
+        .state()
+        .object(tokens[0])
+        .expect("the Plant is on the battlefield")
+        .token
+        .expect("it knows what it is");
+    assert_eq!(def.name, "Plant");
+    assert_eq!(
+        (def.power, def.toughness),
+        (Some(0), Some(1)),
+        "a 0/1, which is what the card prints"
+    );
+    assert!(
+        engine
+            .state()
+            .object(land)
+            .is_some_and(|o| o.zone == crate::zone::Zone::Battlefield),
+        "and the land itself stayed"
+    );
 }
