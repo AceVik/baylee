@@ -510,6 +510,13 @@ accident, and arithmetic borrows nothing.
 
 ## Eight seats
 
+- Seat information normally attaches **outside** the battlefield rim: name,
+  life, priority and turn at the viewer's upper-left edge, zone counts at the
+  upper-right, and compact phase groups along the command-zone side. These
+  are separately projected text panels, not one full-width shelf toolbar.
+  `hud/seatbar/attached.rs` owns their drawing; the smallest overview keeps
+  the legacy `Mark` fallback. Historical shelf geometry below still controls
+  card-lane reservations and fallback density, not desktop panel bounds.
 - Seats sit on a ring, local seat at the near edge, opponents clockwise **in
   turn order** — the player on your left acts after you. Allies share a side
   and face the same way; everybody else has a side to themselves.

@@ -1,5 +1,50 @@
 # Client art-direction handover — 17 September 2026
 
+## Latest request: outside-edge information (supersedes the Split layout below)
+
+The owner reports approximately four Junie credits remaining and explicitly
+rejects the full-width phase/player toolbar. This pass adds
+`hud/seatbar/attached.rs`, reusing existing typed cells, phase buttons and the
+animated seat material:
+
+- Identity/life/priority/turn/day-night attach outside the upper-left mat edge;
+  all four zone counts attach outside the upper-right edge.
+- The twelve phase glyphs form five compact vertical groups immediately
+  outside the commander-side rim, between it and the commander cards.
+- Each panel projects its own table anchor every camera frame. This is
+  camera-attached screen text, not text rasterized onto a 3D mesh. No card
+  placements, shaders, game rules or hand layout are changed.
+- Header panels are 300×30px before fitting; the phase track is 24×340px
+  before fitting to mat depth and the commander gutter. Existing stop,
+  current-step, selected-step, lost-seat and life-flash components are reused.
+- Only the smallest `Density::Mark` overview retains the old shelf marks;
+  focusing the seat restores the attached presentation. Small touch targets
+  and multiplayer remain follow-up work, not a verified accessibility claim.
+- Old `/state` shelf bounds and camera shelf tests describe the fallback
+  density probe, NOT the three new panels. Update diagnostics and add projected
+  panel bounds/clearance tests before treating those as UI-fit evidence.
+
+Latest-pass validation:
+- Final `cargo build -p baylee-client --features dev-control,dev-reload` passed;
+  only the known macOS compact-unwind linker warning. The initial build caught
+  a private component in a public system signature; fixed before final build.
+- One focused test, `phase_column_clears_both_ends_of_a_sloping_rim`, passed.
+  It bounds all four corners against both sloping duel rims. No Clippy or
+  broad test suite was run. `cargo fmt --all` and `git diff --check` passed.
+- Fresh Metal client visually inspected at 1728×1052. Final evidence:
+  `target/attached-info-final.png` and `target/attached-info-final-small.png`.
+  Identity/counts stand outside the upper corners; phase columns follow each
+  sloping commander-side edge rather than cutting across the rim. The earlier
+  `target/attached-info-small.png` exposed that slope issue and is superseded.
+- These captures are at mulligan, with commanders visible. Phase clicking,
+  populated battlefields, fan clearance and smaller viewports were not exercised.
+
+Earlier screenshots and passed tests below apply only to commit `493434e2`.
+Priority for Opus: inspect near/far top-edge clearance, commander/fan overlap,
+rotated multiplayer, camera orbit, long names/extreme life, and phase picking.
+The old blank ledge remains part of the mat; reclaiming it would move cards
+and was intentionally not bundled into this change.
+
 ## Request and working agreement
 
 The owner requested one coordinated visual redesign: player/phase bars,

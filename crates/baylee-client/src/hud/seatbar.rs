@@ -1,4 +1,8 @@
-//! The bar written on each seat's ledge.
+//! Battlefield-attached seat information, with ledge marks at overview scale.
+//!
+//! `attached` separates identity, counts and phases around the outside rim.
+//! The shelf model below remains the density probe and tiny overview fallback;
+//! it no longer describes the desktop ink bounds.
 //!
 //! Screen-space ink pinned to a rectangle of 3D table:
 //! [`SeatSlot::ledge_corners`](baylee_client_core::layout::SeatSlot::ledge_corners)
@@ -43,6 +47,8 @@ use baylee_client_core::seatbar::{
     SPLIT_PLAQUE_PAD, SPLIT_PLAQUE_W, Zone,
 };
 use baylee_view::SeatView;
+
+mod attached;
 
 /// Root of every seat bar. A sibling of [`HudRoot`], not a child.
 #[derive(Component)]
@@ -319,10 +325,31 @@ pub fn measure_shelves(
 pub fn place_seat_bars(
     shelves: Res<Shelves>,
     duel: Res<Duel>,
-    mut bars: Query<(&mut SeatBar, &mut Node, &mut UiTransform)>,
+    shown: Res<crate::table::ShownRig>,
+    windows: Query<&Window>,
+    mut bars: Query<(
+        &mut SeatBar,
+        &mut Node,
+        &mut UiTransform,
+        Option<&attached::Panel>,
+    )>,
 ) {
     let designated = duel.view.as_ref().is_some_and(|v| v.day_night.is_some());
-    for (mut bar, mut node, mut turn) in &mut bars {
+    let lens = shown.rig().zip(windows.single().ok()).map(|(rig, window)| {
+        crate::table::Lens::new(rig, Vec2::new(window.width(), window.height()))
+    });
+    for (mut bar, mut node, mut turn, panel) in &mut bars {
+        if let Some(panel) = panel {
+            attached::place(
+                &duel,
+                lens.as_ref(),
+                bar.player,
+                *panel,
+                &mut node,
+                &mut turn,
+            );
+            continue;
+        }
         let Some(shelf) = shelves.of(bar.player) else {
             // A shelf the camera cannot see is a bar with nowhere to be.
             // Hidden rather than despawned: the seat has not gone anywhere,
@@ -469,6 +496,25 @@ pub fn sync_seat_bars(
         let Some(shelf) = shelves.of(seat.player) else {
             continue;
         };
+        let surface = cloth
+            .as_mut()
+            .and_then(|cloth| cloth.seat(index, materials.as_deref_mut()));
+        // At overview scale retain the tiny legacy marks; focusing a seat
+        // restores the complete, battlefield-attached furniture.
+        if shelf.density != Density::Mark {
+            attached::spawn(
+                &mut commands,
+                root,
+                lang,
+                view,
+                duel.statics.as_ref(),
+                seat,
+                &orders,
+                &fonts,
+                surface,
+            );
+            continue;
+        }
         let bar = spawn_bar(
             &mut commands,
             lang,
@@ -479,9 +525,7 @@ pub fn sync_seat_bars(
             &orders,
             &fonts,
             designated,
-            cloth
-                .as_mut()
-                .and_then(|cloth| cloth.seat(index, materials.as_deref_mut())),
+            surface,
         );
         commands.entity(root).add_child(bar);
     }
