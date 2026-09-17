@@ -194,8 +194,8 @@ impl AIProfile {
     pub const fn node_budget(self) -> u32 {
         match self.lookahead {
             0 => 0,
-            1 => 4_096,
-            _ => 16_384,
+            1 => 16_384,
+            _ => 262_144,
         }
     }
 

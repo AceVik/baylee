@@ -187,7 +187,8 @@ impl HeuristicAgent {
                     return PlayerAction::DeclareAttackers { attackers: vec![] };
                 }
                 let victim = self.pick_defender(view, &opponents);
-                let going = search::attackers(view, &squad, victim, self.profile).attackers;
+                let report = search::attackers(view, &squad, victim, self.profile);
+                let going = report.attackers;
                 if going.is_empty() {
                     return PlayerAction::DeclareAttackers { attackers: vec![] };
                 }
@@ -195,7 +196,11 @@ impl HeuristicAgent {
                 // going, not by the whole board: a walker is only worth
                 // attacking when the attack kills it, and the creatures
                 // staying home add nothing to that sum.
-                let defender = aim_at(view, victim, &going, &defenders);
+                let defender = if report.lethal && defenders.contains(&Defender::Player(victim)) {
+                    Defender::Player(victim)
+                } else {
+                    aim_at(view, victim, &going, &defenders)
+                };
                 let attackers = going.into_iter().map(|id| (id, defender)).collect();
                 PlayerAction::DeclareAttackers { attackers }
             }
@@ -621,6 +626,196 @@ mod tests {
             HeuristicAgent::new(AIProfile::SHARP).act(&v, &pending),
             PlayerAction::DeclareAttackers { attackers: vec![] }
         );
+    }
+
+    #[test]
+    fn combat_lifelink_can_save_a_seat_from_an_unblockable_attacker() {
+        use baylee_cards_dsl::KeywordSet;
+        let mut flyer = permanent(obj(2), PlayerId::new(1), 8);
+        flyer.keywords = KeywordSet::FLYING.bits();
+        let mut lifelinker = permanent(obj(3), PlayerId::new(0), 2);
+        lifelinker.keywords = KeywordSet::LIFELINK.bits();
+        let mut v = view(
+            0,
+            &[8, 20],
+            vec![permanent(obj(1), PlayerId::new(1), 3), flyer, lifelinker],
+        );
+        v.combat.attackers = (1..=2)
+            .map(|id| baylee_view::AttackerView {
+                creature: obj(id),
+                defending: Defender::Player(v.seat),
+                blocked: false,
+            })
+            .collect();
+        let pending = Pending::ChooseBlockers {
+            player: v.seat,
+            attacker: PlayerId::new(1),
+            blockers: vec![baylee_engine::choice::BlockOption {
+                blocker: obj(3),
+                attackers: vec![obj(1)],
+            }],
+        };
+        for profile in [AIProfile::SHARP, AIProfile::EXPERT] {
+            assert_eq!(
+                HeuristicAgent::new(profile).act(&v, &pending),
+                PlayerAction::DeclareBlockers {
+                    blockers: vec![(obj(3), obj(1))]
+                }
+            );
+        }
+    }
+
+    #[test]
+    fn combat_lifelink_after_lethal_first_strike_is_too_late() {
+        use baylee_cards_dsl::KeywordSet;
+        let mut first = permanent(obj(1), PlayerId::new(1), 3);
+        first.keywords = KeywordSet::FIRST_STRIKE.bits();
+        let mut other = permanent(obj(2), PlayerId::new(1), 1);
+        other.toughness = Some(20);
+        let mut lifelinker = permanent(obj(3), PlayerId::new(0), 3);
+        lifelinker.toughness = Some(2);
+        lifelinker.keywords = KeywordSet::LIFELINK.bits();
+        let mut v = view(0, &[3, 20], vec![first, other, lifelinker]);
+        v.combat.attackers = (1..=2)
+            .map(|id| baylee_view::AttackerView {
+                creature: obj(id),
+                defending: Defender::Player(v.seat),
+                blocked: false,
+            })
+            .collect();
+        let pending = Pending::ChooseBlockers {
+            player: v.seat,
+            attacker: PlayerId::new(1),
+            blockers: vec![baylee_engine::choice::BlockOption {
+                blocker: obj(3),
+                attackers: vec![obj(1), obj(2)],
+            }],
+        };
+        for profile in [AIProfile::SHARP, AIProfile::EXPERT] {
+            assert_eq!(
+                HeuristicAgent::new(profile).act(&v, &pending),
+                PlayerAction::DeclareBlockers {
+                    blockers: vec![(obj(3), obj(1))]
+                }
+            );
+        }
+    }
+
+    #[test]
+    fn combat_retaliation_counts_a_defender_not_offered_as_an_attacker() {
+        let mut wall = permanent(obj(3), PlayerId::new(0), 0);
+        wall.toughness = Some(6);
+        wall.keywords = baylee_cards_dsl::KeywordSet::DEFENDER.bits();
+        let v = view(
+            0,
+            &[4, 20],
+            vec![
+                permanent(obj(1), PlayerId::new(0), 6),
+                permanent(obj(2), PlayerId::new(1), 5),
+                wall,
+            ],
+        );
+        let pending = Pending::ChooseAttackers {
+            player: v.seat,
+            attackers: vec![obj(1)],
+            defenders: vec![Defender::Player(PlayerId::new(1))],
+        };
+        let agent = HeuristicAgent::new(AIProfile::EXPERT);
+        let attack = PlayerAction::DeclareAttackers {
+            attackers: vec![(obj(1), Defender::Player(PlayerId::new(1)))],
+        };
+        assert_eq!(agent.act(&v, &pending), attack);
+        let mut v = v;
+        v.battlefield[2].summoning_sick = true;
+        assert_eq!(
+            agent.act(&v, &pending),
+            attack,
+            "summoning sickness does not stop a block"
+        );
+        for status in [ObjectStatus::TAPPED, ObjectStatus::PHASED_OUT] {
+            v.battlefield[2].status = status;
+            assert_eq!(
+                agent.act(&v, &pending),
+                PlayerAction::DeclareAttackers { attackers: vec![] }
+            );
+        }
+        v.battlefield[2].status = ObjectStatus::NONE;
+        v.battlefield[1].keywords = baylee_cards_dsl::KeywordSet::FLYING.bits();
+        v.battlefield[0].keywords = baylee_cards_dsl::KeywordSet::REACH.bits();
+        assert_eq!(
+            agent.act(&v, &pending),
+            PlayerAction::DeclareAttackers { attackers: vec![] }
+        );
+    }
+
+    #[test]
+    fn combat_a_winning_attack_does_not_get_redirected_to_a_planeswalker() {
+        let v = view(
+            0,
+            &[20, 3],
+            vec![
+                permanent(obj(1), PlayerId::new(0), 5),
+                walker(obj(2), PlayerId::new(1), 2),
+            ],
+        );
+        let pending = Pending::ChooseAttackers {
+            player: v.seat,
+            attackers: vec![obj(1)],
+            defenders: vec![
+                Defender::Player(PlayerId::new(1)),
+                Defender::Planeswalker(obj(2)),
+            ],
+        };
+        for profile in [AIProfile::SHARP, AIProfile::EXPERT] {
+            assert_eq!(
+                HeuristicAgent::new(profile).act(&v, &pending),
+                PlayerAction::DeclareAttackers {
+                    attackers: vec![(obj(1), Defender::Player(PlayerId::new(1)))]
+                }
+            );
+        }
+    }
+
+    #[test]
+    fn combat_blocks_lethal_player_damage_before_protecting_a_planeswalker() {
+        let mut v = view(
+            0,
+            &[3, 20],
+            vec![
+                permanent(obj(1), PlayerId::new(1), 3),
+                permanent(obj(2), PlayerId::new(1), 10),
+                permanent(obj(3), PlayerId::new(0), 1),
+                walker(obj(4), PlayerId::new(0), 5),
+            ],
+        );
+        v.combat.attackers = vec![
+            baylee_view::AttackerView {
+                creature: obj(1),
+                defending: Defender::Player(v.seat),
+                blocked: false,
+            },
+            baylee_view::AttackerView {
+                creature: obj(2),
+                defending: Defender::Planeswalker(obj(4)),
+                blocked: false,
+            },
+        ];
+        let pending = Pending::ChooseBlockers {
+            player: v.seat,
+            attacker: PlayerId::new(1),
+            blockers: vec![baylee_engine::choice::BlockOption {
+                blocker: obj(3),
+                attackers: vec![obj(1), obj(2)],
+            }],
+        };
+        for profile in [AIProfile::SHARP, AIProfile::EXPERT] {
+            assert_eq!(
+                HeuristicAgent::new(profile).act(&v, &pending),
+                PlayerAction::DeclareBlockers {
+                    blockers: vec![(obj(3), obj(1))]
+                }
+            );
+        }
     }
 
     #[test]

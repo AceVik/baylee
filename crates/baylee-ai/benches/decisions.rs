@@ -8,7 +8,7 @@ use baylee_engine::choice::{LegalActions, Pending};
 use criterion::{Criterion, criterion_group, criterion_main};
 use std::hint::black_box;
 
-fn decisions(c: &mut Criterion) {
+fn combat(c: &mut Criterion) {
     let view = ViewBuilder::new(2)
         .with_battlefield(0, (0..6).map(|i| token(i, 0, "attacker", 3, 3)))
         .with_battlefield(1, (10..16).map(|i| token(i, 1, "blocker", 2, 2)))
@@ -30,6 +30,30 @@ fn decisions(c: &mut Criterion) {
             b.iter(|| black_box(agent.act(black_box(&view), black_box(&pending))));
         });
     }
+    let crowded = ViewBuilder::new(2)
+        .with_battlefield(0, (0..8).map(|i| token(i, 0, "attacker", 3, 3)))
+        .with_battlefield(1, (10..18).map(|i| token(i, 1, "blocker", 2, 2)))
+        .build();
+    let squad: Vec<_> = (0..8).map(|i| ObjectId::new(i, 0)).collect();
+    let pending = Pending::ChooseAttackers {
+        player: crowded.seat,
+        attackers: squad.clone(),
+        defenders: vec![Defender::Player(PlayerId::new(1))],
+    };
+    for (name, profile) in [("sharp", AIProfile::SHARP), ("expert", AIProfile::EXPERT)] {
+        let agent = HeuristicAgent::new(profile);
+        let report = search::attackers(&crowded, &squad, PlayerId::new(1), profile);
+        eprintln!(
+            "8v8/{name}: {} nodes, {} complete candidates",
+            report.nodes, report.completed
+        );
+        c.bench_function(&format!("combat/8v8/{name}"), |b| {
+            b.iter(|| black_box(agent.act(black_box(&crowded), black_box(&pending))));
+        });
+    }
+}
+
+fn priority(c: &mut Criterion) {
     let empty = ViewBuilder::new(2).build();
     let pending = Pending::Priority {
         player: empty.seat,
@@ -81,6 +105,17 @@ fn decisions(c: &mut Criterion) {
     c.bench_function("priority/8lands-4spells/expert", |b| {
         b.iter(|| black_box(agent.act(black_box(&casting), black_box(&pending))));
     });
+    let pending = Pending::ChooseColor {
+        player: casting.seat,
+        options: vec![
+            baylee_core::mana::ManaColor::White,
+            baylee_core::mana::ManaColor::Blue,
+            baylee_core::mana::ManaColor::Black,
+        ],
+    };
+    c.bench_function("mana-choice/8lands-4spells/expert", |b| {
+        b.iter(|| black_box(agent.act(black_box(&casting), black_box(&pending))));
+    });
 }
-criterion_group!(benches, decisions);
+criterion_group!(benches, combat, priority);
 criterion_main!(benches);

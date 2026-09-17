@@ -14,7 +14,10 @@ network lobby. Existing `novice`, `steady`, and `sharp` keys still work.
 All levels plan coloured payments through the same renderer-free mana matcher
 as the human client. Simple printed and granted mana abilities count, with one
 source per permanent. The agent does not tap toward an unaffordable spell. Command-zone commanders
-participate in these plans, including their public cast-count tax.
+participate in these plans, including their public cast-count tax. Steady and
+harder levels choose a mana colour by the casts it can complete with the
+remaining visible sources; an expensive, uncastable card cannot drown out the
+colour needed for an affordable play.
 Counterspells need an opposing stack entry, removal needs something opposing
 on the battlefield, and a deferred pay-or-lose obligation is declined: the
 current stateless policy cannot plan its future payment. Searches, bottoming,
@@ -33,24 +36,35 @@ This is **public tactical search**, not whole-game determinization. It builds
 combat positions from projected power/toughness, damage, keywords, and the
 legal attacker/blocker offers. A root move is a set of attackers. The reply
 tree assigns each blocker to no attacker or one eligible attacker. It resolves
-first and double strike, deathtouch, indestructibility, trample, and gang blocks;
+first and double strike, deathtouch, indestructibility, trample, lifelink, and
+gang blocks;
 menace leaves with exactly one blocker are rejected. Changing one block
-re-evaluates that attacker's exchange and adjusts accumulated material and
-damage. Node visits allocate no vectors; position vectors are built once per
+looks up that attacker's exchange in a bounded cache (through eight blockers)
+and adjusts accumulated material, damage, and life gain. Death is checked at
+each damage step: later lifelink cannot undo lethal first strike. Damage aimed
+at a planeswalker is separate from damage to its controller. A proven lethal
+player attack takes precedence over attacking a planeswalker. Node visits allocate no vectors; position vectors are built once per
 decision and groups/results are fixed arrays on the stack.
 
 Expert's retaliation is a greedy continuation from the surviving public
-creatures, not a second full minimax tree. Attack-side evasion remains an
-estimate; defender-side pairings come from the engine. Spell responses,
-combat triggers, lifelink, protection, replacement effects, and hidden draws
-are outside this model. More than sixteen attackers or blockers uses the
-existing greedy fallback. It does not sample guessed cards and pretend they
+creatures, not a second full minimax tree. It includes untapped reserves that
+cannot attack, such as Walls and summoning-sick creatures, and checks evasion
+and two-creature menace blocks. Tapped opponents untap for this continuation,
+and marked damage clears. Attack-side evasion remains an estimate; defender-side pairings come from the engine. Spell responses,
+combat triggers, protection, replacement effects, commander damage, and hidden draws
+are outside this model. More than sixteen attackers or opposing creatures, or thirty-two available
+retaliation defenders, uses the existing greedy fallback. Nonlethal planeswalker
+damage and the sequencing of damage steps in the greedy retaliation remain
+estimates. It does not sample guessed cards and pretend they
 are observed. A full-game searching successor would need a view-derived belief
 state and a determinization adapter; no live host `GameState` belongs in that
 API.
 
-Sharp gets 4,096 reply-tree nodes per decision, expert 16,384. A candidate
-gets at most 2,048, so a difficult first candidate cannot monopolize all work.
+Sharp gets 16,384 reply-tree nodes per decision, expert 262,144. A sharp
+candidate gets at most 4,096; an expert candidate gets at most 196,608, enough
+to finish a six-versus-six reply tree before considering its score. The budget
+is larger at expert because evaluating a hard attack thoroughly is preferable
+to discarding it after a shallow search.
 A reply that already refutes an improvement prunes that candidate.
 Only completely evaluated reply trees can promote an attack. If the budget
 cannot establish that a candidate beats the greedy fallback, the fallback is

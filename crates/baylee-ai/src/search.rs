@@ -19,9 +19,42 @@ const WIN: i64 = 1_000_000;
 #[derive(Clone, Copy, Default)]
 struct Result {
     damage: i32,
+    first_damage: i32,
     material: i64,
+    gain: i32,
+    enemy_gain: i32,
+    first_enemy_gain: i32,
     dead: u32,
     attacker_dead: bool,
+}
+
+#[derive(Clone, Copy, Default)]
+struct Balance {
+    damage: i32,
+    first_damage: i32,
+    material: i64,
+    gain: i32,
+    enemy_gain: i32,
+    first_enemy_gain: i32,
+}
+
+impl Balance {
+    fn replacing(self, old: Result, new: Result) -> Self {
+        Self {
+            damage: self.damage - old.damage + new.damage,
+            first_damage: self.first_damage - old.first_damage + new.first_damage,
+            material: self.material - old.material + new.material,
+            gain: self.gain - old.gain + new.gain,
+            enemy_gain: self.enemy_gain - old.enemy_gain + new.enemy_gain,
+            first_enemy_gain: self.first_enemy_gain - old.first_enemy_gain + new.first_enemy_gain,
+        }
+    }
+
+    fn kills(self, life: i32) -> bool {
+        // State-based actions happen between damage steps. Lifelink in the
+        // normal step cannot rescue a player who lost in first strike.
+        self.first_damage >= life + self.first_enemy_gain || self.damage >= life + self.enemy_gain
+    }
 }
 
 fn worth(f: Fighter) -> i64 {
@@ -45,13 +78,20 @@ fn lethal(damage: i32, touch: bool, f: Fighter) -> bool {
 /// by an exchange, including a gang block.
 fn fight(a: Fighter, blockers: &[Fighter], mask: u32) -> Result {
     if mask == 0 {
+        let damage = a.power.max(0)
+            * if has(a, KeywordSet::DOUBLE_STRIKE) {
+                2
+            } else {
+                1
+            };
         return Result {
-            damage: a.power.max(0)
-                * if has(a, KeywordSet::DOUBLE_STRIKE) {
-                    2
-                } else {
-                    1
-                },
+            damage,
+            first_damage: if first(a) { a.power.max(0) } else { 0 },
+            gain: if has(a, KeywordSet::LIFELINK) {
+                damage
+            } else {
+                0
+            },
             ..Result::default()
         };
     }
@@ -77,13 +117,17 @@ fn fight(a: Fighter, blockers: &[Fighter], mask: u32) -> Result {
             } else {
                 !first(*b) || has(*b, KeywordSet::DOUBLE_STRIKE)
             };
-            if strikes {
+            if strikes && !result.attacker_dead {
                 incoming += b.power.max(0);
                 touch |= b.power > 0 && has(*b, KeywordSet::DEATHTOUCH);
+                if has(*b, KeywordSet::LIFELINK) {
+                    result.enemy_gain += b.power.max(0);
+                }
             }
         }
         if attacks {
             let mut damage = a.power.max(0);
+            let mut dealt = 0;
             for (i, b) in blockers.iter().enumerate() {
                 if live & (1 << i) == 0 {
                     continue;
@@ -93,9 +137,16 @@ fn fight(a: Fighter, blockers: &[Fighter], mask: u32) -> Result {
                 } else {
                     (b.toughness - marked[i]).max(0)
                 };
-                let assigned = damage.min(needed);
+                // Without trample the last blocker receives the excess too.
+                // Lifelink counts damage dealt, not just lethal assignment.
+                let assigned = if !has(a, KeywordSet::TRAMPLE) && live >> (i + 1) == 0 {
+                    damage
+                } else {
+                    damage.min(needed)
+                };
                 marked[i] += assigned;
                 damage -= assigned;
+                dealt += assigned;
                 if lethal(
                     marked[i],
                     assigned > 0 && has(a, KeywordSet::DEATHTOUCH),
@@ -106,10 +157,18 @@ fn fight(a: Fighter, blockers: &[Fighter], mask: u32) -> Result {
             }
             if has(a, KeywordSet::TRAMPLE) {
                 result.damage += damage;
+                dealt += damage;
+            }
+            if has(a, KeywordSet::LIFELINK) {
+                result.gain += dealt;
             }
         }
         a_damage += incoming;
         result.attacker_dead |= lethal(a_damage, touch, a);
+        if early {
+            result.first_damage = result.damage;
+            result.first_enemy_gain = result.enemy_gain;
+        }
     }
     result.material = blockers
         .iter()
@@ -125,7 +184,12 @@ struct Position {
     attackers: Vec<Fighter>,
     blockers: Vec<Fighter>,
     // Includes tapped opponents: they untap before the retaliation.
-    retaliation: Vec<Fighter>,
+    retaliation: Vec<(u32, Fighter)>,
+    // Offered attackers first, then untapped reserves, including Walls and
+    // summoning-sick creatures. Damage will be cleared before the next turn.
+    defenders: Vec<Fighter>,
+    exchanges: Vec<Result>,
+    player_damage: u32,
     can_block: Vec<u32>,
     life: i32,
     enemy_life: i32,
@@ -133,55 +197,107 @@ struct Position {
 }
 
 impl Position {
-    fn score(&self, going: u32, outcomes: &[Result; MAX], damage: i32, material: i64) -> i64 {
-        if damage >= self.enemy_life {
-            return WIN + material;
+    /// Up to 16 * 256 exchanges, built once. Reply trees reuse the same
+    /// attacker/blocker subset many times; visiting a node needs one lookup.
+    fn cached(mut self) -> Self {
+        if self.blockers.len() <= 8 {
+            let count = 1 << self.blockers.len();
+            self.exchanges.reserve(self.attackers.len() * count);
+            for &attacker in &self.attackers {
+                for mask in 0..count {
+                    self.exchanges.push(fight(
+                        attacker,
+                        &self.blockers,
+                        u32::try_from(mask).unwrap_or(0),
+                    ));
+                }
+            }
         }
-        let mut value = material + i64::from(damage) * 45;
+        self
+    }
+
+    fn exchange(&self, attacker: usize, mask: u32) -> Result {
+        let mut result = if self.exchanges.is_empty() {
+            fight(self.attackers[attacker], &self.blockers, mask)
+        } else {
+            self.exchanges[(attacker << self.blockers.len()) + usize::try_from(mask).unwrap_or(0)]
+        };
+        if self.player_damage & (1 << attacker) == 0 {
+            result.damage = 0;
+            result.first_damage = 0;
+        }
+        result
+    }
+
+    fn score(&self, going: u32, outcomes: &[Result; MAX], balance: Balance) -> i64 {
+        if balance.kills(self.enemy_life) {
+            return WIN + balance.material;
+        }
+        let mut value = balance.material
+            + i64::from(balance.damage) * 45
+            + i64::from(balance.gain - balance.enemy_gain) * 35;
         if self.horizon < 2 {
             return value;
         }
-        let dead = outcomes.iter().fold(0, |m, r| m | r.dead);
-        let mut incoming = 0;
-        let mut used = 0_u32;
-        // Retaliation is a legal-model estimate, not another full minimax:
-        // each surviving defender attacks our surviving untapped creatures.
-        for (j, enemy) in self.retaliation.iter().enumerate() {
-            if j < self.blockers.len() && dead & (1 << j) != 0 {
-                continue;
-            }
-            if has(*enemy, KeywordSet::DEFENDER) {
-                continue;
-            }
-            let block = self
-                .attackers
-                .iter()
-                .enumerate()
-                .filter(|(i, f)| {
-                    used & (1 << i) == 0
-                        && !outcomes[*i].attacker_dead
-                        && (going & (1 << i) == 0 || has(**f, KeywordSet::VIGILANCE))
-                        && could_block(*enemy, **f)
-                })
-                .max_by_key(|(_, f)| worth(**f));
-            if let Some((i, blocker)) = block {
-                used |= 1 << i;
-                let r = fight(*enemy, &[*blocker], 1);
-                incoming += r.damage;
-            } else {
-                incoming += enemy.power.max(0)
-                    * if has(*enemy, KeywordSet::DOUBLE_STRIKE) {
-                        2
-                    } else {
-                        1
-                    };
-            }
-        }
-        if incoming >= self.life {
+        let (incoming, losses) = self.retaliation(going, outcomes);
+        if incoming >= self.life + balance.gain {
             return -WIN + value;
         }
-        value -= i64::from(incoming) * 50;
+        value -= i64::from(incoming) * 50 + losses / 2;
         value
+    }
+
+    /// A conservative continuation: enemies may decline exchanges that would
+    /// feed us life. Evasion goes first, and menace needs two actual blockers.
+    fn retaliation(&self, going: u32, outcomes: &[Result; MAX]) -> (i32, i64) {
+        let dead = outcomes.iter().fold(0, |m, r| m | r.dead);
+        let mut used = 0_u32;
+        for (i, f) in self.attackers.iter().enumerate() {
+            if outcomes[i].attacker_dead
+                || (going & (1 << i) != 0 && !has(*f, KeywordSet::VIGILANCE))
+            {
+                used |= 1 << i;
+            }
+        }
+        let mut incoming = 0;
+        let mut losses = 0;
+        for &(mask, enemy) in &self.retaliation {
+            if dead & mask != 0 || has(enemy, KeywordSet::DEFENDER) {
+                continue;
+            }
+            let mut best = (fight(enemy, &[], 0).damage, 0, 0);
+            let mut chosen = 0;
+            for (i, &a) in self.defenders.iter().enumerate() {
+                if used & (1 << i) != 0 || !could_block(enemy, a) {
+                    continue;
+                }
+                if !has(enemy, KeywordSet::MENACE) {
+                    let r = fight(enemy, &[a], 1);
+                    let value = (r.damage - r.enemy_gain, r.material, worth(a));
+                    if value < best {
+                        best = value;
+                        chosen = 1 << i;
+                    }
+                }
+                if has(enemy, KeywordSet::MENACE.union(KeywordSet::TRAMPLE)) {
+                    for (j, &b) in self.defenders.iter().enumerate().skip(i + 1) {
+                        if used & (1 << j) != 0 || !could_block(enemy, b) {
+                            continue;
+                        }
+                        let r = fight(enemy, &[a, b], 3);
+                        let value = (r.damage - r.enemy_gain, r.material, worth(a) + worth(b));
+                        if value < best {
+                            best = value;
+                            chosen = (1 << i) | (1 << j);
+                        }
+                    }
+                }
+            }
+            used |= chosen;
+            incoming += best.0.max(0);
+            losses += best.1.max(0);
+        }
+        (incoming, losses)
     }
 }
 
@@ -196,10 +312,11 @@ struct Reply<'a> {
     nodes: u32,
     limit: u32,
     complete: bool,
+    all_lethal: bool,
 }
 
 impl Reply<'_> {
-    fn visit(&mut self, blocker: usize, damage: i32, material: i64) {
+    fn visit(&mut self, blocker: usize, balance: Balance) {
         // This reply already disproves an improvement over the incumbent.
         // Remaining replies can only lower the attacking player's score.
         if self.worst <= self.cutoff {
@@ -221,16 +338,15 @@ impl Reply<'_> {
             {
                 return;
             }
-            let score = self
-                .position
-                .score(self.going, &self.outcomes, damage, material);
+            self.all_lethal &= balance.kills(self.position.enemy_life);
+            let score = self.position.score(self.going, &self.outcomes, balance);
             if score < self.worst {
                 self.worst = score;
                 self.best_groups = self.groups;
             }
             return;
         }
-        self.visit(blocker + 1, damage, material);
+        self.visit(blocker + 1, balance);
         let choices = self.position.can_block[blocker] & self.going;
         for i in 0..self.position.attackers.len() {
             if choices & (1 << i) == 0 || !self.complete {
@@ -238,17 +354,9 @@ impl Reply<'_> {
             }
             let old = self.outcomes[i];
             self.groups[i] |= 1 << blocker;
-            let new = fight(
-                self.position.attackers[i],
-                &self.position.blockers,
-                self.groups[i],
-            );
+            let new = self.position.exchange(i, self.groups[i]);
             self.outcomes[i] = new;
-            self.visit(
-                blocker + 1,
-                damage - old.damage + new.damage,
-                material - old.material + new.material,
-            );
+            self.visit(blocker + 1, balance.replacing(old, new));
             self.groups[i] &= !(1 << blocker);
             self.outcomes[i] = old;
         }
@@ -265,6 +373,8 @@ pub struct AttackSearch {
     pub nodes: u32,
     /// Attack sets evaluated completely or refuted by a blocking reply.
     pub completed: u32,
+    /// Every modeled blocking reply to the chosen attack loses the defender.
+    pub lethal: bool,
 }
 
 fn attack_position(
@@ -305,25 +415,69 @@ fn attack_position(
         .filter(|(o, _)| !o.status.contains(ObjectStatus::TAPPED))
         .map(|(_, f)| *f)
         .collect();
-    if blockers.len() > MAX {
+    if defending.len() > MAX {
         return None;
     }
-    Some(Position {
-        can_block: blockers
-            .iter()
-            .map(|b| {
-                fighters.iter().enumerate().fold(0, |mask, (i, a)| {
-                    mask | if could_block(*a, *b) { 1 << i } else { 0 }
-                })
+    let refreshed = |o: &baylee_view::PublicObject, mut f: Fighter| {
+        f.toughness += i32::from(o.damage);
+        f
+    };
+    let mut defenders: Vec<_> = squad
+        .iter()
+        .zip(&fighters)
+        .filter_map(|(&id, &f)| view.object(id).map(|o| refreshed(o, f)))
+        .collect();
+    defenders.extend(
+        view.battlefield_of(view.seat)
+            .filter(|o| {
+                o.types.contains(TypeSet::CREATURE)
+                    && !o.status.contains(ObjectStatus::TAPPED)
+                    && !o.status.contains(ObjectStatus::PHASED_OUT)
+                    && !squad.contains(&o.id)
             })
-            .collect(),
-        attackers: fighters,
-        blockers,
-        retaliation: defending.iter().map(|(_, f)| *f).collect(),
-        life: view.seat(view.seat).map_or(20, |s| s.life),
-        enemy_life: view.seat(victim).map_or(20, |s| s.life),
-        horizon: profile.lookahead.min(2),
-    })
+            .filter_map(|o| Fighter::of(view, o.id).map(|f| refreshed(o, f))),
+    );
+    if defenders.len() > MAX * 2 {
+        return None;
+    }
+    let mut retaliation: Vec<_> = defending
+        .iter()
+        .enumerate()
+        .map(|(i, (o, f))| {
+            (
+                if i < blockers.len() { 1 << i } else { 0 },
+                refreshed(o, *f),
+            )
+        })
+        .collect();
+    retaliation.sort_by_key(|(_, f)| {
+        (
+            defenders.iter().filter(|&&d| could_block(*f, d)).count(),
+            std::cmp::Reverse(f.power),
+        )
+    });
+    Some(
+        Position {
+            player_damage: (1 << fighters.len()) - 1,
+            can_block: blockers
+                .iter()
+                .map(|b| {
+                    fighters.iter().enumerate().fold(0, |mask, (i, a)| {
+                        mask | if could_block(*a, *b) { 1 << i } else { 0 }
+                    })
+                })
+                .collect(),
+            attackers: fighters,
+            blockers,
+            retaliation,
+            defenders,
+            exchanges: Vec::new(),
+            life: view.seat(view.seat).map_or(20, |s| s.life),
+            enemy_life: view.seat(victim).map_or(20, |s| s.life),
+            horizon: profile.lookahead.min(2),
+        }
+        .cached(),
+    )
 }
 
 /// Search attack declarations from public characteristics alone.
@@ -339,6 +493,7 @@ pub fn attackers(
         attackers: fallback,
         nodes: 0,
         completed: 0,
+        lethal: false,
     };
     let Some(position) = attack_position(view, squad, victim, profile) else {
         return result;
@@ -353,6 +508,7 @@ pub fn attackers(
     });
     let mut best = i64::MIN;
     let mut chosen = greedy;
+    let mut lethal = false;
     let mut fallback_upper = i64::MAX;
     // First establish an incumbent, then try the greedy choice and an alpha
     // strike before subset order. Huge boards still see useful candidates.
@@ -373,17 +529,22 @@ pub fn attackers(
             cutoff: best,
             best_groups: [0; MAX],
             nodes: 0,
-            limit: (profile.node_budget() - result.nodes).min(2048),
+            limit: (profile.node_budget() - result.nodes).min(if profile.lookahead >= 2 {
+                profile.node_budget() * 3 / 4
+            } else {
+                profile.node_budget() / 4
+            }),
             complete: true,
+            all_lethal: true,
         };
-        let mut damage = 0;
-        for (i, a) in position.attackers.iter().enumerate() {
+        let mut balance = Balance::default();
+        for i in 0..position.attackers.len() {
             if going & (1 << i) != 0 {
-                reply.outcomes[i] = fight(*a, &position.blockers, 0);
-                damage += reply.outcomes[i].damage;
+                reply.outcomes[i] = position.exchange(i, 0);
+                balance = balance.replacing(Result::default(), reply.outcomes[i]);
             }
         }
-        reply.visit(0, damage, 0);
+        reply.visit(0, balance);
         result.nodes += reply.nodes;
         if going == greedy {
             fallback_upper = reply.worst;
@@ -393,6 +554,7 @@ pub fn attackers(
             if reply.worst > best {
                 best = reply.worst;
                 chosen = going;
+                lethal = reply.all_lethal;
             }
         }
     }
@@ -400,6 +562,7 @@ pub fn attackers(
     // still beats the greedy attack. Preserve the fallback until a real
     // reply refutes it or a completed candidate beats that upper bound.
     if result.completed > 0 && best >= fallback_upper {
+        result.lethal = lethal;
         result.attackers = squad
             .iter()
             .enumerate()
@@ -436,7 +599,7 @@ pub fn blockers(
     if ids.len() > MAX || attackers.len() != ids.len() || defenders.len() != options.len() {
         return crate::combat::choose_blocks(view, options, life);
     }
-    let unblockable: i32 = view
+    let unblockable = view
         .combat
         .attackers
         .iter()
@@ -445,12 +608,24 @@ pub fn blockers(
                 && a.defending == baylee_core::ids::Defender::Player(view.seat)
         })
         .filter_map(|a| Fighter::of(view, a.creature))
-        .map(|f| fight(f, &[], 0).damage)
-        .sum();
+        .fold(Balance::default(), |balance, f| {
+            balance.replacing(Result::default(), fight(f, &[], 0))
+        });
     let position = Position {
+        player_damage: ids.iter().enumerate().fold(0, |mask, (i, id)| {
+            mask | if view.combat.attackers.iter().any(|a| {
+                a.creature == *id && a.defending == baylee_core::ids::Defender::Player(view.seat)
+            }) {
+                1 << i
+            } else {
+                0
+            }
+        }),
         attackers,
         blockers: defenders,
         retaliation: vec![],
+        defenders: vec![],
+        exchanges: Vec::new(),
         can_block: options
             .iter()
             .map(|o| {
@@ -460,9 +635,10 @@ pub fn blockers(
             })
             .collect(),
         life: i32::MAX,
-        enemy_life: life.saturating_sub(unblockable),
+        enemy_life: life,
         horizon: 0,
-    };
+    }
+    .cached();
     let mut reply = Reply {
         position: &position,
         going: (1 << ids.len()) - 1,
@@ -474,13 +650,14 @@ pub fn blockers(
         nodes: 0,
         limit: profile.node_budget(),
         complete: true,
+        all_lethal: true,
     };
-    let mut damage = 0;
-    for (i, a) in position.attackers.iter().enumerate() {
-        reply.outcomes[i] = fight(*a, &[], 0);
-        damage += reply.outcomes[i].damage;
+    let mut balance = unblockable;
+    for i in 0..position.attackers.len() {
+        reply.outcomes[i] = position.exchange(i, 0);
+        balance = balance.replacing(Result::default(), reply.outcomes[i]);
     }
-    reply.visit(0, damage, 0);
+    reply.visit(0, balance);
     let mut result = Vec::new();
     for (i, &id) in ids.iter().enumerate() {
         for (j, option) in options.iter().enumerate() {
@@ -527,5 +704,31 @@ mod tests {
         );
         assert_eq!(result.damage, 4);
         assert_eq!(result.dead, 1);
+    }
+
+    #[test]
+    fn lifelink_counts_excess_damage_but_needs_a_living_recipient() {
+        let result = fight(
+            fighter(8, 8, KeywordSet::LIFELINK),
+            &[fighter(1, 1, KeywordSet::EMPTY)],
+            1,
+        );
+        assert_eq!(result.damage, 0);
+        assert_eq!(result.gain, 8);
+        let result = fight(
+            fighter(1, 1, KeywordSet::EMPTY),
+            &[fighter(
+                8,
+                8,
+                KeywordSet::LIFELINK.union(KeywordSet::DOUBLE_STRIKE),
+            )],
+            1,
+        );
+        assert!(result.attacker_dead);
+        assert_eq!(
+            result.enemy_gain, 8,
+            "no attacker remains for the normal damage step"
+        );
+        assert_eq!(result.first_enemy_gain, 8);
     }
 }
