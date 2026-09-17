@@ -167,9 +167,23 @@ impl<L: CardLookup> Engine<L> {
             self.sync_static_effects();
             self.state.refresh_characteristics();
             // 0b. As-it-enters modifiers (taplands, shockland choices).
-            self.apply_enter_modifiers();
+            let entered = self.apply_enter_modifiers();
             if self.awaiting_answer {
                 return;
+            }
+            // A modifier that wrote to the board wrote *behind* 0a, and the
+            // state-based actions two steps down read the projection rather
+            // than the board. Counters placed as a permanent enters
+            // (CR 614.1c) are a characteristic input (CR 613.4c), so a 0/0
+            // that arrives under a +1/+1 counter is a 1/1 only once the
+            // projection has been recomputed — read at 0a's value it is the
+            // 0/0 it prints, and CR 704.5f puts it into a graveyard between
+            // its own arrival and anybody being asked anything. Going round
+            // once is the whole fix: the scan advances `entry_scan_seq`
+            // before it does any work, so the next pass finds no arrivals
+            // and falls through.
+            if entered {
+                continue;
             }
             // 1. Game over?
             if let Some(result) = self.game_result() {

@@ -219,6 +219,21 @@ for the cost (no multiplier exists in Magic for a removal). Seven cards came
 out of `landgen` in full: the five Vivid lands, Mirrodin's Core and Tendo Ice
 Bridge.
 
+**And a defect under it that none of those seven could show.**
+`apply_enter_modifiers` is step 0b of the machine and the layer projection is
+refreshed at 0a, so a counter placed as a permanent enters landed *behind*
+the characteristics the state-based actions read at step 2. A printed 0/0
+that arrives under a +1/+1 counter was therefore put into its owner's
+graveyard by CR 704.5f between its own arrival and anybody being asked
+anything — the counter was on the object the whole time, and what the rule
+looked at was a cache one step older than it (CR 613.4c makes a counter an
+input to the characteristics, so the two must not disagree). A charge counter
+changes no characteristic any state-based action reads, which is why seven
+lands shipped over that seam in silence and why the regression test is a card
+nobody printed. The fix is one `continue`: a pass that wrote to the board
+goes round once more, and the scan advances its own sequence before it does
+any work, so the next pass finds no arrivals and falls through.
+
 **Also shipped: the clause that ends the card.** `Effect::IfNoCountersOnSelf
 { kind, then }` is "If there are no depletion counters on this land, sacrifice
 it", an ordinary effect in the same list as the mana rather than a trigger or

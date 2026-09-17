@@ -78,6 +78,57 @@ pub fn land(index: u32, name: &'static str, abilities: &'static [AbilityDef]) ->
     }))
 }
 
+/// A creature face with a body, whatever it does as it enters, and nothing
+/// else on it.
+///
+/// The sibling of [`land_face`] and here for the same reason: what a test
+/// wants to write is the two or three characteristics it is about, not the
+/// twenty a `FaceDef` has. `enter_modifiers` is one of the three because a
+/// rule about *arriving* has nowhere else to put itself.
+#[must_use]
+pub fn creature_face(
+    name: &'static str,
+    power: i16,
+    toughness: i16,
+    enter_modifiers: &'static [baylee_cards_dsl::EnterModifier],
+) -> FaceDef {
+    FaceDef {
+        power: Some(power),
+        toughness: Some(toughness),
+        types: TypeSet::CREATURE,
+        enter_modifiers,
+        ..land_face(name)
+    }
+}
+
+/// A one-faced creature at a made-up index, leaked the way [`land`] leaks.
+#[must_use]
+pub fn creature(
+    index: u32,
+    name: &'static str,
+    power: i16,
+    toughness: i16,
+    enter_modifiers: &'static [baylee_cards_dsl::EnterModifier],
+) -> &'static CardDef {
+    Box::leak(Box::new(CardDef {
+        index: CardIndex::new(index),
+        oracle_id: "test",
+        scryfall_id: "test",
+        faces: Box::leak(Box::new([creature_face(
+            name,
+            power,
+            toughness,
+            enter_modifiers,
+        )])),
+        color_identity: baylee_core::color::ColorSet::EMPTY,
+        keywords: KeywordSet::EMPTY,
+        commander: CommanderRule::NotEligible,
+        partner: baylee_cards_dsl::PartnerKind::None,
+        coverage: Coverage::Implemented,
+        abilities: &[],
+    }))
+}
+
 /// A card lookup that knows a few made-up cards and the whole pool behind
 /// them.
 ///

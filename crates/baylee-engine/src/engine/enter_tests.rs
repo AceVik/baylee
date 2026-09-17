@@ -35,11 +35,12 @@
 //! that says nothing and arrives tapped anyway is the one a sweep written in
 //! a single direction never sees.
 
+use super::synthetic::{SyntheticLookup, creature, preset};
 use super::testkit::{
     Duel, basic_forest, card_index, in_hand, keep_mulligans, play_land_face, reach_main_phase,
 };
 use super::*;
-use baylee_cards_dsl::{CardDef, EnterModifier, FaceDef};
+use baylee_cards_dsl::{CardDef, CounterKind, EnterModifier, FaceDef};
 use baylee_core::ids::CardIndex;
 
 /// Bojuka Bog: a tapland that also carries an enters-the-battlefield
@@ -424,5 +425,67 @@ fn what_an_action_triggered_is_on_the_stack_before_the_player_is_asked_again() {
         matches!(engine.pending(), Pending::Priority { player, .. } if *player == seat),
         "priority returns to whoever played the land: {:?}",
         engine.pending()
+    );
+}
+
+/// A made-up 0/0 that arrives under one +1/+1 counter, and the only thing
+/// standing between it and a graveyard.
+const HATCHLING: u32 = 1200;
+
+static HATCHLING_ENTERS: &[EnterModifier] = &[EnterModifier::WithCounters {
+    kind: CounterKind::P1P1,
+    n: 1,
+}];
+
+/// Counters placed as a permanent enters are read by the state-based
+/// actions that then decide whether it lives.
+///
+/// Two steps of `run_machine` that had never met. As-it-enters modifiers are
+/// step 0b and the layer projection is refreshed at 0a, so a counter placed
+/// at 0b landed *behind* the characteristics CR 704.5f reads at step 2 — and
+/// a printed 0/0 that had just arrived under a +1/+1 counter was put into its
+/// owner's graveyard before anybody could be asked anything. The counter was
+/// there on the object the whole time; what the rule looked at was a cache
+/// one step older than it (CR 613.4c makes a counter a characteristic-
+/// defining input, so the two must not disagree).
+///
+/// Seven printed lands have gone through that seam in silence since
+/// `EnterModifier::WithCounters` shipped, and none of them could have shown
+/// it: a charge counter changes no characteristic any state-based action
+/// reads. So the witness is a card nobody printed — a 0/0 body is the
+/// smallest thing that can tell a stale projection from a fresh one, and the
+/// pool has no creature that both enters with a counter and needs it.
+#[test]
+fn a_body_that_arrives_under_a_counter_is_alive_when_the_rules_look_at_it() {
+    let card = creature(HATCHLING, "Hatchling", 0, 0, HATCHLING_ENTERS);
+    let mut engine = Engine::new(&preset(11, &[HATCHLING]), SyntheticLookup::new(vec![card]))
+        .expect("a two-seat board with one made-up creature on it");
+    super::synthetic::keep_mulligans(&mut engine);
+
+    let bodies = super::synthetic::permanents(&engine, HATCHLING);
+    assert_eq!(
+        bodies.len(),
+        1,
+        "the Hatchling was killed by the state-based action that read the \
+         projection it had before its own counter landed (CR 704.5f)"
+    );
+    let body = bodies[0];
+    assert_eq!(
+        engine
+            .state()
+            .object(body)
+            .map(|o| o.counters.get(CounterKind::P1P1)),
+        Some(1),
+        "one +1/+1 counter, placed as it entered (CR 614.1c)"
+    );
+    let c = engine
+        .state()
+        .object(body)
+        .map(|o| (o.characteristics().power, o.characteristics().toughness))
+        .expect("the Hatchling is on the battlefield");
+    assert_eq!(
+        c,
+        (Some(1), Some(1)),
+        "and the projection the rules read is built out of it"
     );
 }
