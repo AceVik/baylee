@@ -109,10 +109,66 @@ impl HeuristicAgent {
 
     /// Picks an action for the pending choice addressed to `view.seat`.
     #[must_use]
-    #[allow(clippy::too_many_lines)] // the pending taxonomy is one flat table
     pub fn act(&self, view: &PlayerView, pending: &Pending) -> PlayerAction {
+        // Most questions are priority. Borrow its potentially large offer
+        // instead of allocating a duplicate box and every legal-action list.
+        if let Pending::Priority { legal, .. } = pending {
+            return self.priority(view, legal);
+        }
+        self.choice(view, pending.clone())
+    }
+
+    fn priority(
+        &self,
+        view: &PlayerView,
+        legal: &baylee_engine::choice::LegalActions,
+    ) -> PlayerAction {
+        // 1. Play a land.
+        if let Some(&card) = legal.lands.first() {
+            return PlayerAction::PlayLand { card };
+        }
+        // 2. Crack a fetchland.
+        //
+        // Before tapping, because the land it finds is mana this
+        // turn, and before casting, because step 4 measures what is
+        // affordable. A fetchland left alone is not a slow land, it
+        // is a land that makes nothing at all — and eight of them
+        // sit in the acceptance decks.
+        if let Some((source, ability_index)) = activate::fetch(view, legal) {
+            return PlayerAction::ActivateAbility {
+                source,
+                ability_index,
+            };
+        }
+        if let Some(action) = self.spell_or_mana(view, legal) {
+            return action;
+        }
+        // 5. Everything else the policy recognises — a
+        //    planeswalker's loyalty, a permanent that draws or
+        //    makes a token for a tap.
+        //
+        //    This used to be a comment saying activated abilities
+        //    were skipped because blind activation "loops on free
+        //    no-op abilities". That is true of a free ability and
+        //    of nothing else: any cost that taps, sacrifices,
+        //    discards, exiles or spends alters the state the next
+        //    `LegalActions` is built from, so the handle is gone or
+        //    unaffordable when the seat next has priority.
+        //    `activate::choose` refuses the free shape and takes
+        //    the rest by an explicit whitelist.
+        if let Some((source, ability_index)) = activate::choose(view, legal) {
+            return PlayerAction::ActivateAbility {
+                source,
+                ability_index,
+            };
+        }
+        PlayerAction::PassPriority
+    }
+
+    #[allow(clippy::too_many_lines)] // the pending taxonomy is one flat table
+    fn choice(&self, view: &PlayerView, pending: Pending) -> PlayerAction {
         let player = view.seat;
-        match pending.clone() {
+        match pending {
             Pending::Mulligan {
                 taken,
                 next_is_free,
@@ -125,48 +181,7 @@ impl HeuristicAgent {
                     objects: self.discard(view, count as usize),
                 }
             }
-            Pending::Priority { legal, .. } => {
-                // 1. Play a land.
-                if let Some(&card) = legal.lands.first() {
-                    return PlayerAction::PlayLand { card };
-                }
-                // 2. Crack a fetchland.
-                //
-                // Before tapping, because the land it finds is mana this
-                // turn, and before casting, because step 4 measures what is
-                // affordable. A fetchland left alone is not a slow land, it
-                // is a land that makes nothing at all — and eight of them
-                // sit in the acceptance decks.
-                if let Some((source, ability_index)) = activate::fetch(view, &legal) {
-                    return PlayerAction::ActivateAbility {
-                        source,
-                        ability_index,
-                    };
-                }
-                if let Some(action) = self.spell_or_mana(view, &legal) {
-                    return action;
-                }
-                // 5. Everything else the policy recognises — a
-                //    planeswalker's loyalty, a permanent that draws or
-                //    makes a token for a tap.
-                //
-                //    This used to be a comment saying activated abilities
-                //    were skipped because blind activation "loops on free
-                //    no-op abilities". That is true of a free ability and
-                //    of nothing else: any cost that taps, sacrifices,
-                //    discards, exiles or spends alters the state the next
-                //    `LegalActions` is built from, so the handle is gone or
-                //    unaffordable when the seat next has priority.
-                //    `activate::choose` refuses the free shape and takes
-                //    the rest by an explicit whitelist.
-                if let Some((source, ability_index)) = activate::choose(view, &legal) {
-                    return PlayerAction::ActivateAbility {
-                        source,
-                        ability_index,
-                    };
-                }
-                PlayerAction::PassPriority
-            }
+            Pending::Priority { .. } => unreachable!("priority is handled without cloning"),
             // Who may attack and what may be attacked both come from the
             // choice: the engine is the only thing that knows a Wall may
             // not swing (CR 508.1a) and which planeswalker is attackable

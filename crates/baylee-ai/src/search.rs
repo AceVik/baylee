@@ -180,14 +180,60 @@ fn fight(a: Fighter, blockers: &[Fighter], mask: u32) -> Result {
     result
 }
 
+struct Counterblock {
+    used: u32,
+    // Net player damage, material lost, then material committed to blocking.
+    value: (i32, i64, i64),
+}
+
+struct Counterattack {
+    casualty: u32,
+    choices: Vec<Counterblock>,
+}
+
+impl Counterattack {
+    /// These exchanges depend on public characteristics, not on the root
+    /// attack. Cache them once; a leaf only filters out unavailable blockers.
+    fn new(casualty: u32, enemy: Fighter, defenders: &[Fighter]) -> Self {
+        let mut choices = vec![Counterblock {
+            used: 0,
+            value: (fight(enemy, &[], 0).damage, 0, 0),
+        }];
+        for (i, &a) in defenders.iter().enumerate() {
+            if !could_block(enemy, a) {
+                continue;
+            }
+            if !has(enemy, KeywordSet::MENACE) {
+                let r = fight(enemy, &[a], 1);
+                choices.push(Counterblock {
+                    used: 1 << i,
+                    value: (r.damage - r.enemy_gain, r.material, worth(a)),
+                });
+            }
+            if has(enemy, KeywordSet::MENACE.union(KeywordSet::TRAMPLE)) {
+                for (j, &b) in defenders.iter().enumerate().skip(i + 1) {
+                    if !could_block(enemy, b) {
+                        continue;
+                    }
+                    let r = fight(enemy, &[a, b], 3);
+                    choices.push(Counterblock {
+                        used: (1 << i) | (1 << j),
+                        value: (r.damage - r.enemy_gain, r.material, worth(a) + worth(b)),
+                    });
+                }
+            }
+        }
+        // Stable ties preserve the uncached evaluator's declaration order.
+        choices.sort_by_key(|choice| choice.value);
+        Self { casualty, choices }
+    }
+}
+
 struct Position {
     attackers: Vec<Fighter>,
     blockers: Vec<Fighter>,
     // Includes tapped opponents: they untap before the retaliation.
-    retaliation: Vec<(u32, Fighter)>,
-    // Offered attackers first, then untapped reserves, including Walls and
-    // summoning-sick creatures. Damage will be cleared before the next turn.
-    defenders: Vec<Fighter>,
+    retaliation: Vec<Counterattack>,
     exchanges: Vec<Result>,
     player_damage: u32,
     can_block: Vec<u32>,
@@ -261,41 +307,16 @@ impl Position {
         }
         let mut incoming = 0;
         let mut losses = 0;
-        for &(mask, enemy) in &self.retaliation {
-            if dead & mask != 0 || has(enemy, KeywordSet::DEFENDER) {
+        for enemy in &self.retaliation {
+            if dead & enemy.casualty != 0 {
                 continue;
             }
-            let mut best = (fight(enemy, &[], 0).damage, 0, 0);
-            let mut chosen = 0;
-            for (i, &a) in self.defenders.iter().enumerate() {
-                if used & (1 << i) != 0 || !could_block(enemy, a) {
-                    continue;
-                }
-                if !has(enemy, KeywordSet::MENACE) {
-                    let r = fight(enemy, &[a], 1);
-                    let value = (r.damage - r.enemy_gain, r.material, worth(a));
-                    if value < best {
-                        best = value;
-                        chosen = 1 << i;
-                    }
-                }
-                if has(enemy, KeywordSet::MENACE.union(KeywordSet::TRAMPLE)) {
-                    for (j, &b) in self.defenders.iter().enumerate().skip(i + 1) {
-                        if used & (1 << j) != 0 || !could_block(enemy, b) {
-                            continue;
-                        }
-                        let r = fight(enemy, &[a, b], 3);
-                        let value = (r.damage - r.enemy_gain, r.material, worth(a) + worth(b));
-                        if value < best {
-                            best = value;
-                            chosen = (1 << i) | (1 << j);
-                        }
-                    }
-                }
+            // Not blocking is always present, so at least one choice fits.
+            if let Some(best) = enemy.choices.iter().find(|choice| choice.used & used == 0) {
+                used |= best.used;
+                incoming += best.value.0.max(0);
+                losses += best.value.1.max(0);
             }
-            used |= chosen;
-            incoming += best.0.max(0);
-            losses += best.1.max(0);
         }
         (incoming, losses)
     }
@@ -422,6 +443,8 @@ fn attack_position(
         f.toughness += i32::from(o.damage);
         f
     };
+    // Offered attackers keep their indices, followed by untapped reserves.
+    // Summoning sickness and defender do not stop a creature from blocking.
     let mut defenders: Vec<_> = squad
         .iter()
         .zip(&fighters)
@@ -469,8 +492,15 @@ fn attack_position(
                 .collect(),
             attackers: fighters,
             blockers,
-            retaliation,
-            defenders,
+            retaliation: if profile.lookahead >= 2 {
+                retaliation
+                    .into_iter()
+                    .filter(|(_, f)| !has(*f, KeywordSet::DEFENDER))
+                    .map(|(mask, f)| Counterattack::new(mask, f, &defenders))
+                    .collect()
+            } else {
+                Vec::new()
+            },
             exchanges: Vec::new(),
             life: view.seat(view.seat).map_or(20, |s| s.life),
             enemy_life: view.seat(victim).map_or(20, |s| s.life),
@@ -624,7 +654,6 @@ pub fn blockers(
         attackers,
         blockers: defenders,
         retaliation: vec![],
-        defenders: vec![],
         exchanges: Vec::new(),
         can_block: options
             .iter()
