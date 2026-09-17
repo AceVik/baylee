@@ -4198,6 +4198,11 @@ impl Shape {
                 // them as the activations they are, and without this every
                 // equipment in the pool disagreed.
                 "Equip" | "Cycling" => out.activated += 1,
+                // And one is a *spell* wearing them: enchant is a static
+                // ability of the Aura spell (CR 702.5b), so a hand-written
+                // Aura says it as the `spell!` that targets what it will
+                // enchant and arrives attached to it.
+                "Enchant" => out.spell += 1,
                 // And one is a static ability wearing them: "you may choose
                 // not to untap" has no parameters, so the reference files it
                 // as a keyword, while the DSL writes it as the

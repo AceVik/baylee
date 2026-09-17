@@ -1257,6 +1257,9 @@ impl Tx<'_> {
         if let Some(rest) = line.strip_prefix("Equip:") {
             return self.equip(rest);
         }
+        if let Some(rest) = line.strip_prefix("Enchant:") {
+            return self.enchant(rest);
+        }
         if let Some(bit) = keyword_const(line) {
             self.body.keywords.push(bit.to_string());
             return Some(());
@@ -1287,6 +1290,42 @@ impl Tx<'_> {
         }
         let cost = self.cost_expr(rest)?;
         self.body.abilities.push(format!("equip!({cost})"));
+        Some(())
+    }
+
+    /// `K:Enchant:<valid>` as the spell an Aura card is.
+    ///
+    /// Enchant is a static ability of the *spell* (CR 702.5b): it says what
+    /// the Aura targets as it is cast (CR 303.4a), and the Aura arrives on
+    /// the battlefield already attached to that permanent. One `spell!`
+    /// carrying `Effect::AttachSelf` is all of that, and it is the shape
+    /// the pool's hand-written Auras already have.
+    ///
+    /// The target is named twice — once as what the spell may aim at and
+    /// once as what the effect attaches to — which is one `static` in the
+    /// generated file, because `filter_static` gives a filter written twice
+    /// in a card a single name.
+    ///
+    /// **An Aura on a player is refused.** `Effect::AttachSelf` reads the
+    /// resolution's first target as an object, so `K:Enchant:Player` would
+    /// generate a card that resolves, attaches to nothing, and is put into
+    /// its owner's graveyard by the next state-based action (CR 704.5m).
+    /// The corpus prints it 50 times, and each is a card this engine cannot
+    /// yet say rather than one it may guess at.
+    ///
+    /// A third field is the printed wording — "creature you control" — and
+    /// this side takes the printed wording from Scryfall, so it is prose.
+    fn enchant(&mut self, rest: &str) -> Option<()> {
+        let valid = rest.split(':').next().unwrap_or(rest).trim();
+        if matches!(valid, "Player" | "Opponent") {
+            return self.deny(format!("an `Enchant {valid}`, which attaches to no object"));
+        }
+        let expr = self.filter_expr(valid)?;
+        let name = self.body.filter_static("ENCHANT", &expr);
+        self.body.abilities.push(format!(
+            "spell!(&[Effect::AttachSelf {{ target: TargetSpec::Object(&{name}) }}], \
+             targets = Some(TargetReq::one(TargetSpec::Object(&{name}))))"
+        ));
         Some(())
     }
 
@@ -3838,6 +3877,51 @@ mod tests {
         assert_eq!(
             refusal_reason(&parsed, &cats()).as_deref(),
             Some("an `Equip` that narrows what it may attach to")
+        );
+    }
+
+    /// An Aura is a spell that targets what it will enchant (CR 303.4a) and
+    /// arrives attached to it, and the target is named once.
+    #[test]
+    fn an_aura_is_the_spell_that_attaches_it() {
+        let body = read(
+            "Name:X\nTypes:Enchantment Aura\nK:Enchant:Creature\n\
+             S:Mode$ Continuous | Affected$ Creature.EnchantedBy | AddPower$ 2 | AddToughness$ 1",
+        );
+        assert_eq!(
+            body.abilities[0],
+            "spell!(&[Effect::AttachSelf { target: TargetSpec::Object(&Filter::CREATURE) }], \
+             targets = Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE))))"
+        );
+        assert_eq!(
+            body.abilities.len(),
+            2,
+            "the spell, and the one layer-7c modifier that +2/+1 is"
+        );
+        // "Enchant creature you control" is a filter the DSL already has a
+        // constant for, so it is used twice under that name and declares
+        // nothing — and the third field, the printed wording, is prose.
+        let constant =
+            read("Name:X\nTypes:Enchantment Aura\nK:Enchant:Creature.YouCtrl:creature you control");
+        assert!(constant.statics.is_empty());
+        assert_eq!(
+            constant.abilities[0]
+                .matches("&Filter::YOUR_CREATURE")
+                .count(),
+            2
+        );
+        // One that has no constant is named once and used twice, rather
+        // than written out on both halves of the same sentence.
+        let named =
+            read("Name:X\nTypes:Enchantment Aura\nK:Enchant:Creature.tapped:tapped creature");
+        assert_eq!(named.statics.matches("static ").count(), 1);
+        assert_eq!(named.abilities[0].matches("&ENCHANT1").count(), 2);
+        // An Aura on a player has nothing for `AttachSelf` to attach to.
+        let parsed = parse("Name:X\nTypes:Enchantment Aura\nK:Enchant:Player");
+        assert!(transcode(&parsed, &cats()).is_none());
+        assert_eq!(
+            refusal_reason(&parsed, &cats()).as_deref(),
+            Some("an `Enchant Player`, which attaches to no object")
         );
     }
 
