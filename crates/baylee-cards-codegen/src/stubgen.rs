@@ -589,6 +589,35 @@ pub fn set_line(
     )
 }
 
+/// What the script reader makes of a card, with the type line's own mana put
+/// back (CR 305.6).
+///
+/// The reader is handed the type line here and nowhere else, and it is not a
+/// crack in the rule that it ignores names, costs and types: those the stub is
+/// written from the printing directly, and this one has to become an *ability*
+/// the reader's own output carries. Neither corpus states it. A printed card
+/// restates intrinsic mana as reminder text at most, and a reference script
+/// leaves it to the type line exactly as this repo does, so a land written
+/// from a script alone has no mana ability whatsoever — invisible while it has
+/// one basic type, because `casting::intrinsic_mana` covers that case, and
+/// fatal with two, where that shortcut returns `None` rather than choose a
+/// colour for the player. Five Turbulent lands were written that way the day
+/// the transcoder learned their enter condition: `Land — Swamp Forest`,
+/// `Coverage::Implemented`, and no way to tap for anything.
+fn transcode_card(
+    script: &crate::scriptgen::CardScript,
+    type_line: &str,
+    cats: &SubtypeCatalogs,
+    tokens: Option<&crate::tokengen::TokenLookup>,
+) -> Option<CardBody> {
+    let mut body = crate::scriptgen::transcode(script, cats, tokens)?;
+    if let Some(ability) = crate::landgen::intrinsic_mana_ability(type_line) {
+        body.abilities.insert(0, ability);
+        body.notes.insert(0, "intrinsic type mana".to_string());
+    }
+    Some(body)
+}
+
 /// Renders one stub file, and says where under `cards/` it belongs.
 ///
 /// # Errors
@@ -613,7 +642,7 @@ pub fn render_stub(
     // its type line (CR 305.6) and no reference script restates it.
     let land = crate::landgen::recognize(card, cats).or_else(|| {
         let script = scripts?.script(&card.name)?;
-        crate::scriptgen::transcode(&script, cats, tokens)
+        transcode_card(&script, &faces[0].type_line, cats, tokens)
     });
 
     let mut out = String::with_capacity(4096);
@@ -1278,5 +1307,59 @@ mod tests {
         assert!(text.contains("supertypes = SupertypeSet::LEGENDARY,"));
         assert!(text.contains("color_identity = ColorSet::from_slice(&[Color::White]),"));
         assert!(text.contains("commander = CommanderRule::Legendary,"));
+    }
+
+    /// A land the *script* reader writes still taps for what its type line
+    /// says it does (CR 305.6).
+    ///
+    /// Turbulent Fen is the card this is about: `Land — Swamp Forest` whose
+    /// only script line is the enter-tapped replacement, so the transcoder
+    /// read it in full and wrote it with no ability whatsoever. One basic
+    /// type hides the hole — `casting::intrinsic_mana` covers that — and two
+    /// open it, because the shortcut returns `None` rather than pick a colour
+    /// for the player.
+    #[test]
+    fn a_land_the_script_reader_writes_taps_for_its_own_basic_types() {
+        let cats = SubtypeCatalogs::default();
+        // The plainest enters-tapped script there is, and deliberately not
+        // Fen's own counted one: what is under test is the wiring between the
+        // reader's output and the type line, so the script is the oldest arm
+        // the reader has and the test does not move when it learns a new one.
+        let script = crate::scriptgen::parse(
+            "Name:X\nTypes:Land Swamp Forest\n\
+             R:Event$ Moved | ValidCard$ Card.Self | Destination$ Battlefield | ReplaceWith$ LandTapped | ReplacementResult$ Updated | Description$ enters tapped.\n\
+             SVar:LandTapped:DB$ Tap | Defined$ Self | ETB$ True",
+        );
+
+        let dual = transcode_card(&script, "Land \u{2014} Swamp Forest", &cats, None).unwrap();
+        assert_eq!(
+            dual.abilities,
+            ["mana_ability!(&[Effect::mana_choice(&[ManaColor::Black, ManaColor::Green])])"]
+        );
+        assert_eq!(
+            dual.notes.first().map(String::as_str),
+            Some("intrinsic type mana")
+        );
+
+        // One basic type is written out too, exactly as the land reader
+        // writes it — the same card must not come out differently depending
+        // on which of the two readers happened to reach it.
+        let single = transcode_card(&script, "Land \u{2014} Mountain", &cats, None).unwrap();
+        assert_eq!(
+            single.abilities,
+            ["mana_ability!(&[Effect::mana(ManaColor::Red, 1)])"]
+        );
+
+        // And nothing is invented for a land that prints no basic type, or
+        // for a card that is not a land at all.
+        for line in [
+            "Land \u{2014} Desert",
+            "Land",
+            "Creature \u{2014} Forest Dryad",
+        ] {
+            let other = transcode_card(&script, line, &cats, None).unwrap();
+            assert!(other.abilities.is_empty(), "{line} gained an ability");
+            assert!(!other.notes.iter().any(|n| n == "intrinsic type mana"));
+        }
     }
 }

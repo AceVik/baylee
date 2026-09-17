@@ -35,6 +35,46 @@ const BASIC_TYPES: [(&str, &str); 5] = [
     ("Forest", "ManaColor::Green"),
 ];
 
+/// The mana ability a land's **type line** gives it (CR 305.6).
+///
+/// Both readers need this and neither corpus contains it. A printed card
+/// restates intrinsic mana only as reminder text — Taiga's whole rules box is
+/// `({T}: Add {R} or {G}.)` in italics — and a reference script leaves it out
+/// for the same reason the transcoder ignores names and costs: the type line
+/// already says it. So a land that reaches the script reader without this
+/// would be written with no way to tap for mana at all, which is invisible
+/// with one basic type (`casting::intrinsic_mana` covers it) and fatal with
+/// two, where that shortcut deliberately returns `None` rather than guess
+/// which colour the player wanted.
+pub(crate) fn intrinsic_mana_ability(type_line: &str) -> Option<String> {
+    let (left, right) = type_line.split_once('\u{2014}')?;
+    // CR 305.6 is about *lands*, and this is asked of every card the script
+    // reader writes rather than only of the ones [`recognize`] admitted. The
+    // five words are subtypes and nothing else prints them today, but a rule
+    // that reads a subtype list without asking what the card is would hand a
+    // creature a mana ability the day one is printed with a land type.
+    if !left.split_whitespace().any(|w| w == "Land") {
+        return None;
+    }
+    let basics: Vec<&str> = right
+        .split_whitespace()
+        .filter_map(|w| {
+            BASIC_TYPES
+                .iter()
+                .find(|(name, _)| *name == w)
+                .map(|(_, color)| *color)
+        })
+        .collect();
+    match basics.len() {
+        0 => None,
+        1 => Some(format!("mana_ability!(&[Effect::mana({}, 1)])", basics[0])),
+        _ => Some(format!(
+            "mana_ability!(&[Effect::mana_choice(&[{}])])",
+            basics.join(", ")
+        )),
+    }
+}
+
 fn symbol_color(sym: &str) -> Option<&'static str> {
     Some(match sym {
         "W" => "ManaColor::White",
@@ -736,9 +776,9 @@ pub fn read(card: &ScryfallCard, cats: &SubtypeCatalogs) -> Result<CardBody, Lan
         .type_line
         .as_deref()
         .ok_or(LandRefusal::NotAPlainLand)?;
-    let (left, right) = match type_line.split_once('\u{2014}') {
-        Some((l, r)) => (l, r),
-        None => (type_line, ""),
+    let left = match type_line.split_once('\u{2014}') {
+        Some((l, _)) => l,
+        None => type_line,
     };
     let mut is_land = false;
     for word in left.split_whitespace() {
@@ -760,27 +800,8 @@ pub fn read(card: &ScryfallCard, cats: &SubtypeCatalogs) -> Result<CardBody, Lan
 
     // Intrinsic mana from the type line (CR 305.6) — the printed text only
     // ever restates it as reminder text.
-    let basics: Vec<&str> = right
-        .split_whitespace()
-        .filter_map(|w| {
-            BASIC_TYPES
-                .iter()
-                .find(|(name, _)| *name == w)
-                .map(|(_, color)| *color)
-        })
-        .collect();
-    match basics.len() {
-        0 => {}
-        1 => rec
-            .body
-            .abilities
-            .push(format!("mana_ability!(&[Effect::mana({}, 1)])", basics[0])),
-        _ => rec.body.abilities.push(format!(
-            "mana_ability!(&[Effect::mana_choice(&[{}])])",
-            basics.join(", ")
-        )),
-    }
-    if !basics.is_empty() {
+    if let Some(ability) = intrinsic_mana_ability(type_line) {
+        rec.body.abilities.push(ability);
         rec.body.notes.push("intrinsic type mana".to_string());
     }
 

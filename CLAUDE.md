@@ -625,6 +625,17 @@ full*:
   them. What it reads is `K:` keywords, `A:`/`T:` abilities and the `SVar:`
   chains they link into.
 
+There is one thing the type line carries that is not a *field* but an
+**ability**, and so is on neither side of that split: CR 305.6 mana. No corpus
+states it — a printed card restates it as reminder text at most, and a
+reference script leaves it to the type line exactly as this repo does — so
+`stubgen::transcode_card` puts it back on whatever the script reader wrote,
+using the same `landgen::intrinsic_mana_ability` the land reader uses, and the
+same card comes out the same whichever reader reached it. With one basic type
+the omission is invisible, because `casting::intrinsic_mana` covers that case;
+with two it is fatal, because that shortcut returns `None` rather than pick a
+colour for the player.
+
 The rule both obey is the whole design: **one unread clause and the card is
 refused.** An unknown effect, an unclaimed parameter (`NoRegen$ True`), a
 computed `SVar`, a keyword that is data rather than a bit — any of them and
