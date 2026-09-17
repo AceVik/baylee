@@ -13,7 +13,7 @@
 
 #import bevy_render::globals::Globals
 #import bevy_ui::ui_vertex_output::UiVertexOutput
-#import "embedded://baylee_client/shaders/card_common.wgsl"::{mark_layer, crest_layer, provenance_layer, plate_layer, chip_layer, corner_sdf, sweep_amount, door_layer, DOOR_NONE, MARK_SHIFT, MARK_FIELD}
+#import "embedded://baylee_client/shaders/card_common.wgsl"::{mark_layer, identity_layer, plate_layer, corner_sdf, sweep_amount, door_layer, DOOR_NONE, MARK_SHIFT, MARK_FIELD}
 
 struct CardParams {
     /// 0 plain, 1 foil, 2 etched.
@@ -52,6 +52,9 @@ struct CardParams {
 @group(1) @binding(0) var art: texture_2d<f32>;
 @group(1) @binding(1) var art_sampler: sampler;
 @group(1) @binding(2) var<uniform> params: CardParams;
+// The keyword rail's marks; see the table shader, which binds the same atlas.
+@group(1) @binding(3) var marks: texture_2d<f32>;
+@group(1) @binding(4) var marks_sampler: sampler;
 
 const FINISH_FOIL: u32 = 1u;
 const FINISH_ETCHED: u32 = 2u;
@@ -444,33 +447,26 @@ fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
 
     // ---- the rail, identical to the table's, from the same file
     color = vec4<f32>(
-        mark_layer(uv, (params.glow >> MARK_SHIFT) & MARK_FIELD, t, color.rgb),
+        mark_layer(uv, (params.glow >> MARK_SHIFT) & MARK_FIELD, t, color.rgb, marks, marks_sampler),
         color.a,
     );
 
-    // ---- the crest, also from that file
+    // ---- the identity column, also from that file
     //
-    // The hand zone is where this one earns its keep: a commander that declined
-    // CR 903.9b sits in the hand looking like any other legend, and the
-    // command-zone card beside it is the same card in a zone that taxes it.
+    // The hand zone is where the crest earns its keep: a commander that
+    // declined CR 903.9b sits in the hand looking like any other legend, and
+    // the command-zone card beside it is the same card in a zone that taxes
+    // it. Before the plate, because the column stands above what the plate
+    // and its swing reserve on the same centre line.
     color = vec4<f32>(
-        crest_layer(uv, (params.glow & GLOW_COMMANDER) != 0u, color.rgb),
-        color.a,
-    );
-
-    // ---- the provenance mark, in the other top corner
-    //
-    // After the crest and before the plate: the two share the top edge and
-    // never the same slot, so the order between them decides nothing — it is
-    // written this way round because the crest is the older mark and the one
-    // whose region this is borrowing. No `t` either, and for the same reason
-    // the crest gets none.
-    color = vec4<f32>(
-        provenance_layer(
+        identity_layer(
             uv,
+            (params.glow & GLOW_COMMANDER) != 0u,
             (params.glow & GLOW_TOKEN) != 0u,
             (params.glow & GLOW_COPY) != 0u,
             color.rgb,
+            marks,
+            marks_sampler,
         ),
         color.a,
     );
@@ -480,10 +476,19 @@ fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
     // After the rail, because the two share a bottom edge and the plate is
     // what the rail stops short of; before the corner ink, for the same reason
     // the rail is — nothing may survive outside the card.
-    color = vec4<f32>(plate_layer(uv, params.plate, color.rgb), color.a);
-    // ---- and the counters standing above it
+    // ---- the plate, and the counters standing above it
     color = vec4<f32>(
-        chip_layer(uv, params.chips_a, params.chips_b, color.rgb), color.a);
+        plate_layer(
+            uv,
+            params.plate,
+            params.chips_a,
+            params.chips_b,
+            color.rgb,
+            marks,
+            marks_sampler,
+        ),
+        color.a,
+    );
 
     // ---- the corners the scanner saw and the card does not have
     //

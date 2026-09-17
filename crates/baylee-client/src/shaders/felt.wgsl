@@ -56,6 +56,17 @@ struct FeltParams {
     /// arrives at a strength that depends on the hour and the weather's does
     /// not — multiplied together, a forest would stop being green at noon.
     weather: vec4<f32>,
+    /// How hard the first four flames of the firewheel burn, 0 to 1: white,
+    /// blue, black, red. `baylee_client_core::firewheel` is normative.
+    flames: vec4<f32>,
+    /// `x` green's strength; `yz` **screen-up in table space**, the one
+    /// direction every flame rises along; `w` spare.
+    ///
+    /// Screen-up is a uniform and not a per-flame radial direction, which is
+    /// the difference between five candles seen from one chair and a sun
+    /// glyph. It is the local seat's own inward direction, so it stays right
+    /// at four seats and at eight.
+    flames_tail: vec4<f32>,
     /// The slab's world size, which is what turns a world position into a
     /// point in the fields below.
     span: vec2<f32>,
@@ -95,6 +106,8 @@ const INLAY_BLACK: vec3<f32> = vec3<f32>(0.30, 0.27, 0.34);
 const INLAY_RED: vec3<f32> = vec3<f32>(0.83, 0.36, 0.28);
 const INLAY_GREEN: vec3<f32> = vec3<f32>(0.36, 0.66, 0.42);
 const ENGRAVING: vec3<f32> = vec3<f32>(0.52, 0.44, 0.31);
+/// Worn gold, for the firewheel's two rings.
+const GILT: vec3<f32> = vec3<f32>(0.62, 0.50, 0.26);
 
 const TAU: f32 = 6.2831855;
 
@@ -225,6 +238,65 @@ fn fbm2(p: vec2<f32>) -> f32 {
     return sum / total;
 }
 
+/// The same four octaves, with the ones finer than a pixel faded out.
+///
+/// `step` is how much of the noise's own domain one pixel covers, so an
+/// octave whose features have fallen under the footprint mixes towards the
+/// mean instead of crawling. It is `baize_at`'s `resolved` idiom taken one
+/// level down: the flames run at seven features per table unit, which is six
+/// logical pixels at a duel and four on an eight-seat ring, and the fourth
+/// octave there is one pixel across and would sparkle along every tip.
+fn fbm2_faded(p: vec2<f32>, step: f32) -> f32 {
+    var sum = 0.0;
+    var amplitude = 0.5;
+    var total = 0.0;
+    var at = p;
+    var scale = step;
+    for (var i = 0; i < 4; i = i + 1) {
+        let resolved = 1.0 - smoothstep(0.2, 0.5, scale);
+        sum = sum + amplitude * mix(0.5, vnoise(at), resolved);
+        total = total + amplitude;
+        at = at * 2.03;
+        scale = scale * 2.03;
+        amplitude = amplitude * 0.5;
+    }
+    return sum / total;
+}
+
+fn hash1(x: f32) -> f32 {
+    return fract(sin(x * 127.1) * 43758.5453);
+}
+
+/// Three octaves of value noise along a line — a rhythm, not a surface.
+///
+/// The flames gutter on this rather than on a sine, which is the whole of
+/// what "variabler Flackerrythmus" asks for: a sine is a rhythm a viewer
+/// learns in two cycles, and noise is one they never do.
+fn fbm1(x: f32) -> f32 {
+    var sum = 0.0;
+    var amplitude = 0.5;
+    var total = 0.0;
+    var at = x;
+    for (var i = 0; i < 3; i = i + 1) {
+        sum = sum + amplitude * mix(hash1(floor(at)), hash1(floor(at) + 1.0),
+            smoothstep(0.0, 1.0, fract(at)));
+        total = total + amplitude;
+        at = at * 2.07;
+        amplitude = amplitude * 0.5;
+    }
+    return sum / total;
+}
+
+/// Rise, hold, fall over a fraction of a period — the rail's own event shape.
+///
+/// The same two lines as `card_common.wgsl`'s `mark_event`, written again
+/// rather than imported: that module is the cards' and pulling it in here
+/// would drag a card's whole alphabet into the table's shader for a
+/// four-token function.
+fn event_envelope(f: f32, rise: f32, hold: f32, fall: f32) -> f32 {
+    return smoothstep(0.0, rise, f) - smoothstep(hold, hold + fall, f);
+}
+
 /// A rounded rectangle's signed distance: negative inside, positive outside.
 fn sd_round_box(p: vec2<f32>, half: vec2<f32>, r: f32) -> f32 {
     let q = abs(p) - half + vec2<f32>(r);
@@ -260,6 +332,272 @@ fn baize_at(p: vec2<f32>, footprint: vec2<f32>) -> vec3<f32> {
     // in the cloth, unlike the light passing over the separate metal inlay.
     let vein = pow(1.0 - abs(sin(p.x * 0.37 + p.y * 0.61 + wear * 8.0)), 12.0);
     return colour + vec3<f32>(lift + vein * 0.009);
+}
+
+// ---------------------------------------------------------------------------
+// The firewheel: five flames where the colour wheel used to be.
+//
+// `baylee_client_core::firewheel` is normative on every number below and
+// carries the arguments; `table::shader_tests` reads these constants back out
+// of this text and fails when the two drift. What is written here rather
+// than there is only the drawing.
+//
+// The flames are painted **flat into the cloth**, which is the one decision
+// worth repeating at the point of use. The camera never moves and looks down
+// from about 20°, so a standing flame's height projects at `sin` of that and
+// a flame lying in the table plane at `cos` of it — 2.7 times the picture for
+// the same number, with no parallax lost, because a fixed eye never had any
+// to lose. What makes it read as standing is the ground cue: the foot is the
+// brightest and roundest part, the body rises from it along one shared
+// screen-up direction, and the pool of light is centred on the foot and not
+// on the flame.
+// ---------------------------------------------------------------------------
+
+const FIRES: u32 = 5u;
+const FLAME_BLACK: u32 = 2u;
+const FOOT_RADIUS: f32 = 0.68;
+const FLAME_REACH: f32 = 1.6;
+const HEIGHT_FLOOR: f32 = 0.40;
+const HEIGHT_SPAN: f32 = 0.42;
+const WIDTH_FLOOR: f32 = 0.10;
+const WIDTH_SPAN: f32 = 0.05;
+const EROSION_FLOOR: f32 = 0.35;
+const DRAUGHT_PERIOD: f32 = 9.5;
+const DRAUGHT_DEPTH: f32 = 0.05;
+const FLARE_PERIOD: f32 = 7.3;
+const PINCH_PERIOD: f32 = 8.3;
+const GUTTER_PERIOD: f32 = 13.7;
+const STILL_AT: f32 = 2.3;
+const POOL_INNER: f32 = 0.20;
+const POOL_OUTER: f32 = 0.80;
+const POOL_INNER_GAIN: f32 = 0.100;
+const POOL_OUTER_GAIN: f32 = 0.042;
+const BLACK_BODY: vec3<f32> = vec3<f32>(0.32, 0.30, 0.38);
+const BLACK_RIM: vec3<f32> = vec3<f32>(0.62, 0.52, 0.78);
+const BLACK_RIM_FROM: f32 = 0.15;
+const BLACK_RIM_TO: f32 = 0.90;
+const BLACK_POOL: vec3<f32> = vec3<f32>(0.30, 0.24, 0.42);
+const BLACK_POOL_GAIN: f32 = 0.35;
+const BLACK_SHADOW: f32 = 0.62;
+const BLACK_SHADOW_REACH: f32 = 0.30;
+/// How many features of shape noise a flame carries per table unit.
+const FLAME_GRAIN: f32 = 7.0;
+const SOLE_INNER: f32 = 0.035;
+const SOLE_OUTER: f32 = 0.075;
+const SOLE_HEAT: f32 = 0.35;
+const VEIL: f32 = 0.62;
+const EROSION_GAIN: f32 = 2.0;
+
+/// The hottest part of a flame, low in its body.
+fn flame_core(i: u32) -> vec3<f32> {
+    if i == 0u { return vec3<f32>(1.00, 0.98, 0.90); }
+    if i == 1u { return vec3<f32>(0.86, 0.94, 1.00); }
+    if i == 2u { return vec3<f32>(0.42, 0.30, 0.55); }
+    if i == 3u { return vec3<f32>(1.00, 0.90, 0.70); }
+    return vec3<f32>(0.90, 1.00, 0.82);
+}
+
+/// The colour a flame is read as. Black's is never painted — see `firewheel`.
+fn flame_body(i: u32) -> vec3<f32> {
+    if i == 0u { return vec3<f32>(0.94, 0.88, 0.70); }
+    if i == 1u { return vec3<f32>(0.36, 0.62, 0.92); }
+    if i == 2u { return vec3<f32>(0.00, 0.00, 0.00); }
+    if i == 3u { return vec3<f32>(0.90, 0.38, 0.22); }
+    return vec3<f32>(0.40, 0.72, 0.42);
+}
+
+/// The cooling skirt, which shifts hue and not only value.
+fn flame_skirt(i: u32) -> vec3<f32> {
+    if i == 0u { return vec3<f32>(0.85, 0.55, 0.22); }
+    if i == 1u { return vec3<f32>(0.18, 0.24, 0.62); }
+    if i == 2u { return BLACK_RIM; }
+    if i == 3u { return vec3<f32>(0.55, 0.10, 0.20); }
+    return vec3<f32>(0.10, 0.36, 0.34);
+}
+
+/// Each flame's own gutter rate in Hz, its depth, its scroll and how hard
+/// the noise eats its tip: `(rate, depth, scroll, erosion)`.
+///
+/// The rates are written to three places because round tenths are not
+/// mutually prime: `[0.9, 1.4, 0.6, 1.2, 0.8]` brings the whole wheel back
+/// to where it started every ten seconds, for as long as the game lasts.
+fn flame_beat(i: u32) -> vec4<f32> {
+    if i == 0u { return vec4<f32>(0.907, 0.05, 1.6, 2.2); }
+    if i == 1u { return vec4<f32>(1.433, 0.03, 2.2, 2.2); }
+    if i == 2u { return vec4<f32>(0.581, 0.10, 1.6, 2.8); }
+    if i == 3u { return vec4<f32>(1.193, 0.09, 1.6, 2.2); }
+    return vec4<f32>(0.769, 0.06, 1.6, 2.2);
+}
+
+/// Where flame `i`'s foot stands, and how hard it burns: `(x, y, strength)`.
+///
+/// White at the top of the screen, then clockwise — the wheel as a card
+/// prints it.
+fn flame_at(i: u32) -> vec3<f32> {
+    let angle = 1.5707964 - 6.2831855 * f32(i) / f32(FIRES);
+    var s = params.flames_tail.x;
+    if i == 0u { s = params.flames.x; }
+    else if i == 1u { s = params.flames.y; }
+    else if i == 2u { s = params.flames.z; }
+    else if i == 3u { s = params.flames.w; }
+    return vec3<f32>(cos(angle) * FOOT_RADIUS, sin(angle) * FOOT_RADIUS, s);
+}
+
+/// The wheel, painted into already-lit cloth.
+///
+/// The order is the whole of it and it goes wrong silently: black's body is
+/// a **multiply** and has to land before anything is added; the four painted
+/// bodies **replace**, after the sky, or a white flame turns blue at night;
+/// and the pools are **added last, in linear**, the way the rail lamp's glow
+/// is, so the weave and the mineral vein show through the light instead of
+/// being covered by it.
+fn firewheel(start: vec3<f32>, table: vec2<f32>, pixel: f32, t: f32) -> vec3<f32> {
+    let up = normalize(params.flames_tail.yz);
+    let right = vec2<f32>(up.y, -up.x);
+    var lit = start;
+    var pool = vec3<f32>(0.0);
+
+    // The room's own air, shared by all five. It is what makes them five
+    // flames in one room rather than five looping pictures side by side.
+    let draught = 1.0 + DRAUGHT_DEPTH * sin(t * TAU / DRAUGHT_PERIOD);
+
+    for (var i = 0u; i < FIRES; i = i + 1u) {
+        let fire = flame_at(i);
+        let s = clamp(fire.z, 0.0, 1.0);
+        let p = table - fire.xy;
+        let d = length(p);
+        let beat = flame_beat(i);
+        let seed = f32(i) * 17.3;
+
+        // A fed fire puffs *slower* and deeper, never faster: faster is
+        // exactly the peripheral motion the rest of this table refuses.
+        let rate = beat.x * inverseSqrt(0.5 + s);
+        let depth = beat.y * (0.6 + 0.4 * s);
+        var envelope = draught * (1.0 + depth * (fbm1(t * rate + seed) - 0.5) * 2.0);
+
+        // One event each, on its own period, for the three colours whose
+        // character is an event rather than a rate.
+        var heat_gift = 0.0;
+        var erode_gift = 0.0;
+        if i == 3u {
+            // Red flares, and a fed fire flares more often.
+            let flare = event_envelope(fract(t * (0.6 + 0.4 * s) / FLARE_PERIOD), 0.03, 0.05, 0.30);
+            envelope = envelope * (1.0 + 0.22 * flare);
+            heat_gift = 0.30 * flare;
+        } else if i == 0u {
+            // White gutters down and recovers, and a fed candle gutters less.
+            let gutter = event_envelope(fract(t / (GUTTER_PERIOD * (0.6 + 0.4 * s))), 0.05, 0.08, 0.25);
+            envelope = envelope * (1.0 - 0.20 * gutter);
+        } else if i == FLAME_BLACK {
+            // Black sheds its tip as smoke.
+            erode_gift = 0.25 * event_envelope(fract(t / PINCH_PERIOD), 0.10, 0.15, 0.30);
+        }
+
+        // The light it throws, centred on the **foot** — a pool centred on
+        // the body is a decal of the flame — and rising and falling with the
+        // flame itself, with no lag, which is the single strongest cue that
+        // the light comes from the fire.
+        let near = 1.0 - smoothstep(0.0, POOL_INNER, d);
+        let far = 1.0 - smoothstep(0.0, POOL_OUTER, d);
+        let lightness = (0.5 + 0.5 * s) * envelope;
+        let amount = POOL_INNER_GAIN * near * near + POOL_OUTER_GAIN * far * far;
+        if i == FLAME_BLACK {
+            // The additive slot cannot darken, so black's light is two
+            // stages: a shadow at the foot, then a cold pool over it.
+            let shade = 1.0 - smoothstep(0.0, BLACK_SHADOW_REACH, d);
+            lit = lit * mix(vec3<f32>(1.0), vec3<f32>(BLACK_SHADOW), shade * shade);
+            pool = pool + to_linear(BLACK_POOL) * BLACK_POOL_GAIN * lightness * amount;
+        } else {
+            pool = pool + to_linear(mix(flame_body(i), flame_core(i), 0.4)) * lightness * amount;
+        }
+
+        // Nothing of the body reaches this far out; the pools above already
+        // did their work, so the rest of the flame can be skipped.
+        if d > POOL_INNER + HEIGHT_FLOOR + HEIGHT_SPAN {
+            continue;
+        }
+
+        let h = max((HEIGHT_FLOOR + HEIGHT_SPAN * s) * envelope, 0.05);
+        let w = WIDTH_FLOOR + WIDTH_SPAN * s;
+        let x = dot(p, right);
+        let y = dot(p, up);
+        let v = y / h;
+        let climb = clamp(v, 0.0, 1.0);
+
+        // The shape noise scrolls *up* the flame, which is where the sense
+        // of burning lives — the silhouette moves, the inside stays smooth.
+        let step_shape = pixel * FLAME_GRAIN;
+        let n = fbm2_faded(vec2<f32>(x, y) * FLAME_GRAIN - vec2<f32>(0.0, t * beat.z) + seed, step_shape);
+        var warp = (fbm2_faded(vec2<f32>(x, y) * 6.0 - vec2<f32>(0.0, t * 1.1 * beat.z) + seed + 31.0, pixel * 6.0) - 0.5)
+            * 0.16 * pow(climb, 1.5);
+        if i == 4u {
+            // Green wanders instead of flaring: the tip leans, slowly.
+            warp = warp + 0.06 * (fbm1(t * 0.35 + seed) - 0.5) * 2.0 * climb;
+        }
+
+        // The silhouette: a candle's, not a teardrop's. It opens fast off
+        // the foot and then tapers the whole rest of the way, which is the
+        // difference between a flame and a balloon — `4v(1-v)` is symmetric
+        // about the middle and drew five gel capsules.
+        let profile = w * sqrt(clamp(v * 5.0, 0.0, 1.0)) * pow(max(1.0 - climb, 0.0), 0.75);
+        let live = v > 0.0 && v < 1.0;
+        let inside = select(-1.0, 1.0 - abs(x + warp) / max(profile, 1e-4), live);
+        // ...eaten from the top down. Where a high band of noise crosses with
+        // a low one above it the shape pinches and a tongue comes off, and at
+        // thirty pixels that lick is the one thing that reads as fire.
+        //
+        // `climb` and not `v`: above and below the flame `v` keeps growing,
+        // and squared against a noise value under the floor the term changes
+        // sign and paints a positive field — the first build scattered
+        // coloured confetti over the whole middle of the table, and every
+        // one of those specks was this line.
+        let eroded = inside - (beat.w + erode_gift) * climb * climb
+            * (n - EROSION_FLOOR) * EROSION_GAIN;
+        // The field runs 1 to 0 across a half-width, so a pixel is this much
+        // of it. Unclamped it goes to infinity at the foot and at the tip,
+        // where the profile is zero.
+        let aa = clamp(pixel / max(profile, 1e-4), 0.02, 0.5);
+        let sole = 1.0 - smoothstep(SOLE_INNER, SOLE_OUTER, d);
+        let body = select(0.0, smoothstep(-aa, aa, eroded), live);
+        let mask = max(body, sole);
+        if mask <= 0.0 {
+            continue;
+        }
+
+        // Hot low and at the axis, cool high and at the edge — and at zero
+        // strength there is no core at all, which is what a pilot light is.
+        let heat = pow(clamp(inside, 0.0, 1.0), 0.8) * (1.0 - 0.75 * climb) * (0.8 + 0.5 * s)
+            + SOLE_HEAT * sole + heat_gift;
+        // Opaque where it is hot and thin where it is cooling, which is what
+        // you can see the wall through a real flame at.
+        let veil = mask * mix(VEIL, 1.0, smoothstep(0.0, 0.5, heat));
+
+        if i == FLAME_BLACK {
+            // A hole in the cloth, with the light on its edge. The body is
+            // never painted: on a dark table nothing can emit black, so what
+            // is drawn is the felt darkened, and what says the shape is the
+            // rim — which is how a backlit black flame is drawn everywhere
+            // it is drawn well.
+            lit = lit * mix(vec3<f32>(1.0), BLACK_BODY, veil);
+            lit = mix(lit, to_linear(flame_core(i)), mask * smoothstep(0.55, 0.95, heat) * 0.7);
+            // Gated on `live` for the same reason the body is: `|eroded|`
+            // passes through zero all over the cloth, and an ungated rim
+            // drew violet lace across the middle of the table.
+            let rim = select(
+                0.0,
+                (1.0 - smoothstep(0.0, 1.5 * aa, abs(eroded)))
+                    * smoothstep(BLACK_RIM_FROM, BLACK_RIM_TO, climb),
+                live,
+            );
+            lit = mix(lit, to_linear(BLACK_RIM), rim);
+        } else {
+            var col = mix(flame_skirt(i), flame_body(i), smoothstep(0.0, 0.55, heat));
+            col = mix(col, flame_core(i), smoothstep(0.55, 0.95, heat));
+            lit = mix(lit, to_linear(col), veil);
+        }
+    }
+
+    return lit + pool;
 }
 
 @fragment
@@ -344,13 +682,32 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     colour = mix(colour, jewel, circuit * glint * 0.55);
     colour += ENGRAVING * etch * hairline(inset - 0.255, 0.035, pixel) * 0.13;
 
-    // An engraved compass around the existing five-colour medallion. Low
-    // contrast and static; no animated wash ever crosses card artwork.
+    // An engraved compass around the firewheel. Low contrast and static; no
+    // animated wash ever crosses card artwork.
     let radius = length(table);
     let compass = hairline(radius - 1.30, 0.008, pixel);
     let breaks = pow(abs(sin(atan2(table.y, table.x) * 10.0)), 14.0);
     let ticks = hairline(radius - 1.41, 0.065, pixel) * breaks;
     colour = mix(colour, ENGRAVING, (compass * 0.22 + ticks * 0.16) * smoothstep(0.4, 0.8, inset));
+
+    // The wheel's own two rings, in worn gold. They were a 512-texel quad
+    // inlaid over the felt and are hairlines in the cloth now: sharper (that
+    // texture was 2.4 texels to a physical pixel at this camera) and, more
+    // to the point, **underneath**. A ring blended over a flame etches it;
+    // three of the five cross the outer ring, and a flame standing in front
+    // of the rim is the picture.
+    //
+    // The inner ring came in from 0.33 to 0.26 when the flames arrived: the
+    // black and red flames rise toward the middle and their inner flank
+    // passes about 0.30, so at 0.33 two of them would have cut it.
+    let tarnish = 0.75 + 0.45 * fbm2(table * 6.0);
+    let rings = clamp(
+        hairline(radius - 1.03, 0.017, pixel) * 0.85
+            + hairline(radius - 0.26, 0.010, pixel) * 0.55,
+        0.0,
+        1.0,
+    );
+    colour = mix(colour, GILT * tarnish, rings);
 
     // The lamp. It enters at the active seat's own edge and runs round the
     // rail, so combat begins on the attacker's side of the table and reaches
@@ -381,8 +738,20 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     );
 
     let glow = lamp * energy * params.gain * reach * lamp_here * (0.62 + 0.38 * pulse);
-    // The lamp reaches the table.s own colour and stops there: the phase
+    // The lamp reaches the table's own colour and stops there: the phase
     // light is something the table *emits*, and a step that dimmed towards
     // the ends of the slab would be saying something untrue about the turn.
-    return vec4<f32>(under_weather(under_sky(under_lamp(to_linear(colour), table))) + glow, 1.0);
+    var lit = under_weather(under_sky(under_lamp(to_linear(colour), table)));
+
+    // The firewheel, inside its own reach and nowhere else. The branch is
+    // the budget as well as the shape: five flames cost nothing at all over
+    // the other 99% of a thirty-five-unit slab.
+    //
+    // It is applied to *lit* cloth rather than to `colour`, which is not a
+    // detail — a flame is something the table emits, so a white one would go
+    // blue at night if it were graded by the sky like the cloth under it.
+    if radius < FLAME_REACH {
+        lit = firewheel(lit, table, pixel, mix(STILL_AT, globals.time, params.motion));
+    }
+    return vec4<f32>(lit + glow, 1.0);
 }

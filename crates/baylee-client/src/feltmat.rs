@@ -76,6 +76,20 @@ pub struct FeltParams {
     /// is a table with nothing in the air over it, and is what the slab is
     /// cut with.
     pub weather: Vec4,
+    /// How hard the first four flames of the firewheel burn, 0 to 1: white,
+    /// blue, black, red.
+    ///
+    /// Out of [`baylee_client_core::firewheel::strength`], eased rather than
+    /// snapped — a flame that grows over a second and a half is a fire being
+    /// fed, and one that jumps is a signal.
+    pub flames: Vec4,
+    /// `x` green's strength; `yz` **screen-up in table space**; `w` spare.
+    ///
+    /// Screen-up is one direction for all five and not each flame's own
+    /// radius, which is the difference between five candles seen from one
+    /// chair and a sun glyph. It is the local seat's inward direction, so it
+    /// is right at four seats and at eight as well as at a duel.
+    pub flames_tail: Vec4,
     /// The slab's world size, which is how the shader turns a point on the
     /// table into a point in the cloth.
     ///
@@ -104,11 +118,23 @@ pub struct FeltParams {
 
 /// How bright the rail burns at the top of combat.
 ///
-/// Above 1.0 deliberately: the tone mapper is off and the camera is HDR, so a
-/// value past white blooms. That is safe here in a way it would not be
-/// anywhere else on this table — the cards use their own unlit shader and
-/// take no light from the scene, so the glow spreads over the felt and stops
-/// at the cardboard.
+/// Above 1.0 deliberately, and what that buys is **saturation, not bloom**.
+/// This comment used to say the camera was HDR and a value past white would
+/// bloom; it is not and it does not. In bevy 0.19 an HDR intermediate is the
+/// opt-in `Hdr` *component*, the table camera carries `Tonemapping::None`
+/// and nothing else, and there is no bloom pass anywhere in this client — so
+/// everything past 1.0 is clipped by the 8-bit target. The mistake is worth
+/// recording rather than quietly deleting, because it is the mechanism the
+/// next person designing light on this table will reach for: there is no
+/// bloom to reach for, and a glow here has to be *painted* — an additive
+/// term on the cloth, which is exactly what `felt.wgsl` does with this
+/// number.
+///
+/// What the overshoot does do is hold the middle of the rail at white while
+/// the ends still fall off, which is what a lamp looks like. It is safe here
+/// in a way it would not be anywhere else on this table: the cards use their
+/// own unlit shader and take no light from the scene, so the glow spreads
+/// over the felt and stops at the cardboard.
 pub const WASH_GAIN: f32 = 1.80;
 
 /// The slab.

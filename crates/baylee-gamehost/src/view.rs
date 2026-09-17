@@ -196,6 +196,13 @@ fn public_object(state: &GameState, id: ObjectId, seat: PlayerId) -> Option<Publ
         keywords: chars.keywords.bits(),
         power: chars.power,
         toughness: chars.toughness,
+        // The base, straight off the object rather than out of the plan:
+        // `layers::recompute` starts every projection from exactly this and
+        // there is nowhere else the printed body survives. It is the copied
+        // card's for a permanent that became a copy, which is what CR 706.2
+        // makes true of the object and is the answer a player wants.
+        base_power: obj.base.power,
+        base_toughness: obj.base.toughness,
         loyalty: loyalty_now(obj, chars.loyalty),
         mana_value: chars.mana_cost.cmc(),
         damage: obj.damage,

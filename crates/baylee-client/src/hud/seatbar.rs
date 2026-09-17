@@ -48,7 +48,7 @@ use baylee_client_core::seatbar::{
 };
 use baylee_view::SeatView;
 
-mod attached;
+pub(crate) mod attached;
 
 /// Root of every seat bar. A sibling of [`HudRoot`], not a child.
 #[derive(Component)]

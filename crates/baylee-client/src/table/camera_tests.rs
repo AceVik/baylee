@@ -1,4 +1,5 @@
 use super::*;
+use baylee_client_core::firewheel;
 use baylee_core::ids::PlayerId;
 
 /// A laptop's window, in logical pixels.
@@ -154,8 +155,8 @@ fn a_duel_gets_the_bar_its_window_can_hold() {
 ///
 /// Two seats and not more, and what stops it is the shelf's **length**
 /// rather than its depth. Measured at [`WINDOW`]: a duel's shelves
-/// project 1127×61 and 1069×55, and three seats project 372×46, 337×44,
-/// 337×44 — deep enough for the 34 px of ink two rows draw, and nowhere
+/// project 1174×60 and 1139×57, and three seats project 371×46, 340×45,
+/// 340×45 — deep enough for the 34 px of ink two rows draw, and nowhere
 /// near the 585 px the two-row bar is wide. It used to be the depth that
 /// ran out first; that was the shelf being measured a printed border
 /// short of the one the mat draws, and the number that moved when they
@@ -239,17 +240,29 @@ fn a_duel_is_written_on_two_rows() {
 /// is now written on two rows on any laptop, which is what the shelf
 /// could always hold and not a change of mind about what it should.
 ///
-/// The far seat's shelf stays about a tenth shallower than the near one
-/// (55.0 against 61.1 at 1728), so there is still a band — now around
-/// 1280 to 1366 — where a duel draws its local bar on two rows and its
-/// opponent's on one. That is the same per-seat answer the ladder gives a
-/// four-seat table, and the list deliberately does not try to pin its
-/// edges: they move with every constant here.
+/// The far seat's shelf stays a little shallower than the near one (56.5
+/// against 60.1 at 1728), so there is still a band where a duel draws its
+/// local bar on two rows and its opponent's on one. That is the same
+/// per-seat answer the ladder gives a four-seat table, and the list
+/// deliberately does not try to pin its edges: they move with every
+/// constant here.
+///
+/// 1366 is one of them, and it moved for the second time when every seat's
+/// shelf went to the centre-facing edge of its mat
+/// ([`LEDGE_IS_OUTER`](baylee_client_core::layout::LEDGE_IS_OUTER)). That
+/// edge is further from the camera, so it projects a shade shallower — 60.1
+/// against the 61.1 of the near one — and 1366 is where a duel's depth had
+/// been sitting a pixel over what the two-row form asks for. Nothing on the
+/// desktop changed shape with it: above [`Density::Mark`] the ink is
+/// `attached`'s three panels, and the form is what the *tiny* overview
+/// falls back to.
+///
+/// [`Density::Mark`]: baylee_client_core::seatbar::Density::Mark
 const DUEL_BARS: [(f32, baylee_client_core::seatbar::Density); 5] = [
     (800.0, baylee_client_core::seatbar::Density::Pip),
     (1024.0, baylee_client_core::seatbar::Density::Compact),
     (1152.0, baylee_client_core::seatbar::Density::Compact),
-    (1366.0, baylee_client_core::seatbar::Density::Split),
+    (1366.0, baylee_client_core::seatbar::Density::Full),
     (1920.0, baylee_client_core::seatbar::Density::Split),
 ];
 
@@ -798,6 +811,31 @@ struct Globals { time: f32 };
     crate::cardmat::tests::check_wgsl(include_str!("../shaders/mat.wgsl"), prelude);
 }
 
+/// The felt's own shader, which nothing compiled until the firewheel was
+/// painted into it.
+///
+/// Two hundred lines of WGSL went in beside the cloth — five flames, a
+/// one-dimensional noise, a footprint-faded `fbm2` — and `cargo check` has
+/// nothing to say about any of it: a shader is text until a GPU reads it,
+/// and the first reader is a player's machine. `mat.wgsl` and the card
+/// shaders have had this test for as long as they have existed and this one
+/// simply never got one, which is the kind of gap that is only ever noticed
+/// by the change that needed it.
+#[test]
+fn the_felt_shader_compiles() {
+    let prelude = "\
+struct VertexOutput {
+@builtin(position) position: vec4<f32>,
+@location(0) world_position: vec4<f32>,
+@location(1) world_normal: vec3<f32>,
+@location(2) uv: vec2<f32>,
+};
+struct Globals { time: f32 };
+@group(0) @binding(11) var<uniform> globals: Globals;
+";
+    crate::cardmat::tests::check_wgsl(include_str!("../shaders/felt.wgsl"), prelude);
+}
+
 /// `PILE_REACH` is chosen in the model crate, which cannot see the mat's
 /// printed border — that is `ZONE_MARGIN`, and it lives here. This is the
 /// two of them being made to agree.
@@ -813,35 +851,334 @@ fn a_pile_stands_clear_of_the_mat_it_serves() {
 }
 
 #[test]
-fn the_medallion_floats_in_the_open_middle() {
+fn the_firewheel_burns_in_the_open_middle() {
+    let src = include_str!("../shaders/felt.wgsl");
+    let read = |name: &str| crate::cardmat::tests::wgsl_const(src, name);
+
+    // The shader's own number, not the model's: the branch that decides
+    // whether a pixel is on the wheel at all is written in the WGSL, and a
+    // model constant that had drifted from it would bound the wrong thing.
+    let reach = read("FLAME_REACH");
+    assert!(
+        (reach - firewheel::FLAME_REACH).abs() < 1e-6,
+        "the shader reaches {reach} and the model says {}",
+        firewheel::FLAME_REACH
+    );
+    // And the flames stay inside that reach, which is what makes the branch
+    // an optimisation rather than a crop.
+    let foot = read("FOOT_RADIUS");
+    let tallest = foot + read("HEIGHT_FLOOR") + read("HEIGHT_SPAN");
+    assert!(
+        tallest < reach,
+        "the tallest flame reaches {tallest}, past the branch at {reach}"
+    );
+    let lit = foot + read("POOL_OUTER");
+    assert!(
+        lit < reach,
+        "a flame's light reaches {lit}, past the branch at {reach}"
+    );
+
     let gap = baylee_client_core::layout::CENTRE_GAP;
+    let across = reach * 2.0;
     assert!(
-        MEDALLION_SIZE < gap,
-        "the colour wheel is {MEDALLION_SIZE} across a gap of {gap} — it \
-         would be lying on both players' mats"
+        across < gap,
+        "the wheel is {across} across a gap of {gap} — it would be burning \
+         on both players' mats"
     );
-    // And with felt visible on both sides of it, or it is not inlaid in
-    // anything: it is a lid.
-    let bare = (gap - MEDALLION_SIZE) * 0.5;
-    assert!(
-        bare > 0.4,
-        "only {bare} of table shows beside the medallion"
-    );
+    // And with felt visible on both sides of it, or it is not a wheel in a
+    // table: it is a lid.
+    let bare = (gap - across) * 0.5;
+    assert!(bare > 0.05, "only {bare} of table shows beside the wheel");
 
     for n in [2, 4, 6] {
         let layout = TableLayout::new(&seats(n), 2.0, None);
         let local = layout.local().copied().expect("a local seat");
         assert!(
-            MEDALLION_SIZE < local.mat_depth(),
-            "at {n} seats the eye lands on the medallion, not on the board: \
-             {MEDALLION_SIZE} vs a mat {} deep",
+            across < local.mat_depth(),
+            "at {n} seats the eye lands on the wheel, not on the board: \
+             {across} vs a mat {} deep",
             local.mat_depth()
         );
         assert!(
-            MEDALLION_SIZE > local.lane_height(),
-            "at {n} seats the medallion has shrunk to nothing: \
-             {MEDALLION_SIZE} vs a lane {} tall",
+            across > local.lane_height(),
+            "at {n} seats the wheel has shrunk to nothing: {across} vs a \
+             lane {} tall",
             local.lane_height()
         );
+    }
+}
+
+/// The five flames are written twice — in `firewheel`, where their
+/// arguments and their tests live, and in `felt.wgsl`, where the GPU draws
+/// them. Nothing in either compiler can notice that they have drifted.
+///
+/// The colours are the load-bearing half: every one of them was argued
+/// somewhere (white's body is *pulled down* from the pie, black's body is
+/// never painted at all, each skirt shifts hue rather than value), so a copy
+/// in the shader that no longer matched would silently undo the argument.
+#[test]
+fn the_shader_and_the_model_agree_about_the_firewheel() {
+    let src = include_str!("../shaders/felt.wgsl");
+    let read = |name: &str| crate::cardmat::tests::wgsl_const(src, name);
+
+    for (name, ours) in [
+        ("FOOT_RADIUS", firewheel::FOOT_RADIUS),
+        ("FLAME_REACH", firewheel::FLAME_REACH),
+        ("HEIGHT_FLOOR", firewheel::HEIGHT_FLOOR),
+        ("HEIGHT_SPAN", firewheel::HEIGHT_SPAN),
+        ("WIDTH_FLOOR", firewheel::WIDTH_FLOOR),
+        ("WIDTH_SPAN", firewheel::WIDTH_SPAN),
+        ("EROSION_FLOOR", firewheel::EROSION_FLOOR),
+        ("EROSION_GAIN", firewheel::EROSION_GAIN),
+        ("SOLE_INNER", firewheel::SOLE_INNER),
+        ("SOLE_OUTER", firewheel::SOLE_OUTER),
+        ("SOLE_HEAT", firewheel::SOLE_HEAT),
+        ("VEIL", firewheel::VEIL),
+        ("DRAUGHT_PERIOD", firewheel::DRAUGHT_PERIOD),
+        ("DRAUGHT_DEPTH", firewheel::DRAUGHT_DEPTH),
+        ("FLARE_PERIOD", firewheel::FLARE_PERIOD),
+        ("PINCH_PERIOD", firewheel::PINCH_PERIOD),
+        ("GUTTER_PERIOD", firewheel::GUTTER_PERIOD),
+        ("STILL_AT", firewheel::STILL_AT),
+        ("POOL_INNER", firewheel::POOL_INNER),
+        ("POOL_OUTER", firewheel::POOL_OUTER),
+        ("POOL_INNER_GAIN", firewheel::POOL_INNER_GAIN),
+        ("POOL_OUTER_GAIN", firewheel::POOL_OUTER_GAIN),
+        ("BLACK_RIM_FROM", firewheel::BLACK_RIM_FROM),
+        ("BLACK_RIM_TO", firewheel::BLACK_RIM_TO),
+        ("BLACK_POOL_GAIN", firewheel::BLACK_POOL_GAIN),
+        ("BLACK_SHADOW", firewheel::BLACK_SHADOW),
+        ("BLACK_SHADOW_REACH", firewheel::BLACK_SHADOW_REACH),
+    ] {
+        let theirs = read(name);
+        assert!(
+            (ours - theirs).abs() < 1e-6,
+            "{name}: {ours} here, {theirs} in the shader"
+        );
+    }
+
+    // The palettes, read out of the three switch functions the shader keeps
+    // them in. Each arm is one line, `if i == 0u { return vec3<f32>(…); }`,
+    // and the fifth colour falls out of the last `return`.
+    for (func, ours) in [
+        ("flame_core", firewheel::CORE),
+        ("flame_body", firewheel::BODY),
+        ("flame_skirt", firewheel::SKIRT),
+    ] {
+        let drawn = wgsl_palette(src, func);
+        for (n, (ours, theirs)) in ours.iter().zip(&drawn).enumerate() {
+            for (channel, (ours, theirs)) in ours.iter().zip(theirs).enumerate() {
+                assert!(
+                    (ours - theirs).abs() < 1e-6,
+                    "{func} flame {n} channel {channel}: {ours} here, {theirs} in the shader"
+                );
+            }
+        }
+    }
+
+    // Black's rim is `flame_skirt`'s third entry by construction, and the
+    // shader says so by naming it. If that ever stops being true the model's
+    // `BLACK_RIM` and the shader's would be two different violets.
+    let rim = wgsl_palette(src, "flame_skirt")[firewheel::BLACK];
+    for (channel, (ours, theirs)) in firewheel::BLACK_RIM.iter().zip(&rim).enumerate() {
+        assert!(
+            (ours - theirs).abs() < 1e-6,
+            "the black rim's channel {channel}: {ours} here, {theirs} in the shader"
+        );
+    }
+
+    // And the five gutter rates, which are the numbers most easily rounded
+    // to something tidy — round tenths bring the whole wheel back into step
+    // every ten seconds.
+    let beats = wgsl_beats(src);
+    for (n, (rate, drawn)) in firewheel::RATE.iter().zip(&beats).enumerate() {
+        assert!(
+            (rate - drawn[0]).abs() < 1e-6,
+            "flame {n} gutters at {rate} here and {} in the shader",
+            drawn[0]
+        );
+        assert!(
+            (firewheel::DEPTH[n] - drawn[1]).abs() < 1e-6,
+            "flame {n}'s depth is {} here and {} in the shader",
+            firewheel::DEPTH[n],
+            drawn[1]
+        );
+        assert!(
+            (firewheel::SCROLL[n] - drawn[2]).abs() < 1e-6,
+            "flame {n}'s scroll is {} here and {} in the shader",
+            firewheel::SCROLL[n],
+            drawn[2]
+        );
+        assert!(
+            (firewheel::EROSION[n] - drawn[3]).abs() < 1e-6,
+            "flame {n}'s erosion is {} here and {} in the shader",
+            firewheel::EROSION[n],
+            drawn[3]
+        );
+    }
+}
+
+/// Every `vec3` literal returned by one of the shader's palette functions,
+/// in the order the arms are written.
+///
+/// Bounded on the count rather than trusted: a reader that found four arms
+/// and was handed five colours to compare would silently check four of them,
+/// which is this repo's most-repeated lesson about textual readers.
+fn wgsl_palette(src: &str, func: &str) -> Vec<[f32; 3]> {
+    let body = wgsl_body(src, func);
+    let found: Vec<[f32; 3]> = body
+        .lines()
+        .filter(|line| line.contains("return"))
+        .filter_map(|line| wgsl_vec3(src, line))
+        .collect();
+    assert_eq!(
+        found.len(),
+        firewheel::FIRES,
+        "{func} draws {} colours, not {}",
+        found.len(),
+        firewheel::FIRES
+    );
+    found
+}
+
+/// One `vec3<f32>` off a line of shader, following a named `const` if that
+/// is what the line returns.
+///
+/// The indirection is load-bearing: `flame_skirt`'s black arm returns
+/// `BLACK_RIM`, because the black flame's brightest stop is its *skirt* and
+/// naming it is how the shader says so. A reader that only understood
+/// literals found four colours where there are five, and the count bound in
+/// `wgsl_palette` is what said so instead of quietly comparing four.
+fn wgsl_vec3(src: &str, line: &str) -> Option<[f32; 3]> {
+    let literal = |text: &str| -> Option<[f32; 3]> {
+        let (_, tail) = text.split_once("vec3<f32>(")?;
+        let (inside, _) = tail.split_once(')')?;
+        let parts: Vec<f32> = inside
+            .split(',')
+            .filter_map(|p| p.trim().parse().ok())
+            .collect();
+        <[f32; 3]>::try_from(parts).ok()
+    };
+    if let Some(found) = literal(line) {
+        return Some(found);
+    }
+    let named = line.trim().strip_prefix("if")?.rsplit_once("return ")?.1;
+    let named = named.split(';').next()?.trim();
+    let declared = src
+        .lines()
+        .find(|l| l.trim_start().starts_with(&format!("const {named}:")))?;
+    literal(declared)
+}
+
+/// The same for `flame_beat`, whose arms return a `vec4`.
+fn wgsl_beats(src: &str) -> Vec<[f32; 4]> {
+    let body = wgsl_body(src, "flame_beat");
+    let found: Vec<[f32; 4]> = body
+        .lines()
+        .filter(|line| line.contains("return"))
+        .filter_map(|line| {
+            let (_, tail) = line.split_once("vec4<f32>(")?;
+            let (inside, _) = tail.split_once(')')?;
+            let parts: Vec<f32> = inside
+                .split(',')
+                .filter_map(|p| p.trim().parse().ok())
+                .collect();
+            <[f32; 4]>::try_from(parts).ok()
+        })
+        .collect();
+    assert_eq!(
+        found.len(),
+        firewheel::FIRES,
+        "flame_beat has {} arms, not {}",
+        found.len(),
+        firewheel::FIRES
+    );
+    found
+}
+
+/// A named function's text, from its signature to the first line that
+/// closes at column zero.
+fn wgsl_body<'a>(src: &'a str, func: &str) -> &'a str {
+    let at = src
+        .find(&format!("fn {func}("))
+        .unwrap_or_else(|| panic!("the shader has no {func}"));
+    let rest = &src[at..];
+    let end = rest
+        .find("\n}")
+        .unwrap_or_else(|| panic!("{func} never closes"));
+    &rest[..end]
+}
+
+/// Every seat writes on its own ground, at every table the camera builds.
+///
+/// [`the_three_panels_share_one_band_and_never_meet`] asks the same question
+/// of a rectangle; a real band is a **trapezoid**, because one end of a mat is
+/// further from the camera than the other, and
+/// [`pose_on`](crate::hud::seatbar::attached::pose_on) sizes its panels from
+/// the band's mean length and mean depth. A box that fitted the mean and
+/// poked out of the narrow end would look like nothing at all at a duel,
+/// where the two ends of a mat are almost the same distance away, and would
+/// put an opponent's name on their creatures at a ring of eight.
+///
+/// So the bound is taken against the trapezoid's own two ends rather than
+/// against the average: for each panel corner, how far past the band it is on
+/// the side it is on. A flank is the case that matters — its mat runs up and
+/// down the screen, so its band is the most foreshortened one there is.
+///
+/// It is a tight bound and not a formality. Measured at [`WINDOW`], the
+/// closest any panel corner comes to the edge of its own band is 13.3 px at a
+/// duel, 4.9 at three seats, 3.6 at six and **2.4 at eight** — all of them the
+/// `BAND_GAP` the identity and counts panels are inset by, shrunk with the
+/// scale. The middle panel is the roomy one (16–21 px) because it is the only
+/// one not measured from an end.
+///
+/// [`the_three_panels_share_one_band_and_never_meet`]: crate::hud::seatbar::attached
+#[test]
+fn every_panel_stays_on_its_own_seats_band() {
+    use crate::hud::seatbar::attached::{Panel, pose_on};
+    let canvas = Canvas::hud(WINDOW);
+    for n in [2u8, 3, 4, 6, 8] {
+        let layout = TableLayout::new(&seats(n), canvas.aspect(), None);
+        let rig = CameraRig::home(&layout, canvas);
+        let lens = Lens::new(rig, canvas.window);
+        for slot in &layout.slots {
+            let Some(corners) = lens.corners(slot.ledge_corners()) else {
+                continue;
+            };
+            // The band as a loop of four edges, each with an inward normal.
+            // A point is on the band when it is inside all four, which is the
+            // only test that says anything about a trapezoid.
+            let inside = |p: Vec2| {
+                let middle = corners
+                    .iter()
+                    .fold(Vec2::ZERO, |sum, c| sum + *c / corners.len() as f32);
+                (0..4)
+                    .map(|i| {
+                        let (a, b) = (corners[i], corners[(i + 1) % 4]);
+                        let edge = (b - a).normalize_or_zero();
+                        let normal = Vec2::new(-edge.y, edge.x);
+                        let sign = normal.dot(middle - a).signum();
+                        (p - a).dot(normal) * sign
+                    })
+                    .fold(f32::INFINITY, f32::min)
+            };
+            for panel in [Panel::Identity, Panel::Phases, Panel::Counts] {
+                let (corner, tilt, scale) = pose_on(corners, panel);
+                let middle = corner + panel.size() * 0.5;
+                let half = panel.size() * scale * 0.5;
+                let spin = Rot2::radians(tilt);
+                for (x, y) in [(-1.0, -1.0), (1.0, -1.0), (1.0, 1.0), (-1.0, 1.0)] {
+                    let at = middle + spin * Vec2::new(x * half.x, y * half.y);
+                    let depth = inside(at);
+                    assert!(
+                        depth >= -0.5,
+                        "{n} seats, seat {:?}: a {panel:?} corner is {:.1} px \
+                         off the band it is written on",
+                        slot.player,
+                        -depth
+                    );
+                }
+            }
+        }
     }
 }

@@ -17,6 +17,8 @@ fn creature(slot: u32) -> CardGroup {
         name: format!("Creature {slot}"),
         power: Some(2),
         toughness: Some(2),
+        base_power: Some(2),
+        base_toughness: Some(2),
         damage: 0,
         loyalty: None,
         status: baylee_view::ObjectStatus::NONE,

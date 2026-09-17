@@ -24,6 +24,9 @@ baylee-protocol.workspace = true
 baylee-view.workspace = true
 bevy.workspace = true
 getrandom.workspace = true
+# The keyword rail's marks, baked from the Mana font at startup; see
+# `markatlas.rs`.
+swash.workspace = true
 prost.workspace = true
 serde.workspace = true
 serde_json.workspace = true

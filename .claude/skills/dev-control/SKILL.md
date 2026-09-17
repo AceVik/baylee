@@ -245,12 +245,21 @@ second time answered with the object on the first read. Reading again never
 repairs it, sending again always does. So aim in a loop until the client says
 what is under the pointer, and only then press:
 
+`hovered` is the `ObjectId`'s **Debug string in a JSON string**, not a nested
+object: `"hovered":"ObjectId(52#0)"`, and `null` for nothing. A loop grepping
+for `{"object":52` matches on no frame and spins until something kills it —
+which is a two-minute timeout, not an error.
+
 ```bash
-until curl -s localhost:28770/state | grep -q '"hovered":{"object":52'; do
+until curl -s localhost:28770/state | grep -q '"hovered":"ObjectId(52#'; do
   curl -s -XPOST localhost:28770/pointer -d '{"x":600,"y":311}'
 done
 curl -s -XPOST localhost:28770/pointer -d '{"x":600,"y":311,"press":true}'
 ```
+
+Bound the loop anyway. Three sends is past the measured failure and a card
+that is still not under the pointer has *moved* — read `/state.cards` again
+rather than aiming at where it was.
 
 That is the whole reason "hover first, then click" works: not the extra frame,
 the second send. Two repairs are owed in `devctl.rs` — get the move through a

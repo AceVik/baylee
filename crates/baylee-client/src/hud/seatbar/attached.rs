@@ -1,4 +1,22 @@
-//! Three independent pieces of ink anchored just outside the battlefield rim.
+//! Three pieces of ink laid along the rim above a seat's own battlefield.
+//!
+//! "Above" belongs to the seat, not to the viewer. Every seat's band is
+//! [`SeatSlot::ledge_corners`](baylee_client_core::layout::SeatSlot::ledge_corners)
+//! — the strip straddling the rim nearest the middle of the table, which
+//! [`LEDGE_IS_OUTER`](baylee_client_core::layout::LEDGE_IS_OUTER) keeps clear
+//! of cards — so a seat across the table reads its name and life *below* its
+//! creatures on this screen and beside them from its own chair. The two
+//! arrangements before this one chose the edge by which of the two projected
+//! higher on screen, which put an opponent's ink beyond their far rim, at the
+//! top of the window and as far from their own board as the mat allows.
+//!
+//! The three share one band and one scale: identity at the end that projects
+//! leftmost, counts at the other, the twelve steps between them. The steps
+//! used to be a vertical column beside the command-zone rim; they are
+//! horizontal here because that is the only place on this table where "the
+//! middle, above the board" is free — the middle of the *table* is the
+//! firewheel's, and a track laid across the gap between two mats would be
+//! drawn over the flames.
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
@@ -8,22 +26,31 @@ const HEADER_W: f32 = 300.0;
 const TRACK_W: f32 = 24.0;
 const TRACK_H: f32 = 340.0;
 
-/// Which outside edge carries this piece of the seat's information.
-#[derive(Component, Clone, Copy)]
+/// What the three panels leave between and beside themselves on the band,
+/// before any of them is allowed to grow.
+///
+/// Four of them: outside the identity, either side of the track, outside the
+/// counts. It is only a floor — the band is nearly always longer than the
+/// three panels need and the slack stays as felt at the ends, because the
+/// panels are placed from the ends and the middle rather than stretched.
+const BAND_GAP: f32 = 16.0;
+
+/// Which part of the seat's band carries this piece of its information.
+#[derive(Component, Clone, Copy, Debug)]
 pub enum Panel {
-    /// Name, life, priority and turn on the upper-left edge.
+    /// Name, life, priority and turn at the leftmost end of the band.
     Identity,
-    /// Public zone counts on the upper-right edge.
+    /// Public zone counts at the other end.
     Counts,
-    /// The twelve steps beside the command-zone side of the mat.
+    /// The twelve steps, in the middle of the band.
     Phases,
 }
 
 impl Panel {
-    fn size(self) -> Vec2 {
+    pub(crate) fn size(self) -> Vec2 {
         match self {
             Self::Identity | Self::Counts => Vec2::new(HEADER_W, HEADER_H),
-            Self::Phases => Vec2::new(TRACK_W, TRACK_H),
+            Self::Phases => Vec2::new(TRACK_H, TRACK_W),
         }
     }
 }
@@ -45,58 +72,11 @@ pub(super) fn place(
             .slots
             .iter()
             .find(|s| s.player == player)?;
-        let forward = slot.forward();
-        let side = Vec2::new(slot.facing.cos(), -slot.facing.sin());
-        let margin = baylee_client_core::tabletop::MAT_MARGIN;
-        let center = lens.project(slot.center)?;
-        // Choose the long edge above the battlefield in the current view,
-        // not the historical local-seat shelf behind the lands.
-        let a = slot.center + forward * (slot.half_extent.y + margin);
-        let b = slot.center - forward * (slot.half_extent.y + margin);
-        let top = if lens.project(a)?.y < lens.project(b)?.y {
-            a
-        } else {
-            b
-        };
-        let edge_a = lens.project(top - side * (slot.half_extent.x + margin))?;
-        let edge_b = lens.project(top + side * (slot.half_extent.x + margin))?;
-        let (left, right) = if edge_a.x <= edge_b.x {
-            (edge_a, edge_b)
-        } else {
-            (edge_b, edge_a)
-        };
-        let axis = (right - left).normalize_or_zero();
-        let mut tilt = axis.y.atan2(axis.x);
-        let normal = Vec2::new(axis.y, -axis.x);
-        let width = left.distance(right);
-        let size = panel.size();
-        let (middle, scale) = match panel {
-            Panel::Identity | Panel::Counts => {
-                let scale = (width / (HEADER_W * 2.0 + 32.0)).min(1.0);
-                let inset = axis * (HEADER_W * scale * 0.5);
-                let end = if matches!(panel, Panel::Identity) {
-                    left + inset
-                } else {
-                    right - inset
-                };
-                (end + normal * (HEADER_H * scale * 0.5 + 2.0), scale)
-            }
-            Panel::Phases => {
-                let edge = slot.center - side * (slot.half_extent.x + margin);
-                let middle = lens.project(edge)?;
-                let near = lens.project(edge - forward * slot.half_extent.y)?;
-                let far = lens.project(edge + forward * slot.half_extent.y)?;
-                // Fit between the rim and commander cards, without moving either.
-                let gutter = lens.project(edge - side * 0.44)?.distance(middle);
-                let scale = (near.distance(far) / TRACK_H)
-                    .min(gutter / TRACK_W)
-                    .min(1.0);
-                let (position, rotation) = phase_pose(near, far, center, scale);
-                tilt = rotation;
-                (position, scale)
-            }
-        };
-        Some((middle - size * 0.5, tilt, scale))
+        // The seat's own band, projected: the strip along the rim nearest the
+        // middle of the table. Taken from the model rather than measured off
+        // `half_extent` here, so the ink and `Shelf` — the density probe and
+        // the tiny-overview fallback — are describing one rectangle again.
+        Some(pose_on(lens.corners(slot.ledge_corners())?, panel))
     })();
     let Some((corner, tilt, scale)) = pose else {
         if node.display != Display::None {
@@ -122,20 +102,52 @@ pub(super) fn place(
     }
 }
 
-/// Keep the whole column outside the projected side, including its ends.
-fn phase_pose(near: Vec2, far: Vec2, center: Vec2, scale: f32) -> (Vec2, f32) {
-    let middle = near.midpoint(far);
-    let mut axis = (far - near).normalize_or_zero();
-    if axis.y < 0.0 {
-        axis = -axis;
-    }
-    let mut outward = Vec2::new(axis.y, -axis.x);
-    if outward.dot(middle - center) < 0.0 {
-        outward = -outward;
-    }
+/// Where one panel sits on a seat's projected band, and how big.
+///
+/// Split out of [`place`] because it is the whole of the arithmetic and none
+/// of the Bevy: `corners` is
+/// [`SeatSlot::ledge_corners`](baylee_client_core::layout::SeatSlot::ledge_corners)'
+/// loop already run through [`crate::table::Lens`], in the order that model
+/// promises — the two on the rim first, then the two that meet the lane
+/// behind it.
+///
+/// Returns the **top-left of the un-rotated box**, which is what a `Node`'s
+/// `left`/`top` want, together with the turn and the scale
+/// [`UiTransform`] applies about the box's own middle.
+pub(crate) fn pose_on(corners: [Vec2; 4], panel: Panel) -> (Vec2, f32, f32) {
+    let [near_a, near_b, far_b, far_a] = corners;
+    // The band's two *ends*, each already at its middle across the strip, so
+    // nothing has to be pushed off an edge afterwards. Sorted by projected x,
+    // which is also the fold that keeps the ink upright: a seat across the
+    // table has its band running right-to-left in its own frame, and reading
+    // it left to right on this screen is what turns its bar the right way up.
+    let end_a = near_a.midpoint(far_a);
+    let end_b = near_b.midpoint(far_b);
+    let (left, right) = if end_a.x <= end_b.x {
+        (end_a, end_b)
+    } else {
+        (end_b, end_a)
+    };
+    let axis = (right - left).normalize_or_zero();
+    let width = left.distance(right);
+    let depth = near_a.midpoint(near_b).distance(far_a.midpoint(far_b));
+    // **One scale for the whole band**, chosen once and asked for three
+    // times. Each panel is placed by its own call and a panel that sized
+    // itself would grow into its neighbours at exactly the width where it
+    // matters: the middle one is the only one that can meet another, and it
+    // can meet two.
+    let scale = (width / (HEADER_W * 2.0 + TRACK_H + BAND_GAP * 4.0))
+        .min(depth / HEADER_H)
+        .min(1.0);
+    let middle = match panel {
+        Panel::Identity => left + axis * (HEADER_W * scale * 0.5 + BAND_GAP * scale),
+        Panel::Counts => right - axis * (HEADER_W * scale * 0.5 + BAND_GAP * scale),
+        Panel::Phases => left.midpoint(right),
+    };
     (
-        middle + outward * (TRACK_W * scale * 0.5 + 2.0),
-        axis.y.atan2(axis.x) - std::f32::consts::FRAC_PI_2,
+        middle - panel.size() * 0.5,
+        axis.y.atan2(axis.x),
+        scale.max(0.0),
     )
 }
 
@@ -160,11 +172,9 @@ fn frame(
                 position_type: PositionType::Absolute,
                 width: px(size.x),
                 height: px(size.y),
-                flex_direction: if matches!(panel, Panel::Phases) {
-                    FlexDirection::Column
-                } else {
-                    FlexDirection::Row
-                },
+                // One direction for all three: the band runs along the rim
+                // and everything written on it runs with it.
+                flex_direction: FlexDirection::Row,
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::SpaceEvenly,
                 border: UiRect::bottom(px(1)),
@@ -232,9 +242,9 @@ pub(super) fn spawn(
         let group = commands
             .spawn((
                 Node {
-                    flex_direction: FlexDirection::Column,
+                    flex_direction: FlexDirection::Row,
                     align_items: AlignItems::Center,
-                    row_gap: px(1),
+                    column_gap: px(1),
                     ..default()
                 },
                 BackgroundColor(palette::SEAT_TRACK),
@@ -270,27 +280,132 @@ pub(super) fn spawn(
 mod tests {
     use super::*;
 
+    /// A band as [`crate::table::Lens`] hands it over: the two corners on the
+    /// rim first, then the two that meet the lane behind it. `flip` is the
+    /// seat across the table, whose own left is this screen's right.
+    fn band(length: f32, depth: f32, slope: f32, flip: bool) -> [Vec2; 4] {
+        let mid = Vec2::new(1500.0, 620.0);
+        let along = Vec2::new(1.0, slope).normalize() * (length * 0.5);
+        let across = Vec2::new(-along.y, along.x).normalize() * (depth * 0.5);
+        let (near, far) = (mid - across, mid + across);
+        if flip {
+            [near + along, near - along, far - along, far + along]
+        } else {
+            [near - along, near + along, far + along, far - along]
+        }
+    }
+
+    /// The four corners a panel is actually drawn at, in the order the box
+    /// has them: the scale turns about the box's own middle, so the middle is
+    /// where [`pose_on`] put it and only the extent shrinks.
+    fn drawn(corners: [Vec2; 4], panel: Panel) -> [Vec2; 4] {
+        let (corner, tilt, scale) = pose_on(corners, panel);
+        let middle = corner + panel.size() * 0.5;
+        let half = panel.size() * scale * 0.5;
+        let turn = Rot2::radians(tilt);
+        [
+            middle + turn * Vec2::new(-half.x, -half.y),
+            middle + turn * Vec2::new(half.x, -half.y),
+            middle + turn * Vec2::new(half.x, half.y),
+            middle + turn * Vec2::new(-half.x, half.y),
+        ]
+    }
+
+    /// The three never meet, at either end of the range of bands a table
+    /// projects — and they keep their order on the *screen*, not in the
+    /// seat's own frame, so a seat across the table has its name where every
+    /// other seat's name is.
+    ///
+    /// The short band is the injected finding rather than decoration: at full
+    /// length the three panels take less than half the ledge and any
+    /// arrangement at all would pass, so the case that can fail is the one
+    /// where the scale is doing the work. `BAND_GAP * 4` is what the scale
+    /// divides by, so a band at exactly the sum of the three panels leaves
+    /// them touching-but-clear, and the assertion below is what says so.
     #[test]
-    fn phase_column_clears_both_ends_of_a_sloping_rim() {
-        for (near, far) in [
-            (Vec2::new(180.0, 600.0), Vec2::new(215.0, 360.0)),
-            (Vec2::new(1200.0, 90.0), Vec2::new(1225.0, 290.0)),
-        ] {
-            let center = Vec2::new(720.0, near.midpoint(far).y);
-            let scale = 0.6;
-            let (position, tilt) = phase_pose(near, far, center, scale);
-            let along = (far - near).normalize();
-            let mut outward = Vec2::new(along.y, -along.x);
-            if outward.dot(near - center) < 0.0 {
-                outward = -outward;
-            }
-            for x in [-1.0, 1.0] {
-                for y in [-1.0, 1.0] {
-                    let corner = position
-                        + Rot2::radians(tilt) * Vec2::new(x * TRACK_W, y * TRACK_H) * (scale * 0.5);
-                    let clearance = (corner - near).dot(outward);
-                    assert!(clearance >= 1.99 && clearance <= TRACK_W * scale + 2.01);
+    fn the_three_panels_share_one_band_and_never_meet() {
+        let want = HEADER_W * 2.0 + TRACK_H + BAND_GAP * 4.0;
+        for length in [want, want * 2.0, 2160.0] {
+            for slope in [0.0_f32, 0.06, -0.06] {
+                for flip in [false, true] {
+                    let corners = band(length, 110.0, slope, flip);
+                    let boxes = [Panel::Identity, Panel::Phases, Panel::Counts]
+                        .map(|panel| drawn(corners, panel));
+                    // The band's own direction as the screen reads it, which is
+                    // the axis `pose_on` sorts the two ends onto. Taken from
+                    // `corners` it runs the other way for a seat across the
+                    // table, and the order below would then read as reversed
+                    // rather than as wrong.
+                    let along = Vec2::new(1.0, slope).normalize();
+                    let at = |b: [Vec2; 4], pick: fn(f32, f32) -> f32| {
+                        b.iter().map(|c| c.dot(along)).fold(f32::NAN, pick)
+                    };
+                    for pair in boxes.windows(2) {
+                        let gap = at(pair[1], f32::min) - at(pair[0], f32::max);
+                        assert!(
+                            gap >= -0.01,
+                            "{length} long, slope {slope}, flipped {flip}: two \
+                             panels overlap by {}",
+                            -gap
+                        );
+                    }
+                    // And in the reader's order, whichever way the seat's own
+                    // frame runs: the name is always at the left of the band.
+                    assert!(
+                        boxes[0][0].x < boxes[2][0].x,
+                        "{length} long, slope {slope}, flipped {flip}: the \
+                         identity panel is not the leftmost"
+                    );
                 }
+            }
+        }
+    }
+
+    /// Nothing is written outside the strip the model keeps clear of cards.
+    ///
+    /// Measured across the band rather than in `y`, because a flank's band
+    /// slopes and a box that stayed inside the window could still be standing
+    /// on the creature lane behind it.
+    #[test]
+    fn no_panel_stands_off_its_own_band() {
+        for depth in [110.0_f32, 60.0, 26.0] {
+            for slope in [0.0_f32, 0.06, -0.06] {
+                for flip in [false, true] {
+                    let corners = band(2160.0, depth, slope, flip);
+                    let along = Vec2::new(1.0, slope).normalize();
+                    let across = Vec2::new(-along.y, along.x);
+                    let mid = corners
+                        .iter()
+                        .fold(Vec2::ZERO, |sum, c| sum + *c / corners.len() as f32);
+                    for panel in [Panel::Identity, Panel::Phases, Panel::Counts] {
+                        for corner in drawn(corners, panel) {
+                            let off = (corner - mid).dot(across).abs();
+                            assert!(
+                                off <= depth * 0.5 + 0.01,
+                                "{depth} deep, slope {slope}, flipped {flip}: a \
+                                 {panel:?} corner is {off} off the band's middle, \
+                                 past its {} of room",
+                                depth * 0.5
+                            );
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /// The ink reads in the viewer's order at every seat: a band running
+    /// right-to-left in its owner's frame is still written the right way up.
+    #[test]
+    fn a_seat_across_the_table_has_its_bar_upright() {
+        for slope in [0.0_f32, 0.3, -0.3] {
+            for flip in [false, true] {
+                let (_, tilt, _) = pose_on(band(2160.0, 110.0, slope, flip), Panel::Identity);
+                assert!(
+                    tilt.abs() <= std::f32::consts::FRAC_PI_2,
+                    "slope {slope}, flipped {flip}: the bar is turned {tilt} and \
+                     would be read upside-down"
+                );
             }
         }
     }

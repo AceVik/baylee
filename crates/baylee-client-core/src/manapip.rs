@@ -1,8 +1,12 @@
 //! Mana symbols as glyphs of the `mana` font.
 //!
-//! `docs/legal.md` §2 allows exactly two ways to draw a mana symbol: pips the
-//! client draws itself, or the open-licensed `mana` font (SIL OFL 1.1). This
-//! module is the second one. It answers only *which glyph on which disc*, and
+//! This is the only door the client draws a mana symbol through, and
+//! `docs/legal.md` §2a is why there is exactly one: the font is OFL 1.1 and
+//! the symbols it draws are Wizards' trademarks, some of which — the
+//! planeswalker symbol, the guild and clan watermarks — that policy names as
+//! off limits outright. A glyph constant therefore lives here and nowhere
+//! else, so the set in use can be read off one page.
+//! It answers only *which glyph on which disc*, and
 //! nothing about how either is painted, so the whole table is testable without
 //! a GPU — and a symbol the font cannot spell falls back to a number rather
 //! than to an empty box.

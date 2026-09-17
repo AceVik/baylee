@@ -31,8 +31,20 @@ the SIL Open Font License 1.1, whose text is in assets/fonts/licenses/;
 Font Awesome Free 6.7.2 (https://fontawesome.com), icons licensed under
 CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/); and the Mana font
 (https://github.com/andrewgioia/mana) by Andrew Gioia, licensed under the SIL
-Open Font License 1.1, whose glyphs the client uses to draw mana symbols.
-None of them is a Wizards of the Coast asset.
+Open Font License 1.1 (assets/fonts/licenses/OFL-Mana.txt), whose glyphs the
+client uses to draw mana symbols — bundled unmodified and under its own name,
+byte for byte upstream's v1.18, which is what the OFL's Reserved Font Name
+clause asks of anyone who does not rename the font.
+
+None of those font files is a Wizards of the Coast asset. What the Mana font
+*draws* is a different question, and this is the place that answers it rather
+than glossing it: the mana symbols are Wizards' trademarks, and Wizards' Fan
+Content Policy lists them among the marks fan content may not include. Andrew
+Gioia says as much of his own work — "All mana, tap, and card type symbol
+images are copyright Wizards of the Coast" — and an open licence on a typeface
+cannot grant what its author does not hold. So the licence here is clean and
+the symbol is used on sufferance. docs/legal.md §2 is where that is reasoned
+out.
 
 baylee source code is licensed under the GNU Affero General Public License
 v3.0 only (see LICENSE). The project is free and non-commercial; no feature

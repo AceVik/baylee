@@ -364,21 +364,55 @@ pub struct FanPose {
     pub yaw: f32,
 }
 
-/// How far a seat has to lean past the side of the ring before its bar
-/// changes edges.
+/// How far a seat has to lean past the side of the ring before the camera is
+/// taken to be in front of it rather than behind.
 ///
-/// [`SeatSlot::ledge_is_outer`] is a comparison against zero and a seat at
-/// the exact side of the ring is a tie, which in floating point is not a
-/// tie at all: `cos(FRAC_PI_2)` is -4.4e-8 and `cos(3·FRAC_PI_2)` is
-/// +1.2e-8, so the left flank of a four-seat table would take one edge and
-/// the right flank the other. Nothing about the two seats differs, and the
-/// answer has to be the same for both.
+/// [`SeatSlot::camera_lies`] is a comparison against zero and a seat at the
+/// exact side of the ring is a tie, which in floating point is not a tie at
+/// all: `cos(FRAC_PI_2)` is -4.4e-8 and `cos(3·FRAC_PI_2)` is +1.2e-8, so the
+/// left flank of a four-seat table would answer one way and the right flank
+/// the other. Nothing about the two seats differs, and the answer has to be
+/// the same for both.
 ///
 /// It is generous — about 4½° — because a side is placed by walking a
 /// polyline of [`RING_STEPS`] steps and lands *near* the side rather than on
 /// it, and because there is nothing to lose: the seat closest to a side that
 /// is genuinely across the table leans four times this far.
+///
+/// [`SeatSlot::camera_lies`]: SeatSlot#method.camera_lies
 const SIDE_SEAT_TILT: f32 = 0.08;
+
+/// Which of a mat's two long edges carries the seat's shelf: the **outer**
+/// one, away from the middle of the table and behind the land row, or the
+/// centre-facing one.
+///
+/// It is the same answer at every seat, which is the whole of the rule:
+/// **a seat's ink sits on the edge of its own battlefield nearest the middle
+/// of the table — the edge that seat reads as "above".** The three lanes
+/// follow it (see [`SeatSlot::lane_center`]): the shelf takes the strip just
+/// inside that rim and the board starts a
+/// [`MAT_LEDGE`](crate::tabletop::MAT_LEDGE) further back, so no card is ever
+/// drawn where the bar is.
+///
+/// A constant rather than a question asked of each seat, because it stopped
+/// being one. The table spent two arrangements answering it per seat, both
+/// from the *viewer's* chair: first "above the board it describes on the one
+/// screen there is", which sent a seat across the table to its outer edge
+/// because its board is drawn upside-down from here; then that, with the
+/// local seat pinned to its near edge instead. What both have in common is
+/// that an opponent's name and life total were written beyond their far rim,
+/// at the top of the screen, as far from their own creatures as the mat
+/// allows. The owner asked for the mirror: each seat's ink where *that seat*
+/// would read it, which for everyone but the viewer is the lower of their
+/// mat's two edges on screen.
+///
+/// The shader still takes it as a parameter and still draws the band either
+/// way ([`crate::tabletop::seat_mat`], and `mat.wgsl` beside it), because the
+/// band is a real thing whose end the model chooses; what has gone is the
+/// choosing. The only reader that has to agree with this constant is the one
+/// that draws the ink, and it agrees by reading
+/// [`SeatSlot::ledge_corners`] rather than by knowing the rule.
+pub const LEDGE_IS_OUTER: bool = false;
 
 /// One seat's place at the table.
 #[derive(Clone, Copy, PartialEq, Debug)]
@@ -428,67 +462,6 @@ impl SeatSlot {
         (self.mat_depth() - crate::tabletop::MAT_LEDGE) / LaneKind::ALL.len() as f32
     }
 
-    /// Which of the mat's two long edges this seat's shelf is written on.
-    ///
-    /// `true` for the **outer** edge — the one away from the middle of the
-    /// table, behind the land row — and `false` for the centre-facing edge.
-    ///
-    /// **The local seat's bar is on its near edge; every other seat's bar is
-    /// above its own board.** Two rules rather than one, and the seam
-    /// between them is [`is_local`](Self::is_local).
-    ///
-    /// The second half is the viewer's rule and has not changed: a bar is
-    /// drawn above the board it describes, on the screen the local player is
-    /// looking at. A seat across the table has its board drawn upside-down
-    /// from here, so its centre-facing edge is at the bottom of it and the
-    /// outer edge is the one that reads as "above". A seat exactly at the
-    /// side of the ring is a tie — its mat runs up and down the screen and
-    /// neither edge is above anything — and keeps the centre-facing edge,
-    /// which is the one nearer the hearth and the one it had before.
-    ///
-    /// The first half used to be part of the second, and did put the local
-    /// bar above its own creatures: on the centre-facing edge, the deepest
-    /// point on the screen that still belongs to this seat. The owner asked
-    /// for it at the **bottom** instead, always, and that is a decision
-    /// rather than a correction — what a player reads about themselves now
-    /// sits between their board and their hand, where their eyes already
-    /// are, and the table gives up the symmetry of one rule for every seat.
-    /// The three lanes follow it (see [`lane_center`](Self::lane_center)):
-    /// the shelf takes the near strip and the board moves a
-    /// [`MAT_LEDGE`](crate::tabletop::MAT_LEDGE) towards the hearth, so no
-    /// card is ever drawn where the bar is.
-    ///
-    /// Before either, both halves were the *other* way round — the
-    /// centre-facing edge for **every** seat, so a bar always stood between
-    /// its owner's board and the hearth. That is the reading from each
-    /// seat's own chair, and it is coherent; it is not what anybody sees.
-    /// Two seats put their bars back-to-back across the middle of the table
-    /// and the opponent's sat under their creatures, which is not "above the
-    /// battlefield line" for the one person at the table with a screen.
-    ///
-    /// `away.y` is the whole test for everyone but the local seat. Table
-    /// `+y` is away from the camera, so a seat whose inward normal points up
-    /// the table has its centre-facing edge higher on screen.
-    #[must_use]
-    pub fn ledge_is_outer(&self) -> bool {
-        // Asked of the seat and not of the geometry, because the geometry
-        // would answer the old way: the camera sits behind this seat by
-        // construction, so its `facing.cos()` is the +1 end of the very
-        // comparison below. The near edge of its mat is the bottom of the
-        // screen, which is where the bar was asked for.
-        if self.is_local {
-            return true;
-        }
-        // With a **tolerance**, and it is load-bearing rather than tidy.
-        // `cos(FRAC_PI_2)` is -4.4e-8 in f32 and `cos(3·FRAC_PI_2)` is
-        // +1.2e-8, so a bare `< 0.0` sends the left side seat of a four-seat
-        // table to one edge and the right one to the other; and `sides_on`
-        // places a side by walking a 256-step polyline, so the two are not
-        // at 90° to begin with. A side seat has no "above" and both of them
-        // have to make the same choice.
-        self.facing.cos() < -SIDE_SEAT_TILT
-    }
-
     /// Centre of a lane in table space.
     #[must_use]
     pub fn lane_center(&self, lane: LaneKind) -> Vec2 {
@@ -503,7 +476,7 @@ impl SeatSlot {
         // because the ink moved. So the three lanes are measured from the
         // centre-facing edge, and only a shelf standing *there* pushes them
         // back by its own depth.
-        let front = if self.ledge_is_outer() {
+        let front = if LEDGE_IS_OUTER {
             0.0
         } else {
             crate::tabletop::MAT_LEDGE
@@ -542,8 +515,9 @@ impl SeatSlot {
     /// node pinned to this rectangle's projection, never a world-space
     /// object, because there is no text on the 3D table.
     ///
-    /// Whichever of the mat's two long edges [`ledge_is_outer`] names, so
-    /// that every bar at the table is drawn above the board it describes.
+    /// Whichever of the mat's two long edges [`LEDGE_IS_OUTER`] names, so
+    /// that every bar at the table is drawn above the board it describes —
+    /// above as its *own* seat reads the word.
     ///
     /// Ordered as the seat itself would read them: the two corners on that
     /// outside edge first, left then right in the *seat's* frame, then the
@@ -552,8 +526,6 @@ impl SeatSlot {
     /// either end of the mat — which is what lets
     /// [`Shelf::of`](crate::seatbar) take the tilt off it without caring
     /// which edge it got.
-    ///
-    /// [`ledge_is_outer`]: Self::ledge_is_outer
     #[must_use]
     pub fn ledge_corners(&self) -> [Vec2; 4] {
         let away = Vec2::new(self.facing.sin(), self.facing.cos());
@@ -562,7 +534,7 @@ impl SeatSlot {
         // along it or against it. Everything else about the rectangle — its
         // length, its depth, the order of its corners — is the same either
         // way, which is why this is a sign and not a second branch.
-        let reach = if self.ledge_is_outer() { -1.0 } else { 1.0 };
+        let reach = if LEDGE_IS_OUTER { -1.0 } else { 1.0 };
         // Out to the edge of the mat as it is *drawn*, which is
         // `MAT_MARGIN` past the playing extent. The shelf and the border at
         // its own end are one band: nothing stands on either, and the mat
@@ -601,12 +573,13 @@ impl SeatSlot {
     /// Which way along this seat's own depth axis the camera lies: `-1.0` for
     /// the seat's near edge, `1.0` for the table centre.
     ///
-    /// `away.y` is the whole test, as it is in
-    /// [`ledge_is_outer`](Self::ledge_is_outer), and for the same reason:
-    /// table `+y` runs away from the camera, so a seat whose inward normal
-    /// points up the table has the camera behind it and a seat across the
-    /// table has the camera in front. Same tolerance too, because the two
-    /// flanks of a ring have to answer alike.
+    /// `away.y` is the whole test: table `+y` runs away from the camera, so a
+    /// seat whose inward normal points up the table has the camera behind it
+    /// and a seat across the table has the camera in front. It carries
+    /// [`SIDE_SEAT_TILT`] because the two flanks of a ring have to answer
+    /// alike, which is the tolerance's whole reason for existing — the shelf
+    /// edge used to be the other reader and is now [`LEDGE_IS_OUTER`],
+    /// the same answer at every seat.
     ///
     /// The **tie** is the one place this differs, and deliberately. A side
     /// seat's depth axis runs across the screen, so neither end of it is

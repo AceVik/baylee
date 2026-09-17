@@ -347,6 +347,123 @@ pub fn granted_source(
     })
 }
 
+/// How many abilities the face this object is showing prints.
+///
+/// The bound [`table_mana`] walks, rather than a number chosen by hand: a
+/// scan that stopped at eight would miss the ninth ability of whatever card
+/// eventually has one, and it would miss it in silence.
+#[must_use]
+pub fn ability_count(view: &PlayerView, object: baylee_core::ids::ObjectId) -> usize {
+    let Some(card) = view.object(object).and_then(|o| o.card) else {
+        return 0;
+    };
+    let Some(def) = baylee_cards::by_index(card.index) else {
+        return 0;
+    };
+    def.abilities_for_face(card.face as usize).len()
+}
+
+/// The five basic land types and the mana CR 305.6 gives them.
+///
+/// Deliberately **not** [`basic_land_color`], which answers `None` for a
+/// land with two basic types because a planner has to know which single
+/// colour a tap produces. The hearth is asking a different question — what
+/// colours are standing on this table — and a Taiga is an honest answer of
+/// two.
+const BASIC_MANA: [(baylee_core::ids::SubtypeId, baylee_core::mana::ManaColor); 5] = {
+    use baylee_core::generated::subtypes::land;
+    use baylee_core::mana::ManaColor;
+    [
+        (land::PLAINS, ManaColor::White),
+        (land::ISLAND, ManaColor::Blue),
+        (land::SWAMP, ManaColor::Black),
+        (land::MOUNTAIN, ManaColor::Red),
+        (land::FOREST, ManaColor::Green),
+    ]
+};
+
+/// How much of each colour of mana stands on the whole table.
+///
+/// Indexed the way [`ManaColor`] is numbered and `tabletop::PIE` is ordered
+/// — white, blue, black, red, green — so it feeds the five flames at the
+/// middle of the table straight off.
+///
+/// **A count of permanents, not of mana.** A Sol Ring makes two and a
+/// Nykthos makes as many as your devotion; neither is a colour, and a tally
+/// that summed amounts would be answering "how big is the biggest turn
+/// possible here" rather than "what is this table made of". So each
+/// permanent that can make coloured mana is worth exactly **one**, split
+/// between the colours it may make: a Forest is a whole green, a Command
+/// Tower is a fifth of each. Splitting is the honest reading of a colour
+/// nobody has chosen yet — a Command Tower that lit all five fires at full
+/// height would say there is a table's worth of white here when there is
+/// one land.
+///
+/// **Presence, not availability.** A tapped land counts and so does a
+/// summoning-sick dork. The question is what colours are at this table, and
+/// a fire that went out every time its controller spent their mana would be
+/// a second, noisier turn indicator — which the rail already is. It is also
+/// what makes the reading cheap: no `LegalActions`, so the same walk answers
+/// for every seat's permanents and not only for the one holding priority.
+///
+/// Two holes, named rather than papered over. A **token** has no `card`, so
+/// a Treasure counts for nothing — which is wrong and is the same gap
+/// `board::provenance_of` works around by name; closing it wants the token
+/// registry and a reason better than this one. And a **face-down**
+/// permanent counts for nothing, which is right: nobody at the table knows
+/// what it makes.
+#[must_use]
+pub fn table_mana(view: &PlayerView) -> [f32; 5] {
+    let mut tally = [0.0_f32; 5];
+    for object in &view.battlefield {
+        // One permanent, one union of colours, counted once. Building the
+        // set first is what stops a land being counted twice — a printed
+        // `{T}: Add {G}` beside the type line's own green — and it is the
+        // same rule `sources` enforces by deduplicating on `id`.
+        let mut colors = [false; 5];
+        if !object.status.is_face_down() {
+            for (subtype, color) in BASIC_MANA {
+                if object.subtypes.contains(subtype) {
+                    colors[color as usize] = true;
+                }
+            }
+        }
+        if let Some(granted) = &object.granted_mana {
+            for color in &granted.colors {
+                if let Some(slot) = colors.get_mut(*color as usize) {
+                    *slot = true;
+                }
+            }
+        }
+        for index in 0..ability_count(view, object.id) {
+            let Ok(index) = u32::try_from(index) else {
+                continue;
+            };
+            let Some(source) = printed_source(view, object.id, index) else {
+                continue;
+            };
+            for color in source.colors {
+                if let Some(slot) = colors.get_mut(color as usize) {
+                    *slot = true;
+                }
+            }
+        }
+
+        let made = colors.iter().filter(|on| **on).count();
+        if made == 0 {
+            continue;
+        }
+        #[allow(clippy::cast_precision_loss)] // five at the most
+        let share = 1.0 / made as f32;
+        for (slot, on) in tally.iter_mut().zip(colors) {
+            if on {
+                *slot += share;
+            }
+        }
+    }
+    tally
+}
+
 /// The printed cost of a card in hand.
 #[must_use]
 pub fn hand_cost(card: &baylee_view::HandObject) -> Option<ManaCost> {
@@ -392,6 +509,88 @@ mod tests {
             ..LegalActions::default()
         };
         (view, legal)
+    }
+
+    /// A real card off the registry, so the ability walk has something to
+    /// read.
+    fn card(slot: u32, controller: u8, name: &str) -> baylee_view::PublicObject {
+        let index = baylee_cards::decks::by_name(name)
+            .unwrap_or_else(|| panic!("{name} is in the registry"));
+        let def = baylee_cards::by_index(index).expect("a card at that index");
+        let mut obj = baylee_client_core::test_support::printed(slot, controller, name, 0);
+        obj.card = Some(baylee_view::CardIdentity {
+            index,
+            print: baylee_core::ids::PrintRef::new(0),
+            face: 0,
+        });
+        obj.subtypes = baylee_core::types::SubtypeSet::from_slice(def.faces[0].subtypes);
+        obj.types = def.faces[0].types;
+        obj
+    }
+
+    /// A land with two basic types feeds both its fires, and each gets
+    /// **half** of it.
+    ///
+    /// Which is the split rule doing the thing it is for: a Taiga taps once
+    /// and the mana is red *or* green. Counted whole on both, five Taigas
+    /// would say this table holds ten sources of coloured mana, and the two
+    /// tallest flames on it would be as tall as ten Forests.
+    ///
+    /// `basic_land_color` answers `None` here, which is why [`BASIC_MANA`]
+    /// exists beside it: a planner has to know which single colour a tap
+    /// gives and the hearth has to know which colours are on the table, and
+    /// those are different questions about the same land.
+    #[test]
+    fn a_dual_land_feeds_both_its_fires_and_each_gets_half() {
+        let view = ViewBuilder::new(2)
+            .with_battlefield(0, [card(1, 0, "Taiga")])
+            .build();
+        let tally = table_mana(&view);
+        assert!(
+            (tally[ManaColor::Red as usize] - 0.5).abs() < 1e-5,
+            "red is {tally:?}"
+        );
+        assert!(
+            (tally[ManaColor::Green as usize] - 0.5).abs() < 1e-5,
+            "green is {tally:?}"
+        );
+        assert!(tally[ManaColor::White as usize].abs() < 1e-5, "{tally:?}");
+        // And the land is worth one land, however many fires it feeds.
+        assert!(
+            (tally.iter().sum::<f32>() - 1.0).abs() < 1e-5,
+            "a Taiga came to {tally:?}"
+        );
+    }
+
+    /// And a permanent that may make any colour is worth one permanent, not
+    /// five — which is the whole reason the share is a division.
+    #[test]
+    fn a_source_of_every_colour_is_split_between_them() {
+        let (view, _) = lantern_land();
+        let tally = table_mana(&view);
+        for (index, share) in tally.iter().enumerate() {
+            assert!(
+                (share - 0.2).abs() < 1e-5,
+                "colour {index} took {share} of a Lantern's land: {tally:?}"
+            );
+        }
+    }
+
+    /// A Forest prints no mana ability — CR 305.6 does — so the two readings
+    /// must not both fire. One permanent is one, however it was recognised.
+    #[test]
+    fn one_permanent_is_counted_once_however_it_was_read() {
+        let view = ViewBuilder::new(2)
+            .with_battlefield(0, [card(1, 0, "Forest"), card(2, 1, "Forest")])
+            .build();
+        let tally = table_mana(&view);
+        assert!(
+            (tally[ManaColor::Green as usize] - 2.0).abs() < 1e-5,
+            "two Forests, one each side of the table: {tally:?}"
+        );
+        // And the reading crosses the table: the second Forest belongs to
+        // the opponent, and the hearth is the whole table's fire.
+        assert!(tally.iter().sum::<f32>() > 1.5, "{tally:?}");
     }
 
     /// The gap this closes. `GRANTED_ABILITY` is `u32::MAX`, so the registry

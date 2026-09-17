@@ -53,12 +53,10 @@ pub(crate) const CARD_LIFT: f32 = 0.01;
 pub(crate) const ZONE_LIFT: f32 = 0.002;
 /// Where the glow under a mat sits — below the mat, above the felt.
 const GLOW_LIFT: f32 = 0.001;
-/// Where the centre medallion is inlaid.
-const MEDALLION_LIFT: f32 = 0.0015;
 /// Where the weather over the table is painted.
 ///
 /// Above every mark that belongs to the table itself — the glow, the
-/// medallion, a seat's mat — and **below** the contact shadow a card casts
+/// a seat's mat — and **below** the contact shadow a card casts
 /// (`CARD_LIFT * 0.5`, so 0.005) and therefore below the card. That ordering
 /// is the whole of the promise that the air never covers a card: the cards
 /// are opaque and write depth, so a blended surface underneath them is
@@ -139,21 +137,18 @@ const _: () = assert!(TABLE_THICKNESS > CARD_THICKNESS * 4.0);
 /// A card gets four; this is a racetrack whose corners are several units
 /// across and read as a chamfer at anything under about a dozen.
 const SLAB_SEGMENTS: usize = 24;
-/// How wide the medallion is inlaid, in table units.
-///
-/// A written number again, and small enough to sit in the open middle with
-/// felt showing on both sides of it —
-/// `camera_tests::the_medallion_floats_in_the_open_middle` is that bound. It
-/// used to be derived from the lamplight ring, which no longer exists, and a
-/// 4.5-unit ring across a 3.4-unit gap would have been the roulette wheel all
-/// over again, this time lying across both players' mats.
-const MEDALLION_SIZE: f32 = 2.2;
 /// How fast the rail follows a phase change, per second.
 ///
 /// Slower than a card moves. A step boundary is not an event a player has to
 /// catch — it is a condition they should notice having changed — and a
 /// rail that snapped would flicker through the four steps of combat.
 const WASH_RATE: f32 = 3.0;
+/// How fast the firewheel follows what is on the battlefield, per second.
+///
+/// Slower again, and deliberately: a flame reaching its new height over
+/// about a second and a half is a fire being fed, and one that jumps the
+/// moment a land resolves is a notification in the middle of the table.
+const FIRE_RATE: f32 = 0.8;
 /// Margin around a seat's pod, so its mat is a table the cards sit on rather
 /// than a box drawn tight around them.
 ///
@@ -368,6 +363,14 @@ pub struct Slab {
     shown: Vec4,
     /// Where the lamp was last entering the rail from.
     source: Vec4,
+    /// The firewheel's five eased strengths, packed the way the shader
+    /// reads them: `flames` is white, blue, black, red and `tail.x` green.
+    ///
+    /// Eased for the same reason the lamp is, and on the same clock: a
+    /// flame that grows over a second and a half is a fire being fed, and
+    /// one that jumps when a land enters play is a notification.
+    flames: Vec4,
+    tail: Vec4,
     /// The motion setting the pulse was last running at.
     motion: f32,
 }
@@ -1963,23 +1966,13 @@ pub fn spawn_stage(
     // `sync_table` makes it the first time a board arrives and re-cuts it
     // whenever the seating or the window changes.
 
-    // The medallion inlaid at the centre — the colour wheel every player
-    // already has in their head, which is what makes it orientation rather
-    // than decoration. It sits in the middle of the table, which is the one
-    // patch of felt no seat ever plays on.
-    commands.spawn((
-        DuelStage,
-        Mesh3d(meshes.add(Rectangle::new(MEDALLION_SIZE, MEDALLION_SIZE))),
-        MeshMaterial3d(materials.add(StandardMaterial {
-            base_color_texture: Some(images.add(image_of(&tabletop::medallion(512)))),
-            alpha_mode: AlphaMode::Blend,
-            unlit: true,
-            depth_bias: sort_bias(MEDALLION_LIFT),
-            ..default()
-        })),
-        Transform::from_xyz(0.0, TABLE_Y + MEDALLION_LIFT, 0.0)
-            .with_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2)),
-    ));
+    // Nothing is spawned for the middle of the table either. The colour
+    // wheel used to be a quad here with a 512-texel medallion on it — five
+    // soft discs of the pie on two rings of worn gold — and it is five
+    // flames painted into `felt.wgsl` now, because the light a fire throws
+    // has to be *added to the cloth* to have the weave show through it, and
+    // a quad blended over the felt can only ever cover it.
+    // `baylee_client_core::firewheel` is normative.
 }
 
 /// Wraps a generated texture in an `Image` the renderer can bind.
@@ -1997,15 +1990,15 @@ pub(crate) fn image_of(texture: &tabletop::Texture) -> Image {
         TextureFormat::Rgba8UnormSrgb,
         RenderAssetUsages::RENDER_WORLD,
     );
-    // The mat and the medallion are stretched over quads much larger than
-    // they are; without a linear filter their soft edges come out as stairs.
+    // A mat is stretched over a quad much larger than the texture is;
+    // without a linear filter its soft edges come out as stairs.
     image.sampler = bevy::image::ImageSampler::linear();
     image
 }
 
 /// The colour a seat's zone is drawn in.
 ///
-/// The viewing seat is gilt, matching the medallion's rings: whatever else is
+/// The viewing seat is gilt, matching the firewheel's rings: whatever else is
 /// on the table, "mine" is the one edge a player never has to look for. The
 /// others take the colours of the pie in ring order, which makes a four-way
 /// game four distinguishable places rather than three anonymous opponents.
@@ -2064,7 +2057,7 @@ fn spawn_table_quad(
             DuelStage,
             Mesh3d(meshes.add(Rectangle::new(quad.size.x, quad.size.y))),
             MeshMaterial3d(material.clone()),
-            // Ground, glow and medallion are all scenery. Only cards are
+            // Ground and glow are both scenery. Only cards are
             // pointed at, so only cards are pickable.
             Pickable::IGNORE,
             lying_flat(slot, quad.lift),
@@ -2354,6 +2347,34 @@ fn zone_brightness(mood: Mood) -> f32 {
 /// is `zone_tests::a_standing_always_outranks_being_the_local_seat`.
 const LOCAL_LIFT: f32 = 1.10;
 
+/// What the firewheel should be burning at, packed the way the shader reads
+/// it: `(white, blue, black, red)` and `(green, up.x, up.y, spare)`.
+///
+/// The strengths come from what can make coloured mana on the **whole
+/// table** — every seat's, not this one's — because the wheel in the middle
+/// belongs to the table rather than to a chair. `up` is screen-up in table
+/// space: the local seat's own inward direction, which is one direction for
+/// all five flames and is what makes them five candles seen from one chair
+/// instead of a sun glyph.
+fn firewheel_of(
+    duel: &Duel,
+    board: &baylee_client_core::board::BoardModel,
+    layout: &TableLayout,
+) -> (Vec4, Vec4) {
+    let seats = board.pods.len().max(1);
+    let burn = duel.view.as_ref().map_or([0.0; 5], |view| {
+        baylee_client_core::firewheel::strength(crate::manasources::table_mana(view), seats)
+    });
+    let up = layout
+        .local()
+        .and_then(|slot| (-slot.center).try_normalize())
+        .unwrap_or(Vec2::Y);
+    (
+        Vec4::new(burn[0], burn[1], burn[2], burn[3]),
+        Vec4::new(burn[4], up.x, up.y, 0.0),
+    )
+}
+
 /// Cuts the slab to the table and keeps the rail lit by the turn.
 ///
 /// Two jobs in one system because they need the same three things — the
@@ -2392,7 +2413,7 @@ pub fn sync_table(
     };
 
     // Measured about the origin rather than about the extent's own centre,
-    // because the origin is where the medallion is inlaid and where the pool
+    // because the origin is where the firewheel burns and where the pool
     // is centred. For every seat count that can actually be played the ring
     // is symmetric and the two agree.
     let reach = min.abs().max(max.abs());
@@ -2419,11 +2440,19 @@ pub fn sync_table(
             Vec4::new(slot.center.x, slot.center.y, inward.x, inward.y)
         });
 
+    let (want_flames, want_tail) = firewheel_of(&duel, board, layout);
+    let up = want_tail.yz();
+
     let want = crate::feltmat::wash_of(board.step);
-    let ease = if prefs.all().reduce_motion {
-        1.0
+    // Two rates, one decision: with reduce-motion on, both arrive at once.
+    let (ease, fire_ease) = if prefs.all().reduce_motion {
+        (1.0, 1.0)
     } else {
-        1.0 - (-WASH_RATE * time.delta_secs()).exp()
+        let step = time.delta_secs();
+        (
+            1.0 - (-WASH_RATE * step).exp(),
+            1.0 - (-FIRE_RATE * step).exp(),
+        )
     };
 
     let Ok((mut slab, mut mesh, handle)) = slabs.single_mut() else {
@@ -2434,6 +2463,12 @@ pub fn sync_table(
                 cut: span,
                 shown: Vec4::ZERO,
                 source,
+                // Cut dark and let the next frame light it, like the lamp
+                // above: five flames at the pilot light is what zero means,
+                // and a table cut before a board has arrived is simply the
+                // table with its wheel banked down.
+                flames: Vec4::ZERO,
+                tail: Vec4::new(0.0, up.x, up.y, 0.0),
                 motion,
             },
             // The floor of the scene answers no clicks: a pointer on bare
@@ -2453,6 +2488,8 @@ pub fn sync_table(
                     // before anything has read the battlefield is simply the
                     // table.
                     weather: Vec4::ONE,
+                    flames: Vec4::ZERO,
+                    flames_tail: Vec4::new(0.0, up.x, up.y, 0.0),
                     span,
                     corner: tabletop::table_corner(span),
                     rail: tabletop::RAIL_WIDTH,
@@ -2472,13 +2509,24 @@ pub fn sync_table(
     // Below a step this small nothing on screen changes, so stop. A slab that
     // reached its colour and went on writing would touch a material — and so
     // a uniform upload — every frame for the rest of the game.
+    // The flames ease on their own rate, slower than the lamp: the lamp is
+    // a step changing and the wheel is a board filling up.
+    let next_flames = slab.flames + (want_flames - slab.flames) * fire_ease;
+    let next_tail = slab.tail + (want_tail - slab.tail) * fire_ease;
+    // The flicker itself runs on `globals.time` inside the shader and needs
+    // no upload at all, so a wheel that has reached its heights stops
+    // touching the material and goes on burning.
     let still = (next - slab.shown).abs().max_element() <= 1e-4
+        && (next_flames - slab.flames).abs().max_element() <= 1e-4
+        && (next_tail - slab.tail).abs().max_element() <= 1e-4
         && (slab.source - source).abs().max_element() <= 1e-4
         && (slab.motion - motion).abs() <= f32::EPSILON;
     if still && !recut {
         return;
     }
     slab.shown = next;
+    slab.flames = next_flames;
+    slab.tail = next_tail;
     slab.source = source;
     slab.motion = motion;
 
@@ -2492,6 +2540,8 @@ pub fn sync_table(
             material.params.corner = tabletop::table_corner(span);
         }
         material.params.wash = next;
+        material.params.flames = next_flames;
+        material.params.flames_tail = next_tail;
         material.params.source = source;
         material.params.motion = motion;
     }
@@ -2503,7 +2553,7 @@ pub fn sync_table(
 ///
 /// The body hangs below that plane rather than standing on it, which is the
 /// one thing that has to be got right: raise the surface by the thickness and
-/// every mat, glow, medallion and card is buried inside the table.
+/// every mat, glow and card is buried inside the table.
 fn slab_mesh(span: Vec2) -> Mesh {
     rounded_slab_mesh(
         span.x,
@@ -2568,7 +2618,13 @@ pub fn sync_zones(
         let mood = Mood::of(pod);
         let accent = seat_accent(slot);
         let size = slot.half_extent * 2.0 + Vec2::splat(ZONE_MARGIN * 2.0);
-        let params = mat_params(accent, size, mood, moving, slot.ledge_is_outer());
+        let params = mat_params(
+            accent,
+            size,
+            mood,
+            moving,
+            baylee_client_core::layout::LEDGE_IS_OUTER,
+        );
         // Two different colours, not one with a dimmer on it. The mat carries
         // the seat's colour in its own rim and nowhere else, so a tint over
         // the whole thing would put the accent on the felt as well; what the

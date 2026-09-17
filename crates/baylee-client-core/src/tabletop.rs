@@ -1,7 +1,7 @@
 //! The table's own artwork, generated rather than shipped.
 //!
-//! Everything a player sees *under* the cards — the felt, the medallion
-//! inlaid at the centre, the glow beneath a seat's zone — is computed here
+//! Everything a player sees *under* the cards — the felt, the glow beneath
+//! a seat's zone — is computed here
 //! into plain RGBA8 buffers. Three reasons it is done this way and not with
 //! image files:
 //!
@@ -198,7 +198,7 @@ pub fn table_corner(span: Vec2) -> f32 {
 /// where the game happens and falling into shadow at the rail.
 ///
 /// It is deliberately low-contrast. Everything above it — cards, zone rims,
-/// the medallion — has to stay the thing the eye lands on, and a table that
+/// the firewheel — has to stay the thing the eye lands on, and a table that
 /// competes with its own cards is a table nobody can read.
 ///
 /// This is the **reference**, not the surface: the table is drawn by
@@ -325,82 +325,6 @@ pub fn parchment(size: u32) -> Texture {
                 *channel = (*channel + lift).clamp(0.0, 1.0);
             }
             texture.put(x, y, [colour[0], colour[1], colour[2], 1.0]);
-        }
-    }
-    texture
-}
-
-/// The medallion inlaid at the centre of the table: a colour wheel of five
-/// glows on a ring of worn gold, transparent everywhere else.
-///
-/// The wheel is the one piece of ornament that is also information — it is
-/// the arrangement every player already has in their head, so it orients the
-/// table without a label on it.
-#[must_use]
-pub fn medallion(size: u32) -> Texture {
-    /// Worn gold, for the rings.
-    const GILT: [f32; 3] = [0.62, 0.50, 0.26];
-
-    let mut texture = Texture::blank(size, size);
-    let extent = size as f32;
-    for y in 0..size {
-        for x in 0..size {
-            let (u, v) = (
-                (x as f32 + 0.5) / extent * 2.0 - 1.0,
-                (y as f32 + 0.5) / extent * 2.0 - 1.0,
-            );
-            let radius = (u * u + v * v).sqrt();
-            if radius > 1.0 {
-                continue;
-            }
-
-            let mut colour = [0.0_f32; 3];
-            let mut alpha = 0.0_f32;
-
-            // Five glows, one per colour, sitting where the wheel puts them:
-            // white at the top, then clockwise. Each is a soft disc rather
-            // than a hard wedge, so neighbours bleed into one another the way
-            // the pie's allies do.
-            for (index, hue) in PIE.iter().enumerate() {
-                let at = TAU * (index as f32) / 5.0 - PI / 2.0;
-                let (cx, cy) = (at.cos() * 0.62, at.sin() * 0.62);
-                let distance = ((u - cx).powi(2) + (v - cy).powi(2)).sqrt();
-                let glow = (1.0 - (distance / 0.42)).clamp(0.0, 1.0).powf(2.2);
-                colour = mix(colour, *hue, glow.min(1.0));
-                // Dimmed from 0.55: the wheel is orientation, and it was
-                // competing with the cards for the eye.
-                alpha = alpha.max(glow * 0.35);
-            }
-
-            // Two gilt rings: one around the wheel, one inside it. `ring`
-            // peaks on the line and falls away fast on both sides.
-            for (at, width, strength) in [(0.94_f32, 0.030_f32, 0.85_f32), (0.30, 0.018, 0.55)] {
-                let ring = (1.0 - ((radius - at).abs() / width)).clamp(0.0, 1.0);
-                let ring = ring * ring * strength;
-                colour = mix(colour, GILT, ring);
-                alpha = alpha.max(ring);
-            }
-
-            // A faint pool inside the inner ring, so the middle of the table
-            // is not a hole.
-            let pool = (1.0 - radius / 0.30).clamp(0.0, 1.0).powf(1.5) * 0.18;
-            alpha = alpha.max(pool);
-
-            // Age: the gilt is not evenly bright anywhere.
-            let tarnish = fbm(u * 6.0, v * 6.0, 0x2b41, 3);
-            let fade = 0.75 + tarnish * 0.45;
-            texture.put(
-                x,
-                y,
-                [
-                    colour[0] * fade,
-                    colour[1] * fade,
-                    colour[2] * fade,
-                    // Halved: the wheel is the room's lighting, not
-                    // its subject.
-                    alpha * fade.min(1.0) * 0.55,
-                ],
-            );
         }
     }
     texture
@@ -566,9 +490,8 @@ pub const MARGIN_FRAC: f32 = MAT_MARGIN / MAT_DRAWN_DEPTH;
 /// How much of the drawn mat the shelf takes, as a fraction.
 ///
 /// Which end it takes it from is
-/// [`SeatSlot::ledge_is_outer`](crate::layout::SeatSlot::ledge_is_outer)'s
-/// to say, and the three lanes fill what is left from the centre-facing
-/// edge outwards either way.
+/// [`LEDGE_IS_OUTER`](crate::layout::LEDGE_IS_OUTER)'s to say, and the three
+/// lanes fill what is left from the centre-facing edge outwards either way.
 ///
 /// The border at the shelf's own end is part of it. The two are contiguous,
 /// nothing stands on either, and the alternative is a stripe of creature
@@ -1165,7 +1088,7 @@ pub fn hearth(size: u32, inner: f32, outer: f32) -> Texture {
 /// than a highlighted row ever does.
 ///
 /// Three rules keep it from becoming noise. It washes the **light pool**
-/// only, never the felt (too much of the screen) and never the medallion —
+/// only, never the felt (too much of the screen) and never the firewheel —
 /// that is the colour wheel, and a wheel with a red cast over it would be
 /// lying about colour identity, which is the one thing on the table that has
 /// to stay literally true. It is desaturated: these are lamps, not filters.
@@ -1838,7 +1761,6 @@ mod tests {
         // these, and a grain that moved would be the first thing anyone
         // noticed.
         assert_eq!(felt(64).rgba, felt(64).rgba);
-        assert_eq!(medallion(64).rgba, medallion(64).rgba);
         assert_eq!(glow(32).rgba, glow(32).rgba);
     }
 
@@ -1879,72 +1801,6 @@ mod tests {
             middle > corner * 1.5,
             "the middle of the table should be the lit part: {middle} vs {corner}"
         );
-    }
-
-    #[test]
-    fn the_medallion_is_a_disc_and_leaves_the_rest_of_the_table_alone() {
-        let disc = medallion(128);
-        // Outside the inscribed circle nothing is drawn at all, so the felt
-        // shows through the corners of the quad it is mapped onto.
-        assert!(disc.pixel(0, 0)[3] < 1e-6, "the top-left corner is clear");
-        assert!(
-            disc.pixel(127, 0)[3] < 1e-6,
-            "the top-right corner is clear"
-        );
-        assert!(
-            disc.pixel(0, 127)[3] < 1e-6,
-            "the bottom-left corner is clear"
-        );
-        assert!(
-            disc.pixel(127, 127)[3] < 1e-6,
-            "the bottom-right corner is clear"
-        );
-        // And the outer gilt ring is genuinely there. Scanned rather than
-        // sampled at a guessed pixel: the ring is a few pixels wide and where
-        // exactly it lands is the renderer's business, not the test's.
-        let rim = (0..24)
-            .map(|y| disc.pixel(64, y)[3])
-            .fold(0.0_f32, f32::max);
-        assert!(rim > 0.2, "the medallion has a rim to sit in, not {rim}");
-        assert!(
-            rim < 0.55,
-            "and the rim is atmosphere, not the subject of the table: {rim}"
-        );
-    }
-
-    #[test]
-    fn the_wheel_carries_all_five_colours() {
-        let disc = medallion(256);
-        // Each colour should dominate somewhere on the wheel: sample the ring
-        // the glows sit on, at the angle each one was placed.
-        for (index, hue) in PIE.iter().enumerate() {
-            let at = TAU * (index as f32) / 5.0 - PI / 2.0;
-            #[expect(clippy::cast_possible_truncation, reason = "inside a 256px image")]
-            let x = (128.0 + at.cos() * 0.62 * 128.0) as u32;
-            #[expect(clippy::cast_possible_truncation, reason = "inside a 256px image")]
-            let y = (128.0 + at.sin() * 0.62 * 128.0) as u32;
-            let px = disc.pixel(x, y);
-            let brightest = hue
-                .iter()
-                .enumerate()
-                .max_by(|a, b| a.1.total_cmp(b.1))
-                .map(|(c, _)| c)
-                .unwrap_or_default();
-            let drawn = px[..3]
-                .iter()
-                .enumerate()
-                .max_by(|a, b| a.1.total_cmp(b.1))
-                .map(|(c, _)| c)
-                .unwrap_or_default();
-            // A low floor: the wheel was dimmed deliberately (see the glow's
-            // 0.35), and what this asserts is that each colour is *drawn* —
-            // how loudly is §1.1's business, not this test's.
-            assert!(px[3] > 0.1, "colour {index} is on the wheel");
-            assert_eq!(
-                drawn, brightest,
-                "colour {index} came out with the wrong channel on top"
-            );
-        }
     }
 
     /// A seat colour with all three channels far apart, so a test can tell

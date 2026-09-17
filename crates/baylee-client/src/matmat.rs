@@ -58,7 +58,7 @@ pub struct MatParams {
     pub motion: f32,
     /// 1 when this seat's shelf is on the mat's outer edge, 0 when it is on
     /// the centre-facing one:
-    /// [`SeatSlot::ledge_is_outer`](baylee_client_core::layout::SeatSlot::ledge_is_outer).
+    /// [`LEDGE_IS_OUTER`](baylee_client_core::layout::LEDGE_IS_OUTER).
     ///
     /// A flag rather than a flipped uv, because only the shelf changes ends.
     /// The lanes run from the centre-facing edge outwards at every seat —

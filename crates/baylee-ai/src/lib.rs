@@ -576,6 +576,8 @@ mod tests {
             keywords: 0,
             power: Some(power),
             toughness: Some(power),
+            base_power: None,
+            base_toughness: None,
             loyalty: None,
             damage: 0,
             counters: vec![],
@@ -595,6 +597,8 @@ mod tests {
             types: TypeSet::PLANESWALKER,
             power: None,
             toughness: None,
+            base_power: None,
+            base_toughness: None,
             loyalty: Some(loyalty),
             counters: vec![CounterEntry {
                 kind: CounterKind::Loyalty,

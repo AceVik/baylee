@@ -416,6 +416,8 @@ mod running {
                 source: Vec4::new(0.0, -1.0, 0.0, 1.0),
                 ambient: Vec4::new(1.0, 1.0, 1.0, 0.0),
                 weather: Vec4::ONE,
+                flames: Vec4::ZERO,
+                flames_tail: Vec4::new(0.0, 0.0, 1.0, 0.0),
                 span: Vec2::new(24.0, 18.0),
                 corner: 2.0,
                 rail: 0.55,

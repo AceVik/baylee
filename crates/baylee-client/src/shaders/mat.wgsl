@@ -44,7 +44,7 @@ struct MatParams {
     /// two values the cards, the felt and the sky use.
     motion: f32,
     /// 1 when this seat's shelf is on the mat's *outer* edge, 0 when it is on
-    /// the centre-facing one: `SeatSlot::ledge_is_outer`.
+    /// the centre-facing one: `layout::LEDGE_IS_OUTER`.
     ///
     /// A seat drawn across the table has its board upside-down from here, so
     /// its shelf goes at the far end of the mat and its bar is still above

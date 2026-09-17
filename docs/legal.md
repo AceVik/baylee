@@ -9,10 +9,10 @@ Urheber- und Medienrecht.
 2. **WotC Fan Content Policy:** the service is and stays completely free
    (no paywall, no paid features); clients show "unofficial fan content,
    not affiliated with Wizards of the Coast"; no WotC logos, no
-   "Magic: The Gathering" in branding; mana symbols drawn by the client
-   itself (coloured pips, `crates/baylee-client/src/face.rs`) or, if a font
-   is ever wanted, the open-licensed `mana` font (SIL OFL) — never WotC
-   assets. The same rule reaches everything the table is made of: the felt,
+   "Magic: The Gathering" in branding; no WotC asset is shipped or fetched
+   except a card image under clause 3, and the symbols a client draws are
+   clause 2a's subject rather than this one's.
+   The same rule reaches everything the table is made of: the felt,
    the seat mats, the lobby's backdrop, the sky and **the weather over the
    table** are all computed rather than shipped
    (`crates/baylee-client/src/shaders/atmosphere.wgsl`). The weather is the
@@ -20,6 +20,85 @@ Urheber- und Medienrecht.
    light are exactly the three things a renderer normally reaches for a
    downloaded sprite sheet to draw — so there is no `textures/` directory to
    audit, in the same way clause 5 leaves no `sounds/` one.
+2a. **The symbols, and the one clause this project does not satisfy.**
+   This used to read "mana symbols drawn by the client itself, or the
+   open-licensed `mana` font — never WotC assets", and that sentence was
+   wrong twice over. It was wrong about the code, because the client stopped
+   drawing its own pips: `baylee_client_core::manapip` picks a glyph out of
+   the Mana font and `crates/baylee-client/src/face.rs` only paints the disc
+   under it. And it was wrong about the law, because an open licence on a
+   typeface answers a different question than the one asked. Andrew Gioia
+   licenses the Mana font under the SIL OFL 1.1 — confirmed in the upstream
+   README, in the font's own `name` table (family `Mana`, v1.18,
+   `license = SIL OFL 1.1`, designer Andrew Gioia), and by the bundled file
+   being byte-identical to upstream's, so the Reserved Font Name clause is
+   met. The same README says "All mana, tap, and card type symbol images are
+   copyright Wizards of the Coast", and a licence cannot grant what its
+   author does not hold. The OFL covers Gioia's *drawing* of the symbol; the
+   symbol is Wizards'.
+
+   Wizards are specific about which symbols. The Fan Content Policy's FAQ
+   carries a table headed "a list of Wizards' most frequently asked about
+   trademarks and logos that you may not include in your Fan Content", and
+   the table is images rather than words, which is why reading the page
+   rather than remembering it matters: beside the Magic, Arena and D&D
+   logos it holds `MTG_PWSymbol.png` (the planeswalker symbol),
+   `Mana_Symbols.png` and `guild_symbols.png`. The mana symbols are on the
+   do-not-use list, by name, in the very policy this project claims to
+   follow.
+
+   So the honest statement is three tiers, not one rule:
+
+   - **Named on that list — not used.** The planeswalker symbol, the guild
+     and clan and family and school watermarks, any Magic or Arena logo.
+     The Mana font draws all of them (499 mapped codepoints, far more than
+     mana), which makes "it is in the font we already ship" the exact
+     argument that must not be allowed to decide anything.
+   - **Mana symbols and the tap symbol — used anyway, deliberately.** A
+     client that cannot print `{T}: Add {G}` cannot show a player their own
+     game. There *is* a lawful synonym — a coloured disc with a letter on it,
+     which is nobody's mark, and which this client drew for a while — and the
+     printed symbol is used instead, knowing that. The reason is that a mana
+     cost is read at a glance and in a row, and the pictographs are what a
+     player has been reading for thirty years; a rail of letters is a
+     translation the reader has to perform. Every free tool in this space
+     renders them (Scryfall, Moxfield, Archidekt, Forge, Cockatrice), and no
+     such tool is known to have been asked to stop.
+     This is therefore **tolerated, not permitted**, and the policy reserves
+     the right "to stop or restrict your use of Wizards' IP at any time —
+     for any reason or no reason". Under German law the descriptive-use
+     carve-out (§ 23 MarkenG) is the argument a Fachanwalt would weigh; the
+     preamble above already says that call is not made here.
+   - **Everything else in the font — the same footing as the card text.**
+     The Arena ability icons (flying, haste, hexproof, …), the card-type
+     symbols, loyalty, saga, the counter marks: Wizards' graphics, and
+     *not* on the trademark list. The policy permits Wizards' art and
+     graphics in free fan content, which is the footing card names, oracle
+     text and Scryfall's card images already stand on here. Using them in
+     place of icons drawn for the purpose changes nothing categorically —
+     it is one more thing on the pile clause 2 keeps free and unbranded.
+
+   Two mechanical consequences for whoever writes the next glyph. A new
+   codepoint is checked against that table **before** it is used, and the
+   check is reading the policy page, not recalling it. And the glyph
+   constants stay behind one door per purpose — `manapip::glyph` for the mana
+   symbols, `cardrail::MARK_GLYPHS` for the keyword rail's twelve marks,
+   `cardcrest::GLYPHS` for the three the identity column wears — because a
+   scattered `'\u{e6xx}'` is a decision nobody can audit later. All three
+   doors are in `baylee-client-core`, which draws nothing, so the set in use
+   can be read without opening a renderer, and each door's doc comment
+   carries the date its codepoints were held against the table.
+
+   The third door was opened on 17.09.2026 and is the worked example of the
+   rule. Three codepoints — `ms-commander` (E9C6), `ms-token` (E96D),
+   `ms-ability-copy` (EA60) — read off the page rather than off memory: the
+   table still holds fifteen images and none of the three is among them. The
+   argument is *not* that the font's own stylesheet files `ms-commander`
+   beside the card types; what that glyph draws is the Commander format
+   symbol, and what clears it is the third tier — an expansion symbol on the
+   same footing as the card images Scryfall already serves here. The
+   planeswalker symbol at E623 is named on the table and is used nowhere.
+
 3. **Scryfall:** honor rate limits (≤ 10 req/s), cache card images
    (encouraged by their terms), "data and images provided by Scryfall"
    attribution in clients. No card images are committed to the repo — and

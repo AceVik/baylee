@@ -264,10 +264,6 @@ const PLATE: vec3<f32> = vec3<f32>(0.045, 0.052, 0.062);
 /// The ink every mark is drawn in, before its own colour is mixed into it.
 const INK: vec3<f32> = vec3<f32>(0.94, 0.96, 0.99);
 
-fn sd_circle(p: vec2<f32>, r: f32) -> f32 {
-    return length(p) - r;
-}
-
 fn sd_box(p: vec2<f32>, b: vec2<f32>) -> f32 {
     let q = abs(p) - b;
     return length(max(q, vec2<f32>(0.0))) + min(max(q.x, q.y), 0.0);
@@ -277,38 +273,21 @@ fn sd_round_box(p: vec2<f32>, b: vec2<f32>, r: f32) -> f32 {
     return sd_box(p, b - vec2<f32>(r)) - r;
 }
 
-/// Distance to a line segment. Every stroke in every mark is one of these,
-/// which is what gives twelve pictograms one stroke width.
-fn sd_segment(p: vec2<f32>, a: vec2<f32>, b: vec2<f32>) -> f32 {
-    let pa = p - a;
-    let ba = b - a;
-    let h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0);
-    return length(pa - ba * h);
-}
-
-/// A filled triangle, as the outermost of its three edge half-planes.
-///
-/// Not the vertex-exact form: this one is exact along the edges and slightly
-/// conservative near the corners, which at eight pixels tall is a difference
-/// nobody can see and a dozen instructions nobody has to run.
-fn sd_tri(p: vec2<f32>, a: vec2<f32>, b: vec2<f32>, c: vec2<f32>) -> f32 {
-    let ab = b - a;
-    let bc = c - b;
-    let ca = a - c;
-    let da = dot(p - a, normalize(vec2<f32>(ab.y, -ab.x)));
-    let db = dot(p - b, normalize(vec2<f32>(bc.y, -bc.x)));
-    let dc = dot(p - c, normalize(vec2<f32>(ca.y, -ca.x)));
-    return max(da, max(db, dc));
-}
-
 // ---- the twelve marks
 //
-// Cell coordinates run -0.5..0.5 with **y downward**, the way the card's UV
-// does. Every stroke is 0.055 wide so the row reads as one alphabet rather
-// than twelve drawings, and nothing reaches past 0.48 from the centre —
-// `mark_layer` guillotines a mark at its own slot rather than letting it
-// crowd the neighbour, so a shape that grew past 0.5 would be cut off flat
-// rather than collide with anything.
+// Each one is a glyph of the Mana font, baked to a signed distance field at
+// startup by `markatlas.rs` and sampled out of one atlas row. They used to be
+// twelve procedural drawings here — a chevron, a shield, an eye — and the
+// argument for replacing them is not that they were bad: it is that a player
+// arriving at this table has already learned Magic's own ability icons
+// somewhere else, and no drawing of ours can be the picture they already
+// know. `docs/legal.md` §2a is where the licence and the trademark that come
+// with that are kept apart.
+//
+// Cell coordinates still run -0.5..0.5 with **y downward**, the way the
+// card's UV does, and a mark still reaches no further than its own slot:
+// `mark_layer` guillotines at the slot, and the sampler clamps inside the
+// cell so a mark can never fetch its neighbour's texels.
 //
 // # What a motion has to be, at ten pixels
 //
@@ -317,13 +296,13 @@ fn sd_tri(p: vec2<f32>, a: vec2<f32>, b: vec2<f32>, c: vec2<f32>) -> f32 {
 // That number is the whole of this design, and it was arrived at by
 // photographing a table rather than by reading this file.
 //
-// The rail shipped with nine marks carrying a `sin(ph)` term of 0.012 to
+// The rail once shipped with nine marks carrying a `sin(ph)` term of 0.012 to
 // 0.03 cell units: between an eighth and a third of a pixel. Measured live,
 // with the clock walked by `/step` and each cell photographed, a mark that
 // ignores `ph` altogether swings 20 levels out of 255 — the
-// `0.90 + 0.10 * sin(phase)` ink pulse, alone — and menace's 0.12-pixel sway
-// swings 23. Three levels is what a third of a pixel buys. Vigilance, which
-// changes *shape*, swings 147. Prowess, which travels 1.7 pixels, swings 89.
+// `0.90 + 0.10 * sin(phase)` ink pulse, alone — and a 0.12-pixel sway swung
+// 23. Three levels is what a third of a pixel buys. The eye that changed
+// *shape* swung 147, and a pip that travelled 1.7 pixels swung 89.
 //
 // The mechanism is in the antialiasing. `e = max(aa / slot, 0.02)`, and
 // `fwidth(p.x)` is 0.0116 width units on an 86-pixel card, so the ink ramp
@@ -333,13 +312,14 @@ fn sd_tri(p: vec2<f32>, a: vec2<f32>, b: vec2<f32>, c: vec2<f32>) -> f32 {
 // second brightness pulse in the one channel the ink pulse already owns.
 //
 // So **rest is the row's state and motion is an event**, and an event has to
-// turn pixels over — a hole closing, a gap widening, an angle changing — by
-// about a stroke's width, which is vigilance's magnitude and roughly a third
-// of the mark's own extent. Whole-glyph translation is one verb, and every
-// mark that used it said the same thing; shape is many verbs, which is why
-// flying flaps, reach climbs, menace looms and trample opens the ground
-// under itself. Translation is kept for the two strikes, where a thrust is
-// the meaning.
+// turn pixels over by about a stroke's width. A sampled glyph cannot change
+// shape, so the twelve verbs the drawings had — a flap, a blink, a ground
+// opening — are gone with them, and what is left is the one whole-glyph verb
+// that still turns pixels over: **scale**. A mark growing a fifth moves its
+// whole silhouette outward by a tenth of a cell, a pixel on every side at
+// once, which is the eye's old magnitude spent in a different place. Whole-
+// glyph *translation* is not on this list and must not come back: it was
+// measured at three levels out of 255 and it is invisible.
 //
 // # And rarely
 //
@@ -349,12 +329,10 @@ fn sd_tri(p: vec2<f32>, a: vec2<f32>, b: vec2<f32>, c: vec2<f32>) -> f32 {
 // wraps every `1 / (BEAT * K)` seconds, which is 0.8696 / K and not the
 // 5.464 / K it would be if the term were a `sin`. Reading it as a `sin`
 // makes every period on this list a factor of tau too slow, and that is the
-// mistake this paragraph exists to stop. The calibration standard is
-// vigilance: `fract(ph * 0.06)` wraps every 14.5 seconds and the eye closes
-// over the last 0.06 of that, 0.87 seconds. Photographed: 0.87.
+// mistake this paragraph exists to stop.
 //
-// The rates are chosen so that no two are simple multiples, or the row would
-// phase-lock into a ripple running down it:
+// The rates are the ones the drawings were measured on, kept because the
+// measurement was of the *rarity* and not of the shape:
 //
 //     haste     0.0896   9.7 s      reach        0.0521  16.7 s
 //     trample   0.0731  11.9 s      deathtouch   0.0458  19.0 s
@@ -362,9 +340,26 @@ fn sd_tri(p: vec2<f32>, a: vec2<f32>, b: vec2<f32>, c: vec2<f32>) -> f32 {
 //     vigilance 0.0600  14.5 s      menace       0.0361  24.1 s
 //
 // with lifelink alone left on the beat, because a heart is the one keyword
-// whose meaning *is* a period. An event lasts one to two seconds, so a mark
-// is still for nine tenths of its life and a full rail of eleven has, on
-// average, nine tenths of one mark moving.
+// whose meaning *is* a period, and prowess on its own slow `sin` because a
+// bonus with a deadline is the one claim that is about *this turn*. An event
+// lasts one to two seconds, so a mark is still for nine tenths of its life
+// and a full rail of eleven has, on average, nine tenths of one mark moving.
+
+/// One mark's square in the atlas, in texels. `markatlas::CELL`.
+const MARK_CELL: f32 = 96.0;
+
+/// How far either side of the outline a *mark* cell encodes, in cell units.
+/// `markatlas::RANGE`. The corner's text cells carry their own, shorter one.
+const MARK_RANGE: f32 = 0.25;
+
+/// How many cells the atlas holds altogether. `markatlas::CELLS`.
+///
+/// One row and one texture: the rail's twelve marks, then the corner's
+/// fifteen characters. Only the bake rule and the encoded range differ
+/// between the two halves, and both of those are settled before a texel is
+/// written — so a second texture would be two more bindings in two
+/// materials for nothing.
+const ATLAS_CELLS: u32 = 30u;
 
 /// The envelope every impulse on the rail shares: up over `a`, held until
 /// `h`, down over `r`, and flat zero through the rest of the period — which
@@ -372,26 +367,6 @@ fn sd_tri(p: vec2<f32>, a: vec2<f32>, b: vec2<f32>, c: vec2<f32>) -> f32 {
 /// numbers at each call site are read against the table above.
 fn mark_event(f: f32, a: f32, h: f32, r: f32) -> f32 {
     return smoothstep(0.0, a, f) - smoothstep(h, h + r, f);
-}
-
-/// Flying: a chevron that flaps, over ground it no longer touches.
-///
-/// The flap is a compression toward the chevron's own apex and not a lift:
-/// at ten pixels a lift moves the whole glyph, which says nothing reach's
-/// climb does not already say, while a chevron folding to half its height is
-/// a wing. Three beats of it, then twenty-five seconds of glide.
-fn mark_flying(p: vec2<f32>, ph: f32) -> f32 {
-    let ev = mark_event(fract(ph * 0.0664), 0.0115, 0.0878, 0.0267);
-    // Fast enough for three strokes inside the event, which is a bird and
-    // not a twitch; the envelope is what makes it rare.
-    let flap = 0.5 * pow(0.5 + 0.5 * sin(ph * 11.0), 2.0) * ev;
-    let q = vec2<f32>(p.x, (p.y + 0.20) / (1.0 - flap) - 0.20);
-    let wing = min(
-        sd_segment(q, vec2<f32>(-0.30, 0.02), vec2<f32>(0.0, -0.20)),
-        sd_segment(q, vec2<f32>(0.0, -0.20), vec2<f32>(0.30, 0.02)),
-    ) - 0.055;
-    let ground = sd_segment(p, vec2<f32>(-0.17, 0.30), vec2<f32>(0.17, 0.30)) - 0.030;
-    return min(wing, ground);
 }
 
 /// The two strikes share a clock: one beat in four, landing a tenth of a
@@ -407,280 +382,107 @@ fn strike_clock(ph: f32) -> f32 {
     return fract(ph * 0.03979 - 0.0375);
 }
 
-/// First strike: one blade, swung — the flash that arrives before the others.
+/// How big a mark is drawn, as a multiple of its resting size.
 ///
-/// The blade turns 0.41 radians about its own guard, from 15 degrees off
-/// vertical to 39: the drawn tip travels 0.12 of a cell, 1.2 pixels, and the
-/// hilt travels the other way. Written with a real `sin`/`cos` pair because
-/// the small-angle form is 8% out at this angle, which is a pixel of the 1.2.
-fn mark_first_strike(p: vec2<f32>, ph: f32) -> f32 {
-    let hit = mark_event(strike_clock(ph), 0.005, 0.055, 0.030);
-    let a = 0.41 * hit;
-    let c = cos(a);
-    let s = sin(a);
-    // About (0, -0.01), which is where the guard crosses the blade.
-    let q = p + vec2<f32>(0.0, 0.01);
-    let r = vec2<f32>(q.x * c + q.y * s, -q.x * s + q.y * c) - vec2<f32>(0.0, 0.01);
-    let blade = sd_segment(r, vec2<f32>(-0.06, 0.30), vec2<f32>(0.10, -0.28)) - 0.052;
-    let guard = sd_segment(p, vec2<f32>(-0.20, 0.02), vec2<f32>(0.20, -0.04)) - 0.032;
-    return min(blade, guard);
-}
-
-/// Double strike: the same blade twice, thrust one after the other.
+/// One verb, twelve readings of it. The amplitudes are the same everywhere
+/// but the strikes, because a rail whose marks swelled by different amounts
+/// would be saying something about their importance; what differs is the
+/// *envelope* — how sharply a mark arrives at its size and how long it holds
+/// there — which is the difference between a blow, a breath and a heartbeat.
 ///
-/// Each blade lunges 0.14 of a cell along its own axis, the second a third of
-/// a second behind the first, so what the eye is given is the *gap* between
-/// their tips opening and closing — one, two.
-///
-/// It is the weakest motion on the row and knowingly so: a stroke sliding
-/// along itself turns over pixels only at its ends, and it measures 0.47
-/// against vigilance's 0.67 in the offline cell model. The glyph already
-/// says "two" by being two, so this is honest redundancy; if the rail ever
-/// reads as busy, this is the first thing to take out after defender, which
-/// was never put in.
-fn mark_double_strike(p: vec2<f32>, ph: f32) -> f32 {
-    let f = strike_clock(ph);
-    let h1 = mark_event(f, 0.005, 0.016, 0.008);
-    let h2 = mark_event(f, 0.028, 0.039, 0.030);
-    let ra = p - vec2<f32>(0.266, -0.964) * 0.14 * h1;
-    let rb = p - vec2<f32>(0.266, -0.964) * 0.14 * h2;
-    let a = sd_segment(ra, vec2<f32>(-0.20, 0.30), vec2<f32>(-0.04, -0.28)) - 0.045;
-    let b = sd_segment(rb, vec2<f32>(0.04, 0.30), vec2<f32>(0.20, -0.28)) - 0.045;
-    return min(a, b);
-}
-
-/// Deathtouch: a drop of something that only has to land once — gathering,
-/// and then gone.
-///
-/// Two seconds of swelling to 1.28, a tenth of a second snapping to 0.80,
-/// and a slow return: the bulb goes from 4.2 pixels across to 5.4 and then
-/// to 3.4, which is the event. The drop is the *snap*, not a fall — a drop
-/// that fell out of the cell would be guillotined at the boundary and leave
-/// a stub of its own tip behind, which is not a drop landing, it is a
-/// drawing being cut in half.
-///
-/// The honest objection, worth leaving written down: deathtouch is a
-/// property and not an event. Nothing happens to a poisoned blade over time.
-/// The drip is idiom, and it is the third mark that should go still if the
-/// row ever needs quieting.
-fn mark_deathtouch(p: vec2<f32>, ph: f32) -> f32 {
-    let f = fract(ph * 0.0458 + 0.37);
-    let gather = smoothstep(0.0, 0.100, f) - smoothstep(0.118, 0.150, f);
-    let plip = smoothstep(0.100, 0.105, f) - smoothstep(0.112, 0.145, f);
-    let swell = 1.0 + 0.28 * gather - 0.48 * plip;
-    let q = p / swell;
-    let bulb = sd_circle(q - vec2<f32>(0.0, 0.11), 0.21);
-    let tip = sd_tri(
-        q,
-        vec2<f32>(0.0, -0.32),
-        vec2<f32>(0.19, 0.16),
-        vec2<f32>(-0.19, 0.16),
-    );
-    return min(bulb, tip) * swell;
-}
-
-/// Haste: a head with the trail it has already left behind, surging.
-///
-/// The cell is stretched in x about the tails of the trail, so the head
-/// travels 1.2 pixels forward *and* draws as an ellipse while it does —
-/// which is what a thing moving too fast to photograph looks like — and the
-/// three trails lengthen by a fifth behind it. It fires more often than
-/// anything else on the rail, at ten seconds, because haste is the impatient
-/// keyword and that is the one place the rate carries meaning.
-fn mark_haste(p: vec2<f32>, ph: f32) -> f32 {
-    let ev = mark_event(fract(ph * 0.0896 + 0.11), 0.0206, 0.0772, 0.0257);
-    let q = vec2<f32>(-0.32 + (p.x + 0.32) / (1.0 + 0.22 * ev), p.y);
-    let head = sd_circle(q - vec2<f32>(0.16, 0.0), 0.115);
-    let t1 = sd_segment(q, vec2<f32>(-0.30, -0.13), vec2<f32>(0.04, -0.10)) - 0.036;
-    let t2 = sd_segment(q, vec2<f32>(-0.34, 0.02), vec2<f32>(0.02, 0.0)) - 0.036;
-    let t3 = sd_segment(q, vec2<f32>(-0.26, 0.16), vec2<f32>(0.04, 0.11)) - 0.036;
-    return min(head, min(t1, min(t2, t3)));
-}
-
-/// Lifelink: a heart, on a beat that thumps and rests.
-///
-/// The one mark left on `BEAT` itself, and the only one that should be: a
-/// heart is the keyword whose meaning *is* a period, and it is the reference
-/// the strikes are early against. The thump is +0.30 rather than the +0.09
-/// it shipped with, a pixel of travel per side instead of a seventh of one.
-///
-/// The objection, which motion does not answer: this heart is six pixels
-/// across with three-pixel lobes and it struggles to read as a heart while
-/// standing still. If it needs help it needs bigger geometry, not a bigger
-/// thump.
-fn mark_lifelink(p: vec2<f32>, ph: f32) -> f32 {
-    let beat = pow(0.5 + 0.5 * sin(ph), 6.0);
-    let s = 1.0 + 0.30 * beat;
-    let q = p / s;
-    let l = sd_circle(q - vec2<f32>(-0.14, -0.07), 0.16);
-    let r = sd_circle(q - vec2<f32>(0.14, -0.07), 0.16);
-    let v = sd_tri(
-        q,
-        vec2<f32>(0.0, 0.32),
-        vec2<f32>(-0.29, -0.06),
-        vec2<f32>(0.29, -0.06),
-    );
-    // Back into the cell's own units, the way deathtouch and menace do it.
-    // At the +0.09 this shipped with, leaving it out cost 9% of the edge
-    // ramp and nobody could have seen it; at +0.30 it is a third of the
-    // antialiasing width, which is a soft heart on every thump.
-    return min(min(l, r), v) * s;
-}
-
-/// Menace: two rings, because one of them is never enough — looming.
-///
-/// Both rings grow 28% about the origin over a second and a half, hold, and
-/// ease back: the pair's outer edge goes from 0.34 of a cell to 0.435, a
-/// pixel of travel on each side.
-///
-/// It looms rather than narrowing, and that is a decision about *vigilance*.
-/// Menace and vigilance are the two eyes on this rail, and any narrowing of
-/// these rings borrows the eye's mechanism onto a two-eyed glyph — two
-/// keywords blurred into one verb. Looming is menace's own. It does collide
-/// mildly with deathtouch's gather, two slow swells on one row; the drip's
-/// snap and hollow-against-solid keep them apart, and that is the weakest
-/// separation on the rail. If loom cannot be told from gather at ten pixels,
-/// menace is the one that goes still.
-fn mark_menace(p: vec2<f32>, ph: f32) -> f32 {
-    let ev = mark_event(fract(ph * 0.0361 + 0.63), 0.0332, 0.0623, 0.0228);
-    let s = 1.0 + 0.28 * ev;
-    let q = p / s;
-    let l = abs(sd_circle(q - vec2<f32>(-0.12, 0.0), 0.17)) - 0.050;
-    let r = abs(sd_circle(q - vec2<f32>(0.12, 0.0), 0.17)) - 0.050;
-    return min(l, r) * s;
-}
-
-/// Reach: the same chevron flying wears, on a stem that never leaves the
-/// ground — it does not fly, it climbs.
-///
-/// The head rises 0.12 of a cell, 1.2 pixels, **and the stem's top endpoint
-/// rises with it**, or the chevron detaches and floats away from its own
-/// pole. The foot stays where it is, which is the difference from flying:
-/// one of them leaves the ground and the other is still standing on it.
-fn mark_reach(p: vec2<f32>, ph: f32) -> f32 {
-    let ev = mark_event(fract(ph * 0.0521 + 0.79), 0.0210, 0.0779, 0.0240);
-    let climb = 0.12 * ev;
-    let head = min(
-        sd_segment(p, vec2<f32>(-0.22, -0.04 - climb), vec2<f32>(0.0, -0.26 - climb)),
-        sd_segment(p, vec2<f32>(0.0, -0.26 - climb), vec2<f32>(0.22, -0.04 - climb)),
-    ) - 0.052;
-    let stem = sd_segment(p, vec2<f32>(0.0, -0.20 - climb), vec2<f32>(0.0, 0.24)) - 0.050;
-    let foot = sd_segment(p, vec2<f32>(-0.16, 0.28), vec2<f32>(0.16, 0.28)) - 0.030;
-    return min(head, min(stem, foot));
-}
-
-/// Trample: a wedge coming down on ground that gives way under it.
-///
-/// The wedge drops 0.10 of a cell until its point kisses the ground line —
-/// and the ground's two inner ends retreat from it, the gap opening from 1.8
-/// pixels to 3.4. The drop on its own is a one-pixel jolt of a whole glyph;
-/// the gap widening is the part that turns pixels over, and it is the only
-/// place on the rail where a mark's two halves answer each other.
-fn mark_trample(p: vec2<f32>, ph: f32) -> f32 {
-    let ev = mark_event(fract(ph * 0.0731 + 0.47), 0.0101, 0.0857, 0.0294);
-    let stomp = 0.10 * ev;
-    let gap = 0.09 + 0.08 * ev;
-    let wedge = sd_tri(
-        p - vec2<f32>(0.0, stomp),
-        vec2<f32>(0.0, 0.16),
-        vec2<f32>(-0.26, -0.24),
-        vec2<f32>(0.26, -0.24),
-    );
-    let l = sd_segment(p, vec2<f32>(-0.30, 0.30), vec2<f32>(-gap, 0.30)) - 0.032;
-    let r = sd_segment(p, vec2<f32>(gap, 0.30), vec2<f32>(0.30, 0.30)) - 0.032;
-    return min(wedge, min(l, r));
-}
-
-/// Vigilance: an open eye, which blinks rarely and briefly.
-///
-/// Untouched, and the standard every rate and amplitude above is measured
-/// against — it was the one motion on this rail a player ever reported
-/// seeing. The numbers, because they are easy to misread: `fract(ph * 0.06)`
-/// wraps every `1 / (BEAT * 0.06)` = **14.5 s**, the lid falls from f = 0.94
-/// to the wrap, which is 0.06 of the period or **0.87 s**, and the eye snaps
-/// open at the wrap rather than easing. Photographed live at 0.87 s, with a
-/// per-pixel swing of 147 levels out of 255 against a floor of 20.
-fn mark_vigilance(p: vec2<f32>, ph: f32) -> f32 {
-    let blink = smoothstep(0.94, 0.99, fract(ph * 0.06));
-    let open = 1.0 - 0.85 * blink;
-    let q = vec2<f32>(p.x, p.y / max(open, 0.08));
-    let lens = max(
-        sd_circle(q - vec2<f32>(0.0, 0.46), 0.62),
-        sd_circle(q - vec2<f32>(0.0, -0.46), 0.62),
-    );
-    let ring = abs(lens) - 0.048;
-    let pupil = sd_circle(q, 0.10);
-    return min(ring, pupil);
-}
-
-/// Defender: a shield, and the only mark that does not move.
-///
-/// STILL: a shield has one verb available to it at ten pixels — thickening —
-/// and a one-pixel wall going to two is the mark going *bold*, which is
-/// indistinguishable from the `0.90 + 0.10 * sin(phase)` ink pulse every
-/// mark already carries. Every other verb is a lie: a shield that flexes,
-/// braces or shudders is a shield doing something, and defender is the
-/// keyword for a creature that does not.
-///
-/// So the stillness is the drawing. On a row where things occasionally move,
-/// the one that never does is the clearest statement "cannot attack" has
-/// available, and it only works while everything around it is an event
-/// rather than a wriggle — which is the whole of the design above.
-///
-/// `ph` is taken and not used, deliberately; `the_rail_declares_every_mark_
-/// that_does_not_move` reads this comment for the marker and fails if the
-/// list of still marks grows without one.
-fn mark_defender(p: vec2<f32>, ph: f32) -> f32 {
-    let outer = max(
-        sd_box(p - vec2<f32>(0.0, -0.10), vec2<f32>(0.25, 0.19)),
-        sd_circle(p - vec2<f32>(0.0, -0.34), 0.52),
-    );
-    let inner = max(
-        sd_box(p - vec2<f32>(0.0, -0.10), vec2<f32>(0.16, 0.13)),
-        sd_circle(p - vec2<f32>(0.0, -0.31), 0.40),
-    );
-    return max(outer, -inner);
-}
-
-/// Prowess: a pip that lifts off its own baseline and settles back.
-///
-/// It is the only mark that draws what the keyword *does* rather than what
-/// the creature is, because that is the only thing prowess is: +1/+1 until
-/// end of turn. So the pip rises, hangs, and comes down again — the shape
-/// of a bonus with a deadline, and the one silhouette on the rail that is a
-/// diamond over a line, which is what keeps it apart from the two chevrons
-/// (flying, reach) and the wedge (trample) at pip scale.
-fn mark_prowess(p: vec2<f32>, ph: f32) -> f32 {
-    // -y is up here, as everywhere on this rail.
-    let lift = 0.17 * pow(0.5 + 0.5 * sin(ph * 0.85), 5.0);
-    let q = p + vec2<f32>(0.0, lift);
-    // A box turned a quarter turn is a diamond, and costs no second helper.
-    let r = vec2<f32>(
-        (q.x - q.y) * 0.70710678,
-        (q.x + q.y) * 0.70710678,
-    );
-    let pip = sd_box(r - vec2<f32>(0.0, -0.06), vec2<f32>(0.125, 0.125)) - 0.030;
-    let base = sd_segment(p, vec2<f32>(-0.26, 0.30), vec2<f32>(0.26, 0.30)) - 0.036;
-    return min(pip, base);
-}
-
-/// The distance field for one mark, by slot.
-fn mark_sdf(which: u32, p: vec2<f32>, ph: f32) -> f32 {
+/// STILL: defender does not move. A shield is the keyword for a creature
+/// that does not act, and the one mark on a row of occasional movers that
+/// never moves says so more clearly than any motion could. It is the
+/// stillness that is the drawing, and it only reads while everything around
+/// it is an event rather than a wriggle.
+fn mark_pulse(which: u32, ph: f32) -> f32 {
     switch which {
-        case 0u: { return mark_flying(p, ph); }
-        case 1u: { return mark_first_strike(p, ph); }
-        case 2u: { return mark_double_strike(p, ph); }
-        case 3u: { return mark_deathtouch(p, ph); }
-        case 4u: { return mark_haste(p, ph); }
-        case 5u: { return mark_lifelink(p, ph); }
-        case 6u: { return mark_menace(p, ph); }
-        case 7u: { return mark_reach(p, ph); }
-        case 8u: { return mark_trample(p, ph); }
-        case 9u: { return mark_vigilance(p, ph); }
-        case 10u: { return mark_defender(p, ph); }
-        case 11u: { return mark_prowess(p, ph); }
+        // Flying: a long glide, then three quick beats of a wing.
+        case 0u: {
+            let ev = mark_event(fract(ph * 0.0664), 0.0115, 0.0878, 0.0267);
+            return 1.0 + 0.16 * pow(0.5 + 0.5 * sin(ph * 11.0), 2.0) * ev;
+        }
+        // First strike: a blow. Nothing else on the rail arrives this fast.
+        case 1u: { return 1.0 + 0.22 * mark_event(strike_clock(ph), 0.004, 0.030, 0.026); }
+        // Double strike: the same blow, twice, on the same clock.
+        case 2u: {
+            let f = strike_clock(ph);
+            return 1.0
+                + 0.19 * mark_event(f, 0.004, 0.014, 0.010)
+                + 0.19 * mark_event(f, 0.026, 0.036, 0.026);
+        }
+        // Deathtouch: a swell that arrives slowly and does not let go.
+        case 3u: { return 1.0 + 0.17 * mark_event(fract(ph * 0.0458), 0.0380, 0.0700, 0.0420); }
+        // Haste: there and gone.
+        case 4u: { return 1.0 + 0.20 * mark_event(fract(ph * 0.0896 + 0.11), 0.0090, 0.0330, 0.0180); }
+        // Lifelink: the beat itself, and the only mark with no envelope —
+        // a heart that beat rarely would be a heart in trouble.
+        case 5u: { return 1.0 + 0.09 * pow(0.5 + 0.5 * sin(ph * 1.7), 3.0); }
+        // Menace: it looms, holds, and withdraws.
+        case 6u: { return 1.0 + 0.18 * mark_event(fract(ph * 0.0361 + 0.63), 0.0332, 0.0623, 0.0228); }
+        // Reach: a slow climb to full height.
+        case 7u: { return 1.0 + 0.17 * mark_event(fract(ph * 0.0521 + 0.79), 0.0330, 0.0620, 0.0240); }
+        // Trample: it lands, and the landing is the whole of it.
+        case 8u: { return 1.0 + 0.19 * mark_event(fract(ph * 0.0731 + 0.47), 0.0070, 0.0300, 0.0290); }
+        // Vigilance: the calibration standard, a fifth of a second wider
+        // than it was — the eye used to close and a shape has to travel
+        // further than a size to say the same thing.
+        case 9u: { return 1.0 + 0.17 * mark_event(fract(ph * 0.0600), 0.0250, 0.0560, 0.0280); }
+        // Defender: STILL.
+        case 10u: { return 1.0; }
+        // Prowess: rises, hangs, and comes down — a bonus with a deadline.
+        case 11u: { return 1.0 + 0.15 * pow(0.5 + 0.5 * sin(ph * 0.85), 5.0); }
         default: { return 1.0; }
     }
+}
+
+/// The distance field in one cell of the baked atlas, read at `p`.
+///
+/// `marks` is one row of `ATLAS_CELLS` squares, each holding a distance with
+/// the outline at 0.5 and `range` cell units of field either side of it —
+/// the rail's marks, the corner's alphabet and the identity column's three
+/// symbols, which differ in how they were baked and in nothing else. This is
+/// the only function that fetches from it, which is why the two awkward
+/// parts of that fetch are written down once:
+///
+/// The fetch is **clamped half a texel inside the cell**, because a linear
+/// sample straddles two texels and the one past the wall belongs to the next
+/// cell along. What the clamp moves is added back to the distance: a point
+/// dragged in from outside the cell is at least that far from anything drawn
+/// in it, so the halo keeps falling off past the wall instead of stopping
+/// flat against it.
+///
+/// And it is `textureSampleLevel` and not `textureSample`: a cell is picked
+/// in *non-uniform* control flow — which slot a fragment lands in is the
+/// whole point of the rail — and an implicit derivative asked for there is
+/// undefined. There is nothing to choose a mip from in any case; the atlas
+/// has one level.
+fn cell_sdf(
+    cell: u32,
+    p: vec2<f32>,
+    range: f32,
+    marks: texture_2d<f32>,
+    marks_s: sampler,
+) -> f32 {
+    let wanted = p + vec2<f32>(0.5);
+    let inset = 0.5 / MARK_CELL;
+    let inside = clamp(wanted, vec2<f32>(inset), vec2<f32>(1.0 - inset));
+    let uv = vec2<f32>((f32(cell) + inside.x) / f32(ATLAS_CELLS), inside.y);
+    let field = textureSampleLevel(marks, marks_s, uv, 0.0).r;
+    return (0.5 - field) * (2.0 * range) + length(wanted - inside);
+}
+
+/// The rail's own reading of a cell: the same fetch, with the pulse on it.
+///
+/// The **pulse divides** rather than multiplying, because growing a picture
+/// means reading its field closer to the middle, and the distance that comes
+/// back is in the grown glyph's units and has to be scaled out again.
+fn mark_sdf(which: u32, p: vec2<f32>, ph: f32, marks: texture_2d<f32>, marks_s: sampler) -> f32 {
+    if which >= MARK_COUNT {
+        return 1.0;
+    }
+    let grown = mark_pulse(which, ph);
+    return cell_sdf(which, p / grown, MARK_RANGE, marks, marks_s) * grown;
 }
 
 /// Each mark's own colour, used for its halo and mixed into its ink.
@@ -701,7 +503,11 @@ fn mark_color(which: u32) -> vec3<f32> {
         case 7u: { return vec3<f32>(0.55, 0.86, 0.60); }
         case 8u: { return vec3<f32>(0.86, 0.66, 0.34); }
         case 9u: { return vec3<f32>(0.78, 0.92, 1.00); }
-        case 10u: { return vec3<f32>(0.66, 0.74, 0.84); }
+        // Warm stone: flying, first strike and vigilance are all pale
+        // blue-white, and at table scale, where the mark is a pip, four
+        // pips of one colour are one pip. A tower is the member of that
+        // group with a colour of its own to take.
+        case 10u: { return vec3<f32>(0.82, 0.76, 0.66); }
         case 11u: { return vec3<f32>(0.36, 0.90, 0.86); }
         default: { return INK; }
     }
@@ -712,8 +518,18 @@ fn mark_color(which: u32) -> vec3<f32> {
 /// `bits` is the twelve-bit mark field, already shifted down out of the glow
 /// word: this file never sees the engine's keyword numbering, or the client's
 /// either. `t` is `globals.time`, which the two shaders read from two
-/// different bind groups — the reason it is a parameter and not a binding.
-fn mark_layer(uv: vec2<f32>, bits: u32, t: f32, color: vec3<f32>) -> vec3<f32> {
+/// different bind groups — the reason it is a parameter and not a binding,
+/// and the same reason `marks` is one: the atlas is bound at a different
+/// index in a material bind group than in a UI one, and this file has no
+/// bindings of its own so that `cardmat::tests` can parse it alone.
+fn mark_layer(
+    uv: vec2<f32>,
+    bits: u32,
+    t: f32,
+    color: vec3<f32>,
+    marks: texture_2d<f32>,
+    marks_s: sampler,
+) -> vec3<f32> {
     // Counted in a loop bound at compile time, and not with `countOneBits`.
     // naga lowers that to GLSL's `bitCount`, which arrived in ES 3.10, and it
     // lowers it *unguarded* — WebGL2 compiles ES 3.00, so the browser would
@@ -746,10 +562,18 @@ fn mark_layer(uv: vec2<f32>, bits: u32, t: f32, color: vec3<f32>) -> vec3<f32> {
 
     // The plate: without it a pale mark disappears into pale artwork, and
     // the row would be legible on some cards and not others.
+    //
+    // 0.85 and not 0.62, which is the number it carried while the marks were
+    // thin strokes. The mix happens in *linear* light and the framebuffer is
+    // sRGB, so 0.62 darkens white paper to 168 of 255 — a 27% darkening, not
+    // a 62% one — and an ivory wing at 227 stood on it at 1.35:1. At 0.85 the
+    // paper reads 118 and the ink about 2:1. Not higher: 0.90 is 98, which is
+    // the bar 0.62 was probably meant to be and is a black stripe over dark
+    // artwork.
     let mid = vec2<f32>((x0 + x1) * 0.5, (y0 + y1) * 0.5);
     let half = vec2<f32>((x1 - x0) * 0.5 + 0.014, slot * 0.5 + 0.014);
     let plate = sd_round_box(p - mid, half, slot * 0.30);
-    var out = mix(color, PLATE, (1.0 - smoothstep(-aa, aa, plate)) * 0.62);
+    var out = mix(color, PLATE, (1.0 - smoothstep(-aa, aa, plate)) * 0.85);
 
     if p.x < x0 || p.x > x1 || p.y < y0 || p.y > y1 {
         return out;
@@ -777,252 +601,210 @@ fn mark_layer(uv: vec2<f32>, bits: u32, t: f32, color: vec3<f32>) -> vec3<f32> {
 
     let cell = vec2<f32>((p.x - x0) / slot - f32(k), (p.y - y0) / slot) - vec2<f32>(0.5);
     let phase = t * BEAT + f32(k) * 0.22;
-    let d = mark_sdf(which, cell, phase);
+    let d = mark_sdf(which, cell, phase, marks, marks_s);
     let accent = mark_color(which);
-    let ink = mix(INK, accent, 0.55) * (0.90 + 0.10 * sin(phase));
+    // 0.70 and not 0.55, because the halo no longer carries the colour. At
+    // table scale a rim two texels wide is sub-pixel and the mark degrades to
+    // a coloured pip — which is the design's own honest failure mode, and it
+    // now has to happen in the ink or not at all.
+    //
+    // The pulse is 0.05 and was 0.10: it is the one *continuous* movement on a
+    // row whose whole argument is that rest is the state and motion is an
+    // event, and a solid silhouette breathes over five times the pixels a
+    // stroke did. Not removed, because `strike_clock` is timed to land early
+    // against this beat and needs a beat to be early against.
+    let ink = mix(INK, accent, 0.70) * (0.95 + 0.05 * sin(phase));
 
     // Cell units, so the edge is as soft on a card in the preview as on one
     // across the table.
-    let e = max(aa / slot, 0.02);
-    let halo = exp(-max(d, 0.0) * 9.0) * 0.45;
+    //
+    // Half of `aa`, and both numbers were tuned for a one-pixel stroke that
+    // should never quite reach full ink. `aa / slot` is 0.101 cell at the
+    // table, so the ramp spanned two whole pixels — on a solid glyph that is
+    // not softness, it is a blur, and it is what closed the skull's eye
+    // sockets and the tower's crenellations at 17 pixels.
+    let e = max(0.5 * aa / slot, 0.012);
+    // A rim, not a bloom. At 9 the halo was still 18% of the accent a tenth of
+    // a cell out and 5% at the cell wall, so it filled every hole in a solid
+    // silhouette — measured on deathtouch, whose eye sockets came back
+    // *brighter* than its own ink — and painted each cell its own colour,
+    // which put a visible seam between neighbouring marks.
+    let halo = exp(-max(d, 0.0) * 24.0) * 0.30;
     out = out + accent * halo;
     out = mix(out, ink, 1.0 - smoothstep(-e, e, d));
     return out;
 }
 
-// ------------------------------------------------------------------ the crest
+// -------------------------------------------------------- the identity column
 //
-// A commander wears one mark on its top edge (CR 903.3). It is drawn here,
-// beside the rail, because it is the same alphabet: the same slot size, the
-// same inset, the same plate underneath and the same stroke weight, so it
-// reads as a twelfth glyph rather than as a second design.
+// Two questions about what a permanent *is*, drawn one above the other in
+// the card's right margin: is it a commander (CR 903.3), and is the card it
+// looks like its own (CR 111.1, CR 707.2)?
 //
-// What it is *not* is a twelfth rail slot, and the difference is the whole
-// reason it has its own corner. The rail is what a creature can do in combat;
-// twelve equal facts a player counts. Being a commander is not one of those
-// and would not sort among them — it is an identity, true in every zone, for
-// the whole game, before a single attack is declared.
+// They were on the card's **top edge** until September 2026 — a procedural
+// crown centred on it, a procedural disc or pair of cards hard against the
+// top-left corner — and both of those arguments are withdrawn rather than
+// quietly dropped. The crown claimed the top edge because nothing else was
+// there, so the silhouette alone answered "is that a commander" at table
+// distance; the provenance mark claimed the opposite corner so the two
+// would stay apart once both had collapsed to pips. What neither argument
+// priced is that the top edge is the **title bar**: a mark there covers the
+// printed name, which is the one thing this client repeats in the hover
+// preview, on the stack and in both seat bars. The owner read it as marks
+// sitting on top of the name, which is what it was.
 //
-// So it takes the one region of the card nothing else uses. The rail is
-// bottom-left, the plate bottom-right, the chips run up the right edge; the
-// top edge is empty. Putting exactly one thing there means the silhouette
-// alone answers the question — anything at the top is a commander — at table
-// distance, long before the crown itself resolves. That is the rail's own
-// honest degradation, stated for a different mark: a pictogram far away is a
-// pip, and a pip in a place nothing else occupies is still unambiguous.
+// So the column moved to the one margin with nothing in it. It is the
+// plate's centre line, which the swing already stands on, so the whole
+// right-hand corner reads as one column: the numbers, what counters did to
+// them, and what the permanent is. What it covers is the ragged right of
+// the rules text — the cheapest text on a card, and at table scale nobody
+// reads any of it.
 //
-// It does not breathe. Every rail mark pulses on BEAT and every light this
-// client offers travels or holds; those all say something that is true *now*
-// and could stop being true. This one cannot, and a crest that moved would be
-// making the same promise the offer lights make.
+// The position argument survives the move in its stronger form. The rows
+// are **fixed**: provenance below, commander above, and a bare commander
+// leaves the lower row empty instead of sliding into it. At the seven
+// physical pixels a slot gets on a table card a shield and a squirrel are
+// both a blob, and where the blob is is the only thing left that tells them
+// apart. `baylee_client_core::cardcrest` is the Rust half, and the mirror
+// test in `cardmat.rs` is what keeps the two halves saying the same thing.
+//
+// The glyphs are the Mana font's own, sampled out of the same atlas the
+// rail's marks come from and not drawn here. Three procedural pictograms
+// went with the move — a crown of a circlet under three points, a filled
+// disc, two offset cards — and with them the one thing this file could say
+// about them that the font cannot: `COPY_GAP`, the line of plate subtracted
+// between the two cards so the pair reads as two. The font's copy glyph
+// draws that gap itself.
+//
+// `sd_tri` and `sd_circle` left with them, and so did the test that held
+// every triangle in this file to the winding the helper needs. That test
+// was written because the crown shipped its first frame as a plain white
+// bar — the circlet drew, all three points were wound backwards, and the
+// test that checks where the crest *is* stayed green, placement tests
+// being unable to see shape. The lesson is the file's now rather than a
+// test's, because a floor of nought over a population of nought is the
+// vacuous assertion the test itself warned about: whoever writes the next
+// triangle here writes that test back with it.
+//
+// Nothing here breathes. Every rail mark pulses and every light this client
+// offers travels or holds; all of those say something true *now* that could
+// stop being true. A permanent stops being a commander or a copy only by
+// ceasing to be that permanent (CR 400.7), so a mark that moved would be
+// making the offer lights' promise about a fact that cannot change.
 
-/// The crest's slot and inset, in card widths — the rail's own, deliberately.
-const CREST_SLOT: f32 = 0.115;
-const CREST_INSET: f32 = 0.052;
+/// A slot's size and the gap between rows, in card widths — the rail's own.
+const COLUMN_SLOT: f32 = 0.115;
+const COLUMN_GAP: f32 = 0.014;
 
-/// A crown: a circlet under three points.
+/// The column's centre line and the foot of its lowest row, in card widths.
 ///
-/// Filled rather than stroked, unlike most of the rail. An outline of this at
-/// eight pixels tall closes up into a blob; a silhouette survives, and the
-/// silhouette is what has to carry across a table of eight.
-///
-/// Drawn as a generic crown and not as the flared header a legendary frame
-/// prints, which is a design belonging to somebody else (`docs/legal.md` §2).
-fn crest_sdf(p: vec2<f32>) -> f32 {
-    let circlet = sd_round_box(p - vec2<f32>(0.0, 0.20), vec2<f32>(0.30, 0.10), 0.03);
-    // Wound the way `sd_tri` needs and `mark_trample` already is: the helper
-    // takes the outermost of three edge half-planes, whose normals it builds
-    // as `(edge.y, -edge.x)`, so the opposite winding puts every point outside
-    // all three and the triangle silently never draws. Which is exactly what
-    // happened the first time — the circlet rendered alone, as a white bar.
-    let left = sd_tri(
-        p,
-        vec2<f32>(-0.30, 0.12),
-        vec2<f32>(-0.21, -0.20),
-        vec2<f32>(-0.12, 0.12),
-    );
-    let centre = sd_tri(
-        p,
-        vec2<f32>(-0.13, 0.12),
-        vec2<f32>(0.0, -0.32),
-        vec2<f32>(0.13, 0.12),
-    );
-    let right = sd_tri(
-        p,
-        vec2<f32>(0.12, 0.12),
-        vec2<f32>(0.21, -0.20),
-        vec2<f32>(0.30, 0.12),
-    );
-    return min(circlet, min(left, min(centre, right)));
-}
+/// `COLUMN_BOTTOM` is a constant and that is the point: every term of it is
+/// reserved whether or not anything is drawn there, so a Treasure token with
+/// no plate at all wears its mark exactly where a creature with three
+/// `+1/+1` counters wears one.
+const COLUMN_X: f32 = 0.85000;
+const COLUMN_BOTTOM: f32 = 1.15733;
 
-/// The crest layer: one still crown, centred on the card's top edge.
+/// Where the column's three glyphs sit in the atlas, and which is which.
+const CREST_BASE: u32 = 27u;
+const CREST_TOKEN: u32 = 0u;
+const CREST_COPY: u32 = 1u;
+const CREST_COMMANDER: u32 = 2u;
+
+/// Nothing to draw in this row.
+const CREST_NONE: u32 = 3u;
+
+/// The identity column: at most one mark per row, still, in the right margin.
 ///
-/// Takes a `bool` rather than the glow word, the way the rail takes its bits
-/// pre-shifted: which bit of that word means "commander" is the Rust half's
-/// business (`cardmat::glow::COMMANDER`), and nothing in this file knows the
-/// low end of it.
-fn crest_layer(uv: vec2<f32>, on: bool, color: vec3<f32>) -> vec3<f32> {
-    if !on {
-        return color;
+/// Takes three bools rather than the glow word, the way the rail takes its
+/// bits pre-shifted: which bit of that word means what is the Rust half's
+/// business (`cardmat::glow::COMMANDER`, `::TOKEN` and `::COPY`). Token and
+/// copy are exclusive already — `board::provenance_of` returns one value of
+/// three — and `is_token` wins here regardless, because "no cardboard at
+/// all" is the stronger claim and a row drawing both would be saying
+/// neither.
+fn identity_layer(
+    uv: vec2<f32>,
+    is_commander: bool,
+    is_token: bool,
+    is_copy: bool,
+    color: vec3<f32>,
+    marks: texture_2d<f32>,
+    marks_s: sampler,
+) -> vec3<f32> {
+    var lower = CREST_NONE;
+    if is_token {
+        lower = CREST_TOKEN;
+    } else if is_copy {
+        lower = CREST_COPY;
     }
-
-    // Width-units, so the slot is square — the same change of variables the
-    // rail makes, and for the same reason.
-    let p = vec2<f32>(uv.x, uv.y / CARD_ASPECT);
-    let slot = CREST_SLOT;
-    let x0 = 0.5 - slot * 0.5;
-    let x1 = x0 + slot;
-    let y0 = CREST_INSET;
-    let y1 = y0 + slot;
-
-    // Taken in uniform control flow, before any branch on where the fragment
-    // landed: a derivative asked for inside that branch is undefined on half
-    // the backends this ships to.
-    let aa = max(fwidth(p.x), 0.0015);
-
-    // The rail's plate, laid on harder: 0.82 where the rail uses 0.62.
-    //
-    // Not a different taste, a different background. The rail runs along the
-    // bottom border, which is dark on most printings, so a light mix already
-    // separates it. The crest sits on the *title bar*, which is pale on most
-    // printings — at 0.62 the disc washed out to nothing there and a white
-    // crown stood on white card stock, measured on General Tazri.
-    let mid = vec2<f32>((x0 + x1) * 0.5, (y0 + y1) * 0.5);
-    let half = vec2<f32>(slot * 0.5 + 0.014, slot * 0.5 + 0.014);
-    let plate = sd_round_box(p - mid, half, slot * 0.30);
-    var out = mix(color, PLATE, (1.0 - smoothstep(-aa, aa, plate)) * 0.82);
-
-    if p.x < x0 || p.x > x1 || p.y < y0 || p.y > y1 {
-        return out;
+    var upper = CREST_NONE;
+    if is_commander {
+        upper = CREST_COMMANDER;
     }
-
-    let cell = vec2<f32>((p.x - x0) / slot, (p.y - y0) / slot) - vec2<f32>(0.5);
-    let d = crest_sdf(cell);
-
-    // Cell units, so the edge is as soft in the preview as across the table.
-    let e = max(aa / slot, 0.02);
-    // Plain INK, and the only mark on the card with no accent of its own.
-    // Every hue in this client is spoken for — the chips tint by counter kind,
-    // the felt by seat — and a twelfth colour would be a claim nobody could
-    // look up.
-    out = mix(out, INK, 1.0 - smoothstep(-e, e, d));
-    return out;
-}
-
-// ------------------------------------------------------- the provenance mark
-//
-// The second thing on the card's top edge, which means the crest's own
-// argument has to be re-stated rather than quietly kept. Putting exactly one
-// thing up there meant the silhouette alone answered "is that a commander",
-// and that is no longer true. What survives is the weaker and still useful
-// form: the crest is *centred* and this is hard against the left corner, so
-// at the distance where both have collapsed to pips their positions still
-// tell them apart — and a card may honestly wear both at once, a commander
-// that has become a copy of something being a real thing that happens.
-//
-// It answers one question a board cannot otherwise answer: is that really a
-// Llanowar Elves? A disc says token — no cardboard at all (CR 111.1), the
-// chit a player would actually be reaching for. Two offset cards say copy:
-// there is cardboard, and it belongs to somebody else. No mark is the third
-// answer, and it is almost every card almost all of the time, which is what
-// lets this one be as loud as it is on the few that wear it.
-//
-// Round against rectilinear is the whole of the distinction, deliberately.
-// At sixty pixels across the slot is seven and neither pictogram resolves;
-// what a player still reads there is a round blob or a wide squarish one.
-// That is the rail's honest degradation stated once more for a mark that is
-// not in the rail.
-//
-// It does not breathe, for the crest's reason: a permanent stops being a copy
-// only by ceasing to be that permanent (CR 400.7), so there is nothing here
-// that could stop being true while the card is being looked at.
-//
-// What it costs, measured on a live table rather than guessed: the plate
-// covers about the first two characters of the *printed* name, a printing
-// putting its title hard against the card's left edge. The crest pays the
-// same toll in the middle of the same bar and pays it more cheaply, the
-// middle of a title bar usually being empty. It is a real cost, taken for one
-// reason — the printed name is the thing this client repeats everywhere else
-// (the hover preview, the stack, both seat bars), and what the mark says is
-// said nowhere else at all.
-
-/// The gap cut between the two cards of the copy mark, in cell units.
-///
-/// Load-bearing rather than styling. Both cards are filled INK on one plate,
-/// so a front card drawn over a back card of the same colour is one blob with
-/// a step in its outline; subtracting the *grown* front is what leaves a line
-/// of plate between them, and that line is the only thing in the glyph saying
-/// "two".
-const COPY_GAP: f32 = 0.045;
-
-/// A chit: one filled disc.
-///
-/// Filled for `crest_sdf`'s reason — a ring at eight pixels closes up into a
-/// blob, and a blob is what this is anyway, so it may as well be an honest
-/// one. It is also the only round mark this client draws, which is what
-/// carries it against the copy glyph beside it at any distance.
-fn token_sdf(p: vec2<f32>) -> f32 {
-    return sd_circle(p, 0.30);
-}
-
-/// Two cards, the front one offset down and to the right of the back one.
-fn copy_sdf(p: vec2<f32>) -> f32 {
-    let front = sd_round_box(p - vec2<f32>(0.08, 0.07), vec2<f32>(0.19, 0.25), 0.04);
-    let back = sd_round_box(p + vec2<f32>(0.08, 0.07), vec2<f32>(0.19, 0.25), 0.04);
-    return min(front, max(back, -(front - COPY_GAP)));
-}
-
-/// The provenance layer: one still mark in the card's top-left corner.
-///
-/// Two bools rather than the glow word, exactly as `crest_layer` takes one:
-/// which bit of that word means what is the Rust half's business
-/// (`cardmat::glow::TOKEN` and `::COPY`). They are exclusive already —
-/// `board::provenance_of` returns one value of three — and `is_token` wins
-/// here regardless, because "no cardboard at all" is the stronger claim and a
-/// slot drawing both glyphs at once would be saying neither.
-///
-/// The slot and inset are the crest's, which are the rail's: one alphabet,
-/// four corners, and a mark that measured itself differently would read as a
-/// second design rather than as another letter.
-fn provenance_layer(uv: vec2<f32>, is_token: bool, is_copy: bool, color: vec3<f32>) -> vec3<f32> {
-    if !is_token && !is_copy {
+    if lower == CREST_NONE && upper == CREST_NONE {
         return color;
     }
 
     // Width-units, so the slot is square — the rail's change of variables.
     let p = vec2<f32>(uv.x, uv.y / CARD_ASPECT);
-    let slot = CREST_SLOT;
-    let x0 = CREST_INSET;
-    let x1 = x0 + slot;
-    let y0 = CREST_INSET;
-    let y1 = y0 + slot;
 
-    // Uniform control flow, before any branch on where the fragment landed.
+    // Uniform control flow, before any branch on where the fragment landed:
+    // a derivative asked for inside one is undefined on half the backends
+    // this ships to.
     let aa = max(fwidth(p.x), 0.0015);
 
-    // The crest's plate at the crest's weight, and for the crest's reason:
-    // this corner is title bar too, and it is pale on most printings.
-    let mid = vec2<f32>((x0 + x1) * 0.5, (y0 + y1) * 0.5);
-    let half = vec2<f32>(slot * 0.5 + 0.014, slot * 0.5 + 0.014);
-    let plate = sd_round_box(p - mid, half, slot * 0.30);
-    var out = mix(color, PLATE, (1.0 - smoothstep(-aa, aa, plate)) * 0.82);
+    let x0 = COLUMN_X - COLUMN_SLOT * 0.5;
+    var out = color;
 
-    if p.x < x0 || p.x > x1 || p.y < y0 || p.y > y1 {
-        return out;
+    // Two rows, and the loop is over both of them rather than over the marks
+    // present, because the row is the address: an empty row is drawn as
+    // nothing and the row above it does not move down into it.
+    for (var row = 0u; row < 2u; row = row + 1u) {
+        var which = lower;
+        if row == 1u {
+            which = upper;
+        }
+        if which == CREST_NONE {
+            continue;
+        }
+
+        let y1 = COLUMN_BOTTOM - f32(row) * (COLUMN_SLOT + COLUMN_GAP);
+        let y0 = y1 - COLUMN_SLOT;
+        let mid = vec2<f32>(COLUMN_X, (y0 + y1) * 0.5);
+
+        // The rail's plate, laid on harder: 0.82 where the rail uses 0.62.
+        //
+        // Not a different taste, a different background. The rail runs along
+        // the bottom border, which is dark on most printings, so a light mix
+        // already separates it. This column stands on the *text box*, which
+        // is pale on most printings — at 0.62 the disc washed out to nothing
+        // on a white card and a white mark stood on white card stock.
+        let half = vec2<f32>(COLUMN_SLOT * 0.5 + 0.014, COLUMN_SLOT * 0.5 + 0.014);
+        let plate = sd_round_box(p - mid, half, COLUMN_SLOT * 0.30);
+        out = mix(out, PLATE, (1.0 - smoothstep(-aa, aa, plate)) * 0.82);
+
+        if p.x < x0 || p.x > x0 + COLUMN_SLOT || p.y < y0 || p.y > y1 {
+            continue;
+        }
+
+        let cell = vec2<f32>((p.x - x0) / COLUMN_SLOT, (p.y - y0) / COLUMN_SLOT)
+            - vec2<f32>(0.5);
+        let d = cell_sdf(CREST_BASE + which, cell, MARK_RANGE, marks, marks_s);
+
+        // Cell units, so the edge is as soft in the preview as across the
+        // table.
+        let e = max(aa / COLUMN_SLOT, 0.02);
+        // Plain INK, and the only marks on the card with no accent of their
+        // own. Every hue in this client is spoken for — the rail tints by
+        // keyword, the swing by which way it went, the felt by seat — and a
+        // colour here would be a claim nobody could look up.
+        out = mix(out, INK, 1.0 - smoothstep(-e, e, d));
     }
 
-    let cell = vec2<f32>((p.x - x0) / slot, (p.y - y0) / slot) - vec2<f32>(0.5);
-    var d = copy_sdf(cell);
-    if is_token {
-        d = token_sdf(cell);
-    }
-
-    // Cell units, so the edge is as soft in the preview as across the table.
-    let e = max(aa / slot, 0.02);
-    out = mix(out, INK, 1.0 - smoothstep(-e, e, d));
     return out;
 }
+
 
 // ------------------------------------------------------------------ the plate
 //
@@ -1035,7 +817,7 @@ fn provenance_layer(uv: vec2<f32>, is_token: bool, is_copy: bool, color: vec3<f3
 const PLATE_INSET: f32 = 0.052;
 const PLATE_W: f32 = 0.196;
 const PLATE_H: f32 = 0.115;
-const PLATE_PAD: f32 = 0.014;
+const PLATE_PAD: f32 = 0.020;
 
 /// How the packed word is read: three ten-bit numbers, two kind bits on top.
 const PLATE_KIND_SHIFT: u32 = 30u;
@@ -1048,24 +830,52 @@ const PLATE_FIGHT: u32 = 1u;
 const PLATE_LOYALTY: u32 = 2u;
 const PLATE_LORE: u32 = 3u;
 
-/// The glyph grid, and the twelve stencils drawn on it.
-const GLYPH_W: u32 = 4u;
-const GLYPH_H: u32 = 6u;
-const GLYPH_0: u32 = 0x699996u;
-const GLYPH_1: u32 = 0xe444c4u;
-const GLYPH_2: u32 = 0xf42196u;
-const GLYPH_3: u32 = 0x69161eu;
-const GLYPH_4: u32 = 0x22fa62u;
-const GLYPH_5: u32 = 0x691e8fu;
-const GLYPH_6: u32 = 0x699e86u;
-const GLYPH_7: u32 = 0x44221fu;
-const GLYPH_8: u32 = 0x699696u;
-const GLYPH_9: u32 = 0x617996u;
-const GLYPH_MINUS: u32 = 0xe000u;
-const GLYPH_SLASH: u32 = 0x884211u;
-const GLYPH_PLUS: u32 = 0x4e40u;
-const GLYPH_I: u32 = 0xe4444eu;
-const GLYPH_V: u32 = 0x469999u;
+/// The corner's alphabet: which cell of the atlas each character is, and
+/// what it advances by.
+///
+/// A row of 4×6 bitmap stencils stood here, sampled bilinearly. Two
+/// complaints came off it and they were one fault: it looked **blurry**,
+/// because a mask that coarse smoothed up to eleven physical pixels is a
+/// blur with no edge to sharpen, and it looked **off-centre**, because every
+/// glyph was given the same four cells and the ink sat wherever the picture
+/// put it — `1` in the left two, `/` corner to corner. A distance field has
+/// an edge at any size, and an *advance* is what centring a line of type
+/// means. The face is `AlegreyaSans-Bold`, which this client already sets
+/// its interface in; `baylee_client_core::cardplate::TEXT_CHARS` is the
+/// order and `markatlas` bakes them into the same row as the rail's marks.
+const TEXT_BASE: u32 = 12u;
+const TEXT_COUNT: u32 = 15u;
+const GLYPH_MINUS: u32 = 10u;
+const GLYPH_SLASH: u32 = 11u;
+const GLYPH_PLUS: u32 = 12u;
+const GLYPH_I: u32 = 13u;
+const GLYPH_V: u32 = 14u;
+
+/// How far either side of an outline a text cell's field reaches, and how
+/// tall a lining figure is — both in cell units, both mirrored.
+const TEXT_RANGE: f32 = 0.10;
+const TEXT_CAP: f32 = 0.57665;
+
+/// The advances, in cell units. Six numbers and not fifteen: the digits are
+/// **tabular**, which is the difference between a creature growing from
+/// `9/9` to `10/10` and one that also shunts its own slash sideways.
+const TEXT_ADV_DIGIT: f32 = 0.45125;
+const TEXT_ADV_MINUS: f32 = 0.28880;
+const TEXT_ADV_SLASH: f32 = 0.26980;
+const TEXT_ADV_PLUS: f32 = 0.45600;
+const TEXT_ADV_I: f32 = 0.28025;
+const TEXT_ADV_V: f32 = 0.55765;
+
+/// The longest line the corner writes.
+///
+/// Eight, because nine four-bit indices do not fit in a word. It reaches
+/// every number the plate can hold with a sign on one half — `-128/128` and
+/// `895/895` are both eight — and falls one short of a sign on *both*, which
+/// is a creature with a negative toughness and so a creature that a
+/// state-based action removed before anybody was asked a question
+/// (CR 704.5f). A line past this is truncated rather than wrapped, which is
+/// the same choice `cardplate::slot` makes and for the same reason.
+const TEXT_MAX: u32 = 8u;
 
 /// The largest chapter written in roman numerals; a sixth falls back to
 /// arabic, because `VI` needs a rule this composition does not have.
@@ -1126,25 +936,61 @@ const TICK_HAIR: f32 = 0.6;
 const PARCHMENT: vec3<f32> = vec3<f32>(0.88, 0.83, 0.69);
 const SEPIA: vec3<f32> = vec3<f32>(0.24, 0.17, 0.10);
 
-fn glyph_word(which: u32) -> u32 {
-    switch which {
-        case 0u: { return GLYPH_0; }
-        case 1u: { return GLYPH_1; }
-        case 2u: { return GLYPH_2; }
-        case 3u: { return GLYPH_3; }
-        case 4u: { return GLYPH_4; }
-        case 5u: { return GLYPH_5; }
-        case 6u: { return GLYPH_6; }
-        case 7u: { return GLYPH_7; }
-        case 8u: { return GLYPH_8; }
-        case 9u: { return GLYPH_9; }
-        case 10u: { return GLYPH_MINUS; }
-        case 11u: { return GLYPH_SLASH; }
-        case 12u: { return GLYPH_PLUS; }
-        case 13u: { return GLYPH_I; }
-        default: { return GLYPH_V; }
-    }
-}
+/// The swing's two words, as `cardplate::Corner::packed` writes them.
+const SWING_SET: u32 = 0x100000u;
+const TONE_SHIFT: u32 = 21u;
+const TONE_PLAIN: u32 = 0u;
+const TONE_DEADLY: u32 = 1u;
+const TONE_TOXIC: u32 = 2u;
+
+/// Where the swing line stands and how tall its figures are, in card widths.
+/// `cardplate::SWING_GAP` and `SWING_H`.
+const SWING_GAP: f32 = 0.012;
+const SWING_H: f32 = 0.04650;
+
+/// The printed body's line, under the plate. `cardplate::BASE_*`.
+const BASE_SET: u32 = 0x100000u;
+const BASE_GAP: f32 = 0.006;
+const BASE_H: f32 = 0.040;
+
+/// How large a card has to be *drawn* before the printed body appears.
+///
+/// On the table a card is about 150 physical pixels wide, which puts this
+/// line at five and makes it a smudge on every pumped creature at once. The
+/// damage band's rules appear on the same terms and through the same `aa`,
+/// so the corner already behaves this way and a player has already met it.
+const BASE_AA: f32 = 0.004;
+
+/// The printed body's ink: the plate's accent, held well back.
+///
+/// It is the one thing in this corner that is *not* news — it is what the
+/// card always said — so it is written at the weight of a caption. Loud
+/// enough to read when the card is drawn large enough for it to appear at
+/// all, and never loud enough to be mistaken for the body the creature
+/// currently has.
+const BASE_FADE: f32 = 0.52;
+
+/// Deathtouch green, on the power alone.
+///
+/// The power and not both numbers, because that is the half of the body the
+/// keyword acts through: a 1/1 deathtoucher trades with anything, and what
+/// does the trading is the 1 on the left. Green rather than a thirteenth
+/// mark on a rail that holds twelve — the number *is* the thing the keyword
+/// changes the meaning of, so the colour belongs on it.
+const DEADLY: vec3<f32> = vec3<f32>(0.42, 0.86, 0.45);
+
+/// Toxic red, on both numbers. Nothing constructs it yet; see
+/// `cardplate::Tone::Toxic`.
+const TOXIC: vec3<f32> = vec3<f32>(0.95, 0.35, 0.33);
+
+/// A swing that grew the creature, and one that shrank it.
+///
+/// The two colours the counter chips carried before the numerals took their
+/// place — growth green and bruise violet — kept because they were the one
+/// part of a chip that was read at a glance, and because a `+2/+2` and a
+/// `-2/-2` differ by a character eleven pixels tall otherwise.
+const GROWN: vec3<f32> = vec3<f32>(0.40, 0.82, 0.46);
+const SHRUNK: vec3<f32> = vec3<f32>(0.72, 0.46, 0.84);
 
 /// How many glyph cells a chapter takes in roman numerals, for 1..=5.
 fn roman_len(v: u32) -> u32 {
@@ -1155,36 +1001,66 @@ fn roman_len(v: u32) -> u32 {
 
 /// The `k`-th roman glyph of a chapter: `I`, `II`, `III`, `IV`, `V`.
 fn roman_at(v: u32, k: u32) -> u32 {
-    if v == 5u { return 14u; }
-    if v == 4u { return select(14u, 13u, k == 0u); }
-    return 13u;
+    if v == 5u { return GLYPH_V; }
+    if v == 4u { return select(GLYPH_V, GLYPH_I, k == 0u); }
+    return GLYPH_I;
 }
 
-/// One cell of a glyph, and 0 outside it — which is what stops a stencil
-/// bleeding into the one beside it when the grid is sampled smoothly.
-fn glyph_cell(word: u32, col: i32, row: i32) -> f32 {
-    if col < 0 || col >= i32(GLYPH_W) || row < 0 || row >= i32(GLYPH_H) {
-        return 0.0;
+/// One character's advance, in cell units.
+fn text_adv(which: u32) -> f32 {
+    if which < 10u { return TEXT_ADV_DIGIT; }
+    switch which {
+        case 10u: { return TEXT_ADV_MINUS; }
+        case 11u: { return TEXT_ADV_SLASH; }
+        case 12u: { return TEXT_ADV_PLUS; }
+        case 13u: { return TEXT_ADV_I; }
+        default: { return TEXT_ADV_V; }
     }
-    // Bit `3 - column`, which is what lets the Rust literals be read as the
-    // pictures they draw.
-    let bit = u32(row) * 4u + (3u - u32(col));
-    return f32((word >> bit) & 1u);
 }
 
-/// How many decimal digits a number is drawn in. Three is the ceiling the
-/// packing allows, so this needs no fourth case.
-fn plate_digits(v: u32) -> u32 {
+/// The signed distance to one character's outline, in cell units.
+///
+/// The same sampling as [`mark_sdf`] out of the same row, with two
+/// differences and no third: the cell is offset past the marks, and the
+/// field is decoded through the shorter [`TEXT_RANGE`] it was encoded with.
+/// The clamp and the `length` that follows it are the same correction — a
+/// point outside the cell is pulled to the wall, sampled there, and given
+/// back the distance it was moved, so a glyph never fetches its
+/// neighbour's texels and never reports a distance that stops at the wall.
+fn text_sdf(which: u32, p: vec2<f32>, marks: texture_2d<f32>, marks_s: sampler) -> f32 {
+    return cell_sdf(
+        TEXT_BASE + min(which, TEXT_COUNT - 1u),
+        p,
+        TEXT_RANGE,
+        marks,
+        marks_s,
+    );
+}
+
+/// A line of type, packed four bits a character with the count beside it.
+///
+/// `x` holds up to [`TEXT_MAX`] indices into the atlas's text half, least
+/// significant first; `y` is how many. Two numbers rather than a string
+/// because WGSL has neither, and four bits rather than five because the
+/// alphabet is fifteen characters long and eight of them have to fit in a
+/// word.
+fn text_push(line: vec2<u32>, which: u32) -> vec2<u32> {
+    if line.y >= TEXT_MAX {
+        return line;
+    }
+    return vec2<u32>(line.x | (which << (line.y * 4u)), line.y + 1u);
+}
+
+/// How many decimal digits a number is written in. Three is the ceiling a
+/// ten-bit slot allows, so this needs no fourth case.
+fn digits_of(v: u32) -> u32 {
     if v >= 100u { return 3u; }
     if v >= 10u { return 2u; }
     return 1u;
 }
 
-/// The `i`-th digit of `v` from the left, given it is drawn in `n` of them.
-///
-/// The loop is bounded at two because three digits is the ceiling — the same
-/// discipline as the rail's twelve: WebGL2 wants every bound at compile time.
-fn plate_digit_at(v: u32, n: u32, i: u32) -> u32 {
+/// The `i`-th digit of `v` from the left, given it is written in `n` of them.
+fn digit_at(v: u32, n: u32, i: u32) -> u32 {
     var p = 1u;
     for (var k = 0u; k < 2u; k = k + 1u) {
         if k + i + 1u < n {
@@ -1194,12 +1070,113 @@ fn plate_digit_at(v: u32, n: u32, i: u32) -> u32 {
     return (v / p) % 10u;
 }
 
-/// Draws the plate over `color` and returns what is left.
+/// Appends a number to a line.
+fn text_number(line: vec2<u32>, v: u32) -> vec2<u32> {
+    var out = line;
+    let n = digits_of(v);
+    for (var i = 0u; i < 3u; i = i + 1u) {
+        if i < n {
+            out = text_push(out, digit_at(v, n, i));
+        }
+    }
+    return out;
+}
+
+/// Appends a signed number, with its sign written out.
+fn text_signed(line: vec2<u32>, v: i32, plus: bool) -> vec2<u32> {
+    var out = line;
+    if v < 0 {
+        out = text_push(out, GLYPH_MINUS);
+    } else if plus {
+        out = text_push(out, GLYPH_PLUS);
+    }
+    return text_number(out, u32(abs(v)));
+}
+
+/// How wide a line is, in cell units.
+fn text_width(line: vec2<u32>) -> f32 {
+    var w = 0.0;
+    for (var i = 0u; i < TEXT_MAX; i = i + 1u) {
+        if i < line.y {
+            w = w + text_adv((line.x >> (i * 4u)) & 0xfu);
+        }
+    }
+    return w;
+}
+
+/// Where a line of type covers, and which of its characters is covering.
 ///
-/// `word` is `cardplate::Plate::packed`. Not gated on whether the card has
-/// artwork: a card drawn as a flat tint is a card whose art has not loaded,
-/// and its body is the thing a player most needs off it.
-fn plate_layer(uv: vec2<f32>, word: u32, color: vec3<f32>) -> vec3<f32> {
+/// Returns the coverage in `x` and the character's ordinal in `y`, so that a
+/// caller can ink one half of a line differently from the other without
+/// laying the line out twice. `cap` is how tall its lining figures should
+/// be, in card widths, and `mid` is the centre of the whole line.
+///
+/// The pen walk is a bounded loop over [`TEXT_MAX`] with the advances added
+/// in order, which is what makes this typesetting rather than a grid: a `1`
+/// takes the same box as an `8` because the digits are tabular, and a `/`
+/// takes two thirds of one because the font says so.
+fn text_cover(
+    p: vec2<f32>,
+    mid: vec2<f32>,
+    cap: f32,
+    line: vec2<u32>,
+    marks: texture_2d<f32>,
+    marks_s: sampler,
+    aa: f32,
+) -> vec2<f32> {
+    if line.y == 0u {
+        return vec2<f32>(0.0, 0.0);
+    }
+    // Cell units per card width, and the point in them, measured from the
+    // line's left edge and from the middle of its figures.
+    let unit = cap / TEXT_CAP;
+    let width = text_width(line);
+    let local = (p - mid) / unit + vec2<f32>(width * 0.5, 0.0);
+    if local.x < 0.0 || local.x > width || abs(local.y) > 0.5 {
+        return vec2<f32>(0.0, 0.0);
+    }
+    let e = max(aa / unit, 0.02);
+    var pen = 0.0;
+    var out = vec2<f32>(0.0, 0.0);
+    for (var i = 0u; i < TEXT_MAX; i = i + 1u) {
+        if i < line.y {
+            let which = (line.x >> (i * 4u)) & 0xfu;
+            let adv = text_adv(which);
+            if local.x >= pen && local.x < pen + adv {
+                let q = vec2<f32>(local.x - pen - adv * 0.5, local.y);
+                let d = text_sdf(which, q, marks, marks_s);
+                out = vec2<f32>(1.0 - smoothstep(-e, e, d), f32(i));
+            }
+            pen = pen + adv;
+        }
+    }
+    return out;
+}
+
+/// The figure height a line may have, given the height it wants and the
+/// width it has to fit.
+///
+/// Shrinking rather than clipping is the degradation that stays honest: a
+/// plate that cut a digit off would be showing a number that is wrong,
+/// while a `10/10` a size smaller than a `2/2` is still a `10/10`.
+fn fit(cap: f32, line: vec2<u32>, room: f32) -> f32 {
+    return min(cap, room * TEXT_CAP / max(text_width(line), 0.001));
+}
+
+/// Draws the plate, the swing line above it and the printed body below it.
+///
+/// The three words are `cardplate::Corner::packed` in order. Not gated on whether the card has artwork: a
+/// card drawn as a flat tint is a card whose art has not loaded, and its
+/// body is the thing a player most needs off it.
+fn plate_layer(
+    uv: vec2<f32>,
+    word: u32,
+    swing: u32,
+    base: u32,
+    color: vec3<f32>,
+    marks: texture_2d<f32>,
+    marks_s: sampler,
+) -> vec3<f32> {
     let kind = word >> PLATE_KIND_SHIFT;
     if kind == PLATE_NONE {
         return color;
@@ -1238,12 +1215,64 @@ fn plate_layer(uv: vec2<f32>, word: u32, color: vec3<f32>) -> vec3<f32> {
     let mid = vec2<f32>((x0 + x1) * 0.5, (y0 + y1) * 0.5);
     let half = vec2<f32>(pw * 0.5, PLATE_H * 0.5);
 
+    var out = color;
+
+    // ---- the swing, above the plate
+    //
+    // The net that this permanent's ±1/±1 counters added, one size down and
+    // on the plate's own centre line, so the corner reads as one column. It
+    // is drawn first because it is *outside* the plate and the plate's own
+    // early return below is on the plate's rectangle.
+    if (swing & SWING_SET) != 0u {
+        let dp = i32(swing & PLATE_SLOT_MASK) - PLATE_BIAS;
+        let dt = i32((swing >> PLATE_SLOT_BITS) & PLATE_SLOT_MASK) - PLATE_BIAS;
+        var line = text_signed(vec2<u32>(0u, 0u), dp, true);
+        line = text_push(line, GLYPH_SLASH);
+        line = text_signed(line, dt, true);
+        let at = vec2<f32>(mid.x, y0 - SWING_GAP - SWING_H * 0.5);
+        // Never wider than the plate it explains. `+2/-1` is six characters
+        // against the plate's usual three, and unclamped it hung off the
+        // card's right edge — an appendage has to stay inside the thing it
+        // is an appendage to.
+        let hit = text_cover(p, at, fit(SWING_H, line, pw), line, marks, marks_s, aa);
+        // Green for a creature that grew, violet for one that shrank, and
+        // the plate's ink for the rare swing that nets to neither — a
+        // `+1/-1` says as much by being neither colour.
+        var tint = accent;
+        if dp + dt > 0 {
+            tint = GROWN;
+        } else if dp + dt < 0 {
+            tint = SHRUNK;
+        }
+        out = mix(out, tint, hit.x);
+    }
+
+    // ---- the printed body, below the plate
+    //
+    // The number the plate is *standing on*: a real card prints its power
+    // and toughness in this exact corner, so the plate covers them, and a
+    // player looking at a 5/5 cannot see that it was printed a 2/2. Drawn
+    // only when the two differ — a creature at its printed size says it
+    // once — and only when the card is drawn large enough to read a line
+    // this small.
+    if (base & BASE_SET) != 0u && aa <= BASE_AA {
+        let bp = i32(base & PLATE_SLOT_MASK) - PLATE_BIAS;
+        let bt = i32((base >> PLATE_SLOT_BITS) & PLATE_SLOT_MASK) - PLATE_BIAS;
+        var line = text_signed(vec2<u32>(0u, 0u), bp, false);
+        line = text_push(line, GLYPH_SLASH);
+        line = text_signed(line, bt, false);
+        let at = vec2<f32>(mid.x, y1 + BASE_GAP + BASE_H * 0.5);
+        let hit = text_cover(p, at, fit(BASE_H, line, pw), line, marks, marks_s, aa);
+        out = mix(out, accent, hit.x * BASE_FADE);
+    }
+
+    // ---- the plate
     let d_plate = sd_round_box(p - mid, half, radius);
     let inside = 1.0 - smoothstep(-aa, aa, d_plate);
     if inside <= 0.0 {
-        return color;
+        return out;
     }
-    var out = mix(color, body, inside * 0.88);
+    out = mix(out, body, inside * 0.88);
 
     let a = i32(word & PLATE_SLOT_MASK) - PLATE_BIAS;
     let b = i32((word >> PLATE_SLOT_BITS) & PLATE_SLOT_MASK) - PLATE_BIAS;
@@ -1285,273 +1314,53 @@ fn plate_layer(uv: vec2<f32>, word: u32, color: vec3<f32>) -> vec3<f32> {
     let rim = 1.0 - smoothstep(-aa, aa, abs(d_plate) - 0.0045);
     out = mix(out, accent, rim * 0.55);
 
-    // How many glyphs, and therefore how big they are: a lone loyalty numeral
-    // fills the plate's height, a `10/10` shrinks to fit its width. Shrinking
-    // rather than clipping is the degradation that stays honest — a plate that
-    // cut a digit off would be showing a number that is wrong.
-    let neg = kind == PLATE_FIGHT && a < 0;
+    // ---- the numbers
+    //
+    // Composed first, measured second, drawn third. The figures fill the
+    // plate's height unless the line is too wide for it, in which case they
+    // shrink until it fits: a `10/10` is smaller than a `2/2` and both are
+    // whole, which is the degradation that stays honest — a plate that cut a
+    // digit off would be showing a number that is wrong.
     let av = u32(abs(a));
-    let bv = u32(max(b, 0));
-    let da = plate_digits(av);
-    let db = plate_digits(bv);
-    let lead = select(0u, 1u, neg);
     let roman = kind == PLATE_LORE && av >= 1u && av <= ROMAN_MAX;
-    var n = da;
+    var line = vec2<u32>(0u, 0u);
+    var left = 0u;
     if kind == PLATE_FIGHT {
-        n = lead + da + 1u + db;
+        line = text_signed(line, a, false);
+        left = line.y;
+        line = text_push(line, GLYPH_SLASH);
+        line = text_signed(line, b, false);
     } else if roman {
-        n = roman_len(av);
-    }
-
-    let span = f32(n * GLYPH_W + (n - 1u));
-    let unit = min(
-        (pw - 2.0 * PLATE_PAD) / span,
-        (PLATE_H - 2.0 * PLATE_PAD) / f32(GLYPH_H),
-    );
-    let text = vec2<f32>(span * unit, f32(GLYPH_H) * unit);
-    let local = (p - (mid - text * 0.5)) / unit;
-    if local.x < 0.0 || local.y < 0.0 || local.y >= f32(GLYPH_H) {
-        return out;
-    }
-
-    let stride = f32(GLYPH_W + 1u);
-    let k = u32(floor(local.x / stride));
-    if k >= n {
-        return out;
-    }
-    let col = local.x - f32(k) * stride;
-    if col >= f32(GLYPH_W) {
-        return out;
-    }
-
-    var which = 11u;
-    if roman {
-        which = roman_at(av, k);
-    } else if kind != PLATE_FIGHT {
-        which = plate_digit_at(av, da, k);
-    } else if k < lead {
-        which = 10u;
-    } else if k < lead + da {
-        which = plate_digit_at(av, da, k - lead);
-    } else if k > lead + da {
-        which = plate_digit_at(bv, db, k - lead - da - 1u);
-    }
-    let gw = glyph_word(which);
-
-    // The grid, sampled smoothly rather than tested. A stroke is one cell
-    // wide, so bilinear over the four cells around a point peaks at 1 in the
-    // middle of the stroke and reaches 0.5 at its edge — which is a stencil
-    // with soft sides at any size, and one that never shows a staircase on a
-    // card lying at CAMERA_LEAN.
-    let g = vec2<f32>(col, local.y) - vec2<f32>(0.5);
-    let base = floor(g);
-    let f = g - base;
-    let cx = i32(base.x);
-    let cy = i32(base.y);
-    let s0 = mix(glyph_cell(gw, cx, cy), glyph_cell(gw, cx + 1, cy), f.x);
-    let s1 = mix(glyph_cell(gw, cx, cy + 1), glyph_cell(gw, cx + 1, cy + 1), f.x);
-    let v = mix(s0, s1, f.y);
-    let e = max(aa / unit, 0.06);
-    // The digits are ground where the band is figure. Blended rather than
-    // switched, so the waterline cuts a numeral cleanly instead of flipping
-    // it a pixel at a time: a `4` half in the band is white above the line
-    // and dark below it, which is one more place the level is drawn.
-    let ink = mix(accent, body, clamp(band, 0.0, 1.0));
-    return mix(out, ink, smoothstep(0.5 - e, 0.5 + e, v));
-}
-
-// ------------------------------------------------------------- counter chips
-//
-// The column above the plate: up to three flat stamped discs and, when a
-// fourth kind of counter is on the card, one more that counts the rest. The
-// Rust half is `baylee_client_core::cardplate::ChipRow`, which decides which
-// three and in what order; every constant below is mirrored and tested there.
-
-/// A chip's diameter, the gap between two of them, and the column's centre.
-const CHIP_D: f32 = 0.098;
-const CHIP_GAP: f32 = 0.018;
-const CHIP_X: f32 = 0.85;
-
-/// How far above the card's bottom edge the column starts — the plate's whole
-/// band plus a gap, so the chips do not move when a creature stops being one.
-const CHIP_BASE: f32 = 0.185;
-
-/// How a chip is packed: five bits of tint, ten of count, two to a word.
-const CHIP_BITS: u32 = 16u;
-const CHIP_TINT_MASK: u32 = 0x1fu;
-const CHIP_COUNT_SHIFT: u32 = 5u;
-const CHIP_COUNT_MASK: u32 = 0x3ffu;
-
-/// The largest count drawn as pips, and the six die faces — a bit per cell of
-/// a 3×3 grid, bit `row * 3 + (2 - col)`.
-const PIP_MAX: u32 = 6u;
-const PIP_1: u32 = 0x010u;
-const PIP_2: u32 = 0x101u;
-const PIP_3: u32 = 0x111u;
-const PIP_4: u32 = 0x145u;
-const PIP_5: u32 = 0x155u;
-const PIP_6: u32 = 0x16du;
-
-/// The tints, in `cardplate`'s order. Colour is the only channel a chip has
-/// left once the count has taken the pips, so these are chosen to stay apart
-/// from one another rather than to be pretty: growth green, bruise violet,
-/// charge blue, parchment, pale time, level orange, gilt, rose, stone, slate.
-fn chip_tint(which: u32) -> vec3<f32> {
-    switch which {
-        case 1u: { return vec3<f32>(0.32, 0.74, 0.38); }
-        case 2u: { return vec3<f32>(0.55, 0.33, 0.66); }
-        case 3u: { return vec3<f32>(0.24, 0.56, 0.92); }
-        case 4u: { return vec3<f32>(0.85, 0.72, 0.42); }
-        case 5u: { return vec3<f32>(0.44, 0.81, 0.83); }
-        case 6u: { return vec3<f32>(0.94, 0.56, 0.20); }
-        case 7u: { return GILT; }
-        case 8u: { return vec3<f32>(0.91, 0.45, 0.56); }
-        case 9u: { return vec3<f32>(0.60, 0.62, 0.66); }
-        default: { return vec3<f32>(0.36, 0.39, 0.45); }
-    }
-}
-
-fn pip_mask(n: u32) -> u32 {
-    switch n {
-        case 1u: { return PIP_1; }
-        case 2u: { return PIP_2; }
-        case 3u: { return PIP_3; }
-        case 4u: { return PIP_4; }
-        case 5u: { return PIP_5; }
-        default: { return PIP_6; }
-    }
-}
-
-/// Draws `v` centred in a box, optionally behind one leading glyph, and
-/// returns how much of the point it covers.
-///
-/// `aa` is passed in rather than taken here: every caller is inside a branch
-/// that is not uniform, and a derivative asked for there is undefined on half
-/// the backends this ships to. `lead` is a glyph index, or anything from 15
-/// up for "no leading glyph".
-fn number_cover(p: vec2<f32>, mid: vec2<f32>, area: vec2<f32>, v: u32, lead: u32, aa: f32) -> f32 {
-    let dn = plate_digits(v);
-    var n = dn;
-    if lead < 15u {
-        n = n + 1u;
-    }
-    let span = f32(n * GLYPH_W + (n - 1u));
-    let unit = min(area.x / span, area.y / f32(GLYPH_H));
-    let text = vec2<f32>(span * unit, f32(GLYPH_H) * unit);
-    let local = (p - (mid - text * 0.5)) / unit;
-    if local.x < 0.0 || local.y < 0.0 || local.y >= f32(GLYPH_H) {
-        return 0.0;
-    }
-    let stride = f32(GLYPH_W + 1u);
-    let k = u32(floor(local.x / stride));
-    if k >= n {
-        return 0.0;
-    }
-    let col = local.x - f32(k) * stride;
-    if col >= f32(GLYPH_W) {
-        return 0.0;
-    }
-    var which = lead;
-    if lead >= 15u {
-        which = plate_digit_at(v, dn, k);
-    } else if k > 0u {
-        which = plate_digit_at(v, dn, k - 1u);
-    }
-    let gw = glyph_word(which);
-    let g = vec2<f32>(col, local.y) - vec2<f32>(0.5);
-    let base = floor(g);
-    let f = g - base;
-    let cx = i32(base.x);
-    let cy = i32(base.y);
-    let s0 = mix(glyph_cell(gw, cx, cy), glyph_cell(gw, cx + 1, cy), f.x);
-    let s1 = mix(glyph_cell(gw, cx, cy + 1), glyph_cell(gw, cx + 1, cy + 1), f.x);
-    let value = mix(s0, s1, f.y);
-    let e = max(aa / unit, 0.06);
-    return smoothstep(0.5 - e, 0.5 + e, value);
-}
-
-/// Draws the chip column over `color` and returns what is left.
-///
-/// Two words, four slots: `a` holds the first two chips, `b` the third and the
-/// one that counts whatever did not fit.
-fn chip_layer(uv: vec2<f32>, a: u32, b: u32, color: vec3<f32>) -> vec3<f32> {
-    if a == 0u && b == 0u {
-        return color;
-    }
-
-    let p = vec2<f32>(uv.x, uv.y / CARD_ASPECT);
-    let height = 1.0 / CARD_ASPECT;
-    // The one derivative, taken before any branch that is not uniform.
-    let aa = max(fwidth(p.x), 0.0015);
-
-    var out = color;
-    // Bounded at four at compile time, like the rail's twelve: WebGL2 will
-    // not compile a loop whose count it cannot see.
-    for (var i = 0u; i < 4u; i = i + 1u) {
-        var word = a;
-        var half = i;
-        if i >= 2u {
-            word = b;
-            half = i - 2u;
-        }
-        let packed = (word >> (half * CHIP_BITS)) & 0xffffu;
-        let tint_id = packed & CHIP_TINT_MASK;
-        if tint_id == 0u {
-            continue;
-        }
-        let count = (packed >> CHIP_COUNT_SHIFT) & CHIP_COUNT_MASK;
-        let centre = vec2<f32>(
-            CHIP_X,
-            height - CHIP_BASE - CHIP_D * 0.5 - f32(i) * (CHIP_D + CHIP_GAP),
-        );
-        let d = sd_circle(p - centre, CHIP_D * 0.5);
-        let inside = 1.0 - smoothstep(-aa, aa, d);
-        if inside <= 0.0 {
-            continue;
-        }
-
-        let tint = chip_tint(tint_id);
-        let face = mix(PLATE, tint, 0.82);
-        out = mix(out, face, inside);
-        let rim = 1.0 - smoothstep(-aa, aa, abs(d) - 0.006);
-        out = mix(out, mix(tint, INK, 0.45), rim * 0.75);
-
-        // Whichever of the two inks the chip's own colour can carry. A green
-        // chip takes the dark one, a slate chip the light one, and neither is
-        // ever a mark a player has to lean in to find.
-        var mark = INK;
-        if dot(face, vec3<f32>(0.2126, 0.7152, 0.0722)) > 0.42 {
-            mark = PLATE;
-        }
-
-        // The overflow chip is the one that says `+N`; everything else is a
-        // count, in pips while a die could hold it and in numerals after.
-        if tint_id == 10u {
-            let cover = number_cover(
-                p, centre, vec2<f32>(CHIP_D * 0.76, CHIP_D * 0.52), count, 12u, aa);
-            out = mix(out, mark, cover * inside);
-        } else if count >= 1u && count <= PIP_MAX {
-            let mask = pip_mask(count);
-            let cell = CHIP_D * 0.66 / 3.0;
-            var hit = 0.0;
-            for (var k = 0u; k < 9u; k = k + 1u) {
-                let cx = k % 3u;
-                let cy = k / 3u;
-                if ((mask >> (cy * 3u + (2u - cx))) & 1u) == 0u {
-                    continue;
-                }
-                let at = centre + vec2<f32>(
-                    (f32(cx) - 1.0) * cell,
-                    (f32(cy) - 1.0) * cell,
-                );
-                hit = max(hit, 1.0 - smoothstep(-aa, aa, sd_circle(p - at, cell * 0.32)));
+        for (var k = 0u; k < 3u; k = k + 1u) {
+            if k < roman_len(av) {
+                line = text_push(line, roman_at(av, k));
             }
-            out = mix(out, mark, hit * inside);
-        } else {
-            let cover = number_cover(
-                p, centre, vec2<f32>(CHIP_D * 0.76, CHIP_D * 0.56), count, 99u, aa);
-            out = mix(out, mark, cover * inside);
         }
+        left = line.y;
+    } else {
+        line = text_number(line, av);
+        left = line.y;
     }
-    return out;
+
+    let cap = fit(PLATE_H - 2.0 * PLATE_PAD, line, pw - 2.0 * PLATE_PAD);
+    let hit = text_cover(p, mid, cap, line, marks, marks_s, aa);
+    if hit.x <= 0.0 {
+        return out;
+    }
+
+    // Which ink, and it is two questions. Deathtouch turns the *power* —
+    // every character up to the slash — because that is the half of the body
+    // the keyword acts through; toxic turns both. And the digits are ground
+    // where the damage band is figure, blended rather than switched so that
+    // the waterline cuts a numeral cleanly: a `4` half in the band is white
+    // above the line and dark below it, which is one more place the level is
+    // drawn.
+    let tone = swing >> TONE_SHIFT;
+    var ink = accent;
+    if tone == TONE_TOXIC {
+        ink = TOXIC;
+    } else if tone == TONE_DEADLY && hit.y < f32(left) {
+        ink = DEADLY;
+    }
+    return mix(out, mix(ink, body, clamp(band, 0.0, 1.0)), hit.x);
 }

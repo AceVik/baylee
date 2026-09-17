@@ -237,6 +237,16 @@ pub struct CardGroup {
     pub power: Option<i16>,
     /// Projected toughness, for creatures.
     pub toughness: Option<i16>,
+    /// The power and toughness the card itself prints, before any continuous
+    /// effect — what the corner plate is standing on top of.
+    ///
+    /// Straight through from the view rather than derived, because a client
+    /// cannot run the layer system and a copy's base is the copied card's
+    /// (CR 706.2). In `ObjectSummaryKey` too, for loyalty's reason: it is
+    /// drawn, so a printed 3/3 and a 2/2 under an anthem must not pile up.
+    pub base_power: Option<i16>,
+    /// The toughness half of it.
+    pub base_toughness: Option<i16>,
     /// Marked damage.
     pub damage: u16,
     /// A planeswalker's loyalty, which is its life total rather than a counter.
@@ -1453,6 +1463,8 @@ fn card_group(
         name: obj.name.clone(),
         power: obj.power,
         toughness: obj.toughness,
+        base_power: obj.base_power,
+        base_toughness: obj.base_toughness,
         damage: obj.damage,
         loyalty: obj.loyalty,
         status: obj.status,

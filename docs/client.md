@@ -83,7 +83,7 @@ footprints: a material redesign must not silently move the cards, pile
 hitboxes or projected seat shelves.
 
 `felt.wgsl` adds a restrained mineral vein, brushed rail, twin engraved
-circuits, inset colour segments and tooling around the centre medallion.
+circuits, inset colour segments and tooling around the firewheel.
 The inlay colours stay in fixed positions; only their illumination moves.
 The phase lamp remains a separate semantic light. `mat.wgsl` adds recessed
 corner shoulders and terminates lane rules short of the frame. Both resolve
@@ -111,7 +111,7 @@ opening a pile follows the existing motion targets, with a seven-card fan
 limit and a shallower, more widely spaced silhouette.
 
 Under the cards, everything is generated rather than shipped:
-`baylee-client-core/src/tabletop.rs` computes the felt, the medallion and a
+`baylee-client-core/src/tabletop.rs` computes the felt and a
 seat's mat into plain RGBA8 buffers. Three reasons, and the first is the one
 that decided it: `docs/legal.md` §2 rules out WotC assets, and a fantasy
 table wants exactly the kind of ornament that is easiest to borrow by
@@ -128,7 +128,7 @@ starts to matter the moment anyone screenshots anything.
 each seat now plays on its own mat, sized from its `SeatSlot` and rotated to
 face it, with three bands across it for the three lanes so an opponent's rows
 can be read without counting cards. The rim carries the seat's colour: the
-viewing seat is gilt, matching the medallion's rings, so "mine" is the one
+viewing seat is gilt, matching the firewheel's rings, so "mine" is the one
 edge a player never has to look for; the others take the colours of the pie
 in ring order, which makes a four-way game four distinguishable places rather
 than three anonymous opponents.
@@ -155,15 +155,102 @@ mood asks for more light than white, a dimmer standing is drawn dimmer, and a
 standing always outranks being the local seat, so my own idle mat can never
 outshine the opponent everyone is waiting for.
 
-The medallion inlaid at the centre is the colour wheel, in the arrangement
-every player already has in their head — so it is orientation as much as
-ornament, and it sits on the one patch of felt no seat ever plays on. Around
-it, `tabletop::hearth` paints a pool of lamplight with a ring of faint arcs
+In the middle of the table the colour wheel burns. It is five flames in the
+arrangement every player already has in their head — white at the top and
+clockwise from there — so it is orientation as much as ornament, and it
+stands on the one patch of felt no seat ever plays on. Around it,
+`tabletop::hearth` paints a pool of lamplight with a ring of faint arcs
 and tick marks inlaid in it — one texture, because they are one thing to look
 at, and because a table with nothing between the seat mats reads as an
 infinite green plane however good the grain is. The pool is candlelight and
 the inlay is gilt; a test asserts neither ever goes cold, since a blue light
 over a green table makes colour identity a guess.
+
+### The wheel is five flames
+
+It was five soft discs of the pie on a quad until September 2026, and the
+complaint that moved it was one sentence: *black could not be seen at all*. A
+dark disc on a dark table is not a colour, it is a gap — so the wheel was
+five colours of which one was missing. A *flame* can be black and still be
+the most legible thing on the table, because what draws a flame is its edge.
+`baylee_client_core::firewheel` is normative on all of it.
+
+**They are painted flat into the cloth**, and that is the decision everything
+else follows from. The obvious build is five little flames standing up off
+the table; it loses, measurably. The camera never moves and looks down from
+about 20°, so a standing length projects at `sin` of that and a length lying
+in the table plane at `cos` of it — 2.7 times the picture for the same
+number. Nothing is lost on the other side of that trade: a fixed eye gets no
+parallax from a billboard and no self-occlusion from a raymarched volume, and
+either of those would pay the same `sin` anyway. What makes a painted flame
+read as *standing* is a ground cue, which is the argument
+`atmosphere.wgsl`'s falling leaf already makes with its shadow: the foot is
+the brightest and roundest part, the body rises from it along one **shared**
+screen-up direction, and the pool of light is centred on the foot rather than
+on the flame. Screen-up is one direction for all five and not each flame's
+own radius — five flames rising radially are a sun glyph, not five candles
+seen from one chair.
+
+**In the cloth and not on it**, which is the other half. The light a fire
+throws is added inside `felt.wgsl` after the sky, where the rail lamp's glow
+is added, so the weave, the grain and the mineral vein show through it. A
+quad blended over the felt can only ever cover them, and that is the whole
+difference between light and a decal. The wheel's two gilt rings moved into
+the cloth with the flames, as `fwidth`-resolved hairlines: sharper than the
+512-texel texture they replace, which was 2.4 texels to a physical pixel at
+this camera, and — more to the point — *underneath*, so a flame stands in
+front of the rim instead of being etched by it. The inner ring came in from
+0.33 to 0.26 at the same time, because the black and red flames rise toward
+the middle and their inner flank passes about 0.30.
+
+**The black one is inverted, not darkened.** Its body multiplies the cloth
+down to a hole rather than being painted — on a dark table nothing can emit
+black — and the light that says what shape the hole is lives on a violet rim,
+which is how a backlit black flame is drawn everywhere it is drawn well. The
+rim is *capped* rather than pushed: it stays under the white flame's body,
+because a brighter violet outline is the first thing anyone reaches for and
+it is a neon sticker. Its light on the table is two stages, since the
+additive slot cannot subtract: a shadow at the foot, then a cold pool over
+it. Measured on a duel: the body sits 26 levels of luma under the felt beside
+it, and the whole wheel's crop averages 8 levels over bare felt — a light,
+not a lamp.
+
+**How hard each burns** comes from what can make coloured mana on the whole
+table, every seat's, eased over about a second and a half. `strength` is
+concave, so the first source of a colour is the one that shows, and it scales
+with the seat count so a ring of eight does not saturate on turn three. An
+unplayed colour banks down to a pilot light and never goes out: five flames
+are a compass and four are a broken one. Sources rather than devotion is a
+choice with an argument on the other side, and `firewheel::strength` carries
+both; turn count was the alternative asked for and is rejected as the height
+source, because it raises all five together and five equal flames at any
+height look like the same table. It arrives anyway, through the door that
+makes sense — a longer game has more lands on it.
+
+**The rhythm is two clocks and three events.** A draught shared by all five
+(9.5 s, against the seat mat's 7 and 11) so they are five flames in one room
+rather than five looping pictures; each flame's own gutter on one-dimensional
+noise rather than a sine, because a sine is a rhythm a viewer learns in two
+cycles; and one event each for the three colours whose character is an event
+— red flares, white gutters and recovers, black sheds its tip as smoke.
+Every rate is under 1.5 Hz and every depth under a tenth, which is a bound
+and not an accident: this table refuses motion a card-reader catches
+sideways, and what carries "alive" is the shape noise scrolling *inside* a
+silhouette thirty pixels tall.
+
+Three things that were wrong in the first build and are worth keeping written
+down, because all three are the same mistake in different places. The gutter
+rates were `[0.9, 1.4, 0.6, 1.2, 0.8]` — correctly ranked, every one of them
+a multiple of a tenth, so the whole wheel came back to exactly where it
+started **every ten seconds**. The erosion that cuts the licks used `v`
+rather than the clamped climb, and above and below a flame `v²` grows without
+bound: against a noise value under the floor the term changes sign, and the
+first screenshot had coloured confetti scattered over the middle of the
+table. And the black flame's rim was ungated, so it drew wherever `|eroded|`
+passed through zero — which is everywhere — as violet lace. The proof shape
+that settled the rest: `/pause`, two screenshots, byte-identical; then 144
+stepped frames and a diff, which is non-zero only inside the five
+silhouettes and moves the felt between them by a tenth of a level.
 
 That the rim carries the colour is true as of the fix below, and was not
 before it. `tabletop::seat_mat` used to write every pixel white with the mat's
@@ -183,8 +270,8 @@ sharing that image is precisely what made the separation impossible.
 It shipped as a twenty-unit ring with twenty-four ticks on it — the largest,
 brightest, most detailed object on screen, and what the eye read was a
 roulette wheel. `HEARTH_TICKS` is eight (a compass, not a clock), there is one
-hairline rather than two, the pool is half as strong and the medallion's glows
-are dimmer.
+hairline rather than two, the pool is half as strong and the wheel's own
+light is dimmer.
 
 The third go was the size, and it is the clearer lesson: `HEARTH_SIZE` went
 34 → 18 and the ring still dominated four straight photographs while its test
@@ -286,7 +373,7 @@ Three things keep it from becoming noise, and all three are the kind of
 mistake that is obvious only afterwards. It is a **wash**, blended over the
 pool, not a multiplier into it — multiplying candlelight by a cold colour
 gives grey, which is how a tint like this normally fails. It leaves the
-**medallion alone**: that is the colour wheel, the one thing on the table
+**firewheel alone**: that is the colour wheel, the one thing on the table
 that has to stay literally true, and a red cast over it would be lying about
 colour identity. And it is sized against the *ring*, not against the pool's
 quad — the first version was 42 units wide at alpha 0.34 and read as "the
@@ -430,7 +517,7 @@ does not.
 Everything else is painted on a **single quad**, cut to the slab's own
 racetrack by `table::flat_table_mesh` and laid at `table::ATMOSPHERE_LIFT` —
 0.0035 of a unit above the felt. That is above every mark belonging to the
-table (a seat's mat at `ZONE_LIFT`, the glow under it, the medallion) and
+table (a seat's mat at `ZONE_LIFT`, the glow under it) and
 below the contact shadow under a card at `CARD_LIFT * 0.5`, and therefore
 below the card.
 
@@ -461,7 +548,7 @@ inside one lane.
 `table::sort_bias(lift)` is the fix and is simply `lift * 400_000`: it turns
 the lift ladder into the sort key, so the ladder finally decides what covers
 what, wherever on the table the two things happen to be. It is applied to
-every blended surface down there — the mats, the table quads, the medallion,
+every blended surface down there — the mats, the table quads,
 the contact shadow and the air. `depth_bias` affects **only** the sort key
 and never the depth buffer, which is what makes it safe to hand it a number
 that large.
@@ -524,18 +611,20 @@ accident, and arithmetic borrows nothing.
 
 ## Eight seats
 
-- Seat information normally attaches **outside** the battlefield rim: name,
-  life, priority and turn at the viewer's upper-left edge, zone counts at the
-  upper-right, and compact phase groups along the command-zone side. These
-  are separately projected text panels, not one full-width shelf toolbar.
-  `hud/seatbar/attached.rs` owns their drawing; the smallest overview keeps
-  the legacy `Mark` fallback. Historical shelf geometry below still controls
-  card-lane reservations and fallback density, not desktop panel bounds.
+- Seat information attaches to the **ledge inside** each seat's own rim, on
+  the long edge nearest the middle of the table: name, life, priority and turn
+  at the end of that band which projects leftmost, zone counts at the other
+  end, and the twelve phase steps horizontally between them. These are three
+  separately projected text panels sharing one band and one scale, not one
+  full-width shelf toolbar. `hud/seatbar/attached.rs` owns their drawing; the
+  smallest overview keeps the legacy `Mark` fallback. Historical shelf
+  geometry below still controls card-lane reservations and fallback density,
+  not desktop panel bounds.
 
   Where the fallback starts is worth knowing rather than discovering at a
   table. Photographed on a 1728×1052 window: **four** seats still get the
-  panels, rotated with their mats — a side seat's name and life read down its
-  outer edge and its twelve phase glyphs run along the top of its own mat.
+  panels, turned with their mats — a side seat's band runs up and down the
+  screen and its ink is turned with it.
   **Eight** seats do not: every bar drops to `Mark`, which is a row of pips
   and a priority stroke, so nobody's life total is on the screen at all. That
   is the fallback behaving as designed and it is also the hole in it.
@@ -1085,23 +1174,25 @@ the same reason a token's is and is not the same fact at all, and `is_token`,
 which was that field, called every opponent's morph a token for as long as
 nothing read it.
 
-The mark is drawn in the card's **top-left** corner, in the crest's alphabet
-and at the crest's weight: a filled disc for a token, two offset cards for a
-copy. Both still, for the crest's reason — a permanent stops being a copy only
-by ceasing to be that permanent (CR 400.7). It costs the crest the strongest
-form of its own argument, which was that putting exactly one thing on the top
-edge let the silhouette alone answer "is that a commander"; what is left is
-that the crest is centred and this is hard against the corner, so their
-*positions* separate them once both have collapsed to pips. Round against
-rectilinear is what separates the two glyphs at that size, and a card may
-honestly wear a crest and a mark at once. It costs about the first two
-characters of the *printed* name, which a printing puts hard against the
-card's left edge — a real toll, taken because the printed name is the one
-thing this client repeats everywhere else and the mark is said nowhere.
+The mark is drawn in the **identity column**, the lower of its two rows: the
+Mana font's `ms-token` (a squirrel) for a token, `ms-ability-copy` (two
+cards) for a copy, sampled out of the same atlas the rail's marks come from.
+Both still, for the crest's reason — a permanent stops being a copy only by
+ceasing to be that permanent (CR 400.7).
+
+It was a filled disc in the card's **top-left corner** until September 2026,
+with the crest centred on the same edge, and the pair cost the crest the
+strongest form of its own argument (one thing on the top edge, so the
+silhouette alone answers "is that a commander"). What the two of them also
+cost was the **printed name**, which a printing puts hard against that edge
+— and that is what the owner read off a live table and asked to have back.
+Both marks moved into one column in the right margin instead;
+`client-core/src/cardcrest.rs` is where it is measured and the section below
+carries the whole argument.
 
 Proved on a running table rather than argued: Llanowar Elves, a Spark Double
 that entered as a copy of it and a Rite of Replication token of it, drawn side
-by side — no mark, two cards, a disc.
+by side — no mark, two cards, a squirrel.
 
 The bits are `cardmat::glow::TOKEN` and `::COPY`, the first two in that word
 above the rail's twelve-bit field. `glow_of` reaches the registry itself here
@@ -1419,29 +1510,73 @@ separation is the whole grammar:
   each, always in the same order (`client-core/src/cardrail.rs`). They are
   marks and not more paint because paint cannot *count*: a creature can carry
   six of these at once, and six colours mixed into one border is one colour
-  that says nothing. Hexproof and indestructible are deliberately absent —
+  that says nothing. **The mark is the Mana font's own ability glyph**, baked
+  to a distance field at startup by `markatlas.rs` and sampled out of one
+  atlas row — twelve procedural pictograms drawn in WGSL until September
+  2026, and replaced not because they were bad but because a player arriving
+  here has already learned Magic's icons somewhere else and no drawing of
+  ours can be the picture they already know. `cardrail::MARK_GLYPHS` is one
+  of the three doors those codepoints come through, and `docs/legal.md` §2a
+  is what makes that a rule rather than tidiness. Hexproof and indestructible are deliberately absent —
   the band already says them, and a mark repeating a sheath would be the same
   claim twice in two languages. The marks shrink rather than spill, so eleven
   keywords are eleven coloured pips where six are six pictograms; that
   degradation is the honest one, since a rail that ran off the card or hid its
   tail would both be lying about the creature.
-- **The top edge says whose deck this is.** A commander (CR 903.3) wears a
-  crest: one crown on the card's top edge, centred, in the rail's own slot and
-  inset so it reads as a twelfth glyph in the same alphabet. It is *not* a
-  twelfth rail slot, and the difference is why it has its own corner — the
-  rail is eleven equal combat facts a player counts, and being a commander
-  would not sort among them. It is an identity: true in every zone, for the
-  whole game, before an attack is ever declared.
-  The top edge is the one region nothing else claims (the rail and the plate
-  share the bottom, the chips climb the right), so the silhouette alone
-  answers the question at table distance, long before the crown resolves; a
-  test asserts it reaches neither. It is plain `INK` with no accent of its
-  own, because every hue here is already spoken for — the chips tint by
-  counter kind, the felt by seat — and it does not move, unlike every rail
-  mark and every offer light, because those all say something that could stop
-  being true and this cannot. It reaches the hand bar too, which is where it
-  earns its keep: a commander that declined CR 903.9b's replacement is sitting
-  in the hand looking like any other legend.
+- **The right margin says what the card *is*.** Two facts that are not
+  combat keywords and would not sort among eleven that are: a commander
+  (CR 903.3), and whether the card a permanent looks like is its own. Both
+  are identities — true in every zone, for the whole game, before an attack
+  is ever declared — so they get their own region rather than a rail slot.
+  They are the Mana font's `ms-commander`, `ms-token` and
+  `ms-ability-copy`, out of the rail's atlas and in the rail's own slot, so
+  they read as three more glyphs in one alphabet. `cardcrest::GLYPHS` is
+  the third door of `docs/legal.md` §2a and carries the date the three were
+  held against the Fan Content Policy's table.
+
+  That region was the card's **top edge** — a crown centred on it, a
+  provenance mark hard against the top-left corner — and the argument for it
+  was that nothing else claimed the edge, so a silhouette alone answered "is
+  that a commander" at table distance. What the argument never priced is
+  that the top edge is the **title bar**: the two marks together covered the
+  printed name, which is the one thing this client repeats in the hover
+  preview, on the stack and in both seat bars. The owner read it off a live
+  table as marks sitting on the name, which is what it was.
+  So they moved to the plate's own centre line, above what the plate and the
+  swing reserve: the whole right-hand corner is one column now — the
+  numbers, what counters did to them, and what the permanent is — and what
+  it covers instead is the ragged right of the rules text, which at table
+  scale nobody reads. `cardcrest::COLUMN_BOTTOM` is a **constant**, every
+  term of it reserved whether or not anything is drawn there, so a Treasure
+  token with no plate at all wears its squirrel exactly where a creature
+  with three `+1/+1` counters wears one.
+
+  The position argument survives in its stronger form. The two rows are
+  **fixed** — provenance below, commander above — and a bare commander
+  leaves the lower row empty rather than sliding into it, because at the
+  seven physical pixels a slot gets on a table card a shield and a squirrel
+  are both a blob and where the blob is is all that is left to tell them
+  apart. That is also the one place the column does *not* follow the rail,
+  which packs. Both are plain `INK` with no accent of their own, because
+  every hue here is already spoken for — the rail tints by keyword, the
+  swing by which way it went, the felt by seat — and neither moves, unlike
+  every rail mark and every offer light, because those all say something
+  that could stop being true and these cannot. It reaches the hand bar too,
+  which is where the crest earns its keep: a commander that declined
+  CR 903.9b's replacement is sitting in the hand looking like any other
+  legend.
+
+  Three procedural drawings went with the move — a crown of a circlet under
+  three points, a filled disc, two offset cards — and with them `sd_tri`,
+  `sd_circle` and the test that held every triangle in `card_common.wgsl` to
+  the winding the helper needs. That test existed because the crown shipped
+  its first frame as a **plain white bar**: the circlet drew, all three
+  points were wound backwards, and the test that checks where the crest *is*
+  stayed green, placement tests being unable to see shape. It is written
+  down in the shader now instead of asserted, because a floor of nought over
+  a population of nought is the vacuous assertion the test itself warned
+  about — whoever writes the next triangle there writes the test back with
+  it.
 - **The corner says what the card *is* in numbers.** The fifth of the bottom
   edge the rail has been reserving since it was written now carries a plate:
   a creature's power and toughness, or a planeswalker's loyalty behind a gilt
@@ -1451,25 +1586,50 @@ separation is the whole grammar:
   different material and the corner redraws with no second pass. Marked
   damage is the plate **filling from the bottom** to `damage / toughness`
   rather than a third numeral: what a player needs off a blocked creature is
-  how close to lethal it is. The numerals are a 4×6 stencil sampled
-  bilinearly, because there is no text on the 3D table and projecting a UI
-  numeral onto a card would have to chase its rotation, its lift and its place
-  in a stack every frame. The plate is drawn whether or not the card has art —
-  a card that could not load its scan is the one a player can least afford to
-  guess the body of.
-- **And the counters stand above it.** Up to three chips run up the right edge
-  from the plate's band, each a flat stamped disc: die pips to six, numerals
-  from seven, and a fourth kind collapsing to `+N` rather than vanishing. Which
-  counter a chip is has exactly one channel left at that size — its colour —
-  so `Chip::tint` lives in the model where a test can reach it, and naming the
-  counter is the badge tooltip's job. Two more `u32`s on the material key,
-  because a tint and a count four times over do not fit in one. A **saga** is
-  the exception that takes the plate instead: a square parchment page with the
-  chapter in roman numerals, and its lore counter then draws no chip, because
-  the page is already saying that number. `Corner::of` decides plate and chips
-  together for exactly that reason, and `Corner::of_object` does the same for
-  the hover preview — which drew the *printed* numbers until it did, so a 2/2
-  under an anthem was a 3/3 on the table and a 2/2 in its own preview.
+  how close to lethal it is. The plate is drawn whether or not the card has
+  art — a card that could not load its scan is the one a player can least
+  afford to guess the body of.
+- **The numerals are type, and were a stencil.** Each was a 4×6 bitmap mask
+  sampled bilinearly, and two complaints came off it that turned out to be
+  one fault. It looked **blurry**, because a mask that coarse smoothed up to
+  eleven physical pixels is a blur with no edge to sharpen. And it looked
+  **off-centre**, because every glyph was given the same four cells: `1` drew
+  its flag in the left two and `/` ran corner to corner, so the ink inside a
+  fixed box sat wherever the picture put it. A distance field has an edge at
+  any size and an *advance* is what centring a line of type means, so the
+  corner now sets `AlegreyaSans-Bold` — already shipped, already the
+  interface's face — out of the same atlas `markatlas` bakes the rail's marks
+  into. Two features are asked for at bake time and both are load-bearing:
+  `lnum`, because this face's **default** figures are oldstyle and `3`, `4`,
+  `5`, `7` and `9` would hang below the baseline; and `tnum`, so that a
+  creature growing from `9/9` to `10/10` does not shunt its own slash
+  sideways. `PLATE_PAD` went 0.014 → 0.020 in the same change, because a
+  stencil's ink stopped short of its own box and a typeface's does not — at
+  the old padding the digits and the plate's rim ran together.
+- **Deathtouch greens the power, and only the power.** That is the half of
+  the body the keyword acts through: a 1/1 deathtoucher trades with anything,
+  and what does the trading is the 1 on the left. A colour on the number
+  rather than a thirteenth mark on a rail that holds twelve, because the
+  number *is* what the keyword changes the meaning of. `cardplate::Tone`
+  reads it off the rail's own badges rather than off the raw keyword word, so
+  the mark and the colour cannot disagree. Toxic is written into the enum and
+  reaches nothing: `board::keyword_bits` has no toxic bit yet.
+- **And the counters stand above it, in words.** The net power and toughness
+  a permanent's ±1/±1 counters add, written `+2/-1` one size down on the
+  plate's own centre line — green when it grew, violet when it shrank. What
+  stood there was a column of stamped **chips**, pips to six and a colour per
+  kind of counter, and the owner read it as saying nothing: a green disc with
+  three pips on it is a rebus for `+3/+3`, and the plate two millimetres
+  below was already writing the answer in figures. The cost is named rather
+  than hidden — charge, time, level, keyword and loyalty-on-a-non-planeswalker
+  counters had a chip each and now have none on the table; the badge tooltip
+  names them in full, which is where the chips' colour code always had to be
+  decoded anyway. A **saga** is the exception that takes the plate itself: a
+  square parchment page with the chapter in roman numerals. `Corner::of`
+  decides the plate and the line together, and `Corner::of_object` does the
+  same for the hover preview — which drew the *printed* numbers until it did,
+  so a 2/2 under an anthem was a 3/3 on the table and a 2/2 in its own
+  preview.
 
 The pictograms live in a third shader file, `card_common.wgsl`, together with
 the printed corner both shaders cut at: it is everything the table and the
@@ -2022,8 +2182,11 @@ deck is not a legal deck and the builder should not need to be told twice.
 
 **Mana costs are symbols.** `crates/baylee-client-core/src/manapip.rs` turns a
 `ManaCost` into a list of pips — renderer-free and tested as a table — and
-`manaui.rs` draws them with the OFL-licensed Mana font (`docs/legal.md` §2; no
-WotC artwork anywhere). The font gives a monochrome mark only, so the coloured
+`manaui.rs` draws them with the OFL-licensed Mana font (`docs/legal.md` §2a,
+which is where the licence and the trademark are kept apart — the font file is
+not a WotC asset, the symbol it draws is a WotC mark used on sufferance, and
+the glyphs that policy names outright are not used at all). The font gives a
+monochrome mark only, so the coloured
 disc behind it is the client's, which is also what makes hybrids drawable: a
 hybrid has no single glyph, so the pip is one disc with two glyphs clipped to
 opposite halves. Generic costs run out of glyphs at 20 and fall back to digits
@@ -2567,36 +2730,43 @@ for its glyph edges — WCAG's 7.0 for text and 3.0 for graphical objects, and
 felt of (21, 63, 40) rather than against the linear `FELT_*` constant, because
 the shader's lamp and the sky's tint are multiplies `tabletop` cannot see.
 
-**Which of the two long edges is two questions, and `is_local` is the seam.**
+**Which of the two long edges is one question with one answer.**
 
-The local seat's bar is on the **near** edge of its own mat — the bottom of
-the screen, always. That is the owner's decision and it is not derived from
-anything: what a player reads about themselves belongs between their board
-and their hand, where their eyes already are, and the table gives up the
-symmetry of one rule for every seat to put it there.
+`layout::LEDGE_IS_OUTER` is `false`, at every seat: a seat's ink sits on the
+edge of its own battlefield nearest the middle of the table — the edge *that
+seat* reads as above its board. On this screen that means the local bar is at
+the top of the local mat and an opponent's is at the **bottom** of theirs,
+below their creatures, and the two face each other across the hearth.
 
-Every other seat's is the viewer's question, not the seat's:
-`SeatSlot::ledge_is_outer` falls through to `facing.cos() < -SIDE_SEAT_TILT`,
-and the whole of that is that a bar is drawn *above the board it describes on
-the one screen there is*. Table `+y` runs away from the camera, so a seat
-across the table takes the outer edge, behind its land row. A seat exactly at
-the side of the ring is a tie — its mat runs up and down the screen and
-neither edge is above anything — and keeps the centre-facing edge it had.
+That is the owner's decision and it is the mirror of what the table did
+before. Which edge used to be *two* questions with `is_local` as the seam.
+Every other seat's was the viewer's: `ledge_is_outer` fell through to
+`facing.cos() < -SIDE_SEAT_TILT`, whose whole content is that a bar is drawn
+above the board it describes *on the one screen there is* — so a seat across
+the table took its outer edge, behind its land row. The local seat's was
+pinned to its near edge, the bottom of the screen, on the argument that what
+a player reads about themselves belongs between their board and their hand.
+What the two have in common is where they put an opponent: beyond their far
+rim, at the very top of the window, as far from their own creatures as the
+mat allows. The seat it describes has to read it upside-down and across a
+whole board; the viewer reads it nowhere near what it is about.
 
-Both halves used to be the other way round, at the centre-facing edge for
-every seat, so a bar always stood between its owner's board and the hearth.
-That is the reading from each seat's own chair and it is perfectly coherent;
-it is not what anybody sees. Two players put their bars back-to-back across
-the middle of the table and the opponent's sat *under* their creatures, which
-is not "above the battlefield line" for the one person at the table with a
-screen. Then the local seat left the rule again, the other way: above its own
-creatures is still the deepest point on the screen that belongs to it, and
-the bottom of the screen is not.
+Before those two it *was* the centre-facing edge for every seat, and it was
+given up because two bars ended up back-to-back across the middle of the
+table with an opponent's sitting under their creatures. Both halves of that
+have since stopped being true, and neither by accident. The ink is no longer
+in the gap between the mats — it is on the ledge strip inside each seat's own
+rim, which `lane_center` keeps clear of cards — and the gap it vacated is the
+firewheel's, which is the one thing at this table that wants the middle.
 
-`the_local_bar_is_the_nearest_ink_at_its_own_seat` measures the duel rather
-than restating the rule: every one of the local seat's three lane centres is
-further from the camera than its own shelf, every one of the opponent's is
-nearer than theirs, and the two shelves are at opposite ends of the table.
+`every_bar_is_written_between_its_own_board_and_the_hearth` measures it rather
+than restating it: at every seat of every ring from two to eight the shelf is
+forward of all three lane centres, and in a duel the two shelves are between
+the two boards instead of outside them.
+`no_card_reaches_the_band_its_seat_writes_on` is the other half and the one
+that could quietly go wrong — the band takes `MAT_LEDGE` out of the mat's
+depth and `lane_center` has to spend it at the *same* end, which it did not
+have to while the ink was floating past the rim rather than standing on it.
 
 **The lanes keep their order; only where they start follows the shelf.** The
 three run from the centre-facing edge outwards at every seat — creatures
@@ -2605,16 +2775,44 @@ the cards stand and a card does not turn round because the ink did. So
 `MatParams::ledge_outer` is a flag rather than a flipped `uv.y`: flipping the
 uv would move the lane veils with the shelf and put the brightest of the
 three behind the lands. What the flag *does* change is `lane_center`'s
-`front`: a seat whose shelf sits on the centre-facing edge starts its lanes a
-`MAT_LEDGE` past it, and a seat whose shelf sits on the near edge — which is
-now every local seat — starts them at the edge itself and gives the near
-strip up instead. Either way a lane is exactly as tall as it was before the
-bar existed, and no card is drawn where the ink is.
+`front`: a shelf on the centre-facing edge starts the lanes a `MAT_LEDGE`
+past it, and one on the near edge starts them at the edge itself and gives
+the near strip up instead. Either way a lane is exactly as tall as it was
+before the bar existed, and no card is drawn where the ink is. The flag now
+has one value at every seat and the shader keeps both arms, because the band
+is a real thing whose end the model chooses; what has gone is the choosing.
 `seat_mat` takes the same flag and
 `a_flipped_shelf_takes_the_other_end_and_leaves_the_lanes_alone` reads both
 mats — it has to read the shelf's *fence* rather than its veil, because a
 `Texture` is eight bits a channel and the shelf's 0.0060 and the quietest
 lane's 0.0080 are the same 2/255.
+
+**Three panels on one band, and one scale for all three.** `hud::seatbar`'s
+`attached` module writes identity at the end of the band that projects
+leftmost, public counts at the other, and the twelve phase steps between
+them; `pose_on` is the whole of the arithmetic and takes nothing but the
+projected `ledge_corners` and which panel is being asked about. The scale is
+chosen once from the band and handed to all three, because each panel is
+placed by its own call and a panel that sized itself would grow into its
+neighbours at exactly the width where it matters — the middle one is the only
+one that can meet another, and it can meet two.
+
+The steps are **horizontal** and in the middle of that band. They used to be
+a vertical column of twelve beside the command-zone rim, which is the one
+place on the mat nothing else wants; the owner asked for them at the top and
+in the middle, and the middle of the *table* is not available — a track laid
+across the gap between two mats would be drawn over the firewheel. The middle
+of a seat's own band is, and it puts the phase a seat is in on the same line
+as its name and its life.
+
+Both bounds are measured against the band as a **trapezoid** and not as the
+rectangle its mean makes it look like: one end of a mat is further from the
+camera than the other, and `every_panel_stays_on_its_own_seats_band` projects
+each table for real and asks how far past its own band each panel corner is,
+on the side it is on. It is tight rather than a formality — the closest any
+corner comes is 13.3 px at a duel, 4.9 at three seats, 3.6 at six and 2.4 at
+eight, all of them the inset the end panels are placed with, shrunk with the
+scale.
 
 **The bar cannot ask the camera where the shelf is.** `bevy_ui` orders
 `UiSystems::Layout` `.before(TransformSystems::Propagate)`, so a system that

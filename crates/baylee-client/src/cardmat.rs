@@ -335,10 +335,12 @@ pub struct CardParams {
     /// [`baylee_client_core::cardplate::Plate::packed`]: a creature's power,
     /// toughness and damage, a planeswalker's loyalty, or a saga's chapter.
     pub plate: u32,
-    /// The first two counter chips above the plate, packed by
-    /// [`baylee_client_core::cardplate::Corner::packed`].
+    /// The second word of [`baylee_client_core::cardplate::Corner::packed`]:
+    /// the net ±1/±1 swing written above the plate, and which numerals the
+    /// plate's keywords colour.
     pub chips_a: u32,
-    /// The third chip and the one that counts what did not fit.
+    /// The third word: the printed power and toughness, written under the
+    /// plate when they are not what the plate is showing.
     pub chips_b: u32,
     /// 1.0 when the material carries real artwork, 0.0 when the card is drawn
     /// as a flat `tint` — its constructed face, or its back.
@@ -473,6 +475,17 @@ pub struct CardMaterial {
     /// Everything else.
     #[uniform(2)]
     pub params: CardParams,
+    /// The keyword rail's twelve marks, baked out of the Mana font.
+    ///
+    /// Always [`markatlas::MARKS`], which is why it is not an `Option`: the
+    /// handle is filled with a blank field before any material is built, so
+    /// there is no moment at which a card could be asked to bind an image
+    /// that does not exist — and a `None` here would bind the fallback white
+    /// texture, which decodes as a distance of -0.25 everywhere and floods
+    /// every slot with ink.
+    #[texture(3)]
+    #[sampler(4)]
+    pub marks: Handle<Image>,
 }
 
 impl Material for CardMaterial {
@@ -506,6 +519,17 @@ pub struct CardUiMaterial {
     /// Everything else.
     #[uniform(2)]
     pub params: CardParams,
+    /// The keyword rail's twelve marks, baked out of the Mana font.
+    ///
+    /// Always [`markatlas::MARKS`], which is why it is not an `Option`: the
+    /// handle is filled with a blank field before any material is built, so
+    /// there is no moment at which a card could be asked to bind an image
+    /// that does not exist — and a `None` here would bind the fallback white
+    /// texture, which decodes as a distance of -0.25 everywhere and floods
+    /// every slot with ink.
+    #[texture(3)]
+    #[sampler(4)]
+    pub marks: Handle<Image>,
 }
 
 impl UiMaterial for CardUiMaterial {
@@ -599,6 +623,7 @@ impl UiCardMaterials {
             return assets.add(CardUiMaterial {
                 art: made.art,
                 params: made.params,
+                marks: crate::markatlas::MARKS,
             });
         }
         if let Some(handle) = self.made.get(&look) {
@@ -608,6 +633,7 @@ impl UiCardMaterials {
         let handle = assets.add(CardUiMaterial {
             art: made.art,
             params: made.params,
+            marks: crate::markatlas::MARKS,
         });
         self.made.insert(look, handle.clone());
         handle
@@ -699,6 +725,7 @@ impl UiCardMaterials {
                 sweep_door: door::NONE,
                 tint: Vec4::ONE,
             },
+            marks: crate::markatlas::MARKS,
         });
         self.previewed.insert(key, handle.clone());
         handle
@@ -925,6 +952,7 @@ pub fn material(
             sweep_door: door::NONE,
             tint: LinearRgba::from(tint).to_f32_array().into(),
         },
+        marks: crate::markatlas::MARKS,
     };
     wear(&mut made.params, look.sweep, motion);
     made
@@ -1042,6 +1070,8 @@ pub(crate) mod tests {
             keywords: 0,
             power: Some(2),
             toughness: Some(2),
+            base_power: Some(2),
+            base_toughness: Some(2),
             loyalty: None,
             damage: 0,
             counters: Vec::new(),
@@ -1897,72 +1927,131 @@ pub(crate) mod tests {
 
     /// A mark that takes the phase and never uses it has to say why.
     ///
-    /// Three did. First strike, double strike and defender all took `ph` and
-    /// ignored it, and nothing in the file said whether that was a decision
-    /// or an omission — two were omissions, the third is the design, and no
-    /// reader could tell them apart. The rail is the one place in this
-    /// client where "it does not animate" is both a legitimate answer and
-    /// the signature of unfinished work.
+    /// Three did, when each mark was its own function: first strike, double
+    /// strike and defender all took `ph` and ignored it, and nothing in the
+    /// file said whether that was a decision or an omission — two were
+    /// omissions, the third is the design, and no reader could tell them
+    /// apart. The rail is the one place in this client where "it does not
+    /// animate" is both a legitimate answer and the signature of unfinished
+    /// work.
     ///
-    /// So a still mark declares itself with `STILL:` in its own doc comment.
-    /// This is the build-time half of a claim that otherwise needs a camera:
-    /// it cannot say a motion is *visible*, which is what the measurement in
-    /// that file's header is for, but it can say that nobody added a twelfth
-    /// mark and quietly left the phase on the floor.
+    /// The twelve functions are gone and the question is not: `mark_pulse`
+    /// is one switch with twelve arms, and an arm that returns a constant is
+    /// the same silence in one line instead of thirty. So a still arm
+    /// declares itself with `STILL` in the comment above it. This is the
+    /// build-time half of a claim that otherwise needs a camera: it cannot
+    /// say a motion is *visible*, which is what the measurements in that
+    /// file's header are for, but it can say that nobody added a mark and
+    /// quietly left the phase on the floor.
     #[test]
     fn the_rail_declares_every_mark_that_does_not_move() {
         let src = include_str!("shaders/card_common.wgsl");
-
-        // `ph` as a token and not as a substring: `graph` is not a phase.
-        let uses_phase = |body: &str| {
-            body.match_indices("ph").any(|(i, _)| {
-                let before = body[..i].chars().next_back();
-                let after = body[i + 2..].chars().next();
-                let word = |c: char| c.is_alphanumeric() || c == '_';
-                !before.is_some_and(word) && !after.is_some_and(word)
-            })
-        };
+        let open = src.find("fn mark_pulse(").expect("the pulse table");
+        let body = &src[open..];
+        let body = &body[..body.find("\n}").expect("a brace at column zero")];
 
         let mut seen = 0;
         let mut still = Vec::new();
-        for (at, _) in src.match_indices("\nfn mark_") {
-            let head = &src[at + 1..];
-            let name = &head["fn ".len()..head.find('(').expect("a signature")];
-            // `mark_layer`, `mark_sdf` and `mark_color` are the dispatchers
-            // rather than marks, and `mark_event` is the shared envelope: a
-            // mark is the one shape that takes a cell and a phase and
-            // answers a distance.
-            if !head.starts_with(&format!("fn {name}(p: vec2<f32>, ph: f32) -> f32 {{")) {
-                continue;
-            }
+        for (at, _) in body.match_indices("\n        case ") {
+            let arm = &body[at + 1..];
+            let slot: usize = arm["        case ".len()..]
+                .split('u')
+                .next()
+                .expect("a slot number")
+                .parse()
+                .expect("a slot number");
+            let end = arm
+                .find("\n        }")
+                .unwrap_or_else(|| arm.find('\n').expect("an arm ends on its own line"));
+            let arm = &arm[..end];
             seen += 1;
-            // From the opening brace, not from `fn`: the signature names the
-            // parameter, so a body measured from the start of the line finds
-            // `ph` in every mark there is.
-            let open = head.find('{').expect("an opening brace") + 1;
-            let rest = &head[open..];
-            let body = &rest[..rest.find("\n}").expect("a brace at column zero")];
-            if uses_phase(body) {
+            // `ph` as a token and not as a substring: `graph` is not a phase.
+            let moves = arm.match_indices("ph").any(|(i, _)| {
+                let before = arm[..i].chars().next_back();
+                let after = arm[i + 2..].chars().next();
+                let word = |c: char| c.is_alphanumeric() || c == '_';
+                !before.is_some_and(word) && !after.is_some_and(word)
+            });
+            if moves {
                 continue;
             }
-            // The doc comment is the run of `///` lines above the signature.
-            let doc = src[..at]
+            // The comment is the run of `//` lines above the arm. Measured
+            // from the newline the arm starts on, not from the arm itself:
+            // a slice that ends in `\n` splits to an empty last line and the
+            // run stops before it has read anything.
+            let note = body[..at]
                 .rsplit('\n')
-                .take_while(|line| line.starts_with("///"))
+                .take_while(|line| line.trim_start().starts_with("//"))
                 .collect::<Vec<_>>()
                 .join("\n");
             assert!(
-                doc.contains("STILL:"),
-                "{name} ignores its phase and does not say why"
+                note.contains("STILL"),
+                "slot {slot} ignores its phase and does not say why"
             );
-            still.push(name);
+            still.push(slot);
         }
 
-        assert_eq!(seen, 12, "twelve marks on the rail, twelve signatures");
+        assert_eq!(seen, 12, "twelve marks on the rail, twelve arms");
         assert_eq!(
             still,
-            ["mark_defender"],
+            [10],
             "which marks hold still is a decision, and this is the list of it"
+        );
+        assert_eq!(
+            baylee_client_core::cardrail::MARK_ORDER[10],
+            baylee_client_core::board::KeywordBadge::Defender,
+            "slot 10 is the shield, and the stillness is drawn for a shield"
+        );
+    }
+
+    /// The shader reads the atlas the baker writes.
+    ///
+    /// Two numbers with no compiler between them, and each fails in its own
+    /// quiet way. A cell size out of step makes the half-texel inset the
+    /// wrong width, so a mark fetches a sliver of its neighbour along one
+    /// wall — which at ten pixels looks like a smudge and not like a bug.
+    /// A range out of step rescales every distance the rail has: the ink
+    /// edge moves, the halo changes size, and nothing anywhere errors.
+    #[test]
+    fn the_shader_and_the_baker_agree_about_the_atlas() {
+        let src = include_str!("shaders/card_common.wgsl");
+        assert!(
+            (wgsl_const(src, "MARK_CELL") - crate::markatlas::CELL as f32).abs() < 1e-5,
+            "one mark's square, in texels"
+        );
+        assert!(
+            (wgsl_const(src, "MARK_RANGE") - crate::markatlas::RANGE).abs() < 1e-5,
+            "how far either side of the outline the atlas encodes"
+        );
+        // And the atlas is exactly as many cells wide as the shader
+        // indexes: it divides by `ATLAS_CELLS` to find a column, and the
+        // corner's characters start at `TEXT_BASE` — so a cell added to
+        // either half without the other number moving hands every glyph a
+        // slice of its neighbour.
+        let (wide, _) = crate::markatlas::atlas_size();
+        assert_eq!(
+            wide,
+            wgsl_const(src, "ATLAS_CELLS") as u32 * crate::markatlas::CELL as u32
+        );
+        assert_eq!(
+            wgsl_const(src, "TEXT_BASE") as usize + baylee_client_core::cardplate::TEXT_CHARS.len(),
+            wgsl_const(src, "CREST_BASE") as usize,
+            "the text half does not end where the identity column starts"
+        );
+        assert_eq!(
+            wgsl_const(src, "CREST_BASE") as usize + baylee_client_core::cardcrest::GLYPH_COUNT,
+            crate::markatlas::CELLS,
+            "the identity column does not end where the row does"
+        );
+        assert_eq!(
+            wgsl_const(src, "CREST_BASE") as usize,
+            crate::markatlas::CREST_BASE,
+            "the shader and the baker start the identity column in different cells"
+        );
+        assert!(
+            (wgsl_const(src, "TEXT_RANGE") - baylee_client_core::cardplate::TEXT_RANGE).abs()
+                < 1e-5,
+            "how far either side of an outline a text cell encodes"
         );
     }
 
@@ -2004,6 +2093,7 @@ struct Globals { time: f32 };
     /// half that checks the shader agrees about where the bits are.
     #[test]
     fn the_plate_is_the_same_plate_in_both_languages() {
+        use baylee_client_core::cardcrest as crest;
         use baylee_client_core::cardplate as plate;
         let src = include_str!("shaders/card_common.wgsl");
 
@@ -2030,14 +2120,21 @@ struct Globals { time: f32 };
             ("PLATE_FIGHT", plate::KIND_FIGHT),
             ("PLATE_LOYALTY", plate::KIND_LOYALTY),
             ("PLATE_LORE", plate::KIND_LORE),
-            ("GLYPH_W", plate::GLYPH_W),
-            ("GLYPH_H", plate::GLYPH_H),
             ("ROMAN_MAX", u32::from(plate::ROMAN_MAX)),
-            ("CHIP_BITS", plate::CHIP_BITS),
-            ("CHIP_TINT_MASK", plate::CHIP_TINT_MASK),
-            ("CHIP_COUNT_SHIFT", plate::CHIP_COUNT_SHIFT),
-            ("CHIP_COUNT_MASK", plate::CHIP_COUNT_MASK),
-            ("PIP_MAX", u32::from(plate::PIP_MAX)),
+            ("TEXT_BASE", crate::markatlas::TEXT_BASE as u32),
+            ("TEXT_COUNT", plate::TEXT_CHARS.len() as u32),
+            ("ATLAS_CELLS", crate::markatlas::CELLS as u32),
+            ("GLYPH_MINUS", plate::GLYPH_MINUS as u32),
+            ("GLYPH_SLASH", plate::GLYPH_SLASH as u32),
+            ("GLYPH_PLUS", plate::GLYPH_PLUS as u32),
+            ("GLYPH_I", plate::GLYPH_I as u32),
+            ("GLYPH_V", plate::GLYPH_V as u32),
+            ("SWING_SET", plate::SWING_SET),
+            ("BASE_SET", plate::BASE_SET),
+            ("TONE_SHIFT", plate::TONE_SHIFT),
+            ("TONE_PLAIN", plate::TONE_PLAIN),
+            ("TONE_DEADLY", plate::TONE_DEADLY),
+            ("TONE_TOXIC", plate::TONE_TOXIC),
         ] {
             // Half a unit, not an epsilon: these are whole numbers, so an
             // agreement is exactly zero apart and a disagreement is at least
@@ -2049,40 +2146,35 @@ struct Globals { time: f32 };
             );
         }
 
-        // The stencils. Every word is under 2^24, so an `f32` carries it
-        // exactly and this comparison is not an approximation.
-        for (i, name) in [
-            "GLYPH_0",
-            "GLYPH_1",
-            "GLYPH_2",
-            "GLYPH_3",
-            "GLYPH_4",
-            "GLYPH_5",
-            "GLYPH_6",
-            "GLYPH_7",
-            "GLYPH_8",
-            "GLYPH_9",
-            "GLYPH_MINUS",
-            "GLYPH_SLASH",
-            "GLYPH_PLUS",
-            "GLYPH_I",
-            "GLYPH_V",
-        ]
-        .into_iter()
-        .enumerate()
-        {
-            assert!(
-                (wgsl_const(src, name) - plate::GLYPHS[i] as f32).abs() < 0.5,
-                "{name} draws a different picture in the shader"
-            );
-        }
-
-        // The chip column: its geometry, and the six die faces.
+        // The corner's typesetting: what the shader has to know about the
+        // face to lay a line of it out. An advance that drifted here would
+        // not fail to draw — it would draw the same characters a fraction
+        // out of step with one another, which is precisely the complaint
+        // this whole change answers, so it is worth a mirror of its own.
         for (name, ours) in [
-            ("CHIP_D", plate::CHIP_D),
-            ("CHIP_GAP", plate::CHIP_GAP),
-            ("CHIP_X", plate::CHIP_X),
-            ("CHIP_BASE", plate::CHIP_BASE),
+            ("TEXT_RANGE", plate::TEXT_RANGE),
+            ("TEXT_CAP", plate::TEXT_CAP),
+            ("TEXT_ADV_DIGIT", plate::TEXT_ADV[0]),
+            ("TEXT_ADV_MINUS", plate::TEXT_ADV[plate::GLYPH_MINUS]),
+            ("TEXT_ADV_SLASH", plate::TEXT_ADV[plate::GLYPH_SLASH]),
+            ("TEXT_ADV_PLUS", plate::TEXT_ADV[plate::GLYPH_PLUS]),
+            ("TEXT_ADV_I", plate::TEXT_ADV[plate::GLYPH_I]),
+            ("TEXT_ADV_V", plate::TEXT_ADV[plate::GLYPH_V]),
+            ("SWING_GAP", plate::SWING_GAP),
+            ("SWING_H", plate::SWING_H),
+            ("BASE_GAP", plate::BASE_GAP),
+            ("BASE_H", plate::BASE_H),
+            ("BASE_AA", plate::BASE_AA),
+            // The identity column hangs off the same arithmetic — its foot
+            // is the plate's box and the swing's subtracted from the card's
+            // height — so it is mirrored here rather than in a test of its
+            // own. `COLUMN_BOTTOM` is written out as a literal in the
+            // shader because WGSL has no way to derive it there, which is
+            // exactly the kind of number that goes stale in silence.
+            ("COLUMN_SLOT", crest::COLUMN_SLOT),
+            ("COLUMN_GAP", crest::COLUMN_GAP),
+            ("COLUMN_X", crest::COLUMN_X),
+            ("COLUMN_BOTTOM", crest::COLUMN_BOTTOM),
         ] {
             let theirs = wgsl_const(src, name);
             assert!(
@@ -2090,13 +2182,17 @@ struct Globals { time: f32 };
                 "{name}: {ours} here, {theirs} in the shader"
             );
         }
-        for (i, name) in ["PIP_1", "PIP_2", "PIP_3", "PIP_4", "PIP_5", "PIP_6"]
-            .into_iter()
-            .enumerate()
-        {
+
+        for (name, ours) in [
+            ("CREST_BASE", crate::markatlas::CREST_BASE),
+            ("CREST_TOKEN", crest::GLYPH_TOKEN),
+            ("CREST_COPY", crest::GLYPH_COPY),
+            ("CREST_COMMANDER", crest::GLYPH_COMMANDER),
+            ("CREST_NONE", crest::GLYPH_COUNT),
+        ] {
             assert!(
-                (wgsl_const(src, name) - plate::PIPS[i] as f32).abs() < 0.5,
-                "{name} is a different die face in the shader"
+                (wgsl_const(src, name) - ours as f32).abs() < 0.5,
+                "{name} differs between the two files"
             );
         }
 
@@ -2332,118 +2428,65 @@ struct Globals { time: f32 };
         );
     }
 
-    /// The crest is the rail's alphabet, on the edge the rail does not use.
+    /// The identity column is the rail's alphabet, in the margin nothing
+    /// else claims.
     ///
-    /// Two claims, and both are geometry rather than taste. It borrows the
-    /// rail's slot and inset so that a commander's crown is the same size and
-    /// sits the same distance in as a flying chevron — that is what makes it
-    /// read as one more glyph instead of a second design language. And it
-    /// lives on the *top* edge, which is the one region of the card nothing
-    /// else claims: the rail and the plate share the bottom, the chips run up
-    /// the right. A crest that drifted down into either would be two marks
-    /// overlapping with no error and no crash, which is exactly the failure
-    /// the flag test above exists to catch on the other axis.
+    /// Three claims, all geometry rather than taste. It borrows the rail's
+    /// slot so a commander's shield is the same size as a flying chevron —
+    /// that is what makes it read as one more glyph instead of a second
+    /// design language. It stands clear of the swing below it, which is the
+    /// nearest thing that moves. And it stays inside the card's right
+    /// margin, because a column that drifted left would sit over the rules
+    /// text rather than beside it, with no error and no crash — exactly the
+    /// failure the flag test above exists to catch on the other axis.
+    ///
+    /// Read out of the shader on both sides of the comparison. The Rust
+    /// half's own bounds are in `cardcrest`, where they are checked against
+    /// the constants the Rust half derives them from; this is the half that
+    /// fails when the WGSL says something else.
     #[test]
-    fn the_crest_shares_the_rails_metrics_and_none_of_its_edge() {
+    fn the_identity_column_shares_the_rails_slot_and_stays_in_its_margin() {
         let src = include_str!("shaders/card_common.wgsl");
-        for name in ["SLOT", "INSET"] {
-            let crest = wgsl_const(src, &format!("CREST_{name}"));
-            let rail = wgsl_const(src, &format!("RAIL_{name}"));
-            assert!(
-                (crest - rail).abs() < f32::EPSILON,
-                "CREST_{name} is {crest} and RAIL_{name} is {rail}"
-            );
-        }
+        let slot = wgsl_const(src, "COLUMN_SLOT");
+        let rail = wgsl_const(src, "RAIL_SLOT");
+        assert!(
+            (slot - rail).abs() < f32::EPSILON,
+            "COLUMN_SLOT is {slot} and RAIL_SLOT is {rail}"
+        );
 
-        // Both edges measured in width-units, the way the shader measures
-        // them, because the card is taller than it is wide and a bound
-        // compared across that would be off by the aspect.
+        // Width-units on both axes, the way the shader measures them,
+        // because the card is taller than it is wide and a bound compared
+        // across that would be off by the aspect.
         let aspect = wgsl_const(src, "CARD_ASPECT");
         let height = 1.0 / aspect;
-        let crest_bottom = wgsl_const(src, "CREST_INSET") + wgsl_const(src, "CREST_SLOT");
-        let rail_top = height - wgsl_const(src, "RAIL_INSET") - wgsl_const(src, "RAIL_SLOT");
+        let swing_top = height
+            - wgsl_const(src, "PLATE_INSET")
+            - wgsl_const(src, "PLATE_H")
+            - wgsl_const(src, "SWING_GAP")
+            - wgsl_const(src, "SWING_H");
+        let foot = wgsl_const(src, "COLUMN_BOTTOM");
         assert!(
-            crest_bottom < rail_top,
-            "the crest reaches {crest_bottom} and the rail starts at {rail_top}"
+            foot < swing_top,
+            "the column's foot is at {foot} and the swing reaches {swing_top}"
         );
 
-        // The chips climb the right edge; the crest is centred, so what has to
-        // hold is that it never reaches their column.
-        let crest_right = 0.5 + wgsl_const(src, "CREST_SLOT") * 0.5 + 0.014;
-        let chip_left = wgsl_const(src, "CHIP_X") - wgsl_const(src, "CHIP_D") * 0.5;
+        // Two rows and a gap, climbing away from the plate, all of it on the
+        // card.
+        let top = foot - (slot + wgsl_const(src, "COLUMN_GAP")) - slot;
+        assert!(top > 0.0, "the column's head runs off the card at {top}");
+
+        // The plate is the bound that cannot move: the column is centred on
+        // the plate's own centre line, so what has to hold is that the slot
+        // and the disc under it stay inside the card's edge.
+        let x = wgsl_const(src, "COLUMN_X");
+        let plate_mid = 1.0 - wgsl_const(src, "PLATE_INSET") - wgsl_const(src, "PLATE_W") * 0.5;
         assert!(
-            crest_right < chip_left,
-            "the crest reaches {crest_right} and the chips start at {chip_left}"
+            (x - plate_mid).abs() < 1e-5,
+            "the column is at {x} and the plate's centre line at {plate_mid}"
         );
-    }
-
-    /// Every triangle in the shader is wound the way `sd_tri` needs.
-    ///
-    /// `sd_tri` takes the outermost of three edge half-planes and builds each
-    /// normal as `(edge.y, -edge.x)`. That is only "outside the triangle" for
-    /// one winding; give it the other and every point lands outside all three
-    /// edges, so the shape **silently never draws**. No error, no crash, no
-    /// pink card — just a pictogram that is quietly missing part of itself.
-    ///
-    /// This is not hypothetical. The commander crest shipped its first frame
-    /// as a plain white bar: the circlet drew, all three of the crown's points
-    /// were wound backwards, and every existing test stayed green, including
-    /// the one right above that checks where the crest *is*. Placement tests
-    /// cannot see shape — the same lesson the card quad taught when it shipped
-    /// as a bowtie.
-    ///
-    /// Checked for the whole file rather than for the crest, because the trap
-    /// is in the helper and catches the next mark just as easily as it caught
-    /// this one.
-    #[test]
-    fn every_triangle_in_the_shader_is_wound_so_it_actually_draws() {
-        let src = include_str!("shaders/card_common.wgsl");
-
-        // The last three `vec2<f32>` literals of a call are its vertices; an
-        // earlier one belongs to the point expression, the way `mark_trample`
-        // writes `p - vec2<f32>(0.0, stomp)`.
-        let vertices = |call: &str| -> Vec<(f32, f32)> {
-            call.match_indices("vec2<f32>(")
-                .filter_map(|(at, _)| {
-                    let open = at + "vec2<f32>(".len();
-                    let close = call[open..].find(')')? + open;
-                    let (x, y) = call[open..close].split_once(',')?;
-                    Some((x.trim().parse().ok()?, y.trim().parse().ok()?))
-                })
-                .collect()
-        };
-
-        let mut checked = 0;
-        for (at, _) in src
-            .match_indices("sd_tri(")
-            // The helper's own declaration matches too, and its parameter
-            // list spells `vec2<f32>` without a paren after it, so it parses
-            // to no vertices at all rather than to bad ones.
-            .filter(|(at, _)| !src[..*at].ends_with("fn "))
-        {
-            let rest = &src[at..];
-            let end = rest.find(");").expect("a call ends");
-            let verts = vertices(&rest[..end]);
-            let n = verts.len();
-            assert!(n >= 3, "sd_tri call with {n} vertex literals");
-            let [a, b, c] = [verts[n - 3], verts[n - 2], verts[n - 1]];
-
-            // Twice the signed area. Positive is the winding `sd_tri` treats
-            // as inside; the sign is what matters, not the magnitude.
-            let cross = (b.0 - a.0) * (c.1 - b.1) - (b.1 - a.1) * (c.0 - b.0);
-            assert!(
-                cross > 0.0,
-                "a triangle at byte {at} is wound backwards ({cross}) and will \
-                 not draw: {a:?} {b:?} {c:?}"
-            );
-            checked += 1;
-        }
-
-        // A parser that quietly matched nothing would make every assertion
-        // above vacuous, which is the way a test like this really fails.
         assert!(
-            checked >= 6,
-            "only {checked} triangles found — the parser has drifted from the file"
+            x + slot * 0.5 + 0.014 < 1.0,
+            "the column's disc runs off the card's right edge"
         );
     }
 

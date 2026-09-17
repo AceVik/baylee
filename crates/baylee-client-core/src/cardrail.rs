@@ -1,8 +1,11 @@
 //! Where a permanent's keyword marks sit on its card.
 //!
-//! The marks themselves are drawn by the card shader — twelve procedural
-//! pictograms in `baylee-client/src/shaders/card_common.wgsl`, so that a
-//! creature with six keywords is still one draw. *Where* they sit is
+//! The marks themselves are drawn by the card shader — one distance-field
+//! sample per mark out of the atlas `baylee-client/src/markatlas.rs` bakes
+//! from the Mana font, so that a creature with six keywords is still one
+//! draw. They were twelve procedural pictograms in `card_common.wgsl` until
+//! September 2026, and what replaced them is the icon a player has already
+//! learned somewhere else. *Where* they sit is
 //! arithmetic, and arithmetic belongs somewhere it can be tested without a
 //! GPU: these constants are the shader's, mirrored, and a test in
 //! `baylee-client` reads the WGSL text and fails if the two ever drift.
@@ -57,6 +60,43 @@ pub const MARK_ORDER: [KeywordBadge; 12] = [
     // it on every card in every screenshot ever taken of this client.
     KeywordBadge::Prowess,
 ];
+
+/// The glyph each mark is drawn with, in [`MARK_ORDER`]'s order.
+///
+/// Codepoints in the Mana font's private-use block, taken from the font's own
+/// stylesheet (`css/mana.css`, the `ms-ability-*` classes) — the only place
+/// the mapping is published — and verified against the shipped font by
+/// `baylee-client`'s `markatlas`, which refuses to bake a codepoint that
+/// rasterises to nothing. A wrong number here draws an empty box and no
+/// compiler can see it.
+///
+/// This table, `manapip::glyph` and [`crate::cardcrest::GLYPHS`] are the only
+/// three doors a Mana glyph enters this client through, and `docs/legal.md`
+/// §2a is why there is one per purpose: the font is open-licensed, the
+/// symbols on it are Wizards' marks, and some of what the font draws — the
+/// planeswalker symbol, the guild and clan watermarks — that policy names as
+/// off limits outright. A set that can be read off one page is a set somebody
+/// can audit.
+pub const MARK_GLYPHS: [char; MARK_ORDER.len()] = [
+    '\u{e952}', // flying
+    '\u{e950}', // first strike
+    '\u{e94d}', // double strike
+    '\u{e94b}', // deathtouch
+    '\u{e953}', // haste
+    '\u{ea4b}', // lifelink
+    '\u{e95d}', // menace
+    '\u{e960}', // reach
+    '\u{e964}', // trample
+    '\u{e968}', // vigilance
+    '\u{e94c}', // defender
+    '\u{e982}', // prowess
+];
+
+/// The glyph a badge is drawn with, or `None` for one the border draws.
+#[must_use]
+pub fn glyph_of(badge: KeywordBadge) -> Option<char> {
+    slot_of(badge).map(|i| MARK_GLYPHS[i])
+}
 
 /// Which slot a badge occupies, or `None` for one the border draws.
 #[must_use]
@@ -133,6 +173,33 @@ mod tests {
         assert_eq!(expected.as_slice(), MARK_ORDER.as_slice());
         assert_eq!(slot_of(KeywordBadge::Hexproof), None);
         assert_eq!(slot_of(KeywordBadge::Flying), Some(0));
+    }
+
+    /// Every mark has a glyph, no two marks share one, and every one of them
+    /// is in the private-use block the Mana font maps.
+    ///
+    /// The length is the compiler's already; what it cannot see is a
+    /// duplicate, which is how two keywords come to wear the same picture,
+    /// and a codepoint outside the block, which is how one comes to wear
+    /// none. Whether the *font* has it is `markatlas`'s question, because
+    /// that needs the file.
+    #[test]
+    fn every_mark_has_its_own_glyph_in_the_private_use_block() {
+        for (i, g) in MARK_GLYPHS.iter().enumerate() {
+            assert!(
+                ('\u{e000}'..='\u{f8ff}').contains(g),
+                "{:?} is drawn with {g:?}, which is not a private-use codepoint",
+                MARK_ORDER[i]
+            );
+            assert_eq!(
+                MARK_GLYPHS.iter().filter(|o| *o == g).count(),
+                1,
+                "{:?} shares its glyph with another mark",
+                MARK_ORDER[i]
+            );
+        }
+        assert_eq!(glyph_of(KeywordBadge::Flying), Some(MARK_GLYPHS[0]));
+        assert_eq!(glyph_of(KeywordBadge::Hexproof), None);
     }
 
     /// A full rail stays on the card and out of the corner the numbers will

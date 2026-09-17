@@ -834,6 +834,7 @@ dependencies = [
  "send_wrapper",
  "serde",
  "serde_json",
+ "swash",
  "tokio",
  "tokio-tungstenite 0.30.0",
  "uuid",

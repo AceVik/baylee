@@ -40,7 +40,7 @@ use serde::{Deserialize, Serialize};
 
 /// Protocol version of the view payload. Bumped on any breaking change so a
 /// client can refuse a host it cannot render rather than mis-rendering it.
-pub const VIEW_VERSION: u32 = 20;
+pub const VIEW_VERSION: u32 = 21;
 
 // ---------------------------------------------------------------- turn shape
 
@@ -568,6 +568,22 @@ pub struct PublicObject {
     pub power: Option<i16>,
     /// Projected toughness, for creatures.
     pub toughness: Option<i16>,
+    /// The power the card itself prints, before any continuous effect.
+    ///
+    /// Carried beside the projection rather than derived from it, because a
+    /// client cannot run the layer system and the two numbers differ for
+    /// four unrelated reasons — an anthem, a counter, a pump spell, a copy
+    /// effect. Only the engine can say which base a permanent has: a Clone's
+    /// base is the *copied* card's printed body (CR 706.2), not the Clone's
+    /// own, and a token's is whatever minted it.
+    ///
+    /// The client draws it under the corner plate, which sits exactly where
+    /// a real card prints its power and toughness and therefore hides them.
+    /// `None` for anything that is not a creature, and for a creature whose
+    /// base the engine has no number for.
+    pub base_power: Option<i16>,
+    /// The toughness the card itself prints. See [`Self::base_power`].
+    pub base_toughness: Option<i16>,
     /// Loyalty, for planeswalkers.
     pub loyalty: Option<u16>,
     /// Damage marked this turn.
@@ -725,6 +741,8 @@ impl PublicObject {
             types: self.types,
             power: self.power,
             toughness: self.toughness,
+            base_power: self.base_power,
+            base_toughness: self.base_toughness,
             damage: self.damage,
             loyalty: self.loyalty,
             counters,
@@ -748,6 +766,12 @@ pub struct ObjectSummaryKey {
     types: TypeSet,
     power: Option<i16>,
     toughness: Option<i16>,
+    /// In the key because it is drawn. A printed 3/3 and a 2/2 under an
+    /// anthem are both projected 3/3 and their corners say different things,
+    /// so grouping them would put one card's appendage on the other's pile.
+    /// The same argument loyalty was added on.
+    base_power: Option<i16>,
+    base_toughness: Option<i16>,
     damage: u16,
     loyalty: Option<u16>,
     counters: Vec<CounterEntry>,
@@ -1246,6 +1270,8 @@ mod tests {
             keywords: 0,
             power: Some(1),
             toughness: Some(1),
+            base_power: None,
+            base_toughness: None,
             loyalty: None,
             damage: 0,
             counters: vec![],

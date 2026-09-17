@@ -32,6 +32,8 @@ pub fn token(slot: u32, controller: u8, name: &str, power: i16, toughness: i16) 
         keywords: 0,
         power: Some(power),
         toughness: Some(toughness),
+        base_power: None,
+        base_toughness: None,
         loyalty: None,
         damage: 0,
         counters: Vec::new(),

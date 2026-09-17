@@ -16,7 +16,7 @@
 
 #import bevy_pbr::forward_io::VertexOutput
 #import bevy_pbr::mesh_view_bindings::{view, globals}
-#import "embedded://baylee_client/shaders/card_common.wgsl"::{mark_layer, crest_layer, provenance_layer, plate_layer, chip_layer, corner_sdf, sweep_amount, door_layer, DOOR_NONE, MARK_SHIFT, MARK_FIELD}
+#import "embedded://baylee_client/shaders/card_common.wgsl"::{mark_layer, identity_layer, plate_layer, corner_sdf, sweep_amount, door_layer, DOOR_NONE, MARK_SHIFT, MARK_FIELD}
 
 struct CardParams {
     /// 0 plain, 1 foil, 2 etched.
@@ -54,6 +54,11 @@ struct CardParams {
 @group(#{MATERIAL_BIND_GROUP}) @binding(0) var art: texture_2d<f32>;
 @group(#{MATERIAL_BIND_GROUP}) @binding(1) var art_sampler: sampler;
 @group(#{MATERIAL_BIND_GROUP}) @binding(2) var<uniform> params: CardParams;
+// The keyword rail's marks: one row of square distance fields, baked out of
+// the Mana font at startup by `markatlas.rs`. Every card material carries the
+// same handle, so this is one texture for the whole table.
+@group(#{MATERIAL_BIND_GROUP}) @binding(3) var marks: texture_2d<f32>;
+@group(#{MATERIAL_BIND_GROUP}) @binding(4) var marks_sampler: sampler;
 
 const FINISH_FOIL: u32 = 1u;
 const FINISH_ETCHED: u32 = 2u;
@@ -574,33 +579,26 @@ fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
     // creature, and two hundred lines of pictogram kept in step by hand would
     // not stay in step.
     color = vec4<f32>(
-        mark_layer(uv, (params.glow >> MARK_SHIFT) & MARK_FIELD, t, color.rgb),
+        mark_layer(uv, (params.glow >> MARK_SHIFT) & MARK_FIELD, t, color.rgb, marks, marks_sampler),
         color.a,
     );
 
-    // ---- the crest, on the opposite edge from the rail
+    // ---- the identity column, above the plate's corner
     //
-    // Beside the rail rather than in it: this one is not a combat keyword and
-    // would not sort among eleven that are. It gets no `t` — a commander is a
-    // commander whatever the clock is doing.
+    // Beside the rail rather than in it: neither of these is a combat
+    // keyword and neither would sort among eleven that are. It gets no `t`
+    // — a commander is a commander whatever the clock is doing, and so is a
+    // token. Before the plate because the two share a centre line and the
+    // column is what stands above what the plate and its swing reserve.
     color = vec4<f32>(
-        crest_layer(uv, (params.glow & GLOW_COMMANDER) != 0u, color.rgb),
-        color.a,
-    );
-
-    // ---- the provenance mark, in the other top corner
-    //
-    // After the crest and before the plate: the two share the top edge and
-    // never the same slot, so the order between them decides nothing — it is
-    // written this way round because the crest is the older mark and the one
-    // whose region this is borrowing. No `t` either, and for the same reason
-    // the crest gets none.
-    color = vec4<f32>(
-        provenance_layer(
+        identity_layer(
             uv,
+            (params.glow & GLOW_COMMANDER) != 0u,
             (params.glow & GLOW_TOKEN) != 0u,
             (params.glow & GLOW_COPY) != 0u,
             color.rgb,
+            marks,
+            marks_sampler,
         ),
         color.a,
     );
@@ -610,10 +608,19 @@ fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
     // After the rail, because the two share a bottom edge and the plate is
     // what the rail stops short of; before the corner ink, for the same reason
     // the rail is — nothing may survive outside the card.
-    color = vec4<f32>(plate_layer(uv, params.plate, color.rgb), color.a);
-    // ---- and the counters standing above it
+    // ---- the plate, and the counters standing above it
     color = vec4<f32>(
-        chip_layer(uv, params.chips_a, params.chips_b, color.rgb), color.a);
+        plate_layer(
+            uv,
+            params.plate,
+            params.chips_a,
+            params.chips_b,
+            color.rgb,
+            marks,
+            marks_sampler,
+        ),
+        color.a,
+    );
 
     // ---- the corners the scanner saw and the card does not have
     //

@@ -18,19 +18,21 @@
 //! flat tint is a card whose art has not loaded, and a 4/4 that could block is
 //! the thing a player most needs off a card they cannot otherwise read.
 //!
-//! Above the plate stands the other half of the corner: the **counter chips**,
-//! a short column of flat stamped discs, pips to six and numerals from seven.
-//! A chip rather than a die, because shape is not a number — nobody reads a d8
-//! from a d10 at the size a counter is on a card lying at `CAMERA_LEAN`, and
-//! what a player reads off a real die is the numeral on top anyway. Three
-//! kinds are drawn and a fourth collapses to `+N`, which is the same honest
-//! failure the rail makes when eleven marks share a row: shrink or count, but
-//! never hide the tail.
+//! Above the plate stands the other half of the corner: the **swing**, the
+//! net power and toughness a permanent's ±1/±1 counters add, written out in
+//! the same numerals one size down. It replaced a column of stamped chips —
+//! pips to six, a colour per kind of counter — which the owner read as
+//! saying nothing, and which was hard to defend once the plate underneath it
+//! was writing the answer in figures. A green disc with three pips on it is
+//! a rebus for `+3/+3`.
+//!
+//! What that costs is written down in [`counter_swing`]: the kinds of
+//! counter that are not ±P/T had a chip each and now have none on the table.
 //!
 //! And one shape takes the plate away from both: a **saga's chapter** is a
 //! page with a roman numeral on it, not a token somebody put on the card.
 
-use crate::board::CardGroup;
+use crate::board::{CardGroup, KeywordBadge};
 use baylee_view::{CounterEntry, CounterKind};
 
 /// Nothing to say: a land, or an artifact that is not a creature.
@@ -197,175 +199,126 @@ fn chapter(counters: &[CounterEntry]) -> Option<u16> {
         .map(|c| c.count)
 }
 
-// ------------------------------------------------------------- counter chips
+// ------------------------------------------------- what the counters say
 
-/// How many chips the column above the plate shows before it starts counting.
-pub const CHIPS: usize = 3;
-
-/// Bits one chip is packed into: its tint below, its count above.
-pub const CHIP_BITS: u32 = 16;
-/// The mask a chip's tint is read through.
-pub const CHIP_TINT_MASK: u32 = 0x1f;
-/// Where a chip's count sits inside it.
-pub const CHIP_COUNT_SHIFT: u32 = 5;
-/// The mask a chip's count is read through.
-pub const CHIP_COUNT_MASK: u32 = 0x3ff;
-
-/// The largest count a chip draws.
+/// The net power and toughness a permanent's ±1/±1 counters add.
 ///
-/// Three digits is what the numeral path can lay out, so a fourth would be
-/// drawn as the wrong number rather than as a wide one — the same failure the
-/// plate clamps to avoid. A card with a thousand counters on it is not a
-/// board this client is going to render honestly either way.
-pub const CHIP_MAX: u16 = 999;
-
-/// An empty chip slot. Zero, so an empty column packs to zero words.
-pub const TINT_NONE: u32 = 0;
-/// A `+1/+1` counter.
-pub const TINT_PLUS: u32 = 1;
-/// A `-1/-1` counter.
-pub const TINT_MINUS: u32 = 2;
-/// A charge counter.
-pub const TINT_CHARGE: u32 = 3;
-/// A lore counter, on the rare permanent whose plate is not the page.
-pub const TINT_LORE: u32 = 4;
-/// A time counter (suspend, vanishing).
-pub const TINT_TIME: u32 = 5;
-/// A level counter.
-pub const TINT_LEVEL: u32 = 6;
-/// A loyalty counter sitting on something that is not a planeswalker.
-pub const TINT_LOYALTY: u32 = 7;
-/// A keyword counter.
-pub const TINT_KEYWORD: u32 = 8;
-/// Everything else, including the engine's custom counters.
-pub const TINT_OTHER: u32 = 9;
-/// The chip that says how many kinds did not fit.
-pub const TINT_MORE: u32 = 10;
-
-/// Which tint a counter is drawn in.
+/// `None` when the permanent wears none of them. Every `Plus` and `Minus`
+/// counter is folded into one pair, which is both what a player wants to
+/// read and what the rules make true: `+1/+1` and `-1/-1` counters annihilate
+/// as a state-based action (CR 704.5q), so a permanent never *has* both kinds
+/// of the ordinary one to begin with, and the odd `-0/-1` from a Skulk effect
+/// simply adds in.
 ///
-/// Colour is the whole of how one chip is told from another at the size a
-/// chip is on a card lying at `CAMERA_LEAN` — the count is in pips or
-/// numerals, and the *kind* has no other channel left. It is deliberately
-/// only half an answer: two players who both know the board can read it, and
-/// the full one is the badge tooltip, which names the counter.
+/// What stood here was a column of **chips** — flat stamped discs above the
+/// plate, pips to six and numerals above that, one per kind of counter, with
+/// colour carrying which kind. The owner's reading of it was that it said
+/// nothing, and that is fair: a green disc with three pips on it is a
+/// rebus for `+3/+3`, and the plate two millimetres below it was already
+/// writing the answer out in numerals. This writes the counters out too.
+///
+/// The cost is named rather than hidden: charge, time, level, loyalty-on-a-
+/// non-planeswalker and keyword counters had a chip each and now have none.
+/// They are still named in full by the card's badge tooltip, which is where
+/// the chips' colour code always had to be decoded anyway.
 #[must_use]
-pub const fn tint_of(kind: CounterKind) -> u32 {
-    match kind {
-        // Every +X/+Y counter, not only the +1/+1 — a -0/-1 is a minus
-        // counter and reads as one.
-        CounterKind::Plus { .. } => TINT_PLUS,
-        CounterKind::Minus { .. } => TINT_MINUS,
-        CounterKind::Charge => TINT_CHARGE,
-        CounterKind::Lore => TINT_LORE,
-        CounterKind::Time => TINT_TIME,
-        CounterKind::Level => TINT_LEVEL,
-        CounterKind::Loyalty => TINT_LOYALTY,
-        CounterKind::Lifelink => TINT_KEYWORD,
-        // Poison, energy and rad are counters a *player* has. They have no
-        // tint of their own because a permanent never wears one, and giving
-        // them one would be inventing a colour nothing can show.
-        CounterKind::Poison | CounterKind::Energy | CounterKind::Rad | CounterKind::Custom(_) => {
-            TINT_OTHER
-        }
+pub fn counter_swing(counters: &[CounterEntry]) -> Option<(i16, i16)> {
+    let mut power = 0i32;
+    let mut toughness = 0i32;
+    let mut any = false;
+    for entry in counters {
+        let (p, t) = match entry.kind {
+            CounterKind::Plus { power, toughness } => (i32::from(power), i32::from(toughness)),
+            CounterKind::Minus { power, toughness } => (-i32::from(power), -i32::from(toughness)),
+            _ => continue,
+        };
+        let n = i32::from(entry.count);
+        power += p * n;
+        toughness += t * n;
+        any = true;
     }
+    // A permanent that wears a `+1/+1` and a `-1/-1` at once is one the
+    // engine has not yet run state-based actions on. It nets to nothing, and
+    // nothing is what is drawn — an empty line rather than `+0/+0`.
+    if !any || (power == 0 && toughness == 0) {
+        return None;
+    }
+    let clamp = |v: i32| v.clamp(-BIAS, CEILING) as i16;
+    Some((clamp(power), clamp(toughness)))
 }
 
-/// The order chips run in, nearest the plate first.
+/// Which numerals the corner writes in a colour that is not its own ink.
 ///
-/// Fixed rather than the view's order, so a card that gains a second kind of
-/// counter does not reshuffle the chips it already had.
-fn order_key(kind: CounterKind) -> (u8, u32) {
-    let rank = match kind {
-        CounterKind::Plus { .. } => 0,
-        CounterKind::Minus { .. } => 1,
-        CounterKind::Lore => 2,
-        CounterKind::Loyalty => 3,
-        CounterKind::Charge => 4,
-        CounterKind::Level => 5,
-        CounterKind::Time => 6,
-        CounterKind::Lifelink => 7,
-        CounterKind::Poison => 8,
-        CounterKind::Energy => 9,
-        CounterKind::Rad => 10,
-        CounterKind::Custom(_) => 11,
-    };
-    // Two custom counters would otherwise tie, and a tie is a pair of chips
-    // that can swap places between frames for no reason a player can see.
-    // Two P/T counters of the same sign tie for the same reason, so their
-    // two numbers break it — a +1/+1 sorts before a +2/+2, and a creature
-    // wearing a -0/-1 and a -1/-1 keeps them in that order.
-    let id = match kind {
-        CounterKind::Custom(id) => id,
-        CounterKind::Plus { power, toughness } | CounterKind::Minus { power, toughness } => {
-            u32::from(power) << 8 | u32::from(toughness)
-        }
-        _ => 0,
-    };
-    (rank, id)
-}
-
-/// One counter chip: which counter, and how many there are.
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub struct Chip {
-    /// Which counter this stands for.
-    pub kind: CounterKind,
-    /// How many are on the permanent.
-    pub count: u16,
-}
-
-impl Chip {
-    /// The tint this chip is drawn in.
-    #[must_use]
-    pub const fn tint(self) -> u32 {
-        tint_of(self.kind)
-    }
-
-    /// The chip as its sixteen bits.
-    #[must_use]
-    pub fn packed(self) -> u32 {
-        packed_chip(self.tint(), self.count)
-    }
-}
-
-/// A tint and a count as one chip's word.
-fn packed_chip(tint: u32, count: u16) -> u32 {
-    ((u32::from(count.min(CHIP_MAX)) & CHIP_COUNT_MASK) << CHIP_COUNT_SHIFT) | tint
-}
-
-/// The column of chips above the plate.
+/// Deathtouch and toxic are the two keywords that change what a creature's
+/// *numbers mean* rather than what it can do with them: a 1/1 deathtoucher
+/// trades with anything, and the number that does it is the power. So the
+/// colour goes on the number, not on a thirteenth mark in a rail that has
+/// twelve.
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
-pub struct ChipRow {
-    /// The chips drawn, nearest the plate first.
-    pub shown: [Option<Chip>; CHIPS],
-    /// How many further kinds there was no room for; `0` when they all fit.
-    pub more: u8,
+pub enum Tone {
+    /// The plate's own ink.
+    #[default]
+    Plain,
+    /// Deathtouch: the **power** alone turns, because that is the half of
+    /// the body the keyword acts through. A deathtouching creature's
+    /// toughness is an ordinary toughness.
+    Deadly,
+    /// Toxic: both numbers, because toxic replaces what combat damage to a
+    /// player does rather than what one number is worth.
+    ///
+    /// Not reachable yet — `board::keyword_bits` has no toxic bit and the
+    /// engine has no toxic rule, so nothing constructs this. It is written
+    /// down because the shader arm is the cheap half and leaving a hole in
+    /// the enum would make adding the keyword a change to four files.
+    Toxic,
 }
+
+/// The tone a permanent's keywords ask for.
+///
+/// Read off the **badges** rather than off the raw keyword word, so that the
+/// colour on a number and the mark on the rail can never disagree about
+/// whether a creature has the keyword. The preview, which starts from a view
+/// object rather than from a board group, goes through
+/// [`KeywordBadge::from_bits`] to get here rather than testing a bit itself.
+#[must_use]
+pub fn tone_of(badges: &[KeywordBadge]) -> Tone {
+    if badges.contains(&KeywordBadge::Deathtouch) {
+        Tone::Deadly
+    } else {
+        Tone::Plain
+    }
+}
+
+// ------------------------------------------------------------- the corner
 
 /// Everything the reserved corner says about one card.
 ///
-/// The plate and the chips are decided together because one of them can
-/// silence the other: a saga's page *is* its lore counter, and drawing both
-/// would be the same fact twice, once as a number and once as a die.
+/// Three lines, read top to bottom: what the counters add, the plate, and
+/// what the printing says the body was. The middle one is the only one that
+/// is always there.
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
 pub struct Corner {
     /// What the plate itself says.
     pub plate: Plate,
-    /// What sits above it.
-    pub chips: ChipRow,
+    /// The net ±1/±1 swing, written small above the plate.
+    pub swing: Option<(i16, i16)>,
+    /// The printed body, written small below the plate — and only when it
+    /// is not the body the plate is already showing.
+    pub base: Option<(i16, i16)>,
+    /// Which numerals are not written in the plate's own ink.
+    pub tone: Tone,
 }
 
 impl Corner {
     /// What one drawn card's corner holds.
     #[must_use]
     pub fn of(group: &CardGroup) -> Self {
-        Self::of_parts(
-            group.power,
-            group.toughness,
-            group.loyalty,
-            group.damage,
-            &group.counters,
-        )
+        Self {
+            plate: Plate::of(group),
+            swing: counter_swing(&group.counters),
+            base: base_body(Plate::of(group), group.base_power, group.base_toughness),
+            tone: tone_of(&group.badges),
+        }
     }
 
     /// The same corner for a single object rather than for a group.
@@ -376,105 +329,178 @@ impl Corner {
     /// preview, which is two numbers for one permanent on one screen.
     #[must_use]
     pub fn of_object(object: &baylee_view::PublicObject) -> Self {
-        Self::of_parts(
-            object.power,
-            object.toughness,
-            object.loyalty,
-            object.damage,
-            &object.counters,
-        )
-    }
-
-    fn of_parts(
-        power: Option<i16>,
-        toughness: Option<i16>,
-        loyalty: Option<u16>,
-        damage: u16,
-        counters: &[CounterEntry],
-    ) -> Self {
-        let plate = Plate::of_parts(power, toughness, loyalty, damage, counters);
-        let mut chips: Vec<Chip> = counters
-            .iter()
-            .filter(|c| c.count > 0 && !silenced(c.kind, plate))
-            .map(|c| Chip {
-                kind: c.kind,
-                count: c.count,
-            })
-            .collect();
-        chips.sort_by_key(|c| order_key(c.kind));
-        let mut row = ChipRow::default();
-        for (slot, chip) in row.shown.iter_mut().zip(chips.iter().copied()) {
-            *slot = Some(chip);
+        Self {
+            plate: Plate::of_parts(
+                object.power,
+                object.toughness,
+                object.loyalty,
+                object.damage,
+                &object.counters,
+            ),
+            swing: counter_swing(&object.counters),
+            base: base_body(
+                Plate::of_parts(
+                    object.power,
+                    object.toughness,
+                    object.loyalty,
+                    object.damage,
+                    &object.counters,
+                ),
+                object.base_power,
+                object.base_toughness,
+            ),
+            tone: tone_of(&KeywordBadge::from_bits(object.keywords)),
         }
-        row.more = u8::try_from(chips.len().saturating_sub(CHIPS)).unwrap_or(u8::MAX);
-        Self { plate, chips: row }
     }
 
-    /// The three uniforms the shader reads: the plate, then two chip words.
+    /// The three uniforms the shader reads.
     ///
-    /// Two words rather than one because a chip is a tint *and* a count, and
-    /// four of those do not fit in thirty-two bits without capping a count so
-    /// low that a proliferate deck would out-count it.
+    /// The plate, the swing above it, and the printed body below it.
     #[must_use]
     pub fn packed(self) -> [u32; 3] {
-        let at = |i: usize| self.chips.shown[i].map_or(0, Chip::packed);
-        let more = if self.chips.more == 0 {
-            0
-        } else {
-            packed_chip(TINT_MORE, u16::from(self.chips.more))
+        let swing = match self.swing {
+            None => 0,
+            Some((power, toughness)) => {
+                SWING_SET | slot(i32::from(power)) | (slot(i32::from(toughness)) << SLOT_BITS)
+            }
+        };
+        let base = match self.base {
+            None => 0,
+            Some((power, toughness)) => {
+                BASE_SET | slot(i32::from(power)) | (slot(i32::from(toughness)) << SLOT_BITS)
+            }
         };
         [
             self.plate.packed(),
-            at(0) | (at(1) << CHIP_BITS),
-            at(2) | (more << CHIP_BITS),
+            swing | (self.tone_bits() << TONE_SHIFT),
+            base,
         ]
+    }
+
+    /// The tone, as the two bits the shader switches on.
+    const fn tone_bits(self) -> u32 {
+        match self.tone {
+            Tone::Plain => TONE_PLAIN,
+            Tone::Deadly => TONE_DEADLY,
+            Tone::Toxic => TONE_TOXIC,
+        }
     }
 }
 
-/// Whether the plate already says what this counter says.
+/// Set on the swing word when there *is* a swing, so that a `0/0` net and an
+/// absent one are different states rather than the same zero.
+pub const SWING_SET: u32 = 1 << 20;
+/// The same flag on the base word, for the same reason: a printed `0/0`
+/// Walking Ballista is a real body.
+pub const BASE_SET: u32 = 1 << 20;
+
+/// The printed body, when it is worth drawing under the plate.
 ///
-/// Only ever a saga's page. `+1/+1` and `-1/-1` counters *are* folded into the
-/// projected power and toughness, and their chips are still drawn: a 3/3 and a
-/// 1/1 wearing two +1/+1 counters are different permanents, and the plate says
-/// `3/3` for both. Only the chip says which one dies to a Sudden Spoiling.
-const fn silenced(kind: CounterKind, plate: Plate) -> bool {
-    matches!((kind, plate), (CounterKind::Lore, Plate::Lore(_)))
+/// Only when it **differs** from what the plate is showing, which is the
+/// whole design of the appendage. A creature drawn at its printed size has
+/// its printed size on the plate already, and a second line under every
+/// untouched creature on the board is noise with no information in it. When
+/// they differ, that difference is exactly the thing a player is trying to
+/// work out — and it is the thing the plate itself hid, because the plate
+/// sits where a real card prints its power and toughness.
+///
+/// A permanent whose plate is not a body (a planeswalker, a saga, a land)
+/// gets nothing: there is no printed number the corner is standing on.
+#[must_use]
+pub fn base_body(plate: Plate, power: Option<i16>, toughness: Option<i16>) -> Option<(i16, i16)> {
+    let Plate::Fight {
+        power: shown,
+        toughness: shown_t,
+        ..
+    } = plate
+    else {
+        return None;
+    };
+    match (power, toughness) {
+        (Some(p), Some(t)) if (p, t) != (shown, shown_t) => Some((p, t)),
+        _ => None,
+    }
 }
+/// Where the tone sits in the swing word.
+pub const TONE_SHIFT: u32 = 21;
+/// The plate writes in its own ink.
+pub const TONE_PLAIN: u32 = 0;
+/// Deathtouch: the power alone.
+pub const TONE_DEADLY: u32 = 1;
+/// Toxic: both numbers.
+pub const TONE_TOXIC: u32 = 2;
 
-/// A chip's diameter, in card widths.
-pub const CHIP_D: f32 = 0.098;
-
-/// The gap between two chips, and between the first chip and the plate band.
-pub const CHIP_GAP: f32 = 0.018;
-
-/// The chip column's centre, in card widths — the plate's own centre, so the
-/// corner reads as one column rather than two things near each other.
-pub const CHIP_X: f32 = 1.0 - PLATE_INSET - PLATE_W * 0.5;
-
-/// How far above the card's bottom edge the column starts, in card widths.
+/// The largest chapter drawn in roman numerals.
 ///
-/// Measured from the bottom rather than the top so that the shader can build
-/// it out of the same three constants without knowing the card's height —
-/// and taken from the plate's *band* rather than from the plate, so the column
-/// does not slide down the card when a creature stops being one.
-pub const CHIP_BASE: f32 = PLATE_INSET + PLATE_H + CHIP_GAP;
+/// Five, which is one past the longest saga printed. A sixth chapter — or a
+/// lore counter put somewhere strange by a card that says so — falls back to
+/// the arabic numerals the plate already draws, because `VI` needs a second
+/// composition rule and an honest number beats a pretty one.
+pub const ROMAN_MAX: u16 = 5;
 
-/// The largest count drawn as pips. Above it, a chip shows numerals.
+/// How tall the swing line above the plate is, as a share of the plate's
+/// own numerals.
 ///
-/// Six because that is where a die stops, and because a pip pattern is read
-/// pre-attentively only while it is a pattern somebody already knows.
-pub const PIP_MAX: u16 = 6;
+/// A subordinate line: it says how the plate's number got to be what it is,
+/// and a player who wants the number reads the plate. Small enough to be
+/// read second, large enough to survive the table — at this share it is
+/// about seven physical pixels on a card lying at `CAMERA_LEAN`, against the
+/// plate's eleven.
+pub const SWING_SCALE: f32 = 0.62;
 
-/// The six die faces, a bit per cell of a 3×3 grid, bit `row * 3 + (2 - col)`
-/// — the same "written as it is drawn" convention as [`GLYPHS`].
-pub const PIPS: [u32; 6] = [
-    0b000_010_000, // 1
-    0b100_000_001, // 2
-    0b100_010_001, // 3
-    0b101_000_101, // 4
-    0b101_010_101, // 5
-    0b101_101_101, // 6
-];
+/// The gap between the plate's top edge and the swing line, in card widths.
+pub const SWING_GAP: f32 = 0.012;
+
+/// The gap between the plate's bottom edge and the base line.
+pub const BASE_GAP: f32 = 0.006;
+
+/// How tall the base line's figures are, in card widths.
+///
+/// Derived from the room rather than chosen, which is the difference between
+/// an appendage and a patch: the plate is inset [`PLATE_INSET`] from the
+/// card's bottom edge, that strip is all there is below it, and this fills
+/// what is left of it once the line has a gap on each side. Choosing a size
+/// instead would leave the constant to be re-checked by hand every time the
+/// band moved — and the failure is a printed body hanging off the bottom of
+/// the card.
+pub const BASE_H: f32 = PLATE_INSET - 2.0 * BASE_GAP;
+
+const _: () = assert!(BASE_H > 0.0);
+const _: () = assert!(BASE_GAP + BASE_H <= PLATE_INSET);
+
+/// How tall a card has to be *drawn* before the base line appears, as the
+/// pixel size the shader already measures.
+///
+/// It is not drawn on the table and that is the measurement, not a
+/// preference: a card there is about 150 physical pixels wide, which puts
+/// this line at five, and five-pixel figures are a smudge that says only
+/// "something is here" — on every pumped creature at once. The damage band's
+/// rules appear on the same terms and through the same `aa`
+/// (`TICK_AA`), so the corner already has this behaviour and a player has
+/// already met it: push the camera in, or hover the card, and the corner
+/// says more.
+pub const BASE_AA: f32 = 0.004;
+
+/// How tall the swing line's figures are, in card widths.
+///
+/// The plate's own figure height times [`SWING_SCALE`]. Derived rather than
+/// written, so that a change to the plate's padding moves both lines
+/// together and the corner keeps reading as one column.
+pub const SWING_H: f32 = (PLATE_H - 2.0 * PLATE_PAD) * SWING_SCALE;
+
+/// The swing line is subordinate to the plate, sits clear of it, and stays
+/// on the card.
+///
+/// Compile-time, for the reason the plate's own padding assertion is: all
+/// four of these are constants, so a test would be asserting something the
+/// compiler already knows and could only fail after a build that had already
+/// shipped the wrong corner. The last of the three is the one that is not
+/// obvious — the line is *above* the plate, so raising either the plate's
+/// height or this one's walks it off the card's top edge.
+const _: () = assert!(SWING_GAP > 0.0);
+const _: () = assert!(SWING_H < PLATE_H - 2.0 * PLATE_PAD);
+const _: () =
+    assert!(1.0 / crate::cardrail::CARD_ASPECT - PLATE_INSET - PLATE_H - SWING_GAP - SWING_H > 0.0);
 
 /// How far in from the printed edge the plate sits, in card widths.
 ///
@@ -494,7 +520,15 @@ pub const PLATE_W: f32 = 1.0 - 2.0 * crate::cardrail::RAIL_INSET - crate::cardra
 pub const PLATE_H: f32 = crate::cardrail::RAIL_SLOT;
 
 /// The margin inside the plate, in card widths.
-pub const PLATE_PAD: f32 = 0.014;
+///
+/// Raised from 0.014 when the numerals stopped being a 4×6 stencil. A
+/// stencil's ink stopped a cell short of its own box on most glyphs, so the
+/// old padding was really the padding plus whatever sidebearing the picture
+/// happened to have; a typeface's figures fill the height they are given
+/// exactly. Measured on the table at this camera, 0.014 left about
+/// three quarters of a physical pixel between a digit and the plate's rim
+/// and the two ran together; this leaves a little under two.
+pub const PLATE_PAD: f32 = 0.020;
 
 /// The plate has room for a glyph once its own margin is taken out of it.
 ///
@@ -504,66 +538,111 @@ pub const PLATE_PAD: f32 = 0.014;
 /// exactly like "this card has no body".
 const _: () = assert!(PLATE_H > 2.0 * PLATE_PAD + 0.02);
 
-/// A glyph cell's grid, which is what the packed glyphs below are drawn on.
-pub const GLYPH_W: u32 = 4;
-/// Rows in a glyph.
-pub const GLYPH_H: u32 = 6;
-
-/// The glyphs, packed a row per nibble, bit `3 - column` within it — which is
-/// what lets each literal below be read as the picture it draws.
+/// The characters the corner writes with, in the order their cells sit in the
+/// atlas.
 ///
-/// A stencil rather than a typeface, and for the same reason the felt is value
-/// noise and the marks are signed distance fields: ornament is the easiest
-/// thing to borrow by accident and arithmetic borrows nothing
-/// (`docs/legal.md` §2). It is also the only kind of glyph the card pipeline
-/// can draw at all — there is no text on the 3D table, Bevy has no 3D text,
-/// and projecting a UI numeral onto a card would have to chase its tap
-/// rotation, its hover lift and its place in a stack every frame.
-pub const GLYPHS: [u32; 15] = [
-    glyph([0b0110, 0b1001, 0b1001, 0b1001, 0b1001, 0b0110]), // 0
-    glyph([0b0100, 0b1100, 0b0100, 0b0100, 0b0100, 0b1110]), // 1
-    glyph([0b0110, 0b1001, 0b0001, 0b0010, 0b0100, 0b1111]), // 2
-    glyph([0b1110, 0b0001, 0b0110, 0b0001, 0b1001, 0b0110]), // 3
-    glyph([0b0010, 0b0110, 0b1010, 0b1111, 0b0010, 0b0010]), // 4
-    glyph([0b1111, 0b1000, 0b1110, 0b0001, 0b1001, 0b0110]), // 5
-    glyph([0b0110, 0b1000, 0b1110, 0b1001, 0b1001, 0b0110]), // 6
-    glyph([0b1111, 0b0001, 0b0010, 0b0010, 0b0100, 0b0100]), // 7
-    glyph([0b0110, 0b1001, 0b0110, 0b1001, 0b1001, 0b0110]), // 8
-    glyph([0b0110, 0b1001, 0b1001, 0b0111, 0b0001, 0b0110]), // 9
-    glyph([0b0000, 0b0000, 0b0000, 0b1110, 0b0000, 0b0000]), // minus
-    glyph([0b0001, 0b0001, 0b0010, 0b0100, 0b1000, 0b1000]), // slash
-    glyph([0b0000, 0b0100, 0b1110, 0b0100, 0b0000, 0b0000]), // plus
-    glyph([0b1110, 0b0100, 0b0100, 0b0100, 0b0100, 0b1110]), // roman I
-    glyph([0b1001, 0b1001, 0b1001, 0b1001, 0b0110, 0b0100]), // roman V
+/// A typeface and no longer a stencil. What stood here was a 4×6 bitmap per
+/// glyph, sampled bilinearly — authored when the corner had no other way to
+/// put a numeral on a card, and it showed: a stroke was one cell of four, so
+/// a `2/2` was six strokes on a grid twenty-three cells wide and the eye read
+/// the grid rather than the number. Two complaints came off it together and
+/// they were one fault. It looked **blurry**, because a 4×6 mask smoothed up
+/// to eleven physical pixels is a blur by construction and has no edge to
+/// sharpen. And it looked **off-centre**, because every glyph was given the
+/// same four cells: `1` drew its flag in the leftmost two and `/` ran corner
+/// to corner, so the ink inside a fixed box sat wherever the picture put it.
+///
+/// A real face answers both at once — a distance field has an edge at any
+/// size, and a glyph's *advance* is what centring a line of type means. The
+/// face is `AlegreyaSans-Bold.ttf`, which this client already ships and sets
+/// its interface in, under the SIL OFL; nothing new is downloaded and
+/// `docs/legal.md` §2 is untouched, because a digit is nobody's trademark.
+pub const TEXT_CHARS: [char; 15] = [
+    '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '-', '/', '+', 'I', 'V',
 ];
 
-/// The index of `−` in [`GLYPHS`].
+/// The index of `-` in [`TEXT_CHARS`].
 pub const GLYPH_MINUS: usize = 10;
-/// The index of `/` in [`GLYPHS`].
+/// The index of `/` in [`TEXT_CHARS`].
 pub const GLYPH_SLASH: usize = 11;
-/// The index of `+` in [`GLYPHS`], which only the overflow chip draws.
+/// The index of `+` in [`TEXT_CHARS`].
 pub const GLYPH_PLUS: usize = 12;
-/// The index of the roman `I` in [`GLYPHS`].
+/// The index of the roman `I` in [`TEXT_CHARS`].
 pub const GLYPH_I: usize = 13;
-/// The index of the roman `V` in [`GLYPHS`].
+/// The index of the roman `V` in [`TEXT_CHARS`].
 ///
-/// Serifed, and not the arabic `1` with its flag and foot: a saga's chapter is
-/// a roman numeral on every card that prints one, and `III` written in arabic
-/// ones would read as one hundred and eleven.
+/// A saga's chapter is a roman numeral on every card that prints one, and
+/// `III` written in arabic ones would read as one hundred and eleven.
 pub const GLYPH_V: usize = 14;
 
-/// The largest chapter drawn in roman numerals.
+/// The em size one text cell is baked at, in cell units.
 ///
-/// Five, which is one past the longest saga printed. A sixth chapter — or a
-/// lore counter put somewhere strange by a card that says so — falls back to
-/// the arabic numerals the plate already draws, because `VI` needs a second
-/// composition rule and an honest number beats a pretty one.
-pub const ROMAN_MAX: u16 = 5;
+/// Chosen by the **tallest** glyph rather than by the digits, which is what
+/// keeps every cell on one baseline: `/` runs from -115 to 680 font units,
+/// 0.795 em, and at this size that is 0.755 of a cell — leaving 0.12 either
+/// side, which is more than [`TEXT_RANGE`] needs. Sizing on the digits
+/// instead would have pushed the slash through its own wall and cut the one
+/// glyph that separates a power from a toughness.
+pub const TEXT_EM: f32 = 0.95;
 
-/// Packs six drawn rows into the word the shader reads.
-const fn glyph(rows: [u32; GLYPH_H as usize]) -> u32 {
-    rows[0] | (rows[1] << 4) | (rows[2] << 8) | (rows[3] << 12) | (rows[4] << 16) | (rows[5] << 20)
-}
+/// Where a text cell's baseline sits, measured down from the cell's top.
+///
+/// Placed so that a **lining figure** is centred in its cell: the digits run
+/// from 0.011 em below the baseline to 0.596 above it, so their middle is
+/// 0.2925 em up and the baseline goes that far below the cell's centre. Every
+/// other glyph is then hung off the same baseline and lands where type says
+/// it should — the hyphen at x-height, the slash overshooting both ways.
+pub const TEXT_BASELINE: f32 = 0.5 + 0.2925 * TEXT_EM;
+
+/// How far either side of an outline a text cell's distance reaches, in cell
+/// units.
+///
+/// Much shorter than the rail's [`crate::cardrail::MARK_ORDER`] marks
+/// need, and deliberately: a mark is drawn with a halo (`exp(-d * 24)`) and
+/// wants field to burn off into, while a numeral is a hard edge and a fill.
+/// Spending the margin on range instead of on size would shrink the digits
+/// for nothing.
+pub const TEXT_RANGE: f32 = 0.10;
+
+/// A lining figure's height, in cell units — what the shader sizes a line of
+/// type by.
+///
+/// The digits' own band (0.607 em from the deepest overshoot to the tallest
+/// cap) at [`TEXT_EM`]. A line is scaled so that *this* fills the height it
+/// is given, not so that the cell does: a cell is mostly margin, and sizing
+/// by it would draw every number two thirds as tall as its plate.
+pub const TEXT_CAP: f32 = 0.607 * TEXT_EM;
+
+/// Each glyph's advance, in cell units.
+///
+/// The digits are **tabular** — one advance for all ten, taken from the
+/// `tnum` figures — which is the difference between a plate that grows a
+/// creature from `9/9` to `10/10` and one that also jiggles the `/` sideways
+/// when a 1 replaces an 8. `lnum` is asked for in the same breath, because
+/// this face's default figures are *oldstyle*: `3`, `4`, `5`, `7` and `9`
+/// descend a tenth of an em below the baseline, which on a P/T is exactly the
+/// crooked look this whole change is here to remove.
+///
+/// Font units over a thousand, times [`TEXT_EM`].
+/// `markatlas::the_advances_are_the_shipped_font_s_own` re-measures every one
+/// of them out of the file and is what stops this table drifting from it.
+pub const TEXT_ADV: [f32; TEXT_CHARS.len()] = [
+    0.475 * TEXT_EM, // 0
+    0.475 * TEXT_EM, // 1
+    0.475 * TEXT_EM, // 2
+    0.475 * TEXT_EM, // 3
+    0.475 * TEXT_EM, // 4
+    0.475 * TEXT_EM, // 5
+    0.475 * TEXT_EM, // 6
+    0.475 * TEXT_EM, // 7
+    0.475 * TEXT_EM, // 8
+    0.475 * TEXT_EM, // 9
+    0.304 * TEXT_EM, // -
+    0.284 * TEXT_EM, // /
+    0.480 * TEXT_EM, // +
+    0.295 * TEXT_EM, // I
+    0.587 * TEXT_EM, // V
+];
 
 #[cfg(test)]
 mod tests {
@@ -588,6 +667,10 @@ mod tests {
 
     fn group(power: Option<i16>, toughness: Option<i16>, loyalty: Option<u16>) -> CardGroup {
         CardGroup {
+            // The printed body is the projected one by default, so a test
+            // that is not about the appendage never draws it.
+            base_power: power,
+            base_toughness: toughness,
             representative: ObjectId::new(1, 0),
             members: vec![ObjectId::new(1, 0)],
             name: "x".into(),
@@ -695,173 +778,207 @@ mod tests {
         );
     }
 
-    /// Every glyph is drawn inside its own grid.
+    /// The named indices name the characters they claim to.
     ///
-    /// The literals above are read as pictures, which is what makes them
-    /// legible and also what makes a stray fifth column easy to type. Four
-    /// bits per row is all the shader will read, so a fifth would vanish into
-    /// the neighbouring row instead of failing.
+    /// Five constants point into [`TEXT_CHARS`] and the shader writes with
+    /// the numbers, not the names — so a character inserted into that table
+    /// renumbers every glyph after it and the plate silently starts drawing
+    /// a `+` where it meant a `/`. That is the one failure of this table
+    /// that looks like a rendering bug rather than a typo.
     #[test]
-    fn no_glyph_runs_out_of_its_cell() {
-        for (i, word) in GLYPHS.iter().enumerate() {
-            assert_eq!(word >> (4 * GLYPH_H), 0, "glyph {i} has a seventh row");
-            for row in 0..GLYPH_H {
-                let bits = (word >> (row * 4)) & 0xf;
-                assert!(bits <= 0b1111, "glyph {i} row {row}");
-            }
-        }
-        // And they are all distinct, which catches the copy-paste that gives
-        // two digits one picture — the only way this table can be wrong and
-        // still look right on a board of 2/2s.
-        for (i, a) in GLYPHS.iter().enumerate() {
-            for (j, b) in GLYPHS.iter().enumerate().skip(i + 1) {
-                assert_ne!(a, b, "glyphs {i} and {j} draw the same picture");
-            }
+    fn the_named_glyphs_are_where_the_table_puts_them() {
+        assert_eq!(TEXT_CHARS[GLYPH_MINUS], '-');
+        assert_eq!(TEXT_CHARS[GLYPH_SLASH], '/');
+        assert_eq!(TEXT_CHARS[GLYPH_PLUS], '+');
+        assert_eq!(TEXT_CHARS[GLYPH_I], 'I');
+        assert_eq!(TEXT_CHARS[GLYPH_V], 'V');
+        // The ten digits are the ten leading cells, which is what lets the
+        // shader turn a digit into a cell with one addition.
+        for (i, c) in TEXT_CHARS.iter().take(10).enumerate() {
+            assert_eq!(*c, char::from_digit(i as u32, 10).unwrap());
         }
     }
 
-    /// Every pip pattern is the die face it claims to be.
+    /// Every glyph advances, and the ten digits advance alike.
+    ///
+    /// Tabular figures are the whole reason the table is written out rather
+    /// than derived: a proportional `1` is a fifth narrower than a `0` in
+    /// this face, and a creature growing from `9/9` to `10/10` would shunt
+    /// its own slash sideways. The advances themselves are pinned against
+    /// the shipped file by `markatlas`, which can open it; this end only
+    /// knows the shape they have to have.
     #[test]
-    fn a_pip_face_has_as_many_pips_as_it_says() {
-        for (i, face) in PIPS.iter().enumerate() {
-            assert_eq!(
-                face.count_ones() as usize,
-                i + 1,
-                "the {} face has the wrong number of pips",
-                i + 1
-            );
-            assert_eq!(face >> 9, 0, "the {} face runs out of its grid", i + 1);
+    fn the_digits_share_one_advance_and_nothing_advances_by_nothing() {
+        for (i, a) in TEXT_ADV.iter().enumerate() {
+            assert!(*a > 0.0, "glyph {i} has no width");
+            assert!(*a < 1.0, "glyph {i} is wider than its cell");
         }
-        // A die is symmetric under a half turn, which is what makes the
-        // patterns readable without counting: rotating the grid 180° has to
-        // give the same face back. It is also the cheapest check that no
-        // literal above was typed one cell off.
-        for (i, face) in PIPS.iter().enumerate() {
-            let mut turned = 0u32;
-            for bit in 0..9 {
-                if (face >> bit) & 1 == 1 {
-                    turned |= 1 << (8 - bit);
-                }
-            }
-            assert_eq!(turned, *face, "the {} face is not symmetric", i + 1);
+        for (i, a) in TEXT_ADV.iter().enumerate().take(10).skip(1) {
+            assert!((a - TEXT_ADV[0]).abs() < 1e-6, "digit {i} is not tabular");
         }
+    }
+
+    /// A text cell has room for its glyph and for the field around it.
+    ///
+    /// The tallest glyph is the slash, 0.795 em, and the baseline is placed
+    /// by the *digits* — so the two can disagree, and the way they disagree
+    /// is a slash whose tip is flattened against the cell wall with no
+    /// distance left to measure into. Both ends are checked, because a
+    /// baseline moved to fix the top would push the tail out of the bottom.
+    #[test]
+    fn the_tallest_glyph_still_clears_its_cell_walls() {
+        // Slash, in em above and below the baseline.
+        let (up, down) = (0.680, 0.115);
+        let top = TEXT_BASELINE - up * TEXT_EM;
+        let bottom = TEXT_BASELINE + down * TEXT_EM;
+        assert!(top >= TEXT_RANGE, "the slash reaches the cell's top: {top}");
+        assert!(
+            1.0 - bottom >= TEXT_RANGE,
+            "the slash reaches the cell's bottom: {bottom}"
+        );
+        // And a lining figure is centred, which is what the baseline is for.
+        let mid = TEXT_BASELINE - 0.2925 * TEXT_EM;
+        assert!((mid - 0.5).abs() < 1e-6, "the figures sit at {mid}");
     }
 
     /// A saga has no body, so the corner is free for its chapter — and the
-    /// chapter is then *not* also a chip, because that is one fact twice.
+    /// chapter is then *not* also a swing, because a lore counter moves no
+    /// numbers.
     #[test]
-    fn a_saga_wears_its_chapter_as_a_page_and_not_as_a_counter() {
+    fn a_saga_wears_its_chapter_as_a_page() {
         let saga = with_counters(counted(&[(CounterKind::Lore, 2)]));
         let corner = Corner::of(&saga);
         assert_eq!(corner.plate, Plate::Lore(2));
-        assert_eq!(corner.chips, ChipRow::default());
+        assert_eq!(corner.swing, None);
         assert_eq!(corner.plate.packed() >> KIND_SHIFT, KIND_LORE);
 
         // A saga that is also a creature is a creature: the plate says what
-        // it dies to, and the chapter goes back to being a chip.
+        // it dies to.
         let creature = CardGroup {
             power: Some(3),
             toughness: Some(4),
             ..saga
         };
-        let corner = Corner::of(&creature);
-        assert!(matches!(corner.plate, Plate::Fight { .. }));
-        assert_eq!(
-            corner.chips.shown[0].map(|c| c.kind),
-            Some(CounterKind::Lore)
-        );
+        assert!(matches!(Corner::of(&creature).plate, Plate::Fight { .. }));
     }
 
-    /// The two counters that change the printed numbers are still drawn.
+    /// The counters that moved the printed numbers say by how much.
     ///
-    /// Which is the whole question this test exists for: a 3/3 and a 1/1
-    /// wearing two `+1/+1` counters both plate as `3/3`, and a client that
-    /// dropped the chip would be showing two different permanents identically.
+    /// Which is the whole question the line exists for: a 3/3 and a 1/1
+    /// wearing two `+1/+1` counters both plate as `3/3`, and a corner that
+    /// said nothing about them would be showing two different permanents
+    /// identically. A `-0/-1` is a minus counter and counts as one.
     #[test]
-    fn a_counter_that_moved_the_numbers_is_still_a_chip() {
-        for kind in [CounterKind::PLUS_ONE, CounterKind::MINUS_ONE] {
-            let body = CardGroup {
-                counters: counted(&[(kind, 2)]),
-                ..group(Some(3), Some(3), None)
-            };
-            let corner = Corner::of(&body);
-            assert_eq!(
-                corner.chips.shown[0],
-                Some(Chip { kind, count: 2 }),
-                "{kind:?} lost its chip"
-            );
-        }
-    }
-
-    /// Three fit, a fourth kind is counted, and a count of zero is not a chip.
-    #[test]
-    fn a_fourth_kind_is_counted_rather_than_hidden() {
-        let many = with_counters(counted(&[
-            (CounterKind::Charge, 3),
-            (CounterKind::Time, 1),
-            (CounterKind::Level, 2),
-            (CounterKind::Lifelink, 1),
-            (CounterKind::Custom(7), 4),
-            (CounterKind::Poison, 0),
-        ]));
-        let corner = Corner::of(&many);
-        assert_eq!(corner.chips.more, 2);
-        let kinds: Vec<_> = corner
-            .chips
-            .shown
-            .iter()
-            .flatten()
-            .map(|c| c.kind)
-            .collect();
-        // Fixed order, nearest the plate first — never the view's order.
-        assert_eq!(
-            kinds,
-            vec![CounterKind::Charge, CounterKind::Level, CounterKind::Time]
-        );
-        let [_, _, b] = corner.packed();
-        assert_eq!((b >> CHIP_BITS) & CHIP_TINT_MASK, TINT_MORE);
-        assert_eq!((b >> (CHIP_BITS + CHIP_COUNT_SHIFT)) & CHIP_COUNT_MASK, 2);
-    }
-
-    /// Chips round-trip through their two words, and an empty column is zero.
-    #[test]
-    fn every_chip_survives_the_packing() {
-        let three = with_counters(counted(&[
-            (CounterKind::PLUS_ONE, 1),
-            (CounterKind::Charge, 12),
-            (CounterKind::Time, 4000),
-        ]));
-        let [_, a, b] = Corner::of(&three).packed();
-        let read = |word: u32, half: u32| {
-            let chip = (word >> (half * CHIP_BITS)) & 0xffff;
-            (
-                chip & CHIP_TINT_MASK,
-                (chip >> CHIP_COUNT_SHIFT) & CHIP_COUNT_MASK,
-            )
+    fn the_swing_is_the_net_of_every_plus_and_minus_counter() {
+        let body = |counters| CardGroup {
+            counters,
+            ..group(Some(3), Some(3), None)
         };
-        assert_eq!(read(a, 0), (TINT_PLUS, 1));
-        assert_eq!(read(a, 1), (TINT_CHARGE, 12));
-        // Clamped, not wrapped: 4000 & 0x3ff would be 928, a smaller number
-        // that looks exactly as real as the right one.
-        assert_eq!(read(b, 0), (TINT_TIME, u32::from(CHIP_MAX)));
-        assert_eq!(read(b, 1), (TINT_NONE, 0));
-        assert_eq!(Corner::of(&group(None, None, None)).packed(), [0, 0, 0]);
+        assert_eq!(
+            Corner::of(&body(counted(&[(CounterKind::PLUS_ONE, 2)]))).swing,
+            Some((2, 2))
+        );
+        assert_eq!(
+            Corner::of(&body(counted(&[(CounterKind::MINUS_ONE, 3)]))).swing,
+            Some((-3, -3))
+        );
+        assert_eq!(
+            Corner::of(&body(counted(&[
+                (CounterKind::PLUS_ONE, 4),
+                (
+                    CounterKind::Minus {
+                        power: 0,
+                        toughness: 1
+                    },
+                    2
+                ),
+            ])))
+            .swing,
+            Some((4, 2))
+        );
+        // Counters that move no numbers are not a swing at all.
+        assert_eq!(
+            Corner::of(&body(counted(&[
+                (CounterKind::Charge, 3),
+                (CounterKind::Time, 1)
+            ])))
+            .swing,
+            None
+        );
+        // Nor is a pair that has not yet annihilated (CR 704.5q). The engine
+        // removes them before anybody is asked a question; until it has,
+        // `+0/+0` is a truthful nothing and `None` draws nothing.
+        assert_eq!(
+            Corner::of(&body(counted(&[
+                (CounterKind::PLUS_ONE, 1),
+                (CounterKind::MINUS_ONE, 1)
+            ])))
+            .swing,
+            None
+        );
     }
 
-    /// The column stands above the band the plate is reserved in, and stays
-    /// inside the card.
+    /// The printed body is drawn only when the plate is not already showing
+    /// it.
     #[test]
-    fn the_chip_column_clears_the_plate_and_the_cards_edge() {
-        let height = 1.0 / crate::cardrail::CARD_ASPECT;
-        let plate_top = height - PLATE_INSET - PLATE_H;
-        let first = height - CHIP_BASE - CHIP_D * 0.5;
-        assert!(
-            first + CHIP_D * 0.5 <= plate_top + 1e-6,
-            "the first chip overlaps the plate"
-        );
-        // Four chips, the overflow one included, and the top of the last is
-        // still on the card rather than off its edge.
-        let last = height - CHIP_BASE - CHIP_D * 0.5 - 3.0 * (CHIP_D + CHIP_GAP);
-        assert!(last - CHIP_D * 0.5 > 0.0, "the column runs off the top");
+    fn the_base_appears_when_it_differs_and_never_otherwise() {
+        let pumped = CardGroup {
+            base_power: Some(2),
+            base_toughness: Some(2),
+            ..group(Some(5), Some(5), None)
+        };
+        assert_eq!(Corner::of(&pumped).base, Some((2, 2)));
+
+        // A creature at its printed size says it once.
+        assert_eq!(Corner::of(&group(Some(2), Some(2), None)).base, None);
+
+        // A permanent whose plate is not a body has no printed body under
+        // it to hide: a planeswalker that is also a creature plates its
+        // loyalty, and a `3/3` under that would be a second number nobody
+        // asked for.
+        let walker = CardGroup {
+            base_power: Some(2),
+            base_toughness: Some(2),
+            ..group(Some(5), Some(5), Some(4))
+        };
+        assert_eq!(Corner::of(&walker).base, None);
+
+        // And it survives its word.
+        let [_, _, word] = Corner::of(&pumped).packed();
+        assert_ne!(word & BASE_SET, 0);
+        assert_eq!((word & SLOT_MASK) as i32 - BIAS, 2);
+        assert_eq!(((word >> SLOT_BITS) & SLOT_MASK) as i32 - BIAS, 2);
+    }
+
+    /// Deathtouch colours a number, and only through the rail's own badges.
+    #[test]
+    fn deathtouch_turns_the_corner_deadly() {
+        let mut deadly = group(Some(1), Some(1), None);
+        deadly.badges = vec![crate::board::KeywordBadge::Deathtouch];
+        assert_eq!(Corner::of(&deadly).tone, Tone::Deadly);
+
+        let mut harmless = group(Some(1), Some(1), None);
+        harmless.badges = vec![crate::board::KeywordBadge::Flying];
+        assert_eq!(Corner::of(&harmless).tone, Tone::Plain);
+    }
+
+    /// The swing and the tone survive their word, and an empty corner is
+    /// three zeroes.
+    #[test]
+    fn the_swing_survives_the_packing() {
+        let mut swung = CardGroup {
+            counters: counted(&[(CounterKind::MINUS_ONE, 2)]),
+            ..group(Some(5), Some(5), None)
+        };
+        swung.badges = vec![crate::board::KeywordBadge::Deathtouch];
+        let [_, word, _] = Corner::of(&swung).packed();
+        assert_ne!(word & SWING_SET, 0, "the word does not say there is one");
+        assert_eq!((word & SLOT_MASK) as i32 - BIAS, -2);
+        assert_eq!(((word >> SLOT_BITS) & SLOT_MASK) as i32 - BIAS, -2);
+        assert_eq!(word >> TONE_SHIFT, TONE_DEADLY);
+
+        // A corner with nothing to say packs to nothing, which is what lets
+        // every card in a hand share one material.
+        assert_eq!(Corner::of(&group(None, None, None)).packed(), [0, 0, 0]);
     }
 }

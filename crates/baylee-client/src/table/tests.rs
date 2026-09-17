@@ -394,6 +394,8 @@ fn only_counted_groups_get_a_badge() {
         name: "Soldier".into(),
         power: Some(1),
         toughness: Some(1),
+        base_power: Some(1),
+        base_toughness: Some(1),
         damage: 0,
         loyalty: None,
         status: ObjectStatus::NONE,

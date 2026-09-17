@@ -1,102 +1,122 @@
-//! What a seat's `facing` decides once it has a place: that forward is the way the creatures are, that the three lanes stack from the middle of the table back towards the seat, that a creature staged by `STAGE_STEP` never reaches the ground in front of it, and which of the mat's two long edges carries the bar — the near one at the local seat, the outer one everywhere else. Written as comparisons between two lanes or two seats rather than against a hand-derived angle, because a sign error at a flank moves a card sideways instead of backwards and looks almost right. The flanks are also what the `SIDE_SEAT_TILT` tolerance is measured against: both have to answer alike, with room to spare before a seat genuinely across the table, or the tolerance starts deciding real seats.
+//! What a seat's `facing` decides once it has a place: that forward is the way the creatures are, that the three lanes stack from the middle of the table back towards the seat, that a creature staged by `STAGE_STEP` never reaches the ground in front of it, and that the band its bar is written on is the one edge of its mat nearest the middle of the table — the same edge at every seat, which is what `LEDGE_IS_OUTER` says and what no card may stand on. Written as comparisons between two lanes or two seats rather than against a hand-derived angle, because a sign error at a flank moves a card sideways instead of backwards and looks almost right. The flanks are also what the `SIDE_SEAT_TILT` tolerance is measured against: both have to answer alike, with room to spare before a seat genuinely across the table, or the tolerance starts deciding real seats.
 
 #[allow(clippy::wildcard_imports)] // this module's own vocabulary
 use super::*;
 
-/// The owner's rule, measured rather than restated: in a duel both bars
-/// are at the ends of the screen and the boards are between them. The
-/// local seat's shelf is the *nearest* ink it has and its opponent's is
-/// the furthest, which is what "immer unten" means once there are two
-/// seats facing each other.
+/// The owner's rule, measured rather than restated: every seat's bar is
+/// written on the edge of its own battlefield nearest the middle of the
+/// table, which is the edge *that seat* reads as above its board.
 ///
-/// Table `+y` runs away from the camera, so "nearer" is smaller `y`.
+/// So the shelf is forward of all three lanes at every seat of every ring,
+/// and in a duel the two bars face each other across the hearth instead of
+/// sitting at the two ends of the screen. Table `+y` runs away from the
+/// camera, so the local bar is now that seat's *furthest* ink and the
+/// opponent's is theirs — which is one sentence said once, for the first
+/// time since the bar had a rule of its own at the local seat.
 #[test]
-fn the_local_bar_is_the_nearest_ink_at_its_own_seat() {
-    let layout = TableLayout::new(&seats(2), 1.78, None);
-    let local = layout.local().expect("a local seat");
-    let across = &layout.slots[1];
-
-    let shelf_y = |slot: &SeatSlot| slot.ledge_corners()[0].y;
-    for lane in LaneKind::ALL {
-        assert!(
-            shelf_y(local) < local.lane_center(lane).y,
-            "the local bar is nearer the camera than its own {lane:?} lane"
-        );
-        assert!(
-            shelf_y(across) > across.lane_center(lane).y,
-            "the opponent's bar stays above its own {lane:?} lane"
-        );
+fn every_bar_is_written_between_its_own_board_and_the_hearth() {
+    for n in 2..=8u8 {
+        let layout = TableLayout::new(&seats(n), 1.78, None);
+        for slot in &layout.slots {
+            let forward = slot.forward();
+            let shelf = slot.ledge_corners()[0].dot(forward);
+            for lane in LaneKind::ALL {
+                assert!(
+                    shelf > slot.lane_center(lane).dot(forward),
+                    "{n} seats, seat {:?}: the bar is behind its own {lane:?} lane",
+                    slot.player
+                );
+            }
+        }
     }
-    // And the boards are between the two bars, not stacked against one
-    // of them: the whole point of moving the local shelf is that it took
-    // the near strip with it.
+
+    // And the duel in particular, because that is the table the owner asked
+    // about: the two bars are in the middle with the boards outside them,
+    // the mirror image of the arrangement they replaced.
+    let duel = TableLayout::new(&seats(2), 1.78, None);
+    let local = duel.local().expect("a local seat");
+    let across = &duel.slots[1];
+    let shelf_y = |slot: &SeatSlot| slot.ledge_corners()[0].y;
     assert!(
-        shelf_y(local) < across.lane_center(LaneKind::ALL[0]).y,
-        "the two shelves are at opposite ends of the table"
+        shelf_y(local) > local.lane_center(LaneKind::Lands).y,
+        "the local bar is further from the camera than its own land row"
+    );
+    assert!(
+        shelf_y(across) < across.lane_center(LaneKind::Lands).y,
+        "the opponent's bar is nearer the camera than their own land row"
+    );
+    assert!(
+        shelf_y(local) < shelf_y(across),
+        "the two bars face each other across the hearth"
     );
 }
 
-/// The two flanks of a table have to answer alike, and a seat across it
-/// has to answer differently — with room to spare between the two, or
-/// the tolerance that settles the flanks would start deciding real
-/// seats.
+/// Nothing is ever drawn where the bar is.
+///
+/// The band takes [`crate::tabletop::MAT_LEDGE`] out of the mat's depth and
+/// [`SeatSlot::lane_center`] has to spend it at the same end. The two are
+/// separate readings of [`LEDGE_IS_OUTER`], and they were at opposite ends of
+/// the mat for as long as the local seat had a rule of its own — which cost
+/// nothing only because the ink was not on either edge, but floating in the
+/// gap past the rim. Measured against a whole card rather than a lane centre,
+/// because a card is what would be standing on the writing.
 #[test]
-fn the_two_flanks_of_a_table_put_their_bars_on_the_same_edge() {
-    let table = TableLayout::new(&seats(4), 1.78, None);
-    let local = table.local().expect("a local seat");
-    assert!(
-        local.ledge_is_outer(),
-        "the seat the camera sits behind reads its own bar at the bottom \
-         of the screen, on the near edge of its own mat"
-    );
-
-    for slot in &TableLayout::new(&seats(3), 1.78, None).slots[1..] {
-        assert!(
-            slot.ledge_is_outer(),
-            "an opponent in a three-way is across the table and its board \
-             is drawn upside-down from here, so its bar belongs on the \
-             outer edge; cos is {}",
-            slot.facing.cos()
-        );
+fn no_card_reaches_the_band_its_seat_writes_on() {
+    for n in 2..=8u8 {
+        let layout = TableLayout::new(&seats(n), 1.78, None);
+        for slot in &layout.slots {
+            let forward = slot.forward();
+            let inner = (slot.center + forward * (slot.half_extent.y - crate::tabletop::MAT_LEDGE))
+                .dot(forward);
+            let front = slot.lane_center(LaneKind::Creatures).dot(forward) + CARD_HEIGHT * 0.5;
+            assert!(
+                front <= inner + 1e-4,
+                "{n} seats, seat {:?}: a creature reaches {front} and the band \
+                 starts at {inner}",
+                slot.player
+            );
+        }
     }
+}
 
-    // Every case below is also run with a board being inspected, because
-    // that is the live call — `TableLayout::new(…, duel.focus)`, and `F`
-    // is a key a player presses. A focus reweights the compartments and
-    // with them the size of the ring, and a flank that drifted off the
-    // side of a ring while somebody looked at an opponent would move its
-    // bar to the other edge of its mat for as long as they looked.
+/// The two flanks of a table have to answer alike, and a seat across it
+/// has to answer differently — with room to spare between the two, or the
+/// tolerance that settles the flanks would start deciding real seats.
+///
+/// [`SIDE_SEAT_TILT`] had two readers and now has one: which edge carries
+/// the bar stopped being a question the moment every seat answered it the
+/// same way ([`LEDGE_IS_OUTER`]), and [`SeatSlot::camera_lies`] is what is
+/// left. The margin below is measured for its sake, and it is the half of
+/// this test that could not be written from the constant: a table whose
+/// seats landed *in* the gap would be one where the tolerance, rather than
+/// the geometry, decided where the camera was.
+#[test]
+fn nothing_at_any_table_sits_in_the_tolerance_the_flanks_need() {
+    // Every case is run with a board being inspected too, because that is
+    // the live call — `TableLayout::new(…, duel.focus)`, and `F` is a key a
+    // player presses. A focus reweights the compartments and with them the
+    // size of the ring, and a flank that drifted off the side of a ring
+    // while somebody looked at an opponent would change its answer for as
+    // long as they looked.
     let lookers = [None, Some(PlayerId::new(1)), Some(PlayerId::new(2))];
     for n in [4, 8] {
         for aspect in [1.4_f32, 1.78, 2.25] {
             for focus in lookers {
                 let layout = TableLayout::new(&seats(n), aspect, focus);
-                let flanks: Vec<&SeatSlot> = layout
+                let flanks = layout
                     .slots
                     .iter()
                     .filter(|slot| slot.facing.cos().abs() < 0.5)
-                    .collect();
+                    .count();
                 assert_eq!(
-                    flanks.len(),
-                    2,
-                    "{n} seats at {aspect} with {focus:?} inspected: a table \
-                     has two flanks"
+                    flanks, 2,
+                    "{n} seats at {aspect} with {focus:?} inspected: a table has \
+                     two flanks"
                 );
-                for slot in &flanks {
-                    assert!(
-                        !slot.ledge_is_outer(),
-                        "{n} seats at {aspect} with {focus:?} inspected: a \
-                         flank has no 'above' and keeps the edge nearer the \
-                         hearth; cos is {}",
-                        slot.facing.cos()
-                    );
-                }
             }
         }
     }
 
-    // And the margin the tolerance is chosen against: nothing at any
-    // table sits in the gap between "a flank" and "across from here".
     for n in 2..=8 {
         for aspect in [1.4_f32, 1.78, 2.25] {
             for focus in lookers {
