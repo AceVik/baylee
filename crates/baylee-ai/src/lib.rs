@@ -706,6 +706,64 @@ mod tests {
     }
 
     #[test]
+    fn commander_mana_planning_reads_the_command_zone_and_its_tax() {
+        use baylee_core::generated::subtypes::land;
+        let mut lands = Vec::new();
+        for (i, subtype) in [land::PLAINS, land::ISLAND, land::SWAMP]
+            .into_iter()
+            .enumerate()
+        {
+            let mut source = permanent(obj(u32::try_from(i).unwrap() + 1), PlayerId::new(0), 0);
+            source.types = TypeSet::LAND;
+            source.subtypes.insert(subtype);
+            lands.push(source);
+        }
+        let mut v = view(0, &[20, 20], lands);
+        v.phase = baylee_view::Phase::FirstMain;
+        let mut commander = carded(
+            walker(obj(10), v.seat, 3),
+            "Aminatou, the Fateshifter",
+            TypeSet::PLANESWALKER,
+        );
+        commander.commander = true;
+        v.seats[0].commanders.push(baylee_view::CommanderView {
+            object: commander.id,
+            card: commander.card,
+            name: commander.name.clone(),
+            casts: 0,
+        });
+        v.command[0].push(commander);
+        let pending = Pending::Priority {
+            player: v.seat,
+            legal: Box::new(baylee_engine::choice::LegalActions {
+                can_pass: true,
+                mana_abilities: (1..=3).map(obj).collect(),
+                ..Default::default()
+            }),
+        };
+        assert!(
+            matches!(
+                agent().act(&v, &pending),
+                PlayerAction::ActivateManaAbility { .. }
+            ),
+            "the command zone must participate in affordable spell plans"
+        );
+        v.seats[0].commanders[0].casts = 1;
+        assert_eq!(
+            agent().act(&v, &pending),
+            PlayerAction::PassPriority,
+            "three sources cannot pay the recast tax"
+        );
+        v.seats[0].commanders[0].casts = 0;
+        v.command[0].clear();
+        assert_eq!(
+            agent().act(&v, &pending),
+            PlayerAction::PassPriority,
+            "a listed commander in another zone is not a cast candidate"
+        );
+    }
+
+    #[test]
     fn convoke_pays_with_the_offered_permanents_instead_of_targeting_one() {
         let v = view(
             0,

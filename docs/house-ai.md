@@ -13,7 +13,8 @@ network lobby. Existing `novice`, `steady`, and `sharp` keys still work.
 
 All levels plan coloured payments through the same renderer-free mana matcher
 as the human client. Simple printed and granted mana abilities count, with one
-source per permanent. The agent does not tap toward an unaffordable spell.
+source per permanent. The agent does not tap toward an unaffordable spell. Command-zone commanders
+participate in these plans, including their public cast-count tax.
 Counterspells need an opposing stack entry, removal needs something opposing
 on the battlefield, and a deferred pay-or-lose obligation is declined: the
 current stateless policy cannot plan its future payment. Searches, bottoming,
@@ -73,7 +74,7 @@ do not establish a universal ordering of playing strength.
 
 Regression tests prove different decisions between every adjacent profile,
 repeatability, bounded search work, coloured payments, mana reservation,
-opening-hand selection, menace blocks, and a blocked attack that used to be
+opening-hand selection, commander tax, convoke payment, menace blocks, and a blocked attack that used to be
 mistaken for lethal. The original landless-hand, mana-colour, and false-lethal
 tests were run against the old policy and failed. The scoreboard's loss
 mapping was also deliberately broken and its injected-loss test failed.

@@ -200,7 +200,16 @@ impl HeuristicAgent {
                 let demand: u32 = view
                     .hand
                     .iter()
-                    .filter_map(|c| face(c.card))
+                    .map(|c| c.card)
+                    .chain(
+                        view.command
+                            .get(usize::from(view.seat.get()))
+                            .into_iter()
+                            .flatten()
+                            .filter(|o| o.commander)
+                            .filter_map(|o| o.card),
+                    )
+                    .filter_map(face)
                     .map(|f| {
                         f.mana_cost
                             .symbols()
@@ -226,7 +235,9 @@ impl HeuristicAgent {
         view: &PlayerView,
         legal: &LegalActions,
     ) -> Option<PlayerAction> {
-        let pool = &view.seat(view.seat)?.mana_pool;
+        let seat = view.seat(view.seat)?;
+        let pool = &seat.mana_pool;
+        let command = view.command.get(usize::from(view.seat.get()));
         let sources = sources(view, legal);
         let main = view.active == view.seat
             && view.stack.is_empty()
@@ -241,6 +252,13 @@ impl HeuristicAgent {
             .hand
             .iter()
             .map(|c| c.id)
+            .chain(
+                command
+                    .into_iter()
+                    .flatten()
+                    .filter(|o| o.commander)
+                    .map(|o| o.id),
+            )
             .chain(legal.castable.iter().copied())
         {
             let Some(card) = identity(view, id) else {
@@ -268,6 +286,16 @@ impl HeuristicAgent {
                 continue;
             }
             let mut cost = f.mana_cost;
+            // Designation is not location: only a commander actually in the
+            // public command zone is a candidate here and pays CR 903.8's tax.
+            if command.is_some_and(|cards| cards.iter().any(|o| o.id == id)) {
+                let casts = seat
+                    .commanders
+                    .iter()
+                    .find(|c| c.object == id)
+                    .map_or(0, |c| c.casts);
+                cost = cost.with_more_generic(casts.saturating_mul(2));
+            }
             if f.delve {
                 let grave = view
                     .graveyards
