@@ -622,6 +622,92 @@ fn a_glasswing_grace_falls_into_the_graveyard_when_its_creature_is_exiled() {
     );
 }
 
+/// CR 303.4c: "illegal" is the **enchant ability's** word, not "gone". An
+/// Aura whose host is still on the battlefield, and still a permanent, but
+/// has stopped being something that Aura may enchant is put into its
+/// owner's graveyard all the same.
+///
+/// Swift Reconfiguration is the pool's one card that takes creaturehood
+/// away without taking the permanent, so it is the only way to ask the
+/// question at all: Glasswing Grace says "enchant creature", and after the
+/// Reconfiguration resolves its host is an artifact Vehicle and no creature.
+/// The test asserts both halves, because a rule that swept every Aura off
+/// the table would pass the first — Swift Reconfiguration enchants "creature
+/// or Vehicle" and stays, over exactly the host that has just cost the other
+/// Aura its place.
+#[test]
+fn an_aura_falls_off_a_host_that_stops_being_what_it_enchants() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(517, forest())
+        .battlefield(
+            0,
+            &[
+                plains(),
+                plains(),
+                plains(),
+                plains(),
+                plains(),
+                plains(),
+                llanowar_elves(),
+            ],
+        )
+        .hand(0, &[glasswing_grace(), swift_reconfiguration()])
+        .start();
+    keep_mulligans(&mut engine);
+    let host = on_battlefield(&engine, p0, llanowar_elves()).expect("my elves deployed");
+
+    reach_main_phase(&mut engine, p0);
+    cast_from_hand(&mut engine, p0, glasswing_grace());
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![host],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, |e| at_rest(e, p0));
+    let aura = on_battlefield(&engine, p0, glasswing_grace()).expect("the Aura resolved");
+    assert_eq!(
+        engine.state().object(aura).and_then(|o| o.attached_to),
+        Some(host),
+        "and is attached to the Elves"
+    );
+    assert_eq!(pt(&engine, host), (3, 3), "a 1/1 under +2/+2");
+
+    // The sixth Plains is still untapped: Glasswing Grace costs five.
+    cast_from_hand(&mut engine, p0, swift_reconfiguration());
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![host],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, |e| at_rest(e, p0));
+
+    let now = types(&engine, host);
+    assert!(
+        now.contains(TypeSet::ARTIFACT) && !now.contains(TypeSet::CREATURE),
+        "the host is an artifact Vehicle and no longer a creature: {now:?}"
+    );
+    assert!(
+        on_battlefield(&engine, p0, glasswing_grace()).is_none()
+            && in_graveyard(&engine, p0, glasswing_grace()).is_some(),
+        "so the Aura that says `enchant creature` is in its owner's \
+         graveyard (CR 303.4c, CR 704.5m)"
+    );
+    assert_eq!(
+        on_battlefield(&engine, p0, swift_reconfiguration())
+            .and_then(|a| engine.state().object(a))
+            .and_then(|o| o.attached_to),
+        Some(host),
+        "while the Aura that says `enchant creature or Vehicle` is still on \
+         the battlefield and still attached to the same permanent"
+    );
+}
+
 /// The back face. "Age-Graced Chapel — Land. This land enters tapped.
 /// {T}: Add {W} or {B}." CR 712.12: a player playing a modal double-faced
 /// card as a land chooses one of its faces that's a land — it is *played*

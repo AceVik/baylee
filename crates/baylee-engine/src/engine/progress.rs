@@ -195,7 +195,7 @@ impl<L: CardLookup> Engine<L> {
                 return;
             }
             // 2. State-based actions (fixpoint).
-            let outcome = sba::run(&mut self.state);
+            let outcome = sba::run(&mut self.state, &self.lookup);
             if let Some((player, options)) = outcome.legend_choice {
                 self.pending = Pending::LegendChoice { player, options };
                 self.awaiting_answer = true;

@@ -842,7 +842,7 @@ mod tests {
             "the deathtouch mark is what the SBA reads"
         );
 
-        crate::sba::run(&mut state);
+        crate::sba::run(&mut state, &NoCards);
         // These test creatures are card-less, so dying takes them out of
         // the game entirely (CR 704.5e) rather than to a graveyard.
         assert!(
@@ -863,7 +863,7 @@ mod tests {
         block(&mut state, wall, biter);
         deal_combat_damage(&mut state, false);
 
-        crate::sba::run(&mut state);
+        crate::sba::run(&mut state, &NoCards);
         assert!(
             on_battlefield(&state, wall),
             "indestructible survives deathtouch (CR 702.12b)"
@@ -872,7 +872,7 @@ mod tests {
 
         // Losing indestructibility later must not make it die retroactively.
         state.object_mut(wall).expect("alive").base_mut().keywords = KeywordSet::EMPTY;
-        crate::sba::run(&mut state);
+        crate::sba::run(&mut state, &NoCards);
         assert!(
             on_battlefield(&state, wall),
             "the mark expired with the SBA pass that judged it"
@@ -900,7 +900,7 @@ mod tests {
         );
 
         // The bear is dead before the regular step, so it never strikes.
-        crate::sba::run(&mut state);
+        crate::sba::run(&mut state, &NoCards);
         deal_combat_damage(&mut state, false);
         assert_eq!(damage(&state, knight), 0, "the knight takes nothing back");
     }

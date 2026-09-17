@@ -30,7 +30,7 @@ pub struct SbaOutcome {
 /// player losses, lethal damage, loyalty, legend rule, counter
 /// annihilation, token cleanup.
 #[allow(clippy::too_many_lines)] // the CR 704.3 list is naturally one long pass
-pub fn run(state: &mut GameState) -> SbaOutcome {
+pub fn run(state: &mut GameState, lookup: &impl crate::state::CardLookup) -> SbaOutcome {
     let mut outcome = SbaOutcome::default();
 
     // --- Player losses (CR 704.5a-c) -----------------------------------
@@ -134,7 +134,7 @@ pub fn run(state: &mut GameState) -> SbaOutcome {
     }
 
     // --- Attachments (CR 704.5m-p) --------------------------------------
-    outcome.changed |= run_attachment_sbas(state);
+    outcome.changed |= run_attachment_sbas(state, lookup);
 
     // --- +1/+1 vs -1/-1 annihilation (CR 704.5q) -------------------------
     // That pair and no other. `CounterKind` says every +X/+Y counter in one
@@ -301,6 +301,36 @@ pub fn run(state: &mut GameState) -> SbaOutcome {
     outcome
 }
 
+/// What an Aura may legally be attached to, as the card itself says it.
+///
+/// Enchant is a static ability of the Aura *spell* (CR 702.5b) and the DSL
+/// says it where the card says it: the spell ability targets what it will
+/// enchant and attaches itself to it. So the restriction is read back out of
+/// that same `Effect::AttachSelf`, and there is no second place for a card
+/// to state it — which matters, because a second place is a second truth,
+/// and the one the targeting used would be the one that could drift.
+///
+/// `None` means the card states no restriction this can read, and the caller
+/// then asks nothing beyond "is the host still there". That is deliberate: a
+/// shape nobody has written yet must not make every Aura fall off.
+fn enchant_restriction(
+    obj: &crate::object::GameObject,
+    lookup: &impl crate::state::CardLookup,
+) -> Option<&'static baylee_cards_dsl::Filter> {
+    use baylee_cards_dsl::{AbilityDef, Effect, TargetSpec};
+    obj.abilities(lookup).iter().find_map(|ability| {
+        let AbilityDef::Spell { effects, .. } = ability else {
+            return None;
+        };
+        effects.iter().find_map(|effect| match effect {
+            Effect::AttachSelf {
+                target: TargetSpec::Object(filter),
+            } => Some(*filter),
+            _ => None,
+        })
+    })
+}
+
 /// Attachment state-based actions (CR 704.5m–p).
 ///
 /// An Aura attached to something illegal — or to nothing — is put into its
@@ -309,7 +339,16 @@ pub fn run(state: &mut GameState) -> SbaOutcome {
 /// an aura outlived the creature it enchanted and kept granting its
 /// effect, and equipment kept pointing at a dead object whose slot a later
 /// permanent could reuse.
-fn run_attachment_sbas(state: &mut GameState) -> bool {
+///
+/// **Illegal is not the same as gone**, and for a while this asked only the
+/// second question. CR 303.4c makes the Aura's own enchant ability the test:
+/// a host that is still a permanent on the battlefield but has stopped being
+/// something this Aura may enchant is illegal, and the Aura goes. An
+/// Equipment's restriction is the rules' rather than the card's — CR 301.5b
+/// attaches it to a creature — so the two are asked differently and answered
+/// differently, which is why the counter-test matters more than the test:
+/// both sit on the same illegal host, and only one of them is destroyed.
+fn run_attachment_sbas(state: &mut GameState, lookup: &impl crate::state::CardLookup) -> bool {
     use baylee_core::types::TypeSet as T;
     let mut changed = false;
     let mut falling_off = Vec::new();
@@ -335,7 +374,10 @@ fn run_attachment_sbas(state: &mut GameState) -> bool {
         }
         // The host has to be a permanent on the battlefield; anything else
         // (destroyed, exiled, bounced, or never set) is an illegal
-        // attachment.
+        // attachment. And it has to be a permanent this attachment may hold
+        // on to, which is the other half of "illegal".
+        let restriction = is_aura.then(|| enchant_restriction(obj, lookup)).flatten();
+        let controller = obj.controller;
         let host_ok = obj.attached_to.is_some_and(|host| {
             state.object(host).is_some_and(|h| {
                 h.zone == crate::zone::Zone::Battlefield
@@ -344,6 +386,18 @@ fn run_attachment_sbas(state: &mut GameState) -> bool {
                     // attached to being itself; self-attachment is never
                     // legal for either kind.
                     && host != id
+                    // CR 301.5b: an Equipment attaches to a creature, and
+                    // whose creature it is matters only while the equip
+                    // ability is on the stack (CR 301.5d), so control is not
+                    // asked here.
+                    && (!is_equipment || h.characteristics().types.contains(T::CREATURE))
+                    // CR 303.4c: and an Aura, to what its enchant ability
+                    // names. `you` is the Aura's controller, so "enchant
+                    // creature you control" is read from the side that
+                    // controls the Aura rather than the host.
+                    && restriction.is_none_or(|filter| {
+                        crate::eval::matches(filter, state, h, controller, id)
+                    })
             })
         });
         if host_ok {
@@ -574,7 +628,7 @@ mod tests {
         for seed in [7, 42, 1337] {
             let mut state = GameState::from_preset(&two_legend_pairs_preset(seed), &RegistryLookup)
                 .expect("game starts");
-            let outcome = run(&mut state);
+            let outcome = run(&mut state, &RegistryLookup);
             let (player, group) = outcome.legend_choice.expect("a legend choice is due");
             assert_eq!(player, PlayerId::new(0));
             assert_eq!(group.len(), 2, "one pair is offered, not all four");
@@ -620,7 +674,7 @@ mod tests {
         );
 
         // A pass while it is still on the battlefield must not touch it.
-        run(&mut state);
+        run(&mut state, &RegistryLookup);
         assert!(
             state.object(token).is_some(),
             "a token on the battlefield stays"
@@ -636,7 +690,7 @@ mod tests {
             "it is in the graveyard for exactly as long as it takes SBAs to run"
         );
 
-        run(&mut state);
+        run(&mut state, &RegistryLookup);
         assert!(state.object(token).is_none(), "and then it is gone");
         assert!(
             !state.zones.list(graveyard).contains(&token),
@@ -674,14 +728,14 @@ mod tests {
                 Cause::StateBased,
             )
             .expect("the token dies");
-        run(&mut state);
+        run(&mut state, &RegistryLookup);
         assert!(state.object(token).is_none(), "the token is gone");
 
         // The queue is not hashed, so if a pass left something in it the
         // state would be silently unequal to a replay of the same game.
         // Cloning after the pass and running another one has to be a no-op.
         let mut replay = state.clone();
-        run(&mut replay);
+        run(&mut replay, &RegistryLookup);
         assert_eq!(
             state.snapshot_hash(),
             replay.snapshot_hash(),
