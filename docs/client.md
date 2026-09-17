@@ -229,9 +229,23 @@ only `frame_table` and `navigate_to_player`/`navigate_home` ever write —
 gesture of all three generations into one frame and
 `looking_at_one_seat_holds_the_camera` is its counter-test.
 
+**The lean is not one number any more.** `CAMERA_LEAN` is still what a ring
+of three or more seats is shot at, and what any table on a narrow window is
+shot at; a **duel on a wide window** blends towards `DUEL_LEAN` — about 27°
+off vertical — as the window grows past 800 logical pixels. The reason is
+that the two shots answer different questions: a ring has to keep every seat
+readable at once, so it stays near the plan view, while a duel has only two
+sides and can spend the freed angle on the table's depth. It is written as a
+blend and not a switch because the alternative is a camera that jumps as a
+window is dragged across one pixel. `only_a_wide_duel_takes_the_more_oblique_shot`
+is what holds the three cases apart, and **`CameraRig::lean` is the value
+everything downstream reads** — the projection test writes it out forwards
+rather than reusing the constant, which is what caught the fit when the
+constant stopped being the whole answer.
+
 The inversion is exact rather than tuned, which is why it is arithmetic and
 not a magic number per screen size. With the eye at distance `D`, the lean
-`L` = `CAMERA_LEAN` and `C = 1/√(1+L²)`, a felt point `s` units from the look
+`L` = `CameraRig::lean` and `C = 1/√(1+L²)`, a felt point `s` units from the look
 point along the screen-vertical has camera-space `depth = D + L·C·s` and
 `height = C·s` — the cross terms cancel — so `s = D · ground(q)` is linear in
 `D` and the fit is a division. `table.rs::camera_tests` projects the four
@@ -3897,9 +3911,9 @@ explained the measurement, which is what eventually sank it.
 The lift geometry was a **second** defect, found while chasing the first and
 fixed on its own merits rather than because it caused anything: **a hovered
 card's growth must cover its own rise.** A lift of `y` shifts the footprint
-along the felt by `y * CAMERA_LEAN`; growth moves every edge out by half the
-card's *smaller* dimension times `scale - 1` — smaller, because the shift is
-in world space, always straight away from the viewer, while a pod is rotated
+along the felt by `y * CameraRig::lean`; growth moves every edge out by half
+the card's *smaller* dimension times `scale - 1` — smaller, because the shift
+is in world space, always straight away from the viewer, while a pod is rotated
 to face its own seat. While the second covers the first, a pointer inside a
 card cannot end up outside it. `covered_lift` in `table.rs` is that bound, and
 the `const _: () = assert!(…)` lines under it are what make a tuning session
@@ -3908,6 +3922,21 @@ selected included, since that is a rise like any other. The shipped numbers
 missed it by nearly double. Both lifts came down and both scales went up,
 which is the better affordance anyway: a card that grows says "this one" more
 plainly than a card that rises.
+
+A lean that varies (above) then put a second edge on that bound, and took the
+margin back. Every one of those assertions divides by the lean, so each is
+hardest to satisfy at the *steepest* shot — and checking them at `CAMERA_LEAN`
+after `DUEL_LEAN` existed was checking them at a shot the commonest desktop
+case does not use. They are written against `STEEPEST_LEAN`, the larger of the
+two, and that alone does not compile: at `DUEL_LEAN` the cap is exactly
+`scale - 1`, because a card is one unit wide and 0.5 is precisely the lean at
+which a rise stops being covered by its growth. The shipped lifts sat *on* that
+line — 0.06 against a cap of 0.06, 0.12 against 0.12 — which is not a margin,
+and in `f32` the first of them fell on the wrong side of it by one part in a
+million. So the lifts came down a second time, to 0.05 and 0.10: what a steeper
+shot has to buy is headroom, not another equality. Steepening the shot again
+is now a compile error rather than a card that slides out from under the
+pointer and flickers.
 
 ## Settings, and what belongs to whom
 

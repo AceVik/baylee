@@ -276,11 +276,25 @@ fn stack_layers(under: usize) -> usize {
 /// `card_ui.wgsl`, which moved no card at all (`sheen.rs`). `docs/client.md`
 /// ("The pointer only speaks when it moves") has the measurements that tell
 /// the three apart, and is normative on which is which.
-const HOVER_LIFT: f32 = 0.06;
+const HOVER_LIFT: f32 = 0.05;
 const HOVER_SCALE: f32 = 1.06;
 /// Lift and scale for a card chosen for the pending choice (clearly "in").
-const SELECTED_LIFT: f32 = 0.12;
+const SELECTED_LIFT: f32 = 0.10;
 const SELECTED_SCALE: f32 = 1.12;
+
+/// The steepest shot the camera ever takes.
+///
+/// Every bound below divides by the lean, so each of them is hardest to
+/// satisfy at the steepest one — and since a wide duel blends towards
+/// [`DUEL_LEAN`], checking them at [`CAMERA_LEAN`] would be checking them at
+/// the shot a **desktop duel does not use**. They were written when the lean
+/// was one number; naming the maximum is what keeps them about the camera
+/// rather than about a constant that used to be the whole answer.
+const STEEPEST_LEAN: f32 = if DUEL_LEAN > CAMERA_LEAN {
+    DUEL_LEAN
+} else {
+    CAMERA_LEAN
+};
 
 /// The most a card may rise, for a given growth, without any part of the
 /// footprint it started with leaving the pointer.
@@ -291,14 +305,21 @@ const SELECTED_SCALE: f32 = 1.12;
 /// end up aligned with. Taking the smaller of the two is what makes the bound
 /// hold at every seat instead of only at the near one.
 const fn covered_lift(scale: f32) -> f32 {
-    (CARD_WIDTH / 2.0) * (scale - 1.0) / CAMERA_LEAN
+    (CARD_WIDTH / 2.0) * (scale - 1.0) / STEEPEST_LEAN
 }
+// At `DUEL_LEAN` the cap is exactly `scale - 1`, because a card is one unit
+// wide and 0.5 is precisely the lean at which a rise stops being covered by
+// its growth. The shipped lifts sat *on* that line — 0.06 against a cap of
+// 0.06, 0.12 against 0.12 — which is not a margin, and in `f32` the first of
+// them landed on the wrong side of it by one part in a million. So the lifts
+// came down a second time, to a fifth of the growth in hand: what a steeper
+// shot has to buy is headroom, not another equality.
 const _: () = assert!(HOVER_LIFT <= covered_lift(HOVER_SCALE));
 const _: () = assert!(SELECTED_LIFT <= covered_lift(SELECTED_SCALE));
 // Hover to selected is a rise as well, so the step between them is bound by
 // the growth between them and not by either pair on its own.
 const _: () = assert!(
-    (SELECTED_LIFT - HOVER_LIFT) * CAMERA_LEAN
+    (SELECTED_LIFT - HOVER_LIFT) * STEEPEST_LEAN
         <= (CARD_WIDTH / 2.0) * (SELECTED_SCALE - HOVER_SCALE)
 );
 
@@ -312,7 +333,7 @@ const _: () = assert!(
 // sitting still, which is `airborne::SWAY` and is a fiftieth of a card's
 // width. The renderer holds it still under the pointer as well — see
 // `sync_scene` — so this is the belt to that pair of braces.
-const _: () = assert!(airborne::SWAY * CAMERA_LEAN < CARD_WIDTH / 20.0);
+const _: () = assert!(airborne::SWAY * STEEPEST_LEAN < CARD_WIDTH / 20.0);
 // And a card the player has chosen must never stand higher than a creature in
 // the air: two claims about height that mean different things must not be able
 // to trade places.
@@ -1058,8 +1079,8 @@ pub struct CardVisual {
 /// It exists because something finally had to **point** at a card rather than
 /// be one. The ability sheet stands beside a permanent for as long as a player
 /// is reading it, and anchored to the live pose it was dragged about by the
-/// 0.06 units and 6% the pointer lifts a card by: a sheet that jumped whenever
-/// the hand moved across the thing it was describing.
+/// [`HOVER_LIFT`] and [`HOVER_SCALE`] the pointer applies to a card: a sheet
+/// that jumped whenever the hand moved across the thing it was describing.
 ///
 /// Nothing *draws* from it, which is what keeps it from being a second opinion
 /// about where a card is — [`Motion::target`] is still the only one.
