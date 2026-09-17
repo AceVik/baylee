@@ -241,7 +241,15 @@ pub fn assign(
     generated: &[TokenBody],
 ) -> Result<Vec<Entry>, LedgerError> {
     let mut out = existing;
-    let known: BTreeSet<String> = out.iter().map(|e| e.constant.clone()).collect();
+    // Grows as rows are appended, and that is the whole of why it is a `mut`
+    // set rather than a snapshot. Two readable scripts can describe the same
+    // token — the name is a function of the token, not of the script — and a
+    // snapshot says "new" to both, so the pair is filed twice and the second
+    // copy takes an id nothing will ever create. Nothing in the reference
+    // does that today (852 scripts, 586 readable, 586 distinct names,
+    // measured), which is exactly the kind of fact that stops being true
+    // without anybody touching this file.
+    let mut known: BTreeSet<String> = out.iter().map(|e| e.constant.clone()).collect();
 
     // A token that is already in the table keeps its id and its body. What it
     // does *not* keep is a body that has since been withdrawn: a reader that
@@ -254,7 +262,7 @@ pub fn assign(
     }
 
     for name in hand {
-        if !known.contains(name) {
+        if known.insert(name.clone()) {
             out.push(Entry {
                 constant: name.clone(),
                 body: Body::HandWritten,
@@ -266,7 +274,7 @@ pub fn assign(
         // that hand-written token: the name is a complete description of what
         // the reader read, so the two are the same permanent, and the
         // hand-written definition is the one with a picture chosen for it.
-        if hand.contains(&body.constant) || known.contains(&body.constant) {
+        if known.contains(&body.constant) {
             if let Some(entry) = out.iter().find(|e| e.constant == body.constant)
                 && let Body::Generated { literal, .. } = &entry.body
                 && *literal != body.literal
@@ -281,6 +289,7 @@ pub fn assign(
         {
             return Err(LedgerError::Collision(other.constant.clone()));
         }
+        known.insert(body.constant.clone());
         out.push(Entry {
             constant: body.constant.clone(),
             body: Body::Generated {
@@ -482,6 +491,29 @@ mod tests {
                 "BIRD_1_1_WHITE_FLYING"
             ]
         );
+    }
+
+    /// Two scripts describing the **same** token are one row, not two.
+    ///
+    /// The other half of the rule above, and the one that does not announce
+    /// itself: two definitions that *disagree* stop the run, two that agree
+    /// are the same permanent read twice. A ledger that files both hands the
+    /// second copy an id nothing will ever create, and every id after it
+    /// moves — so this is the cheap half of an append-only table going wrong.
+    #[test]
+    fn one_token_read_from_two_scripts_is_one_row() {
+        let twice = [
+            generated("ZOMBIE_2_2_BLACK", "TokenDef { z }"),
+            generated("ZOMBIE_2_2_BLACK", "TokenDef { z }"),
+        ];
+        let out = assign(Vec::new(), &[], &twice).expect("agreeing twins are one token");
+        let names: Vec<&str> = out.iter().map(|e| e.constant.as_str()).collect();
+        assert_eq!(names, ["ZOMBIE_2_2_BLACK"]);
+        // And the hand-written half is subject to the same arithmetic: a name
+        // declared twice in `tokens.rs` is one token there too.
+        let hand = ["FOOD".to_string(), "FOOD".to_string()];
+        let out = assign(Vec::new(), &hand, &[]).expect("one name is one row");
+        assert_eq!(out.len(), 1, "a name declared twice took two ids");
     }
 
     /// Two definitions at one name would be two tokens at one id, and the
