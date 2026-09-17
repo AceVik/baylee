@@ -1566,7 +1566,7 @@ mod tests {
     /// Both hue and saturation remain bounded; this is not permission for
     /// a neutral black hole or a saturated blue field behind blue cards.
     #[test]
-    fn the_baize_is_a_casino_green() {
+    fn the_baize_is_cool_mineral_under_warm_metal() {
         for cloth in [FELT_DEEP, FELT_CLOTH, FELT_WORN] {
             let (hue, sat) = hue_sat(cloth);
             assert!(
@@ -2007,7 +2007,16 @@ mod tests {
 
     #[test]
     fn a_seat_mat_shows_where_its_lanes_are() {
-        const H: u32 = 96;
+        // Tall for the reason `the_mat_fences_its_bands_where_the_layout_put_them`
+        // gives below, which this test was the one to be *caught* by: it read
+        // 96 rows while `MAT_SEAM_WIDTH` was 0.014, so a hairline was 1.3 rows
+        // and the shelf's fence came out one level of 255 above a lane seam.
+        // Halving the width to 0.0075 took the fence to `max(h · w, 1.0)` — a
+        // single row, the same row the seam gets — and the two arrived at
+        // 12/255 apiece. Nothing about the mat had stopped being true; the
+        // measurement had stopped being able to see it, which is worth one
+        // line of comment because the first instinct was to loosen the claim.
+        const H: u32 = 512;
         let mat = seat_mat(256, H, 0.1, 0.03, ACCENT, false);
         // The seam belongs *on* the boundary between two lanes, not in the
         // middle of one. Drawn mid-lane it splits every row down its own
@@ -2074,9 +2083,11 @@ mod tests {
         // a `Texture` is eight bits a channel and the shelf's own veil and
         // the quietest lane's are 0.0060 and 0.0080 — both 2/255, and the
         // same pixel. The fence between the shelf and the lanes is the
-        // brightest seam on a mat and lands at 15/255, so *that* is what a
-        // test can read: it is at one end of one mat and at the other end of
-        // the other.
+        // brightest seam on a mat and lands at 12/255 on a mat this shallow,
+        // so *that* is what a test can read: it is at one end of one mat and
+        // at the other end of the other. What it may **not** be read against
+        // here is a lane seam, which arrives at the same 12: that comparison
+        // needs the rows `a_seat_mat_shows_where_its_lanes_are` spends.
         let fence = |mat: &Texture, at: f32| mat.pixel(128, row(at))[3];
         assert!(
             fence(&inner, LEDGE_FRAC) > fence(&inner, span),

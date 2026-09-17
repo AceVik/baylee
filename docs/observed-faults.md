@@ -759,16 +759,18 @@ about the table itself rather than the rules, and both are fixed.
     on the stage is placed against, which is the half that would have broken
     the board silently. Nothing lights this stage, so the wall reads as a wall
     only because `APRON` is a *darker colour* than the rail above it. That is
-    an assertion, not a taste: `the_baize_is_a_casino_green` fails if it stops
-    being true.
+    an assertion, not a taste: `the_baize_is_cool_mineral_under_warm_metal`
+    fails if it stops being true.
 
-    The surface is casino baize inside a padded leather rail, and the epoxy
-    river is gone with the timber it ran through. What the river carried is
-    kept: the phase lamp — `phase_light` graded by the step, energy to the
-    fourth so combat blooms while a main phase stays a quiet line — runs round
-    the **rail** now, entering at the active seat's own edge. The rail is the
-    only surface at this table no card is ever laid on, which is the property
-    the resin channel was chosen for in the first place.
+    The surface is midnight mineral cloth inside an aged champagne rail — it
+    was casino baize until the September 2026 redesign, and the epoxy river
+    was gone with the timber it ran through before that. What the river
+    carried is kept: the phase lamp — `phase_light` graded by the step,
+    energy to the fourth so combat blooms while a main phase stays a quiet
+    line — runs round the **rail** now, entering at the active seat's own
+    edge. The rail is the only surface at this table no card is ever laid
+    on, which is the property the resin channel was chosen for in the first
+    place.
 
     And the slab does not reach the edges of the window. The camera frames the
     layout plus `AIR` and the slab is cut to the layout plus `SLAB_MARGIN`, so
