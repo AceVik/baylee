@@ -1149,6 +1149,8 @@ fn host_note(lang: Lang, game: &GameSummary) -> String {
 fn ai_name(lang: Lang, name: &str) -> &'static str {
     match name {
         "novice" => Phrase::AiNovice,
+        "casual" => Phrase::AiCasual,
+        "expert" => Phrase::AiExpert,
         "sharp" => Phrase::AiSharp,
         _ => Phrase::AiSteady,
     }
@@ -1256,7 +1258,7 @@ fn seat_rows(
                 commands.entity(line).add_child(swap);
             }
             if ai_chair {
-                for name in ["novice", "steady", "sharp"] {
+                for (name, _) in baylee_core::preset::AIProfile::NAMED {
                     let lit = seat.ai.as_deref() == Some(name);
                     let pick = chip(
                         commands,

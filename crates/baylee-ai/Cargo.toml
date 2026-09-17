@@ -26,3 +26,14 @@ baylee-core.workspace = true
 baylee-cards-dsl.workspace = true
 baylee-engine.workspace = true
 baylee-view.workspace = true
+
+# Renderer-free coloured payment matching, shared with the human seat.
+baylee-client-core.workspace = true
+
+[dev-dependencies]
+criterion.workspace = true
+baylee-client-core = { workspace = true, features = ["test-support"] }
+
+[[bench]]
+name = "decisions"
+harness = false

@@ -744,9 +744,11 @@ version = "0.1.0"
 dependencies = [
  "baylee-cards",
  "baylee-cards-dsl",
+ "baylee-client-core",
  "baylee-core",
  "baylee-engine",
  "baylee-view",
+ "criterion",
 ]
 
 [[package]]

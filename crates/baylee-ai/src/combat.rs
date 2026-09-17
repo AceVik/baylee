@@ -228,7 +228,7 @@ pub fn choose_blocks(
 /// than throw creatures away. When it is the *defender's* turn to decide,
 /// nothing is guessed: [`choose_blocks`] reads the pairings the engine
 /// offered.
-fn could_block(attacker: Fighter, blocker: Fighter) -> bool {
+pub(crate) fn could_block(attacker: Fighter, blocker: Fighter) -> bool {
     if attacker.has(KeywordSet::UNBLOCKABLE) {
         return false;
     }

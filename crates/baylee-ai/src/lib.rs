@@ -16,31 +16,19 @@
 
 mod activate;
 pub mod combat;
+mod policy;
+pub mod search;
 
 use baylee_core::ids::{Defender, ObjectId, PlayerId};
 pub use baylee_core::preset::AIProfile;
 use baylee_core::preset::Politics;
 use baylee_engine::choice::{ChoicePrompt, Pending, PlayerAction, YesNoPrompt};
-use baylee_view::{Phase, PlayerView};
+use baylee_view::PlayerView;
 
-/// A greedy one-ply heuristic controller. Deterministic given the same
-/// view (the engine's seeded RNG does all randomness).
+/// A deterministic controller with hand planning and bounded combat search.
 #[derive(Clone, Debug)]
 pub struct HeuristicAgent {
-    /// Difficulty knobs. `politics` is read — it picks who this seat swings
-    /// at. The other four are not, and one of them cannot be as written:
-    /// `lookahead` counts *plies*, and an agent handed a `PlayerView` has
-    /// no tree to walk. It sees one position and the questions asked about
-    /// it, never the position an answer would produce — and giving it an
-    /// engine to find out would hand it every hand at the table, which is
-    /// the boundary `act(&PlayerView, &Pending)` exists to hold.
-    ///
-    /// What *is* reachable from a view is combat simulation:
-    /// `Pending::ChooseAttackers` and `ChooseBlockers` enumerate the whole
-    /// exchange, so a trade can be worked out without a tree, which is what
-    /// `combat` does. `temperature_milli`, `mulligan_skill` and `hold_up`
-    /// are ordinary unfinished work — noise on the choice, a keep rule, and
-    /// a reason to leave mana open.
+    /// Shared policy knobs; the search reads only public combat positions.
     profile: AIProfile,
     /// Which side each seat plays for, in seat order. Empty means a table
     /// with no teams on it, where every seat is a side of its own.
@@ -125,12 +113,16 @@ impl HeuristicAgent {
     pub fn act(&self, view: &PlayerView, pending: &Pending) -> PlayerAction {
         let player = view.seat;
         match pending.clone() {
-            Pending::Mulligan { .. } => PlayerAction::MulliganKeep,
+            Pending::Mulligan {
+                taken,
+                next_is_free,
+                ..
+            } => self.mulligan(view, taken, next_is_free),
             Pending::MulliganBottom { count, .. } | Pending::DiscardChoice { count, .. } => {
                 // Bottom (or pitch) the highest-cost cards; keep lands and
                 // cheap plays.
                 PlayerAction::ChooseObjects {
-                    objects: costliest(view, count as usize),
+                    objects: self.discard(view, count as usize),
                 }
             }
             Pending::Priority { legal, .. } => {
@@ -151,52 +143,8 @@ impl HeuristicAgent {
                         ability_index,
                     };
                 }
-                // 3. Tap for mana.
-                //
-                // This asked `legal.castable` whether anything was worth
-                // paying for, and that is the one list which cannot answer
-                // it: `casting::can_cast` probes affordability against the
-                // pool that is floating *right now*. With an empty pool it
-                // is empty, so the guard was never true, so no land was
-                // ever tapped, so the pool stayed empty. Measured over the
-                // acceptance decks, an agent played 34 lands and cast three
-                // spells across 180 turns, put no creature on the
-                // battlefield, and won by the opponent running out of
-                // library.
-                //
-                // What a player actually asks is about their *hand*: is
-                // there something here I cannot pay for yet? Sorcery timing
-                // keeps it to the seat's own main phase with an empty
-                // stack, so an instant's mana is not tapped away on
-                // somebody else's turn.
-                //
-                // It taps toward the *costliest* card in hand, which is to
-                // say it taps out. That is a real cost — the leftover
-                // floats away at end of step, and nothing is held up for a
-                // trick — and it is what `hold_up` is for; that knob is
-                // still read by nobody.
-                let main = matches!(view.phase, Phase::FirstMain | Phase::SecondMain);
-                if !legal.mana_abilities.is_empty()
-                    && main
-                    && view.active == player
-                    && view.stack.is_empty()
-                    && view
-                        .hand
-                        .iter()
-                        .any(|c| c.mana_value > mana_available(view))
-                {
-                    return PlayerAction::ActivateManaAbility {
-                        source: legal.mana_abilities[0],
-                    };
-                }
-                // 4. Cast the costliest castable spell.
-                if let Some(card) = legal
-                    .castable
-                    .iter()
-                    .max_by_key(|id| mana_value(view, **id))
-                    .copied()
-                {
-                    return PlayerAction::CastSpell { card };
+                if let Some(action) = self.spell_or_mana(view, &legal) {
+                    return action;
                 }
                 // 5. Everything else the policy recognises — a
                 //    planeswalker's loyalty, a permanent that draws or
@@ -239,7 +187,7 @@ impl HeuristicAgent {
                     return PlayerAction::DeclareAttackers { attackers: vec![] };
                 }
                 let victim = self.pick_defender(view, &opponents);
-                let going = combat::choose_attackers(view, &squad, victim);
+                let going = search::attackers(view, &squad, victim, self.profile).attackers;
                 if going.is_empty() {
                     return PlayerAction::DeclareAttackers { attackers: vec![] };
                 }
@@ -252,10 +200,11 @@ impl HeuristicAgent {
                 PlayerAction::DeclareAttackers { attackers }
             }
             Pending::ChooseBlockers { blockers, .. } => PlayerAction::DeclareBlockers {
-                blockers: combat::choose_blocks(
+                blockers: search::blockers(
                     view,
                     &blockers,
                     view.seat(player).map_or(0, |s| s.life),
+                    self.profile,
                 ),
             },
             Pending::LegendChoice { options, .. } => PlayerAction::ChooseObjects {
@@ -268,6 +217,9 @@ impl HeuristicAgent {
                 prompt,
                 ..
             } => {
+                if let Some(objects) = self.select_cards(view, &options, min, max, prompt) {
+                    return PlayerAction::ChooseObjects { objects };
+                }
                 // Delve is the one question in this family that is part of a
                 // *cost*, and declining a cost is not free. Everything else
                 // here may be answered with `min` and nothing is lost;
@@ -392,7 +344,9 @@ impl HeuristicAgent {
                     options[0]
                 })
             }
-            Pending::ChooseColor { options, .. } => PlayerAction::ChooseColor(options[0]),
+            Pending::ChooseColor { options, .. } => {
+                PlayerAction::ChooseColor(Self::color(view, &options))
+            }
             Pending::ChooseNumber { min, .. } => PlayerAction::ChooseNumber(min),
             Pending::ChoosePlayer { options, .. } => PlayerAction::ChoosePlayer(
                 options
@@ -455,17 +409,6 @@ fn costliest(view: &PlayerView, n: usize) -> Vec<ObjectId> {
         .collect();
     hand.sort_by_key(|(mv, id)| (u32::MAX - mv, *id));
     hand.iter().take(n).map(|(_, id)| *id).collect()
-}
-
-/// What a card the seat may cast costs.
-///
-/// Anything castable is either in hand or somewhere public (a graveyard
-/// with flashback, exile with a wish), and both are in the view.
-fn mana_value(view: &PlayerView, id: ObjectId) -> u32 {
-    if let Some(card) = view.hand.iter().find(|c| c.id == id) {
-        return card.mana_value;
-    }
-    view.object(id).map_or(0, |o| o.mana_value)
 }
 
 /// Chooses what the squad actually swings at once politics has picked the
@@ -558,6 +501,326 @@ mod tests {
 
     fn obj(slot: u32) -> ObjectId {
         ObjectId::new(slot, 0)
+    }
+
+    fn hand_card(slot: u32, name: &str) -> baylee_view::HandObject {
+        let index = baylee_cards::decks::by_name(name).unwrap();
+        let face = &baylee_cards::by_index(index).unwrap().faces[0];
+        baylee_view::HandObject {
+            id: obj(slot),
+            card: baylee_view::CardIdentity {
+                index,
+                print: baylee_core::ids::PrintRef::new(0),
+                face: 0,
+            },
+            name: name.into(),
+            mana_value: face.mana_cost.cmc(),
+            colors: face.mana_cost.colors(),
+            types: face.types,
+            commander: false,
+        }
+    }
+
+    #[test]
+    fn skilled_mulligans_refuse_a_landless_seven_but_stop_at_four() {
+        let mut v = view(0, &[20, 20], vec![]);
+        v.hand = (0..7).map(|i| hand_card(i, "Brainstorm")).collect();
+        let decision = |taken| Pending::Mulligan {
+            player: v.seat,
+            taken,
+            next_is_free: taken == 0,
+        };
+        assert_eq!(
+            HeuristicAgent::new(AIProfile::SHARP).act(&v, &decision(0)),
+            PlayerAction::MulliganTake
+        );
+        assert_eq!(
+            HeuristicAgent::new(AIProfile::SHARP).act(&v, &decision(4)),
+            PlayerAction::MulliganKeep
+        );
+    }
+
+    #[test]
+    fn mana_color_follows_the_spell_in_hand() {
+        let mut v = view(0, &[20, 20], vec![]);
+        v.hand = vec![hand_card(1, "Brainstorm")];
+        let pending = Pending::ChooseColor {
+            player: v.seat,
+            options: vec![
+                baylee_core::mana::ManaColor::White,
+                baylee_core::mana::ManaColor::Blue,
+            ],
+        };
+        assert_eq!(
+            HeuristicAgent::new(AIProfile::SHARP).act(&v, &pending),
+            PlayerAction::ChooseColor(baylee_core::mana::ManaColor::Blue)
+        );
+    }
+
+    #[test]
+    fn lethal_power_is_not_lethal_through_a_larger_blocker() {
+        let v = view(
+            0,
+            &[20, 5],
+            vec![
+                permanent(obj(1), PlayerId::new(0), 6),
+                permanent(obj(2), PlayerId::new(1), 7),
+            ],
+        );
+        let pending = Pending::ChooseAttackers {
+            player: v.seat,
+            attackers: vec![obj(1)],
+            defenders: vec![Defender::Player(PlayerId::new(1))],
+        };
+        assert_eq!(
+            HeuristicAgent::new(AIProfile::SHARP).act(&v, &pending),
+            PlayerAction::DeclareAttackers { attackers: vec![] }
+        );
+    }
+
+    #[test]
+    fn every_adjacent_difficulty_changes_a_real_decision() {
+        assert_eq!(AIProfile::NAMED.len(), 5);
+        let mut v = view(0, &[20, 20], vec![]);
+        v.hand = (0..7).map(|i| hand_card(i, "Brainstorm")).collect();
+        let pending = Pending::Mulligan {
+            player: v.seat,
+            taken: 0,
+            next_is_free: true,
+        };
+        let answer = |profile, view: &PlayerView, pending: &Pending| {
+            HeuristicAgent::new(profile).act(view, pending)
+        };
+        assert_ne!(
+            answer(AIProfile::NOVICE, &v, &pending),
+            answer(AIProfile::CASUAL, &v, &pending)
+        );
+        v.hand = vec![hand_card(0, "Island"), hand_card(1, "Island")];
+        v.hand
+            .extend((2..7).map(|i| hand_card(i, "Darksteel Forge")));
+        assert_ne!(
+            answer(AIProfile::CASUAL, &v, &pending),
+            answer(AIProfile::STEADY, &v, &pending)
+        );
+        let v = view(
+            0,
+            &[20, 5],
+            vec![
+                permanent(obj(1), PlayerId::new(0), 6),
+                permanent(obj(2), PlayerId::new(1), 7),
+            ],
+        );
+        let pending = Pending::ChooseAttackers {
+            player: v.seat,
+            attackers: vec![obj(1)],
+            defenders: vec![Defender::Player(PlayerId::new(1))],
+        };
+        assert_ne!(
+            answer(AIProfile::STEADY, &v, &pending),
+            answer(AIProfile::SHARP, &v, &pending)
+        );
+        let v = view(
+            0,
+            &[4, 20],
+            vec![
+                permanent(obj(1), PlayerId::new(0), 6),
+                permanent(obj(2), PlayerId::new(1), 5),
+            ],
+        );
+        assert_ne!(
+            answer(AIProfile::SHARP, &v, &pending),
+            answer(AIProfile::EXPERT, &v, &pending)
+        );
+    }
+
+    #[test]
+    fn mana_planning_taps_the_right_color_and_does_not_tap_for_an_unaffordable_spell() {
+        let mut forest = carded(
+            permanent(obj(1), PlayerId::new(0), 0),
+            "Forest",
+            TypeSet::LAND,
+        );
+        forest
+            .subtypes
+            .insert(baylee_core::generated::subtypes::land::FOREST);
+        let mut island = carded(
+            permanent(obj(2), PlayerId::new(0), 0),
+            "Island",
+            TypeSet::LAND,
+        );
+        island
+            .subtypes
+            .insert(baylee_core::generated::subtypes::land::ISLAND);
+        let mut v = view(0, &[20, 20], vec![forest, island]);
+        v.phase = baylee_view::Phase::FirstMain;
+        v.hand = vec![hand_card(3, "Brainstorm")];
+        let pending = Pending::Priority {
+            player: v.seat,
+            legal: Box::new(baylee_engine::choice::LegalActions {
+                can_pass: true,
+                mana_abilities: vec![obj(1), obj(2)],
+                ..Default::default()
+            }),
+        };
+        assert_eq!(
+            agent().act(&v, &pending),
+            PlayerAction::ActivateManaAbility { source: obj(2) }
+        );
+        v.hand = vec![hand_card(3, "Darksteel Forge")];
+        assert_eq!(agent().act(&v, &pending), PlayerAction::PassPriority);
+    }
+
+    #[test]
+    fn a_free_counter_with_an_unpayable_future_cost_is_declined() {
+        let spell = carded(
+            permanent(obj(1), PlayerId::new(1), 0),
+            "Brainstorm",
+            TypeSet::INSTANT,
+        );
+        let mut v = view(0, &[20, 20], vec![]);
+        v.stack.push(spell);
+        v.hand = vec![hand_card(2, "Pact of Negation")];
+        let pending = Pending::Priority {
+            player: v.seat,
+            legal: Box::new(baylee_engine::choice::LegalActions {
+                can_pass: true,
+                castable: vec![obj(2)],
+                ..Default::default()
+            }),
+        };
+        assert_eq!(agent().act(&v, &pending), PlayerAction::PassPriority);
+    }
+
+    #[test]
+    fn score_noise_changes_choices_without_changing_replays() {
+        let mut v = view(0, &[20, 20], vec![]);
+        v.phase = baylee_view::Phase::FirstMain;
+        v.seats[0].mana_pool.blue = 2;
+        v.hand = vec![hand_card(1, "Brainstorm"), hand_card(2, "Brainstorm")];
+        let pending = Pending::Priority {
+            player: v.seat,
+            legal: Box::new(baylee_engine::choice::LegalActions {
+                can_pass: true,
+                castable: vec![obj(1), obj(2)],
+                ..Default::default()
+            }),
+        };
+        let agent = HeuristicAgent::new(AIProfile::NOVICE);
+        let first = agent.act(&v, &pending);
+        let mut different = false;
+        for seq in 0..64 {
+            v.seq = seq;
+            let action = agent.act(&v, &pending);
+            assert_eq!(action, agent.act(&v, &pending));
+            different |= action != first;
+        }
+        assert!(different);
+    }
+
+    #[test]
+    fn holding_up_interaction_changes_a_tap_out() {
+        let mut v = view(0, &[20, 20], vec![permanent(obj(1), PlayerId::new(0), 2)]);
+        v.phase = baylee_view::Phase::FirstMain;
+        v.seats[0].mana_pool.blue = 2;
+        v.hand = vec![hand_card(2, "Sol Ring"), hand_card(3, "Mana Drain")];
+        let pending = Pending::Priority {
+            player: v.seat,
+            legal: Box::new(baylee_engine::choice::LegalActions {
+                can_pass: true,
+                castable: vec![obj(2)],
+                ..Default::default()
+            }),
+        };
+        assert_eq!(
+            HeuristicAgent::new(AIProfile::STEADY).act(&v, &pending),
+            PlayerAction::PassPriority
+        );
+        assert_eq!(
+            HeuristicAgent::new(AIProfile {
+                hold_up: baylee_core::preset::HoldUp::None,
+                ..AIProfile::STEADY
+            })
+            .act(&v, &pending),
+            PlayerAction::CastSpell { card: obj(2) }
+        );
+        // Threat-aware releases the reserve at an empty opposing table.
+        assert_eq!(
+            HeuristicAgent::new(AIProfile::SHARP).act(&v, &pending),
+            PlayerAction::CastSpell { card: obj(2) }
+        );
+    }
+
+    #[test]
+    fn search_is_repeatable_bounded_and_preserves_unseen_identities() {
+        let mut v = view(
+            0,
+            &[20, 20],
+            (1..=6)
+                .map(|i| permanent(obj(i), PlayerId::new(0), 2))
+                .chain((10..=15).map(|i| permanent(obj(i), PlayerId::new(1), 3)))
+                .collect(),
+        );
+        let squad: Vec<_> = (1..=6).map(obj).collect();
+        let victim = PlayerId::new(1);
+        for (_, profile) in AIProfile::NAMED {
+            let first = search::attackers(&v, &squad, victim, profile);
+            assert!(first.nodes <= profile.node_budget());
+            for _ in 0..3 {
+                let again = search::attackers(&v, &squad, victim, profile);
+                assert_eq!(first.attackers, again.attackers);
+                assert_eq!(first.nodes, again.nodes);
+            }
+        }
+        // All identities here are None, including the opposing creatures.
+        // Presentation changes cannot supply a hidden rules identity.
+        let before = search::attackers(&v, &squad, victim, AIProfile::EXPERT).attackers;
+        for o in &mut v.battlefield {
+            o.name = "unseen".into();
+        }
+        assert_eq!(
+            before,
+            search::attackers(&v, &squad, victim, AIProfile::EXPERT).attackers
+        );
+    }
+
+    #[test]
+    fn the_search_finds_a_menace_gang_block() {
+        let mut attacker = permanent(obj(1), PlayerId::new(1), 4);
+        attacker.keywords = baylee_cards_dsl::KeywordSet::MENACE.bits();
+        let mut v = view(
+            0,
+            &[3, 20],
+            vec![
+                attacker,
+                permanent(obj(2), PlayerId::new(0), 2),
+                permanent(obj(3), PlayerId::new(0), 2),
+            ],
+        );
+        v.combat.attackers.push(baylee_view::AttackerView {
+            creature: obj(1),
+            defending: Defender::Player(v.seat),
+            blocked: false,
+        });
+        let pending = Pending::ChooseBlockers {
+            player: v.seat,
+            attacker: PlayerId::new(1),
+            blockers: vec![
+                baylee_engine::choice::BlockOption {
+                    blocker: obj(2),
+                    attackers: vec![obj(1)],
+                },
+                baylee_engine::choice::BlockOption {
+                    blocker: obj(3),
+                    attackers: vec![obj(1)],
+                },
+            ],
+        };
+        assert_eq!(
+            HeuristicAgent::new(AIProfile::SHARP).act(&v, &pending),
+            PlayerAction::DeclareBlockers {
+                blockers: vec![(obj(2), obj(1)), (obj(3), obj(1))]
+            }
+        );
     }
 
     /// A default-profile agent at a table with no teams.

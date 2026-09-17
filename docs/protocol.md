@@ -845,7 +845,7 @@ One game in that page reads:
 Never an account id — a `player` is a handle (`Alice#af03`), and `you` / `yours` answer
 "is that me" without the listing having to carry anyone's account. `kind` is
 `"human"` or `"ai"`, and `ai` names a difficulty from `AIProfile::NAMED`
-(`novice`, `steady`, `sharp`); one that does not exist is a `400` rather than a
+(`novice`, `casual`, `steady`, `sharp`, `expert`); one that does not exist is a `400` rather than a
 quiet default, because a table that plays at another level than it advertises
 is worse than one that says no.
 

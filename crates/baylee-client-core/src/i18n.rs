@@ -225,10 +225,14 @@ messages! {
     SeatToOpen { en: "→ open", de: "→ frei" },
     /// The gentlest house AI.
     AiNovice { en: "novice", de: "Anfänger" },
+    /// The relaxed house AI.
+    AiCasual { en: "casual", de: "Locker" },
     /// The middle one.
     AiSteady { en: "steady", de: "Solide" },
     /// The one that plays to win.
     AiSharp { en: "sharp", de: "Scharf" },
+    /// The deepest house AI combat search.
+    AiExpert { en: "expert", de: "Experte" },
     /// One page back through the table list.
     PageBack { en: "‹ Back", de: "‹ Zurück" },
     /// One page on.

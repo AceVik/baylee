@@ -138,8 +138,8 @@ pub struct Report {
     pub seats: Vec<SeatSnapshot>,
     /// What the agents did, in seat order.
     pub tally: Vec<Tally>,
-    /// The last handful of question/answer pairs, newest last, and empty
-    /// for a game that ended properly.
+    /// The last handful of question/answer pairs, newest last.
+    /// Kept for finished games too, so a win can be audited.
     ///
     /// A repeat says *that* the game came round again and never *how*, and
     /// the how is one line: the question asked, and what was answered to
@@ -236,7 +236,7 @@ pub fn play_report<L: CardLookup>(
     for i in 0..max_actions {
         let pending = engine.pending().clone();
         if let Pending::GameOver(result) = pending {
-            return report(&engine, Halt::Finished(result), i, tally);
+            return report(&engine, Halt::Finished(result), i, tally).with_trail(trail);
         }
         let player_for_hash = pending_player(&pending);
         let key = LoopKey {
@@ -441,6 +441,44 @@ mod tests {
             "/../../data/acceptance-decks.txt"
         ))
         .expect("acceptance deck file")
+    }
+
+    #[test]
+    fn every_profile_is_blind_to_an_opponents_hidden_cards() {
+        let forest = baylee_cards::decks::by_name("Forest").unwrap();
+        let island = baylee_cards::decks::by_name("Island").unwrap();
+        let mut preset = baylee_cards::decks::probe_preset(42, forest).unwrap();
+        let entry = preset.seats[1].deck[0];
+        preset.seats[1].starting_hand = Some(vec![entry; 7]);
+        let a = Engine::new(&preset, RegistryLookup).unwrap();
+        for card in &mut preset.seats[1].deck {
+            card.card = island;
+        }
+        for card in preset.seats[1].starting_hand.as_mut().unwrap() {
+            card.card = island;
+        }
+        let b = Engine::new(&preset, RegistryLookup).unwrap();
+        let me = PlayerId::new(0);
+        let view = |engine: &Engine<RegistryLookup>| {
+            crate::view::player_view(
+                engine.state(),
+                me,
+                priority_holder(engine.pending()),
+                7,
+                Some(engine.pending()),
+                false,
+            )
+        };
+        let va = view(&a);
+        let vb = view(&b);
+        assert_eq!(
+            va, vb,
+            "changing a hidden library and hand cannot change the view"
+        );
+        for (_, profile) in AIProfile::NAMED {
+            let agent = HeuristicAgent::new(profile);
+            assert_eq!(agent.act(&va, a.pending()), agent.act(&vb, b.pending()));
+        }
     }
 
     /// The sweep is only worth its runtime if the card really is where

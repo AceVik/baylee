@@ -53,7 +53,11 @@ pub(crate) fn choose(view: &PlayerView, legal: &LegalActions) -> Option<(ObjectI
 /// therefore not offered here, which is the right answer for now anyway
 /// (`Engine::can_afford` probes the floating pool, so a `{3}` cycling cost
 /// is never in `legal.abilities` in the first place).
-fn printed(view: &PlayerView, object: ObjectId, index: u32) -> Option<&'static AbilityDef> {
+pub(crate) fn printed(
+    view: &PlayerView,
+    object: ObjectId,
+    index: u32,
+) -> Option<&'static AbilityDef> {
     let card = view.object(object)?.card?;
     let def = baylee_cards::by_index(card.index)?;
     def.abilities_for_face(card.face as usize)

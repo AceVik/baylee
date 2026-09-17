@@ -124,27 +124,20 @@ pub enum HoldUp {
     /// Holds up basic interaction (default).
     #[default]
     Basic,
-    /// Respects threats, sequences lands, bluffs.
+    /// Reserves interaction only while an opponent presents a threat.
     ThreatAware,
 }
 
 /// Difficulty profile of an AI seat (one code path, parameterized).
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
 pub struct AIProfile {
-    /// Evaluation lookahead in plies (0 = greedy).
-    ///
-    /// Read by nobody, and it cannot be read where the house AI lives: a
-    /// `HeuristicAgent` is handed a `PlayerView` and a `Pending`, which is
-    /// one position and the questions asked about it — never the position
-    /// an answer would produce. Walking plies takes the engine
-    /// (`GameState::clone` is a flat copy exactly so a search can), and the
-    /// engine is on the other side of the line `baylee-ai` exists to keep,
-    /// so a searching agent is a different thing living in a different
-    /// place rather than a bigger number here.
+    /// Tactical combat horizon: 0 = individual trades, 1 = whole combat,
+    /// 2 = combat and the opponent's retaliation. Values above 2 are capped.
+    /// This searches a public combat model, not reconstructed engine states.
     pub lookahead: u8,
-    /// Evaluation noise (milli-units; 0 = deterministic-sharp).
+    /// Deterministic score noise in milli-units; zero picks the best estimate.
     pub temperature_milli: u32,
-    /// Mulligan skill: 0 random, 1 curve, 2 curve+interaction.
+    /// Mulligan skill: 0 keeps, 1 land balance, 2 curve and coloured costs.
     pub mulligan_skill: u8,
     /// Multiplayer politics.
     pub politics: Politics,
@@ -159,40 +152,60 @@ impl Default for AIProfile {
 }
 
 impl AIProfile {
-    /// Plays its cards, and not much more: no lookahead, loose evaluation and
-    /// random mulligans. What a first game should be played against.
+    /// Keeps every opening hand, taps out, and makes noisy spell choices.
     pub const NOVICE: Self = Self {
         lookahead: 0,
-        temperature_milli: 400,
+        temperature_milli: 800,
         mulligan_skill: 0,
         politics: Politics::Random,
         hold_up: HoldUp::None,
     };
-    /// The middle setting, and the default everywhere a profile is not named.
-    pub const STEADY: Self = Self {
-        lookahead: 1,
-        temperature_milli: 100,
+    /// Fixes land-starved hands, but still taps out with loose evaluation.
+    pub const CASUAL: Self = Self {
+        temperature_milli: 400,
         mulligan_skill: 1,
+        ..Self::NOVICE
+    };
+    /// Plans coloured payments and keeps basic interaction available.
+    pub const STEADY: Self = Self {
+        lookahead: 0,
+        temperature_milli: 100,
+        mulligan_skill: 2,
         politics: Politics::AttackLeader,
         hold_up: HoldUp::Basic,
     };
-    /// Looks a turn further, keeps its mana up and does not fumble a keep.
+    /// Searches attack groups against blocking replies, with no score noise.
     pub const SHARP: Self = Self {
-        lookahead: 2,
+        lookahead: 1,
         temperature_milli: 0,
-        mulligan_skill: 2,
-        politics: Politics::AttackLeader,
         hold_up: HoldUp::ThreatAware,
+        ..Self::STEADY
+    };
+    /// Also prices the opponent's retaliation when committing attackers.
+    pub const EXPERT: Self = Self {
+        lookahead: 2,
+        ..Self::SHARP
     };
 
+    /// Deterministic search work per decision. A clock cutoff would make the
+    /// same view choose differently on different machines; benchmarks measure
+    /// latency, while these node counts decide when to return the incumbent.
+    #[must_use]
+    pub const fn node_budget(self) -> u32 {
+        match self.lookahead {
+            0 => 0,
+            1 => 4_096,
+            _ => 16_384,
+        }
+    }
+
     /// The profiles a player can choose between, weakest first.
-    ///
-    /// One list, so the gateway validating a name and the client offering the
-    /// choice cannot drift apart.
-    pub const NAMED: [(&'static str, Self); 3] = [
+    pub const NAMED: [(&'static str, Self); 5] = [
         ("novice", Self::NOVICE),
+        ("casual", Self::CASUAL),
         ("steady", Self::STEADY),
         ("sharp", Self::SHARP),
+        ("expert", Self::EXPERT),
     ];
 
     /// Looks a profile up by the key a client sends.
