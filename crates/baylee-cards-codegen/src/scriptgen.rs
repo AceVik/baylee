@@ -1251,6 +1251,63 @@ impl Tx<'_> {
         Some(crate::body::cost_literal(&mana, &parts))
     }
 
+    /// `T:Mode$ SpellCast` — "whenever a player casts a spell".
+    ///
+    /// One printed sentence and two script keys, because the reference asks
+    /// *what* was cast and *who* cast it separately. `Trigger::SpellCast`
+    /// carries one filter, which is the right shape — a spell on the stack
+    /// is controlled by the player who cast it — so the two keys are joined
+    /// by appending the controller atom to every alternative and letting
+    /// [`Tx::filter_expr`] compose it: `Instant,Sorcery` with `You` is
+    /// `Instant.YouCtrl,Sorcery.YouCtrl`. The atom is spelled the way a
+    /// script would have spelled it rather than built here, so the two
+    /// spellings cannot drift.
+    fn spell_cast_trigger(&mut self, p: &mut Params, zoned: bool) -> Option<String> {
+        // **An absent `TriggerZones$` is not the battlefield here.** 114 of
+        // the corpus's 1444 `SpellCast` lines write no zone at all, and 98
+        // of them are `ValidCard$ Card.Self` — "when you cast this spell",
+        // which fires while the card is on the *stack*. This engine collects
+        // triggers off the battlefield, so reading one of those as an
+        // ordinary trigger is a card whose ability can never fire under a
+        // `Coverage::Implemented` that says otherwise. The zone is therefore
+        // demanded rather than defaulted, which is the opposite of what the
+        // other modes may do.
+        if !zoned {
+            return self.deny("a `SpellCast` trigger with no `TriggerZones$`".to_string());
+        }
+        let Some(valid) = p.take("ValidCard") else {
+            return self.deny("a `SpellCast` trigger with no `ValidCard$`".to_string());
+        };
+        // The same sentence, refused a second way: a cast trigger
+        // is one whatever zone it claims.
+        if valid.split(['.', '+']).any(|atom| atom == "Self") {
+            return self.deny("a `SpellCast` trigger on the card itself".to_string());
+        }
+        // An absent `ValidActivatingPlayer$` is every player, which
+        // is `Player`'s own meaning — 220 lines write nothing and
+        // 39 write the word.
+        let whose = match p.take("ValidActivatingPlayer").as_deref() {
+            None | Some("Player") => "",
+            Some("You") => ".YouCtrl",
+            Some("Opponent" | "Player.Opponent") => ".OppCtrl",
+            Some(other) => {
+                return self.deny(format!("a spell cast by `{other}`"));
+            }
+        };
+        let valid = if whose.is_empty() {
+            valid
+        } else {
+            valid
+                .split(',')
+                .map(|alt| format!("{alt}{whose}"))
+                .collect::<Vec<_>>()
+                .join(",")
+        };
+        let expr = self.filter_expr(&valid)?;
+        let filter = self.body.filter_static("TRIGGER", &expr);
+        Some(format!("Trigger::SpellCast(&{filter})"))
+    }
+
     /// `T:Mode$ …` as a `Trigger` expression.
     fn trigger_expr(&mut self, p: &mut Params, mode: &str) -> Option<String> {
         // Where the ability triggers **from**. This used to be taken and
@@ -1267,7 +1324,8 @@ impl Tx<'_> {
         // None of them is a card this pool compiles — `Vanguard` is not a
         // card type here — so nothing in the tree changes, which is what
         // makes this the cheapest possible moment to shut the door.
-        match p.take("TriggerZones").as_deref() {
+        let zones = p.take("TriggerZones");
+        match zones.as_deref() {
             None | Some("Battlefield") => {}
             Some(zones) => return self.deny(format!("`TriggerZones$ {zones}`")),
         }
@@ -1334,6 +1392,7 @@ impl Tx<'_> {
                 };
                 Some(format!("Trigger::Attacks({filter})"))
             }
+            "SpellCast" => self.spell_cast_trigger(p, zones.is_some()),
             "Taps" => {
                 let valid = p.take("ValidCard").unwrap_or_default();
                 if valid == "Card.Self" {
@@ -2874,6 +2933,78 @@ mod tests {
             body.abilities,
             ["triggered!(Trigger::ETB, &[Effect::gain_life(2)])"]
         );
+    }
+
+    /// "Whenever an opponent casts a spell": the two keys join into one
+    /// filter, and the three shapes that must not be read are refused by
+    /// name.
+    ///
+    /// The zone is the one that matters. A `SpellCast` line with no
+    /// `TriggerZones$` is almost always "when you cast **this** spell",
+    /// which fires from the stack — 98 of the corpus's 114 zoneless lines
+    /// name `Card.Self` — and this engine collects triggers off the
+    /// battlefield. Read as an ordinary trigger it is a card whose ability
+    /// can never fire, so both halves of that sentence are refused
+    /// separately: the missing zone, and the self-reference under any zone.
+    #[test]
+    fn a_spell_cast_trigger_joins_what_was_cast_with_who_cast_it() {
+        // Rhystic Study's own line, minus the `UnlessCost$` its `SVar`
+        // writes — which is a different rule's business.
+        let body = read(
+            "Name:X\nTypes:Enchantment\n\
+             T:Mode$ SpellCast | ValidCard$ Card | ValidActivatingPlayer$ Opponent \
+             | TriggerZones$ Battlefield | Execute$ TrigDraw | TriggerDescription$ draw.\n\
+             SVar:TrigDraw:DB$ Draw | Defined$ You | NumCards$ 1",
+        );
+        assert_eq!(
+            body.abilities,
+            ["triggered!(Trigger::SpellCast(&Filter::ControlledByOpponent), &[Effect::draw(1)])"]
+        );
+
+        // Every alternative takes the controller atom, not just the first.
+        let two = read(
+            "Name:X\nTypes:Enchantment\n\
+             T:Mode$ SpellCast | ValidCard$ Instant,Sorcery | ValidActivatingPlayer$ You \
+             | TriggerZones$ Battlefield | Execute$ TrigDraw | TriggerDescription$ draw.\n\
+             SVar:TrigDraw:DB$ Draw | Defined$ You | NumCards$ 1",
+        );
+        assert!(
+            two.statics.contains(
+                "Filter::Or(&[Filter::And(&[Filter::HasType(TypeSet::INSTANT), \
+                 Filter::ControlledByYou]), Filter::And(&[Filter::HasType(TypeSet::SORCERY), \
+                 Filter::ControlledByYou])])"
+            ),
+            "{}",
+            two.statics
+        );
+
+        for (line, why) in [
+            (
+                "T:Mode$ SpellCast | ValidCard$ Card | ValidActivatingPlayer$ You \
+                 | Execute$ TrigDraw | TriggerDescription$ draw.",
+                "a `SpellCast` trigger with no `TriggerZones$`",
+            ),
+            (
+                "T:Mode$ SpellCast | ValidCard$ Card.Self | TriggerZones$ Battlefield \
+                 | Execute$ TrigDraw | TriggerDescription$ draw.",
+                "a `SpellCast` trigger on the card itself",
+            ),
+            (
+                "T:Mode$ SpellCast | ValidCard$ Card | ValidActivatingPlayer$ Player.EnchantedBy \
+                 | TriggerZones$ Battlefield | Execute$ TrigDraw | TriggerDescription$ draw.",
+                "a spell cast by `Player.EnchantedBy`",
+            ),
+        ] {
+            let script = parse(&format!(
+                "Name:X\nTypes:Enchantment\n{line}\n\
+                 SVar:TrigDraw:DB$ Draw | Defined$ You | NumCards$ 1"
+            ));
+            assert_eq!(
+                refusal_reason(&script, &cats(), None).as_deref(),
+                Some(why),
+                "{line}"
+            );
+        }
     }
 
     #[test]
