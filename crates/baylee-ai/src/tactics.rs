@@ -53,11 +53,19 @@ pub(crate) fn meaning(effects: &[Effect], x: u32) -> Meaning {
                 }
             }
             Effect::PumpTarget {
-                power, toughness, ..
+                power,
+                toughness,
+                keywords,
+                ..
             } => {
                 m.benefit = amount(*power, x)
                     .saturating_add(amount(*toughness, x))
                     .signum();
+                if m.benefit == 0
+                    && keywords.bits() & !baylee_cards_dsl::KeywordSet::DEFENDER.bits() != 0
+                {
+                    m.benefit = 1;
+                }
             }
             Effect::CreateContinuousEffect { modifier, .. } => {
                 m.benefit = match modifier {
@@ -134,7 +142,7 @@ pub(crate) fn material(o: &PublicObject) -> i64 {
 }
 
 impl HeuristicAgent {
-    pub(crate) fn subtype(view: &PlayerView, options: &[SubtypeId]) -> SubtypeId {
+    pub(crate) fn subtype(&self, view: &PlayerView, options: &[SubtypeId]) -> SubtypeId {
         options
             .iter()
             .copied()
@@ -162,7 +170,10 @@ impl HeuristicAgent {
                     })
                     .count();
                 (
-                    hand * 3 + board * 2 + commanders * 4,
+                    hand * 3
+                        + board * 2
+                        + commanders * 4
+                        + usize::from(self.strategy.tribe == Some(*subtype)) * 2,
                     std::cmp::Reverse(*subtype),
                 )
             })

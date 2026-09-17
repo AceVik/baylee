@@ -174,16 +174,17 @@ impl AIProfile {
         politics: Politics::AttackLeader,
         hold_up: HoldUp::Basic,
     };
-    /// Searches attack groups against blocking replies, with no score noise.
+    /// Searches attack groups; varies spell choices only within a narrow score band.
     pub const SHARP: Self = Self {
         lookahead: 1,
-        temperature_milli: 0,
+        temperature_milli: 30,
         hold_up: HoldUp::ThreatAware,
         ..Self::STEADY
     };
     /// Also prices the opponent's retaliation when committing attackers.
     pub const EXPERT: Self = Self {
         lookahead: 2,
+        temperature_milli: 12,
         ..Self::SHARP
     };
 

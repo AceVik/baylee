@@ -419,15 +419,21 @@ The gateway builds lobby presets with no capabilities at all, and
 `gamehost::preset` has the test that says a wire preset cannot grant itself
 one.
 
-## The AI is a client (view version 6)
+## AI views and private scouting
 
-`HeuristicAgent::act` took `&Engine` and could read the whole `GameState`
-— the opponent's hand, every library, every face-down permanent. The
-crate's own header called that "convention, not enforcement". It now takes
-`(&PlayerView, &Pending)`, the same pair a networked seat gets, so the
-leak is not policed but absent: `baylee-ai` no longer depends on
-`baylee-engine`'s state at all, and the acceptance-deck soak plays every
-one of its games through the filtered view.
+`HeuristicAgent::act(&PlayerView, &Pending)` uses the same filtered view as a
+networked player. The host can additionally provide borrowed selected-effect
+context and a private scouting report to an active house AI. This is an
+intentional AI privilege: current hands, submitted decks, sideboards and
+requested library depth. None is added to `Pending`, `PlayerView`,
+`GameStatic`, or a protocol envelope, so this does not change the view version.
+
+The authorization lives in `gamehost::scouting::request`, which checks the
+current controller for every call. Only `SeatKind::Ai` qualifies. A `Driven`
+AI chair is being played by a human and is refused; `StandIn` belongs to a
+human and is also refused. No network request can invoke this private module.
+Reports have no serialization and are consumed for one decision without
+teaching the print-disclosure table or retaining hidden cards in an agent.
 
 Two fields moved into the view to make that possible, and both are things
 a human client wanted anyway: `SeatView::mana_pool` (floating mana is

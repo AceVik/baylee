@@ -948,12 +948,15 @@ the payload (before the view that needs it) when one is earned. A hole rather
 than a shorter list, because the index *is* the `PrintRef` every object points
 at.
 
-The house AI is held to the same line, and by the type system rather than by
-convention: `HeuristicAgent::act` takes `(&PlayerView, &Pending)` — what a
-networked seat gets — so `baylee-ai` cannot reach an opponent's hand even by
-mistake. That is also why the AI-vs-AI harness (`gamehost::harness::play_game`,
-with the acceptance-deck soak) lives in gamehost: building a view takes the
-engine, which is the boundary the agent may not cross.
+`HeuristicAgent::act(&PlayerView, &Pending)` remains the ordinary interface.
+House AI scouting is an explicitly authorized exception: gamehost may answer
+an in-process `ScoutingRequest` with deck lists, hands, sideboards and bounded
+or full library order. `scouting::request` checks the current `SeatKind::Ai`
+on every request. Human, Driven and StandIn seats are refused. The report has
+no serialization and no protocol endpoint, is never merged into a player view
+or print table, and is not stored in the agent retained during takeover.
+The AI still receives no `Engine` or `GameState` reference. The harness uses
+the same guarded adapter as a hosted AI. See `docs/house-ai.md`.
 
 That boundary is also what makes an AI chair **drivable**. `SeatKind::Driven`
 is an AI seat whose controls someone has taken: `Session::take_over` puts a

@@ -77,6 +77,53 @@ fn a_planned_multicolour_cast_survives_the_mana_choice_round_trip() {
     }
 }
 
+#[test]
+fn the_ai_casts_both_commanders_with_independent_cast_counts() {
+    // Freeform setup exercises the multi-commander engine path without
+    // claiming these two cards form a legal Partner pair. Real pairing
+    // validation fixtures are tracked in docs/ai-coverage-todo.md.
+    let mut preset = position(
+        &[],
+        &["Forest", "Plains", "Island", "Swamp", "Plains", "Island"],
+    );
+    preset.seats[0].commanders = vec![
+        entry("Katara, the Fearless"),
+        entry("Aminatou, the Fateshifter"),
+    ];
+    let mut engine = Engine::new(&preset, RegistryLookup).unwrap();
+    let agent = HeuristicAgent::new(AIProfile::EXPERT);
+    for seq in 0..150 {
+        let pending = engine.pending();
+        let seat = pending_player(pending).expect("fixture remains live");
+        let view = player_view(engine.state(), seat, Some(seat), seq, Some(pending), false);
+        if view
+            .battlefield
+            .iter()
+            .filter(|o| o.commander && o.controller == PlayerId::new(0))
+            .count()
+            == 2
+        {
+            assert_eq!(
+                engine.state().commanders[0]
+                    .iter()
+                    .map(|c| c.casts)
+                    .collect::<Vec<_>>(),
+                vec![1, 1]
+            );
+            return;
+        }
+        let action = match pending {
+            Pending::Mulligan { .. } => PlayerAction::MulliganKeep,
+            Pending::Priority { .. } if seat == PlayerId::new(1) => PlayerAction::PassPriority,
+            _ => agent.act_with_context(&view, pending, &engine.decision_context()),
+        };
+        engine
+            .apply(seat, action)
+            .expect("each commander's payment and choice are legal");
+    }
+    panic!("six correctly coloured lands must deploy both three-mana commanders");
+}
+
 struct CombatCards(Vec<&'static baylee_cards_dsl::CardDef>);
 
 impl baylee_engine::state::CardLookup for CombatCards {

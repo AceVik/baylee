@@ -9,6 +9,7 @@
 
 pub mod harness;
 pub mod preset;
+mod scouting;
 pub mod session;
 pub mod view;
 

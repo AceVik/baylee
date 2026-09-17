@@ -26,10 +26,12 @@ struct Result {
     first_enemy_gain: i32,
     dead: u32,
     attacker_dead: bool,
+    commander_lethal: bool,
 }
 
 #[derive(Clone, Copy, Default)]
 struct Balance {
+    commander_lethals: u8,
     damage: i32,
     first_damage: i32,
     material: i64,
@@ -41,6 +43,8 @@ struct Balance {
 impl Balance {
     fn replacing(self, old: Result, new: Result) -> Self {
         Self {
+            commander_lethals: self.commander_lethals - u8::from(old.commander_lethal)
+                + u8::from(new.commander_lethal),
             damage: self.damage - old.damage + new.damage,
             first_damage: self.first_damage - old.first_damage + new.first_damage,
             material: self.material - old.material + new.material,
@@ -53,7 +57,9 @@ impl Balance {
     fn kills(self, life: i32) -> bool {
         // State-based actions happen between damage steps. Lifelink in the
         // normal step cannot rescue a player who lost in first strike.
-        self.first_damage >= life + self.first_enemy_gain || self.damage >= life + self.enemy_gain
+        self.commander_lethals > 0
+            || self.first_damage >= life + self.first_enemy_gain
+            || self.damage >= life + self.enemy_gain
     }
 }
 
@@ -229,6 +235,18 @@ impl Counterattack {
     }
 }
 
+/// CR 903.10a counts each commander's combat damage independently. The
+/// view's history is keyed by the commander's persistent object handle.
+fn commander_remaining(view: &PlayerView, victim: PlayerId, source: ObjectId) -> i32 {
+    if !view.object(source).is_some_and(|o| o.commander) {
+        return i32::MAX;
+    }
+    21 - view
+        .seat(victim)
+        .and_then(|s| s.commander_damage.iter().find(|d| d.source == source))
+        .map_or(0, |d| i32::from(d.amount))
+}
+
 struct Position {
     attackers: Vec<Fighter>,
     blockers: Vec<Fighter>,
@@ -236,6 +254,7 @@ struct Position {
     retaliation: Vec<Counterattack>,
     exchanges: Vec<Result>,
     player_damage: u32,
+    commander_remaining: Vec<i32>,
     can_block: Vec<u32>,
     life: i32,
     enemy_life: i32,
@@ -272,6 +291,7 @@ impl Position {
             result.damage = 0;
             result.first_damage = 0;
         }
+        result.commander_lethal = result.damage >= self.commander_remaining[attacker];
         result
     }
 
@@ -398,6 +418,7 @@ pub struct AttackSearch {
     pub lethal: bool,
 }
 
+#[allow(clippy::too_many_lines)] // construct one bounded combat position and its caches
 fn attack_position(
     view: &PlayerView,
     squad: &[ObjectId],
@@ -482,6 +503,10 @@ fn attack_position(
     Some(
         Position {
             player_damage: (1 << fighters.len()) - 1,
+            commander_remaining: squad
+                .iter()
+                .map(|&id| commander_remaining(view, victim, id))
+                .collect(),
             can_block: blockers
                 .iter()
                 .map(|b| {
@@ -637,11 +662,17 @@ pub fn blockers(
             !ids.contains(&a.creature)
                 && a.defending == baylee_core::ids::Defender::Player(view.seat)
         })
-        .filter_map(|a| Fighter::of(view, a.creature))
-        .fold(Balance::default(), |balance, f| {
-            balance.replacing(Result::default(), fight(f, &[], 0))
+        .filter_map(|a| Fighter::of(view, a.creature).map(|f| (a.creature, f)))
+        .fold(Balance::default(), |balance, (id, f)| {
+            let mut result = fight(f, &[], 0);
+            result.commander_lethal = result.damage >= commander_remaining(view, view.seat, id);
+            balance.replacing(Result::default(), result)
         });
     let position = Position {
+        commander_remaining: ids
+            .iter()
+            .map(|&id| commander_remaining(view, view.seat, id))
+            .collect(),
         player_damage: ids.iter().enumerate().fold(0, |mask, (i, id)| {
             mask | if view.combat.attackers.iter().any(|a| {
                 a.creature == *id && a.defending == baylee_core::ids::Defender::Player(view.seat)

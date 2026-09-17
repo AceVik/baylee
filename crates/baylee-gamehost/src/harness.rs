@@ -1,9 +1,8 @@
 //! The AI-vs-AI harness: a whole game with nobody watching.
 //!
 //! It lives here rather than in `baylee-ai` because an agent needs a
-//! [`PlayerView`](baylee_view::PlayerView) to act, and building one takes
-//! the engine — which is exactly the boundary the AI is not allowed to
-//! cross. The soak test below is the acceptance-deck smoke test: it is the
+//! [`PlayerView`](baylee_view::PlayerView) to act, and the host owns both
+//! its construction and authorization of private AI scouting. The soak test below is the acceptance-deck smoke test: it is the
 //! one place where every card in the decks is actually played.
 
 use crate::session::priority_holder;
@@ -227,6 +226,12 @@ pub fn play_report<L: CardLookup>(
         preset.seats.len()
     );
     let mut engine = Engine::new(preset, lookup).expect("preset builds");
+    let decks = crate::scouting::decks(preset);
+    let seats: Vec<_> = agents
+        .iter()
+        .cloned()
+        .map(|a| crate::SeatKind::Ai(a.with_seed(preset.seed)))
+        .collect();
     // The first index a key was seen at, and how many times it has come
     // round. Both, because the report wants the first and the halt wants the
     // count — see the comment on the check below.
@@ -277,7 +282,7 @@ pub fn play_report<L: CardLookup>(
         // `GameOver` is the only pending nobody answers, and it returned
         // above.
         let player = player_for_hash.expect("a decision point has a seat");
-        // The agent sees what a client would see, and nothing else.
+        // Build the ordinary view separately from the private scouting channel.
         let view = crate::view::player_view(
             engine.state(),
             player,
@@ -286,10 +291,16 @@ pub fn play_report<L: CardLookup>(
             Some(&pending),
             engine.automation(player).hold.suppresses(),
         );
-        let action = agents[player.get() as usize].act_with_context(
-            &view,
-            &pending,
-            &engine.decision_context(),
+        let crate::SeatKind::Ai(agent) = &seats[usize::from(player.get())] else {
+            unreachable!()
+        };
+        let context = engine.decision_context();
+        let scouting = agent.scouting_request(&pending).and_then(|request| {
+            crate::scouting::request(&seats, &decks, engine.state(), player, request)
+        });
+        let action = scouting.as_ref().map_or_else(
+            || agent.act_with_context(&view, &pending, &context),
+            |report| agent.act_with_scouting(&view, &pending, &context, report),
         );
         if trail.len() == TRAIL {
             trail.remove(0);

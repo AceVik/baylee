@@ -35,12 +35,72 @@ fn mix(mut n: u64) -> u64 {
 }
 
 impl HeuristicAgent {
+    pub(crate) fn miracle(view: &PlayerView, id: ObjectId) -> bool {
+        let Some(cost) = identity(view, id).and_then(face).and_then(|f| f.miracle) else {
+            return false;
+        };
+        // The engine asks yes/no inside resolution; it has no intervening
+        // priority window in which this controller can tap another source.
+        view.seat(view.seat)
+            .is_some_and(|s| manaplan::plan(&cost.with_x(0), &s.mana_pool, &[]).is_some())
+    }
+
+    pub(crate) fn number(
+        &self,
+        view: &PlayerView,
+        min: u32,
+        max: u32,
+        context: &baylee_engine::engine::DecisionContext<'_>,
+    ) -> u32 {
+        let Some(seat) = view.seat(view.seat) else {
+            return min;
+        };
+        if context.life_x {
+            // Pay the smallest amount giving the best exchange; preserving
+            // life and friendly creatures matters more than maximizing X.
+            return (min..=max.min(u32::try_from(seat.life - 1).unwrap_or(0)))
+                .max_by_key(|&x| {
+                    let material: i64 = view
+                        .battlefield
+                        .iter()
+                        .filter(|o| {
+                            o.types.contains(TypeSet::CREATURE)
+                                && o.toughness.is_some_and(|t| i64::from(t) <= i64::from(x))
+                        })
+                        .map(|o| {
+                            crate::tactics::material(o)
+                                * if self.hostile(o.controller, view.seat) {
+                                    1
+                                } else {
+                                    -1
+                                }
+                        })
+                        .sum();
+                    (material - i64::from(x) * 60, std::cmp::Reverse(x))
+                })
+                .unwrap_or(min);
+        }
+        let Some(cost) = context
+            .cost
+            .filter(baylee_core::mana::ManaCost::has_variable)
+        else {
+            return min;
+        };
+        (min..=max)
+            .rev()
+            .find(|&x| {
+                manaplan::plan(&cost.with_x(x), &seat.mana_pool, &[]).is_some()
+                    && crate::tactics::meaning(context.effects, x).draw < seat.library_count
+            })
+            .unwrap_or(min)
+    }
+
     pub(crate) fn noise(&self, view: &PlayerView, id: ObjectId) -> i64 {
         let width = u64::from(self.profile.temperature_milli.min(10_000));
         if width == 0 {
             return 0;
         }
-        let seed = view.seq ^ (u64::from(id.slot()) << 16) ^ u64::from(view.seat.get());
+        let seed = self.seed ^ view.seq ^ (u64::from(id.slot()) << 16) ^ u64::from(view.seat.get());
         i64::try_from(mix(seed) % (2 * width + 1)).unwrap_or(0) - i64::try_from(width).unwrap_or(0)
     }
 
@@ -345,8 +405,24 @@ impl HeuristicAgent {
             if score <= 0 {
                 continue;
             }
-            let cost = spell_cost(view, id, f);
-            let action = if legal.castable.contains(&id) {
+            let base_cost = spell_cost(view, id, f);
+            let variable = base_cost.has_variable();
+            let cost = if variable {
+                (1..=available.min(50))
+                    .rev()
+                    .find_map(|x| {
+                        let cost = base_cost.with_x(x);
+                        manaplan::plan(&cost, pool, &sources)
+                            .is_some()
+                            .then_some(cost)
+                    })
+                    .unwrap_or_else(|| base_cost.with_x(0))
+            } else {
+                base_cost
+            };
+            let action = if legal.castable.contains(&id)
+                && (!variable || manaplan::plan(&cost, pool, &[]).is_some())
+            {
                 PlayerAction::CastSpell { card: id }
             } else {
                 let Some(plan) = manaplan::plan(&cost, pool, &sources) else {
@@ -383,6 +459,14 @@ impl HeuristicAgent {
             || !view
                 .battlefield_of(view.seat)
                 .any(|o| o.types.contains(TypeSet::CREATURE))
+        {
+            return 0;
+        }
+        if self.strategy.scouted_opponents
+            && !self.strategy.known_threat
+            && !view.seats.iter().any(|s| {
+                self.hostile(s.player, view.seat) && crate::board_pressure(view, s.player) > 2
+            })
         {
             return 0;
         }
@@ -426,7 +510,16 @@ impl HeuristicAgent {
             .any(|o| self.hostile(o.controller, view.seat) && !o.types.contains(TypeSet::LAND));
         let mut value = 200 + i64::from(f.mana_cost.cmc()) * 100;
         if f.types.contains(TypeSet::CREATURE) {
-            value += 250 + i64::from(f.power.unwrap_or(0)) * 60;
+            value += 250 + i64::from(f.power.unwrap_or(0)) * 60 + self.strategy.creature_bonus;
+            if self.strategy.sweeper_risk
+                && view
+                    .battlefield_of(view.seat)
+                    .filter(|o| o.types.contains(TypeSet::CREATURE))
+                    .count()
+                    >= 2
+            {
+                value -= 900;
+            }
         }
         for effect in effects.flatten() {
             // A deferred loss is not a free counter. The current view has no
@@ -442,17 +535,20 @@ impl HeuristicAgent {
                 return -10_000;
             }
             if counter(effect) {
-                value += 1500;
+                value += 1500 + self.strategy.interaction_bonus;
             }
             if removal(effect) {
-                value += 400;
+                value += 400 + self.strategy.interaction_bonus;
             }
             if matches!(
                 effect,
                 Effect::DrawCards { .. } | Effect::LookAtTopPick { .. }
             ) {
-                value += 300;
+                value += 300 + self.strategy.draw_bonus;
             }
+        }
+        if f.types.contains(TypeSet::ARTIFACT) {
+            value += self.strategy.artifact_bonus;
         }
         value
     }

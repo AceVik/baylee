@@ -1,21 +1,17 @@
 //! baylee-ai — heuristic AI controllers with difficulty profiles (M3).
 //!
-//! An AI seat is a client. It receives exactly what a networked player
-//! receives — a hidden-information-filtered [`PlayerView`] plus the
-//! [`Pending`] choice addressed to it — and answers with a
-//! [`PlayerAction`]. Difficulty is parameterized through [`AIProfile`],
-//! never duplicated logic.
-//!
-//! That boundary is the point, and it is enforced by the type system: this
-//! crate cannot see an opponent's hand, the contents of any library, or a
-//! face-down permanent, because none of them exist in what it is handed.
-//! It used to take `&Engine` and read the whole `GameState`, and the note
-//! here said "convention, not enforcement".
+//! Controllers answer filtered views and engine offers. The ordinary `act`
+//! interface remains usable without privileged data. A trusted host may also
+//! supply a selected-effect explanation and an explicitly authorized scouting
+//! report; neither is a network message and no agent receives an engine or
+//! game-state reference. Scouting exists only for a decision, never in the
+//! controller retained when a human takes over an AI chair.
 
 #![warn(missing_docs)]
 
 mod activate;
 pub mod combat;
+pub mod intelligence;
 mod policy;
 pub mod search;
 mod tactics;
@@ -33,7 +29,9 @@ pub struct HeuristicAgent {
     profile: AIProfile,
     /// Which side each seat plays for, in seat order. Empty means a table
     /// with no teams on it, where every seat is a side of its own.
-    teams: Vec<Option<u8>>,
+    teams: std::sync::Arc<[Option<u8>]>,
+    seed: u64,
+    strategy: intelligence::Strategy,
 }
 
 impl HeuristicAgent {
@@ -42,7 +40,9 @@ impl HeuristicAgent {
     pub fn new(profile: AIProfile) -> Self {
         Self {
             profile,
-            teams: Vec::new(),
+            teams: std::sync::Arc::default(),
+            seed: 0,
+            strategy: intelligence::Strategy::default(),
         }
     }
 
@@ -53,7 +53,15 @@ impl HeuristicAgent {
     /// format itself, so this hands the agent nothing a networked seat lacks.
     #[must_use]
     pub fn with_teams(mut self, teams: Vec<Option<u8>>) -> Self {
-        self.teams = teams;
+        self.teams = teams.into();
+        self
+    }
+
+    /// Seeds near-equal choices independently for each game. Identical
+    /// seed, seat, view and choice always produce the same answer.
+    #[must_use]
+    pub const fn with_seed(mut self, seed: u64) -> Self {
+        self.seed = seed;
         self
     }
 
@@ -89,7 +97,7 @@ impl HeuristicAgent {
             Politics::Random => {
                 let n = view
                     .seq
-                    .wrapping_add(u64::from(view.seat.get()))
+                    .wrapping_add(u64::from(view.seat.get()) ^ self.seed)
                     .wrapping_mul(0x9E37_79B9_7F4A_7C15);
                 defenders[(n >> 33) as usize % defenders.len()]
             }
@@ -399,13 +407,15 @@ impl HeuristicAgent {
                 PlayerAction::ChooseTargets { objects, players }
             }
             Pending::ChooseSubtype { options, .. } => {
-                PlayerAction::ChooseSubtype(Self::subtype(view, &options))
+                PlayerAction::ChooseSubtype(self.subtype(view, &options))
             }
 
             Pending::ChooseColor { options, .. } => {
                 PlayerAction::ChooseColor(self.color(view, &options))
             }
-            Pending::ChooseNumber { min, .. } => PlayerAction::ChooseNumber(min),
+            Pending::ChooseNumber { min, max, .. } => {
+                PlayerAction::ChooseNumber(self.number(view, min, max, context))
+            }
             Pending::ChoosePlayer { options, .. } => PlayerAction::ChoosePlayer(
                 options
                     .iter()
@@ -426,7 +436,7 @@ impl HeuristicAgent {
                     view.seat(player)
                         .is_some_and(|s| s.life > i32::from(amount) + 5),
                 ),
-                YesNoPrompt::Miracle { .. } => PlayerAction::YesNo(mana_available(view) >= 2),
+                YesNoPrompt::Miracle { card } => PlayerAction::YesNo(Self::miracle(view, card)),
                 // Kicker and tax are declined to keep the mana; a draw is
                 // declined because the house AI has no match score to protect,
                 // so accepting would only ever be a game given away.
@@ -520,10 +530,6 @@ fn board_pressure(view: &PlayerView, player: PlayerId) -> i32 {
 }
 
 /// Mana floating in the acting seat's pool (cmc units).
-fn mana_available(view: &PlayerView) -> u32 {
-    view.seat(view.seat).map_or(0, |s| s.mana_pool.total())
-}
-
 /// The player who must answer a pending choice.
 #[must_use]
 pub fn pending_player(pending: &Pending) -> Option<PlayerId> {
@@ -693,6 +699,182 @@ mod tests {
                 players: vec![PlayerId::new(1)]
             }
         );
+    }
+
+    #[test]
+    fn third_iteration_seeded_variation_is_repeatable_and_breaks_equal_spell_ties() {
+        let mut v = view(0, &[20, 20], vec![]);
+        v.hand = vec![hand_card(1, "Brainstorm"), hand_card(2, "Brainstorm")];
+        let pending = Pending::Priority {
+            player: v.seat,
+            legal: Box::new(baylee_engine::choice::LegalActions {
+                castable: vec![obj(1), obj(2)],
+                ..Default::default()
+            }),
+        };
+        for profile in [AIProfile::SHARP, AIProfile::EXPERT] {
+            let choices: Vec<_> = (0..32)
+                .map(|seed| {
+                    let agent = HeuristicAgent::new(profile).with_seed(seed);
+                    let action = agent.act(&v, &pending);
+                    for _ in 0..5 {
+                        assert_eq!(action, agent.act(&v, &pending));
+                    }
+                    action
+                })
+                .collect();
+            assert!(choices.iter().any(|a| *a != choices[0]));
+        }
+    }
+
+    #[test]
+    fn third_iteration_scouted_sweeper_changes_deployment_but_not_the_base_agent() {
+        use intelligence::{DeckIntel, ScoutedSeat, ScoutingReport};
+        let mut v = view(
+            0,
+            &[20, 20],
+            vec![
+                permanent(obj(1), PlayerId::new(0), 2),
+                permanent(obj(2), PlayerId::new(0), 2),
+            ],
+        );
+        v.hand = vec![hand_card(3, "Baleful Strix"), hand_card(4, "Brainstorm")];
+        let own = DeckIntel::new(vec![v.hand[0].card.index; 20], vec![]);
+        let enemy = DeckIntel::new(
+            vec![baylee_cards::decks::by_name("Toxic Deluge").unwrap(); 20],
+            vec![],
+        );
+        let report = ScoutingReport {
+            seats: vec![
+                ScoutedSeat {
+                    player: v.seat,
+                    deck: &own,
+                    hand: None,
+                    library: None,
+                    sideboard: None,
+                },
+                ScoutedSeat {
+                    player: PlayerId::new(1),
+                    deck: &enemy,
+                    hand: Some(enemy.cards[..1].to_vec()),
+                    library: None,
+                    sideboard: None,
+                },
+            ],
+        };
+        let pending = Pending::Priority {
+            player: v.seat,
+            legal: Box::new(baylee_engine::choice::LegalActions {
+                castable: vec![obj(3), obj(4)],
+                ..Default::default()
+            }),
+        };
+        let agent = HeuristicAgent::new(AIProfile::EXPERT);
+        let ordinary = agent.act(&v, &pending);
+        assert_eq!(ordinary, PlayerAction::CastSpell { card: obj(3) });
+        assert_eq!(
+            agent.act_with_scouting(
+                &v,
+                &pending,
+                &baylee_engine::engine::DecisionContext::default(),
+                &report
+            ),
+            PlayerAction::CastSpell { card: obj(4) }
+        );
+        assert_eq!(agent.act(&v, &pending), ordinary);
+    }
+
+    #[test]
+    fn third_iteration_commander_damage_is_a_separate_loss_condition() {
+        let mut commander = permanent(obj(1), PlayerId::new(1), 2);
+        commander.commander = true;
+        let mut v = view(
+            0,
+            &[40, 40],
+            vec![commander, permanent(obj(2), PlayerId::new(0), 1)],
+        );
+        v.seats[0].commander_damage = vec![baylee_view::CommanderDamage {
+            source: obj(1),
+            amount: 19,
+        }];
+        v.combat.attackers = vec![baylee_view::AttackerView {
+            creature: obj(1),
+            defending: Defender::Player(v.seat),
+            blocked: false,
+        }];
+        let pending = Pending::ChooseBlockers {
+            player: v.seat,
+            attacker: PlayerId::new(1),
+            blockers: vec![baylee_engine::choice::BlockOption {
+                blocker: obj(2),
+                attackers: vec![obj(1)],
+            }],
+        };
+        let agent = HeuristicAgent::new(AIProfile::EXPERT);
+        assert_eq!(
+            agent.act(&v, &pending),
+            PlayerAction::DeclareBlockers {
+                blockers: vec![(obj(2), obj(1))]
+            }
+        );
+        v.seats[0].commander_damage[0].source = obj(99);
+        assert_eq!(
+            agent.act(&v, &pending),
+            PlayerAction::DeclareBlockers { blockers: vec![] },
+            "a different commander's damage must not combine with this one"
+        );
+    }
+
+    #[test]
+    fn third_iteration_x_uses_affordable_coloured_mana() {
+        let mut v = view(0, &[20, 20], vec![]);
+        v.seats[0].mana_pool.blue = 3;
+        let context = baylee_engine::engine::DecisionContext {
+            cost: Some("{X}{U}".parse().unwrap()),
+            ..Default::default()
+        };
+        let pending = Pending::ChooseNumber {
+            player: v.seat,
+            min: 0,
+            max: 50,
+        };
+        assert_eq!(
+            HeuristicAgent::new(AIProfile::EXPERT).act_with_context(&v, &pending, &context),
+            PlayerAction::ChooseNumber(2)
+        );
+    }
+
+    #[test]
+    fn third_iteration_miracle_needs_floating_mana_not_untapped_lands() {
+        let mut v = view(
+            0,
+            &[20, 20],
+            vec![
+                carded(
+                    permanent(obj(2), PlayerId::new(0), 0),
+                    "Island",
+                    TypeSet::LAND,
+                ),
+                carded(
+                    permanent(obj(3), PlayerId::new(0), 0),
+                    "Island",
+                    TypeSet::LAND,
+                ),
+            ],
+        );
+        v.hand = vec![hand_card(1, "Temporal Mastery")];
+        let pending = Pending::YesNo {
+            player: v.seat,
+            prompt: YesNoPrompt::Miracle { card: obj(1) },
+            source: None,
+        };
+        let agent = HeuristicAgent::new(AIProfile::EXPERT);
+        assert_eq!(agent.act(&v, &pending), PlayerAction::YesNo(false));
+        v.seats[0].mana_pool.black = 2;
+        assert_eq!(agent.act(&v, &pending), PlayerAction::YesNo(false));
+        v.seats[0].mana_pool.black = 0;
+        v.seats[0].mana_pool.blue = 2;
+        assert_eq!(agent.act(&v, &pending), PlayerAction::YesNo(true));
     }
 
     #[test]
