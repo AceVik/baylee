@@ -324,10 +324,16 @@ fn mana_fits(effects: &[baylee_cards_dsl::Effect], line: &str) -> bool {
             ManaSource::Choice(colors) => {
                 made.extend(colors.iter().map(|c| symbol(*c).to_string()));
             }
-            // Neither names a colour the card could print, so neither has
-            // anything to be held against — `{T}: Add one mana of any color
-            // in your commander's color identity` carries no symbol either.
-            ManaSource::CommanderIdentity | ManaSource::LandColor { .. } => return true,
+            // None of these names a colour the card could print, so none
+            // has anything to be held against — `{T}: Add one mana of any
+            // color in your commander's color identity` carries no symbol
+            // either, and neither does "one mana of the chosen color".
+            // `ChosenOr` prints the {W} beside it, but the line as a whole
+            // is still half unprintable, so it is let through with them.
+            ManaSource::CommanderIdentity
+            | ManaSource::LandColor { .. }
+            | ManaSource::Chosen
+            | ManaSource::ChosenOr(_) => return true,
         }
     }
     if made.is_empty() {

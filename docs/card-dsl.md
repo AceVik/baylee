@@ -636,8 +636,23 @@ permanent and a card never restates a default; the entering permanent
 never counts itself), `TappedOrPayLife(n)`, `ChooseSubtype`
 (Roaming Throne, Reflections of Littjara, Cavern of Souls — answer stored
 on `obj.chosen_subtype`; creatures also gain the subtype in their base),
-`Prepared` (Emeritus of Woe), and
+`ChooseColor` and `ChooseColorExcept(c)` (Uncharted Haven, the Thriving
+cycle, the Gates — answer stored on `obj.chosen_color` and read back by
+`ManaSource::Chosen`), `Prepared` (Emeritus of Woe), and
 `WithCounters { kind, amount }`.
+
+**A modifier that asks a question is applied last**, whatever order the card
+prints it in, and that is a property of the engine rather than of the card:
+publishing a `Pending` returns from the entry scan, and the arrival is
+already off the list it was read from, so anything the loop had not reached
+would never be applied at all. Uncharted Haven is `ChooseColor` then
+`Tapped` and was entering untapped. `ChooseSubtype` and `TappedOrPayLife`
+had the same hole from the day they were written and nobody could see it,
+because no card in the pool prints another modifier behind one of them. A
+card with *two* questions would lose the second; none prints that either,
+and `lints::no_face_asks_two_questions_as_it_enters` is what keeps that a
+fact rather than a hope — the day one does, the lint fails with the card's
+name and the answer is a second pass rather than a second field.
 
 `WithCounters` takes an **`Amount`**, so "this enters with X +1/+1 counters
 on it" is expressible and Walking Ballista is an ordinary card. CR 107.3m is
@@ -1033,7 +1048,7 @@ a blocker goes once it has been re-read.
 
 The other half of the same question is measured continuously and needs no such
 care. `cargo run -p xtask -- transcode-report` ranks what the *whole* script
-corpus is refused for — 4118 of 33 826 read in full as of 17.09, with
+corpus is refused for — 4137 of 33 826 read in full as of 17.09, with
 `AlternateMode:` (887), `Charm` (618) and an unreadable value in `Pump` (481)
 at the top — computed against the DSL as it stands rather than as it stood. The
 line under it says the same of the reference's **token** scripts (624 of 852,
@@ -1041,7 +1056,7 @@ and 38 of the 184 that print a rules line), because a token's abilities are
 read by this same transcoder.
 
 **Add `--stubs` when the goal is a card rather than the DSL.** That ranks the
-same question over this pool's own unfinished cards — 729 of the 737 stubs
+same question over this pool's own unfinished cards — 714 of the 722 stubs
 have a reference script — and it is a different list, not a shorter one:
 `Charm` is 618 corpus-wide and 2 here, the `Pump` value 481 and 6, the
 `DamageDone` trigger 443 and 1. What actually holds this pool's stubs shut is

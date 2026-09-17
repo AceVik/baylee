@@ -62,11 +62,20 @@ pub fn mana_made(cost: &Cost, effects: &[Effect]) -> Option<(SimpleMana, bool)> 
     let colors = match source {
         ManaSource::Fixed(color) => vec![color],
         ManaSource::Choice(colors) => colors.to_vec(),
-        // Both depend on the rest of the board — a commander's identity, or
-        // what someone else's lands can make — so neither has an answer
-        // here, where there is no board to read. A caller that *has* one
-        // takes [`mana_shape`] and resolves them itself.
-        ManaSource::CommanderIdentity | ManaSource::LandColor { .. } => return None,
+        // All four depend on something outside the card — a commander's
+        // identity, what someone else's lands can make, or the colour a
+        // player named as this very permanent entered — so none of them has
+        // an answer here, where there is no board to read. A caller that
+        // *has* one takes [`mana_shape`] and resolves them itself.
+        //
+        // The chosen colour is the one of the four that is not a property of
+        // the board at all but of the *object*: two Thriving Moors side by
+        // side are two different answers, so even a caller holding the whole
+        // game has to name which permanent it is asking about.
+        ManaSource::CommanderIdentity
+        | ManaSource::LandColor { .. }
+        | ManaSource::Chosen
+        | ManaSource::ChosenOr(_) => return None,
     };
     Some((SimpleMana { colors, amount }, restricted))
 }

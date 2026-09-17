@@ -374,7 +374,17 @@ fn mana_symbol_colors(effect: &Effect) -> ColorSet {
                     named
                 }
             }
-            ManaSource::CommanderIdentity | ManaSource::LandColor { .. } => ColorSet::EMPTY,
+            // A chosen color prints no symbol either — "one mana of the
+            // chosen color" is a sentence, not `{W}` — so only what is
+            // written *beside* it counts. Uncharted Haven is colorless and
+            // Thriving Heath is white, off the one `{W}` it prints.
+            ManaSource::ChosenOr(colors) => colors
+                .iter()
+                .filter_map(|mana| color_of(*mana))
+                .fold(ColorSet::EMPTY, |set, color| set.union(ColorSet::of(color))),
+            ManaSource::Chosen | ManaSource::CommanderIdentity | ManaSource::LandColor { .. } => {
+                ColorSet::EMPTY
+            }
         },
         // A conditional resolves its branches, so a symbol inside one is
         // still printed on the card. The recursion is [`swept_filters`]'
@@ -1455,6 +1465,59 @@ mod tests {
             offenders.is_empty(),
             "{} card(s) spell an enter-trigger out where `Trigger::ETB` is \
              the same bytes and the word said at a table:\n{}",
+            offenders.len(),
+            offenders.join("\n")
+        );
+    }
+
+    /// A modifier that *asks* is the last thing an entry does, and the engine
+    /// can only do that once.
+    ///
+    /// `apply_enter_modifiers` publishes a `Pending` and returns, having
+    /// already advanced past this arrival — so a second question would be
+    /// dropped in the same silence that used to swallow `Tapped` behind
+    /// `ChooseColor`. Asking them one after the other means suspending the
+    /// scan, which is a rule nobody needs yet: no card in the pool prints two.
+    ///
+    /// That is a claim about a population, so it is a test rather than a
+    /// comment. The day a card prints "as this enters, choose a color and
+    /// choose a creature type", this fails and hands a person the example.
+    #[test]
+    fn no_face_asks_two_questions_as_it_enters() {
+        use baylee_cards_dsl::EnterModifier;
+
+        let asks = |m: &EnterModifier| {
+            matches!(
+                m,
+                EnterModifier::ChooseSubtype
+                    | EnterModifier::ChooseColor
+                    | EnterModifier::ChooseColorExcept(_)
+                    | EnterModifier::TappedOrPayLife(_)
+            )
+        };
+        let mut offenders = Vec::new();
+        let mut asking = 0_usize;
+        for def in crate::all() {
+            for face in def.faces {
+                let found: Vec<&EnterModifier> =
+                    face.enter_modifiers.iter().filter(|m| asks(m)).collect();
+                asking += found.len();
+                if found.len() > 1 {
+                    offenders.push(format!("{}: {found:?}", face.name));
+                }
+            }
+        }
+        assert!(
+            asking > 20,
+            "only {asking} asking enter-modifier(s) found — the walk has gone \
+             blind, and an empty sweep proves nothing"
+        );
+        assert!(
+            offenders.is_empty(),
+            "{} face(s) ask more than one question as they enter. The entry \
+             scan answers one and returns, so the rest are dropped without a \
+             word — teach `apply_enter_modifiers` to suspend before adding \
+             the card.\n{}",
             offenders.len(),
             offenders.join("\n")
         );

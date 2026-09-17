@@ -811,6 +811,7 @@ impl GameState {
             color_identity: baylee_core::color::ColorSet::EMPTY,
             produced_colors: baylee_core::color::ColorSet::EMPTY,
             produced_colorless: false,
+            produced_chosen: false,
         });
         Arc::make_mut(&mut self.bases)
             .bare
@@ -851,6 +852,7 @@ impl GameState {
             color_identity: baylee_core::color::ColorSet::EMPTY,
             produced_colors: baylee_core::color::ColorSet::EMPTY,
             produced_colorless: false,
+            produced_chosen: false,
         });
         Arc::make_mut(&mut self.bases)
             .tokens

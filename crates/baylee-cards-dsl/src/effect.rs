@@ -242,6 +242,22 @@ pub enum ManaSource {
         /// `true` = your lands, `false` = opponents' lands.
         mine: bool,
     },
+    /// The color chosen as this permanent entered (Uncharted Haven).
+    ///
+    /// Read off the *source* object rather than off the card, which is why
+    /// `resolve::colors_of` takes the object at all: two Thriving Moors on
+    /// one battlefield are two different colours, and a card cannot say
+    /// which. A permanent with no chosen colour produces nothing, the same
+    /// answer [`Self::LandColor`] gives when it finds no land.
+    Chosen,
+    /// `Add {W} or one mana of the chosen color.` — the chosen colour, or
+    /// one of the colours printed beside it (the Thriving cycle).
+    ///
+    /// Its own variant rather than a flag on [`Self::Chosen`] for the reason
+    /// `EnterModifier::ChooseColorExcept` is one: "Add one mana of the
+    /// chosen color" names no alternative, and a card never restates a
+    /// default.
+    ChosenOr(&'static [ManaColor]),
 }
 
 /// What produced mana may be spent on (Cavern of Souls, Path of Ancestry).
@@ -1247,6 +1263,29 @@ impl Effect {
     #[must_use]
     pub const fn mana_of_any_color() -> Self {
         Self::mana_choice(crate::ALL_MANA_COLORS)
+    }
+
+    /// `Add one mana of the chosen color.` — the colour named as this
+    /// permanent entered, through `EnterModifier::ChooseColor`.
+    #[must_use]
+    pub const fn mana_chosen() -> Self {
+        Self::AddMana {
+            source: ManaSource::Chosen,
+            amount: Amount::Fixed(1),
+            combination: false,
+            restriction: None,
+        }
+    }
+
+    /// `Add {W} or one mana of the chosen color.`
+    #[must_use]
+    pub const fn mana_chosen_or(colors: &'static [ManaColor]) -> Self {
+        Self::AddMana {
+            source: ManaSource::ChosenOr(colors),
+            amount: Amount::Fixed(1),
+            combination: false,
+            restriction: None,
+        }
     }
 
     /// `Add one mana of any color in your commander's color identity.`

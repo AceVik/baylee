@@ -54,7 +54,7 @@ fn add_mana(
     if n == 0 {
         return None;
     }
-    let options = colors_of(state, you, source);
+    let options = colors_of(state, you, source, res.source);
     match options[..] {
         [] => return None,
         [only] => {
@@ -116,8 +116,18 @@ pub(super) fn add(
 
 /// The colors this source can produce right now.
 ///
+/// `from` is the permanent whose ability is making the mana, and it is a
+/// parameter because two of the sources are answered by the object rather
+/// than by the card: "one mana of the chosen color" is a different colour on
+/// each Thriving Moor, and the card they share cannot say which.
+///
 /// Re-exported as `resolve::colors_of`, where the reason is written down.
-pub fn colors_of(state: &GameState, you: PlayerId, source: ManaSource) -> Vec<ManaColor> {
+pub fn colors_of(
+    state: &GameState,
+    you: PlayerId,
+    source: ManaSource,
+    from: ObjectId,
+) -> Vec<ManaColor> {
     match source {
         ManaSource::Fixed(color) => vec![color],
         ManaSource::Choice(colors) => colors.to_vec(),
@@ -163,6 +173,16 @@ pub fn colors_of(state: &GameState, you: PlayerId, source: ManaSource) -> Vec<Ma
                 }
                 colors = colors.union(c.produced_colors);
                 colorless |= c.produced_colorless;
+                // `produced_colors` is a reading of the *card*, and a land
+                // whose mana is "the chosen color" has none there to read —
+                // the answer is on this object. Without this a Reflecting
+                // Pool beside an Uncharted Haven saw a land that makes
+                // nothing.
+                if let Some(chosen) = obj.chosen_color
+                    && c.produced_chosen
+                {
+                    colors = colors.union(color_set_of(chosen));
+                }
             }
             let mut options = colored(colors);
             if colorless {
@@ -170,6 +190,36 @@ pub fn colors_of(state: &GameState, you: PlayerId, source: ManaSource) -> Vec<Ma
             }
             options
         }
+        ManaSource::Chosen => match state.object(from).and_then(|o| o.chosen_color) {
+            // No colour was ever chosen — a copy that did not arrive
+            // through the replacement, or a board built by a test. The
+            // ability resolves and adds nothing, which is what an empty
+            // option list means here.
+            None => Vec::new(),
+            Some(c) => vec![c],
+        },
+        ManaSource::ChosenOr(colors) => {
+            let mut options = colors.to_vec();
+            if let Some(c) = state.object(from).and_then(|o| o.chosen_color)
+                && !options.contains(&c)
+            {
+                options.push(c);
+            }
+            options
+        }
+    }
+}
+
+/// One colour as a [`ColorSet`].
+fn color_set_of(c: ManaColor) -> ColorSet {
+    use baylee_core::color::Color;
+    match c {
+        ManaColor::White => ColorSet::of(Color::White),
+        ManaColor::Blue => ColorSet::of(Color::Blue),
+        ManaColor::Black => ColorSet::of(Color::Black),
+        ManaColor::Red => ColorSet::of(Color::Red),
+        ManaColor::Green => ColorSet::of(Color::Green),
+        ManaColor::Colorless => ColorSet::EMPTY,
     }
 }
 

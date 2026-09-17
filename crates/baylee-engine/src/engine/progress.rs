@@ -658,6 +658,21 @@ impl<L: CardLookup> Engine<L> {
             let Some(face) = def.faces.get(face_index as usize) else {
                 continue;
             };
+            // A modifier that *asks* is applied last, whatever order the
+            // card prints it in. Publishing a `Pending` returns from this
+            // scan, and `entry_scan_seq` has already moved past this
+            // arrival — so anything left in the loop behind the question
+            // would never be applied at all. Uncharted Haven is
+            // `ChooseColor` then `Tapped` and was entering untapped; the
+            // same hole had been under `ChooseSubtype` and
+            // `TappedOrPayLife` since they were written, invisible only
+            // because no card in the pool prints another modifier after
+            // one of them.
+            //
+            // The *first* question wins, and a card with two would lose the
+            // second. No printed card asks twice as it enters, and the day
+            // one does this is a second pass rather than a second field.
+            let mut asked: Option<&EnterModifier> = None;
             for modifier in face.enter_modifiers {
                 match modifier {
                     EnterModifier::Tapped => {
@@ -713,25 +728,49 @@ impl<L: CardLookup> Engine<L> {
                             obj.riders.push(crate::object::Rider::Prepared);
                         }
                     }
-                    EnterModifier::ChooseSubtype => {
-                        self.pending_plan = Some(PlanKind::ChooseSubtype { object: id });
-                        self.pending = Pending::ChooseSubtype {
-                            player: controller,
-                            options: (0..=349).map(baylee_core::ids::SubtypeId::new).collect(),
-                        };
-                        self.awaiting_answer = true;
-                        return true; // one choice at a time
+                    EnterModifier::ChooseSubtype
+                    | EnterModifier::ChooseColor
+                    | EnterModifier::ChooseColorExcept(_)
+                    | EnterModifier::TappedOrPayLife(_) => {
+                        asked.get_or_insert(modifier);
                     }
-                    EnterModifier::TappedOrPayLife(amount) => {
-                        let amount = *amount;
-                        // Unpayable → tapped without a choice.
-                        if !self.state.can_pay_life(controller, i32::from(amount)) {
-                            if let Some(obj) = self.state.object_mut(id) {
-                                obj.status.insert(Status::TAPPED);
-                                changed = true;
-                            }
-                            continue;
-                        }
+                }
+            }
+            match asked {
+                None => {}
+                Some(EnterModifier::ChooseSubtype) => {
+                    self.pending_plan = Some(PlanKind::ChooseSubtype { object: id });
+                    self.pending = Pending::ChooseSubtype {
+                        player: controller,
+                        options: (0..=349).map(baylee_core::ids::SubtypeId::new).collect(),
+                    };
+                    self.awaiting_answer = true;
+                    return true; // one choice at a time
+                }
+                Some(m @ (EnterModifier::ChooseColor | EnterModifier::ChooseColorExcept(_))) => {
+                    // Colorless is not a colour (CR 105.1), so it is not
+                    // among the options even though `ManaColor` carries it:
+                    // "choose a color" is one of the five.
+                    let except = match m {
+                        EnterModifier::ChooseColorExcept(c) => Some(*c),
+                        _ => None,
+                    };
+                    let options: Vec<_> = baylee_cards_dsl::ALL_MANA_COLORS
+                        .iter()
+                        .copied()
+                        .filter(|c| Some(*c) != except)
+                        .collect();
+                    self.pending_plan = Some(PlanKind::ChooseColor { object: id });
+                    self.pending = Pending::ChooseColor {
+                        player: controller,
+                        options,
+                    };
+                    self.awaiting_answer = true;
+                    return true; // one choice at a time
+                }
+                Some(EnterModifier::TappedOrPayLife(amount)) => {
+                    let amount = *amount;
+                    if self.state.can_pay_life(controller, i32::from(amount)) {
                         let source = self
                             .state
                             .object(id)
@@ -746,7 +785,14 @@ impl<L: CardLookup> Engine<L> {
                         self.awaiting_answer = true;
                         return true; // one choice at a time
                     }
+                    // Unpayable → tapped without a choice, and the scan goes
+                    // on: nothing was asked, so nothing was interrupted.
+                    if let Some(obj) = self.state.object_mut(id) {
+                        obj.status.insert(Status::TAPPED);
+                        changed = true;
+                    }
                 }
+                Some(_) => unreachable!("only the asking modifiers are recorded"),
             }
         }
         changed

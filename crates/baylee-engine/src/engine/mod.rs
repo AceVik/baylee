@@ -271,6 +271,16 @@ enum PlanKind {
         /// The entering permanent.
         object: ObjectId,
     },
+    /// Choosing a color as a permanent enters (Uncharted Haven).
+    ///
+    /// `Pending::ChooseColor` is asked for two different reasons — this, and
+    /// a mana ability picking a colour as it resolves — and this plan is
+    /// what tells them apart. Without it the entry-time answer would reach
+    /// the resolution handler and take a `Resolution` that is not there.
+    ChooseColor {
+        /// The entering permanent.
+        object: ObjectId,
+    },
     /// Choosing which land face of an MDFC to play (pathways).
     PlayLandFace {
         /// The card being played.

@@ -632,6 +632,9 @@ impl<L: CardLookup> Engine<L> {
                     PlanKind::ChooseSubtype { .. } => {
                         unreachable!("subtype plans are answered via ChooseSubtype")
                     }
+                    PlanKind::ChooseColor { .. } => {
+                        unreachable!("color plans are answered via ChooseColor")
+                    }
                     PlanKind::PlayLandFace { .. } => {
                         unreachable!("land-face plans are answered via ChooseMode")
                     }
@@ -666,6 +669,26 @@ impl<L: CardLookup> Engine<L> {
                     {
                         obj.base_mut().subtypes.insert(subtype);
                     }
+                }
+                Ok(())
+            }
+            // Two questions wear one `Pending`. This arm is the entering
+            // permanent's — "as this enters, choose a color" — and it is
+            // guarded on the plan rather than ordered by luck: the arm below
+            // takes the suspended `Resolution`, and there is none while a
+            // permanent is entering.
+            (Pending::ChooseColor { player: p, options }, PlayerAction::ChooseColor(color))
+                if *p == player
+                    && matches!(self.pending_plan, Some(PlanKind::ChooseColor { .. })) =>
+            {
+                if !options.contains(&color) {
+                    return Err(EngineError::IllegalAction("color not allowed"));
+                }
+                let Some(PlanKind::ChooseColor { object }) = self.pending_plan.take() else {
+                    unreachable!("guarded above");
+                };
+                if let Some(obj) = self.state.object_mut(object) {
+                    obj.chosen_color = Some(color);
                 }
                 Ok(())
             }

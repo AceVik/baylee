@@ -188,8 +188,13 @@ pub(crate) fn produced_colors(
     match source {
         baylee_cards_dsl::ManaSource::Fixed(color) => Some(vec![color]),
         baylee_cards_dsl::ManaSource::Choice(colors) => Some(colors.to_vec()),
+        // All four are the host's to answer, and the chosen colour is the
+        // one the client could not have derived with the whole board in
+        // front of it: the answer is on the object, printed on no card.
         baylee_cards_dsl::ManaSource::CommanderIdentity
-        | baylee_cards_dsl::ManaSource::LandColor { .. } => {
+        | baylee_cards_dsl::ManaSource::LandColor { .. }
+        | baylee_cards_dsl::ManaSource::Chosen
+        | baylee_cards_dsl::ManaSource::ChosenOr(_) => {
             let board = view.object(object)?.board_mana.as_ref()?;
             (board.index == index).then(|| board.colors.clone())
         }

@@ -5144,3 +5144,337 @@ fn a_turbulent_land_counts_the_lands_across_the_table() {
         }
     }
 }
+
+fn uncharted_haven() -> CardIndex {
+    card_index("d23c3613-bc5e-4fc5-939c-62a090c53a79")
+}
+
+/// Every land in the pool printing "As it enters, choose a color" with no
+/// exception, and the colour each one is told to make here.
+///
+/// One table rather than five tests, because they are one card with five
+/// names: the enchantment and the Desert and the snow land differ in their
+/// type line and in nothing this is about. The colours are spread across the
+/// rows so all five are named at least once.
+const ANY_COLOUR_LANDS: [(&str, &str, ManaColor); 5] = [
+    (
+        "d23c3613-bc5e-4fc5-939c-62a090c53a79",
+        "Uncharted Haven",
+        ManaColor::White,
+    ),
+    (
+        "e103f422-85c0-43f8-8a2f-8b7863e503fa",
+        "Mirage Mesa",
+        ManaColor::Blue,
+    ),
+    (
+        "660d44a2-391a-416c-b46c-ddcc3739f527",
+        "Valgavoth's Lair",
+        ManaColor::Black,
+    ),
+    (
+        "2ac34f3e-822d-4fde-99ca-a31c4d9503fd",
+        "Shimmerdrift Vale",
+        ManaColor::Red,
+    ),
+    (
+        "b26cfeb0-7bbe-4d93-8eed-e832f175a80c",
+        "Crossroads Village",
+        ManaColor::Green,
+    ),
+];
+
+/// "This land enters tapped. As it enters, choose a color. {T}: Add one mana
+/// of the chosen color."
+///
+/// Two halves that only work as a pair: `EnterModifier::ChooseColor` writes
+/// the colour onto the permanent and `ManaSource::Chosen` reads it back off
+/// the same object. The card says nothing about which colour, which is the
+/// point — two of these on one battlefield are two different lands.
+///
+/// The tapping is asserted here and not somewhere cheaper because this is the
+/// card that found the bug: an entry modifier that *asks* returns from the
+/// scan, and everything the card printed behind it used to be dropped. A
+/// Haven that only asked a question entered untapped.
+#[test]
+fn a_land_that_chooses_any_colour_taps_for_the_one_its_controller_named() {
+    let p0 = PlayerId::new(0);
+    for (seed, (oracle, name, colour)) in ANY_COLOUR_LANDS.iter().enumerate() {
+        let land = card_index(oracle);
+        let seed = 700 + u64::try_from(seed).expect("five rows");
+        let mut engine = Duel::new(seed, forest()).hand(0, &[land]).start();
+        keep_mulligans(&mut engine);
+        reach_main_phase(&mut engine, p0);
+        let played = play_land(&mut engine, p0, land);
+
+        // The choice is asked as the land enters, before anything else can
+        // happen, and colorless is not a colour (CR 105.1).
+        let Pending::ChooseColor { options, .. } = engine.pending().clone() else {
+            panic!(
+                "{name}: no colour was asked for, pending is {:?}",
+                engine.pending()
+            );
+        };
+        assert_eq!(
+            options,
+            baylee_cards_dsl::ALL_MANA_COLORS.to_vec(),
+            "{name}: every colour and nothing else"
+        );
+        engine
+            .apply(p0, PlayerAction::ChooseColor(*colour))
+            .expect("its own colour list");
+
+        pass_until(&mut engine, stack_is_empty);
+        assert!(
+            entered_tapped(&engine, played),
+            "{name}: it enters tapped as well"
+        );
+
+        // Untap it the honest way: round to this seat's next main phase.
+        // Then it taps for exactly the colour that was named, with nothing
+        // left to choose.
+        let from = engine.state().turn.number;
+        pass_until(&mut engine, |e| {
+            e.state().turn.number > from
+                && e.state().turn.active == p0
+                && matches!(e.state().turn.phase, Phase::FirstMain)
+        });
+        assert!(
+            !is_tapped(&engine, played),
+            "{name}: a turn cycle untapped it"
+        );
+        engine
+            .apply(
+                p0,
+                PlayerAction::ActivateAbility {
+                    source: played,
+                    ability_index: 0,
+                },
+            )
+            .expect("the land taps for the chosen colour");
+        let pool = &engine.state().players[0].mana_pool;
+        assert_eq!(pool.total(), 1, "{name}: one tap, one mana");
+        assert_eq!(
+            pool.available(*colour),
+            1,
+            "{name}: and it is the colour named"
+        );
+    }
+}
+
+/// The other ten: every land printing "choose a color other than <c>" beside
+/// "{T}: Add {c} or one mana of the chosen color".
+///
+/// Two cycles wearing one rule — five Gates and five Thriving lands — so the
+/// row carries the colour the card prints (which is the one it may not be
+/// told to make) and a second colour to name, walked around WUBRG so no two
+/// rows ask the same pair.
+const EXCLUDING_LANDS: [(&str, &str, ManaColor, ManaColor); 10] = [
+    (
+        "15f1fe23-5af4-4fc4-8cde-2e0bf9f9be0c",
+        "Citadel Gate",
+        ManaColor::White,
+        ManaColor::Blue,
+    ),
+    (
+        "b574c540-9f8a-4fd4-8809-d02c9b099ddc",
+        "Sea Gate",
+        ManaColor::Blue,
+        ManaColor::Black,
+    ),
+    (
+        "dde6bce5-8bbe-4866-b5aa-2c05c7d37241",
+        "Black Dragon Gate",
+        ManaColor::Black,
+        ManaColor::Red,
+    ),
+    (
+        "1999b5ac-21fb-4d99-ad72-58bf507f9a59",
+        "Cliffgate",
+        ManaColor::Red,
+        ManaColor::Green,
+    ),
+    (
+        "dd6e67c0-66a1-49b7-8a86-3cf4b209fd07",
+        "Manor Gate",
+        ManaColor::Green,
+        ManaColor::White,
+    ),
+    (
+        "d1946630-e224-40db-8f0d-388b09622288",
+        "Thriving Heath",
+        ManaColor::White,
+        ManaColor::Black,
+    ),
+    (
+        "69fc70b8-b143-4662-ac95-e2743037239d",
+        "Thriving Isle",
+        ManaColor::Blue,
+        ManaColor::Red,
+    ),
+    (
+        "bff416bb-d193-4c45-b2c1-7c297dbfad08",
+        "Thriving Moor",
+        ManaColor::Black,
+        ManaColor::Green,
+    ),
+    (
+        "91fceb34-0f2d-4392-be27-00dcd765637f",
+        "Thriving Bluff",
+        ManaColor::Red,
+        ManaColor::White,
+    ),
+    (
+        "a8052556-8962-4130-86a8-6fb7b6a324f7",
+        "Thriving Grove",
+        ManaColor::Green,
+        ManaColor::Blue,
+    ),
+];
+
+/// "As it enters, choose a color other than white. {T}: Add {W} or one mana
+/// of the chosen color."
+///
+/// Two halves again, and both of them narrower than the Haven's:
+/// `ChooseColorExcept` takes the printed colour off the list the player is
+/// offered, and `ManaSource::ChosenOr` puts it back on the one the *ability*
+/// offers — the colour the land cannot be told to make is the colour it
+/// always makes.
+#[test]
+fn a_land_that_excludes_its_own_colour_still_taps_for_it() {
+    let p0 = PlayerId::new(0);
+    for (seed, (oracle, name, printed, named)) in EXCLUDING_LANDS.iter().enumerate() {
+        let land = card_index(oracle);
+        let seed = 720 + u64::try_from(seed).expect("ten rows");
+        let mut engine = Duel::new(seed, forest()).hand(0, &[land]).start();
+        keep_mulligans(&mut engine);
+        reach_main_phase(&mut engine, p0);
+        let played = play_land(&mut engine, p0, land);
+
+        let Pending::ChooseColor { options, .. } = engine.pending().clone() else {
+            panic!(
+                "{name}: no colour was asked for, pending is {:?}",
+                engine.pending()
+            );
+        };
+        let offered: Vec<ManaColor> = baylee_cards_dsl::ALL_MANA_COLORS
+            .iter()
+            .copied()
+            .filter(|c| c != printed)
+            .collect();
+        assert_eq!(
+            options, offered,
+            "{name}: its printed colour is the one it may not be told to make"
+        );
+        engine
+            .apply(p0, PlayerAction::ChooseColor(*named))
+            .expect("a colour off its own list");
+        pass_until(&mut engine, stack_is_empty);
+        assert!(
+            entered_tapped(&engine, played),
+            "{name}: it enters tapped as well"
+        );
+
+        let from = engine.state().turn.number;
+        pass_until(&mut engine, |e| {
+            e.state().turn.number > from
+                && e.state().turn.active == p0
+                && matches!(e.state().turn.phase, Phase::FirstMain)
+        });
+        engine
+            .apply(
+                p0,
+                PlayerAction::ActivateAbility {
+                    source: played,
+                    ability_index: 0,
+                },
+            )
+            .expect("the land taps");
+        let Pending::ChooseColor { options, .. } = engine.pending().clone() else {
+            panic!("{name}: a two-option mana ability asked nothing");
+        };
+        assert_eq!(
+            options,
+            vec![*printed, *named],
+            "{name}: its printed colour and the one that was named, and no others"
+        );
+        engine
+            .apply(p0, PlayerAction::ChooseColor(*printed))
+            .expect("the colour the card prints");
+        let pool = &engine.state().players[0].mana_pool;
+        assert_eq!(pool.total(), 1, "{name}: one tap, one mana");
+        assert_eq!(
+            pool.available(*printed),
+            1,
+            "{name}: the printed colour, which the choice had excluded"
+        );
+    }
+}
+
+fn reflecting_pool() -> CardIndex {
+    card_index("67f43ac6-2a58-4b53-b5d7-0330e2a252e2")
+}
+
+/// A Reflecting Pool beside an Uncharted Haven sees the colour the Haven was
+/// told to make.
+///
+/// The Pool reads `produced_colors`, which is a reading of the *card* — and a
+/// land whose whole mana is "one mana of the chosen color" has nothing there
+/// to read, because the card cannot know. So the Pool was looking at a land
+/// that makes nothing. It takes both halves: `produced_chosen` is the card's
+/// ("this one reads a chosen colour") and `GameObject::chosen_color` is the
+/// object's, because the field is written by an entry and says nothing on its
+/// own about what the permanent does with it.
+#[test]
+fn a_reflecting_pool_sees_the_colour_a_neighbour_was_told_to_make() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(731, forest())
+        .battlefield(0, &[reflecting_pool()])
+        .hand(0, &[uncharted_haven()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let pool = engine
+        .state()
+        .zones
+        .list(ZoneLocation::Battlefield)
+        .iter()
+        .copied()
+        .find(|id| {
+            engine
+                .state()
+                .object(*id)
+                .and_then(|o| o.card)
+                .is_some_and(|c| c.index == reflecting_pool())
+        })
+        .expect("the Pool was seated");
+
+    play_land(&mut engine, p0, uncharted_haven());
+    engine
+        .apply(p0, PlayerAction::ChooseColor(ManaColor::Black))
+        .expect("black is a colour");
+    pass_until(&mut engine, stack_is_empty);
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ActivateAbility {
+                source: pool,
+                ability_index: 0,
+            },
+        )
+        .expect("the Pool taps");
+    // One option is not a choice, so nothing is asked and the mana is simply
+    // added (`resolve::mana` short-circuits a single colour).
+    let mana = &engine.state().players[0].mana_pool;
+    assert_eq!(
+        mana.available(ManaColor::Black),
+        1,
+        "the colour its neighbour was told to make"
+    );
+    assert_eq!(
+        mana.total(),
+        1,
+        "and nothing else: the Haven makes one thing"
+    );
+}

@@ -1095,10 +1095,26 @@ impl Tx<'_> {
         };
         let effects = if produced == "Any" {
             (amount == 1).then(|| vec!["Effect::mana_of_any_color()".to_string()])?
+        } else if produced == "Chosen" || produced == "ChosenColor" {
+            // "Add one mana of the chosen color." The colour is on the
+            // permanent, named as it entered — `EnterModifier::ChooseColor`
+            // is the other half, and a card printing this line without it
+            // would make nothing.
+            (amount == 1).then(|| vec!["Effect::mana_chosen()".to_string()])?
         } else if let Some(list) = produced.strip_prefix("Combo ") {
-            let colors: Option<Vec<&str>> = list.split_whitespace().map(color).collect();
+            // The chosen colour is one of the options rather than a colour
+            // of its own: "Add {W} or one mana of the chosen color."
+            let (chosen, rest): (Vec<&str>, Vec<&str>) = list
+                .split_whitespace()
+                .partition(|w| *w == "Chosen" || *w == "ChosenColor");
+            let colors: Option<Vec<&str>> = rest.into_iter().map(color).collect();
             let colors = colors?;
-            (amount == 1).then(|| vec![format!("Effect::mana_choice(&[{}])", colors.join(", "))])?
+            let expr = if chosen.is_empty() {
+                format!("Effect::mana_choice(&[{}])", colors.join(", "))
+            } else {
+                format!("Effect::mana_chosen_or(&[{}])", colors.join(", "))
+            };
+            (amount == 1).then(|| vec![expr])?
         } else {
             // `Produced$ W U` is "add {W}{U}" — two mana at once, not a
             // choice between them (that is `Combo`). One effect per colour,
@@ -1415,6 +1431,63 @@ impl Tx<'_> {
     /// subtype catalogs and a cost parser — and what leaves exactly one
     /// answer to "was this line read", which two loops used to guess at
     /// separately and disagree about.
+    /// `K:ETBReplacement:Other:<svar>` — "as this enters, …".
+    ///
+    /// The keyword is a *pointer*: what actually happens is the `SVar` it
+    /// names, and the transcoder reads exactly one of them so far. `Other`
+    /// is the ordinary as-it-enters replacement; `Copy` is a clone choosing
+    /// what to come down as, which is a different mechanism and is refused
+    /// by not being this.
+    ///
+    /// Every card in the reference writes the choice with `Defined$ You`,
+    /// and this insists on it rather than ignoring it: "as this enters,
+    /// choose a color" is a choice its *controller* makes, and a card that
+    /// handed it to somebody else would be a different sentence.
+    fn etb_replacement(&mut self, rest: &str) -> Option<()> {
+        let mut fields = rest.split(':');
+        let kind = fields.next()?.trim();
+        if kind != "Other" {
+            return self.deny(format!("`ETBReplacement:{kind}`"));
+        }
+        let Some(svar) = fields.next().map(str::trim) else {
+            return self.deny("an `ETBReplacement` naming no ability".to_string());
+        };
+        let Some(body) = self.svars.get(svar) else {
+            return self.deny(format!("an `ETBReplacement` naming the missing `{svar}`"));
+        };
+        let Some((api, mut p)) = Params::parse(body) else {
+            return self.deny("an `ETBReplacement` ability with no `$` in it".to_string());
+        };
+        if api != "ChooseColor" {
+            return self.deny(format!("as-enters effect `{api}`"));
+        }
+        p.drop_prose();
+        match p.take("Defined").as_deref() {
+            Some("You") => {}
+            other => {
+                return self.deny(format!(
+                    "a colour chosen by `{}`",
+                    other.unwrap_or("nobody")
+                ));
+            }
+        }
+        let modifier = match p.take("Exclude") {
+            None => "EnterModifier::ChooseColor".to_string(),
+            Some(name) => {
+                let Some(color) = color_word(&name) else {
+                    return self.deny(format!("a colour choice excluding `{name}`"));
+                };
+                format!("EnterModifier::ChooseColorExcept({color})")
+            }
+        };
+        if !p.exhausted() {
+            let key = p.first_key().unwrap_or_default();
+            return self.deny(format!("unclaimed parameter `ChooseColor.{key}`"));
+        }
+        self.body.enter_modifiers.push(modifier);
+        Some(())
+    }
+
     fn keyword(&mut self, line: &str) -> Option<()> {
         if let Some(modifier) = keyword_static(line) {
             self.body
@@ -1425,6 +1498,9 @@ impl Tx<'_> {
         if let Some(entry) = keyword_enter_modifier(line, self.svars) {
             self.body.enter_modifiers.push(entry);
             return Some(());
+        }
+        if let Some(rest) = line.strip_prefix("ETBReplacement:") {
+            return self.etb_replacement(rest);
         }
         if let Some(rest) = line.strip_prefix("Equip:") {
             return self.equip(rest);
@@ -2540,6 +2616,18 @@ fn keyword_const(line: &str) -> Option<&'static str> {
 ///
 /// The counter word goes through [`counter_kind`], so a card whose counter
 /// the DSL has no id for refuses here exactly as it does on an ability.
+/// A colour spelled as the reference writes it in prose (`Exclude$ white`).
+fn color_word(word: &str) -> Option<&'static str> {
+    Some(match word.trim().to_ascii_lowercase().as_str() {
+        "white" => "ManaColor::White",
+        "blue" => "ManaColor::Blue",
+        "black" => "ManaColor::Black",
+        "red" => "ManaColor::Red",
+        "green" => "ManaColor::Green",
+        _ => return None,
+    })
+}
+
 fn keyword_enter_modifier(line: &str, svars: &BTreeMap<String, String>) -> Option<String> {
     let mut fields = line.strip_prefix("etbCounter:")?.split(':');
     let kind = counter_kind(fields.next()?.trim())?;
@@ -2837,6 +2925,67 @@ mod tests {
 
     fn refused(text: &str) -> bool {
         transcode(&parse(text), &cats(), None).is_none()
+    }
+
+    /// `K:ETBReplacement:Other:<svar>` is a **pointer**, and the rule is what
+    /// it points at.
+    ///
+    /// Reading the keyword alone would say "as this enters, something", which
+    /// is why the exclusion and the colour the tap makes are both asserted
+    /// here: the two halves of these lands only work as a pair, and a card
+    /// that chose a colour nothing read would be a land that taps for
+    /// nothing.
+    #[test]
+    fn an_as_enters_colour_choice_is_read_together_with_what_taps_for_it() {
+        let plain = read(
+            "Name:X\nTypes:Land\nK:ETBReplacement:Other:CC\n\
+             SVar:CC:DB$ ChooseColor | Defined$ You | AILogic$ MostProminentInComputerDeck | SpellDescription$ As CARDNAME enters, choose a color.\n\
+             A:AB$ Mana | Cost$ T | Produced$ Chosen | SpellDescription$ Add one mana of the chosen color.",
+        );
+        assert_eq!(plain.enter_modifiers, ["EnterModifier::ChooseColor"]);
+        assert_eq!(plain.abilities, ["mana_ability!(&[Effect::mana_chosen()])"]);
+
+        // Thriving Heath: the colour it may not be told to make is the one
+        // it always makes anyway.
+        let except = read(
+            "Name:X\nTypes:Land\nK:ETBReplacement:Other:CC\n\
+             SVar:CC:DB$ ChooseColor | Defined$ You | Exclude$ white | SpellDescription$ As CARDNAME enters, choose a color other than white.\n\
+             A:AB$ Mana | Cost$ T | Produced$ Combo W Chosen | SpellDescription$ Add {W} or one mana of the chosen color.",
+        );
+        assert_eq!(
+            except.enter_modifiers,
+            ["EnterModifier::ChooseColorExcept(ManaColor::White)"]
+        );
+        assert_eq!(
+            except.abilities,
+            ["mana_ability!(&[Effect::mana_chosen_or(&[ManaColor::White])])"]
+        );
+
+        // A clone choosing what to enter as is a different mechanism.
+        assert!(refused(
+            "Name:X\nTypes:Creature Shapeshifter\nPT:0/0\nK:ETBReplacement:Copy:CC\n\
+             SVar:CC:DB$ Clone | Defined$ You"
+        ));
+        // "As this enters, choose a color" is its controller's choice, and a
+        // card handing it to somebody else is a different sentence.
+        assert!(refused(
+            "Name:X\nTypes:Land\nK:ETBReplacement:Other:CC\n\
+             SVar:CC:DB$ ChooseColor | Defined$ Opponent"
+        ));
+        // A word that is not one of the five.
+        assert!(refused(
+            "Name:X\nTypes:Land\nK:ETBReplacement:Other:CC\n\
+             SVar:CC:DB$ ChooseColor | Defined$ You | Exclude$ chartreuse"
+        ));
+        // A parameter no rule here claims.
+        assert!(refused(
+            "Name:X\nTypes:Land\nK:ETBReplacement:Other:CC\n\
+             SVar:CC:DB$ ChooseColor | Defined$ You | Amount$ 2"
+        ));
+        // And the pointer has to point somewhere.
+        assert!(refused(
+            "Name:X\nTypes:Land\nK:ETBReplacement:Other:Missing"
+        ));
     }
 
     /// The three token scripts the `Token` tests below read against, in the

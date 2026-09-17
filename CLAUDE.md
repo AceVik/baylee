@@ -679,7 +679,7 @@ scripts read in full.
 **`--stubs` is the ranking that ships cards, and the plain one is not.** The
 report's default population is all 33 826 reference scripts, which measures the
 DSL; `transcode-report --stubs` ranks only the scripts belonging to this pool's
-own unfinished cards — 729 of the 737 stubs have one — and the two orders
+own unfinished cards — 714 of the 722 stubs have one — and the two orders
 disagree so sharply that the corpus one is a trap when the goal is a card.
 Measured on 17.09: `Charm` is 618 corpus-wide and **2** here, an unreadable
 `Pump` value 477 and **6**, the `DamageDone` trigger 442 and **1**,
@@ -779,7 +779,7 @@ in the reader and never in the card: one rule wrote hundreds of files, so
 patching the one in front of you leaves the rest broken and is reverted on the
 next run anyway. `cargo run -p xtask -- adopt --name "<card>"` is the way out
 — it strips the marker and hands the file over for good. `validate` reports
-the split (328 hand-owned, 471 machine-owned, 737 stubs), which is the number
+the split (328 hand-owned, 486 machine-owned, 722 stubs), which is the number
 to watch: a machine-owned card is a rule's output, and a rule is testable.
 The markers are named here and not quoted, and `stubgen::is_machine_owned` is
 the only thing that should ever ask: `cross-read`'s first draft retyped the

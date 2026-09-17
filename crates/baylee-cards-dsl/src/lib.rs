@@ -319,6 +319,25 @@ pub enum EnterModifier {
     /// "As this enters, choose a creature type" (Roaming Throne,
     /// Reflections of Littjara, Cavern of Souls).
     ChooseSubtype,
+    /// "As this enters, choose a color" (Uncharted Haven, Shimmerdrift Vale,
+    /// the Gates).
+    ///
+    /// The colour is kept on the permanent and read back by
+    /// [`ManaSource::Chosen`], which is what "one mana of the chosen color"
+    /// means. A permanent that never went through this modifier has no
+    /// chosen colour, and the reader treats that as producing nothing rather
+    /// than as a colour of its own — a copy of one of these lands made by
+    /// something that is not an entry is the case that reaches it.
+    ChooseColor,
+    /// "As this enters, choose a color other than *c*" (the Thriving cycle,
+    /// the Gates of the guildless).
+    ///
+    /// A variant of its own rather than an option on [`Self::ChooseColor`],
+    /// for the reason [`Self::TappedUnlessCount`] is one: the card that says
+    /// "choose a color" says nothing about an exclusion, and a card never
+    /// restates a default. Exactly one colour, because the reference corpus
+    /// prints the exclusion ten times and never with two.
+    ChooseColorExcept(baylee_core::mana::ManaColor),
     /// Enters with the prepared marker (Emeritus of Woe).
     Prepared,
     /// "This enters with N [kind] counters on it" (the Vivid lands, Tendo

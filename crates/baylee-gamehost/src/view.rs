@@ -343,10 +343,16 @@ fn board_mana(state: &GameState, id: ObjectId) -> Option<baylee_view::BoardMana>
                 source,
                 baylee_cards_dsl::ManaSource::CommanderIdentity
                     | baylee_cards_dsl::ManaSource::LandColor { .. }
+                    | baylee_cards_dsl::ManaSource::Chosen
+                    | baylee_cards_dsl::ManaSource::ChosenOr(_)
             ) {
                 return None;
             }
-            let colors = baylee_engine::resolve::colors_of(state, obj.controller, source);
+            // The chosen colour belongs here for the same reason the other
+            // two do, and for one more: it is the only one a *client* could
+            // not derive even with the whole board in front of it, because
+            // the choice is on the object and is printed on no card.
+            let colors = baylee_engine::resolve::colors_of(state, obj.controller, source, id);
             (!colors.is_empty()).then(|| baylee_view::BoardMana {
                 index: u32::try_from(index).unwrap_or(u32::MAX),
                 colors,

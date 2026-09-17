@@ -96,6 +96,14 @@ pub struct Characteristics {
     pub produced_colors: ColorSet,
     /// Whether any ability could produce colorless mana.
     pub produced_colorless: bool,
+    /// Whether one of this object's mana abilities makes *the chosen color*
+    /// (Uncharted Haven, the Thriving cycle).
+    ///
+    /// A card-level fact beside two card-level fields, and it exists so that
+    /// the object-level one stays honest: `GameObject::chosen_color` is set
+    /// by an entry and says nothing about what the permanent does with it,
+    /// so Reflecting Pool asks this before counting that colour as mana.
+    pub produced_chosen: bool,
 }
 
 impl Characteristics {
@@ -107,6 +115,7 @@ impl Characteristics {
         let subtypes = SubtypeSet::from_slice(f.subtypes);
         let mut produced = ColorSet::EMPTY;
         let mut produced_colorless = false;
+        let mut produced_chosen = false;
         // Basic-land-type derivation (CR 305.6).
         let land_types = [
             (baylee_core::generated::subtypes::land::PLAINS, Color::White),
@@ -203,6 +212,23 @@ impl Characteristics {
                     // here would let a lone Pool tap for any color and would
                     // make two Pools promise each other the rainbow.
                     baylee_cards_dsl::ManaSource::LandColor { .. } => {}
+                    // The chosen colour is on the *object* and this is a
+                    // reading of the card, so there is nothing to put here.
+                    // Only Reflecting Pool and Exotic Orchard read this
+                    // field, and they read it off an object they are holding
+                    // — `resolve::mana` unions the chosen colour in there,
+                    // where it is knowable.
+                    // The chosen colour is on the *object* and this is a
+                    // reading of the card, so there is no colour to put
+                    // here — only the fact that this card reads one, which
+                    // is what lets Reflecting Pool ask the object for it.
+                    baylee_cards_dsl::ManaSource::Chosen => produced_chosen = true,
+                    baylee_cards_dsl::ManaSource::ChosenOr(colors) => {
+                        produced_chosen = true;
+                        for c in *colors {
+                            add_color(&mut produced, &mut produced_colorless, c);
+                        }
+                    }
                 }
             }
         }
@@ -223,6 +249,7 @@ impl Characteristics {
             loyalty: f.loyalty,
             color_identity: def.color_identity,
             produced_colors: produced,
+            produced_chosen,
             produced_colorless,
         }
     }
@@ -528,6 +555,13 @@ pub struct GameObject {
     /// The creature type chosen as this entered ("the chosen type" —
     /// Roaming Throne, Reflections of Littjara, Cavern of Souls).
     pub chosen_subtype: Option<baylee_core::ids::SubtypeId>,
+    /// The color chosen as this entered ("the chosen color" — Uncharted
+    /// Haven, the Thriving cycle, the Gates).
+    ///
+    /// On the object and not on the card, because that is where the answer
+    /// differs: two Thriving Moors on one battlefield are two colours, and
+    /// the card they share can say neither.
+    pub chosen_color: Option<baylee_core::mana::ManaColor>,
     /// Which face of the card is active (MDFC/split; 0 = front).
     pub face_index: u8,
     /// Abilities this object carries itself, instead of reading them off a
@@ -643,6 +677,7 @@ impl GameObject {
             target_players: baylee_core::ids::SeatSet::new(),
             mode_index: None,
             chosen_subtype: None,
+            chosen_color: None,
             face_index: 0,
             own_abilities: None,
             own_abilities_until_eot: false,
