@@ -104,14 +104,17 @@ fn activate(engine: &mut Engine<RegistryLookup>, seat: PlayerId, card: CardIndex
 fn any_combination_adds_one_mana_per_pick() {
     let p0 = PlayerId::new(0);
     let mut engine = Duel::new(11, forest())
-        .battlefield(0, &[mystic_gate(), forest()])
+        .battlefield(0, &[mystic_gate(), plains()])
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
 
-    // The gate's combination line costs `{1}, {T}`, and an ability whose mana
-    // is not floating is not offered at all — so the Forest goes first.
-    activate(&mut engine, p0, forest(), 0);
+    // The gate's combination line costs `{W/U}, {T}` — one mana of *either*
+    // colour, which is the point of a filter land and is why the fixture is a
+    // Plains rather than the Forest that stood here while the card was
+    // written with a generic `{1}`. An ability whose mana is not floating is
+    // not offered at all, so the basic goes first.
+    activate(&mut engine, p0, plains(), 0);
     activate(&mut engine, p0, mystic_gate(), 1);
     let Pending::ChooseColor { options, .. } = engine.pending().clone() else {
         panic!("expected a colour choice, got {:?}", engine.pending())

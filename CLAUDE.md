@@ -533,6 +533,21 @@ merely agreeing with the file it sits in. On its own it would have said only
 that a person typed the same thing twice, which is exactly what Ondu Cleric
 did; it found thirteen lands headed `Land — SWAMP MOUNTAIN` in the constants'
 spelling instead of the card's.
+
+It asks the **price** as well, which is the half of a mana ability nothing
+compared: the mana check reads what an ability *produces* and holds it against
+the card's "add …" clause, and said nothing about what the card charges. Every
+printed `{…}…:` prefix is parsed into a `ManaCost` and held against the
+`ManaCost` on an ability, so a difference in spelling is not a finding and a
+difference in price always is. Mystic Gate and Fetid Heath each sold for `{1}`
+what their printing sells for `{W/U}` and `{W/B}` — cheaper, and colourless
+where the card demands a colour — and read as correct from every other side:
+right header, right effect, wrong price. The check asks only
+`Coverage::Implemented` cards, because on a `Partial` one a missing ability
+looks exactly like a mispriced one; the four refusing a printed ability by
+name (Kenrith, Lotleth Troll, Urza, Yawgmoth) rejoin the population of 172 the
+day that ability exists.
+
 A mechanic the DSL cannot express gets `Coverage::Partial("reason")` and a
 `// NOT SUPPORTED:` comment; extend the DSL rather than working around it.
 `docs/card-dsl.md` is the authoring contract, `docs/llm-learnings.md` gets

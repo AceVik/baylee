@@ -2084,6 +2084,8 @@ struct PrintingTally {
     oracle: usize,
     /// Face costs compared against the printing, over the whole pool.
     costs: usize,
+    /// Printed activation costs held against the cost the code pays.
+    activation_costs: usize,
     /// Cards whose printing names a player or an opponent as a target.
     player_targets: usize,
     /// Cards whose printing states a target count of "up to".
@@ -2138,6 +2140,13 @@ struct PrintingTally {
 /// Kazandu Blademaster, Umara Raptor and Luminarch Ascension, which the check
 /// names by slug when the recogniser for `MayDo` is taken out of it.
 ///
+/// Activation cost is **172**, measured 2026-09-17 over 159 implemented
+/// cards — every printed `{…}…:` price whose symbols parse. It is the one
+/// count here that a *finished card* moves up rather than a new card: the
+/// four `Partial` cards refusing a printed ability by name (Kenrith, Lotleth
+/// Troll, Urza, Yawgmoth) each rejoin the population the day their missing
+/// ability exists.
+///
 /// Type line is **1473** and that number is exact rather than measured: the
 /// pool prints 1475 faces (1255 cards of one face and 110 of two), and the
 /// only card whose printed and code face counts disagree is Emeritus of Woe,
@@ -2154,6 +2163,7 @@ const PRINTING_FLOOR: PrintingTally = PrintingTally {
     mana: 340,
     oracle: 1300,
     costs: 1340,
+    activation_costs: 160,
     player_targets: 20,
     targets: 10,
     optional_clauses: 40,
@@ -2507,6 +2517,7 @@ fn check_card_matches_the_printing(
     // "({T}: Add {R} or {G}.)", so stripping it leaves a land that taps for
     // two colors and says nothing at all.
     check_mana_matches_the_printing(slug, def, &whole, tally, problems);
+    check_activation_cost_matches_the_printing(slug, def, &whole, tally, problems);
 }
 
 /// Each face's type line, against the one the printing puts on the card.
@@ -2714,6 +2725,130 @@ fn check_mana_matches_the_printing(
             *problems += 1;
         }
     }
+}
+
+/// Each printed activation cost, against the cost the code makes a player pay.
+///
+/// [`check_mana_matches_the_printing`] reads what a mana ability *produces*
+/// and holds it against the card's "add …" clause; nothing asked the other
+/// half of the same sentence. A land whose ability is free where the card
+/// charges for it is a land that reads as correct from every side — the
+/// `//! Oracle:` header is the printing's own words, the effects are right,
+/// and only the price is wrong. Mystic Gate and Fetid Heath each charged
+/// `{1}` for what their printing sells for `{W/U}` and `{W/B}`: strictly
+/// cheaper, and colourless where the card demands a colour.
+///
+/// The comparison is made in the **engine's** vocabulary rather than in text:
+/// the printed prefix is parsed into a [`baylee_core::mana::ManaCost`] and
+/// held against the `ManaCost` on the ability, so a difference in spelling is
+/// not a finding and a difference in price always is. A printed cost the
+/// parser cannot read is skipped and counted nowhere, which is what keeps the
+/// floor below honest.
+///
+/// It asks only [`Coverage::Implemented`] cards, and that line is the whole
+/// difference between a check and a nuisance. A `Partial` card has said in
+/// prose which ability it does not have, and a missing ability looks from
+/// here exactly like a mispriced one: Kenrith, Lotleth Troll, Urza and
+/// Yawgmoth are each refusing one printed ability by name in a
+/// `// NOT SUPPORTED:` comment, and every one of them was reported before
+/// this clause existed. Finishing any of them puts that card back in the
+/// population, which is the same bargain
+/// `lints::every_layer_in_the_pool_is_the_one_its_modifier_derives` makes.
+fn check_activation_cost_matches_the_printing(
+    slug: &str,
+    def: &baylee_cards::dsl::CardDef,
+    printed: &str,
+    tally: &mut PrintingTally,
+    problems: &mut usize,
+) {
+    use baylee_cards::dsl::AbilityDef;
+
+    if !def.is_implemented() {
+        return;
+    }
+
+    // Every mana price the code would make a player pay, lowercased because
+    // the printed text this is held against already is.
+    let mut paid: Vec<String> = Vec::new();
+    let lists = std::iter::once(def.abilities).chain(def.faces.iter().map(|f| f.abilities));
+    for ability in lists.flatten() {
+        let (AbilityDef::Activated { cost, .. } | AbilityDef::ActivatedConditional { cost, .. }) =
+            ability
+        else {
+            continue;
+        };
+        // A free activation renders as the empty string, which in a list of
+        // prices reads as a missing entry rather than as a price of nothing.
+        let mana = cost.mana.to_string().to_ascii_lowercase();
+        paid.push(if mana.is_empty() {
+            "{0}".to_string()
+        } else {
+            mana
+        });
+    }
+    if paid.is_empty() {
+        return;
+    }
+
+    for line in printed.lines() {
+        let Some(prefix) = printed_activation_cost(line) else {
+            continue;
+        };
+        // `{T}:` alone is the commonest activation cost there is and names no
+        // mana, so it says nothing about a price and would only inflate the
+        // count below.
+        if !prefix.contains(['w', 'u', 'b', 'r', 'g', 'c'])
+            && !prefix.contains(|c: char| c.is_ascii_digit())
+        {
+            continue;
+        }
+        let Ok(want) = prefix
+            .to_ascii_uppercase()
+            .parse::<baylee_core::mana::ManaCost>()
+        else {
+            continue;
+        };
+        let want = want.to_string().to_ascii_lowercase();
+        tally.activation_costs += 1;
+        if !paid.contains(&want) {
+            println!(
+                "{slug}: the printing charges {want} to activate and no ability in the code \
+                 costs it (the code pays {})",
+                paid.join(", ")
+            );
+            *problems += 1;
+        }
+    }
+}
+
+/// The mana a printed line charges before its first `:`, or `None` when the
+/// line is not an activated ability at all.
+///
+/// A cost prefix is a run of `{…}` symbols at the start of the line, and what
+/// follows it is either the `:` or another cost clause the code spells as a
+/// [`baylee_cards::dsl::CostPart`] rather than as mana ("`, {T},
+/// Sacrifice a creature:`"). Anything else — a sentence that merely opens
+/// with a symbol, a reminder clause in parentheses — is not a price.
+fn printed_activation_cost(line: &str) -> Option<String> {
+    let line = line.trim();
+    let mut rest = line;
+    let mut mana = String::new();
+    while let Some(tail) = rest.strip_prefix('{') {
+        let end = tail.find('}')?;
+        mana.push('{');
+        mana.push_str(&tail[..end]);
+        mana.push('}');
+        rest = &tail[end + 1..];
+    }
+    if mana.is_empty() {
+        return None;
+    }
+    // The prefix has to reach a `:` to be a cost, and it may pass through
+    // further cost clauses to get there — but not through the end of the
+    // sentence, which is what tells "`{2}, {T}: …`" from a rules line that
+    // happens to start with a symbol.
+    let head = rest.split('.').next().unwrap_or(rest);
+    (head.starts_with(':') || (head.starts_with(',') && head.contains(':'))).then_some(mana)
 }
 
 /// Scryfall's spelling of a costless card is an empty string; the pool's is
@@ -3378,8 +3513,8 @@ fn report_what_the_sweeps_reached(
 ) {
     println!(
         "validate: against the printings \u{2014} {} payloads, {} loyalty, {} identity, \
-         {} keyword, {} mana, {} oracle, {} cost, {} player target, {} target count, \
-         {} optional clause, {} printing, {} type line",
+         {} keyword, {} mana, {} oracle, {} cost, {} activation cost, {} player target, \
+         {} target count, {} optional clause, {} printing, {} type line",
         tally.payloads,
         tally.loyalty,
         tally.identity,
@@ -3387,6 +3522,7 @@ fn report_what_the_sweeps_reached(
         tally.mana,
         tally.oracle,
         tally.costs,
+        tally.activation_costs,
         tally.player_targets,
         tally.targets,
         tally.optional_clauses,
@@ -3414,6 +3550,11 @@ fn check_printing_floors(tally: &PrintingTally, problems: &mut usize) {
         ("mana", tally.mana, PRINTING_FLOOR.mana),
         ("oracle text", tally.oracle, PRINTING_FLOOR.oracle),
         ("face cost", tally.costs, PRINTING_FLOOR.costs),
+        (
+            "activation cost",
+            tally.activation_costs,
+            PRINTING_FLOOR.activation_costs,
+        ),
         (
             "player target",
             tally.player_targets,

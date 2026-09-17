@@ -3085,6 +3085,157 @@ fn cascading_cataracts_asks_five_times_and_offers_every_colour() {
     }
 }
 
+fn mystic_gate() -> CardIndex {
+    card_index("e9f5feb2-2c1a-46ce-885a-4f378d7d10af")
+}
+
+fn fetid_heath() -> CardIndex {
+    card_index("42bf259d-4bb9-49c3-b4ec-223dca62f4d6")
+}
+
+/// Mystic Gate: `{W/U}, {T}: Add {W}{W}, {W}{U}, or {U}{U}.`
+///
+/// The first **hybrid activation cost** this pool pays. `{W/U}` is one mana
+/// of either colour (CR 107.4e), and the whole point of a filter land is that
+/// the price is a colour: it turns one coloured mana into two, so a board
+/// that can only make colorless cannot start the engine at all. The card was
+/// written with `cost!("{1}", …)` — one *generic* mana, payable by anything —
+/// and every other reading of it was right, which is why it stood: the
+/// `//! Oracle:` header printed `{W/U}`, the effect made its two combination
+/// mana, and only the price was wrong. `xtask validate`'s activation-cost
+/// check is the half that says so without a game; this is the half that shows
+/// what the difference buys an opponent.
+///
+/// Both halves are asserted, because only the pair is discriminating:
+///
+/// - **Colorless is refused.** A second Mystic Gate taps for `{C}`, and that
+///   `{C}` cannot pay `{W/U}`. Against `{1}` it paid, and the land filtered
+///   for free.
+/// - **A Plains pays.** One `{W}` in, two picks out — and the two answers may
+///   differ, which is `combination: true` and the reason this land is worth
+///   playing over a Plains.
+#[test]
+fn a_filter_land_charges_a_coloured_mana_and_colorless_will_not_do() {
+    // The two hand-written filter lands, and one Plains pays both — White is
+    // in each pair, which is the accident that let `{1}` stand: a board that
+    // can pay the real price pays the wrong one too, and only a *colorless*
+    // board tells the two apart.
+    one_filter_land(mystic_gate(), plains(), [ManaColor::White, ManaColor::Blue]);
+    one_filter_land(
+        fetid_heath(),
+        plains(),
+        [ManaColor::White, ManaColor::Black],
+    );
+}
+
+fn one_filter_land(gate_card: CardIndex, basic_card: CardIndex, colors: [ManaColor; 2]) {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(919, forest())
+        .battlefield(0, &[gate_card, gate_card, basic_card])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let gates: Vec<ObjectId> = engine
+        .state()
+        .zones
+        .list(ZoneLocation::Battlefield)
+        .iter()
+        .copied()
+        .filter(|id| {
+            engine
+                .state()
+                .object(*id)
+                .is_some_and(|o| o.card.is_some_and(|c| c.index == gate_card))
+        })
+        .collect();
+    let [gate, other] = gates[..] else {
+        panic!("two of the land were seated, found {}", gates.len())
+    };
+    let basic = on_battlefield(&engine, p0, basic_card).expect("the basic is on the table");
+
+    // The other Gate's own first ability, which is the colorless half of the
+    // card: `{T}: Add {C}.`
+    engine
+        .apply(
+            p0,
+            PlayerAction::ActivateAbility {
+                source: other,
+                ability_index: 0,
+            },
+        )
+        .expect("a free tap for {C}");
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Colorless),
+        1
+    );
+
+    // {C} is a mana and it is not a *coloured* one, so it pays no half of
+    // `{W/U}` (CR 107.4e, CR 202.2: colorless is not a color).
+    assert!(
+        engine
+            .apply(
+                p0,
+                PlayerAction::ActivateAbility {
+                    source: gate,
+                    ability_index: 1,
+                },
+            )
+            .is_err(),
+        "a filter land whose price is generic filters for free; this one \
+         charges {{{:?}/{:?}}}",
+        colors[0],
+        colors[1]
+    );
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ActivateAbility {
+                source: basic,
+                ability_index: 0,
+            },
+        )
+        .expect("the basic taps for the colour the price names");
+    engine
+        .apply(
+            p0,
+            PlayerAction::ActivateAbility {
+                source: gate,
+                ability_index: 1,
+            },
+        )
+        .expect("and that colour is one of the two halves of the hybrid");
+
+    for (i, color) in colors.into_iter().enumerate() {
+        let Pending::ChooseColor { options, .. } = engine.pending().clone() else {
+            panic!("pick {i} of two: {:?}", engine.pending())
+        };
+        assert_eq!(
+            options,
+            colors.to_vec(),
+            "pick {i}: the card's own two colours, in its order"
+        );
+        engine
+            .apply(p0, PlayerAction::ChooseColor(color))
+            .expect("a colour the engine offered");
+    }
+
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(
+        (
+            pool.available(colors[0]),
+            pool.available(colors[1]),
+            pool.available(ManaColor::Colorless),
+        ),
+        (1, 1, 1),
+        "one mana went in and two came out, one of each — and the {{C}} \
+         that could not pay the price is still floating"
+    );
+}
+
 /// The five Time Spiral storage lands, which print one text with one pair of
 /// symbols changed.
 ///
