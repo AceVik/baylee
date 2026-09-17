@@ -749,3 +749,62 @@ fn a_land_that_makes_a_token_as_it_enters_makes_one() {
         "and the land itself stayed"
     );
 }
+
+/// Thopter Foundry was `Coverage::Partial` for one reason — "the pool has no
+/// Thopter" — and the ledger now has one, read out of this very card's own
+/// reference script. So the sentence is whole for the first time: the token
+/// **and** the life, in the order the card prints them.
+#[test]
+fn thopter_foundry_makes_the_thopter_its_text_promises() {
+    let seat = PlayerId::new(0);
+    let foundry = card_index("88bef744-550e-4f33-b1ff-a8ee990ec754");
+    let (engine, objects) = testkit::arena(foundry).expect("Thopter Foundry has a board");
+    let life_before = engine.state().players[0].life;
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("the arena did not end at a priority");
+    };
+
+    let mut made = 0usize;
+    for (slot, deed) in testkit::presses(&legal, &objects) {
+        let (mut engine, objects) = testkit::arena(foundry).expect("Thopter Foundry has a board");
+        engine
+            .apply(seat, deed.action(objects[slot]))
+            .expect("the foundry refused its own offer");
+        match testkit::drive_to_rest(&mut engine, seat) {
+            testkit::Rest::Reached => {}
+            other => panic!("{other:?}"),
+        }
+        let tokens = tokens_on_battlefield(&engine);
+        if tokens.is_empty() {
+            continue;
+        }
+        made += tokens.len();
+        let def = engine
+            .state()
+            .object(tokens[0])
+            .expect("the Thopter is on the battlefield")
+            .token
+            .expect("it knows what it is");
+        assert_eq!(def.name, "Thopter");
+        assert_eq!((def.power, def.toughness), (Some(1), Some(1)));
+        assert!(
+            def.colors.contains(baylee_core::color::Color::Blue),
+            "a 1/1 *blue* Thopter"
+        );
+        assert!(
+            def.keywords.contains(baylee_cards_dsl::KeywordSet::FLYING),
+            "with flying"
+        );
+        assert_ne!(
+            baylee_cards::tokens::token_id(def),
+            u16::MAX,
+            "and an id the client can key art on"
+        );
+        assert_eq!(
+            engine.state().players[0].life,
+            life_before + 1,
+            "the other half of the same sentence"
+        );
+    }
+    assert_eq!(made, 1, "one activation, one Thopter");
+}

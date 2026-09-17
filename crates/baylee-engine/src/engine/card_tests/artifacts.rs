@@ -2341,9 +2341,30 @@ fn thopter_foundry_sacrifices_an_artifact_for_one_mana_and_gains_one_life() {
         21,
         "controller gained 1 life upon resolution"
     );
+    // This read `is_empty()` and said "due to Coverage::Partial gap" — a test
+    // pinning a limitation, which is the right thing to write while the
+    // limitation is real and the wrong thing to leave behind once it is not.
+    // The token ledger now holds a 1/1 blue Thopter with flying, read out of
+    // this very card's own reference script.
+    let tokens = tokens_of(&engine, p0);
+    assert_eq!(tokens.len(), 1, "one activation, one Thopter");
+    let thopter = engine
+        .state()
+        .object(tokens[0])
+        .expect("the Thopter is on the battlefield")
+        .token
+        .expect("it knows which token it is");
+    assert_eq!(thopter.name, "Thopter");
+    assert_eq!((thopter.power, thopter.toughness), (Some(1), Some(1)));
     assert!(
-        tokens_of(&engine, p0).is_empty(),
-        "no Thopter token created due to Coverage::Partial gap"
+        thopter.colors.contains(baylee_core::color::Color::Blue),
+        "a 1/1 *blue* Thopter"
+    );
+    assert!(
+        thopter
+            .keywords
+            .contains(baylee_cards_dsl::KeywordSet::FLYING),
+        "with flying"
     );
     assert!(
         on_battlefield(&engine, p0, thopter_foundry()).is_some(),
