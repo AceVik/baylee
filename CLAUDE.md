@@ -634,7 +634,9 @@ using the same `landgen::intrinsic_mana_ability` the land reader uses, and the
 same card comes out the same whichever reader reached it. With one basic type
 the omission is invisible, because `casting::intrinsic_mana` covers that case;
 with two it is fatal, because that shortcut returns `None` rather than pick a
-colour for the player.
+colour for the player. Five Turbulent lands were written `Land — Swamp
+Forest`, `Coverage::Implemented` and untappable the day the transcoder learned
+their enter condition, and it was `baylee-cards`'s own pool lint that said so.
 
 The rule both obey is the whole design: **one unread clause and the card is
 refused.** An unknown effect, an unclaimed parameter (`NoRegen$ True`), a
@@ -677,18 +679,26 @@ scripts read in full.
 **`--stubs` is the ranking that ships cards, and the plain one is not.** The
 report's default population is all 33 826 reference scripts, which measures the
 DSL; `transcode-report --stubs` ranks only the scripts belonging to this pool's
-own unfinished cards — 737 of the 745 stubs have one — and the two orders
+own unfinished cards — 729 of the 737 stubs have one — and the two orders
 disagree so sharply that the corpus one is a trap when the goal is a card.
 Measured on 17.09: `Charm` is 618 corpus-wide and **2** here, an unreadable
 `Pump` value 477 and **6**, the `DamageDone` trigger 442 and **1**,
 `ChangesZone.OptionalDecider` 439 and **0**. Three commits that day moved the
 corpus by 282 scripts and this pool by *no card at all*, which is not a
 failure of those commits — a stub is by construction a card no reader could
-write, so the residue's blockers are its own and nothing else's. The pool's
-real top entries are `AlternateMode:` (89, two-faced cards), the `Moved`
-replacement family (74 across six entries), `ETBReplacement` (31) and an
-unreadable `Mana` value (28). Rank corpus-wide to grow the DSL; rank
+write, so the residue's blockers are its own and nothing else's. Ranked
+`--stubs` and worked, the `Moved` replacement family went 74 → 29 and eight
+lands became cards in one commit. Rank corpus-wide to grow the DSL; rank
 `--stubs` to finish cards, and say which one a commit was aiming at.
+
+Read its deltas with the arithmetic in mind, or a good commit looks like a
+poor one. A script is listed under its **first** refusal, so closing a cause
+moves every card that had it to whatever it is refused for next: 43 stubs sat
+under the two `Moved` causes that fell, 8 of them had nothing else left and
+became cards, and the other 35 went into the long tail — where the visible
+top ten did not move at all. The cause going to zero is the measure of the
+rule; the cards finished is the measure of the residue, and the two are not
+the same number.
 
 That entry is also the cautionary tale about reading the report as a list of
 missing *subsystems*. `Pump` did not need a new one: `PumpFilter`,
@@ -758,7 +768,7 @@ in the reader and never in the card: one rule wrote hundreds of files, so
 patching the one in front of you leaves the rest broken and is reverted on the
 next run anyway. `cargo run -p xtask -- adopt --name "<card>"` is the way out
 — it strips the marker and hands the file over for good. `validate` reports
-the split (328 hand-owned, 463 machine-owned, 745 stubs), which is the number
+the split (328 hand-owned, 471 machine-owned, 737 stubs), which is the number
 to watch: a machine-owned card is a rule's output, and a rule is testable.
 The markers are named here and not quoted, and `stubgen::is_machine_owned` is
 the only thing that should ever ask: `cross-read`'s first draft retyped the

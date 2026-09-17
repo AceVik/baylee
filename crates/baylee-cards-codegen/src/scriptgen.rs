@@ -1558,23 +1558,20 @@ impl Tx<'_> {
             self.note(format!("replacement `Moved` replacing with `{api}`"));
             return None;
         }
-        // A checkland taps *conditionally*: a script writes "tap it when you
-        // control none of these", which is the printed "enters tapped unless
-        // you control a Swamp or a Mountain" turned inside out. `EQ0` is the
-        // only comparison that is that sentence — `GE2` and friends are
-        // other cards, and a `ConditionCheckSVar$` is a computed value the
-        // DSL cannot say at all.
-        let modifier = match body.take("ConditionPresent") {
-            None => "EnterModifier::Tapped".to_string(),
-            Some(present) => {
-                if body.take("ConditionCompare").as_deref() != Some("EQ0") {
-                    self.note("replacement `Moved` with a condition other than `EQ0`".to_string());
-                    return None;
-                }
-                let expr = self.filter_expr(&present)?;
-                let name = self.body.filter_static("CHECK", &expr);
-                format!("EnterModifier::TappedUnless(&{name})")
+        // A land prints one of three sentences about coming down tapped, and
+        // the reference writes all three on this one line: unconditionally,
+        // *unless you control* enough of something, or *unless you pay*. They
+        // are three `EnterModifier` variants, so they are read as three
+        // shapes rather than one with options, and a line claiming both a
+        // count and a cost is neither of them.
+        let modifier = match (body.take("ConditionPresent"), body.take("UnlessCost")) {
+            (Some(_), Some(_)) => {
+                self.note("replacement `Moved` both counting and charging".to_string());
+                return None;
             }
+            (None, None) => "EnterModifier::Tapped".to_string(),
+            (None, Some(cost)) => self.enters_tapped_or_pays(&mut body, &cost)?,
+            (Some(present), None) => self.enters_tapped_unless(&mut body, &present)?,
         };
         if !body.exhausted() {
             self.note(format!(
@@ -1585,6 +1582,96 @@ impl Tx<'_> {
         }
         self.body.enter_modifiers.push(modifier);
         Some(())
+    }
+
+    /// "You may pay N life. If you don’t, this enters tapped" — the
+    /// shocklands, 26 of the corpus’s `Moved` replacements, and
+    /// [`EnterModifier::TappedOrPayLife`] says it exactly. Steam Vents is
+    /// hand-written in this pool as `TappedOrPayLife(2)` against the
+    /// script’s `PayLife<2>`, which is the reading checked against a
+    /// printed card rather than argued from the key’s name.
+    ///
+    /// `PayLife<N>` and nothing else: the other five `UnlessCost$` values on
+    /// these lines reveal a card instead (Rustic Clachan’s Kithkin),
+    /// which this modifier has nowhere to carry. And the payer has to be the
+    /// land’s own controller, because that is the only player
+    /// `TappedOrPayLife` can ask.
+    fn enters_tapped_or_pays(&mut self, body: &mut Params, cost: &str) -> Option<String> {
+        let life = cost
+            .strip_prefix("PayLife<")
+            .and_then(|rest| rest.strip_suffix('>'))
+            .and_then(|n| n.parse::<u16>().ok());
+        let Some(life) = life else {
+            self.note(format!("replacement `Moved` charging `{cost}`"));
+            return None;
+        };
+        match body.take("UnlessPayer").as_deref() {
+            Some("You") => {}
+            other => {
+                self.note(format!(
+                    "replacement `Moved` charging `{}`",
+                    other.unwrap_or("nobody")
+                ));
+                return None;
+            }
+        }
+        Some(format!("EnterModifier::TappedOrPayLife({life})"))
+    }
+
+    /// "This enters tapped unless you control N or more …".
+    ///
+    /// **The comparison is on the tap, and the card prints the opposite.**
+    /// The reference says when the land comes down *tapped* — Rockfall Vale
+    /// is `ConditionCompare$ LT2` over `Land.YouCtrl` and prints "enters
+    /// tapped unless you control two or more other lands" — so `LT n` is
+    /// `at_least = n` and `LE n` is `at_least = n + 1`. Canopy Vista settles
+    /// that the arithmetic is right rather than plausible: its script writes
+    /// `LE1` and its hand-written card in this pool writes `at_least: 2`.
+    ///
+    /// "Other" needs no clause. `controls_at_least` skips the entering
+    /// object itself, so `Land.YouCtrl` counts the other lands whether or
+    /// not the script spells `+Other` — and the ten that do spell it emit a
+    /// redundant `Filter::Another` rather than a wrong count.
+    ///
+    /// `GT` and `GE` are the **inverse** sentence and not a variant of this
+    /// one: Hall of Storm Giants prints "*if* you control two or more other
+    /// lands, this enters tapped", tapped where these are untapped. No
+    /// `EnterModifier` says that, so its 16 scripts are refused under a
+    /// cause that names the missing variant instead of this rule guessing a
+    /// direction.
+    fn enters_tapped_unless(&mut self, body: &mut Params, present: &str) -> Option<String> {
+        let Some(cmp) = body.take("ConditionCompare") else {
+            self.note("replacement `Moved` counting with no `ConditionCompare$`".to_string());
+            return None;
+        };
+        let lt = cmp.strip_prefix("LT").and_then(|n| n.parse::<u16>().ok());
+        let le = cmp
+            .strip_prefix("LE")
+            .and_then(|n| n.parse::<u16>().ok())
+            .and_then(|n| n.checked_add(1));
+        let at_least = match (cmp.as_str(), lt, le) {
+            ("EQ0", _, _) => 1,
+            (_, Some(n), _) | (_, None, Some(n)) if n >= 1 => n,
+            _ => {
+                self.note(format!(
+                    "an enter-tapped condition `{cmp}`, which taps *when* a count is \
+                     reached rather than unless it is"
+                ));
+                return None;
+            }
+        };
+        let expr = self.filter_expr(present)?;
+        let name = self.body.filter_static("CHECK", &expr);
+        // One spelling for one sentence: "unless you control at least one"
+        // is what a checkland prints, and `TappedUnless` is the variant that
+        // says it. Emitting `TappedUnlessCount { at_least: 1 }` beside it
+        // would give that sentence a second form nothing but a hash could
+        // tell from the first.
+        Some(if at_least == 1 {
+            format!("EnterModifier::TappedUnless(&{name})")
+        } else {
+            format!("EnterModifier::TappedUnlessCount {{ filter: &{name}, at_least: {at_least} }}")
+        })
     }
 
     /// `R:Event$ Untap | … | Layer$ CantHappen` as
@@ -3177,20 +3264,87 @@ mod tests {
         );
     }
 
-    /// "Unless you control *two* other lands" is a count, not a presence
-    /// test, and `TappedUnless` cannot say it — so the card stays a stub
-    /// rather than becoming a land that enters untapped one land early.
+    /// "Unless you control *two* other lands" is a count, and the
+    /// arithmetic between the script and the card is the whole risk.
+    ///
+    /// The reference says when the land comes down **tapped** and the card
+    /// prints when it does not, so `LT n` is `at_least = n` and `LE n` is
+    /// `at_least = n + 1`. Neither is argued from the key’s name: Rockfall
+    /// Vale writes `LT2` and prints "two or more other lands", and Canopy
+    /// Vista writes `LE1` against a hand-written `at_least: 2` in this very
+    /// pool. Off by one here is a land that enters untapped a turn early,
+    /// which no test downstream would catch.
+    ///
+    /// `at_least: 1` is deliberately *not* emitted — that sentence is what
+    /// `TappedUnless` already says, and a second spelling of one sentence is
+    /// what the pool-wide lints exist to prevent.
     #[test]
-    fn a_counted_enters_tapped_condition_is_refused() {
-        let script = parse(
+    fn a_counted_enters_tapped_condition_becomes_a_count() {
+        let two = read(
             "Name:X\nTypes:Land\n\
              R:Event$ Moved | ValidCard$ Card.Self | Destination$ Battlefield | ReplaceWith$ LandTapped | ReplacementResult$ Updated | Description$ enters tapped.\n\
              SVar:LandTapped:DB$ Tap | Defined$ Self | ETB$ True | ConditionPresent$ Land.Other+YouCtrl | ConditionCompare$ LT2",
         );
         assert_eq!(
-            refusal_reason(&script, &cats(), None).as_deref(),
-            Some("replacement `Moved` with a condition other than `EQ0`")
+            two.enter_modifiers,
+            ["EnterModifier::TappedUnlessCount { filter: &CHECK1, at_least: 2 }"]
         );
+
+        // Canopy Vista’s own line, and the pool’s own answer to it.
+        let battle = read(
+            "Name:X\nTypes:Land\n\
+             R:Event$ Moved | ValidCard$ Card.Self | Destination$ Battlefield | ReplaceWith$ LandTapped | ReplacementResult$ Updated | Description$ enters tapped.\n\
+             SVar:LandTapped:DB$ Tap | Defined$ Self | ETB$ True | ConditionPresent$ Land.Basic+YouCtrl | ConditionCompare$ LE1",
+        );
+        assert_eq!(
+            battle.enter_modifiers,
+            ["EnterModifier::TappedUnlessCount { filter: &CHECK1, at_least: 2 }"]
+        );
+
+        // Steam Vents: `PayLife<2>` is `TappedOrPayLife(2)`, which is how
+        // that card is written by hand three directories away.
+        let shock = read(
+            "Name:X\nTypes:Land\n\
+             R:Event$ Moved | ValidCard$ Card.Self | Destination$ Battlefield | ReplaceWith$ LandTapped | ReplacementResult$ Updated | Description$ enters tapped.\n\
+             SVar:LandTapped:DB$ Tap | Defined$ Self | ETB$ True | UnlessCost$ PayLife<2> | UnlessPayer$ You",
+        );
+        assert_eq!(shock.enter_modifiers, ["EnterModifier::TappedOrPayLife(2)"]);
+
+        for (tail, why) in [
+            // Hall of Storm Giants: "*if* you control two or more other
+            // lands, this enters tapped" — tapped where the others are
+            // untapped, and no `EnterModifier` says it.
+            (
+                "| ConditionPresent$ Land.YouCtrl | ConditionCompare$ GE2",
+                "an enter-tapped condition `GE2`, which taps *when* a count is reached \
+                 rather than unless it is",
+            ),
+            // Rustic Clachan reveals a Kithkin instead of paying life.
+            (
+                "| UnlessCost$ Reveal<1/Kithkin> | UnlessPayer$ You",
+                "replacement `Moved` charging `Reveal<1/Kithkin>`",
+            ),
+            (
+                "| UnlessCost$ PayLife<2> | UnlessPayer$ Opponent",
+                "replacement `Moved` charging `Opponent`",
+            ),
+            // A computed condition, which is still nothing this can say.
+            (
+                "| ConditionCheckSVar$ X | ConditionSVarCompare$ LT2",
+                "replacement `Moved` tapping with `ConditionCheckSVar`",
+            ),
+        ] {
+            let script = parse(&format!(
+                "Name:X\nTypes:Land\n\
+             R:Event$ Moved | ValidCard$ Card.Self | Destination$ Battlefield | ReplaceWith$ LandTapped | ReplacementResult$ Updated | Description$ enters tapped.\n\
+             SVar:LandTapped:DB$ Tap | Defined$ Self | ETB$ True {tail}"
+            ));
+            assert_eq!(
+                refusal_reason(&script, &cats(), None).as_deref(),
+                Some(why),
+                "{tail}"
+            );
+        }
     }
 
     /// `Produced$ W U` is "add {W}{U}" — two mana at once. `Combo W U` is

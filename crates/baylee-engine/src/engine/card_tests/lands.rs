@@ -4918,3 +4918,229 @@ fn undercity_sewers_enters_tapped_and_taps_for_blue_or_black() {
          resolve"
     );
 }
+
+fn idyllic_grange() -> CardIndex {
+    card_index("23d349a0-e441-40b8-b634-13e61440a7c8")
+}
+
+fn dwarven_mine() -> CardIndex {
+    card_index("74ed0bd3-ac31-41a4-8220-d8e7c8c1c437")
+}
+
+fn gingerbread_cabin() -> CardIndex {
+    card_index("fa98c367-0312-49c6-abef-72e5ead4cc7d")
+}
+
+/// The Eldraine trio: "This land enters tapped unless you control three or
+/// more other \[basics of its own type\]. When this land enters untapped, …".
+///
+/// Two sentences and they are wired to each other, which is what this plays.
+/// The count is `at_least: 3` and the "other" is the engine's, so a Grange
+/// standing beside two Plains is the third Plains and still not three
+/// *other* ones. And the second sentence is gated on the first: a land that
+/// came down tapped triggers nothing at all, which is why the token half is
+/// asserted on both sides rather than only where it appears.
+///
+/// Dwarven Mine and Gingerbread Cabin carry the half that is observable
+/// without a target — a Dwarf and a Food — while Idyllic Grange's counter
+/// wants a creature to go on, so it is played here for the tapped half.
+#[test]
+fn an_eldraine_land_wants_three_others_of_its_own_type() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(214, forest())
+        .battlefield(0, &[mountain(), mountain()])
+        .hand(0, &[dwarven_mine(), idyllic_grange()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let mine = play_land(&mut engine, p0, dwarven_mine());
+    pass_until(&mut engine, stack_is_empty);
+    assert!(
+        entered_tapped(&engine, mine),
+        "two Mountains are not three other Mountains"
+    );
+    assert!(
+        tokens_of(&engine, p0).is_empty(),
+        "a land that entered tapped makes no Dwarf"
+    );
+}
+
+/// The other side of the same sentence, one Mountain further along.
+#[test]
+fn an_eldraine_land_that_enters_untapped_makes_its_token() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(215, forest())
+        .battlefield(0, &[mountain(), mountain(), mountain()])
+        .hand(0, &[dwarven_mine()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let mine = play_land(&mut engine, p0, dwarven_mine());
+    pass_until(&mut engine, stack_is_empty);
+    assert!(
+        !entered_tapped(&engine, mine),
+        "three Mountains are three other Mountains"
+    );
+    assert_eq!(
+        tokens_of(&engine, p0).len(),
+        1,
+        "the Mine makes one Dwarf on the way in"
+    );
+}
+
+/// Gingerbread Cabin is the same rule over Forests, and it is here because
+/// the three cards read the *subtype* out of their own filter: a rule that
+/// wrote the wrong one would still pass every assertion above.
+#[test]
+fn a_gingerbread_cabin_counts_forests_and_not_lands() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(216, forest())
+        .battlefield(0, &[forest(), forest(), island()])
+        .hand(0, &[gingerbread_cabin()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let cabin = play_land(&mut engine, p0, gingerbread_cabin());
+    pass_until(&mut engine, stack_is_empty);
+    assert!(
+        entered_tapped(&engine, cabin),
+        "two Forests and an Island are not three other Forests"
+    );
+    assert!(tokens_of(&engine, p0).is_empty(), "no Food either");
+}
+
+/// The five Turbulent lands: "This land enters tapped unless your
+/// **opponents** control eight or more lands."
+///
+/// The first count in this pool that looks across the table.
+/// `controls_at_least` walks the whole battlefield and asks
+/// `eval::matches` with the land's own controller as "you", so
+/// `Filter::ControlledByOpponent` is answered from the *land's* side — and
+/// the seven lands seat 0 is standing on are the bystander that says so. Get
+/// the side wrong and every one of these five enters untapped on turn one
+/// off your own mana base.
+///
+/// Eight is also the largest `at_least` the pool has, four past the battle
+/// lands' two, so the comparison is exercised somewhere it cannot be
+/// confused with a presence test.
+///
+/// All five are played because each names its own `CardIndex`, and a cycle
+/// is exactly where one file quietly gets a neighbour's number.
+#[test]
+fn a_turbulent_land_counts_the_lands_across_the_table() {
+    const TURBULENT: &[(&str, &str, [ManaColor; 2])] = &[
+        (
+            "114dd40d-5ad8-4913-a08f-572b9521eb5b",
+            "Turbulent Fen",
+            [ManaColor::Black, ManaColor::Green],
+        ),
+        (
+            "2eb4da30-2600-4a7f-8e6c-6a090faa9a8d",
+            "Turbulent Moor",
+            [ManaColor::White, ManaColor::Black],
+        ),
+        (
+            "9aef7510-9f06-4939-8cae-f71330d1105e",
+            "Turbulent Springs",
+            [ManaColor::Blue, ManaColor::Red],
+        ),
+        (
+            "db444f9d-4dde-4308-b0f2-7acfe6de871a",
+            "Turbulent Steppe",
+            [ManaColor::Red, ManaColor::White],
+        ),
+        (
+            "bd8adca6-4f16-45f8-994a-fe55bd573bd0",
+            "Turbulent Wilderness",
+            [ManaColor::Green, ManaColor::Blue],
+        ),
+    ];
+    let p0 = PlayerId::new(0);
+    for (seed, (oracle, name, colors)) in TURBULENT.iter().enumerate() {
+        let seed = u64::try_from(seed).expect("five rows");
+        let land = card_index(oracle);
+        // Seven across the table and seven of your own: one short on the
+        // side that counts, and seven too many on the side that does not.
+        let seven = [forest(); 7];
+        let mut engine = Duel::new(300 + seed, forest())
+            .battlefield(0, &seven)
+            .battlefield(1, &seven)
+            .hand(0, &[land])
+            .start();
+        keep_mulligans(&mut engine);
+        reach_main_phase(&mut engine, p0);
+        let played = play_land(&mut engine, p0, land);
+        pass_until(&mut engine, stack_is_empty);
+        assert!(
+            entered_tapped(&engine, played),
+            "{name}: seven opponent lands are not eight"
+        );
+
+        let eight = [forest(); 8];
+        let mut engine = Duel::new(400 + seed, forest())
+            .battlefield(0, &[])
+            .battlefield(1, &eight)
+            .hand(0, &[land])
+            .start();
+        keep_mulligans(&mut engine);
+        reach_main_phase(&mut engine, p0);
+        let played = play_land(&mut engine, p0, land);
+        pass_until(&mut engine, stack_is_empty);
+        assert!(
+            !entered_tapped(&engine, played),
+            "{name}: eight opponent lands, and none of your own needed"
+        );
+
+        // And it taps. Two basic land types mean no CR 305.6 shortcut — the
+        // engine refuses to pick a colour on the player's behalf — so the
+        // whole of this land's mana is the `AddManaChoice` its card prints,
+        // and the first five of these were written without one: `Land —
+        // Swamp Forest`, `Coverage::Implemented`, and untappable.
+        // Once per colour rather than once per land: a mana ability that
+        // answers the first colour and never the second is exactly the
+        // Godless Shrine bug the CR 305.6 shortcut refuses to repeat.
+        for (i, colour) in colors.iter().enumerate() {
+            let mut engine = Duel::new(
+                500 + seed * 2 + u64::try_from(i).expect("two colours"),
+                forest(),
+            )
+            .battlefield(1, &eight)
+            .hand(0, &[land])
+            .start();
+            keep_mulligans(&mut engine);
+            reach_main_phase(&mut engine, p0);
+            let played = play_land(&mut engine, p0, land);
+            pass_until(&mut engine, stack_is_empty);
+            engine
+                .apply(
+                    p0,
+                    PlayerAction::ActivateAbility {
+                        source: played,
+                        ability_index: 0,
+                    },
+                )
+                .unwrap_or_else(|err| panic!("{name}: refused its own mana ability: {err:?}"));
+            let Pending::ChooseColor { options, .. } = engine.pending().clone() else {
+                panic!("{name}: made mana without asking which colour");
+            };
+            assert_eq!(
+                options.as_slice(),
+                colors.as_slice(),
+                "{name}: offered the wrong colours"
+            );
+            engine
+                .apply(p0, PlayerAction::ChooseColor(*colour))
+                .unwrap_or_else(|err| panic!("{name}: refused {colour:?}: {err:?}"));
+            let pool = &engine.state().players[0].mana_pool;
+            assert_eq!(pool.total(), 1, "{name}: one tap, one mana");
+            assert_eq!(
+                pool.available(*colour),
+                1,
+                "{name}: and it is the colour that was chosen"
+            );
+        }
+    }
+}
