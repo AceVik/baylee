@@ -235,6 +235,20 @@ fn amount(raw: &str, svars: &BTreeMap<String, String>, has_x: bool) -> Option<St
     Some(format!("Amount::Fixed({n})"))
 }
 
+/// `UR` as `{U/R}`, or `None` when the token is not a hybrid pair.
+///
+/// The reference runs the two letters together and the printed card puts a
+/// slash between them; `ColorPair` keeps the printed order — `{G/U}`, not
+/// `{U/G}` — so the pair is written the way it is read.
+fn hybrid_pair(token: &str) -> Option<String> {
+    let mut letters = token.chars();
+    let (Some(a), Some(b), None) = (letters.next(), letters.next(), letters.next()) else {
+        return None;
+    };
+    let colored = |c: char| "WUBRG".contains(c);
+    (colored(a) && colored(b) && a != b).then(|| format!("{{{a}/{b}}}"))
+}
+
 /// A `NumAtt`/`NumDef` value as an `Amount`.
 ///
 /// Separate from [`amount`] because a pump is the one place a *negative*
@@ -1274,6 +1288,21 @@ impl Tx<'_> {
                 mana.push('{');
                 mana.push_str(token);
                 mana.push('}');
+            } else if let Some(pair) = hybrid_pair(token) {
+                // `Cost$ UR T` is `{U/R}, {T}` — one mana of either colour
+                // (CR 107.4e), which the corpus writes as the two letters run
+                // together and this side writes with the slash the card
+                // prints. The two have to be *different* letters: `{U/U}` is
+                // not a symbol, and `ColorPair::new` asserts as much. Nothing
+                // in the reference writes a doubled pair, which is checked
+                // rather than assumed — a doubled one would be a token this
+                // rule quietly turned into a panic at compile time.
+                //
+                // Strictly two colours, so `2W` and `WP` keep refusing by
+                // name: a `{2/W}` costs *two* generic as its other half and a
+                // `{W/P}` is paid with life, and neither is what a reader
+                // that saw "two letters" would have written.
+                mana.push_str(&pair);
             } else {
                 let head = token.split('<').next().unwrap_or(token);
                 return self.deny(format!("cost `{head}`"));
@@ -4029,6 +4058,46 @@ mod tests {
                  &[Effect::UntapSelf])",
             ]
         );
+    }
+
+    /// `Cost$ UR T` is the filter cycle's price, and the letters run together.
+    ///
+    /// Three things are asserted rather than one, because a rule that saw
+    /// "two letters" would get two of them wrong:
+    ///
+    /// - the pair keeps the **printed order**, `{U/R}` and not `{R/U}`;
+    /// - `2W` and `WP` are two letters and neither is a colour pair — a
+    ///   `{2/W}` costs two generic as its other half, a `{W/P}` is paid with
+    ///   life — so both keep refusing **by name**;
+    /// - a doubled pair is not a symbol at all, and `ColorPair::new` asserts
+    ///   it, so `WW` has to be refused here rather than turned into a panic
+    ///   at the card's compile time. No reference script writes one.
+    #[test]
+    fn a_hybrid_activation_cost_keeps_the_order_the_card_prints() {
+        let body = read(
+            "Name:Cascade Bluffs\nTypes:Land\n\
+             A:AB$ Mana | Cost$ UR T | Produced$ U | SpellDescription$ Add {U}.\n",
+        );
+        assert_eq!(
+            body.abilities,
+            ["mana_ability!(cost!(\"{U/R}\", TapSelf), &[Effect::mana(ManaColor::Blue, 1)])"]
+        );
+
+        for token in ["2W", "WP", "WW", "WUB"] {
+            let script = parse(&format!(
+                "Name:X\nTypes:Land\n\
+                 A:AB$ Mana | Cost$ {token} T | Produced$ U | SpellDescription$ Add {{U}}.\n"
+            ));
+            assert!(
+                transcode(&script, &cats(), None).is_none(),
+                "`{token}` is not a colour pair"
+            );
+            assert_eq!(
+                refusal_reason(&script, &cats(), None).as_deref(),
+                Some(format!("cost `{token}`").as_str()),
+                "and it refuses by its own name rather than by the rule's"
+            );
+        }
     }
 
     /// `Cost$ Return<1/Forest>` is a permanent the *player* names, so it
