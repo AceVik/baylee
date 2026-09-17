@@ -1120,7 +1120,8 @@ impl Tx<'_> {
     fn cost_expr(&mut self, raw: &str) -> Option<String> {
         let mut mana = String::new();
         let mut parts: Vec<String> = Vec::new();
-        for token in raw.split_whitespace() {
+        for token in cost_parts(raw) {
+            let token = token.as_str();
             if token == "T" {
                 parts.push("TapSelf".to_string());
             } else if token == "Q" {
@@ -2040,6 +2041,52 @@ impl Tx<'_> {
         ));
         Some(())
     }
+}
+
+/// A `Cost$` value split into its parts.
+///
+/// Whitespace separates the parts of a cost — and it also appears *inside*
+/// one, because the corpus's bracketed forms carry its own interface prose
+/// as their last field: `Sac<1/CARDNAME/this artifact>`,
+/// `Return<1/Forest/a Forest>`, `Discard<1/Card/a card>`. A plain
+/// `split_whitespace` cuts those in half, and the half that is left over
+/// then refuses the card under a cost part nobody wrote, reported as
+/// "artifact>".
+/// **731** of the reference's costs and 20 of its token scripts' contain such
+/// a space, Treasure's among them, and every one of them was being read as
+/// two parts.
+///
+/// So the split happens at bracket depth zero only. Nesting is counted
+/// rather than merely flagged, because a cost's brackets do nest —
+/// `tapXType<2/Creature.untapped/untapped creature>` is the shallow case and
+/// a valid-string carrying its own `<…>` the deeper one — and a boolean
+/// would close the first bracket on the innermost `>`.
+fn cost_parts(raw: &str) -> Vec<String> {
+    let mut out = Vec::new();
+    let mut depth = 0usize;
+    let mut part = String::new();
+    for c in raw.chars() {
+        match c {
+            '<' => {
+                depth += 1;
+                part.push(c);
+            }
+            '>' => {
+                depth = depth.saturating_sub(1);
+                part.push(c);
+            }
+            _ if c.is_whitespace() && depth == 0 => {
+                if !part.is_empty() {
+                    out.push(std::mem::take(&mut part));
+                }
+            }
+            _ => part.push(c),
+        }
+    }
+    if !part.is_empty() {
+        out.push(part);
+    }
+    out
 }
 
 /// A filter expression with "and it is on the battlefield" added to it.
@@ -3419,6 +3466,60 @@ mod tests {
             itself.statics.is_empty(),
             "the source needs no filter: {}",
             itself.statics
+        );
+    }
+
+    /// A bracketed cost carries the reference's own prose as its last field,
+    /// and that prose has spaces in it. Splitting the cost on whitespace cut
+    /// the part in two and refused the card under the leftover, reported as
+    /// the cost "artifact>" — which is a part nobody wrote and a card nobody
+    /// could have fixed. 731 of the reference's costs are written this way.
+    ///
+    /// The counter-test is the point of the second half: a sacrifice of
+    /// something other than the source is still unread, and reads as
+    /// `Sac` — the 206-script bucket the report already names. A tokeniser
+    /// fix that moved that number would be a tokeniser fix that started
+    /// reading costs.
+    #[test]
+    fn a_cost_is_not_split_inside_its_own_brackets() {
+        let body = read(
+            "Name:X\nManaCost:no cost\nTypes:Artifact\n\
+             A:AB$ GainLife | Cost$ 2 T Sac<1/CARDNAME/this artifact> | LifeAmount$ 3\n",
+        );
+        assert_eq!(
+            body.abilities,
+            ["activated!(cost!(\"{2}\", TapSelf, SacrificeSelf), &[Effect::gain_life(3)])"]
+        );
+
+        let quirion = read(
+            "Name:Quirion Ranger\nManaCost:G\nTypes:Creature Elf Ranger\nPT:1/1\n\
+             A:AB$ Untap | Cost$ Return<1/Forest/a Forest> | ValidTgts$ Creature\n",
+        );
+        assert!(
+            quirion
+                .statics
+                .contains("Filter::HasSubtype(subtypes::land::FOREST)"),
+            "{}",
+            quirion.statics
+        );
+
+        let svars = BTreeMap::new();
+        let cats = cats();
+        let mut tx = Tx {
+            svars: &svars,
+            cats: &cats,
+            tokens: None,
+            body: CardBody::default(),
+            unclaimed: std::cell::RefCell::new(None),
+        };
+        assert!(
+            tx.cost_expr("1 Sac<1/Creature.Other/another creature>")
+                .is_none()
+        );
+        assert_eq!(
+            tx.unclaimed.into_inner().as_deref(),
+            Some("cost `Sac`"),
+            "a sacrifice of something else is still unread, and says so"
         );
     }
 
