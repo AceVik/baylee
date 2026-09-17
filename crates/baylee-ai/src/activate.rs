@@ -38,9 +38,19 @@ use baylee_view::{Phase, PlayerView};
 /// stays in the order anyway, because this function is the whole policy and
 /// a test of it should not depend on a caller's step numbering.
 #[must_use]
-pub(crate) fn choose(view: &PlayerView, legal: &LegalActions) -> Option<(ObjectId, u32)> {
+pub(crate) fn choose(
+    view: &PlayerView,
+    legal: &LegalActions,
+    agent: &crate::HeuristicAgent,
+) -> Option<(ObjectId, u32)> {
     fetch(view, legal)
-        .or_else(|| loyalty(view, legal))
+        .or_else(|| {
+            if agent.profile.lookahead > 0 {
+                thoughtful_loyalty(view, legal, agent)
+            } else {
+                loyalty(view, legal)
+            }
+        })
         .or_else(|| useful(view, legal))
 }
 
@@ -313,6 +323,38 @@ fn loyalty(view: &PlayerView, legal: &LegalActions) -> Option<(ObjectId, u32)> {
         }
     }
     best.map(|(handle, _)| handle)
+}
+
+/// Price the actual effect and the loyalty spent. Removal can save a walker
+/// or its controller; a large plus that does nothing cannot compete with it.
+fn thoughtful_loyalty(
+    view: &PlayerView,
+    legal: &LegalActions,
+    agent: &crate::HeuristicAgent,
+) -> Option<(ObjectId, u32)> {
+    legal
+        .abilities
+        .iter()
+        .copied()
+        .filter_map(|(source, index)| {
+            let AbilityDef::Loyalty { cost, effects, .. } = printed(view, source, index)? else {
+                return None;
+            };
+            let mut value = agent.effect_value(view, effects) + i64::from(*cost) * 45;
+            let loyalty = view.object(source).map_or(0, |o| {
+                o.counters
+                    .iter()
+                    .filter(|c| c.kind == baylee_view::CounterKind::Loyalty)
+                    .map(|c| u32::from(c.count))
+                    .sum::<u32>()
+            });
+            if *cost < 0 && loyalty == u32::from(cost.unsigned_abs()) {
+                value -= 300;
+            }
+            (value > 0).then_some((value, (source, index)))
+        })
+        .max_by_key(|(value, handle)| (*value, std::cmp::Reverse(*handle)))
+        .map(|(_, handle)| handle)
 }
 
 /// Anything else the whitelist recognises.

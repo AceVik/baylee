@@ -144,6 +144,103 @@ fn combat_first_strike_must_be_blocked_before_lifelink_can_happen() {
     assert!(!matches!(engine.pending(), Pending::GameOver(_)));
 }
 
+#[test]
+fn selected_effect_context_routes_positive_and_negative_counters_in_the_engine() {
+    use baylee_cards_dsl::{
+        AbilityDef, Amount, CardDef, CounterKind, Effect, FaceDef, TargetReq, TargetSpec,
+    };
+    use baylee_core::ids::{CardIndex, PrintRef};
+    for (kind, controller) in [(CounterKind::P1P1, 0), (CounterKind::M1M1, 1)] {
+        let spell = Box::leak(Box::new(CardDef {
+            index: CardIndex::new(90_003),
+            faces: Box::leak(Box::new([FaceDef {
+                name: "Counter direction fixture",
+                mana_cost: baylee_core::mana::ManaCost::from_symbol(
+                    baylee_core::mana::ManaSymbol::Generic(0),
+                ),
+                types: baylee_core::types::TypeSet::SORCERY,
+                ..FaceDef::DEFAULT
+            }])),
+            abilities: Box::leak(Box::new([AbilityDef::Spell {
+                effects: Box::leak(Box::new([Effect::AddCounter {
+                    kind,
+                    amount: Amount::Fixed(1),
+                }])),
+                targets: Some(TargetReq::one(TargetSpec::Object(
+                    &baylee_cards_dsl::Filter::CREATURE,
+                ))),
+            }])),
+            ..CardDef::DEFAULT
+        }));
+        let object = |index| DeckEntry {
+            card: CardIndex::new(index),
+            print: PrintRef::new(0),
+        };
+        let mut preset = position(&[], &[]);
+        preset.seats[0].starting_hand = Some(vec![object(90_003)]);
+        preset.seats[0].starting_battlefield = vec![object(90_000)];
+        preset.seats[1].starting_battlefield = vec![object(90_001)];
+        let lookup = CombatCards(vec![
+            spell,
+            combat_card(90_000, 2, 2, baylee_cards_dsl::KeywordSet::EMPTY),
+            combat_card(90_001, 4, 4, baylee_cards_dsl::KeywordSet::EMPTY),
+        ]);
+        let mut engine = Engine::new(&preset, lookup).unwrap();
+        let agent = HeuristicAgent::new(AIProfile::EXPERT);
+        let mut targeted = false;
+        let mut resolved = false;
+        for seq in 0..80 {
+            let pending = engine.pending();
+            let seat = pending_player(pending).expect("fixture stays live");
+            let view = player_view(engine.state(), seat, Some(seat), seq, Some(pending), false);
+            if view
+                .battlefield
+                .iter()
+                .any(|o| o.controller == PlayerId::new(controller) && !o.counters.is_empty())
+            {
+                resolved = true;
+                break;
+            }
+            let action = match pending {
+                Pending::Mulligan { .. } => PlayerAction::MulliganKeep,
+                Pending::Priority { legal, .. }
+                    if !targeted && seat == PlayerId::new(0) && !legal.castable.is_empty() =>
+                {
+                    PlayerAction::CastSpell {
+                        card: legal.castable[0],
+                    }
+                }
+                Pending::ChooseTargets { .. } => {
+                    let context = engine.decision_context();
+                    assert_eq!(
+                        context.effects,
+                        spell
+                            .abilities
+                            .iter()
+                            .find_map(|a| match a {
+                                AbilityDef::Spell { effects, .. } => Some(*effects),
+                                _ => None,
+                            })
+                            .unwrap()
+                    );
+                    targeted = true;
+                    agent.act_with_context(&view, pending, &context)
+                }
+                Pending::Priority { .. } => PlayerAction::PassPriority,
+                _ => agent.act_with_context(&view, pending, &engine.decision_context()),
+            };
+            engine
+                .apply(seat, action)
+                .expect("counter decision is legal");
+        }
+        assert!(
+            targeted && resolved,
+            "counter must reach the intended side: {kind:?}, targeted={targeted}, pending={:?}",
+            engine.pending()
+        );
+    }
+}
+
 fn combat_after_expert_blocks(
     cards: Vec<&'static baylee_cards_dsl::CardDef>,
     life: i32,

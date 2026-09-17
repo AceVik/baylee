@@ -18,6 +18,7 @@ mod activate;
 pub mod combat;
 mod policy;
 pub mod search;
+mod tactics;
 
 use baylee_core::ids::{Defender, ObjectId, PlayerId};
 pub use baylee_core::preset::AIProfile;
@@ -115,7 +116,25 @@ impl HeuristicAgent {
         if let Pending::Priority { legal, .. } = pending {
             return self.priority(view, legal);
         }
-        self.choice(view, pending.clone())
+        self.choice(
+            view,
+            pending.clone(),
+            &baylee_engine::engine::DecisionContext::default(),
+        )
+    }
+
+    /// Answers with the engine's explanation of the selected spell or ability.
+    #[must_use]
+    pub fn act_with_context(
+        &self,
+        view: &PlayerView,
+        pending: &Pending,
+        context: &baylee_engine::engine::DecisionContext<'_>,
+    ) -> PlayerAction {
+        if let Pending::Priority { legal, .. } = pending {
+            return self.priority(view, legal);
+        }
+        self.choice(view, pending.clone(), context)
     }
 
     fn priority(
@@ -156,7 +175,7 @@ impl HeuristicAgent {
         //    unaffordable when the seat next has priority.
         //    `activate::choose` refuses the free shape and takes
         //    the rest by an explicit whitelist.
-        if let Some((source, ability_index)) = activate::choose(view, legal) {
+        if let Some((source, ability_index)) = activate::choose(view, legal, self) {
             return PlayerAction::ActivateAbility {
                 source,
                 ability_index,
@@ -166,7 +185,12 @@ impl HeuristicAgent {
     }
 
     #[allow(clippy::too_many_lines)] // the pending taxonomy is one flat table
-    fn choice(&self, view: &PlayerView, pending: Pending) -> PlayerAction {
+    fn choice(
+        &self,
+        view: &PlayerView,
+        pending: Pending,
+        context: &baylee_engine::engine::DecisionContext<'_>,
+    ) -> PlayerAction {
         let player = view.seat;
         match pending {
             Pending::Mulligan {
@@ -306,6 +330,11 @@ impl HeuristicAgent {
                 max,
                 ..
             } => {
+                if let Some(action) =
+                    self.targets(view, &options, &player_options, min, max, context)
+                {
+                    return action;
+                }
                 // An opponent's permanents first, everything else after: the
                 // count may force a teammate's creature (a spell with two
                 // required targets and one enemy on the board is still cast),
@@ -370,14 +399,9 @@ impl HeuristicAgent {
                 PlayerAction::ChooseTargets { objects, players }
             }
             Pending::ChooseSubtype { options, .. } => {
-                // Ally tribal decks: prefer ALLY, else the first type.
-                let ally = baylee_core::generated::subtypes::creature::ALLY;
-                PlayerAction::ChooseSubtype(if options.contains(&ally) {
-                    ally
-                } else {
-                    options[0]
-                })
+                PlayerAction::ChooseSubtype(Self::subtype(view, &options))
             }
+
             Pending::ChooseColor { options, .. } => {
                 PlayerAction::ChooseColor(self.color(view, &options))
             }
@@ -553,6 +577,122 @@ mod tests {
             types: face.types,
             commander: false,
         }
+    }
+
+    #[test]
+    fn third_iteration_subtype_follows_the_cards_being_played() {
+        use baylee_core::generated::subtypes::creature::{ALLY, BIRD};
+        let mut v = view(0, &[20, 20], vec![]);
+        v.hand = vec![hand_card(1, "Baleful Strix")];
+        assert_eq!(
+            HeuristicAgent::new(AIProfile::EXPERT).act(
+                &v,
+                &Pending::ChooseSubtype {
+                    player: v.seat,
+                    options: vec![ALLY, BIRD]
+                }
+            ),
+            PlayerAction::ChooseSubtype(BIRD)
+        );
+    }
+
+    #[test]
+    fn third_iteration_jace_bounces_a_threat_instead_of_blindly_ticking_up() {
+        let jace = carded(
+            permanent(obj(1), PlayerId::new(0), 0),
+            "Jace, the Mind Sculptor",
+            TypeSet::PLANESWALKER,
+        );
+        let v = view(
+            0,
+            &[5, 20],
+            vec![jace, permanent(obj(2), PlayerId::new(1), 6)],
+        );
+        let legal = baylee_engine::choice::LegalActions {
+            abilities: vec![(obj(1), 0), (obj(1), 1), (obj(1), 2)],
+            ..Default::default()
+        };
+        assert_eq!(
+            HeuristicAgent::new(AIProfile::EXPERT).act(
+                &v,
+                &Pending::Priority {
+                    player: v.seat,
+                    legal: Box::new(legal)
+                }
+            ),
+            PlayerAction::ActivateAbility {
+                source: obj(1),
+                ability_index: 2
+            }
+        );
+    }
+
+    #[test]
+    fn third_iteration_counter_sign_decides_which_team_to_target() {
+        use baylee_cards_dsl::{Amount, CounterKind as Counter, Effect};
+        use baylee_engine::engine::DecisionContext;
+        let v = view(
+            0,
+            &[20, 20],
+            vec![
+                permanent(obj(1), PlayerId::new(1), 6),
+                permanent(obj(2), PlayerId::new(0), 4),
+            ],
+        );
+        let pending = Pending::ChooseTargets {
+            player: v.seat,
+            options: vec![obj(1), obj(2)],
+            player_options: vec![],
+            min: 1,
+            max: 1,
+            reason: baylee_engine::choice::TargetPrompt::Targets,
+        };
+        for (kind, expected) in [(Counter::P1P1, obj(2)), (Counter::M1M1, obj(1))] {
+            let effects = [Effect::AddCounter {
+                kind,
+                amount: Amount::Fixed(1),
+            }];
+            let context = DecisionContext {
+                effects: &effects,
+                ..Default::default()
+            };
+            assert_eq!(
+                HeuristicAgent::new(AIProfile::EXPERT).act_with_context(&v, &pending, &context),
+                PlayerAction::ChooseTargets {
+                    objects: vec![expected],
+                    players: vec![]
+                }
+            );
+        }
+    }
+
+    #[test]
+    fn third_iteration_burn_finishes_the_player_before_killing_a_creature() {
+        use baylee_cards_dsl::{Amount, Effect, TargetSpec};
+        let v = view(0, &[20, 3], vec![permanent(obj(1), PlayerId::new(1), 1)]);
+        let effects = [Effect::DealDamage {
+            amount: Amount::Fixed(3),
+            target: TargetSpec::AnyTarget,
+        }];
+        let context = baylee_engine::engine::DecisionContext {
+            effects: &effects,
+            ..Default::default()
+        };
+        let pending = Pending::ChooseTargets {
+            player: v.seat,
+            options: vec![obj(1)],
+            player_options: vec![v.seat, PlayerId::new(1)],
+            min: 1,
+            max: 1,
+            reason: baylee_engine::choice::TargetPrompt::Targets,
+        };
+        assert_eq!(
+            HeuristicAgent::new(AIProfile::EXPERT).act_with_context(&v, &pending, &context),
+            PlayerAction::ChooseTargets {
+                objects: vec![],
+                players: vec![PlayerId::new(1)]
+            }
+        );
     }
 
     #[test]

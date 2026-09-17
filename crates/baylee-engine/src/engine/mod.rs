@@ -604,6 +604,8 @@ impl<L: CardLookup> Engine<L> {
 }
 
 mod abilities;
+mod decision;
+pub use decision::DecisionContext;
 mod actions;
 mod cast_wizard;
 mod cost_wizard;

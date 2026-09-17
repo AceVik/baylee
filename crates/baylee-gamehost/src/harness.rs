@@ -212,6 +212,7 @@ pub fn play_game<L: CardLookup>(
 /// # Panics
 /// When the engine refuses an ability it had just offered, or when
 /// `agents` does not have one agent per seat.
+#[allow(clippy::too_many_lines)] // one loop owns the counters, failure accounting and trace
 pub fn play_report<L: CardLookup>(
     lookup: L,
     preset: &GamePreset,
@@ -285,7 +286,11 @@ pub fn play_report<L: CardLookup>(
             Some(&pending),
             engine.automation(player).hold.suppresses(),
         );
-        let action = agents[player.get() as usize].act(&view, &pending);
+        let action = agents[player.get() as usize].act_with_context(
+            &view,
+            &pending,
+            &engine.decision_context(),
+        );
         if trail.len() == TRAIL {
             trail.remove(0);
         }

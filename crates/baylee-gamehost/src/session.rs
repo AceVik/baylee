@@ -476,7 +476,7 @@ impl Session {
                         Some(&pending),
                         self.engine.automation(player).hold.suppresses(),
                     );
-                    agent.act(&view, &pending)
+                    agent.act_with_context(&view, &pending, &self.engine.decision_context())
                 }
                 // Both answer over a socket, so `pump` returned above.
                 SeatKind::Human | SeatKind::Driven(_) => unreachable!(),
