@@ -167,7 +167,7 @@ impl<L: CardLookup> Engine<L> {
             self.sync_static_effects();
             self.state.refresh_characteristics();
             // 0b. As-it-enters modifiers (taplands, shockland choices).
-            let entered = self.apply_enter_modifiers();
+            let wrote = self.apply_enter_modifiers();
             if self.awaiting_answer {
                 return;
             }
@@ -182,7 +182,7 @@ impl<L: CardLookup> Engine<L> {
             // once is the whole fix: the scan advances `entry_scan_seq`
             // before it does any work, so the next pass finds no arrivals
             // and falls through.
-            if entered {
+            if wrote {
                 continue;
             }
             // 1. Game over?
@@ -496,7 +496,12 @@ impl<L: CardLookup> Engine<L> {
 
     /// Applies as-it-enters-the-battlefield modifiers to permanents that
     /// entered since the last scan (CR 614.1c/d; taplands, shocklands).
-    /// Returns whether anything changed (for legal-list recomputation).
+    /// Returns whether a modifier wrote to the board, which the caller reads
+    /// twice over: the legal lists are recomputed from it, and the machine
+    /// goes round one more pass. The second is the load-bearing one — this
+    /// runs *after* the projection two steps up, so a counter placed here is
+    /// invisible to the state-based actions two steps down until they have
+    /// been refreshed once more.
     #[allow(clippy::too_many_lines)] // the entry-modifier table is naturally flat
     pub(crate) fn apply_enter_modifiers(&mut self) -> bool {
         use baylee_cards_dsl::EnterModifier;
