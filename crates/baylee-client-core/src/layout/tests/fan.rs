@@ -189,3 +189,44 @@ fn a_card_past_the_end_of_the_fan_lands_on_the_bottom_rung() {
     assert_eq!(none.at, slot.pile_center(PileKind::Graveyard));
     assert!((none.lift - FAN_FLOAT).abs() < 1e-6);
 }
+
+/// A whole zone count must not turn a seven-card glance into a table-wide
+/// spread. Both the travel and the rotated silhouette stay in the pile strip.
+#[test]
+fn the_fan_has_a_bounded_silhouette_even_for_a_whole_library() {
+    for n in [2, 3, 4, 6, 8] {
+        let layout = TableLayout::new(&seats(n), 2.0, None);
+        for slot in &layout.slots {
+            for pile in PileKind::ALL {
+                let bottom = slot.fan_pose(pile, FAN_MAX - 1, FAN_MAX, false);
+                assert_eq!(slot.fan_pose(pile, usize::MAX, usize::MAX, false), bottom);
+                for len in 1..=FAN_MAX {
+                    for rung in 0..len {
+                        let pose = slot.fan_pose(pile, rung, len, false);
+                        assert!(pose.at.distance(slot.pile_center(pile)) <= 1.69);
+                        assert!((0.09..=0.41).contains(&pose.lift));
+                        assert!(pose.yaw.abs() <= 0.14);
+                        let half_width = (CARD_WIDTH * pose.yaw.cos().abs())
+                            .midpoint(CARD_HEIGHT * pose.yaw.sin().abs());
+                        assert!(PILE_REACH - half_width >= 0.85);
+                        assert!(half_width + FAN_POP <= 0.90);
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// Turning cards in their own planes leaves their normals parallel. The
+/// depth step must beat the rise along that normal, keeping the newest on top.
+#[test]
+fn each_fan_rung_clears_the_next_card_along_its_normal() {
+    let layout = TableLayout::new(&seats(4), 2.0, None);
+    for slot in &layout.slots {
+        let top = slot.fan_pose(PileKind::Graveyard, 0, FAN_MAX, false);
+        let next = slot.fan_pose(PileKind::Graveyard, 1, FAN_MAX, false);
+        let separation = top.at.distance(next.at) * top.tilt.sin().abs()
+            - (next.lift - top.lift) * top.tilt.cos();
+        assert!((0.08..=0.11).contains(&separation));
+    }
+}

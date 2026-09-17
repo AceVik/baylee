@@ -276,11 +276,25 @@ fn stack_layers(under: usize) -> usize {
 /// `card_ui.wgsl`, which moved no card at all (`sheen.rs`). `docs/client.md`
 /// ("The pointer only speaks when it moves") has the measurements that tell
 /// the three apart, and is normative on which is which.
-const HOVER_LIFT: f32 = 0.06;
+const HOVER_LIFT: f32 = 0.05;
 const HOVER_SCALE: f32 = 1.06;
 /// Lift and scale for a card chosen for the pending choice (clearly "in").
-const SELECTED_LIFT: f32 = 0.12;
+const SELECTED_LIFT: f32 = 0.10;
 const SELECTED_SCALE: f32 = 1.12;
+
+/// The steepest shot the camera ever takes.
+///
+/// Every bound below divides by the lean, so each of them is hardest to
+/// satisfy at the steepest one — and since a wide duel blends towards
+/// [`DUEL_LEAN`], checking them at [`CAMERA_LEAN`] would be checking them at
+/// the shot a **desktop duel does not use**. They were written when the lean
+/// was one number; naming the maximum is what keeps them about the camera
+/// rather than about a constant that used to be the whole answer.
+const STEEPEST_LEAN: f32 = if DUEL_LEAN > CAMERA_LEAN {
+    DUEL_LEAN
+} else {
+    CAMERA_LEAN
+};
 
 /// The most a card may rise, for a given growth, without any part of the
 /// footprint it started with leaving the pointer.
@@ -291,14 +305,21 @@ const SELECTED_SCALE: f32 = 1.12;
 /// end up aligned with. Taking the smaller of the two is what makes the bound
 /// hold at every seat instead of only at the near one.
 const fn covered_lift(scale: f32) -> f32 {
-    (CARD_WIDTH / 2.0) * (scale - 1.0) / CAMERA_LEAN
+    (CARD_WIDTH / 2.0) * (scale - 1.0) / STEEPEST_LEAN
 }
+// At `DUEL_LEAN` the cap is exactly `scale - 1`, because a card is one unit
+// wide and 0.5 is precisely the lean at which a rise stops being covered by
+// its growth. The shipped lifts sat *on* that line — 0.06 against a cap of
+// 0.06, 0.12 against 0.12 — which is not a margin, and in `f32` the first of
+// them landed on the wrong side of it by one part in a million. So the lifts
+// came down a second time, to a fifth of the growth in hand: what a steeper
+// shot has to buy is headroom, not another equality.
 const _: () = assert!(HOVER_LIFT <= covered_lift(HOVER_SCALE));
 const _: () = assert!(SELECTED_LIFT <= covered_lift(SELECTED_SCALE));
 // Hover to selected is a rise as well, so the step between them is bound by
 // the growth between them and not by either pair on its own.
 const _: () = assert!(
-    (SELECTED_LIFT - HOVER_LIFT) * CAMERA_LEAN
+    (SELECTED_LIFT - HOVER_LIFT) * STEEPEST_LEAN
         <= (CARD_WIDTH / 2.0) * (SELECTED_SCALE - HOVER_SCALE)
 );
 
@@ -312,7 +333,7 @@ const _: () = assert!(
 // sitting still, which is `airborne::SWAY` and is a fiftieth of a card's
 // width. The renderer holds it still under the pointer as well — see
 // `sync_scene` — so this is the belt to that pair of braces.
-const _: () = assert!(airborne::SWAY * CAMERA_LEAN < CARD_WIDTH / 20.0);
+const _: () = assert!(airborne::SWAY * STEEPEST_LEAN < CARD_WIDTH / 20.0);
 // And a card the player has chosen must never stand higher than a creature in
 // the air: two claims about height that mean different things must not be able
 // to trade places.
@@ -452,7 +473,17 @@ impl CameraRig {
         let Some((min, max)) = layout.extent() else {
             return Self::default();
         };
-        let (min, max) = (min - Vec2::splat(AIR), max + Vec2::splat(AIR));
+        // A wide duel can show the table's depth without foreshortening side
+        // seats. Blend in as the window grows; rings and small windows keep
+        // the readable plan view and its breathing room.
+        let framing = if layout.slots.len() == 2 && canvas.aspect() >= 1.4 {
+            ((canvas.window.x - 800.0) / 480.0).clamp(0.0, 1.0)
+        } else {
+            0.0
+        };
+        let tilt = CAMERA_LEAN + (DUEL_LEAN - CAMERA_LEAN) * framing;
+        let air = AIR - 0.5 * framing;
+        let (min, max) = (min - Vec2::splat(air), max + Vec2::splat(air));
         let span = max - min;
 
         // The free band, as normalised device coordinates: +1 is the top of
@@ -465,8 +496,8 @@ impl CameraRig {
         // Vertically this is exact: `ground` is linear in the eye distance,
         // so the distance at which the table's far edge lands on `top` and
         // its near edge on `bottom` is one division.
-        let g_top = ground(top);
-        let g_bottom = ground(bottom);
+        let g_top = ground(top, tilt);
+        let g_bottom = ground(bottom, tilt);
         let deep = span.y / (g_top - g_bottom).max(1e-3);
         // Horizontally, every corner is asked, and each one asks about its own
         // depth. A perspective camera sees less of the felt where the felt is
@@ -482,10 +513,10 @@ impl CameraRig {
         // both, so each *pair* gives a division and the widest pair wins.
         let mean = f32::midpoint(g_top, g_bottom);
         let middle = f32::midpoint(min.y, max.y);
-        let k = CAMERA_LEAN / (1.0 + CAMERA_LEAN * CAMERA_LEAN).sqrt();
+        let k = tilt / (1.0 + tilt * tilt).sqrt();
         let scale = (half_fov().tan() * aspect).max(1e-3);
         let carry = k.mul_add(mean, 1.0);
-        let corners = layout.corners(AIR);
+        let corners = layout.corners(air);
         let mut wide: f32 = 0.0;
         for a in &corners {
             for b in &corners {
@@ -503,7 +534,7 @@ impl CameraRig {
         // tab strip. Clamped first, a table too big for `MAX_DISTANCE` keeps
         // its far edge pinned and overflows at the bottom, which is the
         // graceful direction.
-        let lean = (1.0 + CAMERA_LEAN * CAMERA_LEAN).sqrt();
+        let lean = (1.0 + tilt * tilt).sqrt();
         let eye = deep
             .max(wide)
             .clamp(Self::MIN_DISTANCE * lean, Self::MAX_DISTANCE * lean);
@@ -549,11 +580,7 @@ impl CameraRig {
             // Table space to world: `+y` away from the local seat is `-z`.
             target: Vec2::new(look.x, -look.y),
             yaw: 0.0,
-            // Every line above was solved at `CAMERA_LEAN`, so this is the
-            // one answer it can give. A shot the player has tilted is a shot
-            // they have taken over, and `frame_table` has stopped writing
-            // here by then.
-            lean: CAMERA_LEAN,
+            lean: tilt,
         }
     }
 }
@@ -573,10 +600,9 @@ impl CameraRig {
 /// being displayed. It is also roughly where [`GLOW_SPREAD`] fades out, so the
 /// halo under an active seat's mat stays in frame with it.
 ///
-/// It went from 2.0 to this when the sky arrived, and the cost was measured
-/// rather than guessed: a card is drawn about nine per cent smaller, and what
-/// it buys is a table standing in a room instead of a surface filling the
-/// window. Everything past [`SLAB_MARGIN`] is sky.
+/// Wide duels bring this down to three units, keeping the leather rail and
+/// a little sky visible. Smaller windows and rings retain the full margin
+/// to preserve their readability. Everything past [`SLAB_MARGIN`] is sky.
 const AIR: f32 = 3.5;
 const _: () = assert!(AIR > ZONE_MARGIN);
 
@@ -591,7 +617,7 @@ fn half_fov() -> f32 {
 /// Take `s` to be table-space distance from the look point along the
 /// screen-vertical, positive away from the local seat, and `q` to be
 /// normalised device y. With the eye at distance `D` and the lean written as
-/// `L` = [`CAMERA_LEAN`], `C = 1/√(1+L²)`, the camera-space depth and height
+/// `L`, `C = 1/√(1+L²)`, the camera-space depth and height
 /// of that point work out to
 ///
 /// ```text
@@ -600,12 +626,12 @@ fn half_fov() -> f32 {
 ///
 /// — the cross terms cancel, which is the whole reason this is arithmetic and
 /// not a projection matrix. So `q = height / (depth · tan(fov/2))`, and solved
-/// the other way `s = D · ground(q)`. Being *linear in `D`* is what lets
+/// the other way `s = D · ground(q, L)`. Being *linear in `D`* is what lets
 /// [`CameraRig::home`] invert it with a division instead of a search.
-fn ground(q: f32) -> f32 {
+fn ground(q: f32, lean: f32) -> f32 {
     let t = half_fov().tan();
-    let c = 1.0 / (1.0 + CAMERA_LEAN * CAMERA_LEAN).sqrt();
-    q * t / (c * q.mul_add(-CAMERA_LEAN * t, 1.0))
+    let c = 1.0 / (1.0 + lean * lean).sqrt();
+    q * t / (c * q.mul_add(-lean * t, 1.0))
 }
 
 /// The part of the window the table is actually seen through.
@@ -786,6 +812,9 @@ pub fn frame_table(
 /// all. So the angle is paid for in width and in nothing else, which is the
 /// honest way to sell it.
 const CAMERA_LEAN: f32 = 0.36;
+
+/// About 27° off vertical for a wide duel; rings retain [`CAMERA_LEAN`].
+const DUEL_LEAN: f32 = 0.50;
 
 /// The camera's vertical field of view, in radians.
 ///
@@ -1050,8 +1079,8 @@ pub struct CardVisual {
 /// It exists because something finally had to **point** at a card rather than
 /// be one. The ability sheet stands beside a permanent for as long as a player
 /// is reading it, and anchored to the live pose it was dragged about by the
-/// 0.06 units and 6% the pointer lifts a card by: a sheet that jumped whenever
-/// the hand moved across the thing it was describing.
+/// [`HOVER_LIFT`] and [`HOVER_SCALE`] the pointer applies to a card: a sheet
+/// that jumped whenever the hand moved across the thing it was describing.
 ///
 /// Nothing *draws* from it, which is what keeps it from being a second opinion
 /// about where a card is — [`Motion::target`] is still the only one.
@@ -3028,19 +3057,14 @@ pub fn sync_scene(
         .materials
         .retain(|look, _| look.sweep.is_none_or(|s| sheen.live(s)));
 
-    // The back is a picture and a picture arrives late, so the one material
-    // every hidden card wears is dressed in it here rather than built with it
-    // in `spawn_stage`. In place, and that is the point: a library stack, the
-    // depth behind a counted group and a card this seat may not see all hold
-    // *this* handle, some of them spawned once and never visited again, so
-    // handing them a new material would mean finding them all. Changing the
-    // one they share turns every card over at once.
+    // One original sleeve for the library, its fan and all shared hidden
+    // slabs. Dress the resident material in place: some stacks spawn once
+    // and are never visited again. Downloaded printing art cannot replace it.
     if !index.back_dressed
-        && textures.card_back_is_printed()
         && let Some(handle) = blank.as_ref()
         && let Some(mut material) = card_materials.get_mut(handle)
     {
-        dress_in_the_back(&mut material, textures.card_back());
+        dress_in_the_back(&mut material, textures.procedural_back());
         index.back_dressed = true;
     }
 

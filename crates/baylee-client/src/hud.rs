@@ -1007,6 +1007,29 @@ pub(crate) mod palette {
     /// Soft shadow under raised elements.
     pub const SHADOW: Color = Color::srgba(0.0, 0.0, 0.0, 0.55);
 
+    /// Midnight mineral leather, shared by the hand dock and seat furniture.
+    pub const DOCK_GROUND: Color = Color::srgb(0.055, 0.075, 0.090);
+    /// Aged champagne bevels: ornament, not an invitation to act.
+    pub const DOCK_EDGE: Color = Color::srgb(0.48, 0.43, 0.33);
+    /// Warm ivory engraved into the dark furniture.
+    pub const DOCK_INK: Color = Color::srgb(0.94, 0.91, 0.83);
+    /// The five stationary inlays, in WUBRG order; never a rules signal.
+    pub const DOCK_INLAYS: [Color; 5] = [
+        Color::srgb(0.72, 0.68, 0.52),
+        Color::srgb(0.24, 0.45, 0.61),
+        Color::srgb(0.43, 0.35, 0.50),
+        Color::srgb(0.62, 0.32, 0.25),
+        Color::srgb(0.29, 0.49, 0.39),
+    ];
+    /// Recessed backing within a seat bar's measured ink bounds.
+    pub const SEAT_BACKING: Color = Color::srgba(0.055, 0.075, 0.090, 0.94);
+    /// The shallow channel carrying a whole phase, not an individual button.
+    pub const SEAT_TRACK: Color = Color::srgba(0.015, 0.024, 0.032, 0.62);
+    /// Small standing-stop accent, distinct from the current phase's gold fill.
+    pub const SEAT_STOP: Color = Color::srgb(0.88, 0.83, 0.69);
+    /// Pointer feedback on a phase tile; not a standing-order fill.
+    pub const SEAT_STEP_HOVER: Color = Color::srgba(0.88, 0.83, 0.69, 0.10);
+
     /// Parchment, matching the middle of
     /// [`tabletop::parchment`](baylee_client_core::tabletop::parchment) —
     /// and, since this value, the card shader's own `PARCHMENT`.

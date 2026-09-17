@@ -74,6 +74,42 @@ and that the face sits on top of the slab rather than level with it.
 
 ## The table itself
 
+### September 2026 material direction
+
+The current treatment is **midnight mineral cloth, aged champagne metal and
+five-colour inlay**, replacing the casino-green material described in the
+historical rationale below. The slab and play lanes retain their measured
+footprints: a material redesign must not silently move the cards, pile
+hitboxes or projected seat shelves.
+
+`felt.wgsl` adds a restrained mineral vein, brushed rail, twin engraved
+circuits, inset colour segments and tooling around the centre medallion.
+The inlay colours stay in fixed positions; only their illumination moves.
+The phase lamp remains a separate semantic light. `mat.wgsl` adds recessed
+corner shoulders and terminates lane rules short of the frame. Both resolve
+fine details against the pixel footprint rather than assuming a resolution.
+
+The sky is graded independently: subdued storm colours by day, blue-black
+air and distant drifting mist at night. It shares the table's cool shadows
+and warm accents, but **there is no full-screen colour filter on card art**.
+The unlit card pipeline and the existing day/night preference are unchanged.
+All decorative shader clocks use the existing motion multiplier, so reduced
+motion retains the material without the travel or shimmer.
+
+The CPU generators remain references for base colours, lane boundaries,
+contrast and texture—not pixel-identical renderings of the shader's added
+metalwork. Shared constants are still checked by the client camera tests.
+
+The hand/action dock and seat furniture share `FrontalMaterial`: recessed
+mineral-leather ground, thin champagne tooling and fixed five-colour inlays.
+Ten persistent handles cover the dock and eight seats; the virtual clock and
+reduced-motion preference govern decorative movement. Split seat bars place
+a 220px identity/life plaque beside the timeline and zone/turn status, with
+an honest 871×48px minimum footprint and unchanged compact fallbacks. The
+library uses an original resident sleeve with matching geometric inlays;
+opening a pile follows the existing motion targets, with a seven-card fan
+limit and a shallower, more widely spaced silhouette.
+
 Under the cards, everything is generated rather than shipped:
 `baylee-client-core/src/tabletop.rs` computes the felt, the medallion and a
 seat's mat into plain RGBA8 buffers. Three reasons, and the first is the one
@@ -193,9 +229,23 @@ only `frame_table` and `navigate_to_player`/`navigate_home` ever write —
 gesture of all three generations into one frame and
 `looking_at_one_seat_holds_the_camera` is its counter-test.
 
+**The lean is not one number any more.** `CAMERA_LEAN` is still what a ring
+of three or more seats is shot at, and what any table on a narrow window is
+shot at; a **duel on a wide window** blends towards `DUEL_LEAN` — about 27°
+off vertical — as the window grows past 800 logical pixels. The reason is
+that the two shots answer different questions: a ring has to keep every seat
+readable at once, so it stays near the plan view, while a duel has only two
+sides and can spend the freed angle on the table's depth. It is written as a
+blend and not a switch because the alternative is a camera that jumps as a
+window is dragged across one pixel. `only_a_wide_duel_takes_the_more_oblique_shot`
+is what holds the three cases apart, and **`CameraRig::lean` is the value
+everything downstream reads** — the projection test writes it out forwards
+rather than reusing the constant, which is what caught the fit when the
+constant stopped being the whole answer.
+
 The inversion is exact rather than tuned, which is why it is arithmetic and
 not a magic number per screen size. With the eye at distance `D`, the lean
-`L` = `CAMERA_LEAN` and `C = 1/√(1+L²)`, a felt point `s` units from the look
+`L` = `CameraRig::lean` and `C = 1/√(1+L²)`, a felt point `s` units from the look
 point along the screen-vertical has camera-space `depth = D + L·C·s` and
 `height = C·s` — the cross terms cancel — so `s = D · ground(q)` is linear in
 `D` and the fit is a division. `table.rs::camera_tests` projects the four
@@ -474,6 +524,24 @@ accident, and arithmetic borrows nothing.
 
 ## Eight seats
 
+- Seat information normally attaches **outside** the battlefield rim: name,
+  life, priority and turn at the viewer's upper-left edge, zone counts at the
+  upper-right, and compact phase groups along the command-zone side. These
+  are separately projected text panels, not one full-width shelf toolbar.
+  `hud/seatbar/attached.rs` owns their drawing; the smallest overview keeps
+  the legacy `Mark` fallback. Historical shelf geometry below still controls
+  card-lane reservations and fallback density, not desktop panel bounds.
+
+  Where the fallback starts is worth knowing rather than discovering at a
+  table. Photographed on a 1728×1052 window: **four** seats still get the
+  panels, rotated with their mats — a side seat's name and life read down its
+  outer edge and its twelve phase glyphs run along the top of its own mat.
+  **Eight** seats do not: every bar drops to `Mark`, which is a row of pips
+  and a priority stroke, so nobody's life total is on the screen at all. That
+  is the fallback behaving as designed and it is also the hole in it.
+  `attached.rs` is written to give a **focused** seat its panels back, which
+  is the way out; that path is not measured here, and the eight-seat table is
+  where to measure it.
 - Seats sit on a ring, local seat at the near edge, opponents clockwise **in
   turn order** — the player on your left acts after you. Allies share a side
   and face the same way; everybody else has a side to themselves.
@@ -3642,9 +3710,15 @@ swallowed clicks would be making a claim the model does not make — so a click
 on it falls through to `input::pointer`'s "nothing interactive" branch, which
 clears the preview, which is what a click on empty felt has always done. Its
 colour is **cold**, and that is an argument rather than a taste: the dialog
-is srgb8 (28, 25, 19) and the veiled baize measures (15, 29, 26), so the
-panel is the darker of the two in green and brightness cannot separate them.
-Temperature can. The veil used to be the same blue-black the hand bar's own
+is srgb8 (28, 25, 19) and the veiled cloth is (13, 20, 25) — `TABLE_VEIL`
+over `tabletop::FELT_CLOTH` at the veil's own alpha — so the two stand
+within a dozen levels of each other on every channel and separate on
+temperature rather than on brightness. The second number was (15, 29, 26)
+while the cloth was green, and the argument it was written for survived the
+redesign because it was never about the hue the cloth happened to be: a warm
+panel over a cold table reads as two things whatever the table is made of.
+
+The veil used to be the same blue-black the hand bar's own
 ground was, and that is no longer true of the ground: the owner asked for a
 container on 14.09.2026, and the hand zone is now `frontal`'s cloth in
 `palette::DIALOG` — the dialog's own colour, with nothing cool about it. The
@@ -3854,9 +3928,9 @@ explained the measurement, which is what eventually sank it.
 The lift geometry was a **second** defect, found while chasing the first and
 fixed on its own merits rather than because it caused anything: **a hovered
 card's growth must cover its own rise.** A lift of `y` shifts the footprint
-along the felt by `y * CAMERA_LEAN`; growth moves every edge out by half the
-card's *smaller* dimension times `scale - 1` — smaller, because the shift is
-in world space, always straight away from the viewer, while a pod is rotated
+along the felt by `y * CameraRig::lean`; growth moves every edge out by half
+the card's *smaller* dimension times `scale - 1` — smaller, because the shift
+is in world space, always straight away from the viewer, while a pod is rotated
 to face its own seat. While the second covers the first, a pointer inside a
 card cannot end up outside it. `covered_lift` in `table.rs` is that bound, and
 the `const _: () = assert!(…)` lines under it are what make a tuning session
@@ -3865,6 +3939,21 @@ selected included, since that is a rise like any other. The shipped numbers
 missed it by nearly double. Both lifts came down and both scales went up,
 which is the better affordance anyway: a card that grows says "this one" more
 plainly than a card that rises.
+
+A lean that varies (above) then put a second edge on that bound, and took the
+margin back. Every one of those assertions divides by the lean, so each is
+hardest to satisfy at the *steepest* shot — and checking them at `CAMERA_LEAN`
+after `DUEL_LEAN` existed was checking them at a shot the commonest desktop
+case does not use. They are written against `STEEPEST_LEAN`, the larger of the
+two, and that alone does not compile: at `DUEL_LEAN` the cap is exactly
+`scale - 1`, because a card is one unit wide and 0.5 is precisely the lean at
+which a rise stops being covered by its growth. The shipped lifts sat *on* that
+line — 0.06 against a cap of 0.06, 0.12 against 0.12 — which is not a margin,
+and in `f32` the first of them fell on the wrong side of it by one part in a
+million. So the lifts came down a second time, to 0.05 and 0.10: what a steeper
+shot has to buy is headroom, not another equality. Steepening the shot again
+is now a compile error rather than a card that slides out from under the
+pointer and flickers.
 
 ## Settings, and what belongs to whom
 

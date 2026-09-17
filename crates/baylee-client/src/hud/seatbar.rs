@@ -1,4 +1,8 @@
-//! The bar written on each seat's ledge.
+//! Battlefield-attached seat information, with ledge marks at overview scale.
+//!
+//! `attached` separates identity, counts and phases around the outside rim.
+//! The shelf model below remains the density probe and tiny overview fallback;
+//! it no longer describes the desktop ink bounds.
 //!
 //! Screen-space ink pinned to a rectangle of 3D table:
 //! [`SeatSlot::ledge_corners`](baylee_client_core::layout::SeatSlot::ledge_corners)
@@ -38,8 +42,13 @@ use super::rail::row_visual;
 #[allow(clippy::wildcard_imports)] // the HUD's own vocabulary
 use super::*;
 use baylee_client_core::automation::{PhaseOrders, RailSide};
-use baylee_client_core::seatbar::{CELL_GAP, Cell, Density, HALO_OUT, Zone};
+use baylee_client_core::seatbar::{
+    CELL_GAP, Cell, Density, HALO_OUT, SPLIT_COLUMN_GAP, SPLIT_LIFE_H, SPLIT_NAME_H,
+    SPLIT_PLAQUE_PAD, SPLIT_PLAQUE_W, Zone,
+};
 use baylee_view::SeatView;
+
+mod attached;
 
 /// Root of every seat bar. A sibling of [`HudRoot`], not a child.
 #[derive(Component)]
@@ -209,8 +218,8 @@ impl Shelf {
     /// The form's own width for every single-row bar: a fixed-width box is
     /// what keeps a numeral going from 9 to 10 from moving anything else.
     /// [`Density::Split`] is the one form whose box is measured from the
-    /// **shelf** instead, because its steps are meant to have the whole
-    /// length of the ledge — the twelve tiles grow into it and the slack past
+    /// **shelf** instead: the plaque is fixed, the twelve tiles grow into the
+    /// remaining ledge, and the slack past
     /// their cap goes into the gaps between them, so the row spans the shelf
     /// at any length rather than sitting centred with felt showing at both
     /// ends.
@@ -316,10 +325,31 @@ pub fn measure_shelves(
 pub fn place_seat_bars(
     shelves: Res<Shelves>,
     duel: Res<Duel>,
-    mut bars: Query<(&mut SeatBar, &mut Node, &mut UiTransform)>,
+    shown: Res<crate::table::ShownRig>,
+    windows: Query<&Window>,
+    mut bars: Query<(
+        &mut SeatBar,
+        &mut Node,
+        &mut UiTransform,
+        Option<&attached::Panel>,
+    )>,
 ) {
     let designated = duel.view.as_ref().is_some_and(|v| v.day_night.is_some());
-    for (mut bar, mut node, mut turn) in &mut bars {
+    let lens = shown.rig().zip(windows.single().ok()).map(|(rig, window)| {
+        crate::table::Lens::new(rig, Vec2::new(window.width(), window.height()))
+    });
+    for (mut bar, mut node, mut turn, panel) in &mut bars {
+        if let Some(panel) = panel {
+            attached::place(
+                &duel,
+                lens.as_ref(),
+                bar.player,
+                *panel,
+                &mut node,
+                &mut turn,
+            );
+            continue;
+        }
         let Some(shelf) = shelves.of(bar.player) else {
             // A shelf the camera cannot see is a bar with nowhere to be.
             // Hidden rather than despawned: the seat has not gone anywhere,
@@ -394,6 +424,8 @@ pub fn sync_seat_bars(
     fonts: Res<UiFonts>,
     settings: Res<crate::settings::ClientSettings>,
     prefs: Res<crate::prefs::Prefs>,
+    mut cloth: Option<ResMut<crate::frontal::Cloth>>,
+    mut materials: Option<ResMut<Assets<crate::frontal::FrontalMaterial>>>,
 ) {
     let lang = Lang::of(&settings.lang);
     let orders = prefs.orders().clone();
@@ -460,10 +492,29 @@ pub fn sync_seat_bars(
         ))
         .id();
 
-    for seat in &view.seats {
+    for (index, seat) in view.seats.iter().enumerate() {
         let Some(shelf) = shelves.of(seat.player) else {
             continue;
         };
+        let surface = cloth
+            .as_mut()
+            .and_then(|cloth| cloth.seat(index, materials.as_deref_mut()));
+        // At overview scale retain the tiny legacy marks; focusing a seat
+        // restores the complete, battlefield-attached furniture.
+        if shelf.density != Density::Mark {
+            attached::spawn(
+                &mut commands,
+                root,
+                lang,
+                view,
+                duel.statics.as_ref(),
+                seat,
+                &orders,
+                &fonts,
+                surface,
+            );
+            continue;
+        }
         let bar = spawn_bar(
             &mut commands,
             lang,
@@ -474,6 +525,7 @@ pub fn sync_seat_bars(
             &orders,
             &fonts,
             designated,
+            surface,
         );
         commands.entity(root).add_child(bar);
     }
@@ -491,6 +543,7 @@ fn spawn_bar(
     orders: &PhaseOrders,
     fonts: &UiFonts,
     designated: bool,
+    surface: Option<Handle<crate::frontal::FrontalMaterial>>,
 ) -> Entity {
     let density = shelf.density;
     let corner = shelf.corner(designated);
@@ -513,64 +566,52 @@ fn spawn_bar(
                 top: px(corner.y),
                 width: px(size.x),
                 height: px(size.y),
-                // A column of rows, one row for every form but the split one.
-                // The wrapper costs a node per bar and buys the two forms one
-                // build: a single-row bar is a column with one row in it.
-                //
-                // The box's **top** is the shelf's outer edge, away from the
-                // lanes, at every seat — `ledge_corners` winds the rectangle
-                // from that edge inwards and `Shelf::of`'s half-turn fold
-                // flips with the seat that needed it. So the first row is the
-                // one furthest from the board, which is where the steps go.
+                // Single-row fallbacks use flex; Split places both columns
+                // explicitly inside the same measured ink envelope.
                 flex_direction: FlexDirection::Column,
                 align_items: AlignItems::Stretch,
                 justify_content: JustifyContent::Center,
                 row_gap: px(density.row_gap()),
                 ..default()
             },
-            // No fill and no rim: the ledge is the ground and the mat's own
-            // rim is the frame. A panel here would be the tab strip again,
-            // moved onto the felt.
+            // The hitbox stays transparent; backing must fit the ink bounds.
             Pickable::IGNORE,
         ))
         .id();
 
+    if density.tiles_have_glyphs() {
+        backing(commands, bar, density, surface);
+    }
+
+    let split = density.is_split().then(|| split_frame(commands, bar, seat));
     for (index, cells) in density.rows().into_iter().enumerate() {
         let height = row_height(density, index);
-        let row = commands
-            .spawn((
-                Node {
-                    width: percent(100),
-                    height: px(height),
-                    flex_direction: FlexDirection::Row,
-                    align_items: AlignItems::Center,
-                    column_gap: px(CELL_GAP),
-                    ..default()
-                },
-                Pickable::IGNORE,
-            ))
-            .id();
-        let mut strutted = false;
+        let row = if let Some(rows) = split {
+            rows[index]
+        } else {
+            let row = commands
+                .spawn((
+                    Node {
+                        width: percent(100),
+                        height: px(height),
+                        flex_direction: FlexDirection::Row,
+                        align_items: AlignItems::Center,
+                        column_gap: px(CELL_GAP),
+                        ..default()
+                    },
+                    Pickable::IGNORE,
+                ))
+                .id();
+            commands.entity(bar).add_child(row);
+            row
+        };
         for cell in cells {
-            // The identity row of a split bar is **a nameplate at one end and
-            // a tally at the other**, and the gap between them is deliberate.
-            // It used to be the whole row bunched into the left third with the
-            // turn number alone at the right, which is a row anchored by a
-            // caret on one side and nothing on the other. The strut used to
-            // sit before the hinge alone, which anchored the ends and left
-            // every count in the left-hand cluster. Moving it in front of the
-            // first count takes the four of them with it: who and how much
-            // life at the left, what is in each zone and what turn it is at
-            // the right, and the empty stretch where the eye passes over it.
-            //
-            // Not aligned to the phase groups above, which was the other
-            // candidate: the tiles' widths follow the shelf while these cells
-            // are fixed by rule, and a life total standing under "combat"
-            // reads as being *about* combat. Two rows about two things do not
-            // borrow each other's grid.
-            let opens_the_tally = matches!(cell, Cell::Count(_) | Cell::Hinge);
-            if density.is_split() && !strutted && opens_the_tally {
-                strutted = true;
+            let (parent, height) = split.map_or((row, height), |rows| match cell {
+                Cell::Steps => (rows[2], density.tile_height() + HALO_OUT * 2.0),
+                Cell::Count(_) | Cell::Hinge => (rows[3], density.identity_height()),
+                _ => (row, height),
+            });
+            if density.is_split() && cell == Cell::Hinge {
                 let strut = commands
                     .spawn((
                         Node {
@@ -580,52 +621,157 @@ fn spawn_bar(
                         Pickable::IGNORE,
                     ))
                     .id();
-                commands.entity(row).add_child(strut);
+                commands.entity(parent).add_child(strut);
             }
             let width = density.cell_width(cell, designated);
             let node = match cell {
                 Cell::Caret => caret(commands, view, seat, fonts, width, height),
                 Cell::Swatch => swatch(commands, view, statics, seat, width, height),
                 Cell::Name => name(commands, lang, view, statics, seat, fonts, width, height),
-                Cell::Life => life(commands, seat, fonts, width, height),
+                Cell::Life => life(commands, seat, fonts, width, height, density),
                 Cell::Count(zone) => count(commands, view, seat, zone, fonts, width, height),
                 Cell::Hinge => hinge(commands, view, seat, fonts, width, height),
                 Cell::Steps => steps(
                     commands, view, statics, seat, orders, fonts, density, size.x,
                 ),
             };
-            commands.entity(row).add_child(node);
+            commands.entity(parent).add_child(node);
         }
-        commands.entity(bar).add_child(row);
     }
     bar
 }
 
-/// How tall one row of a bar is drawn.
+/// The panel a bar's ink sits on, inset to the measured ink envelope.
 ///
-/// The whole box for a single-row form. For [`Density::Split`] the steps take
-/// the tile and its now-ring and the identity row takes its own smaller
-/// height, which is what lets two rows stand where one full-size row nearly
-/// filled the shelf.
+/// Its own function because it is the one part of a bar that is not a cell:
+/// it is drawn behind every row, it is the piece the procedural seat surface
+/// is hung on when there is one, and the hitbox above it stays transparent —
+/// `Pickable::IGNORE` here and on the bar, so a click reaches the tile it
+/// looks like it hit rather than the plate behind it.
+fn backing(
+    commands: &mut Commands,
+    bar: Entity,
+    density: Density,
+    surface: Option<Handle<crate::frontal::FrontalMaterial>>,
+) {
+    let panel = commands
+        .spawn((
+            Node {
+                position_type: PositionType::Absolute,
+                left: px(0),
+                top: px((density.height() - density.ink_height()) * 0.5),
+                width: percent(100),
+                height: px(density.ink_height()),
+                border_radius: BorderRadius::all(px(4)),
+                ..default()
+            },
+            BackgroundColor(palette::SEAT_BACKING),
+            Pickable::IGNORE,
+        ))
+        .id();
+    if let Some(handle) = surface {
+        commands.entity(panel).insert((
+            BackgroundColor(Color::NONE),
+            MaterialNode(handle),
+            crate::frontal::Hanging,
+        ));
+    }
+    commands.entity(bar).add_child(panel);
+}
+
+/// Two independent vertical divisions inside one measured ink envelope.
+fn split_frame(commands: &mut Commands, bar: Entity, seat: &SeatView) -> [Entity; 4] {
+    let density = Density::Split;
+    let top = (density.height() - density.ink_height()) * 0.5;
+    let plaque = commands
+        .spawn((
+            Node {
+                position_type: PositionType::Absolute,
+                left: px(0),
+                top: px(top),
+                width: px(SPLIT_PLAQUE_W),
+                height: px(density.ink_height()),
+                border: UiRect::all(px(1)),
+                border_radius: BorderRadius::all(px(5)),
+                ..default()
+            },
+            BackgroundColor(palette::DOCK_EDGE.with_alpha(if seat.has_lost { 0.06 } else { 0.18 })),
+            BorderColor::all(palette::DOCK_EDGE.with_alpha(if seat.has_lost {
+                DEAD_INK
+            } else {
+                0.85
+            })),
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(bar).add_child(plaque);
+
+    let name_left = SPLIT_PLAQUE_W - SPLIT_PLAQUE_PAD - density.name_width();
+    [
+        (
+            SPLIT_PLAQUE_PAD,
+            top + HALO_OUT,
+            SPLIT_NAME_H,
+            Some(SPLIT_PLAQUE_W - SPLIT_PLAQUE_PAD * 2.0),
+        ),
+        (
+            name_left,
+            top + HALO_OUT + SPLIT_NAME_H,
+            SPLIT_LIFE_H,
+            Some(density.name_width()),
+        ),
+        (
+            SPLIT_PLAQUE_W + SPLIT_COLUMN_GAP,
+            top,
+            density.tile_height() + HALO_OUT * 2.0,
+            None,
+        ),
+        (
+            SPLIT_PLAQUE_W + SPLIT_COLUMN_GAP,
+            top + density.tile_height() + HALO_OUT * 2.0 + density.row_gap(),
+            density.identity_height(),
+            None,
+        ),
+    ]
+    .map(|(left, top, height, width)| {
+        let row = commands
+            .spawn((
+                Node {
+                    position_type: PositionType::Absolute,
+                    left: px(left),
+                    top: px(top),
+                    right: if width.is_none() { px(0) } else { Val::Auto },
+                    width: width.map_or(Val::Auto, px),
+                    height: px(height),
+                    flex_direction: FlexDirection::Row,
+                    align_items: AlignItems::Center,
+                    column_gap: px(CELL_GAP),
+                    ..default()
+                },
+                Pickable::IGNORE,
+            ))
+            .id();
+        commands.entity(bar).add_child(row);
+        row
+    })
+}
+
 /// A type size that fits the row it is written on.
 ///
-/// Every identity cell asks for the size it wants and gets the size its row
-/// has room for. The identity row of a split bar is fourteen pixels tall —
-/// less than half the box a single-row bar gets — and a fourteen-point life
-/// total in a fourteen-pixel row is a numeral with its descender cut off. One
-/// rule here rather than a size table per form, so a row that changes height
-/// is the only thing that has to change.
+/// Leave room for descenders even in the smaller fallback forms.
 fn fits(pt: f32, height: f32) -> f32 {
     pt.min(height - 2.0)
 }
 
+/// Split's left column uses a compact name row and a prominent life row.
+/// The right column is sized separately, within the same ink envelope.
 fn row_height(density: Density, index: usize) -> f32 {
     if !density.is_split() {
         density.height()
     } else if index == 0 {
-        density.tile_height() + HALO_OUT * 2.0
+        SPLIT_NAME_H
     } else {
-        density.identity_height()
+        SPLIT_LIFE_H
     }
 }
 
@@ -635,23 +781,9 @@ const DEAD_INK: f32 = 0.28;
 
 /// How faint a step the standing orders skip is written.
 ///
-/// Measured over the ledge, which is (26, 55, 39): half-alpha parchment
-/// composites to (132, 141, 122), **3.75:1**. That is above the 3:1 a
-/// graphical object needs to be made out and below what a paragraph wants,
-/// which is the right side of both lines for a label the player is not being
-/// asked to read — a skip is the step the game will pass straight through.
-const SKIP_INK: f32 = 0.50;
-
-/// The ground under a step a standing order stops at.
-///
-/// [`crate::hud::palette::PARCHMENT`] at 14%, written out because a colour
-/// with an alpha is not a `const fn` away from one without. Faint enough to
-/// be a *ground* rather than a chip — a shade over the shelf it sits on and
-/// no more — and that is the whole signal: a lit label on a raised ground
-/// beside dim labels on bare cloth. A luminance difference
-/// rather than a hue one, which is what a green felt makes of any attempt to
-/// say go/stop in colour.
-const STOP_GROUND: Color = Color::srgba(0.88, 0.83, 0.69, 0.14);
+/// Still readable: the absence of the stop accent carries the standing order,
+/// so the label need not fade to a watermark. Contrast needs a live composite.
+const SKIP_INK: f32 = 0.68;
 
 /// The corner a step tile is cut with.
 const TILE_RADIUS: f32 = 3.0;
@@ -659,9 +791,9 @@ const TILE_RADIUS: f32 = 3.0;
 /// The ink a seat's bar is written in.
 fn ink_of(seat: &SeatView) -> Color {
     if seat.has_lost {
-        palette::PARCHMENT.with_alpha(DEAD_INK)
+        palette::DOCK_INK.with_alpha(DEAD_INK)
     } else {
-        palette::PARCHMENT
+        palette::DOCK_INK
     }
 }
 
@@ -768,7 +900,8 @@ fn name(
             node,
             children![(
                 Text::new(display),
-                tf(fonts, fits(13.0, height)),
+                tf_bold(fonts, fits(15.0, height)),
+                bevy::text::LineHeight::Px(height),
                 TextColor(ink_of(seat)),
                 TextLayout::linebreak(bevy::text::LineBreak::NoWrap),
                 Pickable::IGNORE,
@@ -806,6 +939,7 @@ fn life(
     fonts: &UiFonts,
     width: f32,
     height: f32,
+    density: Density,
 ) -> Entity {
     let low = seat.life <= 5 && !seat.has_lost;
     let heart = if low {
@@ -818,8 +952,13 @@ fn life(
     } else if low {
         palette::DANGER
     } else {
-        palette::PARCHMENT
+        palette::DOCK_INK
     };
+    let mut node = cell_node(width, height);
+    node.border_radius = BorderRadius::all(px(3));
+    if density.is_split() {
+        node.justify_content = JustifyContent::FlexStart;
+    }
     commands
         .spawn((
             SeatInk {
@@ -828,15 +967,20 @@ fn life(
             LifeCell {
                 player: seat.player,
             },
-            cell_node(width, height),
+            node,
+            BackgroundColor(Color::NONE),
             children![(
                 Text::new(glyph::HEART.to_string()),
                 icon_tf(fonts, fits(11.0, height)),
+                bevy::text::LineHeight::Px(height),
                 TextColor(heart),
                 Pickable::IGNORE,
                 children![(
                     TextSpan::new(format!(" {}", seat.life)),
-                    tf(fonts, fits(14.0, height)),
+                    tf_bold(
+                        fonts,
+                        fits(if density.is_split() { 26.0 } else { 16.0 }, height),
+                    ),
                     TextColor(numeral),
                     Pickable::IGNORE,
                 )],
@@ -1004,8 +1148,7 @@ fn steps(
     } else {
         RailSide::Theirs
     };
-    // On a split bar the steps have the shelf to themselves, and what they do
-    // with it is decided in the model rather than by flex: every tile is
+    // The model reserves the plaque first: every tile is
     // `Density::tile_width_on` wide, the seven tight gaps never move, and the
     // slack the cap leaves goes into the four phase gaps — which is where a
     // wider gap says something true. `SpaceBetween` is what puts it there.
@@ -1037,10 +1180,8 @@ fn steps(
     let is_active_seat = view.active == seat.player;
     let skipped = |step: RailRow| orders.rows_for(side).any(|(r, s)| r == step && s);
     for phase in baylee_client_core::automation::RAIL_PHASES {
-        // A phase carries its own tiles and nothing else — no ground, no
-        // label, no rule. On baize a plinth under three tiles would be the
-        // tab strip again, moved onto the felt; the gap is enough, and a gap
-        // is the one grouping device that adds no ink.
+        // A recessed channel joins the steps of one phase. No border or
+        // padding: the existing tile arithmetic and hitboxes stay exact.
         let group = commands
             .spawn((
                 Node {
@@ -1056,8 +1197,14 @@ fn steps(
                     // their width is the one thing this form promised not to
                     // do, so the width is a division in the model instead.
                     flex_shrink: 0.0,
+                    border_radius: BorderRadius::all(px(TILE_RADIUS)),
                     ..default()
                 },
+                BackgroundColor(if density.tiles_have_glyphs() {
+                    palette::SEAT_TRACK
+                } else {
+                    Color::NONE
+                }),
                 Pickable::IGNORE,
             ))
             .id();
@@ -1124,46 +1271,15 @@ struct TileState {
     lost: bool,
 }
 
-/// One step tile: **ink on a shelf, not a chip on it**.
+/// One step tile, with separate channels for each claim:
 ///
-/// The bar shipped with its hierarchy upside down. A *skip* is what most
-/// steps are — the standing orders stop at four or five of the twelve — and
-/// the skip wore [`palette::DANGER`], so the alarm colour was painted on the
-/// ordinary case while the deliberate one got a quiet parchment frame. Every
-/// live tile was framed and filled either way, which is twelve stadiums
-/// across a 1127 px shelf: a browser toolbar laid on a card table. It also
-/// made the bar *opaque*, and the ledge is crossed by things the table draws
-/// — a combat line to the far seat, a card lifting under the pointer, a
-/// permanent falling in from `ENTRANCE_RISE` — so twelve solid chips floated
-/// over all of them.
+/// - A small top accent marks a standing stop; skipped labels are quieter.
+/// - Gold fill is the active seat's current live step. Other current steps
+///   keep their under-tick, including untap and cleanup.
+/// - A frame is keyboard selection, never a standing order.
+/// - Lost seats and non-priority steps keep their dim ink and no stop accent.
 ///
-/// So the rare state is the marked one, and the channels are:
-///
-/// - **The ground is the standing order.** A stop is `PARCHMENT` at 0.14
-///   with its glyph at full ink (6.99:1 on that ground); a skip is ink at
-///   half alpha on bare cloth (3.75:1 — above the 3:1 a graphical object
-///   needs, below what text wants, which is right for a label nobody is
-///   being asked to read). That is a *luminance* difference rather than a
-///   hue one, which is the red/green failure the old comment here set out to
-///   avoid and then walked into from the other side.
-/// - **A solid fill is "here, now"**, on the active seat's bar only, with
-///   [`palette::PARCHMENT_INK`] on it — the same solid-warm-with-dark-ink the
-///   prompt slip's own button uses. The two-ring halo went with it: the rings
-///   existed because a shadow drawn through a 10% fill lit the whole tile,
-///   and a solid fill has no such problem.
-/// - **A frame is keyboard focus, and nothing else.** A frame is the shape of
-///   a control, so it now appears exactly when one is being operated.
-/// - **A dead step** (untap, cleanup — CR 502.4, CR 514.3a) is the dimmest
-///   ink there is and has no ground at all. Its 4% ground was added when it
-///   was the only bare word on a row of chips; the whole row is bare words
-///   now, so the two dead ones are simply the faintest, at the two ends,
-///   which is what they are.
-///
-/// Time as a fourth channel is **dropped**. Position already carries it — the
-/// row reads left to right at every seat because the bar rotates with the
-/// mat, and the gold tile says where the game is, so "behind" is "left of the
-/// gold one". Keeping it would have collided with the skip alpha: a skipped
-/// step ahead and a stop behind would both have been half-lit.
+/// Position carries past/future; another fade would collide with skipped ink.
 #[allow(clippy::too_many_lines)] // one tile, three channels, one flat build
 fn spawn_tile(
     commands: &mut Commands,
@@ -1184,15 +1300,9 @@ fn spawn_tile(
     } else {
         palette::PARCHMENT
     };
-    let fill = if here {
-        palette::ACTIVE
-    } else if dead || state.skipped {
-        Color::NONE
-    } else {
-        STOP_GROUND
-    };
+    let fill = if here { palette::ACTIVE } else { Color::NONE };
     // A frame is the shape of a control, so it is drawn exactly when one is
-    // being operated. Everything else a tile has to say is said by its ground.
+    // being operated, independently of the stop accent and current-step fill.
     let frame = if state.selected && state.live {
         palette::ACCENT
     } else {
@@ -1218,11 +1328,9 @@ fn spawn_tile(
                 flex_direction: FlexDirection::Row,
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
-                column_gap: px(3),
+                column_gap: px(2),
                 border: UiRect::all(px(border)),
-                // Three, not `btn_radius`'s six: on a 16 px tile six is a
-                // stadium, and a stadium is the browser chip this row was
-                // being read as. Three is a tab on a ruler.
+                // A ruler tab, not a rounded browser chip.
                 border_radius: BorderRadius::all(px(TILE_RADIUS)),
                 ..default()
             },
@@ -1245,7 +1353,8 @@ fn spawn_tile(
             let label = commands
                 .spawn((
                     Text::new(short),
-                    tf_bold(fonts, 8.0),
+                    tf_bold(fonts, if density.is_split() { 10.5 } else { 10.0 }),
+                    TextLayout::linebreak(bevy::text::LineBreak::NoWrap),
                     TextColor(ink),
                     Pickable::IGNORE,
                 ))
@@ -1254,14 +1363,42 @@ fn spawn_tile(
         }
     }
 
+    if state.live && !state.skipped && !state.lost {
+        let marker = commands
+            .spawn((
+                Node {
+                    position_type: PositionType::Absolute,
+                    left: px(if density.tiles_have_glyphs() {
+                        4.0
+                    } else {
+                        1.0
+                    }),
+                    top: px(0),
+                    width: px(if density.tiles_have_glyphs() {
+                        8.0
+                    } else {
+                        3.0
+                    }),
+                    height: px(2),
+                    border_radius: BorderRadius::all(px(1)),
+                    ..default()
+                },
+                BackgroundColor(if here {
+                    palette::PARCHMENT_INK
+                } else {
+                    palette::SEAT_STOP
+                }),
+                Pickable::IGNORE,
+            ))
+            .id();
+        commands.entity(tile).add_child(marker);
+    }
+
     if state.live {
-        // A skipped tile rests on nothing, and `Feel` mixes towards white
-        // while *keeping alpha* — so a base of `Color::NONE` is a control
-        // that does not answer the pointer at all. Its hover is therefore
-        // stated rather than derived, and what it shows is the ground a
-        // click would put there: hovering a skip previews the stop.
+        // Transparent tiles need an explicit hover target: `Feel` preserves
+        // alpha. The wash is pointer feedback, not a preview of a stop.
         let feel = if fill == Color::NONE {
-            Feel::rising_to(fill, STOP_GROUND)
+            Feel::rising_to(fill, palette::SEAT_STEP_HOVER)
         } else {
             Feel::new(fill)
         };
@@ -1315,6 +1452,7 @@ fn cell_node(width: f32, height: f32) -> Node {
     Node {
         width: px(width),
         height: px(height),
+        flex_shrink: 0.0,
         flex_direction: FlexDirection::Row,
         align_items: AlignItems::Center,
         justify_content: JustifyContent::Center,

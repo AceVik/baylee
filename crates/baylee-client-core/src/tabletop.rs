@@ -155,23 +155,23 @@ pub const PIE: [[f32; 3]; 5] = [
     [0.36, 0.66, 0.42], // green — moss
 ];
 
-/// The darkest the baize goes, in the shadow the rail casts on it.
-pub const FELT_DEEP: [f32; 3] = [0.024, 0.086, 0.058];
-/// The cloth's own colour: casino baize, before any wear.
-pub const FELT_CLOTH: [f32; 3] = [0.071, 0.223, 0.150];
+/// The mineral cloth in shadow.
+pub const FELT_DEEP: [f32; 3] = [0.043, 0.072, 0.080];
+/// Midnight mineral cloth: cool, but quieter than a card's colour identity.
+pub const FELT_CLOTH: [f32; 3] = [0.120, 0.188, 0.204];
 /// Where the table has been leaned on and dealt across for years.
-pub const FELT_WORN: [f32; 3] = [0.100, 0.285, 0.196];
-/// The padded rail's hide, in the shade.
-pub const RAIL_HIDE: [f32; 3] = [0.115, 0.072, 0.058];
-/// The top of the padded roll, where the light sits on it.
-pub const RAIL_LIP: [f32; 3] = [0.196, 0.130, 0.100];
+pub const FELT_WORN: [f32; 3] = [0.165, 0.245, 0.258];
+/// The aged metal rail, in the shade.
+pub const RAIL_HIDE: [f32; 3] = [0.100, 0.084, 0.064];
+/// The machined edge, where the light sits on it.
+pub const RAIL_LIP: [f32; 3] = [0.300, 0.244, 0.157];
 /// The apron: the wall of the slab, below the rail.
 ///
 /// Darker than either, and that is the whole job. The stage carries no light
 /// (see the module header on the client's `feltmat`), so a side face cannot
 /// be shaded by one — the only thing that says "this table has a thickness"
 /// is that its wall is a *different, darker* colour than its top.
-pub const APRON: [f32; 3] = [0.055, 0.038, 0.030];
+pub const APRON: [f32; 3] = [0.040, 0.035, 0.029];
 
 /// How wide the padded rail runs, in table units — under a card width.
 ///
@@ -612,7 +612,7 @@ pub const MAT_SEAM: f32 = 0.036;
 pub const MAT_LEDGE_SEAM: f32 = 1.5;
 
 /// How wide that hairline runs, as a fraction of the mat's depth.
-pub const MAT_SEAM_WIDTH: f32 = 0.014;
+pub const MAT_SEAM_WIDTH: f32 = 0.0075;
 
 /// How much of white a mat's rim carries at its brightest.
 pub const MAT_RIM_LIGHT: f32 = 0.62;
@@ -1562,35 +1562,29 @@ mod tests {
         (values.iter().map(|v| (v - mean) * (v - mean)).sum::<f32>() / n).sqrt()
     }
 
-    /// The baize is a casino green, not a forest floor and not a slate.
-    ///
-    /// Written down because "green" is the one word in the brief and the
-    /// easiest to satisfy by accident: the cloth this replaced measured a
-    /// desaturated blue-green at 9% chroma, which reads as grey felt lit by
-    /// something green. A gaming table's baize is unmistakably *the* green,
-    /// and bounded on both sides — past 80% chroma it stops being cloth and
-    /// starts being a colour swatch, and it would then compete with the green
-    /// cards lying on it.
+    /// The redesign replaces casino green with cool mineral and warm metal.
+    /// Both hue and saturation remain bounded; this is not permission for
+    /// a neutral black hole or a saturated blue field behind blue cards.
     #[test]
-    fn the_baize_is_a_casino_green() {
+    fn the_baize_is_cool_mineral_under_warm_metal() {
         for cloth in [FELT_DEEP, FELT_CLOTH, FELT_WORN] {
             let (hue, sat) = hue_sat(cloth);
             assert!(
-                (120.0..175.0).contains(&hue),
-                "{cloth:?} is at {hue}°, which is not a table's green"
+                (185.0..205.0).contains(&hue),
+                "{cloth:?} is at {hue}°, outside the mineral palette"
             );
             assert!(
-                (0.55..0.85).contains(&sat),
+                (0.30..0.50).contains(&sat),
                 "{cloth:?} is {sat} saturated — cloth, not a swatch"
             );
         }
-        // And the rail is the opposite half of the pairing: warm hide against
-        // cool cloth. A rail the same hue as the felt is a table with no rail.
+        // Warm metal against cool cloth. A rail the same hue as the felt is
+        // a table with no rail.
         for hide in [RAIL_HIDE, RAIL_LIP, APRON] {
             let (hue, _) = hue_sat(hide);
             assert!(
                 (10.0..45.0).contains(&hue),
-                "the rail at {hue}° is not leather"
+                "the rail at {hue}° is not warm metal"
             );
         }
         // The wall has to be darker than the top it hangs from, or the slab
@@ -1698,6 +1692,27 @@ mod tests {
         // than becoming a fourth lane, are both `const _` assertions beside
         // `MAT_LEDGE` itself — `layout` is the same crate, so the card the
         // second one measures against is reachable at compile time.
+    }
+
+    /// Lane dividers read as fine markings, not soft bands across the mat.
+    #[test]
+    fn lane_seams_are_fine_but_visible() {
+        for height in [256, 512] {
+            for ledge_outer in [false, true] {
+                let mat = seat_mat(64, height, 0.02, 0.01, [1.0; 3], ledge_outer);
+                let first = if ledge_outer { MARGIN_FRAC } else { LEDGE_FRAC };
+                for lane in [1.0, 2.0] {
+                    let centre = ((first + LANE_FRAC * lane) * height as f32) as u32;
+                    let bright = (centre - 10..=centre + 10)
+                        .filter(|&y| mat.pixel(32, y)[3] > MAT_LANES[0] + MAT_SEAM * 0.5)
+                        .count();
+                    assert!(
+                        (1..=height as usize / 128).contains(&bright),
+                        "{bright} bright pixels at height {height}, outer ledge {ledge_outer}"
+                    );
+                }
+            }
+        }
     }
 
     /// The ink on the ledge has to be readable *as composited*, which is a
@@ -1992,7 +2007,16 @@ mod tests {
 
     #[test]
     fn a_seat_mat_shows_where_its_lanes_are() {
-        const H: u32 = 96;
+        // Tall for the reason `the_mat_fences_its_bands_where_the_layout_put_them`
+        // gives below, which this test was the one to be *caught* by: it read
+        // 96 rows while `MAT_SEAM_WIDTH` was 0.014, so a hairline was 1.3 rows
+        // and the shelf's fence came out one level of 255 above a lane seam.
+        // Halving the width to 0.0075 took the fence to `max(h · w, 1.0)` — a
+        // single row, the same row the seam gets — and the two arrived at
+        // 12/255 apiece. Nothing about the mat had stopped being true; the
+        // measurement had stopped being able to see it, which is worth one
+        // line of comment because the first instinct was to loosen the claim.
+        const H: u32 = 512;
         let mat = seat_mat(256, H, 0.1, 0.03, ACCENT, false);
         // The seam belongs *on* the boundary between two lanes, not in the
         // middle of one. Drawn mid-lane it splits every row down its own
@@ -2059,9 +2083,11 @@ mod tests {
         // a `Texture` is eight bits a channel and the shelf's own veil and
         // the quietest lane's are 0.0060 and 0.0080 — both 2/255, and the
         // same pixel. The fence between the shelf and the lanes is the
-        // brightest seam on a mat and lands at 15/255, so *that* is what a
-        // test can read: it is at one end of one mat and at the other end of
-        // the other.
+        // brightest seam on a mat and lands at 12/255 on a mat this shallow,
+        // so *that* is what a test can read: it is at one end of one mat and
+        // at the other end of the other. What it may **not** be read against
+        // here is a lane seam, which arrives at the same 12: that comparison
+        // needs the rows `a_seat_mat_shows_where_its_lanes_are` spends.
         let fence = |mat: &Texture, at: f32| mat.pixel(128, row(at))[3];
         assert!(
             fence(&inner, LEDGE_FRAC) > fence(&inner, span),

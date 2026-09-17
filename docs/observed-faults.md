@@ -759,16 +759,18 @@ about the table itself rather than the rules, and both are fixed.
     on the stage is placed against, which is the half that would have broken
     the board silently. Nothing lights this stage, so the wall reads as a wall
     only because `APRON` is a *darker colour* than the rail above it. That is
-    an assertion, not a taste: `the_baize_is_a_casino_green` fails if it stops
-    being true.
+    an assertion, not a taste: `the_baize_is_cool_mineral_under_warm_metal`
+    fails if it stops being true.
 
-    The surface is casino baize inside a padded leather rail, and the epoxy
-    river is gone with the timber it ran through. What the river carried is
-    kept: the phase lamp — `phase_light` graded by the step, energy to the
-    fourth so combat blooms while a main phase stays a quiet line — runs round
-    the **rail** now, entering at the active seat's own edge. The rail is the
-    only surface at this table no card is ever laid on, which is the property
-    the resin channel was chosen for in the first place.
+    The surface is midnight mineral cloth inside an aged champagne rail — it
+    was casino baize until the September 2026 redesign, and the epoxy river
+    was gone with the timber it ran through before that. What the river
+    carried is kept: the phase lamp — `phase_light` graded by the step,
+    energy to the fourth so combat blooms while a main phase stays a quiet
+    line — runs round the **rail** now, entering at the active seat's own
+    edge. The rail is the only surface at this table no card is ever laid
+    on, which is the property the resin channel was chosen for in the first
+    place.
 
     And the slab does not reach the edges of the window. The camera frames the
     layout plus `AIR` and the slab is cut to the layout plus `SLAB_MARGIN`, so
@@ -883,7 +885,7 @@ about the table itself rather than the rules, and both are fixed.
     `sky::table_light` hands the felt shader a multiplier on the table's own
     colour, and `under_sky` applies it to the cloth, the rail and the apron
     and to nothing else. A multiply rather than a mix towards a colour,
-    because a warm sky over green baize has to be able to lift the red end
+    because a warm sky over a cool cloth has to be able to lift the red end
     without touching the green — a mix drags every channel towards the light's
     hue and turns the cloth grey at both ends of the day. The phase lamp is
     exempt: it is light the *table* emits and carries a meaning, and a wash

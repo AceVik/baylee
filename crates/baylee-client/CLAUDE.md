@@ -194,8 +194,9 @@ Rust, where a test can measure it, and `table::camera_tests`'
 `the_shader_and_the_generator_agree_about_the_{cloth,mat}` read the constants
 back out of the WGSL so the pair cannot drift.
 
-What it draws is **casino baize inside a padded rail, on a slab with a real
-thickness**: `rounded_slab_mesh` builds the table and the card both, a rounded
+What it draws is **midnight mineral cloth inside an aged champagne rail, on
+a slab with a real thickness** (casino baize until the September 2026
+redesign): `rounded_slab_mesh` builds the table and the card both, a rounded
 top face with a wall around its edge, and the table hangs below the plane
 everything else is placed against while a card stands on it. Nothing lights
 this stage, so the wall reads as a wall only because `tabletop::APRON` is a
@@ -242,7 +243,7 @@ the sky is allowed to disagree with it. The hour comes from `web-time` in the sh
 The sky also **lights the table**, and the two are one movement rather than
 two: `sky::sync_sky` eases the phase, `sky::table_light` turns the eased phase
 into a multiplier on the table's own colour, and the felt shader's `under_sky`
-applies it — so a dusk crossfades the sky and cools the baize on the same
+applies it — so a dusk crossfades the sky and cools the cloth on the same
 frame with nothing told that a transition is happening. It is a tint and not a
 lamp, for the reason the next paragraph gives, and it stops at the phase lamp,
 which is light the table *emits* and carries a meaning of its own.

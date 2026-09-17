@@ -168,7 +168,7 @@ pub(super) fn spawn_ledge(
             // handle and the flat dye is drawn instead.
             match cloth {
                 Some(_) => BackgroundColor(Color::NONE),
-                None => BackgroundColor(palette::DIALOG.with_alpha(RAIL_FALLBACK)),
+                None => BackgroundColor(palette::DOCK_GROUND.with_alpha(RAIL_FALLBACK)),
             },
             ZIndex(Z_LEDGE),
             // The shelf itself answers nothing and must not swallow a click
@@ -1242,13 +1242,9 @@ impl Weight {
             // `DIALOG` on `CANDLE` is 7.39 : 1. Light ink on the candle is
             // 1.86 : 1 and is forbidden outright — see the palette.
             Self::Candle => (palette::CANDLE, palette::CANDLE, palette::DIALOG),
-            // The border is not decoration: `DIALOG_LIT` on `DIALOG` is
-            // 1.10 : 1, so a secondary answer without one is invisible.
-            Self::Secondary => (
-                palette::DIALOG_LIT,
-                palette::DIALOG_LINE,
-                palette::DIALOG_INK,
-            ),
+            // A dark inset key with a champagne edge, subordinate to the
+            // candle-filled default without disappearing into the dock.
+            Self::Secondary => (palette::DOCK_GROUND, palette::DOCK_EDGE, palette::DOCK_INK),
             Self::Ghost => (Color::NONE, Color::NONE, palette::DIALOG_INK),
             // `DIALOG` on `DANGER` is the second pair this shelf is held to
             // — §3.2 measures it at 6.11 : 1, and it is the same dark ink the
@@ -1273,7 +1269,7 @@ impl Weight {
     fn feel(self) -> Option<Feel> {
         Some(match self {
             Self::Candle => Feel::new(palette::CANDLE),
-            Self::Secondary => Feel::new(palette::DIALOG_LIT),
+            Self::Secondary => Feel::new(palette::DOCK_GROUND),
             Self::Ghost => Feel::rising_to(Color::NONE, palette::DIALOG_LIT),
             Self::Danger => Feel::new(palette::DANGER),
             Self::Dead => return None,
@@ -1332,7 +1328,7 @@ pub(super) fn answer(
                 column_gap: px(CAP_GAP),
                 padding: UiRect::axes(px(BUTTON_PAD_X), px(BUTTON_PAD_Y)),
                 border: UiRect::all(px(1)),
-                border_radius: btn_radius(),
+                border_radius: BorderRadius::all(px(4)),
                 ..default()
             },
             BackgroundColor(fill),
@@ -1346,6 +1342,31 @@ pub(super) fn answer(
         commands.entity(button).insert(feel);
     } else {
         commands.entity(button).insert(Pickable::IGNORE);
+    }
+    // A machined key, not a floating pill. Both bevels stay inside the
+    // existing border box and neither adds a target or changes measurement.
+    if matches!(weight, Weight::Candle | Weight::Secondary | Weight::Danger) {
+        for (top, colour) in [
+            (true, palette::DOCK_INK.with_alpha(0.18)),
+            (false, palette::DOCK_GROUND.with_alpha(0.65)),
+        ] {
+            let bevel = commands
+                .spawn((
+                    Node {
+                        position_type: PositionType::Absolute,
+                        left: px(3),
+                        right: px(3),
+                        top: if top { px(1) } else { Val::Auto },
+                        bottom: if top { Val::Auto } else { px(1) },
+                        height: px(1),
+                        ..default()
+                    },
+                    BackgroundColor(colour),
+                    Pickable::IGNORE,
+                ))
+                .id();
+            commands.entity(button).add_child(bevel);
+        }
     }
     if let Some(legend) = cap {
         let (cap_fill, cap_edge, cap_ink) = weight.cap_colours();
@@ -1654,7 +1675,7 @@ mod tests {
             palette::CANDLE.with_alpha(drawer::PICKED_WASH),
             palette::DIALOG,
         );
-        let (_, edge, ink) = Weight::Secondary.colours();
+        let (fill, edge, ink) = drawer::PANEL_KEY;
 
         let words = contrast(ink, taken);
         assert!(
@@ -1666,7 +1687,7 @@ mod tests {
             said >= 3.0,
             "the border is the whole of what says a row is taken: {said:.2}:1"
         );
-        let alone = contrast(taken, palette::DIALOG_LIT);
+        let alone = contrast(taken, fill);
         assert!(
             alone < 1.2,
             "this test's premise is that the wash cannot say it on its own, \

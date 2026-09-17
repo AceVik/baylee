@@ -1,5 +1,6 @@
-//! The table's surface: casino baize inside a padded rail, on a slab with a
-//! thickness to it.
+//! The table's surface: midnight mineral cloth inside an aged champagne rail,
+//! on a slab with a thickness to it. It was casino baize until the September
+//! 2026 redesign; `tabletop::FELT_CLOTH` is the colour, not this sentence.
 //!
 //! A material of its own rather than a [`StandardMaterial`] with a texture on
 //! it, for one reason: the table is thirty-five units across and a card is
