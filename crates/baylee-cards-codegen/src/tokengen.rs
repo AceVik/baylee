@@ -96,6 +96,14 @@ const IGNORED: &[&str] = &["ManaCost", "Oracle"];
 /// out of its way. `K` is **not** on the list: a keyword is a bit on the
 /// token rather than an ability, and the transcoder would read it a second
 /// time into a card's `keywords`, which a token has its own field for.
+///
+/// `S` and `R` are on it because the engine really does read a *token's*
+/// static and replacement abilities: both of `progress.rs`'s collectors walk
+/// the battlefield and ask `obj.abilities(&lookup)`, which is the accessor
+/// that falls through to `TokenDef::abilities` — the same route a Treasure's
+/// activated ability and the trigger scan already take. Had either read the
+/// card instead, a token whose `S:` transcoded in full would have been an
+/// honest-looking `Implemented` with an anthem it never applied.
 const TRANSCODED: &[&str] = &["A", "T", "S", "R", "SVar"];
 
 /// The card types a token may be made of, and the constant each one is.

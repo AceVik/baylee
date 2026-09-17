@@ -826,6 +826,32 @@ fn find_cardsfolder(at: &Path, depth: usize) -> Option<PathBuf> {
         .find_map(|dir| find_cardsfolder(&dir, depth - 1))
 }
 
+/// One row per token, over bodies several stems may have produced.
+///
+/// The key is the **whole body** and not its constant, and that distinction
+/// is the whole of the collision guard. A name-keyed set was right exactly
+/// while the constant described the token in full; the day a token could
+/// carry an ability — which the name leaves out — it began dropping the
+/// second of two *different* definitions before anything compared them. So
+/// `tokenledger::assign`'s refusal could never fire from a `codegen` run,
+/// and a card meaning the plain Skeleton would have been handed the
+/// regenerating one, chosen by the order the stems happen to iterate in.
+///
+/// Keyed on the body, a genuine clash arrives at the ledger, which stops the
+/// run and names it.
+fn one_row_per_token(
+    bodies: impl Iterator<Item = tokengen::TokenBody>,
+) -> Vec<tokengen::TokenBody> {
+    let mut seen = BTreeSet::new();
+    let mut out = Vec::new();
+    for body in bodies {
+        if seen.insert((body.constant.clone(), body.literal.clone())) {
+            out.push(body);
+        }
+    }
+    out
+}
+
 /// Every token a card in this pool reaches for, read in full.
 ///
 /// The ledger is "every token there is" and may only be appended to, so what
@@ -838,6 +864,9 @@ fn find_cardsfolder(at: &Path, depth: usize) -> Option<PathBuf> {
 ///
 /// A stem the reader refuses is simply absent — see [`tokengen::TokenLookup::body`]
 /// for why that is one answer rather than two.
+///
+/// Two stems that read as the same token are one row; see
+/// [`one_row_per_token`] for what "the same" is.
 fn tokens_the_pool_reaches_for(
     pool: &Pool,
     scripts: &scriptgen::ScriptLookup,
@@ -849,15 +878,8 @@ fn tokens_the_pool_reaches_for(
             stems.extend(scriptgen::token_stems(&script));
         }
     }
-    let mut out = Vec::new();
-    let mut seen = BTreeSet::new();
-    for stem in &stems {
-        if let Some(body) = tokens.body(stem, pool.cats)
-            && seen.insert(body.constant.clone())
-        {
-            out.push(body);
-        }
-    }
+    let bodies = stems.iter().filter_map(|stem| tokens.body(stem, pool.cats));
+    let out = one_row_per_token(bodies);
     println!(
         "token scripts: {} in the reference, {} named by this pool, {} read in full",
         tokens.len(),
@@ -4709,7 +4731,8 @@ fn cross_read(root: &Path, scripts_dir: &Path, samples: usize) -> anyhow::Result
 
 #[cfg(test)]
 mod tests {
-    use super::printed_subtypes;
+    use super::{one_row_per_token, printed_subtypes};
+    use baylee_cards_codegen::{tokengen, tokenledger};
     use baylee_core::generated::subtypes;
 
     /// The branch the pool does not reach, and the reason it is written.
@@ -4723,6 +4746,46 @@ mod tests {
     /// which is exactly why the pass needs a test rather than a mutant. The
     /// first Doctor Who card in the pool would otherwise read as two words
     /// that name no subtype, and the whole face would go unchecked.
+    /// Two scripts that read as the same token are one row; two that read as
+    /// *different* tokens under one name are two, so the ledger can refuse
+    /// them.
+    ///
+    /// The second half is the one that has to be a test. A set keyed on the
+    /// constant passes the first half perfectly and silently discards the
+    /// second body, which leaves `tokenledger::assign`'s collision refusal
+    /// unreachable from a `codegen` run — a guard that cannot fire, with
+    /// three files saying it does. `b_1_1_skeleton` beside
+    /// `b_1_1_skeleton_regenerate` is the reference's own shape.
+    #[test]
+    fn two_stems_are_one_row_only_when_they_read_as_one_token() {
+        let body = |constant: &str, literal: &str| tokengen::TokenBody {
+            constant: constant.to_string(),
+            doc: "1/1 black Skeleton.".to_string(),
+            literal: literal.to_string(),
+            modules: vec!["creature".to_string()],
+        };
+        let plain = body("SKELETON_1_1_BLACK", "TokenDef { a }");
+        let same = body("SKELETON_1_1_BLACK", "TokenDef { a }");
+        let regenerating = body("SKELETON_1_1_BLACK", "TokenDef { a, abilities: b }");
+
+        let one = one_row_per_token(vec![plain.clone(), same].into_iter());
+        assert_eq!(one.len(), 1, "one token read twice is one row");
+
+        let two = one_row_per_token(vec![plain, regenerating].into_iter());
+        assert_eq!(
+            two.len(),
+            2,
+            "two definitions at one name both reach the ledger"
+        );
+        assert_eq!(
+            tokenledger::assign(Vec::new(), &[], &two),
+            Err(tokenledger::LedgerError::Collision(
+                "SKELETON_1_1_BLACK".to_string()
+            )),
+            "and the ledger is what refuses them"
+        );
+    }
+
     #[test]
     fn a_two_word_subtype_is_one_subtype() {
         assert_eq!(
