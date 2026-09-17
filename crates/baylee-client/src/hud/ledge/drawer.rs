@@ -109,6 +109,28 @@ const ROW_INNER_GAP: f32 = 5.0;
 /// told what it is spending.
 pub(super) const PICKED_WASH: f32 = 0.10;
 
+/// Fill, border and ink for a button that stands on **this panel**.
+///
+/// Deliberately not [`Weight::Secondary`], which every button here used to
+/// borrow. That weight is the *dock's* inset key, and when the dock was
+/// re-dressed it moved to the dock's own cold ground and champagne edge — so
+/// the panel was left carrying two registers, which is the thing `arrow`'s
+/// note says §3 exists to stop, and `filter_field` two functions down had
+/// gone on naming the panel's own pair directly all along.
+///
+/// It cost a measured claim, not only a look. A candle border against a
+/// champagne one is **2.12 : 1** and does not say which row is taken; against
+/// [`palette::DIALOG_LINE`] it is 5.52 : 1. The wash lost its end of it too —
+/// 1.26 : 1 against the dock's ground, where the whole point of
+/// [`PICKED_WASH`] is that it stays under what an eye reads as a difference.
+/// `a_picked_row_is_said_by_its_border` found the first and could not see the
+/// second: it was still reading the colour the row no longer had.
+pub(super) const PANEL_KEY: (Color, Color, Color) = (
+    palette::DIALOG_LIT,
+    palette::DIALOG_LINE,
+    palette::DIALOG_INK,
+);
+
 /// The drawer's positioning node, which outlives every rebuild.
 ///
 /// A marker on the node rather than on the panel, because the panel is what
@@ -620,7 +642,7 @@ fn stepper(commands: &mut Commands, fonts: &UiFonts, value: u32) -> Entity {
 /// here: a button on this panel is a button on the shelf, and two registers
 /// on one piece of furniture is what §3 is written to stop.
 fn arrow(commands: &mut Commands, fonts: &UiFonts, delta: i32, glyph: &str) -> Entity {
-    let (fill, edge, ink) = Weight::Secondary.colours();
+    let (fill, edge, ink) = PANEL_KEY;
     commands
         .spawn((
             PromptButton {
@@ -709,7 +731,7 @@ fn chooser(
         .id();
     for option in rows {
         let on = picked == Some(option.index);
-        let (fill, edge, ink) = Weight::Secondary.colours();
+        let (fill, edge, ink) = PANEL_KEY;
         // Taken, rather than louder: a picked row is still one answer among
         // several, so it is washed with the candle instead of being drawn as
         // one. `Weight::Candle` here would put two default answers on one

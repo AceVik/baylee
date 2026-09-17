@@ -1675,7 +1675,7 @@ mod tests {
             palette::CANDLE.with_alpha(drawer::PICKED_WASH),
             palette::DIALOG,
         );
-        let (_, edge, ink) = Weight::Secondary.colours();
+        let (fill, edge, ink) = drawer::PANEL_KEY;
 
         let words = contrast(ink, taken);
         assert!(
@@ -1687,7 +1687,7 @@ mod tests {
             said >= 3.0,
             "the border is the whole of what says a row is taken: {said:.2}:1"
         );
-        let alone = contrast(taken, palette::DIALOG_LIT);
+        let alone = contrast(taken, fill);
         assert!(
             alone < 1.2,
             "this test's premise is that the wash cannot say it on its own, \
