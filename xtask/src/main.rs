@@ -4,7 +4,7 @@ mod cr_check;
 
 use baylee_cards_codegen::{
     acceptance, cardindex, catalog, landgen, layout, ledger, lines, names, scriptgen, scripts,
-    scryfall, stubgen,
+    scryfall, stubgen, tokenledger,
 };
 use clap::{Parser, Subcommand};
 use std::collections::{BTreeMap, BTreeSet};
@@ -893,6 +893,17 @@ fn codegen(root: &Path, check: bool, scripts_dir: &Path, cache: &Path) -> anyhow
         check,
         &root.join("crates/baylee-cards/src/generated_names.rs"),
         &render_name_table()?,
+        &mut changed,
+    )?;
+
+    // 6. Which id every token there is was assigned → generated_tokens.rs.
+    //    Last, because it is the one generated file that reads *itself*
+    //    back: the ids it has already given out are the ids it must give
+    //    out again, and the only thing a run may do to the table is append.
+    write_or_check(
+        check,
+        &root.join("crates/baylee-cards/src/generated_tokens.rs"),
+        &render_token_ledger(root)?,
         &mut changed,
     )?;
 
@@ -4900,6 +4911,60 @@ fn render_name_table() -> anyhow::Result<String> {
         .map(|def| (def.name(), def.index.get()))
         .collect();
     Ok(names::render(&entries)?)
+}
+
+/// Renders `crates/baylee-cards/src/generated_tokens.rs`: the token ledger.
+///
+/// Reads the table it is about to rewrite, which is what makes the ids
+/// append-only, and then adds whatever is new — the same shape
+/// `xtask ledger` has for the card index, and safe for the same reason:
+/// assignment only ever appends, and the build is what checks what came out.
+///
+/// The hand-written half is found by reading `tokens.rs` for the statics it
+/// declares, with a floor under how many it must find. A textual reader of
+/// this pool that answers an empty list is not a hypothetical — eleven of
+/// them have now been caught doing it — and here an empty list would not
+/// fail, it would quietly report every hand-written token as an orphan.
+fn render_token_ledger(root: &Path) -> anyhow::Result<String> {
+    /// The fourteen that existed when the ledger was seeded. The list only
+    /// grows, so anything under this is a reader that has stopped reading.
+    const HAND_WRITTEN_FLOOR: usize = 14;
+
+    let tokens = root.join("crates/baylee-cards/src/tokens.rs");
+    let text = fs::read_to_string(&tokens)?;
+    let hand: Vec<String> = text
+        .lines()
+        .filter_map(|line| {
+            line.trim()
+                .strip_prefix("pub static ")?
+                .strip_suffix(": TokenDef = TokenDef {")
+                .map(str::to_string)
+        })
+        .collect();
+    anyhow::ensure!(
+        hand.len() >= HAND_WRITTEN_FLOOR,
+        "read {} hand-written tokens out of {}, expected at least {HAND_WRITTEN_FLOOR}",
+        hand.len(),
+        tokens.display()
+    );
+
+    let path = root.join("crates/baylee-cards/src/generated_tokens.rs");
+    let existing = match fs::read_to_string(&path) {
+        Ok(text) => tokenledger::parse(&text)?,
+        // No ledger at all is the first run, and only the first run: every
+        // later one has the file this is about to write.
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Vec::new(),
+        Err(e) => return Err(e.into()),
+    };
+    let before = existing.len();
+    let entries = tokenledger::assign(existing, &hand, &[])?;
+    println!(
+        "token ledger: {} entries ({} new), {} hand-written",
+        entries.len(),
+        entries.len() - before,
+        hand.len()
+    );
+    Ok(tokenledger::render(&entries))
 }
 
 /// Two cards in the pool printing the same English name.

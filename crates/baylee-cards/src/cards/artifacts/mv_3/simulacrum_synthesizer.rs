@@ -8,7 +8,7 @@
 
 use baylee_cards_dsl::prelude::*;
 
-use crate::tokens::CONSTRUCT_0_0 as CONSTRUCT;
+use crate::tokens::CONSTRUCT_ARTIFACT_0_0 as CONSTRUCT;
 
 /// "another artifact you control with mana value 3 or greater".
 ///

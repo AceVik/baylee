@@ -12,7 +12,7 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes::{enchantment, land};
 
-use crate::tokens::CONSTRUCT_0_0 as CONSTRUCT;
+use crate::tokens::CONSTRUCT_ARTIFACT_0_0 as CONSTRUCT;
 
 card!(
     index = index::URZA_S_SAGA,

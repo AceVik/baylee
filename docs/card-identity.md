@@ -225,6 +225,27 @@ per game and must never be stored:
   `COMMANDER_REPLACE`), so a real ability index and a reserved one can never
   collide.
 
+A fifth is on the wire and **is** frozen, by the same kind of ledger a card
+has:
+
+- **The token id** — `PublicObject::token`, an index into
+  `baylee_cards::tokens::ALL`, which is how a client knows a Soldier is a
+  Soldier and which picture it wears. A token has no printing, so it has no
+  `CardIndex` and no `PrintRef`; the index is the whole of its identity. The
+  table it indexes lives in `crates/baylee-cards/src/generated_tokens.rs`,
+  written by `cargo xtask codegen`, and may only ever be appended to — an
+  insertion in the middle renumbers every token after it and hands one of
+  them another's picture.
+
+  What the ledger records is the **order ids were assigned in**, and not
+  which half of the table an entry came from. That is the whole reason it
+  exists: the hand-written tokens grow and the generated ones grow, so either
+  list placed before the other would renumber it the next time somebody added
+  to the first. Two rows may never be the same permanent —
+  `no_two_rows_of_the_ledger_are_the_same_token` is the build failure that
+  says so, because two ids for one token is a card wearing whichever picture
+  it happened to name.
+
 And one that is stored and is **not** stable, which is worth saying plainly:
 
 - **`SubtypeId`** — generated from Scryfall's catalogs, **sorted

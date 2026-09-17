@@ -22,5 +22,6 @@ pub mod scripts;
 pub mod scryfall;
 pub mod stubgen;
 pub mod tokengen;
+pub mod tokenledger;
 
 pub use error::CodegenError;

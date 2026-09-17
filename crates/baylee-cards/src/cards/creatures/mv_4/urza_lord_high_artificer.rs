@@ -10,7 +10,7 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-use crate::tokens::CONSTRUCT_0_0 as CONSTRUCT;
+use crate::tokens::CONSTRUCT_ARTIFACT_0_0 as CONSTRUCT;
 
 card!(
     index = index::URZA_LORD_HIGH_ARTIFICER,

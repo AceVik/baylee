@@ -162,7 +162,7 @@ pub static CLUE: TokenDef = TokenDef {
 
 /// 0/0 colorless Construct artifact creature (Urza's Saga). Its size comes
 /// from a continuous effect the card registers, not from the token.
-pub static CONSTRUCT_0_0: TokenDef = TokenDef {
+pub static CONSTRUCT_ARTIFACT_0_0: TokenDef = TokenDef {
     name: "Construct",
     types: TypeSet::CREATURE.union(TypeSet::ARTIFACT),
     subtypes: &[creature::CONSTRUCT],
@@ -252,26 +252,20 @@ pub static TREASURE: TokenDef = TokenDef {
     ..TokenDef::DEFAULT
 };
 
-/// All central tokens; the index IS the stable token id (art key).
+/// Every token there is; the index IS the stable token id (art key).
 ///
 /// Append only — an insertion in the middle renumbers every token after it,
 /// and the number is what a client has cached as an art key.
-pub static ALL: &[&TokenDef] = &[
-    &ALLY_1_1_WHITE,
-    &ANGEL_4_4_WHITE_FLYING,
-    &BIRD_1_1_WHITE_FLYING,
-    &BOAR_2_2_GREEN,
-    &CONSTRUCT_0_0,
-    &ILLUSION_X_BLUE,
-    &SHAPESHIFTER_1_1_CHANGELING,
-    &SHAPESHIFTER_2_2_BLUE_CHANGELING,
-    &SOLDIER_1_1_WHITE,
-    &TREASURE,
-    &ARMY_0_0_BLACK,
-    &BLOOD,
-    &CLUE,
-    &FOOD,
-];
+///
+/// The table lives in [`crate::generated_tokens`] rather than here because
+/// the tokens in it come from two places: the ones below, written by a person
+/// for a card finished by hand, and the ones a reader wrote out of the
+/// card-script reference. Both halves grow, so neither can be a block inside
+/// the other — a hand-written token added at the end of *this* list would
+/// have renumbered every generated one. What the ledger records instead is
+/// the order ids were assigned in, whichever half an entry came from, and
+/// `cargo xtask codegen` may only append to it.
+pub use crate::generated_tokens::ALL;
 
 /// The stable id of a central token (its index in [`ALL`]).
 #[must_use]
@@ -290,6 +284,73 @@ pub fn by_token_id(id: u16) -> Option<&'static TokenDef> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::generated_tokens::GENERATED;
+
+    /// How many tokens this file declared when the ledger was seeded. The
+    /// list only grows, so a reader of it that finds fewer has stopped
+    /// reading rather than found a shorter file.
+    const HAND_WRITTEN_FLOOR: usize = 14;
+
+    /// Whether a token in [`ALL`] is one a reader wrote rather than one a
+    /// person did. Two tests need the distinction: a token a person wrote
+    /// chose a picture, and a generated one has none to choose from yet.
+    fn is_generated(token: &TokenDef) -> bool {
+        GENERATED.iter().any(|g| std::ptr::eq(*g, token))
+    }
+
+    /// Every token this file declares has to be in the ledger, or it has no
+    /// id: [`token_id`] answers `u16::MAX` for it and the token reaches the
+    /// table nameless as far as art is concerned. The ledger is written by
+    /// `cargo xtask codegen`, which does not run in CI — so a token written
+    /// by hand and never followed by a codegen run is exactly the mistake
+    /// this catches, and nothing else would.
+    #[test]
+    fn every_token_written_here_has_an_id_in_the_ledger() {
+        let declared: Vec<&str> = include_str!("tokens.rs")
+            .lines()
+            .filter_map(|line| {
+                line.trim()
+                    .strip_prefix("pub static ")?
+                    .strip_suffix(": TokenDef = TokenDef {")
+            })
+            .collect();
+        assert!(
+            declared.len() >= HAND_WRITTEN_FLOOR,
+            "read {} tokens out of this file; the list only grows",
+            declared.len()
+        );
+        // Against the ledger's own text, because what the ledger records is
+        // a *constant* and a constant is a name: `ALL` holds the definitions
+        // those names resolve to, and two tokens are allowed to be equal
+        // there in a way two names never are.
+        let ledger = include_str!("generated_tokens.rs");
+        let missing: Vec<&&str> = declared
+            .iter()
+            .filter(|name| !ledger.contains(&format!("&tokens::{name},")))
+            .collect();
+        assert!(
+            missing.is_empty(),
+            "these tokens have no id — run `cargo xtask codegen`: {missing:?}"
+        );
+        assert_eq!(
+            declared.len() + GENERATED.len(),
+            ALL.len(),
+            "the ledger holds rows this file does not declare"
+        );
+    }
+
+    /// No two rows of the ledger are the same token. Two equal definitions
+    /// are two ids for one permanent, and whichever of them a card happens
+    /// to name decides which picture it wears — a difference nothing in the
+    /// rules can see and nobody would think to look for.
+    #[test]
+    fn no_two_rows_of_the_ledger_are_the_same_token() {
+        for (i, a) in ALL.iter().enumerate() {
+            for b in &ALL[i + 1..] {
+                assert!(a != b, "two ids for one token: {}", a.name);
+            }
+        }
+    }
 
     /// The id is the art key, so it has to survive the round trip. A token
     /// left out of [`ALL`] answers `u16::MAX` and reaches the client with no
@@ -337,9 +398,17 @@ mod tests {
     ///
     /// The shape checked here is the one `baylee_client_core::images` will
     /// accept — a hyphenated 36-character UUID that is not the nil one.
+    ///
+    /// Only the hand-written half. A generated token has no printing chosen
+    /// for it and carries an empty id deliberately, which `tokenart::of`
+    /// filters into "draw the face" — the one honest answer a reader that
+    /// never saw a picture can give. Choosing art for those is work this
+    /// test must not pretend has been done.
     #[test]
-    fn every_token_names_a_picture_the_client_can_fetch() {
-        for token in ALL {
+    fn every_hand_written_token_names_a_picture_the_client_can_fetch() {
+        let mut checked = 0;
+        for token in ALL.iter().filter(|t| !is_generated(t)) {
+            checked += 1;
             let id = token.scryfall_id;
             assert!(!id.is_empty(), "{} has no art", token.name);
             assert_eq!(id.len(), 36, "{}: {id} is not a UUID", token.name);
@@ -355,14 +424,22 @@ mod tests {
                 token.name
             );
         }
+        assert!(
+            checked >= HAND_WRITTEN_FLOOR,
+            "checked {checked} hand-written tokens; the list only grows"
+        );
     }
 
     /// Two tokens sharing a picture is not an error — a 1/1 and a 2/2
     /// Shapeshifter could reasonably wear the same art — but it has never
     /// been what was *meant* here, and a copied line is how it would happen.
     #[test]
-    fn no_two_tokens_were_given_the_same_picture_by_accident() {
-        let mut ids: Vec<&str> = ALL.iter().map(|t| t.scryfall_id).collect();
+    fn no_two_hand_written_tokens_were_given_the_same_picture_by_accident() {
+        let mut ids: Vec<&str> = ALL
+            .iter()
+            .filter(|t| !is_generated(t))
+            .map(|t| t.scryfall_id)
+            .collect();
         ids.sort_unstable();
         let before = ids.len();
         ids.dedup();

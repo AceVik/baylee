@@ -21,6 +21,8 @@ pub mod generated;
 pub mod generated_lines;
 /// Generated: the name table — which card a printed English name is.
 pub mod generated_names;
+/// Generated: the token ledger — which id every token there is was assigned.
+pub mod generated_tokens;
 /// Which printed sentence an ability came from (the reader of
 /// [`generated_lines`]).
 pub mod lines;
