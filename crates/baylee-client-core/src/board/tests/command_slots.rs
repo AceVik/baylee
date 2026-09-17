@@ -129,3 +129,20 @@ fn what_is_not_a_commander_lies_on_the_first_slot() {
     assert_eq!(count(PileKind::Command), 2, "the commander and the emblem");
     assert_eq!(count(PileKind::Command2), 1);
 }
+
+#[test]
+fn commanders_remain_single_cards_when_hovered() {
+    let first = printed(1, 0, "Sidar Kondo", 11);
+    let second = printed(2, 0, "Tana", 12);
+    let view = ViewBuilder::new(2)
+        .with_commanders(0, &[&first, &second])
+        .with_command(0, vec![first.clone(), second.clone()])
+        .build();
+    for pile in zone_piles(&view, PlayerId::new(0)) {
+        if matches!(pile.kind, PileKind::Command | PileKind::Command2) {
+            assert!(pile.fan.is_empty());
+            assert_eq!(pile.fan_len(), 0);
+            assert!(pile.top.is_some());
+        }
+    }
+}

@@ -68,7 +68,8 @@ fn no_card_reaches_the_band_its_seat_writes_on() {
             let forward = slot.forward();
             let inner = (slot.center + forward * (slot.half_extent.y - crate::tabletop::MAT_LEDGE))
                 .dot(forward);
-            let front = slot.lane_center(LaneKind::Creatures).dot(forward) + CARD_HEIGHT * 0.5;
+            let front =
+                slot.lane_center(LaneKind::Creatures).dot(forward) + STAGE_STEP + CARD_HEIGHT * 0.5;
             assert!(
                 front <= inner + 1e-4,
                 "{n} seats, seat {:?}: a creature reaches {front} and the band \
@@ -252,6 +253,28 @@ fn lanes_stack_from_the_table_centre_towards_the_seat() {
                     slot.ring_index
                 );
             }
+        }
+    }
+}
+
+#[test]
+fn reclaiming_command_space_preserves_framing_and_public_piles() {
+    for n in 2..=8u8 {
+        let mut layout = TableLayout::new(&seats(n), 1.78, None);
+        let before = layout.clone();
+        for slot in &mut layout.slots {
+            let original = *slot;
+            slot.reclaim_command_strip();
+            assert!(slot.lane_width() > original.lane_width() + 1.0);
+            for pile in [PileKind::Library, PileKind::Graveyard, PileKind::Exile] {
+                assert!(slot.pile_center(pile).distance(original.pile_center(pile)) < 1e-4);
+            }
+            let once = *slot;
+            slot.reclaim_command_strip();
+            assert_eq!(*slot, once);
+        }
+        for (a, b) in layout.corners(0.0).iter().zip(before.corners(0.0)) {
+            assert!(a.distance(b) < 1e-4);
         }
     }
 }

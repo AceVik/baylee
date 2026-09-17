@@ -969,6 +969,7 @@ fn add_present_systems(app: &mut App) {
                     hud::place_seat_bars,
                     hud::stretch_step_tiles,
                     hud::describe_phase,
+                    hud::highlight_player,
                 )
                     .chain()
                     .after(table::apply_camera_rig),
@@ -1794,7 +1795,17 @@ pub fn rebuild_board(duel: &mut Duel) {
         .chain(view.opponents_in_turn_order())
         .map(|player| Seat::on(player, team_of(player)))
         .collect();
-    let layout = TableLayout::seated(&seats, duel.canvas_aspect.unwrap_or(16.0 / 9.0), duel.focus);
+    let mut layout =
+        TableLayout::seated(&seats, duel.canvas_aspect.unwrap_or(16.0 / 9.0), duel.focus);
+    for slot in &mut layout.slots {
+        if view
+            .seats
+            .iter()
+            .any(|seat| seat.player == slot.player && seat.commanders.is_empty())
+        {
+            slot.reclaim_command_strip();
+        }
+    }
 
     duel.board = Some(BoardModel::from_view(
         view,

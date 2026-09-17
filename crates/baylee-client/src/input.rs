@@ -2447,7 +2447,11 @@ pub fn pointer(
             // request to look somewhere else. What it still lacks is the line
             // saying so; that arrives with the slip.
             if let Some(i) = duel.interaction.as_mut()
-                && i.toggle_player(tab.player) != SelectionOutcome::Rejected
+                && (i.toggle_player(tab.player) != SelectionOutcome::Rejected
+                    || matches!(
+                        i.pending(),
+                        baylee_engine::choice::Pending::ChooseTargets { .. }
+                    ))
             {
                 continue;
             }

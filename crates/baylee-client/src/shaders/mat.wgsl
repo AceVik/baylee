@@ -75,7 +75,7 @@ const LANE_FAR: f32 = 0.0080;
 /// Dimmer than the quietest lane, because the ink on it is meant to be the
 /// brightest thing on a seat's ground.
 const LANE_LEDGE: f32 = 0.0060;
-const LEDGE_FRAC: f32 = 0.22000233;
+const LEDGE_FRAC: f32 = 0.220002328;
 
 /// One lane and one end of the printed border, as fractions of the same
 /// depth. `tabletop::LANE_FRAC`, `tabletop::MARGIN_FRAC`.
@@ -86,11 +86,13 @@ const LEDGE_FRAC: f32 = 0.22000233;
 /// is why the shelf and the bar written on it disagreed by 0.46 units.
 /// `LEDGE_FRAC + 3·LANE_FRAC + MARGIN_FRAC` is 1: the shelf, the three rows
 /// and the border beyond the last of them are the whole mat.
-const LANE_FRAC: f32 = 0.23397744;
-const MARGIN_FRAC: f32 = 0.07806534;
+const LANE_FRAC: f32 = 0.200929782;
+const MARGIN_FRAC: f32 = 0.078065342;
 
 /// The hairline between two lanes, and how wide it runs as a fraction of the
 /// mat's depth. `tabletop::MAT_SEAM`, `tabletop::MAT_SEAM_WIDTH`.
+const COMBAT_FRAC: f32 = 0.099142984;
+
 const SEAM: f32 = 0.036;
 const SEAM_W: f32 = 0.0075;
 
@@ -206,8 +208,8 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     let outer = params.ledge_outer > 0.5;
     let first = MARGIN_FRAC + select(LEDGE_FRAC - MARGIN_FRAC, 0.0, outer);
     let from_shelf = select(v, 1.0 - v, outer);
-    let a = first + LANE_FRAC;
-    let b = first + LANE_FRAC * 2.0;
+    let a = first + COMBAT_FRAC + LANE_FRAC;
+    let b = first + COMBAT_FRAC + LANE_FRAC * 2.0;
     var lane = LANE_FAR;
     if from_shelf < LEDGE_FRAC {
         lane = LANE_LEDGE;

@@ -9,6 +9,7 @@ fn seat() -> SeatSlot {
         center: Vec2::ZERO,
         facing: 0.0,
         half_extent: Vec2::new(6.0, 3.0),
+        reclaimed: 0.0,
         is_local: true,
     }
 }

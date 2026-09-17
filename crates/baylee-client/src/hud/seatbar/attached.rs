@@ -11,7 +11,7 @@ const TRACK_W: f32 = 52.0;
 const TRACK_H: f32 = 520.0;
 
 /// Minimum clear space around the identity and phase groups.
-const BAND_GAP: f32 = 16.0;
+const BAND_GAP: f32 = 32.0;
 
 /// Which part of the seat's band carries this piece of its information.
 #[derive(Component, Clone, Copy, Debug)]
@@ -215,17 +215,26 @@ fn spawn_identity(
     fonts: &UiFonts,
 ) {
     let identity = frame(commands, root, seat.player, Panel::Identity);
-    commands.entity(identity).insert(Node {
-        display: Display::None,
-        position_type: PositionType::Absolute,
-        width: px(HEADER_W),
-        height: px(HEADER_H),
-        flex_direction: FlexDirection::Column,
-        align_items: AlignItems::FlexStart,
-        justify_content: JustifyContent::Center,
-        row_gap: px(2),
-        ..default()
-    });
+    commands.entity(identity).insert((
+        PlayerTab {
+            player: seat.player,
+        },
+        Pickable::default(),
+        bevy::picking::hover::PickingInteraction::default(),
+        Node {
+            display: Display::None,
+            position_type: PositionType::Absolute,
+            width: px(HEADER_W),
+            height: px(HEADER_H),
+            flex_direction: FlexDirection::Column,
+            align_items: AlignItems::FlexStart,
+            justify_content: JustifyContent::Center,
+            row_gap: px(2),
+            border: UiRect::all(px(1)),
+            border_radius: BorderRadius::all(px(4)),
+            ..default()
+        },
+    ));
     let label = name(commands, lang, view, statics, seat, fonts, HEADER_W, 22.0);
     let status = commands
         .spawn((
@@ -498,6 +507,55 @@ pub(crate) fn describe_phase(
         let label = row.name().text(caption.lang);
         if text.0 != label {
             text.0 = label.to_string();
+        }
+    }
+}
+
+/// Legal player targets share the cards' gold cue; selection stays visible.
+pub(crate) fn highlight_player(
+    duel: Res<Duel>,
+    mut panels: Query<(
+        &PlayerTab,
+        &Panel,
+        &bevy::picking::hover::PickingInteraction,
+        &mut BackgroundColor,
+        &mut BorderColor,
+    )>,
+) {
+    for (tab, panel, hover, mut background, mut border) in &mut panels {
+        if !matches!(panel, Panel::Identity) {
+            continue;
+        }
+        let offered = duel.interaction.as_ref().is_some_and(|i| {
+            i.is_mine() && matches!(i.pending(), baylee_engine::choice::Pending::ChooseTargets { player_options, .. } if player_options.contains(&tab.player))
+        });
+        let selected = duel
+            .interaction
+            .as_ref()
+            .is_some_and(|i| i.is_seat_selected(tab.player));
+        let hovered = *hover != bevy::picking::hover::PickingInteraction::None;
+        let alpha = if selected {
+            0.24
+        } else if hovered {
+            0.12
+        } else if offered {
+            0.06
+        } else {
+            0.0
+        };
+        let tint = palette::CANDLE.with_alpha(alpha);
+        if background.0 != tint {
+            background.0 = tint;
+        }
+        let edge = BorderColor::all(palette::CANDLE.with_alpha(if selected {
+            0.95
+        } else if offered || hovered {
+            0.55
+        } else {
+            0.0
+        }));
+        if *border != edge {
+            *border = edge;
         }
     }
 }

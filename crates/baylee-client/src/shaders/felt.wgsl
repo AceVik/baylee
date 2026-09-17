@@ -238,25 +238,51 @@ fn hairline(distance: f32, width: f32, pixel: f32) -> f32 {
 /// The cloth at a point of table, in display-referred colour.
 // Polished smoked glass over slow elemental strata. Bounded noise work,
 // no refraction buffer and no additional full-screen pass.
+// Two winding channels meet in an obsidian estuary. The banks stay fixed;
+// texture travels along the channel, so this reads as flow rather than pulsing noise.
 fn glass_at(p: vec2<f32>) -> vec3<f32> {
     let t = globals.time * params.motion;
-    let warp = fbm2(p * 0.24 + vec2<f32>(t * 0.018, -t * 0.012));
-    let strata = fbm2(p * 0.42 + vec2<f32>(warp * 1.2, t * 0.018));
-    let fissure = abs(sin(p.x * 0.46 + p.y * 0.73 + warp * 6.0));
-    let ice = pow(1.0 - fissure, 18.0);
-    let molten = pow(1.0 - abs(sin(p.x * 0.53 - p.y * 0.32 + strata * 2.5)), 22.0);
-    let grass = sin(p.y * 3.5 + warp * 8.0 + t * 0.18) * 0.5 + 0.5;
-    let side = smoothstep(-params.span.x * 0.25, params.span.x * 0.25, p.x);
-    var colour = mix(FELT_CLOTH * 0.66, FELT_WORN * 0.84, strata);
-    colour += vec3<f32>(0.10, 0.31, 0.42) * ice * (1.0 - side) * 0.16;
-    colour += vec3<f32>(0.55, 0.13, 0.035) * molten * side * 0.24;
-    colour += vec3<f32>(0.08, 0.12, 0.055) * grass * strata * 0.11;
-    // Broad reflected sky and a narrow travelling caustic reveal a smooth
-    // upper surface while the deeper veins retain their darker troughs.
+    let bend = sin(p.y * 0.31) * 1.65 + sin(p.y * 0.71 + 0.6) * 0.48;
+    let confluence = 1.0 - smoothstep(0.0, 7.5, abs(p.y));
+    let water_axis = bend - 2.0 * (1.0 - confluence);
+    let lava_axis = bend + 2.0 * (1.0 - confluence);
+    let bank = (vnoise(p * 0.75) - 0.5) * 0.38;
+    let water_d = abs(p.x - water_axis + bank);
+    let lava_d = abs(p.x - lava_axis - bank);
+    let water = 1.0 - smoothstep(0.72, 1.38, water_d);
+    let lava = 1.0 - smoothstep(0.60, 1.18, lava_d);
+    let silt = fbm2(p * 0.34);
+    var colour = mix(vec3<f32>(0.012, 0.023, 0.029), vec3<f32>(0.035, 0.046, 0.050), silt);
+
+    // Advected ripples, refracted caustics and narrow reflected crests.
+    let flow = vec2<f32>((p.x - water_axis) * 2.4, p.y * 1.4 - t * 0.34);
+    let current = fbm2(flow);
+    let ripple = sin(flow.y * 18.0 + sin(flow.x * 4.0 + current * 8.0) * 0.8);
+    let crest = pow(max(ripple, 0.0), 14.0);
+    let depth = (1.0 - smoothstep(0.0, 1.3, water_d));
+    var river = mix(vec3<f32>(0.018, 0.12, 0.16), vec3<f32>(0.012, 0.047, 0.075), depth);
+    river += vec3<f32>(0.08, 0.27, 0.31) * current * 0.30;
+    river += vec3<f32>(0.32, 0.52, 0.55) * crest * 0.065;
+    let foam = smoothstep(0.52, 0.76, current) * (1.0 - depth) * 0.20;
+    river += vec3<f32>(0.38, 0.49, 0.46) * foam;
+    colour = mix(colour, river, water);
+
+    // Slower molten flow carries dark crust islands over glowing seams.
+    let molten_uv = vec2<f32>((p.x - lava_axis) * 4.5, p.y * 2.5 - t * 0.23);
+    let crust = fbm2(molten_uv);
+    let crack = 1.0 - smoothstep(0.008, 0.09, abs(crust - 0.49));
+    let core = 1.0 - smoothstep(0.1, 1.0, lava_d);
+    var molten = mix(vec3<f32>(0.045, 0.016, 0.012), vec3<f32>(0.23, 0.056, 0.008), crack);
+    molten += vec3<f32>(0.19, 0.11, 0.026) * crack * core;
+    // Cooling at the confluence forms black glass and a thin pale steam veil.
+    let contact = water * lava;
+    molten = mix(molten, vec3<f32>(0.018, 0.026, 0.031), contact * (0.65 + crust * 0.25));
+    colour = mix(colour, molten, lava);
+    let steam = vnoise(vec2<f32>(p.x * 1.8 + t * 0.05, p.y * 1.2 - t * 0.16));
+    colour += vec3<f32>(0.11, 0.15, 0.16) * contact * smoothstep(0.40, 0.80, steam) * 0.25;
+    // The broad reflection belongs to the glass above both rivers.
     let reflection = exp(-pow((p.y + p.x * 0.28 + 2.5) * 0.23, 2.0));
-    let caustic = pow(max(0.0, sin(p.x * 0.32 + p.y * 0.18 + warp * 1.8 + t * 0.09)), 24.0);
-    colour += vec3<f32>(0.18, 0.26, 0.30) * (reflection * 0.24 + caustic * 0.055);
-    return colour;
+    return colour + vec3<f32>(0.035, 0.052, 0.06) * reflection;
 }
 
 // Five enamel stones set into the compass. Mana still controls their light,

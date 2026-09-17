@@ -17,8 +17,10 @@ The old land-driven atmosphere renderer and its full-table blended shader have
 been removed; atmosphere intensity now controls the sky's aurora and sparks.
 The lobby backdrop remains separate from the duel.
 
-`felt.wgsl` draws smoked glass with analytic sky reflections, caustics and slow
-ice, molten and grass-like strata in the existing opaque pass. This is a
+`felt.wgsl` draws smoked glass above winding water and lava channels. Water
+ripples and caustics travel faster than the molten crust; their confluence
+cools into dark obsidian with a restrained steam veil. Fixed banks keep the
+motion legible as flow. Everything stays in the existing opaque pass. This is a
 stylised glass material, without screen-space refraction or a render target.
 Table corners use 6.5% of the short axis. Wide duels use a 0.62 camera lean
 and tighter framing; smaller windows and multiplayer rings retain the original
@@ -31,6 +33,24 @@ and exile counts sit beyond their respective piles, icon above number. Life
 uses a 24-point numeral with an 18-point icon. Poison and energy appear only
 when nonzero; the wire view does not expose player experience or charge.
 All these anchors follow the projected table, with upright text at every seat.
+
+The creature lane includes a full `STAGE_STEP` of combat clearance, taken from
+the spare spacing between the three rows. Advancing attackers stay inside the
+battlefield and clear of the information band. Identity and phases have wider
+separation, and wide duels frame the table more closely. A seat without any
+designated commanders reclaims the left command strip; its right-hand piles
+and the camera's footprint remain fixed.
+
+The entire player summary accepts player targeting, including its life and
+hand cells. Legal targets receive a gold outline and selected players remain
+lit; an invalid target click cannot move the camera. Outside a target choice,
+the existing seat-focus behavior remains available.
+
+Graveyard and exile previews show the four newest cards with shallow tilt and
+a small hover offset that keeps the card under the cursor. The library uses
+the same bounded preview with backs; authorized search/scry cards continue to
+appear through the choice interface. Command slots never fan. All movement
+uses the existing card motion system and respects reduced motion.
 
 Proximity groups related stats; type size establishes their hierarchy. Gold
 marks the active turn, with a secondary cool accent for priority. Phase groups

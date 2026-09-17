@@ -1717,3 +1717,4 @@ pub(crate) use tray::dim_the_table;
 pub use tray::{TrayRevision, sync_tray};
 
 pub(crate) use seatbar::attached::describe_phase;
+pub(crate) use seatbar::attached::highlight_player;

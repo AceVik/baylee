@@ -10,16 +10,16 @@ fn pile(view: &PlayerView, kind: PileKind) -> ZonePile {
         .expect("the seat has this pile")
 }
 
-/// Top of the pile first, and never more than seven — a graveyard of
-/// ten fans its last seven, newest first.
+/// Top of the pile first, and never more than four — a graveyard of
+/// ten fans its last four, newest first.
 ///
 /// `ZonePosition::Top` pushes, so the object listed *last* is the one
 /// lying on top; the fan reverses that, which is the whole of the
 /// ordering claim. It is asserted against the names rather than
-/// against a length, because a fan that took the first seven would
-/// also be seven cards long and would be the wrong seven.
+/// against a length, because a fan that took the first four would
+/// also be four cards long and would be the wrong four.
 #[test]
-fn a_graveyard_fans_its_newest_seven_newest_first() {
+fn a_graveyard_fans_its_newest_four_newest_first() {
     let dead: Vec<_> = (0..10)
         .map(|i| printed(i, 0, &format!("card {i}"), u16::try_from(i).unwrap() + 1))
         .collect();
@@ -34,10 +34,8 @@ fn a_graveyard_fans_its_newest_seven_newest_first() {
             .iter()
             .map(|c| c.name.as_str())
             .collect::<Vec<_>>(),
-        [
-            "card 9", "card 8", "card 7", "card 6", "card 5", "card 4", "card 3"
-        ],
-        "the fan is not the newest seven, newest first"
+        ["card 9", "card 8", "card 7", "card 6"],
+        "the fan is not the newest four, newest first"
     );
     assert_eq!(
         graveyard.fan.first().map(|c| c.object),

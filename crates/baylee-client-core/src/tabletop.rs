@@ -513,12 +513,16 @@ pub const LEDGE_FRAC: f32 = (MAT_MARGIN + MAT_LEDGE) / MAT_DRAWN_DEPTH;
 /// left* of the mat in three instead is what drifted them: the border at the
 /// far end is not a lane, and dividing it in with them stretched each row by
 /// a fifth of a unit more than the last.
-pub const LANE_FRAC: f32 = (crate::layout::POD_DEPTH - MAT_LEDGE) / (3.0 * MAT_DRAWN_DEPTH);
+pub const LANE_FRAC: f32 =
+    (crate::layout::POD_DEPTH - MAT_LEDGE - crate::layout::STAGE_STEP) / (3.0 * MAT_DRAWN_DEPTH);
+
+/// Extra room in front of creatures, reserved for their combat advance.
+pub const COMBAT_FRAC: f32 = crate::layout::STAGE_STEP / MAT_DRAWN_DEPTH;
 
 /// The shelf, the three lanes and the border at the far end are the whole
 /// mat: a band left over is a band drawn in the wrong place.
 const _: () = assert!({
-    let sum = LEDGE_FRAC + LANE_FRAC * 3.0 + MARGIN_FRAC;
+    let sum = LEDGE_FRAC + COMBAT_FRAC + LANE_FRAC * 3.0 + MARGIN_FRAC;
     sum > 1.0 - 1e-6 && sum < 1.0 + 1e-6
 });
 
@@ -639,7 +643,7 @@ pub fn seat_mat(
                     LEDGE_FRAC - MARGIN_FRAC
                 };
             let on_ledge = from_shelf < LEDGE_FRAC;
-            let below = ((v - first) / (LANE_FRAC * 3.0)).clamp(0.0, 1.0);
+            let below = ((v - first - COMBAT_FRAC) / (LANE_FRAC * 3.0)).clamp(0.0, 1.0);
             #[expect(clippy::cast_possible_truncation, reason = "three lanes")]
             let lane = (below * 3.0).floor().clamp(0.0, 2.0) as usize;
             // Quiet, not absent. The mat's job is to say where a seat's
@@ -678,7 +682,7 @@ pub fn seat_mat(
             // it is where the seat's ground stops being a place cards stand
             // and starts being a shelf they are described on.
             let seam_width = (h * MAT_SEAM_WIDTH).max(1.0);
-            let lanes = h * first;
+            let lanes = h * (first + COMBAT_FRAC);
             let step = h * LANE_FRAC;
             let fence = h * if ledge_outer {
                 1.0 - LEDGE_FRAC
@@ -1625,7 +1629,7 @@ mod tests {
                 let mat = seat_mat(64, height, 0.02, 0.01, [1.0; 3], ledge_outer);
                 let first = if ledge_outer { MARGIN_FRAC } else { LEDGE_FRAC };
                 for lane in [1.0, 2.0] {
-                    let centre = ((first + LANE_FRAC * lane) * height as f32) as u32;
+                    let centre = ((first + COMBAT_FRAC + LANE_FRAC * lane) * height as f32) as u32;
                     let bright = (centre - 10..=centre + 10)
                         .filter(|&y| mat.pixel(32, y)[3] > MAT_LANES[0] + MAT_SEAM * 0.5)
                         .count();
@@ -1885,7 +1889,7 @@ mod tests {
         // and passing on a mat with no seams drawn at all.
         #[expect(clippy::cast_possible_truncation, reason = "a row of a texture")]
         let row = |v: f32| (v * H as f32) as u32;
-        let lanes = LEDGE_FRAC;
+        let lanes = LEDGE_FRAC + COMBAT_FRAC;
         let step = LANE_FRAC;
         let seam = mat.pixel(128, row(lanes + step))[3];
         let mid_lane = mat.pixel(128, row(lanes + step * 0.5))[3];
@@ -1908,7 +1912,7 @@ mod tests {
             "the ledge should be dimmer than the creature lane: {ledge} vs \
              {mid_lane}"
         );
-        let fence = mat.pixel(128, row(lanes))[3];
+        let fence = mat.pixel(128, row(LEDGE_FRAC))[3];
         assert!(
             fence > seam,
             "the ledge's own seam should be the plainer of the two: {fence} \
@@ -1969,7 +1973,8 @@ mod tests {
             (&inner, LEDGE_FRAC, "inner"),
             (&outer, MARGIN_FRAC, "outer"),
         ] {
-            let lane = |i: f32| mat.pixel(128, row((i + 0.5).mul_add(LANE_FRAC, first)))[3];
+            let lane =
+                |i: f32| mat.pixel(128, row((i + 0.5).mul_add(LANE_FRAC, first + COMBAT_FRAC)))[3];
             let (near, mid, far) = (lane(0.0), lane(1.0), lane(2.0));
             assert!(
                 near >= mid && mid >= far && near > far,
@@ -2001,7 +2006,7 @@ mod tests {
         // Tall, because a fence is a hairline: `MAT_SEAM_WIDTH` of a mat
         // 96 rows deep is one row, and one row cannot be told from its
         // neighbour.
-        let lane = (crate::layout::POD_DEPTH - MAT_LEDGE) / 3.0;
+        let lane = (crate::layout::POD_DEPTH - MAT_LEDGE - crate::layout::STAGE_STEP) / 3.0;
         #[expect(clippy::cast_possible_truncation, reason = "a row of a texture")]
         let row = |t: f32| (t / MAT_DRAWN_DEPTH * H as f32) as u32;
         // Measured from the mat's centre-facing edge, in table units, which
@@ -2021,13 +2026,19 @@ mod tests {
             let mat = seat_mat(256, H, 0.1, 0.02, ACCENT, ledge_outer);
             let lanes = MAT_MARGIN + if ledge_outer { 0.0 } else { MAT_LEDGE };
             let fence = if ledge_outer {
-                lanes + lane * 3.0
+                lanes + crate::layout::STAGE_STEP + lane * 3.0
             } else {
                 lanes
             };
             for (what, at) in [
-                ("the first lane seam", lanes + lane),
-                ("the second lane seam", lanes + lane * 2.0),
+                (
+                    "the first lane seam",
+                    lanes + crate::layout::STAGE_STEP + lane,
+                ),
+                (
+                    "the second lane seam",
+                    lanes + crate::layout::STAGE_STEP + lane * 2.0,
+                ),
                 ("the shelf's own fence", fence),
             ] {
                 let here = mat.pixel(128, row(at))[3];

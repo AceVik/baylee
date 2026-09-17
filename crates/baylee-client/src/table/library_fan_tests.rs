@@ -119,7 +119,7 @@ fn a_library_fans_under_the_pointer_and_folds_when_it_leaves() {
 /// pile's own thickness stops being able to say, because that is capped.
 #[test]
 fn a_short_deck_fans_as_many_backs_as_it_has() {
-    for (cards, backs) in [(0, 0), (1, 1), (4, 4), (7, 7), (60, 7)] {
+    for (cards, backs) in [(0, 0), (1, 1), (4, 4), (7, 4), (60, 4)] {
         let mut app = running(cards);
         app.world_mut().resource_mut::<Duel>().hovered_pile =
             Some((PlayerId::new(0), baylee_client_core::PileKind::Library));

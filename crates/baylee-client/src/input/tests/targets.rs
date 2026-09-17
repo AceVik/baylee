@@ -145,3 +145,64 @@ fn the_card_cursor_reaches_a_spell_on_the_stack() {
         "the cursor walks onto the stack"
     );
 }
+
+#[test]
+fn player_summary_children_target_the_seat_without_moving_the_camera() {
+    use bevy::prelude::*;
+    let mut app = App::new();
+    app.init_resource::<crate::prefs::Prefs>()
+        .init_resource::<crate::table::CameraRig>()
+        .init_resource::<crate::touch::Touched>()
+        .init_resource::<crate::settings::ClientSettings>()
+        .add_message::<bevy::picking::events::Pointer<bevy::picking::events::Click>>()
+        .insert_resource(crate::Duel {
+            interaction: Some(baylee_client_core::interaction::Interaction::new(
+                Pending::ChooseTargets {
+                    player: PlayerId::new(0),
+                    options: vec![],
+                    player_options: vec![PlayerId::new(1)],
+                    min: 1,
+                    max: 1,
+                    reason: baylee_engine::choice::TargetPrompt::Targets,
+                },
+                PlayerId::new(0),
+            )),
+            ..default()
+        })
+        .add_systems(Update, pointer);
+    let summary = app
+        .world_mut()
+        .spawn(crate::hud::PlayerTab {
+            player: PlayerId::new(1),
+        })
+        .id();
+    let life = app.world_mut().spawn(ChildOf(summary)).id();
+    click(&mut app, life);
+    assert!(
+        app.world()
+            .resource::<crate::Duel>()
+            .interaction
+            .as_ref()
+            .unwrap()
+            .is_seat_selected(PlayerId::new(1))
+    );
+    assert!(app.world().resource::<crate::Duel>().focus.is_none());
+    let illegal = app
+        .world_mut()
+        .spawn(crate::hud::PlayerTab {
+            player: PlayerId::new(2),
+        })
+        .id();
+    click(&mut app, illegal);
+    assert!(app.world().resource::<crate::Duel>().focus.is_none());
+    click(&mut app, life);
+    assert_eq!(
+        app.world()
+            .resource::<crate::Duel>()
+            .interaction
+            .as_ref()
+            .unwrap()
+            .pick_count(),
+        0
+    );
+}

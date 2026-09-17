@@ -254,96 +254,22 @@ const PILE_STRIP: f32 = PILE_REACH + CARD_WIDTH * 0.5;
 
 /// How many cards a hover spreads out of a pile at most.
 ///
-/// The owner's number. A fan is a *glance* — the click-to-browse panel is
-/// where a whole zone is read — and seven is about where a spread stops being
-/// countable at one look. It stands here with the rest of the fan's shape and
-/// is reached as [`crate::ZonePile::FAN_MAX`] everywhere else.
-pub const FAN_MAX: usize = 7;
+/// Four recent cards keep the preview inside a compact column. The zone
+/// browser provides access to the rest. Shared as [`crate::ZonePile::FAN_MAX`].
+pub const FAN_MAX: usize = 4;
 
-/// How far every card of a hover fan floats above the felt.
-///
-/// Every card including the top one, and it is a hair rather than a height:
-/// enough to clear the pile's own slab and the shadow under it, and no more.
-///
-/// The first version of this fan rose 1.5 units into the air on the argument
-/// that nothing else on the table floats, so a card above it is unmistakably
-/// not in play. The argument was sound and the drawing was not, because at
-/// this camera **height and distance cancel**: raising a card moves it up the
-/// screen and stepping it towards the camera moves it down, and 1.5 units of
-/// one against 0.72 of the other left seven cards sharing 42 pixels — six
-/// black borders and one face. What says "not in play" now is [`FAN_TILT`]:
-/// nothing on this table stands at 29°.
+/// Small lift above the stack; cards remain visually attached to their zone.
 pub const FAN_FLOAT: f32 = 0.10;
-
-/// How much higher each card of the fan stands than the one in front of it.
-///
-/// Small, and what it buys is no longer the motif above but three plain
-/// things: a staircase rather than a row of cards lying behind the pile, a
-/// shadow that lengthens down the fan, and a margin in the depth buffer at a
-/// side seat, where the step buys none.
-///
-/// Small on purpose, and the reason is the shadow. A card's contact shadow is
-/// a *child* of the card, so a card a unit in the air carries a shadow that
-/// touches nothing and means nothing — and in a scene with no light at all, a
-/// shadow on the cloth is the only depth cue there is. Seven rungs reach 0.40
-/// and every one of them stays near the felt. Height past clearance would buy
-/// about two pixels a rung, which three hundredths of [`FAN_STEP`] buy
-/// instead.
-pub const FAN_RISE: f32 = 0.05;
-
-/// How far each card of the fan steps **away** from the camera along the
-/// seat's own depth axis.
-///
-/// Along that axis and never across it: the sideways offset stays exactly
-/// [`PILE_REACH`], because across is where the mat is, and a card on the mat
-/// reads as a permanent in play.
-///
-/// Away and not towards, which is the whole of the fan's shape. The top card
-/// does not step at all, so it stays exactly where the pile was and exactly
-/// under the pointer that opened it — the card a player went looking for does
-/// not slide out from under them, and the hover preview keeps reading it while
-/// the older cards emerge from behind. It also means the step and the lift
-/// pull the same way on screen instead of cancelling. A little more travel
-/// and less rise expose the name strip without turning the pile into a tall
-/// staircase; six steps still span less than two card widths.
-///
-/// The exposed edge is the card's *top* at the near seats and its bottom at a
-/// seat across the table, whose cards point the other way. That is accepted:
-/// at that distance no strip is legible and the preview is what reads a card.
-pub const FAN_STEP: f32 = 0.28;
-
-/// How far the fan's cards are tipped up to face the camera, in radians.
-///
-/// About the seat's own horizontal axis, which is the axis a card already
-/// lies flat on, so the card stays the right way up for its owner.
-///
-/// It carries two things beyond facing the viewer. It is what says the fan is
-/// not in play, now that [`FAN_FLOAT`] no longer does. And it is what keeps
-/// the newest card on top: two parallel planes a step apart along the axis
-/// are `FAN_STEP · sin(FAN_TILT)` apart along their shared normal, so the fan
-/// is a shingle and the top card is over the rest of it from every direction
-/// — including a side seat, where the step is across the screen and buys no
-/// depth at all.
-pub const FAN_TILT: f32 = 0.50;
-
-/// How far each card of the fan is turned in its own plane, in radians.
-///
-/// Measured from the middle of the fan, so its two ends are turned
-/// `±3·FAN_YAW` opposite ways and it reads as a hand of cards rather than as
-/// a staircase. The wider sweep stays under eight degrees at either end,
-/// keeping the rotated corners in the pile strip. The centres themselves
-/// stand on a straight line so the pointer can walk one predictable column.
-pub const FAN_YAW: f32 = 0.045;
-
-/// How far the card the pointer is on slides out of the fan, away from the
-/// mat.
-///
-/// A fan is thin — a rung is about ten logical pixels — so it is walked
-/// rather than clicked, and this is the walk's own feedback: the card the
-/// preview is reading steps out of the line. Outwards, into the bare table
-/// beyond the pile strip, because every other direction is either the mat or
-/// another card of the fan.
-pub const FAN_POP: f32 = 0.30;
+/// Staircase spacing keeps adjacent card planes separate.
+pub const FAN_RISE: f32 = 0.035;
+/// Expose a useful strip of each of the four most recent cards.
+pub const FAN_STEP: f32 = 0.34;
+/// A gentle tilt distinguishes a browsing fan from cards on the battlefield.
+pub const FAN_TILT: f32 = 0.35;
+/// Restrained rotation keeps the exposed strips easy to point at.
+pub const FAN_YAW: f32 = 0.012;
+/// Hover feedback must remain smaller than the exposed hit area.
+pub const FAN_POP: f32 = 0.035;
 
 /// Where one card of a pile's hover fan stands, in table space.
 ///
@@ -429,11 +355,29 @@ pub struct SeatSlot {
     pub facing: f32,
     /// Half the pod's extent.
     pub half_extent: Vec2,
+    /// Width reclaimed from an unused command strip; framing keeps its original bounds.
+    pub reclaimed: f32,
     /// Whether this is the viewing player's own seat.
     pub is_local: bool,
 }
 
 impl SeatSlot {
+    /// Give decks without commanders the vacant strip without moving the right-hand piles.
+    pub fn reclaim_command_strip(&mut self) {
+        if self.reclaimed > 0.0 {
+            return;
+        }
+        self.reclaimed = PILE_STRIP - crate::tabletop::MAT_MARGIN;
+        let side = Vec2::new(self.facing.cos(), -self.facing.sin());
+        self.center -= side * (self.reclaimed * 0.5);
+        self.half_extent.x += self.reclaimed * 0.5;
+    }
+
+    /// Centre of the original footprint, including the remaining pile strip.
+    #[must_use]
+    pub fn footprint_center(&self) -> Vec2 {
+        self.center + Vec2::new(self.facing.cos(), -self.facing.sin()) * (self.reclaimed * 0.5)
+    }
     /// Usable width of one lane inside this pod.
     #[must_use]
     pub fn lane_width(&self) -> f32 {
@@ -455,11 +399,11 @@ impl SeatSlot {
 
     /// Height available to a single lane.
     ///
-    /// What the mat has left once the ledge has taken its share, so a lane is
-    /// a card tall at every table however the shelf is sized.
+    /// The base row height after reserving the information band and combat
+    /// advance. The creature lane additionally owns that advance margin.
     #[must_use]
     pub fn lane_height(&self) -> f32 {
-        (self.mat_depth() - crate::tabletop::MAT_LEDGE) / LaneKind::ALL.len() as f32
+        (self.mat_depth() - crate::tabletop::MAT_LEDGE - STAGE_STEP) / LaneKind::ALL.len() as f32
     }
 
     /// Centre of a lane in table space.
@@ -481,7 +425,7 @@ impl SeatSlot {
         } else {
             crate::tabletop::MAT_LEDGE
         };
-        let offset_from_front = front + (index + 0.5) * h - self.half_extent.y;
+        let offset_from_front = front + STAGE_STEP + (index + 0.5) * h - self.half_extent.y;
         let away = Vec2::new(self.facing.sin(), self.facing.cos());
         self.center - away * offset_from_front
     }
@@ -655,7 +599,10 @@ impl SeatSlot {
     /// wide turn would put a creature on top of the graveyard.
     #[must_use]
     pub fn footprint(&self) -> Vec2 {
-        Vec2::new(self.half_extent.x + PILE_STRIP, self.half_extent.y)
+        Vec2::new(
+            self.half_extent.x + PILE_STRIP - self.reclaimed * 0.5,
+            self.half_extent.y,
+        )
     }
 }
 
@@ -1186,6 +1133,7 @@ impl TableLayout {
                     // as deep as three lanes of cards and no focus makes a
                     // card taller.
                     half_extent: Vec2::new(pod_half_width(mine, across), half_depth),
+                    reclaimed: 0.0,
                     is_local: i == 0,
                 });
             }
@@ -1222,7 +1170,7 @@ impl TableLayout {
                 for sy in [-1.0_f32, 1.0] {
                     let local = half * Vec2::new(sx, sy);
                     out.push(
-                        slot.center
+                        slot.footprint_center()
                             + Vec2::new(
                                 cos.mul_add(local.x, sin * local.y),
                                 (-sin).mul_add(local.x, cos * local.y),
@@ -1251,7 +1199,10 @@ impl TableLayout {
                 cos.mul_add(footprint.x, sin * footprint.y),
                 sin.mul_add(footprint.x, cos * footprint.y),
             );
-            let (lo, hi) = (slot.center - half, slot.center + half);
+            let (lo, hi) = (
+                slot.footprint_center() - half,
+                slot.footprint_center() + half,
+            );
             bounds = Some(match bounds {
                 None => (lo, hi),
                 Some((min, max)) => (min.min(lo), max.max(hi)),

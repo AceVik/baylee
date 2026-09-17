@@ -410,7 +410,7 @@ pub struct ZonePile {
     /// The cards a hover spreads out of the pile, **top of the pile first**,
     /// at most [`Self::FAN_MAX`] of them.
     ///
-    /// Always empty for a library, and that is the whole of CR 401.2 in this
+    /// Empty for command slots, which never fan, and for a library. CR 401.2 in this
     /// model: not a rule the renderer is asked to obey but a list that cannot
     /// be filled, because `PlayerView` carries a library as a count and has
     /// no cards in it to put here. A library still fans — [`Self::fan_len`]
@@ -448,6 +448,9 @@ impl ZonePile {
     /// not the faces, so the two disagree there by design.
     #[must_use]
     pub fn fan_len(&self) -> usize {
+        if matches!(self.kind, PileKind::Command | PileKind::Command2) {
+            return 0;
+        }
         usize::try_from(self.count)
             .unwrap_or(Self::FAN_MAX)
             .min(Self::FAN_MAX)
@@ -1238,13 +1241,7 @@ fn zone_piles(view: &PlayerView, player: PlayerId) -> Vec<ZonePile> {
             // carries a library as a count, so this is empty without being
             // made empty, which is the point.
             let fan: Vec<FannedCard> = match &command {
-                Some(objects) => objects
-                    .iter()
-                    .rev()
-                    .take(ZonePile::FAN_MAX)
-                    .copied()
-                    .map(fanned)
-                    .collect(),
+                Some(_) => Vec::new(),
                 None => list
                     .unwrap_or_default()
                     .iter()

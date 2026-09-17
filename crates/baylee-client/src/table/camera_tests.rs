@@ -773,6 +773,7 @@ fn the_shader_and_the_generator_agree_about_the_mat() {
         ("LANE_LEDGE", tabletop::MAT_LEDGE_VALUE),
         ("LEDGE_FRAC", tabletop::LEDGE_FRAC),
         ("LANE_FRAC", tabletop::LANE_FRAC),
+        ("COMBAT_FRAC", tabletop::COMBAT_FRAC),
         ("MARGIN_FRAC", tabletop::MARGIN_FRAC),
         ("LEDGE_SEAM", tabletop::MAT_LEDGE_SEAM),
         ("SEAM", tabletop::MAT_SEAM),

@@ -471,7 +471,7 @@ impl CameraRig {
             0.0
         };
         let tilt = CAMERA_LEAN + (DUEL_LEAN - CAMERA_LEAN) * framing;
-        let air = AIR - 1.2 * framing;
+        let air = AIR - 1.65 * framing;
         let (min, max) = (min - Vec2::splat(air), max + Vec2::splat(air));
         let span = max - min;
 
