@@ -1,8 +1,10 @@
 # LLM Learnings — baylee
 
-Running log of what works when delegating card implementations to local
-LLMs (hardware: MacBook M1 Max 64 GB — at most ONE local model active at a
-time). Maintained by the orchestrator; entries dated, newest first.
+Running log of what works when delegating card implementations. It began
+with local models (MacBook M1 Max 64 GB, at most one active at a time) and
+the two lanes in use now are remote and cheap, which changes the constraint
+from "one at a time" to "what is each one actually good at". Maintained by
+the orchestrator; entries dated, newest first.
 
 ## Process rules (baseline)
 
@@ -16,9 +18,83 @@ time). Maintained by the orchestrator; entries dated, newest first.
 
 ## Model scoreboard
 
-| Model | Verdict | Notes |
-|---|---|---|
-| (unset) | | first batches pending (M2.S8) |
+Measured over the four-deck batches, 2026-09-16/17. "Written" counts cards
+that survived the header check and compiled; an honest refusal naming the
+missing DSL variant is a **correct** outcome and is counted separately, not
+as a failure.
+
+| Lane | Cards asked | Written | Honest refusals | Input tokens per 30 cards |
+|---|---|---|---|---|
+| DeepSeek V4.1 Flash (`deepseek-flash[1m]`, API, non-agentic) | 91 | 42 (46%) | 48 | ~0.1–0.4M (241 KB prefix, cached) |
+| Gemini 3.8 Flash high (`agy`, agentic, one session per batch) | 93 | 19 (20%) | 73 | ~110–190M (measured off the transcript) |
+
+Round three is what those two totals fell on: 32 and 33 cards over the last
+65 open stubs of the four decks, of which 6 and 3 were written. That is not
+a regression, it is the tail — what is left after two rounds is the cards
+whose printed sentence the DSL genuinely cannot say, and both lanes said so
+rather than half-building them.
+
+| Lane | Tests asked | Written | Passed the first run |
+|---|---|---|---|
+| DeepSeek V4.1 Flash | 55 | 55 (2 needed a bigger `max_tokens`) | 44 (80%) |
+| Gemini 3.8 Flash high | 5 | 4 + 1 correct refusal | 3 of 4 |
+
+**Read that cost column twice.** The difference is not a factor of two, it
+is two to three orders of magnitude, and it is structural rather than a
+tuning mistake: an agentic session re-reads the repository for itself and
+pays the growing transcript on every step (369 steps for 30 cards), while
+the API lane sends one cacheable 241 KB context and a stub. Both were
+*measured* — `agy-batch.py` reads the prefix sum out of the session's own
+sqlite transcript — because an earlier unmeasured fan-out spent an estimated
+2.2 billion input tokens before anybody noticed.
+
+**They are good at different things, and the numbers say which.** DeepSeek
+writes more than twice as many cards per attempt and every generated engine
+test so far. Gemini refuses more — and its refusals are the better product:
+"`EnterModifier::WithCounters` takes a fixed `u16` and not `Amount::X`, so a
+0/0 Walking Ballista would die to state-based actions on arrival" is a
+precise engine ticket, and a batch of them is a ranked worklist. Exactly one
+card of the 61 that landed was substantively **wrong** (Mikaeus, DeepSeek,
+two keywords no rule reads), and it was caught by a lint plus a played test,
+not by reading.
+
+### The cross-lane rule (from 2026-09-17)
+
+A card and its test written by the same model share that model's misreading.
+That is not a worry, it is the measured Mikaeus failure: the card granted a
+keyword the engine ignores and its generated test asserted the keyword
+worked, so the pair was internally consistent and wrong. **So the lanes
+swap**: whoever wrote the card does not write its test. A test that goes red
+is then evidence about one of the two readings rather than about neither,
+and the interesting cell — a cross-written test failing *because the card is
+wrong* — is the one worth counting as trust is built and the spot-checks
+thin out.
+
+**The first cross round paid for itself on the refusal, not on a test.**
+Eight cards, eight tests, written the other way round. Seven landed; three
+of DeepSeek's three and three of Gemini's four passed on the first run, and
+the one that did not had asserted that a `RemoveCounterSelf` cost is taken
+as the ability is announced — targets are chosen first (CR 601.2c) and the
+cost is the last step of an activation (CR 601.2h), so the assertion moved
+past the target question rather than the engine moving.
+
+The eighth is the result. Asked for Teferi's Protection's test, Gemini
+returned `SKIP` and named the reason: `finalize_spell` puts the resolving
+instant into the graveyard *after* `Effect::ExileSource` has already exiled
+it, so the one clause the card can express is undone one step later. That
+was true, it is now fixed with its own rules test, and it had been sitting
+under Spirit Water Revival — a `Coverage::Implemented` card with a test
+module of its own — the whole time. A model writing its own test would
+have written around it; a model reading somebody else's card refused to.
+
+**What that says about where each lane belongs.** DeepSeek is the volume
+lane: cheap, parallel, twice the write rate, and its tests now compile and
+pass first time. Gemini is the *reading* lane — expensive per card and
+worth it where the answer is a judgement about whether something can be
+said at all, because its refusals are precise engine tickets and, as of
+this round, one of them was a defect rather than a gap. Spot-checks should
+thin out on DeepSeek's volume first; a Gemini refusal stays worth reading
+in full.
 
 ## Prompt learnings
 
