@@ -1,0 +1,73 @@
+   Compiling baylee-ai v0.1.0 (/Users/viktor/Projects/baylee-ai/crates/baylee-ai)
+    Finished `bench` profile [optimized] target(s) in 10.50s
+     Running benches/decisions.rs (target/release/deps/decisions-b07b35c99bc9724b)
+Gnuplot not found, using plotters backend
+novice: 0 nodes, 0 complete candidates
+Benchmarking combat/6v6/novice
+Benchmarking combat/6v6/novice: Analyzing
+combat/6v6/novice       time:   [469.59 ns 469.61 ns 469.69 ns]
+                        change: [−1.0253% −0.2871% +0.4620%] (p = 0.72 > 0.05)
+                        No change in performance detected.
+
+casual: 0 nodes, 0 complete candidates
+Benchmarking combat/6v6/casual
+Benchmarking combat/6v6/casual: Analyzing
+combat/6v6/casual       time:   [467.46 ns 467.47 ns 467.50 ns]
+                        change: [+0.3929% +0.9741% +1.5620%] (p = 0.12 > 0.05)
+                        No change in performance detected.
+
+steady: 0 nodes, 0 complete candidates
+Benchmarking combat/6v6/steady
+Benchmarking combat/6v6/steady: Analyzing
+combat/6v6/steady       time:   [473.94 ns 476.89 ns 477.63 ns]
+                        change: [+0.0123% +0.7611% +1.5153%] (p = 0.14 > 0.05)
+                        No change in performance detected.
+
+sharp: 16384 nodes, 15 complete candidates
+Benchmarking combat/6v6/sharp
+Benchmarking combat/6v6/sharp: Analyzing
+combat/6v6/sharp        time:   [154.76 µs 155.58 µs 155.79 µs]
+                        change: [−1.0480% −0.1641% +0.7298%] (p = 0.80 > 0.05)
+                        No change in performance detected.
+
+expert: 31180 nodes, 64 complete candidates
+Benchmarking combat/6v6/expert
+Benchmarking combat/6v6/expert: Analyzing
+combat/6v6/expert       time:   [1.0386 ms 1.0506 ms 1.0536 ms]
+                        change: [−22.622% −22.057% −21.492%] (p = 0.05 > 0.05)
+                        No change in performance detected.
+
+8v8/sharp: 16384 nodes, 15 complete candidates
+Benchmarking combat/8v8/sharp
+Benchmarking combat/8v8/sharp: Analyzing
+combat/8v8/sharp        time:   [231.51 µs 235.28 µs 236.23 µs]
+                        change: [−0.6302% +0.6996% +2.0377%] (p = 0.73 > 0.05)
+                        No change in performance detected.
+
+8v8/expert: 262144 nodes, 128 complete candidates
+Benchmarking combat/8v8/expert
+Benchmarking combat/8v8/expert: Analyzing
+combat/8v8/expert       time:   [11.086 ms 11.131 ms 11.142 ms]
+                        change: [−41.639% −41.339% −41.038%] (p = 0.07 > 0.05)
+                        No change in performance detected.
+
+Benchmarking priority/empty/expert
+Benchmarking priority/empty/expert: Analyzing
+priority/empty/expert   time:   [16.021 ns 16.054 ns 16.186 ns]
+                        change: [−56.173% −55.640% −55.100%] (p = 0.07 > 0.05)
+                        No change in performance detected.
+
+Benchmarking priority/8lands-4spells/expert
+Benchmarking priority/8lands-4spells/expert: Analyzing
+priority/8lands-4spells/expert
+                        time:   [808.64 ns 808.65 ns 808.69 ns]
+                        change: [−2.7673% −2.4186% −2.0674%] (p = 0.05 < 0.05)
+                        Performance has improved.
+
+Benchmarking mana-choice/8lands-4spells/expert
+Benchmarking mana-choice/8lands-4spells/expert: Analyzing
+mana-choice/8lands-4spells/expert
+                        time:   [2.3091 µs 2.3126 µs 2.3263 µs]
+                        change: [−0.4857% +0.3477% +1.1889%] (p = 0.63 > 0.05)
+                        No change in performance detected.
+

@@ -44,7 +44,9 @@ and adjusts accumulated material, damage, and life gain. Death is checked at
 each damage step: later lifelink cannot undo lethal first strike. Damage aimed
 at a planeswalker is separate from damage to its controller. A proven lethal
 player attack takes precedence over attacking a planeswalker. Node visits allocate no vectors; position vectors are built once per
-decision and groups/results are fixed arrays on the stack.
+decision and groups/results are fixed arrays on the stack. Counterattack
+exchanges are also cached and stably ranked once; a leaf filters out dead or
+unavailable blockers. Priority offers are borrowed instead of cloned.
 
 Expert's retaliation is a greedy continuation from the surviving public
 creatures, not a second full minimax tree. It includes untapped reserves that
@@ -101,15 +103,26 @@ SLA. Other worktrees shared the machine; background load was not controlled.
 
 | Decision | Estimate | Nodes | Completed or refuted attack sets |
 | --- | ---: | ---: | ---: |
-| 6 attackers / 6 blockers, novice | 553 ns | 0 | 0 |
-| same, casual | 551 ns | 0 | 0 |
-| same, steady | 555 ns | 0 | 0 |
-| same, sharp | 125 µs (125.10–125.23 µs) | 4,096 | 7 |
-| same, expert | 957 µs (956–959 µs) | 9,871 | 63 |
-| empty priority, expert | 44 ns | — | — |
-| eight lands / four spells, expert | 973 ns | — | — |
+| 6 attackers / 6 blockers, novice | 470 ns | 0 | 0 |
+| same, casual | 467 ns | 0 | 0 |
+| same, steady | 477 ns | 0 | 0 |
+| same, sharp | 156 µs (154.76–155.79 µs) | 16,384 | 15 |
+| same, expert | 1.05 ms (1.039–1.054 ms) | 31,180 | 64 |
+| 8 attackers / 8 blockers, sharp | 235 µs | 16,384 | 15 |
+| same, expert | 11.13 ms (11.086–11.142 ms) | 262,144 | 128 |
+| empty priority, expert | 16 ns | — | — |
+| eight lands / four spells, expert | 809 ns | — | — |
+| mana colour / eight lands / four spells, expert | 2.31 µs | — | — |
 
-These include position construction and result allocation. The fixture has six
-3/3 attackers facing six 2/2 blockers; a different board can exhaust either
+These include position construction and result allocation. The combat fixtures have
+3/3 attackers facing 2/2 blockers; a different board can exhaust either
 profile's full budget. The benchmark prints the node counts alongside timing
 so a fast fallback cannot masquerade as a search improvement.
+
+These are the second iteration's measurements. Before caching counterattacks,
+the expanded expert search took 1.34 ms at 6v6 and 18.92 ms at 8v8, and empty
+priority took 36 ns. The original, smaller-budget expert took 957 µs at 6v6
+and completed/refuted 63 sets; the expanded search now covers all 64. Quick
+Criterion runs are estimates under shared-machine load, not controlled latency
+guarantees. Raw runs and mixed match results are recorded in
+[iteration-2](ai-results/iteration-2/README.md).

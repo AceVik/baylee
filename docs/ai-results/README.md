@@ -85,3 +85,9 @@ the planner does not guarantee it gets cast ahead of other spells. See
   mutation-checked scoreboard and dev-table regressions passed.
 - `cargo bench -p baylee-ai --bench decisions -- --quick`; numbers are in
   [house-ai.md](../house-ai.md#decision-benchmarks).
+
+## Further iterations
+
+See [iteration two](iteration-2/README.md) for corrected mana and combat edge
+cases, larger search budgets, caching, client checks, and the new 384-game
+run. The original results above remain available for comparison.
