@@ -885,7 +885,7 @@ about the table itself rather than the rules, and both are fixed.
     `sky::table_light` hands the felt shader a multiplier on the table's own
     colour, and `under_sky` applies it to the cloth, the rail and the apron
     and to nothing else. A multiply rather than a mix towards a colour,
-    because a warm sky over green baize has to be able to lift the red end
+    because a warm sky over a cool cloth has to be able to lift the red end
     without touching the green — a mix drags every channel towards the light's
     hue and turns the cloth grey at both ends of the day. The phase lamp is
     exempt: it is light the *table* emits and carries a meaning, and a wash

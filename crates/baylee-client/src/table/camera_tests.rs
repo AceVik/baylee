@@ -691,7 +691,7 @@ fn a_table_with_nobody_at_it_frames_nothing_rather_than_dividing_by_zero() {
 /// the opposite mistake ships next.
 /// The cloth is written twice — once in Rust, where a test can block the
 /// image at card size and measure that the tooth survives and that the
-/// baize stays dark enough to read a card against, and once in WGSL,
+/// cloth stays dark enough to read a card against, and once in WGSL,
 /// where the GPU actually draws it. Nothing in either compiler can notice
 /// that they have drifted apart, and the drawing is the one nobody can
 /// assert about directly.

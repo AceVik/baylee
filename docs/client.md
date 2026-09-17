@@ -538,9 +538,10 @@ accident, and arithmetic borrows nothing.
   outer edge and its twelve phase glyphs run along the top of its own mat.
   **Eight** seats do not: every bar drops to `Mark`, which is a row of pips
   and a priority stroke, so nobody's life total is on the screen at all. That
-  is the fallback behaving as designed and it is also the hole in it, and the
-  design says where the way out is — focusing a seat is what restores the
-  attached presentation to it.
+  is the fallback behaving as designed and it is also the hole in it.
+  `attached.rs` is written to give a **focused** seat its panels back, which
+  is the way out; that path is not measured here, and the eight-seat table is
+  where to measure it.
 - Seats sit on a ring, local seat at the near edge, opponents clockwise **in
   turn order** — the player on your left acts after you. Allies share a side
   and face the same way; everybody else has a side to themselves.
@@ -3709,9 +3710,15 @@ swallowed clicks would be making a claim the model does not make — so a click
 on it falls through to `input::pointer`'s "nothing interactive" branch, which
 clears the preview, which is what a click on empty felt has always done. Its
 colour is **cold**, and that is an argument rather than a taste: the dialog
-is srgb8 (28, 25, 19) and the veiled baize measures (15, 29, 26), so the
-panel is the darker of the two in green and brightness cannot separate them.
-Temperature can. The veil used to be the same blue-black the hand bar's own
+is srgb8 (28, 25, 19) and the veiled cloth is (13, 20, 25) — `TABLE_VEIL`
+over `tabletop::FELT_CLOTH` at the veil's own alpha — so the two stand
+within a dozen levels of each other on every channel and separate on
+temperature rather than on brightness. The second number was (15, 29, 26)
+while the cloth was green, and the argument it was written for survived the
+redesign because it was never about the hue the cloth happened to be: a warm
+panel over a cold table reads as two things whatever the table is made of.
+
+The veil used to be the same blue-black the hand bar's own
 ground was, and that is no longer true of the ground: the owner asked for a
 container on 14.09.2026, and the hand zone is now `frontal`'s cloth in
 `palette::DIALOG` — the dialog's own colour, with nothing cool about it. The
