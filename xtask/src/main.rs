@@ -4448,6 +4448,16 @@ fn cross_read(root: &Path, scripts_dir: &Path, samples: usize) -> anyhow::Result
                 // `KeywordSet` either way.
                 None if scriptgen::keyword_static_of(line).is_some() => {}
                 None if scriptgen::keyword_enter_modifier_of(line, &script.svars).is_some() => {}
+                // And nor does one that is a whole ability the rules define
+                // for the word. The test is the word and not whether the
+                // transcoder read the line, because the question here is
+                // "is this line about bits" — `K:Equip:1:Creature.Legendary`
+                // is refused over its restriction and is still no bit, and
+                // suppressing the comparison over it would take every
+                // Equipment and every Aura in the pool out of the half of
+                // `cross-read` that finds a card claiming a keyword its
+                // printing never gave it.
+                None if line.starts_with("Equip:") || line.starts_with("Enchant:") => {}
                 None => every_keyword_read = false,
             }
         }

@@ -527,10 +527,41 @@ where an `Effect::CreateContinuousEffect` borrows one.
 
 `equip!("{2}")` takes **only the cost**, because CR 702.6 supplies the rest:
 sorcery speed, "target creature you control", and attaching this permanent to
-it. The four Equipment in the pool had each written eight lines with that
-target named twice, over a local `static` that was the same filter each time.
+it. Every Equipment in the pool had written those eight lines by hand, with
+that target named twice over a local `static` that was the same filter each
+time.
 Equip {0} is `equip!(Cost::FREE)` and not `equip!("{0}")` — a cost with no
 mana cost is not the same data as a mana cost of zero generic.
+
+**An Aura's "enchant …" clause is one `spell!` and has to be**, because the
+engine reads the card's continuing legality out of it and out of nowhere
+else:
+
+```rust
+spell!(
+    &[Effect::AttachSelf { target: TargetSpec::Object(&ENCHANTABLE) }],
+    targets = Some(TargetReq::one(TargetSpec::Object(&ENCHANTABLE)))
+)
+```
+
+Enchant is a static ability of the Aura *spell* (CR 702.5b): it says what the
+spell targets as it is cast (CR 303.4a), and the Aura arrives already
+attached to that permanent. The same sentence is also a standing
+restriction — CR 303.4c puts an Aura enchanting an **illegal** object into
+its owner's graveyard, and "illegal" is that filter's word rather than
+"gone" — so the attachment state-based action reads the filter back off this
+effect's `TargetSpec::Object`. Write the clause any other way (an ETB trigger
+that attaches, a `TargetSpec::AnyTarget`) and the engine finds no
+restriction: the card still plays, and its Aura sits on a host it may not
+legally enchant for as long as that host is on the battlefield. An Aura on a
+*player* has no shape here at all yet, because `Effect::AttachSelf` reads the
+resolution's first target as an object.
+
+An Equipment states nothing of the kind: CR 301.5b attaches it to a creature,
+so the same state-based action asks that of the rules rather than of the
+card — and answers it differently, because a host that stops being a creature
+leaves the Equipment unattached on the battlefield (CR 704.5n) where it
+destroys the Aura.
 
 `activated!` and `mana_ability!` reach `AbilityDef::ActivatedConditional`
 through one optional field, `condition = Some(Condition::…)`. That

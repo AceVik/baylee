@@ -778,8 +778,8 @@ macro_rules! chapter {
 /// Every part of an equip ability except the cost comes from the keyword's
 /// own definition — sorcery speed (CR 702.6a), "target creature you
 /// control" (CR 702.6a), and attaching this permanent to it — so the cost is
-/// the only thing a card prints and the only thing this takes. The four
-/// Equipment in the pool each wrote it out as eight lines with the target
+/// the only thing a card prints and the only thing this takes. Every
+/// Equipment in the pool had written it out as eight lines with the target
 /// named twice, over a local `static` that was the same filter each time.
 ///
 /// ```ignore
