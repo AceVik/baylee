@@ -3974,7 +3974,7 @@ fn refusal_cause(script: &scriptgen::CardScript, cats: &catalog::SubtypeCatalogs
         return format!("unmodelled line kind `{head}:`");
     }
     for line in &script.keywords {
-        if !scriptgen::keyword_line_is_read(line) {
+        if !scriptgen::keyword_line_is_read(line, &script.svars) {
             let head = line.split(':').next().unwrap_or(line);
             let head = head.split(' ').next().unwrap_or(head);
             return format!("keyword `{head}`");
@@ -4201,6 +4201,13 @@ impl Shape {
                 // as a keyword, while the DSL writes it as the
                 // `static_ability!` CR 613.11 makes it.
                 _ if scriptgen::keyword_static_of(keyword).is_some() => out.statics += 1,
+                // And one is no ability at all: `K:etbCounter:P1P1:2` is a
+                // replacement effect the DSL carries on the *face*, as
+                // `enter_modifiers`. `Shape` counts abilities, so it counts
+                // this as nothing — which is the same nothing a hand-written
+                // card's face contributes, and so is symmetric rather than
+                // merely quiet.
+                _ if scriptgen::keyword_enter_modifier_of(keyword, &script.svars).is_some() => {}
                 // **One unread clause and the script is not counted.** This
                 // is the transcoder's own honesty rule at a shallower depth,
                 // and it is what separates a report from a guess. The corpus
@@ -4422,9 +4429,11 @@ fn cross_read(root: &Path, scripts_dir: &Path, samples: usize) -> anyhow::Result
             match scriptgen::keyword_const_of(line).and_then(keyword_bit) {
                 Some(bit) => script_bits = script_bits.union(bit),
                 // Read, and deliberately not a bit: a `K:` line the
-                // transcoder turns into a static ability says nothing about
-                // this card's `KeywordSet` either way.
+                // transcoder turns into a static ability or into an
+                // as-it-enters modifier says nothing about this card's
+                // `KeywordSet` either way.
                 None if scriptgen::keyword_static_of(line).is_some() => {}
+                None if scriptgen::keyword_enter_modifier_of(line, &script.svars).is_some() => {}
                 None => every_keyword_read = false,
             }
         }

@@ -2065,6 +2065,60 @@ fn keyword_const(line: &str) -> Option<&'static str> {
     })
 }
 
+/// `etbCounter:<KIND>:<n>` as the `EnterModifier` it is.
+///
+/// The third of the three things a `K:` line can be, and the one that is no
+/// ability at all: "this permanent enters with N counters on it" is a
+/// replacement effect (CR 614.1c), which the DSL says on the face rather
+/// than in `abilities`. The reference keeps it on a keyword line because it
+/// has no ability body to write.
+///
+/// Two fields are read and everything else refuses the card. The corpus
+/// prints 475 of these lines and this rule accepts 297:
+///
+/// - `n` is a plain number, or an `SVar` that resolves to one.
+/// - `n` is `X` **and** the card's own `SVar:X` is `Count$xPaid` — the X
+///   announced as the spell was cast (CR 107.3m), which is the one thing
+///   `Amount::X` means. Reading every `X` as that one would be a wrong card
+///   rather than a missing one: of the 59 scripts whose counter is `X` under
+///   an explicit "no Condition", 57 mean a *count* — creatures in a
+///   graveyard, colours of mana spent, lands you control — and Sautekh
+///   Immortal means "for each creature that died this turn". Each of those
+///   would have generated a body that enters with nothing.
+/// - A third field is read only as the literal `no Condition`, which is the
+///   reference's own way of saying there is none, and a fourth is the
+///   reminder text. Anything else there is a condition the DSL cannot say
+///   (`CheckSVar$ WasKicked`, `ValidCard$ Card.Self+escaped`, `Adamant`,
+///   `Revolt`), so those lines stay honest stubs rather than becoming cards
+///   that place the counter unconditionally. Sautekh Immortal is why the
+///   field is matched and not merely counted: its third field is the
+///   *description*, and a reader that skipped past it would have taken the
+///   `X` beside it for the spell's.
+///
+/// The counter word goes through [`counter_kind`], so a card whose counter
+/// the DSL has no id for refuses here exactly as it does on an ability.
+fn keyword_enter_modifier(line: &str, svars: &BTreeMap<String, String>) -> Option<String> {
+    let mut fields = line.strip_prefix("etbCounter:")?.split(':');
+    let kind = counter_kind(fields.next()?.trim())?;
+    let raw = fields.next()?.trim();
+    if let Some(condition) = fields.next()
+        && !condition.trim().eq_ignore_ascii_case("no condition")
+    {
+        return None;
+    }
+    let amount = if raw == "X" {
+        if svars.get("X").map(String::as_str) != Some("Count$xPaid") {
+            return None;
+        }
+        "Amount::X".to_string()
+    } else {
+        amount(raw, svars)?
+    };
+    Some(format!(
+        "EnterModifier::WithCounters {{ kind: {kind}, amount: {amount} }}"
+    ))
+}
+
 /// Reads a whole card script, or refuses it.
 ///
 /// # Errors
@@ -2086,6 +2140,10 @@ pub fn transcode(script: &CardScript, cats: &SubtypeCatalogs) -> Option<CardBody
             tx.body
                 .abilities
                 .push(Tx::static_expr("Filter::This", modifier));
+            continue;
+        }
+        if let Some(entry) = keyword_enter_modifier(line, &script.svars) {
+            tx.body.enter_modifiers.push(entry);
             continue;
         }
         tx.body.keywords.push(keyword_const(line)?.to_string());
@@ -2122,7 +2180,10 @@ pub fn refusal_reason(script: &CardScript, cats: &SubtypeCatalogs) -> Option<Str
         unclaimed: std::cell::RefCell::new(None),
     };
     for line in &script.keywords {
-        if keyword_const(line).is_none() && keyword_static(line).is_none() {
+        if keyword_const(line).is_none()
+            && keyword_static(line).is_none()
+            && keyword_enter_modifier(line, &script.svars).is_none()
+        {
             let head = line.split(':').next().unwrap_or(line);
             let head = head.split(' ').next().unwrap_or(head);
             return Some(format!("keyword `{head}`"));
@@ -2217,7 +2278,19 @@ pub fn keyword_static_of(line: &str) -> Option<&'static str> {
     keyword_static(line)
 }
 
-/// Whether a `K:` line is read at all — as a bit, or as a static ability.
+/// The `K:` lines that are an as-it-enters modifier on the face rather than
+/// anything in `abilities`, for a reporter that has to tell them apart.
+///
+/// Takes the card's `SVar`s because the line's own amount is not enough to
+/// say whether it was read: `etbCounter:P1P1:X` is a card under one `SVar:X`
+/// and a refusal under every other.
+#[must_use]
+pub fn keyword_enter_modifier_of(line: &str, svars: &BTreeMap<String, String>) -> Option<String> {
+    keyword_enter_modifier(line, svars)
+}
+
+/// Whether a `K:` line is read at all — as a bit, as a static ability, or as
+/// an as-it-enters modifier.
 ///
 /// The question a reporter outside this module is usually asking. There are
 /// **six** loops over `script.keywords` in the workspace and exactly one of
@@ -2228,12 +2301,14 @@ pub fn keyword_static_of(line: &str) -> Option<&'static str> {
 /// is the failure this exists to prevent.
 ///
 /// It is not the answer for all of them. `refusal_cause` asks this;
-/// `cross-read` asks [`keyword_static_of`] instead, because it has to
-/// *count* a static ability rather than merely allow it, and `atoms` names
-/// what a script uses and so asks neither.
+/// `cross-read` asks [`keyword_static_of`] and [`keyword_enter_modifier_of`]
+/// instead, because it has to *count* what a line becomes rather than merely
+/// allow it, and `atoms` names what a script uses and so asks neither.
 #[must_use]
-pub fn keyword_line_is_read(line: &str) -> bool {
-    keyword_const(line).is_some() || keyword_static(line).is_some()
+pub fn keyword_line_is_read(line: &str, svars: &BTreeMap<String, String>) -> bool {
+    keyword_const(line).is_some()
+        || keyword_static(line).is_some()
+        || keyword_enter_modifier(line, svars).is_some()
 }
 
 /// Every distinct mechanic a script touches, as flat strings.
@@ -3653,6 +3728,84 @@ mod tests {
             assert!(is_supported_api(api));
         }
         assert!(!is_supported_api("Animate"));
+    }
+
+    /// A counter a permanent arrives under is a replacement effect
+    /// (CR 614.1c), so it lands on the face and not in `abilities` — and
+    /// a body that says nothing else is still a card.
+    #[test]
+    fn a_permanent_that_enters_with_counters_says_so_on_its_face() {
+        let body = read("Name:X\nTypes:Creature\nK:etbCounter:P1P1:2");
+        assert_eq!(
+            body.enter_modifiers,
+            ["EnterModifier::WithCounters { kind: CounterKind::P1P1, amount: Amount::Fixed(2) }"]
+        );
+        assert!(body.abilities.is_empty() && body.keywords.is_empty());
+        // The reference's own "there is no condition", with the reminder
+        // text behind it, is the same card.
+        let spelled_out = read(
+            "Name:X\nTypes:Creature\n\
+             K:etbCounter:CHARGE:3:no Condition:CARDNAME enters with three charge counters on it.",
+        );
+        assert_eq!(
+            spelled_out.enter_modifiers,
+            ["EnterModifier::WithCounters { kind: CounterKind::Charge, amount: Amount::Fixed(3) }"]
+        );
+    }
+
+    /// `X` is the one the spell was cast for (CR 107.3m) and nothing else,
+    /// which the card's own `SVar:X` is what says.
+    ///
+    /// Both counter-tests are cards the corpus really prints: Hooded Hydra
+    /// means the announced X, and Sautekh Immortal means "for each creature
+    /// that died this turn" — and writes that meaning in a field a reader
+    /// counting colons would have taken for a condition.
+    #[test]
+    fn an_x_on_the_way_in_is_read_only_where_the_spell_paid_it() {
+        let body = read("Name:X\nTypes:Creature\nK:etbCounter:P1P1:X\nSVar:X:Count$xPaid");
+        assert_eq!(
+            body.enter_modifiers,
+            ["EnterModifier::WithCounters { kind: CounterKind::P1P1, amount: Amount::X }"]
+        );
+        assert!(refused(
+            "Name:X\nTypes:Creature\nK:etbCounter:P1P1:X\n\
+             SVar:X:Count$ThisTurnEntered_Graveyard_from_Battlefield_Creature"
+        ));
+        assert!(
+            refused(
+                "Name:X\nTypes:Creature\n\
+                 K:etbCounter:P1P1:X:Elite Troops \u{2014} CARDNAME enters with a +1/+1 counter \
+                 on it for each creature that died this turn.\n\
+                 SVar:X:Count$ThisTurnEntered_Graveyard_from_Battlefield_Creature"
+            ),
+            "the description is not a condition, and reading past it would \
+             have taken the X beside it for the spell's"
+        );
+    }
+
+    /// A condition the DSL cannot say refuses the card rather than dropping
+    /// the "if" and placing the counter every time.
+    #[test]
+    fn a_counter_that_arrives_only_sometimes_is_refused() {
+        for script in [
+            "Name:X\nTypes:Creature\n\
+             K:etbCounter:P1P1:2:CheckSVar$ WasKicked:If CARDNAME was kicked, \
+             it enters with two +1/+1 counters on it.",
+            "Name:X\nTypes:Creature\n\
+             K:etbCounter:P1P1:1:ValidCard$ Card.Self+escaped:CARDNAME escapes with a counter.",
+            // And a counter the DSL has no id for is refused exactly as it
+            // is on an ability: this is `counter_kind`'s rule, reached from
+            // a second place.
+            "Name:X\nTypes:Creature\nK:etbCounter:NOTACOUNTER:1",
+        ] {
+            let parsed = parse(script);
+            assert!(transcode(&parsed, &cats()).is_none(), "{script}");
+            assert_eq!(
+                refusal_reason(&parsed, &cats()).as_deref(),
+                Some("keyword `etbCounter`"),
+                "and the refusal names the line it stopped on: {script}"
+            );
+        }
     }
 }
 

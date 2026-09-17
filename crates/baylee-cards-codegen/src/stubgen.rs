@@ -685,8 +685,12 @@ pub fn render_stub(
 
     let mut face_defs = String::new();
     for (i, f) in faces.iter().enumerate() {
-        // Enter modifiers are printed on the front face; a recognised land is
-        // single-faced by construction (`landgen::recognize` refuses the rest).
+        // Enter modifiers are printed on the front face, which is where both
+        // readers mean them: a recognised land is single-faced by
+        // construction, and a script's `K:etbCounter` is said about the card
+        // rather than about one of its sides — a two-faced one is refused
+        // earlier anyway, over the `AlternateMode:` line its reference script
+        // opens with.
         let enters = match (&land, i) {
             (Some(body), 0) => body.enter_modifiers.as_slice(),
             _ => &[],
