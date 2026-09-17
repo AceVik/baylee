@@ -83,17 +83,17 @@ mapping was also deliberately broken and its injected-loss test failed.
 
 Measured on the developer's M1 Max with Criterion `--quick` in the optimized
 workspace profile; the interval is Criterion's reported estimate, not a latency
-SLA. A match runner and another worktree's build were active on the machine.
+SLA. Other worktrees shared the machine; background load was not controlled.
 
 | Decision | Estimate | Nodes | Completed or refuted attack sets |
 | --- | ---: | ---: | ---: |
-| 6 attackers / 6 blockers, novice | 556 ns | 0 | 0 |
-| same, casual | 550 ns | 0 | 0 |
-| same, steady | 556 ns | 0 | 0 |
-| same, sharp | 123 µs (123–125 µs) | 4,096 | 7 |
-| same, expert | 964 µs (954–1,002 µs) | 9,871 | 63 |
-| empty priority, expert | 43 ns | — | — |
-| eight lands / four spells, expert | 998 ns | — | — |
+| 6 attackers / 6 blockers, novice | 553 ns | 0 | 0 |
+| same, casual | 551 ns | 0 | 0 |
+| same, steady | 555 ns | 0 | 0 |
+| same, sharp | 125 µs (125.10–125.23 µs) | 4,096 | 7 |
+| same, expert | 957 µs (956–959 µs) | 9,871 | 63 |
+| empty priority, expert | 44 ns | — | — |
+| eight lands / four spells, expert | 973 ns | — | — |
 
 These include position construction and result allocation. The fixture has six
 3/3 attackers facing six 2/2 blockers; a different board can exhaust either
