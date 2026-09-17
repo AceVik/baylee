@@ -333,12 +333,30 @@ pub fn render(entries: &[Entry]) -> String {
          // beside the comment saying which printing lent it its art. A generated\n\
          // one is defined here, because there is nowhere else for it to live.\n\
          //\n\
+         // Both halves are **reachable from here**, the hand-written ones by\n\
+         // re-export. A card that creates a token names one module and not the\n\
+         // half of the ledger the token happens to be written in — which is the\n\
+         // same thing `baylee_core::generated::index` does for a `CardIndex`\n\
+         // constant, and for the same reason: where a definition sits is the\n\
+         // generator's business and changes, and the name is what a card spends.\n\
+         //\n\
          // Source: `baylee_cards::tokens` and the card-script reference's token\n\
          // scripts (read as an automated lookup, never copied).\n\
          #![allow(missing_docs, clippy::all, clippy::pedantic)]\n\n",
     );
     out.push_str("use crate::tokens;\n");
     out.push_str("use baylee_cards_dsl::TokenDef;\n");
+    // Named one by one rather than as a glob: a glob would also pull in
+    // whatever else `tokens` grows, and the point of the door is that what
+    // comes through it is exactly the ledger.
+    let hand: Vec<&str> = entries
+        .iter()
+        .filter(|e| matches!(e.body, Body::HandWritten))
+        .map(|e| e.constant.as_str())
+        .collect();
+    if !hand.is_empty() {
+        let _ = writeln!(out, "pub use crate::tokens::{{{}}};", hand.join(", "));
+    }
     if any_generated {
         out.push_str("use baylee_cards_dsl::KeywordSet;\n");
         out.push_str("use baylee_core::color::{Color, ColorSet};\n");

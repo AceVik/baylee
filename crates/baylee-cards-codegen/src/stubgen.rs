@@ -599,6 +599,7 @@ pub fn render_stub(
     ledger: &IndexLedger,
     cats: &SubtypeCatalogs,
     scripts: Option<&crate::scriptgen::ScriptLookup>,
+    tokens: Option<&crate::tokengen::TokenLookup>,
     cycles: &crate::layout::LandCycles,
 ) -> Result<(StubInfo, String), CodegenError> {
     // Multi-face cards slug by their front face ("Brightclimb Pathway // …"
@@ -612,7 +613,7 @@ pub fn render_stub(
     // its type line (CR 305.6) and no reference script restates it.
     let land = crate::landgen::recognize(card, cats).or_else(|| {
         let script = scripts?.script(&card.name)?;
-        crate::scriptgen::transcode(&script, cats)
+        crate::scriptgen::transcode(&script, cats, tokens)
     });
 
     let mut out = String::with_capacity(4096);
@@ -716,6 +717,12 @@ pub fn render_stub(
         || literal.contains("subtypes::")
     {
         out.push_str("use baylee_core::generated::subtypes;\n");
+    }
+    // The token ledger, on the same terms and for the same reason: a card
+    // that creates one names the constant it was filed under, and the module
+    // is the one door to both halves of the table.
+    if statics.contains("generated_tokens::") || literal.contains("generated_tokens::") {
+        out.push_str("use crate::generated_tokens;\n");
     }
     out.push('\n');
     out.push_str(statics);
@@ -1121,6 +1128,7 @@ mod tests {
             &IndexLedger::default(),
             &cats,
             None,
+            None,
             &LandCycles::default(),
         )
         .unwrap();
@@ -1184,6 +1192,7 @@ mod tests {
             &IndexLedger::default(),
             &cats,
             None,
+            None,
             &LandCycles::default(),
         )
         .unwrap();
@@ -1204,6 +1213,7 @@ mod tests {
             &IndexLedger::default(),
             &cats,
             None,
+            None,
             &LandCycles::default(),
         )
         .unwrap();
@@ -1216,6 +1226,7 @@ mod tests {
             &row(0, "FRONT"),
             &IndexLedger::default(),
             &cats,
+            None,
             None,
             &LandCycles::default(),
         )
@@ -1233,6 +1244,7 @@ mod tests {
             &row(0, "NOTHING"),
             &IndexLedger::default(),
             &cats,
+            None,
             None,
             &LandCycles::default(),
         )
@@ -1255,6 +1267,7 @@ mod tests {
             &row(1, "SOMETHING"),
             &IndexLedger::default(),
             &cats,
+            None,
             None,
             &LandCycles::default(),
         )

@@ -29,6 +29,7 @@
 
 use crate::body::CardBody;
 use crate::catalog::SubtypeCatalogs;
+use crate::tokengen::TokenLookup;
 use std::collections::BTreeMap;
 
 /// One parsed card script.
@@ -182,6 +183,12 @@ struct Chain {
 struct Tx<'a> {
     svars: &'a BTreeMap<String, String>,
     cats: &'a SubtypeCatalogs,
+    /// The reference's token scripts, when a checkout is at hand. `None` is
+    /// a run with no token corpus and not a gap in the DSL, which is why the
+    /// refusal it produces says so in those words — a report that ranked a
+    /// missing directory as the top blocker would send somebody to write a
+    /// rule that already exists.
+    tokens: Option<&'a TokenLookup>,
     body: CardBody,
     /// The first `Api.Key` no rule claimed, if that is why this
     /// script was refused. Recorded rather than derived, because a
@@ -666,6 +673,7 @@ impl Tx<'_> {
                 }
                 vec![format!("Effect::destroy({aimed})")]
             }
+            "Token" => self.token_effect(p, target)?,
             "Animate" => self.animate_effect(p, target)?,
             "Pump" => self.pump_effect(p, aimed)?,
             "ChangeZone" => self.change_zone(p, target)?,
@@ -688,6 +696,74 @@ impl Tx<'_> {
                 vec!["Effect::CounterTargetSpell".to_string()]
             }
             _ => return None,
+        })
+    }
+
+    /// `Token`: "create a 1/1 white Soldier creature token".
+    ///
+    /// The effect names a `&'static TokenDef`, so what this writes is the
+    /// constant the **ledger** filed that token under and never a definition
+    /// of its own: the id a client keys token art off is a token's place in
+    /// `generated_tokens::ALL`, and a literal written into a card file would
+    /// have no place there at all. Which is also why this is one of the two
+    /// rules that can be refused by something other than the script — a run
+    /// with no token corpus has no constant to name.
+    ///
+    /// Everything the token *is* — its colours, its size, its keywords — is
+    /// read by [`crate::tokengen`] from the token script and never from this
+    /// line, which carries none of it.
+    fn token_effect(&mut self, p: &mut Params, target: Option<&str>) -> Option<Vec<String>> {
+        let Some(tokens) = self.tokens else {
+            return self.deny("`Token` with no token scripts to read it against".to_string());
+        };
+        // Who gets it. The corpus writes `TokenOwner$ You` on 2220 of its
+        // 3610 token lines and leaves the key off on 1154 — and absence is
+        // **not** a synonym for you: Rootcast Apprenticeship says "target
+        // player creates a 1/1 green Squirrel creature token" with no
+        // `TokenOwner$` at all, leaning on the chain's own target instead.
+        // That is the trap [`Self::player_rel_of`] was written for, so the
+        // absent key is read the same way it reads one there: as the target
+        // where the chain has a player to mean, and as you where it has not.
+        let owner = match p.take("TokenOwner").as_deref() {
+            Some("You") => "PlayerRel::You",
+            None => Self::player_rel_of(None, target)?,
+            Some(who) => return self.deny(format!("token owner `{who}`")),
+        };
+        if owner != "PlayerRel::You" {
+            return self.deny("a token created under another player's control".to_string());
+        }
+        let Some(stem) = p.take("TokenScript") else {
+            return self.deny("a `Token` effect naming no `TokenScript$`".to_string());
+        };
+        let Some(body) = tokens.body(&stem, self.cats) else {
+            return self.deny(format!("token script `{stem}`"));
+        };
+        // `generated_tokens` and not `tokens`: the ledger is the one door,
+        // and which half of it a constant is written in is the generator's
+        // business — a hand-written token is re-exported from there under
+        // the same name.
+        let token = format!("&generated_tokens::{}", body.constant);
+        let amount = match p.take("TokenAmount") {
+            None => None,
+            Some(raw) => match amount(&raw, self.svars) {
+                // `X`, `Y` and a computed `SVar` are the 315 the corpus
+                // writes that this cannot: the engine can resolve
+                // `Amount::X`, but nothing here can say whether the script's
+                // `X` is the one the spell was paid for.
+                None => return self.deny(format!("token amount `{raw}`")),
+                Some(a) => Some(a),
+            },
+        };
+        Some(match amount.as_deref() {
+            // One is the number `CreateToken` already means, and writing it
+            // as `CreateTokenN { amount: Amount::Fixed(1) }` would give the
+            // commonest token effect there is a second spelling.
+            None | Some("Amount::Fixed(1)") => {
+                vec![format!("Effect::CreateToken {{ token: {token} }}")]
+            }
+            Some(n) => vec![format!(
+                "Effect::CreateTokenN {{ token: {token}, amount: {n} }}"
+            )],
         })
     }
 
@@ -2230,13 +2306,18 @@ fn keyword_enter_modifier(line: &str, svars: &BTreeMap<String, String>) -> Optio
 /// Never errors; an unreadable script is `None`, which is what keeps a
 /// generated card honest.
 #[must_use]
-pub fn transcode(script: &CardScript, cats: &SubtypeCatalogs) -> Option<CardBody> {
+pub fn transcode(
+    script: &CardScript,
+    cats: &SubtypeCatalogs,
+    tokens: Option<&TokenLookup>,
+) -> Option<CardBody> {
     if !script.unknown_lines.is_empty() {
         return None;
     }
     let mut tx = Tx {
         svars: &script.svars,
         cats,
+        tokens,
         body: CardBody::default(),
         unclaimed: std::cell::RefCell::new(None),
     };
@@ -2264,13 +2345,18 @@ pub fn transcode(script: &CardScript, cats: &SubtypeCatalogs) -> Option<CardBody
 /// each rule's keys: such a list would rot the first time a rule learned a
 /// new one, and a stale worklist is worse than none.
 #[must_use]
-pub fn refusal_reason(script: &CardScript, cats: &SubtypeCatalogs) -> Option<String> {
+pub fn refusal_reason(
+    script: &CardScript,
+    cats: &SubtypeCatalogs,
+    tokens: Option<&TokenLookup>,
+) -> Option<String> {
     if !script.unknown_lines.is_empty() {
         return None;
     }
     let mut tx = Tx {
         svars: &script.svars,
         cats,
+        tokens,
         body: CardBody::default(),
         unclaimed: std::cell::RefCell::new(None),
     };
@@ -2314,6 +2400,7 @@ pub const SUPPORTED_APIS: &[&str] = &[
     "PutCounter",
     "Pump",
     "ChangeZone",
+    "Token",
 ];
 
 /// Whether [`transcode`] has a rule for this effect API.
@@ -2486,11 +2573,44 @@ mod tests {
     }
 
     fn read(text: &str) -> CardBody {
-        transcode(&parse(text), &cats()).expect("should be read in full")
+        transcode(&parse(text), &cats(), None).expect("should be read in full")
     }
 
     fn refused(text: &str) -> bool {
-        transcode(&parse(text), &cats()).is_none()
+        transcode(&parse(text), &cats(), None).is_none()
+    }
+
+    /// The three token scripts the `Token` tests below read against, in the
+    /// reference's own shape. Held rather than read off disk: the corpus is
+    /// not vendored, so a test that needed a checkout is a test CI skips.
+    fn tokens() -> TokenLookup {
+        TokenLookup::held(&[
+            (
+                "r_1_1_goblin",
+                "Name:Goblin\nTypes:Creature Goblin\nColors:red\nPT:1/1",
+            ),
+            (
+                "u_1_1_wizard_flying",
+                "Name:Wizard\nTypes:Creature Wizard\nColors:blue\nPT:1/1\nK:Flying",
+            ),
+            // A token that carries an ability, which is what 184 of the
+            // reference's 852 token scripts do and what [`crate::tokengen`]
+            // refuses: the definition it would write is a permanent that
+            // does nothing.
+            (
+                "r_1_1_goblin_sac",
+                "Name:Goblin\nTypes:Creature Goblin\nColors:red\nPT:1/1\n\
+                 A:AB$ Mana | Cost$ T Sac<1/CARDNAME> | Produced$ Any",
+            ),
+        ])
+    }
+
+    fn read_with_tokens(text: &str) -> CardBody {
+        transcode(&parse(text), &cats(), Some(&tokens())).expect("should be read in full")
+    }
+
+    fn refused_with_tokens(text: &str) -> bool {
+        transcode(&parse(text), &cats(), Some(&tokens())).is_none()
     }
 
     fn filter(valid: &str) -> String {
@@ -2499,6 +2619,7 @@ mod tests {
         let tx = Tx {
             svars: &svars,
             cats: &cats,
+            tokens: None,
             body: CardBody::default(),
             unclaimed: std::cell::RefCell::new(None),
         };
@@ -2521,11 +2642,11 @@ mod tests {
             "Name:Two Sides\n\
              T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | \
              Execute$ TrigToken | TriggerDescription$ x\n\
-             A:AB$ Token | Cost$ 2 | TokenScript$ w_1_1_soldier | TokenAmount$ 2\n\
+             A:AB$ Token | Cost$ 2 | TokenScript$ r_1_1_goblin | TokenAmount$ 2\n\
              SVar:TrigToken:DB$ Token | TokenScript$ b_2_2_zombie | TokenOwner$ You\n\
-             SVar:Other:DB$ Token | TokenScript$ w_1_1_soldier\n",
+             SVar:Other:DB$ Token | TokenScript$ r_1_1_goblin\n",
         );
-        assert_eq!(token_stems(&script), ["w_1_1_soldier", "b_2_2_zombie"]);
+        assert_eq!(token_stems(&script), ["r_1_1_goblin", "b_2_2_zombie"]);
         // A card that names none says so, rather than saying nothing at all.
         assert!(token_stems(&parse("Name:Plain\nK:Flying\n")).is_empty());
     }
@@ -2731,7 +2852,7 @@ mod tests {
              SVar:LandTapped:DB$ Tap | Defined$ Self | ETB$ True | ConditionPresent$ Land.Other+YouCtrl | ConditionCompare$ LT2",
         );
         assert_eq!(
-            refusal_reason(&script, &cats()).as_deref(),
+            refusal_reason(&script, &cats(), None).as_deref(),
             Some("replacement `Moved` with a condition other than `EQ0`")
         );
     }
@@ -2775,7 +2896,7 @@ mod tests {
             "Name:X\nTypes:Land\nA:AB$ Mana | Cost$ T | Produced$ Any | RestrictValid$ Spell.Hero,Activated.Hero",
         );
         assert_eq!(
-            refusal_reason(&script, &cats()).as_deref(),
+            refusal_reason(&script, &cats(), None).as_deref(),
             Some("`Mana.RestrictValid` beyond a spell")
         );
     }
@@ -2810,7 +2931,7 @@ mod tests {
             "Name:X\nTypes:Instant\nA:SP$ Animate | ValidTgts$ Land | Defined$ Self | Power$ 3 | Toughness$ 3 | Types$ Creature",
         );
         assert_eq!(
-            refusal_reason(&script, &cats()).as_deref(),
+            refusal_reason(&script, &cats(), None).as_deref(),
             Some("`Animate` of something other than the source")
         );
     }
@@ -3033,9 +3154,9 @@ mod tests {
             "Name:X\nManaCost:U\nTypes:Instant\n\
              A:SP$ Draw | NumCards$ 1 | IsPresent$ Island.YouCtrl\n",
         );
-        assert!(transcode(&spell, &cats()).is_none());
+        assert!(transcode(&spell, &cats(), None).is_none());
         assert_eq!(
-            refusal_reason(&spell, &cats()).as_deref(),
+            refusal_reason(&spell, &cats(), None).as_deref(),
             Some("`IsPresent$` on a spell line")
         );
 
@@ -3046,9 +3167,9 @@ mod tests {
             "Name:X\nManaCost:no cost\nTypes:Land\n\
              A:AB$ Mana | Cost$ T | Produced$ U | PresentZone$ Graveyard\n",
         );
-        assert!(transcode(&lone, &cats()).is_none());
+        assert!(transcode(&lone, &cats(), None).is_none());
         assert_eq!(
-            refusal_reason(&lone, &cats()).as_deref(),
+            refusal_reason(&lone, &cats(), None).as_deref(),
             Some("unclaimed parameter `Mana.PresentZone`")
         );
     }
@@ -3079,9 +3200,9 @@ mod tests {
         );
 
         let anyone = parse(&script.replace("Creature.YouCtrl", "Creature"));
-        assert!(transcode(&anyone, &cats()).is_none());
+        assert!(transcode(&anyone, &cats(), None).is_none());
         assert_eq!(
-            refusal_reason(&anyone, &cats()).as_deref(),
+            refusal_reason(&anyone, &cats(), None).as_deref(),
             Some("`IsPresent$ Creature`, a count with no player")
         );
 
@@ -3089,9 +3210,9 @@ mod tests {
         // been written rather than refused: `Other` is a filter about the
         // card stating the clause, which a count has no room for.
         let another = parse(&script.replace("Creature.YouCtrl", "Creature.Other+YouCtrl"));
-        assert!(transcode(&another, &cats()).is_none());
+        assert!(transcode(&another, &cats(), None).is_none());
         assert_eq!(
-            refusal_reason(&another, &cats()).as_deref(),
+            refusal_reason(&another, &cats(), None).as_deref(),
             Some("`IsPresent$ Creature.Other+YouCtrl`, a count relative to this card")
         );
     }
@@ -3125,9 +3246,9 @@ mod tests {
             ),
         ] {
             let parsed = parse(&base.replace("{EXTRA}", extra));
-            assert!(transcode(&parsed, &cats()).is_none(), "{extra}");
+            assert!(transcode(&parsed, &cats(), None).is_none(), "{extra}");
             assert_eq!(
-                refusal_reason(&parsed, &cats()).as_deref(),
+                refusal_reason(&parsed, &cats(), None).as_deref(),
                 Some(reason),
                 "{extra}"
             );
@@ -3151,17 +3272,17 @@ mod tests {
              Destination$ Graveyard | ValidCard$ Creature.YouCtrl | Execute$ TrigDraw\n\
              SVar:TrigDraw:DB$ Draw | NumCards$ 1\n";
         let parsed = parse(elsewhere);
-        assert!(transcode(&parsed, &cats()).is_none());
+        assert!(transcode(&parsed, &cats(), None).is_none());
         assert_eq!(
-            refusal_reason(&parsed, &cats()).as_deref(),
+            refusal_reason(&parsed, &cats(), None).as_deref(),
             Some("`TriggerZones$ Command`")
         );
 
         let here = parse(&elsewhere.replace("TriggerZones$ Command", "TriggerZones$ Battlefield"));
         assert!(
-            transcode(&here, &cats()).is_some(),
+            transcode(&here, &cats(), None).is_some(),
             "the same trigger on the battlefield: {:?}",
-            refusal_reason(&here, &cats())
+            refusal_reason(&here, &cats(), None)
         );
     }
 
@@ -3223,9 +3344,9 @@ mod tests {
             "Name:X\nTypes:Land\n\
              K:You may choose not to untap CARDNAME during your upkeep.\n",
         );
-        assert!(transcode(&parsed, &cats()).is_none());
+        assert!(transcode(&parsed, &cats(), None).is_none());
         assert_eq!(
-            refusal_reason(&parsed, &cats()).as_deref(),
+            refusal_reason(&parsed, &cats(), None).as_deref(),
             Some("keyword `You`")
         );
     }
@@ -3382,7 +3503,7 @@ mod tests {
                       CounterType$ P1P1 | CounterNum$ 1 | ValidTgts$ Creature";
         assert!(refused(script));
         assert_eq!(
-            refusal_reason(&parse(script), &cats()).as_deref(),
+            refusal_reason(&parse(script), &cats(), None).as_deref(),
             Some("unclaimed parameter `PutCounter.Planeswalker`")
         );
     }
@@ -3546,12 +3667,12 @@ mod tests {
         // reports what it actually failed to claim.
         let script = parse("Name:X\nTypes:Sorcery\nA:SP$ Draw | NumCards$ 1 | UnlessCost$ 2");
         assert_eq!(
-            refusal_reason(&script, &cats()).as_deref(),
+            refusal_reason(&script, &cats(), None).as_deref(),
             Some("unclaimed parameter `Draw.UnlessCost`")
         );
 
         let script = parse("Name:X\nTypes:Sorcery\nA:SP$ Draw | NumCards$ 1");
-        assert_eq!(refusal_reason(&script, &cats()), None, "read in full");
+        assert_eq!(refusal_reason(&script, &cats(), None), None, "read in full");
 
         // An unknown API is a missing effect, not a missing case in a rule
         // that exists, and is reported as its own kind. Leaving it silent
@@ -3561,7 +3682,7 @@ mod tests {
         // the transcoder had read perfectly well.
         let script = parse("Name:X\nTypes:Sorcery\nA:SP$ Animate | Defined$ Self");
         assert_eq!(
-            refusal_reason(&script, &cats()).as_deref(),
+            refusal_reason(&script, &cats(), None).as_deref(),
             Some("effect `Animate`")
         );
 
@@ -3570,7 +3691,7 @@ mod tests {
             "Name:X\nTypes:Instant\nA:SP$ Pump | ValidTgts$ Creature | NumAtt$ 1 | Duration$ Permanent",
         );
         assert_eq!(
-            refusal_reason(&script, &cats()).as_deref(),
+            refusal_reason(&script, &cats(), None).as_deref(),
             Some("unreadable value in `Pump`")
         );
 
@@ -3579,7 +3700,7 @@ mod tests {
         let script =
             parse("Name:X\nTypes:Creature\nS:Mode$ CantBlockBy | ValidAttacker$ Card.Self");
         assert_eq!(
-            refusal_reason(&script, &cats()).as_deref(),
+            refusal_reason(&script, &cats(), None).as_deref(),
             Some("static ability `S: Mode$ CantBlockBy`")
         );
     }
@@ -3727,11 +3848,11 @@ mod tests {
         for (script, why) in cases {
             let parsed = parse(script);
             assert!(
-                transcode(&parsed, &cats()).is_none(),
+                transcode(&parsed, &cats(), None).is_none(),
                 "this case is supposed to be refused: {script}"
             );
             assert_eq!(
-                refusal_reason(&parsed, &cats()).as_deref(),
+                refusal_reason(&parsed, &cats(), None).as_deref(),
                 Some(*why),
                 "the reason given for: {script}"
             );
@@ -3770,10 +3891,10 @@ mod tests {
         ] {
             let parsed = parse(script);
             assert!(
-                transcode(&parsed, &cats()).is_some(),
+                transcode(&parsed, &cats(), None).is_some(),
                 "the near miss is supposed to be read: {script}"
             );
-            assert_eq!(refusal_reason(&parsed, &cats()), None, "{script}");
+            assert_eq!(refusal_reason(&parsed, &cats(), None), None, "{script}");
         }
     }
 
@@ -3850,6 +3971,136 @@ mod tests {
         assert!(body.statics.contains(
             "Filter::And(&[Filter::CREATURE, Filter::ControlledByYou, Filter::Not(&Filter::IsToken)])"
         ));
+    }
+
+    /// A token effect names the constant the **ledger** filed the token
+    /// under, through the one module both halves of the ledger come out of.
+    #[test]
+    fn a_token_effect_names_the_constant_the_ledger_filed_it_under() {
+        let body = read_with_tokens(
+            "Name:Raise the Alarm\nTypes:Instant\n\
+             A:SP$ Token | TokenScript$ r_1_1_goblin | TokenOwner$ You",
+        );
+        assert!(
+            body.abilities[0]
+                .contains("Effect::CreateToken { token: &generated_tokens::GOBLIN_1_1_RED }"),
+            "{}",
+            body.abilities[0]
+        );
+    }
+
+    /// "Create two 1/1 white Soldier creature tokens" is one effect with a
+    /// number, and one token is not a count of one — `CreateToken` already
+    /// means that, and two spellings of the commonest token effect there is
+    /// would be two things to keep in step.
+    #[test]
+    fn a_count_is_written_only_where_there_is_something_to_count() {
+        let two = read_with_tokens(
+            "Name:Raise the Alarm\nTypes:Instant\n\
+             A:SP$ Token | TokenAmount$ 2 | TokenScript$ r_1_1_goblin | TokenOwner$ You",
+        );
+        assert!(
+            two.abilities[0].contains(
+                "Effect::CreateTokenN { token: &generated_tokens::GOBLIN_1_1_RED, \
+                 amount: Amount::Fixed(2) }"
+            ),
+            "{}",
+            two.abilities[0]
+        );
+        let one = read_with_tokens(
+            "Name:X\nTypes:Instant\n\
+             A:SP$ Token | TokenAmount$ 1 | TokenScript$ u_1_1_wizard_flying | TokenOwner$ You",
+        );
+        assert!(
+            one.abilities[0].contains(
+                "Effect::CreateToken { token: \
+                 &generated_tokens::WIZARD_1_1_BLUE_FLYING }"
+            ),
+            "{}",
+            one.abilities[0]
+        );
+    }
+
+    /// A token the reader refuses refuses the card that makes it. The
+    /// alternative is a card that puts an inert permanent on the battlefield
+    /// and claims `Implemented` — a Treasure that cannot be sacrificed for
+    /// mana is not a Treasure.
+    #[test]
+    fn a_token_that_cannot_be_read_refuses_the_card() {
+        assert!(refused_with_tokens(
+            "Name:X\nTypes:Instant\nA:SP$ Token | TokenScript$ r_1_1_goblin_sac | TokenOwner$ You"
+        ));
+        let script = parse(
+            "Name:X\nTypes:Instant\nA:SP$ Token | TokenScript$ r_1_1_goblin_sac | TokenOwner$ You",
+        );
+        assert_eq!(
+            refusal_reason(&script, &cats(), Some(&tokens())).as_deref(),
+            Some("token script `r_1_1_goblin_sac`")
+        );
+    }
+
+    /// An absent `TokenOwner$` is you only where the chain has no player to
+    /// mean instead. Rootcast Apprenticeship writes exactly that — "target
+    /// player creates a 1/1 green Squirrel creature token", with no
+    /// `TokenOwner$` on the line — and reading the absence as "you" there
+    /// would hand the token to the wrong side of the table.
+    #[test]
+    fn an_absent_owner_is_you_only_where_no_player_is_targeted() {
+        let body =
+            read_with_tokens("Name:X\nTypes:Instant\nA:SP$ Token | TokenScript$ r_1_1_goblin");
+        assert!(body.abilities[0].contains("Effect::CreateToken"));
+
+        let rootcast = parse(
+            "Name:X\nTypes:Instant\nA:SP$ Token | ValidTgts$ Player | TokenScript$ r_1_1_goblin",
+        );
+        assert_eq!(
+            refusal_reason(&rootcast, &cats(), Some(&tokens())).as_deref(),
+            Some("a token created under another player's control")
+        );
+    }
+
+    /// A named owner this cannot say is refused by name, and so is every
+    /// parameter no rule claimed — a token that enters tapped and one that
+    /// does not are different cards.
+    #[test]
+    fn a_token_parameter_with_no_rule_refuses_the_card() {
+        for (line, why) in [
+            (
+                "A:SP$ Token | TokenScript$ r_1_1_goblin | TokenOwner$ Targeted",
+                "token owner `Targeted`",
+            ),
+            (
+                "A:SP$ Token | TokenScript$ r_1_1_goblin | TokenOwner$ You | TokenTapped$ True",
+                "unclaimed parameter `Token.TokenTapped`",
+            ),
+            (
+                "A:SP$ Token | TokenScript$ r_1_1_goblin | TokenOwner$ You | TokenAmount$ X",
+                "token amount `X`",
+            ),
+            (
+                "A:SP$ Token | TokenOwner$ You",
+                "a `Token` effect naming no `TokenScript$`",
+            ),
+        ] {
+            let script = parse(&format!("Name:X\nTypes:Instant\n{line}"));
+            assert_eq!(
+                refusal_reason(&script, &cats(), Some(&tokens())).as_deref(),
+                Some(why),
+                "{line}"
+            );
+        }
+    }
+
+    /// A run with no token corpus is not a gap in the DSL, and says so in
+    /// those words: a report that ranked a missing directory as the top
+    /// blocker would send somebody to write a rule that already exists.
+    #[test]
+    fn a_run_with_no_token_corpus_is_not_reported_as_a_missing_rule() {
+        let script = parse("Name:X\nTypes:Instant\nA:SP$ Token | TokenScript$ r_1_1_goblin");
+        assert_eq!(
+            refusal_reason(&script, &cats(), None).as_deref(),
+            Some("`Token` with no token scripts to read it against")
+        );
     }
 
     #[test]
@@ -3933,9 +4184,9 @@ mod tests {
             "Name:X\nTypes:Artifact Equipment\n\
              K:Equip:1:Creature.Legendary+YouCtrl:legendary creature",
         );
-        assert!(transcode(&parsed, &cats()).is_none());
+        assert!(transcode(&parsed, &cats(), None).is_none());
         assert_eq!(
-            refusal_reason(&parsed, &cats()).as_deref(),
+            refusal_reason(&parsed, &cats(), None).as_deref(),
             Some("an `Equip` that narrows what it may attach to")
         );
     }
@@ -3978,9 +4229,9 @@ mod tests {
         assert_eq!(named.abilities[0].matches("&ENCHANT1").count(), 2);
         // An Aura on a player has nothing for `AttachSelf` to attach to.
         let parsed = parse("Name:X\nTypes:Enchantment Aura\nK:Enchant:Player");
-        assert!(transcode(&parsed, &cats()).is_none());
+        assert!(transcode(&parsed, &cats(), None).is_none());
         assert_eq!(
-            refusal_reason(&parsed, &cats()).as_deref(),
+            refusal_reason(&parsed, &cats(), None).as_deref(),
             Some("an `Enchant Player`, which attaches to no object")
         );
     }
@@ -4015,9 +4266,9 @@ mod tests {
             "Name:X\nTypes:Creature\nK:etbCounter:NOTACOUNTER:1",
         ] {
             let parsed = parse(script);
-            assert!(transcode(&parsed, &cats()).is_none(), "{script}");
+            assert!(transcode(&parsed, &cats(), None).is_none(), "{script}");
             assert_eq!(
-                refusal_reason(&parsed, &cats()).as_deref(),
+                refusal_reason(&parsed, &cats(), None).as_deref(),
                 Some("keyword `etbCounter`"),
                 "and the refusal names the line it stopped on: {script}"
             );

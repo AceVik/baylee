@@ -36,6 +36,12 @@ something outside it: a subtype module
 (`use baylee_core::generated::subtypes::creature;`), a token
 (`use crate::tokens::…`), or a shared filter (`use crate::filters::…`).
 
+A *generated* card reaches a token through `use crate::generated_tokens;`
+instead, which is the whole ledger under one name — the hand-written half is
+re-exported from there. Either spelling reaches the same `TokenDef`, and a
+hand-written card keeps naming `crate::tokens` because that is where it can
+read the comment saying which printing lent the token its art.
+
 Do **not** add `#![allow(unused_imports, missing_docs)]`. It used to be on
 every card file because the generated import list was identical for every
 card whether the card used it or not; it is gone, and with it the two dozen
@@ -1027,10 +1033,11 @@ a blocker goes once it has been re-read.
 
 The other half of the same question is measured continuously and needs no such
 care. `cargo run -p xtask -- transcode-report` ranks what the *whole* script
-corpus is refused for — 3364 of 33 826 read in full as of 15.09, with
-`Enchant` (1207) and the `Token` effect (1111) at the top — computed against
-the DSL as it stands rather than as it stood. Read that for **order**, and
-these 115 rows for what a specific sentence cannot say.
+corpus is refused for — 3808 of 33 826 read in full as of 17.09, with
+`AlternateMode:` (887), the `SpellCast` trigger (836) and `Charm` (609) at
+the top — computed against the DSL as it stands rather than as it stood.
+Read that for **order**, and these 115 rows for what a specific sentence
+cannot say.
 
 The 48 land implementations that same batch produced are **not** in the tree.
 They were written against the flat `cards/` layout and the pre-taxonomy

@@ -11,11 +11,23 @@
 // beside the comment saying which printing lent it its art. A generated
 // one is defined here, because there is nowhere else for it to live.
 //
+// Both halves are **reachable from here**, the hand-written ones by
+// re-export. A card that creates a token names one module and not the
+// half of the ledger the token happens to be written in — which is the
+// same thing `baylee_core::generated::index` does for a `CardIndex`
+// constant, and for the same reason: where a definition sits is the
+// generator's business and changes, and the name is what a card spends.
+//
 // Source: `baylee_cards::tokens` and the card-script reference's token
 // scripts (read as an automated lookup, never copied).
 #![allow(missing_docs, clippy::all, clippy::pedantic)]
 
 use crate::tokens;
+pub use crate::tokens::{
+    ALLY_1_1_WHITE, ANGEL_4_4_WHITE_FLYING, ARMY_0_0_BLACK, BIRD_1_1_WHITE_FLYING, BLOOD,
+    BOAR_2_2_GREEN, CLUE, CONSTRUCT_ARTIFACT_0_0, FOOD, ILLUSION_X_BLUE,
+    SHAPESHIFTER_1_1_CHANGELING, SHAPESHIFTER_2_2_BLUE_CHANGELING, SOLDIER_1_1_WHITE, TREASURE,
+};
 use baylee_cards_dsl::KeywordSet;
 use baylee_cards_dsl::TokenDef;
 use baylee_core::color::{Color, ColorSet};

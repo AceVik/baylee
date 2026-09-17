@@ -555,6 +555,7 @@ struct Pool<'a> {
     names: &'a [String],
     cats: &'a catalog::SubtypeCatalogs,
     scripts: Option<&'a scriptgen::ScriptLookup>,
+    tokens: Option<&'a tokengen::TokenLookup>,
 }
 
 /// Every card the registry should hold: the acceptance decks (the architecture
@@ -573,6 +574,7 @@ fn cards(
         names,
         cats,
         scripts,
+        tokens,
     } = *pool;
     // Indices come from the ledger, never from a card's position in this list:
     // the list is alphabetical, so one new card would otherwise renumber every
@@ -637,7 +639,8 @@ fn cards(
                  sight: run `baylee-catalog corpus` and then `cargo xtask ledger`."
             );
         };
-        let (info, content) = stubgen::render_stub(&card, row, &ledger, cats, scripts, &cycles)?;
+        let (info, content) =
+            stubgen::render_stub(&card, row, &ledger, cats, scripts, tokens, &cycles)?;
         let stub_path = cards_dir.join(&info.path);
         // A card that already exists somewhere else is *moved*, never
         // rewritten at the new path and left behind at the old one — an
@@ -823,29 +826,6 @@ fn find_cardsfolder(at: &Path, depth: usize) -> Option<PathBuf> {
         .find_map(|dir| find_cardsfolder(&dir, depth - 1))
 }
 
-/// Where the reference keeps its **token** scripts, given where it keeps its
-/// card scripts.
-///
-/// Derived rather than asked for. Both directories come out of one checkout —
-/// `res/cardsfolder` and `res/tokenscripts` are siblings — so a second path
-/// to configure would be a second thing to point at last month's copy, and a
-/// token index one version behind the card index hands a card a definition
-/// the ledger never saw. [`TOKENS_ENV`] is the way out for a layout this
-/// cannot guess, and it is checked first so that it can also be used to point
-/// the run at nothing at all.
-fn token_scripts_root(scripts_dir: &Path) -> Option<PathBuf> {
-    if let Some(named) = std::env::var_os(TOKENS_ENV) {
-        let named = PathBuf::from(named);
-        return named.is_dir().then_some(named);
-    }
-    let sibling = scripts_dir.parent()?.join("tokenscripts");
-    sibling.is_dir().then_some(sibling)
-}
-
-/// The environment variable that names the token corpus, for a checkout laid
-/// out in a way [`token_scripts_root`] cannot derive.
-const TOKENS_ENV: &str = "BAYLEE_TOKEN_SCRIPTS";
-
 /// Every token a card in this pool reaches for, read in full.
 ///
 /// The ledger is "every token there is" and may only be appended to, so what
@@ -897,16 +877,10 @@ fn tokens_the_pool_reaches_for(
 fn token_ledger(
     root: &Path,
     check: bool,
-    scripts_dir: &Path,
     pool: &Pool,
     changed: &mut Vec<PathBuf>,
 ) -> anyhow::Result<()> {
-    let tokens = pool
-        .scripts
-        .and_then(|_| token_scripts_root(scripts_dir))
-        .map(tokengen::TokenLookup::new)
-        .transpose()?;
-    let bodies = if let (Some(scripts), Some(tokens)) = (pool.scripts, tokens.as_ref()) {
+    let bodies = if let (Some(scripts), Some(tokens)) = (pool.scripts, pool.tokens) {
         tokens_the_pool_reaches_for(pool, scripts, tokens)
     } else {
         println!("note: token scripts not found beside the card scripts, skipping");
@@ -978,14 +952,20 @@ fn codegen(root: &Path, check: bool, scripts_dir: &Path, cache: &Path) -> anyhow
         None
     };
 
+    // The reference's token scripts, found beside its card scripts. Read
+    // before the ledger because both stages below want them: the ledger to
+    // learn which tokens exist, the card stage to write the constant a
+    // `DB$ Token` names.
+    let tokens = tokengen::TokenLookup::beside(&scripts_dir)?;
     let pool = Pool {
         names: &names,
         cats: &cats,
         scripts: lookup.as_ref(),
+        tokens: tokens.as_ref(),
     };
 
     // 3. Which id every token there is was assigned → generated_tokens.rs.
-    token_ledger(root, check, &scripts_dir, &pool, &mut changed)?;
+    token_ledger(root, check, &pool, &mut changed)?;
 
     // 4. The card pool → per-card stubs + registry.
     cards(root, check, &agent, &cache, &pool, &mut changed)?;
@@ -3492,10 +3472,14 @@ fn explain(root: &Path, name: &str, scripts_dir: &Path, cache: &Path) -> anyhow:
             cats.normalize();
             let parsed = scriptgen::parse(&text);
             println!("== transcoder ==");
-            if scriptgen::transcode(&parsed, &cats).is_some() {
+            let tokens = tokengen::TokenLookup::beside(&scripts_root(root, scripts_dir))?;
+            if scriptgen::transcode(&parsed, &cats, tokens.as_ref()).is_some() {
                 println!("read in full");
             } else {
-                println!("refused: {}", refusal_cause(&parsed, &cats));
+                println!(
+                    "refused: {}",
+                    refusal_cause(&parsed, &cats, tokens.as_ref())
+                );
             }
         } else {
             println!("card-script reference: no script found for {name:?}");
@@ -3808,6 +3792,11 @@ fn transcode_report(
     top: usize,
 ) -> anyhow::Result<()> {
     let dir = scripts_root(root, scripts_dir);
+    // The token corpus, found the same way the run that writes the ledger
+    // finds it. A report run without it would rank "there is no token
+    // directory" as a gap in the DSL and send somebody to write a rule that
+    // is already there.
+    let tokens = tokengen::TokenLookup::beside(&dir)?;
     let cache = root.join("data/scryfall-cache");
     let agent = ureq::Agent::new_with_defaults();
     let mut cats = catalog::SubtypeCatalogs {
@@ -3850,11 +3839,11 @@ fn transcode_report(
             hit.insert(name.to_string());
         }
         let script = scriptgen::parse(&text);
-        if scriptgen::transcode(&script, &cats).is_some() {
+        if scriptgen::transcode(&script, &cats, tokens.as_ref()).is_some() {
             read += 1;
         } else {
             refused += 1;
-            let cause = refusal_cause(&script, &cats);
+            let cause = refusal_cause(&script, &cats, tokens.as_ref());
             let wanted_cause = reason.is_none_or(|want| cause.contains(want));
             *causes.entry(cause).or_insert(0usize) += 1;
             if shown < samples && wanted_cause {
@@ -3959,6 +3948,11 @@ fn coverage_set(
     max_new: usize,
 ) -> anyhow::Result<()> {
     let dir = scripts_root(root, scripts_dir);
+    // The token corpus, found the same way the run that writes the ledger
+    // finds it. A report run without it would rank "there is no token
+    // directory" as a gap in the DSL and send somebody to write a rule that
+    // is already there.
+    let tokens = tokengen::TokenLookup::beside(&dir)?;
     let cache = root.join("data/scryfall-cache");
     let agent = ureq::Agent::new_with_defaults();
     let mut cats = catalog::SubtypeCatalogs {
@@ -3983,7 +3977,7 @@ fn coverage_set(
         let text = fs::read_to_string(path)?;
         let script = scriptgen::parse(&text);
         let atoms = scriptgen::atoms(&script);
-        if scriptgen::transcode(&script, &cats).is_some() {
+        if scriptgen::transcode(&script, &cats, tokens.as_ref()).is_some() {
             known.extend(atoms);
             continue;
         }
@@ -4087,7 +4081,11 @@ fn collect_scripts(dir: &Path, out: &mut Vec<PathBuf>) -> anyhow::Result<()> {
 /// This is a heuristic over the script's own text rather than a report from
 /// the transcoder: it names the first thing in the script that no rule
 /// claims, which is what makes the output a worklist.
-fn refusal_cause(script: &scriptgen::CardScript, cats: &catalog::SubtypeCatalogs) -> String {
+fn refusal_cause(
+    script: &scriptgen::CardScript,
+    cats: &catalog::SubtypeCatalogs,
+    tokens: Option<&tokengen::TokenLookup>,
+) -> String {
     if let Some(line) = script.unknown_lines.first() {
         let head = line.split(':').next().unwrap_or(line);
         return format!("unmodelled line kind `{head}:`");
@@ -4105,7 +4103,7 @@ fn refusal_cause(script: &scriptgen::CardScript, cats: &catalog::SubtypeCatalogs
     // thousand times for scripts the transcoder had stopped on somewhere
     // else entirely. The transcoder reports its own first refusal, and a
     // keyword is not a special case of that.
-    if let Some(why) = scriptgen::refusal_reason(script, cats) {
+    if let Some(why) = scriptgen::refusal_reason(script, cats, tokens) {
         return why;
     }
     for (kind, spec) in &script.rules {
@@ -4447,6 +4445,11 @@ fn cross_read(root: &Path, scripts_dir: &Path, samples: usize) -> anyhow::Result
     };
     cats.normalize();
 
+    // The token corpus, found the way the run that writes the ledger finds
+    // it: a hand-written card that creates a token is read against the same
+    // table its generated neighbours name.
+    let tokens = tokengen::TokenLookup::beside(&scripts_root(root, scripts_dir))?;
+
     let index_path = root.join("data/script-index.json");
     let script_index: BTreeMap<String, String> =
         serde_json::from_str(&fs::read_to_string(&index_path).unwrap_or_default())
@@ -4522,7 +4525,7 @@ fn cross_read(root: &Path, scripts_dir: &Path, samples: usize) -> anyhow::Result
         // it is hand-written *because* a reader could not write it. Parsing
         // is the shallower one and never refuses: a script stopped on one
         // unclaimed parameter still says how many abilities it has.
-        let body = scriptgen::transcode(&script, &cats);
+        let body = scriptgen::transcode(&script, &cats, tokens.as_ref());
         compared += 1;
         in_full += usize::from(body.is_some());
 

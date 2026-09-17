@@ -442,11 +442,60 @@ fn doc_line(
 /// path to set is a second thing to get wrong, and a token index pointed at
 /// last month's copy would hand a card a definition the ledger never saw.
 pub struct TokenLookup {
-    root: std::path::PathBuf,
+    source: Source,
     stems: std::collections::BTreeSet<String>,
 }
 
+/// Where a [`TokenLookup`]'s scripts are.
+///
+/// The in-memory half is not a convenience: the reference is not vendored, so
+/// a test that had to read a token off disk would be a test CI skips, and a
+/// rule nobody runs is a rule nobody has.
+enum Source {
+    /// A directory of `<stem>.txt` files.
+    Dir(std::path::PathBuf),
+    /// Scripts held by stem, written by a test.
+    Held(std::collections::BTreeMap<String, String>),
+}
+
+/// The environment variable that names the token corpus, for a checkout laid
+/// out in a way [`TokenLookup::beside`] cannot derive.
+pub const TOKENS_ENV: &str = "BAYLEE_TOKEN_SCRIPTS";
+
 impl TokenLookup {
+    /// The token scripts beside a checkout's card scripts, if there are any.
+    ///
+    /// Derived rather than asked for: `res/cardsfolder` and `res/tokenscripts`
+    /// are siblings in one checkout, so a second path to configure would be a
+    /// second thing to point at last month's copy. [`TOKENS_ENV`] is the way
+    /// out for a layout this cannot guess, and it is read first so that it can
+    /// also point a run at nothing at all.
+    ///
+    /// It lives here rather than in the one command that writes the ledger
+    /// because every tool that *reports* on the transcoder has to find the
+    /// same directory the same way — a report run without the tokens would
+    /// otherwise rank "there is no token directory" as a gap in the DSL.
+    ///
+    /// # Errors
+    ///
+    /// IO errors while reading the directory.
+    pub fn beside(
+        scripts_dir: &std::path::Path,
+    ) -> Result<Option<Self>, crate::error::CodegenError> {
+        let root = if let Some(named) = std::env::var_os(TOKENS_ENV) {
+            std::path::PathBuf::from(named)
+        } else {
+            let Some(parent) = scripts_dir.parent() else {
+                return Ok(None);
+            };
+            parent.join("tokenscripts")
+        };
+        if !root.is_dir() {
+            return Ok(None);
+        }
+        Self::new(root).map(Some)
+    }
+
     /// Indexes every `*.txt` directly under `root`.
     ///
     /// Flat rather than recursive on purpose — the reference keeps its token
@@ -470,7 +519,23 @@ impl TokenLookup {
                 stems.insert(stem.to_string());
             }
         }
-        Ok(Self { root, stems })
+        Ok(Self {
+            source: Source::Dir(root),
+            stems,
+        })
+    }
+
+    /// A lookup over scripts already in hand.
+    #[must_use]
+    pub fn held(scripts: &[(&str, &str)]) -> Self {
+        let held: std::collections::BTreeMap<String, String> = scripts
+            .iter()
+            .map(|(stem, text)| ((*stem).to_string(), (*text).to_string()))
+            .collect();
+        Self {
+            stems: held.keys().cloned().collect(),
+            source: Source::Held(held),
+        }
     }
 
     /// How many token scripts the index found.
@@ -498,8 +563,13 @@ impl TokenLookup {
         if !self.stems.contains(stem) {
             return None;
         }
-        let text = std::fs::read_to_string(self.root.join(format!("{stem}.txt"))).ok()?;
-        read(&text, cats)
+        match &self.source {
+            Source::Dir(root) => {
+                let text = std::fs::read_to_string(root.join(format!("{stem}.txt"))).ok()?;
+                read(&text, cats)
+            }
+            Source::Held(held) => read(held.get(stem)?, cats),
+        }
     }
 }
 
