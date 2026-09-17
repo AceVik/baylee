@@ -653,6 +653,8 @@ mod offer_tests;
 #[cfg(test)]
 mod printed_tests;
 #[cfg(test)]
+mod resolution_tests;
+#[cfg(test)]
 mod s3_tests;
 #[cfg(test)]
 mod s4_tests;

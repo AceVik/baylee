@@ -2084,6 +2084,20 @@ impl<L: CardLookup> Engine<L> {
             let Some(obj) = self.state.object(spell) else {
                 return;
             };
+            // CR 608.2m lets a spell that leaves the stack part-way through
+            // finish resolving; CR 608.2n then puts *the spell* into its
+            // owner's graveyard — and a card its own effect has already
+            // moved is not one. This asked neither question and moved
+            // whatever id it was handed, so `Effect::ExileSource` exiled the
+            // card and the finalisation fetched it straight back out:
+            // Teferi's Protection, Temporal Mastery and Spirit Water Revival
+            // all had the one clause the DSL can express undone one step
+            // later. A permanent spell is unaffected — it is still on the
+            // stack when this runs, which is the whole reason this line can
+            // be a single zone test rather than a per-effect flag.
+            if obj.zone != crate::zone::Zone::Stack {
+                return;
+            }
             (obj.characteristics().types.is_permanent(), obj.owner)
         };
         // Adventure (CR 715): an Adventure spell resolves to exile; the
