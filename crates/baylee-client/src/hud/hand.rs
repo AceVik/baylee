@@ -135,7 +135,7 @@ pub(super) fn spawn_hand_zone(
         None => {
             commands
                 .entity(skirt)
-                .insert(BackgroundColor(palette::DIALOG.with_alpha(GROUND)));
+                .insert(BackgroundColor(palette::DOCK_GROUND.with_alpha(GROUND)));
         }
     }
     commands.entity(zone).add_child(skirt);

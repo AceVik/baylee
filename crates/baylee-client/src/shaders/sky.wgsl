@@ -45,18 +45,16 @@ struct SkyParams {
 const TAU: f32 = 6.2831855;
 
 // The day sky, display-referred like every colour this project writes down.
-const DAY_HIGH: vec3<f32> = vec3<f32>(0.169, 0.404, 0.702);
-const DAY_LOW: vec3<f32> = vec3<f32>(0.545, 0.729, 0.878);
-const CLOUD_LIT: vec3<f32> = vec3<f32>(1.000, 0.988, 0.949);
-const CLOUD_SHADE: vec3<f32> = vec3<f32>(0.596, 0.639, 0.729);
+const DAY_HIGH: vec3<f32> = vec3<f32>(0.075, 0.115, 0.170);
+const DAY_LOW: vec3<f32> = vec3<f32>(0.190, 0.245, 0.265);
+const CLOUD_LIT: vec3<f32> = vec3<f32>(0.360, 0.420, 0.430);
+const CLOUD_SHADE: vec3<f32> = vec3<f32>(0.110, 0.170, 0.220);
 const SUN_CORE: vec3<f32> = vec3<f32>(1.000, 0.976, 0.855);
 
-// And the night. Deep and *slightly* warm-neutral rather than blue-black: a
-// cold black behind the table would sit next to the cards and eat the
-// identity of the black and blue ones, which is the same argument the felt
-// makes about itself.
-const NIGHT_HIGH: vec3<f32> = vec3<f32>(0.031, 0.039, 0.086);
-const NIGHT_LOW: vec3<f32> = vec3<f32>(0.086, 0.086, 0.145);
+// Blue-black air matches the mineral table and the hand's dark ground.
+// The grade lives behind those surfaces: it never touches the card art.
+const NIGHT_HIGH: vec3<f32> = vec3<f32>(0.022, 0.031, 0.050);
+const NIGHT_LOW: vec3<f32> = vec3<f32>(0.065, 0.094, 0.112);
 const MOON_CORE: vec3<f32> = vec3<f32>(0.973, 0.965, 0.902);
 const STAR_TINT: vec3<f32> = vec3<f32>(0.898, 0.925, 1.000);
 
@@ -90,7 +88,7 @@ const MOON_BITE: vec2<f32> = vec2<f32>(0.017, -0.011);
 /// look at the sky and it is going somewhere, look at a card and the sky is
 /// not what you notice. The two decks and the sun's rim are all scaled off
 /// this, so the deck, its veil and the lit edges stay in step.
-const DRIFT: f32 = 0.025;
+const DRIFT: f32 = 0.012;
 /// How fast a star finishes one twinkle.
 const TWINKLE: f32 = 1.7;
 
@@ -197,7 +195,7 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     // it stands in. A sun is allowed to be the brightest thing on screen and
     // is not allowed to make the interface in front of it unreadable.
     let corona = halo(ds, SUN_R, 0.13) * 0.60 + halo(ds, SUN_R, 0.38) * 0.18;
-    lit += SUN_CORE * (disc * 1.25 + corona * (1.0 - body * 0.65));
+    lit += SUN_CORE * (disc * 0.72 + corona * 0.55 * (1.0 - body * 0.65));
 
     // ---- night --------------------------------------------------------
     var dark = mix(NIGHT_HIGH, NIGHT_LOW, smoothstep(0.0, 1.0, uv.y));
@@ -205,7 +203,7 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     // A faint band of something further away, so the night is not a flat
     // fill between the stars.
     let deep = fbm(p * 3.3 + vec2<f32>(t * DRIFT * 0.25, 0.0) + 61.3);
-    dark += vec3<f32>(0.055, 0.045, 0.090) * smoothstep(0.52, 0.86, deep);
+    dark += vec3<f32>(0.035, 0.065, 0.075) * smoothstep(0.42, 0.82, deep);
 
     // Stars: one candidate per cell of a grid, kept or dropped by its own
     // hash, so the field is even without being a lattice.
@@ -222,7 +220,7 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
         let beat = 0.55 + 0.45 * sin(t * TWINKLE * mix(0.6, 1.6, seed) + seed * TAU);
         star = (1.0 - smoothstep(0.0, size, d)) * beat;
     }
-    dark += STAR_TINT * star * 0.95;
+    dark += STAR_TINT * star * 0.55;
 
     // A second, denser layer of much fainter ones, so the gaps between the
     // bright stars are not a solid colour. It has to be *discs* like the
@@ -235,7 +233,7 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     if (fseed > 0.90) {
         let at = vec2<f32>(hash2(fid + 5.3), hash2(fid + 23.9));
         let d = distance(fract(fine), at);
-        dark += STAR_TINT * (1.0 - smoothstep(0.0, 0.14, d)) * 0.22;
+        dark += STAR_TINT * (1.0 - smoothstep(0.0, 0.14, d)) * 0.12;
     }
 
     // The moon: a disc with a second disc taken out of it, and a glow that
@@ -247,7 +245,7 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     let crescent = clamp(full - bite, 0.0, 1.0);
     // A little relief on the lit face, so it is a body and not a sticker.
     let seas = 0.88 + 0.12 * fbm((p - moon) * 42.0);
-    dark += MOON_CORE * (crescent * seas * 1.25 + halo(dm, MOON_R, 0.20) * 0.30);
+    dark += MOON_CORE * (crescent * seas * 0.85 + halo(dm, MOON_R, 0.20) * 0.18);
 
     // ---- the two of them, and the light between them -------------------
     var sky = mix(dark, lit, params.day);
@@ -255,7 +253,20 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     // is coming from. Added rather than mixed, because what it is is light.
     let low = smoothstep(0.15, 1.0, uv.y);
     let side = 1.0 - smoothstep(0.0, aspect * 0.9, distance(p, vec2<f32>(sun.x, 1.0)));
-    sky += DUSK_WARM * params.glow * (low * 0.34 + side * 0.30);
+    sky += DUSK_WARM * params.glow * (low * 0.16 + side * 0.14);
+
+    // Distant blue-green mist picks up the inlay's colours. Broad, dim and slow:
+    // a room around the table, never a luminous HUD competing with the hand.
+    let ribbon = p.y + 0.055 * sin(p.x * 3.4 + t * 0.075) + (deep - 0.5) * 0.16;
+    let aurora = exp(-pow((ribbon - 0.72) * 9.0, 2.0));
+    let sheen = 0.7 + 0.3 * sin(p.x * 4.0 - t * 0.11);
+    var air_colour = mix(vec3<f32>(0.16, 0.22, 0.24), vec3<f32>(0.12, 0.24, 0.20), uv.x);
+    air_colour += vec3<f32>(0.14, 0.075, 0.04) * pow(abs(uv.x * 2.0 - 1.0), 3.0);
+    sky += air_colour * aurora * sheen * 0.32;
+    // Lens-like framing, not a post-process: the table and the artwork keep
+    // their own exposure. Both daytime and night retain readable shadows.
+    let vignette = smoothstep(0.30, 0.85, length((uv - 0.5) * vec2<f32>(0.85, 1.0)));
+    sky *= 1.0 - vignette * 0.30;
 
     return vec4<f32>(to_linear(sky), 1.0);
 }

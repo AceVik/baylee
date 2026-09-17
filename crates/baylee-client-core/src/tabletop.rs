@@ -155,23 +155,23 @@ pub const PIE: [[f32; 3]; 5] = [
     [0.36, 0.66, 0.42], // green — moss
 ];
 
-/// The darkest the baize goes, in the shadow the rail casts on it.
-pub const FELT_DEEP: [f32; 3] = [0.024, 0.086, 0.058];
-/// The cloth's own colour: casino baize, before any wear.
-pub const FELT_CLOTH: [f32; 3] = [0.071, 0.223, 0.150];
+/// The mineral cloth in shadow.
+pub const FELT_DEEP: [f32; 3] = [0.043, 0.072, 0.080];
+/// Midnight mineral cloth: cool, but quieter than a card's colour identity.
+pub const FELT_CLOTH: [f32; 3] = [0.120, 0.188, 0.204];
 /// Where the table has been leaned on and dealt across for years.
-pub const FELT_WORN: [f32; 3] = [0.100, 0.285, 0.196];
-/// The padded rail's hide, in the shade.
-pub const RAIL_HIDE: [f32; 3] = [0.115, 0.072, 0.058];
-/// The top of the padded roll, where the light sits on it.
-pub const RAIL_LIP: [f32; 3] = [0.196, 0.130, 0.100];
+pub const FELT_WORN: [f32; 3] = [0.165, 0.245, 0.258];
+/// The aged metal rail, in the shade.
+pub const RAIL_HIDE: [f32; 3] = [0.100, 0.084, 0.064];
+/// The machined edge, where the light sits on it.
+pub const RAIL_LIP: [f32; 3] = [0.300, 0.244, 0.157];
 /// The apron: the wall of the slab, below the rail.
 ///
 /// Darker than either, and that is the whole job. The stage carries no light
 /// (see the module header on the client's `feltmat`), so a side face cannot
 /// be shaded by one — the only thing that says "this table has a thickness"
 /// is that its wall is a *different, darker* colour than its top.
-pub const APRON: [f32; 3] = [0.055, 0.038, 0.030];
+pub const APRON: [f32; 3] = [0.040, 0.035, 0.029];
 
 /// How wide the padded rail runs, in table units — under a card width.
 ///
@@ -1562,35 +1562,29 @@ mod tests {
         (values.iter().map(|v| (v - mean) * (v - mean)).sum::<f32>() / n).sqrt()
     }
 
-    /// The baize is a casino green, not a forest floor and not a slate.
-    ///
-    /// Written down because "green" is the one word in the brief and the
-    /// easiest to satisfy by accident: the cloth this replaced measured a
-    /// desaturated blue-green at 9% chroma, which reads as grey felt lit by
-    /// something green. A gaming table's baize is unmistakably *the* green,
-    /// and bounded on both sides — past 80% chroma it stops being cloth and
-    /// starts being a colour swatch, and it would then compete with the green
-    /// cards lying on it.
+    /// The redesign replaces casino green with cool mineral and warm metal.
+    /// Both hue and saturation remain bounded; this is not permission for
+    /// a neutral black hole or a saturated blue field behind blue cards.
     #[test]
     fn the_baize_is_a_casino_green() {
         for cloth in [FELT_DEEP, FELT_CLOTH, FELT_WORN] {
             let (hue, sat) = hue_sat(cloth);
             assert!(
-                (120.0..175.0).contains(&hue),
-                "{cloth:?} is at {hue}°, which is not a table's green"
+                (185.0..205.0).contains(&hue),
+                "{cloth:?} is at {hue}°, outside the mineral palette"
             );
             assert!(
-                (0.55..0.85).contains(&sat),
+                (0.30..0.50).contains(&sat),
                 "{cloth:?} is {sat} saturated — cloth, not a swatch"
             );
         }
-        // And the rail is the opposite half of the pairing: warm hide against
-        // cool cloth. A rail the same hue as the felt is a table with no rail.
+        // Warm metal against cool cloth. A rail the same hue as the felt is
+        // a table with no rail.
         for hide in [RAIL_HIDE, RAIL_LIP, APRON] {
             let (hue, _) = hue_sat(hide);
             assert!(
                 (10.0..45.0).contains(&hue),
-                "the rail at {hue}° is not leather"
+                "the rail at {hue}° is not warm metal"
             );
         }
         // The wall has to be darker than the top it hangs from, or the slab

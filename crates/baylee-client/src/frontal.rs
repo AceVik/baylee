@@ -1,8 +1,8 @@
-//! The table's skirt: the ground under the hand, and the rail it hangs from.
+//! Shared midnight furniture: the hand well, action rail and seat cartouches.
 //!
 //! The shader is `shaders/frontal.wgsl` and the whole argument is written
 //! there. This is the half that has to exist in Rust: the material, the
-//! **two** handles it is ever minted on, and the system that keeps each
+//! **ten** handles it is ever minted on, and the system that keeps each
 //! surface's idea of its own size and of the motion preference in step with
 //! the node it is on.
 //!
@@ -34,6 +34,11 @@
 //! mouse move: a leak, and a pipeline specialisation each time. So they are
 //! minted once into [`Cloth`] and handed out by clone, which is what
 //! `UiCardMaterials` does for every card in the hand for the same reason.
+//!
+//! The seat cache adds eight fixed slots, indexed by roster order rather
+//! than game identity so opening another duel cannot grow it. The virtual
+//! clock and motion preference are shared by every surface; no new plugin
+//! wiring is required beyond the existing `FrontalPlugin`.
 
 use bevy::asset::embedded_asset;
 use bevy::prelude::*;
@@ -68,6 +73,10 @@ pub struct FrontalParams {
     pub height: f32,
     /// How far the top two corners are rounded, in pixels.
     pub corner: f32,
+    /// Virtual seconds, surface kind (skirt / rail / seat), reserved.
+    pub surface: Vec4,
+    /// Stationary WUBRG inlays in linear light.
+    pub inlays: [Vec4; 5],
 }
 
 /// The cloth, as a UI material.
@@ -89,11 +98,12 @@ impl UiMaterial for FrontalMaterial {
 #[derive(Component, Clone, Copy, Default)]
 pub struct Hanging;
 
-/// The two handles the cloth is ever minted on.
+/// Two dock handles and at most eight seat handles, retained across rebuilds.
 #[derive(Resource, Default)]
 pub struct Cloth {
     skirt: Option<Handle<FrontalMaterial>>,
     rail: Option<Handle<FrontalMaterial>>,
+    seats: [Option<Handle<FrontalMaterial>>; 8],
 }
 
 impl Cloth {
@@ -114,7 +124,7 @@ impl Cloth {
         let handle = assets.add(FrontalMaterial {
             params: FrontalParams {
                 dye: dye(SKIRT_WEAVE),
-                lip: Vec4::ZERO,
+                lip: trim(0.0),
                 // The shoulder is the rail's own height: above it the ground
                 // is behind an opaque row of buttons and a ramp there would
                 // be spent where nobody can see it.
@@ -126,6 +136,8 @@ impl Cloth {
                 aspect: 1.0,
                 height: crate::hud::HAND_ZONE_H,
                 corner: CORNER,
+                surface: Vec4::ZERO,
+                inlays: inlays(),
             },
         });
         self.skirt = Some(handle.clone());
@@ -141,11 +153,10 @@ impl Cloth {
         if let Some(handle) = self.rail.as_ref() {
             return Some(handle.clone());
         }
-        let line = LinearRgba::from(crate::hud::palette::DIALOG_LINE);
         let handle = assets.add(FrontalMaterial {
             params: FrontalParams {
                 dye: dye(RAIL_WEAVE),
-                lip: Vec4::new(line.red, line.green, line.blue, crate::hud::LEDGE_LIP),
+                lip: trim(crate::hud::LEDGE_LIP),
                 // Its shoulder is its whole height, so the ramp never starts
                 // and the rail is one density all the way down.
                 ramp: Vec4::new(crate::hud::LEDGE_H, RAIL, RAIL, RAIL_BREATH),
@@ -154,24 +165,61 @@ impl Cloth {
                 aspect: 1.0,
                 height: crate::hud::LEDGE_H,
                 corner: CORNER,
+                surface: Vec4::new(0.0, 1.0, 0.0, 0.0),
+                inlays: inlays(),
             },
         });
         self.rail = Some(handle.clone());
         Some(handle)
     }
+
+    /// One handle per visible seat, reused across revisions and duels. A
+    /// malformed ninth seat falls back to flat paint rather than allocating.
+    pub fn seat(
+        &mut self,
+        index: usize,
+        assets: Option<&mut Assets<FrontalMaterial>>,
+    ) -> Option<Handle<FrontalMaterial>> {
+        let slot = self.seats.get_mut(index)?;
+        let assets = assets?;
+        if let Some(handle) = slot.as_ref() {
+            return Some(handle.clone());
+        }
+        let handle = assets.add(FrontalMaterial {
+            params: FrontalParams {
+                dye: dye(0.16),
+                lip: trim(0.65),
+                ramp: Vec4::new(0.0, 0.96, 0.96, 0.0),
+                grain: 0.0,
+                energy: 0.0,
+                aspect: 1.0,
+                height: 48.0,
+                corner: 4.0,
+                surface: Vec4::new(0.0, 2.0, 0.0, 0.0),
+                inlays: inlays(),
+            },
+        });
+        *slot = Some(handle.clone());
+        Some(handle)
+    }
 }
 
-/// The one dye both surfaces are cut from, with the weave it carries.
-///
-/// `palette::DIALOG` and nothing else. The owner asked for the hand zone and
-/// the actions row "like of the Zone-Dialog" on 14.09.2026, and measured in
-/// the running client the dialog's interior and the row's were already the
-/// same srgb8 (28, 25, 19) — so the sentence is an instruction to the *zone*,
-/// which was the cool `(0.04, 0.055, 0.085)` this file used to carry. A
-/// second dye anywhere would put two materials where the design now says
-/// there is one.
+fn trim(width: f32) -> Vec4 {
+    let colour = LinearRgba::from(crate::hud::palette::DOCK_EDGE);
+    Vec4::new(colour.red, colour.green, colour.blue, width)
+}
+
+fn inlays() -> [Vec4; 5] {
+    crate::hud::palette::DOCK_INLAYS.map(|colour| {
+        let colour = LinearRgba::from(colour);
+        Vec4::new(colour.red, colour.green, colour.blue, 1.0)
+    })
+}
+
+/// One mineral-leather dye for the dock and seat furniture. Dialogs keep
+/// their own warm register; these surfaces belong to the midnight table.
 fn dye(weave: f32) -> Vec4 {
-    let dye = LinearRgba::from(crate::hud::palette::DIALOG);
+    let dye = LinearRgba::from(crate::hud::palette::DOCK_GROUND);
     Vec4::new(dye.red, dye.green, dye.blue, weave)
 }
 
@@ -266,6 +314,7 @@ fn hang(
     nodes: Query<(&ComputedNode, &MaterialNode<FrontalMaterial>), With<Hanging>>,
     materials: Option<ResMut<Assets<FrontalMaterial>>>,
     prefs: Option<Res<crate::prefs::Prefs>>,
+    time: Res<Time<Virtual>>,
 ) {
     let Some(mut materials) = materials else {
         return;
@@ -282,6 +331,7 @@ fn hang(
         material.params.aspect = size.x / size.y;
         material.params.height = size.y;
         material.params.energy = f32::from(u8::from(!still));
+        material.params.surface.x = if still { 0.0 } else { time.elapsed_secs() };
     }
 }
 
@@ -293,9 +343,11 @@ impl Plugin for FrontalPlugin {
         app.init_resource::<Cloth>();
         // The same guard `ambience` carries: embedding a shader needs an
         // asset server and a UI material needs a render world, and a headless
-        // test app has neither. `Cloth`'s two getters then answer `None` and
+        // test app has neither. `Cloth`'s getters then answer `None` and
         // the hand zone draws a flat ground of the same dye.
-        if !app.world().contains_resource::<AssetServer>() {
+        if !app.world().contains_resource::<AssetServer>()
+            || app.get_sub_app(bevy::render::RenderApp).is_none()
+        {
             return;
         }
         embedded_asset!(app, "shaders/noise.wgsl");
@@ -358,7 +410,7 @@ struct Globals {{ time: f32 }};
         // [-0.5, 0.4375]. The bound is the field's, not a sample of it.
         let (fold_lo, fold_hi) = (-0.5_f32, 0.4375_f32);
         let sky = LinearRgba::from(Color::srgb_u8(185, 213, 236));
-        let dialog = LinearRgba::from(crate::hud::palette::DIALOG);
+        let dialog = LinearRgba::from(crate::hud::palette::DOCK_GROUND);
         // Both sides are already linear here, which is the whole point: the
         // UI pipeline composites in linear light, and an alpha there buys far
         // less darkening than sRGB arithmetic predicts.

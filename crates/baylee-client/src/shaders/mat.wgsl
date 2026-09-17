@@ -15,12 +15,10 @@
 // light travelling round its rim — which a baked texture could not have had
 // at all without a second image per frame.
 //
-// `baylee_client_core::tabletop::seat_mat` is the same arithmetic in Rust,
-// where a test can measure that only the rim carries the seat's colour and
-// that the seam sits between two lanes rather than through one. Every number
-// both of them use is a `tabletop::MAT_*` constant, and
-// `table::shader_tests::the_shader_and_the_generator_agree_about_the_mat`
-// fails if the two drift.
+// `baylee_client_core::tabletop::seat_mat` is the base-layout reference:
+// only the rim carries seat colour, and seams sit between the same lanes.
+// The shader adds recessed tooling and resolves grain to the pixel footprint.
+// `table::camera_tests` checks the shared `tabletop::MAT_*` constants.
 //
 // # The browser's budget
 //
@@ -154,6 +152,9 @@ const BREATH_LOW: f32 = 0.55;
 /// border is a glow, and in one pixel it is an outline.
 const TURN_REACH: f32 = 0.85;
 
+// Brushed champagne in the frame, not in the playing lanes. Linear colour.
+const FRAME_INK: vec3<f32> = vec3<f32>(0.31, 0.245, 0.15);
+
 /// A rounded rectangle's signed distance: negative inside, positive outside.
 fn sd_round_box(p: vec2<f32>, half: vec2<f32>, r: f32) -> f32 {
     let q = abs(p) - half + vec2<f32>(r);
@@ -172,6 +173,7 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
 
     // One pixel of edge, whatever the mat's size and wherever the camera is.
     let aa = max(fwidth(d), 1e-5);
+    let footprint = fwidth(p);
     let coverage = clamp(0.5 - d / aa, 0.0, 1.0);
     if coverage <= 0.0 {
         discard;
@@ -212,7 +214,10 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     // a seat's ground stops being a place cards stand on and becomes a shelf
     // they are described on.
     let ledge_seam = clamp(1.0 - abs(from_shelf - LEDGE_FRAC) / SEAM_W, 0.0, 1.0) * SEAM * LEDGE_SEAM;
-    let seam = max(lane_seam, ledge_seam);
+    // Dividers end in engraved shoulders rather than crossing the whole
+    // field like spreadsheet rules. The lane boundaries do not move.
+    let seam_end = smoothstep(0.015, 0.065, in.uv.x) * (1.0 - smoothstep(0.935, 0.985, in.uv.x));
+    let seam = max(lane_seam * seam_end, ledge_seam);
 
     // The rim: the one part meant to be read from across the table, since it
     // is what carries the seat's colour.
@@ -250,7 +255,15 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     // tinted material. It is the reading `zone_brightness` already describes:
     // a seat that has lost fades *into* the felt, rather than drawing a dark
     // grey rim over it and staying just as visible as everyone else.
-    let value = (lane + seam + border * RIM_LIGHT + running) * params.accent.w;
-    let colour = mix(vec3<f32>(1.0), params.accent.rgb, hue);
+    // A recessed double frame, with short corner shoulders. This detail
+    // belongs to the object, while the outer light still belongs to the seat.
+    let inner = 1.0 - smoothstep(0.010, 0.010 + aa, abs(inset - 0.14));
+    let shoulder = smoothstep(0.64, 0.87, abs(p.x) / half.x);
+    let tooling = inner * (0.12 + shoulder * 0.55);
+    let grain = fract(sin(dot(floor(p * 95.0), vec2<f32>(12.9898, 78.233))) * 43758.5453);
+    let resolved = 1.0 - smoothstep(0.2, 0.6, max(footprint.x, footprint.y) * 95.0);
+    let surface = lane * (0.86 + 0.14 * cos(p.y * 1.4)) + (grain - 0.5) * 0.002 * resolved;
+    let value = (surface + seam + border * RIM_LIGHT + running + tooling * 0.085) * params.accent.w;
+    let colour = mix(mix(vec3<f32>(1.0), params.accent.rgb, hue), FRAME_INK, tooling);
     return vec4<f32>(colour, clamp(value, 0.0, 1.0) * coverage);
 }

@@ -3036,19 +3036,14 @@ pub fn sync_scene(
         .materials
         .retain(|look, _| look.sweep.is_none_or(|s| sheen.live(s)));
 
-    // The back is a picture and a picture arrives late, so the one material
-    // every hidden card wears is dressed in it here rather than built with it
-    // in `spawn_stage`. In place, and that is the point: a library stack, the
-    // depth behind a counted group and a card this seat may not see all hold
-    // *this* handle, some of them spawned once and never visited again, so
-    // handing them a new material would mean finding them all. Changing the
-    // one they share turns every card over at once.
+    // One original sleeve for the library, its fan and all shared hidden
+    // slabs. Dress the resident material in place: some stacks spawn once
+    // and are never visited again. Downloaded printing art cannot replace it.
     if !index.back_dressed
-        && textures.card_back_is_printed()
         && let Some(handle) = blank.as_ref()
         && let Some(mut material) = card_materials.get_mut(handle)
     {
-        dress_in_the_back(&mut material, textures.card_back());
+        dress_in_the_back(&mut material, textures.procedural_back());
         index.back_dressed = true;
     }
 

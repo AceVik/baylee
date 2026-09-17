@@ -1,5 +1,5 @@
-// The table the game is played on: a slab of casino baize inside a padded
-// leather rail, with an apron below it.
+// The table the game is played on: midnight mineral cloth inside a machined
+// bronze rail, with engraved inlays and a shadowed apron below it.
 //
 // No texture at all. The slab is about thirty-five units across and a card is
 // roughly 114 physical pixels at this camera, so drawing the cloth sharply
@@ -7,12 +7,9 @@
 // generating 2048 already costs 1.6 seconds every time the table is re-cut.
 // Arithmetic has no resolution.
 //
-// `baylee_client_core::tabletop::felt` remains the reference: it is the same
-// arithmetic on the CPU, where a test can block the image at card size and
-// measure that the tooth survives and that the cloth stays dark enough to
-// read a card against. `table::shader_tests::the_shader_and_the_generator_
-// agree_about_the_cloth` reads the six colours below out of this file and
-// fails if the two drift apart.
+// `baylee_client_core::tabletop::felt` remains the base-cloth reference. The
+// shader adds the machined frame and its light; the CPU bounds the cloth's
+// texture and brightness. `table::camera_tests` checks the shared palette.
 //
 // # What is drawn where
 //
@@ -84,12 +81,20 @@ struct FeltParams {
 // That conversion is not a detail: an earlier version of this table added its
 // numbers straight into a linear render target, and a surface meant to sit at
 // 0.22 measured 0.45 on screen.
-const FELT_DEEP: vec3<f32> = vec3<f32>(0.024, 0.086, 0.058);
-const FELT_CLOTH: vec3<f32> = vec3<f32>(0.071, 0.223, 0.150);
-const FELT_WORN: vec3<f32> = vec3<f32>(0.100, 0.285, 0.196);
-const RAIL_HIDE: vec3<f32> = vec3<f32>(0.115, 0.072, 0.058);
-const RAIL_LIP: vec3<f32> = vec3<f32>(0.196, 0.130, 0.100);
-const APRON: vec3<f32> = vec3<f32>(0.055, 0.038, 0.030);
+const FELT_DEEP: vec3<f32> = vec3<f32>(0.043, 0.072, 0.080);
+const FELT_CLOTH: vec3<f32> = vec3<f32>(0.120, 0.188, 0.204);
+const FELT_WORN: vec3<f32> = vec3<f32>(0.165, 0.245, 0.258);
+const RAIL_HIDE: vec3<f32> = vec3<f32>(0.100, 0.084, 0.064);
+const RAIL_LIP: vec3<f32> = vec3<f32>(0.300, 0.244, 0.157);
+const APRON: vec3<f32> = vec3<f32>(0.040, 0.035, 0.029);
+
+// Fixed locations, not cycling hues: these are ornament, never priority.
+const INLAY_WHITE: vec3<f32> = vec3<f32>(0.94, 0.91, 0.80);
+const INLAY_BLUE: vec3<f32> = vec3<f32>(0.29, 0.55, 0.83);
+const INLAY_BLACK: vec3<f32> = vec3<f32>(0.30, 0.27, 0.34);
+const INLAY_RED: vec3<f32> = vec3<f32>(0.83, 0.36, 0.28);
+const INLAY_GREEN: vec3<f32> = vec3<f32>(0.36, 0.66, 0.42);
+const ENGRAVING: vec3<f32> = vec3<f32>(0.52, 0.44, 0.31);
 
 const TAU: f32 = 6.2831855;
 
@@ -226,6 +231,19 @@ fn sd_round_box(p: vec2<f32>, half: vec2<f32>, r: f32) -> f32 {
     return length(max(q, vec2<f32>(0.0))) + min(max(q.x, q.y), 0.0) - r;
 }
 
+fn inlay_colour(at: f32) -> vec3<f32> {
+    let part = fract(at) * 5.0;
+    if part < 1.0 { return INLAY_WHITE; }
+    if part < 2.0 { return INLAY_BLUE; }
+    if part < 3.0 { return INLAY_BLACK; }
+    if part < 4.0 { return INLAY_RED; }
+    return INLAY_GREEN;
+}
+
+fn hairline(distance: f32, width: f32, pixel: f32) -> f32 {
+    return 1.0 - smoothstep(width, width + pixel, abs(distance));
+}
+
 /// The cloth at a point of table, in display-referred colour.
 fn baize_at(p: vec2<f32>, footprint: vec2<f32>) -> vec3<f32> {
     // Big soft blotches of wear, then a fine grain and the weave on top —
@@ -237,8 +255,11 @@ fn baize_at(p: vec2<f32>, footprint: vec2<f32>) -> vec3<f32> {
     let resolved = vec2<f32>(1.0) - smoothstep(vec2<f32>(0.2), vec2<f32>(0.5), footprint * WEAVE);
 
     var colour = mix(FELT_CLOTH, FELT_WORN, pow(wear, 1.6));
-    let lift = (grain - 0.5) * 0.030 + (weave - 0.5) * 0.006 * resolved.x * resolved.y;
-    return colour + vec3<f32>(lift);
+    let lift = (grain - 0.5) * 0.022 + (weave - 0.5) * 0.006 * resolved.x * resolved.y;
+    // A barely raised mineral vein breaks up the broad surface; it is fixed
+    // in the cloth, unlike the light passing over the separate metal inlay.
+    let vein = pow(1.0 - abs(sin(p.x * 0.37 + p.y * 0.61 + wear * 8.0)), 12.0);
+    return colour + vec3<f32>(lift + vein * 0.009);
 }
 
 @fragment
@@ -251,6 +272,7 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     let table = vec2<f32>(in.world_position.x, -in.world_position.z);
     // Derivatives precede the surface branches, including the apron return.
     let footprint = fwidth(table);
+    let pixel = max(length(footprint), 0.001);
     let half = params.span * 0.5;
 
     // The apron: the wall of the slab. Told apart by its normal, which is the
@@ -264,7 +286,8 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
         let faces = clamp(in.world_normal.z * 0.5 + 0.5, 0.0, 1.0);
         let grain = fbm2(vec2<f32>(table.x + table.y, in.world_position.y * 6.0) * 2.0);
         let shade = mix(1.15, 0.42, drop) * mix(0.78, 1.0, faces);
-        let apron = to_linear(APRON * shade + vec3<f32>((grain - 0.5) * 0.012));
+        let trim = 1.0 - smoothstep(0.025, 0.09, abs(drop - 0.28));
+        let apron = to_linear(APRON * shade + vec3<f32>((grain - 0.5) * 0.012) + ENGRAVING * trim * 0.22);
         return vec4<f32>(under_weather(under_sky(under_lamp(apron, table))), 1.0);
     }
 
@@ -300,10 +323,34 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
         // is turning away from the eye, and a linear fall reads as a chamfer
         // cut at forty-five degrees.
         let turn = sqrt(max(1.0 - across * across, 0.0));
-        let hide = fbm2(table * 7.0 + 41.3);
-        colour = mix(RAIL_HIDE, RAIL_LIP, turn) + vec3<f32>((hide - 0.5) * 0.022);
-        lamp_here = 0.35 + 0.65 * turn;
+        let hide = vnoise(table * vec2<f32>(1.8, 72.0) + 41.3);
+        colour = mix(RAIL_HIDE, RAIL_LIP, turn * 0.75) + vec3<f32>((hide - 0.5) * 0.018);
+        let bevel = hairline(-outer - 0.09, 0.018, pixel);
+        let inner_bevel = hairline(inset + 0.07, 0.012, pixel);
+        colour += ENGRAVING * (bevel * 0.45 + inner_bevel * 0.25);
+        lamp_here = 0.20 + 0.45 * turn;
     }
+
+    // Twin engraved circuits frame the playfield, outside the cards. Their
+    // colour stays in place while a slow change in luminosity reveals depth.
+    let circuit = hairline(inset - 0.19, 0.012, pixel);
+    let outer_circuit = hairline(inset - 0.32, 0.008, pixel);
+    let around = atan2(table.y / half.y, table.x / half.x) / TAU + 0.5;
+    let jewel = inlay_colour(around);
+    let glint = 0.70 + 0.30 * sin(around * TAU * 2.0 - globals.time * params.motion * 0.22);
+    let section = fract(around * 60.0);
+    let etch = smoothstep(0.10, 0.20, section) * (1.0 - smoothstep(0.65, 0.75, section));
+    colour = mix(colour, ENGRAVING, outer_circuit * 0.28);
+    colour = mix(colour, jewel, circuit * glint * 0.55);
+    colour += ENGRAVING * etch * hairline(inset - 0.255, 0.035, pixel) * 0.13;
+
+    // An engraved compass around the existing five-colour medallion. Low
+    // contrast and static; no animated wash ever crosses card artwork.
+    let radius = length(table);
+    let compass = hairline(radius - 1.30, 0.008, pixel);
+    let breaks = pow(abs(sin(atan2(table.y, table.x) * 10.0)), 14.0);
+    let ticks = hairline(radius - 1.41, 0.065, pixel) * breaks;
+    colour = mix(colour, ENGRAVING, (compass * 0.22 + ticks * 0.16) * smoothstep(0.4, 0.8, inset));
 
     // The lamp. It enters at the active seat's own edge and runs round the
     // rail, so combat begins on the attacker's side of the table and reaches

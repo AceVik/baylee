@@ -272,8 +272,8 @@ pub const FAN_MAX: usize = 7;
 /// screen and stepping it towards the camera moves it down, and 1.5 units of
 /// one against 0.72 of the other left seven cards sharing 42 pixels — six
 /// black borders and one face. What says "not in play" now is [`FAN_TILT`]:
-/// nothing on this table stands at 32°.
-pub const FAN_FLOAT: f32 = 0.08;
+/// nothing on this table stands at 29°.
+pub const FAN_FLOAT: f32 = 0.10;
 
 /// How much higher each card of the fan stands than the one in front of it.
 ///
@@ -285,11 +285,11 @@ pub const FAN_FLOAT: f32 = 0.08;
 /// Small on purpose, and the reason is the shadow. A card's contact shadow is
 /// a *child* of the card, so a card a unit in the air carries a shadow that
 /// touches nothing and means nothing — and in a scene with no light at all, a
-/// shadow on the cloth is the only depth cue there is. Seven rungs reach 0.44
+/// shadow on the cloth is the only depth cue there is. Seven rungs reach 0.40
 /// and every one of them stays near the felt. Height past clearance would buy
 /// about two pixels a rung, which three hundredths of [`FAN_STEP`] buy
 /// instead.
-pub const FAN_RISE: f32 = 0.06;
+pub const FAN_RISE: f32 = 0.05;
 
 /// How far each card of the fan steps **away** from the camera along the
 /// seat's own depth axis.
@@ -303,14 +303,14 @@ pub const FAN_RISE: f32 = 0.06;
 /// under the pointer that opened it — the card a player went looking for does
 /// not slide out from under them, and the hover preview keeps reading it while
 /// the older cards emerge from behind. It also means the step and the lift
-/// pull the same way on screen instead of cancelling: at the shipped camera
-/// this is about 21 physical pixels of a card's far edge per rung, which is
-/// its name and its cost.
+/// pull the same way on screen instead of cancelling. A little more travel
+/// and less rise expose the name strip without turning the pile into a tall
+/// staircase; six steps still span less than two card widths.
 ///
 /// The exposed edge is the card's *top* at the near seats and its bottom at a
 /// seat across the table, whose cards point the other way. That is accepted:
 /// at that distance no strip is legible and the preview is what reads a card.
-pub const FAN_STEP: f32 = 0.24;
+pub const FAN_STEP: f32 = 0.28;
 
 /// How far the fan's cards are tipped up to face the camera, in radians.
 ///
@@ -324,15 +324,16 @@ pub const FAN_STEP: f32 = 0.24;
 /// is a shingle and the top card is over the rest of it from every direction
 /// — including a side seat, where the step is across the screen and buys no
 /// depth at all.
-pub const FAN_TILT: f32 = 0.55;
+pub const FAN_TILT: f32 = 0.50;
 
 /// How far each card of the fan is turned in its own plane, in radians.
 ///
 /// Measured from the middle of the fan, so its two ends are turned
 /// `±3·FAN_YAW` opposite ways and it reads as a hand of cards rather than as
-/// a staircase. It is the only curve in the shape: the cards themselves stand
-/// on a straight line.
-pub const FAN_YAW: f32 = 0.03;
+/// a staircase. The wider sweep stays under eight degrees at either end,
+/// keeping the rotated corners in the pile strip. The centres themselves
+/// stand on a straight line so the pointer can walk one predictable column.
+pub const FAN_YAW: f32 = 0.045;
 
 /// How far the card the pointer is on slides out of the fan, away from the
 /// mat.
@@ -633,7 +634,9 @@ impl SeatSlot {
     /// [`FAN_POP`], which is the walk's own feedback.
     ///
     /// An `index` at or past `len` is clamped rather than refused; a fan is a
-    /// drawing and the worst a clamp does is stack two cards.
+    /// drawing and the worst a clamp does is stack two cards. The length is
+    /// bounded by [`FAN_MAX`] too, so even a caller holding a whole zone's
+    /// count cannot spread the fan beyond its strip.
     #[must_use]
     pub fn fan_pose(
         &self,
@@ -642,7 +645,7 @@ impl SeatSlot {
         len: usize,
         under_the_pointer: bool,
     ) -> FanPose {
-        let last = len.saturating_sub(1);
+        let last = len.min(FAN_MAX).saturating_sub(1);
         let rung = index.min(last) as f32;
         let toward = self.camera_lies();
         // The seat's own depth axis, pointing at the table centre — the same

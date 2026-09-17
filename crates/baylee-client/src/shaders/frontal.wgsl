@@ -1,88 +1,19 @@
-// The table's skirt: the ground the hand is held against, and the rail it
-// hangs from.
+// Midnight mineral leather, with champagne tooling and stationary WUBRG
+// inlays. The hand is a recessed action dock; seat bars share its finish.
+// Ornament lives at the edges, outside the text and card silhouettes. Only
+// the broad mineral field breathes; inlays never chase or change colour.
 //
-// The felt is an altar (`felt.wgsl`: "an altar's edge, not a tray's") and the
-// actions row is its front edge. What hangs from an altar's front edge is a
-// frontal — an antependium — and this is that cloth **let down flat**: one
-// dark gauze from the shelf's lip to the bottom of the window and off the
-// frame, sheer enough that the sky is still seen through it, with the
-// player's cards held up in front of it.
+// The action rail stands over the dialog veil while the cards stand below
+// it, so they remain two nodes, joined by one window-x mineral field. Eight
+// additional fixed handles paint seat-sized surfaces without a new pipeline.
+// Broad end caps, inset tooling and a foot make the hand a physical well
+// rather than a blank panel. Ornament is generated; no borrowed assets.
 //
-// It paints **two** nodes, not one, and that is the whole shape of this file.
-// The actions row and the hand zone are siblings rather than parent and child
-// because the row has to stand *over* the zone dialog's veil and the zone
-// under it (`hud::Z_LEDGE` against `hud::Z_HAND`), so one node cannot be
-// both. They share this shader, one pair of clocks and one fold field indexed
-// on **window** x, which is what makes them read as one piece of cloth with a
-// rail across the top rather than as two surfaces that happen to match.
-//
-// Nothing here is a light, and nothing here is a surface a card lies *on*. It
-// is cloth in the shelf's shadow, and the brightest pixel on it stays under
-// everything on a card and under the question's ink.
-//
-// # Why it is a ground at all, and the scar it has to stay clear of
-//
-// This strip was once an opaque 88 % black panel the width of the window, and
-// the owner had it removed: a hand of cards laid on a black strip is a hand of
-// cards in a *panel*, which is the one thing on this screen that must not read
-// as an interface. What went with it was the dark ground each card's glow was
-// read against, and the glow was then reported as missing. Two promises hold
-// or this is a mistake: **the table still shows through**, and **a card's glow
-// still has something to be read against**.
-//
-// The second one is what the swags this shader used to draw could not keep.
-// Measured in the running client against a day sky: the sheer body left the
-// bottom of the window reading (138, 153, 162) against a sky of (185, 213,
-// 236), so two thirds of the zone simply *were* the sky and the cards floated
-// on it. The owner's word for that is "not complete", and his instruction is
-// a container. The first promise is what the density stops short of: at 0.82
-// the day sky's clouds stay legible through the cloth, and over felt or at
-// night the ground is (26, 25, 19) — `palette::DIALOG` itself, which is where
-// the dialog register the owner asked for comes from.
-//
-// # Why there is no edge anywhere but the top
-//
-// No hem, no scallop, no floor line. The zone runs off the window on three
-// sides, so a drawn bottom would be a tray's inner wall. What makes it read
-// as a container is two things: the rail is the top edge of one continuous
-// surface, and the ground runs unbroken off the bottom of the frame instead
-// of dissolving into sky halfway down.
-//
-// The **top two corners** are the exception, and were not one until the owner
-// asked for them on 14.09.2026. The paragraph they overrule said a rounded
-// corner would be a claim that a 3200-pixel band is an object; the top edge is
-// the only one of the four that is an edge at all, and rounding where it meets
-// the frame is what keeps the whole controls bar reading as a surface laid
-// against the bottom of the window. `frontal::CORNER` carries the rest.
-//
-// # Why the folds are one-dimensional, and straight
-//
-// A hanging fold is vertical over its whole length, and this surface is 190
-// pixels tall and up to 3200 wide. An isotropic field in a strip that thin
-// reads as a flat wash: there is no room across it for a two-dimensional
-// feature to be seen. So the folds are `fbm1` over x alone — and straight,
-// with no `y` term at all, because a fold that leaned differently at
-// different depths would meet the seam between the two nodes at two different
-// places and tear the one field in half.
-//
-// # The clocks
-//
-// Two, and both of them already on this screen: `mat.wgsl` breathes a seat's
-// rim every 7 seconds and travels a swell round it every 11. Borrowing those
-// two adds no new tempo — a screen with one tempo is a room and a screen with
-// six is a fairground. The 7 drives one factor that deepens the folds, dyes
-// them and darkens the rail *together*, so the cloth breathes once rather
-// than in three places; the 11 leans the fold field, outward from the middle
-// so the owner's mirror symmetry survives. Nothing travels *along* the rail:
-// a lit feature crossing behind the buttons would read as passing through
-// them, and 3200 pixels in 11 seconds is a chase rather than a breath.
-//
-// `energy` scales every sine and nothing else, so `reduce_motion` leaves the
-// cloth at the middle of its movement rather than wherever a frozen sine
-// happened to stop it: the end of the movement and not its absence, as
-// `hud::motion` puts it.
+// Time comes explicitly from Time<Virtual>, not the renderer's real clock.
+// Seven- and eleven-second motions only stir the low-contrast mineral field.
+// Reduced motion zeros both the clock and energy, leaving a designed still
+// surface rather than a frozen bright pose. Cards keep their own signals.
 
-#import bevy_render::globals::Globals
 #import bevy_ui::ui_vertex_output::UiVertexOutput
 #import "embedded://baylee_client/shaders/noise.wgsl"::fbm1
 
@@ -107,9 +38,11 @@ struct FrontalParams {
     height: f32,
     /// How far the **top two** corners are rounded, in pixels.
     corner: f32,
+    /// Virtual seconds, surface kind (skirt / rail / seat), reserved.
+    surface: vec4<f32>,
+    inlays: array<vec4<f32>, 5>,
 }
 
-@group(0) @binding(1) var<uniform> globals: Globals;
 @group(1) @binding(0) var<uniform> params: FrontalParams;
 
 const TAU: f32 = 6.2831853;
@@ -157,7 +90,7 @@ fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
     // field run out of the rail into the skirt without a seam.
     let x = (in.uv.x - 0.5) * params.aspect * h;
     let y = in.uv.y * h;
-    let t = globals.time;
+    let t = params.surface.x;
 
     // The breath and the swell: one factor and one offset, shared by
     // everything that moves below.
@@ -180,7 +113,14 @@ fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
     // without the ground's own colour ever moving: a ground whose mean walked
     // about under a card would read as the card's own glow pulsing, and that
     // glow is a rules statement.
-    let dye = params.dye.rgb * (1.0 + 2.0 * fold * params.dye.w * breath);
+    var dye = params.dye.rgb * (1.0 + 2.0 * fold * params.dye.w * breath);
+
+    // Fixed grain: coarse leather pores and long mineral strata, not screen
+    // noise that crawls under the cards. Text-bearing surfaces only darken.
+    let pores = fract(sin(dot(floor(vec2<f32>(x, y) * 0.65),
+        vec2<f32>(12.9898, 78.233))) * 43758.5453);
+    let strata = 0.5 + 0.5 * sin(y * 0.17 + fold * 9.0);
+    dye = dye * (0.78 + pores * 0.12 + strata * 0.10);
 
     // The **top two** corners, rounded, and not the bottom two: the owner
     // asked for them on 14.09.2026, and the cloth runs off the bottom of the
@@ -214,6 +154,51 @@ fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
     // 14.09.2026. Measured before the change at 3008 x 1630: the lip ran from
     // x = 16 to the far edge and the arc left of it carried none of it.
     let depth = select(y, r - out, rounding);
+
+    // A recessed well with a double tooled seam. Pixel widths stay the same
+    // on a phone and an ultrawide; no texture or extra draw pass is needed.
+    let seat = params.surface.y > 1.5;
+    let rail = params.surface.y > 0.5 && !seat;
+    let side = min(across, w - across);
+    let foot = h - y;
+    let frame_depth = min(depth, min(side, foot));
+    let inset = abs(frame_depth - select(7.0, 2.5, seat || rail));
+    let tooling = 1.0 - smoothstep(0.35, 1.15, inset);
+    let edge_light = (1.0 - smoothstep(0.0, 2.0, frame_depth)) * 0.45;
+    let engraving = max(tooling * select(0.30, 0.14, rail), edge_light);
+    dye = mix(dye, params.lip.rgb, engraving);
+
+    // The seat's identity and timeline are one object with two registers.
+    // This line is inside the 2 px row gap, never a new layout boundary.
+    if seat && h >= 46.0 {
+        let seam = 1.0 - smoothstep(0.25, 0.9, abs(y - (h - 23.0)));
+        dye = mix(dye, params.lip.rgb, seam * 0.28);
+    }
+
+    // Hand-only furniture: broad end caps, engraved diamonds and five tiny
+    // mineral inserts along the foot. Their positions and colours never move.
+    if params.surface.y < 0.5 {
+        let endcap = 1.0 - smoothstep(16.0, 30.0, side);
+        dye = dye * (1.0 - endcap * 0.30);
+        let seam = 1.0 - smoothstep(0.35, 1.1, abs(side - 12.0));
+        dye = mix(dye, params.lip.rgb, seam * 0.44);
+        let shoulder = abs(y - (params.ramp.x + 8.0));
+        let channel = 1.0 - smoothstep(0.35, 1.0, shoulder);
+        let wings = smoothstep(38.0, 90.0, abs(x))
+            * smoothstep(20.0, 36.0, side);
+        dye = mix(dye, params.lip.rgb, channel * wings * 0.24);
+        let diamond = abs(side - 12.0) + abs(y - (params.ramp.x + 14.0));
+        let etch = 1.0 - smoothstep(0.4, 1.0, abs(diamond - 4.0));
+        dye = mix(dye, params.lip.rgb, etch * 0.70);
+        for (var i = 0u; i < 5u; i = i + 1u) {
+            let centre_x = (f32(i) - 2.0) * 14.0;
+            let cut = abs(x - centre_x) + abs(foot - 7.0);
+            let socket = 1.0 - smoothstep(3.2, 4.3, cut);
+            let gem = 1.0 - smoothstep(1.7, 2.8, cut);
+            dye = mix(dye, params.lip.rgb * 0.65, socket);
+            dye = mix(dye, params.inlays[i].rgb * 0.65, gem);
+        }
+    }
 
     // The lip: the one line on either surface, and the place the table stops.
     // Opaque on purpose, and painted here rather than left to `BorderColor`

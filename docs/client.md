@@ -74,6 +74,42 @@ and that the face sits on top of the slab rather than level with it.
 
 ## The table itself
 
+### September 2026 material direction
+
+The current treatment is **midnight mineral cloth, aged champagne metal and
+five-colour inlay**, replacing the casino-green material described in the
+historical rationale below. The slab and play lanes retain their measured
+footprints: a material redesign must not silently move the cards, pile
+hitboxes or projected seat shelves.
+
+`felt.wgsl` adds a restrained mineral vein, brushed rail, twin engraved
+circuits, inset colour segments and tooling around the centre medallion.
+The inlay colours stay in fixed positions; only their illumination moves.
+The phase lamp remains a separate semantic light. `mat.wgsl` adds recessed
+corner shoulders and terminates lane rules short of the frame. Both resolve
+fine details against the pixel footprint rather than assuming a resolution.
+
+The sky is graded independently: subdued storm colours by day, blue-black
+air and distant drifting mist at night. It shares the table's cool shadows
+and warm accents, but **there is no full-screen colour filter on card art**.
+The unlit card pipeline and the existing day/night preference are unchanged.
+All decorative shader clocks use the existing motion multiplier, so reduced
+motion retains the material without the travel or shimmer.
+
+The CPU generators remain references for base colours, lane boundaries,
+contrast and texture—not pixel-identical renderings of the shader's added
+metalwork. Shared constants are still checked by the client camera tests.
+
+The hand/action dock and seat furniture share `FrontalMaterial`: recessed
+mineral-leather ground, thin champagne tooling and fixed five-colour inlays.
+Ten persistent handles cover the dock and eight seats; the virtual clock and
+reduced-motion preference govern decorative movement. Split seat bars place
+a 220px identity/life plaque beside the timeline and zone/turn status, with
+an honest 871×48px minimum footprint and unchanged compact fallbacks. The
+library uses an original resident sleeve with matching geometric inlays;
+opening a pile follows the existing motion targets, with a seven-card fan
+limit and a shallower, more widely spaced silhouette.
+
 Under the cards, everything is generated rather than shipped:
 `baylee-client-core/src/tabletop.rs` computes the felt, the medallion and a
 seat's mat into plain RGBA8 buffers. Three reasons, and the first is the one

@@ -116,6 +116,8 @@ pub struct CardTextures {
     handles: HashMap<ImageKey, Handle<Image>>,
     /// Drawn whenever the real art is missing, unknown, or still loading.
     card_back: Handle<Image>,
+    /// Original sleeve artwork, resident from startup and never fetched.
+    procedural_back: Handle<Image>,
     /// Requests issued this frame, for diagnostics and tests.
     issued: usize,
     /// Printings whose art will not arrive, and why.
@@ -150,6 +152,7 @@ impl CardTextures {
             budget: TextureBudget::new(budget_bytes),
             handles: HashMap::new(),
             card_back: images.add(solid_texture([26, 30, 38, 255])),
+            procedural_back: images.add(procedural_back_texture()),
             issued: 0,
             failed: HashMap::new(),
             arrived: HashSet::new(),
@@ -286,6 +289,16 @@ impl CardTextures {
             Some(handle) if self.arrived.contains(&BACK_KEY) => handle.clone(),
             _ => self.card_back.clone(),
         }
+    }
+
+    /// The original midnight sleeve, ready without a network round trip.
+    ///
+    /// Unlike [`Self::card_back`], this handle never changes when a downloaded
+    /// back arrives. Bind it directly for library slabs and their hover fan;
+    /// it needs no `card_back_is_printed` gate and holds no printing identity.
+    #[must_use]
+    pub fn procedural_back(&self) -> Handle<Image> {
+        self.procedural_back.clone()
     }
 
     /// Whether [`Self::card_back`] is the printed back yet.
@@ -651,6 +664,88 @@ pub fn drive_preloads(
     }
 }
 
+/// A single resident sleeve, generated once rather than shaded per fragment.
+/// No emblem, lettering or external image: just bevels cut into dark leather
+/// and five mineral inlays across an elongated geometric seal.
+fn procedural_back_texture() -> Image {
+    const WIDTH: u16 = 252;
+    const HEIGHT: u16 = 352;
+    let mut pixels = Vec::with_capacity(usize::from(WIDTH) * usize::from(HEIGHT) * 4);
+    for y in 0..HEIGHT {
+        for x in 0..WIDTH {
+            let p = Vec2::new(
+                (f32::from(x) + 0.5) / f32::from(WIDTH) - 0.5,
+                (f32::from(y) + 0.5 - f32::from(HEIGHT) * 0.5) / f32::from(WIDTH),
+            );
+            pixels.extend_from_slice(&procedural_back_pixel(p, x, y));
+        }
+    }
+    Image::new(
+        Extent3d {
+            width: u32::from(WIDTH),
+            height: u32::from(HEIGHT),
+            depth_or_array_layers: 1,
+        },
+        TextureDimension::D2,
+        pixels,
+        TextureFormat::Rgba8UnormSrgb,
+        RenderAssetUsages::RENDER_WORLD,
+    )
+}
+
+/// All colours here are sRGB bytes, not linear material values. The grain's
+/// integer hash is fixed, so no card, seat or hidden identity changes a back.
+fn procedural_back_pixel(p: Vec2, x: u16, y: u16) -> [u8; 4] {
+    let brass = Vec3::new(155.0, 129.0, 91.0);
+    let champagne = Vec3::new(214.0, 193.0, 151.0);
+    let ink = Vec3::new(10.0, 15.0, 22.0);
+    let cover = |distance: f32, width: f32| {
+        let t = ((width + 0.002 - distance) / 0.004).clamp(0.0, 1.0);
+        t * t * (3.0 - 2.0 * t)
+    };
+    let q = p.abs() - Vec2::new(0.421, 0.619);
+    let frame = q.max(Vec2::ZERO).length() + q.x.max(q.y).min(0.0) - 0.026;
+    let mut hash = u32::from(x).wrapping_mul(374_761_393)
+        ^ u32::from(y).wrapping_mul(668_265_263)
+        ^ 0x5a17_9c31;
+    hash = (hash ^ (hash >> 13)).wrapping_mul(1_274_126_177);
+    let grain = f32::from((hash >> 24) as u8) / 255.0 - 0.5;
+    let pool = (1.0 - p.length() * 1.2).clamp(0.0, 1.0);
+    let mut color = Vec3::new(21.0, 28.0, 38.0) + Vec3::splat(pool * 8.0 + grain * 4.0);
+    color = ink.lerp(color, cover(frame, 0.0));
+    color = color.lerp(brass * 0.50, cover(frame.abs(), 0.006));
+    color = color.lerp(champagne * 0.85, cover((frame + 0.006).abs(), 0.0015));
+    color = color.lerp(brass * 0.48, cover((frame + 0.027).abs(), 0.0015));
+
+    // A quiet diamond tooling pattern stays well below the seal's contrast.
+    let tooling = ((p.x.abs() + p.y.abs() * 0.58) * 24.0).fract();
+    let emboss = cover((tooling - 0.5).abs() / 24.0, 0.001);
+    color += Vec3::splat(emboss * 3.0 * cover(frame + 0.040, 0.0));
+    let seal = p.x.abs() + p.y.abs() * 0.64;
+    color = color.lerp(ink, cover(seal, 0.307));
+    color = color.lerp(brass * 0.75, cover((seal - 0.307).abs(), 0.003));
+    color = color.lerp(champagne * 0.85, cover((seal - 0.283).abs(), 0.0015));
+    color = color.lerp(brass * 0.32, cover((seal - 0.248).abs(), 0.0015));
+
+    // W/U/B/R/G is a row of cut stones, not the familiar oval card-back mark.
+    let stones = [
+        (-0.208, Vec3::new(204.0, 189.0, 150.0)),
+        (-0.104, Vec3::new(64.0, 119.0, 168.0)),
+        (0.0, Vec3::new(83.0, 72.0, 102.0)),
+        (0.104, Vec3::new(170.0, 74.0, 63.0)),
+        (0.208, Vec3::new(65.0, 132.0, 106.0)),
+    ];
+    for (at, tint) in stones {
+        let local = p - Vec2::new(at, 0.0);
+        let cut = local.x.abs() + local.y.abs();
+        color = color.lerp(brass, cover(cut, 0.035));
+        color = color.lerp(ink, cover(cut, 0.029));
+        let facet = if local.y < -local.x { 1.18 } else { 0.72 };
+        color = color.lerp(tint * facet, cover(cut, 0.024));
+    }
+    [color.x as u8, color.y as u8, color.z as u8, 255]
+}
+
 /// A 1×1 texture of a solid colour, used for placeholders and table felt.
 fn solid_texture(rgba: [u8; 4]) -> Image {
     Image::new_fill(
@@ -670,6 +765,49 @@ fn solid_texture(rgba: [u8; 4]) -> Image {
 mod tests {
     use super::*;
     use baylee_client_core::images::ArtSize;
+
+    /// The sleeve must stay original even after the remote back arrives.
+    #[test]
+    fn the_procedural_back_is_resident_and_independent_of_downloaded_art() {
+        let mut images = Assets::<Image>::default();
+        let mut textures = CardTextures::new(&mut images, default_budget_bytes());
+        let sleeve = textures.procedural_back();
+        let image = images
+            .get(&sleeve)
+            .expect("the sleeve is generated at startup");
+        assert_eq!(image.texture_descriptor.size.width, 252);
+        assert_eq!(image.texture_descriptor.size.height, 352);
+        assert_eq!(textures.issued(), 0);
+        assert_eq!(textures.used_bytes(), 0);
+        assert_ne!(sleeve, textures.card_back());
+
+        let printed = images.add(solid_texture([1, 2, 3, 255]));
+        textures.hold_card_back(printed.clone());
+        textures.mark_arrived(BACK_KEY);
+        assert_eq!(textures.card_back(), printed);
+        assert_eq!(textures.procedural_back(), sleeve);
+        assert_ne!(textures.procedural_back(), printed);
+    }
+
+    /// Bound both the dark leather and its small bright inlays; a uniformly
+    /// black or uniformly brass image satisfies neither side of the contract.
+    #[test]
+    fn the_procedural_back_is_repeatable_dark_and_finely_inlaid() {
+        let first = procedural_back_texture().data.expect("generated pixels");
+        let second = procedural_back_texture().data.expect("generated pixels");
+        assert_eq!(first, second);
+        assert_eq!(first.len(), 252 * 352 * 4);
+        assert!(first.chunks_exact(4).all(|pixel| pixel[3] == 255));
+        let bright = first
+            .chunks_exact(4)
+            .filter(|pixel| pixel[..3].iter().any(|channel| *channel > 100))
+            .count();
+        assert!((500..10_000).contains(&bright));
+        let leather = procedural_back_pixel(Vec2::new(0.1, 0.4), 151, 277);
+        assert!((15..=45).contains(&leather[0]));
+        assert!((22..=50).contains(&leather[1]));
+        assert!((30..=60).contains(&leather[2]));
+    }
 
     /// Every scheme a card picture can arrive over has to be a source the
     /// asset server knows about.

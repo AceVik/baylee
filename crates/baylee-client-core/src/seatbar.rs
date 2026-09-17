@@ -29,8 +29,8 @@
 //! asked here with [`Density::Split`].** The four single-row forms are a
 //! ladder in *length*: they say the same things at four sizes, and a shelf
 //! deep enough for the tallest of them is deep enough for all four. The
-//! two-row form is the one that trades the other way — it wants half the
-//! length and twice the depth — so [`Density::for_shelf`] is what the
+//! split form trades some length for depth, with a reserved identity plaque
+//! beside its timeline — so [`Density::for_shelf`] is what the
 //! renderer asks, and [`Density::for_length`] is the ladder underneath it.
 
 /// How much of a seat's bar is drawn, chosen by how long its shelf is on
@@ -43,21 +43,10 @@
 /// anything about it is smaller.
 #[derive(Clone, Copy, PartialEq, Eq, Debug, PartialOrd, Ord)]
 pub enum Density {
-    /// Two rows: the twelve steps alone along the shelf's outer edge, and the
-    /// seat's identity — caret, colour, name, life, the four counts — on its
-    /// own row beneath them.
-    ///
-    /// The steps get the **whole** length of the shelf, which is the point of
-    /// the form and the reason it is worth a second row. Sharing one row with
-    /// the identity cells leaves the twelve tiles about four hundred pixels
-    /// even on a wide duel, and a tile at the end of that division is a
-    /// glyph with no room for its label; alone on the row they grow to
-    /// [`Density::tile_width_max`] and the phase line reads as a line.
-    ///
-    /// It is not a rung of the length ladder. It asks for a **shorter** shelf
-    /// than [`Self::Full`] (the two rows are as long as the longer of them,
-    /// not as long as their sum) and a **deeper** one than any single-row
-    /// form, so the two are chosen together in [`Self::for_shelf`].
+    /// A two-row identity plaque beside a timeline: name above life on the
+    /// left, twelve steps above counts and turn on the right. The plaque
+    /// never shrinks to fund the tiles; a shelf below the combined minimum
+    /// takes the single-row ladder instead.
     Split,
     /// Every cell, and the step tiles carry their labels.
     Full,
@@ -148,6 +137,17 @@ impl Zone {
 /// The gap between two cells.
 pub const CELL_GAP: f32 = 6.0;
 
+/// Fixed identity column in the split composition, including its inset.
+pub const SPLIT_PLAQUE_W: f32 = 220.0;
+/// Clear joint between the identity plaque and the timeline/status region.
+pub const SPLIT_COLUMN_GAP: f32 = 10.0;
+/// Horizontal inset of the plaque's name row.
+pub const SPLIT_PLAQUE_PAD: f32 = 6.0;
+/// Name row within the split plaque's 48 px ink envelope.
+pub const SPLIT_NAME_H: f32 = 16.0;
+/// Space for a 26 px life numeral without increasing the shelf depth.
+pub const SPLIT_LIFE_H: f32 = 28.0;
+
 /// The gap between two step tiles *of the same phase*, per density.
 const TILE_GAP: [f32; 5] = [3.0, 3.0, 3.0, 3.0, 2.0];
 
@@ -177,12 +177,12 @@ const TILE_H: [f32; 5] = [20.0, 24.0, 24.0, 12.0, 10.0];
 
 /// The widest a [`Density::Split`] *step* tile is drawn.
 ///
-/// The split form's tiles are the only ones that **grow**: they have the
-/// shelf to themselves, so the renderer lets them take the slack rather than
+/// The split form's tiles are the only ones that **grow**: after reserving
+/// the plaque, the renderer lets them take the slack rather than
 /// leaving four hundred pixels of ink centred on a twelve-hundred-pixel
 /// ledge. Past some multiple of its own height a tile stops reading as a tile
 /// and starts reading as a ribbon, and the slack left over goes into the
-/// phase gaps, so the row still spans the whole shelf.
+/// phase gaps, so the timeline still spans the remaining shelf.
 ///
 /// Four and a half times the height: 90 px at the current split size.
 /// [`MAIN_SPAN`] gives main phases twice that share; remaining slack goes
@@ -214,15 +214,8 @@ const MAIN_SPAN: f32 = 2.0;
 /// the current-step under-tick from the identity row without dividing the bar.
 const SPLIT_ROW_GAP: f32 = 2.0;
 
-/// How tall the identity row of a [`Density::Split`] bar is drawn.
-///
-/// It carries no tiles — only text and a three-pixel swatch — so it is sized
-/// for the tallest numeral on it rather than for a control, which is what
-/// makes the two rows fit on a shelf a single full-size row nearly fills.
-///
-/// Room for an 18 px life total and a 14 px name. Together with the tiles,
-/// under-tick allowance and row gap, the split form needs 48 px of depth;
-/// shallower shelves still use the single-row ladder.
+/// Height of the counts/turn row beneath the split timeline. The identity
+/// plaque beside it has its own name/life division inside the same envelope.
 const SPLIT_IDENTITY_H: f32 = 22.0;
 
 /// How far outside a tile the outermost ink on a bar stands.
@@ -391,19 +384,9 @@ impl Density {
 
     /// The same cells, dealt into the rows they are drawn on.
     ///
-    /// One row for every form but [`Self::Split`], which puts the steps on
-    /// the first — the one along the shelf's outer edge, furthest from the
-    /// lanes — and the seat's identity on the second.
-    ///
-    /// The hinge goes on the **identity** row, at its far end. It stood at
-    /// the head of the steps row, which is where a hinge belongs on a bar
-    /// written on one line; on two it made both rows worse. The steps row
-    /// began a turn-number's width in from the shelf's edge, so twelve tiles
-    /// spread over less than the ledge they were given, and the identity row
-    /// ran out after the counts and left four fifths of itself empty. Now the
-    /// tiles have the whole edge and the turn number closes the row beneath
-    /// them — still one bar about one seat, and still touching the tiles it
-    /// belongs to, separated by only [`SPLIT_ROW_GAP`].
+    /// Split has name beside steps, then life beside counts/turn. These are
+    /// reading rows, not a shared vertical grid: the plaque reserves more
+    /// height for life, while the timeline reserves it for the phase tiles.
     ///
     /// [`Self::cells`] stays the canonical list of what a form carries, and
     /// `every_row_is_dealt_from_the_cells_the_form_carries` is what stops the
@@ -415,7 +398,7 @@ impl Density {
         }
         let (mut steps, mut identity) = (Vec::new(), Vec::new());
         for cell in self.cells() {
-            if matches!(cell, Cell::Steps) {
+            if matches!(cell, Cell::Caret | Cell::Swatch | Cell::Name | Cell::Steps) {
                 steps.push(cell);
             } else {
                 identity.push(cell);
@@ -444,7 +427,13 @@ impl Density {
             Cell::Caret => CARET_W,
             Cell::Swatch => SWATCH_W,
             Cell::Name => self.name_width(),
-            Cell::Life => LIFE_W + if self.is_split() { 12.0 } else { 0.0 },
+            Cell::Life => {
+                if self.is_split() {
+                    self.name_width()
+                } else {
+                    LIFE_W
+                }
+            }
             Cell::Count(zone) => zone.width(),
             Cell::Hinge => {
                 if designated {
@@ -461,7 +450,10 @@ impl Density {
     #[must_use]
     pub const fn name_width(self) -> f32 {
         match self {
-            Self::Split | Self::Full => 112.0,
+            Self::Split => {
+                SPLIT_PLAQUE_W - SPLIT_PLAQUE_PAD * 2.0 - CARET_W - SWATCH_W - CELL_GAP * 2.0
+            }
+            Self::Full => 112.0,
             Self::Compact => 96.0,
             Self::Pip | Self::Mark => 56.0,
         }
@@ -476,7 +468,7 @@ impl Density {
     /// The widest one step tile is drawn.
     ///
     /// The same as [`Self::tile_width`] for every form but [`Self::Split`],
-    /// whose tiles have the shelf to themselves and grow into it. This is the
+    /// whose tiles grow into the shelf left beside its plaque. This is the
     /// only place a bar's ink is not a fixed number of pixels, and it is
     /// allowed to be one because the tiles grow *together*: nothing on the
     /// row can twitch relative to anything else on it.
@@ -511,13 +503,14 @@ impl Density {
         }
         let gaps =
             self.tile_gap() * (STEPS - PHASES) as f32 + self.phase_gap() * (PHASES - 1) as f32;
-        ((length - gaps) / self.span_units()).clamp(self.tile_width(), self.tile_width_max())
+        ((length - SPLIT_PLAQUE_W - SPLIT_COLUMN_GAP - gaps) / self.span_units())
+            .clamp(self.tile_width(), self.tile_width_max())
     }
 
     /// The gap between two phases on a shelf this long.
     ///
     /// [`Self::phase_gap`] plus an equal share of whatever the tiles could
-    /// not take, which is what makes the row span the shelf exactly. A form
+    /// not take, which makes the row span the shelf beside its plaque. A form
     /// that is not the split one never has slack to spread: its length is its
     /// own and the shelf is allowed to be longer.
     #[must_use]
@@ -527,7 +520,12 @@ impl Density {
         }
         let ink = self.tile_width_on(length) * self.span_units()
             + self.tile_gap() * (STEPS - PHASES) as f32;
-        let spare = (length - ink - self.phase_gap() * (PHASES - 1) as f32).max(0.0);
+        let spare = (length
+            - SPLIT_PLAQUE_W
+            - SPLIT_COLUMN_GAP
+            - ink
+            - self.phase_gap() * (PHASES - 1) as f32)
+            .max(0.0);
         self.phase_gap() + spare / (PHASES - 1) as f32
     }
 
@@ -548,7 +546,7 @@ impl Density {
         self.ink_height() + 10.0 - HALO_OUT * 2.0
     }
 
-    /// How tall the identity row of a two-row bar is drawn, and zero for
+    /// How tall the status row of a two-row bar is drawn, and zero for
     /// every form that has no second row.
     #[must_use]
     pub const fn identity_height(self) -> f32 {
@@ -651,11 +649,22 @@ impl Density {
 
     /// How wide the whole bar is drawn at this density.
     ///
-    /// The **longer** of the rows for a two-row bar, not their sum: the two
-    /// rows are stacked, so what the shelf has to be long enough for is
-    /// whichever of them reaches further.
+    /// Split reserves its plaque and joint, then the wider of the timeline
+    /// and status rows. Single-row forms retain their fixed cell arithmetic.
     #[must_use]
     pub fn width(self, designated: bool) -> f32 {
+        if self.is_split() {
+            let status = [
+                Cell::Count(Zone::Hand),
+                Cell::Count(Zone::Library),
+                Cell::Count(Zone::Graveyard),
+                Cell::Count(Zone::Exile),
+                Cell::Hinge,
+            ];
+            return SPLIT_PLAQUE_W
+                + SPLIT_COLUMN_GAP
+                + self.steps_width().max(self.row_width(&status, designated));
+        }
         self.rows()
             .iter()
             .map(|row| self.row_width(row, designated))
@@ -824,7 +833,7 @@ mod tests {
     /// pixels on one cell rather than a relayout.
     ///
     /// The **bar** may grow by less than the cell, and on a split bar it
-    /// grows by nothing at all: the hinge stands on the shorter identity row,
+    /// grows by nothing at all: the hinge stands on the shorter status row,
     /// so sixteen more pixels of turn number still fit beneath the steps.
     #[test]
     fn a_designation_widens_one_cell() {
@@ -999,8 +1008,7 @@ mod tests {
                 dealt.len(),
                 carried.len()
             );
-            // Order differs by design — the hinge leads the steps row while
-            // it trails the cell list — so this is a comparison of contents.
+            // Reading order differs across the two columns, so compare contents.
             let key = |c: &Cell| format!("{c:?}");
             dealt.sort_by_key(key);
             carried.sort_by_key(key);
@@ -1135,8 +1143,8 @@ mod tests {
     /// The split row is exactly as long as the shelf it is written on, at
     /// every length the form is ever chosen at.
     ///
-    /// Twelve tiles, seven tight gaps and four phase gaps, adding up to the
-    /// shelf and nothing else — which is the claim "spread across its whole
+    /// The plaque and joint, twelve tiles, seven tight gaps and four phase
+    /// gaps add up to the shelf — which is the claim "spread across its whole
     /// width" turns into once the tiles have a cap. A row that came up short
     /// would be a bar floating in the middle of a ledge; one that came up
     /// long would be ink on the felt.
@@ -1151,7 +1159,9 @@ mod tests {
         for length in (d.min_length(false) as u16..2400).map(f32::from) {
             let tile = d.tile_width_on(length);
             let phase = d.phase_gap_on(length);
-            let total = tile * d.span_units()
+            let total = SPLIT_PLAQUE_W
+                + SPLIT_COLUMN_GAP
+                + tile * d.span_units()
                 + d.tile_gap() * (STEPS - PHASES) as f32
                 + phase * (PHASES - 1) as f32;
             assert!(
@@ -1166,6 +1176,45 @@ mod tests {
                 phase > d.tile_gap(),
                 "a {length}px shelf spaces its phases {phase} and its tiles {}",
                 d.tile_gap()
+            );
+        }
+    }
+
+    #[test]
+    fn split_reserves_a_plaque_without_squeezing_the_timeline() {
+        let d = Density::Split;
+        assert_eq!(
+            d.rows(),
+            vec![
+                vec![Cell::Caret, Cell::Swatch, Cell::Name, Cell::Steps],
+                vec![
+                    Cell::Life,
+                    Cell::Count(Zone::Hand),
+                    Cell::Count(Zone::Library),
+                    Cell::Count(Zone::Graveyard),
+                    Cell::Count(Zone::Exile),
+                    Cell::Hinge,
+                ],
+            ]
+        );
+        assert_eq!(d.ink_height(), 48.0);
+        assert_eq!(SPLIT_NAME_H + SPLIT_LIFE_H + HALO_OUT * 2.0, d.ink_height());
+        let header = [Cell::Caret, Cell::Swatch, Cell::Name];
+        assert_eq!(
+            d.row_width(&header, false) + SPLIT_PLAQUE_PAD * 2.0,
+            SPLIT_PLAQUE_W
+        );
+        assert!(d.cell_width(Cell::Life, false) <= SPLIT_PLAQUE_W - SPLIT_PLAQUE_PAD * 2.0);
+        for designated in [false, true] {
+            let min = d.min_length(designated);
+            assert_eq!(min, 871.0);
+            assert_eq!(min, SPLIT_PLAQUE_W + SPLIT_COLUMN_GAP + d.steps_width());
+            assert!(d.row_width(&d.rows()[1][1..], designated) <= d.steps_width());
+            assert_eq!(d.tile_width_on(min), 40.0);
+            assert_eq!(Density::for_shelf(min, 48.0, designated), d);
+            assert_eq!(
+                Density::for_shelf(min - 0.5, 48.0, designated),
+                Density::for_length(min - 0.5, designated)
             );
         }
     }
