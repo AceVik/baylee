@@ -3116,16 +3116,344 @@ fn fetid_heath() -> CardIndex {
 ///   playing over a Plains.
 #[test]
 fn a_filter_land_charges_a_coloured_mana_and_colorless_will_not_do() {
-    // The two hand-written filter lands, and one Plains pays both — White is
-    // in each pair, which is the accident that let `{1}` stand: a board that
+    // All ten of the hybrid cycle — two written by hand, eight by the
+    // transcoder — through one rule, which is the point of holding them
+    // together: a generated card is a rule's output and a rule is testable.
+    // The basic in each row makes the *first* colour of the pair, so every
+    // land is paid with a colour its own price names. That White is in both
+    // hand-written pairs is the accident that let `{1}` stand: a board that
     // can pay the real price pays the wrong one too, and only a *colorless*
     // board tells the two apart.
-    one_filter_land(mystic_gate(), plains(), [ManaColor::White, ManaColor::Blue]);
-    one_filter_land(
-        fetid_heath(),
-        plains(),
-        [ManaColor::White, ManaColor::Black],
+    for (land, basic, colors) in [
+        (mystic_gate(), plains(), [ManaColor::White, ManaColor::Blue]),
+        (
+            fetid_heath(),
+            plains(),
+            [ManaColor::White, ManaColor::Black],
+        ),
+        (
+            cascade_bluffs(),
+            island(),
+            [ManaColor::Blue, ManaColor::Red],
+        ),
+        (
+            sunken_ruins(),
+            island(),
+            [ManaColor::Blue, ManaColor::Black],
+        ),
+        (
+            flooded_grove(),
+            forest(),
+            [ManaColor::Green, ManaColor::Blue],
+        ),
+        (
+            wooded_bastion(),
+            forest(),
+            [ManaColor::Green, ManaColor::White],
+        ),
+        (
+            fire_lit_thicket(),
+            mountain(),
+            [ManaColor::Red, ManaColor::Green],
+        ),
+        (
+            rugged_prairie(),
+            mountain(),
+            [ManaColor::Red, ManaColor::White],
+        ),
+        (graven_cairns(), swamp(), [ManaColor::Black, ManaColor::Red]),
+        (
+            twilight_mire(),
+            swamp(),
+            [ManaColor::Black, ManaColor::Green],
+        ),
+    ] {
+        one_filter_land(land, basic, colors);
+    }
+}
+
+fn cascade_bluffs() -> CardIndex {
+    card_index("f1603384-4361-49c9-98aa-7785fc3504c4")
+}
+
+fn sunken_ruins() -> CardIndex {
+    card_index("e6415ffb-8b7a-41c3-bedf-0d4112b7b795")
+}
+
+fn flooded_grove() -> CardIndex {
+    card_index("dc974eb4-72b9-4213-887b-8ee684b93420")
+}
+
+fn wooded_bastion() -> CardIndex {
+    card_index("61b85077-64aa-4bcc-890d-2d88da9543c0")
+}
+
+fn fire_lit_thicket() -> CardIndex {
+    card_index("d99a1d9a-7721-4331-bf22-1c6ee0bd825a")
+}
+
+fn rugged_prairie() -> CardIndex {
+    card_index("8e7641e1-e814-4d5a-9cb3-71ad2f4ceee8")
+}
+
+fn graven_cairns() -> CardIndex {
+    card_index("5004b84a-33b7-4f6f-b2c2-7086b9087535")
+}
+
+fn twilight_mire() -> CardIndex {
+    card_index("db623754-e078-4030-ba07-818803c348a8")
+}
+fn cabal_coffers() -> CardIndex {
+    card_index("7358e164-5704-4e78-9b21-6a9bf2a968ce")
+}
+
+fn cabal_stronghold() -> CardIndex {
+    card_index("066cd584-773c-4623-be53-8f6feda5a26a")
+}
+
+fn serra_s_sanctum() -> CardIndex {
+    card_index("34187c71-6033-4058-aadc-2bc266f762be")
+}
+
+fn tolarian_academy() -> CardIndex {
+    card_index("dba4fd31-8931-42dd-bd86-45479c2abf74")
+}
+
+fn cloudpost() -> CardIndex {
+    card_index("f705c0eb-9c6c-4315-a860-208ed0c5d93e")
+}
+
+fn glimmerpost() -> CardIndex {
+    card_index("92c9aad6-35ec-425d-be7d-393328992820")
+}
+
+/// Five lands that pour "for each …", and the five different questions that
+/// phrase turns out to be.
+///
+/// `Amount::CountOf` has said this since Gaea's Cradle was written by hand;
+/// what was missing was a reader for `SVar:X:Count$Valid …`, so eleven of the
+/// pool's stubs were refused for an amount the DSL could already spell. Each
+/// row is a filter the count would be wrong without, and every one of them is
+/// a *different* wrongness:
+///
+/// - **Cabal Coffers** counts Swamps you control; a Badlands is a Swamp, so
+///   the subtype and not the name is the question.
+/// - **Cabal Stronghold** prints `basic` in front of the same word, and the
+///   same board therefore answers one instead of two. Nothing but that atom
+///   separates the two cards.
+/// - **Serra's Sanctum** and **Tolarian Academy** count a card *type*, and
+///   both say "you control": the opponent's copy is seated deliberately, and
+///   a filter that lost `ControlledByYou` would count it.
+/// - **Cloudpost** is the one that says the opposite — "each Locus **on the
+///   battlefield**" — and it counts itself and the opponent's. This is the
+///   case that would be silently narrowed by the condition vocabulary, where
+///   a count naming no player is refused outright.
+///
+/// The colour is measured as a *delta*, because the fixture that pays the
+/// price makes mana too.
+#[test]
+fn a_land_that_counts_pours_one_mana_for_each_thing_its_own_filter_matches() {
+    for (seed, land, color, mine, theirs, generic, index, want) in [
+        (
+            930,
+            cabal_coffers(),
+            ManaColor::Black,
+            vec![swamp(), badlands()],
+            vec![swamp()],
+            2,
+            0,
+            2,
+        ),
+        (
+            931,
+            cabal_stronghold(),
+            ManaColor::Black,
+            vec![swamp(), badlands()],
+            vec![swamp()],
+            3,
+            1,
+            1,
+        ),
+        (
+            932,
+            serra_s_sanctum(),
+            ManaColor::White,
+            vec![doubling_season()],
+            vec![doubling_season()],
+            0,
+            0,
+            1,
+        ),
+        (
+            933,
+            tolarian_academy(),
+            ManaColor::Blue,
+            vec![lightning_greaves(), lightning_greaves()],
+            vec![lightning_greaves()],
+            0,
+            0,
+            2,
+        ),
+        (
+            934,
+            cloudpost(),
+            ManaColor::Colorless,
+            vec![glimmerpost()],
+            vec![glimmerpost()],
+            0,
+            0,
+            3,
+        ),
+    ] {
+        one_counted_land(seed, land, color, &mine, &theirs, generic, index, want);
+    }
+}
+
+#[allow(clippy::too_many_arguments)] // a row of the table above, not a call site
+fn one_counted_land(
+    seed: u64,
+    land_card: CardIndex,
+    color: ManaColor,
+    mine: &[CardIndex],
+    theirs: &[CardIndex],
+    generic: usize,
+    ability_index: u32,
+    want: u16,
+) {
+    let p0 = PlayerId::new(0);
+    let mut seated = mine.to_vec();
+    seated.push(land_card);
+    // Forests pay the price where the card charges one, and a Forest is none
+    // of the five things counted here — which is what lets the count be read
+    // off one colour.
+    seated.extend(std::iter::repeat_n(forest(), generic));
+    let mut engine = Duel::new(seed, forest())
+        .battlefield(0, &seated)
+        .battlefield(1, theirs)
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let land = on_battlefield(&engine, p0, land_card).expect("the land is on the table");
+
+    let forests: Vec<ObjectId> = engine
+        .state()
+        .zones
+        .list(ZoneLocation::Battlefield)
+        .iter()
+        .copied()
+        .filter(|id| {
+            engine
+                .state()
+                .object(*id)
+                .is_some_and(|o| o.controller == p0 && o.card.is_some_and(|c| c.index == forest()))
+        })
+        .take(generic)
+        .collect();
+    for source in forests {
+        engine
+            .apply(
+                p0,
+                PlayerAction::ActivateAbility {
+                    source,
+                    ability_index: 0,
+                },
+            )
+            .expect("a Forest taps for {G}");
+    }
+
+    let before = engine.state().players[0].mana_pool.available(color);
+    engine
+        .apply(
+            p0,
+            PlayerAction::ActivateAbility {
+                source: land,
+                ability_index,
+            },
+        )
+        .expect("the price is paid and the land is untapped");
+    let after = engine.state().players[0].mana_pool.available(color);
+    assert_eq!(
+        after - before,
+        want,
+        "the count is the land's own filter, and nothing else on the board"
     );
+}
+
+/// Baldur's Gate: `{2}, {T}: Add X mana of any one color, where X is the
+/// number of other Gates you control.`
+///
+/// Two readings meet on one card, and either alone would be wrong:
+///
+/// - **`Other` is a filter about the card asking**, and `eval::amount` hands
+///   `matches` the source object, so the Gate does not count itself. The
+///   condition vocabulary refuses `Other` outright for exactly the reason it
+///   works here — a condition has no source to be another *than*.
+/// - **"any **one** color"** is one pick for the whole amount, which is
+///   `mana_choice_dynamic`. `mana_combination` would ask twice and let the
+///   two answers differ, which is a different card (the filter cycle above).
+#[test]
+fn baldurs_gate_counts_the_other_gates_and_asks_once_for_them_all() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(935, forest())
+        .battlefield(
+            0,
+            &[
+                baldurs_gate(),
+                azorius_guildgate(),
+                boros_guildgate(),
+                forest(),
+                forest(),
+            ],
+        )
+        .battlefield(1, &[azorius_guildgate()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let gate = on_battlefield(&engine, p0, baldurs_gate()).expect("the land is on the table");
+
+    tap_mana_except(&mut engine, p0, gate);
+    engine
+        .apply(
+            p0,
+            PlayerAction::ActivateAbility {
+                source: gate,
+                ability_index: 1,
+            },
+        )
+        .expect("two Forests pay the {2}");
+
+    let Pending::ChooseColor { options, .. } = engine.pending().clone() else {
+        panic!("one pick for the whole amount: {:?}", engine.pending())
+    };
+    assert_eq!(options.len(), 5, "any one *color*, so all five are offered");
+    engine
+        .apply(p0, PlayerAction::ChooseColor(ManaColor::Red))
+        .expect("a colour the engine offered");
+    assert!(
+        matches!(engine.pending(), Pending::Priority { .. }),
+        "and no second question, which is what `any one color` means: {:?}",
+        engine.pending()
+    );
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Red),
+        2,
+        "two *other* Gates of mine — the Gate itself does not count, and \
+         neither does the opponent's"
+    );
+}
+
+fn baldurs_gate() -> CardIndex {
+    card_index("da307ea2-4df7-4d6b-be0f-9dc6ac93db61")
+}
+
+fn azorius_guildgate() -> CardIndex {
+    card_index("ad1712d8-809f-410c-8b91-ffe6fb8a69a1")
+}
+
+fn boros_guildgate() -> CardIndex {
+    card_index("73c423b7-cab8-4e69-8070-9edbf96a6c2c")
 }
 
 fn one_filter_land(gate_card: CardIndex, basic_card: CardIndex, colors: [ManaColor; 2]) {

@@ -694,7 +694,7 @@ scripts read in full.
 **`--stubs` is the ranking that ships cards, and the plain one is not.** The
 report's default population is all 33 826 reference scripts, which measures the
 DSL; `transcode-report --stubs` ranks only the scripts belonging to this pool's
-own unfinished cards — 692 of the 700 stubs have one — and the two orders
+own unfinished cards — 678 of the 686 stubs have one — and the two orders
 disagree so sharply that the corpus one is a trap when the goal is a card.
 Measured on 17.09: `Charm` is 618 corpus-wide and **2** here, an unreadable
 `Pump` value 477 and **6**, the `DamageDone` trigger 442 and **1**,
@@ -734,6 +734,18 @@ first target since M2. What was missing was one variant that says "the
 target" without overloading a `Filter` to mean it, takes `Amount`s so `+X/+X`
 is expressible, and carries `KW$` in the same effect. Read a blocker by
 finding what the DSL cannot *say*, not by assuming the mechanism is absent.
+
+The pool's `Mana` entry was the same lesson a third time and needed no new
+rule at all. `Effect::AddMana` has carried an `Amount` and a `combination`
+flag since it was unified, and `mana_dynamic`, `mana_choice_dynamic` and
+`mana_combination` are the three constructors for them — Gaea's Cradle,
+Harabaz Druid and Cascading Cataracts are written with them by hand. The
+reader forced every `Amount$` through `plain_number` and threw all three
+away, so twenty-nine stubs were refused for a sentence the DSL had always
+been able to spell. It was also four different sentences wearing one entry:
+a counted amount (`Count$Valid …`), a pick per mana (`Combo`), a pick for the
+whole amount (`Any` with an amount) and a commander's identity. Fourteen
+cards came out of it, and the entry left the list instead of shrinking.
 
 That entry used to be followed by one reading "supported effects, unsupported
 parameters (~4200)", described as the honest-stub rule showing its cost. Most
@@ -794,7 +806,7 @@ in the reader and never in the card: one rule wrote hundreds of files, so
 patching the one in front of you leaves the rest broken and is reverted on the
 next run anyway. `cargo run -p xtask -- adopt --name "<card>"` is the way out
 — it strips the marker and hands the file over for good. `validate` reports
-the split (328 hand-owned, 508 machine-owned, 700 stubs), which is the number
+the split (328 hand-owned, 522 machine-owned, 686 stubs), which is the number
 to watch: a machine-owned card is a rule's output, and a rule is testable.
 The markers are named here and not quoted, and `stubgen::is_machine_owned` is
 the only thing that should ever ask: `cross-read`'s first draft retyped the

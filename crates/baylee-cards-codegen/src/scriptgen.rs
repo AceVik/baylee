@@ -235,6 +235,19 @@ fn amount(raw: &str, svars: &BTreeMap<String, String>, has_x: bool) -> Option<St
     Some(format!("Amount::Fixed({n})"))
 }
 
+/// `W` as `ManaColor::White`, for a reader that is not inside a closure.
+fn mana_color_const(word: &str) -> Option<&'static str> {
+    Some(match word {
+        "W" => "ManaColor::White",
+        "U" => "ManaColor::Blue",
+        "B" => "ManaColor::Black",
+        "R" => "ManaColor::Red",
+        "G" => "ManaColor::Green",
+        "C" => "ManaColor::Colorless",
+        _ => return None,
+    })
+}
+
 /// `UR` as `{U/R}`, or `None` when the token is not a hybrid pair.
 ///
 /// The reference runs the two letters together and the printed card puts a
@@ -1109,8 +1122,14 @@ impl Tx<'_> {
             None => None,
             Some(valid) => Some(self.spend_restriction(&valid)?),
         };
-        let amount = plain_number(p.take("Amount").as_deref().unwrap_or("1"), self.svars)?;
-        let amount = u32::try_from(amount).ok()?;
+        let raw = p.take("Amount").unwrap_or_else(|| "1".to_string());
+        // A literal first and always. The `Amount` this line can now carry is
+        // the *dynamic* one, and reaching for it where a number would do
+        // would rewrite half the lands in the pool on the next codegen run
+        // while saying nothing new about any of them — `Effect::mana` and
+        // `Effect::mana_dynamic` build the same `AddMana` and only one of
+        // them is what the 508 machine-owned files already say.
+        let fixed = plain_number(&raw, self.svars).and_then(|n| u32::try_from(n).ok());
         let color = |c: &str| {
             Some(match c {
                 "W" => "ManaColor::White",
@@ -1123,36 +1142,57 @@ impl Tx<'_> {
             })
         };
         let effects = if produced == "Any" {
-            (amount == 1).then(|| vec!["Effect::mana_of_any_color()".to_string()])?
+            match fixed {
+                Some(1) => vec!["Effect::mana_of_any_color()".to_string()],
+                // "Add three mana of any one color" — **one** pick for the
+                // whole amount, which is the difference from `Combo` below
+                // and the reason `mana_choice_dynamic` exists beside
+                // `mana_combination`.
+                _ => vec![format!(
+                    "Effect::mana_choice_dynamic(ALL_MANA_COLORS, {})",
+                    self.counted_amount(&raw)?
+                )],
+            }
         } else if produced == "Chosen" || produced == "ChosenColor" {
             // "Add one mana of the chosen color." The colour is on the
             // permanent, named as it entered — `EnterModifier::ChooseColor`
             // is the other half, and a card printing this line without it
             // would make nothing.
-            (amount == 1).then(|| vec!["Effect::mana_chosen()".to_string()])?
+            (fixed == Some(1)).then(|| vec!["Effect::mana_chosen()".to_string()])?
         } else if let Some(list) = produced.strip_prefix("Combo ") {
-            // The chosen colour is one of the options rather than a colour
-            // of its own: "Add {W} or one mana of the chosen color."
-            let (chosen, rest): (Vec<&str>, Vec<&str>) = list
-                .split_whitespace()
-                .partition(|w| *w == "Chosen" || *w == "ChosenColor");
-            let colors: Option<Vec<&str>> = rest.into_iter().map(color).collect();
-            let colors = colors?;
-            let expr = if chosen.is_empty() {
-                format!("Effect::mana_choice(&[{}])", colors.join(", "))
-            } else {
-                format!("Effect::mana_chosen_or(&[{}])", colors.join(", "))
-            };
-            (amount == 1).then(|| vec![expr])?
+            self.combo_mana(list, &raw, fixed)?
         } else {
             // `Produced$ W U` is "add {W}{U}" — two mana at once, not a
             // choice between them (that is `Combo`). One effect per colour,
             // which is how the bounce lands were already written by hand.
-            let colors: Option<Vec<&str>> = produced.split_whitespace().map(color).collect();
-            colors?
-                .into_iter()
-                .map(|c| format!("Effect::mana({c}, {amount})"))
-                .collect()
+            let Some(colors) = produced
+                .split_whitespace()
+                .map(color)
+                .collect::<Option<Vec<_>>>()
+            else {
+                // `Produced$ Special EachColorAmong_Valid …` is the whole of
+                // what lands here, and it is one rule rather than an
+                // unreadable word: a colour per colour among a filter.
+                let head = produced.split_whitespace().next().unwrap_or(&produced);
+                return self.deny(format!("mana source `{head}`"));
+            };
+            if let Some(n) = fixed {
+                colors
+                    .into_iter()
+                    .map(|c| format!("Effect::mana({c}, {n})"))
+                    .collect()
+            } else {
+                // "Add {B} for each Swamp you control." One colour only,
+                // because a counted amount of *two* colours is a sentence no
+                // card prints and `mana_dynamic` has no room for.
+                let [only] = &colors[..] else {
+                    return self.deny("a counted amount of more than one colour".to_string());
+                };
+                vec![format!(
+                    "Effect::mana_dynamic({only}, {})",
+                    self.counted_amount(&raw)?
+                )]
+            }
         };
         let Some(filter) = restrict else {
             return Some(effects);
@@ -1169,6 +1209,109 @@ impl Tx<'_> {
         Some(vec![format!(
             "{only}.restricted(&{name}, SpendRider::None)"
         )])
+    }
+
+    /// `Produced$ Combo …` — a choice among the colours listed, and how many.
+    ///
+    /// `Combo` is the corpus's word for "one of these", and the amount is
+    /// what decides which of two different sentences it is: one mana picked
+    /// from a list, or *n* mana each picked from it. "Add {G}{G}, {G}{W}, or
+    /// {W}{W}" is the second — the filter cycle's whole point — and
+    /// `combination: true` is where it lives (CR 608.2d: the choices are made
+    /// as the effect is applied, and nothing in the rules numbers them).
+    fn combo_mana(&mut self, list: &str, raw: &str, fixed: Option<u32>) -> Option<Vec<String>> {
+        // `ColorIdentity` is a source of its own rather than a colour list:
+        // what a Command Tower makes is read off its controller's commanders
+        // (CR 903.4), so no card can name the colours.
+        if list.trim() == "ColorIdentity" {
+            return (fixed == Some(1))
+                .then(|| vec!["Effect::mana_commander_identity()".to_string()]);
+        }
+        // The chosen colour is one of the options rather than a colour of
+        // its own: "Add {W} or one mana of the chosen color."
+        let (chosen, rest): (Vec<&str>, Vec<&str>) = list
+            .split_whitespace()
+            .partition(|w| *w == "Chosen" || *w == "ChosenColor");
+        // `Combo Any` is the five colours written as one word, and here it is
+        // a *list* rather than a source — which is what makes "add four mana
+        // in any combination of colors" the same rule as the filter lands'
+        // two.
+        let colors: Vec<String> = if rest == ["Any"] {
+            Vec::new()
+        } else {
+            let mut out = Vec::new();
+            for word in rest {
+                let Some(color) = mana_color_const(word) else {
+                    // `AnyDifferent` (two mana of *different* colours) and
+                    // `NotedColors` (what was chosen while drafting) are each
+                    // a rule of their own, and a refusal naming the line
+                    // rather than the word would send a reader back to the
+                    // script to find out which.
+                    return self.deny(format!("`Mana` combination over `{word}`"));
+                };
+                out.push(color.to_string());
+            }
+            out
+        };
+        let listed = if colors.is_empty() {
+            "ALL_MANA_COLORS".to_string()
+        } else {
+            format!("&[{}]", colors.join(", "))
+        };
+        if !chosen.is_empty() {
+            return (fixed == Some(1)).then(|| vec![format!("Effect::mana_chosen_or({listed})")]);
+        }
+        Some(match fixed {
+            Some(1) if colors.is_empty() => vec!["Effect::mana_of_any_color()".to_string()],
+            Some(1) => vec![format!("Effect::mana_choice({listed})")],
+            // `combination: true`: one pick per mana, and the answers may
+            // differ. One pick for the whole amount is `Produced$ Any`, a
+            // sentence away and a different card.
+            _ => vec![format!(
+                "Effect::mana_combination({listed}, {})",
+                self.counted_amount(raw)?
+            )],
+        })
+    }
+
+    /// An `Amount$` value as an `Amount`, counts included.
+    ///
+    /// [`amount`] reads what a number can be without a board: a literal, an
+    /// `SVar` that resolves to one, and the `X` a player announced. A mana
+    /// line is where the corpus's *counted* amounts are commonest — "Add {B}
+    /// for each Swamp you control" — and the DSL has been able to say that
+    /// since `Amount::CountOf`; Gaea's Cradle is written with it by hand.
+    /// Nothing read it.
+    ///
+    /// Two differences from [`Self::filter_expr`]'s other counting caller are
+    /// deliberate and pull the opposite way from
+    /// `a_clause_that_counts_needs_the_filter_to_say_whose`. That rule refuses
+    /// a filter naming no controller because `Condition::ControlCount` means
+    /// "you control" and would silently narrow it; `CountOf` over
+    /// `ZoneSel::Battlefield` counts everything, which is what Cloudpost
+    /// prints ("each Locus on the battlefield"). And it refuses `Other`
+    /// because a condition has no room for the card asking; `eval::amount`
+    /// hands `matches` the source object, so Baldur's Gate's "each **other**
+    /// Gate you control" is `Filter::Another` and says what it means.
+    fn counted_amount(&mut self, raw: &str) -> Option<String> {
+        if let Some(n) = amount(raw, self.svars, self.has_x) {
+            return Some(n);
+        }
+        let Some(def) = self.svars.get(raw.trim()).cloned() else {
+            return self.deny(format!("mana amount `{}`", raw.trim()));
+        };
+        let Some(valid) = def.trim().strip_prefix("Count$Valid ") else {
+            // Named by what it resolves *through* and never by its own
+            // spelling: `Amount$ X` is one letter standing for thirty
+            // different questions, and the definition is the one of them this
+            // card is asking.
+            return self.deny(format!("count `{}`", def.trim()));
+        };
+        let expr = self.filter_expr(valid)?;
+        let name = self.body.filter_static("COUNT", &expr);
+        Some(format!(
+            "Amount::CountOf {{ filter: &{name}, zone: ZoneSel::Battlefield }}"
+        ))
     }
 
     /// `RestrictValid$ Spell.Creature` — what produced mana may be spent on.
@@ -4057,6 +4200,138 @@ mod tests {
                 "activated!(cost!(PutCounterSelf { kind: CounterKind::M1M1, n: 1 }), \
                  &[Effect::UntapSelf])",
             ]
+        );
+    }
+
+    /// `Amount$ X` over `SVar:X:Count$Valid …` is a counted mana amount.
+    ///
+    /// Cabal Coffers' sentence, and the DSL has been able to say it since
+    /// `Amount::CountOf` — Gaea's Cradle is written with it by hand. What was
+    /// missing was a reader, which is the shape this report keeps producing:
+    /// the top blocker names a rule that exists and a value it cannot say.
+    ///
+    /// The second half is the one that would be written rather than refused.
+    /// A definition that is not a battlefield count is named **by the
+    /// definition** and never by the letter, because `Amount$ X` is one
+    /// spelling standing for thirty different questions.
+    #[test]
+    fn a_counted_mana_amount_reads_the_definition_and_not_the_letter() {
+        // Cabal Coffers' line with the one subtype this module's fixture
+        // knows: `cats()` carries three land types and Swamp is not among
+        // them, which is a fact about the fixture and not about the rule.
+        let body = read(
+            "Name:X\nTypes:Land\n\
+             A:AB$ Mana | Cost$ 2 T | Produced$ G | Amount$ X | \
+             SpellDescription$ Add {G} for each Forest you control.\n\
+             SVar:X:Count$Valid Forest.YouCtrl\n",
+        );
+        assert!(
+            body.statics.contains(
+                "static COUNT1: Filter = Filter::And(&[Filter::HasSubtype(subtypes::land::FOREST), \
+                 Filter::ControlledByYou]);"
+            ),
+            "{}",
+            body.statics
+        );
+        assert_eq!(
+            body.abilities,
+            [concat!(
+                "mana_ability!(cost!(\"{2}\", TapSelf), ",
+                "&[Effect::mana_dynamic(ManaColor::Green, Amount::CountOf { ",
+                "filter: &COUNT1, zone: ZoneSel::Battlefield })])"
+            )]
+        );
+
+        let elsewhere = parse(
+            "Name:X\nTypes:Land\n\
+             A:AB$ Mana | Cost$ T | Produced$ B | Amount$ X | SpellDescription$ Add.\n\
+             SVar:X:Count$ValidGraveyard Creature.Black+YouCtrl\n",
+        );
+        assert!(transcode(&elsewhere, &cats(), None).is_none());
+        assert_eq!(
+            refusal_reason(&elsewhere, &cats(), None).as_deref(),
+            Some("count `Count$ValidGraveyard Creature.Black+YouCtrl`"),
+            "the definition is the worklist entry; the letter is not"
+        );
+    }
+
+    /// `Produced$ Combo U R | Amount$ 2` is a pick **per mana**.
+    ///
+    /// "Add {U}{U}, {U}{R}, or {R}{R}" is the filter cycle's sentence and it
+    /// is not "two mana of any one color" — the two answers may differ, which
+    /// is `combination: true` and the reason the land is worth playing.
+    /// `Produced$ Any | Amount$ 3` is the neighbouring sentence with one pick
+    /// for the whole amount, and the two constructors are what keep them
+    /// apart.
+    ///
+    /// `Combo Any` is the five colours written as one word, so Baxter
+    /// Building's "four mana in any combination of colors" is the same rule
+    /// as the filter lands' two, and `Combo ColorIdentity` is a *source*
+    /// rather than a list — no card can name a commander's colours (CR
+    /// 903.4). A combination word that is neither refuses by its own name.
+    #[test]
+    fn a_combination_picks_once_per_mana_and_any_one_color_picks_once() {
+        let filter_land = read(
+            "Name:Cascade Bluffs\nTypes:Land\n\
+             A:AB$ Mana | Cost$ UR T | Produced$ Combo U R | Amount$ 2 | \
+             SpellDescription$ Add {U}{U}, {U}{R}, or {R}{R}.\n",
+        );
+        assert_eq!(
+            filter_land.abilities,
+            [concat!(
+                "mana_ability!(cost!(\"{U/R}\", TapSelf), ",
+                "&[Effect::mana_combination(&[ManaColor::Blue, ManaColor::Red], ",
+                "Amount::Fixed(2))])"
+            )]
+        );
+
+        let any_one = read(
+            "Name:Lotus Vale\nTypes:Land\n\
+             A:AB$ Mana | Cost$ T | Produced$ Any | Amount$ 3 | \
+             SpellDescription$ Add three mana of any one color.\n",
+        );
+        assert_eq!(
+            any_one.abilities,
+            ["mana_ability!(&[Effect::mana_choice_dynamic(ALL_MANA_COLORS, Amount::Fixed(3))])"],
+            "one pick for three mana, which `mana_combination` would have \
+             asked three times"
+        );
+
+        let every_colour = read(
+            "Name:Baxter Building\nTypes:Land\n\
+             A:AB$ Mana | Cost$ 4 T | Produced$ Combo Any | Amount$ 4 | \
+             SpellDescription$ Add four mana in any combination of colors.\n",
+        );
+        assert_eq!(
+            every_colour.abilities,
+            [concat!(
+                "mana_ability!(cost!(\"{4}\", TapSelf), ",
+                "&[Effect::mana_combination(ALL_MANA_COLORS, Amount::Fixed(4))])"
+            )]
+        );
+
+        let commander = read(
+            "Name:Hidden Hideout\nTypes:Land\n\
+             A:AB$ Mana | Cost$ T | Produced$ Combo ColorIdentity | \
+             SpellDescription$ Add one mana of any color in your commander's color identity.\n",
+        );
+        assert_eq!(
+            commander.abilities,
+            ["mana_ability!(&[Effect::mana_commander_identity()])"]
+        );
+
+        // "Add two mana of different colors" is a third sentence again, and
+        // the DSL has no room for "different" — so it is refused by the word
+        // the corpus writes rather than by the line it sits on.
+        let different = parse(
+            "Name:X\nTypes:Land\n\
+             A:AB$ Mana | Cost$ 1 T | Produced$ Combo AnyDifferent | Amount$ 2 | \
+             SpellDescription$ Add two mana of different colors.\n",
+        );
+        assert!(transcode(&different, &cats(), None).is_none());
+        assert_eq!(
+            refusal_reason(&different, &cats(), None).as_deref(),
+            Some("`Mana` combination over `AnyDifferent`")
         );
     }
 
