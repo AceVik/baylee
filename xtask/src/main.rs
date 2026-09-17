@@ -4,7 +4,7 @@ mod cr_check;
 
 use baylee_cards_codegen::{
     acceptance, cardindex, catalog, landgen, layout, ledger, lines, names, scriptgen, scripts,
-    scryfall, stubgen, tokenledger,
+    scryfall, stubgen, tokengen, tokenledger,
 };
 use clap::{Parser, Subcommand};
 use std::collections::{BTreeMap, BTreeSet};
@@ -544,6 +544,19 @@ fn write_verbatim(
     Ok(())
 }
 
+/// What this pool is and how a card in it is read: the names, the subtype
+/// catalogs every printing is decoded against, and the reference scripts when
+/// a checkout is at hand.
+///
+/// One value rather than three parameters because two stages now need all of
+/// it — the cards and the token ledger written before them — and a pool read
+/// twice is a pool that can be read two different ways.
+struct Pool<'a> {
+    names: &'a [String],
+    cats: &'a catalog::SubtypeCatalogs,
+    scripts: Option<&'a scriptgen::ScriptLookup>,
+}
+
 /// Every card the registry should hold: the acceptance decks (the architecture
 /// proof, which says exactly what it says) plus `data/card-pool.txt` (a card
 /// implemented for its own sake). Writes the stubs, the module list, the
@@ -553,20 +566,14 @@ fn cards(
     check: bool,
     agent: &ureq::Agent,
     cache: &Path,
-    cats: &catalog::SubtypeCatalogs,
-    scripts: Option<&scriptgen::ScriptLookup>,
+    pool: &Pool,
     changed: &mut Vec<PathBuf>,
 ) -> anyhow::Result<()> {
-    let decks_text = fs::read_to_string(root.join("data/acceptance-decks.txt"))?;
-    let rows = acceptance::parse_decks(&decks_text)?;
-    let pool_text = fs::read_to_string(root.join("data/card-pool.txt")).unwrap_or_default();
-    let names = acceptance::all_names(&rows, &pool_text);
-    let from_decks = acceptance::unique_names(&rows).len();
-    println!(
-        "card pool: {} cards ({from_decks} from the acceptance decks, {} from the pool file)",
-        names.len(),
-        names.len() - from_decks
-    );
+    let Pool {
+        names,
+        cats,
+        scripts,
+    } = *pool;
     // Indices come from the ledger, never from a card's position in this list:
     // the list is alphabetical, so one new card would otherwise renumber every
     // card after it (see baylee-cards-codegen/src/ledger.rs).
@@ -609,10 +616,10 @@ fn cards(
     // limiter's 60-second backoffs come from. It writes what it can and
     // returns; whatever the feed did not carry is fetched one at a time below,
     // which is what makes the pair self-healing.
-    scryfall::fill_from_bulk(&names, agent, cache);
+    scryfall::fill_from_bulk(names, agent, cache);
 
     let mut stubs = Vec::with_capacity(names.len());
-    for name in &names {
+    for name in names {
         let card = scryfall::fetch_named(name, agent, cache)?;
         let oracle_id = card.oracle_id.clone().unwrap_or_default();
         // Codegen reads the ledger and never writes it. Assignment is its own
@@ -816,10 +823,121 @@ fn find_cardsfolder(at: &Path, depth: usize) -> Option<PathBuf> {
         .find_map(|dir| find_cardsfolder(&dir, depth - 1))
 }
 
+/// Where the reference keeps its **token** scripts, given where it keeps its
+/// card scripts.
+///
+/// Derived rather than asked for. Both directories come out of one checkout —
+/// `res/cardsfolder` and `res/tokenscripts` are siblings — so a second path
+/// to configure would be a second thing to point at last month's copy, and a
+/// token index one version behind the card index hands a card a definition
+/// the ledger never saw. [`TOKENS_ENV`] is the way out for a layout this
+/// cannot guess, and it is checked first so that it can also be used to point
+/// the run at nothing at all.
+fn token_scripts_root(scripts_dir: &Path) -> Option<PathBuf> {
+    if let Some(named) = std::env::var_os(TOKENS_ENV) {
+        let named = PathBuf::from(named);
+        return named.is_dir().then_some(named);
+    }
+    let sibling = scripts_dir.parent()?.join("tokenscripts");
+    sibling.is_dir().then_some(sibling)
+}
+
+/// The environment variable that names the token corpus, for a checkout laid
+/// out in a way [`token_scripts_root`] cannot derive.
+const TOKENS_ENV: &str = "BAYLEE_TOKEN_SCRIPTS";
+
+/// Every token a card in this pool reaches for, read in full.
+///
+/// The ledger is "every token there is" and may only be appended to, so what
+/// goes into it is a decision about which rows exist forever. Filling it from
+/// the whole corpus would file the reference's Dungeons and its
+/// planeswalker-emblem tokens beside the Soldiers, with nothing that could
+/// ever create them; filling it from the pool's own scripts grows it exactly
+/// as far as the transcoder can reach, which is the same bargain the card
+/// ledger makes.
+///
+/// A stem the reader refuses is simply absent — see [`tokengen::TokenLookup::body`]
+/// for why that is one answer rather than two.
+fn tokens_the_pool_reaches_for(
+    pool: &Pool,
+    scripts: &scriptgen::ScriptLookup,
+    tokens: &tokengen::TokenLookup,
+) -> Vec<tokengen::TokenBody> {
+    let mut stems = BTreeSet::new();
+    for name in pool.names {
+        if let Some(script) = scripts.script(name) {
+            stems.extend(scriptgen::token_stems(&script));
+        }
+    }
+    let mut out = Vec::new();
+    let mut seen = BTreeSet::new();
+    for stem in &stems {
+        if let Some(body) = tokens.body(stem, pool.cats)
+            && seen.insert(body.constant.clone())
+        {
+            out.push(body);
+        }
+    }
+    println!(
+        "token scripts: {} in the reference, {} named by this pool, {} read in full",
+        tokens.len(),
+        stems.len(),
+        out.len()
+    );
+    out
+}
+
+/// Which id every token there is was assigned → `generated_tokens.rs`.
+///
+/// Written **before** the cards, because a card that creates a token names the
+/// constant the ledger filed it under, so the id has to exist before the card
+/// that spends it is written. It is also the one generated file that reads
+/// *itself* back: the ids it has already given out are the ids it must give
+/// out again, and the only thing a run may do to the table is append.
+fn token_ledger(
+    root: &Path,
+    check: bool,
+    scripts_dir: &Path,
+    pool: &Pool,
+    changed: &mut Vec<PathBuf>,
+) -> anyhow::Result<()> {
+    let tokens = pool
+        .scripts
+        .and_then(|_| token_scripts_root(scripts_dir))
+        .map(tokengen::TokenLookup::new)
+        .transpose()?;
+    let bodies = if let (Some(scripts), Some(tokens)) = (pool.scripts, tokens.as_ref()) {
+        tokens_the_pool_reaches_for(pool, scripts, tokens)
+    } else {
+        println!("note: token scripts not found beside the card scripts, skipping");
+        Vec::new()
+    };
+    write_or_check(
+        check,
+        &root.join("crates/baylee-cards/src/generated_tokens.rs"),
+        &render_token_ledger(root, &bodies)?,
+        changed,
+    )
+}
+
 fn codegen(root: &Path, check: bool, scripts_dir: &Path, cache: &Path) -> anyhow::Result<()> {
     let cache = root.join(cache);
     let agent = ureq::Agent::new_with_defaults();
     let mut changed = Vec::new();
+
+    // The pool, read once. It used to be read inside the card stage, which
+    // was right while the card stage was the only thing that knew which cards
+    // exist; the token ledger has to know too, and it is written first.
+    let decks_text = fs::read_to_string(root.join("data/acceptance-decks.txt"))?;
+    let rows = acceptance::parse_decks(&decks_text)?;
+    let pool_text = fs::read_to_string(root.join("data/card-pool.txt")).unwrap_or_default();
+    let names = acceptance::all_names(&rows, &pool_text);
+    let from_decks = acceptance::unique_names(&rows).len();
+    println!(
+        "card pool: {} cards ({from_decks} from the acceptance decks, {} from the pool file)",
+        names.len(),
+        names.len() - from_decks
+    );
 
     // 1. Subtype catalogs → generated subtypes.rs.
     let mut cats = catalog::SubtypeCatalogs {
@@ -860,18 +978,19 @@ fn codegen(root: &Path, check: bool, scripts_dir: &Path, cache: &Path) -> anyhow
         None
     };
 
-    // 3. The card pool → per-card stubs + registry.
-    cards(
-        root,
-        check,
-        &agent,
-        &cache,
-        &cats,
-        lookup.as_ref(),
-        &mut changed,
-    )?;
+    let pool = Pool {
+        names: &names,
+        cats: &cats,
+        scripts: lookup.as_ref(),
+    };
 
-    // 4. Which printed sentence each ability came from → generated_lines.rs.
+    // 3. Which id every token there is was assigned → generated_tokens.rs.
+    token_ledger(root, check, &scripts_dir, &pool, &mut changed)?;
+
+    // 4. The card pool → per-card stubs + registry.
+    cards(root, check, &agent, &cache, &pool, &mut changed)?;
+
+    // 5. Which printed sentence each ability came from → generated_lines.rs.
     //    Written here rather than beside the registry because it is built
     //    from a *different* pair of sources: the registry comes from the
     //    ledger and the files on disk, this comes from the **compiled**
@@ -884,8 +1003,8 @@ fn codegen(root: &Path, check: bool, scripts_dir: &Path, cache: &Path) -> anyhow
         &mut changed,
     )?;
 
-    // 5. Which card a printed English name is → generated_names.rs.
-    //    Beside stage 4 and not beside the registry, for its reason: this
+    // 6. Which card a printed English name is → generated_names.rs.
+    //    Beside stage 5 and not beside the registry, for its reason: this
     //    is built from the **compiled** pool, so it is two-phase in the
     //    same way and `--check` is what makes the second run a build
     //    failure rather than a name that silently resolves to nothing.
@@ -893,17 +1012,6 @@ fn codegen(root: &Path, check: bool, scripts_dir: &Path, cache: &Path) -> anyhow
         check,
         &root.join("crates/baylee-cards/src/generated_names.rs"),
         &render_name_table()?,
-        &mut changed,
-    )?;
-
-    // 6. Which id every token there is was assigned → generated_tokens.rs.
-    //    Last, because it is the one generated file that reads *itself*
-    //    back: the ids it has already given out are the ids it must give
-    //    out again, and the only thing a run may do to the table is append.
-    write_or_check(
-        check,
-        &root.join("crates/baylee-cards/src/generated_tokens.rs"),
-        &render_token_ledger(root)?,
         &mut changed,
     )?;
 
@@ -4925,7 +5033,7 @@ fn render_name_table() -> anyhow::Result<String> {
 /// this pool that answers an empty list is not a hypothetical — eleven of
 /// them have now been caught doing it — and here an empty list would not
 /// fail, it would quietly report every hand-written token as an orphan.
-fn render_token_ledger(root: &Path) -> anyhow::Result<String> {
+fn render_token_ledger(root: &Path, generated: &[tokengen::TokenBody]) -> anyhow::Result<String> {
     /// The fourteen that existed when the ledger was seeded. The list only
     /// grows, so anything under this is a reader that has stopped reading.
     const HAND_WRITTEN_FLOOR: usize = 14;
@@ -4957,12 +5065,20 @@ fn render_token_ledger(root: &Path) -> anyhow::Result<String> {
         Err(e) => return Err(e.into()),
     };
     let before = existing.len();
-    let entries = tokenledger::assign(existing, &hand, &[])?;
+    let entries = tokenledger::assign(existing, &hand, generated)?;
+    // The two halves are counted out of the *ledger*, not out of what was
+    // offered to it: a read token whose constant a hand-written one already
+    // claims is filed once, so `generated.len()` here would print a total
+    // that does not add up to the entry count.
+    let read = entries
+        .iter()
+        .filter(|e| matches!(e.body, tokenledger::Body::Generated { .. }))
+        .count();
     println!(
-        "token ledger: {} entries ({} new), {} hand-written",
+        "token ledger: {} entries ({} new), {} hand-written, {read} written by the reader",
         entries.len(),
         entries.len() - before,
-        hand.len()
+        hand.len(),
     );
     Ok(tokenledger::render(&entries))
 }

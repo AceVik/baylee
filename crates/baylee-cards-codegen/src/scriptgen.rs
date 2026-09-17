@@ -2379,6 +2379,41 @@ pub fn keyword_enter_modifier_of(line: &str, svars: &BTreeMap<String, String>) -
     keyword_enter_modifier(line, svars)
 }
 
+/// Every token script this card names, by the stem its `TokenScript$` gives.
+///
+/// Read off the raw text of the rules lines and the `SVar` bodies rather than
+/// from a parsed effect, because it is asked **before** the card is
+/// transcoded: the ledger has to have given the token an id before a card may
+/// name the constant it sits at, and a card is refused for a dozen reasons
+/// that have nothing to do with its token. Naming a stem here is therefore
+/// not a claim that the card will be read — it is a claim that *this token*
+/// is one a card in this pool reaches for.
+///
+/// Every stem in the corpus is `[A-Za-z0-9_]`, so the scan ends at the first
+/// character outside that set and needs no `|` splitting.
+#[must_use]
+pub fn token_stems(script: &CardScript) -> Vec<String> {
+    let mut out = Vec::new();
+    let bodies = script
+        .rules
+        .iter()
+        .map(|(_, body)| body.as_str())
+        .chain(script.svars.values().map(String::as_str));
+    for body in bodies {
+        for at in body.match_indices("TokenScript$").map(|(i, _)| i) {
+            let rest = body[at + "TokenScript$".len()..].trim_start();
+            let stem: String = rest
+                .chars()
+                .take_while(|c| c.is_ascii_alphanumeric() || *c == '_')
+                .collect();
+            if !stem.is_empty() && !out.contains(&stem) {
+                out.push(stem);
+            }
+        }
+    }
+    out
+}
+
 /// Every distinct mechanic a script touches, as flat strings.
 ///
 /// This is the unit a coverage plan is built out of: `api:Token`,
@@ -2468,6 +2503,31 @@ mod tests {
             unclaimed: std::cell::RefCell::new(None),
         };
         tx.filter_expr(valid).expect("the valid-string is read")
+    }
+
+    /// A card's token scripts are found wherever they are written, and each
+    /// is named once.
+    ///
+    /// Both halves matter. The commonest shape in the corpus puts the effect
+    /// in an `SVar` and only the trigger on the rules line, so a scan of the
+    /// rules alone finds nothing for most of the cards that make tokens —
+    /// `SVar:TrigToken:DB$ Token` appears 1037 times against 402 `A:AB$
+    /// Token`. And a card that makes the same token twice is one token: the
+    /// list feeds an append-only ledger, where a repeat would be a second id
+    /// for one permanent.
+    #[test]
+    fn a_card_names_each_of_its_token_scripts_once() {
+        let script = parse(
+            "Name:Two Sides\n\
+             T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | \
+             Execute$ TrigToken | TriggerDescription$ x\n\
+             A:AB$ Token | Cost$ 2 | TokenScript$ w_1_1_soldier | TokenAmount$ 2\n\
+             SVar:TrigToken:DB$ Token | TokenScript$ b_2_2_zombie | TokenOwner$ You\n\
+             SVar:Other:DB$ Token | TokenScript$ w_1_1_soldier\n",
+        );
+        assert_eq!(token_stems(&script), ["w_1_1_soldier", "b_2_2_zombie"]);
+        // A card that names none says so, rather than saying nothing at all.
+        assert!(token_stems(&parse("Name:Plain\nK:Flying\n")).is_empty());
     }
 
     /// Every entry in `Tx::NAMED` is reachable from a valid-string the corpus

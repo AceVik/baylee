@@ -430,6 +430,79 @@ fn doc_line(
     out
 }
 
+/// The reference's token scripts, by the stem a card's `TokenScript$` names.
+///
+/// The sibling of [`crate::scriptgen::ScriptLookup`], and deliberately not
+/// folded into it: a card script is found by the card's printed **name** and
+/// a token script by a stem that is printed nowhere at all, so the two
+/// indexes answer different questions over different directories.
+///
+/// The directory is derived from the cardsfolder rather than named on its
+/// own, because both come out of one checkout of the reference — a second
+/// path to set is a second thing to get wrong, and a token index pointed at
+/// last month's copy would hand a card a definition the ledger never saw.
+pub struct TokenLookup {
+    root: std::path::PathBuf,
+    stems: std::collections::BTreeSet<String>,
+}
+
+impl TokenLookup {
+    /// Indexes every `*.txt` directly under `root`.
+    ///
+    /// Flat rather than recursive on purpose — the reference keeps its token
+    /// scripts in one directory — but the count is returned so a caller can
+    /// hold it to a floor rather than take an empty index for an answer.
+    ///
+    /// # Errors
+    ///
+    /// IO errors while reading the directory.
+    pub fn new(root: std::path::PathBuf) -> Result<Self, crate::error::CodegenError> {
+        let entries =
+            std::fs::read_dir(&root).map_err(crate::error::CodegenError::io(root.as_path()))?;
+        let mut stems = std::collections::BTreeSet::new();
+        for entry in entries {
+            let path = entry
+                .map_err(crate::error::CodegenError::io(root.as_path()))?
+                .path();
+            if path.extension().is_some_and(|e| e == "txt")
+                && let Some(stem) = path.file_stem().and_then(|s| s.to_str())
+            {
+                stems.insert(stem.to_string());
+            }
+        }
+        Ok(Self { root, stems })
+    }
+
+    /// How many token scripts the index found.
+    #[must_use]
+    pub fn len(&self) -> usize {
+        self.stems.len()
+    }
+
+    /// Whether the index found none at all.
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.stems.is_empty()
+    }
+
+    /// The token a stem names, or `None` when there is no such script or
+    /// [`read`] refused it.
+    ///
+    /// The two are one answer on purpose. A caller has the same thing to do
+    /// either way — refuse the card that asked — and telling them apart here
+    /// would invite a rule that treats "I could not read this token" as
+    /// softer than "there is no such token", which is how a card ends up
+    /// creating the wrong permanent.
+    #[must_use]
+    pub fn body(&self, stem: &str, cats: &SubtypeCatalogs) -> Option<TokenBody> {
+        if !self.stems.contains(stem) {
+            return None;
+        }
+        let text = std::fs::read_to_string(self.root.join(format!("{stem}.txt"))).ok()?;
+        read(&text, cats)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
