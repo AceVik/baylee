@@ -343,8 +343,7 @@ enum Cmd {
         /// Gateway base URL.
         #[arg(long, default_value = "http://127.0.0.1:28766")]
         gateway: String,
-        /// How many chairs. Two is the one-tap game against the house; more
-        /// opens a room and hands every other chair to the AI.
+        /// How many chairs. Every other chair goes to the named AI profile.
         #[arg(long, default_value_t = 2)]
         seats: usize,
         /// Which difficulty the AI chairs play at.
@@ -3764,23 +3763,20 @@ fn arrange_room(
     ai: &str,
     teams: &[u8],
 ) -> anyhow::Result<()> {
-    // A room's other chairs still have to be handed over; the two-seat path
-    // already came back with its house AI seated, and reaching into that
-    // chair would be a `409`.
-    if seats > 2 {
-        for seat in 1..seats {
-            let url = format!("{gateway}/lobby/games/{game_id}/seats/{seat}");
-            let (status, body) = post(
-                agent,
-                &url,
-                Some(token),
-                &serde_json::json!({ "kind": "ai", "ai": ai }),
-            )?;
-            anyhow::ensure!(
-                status == 200,
-                "seat the AI in chair {seat}: {status} {body}"
-            );
-        }
+    // Use the room path for duels too: the one-tap "ai" mode starts
+    // immediately with the default profile, before --ai can be applied.
+    for seat in 1..seats {
+        let url = format!("{gateway}/lobby/games/{game_id}/seats/{seat}");
+        let (status, body) = post(
+            agent,
+            &url,
+            Some(token),
+            &serde_json::json!({ "kind": "ai", "ai": ai }),
+        )?;
+        anyhow::ensure!(
+            status == 200,
+            "seat the AI in chair {seat}: {status} {body}"
+        );
     }
 
     // Sides, once every chair is arranged: the host says who plays with whom,
@@ -3802,22 +3798,20 @@ fn arrange_room(
     // A room does not start itself — that takes two statements by two people
     // (`ready` is the player's, `start` is the host's), and here the dev
     // account is both. An AI chair is ready as soon as it is configured.
-    if seats > 2 {
-        let (status, body) = post(
-            agent,
-            &format!("{gateway}/lobby/games/{game_id}/ready"),
-            Some(token),
-            &serde_json::json!({ "ready": true }),
-        )?;
-        anyhow::ensure!(status == 200, "say ready: {status} {body}");
-        let (status, body) = post(
-            agent,
-            &format!("{gateway}/lobby/games/{game_id}/start"),
-            Some(token),
-            &serde_json::json!({}),
-        )?;
-        anyhow::ensure!(status == 200, "start the table: {status} {body}");
-    }
+    let (status, body) = post(
+        agent,
+        &format!("{gateway}/lobby/games/{game_id}/ready"),
+        Some(token),
+        &serde_json::json!({ "ready": true }),
+    )?;
+    anyhow::ensure!(status == 200, "say ready: {status} {body}");
+    let (status, body) = post(
+        agent,
+        &format!("{gateway}/lobby/games/{game_id}/start"),
+        Some(token),
+        &serde_json::json!({}),
+    )?;
+    anyhow::ensure!(status == 200, "start the table: {status} {body}");
     Ok(())
 }
 
@@ -3899,13 +3893,8 @@ fn dev_table(
         field(&body, "deck_id")?
     };
 
-    // The table. Two chairs is the one-tap game against the house; more is a
-    // room whose other chairs go to the AI, which is what starts it.
-    let create = if seats == 2 {
-        serde_json::json!({ "deck_id": deck_id, "mode": "ai" })
-    } else {
-        serde_json::json!({ "deck_id": deck_id, "seats": seats, "name": "dev table" })
-    };
+    // Configure every table before starting, including a two-seat one.
+    let create = serde_json::json!({ "deck_id": deck_id, "seats": seats, "name": "dev table" });
     let (status, body) = post(
         &agent,
         &format!("{gateway}/lobby/games"),
@@ -4875,6 +4864,73 @@ mod tests {
     use super::{one_row_per_token, printed_subtypes};
     use baylee_cards_codegen::{tokengen, tokenledger};
     use baylee_core::generated::subtypes;
+
+    #[test]
+    fn a_two_seat_dev_table_configures_the_requested_ai_before_starting() {
+        use std::io::{BufRead, Read, Write};
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let address = listener.local_addr().unwrap();
+        listener.set_nonblocking(true).unwrap();
+        let server = std::thread::spawn(move || {
+            let mut requests = Vec::new();
+            let deadline = std::time::Instant::now() + std::time::Duration::from_secs(3);
+            while requests.len() < 3 && std::time::Instant::now() < deadline {
+                let Ok((mut stream, _)) = listener.accept() else {
+                    std::thread::sleep(std::time::Duration::from_millis(5));
+                    continue;
+                };
+                stream
+                    .set_read_timeout(Some(std::time::Duration::from_secs(2)))
+                    .unwrap();
+                let mut reader = std::io::BufReader::new(stream.try_clone().unwrap());
+                let mut request = String::new();
+                reader.read_line(&mut request).unwrap();
+                let mut length = 0;
+                loop {
+                    let mut line = String::new();
+                    reader.read_line(&mut line).unwrap();
+                    if line == "\r\n" {
+                        break;
+                    }
+                    if let Some(value) = line.to_ascii_lowercase().strip_prefix("content-length:") {
+                        length = value.trim().parse().unwrap();
+                    }
+                }
+                let mut body = vec![0; length];
+                reader.read_exact(&mut body).unwrap();
+                requests.push((
+                    request,
+                    serde_json::from_slice::<serde_json::Value>(&body).unwrap(),
+                ));
+                stream
+                    .write_all(
+                        b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\n{}",
+                    )
+                    .unwrap();
+            }
+            requests
+        });
+        super::arrange_room(
+            &ureq::Agent::new_with_defaults(),
+            &format!("http://{address}"),
+            "test",
+            "game",
+            2,
+            "expert",
+            &[],
+        )
+        .unwrap();
+        let requests = server.join().unwrap();
+        assert_eq!(
+            requests.len(),
+            3,
+            "duels must arrange a chair, say ready, then start"
+        );
+        assert!(requests[0].0.starts_with("POST /lobby/games/game/seats/1 "));
+        assert_eq!(requests[0].1["ai"], "expert");
+        assert!(requests[1].0.starts_with("POST /lobby/games/game/ready "));
+        assert!(requests[2].0.starts_with("POST /lobby/games/game/start "));
+    }
 
     /// The branch the pool does not reach, and the reason it is written.
     ///
