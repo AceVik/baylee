@@ -580,29 +580,7 @@ fn spawn_bar(
         .id();
 
     if density.tiles_have_glyphs() {
-        let backing = commands
-            .spawn((
-                Node {
-                    position_type: PositionType::Absolute,
-                    left: px(0),
-                    top: px((density.height() - density.ink_height()) * 0.5),
-                    width: percent(100),
-                    height: px(density.ink_height()),
-                    border_radius: BorderRadius::all(px(4)),
-                    ..default()
-                },
-                BackgroundColor(palette::SEAT_BACKING),
-                Pickable::IGNORE,
-            ))
-            .id();
-        if let Some(handle) = surface {
-            commands.entity(backing).insert((
-                BackgroundColor(Color::NONE),
-                MaterialNode(handle),
-                crate::frontal::Hanging,
-            ));
-        }
-        commands.entity(bar).add_child(backing);
+        backing(commands, bar, density, surface);
     }
 
     let split = density.is_split().then(|| split_frame(commands, bar, seat));
@@ -661,6 +639,44 @@ fn spawn_bar(
         }
     }
     bar
+}
+
+/// The panel a bar's ink sits on, inset to the measured ink envelope.
+///
+/// Its own function because it is the one part of a bar that is not a cell:
+/// it is drawn behind every row, it is the piece the procedural seat surface
+/// is hung on when there is one, and the hitbox above it stays transparent —
+/// `Pickable::IGNORE` here and on the bar, so a click reaches the tile it
+/// looks like it hit rather than the plate behind it.
+fn backing(
+    commands: &mut Commands,
+    bar: Entity,
+    density: Density,
+    surface: Option<Handle<crate::frontal::FrontalMaterial>>,
+) {
+    let panel = commands
+        .spawn((
+            Node {
+                position_type: PositionType::Absolute,
+                left: px(0),
+                top: px((density.height() - density.ink_height()) * 0.5),
+                width: percent(100),
+                height: px(density.ink_height()),
+                border_radius: BorderRadius::all(px(4)),
+                ..default()
+            },
+            BackgroundColor(palette::SEAT_BACKING),
+            Pickable::IGNORE,
+        ))
+        .id();
+    if let Some(handle) = surface {
+        commands.entity(panel).insert((
+            BackgroundColor(Color::NONE),
+            MaterialNode(handle),
+            crate::frontal::Hanging,
+        ));
+    }
+    commands.entity(bar).add_child(panel);
 }
 
 /// Two independent vertical divisions inside one measured ink envelope.

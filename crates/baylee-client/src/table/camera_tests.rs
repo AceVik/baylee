@@ -39,7 +39,12 @@ fn only_a_wide_duel_takes_the_more_oblique_shot() {
     let pod = CameraRig::home(&ring, desktop);
     let narrow = CameraRig::home(&phone, portrait);
     assert!(wide.lean > pod.lean);
-    assert_eq!(pod.lean, narrow.lean);
+    assert!(
+        (pod.lean - narrow.lean).abs() < 1e-6,
+        "a ring and a phone duel share the upright shot: {} against {}",
+        pod.lean,
+        narrow.lean
+    );
 }
 
 /// Every seat's bar fits the shelf it is written on, at every table.

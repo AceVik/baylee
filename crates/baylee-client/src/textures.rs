@@ -797,9 +797,11 @@ mod tests {
         let second = procedural_back_texture().data.expect("generated pixels");
         assert_eq!(first, second);
         assert_eq!(first.len(), 252 * 352 * 4);
-        assert!(first.chunks_exact(4).all(|pixel| pixel[3] == 255));
-        let bright = first
-            .chunks_exact(4)
+        let (pixels, rest) = first.as_chunks::<4>();
+        assert!(rest.is_empty(), "the buffer is not whole RGBA pixels");
+        assert!(pixels.iter().all(|pixel| pixel[3] == 255));
+        let bright = pixels
+            .iter()
             .filter(|pixel| pixel[..3].iter().any(|channel| *channel > 100))
             .count();
         assert!((500..10_000).contains(&bright));

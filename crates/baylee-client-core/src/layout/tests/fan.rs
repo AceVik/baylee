@@ -206,9 +206,8 @@ fn the_fan_has_a_bounded_silhouette_even_for_a_whole_library() {
                         assert!(pose.at.distance(slot.pile_center(pile)) <= 1.69);
                         assert!((0.09..=0.41).contains(&pose.lift));
                         assert!(pose.yaw.abs() <= 0.14);
-                        let half_width = (CARD_WIDTH * pose.yaw.cos().abs()
-                            + CARD_HEIGHT * pose.yaw.sin().abs())
-                            * 0.5;
+                        let half_width = (CARD_WIDTH * pose.yaw.cos().abs())
+                            .midpoint(CARD_HEIGHT * pose.yaw.sin().abs());
                         assert!(PILE_REACH - half_width >= 0.85);
                         assert!(half_width + FAN_POP <= 0.90);
                     }

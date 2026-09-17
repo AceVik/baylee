@@ -1197,20 +1197,39 @@ mod tests {
                 ],
             ]
         );
-        assert_eq!(d.ink_height(), 48.0);
-        assert_eq!(SPLIT_NAME_H + SPLIT_LIFE_H + HALO_OUT * 2.0, d.ink_height());
+        // Exact arithmetic on a measurement is what these say, so they are
+        // written the way the rest of this file writes one — a tolerance —
+        // rather than as an `assert_eq!` on an `f32`, which is the comparison
+        // that is right until a constant is expressed as a sum.
+        let close = |a: f32, b: f32| (a - b).abs() < 1e-3;
+        assert!(close(d.ink_height(), 48.0), "ink is {}", d.ink_height());
+        assert!(
+            close(SPLIT_NAME_H + SPLIT_LIFE_H + HALO_OUT * 2.0, d.ink_height()),
+            "the two rows and the halo do not add up to {}",
+            d.ink_height()
+        );
         let header = [Cell::Caret, Cell::Swatch, Cell::Name];
-        assert_eq!(
-            d.row_width(&header, false) + SPLIT_PLAQUE_PAD * 2.0,
-            SPLIT_PLAQUE_W
+        assert!(
+            close(
+                d.row_width(&header, false) + SPLIT_PLAQUE_PAD * 2.0,
+                SPLIT_PLAQUE_W
+            ),
+            "the identity row and its padding are not the plaque's {SPLIT_PLAQUE_W}"
         );
         assert!(d.cell_width(Cell::Life, false) <= SPLIT_PLAQUE_W - SPLIT_PLAQUE_PAD * 2.0);
         for designated in [false, true] {
             let min = d.min_length(designated);
-            assert_eq!(min, 871.0);
-            assert_eq!(min, SPLIT_PLAQUE_W + SPLIT_COLUMN_GAP + d.steps_width());
+            assert!(close(min, 871.0), "the split shelf asks for {min}, not 871");
+            assert!(
+                close(min, SPLIT_PLAQUE_W + SPLIT_COLUMN_GAP + d.steps_width()),
+                "the plaque, the joint and the timeline do not add up to {min}"
+            );
             assert!(d.row_width(&d.rows()[1][1..], designated) <= d.steps_width());
-            assert_eq!(d.tile_width_on(min), 40.0);
+            assert!(
+                close(d.tile_width_on(min), 40.0),
+                "a tile is {} wide at the minimum length",
+                d.tile_width_on(min)
+            );
             assert_eq!(Density::for_shelf(min, 48.0, designated), d);
             assert_eq!(
                 Density::for_shelf(min - 0.5, 48.0, designated),
