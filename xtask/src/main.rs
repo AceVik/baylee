@@ -3973,17 +3973,19 @@ fn refusal_cause(script: &scriptgen::CardScript, cats: &catalog::SubtypeCatalogs
         let head = line.split(':').next().unwrap_or(line);
         return format!("unmodelled line kind `{head}:`");
     }
-    for line in &script.keywords {
-        if !scriptgen::keyword_line_is_read(line, &script.svars) {
-            let head = line.split(':').next().unwrap_or(line);
-            let head = head.split(' ').next().unwrap_or(head);
-            return format!("keyword `{head}`");
-        }
-    }
     // Ask the transcoder before guessing. It knows which line it stopped
     // on and why; re-reading the script here only knows what *this* function
     // recognises, which is how every unexplained refusal used to be filed
     // under a label that named the wrong work.
+    //
+    // A `K:` line used to be answered here first, out of a second reader
+    // that knew only which keyword words existed. That reader went wrong the
+    // moment a keyword became a *rule* with a parameter to read: equip for a
+    // sacrifice is read and equip for a legendary creature is not, and the
+    // list could not tell them apart — so it reported `keyword Equip` over a
+    // thousand times for scripts the transcoder had stopped on somewhere
+    // else entirely. The transcoder reports its own first refusal, and a
+    // keyword is not a special case of that.
     if let Some(why) = scriptgen::refusal_reason(script, cats) {
         return why;
     }

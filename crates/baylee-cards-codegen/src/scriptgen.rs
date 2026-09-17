@@ -288,6 +288,15 @@ impl Tx<'_> {
             }
             for atom in atoms.flat_map(|a| a.split('+')) {
                 clauses.push(match atom.trim() {
+                    // "Enchanted creature gets +2/+1", "equipped creature has
+                    // flying": one filter for both, because there is one
+                    // question — what is this permanent attached to — and the
+                    // corpus asks it in the two words the two card types
+                    // print. An Aura and an Equipment differ in what happens
+                    // when the answer is nothing (CR 704.5m against
+                    // 704.5n–p), which is the state-based actions' business
+                    // and not this clause's.
+                    "EnchantedBy" | "EquippedBy" => "Filter::AttachedToBySource".to_string(),
                     "YouCtrl" => "Filter::ControlledByYou".to_string(),
                     "OppCtrl" => "Filter::ControlledByOpponent".to_string(),
                     "YouOwn" => "Filter::OwnedByYou".to_string(),
@@ -1224,6 +1233,63 @@ impl Tx<'_> {
         }
     }
 
+    /// One `K:` line, as whichever of the four things it is.
+    ///
+    /// A keyword line is the corpus's catch-all and this is the one place
+    /// that says so: a bit on the face, a static ability CR 613.11 makes of
+    /// it, an as-it-enters modifier, or a whole activated ability the rules
+    /// define for the word (CR 702.6a). Reading it here rather than in
+    /// [`transcode`]'s loop is what lets a rule need the card's `SVar`s, its
+    /// subtype catalogs and a cost parser — and what leaves exactly one
+    /// answer to "was this line read", which two loops used to guess at
+    /// separately and disagree about.
+    fn keyword(&mut self, line: &str) -> Option<()> {
+        if let Some(modifier) = keyword_static(line) {
+            self.body
+                .abilities
+                .push(Self::static_expr("Filter::This", modifier));
+            return Some(());
+        }
+        if let Some(entry) = keyword_enter_modifier(line, self.svars) {
+            self.body.enter_modifiers.push(entry);
+            return Some(());
+        }
+        if let Some(rest) = line.strip_prefix("Equip:") {
+            return self.equip(rest);
+        }
+        if let Some(bit) = keyword_const(line) {
+            self.body.keywords.push(bit.to_string());
+            return Some(());
+        }
+        let head = line.split(':').next().unwrap_or(line);
+        let head = head.split(' ').next().unwrap_or(head);
+        self.deny(format!("keyword `{head}`"))
+    }
+
+    /// `K:Equip:<cost>` as the activated ability the keyword is.
+    ///
+    /// Equip prints one thing and the rules supply the rest (CR 702.6a):
+    /// sorcery speed, "target creature you control", and attaching this
+    /// permanent to it. `equip!` is that sentence, so the cost is all there
+    /// is to read — and reading it through [`Self::cost_expr`] rather than
+    /// as mana means the eight scripts that equip for a sacrifice, a
+    /// discard or three life are the same rule as the 543 that equip for
+    /// mana.
+    ///
+    /// A fourth field refuses. `K:Equip:1:Creature.Legendary+YouCtrl` is
+    /// "equip legendary creature", which narrows the target the keyword
+    /// otherwise defines — and `equip!` has no room for it precisely
+    /// because the rules fill that room. Writing the card without the
+    /// restriction would let it move onto anything.
+    fn equip(&mut self, rest: &str) -> Option<()> {
+        if rest.contains(':') {
+            return self.deny("an `Equip` that narrows what it may attach to".to_string());
+        }
+        let cost = self.cost_expr(rest)?;
+        self.body.abilities.push(format!("equip!({cost})"));
+        Some(())
+    }
+
     fn rule(&mut self, kind: char, spec: &str) -> Option<()> {
         match kind {
             'A' => self.activated_or_spell(spec),
@@ -2136,17 +2202,7 @@ pub fn transcode(script: &CardScript, cats: &SubtypeCatalogs) -> Option<CardBody
         unclaimed: std::cell::RefCell::new(None),
     };
     for line in &script.keywords {
-        if let Some(modifier) = keyword_static(line) {
-            tx.body
-                .abilities
-                .push(Tx::static_expr("Filter::This", modifier));
-            continue;
-        }
-        if let Some(entry) = keyword_enter_modifier(line, &script.svars) {
-            tx.body.enter_modifiers.push(entry);
-            continue;
-        }
-        tx.body.keywords.push(keyword_const(line)?.to_string());
+        tx.keyword(line)?;
     }
     for (kind, spec) in &script.rules {
         tx.rule(*kind, spec)?;
@@ -2180,13 +2236,8 @@ pub fn refusal_reason(script: &CardScript, cats: &SubtypeCatalogs) -> Option<Str
         unclaimed: std::cell::RefCell::new(None),
     };
     for line in &script.keywords {
-        if keyword_const(line).is_none()
-            && keyword_static(line).is_none()
-            && keyword_enter_modifier(line, &script.svars).is_none()
-        {
-            let head = line.split(':').next().unwrap_or(line);
-            let head = head.split(' ').next().unwrap_or(head);
-            return Some(format!("keyword `{head}`"));
+        if tx.keyword(line).is_none() {
+            return tx.unclaimed.into_inner();
         }
     }
     for (kind, spec) in &script.rules {
@@ -2287,28 +2338,6 @@ pub fn keyword_static_of(line: &str) -> Option<&'static str> {
 #[must_use]
 pub fn keyword_enter_modifier_of(line: &str, svars: &BTreeMap<String, String>) -> Option<String> {
     keyword_enter_modifier(line, svars)
-}
-
-/// Whether a `K:` line is read at all — as a bit, as a static ability, or as
-/// an as-it-enters modifier.
-///
-/// The question a reporter outside this module is usually asking. There are
-/// **six** loops over `script.keywords` in the workspace and exactly one of
-/// them transcodes: [`transcode`] here, [`refusal_reason`] and [`atoms`]
-/// beside it, and three in `xtask` — `refusal_cause` and the two halves of
-/// `cross-read`. A reader that knew about bits alone would go on blaming
-/// the `K:` line of every card the static half had stopped blocking, which
-/// is the failure this exists to prevent.
-///
-/// It is not the answer for all of them. `refusal_cause` asks this;
-/// `cross-read` asks [`keyword_static_of`] and [`keyword_enter_modifier_of`]
-/// instead, because it has to *count* what a line becomes rather than merely
-/// allow it, and `atoms` names what a script uses and so asks neither.
-#[must_use]
-pub fn keyword_line_is_read(line: &str, svars: &BTreeMap<String, String>) -> bool {
-    keyword_const(line).is_some()
-        || keyword_static(line).is_some()
-        || keyword_enter_modifier(line, svars).is_some()
 }
 
 /// Every distinct mechanic a script touches, as flat strings.
@@ -3691,8 +3720,10 @@ mod tests {
         assert!(refused(
             "Name:X\nTypes:Sorcery\nA:SP$ Draw | NumCards$ 1 | UnlessCost$ 2"
         ));
-        // A keyword that is data rather than a bit.
-        assert!(refused("Name:X\nTypes:Creature Goblin\nPT:1/1\nK:Equip:2"));
+        // A keyword that is data rather than a bit, and that no rule reads.
+        assert!(refused(
+            "Name:X\nTypes:Creature Goblin\nPT:1/1\nK:Cycling:2"
+        ));
         // A line kind with rules in it that this module does not model.
         assert!(refused(
             "Name:X\nTypes:Creature Goblin\nPT:1/1\n\
@@ -3780,6 +3811,47 @@ mod tests {
             ),
             "the description is not a condition, and reading past it would \
              have taken the X beside it for the spell's"
+        );
+    }
+
+    /// Equip prints a cost and the rules supply the rest (CR 702.6a), so
+    /// that is all the line says and all `equip!` takes.
+    #[test]
+    fn equip_is_read_as_the_ability_the_rules_define() {
+        assert_eq!(
+            read("Name:X\nTypes:Artifact Equipment\nK:Equip:2").abilities,
+            ["equip!(cost!(\"{2}\"))"]
+        );
+        // The cost goes through the same parser an `A:` line's does, so a
+        // card that equips for something other than mana is the same rule.
+        assert_eq!(
+            read("Name:X\nTypes:Artifact Equipment\nK:Equip:PayLife<3>").abilities,
+            ["equip!(cost!(PayLife(3)))"]
+        );
+        // And a narrowed one is refused rather than written without its
+        // restriction, which would let the Equipment move onto anything.
+        let parsed = parse(
+            "Name:X\nTypes:Artifact Equipment\n\
+             K:Equip:1:Creature.Legendary+YouCtrl:legendary creature",
+        );
+        assert!(transcode(&parsed, &cats()).is_none());
+        assert_eq!(
+            refusal_reason(&parsed, &cats()).as_deref(),
+            Some("an `Equip` that narrows what it may attach to")
+        );
+    }
+
+    /// "Enchanted creature" and "equipped creature" are one question, and
+    /// the answer is the permanent the source is attached to.
+    #[test]
+    fn what_a_permanent_is_attached_to_is_one_filter_under_two_words() {
+        assert_eq!(
+            filter("Creature.EnchantedBy"),
+            "Filter::And(&[Filter::CREATURE, Filter::AttachedToBySource])"
+        );
+        assert_eq!(
+            filter("Creature.EquippedBy"),
+            filter("Creature.EnchantedBy")
         );
     }
 
