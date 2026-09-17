@@ -62,7 +62,10 @@ writes more than twice as many cards per attempt and every generated engine
 test so far. Gemini refuses more — and its refusals are the better product:
 "`EnterModifier::WithCounters` takes a fixed `u16` and not `Amount::X`, so a
 0/0 Walking Ballista would die to state-based actions on arrival" is a
-precise engine ticket, and a batch of them is a ranked worklist. Exactly one
+precise engine ticket, and a batch of them is a ranked worklist. That one is
+**shipped** (the variant carries an `Amount`, and the refusal was right twice
+over: the projection the state-based action reads was stale as well, so the
+Ballista died on arrival for a second reason nobody had named). Exactly one
 card of the 61 that landed was substantively **wrong** (Mikaeus, DeepSeek,
 two keywords no rule reads), and it was caught by a lint plus a played test,
 not by reading.

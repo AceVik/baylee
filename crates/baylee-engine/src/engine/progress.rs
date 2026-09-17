@@ -500,7 +500,11 @@ impl<L: CardLookup> Engine<L> {
     #[allow(clippy::too_many_lines)] // the entry-modifier table is naturally flat
     pub(crate) fn apply_enter_modifiers(&mut self) -> bool {
         use baylee_cards_dsl::EnterModifier;
-        let events: Vec<(ObjectId, PlayerId)> = self
+        // `from` travels with the arrival because one modifier reads it:
+        // the X a `{X}{X}` body enters with belongs to the spell that
+        // became this permanent (CR 107.3m), so it exists on the way in
+        // off the stack and nowhere else.
+        let events: Vec<(ObjectId, PlayerId, Zone)> = self
             .state
             .journal
             .entries()
@@ -510,16 +514,17 @@ impl<L: CardLookup> Engine<L> {
             .filter_map(|e| match &e.event {
                 GameEvent::ZoneChanged {
                     object,
+                    from,
                     to: Zone::Battlefield,
                     ..
-                } => Some(*object),
+                } => Some((*object, *from)),
                 _ => None,
             })
-            .filter_map(|id| self.state.object(id).map(|o| (id, o.controller)))
+            .filter_map(|(id, from)| self.state.object(id).map(|o| (id, o.controller, from)))
             .collect();
         self.entry_scan_seq = self.state.journal.last_seq();
         let mut changed = false;
-        for (id, controller) in events {
+        for (id, controller, from_zone) in events {
             // Daybound's first static ability (CR 702.145b): if it is
             // night, a permanent represented by a double-faced card
             // *enters* transformed. It is done here rather than left to
@@ -677,9 +682,24 @@ impl<L: CardLookup> Engine<L> {
                     // lets a counter doubler have its say — a Vivid land
                     // under a Doubling Season brings four charge counters,
                     // not two (CR 614.16).
-                    EnterModifier::WithCounters { kind, n } => {
-                        crate::replacement::put_counters(&mut self.state, id, *kind, *n);
-                        changed = true;
+                    EnterModifier::WithCounters { kind, amount } => {
+                        // CR 107.3m: a replacement effect on a permanent that
+                        // refers to X uses the X chosen for *the spell that
+                        // became that object as it resolved*, and the value of
+                        // X for the permanent itself is 0. `x_value` is that
+                        // announced number, and it is only the spell's while
+                        // the arrival came off the stack — the same Walking
+                        // Ballista reanimated out of a graveyard or blinked
+                        // back from exile was never announced and comes down
+                        // as the 0/0 it prints (CR 107.3g).
+                        let x = (from_zone == Zone::Stack)
+                            .then(|| self.state.object(id).map_or(0, |o| o.x_value));
+                        let n = crate::eval::amount(amount, &self.state, controller, id, x);
+                        if n > 0 {
+                            let n = u16::try_from(n).unwrap_or(u16::MAX);
+                            crate::replacement::put_counters(&mut self.state, id, *kind, n);
+                            changed = true;
+                        }
                     }
                     EnterModifier::Prepared => {
                         if let Some(obj) = self.state.object_mut(id)

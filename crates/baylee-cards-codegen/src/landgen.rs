@@ -603,7 +603,7 @@ impl Recognizer<'_> {
                 .enter_modifiers
                 .push("EnterModifier::Tapped".into());
             self.body.enter_modifiers.push(format!(
-                "EnterModifier::WithCounters {{ kind: {kind}, n: {n} }}"
+                "EnterModifier::WithCounters {{ kind: {kind}, amount: Amount::Fixed({n}) }}"
             ));
             self.body
                 .notes
@@ -617,7 +617,7 @@ impl Recognizer<'_> {
             && let Some((kind, n)) = rest.strip_suffix(" on it").and_then(counter_phrase)
         {
             self.body.enter_modifiers.push(format!(
-                "EnterModifier::WithCounters {{ kind: {kind}, n: {n} }}"
+                "EnterModifier::WithCounters {{ kind: {kind}, amount: Amount::Fixed({n}) }}"
             ));
             self.body.notes.push("enters with counters".to_string());
             return Some(());
@@ -1039,7 +1039,7 @@ mod tests {
             body.enter_modifiers,
             [
                 "EnterModifier::Tapped",
-                "EnterModifier::WithCounters { kind: CounterKind::Charge, n: 2 }",
+                "EnterModifier::WithCounters { kind: CounterKind::Charge, amount: Amount::Fixed(2) }",
             ],
             "the one sentence says both, so it pushes both"
         );
@@ -1064,7 +1064,7 @@ mod tests {
         );
         assert_eq!(
             body.enter_modifiers,
-            ["EnterModifier::WithCounters { kind: CounterKind::Charge, n: 1 }"],
+            ["EnterModifier::WithCounters { kind: CounterKind::Charge, amount: Amount::Fixed(1) }"],
             "no `Tapped`, because the card does not print the word"
         );
     }
@@ -1107,7 +1107,7 @@ mod tests {
             body.enter_modifiers,
             [
                 "EnterModifier::Tapped",
-                "EnterModifier::WithCounters { kind: counters::DEPLETION, n: 2 }",
+                "EnterModifier::WithCounters { kind: counters::DEPLETION, amount: Amount::Fixed(2) }",
             ]
         );
         assert_eq!(
@@ -1135,7 +1135,7 @@ mod tests {
         );
         assert_eq!(
             body.enter_modifiers,
-            ["EnterModifier::WithCounters { kind: counters::MINING, n: 3 }"],
+            ["EnterModifier::WithCounters { kind: counters::MINING, amount: Amount::Fixed(3) }"],
             "no `Tapped`, because the card does not print the word"
         );
         assert_eq!(

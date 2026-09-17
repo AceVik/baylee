@@ -20,7 +20,7 @@ card!(
             EnterModifier::Tapped,
             EnterModifier::WithCounters {
                 kind: CounterKind::Charge,
-                n: 2
+                amount: Amount::Fixed(2)
             }
         ],
     ),],

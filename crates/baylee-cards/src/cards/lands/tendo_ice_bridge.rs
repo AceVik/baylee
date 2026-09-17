@@ -17,7 +17,7 @@ card!(
         types = TypeSet::LAND,
         enter_modifiers = &[EnterModifier::WithCounters {
             kind: CounterKind::Charge,
-            n: 1
+            amount: Amount::Fixed(1)
         }],
     ),],
     abilities = &[

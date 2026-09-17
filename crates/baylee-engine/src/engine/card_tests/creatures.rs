@@ -11733,10 +11733,15 @@ fn thorin_oakenshield_casts_as_a_three_two_and_its_trample_spills_over_a_blocker
 /// counters on it. {4}: Put a +1/+1 counter on this creature. Remove a +1/+1 counter
 /// from this creature: It deals 1 damage to any target."
 ///
-/// Entering with X counters is the `Coverage::Partial` gap, so the harness seeds one
-/// counter before state-based actions check the 0/0 body. The scenario tests both
-/// implemented activated abilities: paying {4} adds a counter (growing it to 2/2),
+/// It is seeded straight onto the battlefield here and never cast, so there is no
+/// announced X for its entry clause to read (CR 107.3g: a card outside the stack has
+/// an X of 0) and the harness plants the one counter the 0/0 body needs to survive
+/// the state-based action. That the clause *does* work off a real cast is proved
+/// beside the rule, in [`enter_tests`], which is where it belongs — this test is
+/// about the two activated abilities: paying {4} adds a counter (growing it to 2/2),
 /// and removing a counter pays the cost to deal 1 damage to the opponent.
+///
+/// [`enter_tests`]: crate::engine::enter_tests
 #[test]
 fn walking_ballista_grows_with_mana_and_removes_a_counter_to_deal_damage() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
@@ -11751,8 +11756,8 @@ fn walking_ballista_grows_with_mana_and_removes_a_counter_to_deal_damage() {
     let ballista =
         on_battlefield(&engine, p0, walking_ballista()).expect("the Ballista is on the table");
 
-    // "Enters with X +1/+1 counters" is the Partial gap, so the counter it needs to
-    // survive the SBA 0-toughness check is planted by the harness before mulligans.
+    // Nobody cast it, so its entry clause read an X of nothing: the counter it needs
+    // to survive the SBA 0-toughness check is planted by the harness before mulligans.
     {
         let state = engine
             .dev_state_mut(p0)

@@ -43,6 +43,14 @@ replacement effect (CR 614.1c), so `EnterModifier::WithCounters` goes through
 under one Doubling Season enters with four charge counters and still pays one
 per activation.
 
+The two differ once more on where their number comes from. A cost is a number
+the card prints; an arrival takes an `Amount`, because "this creature enters
+with X +1/+1 counters on it" is the X announced as the *spell* was cast
+(CR 107.3m) and the value of X for the permanent itself is 0. So Walking
+Ballista's entry counters are read off the object it came down as and only
+when it came down off the stack, while the counter its ping spends is one
+counter under any X at all.
+
 Four orthogonal concepts:
 
 1. **Alternative costs** (at most one per cast, CR 601.2b): pitch

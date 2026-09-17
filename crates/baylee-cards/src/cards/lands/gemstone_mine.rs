@@ -16,7 +16,7 @@ card!(
         types = TypeSet::LAND,
         enter_modifiers = &[EnterModifier::WithCounters {
             kind: counters::MINING,
-            n: 3
+            amount: Amount::Fixed(3)
         }],
     ),],
     abilities = &[mana_ability!(

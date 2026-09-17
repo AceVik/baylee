@@ -37,11 +37,13 @@
 
 use super::synthetic::{SyntheticLookup, creature, preset};
 use super::testkit::{
-    Duel, basic_forest, card_index, in_hand, keep_mulligans, play_land_face, reach_main_phase,
+    Duel, RegistryLookup, basic_forest, card_index, cast_from_hand, in_graveyard, in_hand,
+    keep_mulligans, on_battlefield, pass_until, play_land_face, pt, reach_main_phase,
+    stack_is_empty, tap_mana_except,
 };
 use super::*;
-use baylee_cards_dsl::{CardDef, CounterKind, EnterModifier, FaceDef};
-use baylee_core::ids::CardIndex;
+use baylee_cards_dsl::{Amount, CardDef, CounterKind, EnterModifier, FaceDef};
+use baylee_core::ids::{CardIndex, ObjectId};
 
 /// Bojuka Bog: a tapland that also carries an enters-the-battlefield
 /// trigger, so the fixture is not the easiest possible case.
@@ -434,7 +436,7 @@ const HATCHLING: u32 = 1200;
 
 static HATCHLING_ENTERS: &[EnterModifier] = &[EnterModifier::WithCounters {
     kind: CounterKind::P1P1,
-    n: 1,
+    amount: Amount::Fixed(1),
 }];
 
 /// Counters placed as a permanent enters are read by the state-based
@@ -487,5 +489,247 @@ fn a_body_that_arrives_under_a_counter_is_alive_when_the_rules_look_at_it() {
         c,
         (Some(1), Some(1)),
         "and the projection the rules read is built out of it"
+    );
+}
+
+/// Walking Ballista: `{X}{X}`, a printed 0/0 whose whole body is "this
+/// creature enters with X +1/+1 counters on it".
+fn walking_ballista() -> CardIndex {
+    card_index("4b515bb0-f275-4400-8032-3173b799ab40")
+}
+
+/// Reanimate: `{B}` sorcery, "put target creature card from a graveyard onto
+/// the battlefield under your control".
+fn reanimate() -> CardIndex {
+    card_index("a044474a-cd72-4e9d-bd8d-a08f2de9cdc0")
+}
+
+/// A basic Swamp, for the one black mana the reanimation below costs.
+fn swamp() -> CardIndex {
+    card_index("56719f6a-1a6c-4c0a-8d21-18f7d7350b68")
+}
+
+/// The `+1/+1` counters sitting on one object.
+///
+/// Read off the object rather than off a projection, because that is the
+/// half of "arrives as an X/X" a layer could not fake: `pt` below is the
+/// projection, and the two together say the counters are there *and* that
+/// the body is built out of them.
+fn plus_ones(engine: &Engine<RegistryLookup>, id: ObjectId) -> u16 {
+    engine
+        .state()
+        .object(id)
+        .map_or(0, |o| o.counters.get(CounterKind::P1P1))
+}
+
+/// The X announced as a spell is cast reaches the permanent it becomes.
+///
+/// CR 107.3m is the rule with the whole shape in it: a replacement effect on
+/// a permanent that refers to X uses the value of X chosen for **the spell
+/// that became that object as it resolved**, and the value of X for the
+/// permanent itself is 0. Both halves matter here. The first is why
+/// `EnterModifier::WithCounters` carries an [`Amount`] at all and why the
+/// engine reads `x_value` off the entering object; the second is the
+/// [next test](a_reanimated_body_brings_none_of_the_x_it_was_cast_for).
+///
+/// Walking Ballista is the card the variant was widened for: a 0/0 that
+/// survives its own arrival only because the counters land first — which
+/// they do, because `apply_enter_modifiers` runs as step 0b of the machine
+/// and state-based actions are step 2.
+///
+/// [`Amount`]: baylee_cards_dsl::Amount
+#[test]
+fn a_spell_cast_for_x_enters_with_that_many_counters() {
+    let seat = PlayerId::new(0);
+    let mut engine = Duel::new(11, basic_forest())
+        .battlefield(
+            0,
+            &[
+                basic_forest(),
+                basic_forest(),
+                basic_forest(),
+                basic_forest(),
+            ],
+        )
+        .hand(0, &[walking_ballista()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, seat);
+
+    // Held before it is cast, because the assertions below span three zones
+    // and the object is the same one throughout — a spell that resolves as a
+    // permanent keeps its id (CR 400.7 makes it a new *object* for the rules;
+    // the engine rewrites the fields in place).
+    let id = in_hand(&engine, seat, walking_ballista()).expect("the Ballista is in hand");
+
+    // Four Forests tapped, then the spell — `{X}{X}` is castable for X = 0
+    // whatever is floating, so what this proves is not affordability.
+    cast_from_hand(&mut engine, seat, walking_ballista());
+
+    let Pending::ChooseNumber { min, max, .. } = engine.pending().clone() else {
+        panic!(
+            "a printed {{X}} has to be asked about, got {:?}",
+            engine.pending()
+        )
+    };
+    assert_eq!(min, 0, "X may always be nothing");
+    assert!(
+        max >= 2,
+        "four mana pays {{X}}{{X}} for X = 2, so two is inside the offered range: max = {max}"
+    );
+    engine
+        .apply(seat, PlayerAction::ChooseNumber(2))
+        .expect("X = 2 is inside the range the engine just offered");
+    pass_until(&mut engine, stack_is_empty);
+
+    // Two assertions and not one, because a printed 0/0 that is not on the
+    // battlefield has two different reasons to be missing and they are two
+    // different defects. The journal answers the first on its own: it keeps
+    // what the counters did even if the body did not survive being looked
+    // at, where the object's own `counters` are wiped as it leaves.
+    assert!(
+        engine.state().journal.entries().iter().any(|e| matches!(
+            e.event,
+            GameEvent::CounterChanged {
+                object,
+                kind: CounterKind::P1P1,
+                old: 0,
+                new: 2,
+            } if object == id
+        )),
+        "the X announced as the spell was cast never reached its entry \
+         clause (CR 107.3m)"
+    );
+    let ballista = on_battlefield(&engine, seat, walking_ballista()).expect(
+        "the counters landed and the body still died, so the state-based \
+         action read the projection it had before them (CR 704.5f against \
+         CR 613.4c)",
+    );
+    assert_eq!(
+        plus_ones(&engine, ballista),
+        2,
+        "X was announced as two, so two +1/+1 counters arrive with the body"
+    );
+    assert_eq!(
+        pt(&engine, ballista),
+        (2, 2),
+        "a printed 0/0 under two +1/+1 counters is a 2/2"
+    );
+}
+
+/// The same card brought back by an effect arrives with nothing, because
+/// nobody announced an X for it.
+///
+/// This is the second half of CR 107.3m — "although the value of X for that
+/// permanent is 0" — and it is a rule about *which* X, not about zero. The
+/// object that dies keeps `x_value` on it: the reset in `move_object` fires
+/// only when a permanent leaves the battlefield, and it deliberately spares
+/// the spell-shaped fields so a permanent resolving off the stack still has
+/// them. So a reader that simply took `x_value` would reanimate this 0/0 as
+/// a 1/1 for ever, off a number chosen one zone change ago — which is why
+/// the engine reads it only when the arrival came **from the stack**
+/// (CR 107.3g: a card anywhere else has an X of 0).
+#[test]
+fn a_reanimated_body_brings_none_of_the_x_it_was_cast_for() {
+    let (seat, foe) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(11, basic_forest())
+        .battlefield(0, &[basic_forest(), basic_forest(), swamp()])
+        .hand(0, &[walking_ballista(), reanimate()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, seat);
+
+    // The Swamp is kept back: it is the one mana the reanimation costs, and
+    // a generic `{X}{X}` would otherwise be happy to spend it.
+    let held = engine
+        .state()
+        .zones
+        .list(crate::zone::ZoneLocation::Battlefield)
+        .iter()
+        .copied()
+        .find(|id| {
+            engine
+                .state()
+                .object(*id)
+                .is_some_and(|o| o.card.is_some_and(|c| c.index == swamp()))
+        })
+        .expect("the Swamp is on the battlefield");
+    tap_mana_except(&mut engine, seat, held);
+    let spell = in_hand(&engine, seat, walking_ballista()).expect("the Ballista is in hand");
+    engine
+        .apply(seat, PlayerAction::CastSpell { card: spell })
+        .expect("two Forests pay {X}{X} for X = 1");
+
+    let Pending::ChooseNumber { .. } = engine.pending().clone() else {
+        panic!(
+            "a printed {{X}} has to be asked about, got {:?}",
+            engine.pending()
+        )
+    };
+    engine
+        .apply(seat, PlayerAction::ChooseNumber(1))
+        .expect("two mana pays {X}{X} for X = 1");
+    pass_until(&mut engine, stack_is_empty);
+
+    let ballista = on_battlefield(&engine, seat, walking_ballista()).expect("it arrived as a 1/1");
+    assert_eq!(plus_ones(&engine, ballista), 1, "X was one");
+
+    // Its own second ability spends that counter, and the 0/0 left behind
+    // dies to the state-based action (CR 704.5f) — which is how the card
+    // reaches a graveyard while still carrying `x_value = 1`.
+    engine
+        .apply(
+            seat,
+            PlayerAction::ActivateAbility {
+                source: ballista,
+                ability_index: 1,
+            },
+        )
+        .expect("removing its last +1/+1 counter is a cost it can pay");
+    engine
+        .apply(
+            seat,
+            PlayerAction::ChooseTargets {
+                objects: Vec::new(),
+                players: vec![foe],
+            },
+        )
+        .expect("the opponent is a legal target for any target");
+    pass_until(&mut engine, stack_is_empty);
+    assert!(
+        on_battlefield(&engine, seat, walking_ballista()).is_none(),
+        "a 0/0 with no counters left is put into its owner's graveyard"
+    );
+    assert!(
+        in_graveyard(&engine, seat, walking_ballista()).is_some(),
+        "and that graveyard is its owner's"
+    );
+
+    // Now the reanimation, off the Swamp that was kept back.
+    cast_from_hand(&mut engine, seat, reanimate());
+    let Pending::ChooseTargets { .. } = engine.pending().clone() else {
+        panic!(
+            "Reanimate targets a creature card in a graveyard, got {:?}",
+            engine.pending()
+        )
+    };
+    let target = in_graveyard(&engine, seat, walking_ballista()).expect("the Ballista is there");
+    engine
+        .apply(
+            seat,
+            PlayerAction::ChooseTargets {
+                objects: vec![target],
+                players: Vec::new(),
+            },
+        )
+        .expect("a creature card in a graveyard is what it asks for");
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        on_battlefield(&engine, seat, walking_ballista()).is_none(),
+        "nobody announced an X for a reanimation, so a printed 0/0 comes \
+         back as a 0/0 and dies again — it is on the battlefield with \
+         {} +1/+1 counters, off an X chosen a zone change ago",
+        on_battlefield(&engine, seat, walking_ballista()).map_or(0, |id| plus_ones(&engine, id))
     );
 }

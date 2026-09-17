@@ -19,7 +19,7 @@ card!(
             EnterModifier::Tapped,
             EnterModifier::WithCounters {
                 kind: counters::DEPLETION,
-                n: 2
+                amount: Amount::Fixed(2)
             }
         ],
     ),],

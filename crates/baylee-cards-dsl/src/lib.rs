@@ -334,11 +334,22 @@ pub enum EnterModifier {
     ///
     /// **Not** the same thing as a counter paid as a cost, which takes the
     /// other door on purpose — see [`crate::CostPart::RemoveCounterSelf`].
+    ///
+    /// The count is an [`Amount`] and not a number, because Walking Ballista
+    /// and every other `{X}{X}` body says "enters with X +1/+1 counters".
+    /// CR 107.3m is the rule that makes that expressible at all: a
+    /// replacement effect on a permanent that refers to X uses the value of
+    /// X chosen for **the spell that became that object as it resolved** —
+    /// and the same sentence adds that the value of X for the *permanent* is
+    /// 0. So the engine reads the announced X off the object it came down
+    /// as, and only when it came down off the stack: the same card
+    /// reanimated, blinked or put onto the battlefield by an effect was
+    /// never announced with an X and arrives with nothing.
     WithCounters {
         /// Which counter.
         kind: crate::effect::CounterKind,
         /// How many, before any replacement multiplies them.
-        n: u16,
+        amount: Amount,
     },
 }
 

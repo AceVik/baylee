@@ -598,7 +598,21 @@ basic lands" — its own variant because a checkland asks about *a*
 permanent and a card never restates a default; the entering permanent
 never counts itself), `TappedOrPayLife(n)`, `ChooseSubtype`
 (Roaming Throne, Reflections of Littjara, Cavern of Souls — answer stored
-on `obj.chosen_subtype`; creatures also gain the subtype in their base).
+on `obj.chosen_subtype`; creatures also gain the subtype in their base),
+`Prepared` (Emeritus of Woe), and
+`WithCounters { kind, amount }`.
+
+`WithCounters` takes an **`Amount`**, so "this enters with X +1/+1 counters
+on it" is expressible and Walking Ballista is an ordinary card. CR 107.3m is
+what makes that a rule rather than a convenience: a replacement effect on a
+permanent that refers to X uses the value of X chosen for *the spell that
+became that object as it resolved*, and the value of X for the permanent
+itself is 0. So the engine reads the announced X off the entering object and
+only when the arrival came off the stack — the same card reanimated, blinked
+or put onto the battlefield by an effect arrives with nothing (CR 107.3g).
+The counters go through `replacement::put_counters` like every other
+replacement effect, so a counter doubler has its say (CR 614.16): a Vivid
+land under a Doubling Season enters with four charge counters.
 
 ### Triggers
 

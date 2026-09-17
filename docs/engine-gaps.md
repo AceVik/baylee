@@ -234,6 +234,18 @@ nobody printed. The fix is one `continue`: a pass that wrote to the board
 goes round once more, and the scan advances its own sequence before it does
 any work, so the next pass finds no arrivals and falls through.
 
+**And then widened, because a land was not the hard case.** The count is an
+`Amount` rather than a number, so "this creature enters with X +1/+1 counters
+on it" is sayable and Walking Ballista is an ordinary `Coverage::Implemented`
+card. CR 107.3m is the whole rule: the X belongs to *the spell that became
+this permanent as it resolved*, and the value of X for the permanent itself
+is 0 — so the engine reads `x_value` off the entering object and only when
+the arrival came from the stack. The same body reanimated out of a graveyard
+or blinked back from exile still carries that `x_value` (the reset in
+`move_object` spares the spell-shaped fields on purpose, so a permanent
+resolving off the stack still has them), and a reader that simply took it
+would bring a 0/0 back as an X/X for ever.
+
 **Also shipped: the clause that ends the card.** `Effect::IfNoCountersOnSelf
 { kind, then }` is "If there are no depletion counters on this land, sacrifice
 it", an ordinary effect in the same list as the mana rather than a trigger or
