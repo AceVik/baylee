@@ -176,7 +176,7 @@ pub(super) fn spawn_hand_zone(
         // No border: the card is rounded like a real one; hover/selection
         // read as a soft accent glow instead of a frame.
         let shadow = if is_selected {
-            halo(palette::ACCENT, 1.0)
+            halo(palette::CANDLE, 1.0)
         } else if is_hovered || is_offered || card.playable || card.reachable {
             // Four different claims, and the two that matter are the two the
             // player reads without being told: gold is the engine saying yes,
@@ -300,6 +300,29 @@ pub(super) fn spawn_hand_zone(
             ))
             .id();
         commands.entity(entity).add_child(shade);
+        if is_selected {
+            let mark = commands
+                .spawn((
+                    Node {
+                        position_type: PositionType::Absolute,
+                        top: px(4),
+                        right: px(4),
+                        padding: UiRect::axes(px(6), px(2)),
+                        border_radius: BorderRadius::all(px(4)),
+                        ..default()
+                    },
+                    BackgroundColor(palette::CANDLE),
+                    Pickable::IGNORE,
+                ))
+                .with_child((
+                    Text::new(glyph::CHECK.to_string()),
+                    icon_tf(fonts, 12.0),
+                    TextColor(palette::DOCK_GROUND),
+                    Pickable::IGNORE,
+                ))
+                .id();
+            commands.entity(entity).add_child(mark);
+        }
         commands.entity(strip).add_child(entity);
     }
     commands.entity(zone).add_child(strip);

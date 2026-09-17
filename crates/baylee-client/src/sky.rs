@@ -65,6 +65,22 @@ const WIDEST: f32 = 4.0;
 /// phase is actually moving, and [`sync_sky`] stops writing the moment it
 /// arrives.
 const FADE_RATE: f32 = 0.55;
+/// Rules changes settle in about 1.2 seconds; ambient changes take six.
+const RULES_FADE_RATE: f32 = 2.5;
+
+fn sky_target(
+    mode: baylee_client_core::sky::SkyMode,
+    designation: Option<baylee_view::DayNight>,
+    hour: f32,
+) -> (SkyPhase, f32) {
+    use baylee_client_core::sky::SkyMode;
+    let (mode, rate) = match designation {
+        Some(baylee_view::DayNight::Day) => (SkyMode::Day, RULES_FADE_RATE),
+        Some(baylee_view::DayNight::Night) => (SkyMode::Night, RULES_FADE_RATE),
+        None => (mode, FADE_RATE),
+    };
+    (baylee_client_core::sky::phase(mode, hour), rate)
+}
 
 /// Everything the sky shader reads.
 #[derive(Clone, Copy, ShaderType, Debug)]
@@ -108,6 +124,13 @@ pub struct Sky {
     /// for. Kept here rather than recomputed because easing towards a target
     /// needs somewhere to keep where it started.
     shown: SkyPhase,
+}
+
+impl Sky {
+    /// The eased daylight, shared with the dust and light over the table.
+    pub fn daylight(&self) -> f32 {
+        self.shown.day
+    }
 }
 
 /// Hangs the sky on the camera, the first time there is a camera to hang it
@@ -227,6 +250,7 @@ pub fn light_the_table(
 pub fn sync_sky(
     time: Res<Time>,
     prefs: Res<crate::prefs::Prefs>,
+    duel: Res<crate::Duel>,
     mut light: ResMut<TableLight>,
     mut materials: ResMut<Assets<SkyMaterial>>,
     mut sky: Query<(&mut Sky, &MeshMaterial3d<SkyMaterial>)>,
@@ -235,7 +259,11 @@ pub fn sync_sky(
         return;
     };
     let settings = prefs.all();
-    let want = baylee_client_core::sky::phase(settings.sky, local_hour());
+    let (want, fade_rate) = sky_target(
+        settings.sky,
+        duel.view.as_ref().and_then(|view| view.day_night),
+        local_hour(),
+    );
     let motion = if settings.reduce_motion {
         crate::cardmat::STILL
     } else {
@@ -244,24 +272,39 @@ pub fn sync_sky(
     let ease = if settings.reduce_motion {
         1.0
     } else {
-        1.0 - (-FADE_RATE * time.delta_secs()).exp()
+        1.0 - (-fade_rate * time.delta_secs()).exp()
     };
 
-    let next = SkyPhase {
+    let mut next = SkyPhase {
         day: sky.shown.day + (want.day - sky.shown.day) * ease,
         glow: sky.shown.glow + (want.glow - sky.shown.glow) * ease,
     };
+    // Settle against the target, not the distance travelled in this frame.
+    // A high frame rate otherwise leaves the sky permanently in twilight.
+    if (next.day - want.day).abs() < 1e-4 {
+        next.day = want.day;
+    }
+    // A forced transition still passes through a warm dawn/dusk, rather
+    // than merely dissolving one static sky into another.
+    next.glow = next.glow.max(4.0 * next.day * (1.0 - next.day));
+    if (next.glow - want.glow).abs() < 1e-4 {
+        next.glow = want.glow;
+    }
     // The table's light comes off the *eased* phase, and is written before
     // the early return below rather than after it: the sky stops writing when
     // it arrives, and the table has to have arrived with it.
     let lit = baylee_client_core::sky::table_light(next);
-    light.0 = Vec4::new(lit.rgb[0], lit.rgb[1], lit.rgb[2], lit.strength);
+    // Daylight lifts the mineral surface as well as warming it. Work on
+    // the effective multiplier so night remains exactly the existing grade.
+    let base = Vec3::ONE.lerp(Vec3::from_array(lit.rgb), lit.strength);
+    let daylight = Vec3::ONE.lerp(Vec3::new(2.4, 2.25, 2.0), next.day);
+    light.0 = (base * daylight).extend(1.0);
 
     let Some(mut material) = materials.get_mut(&handle.0) else {
         return;
     };
-    let still = (next.day - sky.shown.day).abs() <= 1e-4
-        && (next.glow - sky.shown.glow).abs() <= 1e-4
+    let still = (next.day - sky.shown.day).abs() <= f32::EPSILON
+        && (next.glow - sky.shown.glow).abs() <= f32::EPSILON
         && (material.params.motion - motion).abs() <= f32::EPSILON;
     if still {
         return;
@@ -304,5 +347,26 @@ impl Plugin for SkyPlugin {
         embedded_asset!(app, "shaders/sky.wgsl");
         app.init_resource::<TableLight>()
             .add_plugins(MaterialPlugin::<SkyMaterial>::default());
+    }
+}
+
+#[cfg(test)]
+mod transition_tests {
+    use super::*;
+    use baylee_client_core::sky::SkyMode;
+
+    #[test]
+    fn rules_designation_overrides_ambient_mode_and_uses_fast_transition() {
+        for (designation, expected) in [
+            (baylee_view::DayNight::Day, 1.0),
+            (baylee_view::DayNight::Night, 0.0),
+        ] {
+            let (phase, rate) = sky_target(SkyMode::Auto, Some(designation), 12.0);
+            assert!((phase.day - expected).abs() < f32::EPSILON);
+            assert!(rate > FADE_RATE);
+        }
+        let (phase, rate) = sky_target(SkyMode::Night, None, 12.0);
+        assert!(phase.day.abs() < f32::EPSILON);
+        assert!((rate - FADE_RATE).abs() < f32::EPSILON);
     }
 }

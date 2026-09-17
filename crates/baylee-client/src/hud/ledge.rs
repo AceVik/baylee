@@ -936,6 +936,22 @@ fn answers_for(
             say(PromptAction::Confirm, Phrase::Block),
             say(PromptAction::DeclareNothing, Phrase::DeclareNone),
         ],
+        Some(Pending::DiscardChoice { count, .. })
+            if duel
+                .interaction
+                .as_ref()
+                .is_some_and(baylee_client_core::Interaction::can_confirm) =>
+        {
+            vec![(
+                Says::Answer(PromptAction::Confirm),
+                Phrase::counted(
+                    usize::from(*count),
+                    Phrase::DiscardCard,
+                    Phrase::DiscardCards,
+                )
+                .fill(lang, &[&count.to_string()]),
+            )]
+        }
         Some(_)
             if !elsewhere
                 && duel
@@ -1673,7 +1689,7 @@ mod tests {
 
         let taken = over(
             palette::CANDLE.with_alpha(drawer::PICKED_WASH),
-            palette::DIALOG,
+            palette::DOCK_GROUND,
         );
         let (fill, edge, ink) = drawer::PANEL_KEY;
 

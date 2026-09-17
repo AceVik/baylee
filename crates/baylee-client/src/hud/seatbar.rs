@@ -979,7 +979,14 @@ fn life(
                     TextSpan::new(format!(" {}", seat.life)),
                     tf_bold(
                         fonts,
-                        fits(if density.is_split() { 26.0 } else { 16.0 }, height),
+                        fits(
+                            if density.is_split() {
+                                if height > 40.0 { 38.0 } else { 26.0 }
+                            } else {
+                                16.0
+                            },
+                            height
+                        ),
                     ),
                     TextColor(numeral),
                     Pickable::IGNORE,
@@ -1026,12 +1033,12 @@ fn count(
             cell_node(width, height),
             children![(
                 Text::new(icon.to_string()),
-                icon_tf(fonts, fits(10.0, height)),
+                icon_tf(fonts, fits(if height > 40.0 { 14.0 } else { 10.0 }, height)),
                 TextColor(soft),
                 Pickable::IGNORE,
                 children![(
                     TextSpan::new(format!(" {value}")),
-                    tf(fonts, fits(13.0, height)),
+                    tf(fonts, fits(if height > 40.0 { 19.0 } else { 13.0 }, height)),
                     TextColor(ink_of(seat)),
                     Pickable::IGNORE,
                 )],

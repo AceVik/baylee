@@ -89,8 +89,9 @@ The phase lamp remains a separate semantic light. `mat.wgsl` adds recessed
 corner shoulders and terminates lane rules short of the frame. Both resolve
 fine details against the pixel footprint rather than assuming a resolution.
 
-The sky is graded independently: subdued storm colours by day, blue-black
-air and distant drifting mist at night. It shares the table's cool shadows
+The sky is graded independently: open blue daylight with warm cloud edges by
+day, blue-black air and distant drifting mist at night. Daylight also raises
+the mineral table’s exposure; the existing night grade is preserved. It shares the table's cool shadows
 and warm accents, but **there is no full-screen colour filter on card art**.
 The unlit card pipeline and the existing day/night preference are unchanged.
 All decorative shader clocks use the existing motion multiplier, so reduced
@@ -102,7 +103,7 @@ metalwork. Shared constants are still checked by the client camera tests.
 
 The hand/action dock and seat furniture share `FrontalMaterial`: recessed
 mineral-leather ground, thin champagne tooling and fixed five-colour inlays.
-Ten persistent handles cover the dock and eight seats; the virtual clock and
+Eleven persistent handles cover the dock, its upward info extension and eight seats; the virtual clock and
 reduced-motion preference govern decorative movement. Split seat bars place
 a 220px identity/life plaque beside the timeline and zone/turn status, with
 an honest 871×48px minimum footprint and unchanged compact fallbacks. The
@@ -166,91 +167,26 @@ infinite green plane however good the grain is. The pool is candlelight and
 the inlay is gilt; a test asserts neither ever goes cold, since a blue light
 over a green table makes colour identity a guess.
 
-### The wheel is five flames
+### The centre inlay
 
-It was five soft discs of the pie on a quad until September 2026, and the
-complaint that moved it was one sentence: *black could not be seen at all*. A
-dark disc on a dark table is not a colour, it is a gap — so the wheel was
-five colours of which one was missing. A *flame* can be black and still be
-the most legible thing on the table, because what draws a flame is its edge.
-`baylee_client_core::firewheel` is normative on all of it.
+Five faceted enamel stones replace the procedural flames. They sit in the
+existing engraved compass and retain the eased mana-source strengths from
+`baylee_client_core::firewheel`. A slow glint and a small coloured light pool
+give them depth without moving their silhouettes. Black uses muted amethyst.
+The shader no longer evaluates layered erosion noise per stone; ring wear
+is also bounded to the centre instead of sampled across the entire table.
 
-**They are painted flat into the cloth**, and that is the decision everything
-else follows from. The obvious build is five little flames standing up off
-the table; it loses, measurably. The camera never moves and looks down from
-about 20°, so a standing length projects at `sin` of that and a length lying
-in the table plane at `cos` of it — 2.7 times the picture for the same
-number. Nothing is lost on the other side of that trade: a fixed eye gets no
-parallax from a billboard and no self-occlusion from a raymarched volume, and
-either of those would pay the same `sin` anyway. What makes a painted flame
-read as *standing* is a ground cue, which is the argument
-`atmosphere.wgsl`'s falling leaf already makes with its shadow: the foot is
-the brightest and roundest part, the body rises from it along one **shared**
-screen-up direction, and the pool of light is centred on the foot rather than
-on the flame. Screen-up is one direction for all five and not each flame's
-own radius — five flames rising radially are a sun glyph, not five candles
-seen from one chair.
+The sky adds sun rays, moonlit aurora curtains and distant hazy ridges.
+Day/night transitions move the celestial bodies and carry the table's
+lighting, dust and soft shafts through the same eased exposure. The two
+speeds remain: slow ambient changes, faster rules-driven changes. Reduce
+motion freezes decorative animation; atmosphere Off removes the air pass.
 
-**In the cloth and not on it**, which is the other half. The light a fire
-throws is added inside `felt.wgsl` after the sky, where the rail lamp's glow
-is added, so the weave, the grain and the mineral vein show through it. A
-quad blended over the felt can only ever cover them, and that is the whole
-difference between light and a decal. The wheel's two gilt rings moved into
-the cloth with the flames, as `fwidth`-resolved hairlines: sharper than the
-512-texel texture they replace, which was 2.4 texels to a physical pixel at
-this camera, and — more to the point — *underneath*, so a flame stands in
-front of the rim instead of being etched by it. The inner ring came in from
-0.33 to 0.26 at the same time, because the black and red flames rise toward
-the middle and their inner flank passes about 0.30.
-
-**The black one is inverted, not darkened.** Its body multiplies the cloth
-down to a hole rather than being painted — on a dark table nothing can emit
-black — and the light that says what shape the hole is lives on a violet rim,
-which is how a backlit black flame is drawn everywhere it is drawn well. The
-rim is *capped* rather than pushed: it stays under the white flame's body,
-because a brighter violet outline is the first thing anyone reaches for and
-it is a neon sticker. Its light on the table is two stages, since the
-additive slot cannot subtract: a shadow at the foot, then a cold pool over
-it. Measured on a duel: the body sits 26 levels of luma under the felt beside
-it, and the whole wheel's crop averages 8 levels over bare felt — a light,
-not a lamp.
-
-**How hard each burns** comes from what can make coloured mana on the whole
-table, every seat's, eased over about a second and a half. `strength` is
-concave, so the first source of a colour is the one that shows, and it scales
-with the seat count so a ring of eight does not saturate on turn three. An
-unplayed colour banks down to a pilot light and never goes out: five flames
-are a compass and four are a broken one. Sources rather than devotion is a
-choice with an argument on the other side, and `firewheel::strength` carries
-both; turn count was the alternative asked for and is rejected as the height
-source, because it raises all five together and five equal flames at any
-height look like the same table. It arrives anyway, through the door that
-makes sense — a longer game has more lands on it.
-
-**The rhythm is two clocks and three events.** A draught shared by all five
-(9.5 s, against the seat mat's 7 and 11) so they are five flames in one room
-rather than five looping pictures; each flame's own gutter on one-dimensional
-noise rather than a sine, because a sine is a rhythm a viewer learns in two
-cycles; and one event each for the three colours whose character is an event
-— red flares, white gutters and recovers, black sheds its tip as smoke.
-Every rate is under 1.5 Hz and every depth under a tenth, which is a bound
-and not an accident: this table refuses motion a card-reader catches
-sideways, and what carries "alive" is the shape noise scrolling *inside* a
-silhouette thirty pixels tall.
-
-Three things that were wrong in the first build and are worth keeping written
-down, because all three are the same mistake in different places. The gutter
-rates were `[0.9, 1.4, 0.6, 1.2, 0.8]` — correctly ranked, every one of them
-a multiple of a tenth, so the whole wheel came back to exactly where it
-started **every ten seconds**. The erosion that cuts the licks used `v`
-rather than the clamped climb, and above and below a flame `v²` grows without
-bound: against a noise value under the floor the term changes sign, and the
-first screenshot had coloured confetti scattered over the middle of the
-table. And the black flame's rim was ungated, so it drew wherever `|eroded|`
-passed through zero — which is everywhere — as violet lace. The proof shape
-that settled the rest: `/pause`, two screenshots, byte-identical; then 144
-stepped frames and a diff, which is non-zero only inside the five
-silhouettes and moves the felt between them by a tenth of a level.
+Seat information uses a large life total beside a two-line identity, four
+quiet count cells, and a labelled phase timeline with the current step
+written above it. All remain within each seat's reserved band, including
+multiplayer layouts. Only the identity wears the cloth material, avoiding
+different-sized panels writing competing dimensions to the same handle.
 
 That the rim carries the colour is true as of the fix below, and was not
 before it. `tabletop::seat_mat` used to write every pixel white with the mat's
@@ -4832,3 +4768,17 @@ the canvas is a change to that stylesheet and to nothing in Rust.
   stopped selecting anything and was removed. A stale rustflag is worse than
   no rustflag: it reads as load-bearing and is not, and cargo says nothing
   about a cfg value a dependency no longer knows.
+
+### Dock extension and discard feedback (September 2026)
+
+The occasional information drawer uses the action rail’s mineral material,
+champagne tooling and ivory text, with an open foot joining the rail. Its
+material handle is separate because its measured dimensions differ. Forced
+hand-size discard keeps a live selected/required count in that extension;
+selected hand cards carry checkmarks and the confirmation names the number
+of cards to discard instead of saying “OK”.
+
+Ambient sky changes retain the slow six-second crossfade. An active game
+day/night designation overrides the ambient preference and settles in about
+1.2 seconds, including a warm dawn/dusk between endpoints. Reduced motion
+switches immediately. With no designation, the ambient preference applies.

@@ -98,6 +98,10 @@ pub struct AtmosphereParams {
     /// over the leather, which is one of the cheapest things that says the
     /// marks are in the air and the veils are on the table.
     pub rail: f32,
+    /// Eased sky exposure shared by the sun, moon and table light.
+    pub day: f32,
+    /// The player's atmosphere budget, including the ambient dust.
+    pub budget: f32,
 }
 
 /// The air.
@@ -169,6 +173,7 @@ pub fn breathe(
     mut felts: ResMut<Assets<crate::feltmat::FeltMaterial>>,
     slabs: Query<&MeshMaterial3d<crate::feltmat::FeltMaterial>>,
     cameras: Query<&GlobalTransform, With<crate::table::TableCamera>>,
+    sky: Query<&crate::sky::Sky>,
     mut air: Query<(
         Entity,
         &mut Air,
@@ -177,6 +182,8 @@ pub fn breathe(
     )>,
 ) {
     let settings = prefs.all();
+    let day = sky.single().map_or(0.5, crate::sky::Sky::daylight);
+    let budget = settings.atmosphere.budget();
     let Ok(felt) = slabs.single() else {
         // No table yet, so no air over it. The quad is cut from the slab's
         // own span and there is nothing to guess it from.
@@ -241,7 +248,7 @@ pub fn breathe(
             Pickable::IGNORE,
             Mesh3d(meshes.add(crate::table::flat_table_mesh(span))),
             MeshMaterial3d(materials.add(AtmosphereMaterial {
-                params: params_of(want, span, fall, motion),
+                params: params_of(want, span, fall, motion, day, budget),
             })),
             Transform::from_xyz(0.0, crate::table::ATMOSPHERE_LIFT, 0.0)
                 .with_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2)),
@@ -258,13 +265,20 @@ pub fn breathe(
     }
     shown.shown = next;
     if let Some(mut material) = materials.get_mut(&handle.0) {
-        material.params = params_of(next, span, fall, motion);
+        material.params = params_of(next, span, fall, motion, day, budget);
     }
     set_grade(&mut felts, felt, next);
 }
 
 /// Packs a weather for the shader.
-fn params_of(air: Weather, span: Vec2, fall: Vec2, motion: f32) -> AtmosphereParams {
+fn params_of(
+    air: Weather,
+    span: Vec2,
+    fall: Vec2,
+    motion: f32,
+    day: f32,
+    budget: f32,
+) -> AtmosphereParams {
     AtmosphereParams {
         span,
         fall,
@@ -277,6 +291,8 @@ fn params_of(air: Weather, span: Vec2, fall: Vec2, motion: f32) -> AtmospherePar
         motion,
         corner: baylee_client_core::tabletop::table_corner(span),
         rail: baylee_client_core::tabletop::RAIL_WIDTH,
+        day,
+        budget,
     }
 }
 

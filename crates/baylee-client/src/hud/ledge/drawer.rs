@@ -40,6 +40,7 @@
 use super::*;
 
 use baylee_client_core::Prompt;
+use baylee_engine::choice::Pending;
 
 /// The narrowest the panel is drawn, so a two-word answer is still a panel.
 const MIN_W: f32 = 320.0;
@@ -91,44 +92,15 @@ const COST_PT: f32 = 15.0;
 /// Between a row's parts, and between two rows.
 const ROW_INNER_GAP: f32 = 5.0;
 
-/// How much of the candle a picked row is washed with.
-///
-/// The shelf's own answer to "this one is taken", and deliberately not brass:
-/// brass is a light on a *card*, and one register per claim is the rule this
-/// whole shelf is built on.
-///
-/// Measured, because §5 named the strength and nothing had held it to
-/// anything: **the wash does not say it.** Laid over [`palette::DIALOG`] it
-/// comes out 1.08 : 1 against the fill an unpicked row already has, which is
-/// below anything an eye reads as a difference. The border is what says it —
-/// [`palette::CANDLE`] against [`palette::DIALOG_LINE`] is 5.52 : 1 — and what
-/// the wash is for is that it leaves the words alone: [`palette::DIALOG_INK`]
-/// on the washed ground is 11.65 : 1 against 13.74 : 1 on the bare panel.
-/// `a_picked_row_is_said_by_its_border` holds both ends of that, so a later
-/// hand that strengthens the wash to make it carry the claim on its own is
-/// told what it is spending.
+/// Subtle selection wash; the contrasting border carries the selected state.
 pub(super) const PICKED_WASH: f32 = 0.10;
 
-/// Fill, border and ink for a button that stands on **this panel**.
-///
-/// Deliberately not [`Weight::Secondary`], which every button here used to
-/// borrow. That weight is the *dock's* inset key, and when the dock was
-/// re-dressed it moved to the dock's own cold ground and champagne edge — so
-/// the panel was left carrying two registers, which is the thing `arrow`'s
-/// note says §3 exists to stop, and `filter_field` two functions down had
-/// gone on naming the panel's own pair directly all along.
-///
-/// It cost a measured claim, not only a look. A candle border against a
-/// champagne one is **2.12 : 1** and does not say which row is taken; against
-/// [`palette::DIALOG_LINE`] it is 5.52 : 1. The wash lost its end of it too —
-/// 1.26 : 1 against the dock's ground, where the whole point of
-/// [`PICKED_WASH`] is that it stays under what an eye reads as a difference.
-/// `a_picked_row_is_said_by_its_border` found the first and could not see the
-/// second: it was still reading the colour the row no longer had.
+/// Inset controls share the dock ground and ivory text. Their quiet border
+/// stays darker than the outer champagne trim so selected rows remain clear.
 pub(super) const PANEL_KEY: (Color, Color, Color) = (
-    palette::DIALOG_LIT,
+    palette::DOCK_GROUND,
     palette::DIALOG_LINE,
-    palette::DIALOG_INK,
+    palette::DOCK_INK,
 );
 
 /// The drawer's positioning node, which outlives every rebuild.
@@ -262,6 +234,8 @@ pub fn sync_drawer(
     fonts: Res<UiFonts>,
     settings: Res<crate::settings::ClientSettings>,
     texts: Res<crate::cardtext::CardTexts>,
+    mut cloth: Option<ResMut<crate::frontal::Cloth>>,
+    mut materials: Option<ResMut<Assets<crate::frontal::FrontalMaterial>>>,
 ) {
     let Ok((root, standing)) = root.single() else {
         return;
@@ -326,7 +300,13 @@ pub fn sync_drawer(
             if let Some((leaving, _)) = was {
                 commands.entity(leaving).despawn();
             }
-            spawn_panel(&mut commands, root)
+            spawn_panel(
+                &mut commands,
+                root,
+                cloth
+                    .as_deref_mut()
+                    .and_then(|cloth| cloth.drawer(materials.as_deref_mut())),
+            )
         }
     };
 
@@ -356,7 +336,11 @@ pub fn sync_drawer(
 /// Spawned already small, the way the sheet is — a panel that appeared at
 /// full size for the frame before [`zoom_the_drawer`] first ran would be a
 /// flash, and the movement is supposed to be the whole of its arrival.
-fn spawn_panel(commands: &mut Commands, root: Entity) -> Entity {
+fn spawn_panel(
+    commands: &mut Commands,
+    root: Entity,
+    cloth: Option<Handle<crate::frontal::FrontalMaterial>>,
+) -> Entity {
     let panel = commands
         .spawn((
             DrawerZoom::default(),
@@ -389,8 +373,12 @@ fn spawn_panel(commands: &mut Commands, root: Entity) -> Entity {
                 },
                 ..default()
             },
-            BackgroundColor(palette::DIALOG),
-            BorderColor::all(palette::DIALOG_LINE),
+            BackgroundColor(if cloth.is_some() {
+                Color::NONE
+            } else {
+                palette::DOCK_GROUND
+            }),
+            BorderColor::all(palette::DOCK_EDGE),
             // Upward, onto the table. The shelf's own shadow falls the other
             // way, onto the cards, and the two together are what make the
             // pair read as one piece of furniture with a drawer out of it.
@@ -403,6 +391,11 @@ fn spawn_panel(commands: &mut Commands, root: Entity) -> Entity {
             }]),
         ))
         .id();
+    if let Some(handle) = cloth {
+        commands
+            .entity(panel)
+            .insert((MaterialNode(handle), crate::frontal::Hanging));
+    }
     commands.entity(root).add_child(panel);
     panel
 }
@@ -491,7 +484,20 @@ fn reading(
         lines.push(Line {
             text: hint.text(lang).to_string(),
             size: HINT_PT,
-            ink: palette::DIALOG_SOFT,
+            ink: palette::DOCK_INK,
+        });
+    }
+
+    if let Some(i) = duel.interaction.as_ref().filter(|_| !waiting && !elsewhere)
+        && let Pending::DiscardChoice { count, .. } = i.pending()
+    {
+        lines.push(Line {
+            text: Phrase::BrowseTallyExact.fill(
+                lang,
+                &[&i.selected().count().to_string(), &count.to_string()],
+            ),
+            size: LINE_PT,
+            ink: palette::DOCK_INK,
         });
     }
 
@@ -583,7 +589,7 @@ fn combat_lines(
         lines.push(Line {
             text: aim,
             size: LINE_PT,
-            ink: palette::DIALOG_SOFT,
+            ink: palette::DOCK_INK,
         });
     }
     // Unlike the aim, this is not about a declaration this seat is making, so
@@ -603,7 +609,7 @@ fn combat_lines(
             ink: if threatened {
                 palette::DANGER
             } else {
-                palette::DIALOG_INK
+                palette::DOCK_INK
             },
         });
     }
@@ -627,7 +633,7 @@ fn stepper(commands: &mut Commands, fonts: &UiFonts, value: u32) -> Entity {
         .spawn((
             Text::new(value.to_string()),
             tf(fonts, NUMBER_PT),
-            TextColor(palette::DIALOG_INK),
+            TextColor(palette::DOCK_INK),
             Pickable::IGNORE,
         ))
         .id();
@@ -684,7 +690,7 @@ fn filter_field(commands: &mut Commands, fonts: &UiFonts, typed: &str) -> Entity
                 align_items: AlignItems::Center,
                 ..default()
             },
-            BackgroundColor(palette::DIALOG_LIT),
+            BackgroundColor(palette::DOCK_GROUND),
             BorderColor::all(palette::DIALOG_LINE),
             Pickable::IGNORE,
         ))
@@ -695,7 +701,7 @@ fn filter_field(commands: &mut Commands, fonts: &UiFonts, typed: &str) -> Entity
         .spawn((
             Text::new(format!("{typed}_")),
             tf(fonts, SENTENCE_PT),
-            TextColor(palette::DIALOG_INK),
+            TextColor(palette::DOCK_INK),
             Pickable::IGNORE,
         ))
         .id();

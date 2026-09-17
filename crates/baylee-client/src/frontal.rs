@@ -2,7 +2,7 @@
 //!
 //! The shader is `shaders/frontal.wgsl` and the whole argument is written
 //! there. This is the half that has to exist in Rust: the material, the
-//! **ten** handles it is ever minted on, and the system that keeps each
+//! **eleven** handles it is ever minted on, and the system that keeps each
 //! surface's idea of its own size and of the motion preference in step with
 //! the node it is on.
 //!
@@ -98,11 +98,12 @@ impl UiMaterial for FrontalMaterial {
 #[derive(Component, Clone, Copy, Default)]
 pub struct Hanging;
 
-/// Two dock handles and at most eight seat handles, retained across rebuilds.
+/// Three dock handles and at most eight seat handles, retained across rebuilds.
 #[derive(Resource, Default)]
 pub struct Cloth {
     skirt: Option<Handle<FrontalMaterial>>,
     rail: Option<Handle<FrontalMaterial>>,
+    drawer: Option<Handle<FrontalMaterial>>,
     seats: [Option<Handle<FrontalMaterial>>; 8],
 }
 
@@ -170,6 +171,23 @@ impl Cloth {
             },
         });
         self.rail = Some(handle.clone());
+        Some(handle)
+    }
+
+    /// The action dock's upward extension has its own measured size.
+    pub fn drawer(
+        &mut self,
+        assets: Option<&mut Assets<FrontalMaterial>>,
+    ) -> Option<Handle<FrontalMaterial>> {
+        let assets = assets?;
+        if let Some(handle) = &self.drawer {
+            return Some(handle.clone());
+        }
+        let rail = self.rail(Some(assets))?;
+        let mut material = assets.get(&rail)?.clone();
+        material.params.surface.w = 1.0; // open foot, joined to the action rail
+        let handle = assets.add(material);
+        self.drawer = Some(handle.clone());
         Some(handle)
     }
 

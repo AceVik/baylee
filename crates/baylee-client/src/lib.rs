@@ -925,7 +925,9 @@ fn add_present_systems(app: &mut App) {
             // same racetrack and reads the slab to learn it.
             (
                 sky::light_the_table.after(sky::sync_sky),
-                atmosphere::breathe.after(table::sync_table),
+                atmosphere::breathe
+                    .after(table::sync_table)
+                    .after(sky::sync_sky),
             ),
             // One entry and not three: a system tuple holds twenty and this
             // list is at its limit. Chained rather than merely ordered

@@ -160,20 +160,13 @@ fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
     let seat = params.surface.y > 1.5;
     let rail = params.surface.y > 0.5 && !seat;
     let side = min(across, w - across);
-    let foot = h - y;
+    let foot = select(h - y, h + 1.0, params.surface.w > 0.5);
     let frame_depth = min(depth, min(side, foot));
     let inset = abs(frame_depth - select(7.0, 2.5, seat || rail));
     let tooling = 1.0 - smoothstep(0.35, 1.15, inset);
     let edge_light = (1.0 - smoothstep(0.0, 2.0, frame_depth)) * 0.45;
     let engraving = max(tooling * select(0.30, 0.14, rail), edge_light);
     dye = mix(dye, params.lip.rgb, engraving);
-
-    // The seat's identity and timeline are one object with two registers.
-    // This line is inside the 2 px row gap, never a new layout boundary.
-    if seat && h >= 46.0 {
-        let seam = 1.0 - smoothstep(0.25, 0.9, abs(y - (h - 23.0)));
-        dye = mix(dye, params.lip.rgb, seam * 0.28);
-    }
 
     // Hand-only furniture: broad end caps, engraved diamonds and five tiny
     // mineral inserts along the foot. Their positions and colours never move.

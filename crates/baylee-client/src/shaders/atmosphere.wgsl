@@ -84,6 +84,8 @@ struct AtmosphereParams {
     corner: f32,
     /// How wide the padded rail runs, so a veil can stop on the cloth.
     rail: f32,
+    day: f32,
+    budget: f32,
 }
 
 @group(#{MATERIAL_BIND_GROUP}) @binding(0) var<uniform> params: AtmosphereParams;
@@ -266,6 +268,25 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     let wind = across * (0.25 * sin(t * 0.5));
 
     var acc = vec4<f32>(0.0);
+
+    // Light through the air follows the same eased clock as the sky. Broad
+    // shafts and sparse motes stay below cards, with no additional draw pass.
+    let shore = smoothstep(0.0, 1.0, inset);
+    let diagonal = table.x * 0.72 + table.y * 0.46;
+    let beam = pow(max(0.0, sin(diagonal * 0.48 + 0.15 * sin(t * 0.08))), 12.0);
+    let source = mix(vec3<f32>(0.40, 0.59, 0.76), vec3<f32>(0.99, 0.85, 0.61), params.day);
+    acc = over(acc, to_linear(source), beam * shore * params.budget * mix(0.012, 0.035, params.day));
+    for (var layer = 0; layer < 2; layer = layer + 1) {
+        let depth = f32(layer);
+        let drift = vec2<f32>(0.045, 0.025) * t * (1.0 + depth * 0.6);
+        let m = mark_at(table, 2.8, drift, 13.0 + depth * 4.0, 31.0 + depth, t);
+        let d = length(m.at);
+        let radius = mix(0.024, 0.042, depth);
+        let mote = 1.0 - smoothstep(0.0, radius, d);
+        let glimmer = 0.65 + 0.35 * sin(t * 0.7 + m.s1 * TAU);
+        let a = mote * m.env * alive(m, 0.32, params.budget) * shore * glimmer * 0.38;
+        acc = over(acc, to_linear(source), a);
+    }
 
     // The shafts are computed first because the veil is lit by them, and
     // drawn second because they are above it.

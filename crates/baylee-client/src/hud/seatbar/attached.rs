@@ -15,16 +15,16 @@
 //! used to be a vertical column beside the command-zone rim; they are
 //! horizontal here because that is the only place on this table where "the
 //! middle, above the board" is free — the middle of the *table* is the
-//! firewheel's, and a track laid across the gap between two mats would be
-//! drawn over the flames.
+//! compass's, while each player keeps a distinct identity, count cluster and
+//! labelled timeline within their own reserved band.
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
 
-const HEADER_H: f32 = 30.0;
-const HEADER_W: f32 = 300.0;
-const TRACK_W: f32 = 24.0;
-const TRACK_H: f32 = 340.0;
+const HEADER_H: f32 = 60.0;
+const HEADER_W: f32 = 280.0;
+const TRACK_W: f32 = 52.0;
+const TRACK_H: f32 = 520.0;
 
 /// What the three panels leave between and beside themselves on the band,
 /// before any of them is allowed to grow.
@@ -137,7 +137,7 @@ pub(crate) fn pose_on(corners: [Vec2; 4], panel: Panel) -> (Vec2, f32, f32) {
     // matters: the middle one is the only one that can meet another, and it
     // can meet two.
     let scale = (width / (HEADER_W * 2.0 + TRACK_H + BAND_GAP * 4.0))
-        .min(depth / HEADER_H)
+        .min(depth * 0.85 / HEADER_H)
         .min(1.0);
     let middle = match panel {
         Panel::Identity => left + axis * (HEADER_W * scale * 0.5 + BAND_GAP * scale),
@@ -178,15 +178,15 @@ fn frame(
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::SpaceEvenly,
                 border: UiRect::bottom(px(1)),
-                border_radius: BorderRadius::all(px(3)),
+                border_radius: BorderRadius::all(px(8)),
                 ..default()
             },
-            BackgroundColor(palette::SEAT_BACKING),
-            BorderColor::all(palette::DOCK_EDGE.with_alpha(0.65)),
+            BackgroundColor(Color::NONE),
+            BorderColor::all(palette::DOCK_EDGE.with_alpha(0.35)),
             Pickable::IGNORE,
         ))
         .id();
-    if let Some(handle) = surface {
+    if let Some(handle) = surface.filter(|_| matches!(panel, Panel::Identity)) {
         commands.entity(entity).insert((
             BackgroundColor(Color::NONE),
             MaterialNode(handle),
@@ -216,22 +216,94 @@ pub(super) fn spawn(
         Panel::Identity,
         surface.clone(),
     );
-    let cells = [
-        caret(commands, view, seat, fonts, 10.0, HEADER_H),
-        swatch(commands, view, statics, seat, 3.0, HEADER_H - 8.0),
-        name(commands, lang, view, statics, seat, fonts, 142.0, HEADER_H),
-        life(commands, seat, fonts, 72.0, HEADER_H, Density::Split),
-        hinge(commands, view, seat, fonts, 56.0, HEADER_H),
+    // Life is the anchor; name and turn metadata share a quieter column.
+    let vitality = life(commands, seat, fonts, 86.0, 54.0, Density::Split);
+    let mut orb = cell_node(86.0, 54.0);
+    orb.border = UiRect::right(px(1));
+    orb.border_radius = BorderRadius::all(px(8));
+    commands.entity(vitality).insert((
+        orb,
+        BackgroundColor(palette::DOCK_GROUND.with_alpha(0.6)),
+        BorderColor::all(palette::DOCK_EDGE.with_alpha(0.5)),
+    ));
+    commands.entity(identity).add_child(vitality);
+    let details = commands
+        .spawn((
+            Node {
+                width: px(168),
+                flex_direction: FlexDirection::Column,
+                row_gap: px(3),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    let label = name(commands, lang, view, statics, seat, fonts, 168.0, 25.0);
+    let status = commands
+        .spawn((
+            Node {
+                align_items: AlignItems::Center,
+                column_gap: px(8),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    let marks = [
+        swatch(commands, view, statics, seat, 3.0, 18.0),
+        caret(commands, view, seat, fonts, 12.0, 18.0),
+        hinge(commands, view, seat, fonts, 90.0, 18.0),
     ];
-    for cell in cells {
-        commands.entity(identity).add_child(cell);
-    }
-    let counts = frame(commands, root, seat.player, Panel::Counts, surface.clone());
+    commands.entity(status).add_children(&marks);
+    commands.entity(details).add_children(&[label, status]);
+    commands.entity(identity).add_child(details);
+
+    let counts = frame(commands, root, seat.player, Panel::Counts, None);
     for zone in [Zone::Hand, Zone::Library, Zone::Graveyard, Zone::Exile] {
-        let cell = count(commands, view, seat, zone, fonts, 70.0, HEADER_H);
+        let cell = count(commands, view, seat, zone, fonts, 62.0, 42.0);
+        commands.entity(cell).insert((
+            BackgroundColor(palette::DOCK_GROUND.with_alpha(0.7)),
+            BorderColor::all(palette::DOCK_EDGE.with_alpha(0.25)),
+        ));
         commands.entity(counts).add_child(cell);
     }
-    let track = frame(commands, root, seat.player, Panel::Phases, surface);
+    let track = frame(commands, root, seat.player, Panel::Phases, None);
+    commands.entity(track).insert(Node {
+        display: Display::None,
+        position_type: PositionType::Absolute,
+        width: px(TRACK_H),
+        height: px(TRACK_W),
+        flex_direction: FlexDirection::Column,
+        align_items: AlignItems::Center,
+        justify_content: JustifyContent::Center,
+        row_gap: px(6),
+        ..default()
+    });
+    let current = RailRow::current(view.phase, view.step);
+    let caption = commands
+        .spawn((
+            Text::new(current.name().text(lang)),
+            tf_bold(fonts, 12.0),
+            TextColor(if view.active == seat.player {
+                palette::CANDLE
+            } else {
+                palette::DOCK_INK.with_alpha(0.45)
+            }),
+            Pickable::IGNORE,
+        ))
+        .id();
+    let timeline = commands
+        .spawn((
+            Node {
+                width: percent(100),
+                justify_content: JustifyContent::SpaceBetween,
+                align_items: AlignItems::Center,
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(track).add_children(&[caption, timeline]);
     let side = if same_team(statics, seat.player, view.seat) {
         RailSide::Mine
     } else {
@@ -247,7 +319,7 @@ pub(super) fn spawn(
                     column_gap: px(1),
                     ..default()
                 },
-                BackgroundColor(palette::SEAT_TRACK),
+                BackgroundColor(palette::DOCK_GROUND.with_alpha(0.65)),
                 Pickable::IGNORE,
             ))
             .id();
@@ -255,8 +327,8 @@ pub(super) fn spawn(
             let tile = spawn_tile(
                 commands,
                 fonts,
-                Density::Compact,
-                TRACK_W,
+                Density::Full,
+                38.0,
                 TileState {
                     side,
                     row,
@@ -272,7 +344,7 @@ pub(super) fn spawn(
             );
             commands.entity(group).add_child(tile);
         }
-        commands.entity(track).add_child(group);
+        commands.entity(timeline).add_child(group);
     }
 }
 

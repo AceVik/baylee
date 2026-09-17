@@ -45,10 +45,10 @@ struct SkyParams {
 const TAU: f32 = 6.2831855;
 
 // The day sky, display-referred like every colour this project writes down.
-const DAY_HIGH: vec3<f32> = vec3<f32>(0.075, 0.115, 0.170);
-const DAY_LOW: vec3<f32> = vec3<f32>(0.190, 0.245, 0.265);
-const CLOUD_LIT: vec3<f32> = vec3<f32>(0.360, 0.420, 0.430);
-const CLOUD_SHADE: vec3<f32> = vec3<f32>(0.110, 0.170, 0.220);
+const DAY_HIGH: vec3<f32> = vec3<f32>(0.30, 0.49, 0.66);
+const DAY_LOW: vec3<f32> = vec3<f32>(0.70, 0.79, 0.80);
+const CLOUD_LIT: vec3<f32> = vec3<f32>(0.96, 0.93, 0.84);
+const CLOUD_SHADE: vec3<f32> = vec3<f32>(0.48, 0.62, 0.71);
 const SUN_CORE: vec3<f32> = vec3<f32>(1.000, 0.976, 0.855);
 
 // Blue-black air matches the mineral table and the hand's dark ground.
@@ -75,8 +75,8 @@ const MOON_AT: vec2<f32> = vec2<f32>(-0.115, 0.110);
 // chosen: the sky the player actually sees at the opening shot is about a
 // tenth of the window high in each corner, so a body wider than that is a
 // body half of which is behind the table.
-const SUN_R: f32 = 0.038;
-const MOON_R: f32 = 0.032;
+const SUN_R: f32 = 0.025;
+const MOON_R: f32 = 0.027;
 /// How far the shadow disc is pushed off the moon to leave a crescent.
 const MOON_BITE: vec2<f32> = vec2<f32>(0.017, -0.011);
 
@@ -122,7 +122,7 @@ fn vnoise(p: vec2<f32>) -> f32 {
     return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
 }
 
-/// Five octaves, normalised back to 0..1. One more than the table's cloth
+/// Three octaves, normalised back to 0..1. One more than the table's cloth
 /// gets: a cloud is read at the size of the whole window and wants the
 /// coarse end, and the fine end is what stops the edges reading as blobs.
 fn fbm(p: vec2<f32>) -> f32 {
@@ -130,7 +130,7 @@ fn fbm(p: vec2<f32>) -> f32 {
     var amplitude = 0.5;
     var total = 0.0;
     var at = p;
-    for (var i = 0; i < 5; i = i + 1) {
+    for (var i = 0; i < 3; i = i + 1) {
         sum = sum + amplitude * vnoise(at);
         total = total + amplitude;
         at = at * 2.07;
@@ -157,14 +157,15 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     // that the sun and the moon keep their distance from *their* corner on a
     // window of any shape. A negative x in the constant means the right edge.
     let p = vec2<f32>(uv.x * aspect, uv.y);
-    let sun = vec2<f32>(select(SUN_AT.x, aspect + SUN_AT.x, SUN_AT.x < 0.0), SUN_AT.y);
-    let moon = vec2<f32>(select(MOON_AT.x, aspect + MOON_AT.x, MOON_AT.x < 0.0), MOON_AT.y);
+    let sun = vec2<f32>(select(SUN_AT.x, aspect + SUN_AT.x, SUN_AT.x < 0.0), SUN_AT.y + (1.0 - params.day) * 0.28);
+    let moon = vec2<f32>(select(MOON_AT.x, aspect + MOON_AT.x, MOON_AT.x < 0.0), MOON_AT.y + params.day * 0.24);
 
     let t = globals.time * params.motion;
 
     // ---- day ----------------------------------------------------------
     var lit = mix(DAY_HIGH, DAY_LOW, smoothstep(0.0, 1.0, uv.y));
 
+    if params.day > 0.001 {
     // Two decks, the upper one thinner and faster, so the sky has a depth to
     // it rather than one sheet of noise sliding past.
     let deck = fbm(p * 2.4 + vec2<f32>(t * DRIFT, t * DRIFT * 0.30));
@@ -195,11 +196,19 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     // it stands in. A sun is allowed to be the brightest thing on screen and
     // is not allowed to make the interface in front of it unreadable.
     let corona = halo(ds, SUN_R, 0.13) * 0.60 + halo(ds, SUN_R, 0.38) * 0.18;
-    lit += SUN_CORE * (disc * 0.72 + corona * 0.55 * (1.0 - body * 0.65));
+    lit += SUN_CORE * corona * 0.45 * (1.0 - body * 0.65);
+    lit = mix(lit, SUN_CORE, disc * (1.0 - body * 0.45));
+
+    let ray_angle = atan2(p.y - sun.y, p.x - sun.x);
+    let rays = pow(max(0.0, sin(ray_angle * 11.0 + 0.08 * sin(t * 0.12))), 8.0);
+    lit += SUN_CORE * rays * halo(ds, SUN_R, 0.38) * 0.016
+        * smoothstep(SUN_R, SUN_R * 2.5, ds) * (1.0 - body);
+    }
 
     // ---- night --------------------------------------------------------
     var dark = mix(NIGHT_HIGH, NIGHT_LOW, smoothstep(0.0, 1.0, uv.y));
 
+    if params.day < 0.999 {
     // A faint band of something further away, so the night is not a flat
     // fill between the stars.
     let deep = fbm(p * 3.3 + vec2<f32>(t * DRIFT * 0.25, 0.0) + 61.3);
@@ -244,8 +253,18 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     let bite = 1.0 - smoothstep(MOON_R * 0.92, MOON_R * 0.99, distance(p, moon + MOON_BITE));
     let crescent = clamp(full - bite, 0.0, 1.0);
     // A little relief on the lit face, so it is a body and not a sticker.
-    let seas = 0.88 + 0.12 * fbm((p - moon) * 42.0);
+    var seas = 1.0;
+    if dm < MOON_R { seas = 0.88 + 0.12 * vnoise((p - moon) * 180.0); }
     dark += MOON_CORE * (crescent * seas * 0.85 + halo(dm, MOON_R, 0.20) * 0.18);
+
+    // Fine curtains of aurora, visible at the open shoulders of the table.
+    let curtain = p.y + 0.065 * sin(p.x * 3.2 + t * 0.08)
+        + 0.025 * sin(p.x * 8.0 - t * 0.11);
+    let gauze = exp(-pow((curtain - 0.23) * 16.0, 2.0));
+    let filaments = 0.65 + 0.35 * sin(p.x * 38.0 + deep * 6.0 + t * 0.15);
+    dark += mix(vec3<f32>(0.075, 0.20, 0.17), vec3<f32>(0.11, 0.10, 0.23), uv.x)
+        * gauze * filaments * 0.55;
+    }
 
     // ---- the two of them, and the light between them -------------------
     var sky = mix(dark, lit, params.day);
@@ -257,16 +276,27 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
 
     // Distant blue-green mist picks up the inlay's colours. Broad, dim and slow:
     // a room around the table, never a luminous HUD competing with the hand.
-    let ribbon = p.y + 0.055 * sin(p.x * 3.4 + t * 0.075) + (deep - 0.5) * 0.16;
+    let ribbon = p.y + 0.055 * sin(p.x * 3.4 + t * 0.075)  + 0.025 * sin(p.x * 8.0 - t * 0.09);
     let aurora = exp(-pow((ribbon - 0.72) * 9.0, 2.0));
     let sheen = 0.7 + 0.3 * sin(p.x * 4.0 - t * 0.11);
     var air_colour = mix(vec3<f32>(0.16, 0.22, 0.24), vec3<f32>(0.12, 0.24, 0.20), uv.x);
     air_colour += vec3<f32>(0.14, 0.075, 0.04) * pow(abs(uv.x * 2.0 - 1.0), 3.0);
-    sky += air_colour * aurora * sheen * 0.32;
+    sky += air_colour * aurora * sheen * mix(0.32, 0.10, params.day);
+    // Hazy mountain ridges ground the sky. Analytic silhouettes keep their
+    // detail quiet and cost no texture fetches or additional geometry.
+    for (var layer = 0; layer < 3; layer = layer + 1) {
+        let z = f32(layer);
+        let ridge = 0.79 + z * 0.064
+            + 0.046 * sin(p.x * (3.1 + z) + z * 7.0)
+            + 0.020 * sin(p.x * (9.0 + z * 2.0) + z * 3.0);
+        let silhouette = smoothstep(ridge - 0.002, ridge + 0.002, p.y);
+        let distant = mix(vec3<f32>(0.036, 0.065, 0.082), vec3<f32>(0.39, 0.52, 0.54), params.day);
+        sky = mix(sky, distant * (1.0 - z * 0.16), silhouette * (0.48 + z * 0.15));
+    }
     // Lens-like framing, not a post-process: the table and the artwork keep
     // their own exposure. Both daytime and night retain readable shadows.
     let vignette = smoothstep(0.30, 0.85, length((uv - 0.5) * vec2<f32>(0.85, 1.0)));
-    sky *= 1.0 - vignette * 0.30;
+    sky *= 1.0 - vignette * mix(0.30, 0.12, params.day);
 
     return vec4<f32>(to_linear(sky), 1.0);
 }
