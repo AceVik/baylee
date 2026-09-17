@@ -68,3 +68,21 @@ fn a_card_already_in_view_holds_the_hand_still() {
         "and a hover on nothing in the hand moves nothing at all"
     );
 }
+
+#[test]
+fn grouped_hands_leave_air_and_keyboard_scroll_includes_the_gaps() {
+    use crate::hand_order::HandGroup;
+    let groups = [
+        HandGroup { start: 0, key: 0 },
+        HandGroup { start: 3, key: 1 },
+        HandGroup { start: 20, key: 2 },
+    ];
+    let available = 800.0;
+    let layout = grouped_hand_layout(67, available, &groups);
+    assert!(layout.scrollable);
+    assert!(layout.step >= HAND_CARD_W * 0.65);
+    assert!(layout.start(3) - (layout.start(2) + HAND_CARD_W) >= 19.9);
+    let end = hand_scroll_to(0.0, Some(66), false, layout, available);
+    assert!((end + available - layout.content_width).abs() < 0.01);
+    assert!((hand_scroll_to(end, Some(3), true, layout, available) - end).abs() < f32::EPSILON);
+}

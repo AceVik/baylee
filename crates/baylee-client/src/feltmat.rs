@@ -73,6 +73,30 @@ pub struct FeltParams {
     pub thickness: f32,
     /// Mechanical compass angle, in radians.
     pub rotation: f32,
+    /// Per-duel domain offset, orientation, and scale of the vascular pattern.
+    pub pattern: Vec4,
+}
+
+/// Random presentation seed, sampled once when a duel is created.
+/// Kept on `Duel`, so resizing, reconnecting, and card updates retain the surface.
+#[derive(Clone, Copy, Debug)]
+pub struct TablePattern(
+    /// Bounded shader domain parameters: offset, angle, and scale.
+    pub Vec4,
+);
+
+impl TablePattern {
+    fn from_seed(seed: u64) -> Self {
+        let bytes = seed.to_le_bytes();
+        let part = |i| f32::from(u16::from_le_bytes([bytes[i], bytes[i + 1]])) / 256.0;
+        Self(Vec4::new(part(0), part(2), part(4), part(6)))
+    }
+}
+
+impl Default for TablePattern {
+    fn default() -> Self {
+        Self::from_seed(crate::host::fresh_seed())
+    }
 }
 
 /// How bright the rail burns at the top of combat.
@@ -137,5 +161,20 @@ impl Plugin for FeltMaterialPlugin {
     fn build(&self, app: &mut App) {
         embedded_asset!(app, "shaders/felt.wgsl");
         app.add_plugins(MaterialPlugin::<FeltMaterial>::default());
+    }
+}
+
+#[cfg(test)]
+mod pattern_tests {
+    use super::*;
+
+    #[test]
+    fn distinct_seeds_produce_stable_bounded_shader_domains() {
+        let a = TablePattern::from_seed(0).0;
+        let b = TablePattern::from_seed(u64::MAX).0;
+        assert_ne!(a, b);
+        assert!(b.cmpge(Vec4::ZERO).all() && b.cmplt(Vec4::splat(256.0)).all());
+        assert_eq!(a, TablePattern::from_seed(0).0);
+        assert_eq!(b, TablePattern::from_seed(u64::MAX).0);
     }
 }

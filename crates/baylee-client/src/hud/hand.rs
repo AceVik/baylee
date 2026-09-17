@@ -24,6 +24,8 @@ pub(super) fn spawn_hand_zone(
     armed: Option<&crate::Armed>,
     layout: HandLayout,
     scroll: f32,
+    order: crate::hand_order::HandOrder,
+    groups: &[crate::hand_order::HandGroup],
     textures: &mut CardTextures,
     assets: &AssetServer,
     fonts: &UiFonts,
@@ -161,6 +163,32 @@ pub(super) fn spawn_hand_zone(
         ))
         .id();
 
+    for (i, group) in groups.iter().enumerate() {
+        let end = groups.get(i + 1).map_or(board.hand.len(), |g| g.start);
+        let label = format!(
+            "{} · {}",
+            order.group_label(group.key, lang),
+            end - group.start
+        );
+        let heading = commands
+            .spawn((
+                Text::new(label),
+                TextLayout::no_wrap(),
+                tf_bold(fonts, 10.0),
+                TextColor(palette::CANDLE),
+                Node {
+                    position_type: PositionType::Absolute,
+                    left: px(layout.start(group.start)),
+                    width: px(layout.start(end - 1) + HAND_CARD_W - layout.start(group.start)),
+                    top: px(-HAND_HEADROOM + 2.0),
+                    ..default()
+                },
+                Pickable::IGNORE,
+            ))
+            .id();
+        commands.entity(strip).add_child(heading);
+    }
+
     for (i, card) in board.hand.iter().enumerate() {
         let is_selected = selected.contains(&card.id);
         let is_hovered = hovered == Some(card.id);
@@ -247,10 +275,15 @@ pub(super) fn spawn_hand_zone(
         );
         // Positioned by the layout rule; the strip's margin carries the
         // scroll offset (applied per frame, not rebuilt).
-        let left = i as f32 * layout.step;
+        let left = layout.start(i);
         let entity = commands
             .spawn((
                 HandCardVisual { object: card.id },
+                ZIndex(if is_hovered {
+                    2
+                } else {
+                    i32::from(offer.armed || is_selected)
+                }),
                 crate::hud::HandRowCard,
                 Node {
                     position_type: PositionType::Absolute,
@@ -326,6 +359,66 @@ pub(super) fn spawn_hand_zone(
         commands.entity(strip).add_child(entity);
     }
     commands.entity(zone).add_child(strip);
+    if layout.scrollable {
+        for (direction, label) in [(-1, "‹"), (1, "›")] {
+            let arrow = super::ledge::answer(
+                commands,
+                fonts,
+                label,
+                super::ledge::Weight::Secondary,
+                None,
+            );
+            commands.entity(arrow).insert((
+                MenuButton {
+                    action: MenuAction::ScrollHand(direction),
+                },
+                HandPage(direction),
+                ZIndex(10),
+                Node {
+                    position_type: PositionType::Absolute,
+                    left: if direction < 0 { px(2) } else { Val::Auto },
+                    right: if direction > 0 { px(2) } else { Val::Auto },
+                    top: px(LEDGE_H + HAND_HEADROOM + HAND_CARD_H * 0.4),
+                    width: px(26),
+                    height: px(38),
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::Center,
+                    border: UiRect::all(px(1)),
+                    border_radius: BorderRadius::all(px(4)),
+                    ..default()
+                },
+            ));
+            commands.entity(zone).add_child(arrow);
+        }
+        let track = commands
+            .spawn((
+                Node {
+                    position_type: PositionType::Absolute,
+                    left: px(HAND_STRIP_INSET),
+                    right: px(HAND_STRIP_INSET),
+                    bottom: px(2),
+                    height: px(3),
+                    ..default()
+                },
+                BackgroundColor(palette::DOCK_EDGE.with_alpha(0.35)),
+                Pickable::IGNORE,
+            ))
+            .id();
+        let thumb = commands
+            .spawn((
+                HandScrollThumb,
+                Node {
+                    position_type: PositionType::Absolute,
+                    height: percent(100),
+                    ..default()
+                },
+                BackgroundColor(palette::CANDLE.with_alpha(0.8)),
+                Pickable::IGNORE,
+            ))
+            .id();
+        commands.entity(track).add_child(thumb);
+        commands.entity(zone).add_child(track);
+    }
 
     // The command zone is *not* drawn here any more. It is a zone on the
     // table like the graveyard and the exile pile, and it was the only one
@@ -365,7 +458,7 @@ pub(super) fn hand_scroll_to(
     let Some(index) = hovered.filter(|_| !from_pointer) else {
         return scroll;
     };
-    let start = index as f32 * layout.step;
+    let start = layout.start(index);
     let end = start + HAND_CARD_W;
     if start < scroll {
         start
@@ -376,14 +469,21 @@ pub(super) fn hand_scroll_to(
     }
 }
 
-/// Applies the hand scroll offset and keeps the hovered card visible.
-///
-/// Runs per frame instead of being part of the rebuild: wheel ticks and
-/// cursor moves must not respawn the whole strip.
+/// Position indicator for an overflowing hand.
+#[derive(Component)]
+pub struct HandScrollThumb;
+
+/// A page arrow whose visibility follows the current scroll bounds.
+#[derive(Component)]
+pub struct HandPage(i8);
+
+/// Apply scrolling without rebuilding cards; keyboard hover follows group gaps.
 pub fn apply_hand_scroll(
     mut duel: ResMut<Duel>,
     windows: Query<&Window>,
-    mut strips: Query<&mut Node, With<HandStrip>>,
+    mut strips: Query<&mut Node, (With<HandStrip>, Without<HandScrollThumb>)>,
+    mut thumbs: Query<&mut Node, (With<HandScrollThumb>, Without<HandStrip>)>,
+    mut pages: Query<(&HandPage, &mut Visibility)>,
 ) {
     let (Some(board), Ok(window)) = (duel.board.as_ref(), windows.single()) else {
         return;
@@ -391,7 +491,7 @@ pub fn apply_hand_scroll(
     // The same width the rebuild lays the row out in. The two used to
     // differ, and that is what moved the row sideways on every rebuild.
     let available = hand_available(window.width());
-    let layout = hand_layout(board.hand.len(), HAND_CARD_W, available);
+    let layout = grouped_hand_layout(board.hand.len(), available, &duel.hand_groups);
     let max_scroll = (layout.content_width - available).max(0.0);
 
     let hovered = board.hand.iter().position(|c| Some(c.id) == duel.hovered);
@@ -404,6 +504,21 @@ pub fn apply_hand_scroll(
     )
     .clamp(0.0, max_scroll);
 
+    for (page, mut visibility) in &mut pages {
+        *visibility = if (page.0 < 0 && duel.hand_scroll <= 0.0)
+            || (page.0 > 0 && duel.hand_scroll >= max_scroll)
+        {
+            Visibility::Hidden
+        } else {
+            Visibility::Inherited
+        };
+    }
+    for mut node in &mut thumbs {
+        let width = (available * available / layout.content_width.max(1.0))
+            .clamp(20.0, available.max(20.0));
+        node.width = px(width);
+        node.left = px((available - width).max(0.0) * duel.hand_scroll / max_scroll.max(1.0));
+    }
     for mut node in &mut strips {
         let wanted = UiRect::left(px(HAND_STRIP_INSET + layout.lead - duel.hand_scroll));
         if node.margin != wanted {
@@ -437,7 +552,7 @@ pub fn apply_hand_scroll(
 /// and this function answered 724.
 #[must_use]
 pub(super) fn hand_card_x(layout: HandLayout, scroll: f32, index: usize) -> f32 {
-    HAND_STRIP_INSET + layout.lead - scroll + index as f32 * layout.step + HAND_CARD_W / 2.0
+    HAND_STRIP_INSET + layout.lead - scroll + layout.start(index) + HAND_CARD_W / 2.0
 }
 
 /// Where the preview panel stands.
@@ -861,11 +976,9 @@ pub const HAND_ZONE_H: f32 = LEDGE_H + HAND_HEADROOM + HAND_CARD_H + HAND_FOOTRO
 ///
 /// `Canvas::hud.bottom` is this number, and `CameraRig::home` frames the table
 /// in what is left — so a zone that grows takes the table with it, silently
-/// and on every screen. The bar it replaces was 188.65; the ceiling is that
-/// plus a rounding's worth of slack. A change that breaks this is a change
-/// that costs table, and it has to say so rather than be discovered in a
-/// screenshot.
-const _: () = assert!(HAND_ZONE_H <= 191.0);
+/// and on every screen. Group headings add twelve pixels to the former
+/// 191-pixel budget; the wider duel's deeper lanes compensate on the table.
+const _: () = assert!(HAND_ZONE_H <= 203.0);
 
 /// What stands out of a raised card has to fit under the ledge.
 ///
@@ -894,7 +1007,7 @@ const _: () = assert!(ARMED_RAISE + HALO_REACH <= LEDGE_H + HAND_HEADROOM);
 ///
 /// So this is only the air between the card's raised top edge and the shelf
 /// it must not touch: [`ARMED_RAISE`] plus four.
-pub const HAND_HEADROOM: f32 = ARMED_RAISE + 4.0;
+pub const HAND_HEADROOM: f32 = ARMED_RAISE + 16.0;
 
 /// The room under a card, which nothing has to clear: below the bottom edge
 /// is the window's own edge, and a halo cut off there is cut off by the

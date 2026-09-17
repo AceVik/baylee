@@ -20,13 +20,32 @@ The lobby backdrop remains separate from the duel.
 `felt.wgsl` draws smoked glass above winding water and lava channels. Water
 ripples and caustics travel faster than the molten crust; their confluence
 cools into dark obsidian with a restrained steam veil. Fixed banks keep the
-motion legible as flow. Tributaries sit at golden-section offsets and use
-61.8% of the main channels’ width; nearest-channel selection shares the same
-noise samples across all branches. Everything stays in the existing opaque pass. This is a
+motion legible as flow. Two scales of domain-warped cellular seams form
+connected trunks and fine capillaries, with spatially blended water and lava.
+The pattern is vascular rather than spaced along golden-section curves. A
+client-only OS-random seed chooses domain offset, orientation, and scale once
+per duel; card updates, resizing, and reconnects keep that surface stable.
+Everything stays in the existing opaque pass. This is a
 stylised glass material, without screen-space refraction or a render target.
 Table corners use 6.5% of the short axis. Wide duels use a 0.62 camera lean
 and tighter framing; smaller windows and multiplayer rings retain the original
-camera. Hover lifts were lowered to keep picking stable at the steeper angle.
+camera. Broad duel mats gain up to 1.1 world units of depth; their aspect
+compensates for camera foreshortening so the extra space reaches the card lanes.
+Hover lifts were lowered to keep picking stable at the steeper angle.
+
+Large hands retain at least 65% of each card's width and scroll horizontally,
+with page arrows and a position indicator. Hovered cards draw above their
+neighbors for the duration of the hover. Mouse and trackpad scrolling use their
+native units; keyboard navigation includes the spaces between groups.
+
+Compact framed icon buttons in the actions bar offer draw order, mana value,
+name, type, and color. Category
+modes both sort and group, with one heading and count per contiguous group.
+Artifact creatures stay in the creature group, multicolor has its own group,
+and mana values above nine share a 10+ group. Narrow windows cycle the same
+modes through a compact button. Ordering persists through view updates without
+changing the engine's hand or reordering on playability changes. Group headings
+use twelve additional pixels above the cards.
 
 Cards sit 0.028 units above the glass with contact shadows, a narrow subdued
 stock highlight, and minimal ambient sheen to retain printed contrast. The

@@ -471,7 +471,7 @@ impl CameraRig {
             0.0
         };
         let tilt = CAMERA_LEAN + (DUEL_LEAN - CAMERA_LEAN) * framing;
-        let air = AIR - 1.65 * framing;
+        let air = AIR - 1.95 * framing;
         let (min, max) = (min - Vec2::splat(air), max + Vec2::splat(air));
         let span = max - min;
 
@@ -2485,6 +2485,7 @@ pub fn sync_table(
                     gain: crate::feltmat::WASH_GAIN,
                     thickness: TABLE_THICKNESS,
                     rotation: 0.0,
+                    pattern: duel.table_pattern.0,
                 },
             })),
             Transform::from_xyz(0.0, TABLE_Y, 0.0)

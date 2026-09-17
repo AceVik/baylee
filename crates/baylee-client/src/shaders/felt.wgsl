@@ -76,6 +76,7 @@ struct FeltParams {
     /// How thick the slab is, so the apron can be shaded down its height.
     thickness: f32,
     rotation: f32,
+    pattern: vec4<f32>,
 }
 
 @group(#{MATERIAL_BIND_GROUP}) @binding(0) var<uniform> params: FeltParams;
@@ -238,48 +239,50 @@ fn hairline(distance: f32, width: f32, pixel: f32) -> f32 {
 /// The cloth at a point of table, in display-referred colour.
 // Polished smoked glass over slow elemental strata. Bounded noise work,
 // no refraction buffer and no additional full-screen pass.
-// Branching channels meet in an obsidian estuary. The banks stay fixed;
-// texture travels along the channel, so this reads as flow rather than pulsing noise.
-fn glass_at(p: vec2<f32>) -> vec3<f32> {
-    let t = globals.time * params.motion;
-    let bend = sin(p.y * 0.31) * 1.65 + sin(p.y * 0.71 + 0.6) * 0.48;
-    let confluence = 1.0 - smoothstep(0.0, 7.5, abs(p.y));
-    // Golden-section tributaries widen the composition without repeating it
-    // as a grid. Pick the nearest channel before shading: extra branches add
-    // only distance arithmetic, not another set of fractal-noise samples.
-    let golden = 0.618034;
-    let branch_span = params.span.x * (golden - 0.5);
-    let fork = smoothstep(-params.span.y * 0.19, params.span.y * 0.31, p.y);
-    let bank = (vnoise(p * 0.75) - 0.5) * 0.38;
-    var water_axis = bend - 2.0 * (1.0 - confluence);
-    var lava_axis = bend + 2.0 * (1.0 - confluence);
-    var water_width = 1.0;
-    var lava_width = 1.0;
-    for (var i = 0; i < 2; i += 1) {
-        let side = select(-1.0, 1.0, i == 1);
-        let spread = select(fork, 1.0 - fork, i == 1);
-        let tributary = branch_span * (1.0 + golden * spread);
-        let meander = sin(p.y * 0.46 + side * 2.4) * 0.62;
-        let water_branch = bend + side * tributary + meander;
-        let lava_branch = bend + side * tributary * golden - meander;
-        if abs(p.x - water_branch + bank) / golden < abs(p.x - water_axis + bank) / water_width {
-            water_axis = water_branch;
-            water_width = golden;
-        }
-        if abs(p.x - lava_branch - bank) / golden < abs(p.x - lava_axis - bank) / lava_width {
-            lava_axis = lava_branch;
-            lava_width = golden;
+// Distance to a cellular seam. Two scales form connected trunks and finer
+// capillaries; domain warping removes the straight polygon edges. Fixed loops
+// and scalar noise keep the network in the existing opaque material pass.
+fn vein_distance(p: vec2<f32>) -> f32 {
+    let cell = floor(p);
+    let local = fract(p);
+    var nearest = 8.0;
+    var second = 8.0;
+    for (var y = -1; y <= 1; y += 1) {
+        for (var x = -1; x <= 1; x += 1) {
+            let offset = vec2<f32>(f32(x), f32(y));
+            let seed = cell + offset;
+            let point = vec2<f32>(vnoise(seed * 7.13), vnoise(seed * 9.71 + 31.7));
+            let delta = offset + point - local;
+            let d = dot(delta, delta);
+            second = min(second, max(nearest, d));
+            nearest = min(nearest, d);
         }
     }
-    let water_d = abs(p.x - water_axis + bank) / water_width;
-    let lava_d = abs(p.x - lava_axis - bank) / lava_width;
-    let water = 1.0 - smoothstep(0.72, 1.38, water_d);
-    let lava = 1.0 - smoothstep(0.60, 1.18, lava_d);
+    return (sqrt(second) - sqrt(nearest)) * 0.5;
+}
+
+fn glass_at(p: vec2<f32>) -> vec3<f32> {
+    let t = globals.time * params.motion;
+    let angle = params.pattern.z * (6.2831853 / 256.0);
+    let axis = vec2<f32>(cos(angle), sin(angle));
+    let domain = vec2<f32>(dot(p, axis), dot(p, vec2<f32>(-axis.y, axis.x)))
+        * (0.85 + params.pattern.w * (0.30 / 256.0)) + params.pattern.xy;
+    let warp = domain + vec2<f32>(fbm2(domain * 0.32), fbm2(domain * 0.32 + 19.4)) * 3.4;
+    let trunk = vein_distance(warp * 0.28);
+    let capillary = vein_distance(warp * 0.73 + 8.3);
+    // Fine branches fade between the larger vessels instead of filling every
+    // cell with equally bright cracks. Water and molten rock share junctions.
+    let branch = min(trunk, capillary * 3.2 + 0.012 + smoothstep(0.04, 0.20, trunk) * 0.065);
+    let heat = vnoise(warp * 0.19 + 42.0);
+    let water_d = branch * 18.0 + smoothstep(0.44, 0.64, heat) * 1.05;
+    let lava_d = branch * 24.0 + (1.0 - smoothstep(0.36, 0.56, heat)) * 0.95;
+    let water = 1.0 - smoothstep(0.42, 1.25, water_d);
+    let lava = 1.0 - smoothstep(0.30, 0.98, lava_d);
     let silt = fbm2(p * 0.34);
     var colour = mix(vec3<f32>(0.012, 0.023, 0.029), vec3<f32>(0.035, 0.046, 0.050), silt);
 
     // Advected ripples, refracted caustics and narrow reflected crests.
-    let flow = vec2<f32>((p.x - water_axis) * 2.4, p.y * 1.4 - t * 0.34);
+    let flow = vec2<f32>(warp.x * 2.4, warp.y * 1.4 - t * 0.34);
     let current = fbm2(flow);
     let ripple = sin(flow.y * 18.0 + sin(flow.x * 4.0 + current * 8.0) * 0.8);
     let crest = pow(max(ripple, 0.0), 14.0);
@@ -292,11 +295,11 @@ fn glass_at(p: vec2<f32>) -> vec3<f32> {
     colour = mix(colour, river, water);
 
     // Slower molten flow carries dark crust islands over glowing seams.
-    let molten_uv = vec2<f32>((p.x - lava_axis) * 4.5, p.y * 2.5 - t * 0.23);
+    let molten_uv = vec2<f32>(warp.x * 4.5, warp.y * 2.5 - t * 0.23);
     let crust = fbm2(molten_uv);
     let crack = 1.0 - smoothstep(0.008, 0.09, abs(crust - 0.49));
     let core = 1.0 - smoothstep(0.1, 1.0, lava_d);
-    var molten = mix(vec3<f32>(0.045, 0.016, 0.012), vec3<f32>(0.23, 0.056, 0.008), crack);
+    var molten = mix(vec3<f32>(0.10, 0.023, 0.006), vec3<f32>(0.30, 0.075, 0.012), crack);
     molten += vec3<f32>(0.19, 0.11, 0.026) * crack * core;
     // Cooling at the confluence forms black glass and a thin pale steam veil.
     let contact = water * lava;

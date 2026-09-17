@@ -65,7 +65,7 @@ fn focusing_an_opponent_enlarges_it_at_everyone_elses_expense() {
 }
 
 #[test]
-fn a_mat_is_the_same_depth_at_every_table() {
+fn only_wide_duels_gain_extra_lane_depth() {
     // The bug this replaces: depth came off the ring, so a table laid out
     // for eight seats gave each of them a deeper mat than a duel did — and
     // a duel, which is what almost every game is, got the shallowest board
@@ -73,8 +73,9 @@ fn a_mat_is_the_same_depth_at_every_table() {
     for n in 1..=8 {
         for aspect in [0.6_f32, 1.0, 1.78, 2.0, 2.8] {
             for slot in &TableLayout::new(&seats(n), aspect, None).slots {
+                let expected = POD_DEPTH + if n == 2 && aspect >= 1.6 { 1.1 } else { 0.0 };
                 assert!(
-                    (slot.half_extent.y * 2.0 - POD_DEPTH).abs() < 1e-3,
+                    (slot.half_extent.y * 2.0 - expected).abs() < 1e-3,
                     "{n} seats at {aspect}: mat is {} deep, not {POD_DEPTH}",
                     slot.half_extent.y * 2.0
                 );

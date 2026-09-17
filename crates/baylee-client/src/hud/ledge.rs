@@ -412,6 +412,7 @@ const _: () = assert!(LEDGE_PAD_Y * 2.0 + BUTTON_H == hand::LEDGE_H);
 #[allow(clippy::struct_excessive_bools)]
 #[derive(Resource, Default, Clone, PartialEq)]
 pub struct LedgeRevision {
+    hand_order: crate::hand_order::HandOrder,
     /// Which snapshot of the game.
     pub(super) seq: Option<u64>,
     /// Whether the game has ended, which empties the right column.
@@ -653,6 +654,7 @@ pub fn sync_ledge(
     #[allow(clippy::cast_possible_truncation)]
     let window_w = windows.single().map_or(1200, |w| w.width() as i32);
     let next = LedgeRevision {
+        hand_order: duel.hand_order,
         seq: duel.board.as_ref().map(|b| b.seq),
         over,
         prompt,
@@ -699,6 +701,47 @@ pub fn sync_ledge(
         }
     }
 
+    let tools = commands
+        .spawn((
+            Node {
+                position_type: PositionType::Absolute,
+                left: px(LEFT_RESERVED),
+                top: px(LEDGE_PAD_Y - LIP + 2.0),
+                column_gap: px(4),
+                align_items: AlignItems::Center,
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(shelf).add_child(tools);
+    let orders = if window_w >= 1400 {
+        crate::hand_order::HandOrder::ALL.to_vec()
+    } else {
+        vec![duel.hand_order]
+    };
+    for order in orders {
+        let label = if window_w >= 1400 {
+            order.label(lang).to_string()
+        } else {
+            format!("Hand: {} ›", order.label(lang))
+        };
+        let weight = if order == duel.hand_order {
+            Weight::Candle
+        } else {
+            Weight::Secondary
+        };
+        let button = hand_tool(&mut commands, &fonts, &label, order, weight);
+        commands.entity(button).insert(MenuButton {
+            action: MenuAction::SortHand(if window_w >= 1400 {
+                order
+            } else {
+                order.next()
+            }),
+        });
+        commands.entity(tools).add_child(button);
+    }
+
     // The middle is built first because it is the only one that knows how
     // wide it is, and how wide it is decides the arrangement of all three.
     let answers = answers_for(&duel, lang, over, waiting, elsewhere);
@@ -736,7 +779,7 @@ pub fn sync_ledge(
     let arrangement = baylee_client_core::ledge::arrange(
         window_w as f32,
         baylee_client_core::ledge::Columns {
-            left: LEFT_RESERVED,
+            left: LEFT_RESERVED + if window_w >= 1400 { 310.0 } else { 145.0 },
             mid,
             right: RIGHT_RESERVED,
         },
@@ -833,6 +876,62 @@ pub fn sync_ledge(
             commands.entity(row).add_child(button);
         }
     }
+}
+
+/// Compact, framed category controls; icons and text share one hit target.
+fn hand_tool(
+    commands: &mut Commands,
+    fonts: &UiFonts,
+    label: &str,
+    order: crate::hand_order::HandOrder,
+    weight: Weight,
+) -> Entity {
+    use crate::hand_order::HandOrder;
+    let mark = match order {
+        HandOrder::Draw => baylee_client_core::tableicons::ZONES[0],
+        HandOrder::Mana => '\u{f162}', // numeric ascending
+        HandOrder::Name => '\u{f15d}', // alphabetic ascending
+        HandOrder::Type => glyph::LIBRARY,
+        HandOrder::Color => '\u{f53f}', // palette
+    };
+    let (fill, edge, ink) = weight.colours();
+    let button = commands
+        .spawn((
+            Node {
+                height: px(24),
+                align_items: AlignItems::Center,
+                column_gap: px(4),
+                padding: UiRect::axes(px(6), px(2)),
+                border: UiRect::all(px(1)),
+                border_radius: BorderRadius::all(px(3)),
+                ..default()
+            },
+            BackgroundColor(fill),
+            BorderColor::all(edge),
+        ))
+        .id();
+    if let Some(feel) = weight.feel() {
+        commands.entity(button).insert(feel);
+    }
+    let icon = commands
+        .spawn((
+            Text::new(mark.to_string()),
+            table_icon_tf(fonts, mark, 10.0),
+            TextColor(ink),
+            Pickable::IGNORE,
+        ))
+        .id();
+    let label = commands
+        .spawn((
+            Text::new(label),
+            tf_bold(fonts, 11.0),
+            TextLayout::no_wrap(),
+            TextColor(ink),
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(button).add_children(&[icon, label]);
+    button
 }
 
 /// What one button in the middle sends.

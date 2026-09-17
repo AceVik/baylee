@@ -56,6 +56,7 @@ pub mod feltmat;
 pub mod flip;
 pub mod frontal;
 pub mod gpu;
+pub mod hand_order;
 pub mod host;
 pub mod hud;
 pub mod input;
@@ -331,6 +332,12 @@ pub enum HoverSpot {
 /// The client's own state for one duel.
 #[derive(Resource, Default)]
 pub struct Duel {
+    /// Stable random surface for this local duel lifetime.
+    pub table_pattern: feltmat::TablePattern,
+    /// Local, explicit ordering of the visible hand.
+    pub hand_order: hand_order::HandOrder,
+    /// Group boundaries in the sorted presentation hand.
+    pub hand_groups: Vec<hand_order::HandGroup>,
     /// The once-per-game payload.
     pub statics: Option<GameStatic>,
     /// The most recent snapshot.
@@ -1829,6 +1836,9 @@ pub fn rebuild_board(duel: &mut Duel) {
         // cardboard underneath it.
         crate::cardart::registry(),
     ));
+    if let Some(board) = &mut duel.board {
+        duel.hand_groups = duel.hand_order.apply(&mut board.hand, view);
+    }
     duel.layout = Some(layout);
 }
 

@@ -1017,7 +1017,15 @@ impl TableLayout {
         // camera had to buy the difference back in distance. It ran out at
         // four seats.
         let aspect = aspect.clamp(0.45, 2.8);
-        let half_depth = POD_DEPTH * 0.5;
+        // A wide duel can spend the unused vertical canvas on taller lanes.
+        // Keep the ring layouts unchanged; only the two facing seats benefit.
+        let roomy = if n == 2 {
+            ((aspect - 1.25) / 0.35).clamp(0.0, 1.0)
+        } else {
+            0.0
+        };
+        let aspect = aspect * (1.0 - 0.12 * roomy);
+        let half_depth = POD_DEPTH * 0.5 + 0.55 * roomy;
         let parties = sides_of(seats);
         let t = parties.len();
 

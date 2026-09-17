@@ -287,3 +287,16 @@ fn every_mark_the_overlay_names_is_in_the_icon_face() {
         "the reader answers yes to a codepoint the face has no glyph for"
     );
 }
+
+#[test]
+fn hand_category_icons_are_present_in_the_shipped_fonts() {
+    let awesome = std::fs::read(path("fa-solid-900.ttf")).expect("Font Awesome");
+    for mark in [0xf162, 0xf15d, 0xf5fd, 0xf53f] {
+        assert!(
+            glyph(&awesome, mark) > 0,
+            "missing category icon U+{mark:04X}"
+        );
+    }
+    let mana = std::fs::read(path("mana.ttf")).expect("Mana");
+    assert!(glyph(&mana, 0xe9ca) > 0, "missing hand icon");
+}

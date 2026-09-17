@@ -452,6 +452,10 @@ pub struct MenuButton {
 /// What a menu button does.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum MenuAction {
+    /// Set presentation order without sending an engine action.
+    SortHand(crate::hand_order::HandOrder),
+    /// Move the hand by a page in either direction.
+    ScrollHand(i8),
     /// Leave the game (sends the engine's own concession).
     Concede,
     /// Offer a draw: every other player still in the game has to accept
@@ -707,7 +711,7 @@ pub const HAND_CARD_W: f32 = 92.0;
 /// Height, keeping the 63:88 card aspect.
 pub const HAND_CARD_H: f32 = HAND_CARD_W * 88.0 / 63.0;
 /// The fraction of a card that must stay visible when cards overlap.
-const MIN_VISIBLE: f32 = 0.3;
+const MIN_VISIBLE: f32 = 0.65;
 
 /// How much of the window the hand may not lay itself out in.
 ///
@@ -760,6 +764,9 @@ pub fn hand_available(window_w: f32) -> f32 {
 /// content width, and whether scrolling is required.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct HandLayout {
+    // A–Z plus # is the largest grouping: 27 groups, hence 26 gaps.
+    group_starts: [usize; 26],
+    group_gap: f32,
     /// Distance between the left edges of neighboring cards.
     pub step: f32,
     /// Total width of the laid-out cards.
@@ -782,6 +789,8 @@ pub struct HandLayout {
 pub fn hand_layout(count: usize, card_w: f32, available_w: f32) -> HandLayout {
     if count == 0 {
         return HandLayout {
+            group_starts: [usize::MAX; 26],
+            group_gap: 0.0,
             step: card_w,
             content_width: 0.0,
             lead: 0.0,
@@ -801,6 +810,8 @@ pub fn hand_layout(count: usize, card_w: f32, available_w: f32) -> HandLayout {
         };
         let content_width = (count - 1) as f32 * step + card_w;
         return HandLayout {
+            group_starts: [usize::MAX; 26],
+            group_gap: 0.0,
             step,
             content_width,
             lead: (available_w - content_width).max(0.0) * 0.5,
@@ -810,6 +821,8 @@ pub fn hand_layout(count: usize, card_w: f32, available_w: f32) -> HandLayout {
     let step = ((available_w - card_w) / (count - 1) as f32).max(card_w * MIN_VISIBLE);
     let content_width = (count - 1) as f32 * step + card_w;
     HandLayout {
+        group_starts: [usize::MAX; 26],
+        group_gap: 0.0,
         step,
         content_width,
         // A hand this wide has no spare room to share out, and a scroll
@@ -818,6 +831,39 @@ pub fn hand_layout(count: usize, card_w: f32, available_w: f32) -> HandLayout {
         lead: (available_w - content_width).max(0.0) * 0.5,
         scrollable: content_width > available_w,
     }
+}
+
+impl HandLayout {
+    pub(super) fn start(self, index: usize) -> f32 {
+        index as f32 * self.step
+            + self
+                .group_starts
+                .iter()
+                .filter(|&&start| start <= index)
+                .count() as f32
+                * self.group_gap
+    }
+}
+
+pub(super) fn grouped_hand_layout(
+    count: usize,
+    available: f32,
+    groups: &[crate::hand_order::HandGroup],
+) -> HandLayout {
+    let gaps = groups.len().saturating_sub(1).min(26);
+    let mut layout = hand_layout(
+        count,
+        HAND_CARD_W,
+        (available - gaps as f32 * 20.0).max(0.0),
+    );
+    layout.group_gap = (HAND_CARD_W - layout.step).max(0.0) + 20.0;
+    for (dest, group) in layout.group_starts.iter_mut().zip(groups.iter().skip(1)) {
+        *dest = group.start;
+    }
+    layout.content_width += gaps as f32 * layout.group_gap;
+    layout.lead = (available - layout.content_width).max(0.0) * 0.5;
+    layout.scrollable = layout.content_width > available;
+    layout
 }
 
 /// Everything about the zone browser that the drawn panel depends on.
@@ -882,6 +928,7 @@ struct BrowserGate {
 /// Which snapshot the overlay currently shows.
 #[derive(Resource, Default)]
 pub struct HudRevision {
+    hand_order: crate::hand_order::HandOrder,
     seq: Option<u64>,
     prompt: Option<String>,
     /// Cursor position and choice selection — they change without a new

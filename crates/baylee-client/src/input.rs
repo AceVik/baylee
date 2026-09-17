@@ -2169,6 +2169,20 @@ pub fn cast_menu_keys(fired: Fired, duel: &mut Duel) -> bool {
 /// when nothing happened in between.
 fn menu_click(duel: &mut Duel, action: MenuAction, was_armed: bool) {
     match action {
+        MenuAction::SortHand(order) => {
+            duel.hand_order = order;
+            duel.hand_scroll = 0.0;
+            duel.hovered = None;
+            duel.hovered_at = None;
+            if let (Some(board), Some(view)) = (&mut duel.board, &duel.view) {
+                duel.hand_groups = order.apply(&mut board.hand, view);
+            }
+        }
+        MenuAction::ScrollHand(direction) => {
+            duel.hand_scroll = (duel.hand_scroll + f32::from(direction) * 480.0).max(0.0);
+            duel.hovered = None;
+            duel.hovered_at = None;
+        }
         // Two presses, because there is no undo behind this one.
         MenuAction::Concede => {
             if was_armed {

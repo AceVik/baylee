@@ -108,7 +108,16 @@ pub fn scrolls(
                 // Clamped by `apply_hand_scroll` against the layout it just
                 // measured, which is the only place the row's real width is
                 // known.
-                duel.hand_scroll = (duel.hand_scroll - wheel.y * HAND_LINE).max(0.0);
+                let axis = if wheel.x.abs() > wheel.y.abs() {
+                    wheel.x
+                } else {
+                    wheel.y
+                };
+                let delta = match wheel.unit {
+                    MouseScrollUnit::Line => axis * HAND_LINE,
+                    MouseScrollUnit::Pixel => axis,
+                };
+                duel.hand_scroll = (duel.hand_scroll - delta).max(0.0);
                 break;
             }
             current = parents.get(entity).ok().map(ChildOf::parent);

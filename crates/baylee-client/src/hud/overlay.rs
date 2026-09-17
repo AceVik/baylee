@@ -248,6 +248,7 @@ pub fn sync_overlay(
         .and_then(baylee_client_core::Interaction::chosen_index);
 
     if revision.seq == seq
+        && revision.hand_order == duel.hand_order
         && revision.prompt == prompt
         && revision.error == error
         && revision.link_note == link_note
@@ -271,6 +272,7 @@ pub fn sync_overlay(
         return;
     }
     revision.seq = seq;
+    revision.hand_order = duel.hand_order;
     revision.prompt.clone_from(&prompt);
     revision.error.clone_from(&error);
     revision.link_note = link_note;
@@ -401,7 +403,7 @@ pub fn sync_overlay(
         let available = windows
             .single()
             .map_or(1200.0, |w| hand_available(w.width()));
-        let layout = hand_layout(board.hand.len(), HAND_CARD_W, available);
+        let layout = grouped_hand_layout(board.hand.len(), available, &duel.hand_groups);
         let hand_zone = spawn_hand_zone(
             &mut commands,
             lang,
@@ -414,6 +416,8 @@ pub fn sync_overlay(
             duel.armed.as_ref(),
             layout,
             duel.hand_scroll,
+            duel.hand_order,
+            &duel.hand_groups,
             &mut textures,
             &assets,
             &fonts,
@@ -1738,7 +1742,11 @@ mod tests {
         assert_eq!(was_shelf.len(), 1, "one shelf, and it was built");
         assert_eq!(was_drawer.len(), 1, "and one drawer beside it");
         assert_eq!(was_root.len(), 1, "and one root to hang them off");
-        assert_eq!(was_standing.len(), 3, "and three columns standing on it");
+        assert_eq!(
+            was_standing.len(),
+            4,
+            "mana, hand tools, answers, and game controls"
+        );
         assert!(
             !was_redrawn.is_empty(),
             "the overlay drew something of its own beside the two"

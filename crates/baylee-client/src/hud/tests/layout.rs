@@ -11,7 +11,7 @@ fn few_cards_spread_evenly_and_fully_visible() {
 #[test]
 fn many_cards_overlap_but_keep_the_minimum_visible() {
     let layout = hand_layout(12, 100.0, 600.0);
-    assert!(layout.step >= 30.0, "at least 30% of every card shows");
+    assert!(layout.step >= 65.0, "at least 65% of every card shows");
     assert!(layout.step < 100.0, "they must overlap to fit");
 }
 
@@ -19,7 +19,7 @@ fn many_cards_overlap_but_keep_the_minimum_visible() {
 fn beyond_the_minimum_overlap_the_bar_becomes_scrollable() {
     let layout = hand_layout(30, 100.0, 400.0);
     assert!(layout.scrollable);
-    assert!((layout.step - 30.0).abs() < 1e-4, "clamped to the 30% rule");
+    assert!((layout.step - 65.0).abs() < 1e-4, "clamped to the 65% rule");
     assert!(layout.content_width > 400.0);
 }
 
@@ -115,15 +115,15 @@ fn the_zone_keeps_room_for_a_raised_card_and_its_glow() {
 /// and paid for it by narrowing the card from 110 to 92 — the ledger the
 /// owner was promised, written where it can fail.
 #[test]
-fn the_ledge_is_paid_for_out_of_the_cards_and_not_out_of_the_table() {
+fn the_hand_reserves_only_one_short_line_for_group_headings() {
     use super::super::hand::{HAND_FOOTROOM, HAND_HEADROOM, LEDGE_H};
     // What the bar it replaces came to: a 110-wide card, 25 of headroom,
     // 10 of footroom.
     let was = 110.0 * 88.0 / 63.0 + 25.0 + HAND_FOOTROOM;
     assert!(
-        HAND_ZONE_H - was < 2.0,
+        HAND_ZONE_H - was < 14.0,
         "the zone is {HAND_ZONE_H} against the bar's {was}, and the \
-         difference is table"
+         group heading exceeds its twelve-pixel allowance"
     );
     assert!(
         (HAND_ZONE_H - (LEDGE_H + HAND_HEADROOM + HAND_CARD_H + HAND_FOOTROOM)).abs() < 1e-3,
