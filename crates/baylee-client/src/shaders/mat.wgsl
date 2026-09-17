@@ -93,7 +93,7 @@ const MARGIN_FRAC: f32 = 0.07806534;
 /// The hairline between two lanes, and how wide it runs as a fraction of the
 /// mat's depth. `tabletop::MAT_SEAM`, `tabletop::MAT_SEAM_WIDTH`.
 const SEAM: f32 = 0.036;
-const SEAM_W: f32 = 0.014;
+const SEAM_W: f32 = 0.0075;
 
 /// How much brighter the ledge's own seam is than a seam between two lanes.
 /// `tabletop::MAT_LEDGE_SEAM`.
@@ -232,7 +232,10 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     // over, which is what makes it a glow rather than a signal.
     let turn = atan2(p.y * half.x, p.x * half.y) / TAU + 0.5;
     let lead = fract(globals.time * params.motion / TURN_SECONDS);
-    let swell = pow(clamp(1.0 - fract(turn - lead) / TURN_ARC, 0.0, 1.0), 1.6);
+    // A circular distance gives the swell a soft front as well as a tail:
+    // no jump from zero to full light when the travelling phase wraps.
+    let distance = abs(fract(turn - lead + 0.5) - 0.5);
+    let swell = 1.0 - smoothstep(0.0, TURN_ARC * 0.5, distance);
     let breath = mix(
         BREATH_LOW,
         1.0,

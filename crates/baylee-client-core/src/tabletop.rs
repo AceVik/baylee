@@ -612,7 +612,7 @@ pub const MAT_SEAM: f32 = 0.036;
 pub const MAT_LEDGE_SEAM: f32 = 1.5;
 
 /// How wide that hairline runs, as a fraction of the mat's depth.
-pub const MAT_SEAM_WIDTH: f32 = 0.014;
+pub const MAT_SEAM_WIDTH: f32 = 0.0075;
 
 /// How much of white a mat's rim carries at its brightest.
 pub const MAT_RIM_LIGHT: f32 = 0.62;
@@ -1698,6 +1698,27 @@ mod tests {
         // than becoming a fourth lane, are both `const _` assertions beside
         // `MAT_LEDGE` itself — `layout` is the same crate, so the card the
         // second one measures against is reachable at compile time.
+    }
+
+    /// Lane dividers read as fine markings, not soft bands across the mat.
+    #[test]
+    fn lane_seams_are_fine_but_visible() {
+        for height in [256, 512] {
+            for ledge_outer in [false, true] {
+                let mat = seat_mat(64, height, 0.02, 0.01, [1.0; 3], ledge_outer);
+                let first = if ledge_outer { MARGIN_FRAC } else { LEDGE_FRAC };
+                for lane in [1.0, 2.0] {
+                    let centre = ((first + LANE_FRAC * lane) * height as f32) as u32;
+                    let bright = (centre - 10..=centre + 10)
+                        .filter(|&y| mat.pixel(32, y)[3] > MAT_LANES[0] + MAT_SEAM * 0.5)
+                        .count();
+                    assert!(
+                        (1..=height as usize / 128).contains(&bright),
+                        "{bright} bright pixels at height {height}, outer ledge {ledge_outer}"
+                    );
+                }
+            }
+        }
     }
 
     /// The ink on the ledge has to be readable *as composited*, which is a
