@@ -192,7 +192,12 @@ impl HeuristicAgent {
         Some(ranked)
     }
 
-    pub(crate) fn color(view: &PlayerView, options: &[ManaColor]) -> ManaColor {
+    pub(crate) fn color(&self, view: &PlayerView, options: &[ManaColor]) -> ManaColor {
+        if self.profile.mulligan_skill >= 2
+            && let Some(color) = self.planned_color(view, options)
+        {
+            return color;
+        }
         options
             .iter()
             .copied()
@@ -226,6 +231,61 @@ impl HeuristicAgent {
                 )
             })
             .unwrap_or(ManaColor::Colorless)
+    }
+
+    /// Reconstruct a useful payment from this view instead of remembering a
+    /// previous decision. The mana choice has no legal-action offer attached;
+    /// projected untapped sources are estimates here, never actions to send.
+    fn planned_color(&self, view: &PlayerView, options: &[ManaColor]) -> Option<ManaColor> {
+        let sources = remaining_sources(view);
+        let seat = view.seat(view.seat)?;
+        let mut best = None;
+        for &color in options {
+            let mut pool = seat.mana_pool;
+            // The prompt does not carry an amount. One unit is a conservative
+            // estimate; variable or multi-mana production may do better.
+            match color {
+                ManaColor::White => pool.white += 1,
+                ManaColor::Blue => pool.blue += 1,
+                ManaColor::Black => pool.black += 1,
+                ManaColor::Red => pool.red += 1,
+                ManaColor::Green => pool.green += 1,
+                ManaColor::Colorless => pool.colorless += 1,
+            }
+            for id in view.hand.iter().map(|c| c.id).chain(
+                view.command
+                    .get(usize::from(view.seat.get()))
+                    .into_iter()
+                    .flatten()
+                    .filter(|o| o.commander)
+                    .map(|o| o.id),
+            ) {
+                let Some(card) = identity(view, id) else {
+                    continue;
+                };
+                let Some(f) = face(card) else { continue };
+                if f.types.contains(TypeSet::LAND) {
+                    continue;
+                }
+                let score = self.spell_score(view, card) + self.noise(view, id);
+                if score <= 0 {
+                    continue;
+                }
+                let cost = spell_cost(view, id, f);
+                let Some(plan) = manaplan::plan(&cost, &pool, &sources) else {
+                    continue;
+                };
+                let quality = (
+                    score,
+                    std::cmp::Reverse(plan.taps()),
+                    std::cmp::Reverse(color.index()),
+                );
+                if best.as_ref().is_none_or(|(old, _)| quality > *old) {
+                    best = Some((quality, color));
+                }
+            }
+        }
+        best.map(|(_, color)| color)
     }
 
     /// Every candidate is paid for before a tap is committed. A five-mana
@@ -285,24 +345,7 @@ impl HeuristicAgent {
             if score <= 0 {
                 continue;
             }
-            let mut cost = f.mana_cost;
-            // Designation is not location: only a commander actually in the
-            // public command zone is a candidate here and pays CR 903.8's tax.
-            if command.is_some_and(|cards| cards.iter().any(|o| o.id == id)) {
-                let casts = seat
-                    .commanders
-                    .iter()
-                    .find(|c| c.object == id)
-                    .map_or(0, |c| c.casts);
-                cost = cost.with_more_generic(casts.saturating_mul(2));
-            }
-            if f.delve {
-                let grave = view
-                    .graveyards
-                    .get(usize::from(view.seat.get()))
-                    .map_or(0, Vec::len);
-                cost = cost.with_less_generic(u32::try_from(grave).unwrap_or(u32::MAX));
-            }
+            let cost = spell_cost(view, id, f);
             let action = if legal.castable.contains(&id) {
                 PlayerAction::CastSpell { card: id }
             } else {
@@ -518,4 +561,79 @@ fn sources(view: &PlayerView, legal: &LegalActions) -> Vec<Source> {
     });
     result.dedup_by_key(|s| s.id);
     result
+}
+
+/// Costs visible from the card and public commander/graveyard bookkeeping.
+fn spell_cost(view: &PlayerView, id: ObjectId, face: &FaceDef) -> baylee_core::mana::ManaCost {
+    let mut cost = face.mana_cost;
+    if view
+        .command
+        .get(usize::from(view.seat.get()))
+        .is_some_and(|cards| cards.iter().any(|o| o.id == id))
+    {
+        let casts = view
+            .seat(view.seat)
+            .and_then(|s| s.commanders.iter().find(|c| c.object == id))
+            .map_or(0, |c| c.casts);
+        cost = cost.with_more_generic(casts.saturating_mul(2));
+    }
+    if face.delve {
+        let grave = view
+            .graveyards
+            .get(usize::from(view.seat.get()))
+            .map_or(0, Vec::len);
+        cost = cost.with_less_generic(u32::try_from(grave).unwrap_or(u32::MAX));
+    }
+    cost
+}
+
+/// Only for evaluating a colour response. Actual taps always come from the
+/// engine's offer in `sources`, including its timing and conditional checks.
+fn remaining_sources(view: &PlayerView) -> Vec<Source> {
+    let mut estimate = LegalActions::default();
+    for object in view.battlefield_of(view.seat) {
+        if object.status.contains(baylee_view::ObjectStatus::TAPPED)
+            || object
+                .status
+                .contains(baylee_view::ObjectStatus::PHASED_OUT)
+            || (object.summoning_sick
+                && object.types.contains(TypeSet::CREATURE)
+                && object.keywords & KeywordSet::HASTE.bits() == 0)
+        {
+            continue;
+        }
+        if manaplan::basic_land_color(&object.subtypes).is_some() {
+            estimate.mana_abilities.push(object.id);
+        }
+        if let Some(grant) = &object.granted_mana {
+            estimate.abilities.push((
+                object.id,
+                baylee_engine::choice::granted_ability(grant.slot),
+            ));
+        }
+        if let Some(card) = object.card
+            && let Some(def) = baylee_cards::by_index(card.index)
+        {
+            for (index, ability) in def
+                .abilities_for_face(usize::from(card.face))
+                .iter()
+                .enumerate()
+            {
+                // Conditional activations need an offer to certify them. The
+                // colour estimate can omit a source but must not rely on one.
+                if matches!(
+                    ability,
+                    AbilityDef::Activated {
+                        mana_ability: true,
+                        ..
+                    }
+                ) {
+                    estimate
+                        .abilities
+                        .push((object.id, u32::try_from(index).unwrap_or(u32::MAX)));
+                }
+            }
+        }
+    }
+    sources(view, &estimate)
 }

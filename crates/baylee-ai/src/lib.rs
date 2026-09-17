@@ -359,7 +359,7 @@ impl HeuristicAgent {
                 })
             }
             Pending::ChooseColor { options, .. } => {
-                PlayerAction::ChooseColor(Self::color(view, &options))
+                PlayerAction::ChooseColor(self.color(view, &options))
             }
             Pending::ChooseNumber { min, .. } => PlayerAction::ChooseNumber(min),
             Pending::ChoosePlayer { options, .. } => PlayerAction::ChoosePlayer(
@@ -552,6 +552,37 @@ mod tests {
             HeuristicAgent::new(AIProfile::SHARP).act(&v, &decision(4)),
             PlayerAction::MulliganKeep
         );
+    }
+
+    #[test]
+    fn a_mana_choice_completes_a_cast_instead_of_counting_unaffordable_pips() {
+        let mut swamp = carded(
+            permanent(obj(1), PlayerId::new(0), 0),
+            "Swamp",
+            TypeSet::LAND,
+        );
+        swamp
+            .subtypes
+            .insert(baylee_core::generated::subtypes::land::SWAMP);
+        let mut v = view(0, &[20, 20], vec![swamp]);
+        v.phase = baylee_view::Phase::FirstMain;
+        v.hand = vec![hand_card(2, "Baleful Strix")];
+        v.hand
+            .extend((3..7).map(|id| hand_card(id, "Loran of the Third Path")));
+        let pending = Pending::ChooseColor {
+            player: v.seat,
+            options: vec![
+                baylee_core::mana::ManaColor::White,
+                baylee_core::mana::ManaColor::Blue,
+                baylee_core::mana::ManaColor::Black,
+            ],
+        };
+        for profile in [AIProfile::STEADY, AIProfile::SHARP, AIProfile::EXPERT] {
+            assert_eq!(
+                HeuristicAgent::new(profile).act(&v, &pending),
+                PlayerAction::ChooseColor(baylee_core::mana::ManaColor::Blue)
+            );
+        }
     }
 
     #[test]
