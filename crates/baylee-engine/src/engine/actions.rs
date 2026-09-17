@@ -338,6 +338,23 @@ impl<L: CardLookup> Engine<L> {
                 if !options.contains(&chosen) {
                     return Err(EngineError::IllegalAction("player not among the options"));
                 }
+                if self.resolution.as_ref().is_some_and(|r| {
+                    matches!(
+                        r.awaiting,
+                        Some(resolve::AwaitingOp::ControlRotation { .. })
+                    )
+                }) {
+                    let mut res = self.resolution.take().expect("rotation suspended");
+                    match resolve::resume_control_rotation(&mut self.state, &mut res, chosen) {
+                        resolve::Flow::Wait(pending) => {
+                            self.resolution = Some(res);
+                            self.pending = pending;
+                            self.awaiting_answer = true;
+                        }
+                        resolve::Flow::Complete => self.finish_resolution(&res),
+                    }
+                    return Ok(());
+                }
                 // Loyalty ability target player.
                 if let Some(PlanKind::LoyaltyPlayer {
                     source,

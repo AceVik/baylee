@@ -20,12 +20,14 @@ use baylee_core::ids::{ObjectId, PlayerId};
 use baylee_core::mana::ManaColor;
 use smallvec::SmallVec;
 
+mod control;
 mod counters;
 mod life;
 mod mana;
 mod tokens;
 mod zones;
 
+pub use control::resume_control_rotation;
 /// Which colours a mana source can produce right now, at this board.
 ///
 /// Exported because `baylee-gamehost` projects the answer into the view
@@ -157,6 +159,11 @@ static ONTO_BATTLEFIELD_TAPPED: &[baylee_cards_dsl::effect::Find] =
 /// An operation suspended on a player choice.
 #[derive(Clone, Debug)]
 pub enum AwaitingOp {
+    /// Rotation direction, chosen by the neighbour to receive from.
+    ControlRotation {
+        /// Living seats in table order at the time of the choice.
+        seats: Vec<PlayerId>,
+    },
     /// A library search: chosen cards go to `finds`, positionally.
     ///
     /// The library is always shuffled afterwards. Of the 1014 printed cards
@@ -1069,7 +1076,8 @@ pub fn resume(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]) 
                 );
             }
         }
-        AwaitingOp::ManaChoice { .. }
+        AwaitingOp::ControlRotation { .. }
+        | AwaitingOp::ManaChoice { .. }
         | AwaitingOp::PayLifeOrTapSelf { .. }
         | AwaitingOp::MayDo { .. }
         | AwaitingOp::CommanderReplace { .. } => {
@@ -1563,28 +1571,7 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
             }
             None
         }
-        Effect::ControlRotation => {
-            // Aminatou −6 (heads-up): every nonland permanent swaps to
-            // the other player (the direction choice is multiplayer-only).
-            for &id in &state.zones.list(ZoneLocation::Battlefield).clone() {
-                if id == res.source {
-                    continue;
-                }
-                let Some(obj) = state.object(id) else {
-                    continue;
-                };
-                if obj
-                    .characteristics()
-                    .types
-                    .contains(baylee_core::types::TypeSet::LAND)
-                {
-                    continue;
-                }
-                let other = PlayerId::new(1 - obj.controller.get());
-                change_controller(state, id, other);
-            }
-            None
-        }
+        Effect::ControlRotation => control::ask(state, res),
         Effect::AllCreaturesToOwner => {
             let creatures: Vec<ObjectId> = state
                 .zones

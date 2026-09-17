@@ -296,3 +296,15 @@ choices, free casts, emblems, player keywords, skip-step, library segments.
 Seeded ChaCha8; no HashMap iteration; journal = replay/resume/crash-
 recovery source of truth. Budgets: legal_actions < 50 µs, engine clone
 < 5 µs, full AI game < 2 ms.
+
+## Control rotation at a multiplayer table
+
+`Effect::ControlRotation` asks the controller which adjacent living seat to
+receive nonland permanents from. That neighbour identifies the printed
+left/right choice; `Pending::ChoosePlayer` carries exactly the two neighbours.
+In a duel both directions coincide and no question is needed. The resolver
+records all old controllers before changing any, leaves the source and lands
+alone, and skips eliminated seats. The house-AI multiplayer soak exposed the
+old `1 - controller` calculation, which overflowed as soon as seat 2 owned a
+nonland. The four-seat regression exercises both directions and failed with
+that original calculation restored.

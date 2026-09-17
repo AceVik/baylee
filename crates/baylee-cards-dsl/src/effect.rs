@@ -1031,8 +1031,8 @@ pub enum Effect {
     /// Each player gains control of all creatures they own (Homeward
     /// Path).
     AllCreaturesToOwner,
-    /// Control rotation (Aminatou −6, heads-up): each nonland permanent
-    /// except the source changes controller to the other player.
+    /// Choose left or right. Each player receives the nonland permanents
+    /// of that neighbour, except the source (Aminatou −6).
     ControlRotation,
     /// Phase a target permanent out (Clever Concealment).
     PhaseOut {
