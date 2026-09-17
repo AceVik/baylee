@@ -265,6 +265,20 @@ impl HeuristicAgent {
                     objects: options[..(n as usize).min(options.len())].to_vec(),
                 }
             }
+            // This prompt pays for a cast, despite sharing the target-choice
+            // shape. Selecting one friendly permanent can underpay and roll
+            // the whole cast back forever (paired match seed 41). Use the
+            // offered reduction, as with delve, until the view carries the
+            // outstanding cost needed to reserve any of these permanents.
+            Pending::ChooseTargets {
+                options,
+                max,
+                reason: baylee_engine::choice::TargetPrompt::Convoke,
+                ..
+            } => PlayerAction::ChooseTargets {
+                objects: options.into_iter().take(usize::from(max)).collect(),
+                players: vec![],
+            },
             Pending::ChooseTargets {
                 options,
                 player_options,
@@ -689,6 +703,35 @@ mod tests {
             }),
         };
         assert_eq!(agent().act(&v, &pending), PlayerAction::PassPriority);
+    }
+
+    #[test]
+    fn convoke_pays_with_the_offered_permanents_instead_of_targeting_one() {
+        let v = view(
+            0,
+            &[20, 20],
+            (1..=6)
+                .map(|i| permanent(obj(i), PlayerId::new(0), 2))
+                .collect(),
+        );
+        let offered: Vec<_> = (1..=6).map(obj).collect();
+        let pending = Pending::ChooseTargets {
+            player: v.seat,
+            options: offered.clone(),
+            player_options: vec![],
+            min: 0,
+            max: 6,
+            reason: baylee_engine::choice::TargetPrompt::Convoke,
+        };
+        for (_, profile) in AIProfile::NAMED {
+            assert_eq!(
+                HeuristicAgent::new(profile).act(&v, &pending),
+                PlayerAction::ChooseTargets {
+                    objects: offered.clone(),
+                    players: vec![]
+                },
+            );
+        }
     }
 
     #[test]
