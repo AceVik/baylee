@@ -551,12 +551,10 @@ impl Offline {
                     seat: at as u32,
                     kind: chair.kind,
                     ai: (chair.kind == SeatKind::Ai).then(|| chair.ai.clone()),
-                    taken: true,
-                    player: Some(if at == 0 {
-                        Phrase::You.text(lang).to_string()
-                    } else {
-                        format!("{} {at}", chair.ai)
-                    }),
+                    // `taken` means a human owns the chair. Marking AI
+                    // chairs occupied hides the host's difficulty controls.
+                    taken: at == 0,
+                    player: (at == 0).then(|| Phrase::You.text(lang).to_string()),
                     you: at == 0,
                     host: at == 0,
                     deck: chair
@@ -1007,6 +1005,13 @@ mod tests {
     #[test]
     fn a_chairs_difficulty_reaches_the_preset() {
         let mut offline = with_a_room(2);
+        let listing = offline.summary(offline.room.as_ref().unwrap(), Lang::En);
+        assert!(listing.seats[0].taken);
+        assert!(
+            !listing.seats[1].taken,
+            "a human-occupied chair hides the difficulty controls"
+        );
+        assert!(listing.seats[1].player.is_none());
         offline.ask(LobbyRequest::SetSeat {
             game_id: ROOM.to_string(),
             seat: 1,
