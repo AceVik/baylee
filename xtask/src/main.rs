@@ -154,6 +154,41 @@ enum Cmd {
         #[arg(long, default_value_t = 30)]
         causes: usize,
     },
+    /// Name the cards the reader would write in full and this pool does not
+    /// have — the worklist §E8 step 1 is made of.
+    ///
+    /// `transcode-report` measures the corpus and ranks what is missing;
+    /// this answers the other half of the same reading, which is which
+    /// *cards* the transcoder could hand over today. The two differ in what
+    /// they walk: the report walks scripts, and a script is not a card here
+    /// until the ledger has a row for it and Scryfall has a name to fetch,
+    /// so this walks the **ledger** and looks the script up, which is the
+    /// order that cannot emit a name `codegen` would then fail loudly on.
+    ///
+    /// A name it writes is a claim about one reader and nothing else: that
+    /// `scriptgen` claims every clause of the script. Whether the card comes
+    /// out is still decided by the run — `stubgen::transcode_card` needs a
+    /// printing this cache may not hold, and an honest stub is a correct
+    /// outcome — so a batch is measured after `codegen`, never from here.
+    ReachList {
+        /// Path to the card-script reference cardsfolder.
+        #[arg(long, default_value = "../mtg/card-scripts")]
+        scripts: PathBuf,
+        /// Write the names here, one per line, in the form
+        /// `data/card-pool.txt` and `card-batch --cards` both take.
+        #[arg(long)]
+        out: Option<PathBuf>,
+        /// Write at most this many names. 0 is every one of them.
+        ///
+        /// The slice is taken in ledger order, which is oldest printing
+        /// first, so two runs a week apart propose the same batch and a
+        /// batch that was reverted is proposed again rather than skipped.
+        #[arg(long, default_value_t = 0)]
+        count: usize,
+        /// Directory for cached Scryfall responses.
+        #[arg(long, default_value = "data/scryfall-cache")]
+        cache: PathBuf,
+    },
     /// Read every hand-written card a second way and report the disagreements.
     ///
     /// A hand-written card is the one surface in the pool that no program
@@ -425,6 +460,12 @@ fn main() -> anyhow::Result<()> {
             reason,
             causes,
         } => transcode_report(&root, &scripts, samples, stubs, reason.as_deref(), causes),
+        Cmd::ReachList {
+            scripts,
+            out,
+            count,
+            cache,
+        } => reach_list(&root, &scripts, out.as_deref(), count, &cache),
         Cmd::CrossRead { scripts, samples } => cross_read(&root, &scripts, samples),
         Cmd::CrCheck { rules, all } => cr_check::run(&root, &rules, all),
         Cmd::LandReport {
@@ -4523,6 +4564,120 @@ fn transcode_report(
     Ok(())
 }
 
+/// Names the cards one reader would write in full and this pool has not got.
+///
+/// Three filters, and each of them is the answer to a way the worklist could
+/// hand `codegen` a name it cannot use:
+///
+/// - **The ledger is the population.** A card with no row is a card `codegen`
+///   stops the whole run on, so walking the ledger rather than the corpus is
+///   what keeps a batch from dying at its first name. It also fixes the
+///   spelling: the ledger follows Scryfall, and `data/card-pool.txt` says
+///   names must.
+/// - **The pool is excluded by `oracle_id`, never by name.** Three cards in
+///   this pool share a name with a token, and `CardDef::name` is the front
+///   face alone where the ledger writes `Fire // Ice`.
+/// - **The script is found at two tiers**, whole name then front face, for
+///   the same reason the payload cache matches at two: the reference names a
+///   two-faced card by one of the two spellings and not always the same one.
+///
+/// What it does *not* claim is that the card comes out. `scriptgen` claiming
+/// every clause is one reader agreeing; `stubgen::transcode_card` still needs
+/// a printing, and an honest stub is a correct outcome. The batch is measured
+/// after the run, which is why this writes a worklist and no promise.
+fn reach_list(
+    root: &Path,
+    scripts_dir: &Path,
+    out: Option<&Path>,
+    count: usize,
+    cache: &Path,
+) -> anyhow::Result<()> {
+    let dir = scripts_root(root, scripts_dir);
+    let tokens = tokengen::TokenLookup::beside(&dir)?;
+    let agent = ureq::Agent::new_with_defaults();
+    let cats = scryfall::fetch_subtype_catalogs(&agent, &root.join(cache))?;
+    let script_index: BTreeMap<String, String> = serde_json::from_str(
+        &fs::read_to_string(root.join("data/script-index.json")).unwrap_or_default(),
+    )
+    .unwrap_or_default();
+    anyhow::ensure!(
+        !script_index.is_empty(),
+        "data/script-index.json is missing or empty; run `cargo xtask codegen`"
+    );
+    let have: BTreeSet<&str> = baylee_cards::all().map(|def| def.oracle_id).collect();
+    let (mut mine, mut scripted, mut refused, mut front) = (0usize, 0usize, 0usize, 0usize);
+    let mut names: Vec<&'static str> = Vec::new();
+    // By reference: `ROWS` is a 33 694-element array and not a slice, so
+    // `for row in ROWS` copies every one of them onto the stack — measured,
+    // because it is a stack overflow before the first script is read and it
+    // looks exactly like a runaway parser.
+    for row in &baylee_cards_index::ROWS {
+        if have.contains(row.oracle_id) {
+            mine += 1;
+            continue;
+        }
+        let Some(rel) = script_for(&script_index, row.name) else {
+            continue;
+        };
+        scripted += 1;
+        if !script_index.contains_key(row.name) {
+            front += 1;
+        }
+        let text = fs::read_to_string(dir.join(rel))?;
+        let script = scriptgen::parse(&text);
+        if scriptgen::transcode(&script, &cats, tokens.as_ref()).is_some() {
+            names.push(row.name);
+        } else {
+            refused += 1;
+        }
+    }
+    println!(
+        "reach: {} ledger rows — {mine} already in the pool, {scripted} of the rest have a \
+         reference script, {} of those read in full ({refused} refused)",
+        baylee_cards_index::ROWS.len(),
+        names.len()
+    );
+    // Reported rather than assumed: a second tier that matched nothing would
+    // be a lookup quietly answering for one spelling only, and this is the
+    // number that says it is doing its job.
+    println!("reach: {front} of them were found by their front face alone");
+    if count > 0 && names.len() > count {
+        println!("reach: writing the first {count} in ledger order");
+        names.truncate(count);
+    }
+    if let Some(path) = out {
+        let mut body = names.join("\n");
+        body.push('\n');
+        fs::write(path, body)?;
+        println!(
+            "reach: {} name(s) written to {}",
+            names.len(),
+            path.display()
+        );
+    } else {
+        for name in names.iter().take(20) {
+            println!("  {name}");
+        }
+        if names.len() > 20 {
+            println!("  … and {} more (--out to write them)", names.len() - 20);
+        }
+    }
+    Ok(())
+}
+
+/// The reference script for a ledger name, at the two tiers a two-faced card
+/// is spelled at.
+///
+/// The ledger writes a card's whole name (`Fire // Ice`) because Scryfall
+/// does; the reference names some of them that way and some by their front
+/// face alone, so one lookup answers for part of the corpus and says nothing
+/// about the rest.
+fn script_for<'a>(index: &'a BTreeMap<String, String>, name: &str) -> Option<&'a String> {
+    index
+        .get(name)
+        .or_else(|| index.get(name.split(" // ").next().unwrap_or(name)))
+}
+
 /// Chooses the cards that would teach the engine the most, and says what
 /// each one asks for.
 ///
@@ -5308,9 +5463,38 @@ fn cross_read(root: &Path, scripts_dir: &Path, samples: usize) -> anyhow::Result
 
 #[cfg(test)]
 mod tests {
-    use super::{header_scryfall_id, one_row_per_token, printed_subtypes, refuse_twin_names};
+    use super::{
+        header_scryfall_id, one_row_per_token, printed_subtypes, refuse_twin_names, script_for,
+    };
     use baylee_cards_codegen::{tokengen, tokenledger};
     use baylee_core::generated::subtypes;
+    use std::collections::BTreeMap;
+
+    /// `reach-list` looks a script up under two spellings of one card, and a
+    /// tier that matched nothing would leave every two-faced card out of the
+    /// worklist without saying so.
+    #[test]
+    fn a_script_is_found_by_the_whole_name_and_by_the_front_face() {
+        let index: BTreeMap<String, String> = [
+            ("Fire // Ice".to_string(), "f/fire_ice.txt".to_string()),
+            ("Delver of Secrets".to_string(), "d/delver.txt".to_string()),
+        ]
+        .into_iter()
+        .collect();
+        // The whole name wins wherever the corpus spells it that way.
+        assert_eq!(
+            script_for(&index, "Fire // Ice").map(String::as_str),
+            Some("f/fire_ice.txt")
+        );
+        // And the front face answers where it does not: the ledger follows
+        // Scryfall and writes both halves, the corpus one of them.
+        assert_eq!(
+            script_for(&index, "Delver of Secrets // Insectile Aberration").map(String::as_str),
+            Some("d/delver.txt")
+        );
+        // A card nobody scripted is a miss and never the nearest thing.
+        assert_eq!(script_for(&index, "Black Lotus"), None);
+    }
 
     /// The id in a `//! Set:` line is what decides which printing a card is,
     /// so reading it is worth a test rather than a spelling: the line carries
