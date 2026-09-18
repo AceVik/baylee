@@ -2898,6 +2898,62 @@ fn printed_subtypes(type_line: &str) -> Option<Vec<baylee_core::ids::SubtypeId>>
 /// an activation cost is written in the same symbols and `{G}, {T}: …` would
 /// otherwise license a green mana the land never makes.
 ///
+/// What a printed rules text's "add …" clauses offer, as the mana check can
+/// read it.
+///
+/// Three answers and not two, because the check does three different things
+/// with them: a card that never says "add" has a mana ability nothing printed
+/// (CR 305.6 puts a basic land's mana on its type line, so an ability beside
+/// it is a duplicate), a card that spells its mana in symbols can be held
+/// against them, and a card that promises mana **in words** can be held
+/// against nothing at all.
+///
+/// The third case used to be two spellings — "any color" and "any type" —
+/// and Black Lotus prints neither. "Add three mana of any one color" reached
+/// the symbol scan, which found no symbol, and the card was reported as
+/// making five colours the printing never offers. Counted over the payload
+/// cache, the printed forms of that promise are 28 and every one of them says
+/// "any": "one mana of any color", "three mana of any one color", "two mana
+/// in any combination of colors", "any type that a land you control could
+/// produce", "any of the exiled card's colors". So the rule is the one the
+/// check actually needs — a clause that says "any" and spells no symbol names
+/// its mana in words — and the single form that says "any" *and* spells
+/// symbols, "add X mana in any combination of {R} and/or {W}", is read rather
+/// than declined, which the narrower spelling also managed by accident.
+fn printed_mana_offered(printed: &str) -> PrintedMana {
+    let mut offered: Vec<char> = Vec::new();
+    let mut saw_a_clause = false;
+    for (at, _) in printed.match_indices("add ") {
+        let clause = printed[at..].split('\n').next().unwrap_or_default();
+        let symbols: Vec<char> = clause
+            .as_bytes()
+            .windows(3)
+            .filter(|w| w[0] == b'{' && w[2] == b'}' && b"wubrgc".contains(&w[1]))
+            .map(|w| w[1] as char)
+            .collect();
+        if clause.contains("any") && symbols.is_empty() {
+            return PrintedMana::InWords;
+        }
+        saw_a_clause = true;
+        offered.extend(symbols);
+    }
+    if saw_a_clause {
+        PrintedMana::Symbols(offered)
+    } else {
+        PrintedMana::Nothing
+    }
+}
+
+/// The three answers [`printed_mana_offered`] gives.
+enum PrintedMana {
+    /// The printing never says "add".
+    Nothing,
+    /// The printing promises mana in words that name no symbol.
+    InWords,
+    /// The symbols every "add …" clause names, in printed order.
+    Symbols(Vec<char>),
+}
+
 /// A clause that says "any color" names no symbol at all and is the card
 /// making every color, so such a card is skipped rather than reported: the
 /// code is right to claim five and the text is right to print none.
@@ -2949,31 +3005,21 @@ fn check_mana_matches_the_printing(
         return;
     }
 
-    let mut offered: Vec<char> = Vec::new();
-    let mut saw_a_clause = false;
-    for (at, _) in printed.match_indices("add ") {
-        let clause = printed[at..].split('\n').next().unwrap_or_default();
-        // "one mana of any color", "mana of any type that a land you
-        // control could produce" — a promise with no symbol in it.
-        if clause.contains("any color") || clause.contains("any type") {
+    let offered = match printed_mana_offered(printed) {
+        // A clause naming its mana in words offers no symbol to hold the
+        // code against, and a comparison against nothing reports every
+        // colour the card makes.
+        PrintedMana::InWords => return,
+        PrintedMana::Nothing => {
+            println!(
+                "{slug}: the code has a mana ability and the printed text never says \"add\"; \
+                 a land's intrinsic mana comes off the type line (CR 305.6) and needs no ability"
+            );
+            *problems += 1;
             return;
         }
-        saw_a_clause = true;
-        let bytes: Vec<char> = clause.chars().collect();
-        for i in 0..bytes.len().saturating_sub(2) {
-            if bytes[i] == '{' && bytes[i + 2] == '}' && "wubrgc".contains(bytes[i + 1]) {
-                offered.push(bytes[i + 1]);
-            }
-        }
-    }
-    if !saw_a_clause {
-        println!(
-            "{slug}: the code has a mana ability and the printed text never says \"add\"; \
-             a land's intrinsic mana comes off the type line (CR 305.6) and needs no ability"
-        );
-        *problems += 1;
-        return;
-    }
+        PrintedMana::Symbols(offered) => offered,
+    };
     tally.mana += 1;
     for color in claimed {
         if !offered.contains(&color) {
@@ -5464,11 +5510,49 @@ fn cross_read(root: &Path, scripts_dir: &Path, samples: usize) -> anyhow::Result
 #[cfg(test)]
 mod tests {
     use super::{
-        header_scryfall_id, one_row_per_token, printed_subtypes, refuse_twin_names, script_for,
+        PrintedMana, header_scryfall_id, one_row_per_token, printed_mana_offered, printed_subtypes,
+        refuse_twin_names, script_for,
     };
     use baylee_cards_codegen::{tokengen, tokenledger};
     use baylee_core::generated::subtypes;
     use std::collections::BTreeMap;
+
+    /// The mana check holds the code against the symbols a printing spells,
+    /// and a printing that names its mana in words spells none — so the
+    /// question "which colours does this offer" has to be *declined* rather
+    /// than answered with an empty list. Black Lotus is the card that found
+    /// the hole: "any one color" is not "any color", it reached the symbol
+    /// scan, and five colours were reported as unprinted.
+    #[test]
+    fn mana_promised_in_words_is_declined_and_not_read_as_no_mana() {
+        for printed in [
+            "{t}, sacrifice this artifact: add three mana of any one color.",
+            "{t}: add one mana of any color.",
+            "{t}: add one mana of any type that a land you control could produce.",
+            "{t}: add two mana in any combination of colors.",
+            "{t}: add one mana of any of the exiled card's colors.",
+        ] {
+            assert!(
+                matches!(printed_mana_offered(printed), PrintedMana::InWords),
+                "{printed:?} names its mana in words"
+            );
+        }
+        // The one printed form that says "any" *and* spells symbols is read,
+        // because those symbols are exactly what the check compares against.
+        assert!(matches!(
+            printed_mana_offered("{t}: add x mana in any combination of {r} and/or {w}."),
+            PrintedMana::Symbols(ref s) if s == &['r', 'w']
+        ));
+        // An ordinary land, and a card with no "add" at all.
+        assert!(matches!(
+            printed_mana_offered("{t}: add {u} or {r}."),
+            PrintedMana::Symbols(ref s) if s == &['u', 'r']
+        ));
+        assert!(matches!(
+            printed_mana_offered("{t}: draw a card."),
+            PrintedMana::Nothing
+        ));
+    }
 
     /// `reach-list` looks a script up under two spellings of one card, and a
     /// tier that matched nothing would leave every two-faced card out of the
