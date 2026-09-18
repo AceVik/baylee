@@ -1502,6 +1502,87 @@ messages! {
     BrowseTallyExact { en: "{0} of {1} chosen", de: "{0} von {1} gewählt" },
     /// Sends the answer the dialog has assembled.
     BrowseConfirm { en: "Confirm", de: "Bestätigen" },
+
+    // ------------------------------------------- the filter string builder
+    //
+    // The words the gear opens. Keys are named in the *player's* language and
+    // never with `Key::render`'s letter: `t` is the string's spelling and the
+    // dialog exists so that nobody has to know it. What is deliberately not
+    // here is a name for `Key::Unknown` or for a branch the controls cannot
+    // draw — both show what was typed, and translating a player's own words
+    // back at them is the one thing a dialog must not do.
+
+    /// The gear inside a search box, and the heading over what it opens.
+    FilterBuild { en: "Set up the filter", de: "Filter einstellen" },
+    /// The row at the foot of the list that adds another condition.
+    FilterAdd { en: "Add a condition…", de: "Bedingung hinzufügen …" },
+    /// Closes the builder. The string is already in the box, so there is
+    /// nothing for this to confirm.
+    FilterDone { en: "Done", de: "Fertig" },
+    /// Beside a branch the controls cannot take apart.
+    FilterAsTyped { en: "as typed", de: "wie getippt" },
+    /// One line under the rows when any of them asks something this list
+    /// cannot answer. One line and not one per row: it is the same fact.
+    FilterUnanswerable {
+        en: "A condition cannot be checked here — the list stays empty while it stands.",
+        de: "Eine Bedingung kann hier nicht geprüft werden — die Liste bleibt leer, solange sie steht.",
+    },
+    /// The five kinds of condition, which are the five kinds of control.
+    FilterKindText { en: "Text", de: "Text" },
+    /// A condition about colours.
+    FilterKindColor { en: "Colour", de: "Farbe" },
+    /// A condition about a number.
+    FilterKindNumber { en: "Number", de: "Zahl" },
+    /// A condition about a yes-or-no property.
+    FilterKindFlag { en: "Property", de: "Eigenschaft" },
+    /// A condition about a mana cost.
+    FilterKindCost { en: "Cost", de: "Kosten" },
+    /// A bare word, which looks at every line of the card.
+    FilterKeyLoose { en: "Anywhere", de: "Überall" },
+    /// The card's name.
+    FilterKeyName { en: "Name", de: "Name" },
+    /// The whole name and nothing else.
+    FilterKeyExact { en: "Exact name", de: "Genauer Name" },
+    /// What the card says.
+    FilterKeyOracle { en: "Rules text", de: "Regeltext" },
+    /// The type line.
+    FilterKeyType { en: "Type", de: "Typ" },
+    /// The card's own colours.
+    FilterKeyColor { en: "Colour", de: "Farbe" },
+    /// Its colour identity (CR 903.4).
+    FilterKeyIdentity { en: "Colour identity", de: "Farbidentität" },
+    /// The symbols of its mana cost.
+    FilterKeyMana { en: "Mana cost", de: "Manakosten" },
+    /// Its mana value.
+    FilterKeyManaValue { en: "Mana value", de: "Manawert" },
+    /// Printed power.
+    FilterKeyPower { en: "Power", de: "Stärke" },
+    /// Printed toughness.
+    FilterKeyToughness { en: "Toughness", de: "Widerstandskraft" },
+    /// Printed starting loyalty.
+    FilterKeyLoyalty { en: "Loyalty", de: "Loyalität" },
+    /// A colour reading: the card has these and may have others.
+    FilterAtLeast { en: "at least", de: "mindestens" },
+    /// A colour reading: the card has these and no others.
+    FilterExactly { en: "exactly", de: "genau" },
+    /// A colour reading: the card has no colour outside these.
+    FilterAtMost { en: "at most", de: "höchstens" },
+    /// What a colon means on a mana cost.
+    FilterContains { en: "contains", de: "enthält" },
+    /// Swaps the colour pips for a number of them.
+    FilterCount { en: "Count", de: "Anzahl" },
+    /// More than one colour, whatever they are.
+    FilterMulticolor { en: "multicoloured", de: "mehrfarbig" },
+    /// An even mana value.
+    FilterEven { en: "even", de: "gerade" },
+    /// An odd one.
+    FilterOdd { en: "odd", de: "ungerade" },
+    /// A card this build can actually play.
+    FlagPlayable { en: "playable", de: "spielbar" },
+    /// A basic land.
+    FlagBasic { en: "basic land", de: "Standardland" },
+    /// A card with two faces.
+    FlagDfc { en: "double-faced", de: "doppelseitig" },
     /// Sends the *empty* answer, which is the only way out a question whose
     /// minimum is zero has — there is no cancel action on the wire.
     ///
