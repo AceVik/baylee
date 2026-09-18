@@ -27,6 +27,7 @@ use crate::{Deed, Duel, HoverSpot};
 use baylee_client_core::abilitysheet;
 use baylee_client_core::automation::AutoPilot;
 use baylee_client_core::browser::Placement;
+use baylee_client_core::filterdialog::FilterPanel;
 use baylee_client_core::interaction::{Interaction, Prompt, SelectionOutcome};
 use baylee_client_core::prefs::Action;
 use baylee_client_core::touch::Answer;
@@ -54,6 +55,17 @@ pub struct TrayWidgets<'w, 's> {
     sort: Query<'w, 's, &'static TraySort>,
     views: Query<'w, 's, &'static crate::hud::TrayView>,
     filter: Query<'w, 's, &'static TrayFilter>,
+    gear: Query<'w, 's, &'static crate::hud::TrayGear>,
+    /// Every button the filter builder draws, in one query.
+    ///
+    /// One and not fourteen, because the model already named what each one
+    /// means: `crate::filterui` puts a `FilterAct` on every button it draws
+    /// and this hands it straight to the `Browser`. A control added to the
+    /// builder is therefore wired by being drawn, which is the whole point of
+    /// the vocabulary — this client has shipped a decision function no button
+    /// reached.
+    acts: Query<'w, 's, &'static crate::filterui::FilterAct>,
+    done: Query<'w, 's, &'static crate::filterui::FilterDone>,
     cancel: Query<'w, 's, &'static TrayNone>,
     settings: ResMut<'w, crate::settings::ClientSettings>,
 }
@@ -966,9 +978,24 @@ fn browser_keys(
     duel: &mut Duel,
 ) -> bool {
     use baylee_client_core::textbuf::{Dir, Step};
-    if !duel.browser.is_typing() {
+    // Two fields and one chord table. While the builder holds a caret in one
+    // of its rows, every key below goes there instead of into the box — the
+    // two are editors of one string and only one of them may be typed into,
+    // which is the rule `filterdialog`'s own header states. Written as a
+    // target rather than as a second copy of the table: a chord added to one
+    // field and not the other is how the lobby's boxes and this one drifted
+    // apart in the first place.
+    let target = if duel
+        .browser
+        .builder()
+        .is_some_and(|it| it.typing().is_some())
+    {
+        Caret::Row
+    } else if duel.browser.is_typing() {
+        Caret::Box
+    } else {
         return false;
-    }
+    };
     // `Cancel` is read *before* the platform bail below, and that ordering is
     // the whole of it: where the browser does the typing every raw key
     // belongs to its `<input>`, so returning first would leave Escape doing
@@ -977,10 +1004,13 @@ fn browser_keys(
     // carries actions rather than raw keys, so reading it here cannot type a
     // character the `<input>` has already taken.
     if fired.has(Action::Cancel) {
-        if duel.browser.filter().is_empty() {
-            duel.browser.stop_typing();
-        } else {
-            duel.browser.clear_filter();
+        match target {
+            // In a row, Escape gives the row back and leaves the builder
+            // open: the way out of the *builder* is its own gear, and a key
+            // that shut both would make a mistyped letter cost the panel.
+            Caret::Row => duel.browser.in_builder(FilterPanel::stop_typing),
+            Caret::Box if duel.browser.filter().is_empty() => duel.browser.stop_typing(),
+            Caret::Box => duel.browser.clear_filter(),
         }
         return true;
     }
@@ -1017,31 +1047,94 @@ fn browser_keys(
         if !event.state.is_pressed() {
             continue;
         }
-        match &event.logical_key {
-            Key::Backspace => {
-                duel.browser.pop_filter();
-            }
-            Key::Delete => duel.browser.delete_forward(),
-            Key::ArrowLeft => duel.browser.move_filter_caret(reach, Dir::Left, shift),
-            Key::ArrowRight => duel.browser.move_filter_caret(reach, Dir::Right, shift),
-            Key::Home => duel.browser.move_filter_caret(Step::Line, Dir::Left, shift),
-            Key::End => duel
-                .browser
-                .move_filter_caret(Step::Line, Dir::Right, shift),
+        let gesture = match &event.logical_key {
+            Key::Backspace => Gesture::Back,
+            Key::Delete => Gesture::Forward,
+            Key::ArrowLeft => Gesture::Move(reach, Dir::Left, shift),
+            Key::ArrowRight => Gesture::Move(reach, Dir::Right, shift),
+            Key::Home => Gesture::Move(Step::Line, Dir::Left, shift),
+            Key::End => Gesture::Move(Step::Line, Dir::Right, shift),
             // "Done" rather than "submit": the rows are already narrowed, so
             // the only thing left to do is hand the keyboard back.
-            Key::Enter => duel.browser.stop_typing(),
+            Key::Enter => Gesture::Done,
             Key::Character(s) if command => {
                 if s.eq_ignore_ascii_case("a") {
-                    duel.browser.select_all_filter();
+                    Gesture::SelectAll
+                } else {
+                    continue;
                 }
             }
-            Key::Character(s) => duel.browser.type_text(s),
-            Key::Space => duel.browser.push_filter(' '),
-            _ => {}
-        }
+            Key::Character(s) => Gesture::Insert(s.to_string()),
+            Key::Space => Gesture::Insert(" ".to_string()),
+            _ => continue,
+        };
+        gesture.done(target, duel);
     }
     true
+}
+
+/// Which of the two fields the keyboard is reaching.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Caret {
+    /// The search box itself.
+    Box,
+    /// A row of the filter builder.
+    Row,
+}
+
+/// One editing gesture, before it is aimed at a field.
+///
+/// The chords are read once and the field is chosen once, which is the point:
+/// the box and a builder row take the same keys because they are the same
+/// kind of thing, and a table written twice is a table that agrees until
+/// somebody adds a chord to one half of it.
+enum Gesture {
+    /// Backspace.
+    Back,
+    /// Delete.
+    Forward,
+    /// An arrow, Home or End.
+    Move(
+        baylee_client_core::textbuf::Step,
+        baylee_client_core::textbuf::Dir,
+        bool,
+    ),
+    /// ⌘A.
+    SelectAll,
+    /// Enter: hand the keyboard back.
+    Done,
+    /// A character, or a whole run of them from an IME or a paste.
+    Insert(String),
+}
+
+impl Gesture {
+    /// Does it, to whichever field holds the caret.
+    fn done(self, target: Caret, duel: &mut Duel) {
+        match (target, self) {
+            (Caret::Box, Self::Back) => {
+                duel.browser.pop_filter();
+            }
+            (Caret::Box, Self::Forward) => duel.browser.delete_forward(),
+            (Caret::Box, Self::Move(step, dir, select)) => {
+                duel.browser.move_filter_caret(step, dir, select);
+            }
+            (Caret::Box, Self::SelectAll) => duel.browser.select_all_filter(),
+            (Caret::Box, Self::Done) => duel.browser.stop_typing(),
+            (Caret::Box, Self::Insert(text)) => duel.browser.type_text(&text),
+            (Caret::Row, Self::Back) => duel.browser.in_builder(|it| {
+                it.pop_typed();
+            }),
+            (Caret::Row, Self::Forward) => {
+                duel.browser.in_builder(FilterPanel::delete_typed_forward);
+            }
+            (Caret::Row, Self::Move(step, dir, select)) => duel
+                .browser
+                .in_builder(|it| it.move_typing_caret(step, dir, select)),
+            (Caret::Row, Self::SelectAll) => duel.browser.in_builder(FilterPanel::select_all_typed),
+            (Caret::Row, Self::Done) => duel.browser.in_builder(FilterPanel::stop_typing),
+            (Caret::Row, Self::Insert(text)) => duel.browser.type_into_builder(&text),
+        }
+    }
 }
 
 /// Typing a number rather than stepping to it.
@@ -2394,9 +2487,32 @@ fn browser_click(
         }
         return true;
     }
+    // The builder's own buttons, before the box they sit under: the panel is
+    // inside the same head as the filter row, and a row's text box is a
+    // `Button` of its own.
+    if let Some(act) = find_in_lineage(entity, &tray.acts, parents) {
+        let act = act.0;
+        duel.browser.filter_act(act);
+        // *Done* is both: the act gives the row's caret back, and the marker
+        // beside it shuts the panel. Read after the act rather than instead
+        // of it, so a row still holding the caret does not keep it in a
+        // builder nobody can see.
+        if find_in_lineage(entity, &tray.done, parents).is_some() {
+            duel.browser.close_builder();
+        }
+        return true;
+    }
+    // The gear opens the builder on what the box holds, and shuts it again.
+    if find_in_lineage(entity, &tray.gear, parents).is_some() {
+        duel.browser.toggle_builder();
+        return true;
+    }
     // The filter box takes the keyboard on the click and gives it back on
     // the next one, so a player can leave the panel open and keep playing.
+    // A click here also shuts the builder: the box and the builder are two
+    // editors of one string, and only one of them may hold the caret.
     if find_in_lineage(entity, &tray.filter, parents).is_some() {
+        duel.browser.close_builder();
         if duel.browser.is_typing() {
             duel.browser.stop_typing();
         } else {

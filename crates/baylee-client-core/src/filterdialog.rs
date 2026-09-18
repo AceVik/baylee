@@ -30,7 +30,8 @@
 //! [`Term`]s around; it never looks inside one. Deciding what `c:rg` means is
 //! [`crate::cardquery`]'s job and is done once.
 
-use crate::cardquery::{Colors, Flag, Key, Op, Query, Surface, Term, Value};
+use crate::cardquery::{Colors, Flag, Key, Op, Query, Surface, Term, Value, value_of};
+use crate::textbuf::{Dir, Step, TextBuffer};
 
 /// One thing standing in the row of controls a dialog draws.
 ///
@@ -338,8 +339,45 @@ pub struct FilterPanel {
     form: FilterForm,
     /// What the add button has unfolded.
     adding: Adding,
+    /// The row whose value is being typed into, and the text as it stands.
+    typing: Option<Typing>,
     /// Whether any row has been changed since the builder opened.
     touched: bool,
+}
+
+/// A row being typed into.
+///
+/// **One caret in the whole builder**, which is the module header's rule seen
+/// from the other side: the box has none while the builder is open, and the
+/// builder has at most one. It lives here and not in the renderer for the
+/// same reason [`Act`] does — a test that cannot type cannot tell a key that
+/// is wired from one that is not.
+///
+/// Every control has one, not only the text keys. A stepper is no way to
+/// reach `mv:12`, a hybrid symbol is on no keyboard of six, and what gets
+/// typed is put through [`value_of`] — the parser's own reader — so a row
+/// arrives at exactly the value the same letters typed into the box would
+/// have made.
+#[derive(Clone, Debug)]
+pub struct Typing {
+    /// Which row.
+    row: usize,
+    /// The text, the caret and the selection.
+    field: TextBuffer,
+}
+
+impl Typing {
+    /// Which row the caret is in.
+    #[must_use]
+    pub const fn row(&self) -> usize {
+        self.row
+    }
+
+    /// The text, the caret and the selection, to draw.
+    #[must_use]
+    pub const fn field(&self) -> &TextBuffer {
+        &self.field
+    }
 }
 
 impl FilterPanel {
@@ -349,6 +387,7 @@ impl FilterPanel {
         Self {
             form: FilterForm::of(query),
             adding: Adding::Closed,
+            typing: None,
             touched: false,
         }
     }
@@ -384,6 +423,98 @@ impl FilterPanel {
         self.touched.then(|| self.form.query())
     }
 
+    /// The row being typed into, if any.
+    #[must_use]
+    pub const fn typing(&self) -> Option<&Typing> {
+        self.typing.as_ref()
+    }
+
+    /// Puts the caret in a row's value, seeded with what the row already says.
+    ///
+    /// Seeded from [`Value::written`] and not from what the control drew, so
+    /// that a colour row typed into starts at `rg` and a cost row at
+    /// `{W}{W}`. A row that is not there takes no caret.
+    pub fn edit(&mut self, row: usize) {
+        let Some(FilterPart::Row { term, .. }) = self.form.parts.get(row) else {
+            return;
+        };
+        let mut field = TextBuffer::new(&term.value.written());
+        field.select_all();
+        self.typing = Some(Typing { row, field });
+    }
+
+    /// Gives the caret back, without changing anything.
+    pub fn stop_typing(&mut self) {
+        self.typing = None;
+    }
+
+    /// Types into the row that holds the caret.
+    pub fn type_text(&mut self, text: &str) {
+        let mut clean: String = text.to_string();
+        clean.retain(|c| !c.is_control());
+        if clean.is_empty() {
+            return;
+        }
+        self.typed(|field| field.insert(&clean));
+    }
+
+    /// Rubs out what is selected, or the character before the caret, and says
+    /// whether there was anything to rub out.
+    pub fn pop_typed(&mut self) -> bool {
+        let before = self.typing.as_ref().map(|t| t.field.text().len());
+        self.typed(TextBuffer::delete_back);
+        before.is_some_and(|len| {
+            self.typing
+                .as_ref()
+                .is_some_and(|t| t.field.text().len() != len)
+        })
+    }
+
+    /// The same forwards — Delete.
+    pub fn delete_typed_forward(&mut self) {
+        self.typed(TextBuffer::delete_forward);
+    }
+
+    /// Moves the caret, extending the selection when `select`.
+    pub fn move_typing_caret(&mut self, step: Step, dir: Dir, select: bool) {
+        self.typed(|field| field.move_caret(step, dir, select));
+    }
+
+    /// Selects the whole of the row being typed into.
+    pub fn select_all_typed(&mut self) {
+        self.typed(TextBuffer::select_all);
+    }
+
+    /// Puts the caret at a byte offset, with `anchor` the other end of a
+    /// selection — what a click or a drag in a row's box asks for.
+    pub fn place_typing_caret(&mut self, cursor: usize, anchor: Option<usize>) {
+        self.typed(|field| field.place(cursor, anchor));
+    }
+
+    /// Does one editing gesture and writes the row it was done in.
+    ///
+    /// Every keystroke writes the value, rather than a `Return` committing
+    /// one: the box shows what the builder holds and the list under it is
+    /// filtered by that, so a row that only took effect on `Return` would be
+    /// a row a player could not see the effect of.
+    fn typed(&mut self, edit: impl FnOnce(&mut TextBuffer)) {
+        let Some(typing) = self.typing.as_mut() else {
+            return;
+        };
+        edit(&mut typing.field);
+        let row = typing.row;
+        let text = typing.field.text().to_string();
+        let Some(FilterPart::Row { term, .. }) = self.form.parts.get_mut(row) else {
+            // The row went while the caret was in it, which a stale button
+            // can do; the caret goes with it rather than writing into
+            // whatever moved up into its place.
+            self.typing = None;
+            return;
+        };
+        term.value = value_of(&term.key, &text);
+        self.touched = true;
+    }
+
     /// Turns the minus in front of a row on or off.
     pub fn negate(&mut self, row: usize, negated: bool) {
         if let Some(FilterPart::Row { negated: at, .. }) = self.form.parts.get_mut(row) {
@@ -398,6 +529,13 @@ impl FilterPanel {
     pub fn remove(&mut self, row: usize) {
         if row < self.form.parts.len() {
             self.form.parts.remove(row);
+            // The parts below move up, so a caret below this one is in a
+            // different row now and a caret *in* it has nowhere to be.
+            match self.typing.as_mut() {
+                Some(typing) if typing.row == row => self.typing = None,
+                Some(typing) if typing.row > row => typing.row -= 1,
+                _ => {}
+            }
             self.touched = true;
         }
     }
@@ -415,7 +553,28 @@ impl FilterPanel {
         if let Some(FilterPart::Row { term, .. }) = self.form.parts.get_mut(row) {
             term.value = value;
             self.touched = true;
+            self.reseed(row);
         }
+    }
+
+    /// Puts the row's own spelling back into the caret, if the caret is in it.
+    ///
+    /// A pip tapped while the row was being typed into leaves a box holding
+    /// the text from before the tap, and the next letter typed would write
+    /// that stale text back over the pip — the control and the box would be
+    /// two editors of one value, which is the thing this module exists to
+    /// prevent, at the width of one row.
+    fn reseed(&mut self, row: usize) {
+        let Some(typing) = self.typing.as_mut() else {
+            return;
+        };
+        if typing.row != row {
+            return;
+        }
+        let Some(FilterPart::Row { term, .. }) = self.form.parts.get(row) else {
+            return;
+        };
+        typing.field = TextBuffer::new(&term.value.written());
     }
 
     /// Writes the operator a colour reading is spelled with for that row's key.
@@ -451,6 +610,7 @@ impl FilterPanel {
         };
         term.value = Value::Colors(next);
         self.touched = true;
+        self.reseed(row);
     }
 
     /// Unfolds the add button one step, or folds it away.
@@ -463,18 +623,14 @@ impl FilterPanel {
     /// The menu closes with it: a player who has just added a condition is
     /// looking at the condition, not at the menu they added it from.
     ///
-    /// A **mana cost is the exception**, and it is a measurement rather than
-    /// a preference: there is no spelling of "no symbols". `m:` with nothing
-    /// after it is not a term, and `Value::Cost(vec![])` writes as `m:""`,
-    /// which reads back as a word and which `eval::cost` answers `Unknown`
-    /// to — so a freshly added cost row would hide every card until its first
-    /// symbol. So choosing *cost* from the menu opens the symbols instead of
-    /// adding anything, and [`Self::add_cost`] is what adds the row.
+    /// Every key goes through here, a mana cost included. That was a special
+    /// case for one revision, on a reading of `Value::Cost(vec![])` that
+    /// turned out to be wrong in all three halves — it renders as `m:""`, it
+    /// reads back as the same empty cost, and the evaluator answers `Yes` to
+    /// it, because a cost containing no named symbol is every cost. It is an
+    /// ordinary empty opening like `t:""`, and the row carries the same ✕ as
+    /// its neighbours instead of being deleted by its own last symbol.
     pub fn add(&mut self, key: &Key) {
-        if matches!(Control::of(key), Control::Cost) {
-            self.adding = Adding::Keys(Control::Cost);
-            return;
-        }
         self.form.parts.push(FilterPart::Row {
             negated: false,
             term: Term {
@@ -487,37 +643,28 @@ impl FilterPanel {
         self.touched = true;
     }
 
-    /// Adds a mana-cost row holding one symbol.
+    /// Appends one symbol to a cost row.
     ///
-    /// The symbol is written as the corpus writes it, without braces —
+    /// The symbol is written as the language writes it, without braces —
     /// `"W"`, `"2"`, `"W/U"` — because that is what [`Value::Cost`] holds and
     /// what `cardquery::render` puts the braces back on.
-    pub fn add_cost(&mut self, symbol: &str) {
-        self.form.parts.push(FilterPart::Row {
-            negated: false,
-            term: Term {
-                key: Key::Mana,
-                op: Op::Colon,
-                value: Value::Cost(vec![symbol.to_string()]),
-            },
-        });
-        self.adding = Adding::Closed;
-        self.touched = true;
-    }
-
-    /// Appends one symbol to a cost row.
     pub fn push_symbol(&mut self, row: usize, symbol: &str) {
         if let Some(FilterPart::Row { term, .. }) = self.form.parts.get_mut(row)
             && let Value::Cost(symbols) = &mut term.value
         {
             symbols.push(symbol.to_string());
             self.touched = true;
+            self.reseed(row);
         }
     }
 
-    /// Takes the last symbol off a cost row, and the row itself with the last
-    /// of them — a cost of nothing has no spelling, so there is no state to
-    /// leave it in.
+    /// Takes the last symbol off a cost row.
+    ///
+    /// A row emptied this way stays: `m:""` is a written term asking for a
+    /// cost with no named symbol in it, which every card answers, and the ✕
+    /// beside the row is how a row goes. Backspacing past the first symbol
+    /// therefore does nothing at all rather than deleting the row under the
+    /// finger that was editing it.
     pub fn pop_symbol(&mut self, row: usize) {
         let Some(FilterPart::Row { term, .. }) = self.form.parts.get_mut(row) else {
             return;
@@ -525,37 +672,54 @@ impl FilterPanel {
         let Value::Cost(symbols) = &mut term.value else {
             return;
         };
-        symbols.pop();
-        if symbols.is_empty() {
-            self.form.parts.remove(row);
+        if symbols.pop().is_some() {
+            self.touched = true;
+            self.reseed(row);
         }
-        self.touched = true;
     }
 
     /// Empties the builder, and with it the box.
     pub fn clear(&mut self) {
         self.form.parts.clear();
         self.adding = Adding::Closed;
+        self.typing = None;
         self.touched = true;
     }
 }
 
 /// The operator a fresh row of this key opens with.
+///
+/// It has to be the operator the *written* form reads back as, or a fresh row
+/// fails the round trip the moment it is added. `!word` is the case that is
+/// not a matter of taste: it carries no operator on the page at all, so the
+/// parser supplies `=` and a row opening on a colon would come back as a
+/// different term than the one it wrote.
 fn starting_op(key: &Key) -> Op {
-    match Control::of(key) {
-        // A number opens at `=`, which is what a player means by typing one.
-        Control::Number => Op::Eq,
-        _ => Op::Colon,
+    match key {
+        Key::ExactName => Op::Eq,
+        _ => match Control::of(key) {
+            // A number opens at `=`, which is what a player means by typing
+            // one.
+            Control::Number => Op::Eq,
+            _ => Op::Colon,
+        },
     }
 }
 
 /// The value a fresh row of this key opens with.
 ///
-/// Every one of them is a term that is *legal to write* and narrows nothing
-/// surprising: no colours chosen is `c:` with the empty set, which asks for
-/// colourless — so a colour row opens on colourless rather than on a term
-/// that cannot be rendered. An empty word renders as `""` and matches
-/// everything, which is the honest state of a row nobody has typed into yet.
+/// Every one of them is a term that is *legal to write* and narrows nothing:
+/// no colours chosen is `c:` with the empty set, which asks for colourless —
+/// so a colour row opens on colourless rather than on a term that cannot be
+/// rendered, and every other opening is an empty value.
+///
+/// "Narrows nothing" is asserted over the whole menu in
+/// `every_kind_of_row_opens_on_something_writable`, and over the language in
+/// `cardquery::tests::a_value_nobody_has_typed_into_narrows_nothing` — where
+/// it was found to be false for two of the five word keys and, worse, for two
+/// of them to be no term at all: `""` and `!""` were read back as
+/// `Query::Anything`, so a row a player had just added vanished out of the
+/// box that was holding it.
 fn starting_value(key: &Key) -> Value {
     match Control::of(key) {
         Control::Colors => Value::Colors(Colors::default()),
@@ -564,11 +728,9 @@ fn starting_value(key: &Key) -> Value {
         // flag every surface knows something about rather than on nothing:
         // a row with no flag chosen could not be written at all.
         Control::Flag => Value::Flag(Flag::Playable),
-        // Unreachable through `FilterPanel::add`, which opens the symbols
-        // instead — see the note there. One symbol, so that a caller reaching
-        // it another way gets a row that can be written rather than one that
-        // hides every card.
-        Control::Cost => Value::Cost(vec!["1".to_string()]),
+        // No symbol named is every cost, the same way an empty word is every
+        // word — `m:""` is written, read back and answered `Yes` to.
+        Control::Cost => Value::Cost(Vec::new()),
         Control::Text => Value::Word(String::new()),
     }
 }
@@ -654,8 +816,10 @@ pub enum Act {
     AddStep(Adding),
     /// Add a row for the key at that index in [`OFFERED`].
     Add(usize),
-    /// Add a cost row holding the symbol at that index in [`SYMBOLS`].
-    AddSymbol(usize),
+    /// Put the caret in that row's value.
+    Edit(usize),
+    /// Give the caret back.
+    StopTyping,
     /// Append that symbol to a cost row.
     PushSymbol(usize, usize),
     /// Take the last symbol off one, and the row with the last of them.
@@ -700,15 +864,12 @@ impl FilterPanel {
                     self.set_value(row, Value::Flag(*flag));
                 }
             }
+            Act::Edit(row) => self.edit(row),
+            Act::StopTyping => self.stop_typing(),
             Act::AddStep(step) => self.add_step(step),
             Act::Add(at) => {
                 if let Some(key) = OFFERED.get(at) {
                     self.add(key);
-                }
-            }
-            Act::AddSymbol(at) => {
-                if let Some(symbol) = SYMBOLS.get(at) {
-                    self.add_cost(symbol);
                 }
             }
             Act::PushSymbol(row, at) => {

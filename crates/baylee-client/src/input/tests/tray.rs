@@ -369,3 +369,83 @@ fn the_search_box_answers_the_keys_a_text_field_answers() {
         "select-all and one press empties it"
     );
 }
+
+/// The gear opens the builder, and a button in it writes the box.
+///
+/// Pressed rather than called: `FilterPanel` has a method for every one of
+/// these and calling them would prove the model works, which its own tests
+/// already do. What this asks is whether the **button** reaches it — the
+/// question a test that calls the method cannot ask, and the one this crate
+/// has answered wrongly before.
+#[test]
+fn the_gear_and_the_builders_buttons_reach_the_browser() {
+    use baylee_client_core::cardquery::Key;
+    use baylee_client_core::filterdialog::{Act, OFFERED};
+
+    let mut duel = crate::Duel::default();
+    duel.browser.set_filter("color:red");
+    let (mut app, _, _) = menu_app(duel);
+
+    let gear = app.world_mut().spawn(crate::hud::TrayGear).id();
+    click(&mut app, gear);
+    assert_eq!(
+        app.world().resource::<crate::Duel>().browser.filter(),
+        "color:red",
+        "opening the builder rewrote the box"
+    );
+    assert!(
+        app.world()
+            .resource::<crate::Duel>()
+            .browser
+            .builder()
+            .is_some(),
+        "the gear did not open the builder"
+    );
+
+    let at = OFFERED
+        .iter()
+        .position(|key| *key == Key::Type)
+        .expect("the menu offers a type");
+    let add = app
+        .world_mut()
+        .spawn(crate::filterui::FilterAct(Act::Add(at)))
+        .id();
+    click(&mut app, add);
+    // The first change writes the *whole* line back in the language's own
+    // spelling, so the colour the player typed as `color:red` comes back as
+    // `c:r`. That is one rewrite and not two: the box is written from the
+    // form, and a form writes every row it holds.
+    assert_eq!(
+        app.world().resource::<crate::Duel>().browser.filter(),
+        "c:r t:\"\"",
+        "a button in the builder did not reach the box"
+    );
+
+    click(&mut app, gear);
+    assert!(
+        app.world()
+            .resource::<crate::Duel>()
+            .browser
+            .builder()
+            .is_none(),
+        "the gear is the way out as well as the way in"
+    );
+}
+
+/// A tap in the box shuts the builder and takes the caret back.
+///
+/// The two are editors of one string; two carets is the state this whole
+/// feature exists to make unreachable.
+#[test]
+fn a_tap_in_the_box_shuts_the_builder() {
+    let (mut app, _, _) = menu_app(crate::Duel::default());
+    let gear = app.world_mut().spawn(crate::hud::TrayGear).id();
+    let field = app.world_mut().spawn(crate::hud::TrayFilter).id();
+
+    click(&mut app, gear);
+    assert!(!app.world().resource::<crate::Duel>().browser.is_typing());
+    click(&mut app, field);
+    let duel = app.world().resource::<crate::Duel>();
+    assert!(duel.browser.builder().is_none(), "the builder is shut");
+    assert!(duel.browser.is_typing(), "and the box has the caret");
+}

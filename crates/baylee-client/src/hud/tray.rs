@@ -1125,7 +1125,55 @@ pub(super) fn spawn_tray(
             Feel::new(palette::DIALOG),
         ))
         .id();
+    // The gear lives *inside* the box, which is what says it is about what
+    // the box holds. It stays lit while the builder is open, because the
+    // builder has no frame of its own to say so — it is a mode of this field
+    // and not a window.
+    let building = browser.builder().is_some();
+    let gear = commands
+        .spawn((
+            TrayGear,
+            Button,
+            Node {
+                width: px(TRAY_CTRL_H - 8.0),
+                height: px(TRAY_CTRL_H - 8.0),
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+                flex_shrink: 0.0,
+                margin: UiRect::left(px(TRAY_GAP)),
+                border_radius: btn_radius(),
+                ..default()
+            },
+            BackgroundColor(if building {
+                palette::CANDLE_WASH
+            } else {
+                Color::NONE
+            }),
+            Feel::tinting_to(
+                if building {
+                    palette::CANDLE_WASH
+                } else {
+                    Color::NONE
+                },
+                palette::CANDLE_WASH_LIT,
+            ),
+        ))
+        .id();
+    let cog = commands
+        .spawn((
+            Text::new(glyph::GEAR.to_string()),
+            icon_tf(fonts, 11.0),
+            TextColor(if building {
+                palette::CANDLE
+            } else {
+                palette::DIALOG_SOFT
+            }),
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(gear).add_child(cog);
     commands.entity(filter_line).add_children(&filter_text);
+    commands.entity(filter_line).add_child(gear);
     // A library is a hundred cards and a long graveyard is thirty, so "look
     // through this pile" is not a question the pile's own order answers on
     // its own. The key and the direction are two buttons because they are two
@@ -1193,8 +1241,23 @@ pub(super) fn spawn_tray(
         commands.entity(controls).add_child(tally);
     }
 
-    // Two rows, where it was three: the tabs went up into the title row.
+    // Two rows, where it was three: the tabs went up into the title row —
+    // and a third when the gear is open, which is the builder. It sits under
+    // the controls rather than over the list, because it is what the box in
+    // that row holds: a panel floating over the cards would be a second
+    // window, and this is a mode of the field above it.
     commands.entity(head).add_children(&[title_row, controls]);
+    if let Some(panel) = browser.builder() {
+        let built = crate::filterui::build(
+            commands,
+            fonts,
+            panel,
+            baylee_client_core::cardquery::Surface::ZONE,
+            lang,
+            crate::filterui::Register::TRAY,
+        );
+        commands.entity(head).add_child(built);
+    }
 
     // ---- the list ----
     //

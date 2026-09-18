@@ -691,6 +691,14 @@ pub struct Browser {
     filter: crate::textbuf::TextBuffer,
     sort: SortKey,
     descending: bool,
+    /// The filter-string builder, while the gear inside the box is open.
+    ///
+    /// A *mode* of the box and not a second field: the box keeps showing the
+    /// string, and while this is `Some` the box has no caret — a tap in it
+    /// closes the builder and takes the caret back. Two editors of one value
+    /// is exactly the silent rewrite `crate::filterdialog` exists to
+    /// prevent, and it would be no better for being inside this client.
+    builder: Option<crate::filterdialog::FilterPanel>,
     typing: bool,
     typing_epoch: u64,
     /// The cards the engine was showing this seat the last time a view came
@@ -1027,6 +1035,89 @@ impl Browser {
     /// Takes the keyboard back. The text stays.
     pub fn stop_typing(&mut self) {
         self.typing = false;
+    }
+
+    /// The builder, while the gear is open.
+    #[must_use]
+    pub const fn builder(&self) -> Option<&crate::filterdialog::FilterPanel> {
+        self.builder.as_ref()
+    }
+
+    /// Opens the builder on what is in the box, or closes it.
+    ///
+    /// Opening takes the caret out of the box, and closing does **not** give
+    /// it back: a player who is done setting the filter up is looking at the
+    /// list, not at a blinking bar. The box is clicked to type in it, which
+    /// is what it was before the gear existed.
+    pub fn toggle_builder(&mut self) {
+        if self.builder.is_some() {
+            self.builder = None;
+            return;
+        }
+        self.typing = false;
+        self.builder = Some(crate::filterdialog::FilterPanel::open(
+            &crate::cardquery::parse(self.filter.text()),
+        ));
+    }
+
+    /// Shuts the builder, which is what a tap in the box means.
+    pub fn close_builder(&mut self) {
+        self.builder = None;
+    }
+
+    /// Does what a button in the builder means, and writes the box.
+    ///
+    /// The box is written from [`FilterPanel::written`], which answers `None`
+    /// until a row has actually been changed — so opening the builder to look
+    /// at a string leaves the string alone, down to its spelling.
+    ///
+    /// [`FilterPanel::written`]: crate::filterdialog::FilterPanel::written
+    pub fn filter_act(&mut self, act: crate::filterdialog::Act) {
+        let Some(builder) = self.builder.as_mut() else {
+            return;
+        };
+        builder.act(act);
+        self.write_the_box();
+    }
+
+    /// Types into whichever row of the builder holds the caret.
+    ///
+    /// Its own door and not [`Self::type_text`] with a branch, because the
+    /// two are different fields with different carets and a shell that could
+    /// confuse them would be the two editors again.
+    pub fn type_into_builder(&mut self, text: &str) {
+        if let Some(builder) = self.builder.as_mut() {
+            builder.type_text(text);
+            self.write_the_box();
+        }
+    }
+
+    /// One editing gesture in the builder's caret, and the box written after
+    /// it.
+    ///
+    /// A closure rather than eight forwarding methods: every gesture a
+    /// [`crate::textbuf::TextBuffer`] has ends the same way here, and a ninth
+    /// one added to the panel would otherwise be a ninth one to remember to
+    /// forward.
+    pub fn in_builder(&mut self, edit: impl FnOnce(&mut crate::filterdialog::FilterPanel)) {
+        if let Some(builder) = self.builder.as_mut() {
+            edit(builder);
+            self.write_the_box();
+        }
+    }
+
+    /// Puts what the builder holds into the box.
+    fn write_the_box(&mut self) {
+        let Some(query) = self
+            .builder
+            .as_ref()
+            .and_then(crate::filterdialog::FilterPanel::written)
+        else {
+            return;
+        };
+        let text = crate::cardquery::render(&query);
+        let at = text.len();
+        self.filter.set(&text, at, None);
     }
 
     /// One typed character, at the caret and over the selection.

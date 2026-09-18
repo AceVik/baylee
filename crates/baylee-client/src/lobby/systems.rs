@@ -272,6 +272,10 @@ pub(super) fn softkeys(
 /// Skipped entirely where [`SoftKeyboard`] owns the typing: the browser's
 /// input has focus, so the canvas sees nothing anyway, and anything it did see
 /// would be entered twice.
+// Three screens' worth of chords in one function, each a flat `match` read top
+// to bottom. Splitting it by screen would mean three copies of the modifier
+// arithmetic above them, which is the thing that must not drift.
+#[allow(clippy::too_many_lines)]
 pub(super) fn keyboard(
     mut keys: MessageReader<KeyboardInput>,
     codes: Res<ButtonInput<KeyCode>>,
@@ -308,12 +312,91 @@ pub(super) fn keyboard(
         return;
     }
     if matches!(state.lobby.screen(), Screen::Build) {
+        // While a row of the filter builder holds the caret, every key goes
+        // there and none of them into the deck builder's own boxes. The two
+        // are editors of one string and only one may be typed into, which is
+        // the rule `filterdialog`'s header states — and the rows have a real
+        // caret where the search box, being a plain `String`, has none, so
+        // they answer the whole chord set rather than this screen's three.
+        if state
+            .lobby
+            .builder()
+            .panel()
+            .is_some_and(|it| it.typing().is_some())
+        {
+            let shift = codes.any_pressed([KeyCode::ShiftLeft, KeyCode::ShiftRight]);
+            let word = codes.any_pressed([
+                KeyCode::AltLeft,
+                KeyCode::AltRight,
+                KeyCode::ControlLeft,
+                KeyCode::ControlRight,
+            ]);
+            let line = codes.any_pressed([KeyCode::SuperLeft, KeyCode::SuperRight]);
+            let command = line || codes.any_pressed([KeyCode::ControlLeft, KeyCode::ControlRight]);
+            let reach = if line {
+                Reach::Line
+            } else if word {
+                Reach::Word
+            } else {
+                Reach::Char
+            };
+            for key in keys.read() {
+                if !key.state.is_pressed() {
+                    continue;
+                }
+                let deck = state.lobby.builder_mut();
+                match &key.logical_key {
+                    Key::Backspace => deck.in_panel(|it| {
+                        it.pop_typed();
+                    }),
+                    Key::Delete => deck.in_panel(FilterPanel::delete_typed_forward),
+                    Key::ArrowLeft => {
+                        deck.in_panel(|it| it.move_typing_caret(reach, Dir::Left, shift));
+                    }
+                    Key::ArrowRight => {
+                        deck.in_panel(|it| it.move_typing_caret(reach, Dir::Right, shift));
+                    }
+                    Key::Home => {
+                        deck.in_panel(|it| it.move_typing_caret(Reach::Line, Dir::Left, shift));
+                    }
+                    Key::End => {
+                        deck.in_panel(|it| it.move_typing_caret(Reach::Line, Dir::Right, shift));
+                    }
+                    // Enter hands the row back and leaves the panel open,
+                    // the same way it does in the zone browser.
+                    Key::Enter | Key::Escape => deck.in_panel(FilterPanel::stop_typing),
+                    Key::Character(text) if command => {
+                        if text.eq_ignore_ascii_case("a") {
+                            deck.in_panel(FilterPanel::select_all_typed);
+                        }
+                    }
+                    _ => {
+                        if let Some(text) = key.text.as_ref() {
+                            deck.type_into_panel(text);
+                        }
+                    }
+                }
+                // A different filter is a different list; the row that was
+                // halfway down it is not in this one.
+                scrolled.set(List::Pool, 0.0);
+            }
+            return;
+        }
+        // The panel is open but no row of it holds the caret: the search box
+        // must not quietly take the keys instead, or a letter typed here
+        // would change the string under a builder still showing the rows it
+        // was opened on. The deck's name box is a different field and keeps
+        // working.
+        let box_is_shut = state.lobby.builder().panel().is_some();
         for key in keys.read() {
             if !key.state.is_pressed() {
                 continue;
             }
             let builder = state.lobby.builder_mut();
             let searching = builder.focus() == BuildField::Search;
+            if box_is_shut && searching && !matches!(key.logical_key, Key::Tab) {
+                continue;
+            }
             let mut narrowed = false;
             match &key.logical_key {
                 Key::Backspace => {
@@ -456,6 +539,14 @@ pub(super) fn clicks(
     mut ends: MessageReader<Pointer<DragEnd>>,
     mut scrolled: ResMut<Scrolled>,
     presses: Query<&Press>,
+    // The filter builder's own buttons carry the model's vocabulary rather
+    // than a `Press`, and one query reads all of them — the same one the zone
+    // browser reads. `crate::filterui` puts a `FilterAct` on every button it
+    // draws, so a control added to the builder is wired by being drawn; the
+    // alternative was a `Press` variant per button, in two places, kept in
+    // step by hand.
+    acts: Query<&crate::filterui::FilterAct>,
+    dones: Query<&crate::filterui::FilterDone>,
     parents: Query<&ChildOf>,
     mut state: ResMut<LobbyState>,
     mut prefs: ResMut<crate::prefs::Prefs>,
@@ -472,6 +563,19 @@ pub(super) fn clicks(
         return;
     }
     for click in pointer.read() {
+        // The builder's buttons first: its rows sit inside the deck builder's
+        // own panel, so a `Press` above them would otherwise swallow a click
+        // meant for a row.
+        if let Some(act) = crate::input::find_in_lineage(click.entity, &acts, &parents) {
+            let act = act.0;
+            state.lobby.builder_mut().filter_act(act);
+            // *Done* is both: the act hands the row's caret back and the
+            // marker beside it shuts the panel.
+            if crate::input::find_in_lineage(click.entity, &dones, &parents).is_some() {
+                state.lobby.builder_mut().close_panel();
+            }
+            continue;
+        }
         let Some(press) = in_lineage(click.entity, &presses, &parents) else {
             continue;
         };
@@ -712,7 +816,16 @@ pub(super) fn clicks(
                 let request = state.lobby.save_deck();
                 dispatch(&mut state, &mailbox, request);
             }
-            Press::FocusBuild(field) => state.lobby.builder_mut().focus_on(field),
+            Press::FocusBuild(field) => {
+                let deck = state.lobby.builder_mut();
+                // A tap in the search box shuts the builder and takes the
+                // caret, which is the way back out of it — the same rule the
+                // zone browser's box follows.
+                if field == BuildField::Search {
+                    deck.close_panel();
+                }
+                deck.focus_on(field);
+            }
             Press::AddCard(slot) => {
                 let zone = state.lobby.builder().zone();
                 if !state.lobby.builder_mut().add(slot, zone) {
@@ -782,6 +895,7 @@ pub(super) fn clicks(
             Press::Inspect(slot) => state.lobby.builder_mut().inspect(slot),
             Press::CloseCard => state.lobby.builder_mut().stop_inspecting(),
             Press::ToggleFilters => state.filters_open = !state.filters_open,
+            Press::ToggleFilterPanel => state.lobby.builder_mut().toggle_panel(),
         }
     }
 }
@@ -1181,6 +1295,9 @@ pub(crate) enum Press {
     CloseCard,
     /// Show or hide the filter chips on a narrow screen.
     ToggleFilters,
+    /// Open the filter-string builder on what the search box holds, or shut
+    /// it. The cogwheel inside the box.
+    ToggleFilterPanel,
 }
 
 /// The nearest [`Press`] at or above an entity, so a click on a button's

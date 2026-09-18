@@ -628,6 +628,12 @@ pub struct DeckBuilder {
     kind: Option<String>,
     cmc: Option<u32>,
     playable_only: bool,
+    /// The filter-string builder, while the gear inside the box is open.
+    ///
+    /// The same shape as `Browser::builder` and for the same reason: it is a
+    /// *mode* of the search box, not a second field. The box keeps showing
+    /// the string and the gear stays lit while it is open.
+    panel: Option<crate::filterdialog::FilterPanel>,
     sort: Sort,
     main: Vec<Entry>,
     side: Vec<Entry>,

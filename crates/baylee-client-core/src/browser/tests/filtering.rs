@@ -362,3 +362,68 @@ fn a_zone_search_refuses_a_question_the_view_cannot_answer() {
     assert_eq!(found("id:g"), 0, "nor a colour identity");
     assert_eq!(found("elves"), 1, "what it does carry still answers");
 }
+
+/// The gear opens a builder on what is in the box, and looking at it changes
+/// nothing.
+///
+/// The sharp half of the whole feature. `Key::render` picks one spelling out
+/// of the several Scryfall accepts, so a builder that wrote its own reading
+/// back on opening would turn `color:red cmc:3` into `c:r mv:3` — the same
+/// search, and a box rewritten by nothing but being looked at.
+#[test]
+fn opening_the_builder_leaves_the_typed_string_exactly_as_it_was() {
+    let mut b = Browser::new();
+    b.set_filter("color:red cmc:3");
+    b.toggle_builder();
+    assert_eq!(b.builder().expect("it is open").parts().len(), 2);
+    assert_eq!(b.filter(), "color:red cmc:3", "and the box is untouched");
+    b.toggle_builder();
+    assert!(b.builder().is_none());
+    assert_eq!(b.filter(), "color:red cmc:3");
+}
+
+/// A button in the builder writes the box, and the list under it answers.
+#[test]
+fn a_button_in_the_builder_writes_the_box_and_the_list_follows() {
+    let mut forest = printed(5, 0, "Forest", 4);
+    forest.types = TypeSet::LAND;
+    forest.power = None;
+    forest.toughness = None;
+    let view = ViewBuilder::new(2)
+        .with_graveyard(0, vec![printed(4, 0, "Llanowar Elves", 3), forest])
+        .build();
+    let mut b = Browser::new();
+    b.toggle_builder();
+    // Add a type row, type into it, and the box says what was built.
+    let at = crate::filterdialog::OFFERED
+        .iter()
+        .position(|key| *key == crate::cardquery::Key::Type)
+        .expect("the menu offers a type");
+    b.filter_act(crate::filterdialog::Act::Add(at));
+    b.filter_act(crate::filterdialog::Act::Edit(0));
+    b.type_into_builder("land");
+    assert_eq!(b.filter(), "t:land");
+    assert_eq!(
+        b.rows(&view, None, Names::projected())
+            .into_iter()
+            .map(|row| row.name)
+            .collect::<Vec<_>>(),
+        ["Forest"],
+        "and the rows are the ones the built string asks for"
+    );
+}
+
+/// The box has no caret while the builder is open, and gets it back by being
+/// tapped.
+#[test]
+fn the_box_and_the_builder_are_never_both_holding_the_caret() {
+    let mut b = Browser::new();
+    b.start_typing();
+    assert!(b.is_typing());
+    b.toggle_builder();
+    assert!(!b.is_typing(), "the gear takes the caret out of the box");
+    b.close_builder();
+    b.start_typing();
+    assert!(b.is_typing(), "and a tap in the box takes it back");
+    assert!(b.builder().is_none());
+}

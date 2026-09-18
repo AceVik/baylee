@@ -300,45 +300,66 @@ fn the_colour_pips_add_and_take_away_and_colourless_stands_alone() {
 /// A fresh row is a term that can be written, not a blank waiting for one.
 #[test]
 fn every_kind_of_row_opens_on_something_writable() {
+    for key in super::OFFERED {
+        let mut panel = FilterPanel::default();
+        panel.add(key);
+        let query = panel.written().expect("adding a row is a change");
+        let written = render(&query);
+        assert_eq!(
+            parse(&written),
+            query,
+            "a fresh {key:?} row was written as `{written}` and read back as \
+             something else"
+        );
+        assert_eq!(
+            FilterPanel::open(&parse(&written)).parts().len(),
+            1,
+            "and opening the box again still finds the row: `{written}`"
+        );
+    }
+}
+
+/// The spellings a fresh row of each kind writes.
+///
+/// Beside the loop above rather than inside it: that one asserts the
+/// *property* over every key the menu offers and grows with the menu, and
+/// this one is what a reader wants when they ask what the box says after one
+/// tap. Four keys and not thirteen, because what differs is the control.
+#[test]
+fn a_fresh_row_of_each_kind_writes_what_it_is() {
     for (key, written) in [
         (Key::Type, "t:\"\""),
         (Key::Color, "c:c"),
         (Key::ManaValue, "mv=0"),
         (Key::Is, "is:playable"),
+        (Key::Mana, "m:\"\""),
     ] {
         let mut panel = FilterPanel::default();
         panel.add(&key);
-        let query = panel.written().expect("adding a row is a change");
-        assert_eq!(render(&query), written, "a fresh {key:?} row");
         assert_eq!(
-            parse(&render(&query)),
-            query,
-            "and it reads back as itself, which a half-written term would not"
+            render(&panel.written().expect("adding a row is a change")),
+            written,
+            "a fresh {key:?} row"
         );
     }
 }
 
-/// A mana cost is the one row that cannot be added empty.
+/// A cost is built symbol by symbol, and the row outlives its symbols.
 ///
-/// There is no spelling for "no symbols": `Value::Cost(vec![])` writes as
-/// `m:""`, which reads back as a *word* and which the evaluator answers
-/// `Unknown` to — so an empty cost row would hide every card until its first
-/// symbol was tapped. Choosing *cost* from the menu therefore opens the
-/// symbols rather than adding a row, and the first symbol is what adds it.
+/// This was the one key the menu treated specially, on a reading of
+/// `Value::Cost(vec![])` that was wrong three times over: it renders as
+/// `m:""`, it reads back as the same empty cost, and the evaluator answers
+/// `Yes` — a cost holding no named symbol is every cost. So there is nothing
+/// to protect a player from, and a row deleting itself under the finger that
+/// was backspacing in it is worse than one that sits there empty.
 #[test]
-fn a_cost_row_is_added_by_its_first_symbol_and_removed_by_its_last() {
+fn a_cost_row_is_built_symbol_by_symbol_and_goes_only_by_its_own_cross() {
     let mut panel = FilterPanel::default();
     panel.add(&Key::Mana);
-    assert!(panel.parts().is_empty(), "nothing was added yet");
-    assert_eq!(
-        panel.adding(),
-        Adding::Keys(Control::Cost),
-        "the symbols are open"
-    );
-    assert_eq!(panel.written(), None, "and the box is untouched");
+    assert_eq!(panel.parts().len(), 1, "the row is there to be typed into");
+    assert_eq!(render(&panel.written().unwrap()), "m:\"\"");
 
-    panel.add_cost("W");
-    assert_eq!(render(&panel.written().unwrap()), "m:{W}");
+    panel.push_symbol(0, "W");
     panel.push_symbol(0, "W");
     panel.push_symbol(0, "2");
     assert_eq!(render(&panel.written().unwrap()), "m:{W}{W}{2}");
@@ -349,12 +370,16 @@ fn a_cost_row_is_added_by_its_first_symbol_and_removed_by_its_last() {
 
     panel.pop_symbol(0);
     panel.pop_symbol(0);
-    assert_eq!(render(&panel.written().unwrap()), "m:{W}");
     panel.pop_symbol(0);
-    assert!(
-        panel.parts().is_empty(),
-        "the last symbol takes the row with it — there is no empty cost to stand in"
+    assert_eq!(render(&panel.written().unwrap()), "m:\"\"");
+    panel.pop_symbol(0);
+    assert_eq!(
+        panel.parts().len(),
+        1,
+        "backspacing past the first symbol does nothing — the \u{2715} is how a row goes"
     );
+    panel.remove(0);
+    assert!(panel.parts().is_empty());
 }
 
 #[test]
@@ -440,19 +465,15 @@ fn a_whole_filter_can_be_built_by_pressing_buttons() {
     panel.act(Act::Negate(1, true));
     assert_eq!(render(&panel.written().unwrap()), "mv<=3 -c:w");
 
-    // A cost, which is added by its first symbol.
+    // A cost, filled from the keyboard beside it.
     panel.act(Act::AddStep(Adding::Kinds));
     let mana = super::OFFERED
         .iter()
         .position(|key| *key == Key::Mana)
         .expect("a cost is offered");
     panel.act(Act::Add(mana));
-    assert_eq!(
-        panel.parts().len(),
-        2,
-        "choosing cost adds no row on its own"
-    );
-    panel.act(Act::AddSymbol(0));
+    assert_eq!(panel.parts().len(), 3, "an ordinary row like any other");
+    panel.act(Act::PushSymbol(2, 0));
     panel.act(Act::PushSymbol(2, 0));
     assert_eq!(render(&panel.written().unwrap()), "mv<=3 -c:w m:{W}{W}");
 
@@ -486,7 +507,7 @@ fn an_act_naming_a_row_that_is_gone_is_quiet() {
         Act::Parity(7, Some(true)),
         Act::SetFlag(7, 99),
         Act::Add(99),
-        Act::AddSymbol(99),
+        Act::Edit(7),
         Act::PushSymbol(7, 0),
         Act::PopSymbol(7),
     ] {
@@ -494,4 +515,109 @@ fn an_act_naming_a_row_that_is_gone_is_quiet() {
     }
     assert_eq!(panel.parts().len(), 1, "{before} is still the only row");
     assert_eq!(render(&panel.form.query()), before);
+}
+
+/// Typing into a row writes the value a player would have typed into the box.
+///
+/// The same reader, [`value_of`](crate::cardquery::value_of), and not a
+/// second one beside it: a row that arrived at a different value from the
+/// same letters would be the silent rewrite at the width of one row.
+#[test]
+fn typing_into_a_row_reads_the_letters_the_language_reads() {
+    let mut panel = FilterPanel::default();
+    panel.add(&Key::Type);
+    panel.edit(0);
+    panel.type_text("goblin");
+    assert_eq!(render(&panel.written().unwrap()), "t:goblin");
+
+    // A number row is not only a stepper: `mv:12` is two taps of a keyboard
+    // and twelve of an arrow, and `even` is on no stepper at all.
+    panel.add(&Key::ManaValue);
+    panel.edit(1);
+    panel.type_text("12");
+    assert_eq!(render(&panel.written().unwrap()), "t:goblin mv=12");
+    panel.select_all_typed();
+    panel.type_text("even");
+    assert_eq!(render(&panel.written().unwrap()), "t:goblin mv=even");
+
+    // And a cost row reaches what the six-symbol keyboard cannot spell.
+    panel.add(&Key::Mana);
+    panel.edit(2);
+    panel.type_text("{2}{W/U}{R/P}");
+    assert_eq!(
+        render(&panel.written().unwrap()),
+        "t:goblin mv=even m:{2}{W/U}{R/P}"
+    );
+}
+
+/// A control tapped while its row is being typed into wins, and the caret
+/// starts again from what it wrote.
+///
+/// Without this the box under the caret still holds the text from before the
+/// tap, and the next letter writes it back over the pip — a control and a box
+/// editing one value, which is this module's own failure mode at the width of
+/// a row.
+#[test]
+fn a_pip_tapped_under_the_caret_is_what_the_next_letter_starts_from() {
+    let mut panel = FilterPanel::default();
+    panel.add(&Key::Color);
+    panel.edit(0);
+    panel.type_text("r");
+    assert_eq!(render(&panel.written().unwrap()), "c:r");
+    panel.toggle_color(0, 'g');
+    assert_eq!(render(&panel.written().unwrap()), "c:rg");
+    assert_eq!(
+        panel.typing().expect("still typing").field().text(),
+        "rg",
+        "the box under the caret says what the pips say"
+    );
+    panel.type_text("w");
+    assert_eq!(
+        render(&panel.written().unwrap()),
+        "c:wrg",
+        "so the next letter adds to the pips rather than undoing them — and \
+         the written form is WUBRG, which is the order a cost is printed in"
+    );
+}
+
+/// The caret follows the row it is in, and goes when the row does.
+#[test]
+fn a_row_removed_under_the_caret_takes_the_caret_with_it() {
+    let mut panel = FilterPanel::open(&parse("t:creature mv:3 c:r"));
+    panel.edit(2);
+    panel.remove(0);
+    assert_eq!(
+        panel.typing().expect("the caret is still somewhere").row(),
+        1,
+        "the rows below moved up, and the caret moved with its own"
+    );
+    panel.type_text("g");
+    assert_eq!(
+        render(&panel.written().unwrap()),
+        "mv:3 c:g",
+        "and it is still typing into the colour row and not into the number"
+    );
+    panel.remove(1);
+    assert!(panel.typing().is_none(), "the row it was in is gone");
+    panel.type_text("x");
+    assert_eq!(
+        render(&panel.written().unwrap()),
+        "mv:3",
+        "and a key pressed after that goes nowhere at all"
+    );
+}
+
+/// Opening a row for typing selects what is in it.
+///
+/// A fresh row opens empty and an old one opens on its own spelling, and in
+/// both cases the first letter typed should be the value — not appended to
+/// what was already there. It is the same thing a search box does when it
+/// takes focus.
+#[test]
+fn taking_a_row_selects_what_it_already_says() {
+    let mut panel = FilterPanel::open(&parse("t:creature"));
+    panel.edit(0);
+    assert_eq!(panel.typing().unwrap().field().text(), "creature");
+    panel.type_text("land");
+    assert_eq!(render(&panel.written().unwrap()), "t:land");
 }

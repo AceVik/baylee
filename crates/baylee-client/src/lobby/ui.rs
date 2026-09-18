@@ -403,6 +403,9 @@ fn sign_in(
             focused: lobby.focus() == Field::Email,
             mask: None,
             press: Press::Focus(Field::Email),
+            lead: None,
+            hint: None,
+            tail: None,
         },
     );
     commands.entity(panel).add_child(email);
@@ -417,6 +420,9 @@ fn sign_in(
                 focused: lobby.focus() == Field::DisplayName,
                 mask: None,
                 press: Press::Focus(Field::DisplayName),
+                lead: None,
+                hint: None,
+                tail: None,
             },
         );
         commands.entity(panel).add_child(name);
@@ -434,6 +440,9 @@ fn sign_in(
                 shown: lobby.showing(Field::Password),
             }),
             press: Press::Focus(Field::Password),
+            lead: None,
+            hint: None,
+            tail: None,
         },
     );
     commands.entity(panel).add_child(password);
@@ -823,6 +832,9 @@ fn table(
                 focused: lobby.focus() == Field::Search,
                 mask: None,
                 press: Press::Focus(Field::Search),
+                lead: Some(crate::hud::glyph::MAGNIFIER),
+                hint: Some(Phrase::SearchTables.text(lang)),
+                tail: None,
             },
         );
         commands.entity(hunt).add_child(box_);
@@ -881,6 +893,9 @@ fn table(
                     shown: lobby.showing(Field::RoomPassword),
                 }),
                 press: Press::Focus(Field::RoomPassword),
+                lead: None,
+                hint: None,
+                tail: None,
             },
         );
         commands.entity(lock).add_child(box_);
@@ -1532,6 +1547,37 @@ pub(crate) struct FieldLook<'a> {
     pub(crate) mask: Option<Masked>,
     /// What a tap on it means.
     pub(crate) press: Press,
+    /// A glyph button at the far end of the box.
+    ///
+    /// Its own field and not a second shape of [`FieldLook::mask`]: the eye
+    /// belongs to a password and is *about* the text, and this is about what
+    /// the box is for. A box may have both — a search box has a gear and no
+    /// eye, and nothing has two of either.
+    pub(crate) tail: Option<FieldTail>,
+    /// A glyph from the icon face, drawn before the text.
+    ///
+    /// A search box is the one shape a player recognises without reading it,
+    /// and the magnifier is what makes it that shape. It is `Pickable::IGNORE`
+    /// like every other label inside a control, so the tap finds the box.
+    pub(crate) lead: Option<char>,
+    /// What the box says while nothing has been typed into it.
+    ///
+    /// Beside the caption above the box rather than instead of it: the caption
+    /// says what the box *is* and survives being typed into, and this says
+    /// what may go in it and is gone the moment anything does. A box with
+    /// neither was a rectangle a player had to guess at.
+    pub(crate) hint: Option<&'a str>,
+}
+
+/// A glyph button at the end of a field: what it draws and what it means.
+#[derive(Clone, Copy)]
+pub(crate) struct FieldTail {
+    /// The mark, from the icon face.
+    pub(crate) glyph: char,
+    /// What a tap on it means.
+    pub(crate) press: Press,
+    /// Whether what it opens is open, which is what lights it.
+    pub(crate) lit: bool,
 }
 
 /// A password box: what the eye beside it addresses, and whether it is open.
@@ -1659,11 +1705,44 @@ pub(crate) fn text_field(
             look.press,
         ))
         .id();
+    if let Some(glyph) = look.lead {
+        let mark = commands
+            .spawn((
+                Text::new(glyph.to_string()),
+                crate::hud::icon_tf(fonts, metrics.small * 0.85),
+                TextColor(palette::MUTED),
+                Node {
+                    margin: UiRect::right(px(metrics.gap * 0.5)),
+                    flex_shrink: 0.0,
+                    ..default()
+                },
+                Pickable::IGNORE,
+            ))
+            .id();
+        commands.entity(boxed).add_child(mark);
+    }
     for run in field_runs(commands, fonts, metrics, look) {
         commands.entity(boxed).add_child(run);
     }
-    if let Some(masked) = look.mask {
-        // Pushed to the far end of the row, so the eye is in the same place
+    // After the runs, so the caret stands in front of it the way a caret
+    // stands in front of an empty `<input>`'s placeholder.
+    if let Some(words) = look.hint.filter(|_| look.buffer.text().is_empty()) {
+        let ghost = commands
+            .spawn((
+                Text::new(words.to_string()),
+                tf(fonts, metrics.text),
+                TextColor(palette::MUTED),
+                Node {
+                    flex_shrink: 1.0,
+                    ..default()
+                },
+                Pickable::IGNORE,
+            ))
+            .id();
+        commands.entity(boxed).add_child(ghost);
+    }
+    if look.mask.is_some() || look.tail.is_some() {
+        // Pushed to the far end of the row, so a button is in the same place
         // whatever is typed and the letters never run into it.
         let gap = commands
             .spawn((
@@ -1676,8 +1755,14 @@ pub(crate) fn text_field(
             ))
             .id();
         commands.entity(boxed).add_child(gap);
-        let eye = eye_button(commands, fonts, metrics, masked);
-        commands.entity(boxed).add_child(eye);
+        if let Some(masked) = look.mask {
+            let eye = eye_button(commands, fonts, metrics, masked);
+            commands.entity(boxed).add_child(eye);
+        }
+        if let Some(tail) = look.tail {
+            let button = icon_button(commands, fonts, metrics, tail);
+            commands.entity(boxed).add_child(button);
+        }
     }
     commands.entity(column).add_child(caption);
     commands.entity(column).add_child(boxed);
@@ -1710,18 +1795,34 @@ fn eye_button(
     metrics: Metrics,
     masked: Masked,
 ) -> Entity {
+    icon_button(
+        commands,
+        fonts,
+        metrics,
+        FieldTail {
+            glyph: if masked.shown {
+                crate::hud::glyph::EYE_SLASH
+            } else {
+                crate::hud::glyph::EYE
+            },
+            press: Press::Reveal(masked.field),
+            lit: masked.shown,
+        },
+    )
+}
+
+/// One glyph button at the end of a field.
+fn icon_button(
+    commands: &mut Commands,
+    fonts: &UiFonts,
+    metrics: Metrics,
+    tail: FieldTail,
+) -> Entity {
     let mark = commands
         .spawn((
-            Text::new(
-                if masked.shown {
-                    crate::hud::glyph::EYE_SLASH
-                } else {
-                    crate::hud::glyph::EYE
-                }
-                .to_string(),
-            ),
+            Text::new(tail.glyph.to_string()),
             crate::hud::icon_tf(fonts, metrics.small),
-            TextColor(if masked.shown {
+            TextColor(if tail.lit {
                 palette::ACCENT
             } else {
                 palette::MUTED
@@ -1740,7 +1841,7 @@ fn eye_button(
                 justify_content: JustifyContent::Center,
                 ..default()
             },
-            Press::Reveal(masked.field),
+            tail.press,
         ))
         .id();
     commands.entity(button).add_child(mark);

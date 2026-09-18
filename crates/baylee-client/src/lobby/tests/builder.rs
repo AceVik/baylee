@@ -360,3 +360,85 @@ fn a_list_keeps_its_place_when_adding_a_card_rebuilds_it() {
     app.update();
     assert!(app.world().resource::<Scrolled>().get(List::Pool).abs() < f32::EPSILON);
 }
+
+/// Every button of the filter panel is drawn, and pressing one reaches the
+/// model.
+///
+/// Pressed rather than called. `FilterPanel` has a method for each of these
+/// and calling them would prove what `filterdialog`'s own tests already
+/// prove; what this asks is whether the **button** exists and is wired — the
+/// question a test that calls the method cannot ask, and the one this client
+/// has answered wrongly before.
+#[test]
+fn the_filter_panel_is_drawn_and_its_buttons_reach_the_builder() {
+    use baylee_client_core::cardquery::Key;
+    use baylee_client_core::filterdialog::{Act, Adding, Control, OFFERED};
+
+    let mut app = headless();
+    stocked(&mut app);
+    sized(&mut app, 1400.0);
+    app.world_mut()
+        .resource_mut::<LobbyState>()
+        .lobby
+        .build_deck();
+    app.update();
+
+    // The cogwheel inside the search box.
+    press(&mut app, Press::ToggleFilterPanel);
+    assert!(
+        app.world()
+            .resource::<LobbyState>()
+            .lobby
+            .builder()
+            .panel()
+            .is_some(),
+        "the gear did not open the panel"
+    );
+
+    // Two steps to a condition: what kind, then which key of that kind.
+    act(&mut app, Act::AddStep(Adding::Kinds));
+    act(&mut app, Act::AddStep(Adding::Keys(Control::Text)));
+    let at = OFFERED
+        .iter()
+        .position(|key| *key == Key::Type)
+        .expect("the menu offers a type");
+    act(&mut app, Act::Add(at));
+    assert_eq!(
+        app.world().resource::<LobbyState>().lobby.builder().text(),
+        "t:\"\"",
+        "the condition did not reach the box"
+    );
+
+    // The row's own controls are on screen: the minus and the ✕.
+    act(&mut app, Act::Negate(0, true));
+    assert_eq!(
+        app.world().resource::<LobbyState>().lobby.builder().text(),
+        "-t:\"\""
+    );
+    act(&mut app, Act::Remove(0));
+    assert_eq!(
+        app.world().resource::<LobbyState>().lobby.builder().text(),
+        ""
+    );
+}
+
+/// Presses one button of the filter panel by what it means, and panics if
+/// nothing on screen means that.
+///
+/// The panic is the point: the model can do all of these whether or not a
+/// button reaches them, so a test that could not fail on a missing button
+/// would be measuring the model twice.
+fn act(app: &mut App, wanted: baylee_client_core::filterdialog::Act) {
+    let mut query = app
+        .world_mut()
+        .query::<(Entity, &crate::filterui::FilterAct)>();
+    let found = query
+        .iter(app.world())
+        .find(|(_, act)| act.0 == wanted)
+        .map(|(entity, _)| entity);
+    let Some(target) = found else {
+        panic!("{wanted:?} is on screen");
+    };
+    tap(app, target);
+    app.update();
+}

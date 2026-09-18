@@ -54,6 +54,7 @@ pub mod depart;
 pub mod devctl;
 pub mod face;
 pub mod feltmat;
+pub mod filterui;
 pub mod flip;
 pub mod frontal;
 pub mod gpu;

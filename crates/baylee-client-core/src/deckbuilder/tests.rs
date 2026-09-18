@@ -1032,3 +1032,49 @@ fn every_pool_card_has_a_key() {
     b.set_pool(pool(), true);
     assert_eq!(b.keys.len(), b.pool().len(), "and again after a reload");
 }
+
+/// The gear opens the builder on what is in the box, and looking changes
+/// nothing.
+///
+/// The same sharp edge the zone browser has: `Key::render` picks one spelling
+/// out of the several Scryfall accepts, so a panel that wrote its own reading
+/// back on opening would turn `color:red cmc:3` into `c:r mv:3` — the same
+/// search, and a box rewritten by nothing but being looked at.
+#[test]
+fn opening_the_filter_panel_leaves_the_typed_string_alone() {
+    let mut b = builder();
+    b.set_text("color:red cmc:3");
+    b.toggle_panel();
+    assert_eq!(b.panel().expect("it is open").parts().len(), 2);
+    assert_eq!(b.text(), "color:red cmc:3");
+    b.toggle_panel();
+    assert!(b.panel().is_none());
+    assert_eq!(b.text(), "color:red cmc:3");
+}
+
+/// A button in the panel writes the box, and the results follow.
+///
+/// Through `set_text`, which is what re-reads the query beside the string —
+/// a panel that wrote the field directly would leave the results answering
+/// the search from before the click.
+#[test]
+fn a_button_in_the_filter_panel_writes_the_box_and_the_results_follow() {
+    let mut b = builder();
+    b.toggle_panel();
+    let at = crate::filterdialog::OFFERED
+        .iter()
+        .position(|key| *key == crate::cardquery::Key::Type)
+        .expect("the menu offers a type");
+    b.filter_act(crate::filterdialog::Act::Add(at));
+    b.filter_act(crate::filterdialog::Act::Edit(0));
+    b.type_into_panel("land");
+    assert_eq!(b.text(), "t:land");
+    assert_eq!(
+        b.results()
+            .iter()
+            .map(|slot| b.card(*slot).expect("a slot names a card").name.as_str())
+            .collect::<Vec<_>>(),
+        ["Forest"],
+        "the results answer the string that was built, not the one before it"
+    );
+}

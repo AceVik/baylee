@@ -202,6 +202,60 @@ impl DeckBuilder {
         self.refilter();
     }
 
+    /// The filter-string builder, while the gear is open.
+    #[must_use]
+    pub const fn panel(&self) -> Option<&crate::filterdialog::FilterPanel> {
+        self.panel.as_ref()
+    }
+
+    /// Opens the builder on what is in the box, or closes it.
+    pub fn toggle_panel(&mut self) {
+        self.panel = if self.panel.is_some() {
+            None
+        } else {
+            Some(crate::filterdialog::FilterPanel::open(&self.query))
+        };
+    }
+
+    /// Shuts the builder.
+    pub fn close_panel(&mut self) {
+        self.panel = None;
+    }
+
+    /// Does what a button in the builder means, and writes the box.
+    ///
+    /// The box is written from `FilterPanel::written`, which answers `None`
+    /// until a row has actually been changed — so opening the builder to look
+    /// at a string leaves the string alone, down to its spelling.
+    pub fn filter_act(&mut self, act: crate::filterdialog::Act) {
+        self.in_panel(|panel| panel.act(act));
+    }
+
+    /// Types into whichever row of the builder holds the caret.
+    pub fn type_into_panel(&mut self, text: &str) {
+        self.in_panel(|panel| panel.type_text(text));
+    }
+
+    /// One editing gesture in the builder, and the box written after it.
+    ///
+    /// A closure rather than a forwarding method per gesture, which is the
+    /// same bargain `Browser::in_builder` makes: a gesture added to the panel
+    /// would otherwise be one more to remember to forward.
+    pub fn in_panel(&mut self, edit: impl FnOnce(&mut crate::filterdialog::FilterPanel)) {
+        let Some(panel) = self.panel.as_mut() else {
+            return;
+        };
+        edit(panel);
+        let Some(query) = panel.written() else {
+            return;
+        };
+        // Through `set_text` and not by writing the field, so the query
+        // beside it is re-read and the results are refiltered — the two are
+        // written together in one place, which is what `retext` is for.
+        let written = crate::cardquery::render(&query);
+        self.set_text(&written);
+    }
+
     /// What is in the search box, read as a query.
     ///
     /// The filter dialog's half of the round trip:

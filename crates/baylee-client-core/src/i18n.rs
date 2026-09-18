@@ -183,6 +183,8 @@ messages! {
     Tables { en: "Tables", de: "Tische" },
     /// Caption over the table search box.
     Search { en: "SEARCH", de: "SUCHE" },
+    /// Inside the lobby's table search box while it is empty.
+    SearchTables { en: "Table or host…", de: "Tisch oder Gastgeber …" },
     /// Inside the deck builder's search box while it is empty.
     ///
     /// Three words and not a syntax lesson: the box takes the whole query
@@ -1519,6 +1521,8 @@ messages! {
     /// Closes the builder. The string is already in the box, so there is
     /// nothing for this to confirm.
     FilterDone { en: "Done", de: "Fertig" },
+    /// Empties the builder, and with it the box.
+    FilterClear { en: "Clear", de: "Leeren" },
     /// Beside a branch the controls cannot take apart.
     FilterAsTyped { en: "as typed", de: "wie getippt" },
     /// One line under the rows when any of them asks something this list
@@ -1579,6 +1583,12 @@ messages! {
     FilterOdd { en: "odd", de: "ungerade" },
     /// A card this build can actually play.
     FlagPlayable { en: "playable", de: "spielbar" },
+    /// A card that may lead a commander deck.
+    ///
+    /// Not `IsCommander`, which is the deck builder saying that *this* card
+    /// is the one — it carries a tick for that reason and a filter label
+    /// must not.
+    FlagCommander { en: "commander", de: "Kommandeur" },
     /// A basic land.
     FlagBasic { en: "basic land", de: "Standardland" },
     /// A card with two faces.

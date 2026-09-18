@@ -2451,6 +2451,65 @@ warning beside the control and never a refusal, because a term this surface
 cannot answer hides every row, which reads exactly like a search that found
 nothing, and this is the one place the client can say so before it happens.
 
+### Opening it writes nothing back
+
+`FilterPanel::written` answers `None` until a row has actually been changed,
+and that is the sharpest edge in the feature. What is proved above is about
+*queries*, and a box holds a **string**: `Key::render` picks one spelling out
+of the several Scryfall accepts, so a builder that wrote its own reading back
+on opening would turn `color:red cmc:3` into `c:r mv:3` — the same search, and
+a box rewritten by nothing but being looked at.
+
+A fresh row is written into the box straight away, though, which means every
+one of them has to be a term that **narrows nothing**. Two of the five word
+keys read the other way round until the builder began opening rows — `o:""`
+and `!""` matched no card at all — and two were worse than wrong: `""` and
+`!""` were read back as `Query::Anything`, so a row a player had just added
+vanished out of the box that was holding it. `wrote_nothing` is the
+distinction the parser was missing, and it is only visible before `unquote`:
+`""` is a value somebody wrote and a bare nothing is somebody mid-word.
+`cardquery::tests::a_value_nobody_has_typed_into_narrows_nothing` is the
+guard, and it asserts the parse beside the match because the corpus round trip
+cannot see this one — an `Anything` written and read again is an `Anything`.
+
+### One caret, and the buttons carry the meanings
+
+The builder is a **mode of the search box**, not a window: the box keeps
+showing the string, the gear inside it stays lit, and a tap in the box shuts
+the builder and takes the caret. At most one row of the builder holds a caret
+at a time, and while it does, the whole chord set goes there — Backspace,
+Delete, the arrows by character, word and line, shift-extended selection, ⌘A.
+What gets typed is put through `cardquery::value_of`, the parser's own reader,
+so a row arrives at exactly the value the same letters typed into the box
+would have made. That is also what reaches the things a keyboard of six mana
+symbols cannot spell: `{W/U}`, `{R/P}`, `{X}`.
+
+Every button in the panel carries a `filterdialog::Act`, and
+`crate::filterui` — the one drawing, in either register — calls no method on
+the panel at all. The owner reads the component and hands the `Act` over. A
+control added to the builder is therefore wired by being drawn, which is the
+failure this crate has shipped before: `Interaction::activate` sat written and
+reachable from no button, and a test that calls the method cannot tell.
+
+The two exceptions carry a marker instead of an `Act`, and both for the same
+reason: the gear and the panel's *Done* are about whether the panel is on
+screen, which is its container's business and not the model's. A model that
+could close itself would be a model that knew it was drawn.
+
+### One drawing, two registers
+
+`filterui::Register` is six colours — a ground, a control's ground, a line,
+two inks, and one colour that means *on*. The zone browser passes
+`Register::TRAY` (candle on dark oak) and the deck builder `Register::LOBBY`
+(teal on slate), and nothing else about the panel differs. That both surfaces
+draw from one function is the test of whether the split was made in the right
+place; a second drawing would be a second set of buttons to keep in step with
+the model.
+
+The two differ in one thing that is not a colour: the `Surface` they hand it.
+A zone row is a projection and a pool row is a printing, so the flags an `is:`
+row offers and the rows the panel warns about are not the same on both.
+
 ## Tapping lands for a spell
 
 The engine offers a spell as castable only when the mana is **already

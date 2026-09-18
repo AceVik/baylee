@@ -350,6 +350,22 @@ pub(crate) mod glyph {
     pub const EYE: char = '\u{f06e}';
     /// Eye with a line through it: cover it again.
     pub const EYE_SLASH: char = '\u{f070}';
+    /// Magnifier: this box is a search box.
+    ///
+    /// Read out of the shipped font's own cmap and rendered, like the view
+    /// buttons above it — a codepoint a search agrees about is not the same
+    /// claim as a glyph this file has.
+    pub const MAGNIFIER: char = '\u{f002}';
+    /// Cogwheel: open the panel that builds what this box holds.
+    pub const GEAR: char = '\u{f013}';
+    /// Minus: take one away, and the `-` in front of a filter row.
+    pub const MINUS: char = '\u{f068}';
+    /// Plus: add one.
+    pub const PLUS: char = '\u{f067}';
+    /// A backspace arrow: take the last symbol off a mana cost.
+    pub const BACKSPACE: char = '\u{f55a}';
+    /// An `i` in a circle: the line under a panel that qualifies it.
+    pub const INFO: char = '\u{f05a}';
 }
 
 /// Root of the overlay.
@@ -625,6 +641,15 @@ pub struct TrayDrag {
 /// the end of playing with the graveyard visible.
 #[derive(Component)]
 pub struct TrayFilter;
+
+/// The cogwheel inside the browser's filter box.
+///
+/// Its own marker and not a [`crate::filterui::FilterAct`], because it is not
+/// an act *of* the builder: it is what opens and shuts one. The builder's own
+/// buttons all carry the model's vocabulary and this carries none, which is
+/// the line between "the panel exists" and "the panel says".
+#[derive(Component)]
+pub struct TrayGear;
 
 /// The browser's sort control.
 ///

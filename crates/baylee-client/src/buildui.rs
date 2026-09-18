@@ -10,7 +10,7 @@
 use crate::cardmat::UiCards;
 use crate::hud::{UiFonts, btn_radius, palette, tf};
 use crate::lobby::{
-    FieldLook, Frame, List, LobbyState, Metrics, Pane, Press, Scrolled, button, chip,
+    FieldLook, FieldTail, Frame, List, LobbyState, Metrics, Pane, Press, Scrolled, button, chip,
     hover_of_card, hover_of_entry, note, print_mark, row, scroller, spacer, text_field,
 };
 use baylee_client_core::deckbuilder::{
@@ -269,12 +269,40 @@ fn pool_panel(
         Phrase::Search.text(lang),
         &FieldLook {
             buffer: &typed,
-            focused: deck.focus() == BuildField::Search,
+            // Not while the builder is open. The two are editors of one
+            // string and only one may show a caret — a box the player cannot
+            // type into while a bar blinks in it is the worse half of that.
+            focused: deck.focus() == BuildField::Search && deck.panel().is_none(),
             mask: None,
             press: Press::FocusBuild(BuildField::Search),
+            lead: Some(crate::hud::glyph::MAGNIFIER),
+            hint: Some(Phrase::SearchCards.text(lang)),
+            // The cogwheel is *inside* the box, which is what says it is
+            // about what the box holds rather than about the panel round it.
+            // It stays lit while the builder is open, because the builder has
+            // no frame of its own to say so: it is a mode of this field.
+            tail: Some(FieldTail {
+                glyph: crate::hud::glyph::GEAR,
+                press: Press::ToggleFilterPanel,
+                lit: deck.panel().is_some(),
+            }),
         },
     );
     commands.entity(panel).add_child(search);
+    // And under the box, the rows it was taken apart into. Under and not
+    // over: it is what the field above it holds, so a panel floating over the
+    // pool would be a second window rather than a way of writing the first.
+    if let Some(built) = deck.panel() {
+        let rows = crate::filterui::build(
+            commands,
+            fonts,
+            built,
+            baylee_client_core::cardquery::Surface::POOL,
+            lang,
+            crate::filterui::Register::LOBBY,
+        );
+        commands.entity(panel).add_child(rows);
+    }
 
     // A phone folds the chips away: three wrapped rows of them is most of a
     // phone screen, and what is under them is the point. Anything wider shows
@@ -1186,6 +1214,9 @@ fn deck_panel(
             focused: deck.focus() == BuildField::Name,
             mask: None,
             press: Press::FocusBuild(BuildField::Name),
+            lead: None,
+            hint: None,
+            tail: None,
         },
     );
     commands.entity(panel).add_child(name);

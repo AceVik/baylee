@@ -25,6 +25,7 @@ use std::sync::{Arc, Mutex};
 use crate::cardmat::{CardUiMaterial, UiCardMaterials, UiCards};
 use baylee_client_core as client_core;
 use baylee_client_core::deckbuilder::{BuildField, Zone};
+use baylee_client_core::filterdialog::FilterPanel;
 use baylee_client_core::i18n::{Lang, Phrase};
 use baylee_client_core::images::FinishTreatment;
 use baylee_client_core::lobby::{
@@ -319,6 +320,6 @@ pub(crate) use preview::{hover_of_card, hover_of_entry};
 use systems::Scrollable;
 pub(crate) use systems::{List, Press, Scrolled};
 pub(crate) use ui::{
-    FieldLook, Frame, Metrics, button, chip, heading, note, panel, print_mark, row, scroller,
-    spacer, text_field,
+    FieldLook, FieldTail, Frame, Metrics, button, chip, heading, note, panel, print_mark, row,
+    scroller, spacer, text_field,
 };
