@@ -192,6 +192,40 @@ const NUMERAL: f32 = 0.82;
 /// walkers print is one character and keeps the full size.
 const WIDE_NUMERAL: f32 = 0.60;
 
+/// Where a body colour stops being dark, in **linear** luminance.
+///
+/// `L* = 50`, the middle of perceptual lightness, which is `Y ≈ 0.1833` and
+/// not the 0.5 an sRGB byte suggests — an sRGB 50% grey is already 0.214 of
+/// the light. The pivot is the standard one for choosing black or white over
+/// a fill, and it is written here rather than inlined because a bare 0.18 in
+/// a colour comparison is a number nobody can check.
+const HALF_LIGHT: f32 = 0.1833;
+
+/// The colour a number is knocked out of a solid mark in.
+///
+/// A loyalty badge is the one mark in this client with **no colour of its
+/// own**. A `{W}` pip is white wherever it is drawn, because white is what
+/// the symbol is; a badge is ink on a ground, so its body has to be whatever
+/// reads against the surface it lands on — and its number then has to read
+/// against *that*. One follows from the other, so only one is a decision.
+///
+/// It is a flip and not a tint deliberately. A body lightened or darkened by
+/// a fixed step keeps its contrast only where the ground happened to be the
+/// one it was tuned on, which is the whole fault this exists to end: the
+/// badge carried `PARCHMENT_INK` on `PARCHMENT` from a time when the sheet
+/// was parchment, and went on carrying it after the sheet turned dark —
+/// measured at **1.03:1** against an unselected row, which is a shape a
+/// player cannot see at all.
+fn knockout(body: Color) -> Color {
+    let lit = body.to_linear();
+    let luminance = 0.2126 * lit.red + 0.7152 * lit.green + 0.0722 * lit.blue;
+    if luminance > HALF_LIGHT {
+        palette::PARCHMENT_INK
+    } else {
+        palette::PARCHMENT
+    }
+}
+
 /// How wide a loyalty badge is at its narrowest, as a share of its size.
 ///
 /// The badge is wider than it is a mark across, because the card's is: a
@@ -586,7 +620,23 @@ fn rich(
                     .id()
             }
             baylee_client_core::manapip::Segment::Symbol(pip) => {
-                let pip = spawn_pip(commands, fonts, *pip, marks);
+                // A loyalty badge is the one mark with no colour of its own.
+                // A `{W}` disc is white on a parchment row and white on a
+                // dark one, because white is what the symbol *is*; a badge is
+                // ink on a ground, and which ink reads is the caller's
+                // question. This is the only place a badge is drawn inside a
+                // line, and the only place the line's own ink is in hand, so
+                // it is drawn here rather than through [`spawn_pip`] — which
+                // took the parchment pair on trust and drew the badge at
+                // 1.03:1 against the sheet's own rows for as long as the
+                // sheet has been dark.
+                let pip = match pip {
+                    baylee_client_core::manapip::Pip::Loyalty(loy) => {
+                        spawn_loyalty_badge(commands, fonts, *loy, marks, color, knockout(color))
+                            .root
+                    }
+                    other => spawn_pip(commands, fonts, *other, marks),
+                };
                 // The punctuation after a mark rides with it, in a row of
                 // their own that cannot wrap and has no gap in it — which is
                 // where a printed card puts a full stop too.
@@ -665,6 +715,47 @@ pub fn spawn_cost_or_text(
 mod tests {
     use super::*;
     use baylee_client_core::manapip::{Disc, Pip};
+
+    /// WCAG's contrast ratio between two opaque colours.
+    fn contrast(a: Color, b: Color) -> f32 {
+        let y = |c: Color| {
+            let lit = c.to_linear();
+            0.2126 * lit.red + 0.7152 * lit.green + 0.0722 * lit.blue
+        };
+        let (hi, lo) = if y(a) > y(b) {
+            (y(a), y(b))
+        } else {
+            (y(b), y(a))
+        };
+        (hi + 0.05) / (lo + 0.05)
+    }
+
+    /// The number on a badge is legible whatever ink the line is set in.
+    ///
+    /// The bound is 4.5:1, the floor for body text, and it is asked of every
+    /// ink this client actually writes a line in — because the fault this
+    /// guards against was not a wrong colour but a colour that stopped being
+    /// right when the surface under it changed. `PARCHMENT_INK` on
+    /// `PARCHMENT` was a correct pair, and it measured 1.03:1 on the sheet
+    /// the day the sheet went dark.
+    #[test]
+    fn a_badges_number_reads_against_the_badge_whatever_the_line_is_set_in() {
+        for (name, ink) in [
+            ("INK", palette::INK),
+            ("MUTED", palette::MUTED),
+            ("PARCHMENT_INK", palette::PARCHMENT_INK),
+            ("PARCHMENT", palette::PARCHMENT),
+            ("DIALOG_LIT", palette::DIALOG_LIT),
+        ] {
+            let ratio = contrast(ink, knockout(ink));
+            assert!(ratio >= 4.5, "{name}: the numeral reads at {ratio:.2}:1");
+        }
+        // And it is a flip, not a tint: a light body takes a dark number and
+        // a dark body a light one, which is what makes the bound hold at both
+        // ends rather than on the ground it was tuned against.
+        assert_eq!(knockout(palette::INK), palette::PARCHMENT_INK);
+        assert_eq!(knockout(palette::PARCHMENT_INK), palette::PARCHMENT);
+    }
 
     fn fonts() -> UiFonts {
         UiFonts {
