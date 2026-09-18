@@ -1735,6 +1735,32 @@ fn check_code_matches_the_printing(
         let (Some(printed), Some(code)) = (printed(key), field_number(face, field)) else {
             continue;
         };
+        // `*` is not a number the code got wrong — it is a
+        // characteristic-defining ability (CR 208.2), and the printing
+        // names no value at all. The code still has to write one, because
+        // CR 208.1 gives every creature a power and the pool's own lint
+        // enforces it, so what it writes is a **base** and not a claim
+        // about the printing. Comparing the two is comparing a number to a
+        // sentence.
+        //
+        // What is worth saying instead is whether the card keeps the
+        // promise that base implies. `Layer::PtCda` is declared in the DSL
+        // and no `Modifier` reaches it, so the ability cannot be written
+        // today — and a card claiming `Coverage::Implemented` with a
+        // printed `*` is therefore claiming something no rule performs.
+        // None of the pool's three do; this is the gate that keeps it that
+        // way rather than a count that goes stale.
+        if printed.parse::<i32>().is_err() {
+            tally.defined_pt += 1;
+            if knob(content, "coverage").is_some_and(|v| v.starts_with("Coverage::Implemented")) {
+                println!(
+                    "{slug}: the printing defines {key} by an ability ({printed}) and the card \
+                     claims Coverage::Implemented — the DSL has no Modifier on Layer::PtCda"
+                );
+                *problems += 1;
+            }
+            continue;
+        }
         if printed != code {
             println!("{slug}: the printing has {key} {printed} and the code has {code}");
             *problems += 1;
@@ -2143,6 +2169,8 @@ struct PrintingTally {
     printings: usize,
     /// Faces whose type line was held against the printed one.
     type_lines: usize,
+    /// Printed power/toughness values that are a sentence and not a number.
+    defined_pt: usize,
 }
 
 /// The floor under each count in [`PrintingTally`].
@@ -2194,6 +2222,25 @@ struct PrintingTally {
 /// Troll, Urza, Yawgmoth) each rejoin the population the day their missing
 /// ability exists.
 ///
+/// Ability-defined P/T is **6**, measured 2026-09-18: three cards print a
+/// power and a toughness that are a sentence rather than a number — Ashaya,
+/// Lumra and Unlicensed Hearse, each "equal to the number of …". The floor
+/// is 4 rather than 5 because the population is three cards and one leaving
+/// the pool takes two occurrences with it. It is the smallest count here and
+/// the one most likely to be read as noise, so what it is for is worth
+/// saying: it is not a measure of the pool, it is the guard on a branch that
+/// otherwise *silently stops comparing* — the day `printed.parse()` starts
+/// failing for a reason that is not CR 208.2, this is the number that says
+/// so.
+///
+/// The branch is a failed `parse`, so it also catches `1+*`, `X` and an
+/// empty string — and the empty one would be a payload the check cannot
+/// read, counted as if it were a card that defines its own power. Across
+/// the 1623 cached payloads there are three non-numeric values and all
+/// three are `*`; none is empty. That is what makes the floor a bound on
+/// the three cards rather than on whatever the cache happened to be
+/// missing.
+///
 /// Type line is **1473** and that number is exact rather than measured: the
 /// pool prints 1475 faces (1255 cards of one face and 110 of two), and the
 /// only card whose printed and code face counts disagree is Emeritus of Woe,
@@ -2216,6 +2263,7 @@ const PRINTING_FLOOR: PrintingTally = PrintingTally {
     optional_clauses: 40,
     printings: 1300,
     type_lines: 1400,
+    defined_pt: 4,
 };
 
 /// What [`check_header_matches_code`]'s type segment reached, less a margin.
@@ -3561,7 +3609,8 @@ fn report_what_the_sweeps_reached(
     println!(
         "validate: against the printings \u{2014} {} payloads, {} loyalty, {} identity, \
          {} keyword, {} mana, {} oracle, {} cost, {} activation cost, {} player target, \
-         {} target count, {} optional clause, {} printing, {} type line",
+         {} target count, {} optional clause, {} printing, {} type line, \
+         {} ability-defined P/T",
         tally.payloads,
         tally.loyalty,
         tally.identity,
@@ -3574,7 +3623,8 @@ fn report_what_the_sweeps_reached(
         tally.targets,
         tally.optional_clauses,
         tally.printings,
-        tally.type_lines
+        tally.type_lines,
+        tally.defined_pt
     );
     check_printing_floors(tally, problems);
     println!("validate: {header_types} header type lines against the code");
@@ -3608,6 +3658,11 @@ fn check_printing_floors(tally: &PrintingTally, problems: &mut usize) {
             PRINTING_FLOOR.player_targets,
         ),
         ("target count", tally.targets, PRINTING_FLOOR.targets),
+        (
+            "ability-defined P/T",
+            tally.defined_pt,
+            PRINTING_FLOOR.defined_pt,
+        ),
         (
             "optional clause",
             tally.optional_clauses,
