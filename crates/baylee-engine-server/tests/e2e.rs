@@ -11,24 +11,77 @@ use baylee_protocol::v1::{self, Envelope};
 use futures_util::{SinkExt, StreamExt};
 use prost::Message;
 
+/// The server binary on an ephemeral port, reaped whatever happens.
+///
+/// Each of the three tests below used to spawn a process and end with
+/// `let _ = server.kill();`. Three servers were found listening on this
+/// machine for nearly four hours, and nothing had said so — no test failed,
+/// no port was taken, no log carried a line. Somebody read `ps`.
+///
+/// **Where the leak actually is** was measured rather than assumed, and the
+/// first guess was wrong. Inverting all three assertions leaves *nothing*
+/// behind even without a guard, because the assertions sit after the
+/// websocket work and this server exits once its last client disconnects —
+/// so the obvious counter-test passes for a reason that has nothing to do
+/// with the cleanup. The leak is a death while no client has connected yet:
+/// a panic placed between the spawn and the connect loop leaves **one**
+/// process without this guard and **nought** with it, which is the measured
+/// pair. An aborted run — a gate stopped with three tests in their connect
+/// loops — is that same moment three times over, and is where the three
+/// came from.
+///
+/// So the rule is not "kill at the end" but "kill on the way out, whichever
+/// way that is", and `Drop` is the only thing that spans both.
+struct Server {
+    /// The running binary.
+    child: std::process::Child,
+    /// Where to dial it.
+    url: String,
+}
+
+impl Server {
+    /// Asks the kernel for a free port, releases it, and starts the binary
+    /// on it.
+    ///
+    /// Probe-then-release is a race, and it is the one these tests have
+    /// always run: the server takes a `PORT` and cannot be handed a bound
+    /// listener, and asking for a fixed port instead would stop three of
+    /// these from running at once.
+    fn spawn() -> Self {
+        let probe = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = probe.local_addr().unwrap().port();
+        drop(probe);
+        let child = std::process::Command::new(env!("CARGO_BIN_EXE_baylee-engine-server"))
+            .env("PORT", port.to_string())
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .spawn()
+            .expect("spawn server");
+        Self {
+            child,
+            url: format!("ws://127.0.0.1:{port}"),
+        }
+    }
+}
+
+impl Drop for Server {
+    fn drop(&mut self) {
+        let _ = self.child.kill();
+        // Reaped and not merely signalled. A killed child nobody waits for
+        // is a zombie held by the test binary until the whole run ends, and
+        // two of these three tests already knew that -- they called `wait`
+        // after `kill` and the third did not.
+        let _ = self.child.wait();
+    }
+}
+
 #[tokio::test]
 #[allow(clippy::too_many_lines)] // e2e scenario script
 async fn create_game_and_answer_first_choice() {
-    // Bind an ephemeral port first, then release it for the server.
-    let probe = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
-    let port = probe.local_addr().unwrap().port();
-    drop(probe);
-
-    let server = std::process::Command::new(env!("CARGO_BIN_EXE_baylee-engine-server"))
-        .env("PORT", port.to_string())
-        .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::null())
-        .spawn()
-        .expect("spawn server");
-    let mut server = server;
+    let server = Server::spawn();
 
     // Wait for the port to accept.
-    let url = format!("ws://127.0.0.1:{port}");
+    let url = server.url.clone();
     let mut ws = None;
     for _ in 0..50 {
         match tokio_tungstenite::connect_async(&url).await {
@@ -156,7 +209,6 @@ async fn create_game_and_answer_first_choice() {
             break;
         }
     }
-    let _ = server.kill();
     assert!(joined, "a second client re-attached to the live game");
 }
 
@@ -171,17 +223,8 @@ async fn create_game_and_answer_first_choice() {
 #[tokio::test]
 #[allow(clippy::too_many_lines)] // e2e scenario script
 async fn a_socket_can_take_an_ai_chair_and_hand_it_back() {
-    let probe = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
-    let port = probe.local_addr().unwrap().port();
-    drop(probe);
-
-    let mut server = std::process::Command::new(env!("CARGO_BIN_EXE_baylee-engine-server"))
-        .env("PORT", port.to_string())
-        .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::null())
-        .spawn()
-        .expect("spawn server");
-    let url = format!("ws://127.0.0.1:{port}");
+    let server = Server::spawn();
+    let url = server.url.clone();
     let mut human = dial(&url).await;
 
     // Seat 0 creates the dev duel and is asked the first question.
@@ -337,8 +380,6 @@ async fn a_socket_can_take_an_ai_chair_and_hand_it_back() {
             break;
         }
     }
-    let _ = server.kill();
-    let _ = server.wait();
     assert!(
         human_asked_again,
         "releasing the chair let the house AI play seat 1 on"
@@ -348,17 +389,8 @@ async fn a_socket_can_take_an_ai_chair_and_hand_it_back() {
 /// Naming a seat that is not at the table is refused rather than served.
 #[tokio::test]
 async fn a_socket_cannot_sit_at_a_seat_that_is_not_there() {
-    let probe = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
-    let port = probe.local_addr().unwrap().port();
-    drop(probe);
-
-    let mut server = std::process::Command::new(env!("CARGO_BIN_EXE_baylee-engine-server"))
-        .env("PORT", port.to_string())
-        .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::null())
-        .spawn()
-        .expect("spawn server");
-    let url = format!("ws://127.0.0.1:{port}");
+    let server = Server::spawn();
+    let url = server.url.clone();
     let mut human = dial(&url).await;
     send(
         &mut human,
@@ -408,8 +440,6 @@ async fn a_socket_cannot_sit_at_a_seat_that_is_not_there() {
             _ => {}
         }
     }
-    let _ = server.kill();
-    let _ = server.wait();
     assert!(refused, "a seat that is not at the table is refused");
 }
 
