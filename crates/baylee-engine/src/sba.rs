@@ -246,7 +246,17 @@ pub fn run(state: &mut GameState, lookup: &impl crate::state::CardLookup) -> Sba
         // a deck that makes thousands of tokens is an unbounded leak.
         let loc = ZoneLocation::of(obj.zone, obj.zone_owner.unwrap_or(obj.owner));
         state.zones.remove(id, loc);
-        let _ = state.arena.remove(id);
+        // Kept, not dropped. CR 111.7: "if a token changes zones, applicable
+        // triggered abilities will trigger before the token ceases to exist"
+        // — and here, they have not fired yet, because this fixpoint runs
+        // before `collect_triggers`. `GameState::ceased` is what the trigger
+        // scan reads the departed object out of, and the scan is what clears
+        // it. Moved rather than cloned: `Arena::remove` hands the object
+        // back, and the only reason it used to be thrown away is that nobody
+        // had asked for it.
+        if let Some(gone) = state.arena.remove(id) {
+            state.ceased.push(gone);
+        }
         outcome.changed = true;
     }
     state.return_token_cleanup(candidates);

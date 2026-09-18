@@ -465,6 +465,37 @@ pub struct GameState {
     /// layer projection can see it, and an object that comes back has its
     /// entry cleared by the very move that brings it back.
     pub ltb_attachments: Vec<(ObjectId, Vec<ObjectId>)>,
+    /// Objects that have ceased to exist but whose triggers have not fired.
+    ///
+    /// CR 111.7 says it in a parenthesis, and the parenthesis is the whole
+    /// rule: "if a token changes zones, applicable triggered abilities will
+    /// trigger before the token ceases to exist". CR 704.5d sweeps the token
+    /// away as a state-based action, and in this engine the state-based
+    /// actions run to a fixpoint *before* `collect_triggers` — so by the time
+    /// anything asks, the token is out of the arena and out of its zone list,
+    /// and two different questions about it both answer no: its own dies
+    /// trigger is not scanned, because the scan walks zone lists, and another
+    /// permanent's "whenever a creature you control dies" cannot evaluate its
+    /// filter, because there is no object to evaluate it against. A token
+    /// died and the table saw nothing happen.
+    ///
+    /// So the object is *moved* here rather than dropped — `Arena::remove`
+    /// hands it back and `sba::run` keeps it — and both scans consult
+    /// [`Self::object_or_departed`]. The list is cleared the moment the
+    /// trigger scan has passed the journal entries it is about, which is the
+    /// one place that can know: nothing later can ask again, and an entry
+    /// that outlived its scan would be an unbounded leak in a deck that makes
+    /// thousands of tokens.
+    ///
+    /// The same look-back as [`Self::ltb_abilities`] and
+    /// [`Self::ltb_attachments`], and deliberately a third list rather than a
+    /// widening of either: those two answer *what a permanent was* to a scan
+    /// that can still find it, and this one answers *that there was one at
+    /// all*. Excluded from `snapshot_hash` and `loop_signature` on purpose —
+    /// both enumerate their fields, and this one is scan bookkeeping that
+    /// never survives a priority grant, so hashing it would make a game state
+    /// depend on when it was asked.
+    pub ceased: Vec<GameObject>,
     /// Each seat's commanders (CR 903.3), by seat index.
     ///
     /// The list is the marker, and it has to be: commander-ness belongs to
@@ -645,6 +676,7 @@ impl GameState {
             pending_copied_faces: Vec::new(),
             ltb_abilities: Vec::new(),
             ltb_attachments: Vec::new(),
+            ceased: Vec::new(),
             commanders: vec![Vec::new(); preset.seats.len()],
             monarch: None,
             day_night: None,
@@ -1153,6 +1185,21 @@ impl GameState {
     #[must_use]
     pub fn object(&self, id: ObjectId) -> Option<&GameObject> {
         self.arena.get(id)
+    }
+
+    /// The object an event was about, even if it has ceased to exist.
+    ///
+    /// The narrow door onto [`Self::ceased`], and it is deliberately not
+    /// [`Self::object`]: an object that has ceased to exist is not in the
+    /// game, and every rule that asks "is this here?" has to keep getting no
+    /// for an answer. The callers are the ones asking a different question —
+    /// "what was this, at the moment of the event?" — which is the trigger
+    /// scan and nothing else (CR 111.7, CR 603.10a).
+    #[must_use]
+    pub fn object_or_departed(&self, id: ObjectId) -> Option<&GameObject> {
+        self.arena
+            .get(id)
+            .or_else(|| self.ceased.iter().find(|o| o.id == id))
     }
 
     /// The game becomes day, or day becomes night's opposite (CR 730.1).

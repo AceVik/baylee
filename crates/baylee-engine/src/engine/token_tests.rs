@@ -12,7 +12,10 @@
 //! type.
 
 use super::testkit;
-use super::testkit::{Duel, RegistryLookup, card_index, keep_mulligans, reach_main_phase};
+use super::testkit::{
+    Duel, RegistryLookup, card_index, cast_from_hand, keep_mulligans, on_battlefield, pass_until,
+    reach_main_phase, stack_is_empty,
+};
 use super::*;
 use crate::zone::ZoneLocation;
 use baylee_core::ids::{CardIndex, ObjectId};
@@ -1116,4 +1119,171 @@ fn abilities_offered_on(
         .filter(|(source, _)| *source == object)
         .map(|(_, index)| *index)
         .collect()
+}
+
+fn zulaport_cutthroat() -> CardIndex {
+    card_index("76b003e0-15af-4f22-bdf2-1ade5430964a")
+}
+fn damn() -> CardIndex {
+    card_index("b01d61cc-9844-4191-86a0-f2db6d42d6e5")
+}
+
+/// A token's death is an event even though the token is not an object any
+/// more (CR 111.7).
+///
+/// The rule is one parenthesis: "(Note that if a token changes zones,
+/// applicable triggered abilities will trigger before the token ceases to
+/// exist.)" In this engine they could not, and for two separate reasons that
+/// this one death exposes at once. CR 704.5d sweeps the token as a
+/// state-based action, and `sba::run` runs to a fixpoint *before*
+/// `collect_triggers` — so by the time anything looks:
+///
+/// 1. the token is in no zone list, and the look-back scan walks zone lists,
+///    so its **own** dies trigger was never even considered; and
+/// 2. it is out of the arena, so a *neighbour's* "whenever another creature
+///    you control dies" had no object to run its filter against.
+///
+/// Both halves are here in one number. A token copy of Zulaport Cutthroat
+/// dies with the printed Cutthroat beside it, and the card's own filter —
+/// `this creature or another creature you control` — is satisfied twice:
+/// once by the copy about itself, once by the original about the copy. Two
+/// drains, so this one number tells three outcomes apart rather than two, and
+/// all three were measured against this test rather than reasoned about: the
+/// engine before the fix drains **0**, the object look-back alone drains
+/// **1** — the neighbour sees the death, the token still cannot see its own —
+/// and the rule drains **2**. It is also the guard against the opposite mistake: the departed
+/// objects are a *third* list beside the graveyard and exile scans, and a
+/// token counted by two of them would drain four.
+#[test]
+#[allow(clippy::too_many_lines)] // a whole game, as every test in this file is
+fn a_token_that_ceased_to_exist_still_fires_the_triggers_its_death_caused() {
+    let (p0, them) = (PlayerId::new(0), 1usize);
+    let mut engine = Duel::new(11, island())
+        .battlefield(
+            0,
+            &[
+                zulaport_cutthroat(),
+                island(),
+                island(),
+                island(),
+                island(),
+                swamp(),
+                swamp(),
+                swamp(),
+            ],
+        )
+        .hand(0, &[rite_of_replication(), damn()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let original =
+        on_battlefield(&engine, p0, zulaport_cutthroat()).expect("the printed Cutthroat");
+
+    // {2}{U}{U} off the Islands, kicker declined. The wizard asks its
+    // questions in its own order — Rite of Replication puts the kicker
+    // *after* the target — so this answers whatever is in front of it.
+    cast_from_hand(&mut engine, p0, rite_of_replication());
+    let mut aimed = false;
+    loop {
+        match engine.pending() {
+            Pending::YesNo { .. } => {
+                engine
+                    .apply(p0, PlayerAction::YesNo(false))
+                    .expect("the kicker is optional");
+            }
+            Pending::ChooseTargets { .. } => {
+                engine
+                    .apply(
+                        p0,
+                        PlayerAction::ChooseObjects {
+                            objects: vec![original],
+                        },
+                    )
+                    .expect("its own controller's creature is a legal target");
+                aimed = true;
+            }
+            _ => break,
+        }
+    }
+    assert!(aimed, "the spell asked for its target");
+    pass_until(&mut engine, stack_is_empty);
+
+    // Not `tokens_on_battlefield`: a token *copy* carries no `TokenDef` — it
+    // is a copy of a card, and there is no registry entry for it — so what
+    // marks it is the thing every token shares, having no card behind it.
+    let tokens: Vec<ObjectId> = engine
+        .state()
+        .zones
+        .list(ZoneLocation::Battlefield)
+        .iter()
+        .copied()
+        .filter(|id| {
+            engine
+                .state()
+                .object(*id)
+                .is_some_and(|o| o.card.is_none() && o.controller == p0)
+        })
+        .collect();
+    assert_eq!(tokens.len(), 1, "one token copy on the board: {tokens:?}");
+    let copy = tokens[0];
+    assert_ne!(copy, original, "the copy is not the card it copied");
+
+    let (mine, theirs) = (
+        engine.state().players[p0.get() as usize].life,
+        engine.state().players[them].life,
+    );
+
+    // {B}{B} off the Swamps, at the copy and not at the card. Damn is modal
+    // — "destroy target creature" or an overloaded wrath for {2}{W}{W} — and
+    // no mode question is asked here, because a table of Islands and Swamps
+    // can afford exactly one of them. The wrath would have proved nothing
+    // anyway: it kills the original in the same breath.
+    cast_from_hand(&mut engine, p0, damn());
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!("\"destroy target creature\" asks: {:?}", engine.pending())
+    };
+    assert!(
+        options.contains(&copy),
+        "a token is a creature like any other: {options:?}"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![copy],
+            },
+        )
+        .expect("the token the question offered");
+    pass_until(&mut engine, stack_is_empty);
+
+    // It really ceased, rather than merely arriving in a graveyard: that is
+    // what makes this a test about CR 111.7 and not about a graveyard scan.
+    assert!(
+        engine.state().object(copy).is_none(),
+        "CR 704.5d: the token is not an object any more"
+    );
+    assert!(
+        on_battlefield(&engine, p0, zulaport_cutthroat()).is_some(),
+        "and only the copy died — the card that was copied is still there"
+    );
+
+    assert_eq!(
+        engine.state().players[them].life,
+        theirs - 2,
+        "two deaths' worth of drain: the copy's own trigger and the original's"
+    );
+    assert_eq!(
+        engine.state().players[p0.get() as usize].life,
+        mine + 2,
+        "and the life gained is the other half of the same two triggers"
+    );
+
+    // The bound on the look-back, and the reason it is safe to keep a whole
+    // object past its death: the scan that read it is the scan that drops it,
+    // so a deck that makes thousands of tokens carries none of them.
+    assert!(
+        engine.state().ceased.is_empty(),
+        "the departed objects are dropped by the scan that read them"
+    );
 }

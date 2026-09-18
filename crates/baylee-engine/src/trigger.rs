@@ -175,6 +175,14 @@ pub fn collect(state: &GameState, lookup: &impl CardLookup, from_seq: u64) -> Ve
             );
         }
     }
+    // And the objects that are in no zone at all any more, because they
+    // ceased to exist on the way (CR 111.7, CR 704.5d). Their abilities still
+    // fire: the token is gone, the trigger is not. Without this pass a token
+    // with a dies trigger of its own was the one permanent that could not see
+    // its own death — the loop above walks zone *lists*, and a swept token
+    // has left those too.
+    let departed: Vec<ObjectId> = state.ceased.iter().map(|o| o.id).collect();
+    collect_for_objects(state, lookup, &departed, events, false, &mut triggers);
     // APNAP: active player first, then in turn order; same controller by
     // timestamp (M2: player ordering choice).
     let active = state.turn.active;
@@ -243,7 +251,11 @@ fn collect_for_objects(
     triggers: &mut Vec<PendingTrigger>,
 ) {
     for &permanent in objects {
-        let Some(obj) = state.object(permanent) else {
+        // `object_or_departed` and not `object`: with `all_kinds` false this
+        // is the look-back scan, and one of the lists it walks is the objects
+        // that have ceased to exist (CR 111.7). On the battlefield pass the
+        // two are the same function — nothing on the battlefield has ceased.
+        let Some(obj) = state.object_or_departed(permanent) else {
             continue;
         };
         // CR 603.10a: the look-back scan asks an object that has already
@@ -545,7 +557,7 @@ fn matches(
                 ..
             },
         ) => state
-            .object(*object)
+            .object_or_departed(*object)
             .is_some_and(|o| eval::matches(filter, state, o, you, source)),
         (
             Trigger::ExiledFromBattlefield(filter),
@@ -556,7 +568,7 @@ fn matches(
                 ..
             },
         ) => state
-            .object(*object)
+            .object_or_departed(*object)
             .is_some_and(|o| eval::matches(filter, state, o, you, source)),
         (
             Trigger::DealsCombatDamageToPlayer(filter),
@@ -584,7 +596,7 @@ fn matches(
                 ..
             },
         ) => state
-            .object(*object)
+            .object_or_departed(*object)
             .is_some_and(|o| eval::matches(filter, state, o, you, source)),
         (Trigger::SpellCast(filter), GameEvent::SpellCast { object, .. }) => state
             .object(*object)
