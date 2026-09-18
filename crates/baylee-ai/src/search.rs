@@ -283,13 +283,10 @@ impl Position {
         if self.blockers.len() <= 8 {
             let count = 1 << self.blockers.len();
             self.exchanges.reserve(self.attackers.len() * count);
-            for &attacker in &self.attackers {
+            for attacker in 0..self.attackers.len() {
                 for mask in 0..count {
-                    self.exchanges.push(fight(
-                        attacker,
-                        &self.blockers,
-                        u32::try_from(mask).unwrap_or(0),
-                    ));
+                    self.exchanges
+                        .push(self.uncached_exchange(attacker, u32::try_from(mask).unwrap_or(0)));
                 }
             }
         }
@@ -297,11 +294,17 @@ impl Position {
     }
 
     fn exchange(&self, attacker: usize, mask: u32) -> Result {
-        let mut result = if self.exchanges.is_empty() {
-            fight(self.attackers[attacker], &self.blockers, mask)
+        if self.exchanges.is_empty() {
+            self.uncached_exchange(attacker, mask)
         } else {
             self.exchanges[(attacker << self.blockers.len()) + usize::try_from(mask).unwrap_or(0)]
-        };
+        }
+    }
+
+    fn uncached_exchange(&self, attacker: usize, mask: u32) -> Result {
+        let mut result = fight(self.attackers[attacker], &self.blockers, mask);
+        // The defending player and commander history are fixed for the whole
+        // decision. Cache these along with the exchange, not at every node.
         if self.player_damage & (1 << attacker) == 0 {
             result.damage = 0;
             result.first_damage = 0;
