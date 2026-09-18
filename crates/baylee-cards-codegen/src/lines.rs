@@ -125,6 +125,14 @@ pub fn line_shape(line: &str) -> LineShape {
     // the rules (CR 614), and every card that prints it writes it as
     // `triggered!` here — so for the purpose of finding which sentence an
     // ability came from it is a third trigger word, not a fourth shape.
+    //
+    // The word is not only that sentence's, and that is a known boundary
+    // rather than an oversight: "As long as …" opens a *static* ability and
+    // lands here too, which is how The World Tree and Riftstone Portal
+    // both read as `Triggered`. Neither card has a triggered ability to be
+    // given the wrong sentence, so it is latent today — and it is the next
+    // hole of the kind [`ability_colon`] closed, not a second instance of
+    // that one.
     if lower.starts_with("when") || lower.starts_with("at ") || lower.starts_with("as ") {
         return LineShape::Triggered;
     }
@@ -135,7 +143,19 @@ pub fn line_shape(line: &str) -> LineShape {
     {
         return LineShape::Chapter;
     }
-    let Some((head, _)) = line.split_once(':') else {
+    let Some(colon) = ability_colon(line) else {
+        // Every colon this line prints stands inside quotation marks, so
+        // the line defines no ability of its own and no ability may claim
+        // it — see [`ability_colon`]. Refused here rather than left to fall
+        // through, because the branch below reads a *keyword* line and a
+        // short grant fits it: `Lands have "{T}: Add {C}."` is 26
+        // characters, ends in a quotation mark rather than a full stop, and
+        // carries a `{`. The pool's shortest grant is 46 characters and
+        // only that length stood between this and the same defect one
+        // branch over.
+        if line.contains(':') {
+            return LineShape::Other;
+        }
         // A keyword ability with a cost is a printed sentence too, and it
         // is the *right* sentence for the ability it compiles to — cycling
         // and equip are `AbilityDef::Activated` here, and "Cycling {B}" is
@@ -151,10 +171,11 @@ pub fn line_shape(line: &str) -> LineShape {
             LineShape::Other
         };
     };
+    let (head, body) = line.split_at(colon);
+    let body = body[':'.len_utf8()..].trim();
     // A line that makes mana is its own shape, and the reasons are on
     // [`LineShape::Mana`] — including why it has to be said here as well as
     // in `ability_shape`.
-    let body = line.split_once(':').map_or("", |(_, body)| body.trim());
     let lower_body = body.to_lowercase();
     if lower_body.starts_with("add ") && (body.contains('{') || lower_body.contains("mana")) {
         return LineShape::Mana;
@@ -179,6 +200,40 @@ pub fn line_shape(line: &str) -> LineShape {
     } else {
         LineShape::Other
     }
+}
+
+/// Where this line's **own** ability puts its colon, if it has one.
+///
+/// CR 113.10a: "An effect that adds an activated ability may include
+/// activation instructions for that ability. These instructions become part
+/// of the ability that's added to the object." A sentence that prints an
+/// ability inside quotation marks is therefore quoting a cost and an effect
+/// belonging to whatever it grants, never to the object printing them —
+/// Chromatic Lantern's `Lands you control have "{T}: Add one mana of any
+/// color."` is a static ability, and that colon is the lands'.
+///
+/// Read whole, that sentence answered [`LineShape::Mana`], and the
+/// lantern's own mana ability then claimed it — one sentence *before* its
+/// own, which is the direction that makes it invisible: the walk in [`map`]
+/// goes forwards and never looked at the right line at all. Every card that
+/// grants a quoted ability is a candidate, and thirteen of this pool's
+/// printed sentences put a colon inside quotation marks.
+///
+/// The quotation mark is ASCII `"` and the toggle is symmetric because that
+/// is what the pool prints: of its 52 oracle sentences carrying one, none
+/// has an odd number of them and none prints a curly quote. A directional
+/// pair needs a different state machine, and one is not invented here for a
+/// spelling no printing uses.
+fn ability_colon(line: &str) -> Option<usize> {
+    let mut quoted = false;
+    for (i, c) in line.char_indices() {
+        match c {
+            '"' => quoted = !quoted,
+            ':' if !quoted => return Some(i),
+            _ => {}
+        }
+    }
+    None
 }
 
 /// Whether a keyword line's own reminder text writes out an activated
@@ -867,6 +922,49 @@ mod tests {
     use baylee_cards_dsl::effect::{Amount, Effect};
     use baylee_cards_dsl::filter::Filter;
     use baylee_cards_dsl::loyalty;
+
+    /// A quoted ability belongs to whatever the sentence grants, and the
+    /// sentence itself has no shape an ability may claim.
+    ///
+    /// CR 113.10a. Chromatic Lantern is the card that found it: its own
+    /// mana ability claimed `Lands you control have "{T}: Add one mana of
+    /// any color."` — the grant, one sentence before the identical line the
+    /// lantern actually prints for itself — and the table said `Some(0)`
+    /// where the card says `Some(1)`.
+    ///
+    /// The short grant is the second half and is the case the pool does not
+    /// print yet. Length is what kept it out of the keyword branch, not
+    /// punctuation: a grant ends in a quotation mark, so `!ends_with('.')`
+    /// is true of it, and it carries a `{` like any cost. At 26 characters
+    /// it would have been read as `Activated` — the same defect one branch
+    /// over, which is why the refusal is stated and not left to fall
+    /// through.
+    #[test]
+    fn a_colon_inside_quotation_marks_belongs_to_the_ability_being_granted() {
+        assert_eq!(
+            line_shape(r#"Lands you control have "{T}: Add one mana of any color.""#),
+            LineShape::Other,
+            "the lantern's grant is a static ability, not the mana it hands out",
+        );
+        assert_eq!(
+            line_shape(r#"Lands have "{T}: Add {C}.""#),
+            LineShape::Other,
+            "a grant short enough for the keyword branch is still a grant",
+        );
+        // The other direction, or the assertions above are satisfied by a
+        // reader that refuses every sentence carrying a quotation mark: the
+        // colon a card prints outside one is still its own.
+        assert_eq!(
+            line_shape("{T}: Add one mana of any color."),
+            LineShape::Mana,
+            "the lantern's own line is unchanged",
+        );
+        assert_eq!(
+            line_shape(r#"{2}, {T}: Target creature gains "flying" until end of turn."#),
+            LineShape::Activated,
+            "a quotation mark later in the line does not hide the cost's colon",
+        );
+    }
 
     /// A keyword line is a sentence too, and which *kind* of keyword it is
     /// the card says with its own punctuation.
