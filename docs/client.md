@@ -2496,6 +2496,37 @@ reason: the gear and the panel's *Done* are about whether the panel is on
 screen, which is its container's business and not the model's. A model that
 could close itself would be a model that knew it was drawn.
 
+### A row is drawn by what it holds
+
+`FilterPanel::control` and not `Control::of(&term.key)`, because one key
+spells more than one kind of value: `c:r` is a set of colours and `c>=2` is a
+count of them, `is:token` is a flag and `is:permanent` is a word this language
+does not know. Drawn by the key alone, the second of each pair was a row of
+unlit buttons — saying nothing about what it held, and one press away from
+overwriting it. What no control can draw is drawn as a text box, which draws
+whatever was written.
+
+Three things had to move with it, and all three are the same mistake in
+different clothes: a control that knows the key but not the value. The stepper
+read `Value::Number` alone, so `+` on a `c>=2` row read nought and wrote
+`c>=1`; `SetNumber` *wrote* a `Value::Number` whatever the key was, which
+under `c` renders the same string and parses back as a `ColorCount`, so the
+box was right and the form held something the box could never have produced;
+and the `gerade`/`ungerade` pair is offered only where the key itself reads a
+number, because `c:even` goes through the same reader every value does and
+comes back an unreadable word. The number a button writes now goes through
+`cardquery::value_of`, which is the same door the caret types through.
+
+The caret is the exception that proves it. Typing re-reads the value on every
+keystroke, so its kind changes mid-word — `toke` is a word and `token` is a
+flag — and a row that swapped controls on the `n` would take the box out from
+under the letters while the caret still named that row. A row being typed into
+is a text box until the caret is given back.
+
+All of this was found by **photographing** the dialog, not by a test: the
+round trip was green throughout, because the form was carrying the values
+faithfully and only the drawing could not show them.
+
 ### One drawing, two registers
 
 `filterui::Register` is six colours — a ground, a control's ground, a line,

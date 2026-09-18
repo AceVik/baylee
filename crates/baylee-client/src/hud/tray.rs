@@ -1098,6 +1098,23 @@ pub(super) fn spawn_tray(
         Some(words) => vec![dialog_text(commands, fonts, words, 11.5, ink)],
         None => filter_runs(commands, fonts, browser, ink),
     };
+    // The magnifier the deck builder's box wears, in this register's ink. It
+    // is what says the box is a *search* before a word has been typed into
+    // it, and it is deliberately the quiet ink even while the field holds the
+    // keyboard: it is a label on the box, not part of what is written in it.
+    let lens = commands
+        .spawn((
+            Text::new(glyph::MAGNIFIER.to_string()),
+            icon_tf(fonts, 10.5),
+            TextColor(palette::DIALOG_SOFT),
+            Node {
+                flex_shrink: 0.0,
+                margin: UiRect::right(px(TRAY_GAP - 4.0)),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
     // A sunk field: the ring that says where the typing goes is the border
     // turning candle, not a second fill.
     let filter_line = commands
@@ -1140,7 +1157,11 @@ pub(super) fn spawn_tray(
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
                 flex_shrink: 0.0,
-                margin: UiRect::left(px(TRAY_GAP)),
+                // `auto` on the left is what puts it at the far end of the
+                // box rather than beside the text: the runs are sized to the
+                // letters in them, so a fixed margin would walk the gear
+                // along as the player typed.
+                margin: UiRect::left(Val::Auto),
                 border_radius: btn_radius(),
                 ..default()
             },
@@ -1172,6 +1193,7 @@ pub(super) fn spawn_tray(
         ))
         .id();
     commands.entity(gear).add_child(cog);
+    commands.entity(filter_line).add_child(lens);
     commands.entity(filter_line).add_children(&filter_text);
     commands.entity(filter_line).add_child(gear);
     // A library is a hundred cards and a long graveyard is thirty, so "look

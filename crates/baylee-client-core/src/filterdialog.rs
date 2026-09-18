@@ -88,6 +88,40 @@ impl Control {
             }
         }
     }
+
+    /// The control a row is drawn with, which is a question about the value
+    /// and not only about the key.
+    ///
+    /// [`Self::of`] answers what a *fresh* row of a key opens on; this
+    /// answers what the row in front of you holds. The two disagree because
+    /// one key spells more than one kind of value: `c:r` is a set of colours
+    /// and `c>=2` is a count of them, and `is:token` is a flag where
+    /// `is:permanent` is a word this language does not know. Drawn by its key
+    /// alone, `c>=2` was five unlit pips and `is:permanent` three unlit
+    /// choices — a row saying nothing about what it held, whose next button
+    /// press would have overwritten it.
+    ///
+    /// Found by photographing the dialog rather than by a test, which is why
+    /// the rule is written here rather than in the renderer: a second reader
+    /// deciding this would be a second place for the two to disagree.
+    #[must_use]
+    pub fn for_term(term: &Term) -> Self {
+        match (Self::of(&term.key), &term.value) {
+            (Self::Colors, Value::Colors(_)) => Self::Colors,
+            // One arm, because a count of colours *is* a comparison and a
+            // number: `c>=2` and `mv>=2` are the same control asking about
+            // different things, and the key beside it is what says which.
+            (Self::Colors, Value::ColorCount(_))
+            | (Self::Number, Value::Number(_) | Value::Parity(_)) => Self::Number,
+            (Self::Flag, Value::Flag(_)) => Self::Flag,
+            (Self::Cost, Value::Cost(_)) => Self::Cost,
+            // Everything left over is a value its own control cannot draw: a
+            // colour nickname, `c:m`, a word where a flag was expected, a
+            // number that is not one. A text box draws all of them, because a
+            // text box draws whatever was written.
+            (Self::Colors | Self::Number | Self::Flag | Self::Cost | Self::Text, _) => Self::Text,
+        }
+    }
 }
 
 /// A filter string as a dialog holds it.
@@ -427,6 +461,46 @@ impl FilterPanel {
     #[must_use]
     pub const fn typing(&self) -> Option<&Typing> {
         self.typing.as_ref()
+    }
+
+    /// The control a row is drawn with, or `None` for a row that is not
+    /// there.
+    ///
+    /// [`Control::for_term`] with the caret taken into account, and that is
+    /// the whole reason the panel answers this rather than the renderer
+    /// asking the term directly. Typing goes through
+    /// [`value_of`](crate::cardquery::value_of) on every keystroke, so the
+    /// value's *kind* changes under the caret — `toke` is a word and `token`
+    /// is a flag — and a row that swapped its control mid-word would take the
+    /// box away from under the letters while [`Self::typing`] still named it,
+    /// with every further keystroke going into a field nothing drew.
+    ///
+    /// So a row being typed into is a text box until the caret is given back.
+    #[must_use]
+    pub fn control(&self, row: usize) -> Option<Control> {
+        let Some(FilterPart::Row { term, .. }) = self.form.parts.get(row) else {
+            return None;
+        };
+        if self.typing.as_ref().is_some_and(|t| t.row == row) {
+            return Some(Control::Text);
+        }
+        Some(Control::for_term(term))
+    }
+
+    /// Writes a number into a row in the kind of value its own key reads.
+    ///
+    /// Through [`value_of`](crate::cardquery::value_of), the parser's own
+    /// reader, because a number under `mv` is a [`Value::Number`] and the
+    /// same number under `c` is a [`Value::ColorCount`]. Writing the first
+    /// into a colour row renders the same string and parses back as the
+    /// second, so the box was right and the form was holding something the
+    /// box would never have produced.
+    fn set_number(&mut self, row: usize, n: i32) {
+        let Some(FilterPart::Row { term, .. }) = self.form.parts.get(row) else {
+            return;
+        };
+        let value = value_of(&term.key, &n.to_string());
+        self.set_value(row, value);
     }
 
     /// Puts the caret in a row's value, seeded with what the row already says.
@@ -841,11 +915,17 @@ impl FilterPanel {
             Act::SetOp(row, op) => self.set_op(row, op),
             Act::SetRule(row, rule) => self.set_rule(row, rule),
             Act::Colour(row, letter) => self.toggle_color(row, letter),
-            Act::SetNumber(row, n) => self.set_value(row, Value::Number(n)),
+            Act::SetNumber(row, n) => self.set_number(row, n),
             Act::Bump(row, by) => {
                 let now = match self.form.parts.get(row) {
                     Some(FilterPart::Row { term, .. }) => match term.value {
-                        Value::Number(n) => n,
+                        // One arm for two values, the same pairing
+                        // `Value::written` makes: a number and a count of
+                        // colours are the same number on the page, and the
+                        // stepper is stepping whichever of them is there. It
+                        // read only the first, so `+` on a `c>=2` row read
+                        // nought and wrote `c>=1`.
+                        Value::Number(n) | Value::ColorCount(n) => n,
                         _ => 0,
                     },
                     _ => return,
@@ -853,11 +933,11 @@ impl FilterPanel {
                 // A printed number is never negative and a mana value never
                 // is either, so the stepper stops at nought rather than
                 // writing a term no card can answer.
-                self.set_value(row, Value::Number((now + by).max(0)));
+                self.set_number(row, (now + by).max(0));
             }
             Act::Parity(row, even) => match even {
                 Some(even) => self.set_value(row, Value::Parity(even)),
-                None => self.set_value(row, Value::Number(0)),
+                None => self.set_number(row, 0),
             },
             Act::SetFlag(row, at) => {
                 if let Some(flag) = FLAGS.get(at) {

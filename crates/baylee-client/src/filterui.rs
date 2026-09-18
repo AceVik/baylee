@@ -142,6 +142,9 @@ pub(crate) fn build(
                     at,
                     negated: *negated,
                     term,
+                    // The panel decides this, never the term on its own: it
+                    // is the one place that also knows where the caret is.
+                    control: panel.control(at).unwrap_or(Control::Text),
                     caret,
                     lang,
                     look,
@@ -181,6 +184,7 @@ struct RowLook<'a> {
     at: usize,
     negated: bool,
     term: &'a Term,
+    control: Control,
     caret: Option<&'a Typing>,
     lang: Lang,
     look: Register,
@@ -197,6 +201,7 @@ fn row(commands: &mut Commands, fonts: &UiFonts, it: RowLook<'_>) -> Entity {
         at,
         negated,
         term,
+        control,
         caret,
         lang,
         look,
@@ -226,7 +231,7 @@ fn row(commands: &mut Commands, fonts: &UiFonts, it: RowLook<'_>) -> Entity {
             },
         ),
     ];
-    match Control::of(&term.key) {
+    match control {
         Control::Colors => {
             kids.push(reading(commands, fonts, at, term, lang, look));
             kids.extend(pips(commands, fonts, at, &term.value, look));
@@ -250,16 +255,22 @@ fn row(commands: &mut Commands, fonts: &UiFonts, it: RowLook<'_>) -> Entity {
                 false,
                 look,
             ));
-            for (even, phrase) in [(true, Phrase::FilterEven), (false, Phrase::FilterOdd)] {
-                let on = term.value == Value::Parity(even);
-                kids.push(word(
-                    commands,
-                    fonts,
-                    phrase.text(lang),
-                    Act::Parity(at, (!on).then_some(even)),
-                    on,
-                    look,
-                ));
+            // Only where the *key* reads a number. A colour count is drawn
+            // with this control too, and `c:even` is not a search — it goes
+            // through the same reader every other value does and comes back
+            // an unreadable word.
+            if Control::of(&term.key) == Control::Number {
+                for (even, phrase) in [(true, Phrase::FilterEven), (false, Phrase::FilterOdd)] {
+                    let on = term.value == Value::Parity(even);
+                    kids.push(word(
+                        commands,
+                        fonts,
+                        phrase.text(lang),
+                        Act::Parity(at, (!on).then_some(even)),
+                        on,
+                        look,
+                    ));
+                }
             }
         }
         Control::Flag => {

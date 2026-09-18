@@ -621,3 +621,106 @@ fn taking_a_row_selects_what_it_already_says() {
     panel.type_text("land");
     assert_eq!(render(&panel.written().unwrap()), "t:land");
 }
+
+/// A row is drawn by what it **holds**, not by what its key usually holds.
+///
+/// Found by photographing the dialog: `c>=2` stood there as five unlit pips
+/// and `is:permanent` as three unlit choices, each a row saying nothing about
+/// its own value — and one press of any of those buttons would have written
+/// over it. One key spells more than one kind of value, and the control has
+/// to follow the value.
+#[test]
+fn a_control_follows_the_value_and_not_only_the_key() {
+    for (line, want) in [
+        ("c:rg", Control::Colors),
+        // A count of colours is a comparison and a number, which is exactly
+        // what the number control draws.
+        ("c>=2", Control::Number),
+        // And what neither control can draw is drawn as what was written:
+        // `m` is a count wearing a letter, `esper` is a nickname this
+        // language refuses, `permanent` is not a flag it knows.
+        ("c:m", Control::Text),
+        ("c:esper", Control::Text),
+        ("is:token", Control::Flag),
+        ("is:permanent", Control::Text),
+        ("mv:3", Control::Number),
+        ("mv:even", Control::Number),
+        ("mv:soon", Control::Text),
+        ("m:{W}{U}", Control::Cost),
+    ] {
+        let panel = FilterPanel::open(&parse(line));
+        assert_eq!(
+            panel.control(0),
+            Some(want),
+            "`{line}` is drawn with the control its value needs"
+        );
+    }
+    assert_eq!(
+        FilterPanel::open(&parse("c:r")).control(7),
+        None,
+        "and a row that is not there is drawn with nothing"
+    );
+}
+
+/// The control does not change under the caret.
+///
+/// Typing goes through `value_of` on every keystroke, so a value's *kind*
+/// changes mid-word: `toke` is a word and `token` is a flag. A row that swapped
+/// its control on the `n` would take the box out from under the letters while
+/// the caret still named that row, and every further keystroke would go into
+/// a field nothing drew.
+#[test]
+fn a_row_being_typed_into_stays_a_text_box() {
+    let mut panel = FilterPanel::open(&parse("is:permanent"));
+    panel.edit(0);
+    for letter in "token".chars() {
+        panel.type_text(&letter.to_string());
+        assert_eq!(
+            panel.control(0),
+            Some(Control::Text),
+            "the box stays a box while it is being typed into"
+        );
+    }
+    panel.stop_typing();
+    assert_eq!(
+        panel.control(0),
+        Some(Control::Flag),
+        "and the flag it now holds is drawn as a flag once the caret is given back"
+    );
+    assert_eq!(render(&panel.written().unwrap()), "is:token");
+}
+
+/// The stepper steps whatever number the row is holding.
+///
+/// `Value::Number` and `Value::ColorCount` are the same number on the page
+/// and the stepper read only the first of them, so `+` on a `c>=2` row read
+/// nought and wrote `c>=1` — a row that answered a button by forgetting what
+/// it said.
+#[test]
+fn the_stepper_counts_colours_as_readily_as_mana() {
+    let mut panel = FilterPanel::open(&parse("c>=2"));
+    panel.act(super::Act::Bump(0, 1));
+    assert_eq!(render(&panel.written().unwrap()), "c>=3");
+    panel.act(super::Act::Bump(0, -1));
+    panel.act(super::Act::Bump(0, -1));
+    assert_eq!(render(&panel.written().unwrap()), "c>=1");
+    // And the value it wrote is the one the same string parses to, which is
+    // what keeps the form and the box saying the same thing.
+    assert_eq!(panel.written().unwrap(), parse("c>=1"));
+}
+
+/// A number written into a row is the kind of number its key reads.
+///
+/// `SetNumber` wrote a `Value::Number` whatever the key was. Under `c` that
+/// renders the same string and parses back as a `Value::ColorCount`, so the
+/// box was right and the form was holding something the box could never have
+/// produced — the one state this module exists to prevent.
+#[test]
+fn a_number_written_into_a_colour_row_is_a_count_of_colours() {
+    let mut panel = FilterPanel::open(&parse("c>=2"));
+    panel.act(super::Act::SetNumber(0, 4));
+    assert_eq!(panel.written().unwrap(), parse("c>=4"));
+    let mut panel = FilterPanel::open(&parse("mv:3"));
+    panel.act(super::Act::SetNumber(0, 4));
+    assert_eq!(panel.written().unwrap(), parse("mv:4"));
+}
