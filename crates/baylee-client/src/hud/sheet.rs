@@ -1749,8 +1749,11 @@ fn spawn_pager(
 /// which of the two it got: the fallback label is what the ability costs, and
 /// the row draws that again on the right as pips.
 ///
-/// The cost is cut off the front of a real sentence for the same reason — see
-/// [`abilitysheet::effect`](baylee_client_core::abilitysheet::effect).
+/// The cost is cut off the front of a real sentence for the same reason, and
+/// the row's **own** cost is what licenses the cut: a row with an empty cost
+/// column keeps every word it was given, because a sentence granting an
+/// ability quotes a cost and reads as `prefix: effect` to anything that only
+/// looks. See [`abilitysheet::effect`](baylee_client_core::abilitysheet::effect).
 fn row_text(
     faces: &crate::cardtext::CardTexts,
     duel: &Duel,
@@ -1762,7 +1765,7 @@ fn row_text(
     let card = faces.get(print, text.face)?;
     let blocks =
         baylee_client_core::card_face::sentence_blocks(&card.oracle_text, text.line, text.of)?;
-    let blocks = abilitysheet::effect(blocks);
+    let blocks = abilitysheet::effect(blocks, option.cost.as_deref());
     (!blocks.is_empty()).then_some(blocks)
 }
 
