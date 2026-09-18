@@ -299,9 +299,14 @@ fn makes_mana(effect: &Effect) -> bool {
 /// the ability actually does (CR 605.1), and how.
 ///
 /// `None` for an ability that is honest, and for every ability the rule has
-/// nothing to say about — a spell, a trigger, a loyalty ability. CR 605.1a
-/// is why the target is read here: an ability with a target is *never* a
-/// mana ability, however much mana it makes.
+/// nothing to say about — a spell, a trigger, a loyalty ability, which
+/// CR 605.1a excludes by name and which never reaches the match below.
+///
+/// The rule is read the way it is written: an activated ability is a mana
+/// ability if it **could** add mana, does not require a target, and is not
+/// a loyalty ability. Not "does nothing but add mana" — the rider a
+/// Talisman, a painland or a Chromatic Sphere prints beside its mana
+/// changes none of the three conditions.
 fn mana_ability_fault(ability: &AbilityDef) -> Option<&'static str> {
     let (claimed, effects, target) = match ability {
         AbilityDef::Activated {
@@ -318,15 +323,25 @@ fn mana_ability_fault(ability: &AbilityDef) -> Option<&'static str> {
         } => (*mana_ability, *effects, *target),
         _ => return None,
     };
-    let only_mana = !effects.is_empty() && effects.iter().all(makes_mana);
-    if claimed && !effects.iter().any(makes_mana) {
+    let makes_any = effects.iter().any(makes_mana);
+    if claimed && !makes_any {
         return Some("claims a mana ability that makes no mana");
     }
     if claimed && target.is_some() {
         return Some("claims a mana ability that targets (CR 605.1a)");
     }
-    if !claimed && only_mana && target.is_none() {
-        return Some("only adds mana and is not marked a mana ability");
+    // **Could** add mana, not "does nothing else". This read `all` and so
+    // said nothing about every mana ability printed with a rider — a
+    // Talisman's "Add {U} or {B}. This artifact deals 1 damage to you.", a
+    // painland's, a Chromatic Sphere's "Add one mana of any color. Draw a
+    // card." Five of them were in the pool as ordinary activated abilities,
+    // putting their mana on the stack where an opponent may respond to it,
+    // and the lint written to catch exactly that was green over all five.
+    if !makes_any || target.is_some() {
+        return None;
+    }
+    if !claimed {
+        return Some("adds mana, targets nothing, and is not marked a mana ability (CR 605.1a)");
     }
     None
 }
@@ -864,8 +879,8 @@ mod tests {
         );
     }
 
-    /// A mana ability makes mana, and an ability that only makes mana is a
-    /// mana ability (CR 605.1).
+    /// A mana ability is an activated ability that **could** add mana and
+    /// does not target (CR 605.1a).
     ///
     /// The flag is not decoration: an ability marked `mana_ability` does not
     /// use the stack and cannot be responded to, and one that is not marked
@@ -874,10 +889,16 @@ mod tests {
     /// it skips a window the rules guarantee — and nothing else in the suite
     /// reads either as a bug.
     ///
-    /// CR 605.1a is why the target is checked at all: an ability with a
-    /// target is *never* a mana ability, however much mana it makes.
+    /// It used to ask whether the ability did *nothing but* add mana, which
+    /// is not the rule and is not what the cards print. Five of this pool's
+    /// cards add mana with a rider beside it — both Talismans, Grove of the
+    /// Burnwillows, Fogwell's Gym and Chromatic Sphere — and all five were
+    /// written as ordinary activated abilities, put their mana on the stack,
+    /// and were asked for a second tap by the ability sheet, which reads
+    /// this flag to decide whether a press needs arming. The lint written to
+    /// catch exactly that was green over all five.
     #[test]
-    fn a_mana_ability_is_exactly_an_ability_that_only_makes_mana() {
+    fn a_mana_ability_is_an_ability_that_could_add_mana_without_targeting() {
         let mut wrong = Vec::new();
         let mut seen = 0_usize;
         for def in crate::all() {
@@ -967,6 +988,12 @@ mod tests {
         static DRAW: [Effect; 1] = [Effect::DrawCards {
             amount: Amount::Fixed(1),
         }];
+        static MANA_AND_DRAW: [Effect; 2] = [
+            Effect::mana(baylee_core::mana::ManaColor::Green, 1),
+            Effect::DrawCards {
+                amount: Amount::Fixed(1),
+            },
+        ];
 
         let unmarked = AbilityDef::Activated {
             cost: crate::dsl::cost::Cost::TAP,
@@ -980,6 +1007,22 @@ mod tests {
         assert!(
             mana_ability_fault(&unmarked).is_some(),
             "an ability that only adds mana and is not marked one slipped through"
+        );
+
+        // The case the `all` reading could not see: mana **and** a rider,
+        // which is what a Talisman, a painland and a Chromatic Sphere print.
+        let with_a_rider = AbilityDef::Activated {
+            cost: crate::dsl::cost::Cost::TAP,
+            effects: &MANA_AND_DRAW,
+            target: None,
+            timing: ActivationTiming::InstantSpeed,
+            mana_ability: false,
+            zone: ActivationZone::Battlefield,
+            limit: ActivationLimit::Unlimited,
+        };
+        assert!(
+            mana_ability_fault(&with_a_rider).is_some(),
+            "an ability that adds mana beside something else is still a mana ability"
         );
 
         let lying = AbilityDef::Activated {

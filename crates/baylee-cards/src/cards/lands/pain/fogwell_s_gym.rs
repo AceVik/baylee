@@ -14,16 +14,13 @@ card!(
     coverage = Coverage::Implemented,
     faces = &[face!(name = "Fogwell's Gym", types = TypeSet::LAND,),],
     abilities = &[
-        activated!(
-            Cost::TAP,
-            &[
-                Effect::mana(ManaColor::Red, 1),
-                Effect::DealDamage {
-                    amount: Amount::Fixed(1),
-                    target: TargetSpec::Player(PlayerRel::You)
-                }
-            ]
-        ),
+        mana_ability!(&[
+            Effect::mana(ManaColor::Red, 1),
+            Effect::DealDamage {
+                amount: Amount::Fixed(1),
+                target: TargetSpec::Player(PlayerRel::You)
+            }
+        ]),
         activated!(
             cost!("{2}{R}", TapSelf, Discard(&Filter::Any)),
             &[Effect::draw(1)]

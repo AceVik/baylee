@@ -44,6 +44,7 @@ Card, codegen, and data tooling (`xtask`):
 ```bash
 cargo run -p xtask -- codegen            # regen subtypes, card stubs, registry, scripts index
 cargo run -p xtask -- codegen --check    # fail if generated files are stale (developer's machine only)
+cargo run -p xtask -- codegen --tables   # only the two tables built from the compiled pool
 cargo run -p xtask -- validate           # card headers vs. the CardDef the code builds
 cargo run -p xtask -- ledger             # assign a CardIndex to every corpus card that has none
 cargo run -p xtask -- ledger --check     # report what would be assigned instead of writing it
@@ -382,6 +383,15 @@ from every release build), `validate`, a
 `wasm32-unknown-unknown` check of the five crates that must keep compiling
 for it, benches, an MSRV check against
 the `rust-version` this workspace declares, `cargo-deny`, and `cargo-audit`.
+
+`--tables` is the way past that on a machine with no corpus. Stages 1–4
+read the card-script reference, and with none checked out they rewrite every
+machine-owned card as an honest `// GENERATED STUB` — a correct answer to the
+question they were asked and a destroyed working tree. The last two stages
+read the **compiled** pool instead (`generated_lines.rs`, `generated_names.rs`),
+so `--tables` brings those back in step after a card is edited by hand or
+after `baylee_cards_codegen::lines` learns to read something new, and needs no
+corpus at all. A machine that has one runs the whole thing and never needs it.
 
 **Codegen is a developer's tool and does not run in CI.** It reads the
 card-script reference, which is GPL and deliberately not vendored, so a runner

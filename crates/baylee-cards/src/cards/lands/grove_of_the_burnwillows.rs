@@ -18,15 +18,12 @@ card!(
     ),],
     abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
-        activated!(
-            Cost::TAP,
-            &[
-                Effect::mana_choice(&[ManaColor::Red, ManaColor::Green]),
-                Effect::GainLifeFor {
-                    amount: Amount::Fixed(1),
-                    who: PlayerRel::Opponent
-                }
-            ]
-        ),
+        mana_ability!(&[
+            Effect::mana_choice(&[ManaColor::Red, ManaColor::Green]),
+            Effect::GainLifeFor {
+                amount: Amount::Fixed(1),
+                who: PlayerRel::Opponent
+            }
+        ]),
     ],
 );

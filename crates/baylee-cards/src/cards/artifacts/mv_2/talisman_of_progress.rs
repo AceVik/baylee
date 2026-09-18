@@ -19,15 +19,12 @@ card!(
     ),],
     abilities = &[
         mana_ability!(&[Effect::mana(ManaColor::Colorless, 1)]),
-        activated!(
-            Cost::TAP,
-            &[
-                Effect::mana_choice(&[ManaColor::White, ManaColor::Blue]),
-                Effect::DealDamage {
-                    amount: Amount::Fixed(1),
-                    target: TargetSpec::Player(PlayerRel::You)
-                }
-            ]
-        ),
+        mana_ability!(&[
+            Effect::mana_choice(&[ManaColor::White, ManaColor::Blue]),
+            Effect::DealDamage {
+                amount: Amount::Fixed(1),
+                target: TargetSpec::Player(PlayerRel::You)
+            }
+        ]),
     ],
 );

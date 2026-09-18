@@ -65,6 +65,22 @@ fn badlands() -> CardIndex {
 
 /// Activates printed ability `index` of `card`.
 #[track_caller]
+fn chromatic_sphere() -> CardIndex {
+    card_index("2e03e44a-9fff-4490-859f-b42e89e8563a")
+}
+fn talisman_of_dominance() -> CardIndex {
+    card_index("4c0a0448-b9d6-43a0-8549-64066dac63f0")
+}
+fn talisman_of_progress() -> CardIndex {
+    card_index("00e35322-1a9a-41e3-9ce1-359c8eaa3bc7")
+}
+fn grove_of_the_burnwillows() -> CardIndex {
+    card_index("d33c3fbb-8306-4c2d-b0dd-88f12639da94")
+}
+fn fogwells_gym() -> CardIndex {
+    card_index("850bb6f7-48d3-4d65-9220-b0bec5ee6b64")
+}
+
 fn activate(engine: &mut Engine<RegistryLookup>, seat: PlayerId, card: CardIndex, index: u32) {
     let Pending::Priority { legal, .. } = engine.pending().clone() else {
         panic!("expected priority, got {:?}", engine.pending())
@@ -457,4 +473,133 @@ fn a_pool_does_not_survive_the_turn_the_mana_was_made_in() {
         "the turn ended and the mana was still there: {:?}",
         engine.state().players[0].mana_pool
     );
+}
+
+/// CR 605.1a asks whether an activated ability **could** add mana without
+/// targeting — not whether adding mana is the only thing it does.
+///
+/// Five cards in this pool print a rider beside their mana, and the reader
+/// that wrote them asked the wrong question: `.all(…)` over the effects,
+/// "every one of these is mana", where the rule asks `.any(…)`. So all five
+/// were written `activated!`, and the engine put them on the **stack** — a
+/// land tapped for mana became something an opponent could respond to, and
+/// the client, which reads the same flag to decide that a mana ability is the
+/// one thing it need not confirm (CR 605.1), asked for a second tap.
+///
+/// This is the rules half of that fix and it fails against the old pool on
+/// the very first assertion, because the ability is sitting on the stack
+/// instead of having resolved. All five are played here rather than one,
+/// because each was written by the same rule and each is a different shape:
+/// a flat colour, a choice of two, a choice that pays an *opponent*, and one
+/// whose whole cost is paid out of the card itself.
+#[test]
+fn a_mana_ability_that_does_something_else_too_still_skips_the_stack() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(11, forest())
+        .battlefield(
+            0,
+            &[
+                fogwells_gym(),
+                talisman_of_dominance(),
+                talisman_of_progress(),
+                grove_of_the_burnwillows(),
+                chromatic_sphere(),
+            ],
+        )
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let life_before = engine.state().players[0].life;
+    let opponent_before = engine.state().players[1].life;
+
+    // "{T}: Add {R}. This land deals 1 damage to you." — no choice and no
+    // cost but the tap, which makes it the cleanest reading of the rule.
+    activate(&mut engine, p0, fogwells_gym(), 0);
+    assert!(
+        super::testkit::stack_is_empty(&engine),
+        "a mana ability never uses the stack (CR 605.1), rider or no rider",
+    );
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Red),
+        1
+    );
+    assert_eq!(
+        engine.state().players[0].life,
+        life_before - 1,
+        "the rider is not skipped just because the ability skipped the stack",
+    );
+
+    // A choice of two, and the damage again.
+    activate(&mut engine, p0, talisman_of_dominance(), 1);
+    engine
+        .apply(p0, PlayerAction::ChooseColor(ManaColor::Black))
+        .expect("blue or black");
+    assert!(super::testkit::stack_is_empty(&engine));
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Black),
+        1
+    );
+    assert_eq!(engine.state().players[0].life, life_before - 2);
+
+    activate(&mut engine, p0, talisman_of_progress(), 1);
+    engine
+        .apply(p0, PlayerAction::ChooseColor(ManaColor::White))
+        .expect("white or blue");
+    assert!(super::testkit::stack_is_empty(&engine));
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::White),
+        1
+    );
+    assert_eq!(engine.state().players[0].life, life_before - 3);
+
+    // The rider that pays somebody else: "Each opponent gains 1 life."
+    activate(&mut engine, p0, grove_of_the_burnwillows(), 1);
+    engine
+        .apply(p0, PlayerAction::ChooseColor(ManaColor::Green))
+        .expect("red or green");
+    assert!(super::testkit::stack_is_empty(&engine));
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Green),
+        1
+    );
+    assert_eq!(
+        engine.state().players[1].life,
+        opponent_before + 1,
+        "the Grove pays the opponent, and it pays them off the stack",
+    );
+
+    // "{1}, {T}, Sacrifice this artifact: Add one mana of any color. Draw a
+    // card." The cost is paid out of the four mana the riders just made, so
+    // this also shows a mana ability spending a mana ability's own output.
+    let pool_before = engine.state().players[0].mana_pool.total();
+    assert_eq!(pool_before, 4, "one from each of the four above");
+    activate(&mut engine, p0, chromatic_sphere(), 0);
+    let Pending::ChooseColor { options, .. } = engine.pending().clone() else {
+        panic!("expected a colour choice, got {:?}", engine.pending())
+    };
+    assert_eq!(options.len(), 5, "any color is five of them");
+    engine
+        .apply(p0, PlayerAction::ChooseColor(ManaColor::Blue))
+        .expect("any colour");
+    assert!(
+        super::testkit::stack_is_empty(&engine),
+        "sacrificing itself to draw a card is still a mana ability",
+    );
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Blue),
+        1,
+        "the {{1}} came out of the pool and the {{U}} went back in",
+    );
+    assert_eq!(engine.state().players[0].mana_pool.total(), 4);
 }

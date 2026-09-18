@@ -110,6 +110,7 @@ pub fn without_reminder(line: &str) -> String {
 
 /// The shape of one printed line.
 pub fn line_shape(line: &str) -> LineShape {
+    let printed = line;
     let line = without_reminder(line);
     let line = line.as_str();
     // The trigger word is read **before** the colon, and putting it after
@@ -141,7 +142,10 @@ pub fn line_shape(line: &str) -> LineShape {
         // what a player reads when one of them goes on the stack. It has no
         // colon because the card put the cost and the effect in a keyword
         // instead of side by side.
-        return if line.len() <= 40 && line.contains('{') && !line.ends_with('.') {
+        return if line.len() <= 40
+            && !line.ends_with('.')
+            && (line.contains('{') || reminder_spells_out_an_ability(printed))
+        {
             LineShape::Activated
         } else {
             LineShape::Other
@@ -175,6 +179,33 @@ pub fn line_shape(line: &str) -> LineShape {
     } else {
         LineShape::Other
     }
+}
+
+/// Whether a keyword line's own reminder text writes out an activated
+/// ability.
+///
+/// The second half of the branch above, and the reason it is needed: a
+/// keyword whose cost is mana prints that cost on the line — `Equip {2}`,
+/// `Cycling {1}{B}` — and is found by the `{`. A keyword whose cost is
+/// something else prints nothing but the word, and `Station` is the pool's
+/// one example: `Station (Tap another creature you control: Put charge
+/// counters equal to its power on this Spacecraft. …)`. Read as
+/// [`LineShape::Other`] it was a card whose only activated ability had no
+/// sentence at all, and the client drew the row as "Ability 1".
+///
+/// The colon is what separates the two kinds of keyword, and it is the
+/// card's own punctuation rather than a guess: a keyword that *is* an
+/// activated ability spells the ability out in its reminder, cost and colon
+/// and all, while a keyword that is a bit describes a rule —
+/// `Flying (This creature can't be blocked except by creatures with flying
+/// or reach.)` has no colon anywhere in it.
+fn reminder_spells_out_an_ability(printed: &str) -> bool {
+    let Some((_, rest)) = printed.split_once('(') else {
+        return false;
+    };
+    rest.split_once(')')
+        .map_or(rest, |(inside, _)| inside)
+        .contains(':')
 }
 
 /// The shape of one compiled ability.

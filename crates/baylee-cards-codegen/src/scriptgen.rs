@@ -2428,7 +2428,25 @@ impl Tx<'_> {
                 return self.deny("an activated ability with no `Cost$`".to_string());
             };
             let cost = self.cost_expr(&cost)?;
-            let mana_ability = chain.effects.iter().all(|e| e.contains("Effect::mana"));
+            // CR 605.1a: an activated ability is a mana ability if it could
+            // add mana, does not require a target, and is not a loyalty
+            // ability. **Could**, not "does nothing else" — this read `all`
+            // and so refused every ability with a rider, which is most of
+            // the ones that have one: a Talisman's `{T}: Add {U} or {B}.
+            // This artifact deals 1 damage to you.`, a painland's, a
+            // Chromatic Sphere's `Add one mana of any color. Draw a card.`
+            // Five cards in this pool were written as ordinary activated
+            // abilities and put their mana on the stack, where an opponent
+            // may respond to it — and the ability sheet, which reads the
+            // flag to decide whether a press needs arming, asked for a
+            // second tap before a land would make mana.
+            //
+            // The target is the ability's own (`target = Some(…)`) and not
+            // a `TargetSpec` inside an effect: "deals 1 damage to you" names
+            // a player without targeting one, and Deathrite Shaman, which
+            // does target, is the card on the other side of the line.
+            let mana_ability =
+                chain.effects.iter().any(|e| e.contains("Effect::mana")) && chain.target.is_none();
             let target = chain
                 .target
                 .map(|t| format!(", target = Some({t})"))
@@ -3300,6 +3318,62 @@ mod tests {
 
     fn refused(text: &str) -> bool {
         transcode(&parse(text), &cats(), None).is_none()
+    }
+
+    /// CR 605.1a: **could** add mana, not "does nothing else".
+    ///
+    /// This was `all`, and so a Talisman, a painland and a Chromatic Sphere
+    /// — every mana ability printed with a rider — came out as an ordinary
+    /// activated ability. Two things follow from that flag and both were
+    /// wrong: the engine put the mana on the stack, where an opponent may
+    /// respond to it, and the client's ability sheet, which reads it to
+    /// decide whether a press needs arming (CR 605.1 is the whole reason a
+    /// mana ability stays one tap), asked for a second tap.
+    #[test]
+    fn an_ability_that_could_add_mana_is_a_mana_ability_whatever_else_it_does() {
+        // A painland: mana, and a rider that names a player without
+        // targeting one.
+        let pain = read(
+            "Name:X\nTypes:Land\n\
+             A:AB$ Mana | Cost$ T | Produced$ Combo W U | SubAbility$ DBDmg | SpellDescription$ Add {W} or {U}.\n\
+             SVar:DBDmg:DB$ DealDamage | Defined$ You | NumDmg$ 1",
+        );
+        assert_eq!(
+            pain.abilities,
+            [
+                "mana_ability!(&[Effect::mana_choice(&[ManaColor::White, ManaColor::Blue]), \
+              Effect::DealDamage { amount: Amount::Fixed(1), target: TargetSpec::Player(PlayerRel::You) }])"
+            ]
+        );
+
+        // Chromatic Sphere: mana and a draw, off a cost that is not a bare
+        // tap — so the long form of the macro, with the cost written out.
+        let sphere = read(
+            "Name:X\nTypes:Artifact\n\
+             A:AB$ Mana | Cost$ 1 T Sac<1/CARDNAME> | Produced$ Any | SubAbility$ DBDraw\n\
+             SVar:DBDraw:DB$ Draw | Defined$ You | NumCards$ 1",
+        );
+        assert_eq!(
+            sphere.abilities,
+            ["mana_ability!(cost!(\"{1}\", TapSelf, SacrificeSelf), \
+              &[Effect::mana_of_any_color(), Effect::draw(1)])"]
+        );
+
+        // And the other side of the line, which is where CR 605.1a draws
+        // it: an ability that **targets** is not a mana ability however much
+        // mana it makes, so its mana goes on the stack like anything else.
+        let targeted = read(
+            "Name:X\nTypes:Creature Elf\nPT:1/2\n\
+             A:AB$ Mana | Cost$ T | Produced$ G | ValidTgts$ Creature | SubAbility$ DBTap\n\
+             SVar:DBTap:DB$ Tap",
+        );
+        assert_eq!(
+            targeted.abilities,
+            [
+                "activated!(Cost::TAP, &[Effect::mana(ManaColor::Green, 1), Effect::TapTarget], \
+              target = Some(TargetSpec::Object(&Filter::CREATURE)))"
+            ]
+        );
     }
 
     /// `K:ETBReplacement:Other:<svar>` is a **pointer**, and the rule is what

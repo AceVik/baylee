@@ -25,6 +25,22 @@ enum Cmd {
         /// Verify generated files are up to date instead of writing (CI).
         #[arg(long)]
         check: bool,
+        /// Write only the tables built from the **compiled** pool.
+        ///
+        /// `generated_lines.rs` and `generated_names.rs` are the two-phase
+        /// halves: they read the pool as it is compiled right now, against
+        /// the cached printings, and need no card-script reference at all.
+        /// Everything before them does — and a full run on a machine with
+        /// no corpus checked out rewrites every machine-owned card as an
+        /// honest `// GENERATED STUB`, which is a correct answer to the
+        /// question it was asked and a destroyed working tree.
+        ///
+        /// So: use this after editing a card by hand, or after changing
+        /// what `baylee_cards_codegen::lines` reads, to bring the two
+        /// tables back in step with the pool. A machine that has the corpus
+        /// runs the whole thing and never needs it.
+        #[arg(long)]
+        tables: bool,
         /// Path to the card-script reference cardsfolder.
         #[arg(long, default_value = "../mtg/card-scripts")]
         scripts: PathBuf,
@@ -372,9 +388,10 @@ fn main() -> anyhow::Result<()> {
     match cli.cmd {
         Cmd::Codegen {
             check,
+            tables,
             scripts,
             cache,
-        } => codegen(&root, check, &scripts, &cache),
+        } => codegen(&root, check, tables, &scripts, &cache),
         Cmd::Ledger {
             corpus,
             check,
@@ -915,7 +932,13 @@ fn token_ledger(
     )
 }
 
-fn codegen(root: &Path, check: bool, scripts_dir: &Path, cache: &Path) -> anyhow::Result<()> {
+fn codegen(
+    root: &Path,
+    check: bool,
+    tables_only: bool,
+    scripts_dir: &Path,
+    cache: &Path,
+) -> anyhow::Result<()> {
     let cache = root.join(cache);
     let agent = ureq::Agent::new_with_defaults();
     let mut changed = Vec::new();
@@ -934,62 +957,68 @@ fn codegen(root: &Path, check: bool, scripts_dir: &Path, cache: &Path) -> anyhow
         names.len() - from_decks
     );
 
-    // 1. Subtype catalogs → generated subtypes.rs.
-    let mut cats = catalog::SubtypeCatalogs {
-        creature: scryfall::fetch_catalog("creature-types", &agent, &cache)?,
-        artifact: scryfall::fetch_catalog("artifact-types", &agent, &cache)?,
-        enchantment: scryfall::fetch_catalog("enchantment-types", &agent, &cache)?,
-        land: scryfall::fetch_catalog("land-types", &agent, &cache)?,
-        planeswalker: scryfall::fetch_catalog("planeswalker-types", &agent, &cache)?,
-        spell: scryfall::fetch_catalog("spell-types", &agent, &cache)?,
-    };
-    cats.normalize();
-    write_or_check(
-        check,
-        &root.join("crates/baylee-core/src/generated/subtypes.rs"),
-        &catalog::render_subtypes_rs(&cats),
-        &mut changed,
-    )?;
-
-    // 2. card-script reference index. Built before the stubs, because a stub is
-    //    transcoded from the rules reference when one is checked out locally
-    //    (read as an automated lookup, never copied).
-    let scripts_dir = scripts_root(root, scripts_dir);
-    let lookup = if scripts_dir.exists() {
-        let index = scripts::build_index(&scripts_dir)?;
+    // Everything from here to stage 5 reads the card-script reference, and
+    // on a machine with none checked out it rewrites every machine-owned
+    // card as an honest stub. `--tables` is the way past it: the two tables
+    // below are built from the compiled pool alone.
+    if !tables_only {
+        // 1. Subtype catalogs → generated subtypes.rs.
+        let mut cats = catalog::SubtypeCatalogs {
+            creature: scryfall::fetch_catalog("creature-types", &agent, &cache)?,
+            artifact: scryfall::fetch_catalog("artifact-types", &agent, &cache)?,
+            enchantment: scryfall::fetch_catalog("enchantment-types", &agent, &cache)?,
+            land: scryfall::fetch_catalog("land-types", &agent, &cache)?,
+            planeswalker: scryfall::fetch_catalog("planeswalker-types", &agent, &cache)?,
+            spell: scryfall::fetch_catalog("spell-types", &agent, &cache)?,
+        };
+        cats.normalize();
         write_or_check(
             check,
-            &root.join("data/script-index.json"),
-            &serde_json::to_string_pretty(&index)?,
+            &root.join("crates/baylee-core/src/generated/subtypes.rs"),
+            &catalog::render_subtypes_rs(&cats),
             &mut changed,
         )?;
-        println!("script index: {} scripts", index.len());
-        Some(scriptgen::ScriptLookup::new(scripts_dir.clone(), index))
-    } else {
-        println!(
-            "note: card-script reference not found at {}, skipping index",
-            scripts_dir.display()
-        );
-        None
-    };
 
-    // The reference's token scripts, found beside its card scripts. Read
-    // before the ledger because both stages below want them: the ledger to
-    // learn which tokens exist, the card stage to write the constant a
-    // `DB$ Token` names.
-    let tokens = tokengen::TokenLookup::beside(&scripts_dir)?;
-    let pool = Pool {
-        names: &names,
-        cats: &cats,
-        scripts: lookup.as_ref(),
-        tokens: tokens.as_ref(),
-    };
+        // 2. card-script reference index. Built before the stubs, because a stub is
+        //    transcoded from the rules reference when one is checked out locally
+        //    (read as an automated lookup, never copied).
+        let scripts_dir = scripts_root(root, scripts_dir);
+        let lookup = if scripts_dir.exists() {
+            let index = scripts::build_index(&scripts_dir)?;
+            write_or_check(
+                check,
+                &root.join("data/script-index.json"),
+                &serde_json::to_string_pretty(&index)?,
+                &mut changed,
+            )?;
+            println!("script index: {} scripts", index.len());
+            Some(scriptgen::ScriptLookup::new(scripts_dir.clone(), index))
+        } else {
+            println!(
+                "note: card-script reference not found at {}, skipping index",
+                scripts_dir.display()
+            );
+            None
+        };
 
-    // 3. Which id every token there is was assigned → generated_tokens.rs.
-    token_ledger(root, check, &pool, &mut changed)?;
+        // The reference's token scripts, found beside its card scripts. Read
+        // before the ledger because both stages below want them: the ledger to
+        // learn which tokens exist, the card stage to write the constant a
+        // `DB$ Token` names.
+        let tokens = tokengen::TokenLookup::beside(&scripts_dir)?;
+        let pool = Pool {
+            names: &names,
+            cats: &cats,
+            scripts: lookup.as_ref(),
+            tokens: tokens.as_ref(),
+        };
 
-    // 4. The card pool → per-card stubs + registry.
-    cards(root, check, &agent, &cache, &pool, &mut changed)?;
+        // 3. Which id every token there is was assigned → generated_tokens.rs.
+        token_ledger(root, check, &pool, &mut changed)?;
+
+        // 4. The card pool → per-card stubs + registry.
+        cards(root, check, &agent, &cache, &pool, &mut changed)?;
+    }
 
     // 5. Which printed sentence each ability came from → generated_lines.rs.
     //    Written here rather than beside the registry because it is built

@@ -5526,8 +5526,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Chromatic Sphere
     &[FaceLines {
         sentences: 1,
-        stackable: 1,
-        lines: &[None],
+        stackable: 0,
+        lines: &[Some(0)],
         modes: &[],
         alternatives: &[],
     }],
@@ -8106,8 +8106,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Talisman of Dominance
     &[FaceLines {
         sentences: 2,
-        stackable: 1,
-        lines: &[Some(0), None],
+        stackable: 0,
+        lines: &[Some(0), Some(1)],
         modes: &[],
         alternatives: &[],
     }],
@@ -8116,8 +8116,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Talisman of Progress
     &[FaceLines {
         sentences: 2,
-        stackable: 1,
-        lines: &[Some(0), None],
+        stackable: 0,
+        lines: &[Some(0), Some(1)],
         modes: &[],
         alternatives: &[],
     }],
@@ -10794,8 +10794,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Grove of the Burnwillows
     &[FaceLines {
         sentences: 2,
-        stackable: 1,
-        lines: &[Some(0), None],
+        stackable: 0,
+        lines: &[Some(0), Some(1)],
         modes: &[],
         alternatives: &[],
     }],
@@ -36519,7 +36519,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 4,
         stackable: 2,
-        lines: &[None, None, None, None, None],
+        lines: &[Some(0), None, None, None, None],
         modes: &[],
         alternatives: &[],
     }],
@@ -38878,8 +38878,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Fogwell's Gym
     &[FaceLines {
         sentences: 2,
-        stackable: 2,
-        lines: &[None, Some(1)],
+        stackable: 1,
+        lines: &[Some(0), Some(1)],
         modes: &[],
         alternatives: &[],
     }],
@@ -39950,7 +39950,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 3,
         stackable: 1,
-        lines: &[None, None, None],
+        lines: &[Some(1), None, None],
         modes: &[],
         alternatives: &[],
     }],
