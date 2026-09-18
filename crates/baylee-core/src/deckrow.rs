@@ -333,10 +333,38 @@ fn classify(token: &str) -> Result<Group, RowError> {
     {
         return Ok(Group::Finish(parse_finish(inner)?));
     }
-    if !token.is_empty() && token.chars().all(|c| c.is_ascii_alphanumeric()) {
+    if is_collector_number(token) {
         return Ok(Group::Number(token.to_string()));
     }
     Ok(Group::None)
+}
+
+/// Whether a token could be a collector number.
+///
+/// Stated as what it may **not** contain rather than as what it may, and
+/// that is the whole design. A collector number is Scryfall's to spell: of
+/// the 16 863 distinct ones in a full catalog, 6558 — 39% — hold something
+/// other than letters and digits, and the marks in use today are `-` (5965
+/// numbers across 34 sets, which is how The List writes `WWK-105`), `★`
+/// (511 across 98), `†` (74 across 27), `Φ` (4) and `_` (1). A positive list
+/// of those five would be right today and would go quiet the first time
+/// Wizards printed a sixth — the failure this repo has already had, where a
+/// list that could only say yes to what it knew said nothing about what it
+/// did not.
+///
+/// So the rule names **our** delimiters instead, which we do control: a
+/// token holding a parenthesis, a bracket, a star or an `=` is one of the
+/// other groups or part of a name, and anything else that carries at least
+/// one letter or digit is a number. Checked against that same catalog, all
+/// 16 863 pass and none holds a delimiter.
+///
+/// Position does the rest of the work: [`parse`] takes a number only when a
+/// set code stands immediately in front of it, so a card whose name ends in
+/// an ordinary word — `Oran-Rief Survivalist` — is never at risk here.
+fn is_collector_number(token: &str) -> bool {
+    !token.is_empty()
+        && token.chars().any(char::is_alphanumeric)
+        && !token.contains(['(', ')', '[', ']', '*', '='])
 }
 
 /// Whether a parenthesised token looks like a set code rather than part of a
@@ -345,6 +373,12 @@ fn classify(token: &str) -> Result<Group, RowError> {
 /// Set codes are three to five alphanumerics. `(Not the Urza's Legacy One)`
 /// never reaches here as one token, but a one-word parenthetical could, and
 /// `(A)` or `(seriously)` must stay part of the name.
+///
+/// Six of the 1049 set codes in a full catalog are longer than that, and
+/// they are deliberately not reached: they are the `pmps06`…`pmps11` premiere
+/// shop promos, and widening the rule to six would start eating one-word
+/// parentheticals of that length off the end of card names. The gap is named
+/// here so the next reader knows it was measured rather than missed.
 fn is_set_code(inner: &str) -> bool {
     (3..=5).contains(&inner.chars().count()) && inner.chars().all(|c| c.is_ascii_alphanumeric())
 }
@@ -382,6 +416,74 @@ impl fmt::Display for Row {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_collector_number_is_spelled_the_way_the_printing_spells_it() {
+        // Every one of these is a real collector number, and not one of them
+        // parsed before: the rule asked for letters and digits, and 39% of a
+        // full catalog's 16 863 numbers hold something else. The List is the
+        // case that matters most here -- it is where a modern deck reaches
+        // for a reprint, and every one of its numbers carries a hyphen.
+        for (row, name, set, number) in [
+            (
+                "1 Rhystic Study (PLST) PCY-45",
+                "Rhystic Study",
+                "PLST",
+                "PCY-45",
+            ),
+            (
+                "1 Venser, the Sojourner (SLD) 1423\u{2605}",
+                "Venser, the Sojourner",
+                "SLD",
+                "1423\u{2605}",
+            ),
+            (
+                "1 Katara, the Fearless (PURL) 2025-3",
+                "Katara, the Fearless",
+                "PURL",
+                "2025-3",
+            ),
+            (
+                "1 Shivan Dragon (LEA) 174\u{2020}",
+                "Shivan Dragon",
+                "LEA",
+                "174\u{2020}",
+            ),
+            ("1 Island (SLD) VS", "Island", "SLD", "VS"),
+        ] {
+            let parsed = parse(row).unwrap_or_else(|e| panic!("{row}: {e:?}"));
+            assert_eq!(parsed.name, name, "name of {row}");
+            assert_eq!(parsed.print.set.as_deref(), Some(set), "set of {row}");
+            assert_eq!(
+                parsed.print.collector_number.as_deref(),
+                Some(number),
+                "collector number of {row}"
+            );
+            assert_eq!(parsed.to_string(), row, "round trip of {row}");
+        }
+    }
+
+    #[test]
+    fn a_name_that_ends_in_a_word_keeps_it() {
+        // The counter-test, and the reason the number rule may be as wide as
+        // it is: a number is only read when a set code stands in front of it,
+        // so widening what a number may look like cannot reach a name. Both
+        // halves are needed -- the first row would pass on a rule that ate
+        // everything, and the second on a rule that ate nothing.
+        for row in [
+            "1 Oran-Rief Survivalist",
+            "4 Borrowing 100,000 Arrows",
+            "1 Erase (Not the Urza's Legacy One)",
+        ] {
+            let parsed = parse(row).unwrap_or_else(|e| panic!("{row}: {e:?}"));
+            assert!(
+                parsed.print.is_empty(),
+                "{row} named a printing: {:?}",
+                parsed.print
+            );
+            assert_eq!(parsed.to_string(), row, "round trip of {row}");
+        }
+    }
 
     #[test]
     fn the_old_form_still_means_what_it_meant() {
