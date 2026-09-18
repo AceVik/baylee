@@ -868,6 +868,51 @@ mod tests {
     use baylee_cards_dsl::filter::Filter;
     use baylee_cards_dsl::loyalty;
 
+    /// A keyword line is a sentence too, and which *kind* of keyword it is
+    /// the card says with its own punctuation.
+    ///
+    /// Station is the case that found this. `Station (Tap another creature
+    /// you control: Put charge counters equal to its power on this
+    /// Spacecraft. …)` is an **activated ability** spelled out in reminder
+    /// text — it has a cost, a colon and an effect — while `Flying (This
+    /// creature can't be blocked except by creatures with flying or reach.)`
+    /// describes a rule and has no colon anywhere in it. Read as
+    /// [`LineShape::Other`], Station was a card whose only activated ability
+    /// had no sentence at all, and the sheet drew the row as "Ability 1".
+    ///
+    /// The colon is read from the **printed** line and not from the line with
+    /// its reminder stripped, which is the whole trick: strip the reminder
+    /// first and both of these are one bare word.
+    #[test]
+    fn a_keyword_whose_reminder_spells_out_an_ability_is_an_activated_one() {
+        let station = "Station (Tap another creature you control: Put charge \
+                       counters equal to its power on this Spacecraft. \
+                       Station only as a sorcery.)";
+        assert_eq!(
+            line_shape(station),
+            LineShape::Activated,
+            "a cost and a colon in the reminder is an activated ability",
+        );
+
+        let flying = "Flying (This creature can't be blocked except by \
+                      creatures with flying or reach.)";
+        assert_eq!(
+            line_shape(flying),
+            LineShape::Other,
+            "a keyword that is a bit describes a rule and names no cost",
+        );
+
+        // The counter-test for the reading itself: it is the colon that
+        // decides, and it has to be found inside the brackets. A colon in the
+        // prose *outside* a reminder is a line this already handled.
+        assert!(reminder_spells_out_an_ability(station));
+        assert!(!reminder_spells_out_an_ability(flying));
+        assert!(
+            !reminder_spells_out_an_ability("Trample"),
+            "a keyword printed with no reminder at all spells out nothing",
+        );
+    }
+
     /// Three loyalty abilities, printed the way a walker prints them.
     const WALKER: &str = "+2: Look at the top card of target player's library.\n\
                           0: Draw three cards, then put two cards back.\n\
