@@ -282,16 +282,25 @@ fn exact_name(value: &Value, facts: &Facts<'_>) -> bool {
         return false;
     };
     let wanted = folded(text);
-    every_name(facts).any(|name| folded(name) == wanted)
+    // No card is named nothing, so without this an empty value would be the
+    // one word key that answers `No` — and a fresh `!` row in the filter
+    // dialog would empty the list before anything had been typed into it.
+    wanted.is_empty() || every_name(facts).any(|name| folded(name) == wanted)
 }
 
 /// The rules text, with `~` standing for the card's own name.
+///
+/// An empty needle asks nothing and is answered by every card, which is what
+/// the other word keys already did — see the test named for it in
+/// `cardquery::tests`. This one read the opposite way round until the filter
+/// dialog began opening rows on an empty value: a fresh `o:` row hid the
+/// whole list until the first letter was typed into it.
 fn oracle_matches(value: &Value, facts: &Facts<'_>) -> bool {
     let Value::Word(text) = value else {
         return false;
     };
     let needle = folded(&text.replace('~', facts.name));
-    !needle.is_empty() && folded(facts.oracle).contains(&needle)
+    needle.is_empty() || folded(facts.oracle).contains(&needle)
 }
 
 /// The printed type line, and the English types beside it.

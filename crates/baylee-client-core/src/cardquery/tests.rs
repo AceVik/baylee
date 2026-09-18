@@ -57,6 +57,17 @@ pub(crate) const CORPUS: &[&str] = &[
     "t:creature frobnicate:yes",          // ... beside one it does
     "\"or\"",                             // the joint word, as a name
     "t:\"legendary creature\"",           // a value with a space in it
+    // The five shapes a filter row opens on before anything is typed into
+    // it. Two of them were read back as `Anything` until the dialog began
+    // opening rows — and this list is *not* what found that: an `Anything`
+    // written and read again is an `Anything`, so the round trip held while
+    // the term was being lost. `a_value_nobody_has_typed_into_narrows_nothing`
+    // is the guard, and these are here so the property covers them too.
+    "\"\"",     // a loose word, written empty
+    "!\"\"",    // an exact name, written empty
+    "t:\"\"",   // a keyed word, written empty
+    "m:\"\"",   // a cost with no symbols in it
+    "c:c mv:0", // the colour and number openings
 ];
 
 fn q(text: &str) -> Query {
@@ -435,4 +446,49 @@ fn each_surface_answers_what_its_own_source_carries() {
             );
         }
     }
+}
+
+/// A row nobody has typed into yet asks nothing.
+///
+/// The filter dialog opens a fresh row on a value that is *legal to write*,
+/// and every one of those has to narrow nothing — a row that emptied the
+/// list the moment it was added would look like a search that had broken.
+///
+/// It is asserted here and not in the dialog because it is a fact about the
+/// *language*, and two of the six read the other way round until the dialog
+/// began opening rows: `o:""` and `!""` matched no card at all. The parse is
+/// asserted beside the match because a third one was worse than wrong — it
+/// was not a term: `""` and `!""` came back as [`Query::Anything`], so the
+/// row was not narrowing nothing, it was gone.
+#[test]
+fn a_value_nobody_has_typed_into_narrows_nothing() {
+    let (alt, kinds, flags) = bolt();
+    let card = facts("Blitzschlag", &alt, &kinds, &flags);
+    for text in ["\"\"", "name:\"\"", "!\"\"", "o:\"\"", "t:\"\"", "m:\"\""] {
+        assert!(
+            matches!(q(text), Query::Term(_)),
+            "`{text}` is a term a dialog can draw a row for"
+        );
+        assert_eq!(
+            asks(text, &card, Surface::POOL),
+            Match::Yes,
+            "`{text}` asks nothing, so every card answers it"
+        );
+    }
+}
+
+/// A quote round nothing is a value; nothing at all is a player mid-word.
+///
+/// The one place [`unquote`](super::unquote) loses the difference, and the
+/// two readings are a term and no term. A lone `"` is the third case and
+/// reads as the second, the same way `o:"draw a` already does.
+#[test]
+fn an_opened_quote_is_still_being_typed_and_a_closed_one_is_a_value() {
+    assert_eq!(q("-"), Query::Anything, "a minus with nothing after it");
+    assert_eq!(q("!"), Query::Anything, "an exclamation mark on its own");
+    assert_eq!(q("\""), Query::Anything, "a quote that was just opened");
+    assert!(
+        matches!(q("\"\""), Query::Term(_)),
+        "and a quote closed round nothing is a value that was written"
+    );
 }

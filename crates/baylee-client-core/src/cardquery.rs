@@ -664,7 +664,7 @@ fn parse_atom(toks: &[Tok], at: &mut usize) -> Query {
 fn term(word: &str) -> Query {
     if let Some(rest) = word.strip_prefix('!') {
         let value = unquote(rest);
-        return if value.is_empty() {
+        return if value.is_empty() && !wrote_nothing(rest) {
             Query::Anything
         } else {
             Query::Term(Term {
@@ -676,7 +676,7 @@ fn term(word: &str) -> Query {
     }
     let Some((head, op, tail)) = split_op(word) else {
         let value = unquote(word);
-        return if value.is_empty() {
+        return if value.is_empty() && !wrote_nothing(word) {
             Query::Anything
         } else {
             Query::Term(Term {
@@ -740,9 +740,35 @@ fn split_op(word: &str) -> Option<(&str, Op, &str)> {
     None
 }
 
+/// Whether the player wrote a value and it was empty, rather than writing
+/// none at all.
+///
+/// The two keyless terms are the only place the difference is invisible after
+/// [`unquote`], and it is the whole difference between a row surviving a
+/// round trip and vanishing from the box that was supposed to be holding it:
+/// `\"\"` is a term asking for an empty word, and a bare nothing is a player
+/// who has typed a `-` or an `!` and not yet what follows it. A lone `\"` is
+/// the third case and is read as the second — a quote has been opened and
+/// what goes inside it is still being typed, which is the same reading
+/// `o:\"draw a` already gets.
+fn wrote_nothing(raw: &str) -> bool {
+    raw.len() >= 2 && raw.starts_with('"') && raw.ends_with('"')
+}
+
 /// The written text without the quotes that were holding it together.
 fn unquote(text: &str) -> String {
     text.chars().filter(|c| *c != '"').collect()
+}
+
+/// What a key makes of the text written after its operator.
+///
+/// Public because the filter dialog types into a row and has to arrive at
+/// exactly the value the player would have got by typing the same thing into
+/// the box — one reader for both, rather than a second one that agrees until
+/// it does not.
+#[must_use]
+pub fn value_of(key: &Key, text: &str) -> Value {
+    value_for(key, text)
 }
 
 /// What a key makes of the text after its operator.
@@ -919,47 +945,56 @@ fn write_query(query: &Query, out: &mut String, level: Level) {
 fn write_term(term: &Term, out: &mut String) {
     if term.key == Key::ExactName {
         out.push('!');
-        out.push_str(&quoted(&value_text(&term.value)));
+        out.push_str(&quoted(&term.value.written()));
         return;
     }
     match term.key.render() {
-        None => out.push_str(&quoted(&value_text(&term.value))),
+        None => out.push_str(&quoted(&term.value.written())),
         Some(key) => {
             out.push_str(key);
             out.push_str(term.op.render());
-            out.push_str(&quoted(&value_text(&term.value)));
+            out.push_str(&quoted(&term.value.written()));
         }
     }
 }
 
-/// How a value is written.
-fn value_text(value: &Value) -> String {
-    match value {
-        Value::Word(text) | Value::Opaque(text) => text.clone(),
-        // One arm for two values, because *writing* one is the same question
-        // for both: `mv=3` and `c=3` are the same three on the page, and what
-        // tells them apart is the key beside them, which is already written.
-        Value::Number(n) | Value::ColorCount(n) => n.to_string(),
-        Value::Parity(even) => (if *even { "even" } else { "odd" }).to_string(),
-        Value::Colors(colors) => {
-            let letters = colors.letters();
-            if letters.is_empty() {
-                "c".to_string()
-            } else {
-                letters
+impl Value {
+    /// How this value is written, without the key or the operator in front
+    /// of it and without the quotes [`render`] may put round it.
+    ///
+    /// The filter dialog seeds a row's text box with this, so that typing
+    /// into a row starts from what the row already says rather than from
+    /// whatever the control happened to draw.
+    #[must_use]
+    pub fn written(&self) -> String {
+        match self {
+            Self::Word(text) | Self::Opaque(text) => text.clone(),
+            // One arm for two values, because *writing* one is the same
+            // question for both: `mv=3` and `c=3` are the same three on the
+            // page, and what tells them apart is the key beside them, which
+            // is already written.
+            Self::Number(n) | Self::ColorCount(n) => n.to_string(),
+            Self::Parity(even) => (if *even { "even" } else { "odd" }).to_string(),
+            Self::Colors(colors) => {
+                let letters = colors.letters();
+                if letters.is_empty() {
+                    "c".to_string()
+                } else {
+                    letters
+                }
             }
-        }
-        Value::Multicolor => "m".to_string(),
-        Value::Cost(symbols) => {
-            let mut out = String::with_capacity(symbols.len() * 3);
-            for symbol in symbols {
-                out.push('{');
-                out.push_str(symbol);
-                out.push('}');
+            Self::Multicolor => "m".to_string(),
+            Self::Cost(symbols) => {
+                let mut out = String::with_capacity(symbols.len() * 3);
+                for symbol in symbols {
+                    out.push('{');
+                    out.push_str(symbol);
+                    out.push('}');
+                }
+                out
             }
-            out
+            Self::Flag(flag) => flag.render().to_string(),
         }
-        Value::Flag(flag) => flag.render().to_string(),
     }
 }
 
