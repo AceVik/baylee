@@ -177,22 +177,20 @@ fn spawn_number(commands: &mut Commands, fonts: &UiFonts, disc: Entity, value: u
     commands.entity(disc).add_child(text);
 }
 
-/// The side of the badge's turned square, as a fraction of the mark's size.
+/// How big the number on a loyalty badge is, as a share of the mark's size.
 ///
-/// What shows of it is the half-diagonal, `CAP·√2/2`, and what stands proud of
-/// its own un-rotated box is `CAP·(√2−1)/2`. Both are written out where they
-/// are used rather than kept as a second constant: a bare 0.707 in a layout is
-/// a number nobody can check.
-const CAP: f32 = 0.86;
+/// Larger than a mana pip's numeral, because a badge is [`BADGE_SPAN`] wider
+/// than a disc and the number is the whole of what it says: the shape carries
+/// the sign, so the digits are not competing with a `+` for the room.
+const NUMERAL: f32 = 0.82;
 
-/// How far up into its own point the number is lifted, as a share of the rise.
+/// The same, for a cost of two digits or more.
 ///
-/// Zero centres the number in the whole badge, one centres it in the body
-/// alone — and both are wrong for the same reason from opposite sides: the
-/// point is part of the shape a reader sees, so a number centred under it sits
-/// low, and a number centred through it rides up into the taper where the
-/// shoulders pinch. The card splits the difference, and so does this.
-const NUMBER_LIFT: f32 = 0.55;
+/// A badge is a glyph now and a glyph is the width the font drew it at, so a
+/// `−12` cannot widen the shape the way a printed card does — the digits give
+/// way instead. The measure is characters and not digits, so the `X` a few
+/// walkers print is one character and keeps the full size.
+const WIDE_NUMERAL: f32 = 0.60;
 
 /// How wide a loyalty badge is at its narrowest, as a share of its size.
 ///
@@ -212,23 +210,30 @@ pub(crate) const BADGE_SPAN: f32 = 1.55;
 /// reads and whose words are the aside.
 const MARK_SHARE: f32 = 0.88;
 
-/// A planeswalker's loyalty cost, built the way the card prints it.
+/// A planeswalker's loyalty cost, drawn with the badge the card prints.
 ///
-/// Three children on one parent, and their order *is* the drawing: `bevy_ui`
-/// paints later siblings in front, so the turned square goes down first and
-/// the body covers the half of it that would stick out the other end — which
-/// makes a pentagon out of a square and a diamond without a single clip. The
-/// number goes on last.
+/// The shape is the Mana font's own — `manapip::loyalty_glyph`, the fourth
+/// glyph door and the only place the three codepoints are written. The client
+/// used to build the badge instead, out of a rounded slab with a square turned
+/// 45° behind it, and the trick was sound: `bevy_ui` paints later siblings in
+/// front, so the body covered the half of the diamond that would have stuck
+/// out the far end, and a pentagon came out of two rectangles with no clip at
+/// all. What it could not make was a **zero** — a flat lozenge is not a slab
+/// with a point on it — so the flat tick was given the upward badge, with a
+/// comment conceding that no printed card does that. The font has all three.
 ///
-/// Absolute children are placed against the parent's **padding** box, so the
-/// padding moves neither the body nor the point. What it moves is the
-/// *number*, which is laid out in the content box, and [`NUMBER_LIFT`] is the
-/// share of the point that padding gives back to it.
+/// Two children on one parent. The glyph goes down first, absolutely
+/// positioned so it fills the badge; the number goes on last, laid out in the
+/// content box. Absolute children are placed against the parent's **padding**
+/// box, which is what makes the padding here a lever on the *number* alone:
+/// a badge's ink centre is not its box centre — a point at one end carries no
+/// digits — so the padding is the difference between the two, and
+/// `manapip::loyalty_numeral_centre` is where that difference is measured.
 ///
-/// A mana pip is a light disc carrying dark ink. The sheet's badge is
-/// deliberately the other way round — dark body, parchment numeral — because
-/// a loyalty cost drawn in the pip's own register would read as generic mana,
-/// and the two stand in the same column of the same row.
+/// A mana pip is a light disc carrying dark ink. The badge is deliberately the
+/// other way round — dark body, parchment numeral — because a loyalty cost
+/// drawn in the pip's own register would read as generic mana, and the two
+/// stand in the same column of the same row.
 ///
 /// Which is why the pair is an argument. The badge is a solid mark with a
 /// number cut out of it, so it is legible only against the ground it is laid
@@ -243,96 +248,69 @@ fn spawn_loyalty(
     body_ink: Color,
     numeral: Color,
 ) -> LoyaltyBadge {
-    use baylee_client_core::manapip::Tick;
+    use baylee_client_core::manapip;
 
-    let square = CAP * size;
-    let down = loy.tick == Tick::Down;
-    // The point that stands proud of the body: half the turned square's
-    // diagonal, the other half being what the body covers.
-    //
-    // [`Tick::Flat`] points **up** with the rest, which the printed card does
-    // not — a zero is a flat lozenge there. It is drawn as a plus because that
-    // is what it costs the player: an ability you may use without spending
-    // loyalty is one you may always use, which is the claim `+N` makes. The
-    // model still keeps the three ticks apart (the parser reads them and the
-    // prose prints them), so this is a drawing decision and nothing else in
-    // the client reads it.
-    let rise = square * std::f32::consts::SQRT_2 / 2.0;
-    let body = size;
-    // A pointed badge keeps its blunt end nearly square, the way the card does.
-    let round = body * 0.18;
-    let lift = rise * NUMBER_LIFT;
+    let span = size * BADGE_SPAN;
+    let box_height = span * manapip::LOYALTY_BOX;
+    // Where the digits want to sit, against where the flex box would put
+    // them. A centred content box has its middle at half the height; the
+    // padding on one side is twice the distance between the two, because
+    // padding on one side moves the middle by half of itself.
+    let drift = (manapip::loyalty_numeral_centre(loy.tick) - 0.5) * box_height * 2.0;
     commands.entity(badge).insert(Node {
-        width: Val::Auto,
-        min_width: px(size * BADGE_SPAN),
-        height: px(body + rise),
+        width: px(span),
+        height: px(box_height),
         flex_shrink: 0.0,
         align_items: AlignItems::Center,
         justify_content: JustifyContent::Center,
         padding: bevy::ui::UiRect {
-            left: px(size * 0.26),
-            right: px(size * 0.26),
-            top: px(if down { 0.0 } else { lift }),
-            bottom: px(if down { lift } else { 0.0 }),
+            top: px(drift.max(0.0)),
+            bottom: px((-drift).max(0.0)),
+            ..default()
         },
         ..default()
     });
 
-    // A square turned about its own middle overhangs its box by the same
-    // `(√2−1)/2` on every side; insetting by that puts the far vertex on
-    // the badge's own edge.
-    let inset = square * (std::f32::consts::SQRT_2 - 1.0) / 2.0;
-    let lane = commands
+    let shape = commands
         .spawn((
             Node {
                 position_type: PositionType::Absolute,
                 left: px(0.0),
                 right: px(0.0),
-                top: if down { Val::Auto } else { px(inset) },
-                bottom: if down { px(inset) } else { Val::Auto },
-                height: px(square),
+                top: px(0.0),
+                bottom: px(0.0),
                 justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
                 ..default()
             },
             Pickable::IGNORE,
         ))
         .id();
-    let point = commands
+    let glyph = commands
         .spawn((
-            Node {
-                width: px(square),
-                height: px(square),
-                ..default()
-            },
-            UiTransform::from_rotation(Rot2::radians(std::f32::consts::FRAC_PI_4)),
-            BackgroundColor(body_ink),
+            Text::new(manapip::loyalty_glyph(loy.tick).to_string()),
+            mana_tf(fonts, span),
+            TextColor(body_ink),
             Pickable::IGNORE,
         ))
         .id();
-    commands.entity(lane).add_child(point);
-    commands.entity(badge).add_child(lane);
+    commands.entity(shape).add_child(glyph);
+    commands.entity(badge).add_child(shape);
 
-    let slab = commands
-        .spawn((
-            Node {
-                position_type: PositionType::Absolute,
-                left: px(0.0),
-                right: px(0.0),
-                top: if down { px(0.0) } else { px(rise) },
-                bottom: if down { px(rise) } else { px(0.0) },
-                border_radius: BorderRadius::all(px(round)),
-                ..default()
-            },
-            BackgroundColor(body_ink),
-            Pickable::IGNORE,
-        ))
-        .id();
-    commands.entity(badge).add_child(slab);
-
+    // A two-digit cost is real — `−12` is printed — and the badge cannot grow
+    // to take it, because a glyph has the width the font drew it at. So the
+    // digits give way instead, which is the one thing about this that a card
+    // does differently: there the badge widens.
+    let caption = loy.caption();
+    let share = if caption.chars().count() > 1 {
+        WIDE_NUMERAL
+    } else {
+        NUMERAL
+    };
     let text = commands
         .spawn((
-            Text::new(loy.caption()),
-            crate::hud::tf_bold(fonts, size * 0.82),
+            Text::new(caption),
+            crate::hud::tf_bold(fonts, size * share),
             TextColor(numeral),
             Pickable::IGNORE,
         ))
@@ -341,7 +319,7 @@ fn spawn_loyalty(
 
     LoyaltyBadge {
         root: badge,
-        body: [point, slab],
+        body: glyph,
         numeral: text,
     }
 }
@@ -356,8 +334,8 @@ fn spawn_loyalty(
 pub struct LoyaltyBadge {
     /// The badge itself, to be put in a tree.
     pub root: Entity,
-    /// The two nodes painted in the body colour: the point and the slab.
-    pub body: [Entity; 2],
+    /// The node painted in the body colour: the badge's own glyph.
+    pub body: Entity,
     /// The node carrying the number written on it.
     pub numeral: Entity,
 }
@@ -459,9 +437,9 @@ pub fn spawn_rich(
 /// a sentence and wrong for a *cost*: a cost is read for its marks, and the
 /// words in it (`, `, `Sacrifice this`) are the aside. Tying them would mean
 /// choosing between an unreadable mark and a cost set larger than the ability
-/// it belongs to — a loyalty badge is [`CAP`]·0.82 of its size before a
-/// numeral is drawn in it, so the digit on a badge set at a sentence's own
-/// size comes out under ten pixels.
+/// it belongs to — a loyalty badge's numeral is [`NUMERAL`] of its size, so
+/// the digit on a badge set at a sentence's own size comes out under ten
+/// pixels.
 ///
 /// `marks` is the disc's diameter and not a share, because the caller sizing
 /// it is sizing a mark and not scaling a sentence.

@@ -1320,12 +1320,12 @@ fn spawn_walker_line(
     // There is no subtree opacity in `bevy_ui`, so each piece of the badge
     // arrives on the row's own progress or none of it does — and a solid mark
     // standing at full strength over a row that has not faded in yet is the
-    // one-frame flash [`ease_the_stack_in`] exists to prevent.
-    for fill in badge.body {
-        commands
-            .entity(fill)
-            .insert(Arriving::fill(key, palette::INK.alpha()));
-    }
+    // one-frame flash [`ease_the_stack_in`] exists to prevent. Both pieces are
+    // **ink** now: the body is the badge's own glyph rather than two painted
+    // boxes, so a `fill` here would animate a `BackgroundColor` nothing has.
+    commands
+        .entity(badge.body)
+        .insert(Arriving::ink(key, palette::INK.alpha()));
     commands
         .entity(badge.numeral)
         .insert(Arriving::ink(key, palette::DIALOG_LIT.alpha()));

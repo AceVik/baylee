@@ -174,6 +174,76 @@ impl Loyalty {
     }
 }
 
+/// The Mana font's own badge for a loyalty cost.
+///
+/// The client drew this shape itself until 18.09.2026 — a rounded slab with a
+/// square turned 45° behind it, which makes a pentagon out of two rectangles
+/// and needs no clip. It was a good trick and it could not draw a **zero**:
+/// a flat lozenge is not a slab with a point on it, so the flat tick was
+/// given the upward badge and a comment conceding that the printed card does
+/// not do that. The font has all three, so the client no longer has two.
+///
+/// This is the **fourth door** a Mana glyph enters the client through, beside
+/// [`glyph`], [`crate::cardrail::MARK_GLYPHS`] and [`crate::cardcrest::GLYPHS`],
+/// and it is a door for the reason `docs/legal.md` §2a gives: the font is
+/// open-licensed and the symbols on it are Wizards', so the set in use has to
+/// be readable off one page.
+///
+/// **Held against the policy on 18.09.2026**, by reading the page rather than
+/// recalling it. The Fan Content Policy's FAQ table lists fifteen images that
+/// may not be used; `MTG_PWSymbol.png`, `Mana_Symbols.png` and
+/// `guild_symbols.png` are three of them and no loyalty badge is among the
+/// other twelve. These three are the third tier of §2a — Wizards' graphics on
+/// the same footing as the card text this client already draws. The
+/// planeswalker symbol the font maps at `E623` is a different mark, is named
+/// on that table, and is used nowhere.
+///
+/// Exhaustive over [`Tick`] on purpose: a fourth way for a badge to point
+/// would be a compile error here rather than a badge quietly wearing
+/// another's shape.
+#[must_use]
+pub const fn loyalty_glyph(tick: Tick) -> char {
+    match tick {
+        Tick::Up => '\u{e627}',
+        Tick::Down => '\u{e625}',
+        Tick::Flat => '\u{e626}',
+    }
+}
+
+/// Where the number sits on that badge, as a share of its drawn height.
+///
+/// Not the middle, because the badge is not symmetric: a point at one end is
+/// ink that carries no number, so centring the digits in the *box* puts them
+/// half into the point. These are the ink centroids of the three glyphs,
+/// measured off the shipped font at 200 px — 0.567, 0.437 and 0.497 — which
+/// is the same answer a person gets by eye and one a person cannot get to
+/// three digits.
+///
+/// A share rather than a pixel count, so it holds at every size the badge is
+/// drawn at, and read from the glyph rather than chosen, so a font update
+/// that reshapes a badge is one measurement away from being right again.
+#[must_use]
+pub const fn loyalty_numeral_centre(tick: Tick) -> f32 {
+    match tick {
+        Tick::Up => 0.567,
+        Tick::Down => 0.437,
+        Tick::Flat => 0.497,
+    }
+}
+
+/// How tall a badge's box is, as a share of how wide it is.
+///
+/// One number for all three, and that is the point. The glyphs are 1.000 em
+/// wide apiece and 0.705, 0.680 and 0.585 em tall — a printed card is happy
+/// to draw a zero shallower than a plus, and a *column* of rows is not: a
+/// badge that changed height between rows would move the sentence beside it.
+/// So the box is the tallest of the three and the shorter two sit centred in
+/// it, which is also what keeps [`loyalty_numeral_centre`] true of the box
+/// and not merely of the ink: centring a 0.680 badge in a 0.705 box moves its
+/// centroid from 0.437 to 0.439, and the flat one's to 0.500 against the
+/// 0.497 measured.
+pub const LOYALTY_BOX: f32 = 0.705;
+
 /// The brace token a loyalty cost is written as.
 ///
 /// The one place that spells it, because a cost is handed to the renderer as
@@ -869,6 +939,52 @@ mod tests {
             vec![Segment::Text("Sacrifice {L5}.".into())],
             "a refused run keeps its braces"
         );
+    }
+
+    /// The fourth glyph door, checked the way the other three are.
+    ///
+    /// Whether the *font* has these codepoints is the renderer's question and
+    /// is asked where the file is; what can be asked here is that the three
+    /// are three, that each is in the private-use block the Mana font maps,
+    /// and that none of them is `E623` — the planeswalker symbol, which the
+    /// font draws, which `docs/legal.md` §2a names as off limits, and which
+    /// sits four codepoints from the badges that are not.
+    #[test]
+    fn each_tick_wears_its_own_badge_and_none_wears_the_walkers_mark() {
+        let all = [Tick::Up, Tick::Down, Tick::Flat];
+        let glyphs: Vec<char> = all.iter().copied().map(loyalty_glyph).collect();
+        for (tick, g) in all.iter().zip(&glyphs) {
+            assert!(
+                ('\u{e000}'..='\u{f8ff}').contains(g),
+                "{tick:?} is outside the private-use block: {g:?}"
+            );
+            assert_ne!(*g, '\u{e623}', "{tick:?} wears the planeswalker symbol");
+            // The number is laid on the badge's ink, never in its point.
+            let centre = loyalty_numeral_centre(*tick);
+            assert!((0.3..=0.7).contains(&centre), "{tick:?} centre {centre}");
+        }
+        let mut seen = glyphs.clone();
+        seen.sort_unstable();
+        seen.dedup();
+        assert_eq!(
+            seen.len(),
+            glyphs.len(),
+            "two ticks share a badge: {glyphs:?}"
+        );
+        // A zero is its own shape and not an upward badge reading nothing,
+        // which is the whole reason this door exists.
+        assert_ne!(loyalty_glyph(Tick::Flat), loyalty_glyph(Tick::Up));
+        // And the three centres say the rule rather than three numbers: a
+        // point at the top pushes the digits **down** the box, a point at the
+        // bottom pulls them up, and a shape with neither leaves them alone.
+        let (up, down, flat) = (
+            loyalty_numeral_centre(Tick::Up),
+            loyalty_numeral_centre(Tick::Down),
+            loyalty_numeral_centre(Tick::Flat),
+        );
+        assert!(up > flat, "an upward badge carries its number low: {up}");
+        assert!(down < flat, "a downward badge carries it high: {down}");
+        assert!((flat - 0.5).abs() < 0.01, "a lozenge is centred: {flat}");
     }
 
     /// The printed door reads what a card prints, and — the half that keeps

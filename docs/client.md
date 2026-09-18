@@ -2283,6 +2283,35 @@ hybrid has no single glyph, so the pip is one disc with two glyphs clipped to
 opposite halves. Generic costs run out of glyphs at 20 and fall back to digits
 rather than drawing the wrong number.
 
+**A loyalty cost is a badge, and the badge is the font's too** since
+18.09.2026. `manapip::loyalty_glyph` is the fourth door those codepoints come
+through — `E627` for a cost that adds, `E625` for one that takes, `E626` for
+a zero — and it is a door for the reason §2a gives the other three. What it
+replaced was a *construction*: a rounded slab with a square turned 45° behind
+it, which `bevy_ui`'s paint order made into a pentagon with no clip at all.
+The trick was sound and it had one shape it could not make. A zero is a flat
+lozenge on a printed card and is not a slab with a point on it, so the flat
+tick was given the **upward** badge and a comment conceding that no card does
+that. The owner read it off a live table and said so.
+
+Two measurements hold the replacement, and both are read off the shipped font
+rather than chosen. The badge's number does not sit in the middle of its box —
+a point at one end is ink that carries no digits — so
+`manapip::loyalty_numeral_centre` is the ink centroid of each glyph, 0.567,
+0.437 and 0.497 at 200 px, and the padding on the badge is the difference
+between that and the centre a flex box would use. And the three glyphs are
+1.000 em wide apiece but 0.705, 0.680 and 0.585 em **tall**, so
+`LOYALTY_BOX` is the tallest of the three and the other two sit centred in it:
+a card is happy to draw a zero shallower than a plus and a column of rows is
+not, because a badge that changed height between rows would move the sentence
+beside it.
+
+The one thing the glyph does worse than the construction is a two-digit cost.
+A `−12` is printed and a glyph is the width the font drew it at, so the badge
+cannot widen the way the card's does — the digits give way instead
+(`WIDE_NUMERAL`). That is the trade, and it is named here because it is the
+half a reader would otherwise find by looking at Jace.
+
 Leaving a deck with unsaved changes takes two
 presses — the first turns the back button into *Leave without saving*, and
 anything else answers the question — because a deck is half an hour of work
