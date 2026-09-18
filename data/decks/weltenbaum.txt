@@ -90,7 +90,7 @@
 1 Tropical Island (30A) 279
 1 Verdant Catacombs (SPG) 113
 1 Virtue of Knowledge (WOE) 279
-1 Walk-In Closet // Forgotten Cellar (DSK) 205
+1 Walk-In Closet (DSK) 205
 1 Wasteland (MB2) 115
 1 Wayward Swordtooth
 1 Windswept Heath (MH3) 235

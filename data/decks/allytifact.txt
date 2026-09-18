@@ -26,6 +26,7 @@
 1 Flooded Strand (ZNE) 1
 1 Force of Will (DMR) 418
 2 Forest (DMU) 281
+1 General Tazri (OGW) 19
 1 Great Divide Guide (TLA) 345
 1 Hagra Diabolist (ZEN) 95
 1 Halimar Excavator (WWK) 29
@@ -109,4 +110,4 @@
 1 Wizard Class (AFR) 81
 
 [commander]
-1 General Tazri (OGW) 19
+General Tazri

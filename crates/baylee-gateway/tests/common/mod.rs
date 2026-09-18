@@ -210,6 +210,22 @@ pub fn http(port: u16, method: &str, path: &str, token: Option<&str>, body: &str
     (status, body)
 }
 
+/// The value of a **numeric** field in a JSON response body.
+///
+/// Its own function rather than a looser `json_field`, because the string
+/// one looks for `"field":"` and a number has no opening quote: asked for a
+/// count it does not find the marker at all and panics inside the harness,
+/// which reads as a broken test rather than as the wrong accessor.
+pub fn json_number(body: &str, field: &str) -> i64 {
+    let marker = format!("\"{field}\":");
+    let start = body.find(&marker).expect("field present") + marker.len();
+    let rest = &body[start..];
+    let end = rest
+        .find(|c: char| !c.is_ascii_digit() && c != '-')
+        .unwrap_or(rest.len());
+    rest[..end].parse().expect("a number")
+}
+
 /// The value of a string field in a JSON response body.
 pub fn json_field<'a>(body: &'a str, field: &str) -> &'a str {
     let marker = format!("\"{field}\":\"");

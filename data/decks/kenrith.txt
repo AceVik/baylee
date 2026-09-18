@@ -1,0 +1,108 @@
+[deck:Kenrith, the Returned King]
+# In the order the report lists them, which is the order migration 2
+# seeded these cards in -- so the two can be held against each other
+# row for row. The commander is the first row and is named again
+# below, bare, because that is what the `commanders` column stores.
+1 Kenrith, the Returned King (PLST) ELD-303
+1 Birds of Paradise (MSC) 170
+1 Delighted Halfling (LTR) 158
+1 Deathrite Shaman (RVR) 175
+1 Bloom Tender (ECL) 166
+1 Faeburrow Elder (ECC) 53
+1 Devoted Druid (ECC) 104
+1 Vizier of Remedies (AKH) 38
+1 Emiel the Blessed (2X2) 10
+1 Derevi, Empyrial Tactician (CMA) 176
+1 Ranger-Captain of Eos (MH1) 21
+1 Esper Sentinel (MH2) 12
+1 Orcish Bowmasters (LTR) 103
+1 Drannith Magistrate (IKO) 11
+1 Grand Abolisher (BIG) 2
+1 Spellseeker (CMM) 120
+1 Theorist's Proxy (FRA) 44
+1 Eternal Witness (CMM) 286
+1 Endurance (ECC) 51
+1 Solitude (MH2) 32
+1 Recruiter of the Guard (MH3) 266
+1 Academy Rector (UDS) 1
+1 Gemrazer (IKO) 155
+1 White Plume Adventurer (CLB) 49
+1 Palace Jailer (MSC) 140
+1 Thorin Oakenshield (HOB) 165
+1 Fatehold Chronologist (FRA) 133
+1 Fable of the Mirror-Breaker (NEO) 141
+1 Invasion of Ikoria (MOM) 190
+1 Finale of Devastation (CMM) 289
+1 Green Sun's Zenith (2X2) 150
+1 Chord of Calling (RVR) 134
+1 Eldritch Evolution (INR) 195
+1 Demonic Tutor (CMM) 150
+1 Vampiric Tutor (DMR) 108
+1 Enlightened Tutor (DMR) 6
+1 Worldly Tutor (DMR) 185
+1 Swords to Plowshares (MSC) 143
+1 Abrupt Decay (MM3) 146
+1 Cyclonic Rift (RVR) 40
+1 Force of Will (DMR) 50
+1 Fierce Guardianship (CMM) 94
+1 Swan Song (EOC) 46
+1 Silence (M14) 35
+1 Veil of Summer (M20) 198
+1 Teferi's Protection (2X2) 32
+1 Deflecting Swat (CMM) 214
+1 Rhystic Study (J22) 114
+1 Mystic Remora (DMR) 59
+1 Sylvan Library (DMR) 179
+1 Survival of the Fittest (TPR) 199
+1 Training Grounds (MAT) 9
+1 Smothering Tithe (CMM) 57
+1 Carpet of Flowers (USG) 240
+1 Sol Ring (MSC) 211
+1 Mana Vault (2X2) 308
+1 Chrome Mox (2XM) 240
+1 Mox Diamond (TPR) 228
+1 Lotus Petal (TPR) 225
+1 Arcane Signet (MSC) 191
+1 The One Ring (LTR) 246
+1 Sensei's Divining Top (2X2) 314
+1 Agatha's Soul Cauldron (WOE) 242
+1 Swift Reconfiguration (NEC) 10
+1 Neoform (WAR) 206
+1 Arid Mesa (MH2) 244
+1 Bloodstained Mire (MH3) 216
+1 Flooded Strand (MH3) 220
+1 Marsh Flats (MH2) 248
+1 Misty Rainforest (MH2) 250
+1 Polluted Delta (MH3) 224
+1 Scalding Tarn (MH2) 254
+1 Verdant Catacombs (MH2) 260
+1 Windswept Heath (MH3) 235
+1 Wooded Foothills (MH3) 236
+1 Command Tower (MSC) 233
+1 City of Brass (TMC) 62
+1 Mana Confluence (JOU) 163
+1 Exotic Orchard (MBC) 79
+1 Reflecting Pool (CLB) 358
+1 Ancient Tomb (UMA) 236
+1 Gaea's Cradle (USG) 321
+1 Boseiju, Who Endures (NEO) 266
+1 Otawara, Soaring City (NEO) 271
+1 Gemstone Caverns (TSR) 280
+1 Savannah (VMA) 311
+1 Tropical Island (VMA) 321
+1 Bayou (VMA) 293
+1 Tundra (VMA) 322
+1 Underground Sea (VMA) 323
+1 Taiga (VMA) 317
+1 Plateau (VMA) 308
+1 Scrubland (VMA) 313
+1 Volcanic Island (VMA) 324
+1 Badlands (VMA) 291
+1 Breeding Pool (TRK) 279
+1 Temple Garden (TRK) 301
+1 Forest (TRK) 325
+1 Island (TRK) 319
+1 Plains (TRK) 317
+
+[commander]
+Kenrith, the Returned King

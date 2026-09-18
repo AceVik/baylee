@@ -1,0 +1,108 @@
+[deck:Tayam, Luminous Enigma]
+# In the order the report lists them, which is the order migration 2
+# seeded these cards in -- so the two can be held against each other
+# row for row. The commander is the first row and is named again
+# below, bare, because that is what the `commanders` column stores.
+1 Tayam, Luminous Enigma (C20) 16
+1 Birds of Paradise (MSC) 170
+1 Delighted Halfling (LTR) 158
+1 Deathrite Shaman (RVR) 175
+1 Llanowar Elves (FDN) 227
+1 Elvish Mystic (HOC) 205
+1 Brad Boimler, Eager Ensign (TRK) 5
+1 Avacyn's Pilgrim (MIC) 132
+1 Devoted Druid (ECC) 104
+1 Wall of Roots (TDC) 278
+1 Bloom Tender (ECL) 166
+1 Rishkar, Peema Renegade (CMM) 317
+1 Quirion Ranger (MH2) 285
+1 Scryb Ranger (TSR) 227
+1 Viscera Seer (SOC) 229
+1 Carrion Feeder (MH1) 81
+1 Yawgmoth, Thran Physician (DMR) 110
+1 Zulaport Cutthroat (SOC) 233
+1 Blood Artist (SOC) 209
+1 Young Wolf (INR) 227
+1 Strangleroot Geist (DKA) 127
+1 Safehold Elite (UMA) 220
+1 Kitchen Finks (UMA) 216
+1 Mikaeus, the Unhallowed (CMM) 173
+1 Hapatra, Vizier of Poisons (ECC) 123
+1 Scavenging Ooze (FDN) 232
+1 Esper Sentinel (MH2) 12
+1 Drannith Magistrate (IKO) 11
+1 Archon of Emeria (ZNR) 4
+1 Spirit of the Labyrinth (BNG) 27
+1 Collector Ouphe (MH1) 158
+1 Aven Mindcensor (CLB) 688
+1 Grand Abolisher (BIG) 2
+1 Ranger-Captain of Eos (MH1) 21
+1 Recruiter of the Guard (MH3) 266
+1 Eternal Witness (CMM) 286
+1 Renegade Rallier (AER) 133
+1 Saffi Eriksdotter (TSR) 260
+1 Liliana the Repentant (FRA) 231
+1 Stitcher's Supplier (TDC) 196
+1 Golgari Thug (RVR) 76
+1 Hermit Druid (INR) 202
+1 Gravecrawler (TDC) 93
+1 Lotleth Troll (2X2) 245
+1 Walking Ballista (2XM) 306
+1 Lotus Cobra (ZNR) 193
+1 Endurance (ECC) 51
+1 Lake-town Lookout (HOB) 18
+1 Luminous Broodmoth (IKO) 21
+1 Sol Ring (MSC) 211
+1 Mox Diamond (TPR) 228
+1 Chrome Mox (2XM) 240
+1 Skullclamp (MSC) 210
+1 Agatha's Soul Cauldron (WOE) 242
+1 Earthcraft (TMP) 222
+1 Survival of the Fittest (TPR) 199
+1 Sylvan Library (DMR) 179
+1 Grist, the Hunger Tide (DSC) 220
+1 Eladamri's Call (MH1) 197
+1 Enlightened Tutor (DMR) 6
+1 Vampiric Tutor (DMR) 108
+1 Demonic Tutor (CMM) 150
+1 Chord of Calling (RVR) 134
+1 Green Sun's Zenith (2X2) 150
+1 Finale of Devastation (CMM) 289
+1 Swords to Plowshares (MSC) 143
+1 Abrupt Decay (MM3) 146
+1 Arid Mesa (MH2) 244
+1 Bloodstained Mire (MH3) 216
+1 Flooded Strand (MH3) 220
+1 Marsh Flats (MH2) 248
+1 Misty Rainforest (MH2) 250
+1 Polluted Delta (MH3) 224
+1 Urza's Saga (MH2) 259
+1 Verdant Catacombs (MH2) 260
+1 Windswept Heath (MH3) 235
+1 Wooded Foothills (MH3) 236
+1 Command Tower (MSC) 233
+1 City of Brass (TMC) 62
+1 Mana Confluence (JOU) 163
+1 Exotic Orchard (MBC) 79
+1 Gaea's Cradle (USG) 321
+1 Boseiju, Who Endures (NEO) 266
+1 Takenuma, Abandoned Mire (NEO) 278
+1 Gemstone Caverns (TSR) 280
+1 Ancient Tomb (UMA) 236
+1 Bayou (VMA) 293
+1 Savannah (VMA) 311
+1 Scrubland (VMA) 313
+1 Overgrown Tomb (TRK) 289
+1 Temple Garden (TRK) 301
+1 Godless Shrine (TRK) 285
+1 Nurturing Peatland (MH1) 243
+1 Horizon Canopy (IMA) 240
+1 Silent Clearing (MH1) 246
+1 Dryad Arbor (DSC) 273
+1 Phyrexian Tower (MH3) 303
+1 Forest (TRK) 325
+1 Plains (TRK) 317
+1 Swamp (TRK) 321
+
+[commander]
+Tayam, Luminous Enigma

@@ -222,7 +222,7 @@ async fn postgres_mints_the_keys() {
     sandbox.close().await;
 }
 
-/// The four house decks are in every database, and they belong to nobody.
+/// The eight house decks are in every database, and they belong to nobody.
 ///
 /// A migration that seeds is a migration whose data is part of the schema:
 /// there is no file to forget to load and no first-run step to skip, which
@@ -237,7 +237,7 @@ async fn every_database_comes_with_the_house_decks() {
         .all(&sandbox.db)
         .await
         .expect("reading the house decks");
-    assert_eq!(house.len(), 4, "four decks ship with the schema");
+    assert_eq!(house.len(), 8, "eight decks ship with the schema");
 
     for seeded in &house {
         assert!(
@@ -245,18 +245,79 @@ async fn every_database_comes_with_the_house_decks() {
             "{} belongs to somebody",
             seeded.name
         );
-        assert_eq!(seeded.format, "commander");
+        // A hundred cards either way, which is the thing worth asserting:
+        // Commander is 99 plus the one in the command zone (CR 903.5a) and
+        // Highlander is 100 with nobody in front of it, so the count alone
+        // says nothing until the format is read beside it.
+        // A leader is stored bare — `decks::by_name` is an exact-spelling
+        // lookup — and its own row carries the printing, so it is counted
+        // here only when no row names it. `decks::from_lines` moves a named
+        // row out of the library rather than copying it, so a deck whose
+        // commander is among its rows is still a hundred cards and not 101.
+        let seats_a_leader = |leader: &String| {
+            let bare = format!("1 {leader}");
+            let printed = format!("{bare} (");
+            seeded
+                .cards
+                .iter()
+                .any(|row| row == &bare || row.starts_with(&printed))
+        };
+        for leader in &seeded.commanders {
+            assert!(
+                !leader.starts_with(|c: char| c.is_ascii_digit()),
+                "{}: leader {leader} is written as a deck row",
+                seeded.name
+            );
+        }
+        let leaders = seeded
+            .commanders
+            .iter()
+            .filter(|leader| !seats_a_leader(leader))
+            .count();
+        // Rows are not cards: a deck stores `"N Card Name"` lines, so four
+        // Forests are one row. Counting rows here reads a hundred-card deck
+        // as ninety-seven and would have to be loosened into saying nothing.
+        let cards: usize = seeded
+            .cards
+            .iter()
+            .map(|row| {
+                row.split_once(' ')
+                    .and_then(|(n, _)| n.parse::<usize>().ok())
+                    .unwrap_or_else(|| panic!("{}: {row} has no count", seeded.name))
+            })
+            .sum();
         assert_eq!(
-            seeded.cards.len(),
-            99,
-            "{} is 99 cards beside its commander",
+            cards + leaders,
+            100,
+            "{} plays {cards} cards and {leaders} commander(s) outside them",
             seeded.name
         );
-        assert_eq!(
-            seeded.commanders,
-            vec![seeded.name.clone()],
-            "each of these decks is named after the one commander it plays"
-        );
+        match seeded.format.as_str() {
+            "commander" => assert_eq!(
+                seeded.commanders.len(),
+                1,
+                "{} leads with nobody",
+                seeded.name
+            ),
+            "highlander" => assert!(
+                seeded.commanders.is_empty(),
+                "{} has a commander",
+                seeded.name
+            ),
+            other => panic!("{} plays {other}", seeded.name),
+        }
+        // The four engine decks are named after the commander they play;
+        // the four real ones are named by their owners, so what holds across
+        // all eight is only that a commander is a card and not an empty
+        // string. Asserting the stronger rule here would be asserting a
+        // coincidence of the first four.
+        for leader in &seeded.commanders {
+            assert!(
+                !leader.trim().is_empty(),
+                "{} leads with a blank",
+                seeded.name
+            );
+        }
         assert!(
             seeded.description.is_some(),
             "{} says what it is for",
@@ -524,7 +585,7 @@ async fn deleting_an_account_takes_everything_it_owned() {
     // The decklist survives the round trip as an ordered array, which is the
     // one thing `text[]` has to do that a join table with a position column
     // would have done more elaborately.
-    // Whose deck, explicitly: every database ships with the four house
+    // Whose deck, explicitly: every database ships with the eight house
     // decks, so "the deck" is no longer a question with one answer.
     let saved = Deck::find()
         .filter(deck::Column::AccountId.eq(id))

@@ -7,9 +7,12 @@
 
 use sea_orm_migration::prelude::*;
 
+mod decklist;
 mod house_decks;
 mod m20260915_000001_account_side;
 mod m20260916_000002_deck_kinds_and_history;
+mod m20260918_000003_real_decks;
+mod m20260918_000004_astra_decks;
 
 /// The migrator the gateway runs on connect.
 pub struct Migrator;
@@ -20,6 +23,8 @@ impl MigratorTrait for Migrator {
         vec![
             Box::new(m20260915_000001_account_side::Migration),
             Box::new(m20260916_000002_deck_kinds_and_history::Migration),
+            Box::new(m20260918_000003_real_decks::Migration),
+            Box::new(m20260918_000004_astra_decks::Migration),
         ]
     }
 }

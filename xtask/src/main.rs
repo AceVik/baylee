@@ -3673,24 +3673,42 @@ fn deck_check(root: &Path, file: &Path, verbose: bool) -> anyhow::Result<()> {
             continue;
         }
         rows += 1;
-        let row = match deckrow::parse(line) {
-            Ok(row) => row,
-            Err(err) => {
-                bad_round_trip.push(format!("{line}  ({err:?})"));
+        // A commander is stored as a **bare card name** and never as a row:
+        // the column is read with `decks::by_name`, an exact-spelling lookup,
+        // and `from_lines` silently drops a leader it cannot resolve. So a
+        // `[commander]` line written the way a deck row is written seats
+        // nobody and says nothing about it — which is exactly the shape this
+        // reader has to be able to refuse.
+        let name = if section == "commander" {
+            if let Ok(row) = deckrow::parse(line)
+                && row.to_string() == line
+            {
+                bad_round_trip.push(format!("{line}  (a leader is a bare card name)"));
                 continue;
             }
+            *counts.entry(section).or_default() += 1;
+            line.to_string()
+        } else {
+            let row = match deckrow::parse(line) {
+                Ok(row) => row,
+                Err(err) => {
+                    bad_round_trip.push(format!("{line}  ({err:?})"));
+                    continue;
+                }
+            };
+            let written = row.to_string();
+            if written != line {
+                bad_round_trip.push(format!("{line}  -> {written}"));
+            }
+            *counts.entry(section).or_default() += row.count;
+            row.name.clone()
         };
-        let written = row.to_string();
-        if written != line {
-            bad_round_trip.push(format!("{line}  -> {written}"));
-        }
-        *counts.entry(section).or_default() += row.count;
-        match baylee_cards::decks::by_name(&row.name).and_then(baylee_cards::by_index) {
-            None => unknown.push(row.name.clone()),
+        match baylee_cards::decks::by_name(&name).and_then(baylee_cards::by_index) {
+            None => unknown.push(name.clone()),
             Some(def) => match def.coverage {
                 Coverage::Implemented => {}
-                Coverage::Partial(why) => partial.push(format!("{} — {why}", row.name)),
-                Coverage::Unimplemented => stubs.push(row.name.clone()),
+                Coverage::Partial(why) => partial.push(format!("{name} — {why}")),
+                Coverage::Unimplemented => stubs.push(name.clone()),
             },
         }
     }

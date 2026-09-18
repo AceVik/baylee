@@ -1,5 +1,6 @@
 [deck:Victory]
 1 Abandoned Air Temple (TLA) 263
+1 Aminatou, the Fateshifter (PLST) 2X2-169
 1 Ancestral Vision (IMA) 42
 1 Arcane Sanctum (MM3) 228
 1 Archaeomancer (UMA) 45
@@ -119,4 +120,4 @@
 1 Werefox Bodyguard (WOE) 39
 
 [commander]
-1 Aminatou, the Fateshifter (PLST) 2X2-169
+Aminatou, the Fateshifter

@@ -124,7 +124,12 @@ def resolve(rows: list[dict], lang: str, oldest: bool, nonfoil: bool, leave_open
 
 
 def deck_row(r: dict, lang: str) -> str:
-    line = f"{r['count']} {r['name']}"
+    # This pool names a two-faced card by its **front face** -- there is not
+    # one `//` among the names it compiles -- while a tracker and the
+    # catalogue both write `Front // Back`. The full name is what the lookup
+    # above needs and the front face is what the row must say, or the card
+    # resolves to nothing and the deck quietly plays one card short.
+    line = f"{r['count']} {r['name'].split(' // ')[0]}"
     p = r["resolved"]
     if p:
         line += f" ({p['set']}) {p['number']}"

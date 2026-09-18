@@ -9,7 +9,7 @@
 
 mod common;
 
-use common::{http, json_field, login, spawn_gateway};
+use common::{http, json_field, json_number, login, spawn_gateway};
 
 /// The pool the deck builder searches.
 #[test]
@@ -522,7 +522,24 @@ fn the_house_decks_belong_to_nobody_and_anybody_may_take_a_copy() {
     assert!(shared.contains("Kenrith, the Returned King"), "{shared}");
     assert!(shared.contains("Kess, Dissident Mage"), "{shared}");
     assert!(shared.contains("Tayam, Luminous Enigma"), "{shared}");
-    assert!(shared.contains("\"cards\":99"), "{shared}");
+    // And the four that came from a table rather than from the engine's
+    // needs: two of the owner's, two of his friends'.
+    assert!(shared.contains("Allytifact"), "{shared}");
+    assert!(shared.contains("Victory"), "{shared}");
+    assert!(shared.contains("Schwarzrand"), "{shared}");
+    assert!(shared.contains("Weltenbaum"), "{shared}");
+    // `cards` in this answer is the number of *rows*, not of cards: a deck
+    // stores `"N Card Name"` lines, so a playset is one row. Every house deck
+    // is a hundred cards and they run from 97 rows to 100, which is why the
+    // assertion below is on a deck that is singleton throughout rather than
+    // on a number every one of them shares.
+    assert!(shared.contains("\"cards\":100"), "{shared}");
+    // The commander is among the rows and named again, bare, beside them —
+    // the shape `decks::by_name` can actually resolve.
+    assert!(
+        shared.contains("\"commanders\":[\"Kenrith, the Returned King\"]"),
+        "{shared}"
+    );
 
     // A player's own list is still their own: the house decks are not in it.
     let (status, mine) = http(gateway.port, "GET", "/decks", Some(&token), "");
@@ -568,5 +585,13 @@ fn the_house_decks_belong_to_nobody_and_anybody_may_take_a_copy() {
     // And now it is in the player's list, where the original never was.
     let (status, mine) = http(gateway.port, "GET", "/decks", Some(&token), "");
     assert_eq!(status, 200, "{mine}");
-    assert!(mine.contains("\"cards\":99"), "{mine}");
+    // Against the deck that was copied, not against a number: the listing is
+    // ordered by the database and the first house deck is whichever one that
+    // is, so a literal here asserts the ordering and calls it a card count.
+    let source_cards = json_number(&shared, "cards");
+    assert_eq!(
+        json_number(&mine, "cards"),
+        source_cards,
+        "the copy holds what the original held: {mine}"
+    );
 }
