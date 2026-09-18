@@ -22,7 +22,9 @@
 //! each other's places walks in order and reports as aligned — an upper
 //! bound wearing a count's clothes.
 
-use baylee_cards_dsl::{AbilityDef, AltCondition, AlternativeCost, CostPart, SpellMode, Trigger};
+use baylee_cards_dsl::{
+    AbilityDef, AltCondition, AlternativeCost, CostPart, SpellMode, StepKind, Trigger,
+};
 
 /// The sentences a printed oracle text is made of.
 ///
@@ -479,7 +481,23 @@ pub fn trigger_words(trigger: &baylee_cards_dsl::Trigger) -> &'static [&'static 
         T::BecomesTapped(_) => &["tap"],
         T::Draws(_) | T::DrawsExceptFirst(_) => &["draw"],
         T::Attacks(_) => &["attack"],
-        T::StepBegin { .. } => &["beginning"],
+        // The step, not the word "beginning" — every one of these sentences
+        // opens with it, so on its own it says nothing and a card printing
+        // two of them was a coin toss. Mana Vault prints an upkeep sentence
+        // and a draw-step one, and its draw-step trigger claimed the upkeep
+        // line: an ability whose effect the card prints two sentences below
+        // the one the table pointed at.
+        //
+        // What each one prints is the template, and the words are the part
+        // of it that cannot be phrased otherwise: "At the beginning of your
+        // upkeep", "… of your draw step", "… of your end step", "At the
+        // beginning of combat on your turn".
+        T::StepBegin { step, .. } => match step {
+            StepKind::Upkeep => &["upkeep"],
+            StepKind::Draw => &["draw step"],
+            StepKind::CombatBegin => &["beginning of combat"],
+            StepKind::End => &["end step"],
+        },
     }
 }
 
@@ -527,9 +545,17 @@ fn whose_trigger_fits(trigger: &Trigger, line: &str) -> bool {
     match trigger {
         // A player relation is the plainest case: the sentence names whose
         // draw or cast it is, and one of the two words is always present.
+        // A step is the same case with the same words: a card prints "your
+        // upkeep" or "each opponent's upkeep", never neither. Fourteen of
+        // the pool's `StepBegin` triggers are `You` and one is `Opponent`,
+        // so it separates nothing here today — it is written because the
+        // step word beside it does, and reading only half of a trigger is
+        // what let Mana Vault's draw-step ability sit on the upkeep
+        // sentence.
         Trigger::Draws(rel)
         | Trigger::DrawsExceptFirst(rel)
-        | Trigger::FirstNoncreatureSpellCast(rel) => match rel {
+        | Trigger::FirstNoncreatureSpellCast(rel)
+        | Trigger::StepBegin { whose: rel, .. } => match rel {
             PlayerRel::You => !lower.contains("opponent"),
             PlayerRel::Opponent | PlayerRel::EachOpponent => lower.contains("opponent"),
             _ => true,
@@ -922,6 +948,63 @@ mod tests {
     use baylee_cards_dsl::effect::{Amount, Effect};
     use baylee_cards_dsl::filter::Filter;
     use baylee_cards_dsl::loyalty;
+
+    /// Two "At the beginning" sentences are told apart by the step, not by
+    /// the words they share.
+    ///
+    /// Mana Vault is the card that found it. It prints an upkeep sentence
+    /// and a draw-step one, `trigger_words` answered `["beginning"]` for
+    /// both, and `whose_trigger_fits` said nothing about a step at all — so
+    /// its draw-step trigger fitted either, took the first, and the table
+    /// pointed at an ability the card does not have. The reader knew it was
+    /// a coin toss and said so in `Mapping::ambiguous`; nothing read that
+    /// number.
+    ///
+    /// The step is what a card cannot phrase two ways: "at the beginning of
+    /// your upkeep", "… of your draw step". Reading it turns the toss into
+    /// a decision, which is what `ambiguous == 0` here asserts — and the
+    /// `swapped` half is the other direction, so a reader that merely
+    /// preferred the later sentence would not pass.
+    #[test]
+    fn two_step_triggers_are_told_apart_by_which_step_it_is() {
+        use baylee_cards_dsl::effect::PlayerRel;
+        use baylee_cards_dsl::{StepKind, Trigger, triggered};
+        let text = "This artifact doesn't untap during your untap step.\n\
+                    At the beginning of your upkeep, you may pay {4}. If you \
+                    do, untap this artifact.\n\
+                    At the beginning of your draw step, if this artifact is \
+                    tapped, it deals 1 damage to you.\n\
+                    {T}: Add {C}{C}{C}.";
+        let step = |step| {
+            triggered!(
+                Trigger::StepBegin {
+                    step,
+                    whose: PlayerRel::You,
+                },
+                draw(1)
+            )
+        };
+        let abilities = [step(StepKind::Draw)];
+        let found = map(&abilities, text);
+        assert_eq!(
+            found.lines,
+            vec![Some(2)],
+            "the draw-step trigger is the draw-step sentence",
+        );
+        assert_eq!(
+            found.ambiguous, 0,
+            "the step decides it, so nothing is tossed"
+        );
+
+        let abilities = [step(StepKind::Upkeep), step(StepKind::Draw)];
+        let found = map(&abilities, text);
+        assert_eq!(found.lines, vec![Some(1), Some(2)]);
+
+        let swapped = [step(StepKind::Draw), step(StepKind::Upkeep)];
+        let found = map(&swapped, text);
+        assert_eq!(found.lines, vec![Some(2), Some(1)]);
+        assert!(!found.in_order, "the card prints them the other way round");
+    }
 
     /// A quoted ability belongs to whatever the sentence grants, and the
     /// sentence itself has no shape an ability may claim.
