@@ -17,20 +17,26 @@ echo "STEP lint ok"
 cargo test-rules
 echo "STEP test ok"
 
-# `validate` is part of this gate because leaving it out cost six commits.
-# CI runs it as its own job, the rules gate did not, and `main` sat red from
-# 3a851e8d — the commit that added the one card with a battle subtype, the
-# header check (f774bd28) being a week older than it — with nobody the
-# wiser: the card files compiled, every test passed, and the one check that
-# reads a card against the *printing* was the one nothing local ran. A gate
-# that is missing the check a job fails on is a gate that reports on
-# something else.
+# `validate` is part of this gate because CI runs it as its own job and the
+# rules gate did not: the card files compile, every test passes, and the one
+# check that reads a card against its *printing* was the one nothing local
+# ran. Invasion of Ikoria carried a battle subtype no `SubtypeKind` had for
+# six commits that way.
 #
 # It needs the Scryfall payload cache, which is nobody's to commit
 # (`docs/legal.md` §3), and a checkout that has never run `codegen` has none.
 # That is said out loud rather than skipped in silence: a missing cache makes
 # this step report what it is missing, and `PRINTING_FLOOR` is what fails the
 # run if the cache is there but has quietly shrunk.
+#
+# And `validate` itself prints how old that cache is, because this step does
+# not close the gap it looks like it closes. `fetch_named` answers from disk
+# and never refetches, so a developer validates against a snapshot while CI
+# starts cold and validates against live Scryfall. That is not a detail: CI's
+# `validate` has been red since 0f450764 over 32 headers Scryfall moved when
+# it shipped a set, and this gate is green on the same tree (#50). The tool
+# reports the age rather than the script, so a bare
+# `cargo run -p xtask -- validate` says it too.
 if [ -d data/scryfall-cache ]; then
     cargo run -q -p xtask -- validate
     echo "STEP validate ok"

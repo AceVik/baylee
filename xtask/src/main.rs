@@ -3610,6 +3610,7 @@ fn validate(root: &Path) -> anyhow::Result<()> {
         );
     }
     check_no_name_is_claimed_twice(&mut problems);
+    report_the_cache_age(root);
     report_what_the_sweeps_reached(&tally, header_types, &mut problems);
     if problems > 0 {
         anyhow::bail!("{problems} convention problem(s) found");
@@ -3622,6 +3623,48 @@ fn validate(root: &Path) -> anyhow::Result<()> {
         names.len() - stubs - machine
     );
     Ok(())
+}
+
+/// How old the payload cache is, said out loud rather than assumed.
+///
+/// Every printing check above reads `data/scryfall-cache`, and `fetch_named`
+/// answers from disk without ever refetching, so what this command compares a
+/// card against is not "the printing" but "the printing as of the day the
+/// cache was filled". A developer therefore validates against a snapshot while
+/// CI, which starts cold, validates against live Scryfall — and the two
+/// disagree the moment Scryfall ships a set that reprints a pool card. That is
+/// not hypothetical: `validate` went red on CI at 0f450764 over 32 headers
+/// whose default printing moved to *Reality Fracture Commander*, with every
+/// local gate green (#50).
+///
+/// It is a line of output and not a failure, because a stale cache is the
+/// normal state of a working checkout and a gate that goes red for a missing
+/// download teaches people to stop running it.
+fn report_the_cache_age(root: &Path) {
+    let cache = root.join("data/scryfall-cache");
+    let Ok(entries) = fs::read_dir(&cache) else {
+        return;
+    };
+    // The **oldest** entry, not the newest. A cache is filled card by card as
+    // the pool grows, so its newest file is whatever was added last — which
+    // is 0 days old on the very run that added a card and says nothing at all
+    // about the 1615 payloads beside it. What bounds this command's answer is
+    // the stalest one.
+    let oldest = entries
+        .flatten()
+        .filter(|e| e.path().extension().is_some_and(|x| x == "json"))
+        .filter_map(|e| e.metadata().ok()?.modified().ok())
+        .min();
+    let Some(oldest) = oldest else {
+        return;
+    };
+    let Ok(age) = std::time::SystemTime::now().duration_since(oldest) else {
+        return;
+    };
+    println!(
+        "validate: the oldest cached payload is {} day(s) old \u{2014} CI reads live Scryfall",
+        age.as_secs() / 86_400
+    );
 }
 
 /// Every count, then every floor — before the bail rather than after it,

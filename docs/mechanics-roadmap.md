@@ -470,7 +470,14 @@ and two of them scale for nothing:
   produced, cost, activation cost, player target, target count, optional
   clause, ability-defined P/T — for the whole pool in one run, from a
   cached payload. It is in `scripts/gate-rules.sh` as of 0d46aaa3, which
-  is where it should have been all along.
+  is where it should have been all along — and running it locally does
+  **not** mean what CI means by it, because `fetch_named` answers from disk
+  and never refetches. A developer validates against the day the cache was
+  filled; CI starts cold and validates against live Scryfall. #50 is that
+  gap, and at the ledger's size it is the fifth constraint on this whole
+  section: the check compares a card's header against Scryfall's *current
+  default printing*, so a reprint set moves it — 32 of 1616 cards today,
+  which is ~660 of 33 694, red for a change nobody made.
 - **One played engine test per card**, which
   `.claude/hooks/require-card-tests.py` asks for.
 
