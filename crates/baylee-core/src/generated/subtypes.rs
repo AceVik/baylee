@@ -530,8 +530,12 @@ pub mod spell {
     pub const OMEN: SubtypeId = SubtypeId::new(504);
     pub const TRAP: SubtypeId = SubtypeId::new(505);
 }
+pub mod battle {
+    use super::SubtypeId;
+    pub const SIEGE: SubtypeId = SubtypeId::new(506);
+}
 
-pub const COUNT: u16 = 506;
+pub const COUNT: u16 = 507;
 pub const CREATURE_START: u16 = 0;
 pub const CREATURE_END: u16 = 350;
 pub const ARTIFACT_START: u16 = 350;
@@ -544,6 +548,8 @@ pub const PLANESWALKER_START: u16 = 401;
 pub const PLANESWALKER_END: u16 = 500;
 pub const SPELL_START: u16 = 500;
 pub const SPELL_END: u16 = 506;
+pub const BATTLE_START: u16 = 506;
+pub const BATTLE_END: u16 = 507;
 pub const ALL_CREATURE_TYPES: SubtypeSet = SubtypeSet::range(CREATURE_START, CREATURE_END);
 pub const ALL_ARTIFACT_TYPES: SubtypeSet = SubtypeSet::range(ARTIFACT_START, ARTIFACT_END);
 pub const ALL_ENCHANTMENT_TYPES: SubtypeSet = SubtypeSet::range(ENCHANTMENT_START, ENCHANTMENT_END);
@@ -551,6 +557,7 @@ pub const ALL_LAND_TYPES: SubtypeSet = SubtypeSet::range(LAND_START, LAND_END);
 pub const ALL_PLANESWALKER_TYPES: SubtypeSet =
     SubtypeSet::range(PLANESWALKER_START, PLANESWALKER_END);
 pub const ALL_SPELL_TYPES: SubtypeSet = SubtypeSet::range(SPELL_START, SPELL_END);
+pub const ALL_BATTLE_TYPES: SubtypeSet = SubtypeSet::range(BATTLE_START, BATTLE_END);
 
 pub const fn kind(id: SubtypeId) -> SubtypeKind {
     let v = id.get();
@@ -569,7 +576,10 @@ pub const fn kind(id: SubtypeId) -> SubtypeKind {
     if v < PLANESWALKER_END {
         return SubtypeKind::Planeswalker;
     }
-    SubtypeKind::Spell
+    if v < SPELL_END {
+        return SubtypeKind::Spell;
+    }
+    SubtypeKind::Battle
 }
 
 pub fn by_name(name: &str) -> Option<SubtypeId> {
@@ -1080,6 +1090,7 @@ pub fn by_name(name: &str) -> Option<SubtypeId> {
         "lesson" => spell::LESSON,
         "omen" => spell::OMEN,
         "trap" => spell::TRAP,
+        "siege" => battle::SIEGE,
         _ => return None,
     })
 }
@@ -1591,6 +1602,7 @@ pub static NAMES: &[&str] = &[
     "Lesson",
     "Omen",
     "Trap",
+    "Siege",
 ];
 
 pub fn name(id: SubtypeId) -> Option<&'static str> {

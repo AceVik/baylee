@@ -982,15 +982,7 @@ fn codegen(
     // below are built from the compiled pool alone.
     if !tables_only {
         // 1. Subtype catalogs → generated subtypes.rs.
-        let mut cats = catalog::SubtypeCatalogs {
-            creature: scryfall::fetch_catalog("creature-types", &agent, &cache)?,
-            artifact: scryfall::fetch_catalog("artifact-types", &agent, &cache)?,
-            enchantment: scryfall::fetch_catalog("enchantment-types", &agent, &cache)?,
-            land: scryfall::fetch_catalog("land-types", &agent, &cache)?,
-            planeswalker: scryfall::fetch_catalog("planeswalker-types", &agent, &cache)?,
-            spell: scryfall::fetch_catalog("spell-types", &agent, &cache)?,
-        };
-        cats.normalize();
+        let cats = scryfall::fetch_subtype_catalogs(&agent, &cache)?;
         write_or_check(
             check,
             &root.join("crates/baylee-core/src/generated/subtypes.rs"),
@@ -1292,15 +1284,7 @@ fn land_report(
 ) -> anyhow::Result<()> {
     let agent = ureq::Agent::new_with_defaults();
     let cache = root.join(cache);
-    let mut cats = catalog::SubtypeCatalogs {
-        creature: scryfall::fetch_catalog("creature-types", &agent, &cache)?,
-        artifact: scryfall::fetch_catalog("artifact-types", &agent, &cache)?,
-        enchantment: scryfall::fetch_catalog("enchantment-types", &agent, &cache)?,
-        land: scryfall::fetch_catalog("land-types", &agent, &cache)?,
-        planeswalker: scryfall::fetch_catalog("planeswalker-types", &agent, &cache)?,
-        spell: scryfall::fetch_catalog("spell-types", &agent, &cache)?,
-    };
-    cats.normalize();
+    let cats = scryfall::fetch_subtype_catalogs(&agent, &cache)?;
     let decks_text = fs::read_to_string(root.join("data/acceptance-decks.txt"))?;
     let rows = acceptance::parse_decks(&decks_text)?;
     let pool_text = fs::read_to_string(root.join("data/card-pool.txt")).unwrap_or_default();
@@ -3840,15 +3824,7 @@ fn explain(root: &Path, name: &str, scripts_dir: &Path, cache: &Path) -> anyhow:
             // person opening this tool on a stub is actually asking. It was
             // answerable only by a corpus-wide `transcode-report` run,
             // whose ranking is about the corpus and not about this card.
-            let mut cats = catalog::SubtypeCatalogs {
-                creature: scryfall::fetch_catalog("creature-types", &agent, &cache)?,
-                artifact: scryfall::fetch_catalog("artifact-types", &agent, &cache)?,
-                enchantment: scryfall::fetch_catalog("enchantment-types", &agent, &cache)?,
-                land: scryfall::fetch_catalog("land-types", &agent, &cache)?,
-                planeswalker: scryfall::fetch_catalog("planeswalker-types", &agent, &cache)?,
-                spell: scryfall::fetch_catalog("spell-types", &agent, &cache)?,
-            };
-            cats.normalize();
+            let cats = scryfall::fetch_subtype_catalogs(&agent, &cache)?;
             let parsed = scriptgen::parse(&text);
             println!("== transcoder ==");
             let tokens = tokengen::TokenLookup::beside(&scripts_root(root, scripts_dir))?;
@@ -4168,15 +4144,7 @@ fn transcode_report(
     let tokens = tokengen::TokenLookup::beside(&dir)?;
     let cache = root.join("data/scryfall-cache");
     let agent = ureq::Agent::new_with_defaults();
-    let mut cats = catalog::SubtypeCatalogs {
-        creature: scryfall::fetch_catalog("creature-types", &agent, &cache)?,
-        artifact: scryfall::fetch_catalog("artifact-types", &agent, &cache)?,
-        enchantment: scryfall::fetch_catalog("enchantment-types", &agent, &cache)?,
-        land: scryfall::fetch_catalog("land-types", &agent, &cache)?,
-        planeswalker: scryfall::fetch_catalog("planeswalker-types", &agent, &cache)?,
-        spell: scryfall::fetch_catalog("spell-types", &agent, &cache)?,
-    };
-    cats.normalize();
+    let cats = scryfall::fetch_subtype_catalogs(&agent, &cache)?;
     let mut files = Vec::new();
     collect_scripts(&dir, &mut files)?;
     files.sort();
@@ -4348,15 +4316,7 @@ fn coverage_set(
     let tokens = tokengen::TokenLookup::beside(&dir)?;
     let cache = root.join("data/scryfall-cache");
     let agent = ureq::Agent::new_with_defaults();
-    let mut cats = catalog::SubtypeCatalogs {
-        creature: scryfall::fetch_catalog("creature-types", &agent, &cache)?,
-        artifact: scryfall::fetch_catalog("artifact-types", &agent, &cache)?,
-        enchantment: scryfall::fetch_catalog("enchantment-types", &agent, &cache)?,
-        land: scryfall::fetch_catalog("land-types", &agent, &cache)?,
-        planeswalker: scryfall::fetch_catalog("planeswalker-types", &agent, &cache)?,
-        spell: scryfall::fetch_catalog("spell-types", &agent, &cache)?,
-    };
-    cats.normalize();
+    let cats = scryfall::fetch_subtype_catalogs(&agent, &cache)?;
     let mut files = Vec::new();
     collect_scripts(&dir, &mut files)?;
     files.sort();
@@ -4828,15 +4788,7 @@ fn cross_read(root: &Path, scripts_dir: &Path, samples: usize) -> anyhow::Result
 
     let cache = root.join("data/scryfall-cache");
     let agent = ureq::Agent::new_with_defaults();
-    let mut cats = catalog::SubtypeCatalogs {
-        creature: scryfall::fetch_catalog("creature-types", &agent, &cache)?,
-        artifact: scryfall::fetch_catalog("artifact-types", &agent, &cache)?,
-        enchantment: scryfall::fetch_catalog("enchantment-types", &agent, &cache)?,
-        land: scryfall::fetch_catalog("land-types", &agent, &cache)?,
-        planeswalker: scryfall::fetch_catalog("planeswalker-types", &agent, &cache)?,
-        spell: scryfall::fetch_catalog("spell-types", &agent, &cache)?,
-    };
-    cats.normalize();
+    let cats = scryfall::fetch_subtype_catalogs(&agent, &cache)?;
 
     // The token corpus, found the way the run that writes the ledger finds
     // it: a hand-written card that creates a token is read against the same

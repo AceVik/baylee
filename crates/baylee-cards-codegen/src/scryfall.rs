@@ -3,6 +3,7 @@
 //! Responses are cached as committed JSON files so codegen stays
 //! reproducible and CI needs no network.
 
+use crate::catalog::{SubtypeCatalogs, module_name};
 use crate::error::CodegenError;
 use crate::stubgen::slug;
 use serde::{Deserialize, Serialize};
@@ -201,6 +202,30 @@ pub fn fetch_catalog(
     fs::create_dir_all(cache_dir).map_err(CodegenError::io(cache_dir))?;
     fs::write(&file, serde_json::to_string_pretty(&resp.data)?).map_err(CodegenError::io(&file))?;
     Ok(resp.data)
+}
+
+/// Fetches every subtype catalog there is, in id-assignment order, normalized.
+///
+/// Six callers used to spell the six catalogs out, one `fetch_catalog` line
+/// each, and every one of them was a list of the kinds standing beside the
+/// list of the kinds. Adding battle meant editing all six — and a caller that
+/// had been missed would have compiled for as long as the struct had a
+/// `..Default::default()` in it. The catalog's Scryfall name is the module
+/// name plus `-types`, which is Scryfall's own spelling for all seven, so the
+/// name is derived here rather than typed.
+///
+/// # Errors
+/// HTTP/IO/JSON errors from any one catalog.
+pub fn fetch_subtype_catalogs(
+    agent: &ureq::Agent,
+    cache_dir: &Path,
+) -> Result<SubtypeCatalogs, CodegenError> {
+    let mut cats = SubtypeCatalogs::default();
+    for (kind, list) in cats.ordered_mut() {
+        *list = fetch_catalog(&format!("{}-types", module_name(kind)), agent, cache_dir)?;
+    }
+    cats.normalize();
+    Ok(cats)
 }
 
 /// One entry of Scryfall's `/bulk-data` listing.

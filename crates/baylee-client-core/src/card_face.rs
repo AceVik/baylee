@@ -432,7 +432,7 @@ fn subtype_words(types: TypeSet, subtypes: SubtypeSet) -> Vec<String> {
 }
 
 /// Which subtype kind belongs to which card type, in printed order.
-fn type_kind_order() -> [(TypeSet, SubtypeKind); 6] {
+fn type_kind_order() -> [(TypeSet, SubtypeKind); 7] {
     [
         (TypeSet::ARTIFACT, SubtypeKind::Artifact),
         (TypeSet::ENCHANTMENT, SubtypeKind::Enchantment),
@@ -445,6 +445,7 @@ fn type_kind_order() -> [(TypeSet, SubtypeKind); 6] {
                 .union(TypeSet::KINDRED),
             SubtypeKind::Spell,
         ),
+        (TypeSet::BATTLE, SubtypeKind::Battle),
     ]
 }
 

@@ -324,6 +324,14 @@ pub enum SubtypeKind {
     Planeswalker,
     /// Spell subtypes ("Arcane", "Lesson", …).
     Spell,
+    /// Battle subtypes ("Siege").
+    ///
+    /// Last, and that is load-bearing rather than tidy: ids are assigned
+    /// sequentially in the order [`SubtypeCatalogs::ordered`] lists the
+    /// kinds, so a kind inserted anywhere else renumbers every subtype after
+    /// it — and a `SubtypeSet` is serialized onto the wire. Appending costs
+    /// one id and renumbers nothing.
+    Battle,
 }
 
 /// 512-bit subtype bitmap.

@@ -737,10 +737,7 @@ mod tests {
         let mut cats = SubtypeCatalogs {
             creature: vec!["Soldier".into(), "Bird".into(), "Shapeshifter".into()],
             artifact: vec!["Treasure".into(), "Equipment".into()],
-            enchantment: vec![],
-            land: vec![],
-            planeswalker: vec![],
-            spell: vec![],
+            ..SubtypeCatalogs::default()
         };
         cats.normalize();
         cats

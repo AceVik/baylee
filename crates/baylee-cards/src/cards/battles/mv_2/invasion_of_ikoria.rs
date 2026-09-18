@@ -21,8 +21,8 @@ card!(
             name = "Invasion of Ikoria",
             mana_cost = mana!("{X}{G}{G}"),
             types = TypeSet::BATTLE,
+            subtypes = &[subtypes::battle::SIEGE],
         ),
-        // FIXME(codegen): unknown type-line word "Siege"
         face!(
             name = "Zilortha, Apex of Ikoria",
             types = TypeSet::CREATURE,

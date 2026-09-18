@@ -2,7 +2,9 @@
 //!
 //! Deterministic: every catalog is sorted alphabetically; ids are assigned
 //! sequentially in kind order (creature, artifact, enchantment, land,
-//! planeswalker, spell).
+//! planeswalker, spell, battle). Battle is last so that adding it
+//! renumbered nothing: ids are sequential in this order and a `SubtypeSet`
+//! travels on the wire.
 
 // One-shot string rendering; the allocation lint adds noise, not value.
 #![allow(clippy::format_push_string)]
@@ -25,26 +27,21 @@ pub struct SubtypeCatalogs {
     pub planeswalker: Vec<String>,
     /// Spell (instant/sorcery) subtypes.
     pub spell: Vec<String>,
+    /// Battle subtypes.
+    pub battle: Vec<String>,
 }
 
 impl SubtypeCatalogs {
     /// Sorts and deduplicates every catalog.
     pub fn normalize(&mut self) {
-        for list in [
-            &mut self.creature,
-            &mut self.artifact,
-            &mut self.enchantment,
-            &mut self.land,
-            &mut self.planeswalker,
-            &mut self.spell,
-        ] {
+        for (_, list) in self.ordered_mut() {
             list.sort();
             list.dedup();
         }
     }
 
     /// Iterates `(kind, names)` in id-assignment order.
-    pub fn ordered(&self) -> [(SubtypeKind, &Vec<String>); 6] {
+    pub fn ordered(&self) -> [(SubtypeKind, &Vec<String>); 7] {
         [
             (SubtypeKind::Creature, &self.creature),
             (SubtypeKind::Artifact, &self.artifact),
@@ -52,6 +49,27 @@ impl SubtypeCatalogs {
             (SubtypeKind::Land, &self.land),
             (SubtypeKind::Planeswalker, &self.planeswalker),
             (SubtypeKind::Spell, &self.spell),
+            (SubtypeKind::Battle, &self.battle),
+        ]
+    }
+
+    /// The same order, for filling the catalogs rather than reading them.
+    ///
+    /// Two lists of the seven kinds is two more than nobody would like, and
+    /// it is the fewest safe Rust allows: a shared and an exclusive borrow of
+    /// the same seven fields cannot be one function. Everything else that
+    /// enumerated them — `normalize`, the Scryfall fetch, the generated
+    /// `kind()` — goes through one of these two, so adding an eighth kind is
+    /// the field, the variant and these two lines.
+    pub fn ordered_mut(&mut self) -> [(SubtypeKind, &mut Vec<String>); 7] {
+        [
+            (SubtypeKind::Creature, &mut self.creature),
+            (SubtypeKind::Artifact, &mut self.artifact),
+            (SubtypeKind::Enchantment, &mut self.enchantment),
+            (SubtypeKind::Land, &mut self.land),
+            (SubtypeKind::Planeswalker, &mut self.planeswalker),
+            (SubtypeKind::Spell, &mut self.spell),
+            (SubtypeKind::Battle, &mut self.battle),
         ]
     }
 
@@ -104,6 +122,7 @@ pub const fn module_name(kind: SubtypeKind) -> &'static str {
         SubtypeKind::Land => "land",
         SubtypeKind::Planeswalker => "planeswalker",
         SubtypeKind::Spell => "spell",
+        SubtypeKind::Battle => "battle",
     }
 }
 
@@ -190,19 +209,23 @@ pub fn render_subtypes_rs(cats: &SubtypeCatalogs) -> String {
 
     // kind()
     out.push_str("\npub const fn kind(id: SubtypeId) -> SubtypeKind {\n    let v = id.get();\n");
-    let kinds = [
-        (SubtypeKind::Creature, "CREATURE_END"),
-        (SubtypeKind::Artifact, "ARTIFACT_END"),
-        (SubtypeKind::Enchantment, "ENCHANTMENT_END"),
-        (SubtypeKind::Land, "LAND_END"),
-        (SubtypeKind::Planeswalker, "PLANESWALKER_END"),
-    ];
-    for (kind, end) in kinds {
+    // Derived from `ordered()` rather than listed again: the list used to be
+    // written out here, ending in a hard-coded `SubtypeKind::Spell`, and a
+    // kind added to `ordered()` would have been assigned ids, given a module
+    // and a range — and then reported by `kind()` as a Spell. A positive list
+    // beside the thing it is a list *of* goes silent exactly once.
+    // Destructured rather than `split_last().expect(…)`: `ordered()` returns a
+    // fixed-size array, so this pattern is irrefutable and the function keeps
+    // its "cannot panic" claim instead of owing a `# Panics` section for a
+    // branch that does not exist.
+    let [rest @ .., last] = cats.ordered();
+    for (kind, _) in rest {
+        let end = format!("{}_END", module_name(kind).to_ascii_uppercase());
         out.push_str(&format!(
             "    if v < {end} {{ return SubtypeKind::{kind:?}; }}\n"
         ));
     }
-    out.push_str("    SubtypeKind::Spell\n}\n");
+    out.push_str(&format!("    SubtypeKind::{:?}\n}}\n", last.0));
 
     // by_name()
     out.push_str(
