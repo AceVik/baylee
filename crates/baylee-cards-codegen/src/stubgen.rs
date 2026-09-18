@@ -308,10 +308,40 @@ fn mana_expr(card_name: &str, cost: &str) -> Result<String, CodegenError> {
     Ok(format!("mana!(\"{cost}\")"))
 }
 
+/// A printed power or toughness, as a `FaceDef` field.
+///
+/// Most of them are a number. Some are a **star** (CR 208.2), which is not a
+/// missing value but a value a characteristic-defining ability supplies —
+/// `Ashaya, Soul of the Wild` prints `*/*` and CR 208.2a says that ability
+/// functions everywhere, using 0 for any number it cannot determine. Until
+/// this repository can express such an ability the face carries what the
+/// rules give it in the meantime: CR 208.5, "if a creature somehow has no
+/// value for its power, its power is 0".
+///
+/// That is a real distinction and not a convenience. Reading `*` as *no*
+/// power made three `Coverage::Unimplemented` cards into creature faces with
+/// no body at all, which contradicts CR 208.1 and is what
+/// `lints::a_creature_is_exactly_a_face_with_a_body` caught — a card that
+/// could never be drawn, counted or blocked, rather than one whose size is
+/// wrong until a rule arrives. `1+*` keeps its 1 for the same reason.
+///
+/// A value that parses as neither is still `None`, deliberately: the lint is
+/// the thing that should hear about a spelling nobody has read yet.
 fn pt_expr(value: Option<&str>) -> String {
-    value
-        .and_then(|v| v.parse::<i16>().ok())
-        .map_or_else(|| "None".to_string(), |v| format!("Some({v})"))
+    let Some(raw) = value else {
+        return "None".to_string();
+    };
+    if let Ok(v) = raw.parse::<i16>() {
+        return format!("Some({v})");
+    }
+    if !raw.contains('*') {
+        return "None".to_string();
+    }
+    let total: i16 = raw
+        .split('+')
+        .map(|term| term.trim().parse::<i16>().unwrap_or(0))
+        .sum();
+    format!("Some({total})")
 }
 
 fn loyalty_expr(value: Option<&str>) -> String {
@@ -1361,5 +1391,22 @@ mod tests {
             assert!(other.abilities.is_empty(), "{line} gained an ability");
             assert!(!other.notes.iter().any(|n| n == "intrinsic type mana"));
         }
+    }
+
+    /// CR 208.2: a star is a value a characteristic-defining ability
+    /// supplies, not a missing one. Three cards in this pool print `*/*`
+    /// and were generated as creature faces with no body at all.
+    #[test]
+    fn a_star_is_read_as_the_zero_the_rules_give_it() {
+        assert_eq!(pt_expr(Some("3")), "Some(3)");
+        assert_eq!(pt_expr(Some("-1")), "Some(-1)");
+        // CR 208.5, until the defining ability exists.
+        assert_eq!(pt_expr(Some("*")), "Some(0)");
+        assert_eq!(pt_expr(Some("1+*")), "Some(1)");
+        assert_eq!(pt_expr(Some("*+1")), "Some(1)");
+        // No star and no number is a spelling nobody has read: `None`, so
+        // the pool lint is what says so rather than this function guessing.
+        assert_eq!(pt_expr(Some("?")), "None");
+        assert_eq!(pt_expr(None), "None");
     }
 }

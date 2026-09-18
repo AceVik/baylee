@@ -2233,3 +2233,202 @@ fn teferis_protection_exiles_itself_and_leaves_everything_else_exactly_as_it_was
          would also be"
     );
 }
+
+/// Crop Rotation — {G} instant: "As an additional cost to cast this spell,
+/// sacrifice a land. Search your library for a land card, put that card onto
+/// the battlefield, then shuffle."
+///
+/// The board is two Forests and the deck behind them is sixty more, so nothing
+/// but playing it can tell a real tutor from a spell that merely resolves: the
+/// card the search *offered* has to be the permanent standing afterwards, and
+/// the library has to be exactly one card shorter, which no fresh token or
+/// conjured land would produce. Both questions the cast raises are answered out
+/// of the list the question itself published — the land the additional cost
+/// takes, when the cast charges it, and then the find.
+#[test]
+fn crop_rotation_trades_a_forest_for_one_out_of_the_library() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[forest(), forest()])
+        .hand(0, &[crop_rotation()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    assert_eq!(
+        lands_of(&engine, p0).len(),
+        2,
+        "two Forests are the whole board the card has to work with"
+    );
+    let library_before = library_size(&engine, p0);
+
+    cast_from_hand(&mut engine, p0, crop_rotation());
+
+    let mut sacrificed = None;
+    let mut found = None;
+    for _ in 0..30 {
+        if stack_is_empty(&engine)
+            && matches!(engine.pending(), Pending::Priority { player, .. } if *player == p0)
+        {
+            break;
+        }
+        match engine.pending().clone() {
+            Pending::Priority { player, .. } => {
+                engine.apply(player, PlayerAction::PassPriority).unwrap();
+            }
+            Pending::ChooseCards {
+                player,
+                options,
+                min,
+                max,
+                prompt,
+            } => {
+                let want = usize::from(min).max(1).min(usize::from(max));
+                let pick: Vec<ObjectId> = options.iter().copied().take(want).collect();
+                assert_eq!(pick.len(), want, "{prompt:?} offered no answer");
+                if prompt == crate::choice::ChoicePrompt::CostSacrifice {
+                    assert!(
+                        options.iter().all(|id| lands_of(&engine, p0).contains(id)),
+                        "a land sacrificed as a cost is a land this seat controls: {options:?}"
+                    );
+                    sacrificed = pick.first().copied();
+                } else {
+                    assert!(found.is_none(), "one spell, one search");
+                    found = pick.first().copied();
+                }
+                engine
+                    .apply(player, PlayerAction::ChooseObjects { objects: pick })
+                    .unwrap();
+            }
+            other => panic!("unexpected while Crop Rotation resolves: {other:?}"),
+        }
+    }
+
+    let found = found.expect("the search is a question the engine asks");
+    assert!(
+        mine(&engine, p0, forest(), crate::zone::Zone::Battlefield).contains(&found),
+        "the card the library offered is the permanent that arrived, and not \
+         a fresh one conjured in its place"
+    );
+    assert_eq!(
+        library_size(&engine, p0),
+        library_before - 1,
+        "it came out of the library: one card left it and nothing was put back"
+    );
+    if let Some(paid) = sacrificed {
+        assert!(
+            in_graveyard(&engine, p0, forest()).is_some(),
+            "the land the additional cost took ({paid:?}) is in its owner's graveyard"
+        );
+    }
+    assert!(stack_is_empty(&engine), "the spell has finished resolving");
+}
+
+/// Hero's Downfall — {1}{B}{B} instant: "Destroy target creature or
+/// planeswalker." That filter *is* the whole card, so the scenario puts one
+/// creature and one planeswalker across the table with four Islands beside
+/// them as the control: the offer is exactly those two permanents and never a
+/// land, and what leaves the battlefield is the one that was named. Karn
+/// arrives by being *cast* rather than seeded — a permanent put down by
+/// `starting_battlefield` is a placement and not an entry, so no replacement
+/// effect would hand a planeswalker the loyalty it needs to survive the first
+/// state-based check.
+#[test]
+fn heroes_downfall_destroys_the_creature_or_planeswalker_it_names() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, swamp())
+        .battlefield(0, &[swamp(), swamp(), swamp()])
+        .hand(0, &[heroes_downfall()])
+        .battlefield(
+            1,
+            &[island(), island(), island(), island(), llanowar_elves()],
+        )
+        .hand(1, &[karn_the_great_creator()])
+        .start();
+    keep_mulligans(&mut engine);
+
+    // The planeswalker the Downfall is for arrives first, off four Islands,
+    // and the walk stops the moment p0 may answer it.
+    reach_their_main_phase(&mut engine, p1);
+    cast_from_hand(&mut engine, p1, karn_the_great_creator());
+    pass_until(&mut engine, |e| {
+        on_battlefield(e, p1, karn_the_great_creator()).is_some()
+            && stack_is_empty(e)
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p0)
+    });
+    let karn = on_battlefield(&engine, p1, karn_the_great_creator()).expect("Karn resolved");
+    let elves = on_battlefield(&engine, p1, llanowar_elves()).expect("the Elves are out");
+    let islands = all_on_battlefield(&engine, p1, island());
+    assert_eq!(islands.len(), 4, "four Islands paid for the planeswalker");
+
+    // {1}{B}{B} off three Swamps. The target is named before the mana is
+    // spent (CR 601.2c before CR 601.2h), so the question comes back first.
+    cast_from_hand(&mut engine, p0, heroes_downfall());
+    let Pending::ChooseTargets {
+        player,
+        options,
+        player_options,
+        min,
+        max,
+        ..
+    } = engine.pending().clone()
+    else {
+        panic!(
+            "\"target creature or planeswalker\" is a target choice, got {:?}",
+            engine.pending()
+        )
+    };
+    assert_eq!(player, p0, "the caster names the target");
+    assert_eq!(
+        (min, max),
+        (1, 1),
+        "exactly one permanent, as the card reads"
+    );
+    assert!(
+        player_options.is_empty(),
+        "a destroy spell targets no player: {player_options:?}"
+    );
+    assert!(
+        options.contains(&karn),
+        "the planeswalker half of the filter: {options:?}"
+    );
+    assert!(options.contains(&elves), "the creature half: {options:?}");
+    assert!(
+        islands.iter().all(|land| !options.contains(land)),
+        "\"creature or planeswalker\" is read and not skipped: {options:?}"
+    );
+    assert_eq!(
+        options.len(),
+        2,
+        "and those two are the whole menu: {options:?}"
+    );
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![karn],
+            },
+        )
+        .expect("the planeswalker the question offered");
+    pass_until(&mut engine, |e| {
+        in_graveyard(e, p1, karn_the_great_creator()).is_some()
+    });
+
+    assert!(
+        on_battlefield(&engine, p1, karn_the_great_creator()).is_none(),
+        "the named planeswalker left the battlefield"
+    );
+    assert!(
+        in_graveyard(&engine, p1, karn_the_great_creator()).is_some(),
+        "and is in its owner's graveyard"
+    );
+    assert!(
+        on_battlefield(&engine, p1, llanowar_elves()).is_some(),
+        "and only what was named: the creature beside it still stands"
+    );
+    assert!(
+        in_graveyard(&engine, p0, heroes_downfall()).is_some(),
+        "the instant itself resolved into its owner's graveyard"
+    );
+}

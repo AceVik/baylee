@@ -1366,3 +1366,101 @@ Yawgmoth, Thran Physician
 Yawgmoth's Will
 Young Wolf
 Zulaport Cutthroat
+
+# Two Highlander decks from the owner's circle: Ossi's Sultai
+# (data/decks/schwarzrand.txt) and Dominik's five-colour lands deck
+# (data/decks/weltenbaum.txt). A hundred cards each, singleton, no
+# commander — 200 cards between them, of which these are the 79 the pool
+# did not already have. They belong here and not in the acceptance decks
+# for the reason at the top of this file: somebody wants to play them,
+# which is not the same as the architecture needing them. Between them
+# they reach for what those decks do not — fetch-and-dual manabases, a
+# five-colour land engine, and free spells with an alternative cost.
+Aesi, Tyrant of Gyre Strait
+Aether Vial
+Altered Ego
+Archdruid's Charm
+Ashaya, Soul of the Wild
+Assassin's Trophy
+Badgermole Cub
+Basilisk Collar
+Bristly Bill, Spine Sower
+Carnage Tyrant
+Conduit of Worlds
+Consult the Star Charts
+Courser of Kruphix
+Crop Rotation
+Crucible of Worlds
+Cryptic Command
+Dragonback Assault
+Druid Class
+Dryad of the Ilysian Grove
+Enduring Vitality
+Erode
+Evasive Action
+Exploration
+Fact or Fiction
+Fanatic of Rhonas
+Fastbond
+Flamekin Harbinger
+Garruk's Uprising
+Grim Tutor
+Hero's Downfall
+Hexdrinker
+Ignoble Hierarch
+Imperial Seal
+Krosan Grip
+Leovold, Emissary of Trest
+Lose Focus
+Lumra, Bellow of the Woods
+Maelstrom Pulse
+Maelstrom Wanderer
+Mana Leak
+Memory Deluge
+Mind Twist
+Mirri's Guile
+Muldrotha, the Gravetide
+Murderous Rider
+Nissa, Resurgent Animist
+Noble Hierarch
+Nylea's Intervention
+Oko, Thief of Crowns
+Omnath, Locus of Rage
+Pithing Needle
+Primeval Titan
+Ramunap Excavator
+Rancor
+Realms Uncharted
+Reclamation Sage
+Retreat to Kazandu
+Risen Reef
+Sphinx of the Final Word
+Steely Resolve
+Sterling Grove
+Sultai Charm
+Sylvan Caryatid
+Sylvan Scrying
+Tatyova, Benthic Druid
+Tear Asunder
+Temur Ascendancy
+The Meathook Massacre
+Thoughtseize
+Thrun, Breaker of Silence
+Thrun, the Last Troll
+Tireless Provisioner
+Tyrranax Rex
+Unlicensed Hearse
+Virtue of Knowledge
+Walk-In Closet // Forgotten Cellar
+Wayward Swordtooth
+World Shaper
+Wrenn and Realmbreaker
+
+# Astra's four-Commander pod (data/decks/{kenrith,breya,kess,tayam}.txt),
+# written to stretch the rules kernel rather than to win: Kenrith for
+# activations and blink, Breya for artifacts and sacrifice chains, Kess for
+# the stack and alternative costs, Tayam for counters and recursion. Four
+# hundred slots, 262 distinct cards -- and 261 of them were already here,
+# which is the pod's own argument: it is built out of what the engine has
+# been growing towards. This is the one card that was not.
+Invasion of Ikoria // Zilortha, Apex of Ikoria

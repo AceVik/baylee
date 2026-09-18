@@ -11937,3 +11937,539 @@ fn walking_ballista_grows_with_mana_and_removes_a_counter_to_deal_damage() {
         "Ballista survived on the battlefield"
     );
 }
+
+// oracle_id = "1816eede-c5bd-49df-958f-a3af64cb2932"
+/// Omnath, Locus of Rage prints two sentences: landfall makes a 5/5 red and
+/// green Elemental token, and whenever Omnath or **another Elemental you
+/// control** dies, Omnath deals 3 damage to any target.
+///
+/// Both are played in one main phase. The Elemental arrives by being cast off
+/// eight basics, a real `PlayLand` turns landfall on — and the empty token
+/// board before that land is the control, because the lands this board was
+/// built from were *placed* and never entered. The token is then fed to
+/// Ashnod's Altar, whose sacrifice is a cost asked as a `CostSacrifice` menu,
+/// so the death the second sentence answers is an Elemental's and not
+/// Omnath's own; the three damage goes to the opponent's face, which is one
+/// of the answers an "any target" prompt offers.
+#[test]
+#[allow(clippy::too_many_lines)] // a whole game, as every test in this file is
+fn omnath_makes_a_token_for_a_land_and_answers_that_elementals_death_with_three() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                mountain(),
+                mountain(),
+                mountain(),
+                mountain(),
+                ashnods_altar(),
+            ],
+        )
+        // The Forest is in hand and not on the board: a landfall trigger
+        // reads an *entry*, and `starting_battlefield` is a placement.
+        .hand(0, &[omnath_locus_of_rage(), forest()])
+        .life(0, 20)
+        .life(1, 20)
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    // {3}{R}{R}{G}{G} off the eight basics, so the Elemental is in a real
+    // game rather than assumed onto the table.
+    cast_from_hand(&mut engine, p0, omnath_locus_of_rage());
+    pass_until(&mut engine, stack_is_empty);
+    let omnath = on_battlefield(&engine, p0, omnath_locus_of_rage()).expect("Omnath resolved");
+    assert_eq!(pt(&engine, omnath), (5, 5), "the printed body");
+    let altar = on_battlefield(&engine, p0, ashnods_altar()).expect("the Altar stands");
+    assert!(
+        tokens_of(&engine, p0).is_empty(),
+        "the lands this board was built from were placed rather than entered, \
+         so no landfall has fired yet"
+    );
+
+    // Landfall, off a real play.
+    play_land(&mut engine, p0, forest());
+    pass_until(&mut engine, stack_is_empty);
+    let tokens = tokens_of(&engine, p0);
+    assert_eq!(tokens.len(), 1, "one land entered, one Elemental");
+    let elemental = tokens[0];
+    assert_eq!(
+        pt(&engine, elemental),
+        (5, 5),
+        "a 5/5 with no counter needed"
+    );
+    let token = engine
+        .state()
+        .object(elemental)
+        .expect("the Elemental is on the battlefield")
+        .token
+        .expect("it knows which token it is");
+    assert_eq!(token.name, "Elemental");
+    assert!(
+        token.colors.contains(baylee_core::color::Color::Red)
+            && token.colors.contains(baylee_core::color::Color::Green),
+        "red and green"
+    );
+    assert!(
+        types(&engine, elemental).contains(TypeSet::CREATURE),
+        "and a creature, which is what the second sentence looks for"
+    );
+
+    // The second sentence. The Altar's cost names no creature, so the engine
+    // asks which one — and the menu is both creatures this seat controls.
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        legal.abilities.contains(&(altar, 0)),
+        "a creature is out, so the Altar's only line is offered: {:?}",
+        legal.abilities
+    );
+    activate(&mut engine, p0, ashnods_altar(), 0);
+    let Pending::ChooseCards {
+        options,
+        min,
+        max,
+        prompt,
+        ..
+    } = engine.pending().clone()
+    else {
+        panic!("the cost asks which creature, got {:?}", engine.pending())
+    };
+    assert_eq!(
+        prompt,
+        crate::choice::ChoicePrompt::CostSacrifice,
+        "the variant is what tells a client this is a cost and not a search"
+    );
+    assert_eq!((min, max), (1, 1), "one creature, and the cost asks once");
+    assert!(
+        options.contains(&elemental),
+        "the Elemental is on the menu: {options:?}"
+    );
+    assert!(
+        options.contains(&omnath),
+        "and so is the Elemental that made it: {options:?}"
+    );
+    assert_eq!(
+        options.len(),
+        2,
+        "those two are the whole board: {options:?}"
+    );
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![elemental],
+            },
+        )
+        .expect("the Elemental the question offered pays the cost");
+
+    let asked = settle_aiming_at(&mut engine, p1);
+    assert!(
+        asked,
+        "\"Omnath deals 3 damage to any target\" — the death is asked about, \
+         and an any-target prompt offers a player among its answers; \
+         the engine stopped at {:?}",
+        engine.pending()
+    );
+    assert!(
+        tokens_of(&engine, p0).is_empty(),
+        "the Elemental died to pay for the Altar, and it is not Omnath"
+    );
+    // And it is not in the graveyard either, which is the part worth
+    // asserting: a token reaches its owner's graveyard and is swept from it
+    // the next time state-based actions are checked (CR 111.7, CR 704.5d), so
+    // nobody ever finds it there. The damage below is dealt regardless —
+    // "applicable triggered abilities will trigger before the token ceases to
+    // exist" is the same sentence, and it is the reason this card works at
+    // all.
+    assert!(
+        !engine
+            .state()
+            .zones
+            .list(ZoneLocation::Graveyard(p0))
+            .iter()
+            .any(|id| engine.state().object(*id).is_some_and(|o| o.card.is_none())),
+        "CR 704.5d: no token is left lying in a graveyard"
+    );
+    assert_eq!(engine.state().players[1].life, 17, "three to the face");
+    assert_eq!(
+        engine.state().players[0].life,
+        20,
+        "and none of it to the ability's own controller"
+    );
+    assert!(
+        on_battlefield(&engine, p0, omnath_locus_of_rage()).is_some(),
+        "the ability's source never moved"
+    );
+}
+
+// oracle_id = "032ec6e2-6cc3-4a97-9cc7-3233f5e11904"
+// oracle_id = "90076bf5-aa9a-4a6e-9035-9aa97fd5561e"
+/// Luminarch Ascension, the second half of the Sage's target filter.
+///
+/// A plain enchantment whose only trigger is on an end step this scenario
+/// never reaches, so it sits on the table as a legal target and answers
+/// nothing on the way.
+/// Reclamation Sage — {2}{G} 2/1 Elf Shaman: "When this creature enters, you
+/// may destroy target artifact or enchantment."
+///
+/// Both printed halves are read off one resolution. The target question is
+/// what the filter produces, so the Sol Ring and the Ascension across the
+/// table are on it and the Elf and the Forest beside them are not — an arm
+/// dropped from `ARTIFACT_OR_ENCHANTMENT`, or a filter that fell back to
+/// `Any`, changes that list. And the "you may" is answered yes: the named
+/// artifact goes to its owner's graveyard while the enchantment the same
+/// trigger could equally have named stays exactly where it was, which is what
+/// separates "destroys the target it was given" from "destroys everything
+/// legal".
+#[test]
+#[allow(clippy::too_many_lines)] // a whole game, as every test in this file is
+fn reclamation_sage_destroys_the_artifact_it_names_and_leaves_the_rest_alone() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let enchantment = their_enchantment();
+    let mut engine = Duel::new(41, forest())
+        .battlefield(0, &[forest(), forest(), forest()])
+        .hand(0, &[reclamation_sage()])
+        // Two halves of the filter, plus the two permanents it must decline:
+        // a creature and a land.
+        .battlefield(
+            1,
+            &[quiet_artifact(), enchantment, llanowar_elves(), forest()],
+        )
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let ring = on_battlefield(&engine, p1, quiet_artifact()).expect("their Sol Ring is out");
+    let ascension = on_battlefield(&engine, p1, enchantment).expect("their Ascension is out");
+    let elves = on_battlefield(&engine, p1, llanowar_elves()).expect("their Elves are out");
+    let land = on_battlefield(&engine, p1, forest()).expect("their Forest is out");
+
+    cast_from_hand(&mut engine, p0, reclamation_sage());
+
+    // The trigger is answered where it arrives rather than where it is
+    // expected: the "you may" and the target choice are one resolution, and
+    // which of the two is asked first is the engine's business, not the
+    // test's.
+    let mut aimed: Option<ObjectId> = None;
+    for _ in 0..30 {
+        if aimed.is_some()
+            && stack_is_empty(&engine)
+            && matches!(engine.pending(), Pending::Priority { player, .. } if *player == p0)
+        {
+            break;
+        }
+        match engine.pending().clone() {
+            Pending::ChooseTargets {
+                player, options, ..
+            } => {
+                assert_eq!(player, p0, "the Sage's controller aims its own trigger");
+                assert!(
+                    options.contains(&ring) && options.contains(&ascension),
+                    "\"target artifact or enchantment\" offers both halves of \
+                     the printed filter: {options:?}"
+                );
+                assert_eq!(
+                    options.len(),
+                    2,
+                    "and nothing else on either side of the table is either: {options:?}"
+                );
+                assert!(
+                    !options.contains(&elves),
+                    "a creature is neither an artifact nor an enchantment: {options:?}"
+                );
+                assert!(
+                    !options.contains(&land),
+                    "and neither is a land: {options:?}"
+                );
+                engine
+                    .apply(
+                        p0,
+                        PlayerAction::ChooseObjects {
+                            objects: vec![ring],
+                        },
+                    )
+                    .expect("the artifact was one of the options");
+                aimed = Some(ring);
+            }
+            Pending::YesNo {
+                player,
+                prompt: crate::choice::YesNoPrompt::MayDo,
+                ..
+            } => {
+                engine
+                    .apply(player, PlayerAction::YesNo(true))
+                    .expect("`you may` is a question with a yes");
+            }
+            Pending::Priority { player, .. } => {
+                engine.apply(player, PlayerAction::PassPriority).unwrap();
+            }
+            other => panic!("unexpected while the Sage's trigger resolves: {other:?}"),
+        }
+    }
+
+    assert_eq!(aimed, Some(ring), "the trigger asked for a target");
+    assert!(
+        stack_is_empty(&engine),
+        "the trigger resolved and left nothing behind: {:?}",
+        engine.pending()
+    );
+    assert!(
+        matches!(engine.pending(), Pending::Priority { player, .. } if *player == p0),
+        "and the seat that aimed it holds priority again, got {:?}",
+        engine.pending()
+    );
+
+    assert!(
+        on_battlefield(&engine, p0, reclamation_sage()).is_some(),
+        "the Sage itself resolved onto the battlefield and stays"
+    );
+    assert!(
+        in_graveyard(&engine, p1, quiet_artifact()).is_some(),
+        "\"destroy target artifact\" — the named artifact is in its owner's \
+         graveyard"
+    );
+    assert!(
+        on_battlefield(&engine, p1, enchantment).is_some(),
+        "the Ascension was offered and not named, so it stands: the trigger \
+         destroys the one target it was given and not every legal one"
+    );
+    assert!(
+        on_battlefield(&engine, p1, llanowar_elves()).is_some()
+            && on_battlefield(&engine, p1, forest()).is_some(),
+        "and the permanents the filter never offered were never touched"
+    );
+}
+
+/// Sylvan Caryatid prints a {1}{G} 0/3 Plant with defender and hexproof and
+/// one ability: "{T}: Add one mana of any color." Neither half is a static a
+/// card file could be trusted to have — the mana arrives as a question the
+/// engine asks as the {T} is paid, and the defender only means anything in
+/// the declaration the plant stands untapped for. So the scenario plays both
+/// in one turn: the attack step first, where the only creature its controller
+/// has is refused while it is untapped and otherwise able, and then the tap,
+/// where the color named is one nothing else on the board can make — the two
+/// Forests that cast it are tapped and green.
+#[test]
+fn sylvan_caryatid_may_not_attack_and_taps_for_a_color_nobody_else_can_make() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(41, forest())
+        .battlefield(0, &[forest(), forest()])
+        .hand(0, &[sylvan_caryatid()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    // {1}{G} out of the two Forests, which is everything the pool had.
+    cast_from_hand(&mut engine, p0, sylvan_caryatid());
+    pass_until(&mut engine, stack_is_empty);
+    let plant = on_battlefield(&engine, p0, sylvan_caryatid()).expect("the Caryatid resolved");
+
+    assert_eq!(pt(&engine, plant), (0, 3), "the body it prints");
+    let printed = keywords(&engine, plant);
+    assert!(printed.contains(KeywordSet::DEFENDER), "Defender");
+    assert!(printed.contains(KeywordSet::HEXPROOF), "hexproof");
+
+    // Defender, read where it decides something: the plant is untapped, on
+    // the battlefield, and its controller is the one attacking, so nothing is
+    // left to account for its absence but the keyword (CR 702.3b).
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseAttackers { .. })
+    });
+    let Pending::ChooseAttackers {
+        player, attackers, ..
+    } = engine.pending().clone()
+    else {
+        unreachable!("pass_until stops on nothing but the attack declaration")
+    };
+    assert_eq!(player, p0, "the Caryatid's controller is the active player");
+    assert!(
+        attackers.is_empty(),
+        "the only creature on this board may not attack: {attackers:?}"
+    );
+
+    // Back to a priority the untapped plant is still worth spending: a mana
+    // ability wants nothing but its own {T} and a moment to use it in.
+    pass_until(&mut engine, |e| {
+        matches!(
+            e.pending(),
+            Pending::Priority { player, legal }
+                if *player == p0 && legal.abilities.iter().any(|(id, _)| *id == plant)
+        )
+    });
+    assert!(
+        !is_tapped(&engine, plant),
+        "it stood through the combat step it was not allowed to join"
+    );
+
+    let before = engine.state().players[0].mana_pool.total();
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        unreachable!("the predicate above matched a priority")
+    };
+    let (source, ability_index) = legal
+        .abilities
+        .iter()
+        .copied()
+        .find(|(id, _)| *id == plant)
+        .expect("the printed {{T}} is the whole of its text");
+    engine
+        .apply(
+            p0,
+            PlayerAction::ActivateAbility {
+                source,
+                ability_index,
+            },
+        )
+        .expect("a mana ability needs no stack and no permission");
+
+    let Pending::ChooseColor { player, options } = engine.pending().clone() else {
+        panic!("`any color` is a question, got {:?}", engine.pending())
+    };
+    assert_eq!(player, p0, "the seat that tapped names the color");
+    for color in [
+        ManaColor::White,
+        ManaColor::Blue,
+        ManaColor::Black,
+        ManaColor::Red,
+        ManaColor::Green,
+    ] {
+        assert!(
+            options.contains(&color),
+            "\"any color\" includes {color:?}: {options:?}"
+        );
+    }
+    assert_eq!(
+        options.len(),
+        5,
+        "the five colors of the game, and colorless is no color at all \
+         (CR 105.4): {options:?}"
+    );
+
+    engine
+        .apply(p0, PlayerAction::ChooseColor(ManaColor::Black))
+        .expect("black was one of the colors it offered");
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(
+        pool.available(ManaColor::Black),
+        1,
+        "the color that was named, on a board whose own lands only make green"
+    );
+    assert_eq!(pool.total(), before + 1, "one mana, off one tap");
+    assert!(
+        stack_is_empty(&engine),
+        "CR 605.3b: a mana ability uses no stack, so nothing is waiting to resolve"
+    );
+    assert!(is_tapped(&engine, plant), "the Caryatid paid its own {{T}}");
+}
+
+/// Tatyova, Benthic Druid — {3}{G}{U} 3/3 with Landfall: "Whenever a land you
+/// control enters, you gain 1 life and draw a card."
+///
+/// The order is the test: five lands stand on the battlefield before the Druid
+/// resolves and must pay nothing, so the one Forest played *after* her is the
+/// only thing the ability can be reading. Exactly one life and exactly one
+/// card is the load-bearing number, because she arrives as a creature and the
+/// trigger is about lands — a `Trigger::EntersBattlefield` that had lost its
+/// filter would have paid for the Druid herself, and one collected per
+/// permanent on the board would have paid five times.
+///
+/// The card drawn is named rather than counted: the card that was on top of the
+/// library before the land drop has to be the one in hand afterwards, which is
+/// what separates a real draw from the land merely leaving the hand.
+#[test]
+fn tatyova_pays_one_life_and_one_card_for_the_land_that_enters_after_her() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(41, forest())
+        .battlefield(0, &[forest(), forest(), island(), island(), island()])
+        .hand(0, &[tatyova_benthic_druid(), forest()])
+        .life(0, 20)
+        .life(1, 20)
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    let life_before = engine.state().players[0].life;
+    let library_before = library_size(&engine, p0);
+
+    // {3}{G}{U} off the two Forests and the three Islands. She is cast and not
+    // seeded: `starting_battlefield` is a placement rather than an entry, and a
+    // landfall trigger reads entries.
+    cast_from_hand(&mut engine, p0, tatyova_benthic_druid());
+    pass_until(&mut engine, |e| {
+        on_battlefield(e, p0, tatyova_benthic_druid()).is_some() && stack_is_empty(e)
+    });
+    assert_eq!(
+        engine.state().players[0].life,
+        life_before,
+        "the Druid's own arrival is not a land, so nothing has triggered yet"
+    );
+    assert_eq!(
+        library_size(&engine, p0),
+        library_before,
+        "and she drew nothing for herself"
+    );
+
+    // Measured *after* she is cast: she left the hand herself, and what
+    // this is about is the land leaving it and a drawn card taking its
+    // place.
+    let hand_before_land = engine.state().zones.list(ZoneLocation::Hand(p0)).len();
+
+    // The one land drop this turn, played after her, which is the land the
+    // ability is written about.
+    let top = *engine
+        .state()
+        .zones
+        .list(ZoneLocation::Library(p0))
+        .last()
+        .expect("p0 has a library");
+    let land = play_land(&mut engine, p0, forest());
+    pass_until(&mut engine, |e| {
+        stack_is_empty(e) && e.state().players[0].life == life_before + 1
+    });
+
+    assert!(
+        engine
+            .state()
+            .object(land)
+            .is_some_and(|o| o.zone == crate::zone::Zone::Battlefield),
+        "the Forest really is the land that entered"
+    );
+    assert_eq!(
+        engine.state().players[0].life,
+        life_before + 1,
+        "\"you gain 1 life\" — once, for the one land that entered and not for \
+         the five that were already there"
+    );
+    assert_eq!(
+        engine.state().players[1].life,
+        20,
+        "the life belongs to the land's controller, not to the table"
+    );
+    assert_eq!(
+        library_size(&engine, p0),
+        library_before - 1,
+        "\"draw a card\" — one card, off the top of the library"
+    );
+    assert!(
+        engine
+            .state()
+            .zones
+            .list(ZoneLocation::Hand(p0))
+            .contains(&top),
+        "and it is the card that was on top before the land was played"
+    );
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Hand(p0)).len(),
+        hand_before_land,
+        "the land left the hand and the drawn card took its place"
+    );
+}

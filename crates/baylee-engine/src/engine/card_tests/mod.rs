@@ -852,3 +852,43 @@ fn is_tapped(engine: &Engine<RegistryLookup>, id: ObjectId) -> bool {
         .status
         .contains(Status::TAPPED)
 }
+
+fn basilisk_collar() -> CardIndex {
+    card_index("f5f4dd28-f4ae-4d39-b9b8-6ebfd63c93fe")
+}
+
+fn omnath_locus_of_rage() -> CardIndex {
+    card_index("1816eede-c5bd-49df-958f-a3af64cb2932")
+}
+
+fn reclamation_sage() -> CardIndex {
+    card_index("032ec6e2-6cc3-4a97-9cc7-3233f5e11904")
+}
+
+fn their_enchantment() -> CardIndex {
+    card_index("90076bf5-aa9a-4a6e-9035-9aa97fd5561e")
+}
+
+fn sylvan_caryatid() -> CardIndex {
+    card_index("13d4c46b-c2d6-44cc-a252-4a991d471854")
+}
+
+fn tatyova_benthic_druid() -> CardIndex {
+    card_index("0715e860-3b3b-4331-9718-207973e94fee")
+}
+
+fn crop_rotation() -> CardIndex {
+    card_index("28b46183-c62f-47b1-9fee-3ba148202cab")
+}
+
+fn heroes_downfall() -> CardIndex {
+    card_index("03df6a57-37c9-46d3-83b3-4a6240100714")
+}
+
+fn grim_tutor() -> CardIndex {
+    card_index("e62f8d69-a559-4f13-a5c9-5fb750b4af2c")
+}
+
+fn sylvan_scrying() -> CardIndex {
+    card_index("ee24bf27-484d-4e1c-998e-6a74e3d3f6c4")
+}
