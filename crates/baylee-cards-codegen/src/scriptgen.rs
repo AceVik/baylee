@@ -1456,56 +1456,8 @@ impl Tx<'_> {
                     return self.deny(format!("counter `{kind}`"));
                 };
                 parts.push(format!("PutCounterSelf {{ kind: {kind}, n: {n} }}"));
-            } else if let Some(body) = token
-                .strip_prefix("Return<")
-                .and_then(|t| t.strip_suffix('>'))
-            {
-                // "Return a Forest you control to its owner's hand" as a
-                // cost. Three fields at most — a count, a filter and the
-                // prose the corpus writes for its own interface, which this
-                // side has no use for because the card's printed sentence is
-                // already the label.
-                let mut fields = body.splitn(3, '/');
-                let (Some(n), Some(spec)) = (fields.next(), fields.next()) else {
-                    return self.deny(format!("return cost `{token}`"));
-                };
-                // One permanent per part, which is what `CostPart` carries.
-                // Eleven of the corpus's 52 non-source return costs bounce
-                // two, three or X, and paying one of them would be a
-                // discount.
-                if n != "1" {
-                    return self.deny(format!("a cost returning `{n}` permanents"));
-                }
-                if spec == "CARDNAME" {
-                    parts.push("ReturnSelfToHand".to_string());
-                } else {
-                    // "You control" is added where the script does not say
-                    // it, which is the one place this reader writes a clause
-                    // it did not read. The printed card says it — all 52 of
-                    // the corpus's non-source return costs do — and the
-                    // engine draws the same line in `cost_wizard::options`,
-                    // so a filter without it would be the card and the
-                    // engine disagreeing on the same menu. Appended per
-                    // alternative, because a valid-string's commas are `Or`
-                    // and a clause glued to the end would narrow only the
-                    // last branch.
-                    let spec: String = spec
-                        .split(',')
-                        .map(|alt| {
-                            if alt.contains("YouCtrl") {
-                                alt.to_string()
-                            } else if alt.contains('.') {
-                                format!("{alt}+YouCtrl")
-                            } else {
-                                format!("{alt}.YouCtrl")
-                            }
-                        })
-                        .collect::<Vec<_>>()
-                        .join(",");
-                    let expr = self.filter_expr(&spec)?;
-                    let name = self.body.filter_static("COST", &expr);
-                    parts.push(format!("ReturnToHand(&{name})"));
-                }
+            } else if let Some((kind, body)) = object_cost(token) {
+                parts.push(self.object_cost_part(kind, body, token)?);
             } else if let Some(n) = token
                 .strip_prefix("PayLife<")
                 .and_then(|t| t.strip_suffix('>'))
@@ -1539,6 +1491,73 @@ impl Tx<'_> {
             }
         }
         Some((mana, parts))
+    }
+
+    /// One cost part the player pays by naming an object.
+    ///
+    /// Four spellings of one shape — `Sac<1/…>`, `Discard<1/…>`,
+    /// `tapXType<1/…>`, `Return<1/…>` — and they were worth writing once
+    /// rather than four times because what differs between them is two
+    /// facts: which `CostPart` they are, and whether the object has to be
+    /// one the payer controls.
+    ///
+    /// **One object per part**, which is what `CostPart` carries: 97 of the
+    /// corpus's costs sacrifice two, three or X, and paying one of them
+    /// would be a discount rather than the cost the card prints.
+    ///
+    /// "You control" is added where the script does not say it, which is the
+    /// one place this reader writes a clause it did not read — and only for
+    /// the three that take a permanent. CR 701.17a lets a player sacrifice
+    /// only what they control and CR 118.3 says the same of tapping one to
+    /// pay, so a filter without it would be the card and
+    /// `cost_wizard::options` offering two different menus for one cost. A
+    /// **discard** takes none of it: a card in a hand has no controller at
+    /// all, and the engine reads that zone by whose hand it is.
+    fn object_cost_part(&mut self, kind: &str, body: &str, token: &str) -> Option<String> {
+        let mut fields = body.splitn(3, '/');
+        let (Some(n), Some(spec)) = (fields.next(), fields.next()) else {
+            return self.deny(format!("cost `{token}`"));
+        };
+        if n != "1" {
+            return self.deny(format!("a cost naming `{n}` objects"));
+        }
+        let (variant, controlled) = match kind {
+            "Sac" => ("Sacrifice", true),
+            "Discard" => ("Discard", false),
+            "tapXType" => ("TapOther", true),
+            _ => ("ReturnToHand", true),
+        };
+        if spec == "CARDNAME" {
+            // The source pays for itself, which is a part with no filter and
+            // no question. `Sac<1/CARDNAME>` never reaches here (it is
+            // matched one branch up), so this is the return's own case.
+            return Some(match variant {
+                "ReturnToHand" => "ReturnSelfToHand".to_string(),
+                _ => return self.deny(format!("cost `{token}` naming itself")),
+            });
+        }
+        let spec = if controlled {
+            // Appended per alternative, because a valid-string's commas are
+            // `Or` and a clause glued to the end would narrow only the last
+            // branch.
+            spec.split(',')
+                .map(|alt| {
+                    if alt.contains("YouCtrl") {
+                        alt.to_string()
+                    } else if alt.contains('.') {
+                        format!("{alt}+YouCtrl")
+                    } else {
+                        format!("{alt}.YouCtrl")
+                    }
+                })
+                .collect::<Vec<_>>()
+                .join(",")
+        } else {
+            spec.to_string()
+        };
+        let expr = self.filter_expr(&spec)?;
+        let name = self.body.filter_static("COST", &expr);
+        Some(format!("{variant}(&{name})"))
     }
 
     /// `T:Mode$ SpellCast` — "whenever a player casts a spell".
@@ -3025,6 +3044,23 @@ pub const SUPPORTED_APIS: &[&str] = &[
     "ChangeZone",
     "Token",
 ];
+
+/// A cost token that names an object, split into its kind and its body.
+///
+/// `Sac<1/CARDNAME…>` is deliberately not among them: it is matched one
+/// branch earlier as `SacrificeSelf`, which asks nobody anything.
+fn object_cost(token: &str) -> Option<(&'static str, &str)> {
+    for kind in ["Sac", "Discard", "tapXType", "Return"] {
+        if let Some(body) = token
+            .strip_prefix(kind)
+            .and_then(|t| t.strip_prefix('<'))
+            .and_then(|t| t.strip_suffix('>'))
+        {
+            return Some((kind, body));
+        }
+    }
+    None
+}
 
 /// Whether a cost part is paid by naming an object.
 ///
@@ -4527,11 +4563,14 @@ mod tests {
     /// the cost "artifact>" — which is a part nobody wrote and a card nobody
     /// could have fixed. 731 of the reference's costs are written this way.
     ///
-    /// The counter-test is the point of the second half: a sacrifice of
-    /// something other than the source is still unread, and reads as
-    /// `Sac` — the 206-script bucket the report already names. A tokeniser
-    /// fix that moved that number would be a tokeniser fix that started
-    /// reading costs.
+    /// The counter-test is the point of the second half, and it changed its
+    /// shape when the reader learned these costs: a sacrifice of something
+    /// other than the source used to be refused, and the refusal was the
+    /// proof that the tokeniser had handed the whole bracket over in one
+    /// piece. It is read now, so the proof is what comes *out* — one `{1}`
+    /// and one `Sacrifice`, with the reference's own prose ("another
+    /// creature", spaces and all) nowhere in the filter. A tokeniser that
+    /// split on whitespace would put it there.
     #[test]
     fn a_cost_is_not_split_inside_its_own_brackets() {
         let body = read(
@@ -4565,14 +4604,21 @@ mod tests {
             body: CardBody::default(),
             unclaimed: std::cell::RefCell::new(None),
         };
+        let cost = tx
+            .cost_expr("1 Sac<1/Creature.Other/another creature>")
+            .expect("a bracketed sacrifice is one token");
+        assert_eq!(cost, "cost!(\"{1}\", Sacrifice(&COST1))");
         assert!(
-            tx.cost_expr("1 Sac<1/Creature.Other/another creature>")
-                .is_none()
+            tx.body.statics.contains("Filter::Another")
+                && tx.body.statics.contains("Filter::ControlledByYou")
+                && !tx.body.statics.contains("another creature"),
+            "the prose is the reference's own label, not part of the filter: {}",
+            tx.body.statics
         );
         assert_eq!(
-            tx.unclaimed.into_inner().as_deref(),
-            Some("cost `Sac`"),
-            "a sacrifice of something else is still unread, and says so"
+            tx.unclaimed.into_inner(),
+            None,
+            "nothing was refused, so nothing has a reason to give"
         );
     }
 
@@ -4876,9 +4922,13 @@ mod tests {
         // is spelled out rather than merely asserted non-empty, because
         // "some reason" is what a fallback produces too.
         let cases: &[(&str, &str)] = &[
+            // `Discard<1/…>` is read now, so the refusal moved to the
+            // count: `CostPart` carries one object per part, and a cost
+            // paid with one card where the script charges two is a
+            // discount.
             (
-                "Name:X\nTypes:Creature\nA:AB$ Draw | Cost$ Discard<1/Card> | NumCards$ 1",
-                "cost `Discard`",
+                "Name:X\nTypes:Creature\nA:AB$ Draw | Cost$ Discard<2/Card> | NumCards$ 1",
+                "a cost naming `2` objects",
             ),
             (
                 "Name:X\nTypes:Creature\nA:AB$ Draw | NumCards$ 1",
@@ -4965,12 +5015,12 @@ mod tests {
             (
                 "Name:X\nTypes:Creature\n\
                  A:AB$ Untap | Cost$ Return<2/Forest> | ValidTgts$ Creature",
-                "a cost returning `2` permanents",
+                "a cost naming `2` objects",
             ),
             (
                 "Name:X\nTypes:Creature\n\
                  A:AB$ Untap | Cost$ Return<X/Forest> | ValidTgts$ Creature",
-                "a cost returning `X` permanents",
+                "a cost naming `X` objects",
             ),
             // "Doesn't untap" is a rule about *your* untap step and about
             // nothing else this reader can say. Both keys are required

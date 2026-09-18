@@ -6659,3 +6659,516 @@ fn a_land_that_costs_mana_is_kept_by_making_it_inside_the_window() {
         );
     }
 }
+
+/// The table above is the whole family, asked of the compiled pool.
+///
+/// [`PAYS_BY_RETURNING_A_LAND`] claims to be every land that escapes its
+/// sacrifice by bouncing one, and a claim about a population is worth what a
+/// test says it is: a fifteenth of these written by a later codegen run would
+/// otherwise pass every gate in this file while never being played once. The
+/// same argument as `lints::every_layer_in_the_pool_is_the_one_its_modifier_derives`
+/// and the reason `no_card_claims_a_keyword_the_engine_ignores` is a test.
+///
+/// Set equality both ways, because the two failures are different repairs: a
+/// card the pool has and the table does not is a card to play, and a row
+/// naming a card the pool no longer has is a row to delete.
+#[test]
+fn every_land_that_pays_by_returning_one_is_in_the_table() {
+    let mut pool: Vec<&str> = Vec::new();
+    for (oracle_id, def) in baylee_cards::generated::ALL {
+        let faces = def.faces.iter().map(|f| f.abilities);
+        for list in core::iter::once(def.abilities).chain(faces) {
+            let dump = format!("{list:?}");
+            if dump.match_indices("PlayerMayPayCostOr { ").any(|(at, _)| {
+                dump[at..]
+                    .split_once("cost: ")
+                    .is_some_and(|(_, tail)| tail.starts_with("ReturnToHand("))
+            }) {
+                pool.push(oracle_id);
+            }
+        }
+    }
+    pool.sort_unstable();
+    pool.dedup();
+    let mut table: Vec<&str> = PAYS_BY_RETURNING_A_LAND.iter().map(|(id, _)| *id).collect();
+    table.sort_unstable();
+
+    assert!(
+        pool.len() >= 10,
+        "only {} lands in the pool escape a sacrifice by bouncing, against \
+         the ten that carried it when this was written — the probe broke",
+        pool.len()
+    );
+    assert_eq!(
+        pool, table,
+        "the pool and PAYS_BY_RETURNING_A_LAND disagree. A card the table \
+         is missing is a card nothing plays; a row the pool is missing names \
+         a card that left"
+    );
+}
+
+/// The eleven lands whose *activation* cost asks the player to name an
+/// object, with the one thing each needs on the board to pay it.
+///
+/// A second family from the same transcoder rule as
+/// [`PAYS_BY_RETURNING_A_LAND`] and a different sentence: this is not an
+/// escape from an effect but a price on an ability, `{T}, Sacrifice a
+/// creature:` and its neighbours. What they share is the part the player
+/// answers by naming something, which is what this table plays.
+///
+/// Two cards feed all of them and are not chosen for convenience. Baleful
+/// Strix is an *artifact creature — Bird*, so one card is a legal answer to
+/// "a creature", "an artifact" and "a Bird" alike; Gateway Plaza is a
+/// *Gate*, which is a land. Ipnu Rivulet needs neither, because it
+/// sacrifices a Desert and is one — the row a filter written as "another"
+/// would have got wrong.
+const PAYS_BY_NAMING_AN_OBJECT: &[(&str, Feed)] = &[
+    ("86fb3749-37d6-48a6-8524-71e996850307", Feed::Strix), // High Market
+    ("5effaa94-7f87-4485-8959-473d584c5034", Feed::Strix), // Grim Backwoods
+    ("ea4d6fcd-21e0-4e9f-b406-a89042998d98", Feed::Strix), // Keldon Necropolis
+    ("b6cc062c-eb39-46ee-bd6d-17f1db0ac50d", Feed::Strix), // Phyrexia's Core
+    ("4adc39dd-8de1-4298-947c-ff666ec3adeb", Feed::Strix), // Seaside Haven
+    ("9abf9a0e-8e7d-406b-a01d-d4870b30134e", Feed::Strix), // The Shire
+    ("d3df7128-31dd-4d71-90be-87e2e9ff51b4", Feed::Plaza), // Dust Bowl
+    ("e10e84a7-d564-487a-ac64-5a001a45ee90", Feed::Plaza), // Rath's Edge
+    ("35922a30-6b84-44dd-a2f0-306554a1ae90", Feed::Plaza), // Heap Gate
+    ("c17d799f-adc9-4c41-87cf-b243b5ea3be1", Feed::Itself), // Ipnu Rivulet
+    ("850bb6f7-48d3-4d65-9220-b0bec5ee6b64", Feed::HandCard), // Fogwell's Gym
+];
+
+/// What a row seats so its land can pay.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+enum Feed {
+    /// Baleful Strix: a creature, an artifact and a Bird in one card.
+    Strix,
+    /// Gateway Plaza: a land, and a Gate.
+    Plaza,
+    /// A card in hand, for the one that discards.
+    HandCard,
+    /// The land is its own feed.
+    Itself,
+}
+
+fn baleful_strix() -> CardIndex {
+    card_index("37688720-03de-4eca-a82d-a0afe8d58adc")
+}
+
+fn gateway_plaza() -> CardIndex {
+    card_index("a6543f71-0326-4e1f-b58f-9ce325d5d036")
+}
+
+/// The `Cost` an activated ability charges, both spellings.
+///
+/// `ActivatedConditional` is the twin six readers across this workspace have
+/// already been found matching only half of.
+fn activation_cost(ability: &'static AbilityDef) -> Option<&'static baylee_cards_dsl::Cost> {
+    match ability {
+        AbilityDef::Activated { cost, .. } | AbilityDef::ActivatedConditional { cost, .. } => {
+            Some(cost)
+        }
+        _ => None,
+    }
+}
+
+/// The ability of `card` whose cost asks the player to name an object.
+///
+/// Found by reading the compiled `CostPart`s rather than by writing an index
+/// into the table: the index is a card file's ability order, which is
+/// codegen's to change, and a test pinned to it would start exercising the
+/// mana ability the day a card grew a second one.
+fn ability_that_asks(engine: &Engine<RegistryLookup>, card: CardIndex) -> Option<(ObjectId, u32)> {
+    use baylee_cards_dsl::CostPart;
+    let Pending::Priority { legal, .. } = engine.pending() else {
+        return None;
+    };
+    legal.abilities.iter().copied().find(|(id, index)| {
+        engine
+            .state()
+            .object(*id)
+            .and_then(|o| o.card)
+            .filter(|c| c.index == card)
+            .and_then(|c| baylee_cards::by_index(c.index))
+            .and_then(|def| def.abilities.get(*index as usize))
+            .and_then(activation_cost)
+            .is_some_and(|cost| {
+                cost.parts.iter().any(|part| {
+                    matches!(
+                        part,
+                        CostPart::Sacrifice(_)
+                            | CostPart::Discard(_)
+                            | CostPart::TapOther(_)
+                            | CostPart::ReturnToHand(_)
+                    )
+                })
+            })
+    })
+}
+
+/// Every row: the land is played, the price is named, and what was named
+/// has paid.
+///
+/// The assertion is on the **object**, not on the ability's effect: what
+/// this rule wrote is the cost, and a sacrifice that drew a card while
+/// leaving the creature on the battlefield is exactly the failure a test on
+/// "did I draw" would pass. Which zone the object lands in is read off the
+/// part it paid, because a discard and a sacrifice both reach a graveyard
+/// and a tap reaches nothing at all.
+#[test]
+fn a_land_whose_cost_names_an_object_is_paid_with_that_object() {
+    for (i, (oracle, feed)) in PAYS_BY_NAMING_AN_OBJECT.iter().enumerate() {
+        let card = card_index(oracle);
+        let p0 = PlayerId::new(0);
+        let seed = 960 + u64::try_from(i).expect("eleven rows");
+        // Enough of every colour for the dearest of them, `{4}{R}`.
+        let mut board = vec![
+            plains(),
+            plains(),
+            island(),
+            island(),
+            swamp(),
+            swamp(),
+            mountain(),
+            mountain(),
+            forest(),
+            forest(),
+        ];
+        let mut hand = vec![card];
+        match feed {
+            Feed::Strix => board.push(baleful_strix()),
+            Feed::Plaza => board.push(gateway_plaza()),
+            Feed::HandCard => hand.push(plains()),
+            Feed::Itself => {}
+        }
+        let mut engine = Duel::new(seed, forest())
+            .battlefield(0, &board)
+            .hand(0, &hand)
+            .start();
+        keep_mulligans(&mut engine);
+        reach_main_phase(&mut engine, p0);
+
+        let land = play_land(&mut engine, p0, card);
+        // Round the turn before activating. Three of these lands come down
+        // tapped — The Shire unless you control a legendary creature, and
+        // it is not one — and their own `{T}` is part of the price, so a
+        // test that activated the turn they arrived would be measuring
+        // summoning-sick lands rather than costs.
+        cross_into_the_next_own_main(&mut engine, p0);
+        // Everything but the land itself: its `{T}` is part of the price.
+        tap_all_mana_but(&mut engine, p0, Some(card));
+
+        let (source, index) = ability_that_asks(&engine, card)
+            .unwrap_or_else(|| panic!("{oracle} offers no ability that asks for an object"));
+        assert_eq!(source, land, "the ability is on the land just played");
+        engine
+            .apply(
+                p0,
+                PlayerAction::ActivateAbility {
+                    source,
+                    ability_index: index,
+                },
+            )
+            .unwrap();
+
+        // CR 601.2c puts targets before costs, so three of these rows ask
+        // where the ability points before they ask what pays for it. The
+        // first legal answer will do — this test is about the price.
+        if let Pending::ChooseTargets {
+            options,
+            player_options,
+            ..
+        } = engine.pending().clone()
+        {
+            let (objects, players) = match (options.first(), player_options.first()) {
+                (Some(&object), _) => (vec![object], vec![]),
+                (None, Some(&player)) => (vec![], vec![player]),
+                (None, None) => panic!("{oracle} asked for a target and offered none"),
+            };
+            engine
+                .apply(p0, PlayerAction::ChooseTargets { objects, players })
+                .unwrap();
+        }
+        let Pending::ChooseCards {
+            player,
+            options,
+            min,
+            max,
+            ..
+        } = engine.pending().clone()
+        else {
+            panic!(
+                "{oracle} asked no cost question, got {:?}",
+                engine.pending()
+            )
+        };
+        assert_eq!(player, p0);
+        assert_eq!(
+            (min, max),
+            (1, 1),
+            "an activation cost is not optional — one object, and exactly one"
+        );
+        if matches!(feed, Feed::Strix | Feed::Itself) {
+            no_basic_land_on_the_menu(&engine, &options, oracle);
+        }
+        let paid = *options.first().unwrap_or_else(|| {
+            panic!("{oracle} put an empty menu up, which is a dead end for a client")
+        });
+        engine
+            .apply(
+                p0,
+                PlayerAction::ChooseObjects {
+                    objects: vec![paid],
+                },
+            )
+            .unwrap();
+
+        the_object_paid(&engine, card, index, paid, p0, oracle);
+    }
+}
+
+/// No basic land is a legal answer to a price that is not a land.
+///
+/// An independent reading of the menu, and the reason it is here: reading
+/// only `options[0]` let a `cost_wizard::options` with its filter bypassed
+/// pass the test above, because the first offer happened to be the right
+/// one anyway. Ten basics are on that board precisely so that a menu which
+/// ignored its filter would be visibly wrong.
+fn no_basic_land_on_the_menu(engine: &Engine<RegistryLookup>, options: &[ObjectId], oracle: &str) {
+    for &offered in options {
+        let is_basic = engine
+            .state()
+            .object(offered)
+            .and_then(|o| o.card)
+            .and_then(|c| baylee_cards::by_index(c.index))
+            .is_some_and(|def| {
+                def.faces.first().is_some_and(|face| {
+                    face.supertypes
+                        .contains(baylee_core::types::SupertypeSet::BASIC)
+                })
+            });
+        assert!(
+            !is_basic,
+            "{oracle} offers a basic land for a price that is not a land"
+        );
+    }
+}
+
+/// What paying looks like, read off the part that was paid.
+///
+/// A discard and a sacrifice both reach a graveyard and a tap reaches
+/// nothing at all, so the outcome is asked of the `CostPart` rather than
+/// assumed — and it is asked of the **object**, because a sacrifice that
+/// drew its card while leaving the creature on the battlefield is exactly
+/// what a test on the ability's effect would let through.
+fn the_object_paid(
+    engine: &Engine<RegistryLookup>,
+    card: CardIndex,
+    index: u32,
+    paid: ObjectId,
+    seat: PlayerId,
+    oracle: &str,
+) {
+    use baylee_cards_dsl::CostPart;
+    let part = baylee_cards::by_index(card)
+        .and_then(|def| def.abilities.get(index as usize))
+        .and_then(activation_cost)
+        .and_then(|cost| {
+            cost.parts.iter().find(|part| {
+                matches!(
+                    part,
+                    CostPart::Sacrifice(_) | CostPart::Discard(_) | CostPart::TapOther(_)
+                )
+            })
+        })
+        .expect("the part this row is about");
+    match part {
+        CostPart::TapOther(_) => assert!(
+            engine
+                .state()
+                .object(paid)
+                .is_some_and(|o| o.status.contains(Status::TAPPED)),
+            "{oracle}: what paid is tapped"
+        ),
+        _ => assert!(
+            !engine
+                .state()
+                .zones
+                .list(ZoneLocation::Battlefield)
+                .contains(&paid)
+                && !engine
+                    .state()
+                    .zones
+                    .list(ZoneLocation::Hand(seat))
+                    .contains(&paid),
+            "{oracle}: what paid has left the zone it paid from"
+        ),
+    }
+}
+
+/// Command Bridge: "sacrifice it unless you **tap** an untapped permanent
+/// you control."
+///
+/// The same "unless" as the Karoo cycle with the other asking part, and the
+/// row that says the two families are one rule: the price is a `TapOther`
+/// rather than a `ReturnToHand`, and nothing else about the sentence
+/// changes. What it also pins is CR 118.3 on the menu — a permanent that is
+/// already tapped is not an answer, which is what the card's own word
+/// "untapped" says and what `cost_wizard::options` supplies.
+#[test]
+fn a_land_that_costs_a_tap_keeps_itself_when_something_untapped_is_named() {
+    let p0 = PlayerId::new(0);
+    let bridge = card_index("87c8e1ed-258a-4a89-bcc6-211405e49692");
+    let mut engine = Duel::new(930, forest())
+        .battlefield(0, &[forest(), island()])
+        .hand(0, &[bridge])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    // One of the two is spent, so the menu has to be shorter than the board.
+    let island_id = *engine
+        .state()
+        .zones
+        .list(ZoneLocation::Battlefield)
+        .iter()
+        .find(|id| {
+            engine
+                .state()
+                .object(**id)
+                .and_then(|o| o.card)
+                .is_some_and(|c| c.index == island())
+        })
+        .expect("the Island is on the battlefield");
+    engine
+        .apply(p0, PlayerAction::ActivateManaAbility { source: island_id })
+        .unwrap();
+
+    let land = play_land(&mut engine, p0, bridge);
+    let (options, prompt) = reach_the_unless_question(&mut engine, land).expect("it asks");
+    assert_eq!(prompt, ChoicePrompt::CostTap);
+    assert!(
+        !options.contains(&island_id),
+        "a tapped permanent cannot be tapped to pay (CR 118.3)"
+    );
+    let paid = options[0];
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![paid],
+            },
+        )
+        .unwrap();
+
+    assert!(
+        engine
+            .state()
+            .zones
+            .list(ZoneLocation::Battlefield)
+            .contains(&land),
+        "the land was paid for and stays"
+    );
+    assert!(
+        engine
+            .state()
+            .object(paid)
+            .is_some_and(|o| o.status.contains(Status::TAPPED)),
+        "and what paid is tapped"
+    );
+}
+
+/// Fountainport: "{2}, {T}, Sacrifice a **token**: Draw a card."
+///
+/// The thirteenth of the family and the only one whose price is a filter
+/// over what a permanent *is* rather than what it is called: `Filter::IsToken`
+/// is true of no card in any decklist, so the land has to make its own
+/// payment first. Which is also why it takes two turns — one `{T}` per turn,
+/// and this card charges one for the Treasure and one for the draw.
+#[test]
+fn a_land_that_sacrifices_a_token_makes_one_first() {
+    let p0 = PlayerId::new(0);
+    let port = card_index("94e8b0a9-44a1-4dce-8d44-78681ae638a1");
+    let mut engine = Duel::new(931, forest())
+        .battlefield(
+            0,
+            &[
+                port,
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                island(),
+                island(),
+            ],
+        )
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    // Turn one: `{4}, {T}: Create a Treasure token`.
+    let treasure_maker = baylee_cards::by_index(port)
+        .expect("the card is in the pool")
+        .abilities
+        .iter()
+        .position(|a| {
+            format!("{a:?}").contains("CreateToken") && !format!("{a:?}").contains("LoseLife")
+        })
+        .expect("the Treasure ability");
+    tap_all_mana_but(&mut engine, p0, Some(port));
+    let source = *engine
+        .state()
+        .zones
+        .list(ZoneLocation::Battlefield)
+        .iter()
+        .find(|id| {
+            engine
+                .state()
+                .object(**id)
+                .and_then(|o| o.card)
+                .is_some_and(|c| c.index == port)
+        })
+        .expect("Fountainport is on the battlefield");
+    engine
+        .apply(
+            p0,
+            PlayerAction::ActivateAbility {
+                source,
+                ability_index: u32::try_from(treasure_maker).expect("a small index"),
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, |e| {
+        e.state()
+            .zones
+            .list(ZoneLocation::Battlefield)
+            .iter()
+            .any(|id| e.state().object(*id).is_some_and(|o| o.card.is_none()))
+    });
+
+    // Turn two: the token is on the board, so the sacrifice has an answer.
+    cross_into_the_next_own_main(&mut engine, p0);
+    tap_all_mana_but(&mut engine, p0, Some(port));
+    let (asks, index) = ability_that_asks(&engine, port).expect("the sacrifice is offered");
+    engine
+        .apply(
+            p0,
+            PlayerAction::ActivateAbility {
+                source: asks,
+                ability_index: index,
+            },
+        )
+        .unwrap();
+    let Pending::ChooseCards { options, .. } = engine.pending().clone() else {
+        panic!("expected the cost question, got {:?}", engine.pending())
+    };
+    assert_eq!(
+        options.len(),
+        1,
+        "the Treasure is a token and nothing else on this board is"
+    );
+    assert!(
+        engine
+            .state()
+            .object(options[0])
+            .is_some_and(|o| o.card.is_none()),
+        "what the menu offers is the token"
+    );
+}
