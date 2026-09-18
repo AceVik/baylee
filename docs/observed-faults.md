@@ -3107,3 +3107,83 @@ without anything failing.
 
 Not yet measured: whether the house AI's mana counting has the same union, or
 counts `mana_abilities` and `abilities` separately.
+
+## Fifteenth pass, 2026-09-18 — from the owner's ability-sheet report
+
+### 58. The ability sheet cannot open for a Class or a Leveler, and no counter but ±1/±1 is drawn anywhere — CONFIRMED
+
+Reported: *"Denk daran den Dialog auch für Classes und Levels zu erweitern."*
+
+There is no dialog to extend, and that is structural rather than an omission.
+`hud::sheet::sync_ability_sheet` opens on
+`.filter(|(_, options)| options.len() > 1)` — one option activates on the
+click that found it, which is the rule that keeps a fetchland at two taps
+instead of three. A Class prints one level-up per level and each carries
+`Condition::CountersOnSelfExactly(CounterKind::Level, n)`, so **exactly one
+of them is ever legal**; a Leveler prints one `Level up {cost}` and nothing
+else. Neither can ever reach two options, so the sheet is unreachable for
+every Class and every Leveler there is — not merely for the ones in this
+pool.
+
+Measured at a live table, `BAYLEE_DEV_SEAT_BOARD="0:Wizard Class;0:Island;
+0:Island;0:Island"`: three Islands tapped, the level-up armed and fired, and
+the view then carries `counters: [{"kind":"Level","count":1}]`. A screenshot
+of the card at that moment carries **no level mark of any kind** — only the
+Scryfall printing, which draws all three level bands the same because a
+static picture cannot say which one is live. No before/after diff is claimed
+here and none was taken; the two shots on hand differ in hover and arming,
+so they are not a comparable pair. The claim rests on the code, which is the
+stronger half: `counter_swing` `continue`s past every kind that is not
+`Plus`/`Minus`, and nothing else in the client reads `counters` at all.
+
+**The second half is bigger than the first.** Nothing in the client reads
+`PublicObject::counters` except `cardplate::counter_swing` and `cue`, and
+both of them fold `Plus`/`Minus` and `continue` past everything else. So
+`Charge`, `Time`, `Level`, `Lifelink`, `Loyalty`-on-a-non-planeswalker and
+`Custom` are drawn nowhere and named nowhere. Two places say otherwise in
+writing — `cardplate::counter_swing`'s doc comment and
+`crates/baylee-client/CLAUDE.md` — both claiming *"they are still named in
+full by the card's badge tooltip"*. There is no such tooltip:
+`cardrail`'s own header says the hover tooltip it was written for is
+*"nothing calls it yet"*. The chips were traded away for the swing, which
+was right, and the half of the trade that was supposed to pay for them was
+never built. Both sentences are corrected in the commit that adds this
+entry; the fault they were hiding is this one.
+
+The population is what makes the routes hard to choose between. This pool has
+two Classes (`wizard_class` implemented, `druid_class` a stub), one Leveler
+(`hexdrinker`, a stub, so the deckbuilder does not offer it), and **21**
+`CounterKind::Charge` sites across twelve cards — so the counter half is
+seven times the level half and rising, while the level half is the one the
+owner asked about.
+
+Three routes, none of them free:
+
+- **The sheet opens for a lone arm-then-act option.** Closest to the words of
+  the report and the only one that puts a level *in the dialog*. It costs a
+  third click on every fetchland and every single-ability permanent, which
+  reverses a rule the client was built on.
+- **The level goes on the card.** The plate is the natural home and its two
+  kind bits are full (`NONE`/`FIGHT`/`LOYALTY`/`LORE`), and a Leveler is a
+  creature whose plate is already its power and toughness — so this is a
+  third kind bit plus a packed number, or a new row on `cardcrest`, whose
+  rows are deliberately fixed and whose glyph set is deliberately closed.
+- **The level goes under the hover preview**, beside `hud::slip`, which today
+  fires only for a stack entry. Cheapest by far, keeps the promise the two
+  corrected sentences made, and is the only one of the three that scales to
+  charge counters without a second design.
+
+The Mana font supplies what the owner remembered: `E9C7`/`E9C8` are the
+Leveler frame's `LEVEL` band, and `E9F9`–`EA01` are numbered banners 1–9,
+which is the same mark a saga chapter wants. All of them are §2a tier three —
+read against the Fan Content Policy's table on 18.09.2026, fifteen images,
+none of these among them — so they are usable, behind a fourth glyph door
+with that date on it. A **fifth** door is not needed for the level and the
+chapter separately: they are one mark asked twice.
+
+One rules detail whichever route is taken, because the two halves of the
+report are not the same arithmetic. A Class's level is *one plus* its level
+counters (CR 716.2c) and a Leveler's level *is* its level counters
+(CR 711.2b), so a Wizard Class carrying one counter stands at level 2 while a
+Hexdrinker carrying one stands at level 1. The client can tell them apart
+without asking the pool: a Class is an enchantment, a Leveler is a creature.

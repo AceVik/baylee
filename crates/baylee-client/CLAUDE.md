@@ -595,7 +595,10 @@ disc with three pips is a rebus for `+3/+3` and the plate below it was
 already writing the answer. What that costs is named out loud in
 `cardplate::counter_swing`: charge, time, level, keyword and
 loyalty-on-a-non-planeswalker counters have no mark on the table any more,
-and the badge tooltip is where they are named. `+1/+1` and `-1/-1` annihilate
+and the tooltip that was to name them instead does not exist — they are drawn
+and named **nowhere**, which `docs/observed-faults.md` 58 measures and which
+is why a Class at level 2 is indistinguishable from one at level 1.
+`+1/+1` and `-1/-1` annihilate
 as a state-based action (CR 704.5q), so a net of nothing draws nothing. A
 **saga** takes the plate itself — a square parchment page with a roman
 chapter — which is why `Corner::of` decides the plate and the line together

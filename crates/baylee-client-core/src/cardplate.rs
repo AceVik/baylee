@@ -219,8 +219,12 @@ fn chapter(counters: &[CounterEntry]) -> Option<u16> {
 ///
 /// The cost is named rather than hidden: charge, time, level, loyalty-on-a-
 /// non-planeswalker and keyword counters had a chip each and now have none.
-/// They are still named in full by the card's badge tooltip, which is where
-/// the chips' colour code always had to be decoded anyway.
+/// This used to say they were "still named in full by the card's badge
+/// tooltip", which was the half of the trade that paid for them and which
+/// was never built — nothing in the client reads [`CounterEntry`] but this
+/// function and `crate::cue`, and both fold `Plus`/`Minus` and walk past the
+/// rest. So a Wizard Class at level 2 is drawn exactly as one at level 1.
+/// `docs/observed-faults.md` 58 is the measurement and the three routes out.
 #[must_use]
 pub fn counter_swing(counters: &[CounterEntry]) -> Option<(i16, i16)> {
     let mut power = 0i32;
