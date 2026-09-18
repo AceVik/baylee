@@ -138,6 +138,9 @@ pub struct Face {
     /// English name of this face.
     #[serde(default)]
     pub name: String,
+    /// The oracle card this face is — present only where the printing
+    /// itself has no id. See [`Card::oracle_identity`].
+    pub oracle_id: Option<String>,
     /// Name as printed.
     pub printed_name: Option<String>,
     /// This face's just-for-fun name; see [`Card::flavor_name`].
@@ -175,16 +178,41 @@ impl Card {
             // A flavor name sits on the faces of a reversible card and on the
             // card itself elsewhere, so a face that has none inherits the
             // card's rather than dropping it.
-            return faces
+            let mut out: Vec<Face> = faces
                 .iter()
                 .map(|f| Face {
                     flavor_name: f.flavor_name.clone().or_else(|| self.flavor_name.clone()),
                     ..f.clone()
                 })
                 .collect();
+            if self.faces_are_one_card() {
+                // One row, because `card_search` is keyed on
+                // `(oracle_id, face_index)`: a second row for a face that
+                // exists once in the rules is the same card answering a
+                // search twice, and it would sit beside the face 0 the
+                // ordinary printings of that card already wrote.
+                //
+                // The flavor name is carried across rather than dropped with
+                // the row. Of the six reversible printings that have one,
+                // four put it on one face only (Kardur, Teferi's Ageless
+                // Insight) or say the same thing twice (the three
+                // Transformers Colossi); exactly one prints two different
+                // names — Birds of Paradise SLD 1675, "African Swallow" and
+                // "European Swallow" — and that one keeps the first, which is
+                // the whole cost of the collapse.
+                let flavor = out.iter().find_map(|f| f.flavor_name.clone());
+                out.truncate(1);
+                out[0].flavor_name = flavor;
+            }
+            return out;
         }
         vec![Face {
             name: self.name.clone(),
+            // Spelled out rather than defaulted: a card with one face keeps
+            // its identity at the top level, and `oracle_identity` reads it
+            // from there. A face-level id here would be the reversible shape
+            // with one side, which does not exist.
+            oracle_id: None,
             printed_name: self.printed_name.clone(),
             flavor_name: self.flavor_name.clone(),
             type_line: self.type_line.clone(),
@@ -227,14 +255,82 @@ impl Card {
         self.finishes.clone()
     }
 
-    /// Whether the record is usable: without an id and an oracle id it can be
+    /// The oracle card this printing is, wherever Scryfall put the id.
+    ///
+    /// Ordinarily it is a top-level field. A **reversible card** — one piece
+    /// of cardboard with the same card printed on both sides, in two
+    /// treatments — has none at all, and each face carries it instead. Asking
+    /// only the top level dropped every one of them in silence: `select
+    /// count(*) from cards where layout='reversible_card'` answered 0 against
+    /// Scryfall's 82 English printings, which is how `Hallowed Fountain (ECL)
+    /// 347` came to be a deck line the catalog could not resolve — five
+    /// consecutive collector numbers missing from `ecl`, all five of them
+    /// shocklands in the borderless treatment (#46).
+    #[must_use]
+    pub fn oracle_identity(&self) -> Option<&str> {
+        self.oracle_id.as_deref().or_else(|| self.face_oracle_id())
+    }
+
+    /// The oracle id **every** face agrees on.
+    ///
+    /// Agreement is the whole test. Faces naming different oracle cards would
+    /// be a shape nobody here has decided about, and answering `None` leaves
+    /// such a record exactly as unstorable as it is today rather than picking
+    /// one of the two ids and calling it the card.
+    fn face_oracle_id(&self) -> Option<&str> {
+        let faces = self.card_faces.as_ref()?;
+        let first = faces.first()?.oracle_id.as_deref()?;
+        faces
+            .iter()
+            .all(|f| f.oracle_id.as_deref() == Some(first))
+            .then_some(first)
+    }
+
+    /// Whether this printing's faces are two pictures of **one face** rather
+    /// than the two faces of one card.
+    ///
+    /// Two questions, and the second is not optional. A shared `oracle_id`
+    /// says the faces belong to one card, which a reversible printing of an
+    /// *adventure* also does: `tdm` 381 is one piece of cardboard carrying
+    /// `Bloomvine Regent` on one side and its omen half `Claim Territory` on
+    /// the other, both under one id and both real faces in the rules. So the
+    /// **printed name** decides: same name on every face and it is one face
+    /// photographed twice, different names and it is a card with two of them.
+    ///
+    /// Getting that wrong would have reached the ledger. `card_corpus` picks
+    /// a card's first printing with `DISTINCT ON (oracle_id) ORDER BY
+    /// released_at, …, collector_number`, and `collector_number` is text —
+    /// `'378' < '51'` — so the borderless printing *is* the one it picks for
+    /// Marang River Regent and Scavenger Regent. Collapsing those to one face
+    /// would have renamed two ledger rows from `Marang River Regent // Coil
+    /// and Catch` to `Marang River Regent`.
+    ///
+    /// Read off the shape and never off `layout`: a transforming card keeps
+    /// its id at the top level, so it is untouched by this and keeps both
+    /// rows whatever its faces are called.
+    #[must_use]
+    pub fn faces_are_one_card(&self) -> bool {
+        if self.oracle_id.is_some() || self.face_oracle_id().is_none() {
+            return false;
+        }
+        let Some(faces) = self.card_faces.as_ref() else {
+            return false;
+        };
+        let Some(first) = faces.first() else {
+            return false;
+        };
+        faces.iter().all(|f| f.name == first.name)
+    }
+
+    /// Whether the record is usable: without an id and an oracle id —
+    /// wherever Scryfall put it, see [`Card::oracle_identity`] — it can be
     /// neither stored nor found again.
     ///
     /// Scryfall's bulk feed also contains tokens, art series and memorabilia,
     /// which have no oracle identity and no rules text worth caching.
     #[must_use]
     pub fn is_storable(&self) -> bool {
-        !self.id.is_empty() && self.oracle_id.is_some()
+        !self.id.is_empty() && self.oracle_identity().is_some()
     }
 }
 
@@ -333,7 +429,9 @@ mod tests {
     /// A flavor name is the printing's, not the card's, and Scryfall puts it
     /// in two different places: on the card for an ordinary printing, on each
     /// face for a reversible one whose halves disagree. Both have to reach
-    /// `faces()`, or the search loses the name a player is holding.
+    /// `faces()`, or the search loses the name a player is holding — and a
+    /// reversible printing is **one** face, so the name on its second half has
+    /// to be carried onto the row that is kept.
     #[test]
     fn a_flavor_name_reaches_the_face_from_wherever_scryfall_put_it() {
         let single: Card = serde_json::from_str(
@@ -350,18 +448,40 @@ mod tests {
         );
         assert_eq!(single.name, "Abrade", "the Oracle name is untouched");
 
+        // The real shape: no top-level `oracle_id`, one on each face, and the
+        // same one. SLD 1675 is the single printing in the world whose two
+        // halves print different names.
         let reversible: Card = serde_json::from_str(
-            r#"{"id":"c","oracle_id":"d","lang":"en","set":"sld",
-                "collector_number":"2","name":"Birds of Paradise // Birds of Paradise",
+            r#"{"id":"c","lang":"en","set":"sld",
+                "collector_number":"1675","name":"Birds of Paradise // Birds of Paradise",
                 "layout":"reversible_card",
                 "card_faces":[
-                  {"name":"Birds of Paradise","flavor_name":"African Swallow"},
-                  {"name":"Birds of Paradise","flavor_name":"European Swallow"}]}"#,
+                  {"name":"Birds of Paradise","oracle_id":"d",
+                   "flavor_name":"African Swallow"},
+                  {"name":"Birds of Paradise","oracle_id":"d",
+                   "flavor_name":"European Swallow"}]}"#,
         )
         .expect("decodes");
         let faces = reversible.faces();
+        assert_eq!(faces.len(), 1, "one card, one row: {faces:?}");
         assert_eq!(faces[0].flavor_name.as_deref(), Some("African Swallow"));
-        assert_eq!(faces[1].flavor_name.as_deref(), Some("European Swallow"));
+
+        // The four that print a name on one half only keep it, which is the
+        // case the collapse would lose if it read face 0 and stopped.
+        let one_sided: Card = serde_json::from_str(
+            r#"{"id":"g","lang":"en","set":"sld",
+                "collector_number":"1807","name":"Kardur // Kardur",
+                "layout":"reversible_card",
+                "card_faces":[
+                  {"name":"Kardur","oracle_id":"h"},
+                  {"name":"Kardur","oracle_id":"h","flavor_name":"Chucky"}]}"#,
+        )
+        .expect("decodes");
+        assert_eq!(
+            one_sided.faces()[0].flavor_name.as_deref(),
+            Some("Chucky"),
+            "a name printed on the second half only was dropped with its row"
+        );
 
         // A multi-face card whose faces carry none inherits the card's.
         let inherited: Card = serde_json::from_str(
@@ -378,5 +498,95 @@ mod tests {
                 .all(|f| f.flavor_name.as_deref() == Some("Megatron")),
             "a face with no flavor name of its own takes the card's"
         );
+    }
+
+    /// A reversible card is one piece of cardboard with the same card on both
+    /// sides, and its oracle id lives on the faces. Reading only the top level
+    /// dropped all 82 English printings of the shape, which is a deck line
+    /// that resolves to nothing rather than to the wrong card (#46).
+    #[test]
+    fn a_reversible_printing_is_stored_under_the_id_its_faces_carry() {
+        let shock: Card = serde_json::from_str(
+            r#"{"id":"cc0c1b0e-0000-4000-8000-000000000001","lang":"en",
+                "set":"ecl","collector_number":"347",
+                "name":"Hallowed Fountain // Hallowed Fountain",
+                "layout":"reversible_card",
+                "card_faces":[
+                  {"name":"Hallowed Fountain",
+                   "oracle_id":"f1750962-a87c-49f6-b731-02ae971ac6ea",
+                   "type_line":"Land — Plains Island"},
+                  {"name":"Hallowed Fountain",
+                   "oracle_id":"f1750962-a87c-49f6-b731-02ae971ac6ea",
+                   "type_line":"Land — Plains Island"}]}"#,
+        )
+        .expect("decodes");
+        assert!(shock.is_storable(), "the printing was dropped");
+        assert_eq!(
+            shock.oracle_identity(),
+            Some("f1750962-a87c-49f6-b731-02ae971ac6ea")
+        );
+        let faces = shock.faces();
+        assert_eq!(faces.len(), 1, "two rows for one card: {faces:?}");
+        assert_eq!(faces[0].type_line.as_deref(), Some("Land — Plains Island"));
+    }
+
+    /// The counter-test, and the reason agreement is the test rather than
+    /// "the first face wins": faces naming two different oracle cards are a
+    /// shape nobody has decided about, and it stays out rather than being
+    /// stored as one of them.
+    #[test]
+    fn faces_that_name_two_different_cards_are_still_refused() {
+        let odd: Card = serde_json::from_str(
+            r#"{"id":"x","lang":"en","set":"zzz","collector_number":"1",
+                "name":"A // B",
+                "card_faces":[{"name":"A","oracle_id":"one"},
+                              {"name":"B","oracle_id":"two"}]}"#,
+        )
+        .expect("decodes");
+        assert_eq!(odd.oracle_identity(), None);
+        assert!(!odd.is_storable());
+        assert!(!odd.faces_are_one_card());
+
+        // And a transforming card keeps both of its rows: its id is at the
+        // top level, so its faces are two objects in the rules.
+        let dfc: Card = serde_json::from_str(
+            r#"{"id":"y","oracle_id":"z","lang":"en","set":"mid",
+                "collector_number":"1","name":"Front // Back",
+                "layout":"transform",
+                "card_faces":[{"name":"Front"},{"name":"Back"}]}"#,
+        )
+        .expect("decodes");
+        assert!(!dfc.faces_are_one_card());
+        assert_eq!(dfc.faces().len(), 2);
+    }
+
+    /// The case a shared `oracle_id` alone gets wrong. `tdm` 381 is one piece
+    /// of cardboard with `Bloomvine Regent` on one side and its omen half
+    /// `Claim Territory` on the other: no top-level id, both faces carrying
+    /// the same one, and **two** faces in the rules. Six printings have this
+    /// shape and all six are in Tarkir: Dragonstorm.
+    #[test]
+    fn a_reversible_printing_of_a_card_with_two_faces_keeps_both() {
+        let omen: Card = serde_json::from_str(
+            r#"{"id":"n","lang":"en","set":"tdm","collector_number":"381",
+                "name":"Bloomvine Regent // Claim Territory // Bloomvine Regent",
+                "layout":"reversible_card",
+                "card_faces":[
+                  {"name":"Bloomvine Regent",
+                   "oracle_id":"da1e019c-2ffb-412d-90d7-f2e5e5c44c4b",
+                   "type_line":"Creature — Dragon"},
+                  {"name":"Claim Territory",
+                   "oracle_id":"da1e019c-2ffb-412d-90d7-f2e5e5c44c4b",
+                   "type_line":"Sorcery — Omen"}]}"#,
+        )
+        .expect("decodes");
+        assert!(omen.is_storable(), "the printing was dropped");
+        assert!(
+            !omen.faces_are_one_card(),
+            "two different faces were read as one photographed twice"
+        );
+        let faces = omen.faces();
+        assert_eq!(faces.len(), 2, "the omen half went missing: {faces:?}");
+        assert_eq!(faces[1].name, "Claim Territory");
     }
 }

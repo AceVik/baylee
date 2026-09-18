@@ -134,6 +134,26 @@ impl Sandbox {
         row.try_get("", "data_type").expect("a type name")
     }
 
+    /// What a single-number query in this sandbox's own schema answers, with
+    /// a literal `{s}` in the SQL standing for the schema's name.
+    ///
+    /// Qualified rather than left bare for the reason the module header
+    /// gives: an unqualified name walks the `search_path`, and a developer's
+    /// `public` holds half a gigabyte of ingested card text that would answer
+    /// instead. The count comes back as `n`.
+    async fn count(&self, sql: &str) -> i64 {
+        let row = self
+            .admin
+            .query_one_raw(Statement::from_string(
+                DbBackend::Postgres,
+                sql.replace("{s}", &self.schema),
+            ))
+            .await
+            .expect("counting")
+            .expect("the question returned no row");
+        row.try_get("", "n").expect("a count")
+    }
+
     /// Upsert, then project — in that order, because the search reads the
     /// projection and `upsert` deliberately does not write it.
     async fn fill(&self, cards: &[scryfall::Card]) {
@@ -914,6 +934,106 @@ async fn a_card_is_found_by_the_name_a_secret_lair_printed_on_it() {
         .await
         .expect("searching for a name that was never printed");
     assert!(none.is_empty(), "an unprinted name matched: {none:?}");
+
+    sandbox.close().await;
+}
+
+/// A reversible card is one piece of cardboard printed with the same card on
+/// both sides, and Scryfall puts its `oracle_id` on the faces rather than at
+/// the top. The catalog asked only the top level, so **every** such printing
+/// was dropped in silence: `ecl` ran 345, 346, then nothing until 352, and
+/// the five missing numbers are the shocklands in the borderless treatment.
+/// `1 Hallowed Fountain (ECL) 347` in `data/decks/allytifact.txt` resolved to
+/// no card at all (#46).
+///
+/// Two things are asserted, because fixing the first would be easy to do by
+/// storing the card twice: the printing is **there**, and the card is still
+/// one row in the projection. `card_search` is keyed on
+/// `(oracle_id, face_index)`, so a second face would answer every search for
+/// Hallowed Fountain a second time.
+#[tokio::test]
+async fn a_reversible_printing_is_stored_once_beside_the_ordinary_one() {
+    let sandbox = Sandbox::open("reversible").await;
+    let fountain = "f1750962-a87c-49f6-b731-02ae971ac6ea";
+    let face = |flavor: Option<&str>| scryfall::Face {
+        name: "Hallowed Fountain".to_string(),
+        oracle_id: Some(fountain.to_string()),
+        type_line: Some("Land \u{2014} Plains Island".to_string()),
+        oracle_text: Some("As this land enters, you may pay 2 life.".to_string()),
+        // Invented: the real ECL 347 prints no flavor name, and the one
+        // printing in the world whose halves carry different ones is Birds
+        // of Paradise SLD 1675. What is being asked here is the mechanism —
+        // a name on the half that is collapsed away has to reach the row
+        // that is kept, or the collapse costs a search.
+        flavor_name: flavor.map(str::to_string),
+        ..scryfall::Face::default()
+    };
+    sandbox
+        .fill(&[
+            // The ordinary printing: id at the top, one face, nothing new.
+            scryfall::Card {
+                id: "00000000-0000-4000-8000-0000000000b1".to_string(),
+                oracle_id: Some(fountain.to_string()),
+                lang: "en".to_string(),
+                set: "ecl".to_string(),
+                collector_number: "265".to_string(),
+                released_at: Some("2026-01-01".to_string()),
+                name: "Hallowed Fountain".to_string(),
+                type_line: Some("Land \u{2014} Plains Island".to_string()),
+                oracle_text: Some("As this land enters, you may pay 2 life.".to_string()),
+                ..scryfall::Card::default()
+            },
+            // The borderless one, exactly as Scryfall hands it over.
+            scryfall::Card {
+                id: "00000000-0000-4000-8000-0000000000b2".to_string(),
+                oracle_id: None,
+                lang: "en".to_string(),
+                set: "ecl".to_string(),
+                collector_number: "347".to_string(),
+                released_at: Some("2026-01-01".to_string()),
+                name: "Hallowed Fountain // Hallowed Fountain".to_string(),
+                layout: Some("reversible_card".to_string()),
+                card_faces: Some(vec![face(None), face(Some("Sacred Spring"))]),
+                ..scryfall::Card::default()
+            },
+        ])
+        .await;
+
+    assert_eq!(
+        sandbox
+            .count("SELECT count(*) AS n FROM \"{s}\".cards WHERE layout = 'reversible_card'")
+            .await,
+        1,
+        "the reversible printing was dropped"
+    );
+    assert_eq!(
+        sandbox
+            .count("SELECT count(*) AS n FROM \"{s}\".card_search")
+            .await,
+        1,
+        "one card, one projected row"
+    );
+
+    let hits = sandbox
+        .catalog
+        .search("Hallowed Fountain", "en", 20)
+        .await
+        .expect("searching");
+    assert_eq!(hits.len(), 1, "the card answered twice: {hits:?}");
+    assert_eq!(hits[0].english_name, "Hallowed Fountain");
+
+    // The name printed on the half that was collapsed away still finds it,
+    // which is what stops the collapse from quietly costing a search.
+    let flavor = sandbox
+        .catalog
+        .search("Sacred Spring", "en", 20)
+        .await
+        .expect("searching by the name on the other half");
+    assert_eq!(
+        flavor.first().map(|h| h.english_name.as_str()),
+        Some("Hallowed Fountain"),
+        "the flavor name went with the row: {flavor:?}"
+    );
 
     sandbox.close().await;
 }

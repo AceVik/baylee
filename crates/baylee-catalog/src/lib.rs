@@ -864,7 +864,7 @@ impl Catalog {
         let mut seen: std::collections::BTreeMap<&str, &scryfall::Card> =
             std::collections::BTreeMap::new();
         for card in cards {
-            if let Some(oracle_id) = card.oracle_id.as_deref()
+            if let Some(oracle_id) = card.oracle_identity()
                 && !card.legalities.is_empty()
             {
                 seen.entry(oracle_id).or_insert(card);
@@ -927,7 +927,7 @@ impl Catalog {
             }
             sql.push(')');
             values.push(Value::from(card.id.clone()));
-            values.push(Value::from(card.oracle_id.clone()));
+            values.push(Value::from(card.oracle_identity().map(str::to_string)));
             values.push(Value::from(card.lang.clone()));
             values.push(Value::from(card.set.clone()));
             values.push(Value::from(card.collector_number.clone()));
