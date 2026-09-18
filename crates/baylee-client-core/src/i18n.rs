@@ -183,6 +183,14 @@ messages! {
     Tables { en: "Tables", de: "Tische" },
     /// Caption over the table search box.
     Search { en: "SEARCH", de: "SUCHE" },
+    /// Inside the deck builder's search box while it is empty.
+    ///
+    /// Three words and not a syntax lesson: the box takes the whole query
+    /// language, and the gear beside it is where that is taught. What a
+    /// placeholder can honestly say is where a bare word looks — which here
+    /// is one field wider than the zone browser's, because a pool row has
+    /// the card's rules text and a projected object does not.
+    SearchCards { en: "Name, type, text…", de: "Name, Typ, Text …" },
     /// Runs the search.
     DoSearch { en: "Search", de: "Suchen" },
     /// Re-reads decks and tables.
@@ -1480,7 +1488,13 @@ messages! {
     /// A zone with nothing in it, or a filter that matched nothing.
     BrowseEmpty { en: "nothing here", de: "nichts hier" },
     /// The search box above the list.
-    BrowseFilter { en: "Search by name…", de: "Nach Namen suchen …" },
+    ///
+    /// It said "by name" until the box learned the query language, which was
+    /// a placeholder telling the player the box could do less than it can:
+    /// a bare word reaches the type line too, and `t:creature pow>=4` works
+    /// here. What it names is what a *bare* word looks at, because that is
+    /// the reading a player gets without being taught anything.
+    BrowseFilter { en: "Name, type…", de: "Name, Typ …" },
     /// How much of the answer is assembled, when the question takes a range.
     /// `{0}` is how many are chosen, `{1}` the most it will take.
     BrowseTallyUpTo { en: "{0} of up to {1} chosen", de: "{0} von bis zu {1} gewählt" },

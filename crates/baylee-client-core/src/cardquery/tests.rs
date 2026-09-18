@@ -14,7 +14,7 @@ use super::{
 /// Each line is one property of the language and is named in the comment
 /// beside it, so a failure of [`every_written_query_survives_being_written`]
 /// says which one broke.
-const CORPUS: &[&str] = &[
+pub(crate) const CORPUS: &[&str] = &[
     "",                                   // the empty box
     "lightning",                          // a loose word
     "lightning bolt",                     // two loose words, which is an and
@@ -363,89 +363,10 @@ fn the_empty_box_lets_everything_through() {
     assert_eq!(asks("   ", &card, Surface::POOL), Match::Yes);
 }
 
-// --------------------------------------------------- taking one apart
+// ------------------------------------------------------- reading one
 
 #[test]
-fn a_flat_conjunction_is_the_only_shape_a_row_of_controls_can_stand_for() {
-    assert!(q("t:creature mv:3 -c:w").is_flat());
-    assert!(q("t:creature").is_flat());
-    assert!(q("").is_flat());
-    assert!(!q("t:creature or t:land").is_flat());
-    assert!(!q("t:creature (c:r or c:g)").is_flat());
-}
-
-#[test]
-fn what_a_dialog_takes_leaves_the_shape_around_it_standing() {
-    // The dialog understands `t:` and nothing else here.
-    let query = q("t:creature (c:r or c:g) mv:3");
-    let rest = query.remainder(&mut |term, _| term.key == Key::Type);
-    assert_eq!(
-        render(&rest),
-        "(c:r or c:g) mv:3",
-        "a group the dialog cannot draw is carried, brackets and all"
-    );
-}
-
-#[test]
-fn a_line_the_dialog_understands_whole_leaves_nothing_behind() {
-    let query = q("t:creature t:goblin");
-    let rest = query.remainder(&mut |term, _| term.key == Key::Type);
-    assert!(
-        rest.is_anything(),
-        "both terms went into controls, so nothing is left"
-    );
-    assert_eq!(render(&rest), "");
-}
-
-/// A term inside an `or` is never offered and never taken.
-///
-/// A control says *this term is on*, and that reading only exists where
-/// everything beside it must also hold. `t:goblin or t:elf` minus the
-/// goblin is `t:elf` — a different question — so a dialog that lifted it
-/// into a ticked box would have changed the search while showing the
-/// player a tick. The branch stays whole and comes back verbatim.
-#[test]
-fn a_term_inside_an_or_is_not_a_control_and_is_left_alone() {
-    let query = q("t:creature (t:goblin or t:elf)");
-    let mut seen: Vec<String> = Vec::new();
-    let rest = query.remainder(&mut |term, negated| {
-        seen.push(format!("{}{:?}", if negated { "-" } else { "" }, term.key));
-        term.key == Key::Type
-    });
-    assert_eq!(
-        seen,
-        ["Type"],
-        "only the top-level conjunct was ever offered"
-    );
-    assert_eq!(
-        render(&rest),
-        "t:goblin or t:elf",
-        "the branch is untouched — and needs no brackets once it stands alone"
-    );
-}
-
-/// What a dialog reads, and what it is allowed to read.
-#[test]
-fn the_conjuncts_are_the_top_level_and_carry_their_negation() {
-    let query = q("t:creature -c:w (mv:3 or mv:4)");
-    let read: Vec<(String, bool)> = query
-        .conjuncts()
-        .into_iter()
-        .map(|(term, negated)| (format!("{:?}", term.key), negated))
-        .collect();
-    assert_eq!(
-        read,
-        [("Type".to_string(), false), ("Color".to_string(), true)],
-        "the two that stand on their own, and the minus travels with the term"
-    );
-    assert!(
-        q("t:creature or t:land").conjuncts().is_empty(),
-        "an or has no top-level conjunction to read"
-    );
-}
-
-#[test]
-fn every_term_is_offered_to_a_dialog_however_deep_it_sits() {
+fn reading_a_query_finds_every_term_however_deep_it_sits() {
     let query = q("t:creature -(c:r or mv:3)");
     let keys: Vec<&Key> = query.terms().into_iter().map(|term| &term.key).collect();
     assert_eq!(

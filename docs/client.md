@@ -2347,10 +2347,11 @@ no gain.
 What it covers: a loose word, `name:`, `!exact`, `o:` for rules text (with `~`
 for the card's own name), `t:` for the type line, `c:` and `id:` for colours
 and colour identity, `m:` for the symbols of a mana cost, `mv`/`cmc`,
-`pow`/`tou`/`loy`, and `is:`/`not:` for the yes-or-no properties this pool has
-— `playable`, `partial`, `stub`, `commander`, `basic`, `dfc`, and `token` in
-the zone browser. Every comparison Scryfall writes (`=`, `!=`, `<`, `<=`, `>`,
-`>=`), negation with `-`, `or`, and brackets.
+`pow`/`tou`/`loy`, and `is:`/`not:` for the yes-or-no properties — the pool
+answers `playable`, `partial`, `stub`, `commander`, `basic` and `dfc`, and a
+zone answers the three a projection carries: `token`, `basic` and `commander`.
+Every comparison Scryfall writes (`=`, `!=`, `<`, `<=`, `>`, `>=`), negation
+with `-`, `or`, and brackets.
 
 Four decisions in it are worth knowing, and three of them were paid for.
 
@@ -2405,6 +2406,50 @@ is how it does not: read letter by letter, `esper` is `{R}` and `boros` is
 `{B}{R}` — wrong answers wearing a right one's clothes. So a colour value that
 is neither a colour name nor made of nothing but `wubrg` letters is refused,
 and is still written back out so a player can see what was refused.
+
+## Taking a filter string apart
+
+The gear inside the search box opens a builder, and the builder has one
+property the whole thing is designed around:
+
+```text
+FilterForm::of(&query).query() == query
+```
+
+for **every** query, not only the ones the controls understand. A dialog that
+decomposes a string and recomposes it differently rewrites what the player
+typed the moment it is opened — and the first thing anyone does with a builder
+is open it to look.
+
+`baylee_client_core::filterdialog::FilterForm` is a **list of parts in written
+order**, and that is what buys the property. Each top-level part is either a
+`Row` — a term with the minus that may stand in front of it, which a control
+can draw — or an `Opaque`, a branch that has no on/off reading and is carried
+whole. `t:creature (c:r or c:g) mv:3` opens as control, chip, control, and
+closing it gives back that exact line.
+
+Two shapes were rejected on the way. **A struct of named fields** — one
+`name`, one `mv`, one colour rule — loses a query a player may perfectly well
+have written: `mv>=2 mv<=4` is a range and `t:creature t:goblin` a pair of
+types, and a single field would drop one of each on the way in. And **taking
+the terms out and appending what is left** is how most builders are written,
+and is why most builders reorder the line they were opened on; keeping each
+part in its place means the rebuilt query is the one that came in.
+
+What a control may stand for is the top-level conjunction and nothing deeper.
+A control says *this term is on*, which is a reading a term only has where
+everything beside it must also hold — `a or b` minus `a` is `b`, a different
+question — so a term inside a bracket is never lifted into a ticked box. That
+is the same line `FilterPart` draws, said from the other side.
+
+`Control::of` maps a key to the widget it wants (text, colour pips, a
+comparison and a number, a tri-state tick, a mana cost), and a key nothing
+knows gets a plain text box rather than being hidden: `frobnicate:yes` is
+still something a player can read and edit. `FilterForm::unanswerable` names
+the rows the surface the dialog was opened from cannot answer — it is a
+warning beside the control and never a refusal, because a term this surface
+cannot answer hides every row, which reads exactly like a search that found
+nothing, and this is the one place the client can say so before it happens.
 
 ## Tapping lands for a spell
 

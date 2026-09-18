@@ -43,7 +43,7 @@ use crate::prose::sort_key;
 
 mod eval;
 #[cfg(test)]
-mod tests;
+pub(crate) mod tests;
 
 pub use eval::{Facts, Match, Surface, matches};
 
@@ -419,10 +419,11 @@ impl Query {
 
     /// Every term in it, in written order, however deeply nested.
     ///
-    /// What a filter dialog decomposes: it draws the ones it has a control
-    /// for and carries the rest. Terms rather than a tree, because a control
-    /// is a term — and the tree is exactly the part
-    /// [`Query::remainder`] has to keep whole.
+    /// For *reading* a query — what keys it mentions — and never for taking
+    /// one apart. The filter dialog does that with
+    /// [`crate::filterdialog::FilterForm`], which walks the top-level parts
+    /// and keeps each one in its place; a caller that collected these and
+    /// rebuilt from them would have flattened a bracket away.
     #[must_use]
     pub fn terms(&self) -> Vec<&Term> {
         let mut out = Vec::new();
@@ -440,92 +441,6 @@ impl Query {
                 }
             }
             Self::Not(inner) => inner.walk(out),
-        }
-    }
-
-    /// Whether this query is a flat conjunction of plain terms.
-    ///
-    /// The question a filter dialog asks before it offers to take a string
-    /// apart: a control stands for "this term is on", and a string holding
-    /// an `or`, a parenthesis or a negated group has no such reading. The
-    /// dialog draws what it can and re-emits the rest through
-    /// [`Query::remainder`]; this is how it knows which case it is in.
-    #[must_use]
-    pub fn is_flat(&self) -> bool {
-        match self {
-            Self::Anything | Self::Term(_) => true,
-            Self::Not(inner) => matches!(**inner, Self::Term(_)),
-            Self::All(parts) => parts.iter().all(|p| {
-                matches!(p, Self::Term(_))
-                    || matches!(p, Self::Not(n) if matches!(**n, Self::Term(_)))
-            }),
-            Self::Any(_) => false,
-        }
-    }
-
-    /// The terms a dialog may put into controls, with whether each is negated.
-    ///
-    /// The **top-level conjunction only**, and that restriction is the whole
-    /// point rather than a simplification. A control stands for "this term is
-    /// on", which is a reading a term only has where everything beside it
-    /// must also hold: `a or b` minus `a` is `b`, so a dialog that lifted a
-    /// term out of an `or` into a checkbox would have changed what the line
-    /// asks while showing the player a tick. Terms inside a branch stay in
-    /// the branch and come back through [`Query::remainder`] untouched.
-    ///
-    /// [`Query::terms`] is the other question — *every* term however deep —
-    /// and is for reading a query, not for taking one apart.
-    #[must_use]
-    pub fn conjuncts(&self) -> Vec<(&Term, bool)> {
-        match self {
-            Self::Term(term) => vec![(term, false)],
-            Self::Not(inner) => match &**inner {
-                Self::Term(term) => vec![(term, true)],
-                _ => Vec::new(),
-            },
-            Self::All(parts) => parts.iter().flat_map(Self::conjuncts).collect(),
-            Self::Anything | Self::Any(_) => Vec::new(),
-        }
-    }
-
-    /// This query with every top-level conjunct `taken` claims cut out.
-    ///
-    /// The other half of a dialog's round trip. A dialog that took a term
-    /// into a control has to put the *rest* back, and the rest is not a list
-    /// of terms — `t:creature (c:r or c:g)` minus the type is a parenthesis,
-    /// not two words. So the tree is rebuilt with the taken parts cut out and
-    /// the shape around them left exactly as it was.
-    ///
-    /// What is offered is exactly what [`Query::conjuncts`] lists, for the
-    /// reason given there: a term inside an `or` has no on/off reading, so it
-    /// is never offered and never removed.
-    ///
-    /// A branch that loses everything becomes [`Query::Anything`] and is
-    /// dropped by its parent, which is what makes a fully-decomposed string
-    /// come back empty rather than as a row of stray brackets.
-    #[must_use]
-    pub fn remainder(&self, taken: &mut impl FnMut(&Term, bool) -> bool) -> Self {
-        match self {
-            Self::Anything | Self::Any(_) => self.clone(),
-            Self::Term(term) => {
-                if taken(term, false) {
-                    Self::Anything
-                } else {
-                    self.clone()
-                }
-            }
-            Self::Not(inner) => match &**inner {
-                Self::Term(term) if taken(term, true) => Self::Anything,
-                _ => self.clone(),
-            },
-            Self::All(parts) => {
-                let kept: Vec<Self> = parts
-                    .iter()
-                    .map(|part| part.remainder(taken))
-                    .filter(|part| !part.is_anything())
-                    .collect();
-                collapse(kept, true)
-            }
         }
     }
 }

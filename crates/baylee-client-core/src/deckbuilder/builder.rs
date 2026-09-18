@@ -204,9 +204,11 @@ impl DeckBuilder {
 
     /// What is in the search box, read as a query.
     ///
-    /// The filter dialog's half of the round trip: it takes this apart into
-    /// controls, and writes back whatever it did not take with
-    /// [`crate::cardquery::Query::remainder`].
+    /// The filter dialog's half of the round trip:
+    /// [`crate::filterdialog::FilterForm::of`] takes this apart into the
+    /// controls it draws, and writing the form back out gives the same query
+    /// again — which is why the dialog may be opened on a line it does not
+    /// fully understand.
     #[must_use]
     pub const fn query(&self) -> &crate::cardquery::Query {
         &self.query

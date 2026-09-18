@@ -51,6 +51,7 @@ pub mod commanderdamage;
 pub mod cue;
 pub mod deckbuilder;
 pub mod depart;
+pub mod filterdialog;
 pub mod firewheel;
 pub mod i18n;
 pub mod images;
