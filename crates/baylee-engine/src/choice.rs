@@ -672,6 +672,20 @@ impl LegalActions {
             && self.abilities.is_empty()
             && self.suspendable.is_empty()
     }
+
+    /// Whether there is any mana to make here.
+    ///
+    /// Read only inside a CR 605.3a payment window, where the engine has
+    /// already narrowed `abilities` to mana abilities — outside one, an
+    /// entry there is any activated ability at all and this would answer
+    /// the wrong question. It exists so the engine can decline to open a
+    /// window with nothing in it: a seat with no untapped source would
+    /// otherwise be asked to make mana and have only the answer it just
+    /// gave.
+    #[must_use]
+    pub fn has_mana_source(&self) -> bool {
+        !self.mana_abilities.is_empty() || !self.abilities.is_empty()
+    }
 }
 
 /// A player's answer to a [`Pending`] request.

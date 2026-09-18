@@ -209,10 +209,12 @@ fn ward_asks_for_its_tax(seed: u64) -> (Engine<RegistryLookup>, baylee_core::ids
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut engine = Duel::new(seed, plains())
         .battlefield(0, &[twining_twins()])
-        // Two, because the tax is only ever *asked* of a seat that could pay
-        // it: `PlayerMayPayOr` runs its fallback outright off an empty pool,
-        // and a board with one Plains on it would prove the rule by countering
-        // the spell for the wrong reason.
+        // Two, so that the seat still has a mana floating when the tax is
+        // asked and answers it out of the pool. The question is put either
+        // way now (CR 605.3a opens a payment window against an empty pool),
+        // and these three tests are about ward rather than about the window
+        // — `a_taxed_seat_may_make_its_mana_after_the_question` is the one
+        // that walks through it.
         .battlefield(1, &[plains(), plains()])
         .hand(1, &[path_to_exile()])
         .start();
@@ -333,6 +335,199 @@ fn ward_declined_counters_the_spell_that_targeted_it() {
         engine.state().players[1].mana_pool.total(),
         pool_before,
         "declining spends nothing",
+    );
+}
+
+/// The same ward tax, asked of a seat that has **not** made its mana yet:
+/// one land still untapped and nothing floating.
+///
+/// The fixture taps exactly one Plains rather than every one, which is what
+/// separates it from [`ward_asks_for_its_tax`]. That helper seats two lands
+/// and floats both because, until CR 605.3a was implemented, the question was
+/// only ever put to a seat whose pool already covered it.
+#[track_caller]
+fn ward_asks_a_seat_that_has_not_made_its_mana(
+    seed: u64,
+) -> (Engine<RegistryLookup>, baylee_core::ids::ObjectId) {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(seed, plains())
+        .battlefield(0, &[twining_twins()])
+        .battlefield(1, &[plains(), plains()])
+        .hand(1, &[path_to_exile()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_their_main_phase(&mut engine, p1);
+
+    let twins = on_battlefield(&engine, p0, twining_twins()).expect("the warded creature");
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    let one = *legal
+        .mana_abilities
+        .first()
+        .expect("a Plains to tap for the spell");
+    engine
+        .apply(p1, PlayerAction::ActivateManaAbility { source: one })
+        .expect("tapping one land is legal");
+    let spell = in_hand(&engine, p1, path_to_exile()).expect("Path is in hand");
+    engine
+        .apply(p1, PlayerAction::CastSpell { card: spell })
+        .expect("one Plains pays for Path");
+    engine
+        .apply(
+            p1,
+            PlayerAction::ChooseObjects {
+                objects: vec![twins],
+            },
+        )
+        .expect("Path points at the warded creature");
+
+    for _ in 0..20 {
+        if matches!(
+            engine.pending(),
+            Pending::YesNo {
+                prompt: crate::choice::YesNoPrompt::PayTax { .. },
+                ..
+            }
+        ) {
+            assert_eq!(
+                engine.state().players[1].mana_pool.total(),
+                0,
+                "the fixture is only worth anything with an empty pool",
+            );
+            return (engine, twins);
+        }
+        let Pending::Priority { player, .. } = engine.pending().clone() else {
+            panic!("unexpected before the tax: {:?}", engine.pending())
+        };
+        engine.apply(player, PlayerAction::PassPriority).unwrap();
+    }
+    panic!(
+        "ward never asked a seat with an empty pool. Before CR 605.3a was \
+         implemented it never did: `PlayerMayPayOr` ran its fallback outright \
+         against a pool that did not already cover the tax."
+    );
+}
+
+/// CR 605.3a: a player asked for a mana payment may activate mana abilities
+/// to make it, "even if it is in the middle of ... resolving an ability".
+///
+/// This is the rule the six taxing cards in this pool live on, and it was
+/// missing: the question was skipped entirely against an empty pool, which
+/// is the pool an opponent has right after casting the spell being taxed.
+/// Against the old code this test reaches its first `panic!` in the fixture,
+/// because the tax is never asked at all.
+#[test]
+fn a_taxed_seat_may_make_its_mana_after_the_question() {
+    let p1 = PlayerId::new(1);
+    let (mut engine, twins) = ward_asks_a_seat_that_has_not_made_its_mana(31);
+
+    engine
+        .apply(p1, PlayerAction::YesNo(true))
+        .expect("saying they will pay is an answer even with an empty pool");
+
+    let Pending::Priority { player, legal } = engine.pending().clone() else {
+        panic!(
+            "saying yes with nothing floating opens a payment window, got {:?}",
+            engine.pending()
+        )
+    };
+    assert_eq!(player, p1, "the window belongs to the seat being taxed");
+    assert!(
+        legal.lands.is_empty() && legal.castable.is_empty() && legal.suspendable.is_empty(),
+        "a payment window offers mana and nothing else: {legal:?}",
+    );
+    assert!(
+        legal.has_mana_source(),
+        "the second Plains is still untapped and has to be offered",
+    );
+
+    let source = *legal
+        .mana_abilities
+        .first()
+        .expect("the untapped Plains is the mana on offer");
+    engine
+        .apply(p1, PlayerAction::ActivateManaAbility { source })
+        .expect("making mana is what the window is for");
+    engine
+        .apply(p1, PlayerAction::PassPriority)
+        .expect("passing says the mana is made");
+    assert_eq!(
+        engine.state().players[1].mana_pool.total(),
+        0,
+        "closing the window spends the mana on the tax it was opened for",
+    );
+
+    for _ in 0..20 {
+        match engine.pending().clone() {
+            Pending::ChooseCards { player, .. } => engine
+                .apply(player, PlayerAction::ChooseObjects { objects: vec![] })
+                .expect("Path offers its controller a basic-land search"),
+            Pending::Priority { player, .. } => {
+                if engine
+                    .state()
+                    .zones
+                    .list(crate::zone::ZoneLocation::Stack)
+                    .is_empty()
+                {
+                    break;
+                }
+                engine.apply(player, PlayerAction::PassPriority).unwrap();
+            }
+            other => panic!("unexpected while the spell resolves: {other:?}"),
+        }
+    }
+    assert_ne!(
+        engine.state().object(twins).map(|o| o.zone),
+        Some(crate::zone::Zone::Battlefield),
+        "the tax was paid in the window, so the spell was not countered and \
+         Path exiled the creature",
+    );
+}
+
+/// The counter-test, and the one that keeps the window honest: a seat that
+/// opens the window and then makes no mana pays nothing.
+///
+/// It is the same outcome as declining, which is the point — a window is an
+/// opportunity, not a promise. It also pins the seam that would otherwise
+/// fail only in debug: `resume_tax_choice` asserts that a payment it was
+/// told about was payable, so the engine has to ask the pool again when the
+/// window closes rather than pass the player's earlier "yes" straight
+/// through.
+#[test]
+fn a_seat_that_makes_no_mana_in_the_window_pays_nothing() {
+    let p1 = PlayerId::new(1);
+    let (mut engine, twins) = ward_asks_a_seat_that_has_not_made_its_mana(37);
+
+    engine
+        .apply(p1, PlayerAction::YesNo(true))
+        .expect("saying they will pay is an answer");
+    assert!(
+        matches!(engine.pending(), Pending::Priority { .. }),
+        "the window opened",
+    );
+    engine
+        .apply(p1, PlayerAction::PassPriority)
+        .expect("leaving the window empty-handed is allowed");
+
+    pass_until(&mut engine, |e| {
+        e.state()
+            .zones
+            .list(crate::zone::ZoneLocation::Stack)
+            .is_empty()
+    });
+    assert_eq!(
+        engine
+            .state()
+            .object(twins)
+            .map(|o| o.zone)
+            .expect("the creature still exists"),
+        crate::zone::Zone::Battlefield,
+        "nothing was paid, so ward countered the spell (CR 702.21a)",
+    );
+    assert!(
+        in_graveyard(&engine, p1, path_to_exile()).is_some(),
+        "a countered spell goes to its owner's graveyard (CR 701.6a)",
     );
 }
 

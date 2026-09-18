@@ -688,10 +688,10 @@ fn brainstorm() -> baylee_core::ids::CardIndex {
 /// Seat 1 casts a noncreature spell into seat 0's Esper Sentinel, and this
 /// is the number the Sentinel asks them for.
 ///
-/// The seat must be *able* to pay or there is no question to read:
-/// `PlayerMayPayOr` runs its fallback outright when the pool cannot cover
-/// the tax. Four Islands is enough for Brainstorm and the largest tax
-/// either half of this pair asks.
+/// Four Islands is enough for Brainstorm and the largest tax either half of
+/// this pair asks, so the tax is answered out of the floating pool. A seat
+/// that could not pay is asked too since CR 605.3a, and would be handed a
+/// payment window; that is a different test.
 #[track_caller]
 fn the_tax_the_sentinel_asks_for(seed: u64, equip: bool) -> u16 {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));

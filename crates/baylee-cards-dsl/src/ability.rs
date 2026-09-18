@@ -347,6 +347,31 @@ pub enum AbilityDef {
     },
 }
 
+impl AbilityDef {
+    /// Whether this is a mana ability, which the stack never sees (CR 605.1).
+    ///
+    /// One reading for every caller, because two would disagree: an ability
+    /// wrongly read as a mana ability skips the stack, and one wrongly read
+    /// as an ordinary ability cannot be activated while a cost is being
+    /// paid. Both arms are matched deliberately —
+    /// `ActivatedConditional` is the same ability with a condition on it,
+    /// and six readers across the engine, the client and the lints once
+    /// matched only the unconditional one.
+    #[must_use]
+    pub const fn is_mana_ability(&self) -> bool {
+        matches!(
+            self,
+            Self::Activated {
+                mana_ability: true,
+                ..
+            } | Self::ActivatedConditional {
+                mana_ability: true,
+                ..
+            }
+        )
+    }
+}
+
 /// A modification applied after a clone copies its target.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum CopyMod {

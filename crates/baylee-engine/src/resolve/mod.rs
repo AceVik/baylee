@@ -1285,11 +1285,21 @@ fn exec_choice(state: &mut GameState, res: &mut Resolution, op: Effect) -> Optio
             // prompt and the suspended op carry; the clamp is a formality
             // (no power in the pool is near it) and not a rules choice.
             let mana = u16::try_from(amount2(&mana, state, you, res)).unwrap_or(u16::MAX);
-            // If they can't pay, the fallback fires immediately.
-            let can_pay = state.players[player.get() as usize].mana_pool.total() >= u32::from(mana);
-            if !can_pay {
-                return exec_immediate(state, res, *effect);
-            }
+            // The question is put whether or not the mana is already
+            // floating, because CR 605.3a lets the player make it now: a
+            // mana ability may be activated "whenever a rule or effect asks
+            // for a mana payment, even if it's in the middle of casting or
+            // resolving a spell". This used to run the fallback outright
+            // against an empty pool and never ask at all, which is the
+            // wrong outcome for the six cards in this pool that tax an
+            // opponent — an opponent who has usually just tapped out to
+            // cast the very spell being taxed. Three tests worked around it
+            // by seating extra lands and said so in their own comments.
+            //
+            // Whether the pool covers it is decided when the answer comes
+            // back, in `Engine::apply`, which is where a window can be
+            // opened; nothing here can open one, because a `Resolution` has
+            // no access to the engine's priority machinery.
             res.awaiting = Some(AwaitingOp::PlayerMayPay {
                 player,
                 mana,

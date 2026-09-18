@@ -941,10 +941,11 @@ fn a_declined_flusterstorm_counters_the_spell_and_never_copies_itself() {
     let mut engine = Duel::new(59, forest())
         .battlefield(0, &[island()])
         .hand(0, &[flusterstorm()])
-        // Two Swamps, not one. `PlayerMayPayOr` only ever *asks* a seat that
-        // could pay out of its floating pool, so a Ritual cast off a single
-        // Swamp would leave nothing behind and be countered without the
-        // question ever being put — the right outcome for the wrong reason.
+        // Two Swamps, not one, so the Ritual leaves a mana floating and
+        // Flusterstorm's tax is answered straight from the pool. Off a
+        // single Swamp the question is still put — CR 605.3a opens a
+        // payment window — but the test would then be about the window
+        // instead of about Flusterstorm.
         .battlefield(1, &[swamp(), swamp()])
         .hand(1, &[dark_ritual()])
         .start();

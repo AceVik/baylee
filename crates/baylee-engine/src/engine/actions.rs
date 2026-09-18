@@ -157,6 +157,18 @@ impl<L: CardLookup> Engine<L> {
                 self.advance_mulligan();
                 Ok(())
             }
+            // Passing inside a CR 605.3a payment window says "I have made
+            // what mana I am going to make", and must not reach the arm
+            // below: a pass counted toward the priority round would, once
+            // every seat had passed, resolve the top of the stack while the
+            // resolution that asked for this payment is still suspended
+            // underneath it.
+            (Pending::Priority { player: p, .. }, PlayerAction::PassPriority)
+                if *p == player && self.mana_window == Some(player) =>
+            {
+                self.close_mana_window();
+                Ok(())
+            }
             (Pending::Priority { player: p, .. }, PlayerAction::PassPriority) if *p == player => {
                 self.passes += 1;
                 Ok(())
@@ -869,7 +881,42 @@ impl<L: CardLookup> Engine<L> {
                         Some(crate::resolve::AwaitingOp::PlayerMayPay { .. })
                     )
                 }) {
+                    // CR 605.3a: a player who says they will pay may make
+                    // the mana now. If the pool already covers it there is
+                    // nothing to open — and if it does not, a window is only
+                    // worth opening when there is something in it to press,
+                    // because a player with no untapped source would
+                    // otherwise be handed a question whose only answer is
+                    // the one they just gave.
+                    let asked = self.resolution.as_ref().and_then(|r| match r.awaiting {
+                        Some(crate::resolve::AwaitingOp::PlayerMayPay { player, mana, .. }) => {
+                            Some((player, mana))
+                        }
+                        _ => None,
+                    });
+                    if let Some((payer, mana)) = asked
+                        && answer
+                        && payer == player
+                    {
+                        let pool = self.state.players[player.get() as usize].mana_pool.total();
+                        if pool < u32::from(mana) {
+                            self.mana_window = Some(player);
+                            let legal = self.compute_legal(player);
+                            if legal.has_mana_source() {
+                                self.pending = Pending::Priority {
+                                    player,
+                                    legal: Box::new(legal),
+                                };
+                                self.awaiting_answer = true;
+                                return Ok(());
+                            }
+                            // Nothing to press: take the window back down and
+                            // let the payment fail the way it always has.
+                            self.mana_window = None;
+                        }
+                    }
                     let mut res = self.resolution.take().expect("resolution suspended");
+                    let answer = answer && self.can_settle_tax(&res);
                     match resolve::resume_tax_choice(&mut self.state, &mut res, answer) {
                         resolve::Flow::Wait(pending) => {
                             self.resolution = Some(res);
@@ -1139,6 +1186,49 @@ impl<L: CardLookup> Engine<L> {
         self.state
             .object(card)
             .is_some_and(|o| o.zone == Zone::Hand && o.zone_owner == Some(player))
+    }
+
+    /// Whether the pool now covers the payment the suspended resolution is
+    /// asking for.
+    ///
+    /// Asked before `resume_tax_choice` rather than left to it, because that
+    /// function asserts what it was told: it takes `paid` as a promise the
+    /// caller has already checked, and answering "yes" for a player who
+    /// cannot actually pay trips its `debug_assert!` — in debug only, which
+    /// is the shape of bug this workspace runs its test suite in release to
+    /// catch.
+    fn can_settle_tax(&self, res: &crate::resolve::Resolution) -> bool {
+        match res.awaiting {
+            Some(crate::resolve::AwaitingOp::PlayerMayPay { player, mana, .. }) => {
+                self.state.players[player.get() as usize].mana_pool.total() >= u32::from(mana)
+            }
+            _ => false,
+        }
+    }
+
+    /// Ends a payment window and settles the payment it was opened for.
+    ///
+    /// The player is taken at their word only as far as their pool goes: a
+    /// window they leave short pays nothing and takes the effect's other
+    /// branch, which is the same outcome as declining and is what the card
+    /// prints.
+    fn close_mana_window(&mut self) {
+        self.mana_window = None;
+        let mut res = self
+            .resolution
+            .take()
+            .expect("a payment window is only opened over a suspended resolution");
+        let paid = self.can_settle_tax(&res);
+        match resolve::resume_tax_choice(&mut self.state, &mut res, paid) {
+            resolve::Flow::Wait(pending) => {
+                self.resolution = Some(res);
+                self.pending = pending;
+                self.awaiting_answer = true;
+            }
+            resolve::Flow::Complete => {
+                self.finish_resolution(&res);
+            }
+        }
     }
 
     pub(crate) fn after_action(&mut self, player: PlayerId) {

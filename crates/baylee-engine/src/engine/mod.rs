@@ -105,6 +105,26 @@ pub struct Engine<L: CardLookup> {
     awaiting_answer: bool,
     /// A suspended effect resolution (choice continuation).
     resolution: Option<Resolution>,
+    /// A player making mana to meet a payment an effect has asked of them
+    /// (CR 605.3a), while the resolution that asked is suspended above.
+    ///
+    /// The rule is explicit that a mana ability may be activated "whenever a
+    /// rule or effect asks for a mana payment, even if it's in the middle of
+    /// casting or resolving a spell or activating or resolving an ability",
+    /// and this engine had no moment at which that could happen: priority is
+    /// the only time a player may act, and a resolution grants none. So the
+    /// payment question opens one, and it is an ordinary `Pending::Priority`
+    /// rather than a request of its own — the client draws it and the agent
+    /// answers it already, and a question shaped like every other question
+    /// needs no `VIEW_VERSION`. What makes it a window and not priority is
+    /// this field: `compute_legal` reads it and offers mana and nothing
+    /// else, and passing closes the window instead of counting toward the
+    /// round.
+    ///
+    /// It carries the player and not the price. The price is already in the
+    /// suspended `AwaitingOp::PlayerMayPay`, and a second copy of it here
+    /// would be a number that could disagree with the one actually charged.
+    mana_window: Option<PlayerId>,
     /// Journal sequence number up to which triggers were collected.
     trigger_scan_seq: u64,
     /// A cast/activation waiting for its target choice.
@@ -395,6 +415,7 @@ impl<L: CardLookup> Engine<L> {
             loyalty_used_this_turn: Vec::new(),
             awaiting_answer: true,
             resolution: None,
+            mana_window: None,
             trigger_scan_seq,
             pending_plan: None,
             agreed_draw: false,

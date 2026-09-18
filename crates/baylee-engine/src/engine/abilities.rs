@@ -437,7 +437,41 @@ impl<L: CardLookup> Engine<L> {
                 }
             }
         }
+        self.narrow_to_mana_window(player, &mut legal);
         legal
+    }
+
+    /// Inside a CR 605.3a payment window, the only thing a player may do is
+    /// make mana.
+    ///
+    /// Applied here, at the single place a `LegalActions` is built, rather
+    /// than where the window is opened: the machine re-publishes priority to
+    /// the same player after every mana ability they activate, through
+    /// `regrant_priority`, and a restriction written at the opening would
+    /// have lasted exactly one tap.
+    ///
+    /// `abilities` is narrowed rather than emptied, which is the half that
+    /// is easy to get wrong. `mana_abilities` is only the CR 305.6 shortcut
+    /// — a basic land type, or a granted ability with no printed index —
+    /// while a nonbasic that prints its own `{T}: Add …` is an ordinary
+    /// entry here. Emptying the list would leave Rupture Spire unable to tap
+    /// for the very payment Rupture Spire is asking for, and would put every
+    /// filter land in this pool out of reach of its own window.
+    fn narrow_to_mana_window(&self, player: PlayerId, legal: &mut LegalActions) {
+        if self.mana_window != Some(player) {
+            return;
+        }
+        legal.lands.clear();
+        legal.castable.clear();
+        legal.suspendable.clear();
+        legal.abilities.retain(|&(source, index)| {
+            self.state
+                .object(source)
+                .and_then(|obj| obj.card)
+                .and_then(|card| self.lookup.card(card.index))
+                .and_then(|def| def.abilities.get(index as usize))
+                .is_some_and(AbilityDef::is_mana_ability)
+        });
     }
 
     /// Whether a targeting ability has anything legal to point at

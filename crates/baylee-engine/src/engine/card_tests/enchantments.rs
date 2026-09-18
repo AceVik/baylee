@@ -1581,11 +1581,10 @@ fn mystic_remora_taxes_an_opponents_noncreature_spell_and_draws_when_they_declin
 
     reach_their_main_phase(&mut engine, p1);
     // p1's lands are tapped *before* the Ritual is cast, and there are five
-    // of them for a reason: the tax is offered only to a player whose pool
-    // already covers it (`PlayerMayPayOr` fires its fallback outright when
-    // it does not), so a seat with an empty pool would be handed the card
-    // without ever being asked — the question this test is about would
-    // simply not exist.
+    // of them so that the pool still covers the tax when it is asked. The
+    // question exists either way now that CR 605.3a opens a payment window
+    // against an empty pool; floating the mana first keeps this test on the
+    // card rather than on the window.
     tap_all_mana(&mut engine, p1);
     let library_before = library_size(&engine, p0);
     let hand_before_tax = engine
