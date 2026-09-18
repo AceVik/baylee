@@ -96,6 +96,24 @@ enum Cmd {
     /// dump before, one after, and diff: anything that moved has the card's
     /// name on it. It is a tool rather than a test because there is nothing
     /// for it to assert on its own — the baseline lives outside the repo.
+    /// Read a deck file and say what this pool can do with it.
+    ///
+    /// Two questions, and the first is the one a deck arriving from
+    /// somewhere else needs answered. **Does every row round-trip?**
+    /// `deckrow::Row` writes back what it parsed, so a line that does not
+    /// survive `parse` then `to_string` is a line one of the two sides reads
+    /// differently — which is how a printing silently becomes part of a card
+    /// name. And **what can be played?** A name the pool does not carry is
+    /// unplayable here whatever its printing says, and a name it carries as
+    /// a stub is worse than that: the deckbuilder offers it.
+    DeckCheck {
+        /// The deck file, in `[deck:Name]` / `[sideboard]` / `[commander]`
+        /// sections with one `deckrow` line each.
+        file: PathBuf,
+        /// Name every card that is not `Coverage::Implemented`.
+        #[arg(long)]
+        verbose: bool,
+    },
     PoolDump {
         /// Where to write the dump.
         #[arg(long)]
@@ -398,6 +416,7 @@ fn main() -> anyhow::Result<()> {
             reseed,
         } => ledger_cmd(&root, &corpus, check, reseed),
         Cmd::AbilityLines => ability_lines(&root),
+        Cmd::DeckCheck { file, verbose } => deck_check(&root, &file, verbose),
         Cmd::PoolDump { out } => pool_dump(&out),
         Cmd::TranscodeReport {
             scripts,
@@ -3613,6 +3632,102 @@ fn check_printing_floors(tally: &PrintingTally, problems: &mut usize) {
 /// change no rules produces the same bytes, and one that slipped produces a
 /// hunk with the card's name in it. That is how the macro/prelude refactor of
 /// the whole pool was held to "not one rule moved".
+/// Read a deck file and report what this pool can do with it.
+///
+/// The round-trip is the load-bearing half and is checked per line rather
+/// than per file: `deckrow` promises that writing a parsed row reproduces
+/// it, so the two spellings disagreeing is a defect in whichever side wrote
+/// the file — and a report that only counted rows would pass while every
+/// printing quietly sat inside a card name.
+fn deck_check(root: &Path, file: &Path, verbose: bool) -> anyhow::Result<()> {
+    use anyhow::Context as _;
+    use baylee_cards::dsl::Coverage;
+    use baylee_core::deckrow;
+
+    let path = if file.is_absolute() {
+        file.to_path_buf()
+    } else {
+        root.join(file)
+    };
+    let text = fs::read_to_string(&path).with_context(|| format!("reading {}", path.display()))?;
+
+    let mut section = "deck";
+    let mut counts: BTreeMap<&str, u32> = BTreeMap::new();
+    let mut rows = 0usize;
+    let mut bad_round_trip = Vec::new();
+    let mut unknown = Vec::new();
+    let mut partial = Vec::new();
+    let mut stubs = Vec::new();
+
+    for line in text.lines() {
+        let line = line.trim_end();
+        if line.is_empty() || line.starts_with('#') {
+            continue;
+        }
+        if let Some(rest) = line.strip_prefix('[') {
+            section = match rest.split([':', ']']).next() {
+                Some("sideboard") => "sideboard",
+                Some("commander") => "commander",
+                _ => "deck",
+            };
+            continue;
+        }
+        rows += 1;
+        let row = match deckrow::parse(line) {
+            Ok(row) => row,
+            Err(err) => {
+                bad_round_trip.push(format!("{line}  ({err:?})"));
+                continue;
+            }
+        };
+        let written = row.to_string();
+        if written != line {
+            bad_round_trip.push(format!("{line}  -> {written}"));
+        }
+        *counts.entry(section).or_default() += row.count;
+        match baylee_cards::decks::by_name(&row.name).and_then(baylee_cards::by_index) {
+            None => unknown.push(row.name.clone()),
+            Some(def) => match def.coverage {
+                Coverage::Implemented => {}
+                Coverage::Partial(why) => partial.push(format!("{} — {why}", row.name)),
+                Coverage::Unimplemented => stubs.push(row.name.clone()),
+            },
+        }
+    }
+
+    println!("{}", path.display());
+    for (section, n) in &counts {
+        println!("  {section}: {n} cards");
+    }
+    println!(
+        "  {rows} rows, {} not round-tripping, {} unknown to the pool, \
+{} partial, {} stubs",
+        bad_round_trip.len(),
+        unknown.len(),
+        partial.len(),
+        stubs.len()
+    );
+    for bad in &bad_round_trip {
+        println!("  ROUND TRIP  {bad}");
+    }
+    for name in &unknown {
+        println!("  NOT IN POOL {name}");
+    }
+    if verbose {
+        for name in &partial {
+            println!("  PARTIAL     {name}");
+        }
+        for name in &stubs {
+            println!("  STUB        {name}");
+        }
+    }
+    if bad_round_trip.is_empty() {
+        Ok(())
+    } else {
+        anyhow::bail!("{} row(s) do not round-trip", bad_round_trip.len())
+    }
+}
+
 fn pool_dump(out: &Path) -> anyhow::Result<()> {
     use std::fmt::Write as _;
     let mut text = String::new();

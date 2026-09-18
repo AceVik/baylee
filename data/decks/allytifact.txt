@@ -1,0 +1,112 @@
+[deck:Allytifact]
+1 Aang and Katara (TLE) 69
+1 Aminatou, the Fateshifter (SLD) 1421
+1 Archaeomancer (SLD) 283
+1 Badlands (OLGC) 2016NA
+1 Bleachbone Verge (DFT) 371
+1 Bloodstained Mire (EXP) 18
+1 Cavern of Souls (LTC) 392
+1 Chromatic Lantern (MPS) 8
+1 City of Brass (SCH) 41
+1 Clever Concealment (MSC) 298
+1 Command Tower (SLD) 1496
+1 Cursed Mirror (SLD) 2308
+1 Cyclonic Rift (SOA) 14
+1 Darksteel Forge (2XM) 248
+1 Demonic Tutor (STA) 27
+1 Doubling Season (WOT) 81
+1 Earth King's Lieutenant (TLA) 380
+1 Eerie Interlude (SOI) 16
+1 Elesh Norn, Mother of Machines (ONE) 298
+1 Elspeth, Storm Slayer (TDM) 401
+1 Enlightened Tutor (DMR) 412
+1 Ephemerate (STA) 5
+1 Everybody Lives! (WHO) 18
+1 Flawless Maneuver (TLE) 306
+1 Flooded Strand (ZNE) 1
+1 Force of Will (DMR) 418
+2 Forest (DMU) 281
+1 Great Divide Guide (TLA) 345
+1 Hagra Diabolist (ZEN) 95
+1 Halimar Excavator (WWK) 29
+1 Hallowed Fountain (ECL) 347
+1 Harabaz Druid (PLST) WWK-105
+1 Heliod's Intervention (THB) 300
+1 Helm of the Host (MSC) 437
+1 Heroic Intervention (SLD) 1872
+1 Homeward Path (LTC) 365
+1 Indatha Triome (IKO) 309
+1 Inspirit, Flagship Vessel (EOC) 2
+2 Island (DMU) 278
+1 Jasmine Dragon Tea Shop (TLA) 390
+1 Jin-Gitaxias, Progress Tyrant (NEO) 371
+1 Karn, the Great Creator (SLD) 501
+1 Katara, the Fearless (PURL) 2025-3
+1 Kazandu Blademaster (PLST) ZEN-16
+1 Loran of the Third Path (BRO) 304
+1 Machine God's Effigy (BRC) 63
+1 Mana Drain (CMR) 637
+1 Marsh Flats (EXP) 21
+1 Maskwood Nexus (SLD) 1904
+1 Mirrorhall Mimic (PRM) 95313
+1 Misty Rainforest (EXP) 25
+1 Mox Opal (MPS) 19
+1 Mycosynth Lattice (SLD) 1434
+1 Nesting Dovehawk (MOC) 104
+1 Ondu Cleric (ZEN) 30
+1 Pact of Negation (LTC) 523
+1 Padeem, Consul of Innovation (J25) 62
+1 Panharmonicon (SLD) 605
+1 Path of Ancestry (SLD) 914
+1 Path to Exile (SS2) 3
+1 Phyrexian Metamorph (2XM) 341
+2 Plains (DMU) 277
+1 Polluted Delta (EXP) 17
+1 Privileged Position (2X2) 385
+1 Progenitor Mimic (C16) 216
+1 Raugrin Triome (IKO) 311
+1 Reanimate (PUMA) U12
+1 Reflecting Pool (LTC) 373
+1 Reflections of Littjara (KHM) 347
+1 Reliquary Tower (CMM) 663
+1 Rite of Replication (ZEN) 61
+1 Roaming Throne (LCI) 344
+1 Sakashima of a Thousand Faces (TLE) 18
+1 Savannah (OLGC) 2017NA
+1 Sea Gate Loremaster (ZEN) 63
+1 Sheoldred's Edict (SOA) 32
+1 Smothering Tithe (WOT) 67
+1 Sokka, Tenacious Tactician (TLA) 352
+1 Sol Ring (MPS) 24
+1 Spark Double (MSC) 337
+1 Spirit Water Revival (TLA) 370
+1 Storm of Saruman (LTR) 413
+1 Swords to Plowshares (STA) 10
+1 Taiga (OLGC) 2017EU
+1 Temple Garden (ECL) 351
+1 Tuktuk Scrapper (WWK) 94
+1 Tundra (OLGC) 2015
+1 Umara Raptor (ZEN) 75
+1 Underground Sea (OLGC) 2016EU
+1 Vanishing Verse (STX) 354
+1 Venser, the Sojourner (SLD) 1423★
+1 Vindicate (MH2) 322
+1 Void Rend (SNC) 338
+1 Wartime Protestors (TLA) 375
+1 Windswept Heath (EXP) 20
+1 Zagoth Triome (IKO) 313
+
+[sideboard]
+1 Double Major (STX) 340
+1 Emeritus of Woe (SOS) 324
+1 Fierce Guardianship (TLE) 307
+1 Glasspool Mimic (ZNR) 328
+1 Liquimetal Coating (BRR) 28
+1 Liquimetal Torque (SLD) 2559
+1 Sword of Hearth and Home (LTC) 384
+1 Tribute to the World Tree (MOM) 373
+1 Urza's Saga (PLST) MH2-259
+1 Wizard Class (AFR) 81
+
+[commander]
+1 General Tazri (OGW) 19

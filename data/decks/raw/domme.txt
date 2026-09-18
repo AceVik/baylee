@@ -1,0 +1,100 @@
+1x Aesi, Tyrant of Gyre Strait (DSC)
+1x Archdruid's Charm
+1x Arid Mesa (SPG)
+1x Ashaya, Soul of the Wild (DSC)
+1x Badgermole Cub
+1x Bloodstained Mire
+1x Bojuka Bog (SOC)
+1x Boseiju, Who Endures (NEO)
+1x Brainstorm (PZA)
+1x Breeding Pool (EOE)
+1x Bristly Bill, Spine Sower (OTJ)
+1x Cavern of Souls (LCI)
+1x Conduit of Worlds (TDC)
+1x Consult the Star Charts
+1x Crop Rotation (SOA)
+1x Crucible of Worlds (PIP)
+1x Delighted Halfling
+1x Demonic Tutor
+1x Dig Through Time (SOC)
+1x Dragonback Assault
+1x Druid Class (AFR)
+1x Dryad of the Ilysian Grove
+1x Elesh Norn, Mother of Machines
+1x Enduring Vitality (DSK)
+1x Enlightened Tutor
+1x Erode
+1x Eternal Witness (M3C)
+1x Evendo, Waking Haven
+1x Exploration (DMR)
+1x Fanatic of Rhonas
+1x Fastbond (30A)
+1x Field of the Dead (SPG)
+1x Flamekin Harbinger (LRW)
+1x Flooded Grove (SOC)
+1x Flooded Strand (MH3)
+1x Forest
+1x Gaea's Cradle
+1x Garruk's Uprising
+1x Grim Tutor
+1x Hinterland Harbor (SOC)
+1x Imperial Seal
+1x Island
+1x Karakas (LTC)
+1x Ketria Triome (IKO)
+1x Lotus Cobra (J25)
+1x Lumra, Bellow of the Woods (BLB)
+1x Maelstrom Wanderer (ECC)
+1x Mana Drain (OTP)
+1x Marsh Flats
+1x Maze of Ith (DMR)
+1x Mirri's Guile (MB2)
+1x Misty Rainforest (SPG)
+1x Muldrotha, the Gravetide
+1x Mystic Remora (TLE)
+1x Nissa, Resurgent Animist (MAT)
+1x Nylea's Intervention (THB)
+1x Omnath, Locus of Rage (ECC)
+1x Path to Exile (SOC)
+1x Petrified Field (EOS)
+1x Pithing Needle
+1x Polluted Delta (MH3)
+1x Primeval Titan
+1x Privileged Position
+1x Ramunap Excavator (M3C)
+1x Realms Uncharted (SLD)
+1x Recurring Nightmare
+1x Reflecting Pool (EOS)
+1x Rejuvenating Springs (CMM)
+1x Retreat to Kazandu (J25)
+1x Rhystic Study (FCA)
+1x Risen Reef (ECC)
+1x Roaming Throne (LCI)
+1x Savannah
+1x Scalding Tarn (SPG)
+1x Simic Growth Chamber (DSC)
+1x Spara's Headquarters (SNC)
+1x Steely Resolve (ONS)
+1x Sterling Grove
+1x Swords to Plowshares (SOC)
+1x Taiga
+1x Tatyova, Benthic Druid (FDN)
+1x Tectonic Edge (M3C)
+1x Temur Ascendancy
+1x The Meathook Massacre
+1x The World Tree (KHM)
+1x Tireless Provisioner (J25)
+1x Tower of the Magistrate (MB2)
+1x Tribute to the World Tree (MOM)
+1x Tropical Island (30A)
+1x Verdant Catacombs (SPG)
+1x Virtue of Knowledge (WOE)
+1x Walk-In Closet / Forgotten Cellar (DSK)
+1x Wasteland (MB2)
+1x Wayward Swordtooth
+1x Windswept Heath (MH3)
+1x Wooded Foothills (MH3)
+1x World Shaper
+1x Wrenn and Realmbreaker (MOM)
+1x Yavimaya Hollow (VMA)
+1x Yavimaya, Cradle of Growth (M3C)

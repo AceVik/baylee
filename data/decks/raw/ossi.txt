@@ -1,0 +1,98 @@
+1x Abrupt Decay
+1x Aether Vial
+1x Altered Ego
+1x Ancestral Vision
+1x Ashiok, Dream Render
+1x Assassin's Trophy
+1x Baleful Strix
+1x Basilisk Collar (WWK)
+1x Bayou
+1x Birds of Paradise
+1x Bloodstained Mire
+1x Bojuka Bog
+1x Boseiju, Who Endures
+1x Brainstorm (C18)
+1x Breeding Pool
+1x Carnage Tyrant
+1x Counterspell
+1x Courser of Kruphix
+1x Creeping Tar Pit
+1x Crop Rotation (2XM:349)
+1x Cryptic Command
+1x Cyclonic Rift
+1x Dauthi Voidwalker (MH2)
+1x Deathrite Shaman
+1x Demonic Tutor
+1x Dig Through Time
+1x Drowned Catacomb
+1x Eternal Witness (000) f
+1x Evasive Action
+1x Fact or Fiction
+1x Flooded Strand
+1x Force of Negation
+1x Force of Will
+2x Forest (UNF)
+1x Hero's Downfall
+1x Hexdrinker
+1x Hinterland Harbor
+1x Hissing Quagmire
+1x Homeward Path (C13)
+1x Ignoble Hierarch
+2x Island (UN3)
+1x Jace, the Mind Sculptor (A25)
+1x Karakas
+1x Krosan Grip (TSP)
+1x Leovold, Emissary of Trest
+1x Lose Focus
+1x Maelstrom Pulse
+1x Malevolent Hermit
+1x Mana Drain
+1x Mana Leak
+1x Marsh Flats
+1x Maze of Ith
+1x Memory Deluge (MID)
+1x Mind Twist
+1x Mirri's Guile (000) f
+1x Misty Rainforest
+1x Murderous Rider (ELD)
+1x Noble Hierarch
+1x Oko, Thief of Crowns
+1x Opposition Agent
+1x Orcish Bowmasters
+1x Overgrown Tomb
+1x Polluted Delta
+1x Profane Tutor
+1x Rancor
+1x Reanimate
+1x Reclamation Sage
+1x Reflecting Pool
+1x Scalding Tarn
+1x Sheoldred, the Apocalypse (DMU)
+1x Snapcaster Mage
+1x Spellseeker
+1x Sphinx of the Final Word
+1x Sultai Charm
+1x Swamp (SLD:119)
+1x Sylvan Caryatid (THS)
+1x Sylvan Library
+1x Sylvan Scrying (MRD)
+1x Tear Asunder (DMU)
+1x Thoughtseize
+1x Thrun, Breaker of Silence (ONE)
+1x Thrun, the Last Troll
+1x Tower of the Magistrate
+1x Toxic Deluge
+1x Tropical Island
+1x Tyrranax Rex
+1x Underground Sea
+1x Unlicensed Hearse
+1x Vendilion Clique
+1x Verdant Catacombs
+1x Volrath's Stronghold
+1x Wasteland
+1x Watery Grave
+1x Windswept Heath
+1x Wooded Foothills
+1x Woodland Cemetery
+1x Yavimaya Hollow
+1x Zagoth Triome

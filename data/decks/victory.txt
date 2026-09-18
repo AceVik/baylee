@@ -1,0 +1,122 @@
+[deck:Victory]
+1 Abandoned Air Temple (TLA) 263
+1 Ancestral Vision (IMA) 42
+1 Arcane Sanctum (MM3) 228
+1 Archaeomancer (UMA) 45
+1 Arid Mesa (MM3) 229
+1 Baleful Strix (EMA) 196
+1 Banishing Stroke (MM3) 2
+1 Bleachbone Verge (DFT) 250
+1 Brainstorm (EMA) 40
+1 Brightclimb Pathway (ZNR) 259
+1 Cavern of Souls (MM3) 232
+1 Charming Prince (ELD) 8
+1 Clearwater Pathway (ZNR) 260
+1 Commander's Insight (C21) 350
+1 Counterspell (EMA) 43
+1 Curse of the Swine (KHC) 37
+1 Cyclonic Rift (MM3) 35
+1 Damn (MH2) 80
+1 Demonic Tutor (PUMA) U8
+1 Dig Through Time (KTK) 36
+1 Drowned Catacomb (XLN) 253
+1 Eerie Interlude (SOI) 16
+1 Elesh Norn, Mother of Machines (ONE) 10
+1 Entreat the Dead (PLST) C18-15
+1 Ephemerate (PLST) MH1-7
+1 Ertai Resurrected (DMU) 199
+1 Esper Sentinel (PLST) MH2-12
+1 Fetid Heath (A25) 238
+1 Flooded Strand (KTK) 233
+1 Force of Will (EMA) 49
+1 Fracture (PLST) STX-188
+1 Gilded Drake (USG) 76
+1 Glacial Fortress (XLN) 255
+1 Godless Shrine (RNA) 248
+1 Hallowed Fountain (RNA) 251
+1 Hengegate Pathway (PLST) KHM-260
+1 Island (KTK) 254
+1 Isolated Chapel (DOM) 241
+1 Jace, the Mind Sculptor (EMA) 57
+1 Karmic Guide (EMA) 17
+1 Kor Haven (EXP) 41
+1 Loran of the Third Path (BRO) 12
+1 Mana Drain (IMA) 65
+1 Marsh Flats (MM3) 239
+1 Maze of Ith (EMA) 241
+1 Metamorphosis Fanatic (DSC) 21
+1 Misty Rainforest (MM3) 240
+1 Mulldrifter (MM2) 51
+1 Mystic Gate (2XM) 324
+1 Mystical Tutor (EMA) 62
+1 Orcish Bowmasters (LTR) 103
+1 Palace Jailer (PLST) CN2-18
+1 Path to Exile (MM3) 17
+1 Phantasmal Image (MM3) 46
+1 Phyrexian Metamorph (2XM) 61
+1 Plains (KTK) 250
+1 Polluted Delta (KTK) 239
+1 Prairie Stream (BFZ) 241
+1 Primaris Eliminator (40K) 50
+1 Profane Tutor (MH2) 97
+1 Raffine's Tower (SNC) 254
+1 Ravenous Chupacabra (RIX) 82
+1 Reanimate (PUMA) U12
+1 Recruiter of the Guard (PLST) CN2-22
+1 Recurring Nightmare (TPR) 113
+1 Reflecting Pool (PLST) CLB-358
+1 Reliquary Tower (M19) 254
+1 Restoration Angel (MM3) 20
+1 Reveillark (UMA) 31
+1 Rhystic Study (PLST) PCY-45
+1 Riptide Laboratory (PLST) ONS-322
+1 Scalding Tarn (MM3) 244
+1 Scrubland (30A) 277
+1 Sensei's Divining Top (EMA) 232
+1 Sheoldred (MOM) 125
+1 Sheoldred's Edict (PLST) ONE-108
+1 Sheoldred, the Apocalypse (DMU) 107
+1 Sol Ring (TLE) 316
+1 Solemn Simulacrum (M21) 239
+1 Solitude (MH2) 32
+1 Soulherder (MH1) 214
+1 Spellseeker (BBD) 41
+1 Sun Titan (PLST) E01-21
+1 Sunken Hollow (BFZ) 249
+1 Swamp (KTK) 258
+1 Swords to Plowshares (EMA) 32
+1 Teferi, Time Raveler (WAR) 221
+1 Temporal Mastery (MM3) 54
+1 Tishana's Tidebinder (LCI) 81
+1 Toxic Deluge (EMA) 108
+1 Tundra (30A) 280
+1 Twining Twins (WOE) 240
+1 Underground Sea (30A) 281
+1 Vanishing Verse (STX) 244
+1 Venser, Shaper Savant (MM3) 55
+1 Vindicate (A25) 219
+1 Void Rend (SNC) 230
+1 Wasteland (EMA) 248
+1 Watery Grave (GRN) 259
+
+[sideboard]
+1 Aether Channeler (DMU) 42
+1 Ashiok, Dream Render (WAR) 228
+1 Bojuka Bog (PLST) C18-238
+1 Exotic Orchard (TMC) 66
+1 Force of Negation (TLE) 13
+1 Karakas (EMA) 240
+1 Luminarch Ascension (A25) 23
+1 Misdirection (PLST) DDT-15
+1 Opposition Agent (CMR) 141
+1 Skyclave Apparition (ZNR) 39
+1 Snapcaster Mage (MM3) 50
+1 Supreme Verdict (TMC) 134
+1 Thief of Blood (C15) 22
+1 Tower of the Magistrate (MB2) 242
+1 Vendilion Clique (MMA) 70
+1 Volrath's Stronghold (TPR) 248
+1 Werefox Bodyguard (WOE) 39
+
+[commander]
+1 Aminatou, the Fateshifter (PLST) 2X2-169

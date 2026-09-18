@@ -1,0 +1,101 @@
+[deck:Weltenbaum]
+1 Aesi, Tyrant of Gyre Strait (DSC) 210
+1 Archdruid's Charm
+1 Arid Mesa (SPG) 109
+1 Ashaya, Soul of the Wild (DSC) 170
+1 Badgermole Cub
+1 Bloodstained Mire
+1 Bojuka Bog (SOC) 363
+1 Boseiju, Who Endures (NEO) 266
+1 Brainstorm (PZA) 4
+1 Breeding Pool (EOE) 251
+1 Bristly Bill, Spine Sower (OTJ) 157
+1 Cavern of Souls (LCI) 269
+1 Conduit of Worlds (TDC) 251
+1 Consult the Star Charts
+1 Crop Rotation (SOA) 51
+1 Crucible of Worlds (PIP) 357
+1 Delighted Halfling
+1 Demonic Tutor
+1 Dig Through Time (SOC) 195
+1 Dragonback Assault
+1 Druid Class (AFR) 180
+1 Dryad of the Ilysian Grove
+1 Elesh Norn, Mother of Machines
+1 Enduring Vitality (DSK) 176
+1 Enlightened Tutor
+1 Erode
+1 Eternal Witness (M3C) 227
+1 Evendo, Waking Haven
+1 Exploration (DMR) 159
+1 Fanatic of Rhonas
+1 Fastbond (30A) 188
+1 Field of the Dead (SPG) 28
+1 Flamekin Harbinger (LRW) 167
+1 Flooded Grove (SOC) 373
+1 Flooded Strand (MH3) 220
+1 Forest
+1 Gaea's Cradle
+1 Garruk's Uprising
+1 Grim Tutor
+1 Hinterland Harbor (SOC) 381
+1 Imperial Seal
+1 Island
+1 Karakas (LTC) 367
+1 Ketria Triome (IKO) 250
+1 Lotus Cobra (J25) 685
+1 Lumra, Bellow of the Woods (BLB) 183
+1 Maelstrom Wanderer (ECC) 127
+1 Mana Drain (OTP) 11
+1 Marsh Flats
+1 Maze of Ith (DMR) 250
+1 Mirri's Guile (MB2) 209
+1 Misty Rainforest (SPG) 111
+1 Muldrotha, the Gravetide
+1 Mystic Remora (TLE) 16
+1 Nissa, Resurgent Animist (MAT) 122
+1 Nylea's Intervention (THB) 188
+1 Omnath, Locus of Rage (ECC) 129
+1 Path to Exile (SOC) 159
+1 Petrified Field (EOS) 122
+1 Pithing Needle
+1 Polluted Delta (MH3) 224
+1 Primeval Titan
+1 Privileged Position
+1 Ramunap Excavator (M3C) 241
+1 Realms Uncharted (SLD) 1895
+1 Recurring Nightmare
+1 Reflecting Pool (EOS) 126
+1 Rejuvenating Springs (CMM) 424
+1 Retreat to Kazandu (J25) 707
+1 Rhystic Study (FCA) 31
+1 Risen Reef (ECC) 132
+1 Roaming Throne (LCI) 258
+1 Savannah
+1 Scalding Tarn (SPG) 112
+1 Simic Growth Chamber (DSC) 298
+1 Spara's Headquarters (SNC) 257
+1 Steely Resolve (ONS) 286
+1 Sterling Grove
+1 Swords to Plowshares (SOC) 179
+1 Taiga
+1 Tatyova, Benthic Druid (FDN) 247
+1 Tectonic Edge (M3C) 384
+1 Temur Ascendancy
+1 The Meathook Massacre
+1 The World Tree (KHM) 275
+1 Tireless Provisioner (J25) 728
+1 Tower of the Magistrate (MB2) 242
+1 Tribute to the World Tree (MOM) 211
+1 Tropical Island (30A) 279
+1 Verdant Catacombs (SPG) 113
+1 Virtue of Knowledge (WOE) 279
+1 Walk-In Closet // Forgotten Cellar (DSK) 205
+1 Wasteland (MB2) 115
+1 Wayward Swordtooth
+1 Windswept Heath (MH3) 235
+1 Wooded Foothills (MH3) 236
+1 World Shaper
+1 Wrenn and Realmbreaker (MOM) 217
+1 Yavimaya Hollow (VMA) 325
+1 Yavimaya, Cradle of Growth (M3C) 409
