@@ -694,7 +694,7 @@ scripts read in full.
 **`--stubs` is the ranking that ships cards, and the plain one is not.** The
 report's default population is all 33 826 reference scripts, which measures the
 DSL; `transcode-report --stubs` ranks only the scripts belonging to this pool's
-own unfinished cards — 651 of the 659 stubs have one — and the two orders
+own unfinished cards — 640 of the 648 stubs have one — and the two orders
 disagree so sharply that the corpus one is a trap when the goal is a card.
 Measured on 17.09: `Charm` is 618 corpus-wide and **2** here, an unreadable
 `Pump` value 477 and **6**, the `DamageDone` trigger 442 and **1**,
@@ -768,6 +768,26 @@ written. One reader, four spellings, thirteen more lands. Twenty-seven cards
 came out of the three entries together, and each of them was a sentence the
 DSL was already most of the way to saying.
 
+`unclaimed parameter ChangeZone.ChangeTypeDesc` (12) is the smallest of them
+and the one worth reading, because claiming a word uncovered a rule that was
+quietly wrong. The key is a label — `ChangeTypeDesc$ basic land` spells
+`ChangeType$ Land.Basic` for a human — but it is **not** a `PROSE_KEYS`
+entry, because it is prose only while the filter it describes stands beside
+it: on a line that wrote the label and no filter it would be the only thing
+said about what is being found. `Params::claim_label` is that guard, and the
+measurement it rests on is that all 369 occurrences in the reference are a
+`ChangeZone` and **not one** of them lacks a `ChangeType$`. Twelve lands read
+in full — and the twelfth was Blighted Woodland, "search your library for up
+to two basic land cards", written as a card that must find both. `optional`
+is that word, `ChangeNum$` alone does not carry it, and the corpus proves it
+cannot: of the 135 lines searching a library for more than one card without
+an `Optional$`, 70 print "up to" and 65 do not, with identical fields.
+`Mandatory$ True` separates one side cleanly (36 lines, none of them "up
+to"), so a script saying either word is read and a script saying neither is
+refused. Eleven lands, not twelve, and that is the honest-stub rule paying
+for itself: reading the absence of a field as "up to" would have been an
+inference wearing a reading's clothes.
+
 The `Mana` entry used to be followed by one reading "supported effects, unsupported
 parameters (~4200)", described as the honest-stub rule showing its cost. Most
 of it was not that. `refusal_cause` was *guessing* — re-reading the script and
@@ -827,7 +847,7 @@ in the reader and never in the card: one rule wrote hundreds of files, so
 patching the one in front of you leaves the rest broken and is reverted on the
 next run anyway. `cargo run -p xtask -- adopt --name "<card>"` is the way out
 — it strips the marker and hands the file over for good. `validate` reports
-the split (328 hand-owned, 549 machine-owned, 659 stubs), which is the number
+the split (328 hand-owned, 560 machine-owned, 648 stubs), which is the number
 to watch: a machine-owned card is a rule's output, and a rule is testable.
 The markers are named here and not quoted, and `stubgen::is_machine_owned` is
 the only thing that should ever ask: `cross-read`'s first draft retyped the

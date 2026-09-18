@@ -182,3 +182,73 @@ fn every_price_paid_by_naming_an_object_puts_a_menu_up() {
          a probe that matches nothing passes without checking anything"
     );
 }
+
+/// No card in this pool asks for more than one card and refuses to settle
+/// for fewer.
+///
+/// `Effect::SearchLibrary` turns `optional` into the search's *minimum*:
+/// `false` makes `min` equal `finds.len()`, so a two-card search a player
+/// cannot decline half of. Every multi-card search in this pool names a
+/// **stated quality** — "two basic land cards", not "two cards" — and
+/// CR 701.23b says a player searching a hidden zone for those is never
+/// required to find them.
+///
+/// This is a pin on the pool and not a law of Magic, which is the half
+/// worth saying out loud: CR 701.23**d** is the other sentence, and a
+/// search "simply for a quantity of cards" *must* find that many. The
+/// reference writes one — "search your library for three cards, exile
+/// them" — so the day this pool reaches for that card it is hand-written,
+/// this test fails, and the failure is the conversation rather than a
+/// defect.
+///
+/// What the transcoder may write is the narrower thing, because a script
+/// does not say which sentence it is: Cultivate's "up to two" and "search
+/// your library for three cards" carry identical fields, so a `ChangeNum$`
+/// above one is now read only where the script says `Optional$ True` or
+/// `Mandatory$ True`. It guessed once: Blighted Woodland shipped as a card
+/// that had to find both lands, and this is the assertion that says so.
+#[test]
+fn a_search_for_several_cards_may_always_settle_for_fewer() {
+    let mut searches = 0;
+    let mut several = 0;
+    for (oracle_id, def) in baylee_cards::generated::ALL {
+        let faces = def.faces.iter().map(|f| f.abilities);
+        for list in core::iter::once(def.abilities).chain(faces) {
+            let dump = format!("{list:?}");
+            for (at, _) in dump.match_indices("SearchLibrary { ") {
+                searches += 1;
+                let rest = &dump[at..];
+                let Some((_, tail)) = rest.split_once("finds: [") else {
+                    continue;
+                };
+                let Some((finds, after)) = tail.split_once(']') else {
+                    continue;
+                };
+                let count = finds.matches("Find {").count();
+                if count <= 1 {
+                    continue;
+                }
+                several += 1;
+                let optional = after
+                    .split_once("optional: ")
+                    .is_some_and(|(_, t)| t.starts_with("true"));
+                assert!(
+                    optional,
+                    "{} ({oracle_id}) searches for {count} cards and may not \
+                     settle for fewer — either it names a quality and CR \
+                     701.23b lets the player stop short, or it is the \
+                     quantity-only search of CR 701.23d and the first one \
+                     this pool has ever held",
+                    def.name(),
+                );
+            }
+        }
+    }
+    assert!(
+        searches >= 45 && several >= 2,
+        "{searches} searches in the pool and {several} of them for several \
+         cards, against 55 and 2 when this was written: the probe stopped \
+         matching, and a probe that matches nothing passes without checking \
+         anything"
+    );
+}

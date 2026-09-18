@@ -1062,7 +1062,7 @@ a blocker goes once it has been re-read.
 
 The other half of the same question is measured continuously and needs no such
 care. `cargo run -p xtask -- transcode-report` ranks what the *whole* script
-corpus is refused for — 4580 of 33 826 read in full as of 18.09, with
+corpus is refused for — 4619 of 33 826 read in full as of 18.09, with
 `AlternateMode:` (887), `Charm` (619) and an unreadable value in `Pump` at the
 top — computed against the DSL as it stands rather than as it stood. The
 line under it says the same of the reference's **token** scripts (627 of 852,
@@ -1070,7 +1070,7 @@ and 41 of the 184 that print a rules line), because a token's abilities are
 read by this same transcoder.
 
 **Add `--stubs` when the goal is a card rather than the DSL.** That ranks the
-same question over this pool's own unfinished cards — 651 of the 659 stubs
+same question over this pool's own unfinished cards — 640 of the 648 stubs
 have a reference script — and it is a different list, not a shorter one:
 `Charm` is 619 corpus-wide and 2 here, and the `DamageDone` trigger 443 and 1.
 What actually holds this pool's stubs shut is `AlternateMode:` (89), a

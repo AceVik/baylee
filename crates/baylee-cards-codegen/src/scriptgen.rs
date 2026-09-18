@@ -157,6 +157,31 @@ impl Params {
         Some(self.entries.remove(i).1)
     }
 
+    /// Whether a parameter is present, without claiming it.
+    fn has(&self, key: &str) -> bool {
+        self.entries.iter().any(|(k, _)| k == key)
+    }
+
+    /// Claims a label that only restates the filter standing beside it.
+    ///
+    /// **Not a [`PROSE_KEYS`] entry, and the difference is the guard.** A key
+    /// on that list is prose wherever it appears; this one is prose only
+    /// while the parameter it describes is there to carry the meaning — so
+    /// the same word would be refused on a line that wrote the label and no
+    /// filter, where it would be the only thing said about what is being
+    /// found.
+    ///
+    /// Measured before it was written, which is what the rule about that
+    /// list asks for: `ChangeTypeDesc$` appears on 369 lines of the
+    /// reference, every one of them a `ChangeZone`, and **not one** of them
+    /// without a `ChangeType$` beside it. Its commonest value is `basic
+    /// land` (257), which is `Land.Basic` spelled for a human.
+    fn claim_label(&mut self, label: &str, filter: &str) {
+        if self.has(filter) {
+            self.take(label);
+        }
+    }
+
     fn drop_prose(&mut self) {
         self.entries
             .retain(|(k, _)| !PROSE_KEYS.contains(&k.as_str()));
@@ -1079,6 +1104,7 @@ impl Tx<'_> {
     fn change_zone(&mut self, p: &mut Params, target: Option<&str>) -> Option<Vec<String>> {
         let origin = p.take("Origin")?;
         let destination = p.take("Destination")?;
+        p.claim_label("ChangeTypeDesc", "ChangeType");
         // A library search is a different effect, not a zone change with a
         // hidden target: a card in a library cannot be targeted at all
         // (CR 115.2 needs a visible object), so `Effect::SearchLibrary`
@@ -1165,6 +1191,9 @@ impl Tx<'_> {
         // `Shuffle$ False` has to be refused here rather than read, because
         // nothing downstream can express a search that leaves the library in
         // order.
+        // Asked before the loop below consumes it, because it is the only
+        // word that says a count above one is a requirement.
+        let mandatory = p.has("Mandatory");
         for (key, expected) in [
             ("Mandatory", "True"),
             ("Shuffle", "True"),
@@ -1181,6 +1210,28 @@ impl Tx<'_> {
         let count = usize::try_from(count).ok()?;
         if count == 0 || count > 4 {
             self.note(format!("`ChangeZone` finding {count} cards"));
+            return None;
+        }
+        // "Search your library for **up to** two basic land cards" and
+        // "search your library for three cards and reveal them" are two
+        // different cards, and above a count of one the difference is what
+        // the player is allowed to find — `optional` is exactly that flag.
+        //
+        // The script does not always say which it is. Measured over the
+        // reference: 137 lines search a library for more than one card, and
+        // of the 135 that carry no `Optional$`, 70 print "up to" and 65 do
+        // not — identical fields, opposite cards. `Mandatory$ True` does
+        // separate one side cleanly (36 lines, **none** of them "up to"),
+        // so a script that says either word is read and a script that says
+        // neither is refused. Reading the absence of a field as "up to"
+        // would be an inference rather than a reading, and it would have
+        // written Blighted Woodland — "up to two" — as a card that must
+        // find both.
+        if count > 1 && !optional && !mandatory {
+            self.note(
+                "`ChangeZone` finding several cards without saying whether that is a maximum"
+                    .to_string(),
+            );
             return None;
         }
         let filter = self.filter_expr(&p.take("ChangeType")?)?;
@@ -1507,7 +1558,7 @@ impl Tx<'_> {
     ///
     /// "You control" is added where the script does not say it, which is the
     /// one place this reader writes a clause it did not read — and only for
-    /// the three that take a permanent. CR 701.17a lets a player sacrifice
+    /// the three that take a permanent. CR 701.21a lets a player sacrifice
     /// only what they control and CR 118.3 says the same of tapping one to
     /// pay, so a filter without it would be the card and
     /// `cost_wizard::options` offering two different menus for one cost. A
@@ -3927,6 +3978,76 @@ mod tests {
             ),
             "{:?}",
             two.abilities
+        );
+
+        // The same line with neither word. `ChangeNum$` alone does not say
+        // whether two is a maximum or a requirement, and the two are
+        // different cards, so it is refused rather than guessed at.
+        let ambiguous = parse(
+            "Name:X\nTypes:Sorcery\n\
+             A:SP$ ChangeZone | Origin$ Library | Destination$ Battlefield | ChangeNum$ 2 | ChangeType$ Forest",
+        );
+        assert_eq!(
+            refusal_reason(&ambiguous, &cats(), None).as_deref(),
+            Some("`ChangeZone` finding several cards without saying whether that is a maximum")
+        );
+
+        // `Mandatory$ True` is the other word, and it says the opposite of
+        // `Optional$ True` rather than merely failing to say it.
+        let must = read(
+            "Name:X\nTypes:Sorcery\n\
+             A:SP$ ChangeZone | Origin$ Library | Destination$ Hand | ChangeNum$ 2 | Mandatory$ True | ChangeType$ Card",
+        );
+        assert!(
+            must.abilities
+                .join("")
+                .contains("finds: &[Find::HAND, Find::HAND], optional: false"),
+            "{:?}",
+            must.abilities
+        );
+
+        // A count of one needs no word at all, which is what keeps every
+        // fetchland in the pool readable.
+        let one = read(
+            "Name:X\nTypes:Land\n\
+             A:AB$ ChangeZone | Cost$ T Sac<1/CARDNAME> | Origin$ Library | Destination$ Battlefield | ChangeType$ Land.Basic | ChangeTypeDesc$ basic land",
+        );
+        assert!(
+            one.abilities.join("").contains("optional: false"),
+            "{:?}",
+            one.abilities
+        );
+    }
+
+    /// `ChangeTypeDesc$` restates the filter beside it for a human, and is
+    /// claimed only while that filter is there to carry the meaning.
+    ///
+    /// Not a `PROSE_KEYS` entry, and this is the difference: alone on a
+    /// line it is the only thing said about what is being found, and a
+    /// reader that dropped it would be inventing a filter.
+    #[test]
+    fn a_search_label_is_claimed_only_beside_the_filter_it_restates() {
+        let labelled = read(
+            "Name:X\nTypes:Land\n\
+             A:AB$ ChangeZone | Cost$ T Sac<1/CARDNAME> | Origin$ Library | Destination$ Battlefield | Tapped$ True | ChangeType$ Land.Basic | ChangeTypeDesc$ basic land",
+        );
+        assert!(
+            labelled
+                .abilities
+                .join("")
+                .contains("finds: &[Find::BATTLEFIELD_TAPPED]"),
+            "{:?}",
+            labelled.abilities
+        );
+
+        let bare = parse(
+            "Name:X\nTypes:Land\n\
+             A:AB$ ChangeZone | Cost$ T Sac<1/CARDNAME> | Origin$ Library | Destination$ Battlefield | ChangeTypeDesc$ basic land",
+        );
+        assert_eq!(
+            refusal_reason(&bare, &cats(), None).as_deref(),
+            Some("unreadable value in `ChangeZone`"),
+            "a label with no filter beside it says nothing a card can be built from"
         );
     }
 

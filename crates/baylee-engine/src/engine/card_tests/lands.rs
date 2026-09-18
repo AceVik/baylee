@@ -5,6 +5,7 @@
 use super::*;
 use crate::choice::ChoicePrompt;
 use baylee_cards_dsl::counters;
+use baylee_cards_dsl::{Effect, Find, SearchDest};
 
 /// Abraded Bluffs: "When this land enters, it deals 1 damage to target
 /// opponent." Two things are being asserted, and the card was broken on
@@ -7170,5 +7171,261 @@ fn a_land_that_sacrifices_a_token_makes_one_first() {
             .object(options[0])
             .is_some_and(|o| o.card.is_none()),
         "what the menu offers is the token"
+    );
+}
+
+/// The eleven lands the transcoder writes out of a `ChangeZone` that reads a
+/// library, with the basic each one's own filter accepts and one it refuses.
+///
+/// The second column fills the library, so there is something to find at
+/// all. The third is what
+/// [`a_land_that_searches_finds_nothing_outside_its_own_filter`] fills it
+/// with instead, and is empty for the six that take any basic land there is
+/// — those six have no outside.
+const SEARCHES_THE_LIBRARY: &[(&str, &str, &str)] = &[
+    // "a basic land card".
+    ("861eb7d7-7616-4620-a4fd-4b8c3bf00dd1", "Forest", ""), // Promising Vein
+    ("032b8a0d-491a-4a12-ab9f-689010054d5b", "Forest", ""), // Prismatic Vista
+    ("619173f4-0403-49cd-9659-2fedd5028a90", "Forest", ""), // Shire Terrace
+    ("58eaaa8b-45c6-439b-bdd1-5f4e77a75a8c", "Forest", ""), // Terminal Moraine
+    ("6a7f3e1f-6798-4644-b64c-7765f81f0938", "Forest", ""), // Vibrant Cityscape
+    ("543e6bb3-a867-43bf-a737-2f5d6d8dc631", "Forest", ""), // Warped Landscape
+    // The Panorama cycle: three named basics each, and two it must refuse.
+    ("0a1d817d-dce8-4e83-a380-909f7c9eee46", "Forest", "Swamp"), // Bant
+    ("6b9cd3d0-4316-4945-b960-12f51052d260", "Plains", "Forest"), // Esper
+    ("743f4488-fef1-4f4d-b745-d2de92423e00", "Island", "Plains"), // Grixis
+    ("f39f33ac-074d-442d-ae4c-1d694ee315f3", "Swamp", "Plains"), // Jund
+    ("71e28800-c42c-48c0-95e5-0296be54a4e8", "Mountain", "Island"), // Naya
+];
+
+/// The ability of `card` that reads a library, and where what it finds goes.
+///
+/// `finds` is read off the compiled card rather than written into the table
+/// beside it, for the same reason [`ability_that_asks`] reads the cost: the
+/// table would then be a second opinion about a card, and the card is the
+/// one this rule wrote. Both activated spellings, because
+/// `ActivatedConditional` is the twin readers keep missing.
+fn ability_that_searches(
+    engine: &Engine<RegistryLookup>,
+    card: CardIndex,
+) -> Option<(ObjectId, u32, &'static [Find])> {
+    let Pending::Priority { legal, .. } = engine.pending() else {
+        return None;
+    };
+    legal.abilities.iter().copied().find_map(|(id, index)| {
+        let def = engine
+            .state()
+            .object(id)
+            .and_then(|o| o.card)
+            .filter(|c| c.index == card)
+            .and_then(|c| baylee_cards::by_index(c.index))?;
+        let effects = match def.abilities.get(index as usize)? {
+            AbilityDef::Activated { effects, .. }
+            | AbilityDef::ActivatedConditional { effects, .. } => *effects,
+            _ => return None,
+        };
+        effects.iter().find_map(|effect| match effect {
+            Effect::SearchLibrary { finds, .. } => Some((id, index, *finds)),
+            _ => None,
+        })
+    })
+}
+
+/// Passes priority until the search puts its question up.
+///
+/// `None` is the other legitimate outcome: a search that matches nothing in
+/// the library shuffles and asks nobody (CR 701.23b), so what says "there
+/// was no question" is the ability having left the stack. The land is no
+/// signal here — it was sacrificed to *pay* for this, one step before the
+/// ability ever went on the stack.
+fn reach_the_search(engine: &mut Engine<RegistryLookup>) -> Option<(Vec<ObjectId>, u8, u8)> {
+    for _ in 0..8 {
+        if let Pending::ChooseCards {
+            options,
+            min,
+            max,
+            prompt: ChoicePrompt::SearchLibrary,
+            ..
+        } = engine.pending().clone()
+        {
+            return Some((options, min, max));
+        }
+        if engine.state().zones.list(ZoneLocation::Stack).is_empty() {
+            return None;
+        }
+        let Pending::Priority { player, .. } = engine.pending().clone() else {
+            panic!(
+                "unexpected while waiting for the search: {:?}",
+                engine.pending()
+            )
+        };
+        engine.apply(player, PlayerAction::PassPriority).unwrap();
+    }
+    // Never a quiet `None`: one ability on an otherwise empty stack resolves
+    // in two passes, so eight of them mean the walk lost its way — and the
+    // negative test below reads `None` as "the search asked nothing", which
+    // an exhausted loop would satisfy without ever reaching the search.
+    panic!("the ability never resolved: {:?}", engine.pending())
+}
+
+/// Plays the row's land, pays for it, and hands back the engine standing on
+/// whatever the search asked — with the land already gone, because every
+/// one of these eleven sacrifices itself to pay.
+fn a_land_that_searches(
+    seed: u64,
+    card: CardIndex,
+    library: CardIndex,
+) -> (Engine<RegistryLookup>, &'static [Find]) {
+    let p0 = PlayerId::new(0);
+    // Two of every basic: enough for the dearest of the eleven, `{2}`, and
+    // colours the filters have opinions about.
+    let mut engine = Duel::new(seed, library)
+        .battlefield(
+            0,
+            &[
+                plains(),
+                plains(),
+                island(),
+                island(),
+                swamp(),
+                swamp(),
+                mountain(),
+                mountain(),
+                forest(),
+                forest(),
+            ],
+        )
+        .hand(0, &[card])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let land = play_land(&mut engine, p0, card);
+    // Round the turn: three of these come down tapped, and every one of them
+    // spends its own `{T}` as part of the price.
+    cross_into_the_next_own_main(&mut engine, p0);
+    tap_all_mana_but(&mut engine, p0, Some(card));
+
+    let (source, index, finds) = ability_that_searches(&engine, card)
+        .expect("the land offers the ability that reads a library");
+    assert_eq!(source, land, "the ability is on the land just played");
+    engine
+        .apply(
+            p0,
+            PlayerAction::ActivateAbility {
+                source,
+                ability_index: index,
+            },
+        )
+        .unwrap();
+    assert!(
+        !engine
+            .state()
+            .zones
+            .list(ZoneLocation::Battlefield)
+            .contains(&land),
+        "the land pays for this with itself, and a cost is paid on activation"
+    );
+    (engine, finds)
+}
+
+/// Every row: the land is played, sacrificed for its own ability, and what
+/// the search found is on the battlefield in the state the card prints.
+///
+/// The count and the tapping are read off the compiled `finds` rather than
+/// asserted as constants, so the day a `Find` in one of these cards changes
+/// the test follows the card instead of arguing with it. What is fixed here
+/// is the sentence around them: the search offers exactly as many as it
+/// finds, no fewer (none of the eleven prints "up to"), and every card named
+/// arrives.
+#[test]
+fn a_land_that_searches_puts_what_it_found_onto_the_battlefield() {
+    for (i, (oracle, fills, _)) in SEARCHES_THE_LIBRARY.iter().enumerate() {
+        let card = card_index(oracle);
+        let p0 = PlayerId::new(0);
+        let seed = 1020 + u64::try_from(i).expect("eleven rows");
+        let (mut engine, finds) = a_land_that_searches(seed, card, basic(fills));
+
+        let (options, min, max) =
+            reach_the_search(&mut engine).unwrap_or_else(|| panic!("{oracle} asked nothing"));
+        let want = u8::try_from(finds.len()).expect("a handful at most");
+        assert_eq!(
+            (min, max),
+            (want, want),
+            "{oracle} prints no \"up to\", so the search is for all {want} of them"
+        );
+        let chosen: Vec<ObjectId> = options.iter().copied().take(finds.len()).collect();
+        assert_eq!(
+            chosen.len(),
+            finds.len(),
+            "{oracle} was offered {} cards out of a library of sixty {fills}",
+            options.len()
+        );
+        engine
+            .apply(
+                p0,
+                PlayerAction::ChooseObjects {
+                    objects: chosen.clone(),
+                },
+            )
+            .unwrap();
+
+        let battlefield = engine.state().zones.list(ZoneLocation::Battlefield).clone();
+        for (found, find) in chosen.iter().zip(finds) {
+            assert_eq!(
+                find.dest,
+                SearchDest::Battlefield,
+                "{oracle} is one of the eleven that fetch onto the battlefield"
+            );
+            assert!(
+                battlefield.contains(found),
+                "{oracle} named a card and it never arrived"
+            );
+            assert_eq!(
+                engine
+                    .state()
+                    .object(*found)
+                    .and_then(|o| o.card)
+                    .map(|c| c.index),
+                Some(basic(fills)),
+                "{oracle} put something other than the {fills} it was handed onto the battlefield"
+            );
+            assert_eq!(
+                entered_tapped(&engine, *found),
+                find.tapped,
+                "{oracle} prints tapped = {}, and the card arrived the other way",
+                find.tapped
+            );
+        }
+    }
+}
+
+/// The five Panoramas, over a library of the one basic each of them refuses.
+///
+/// The independent reading of the filter, and the reason it is a second
+/// test: the test above fills the library with sixty cards the filter
+/// accepts, so a `SearchLibrary` that ignored its filter entirely would
+/// pass it every time. Here nothing matches, the search asks no question at
+/// all (CR 701.23b), and the land is still gone — a filter that let the
+/// wrong basic through would put a question up instead.
+#[test]
+fn a_land_that_searches_finds_nothing_outside_its_own_filter() {
+    let mut checked = 0;
+    for (i, (oracle, _, refuses)) in SEARCHES_THE_LIBRARY.iter().enumerate() {
+        if refuses.is_empty() {
+            continue;
+        }
+        checked += 1;
+        let card = card_index(oracle);
+        let seed = 1040 + u64::try_from(i).expect("eleven rows");
+        let (mut engine, _) = a_land_that_searches(seed, card, basic(refuses));
+        assert!(
+            reach_the_search(&mut engine).is_none(),
+            "{oracle} offered a search over a library of sixty {refuses}, which it does not name"
+        );
+    }
+    assert_eq!(
+        checked, 5,
+        "the Panorama cycle is five cards, and this test speaks for all of them"
     );
 }
