@@ -479,6 +479,36 @@ pub fn segments(text: &str) -> Vec<Segment> {
     out
 }
 
+/// How much of a prose segment must stay with the mark before it.
+///
+/// A renderer sets a printed line as a *row of items* — a disc is a node and
+/// the words around it are nodes — and a row that wraps may break between any
+/// two of them. So `{T}: Add {U} or {B}. This artifact deals 1 damage to you.`
+/// wrapped after the last disc and began its second line with the full stop,
+/// which reads as a sentence that has come apart. It was invisible in English,
+/// where that line fits, and the owner saw it the moment the German arrived —
+/// `Erzeuge {U} oder {B}. Dieses Artefakt fügt dir 1 Schadenspunkt zu.`
+///
+/// The answer is typographic and not a special case: **punctuation belongs to
+/// what precedes it.** This counts the bytes of it at the head of a segment,
+/// and a renderer glues that much to the mark it follows so the pair cannot be
+/// parted. A space ends the run, because the words after it are a new place a
+/// line may break and should be.
+///
+/// Answers 0 for a segment that starts with a letter or a space, which is
+/// most of them.
+#[must_use]
+pub fn clings(text: &str) -> usize {
+    text.char_indices()
+        .find(|(_, c)| {
+            !matches!(
+                c,
+                '.' | ',' | ':' | ';' | '!' | '?' | ')' | ']' | '\u{2019}' | '\u{201d}'
+            )
+        })
+        .map_or(text.len(), |(at, _)| at)
+}
+
 /// One piece of a printed line **quoted** in the interface's own prose.
 ///
 /// The difference from [`Segment`] is one of register, not of parsing. A card
@@ -553,6 +583,27 @@ pub fn inline(text: &str) -> Vec<Inline> {
 
 #[cfg(test)]
 mod tests {
+    /// Punctuation belongs to what precedes it, and a space ends the run.
+    ///
+    /// The rule a wrapped ability sheet turned on: a row of items may break
+    /// between any two of them, so a segment beginning `". Dieses Artefakt"`
+    /// put the full stop at the head of the second line.
+    #[test]
+    fn punctuation_clings_to_the_mark_before_it() {
+        assert_eq!(clings(". Dieses Artefakt fügt dir"), 1);
+        assert_eq!(clings(": Add "), 1);
+        assert_eq!(clings(", "), 1);
+        assert_eq!(clings(" or "), 0);
+        assert_eq!(clings("Add "), 0);
+        assert_eq!(clings(""), 0);
+        // A whole segment of punctuation is all cling — the sentence's own
+        // full stop after its last symbol.
+        assert_eq!(clings("."), 1);
+        // And it never splits a character: the byte count is a boundary.
+        let text = "… und";
+        assert!(text.is_char_boundary(clings(text)));
+    }
+
     use super::*;
     use baylee_core::mana::ManaCost;
 

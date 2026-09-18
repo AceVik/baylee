@@ -22,6 +22,7 @@ mod cast_modes;
 mod chooser;
 mod pips;
 mod planning;
+mod sheet;
 
 use baylee_client::host::{DuelHost, HostMessage, LocalHost};
 

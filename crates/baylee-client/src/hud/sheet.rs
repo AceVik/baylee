@@ -874,7 +874,7 @@ fn spawn_sheet(
     // row with a column of its own width would put its prose where its
     // neighbours' costs are. Decided over the rows on this page, because a
     // page is what is seen.
-    let costs = cost_column(faces, duel, object, options, split, page);
+    let costs = cost_column(options, split, page);
     for at in abilitysheet::rows(split.rows, page) {
         let digit = digit_of(at).unwrap_or('?');
         let index = split.option(at);
@@ -886,7 +886,6 @@ fn spawn_sheet(
             object,
             index,
             &options[index],
-            lang,
             digit,
             armed == Some(index),
             duel.ability_pick == index,
@@ -1222,20 +1221,6 @@ fn rule(commands: &mut Commands, above: f32) -> Entity {
         .id()
 }
 
-/// What a row charges, where that is not the row's own words a second time.
-///
-/// Offline there is no card text at all, so every printed ability falls back
-/// to its cost as its *label* — and a row reading `{2}, {T}` beside `{2}, {T}`
-/// is the duplication the sentence-first layout exists to remove, not a cost
-/// drawn where a cost belongs.
-///
-/// Its own function because the answer is needed twice: once per row, to draw
-/// it, and once per *sheet*, to decide whether there is a cost column at all.
-fn row_cost(option: &crate::abilities::AbilityOption, printed: bool) -> Option<&str> {
-    let repeats = !printed && option.cost.as_deref() == Some(option.label.as_str());
-    option.cost.as_deref().filter(|_| !repeats)
-}
-
 /// How wide this sheet's **cost column** is, or `None` for no column at all.
 ///
 /// One answer for the whole page, because a column is a claim about where
@@ -1259,9 +1244,6 @@ fn row_cost(option: &crate::abilities::AbilityOption, printed: bool) -> Option<&
 /// [`spawn_cost_title`], a title line over the sentence it charges for, with
 /// the row's whole width to wrap in.
 fn cost_column(
-    faces: &crate::cardtext::CardTexts,
-    duel: &Duel,
-    object: ObjectId,
     options: &[crate::abilities::AbilityOption],
     split: crate::abilities::Split,
     page: usize,
@@ -1269,8 +1251,7 @@ fn cost_column(
     let mut widest: Option<f32> = None;
     for row in abilitysheet::rows(split.rows, page) {
         let at = split.option(row);
-        let printed = row_text(faces, duel, object, &options[at]).is_some();
-        let Some(cost) = row_cost(&options[at], printed) else {
+        let Some(cost) = options[at].cost.as_deref() else {
             continue;
         };
         let mut payments = crate::abilities::payments(cost);
@@ -1542,7 +1523,6 @@ fn spawn_row(
     object: ObjectId,
     index: usize,
     option: &crate::abilities::AbilityOption,
-    lang: Lang,
     digit: char,
     armed: bool,
     picked: bool,
@@ -1600,20 +1580,29 @@ fn spawn_row(
         palette::INK,
         ROW_CAP_PT,
     );
-    // What the ability *does*, if the card's text is here to say it, and what
-    // it costs if it is not: the fallback label is `printed_label`'s answer,
-    // which is the cost. Read here rather than where it is drawn, because the
-    // cost column is decided by it and stands to the left of the sentence.
+    // What the ability *does*, in the card's own words or not at all.
+    //
+    // There used to be a second source here — `abilities::effect_label`, a
+    // table of short categories composed in this client ("Scry", "Draw
+    // cards") for the rows whose printed text had not arrived. It is gone,
+    // and the owner's instruction is the whole reason: *„Bitte nicht custom
+    // texte für abilities verwenden, sondern die echten texte von
+    // skryfall."* A composed category is a second wording of a card that
+    // already has one, it is never the one the player reads on the physical
+    // card, and it exists only where the real text is missing — which is a
+    // fetch to repair, not a sentence to invent. `cardtext` now falls back
+    // to Scryfall itself when the gateway has nothing, so the missing case
+    // is missing for a moment rather than for a game.
+    //
+    // What is left when even that has not arrived is the **cost**, which is
+    // drawn whatever happens: a row with neither is a bare keycap, and a
+    // sheet of bare keycaps is the "Ability 2" this whole panel replaced.
+    // There used to be a guard here dropping a cost that repeated the row's
+    // own words — it was needed while `option.label` was drawn as the
+    // sentence, since for an activated ability the label *is* the cost, and
+    // with the label gone it only took the cost away too.
     let printed = row_text(faces, duel, object, option);
-    let fallback = duel
-        .view
-        .as_ref()
-        .and_then(|view| crate::abilities::effect_label(lang, view, &option.action));
-    let cost = if fallback.is_some() {
-        option.cost.as_deref()
-    } else {
-        row_cost(option, printed.is_some())
-    };
+    let cost = option.cost.as_deref();
     // **Cost, sentence, key**, in that order across the row. The cost is what
     // a player checks first ("can I afford this") and the key is what they
     // press last, so the row is read in the order it is used; and both ends
@@ -1655,18 +1644,42 @@ fn spawn_row(
         let title = spawn_cost_title(commands, fonts, cost);
         commands.entity(says).add_child(title);
     }
-    let blocks = printed.unwrap_or_else(|| {
-        vec![TextBlock::Rules(
-            fallback.unwrap_or_else(|| option.label.clone()),
-        )]
-    });
-    for block in blocks {
-        let (words, colour) = match &block {
-            TextBlock::Rules(t) => (t.clone(), palette::INK),
-            TextBlock::Reminder(t) => (t.clone(), palette::MUTED),
-        };
-        let line = crate::manaui::spawn_rich(commands, fonts, &words, ROW_PT, colour);
-        commands.entity(says).add_child(line);
+    // No printed text and nothing invented to stand in for it: the row is
+    // its cost and its key until the words arrive. `option.label` is not a
+    // third source — for every activated ability it *is* the cost, already
+    // drawn a few pixels to the left, and drawing it again was a row saying
+    // one badge twice and nothing else, 126 times over the pool. Which
+    // sentence a row *is* is swept over the whole pool by
+    // `every_written_row_knows_which_printed_sentence_it_is`.
+    match printed {
+        Some(blocks) => {
+            for block in blocks {
+                let (words, colour) = match &block {
+                    TextBlock::Rules(t) => (t.clone(), palette::INK),
+                    TextBlock::Reminder(t) => (t.clone(), palette::MUTED),
+                };
+                let line = crate::manaui::spawn_rich(commands, fonts, &words, ROW_PT, colour);
+                commands.entity(says).add_child(line);
+            }
+        }
+        // Nothing printed, and the card prints nothing for this row at all:
+        // `AbilityOption::printed_index` is `None` for exactly the three
+        // things a permanent can offer that are on no card — the CR 305.6
+        // mana of a basic land type, an ability a continuous effect granted,
+        // a prepared cast — and for those this client's own one-line name is
+        // the only wording there has ever been. It is not a second wording of
+        // a card: there is no first.
+        None if option.printed_index().is_none() && !option.label.is_empty() => {
+            let line =
+                crate::manaui::spawn_rich(commands, fonts, &option.label, ROW_PT, palette::INK);
+            commands.entity(says).add_child(line);
+        }
+        // And a row whose card *does* print a sentence draws its cost and its
+        // key and waits. The text is a fetch away — `cardtext` asks the
+        // gateway and then Scryfall — and inventing a stand-in for the second
+        // it is missing is what put three different wordings of one card in
+        // front of the owner.
+        None => {}
     }
     commands.entity(row).add_child(says);
     commands.entity(row).add_child(keycap);

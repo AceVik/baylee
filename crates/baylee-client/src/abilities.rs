@@ -85,6 +85,41 @@ pub struct AbilityOption {
     pub pour: Option<baylee_client_core::manaplan::Pour>,
 }
 
+impl AbilityOption {
+    /// Which position in the **card's own** ability list this row activates,
+    /// if it is one at all.
+    ///
+    /// The one door for "does the printing say anything about this", which
+    /// is the question the sheet's words hang on: every row that answers
+    /// `Some` has a printed sentence and draws it, and the three that answer
+    /// `None` are printed on no card and can only be named by this client.
+    ///
+    /// - the CR 305.6 mana of a basic land type, which a Bayou's text does
+    ///   not mention and which is offered as `ActivateManaAbility`, carrying
+    ///   no index because there is nothing on the card to index;
+    /// - a **granted** ability, which the Chromatic Lantern prints and the
+    ///   land under it does not ([`baylee_engine::choice::granted_slot`]);
+    /// - a **prepared cast**, which is a cast and not an ability
+    ///   ([`baylee_engine::choice::PREPARED_CAST`]).
+    ///
+    /// Asked in one place rather than at each call site, because they are one
+    /// question and a second reader would let the next reserved index be
+    /// forgotten by one of them —
+    /// `activated-conditional-is-a-forgotten-twin`, the same shape.
+    #[must_use]
+    pub fn printed_index(&self) -> Option<u32> {
+        let PlayerAction::ActivateAbility { ability_index, .. } = self.action else {
+            return None;
+        };
+        if baylee_engine::choice::granted_slot(ability_index).is_some()
+            || ability_index == baylee_engine::choice::PREPARED_CAST
+        {
+            return None;
+        }
+        Some(ability_index)
+    }
+}
+
 /// Where a sheet's pips end and its numbered rows begin.
 ///
 /// [`pour_out`] puts every pip at the front, so this is a count and not a set,
@@ -725,42 +760,51 @@ fn printed_label(lang: Lang, view: &PlayerView, object: ObjectId, index: u32) ->
     };
     match def {
         AbilityDef::Loyalty { cost, .. } => manapip::loyalty_token(*cost),
-        AbilityDef::Activated { cost, effects, .. }
-        | AbilityDef::ActivatedConditional { cost, effects, .. } => {
-            // A mana ability the planner refuses still has to say what it
-            // makes. `manasources` reads it through `simple_mana`, which
-            // refuses restricted mana on purpose and correctly; the button
-            // must not, because "{T}" beside "Tap for {C}" is the shape this
-            // whole path was reported as broken in.
+        AbilityDef::Activated {
+            cost,
+            effects,
+            mana_ability,
+            ..
+        }
+        | AbilityDef::ActivatedConditional {
+            cost,
+            effects,
+            mana_ability,
+            ..
+        } => {
+            // **A mana row says what it makes.** One rule for every shape of
+            // mana ability, and it replaced two narrow ones that between them
+            // left 126 of the pool's 374 written rows drawing their own cost.
             //
-            // Read through `mana_shape` and `produced_colors` rather than
-            // through `mana_made`, which is the same reading with the two
-            // board-dependent sources knocked out of it. Path of Ancestry is
-            // restricted *and* reads its colours off a commander's identity,
-            // so it fell through both halves and drew the bare "{T}" this
-            // branch exists to prevent.
-            if let Some((source, Some(amount), true)) = baylee_cards_dsl::mana_shape(cost, effects)
+            // The two read `mana_shape` and `mana_offer`, which are questions
+            // about the ability *as a source* — so they refuse an ability that
+            // charges mana (Mystic Gate), one that does anything besides add
+            // (Yavimaya Coast's damage), and, between the pair of them, the
+            // plain case of all: unrestricted, with an amount, which matched
+            // the first branch's `true` and the second's `None` and so neither.
+            // `manasources` reads through the same doors, correctly, because
+            // it is planning; a label is not.
+            //
+            // `mana_written` is the label's own door and takes no cost at all.
+            // The cost is drawn in its own column a few pixels away, and
+            // drawing it twice is the whole defect.
+            if *mana_ability
+                && let Some((source, amount, restricted)) = baylee_cards_dsl::mana_written(effects)
                 && let Some(colors) =
                     crate::manasources::produced_colors(view, object, index, source)
                 && !colors.is_empty()
             {
-                let colors = mana_choice(lang, &colors, amount);
-                return Phrase::TapForRestricted.fill(lang, &[&colors]);
-            }
-            // And a mana ability whose amount is a count of the board is
-            // read by neither of those, for the same reason turned the
-            // other way up: `mana_made` will not claim a number it has not
-            // got. It still has to say what it makes — Harabaz Druid's own
-            // ability fell through to `cost_label` and drew a row reading
-            // "{T}" beside a cost reading "{T}", which is the shape this
-            // whole path was reported as broken in once already.
-            if let Some((source, None)) = baylee_cards_dsl::mana_offer(cost, effects)
-                && let Some(colors) =
-                    crate::manasources::produced_colors(view, object, index, source)
-                && !colors.is_empty()
-            {
-                let colors = mana_choice(lang, &colors, 1);
-                return Phrase::TapForVariable.fill(lang, &[&colors]);
+                let colors = mana_choice(lang, &colors, amount.unwrap_or(1));
+                // Three wordings, because three different things are unknown.
+                // A restriction is a rules question this side cannot answer
+                // (CR 106.6), an amount only a board can count is not a number
+                // to print, and everything else is simply what it says.
+                return match (restricted, amount) {
+                    (true, _) => Phrase::TapForRestricted,
+                    (false, None) => Phrase::TapForVariable,
+                    (false, Some(_)) => Phrase::TapFor,
+                }
+                .fill(lang, &[&colors]);
             }
             cost_label(lang, cost).unwrap_or_else(unnamed)
         }
@@ -806,59 +850,6 @@ fn printed_sentence(
         line: line.line,
         of: line.of,
     })
-}
-
-/// Short action categories while printed text is unavailable. These are labels,
-/// never substitute rules text; unknown compound effects keep the numbered fallback.
-pub(crate) fn effect_label(lang: Lang, view: &PlayerView, action: &PlayerAction) -> Option<String> {
-    let PlayerAction::ActivateAbility {
-        source,
-        ability_index,
-    } = action
-    else {
-        return None;
-    };
-    let effects = match crate::manasources::ability_at(view, *source, *ability_index)? {
-        AbilityDef::Activated { effects, .. }
-        | AbilityDef::ActivatedConditional { effects, .. }
-        | AbilityDef::Loyalty { effects, .. } => *effects,
-        _ => return None,
-    };
-    let names: Option<Vec<_>> = effects
-        .iter()
-        .map(|effect| effect_name(lang, effect))
-        .collect();
-    names
-        .filter(|names| !names.is_empty())
-        .map(|names| names.join(" · "))
-}
-
-fn effect_name(lang: Lang, effect: &baylee_cards_dsl::Effect) -> Option<&'static str> {
-    use baylee_cards_dsl::Effect;
-    let (en, de) = match effect {
-        Effect::GainLife { .. } | Effect::GainLifeFor { .. } => {
-            ("Gain life", "Lebenspunkte erhalten")
-        }
-        Effect::DrawCards { .. } | Effect::DrawCardsFor { .. } => ("Draw cards", "Karten ziehen"),
-        Effect::AddCounter { .. } | Effect::AddCounterFilter { .. } => {
-            ("Add counters", "Marken hinzufügen")
-        }
-        Effect::PumpFilter { .. } | Effect::PumpTarget { .. } => {
-            ("Change power / abilities", "Werte / Fähigkeiten ändern")
-        }
-        Effect::UntapSelf | Effect::UntapTarget => ("Untap", "Enttappen"),
-        Effect::SearchLibrary { .. } => ("Search library", "Bibliothek durchsuchen"),
-        Effect::Scry { .. } | Effect::ScryFor { .. } => ("Scry", "Hellsicht"),
-        Effect::DealDamage { .. } => ("Deal damage", "Schaden zufügen"),
-        Effect::Destroy { .. } | Effect::DestroyAll { .. } => ("Destroy", "Zerstören"),
-        Effect::Exile { .. } => ("Exile", "Ins Exil schicken"),
-        Effect::ReturnToHand { .. } => ("Return to hand", "Auf die Hand zurückbringen"),
-        Effect::CreateToken { .. } | Effect::CreateTokenN { .. } => {
-            ("Create tokens", "Spielsteine erzeugen")
-        }
-        _ => return None,
-    };
-    Some(if lang == Lang::De { de } else { en })
 }
 
 /// What an activated ability costs, as one short string.
@@ -975,28 +966,6 @@ fn mana_choice(lang: Lang, colors: &[ManaColor], amount: u8) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    #[test]
-    fn offline_ability_labels_distinguish_effects_without_guessing_rules_text() {
-        let card = crate::registry_printed(1, 0, "Kenrith, the Returned King");
-        let view = baylee_client_core::test_support::ViewBuilder::new(2)
-            .with_battlefield(0, vec![card])
-            .build();
-        for (ability_index, label) in [
-            (1, "Marken hinzufügen"),
-            (2, "Lebenspunkte erhalten"),
-            (3, "Karten ziehen"),
-        ] {
-            let action = PlayerAction::ActivateAbility {
-                source: ObjectId::new(1, 0),
-                ability_index,
-            };
-            assert_eq!(
-                effect_label(Lang::De, &view, &action).as_deref(),
-                Some(label)
-            );
-        }
-    }
-
     use baylee_client_core::test_support::{ViewBuilder, token};
     use baylee_core::ids::PlayerId;
     use baylee_engine::choice::{GRANTED_ABILITY, LegalActions, PREPARED_CAST, Pending};

@@ -174,6 +174,54 @@ pub fn mana_offer(cost: &Cost, effects: &[Effect]) -> Option<(ManaSource, Option
     }
 }
 
+/// What an ability's **words** say it adds, ignoring what it charges for it.
+///
+/// The fourth door, and the one that takes no [`Cost`] at all. Everything
+/// above answers a question about the ability *as a source of mana* — can a
+/// planner count on it, and for how much — so all three refuse an ability
+/// that charges mana of its own (a filter land is not a source, it is a
+/// trade) and an ability that does anything besides add (a painland's damage
+/// is a rules event, not a detail).
+///
+/// A **label** asks neither question. It asks what a player is choosing
+/// between, and that is the colours: a row reading `{1}, {T}` beside a row
+/// reading `Tap for {C}` is two offers a player cannot tell apart, which is
+/// the fault [`mana_made`]'s comment describes on a card Jasmine Dragon Tea
+/// Shop happened to reach first. Mystic Gate and Yavimaya Coast reach it the
+/// other two ways, and between the three of them 126 of the pool's 374
+/// written rows drew their own cost where their effect belongs.
+///
+/// So the cost is not a parameter. It is drawn in its own column a few pixels
+/// away, and repeating it is the whole defect.
+///
+/// Two additions in one ability answer `None` rather than the first of them:
+/// a row saying "adds {G}" about an ability that adds `{G}` *and* `{U}` is
+/// worse than a row saying nothing, because it is a claim rather than a gap.
+#[must_use]
+pub fn mana_written(effects: &[Effect]) -> Option<(ManaSource, Option<u8>, bool)> {
+    let mut written = None;
+    for effect in effects {
+        let Effect::AddMana {
+            source,
+            amount,
+            restriction,
+            ..
+        } = effect
+        else {
+            continue;
+        };
+        if written.is_some() {
+            return None;
+        }
+        let amount = match amount {
+            Amount::Fixed(amount) => Some(u8::try_from(*amount).unwrap_or(u8::MAX)),
+            _ => None,
+        };
+        written = Some((*source, amount, restriction.is_some()));
+    }
+    written
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -761,11 +761,23 @@ an older printing or a translation that joins two lines — an index merely out
 of range is caught by anyone, but one that is in range and off by one is shown
 to the player as precise text, which is worse than `+1`.
 
-It does not reach every ability, and the misses are honest: 318 of the pool's
-327 stack-capable abilities know their sentence, the rest being abilities
-printed as a keyword (echo, evoke, station), a quoted sub-ability inside a
-copy sentence, and a saga threshold row. `cargo run -p xtask -- ability-lines`
-is the report that names them; `baylee_cards::lines`' tests are the floor.
+It does not reach every ability, and the misses are honest: 485 of the pool's
+500 stack-capable abilities know their sentence, and every one of the fifteen
+that do not is a **trigger** — an evoke or echo trigger printed as a keyword
+line rather than as a sentence, a quoted sub-ability inside a copy sentence, a
+land's "when this enters untapped" beside its own enter condition.
+`cargo run -p xtask -- ability-lines` is the report that names them;
+`baylee_cards::lines`' tests are the floor.
+
+A keyword line **is** a sentence where the keyword is an activated ability,
+and the card's own punctuation says which: `Equip {2}` and `Cycling {1}{B}`
+print their cost on the line, and `Station (Tap another creature you control:
+…)` prints only the word and spells the ability out in its reminder, colon and
+all. A keyword that is a *bit* never does — `Flying (This creature can't be
+blocked except by creatures with flying or reach.)` has no colon anywhere in
+it. Before `lines::reminder_spells_out_an_ability` read that, the two
+Spacecraft in the pool had no sentence for their only activated ability and
+the sheet drew the row as "Ability 1".
 
 **A mana ability is placed and is not counted.** It was neither: a mana
 ability was `LineShape::Other` on both sides of `lines.rs`, so the table held
@@ -776,14 +788,32 @@ write, in the printing's own language. `LineShape::Mana` is that shape, said
 on **both** sides for the reason Karakas gives: it prints two `{T}:` lines and
 only one of them is the mana, so a half-applied exclusion let the bounce
 ability fit both. What it changes is only which cell the table holds, never
-the denominator — a mana ability does not use the stack (CR 605.1),
-`LineShape::stackable` is the one place that says so, and `FaceLines::stackable`
-is unmoved at 327. Two lines with the same cost are separated by what they
+the denominator — a mana ability does not use the stack (CR 605.1), and
+`LineShape::stackable` is the one place that says so. Two lines with the same cost are separated by what they
 *make* (`lines::mana_fits`, the same job `loyalty_head` does for a walker);
 Yavimaya Coast's `{T}: Add {C}` and `{T}: Add {G} or {U}` are why. The two
 taps that are printed nowhere keep the composed label and always will: the
 CR 305.6 shortcut, which a Bayou's text does not mention, and a granted
 ability, which the Chromatic Lantern prints and the land under it does not.
+
+**The text itself has two doors, and the gateway is the first.**
+`crates/baylee-client/src/cardtext.rs` asks `GET /catalog/text?lang=…&ids=…`
+once per game, for every printing the seat has been shown — the catalog knows
+the player's language and falls back to English printing by printing. What it
+did *not* answer is then asked of **Scryfall**, `POST
+/cards/collection` in batches of 75, and only that: the gap, computed from the
+table rather than from the answer, because the catalog resolves an id to
+another printing of the same card and a cached entry from a previous session
+fills a printing this request never mentioned. A gateway with no ingest, a
+gateway that is not running, a printing the catalog has never seen — all three
+used to be a sheet with no words in it, and are now one extra request.
+
+It is not a second translator and is not meant to be: Scryfall is asked by
+**printing id**, so what comes back is that piece of cardboard's own text, and
+a deck names English printings. The gateway is where a language is chosen and
+this is where a hole is filled. Both answers land in one cache, keyed by the
+language asked for, written from the whole table so a session that filled two
+gaps out of sixty does not come back from disk as two cards.
 
 **The host does the lookup, and the face is the part that is easy to get
 wrong.** `gamehost::view::stack_item` fills `StackText` in, which is why a
@@ -863,8 +893,12 @@ its title and count remain visible. Its fold progress survives HUD rebuilds.
 The zone browser opens at 900 × 738 logical pixels, fitted to its available
 band, and its entrance does not restart when filtering or receiving artwork.
 The ability panel has a 440-pixel maximum width and high-contrast keycaps.
-Where printed text is unavailable, known effects receive brief translated
-action labels; these are categories, not replacement rules text.
+Where the printed text has not arrived, a row draws its **cost** and its key
+and no words at all — it never composes a category of its own. It used to, and
+the owner's instruction is what removed it: *„es gibt keine sondercases,
+überall steht der original skryfall text in der clientsprache — fallback auf
+englisch."* Two labels for one card are two wordings of it, and only one of
+them is on the cardboard.
 
 Hand hover raises a card by 12 pixels through the existing touch spring and
 keeps that card in front. Flying creatures gently bank through their motion
@@ -2479,9 +2513,13 @@ cannot send an ability the engine has since withdrawn.
 It was a row of buttons in the prompt bar, which sat at the far side of the
 screen from the card it was about and could only say "Ability 2" about the
 ones it had no words for. It is now a piece of parchment anchored beside the
-permanent itself: one numbered keycap per row, the ability's own printed
-sentence in the player's language beside it, and its cost drawn as pips on the
-right. `docs/keyboard-map.md` §"The ability sheet" is normative on the keys;
+permanent itself: **cost, sentence, key** across each row — the cost drawn as
+pips on the left, the ability's own printed sentence in the player's language
+in the middle, and a numbered keycap on the right. That is the order the row
+is *used* in: what a player checks first, then what they are choosing between,
+then what they press. Both ends hold a fixed width, which leaves the sentence
+one straight left edge down the whole sheet.
+`docs/keyboard-map.md` §"The ability sheet" is normative on the keys;
 `baylee_client_core::abilitysheet` is the arithmetic and
 `baylee-client/src/hud/sheet.rs` draws it.
 

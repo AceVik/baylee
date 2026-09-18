@@ -584,18 +584,70 @@ fn rich(
             Pickable::IGNORE,
         ))
         .id();
-    for segment in baylee_client_core::manapip::segments(text) {
+    let segments = baylee_client_core::manapip::segments(text);
+    // How much of the *next* segment the mark just drawn took with it. A row
+    // may wrap between any two of its items, so a segment beginning `". This
+    // artifact deals…"` put the full stop at the head of the second line —
+    // see `manapip::clings`, which is where the rule is and why.
+    let mut taken = 0usize;
+    for (at, segment) in segments.iter().enumerate() {
         let child = match segment {
-            baylee_client_core::manapip::Segment::Text(words) => commands
-                .spawn((
-                    Text::new(words),
-                    face(fonts, size),
-                    TextColor(color),
-                    Pickable::IGNORE,
-                ))
-                .id(),
+            baylee_client_core::manapip::Segment::Text(words) => {
+                let words = &words[taken.min(words.len())..];
+                taken = 0;
+                if words.is_empty() {
+                    continue;
+                }
+                commands
+                    .spawn((
+                        Text::new(words.to_string()),
+                        face(fonts, size),
+                        TextColor(color),
+                        Pickable::IGNORE,
+                    ))
+                    .id()
+            }
             baylee_client_core::manapip::Segment::Symbol(pip) => {
-                spawn_pip(commands, fonts, pip, marks)
+                let pip = spawn_pip(commands, fonts, *pip, marks);
+                // The punctuation after a mark rides with it, in a row of
+                // their own that cannot wrap and has no gap in it — which is
+                // where a printed card puts a full stop too.
+                let glued = match segments.get(at + 1) {
+                    Some(baylee_client_core::manapip::Segment::Text(next)) => {
+                        baylee_client_core::manapip::clings(next)
+                    }
+                    _ => 0,
+                };
+                taken = glued;
+                if glued == 0 {
+                    pip
+                } else {
+                    let Some(baylee_client_core::manapip::Segment::Text(next)) =
+                        segments.get(at + 1)
+                    else {
+                        unreachable!("`glued` is non-zero only for a text segment")
+                    };
+                    let mark = commands
+                        .spawn((
+                            Text::new(next[..glued].to_string()),
+                            face(fonts, size),
+                            TextColor(color),
+                            Pickable::IGNORE,
+                        ))
+                        .id();
+                    let pair = commands
+                        .spawn((
+                            Node {
+                                align_items: AlignItems::Center,
+                                flex_wrap: bevy::ui::FlexWrap::NoWrap,
+                                ..default()
+                            },
+                            Pickable::IGNORE,
+                        ))
+                        .id();
+                    commands.entity(pair).add_children(&[pip, mark]);
+                    pair
+                }
             }
         };
         commands.entity(row).add_child(child);
@@ -653,10 +705,17 @@ mod tests {
     /// Written and never called is a shape this client has shipped before, so
     /// the spawner is *run*: one line in, a row of real entities out.
     ///
-    /// What it asserts is the split — prose stays prose and a symbol becomes a
-    /// disc — and that nothing inside the row is pickable. A `Text` is a
+    /// What it asserts is the split — prose stays prose, a symbol becomes a
+    /// disc, and **the punctuation after a mark cannot be parted from it** —
+    /// and that nothing anywhere inside the row is pickable. A `Text` is a
     /// `Node`, so one pickable label sits in front of the button it labels and
     /// the middle of that button goes dead.
+    ///
+    /// The cling is the half with a picture behind it. The row wraps, so it
+    /// may break between any two of its items, and `{T}: Add {U} or {B}. This
+    /// artifact deals 1 damage to you.` put the full stop at the head of its
+    /// second line — in German, where the sentence is long enough to wrap.
+    /// `manapip::clings` is the rule and this is where it is drawn.
     #[test]
     fn a_rich_line_becomes_prose_and_discs_and_nothing_pickable() {
         let mut app = App::new();
@@ -674,7 +733,10 @@ mod tests {
             .expect("the row has children")
             .iter()
             .collect();
-        assert_eq!(children.len(), 4, "two symbols and the words between them");
+        // Three, because each mark took its own punctuation with it: `{T}:`,
+        // then ` Add `, then `{G}.` — and those are the only three places this
+        // line may break.
+        assert_eq!(children.len(), 3, "two glued marks and the words between");
 
         let texts: Vec<String> = children
             .iter()
@@ -682,23 +744,40 @@ mod tests {
             .collect();
         assert_eq!(
             texts,
-            vec![": Add ".to_string(), ".".to_string()],
-            "the braces are gone from the prose because they became discs",
+            vec![" Add ".to_string()],
+            "the braces are gone from the prose because they became discs, \
+             and the colon and the full stop went with their marks",
         );
 
-        // A disc is a node with a glyph child, which is what the two
-        // non-text children are.
-        let discs = children
+        // Each glued pair is a disc and its punctuation, in that order.
+        let glued: Vec<Vec<String>> = children
             .iter()
             .filter(|e| app.world().entity(**e).get::<Text>().is_none())
-            .count();
-        assert_eq!(discs, 2, "{{T}} and {{G}} are drawn, not spelled");
+            .map(|e| {
+                app.world()
+                    .entity(*e)
+                    .get::<Children>()
+                    .expect("a glued pair has children")
+                    .iter()
+                    .filter_map(|c| app.world().entity(c).get::<Text>().map(|t| t.0.clone()))
+                    .collect()
+            })
+            .collect();
+        assert_eq!(glued.len(), 2, "{{T}} and {{G}} are drawn, not spelled");
+        assert!(glued[0].contains(&":".to_string()), "{glued:?}");
+        assert!(glued[1].contains(&".".to_string()), "{glued:?}");
 
-        for child in &children {
+        // Everywhere, and not only at the top: the glued pair put a `Text` one
+        // level further down than this assertion used to reach.
+        let mut stack = children.clone();
+        while let Some(entity) = stack.pop() {
             assert!(
-                app.world().entity(*child).contains::<Pickable>(),
-                "every child of a label carries Pickable::IGNORE",
+                app.world().entity(entity).contains::<Pickable>(),
+                "every node inside a label carries Pickable::IGNORE",
             );
+            if let Some(kids) = app.world().entity(entity).get::<Children>() {
+                stack.extend(kids.iter());
+            }
         }
     }
 
