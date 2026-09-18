@@ -6344,3 +6344,318 @@ fn a_land_that_surveils_for_a_cost_looks_at_the_number_it_prints() {
         );
     }
 }
+
+/// The ten lands that print "sacrifice it unless you return a land you
+/// control to its owner's hand", and the basic each one will take.
+///
+/// A table rather than ten tests, because ten tests would be one test
+/// retyped: what differs between a Karoo and a Rith's Grove is a subtype in
+/// a filter, and the rule under all ten is one transcoding. What the table
+/// buys is the population — a card added to this family by a later codegen
+/// run and *not* added here is caught by
+/// [`every_land_that_pays_by_returning_one_is_in_the_table`], which asks the
+/// compiled pool rather than this list.
+///
+/// The Lairs take any land at all (their filter excludes other Lairs, which
+/// a Plains is not); the five Karoos each demand their own untapped basic,
+/// which is why the payment is named per row and never assumed.
+const PAYS_BY_RETURNING_A_LAND: &[(&str, &str)] = &[
+    // Karoo cycle: "an untapped <basic> you control".
+    ("d4e875d9-2245-470d-aa2f-1dfe66ce2d15", "Plains"), // Karoo
+    ("3f347ebf-e0d2-4ae0-ad84-df7a460404e0", "Island"), // Coral Atoll
+    ("38ba1956-5505-4a7a-b6af-e75715b1401f", "Mountain"), // Dormant Volcano
+    ("ef3b8b0c-cea7-4bae-934c-9c65fd64245d", "Swamp"),  // Everglades
+    ("f922f90a-b1a2-4630-9266-40726ca89f74", "Forest"), // Jungle Basin
+    // Lair cycle: "a land you control" (that is not another Lair).
+    ("e9a7dede-3968-4b0e-a707-419d46a6fec9", "Plains"), // Crosis's Catacombs
+    ("19b58ec9-bb88-4193-8ea8-c8f09ceec1ed", "Plains"), // Darigaaz's Caldera
+    ("d8b57707-796d-4488-8f91-65bb75bc6281", "Plains"), // Dromar's Cavern
+    ("e13289e5-370b-435b-a38e-cf57c3078cec", "Plains"), // Rith's Grove
+    ("7b2c7758-2b89-49ff-8838-8dc9880c7209", "Plains"), // Treva's Ruins
+];
+
+/// The basic the row names, as a handle.
+fn basic(name: &str) -> CardIndex {
+    match name {
+        "Plains" => plains(),
+        "Island" => island(),
+        "Mountain" => mountain(),
+        "Swamp" => swamp(),
+        "Forest" => forest(),
+        other => panic!("no handle for {other}"),
+    }
+}
+
+/// Passes priority until the land's enters-trigger has resolved far enough
+/// to put its question up, and hands back what it asked.
+///
+/// `None` is the other legitimate outcome and is recognised by the **land**
+/// rather than by the shape of the next question: a trigger that found
+/// nothing to ask sacrifices the land and hands priority straight back, so
+/// what says "there was no question" is that the land has left the
+/// battlefield. Reading it off the pending instead walked on to
+/// `ChooseAttackers` and panicked there.
+fn reach_the_unless_question(
+    engine: &mut Engine<RegistryLookup>,
+    land: ObjectId,
+) -> Option<(Vec<ObjectId>, ChoicePrompt)> {
+    for _ in 0..8 {
+        if let Pending::ChooseCards {
+            options, prompt, ..
+        } = engine.pending().clone()
+        {
+            return Some((options, prompt));
+        }
+        if !engine
+            .state()
+            .zones
+            .list(ZoneLocation::Battlefield)
+            .contains(&land)
+        {
+            return None;
+        }
+        let Pending::Priority { player, .. } = engine.pending().clone() else {
+            panic!(
+                "unexpected while waiting for the trigger: {:?}",
+                engine.pending()
+            )
+        };
+        engine.apply(player, PlayerAction::PassPriority).unwrap();
+    }
+    None
+}
+
+/// Every one of the ten, played and paid for.
+///
+/// The land stays, and the land that paid goes to its owner's hand — the
+/// two halves of one sentence, and the second is the one a `Sacrifice` that
+/// merely did nothing would also pass.
+#[test]
+fn a_land_that_costs_a_bounce_keeps_itself_when_the_bounce_is_paid() {
+    for (i, (oracle, pays)) in PAYS_BY_RETURNING_A_LAND.iter().enumerate() {
+        let card = card_index(oracle);
+        let payment = basic(pays);
+        let p0 = PlayerId::new(0);
+        let seed = 900 + u64::try_from(i).expect("ten rows");
+        let mut engine = Duel::new(seed, forest())
+            .battlefield(0, &[payment])
+            .hand(0, &[card])
+            .start();
+        keep_mulligans(&mut engine);
+        reach_main_phase(&mut engine, p0);
+
+        let land = play_land(&mut engine, p0, card);
+        let (options, prompt) =
+            reach_the_unless_question(&mut engine, land).expect("the land asks what pays");
+        assert_eq!(
+            prompt,
+            ChoicePrompt::CostReturn,
+            "the price is a bounce, and the client draws the question from the prompt"
+        );
+        assert_eq!(
+            options.len(),
+            1,
+            "the one land that matches the filter is the whole menu"
+        );
+
+        engine
+            .apply(
+                p0,
+                PlayerAction::ChooseObjects {
+                    objects: options.clone(),
+                },
+            )
+            .unwrap();
+
+        assert!(
+            engine
+                .state()
+                .zones
+                .list(ZoneLocation::Battlefield)
+                .contains(&land),
+            "the land was paid for and stays"
+        );
+        assert!(
+            engine
+                .state()
+                .zones
+                .list(ZoneLocation::Hand(p0))
+                .contains(&options[0]),
+            "what paid goes to its owner's hand (CR 400.3)"
+        );
+    }
+}
+
+/// The same question, declined: naming nothing is how a player says no, and
+/// what follows is the sacrifice the card prints.
+///
+/// `min: 0` is the whole of that — an empty answer has to be *legal*, or the
+/// only way out of the question would be to pay. Written against Karoo
+/// because one row is enough for the branch: the fallback is the same
+/// `Effect::SacrificeSelf` on all ten.
+#[test]
+fn a_land_that_costs_a_bounce_sacrifices_itself_when_the_player_declines() {
+    let p0 = PlayerId::new(0);
+    let karoo = card_index("d4e875d9-2245-470d-aa2f-1dfe66ce2d15");
+    let mut engine = Duel::new(921, forest())
+        .battlefield(0, &[plains()])
+        .hand(0, &[karoo])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let land = play_land(&mut engine, p0, karoo);
+    let (options, _) =
+        reach_the_unless_question(&mut engine, land).expect("the land asks what pays");
+    let plain = options[0];
+
+    engine
+        .apply(p0, PlayerAction::ChooseObjects { objects: vec![] })
+        .unwrap();
+
+    assert!(
+        !engine
+            .state()
+            .zones
+            .list(ZoneLocation::Battlefield)
+            .contains(&land),
+        "declining sacrifices the land"
+    );
+    assert!(
+        engine
+            .state()
+            .zones
+            .list(ZoneLocation::Battlefield)
+            .contains(&plain),
+        "and the Plains that was offered stays where it was"
+    );
+}
+
+/// Nobody can pay, so nobody is asked.
+///
+/// The Plains is **tapped**, which is the word the Karoo cycle prints and
+/// the one half of its filter a test on an empty board would not reach: a
+/// land on the battlefield that cannot pay is a menu with nothing on it, and
+/// the engine runs the fallback without putting a question up at all. A
+/// prompt with no legal answer would be a dead end for a client.
+#[test]
+fn a_land_that_costs_a_bounce_nobody_can_pay_asks_nothing() {
+    let p0 = PlayerId::new(0);
+    let karoo = card_index("d4e875d9-2245-470d-aa2f-1dfe66ce2d15");
+    let mut engine = Duel::new(922, forest())
+        .battlefield(0, &[plains()])
+        .hand(0, &[karoo])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    // Tap the Plains for mana, which is exactly how a player arrives here.
+    let plain = *engine
+        .state()
+        .zones
+        .list(ZoneLocation::Battlefield)
+        .iter()
+        .find(|id| {
+            engine
+                .state()
+                .object(**id)
+                .and_then(|o| o.card)
+                .is_some_and(|c| c.index == plains())
+        })
+        .expect("the Plains is on the battlefield");
+    engine
+        .apply(p0, PlayerAction::ActivateManaAbility { source: plain })
+        .unwrap();
+
+    let land = play_land(&mut engine, p0, karoo);
+    assert!(
+        reach_the_unless_question(&mut engine, land).is_none(),
+        "an untapped Plains is what the card asks for, and there is none"
+    );
+    assert!(
+        !engine
+            .state()
+            .zones
+            .list(ZoneLocation::Battlefield)
+            .contains(&land),
+        "so the land sacrifices itself"
+    );
+}
+
+/// The four lands that charge *mana* for the same escape, and the CR 605.3a
+/// window they need.
+///
+/// One board and two answers per card: the player is asked with an empty
+/// pool, makes the mana inside the window, and keeps the land — then the
+/// same card, declined, is sacrificed. Rupture Spire charges `{1}` and the
+/// other three charge `{1}` as well, so one untapped Forest is the whole
+/// price.
+const PAYS_WITH_MANA: &[&str] = &[
+    "a6543f71-0326-4e1f-b58f-9ce325d5d036", // Gateway Plaza
+    "69c63055-ed44-4b32-b591-f3c6c2f3e7d1", // Archway Commons
+    "7eadffcb-1e15-44c1-b1db-78c71b8ec1ce", // Rupture Spire
+    "98334bfa-c516-4c20-bdc5-9e32e7127adc", // Transguild Promenade
+];
+
+#[test]
+fn a_land_that_costs_mana_is_kept_by_making_it_inside_the_window() {
+    for (i, oracle) in PAYS_WITH_MANA.iter().enumerate() {
+        let card = card_index(oracle);
+        let p0 = PlayerId::new(0);
+        let seed = 940 + u64::try_from(i).expect("four rows");
+        let mut engine = Duel::new(seed, forest())
+            .battlefield(0, &[forest()])
+            .hand(0, &[card])
+            .start();
+        keep_mulligans(&mut engine);
+        reach_main_phase(&mut engine, p0);
+
+        let land = play_land(&mut engine, p0, card);
+        for _ in 0..8 {
+            match engine.pending().clone() {
+                Pending::YesNo { .. } => break,
+                Pending::Priority { player, .. } => {
+                    engine.apply(player, PlayerAction::PassPriority).unwrap();
+                }
+                other => panic!("unexpected while waiting for the tax: {other:?}"),
+            }
+        }
+        let Pending::YesNo { player, .. } = engine.pending().clone() else {
+            panic!("expected the tax question, got {:?}", engine.pending())
+        };
+        assert_eq!(player, p0);
+        assert_eq!(
+            engine.state().players[0].mana_pool.total(),
+            0,
+            "the question is put with an empty pool — CR 605.3a is what makes that answerable"
+        );
+
+        // Yes, with nothing floating: the engine opens the window.
+        engine.apply(p0, PlayerAction::YesNo(true)).unwrap();
+        let forest_id = *engine
+            .state()
+            .zones
+            .list(ZoneLocation::Battlefield)
+            .iter()
+            .find(|id| {
+                engine
+                    .state()
+                    .object(**id)
+                    .and_then(|o| o.card)
+                    .is_some_and(|c| c.index == forest())
+            })
+            .expect("the Forest is on the battlefield");
+        engine
+            .apply(p0, PlayerAction::ActivateManaAbility { source: forest_id })
+            .unwrap();
+        engine.apply(p0, PlayerAction::PassPriority).unwrap();
+
+        assert!(
+            engine
+                .state()
+                .zones
+                .list(ZoneLocation::Battlefield)
+                .contains(&land),
+            "the tax was paid out of mana made inside the window"
+        );
+    }
+}

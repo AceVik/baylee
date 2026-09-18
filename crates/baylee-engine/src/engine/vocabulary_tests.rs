@@ -129,3 +129,56 @@ fn a_variant_name_is_matched_as_a_whole_word() {
     assert!(!names("[MyGrantSubtype]", "GrantSubtype"));
     assert!(!names("[Scry { n: 1 }]", "GrantSubtype"));
 }
+
+/// Every price in the pool that a player pays by naming an object is one the
+/// engine will put a menu up for.
+///
+/// [`Effect::PlayerMayPayCostOr`] asks its question as a list of what may
+/// pay, and an empty list *is* the refusal — so a price nobody names an
+/// object for (`PayLife(2)`, `TapSelf`) would decline itself silently on
+/// every board, on a card claiming `Coverage::Implemented`. `CostPart` can
+/// hold such a part, the type system has no way to say it must not, and the
+/// transcoder that writes these cards refuses one by name
+/// (`scriptgen::asks_for_an_object`). This is the same refusal held against
+/// the **compiled pool**, which is where a hand-written card would arrive
+/// past the transcoder entirely.
+///
+/// Read through `Debug` for the reason the walk above gives, and bounded on
+/// both sides: the count is asserted, so a matcher that stopped matching
+/// reports nothing instead of passing. The floor is the ten lands the
+/// transcoder wrote for this on 18.09.2026 — a family that grows is fine,
+/// one that vanishes means the probe broke.
+#[test]
+fn every_price_paid_by_naming_an_object_puts_a_menu_up() {
+    let asks = ["Sacrifice(", "Discard(", "TapOther(", "ReturnToHand("];
+    let mut found = 0;
+    for (oracle_id, def) in baylee_cards::generated::ALL {
+        let faces = def.faces.iter().map(|f| f.abilities);
+        for list in core::iter::once(def.abilities).chain(faces) {
+            let dump = format!("{list:?}");
+            for (at, _) in dump.match_indices("PlayerMayPayCostOr { ") {
+                found += 1;
+                let rest = &dump[at..];
+                let price = rest
+                    .split_once("cost: ")
+                    .map(|(_, tail)| tail)
+                    .unwrap_or_default();
+                assert!(
+                    asks.iter().any(|kind| price.starts_with(kind)),
+                    "{} ({oracle_id}) charges `{}…` for an \"unless\", which \
+                     names no object — the engine asks that question as a \
+                     list of what may pay, so a price like this declines \
+                     itself on every board",
+                    def.name(),
+                    &price[..price.len().min(24)],
+                );
+            }
+        }
+    }
+    assert!(
+        found >= 10,
+        "only {found} such prices in the pool, against the ten lands that \
+         carried one when this was written: the probe stopped matching, and \
+         a probe that matches nothing passes without checking anything"
+    );
+}

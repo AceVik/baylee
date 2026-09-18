@@ -5,6 +5,7 @@
 //! phases) or a candidate for a flagged `// NOT SUPPORTED:` in the card.
 
 use crate::KeywordSet;
+use crate::cost::CostPart;
 use crate::filter::Filter;
 use baylee_core::color::ColorSet;
 use baylee_core::ids::SubtypeId;
@@ -1006,6 +1007,29 @@ pub enum Effect {
         player: PlayerRel,
         /// Generic mana to pay, evaluated when the ability resolves.
         mana: Amount,
+        /// What happens when they don't pay.
+        effect: &'static Effect,
+    },
+    /// "… unless you <pay something that is not mana>."
+    ///
+    /// The sibling of [`Effect::PlayerMayPayOr`] and deliberately not a
+    /// field on it: that one charges generic mana in an amount only
+    /// resolution knows (Esper Sentinel's tax is its own power), which a
+    /// `ManaCost` cannot hold, while this one charges a cost the player pays
+    /// by naming an object — a Karoo land's "return an untapped Plains you
+    /// control", a Command Bridge's "tap an artifact or land". Folding both
+    /// into one variant would mean a price with two halves, and no card in
+    /// this pool prints one.
+    ///
+    /// There is no separate yes-or-no question. The player is asked to name
+    /// what pays, and naming nothing is how they decline — so a cost nobody
+    /// can pay asks nothing at all, which is what a Karoo entering under a
+    /// controller with no untapped Plains should do.
+    PlayerMayPayCostOr {
+        /// Who decides.
+        player: PlayerRel,
+        /// What they may pay. One part, named by the object that pays it.
+        cost: &'static CostPart,
         /// What happens when they don't pay.
         effect: &'static Effect,
     },

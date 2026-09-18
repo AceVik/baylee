@@ -7,6 +7,7 @@
 //! journal stays complete.
 
 use crate::choice::{ChoicePrompt, Pending, TargetPrompt, YesNoPrompt};
+use crate::engine::cost_wizard;
 use crate::eval;
 use crate::event::{Cause, DamageTarget, GameEvent};
 use crate::mana_pay;
@@ -14,7 +15,7 @@ use crate::object::{Characteristics, GameObject, ObjectKind, Status};
 use crate::sba;
 use crate::state::GameState;
 use crate::zone::{ZoneLocation, ZonePosition};
-use baylee_cards_dsl::{Amount, Effect, PlayerRel, SearchDest, TargetSpec};
+use baylee_cards_dsl::{Amount, CostPart, Effect, PlayerRel, SearchDest, TargetSpec};
 use baylee_core::color::ColorSet;
 use baylee_core::ids::{ObjectId, PlayerId};
 use baylee_core::mana::ManaColor;
@@ -211,6 +212,16 @@ pub enum AwaitingOp {
         player: PlayerId,
         /// Generic mana to pay.
         mana: u16,
+        /// The effect to run when they don't pay.
+        effect: &'static Effect,
+    },
+    /// A player decides whether to pay a non-mana cost by naming what pays
+    /// it ([`Effect::PlayerMayPayCostOr`]). Naming nothing is declining.
+    PlayerMayPayCost {
+        /// The player deciding.
+        player: PlayerId,
+        /// The one part they may pay.
+        cost: &'static CostPart,
         /// The effect to run when they don't pay.
         effect: &'static Effect,
     },
@@ -725,35 +736,18 @@ pub fn resume_tax_choice(state: &mut GameState, res: &mut Resolution, paid: bool
         res.pc += 1;
         return run(state, res);
     }
-    // Not paid: run the fallback effect inline, then continue.
-    let fallback = Resolution {
-        source: res.source,
-        on_stack: res.on_stack,
-        controller: res.controller,
-        effects: flatten(std::slice::from_ref(effect)),
-        pc: 0,
-        targets: res.targets.clone(),
-        event_object: res.event_object,
-        x: res.x,
-        chosen_player: res.chosen_player,
-        target_players: res.target_players,
-        targeted: res.targeted,
-        awaiting: None,
-        mana_ability: false,
-        countered_source: res.countered_source,
-        target_lki: None,
-    };
-    let mut fallback = fallback;
-    match run(state, &mut fallback) {
-        Flow::Complete => {}
-        Flow::Wait(pending) => {
-            res.awaiting = fallback.awaiting;
-            // Replaces the tax op and starts at the fallback's own program
-            // counter, for [`run_nested_with`]'s reasons.
-            let tail = fallback.effects.split_off(fallback.pc);
-            res.effects.splice(res.pc..=res.pc, tail);
-            return Flow::Wait(pending);
-        }
+    run_fallback(state, res, effect)
+}
+
+/// Runs the branch an "unless" effect takes when the player does not pay.
+///
+/// Shared by the two shapes of that effect rather than written twice: a
+/// fallback that suspended on a choice has to splice its own remaining
+/// program into the resolution that called it, and a second copy of that
+/// splice would be a second place for the program counter to be wrong.
+fn run_fallback(state: &mut GameState, res: &mut Resolution, effect: &'static Effect) -> Flow {
+    if let Some(pending) = run_nested(state, res, std::slice::from_ref(effect)) {
+        return Flow::Wait(pending);
     }
     res.pc += 1;
     run(state, res)
@@ -1086,6 +1080,28 @@ pub fn resume(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]) 
         AwaitingOp::PlayerMayPay { .. } => {
             unreachable!("tax choices resume via resume_tax_choice")
         }
+        AwaitingOp::PlayerMayPayCost {
+            player,
+            cost,
+            effect,
+        } => {
+            // Naming nothing is declining. `min: 0` is what makes the
+            // question a "may", so an empty answer is the not-paid branch
+            // rather than an error — and it is the only shape that can
+            // express "I could pay and would rather not", which a `YesNo`
+            // followed by a second question could not without asking twice.
+            //
+            // A payment that fails takes the fallback as well. It is the
+            // same reading as `resume_tax_choice`: the answer was legal
+            // when it was offered, so a refusal here is a rules outcome
+            // and never a reason to abandon the resolution.
+            let paid = chosen
+                .first()
+                .is_some_and(|&chosen| cost_wizard::pay(state, player, cost, chosen).is_ok());
+            if !paid {
+                return run_fallback(state, res, effect);
+            }
+        }
     }
     res.pc += 1;
     run(state, res)
@@ -1101,6 +1117,7 @@ fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> Option<Pendi
         | Effect::PutFromHandOnTop { .. }
         | Effect::OptionalBasicLandSearchFor { .. }
         | Effect::PlayerMayPayOr { .. }
+        | Effect::PlayerMayPayCostOr { .. }
         | Effect::ReorderTopLibrary { .. }
         | Effect::AddMana { .. }
         | Effect::MayDo { .. }
@@ -1309,6 +1326,37 @@ fn exec_choice(state: &mut GameState, res: &mut Resolution, op: Effect) -> Optio
                 player,
                 prompt: YesNoPrompt::PayTax { mana },
                 source: resolving_ability(state, res),
+            })
+        }
+        Effect::PlayerMayPayCostOr {
+            player,
+            cost,
+            effect,
+        } => {
+            // `players_of` for `PlayerMayPayOr`'s reason: the payer is named
+            // relative to the ability, and a Karoo names its own controller
+            // where a ward names the caster.
+            let player = players_of(player, state, you, res).first().copied()?;
+            let options = cost_wizard::options(state, player, res.source, cost);
+            if options.is_empty() {
+                // No legal answer, so no question: a Karoo under a player
+                // with no other land to return sacrifices itself, and
+                // asking would be a prompt with one button on it. The
+                // fallback runs inline through the same door a declined
+                // payment takes.
+                return run_nested(state, res, std::slice::from_ref(effect));
+            }
+            res.awaiting = Some(AwaitingOp::PlayerMayPayCost {
+                player,
+                cost,
+                effect,
+            });
+            Some(Pending::ChooseCards {
+                player,
+                options,
+                min: 0,
+                max: 1,
+                prompt: cost_wizard::prompt(cost),
             })
         }
         Effect::ReorderTopLibrary { count } => {
@@ -1994,6 +2042,7 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
         | Effect::PutFromHandOnTop { .. }
         | Effect::OptionalBasicLandSearchFor { .. }
         | Effect::PlayerMayPayOr { .. }
+        | Effect::PlayerMayPayCostOr { .. }
         | Effect::ReorderTopLibrary { .. }
         | Effect::AddMana { .. }
         | Effect::MayDo { .. }

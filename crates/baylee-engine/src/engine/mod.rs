@@ -629,7 +629,7 @@ mod decision;
 pub use decision::DecisionContext;
 mod actions;
 mod cast_wizard;
-mod cost_wizard;
+pub(crate) mod cost_wizard;
 mod progress;
 
 #[cfg(test)]

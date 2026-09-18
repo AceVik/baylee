@@ -750,6 +750,7 @@ impl Tx<'_> {
             "Animate" => self.animate_effect(p, target)?,
             "Pump" => self.pump_effect(p, aimed)?,
             "ChangeZone" => self.change_zone(p, target)?,
+            "Sacrifice" => self.sacrifice_effect(p)?,
             "Tap" => vec!["Effect::TapTarget".to_string()],
             // `AB$ Untap` with no `ValidTgts$` is the source, not a target
             // — Basalt Monolith's "{3}: Untap this artifact". Read as
@@ -770,6 +771,81 @@ impl Tx<'_> {
             }
             _ => return None,
         })
+    }
+
+    /// `DB$ Sacrifice`: "sacrifice it", with or without a way out.
+    ///
+    /// Three sentences in one API, and only two of them are this rule.
+    /// **Bare** is "sacrifice this" — 111 of the corpus's 895 sacrifice
+    /// lines, and [`Effect::SacrificeSelf`] says it exactly. With an
+    /// `UnlessCost$` it is the Karoo sentence, "sacrifice it unless you
+    /// <pay>", which is 131 more and the largest single shape the API
+    /// writes. What it is **not** is `Defined$`/`SacValid$`: those name
+    /// somebody else's permanent ("each player sacrifices a creature"), a
+    /// player choice this DSL has no effect for, and reading them as the
+    /// source would be a card that sacrifices the wrong permanent under a
+    /// `Coverage::Implemented`.
+    ///
+    /// The price is read by [`Tx::cost_pieces`], the same reader an
+    /// activation cost goes through, and then held to what the two "unless"
+    /// effects can carry: `PlayerMayPayOr` charges *generic* mana in an
+    /// [`Amount`], so a colour is refused rather than silently spent as
+    /// colourless, and `PlayerMayPayCostOr` charges exactly one part the
+    /// player answers by naming an object. A part that needs no answer
+    /// (`PayLife<2>`) is refused here even though `CostPart` can hold it:
+    /// the engine asks that question by putting up the list of what may pay,
+    /// and an empty list is how a player declines — so a price nobody names
+    /// an object for would decline itself every time.
+    fn sacrifice_effect(&mut self, p: &mut Params) -> Option<Vec<String>> {
+        for key in [
+            "Defined",
+            "SacValid",
+            "Amount",
+            "Optional",
+            "RememberSacrificed",
+        ] {
+            if p.take(key).is_some() {
+                return self.deny(format!("a sacrifice naming `{key}`"));
+            }
+        }
+        let Some(cost) = p.take("UnlessCost") else {
+            return Some(vec!["Effect::SacrificeSelf".to_string()]);
+        };
+        // 130 of the 131 say `You` and the one that does not says `Player`,
+        // which is every player at once — a price this effect cannot put to
+        // a table.
+        match p.take("UnlessPayer").as_deref() {
+            Some("You") => {}
+            other => {
+                return self.deny(format!(
+                    "a sacrifice charging `{}`",
+                    other.unwrap_or("nobody")
+                ));
+            }
+        }
+        let (mana, parts) = self.cost_pieces(&cost)?;
+        match (mana.as_str(), parts.as_slice()) {
+            (m, []) if !m.is_empty() => {
+                // Generic only. `{U}` and `{W}{W}` are 40 of these lines and
+                // are refused by name: the effect's price is an `Amount` of
+                // generic mana with no colour to put a symbol in.
+                let Some(n) = m.strip_prefix('{').and_then(|m| m.strip_suffix('}')) else {
+                    return self.deny(format!("a sacrifice charging `{m}`"));
+                };
+                let Ok(n) = n.parse::<u16>() else {
+                    return self.deny(format!("a sacrifice charging `{m}`"));
+                };
+                Some(vec![format!(
+                    "Effect::PlayerMayPayOr {{ player: PlayerRel::You, \
+                     mana: Amount::Fixed({n}), effect: &Effect::SacrificeSelf }}"
+                )])
+            }
+            ("", [one]) if asks_for_an_object(one) => Some(vec![format!(
+                "Effect::PlayerMayPayCostOr {{ player: PlayerRel::You, \
+                 cost: &CostPart::{one}, effect: &Effect::SacrificeSelf }}"
+            )]),
+            _ => self.deny(format!("a sacrifice charging `{cost}`")),
+        }
     }
 
     /// `Token`: "create a 1/1 white Soldier creature token".
@@ -1342,6 +1418,17 @@ impl Tx<'_> {
     /// `&mut self` because one part carries a filter, and a filter is
     /// declared as a `static` above the card the way a target's is.
     fn cost_expr(&mut self, raw: &str) -> Option<String> {
+        let (mana, parts) = self.cost_pieces(raw)?;
+        Some(crate::body::cost_literal(&mana, &parts))
+    }
+
+    /// The same reading, before [`crate::body::cost_literal`] joins it.
+    ///
+    /// Split out because one caller wants a *part* rather than a cost:
+    /// "unless you return an untapped Plains" is priced by a single
+    /// [`CostPart`], and re-reading that syntax beside this one would be two
+    /// places for `Return<1/Plains>` to mean two things.
+    fn cost_pieces(&mut self, raw: &str) -> Option<(String, Vec<String>)> {
         let mut mana = String::new();
         let mut parts: Vec<String> = Vec::new();
         for token in cost_parts(raw) {
@@ -1451,7 +1538,7 @@ impl Tx<'_> {
                 return self.deny(format!("cost `{head}`"));
             }
         }
-        Some(crate::body::cost_literal(&mana, &parts))
+        Some((mana, parts))
     }
 
     /// `T:Mode$ SpellCast` — "whenever a player casts a spell".
@@ -2933,10 +3020,23 @@ pub const SUPPORTED_APIS: &[&str] = &[
     "Untap",
     "Counter",
     "PutCounter",
+    "Sacrifice",
     "Pump",
     "ChangeZone",
     "Token",
 ];
+
+/// Whether a cost part is paid by naming an object.
+///
+/// The four `cost_wizard` puts a list up for, spelled as the emitter writes
+/// them rather than as the engine matches them, because this side has a
+/// string and not a `CostPart`. `SacrificeSelf` and `ReturnSelfToHand` are
+/// deliberately not among them: they name the source and ask nothing.
+fn asks_for_an_object(part: &str) -> bool {
+    ["Sacrifice(", "Discard(", "TapOther(", "ReturnToHand("]
+        .iter()
+        .any(|kind| part.starts_with(kind))
+}
 
 /// Whether [`transcode`] has a rule for this effect API.
 #[must_use]
