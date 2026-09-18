@@ -1464,3 +1464,110 @@ Wrenn and Realmbreaker
 # which is the pod's own argument: it is built out of what the engine has
 # been growing towards. This is the one card that was not.
 Invasion of Ikoria // Zilortha, Apex of Ikoria
+
+# §E8 step 1, batch 1 — the first hundred names `xtask reach-list` proposes,
+# in ledger order, which is oldest printing first. Every one of them is a card
+# whose reference script `scriptgen` claims in full, so the batch is not a
+# worklist for a person: it is one rule's output, and what it is here to
+# measure is whether a hundred cards nobody read come out of `codegen` as
+# cards rather than as stubs.
+Air Elemental
+Ancestral Recall
+Black Lotus
+Castle
+Celestial Prism
+Disenchant
+Dwarven Demolition Team
+Elvish Archers
+Flight
+Frozen Shade
+Giant Growth
+Giant Spider
+Goblin Balloon Brigade
+Granite Gargoyle
+Holy Strength
+Howl from Beyond
+Ice Storm
+Icy Manipulator
+Jayemdae Tome
+Jump
+Kormus Bell
+Lance
+Ley Druid
+Lightning Bolt
+Living Lands
+Mahamoti Djinn
+Mox Emerald
+Mox Jet
+Mox Pearl
+Mox Ruby
+Mox Sapphire
+Orcish Oriflamme
+Phantom Monster
+Prodigal Sorcerer
+Roc of Kher Ridges
+Rod of Ruin
+Royal Assassin
+Scryb Sprites
+Serra Angel
+Shatter
+Sinkhole
+Stone Rain
+The Hive
+Tunnel
+Unholy Strength
+Unsummon
+Verduran Enchantress
+Wall of Air
+Wall of Ice
+Wall of Stone
+Wall of Swords
+Wall of Wood
+War Mammoth
+Weakness
+Web
+Aladdin's Ring
+Ali Baba
+Bird Maiden
+Dancing Scimitar
+Desert Twister
+Flying Carpet
+Flying Men
+Giant Tortoise
+Jandor's Saddlebags
+Juzám Djinn
+King Suleiman
+Moorish Cavalry
+Serendib Efreet
+Stone-Throwing Devils
+Wyluli Wolf
+Artifact Blast
+Atog
+Citanul Druid
+Dragon Engine
+Mightstone
+Millstone
+Obelisk of Undoing
+Orcish Mechanics
+Ornithopter
+Sage of Lat-Nam
+Staff of Zegon
+Su-Chi
+Wall of Spears
+Weakstone
+Yotian Soldier
+Azure Drake
+Blood Lust
+Boomerang
+Boris Devilboon
+Carrion Ants
+Concordant Crossroads
+Divine Transformation
+Emerald Dragonfly
+Eternal Warrior
+Fallen Angel
+Fire Sprites
+Flash Counter
+Ghosts of the Damned
+Giant Strength
+Gravity Sphere

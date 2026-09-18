@@ -601,6 +601,28 @@ pub static ELEMENTAL_5_5_RED_GREEN: TokenDef = TokenDef {
     ..TokenDef::DEFAULT
 };
 
+/// 1/1 black red Minor Demon.
+pub static MINOR_DEMON_1_1_BLACK_RED: TokenDef = TokenDef {
+    name: "Minor Demon",
+    colors: ColorSet::from_slice(&[Color::Black, Color::Red]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::DEMON],
+    power: Some(1),
+    toughness: Some(1),
+    ..TokenDef::DEFAULT
+};
+
+/// 1/1 colorless artifact Wasp with flying.
+pub static WASP_ARTIFACT_1_1_FLYING: TokenDef = TokenDef {
+    name: "Wasp",
+    types: TypeSet::ARTIFACT.union(TypeSet::CREATURE),
+    subtypes: &[creature::INSECT],
+    power: Some(1),
+    toughness: Some(1),
+    keywords: KeywordSet::FLYING,
+    ..TokenDef::DEFAULT
+};
+
 /// Every token there is, in the order ids were assigned.
 pub static ALL: &[&TokenDef] = &[
     &tokens::ALLY_1_1_WHITE,
@@ -666,6 +688,8 @@ pub static ALL: &[&TokenDef] = &[
     &BIRD_2_2_GREEN,
     &DRAGON_4_4_RED_FLYING,
     &ELEMENTAL_5_5_RED_GREEN,
+    &MINOR_DEMON_1_1_BLACK_RED,
+    &WASP_ARTIFACT_1_1_FLYING,
 ];
 
 /// The entries a reader wrote, as a subset of [`ALL`] — never a second
@@ -720,4 +744,6 @@ pub static GENERATED: &[&TokenDef] = &[
     &BIRD_2_2_GREEN,
     &DRAGON_4_4_RED_FLYING,
     &ELEMENTAL_5_5_RED_GREEN,
+    &MINOR_DEMON_1_1_BLACK_RED,
+    &WASP_ARTIFACT_1_1_FLYING,
 ];
