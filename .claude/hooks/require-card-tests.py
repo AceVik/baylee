@@ -54,6 +54,32 @@ It blocks rather than warns, because a reminder that costs nothing is one
 that gets read and stepped over. `stop_hook_active` keeps it from looping: a
 stop that a hook already blocked is allowed through, so the debt is stated
 once per turn and never traps the session.
+
+## The second question: a reader that changed
+
+The list above cannot see a generated card at all, and that hole was open
+from the day both hooks were written. `card-test-debt.py` records `Edit`,
+`Write` and `MultiEdit`; `xtask codegen` writes card files from a `Bash`
+call, so a card a rule produced is never recorded — and if it were, the walk
+above skips it for carrying the machine-owned marker. Eleven lands were
+generated, committed and pushed on 18.09.2026 with an empty debt list, and
+five more were hand-pulled onto a fixed reader's output the same day with no
+engine test at all. Both were caught by a person reading CLAUDE.md, which is
+exactly the guarantee a hook is supposed to replace.
+
+Asking per generated card is still the wrong question, for the reason the
+skip gives: one `codegen` run rewrites hundreds of them. So this asks the
+*rule's* question instead, once. When a reader in
+`crates/baylee-cards-codegen/` changed on this branch and machine-owned card
+files changed with it, **at least one of those cards has to be played by an
+engine test.** A rule whose entire output is unplayed is an untested rule;
+one played card is what turns it into a testable one, and the rest are its
+siblings.
+
+The range is `origin/main..HEAD` plus the working tree — what this branch has
+that the remote does not. It goes quiet after a push, which is the same
+bargain the list above strikes: the debt is asked at the moment of
+committing, and a push is where it was either paid or knowingly accepted.
 """
 
 import json
@@ -89,6 +115,64 @@ def uncommitted(root: pathlib.Path, path: pathlib.Path) -> bool:
         return False
 
 
+READERS = "crates/baylee-cards-codegen/src/"
+CARDS = "crates/baylee-cards/src/cards/"
+
+
+def changed_on_this_branch(root: pathlib.Path) -> list[str] | None:
+    """Paths this branch changed that `origin/main` does not have, plus the
+    working tree.
+
+    `None` rather than `[]` when git could not answer, because the two mean
+    opposite things: an empty answer is "nothing changed" and a failure is
+    "this check saw nothing at all". Turning the second into the first is how
+    a guard goes quietly blind, which is the failure this hook already has a
+    floor against one paragraph up.
+    """
+    out: set[str] = set()
+    for args in (
+        ["git", "diff", "--name-only", "origin/main...HEAD"],
+        ["git", "diff", "--name-only", "HEAD"],
+    ):
+        try:
+            done = subprocess.run(args, cwd=root, capture_output=True, text=True, check=False)
+        except OSError:
+            return None
+        if done.returncode != 0:
+            return None
+        out.update(line for line in done.stdout.split("\n") if line.strip())
+    return sorted(out)
+
+
+def reader_debt(root: pathlib.Path, tests: str) -> tuple[list[str], list[tuple[str, str]]] | None:
+    """The readers that changed, and the machine-owned cards that changed with
+    them — but only while not one of those cards is played."""
+    changed = changed_on_this_branch(root)
+    if changed is None:
+        return None
+    readers = [p for p in changed if p.startswith(READERS) and p.endswith(".rs")]
+    if not readers:
+        return ([], [])
+    cards: list[tuple[str, str]] = []
+    for rel in changed:
+        if not rel.startswith(CARDS) or not rel.endswith(".rs") or rel.endswith("mod.rs"):
+            continue
+        path = root / rel
+        if not path.exists():
+            continue
+        text = path.read_text()
+        if STUB in text or OWNED not in text:
+            continue  # a stub owes nothing, and a hand-written card is the list above
+        m = ORACLE.search(text) or FALLBACK.search(text)
+        if m:
+            cards.append((rel[len(CARDS):], m.group(1)))
+    if not cards:
+        return ([], [])
+    if any(oid in tests for _, oid in cards):
+        return ([], [])  # the rule has a played output, which is what is owed
+    return (readers, cards)
+
+
 def main() -> int:
     event = json.load(sys.stdin)
     if event.get("stop_hook_active"):
@@ -96,11 +180,11 @@ def main() -> int:
 
     root = pathlib.Path(os.environ.get("CLAUDE_PROJECT_DIR") or ".")
     debt = root / ".claude" / "card-test-debt"
-    if not debt.exists():
-        return 0
-    touched = [line for line in debt.read_text().split("\n") if line.strip()]
-    if not touched:
-        return 0
+    touched = (
+        [line for line in debt.read_text().split("\n") if line.strip()]
+        if debt.exists()
+        else []
+    )
 
     engine = root / "crates/baylee-engine/src/engine"
     read = [
@@ -147,35 +231,86 @@ def main() -> int:
 
     if not owed:
         debt.unlink(missing_ok=True)
+
+    reader = reader_debt(root, tests)
+    if reader is None:
+        print(
+            "require-card-tests could not ask git what this branch changed, so the "
+            "reader half of this check saw nothing. That is not the same as a clean "
+            "branch — fix the walk, not the cards.",
+            file=sys.stderr,
+        )
+        reader = ([], [])
+    readers, generated = reader
+
+    if not owed and not readers:
         return 0
 
-    lines = [
-        f"{len(owed)} card(s) written this session are not played by any engine test.",
-        "",
-        "A card file carries no test module (CLAUDE.md: it is data, and a test that",
-        "reads the literal it sits under proves nothing). What is owed is a scenario in",
-        "crates/baylee-engine/src/engine/card_tests/ on the shared testkit, addressing",
-        'the card as card_index("<oracle id>") — small, and carrying only the card\'s own',
-        "printed text as the situation:",
-        "",
-    ]
-    for name, rel, oid in owed[:25]:
-        lines.append(f'  {name}\n      {rel}\n      card_index("{oid}")')
-    if len(owed) > 25:
-        lines.append(f"  … and {len(owed) - 25} more (full list: .claude/card-test-debt)")
-    lines += [
-        "",
-        "If any of these was a FIX rather than a new card, it owes a second test, and",
-        "that one does not go in card_tests/: the card was wrong because a rule was",
-        "wrong, so the regression test belongs beside the rule it broke and must be a",
-        "test that fails against the old code. Strike both halves.",
-        "",
-        "These are cards that have been COMMITTED without one; a card still in the",
-        "working tree is work in progress and is not asked about.",
-        "",
-        "Clear the list with `rm .claude/card-test-debt` once the tests are written, or",
-        "deliberately, if a card genuinely plays nothing an engine can observe — say so.",
-    ]
+    lines: list[str] = []
+    if owed:
+        lines += [
+            f"{len(owed)} card(s) written this session are not played by any engine "
+            "test.",
+            "",
+            "A card file carries no test module (CLAUDE.md: it is data, and a test that",
+            "reads the literal it sits under proves nothing). What is owed is a scenario",
+            "in crates/baylee-engine/src/engine/card_tests/ on the shared testkit,",
+            'addressing the card as card_index("<oracle id>") — small, and carrying only',
+            "the card's own printed text as the situation:",
+            "",
+        ]
+        for name, rel, oid in owed[:25]:
+            lines.append(f'  {name}\n      {rel}\n      card_index("{oid}")')
+        if len(owed) > 25:
+            lines.append(
+                f"  … and {len(owed) - 25} more (full list: .claude/card-test-debt)"
+            )
+        lines += [
+            "",
+            "If any of these was a FIX rather than a new card, it owes a second test,",
+            "and that one does not go in card_tests/: the card was wrong because a rule",
+            "was wrong, so the regression test belongs beside the rule it broke and must",
+            "be a test that fails against the old code. Strike both halves.",
+            "",
+            "These are cards that have been COMMITTED without one; a card still in the",
+            "working tree is work in progress and is not asked about.",
+            "",
+            "Clear the list with `rm .claude/card-test-debt` once the tests are written,",
+            "or deliberately, if a card genuinely plays nothing an engine can observe —",
+            "say so.",
+        ]
+
+    if readers:
+        if lines:
+            lines += ["", "-" * 72, ""]
+        lines += [
+            f"A card reader changed on this branch and {len(generated)} machine-owned "
+            "card(s) changed with it, and not one of them is played by an engine test.",
+            "",
+            "Asking per generated card would be the wrong question — one codegen run",
+            "rewrites hundreds. What is owed is the RULE's test: at least one of these",
+            "cards played in crates/baylee-engine/src/engine/card_tests/, because a rule",
+            "whose entire output is unplayed is an untested rule.",
+            "",
+            "The readers that changed:",
+        ]
+        lines += [f"  {r}" for r in readers[:10]]
+        if len(readers) > 10:
+            lines.append(f"  … and {len(readers) - 10} more")
+        lines += ["", "The cards they wrote:"]
+        for rel, oid in generated[:25]:
+            lines.append(f'  {rel}\n      card_index("{oid}")')
+        if len(generated) > 25:
+            lines.append(f"  … and {len(generated) - 25} more")
+        lines += [
+            "",
+            "If the reader change was a FIX, the second test still applies and does not",
+            "go in card_tests/: it belongs beside the rule that was wrong, and has to",
+            "fail against the old code.",
+            "",
+            "This question goes quiet once the branch is pushed, like the one above.",
+        ]
+
     print("\n".join(lines), file=sys.stderr)
     return 2
 
