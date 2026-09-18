@@ -169,6 +169,9 @@ pub enum DelayedAction {
     CastFromExileWithoutPaying {
         /// The card in exile.
         card: ObjectId,
+        /// Its identity on arriving there; leaving exile invalidates this
+        /// permission even if the same card returns (CR 400.7).
+        version: u32,
     },
     /// Pay a cost or lose the game (Pact of Negation).
     PayCostOrLose {

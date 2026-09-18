@@ -2257,7 +2257,10 @@ impl<L: CardLookup> Engine<L> {
                 self.state.delayed.push(crate::state::DelayedTrigger {
                     controller: owner,
                     when: crate::state::DelayedWhen::NextUpkeep,
-                    action: crate::state::DelayedAction::CastFromExileWithoutPaying { card: spell },
+                    action: crate::state::DelayedAction::CastFromExileWithoutPaying {
+                        card: spell,
+                        version: self.state.object(spell).map_or(0, |o| o.version),
+                    },
                 });
                 return;
             }
@@ -2372,8 +2375,12 @@ impl<L: CardLookup> Engine<L> {
                 if let Some(obj) = self.state.object_mut(card) {
                     obj.counters.set(baylee_cards_dsl::CounterKind::Time, 0);
                 }
-                self.delayed_queue
-                    .push_back(crate::state::DelayedAction::CastFromExileWithoutPaying { card });
+                self.delayed_queue.push_back(
+                    crate::state::DelayedAction::CastFromExileWithoutPaying {
+                        card,
+                        version: self.state.object(card).map_or(0, |o| o.version),
+                    },
+                );
             } else if let Some(obj) = self.state.object_mut(card) {
                 obj.counters
                     .set(baylee_cards_dsl::CounterKind::Time, remaining - 1);
@@ -2752,11 +2759,15 @@ impl<L: CardLookup> Engine<L> {
             return false;
         };
         match action {
-            crate::state::DelayedAction::CastFromExileWithoutPaying { card } => {
-                let owner = self
+            crate::state::DelayedAction::CastFromExileWithoutPaying { card, version } => {
+                let Some(object) = self
                     .state
                     .object(card)
-                    .map_or(self.state.turn.active, |o| o.owner);
+                    .filter(|o| o.zone == crate::zone::Zone::Exile && o.version == version)
+                else {
+                    return false;
+                };
+                let owner = object.owner;
                 let _ = self.start_free_cast(owner, card);
                 self.awaiting_answer
             }

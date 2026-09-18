@@ -206,6 +206,16 @@ impl<L: CardLookup> Engine<L> {
         player: PlayerId,
         card: ObjectId,
     ) -> Result<(), EngineError> {
+        if self
+            .state
+            .object(card)
+            .filter(|o| o.zone == crate::zone::Zone::Exile)
+            .and_then(|o| o.card)
+            .and_then(|c| self.lookup.card(c.index))
+            .is_none()
+        {
+            return Err(EngineError::IllegalAction("no card to cast from exile"));
+        }
         let mut wizard = CastWizard {
             card,
             player,

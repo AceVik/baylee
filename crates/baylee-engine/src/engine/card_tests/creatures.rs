@@ -4,6 +4,99 @@
 #[allow(clippy::wildcard_imports)] // this module's own vocabulary
 use super::*;
 
+#[test]
+fn a_copied_rebound_spell_does_not_schedule_a_cast_of_a_vanished_copy() {
+    let p0 = PlayerId::new(0);
+    let ephemerate = card_index("0fd57894-b917-41c8-a394-360d1d31b236");
+    let mut engine = Duel::new(21, forest())
+        .battlefield(0, &[plains(), jin_gitaxias(), ondu_cleric()])
+        .hand(0, &[ephemerate])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let cleric = on_battlefield(&engine, p0, ondu_cleric()).unwrap();
+    let jin = on_battlefield(&engine, p0, jin_gitaxias()).unwrap();
+    let original = in_hand(&engine, p0, ephemerate).unwrap();
+    cast_from_hand(&mut engine, p0, ephemerate);
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![cleric],
+            },
+        )
+        .unwrap();
+    let options = options_offered_including(&mut engine, jin);
+    assert!(options.contains(&jin));
+    engine
+        .apply(p0, PlayerAction::ChooseObjects { objects: vec![jin] })
+        .unwrap();
+    assert!(matches!(drive_to_rest(&mut engine, p0), Rest::Reached));
+    let rebounds: Vec<_> = engine
+        .state
+        .delayed
+        .iter()
+        .filter_map(|d| match d.action {
+            crate::state::DelayedAction::CastFromExileWithoutPaying { card, .. } => Some(card),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(
+        rebounds,
+        vec![original],
+        "only the spell actually cast from hand can rebound"
+    );
+}
+
+#[test]
+fn rebound_does_not_follow_a_card_out_of_exile_and_back() {
+    let p0 = PlayerId::new(0);
+    let ephemerate = card_index("0fd57894-b917-41c8-a394-360d1d31b236");
+    let mut engine = Duel::new(21, forest())
+        .battlefield(0, &[plains(), ondu_cleric()])
+        .hand(0, &[ephemerate])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let cleric = on_battlefield(&engine, p0, ondu_cleric()).unwrap();
+    let original = in_hand(&engine, p0, ephemerate).unwrap();
+    cast_from_hand(&mut engine, p0, ephemerate);
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![cleric],
+            },
+        )
+        .unwrap();
+    assert!(matches!(drive_to_rest(&mut engine, p0), Rest::Reached));
+    let delayed = engine.state.delayed.remove(0).action;
+    engine
+        .state
+        .move_object(
+            original,
+            ZoneLocation::Graveyard(p0),
+            ZonePosition::Top,
+            Cause::Effect,
+        )
+        .unwrap();
+    engine
+        .state
+        .move_object(
+            original,
+            ZoneLocation::Exile(p0),
+            ZonePosition::Top,
+            Cause::Effect,
+        )
+        .unwrap();
+    engine.delayed_queue.push_back(delayed);
+    assert!(
+        !engine.process_delayed(),
+        "CR 400.7: the returning card is a new object"
+    );
+    assert!(engine.cast_wizard.is_none());
+}
+
 /// Earth King's Lieutenant ({G}{W}, 1/1): the ETB puts a +1/+1 counter
 /// on each other Ally — here the Ondu Cleric that waited on the board.
 #[test]

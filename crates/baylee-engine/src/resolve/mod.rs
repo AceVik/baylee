@@ -1913,6 +1913,9 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
                 {
                     let obj = state.object_mut(id).expect("fresh copy");
                     obj.card = card;
+                    // CR 707.10: a copy is put on the stack, not cast from
+                    // hand. Rebound must not schedule a vanished copy.
+                    obj.cast_from_hand = false;
                     obj.targets = targets;
                     obj.target_req = target_req;
                     obj.zone = crate::zone::Zone::Stack;
