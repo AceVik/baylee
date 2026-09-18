@@ -381,7 +381,7 @@ fn stats(object: &Characteristics) -> Option<Stats> {
 /// Subtypes are grouped behind the type they belong to and in the same order,
 /// which is what makes Dryad Arbor read `Land Creature — Forest Dryad` and not
 /// `Land Creature — Dryad Forest`.
-fn projected_type_line(object: &Characteristics) -> String {
+pub(crate) fn projected_type_line(object: &Characteristics) -> String {
     let mut line = String::with_capacity(48);
     for word in object.supertypes.words() {
         line.push_str(word);

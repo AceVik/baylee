@@ -29,11 +29,13 @@
 //! way [`BoardModel`](crate::BoardModel) derives lanes from a view. Two
 //! copies of a selection cannot disagree if there is only one.
 
+use baylee_core::color::Color;
 use baylee_core::ids::{ObjectId, PlayerId};
-use baylee_core::types::TypeSet;
-use baylee_view::PlayerView;
+use baylee_core::types::{SupertypeSet, TypeSet};
+use baylee_view::{PlayerView, PublicObject};
 use std::collections::{BTreeSet, HashMap};
 
+use crate::cardquery::{Colors, Facts, Flag, Query, Surface};
 use crate::i18n::Phrase;
 use crate::images::{ArtSize, ImageKey};
 use crate::interaction::Interaction;
@@ -96,7 +98,7 @@ impl BrowseZone {
     /// that exists is a tab with a non-zero count.
     #[must_use]
     pub fn count_in(self, view: &PlayerView) -> usize {
-        let pile = |zones: &[Vec<baylee_view::PublicObject>], seat: PlayerId| {
+        let pile = |zones: &[Vec<PublicObject>], seat: PlayerId| {
             zones.get(seat.get() as usize).map_or(0, Vec::len)
         };
         match self {
@@ -214,11 +216,11 @@ pub struct Names<'a> {
     /// `None` is the honest answer and not a failure: a token, an ability on
     /// the stack whose source has no text, or a client running against a
     /// gateway with no catalog behind it. The projected name stands.
-    pub shown: &'a dyn Fn(&baylee_view::PublicObject) -> Option<String>,
+    pub shown: &'a dyn Fn(&PublicObject) -> Option<String>,
 }
 
 /// The answer a caller with no card text in reach has: none at all.
-fn nothing_shown(_: &baylee_view::PublicObject) -> Option<String> {
+fn nothing_shown(_: &PublicObject) -> Option<String> {
     None
 }
 
@@ -235,7 +237,7 @@ impl Names<'_> {
     /// about language keep being about what it is about.
     #[must_use]
     pub fn projected() -> Names<'static> {
-        static SHOWN: fn(&baylee_view::PublicObject) -> Option<String> = nothing_shown;
+        static SHOWN: fn(&PublicObject) -> Option<String> = nothing_shown;
         Names { shown: &SHOWN }
     }
 }
@@ -1291,10 +1293,13 @@ impl Browser {
     ) -> Vec<BrowseRow> {
         let mine = interaction.filter(|it| it.is_mine());
         let ordering = mine.is_some_and(Interaction::is_ordering);
-        // Folded, not merely lowercased: `strasse` has to find `Straße`, and
-        // a player whose keyboard has no `ß` types the first of those. See
-        // [`crate::prose::sort_key`].
-        let needle = crate::prose::sort_key(self.filter.text().trim());
+        // Parsed here and not held beside the box, which is the opposite of
+        // what `DeckBuilder` does and for a measured reason: this runs once
+        // per frame and then asks the query about each of a zone's objects,
+        // where the builder asks it about 1365 pool cards per keystroke. One
+        // parse of one short line per frame is not worth a second field that
+        // could disagree with the string it came from.
+        let query = crate::cardquery::parse(self.filter.text().trim());
         let mut out = Vec::new();
         for zone in self.zones(view) {
             if !self.shows(zone) {
@@ -1302,13 +1307,11 @@ impl Browser {
             }
             for object in objects_in(view, zone) {
                 let shown = (names.shown)(object).unwrap_or_else(|| object.name.clone());
-                // Both names, because they are two ways of naming the same
-                // card and a player knows the one they learned it under. The
-                // projection is also the only name a *token* has.
-                if !needle.is_empty()
-                    && !crate::prose::sort_key(&shown).contains(&needle)
-                    && !crate::prose::sort_key(&object.name).contains(&needle)
-                {
+                // Both names are in the facts, because they are two ways of
+                // naming the same card and a player knows the one they
+                // learned it under. The projection is also the only name a
+                // *token* has.
+                if !query.is_anything() && !shows(&query, object, &shown) {
                     continue;
                 }
                 // Membership of the offered list, not `is_selectable`: a
@@ -1418,11 +1421,73 @@ fn seats_from(view: &PlayerView) -> Vec<PlayerId> {
         .collect()
 }
 
+/// Whether one object in a zone answers what is typed in the search box.
+///
+/// The facts are a **projection** and not a printing, which is the whole of
+/// what [`Surface::ZONE`] is about: an animated Dryad Arbor is a creature
+/// here and a bear under two anthems is a 3/3, because that is what the view
+/// says they are. What the view does not carry has no field to fake — the
+/// rules text, the printed mana cost and the colour identity are empty and
+/// unreadable rather than wrong, and `ZONE` refuses the keys that would ask
+/// about them.
+///
+/// `kinds` is empty for a reason worth writing down: in the deckbuilder it
+/// carries the English type words beside a *printed* type line, so a German
+/// player typing `t:kreatur` finds a creature. Here the only type line there
+/// is comes off the projection and is already English, and translating it
+/// would mean a dictionary this crate does not reach (`data/type-names.tsv`
+/// lives in the catalog). Using the catalog's printed line instead would be
+/// worse than untranslated: it is the *card's* type line, and the object on
+/// the table may no longer be that. So `t:` answers in English in a zone and
+/// in both languages in the pool, and the gap is the projection's, not a
+/// shortcut.
+fn shows(query: &Query, object: &PublicObject, shown: &str) -> bool {
+    let line = crate::card_face::projected_type_line(
+        &crate::card_face::Characteristics::projected(object),
+    );
+    let mut letters = String::with_capacity(5);
+    for colour in Color::ALL {
+        if object.colors.contains(colour) {
+            letters.push(colour.symbol());
+        }
+    }
+    let mut flags = Vec::with_capacity(3);
+    if object.token.is_some() {
+        flags.push(Flag::Token);
+    }
+    if object.supertypes.contains(SupertypeSet::BASIC) {
+        flags.push(Flag::Basic);
+    }
+    if object.commander {
+        flags.push(Flag::Commander);
+    }
+    // Every field spelled out, with no `..Default::default()` tail: adding a
+    // characteristic to `Facts` must fail here rather than quietly leave this
+    // surface answering about a field it never filled in.
+    let facts = Facts {
+        name: shown,
+        english_name: &object.name,
+        alt_names: &[],
+        type_line: &line,
+        kinds: &[],
+        oracle: "",
+        colors: Colors::of_letters(&letters),
+        identity: Colors::default(),
+        mana_cost: "",
+        mana_value: object.mana_value,
+        power: object.power.map(i32::from),
+        toughness: object.toughness.map(i32::from),
+        loyalty: object.loyalty.map(i32::from),
+        flags: &flags,
+    };
+    crate::cardquery::matches(query, &facts, Surface::ZONE).shown()
+}
+
 /// The objects one zone holds, in the order the view lists them.
 ///
 /// A seat index out of range is a malformed view rather than an empty zone,
 /// but a client must not panic on one — so it reads as empty.
-fn objects_in(view: &PlayerView, zone: BrowseZone) -> &[baylee_view::PublicObject] {
+fn objects_in(view: &PlayerView, zone: BrowseZone) -> &[PublicObject] {
     match zone {
         BrowseZone::Looking => &view.looking_at,
         BrowseZone::Stack => &view.stack,
@@ -1433,7 +1498,7 @@ fn objects_in(view: &PlayerView, zone: BrowseZone) -> &[baylee_view::PublicObjec
 }
 
 /// One seat's pile out of a per-seat zone list.
-fn pile(zones: &[Vec<baylee_view::PublicObject>], seat: PlayerId) -> &[baylee_view::PublicObject] {
+fn pile(zones: &[Vec<PublicObject>], seat: PlayerId) -> &[PublicObject] {
     zones.get(seat.get() as usize).map_or(&[], Vec::as_slice)
 }
 

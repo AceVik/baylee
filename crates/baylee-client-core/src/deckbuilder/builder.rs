@@ -7,6 +7,7 @@
 
 #[allow(clippy::wildcard_imports)] // the builder's own vocabulary
 use super::*;
+use crate::cardquery::{Colors, Facts, Flag, Surface};
 
 impl DeckBuilder {
     /// An empty builder with no pool yet.
@@ -176,19 +177,39 @@ impl DeckBuilder {
     /// Sets the search text.
     pub fn set_text(&mut self, text: &str) {
         self.text = text.to_string();
-        self.refilter();
+        self.retext();
     }
 
     /// Types one character into the search box.
     pub fn type_char(&mut self, ch: char) {
         self.text.push(ch);
-        self.refilter();
+        self.retext();
     }
 
     /// Deletes the last character of the search box.
     pub fn backspace(&mut self) {
         self.text.pop();
+        self.retext();
+    }
+
+    /// Reads the box again, then filters.
+    ///
+    /// The one place the string and the query it stands for are written
+    /// together. Parsing costs one pass over what a player typed; not doing
+    /// it here would cost one pass per pool card per keystroke.
+    fn retext(&mut self) {
+        self.query = crate::cardquery::parse(&self.text);
         self.refilter();
+    }
+
+    /// What is in the search box, read as a query.
+    ///
+    /// The filter dialog's half of the round trip: it takes this apart into
+    /// controls, and writes back whatever it did not take with
+    /// [`crate::cardquery::Query::remainder`].
+    #[must_use]
+    pub const fn query(&self) -> &crate::cardquery::Query {
+        &self.query
     }
 
     /// Turns one color on or off. No colors means every color.
@@ -232,7 +253,7 @@ impl DeckBuilder {
         self.colors.clear();
         self.kind = None;
         self.cmc = None;
-        self.refilter();
+        self.retext();
     }
 
     /// Whether anything is narrowing the results.
@@ -246,12 +267,8 @@ impl DeckBuilder {
 
     /// Recomputes the result list.
     fn refilter(&mut self) {
-        // Folded, not merely lowercased: a player types `strasse` for
-        // `Straße` and `atherfluss` for `Ätherfluss`, and the haystacks
-        // below are folded the same way so both sides meet.
-        let needle = crate::prose::sort_key(self.text.trim());
         let mut hits: Vec<usize> = (0..self.pool.len())
-            .filter(|slot| self.matches(&self.pool[*slot], &needle))
+            .filter(|slot| self.matches(&self.pool[*slot]))
             .collect();
         let sort = self.sort;
         // The name every order ends in is the *folded* one: `str::cmp` is
@@ -277,7 +294,18 @@ impl DeckBuilder {
     }
 
     /// Whether one card survives the current filter.
-    fn matches(&self, card: &PoolCard, needle: &str) -> bool {
+    ///
+    /// The chips and the box are two mechanisms and stay two: a chip is a
+    /// switch with a state a player can see at a glance, and the box is a
+    /// sentence. They meet here, with `and` between them.
+    ///
+    /// **`playable_only` is deliberately not a term.** It is a safety
+    /// default rather than a search — it hides the cards the engine does
+    /// nothing with — and as `is:playable` in the string it would mean the
+    /// box was never empty, the placeholder never shown, and clearing the
+    /// box would quietly offer stubs. `is:playable`, `is:partial` and
+    /// `is:stub` exist as terms beside it, for asking on purpose.
+    fn matches(&self, card: &PoolCard) -> bool {
         if self.playable_only && card.coverage == Coverage::Unimplemented {
             return false;
         }
@@ -294,20 +322,11 @@ impl DeckBuilder {
         if !self.colors.is_empty() && !self.color_match(card) {
             return false;
         }
-        if needle.is_empty() {
+        if self.query.is_anything() {
             return true;
         }
-        // Every name the card answers to, in every language it was printed
-        // in. A player searching for their own copy types what is on it —
-        // and every haystack is folded the way the needle was, because a
-        // needle folded against a haystack that was only lowercased stops
-        // matching the very accents the fold exists for.
-        let folded = |text: &str| crate::prose::sort_key(text).contains(needle);
-        folded(&card.name)
-            || folded(&card.english_name)
-            || card.alt_names.iter().any(|n| folded(n))
-            || folded(&card.type_line)
-            || folded(&card.oracle_text)
+        let flags = pool_flags(card);
+        crate::cardquery::matches(&self.query, &pool_facts(card, &flags), Surface::POOL).shown()
     }
 
     /// Whether a card is within the chosen colors.
@@ -1212,4 +1231,72 @@ fn print_key(print: &PrintChoice) -> (String, String, String, u8) {
             Finish::Etched => 2,
         },
     )
+}
+
+/// The flags a pool row carries, for `is:`.
+///
+/// A list and not a set of `bool` fields: [`Facts::flags`] is what a card
+/// *is*, and [`Surface::POOL`] is what may be asked — the pair is how
+/// "this card is not a commander" and "nobody here knows about commanders"
+/// stay two different answers.
+fn pool_flags(card: &PoolCard) -> Vec<Flag> {
+    let mut flags = Vec::with_capacity(4);
+    flags.push(match card.coverage {
+        Coverage::Implemented => Flag::Playable,
+        Coverage::Partial => Flag::Partial,
+        Coverage::Unimplemented => Flag::Stub,
+    });
+    if card.commander {
+        flags.push(Flag::Commander);
+    }
+    if card.basic_land {
+        flags.push(Flag::Basic);
+    }
+    if card.two_faced {
+        flags.push(Flag::Dfc);
+    }
+    flags
+}
+
+/// A pool row, as the query language reads it.
+fn pool_facts<'a>(card: &'a PoolCard, flags: &'a [Flag]) -> Facts<'a> {
+    let (power, toughness, loyalty) = printed_numbers(card.stats.as_deref());
+    Facts {
+        name: &card.name,
+        english_name: &card.english_name,
+        alt_names: &card.alt_names,
+        type_line: &card.type_line,
+        kinds: &card.kinds,
+        oracle: &card.oracle_text,
+        colors: Colors::of_letters(&card.colors),
+        identity: Colors::of_letters(&card.identity),
+        mana_cost: &card.mana_cost,
+        mana_value: card.cmc,
+        power,
+        toughness,
+        loyalty,
+        flags,
+    }
+}
+
+/// The numbers `PoolCard::stats` is holding, told apart by their shape.
+///
+/// `baylee_cards::pool::stats` writes `p/t` for anything with a power and a
+/// toughness and the bare number otherwise, so the slash is the whole of
+/// what distinguishes a creature from a planeswalker here. Reading it back
+/// rather than asking the pool for three fields keeps the wire as it is;
+/// what it costs is that a card printing both — none in this pool — would
+/// be read as a creature, which is what the row already draws it as.
+fn printed_numbers(stats: Option<&str>) -> (Option<i32>, Option<i32>, Option<i32>) {
+    let Some(stats) = stats else {
+        return (None, None, None);
+    };
+    match stats.split_once('/') {
+        Some((power, toughness)) => (
+            power.trim().parse().ok(),
+            toughness.trim().parse().ok(),
+            None,
+        ),
+        None => (None, None, stats.trim().parse().ok()),
+    }
 }

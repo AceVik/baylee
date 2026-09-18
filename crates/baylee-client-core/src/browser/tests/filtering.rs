@@ -283,3 +283,82 @@ fn the_search_box_has_a_caret_a_selection_and_the_keys_that_move_them() {
     assert_eq!(b.filter_field().cursor(), 6);
     assert_eq!(b.filter_field().selection(), None);
 }
+
+/// The zone box reads the same language the deckbuilder's does.
+///
+/// The owner asked for one search across the client — *"Suche im
+/// Deckbuilder, Zonen Dialog, etc. … der Skryfall vergleihbaren
+/// Textfilter"* — so this box is not a substring match with a query
+/// language bolted on beside it: it *is* the query language, and a bare
+/// word is the same `Key::Loose` term it is in the pool.
+#[test]
+fn a_zone_search_reads_the_same_language_the_deckbuilder_does() {
+    use baylee_core::color::{Color, ColorSet};
+
+    let mut elves = printed(4, 0, "Llanowar Elves", 3);
+    elves.mana_value = 1;
+    elves.colors = ColorSet::of(Color::Green);
+    let mut wrath = printed(5, 0, "Wrath of God", 4);
+    wrath.types = TypeSet::SORCERY;
+    wrath.power = None;
+    wrath.toughness = None;
+    wrath.mana_value = 4;
+    wrath.colors = ColorSet::of(Color::White);
+    let mut forest = printed(6, 0, "Forest", 5);
+    forest.types = TypeSet::LAND;
+    forest.supertypes = baylee_core::types::SupertypeSet::BASIC;
+    forest.power = None;
+    forest.toughness = None;
+
+    let view = ViewBuilder::new(2)
+        .with_graveyard(0, vec![elves, wrath, forest])
+        .build();
+    let found = |needle: &str| {
+        let mut b = Browser::new();
+        b.set_filter(needle);
+        b.rows(&view, None, Names::projected())
+            .into_iter()
+            .map(|r| r.name)
+            .collect::<Vec<_>>()
+    };
+
+    assert_eq!(found("t:creature"), ["Llanowar Elves"]);
+    assert_eq!(found("t:sorcery"), ["Wrath of God"]);
+    assert_eq!(found("c:w"), ["Wrath of God"], "the projected colours");
+    assert_eq!(found("mv>=4"), ["Wrath of God"]);
+    assert_eq!(found("pow>=2"), ["Llanowar Elves"], "the projected power");
+    assert_eq!(found("is:basic"), ["Forest"], "a projected supertype");
+    assert_eq!(
+        found("-t:creature"),
+        ["Wrath of God", "Forest"],
+        "a leading minus is a negation and not a letter to search for"
+    );
+    assert_eq!(
+        found("t:creature or t:land"),
+        ["Llanowar Elves", "Forest"],
+        "and an or is an or"
+    );
+}
+
+/// A term this surface cannot answer hides every row, both ways round.
+///
+/// The view carries characteristics and never the card's prose, so `o:`
+/// has nothing to read. Answering it as *false* would be a lie a player
+/// could not see — `-o:draw` would then list the whole graveyard as cards
+/// that do not draw, which nothing here knows.
+#[test]
+fn a_zone_search_refuses_a_question_the_view_cannot_answer() {
+    let view = ViewBuilder::new(2)
+        .with_graveyard(0, vec![printed(4, 0, "Llanowar Elves", 3)])
+        .build();
+    let found = |needle: &str| {
+        let mut b = Browser::new();
+        b.set_filter(needle);
+        b.rows(&view, None, Names::projected()).len()
+    };
+    assert_eq!(found("o:draw"), 0, "there is no rules text to read");
+    assert_eq!(found("-o:draw"), 0, "and negating it does not create one");
+    assert_eq!(found("m:{G}"), 0, "nor is there a printed mana cost");
+    assert_eq!(found("id:g"), 0, "nor a colour identity");
+    assert_eq!(found("elves"), 1, "what it does carry still answers");
+}

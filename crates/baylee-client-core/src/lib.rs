@@ -44,6 +44,7 @@ pub mod bugreport;
 pub mod card_face;
 pub mod cardcrest;
 pub mod cardplate;
+pub mod cardquery;
 pub mod cardrail;
 pub mod combat;
 pub mod commanderdamage;

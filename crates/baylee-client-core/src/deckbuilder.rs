@@ -617,6 +617,13 @@ pub struct DeckBuilder {
     /// comparator would fold each name the dozen times a sort reads it.
     keys: Vec<String>,
     text: String,
+    /// [`Self::text`], read as a query.
+    ///
+    /// Held beside the string rather than parsed where it is used, because
+    /// it is used once per pool card per keystroke — 1365 times — and the
+    /// string changes once. `DeckBuilder::retext` is the one place the two
+    /// are written, so they cannot disagree.
+    query: crate::cardquery::Query,
     colors: Vec<char>,
     kind: Option<String>,
     cmc: Option<u32>,

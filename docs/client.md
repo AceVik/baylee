@@ -2335,6 +2335,77 @@ so adding a card would otherwise throw the list back to the top, and keeping
 the offsets inside it would rebuild sixty rows on every notch of the wheel. A
 new search does start at the top, because it is a different list.
 
+## What the search box understands
+
+`baylee_client_core::cardquery` is the language both search boxes read — the
+deck builder's and the zone browser's. It is **Scryfall's**, or the part of it
+this client has the facts to answer, and that is not a stylistic choice: it is
+the language every player of this game already knows, from the site they look
+their cards up on, and a second one invented here would have to be learned for
+no gain.
+
+What it covers: a loose word, `name:`, `!exact`, `o:` for rules text (with `~`
+for the card's own name), `t:` for the type line, `c:` and `id:` for colours
+and colour identity, `m:` for the symbols of a mana cost, `mv`/`cmc`,
+`pow`/`tou`/`loy`, and `is:`/`not:` for the yes-or-no properties this pool has
+— `playable`, `partial`, `stub`, `commander`, `basic`, `dfc`, and `token` in
+the zone browser. Every comparison Scryfall writes (`=`, `!=`, `<`, `<=`, `>`,
+`>=`), negation with `-`, `or`, and brackets.
+
+Four decisions in it are worth knowing, and three of them were paid for.
+
+**The bare colon is not a synonym.** `c:rg` is *at least* red and green and
+`id:rg` is *at most* — which is what makes `id:c t:land` the lands a colourless
+commander may play rather than every land there is — while on a number it is
+`=` and on a mana cost it is "contains". So `Op::Colon` is kept as its own
+operator rather than rewritten at the door, because rewriting it would write
+`c>=rg` back into a box a player typed `c:rg` into.
+
+**A loose word looks further here than it does on Scryfall**, where it is a
+name and nothing else. This box has always searched the type line and the
+rules text beside the name, and the reason it keeps doing so is that it is the
+*only* box there is: Scryfall has a page of controls under its own, and a
+player here who types `instant` and is told there is no card by that name has
+nowhere else to go. `name:` is the narrow reading and has a prefix because it
+is the one asked for on purpose.
+
+**A parse never fails and never drops a word.** `frobnicate:yes` keeps its
+place as an unknown key and is written back out exactly as it came in; it
+simply matches nothing. That is not leniency — it is the property the filter
+dialog stands on. A dialog that takes a string apart into controls and puts it
+back together has to be able to carry the part it cannot draw, or opening it
+would silently delete half of what a player typed. The same property is why
+`render` is held against `parse` rather than against a string:
+`parse(render(q)) == q` for every query in the test corpus, which is one line
+per shape the grammar makes.
+
+**A term the surface cannot answer matches nothing, and neither does its
+negation.** The two boxes know different things, and the line between them is
+`baylee_view::PublicObject`'s own fields. A zone row is a **projection**, so
+every characteristic is there and is the current one — an animated Dryad Arbor
+answers `t:creature` and a bear under two anthems answers `pow>=3` — while the
+card's *prose* and the pool's bookkeeping are not: no rules text, no printed
+mana cost (only its value), no colour identity, no coverage. So evaluation is
+three-valued and `Unknown` survives a `-`. `-o:draw` in a graveyard matches
+nothing, which is the honest answer; the alternative is a panel claiming every
+card in the pile lacks a word it never had the text to look for.
+
+One consequence of the projection is worth saying out loud, because it looks
+like a bug and is not: `t:` answers in English in a zone and in both languages
+in the pool. A pool row carries the *printed* type line beside the English type
+words, so `t:kreatur` finds a creature; a zone row's only type line is built
+from the projection, which the engine keeps in its one language. Translating it
+would need the catalog's type dictionary, and using the catalog's printed line
+instead would be worse than untranslated — that is the card's type line, and
+the object on the table may no longer be that card.
+
+The one place it deliberately says *no* rather than guessing is the colour
+nicknames. Scryfall knows seventy of them and this does not, and what matters
+is how it does not: read letter by letter, `esper` is `{R}` and `boros` is
+`{B}{R}` — wrong answers wearing a right one's clothes. So a colour value that
+is neither a colour name nor made of nothing but `wubrg` letters is refused,
+and is still written back out so a player can see what was refused.
+
 ## Tapping lands for a spell
 
 The engine offers a spell as castable only when the mana is **already

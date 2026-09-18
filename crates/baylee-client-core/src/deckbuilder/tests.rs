@@ -73,6 +73,68 @@ fn search_looks_where_a_player_would() {
     assert!(b.results().is_empty());
 }
 
+/// The box is a language, not a substring. Everything below is a sentence a
+/// player can type into the one box the builder has.
+#[test]
+fn the_search_box_reads_a_query() {
+    let mut b = builder();
+    let names = |b: &DeckBuilder| -> Vec<String> {
+        b.results()
+            .iter()
+            .map(|slot| b.card(*slot).unwrap().name.clone())
+            .collect()
+    };
+
+    b.set_text("t:creature");
+    assert_eq!(names(&b), ["Grizzly Bears"]);
+
+    b.set_text("-t:land -t:creature");
+    assert_eq!(names(&b), ["Lightning Bolt", "Sol Ring", "Wrath of God"]);
+
+    b.set_text("mv<=1 -t:land");
+    assert_eq!(names(&b), ["Lightning Bolt", "Sol Ring"]);
+
+    b.set_text("t:instant or t:sorcery");
+    assert_eq!(names(&b), ["Lightning Bolt", "Wrath of God"]);
+
+    b.set_text("c:w");
+    assert_eq!(names(&b), ["Wrath of God"], "at least white");
+
+    b.set_text("m:{W}{W}");
+    assert_eq!(names(&b), ["Wrath of God"], "two white symbols, not one");
+
+    b.set_text("!\"sol ring\"");
+    assert_eq!(names(&b), ["Sol Ring"]);
+}
+
+/// A key nothing knows narrows the list to nothing rather than being
+/// quietly ignored, and the string keeps it so a player can see the typo.
+#[test]
+fn a_key_the_builder_does_not_know_hides_everything() {
+    let mut b = builder();
+    b.set_text("frobnicate:yes");
+    assert!(b.results().is_empty());
+    assert_eq!(crate::cardquery::render(b.query()), "frobnicate:yes");
+}
+
+/// `playable_only` is a switch and never a term: the box stays empty, so
+/// the placeholder shows and clearing the box does not offer stubs.
+#[test]
+fn hiding_the_stubs_is_not_something_typed_in_the_box() {
+    let mut b = DeckBuilder::new();
+    let mut cards = pool();
+    cards[4].coverage = Coverage::Unimplemented;
+    b.set_pool(cards, true);
+    assert!(b.query().is_anything(), "nothing was typed");
+    assert_eq!(b.results().len(), 4);
+    // And it is still askable on purpose.
+    b.toggle_playable_only();
+    b.set_text("is:stub");
+    let hits = b.results();
+    assert_eq!(hits.len(), 1);
+    assert_eq!(b.card(hits[0]).unwrap().name, "Sol Ring");
+}
+
 /// A color filter asks "what could a deck of these colors play", so a card
 /// needing a colour that was not picked is out, and colorless is in.
 #[test]
