@@ -694,7 +694,7 @@ scripts read in full.
 **`--stubs` is the ranking that ships cards, and the plain one is not.** The
 report's default population is all 33 826 reference scripts, which measures the
 DSL; `transcode-report --stubs` ranks only the scripts belonging to this pool's
-own unfinished cards — 678 of the 686 stubs have one — and the two orders
+own unfinished cards — 651 of the 659 stubs have one — and the two orders
 disagree so sharply that the corpus one is a trap when the goal is a card.
 Measured on 17.09: `Charm` is 618 corpus-wide and **2** here, an unreadable
 `Pump` value 477 and **6**, the `DamageDone` trigger 442 and **1**,
@@ -747,7 +747,28 @@ a counted amount (`Count$Valid …`), a pick per mana (`Combo`), a pick for the
 whole amount (`Any` with an amount) and a commander's identity. Fourteen
 cards came out of it, and the entry left the list instead of shrinking.
 
-That entry used to be followed by one reading "supported effects, unsupported
+`Sacrifice` (24) was the lesson a *fourth* time and the one place it needed a
+new variant. `DB$ Sacrifice` was not in `SUPPORTED_APIS` at all, and it is two
+sentences: bare it is `SacrificeSelf` (111 corpus scripts), and with an
+`UnlessCost$` it is the Karoo sentence — "sacrifice it unless you return an
+untapped Plains you control to its owner's hand", 131 more and the API's
+largest single shape. That half had no shape in the DSL, because
+`Effect::PlayerMayPayOr` charges *generic mana* and a Karoo charges a
+permanent. `Effect::PlayerMayPayCostOr` is the sibling that charges one
+`CostPart`, and it asks no yes-or-no question: the player is shown the list of
+what may pay and naming nothing is how they decline, which is also why a price
+nobody can pay asks nothing at all. `cost_wizard` supplied all three halves
+(`options`, `prompt`, `pay`) unchanged from the activation path.
+
+`cost 'Sac'` (11) and `cost 'tapXType'` (6) fell the same day for a smaller
+reason and are the warning against reading an entry as a missing subsystem:
+`cost_expr` had learnt `Return<1/…>` and none of its three siblings, while
+`cost_wizard` had answered all four `CostPart`s since activation costs were
+written. One reader, four spellings, thirteen more lands. Twenty-seven cards
+came out of the three entries together, and each of them was a sentence the
+DSL was already most of the way to saying.
+
+The `Mana` entry used to be followed by one reading "supported effects, unsupported
 parameters (~4200)", described as the honest-stub rule showing its cost. Most
 of it was not that. `refusal_cause` was *guessing* — re-reading the script and
 naming the first thing it did not recognise — and the bucket was where every
@@ -806,7 +827,7 @@ in the reader and never in the card: one rule wrote hundreds of files, so
 patching the one in front of you leaves the rest broken and is reverted on the
 next run anyway. `cargo run -p xtask -- adopt --name "<card>"` is the way out
 — it strips the marker and hands the file over for good. `validate` reports
-the split (328 hand-owned, 522 machine-owned, 686 stubs), which is the number
+the split (328 hand-owned, 549 machine-owned, 659 stubs), which is the number
 to watch: a machine-owned card is a rule's output, and a rule is testable.
 The markers are named here and not quoted, and `stubgen::is_machine_owned` is
 the only thing that should ever ask: `cross-read`'s first draft retyped the

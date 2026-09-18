@@ -835,7 +835,21 @@ carry a `KeywordSet` so "+2/+2 and gains trample" is one effect,
 Tokens/copy: `CreateToken`, `CreateTokenN`, `CreateTokenForTargetController`,
 `CreateTokenFromLinked`, `CreateTokenCopyOf`, `CreateTokenCopyOfEquipped`,
 `CreateTokenCopyOfFirstToken`, `CopyTargetSpell`, `Amass`.
-Costs/taxes: `PlayerMayPayOr`, `AddCounter`, `AddCounterFilter`,
+Costs/taxes: `PlayerMayPayOr` and `PlayerMayPayCostOr` — the two halves of
+"… unless you <pay>", split by what the price is. The first charges *generic*
+mana in an `Amount`, because Esper Sentinel's tax is its own power and a
+number only resolution knows cannot live in a `ManaCost`. The second charges
+one `CostPart` the player pays by **naming an object**, which is the Karoo
+sentence: "sacrifice it unless you return an untapped Plains you control to
+its owner's hand". There is no yes-or-no question on the second — the player
+is shown what may pay and naming nothing is how they decline, so a price
+nobody can pay asks nothing at all and the fallback simply runs. Its price
+has to be one of the four parts a player answers with an object
+(`Sacrifice`, `Discard`, `TapOther`, `ReturnToHand`); a `PayLife(2)` there
+would put up an empty menu and decline itself on every board, which
+`vocabulary_tests::every_price_paid_by_naming_an_object_puts_a_menu_up`
+refuses over the compiled pool.
+Also `AddCounter`, `AddCounterFilter`,
 `DrainAllCountersIntoSelf` (Thief of Blood), `AddMana`,
 `DelayedManaAtNextFirstMain` (Mana Drain), `SacrificeSelf`,
 `PayCostOrLoseLater`, `ExileTargetsCreateTokens`.
@@ -1048,26 +1062,34 @@ a blocker goes once it has been re-read.
 
 The other half of the same question is measured continuously and needs no such
 care. `cargo run -p xtask -- transcode-report` ranks what the *whole* script
-corpus is refused for — 4277 of 33 826 read in full as of 18.09, with
-`AlternateMode:` (887), `Charm` (618) and an unreadable value in `Pump` (481)
-at the top — computed against the DSL as it stands rather than as it stood. The
-line under it says the same of the reference's **token** scripts (626 of 852,
-and 40 of the 184 that print a rules line), because a token's abilities are
+corpus is refused for — 4580 of 33 826 read in full as of 18.09, with
+`AlternateMode:` (887), `Charm` (619) and an unreadable value in `Pump` at the
+top — computed against the DSL as it stands rather than as it stood. The
+line under it says the same of the reference's **token** scripts (627 of 852,
+and 41 of the 184 that print a rules line), because a token's abilities are
 read by this same transcoder.
 
 **Add `--stubs` when the goal is a card rather than the DSL.** That ranks the
-same question over this pool's own unfinished cards — 678 of the 686 stubs
+same question over this pool's own unfinished cards — 651 of the 659 stubs
 have a reference script — and it is a different list, not a shorter one:
-`Charm` is 618 corpus-wide and 2 here, the `Pump` value 481 and 6, the
-`DamageDone` trigger 443 and 1. What actually holds this pool's stubs shut is
-`AlternateMode:` (89), `Sacrifice` (24), a `ChangeZone` with neither a target
-nor a `Defined$` (23) and `Effect` (22). An unreadable `Mana` value was 29
-until the reader learned a counted amount and a combination — fourteen lands
-in one commit, and the entry left the list rather than shrinking, because what
-it stood for was four different sentences. `Surveil` was 25 before that (22
-cards) and `ETBReplacement` 31 before that (15). A stub is by construction a
-card no reader could write, so corpus-wide progress reaches none of them until
-one of *their* blockers falls.
+`Charm` is 619 corpus-wide and 2 here, and the `DamageDone` trigger 443 and 1.
+What actually holds this pool's stubs shut is `AlternateMode:` (89), a
+`ChangeZone` with neither a target nor a `Defined$` (23) and `Effect` (22).
+
+Three entries have left that list rather than shrunk, and each of them was a
+sentence the DSL could nearly say. An unreadable `Mana` value was 29 until the
+reader learned a counted amount and a combination — fourteen lands in one
+commit, because what the entry stood for was four different sentences.
+`Sacrifice` was 24 until the API was read at all: bare it is `SacrificeSelf`,
+and with an `UnlessCost$` it is the Karoo sentence, which needed
+`Effect::PlayerMayPayCostOr` to have a price a player pays by naming an
+object. `cost 'Sac'` (11) and `cost 'tapXType'` (6) fell the same day and for
+a smaller reason — `cost_expr` had learnt `Return<1/…>` and none of its three
+siblings, though `cost_wizard` had answered all four since activation costs
+were written. Twenty-seven lands came out of the three together. `Surveil` was
+25 before all of that (22 cards) and `ETBReplacement` 31 before that (15). A
+stub is by construction a card no reader could write, so corpus-wide progress
+reaches none of them until one of *their* blockers falls.
 
 Read one of those for **order** — whichever matches what the work is for —
 and these 115 rows for what a specific sentence cannot say.

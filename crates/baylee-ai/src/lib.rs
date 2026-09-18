@@ -628,6 +628,78 @@ mod tests {
         );
     }
 
+    /// A price the player may decline is a price this agent pays.
+    ///
+    /// "… unless you return a land you control to its owner's hand" asks
+    /// with `min: 0`, because naming nothing *is* the refusal — so an agent
+    /// answering it at `min` would sacrifice every Karoo land it played,
+    /// and silently, since declining is a legal answer and nothing logs it.
+    ///
+    /// It does not, and **not because the prompt is handled**:
+    /// `ChoicePrompt::CostReturn` and `CostTap` reach neither arm of
+    /// `policy::select_cards` and fall out of its `_`, and the answer comes
+    /// from the fallback's `_ if max <= 2 => max`. That is a correct outcome
+    /// resting on an unrelated shortcut, which is exactly the kind of thing
+    /// that is right until somebody tidies it. Adding the two prompts to
+    /// the policy was tried and reverted: with every option a land of the
+    /// same rank, the ordering it would impose is the one already there,
+    /// and a change no test can see fall is not a change.
+    ///
+    /// Both directions are checked, because "pay it" alone would pass on an
+    /// agent that pays every cost question at `max`: an activation cost
+    /// asks with `min: 1` and must still take one permanent, not two.
+    #[test]
+    fn a_price_that_may_be_declined_is_paid_and_an_activation_cost_is_not_overpaid() {
+        use baylee_engine::choice::ChoicePrompt;
+        let v = view(
+            0,
+            &[20, 20],
+            vec![
+                permanent(obj(1), PlayerId::new(0), 0),
+                permanent(obj(2), PlayerId::new(0), 0),
+            ],
+        );
+        for prompt in [ChoicePrompt::CostReturn, ChoicePrompt::CostTap] {
+            let action = HeuristicAgent::new(AIProfile::EXPERT).act(
+                &v,
+                &Pending::ChooseCards {
+                    player: v.seat,
+                    options: vec![obj(1), obj(2)],
+                    min: 0,
+                    max: 1,
+                    prompt,
+                },
+            );
+            let PlayerAction::ChooseObjects { objects } = action else {
+                panic!("expected a card choice for {prompt:?}, got {action:?}")
+            };
+            assert_eq!(
+                objects.len(),
+                1,
+                "{prompt:?} is a price worth paying, and naming nothing pays none of it"
+            );
+        }
+
+        let action = HeuristicAgent::new(AIProfile::EXPERT).act(
+            &v,
+            &Pending::ChooseCards {
+                player: v.seat,
+                options: vec![obj(1), obj(2)],
+                min: 1,
+                max: 2,
+                prompt: ChoicePrompt::CostSacrifice,
+            },
+        );
+        let PlayerAction::ChooseObjects { objects } = action else {
+            panic!("expected a card choice, got {action:?}")
+        };
+        assert_eq!(
+            objects.len(),
+            1,
+            "an activation cost takes what it asks for and not one permanent more"
+        );
+    }
+
     #[test]
     fn third_iteration_counter_sign_decides_which_team_to_target() {
         use baylee_cards_dsl::{Amount, CounterKind as Counter, Effect};
