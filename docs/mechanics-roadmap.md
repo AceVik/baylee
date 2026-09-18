@@ -470,14 +470,20 @@ and two of them scale for nothing:
   produced, cost, activation cost, player target, target count, optional
   clause, ability-defined P/T — for the whole pool in one run, from a
   cached payload. It is in `scripts/gate-rules.sh` as of 0d46aaa3, which
-  is where it should have been all along — and running it locally does
-  **not** mean what CI means by it, because `fetch_named` answers from disk
-  and never refetches. A developer validates against the day the cache was
-  filled; CI starts cold and validates against live Scryfall. #50 is that
-  gap, and at the ledger's size it is the fifth constraint on this whole
-  section: the check compares a card's header against Scryfall's *current
-  default printing*, so a reprint set moves it — 32 of 1616 cards today,
-  which is ~660 of 33 694, red for a change nobody made.
+  is where it should have been all along — and running it locally still
+  does **not** mean what CI means by it, because `fetch_named` answers from
+  disk and never refetches: a developer validates against the day the cache
+  was filled, CI starts cold and validates against live Scryfall.
+
+  The half of that gap which would have *grown* with the ledger is closed
+  (#50). The check used to hold a card's header against Scryfall's
+  **current default printing** for the name, which a reprint set moves: 32
+  of 1616 cards went red for a change nobody made, and at the ledger's size
+  that is ~660 of 33 694 — a gate that fails on somebody else's release
+  schedule is not a gate. A header names one printing by id, an id does not
+  move, and that is what it is now read against. What is left of the gap
+  scales with the pool but is *quiet*: oracle text, type lines and costs are
+  still whatever the local cache holds, and only CI reads them live.
 - **One played engine test per card**, which
   `.claude/hooks/require-card-tests.py` asks for.
 

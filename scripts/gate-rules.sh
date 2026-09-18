@@ -29,15 +29,22 @@ echo "STEP test ok"
 # this step report what it is missing, and `PRINTING_FLOOR` is what fails the
 # run if the cache is there but has quietly shrunk.
 #
-# And `validate` itself prints how old that cache is, because this step does
-# not close the gap it looks like it closes. `fetch_named` answers from disk
-# and never refetches, so a developer validates against a snapshot while CI
-# starts cold and validates against live Scryfall. That is not a detail: CI's
-# `validate` has been red since 0f450764 over 32 headers Scryfall moved when
-# it shipped a set, and this gate is green on the same tree (#50). The tool
-# reports the age rather than the script, so a bare
+# And `validate` itself prints how old that cache is, because a developer
+# validates against a snapshot while CI starts cold and validates against live
+# Scryfall. One half of that gap is closed: a header is now held against the
+# printing its own Scryfall id names rather than against whatever Scryfall
+# defaults to for the name today, which is what had CI red for 32 cards
+# nobody had touched (#50). The other half is not, and cannot be by a script
+# — oracle text, type lines and costs are still read from whatever is on disk.
+# The tool reports the age rather than the script, so a bare
 # `cargo run -p xtask -- validate` says it too.
 if [ -d data/scryfall-cache ]; then
+    # `scryfall-cache` first, and it is a disk pass when the cache is whole —
+    # the bulk fill returns at once below its threshold and every `fetch_named`
+    # answers from a file. What it earns is the one case `validate` cannot
+    # report: a header naming a printing id that does not exist is a fatal
+    # fetch here, where the check can only count it as one it could not make.
+    cargo run -q -p xtask -- scryfall-cache
     cargo run -q -p xtask -- validate
     echo "STEP validate ok"
 else

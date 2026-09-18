@@ -169,6 +169,55 @@ pub fn fetch_named(
     Ok(card)
 }
 
+/// Fetches one *printing* by its Scryfall id, using the JSON cache.
+///
+/// [`fetch_named`] answers with whatever Scryfall currently **defaults** to for
+/// a name, which is a moving target: a reprint set makes the new printing the
+/// default, and a card header that named the old one is suddenly "wrong"
+/// without anybody touching the repository. A printing id never moves, so this
+/// cache entry is correct forever once written, and a header held against it
+/// is held against the piece of cardboard it was written from.
+///
+/// `xtask`'s `Pinned` carries the measurement that made this necessary and the
+/// reason it is deliberately **not** filled from a bulk feed.
+///
+/// # Errors
+/// [`CodegenError::CardNotFound`] for an id Scryfall does not know, or an
+/// HTTP/IO/JSON error.
+pub fn fetch_printing(
+    id: &str,
+    agent: &ureq::Agent,
+    cache_dir: &Path,
+) -> Result<ScryfallCard, CodegenError> {
+    let file = printing_cache_path(cache_dir, id);
+    if file.exists() {
+        let text = fs::read_to_string(&file).map_err(CodegenError::io(&file))?;
+        return Ok(serde_json::from_str(&text)?);
+    }
+    let url = format!("{API}/cards/{id}");
+    let card: ScryfallCard = get_json(agent, &url).map_err(|e| match e {
+        FetchError::NotFound => CodegenError::CardNotFound(id.to_string()),
+        FetchError::Other(message) => CodegenError::Http {
+            url: url.clone(),
+            message,
+        },
+    })?;
+    fs::create_dir_all(cache_dir).map_err(CodegenError::io(cache_dir))?;
+    let tmp: PathBuf = file.with_extension("part");
+    fs::write(&tmp, serde_json::to_string_pretty(&card)?).map_err(CodegenError::io(&tmp))?;
+    fs::rename(&tmp, &file).map_err(CodegenError::io(&file))?;
+    Ok(card)
+}
+
+/// Where [`fetch_printing`] keeps a printing, and where a reader looks for one.
+///
+/// Prefixed rather than bare, because the name-keyed cache lives in the same
+/// directory and a card called `abc123` is not impossible.
+#[must_use]
+pub fn printing_cache_path(cache_dir: &Path, id: &str) -> PathBuf {
+    cache_dir.join(format!("printing-{id}.json"))
+}
+
 #[derive(Deserialize)]
 struct CatalogResponse {
     data: Vec<String>,

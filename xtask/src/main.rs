@@ -1537,11 +1537,91 @@ fn front_face_slug(name: &str) -> String {
 /// lookup is one function and the payload is now read once per card
 /// instead of three times.
 fn cached_printing(root: &Path, name: &str) -> Option<serde_json::Value> {
-    let path = root.join("data/scryfall-cache").join(format!(
+    payload_in(&root.join("data/scryfall-cache"), name)
+}
+
+/// [`cached_printing`] against a cache directory the caller names.
+///
+/// `validate` reads `data/scryfall-cache` because it takes no `--cache`;
+/// `scryfall-cache` fills whatever it was pointed at, and a command that
+/// filled one directory and then read another would report its own work as
+/// missing.
+fn payload_in(cache: &Path, name: &str) -> Option<serde_json::Value> {
+    let path = cache.join(format!(
         "{}.json",
         baylee_cards_codegen::stubgen::slug(name)
     ));
     serde_json::from_str(&fs::read_to_string(path).ok()?).ok()
+}
+
+/// The payload for a *printing* id, if one was fetched into the cache.
+///
+/// [`cached_printing`] answers with today's default printing for a name, which
+/// moves when Scryfall ships a reprint. A card's header names one printing by
+/// id and that never moves, so anything holding the header to what it claims
+/// reads this first. `xtask scryfall-cache` is what fills it.
+fn cached_printing_by_id(root: &Path, id: &str) -> Option<serde_json::Value> {
+    let path = scryfall::printing_cache_path(&root.join("data/scryfall-cache"), id);
+    serde_json::from_str(&fs::read_to_string(path).ok()?).ok()
+}
+
+/// Which printing a card is, as far as this cache can say.
+///
+/// The header names **one** printing by id, and that is the card. What
+/// [`cached_printing`] answers with is whatever Scryfall calls the default for
+/// the *name* today, and that moves: 32 of this pool's headers became "wrong"
+/// the day *Reality Fracture Commander* shipped, with nobody having touched a
+/// file, and CI stayed red over it while every local gate was green (#50).
+/// Refetching those 32 name payloads here left **24** still naming another
+/// printing and 8 agreeing again within the same afternoon, which is the
+/// argument for the pin rather than against it: whichever way a default
+/// swings, an id does not.
+///
+/// This is the one place that measurement is written down; the two commands
+/// that act on it ([`fill_pinned_printings`] and
+/// [`scryfall::fetch_printing`]) point here rather than restating it.
+enum Pinned<'a> {
+    /// The header names the printing this payload already is — the ordinary
+    /// case, and the only one a card with no header id can reach.
+    Default(&'a serde_json::Value),
+    /// The header names another printing, and the cache holds it.
+    Other(serde_json::Value),
+    /// The header names a printing nobody has fetched. Reading the default
+    /// instead would hold the card against a piece of cardboard it was not
+    /// written from, which reports the *reprint* as the card's defect.
+    Missing,
+}
+
+/// Resolves a card's header to the printing it names.
+///
+/// One reader, because `validate` and `refresh-oracle` disagreeing about which
+/// printing a card is would be worse than either being wrong on its own: the
+/// check would report a header the refresh had just written.
+fn pinned_printing<'a>(root: &Path, content: &str, default: &'a serde_json::Value) -> Pinned<'a> {
+    let Some(id) = header_scryfall_id(content) else {
+        // A header with no id at all is `check_header_matches_code`'s finding.
+        return Pinned::Default(default);
+    };
+    if default.get("id").and_then(serde_json::Value::as_str) == Some(id) {
+        return Pinned::Default(default);
+    }
+    cached_printing_by_id(root, id).map_or(Pinned::Missing, Pinned::Other)
+}
+
+/// The Scryfall id a card's `//! Set:` header names — the id that says which
+/// printing the card *is*.
+///
+/// [`check_header_matches_code`] reads the same line with its own
+/// label-parameterised scanner, because it asks the question twice (Scryfall
+/// ID and Oracle ID) and about the code rather than about a payload. Every
+/// reader that resolves the header to a *printing* goes through here.
+fn header_scryfall_id(content: &str) -> Option<&str> {
+    content
+        .lines()
+        .find(|l| l.starts_with("//!") && l.contains("Scryfall ID"))
+        .and_then(|l| l.split("Scryfall ID: ").nth(1))
+        .map(|v| v.split([' ', '|']).next().unwrap_or("").trim())
+        .filter(|id| !id.is_empty())
 }
 
 /// Extracts the first `"`-quoted value after `key` (e.g. `name = "…"`).
@@ -1861,13 +1941,30 @@ fn check_oracle_matches_the_printing(
 /// one author ([`baylee_cards_codegen::stubgen::set_line`]) and `xtask
 /// refresh-oracle` writes exactly what this reads.
 fn check_set_line_matches_the_printing(
+    root: &Path,
     slug: &str,
     content: &str,
     payload: &serde_json::Value,
     tally: &mut PrintingTally,
+    unpinned: &mut usize,
     problems: &mut usize,
 ) {
-    let Some(want) = set_header_line(payload) else {
+    // Held against the printing the header itself names, never against
+    // today's default for the name. A printing id does not move, so this
+    // comparison is the same one next year.
+    let pinned = pinned_printing(root, content, payload);
+    let printing = match &pinned {
+        Pinned::Default(card) => *card,
+        Pinned::Other(card) => card,
+        // A skip with a number on it. `xtask scryfall-cache` is what fills
+        // them, and the `printings` floor is what catches a run where the
+        // skip has quietly become the rule.
+        Pinned::Missing => {
+            *unpinned += 1;
+            return;
+        }
+    };
+    let Some(want) = set_header_line(printing) else {
         return;
     };
     let want = want.trim_end();
@@ -3254,13 +3351,27 @@ fn refresh_oracle(root: &Path, dry_run: bool) -> anyhow::Result<()> {
         // Two derived lines, one pass. The Set line rode along here rather
         // than getting a command of its own because it is the same claim as
         // the Oracle block — "this is the printing the card below was built
-        // from" — and a card whose printing moved needs both rewritten or
-        // the header names one printing and quotes another.
+        // from" — and the two disagreeing is a header naming one printing
+        // and quoting another. What it does *not* do is change which printing
+        // that is: re-pinning a card is an editorial act, and this command
+        // refreshes what a printing says.
         let mut next = text.clone();
         if let Some(oracle) = with_oracle_header(&next, &printed_text(&payload)) {
             next = oracle;
         }
-        if let Some(line) = set_header_line(&payload)
+        // From the card's **own** printing, so a refresh never re-pins it.
+        // Writing the default's line here would move the header to another
+        // piece of cardboard and leave `scryfall_id` in the body naming the
+        // old one — trading a set-line finding for an identity one, on a
+        // card that was right all along.
+        let pinned = pinned_printing(root, &text, &payload);
+        let printing = match &pinned {
+            Pinned::Default(card) => Some(*card),
+            Pinned::Other(card) => Some(card),
+            Pinned::Missing => None,
+        };
+        if let Some(printing) = printing
+            && let Some(line) = set_header_line(printing)
             && let Some(set) = with_set_header(&next, &line)
         {
             next = set;
@@ -3504,8 +3615,70 @@ fn scryfall_cache(root: &Path, cache: &Path) -> anyhow::Result<()> {
         names.len(),
         after - before
     );
+    fill_pinned_printings(root, &names, &agent, &cache)?;
     Ok(())
 }
+
+/// Fetches the printing each card's header actually names, where that is not
+/// the one Scryfall defaults to today.
+///
+/// [`Pinned`] is why, and carries the measurement. What this adds is that the
+/// fetch is **one request per drifted card and no bulk feed**, because the set
+/// is the drift rather than the pool: 24 today against a pool of 1616. The
+/// count is printed for the same reason `cross-read` carries a floor — the day
+/// it stops being a handful should be visible rather than merely slow — and
+/// past [`PINNED_PRINTING_HINT`] it says what to do about it.
+///
+/// It is also where a *wrong* id is caught: [`scryfall::fetch_printing`] fails
+/// on a printing Scryfall does not know, where `validate` can only skip it.
+fn fill_pinned_printings(
+    root: &Path,
+    names: &[String],
+    agent: &ureq::Agent,
+    cache: &Path,
+) -> anyhow::Result<()> {
+    let files = card_files(&root.join("crates/baylee-cards/src/cards"))?;
+    let mut drifted = 0usize;
+    let mut fetched = 0usize;
+    for name in names {
+        let (Some(path), Some(payload)) =
+            (files.get(&front_face_slug(name)), payload_in(cache, name))
+        else {
+            continue;
+        };
+        let content = fs::read_to_string(path)?;
+        let Some(header_id) = header_scryfall_id(&content) else {
+            continue;
+        };
+        if payload.get("id").and_then(serde_json::Value::as_str) == Some(header_id) {
+            continue;
+        }
+        drifted += 1;
+        if scryfall::printing_cache_path(cache, header_id).exists() {
+            continue;
+        }
+        scryfall::fetch_printing(header_id, agent, cache)?;
+        fetched += 1;
+    }
+    println!(
+        "scryfall cache: {drifted} header(s) name a printing other than today's default \
+         ({fetched} fetched this run)"
+    );
+    if drifted > PINNED_PRINTING_HINT {
+        println!(
+            "scryfall cache: past {PINNED_PRINTING_HINT} of these, one request each is the \
+             wrong shape \u{2014} fill them from the `default_cards` bulk feed the way \
+             `fill_from_bulk` fills the name-keyed half"
+        );
+    }
+    Ok(())
+}
+
+/// How many pinned printings may be fetched one at a time before the command
+/// says the shape is wrong. Not a failure: it is a hint with a number on it,
+/// because "a handful" is what makes one-request-each defensible and nothing
+/// was measuring whether it still was.
+const PINNED_PRINTING_HINT: usize = 100;
 
 fn validate(root: &Path) -> anyhow::Result<()> {
     let decks_text = fs::read_to_string(root.join("data/acceptance-decks.txt"))?;
@@ -3526,6 +3699,11 @@ fn validate(root: &Path) -> anyhow::Result<()> {
     // name resolves to no `CardDef`, and a silent skip that grows is how a
     // sweep stops reaching the pool without saying so.
     let mut header_types = 0usize;
+    // Cards whose header names a printing this cache does not hold. Not a
+    // problem and not a tallied comparison: it is the one thing the
+    // `printings` floor cannot say on its own, which is *why* a run compared
+    // fewer cards than it could have.
+    let mut unpinned = 0usize;
     // Who owns each finished card, which is the number to watch: a machine-
     // owned card is a reader's output and is corrected by fixing the reader,
     // a hand-owned one is somebody's and codegen never touches it.
@@ -3593,7 +3771,15 @@ fn validate(root: &Path) -> anyhow::Result<()> {
         }
         check_code_matches_the_printing(&slug, &content, &payload, &mut tally, &mut problems);
         check_oracle_matches_the_printing(&slug, &content, &payload, &mut tally, &mut problems);
-        check_set_line_matches_the_printing(&slug, &content, &payload, &mut tally, &mut problems);
+        check_set_line_matches_the_printing(
+            root,
+            &slug,
+            &content,
+            &payload,
+            &mut tally,
+            &mut unpinned,
+            &mut problems,
+        );
         check_target_counts_match_the_printing(
             &slug,
             &content,
@@ -3611,7 +3797,7 @@ fn validate(root: &Path) -> anyhow::Result<()> {
     }
     check_no_name_is_claimed_twice(&mut problems);
     report_the_cache_age(root);
-    report_what_the_sweeps_reached(&tally, header_types, &mut problems);
+    report_what_the_sweeps_reached(&tally, header_types, unpinned, &mut problems);
     if problems > 0 {
         anyhow::bail!("{problems} convention problem(s) found");
     }
@@ -3673,6 +3859,7 @@ fn report_the_cache_age(root: &Path) {
 fn report_what_the_sweeps_reached(
     tally: &PrintingTally,
     header_types: usize,
+    unpinned: usize,
     problems: &mut usize,
 ) {
     println!(
@@ -3696,6 +3883,12 @@ fn report_what_the_sweeps_reached(
         tally.defined_pt
     );
     check_printing_floors(tally, problems);
+    if unpinned > 0 {
+        println!(
+            "validate: {unpinned} header(s) name a printing this cache does not hold \u{2014} \
+             run `cargo run -p xtask -- scryfall-cache` to fetch them"
+        );
+    }
     println!("validate: {header_types} header type lines against the code");
     if header_types < HEADER_TYPE_FLOOR {
         println!(
@@ -5115,9 +5308,33 @@ fn cross_read(root: &Path, scripts_dir: &Path, samples: usize) -> anyhow::Result
 
 #[cfg(test)]
 mod tests {
-    use super::{one_row_per_token, printed_subtypes, refuse_twin_names};
+    use super::{header_scryfall_id, one_row_per_token, printed_subtypes, refuse_twin_names};
     use baylee_cards_codegen::{tokengen, tokenledger};
     use baylee_core::generated::subtypes;
+
+    /// The id in a `//! Set:` line is what decides which printing a card is,
+    /// so reading it is worth a test rather than a spelling: the line carries
+    /// two ids separated by `|`, and a reader that stopped at the space would
+    /// take the `|` with it and match no cached file.
+    #[test]
+    fn the_set_header_yields_the_printing_id_and_not_the_oracle_one() {
+        let line = baylee_cards_codegen::stubgen::set_line(
+            "msc",
+            "211",
+            "Marvel Super Heroes Commander",
+            "91fdb56b-54d5-4272-8319-505ff987fe9b",
+            "6ad8011d-3471-4369-9d68-b264cc027487",
+        );
+        assert_eq!(
+            header_scryfall_id(&line),
+            Some("91fdb56b-54d5-4272-8319-505ff987fe9b")
+        );
+        assert_eq!(header_scryfall_id("//! Set: MSC #211\n"), None);
+        assert_eq!(
+            header_scryfall_id("pub static CARD: CardDef = card!(\n"),
+            None
+        );
+    }
 
     /// The pool names a card by its front face or the way the ledger names
     /// it, and both slug to one file. Without this the run says `codegen
