@@ -1,0 +1,85 @@
+   Compiling baylee-ai v0.1.0 (/Users/viktor/Projects/baylee-ai/crates/baylee-ai)
+    Finished `bench` profile [optimized] target(s) in 10.67s
+     Running benches/decisions.rs (target/release/deps/decisions-b07b35c99bc9724b)
+Gnuplot not found, using plotters backend
+novice: 0 nodes, 0 complete candidates
+Benchmarking combat/6v6/novice
+Benchmarking combat/6v6/novice: Analyzing
+combat/6v6/novice       time:   [470.02 ns 470.92 ns 471.14 ns]
+                        change: [−2.0209% −1.6193% −1.2155%] (p = 0.06 > 0.05)
+                        No change in performance detected.
+
+casual: 0 nodes, 0 complete candidates
+Benchmarking combat/6v6/casual
+Benchmarking combat/6v6/casual: Analyzing
+combat/6v6/casual       time:   [470.58 ns 470.82 ns 470.89 ns]
+                        change: [−0.2536% +0.2033% +0.6641%] (p = 0.76 > 0.05)
+                        No change in performance detected.
+
+steady: 0 nodes, 0 complete candidates
+Benchmarking combat/6v6/steady
+Benchmarking combat/6v6/steady: Analyzing
+combat/6v6/steady       time:   [477.72 ns 478.26 ns 480.41 ns]
+                        change: [+0.0953% +0.7242% +1.3575%] (p = 0.13 > 0.05)
+                        No change in performance detected.
+
+sharp: 16384 nodes, 15 complete candidates
+Benchmarking combat/6v6/sharp
+Benchmarking combat/6v6/sharp: Analyzing
+combat/6v6/sharp        time:   [177.31 µs 178.15 µs 178.36 µs]
+                        change: [−5.2604% −4.8538% −4.4461%] (p = 0.06 > 0.05)
+                        No change in performance detected.
+
+expert: 31180 nodes, 64 complete candidates
+Benchmarking combat/6v6/expert
+Benchmarking combat/6v6/expert: Analyzing
+combat/6v6/expert       time:   [1.0816 ms 1.0840 ms 1.0936 ms]
+                        change: [+2.0658% +2.6597% +3.2539%] (p = 0.08 > 0.05)
+                        No change in performance detected.
+
+8v8/sharp: 16384 nodes, 15 complete candidates
+Benchmarking combat/8v8/sharp
+Benchmarking combat/8v8/sharp: Analyzing
+combat/8v8/sharp        time:   [255.06 µs 256.61 µs 262.84 µs]
+                        change: [−3.5325% −1.5257% +0.5031%] (p = 0.50 > 0.05)
+                        No change in performance detected.
+
+8v8/expert: 262144 nodes, 128 complete candidates
+Benchmarking combat/8v8/expert
+Benchmarking combat/8v8/expert: Analyzing
+combat/8v8/expert       time:   [11.372 ms 11.401 ms 11.408 ms]
+                        change: [+2.7407% +3.4207% +4.1074%] (p = 0.10 > 0.05)
+                        No change in performance detected.
+
+Benchmarking priority/empty/expert
+Benchmarking priority/empty/expert: Analyzing
+priority/empty/expert   time:   [16.164 ns 16.171 ns 16.172 ns]
+                        change: [−0.2646% −0.1999% −0.1351%] (p = 0.07 > 0.05)
+                        No change in performance detected.
+
+Benchmarking priority/8lands-4spells/expert
+Benchmarking priority/8lands-4spells/expert: Analyzing
+priority/8lands-4spells/expert
+                        time:   [811.40 ns 812.01 ns 814.46 ns]
+                        change: [−4.5277% −2.5487% −0.4939%] (p = 0.13 > 0.05)
+                        No change in performance detected.
+
+Benchmarking priority/scouted-8lands-4spells/expert
+Benchmarking priority/scouted-8lands-4spells/expert: Analyzing
+priority/scouted-8lands-4spells/expert
+                        time:   [958.49 ns 962.40 ns 963.37 ns]
+                        change: [+0.0813% +0.3950% +0.7090%] (p = 0.13 > 0.05)
+                        No change in performance detected.
+
+Benchmarking setup/deck-100-cards
+Benchmarking setup/deck-100-cards: Analyzing
+setup/deck-100-cards    time:   [712.23 ns 712.29 ns 712.54 ns]
+                        change: [−1.7736% −1.0906% −0.3985%] (p = 0.08 > 0.05)
+                        No change in performance detected.
+
+Benchmarking mana-choice/8lands-4spells/expert
+Benchmarking mana-choice/8lands-4spells/expert: Analyzing
+mana-choice/8lands-4spells/expert
+                        time:   [2.2717 µs 2.2746 µs 2.2860 µs]
+                        change: [−0.7030% −0.2430% +0.2184%] (p = 0.58 > 0.05)
+                        No change in performance detected.

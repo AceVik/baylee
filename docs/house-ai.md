@@ -13,9 +13,10 @@ network lobby. Existing `novice`, `steady`, and `sharp` keys still work.
 
 All levels plan coloured payments through the same renderer-free mana matcher
 as the human client. Simple printed and granted mana abilities count, with one
-source per permanent. The agent does not tap toward an unaffordable spell. Command-zone commanders
-participate in these plans, including their public cast-count tax. Steady and
-harder levels choose a mana colour by the casts it can complete with the
+source per permanent. The agent does not tap toward an unaffordable spell.
+Command-zone commanders participate in these plans, including their public
+cast-count tax. Steady and harder levels choose a mana colour by the casts it
+can complete with the
 remaining visible sources; an expensive, uncastable card cannot drown out the
 colour needed for an affordable play.
 Counterspells need an opposing stack entry, removal needs something opposing
@@ -31,8 +32,11 @@ This lets targeting distinguish beneficial counters and buffs from removal,
 rank threats, and take lethal burn over a smaller permanent. Skilled planeswalkers
 price the actual effect and loyalty spent; Jace can bounce a threat instead of
 always ticking up. Creature-type choices follow the hand, battlefield and all
-commanders. X uses affordable coloured mana; life-X weighs friendly casualties
-and preserves the player's last life. Miracle checks the actual coloured cost.
+commanders. Counterspells distinguish spells from activated or triggered
+abilities, and beneficial player-targeted draw goes to the caster. X uses
+affordable coloured mana and the number of distinct legal targets; life-X
+weighs friendly casualties and preserves the player's last life. Miracle
+checks the actual coloured cost.
 
 ### Authorized AI scouting
 
@@ -79,10 +83,12 @@ menace leaves with exactly one blocker are rejected. Changing one block
 looks up that attacker's exchange in a bounded cache (through eight blockers)
 and adjusts accumulated material, damage, and life gain. Death is checked at
 each damage step: later lifelink cannot undo lethal first strike. Damage aimed
-at a planeswalker is separate from damage to its controller. Commander damage is evaluated per source, independently for every commander,
-and can require a block even at forty life. A proven lethal
-player attack takes precedence over attacking a planeswalker. Node visits allocate no vectors; position vectors are built once per
-decision and groups/results are fixed arrays on the stack. Counterattack
+at a planeswalker is separate from damage to its controller. Commander damage
+is evaluated per source, independently for every commander, and can require a
+block even at forty life. Expert also preserves a blocker against lethal
+commander retaliation. A proven lethal player attack takes precedence over
+attacking a planeswalker. Node visits allocate no vectors; position vectors
+are built once per decision and groups/results are fixed arrays on the stack. Counterattack
 exchanges are also cached and stably ranked once; a leaf filters out dead or
 unavailable blockers. Priority offers are borrowed instead of cloned.
 
@@ -111,8 +117,8 @@ cannot establish that a candidate beats the greedy fallback, the fallback is
 retained. A block choice keeps the best legal leaf visited. Every cutoff
 returns an incumbent.
 These are **node budgets**, deliberately not wall-clock cutoffs: timing an
-answer out would violate the stronger requirement that the same view always
-produce the same action. Latency is measured externally with
+answer out would violate the stronger requirement that the same complete input
+always produce the same action. Latency is measured externally with
 `cargo bench -p baylee-ai --bench decisions -- --quick`; time is never a
 policy input. Custom profile horizons above two are capped.
 
@@ -141,26 +147,30 @@ SLA. Other worktrees shared the machine; background load was not controlled.
 
 | Decision | Estimate | Nodes | Completed or refuted attack sets |
 | --- | ---: | ---: | ---: |
-| 6 attackers / 6 blockers, novice | 470 ns | 0 | 0 |
-| same, casual | 467 ns | 0 | 0 |
-| same, steady | 477 ns | 0 | 0 |
-| same, sharp | 156 µs (154.76–155.79 µs) | 16,384 | 15 |
-| same, expert | 1.05 ms (1.039–1.054 ms) | 31,180 | 64 |
-| 8 attackers / 8 blockers, sharp | 235 µs | 16,384 | 15 |
-| same, expert | 11.13 ms (11.086–11.142 ms) | 262,144 | 128 |
+| 6 attackers / 6 blockers, novice | 471 ns | 0 | 0 |
+| same, casual | 471 ns | 0 | 0 |
+| same, steady | 478 ns | 0 | 0 |
+| same, sharp | 178 µs (177.31–178.36 µs) | 16,384 | 15 |
+| same, expert | 1.084 ms (1.082–1.094 ms) | 31,180 | 64 |
+| 8 attackers / 8 blockers, sharp | 257 µs | 16,384 | 15 |
+| same, expert | 11.40 ms (11.372–11.408 ms) | 262,144 | 128 |
 | empty priority, expert | 16 ns | — | — |
-| eight lands / four spells, expert | 809 ns | — | — |
-| mana colour / eight lands / four spells, expert | 2.31 µs | — | — |
+| eight lands / four spells, expert | 812 ns | — | — |
+| same with scouting report, expert | 962 ns | — | — |
+| analyse 100-card deck once | 712 ns | — | — |
+| mana colour / eight lands / four spells, expert | 2.275 µs | — | — |
 
 These include position construction and result allocation. The combat fixtures have
 3/3 attackers facing 2/2 blockers; a different board can exhaust either
 profile's full budget. The benchmark prints the node counts alongside timing
 so a fast fallback cannot masquerade as a search improvement.
 
-These are the second iteration's measurements. Before caching counterattacks,
-the expanded expert search took 1.34 ms at 6v6 and 18.92 ms at 8v8, and empty
-priority took 36 ns. The original, smaller-budget expert took 957 µs at 6v6
-and completed/refuted 63 sets; the expanded search now covers all 64. Quick
-Criterion runs are estimates under shared-machine load, not controlled latency
-guarantees. Raw runs and mixed match results are recorded in
-[iteration-2](ai-results/iteration-2/README.md).
+These are the third iteration's measurements. Scouting includes report
+allocation and identity copies but excludes host zone walks, view construction
+and context construction. Deck analysis is cached once per game. Commander and
+defender checks are cached with each exchange. Sharp pays some additional
+latency for commander correctness compared with iteration two's 156/235 µs;
+expert remains near its previous 1.05/11.13 ms. Quick Criterion runs are
+estimates under shared-machine load, not controlled latency guarantees.
+Raw runs, exact test scope and mixed match results are recorded in
+[iteration-3](ai-results/iteration-3/README.md).
