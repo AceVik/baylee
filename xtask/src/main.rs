@@ -969,6 +969,9 @@ fn codegen(
     let rows = acceptance::parse_decks(&decks_text)?;
     let pool_text = fs::read_to_string(root.join("data/card-pool.txt")).unwrap_or_default();
     let names = acceptance::all_names(&rows, &pool_text);
+    // Before stage 1, not beside the card stage: the token ledger is written
+    // first, so a refusal down there would already have written a table.
+    refuse_twin_names(&names)?;
     let from_decks = acceptance::unique_names(&rows).len();
     println!(
         "card pool: {} cards ({from_decks} from the acceptance decks, {} from the pool file)",
@@ -1442,6 +1445,45 @@ fn refuse_orphans<'a>(
         "{} card file(s) under cards/ that no card claims: {}",
         strays.len(),
         strays.join(", ")
+    )
+}
+
+/// Refuses two pool lines that are the same card written two ways.
+///
+/// A card can be named by its front face (`Hengegate Pathway`) or the way
+/// Scryfall and the ledger name it (`Hengegate Pathway // Mistgate Pathway`).
+/// Both slug to one file, so both produce `pub mod hengegate_pathway;` and the
+/// crate does not compile — and because `xtask` links `baylee-cards`, `codegen`
+/// cannot then be run to repair what it just wrote. The two lines have to come
+/// out of `cards/mod.rs` by hand first. So it is asked before stage 1 — ahead
+/// of even the token ledger, which is written before the cards — for the same
+/// reason the orphan check is asked before the first rename.
+///
+/// It is not hypothetical arithmetic: 300 ledger cards drawn at random into
+/// the pool collided once, and `data/card-pool.txt` is meant to grow towards
+/// the ledger's 33 694, where the same card being written both ways stops
+/// being an accident.
+fn refuse_twin_names(names: &[String]) -> anyhow::Result<()> {
+    let mut by_slug: BTreeMap<String, Vec<&str>> = BTreeMap::new();
+    for name in names {
+        by_slug
+            .entry(front_face_slug(name))
+            .or_default()
+            .push(name.as_str());
+    }
+    let twins: Vec<String> = by_slug
+        .into_iter()
+        .filter(|(_, ns)| ns.len() > 1)
+        .map(|(slug, ns)| format!("{slug} ({})", ns.join(" | ")))
+        .collect();
+    if twins.is_empty() {
+        return Ok(());
+    }
+    anyhow::bail!(
+        "{} card(s) named more than once across the acceptance decks and \
+         data/card-pool.txt: {}",
+        twins.len(),
+        twins.join(", ")
     )
 }
 
@@ -5030,9 +5072,30 @@ fn cross_read(root: &Path, scripts_dir: &Path, samples: usize) -> anyhow::Result
 
 #[cfg(test)]
 mod tests {
-    use super::{one_row_per_token, printed_subtypes};
+    use super::{one_row_per_token, printed_subtypes, refuse_twin_names};
     use baylee_cards_codegen::{tokengen, tokenledger};
     use baylee_core::generated::subtypes;
+
+    /// The pool names a card by its front face or the way the ledger names
+    /// it, and both slug to one file. Without this the run says `codegen
+    /// complete` and leaves `cards/mod.rs` declaring the module twice — which
+    /// `codegen` then cannot repair, because `xtask` links `baylee-cards`.
+    #[test]
+    fn one_card_written_two_ways_is_refused_before_anything_is_written() {
+        let ok = ["Hengegate Pathway".to_string(), "Island".to_string()];
+        refuse_twin_names(&ok).expect("two different cards are two cards");
+
+        let twins = [
+            "Hengegate Pathway".to_string(),
+            "Hengegate Pathway // Mistgate Pathway".to_string(),
+            "Island".to_string(),
+        ];
+        let err = refuse_twin_names(&twins).expect_err("one card named twice");
+        let message = err.to_string();
+        assert!(message.contains("hengegate_pathway"), "{message}");
+        assert!(message.contains("Mistgate"), "names both lines: {message}");
+        assert!(!message.contains("Island"), "and nothing else: {message}");
+    }
 
     #[test]
     fn a_two_seat_dev_table_configures_the_requested_ai_before_starting() {
