@@ -11,6 +11,14 @@ one needs, because a pool count kept here goes stale between batches —
 C2b's "no card in the pool needs it yet" already has, against the eight
 regeneration cards that ranking counts.
 
+§E is the deliberate exception to that, and it is dated for the reason the
+rule exists. It is about the *rates* — what fraction of the corpus a reader
+reads, how the build grows per card, how the refusals are distributed —
+which are properties of the corpus and the compiler rather than of this
+pool, and which do not go stale between batches. Where it does state a pool
+count it names the command that reprints it, so a reader can tell the two
+kinds apart.
+
 Size classes: **S** (< 100 engine LOC), **M** (100–400), **L** (> 400).
 
 ---
@@ -252,3 +260,263 @@ conjure (digital), draft mechanics.
 Rule going forward: a card that needs a missing family **starts a family
 milestone** (engine + all cards of that family), never a single-card
 hack.
+
+---
+
+## E. Every card there is
+
+§D schedules families against the acceptance decks. This is the other half:
+how the pool gets from the cards four decks needed to the ones the ledger
+numbers, what each step costs, and what stops it. Every number below was
+measured on 2026-09-18 and the command that produces it is named, because
+the point of the section is that the plan is re-derivable rather than
+believed.
+
+### E1. The ceiling and the reach are different numbers
+
+The ledger numbers **33 694** cards and the pool compiles **1616** — 4.8%.
+
+Of those 33 694, **33 368 (99.0%) have a reference script**. The 326 that
+do not are Un-set cards (Ashnod's Coupon, Goblin Mime, R&D's Secret Lair)
+and meld results (Brisela, Chittering Host), and the second group is not a
+card a deck holds. That is the **ceiling** on what a reader could ever
+reach, and it is essentially everything.
+
+The **reach** is a different number and much smaller: 4619 of the
+reference's 33 826 scripts (13.7%) are read in full today
+(`xtask transcode-report`). The distance between 99% and 13.7% is entirely
+DSL work. Nothing has to be sourced, licensed or typed in.
+
+A third number belongs beside them: **387 of the ledger's rows are not
+cards anybody plays in a normal game** — 184 planes, 107 vanguards, 102
+schemes, 29 conspiracies, 21 phenomena, 6 dungeons. They matter out of
+proportion to 1.1%, because a plane's type line is `Plane — Zendikar` and
+Magic's plane types have **no Scryfall catalog**, so there is no eighth
+`SubtypeKind` to give them and every one of them is a `validate` finding
+the day it enters the pool. Whether they are in scope at all is a corpus
+question, and `data/corpus-keep.tsv` is hand-kept — it is not this
+document's to decide.
+
+### E2. Four producers, and the rule that orders them
+
+| producer | reads | written in this pool | cost per card |
+|---|---|---|---|
+| `landgen` | a land's printed text | 535 | none |
+| `scriptgen` + `transcode_card` | a reference script | 34 | none |
+| DeepSeek V4.1 Flash lane | the printing and `docs/card-dsl.md` | 42 of 91 asked (46%) | ~0.1–0.4M input tokens per 30 cards |
+| Gemini 3.8 Flash lane | the same | 19 of 93 asked (20%) | minutes of a quota that refreshes |
+| by hand | anything | 328 | a person |
+
+The pool stands at **1616 cards: 719 stubs, 569 machine-owned, 328
+hand-written**, which is what `xtask validate` prints at the end of a run.
+Of the 897 finished cards **63% were written by a reader** — and almost
+all of that is `landgen`, because this pool is 1124 lands. The transcoder
+has written 34.
+
+**The rule: never spend a lane on a card a reader could write, and never
+spend a person on a card a lane could write.**
+
+It is not thrift. A reader is the only producer whose output is testable
+*as a rule*: a card the transcoder wrote is a rule's output, so a wrong
+transcoding is fixed once and hundreds of files follow, and the two
+ownership markers are what make that safe — `codegen` rewrites every file
+carrying either, on every run. A card a lane wrote is one card, and fixing
+it fixes one card. `xtask adopt` is the one door out of that, and taking
+it costs a card its rule.
+
+### E3. The residue is not the population, and the difference is 4400 cards
+
+`transcode-report --stubs` reads **0 of this pool's 711 stubs** in full,
+and corpus-wide the same transcoder reads **13.7%**. Those two numbers look
+like a contradiction and are a selection effect: a stub is by construction
+a card no reader could write, so the stubs are exactly the transcoder's own
+refusals and its rate over them is 0 by definition.
+
+The consequence decides where a batch comes from, so it was measured
+rather than reasoned about. **300 ledger cards nobody has attempted**
+(seeded draw over the 31 776 candidates), added to the pool in a throwaway
+worktree, `codegen`, `validate`:
+
+```
+Stichprobe 299: 42 vom Leser geschrieben, davon 42 Implemented
+Trefferquote: 14.0%   (Korpusrate 13.7%)
+validate: 1915 cards, 2 problems — beide Planes, keiner der 42
+```
+
+**14.0%, and every one of the 42 clean against its printing.** So roughly
+**4400 finished cards are available today, at no cost and with no DSL work
+at all**, and the pool holds 1616. The first batch is not an LLM batch. It
+is adding the cards the reader already reads.
+
+The probe paid for itself twice over besides: 299 random ledger cards
+found the plane-type hole above, and one collision — the pool naming a
+card by its front face where the ledger names both — which `codegen`
+turned into a duplicate module and, because `xtask` links `baylee-cards`,
+into a state `codegen` itself could no longer repair.
+
+Working the residue is the *other* job, and it is the one that grows the
+DSL. Both are worth doing; a commit says which.
+
+### E4. Two worklists, measuring two different gaps
+
+`transcode-report --stubs` ranks what the **reader** cannot read: a script
+refused, named by its *first* refusal.
+
+`data/card-refusals.tsv` ranks what the **DSL** cannot say. It is 115
+refusals written by a model that read the printed card and then went
+looking for the variant that would express it, each naming what it could
+not find and the nearest thing that exists. By the type the missing
+variant belongs to: an `Effect` in 67, a `Filter` in 37, an
+`EnterModifier` in 27, a `Modifier` in 17, a `CostPart` and an `Amount` in
+15 each.
+
+They are not the same list. A script can be refused for a sentence the DSL
+says perfectly well — `Sacrifice`, `cost 'Sac'` and `cost 'tapXType'` all
+were — and a card can be refused for a sentence no script shape covers. A
+commit says which of the two it aimed at, the same way it already says
+whether it ranked the corpus or the stubs.
+
+Three arithmetic rules govern reading either one, and each was paid for:
+
+- A script is listed under its **first** refusal, so closing a cause moves
+  every card that had it to whatever it is refused for next. The cause
+  going to zero measures the rule; the cards finished measure the residue.
+- An entry standing in front of a card with two refusals is worth less
+  than its count. Cut the top blocker out with a throwaway patch and
+  re-measure before committing to it — `AlternateMode:` was 91 pool stubs
+  and at most 16 of them.
+- An entry is a **sentence**, not a subsystem. Four times now the thing it
+  named was already built and one variant away from being sayable.
+
+### E5. The tail is the plan, and it is 400 rules long
+
+`transcode-report --causes 0` prints the whole distribution rather than the
+top 30, and it is the number that decides how long this takes:
+
+| top *n* causes | of the 29 207 refused scripts |
+|---|---|
+| 10 | 16.7% |
+| 25 | 28.7% |
+| 50 | 41.3% |
+| 100 | 55.2% |
+| 200 | 70.1% |
+| 400 | 84.7% |
+| 800 | 94.5% |
+
+**1996 distinct causes**, and 875 of them stand in front of exactly one
+script. There is no small set of rules that unlocks the corpus: the top ten
+— `AlternateMode:`, `Charm`, an unreadable `Pump` value, the `DamageDone`
+trigger, `Discard`, `Effect`, `PumpAll`, `ReduceCost`, `Dig`, and scripts
+that read as an empty card — together account for one refusal in six.
+
+Read the table with §E4's first rule in mind, or it flatters: closing a
+cause moves its scripts to their *next* refusal, so the cumulative column
+is an upper bound on what closing those causes yields and the count of
+causes is a lower bound on the work. What the shape does say reliably is
+that "every card" is a programme of some hundreds of DSL rules, and that
+the last few per cent will never be a rule at all — 875 one-off causes is
+where the lanes and the hand-written half live permanently.
+
+### E6. What bounds throughput is the build, not the model
+
+`baylee-cards` compiled against copies of its own card tree, `cargo check`,
+`CARGO_INCREMENTAL=0`, every point measured twice (the repeats agree to
+within 0.2%):
+
+| cards | check | max RSS |
+|---|---|---|
+| 1 616 | 4.35 s | 808 MB |
+| 3 232 | 6.77 s | 1002 MB |
+| 4 848 | 9.16 s | 1183 MB |
+| 6 464 | 11.6 s | 1361 MB |
+| 9 696 | 16.5 s | 1733 MB |
+| 12 928 | 21.5 s | 2083 MB |
+
+**Linear, and not nearly linear** — least squares gives 1.517 ms and 115 KB
+of resident memory per card over a fixed 1.85 s and 634 MB, with R² of
+0.9999 on both. At the ledger's 33 694 cards that is **53 s for a check and
+4.3 GB in one rustc process**.
+
+The time is a nuisance and the memory is the constraint, because it is one
+process and it is not divisible: 4.3 GB alongside the rest of a
+`--workspace` build is what would break a 16 GB runner, not the developer's
+machine. That is the argument for splitting `baylee-cards` when the pool
+passes roughly ten thousand cards, and the split has a second reason that
+is easy to miss — **`baylee-client` links `baylee-cards`**, so every card
+in the pool compiles for `wasm32` and ships in the browser bundle (39 MB
+optimized today) and in the APK. An engine process needs every `CardDef`; a
+client needs the table it is sitting at, plus whatever `LocalHost` deals.
+Whether that makes the split a Cargo feature or a crate boundary is a
+decision about client scope and is §E7's.
+
+Two other sizes for the same shelf. Card source today is 1617 files, 47 396
+lines and 2.0 MB, so the ledger's size is about 33 700 files, ~990 000
+lines and ~42 MB, with `cards/mod.rs` going from 3249 `#[path]`
+declarations to about 68 000. And two of the generated tables do not grow
+at all: `BY_INDEX` and `ABILITY_LINES` are indexed by `CardIndex` and are
+**already** 33 694 rows long, mostly `None` and `&[]`. The pool filling up
+makes them denser, not longer.
+
+### E7. The gate that makes volume safe, and the one thing it cannot scale
+
+Three checks stand between a written card and the deckbuilder offering it,
+and two of them scale for nothing:
+
+- **The honest-stub rule.** One unread clause and the card stays
+  `Coverage::Unimplemented`. It is what makes a generated `Implemented`
+  mean what a hand-written one means, and the probe above is what that is
+  worth: 42 generated cards, zero findings against their printings.
+- **`xtask validate` against the printing** — oracle text, type line, mana
+  produced, cost, activation cost, player target, target count, optional
+  clause, ability-defined P/T — for the whole pool in one run, from a
+  cached payload. It is in `scripts/gate-rules.sh` as of 0d46aaa3, which
+  is where it should have been all along.
+- **One played engine test per card**, which
+  `.claude/hooks/require-card-tests.py` asks for.
+
+The third does not scale, and pretending otherwise is how 33 694 cards
+would arrive untested. It does not have to: the ownership split already
+says what a test is *about*.
+
+A **machine-owned** card is a rule's output, so what owes a test is the
+rule — beside the rule, failing against the old code, which is the
+regression rule this repo already states for a fix. A reader change that
+moves *n* cards owes one played engine test per new rules shape it
+reaches, plus a **reading sample** of the cards it wrote, read against
+their printings by a lane that did not write them. That is the Gemini
+lane's job by its own scoreboard: it refuses more, and its refusals are
+precise engine tickets. The sample is a floor and a fraction rather than a
+number — **every new rules shape at least once, and at least 20 cards or
+5% of what the change moved, whichever is larger**. A disagreement found
+that way is a reader bug, so it is fixed in the reader and gets its test
+beside the reader, never in the card.
+
+A **hand-written or lane-written** card owes exactly what it owes today: a
+played engine test written by somebody other than whoever wrote the card.
+That is the cross-lane rule, and the Mikaeus failure is why.
+
+### E8. The order, and what is still the owner's to say
+
+1. **Take the 4400 cards the reader already writes.** In batches small
+   enough that a bad reader day is one revert, with `codegen --check` and
+   `validate` green before each. This needs no DSL work and no lane.
+2. **Then the residue, ranked `--stubs`**, one cause at a time, each cause
+   cut out first to see what is behind it.
+3. **Then the corpus ranking**, which is where a rule buys hundreds of
+   cards that are not in the pool yet — and which pays off only in
+   combination with step 1, because a rule with no card behind it in this
+   pool finishes nothing here.
+4. **The lanes take what is left of a batch**, DeepSeek for volume and
+   Gemini for the reading sample and the refusals, never the same model on
+   a card and its test.
+
+Three decisions are not this document's:
+
+- **Are the 387 variant-format objects in scope** — planes, schemes,
+  vanguards, phenomena, conspiracies, dungeons? They need an eighth
+  subtype kind that Scryfall publishes no catalog for.
+- **Does `data/card-pool.txt` invert** from an allow-list into
+  ledger-minus-exclusions once the pool is most of the ledger? The file is
+  hand-kept and so is `data/corpus-keep.tsv`.
+- **Does the client keep the whole pool**, or does the split in §E6 cut
+  along what a seat can be dealt?
