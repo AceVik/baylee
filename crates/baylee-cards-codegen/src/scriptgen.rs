@@ -1849,6 +1849,9 @@ impl Tx<'_> {
         if let Some(rest) = line.strip_prefix("Equip:") {
             return self.equip(rest);
         }
+        if let Some(rest) = line.strip_prefix("Cycling:") {
+            return self.cycling(rest);
+        }
         if let Some(rest) = line.strip_prefix("Enchant:") {
             return self.enchant(rest);
         }
@@ -1882,6 +1885,40 @@ impl Tx<'_> {
         }
         let cost = self.cost_expr(rest)?;
         self.body.abilities.push(format!("equip!({cost})"));
+        Some(())
+    }
+
+    /// `K:Cycling:<cost>` as the activated ability the keyword is.
+    ///
+    /// CR 702.29a in full: "Cycling [cost]" means "[cost], Discard this card:
+    /// Draw a card", activated from the hand. Nothing here is new to the DSL
+    /// — [`crate::landgen`] has written that sentence from the printed text
+    /// since the cycling lands — and this emits the same string through the
+    /// same [`crate::body::cost_literal`], so a Desert comes out of either
+    /// reader byte for byte the same.
+    ///
+    /// The cost is read by [`Self::cost_pieces`] rather than as mana, which
+    /// is the `cost 'Sac'` lesson once more: the reference writes 57 distinct
+    /// costs across these 306 lines and two of them are not mana at all
+    /// (`PayLife<2>`, `Sac<1/Land>`). One reader answers every spelling, and
+    /// `1 U` is the same sentence as `{1}{U}` to it.
+    ///
+    /// A fourth field refuses **by name**. All 306 lines carry three fields
+    /// today, so a fourth is a sentence nobody here has read — and cycling is
+    /// exactly where a guess would be invisible, because the keyword supplies
+    /// everything the card does not print. `K:TypeCycling` is a different
+    /// sentence with its own arm to come (101 lines, four fields).
+    fn cycling(&mut self, rest: &str) -> Option<()> {
+        if let Some((_, extra)) = rest.split_once(':') {
+            return self.deny(format!("a `Cycling` with a fourth field `{extra}`"));
+        }
+        let (mana, mut parts) = self.cost_pieces(rest)?;
+        parts.push("DiscardSelf".to_string());
+        let cost = crate::body::cost_literal(&mana, &parts);
+        self.body.abilities.push(format!(
+            "activated!({cost}, &[Effect::draw(1)], zone = ActivationZone::Hand)"
+        ));
+        self.body.notes.push("cycling".to_string());
         Some(())
     }
 
@@ -5340,8 +5377,13 @@ mod tests {
             "Name:X\nTypes:Sorcery\nA:SP$ Draw | NumCards$ 1 | UnlessCost$ 2"
         ));
         // A keyword that is data rather than a bit, and that no rule reads.
+        // This was `K:Cycling:2` until one rule read it, which is the whole
+        // point of the line: the example has to be a keyword nothing here
+        // understands *today*, and typecycling is the nearest one — a
+        // different sentence (CR 702.29e, a library search) that #51 will
+        // take and this assertion will then have to move again.
         assert!(refused(
-            "Name:X\nTypes:Creature Goblin\nPT:1/1\nK:Cycling:2"
+            "Name:X\nTypes:Creature Goblin\nPT:1/1\nK:TypeCycling:Basic:2"
         ));
         // A line kind with rules in it that this module does not model.
         assert!(refused(
@@ -5658,6 +5700,76 @@ mod tests {
         assert_eq!(
             refusal_reason(&parsed, &cats(), None).as_deref(),
             Some("an `Equip` that narrows what it may attach to")
+        );
+    }
+
+    /// Cycling prints a cost and the rules supply the rest (CR 702.29a), and
+    /// the string this writes is the one [`crate::landgen`] writes from the
+    /// printed text — so a card that both readers can reach comes out the
+    /// same either way, which is the only way the two can be allowed to
+    /// write the same sentence.
+    #[test]
+    fn cycling_is_read_as_the_ability_the_rules_define() {
+        let want = "activated!(cost!(\"{2}\", DiscardSelf), &[Effect::draw(1)], \
+                    zone = ActivationZone::Hand)";
+        assert_eq!(
+            read("Name:X\nTypes:Land\nK:Cycling:2").abilities,
+            [want],
+            "the transcoder and the land reader have to agree byte for byte"
+        );
+        // Spelled out and not defaulted: `ScryfallCard` is what a payload
+        // deserializes into, and a `..Default::default()` tail on it is the
+        // thing that would stop the compiler naming a new field here.
+        let land = crate::scryfall::ScryfallCard {
+            id: "id".into(),
+            oracle_id: Some("oracle".into()),
+            name: "Test Land".into(),
+            mana_cost: None,
+            type_line: Some("Land".into()),
+            oracle_text: Some("Cycling {2} ({2}, Discard this card: Draw a card.)".into()),
+            colors: None,
+            color_identity: None,
+            set: None,
+            set_name: None,
+            collector_number: None,
+            rarity: None,
+            layout: None,
+            power: None,
+            toughness: None,
+            loyalty: None,
+            card_faces: None,
+        };
+        assert_eq!(
+            crate::landgen::recognize(&land, &cats())
+                .expect("a land whose whole text is one cycling line")
+                .abilities,
+            [want]
+        );
+
+        // Space-separated and non-mana costs are the same sentence: the
+        // reference writes 57 of them over 306 lines.
+        assert_eq!(
+            read("Name:X\nTypes:Creature\nK:Cycling:1 U").abilities,
+            [
+                "activated!(cost!(\"{1}{U}\", DiscardSelf), &[Effect::draw(1)], \
+              zone = ActivationZone::Hand)"
+            ]
+        );
+        assert_eq!(
+            read("Name:X\nTypes:Creature\nK:Cycling:PayLife<2>").abilities,
+            [
+                "activated!(cost!(PayLife(2), DiscardSelf), &[Effect::draw(1)], \
+              zone = ActivationZone::Hand)"
+            ]
+        );
+
+        // A fourth field is refused by name. All 306 lines carry three
+        // today, so a fourth is a sentence nobody has read.
+        let parsed = parse("Name:X\nTypes:Creature\nK:Cycling:2:Island");
+        assert!(transcode(&parsed, &cats(), None).is_none());
+        assert_eq!(
+            refusal_reason(&parsed, &cats(), None).as_deref(),
+            Some("a `Cycling` with a fourth field `Island`")
         );
     }
 
