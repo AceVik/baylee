@@ -365,8 +365,11 @@ struct Tally {
     /// that field.
     shielded: usize,
     /// Cards that were placed and were gone again before anyone held
-    /// priority. See [`LEAVING_CEILING`].
+    /// priority, and that no rule here can name. See [`LEAVING_CEILING`].
     left: Vec<&'static str>,
+    /// Auras, which leave for a rule this test can cite (CR 704.5m) and are
+    /// therefore counted rather than tolerated.
+    auras: usize,
 }
 
 impl Tally {
@@ -375,6 +378,7 @@ impl Tally {
         self.checked += other.checked;
         self.shielded += other.shielded;
         self.left.append(&mut other.left);
+        self.auras += other.auras;
     }
 }
 
@@ -382,28 +386,51 @@ impl Tally {
 ///
 /// The guard against this tier's own failure mode: a sweep that finds nothing
 /// is indistinguishable from a sweep that checks nothing. The numbers sit
-/// under what a full run reports — measured 2026-09-11: 1268 permanents read,
-/// 12663 characteristics compared, 17 shielded by the card's own text — with
-/// room for cards to be adopted or a static to be added to one.
+/// under what a full run reports — measured 2026-09-19: 1516 permanents read,
+/// 15104 characteristics compared, 56 shielded by the card's own text — with
+/// room for cards to be adopted or a static to be added to one. They are
+/// floors and the pool only grows, so a batch moves the report and leaves
+/// these alone; what moves them is the day a floor stops being reached.
 const CARD_FLOOR: usize = 1100;
 const CHECK_FLOOR: usize = 11000;
 
 /// And the one bound that is a **ceiling** rather than a floor.
 ///
 /// A few cards cannot be measured this way and are right not to be. A clone
-/// placed with nothing to copy is a 0/0 and dies to CR 704.5f; an Aura placed
-/// attached to nothing goes to the graveyard under CR 704.5m; and Karmic
+/// placed with nothing to copy is a 0/0 and dies to CR 704.5f, and Karmic
 /// Guide is sacrificed in the first upkeep because echo (CR 702.30a) came due
 /// on a board with no mana on it — the engine does not even ask, there being
-/// nothing to pay with. All three are the rules working.
+/// nothing to pay with. Both are the rules working.
 ///
 /// But "the permanent is not there" is also what a broken battlefield looks
 /// like, so the bucket is capped rather than ignored: a regression that lost
 /// a tenth of the pool fails here instead of quietly shrinking the sweep.
 ///
-/// Measured 2026-09-11: eleven cards — seven clones, three Auras, and the
-/// Guide.
+/// Auras are **not** in this bucket, and that is what keeps the number
+/// meaningful — see [`is_aura`]. They left under CR 704.5m in exactly the
+/// same way, but there are as many of them as the pool has Auras, so
+/// counting them here turned the ceiling into a line somebody edited upward
+/// on a green run.
+///
+/// Measured 2026-09-19: fourteen cards — eight clones, five creatures whose
+/// power is defined by something an empty board does not have (Arcbound
+/// Ravager, Walking Ballista, Faeburrow Elder, Ashaya, Lumra), and Karmic
+/// Guide — beside fourteen Auras named by their rule.
 const LEAVING_CEILING: usize = 20;
+
+/// Whether the face prints `Aura`.
+///
+/// CR 704.5m: an Aura attached to nothing goes to its owner's graveyard, and
+/// a sweep that *places* a permanent attaches it to nothing — so every Aura
+/// in the pool leaves before anyone holds priority, by a rule this test can
+/// cite. Counting them against [`LEAVING_CEILING`] made that ceiling a number
+/// somebody had to raise on a green run every time the pool took an Aura: a
+/// batch of a hundred Alpha cards put nine more in the bucket at once. A
+/// bound that is raised whenever it fires is not a bound.
+fn is_aura(face: &FaceDef) -> bool {
+    face.subtypes
+        .contains(&baylee_core::generated::subtypes::enchantment::AURA)
+}
 
 fn walk(slice: &[&'static CardDef]) -> (Vec<String>, Tally) {
     let mut offenders = Vec::new();
@@ -420,9 +447,14 @@ fn walk(slice: &[&'static CardDef]) -> (Vec<String>, Tally) {
         // A card that is not there is not an offence and not silence either:
         // a clone with nothing to copy and an Aura with nothing to enchant
         // are both gone by the time anyone holds priority, and both are the
-        // rules working. Counted, and capped by [`LEAVING_CEILING`].
+        // rules working. The Aura half is named by its rule and the rest is
+        // capped by [`LEAVING_CEILING`].
         let Ok((object, name)) = read(&engine, def.index) else {
-            tally.left.push(face.name);
+            if is_aura(face) {
+                tally.auras += 1;
+            } else {
+                tally.left.push(face.name);
+            }
             continue;
         };
         let c = engine
@@ -480,10 +512,11 @@ fn every_permanent_in_the_pool_projects_what_its_own_face_prints() {
     let (offenders, tally) = sweep();
     println!(
         "{} permanents read, {} characteristics compared, {} shielded by the card's own text, \
-         {} gone before priority: {:?}",
+         {} Auras gone to CR 704.5m, {} otherwise gone before priority: {:?}",
         tally.cards,
         tally.checked,
         tally.shielded,
+        tally.auras,
         tally.left.len(),
         tally.left
     );
