@@ -171,8 +171,9 @@ pub struct Catalog {
 /// leaves the arrays already in the stored column exactly as they were.
 ///
 /// Bump it whenever the projection's *content* changes — the fill query, one
-/// of the two function bodies, or a column's meaning.
-const SCHEMA_VERSION: i32 = 3;
+/// of the two function bodies, or a column's meaning. 4 is #35: `names->>'en'`
+/// became the Oracle name rather than the newest printing's styling.
+const SCHEMA_VERSION: i32 = 4;
 
 /// The key `SCHEMA_VERSION` is stamped under.
 const VERSION_KEY: &str = "search_projection";
@@ -292,6 +293,20 @@ const BIGRAMS_BODY: &str = "SELECT coalesce(array_agg(DISTINCT g), '{}'::text[])
 /// name is not a language — nor anything the rules read: `oracle_id` and the
 /// Oracle name are unchanged, which is the whole reason this is a search
 /// concern and not a card one.
+///
+/// **A printed English name is not a language either**, and that is the same
+/// argument one step in. `names` took `coalesce(printed_name, name)` from the
+/// newest printing of each language, which is exactly right abroad — the
+/// printed name *is* the German name — and wrong at home, where `name` is the
+/// Oracle name and `printed_name` is how one Secret Lair chose to set the
+/// type. 32 of 41 991 faces answered `names->>'en'` with a styling:
+/// `BIRDS OF PARADISE`, `IMP'S MSCHF`, `GIGANTO-SAURUS` (#35). So English
+/// takes `name` and every other language keeps the printed one.
+///
+/// The styling is not lost, it moves. `pn` is the printed spelling whatever
+/// the language, and it joins `names_norm` and `tsv` where it differs from
+/// the display name — the same place a flavor name lives, for the same
+/// reason: somebody holding the card and typing what is on it has to find it.
 const PROJECT_SQL: &str = "\
     WITH face AS ( \
       SELECT DISTINCT ON (c.oracle_id, cf.face_index) \
@@ -308,12 +323,17 @@ const PROJECT_SQL: &str = "\
     FROM ( \
       SELECT oracle_id, face_index, \
              jsonb_object_agg(lang, nm) AS names, \
-             '| ' || catalog_norm(string_agg(DISTINCT nm, ' | ')) || ' |' AS names_norm, \
-             to_tsvector('simple', string_agg(nm || ' ' || tl || ' ' || tx, ' ')) AS tsv \
+             '| ' || catalog_norm(string_agg(DISTINCT nm, ' | ') \
+               || coalesce(' | ' || string_agg(DISTINCT pn, ' | ') \
+                             FILTER (WHERE pn <> nm), '')) || ' |' AS names_norm, \
+             to_tsvector('simple', string_agg(nm || ' ' || tl || ' ' || tx, ' ') \
+               || coalesce(' ' || string_agg(pn, ' ') FILTER (WHERE pn <> nm), '')) AS tsv \
       FROM ( \
         SELECT DISTINCT ON (c.oracle_id, c.lang, f.face_index) \
                c.oracle_id, c.lang AS lang, f.face_index, \
-               coalesce(f.printed_name, f.name) AS nm, \
+               CASE WHEN c.lang = 'en' THEN f.name \
+                    ELSE coalesce(f.printed_name, f.name) END AS nm, \
+               coalesce(f.printed_name, f.name) AS pn, \
                coalesce(f.printed_type_line, f.type_line, '') AS tl, \
                coalesce(f.printed_text, f.oracle_text, '') AS tx \
         FROM cards c JOIN card_faces f USING (scryfall_id) \
@@ -1658,6 +1678,15 @@ fn type_name_seed() -> String {
 
 /// The search, as one statement, so a test can read the shape of it.
 ///
+/// The representative printing is picked per language, and **English asks the
+/// Oracle fields**. `printed_name` and `printed_type_line` are a translation
+/// abroad and a styling or an obsolete wording at home, so the preference for
+/// a printing that carries a printed type line — written for the 6489 German
+/// faces that have a name and no type — was heading English searches with the
+/// oldest wording it could find: `birds of paradise` answered
+/// `BIRDS OF PARADISE — Summon Bird` against the live catalog, a styling from
+/// one Secret Lair over a type line Magic stopped printing in 1994 (#35).
+///
 /// It is a free function rather than a `const` because the tests below assert
 /// about its *structure* — that the two tiers are unioned rather than `OR`ed,
 /// and that the fence the tiers read is the one the projection writes — and a
@@ -1709,9 +1738,12 @@ fn search_sql() -> &'static str {
         picked AS ( \
           SELECT DISTINCT ON (r.oracle_id) r.nth, \
                  c.scryfall_id::text AS scryfall_id, c.lang AS lang, \
-                 coalesce(f.printed_name, f.name) AS display_name, \
+                 CASE WHEN c.lang = 'en' THEN f.name \
+                      ELSE coalesce(f.printed_name, f.name) END AS display_name, \
                  f.name AS english_name, \
-                 coalesce(f.printed_type_line, f.type_line, '') AS display_type \
+                 CASE WHEN c.lang = 'en' THEN coalesce(f.type_line, '') \
+                      ELSE coalesce(f.printed_type_line, f.type_line, '') \
+                      END AS display_type \
           FROM ranked r \
           JOIN cards c ON c.oracle_id = r.oracle_id \
           JOIN card_faces f ON f.scryfall_id = c.scryfall_id \
@@ -1719,7 +1751,7 @@ fn search_sql() -> &'static str {
           CROSS JOIN q \
           WHERE c.lang IN (q.lang, 'en') \
           ORDER BY r.oracle_id, (c.lang = q.lang) DESC, \
-                   (f.printed_type_line IS NOT NULL) DESC, \
+                   (c.lang <> 'en' AND f.printed_type_line IS NOT NULL) DESC, \
                    c.released_at DESC NULLS LAST, c.scryfall_id \
         ) \
         SELECT scryfall_id, lang, display_name, english_name, display_type \

@@ -1037,3 +1037,169 @@ async fn a_reversible_printing_is_stored_once_beside_the_ordinary_one() {
 
     sandbox.close().await;
 }
+
+/// `names->>'en'` answers "what is this card called in your language", and for
+/// English that is the Oracle name. It was the newest printing's
+/// `printed_name` instead, so 32 of 41 991 faces answered with a styling —
+/// `BIRDS OF PARADISE`, `IMP'S MSCHF`, `GIGANTO-SAURUS` — and the search that
+/// reads the same fields showed it: against the live catalog, `birds of
+/// paradise` came back `BIRDS OF PARADISE — Summon Bird`, a Secret Lair's
+/// capitals over a type line Magic stopped printing in 1994 (#35).
+///
+/// Three assertions, because fixing the first two by dropping `printed_name`
+/// for English would quietly cost the third: the styling has to keep finding
+/// the card, since somebody typing it is reading it off the card in their
+/// hand.
+/// Two English cards whose newest printing sets the name in capitals, one
+/// German printing of the first, and nothing else — the smallest table the
+/// three decisions in `an_english_card_is_called_what_the_oracle_calls_it`
+/// can be told apart on.
+fn shouted_printings() -> Vec<scryfall::Card> {
+    let birds = "eeeeeeee-0000-4000-8000-000000000001";
+    let english =
+        |id: &str, num: &str, released: &str, pn: Option<&str>, pt: Option<&str>| scryfall::Card {
+            id: id.to_string(),
+            oracle_id: Some(birds.to_string()),
+            lang: "en".to_string(),
+            set: "sld".to_string(),
+            collector_number: num.to_string(),
+            released_at: Some(released.to_string()),
+            name: "Birds of Paradise".to_string(),
+            printed_name: pn.map(str::to_string),
+            type_line: Some("Creature \u{2014} Bird".to_string()),
+            printed_type_line: pt.map(str::to_string),
+            oracle_text: Some("Flying. {T}: Add one mana of any color.".to_string()),
+            ..scryfall::Card::default()
+        };
+    vec![
+        english(
+            "00000000-0000-4000-8000-0000000000c1",
+            "1",
+            "1993-08-05",
+            None,
+            None,
+        ),
+        // The newest English printing, and the one the projection used to
+        // take its word from: a styling, and an obsolete type line.
+        english(
+            "00000000-0000-4000-8000-0000000000c2",
+            "2",
+            "2024-01-01",
+            Some("BIRDS OF PARADISE"),
+            Some("Summon Bird"),
+        ),
+        // A second card whose styling is not merely capitals. It has to
+        // be one: `catalog_norm` is `lower(unaccent(normalize(…)))`, so
+        // `BIRDS OF PARADISE` folds onto the Oracle name and would keep
+        // finding the card with no help at all — `IMP'S MSCHF` does not,
+        // and neither does `GIGANTO-SAURUS`.
+        scryfall::Card {
+            id: "00000000-0000-4000-8000-0000000000c4".to_string(),
+            oracle_id: Some("eeeeeeee-0000-4000-8000-000000000002".to_string()),
+            lang: "en".to_string(),
+            set: "sld".to_string(),
+            collector_number: "4".to_string(),
+            released_at: Some("2024-01-01".to_string()),
+            name: "Imp's Mischief".to_string(),
+            printed_name: Some("IMP'S MSCHF".to_string()),
+            type_line: Some("Instant".to_string()),
+            ..scryfall::Card::default()
+        },
+        // A German printing, where `printed_*` really is the language.
+        scryfall::Card {
+            id: "00000000-0000-4000-8000-0000000000c3".to_string(),
+            oracle_id: Some(birds.to_string()),
+            lang: "de".to_string(),
+            set: "m21".to_string(),
+            collector_number: "3".to_string(),
+            released_at: Some("2020-07-03".to_string()),
+            name: "Birds of Paradise".to_string(),
+            printed_name: Some("Paradiesv\u{00f6}gel".to_string()),
+            type_line: Some("Creature \u{2014} Bird".to_string()),
+            printed_type_line: Some("Kreatur \u{2014} Vogel".to_string()),
+            ..scryfall::Card::default()
+        },
+    ]
+}
+
+#[tokio::test]
+async fn an_english_card_is_called_what_the_oracle_calls_it() {
+    let sandbox = Sandbox::open("shouted").await;
+    sandbox.fill(&shouted_printings()).await;
+
+    // The projection's own answer, which no Rust API exposes: `names` is what
+    // "called in your language" means, and every other assertion here reads
+    // the *search's* copy of the same decision.
+    assert_eq!(
+        sandbox
+            .count(
+                "SELECT count(*) AS n FROM \"{s}\".card_search \
+                 WHERE names->>'en' = 'Birds of Paradise'"
+            )
+            .await,
+        1,
+        "names->>'en' is not the Oracle name"
+    );
+
+    let hits = sandbox
+        .catalog
+        .search("birds of paradise", "en", 20)
+        .await
+        .expect("searching");
+    assert_eq!(hits.len(), 1, "one card, one answer: {hits:?}");
+    assert_eq!(
+        hits[0].name, "Birds of Paradise",
+        "the newest printing's styling was handed back as the card's name"
+    );
+    assert_eq!(
+        hits[0].type_line, "Creature \u{2014} Bird",
+        "an English card was headed with a type line nobody prints any more"
+    );
+
+    // The projection's own half again, and it needs saying separately: the
+    // rules text carries the styling into `tsv` as well, so a search finds
+    // the card either way and only `names_norm` decides whether it is found
+    // as a **name** — which is the tier a name belongs to.
+    assert_eq!(
+        sandbox
+            .count(
+                "SELECT count(*) AS n FROM \"{s}\".card_search \
+                 WHERE names_norm LIKE '%imp''s mschf%'"
+            )
+            .await,
+        1,
+        "the printed spelling left the name tier"
+    );
+
+    for (typed, want) in [
+        ("BIRDS OF PARADISE", "Birds of Paradise"),
+        ("Imp's Mschf", "Imp's Mischief"),
+    ] {
+        let shouted = sandbox
+            .catalog
+            .search(typed, "en", 20)
+            .await
+            .expect("searching for the printed styling");
+        assert_eq!(
+            shouted.first().map(|h| h.english_name.as_str()),
+            Some(want),
+            "{typed} stopped finding the card it is printed on: {shouted:?}"
+        );
+    }
+
+    // The counter-test: abroad, the printed name *is* the name, and this
+    // change must not have reached it.
+    let german = sandbox
+        .catalog
+        .search("Paradiesv\u{00f6}gel", "de", 20)
+        .await
+        .expect("searching in German");
+    assert_eq!(
+        german.first().map(|h| h.name.as_str()),
+        Some("Paradiesv\u{00f6}gel"),
+        "the German name went missing with the English styling: {german:?}"
+    );
+    assert_eq!(german[0].type_line, "Kreatur \u{2014} Vogel");
+
+    sandbox.close().await;
+}
