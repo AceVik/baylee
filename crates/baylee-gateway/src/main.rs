@@ -1232,6 +1232,32 @@ struct ParsedLine {
 ///
 /// Per *list*, because this runs once for the deck and once for the sideboard
 /// — which is the same split `DeckBuilder::add_print` applies.
+/// Which of the two facts a name the pool does not know actually stands for.
+///
+/// `baylee_cards::decks::by_name` answers `None` for a typo and for Black
+/// Lotus alike, and the second is the common one: this build compiles 2716 of
+/// the ledger's 33 694 cards, so **92 %** of the real cards a player might
+/// type are real and unavailable here. Telling that player `unknown card`
+/// sends them hunting a spelling mistake they did not make — the one thing
+/// the message rules out is the thing that is true.
+///
+/// The ledger is what can tell them apart, because it numbers every card
+/// there is rather than this pool. It is asked only here, on a path that has
+/// already missed in the pool's perfect hash, so a deck that imports cleanly
+/// never reaches it at all.
+///
+/// It does not make such a card playable and does not hint that it might: the
+/// deck is refused either way, and only the reason changes. `if_no_card` is
+/// what to say when the name is nothing, which differs by where it was
+/// written.
+fn no_such_card(name: &str, if_no_card: &'static str) -> &'static str {
+    if baylee_cards_index::row_by_name(name).is_some() {
+        "that card exists but this server cannot play it"
+    } else {
+        if_no_card
+    }
+}
+
 fn parse_deck_lines(lines: &[String]) -> Result<Vec<ParsedLine>, (StatusCode, Json<ErrorBody>)> {
     let mut out = Vec::with_capacity(lines.len());
     let mut copies: std::collections::BTreeMap<u32, u32> = std::collections::BTreeMap::new();
@@ -1256,7 +1282,10 @@ fn parse_deck_lines(lines: &[String]) -> Result<Vec<ParsedLine>, (StatusCode, Js
         })?;
         let count = row.count;
         let Some(index) = baylee_cards::decks::by_name(&row.name) else {
-            return Err(err(StatusCode::BAD_REQUEST, "unknown card"));
+            return Err(err(
+                StatusCode::BAD_REQUEST,
+                no_such_card(&row.name, "unknown card"),
+            ));
         };
 
         let basic_land = baylee_cards::by_index(index).is_some_and(|def| {
@@ -1326,7 +1355,10 @@ fn validate_deck(body: &DeckBody) -> Result<(), (StatusCode, Json<ErrorBody>)> {
     let mut leaders = Vec::with_capacity(named.len());
     for name in &named {
         let Some(index) = baylee_cards::decks::by_name(name) else {
-            return Err(err(StatusCode::BAD_REQUEST, "unknown commander"));
+            return Err(err(
+                StatusCode::BAD_REQUEST,
+                no_such_card(name, "unknown commander"),
+            ));
         };
         let Some(leader) = baylee_cards::decks::leader_of(index) else {
             return Err(err(StatusCode::BAD_REQUEST, "unknown commander"));

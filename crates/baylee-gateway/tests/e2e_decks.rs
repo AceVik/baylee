@@ -595,3 +595,82 @@ fn the_house_decks_belong_to_nobody_and_anybody_may_take_a_copy() {
         "the copy holds what the original held: {mine}"
     );
 }
+
+/// Two facts stood behind one refusal, and now the player is told which.
+///
+/// A name that is no card and a real card this build compiles nothing for
+/// were both `unknown card`. That is the one answer that is wrong for the
+/// second, and the second is the common case: this build holds 2716 of the
+/// ledger's 33 694 cards, so 92 % of the real cards a player might type are
+/// real and unavailable. The message sent them hunting a typo they had not
+/// made.
+///
+/// The card is **derived rather than named**. The pool grows, so a
+/// hard-coded `Black Lotus` becomes a card this build plays and the test
+/// then passes for the wrong reason — it would be asserting about a card in
+/// the pool. The first ledger row the pool cannot resolve by *either*
+/// spelling is the one asked about, and the failure names it.
+///
+/// Both halves are asserted. Without the counter-half a gateway that said
+/// the new sentence to everybody would pass, which is the same defect with a
+/// different word in it.
+#[test]
+fn a_real_card_this_build_cannot_play_is_not_called_unknown() {
+    let gateway = spawn_gateway("unplayable");
+    let token = login(gateway.port, "importer@example.test", "Importer");
+
+    // A deck row carries a printing, a language and a finish in brackets and
+    // parentheses, so a name holding one would be refused for parsing rather
+    // than for the pool — a different code path and not the one under test.
+    // Two-faced names are left out too: which spellings a row may use is
+    // #106's question, and a test that settled it here by accident would be
+    // answering it in the wrong ticket.
+    let candidates: Vec<&baylee_cards_index::Row> = baylee_cards_index::ROWS
+        .iter()
+        .filter(|row| {
+            !row.name.contains(" // ")
+                && row
+                    .name
+                    .chars()
+                    .all(|c| c.is_ascii_alphanumeric() || c == ' ' || c == '\'' || c == ',')
+                && baylee_cards::decks::by_name(row.name).is_none()
+        })
+        .collect();
+    assert!(
+        candidates.len() > 10_000,
+        "only {} plainly-spelled cards outside the pool — the filter is \
+         doing the choosing rather than the ledger",
+        candidates.len()
+    );
+    let outside = candidates[0];
+
+    let body = format!(
+        r#"{{"name":"D","cards":["1 {}"],"sideboard":[],"commander":null}}"#,
+        outside.name
+    );
+    let (status, answer) = http(gateway.port, "POST", "/decks", Some(&token), &body);
+    assert_eq!(
+        status, 400,
+        "{} is a real card this build cannot play, and the deck is still \
+         refused: {answer}",
+        outside.name
+    );
+    assert!(
+        answer.contains("this server cannot play it"),
+        "{} is a real card and was called unknown: {answer}",
+        outside.name
+    );
+
+    let (status, answer) = http(
+        gateway.port,
+        "POST",
+        "/decks",
+        Some(&token),
+        r#"{"name":"D","cards":["1 Not A Real Card"],"sideboard":[],"commander":null}"#,
+    );
+    assert_eq!(status, 400, "{answer}");
+    assert!(
+        answer.contains("unknown card"),
+        "a name that is no card at all is still unknown: {answer}"
+    );
+}

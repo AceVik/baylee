@@ -879,6 +879,22 @@ takes `Authorization: Bearer <token>`. A refusal is `{"error":"…"}` with a
 status, and the string is written to be shown to a player as-is — the lobby
 does.
 
+**A refused card row says which of two things went wrong.** A name is
+resolved against the compiled pool, and a miss used to be `unknown card`
+whether the name was a typo or Black Lotus. This build compiles 2716 of the
+33 694 cards the ledger numbers, so the second case is 92 % of the real cards
+a player might type — and `unknown card` is precisely the answer that rules
+out what is true, sending them to look for a spelling mistake they did not
+make. A name the pool misses is now asked of `baylee-cards-index`, which
+numbers every card there is, and a real one answers `that card exists but
+this server cannot play it`; the commander field says the same and keeps
+`unknown commander` for a name that is nothing. The deck is refused either
+way — this reports the problem and does not remove it — and a deck that
+imports cleanly never reaches the second lookup at all, because it is only
+asked where the first has already failed. `docs/card-identity.md` is
+normative, including why it is a second function rather than a widening of
+`by_name` and why it reads a two-faced card's name in two tiers.
+
 **A deck has a kind, and only one of the three has an owner.** `account` is
 a player's own; `preconstructed` is a retail product; `house` is what this
 project publishes to be played with. The database holds both halves of that

@@ -446,7 +446,10 @@ fn the_starter_deck_is_one_the_gateway_will_accept() {
         let count: u32 = count.parse().expect("a leading count");
         assert!((1..=4).contains(&count), "{row}");
         // The gateway resolves every name against the same registry, and
-        // answers a miss with a 400 that says only "unknown card".
+        // answers a miss with a 400 — "unknown card" for a name that is no
+        // card, and "that card exists but this server cannot play it" for a
+        // real one this build compiles nothing for. A starter deck must miss
+        // neither way.
         assert!(
             baylee_cards::decks::by_name(name).is_some(),
             "{name} is not in the registry"

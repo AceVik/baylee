@@ -136,16 +136,38 @@ The reverse direction needed nothing built — `by_index(i).map(CardDef::name)`
 was already O(1) — and the table adds no strings to the binary, because every
 name in it was already in `baylee-cards` as a `FaceDef::name`.
 
-**The open question here** is that `by_name` gives one `None` for two
-different facts, and the gateway reports both as `unknown card`: a name that
-is no card at all, and a name that is a real card this build compiles no
-`CardDef` for. Not an *unimplemented* one — a `Coverage::Unimplemented` stub
-is a compiled card, has a row in this table and resolves; what is missing is
-the 32 329 with no file at all. The ledger knows the difference — it has all
-33 694 — so a second lookup in `baylee-cards-index` could say "that card
-exists, this build has no `CardDef` for it". It would be a *second function
-with different semantics*, not a widening of this one, because the pool is
-what `by_name` is asked about everywhere else.
+`by_name` used to give one `None` for two different facts, and the gateway
+reported both as `unknown card`: a name that is no card at all, and a name
+that is a real card this build compiles no `CardDef` for. Not an
+*unimplemented* one — a `Coverage::Unimplemented` stub is a compiled card, has
+a row in this table and resolves; what is missing is the 30 978 with no file
+at all, which is **92 %** of the real cards a player might type. The message
+ruled out the one thing that was true and sent them hunting a typo they had
+not made.
+
+`baylee_cards_index::row_by_name` is the second lookup, and it is a **second
+function with different semantics** rather than a widening of the first,
+because the pool is what `by_name` is asked about everywhere else. It is
+asked only where the pool has already missed, so a deck that imports cleanly
+never reaches it. `POST /decks` now answers `that card exists but this server
+cannot play it` for the second fact and keeps `unknown card` for the first;
+the deck is refused either way, and only the reason changes.
+
+Two tiers, because the two tables spell a two-faced card differently — this
+one follows Scryfall (`Sheoldred // The True Scriptures`), the pool names the
+front face alone (`Sheoldred`) — so the whole name is tried first and the
+part before the ` // ` after it. That is only an answer while it is an
+unambiguous one, and it is: no front face is also another card's whole name
+and no front face is claimed twice, over all 874 two-faced rows. Neither
+property is this repo's to control, so
+`the_two_tiers_cannot_disagree_about_a_card` measures both rather than
+assuming them, and a set that breaks one fails the build with the card in
+hand. Without the second tier, 753 of those 874 would be reported as no card
+at all.
+
+What this does **not** do is make such a card playable: a deck holding one is
+still not legal here. The player is told which problem they have, which is a
+different thing from not having it.
 
 ## Who may write what
 

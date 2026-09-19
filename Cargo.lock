@@ -957,6 +957,7 @@ dependencies = [
  "baylee-build",
  "baylee-cards",
  "baylee-cards-dsl",
+ "baylee-cards-index",
  "baylee-catalog",
  "baylee-core",
  "baylee-db",

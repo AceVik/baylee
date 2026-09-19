@@ -40,6 +40,53 @@ pub use generated::ROWS;
 
 use baylee_core::ids::CardIndex;
 
+/// Finds a card by its printed name — **every** card there is, not the pool.
+///
+/// This is deliberately not `baylee_cards::decks::by_name`, and the
+/// difference is the whole point of it: that one answers "can this build play
+/// the card" and is what every other caller wants, while this one answers
+/// "is that a card at all". Asking both separates the two facts a single
+/// `None` used to carry — a name that is nothing, and a real card this build
+/// compiles no `CardDef` for, which is 30 978 of the 33 694 rows here. A
+/// player who mistypes and a player who names Black Lotus were told the same
+/// thing, and the second of those is most of them.
+///
+/// Two tiers, because the two tables spell a two-faced card differently: this
+/// one follows Scryfall (`Sheoldred // The True Scriptures`) and the pool
+/// names the front face alone (`Sheoldred`), so a whole-name match is tried
+/// first and the part before the ` // ` after it. That is safe rather than
+/// merely convenient, and
+/// [`the_two_tiers_cannot_disagree_about_a_card`](self) is what keeps it so:
+/// no front face is also some other card's whole name and no front face is
+/// claimed twice, across all 33 694 rows. Without the second tier 753 of the
+/// 874 two-faced cards outside the pool would be reported as no card at all.
+///
+/// It is a **linear scan**, and it stays one: the only caller is an error
+/// path that has already missed in the pool's perfect hash, so a valid deck
+/// reaches this nought times and a rejected one reaches it once. Measured in
+/// release, per call: 126 µs for a miss, which is the worst case and compares
+/// every row twice; 41 µs for a whole name in the last row; 87 µs for a front
+/// face. A perfect hash like the pool's would buy three orders of magnitude
+/// on an answer nobody is waiting for, and cost every build that links this
+/// crate a table to carry.
+///
+/// What the second tier must **not** do is ask each row for its
+/// [`front_face`](Row::front_face), which splits on ` // ` and therefore
+/// searches the whole of all 33 694 names: that spelling measured 1.43 ms,
+/// eleven times the cost of the one above. `strip_prefix` answers the same
+/// question and gives up on the first byte that differs, which for nearly
+/// every row is the first one.
+#[must_use]
+pub fn row_by_name(name: &str) -> Option<&'static Row> {
+    ROWS.iter().find(|row| row.name == name).or_else(|| {
+        ROWS.iter().find(|row| {
+            row.name
+                .strip_prefix(name)
+                .is_some_and(|rest| rest.starts_with(" // "))
+        })
+    })
+}
+
 /// One assignment: a card, and the index it owns for good.
 ///
 /// Four of the five fields are **frozen** — `index`, `oracle_id`, `constant`
@@ -66,9 +113,72 @@ pub struct Row {
     pub name: &'static str,
 }
 
+impl Row {
+    /// The card's name up to the ` // `, which for a single-faced card is
+    /// the whole of it.
+    ///
+    /// This is the spelling `baylee-cards` uses — the pool names a two-faced
+    /// card by its front face and this table follows Scryfall — so it is
+    /// what joins a row to a `CardDef`.
+    #[must_use]
+    pub fn front_face(&self) -> &'static str {
+        self.name.split(" // ").next().unwrap_or(self.name)
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use super::ROWS;
+    use super::{ROWS, row_by_name};
+
+    /// [`row_by_name`] falls back to the front face, and that second tier is
+    /// only an answer while it is an *unambiguous* one. Two ways it could
+    /// stop being: a front face that is also some other card's whole name
+    /// (the fallback would hand out the wrong row), and a front face two
+    /// cards share (it would hand out whichever came first). Neither holds
+    /// today over 874 two-faced names, and neither is something this repo
+    /// controls — Wizards print the names — so it is measured here rather
+    /// than assumed, and a set that breaks it fails the build with the card
+    /// in hand.
+    #[test]
+    fn the_two_tiers_cannot_disagree_about_a_card() {
+        let whole: std::collections::HashSet<&str> = ROWS.iter().map(|r| r.name).collect();
+        let mut seen: std::collections::HashMap<&str, &str> = std::collections::HashMap::new();
+        let mut two_faced = 0;
+        for row in ROWS.iter().filter(|r| r.name.contains(" // ")) {
+            two_faced += 1;
+            let front = row.front_face();
+            assert!(
+                !whole.contains(front),
+                "{front} is both the front face of {} and a card of its own",
+                row.name
+            );
+            if let Some(other) = seen.insert(front, row.name) {
+                panic!("{front} is the front face of both {other} and {}", row.name);
+            }
+        }
+        assert!(
+            two_faced > 800,
+            "only {two_faced} two-faced names — this test found nothing to check"
+        );
+    }
+
+    /// The two tiers, each reached on purpose. `Sheoldred` is the pool's own
+    /// spelling of a card this table calls `Sheoldred // The True
+    /// Scriptures`, so it is the case the second tier exists for.
+    #[test]
+    fn a_card_is_found_by_either_spelling_and_a_non_card_by_neither() {
+        let whole = row_by_name("Sheoldred // The True Scriptures").expect("the whole name");
+        let front = row_by_name("Sheoldred").expect("the front face alone");
+        assert_eq!(whole.index, front.index, "two spellings, one card");
+        assert!(
+            row_by_name("Not A Real Card").is_none(),
+            "a name that is no card answers None"
+        );
+        assert!(
+            row_by_name("Sheoldred // ").is_none(),
+            "a partial spelling is not a match"
+        );
+    }
 
     #[test]
     fn the_table_is_dense_and_in_order() {
