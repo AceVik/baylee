@@ -275,3 +275,14 @@ Short sentences this team uses as shorthand. Each one is a rule.
   *say* before assuming the mechanism is absent.
 - **"Overlap is announced, not discovered."** The Revier rule.
 - **"Waiting is free."** A blocking lock costs no tokens; a broken gate does.
+- **"A head I report is a head I have pushed."** A gate runs against the
+  working tree, so green proves nothing about what anyone else can fetch.
+  *Committed* and *reachable* are two different claims, and `git ls-remote`
+  settles which one you are making — it also beats the integrator's merge
+  record, which by construction only knows what has already been taken.
+- **"Rebase as the first step of the gate, not of the work."** With four
+  branches, main has moved by the time you are green. A gate against a base
+  that no longer exists is not evidence.
+- **"A doc-only commit rides with the next substantive one."** Every merge
+  costs the other branches a rebase and a re-gate, plus whatever that rebase
+  disturbs. Twenty-nine lines of prose is a bad trade for that.

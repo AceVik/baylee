@@ -24,8 +24,9 @@ the answer. The anti-cheat boundary is the input, not the dependency edge.
 `Engine::dev_state_mut(seat)`, contrary to the brief's broader claim about
 mutable access, but it cannot install a complete continuation and is not a
 simulation interface. `GameState` currently has **33 public fields and two
-private scratch fields**. `PlayerView` has **20 public fields** and
-`VIEW_VERSION` is **21**. The field inventory below covers the current code,
+private scratch fields**. `PlayerView` has **20 public fields**. The
+`VIEW_VERSION` of the day is read out of `crates/baylee-view/src/lib.rs`, not
+from here — it has moved four times since this sentence was written. The field inventory below covers the current code,
 rather than treating the brief's thirteen fields as a complete state.
 
 The timing measurement used the shared cargo lock, with
@@ -558,7 +559,8 @@ all enabling gates still apply regardless of rank.
 4. **Some prose overstates current guarantees.** The state “cloneable for
    AI” comment and per-ply clone claims in `docs/engine-internals.md` describe
    an intended primitive, not a resumable engine. `CLAUDE.md` restates
-   `VIEW_VERSION` as 12 in its held-chair paragraph although it is now 21.
+   `VIEW_VERSION` as 12 in its held-chair paragraph, which is the version the
+   field was *added* in and has read as the current one ever since.
    The baseline bench still says CI regression budgets derive from it;
    `docs/perf-baseline.md` explicitly says comparison is manual. These are
    documentation tickets, not reasons to change production code here.
