@@ -195,10 +195,16 @@ looks like when two branches both ship "22 → 23": the numbers now agree and
 the two view *shapes* do not, and the assertion in gamehost and client tests
 passes precisely because it only ever compares the number. A client would then
 refuse nothing and render a host it cannot read. So the sequence is held on
-whichever branch already owns it, and the next one waits — 23 (#90), then 24
-(#68), then 25 (#92) — and a session reads the constant out of
+whichever branch already owns it.
+
+That is a rule about **numbers**, not about time: a session claims the next
+free one from the PM before it writes the constant, and two branches carrying
+23 and 24 may be open at once. What must then hold is that **merges happen in
+claim order** — 24 landing first would make main say 24 while a still-unmerged
+23 believes it is the newest, which is the same two-shapes-one-number failure
+arriving by a different door. A session reads the constant out of
 `crates/baylee-view/src/lib.rs` when it starts rather than out of the ticket
-it was written on.
+it was written on; this repo has been stale on that number three times.
 
 **A document follows its subject, not this table.** `docs/` as a whole is the
 PM's, but a file that is normative for one Revier belongs to that Revier's
