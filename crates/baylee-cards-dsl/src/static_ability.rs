@@ -388,6 +388,31 @@ pub enum Duration {
     /// Until the start of the effect controller's next turn (Elspeth's
     /// flying, Teferi's sorcery-flash).
     UntilYourNextTurn,
+    /// Through the effect controller's next untap step and no further —
+    /// "…doesn't untap during your next untap step".
+    ///
+    /// The third sentence CR 502.3 neighbours, and the one
+    /// [`Modifier::DoesNotUntap`] names in its own docs as *not* being a
+    /// static ability: ten lands in this pool print it on an activated mana
+    /// ability, where the suppression is created when the land is tapped and
+    /// is gone one untap step later.
+    ///
+    /// **It is the first duration here that ends at a step rather than at a
+    /// turn boundary**, which is the whole of what makes it a new variant
+    /// and not a spelling of [`Self::UntilYourNextTurn`]. Those two are one
+    /// step apart in the turn structure and a whole turn apart in play: a
+    /// land held until the start of its controller's next turn is a land
+    /// that untaps in the untap step it was supposed to miss, because
+    /// CR 500.1 puts the turn's beginning *before* its untap step. The
+    /// off-by-one is invisible in the card's text and total in its effect,
+    /// so both directions are pinned by a test
+    /// (`baylee_engine::engine::untap_tests`).
+    ///
+    /// It ends **after** the step it suppresses, not as that step begins:
+    /// an effect expiring on the way in would let the land untap on schedule
+    /// and leave a card that compiles, claims `Implemented` and does nothing
+    /// at all.
+    UntilYourNextUntapStep,
 }
 
 /// Replacement rules and trigger modification (CR 614; Doubling Season,

@@ -3435,6 +3435,34 @@ impl<L: CardLookup> Engine<L> {
                 });
             }
         }
+        // "…doesn't untap during your **next** untap step": the step it was
+        // waiting for has now happened, so the effect is spent.
+        //
+        // **After the loop above and not before it.** This is the fourth
+        // duration that expires at a point in the turn structure — the other
+        // three are `UntilYourNextTurn` in `start_turn`, `UntilEndOfCombat`
+        // in `end_of_combat` and `UntilEndOfTurn` in `cleanup_step` — and it
+        // is the first that ends inside the step it is about rather than at
+        // a boundary between two. An expiry written at the top of the untap
+        // step would let the land untap on schedule and leave a card that
+        // compiles, claims `Implemented` and does nothing at all; one
+        // written at the turn boundary instead would take the *following*
+        // untap step with it and cost the land a second turn. Both
+        // directions are pinned in `untap_tests`.
+        //
+        // `fx.controller` and not the affected permanent's controller, which
+        // is the one place this and `keeps_tapped` read CR 502.3's "your"
+        // from different seats. The sentence is only ever printed about the
+        // source of the ability that created it, so the two seats are the
+        // same one on every card that can say this; a permanent that changed
+        // hands in between is the case where they would part, and no
+        // printing reaches it.
+        self.state.effects.remove_where(|fx| {
+            matches!(
+                fx.duration,
+                baylee_cards_dsl::Duration::UntilYourNextUntapStep
+            ) && fx.controller == active
+        });
         self.advance_step();
     }
 
