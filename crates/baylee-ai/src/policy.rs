@@ -731,9 +731,22 @@ pub(crate) fn pays_tax(
     if !refusal_counters {
         return false;
     }
-    let cost = baylee_core::mana::ManaCost::ZERO.with_more_generic(u32::from(mana));
+    can_pay(
+        view,
+        &baylee_core::mana::ManaCost::ZERO.with_more_generic(u32::from(mana)),
+    )
+}
+
+/// Whether the seat could produce `cost` right now, floating mana plus what
+/// is still untapped.
+///
+/// An estimate, like [`remaining_sources`] it is built on, and deliberately
+/// so: the engine's own offer decides what may actually be tapped, and this
+/// is asked at moments — choosing a target, answering a tax — where no offer
+/// exists yet.
+pub(crate) fn can_pay(view: &PlayerView, cost: &baylee_core::mana::ManaCost) -> bool {
     view.seat(view.seat).is_some_and(|seat| {
-        manaplan::plan(&cost, &seat.mana_pool, &remaining_sources(view)).is_some()
+        manaplan::plan(cost, &seat.mana_pool, &remaining_sources(view)).is_some()
     })
 }
 

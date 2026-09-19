@@ -743,6 +743,80 @@ mod tests {
         }
     }
 
+    /// A Roaming Throne with ward {2} beside a plain 2/2, and one Plains.
+    ///
+    /// The Throne is the better card to kill and the agent used to say so
+    /// and nothing else: material ranked it first, the ward countered the
+    /// removal, and the 2/2 that could have been exiled for free was still
+    /// there afterwards. Targets are chosen before mana is paid (CR 601.2),
+    /// so the seat has to cover the spell and the tax out of the same
+    /// untapped lands — with a third Plains it can, and then the bigger
+    /// threat is worth the toll again.
+    #[test]
+    fn removal_goes_around_a_ward_it_cannot_pay_and_through_one_it_can() {
+        use baylee_cards_dsl::{Effect, Filter, TargetSpec};
+        use baylee_engine::engine::DecisionContext;
+        let throne = carded(
+            permanent(obj(1), PlayerId::new(1), 4),
+            "Roaming Throne",
+            TypeSet::ARTIFACT.union(TypeSet::CREATURE),
+        );
+        let bear = permanent(obj(2), PlayerId::new(1), 2);
+        let plains = |id| {
+            let mut land = carded(permanent(id, PlayerId::new(0), 0), "Plains", TypeSet::LAND);
+            land.subtypes
+                .insert(baylee_core::generated::subtypes::land::PLAINS);
+            land.power = None;
+            land.toughness = None;
+            land
+        };
+        let pending = Pending::ChooseTargets {
+            player: PlayerId::new(0),
+            options: vec![obj(1), obj(2)],
+            player_options: vec![],
+            min: 1,
+            max: 1,
+            reason: baylee_engine::choice::TargetPrompt::Targets,
+        };
+        let effects = [Effect::Exile {
+            target: TargetSpec::Object(&Filter::CREATURE),
+        }];
+        let swords = DecisionContext {
+            effects: &effects,
+            cost: Some(baylee_core::mana::ManaCost::parse("{W}")),
+            ..Default::default()
+        };
+
+        let one = view(
+            0,
+            &[20, 20],
+            vec![throne.clone(), bear.clone(), plains(obj(3))],
+        );
+        assert_eq!(
+            agent().act_with_context(&one, &pending, &swords),
+            PlayerAction::ChooseTargets {
+                objects: vec![obj(2)],
+                players: vec![]
+            },
+            "one Plains pays for the spell and not for ward {{2}}, so the \
+             Throne is a card thrown away and the bear is a creature exiled"
+        );
+
+        let three = view(
+            0,
+            &[20, 20],
+            vec![throne, bear, plains(obj(3)), plains(obj(4)), plains(obj(5))],
+        );
+        assert_eq!(
+            agent().act_with_context(&three, &pending, &swords),
+            PlayerAction::ChooseTargets {
+                objects: vec![obj(1)],
+                players: vec![]
+            },
+            "with the tax covered the bigger threat is worth {{2}} again"
+        );
+    }
+
     /// Ward's question arrives at the caster as `YesNoPrompt::PayTax`, and
     /// the agent used to answer it in the same arm as a kicker and an
     /// offered draw: no, always. Declining a kicker costs nothing and
