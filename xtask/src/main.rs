@@ -4840,7 +4840,68 @@ fn batch_step(root: &Path, what: &str, args: &[&str]) -> anyhow::Result<()> {
         "batch stopped at `{what}` — the tree was clean before this, so this puts \
          it back:\n    git restore . && git clean -f crates/baylee-cards/src/cards"
     );
+    // Named, not inferred. A step that says nothing on success is a step
+    // nobody can tell apart from one that did not run, and the whole reason
+    // `codegen --check` is in here is that the two-phase gap is invisible
+    // until something asserts it closed.
+    println!("batch: pass — {what}");
     Ok(())
+}
+
+/// Card files this run changed that it was not asked to change.
+///
+/// Codegen rewrites every machine-owned card on every run, so a rewrite is
+/// not news — an identical rewrite leaves no diff at all. A card that is
+/// *modified* and is none of the ones being added is therefore a reader or a
+/// printing that moved underneath this batch, and it has no business riding
+/// into a commit about new cards. The commonest cause by far is Scryfall
+/// having changed a printing since the header was written, which is
+/// `xtask refresh-oracle`'s job and nobody else's.
+///
+/// Untracked (`??`) card files are the batch's own output and are expected.
+fn cards_changed_unasked(root: &Path, added: &[String]) -> anyhow::Result<Vec<String>> {
+    let out = std::process::Command::new("git")
+        .args([
+            "status",
+            "--porcelain",
+            "--",
+            "crates/baylee-cards/src/cards",
+        ])
+        .current_dir(root)
+        .output()?;
+    anyhow::ensure!(out.status.success(), "git status failed during the batch");
+    let asked: BTreeSet<String> = added.iter().map(|name| stubgen::slug(name)).collect();
+    Ok(drift_from_status(
+        &String::from_utf8_lossy(&out.stdout),
+        &asked,
+    ))
+}
+
+/// The reading half of [`cards_changed_unasked`], with the `git` call taken
+/// out so it can be held against a porcelain listing in a test.
+fn drift_from_status(porcelain: &str, asked: &BTreeSet<String>) -> Vec<String> {
+    let mut drift = Vec::new();
+    for line in porcelain.lines() {
+        if line.len() < 3 {
+            continue;
+        }
+        let (status, path) = line.split_at(2);
+        let path = path.trim();
+        // `??` is this batch's own output. A rename is reported as two paths
+        // and the destination is what a later run rewrites, so read that one.
+        if status.contains('?') {
+            continue;
+        }
+        let path = path.rsplit(" -> ").next().unwrap_or(path);
+        let slug = Path::new(path)
+            .file_stem()
+            .map(|s| s.to_string_lossy().to_string())
+            .unwrap_or_default();
+        if !asked.contains(&slug) {
+            drift.push(path.to_string());
+        }
+    }
+    drift
 }
 
 /// Takes the next `count` cards the reader can write, and runs the batch
@@ -4851,28 +4912,18 @@ fn batch_step(root: &Path, what: &str, args: &[&str]) -> anyhow::Result<()> {
 /// the bulk feed itself, at the top of its own run and from the pool it is
 /// about to read, so a `scryfall-cache` before it downloads the same feed
 /// twice. It stays a command of its own for a cold machine that wants the
-/// download without the run.
+/// The names this batch takes, measured now rather than sliced off a list.
 ///
-/// What this does *not* do is run the gate. The gate is a workspace build
-/// that belongs under the session cargo lock and has to see the rebuilt pool;
-/// printing the command and stopping is honest, where running it from inside
-/// a `cargo run` would nest a second workspace build inside this one.
-fn batch(
+/// The reach moves when the *reader* moves, and downwards is the healthy
+/// direction: a refusal learned since the last batch takes cards off the list
+/// that a stale slice would still be proposing.
+fn batch_names(
     root: &Path,
     scripts_dir: &Path,
     cache: &Path,
     count: usize,
-    dry_run: bool,
-) -> anyhow::Result<()> {
-    anyhow::ensure!(count > 0, "a batch of no cards is not a batch");
-    if !dry_run {
-        refuse_a_dirty_tree(root)?;
-    }
-
-    // Measured now, never sliced off the last batch's list: the number moves
-    // when the *reader* moves, and downwards is the healthy direction — a
-    // refusal learned in between takes cards off the list that a stale slice
-    // would still be proposing.
+    pool: &str,
+) -> anyhow::Result<Vec<String>> {
     let reach = reach_measure(root, scripts_dir, cache)?;
     println!(
         "batch: the reader writes {} of the {} unattempted rows that carry a script",
@@ -4885,9 +4936,7 @@ fn batch(
     );
 
     let proposed: Vec<&str> = reach.names.iter().copied().take(count).collect();
-    let pool_path = root.join("data/card-pool.txt");
-    let pool = fs::read_to_string(&pool_path)?;
-    let additions = pool_additions(&pool, &proposed);
+    let additions = pool_additions(pool, &proposed);
     println!(
         "batch: taking {} name(s) in ledger order{}",
         additions.len(),
@@ -4911,6 +4960,30 @@ fn batch(
         !additions.is_empty(),
         "every proposed name is already in the pool"
     );
+    Ok(additions)
+}
+
+/// download without the run.
+///
+/// What this does *not* do is run the gate. The gate is a workspace build
+/// that belongs under the session cargo lock and has to see the rebuilt pool;
+/// printing the command and stopping is honest, where running it from inside
+/// a `cargo run` would nest a second workspace build inside this one.
+fn batch(
+    root: &Path,
+    scripts_dir: &Path,
+    cache: &Path,
+    count: usize,
+    dry_run: bool,
+) -> anyhow::Result<()> {
+    anyhow::ensure!(count > 0, "a batch of no cards is not a batch");
+    if !dry_run {
+        refuse_a_dirty_tree(root)?;
+    }
+
+    let pool_path = root.join("data/card-pool.txt");
+    let pool = fs::read_to_string(&pool_path)?;
+    let additions = batch_names(root, scripts_dir, cache, count, &pool)?;
     if dry_run {
         println!("\nbatch: --dry-run, nothing written");
         return Ok(());
@@ -4947,6 +5020,32 @@ fn batch(
         "codegen, second phase (the two compiled-pool tables)",
         &codegen,
     )?;
+    // Asked before `--check`, because the two failures read the same in a
+    // diff and mean opposite things: `--check` catching a stale table is this
+    // batch not having finished, while a card nobody asked for moving is
+    // somebody else's change arriving inside it.
+    let drift = cards_changed_unasked(root, &additions)?;
+    anyhow::ensure!(
+        drift.is_empty(),
+        "{} card file(s) this batch did not ask for were rewritten by codegen:\n{}\n\n\
+         That is a printing or a reader that moved since they were last written, \
+         and it does not belong in a commit about new cards. Take it on its own:\n\
+         \n    cargo run -p xtask -- refresh-oracle\n\
+         \nand commit that first. Then put this batch back and run it again:\n\
+         \n    git restore . && git clean -f crates/baylee-cards/src/cards",
+        drift.len(),
+        drift
+            .iter()
+            .take(20)
+            .map(|p| format!("  {p}"))
+            .collect::<Vec<_>>()
+            .join("\n")
+    );
+    println!(
+        "batch: pass — no card outside this batch was rewritten ({} asked for)",
+        additions.len()
+    );
+
     let mut check = codegen.clone();
     check.push("--check");
     batch_step(
@@ -5880,6 +5979,38 @@ fn cross_read(root: &Path, scripts_dir: &Path, samples: usize) -> anyhow::Result
 
 #[cfg(test)]
 mod tests {
+    /// A batch is allowed to write the cards it asked for and nothing else.
+    ///
+    /// Codegen rewrites every machine-owned card on every run, so a rewrite is
+    /// not news: an identical one leaves no diff. A card that comes out
+    /// *modified* and is none of the ones being added is a printing or a
+    /// reader that moved underneath the batch — almost always a Scryfall
+    /// header, which is `xtask refresh-oracle`'s job — and it has no business
+    /// riding into a commit about new cards.
+    #[test]
+    fn a_batch_reports_only_the_cards_it_did_not_ask_for() {
+        let asked: std::collections::BTreeSet<String> = ["Yavimaya Coast", "Mox Opal"]
+            .iter()
+            .map(|n| super::stubgen::slug(n))
+            .collect();
+        let porcelain = concat!(
+            "?? crates/baylee-cards/src/cards/lands/pain/yavimaya_coast.rs\n",
+            " M crates/baylee-cards/src/cards/artifacts/mv_0/mox_opal.rs\n",
+            " M crates/baylee-cards/src/cards/instants/mv_1/swords_to_plowshares.rs\n",
+            "R  crates/baylee-cards/src/cards/a.rs -> crates/baylee-cards/src/cards/lands/utility/karakas.rs\n",
+        );
+        let drift = super::drift_from_status(porcelain, &asked);
+        assert_eq!(
+            drift,
+            vec![
+                "crates/baylee-cards/src/cards/instants/mv_1/swords_to_plowshares.rs".to_string(),
+                "crates/baylee-cards/src/cards/lands/utility/karakas.rs".to_string(),
+            ],
+            "the new card is this batch's own output and the asked-for rewrite is \
+             expected; the other two are somebody else's change arriving inside it"
+        );
+    }
+
     use super::{
         PrintedMana, header_scryfall_id, knob, one_row_per_token, printed_mana_offered,
         printed_subtypes, quoted_value, refuse_twin_names, script_for,
