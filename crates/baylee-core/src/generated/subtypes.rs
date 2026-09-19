@@ -1070,9 +1070,7 @@ pub const ALL_SPELL_TYPES: SubtypeSet = SubtypeSet::from_slice(&[
     spell::OMEN,
     spell::TRAP,
 ]);
-pub const ALL_BATTLE_TYPES: SubtypeSet = SubtypeSet::from_slice(&[
-    battle::SIEGE,
-]);
+pub const ALL_BATTLE_TYPES: SubtypeSet = SubtypeSet::from_slice(&[battle::SIEGE]);
 
 // Derived from the masks above rather than from a range: the ranges were
 // what made a new creature type renumber every other kind. One list, read

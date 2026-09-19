@@ -181,6 +181,13 @@ pub struct PriorSubtypes {
 
 impl PriorSubtypes {
     /// The assignment this build compiled, which is the committed one.
+    ///
+    /// # Panics
+    ///
+    /// If an id in the compiled table has no name or no kind. That cannot
+    /// happen in a table this crate's emitter wrote — both are read off the
+    /// same list — and it is fatal rather than skippable, because appending
+    /// to a table with a hole in it assigns an id twice.
     #[must_use]
     pub fn from_compiled_table() -> Self {
         use baylee_core::generated::subtypes;
@@ -233,10 +240,88 @@ impl PriorSubtypes {
     }
 }
 
+/// One subtype as the emitter needs it: what it is called in Rust, what it is
+/// called on a card, and the id it holds.
+struct Subtype {
+    konst: String,
+    name: String,
+    id: u16,
+}
+
+/// The assignment, before a line of it is written: every table in the file
+/// below is a different reading of this one list, so none of them can
+/// disagree with another.
+///
+/// A name the table already knows keeps its id; a name it does not know takes
+/// the next free one, in kind order and then alphabetically, so two runs over
+/// the same catalogs assign the same numbers. A name the *catalogs* no longer
+/// carry stays in, because `NAMES` is indexed by id and a hole would shift
+/// every row past it.
+fn assign(
+    cats: &SubtypeCatalogs,
+    prior: &PriorSubtypes,
+) -> (Vec<(SubtypeKind, Vec<Subtype>)>, u16) {
+    let mut next = prior.next;
+    let mut members = Vec::new();
+    for (kind, names) in cats.ordered() {
+        let mut all: Vec<String> = names.clone();
+        all.extend(prior.retired(kind, names));
+        all.sort();
+        all.dedup();
+        let mut assigned = Vec::with_capacity(all.len());
+        for name in all {
+            let id = prior.id(kind, &name).unwrap_or_else(|| {
+                let id = next;
+                next += 1;
+                id
+            });
+            assigned.push(Subtype {
+                konst: const_name(&name),
+                name,
+                id,
+            });
+        }
+        members.push((kind, assigned));
+    }
+    (members, next)
+}
+
+/// The display names in id order, which is what `NAMES` is.
+///
+/// # Panics
+///
+/// If the ids are not dense. They are by construction — every one is either
+/// kept from the table or the next free number — and a hole would mislabel
+/// every type line past it, so this is the assertion that says the invariant
+/// out loud rather than a branch that can be taken.
+fn names_by_id(members: &[(SubtypeKind, Vec<Subtype>)], count: u16) -> Vec<String> {
+    let mut out: Vec<Option<String>> = vec![None; count as usize];
+    for (_, assigned) in members {
+        for sub in assigned {
+            assert!(
+                out[sub.id as usize].is_none(),
+                "two subtypes at id {}",
+                sub.id
+            );
+            out[sub.id as usize] = Some(sub.name.replace('"', "\\\""));
+        }
+    }
+    out.into_iter()
+        .enumerate()
+        .map(|(id, name)| {
+            name.unwrap_or_else(|| panic!("no subtype at id {id}: the ids are not dense"))
+        })
+        .collect()
+}
+
 /// Renders the complete `crates/baylee-core/src/generated/subtypes.rs`.
 ///
 /// `prior` is the assignment to keep; see [`PriorSubtypes`]. Pass
 /// [`PriorSubtypes::empty`] to number a table from nothing.
+///
+/// # Panics
+///
+/// If the assignment comes out with a gap in it; see [`names_by_id`].
 #[must_use]
 pub fn render_subtypes_rs(cats: &SubtypeCatalogs, prior: &PriorSubtypes) -> String {
     let mut out = String::with_capacity(96 * 1024);
@@ -254,50 +339,18 @@ pub fn render_subtypes_rs(cats: &SubtypeCatalogs, prior: &PriorSubtypes) -> Stri
          use crate::types::{SubtypeKind, SubtypeSet};\n\n",
     );
 
-    // Assignment first, emission second: every table below is a different
-    // reading of this one list, so none of them can disagree with another.
-    let mut next = prior.next;
-    let mut members: Vec<(SubtypeKind, Vec<(String, String, u16)>)> = Vec::new();
-    for (kind, names) in cats.ordered() {
-        let mut all: Vec<String> = names.clone();
-        all.extend(prior.retired(kind, names));
-        all.sort();
-        all.dedup();
-        let mut assigned = Vec::with_capacity(all.len());
-        for name in all {
-            let id = prior.id(kind, &name).unwrap_or_else(|| {
-                let id = next;
-                next += 1;
-                id
-            });
-            assigned.push((const_name(&name), name, id));
-        }
-        members.push((kind, assigned));
-    }
-    let count = next;
-
-    // `NAMES` is indexed by id, so the ids have to be dense. They are by
-    // construction — every one is either kept from the table or the next free
-    // number — and a hole would mislabel every type line past it.
-    let mut display_by_id: Vec<Option<String>> = vec![None; count as usize];
-    for (_, assigned) in &members {
-        for (_, name, id) in assigned {
-            assert!(
-                display_by_id[*id as usize].is_none(),
-                "two subtypes at id {id}"
-            );
-            display_by_id[*id as usize] = Some(name.replace('"', "\\\""));
-        }
-    }
+    let (members, count) = assign(cats, prior);
+    let display_by_id = names_by_id(&members, count);
 
     for (kind, assigned) in &members {
         out.push_str(&format!(
             "pub mod {} {{\n    use super::SubtypeId;\n",
             module_name(*kind)
         ));
-        for (cname, _, id) in assigned {
+        for sub in assigned {
+            let (konst, id) = (&sub.konst, sub.id);
             out.push_str(&format!(
-                "    pub const {cname}: SubtypeId = SubtypeId::new({id});\n"
+                "    pub const {konst}: SubtypeId = SubtypeId::new({id});\n"
             ));
         }
         out.push_str("}\n");
@@ -323,8 +376,9 @@ pub fn render_subtypes_rs(cats: &SubtypeCatalogs, prior: &PriorSubtypes) -> Stri
             "pub const ALL_{}_TYPES: SubtypeSet = SubtypeSet::from_slice(&[\n",
             module.to_ascii_uppercase()
         ));
-        for (cname, _, _) in assigned {
-            out.push_str(&format!("    {module}::{cname},\n"));
+        for sub in assigned {
+            let konst = &sub.konst;
+            out.push_str(&format!("    {module}::{konst},\n"));
         }
         out.push_str("]);\n");
     }
@@ -360,14 +414,14 @@ pub fn render_subtypes_rs(cats: &SubtypeCatalogs, prior: &PriorSubtypes) -> Stri
     );
     let mut arms: Vec<(u16, String)> = Vec::new();
     for (kind, assigned) in &members {
-        for (cname, name, id) in assigned {
+        for sub in assigned {
             arms.push((
-                *id,
+                sub.id,
                 format!(
                     "        \"{}\" => {}::{},",
-                    name.to_ascii_lowercase().replace('"', "\\\""),
+                    sub.name.to_ascii_lowercase().replace('"', "\\\""),
                     module_name(*kind),
-                    cname
+                    sub.konst
                 ),
             ));
         }
@@ -385,10 +439,7 @@ pub fn render_subtypes_rs(cats: &SubtypeCatalogs, prior: &PriorSubtypes) -> Stri
     // the *projected* subtypes of an object (an animated land really is a
     // Creature — Elemental), and those arrive as ids, never as strings.
     out.push_str("\npub static NAMES: &[&str] = &[\n");
-    for (id, name) in display_by_id.iter().enumerate() {
-        let name = name
-            .as_deref()
-            .unwrap_or_else(|| panic!("no subtype at id {id}: the ids are not dense"));
+    for name in &display_by_id {
         out.push_str(&format!("    \"{name}\",\n"));
     }
     out.push_str("];\n");
@@ -461,25 +512,6 @@ mod tests {
         );
     }
 
-    /// The committed table is what this emitter writes for the catalog the
-    /// table itself describes. Rendering it again has to come out byte for
-    /// byte, and that is two claims at once: the file really is generated
-    /// output, and a run that changes nothing renumbers nothing.
-    ///
-    /// It needs no network, because the catalog is read back out of the
-    /// compiled table — which is also why it keeps holding after Scryfall
-    /// prints a new subtype and codegen appends it.
-    #[test]
-    fn the_committed_table_is_what_the_emitter_writes_for_it() {
-        let cats = catalogs_from_the_compiled_table();
-        let rendered = render_subtypes_rs(&cats, &PriorSubtypes::from_compiled_table());
-        let committed = include_str!("../../baylee-core/src/generated/subtypes.rs");
-        assert_eq!(
-            rendered, committed,
-            "the generated subtype table is not what codegen would write"
-        );
-    }
-
     /// The whole of #43: a new subtype takes the next free id and moves
     /// nothing. Asserted against the *real* table, because the failure it
     /// guards against is a creature type inserted alphabetically shifting
@@ -506,9 +538,10 @@ mod tests {
             )),
             "a new name takes the next free id"
         );
-        assert!(
-            out.contains(&format!("pub const COUNT: u16 = {};\n", subtypes::COUNT + 1))
-        );
+        assert!(out.contains(&format!(
+            "pub const COUNT: u16 = {};\n",
+            subtypes::COUNT + 1
+        )));
         for raw in 0..subtypes::COUNT {
             let id = baylee_core::ids::SubtypeId::new(raw);
             let name = subtypes::name(id).expect("every id is named");

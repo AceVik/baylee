@@ -5602,6 +5602,53 @@ mod tests {
     use baylee_core::generated::subtypes;
     use std::collections::BTreeMap;
 
+    /// The committed subtype table is what `codegen` writes for the catalogs
+    /// it stands for — byte for byte, *after* the rustfmt every generated
+    /// `.rs` goes through on its way to disk.
+    ///
+    /// Two claims in one assertion. The file really is generated output, so
+    /// nobody has hand-edited it; and a run that changes nothing renumbers
+    /// nothing, which is the whole of #43. It lives here rather than beside
+    /// the emitter because `write_or_check` is what formats, and an emitter
+    /// output compared *unformatted* passes while `cargo fmt --all` and
+    /// `codegen --check` undo each other forever — which is exactly what
+    /// happened the first time: rustfmt folded the one-entry battle mask onto
+    /// one line and the two tools disagreed.
+    ///
+    /// The catalogs are read back out of the compiled table, so this needs no
+    /// network and keeps holding after Scryfall prints a new subtype and
+    /// `codegen` appends it.
+    #[test]
+    fn the_committed_subtype_table_is_what_codegen_writes_for_it() -> anyhow::Result<()> {
+        use baylee_cards_codegen::catalog::{PriorSubtypes, SubtypeCatalogs, render_subtypes_rs};
+
+        let mut cats = SubtypeCatalogs::default();
+        for raw in 0..subtypes::COUNT {
+            let id = baylee_core::ids::SubtypeId::new(raw);
+            let name = subtypes::name(id).expect("every id is named").to_string();
+            let kind = subtypes::kind(id).expect("every id has a kind");
+            for (k, list) in cats.ordered_mut() {
+                if k == kind {
+                    list.push(name);
+                    break;
+                }
+            }
+        }
+        cats.normalize();
+
+        let rendered = super::format_rust(&render_subtypes_rs(
+            &cats,
+            &PriorSubtypes::from_compiled_table(),
+        ))?;
+        let committed =
+            include_str!("../../crates/baylee-core/src/generated/subtypes.rs").to_string();
+        assert_eq!(
+            rendered, committed,
+            "the generated subtype table is not what codegen would write"
+        );
+        Ok(())
+    }
+
     /// The mana check holds the code against the symbols a printing spells,
     /// and a printing that names its mana in words spells none — so the
     /// question "which colours does this offer" has to be *declined* rather
