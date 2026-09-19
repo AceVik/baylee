@@ -3558,4 +3558,64 @@ mod tests {
             "the same stack is still drawn under a finished game: {over:?}"
         );
     }
+
+    /// The stack's head names the seat the table is waiting for, and it is
+    /// the seat the **engine asked** rather than the one holding priority.
+    ///
+    /// `waiting_line` has been tested since it was written, and that test
+    /// says nothing at all about this: it is a pure function over a name, so
+    /// it passed just as well while `spawn_stack_panel` fed it a seat the
+    /// host had taken from `priority_holder`. A seat asked to declare
+    /// blockers or to discard holds no priority, so the head fell silent on
+    /// exactly the questions a player most needs pointing at — the defect
+    /// #81 is about, one surface further along than the caret.
+    ///
+    /// So this one runs the system and reads the words off the tree. The
+    /// counter-half is the seat nobody is being asked: the line is absent
+    /// once the game is over, which is the only question the engine asks
+    /// nobody, and its absence is what proves the assertion is reading this
+    /// line rather than some constant of the panel's.
+    #[test]
+    fn the_stack_says_which_seat_the_table_is_waiting_for() {
+        let named = |awaiting: Option<u8>| {
+            let mut duel = duel_with_a_stack();
+            let view = duel.view.as_mut().expect("the seat has a view");
+            view.awaiting = awaiting.map(PlayerId::new);
+            // The panel is drawn only for a table with a roster, and
+            // `duel_with_a_stack` has none — so until now that helper's
+            // stack reached the shelf's hold button and never the panel.
+            let mut statics = baylee_client_core::test_support::statics(8);
+            statics.seats.push(baylee_view::SeatIdentity {
+                player: PlayerId::new(1),
+                display_name: "sharp 1".to_string(),
+                is_ai: true,
+                away: false,
+                team: None,
+            });
+            duel.statics = Some(statics);
+            crate::rebuild_board(&mut duel);
+            said(&mut overlay_with(
+                duel,
+                crate::cardtext::CardTexts::default(),
+            ))
+        };
+
+        let opponent = named(Some(1));
+        assert!(
+            opponent.contains(&"waiting for sharp 1".to_string()),
+            "the head names the seat being asked: {opponent:?}"
+        );
+
+        let me = named(Some(0));
+        assert!(
+            me.contains(&Phrase::WaitingForYou.text(Lang::En).to_string()),
+            "and addresses this seat rather than naming it: {me:?}"
+        );
+
+        let nobody = named(None);
+        assert!(
+            !nobody.iter().any(|line| line.starts_with("waiting for")),
+            "nothing is asked of anyone, so the head says nothing: {nobody:?}"
+        );
+    }
 }

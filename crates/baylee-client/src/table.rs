@@ -1631,15 +1631,21 @@ struct Mood {
 
 /// What a seat is doing, in the order the zone cares about it.
 ///
-/// Ordered rather than flagged because these do not stack: a seat holding
-/// priority is *also* the active seat nine times out of ten, and drawing both
+/// Ordered rather than flagged because these do not stack: the seat being
+/// asked is *also* the active seat nine times out of ten, and drawing both
 /// would only mean adding two brightnesses together and hoping.
+///
+/// `Asked` rather than `SeatPod::is_awaited`'s own word, although the two are
+/// fed from one field. A pod mirrors its feed and this names a rung, and the
+/// rung sits one line from `Waiting` — which means the opposite and would be
+/// a word away from it.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 enum Standing {
     /// Out of the game.
     Lost,
-    /// Holding priority — this is the seat everyone else is waiting for.
-    Priority,
+    /// The seat the engine is waiting on an answer from — a priority pass,
+    /// but equally a block to declare or a card to discard.
+    Asked,
     /// Their turn, but not currently holding anyone up.
     Active,
     /// Waiting their turn.
@@ -1653,8 +1659,8 @@ impl Mood {
             local: pod.is_local,
             standing: if pod.has_lost {
                 Standing::Lost
-            } else if pod.has_priority {
-                Standing::Priority
+            } else if pod.is_awaited {
+                Standing::Asked
             } else if pod.is_active {
                 Standing::Active
             } else {
@@ -2279,7 +2285,7 @@ fn mat_params(
         corner: tabletop::MAT_CORNER,
         rim: tabletop::MAT_RIM,
         on_turn: if mood.on_turn { 1.0 } else { 0.0 },
-        priority: if mood.standing == Standing::Priority {
+        awaited: if mood.standing == Standing::Asked {
             1.0
         } else {
             0.0
@@ -2296,14 +2302,14 @@ fn mat_params(
 /// How bright a zone's mat is drawn, given what it is saying.
 ///
 /// A seat that has lost fades most of the way out — its permanents are gone
-/// and its zone should stop competing for attention — and a seat holding
-/// priority is the brightest thing on the felt, because that is the seat
+/// and its zone should stop competing for attention — and the seat being
+/// asked is the brightest thing on the felt, because that is the seat
 /// everyone else is waiting for.
 fn zone_brightness(mood: Mood) -> f32 {
     // Every value here is a multiplier on the mat's **opacity**, so 1.0 is
     // the ceiling and anything past it is not brighter, it is clipped. It has
     // been the ceiling since the accent moved off the material's tint and
-    // into the mat itself: at 1.311 and 1.0925 a local seat holding priority
+    // into the mat itself: at 1.311 and 1.0925 a local seat being asked
     // and a local seat merely taking its turn would be drawn identically,
     // which is precisely the distinction the mat exists to draw.
     //
@@ -2315,7 +2321,7 @@ fn zone_brightness(mood: Mood) -> f32 {
         Standing::Lost => 0.22,
         Standing::Waiting => 0.62,
         Standing::Active => 0.78,
-        Standing::Priority => 1.0,
+        Standing::Asked => 1.0,
     };
     // Being the viewing seat is a lift, never a rank. Which mat is mine is
     // answered by the gilt rim and does not need brightness spent on it, and

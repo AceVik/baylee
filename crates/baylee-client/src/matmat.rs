@@ -47,14 +47,14 @@ pub struct MatParams {
     pub rim: f32,
     /// 1 while this is the seat whose turn it is, 0 otherwise.
     ///
-    /// **The turn, not priority.** `Standing` collapses the two — a seat
-    /// holding priority outranks the seat whose turn it is, because the mat's
+    /// **The turn, not the question.** `Standing` collapses the two — the
+    /// seat being asked outranks the seat whose turn it is, because the mat's
     /// brightness answers "who is everybody waiting for". This answers the
     /// other question, and on any turn where an opponent responds to
     /// something the two have different answers.
     pub on_turn: f32,
-    /// Secondary cyan signal while this seat holds priority.
-    pub priority: f32,
+    /// Secondary cyan signal while this is the seat being asked.
+    pub awaited: f32,
     /// The clock the travelling light runs on: [`MOVING`](crate::cardmat::MOVING)
     /// or [`STILL`](crate::cardmat::STILL).
     pub motion: f32,

@@ -40,7 +40,8 @@ struct MatParams {
     rim: f32,
     /// 1 while this is the seat whose turn it is, 0 otherwise.
     on_turn: f32,
-    priority: f32,
+    /// 1 while this is the seat the engine is waiting on an answer from.
+    awaited: f32,
     /// The clock the travelling light runs on: `MOVING` or `STILL`, the same
     /// two values the cards, the felt and the sky use.
     motion: f32,
@@ -259,7 +260,7 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     let flow = TURN_BASE + (1.0 - TURN_BASE) * swell;
     let halo = exp(-inset * 7.5);
     let running = params.on_turn * (0.58 + 0.42 * flow * breath) * halo * 0.95
-        + params.priority * (0.30 + 0.10 * breath) * halo;
+        + params.awaited * (0.30 + 0.10 * breath) * halo;
 
 
     // Brightness scales the alpha, not the colour, which is the one thing
@@ -277,7 +278,7 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     let surface = lane * (0.86 + 0.14 * cos(p.y * 1.4)) + (grain - 0.5) * 0.002 * resolved;
     let value = (surface + seam + border * RIM_LIGHT + running + tooling * 0.085) * params.accent.w;
     let base_colour = mix(vec3<f32>(1.0), params.accent.rgb, hue);
-    let signal_colour = mix(params.accent.rgb, vec3<f32>(0.25, 0.72, 0.82), params.priority * 0.20);
+    let signal_colour = mix(params.accent.rgb, vec3<f32>(0.25, 0.72, 0.82), params.awaited * 0.20);
     let colour = mix(mix(base_colour, signal_colour, clamp(running * 12.0, 0.0, 1.0)), FRAME_INK, tooling * 0.5);
     return vec4<f32>(colour, clamp(value, 0.0, 1.0) * coverage);
 }

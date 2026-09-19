@@ -13,7 +13,7 @@ fn pod(library: u32) -> SeatPod {
         has_lost: false,
         is_local: true,
         is_active: true,
-        has_priority: true,
+        is_awaited: true,
         role: baylee_client_core::board::SeatRole::Present,
         lanes: vec![Lane {
             kind: LaneKind::Creatures,

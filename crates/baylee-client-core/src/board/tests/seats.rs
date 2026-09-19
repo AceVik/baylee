@@ -83,12 +83,12 @@ fn pods_are_ordered_local_first_then_clockwise_in_turn_order() {
 fn the_awaited_seat_is_the_one_reported_on_the_pod() {
     let view = ViewBuilder::new(3).with_awaiting(Some(2)).build();
     let m = model(&view);
-    assert!(!m.pod(PlayerId::new(0)).expect("pod").has_priority);
-    assert!(m.pod(PlayerId::new(2)).expect("pod").has_priority);
+    assert!(!m.pod(PlayerId::new(0)).expect("pod").is_awaited);
+    assert!(m.pod(PlayerId::new(2)).expect("pod").is_awaited);
 
     let nobody = ViewBuilder::new(3).with_awaiting(None).build();
     let m = model(&nobody);
-    assert!(m.pods.iter().all(|p| !p.has_priority));
+    assert!(m.pods.iter().all(|p| !p.is_awaited));
 }
 
 /// Who is answering for a chair comes off the roster, not the view.

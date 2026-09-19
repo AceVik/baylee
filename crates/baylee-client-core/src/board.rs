@@ -557,8 +557,15 @@ pub struct SeatPod {
     pub is_local: bool,
     /// Whether it is this seat's turn.
     pub is_active: bool,
-    /// Whether this seat holds priority.
-    pub has_priority: bool,
+    /// Whether this is the seat the engine is waiting on an answer from.
+    ///
+    /// It mirrors [`baylee_view::PlayerView::awaiting`] and carries its word
+    /// deliberately. It was `has_priority` off a `priority` that the host fed
+    /// from the *priority holder*, so a seat asked to declare blockers or to
+    /// discard — neither of which is a priority pass — read as waited-for by
+    /// nobody, and every surface below went quiet on exactly the questions a
+    /// player most needs pointing at.
+    pub is_awaited: bool,
     /// Who is answering for this chair.
     ///
     /// On the pod and not looked up at each drawing, because three surfaces
@@ -1475,7 +1482,7 @@ fn build_pod(
         has_lost: seat.is_some_and(|s| s.has_lost),
         is_local: player == view.seat,
         is_active: player == view.active,
-        has_priority: view.awaiting == Some(player),
+        is_awaited: view.awaiting == Some(player),
         role,
         lanes,
         piles: zone_piles(view, player),

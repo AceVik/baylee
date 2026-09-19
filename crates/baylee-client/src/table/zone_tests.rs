@@ -8,7 +8,7 @@ const RANKED: [Standing; 4] = [
     Standing::Lost,
     Standing::Waiting,
     Standing::Active,
-    Standing::Priority,
+    Standing::Asked,
 ];
 
 fn mood(local: bool, standing: Standing) -> Mood {
