@@ -27,8 +27,13 @@ Three of them, and none is a row number.
 - **`CardIndex`** — the append-only ledger id that names *every card there is*
   (33 694 rows), not this pool. What saved decks and replays store. Spelled as a
   constant: `index::MOX_OPAL`.
-- **`SubtypeId`** — a running index into one sorted range partitioned by kind.
-  It **renumbers** when a subtype is added, so nothing durable may store it.
+- **`SubtypeId`** — an id from a compiled, **append-only** table. It *used* to
+  be a running index into one sorted range partitioned by kind, and renumbered
+  every other kind whenever a creature type was added; since #43 the generated
+  table is its own ledger and no id ever moves. What is still true is that an
+  id minted by a newer build is unknown to an older one — `subtypes::kind` and
+  `subtypes::name` both answer `None` — so a stored id is only ever as good as
+  the build that reads it.
 - **ability index** — the `index` in `AbilityRef { card, index }`. Reserved ones
   (`SPELL`, `ENTERS`, `choice::GRANTED_ABILITY`, …) count down from `u32::MAX`.
 
