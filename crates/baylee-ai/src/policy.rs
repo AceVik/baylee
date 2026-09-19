@@ -697,6 +697,46 @@ fn spell_cost(view: &PlayerView, id: ObjectId, face: &FaceDef) -> baylee_core::m
     cost
 }
 
+/// Whether a tax is worth paying, asked of what refusing it would do.
+///
+/// `YesNoPrompt::PayTax` carries a price and not a consequence, and the two
+/// taxes in this pool are not the same decision. Ward (CR 702.21) reaches
+/// the **caster** and counters the spell already on the stack, so refusing
+/// it throws away a whole card to keep two mana. A Rhystic tax gives an
+/// opponent one card, and that one stays refused: a stateless policy cannot
+/// tell mana it has to spare from mana its own curve needs this turn, and a
+/// card is the cheaper of the two to give up. The resolving effect is what
+/// separates them, and `decision_context` carries it here because the
+/// operation that asked has not advanced past itself yet.
+///
+/// Affordability is the second half and not a formality. A seat that says
+/// yes with an empty pool is handed a mana window under CR 605.3a, and a
+/// window it cannot fill ends exactly where refusing ended — one question
+/// later.
+pub(crate) fn pays_tax(
+    view: &PlayerView,
+    mana: u16,
+    context: &baylee_engine::engine::DecisionContext<'_>,
+) -> bool {
+    let refusal_counters = context.effects.iter().any(|effect| match effect {
+        Effect::PlayerMayPayOr { effect, .. } => matches!(
+            effect,
+            Effect::CounterTargetSpell
+                | Effect::CounterTargetSpellToExile
+                | Effect::CounterTargetAbility
+                | Effect::CounterTargetSpellOrAbility
+        ),
+        _ => false,
+    });
+    if !refusal_counters {
+        return false;
+    }
+    let cost = baylee_core::mana::ManaCost::ZERO.with_more_generic(u32::from(mana));
+    view.seat(view.seat).is_some_and(|seat| {
+        manaplan::plan(&cost, &seat.mana_pool, &remaining_sources(view)).is_some()
+    })
+}
+
 /// Only for evaluating a colour response. Actual taps always come from the
 /// engine's offer in `sources`, including its timing and conditional checks.
 fn remaining_sources(view: &PlayerView) -> Vec<Source> {

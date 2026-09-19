@@ -432,12 +432,16 @@ impl HeuristicAgent {
                         .is_some_and(|s| s.life > i32::from(amount) + 5),
                 ),
                 YesNoPrompt::Miracle { card } => PlayerAction::YesNo(Self::miracle(view, card)),
-                // Kicker and tax are declined to keep the mana; a draw is
-                // declined because the house AI has no match score to protect,
-                // so accepting would only ever be a game given away.
-                YesNoPrompt::Kicker
-                | YesNoPrompt::PayTax { .. }
-                | YesNoPrompt::DrawOffer { .. } => PlayerAction::YesNo(false),
+                // What refusing a tax costs is not the same question for
+                // every tax, so it is asked of the effect rather than of the
+                // prompt: ward counters the spell this seat has just cast.
+                YesNoPrompt::PayTax { mana } => {
+                    PlayerAction::YesNo(policy::pays_tax(view, mana, context))
+                }
+                // Kicker is declined to keep the mana; a draw is declined
+                // because the house AI has no match score to protect, so
+                // accepting would only ever be a game given away.
+                YesNoPrompt::Kicker | YesNoPrompt::DrawOffer { .. } => PlayerAction::YesNo(false),
                 // Both yes, for reasons that happen to agree. An optional
                 // effect is written on a card this seat chose to play, so
                 // taking it is the default. And a commander goes home
@@ -737,6 +741,85 @@ mod tests {
                 }
             );
         }
+    }
+
+    /// Ward's question arrives at the caster as `YesNoPrompt::PayTax`, and
+    /// the agent used to answer it in the same arm as a kicker and an
+    /// offered draw: no, always. Declining a kicker costs nothing and
+    /// declining this counters the agent's own spell — with two untapped
+    /// lands sitting on the table.
+    ///
+    /// What separates the two is not the prompt but what refusing it does,
+    /// which the resolving effect says out loud: ward's alternative counters
+    /// the spell, a Rhystic tax's gives an opponent a card. The second is
+    /// still declined here, because spare mana and needed mana look alike to
+    /// a stateless policy and a card is the cheaper of the two to give up.
+    #[test]
+    fn a_warded_spell_is_paid_for_instead_of_being_countered() {
+        use baylee_cards_dsl::{Amount, Effect, PlayerRel};
+        use baylee_engine::engine::DecisionContext;
+        let mut forest = carded(
+            permanent(obj(1), PlayerId::new(0), 0),
+            "Forest",
+            TypeSet::LAND,
+        );
+        forest
+            .subtypes
+            .insert(baylee_core::generated::subtypes::land::FOREST);
+        let mut island = carded(
+            permanent(obj(2), PlayerId::new(0), 0),
+            "Island",
+            TypeSet::LAND,
+        );
+        island
+            .subtypes
+            .insert(baylee_core::generated::subtypes::land::ISLAND);
+        let pending = Pending::YesNo {
+            player: PlayerId::new(0),
+            prompt: YesNoPrompt::PayTax { mana: 2 },
+            source: None,
+        };
+        let ward = [Effect::PlayerMayPayOr {
+            player: PlayerRel::ControllerOfTarget,
+            mana: Amount::Fixed(2),
+            effect: &Effect::CounterTargetSpellOrAbility,
+        }];
+        let ward = DecisionContext {
+            effects: &ward,
+            ..Default::default()
+        };
+
+        let v = view(0, &[20, 20], vec![forest, island]);
+        assert_eq!(
+            agent().act_with_context(&v, &pending, &ward),
+            PlayerAction::YesNo(true),
+            "two untapped lands and the spell dies if the tax goes unpaid"
+        );
+
+        let bare = view(0, &[20, 20], vec![]);
+        assert_eq!(
+            agent().act_with_context(&bare, &pending, &ward),
+            PlayerAction::YesNo(false),
+            "nothing to tap, so promising the mana only spends the window"
+        );
+
+        let rhystic = [Effect::PlayerMayPayOr {
+            player: PlayerRel::ControllerOfTarget,
+            mana: Amount::Fixed(2),
+            effect: &Effect::DrawCards {
+                amount: Amount::Fixed(1),
+            },
+        }];
+        let rhystic = DecisionContext {
+            effects: &rhystic,
+            ..Default::default()
+        };
+        assert_eq!(
+            agent().act_with_context(&v, &pending, &rhystic),
+            PlayerAction::YesNo(false),
+            "a tax that only draws them a card is not worth mana this policy \
+             cannot tell it has to spare"
+        );
     }
 
     /// Urza's Saga at chapter I, one on each side of the table.
