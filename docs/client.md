@@ -2118,8 +2118,11 @@ Three pieces now:
   Renderer-free and transport-free for the same reason the lobby's decisions
   are — a schedule that can only be exercised by disconnecting a real gateway
   is a schedule that is never tested. It is allowed to back off at all because
-  the engine's decision clock does not run for a seat with no socket
+  the engine's *decision* clock does not run for a seat with no socket
   (`docs/protocol.md`), so nobody is losing a game on time while it waits.
+  That is the right reason for the back-off and was, for a while, also given
+  as the reason the banner could promise the seat was untouched. It is the
+  wrong clock for that — see below.
 - **`keep_the_table_connected`** is the wiring, and runs only in `Opening` and
   `Playing`. Not `Finished`: a table whose game has ended closes its socket in
   the ordinary course of things, and a client that redialled then would spend
@@ -2131,6 +2134,51 @@ disconnected player cannot make, so the words would have outlived the
 disconnection they described. It is a `Phrase` on `Duel`, so the decision
 stays where a test can read it and the words stay in the overlay, which is the
 only thing that knows the language.
+
+#### What the banner may claim, and why it cannot count
+
+The schedule outlives the thing it was reassuring the player about. Twelve
+dials land at t = 0.5, 1.5, 3.5, 7.5, 15.5 and then every fifteen seconds to
+**120.5 s**. `HouseRules::reconnect_window_secs` is shorter than that on all
+four presets — 30 s or 60 s — though not on every table that can be opened,
+since a room may ask for anything up to an hour. When it does expire,
+`Session::stand_in` gives the chair to the house, and for the rest of that
+second minute the client was saying "reconnecting…" over a seat somebody else
+was answering for.
+
+Dialling on is right and did not change: `SeatAttached` runs `hand_back`, so
+the twelfth dial still returns the chair. What changed is that there are two
+sentences now, turning at `Retry::PATIENCE`.
+
+**The client cannot say when the handover happens, and the reason is worth
+keeping.** `reconnect_window_secs` is not 60 — 60 is the `casual` preset;
+`blitz` is 30, and `gateway/src/clock.rs::resolve` accepts anything from
+`MIN_RECONNECT_SECS` (10) to `MAX_SECS` (3600) from whoever opened the room.
+No client is told it: the room listing carries `reconnect_secs` and the lobby
+model does not read it, and `baylee-view` carries no house rules at all. And
+plumbing it would not buy a countdown, because **the client is disconnected
+for exactly the window it would be counting down** — the number could only be
+learned at join, before it is needed.
+
+So the second sentence is written in the future tense — *"the house will
+answer for your seat until you are back"* — which is true whether or not the
+handover has happened. The indicative would be a fabrication on every table
+but the one whose window matches the number the client guessed. `PATIENCE` is
+8 s, under the gateway's own floor for a window, so the first sight of that
+sentence is always before any table could have handed a chair over; the two
+constants live in crates that do not link and a `const` assertion in
+`reconnect.rs` pins the bound that cannot be compared.
+
+Two things a `Retry` unit test cannot see, both now covered in
+`reconnect_tests.rs`. The schedule **does not advance during a dial in
+flight** — `tick` must not run there or a slow socket is dialled underneath
+itself — so how long the player has been gone is a second accumulator
+(`stayed_down`), fed from both arms; measured by the schedule alone, one
+slow-failing socket would have held the short sentence up for as long as it
+took to fail. And `Connecting` and `Down` **alternate** for the whole of an
+outage, so both arms take their sentence from one `link_note` helper: the
+`Connecting` arm named `LinkLost` outright, which on a capped schedule would
+have flipped the bar between two accounts of one outage every fifteen seconds.
 
 Running out reports `DuelReport::Unreachable`, once rather than once a frame.
 Its own variant, because the gateway's `Error` envelope carries the engine's

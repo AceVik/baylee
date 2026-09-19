@@ -12,10 +12,20 @@
 //! tested. This module knows no transport and no renderer. It answers one
 //! question — *dial now?* — and the shell performs it.
 //!
-//! The engine's decision clock does not run for a seat with no socket
-//! (`docs/protocol.md`, "The gateway runs no rules"), so nobody is losing a
-//! game on time while this waits. That is what permits backing off at all
-//! rather than dialling every frame.
+//! Backing off at all — rather than dialling every frame — is safe because
+//! the engine's *decision* clock does not run for a seat with no socket
+//! (`docs/protocol.md`, "The gateway runs no rules"): nobody loses a game on
+//! time while this waits.
+//!
+//! That is the wrong clock to reassure anybody with, and this module used it
+//! for both jobs. The **reconnect** clock is the one running here, and it is
+//! the one with a consequence: after `HouseRules::reconnect_window_secs` the
+//! house takes the chair (`Session::stand_in`) and answers for it until the
+//! player is back (`SeatAttached` -> `hand_back`). So dialling past that
+//! point is right — the chair does come back — and what has to change is the
+//! sentence over it, which went on promising that nothing was happening for
+//! as long as two minutes. [`Retry::PATIENCE`] is where the wording turns and
+//! carries the argument.
 
 /// The retry schedule for a table that has lost its socket.
 #[derive(Clone, Debug)]
@@ -26,6 +36,16 @@ pub struct Retry {
     step: f32,
     /// Dials made since the link was last up.
     attempts: u32,
+    /// Seconds the link has not been up, across dials and the waits between
+    /// them.
+    ///
+    /// Separate from `left` because the two answer different questions.
+    /// `left` is about the *schedule*, and it stops while a dial is in
+    /// flight; this is about the *player*, who has been gone for that time
+    /// whatever the socket was doing. A slow-failing dial is the case that
+    /// separates them — thirty seconds inside `Connecting` moves this and
+    /// moves nothing else.
+    down: f32,
 }
 
 impl Default for Retry {
@@ -53,6 +73,30 @@ impl Retry {
     /// dials on this schedule is a little over two minutes.
     pub const GIVE_UP: u32 = 12;
 
+    /// How long a drop stays a hiccup, in seconds.
+    ///
+    /// Not a fact about the table — a fact about the wording. Under it the
+    /// player is told the connection dropped and that something is being
+    /// done, which is all that is true yet. Over it they are told the rest:
+    /// that the house will answer for their seat until they are back.
+    ///
+    /// **It is deliberately shorter than the shortest reconnect window this
+    /// gateway will host** — `MIN_RECONNECT_SECS`, ten seconds, in
+    /// `baylee-gateway/src/clock.rs`. That is what makes the second sentence
+    /// safe in the future tense: at the moment it first appears no table can
+    /// have handed a chair over yet, so it never denies something that has
+    /// already happened. The two constants cannot be compared in code —
+    /// this crate does not link the gateway and must not — so the assertion
+    /// below pins the bound and this names where the other half lives.
+    ///
+    /// A fixed number is the best a client can do here, and that is the
+    /// finding rather than a shortcut. `reconnect_window_secs` is a
+    /// per-table value between ten seconds and an hour; it reaches no client
+    /// (neither `baylee-view` nor the lobby model carries it); and it could
+    /// not be used if it did, because the client is disconnected for exactly
+    /// the window it would be counting down.
+    pub const PATIENCE: f32 = 8.0;
+
     /// A schedule for a link that has just gone down.
     #[must_use]
     pub const fn new() -> Self {
@@ -60,6 +104,7 @@ impl Retry {
             left: Self::FIRST,
             step: Self::FIRST,
             attempts: 0,
+            down: 0.0,
         }
     }
 
@@ -89,6 +134,26 @@ impl Retry {
         true
     }
 
+    /// `dt` seconds passed with the link not up, whatever it was doing.
+    ///
+    /// Called on every frame the link is down *or* dialling — both, which is
+    /// the whole reason it is not part of [`Retry::tick`]. `tick` must not
+    /// run during a dial in flight, or a slow socket would be dialled again
+    /// underneath itself; this must, or a slow socket would leave the player
+    /// reading the short sentence long after the house had their chair.
+    pub fn stayed_down(&mut self, dt: f32) {
+        self.down += dt;
+    }
+
+    /// Whether the drop is still short enough to mean nothing.
+    ///
+    /// [`Retry::PATIENCE`] has why there is a threshold and why it is where
+    /// it is.
+    #[must_use]
+    pub fn brief(&self) -> bool {
+        self.down < Self::PATIENCE
+    }
+
     /// Whether the schedule has run out and the player has to be told.
     #[must_use]
     pub const fn exhausted(&self) -> bool {
@@ -101,12 +166,33 @@ impl Retry {
         self.attempts
     }
 
-    /// Seconds until the next dial, for a banner that counts down.
+    /// Seconds until the next dial.
+    ///
+    /// Nothing draws it, and the doc used to say it was "for a banner that
+    /// counts down" as though one existed. The bar this client has is
+    /// revision-gated on the `Phrase` it carries (`hud::overlay`), so a
+    /// number ticking down inside that sentence would rebuild the retained
+    /// tree every frame the link was down. It stays because the schedule is
+    /// asked about itself in tests, and the doc says what is true.
     #[must_use]
     pub fn wait(&self) -> f32 {
         self.left.max(0.0)
     }
 }
+
+/// The bound [`Retry::PATIENCE`] argues for, pinned where it cannot be
+/// checked.
+///
+/// `MIN_RECONNECT_SECS` is ten and lives in the gateway, which this crate
+/// does not link. A compile-time assertion against the literal is what is
+/// left: it cannot notice the gateway lowering its floor, but it does stop
+/// this number being raised past it by somebody who only wanted the banner
+/// to wait a little longer.
+const _: () = assert!(
+    Retry::PATIENCE < 10.0,
+    "PATIENCE must stay under the gateway's MIN_RECONNECT_SECS, or the \
+     second sentence can appear after a chair has already been handed over"
+);
 
 #[cfg(test)]
 mod tests {
@@ -135,6 +221,43 @@ mod tests {
         }
     }
 
+    /// The wording turns once, at [`Retry::PATIENCE`], and the first seconds
+    /// of a drop are not dressed up as an outage. A schedule that reported
+    /// the stand-in from frame one would make every hiccup an event.
+    #[test]
+    fn a_drop_is_a_hiccup_until_it_is_not() {
+        let mut retry = Retry::new();
+        assert!(retry.brief(), "a link that just went is not an outage");
+        retry.stayed_down(Retry::PATIENCE - 0.01);
+        assert!(retry.brief(), "still inside the hiccup");
+        retry.stayed_down(0.02);
+        assert!(!retry.brief(), "past it, and the player is told the rest");
+    }
+
+    /// A dial in flight counts against the player even though it counts for
+    /// nothing in the schedule.
+    ///
+    /// This is the whole reason the two are separate calls. `tick` is not
+    /// run while a socket is opening — a slow one would be dialled again
+    /// underneath itself — so a client that measured the outage by the
+    /// schedule alone would sit in `Connecting` for a minute, advance
+    /// nothing, and go on saying the connection had just dropped while the
+    /// house played the seat.
+    #[test]
+    fn a_dial_in_flight_still_counts_against_the_player() {
+        let mut retry = Retry::new();
+        for _ in 0..120 {
+            retry.stayed_down(0.5);
+        }
+        assert_eq!(retry.attempts(), 0, "nothing was dialled");
+        assert!(
+            (retry.wait() - Retry::FIRST).abs() < 1e-3,
+            "the schedule did not move: {}",
+            retry.wait()
+        );
+        assert!(!retry.brief(), "but a minute is not a hiccup");
+    }
+
     /// A link that comes back forgets it was ever down, so the *next* drop
     /// gets the same prompt first dial. Without this, a flaky connection
     /// would take longer to recover each time it dropped, which is exactly
@@ -146,8 +269,14 @@ mod tests {
             retry.tick(100.0);
         }
         assert_eq!(retry.attempts(), 4);
+        retry.stayed_down(60.0);
+        assert!(!retry.brief());
         retry.settle();
         assert_eq!(retry.attempts(), 0);
+        assert!(
+            retry.brief(),
+            "a reconnected table still reads as an outage"
+        );
         assert!(!retry.tick(0.4), "the first wait is short again, not zero");
         assert!(retry.tick(0.2));
     }

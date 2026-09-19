@@ -206,6 +206,22 @@ impl Turn {
     }
 }
 
+/// Whether the roster says the house is answering for that chair.
+///
+/// Read off the flag rather than from anything the seat is doing, for the
+/// reason `SeatRole` gives: a held chair keeps its player's name, life total
+/// and hand, so there is nothing else about it to recognise. A client with no
+/// roster yet says no and prints the name alone, which is what it said
+/// before this existed.
+fn held_by_the_house(statics: Option<&GameStatic>, player: PlayerId) -> bool {
+    statics.is_some_and(|s| {
+        s.seats
+            .iter()
+            .find(|seat| seat.player == player)
+            .is_some_and(|seat| crate::board::SeatRole::of(seat) == crate::board::SeatRole::Away)
+    })
+}
+
 impl Prompt {
     /// A short line for the prompt bar.
     ///
@@ -221,7 +237,12 @@ impl Prompt {
     pub fn headline(&self, lang: Lang, turn: Turn, statics: Option<&GameStatic>) -> String {
         match self {
             Self::Waiting { on: Some(p) } => {
-                Phrase::WaitingForPlayer.fill(lang, &[&seat_name(lang, statics, *p)])
+                let name = seat_name(lang, statics, *p);
+                if held_by_the_house(statics, *p) {
+                    Phrase::WaitingForHeldSeat.fill(lang, &[&name])
+                } else {
+                    Phrase::WaitingForPlayer.fill(lang, &[&name])
+                }
             }
             Self::Waiting { on: None } => Phrase::JustWaiting.text(lang).to_string(),
             Self::Mulligan { taken, free } => {

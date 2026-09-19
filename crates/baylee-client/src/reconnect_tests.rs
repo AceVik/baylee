@@ -1,4 +1,5 @@
 use super::*;
+use baylee_client_core::reconnect::Retry;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
@@ -111,17 +112,68 @@ fn a_local_host_is_never_dialled() {
 /// A dial in flight is not a reason to dial again. Without this the
 /// system would fire once per frame for as long as the socket took to
 /// open, which is every frame of the two seconds a bad network needs.
+///
+/// The second half of this test used to assert `LinkLost` after a full
+/// minute inside `Connecting`, and that assertion was the defect written
+/// down: the schedule does not advance during a dial, so a client that
+/// measured the outage by the schedule would have gone on saying the
+/// connection had just dropped for as long as one socket took to fail.
+/// `stayed_down` is what it is measured by now, and this is the case that
+/// separates the two.
 #[test]
-fn a_dial_in_flight_is_left_alone() {
+fn a_dial_in_flight_is_left_alone_but_still_counts() {
     let (mut app, _link, dials) = app_with(LinkState::Connecting);
+    advance(&mut app, 0.1);
+    assert_eq!(
+        app.world().resource::<Duel>().link_note,
+        Some(Phrase::LinkLost),
+        "a dial that has just gone out is still a hiccup"
+    );
     for _ in 0..120 {
         advance(&mut app, 0.5);
     }
     assert_eq!(*dials.lock().unwrap(), 0, "it is already dialling");
     assert_eq!(
         app.world().resource::<Duel>().link_note,
-        Some(Phrase::LinkLost)
+        Some(Phrase::LinkStandIn),
+        "a minute inside one dial is not a hiccup, whatever the schedule did"
     );
+}
+
+/// The sentence turns once and stays turned.
+///
+/// `Connecting` and `Down` alternate for the whole of a long outage — one
+/// arm for the dial, the other for the wait after it — so the two have to
+/// answer the question the same way. The `Connecting` arm named `LinkLost`
+/// outright, which on a capped schedule would have flipped the bar back to
+/// the short sentence once every fifteen seconds for as long as the drop
+/// lasted.
+#[test]
+fn the_sentence_does_not_flicker_as_dials_come_and_go() {
+    let (mut app, link, _dials) = app_with(LinkState::Down);
+    advance(&mut app, Retry::PATIENCE + 1.0);
+    assert_eq!(
+        app.world().resource::<Duel>().link_note,
+        Some(Phrase::LinkStandIn),
+        "the drop has outlived its patience"
+    );
+
+    for _ in 0..3 {
+        *link.lock().unwrap() = LinkState::Connecting;
+        advance(&mut app, 0.1);
+        assert_eq!(
+            app.world().resource::<Duel>().link_note,
+            Some(Phrase::LinkStandIn),
+            "a dial going out took the bar back to the first sentence"
+        );
+        *link.lock().unwrap() = LinkState::Down;
+        advance(&mut app, 0.1);
+        assert_eq!(
+            app.world().resource::<Duel>().link_note,
+            Some(Phrase::LinkStandIn),
+            "and the wait after it took the bar back"
+        );
+    }
 }
 
 /// The schedule ends, and says so once rather than once a frame. An
@@ -136,7 +188,7 @@ fn a_table_that_cannot_be_reached_stops_and_says_so() {
     }
     assert_eq!(
         *dials.lock().unwrap(),
-        baylee_client_core::reconnect::Retry::GIVE_UP as usize,
+        Retry::GIVE_UP as usize,
         "it stopped where the schedule said it would"
     );
     assert_eq!(
@@ -172,8 +224,18 @@ fn a_table_that_comes_back_clears_the_notice_and_the_schedule() {
     assert_eq!(app.world().resource::<Duel>().link_note, None);
     assert_eq!(*dials.lock().unwrap(), during, "and stopped dialling");
 
-    // Down again: prompt, not at the cap the last outage ended on.
+    // The *next* drop is a hiccup again, not the outage this one became.
+    // Eighty seconds ago the house was being announced; a player whose link
+    // wobbles for a frame should not be told that a second time.
     *link.lock().unwrap() = LinkState::Down;
+    advance(&mut app, 0.1);
+    assert_eq!(
+        app.world().resource::<Duel>().link_note,
+        Some(Phrase::LinkLost),
+        "the new drop inherited the old one's outage"
+    );
+
+    // Down again: prompt, not at the cap the last outage ended on.
     advance(&mut app, 0.6);
     assert_eq!(
         *dials.lock().unwrap(),

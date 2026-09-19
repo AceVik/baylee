@@ -141,6 +141,61 @@ fn the_two_lines_about_another_seat_say_whose_seat_it_is() {
     );
 }
 
+/// The word for a held chair, on the one line that needed it.
+///
+/// #81 gave a chair the house is holding a dashed rim on its mat and no
+/// word anywhere in the interface. `Warte auf AceVik` over a table that is
+/// not in fact waiting for that player — the house is answering for them —
+/// is the question a player asks and the sentence that would not answer it.
+///
+/// Both counter-cases are here, because the flag has two neighbours it must
+/// not be confused with: the same roster with `away` cleared goes back to
+/// naming the player, and an AI chair is not a held one — that seat was
+/// always the house and nobody is coming back to it.
+#[test]
+fn a_held_chair_says_the_house_is_answering_for_it() {
+    let mut roster = crate::test_support::statics(0);
+    roster.seats.push(baylee_view::SeatIdentity {
+        player: PlayerId::new(1),
+        display_name: "AceVik".to_string(),
+        is_ai: false,
+        away: true,
+        team: None,
+    });
+    let waiting = interaction(Pending::ChooseTargets {
+        player: PlayerId::new(1),
+        options: vec![obj(1)],
+        player_options: vec![],
+        min: 1,
+        max: 1,
+        reason: TargetPrompt::Targets,
+    })
+    .prompt();
+
+    assert_eq!(
+        waiting.headline(Lang::En, Turn::Theirs, Some(&roster)),
+        "Waiting for the house — AceVik is away"
+    );
+    assert_eq!(
+        waiting.headline(Lang::De, Turn::Theirs, Some(&roster)),
+        "Warte auf das Haus — AceVik ist abwesend"
+    );
+
+    roster.seats[1].away = false;
+    assert_eq!(
+        waiting.headline(Lang::De, Turn::Theirs, Some(&roster)),
+        "Warte auf AceVik",
+        "the line is not turned by the flag"
+    );
+
+    roster.seats[1].is_ai = true;
+    assert_eq!(
+        waiting.headline(Lang::En, Turn::Theirs, Some(&roster)),
+        "Waiting for AceVik",
+        "an AI chair was read as a held one"
+    );
+}
+
 /// The backlog's own check, as a test: four card choices, and each line
 /// has to be placeable without knowing which card asked it. Before this,
 /// all four read "Choose 1 card(s)".

@@ -918,6 +918,23 @@ messages! {
     /// is the prompt bar speaking in its own voice, and German conjugates
     /// the two differently.
     WaitingForPlayer { en: "Waiting for {0}", de: "Warte auf {0}" },
+    /// Waiting for the house — {0} is away
+    ///
+    /// The same fact as [`Phrase::WaitingForPlayer`] about a chair the house
+    /// is holding. Since #81 the client *draws* a held chair — a dashed rim
+    /// on its mat — and had no word for one anywhere, so the one place a
+    /// player asks the question ("why is nobody answering?") was answered
+    /// with a name and nothing else.
+    ///
+    /// The indicative is right here and is not the tense
+    /// [`Phrase::LinkStandIn`] uses, which is the distinction worth keeping:
+    /// `SeatIdentity::away` is `SeatKind::StandIn`, so the roster is telling
+    /// this client that the house **is** answering. The banner guesses about
+    /// its own seat and may not say so; this reports another seat and may.
+    WaitingForHeldSeat {
+        en: "Waiting for the house — {0} is away",
+        de: "Warte auf das Haus — {0} ist abwesend",
+    },
     /// Waiting
     JustWaiting { en: "Waiting", de: "Warte" },
     /// Keep this hand? (the next mulligan is free)
@@ -1230,13 +1247,44 @@ messages! {
     // ---- the connection to the table
     /// Connection lost — reconnecting…
     ///
-    /// Said while the client is dialling again, which it now does on its own.
+    /// Said for the first [`crate::reconnect::Retry::PATIENCE`] seconds of a
+    /// drop, and then replaced by [`Phrase::LinkStandIn`].
+    ///
     /// The wording is deliberately not "the game is over": the table is still
-    /// there, the engine's decision clock does not run for a seat with no
-    /// socket, and the seat is being resumed from where it left off.
+    /// there and the seat is resumed from where it left off. What it used to
+    /// give as the reason was that "the engine's decision clock does not run
+    /// for a seat with no socket" — true, and the wrong clock. The
+    /// **reconnect** clock is running the whole time this is on screen, and
+    /// when it expires the house takes the chair. That is why this sentence
+    /// is the short one now and does not stand alone for two minutes.
     LinkLost {
         en: "Connection lost — reconnecting…",
         de: "Verbindung verloren — verbinde neu …",
+    },
+    /// Still reconnecting — the house will answer for your seat until you are back.
+    ///
+    /// The second form, once a drop has outlived
+    /// [`crate::reconnect::Retry::PATIENCE`]. It says the consequence the
+    /// first one leaves out: `Session::stand_in` gives the chair to the
+    /// house after `HouseRules::reconnect_window_secs`, and `hand_back`
+    /// returns it the moment the player is attached again.
+    ///
+    /// **The tense is the finding.** "The house *is* playing your seat" is
+    /// the sentence this obviously wants and is the one thing that cannot be
+    /// written: the window is a per-table number between ten seconds and an
+    /// hour, no client is ever told it, and a client could not act on it
+    /// anyway because it is disconnected for exactly the span it would be
+    /// counting. Stating an accomplished fact would be a fabrication on
+    /// every table but one. "Will answer" is true whether or not the
+    /// handover has happened yet, and `PATIENCE` being under the gateway's
+    /// own floor means the first sight of it is always before.
+    ///
+    /// The German says it in the present, which is not a drift: German
+    /// present carries the near future, and "wird … antworten" reads as a
+    /// prediction where the English "will" reads as a rule.
+    LinkStandIn {
+        en: "Still reconnecting — the house will answer for your seat until you are back.",
+        de: "Verbinde weiter — das Haus übernimmt deinen Platz, bis du zurück bist.",
     },
     /// The table cannot be reached. Rejoin from the lobby.
     ///

@@ -1799,9 +1799,14 @@ fn keep_the_table_connected(
         // A dial is in flight. Saying the same thing as `Down` is deliberate:
         // the player is told the connection dropped and that something is
         // being done, and which of those two states a given frame is in is
-        // not information anyone can act on.
-        LinkState::Connecting => duel.link_note = Some(Phrase::LinkLost),
+        // not information anyone can act on. Which sentence that is comes
+        // from the same place in both arms — see `link_note`.
+        LinkState::Connecting => {
+            retry.schedule.stayed_down(time.delta_secs());
+            duel.link_note = Some(link_note(&retry.schedule));
+        }
         LinkState::Down => {
+            retry.schedule.stayed_down(time.delta_secs());
             if retry.schedule.exhausted() {
                 duel.link_note = Some(Phrase::LinkGaveUp);
                 if !retry.told {
@@ -1809,7 +1814,7 @@ fn keep_the_table_connected(
                     reports.write(DuelReport::Unreachable);
                 }
             } else {
-                duel.link_note = Some(Phrase::LinkLost);
+                duel.link_note = Some(link_note(&retry.schedule));
                 if retry.schedule.tick(time.delta_secs()) {
                     // A dial that could not even be started is not a reason
                     // to stop: the schedule has counted the attempt, and the
@@ -1819,6 +1824,23 @@ fn keep_the_table_connected(
                 }
             }
         }
+    }
+}
+
+/// Which of the two connection sentences the bar carries.
+///
+/// One function rather than a phrase written into each arm, because
+/// `Connecting` and `Down` alternate for as long as a drop lasts: a client
+/// that read the schedule only where it dials would fall back to the short
+/// sentence for the length of every dial — once every fifteen seconds, once
+/// the back-off is at its cap — and the bar would alternate between two
+/// accounts of one outage. That is not a hypothetical; the arm above said
+/// `LinkLost` outright.
+fn link_note(schedule: &Retry) -> Phrase {
+    if schedule.brief() {
+        Phrase::LinkLost
+    } else {
+        Phrase::LinkStandIn
     }
 }
 

@@ -37,8 +37,14 @@ drives it. The schedule is `baylee-client-core/src/reconnect.rs`, renderer-
 and transport-free like the lobby's decisions, so it is tested without a
 gateway to disconnect from: 0.5 s doubling to a 15 s cap, twelve dials, then
 it stops and says so. It is allowed to back off at all because the engine's
-decision clock does not run for a seat with no socket — nobody is losing on
-time while it waits. Giving up reports `DuelReport::Unreachable`, which is a
+*decision* clock does not run for a seat with no socket — nobody is losing on
+time while it waits. That is not a licence for the banner to say nothing is
+happening: the **reconnect** clock does run, and when it expires the house
+takes the chair. The bar turns to a second sentence at `Retry::PATIENCE`, in
+the future tense, because the window is a per-table 10 s–3600 s that no
+client is ever told and could not count down anyway — it is disconnected for
+exactly that span. `docs/client.md` §"What the banner may claim, and why it
+cannot count". Giving up reports `DuelReport::Unreachable`, which is a
 variant rather than another `Failed(String)` because the gateway's `Error`
 envelope carries the engine's refusal of a *single action* through `Failed`,
 and a shell that returned to the lobby on every one of those would eject a
