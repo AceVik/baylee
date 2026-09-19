@@ -1250,11 +1250,30 @@ struct ParsedLine {
 /// deck is refused either way, and only the reason changes. `if_no_card` is
 /// what to say when the name is nothing, which differs by where it was
 /// written.
+/// What a real card this build compiles nothing for is called, wherever it
+/// is refused. One string, because a player who meets it twice through two
+/// routes has met one problem.
+const EXISTS_UNPLAYABLE: &str = "that card exists but this server cannot play it";
+
 fn no_such_card(name: &str, if_no_card: &'static str) -> &'static str {
     if baylee_cards_index::row_by_name(name).is_some() {
-        "that card exists but this server cannot play it"
+        EXISTS_UNPLAYABLE
     } else {
         if_no_card
+    }
+}
+
+/// The same two facts, reached by index rather than by name.
+///
+/// A `CardIndex` is the ledger's own key and its rows are dense, so "is that
+/// a card at all" is whether the ledger has a row there — no name lookup and
+/// no [`baylee_cards_index::row_by_name`], which would be the wrong
+/// instrument for a number.
+fn no_such_card_at(index: baylee_core::ids::CardIndex) -> &'static str {
+    if baylee_cards_index::ROWS.get(index.get() as usize).is_some() {
+        EXISTS_UNPLAYABLE
+    } else {
+        "unknown card"
     }
 }
 
@@ -2924,6 +2943,27 @@ async fn list_automation(
 /// References are validated against the card registry here rather than
 /// trusted: an answer for a card that does not exist could never fire, and
 /// storing junk from a client is how a store becomes unreadable later.
+///
+/// **A real card this build cannot play is refused too, and that is the
+/// right answer rather than a gap.** A standing answer is keyed by the
+/// `AbilityRef` the engine offered during a game, so a client only ever
+/// learns one for a card that was on a battlefield — an index for an
+/// uncompiled card is not a state a working client can reach. Storing it
+/// would keep a preference that can never fire and that nothing shows the
+/// player, and it would spend part of a bounded budget on nothing.
+///
+/// It also keeps the round trip safe, which is the concrete form of "junk
+/// outlives the request": `GET /automation` hands back what is stored
+/// unfiltered, so a client that reads its settings and writes them back
+/// sends every stored index again. One index this build could not resolve
+/// would fail that write, and the player would be unable to change *any*
+/// setting. Refusing at the door is what keeps that unreachable — though
+/// not if a card is ever taken *out* of the pool, which nothing here
+/// prevents and nothing here has had to.
+///
+/// What was wrong was only the message: a real card and a number that is no
+/// card were both `unknown card`, which accuses a client of sending
+/// nonsense when it may have sent a perfectly good handle.
 async fn set_automation(
     State(state): State<Shared>,
     headers: HeaderMap,
@@ -2934,8 +2974,9 @@ async fn set_automation(
         return Err(err(StatusCode::BAD_REQUEST, "too many remembered answers"));
     }
     for a in &body.answers {
-        if baylee_cards::by_index(baylee_core::ids::CardIndex::new(a.card)).is_none() {
-            return Err(err(StatusCode::BAD_REQUEST, "unknown card"));
+        let index = baylee_core::ids::CardIndex::new(a.card);
+        if baylee_cards::by_index(index).is_none() {
+            return Err(err(StatusCode::BAD_REQUEST, no_such_card_at(index)));
         }
     }
     let mut answers = body.answers;

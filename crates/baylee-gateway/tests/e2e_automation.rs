@@ -76,3 +76,56 @@ fn standing_answers_are_remembered_per_account() {
         "an anonymous caller read an account's settings"
     );
 }
+
+/// A standing answer is refused for two different reasons, and the player is
+/// told which.
+///
+/// Both are still a 400 — an answer for a card this build cannot play could
+/// never fire, and storing it would spend a bounded budget on nothing and
+/// leave an index that breaks the next read-modify-write. What was wrong was
+/// only the message: a perfectly good handle for a real card was called
+/// `unknown card`, which accuses the client of sending nonsense.
+///
+/// Both indices are derived. `4000000` is past the end of the ledger however
+/// it grows; the other is the first ledger row this build compiles no card
+/// for, so it stays a real card as the pool grows rather than becoming one.
+#[test]
+fn a_standing_answer_for_a_real_card_is_not_refused_as_unknown() {
+    let gw = spawn_gateway("automation-reasons");
+    let token = login(gw.port, "picky@example.com", "picky_player");
+
+    let real_but_unplayable = baylee_cards_index::ROWS
+        .iter()
+        .find(|row| baylee_cards::by_index(row.index).is_none())
+        .expect("this build compiles 2716 of 33 694 cards");
+    let put = format!(
+        "{{\"answers\":[{{\"card\":{},\"ability\":0,\"yes\":true}}]}}",
+        real_but_unplayable.index.get()
+    );
+    let (status, body) = http(gw.port, "PUT", "/automation", Some(&token), &put);
+    assert_eq!(status, 400, "it is still refused: {body}");
+    assert!(
+        body.contains("this server cannot play it"),
+        "{} is a real card and was called unknown: {body}",
+        real_but_unplayable.name
+    );
+
+    // The counter-half: a number that is no card keeps the old answer, or
+    // the assertion above would pass on a route that says one thing to
+    // everybody.
+    let bad = "{\"answers\":[{\"card\":4000000,\"ability\":0,\"yes\":true}]}";
+    let (status, body) = http(gw.port, "PUT", "/automation", Some(&token), bad);
+    assert_eq!(status, 400, "{body}");
+    assert!(
+        body.contains("unknown card"),
+        "a number that is no card at all is still unknown: {body}"
+    );
+
+    // And nothing was stored by either refusal.
+    let (status, body) = http(gw.port, "GET", "/automation", Some(&token), "");
+    assert_eq!(status, 200);
+    assert!(
+        body.contains("\"answers\":[]"),
+        "a refused answer reached the store: {body}"
+    );
+}
