@@ -81,6 +81,19 @@ pub const MAX_SECS: u32 = 3600;
 /// and the whole table waits on them forever — which is the exact failure
 /// `HouseRules::reconnect_window_secs` was added to end. A local harness may
 /// still choose it; a room full of strangers may not.
+///
+/// The argument that survives somebody making the case for private tables is
+/// the second one: **nothing is lost by refusing it.** Every legitimate want
+/// zero expresses — a table among friends that would rather wait than let the
+/// house play — says the same thing as a very large number. Zero
+/// *additionally* expresses the one thing nobody wants, and expresses it in
+/// the spelling that looks most like a sensible default. A value with a
+/// harmless spelling and a harmful one is refused in the harmful spelling.
+///
+/// [`Preset::decision_timeout_secs`] stays legal at zero for the mirror
+/// reason, and the asymmetry is not an inconsistency: there is no large
+/// number that means "cannot be lost on time", so there zero carries a
+/// meaning nothing else can say.
 pub const MIN_RECONNECT_SECS: u32 = 10;
 
 /// Finds a named clock.
