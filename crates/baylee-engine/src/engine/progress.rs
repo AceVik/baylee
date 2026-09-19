@@ -11,9 +11,31 @@ use crate::choice::{
 use crate::state::Side;
 use crate::turn::DayNight;
 use crate::win::Victor;
-use baylee_cards_dsl::{PlayerRel, SpellMode};
-use baylee_core::ids::AbilityRef;
+use baylee_cards_dsl::{PlayerRel, SpellMode, TargetReq, TargetSpec};
+use baylee_core::ids::{AbilityRef, SeatSet};
 use baylee_core::preset::LoopPolicy;
+
+/// What CR 608.2b's re-check found about the object on top of the stack.
+///
+/// Three answers and not two, because "no legal target left" and "this was
+/// never a targeted spell" have to be told apart: the first removes the
+/// spell from the stack and the second is most of the stack.
+enum TargetLegality {
+    /// Nothing to ask. The object specifies no targets, or the targets it
+    /// specifies are not ones a player chose.
+    NotAsked,
+    /// At least one chosen target is still legal, and these are the ones
+    /// that are. CR 608.2b: the spell resolves, and "the spell or ability
+    /// won't do anything to an illegal target".
+    Kept {
+        /// The chosen objects that are still legal targets.
+        objects: SmallVec<[ObjectId; 2]>,
+        /// The chosen players that still are.
+        players: SeatSet,
+    },
+    /// Every chosen target is now illegal: it does not resolve.
+    AllIllegal,
+}
 
 impl<L: CardLookup> Engine<L> {
     /// A seat's automation settings.
@@ -1945,6 +1967,182 @@ impl<L: CardLookup> Engine<L> {
         !crate::eval::intervening_if(&self.state, condition, obj.controller, loc.source)
     }
 
+    /// What the object on top of the stack is allowed to target.
+    ///
+    /// One arm list for a question that is asked twice — CR 608.2b's
+    /// re-check below, and `Resolution::targeted`, which is what tells
+    /// `Filter::This` apart from itself. It was written out once before and
+    /// the second copy would have been the third: `AbilityDef::Activated`
+    /// and `AbilityDef::ActivatedConditional` are twins that six readers
+    /// across this workspace have already matched one of and not the other.
+    ///
+    /// A spell carries its requirement on the object instead of in the card:
+    /// the cast wizard writes `target_req` there so a copy can be retargeted
+    /// without a lookup (CR 707.10c), and this is a second reader with the
+    /// same reason — by resolution the mode, the face and the copy status
+    /// have all been settled and the object is where they were settled.
+    fn stack_target_req(&self, on_stack: ObjectId) -> Option<TargetReq> {
+        let obj = self.state.object(on_stack)?;
+        if obj.kind != ObjectKind::AbilityOnStack {
+            return obj.target_req;
+        }
+        let loc = obj.ability?;
+        if loc.index == AbilityRef::SYNTHETIC {
+            // A synthetic keyword trigger (prowess, ward) prints no target.
+            return None;
+        }
+        let abilities = obj.own_abilities.unwrap_or_else(|| {
+            self.state
+                .object(loc.source)
+                .map_or(&[][..], |o| o.abilities(&self.lookup))
+        });
+        match abilities.get(loc.index as usize)? {
+            AbilityDef::Activated { target, .. }
+            | AbilityDef::ActivatedConditional { target, .. } => target.map(TargetReq::one),
+            AbilityDef::Loyalty { targets, .. }
+            | AbilityDef::Triggered { targets, .. }
+            | AbilityDef::SagaChapter { targets, .. } => *targets,
+            AbilityDef::ModalTriggered { modes, .. } => {
+                // The same `expect` the resolution path below makes, and for
+                // the reason written there: the mode is announced as the
+                // ability goes on the stack (CR 603.3c), so one that reached
+                // resolution without it came off a push site that forgot to
+                // carry it. Falling back to the first mode is how a card
+                // resolves the wrong half of itself in silence.
+                let idx = obj
+                    .mode_index
+                    .expect("a modal trigger on the stack has its mode")
+                    as usize;
+                modes.get(idx).and_then(|m| m.targets)
+            }
+            _ => None,
+        }
+    }
+
+    /// CR 608.2b, asked of the top of the stack as it begins to resolve.
+    ///
+    /// > If the spell or ability specifies targets, it checks whether the
+    /// > targets are still legal. […] If all its targets, for every instance
+    /// > of the word "target," are now illegal, the spell or ability doesn't
+    /// > resolve.
+    ///
+    /// The question is asked with the very enumeration that offered the
+    /// targets in the first place — `eval::target_options` and
+    /// `eval::target_player_options`, with the same `(you, this)` the cast
+    /// wizard and `ability_has_a_target` pass. One predicate read from both
+    /// ends: an offer and a re-check that disagreed would be a target the
+    /// engine let a player choose and then refused to resolve at.
+    ///
+    /// **What this cannot see.** `GameObject::targets` holds a bare
+    /// `ObjectId`, and a creature blinked in response really is back on the
+    /// battlefield — so it enumerates as legal although CR 400.7 makes it a
+    /// new object. No zone test can catch that; only the `(ObjectId,
+    /// version)` pair `object.rs`'s own header prescribes can, which is #117
+    /// and is the same defect one layer over.
+    fn target_legality(&self, on_stack: ObjectId) -> TargetLegality {
+        let Some(obj) = self.state.object(on_stack) else {
+            return TargetLegality::NotAsked;
+        };
+        let Some(req) = self.stack_target_req(on_stack) else {
+            return TargetLegality::NotAsked;
+        };
+        // Two specs name no *chosen* target. `EventObject` is the object the
+        // trigger fired on, and `Player(rel)` derives its players from a
+        // relation at resolution — `resolve::players_of` reads neither list
+        // for it. Both enumerate empty by construction, so asking them this
+        // question would read every target they have as illegal.
+        if matches!(req.spec, TargetSpec::EventObject | TargetSpec::Player(_)) {
+            return TargetLegality::NotAsked;
+        }
+        // The player half exists only for the three specs that can name one,
+        // which is exactly the set `target_player_options` answers for. The
+        // bound matters: `chosen_player` is also written by choices that are
+        // not targets at all, and folding it in unconditionally would put a
+        // chosen player in front of an enumeration that never offered them.
+        let mut chosen_players = SeatSet::new();
+        if matches!(
+            req.spec,
+            TargetSpec::AnyTarget | TargetSpec::AnyPlayer | TargetSpec::AnyOpponent
+        ) {
+            chosen_players = obj.target_players;
+            if let Some(player) = obj.chosen_player {
+                chosen_players.insert(player);
+            }
+        }
+        // CR 608.2b is about targets that were chosen. A requirement with a
+        // minimum of zero, taken with nothing pointed at, has none to lose —
+        // and an empty list satisfies "all of them are illegal" vacuously,
+        // which would fizzle every untargeted half of the pool.
+        if obj.targets.is_empty() && chosen_players.is_empty() {
+            return TargetLegality::NotAsked;
+        }
+        let you = obj.controller;
+        let this = if obj.kind == ObjectKind::AbilityOnStack {
+            obj.ability.map_or(on_stack, |loc| loc.source)
+        } else {
+            on_stack
+        };
+        let legal_objects = eval::target_options(&req.spec, &self.state, you, this);
+        let legal_players = eval::target_player_options(&self.state, &req.spec, you);
+        let objects: SmallVec<[ObjectId; 2]> = obj
+            .targets
+            .iter()
+            .copied()
+            .filter(|id| legal_objects.contains(id))
+            .collect();
+        let mut players = SeatSet::new();
+        for player in chosen_players.iter() {
+            if legal_players.contains(&player) {
+                players.insert(player);
+            }
+        }
+        if objects.is_empty() && players.is_empty() {
+            TargetLegality::AllIllegal
+        } else {
+            TargetLegality::Kept { objects, players }
+        }
+    }
+
+    /// CR 608.2b's removal: off the stack, without having resolved.
+    ///
+    /// **Not [`Self::finalize_spell`]**, which is the path a spell that *did*
+    /// resolve takes and owes two riders this one does not. Rebound exiles a
+    /// spell "as it resolves" (CR 702.88) and an Adventure likewise
+    /// (CR 715.3d); a spell that never resolved has done neither, and
+    /// borrowing that function would have given a fizzled Ephemerate its
+    /// rebound. Flashback is the rider that *does* apply, because CR 702.34a
+    /// exiles the card "any time it would leave the stack" rather than on
+    /// resolution.
+    fn leave_stack_without_resolving(&mut self, top: ObjectId) {
+        let Some(obj) = self.state.object(top) else {
+            return;
+        };
+        if obj.kind == ObjectKind::AbilityOnStack {
+            // An ability ceases to exist rather than going anywhere
+            // (CR 608.2n) — the same removal CR 603.4's arm above makes.
+            self.state.zones.remove(top, ZoneLocation::Stack);
+            let _ = self.state.arena.remove(top);
+            return;
+        }
+        let owner = obj.owner;
+        let flashback = obj.riders.contains(&crate::object::Rider::Flashback);
+        if let Some(obj) = self.state.object_mut(top) {
+            obj.kind = ObjectKind::Card;
+        }
+        let destination = if flashback {
+            ZoneLocation::Exile(owner)
+        } else {
+            ZoneLocation::Graveyard(owner)
+        };
+        // `Cause::Spell` and not `Cause::Effect`: nothing's effect moved this
+        // card. It is the same clause's other half — CR 608.2n puts a
+        // resolved spell in its owner's graveyard and `finalize_spell` calls
+        // that `Cause::Spell` — arriving by the door one sentence earlier.
+        let _ = self
+            .state
+            .move_object(top, destination, ZonePosition::Top, Cause::Spell);
+    }
+
     #[allow(clippy::too_many_lines)] // resolution dispatch is a flat router; extraction would obscure it
     pub(crate) fn resolve_stack_top(&mut self) {
         let Some(&top) = self.state.zones.list(ZoneLocation::Stack).last() else {
@@ -1965,6 +2163,49 @@ impl<L: CardLookup> Engine<L> {
             self.state.zones.remove(top, ZoneLocation::Stack);
             let _ = self.state.arena.remove(top);
             return;
+        }
+        // CR 608.2b, asked in the same place and for the same reason: a
+        // spell or ability all of whose targets have become illegal does not
+        // resolve. Before the spell/ability split below, because an Aura is
+        // a targeted *permanent* spell and a check inside either branch
+        // would miss one of them.
+        match self.target_legality(top) {
+            TargetLegality::AllIllegal => {
+                self.state
+                    .journal
+                    .record(GameEvent::StackObjectDidNotResolve { object: top });
+                self.leave_stack_without_resolving(top);
+                return;
+            }
+            // "…won't do anything to an illegal target" (CR 608.2b): the
+            // rest of it still happens. Narrowed once, here, rather than in
+            // each of the four `Resolution`s built below — all four read
+            // `obj.targets.clone()`, so the one write is what keeps them
+            // from disagreeing.
+            //
+            // Safe to narrow because a `TargetReq` carries **one** spec: the
+            // positions in `targets` are a set and not a tuple, and nothing
+            // in this crate reads one by index. Two separate instances of
+            // the word "target" — the Plague Spores shape the rule's own
+            // example uses — are not expressible in this DSL at all, so the
+            // half of CR 608.2b that needs them is not shipped here.
+            TargetLegality::Kept { objects, players } => {
+                if let Some(obj) = self.state.object_mut(top) {
+                    if obj.targets.len() != objects.len() {
+                        obj.targets = objects;
+                    }
+                    if obj.target_players != players {
+                        obj.target_players = players;
+                        // `chosen_player` is the same choice written twice
+                        // and `resolve::players_of` reads *it* for
+                        // `PlayerRel::Chosen`. Left behind, a player who
+                        // gained hexproof in response would still be dealt
+                        // to by the half of the spell that reads the scalar.
+                        obj.chosen_player = obj.chosen_player.filter(|p| players.contains(*p));
+                    }
+                }
+            }
+            TargetLegality::NotAsked => {}
         }
         self.state
             .journal
@@ -2034,25 +2275,13 @@ impl<L: CardLookup> Engine<L> {
             };
             // Whether this ability said "target" at all, which is what tells
             // `Filter::This` apart from itself — see `Resolution::targeted`.
-            let targeted = match abilities.get(loc.index as usize) {
-                Some(
-                    AbilityDef::Activated { target, .. }
-                    | AbilityDef::ActivatedConditional { target, .. },
-                ) => target.is_some(),
-                Some(
-                    AbilityDef::Loyalty { targets, .. }
-                    | AbilityDef::Triggered { targets, .. }
-                    | AbilityDef::SagaChapter { targets, .. },
-                ) => targets.is_some(),
-                Some(AbilityDef::ModalTriggered { modes, .. }) => modes
-                    .get(
-                        obj.mode_index
-                            .expect("a modal trigger on the stack has its mode")
-                            as usize,
-                    )
-                    .is_some_and(|m| m.targets.is_some()),
-                _ => false,
-            };
+            //
+            // The arm list this used to spell out is `stack_target_req`,
+            // which CR 608.2b's check above already needs: two copies of a
+            // match over `Activated` and `ActivatedConditional` is two
+            // chances to add a variant to one of them, and this workspace
+            // has found six readers matching one twin and not the other.
+            let targeted = self.stack_target_req(top).is_some();
             if loc.index == baylee_core::ids::AbilityRef::SYNTHETIC {
                 // Synthetic keyword trigger (prowess & co.): effects live in
                 // the side map instead of the card definition.

@@ -2260,7 +2260,7 @@ This was a **card** fault and not an engine one, which is why it only became
 visible when entry 34 made the mode reachable: until then the trigger carrying
 it was never collected.
 
-### 40. A spell whose targets have all gone still resolves — RECORDED
+### 40. A spell whose targets have all gone still resolves — FIXED
 
 Found while writing entry 38's boundary, and it is the reason that boundary is
 reachable at all.
@@ -2301,6 +2301,33 @@ is the target's own legality against the spell's `TargetReq`, re-evaluated now
 replacement and any effect. It belongs in `resolve_stack_top`, beside the
 `targeted` read that is already there, and it needs `res.targeted` to tell a
 spell that printed the word "target" from one that never did.
+
+**Closed (#116), and by a person walking into it rather than by this entry.**
+The owner cast Heroic Intervention in answer to an opponent's Banishing
+Stroke and lost the creature anyway — the same rule, found in a game a year
+after it was written down here. `Engine::target_legality` asks it now, in
+`resolve_stack_top` and above the spell/ability split, because an Aura is a
+targeted *permanent* spell and a check inside either branch would miss one of
+them. It asks with `eval::target_options` and `eval::target_player_options` —
+the very enumerations that offered the targets — so an offer and a re-check
+cannot disagree.
+
+Two of the three readings above turned out right and worth keeping. The
+partly-illegal case is handled rather than accidental: the legal subset is
+written back once, before the `Resolution`s are built, which is safe here
+because a `TargetReq` carries **one** spec and nothing reads `targets` by
+index. The journal is right for the same reason CR 603.4's arm is —
+`StackObjectDidNotResolve`, never `SpellCountered`, because nothing countered
+this.
+
+What is **not** closed is the rule's own example. "For every instance of the
+word 'target'" wants two separate instances, which this DSL cannot spell:
+Plague Spores' "destroy target nonblack creature and destroy target land" is
+one `TargetReq` short of being expressible, so that half waits on the DSL and
+not on the engine. And a target blinked in response still reads as legal,
+because `GameObject::targets` holds a bare `ObjectId` where `object.rs`'s own
+header prescribes `(ObjectId, version)` — that is #117, and it is this defect
+one layer over.
 
 
 ### 41. A trigger that found no target ate the trigger behind it — FIXED

@@ -290,3 +290,248 @@ fn an_optional_rally_trigger_may_be_declined() {
         "a declined 'may' does nothing at all"
     );
 }
+
+// ---------------------------------------------- CR 608.2b: the target re-check
+//
+// Found in play, which is why it is here rather than in a card file: an
+// opponent cast Banishing Stroke at a creature, the creature's controller
+// answered with Heroic Intervention, and the creature went to the bottom of
+// the library anyway. All three cards read correctly. What was missing was
+// the question CR 608.2b asks as a spell begins to resolve.
+//
+// The rule is quoted from the local Comprehensive Rules copy:
+//
+// > 608.2b If the spell or ability specifies targets, it checks whether the
+// > targets are still legal. […] If all its targets, for every instance of
+// > the word "target," are now illegal, the spell or ability doesn't
+// > resolve. It's removed from the stack and, if it's a spell, put into its
+// > owner's graveyard.
+//
+// Most illegal-target cases hide themselves: a target that left the
+// battlefield is not findable, so the effect does nothing and only the
+// journal is wrong. The visible case is the one where the object is still
+// sitting there and merely no longer a legal target, which is the commonest
+// protective play in Magic and the one the owner made.
+
+/// Casts `card` from `seat`'s hand onto a stack that already holds a spell.
+///
+/// The passing is what makes it a *response* rather than a second spell
+/// cast in an empty window, and the non-empty stack is asserted rather than
+/// assumed: a test that walked past the window would cast into an empty
+/// stack and prove nothing about the rule below.
+#[track_caller]
+fn respond_with(engine: &mut Engine<RegistryLookup>, seat: PlayerId, card: CardIndex) {
+    pass_until(engine, |e| {
+        !stack_is_empty(e)
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == seat)
+    });
+    cast_from_hand(engine, seat, card);
+}
+
+/// How many times the journal says an object left the stack each way.
+///
+/// Both counted together because the whole point of the pair is that they
+/// are different events. `StackObjectDidNotResolve` is the one CR 603.4
+/// already used and CR 608.2b now shares; `SpellCountered` is what a card
+/// that cares about being countered reads, and nothing countered this.
+fn how_it_left(engine: &Engine<RegistryLookup>, object: ObjectId, mark: usize) -> (usize, usize) {
+    let count = |want: &GameEvent| {
+        engine.journal().entries()[mark..]
+            .iter()
+            .filter(|e| e.event == *want)
+            .count()
+    };
+    (
+        count(&GameEvent::StackObjectDidNotResolve { object }),
+        count(&GameEvent::SpellCountered { object }),
+    )
+}
+
+/// A spell whose only target has gained hexproof does not resolve, and the
+/// card goes to its owner's graveyard.
+///
+/// The journal is asserted beside the outcome and not instead of it. An
+/// outcome-only test passes just as happily if the engine records
+/// `SpellCountered` here — and then a card that triggers on being countered
+/// would fire on a spell nobody countered, with nothing red to say so.
+#[test]
+fn a_spell_whose_only_target_gained_hexproof_does_not_resolve() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(73, forest())
+        .battlefield(0, &[forest(), forest(), ondu_cleric()])
+        .hand(0, &[heroic_intervention()])
+        .battlefield(1, &[plains()])
+        .hand(1, &[swords_to_plowshares()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_their_main_phase(&mut engine, p1);
+    let cleric = on_battlefield(&engine, p0, ondu_cleric()).expect("the cleric is out");
+    let mark = engine.journal().entries().len();
+
+    cast_from_hand(&mut engine, p1, swords_to_plowshares());
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!("expected the swords' aim, got {:?}", engine.pending())
+    };
+    assert_eq!(options, vec![cleric], "the only creature on the table");
+    engine
+        .apply(
+            p1,
+            PlayerAction::ChooseObjects {
+                objects: vec![cleric],
+            },
+        )
+        .unwrap();
+    let swords = engine.state().zones.list(ZoneLocation::Stack)[0];
+
+    respond_with(&mut engine, p0, heroic_intervention());
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        on_battlefield(&engine, p0, ondu_cleric()).is_some(),
+        "the creature was exiled although it had hexproof when the spell \
+         tried to resolve"
+    );
+    assert!(
+        in_graveyard(&engine, p1, swords_to_plowshares()).is_some(),
+        "\"…and, if it's a spell, put into its owner's graveyard\": the \
+         spell is {:?}",
+        engine.state().object(swords).map(|o| o.zone)
+    );
+    assert_eq!(
+        how_it_left(&engine, swords, mark),
+        (1, 0),
+        "the journal has to say it did not resolve, exactly once, and has to \
+         not say it was countered — nothing countered it"
+    );
+}
+
+/// The other side of the same sentence: one illegal target out of two leaves
+/// the spell resolving for the rest.
+///
+/// Curse of the Swine is the pool's one spell that genuinely stands on the
+/// stack holding more than one target. It is cast for X = 2 across the
+/// table — one creature on each side — so that Heroic Intervention, which
+/// reaches only its caster's permanents, makes exactly one of the two
+/// illegal.
+///
+/// What this cannot reach is the rule's own example. CR 608.2b says "for
+/// every instance of the word 'target'", and a `TargetReq` in this DSL
+/// carries one spec: Plague Spores' "destroy target nonblack creature and
+/// destroy target land" is two instances and is not expressible here, so the
+/// half of the rule that needs them is not implemented.
+#[test]
+fn a_spell_with_one_illegal_target_still_resolves_for_the_other() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let elf = llanowar_elves();
+    let mut engine = Duel::new(74, island())
+        .battlefield(0, &[forest(), forest(), elf])
+        .hand(0, &[heroic_intervention()])
+        .battlefield(1, &[island(), island(), island(), island(), elf])
+        .hand(1, &[curse_of_the_swine()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_their_main_phase(&mut engine, p1);
+    let mine = on_battlefield(&engine, p0, elf).expect("my elf");
+    let theirs = on_battlefield(&engine, p1, elf).expect("their elf");
+
+    cast_from_hand(&mut engine, p1, curse_of_the_swine());
+    let Pending::ChooseNumber { .. } = engine.pending().clone() else {
+        panic!("expected the X choice, got {:?}", engine.pending())
+    };
+    engine.apply(p1, PlayerAction::ChooseNumber(2)).unwrap();
+    engine
+        .apply(
+            p1,
+            PlayerAction::ChooseObjects {
+                objects: vec![mine, theirs],
+            },
+        )
+        .expect("two creatures is what X = 2 asks for");
+    let curse = engine.state().zones.list(ZoneLocation::Stack)[0];
+    assert_eq!(
+        engine
+            .state()
+            .object(curse)
+            .expect("on the stack")
+            .targets
+            .len(),
+        2,
+        "the premise: two targets, one on each side of the table"
+    );
+
+    respond_with(&mut engine, p0, heroic_intervention());
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(
+        engine.state().object(mine).map(|o| o.zone),
+        Some(Zone::Battlefield),
+        "hexproof made this one an illegal target, and \"the spell won't do \
+         anything to an illegal target\""
+    );
+    assert_eq!(
+        engine.state().object(theirs).map(|o| o.zone),
+        Some(Zone::Exile),
+        "the other target was still legal, so the spell resolved and exiled \
+         it — an all-or-nothing check would have saved it too"
+    );
+    assert!(
+        in_graveyard(&engine, p1, curse_of_the_swine()).is_some(),
+        "a spell that resolved goes to the graveyard by the ordinary door"
+    );
+}
+
+/// The negative that keeps the check honest: hexproof stops opponents only
+/// (CR 702.11b), so your own spell still resolves at your own creature.
+///
+/// Without this, a re-check that answered "illegal" for everything would
+/// pass the two tests above and break every targeted spell in the pool.
+#[test]
+fn your_own_spell_still_resolves_at_your_own_hexproofed_creature() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(75, forest())
+        .battlefield(0, &[forest(), forest(), plains(), plains(), ondu_cleric()])
+        .hand(0, &[heroic_intervention(), swords_to_plowshares()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let cleric = on_battlefield(&engine, p0, ondu_cleric()).expect("the cleric is out");
+    let life = engine.state().players[0].life;
+
+    cast_from_hand(&mut engine, p0, heroic_intervention());
+    pass_until(&mut engine, stack_is_empty);
+    assert!(
+        keywords(&engine, cleric).contains(KeywordSet::HEXPROOF),
+        "the premise: the creature really does have hexproof now"
+    );
+
+    cast_from_hand(&mut engine, p0, swords_to_plowshares());
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!("expected the swords' aim, got {:?}", engine.pending())
+    };
+    assert_eq!(
+        options,
+        vec![cleric],
+        "hexproof keeps out opponents, so my own spell is still offered it"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![cleric],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(
+        engine.state().object(cleric).map(|o| o.zone),
+        Some(Zone::Exile),
+        "my own Swords resolved at my own hexproofed creature"
+    );
+    assert_eq!(
+        engine.state().players[0].life,
+        life + 1,
+        "\"its controller gains life equal to its power\" — the rest of the \
+         spell happened too"
+    );
+}
