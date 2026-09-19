@@ -1955,6 +1955,95 @@ mod tests {
         );
     }
 
+    /// A sheet a **question** opened does not fly: it is dismissed where it
+    /// stands.
+    ///
+    /// The other arm of `reveal_tray`'s match, and the one with nowhere to
+    /// go — the tray's button is *held* for as long as the question owns the
+    /// sheet, so a flight to it would be a movement towards a door the player
+    /// was not allowed through. `hud::motion`'s own rule is that a dismissal
+    /// is not a journey, and this takes `motion::shutting`, the curve the
+    /// drawer is dismissed on.
+    ///
+    /// Which arm is taken is decided from `TrayReveal::to_tray`, recorded
+    /// while the sheet is **up**: by the time it closes the browser is shut,
+    /// and a shut browser answers `for_choice` with false. So the `follow(…,
+    /// None)` below is doing two jobs — it answers the question, and it is
+    /// the only route by which this arm is reachable at all.
+    ///
+    /// Motion is turned back on for its sibling's reason: under
+    /// `reduce_motion` the whole movement happens in the frame it starts and
+    /// there is nothing left to read.
+    #[test]
+    fn an_answered_sheet_is_dismissed_where_it_stands() {
+        use baylee_client_core::test_support::ViewBuilder;
+        use baylee_engine::choice::{ChoicePrompt, Pending};
+        use std::time::Duration;
+
+        let view = ViewBuilder::new(2).build();
+        let asked = baylee_client_core::interaction::Interaction::new(
+            Pending::ChooseCards {
+                player: PlayerId::new(0),
+                options: vec![ObjectId::new(7, 0)],
+                min: 1,
+                max: 1,
+                prompt: ChoicePrompt::SearchLibrary,
+            },
+            PlayerId::new(0),
+        );
+
+        let mut duel = duel_with(false);
+        duel.statics = Some(baylee_client_core::test_support::statics(8));
+        duel.browser.follow(&view, Some(&asked));
+        assert!(
+            duel.browser.for_choice(),
+            "the harness did not open the sheet for a question"
+        );
+
+        let mut app = bar_of(duel);
+        app.world_mut()
+            .resource_mut::<crate::prefs::Prefs>()
+            .edit()
+            .reduce_motion = false;
+
+        // Answered: the next question wants nothing from the sheet, which is
+        // `Browser::follow`'s one exception to leaving an open sheet alone.
+        app.world_mut()
+            .resource_mut::<Duel>()
+            .browser
+            .follow(&view, None);
+        app.update();
+        app.world_mut()
+            .resource_mut::<Time>()
+            .advance_by(Duration::from_millis(40));
+        app.update();
+
+        let read: Vec<(Val2, Vec2)> = {
+            let mut q = app
+                .world_mut()
+                .query_filtered::<&UiTransform, With<TrayPanel>>();
+            q.iter(app.world())
+                .map(|t| (t.translation, t.scale))
+                .collect()
+        };
+        assert_eq!(
+            read.len(),
+            1,
+            "the answered sheet is not on the tree to be read, so nothing \
+             below would be a measurement of anything"
+        );
+        let (translation, scale) = read[0];
+        assert_eq!(
+            translation,
+            Val2::new(px(0.0), px(0.0)),
+            "an answered sheet travelled, and it has nowhere to travel to"
+        );
+        assert!(
+            scale.x < 1.0,
+            "an answered sheet did not shrink at all: {scale:?}"
+        );
+    }
+
     /// A sheet caught on its way out is not turned round: it goes, and a
     /// fresh one opens in its place. Either way there is exactly **one**.
     ///

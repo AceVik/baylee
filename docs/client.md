@@ -5170,6 +5170,25 @@ remember which one to undo. `/health` reports `speed` and `paused` for the same
 reason it reports the scale factor — a harness that reconnected would otherwise
 have no way to ask what it had left running.
 
+**And `/step` cannot photograph anything shorter than a quarter second**, which
+is the one trap in that lever and looks exactly like an animation that does not
+exist. `Time<Virtual>` clamps its own delta at `max_delta`, 0.25 s by default,
+and the first frame after a pause is handed that clamp rather than the
+sixteen milliseconds a running frame would carry. So a `/pause` followed by
+`/step {"frames":3}` advances the picture by a quarter of a second at the first
+of the three — and the zone sheet's flight into the tray, which lives 0.16 s,
+was over before the second. Measured on 19.09.2026: the sheet stood in one
+screenshot and was off the tree in the next, with three frames between them and
+no intermediate position to photograph at all.
+
+`/timescale` is the route for anything under that, and it is not a worse one:
+at a twentieth speed the same 0.16 s flight is 3.2 s of wall time, which is
+four unhurried `/screenshot` round trips with the picture still moving between
+them. Reserve `/step` for what it is good at — a counted number of frames
+through something that lasts, and the frame-exact before-and-after of an edit
+to a shader. A caller who reaches for `/pause` first and finds nothing moving
+should suspect this before concluding the code does nothing.
+
 `/state` is deliberately the *client's* answer and not the engine's — the view
 it last received, beside the interaction state it built from it. A disagreement
 between the two is exactly the class of bug the endpoint exists to show, and

@@ -185,6 +185,19 @@ Both of those were the caller's half of the two faults above.
 Retina display a guess is wrong by a factor of two, and a click lands in the
 wrong quarter of the window.
 
+**`/step` cannot photograph anything shorter than a quarter second.**
+`Time<Virtual>` clamps its delta at `max_delta`, 0.25 s, and the first frame
+after a `/pause` is handed that clamp rather than a running frame's sixteen
+milliseconds. So `/pause` then `/step {"frames":3}` advances the picture by a
+quarter second on the *first* of the three, and any animation shorter than
+that is over before the second — the sheet stood in one screenshot and was off
+the tree in the next, with nothing in between to photograph. It looks exactly
+like an animation that was never written. Use `/timescale` for anything under
+a quarter second: at `0.05` a 0.16 s movement is 3.2 s of wall time, which is
+four unhurried screenshots with the picture still moving. `/step` is for
+counted frames through something that lasts, and for the frame-exact
+before-and-after of a shader edit.
+
 **A wheel lands where the pointer is.** `/scroll` sends both a `MouseWheel`
 message and the `WindowEvent` beside it, because picking is what turns a wheel
 into the `Pointer<Scroll>` a list listens for. Put the pointer over the list
