@@ -199,10 +199,20 @@ whichever branch already owns it.
 
 That is a rule about **numbers**, not about time: a session claims the next
 free one from the PM before it writes the constant, and two branches carrying
-23 and 24 may be open at once. What must then hold is that **merges happen in
-claim order** — 24 landing first would make main say 24 while a still-unmerged
-23 believes it is the newest, which is the same two-shapes-one-number failure
-arriving by a different door. A session reads the constant out of
+23 and 24 may be open at once.
+
+What must hold is checked at the merge and nowhere else: **the branch's
+constant is exactly main's plus one.** A claim is therefore provisional —
+whoever rebases second finds main already at their number and takes the next
+one, which is a one-line change in a rebase they are doing anyway. Nobody
+waits on anybody, and the PM runs the comparison before every ff-merge:
+
+```bash
+git show main:crates/baylee-view/src/lib.rs           | grep -o 'VIEW_VERSION: u32 = [0-9]*'
+git show origin/<branch>:crates/baylee-view/src/lib.rs | grep -o 'VIEW_VERSION: u32 = [0-9]*'
+```
+
+A session reads the constant out of
 `crates/baylee-view/src/lib.rs` when it starts rather than out of the ticket
 it was written on; this repo has been stale on that number three times.
 
