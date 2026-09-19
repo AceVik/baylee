@@ -170,6 +170,37 @@ enum Cmd {
     /// out is still decided by the run — `stubgen::transcode_card` needs a
     /// printing this cache may not hold, and an honest stub is a correct
     /// outcome — so a batch is measured after `codegen`, never from here.
+    /// Take the next cards the reader can already write, and run the batch
+    /// procedure over them.
+    ///
+    /// `docs/mechanics-roadmap.md` §E8 writes this procedure out in prose,
+    /// and #49 writes it out twice more. A procedure written three times is
+    /// one that gets run wrong once — and the step that gets skipped is the
+    /// **second** `codegen`, whose absence looks exactly like success: the
+    /// cards are there, they compile, and the two tables built from the
+    /// compiled pool have no rows for them, so a client draws a stack entry
+    /// that says nothing. `codegen --check` is the only thing that sees it,
+    /// and it is in here.
+    ///
+    /// The list is measured fresh every time rather than sliced off the last
+    /// batch's file, because it moves when the reader moves: a refusal
+    /// learned in between takes names off it that a stale slice would still
+    /// propose.
+    Batch {
+        /// How many cards to take, in ledger order — oldest printing first,
+        /// so two runs a week apart propose the same batch.
+        #[arg(long, default_value_t = 100)]
+        count: usize,
+        /// Say which names would be appended, and stop before writing.
+        #[arg(long)]
+        dry_run: bool,
+        /// Path to the card-script reference cardsfolder.
+        #[arg(long, default_value = "../mtg/card-scripts")]
+        scripts: PathBuf,
+        /// Directory for cached Scryfall responses.
+        #[arg(long, default_value = "data/scryfall-cache")]
+        cache: PathBuf,
+    },
     ReachList {
         /// Path to the card-script reference cardsfolder.
         #[arg(long, default_value = "../mtg/card-scripts")]
@@ -460,6 +491,12 @@ fn main() -> anyhow::Result<()> {
             reason,
             causes,
         } => transcode_report(&root, &scripts, samples, stubs, reason.as_deref(), causes),
+        Cmd::Batch {
+            count,
+            dry_run,
+            scripts,
+            cache,
+        } => batch(&root, &scripts, &cache, count, dry_run),
         Cmd::ReachList {
             scripts,
             out,
@@ -4716,13 +4753,230 @@ fn transcode_report(
 /// every clause is one reader agreeing; `stubgen::transcode_card` still needs
 /// a printing, and an honest stub is a correct outcome. The batch is measured
 /// after the run, which is why this writes a worklist and no promise.
-fn reach_list(
+/// Which of `names` `data/card-pool.txt` does not already hold, in the order
+/// they were proposed.
+///
+/// The pool is matched case-insensitively and with the surrounding space
+/// trimmed, because it is a hand-edited file: a name that differs from the
+/// ledger's spelling only in case would otherwise be appended a second time,
+/// and `codegen` refuses a pool that names one card twice (#47) — a refusal
+/// that lands *after* the names are already in the file, where `xtask` can no
+/// longer run to take them out again. A proposed name that the file could not
+/// read back — empty, or a `#` comment — is dropped for the same reason.
+fn pool_additions(pool: &str, names: &[&str]) -> Vec<String> {
+    let mut have: BTreeSet<String> = pool
+        .lines()
+        .map(|line| line.trim().to_ascii_lowercase())
+        .filter(|line| !line.is_empty() && !line.starts_with('#'))
+        .collect();
+    let mut out = Vec::new();
+    for name in names {
+        let line = name.trim();
+        // A line that is empty or starts with `#` reads back as nothing, so
+        // appending one would add a card the next run cannot see. No ledger
+        // name is shaped like that — this is the guard that says so, rather
+        // than the assumption that it is true.
+        if line.is_empty() || line.starts_with('#') {
+            continue;
+        }
+        // Inserted as we go, so a name proposed twice in one batch is caught
+        // by the same test as one the file already holds.
+        if have.insert(line.to_ascii_lowercase()) {
+            out.push(line.to_string());
+        }
+    }
+    out
+}
+
+/// Refuses to start a batch on a tree that already has changes in it.
+///
+/// A batch rewrites hundreds of card files, and the only cheap way back from
+/// one that goes wrong is `git restore`. That is a safe thing to reach for
+/// exactly when nothing else in the tree is uncommitted, so the guard is what
+/// makes the recovery instruction true rather than hopeful.
+fn refuse_a_dirty_tree(root: &Path) -> anyhow::Result<()> {
+    let out = std::process::Command::new("git")
+        .args(["status", "--porcelain"])
+        .current_dir(root)
+        .output()?;
+    anyhow::ensure!(
+        out.status.success(),
+        "git status failed; run the batch from a checkout"
+    );
+    let dirty = String::from_utf8_lossy(&out.stdout);
+    let dirty = dirty.trim();
+    anyhow::ensure!(
+        dirty.is_empty(),
+        "the tree has uncommitted changes, and a batch's way back is `git restore`:\n{dirty}"
+    );
+    Ok(())
+}
+
+/// Runs one `cargo run -p xtask -- …` step and bails on anything but success.
+///
+/// **Spawned rather than called.** Stages 5 and 6 of `codegen` are built from
+/// the pool *compiled into the running binary*, so a card this run adds gets
+/// its ability-line and name-table rows only from the next one — after a
+/// rebuild. Calling `codegen()` twice in this process would therefore do the
+/// first phase twice and the second never, while looking exactly like the
+/// procedure it replaces. Handing each step to `cargo` is what puts the
+/// rebuild between them.
+fn batch_step(root: &Path, what: &str, args: &[&str]) -> anyhow::Result<()> {
+    println!("\nbatch: {what}");
+    let status = std::process::Command::new("cargo")
+        .args(["run", "-q", "-p", "xtask", "--"])
+        .args(args)
+        .current_dir(root)
+        .status()?;
+    anyhow::ensure!(
+        status.success(),
+        "batch stopped at `{what}` — the tree was clean before this, so \
+         `git restore .` puts it back"
+    );
+    Ok(())
+}
+
+/// Takes the next `count` cards the reader can write, and runs the batch
+/// procedure over them.
+///
+/// The five steps written out three times in prose (#71) are four here, and
+/// the missing one is not an omission: `codegen` fills the payload cache from
+/// the bulk feed itself, at the top of its own run and from the pool it is
+/// about to read, so a `scryfall-cache` before it downloads the same feed
+/// twice. It stays a command of its own for a cold machine that wants the
+/// download without the run.
+///
+/// What this does *not* do is run the gate. The gate is a workspace build
+/// that belongs under the session cargo lock and has to see the rebuilt pool;
+/// printing the command and stopping is honest, where running it from inside
+/// a `cargo run` would nest a second workspace build inside this one.
+fn batch(
     root: &Path,
     scripts_dir: &Path,
-    out: Option<&Path>,
-    count: usize,
     cache: &Path,
+    count: usize,
+    dry_run: bool,
 ) -> anyhow::Result<()> {
+    anyhow::ensure!(count > 0, "a batch of no cards is not a batch");
+    if !dry_run {
+        refuse_a_dirty_tree(root)?;
+    }
+
+    // Measured now, never sliced off the last batch's list: the number moves
+    // when the *reader* moves, and downwards is the healthy direction — a
+    // refusal learned in between takes cards off the list that a stale slice
+    // would still be proposing.
+    let reach = reach_measure(root, scripts_dir, cache)?;
+    println!(
+        "batch: the reader writes {} of the {} unattempted rows that carry a script",
+        reach.names.len(),
+        reach.scripted
+    );
+    anyhow::ensure!(
+        !reach.names.is_empty(),
+        "the reach list is empty: every card this reader can write is already in the pool"
+    );
+
+    let proposed: Vec<&str> = reach.names.iter().copied().take(count).collect();
+    let pool_path = root.join("data/card-pool.txt");
+    let pool = fs::read_to_string(&pool_path)?;
+    let additions = pool_additions(&pool, &proposed);
+    println!(
+        "batch: taking {} name(s) in ledger order{}",
+        additions.len(),
+        if additions.len() == proposed.len() {
+            String::new()
+        } else {
+            format!(
+                " ({} of the {} proposed are already in the pool under that spelling)",
+                proposed.len() - additions.len(),
+                proposed.len()
+            )
+        }
+    );
+    for name in additions.iter().take(10) {
+        println!("  {name}");
+    }
+    if additions.len() > 10 {
+        println!("  … and {} more", additions.len() - 10);
+    }
+    anyhow::ensure!(
+        !additions.is_empty(),
+        "every proposed name is already in the pool"
+    );
+    if dry_run {
+        println!("\nbatch: --dry-run, nothing written");
+        return Ok(());
+    }
+
+    let mut body = pool;
+    if !body.ends_with('\n') {
+        body.push('\n');
+    }
+    for name in &additions {
+        body.push_str(name);
+        body.push('\n');
+    }
+    fs::write(&pool_path, body)?;
+    println!(
+        "batch: {} name(s) appended to data/card-pool.txt",
+        additions.len()
+    );
+
+    let scripts = scripts_dir.to_string_lossy().to_string();
+    let cache_arg = cache.to_string_lossy().to_string();
+    let codegen: Vec<&str> = vec!["codegen", "--scripts", &scripts, "--cache", &cache_arg];
+    batch_step(
+        root,
+        "codegen, first phase (the cards themselves)",
+        &codegen,
+    )?;
+    // The second phase is the whole reason this is a command. It is not a
+    // retry: the ability-line and name tables are built from the compiled
+    // pool, so the cards the first run wrote get their rows here, and only
+    // `--check` below can tell whether somebody skipped it.
+    batch_step(
+        root,
+        "codegen, second phase (the two compiled-pool tables)",
+        &codegen,
+    )?;
+    let mut check = codegen.clone();
+    check.push("--check");
+    batch_step(
+        root,
+        "codegen --check (the two-phase gap, as a failure)",
+        &check,
+    )?;
+    batch_step(
+        root,
+        "validate (headers, type lines, prices against the printing)",
+        &["validate"],
+    )?;
+
+    println!(
+        "\nbatch: {} card(s) added. What is left is the gate, which this does not run:\n\
+         \n    BAYLEE_SESSION=<session> /Users/viktor/.baylee-locks/with-cargo-lock.sh \\\n\
+         \x20       cargo test --workspace --all-targets\n\
+         \nThe pool-wide engine sweeps are in it, and they are what actually play the new cards.",
+        additions.len()
+    );
+    Ok(())
+}
+
+/// What a reach measurement found: the names the reader can write today, and
+/// the counts that say whether the walk itself did its job.
+struct Reach {
+    names: Vec<&'static str>,
+    mine: usize,
+    scripted: usize,
+    refused: usize,
+    front: usize,
+}
+
+/// Walks the ledger and asks the transcoder, once, for both readers of this
+/// worklist: `reach-list`, which prints and writes it, and `batch`, which
+/// takes the first `count` of it.
+fn reach_measure(root: &Path, scripts_dir: &Path, cache: &Path) -> anyhow::Result<Reach> {
     let dir = scripts_root(root, scripts_dir);
     let tokens = tokengen::TokenLookup::beside(&dir)?;
     let agent = ureq::Agent::new_with_defaults();
@@ -4762,6 +5016,29 @@ fn reach_list(
             refused += 1;
         }
     }
+    Ok(Reach {
+        names,
+        mine,
+        scripted,
+        refused,
+        front,
+    })
+}
+
+fn reach_list(
+    root: &Path,
+    scripts_dir: &Path,
+    out: Option<&Path>,
+    count: usize,
+    cache: &Path,
+) -> anyhow::Result<()> {
+    let Reach {
+        mut names,
+        mine,
+        scripted,
+        refused,
+        front,
+    } = reach_measure(root, scripts_dir, cache)?;
     println!(
         "reach: {} ledger rows — {mine} already in the pool, {scripted} of the rest have a \
          reference script, {} of those read in full ({refused} refused)",
@@ -5601,6 +5878,37 @@ mod tests {
     use baylee_cards_codegen::{tokengen, tokenledger};
     use baylee_core::generated::subtypes;
     use std::collections::BTreeMap;
+
+    /// A batch appends a name once, whatever case the pool spells it in, and
+    /// never twice from one proposal.
+    ///
+    /// This is the guard in front of #47: two pool lines naming one card emit
+    /// the module twice, and the tree that results cannot be repaired by
+    /// `xtask` — it cannot run. The pool is hand-edited, so a spelling that
+    /// differs only in case is a real shape and not a hypothetical.
+    #[test]
+    fn a_name_the_pool_already_holds_is_not_appended_again() {
+        let pool = "# a comment\nLightning Bolt\n  brainstorm  \n\n";
+        let taken = super::pool_additions(
+            pool,
+            &[
+                "Lightning Bolt",
+                "Brainstorm",
+                "Counterspell",
+                "Counterspell",
+                "# a comment",
+            ],
+        );
+        assert_eq!(taken, vec!["Counterspell".to_string()]);
+        // And an empty pool takes everything, in the order it was proposed.
+        assert_eq!(
+            super::pool_additions("", &["Swords to Plowshares", "Ancestral Recall"]),
+            vec![
+                "Swords to Plowshares".to_string(),
+                "Ancestral Recall".to_string()
+            ]
+        );
+    }
 
     /// The committed subtype table is what `codegen` writes for the catalogs
     /// it stands for — byte for byte, *after* the rustfmt every generated
