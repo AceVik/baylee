@@ -254,6 +254,14 @@ pub fn demo_duel(deck_file: &str, seed: u64) -> Option<GamePreset> {
 /// variables instead of by playing a ninety-card singleton deck into
 /// position.
 ///
+/// `BAYLEE_DEV_SEAT_COMMANDER` is the third, and it names a card no amount of
+/// playing can reach: a seat either started with a commander or it did not.
+/// It does not make a commander *visible* — a deck names its own, and the
+/// acceptance file's Allytifact sits down with General Tazri — it decides
+/// **which** one, which is what a measurement usually needs: the slips were
+/// photographed off Ragavan at `{R}`, castable on turn one from a dealt
+/// board and cheap enough to copy twice, where Tazri costs six.
+///
 /// It exists because the alternative is playing a duel into position, and a
 /// singleton in a ninety-card deck is not something a game reaches on request:
 /// ten turns of the offline duel put four lands and no creature on the table,
@@ -275,6 +283,7 @@ pub fn demo_duel(deck_file: &str, seed: u64) -> Option<GamePreset> {
 pub fn deal_the_dev_board(preset: &mut GamePreset) {
     deal_the_dev_zone(preset, "BAYLEE_DEV_SEAT_BOARD", DevZone::Battlefield);
     deal_the_dev_zone(preset, "BAYLEE_DEV_SEAT_HAND", DevZone::Hand);
+    deal_the_dev_zone(preset, "BAYLEE_DEV_SEAT_COMMANDER", DevZone::Command);
 }
 
 /// The half of [`deal_the_dev_board`] that reads one variable into one zone.

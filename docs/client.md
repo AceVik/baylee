@@ -4913,19 +4913,31 @@ untested.
 `width`, `height` and `scale` so the ratio between the two is read rather than
 guessed; on a Retina display a guess is wrong by a factor of two.
 
-**The position is dealt, not played into.** `BAYLEE_DEV_SEAT_BOARD` and
-`BAYLEE_DEV_SEAT_HAND` are semicolon-separated lists of card names, each
-optionally prefixed `<seat>:`, that fill a seat's `starting_battlefield` and
-its opening hand before turn one — a semicolon because a comma is part of a
-card's name far too often. A singleton in a ninety-card deck is not something
-a game reaches on request, and ten turns of the offline duel put four lands
-and no creature on the table, so anything about how a card is drawn or clicked
-would otherwise be unprovable. The board variable appends; the hand variable
-**replaces** the deal, because a `starting_hand` is the whole hand. Both are
-behind the `dev-control` feature — a shipped binary that seats cards from the
-environment is a cheat — and both are loud on a name they cannot find, because
-a typo that quietly dealt nothing turns "this does not happen" into a
-conclusion about the code. `host::deal_the_dev_board` is the reader.
+**The position is dealt, not played into.** `BAYLEE_DEV_SEAT_BOARD`,
+`BAYLEE_DEV_SEAT_HAND` and `BAYLEE_DEV_SEAT_COMMANDER` are semicolon-separated
+lists of card names, each optionally prefixed `<seat>:`, that fill a seat's
+`starting_battlefield`, its opening hand and its command zone before turn one
+— a semicolon because a comma is part of a card's name far too often. A
+singleton in a ninety-card deck is not something a game reaches on request,
+and ten turns of the offline duel put four lands and no creature on the table,
+so anything about how a card is drawn or clicked would otherwise be
+unprovable. The board and command variables append; the hand variable
+**replaces** the deal, because a `starting_hand` is the whole hand.
+
+The third one names a card no amount of playing can reach: a seat either
+started with a commander or it did not. What it does **not** claim is that a
+commander was unphotographable before — a deck names its own, and the
+acceptance file's Allytifact sits down with General Tazri in the command zone
+whether or not the variable is set. What it buys is *which* commander: the
+measurement that wanted one wanted it castable on turn one out of a dealt
+board and cheap enough to copy, and Tazri costs six.
+
+All three are behind the `dev-control` feature — a shipped binary that seats
+cards from the environment is a cheat — and all three are loud on a name they
+cannot find, because a typo that quietly dealt nothing turns "this does not
+happen" into a conclusion about the code. `host::deal_the_dev_board` is the
+reader and `decks::deal_named` does the dealing, which is what keeps a board
+dealt here from being a different board than the gateway's `dev-table` deals.
 
 **The clock is a lever, because almost nothing worth photographing here waits.**
 A card's exit lives 0.55 s, a sheen sweep less, and one `/screenshot` round trip

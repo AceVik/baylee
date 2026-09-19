@@ -544,16 +544,25 @@ pub fn probe_deck(card: CardIndex, copies: usize, size: usize) -> Option<LoadedD
 }
 /// Which zone a hand-dealt card goes into.
 ///
-/// The two differ in more than a field name. A board is a *list* of
-/// permanents and is appended to; a `starting_hand` is the whole opening hand
-/// and **replaces** the deal for the seat it names, so an empty spec leaves
-/// the deal alone and a non-empty one is the hand, exactly.
+/// They differ in more than a field name. A board is a *list* of permanents
+/// and is appended to; a `starting_hand` is the whole opening hand and
+/// **replaces** the deal for the seat it names, so an empty spec leaves the
+/// deal alone and a non-empty one is the hand, exactly.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum DevZone {
     /// [`SeatSpec::starting_battlefield`], appended to.
     Battlefield,
     /// [`SeatSpec::starting_hand`], replacing whatever would have been drawn.
     Hand,
+    /// [`SeatSpec::commanders`], appended to.
+    ///
+    /// A commander is the one thing on this list that a *deck* decides and
+    /// that no amount of playing can reach from the outside: a seat either
+    /// started with one or it did not, so a harness that can deal a board and
+    /// a hand still cannot put a card in front of the one drawing that says
+    /// what a permanent *is*. It is appended rather than replacing, because
+    /// CR 903.3 allows more than one and the field is already a list.
+    Command,
 }
 
 /// Deals a hand-written list of cards into one zone of a preset.
@@ -636,6 +645,7 @@ pub fn deal_named(preset: &mut GamePreset, spec: &str, zone: DevZone) -> Result<
         match zone {
             DevZone::Battlefield => chair.starting_battlefield.push(entry),
             DevZone::Hand => chair.starting_hand.get_or_insert_default().push(entry),
+            DevZone::Command => chair.commanders.push(entry),
         }
     }
     Ok(())
