@@ -24,7 +24,7 @@
 //!
 //! The pool is read through `baylee_cards::all()` and never by grepping the
 //! card files. Scouting this table with a regular expression first reported
-//! **no** two-faced cards, where the compiled pool has 116: a textual probe
+//! **no** two-faced cards, where the compiled pool has 120: a textual probe
 //! answers a question it cannot see, which is the same fault `knob` exists
 //! to prevent in `xtask`. The same scouting pass then missed the one card in
 //! the pool that *is* a Partner commander, because `partner` is a field on
@@ -32,14 +32,27 @@
 //! what found Sakashima of a Thousand Faces, and it found it by asking the
 //! type rather than the spelling.
 //!
-//! Two rows of the table have no probe here, deliberately. Proliferate and
-//! poison counters are not a mechanic the pool is missing, they are words
-//! the DSL cannot say at all, so the thing that would have to change first
-//! is `Effect` rather than a card. Their tripwire is the vocabulary, and a
-//! test over the pool would assert zero against a population that can never
-//! be anything else.
+//! Four things in that table have no probe here, and the reasons are
+//! three different ones.
+//!
+//! **Proliferate, madness and meld are words the DSL cannot say at all.**
+//! There is no `Effect` for proliferate and no handle anywhere for the other
+//! two, so the thing that would have to change first is the vocabulary
+//! rather than a card. A probe would assert zero against a population that
+//! can never be anything else, which is a green test measuring nothing.
+//!
+//! **Infect and wither can be said and are not printed**, so they *are*
+//! probed — in the tripwire test above, where a zero is the finding.
+//!
+//! **Full deck families and full-game lookahead are not card shapes.** One
+//! is a paired-seed benchmark and the other a property of the search model;
+//! no count over `baylee_cards::all()` could open or close either, and
+//! pretending otherwise would put a number beside a row that the number
+//! says nothing about.
 
-use baylee_cards::dsl::{AbilityDef, CardDef, CounterKind, Effect, KeywordSet, PartnerKind};
+use baylee_cards::dsl::{
+    AbilityDef, CardDef, CostPart, CounterKind, Effect, KeywordSet, PartnerKind,
+};
 
 /// Every ability a card carries, card-level and on either face.
 ///
@@ -54,6 +67,27 @@ fn abilities(def: &'static CardDef) -> impl Iterator<Item = &'static AbilityDef>
 
 fn count(probe: impl Fn(&'static CardDef) -> bool) -> usize {
     baylee_cards::all().filter(|def| probe(def)).count()
+}
+
+/// Cards that *reach* an effect this probe accepts, at any depth.
+///
+/// The descent is [`Effect::walk`]'s, so this reads what a card does inside
+/// a `Sequence`, in either half of a kicker clause and behind "unless you
+/// pay". A probe matching the top-level list alone would answer a narrower
+/// question than the row it is standing for asks, and would answer it
+/// without saying so — which is the fault #109 closed and not one to
+/// reintroduce one file away from it.
+fn count_reaching(probe: impl Fn(&'static Effect) -> bool) -> usize {
+    baylee_cards::all()
+        .filter(|def| {
+            let mut hit = false;
+            let mut seen = 0;
+            for effects in abilities(def).flat_map(ability_effects) {
+                Effect::walk(effects, &mut seen, &mut |effect| hit |= probe(effect));
+            }
+            hit
+        })
+        .count()
 }
 
 /// Every effect list an ability resolves through.
@@ -167,8 +201,9 @@ fn a_mechanic_the_pool_cannot_print_yet_has_no_ai_test_to_write() {
 /// would train whoever adds a card to bump a number instead of writing a
 /// test.
 #[test]
+#[allow(clippy::too_many_lines)] // one entry per table row, in one readable list
 fn a_mechanic_the_pool_already_prints_is_owed_now_and_not_later() {
-    let rows: [(&str, usize); 9] = [
+    let rows: [(&str, usize); 25] = [
         (
             "Commander pair rules (plain Partner)",
             count(|def| matches!(def.partner, PartnerKind::Partner)),
@@ -188,8 +223,16 @@ fn a_mechanic_the_pool_already_prints_is_owed_now_and_not_later() {
                 })
             }),
         ),
+        // **This counts compiled faces, not printings**, and the difference
+        // is filed as #115: the predicate is `faces.len() >= 2`, the printed
+        // figure is 121, and what a client actually wants is the ~107 with a
+        // separate back *image*. An adventure or a split prints both halves
+        // on one physical face and still answers yes here. The number is a
+        // correct measurement of the predicate and would be a wrong answer
+        // to "how many cards have two faces", which is why the row says
+        // which it is.
         (
-            "Transformation and alternate zones (a second face)",
+            "Transformation and alternate zones (a second compiled face)",
             count(|def| def.faces.len() >= 2),
         ),
         (
@@ -223,6 +266,196 @@ fn a_mechanic_the_pool_already_prints_is_owed_now_and_not_later() {
         (
             "Stack strategy (ward and taxes)",
             count(|def| abilities(def).any(|a| matches!(a, AbilityDef::Ward { .. }))),
+        ),
+        // 35 on 19.09.2026, and two of them only because `Effect::walk`
+        // reads behind a price: Flusterstorm and Malevolent Hermit counter
+        // a spell *unless its controller pays*, which is a variant carrying
+        // one effect rather than a list. A probe matching the top-level
+        // list would have reported 33 and named no row for the other two.
+        (
+            "Stack strategy (counter wars)",
+            count_reaching(|effect| {
+                matches!(
+                    effect,
+                    Effect::CounterTargetSpell
+                        | Effect::CounterTargetSpellToExile
+                        | Effect::CounterTargetSpellOrAbility
+                        | Effect::CounterTargetAbility
+                )
+            }),
+        ),
+        (
+            "Stack strategy (copying a spell)",
+            count_reaching(|effect| matches!(effect, Effect::CopyTargetSpell { .. })),
+        ),
+        (
+            "Stack strategy (redirecting a target)",
+            count_reaching(|effect| matches!(effect, Effect::RedirectTarget { .. })),
+        ),
+        // The row's sentence is "scout refresh after shuffle, reveal, wish
+        // and sideboarding". A library search is what forces the shuffle, so
+        // it is the precondition rather than a neighbouring mechanic — and a
+        // wish is the row's own word.
+        (
+            "Hidden-zone decisions (a library search)",
+            count_reaching(|effect| {
+                matches!(
+                    effect,
+                    Effect::SearchLibrary { .. } | Effect::OptionalBasicLandSearchFor { .. }
+                )
+            }),
+        ),
+        (
+            "Hidden-zone decisions (a wish from outside the game)",
+            count_reaching(|effect| matches!(effect, Effect::WishToHand { .. })),
+        ),
+        // "Copy/control/zone changes preserve per-commander damage
+        // identity", which needs a card that can change one.
+        (
+            "Commander identity changes (a controller change)",
+            count_reaching(|effect| {
+                matches!(
+                    effect,
+                    Effect::ChangeController { .. }
+                        | Effect::ExchangeControlOrSacrifice
+                        | Effect::ControlRotation
+                        | Effect::AllCreaturesToOwner
+                )
+            }),
+        ),
+        (
+            "Commander identity changes (a token copy of a permanent)",
+            count_reaching(|effect| {
+                matches!(
+                    effect,
+                    Effect::CreateTokenCopyOf { .. }
+                        | Effect::CreateTokenCopyOfEquipped { .. }
+                        | Effect::CreateTokenCopyOfFirstToken
+                )
+            }),
+        ),
+        // Treasure is asked by identity and not by name: the token table is
+        // compiled, so a pointer comparison against `tokens::TREASURE`
+        // cannot drift the way a string would.
+        (
+            "Alternate resource engines (treasure)",
+            count_reaching(|effect| {
+                // All seven variants that carry a `TokenDef`, and that is
+                // the point rather than a flourish: reading the two obvious
+                // ones returned 5 and the pool makes 6, the sixth being
+                // Fountainport. A probe over a taxonomy is only as honest as
+                // the arm it forgot.
+                let (Effect::CreateToken { token }
+                | Effect::CreateTokenN { token, .. }
+                | Effect::CreateTokenPtPerCount { token, .. }
+                | Effect::CreateTokenForTargetController { token, .. }
+                | Effect::ExileTargetsCreateTokens { token, .. }
+                | Effect::Amass { token, .. }
+                | Effect::CreateTokenFromLinked { token, .. }) = effect
+                else {
+                    return false;
+                };
+                std::ptr::eq(*token, &raw const baylee_cards::tokens::TREASURE)
+            }),
+        ),
+        (
+            "Alternate resource engines (restricted mana)",
+            count_reaching(|effect| {
+                matches!(
+                    effect,
+                    Effect::AddMana {
+                        restriction: Some(_),
+                        ..
+                    }
+                )
+            }),
+        ),
+        (
+            "Alternate resource engines (an alternative cost)",
+            count(|def| {
+                def.faces
+                    .iter()
+                    .any(|face| !face.alternative_costs.is_empty())
+            }),
+        ),
+        // The row's own words are "sacrifice/discard/exile/counter costs
+        // with beneficial payoffs", which is an **activation** cost and not
+        // a spell's additional one. Asking `additional_costs` returned 3,
+        // and exactly one of those three prints a non-mana part at all
+        // (Toxic Deluge's `PayLifeX`), so the label named three things the
+        // predicate could not see.
+        //
+        // Asked of the abilities instead there are three numbers and this
+        // row asserts on the first: **361 cards**, 382 abilities, 383 parts
+        // — 195 `SacrificeSelf`, 85 `Sacrifice`, 71 `DiscardSelf`, 32
+        // `Discard`. Fourteen cards pay two different kinds (nine of them
+        // the Landscape cycle) and one ability pays two parts, which is the
+        // whole of the gap between the three. No exile cost appears at all,
+        // which is why the name below does not claim one.
+        //
+        // The first breakdown written here was taken inside an `any`, so it
+        // stopped at each card's first matching ability and undercounted
+        // every kind. It summed to 362 against a stated 361 — and a
+        // breakdown that does not sum to its own total is how it was
+        // caught, for the second time in one day.
+        (
+            "Alternate resource engines (a sacrifice or discard cost)",
+            count(|def| {
+                abilities(def).any(|ability| {
+                    let (AbilityDef::Activated { cost, .. }
+                    | AbilityDef::ActivatedConditional { cost, .. }) = ability
+                    else {
+                        return false;
+                    };
+                    cost.parts.iter().any(|part| {
+                        matches!(
+                            part,
+                            CostPart::Sacrifice(_)
+                                | CostPart::SacrificeSelf
+                                | CostPart::Discard(_)
+                                | CostPart::DiscardSelf
+                        )
+                    })
+                })
+            }),
+        ),
+        // `has_variable` and not a spelling: the cost is parsed at compile
+        // time, so the question "does this card announce an X" is answered
+        // by the type rather than by looking for the letter.
+        (
+            "Variable costs (X in a printed cost)",
+            count(|def| def.faces.iter().any(|face| face.mana_cost.has_variable())),
+        ),
+        (
+            "Variable costs (a cost reduction)",
+            count(|def| def.faces.iter().any(|face| face.cost_reduction.is_some())),
+        ),
+        (
+            "Proliferate and replacement effects (the replacement half)",
+            count(|def| abilities(def).any(|a| matches!(a, AbilityDef::Replacement(_)))),
+        ),
+        // Named for what it measures. **No card in this pool has flashback**;
+        // these three give it to somebody else's card (Snapcaster Mage,
+        // Emry, Stingcaster Mage). Written as "flashback" the cell promised
+        // a card with the keyword and delivered three that hand it out,
+        // which is a different test to write.
+        (
+            "Transformation and alternate zones (flashback granted to another card)",
+            count_reaching(|effect| matches!(effect, Effect::GrantFlashback)),
+        ),
+        // `CopyOnEnter` is a permanent entering *as* a copy — the ten
+        // clones, Phyrexian Metamorph through Surgical Metamorph — and not
+        // an ability copied off another card.
+        (
+            "Transformation and alternate zones (enters as a copy)",
+            count(|def| {
+                abilities(def).any(|a| {
+                    matches!(
+                        a,
+                        AbilityDef::CopyOnEnter { .. } | AbilityDef::CopyOnEnterUntilEot { .. }
+                    )
+                })
+            }),
         ),
     ];
 
