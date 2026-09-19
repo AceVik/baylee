@@ -6599,6 +6599,145 @@ fn a_land_that_costs_a_bounce_nobody_can_pay_asks_nothing() {
     );
 }
 
+/// The Ravnica bounce lands: "when this land enters, return a land you
+/// control to its owner's hand".
+///
+/// The other Karoo sentence, and the difference is who is out of pocket.
+/// The cycle above charges a bounce as a *price* and sacrifices the land
+/// when it goes unpaid; these eleven simply do it, which is why the effect
+/// is `ReturnChosenToHand` and not a `CostPart` — there is nothing to
+/// decline.
+const RETURNS_A_LAND_YOU_CONTROL: &[(&str, &str)] = &[
+    ("189fc8f4-17ac-4f1d-82c8-8401445bdaf4", "Azorius Chancery"),
+    ("8fa3ac81-3dfe-4565-be99-5554f7597b4b", "Boros Garrison"),
+    ("378a1d57-e2f1-4b84-9692-1564602e9e99", "Dimir Aqueduct"),
+    ("1b301478-b14f-4ef8-94e6-9647d582eabe", "Golgari Rot Farm"),
+    ("657243dd-e479-4f4b-99d2-09b55d833a35", "Gruul Turf"),
+    ("ee723c7c-ec9f-4ffb-8f36-cd7637eb1fae", "Guildless Commons"),
+    ("1cb9d94a-3039-4f2e-8fcc-6996f9a45f74", "Izzet Boilerworks"),
+    ("aa00ae0b-7c0f-427e-8102-ce0e2a6af5df", "Orzhov Basilica"),
+    ("0a023964-2905-4928-9c3e-dc63e6ebd218", "Rakdos Carnarium"),
+    ("00ef1c55-dea1-4564-bd57-66de86cba4df", "Selesnya Sanctuary"),
+    (
+        "046f5783-cc7b-416a-8cf6-2bcef9c2cc1a",
+        "Simic Growth Chamber",
+    ),
+];
+
+/// Every one of the eleven, played and answered.
+///
+/// Two lands are on the menu and not one, because **the bounce land itself
+/// is a legal answer** — it is a land its controller controls, and nothing
+/// in the printed sentence excludes it. The count is asserted rather than
+/// the contents for exactly that reason: a reader that helpfully left the
+/// source out would still return the Forest and pass every other line here.
+#[test]
+fn a_bounce_land_returns_a_land_its_controller_chooses() {
+    for (i, (oracle, name)) in RETURNS_A_LAND_YOU_CONTROL.iter().enumerate() {
+        let card = card_index(oracle);
+        let p0 = PlayerId::new(0);
+        let seed = 960 + u64::try_from(i).expect("eleven rows");
+        let mut engine = Duel::new(seed, forest())
+            .battlefield(0, &[forest()])
+            .hand(0, &[card])
+            .start();
+        keep_mulligans(&mut engine);
+        reach_main_phase(&mut engine, p0);
+
+        let land = play_land(&mut engine, p0, card);
+        let (options, prompt) = reach_the_unless_question(&mut engine, land)
+            .expect("{name} asks which land comes back");
+        assert_eq!(
+            prompt,
+            ChoicePrompt::Generic,
+            "{name} is not paying for anything, so the question is not a cost"
+        );
+        assert_eq!(
+            options.len(),
+            2,
+            "{name} and the Forest are both lands p0 controls"
+        );
+        let forest_on_board = *options
+            .iter()
+            .find(|id| **id != land)
+            .expect("the Forest is the other option");
+
+        engine
+            .apply(
+                p0,
+                PlayerAction::ChooseObjects {
+                    objects: vec![forest_on_board],
+                },
+            )
+            .unwrap();
+
+        assert!(
+            engine
+                .state()
+                .zones
+                .list(ZoneLocation::Hand(p0))
+                .contains(&forest_on_board),
+            "{name} put the chosen land in its owner's hand (CR 400.3)"
+        );
+        assert!(
+            engine
+                .state()
+                .zones
+                .list(ZoneLocation::Battlefield)
+                .contains(&land),
+            "{name} stays: it returns a land, it does not sacrifice itself"
+        );
+    }
+}
+
+/// The bounce land alone on the battlefield returns **itself**.
+///
+/// One row is enough because the rule is the same on all eleven, and this is
+/// the board that says the menu is not filtered down to "some other land":
+/// with nothing else in play the only legal answer is the source, the player
+/// is still asked, and the land goes back to the hand it was just played
+/// from. An engine that excluded the source would have to ask an empty
+/// question here, which is the dead end `min: 1` forbids.
+#[test]
+fn a_bounce_land_alone_on_the_battlefield_returns_itself() {
+    let p0 = PlayerId::new(0);
+    let chancery = card_index("189fc8f4-17ac-4f1d-82c8-8401445bdaf4");
+    let mut engine = Duel::new(971, forest()).hand(0, &[chancery]).start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let land = play_land(&mut engine, p0, chancery);
+    let (options, _) =
+        reach_the_unless_question(&mut engine, land).expect("the land asks even with one answer");
+    assert_eq!(options, vec![land], "the source is the whole menu");
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![land],
+            },
+        )
+        .unwrap();
+
+    assert!(
+        engine
+            .state()
+            .zones
+            .list(ZoneLocation::Hand(p0))
+            .contains(&land),
+        "it returned itself to its owner's hand"
+    );
+    assert!(
+        !engine
+            .state()
+            .zones
+            .list(ZoneLocation::Battlefield)
+            .contains(&land),
+        "and is no longer on the battlefield"
+    );
+}
+
 /// The four lands that charge *mana* for the same escape, and the CR 605.3a
 /// window they need.
 ///
