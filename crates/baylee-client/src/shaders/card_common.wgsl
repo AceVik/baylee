@@ -390,11 +390,26 @@ fn strike_clock(ph: f32) -> f32 {
 /// *envelope* — how sharply a mark arrives at its size and how long it holds
 /// there — which is the difference between a blow, a breath and a heartbeat.
 ///
-/// STILL: defender does not move. A shield is the keyword for a creature
-/// that does not act, and the one mark on a row of occasional movers that
-/// never moves says so more clearly than any motion could. It is the
-/// stillness that is the drawing, and it only reads while everything around
-/// it is an event rather than a wriggle.
+/// STILL: defender's *scale* does not move. A shield is the keyword for a
+/// creature that does not act, and a mark that holds its size while its
+/// neighbours swell says so without spending a second colour on it.
+///
+/// This arm is the only thing that sentence is true of, and the comment here
+/// claimed the whole drawing until #102. Scale is not the mark's only
+/// movement: the ink in `mark_layer` breathes every mark on the row —
+/// `(0.95 + 0.05 * sin(phase))`, with no `which` in it — so defender has no
+/// swell *event* and is in continuous motion exactly like everything beside
+/// it. "It is the stillness that is the drawing" was the argument, and the
+/// stillness is not there to be drawn.
+///
+/// Measured rather than argued, because the number cuts both ways: that
+/// breath is **10.8 display levels** peak to peak on this mark's warm stone
+/// over a 5.5 s cycle, against the **20** the rim measurement set as the
+/// floor for a signal read across the table. So the claim is false *and* a
+/// `which` guard here would buy a stillness no player could tell from this
+/// one. That is why #102 was answered by correcting the claim instead of
+/// changing the picture; it is evidence for #23 and not a decision taken
+/// here, and #23 is where the design still sits.
 fn mark_pulse(which: u32, ph: f32) -> f32 {
     switch which {
         // Flying: a long glide, then three quick beats of a wing.
@@ -428,7 +443,9 @@ fn mark_pulse(which: u32, ph: f32) -> f32 {
         // than it was — the eye used to close and a shape has to travel
         // further than a size to say the same thing.
         case 9u: { return 1.0 + 0.17 * mark_event(fract(ph * 0.0600), 0.0250, 0.0560, 0.0280); }
-        // Defender: STILL.
+        // Defender: STILL — the scale only. The ink in `mark_layer` breathes
+        // this mark with the rest of the row; see the note on this function
+        // and `the_ink_below_a_mark_is_not_told_which_mark_it_is`.
         case 10u: { return 1.0; }
         // Prowess: rises, hangs, and comes down — a bonus with a deadline.
         case 11u: { return 1.0 + 0.15 * pow(0.5 + 0.5 * sin(ph * 0.85), 5.0); }
@@ -613,6 +630,16 @@ fn mark_layer(
     // event, and a solid silhouette breathes over five times the pixels a
     // stroke did. Not removed, because `strike_clock` is timed to land early
     // against this beat and needs a beat to be early against.
+    //
+    // It is also not *guarded*, and that is the whole of #102: `which` is
+    // read twice above this line and never again, so the twelve marks are
+    // drawn by one arithmetic and defender's `mark_pulse` arm — the only
+    // STILL one — stills its size and nothing else. `phase` offsets by `k`,
+    // the slot, so the row is a staggered breath rather than one; #24's lane
+    // wave rides this same term and inherits the same answer, which is why
+    // that ticket waited on this one. `cardmat`'s
+    // `the_ink_below_a_mark_is_not_told_which_mark_it_is` pins the count, so
+    // a guard added here cannot land without saying it is answering #23.
     let ink = mix(INK, accent, 0.70) * (0.95 + 0.05 * sin(phase));
 
     // Cell units, so the edge is as soft on a card in the preview as on one

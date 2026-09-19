@@ -2041,6 +2041,78 @@ pub(crate) mod tests {
         );
     }
 
+    /// Between choosing a mark and drawing its ink, nothing asks which mark
+    /// it is.
+    ///
+    /// This is the half of the stillness claim that had no test, and #102 is
+    /// what it cost. `mark_pulse`'s slot 10 arm returns a flat `1.0` and
+    /// declares `STILL`, and
+    /// [`the_rail_declares_every_mark_that_does_not_move`] holds that —
+    /// honestly, because it is a test about a scale. But the ink under every
+    /// mark is `mix(INK, accent, 0.70) * (0.95 + 0.05 * sin(phase))` with no
+    /// `which` in it, so defender breathed with the rest of the row while two
+    /// comments and a test said it was the one thing on the rail that did
+    /// not move.
+    ///
+    /// The number is why the answer was to correct the claim rather than add
+    /// the guard: that breath is 10.8 display levels peak to peak on slot
+    /// 10's warm stone, under a floor of 20. It is below what a player can
+    /// read, which makes it a false sentence and not a visible defect — and
+    /// makes a guard a change nobody could see.
+    ///
+    /// So what is pinned here is the **absence**. `which` is read exactly
+    /// twice between the not-found bail and the ink — the glyph and the
+    /// accent — and a third use is somebody making the drawing depend on the
+    /// mark's identity. That is a legitimate thing to want (#23 is open, and
+    /// #24's lane wave rides the same `phase`), which is precisely why it
+    /// should not be able to land quietly: this test going red *is* the
+    /// event, and whoever turns it green owes `mark_pulse`'s note the
+    /// sentence that is true afterwards.
+    #[test]
+    fn the_ink_below_a_mark_is_not_told_which_mark_it_is() {
+        let src = include_str!("shaders/card_common.wgsl");
+        let open = src.find("fn mark_layer(").expect("the mark layer");
+        let body = &src[open..];
+        let body = &body[..body.find("\n}").expect("a brace at column zero")];
+
+        // The window: after the bail that proves a mark was found, up to and
+        // including the ink. Everything before it is *choosing* the mark, and
+        // reading `which` there is the point.
+        let bail = body
+            .find("if which == MARK_COUNT {")
+            .expect("the not-found bail");
+        let after = body[bail..].find('}').expect("the bail closes") + bail + 1;
+        let ink = body.find("let ink =").expect("the ink");
+        let ink = body[ink..].find(';').expect("the ink ends") + ink + 1;
+        assert!(after < ink, "the bail comes before the ink it guards");
+
+        // WGSL has no string literals, so a line is code up to its `//`.
+        let code = body[after..ink]
+            .lines()
+            .map(|line| line.split("//").next().unwrap_or(""))
+            .collect::<Vec<_>>()
+            .join("\n");
+
+        let uses = code
+            .match_indices("which")
+            .filter(|(i, _)| {
+                let word = |c: char| c.is_alphanumeric() || c == '_';
+                let before = code[..*i].chars().next_back();
+                let after = code[i + "which".len()..].chars().next();
+                !before.is_some_and(word) && !after.is_some_and(word)
+            })
+            .count();
+
+        assert_eq!(
+            uses, 2,
+            "between the bail and the ink, `which` should be read exactly \
+             twice — `mark_sdf(which, ..)` for the glyph and `mark_color(which)` \
+             for the accent. {uses} means the ink now depends on which mark it \
+             is drawing, which is #23's decision and #102's claim: say so in \
+             `mark_pulse`'s note before making this number agree with you."
+        );
+    }
+
     /// The shader reads the atlas the baker writes.
     ///
     /// Two numbers with no compiler between them, and each fails in its own
