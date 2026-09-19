@@ -6599,6 +6599,149 @@ fn a_land_that_costs_a_bounce_nobody_can_pay_asks_nothing() {
     );
 }
 
+/// The Battlebond "crowd" lands: "enters tapped unless you have two or more
+/// opponents".
+const UNTAPPED_WITH_A_CROWD: &[(&str, &str)] = &[
+    (
+        "761cb262-f83b-4a99-9345-b773182a7671",
+        "Bountiful Promenade",
+    ),
+    ("819e1765-8325-4e6f-89c1-63ea86de369f", "Luxury Suite"),
+    ("bd004c9d-771e-4e63-a97d-a2259c096af8", "Morphic Pool"),
+    (
+        "d1620449-930a-4895-a143-fd2a0a3c8b17",
+        "Rejuvenating Springs",
+    ),
+    ("672e190d-8ea0-4a2e-b74f-5d35304631e4", "Sea of Clouds"),
+    ("cf6d10ed-85c3-48f2-8ba0-2960e03b408b", "Spectator Seating"),
+    ("45fe016e-1a09-410c-bbe3-4663ba06c5b7", "Spire Garden"),
+    ("e3570ac7-c593-40e3-bbd6-ec3da6d8158d", "Training Center"),
+    (
+        "7c69f718-acc8-4851-8e5d-0cbaaa86192c",
+        "Undergrowth Stadium",
+    ),
+    ("ebc5ac83-08d4-4d6b-b840-0c4ba71a38ab", "Vault of Champions"),
+];
+
+/// The Duskmourn "unlucky" lands: "enters tapped unless a player has 13 or
+/// less life".
+const UNTAPPED_WHEN_SOMEONE_IS_LOW: &[(&str, &str)] = &[
+    (
+        "0eec9984-cd11-4a52-9234-469c6a5fb9aa",
+        "Abandoned Campground",
+    ),
+    ("47b6d2ae-d3d7-41eb-9172-2076eb8d028d", "Bleeding Woods"),
+    ("6ccca5c2-66c3-495a-8d9e-1a9805569e52", "Etched Cornfield"),
+    ("c56cd2ec-5907-4282-9162-d93b7dfd63b5", "Lakeside Shack"),
+    ("c2cdefeb-3176-4faf-be54-a62d31f777a5", "Murky Sewer"),
+    ("c8c632ab-14ec-44e1-ac00-81d48336320d", "Neglected Manor"),
+    (
+        "d55f7e20-11c6-44e2-8a21-dca67d3dbc68",
+        "Peculiar Lighthouse",
+    ),
+    ("24a97436-ba61-4ebc-a560-a6c027ccfdf3", "Raucous Carnival"),
+    ("8f69bd3a-244e-42d8-bfac-5a426f4b54b4", "Razortrap Gorge"),
+    ("3a5b3405-a1e3-4aad-ab4e-1b8db2d1f3a8", "Strangled Cemetery"),
+];
+
+/// Whether the land `card` arrives tapped on the board `build` sets up.
+fn arrives_tapped(build: impl FnOnce() -> crate::engine::testkit::Duel, card: CardIndex) -> bool {
+    let p0 = PlayerId::new(0);
+    let mut engine = build().hand(0, &[card]).start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let land = play_land(&mut engine, p0, card);
+    engine
+        .state()
+        .object(land)
+        .expect("the land arrived")
+        .status
+        .contains(Status::TAPPED)
+}
+
+/// All ten crowd lands, at the two table sizes their sentence is about.
+///
+/// A duel is the board every other land test in this file runs on, and it is
+/// the one board this cycle cannot be measured from: with a single opponent
+/// every one of the ten enters tapped, so a test written there would assert
+/// the same branch twice and pass whatever the rule did.
+#[test]
+fn a_crowd_land_wants_two_opponents_and_counts_only_opponents() {
+    for (i, (oracle, name)) in UNTAPPED_WITH_A_CROWD.iter().enumerate() {
+        let card = card_index(oracle);
+        let seed = 980 + u64::try_from(i).expect("ten rows");
+        assert!(
+            arrives_tapped(|| Duel::new(seed, forest()), card),
+            "{name} entered untapped in a duel, where you have one opponent"
+        );
+        assert!(
+            !arrives_tapped(|| Duel::table(seed, forest(), 3), card),
+            "{name} entered tapped at a three-player table"
+        );
+    }
+
+    // The half no seat count can show: two other players, one of them a
+    // teammate, is **one** opponent. A rule that counted seats rather than
+    // asking `is_opponent` passes every line above and fails this one.
+    let suite = card_index("819e1765-8325-4e6f-89c1-63ea86de369f");
+    assert!(
+        arrives_tapped(
+            || Duel::table(991, forest(), 3)
+                .team(0, 1)
+                .team(1, 1)
+                .team(2, 2),
+            suite
+        ),
+        "Luxury Suite counted a teammate as an opponent"
+    );
+    assert!(
+        !arrives_tapped(
+            || Duel::table(992, forest(), 3)
+                .team(0, 1)
+                .team(1, 2)
+                .team(2, 3),
+            suite
+        ),
+        "three seats on three sides is two opponents, and the land should be untapped"
+    );
+}
+
+/// All ten unlucky lands, and the three life totals their sentence reads.
+///
+/// Both seats start at twenty, so the duel that every other land test uses
+/// only ever shows the tapped branch here too. What turns the land on is
+/// **a** player at thirteen or less — including its own controller, which is
+/// the reading a test written only against the opponent would never separate
+/// from "an opponent has 13 or less life", a different card.
+#[test]
+fn an_unlucky_land_reads_every_life_total_including_its_own() {
+    for (i, (oracle, name)) in UNTAPPED_WHEN_SOMEONE_IS_LOW.iter().enumerate() {
+        let card = card_index(oracle);
+        let seed = 1000 + u64::try_from(i).expect("ten rows");
+        assert!(
+            arrives_tapped(|| Duel::new(seed, forest()), card),
+            "{name} entered untapped with both seats at twenty"
+        );
+        assert!(
+            !arrives_tapped(|| Duel::new(seed, forest()).life(1, 13), card),
+            "{name} entered tapped with an opponent at exactly thirteen"
+        );
+        assert!(
+            !arrives_tapped(|| Duel::new(seed, forest()).life(0, 12), card),
+            "{name} ignored its own controller's life total"
+        );
+    }
+
+    // Thirteen is the boundary the card prints, so fourteen is the other
+    // side of it — without this the whole cycle would pass with a `<` for a
+    // `<=` and be wrong on exactly one life total.
+    let gorge = card_index("8f69bd3a-244e-42d8-bfac-5a426f4b54b4");
+    assert!(
+        arrives_tapped(|| Duel::new(1020, forest()).life(1, 14), gorge),
+        "fourteen is not thirteen or less"
+    );
+}
+
 /// The Ravnica bounce lands: "when this land enters, return a land you
 /// control to its owner's hand".
 ///
