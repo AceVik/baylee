@@ -465,3 +465,64 @@ Short sentences this team uses as shorthand. Each one is a rule.
   sheath's does not. And a double register kept for that reason is
   **pinned**, not permanent: a test asserting the margin is still thin
   goes red the day the single register grows up.
+- **"A measured count can answer the wrong sentence."** The sequel to
+  "a recalled count reads like a measured one", and the more dangerous
+  half, because this one has a green test behind it. Measured 19.09:
+  `PoolCard::two_faced` is `def.faces.len() > 1` and returns **120**,
+  correctly. The row above it said "Transformation: 120 two-faced", and
+  three different numbers hide under that phrase — 120 faces compiled in
+  this build, **121** cards whose printing has two faces, ~107 with a
+  separate back image, which is what both consumers want. Eleven false
+  positives (nine adventures and two splits print both halves on one
+  physical face) against one false negative. Re-measuring the predicate
+  finds none of it: the predicate is right and its **name** is a claim.
+  Hold the name against the sentence, and make the cell say its
+  instrument.
+- **"A documented gap is not a backlog entry."** A hole described
+  precisely in the tree is still invisible work: it is on no board, in no
+  sprint, and gets found by a player. CR 608.2b was written up in two
+  places — `event.rs` on `StackObjectDidNotResolve` ("a check this engine
+  does not make yet") and `docs/engine-gaps.md`, with the line the fix
+  belongs on — and the first person to notice was the owner, mid-game,
+  when his Heroic Intervention did not save the creature. Good gap prose
+  feels *more* finished than none, because the thing is understood,
+  named and located. Understanding is not scheduling: a gap explained in
+  an answer goes on the board before the answer is sent.
+- **"An absence is not a message."** An interface that communicates by
+  *withholding* something has not communicated. `touch.rs` argued there
+  need be no shake, no red and no message because "the card was already
+  saying it could not be cast, through a halo it does not wear" — and
+  #112 is a player refuting that sentence. He pressed, the card gave way
+  and came back heavy, and he reported it as **completely dead**; offered
+  three descriptions he chose "nothing at all" over "reacted briefly,
+  then sprang back". The missing halo carried nothing, and the heavier
+  return was not legible as a response. Before shipping a signal that
+  consists of something not being there, say who is supposed to notice
+  its absence and against what.
+- **"Sending is not landing."** A test that stops at *armed*, or at "we
+  put it on the wire", is satisfied by a client that never completes
+  anything. Found by a draft that read the pending on the frame a run
+  ended and saw the seat still holding priority with mana floating and
+  `CastSpell` unanswered. Assert the far end — the engine's next
+  question — not the near one.
+- **"A cleared path is only a discriminator if the other path is cleared
+  too."** A question keyed on *which* of two states the player saw is
+  worth nothing while only one of them has been measured, and it reads as
+  conclusive either way. Measured on #112: the indigo path was cleared
+  end to end and the gold one was not, and the discriminator built on the
+  pair looked finished.
+- **"A reason assembled from a residual is a guess wearing a reason's
+  clothes."** Two arms that positively know their case plus a third that
+  means "none of the above" will confidently tell the player the wrong
+  thing the first time a fourth cause appears. Either the third arm knows
+  something, or it says the vague true thing — never the specific
+  plausible one.
+- **"A plausible reconciliation is the dangerous outcome of an
+  arithmetic check, not the reassuring one."** When a breakdown does not
+  sum to its total, the temptation is to find the story that closes the
+  gap. Measured 19.09: the tidy story — 361 cards against 362 abilities,
+  one card with two kinds — was consistent, mechanical and wrong in three
+  numbers at once. The real answer was 361 · 382 · 383, and the breakdown
+  had been taken inside an `any(...)`, which short-circuits: the right
+  operator for "does this card do X" and the wrong one for "how many".
+  A mismatch sends you to the data, never to an explanation.
