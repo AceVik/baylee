@@ -236,6 +236,14 @@ use baylee_core::ids::ObjectId;
 ///
 /// Poll, apply, advance the run, flush. A test that flushed before it
 /// advanced would be testing an order no running client uses.
+///
+/// The last line is the one that is easy to leave out, and leaving it out is
+/// what makes a harness disagree with the client it is standing in for:
+/// `flush_outbox` does one thing more than [`crate::Duel::take_outbox`] does
+/// — it drops the interaction, because the answer has been sent and the next
+/// choice replaces it. Until that choice arrives the seat has no legal
+/// actions, so every card in hand is neither `playable` nor offered, and a
+/// pump that skipped this would never see that window at all.
 fn pump(host: &mut LocalHost, duel: &mut crate::Duel) {
     for m in host.poll() {
         match m {
@@ -249,8 +257,13 @@ fn pump(host: &mut LocalHost, duel: &mut crate::Duel) {
         }
     }
     crate::advance_mana_run(duel);
-    for action in duel.take_outbox() {
+    let sent = duel.take_outbox();
+    let answered = !sent.is_empty();
+    for action in sent {
         host.submit(action);
+    }
+    if answered {
+        duel.interaction = None;
     }
 }
 
@@ -479,7 +492,7 @@ fn the_gold_half_casts_with_the_mana_already_in_the_pool() {
         .and_then(Interaction::legal_actions)
         .and_then(|l| l.mana_abilities.first().copied())
         .expect("an untapped land to tap");
-    host.submit(PlayerAction::ActivateManaAbility { source });
+    activate_card(&mut duel, source);
     for _ in 0..20 {
         pump(&mut host, &mut duel);
         if duel
@@ -491,6 +504,25 @@ fn the_gold_half_casts_with_the_mana_already_in_the_pool() {
             break;
         }
     }
+
+    // **Tapping for mana does not pass priority**, which is worth asserting
+    // rather than inferring. A mana ability does not use the stack (CR
+    // 605.3b) and the player keeps priority, so the opponent's spell is still
+    // sitting on it — and if that were ever untrue, this whole window would
+    // close the instant a player reached for their own mana, which is
+    // precisely the sequence the owner described.
+    assert!(
+        duel.view.as_ref().is_some_and(|v| !v.stack.is_empty()),
+        "the opponent's spell left the stack while this seat tapped a land"
+    );
+    assert!(
+        matches!(
+            duel.interaction.as_ref().map(Interaction::pending),
+            Some(Pending::Priority { player, .. }) if *player == PlayerId::new(0)
+        ),
+        "this seat stopped holding priority over its own mana ability: {:?}",
+        duel.interaction.as_ref().map(Interaction::pending)
+    );
 
     let card = duel
         .board
@@ -530,4 +562,114 @@ fn the_gold_half_casts_with_the_mana_already_in_the_pool() {
     );
 
     the_gesture_lands_on_a_target(&mut host, &mut duel);
+}
+
+/// The reported position, one resolution later: the card goes dark and the
+/// click is swallowed without a word.
+///
+/// This is #112 reproduced. Eerie Interlude *exiles* the creatures it targets
+/// (CR 702.x is not the point; the card is), so a player who lets it resolve
+/// while holding removal has no legal target left — and the engine's
+/// `castable` correctly stops offering the cast. The client is right about
+/// the rules and silent about them:
+///
+/// - `playable` is false, because the engine will not accept the cast.
+/// - `reachable` is false, because the only land has already been tapped.
+/// - so the card is drawn in neither gold nor indigo, which is **dark**.
+/// - and the tap arms nothing, sends nothing, and sets no `last_error`.
+///
+/// That is all three of the owner's answers at once — "dark / greyed out like
+/// unplayable", "the `{W}` came from tapping a land", "clicking did nothing at
+/// all" — with no defect anywhere in the input path. What is wrong is that the
+/// same dark card and the same swallowed tap mean "you cannot afford it",
+/// "it is not the right time" and "there is nothing left to target", and the
+/// client distinguishes none of them.
+///
+/// **The last assertion is the defect, pinned.** `last_error` staying `None`
+/// is the silence; the day this client explains a refused tap, this test goes
+/// red, and that is the outcome it exists to produce.
+#[test]
+fn a_spell_whose_only_target_was_exiled_goes_dark_and_says_nothing() {
+    let (mut host, mut duel, spell) = the_reported_window();
+    let on_the_battlefield = |duel: &crate::Duel, what: &str| {
+        duel.view
+            .as_ref()
+            .is_some_and(|v| v.battlefield.iter().any(|o| o.name == what))
+    };
+    assert!(
+        on_the_battlefield(&duel, "Baleful Strix"),
+        "the creature the removal is for has to be there before it is not"
+    );
+
+    // Get the mana up, the way he did.
+    let source = duel
+        .interaction
+        .as_ref()
+        .and_then(Interaction::legal_actions)
+        .and_then(|l| l.mana_abilities.first().copied())
+        .expect("an untapped land to tap");
+    activate_card(&mut duel, source);
+    for _ in 0..20 {
+        pump(&mut host, &mut duel);
+        if duel
+            .interaction
+            .as_ref()
+            .and_then(Interaction::legal_actions)
+            .is_some_and(|l| l.castable.contains(&spell))
+        {
+            break;
+        }
+    }
+
+    // Then let the opponent's spell resolve. Passing by hand rather than
+    // through the automation on purpose: the client's own auto-pass could not
+    // have done this — it is guarded twice over, by `offering` and by
+    // `opposing_stack` — so a test that leant on it would be asserting
+    // something this position cannot reach.
+    for _ in 0..60 {
+        if let Some(PlayerAction::PassPriority) =
+            duel.interaction.as_ref().and_then(Interaction::confirm)
+        {
+            duel.submit(PlayerAction::PassPriority);
+        }
+        pump(&mut host, &mut duel);
+        if duel.view.as_ref().is_some_and(|v| v.stack.is_empty())
+            && duel.interaction.as_ref().is_some_and(Interaction::is_mine)
+        {
+            break;
+        }
+    }
+    assert!(
+        !on_the_battlefield(&duel, "Baleful Strix"),
+        "the spell never resolved, so this is not the position under test"
+    );
+
+    let card = duel
+        .board
+        .as_ref()
+        .and_then(|b| b.hand.iter().find(|h| h.id == spell))
+        .expect("the card is still in the rendered hand");
+    assert!(
+        !card.playable && !card.reachable,
+        "neither authority lights it, which is what dark means: {card:?}"
+    );
+
+    // And the tap. Both halves matter: nothing happens, and nothing is said.
+    activate_card(&mut duel, spell);
+    assert!(
+        duel.armed.is_none(),
+        "the tap armed {:?} on a card the engine will not accept",
+        duel.armed
+    );
+    assert!(
+        duel.outbox().is_empty(),
+        "the tap put {:?} on the wire",
+        duel.outbox()
+    );
+    assert_eq!(
+        duel.last_error, None,
+        "this is the finding and not the fixture: the client refuses the tap \
+         and tells the player nothing, so there is no refusal to read. When \
+         it learns to say why, this assertion is the one that fails."
+    );
 }

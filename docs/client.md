@@ -1700,19 +1700,28 @@ separation is the whole grammar:
   margin, it is the floor with a rounding error on top, and it is why the rail
   still carries a defender mark.
 
-  The margin is buyable and the price is the colour rather than the wall: at a
-  joint of 0.42 the same drawing reaches 27.2 over that text box, and whether
-  it can be spent depends on how yellow the joints stay — pale joints cost 18.7
-  degrees of art hue there, yellow ones 66.7.
+  The margin was buyable and was **not** bought. At a joint of 0.42 the same
+  drawing reaches 27.2 over that text box, and the price is the colour rather
+  than the wall: pale joints cost 18.7 degrees of art hue there, yellow ones
+  66.7. `WALL_JOINT` stays at 0.30 and the joints stay yellow, which is a
+  decision taken with 20.9 against a floor of 20 in front of it rather than in
+  ignorance of it — the weakest case named above is the one the choice was put
+  on.
 
-  The rail still carries a defender mark as well, which is the one thing here
-  that is not settled. Hexproof and indestructible were dropped from the rail
-  when the border became a material for them, on the rule that a mark
-  repeating a sheath is the same claim twice in two languages — but that rule
-  meets `cardrail::MARK_ORDER`'s own, that a slot is appended and never
-  moved, and dropping defender from the middle would move prowess on every
-  card in every screenshot. Leaving a hole instead is a change to the array's
-  type. Which cost to pay is #23's remaining question.
+  So defender is carried in **two** registers, a wall and a rail mark, which
+  is what the face rule otherwise forbids. Hexproof and indestructible were
+  dropped from the rail when the border became a material for them, on the
+  rule that a mark repeating a sheath is the same claim twice in two
+  languages; defender keeps both, because 0.9 display levels is not margin —
+  it is the floor with a rounding error on top, and a sole carrier that weak
+  is a claim the weakest card does not make. The alternative stays on record
+  rather than being argued again: `cardrail::MARK_ORDER` appends a slot and
+  never moves one, so dropping defender from the middle would move prowess on
+  every card in every screenshot, and leaving a hole instead is a change to
+  the array's type.
+  `a_defender_wears_a_wall_and_a_sick_one_wears_the_night_as_well` asserts
+  both bits, so whichever register is ever dropped, it cannot be dropped
+  quietly.
 
 - **The perimeter says what is on offer.** `glow::ACTIVATABLE` rides in the
   same word but is deliberately *not* in `KEYWORD_BITS`: it comes from
