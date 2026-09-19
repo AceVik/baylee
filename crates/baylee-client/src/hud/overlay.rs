@@ -2230,6 +2230,92 @@ mod tests {
         );
     }
 
+    /// The owner's other complaint about this dialog: a row grew under the
+    /// pointer.
+    ///
+    /// A row is a **line of writing** — a tick, a picture, a name, the pips,
+    /// a type line — and [`Feel::lift`]'s own doc names that as the case that
+    /// must stay at zero: growing a row grows the sentence on it, and a
+    /// hundred of them under a moving pointer is a list that reflows while it
+    /// is being read. `row_slot` carries `Feel::tinting_to` for exactly that
+    /// reason, which lights the row and leaves it where it is.
+    ///
+    /// Both halves, and the second is what makes the first mean anything: a
+    /// query that found no rows, or a dialog in which nothing lifts at all,
+    /// would pass "every row is at zero" perfectly. So the same question is
+    /// put to the **grid**, where a tile is a picture and answers the pointer
+    /// by growing — the one place this dialog parts company with itself, and
+    /// it is deliberate.
+    ///
+    /// Both list modes, because `Large` is the detailed row with its asides
+    /// dropped and its picture doubled: it is the same `row_slot` and it is
+    /// the mode a second hand would forget.
+    #[test]
+    fn a_row_is_lit_under_the_pointer_and_never_grows() {
+        use baylee_client_core::browser::ViewMode;
+
+        fn lifts(app: &mut App) -> Vec<f32> {
+            let mut found = app
+                .world_mut()
+                .query_filtered::<&crate::ambience::Feel, With<TrayCard>>();
+            found.iter(app.world()).map(|feel| feel.lift).collect()
+        }
+
+        fn dialog_in(mode: ViewMode) -> App {
+            // A row and a tile both draw a thumbnail, and asking for one is
+            // an `AssetServer::load` — which spawns on the IO pool and panics
+            // without it. Idempotent, so several tests may ask.
+            bevy::tasks::IoTaskPool::get_or_init(Default::default);
+            let mut duel = duel_with(false);
+            duel.statics = Some(baylee_client_core::test_support::statics(8));
+            duel.view = Some(
+                baylee_client_core::test_support::ViewBuilder::new(2)
+                    .with_graveyard(
+                        0,
+                        (10..16)
+                            .map(|s| baylee_client_core::test_support::printed(s, 0, "Forest", 1))
+                            .collect(),
+                    )
+                    .build(),
+            );
+            crate::rebuild_board(&mut duel);
+            duel.browser.open();
+            let mut app = bar_of(duel);
+            // After the harness has run once, so this is the change that
+            // rebuilds: the view mode is in `TrayRevision`'s browser gate.
+            app.world_mut()
+                .resource_mut::<crate::settings::ClientSettings>()
+                .zone_view = mode;
+            app.update();
+            app
+        }
+
+        for mode in [ViewMode::Detailed, ViewMode::Large] {
+            let mut app = dialog_in(mode);
+            let rows = lifts(&mut app);
+            assert_eq!(
+                rows.len(),
+                6,
+                "{mode:?}: the list drew a row per card in the pile, and did \
+                 not: {rows:?}"
+            );
+            assert!(
+                rows.iter().all(|lift| *lift == 0.0),
+                "{mode:?}: a row lifts, so it grows under the pointer and the \
+                 sentence on it grows with it: {rows:?}"
+            );
+        }
+
+        let mut app = dialog_in(ViewMode::Grid);
+        let tiles = lifts(&mut app);
+        assert_eq!(tiles.len(), 6, "the grid drew a tile per card: {tiles:?}");
+        assert!(
+            tiles.iter().all(|lift| *lift > 0.0),
+            "nothing in this dialog lifts at all, so the rows standing at zero \
+             says nothing about the rows: {tiles:?}"
+        );
+    }
+
     /// A sheet put away stands for as long as its flight into the tray, and
     /// then it is gone.
     ///
