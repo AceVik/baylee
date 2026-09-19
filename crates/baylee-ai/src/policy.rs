@@ -596,6 +596,50 @@ fn removal(effect: &Effect) -> bool {
     )
 }
 
+/// One tap toward what this seat owes inside a payment window (CR 605.3a).
+///
+/// The window is an ordinary priority round, which is exactly what made it
+/// invisible. A seat that has just agreed to pay ward's tax is handed
+/// priority over untapped lands with **nothing castable** — the tax is not a
+/// spell, so [`Policy::spell_or_mana`] finds no candidate to pay for and
+/// every path below it passes. The agent said yes and then lost the spell
+/// anyway, which is worse than having said no. `PlayerView::owed` is the
+/// engine saying the price out loud, and this is its only reader.
+///
+/// **Nothing is tapped toward a price the seat cannot finish.**
+/// [`manaplan::plan`] answers `None` when no assignment of the offered
+/// sources covers the whole cost, and `None` here means pass: a seat that
+/// taps two of the three lands it needs has lost the mana *and* the spell,
+/// where a seat that taps none has lost only what it had already agreed to
+/// lose. The refusal is therefore before the first tap and not after it.
+///
+/// It terminates on its own. `owed` is the total that was asked rather than
+/// the remainder, and `plan` spends the floating pool first — so each tap
+/// leaves one fewer step, and a pool that covers the price plans no steps at
+/// all, which is the pass that closes the window.
+pub(crate) fn pay_owed(view: &PlayerView, legal: &LegalActions) -> Option<PlayerAction> {
+    let owed = view.owed?;
+    // `owed` is what the *awaited* seat owes, and that is only this seat
+    // while this seat is the one being asked. Both fields ride in every
+    // view, so reading one without the other would have a seat paying for
+    // somebody else's window.
+    if view.awaiting != Some(view.seat) {
+        return None;
+    }
+    let seat = view.seat(view.seat)?;
+    let plan = manaplan::plan(&owed, &seat.mana_pool, &sources(view, legal))?;
+    let step = plan.steps.first()?;
+    Some(match step.tap {
+        Tap::Intrinsic => PlayerAction::ActivateManaAbility {
+            source: step.source,
+        },
+        Tap::Ability(ability_index) => PlayerAction::ActivateAbility {
+            source: step.source,
+            ability_index,
+        },
+    })
+}
+
 /// Read only offered, simple mana taps. One permanent is one source even
 /// when its intrinsic and printed abilities both appear in the offer.
 fn sources(view: &PlayerView, legal: &LegalActions) -> Vec<Source> {

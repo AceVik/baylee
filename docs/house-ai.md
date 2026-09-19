@@ -34,11 +34,18 @@ time at target choice, since CR 601.2 picks targets before mana is paid: a
 warded creature is priced against the material scale when the seat can cover
 the spell and the tax together, and sinks below every other candidate when it
 cannot — going around a ward costs nothing, walking into one it cannot pay
-costs the card. What is still missing is the window that follows a yes: the
-engine hands the seat priority to make the mana (CR 605.3a) and `PlayerView`
-does not yet say what it owes, so the agent passes and the spell is countered
-after all. That is pinned in `crates/baylee-gamehost/tests/ai_ward.rs` rather
-than described, and the pin fails on the day the view learns to say it. Searches, bottoming,
+costs the card. **The window that follows a yes is answered too**: the engine
+hands the seat priority to make the mana (CR 605.3a), and because a window is
+an ordinary priority round with nothing castable in it, every path in the
+agent's ladder used to pass — so it paid for a spell and then lost it, which
+is worse than refusing. `policy::pay_owed` reads `PlayerView::owed` before
+the land drop and taps toward the price, and **taps nothing toward a price it
+cannot reach**: a seat that taps two of the three lands it needs has lost the
+mana and the spell, where one that taps none has lost only what it had
+already agreed to lose. It reads `awaiting` beside `owed`, because both ride
+in every view and a seat taking one without the other pays for its
+opponent's window. `crates/baylee-gamehost/tests/ai_ward.rs` plays it out
+against the real engine. Searches, bottoming,
 and surveils at the skilled levels evaluate only identities actually visible
 in `PlayerView`, including `looking_at` while a search is open.
 
