@@ -3702,10 +3702,31 @@ rim. Six dash periods fall across the sampled span of the far mat's edge.
 - **held, on turn and asked**: the same k=6, amplitude 7.0 on a mean of 148,
   2.2× the next.
 
-Two things the picture settled that the arithmetic only predicted. It survives
-the size it is for: resampled to the seventh an eight-seat ring projects, the
-ridge keeps its swing almost exactly (66 → 64 peak-to-peak idle, 24 → 24
-saturated), so twenty-four dashes do not alias into a grey. And the mark is
+Two things the picture settled that the arithmetic only predicted. The first
+is that it survives the size it is for, and that was **rendered rather than
+resampled** — the first answer here was a Lanczos downsample of the duel, and
+a filter over finished pixels is the one thing that cannot answer "does a
+high-frequency pattern survive being made small", because the GPU's own
+minification is what is being asked about. So: an offline table for eight,
+every shelf reporting `Density::Mark` at 160–178 logical pixels, photographed
+twice at the same seat with one variable changed —
+
+| seat 4's rim, 380 px | mean | strongest period | ratio to background |
+|---|---|---|---|
+| shipped code, no chair held | 72.3 | k=4 at **0.67** | 1.07 |
+| the same seat, chair held | 71.0 | k=7 at **16.50** | **4.13** |
+
+which says three things at once. The dash survives real minification with a
+quarter of its brightness as modulation. An unheld rim of the *same* mat at
+the *same* brightness has no periodic structure at all — 0.67 against a
+background of 0.62 is nothing, and that is the counter-test the duel could not
+give, because there the only unheld mat was the local seat's and its rim is
+clipped at its ceiling, which would read flat whatever was done to it. And the
+**mean survives**: 72.3 against 71.0, 1.8% apart, which is the mean-of-one
+property holding in the shader at the density it is for rather than only in
+the generator a test can measure.
+
+And the mark is
 **weakest at the rim's outer contour** — 33 levels across the outermost bright
 row against about 62 two rows in — so where the rim saturates it reads as a
 scalloping of the glow rather than as breaks in the silhouette, and the
