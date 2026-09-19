@@ -4458,17 +4458,28 @@ why it needs a list at all: a press and a click land on different frames, so
 the press would shut the panel and `menu_click` would re-open it a frame
 later, leaving a button that looked busy and did nothing.
 
-Photographed with the clock stopped, the panel is 859 physical pixels wide
-two frames into the arrival and 871 at rest — and its **right** edge is at
-3394 and 3395, which is the claim: the corner the button is in holds still to
-a pixel while the rest of the panel comes out of it. The vertical half is the
-same expression as the drawer's and is held by `motion`'s own arithmetic test.
-The whole-frame diff that would have measured both at once is not available
-here, and that is worth knowing before reaching for it: `/pause` stops
-`Time<Virtual>`, which every movement reads, but a shader's `globals.time`
-runs off the render clock — so the felt, the rims and the sky all differ
-between any two frames separated by a `/step`, and a diff of the whole window
-comes back saying everything moved.
+Photographed with the clock stopped, three frames into the arrival the panel
+is **552 physical pixels wide and 239 tall**, against **544 by 236** at rest —
+and its right edge is at 3431 and its bottom at 1700 in both. So the corner
+its button is in holds still to the pixel while the panel comes out of it, and
+544 is exactly `2 · MENU_W`, which is what says the thing measured is the
+panel. The 1.0147 it is drawn at there is the **overshoot**, not an
+unfinished arrival: `opening(3/60 / 0.16)` is 1.0142, and `ZOOM_BACK`'s whole
+point is that the curve passes 1 and comes back.
+
+Two things about measuring it are worth more than the numbers. The first
+attempt matched on the panel's ground colour over a loose window and got 871
+wide with its right edge at 3395 — the shelf's own ground is that colour, so
+what came back was the shelf, and it was committed before anyone held it
+against `2 · MENU_W` or against `2 · (1728 − EDGE)`. Either check would have
+refused it in one line, and one of them was already contradicted out loud: the
+same reading said 0.986 while the narration beside it said the overshoot was
+visible. And a **whole-window** diff cannot stand in for the tight crop:
+`/pause` stops `Time<Virtual>`, which every movement here reads, but a
+shader's `globals.time` runs off the render clock — measured, the felt away
+from the panel differs by up to 52 levels between two frames separated by a
+`/step` — so a diff of the window answers "everything moved", and a threshold
+under that floor quietly reads the noise as the thing.
 
 **Writing it found that the sweep's exemptions were held by nothing.**
 `sync_overlay` spares six markers under `HudRoot`, and taking the tray's, the
