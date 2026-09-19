@@ -25,7 +25,7 @@ use baylee_core::ids::PlayerId;
 use baylee_core::preset::{DeckEntry, GamePreset};
 use baylee_engine::choice::{Pending, PlayerAction, YesNoPrompt};
 use baylee_engine::engine::Engine;
-use baylee_gamehost::{RegistryLookup, player_view};
+use baylee_gamehost::{RegistryLookup, SeatContext, player_view};
 
 fn entry(name: &str) -> DeckEntry {
     DeckEntry {
@@ -69,7 +69,18 @@ fn the_agent_pays_ward_and_then_cannot_find_the_window_it_was_handed() {
         let Some(seat) = pending_player(pending) else {
             break;
         };
-        let view = player_view(engine.state(), seat, Some(seat), seq, Some(pending), false);
+        // `awaiting` is carried over from the six-argument call this test was
+        // written against: it named this seat as the awaited one, and
+        // `SeatContext::default()` would quietly make it `None`. The agent
+        // here answers the tax from `decision_context` rather than from the
+        // view, so nothing observable turns on it today — which is the reason
+        // to preserve it rather than to drop it, because a field nothing reads
+        // is exactly the one a default silently changes.
+        let ctx = SeatContext {
+            awaiting: Some(seat),
+            ..Default::default()
+        };
+        let view = player_view(engine.state(), seat, seq, Some(pending), &ctx);
         let action = match pending {
             Pending::Mulligan { .. } => PlayerAction::MulliganKeep,
             Pending::Priority { .. } if seat == PlayerId::new(1) => PlayerAction::PassPriority,
