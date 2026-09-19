@@ -1782,10 +1782,37 @@ fn row_text(
 /// what is drawn slid up the screen whenever the hand crossed the permanent
 /// it was describing, and again the moment a row was armed. Neither is a
 /// *move*: the card is exactly where it was.
+///
+/// **Two kinds of card, one placement.** The table's is a 3D pose that has to
+/// be projected ([`crate::table::card_box`]); a card in the player's own hand
+/// is `bevy_ui` and needs no projection at all, because the layout has already
+/// put its node somewhere — in *physical* pixels, which
+/// `ComputedNode::inverse_scale_factor` is the way back from. Both ends answer
+/// the same pair, a centre and a box in logical pixels, and [`corner_for`]
+/// takes it from there, so there is one rule about where a sheet goes rather
+/// than two.
+///
+/// The hand half is not only 6c's groundwork. `abilities::options_for` reads
+/// `LegalActions::abilities`, which names a source and an index and says
+/// nothing about the zone it is in — so a card in hand offering two activated
+/// abilities already opened this sheet, and the search below already failed to
+/// find it. What the player saw was a sheet that never appeared.
+///
+/// [`crate::hud::HandRowCard`] and not the wider [`crate::hud::HandCardVisual`]:
+/// the stack panel puts the latter on every row, and a spell on the stack is
+/// not a card in the hand.
 pub fn place_ability_sheet(
     shown: Res<crate::table::ShownRig>,
     windows: Query<&Window>,
     cards: Query<(&crate::table::CardVisual, &crate::table::CardRest)>,
+    hand: Query<
+        (
+            &crate::hud::HandCardVisual,
+            &bevy::ui::ComputedNode,
+            &bevy::ui::UiGlobalTransform,
+        ),
+        With<crate::hud::HandRowCard>,
+    >,
     mut sheet: Query<(
         &mut AbilitySheet,
         &mut Node,
@@ -1797,19 +1824,34 @@ pub fn place_ability_sheet(
     let Ok((mut sheet, mut node, mut seen, computed)) = sheet.single_mut() else {
         return;
     };
-    let (Some(rig), Ok(window)) = (shown.rig(), windows.single()) else {
+    let Ok(window) = windows.single() else {
         return;
     };
     let size = Vec2::new(window.width(), window.height());
-    let lens = crate::table::Lens::new(rig, size);
-    let Some((mid, card)) = cards
-        .iter()
-        .find(|(visual, _)| visual.object == sheet.object)
-        .and_then(|(_, at)| crate::table::card_box(&lens, &at.0))
-    else {
-        // The card is not on the table — it left, or the camera cannot see
-        // it. Hidden rather than despawned, the way a seat bar is: the sheet
-        // is closed by the input path and not by the camera.
+    // The camera is asked for *inside* the table's half and not before it: a
+    // sheet standing beside a card in the hand is `bevy_ui` from end to end
+    // and has no business waiting for a rig that has not settled yet.
+    let on_the_table = shown.rig().and_then(|rig| {
+        let lens = crate::table::Lens::new(rig, size);
+        cards
+            .iter()
+            .find(|(visual, _)| visual.object == sheet.object)
+            .and_then(|(_, at)| crate::table::card_box(&lens, &at.0))
+    });
+    // The table is asked first because that is where a permanent's abilities
+    // are activated from, and an object is never in both lists at once.
+    let Some((mid, card)) = on_the_table.or_else(|| {
+        hand.iter()
+            .find(|(visual, _, _)| visual.object == sheet.object)
+            .map(|(_, computed, place)| {
+                let scale = computed.inverse_scale_factor;
+                (place.translation * scale, computed.size() * scale)
+            })
+    }) else {
+        // The card is nowhere this system can point at — it left the table
+        // and the hand, or the camera cannot see it. Hidden rather than
+        // despawned, the way a seat bar is: the sheet is closed by the input
+        // path and not by the camera.
         if node.display != Display::None {
             sheet.placed = None;
             node.display = Display::None;
@@ -2223,6 +2265,90 @@ mod running {
         app.update();
         let node = app.world().entity(sheet).get::<Node>().expect("a node");
         assert_eq!(node.display, Display::None);
+    }
+
+    /// A card standing in the player's own hand row.
+    ///
+    /// A hand card is `bevy_ui` from end to end — a `ComputedNode` the layout
+    /// has already sized and a `UiGlobalTransform` it has already placed — so
+    /// there is no projection and no camera anywhere in this half. The centre
+    /// is the transform's translation, which is what `devctl` reads to report
+    /// the hand, and both are physical pixels at
+    /// `ComputedNode::inverse_scale_factor` 1.
+    fn hand_card(app: &mut App, object: ObjectId, mid: Vec2, card: Vec2) {
+        app.world_mut().spawn((
+            crate::hud::HandCardVisual { object },
+            crate::hud::HandRowCard,
+            bevy::ui::ComputedNode {
+                size: card,
+                ..default()
+            },
+            bevy::ui::UiGlobalTransform::from_translation(mid),
+        ));
+    }
+
+    /// The sheet follows a card in the **hand**, not only one on the table.
+    ///
+    /// This is not only 6c's groundwork, it is a defect with a player-visible
+    /// shape. `abilities::options_for` reads `LegalActions::abilities`, which
+    /// names a source and an index and says nothing at all about the zone the
+    /// source is in — so a card in hand offering two activated abilities has
+    /// always been able to open this sheet, and the placer looked for it among
+    /// the table's cards, found nothing, and hid it. What the player saw was a
+    /// sheet that never appeared.
+    ///
+    /// The claim is asserted the way the table's is: centred on the card and
+    /// clear of its top edge, rather than by calling [`corner_for`] a second
+    /// time and comparing the placer's arithmetic with itself. Where the sheet
+    /// goes once it has an anchor is five tests above this one; what is new
+    /// here is that it *has* one.
+    #[test]
+    fn a_sheet_follows_a_card_in_the_hand_as_well_as_one_on_the_table() {
+        // A hand card's own numbers: `HAND_CARD_W` at the 63:88 card aspect,
+        // standing near the bottom of a default window.
+        let mid = Vec2::new(640.0, 660.0);
+        let card = Vec2::new(92.0, 128.5);
+
+        let (mut app, sheet, _, _) = harness(obj(4));
+        hand_card(&mut app, obj(4), mid, card);
+        app.update();
+
+        let node = app.world().entity(sheet).get::<Node>().expect("a node");
+        assert_eq!(node.display, Display::Flex, "the sheet is shown");
+        let (Val::Px(left), Val::Px(top)) = (node.left, node.top) else {
+            panic!("the sheet was never placed: {:?} {:?}", node.left, node.top)
+        };
+        assert!(
+            (left + 300.0 / 2.0 - mid.x).abs() < 1.0,
+            "centred on the card in the hand: its middle is {} and the card \
+             stands at {}",
+            left + 300.0 / 2.0,
+            mid.x
+        );
+        assert!(
+            top + 200.0 <= mid.y - card.y / 2.0 && top > 0.0,
+            "and stands above it, inside the window: {top} + 200 against the \
+             card's top edge at {}",
+            mid.y - card.y / 2.0
+        );
+
+        // The counter-half, and it is about the *lookup* rather than about the
+        // guard: a hand with a card in it, and a sheet anchored to something
+        // else, is still a sheet that is put away. Without it, "shown" above
+        // would also be what a placer that had stopped asking which object it
+        // was pointing at would say.
+        let (mut app, elsewhere, _, _) = harness(obj(9));
+        hand_card(&mut app, obj(4), mid, card);
+        app.update();
+        assert_eq!(
+            app.world()
+                .entity(elsewhere)
+                .get::<Node>()
+                .expect("a node")
+                .display,
+            Display::None,
+            "the sheet took the only card in the hand rather than its own"
+        );
     }
 
     /// Nothing on parchment is written in brass.

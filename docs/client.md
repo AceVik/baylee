@@ -2931,6 +2931,34 @@ because this sheet is the only one with two directions on it: `W`/`S` walk the
 whole column, `A`/`D` are the pip strip and arrive on it from a written row in
 one press.
 
+**It is anchored to the card, and a card stands in two different kinds of
+place.** A permanent is a pose in the 3D scene and has to be *projected*
+(`table::card_box` through a `Lens`); a card in the player's own hand is
+`bevy_ui`, and the layout has already put its node somewhere — in physical
+pixels, which `ComputedNode::inverse_scale_factor` is the way back from. Both
+ends of `place_ability_sheet` reduce to the same pair, a centre and a box in
+logical pixels, and `corner_for` takes it from there, so there is one rule
+about where a sheet goes rather than two. The camera is asked for *inside* the
+table's half: a sheet standing beside a card in the hand has no business
+waiting for a rig that has not settled.
+
+The hand half was a defect before it was groundwork.
+`abilities::options_for` reads `LegalActions::abilities`, which names a source
+and an index and says **nothing about the zone** — so a card in hand offering
+two activated abilities could always open this sheet, and the placer looked for
+it among the table's cards, found nothing, and hid it. What the player saw was
+a sheet that never appeared. The query is `HandRowCard` and not the wider
+`HandCardVisual`, which the stack panel puts on every row: a spell on the stack
+is not a card in the hand.
+
+**Anything that grows out of the hand is a sibling in the HUD root, never a
+child of it.** `spawn_hand_zone` stands on `Overflow::clip()`, and a child
+whose bottom edge sits a pixel under the parent's *top* edge and grows upward
+is clipped to exactly that pixel — nothing about it looks misconfigured, the
+panel is simply *gone*. That measurement is what moved the drawer out of the
+zone in AX step 6a, and the chooser that stands beside a hand card is the same
+trap a second time.
+
 ### The pool, and the land that always tapped for the wrong thing
 
 Rule 2 above — the planner refuses restricted mana — is correct and was, for
