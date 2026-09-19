@@ -53,6 +53,31 @@ floor of ten, which only ever spoke for tables the gateway made. The engine
 takes any window, and zero there means *never*, not *at once*.
 `docs/client.md` §"What the banner may claim, and why it cannot count".
 
+**A test that builds a `Duel` by struct literal can only claim what the
+literal sets, and the trap is narrower than `..Default::default()`.** The
+field that catches a harness out is one the wire fills whose *empty value is
+also a legal value*: `board: None` fails loudly, because every system that
+reads it bails and the test notices, while `reachable: {}` and
+`owed_plan: None` are answers a working client gives all the time — so a test
+built that way passes whatever the feature does, including nothing. Measured
+over this crate: 192 tests touch a `Duel` and 41 read a wire-filled field
+without a fill path in reach, and **most of the 41 are legitimate** — the
+field is either assigned by the test on purpose, or written by the very system
+under test (`link_note` by `keep_the_table_connected`, `cues` by the sound
+drain, `browser` by the overlay). The doors that fill the rest are
+`Duel::receive_view`, `Duel::receive_choice`, `rebuild_board` and `poll_host`,
+and `owed_tests::seat_with_two_forests` is the shape to copy: one seat built
+through the wire, handed to whichever surface is being asked.
+
+What the count did not find is the case worth having. A claim can depend on a
+derived field **without naming it** — `table::placements` reads
+`duel.proposing()`, which reads `owed_plan`, and a literal-built `Duel` makes
+that answer `Nothing` and every land dark. Nothing asserted on it: `Offer::on`
+had unit tests, `owed_plan` had `owed_tests`, and the line joining them had
+none. `table::offer_tests` is that join. A test per end and none across it is
+how "declared but never wired" ships, which is the same argument
+`library_fan_tests` and `cue_feed_tests` are written from.
+
 The **decision** clock is the other one and is now drawn: `PlayerView`
 `decision_remaining_ms` is relative milliseconds, so `DecisionClock`
 (`baylee-client-core/src/decisionclock.rs`) counts down between views and

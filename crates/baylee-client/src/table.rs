@@ -3560,6 +3560,12 @@ mod fan_screen_tests;
 #[cfg(test)]
 mod library_fan_tests;
 
+/// The offer drawn on a card, which is the join nothing crossed: `Offer::on`
+/// is unit-tested in `cardmat` and `owed_plan` in `owed_tests`, and the line
+/// that hands one to the other is here.
+#[cfg(test)]
+mod offer_tests;
+
 /// The camera is the table's, and the one thing that takes it is a player
 /// asking to look at a single seat.
 ///

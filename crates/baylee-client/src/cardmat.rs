@@ -1943,6 +1943,38 @@ pub(crate) mod tests {
         assert!(offer.armed && !offer.will_tap);
     }
 
+    /// The same question of an **owed** plan rather than an armed one, which
+    /// is the fourth corner of a square that had three.
+    ///
+    /// `Armed` over a stack is the test above; `Owed` over a single land is
+    /// `owed_tests`; `Owed` over a card standing for several was held by
+    /// nothing. The two arms share one `spends` closure, so this is cheap —
+    /// and "cheap and untested" is exactly the shape #105 is about, so it is
+    /// written rather than argued.
+    #[test]
+    fn a_card_standing_for_several_lands_lights_when_an_owed_plan_taps_one() {
+        use baylee_client_core::manaplan::{Plan, Step, Tap};
+        let forests: Vec<ObjectId> = (1..=3).map(|i| ObjectId::new(i, 0)).collect();
+        let plan = Plan {
+            steps: vec![Step {
+                source: forests[2],
+                tap: Tap::Intrinsic,
+                color: None,
+            }],
+            ..default()
+        };
+        let offer = Offer::on(crate::Proposing::Owed(&plan), &forests, false);
+        assert!(offer.will_tap, "one of the three is named by the plan");
+        assert!(!offer.armed, "an open window is not a commitment");
+
+        let elsewhere = [ObjectId::new(9, 0)];
+        assert_eq!(
+            Offer::on(crate::Proposing::Owed(&plan), &elsewhere, false),
+            Offer::activatable(false),
+            "a card the plan does not name is drawn dark"
+        );
+    }
+
     /// Every mark the rail carries is the keyword it claims to be, and the
     /// three the border speaks for are not on it twice.
     #[test]

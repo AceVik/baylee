@@ -25,7 +25,11 @@ fn forest(slot: u32) -> baylee_view::PublicObject {
 /// by hand would pass whatever the feature did — including nothing at all.
 /// These go in through [`Duel::receive_view`] and [`Duel::receive_choice`],
 /// which is where the plan is worked out.
-fn seat_with_two_forests(owed: Option<ManaCost>) -> Duel {
+///
+/// `pub(crate)` for `table::offer_tests`, which asks the same question one
+/// surface further out — whether the table *draws* what this works out — and
+/// must not answer it with a second, differently-wrong harness.
+pub(crate) fn seat_with_two_forests(owed: Option<ManaCost>) -> Duel {
     let lands: Vec<_> = (1..=2).map(forest).collect();
     let ids: Vec<ObjectId> = lands.iter().map(|o| o.id).collect();
     let mut view = ViewBuilder::new(2).with_battlefield(0, lands).build();

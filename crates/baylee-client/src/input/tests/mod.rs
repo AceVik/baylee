@@ -8,6 +8,18 @@
 //! `taps`, arming and what it swallows is `arming`, picking a target is
 //! `targets`, and what reaches the keymap at all is `keyboard`.
 //!
+//! # What the harnesses here do not supply
+//!
+//! The `Duel`s below are struct literals and set `view`, `interaction` and
+//! the pointer state. They do **not** set `reachable` or `suspend_reach`, the
+//! two sets `rebuild_board` fills, so the branches in `input.rs` that read
+//! them — the offer to go and tap lands for a spell — are never taken from
+//! here. That is deliberate rather than an oversight: `arming` is the file
+//! that covers those, and it is the one harness in this tree that goes in
+//! through [`crate::Duel::receive_view`] and `rebuild_board`. Anything added
+//! here whose claim depends on a reach set belongs there instead, or it will
+//! be asking a question of an empty set and getting a legal answer.
+//!
 //! # What stays here, and why it has to
 //!
 //! Every non-test item — the Bevy app builders, `finger_down`, `finger_up`,

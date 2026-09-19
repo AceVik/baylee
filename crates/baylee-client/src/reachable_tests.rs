@@ -46,6 +46,20 @@ fn forest(slot: u32) -> baylee_view::PublicObject {
 }
 
 /// A seat holding one sorcery, with two Forests it may tap.
+///
+/// Built as a struct literal, and #105 named this file for it. It is the
+/// case the ticket's third step is about: every claim below is about
+/// [`reachable`] the **function**, which reads `view` and `interaction` and
+/// nothing else, and the literal sets both. The cached `Duel::reachable` that
+/// `rebuild_board` fills is never read here — the tests call the function
+/// rather than the field, on purpose, because what is under test is the
+/// answer and not the caching.
+///
+/// The rule the audit came out with, so this does not get re-opened: a
+/// literal is only a trap for a field the wire fills **whose empty value is
+/// also a legal value**. `owed_plan: None` and `reachable: {}` are answers a
+/// working client gives all the time; `board: None` is not, and every system
+/// that reads it bails loudly enough for a test to notice.
 fn duel_holding_a_sorcery() -> Duel {
     let def = a_cheap_sorcery();
     let lands: Vec<_> = (1..=2).map(forest).collect();
