@@ -82,13 +82,22 @@ pub struct PoolCard {
     /// they own is asking about the *card*, and the answer crosses every set
     /// it was ever printed in.
     pub oracle_id: &'static str,
-    /// Every other name this card is printed under, across languages.
+    /// Every other name this card is printed under — other languages, and
+    /// the whole `A // B` spelling of a card with two faces.
     ///
     /// The builder shows one row per card and lets a player find it by typing
     /// any of its names — a German player types "Blitzschlag" and gets the
-    /// row that a deck stores as "Lightning Bolt". Empty without a catalog,
-    /// and omitted from the wire when empty: for two hundred cards in a dozen
-    /// languages this is the largest field in the answer.
+    /// row that a deck stores as "Lightning Bolt". The search is a substring
+    /// match, so the whole spelling earns the **back** face as well: a player
+    /// who knows Agadeem's Awakening as the land types "Agadeem, the
+    /// Undercrypt" and finds it, without that name being carried separately.
+    ///
+    /// The translations need a catalog and the whole spelling does not —
+    /// it comes off the registry, so it is here on a gateway that has never
+    /// ingested and in the client's offline harness, for the same reason
+    /// `POST /decks` takes that spelling either way. Omitted from the wire
+    /// when empty: for two hundred cards in a dozen languages this is the
+    /// largest field in the answer.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub alt_names: Vec<String>,
 }
@@ -136,7 +145,15 @@ pub fn row(def: &'static CardDef) -> PoolCard {
         two_faced: def.faces.len() > 1,
         scryfall_id: def.scryfall_id,
         oracle_id: def.oracle_id,
-        alt_names: Vec::new(),
+        // Scryfall's whole spelling, where the pool's own is one face of it.
+        // Seeded here rather than joined on later, so it is there on a
+        // gateway with no catalog ingest and in the client's offline
+        // harness — the same reason `POST /decks` accepts that spelling
+        // whether or not a catalog exists.
+        alt_names: crate::decks::whole_name(def.index)
+            .map(ToString::to_string)
+            .into_iter()
+            .collect(),
     }
 }
 
@@ -178,5 +195,80 @@ pub fn stats(face: &'static baylee_cards_dsl::FaceDef) -> Option<String> {
         (Some(p), Some(t), _) => Some(format!("{p}/{t}")),
         (_, _, Some(l)) => Some(l.to_string()),
         _ => None,
+    }
+}
+
+#[cfg(test)]
+mod whole_name_tests {
+    use crate::decks::{by_name, whole_name};
+
+    /// A two-faced card's row carries the spelling the pool does not call it
+    /// by, and a single-faced card's carries nothing — the field is omitted
+    /// from the wire when empty, so a row per card would cost every card.
+    #[test]
+    fn only_a_card_with_two_faces_carries_a_second_spelling() {
+        let mut with = 0;
+        for def in crate::all() {
+            let row = super::row(def);
+            match whole_name(def.index) {
+                Some(whole) => {
+                    with += 1;
+                    assert_eq!(
+                        row.alt_names,
+                        vec![whole.to_string()],
+                        "{} should carry its whole spelling",
+                        def.name()
+                    );
+                    assert!(
+                        whole.contains(" // ") && whole.starts_with(def.name()),
+                        "{whole} is not {} plus a second face",
+                        def.name()
+                    );
+                }
+                None => assert!(
+                    row.alt_names.is_empty(),
+                    "{} has one spelling and should carry none",
+                    def.name()
+                ),
+            }
+        }
+        assert!(
+            with > 100,
+            "only {with} rows carry a second spelling — the seed is not running"
+        );
+    }
+
+    /// The claim the field exists for, stated the way the builder asks it.
+    ///
+    /// The search is a substring match over every name a row carries, so
+    /// carrying `A // B` answers three different things a player might type:
+    /// the front face, the back face, and the whole spelling a deck site
+    /// exports. The back face is the one that had no answer at all before —
+    /// somebody who knows Agadeem's Awakening as the land it turns into
+    /// could not find it under that name.
+    ///
+    /// **A search may do this where a deck row may not**, and the asymmetry
+    /// is deliberate: a deck row has to *resolve* to exactly one card, so an
+    /// ambiguous spelling is fatal there and `Demonic Tutor` must stay
+    /// Demonic Tutor. A search *offers* candidates, and showing both cards
+    /// that print a name is what a search is for.
+    #[test]
+    fn a_row_can_be_found_by_the_front_face_the_back_face_or_the_whole_name() {
+        let index = by_name("Agadeem's Awakening").expect("in the pool");
+        let row = super::row(crate::by_index(index).expect("compiled"));
+        let haystack: Vec<String> = std::iter::once(row.name.clone())
+            .chain(row.alt_names.iter().cloned())
+            .map(|n| n.to_lowercase())
+            .collect();
+        for needle in [
+            "agadeem's awakening",
+            "agadeem, the undercrypt",
+            "agadeem's awakening // agadeem, the undercrypt",
+        ] {
+            assert!(
+                haystack.iter().any(|n| n.contains(needle)),
+                "{needle:?} finds nothing in {haystack:?}"
+            );
+        }
     }
 }

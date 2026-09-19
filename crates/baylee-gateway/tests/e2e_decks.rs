@@ -724,3 +724,37 @@ fn a_deck_row_may_name_a_card_by_either_of_its_printed_spellings() {
         "an invented second face was accepted: {answer}"
     );
 }
+
+/// `/pool` carries the whole spelling, so the builder's search box can find
+/// what `POST /decks` will accept.
+///
+/// The two halves were apart: the route took `Agadeem's Awakening // Agadeem,
+/// the Undercrypt` and the search box could not find it, which only shows up
+/// when somebody uses both. Asserted over the wire rather than against
+/// `pool::row`, because the field is `skip_serializing_if` empty and the
+/// question is what a client receives.
+#[test]
+fn the_pool_carries_the_spelling_a_deck_row_may_use() {
+    let gateway = spawn_gateway("pool-spellings");
+    let (status, body) = http(gateway.port, "GET", "/pool", None, "");
+    assert_eq!(status, 200, "{body}");
+
+    let (whole, index) = baylee_cards::generated_names::WHOLE_NAMES
+        .iter()
+        .copied()
+        .find(|(_, index)| baylee_cards::by_index(*index).is_some())
+        .expect("the pool holds a card with two faces");
+    assert!(
+        body.contains(&format!("{whole:?}")),
+        "{whole} is not in the pool answer"
+    );
+
+    // Without a catalog there are no translations, so this spelling is the
+    // only thing in the field — which is the point of seeding it off the
+    // registry rather than joining it on from an ingest.
+    let front = baylee_cards::by_index(index).expect("compiled").name();
+    assert!(
+        body.contains(&format!("\"alt_names\":[{whole:?}]")),
+        "{front} should carry exactly its whole spelling with no catalog"
+    );
+}

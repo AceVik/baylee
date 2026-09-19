@@ -2469,12 +2469,23 @@ purpose: it is matched against a printed type line. It matters most where it
 is least visible — `chips_shown` is `!phone || filters_open`, so on a phone a
 chip narrows the list while being drawn nowhere at all.
 
-**One row per card, in every language.** The pool sends the card, not its
-printings, and each row carries `alt_names` — every name that card is printed
-under, anywhere. So a German player types "Blitzschlag" and finds the row a
-deck stores as "Lightning Bolt", and finds it *once*: a list that repeated the
-card for each of the forty sets it appeared in would be answering a question
-nobody asked.
+**One row per card, in every language, and on both faces.** The pool sends
+the card, not its printings, and each row carries `alt_names` — every name
+that card is printed under, anywhere. So a German player types "Blitzschlag"
+and finds the row a deck stores as "Lightning Bolt", and finds it *once*: a
+list that repeated the card for each of the forty sets it appeared in would
+be answering a question nobody asked.
+
+A two-faced card carries one more, its whole `A // B` spelling, and because
+the search is a substring match that answers three things a player might
+type: the front face, the back face, and the joined spelling a deck site
+exports. The back face had no answer at all before — somebody who knew
+Agadeem's Awakening as the land it becomes could not find it by that name.
+Unlike the translations it needs no catalog, so offline play has it too. A
+search may find a card by a name its *back* prints where a deck row may not:
+a row has to resolve to one card and `Demonic Tutor` must stay Demonic Tutor,
+while a search offers candidates and showing every card that prints a name is
+what a search is for.
 
 Which piece of cardboard is the other question, and it gets its own dialog.
 `◈` on a pool row opens the **printing picker**: `DeckBuilder::open_picker`

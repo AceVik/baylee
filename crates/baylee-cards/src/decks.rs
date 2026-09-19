@@ -154,6 +154,24 @@ pub fn by_name(name: &str) -> Option<CardIndex> {
     (spelling == name).then_some(index)
 }
 
+/// Scryfall's whole spelling of a card, when it differs from what this pool
+/// calls it.
+///
+/// `None` for the 2595 cards where the two agree, and `Some("Sheoldred // The
+/// True Scriptures")` for the 121 where they do not — every card the printing
+/// gives two faces, whether or not this build compiled both of them.
+///
+/// A linear walk over those 121, because the only caller builds the pool's
+/// rows once at startup and a second perfect hash keyed on an index would be
+/// a table to keep in step for no answer anybody waits for.
+#[must_use]
+pub fn whole_name(index: CardIndex) -> Option<&'static str> {
+    crate::generated_names::WHOLE_NAMES
+        .iter()
+        .find(|(_, at)| *at == index)
+        .map(|(name, _)| *name)
+}
+
 /// Loads a named deck from the acceptance text.
 ///
 /// # Errors

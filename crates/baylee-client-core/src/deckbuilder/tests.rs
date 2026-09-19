@@ -497,6 +497,55 @@ fn a_card_is_found_under_any_name_it_was_printed_with() {
     assert_eq!(hits.len(), 2, "{hits:?}");
     assert_eq!(hits.iter().filter(|slot| **slot == 0).count(), 1);
 }
+
+/// A two-faced card is found by **either** face and by the whole spelling,
+/// through the search a player actually types into.
+///
+/// The row carries one extra string, `A // B`, and the search is a substring
+/// match, so the back face needs no entry of its own — which is the whole
+/// argument for spending one string rather than a field. Before it, a player
+/// who knew Agadeem's Awakening as the land it becomes could type that land's
+/// name and find nothing.
+///
+/// A search may do this where a deck row may not. A deck row has to
+/// **resolve** to exactly one card, so an ambiguous spelling is fatal there
+/// and `Demonic Tutor` stays Demonic Tutor; a search **offers**, and showing
+/// every card that prints a name is what a search is for.
+#[test]
+fn a_two_faced_card_is_found_by_either_of_its_faces() {
+    let mut builder = DeckBuilder::default();
+    builder.toggle_playable_only();
+    builder.set_pool(
+        vec![PoolCard {
+            index: 1,
+            name: "Agadeem's Awakening".to_string(),
+            english_name: "Agadeem's Awakening".to_string(),
+            alt_names: vec!["Agadeem's Awakening // Agadeem, the Undercrypt".to_string()],
+            kinds: vec!["Sorcery".to_string()],
+            two_faced: true,
+            ..PoolCard::default()
+        }],
+        false,
+    );
+
+    for needle in [
+        "Agadeem's Awakening",
+        "Agadeem, the Undercrypt",
+        "the Undercrypt",
+        "Agadeem's Awakening // Agadeem, the Undercrypt",
+    ] {
+        builder.set_text(needle);
+        assert_eq!(builder.results().len(), 1, "{needle} found nothing");
+    }
+
+    // Still one row per card, not one per spelling.
+    builder.set_text("Agadeem");
+    assert_eq!(builder.results().len(), 1, "the card was listed twice");
+
+    // And a face nobody prints is still not a card.
+    builder.set_text("Agadeem, the Overcrypt");
+    assert!(builder.results().is_empty(), "an invented face matched");
+}
 /// A printing, as the picker's tests need one.
 fn printing(set: &str, number: &str, lang: &str, finishes: &[&str]) -> Printing {
     Printing {

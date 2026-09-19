@@ -970,14 +970,27 @@ in the language `lang` asks for, falling back field by field to English;
 few hundred rows, so it is sent whole and filtered in the client; `total` and
 `pool_hash` are there for the day it is not.
 
-Each row also carries `oracle_id` and, when a catalog is configured,
-`alt_names` — every *other* name the card is printed under, across every
-language the catalog holds. That is what lets the builder show **one row per
-card** and still find it when a player types the name on the card in their
-hand: searching printings instead would list the same card once per set it
-appeared in, which is the wrong answer to "do I own this". `alt_names` is
-omitted when empty, because for two hundred cards in a dozen languages it is
-otherwise the largest field in the response.
+Each row also carries `oracle_id` and `alt_names` — every *other* name the
+card is printed under: the languages a configured catalog holds, and, for a
+card with two faces, its whole `A // B` spelling. That is what lets the
+builder show **one row per card** and still find it when a player types the
+name on the card in their hand: searching printings instead would list the
+same card once per set it appeared in, which is the wrong answer to "do I own
+this". `alt_names` is omitted when empty, because for two hundred cards in a
+dozen languages it is otherwise the largest field in the response.
+
+The whole spelling is there **without a catalog**, because it comes off the
+registry rather than out of an ingest — the same reason `POST /decks` takes
+that spelling either way, and the two had drifted apart: the route accepted
+`Agadeem's Awakening // Agadeem, the Undercrypt` while the search box could
+not find it, which only shows up when somebody uses both halves. One string
+also answers the **back** face, because the builder's search is a substring
+match: a player who knows that card as the land it becomes types "Agadeem,
+the Undercrypt" and finds it, and nothing has to carry that name separately.
+A search may do this where a deck row may not — a row has to *resolve* to one
+card, so `Demonic Tutor` stays Demonic Tutor there (`docs/card-identity.md`),
+while a search *offers*, and showing every card that prints a name is what a
+search is for.
 
 `GET /printings?card=<registry index>` is the other half of that trade: the
 list stays short by naming cards, and a player who wants a particular piece of
