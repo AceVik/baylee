@@ -2238,90 +2238,36 @@ fn teferis_protection_exiles_itself_and_leaves_everything_else_exactly_as_it_was
 /// sacrifice a land. Search your library for a land card, put that card onto
 /// the battlefield, then shuffle."
 ///
-/// The board is two Forests and the deck behind them is sixty more, so nothing
-/// but playing it can tell a real tutor from a spell that merely resolves: the
-/// card the search *offered* has to be the permanent standing afterwards, and
-/// the library has to be exactly one card shorter, which no fresh token or
-/// conjured land would produce. Both questions the cast raises are answered out
-/// of the list the question itself published — the land the additional cost
-/// takes, when the cast charges it, and then the find.
+/// This played the whole card until the transcoder was caught dropping the
+/// additional cost. The reader emitted the search and nothing else, so what
+/// shipped was a one-mana tutor that sacrifices no land — and the played
+/// test was green over it, because its graveyard assertion sat inside
+/// `if let Some(paid) = sacrificed`. The `CostSacrifice` prompt never fired,
+/// the binding stayed `None`, and a conditional assertion asserts nothing.
+///
+/// The card is an honest stub again, and the engine is why it cannot yet be
+/// more than one: `cast_wizard::paid_as_a_mandatory_additional_cost` answers
+/// for `PayLife` and `PayLifeX` and nothing else, so a
+/// `mandatory_additional_costs` entry naming an object would be *skipped* at
+/// cast — the same silence one crate over. #52 is both halves, and the day
+/// it lands this goes red and the played test comes back with its assertion
+/// out of the `if`.
 #[test]
-fn crop_rotation_trades_a_forest_for_one_out_of_the_library() {
-    let p0 = PlayerId::new(0);
-    let mut engine = Duel::new(SEED, forest())
-        .battlefield(0, &[forest(), forest()])
-        .hand(0, &[crop_rotation()])
-        .start();
-    keep_mulligans(&mut engine);
-    reach_main_phase(&mut engine, p0);
+fn crop_rotation_is_a_stub_until_a_spell_can_charge_more_than_mana() {
+    use baylee_cards_dsl::Coverage;
 
+    let def = baylee_cards::by_oracle_id("28b46183-c62f-47b1-9fee-3ba148202cab")
+        .expect("the registry contains the card");
+    assert_eq!(def.index, crop_rotation());
     assert_eq!(
-        lands_of(&engine, p0).len(),
-        2,
-        "two Forests are the whole board the card has to work with"
+        def.coverage,
+        Coverage::Unimplemented,
+        "a spell whose printed additional cost nothing charges is a stub"
     );
-    let library_before = library_size(&engine, p0);
-
-    cast_from_hand(&mut engine, p0, crop_rotation());
-
-    let mut sacrificed = None;
-    let mut found = None;
-    for _ in 0..30 {
-        if stack_is_empty(&engine)
-            && matches!(engine.pending(), Pending::Priority { player, .. } if *player == p0)
-        {
-            break;
-        }
-        match engine.pending().clone() {
-            Pending::Priority { player, .. } => {
-                engine.apply(player, PlayerAction::PassPriority).unwrap();
-            }
-            Pending::ChooseCards {
-                player,
-                options,
-                min,
-                max,
-                prompt,
-            } => {
-                let want = usize::from(min).max(1).min(usize::from(max));
-                let pick: Vec<ObjectId> = options.iter().copied().take(want).collect();
-                assert_eq!(pick.len(), want, "{prompt:?} offered no answer");
-                if prompt == crate::choice::ChoicePrompt::CostSacrifice {
-                    assert!(
-                        options.iter().all(|id| lands_of(&engine, p0).contains(id)),
-                        "a land sacrificed as a cost is a land this seat controls: {options:?}"
-                    );
-                    sacrificed = pick.first().copied();
-                } else {
-                    assert!(found.is_none(), "one spell, one search");
-                    found = pick.first().copied();
-                }
-                engine
-                    .apply(player, PlayerAction::ChooseObjects { objects: pick })
-                    .unwrap();
-            }
-            other => panic!("unexpected while Crop Rotation resolves: {other:?}"),
-        }
-    }
-
-    let found = found.expect("the search is a question the engine asks");
     assert!(
-        mine(&engine, p0, forest(), crate::zone::Zone::Battlefield).contains(&found),
-        "the card the library offered is the permanent that arrived, and not \
-         a fresh one conjured in its place"
+        def.faces[0].mandatory_additional_costs.is_empty(),
+        "and it names no cost part the cast wizard would walk past in silence"
     );
-    assert_eq!(
-        library_size(&engine, p0),
-        library_before - 1,
-        "it came out of the library: one card left it and nothing was put back"
-    );
-    if let Some(paid) = sacrificed {
-        assert!(
-            in_graveyard(&engine, p0, forest()).is_some(),
-            "the land the additional cost took ({paid:?}) is in its owner's graveyard"
-        );
-    }
-    assert!(stack_is_empty(&engine), "the spell has finished resolving");
 }
 
 /// Hero's Downfall — {1}{B}{B} instant: "Destroy target creature or

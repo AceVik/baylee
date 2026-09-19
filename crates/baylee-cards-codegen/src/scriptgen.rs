@@ -2532,6 +2532,50 @@ impl Tx<'_> {
                 // DSL does not have (CR 601.2 has no place for one).
                 return self.deny("`IsPresent$` on a spell line".to_string());
             }
+            // And the third of them, which this branch dropped in silence
+            // until a batch of four hundred cards walked into it. A spell's
+            // `Cost$` is its mana cost *plus* whatever else the card charges
+            // (CR 601.2b), and only the mana half is on the face — so
+            // Kaervek's Spite came out as three mana for "target player
+            // loses 5 life", with "sacrifice all permanents you control and
+            // discard your hand" nowhere in the card, and Crop Rotation as a
+            // one-mana tutor that sacrifices no land. 215 of the 236
+            // `A:SP$` lines naming a `Cost$` charge something beside mana.
+            //
+            // `FaceDef::mandatory_additional_costs` is where they belong and
+            // the engine collects them at cast; emitting them is the next
+            // step and not this one, because it would walk a dozen cards
+            // into a path exactly one card in the pool has ever played
+            // (Toxic Deluge's `PayLifeX`). Until then the honest answer is
+            // the stub. See #52.
+            //
+            // The token is read here rather than through `cost_pieces`,
+            // which prices an *activation* and denies what it cannot price:
+            // routing a spell's cost through it would refuse `Cost$ X G` for
+            // its bare `X` — mana the face already carries — and take a card
+            // off the list for the one thing that is not wrong with it.
+            //
+            // So the question asked of each token is the narrow one: is this
+            // the card's own mana cost? Everything else refuses, which is an
+            // allow-list on purpose. The alternative — refusing the `<…>`
+            // spelling every one of those 215 additional costs happens to
+            // use — goes silent on a restriction that needs no brackets, and
+            // one of those is already here: `XMin1` is "X can't be 0" and
+            // not mana at all (Ertai's Meddling and four others, none of
+            // them in this pool yet, all five reachable by a batch).
+            if let Some(raw) = &cost {
+                for token in cost_parts(raw) {
+                    let is_mana = token.chars().all(|c| c.is_ascii_digit())
+                        || matches!(token.as_str(), "W" | "U" | "B" | "R" | "G" | "C" | "X")
+                        || hybrid_pair(&token).is_some();
+                    if !is_mana {
+                        let head = token.split('<').next().unwrap_or(&token);
+                        return self.deny(format!(
+                            "`{head}` on a spell line, beside the mana the face carries"
+                        ));
+                    }
+                }
+            }
             let targets = chain
                 .target
                 .map(|t| format!(", targets = Some(TargetReq::one({t}))"))
@@ -5364,6 +5408,52 @@ mod tests {
             "Name:X\nTypes:Instant\n\
              A:SP$ ChangeZone | Origin$ Battlefield | Destination$ Graveyard | ValidTgts$ Creature\n"
         ));
+    }
+
+    /// A spell's `Cost$` carries the card's mana cost *and* whatever the
+    /// printing charges beside it, and only the first half has a home on the
+    /// face. The branch read neither and refused nothing, so Crop Rotation
+    /// shipped as a one-mana tutor that sacrifices no land and Kaervek's
+    /// Spite as three mana for five life off a target — both
+    /// `Coverage::Implemented`, both offered to a deckbuilder as playable.
+    #[test]
+    fn an_additional_cost_on_a_spell_is_refused_and_not_dropped() {
+        // Crop Rotation.
+        assert!(refused(
+            "Name:X\nTypes:Instant\n\
+             A:SP$ ChangeZone | Cost$ G Sac<1/Land> | Origin$ Library | \
+             Destination$ Battlefield | ChangeType$ Land | ChangeNum$ 1"
+        ));
+        // Kaervek's Spite: two additional costs, and the first of them is
+        // one `cost_pieces` can read, so the refusal has to come from the
+        // spell branch rather than from a part nobody could map.
+        assert!(refused(
+            "Name:X\nTypes:Instant\n\
+             A:SP$ LoseLife | Cost$ B B B Sac<All/Permanent> Discard<0/Hand> | \
+             ValidTgts$ Player | LifeAmount$ 5"
+        ));
+        // The mana half alone is not an additional cost: it is the card's
+        // own mana cost, which the face already carries.
+        let body = read(
+            "Name:X\nTypes:Instant\n\
+             A:SP$ LoseLife | Cost$ B B B | ValidTgts$ Player | LifeAmount$ 5",
+        );
+        assert_eq!(body.abilities.len(), 1, "{:?}", body.abilities);
+        assert!(body.abilities[0].starts_with("spell!("));
+        // `XMin1` is "X can't be 0", a printed restriction and not mana —
+        // and it carries no brackets, which is the whole reason the reading
+        // is an allow-list rather than a hunt for `<…>`.
+        assert!(refused(
+            "Name:X\nTypes:Sorcery\nA:SP$ Mill | Cost$ XMin1 X B | NumCards$ 1"
+        ));
+        // And neither is an announced `X`, which is why this reads the token
+        // itself: `cost_pieces` prices an activation and denies a bare `X`,
+        // so asking it here would have refused a card over its mana cost.
+        let body = read(
+            "Name:X\nTypes:Sorcery\n\
+             A:SP$ Draw | Cost$ X U | NumCards$ 1",
+        );
+        assert_eq!(body.abilities.len(), 1, "{:?}", body.abilities);
     }
 
     #[test]
