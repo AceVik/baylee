@@ -2276,6 +2276,44 @@ note in the card panel; turning the switch off brings the stubs back, marked
 filter — text, colour identity, type, mana value, sort — runs locally, so
 search answers at keystroke latency and never at the gateway's.
 
+It was on by default in three comments and in `DeckBuilder::new`, and **off
+in the client**, which is issue #63. `new` is called by nothing outside the
+tests: `Lobby` derives `Default` and is the only thing that ever holds a
+builder, so the flag shipped `false` and the builder offered every stub. The
+flag is stored inverted now — `show_unplayable`, whose `Default` *is* the
+intention — so the derive cannot disagree with a constructor again, and the
+test that holds it asks a fresh `Lobby` rather than a `DeckBuilder` built by
+hand. Asking the hand-built one is what let the whole file be green about a
+configuration the client never had, and one existing test had quietly come to
+depend on the wrong default: `PoolCard::default()` is a stub, so a test about
+finding a card by its German name was only finding it because stubs were
+shown.
+
+**The builder filters twice, and now says so once.** Four chips and a query
+box, and the filter panel edits the box alone — so a player who opens the
+gear, types a condition and cannot find their card is reading one of two
+truths. `DeckBuilder::chips_in_force` reports what else is narrowing the list
+and `filterui::build` draws it as one line under the rows, in the same `note`
+shape the unanswerable-condition warning uses and after it, because that one
+is about a row on the panel and this one about something off it entirely.
+
+The chips stayed chips rather than becoming query terms, which was decided
+before the line was built: three of the four map cleanly (`id<=wu`, `t:x`,
+`is:playable`) and the curve bar does not — it excludes lands, so it is
+`mv:3 -t:land`, and a chip that writes two terms is no longer one chip when
+it is cleared.
+
+Two details are load-bearing. The line names `playable_only` although
+`DeckBuilder::filtered` leaves it out, and the two are right about different
+questions — `filtered` answers "is there anything for Clear to clear", which
+a standing preference is not, while this answers "is something hiding cards",
+where that switch is the largest of the four. And the model says *what*
+filters while `buildui` says what it is called, because a colour's and a
+type's word live in `buildui`'s own tables and the type's key stays English on
+purpose: it is matched against a printed type line. It matters most where it
+is least visible — `chips_shown` is `!phone || filters_open`, so on a phone a
+chip narrows the list while being drawn nowhere at all.
+
 **One row per card, in every language.** The pool sends the card, not its
 printings, and each row carries `alt_names` — every name that card is printed
 under, anywhere. So a German player types "Blitzschlag" and finds the row a

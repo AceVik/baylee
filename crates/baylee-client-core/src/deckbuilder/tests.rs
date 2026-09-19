@@ -454,6 +454,12 @@ fn a_card_can_be_read_without_being_added() {
 #[test]
 fn a_card_is_found_under_any_name_it_was_printed_with() {
     let mut builder = DeckBuilder::default();
+    // `PoolCard::default()` is a **stub**, and the shipped builder hides
+    // stubs. This test passed before that was true of `DeckBuilder::default`
+    // — which is the defect it was written beside rather than a change to
+    // what it is about: it asks how a card is found by name, so the cards it
+    // asks about have to be cards the builder would offer at all.
+    builder.toggle_playable_only();
     builder.set_pool(
         vec![
             PoolCard {
@@ -1076,5 +1082,98 @@ fn a_button_in_the_filter_panel_writes_the_box_and_the_results_follow() {
             .collect::<Vec<_>>(),
         ["Forest"],
         "the results answer the string that was built, not the one before it"
+    );
+}
+
+/// Every chip that is narrowing the pool is reported, and nothing else is.
+///
+/// The list is what the filter panel says in its one line, so it has to be
+/// right in **both** directions: a chip that filters and is not reported is
+/// the invisible second truth the line exists to abolish, and a chip reported
+/// while it filters nothing is a line that teaches the player to ignore it.
+///
+/// `playable_only` is deliberately in here although `filtered` leaves it out.
+/// The two answer different questions and the counter-half below is what
+/// keeps that from reading as an oversight.
+#[test]
+fn the_panel_is_told_about_every_chip_that_is_filtering() {
+    let mut b = builder();
+
+    // The default: nothing picked, and the switch already on.
+    assert_eq!(
+        b.chips_in_force(),
+        vec![Chip::PlayableOnly],
+        "the switch is on before anybody touches anything, and it hides the \
+         most of the four"
+    );
+    assert!(
+        !b.filtered(),
+        "this test's premise: `filtered` says no while a chip is filtering, \
+         which is the disagreement the line is for"
+    );
+
+    b.toggle_playable_only();
+    assert!(
+        b.chips_in_force().is_empty(),
+        "with the switch off and nothing picked there is no second filter"
+    );
+
+    // One at a time, each in its own place in the order.
+    b.toggle_color('G');
+    b.toggle_color('R');
+    b.set_kind(Some("Creature"));
+    b.set_cmc(Some(1));
+    b.toggle_playable_only();
+    assert_eq!(
+        b.chips_in_force(),
+        vec![
+            Chip::Colors(&['G', 'R']),
+            Chip::Kind("Creature"),
+            Chip::Cmc(1),
+            Chip::PlayableOnly,
+        ],
+        "two colours are one chip's worth of meaning, and the rest follow in \
+         the order they are drawn in"
+    );
+
+    // And each one leaving takes its own entry with it.
+    b.set_cmc(Some(1));
+    b.set_kind(None);
+    assert_eq!(
+        b.chips_in_force(),
+        vec![Chip::Colors(&['G', 'R']), Chip::PlayableOnly],
+        "the bar and the type cleared, the colours did not"
+    );
+}
+
+/// The builder a player actually gets hides the stubs.
+///
+/// Asked of a **fresh `Lobby`** and not of a `DeckBuilder` built here, which
+/// is the whole point: `DeckBuilder::new` set `playable_only: true` and was
+/// called by nothing outside these tests, so every test in this file was
+/// green about a configuration the client never had. `Lobby` derives
+/// `Default`, the flag shipped `false`, and the builder offered 648 stubs
+/// while three separate comments said it hid them.
+///
+/// A test that reaches for `DeckBuilder::new()` here would pass against the
+/// old code and prove nothing. This one is red against it.
+#[test]
+fn the_builder_a_player_is_handed_hides_what_the_engine_cannot_play() {
+    let lobby = crate::lobby::Lobby::default();
+    assert!(
+        lobby.builder().playable_only(),
+        "the shipped deck builder offers cards the engine cannot play"
+    );
+
+    // And the switch still switches, or "always on" would pass the line above.
+    let mut b = builder();
+    let mut cards = pool();
+    cards[4].coverage = Coverage::Unimplemented;
+    b.set_pool(cards, true);
+    let hidden = b.results().len();
+    b.toggle_playable_only();
+    assert!(
+        b.results().len() > hidden,
+        "turning it off admitted nothing, so the flag is drawn and not read"
     );
 }

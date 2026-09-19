@@ -1531,6 +1531,17 @@ messages! {
         en: "A condition cannot be checked here — the list stays empty while it stands.",
         de: "Eine Bedingung kann hier nicht geprüft werden — die Liste bleibt leer, solange sie steht.",
     },
+    /// Chips are narrowing this list as well: {0}
+    FilterAlsoChips {
+        en: "Chips are narrowing this list as well: {0}",
+        de: "Zusätzlich grenzen Chips diese Liste ein: {0}",
+    },
+    /// Playable only
+    FilterChipPlayable { en: "playable only", de: "nur spielbare" },
+    /// mana value {0}
+    FilterChipCmc { en: "mana value {0}", de: "Manawert {0}" },
+    /// mana value {0} or more
+    FilterChipCmcUp { en: "mana value {0} or more", de: "Manawert {0} oder mehr" },
     /// The five kinds of condition, which are the five kinds of control.
     FilterKindText { en: "Text", de: "Text" },
     /// A condition about colours.

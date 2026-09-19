@@ -442,3 +442,75 @@ fn act(app: &mut App, wanted: baylee_client_core::filterdialog::Act) {
     tap(app, target);
     app.update();
 }
+
+/// The panel says out loud that a chip is filtering too, and says nothing
+/// when none is.
+///
+/// The deck builder filters twice and the panel edits one of the two, so the
+/// line is the only thing that keeps a player who has typed a query from
+/// reading half the truth. Both directions, because "the line is always
+/// there" would pass the first half on its own and would teach the player to
+/// stop reading it.
+///
+/// It is checked on the **drawn** text and not on `chips_in_force`, which the
+/// model's own test already pins: what is worth proving here is that a panel
+/// which knows is a panel that says.
+#[test]
+fn the_filter_panel_says_when_a_chip_is_filtering_as_well() {
+    let mut app = headless();
+    stocked(&mut app);
+    sized(&mut app, 1400.0);
+    app.world_mut()
+        .resource_mut::<LobbyState>()
+        .lobby
+        .build_deck();
+    app.update();
+    press(&mut app, Press::ToggleFilterPanel);
+
+    // The switch is on by default, so the line is up before anything is
+    // picked — which is the case it was written for.
+    let said = labels(&mut app).join(" | ");
+    let playable = Phrase::FilterChipPlayable.text(Lang::En);
+    assert!(
+        said.contains("Chips are narrowing this list as well"),
+        "the panel said nothing about the chip that was already filtering: \
+         {said}"
+    );
+    assert!(said.contains(playable), "and did not name it: {said}");
+
+    // A colour and a type join it, each in its own words.
+    press(&mut app, Press::ToggleColor('G'));
+    press(&mut app, Press::SetKind(Some("Creature")));
+    let said = labels(&mut app).join(" | ");
+    for wanted in [
+        Phrase::ColorGreen.text(Lang::En),
+        Phrase::KindCreature.text(Lang::En),
+        playable,
+    ] {
+        assert!(said.contains(wanted), "{wanted:?} was not named: {said}");
+    }
+
+    // And with every chip off, the line goes: a notice that is always there
+    // is not a notice.
+    press(&mut app, Press::ToggleColor('G'));
+    // A second tap on the open chip is how a type is cleared; `SetKind(None)`
+    // is on no button, so pressing it would be answering a question the
+    // screen never asks.
+    press(&mut app, Press::SetKind(Some("Creature")));
+    press(&mut app, Press::TogglePlayable);
+    let said = labels(&mut app).join(" | ");
+    assert!(
+        !said.contains("Chips are narrowing this list as well"),
+        "nothing is filtering and the panel still says something is: {said}"
+    );
+    assert!(
+        app.world()
+            .resource::<LobbyState>()
+            .lobby
+            .builder()
+            .panel()
+            .is_some(),
+        "this test's premise: the panel is still open, so the line's absence \
+         is the line's and not the panel's"
+    );
+}

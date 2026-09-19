@@ -37,6 +37,34 @@ pub const MAX_COPIES: u16 = 4;
 pub const MIN_CONSTRUCTED: u32 = 60;
 /// The usual sideboard limit. Advice for the same reason.
 pub const MAX_SIDEBOARD: u32 = 15;
+/// One chip that is narrowing the pool, as [`DeckBuilder::chips_in_force`]
+/// reports it.
+///
+/// A borrow rather than an owned list, and a *type* rather than a rendered
+/// string, because the words belong to the renderer: `buildui::COLORS` and
+/// `buildui::KINDS` hold the [`crate::i18n::Phrase`] for each, and the type's
+/// own key stays English because it is matched against a printed type line.
+/// Naming them here would put half of that table in two places.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum Chip<'a> {
+    /// The colour identity the list is restricted to, as `WUBRGC` letters.
+    ///
+    /// One entry for however many letters are lit, because they are one
+    /// chip's worth of meaning: the filter is "identity within these", not
+    /// "one of these" (`color_match` is the predicate), so
+    /// naming them separately would read as three filters where there is one.
+    Colors(&'a [char]),
+    /// The card type, by its English key.
+    Kind(&'a str),
+    /// The curve bucket, which is a mana value and **not a land**.
+    ///
+    /// The one of the four that does not map to a single query term: it is
+    /// `mv:3 -t:land`, two terms, which is why the chips stayed chips.
+    Cmc(u32),
+    /// The switch that hides what the engine cannot play as printed.
+    PlayableOnly,
+}
+
 /// Mana values the curve distinguishes; the last bucket is "that or more".
 pub const CURVE_BUCKETS: usize = 8;
 
@@ -627,7 +655,17 @@ pub struct DeckBuilder {
     colors: Vec<char>,
     kind: Option<String>,
     cmc: Option<u32>,
-    playable_only: bool,
+    /// Whether cards the engine cannot play as printed are shown.
+    ///
+    /// Stored **inverted**, because the switch a player sees is "playable
+    /// only" and its intended default is *on*. `DeckBuilder` is reached
+    /// through `Lobby`, which derives `Default`, so a `playable_only: bool`
+    /// field shipped as `false` however carefully `DeckBuilder::new` set it —
+    /// and `new` turned out to be called by nothing but tests, which is how
+    /// the builder offered 648 stubs by default while three separate comments
+    /// said it hid them. A flag whose `Default` *is* the intention cannot
+    /// drift that way again.
+    show_unplayable: bool,
     /// The filter-string builder, while the gear inside the box is open.
     ///
     /// The same shape as `Browser::builder` and for the same reason: it is a

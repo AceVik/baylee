@@ -106,11 +106,20 @@ const GAP: f32 = 5.0;
 /// the flags offered on an `is:` row, and the warning under any row asking
 /// something this list cannot check. Both come from the model — this only
 /// chooses whether to draw them.
+///
+/// `also` is the second filter, where there is one. This panel edits the
+/// query and nothing else, so a list narrowed by something beside it has to
+/// say so or the player is reading one of two truths; the deck builder's
+/// chips are that second filter and the zone dialog has none, which is why it
+/// is a parameter rather than something this file works out. It is handed a
+/// finished sentence because naming a colour or a card type is
+/// `buildui`'s table's business, not this file's.
 pub(crate) fn build(
     commands: &mut Commands,
     fonts: &UiFonts,
     panel: &FilterPanel,
     surface: Surface,
+    also: Option<&str>,
     lang: Lang,
     look: Register,
 ) -> Entity {
@@ -159,6 +168,17 @@ pub(crate) fn build(
             commands,
             fonts,
             Phrase::FilterUnanswerable.text(lang),
+            look,
+        ));
+    }
+    // After the unanswerable warning, because that one is about a row the
+    // player is looking at and this one is about something off the panel
+    // entirely — the nearer cause reads first.
+    if let Some(also) = also {
+        children.push(note(
+            commands,
+            fonts,
+            &Phrase::FilterAlsoChips.fill(lang, &[also]),
             look,
         ));
     }

@@ -59,6 +59,52 @@ const KINDS: [(&str, Phrase); 7] = [
     ("Land", Phrase::KindLand),
 ];
 
+/// The chips narrowing the pool, in the player's own words, or `None`.
+///
+/// The renderer's half of [`DeckBuilder::chips_in_force`]: the model says
+/// *what* filters and this says what it is called, because both words live in
+/// `COLORS` and `KINDS` above — and `KINDS`' key is English on purpose, so it
+/// is the only one of the four that must be translated rather than printed.
+///
+/// The curve bucket is two sentences and not one, because its last bucket is
+/// "that or more"; `CURVE_BUCKETS` is where that is decided and this reads it
+/// rather than repeating the number.
+fn chips_in_words(deck: &DeckBuilder, lang: Lang) -> Option<String> {
+    use baylee_client_core::deckbuilder::Chip;
+
+    let parts: Vec<String> = deck
+        .chips_in_force()
+        .into_iter()
+        .map(|chip| match chip {
+            Chip::Colors(letters) => letters
+                .iter()
+                .map(|letter| {
+                    COLORS
+                        .iter()
+                        .find(|(c, _)| c == letter)
+                        .map_or_else(|| letter.to_string(), |(_, p)| p.text(lang).to_string())
+                })
+                .collect::<Vec<_>>()
+                .join("/"),
+            Chip::Kind(kind) => KINDS
+                .iter()
+                .find(|(k, _)| *k == kind)
+                .map_or_else(|| kind.to_string(), |(_, p)| p.text(lang).to_string()),
+            Chip::Cmc(cmc) => {
+                let last = cmc as usize == CURVE_BUCKETS - 1;
+                let phrase = if last {
+                    Phrase::FilterChipCmcUp
+                } else {
+                    Phrase::FilterChipCmc
+                };
+                phrase.fill(lang, &[&cmc.to_string()])
+            }
+            Chip::PlayableOnly => Phrase::FilterChipPlayable.text(lang).to_string(),
+        })
+        .collect();
+    (!parts.is_empty()).then(|| parts.join(", "))
+}
+
 /// The deck builder: the pool on one side, the deck on the other.
 #[allow(clippy::too_many_arguments)] // one screen: the tree, the state, the stores
 pub(crate) fn builder(
@@ -293,11 +339,13 @@ fn pool_panel(
     // over: it is what the field above it holds, so a panel floating over the
     // pool would be a second window rather than a way of writing the first.
     if let Some(built) = deck.panel() {
+        let also = chips_in_words(deck, lang);
         let rows = crate::filterui::build(
             commands,
             fonts,
             built,
             baylee_client_core::cardquery::Surface::POOL,
+            also.as_deref(),
             lang,
             crate::filterui::Register::LOBBY,
         );

@@ -1623,6 +1623,9 @@ pub(super) fn spawn_tray(
             fonts,
             panel,
             baylee_client_core::cardquery::Surface::ZONE,
+            // The zone dialog filters once. Its tabs pick a zone rather than
+            // narrowing one, so there is no second truth to declare.
+            None,
             lang,
             crate::filterui::Register::TRAY,
         );

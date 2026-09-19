@@ -13,11 +13,11 @@ impl DeckBuilder {
     /// An empty builder with no pool yet.
     #[must_use]
     pub fn new() -> Self {
-        Self {
-            playable_only: true,
-            name: String::new(),
-            ..Self::default()
-        }
+        // Nothing but `Default`, and deliberately so: this used to be where
+        // "playable only" was switched on, and `Lobby` — which derives
+        // `Default` and is the only thing that ever holds one — never came
+        // through here. See `show_unplayable`.
+        Self::default()
     }
 
     /// Whether the pool has arrived.
@@ -101,8 +101,8 @@ impl DeckBuilder {
 
     /// Whether cards the engine cannot play are hidden.
     #[must_use]
-    pub fn playable_only(&self) -> bool {
-        self.playable_only
+    pub const fn playable_only(&self) -> bool {
+        !self.show_unplayable
     }
 
     /// The result order.
@@ -293,7 +293,7 @@ impl DeckBuilder {
 
     /// Shows or hides the cards the engine cannot play.
     pub fn toggle_playable_only(&mut self) {
-        self.playable_only = !self.playable_only;
+        self.show_unplayable = !self.show_unplayable;
         self.refilter();
     }
 
@@ -310,6 +310,49 @@ impl DeckBuilder {
         self.kind = None;
         self.cmc = None;
         self.retext();
+    }
+
+    /// The chips narrowing the list, beside whatever the query says.
+    ///
+    /// The deck builder filters **twice** — four chips and a query box — and
+    /// only one of the two is being edited when the filter panel is open. So
+    /// the panel says this in a line, and the rule it keeps is that two
+    /// invisible truths never stand beside each other: a player who has typed
+    /// a query and cannot find a card is looking at the wrong half.
+    ///
+    /// It matters most where it is least visible. `buildui`'s `chips_shown`
+    /// is `!phone || filters_open`, so on a phone a chip narrows the list
+    /// while being drawn nowhere at all.
+    ///
+    /// The model decides *what* is in force and the renderer names it,
+    /// because a colour's and a type's word are in `buildui`'s own tables —
+    /// the type's key stays English on purpose, since it is matched against a
+    /// printed type line.
+    ///
+    /// [`Self::playable_only`] is in the list although [`Self::filtered`]
+    /// leaves it out, and the two are right about different questions.
+    /// `filtered` answers "is there anything for a Clear button to clear",
+    /// and a standing preference is not that. This answers "is something
+    /// hiding cards", where the switch is the **largest** of the four: it
+    /// hides every card the engine cannot play as printed, which is more than
+    /// any colour or type chip drops, and it is on by default — so a player
+    /// who never touched it is exactly the player who will not think of it.
+    #[must_use]
+    pub fn chips_in_force(&self) -> Vec<Chip<'_>> {
+        let mut out = Vec::new();
+        if !self.colors.is_empty() {
+            out.push(Chip::Colors(&self.colors));
+        }
+        if let Some(kind) = &self.kind {
+            out.push(Chip::Kind(kind));
+        }
+        if let Some(cmc) = self.cmc {
+            out.push(Chip::Cmc(cmc));
+        }
+        if !self.show_unplayable {
+            out.push(Chip::PlayableOnly);
+        }
+        out
     }
 
     /// Whether anything is narrowing the results.
@@ -362,7 +405,7 @@ impl DeckBuilder {
     /// box would quietly offer stubs. `is:playable`, `is:partial` and
     /// `is:stub` exist as terms beside it, for asking on purpose.
     fn matches(&self, card: &PoolCard) -> bool {
-        if self.playable_only && card.coverage == Coverage::Unimplemented {
+        if !self.show_unplayable && card.coverage == Coverage::Unimplemented {
             return false;
         }
         if let Some(kind) = &self.kind
