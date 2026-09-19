@@ -291,15 +291,39 @@ fn hybrid_pair(token: &str) -> Option<String> {
 ///
 /// Separate from [`amount`] because a pump is the one place a *negative*
 /// constant is ordinary, and `Amount::Fixed` holds a `u32` — the sign
-/// lives in the variant, not in the number.
-fn pump_amount(raw: &str, svars: &BTreeMap<String, String>) -> Option<String> {
+/// lives in the variant, not in the number. Everything else it asks is the
+/// same, and it asked none of it until a batch of six hundred cards walked
+/// seven finished pumps into the pool that pump by nothing at all.
+fn pump_amount(raw: &str, svars: &BTreeMap<String, String>, has_x: bool) -> Option<String> {
     let raw = raw.trim();
-    // `+X/+X` is the second commonest pump printed, and X is a value the
-    // engine already carries on the spell — the sign still lives in the
-    // variant, so `-X` is its own one rather than a negated `X`.
+    // `+X/+X` is the second commonest pump printed, and the two questions
+    // [`amount`] asks of an `X` are asked here for the same two reasons.
+    //
+    // The letter is not the number. 207 scripts in the reference pump by
+    // `X`, every one of them defines `SVar:X`, and only **44** define it as
+    // `Count$xPaid` — the X the player announced, which `Amount::X` reads
+    // straight back off the spell. The other 163 are *counts*:
+    // `Count$Domain`, `Count$Valid Artifact.YouCtrl`, the greatest mana
+    // value among permanents you control, and the DSL has no way to say any
+    // of them. Written as `Amount::X` regardless, Gaea's Might came out
+    // claiming `Implemented` and giving +0/+0, and six more with it.
+    //
+    // And `has_x` is the other half, because a triggered ability announces
+    // no number at all: there `Amount::X` is `x.unwrap_or(0)`.
     match raw {
-        "X" | "+X" => return Some("Amount::X".to_string()),
-        "-X" => return Some("Amount::NegX".to_string()),
+        "X" | "+X" | "-X" => {
+            if !has_x || svars.get("X").map(String::as_str) != Some("Count$xPaid") {
+                return None;
+            }
+            return Some(
+                if raw == "-X" {
+                    "Amount::NegX"
+                } else {
+                    "Amount::X"
+                }
+                .to_string(),
+            );
+        }
         _ => {}
     }
     let n = raw.parse::<i64>().ok().or_else(|| {
@@ -1041,6 +1065,21 @@ impl Tx<'_> {
         format!("Effect::continuous(&Filter::This, {modifier}, Duration::UntilEndOfTurn)")
     }
 
+    /// One side of a pump, refused by what its value resolves *through*.
+    ///
+    /// The same rule as the token amount's: the letter is what 356 scripts
+    /// write and each means it by a different count, so an entry naming `X`
+    /// would rank thirty questions as one.
+    fn pump_side(&mut self, raw: &str) -> Option<String> {
+        match pump_amount(raw, self.svars, self.has_x) {
+            Some(a) => Some(a),
+            None => match self.svars.get(raw.trim().trim_start_matches(['+', '-'])) {
+                Some(how) => self.deny(format!("pump amount `{raw}` = `{how}`")),
+                None => self.deny(format!("pump amount `{raw}`")),
+            },
+        }
+    }
+
     /// `Pump`: `NumAtt$ +2 | NumDef$ +2 | KW$ Trample`, the commonest
     /// effect in the whole script corpus.
     ///
@@ -1049,8 +1088,8 @@ impl Tx<'_> {
     /// source, `PumpTarget` to what the spell targeted, and an ability can
     /// have both a target and a pump on itself.
     fn pump_effect(&mut self, p: &mut Params, target: &str) -> Option<Vec<String>> {
-        let power = pump_amount(p.take("NumAtt").as_deref().unwrap_or("0"), self.svars)?;
-        let toughness = pump_amount(p.take("NumDef").as_deref().unwrap_or("0"), self.svars)?;
+        let power = self.pump_side(p.take("NumAtt").as_deref().unwrap_or("0"))?;
+        let toughness = self.pump_side(p.take("NumDef").as_deref().unwrap_or("0"))?;
         let keywords = match p.take("KW") {
             None => "KeywordSet::EMPTY".to_string(),
             Some(kw) => {
@@ -5121,7 +5160,8 @@ mod tests {
     fn a_pump_of_x_reads_the_spells_x_and_keeps_its_sign() {
         let body = read(
             "Name:X\nTypes:Instant\n\
-             A:SP$ Pump | ValidTgts$ Creature | NumAtt$ +X | NumDef$ +X\n",
+             A:SP$ Pump | ValidTgts$ Creature | NumAtt$ +X | NumDef$ +X\n\
+             SVar:X:Count$xPaid\n",
         );
         let a = body.abilities.join("");
         assert!(a.contains("power: Amount::X"), "{a}");
@@ -5129,11 +5169,53 @@ mod tests {
 
         let body = read(
             "Name:X\nTypes:Instant\n\
-             A:SP$ Pump | ValidTgts$ Creature | NumAtt$ -X | NumDef$ -X\n",
+             A:SP$ Pump | ValidTgts$ Creature | NumAtt$ -X | NumDef$ -X\n\
+             SVar:X:Count$xPaid\n",
         );
         // The sign lives in the variant, not in a negated `X` — the engine
         // negates `NegX` at the use site and would double-negate otherwise.
         assert!(body.abilities.join("").contains("Amount::NegX"));
+    }
+
+    /// The letter is not the number, and reading it as one gave seven cards
+    /// in this pool a pump of nothing.
+    #[test]
+    fn a_pump_of_a_counted_x_is_refused_and_not_read_as_the_announced_one() {
+        // Gaea's Might: domain, which the DSL cannot count. 207 scripts in
+        // the reference pump by `X` and every one of them defines `SVar:X`;
+        // only 44 define it as the number the player announced.
+        assert!(refused(
+            "Name:X\nTypes:Instant\n\
+             A:SP$ Pump | ValidTgts$ Creature | NumAtt$ +X | NumDef$ +X\n\
+             SVar:X:Count$Domain\n"
+        ));
+        // Irradiate: a count of permanents, and negative, so the sign is not
+        // what makes the difference.
+        assert!(refused(
+            "Name:X\nTypes:Sorcery\n\
+             A:SP$ Pump | ValidTgts$ Creature | NumAtt$ -X | NumDef$ -X\n\
+             SVar:X:Count$Valid Artifact.YouCtrl\n"
+        ));
+        // And a **triggered** ability announces no number at all, so even
+        // `Count$xPaid` is `x.unwrap_or(0)` there.
+        assert!(refused(
+            "Name:X\nTypes:Creature\n\
+             T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | \
+             ValidCard$ Card.Self | Execute$ TrigPump\n\
+             SVar:TrigPump:DB$ Pump | Defined$ Self | NumAtt$ +X | NumDef$ +X\n\
+             SVar:X:Count$xPaid\n"
+        ));
+        // The refusal names what the value resolves through, so the report
+        // ranks the counts and not the letter.
+        let script = parse(
+            "Name:X\nTypes:Instant\n\
+             A:SP$ Pump | ValidTgts$ Creature | NumAtt$ +X | NumDef$ +X\n\
+             SVar:X:Count$Domain\n",
+        );
+        assert_eq!(
+            refusal_reason(&script, &cats(), None).as_deref(),
+            Some("pump amount `+X` = `Count$Domain`")
+        );
     }
 
     #[test]

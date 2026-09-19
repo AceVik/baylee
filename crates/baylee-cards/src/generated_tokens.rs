@@ -668,6 +668,118 @@ pub static PEGASUS_1_1_WHITE_FLYING: TokenDef = TokenDef {
     ..TokenDef::DEFAULT
 };
 
+/// 0/1 colorless artifact Pest.
+pub static PEST_ARTIFACT_0_1: TokenDef = TokenDef {
+    name: "Pest",
+    types: TypeSet::ARTIFACT.union(TypeSet::CREATURE),
+    subtypes: &[creature::PEST],
+    power: Some(0),
+    toughness: Some(1),
+    ..TokenDef::DEFAULT
+};
+
+/// 1/1 colorless artifact Myr.
+pub static MYR_ARTIFACT_1_1: TokenDef = TokenDef {
+    name: "Myr",
+    types: TypeSet::ARTIFACT.union(TypeSet::CREATURE),
+    subtypes: &[creature::MYR],
+    power: Some(1),
+    toughness: Some(1),
+    ..TokenDef::DEFAULT
+};
+
+/// 1/1 green Insect.
+pub static INSECT_1_1_GREEN: TokenDef = TokenDef {
+    name: "Insect",
+    colors: ColorSet::from_slice(&[Color::Green]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::INSECT],
+    power: Some(1),
+    toughness: Some(1),
+    ..TokenDef::DEFAULT
+};
+
+/// 3/3 green Centaur.
+pub static CENTAUR_3_3_GREEN: TokenDef = TokenDef {
+    name: "Centaur",
+    colors: ColorSet::from_slice(&[Color::Green]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::CENTAUR],
+    power: Some(3),
+    toughness: Some(3),
+    ..TokenDef::DEFAULT
+};
+
+/// 3/3 red Elemental.
+pub static ELEMENTAL_3_3_RED: TokenDef = TokenDef {
+    name: "Elemental",
+    colors: ColorSet::from_slice(&[Color::Red]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::ELEMENTAL],
+    power: Some(3),
+    toughness: Some(3),
+    ..TokenDef::DEFAULT
+};
+
+/// 5/5 red Dragon with flying.
+pub static DRAGON_5_5_RED_FLYING: TokenDef = TokenDef {
+    name: "Dragon",
+    colors: ColorSet::from_slice(&[Color::Red]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::DRAGON],
+    power: Some(5),
+    toughness: Some(5),
+    keywords: KeywordSet::FLYING,
+    ..TokenDef::DEFAULT
+};
+
+/// 1/1 white red Goblin Soldier.
+pub static GOBLIN_SOLDIER_1_1_WHITE_RED: TokenDef = TokenDef {
+    name: "Goblin Soldier",
+    colors: ColorSet::from_slice(&[Color::White, Color::Red]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::GOBLIN, creature::SOLDIER],
+    power: Some(1),
+    toughness: Some(1),
+    ..TokenDef::DEFAULT
+};
+
+/// 1/1 blue Illusion with flying.
+pub static ILLUSION_1_1_BLUE_FLYING: TokenDef = TokenDef {
+    name: "Illusion",
+    colors: ColorSet::from_slice(&[Color::Blue]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::ILLUSION],
+    power: Some(1),
+    toughness: Some(1),
+    keywords: KeywordSet::FLYING,
+    ..TokenDef::DEFAULT
+};
+
+/// 2/2 blue Elemental with flying.
+pub static ELEMENTAL_2_2_BLUE_FLYING: TokenDef = TokenDef {
+    name: "Elemental",
+    colors: ColorSet::from_slice(&[Color::Blue]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::ELEMENTAL],
+    power: Some(2),
+    toughness: Some(2),
+    keywords: KeywordSet::FLYING,
+    ..TokenDef::DEFAULT
+};
+
+/// 3/3 white Spirit with flying.
+pub static SPIRIT_3_3_WHITE_FLYING: TokenDef = TokenDef {
+    name: "Spirit",
+    colors: ColorSet::from_slice(&[Color::White]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::SPIRIT],
+    power: Some(3),
+    toughness: Some(3),
+    keywords: KeywordSet::FLYING,
+    ..TokenDef::DEFAULT
+};
+
 /// Every token there is, in the order ids were assigned.
 pub static ALL: &[&TokenDef] = &[
     &tokens::ALLY_1_1_WHITE,
@@ -739,6 +851,16 @@ pub static ALL: &[&TokenDef] = &[
     &KELP_0_1_BLUE_DEFENDER,
     &CITIZEN_1_1_WHITE,
     &PEGASUS_1_1_WHITE_FLYING,
+    &PEST_ARTIFACT_0_1,
+    &MYR_ARTIFACT_1_1,
+    &INSECT_1_1_GREEN,
+    &CENTAUR_3_3_GREEN,
+    &ELEMENTAL_3_3_RED,
+    &DRAGON_5_5_RED_FLYING,
+    &GOBLIN_SOLDIER_1_1_WHITE_RED,
+    &ILLUSION_1_1_BLUE_FLYING,
+    &ELEMENTAL_2_2_BLUE_FLYING,
+    &SPIRIT_3_3_WHITE_FLYING,
 ];
 
 /// The entries a reader wrote, as a subset of [`ALL`] — never a second
@@ -799,4 +921,14 @@ pub static GENERATED: &[&TokenDef] = &[
     &KELP_0_1_BLUE_DEFENDER,
     &CITIZEN_1_1_WHITE,
     &PEGASUS_1_1_WHITE_FLYING,
+    &PEST_ARTIFACT_0_1,
+    &MYR_ARTIFACT_1_1,
+    &INSECT_1_1_GREEN,
+    &CENTAUR_3_3_GREEN,
+    &ELEMENTAL_3_3_RED,
+    &DRAGON_5_5_RED_FLYING,
+    &GOBLIN_SOLDIER_1_1_WHITE_RED,
+    &ILLUSION_1_1_BLUE_FLYING,
+    &ELEMENTAL_2_2_BLUE_FLYING,
+    &SPIRIT_3_3_WHITE_FLYING,
 ];
