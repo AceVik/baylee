@@ -19,6 +19,7 @@
 use super::*;
 
 pub(super) mod drawer;
+pub(super) mod menu;
 pub(super) mod pool;
 // Not `hud::tray`, which is the zone dialog. This is the strip the
 // dialog is put away into; the collision and why it stands are in the
@@ -555,9 +556,18 @@ pub struct LedgeRevision {
     /// Whether the concession is armed and waiting for its second press.
     ///
     /// It follows nothing but the pointer — no snapshot, no question — so
-    /// without it here the button would keep the word it was drawn with. It
-    /// is also what takes the draw offer away: see [`ways_out`].
+    /// without it here the panel's rows would keep the words they were drawn
+    /// with. It no longer takes the draw offer away — [`menu`] keeps it as a
+    /// dead row — but it still reaches the shelf, because this is what the
+    /// panel's own revision reads it through.
     pub(super) concede_armed: bool,
+    /// Whether the game menu is open, which is the burger's ground.
+    ///
+    /// The same shape as `concede_armed`: entirely the client's, following
+    /// nothing but a press, and here because without it the door would not
+    /// say which side of it the player is on. [`tray::StripRevision`] carries
+    /// `open` for the zones button for exactly this reason.
+    pub(super) menu_open: bool,
     /// Whether this seat has a running priority hold, which is what the
     /// middle says instead of a question — and what puts a keycap on the way
     /// out of it.
@@ -691,39 +701,36 @@ const TOOL_PT: f32 = 10.0;
 /// And its mark, which is a picture and carries the smaller of the two.
 const TOOL_MARK_PT: f32 = 9.0;
 
-/// The same for the right column: two buttons, the gap between them and the
-/// edge.
+/// The same for the right column, which is now one square button.
 ///
 /// **Measured** like [`TOOLS_WIDE`] and for the same reason — `arrange`
 /// slides the question to clear what it is told the neighbours take, so a
-/// column wider than it says crowds the question by the difference. §2.3
-/// estimated 214; the shipped Bold at 13 points gives
+/// column wider than it says crowds the question by the difference. Here the
+/// measurement is short, because a burger has no label: [`EDGE`] and
+/// [`menu::BURGER`], 40 px against the 222 the pair took.
 ///
-/// ```text
-///   EDGE                                        12.0
-///   "Remis anbieten" + 2·PAD_X + 2·border      119.1
-///   BUTTON_GAP                                   8.0
-///   "Aufgeben"  + 2·PAD_X + 2·border            82.9
-///                                              ─────
-///                                              222.0
-/// ```
+/// What the 222 was, kept because it is what the number is *against*: the
+/// shipped Bold at 13 points put "Remis anbieten" at 119.1 as a button,
+/// "Aufgeben" at 82.9, `BUTTON_GAP` between them and `EDGE` outside — German
+/// being the wider of the two, English 193.4. §2.3 had estimated 214.
 ///
-/// German is the wider of the two (English is 193.4) and is what is reserved,
-/// as on the left.
+/// And the **armed** concession was never in it, which was §10.2 step 5's
+/// finding rather than an omission: "Aufgeben? Nochmal drücken" is 200.4
+/// wide, so §4.3's pair-that-grows-leftwards would have been 339.5. Reserving
+/// that would have dropped every 1280 window to `Compact` for the whole game
+/// to pay for a state lasting one click; drawing it unreserved put it 71.5 px
+/// over the middle's last button — and the right column is spawned after the
+/// middle, so the grown button would win the pick over the right end of "Zug
+/// überspringen" and a skip-turn click would concede the game. The answer was
+/// that the armed concession **stood alone**, with the draw offer taken out
+/// from beside it.
 ///
-/// The **armed** concession is not in this number, and that is the finding of
-/// §10.2 step 5 rather than an omission: "Aufgeben? Nochmal drücken" is 200.4
-/// wide, so §4.3's pair-that-grows-leftwards would be 339.5 here. Reserving
-/// *that* would drop every 1280 window to `Compact` for the whole game to
-/// pay for a state that lasts one click; drawing it unreserved puts it 71.5
-/// px over the middle's last button — and the right column is spawned after
-/// the middle, so the grown button would win the pick over the right end of
-/// "Zug überspringen" and a skip-turn click would concede the game. So the
-/// armed concession **stands alone**: the draw offer is not drawn beside it
-/// (212.4 in German, 164.9 in English, both inside this reservation), which
-/// is also the right answer on its own terms — a second button beside a
-/// decision with no undo is a misclick target.
-const RIGHT_RESERVED: f32 = 222.0;
+/// That whole knot is gone rather than smaller. The concession is a row in a
+/// panel of fixed width now ([`menu`]), so there is nothing for it to grow
+/// over and no reason to take its neighbour away — and the draw offer keeps
+/// its place as a dead row, which is what stops the confirm row sliding up
+/// under a pointer that is about to press it.
+const RIGHT_RESERVED: f32 = EDGE + menu::BURGER;
 
 /// What the left column calls itself, set quietly.
 ///
@@ -821,6 +828,7 @@ pub fn sync_ledge(
         holdable: duel.can_hold_for_stack(),
         can_offer_draw: duel.can_offer_draw(),
         concede_armed: duel.concede_armed,
+        menu_open: duel.game_menu,
         priority_held: duel.priority_held(),
         autopilot: duel.autopilot.is_some(),
         lang: Some(lang),
@@ -952,7 +960,7 @@ pub fn sync_ledge(
     .map(|node| commands.spawn(node).id());
     commands.entity(shelf).add_children(&columns);
 
-    ways_out(&mut commands, &fonts, lang, columns[1], &revision);
+    ways_out(&mut commands, &fonts, columns[1], &revision);
 
     let middle = columns[0];
 
@@ -1329,8 +1337,10 @@ fn column_node(side: Side) -> impl Bundle {
         Side::Right => {
             node.right = px(EDGE);
             node.justify_content = JustifyContent::End;
-            // Two buttons, so the step between them is a button's and not a
-            // sentence's — and [`RIGHT_RESERVED`] is measured with this one.
+            // One button today, and the step is kept at a button's rather
+            // than a sentence's against the day there are two again: this
+            // column used to hold the pair that is now behind the burger, and
+            // [`RIGHT_RESERVED`] is measured with this gap in it.
             node.column_gap = px(baylee_client_core::ledge::BUTTON_GAP);
         }
         // Full width and centred, so the question stands on the **window's**
@@ -1352,69 +1362,39 @@ fn column_node(side: Side) -> impl Bundle {
     (node, Pickable::IGNORE)
 }
 
-/// The right column: the two ways out of a game that is still being played.
+/// The right column: the door to the game menu.
 ///
 /// It was a row of pills in the window's top-right corner, over the felt,
 /// with the priority hold's chip beside it. The hold went to the middle
-/// (§4.4, and it is the answer to a question the middle is asking), and these
-/// two came here, which is where they were always about to be: the shelf has
-/// three columns, and leaving the game belongs to no seat and to no question.
+/// (§4.4, and it is the answer to a question the middle is asking), and the
+/// two ways out came here, which is where they were always about to be: the
+/// shelf has three columns, and leaving the game belongs to no seat and to no
+/// question.
 ///
-/// **After `GameOver` the column is empty** — there is nothing left to
-/// concede and nobody left to offer a draw to, and the pair used to stay lit
-/// in the corner under the end screen, hovering and answering nothing because
-/// `DuelSet::Input` does not run in `Finished`.
+/// They are not drawn here any more. The owner asked on 19.09.2026 for them
+/// to go behind one button — *"Aus den zwei Buttons rechts wird ein Burger
+/// Menü"* — so this column holds the burger and [`menu`] holds the pair. The
+/// column is what changed, not the argument for it: a way out still belongs
+/// to no seat and to no question, and it is still at this end of the shelf.
 ///
-/// Neither button wears a keycap and neither is going to: a draw offer is not
-/// a thing to press by accident, and a concession is that twice over. What
-/// the concession has instead is [`Weight::Danger`] and a second press
-/// ([`crate::Duel::concede_armed`]), which every other key and every other
-/// click take back.
+/// **After `GameOver` the column is empty**, which it also was before, and
+/// for a reason the burger does not escape. There is nothing left to concede
+/// and nobody left to offer a draw to, and `DuelSet::Input` does not run in
+/// `Finished` — so a button left standing under the end screen would warm
+/// under the pointer and answer nothing, which is exactly what the pair used
+/// to do up in the corner. [`menu::sync_menu`] shuts the panel on the same
+/// reading.
 ///
-/// The armed concession **stands alone**, which is this step's one deviation
-/// from §4.3's "Remis rückt mit" and is measured in [`RIGHT_RESERVED`]: the
-/// pair would be 339.5 px wide in German, the reservation is 222, and the
-/// column is spawned *after* the middle — so the grown button would take the
-/// press meant for the right end of "Zug überspringen" and a skipped turn
-/// would concede the game.
-fn ways_out(
-    commands: &mut Commands,
-    fonts: &UiFonts,
-    lang: Lang,
-    column: Entity,
-    revision: &LedgeRevision,
-) {
+/// Neither entry in that menu wears a keycap and neither is going to: a draw
+/// offer is not a thing to press by accident, and a concession is that twice
+/// over. The burger does not wear one either, for a third reason — it opens a
+/// place rather than doing anything, and `Esc` already closes it.
+fn ways_out(commands: &mut Commands, fonts: &UiFonts, column: Entity, revision: &LedgeRevision) {
     if revision.over {
         return;
     }
-    let armed = revision.concede_armed;
-    if !armed {
-        // A draw needs this seat's own priority (CR 104.4i, and `offer_draw`
-        // refuses anything else), so the button says so rather than being a
-        // live control whose usual answer is a refusal in the sentence above.
-        let weight = if revision.can_offer_draw {
-            Weight::Secondary
-        } else {
-            Weight::Dead
-        };
-        let offer = answer(commands, fonts, Phrase::OfferADraw.text(lang), weight, None);
-        if weight != Weight::Dead {
-            commands.entity(offer).insert(super::MenuButton {
-                action: super::MenuAction::OfferDraw,
-            });
-        }
-        commands.entity(column).add_child(offer);
-    }
-    let (words, weight) = if armed {
-        (Phrase::ConcedeConfirm, Weight::Danger)
-    } else {
-        (Phrase::Concede, Weight::Secondary)
-    };
-    let concede = answer(commands, fonts, words.text(lang), weight, None);
-    commands.entity(concede).insert(super::MenuButton {
-        action: super::MenuAction::Concede,
-    });
-    commands.entity(column).add_child(concede);
+    let burger = menu::burger(commands, fonts, revision.menu_open);
+    commands.entity(column).add_child(burger);
 }
 
 /// The shelf's prose: the question, or whatever has replaced it.

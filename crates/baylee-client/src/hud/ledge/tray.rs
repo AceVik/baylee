@@ -52,6 +52,21 @@
 //! the band would cost every sheet the height of a strip standing at one end
 //! of it.
 //!
+//! **That sentence is about a sheet and about nothing else**, and it stood
+//! here without its scope long enough to be read the other way: as a claim
+//! that nothing may ever be drawn over this button. It cost a design decision
+//! before the owner said what it meant — the game menu's panel was rejected
+//! on it — so the clarification is recorded here and beside [`Z_TRAY`]:
+//! *"Es bedeutet nicht, dass dieser immer im Viewport sein muss, sondern dass
+//! er immer irgend wie erreichbar sein soll um den Zonen-Dialog jeder Zeit
+//! öffnen zu können. Er ist ein ganz gewöhnlicher Button wo aus ausklapbares
+//! Menü (Submenü vom Burger) durchaus drüber darf"* (19.09.2026).
+//!
+//! The rule is **reachable**, not visible. A panel the next press dismisses
+//! may stand over this button; the sheet may not, because the sheet is the
+//! thing the button is the way back from — a door covered by what is behind
+//! it is not a door.
+//!
 //! # Why the button is a door and not a way out
 //!
 //! The zone dialog used to be *closed*. It is now *minimised*, and the

@@ -333,6 +333,12 @@ pub enum HoverSpot {
 
 /// The client's own state for one duel.
 #[derive(Resource, Default)]
+// This is the client's bag of screen state, and each bool is a different
+// thing standing open or not: a menu, a preview, a run of taps. They are not
+// a mode — most pairs of them occur together — so an enum would have to
+// enumerate the product and would be read back through the same number of
+// comparisons.
+#[allow(clippy::struct_excessive_bools)]
 pub struct Duel {
     /// Stable random surface for this local duel lifetime.
     pub table_pattern: feltmat::TablePattern,
@@ -551,6 +557,23 @@ pub struct Duel {
     /// disarm it — an armed button left standing across a turn would be a
     /// worse trap than no confirmation at all.
     pub concede_armed: bool,
+    /// Whether the game menu is open.
+    ///
+    /// The burger at the shelf's right end, and the two ways out plus the
+    /// version line behind it — `hud::ledge::menu`. Entirely the client's own
+    /// state, like [`Self::ability_menu`], and cleared by `Esc`, by a second
+    /// press of the button, by a press outside the panel and by either entry
+    /// answering.
+    ///
+    /// It does **not** close when a new question arrives, which is the one
+    /// place it parts company with the ability chooser. That chooser belongs
+    /// to a choice and is meaningless once the choice has gone; this panel
+    /// belongs to the *player*, the same way the zone browser does — it holds
+    /// what this client is and the two ways out of the game, neither of which
+    /// the engine's next question has anything to say about. A menu taken
+    /// away because the opponent passed priority is a menu a player cannot
+    /// read.
+    pub game_menu: bool,
     /// The tap that has been made and not sent — see [`Armed`].
     ///
     /// Deliberately *not* cleared when a choice arrives: `pump` hands the
@@ -915,6 +938,7 @@ pub struct DuelPlugin {
 fn add_present_systems(app: &mut App) {
     app.init_resource::<hud::StackFold>()
         .init_resource::<hud::TrayReveal>()
+        .init_resource::<hud::MenuRevision>()
         .init_resource::<input::TrayGlide>();
     app.add_systems(
         Update,
@@ -1060,6 +1084,15 @@ fn add_present_systems(app: &mut App) {
                 (
                     hud::zoom_the_pool.after(hud::sync_pool),
                     hud::grow_the_pool.after(hud::sync_pool),
+                    // The game menu's panel and its movement, in the pool's
+                    // nest for the pool's reason — the tuple above is at
+                    // bevy's twenty — and ordered after the shelf because the
+                    // burger that opens it is drawn there. It hangs off
+                    // `HudRoot` rather than off the shelf, so it needs
+                    // nothing the shelf worked out; what it must not do is
+                    // stand over a shelf that is not there yet.
+                    hud::sync_menu.after(hud::sync_ledge),
+                    hud::grow_the_menu.after(hud::sync_menu),
                 ),
                 // The tray hangs off the shelf's edge and not out of its
                 // layout, so it needs nothing the shelf worked out — but it
@@ -1142,6 +1175,10 @@ fn add_input_systems(app: &mut App) {
             // this sheet and then open that one, which is two things
             // in that order and not one thing twice.
             input::close_the_sheet_on_a_press_outside_it.before(input::pointer),
+            // And the game menu, on the same mechanics and the same
+            // ordering: a press outside it shuts it, and a press on its
+            // own button is spared so the click can toggle.
+            input::close_the_menu_on_a_press_outside_it.before(input::pointer),
             input::pointer,
             input::pointer_hover,
             // `input::camera_controls` used to stand here, and its

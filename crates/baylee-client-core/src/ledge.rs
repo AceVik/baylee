@@ -293,6 +293,12 @@ mod tests {
     /// renderer's own `RIGHT_RESERVED` carries the measurement and the
     /// argument.
     ///
+    /// It is **historical** now in the same way `LEFT` is, and for the same
+    /// kind of reason. Both of those sentences are about a column holding two
+    /// labels, and since September 2026 it holds one 28-pixel burger — the
+    /// renderer reserves `EDGE + BURGER`, which is 40. So this rung too is
+    /// stated against a neighbour five times wider than any the client draws.
+    ///
     /// `LEFT` is the **historical** worst case and is kept at it deliberately.
     /// The renderer moved the mana pool off this shelf in September 2026 and
     /// the left column is now the hand's sorting buttons, which reserve 294 at

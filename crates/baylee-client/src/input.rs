@@ -1781,8 +1781,8 @@ fn answer_the_question(fired: Fired, duel: &mut Duel, prefs: &mut crate::prefs::
         step_number(duel, step);
     }
 
-    // Cancel: an open preview first, then the zone browser, then a selected
-    // phase button, then a half-built answer.
+    // Cancel: an open preview first, then the game menu, then the zone
+    // browser, then a selected phase button, then a half-built answer.
     //
     // The browser sits where it does because Esc walks the screen from the
     // top down and the sheet is a *standing* panel: the preview is over it
@@ -1800,6 +1800,14 @@ fn answer_the_question(fired: Fired, duel: &mut Duel, prefs: &mut crate::prefs::
         if duel.hovered.is_some() {
             duel.hovered = None;
             duel.hovered_at = None;
+        } else if duel.game_menu {
+            // Above the browser and below the preview, because `Esc` walks
+            // the screen from the top down and this panel stands over the
+            // strip the browser is put away into. It is also the newer of the
+            // two standing panels in every case where both are up: the
+            // browser can stand open for a whole turn, and nobody opens the
+            // menu and then forgets it.
+            duel.game_menu = false;
         } else if duel.browser.is_open() && duel.browser.may_be_put_away() {
             duel.browser.close();
         } else if prefs.orders().selected().is_some() {
@@ -2386,12 +2394,16 @@ pub fn cast_menu_keys(fired: Fired, duel: &mut Duel) -> bool {
     false
 }
 
-/// The two buttons in the top-right menu.
+/// A button on the shelf, or a row in the game menu it opens.
+///
+/// `pub(crate)` so that a test outside this module can answer the way a click
+/// answers rather than by writing the flag a click would have written — the
+/// same rule as a test that builds its own `PlayerAction`, one level down.
 ///
 /// `was_armed` is the concession's state *before* this click, taken once at
 /// the top of the loop: every click disarms, so the second press only counts
 /// when nothing happened in between.
-fn menu_click(duel: &mut Duel, action: MenuAction, was_armed: bool) {
+pub(crate) fn menu_click(duel: &mut Duel, action: MenuAction, was_armed: bool) {
     match action {
         MenuAction::SortHand(order) => {
             duel.hand_order = order;
@@ -2407,10 +2419,24 @@ fn menu_click(duel: &mut Duel, action: MenuAction, was_armed: bool) {
             duel.hovered = None;
             duel.hovered_at = None;
         }
-        // Two presses, because there is no undo behind this one.
+        // The one gesture here that is about the interface rather than the
+        // game. The panel it opens keeps its own state in `Duel` for the
+        // reason `ability_menu` does: what is open is the client's business,
+        // and the renderer reads it rather than owning it.
+        MenuAction::ToggleGameMenu => duel.game_menu = !duel.game_menu,
+        // Two presses, because there is no undo behind this one. The panel
+        // stays open between them — nothing here closes it — which is the
+        // whole reason it is not a child of the shelf: the arming press
+        // rebuilds the shelf's columns.
         MenuAction::Concede => {
             if was_armed {
                 duel.submit(PlayerAction::Concede);
+                // And shuts on the way out. The game is over, so there is
+                // nothing left in the panel to press; `sync_menu` reads the
+                // ending and would close it a frame later anyway, and saying
+                // it here is what keeps the two from disagreeing about the
+                // frame in between.
+                duel.game_menu = false;
             } else {
                 duel.concede_armed = true;
             }
@@ -2422,6 +2448,11 @@ fn menu_click(duel: &mut Duel, action: MenuAction, was_armed: bool) {
         MenuAction::OfferDraw => {
             if duel.can_offer_draw() {
                 duel.submit(PlayerAction::OfferDraw);
+                // An offer is made once and answered elsewhere, so the panel
+                // has nothing left to say. The refusal above is deliberately
+                // *not* a close: a press the engine turned down leaves the
+                // player where they were.
+                duel.game_menu = false;
             }
         }
         // Through the same door as the keys, and re-checked for the same
@@ -2507,6 +2538,51 @@ pub fn close_the_sheet_on_a_press_outside_it(
         }
     }
     duel.ability_menu = None;
+}
+
+/// A press anywhere that is neither the game menu nor its own button shuts it.
+///
+/// [`close_the_sheet_on_a_press_outside_it`]'s sibling, on the same two
+/// mechanics and for the same reason: `Pointer<Click>` is only ever raised on
+/// an entity that was hit, so a press on bare felt raises nothing at all, and
+/// [`HoverMap`] is the one place that knows the pointer is over **nothing**.
+/// It is the press and not the click, for that function's reason as well — a
+/// press that opens something else has to find this one already shut.
+///
+/// Two exemptions. The panel itself, obviously — a press on a row is answered
+/// by [`menu_click`], and a press on its padding is answered by nobody, which
+/// is exactly what a panel's padding is for. And the **burger**: the press
+/// and the click it becomes land on different frames, so closing on the press
+/// would hand the click a shut menu to re-open, and the button would stop
+/// closing what it opened.
+///
+/// A press outside also disarms a half-pressed concession, because every
+/// press does. That is not this function's doing and is worth not undoing: a
+/// player who has gone somewhere else has left the decision, and the panel
+/// coming back up at "Aufgeben" rather than at "Aufgeben? Nochmal drücken" is
+/// the safe way round.
+///
+/// [`HoverMap`]: bevy::picking::hover::HoverMap
+pub fn close_the_menu_on_a_press_outside_it(
+    buttons: Res<ButtonInput<MouseButton>>,
+    hovers: Res<bevy::picking::hover::HoverMap>,
+    panel: Query<&crate::hud::MenuPanel>,
+    buttons_on_screen: Query<&crate::hud::MenuButton>,
+    parents: Query<&ChildOf>,
+    mut duel: ResMut<Duel>,
+) {
+    if !duel.game_menu || !buttons.just_pressed(MouseButton::Left) {
+        return;
+    }
+    for hovered in hovers.values().flat_map(|over| over.keys().copied()) {
+        let spared = find_in_lineage(hovered, &panel, &parents).is_some()
+            || find_in_lineage(hovered, &buttons_on_screen, &parents)
+                .is_some_and(|b| b.action == MenuAction::ToggleGameMenu);
+        if spared {
+            return;
+        }
+    }
+    duel.game_menu = false;
 }
 
 /// A click on the ability sheet.

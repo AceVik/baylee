@@ -135,13 +135,25 @@ pub(super) fn from_bottom(scale: f32) -> Val2 {
 /// bottom-left corner is the same arithmetic on the other axis, with the sign
 /// the other way because the correction is leftwards.
 ///
-/// There is no `from_bottom_right` because nothing needs one yet. The tray at
-/// the other margin does not move at all; the day it does, this is the
-/// function to copy with one sign flipped, and it is three lines rather than
-/// a parameter so that neither strip can be handed the wrong corner.
+/// [`from_bottom_right`] is its mirror, and the two are written out rather
+/// than sharing a signed parameter so that neither can be handed the wrong
+/// corner: a sign is a thing a caller gets backwards, a name is not.
 pub(super) fn from_bottom_left(scale: f32) -> Val2 {
     Val2::new(
         Val::Percent(-50.0 * (1.0 - scale)),
+        Val::Percent(50.0 * (1.0 - scale)),
+    )
+}
+
+/// And for a node pinned at the window's **right** margin.
+///
+/// [`from_bottom_left`] with the horizontal sign flipped, which is what this
+/// file predicted would be needed one day and what the game menu needed: it
+/// hangs off the shelf's right end, so the corner that stays still while it
+/// grows is the one its own button is under.
+pub(super) fn from_bottom_right(scale: f32) -> Val2 {
+    Val2::new(
+        Val::Percent(50.0 * (1.0 - scale)),
         Val::Percent(50.0 * (1.0 - scale)),
     )
 }

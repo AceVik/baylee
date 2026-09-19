@@ -412,6 +412,14 @@ pub(crate) mod glyph {
     /// shows is the cards a game has put *away*: graveyards, exile, the
     /// command zone, the stack. The box is the more exact of the two.
     pub const ZONES: char = '\u{f187}';
+    /// The game menu's burger: three equal bars.
+    ///
+    /// Read out of the shipped `fa-solid-900.ttf` and rastered before it was
+    /// written down, as every glyph here is. The near neighbour on this
+    /// screen is [`VIEW_BIG`], FA's "list", which is the same three bars with
+    /// bullets down their left and can stand in the zone browser's head while
+    /// this button shows; they are distinct at the sizes both are drawn at.
+    pub const BARS: char = '\u{f0c9}';
 }
 
 /// Root of the overlay.
@@ -518,6 +526,12 @@ pub enum MenuAction {
     SortHand(crate::hand_order::HandOrder),
     /// Move the hand by a page in either direction.
     ScrollHand(i8),
+    /// Open the game menu, or shut it again.
+    ///
+    /// The burger at the shelf's right end. It is a *toggle* and not two
+    /// actions, because the button is in the same place either way and a
+    /// player who pressed it to open will press it to close.
+    ToggleGameMenu,
     /// Leave the game (sends the engine's own concession).
     Concede,
     /// Offer a draw: every other player still in the game has to accept
@@ -1737,6 +1751,29 @@ pub(crate) const Z_SHEET: i32 = 5;
 /// It is still under [`Z_PREVIEW`], because a preview describes what is
 /// under the pointer and the button is something a pointer can be over.
 pub(crate) const Z_TRAY: i32 = 6;
+/// The game menu, which stands over the strip its own button is on.
+///
+/// The one thing on this screen allowed to cover the zones button, and it is
+/// allowed because of what the sentence beside [`Z_TRAY`] actually asked for.
+/// That was about a **maximised sheet** — something that stands for as long
+/// as it is left there. The owner's own gloss on 19.09.2026: *"Es bedeutet
+/// nicht, dass dieser immer im Viewport sein muss, sondern dass er immer
+/// irgend wie erreichbar sein soll … Er ist ein ganz gewöhnlicher Button wo
+/// ein ausklapbares Menü (Submenü vom Burger) durchaus drüber darf."* A menu
+/// a player is holding open is not a panel that has buried a control; it is
+/// in front of it until they press `Esc`.
+///
+/// Worth the rung rather than a comment, because the quote beside `Z_TRAY`
+/// had already been read once as "must always be in the viewport" and cost a
+/// design decision before anybody asked what it had been about.
+pub(crate) const Z_MENU: i32 = 7;
+/// And the rung is the *claim*, so it is checked where it is made rather
+/// than in a test: a comparison of two constants is constant, and a test
+/// asserting one is a test that cannot fail for the reason it was written.
+const _: () = assert!(
+    Z_MENU > Z_TRAY,
+    "the menu stands in front of the zones button until the player closes it"
+);
 /// The hover preview, which describes whatever is under the pointer and so has
 /// to stand over all of it — including a row of the dialog.
 pub(crate) const Z_PREVIEW: i32 = 10;
@@ -1875,6 +1912,15 @@ pub struct OverlayTree<'w, 's> {
     /// has to survive. A mana that arrives is drawn arriving, which takes an
     /// entity that outlives the question it arrived during.
     pub(crate) pool: Query<'w, 's, Entity, With<ledge::pool::PoolStrip>>,
+    /// The game menu's panel, on an argument that is neither the tray's nor
+    /// the pool's. Those two are always there; this one is there only while a
+    /// player holds it open — and what it has to survive is the *rebuild the
+    /// second press causes*. Arming the concession changes
+    /// [`ledge::LedgeRevision`], which rebuilds the shelf's columns, so a
+    /// panel that lived among them would be despawned in the half second
+    /// between the two presses of the one decision in this client that has no
+    /// undo.
+    pub(crate) menu: Query<'w, 's, Entity, With<ledge::menu::MenuPanel>>,
 }
 
 /// The zone dialog's own nodes, and the root they hang from.
@@ -1930,6 +1976,7 @@ pub use hand::{ARMED_RAISE, HAND_ZONE_H, LEDGE_H, OVERLAY_CARD_H, OVERLAY_CARD_W
 /// row is drawn by a `MaterialNode` and a border on one is a question.
 pub(crate) use ledge::LIP as LEDGE_LIP;
 pub use ledge::drawer::{DrawerRevision, DrawerRoot, sync_drawer, zoom_the_drawer};
+pub use ledge::menu::{MenuPanel, MenuRevision, grow_the_menu, sync_menu};
 pub use ledge::pool::{PoolRevision, grow_the_pool, sync_pool, zoom_the_pool};
 pub use ledge::tray::{StripRevision, TrayZones, sync_tray_strip};
 pub use ledge::{LedgeLayout, LedgeRevision, LedgeShelf, sync_ledge};

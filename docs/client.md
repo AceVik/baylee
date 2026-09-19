@@ -4404,6 +4404,74 @@ is wide enough for five buttons, neither of which can move while a question
 stands — so reserving the wider language is caution here rather than a
 requirement.
 
+**The two ways out became a burger, and its panel is the fourth retained
+attachment.** *"Aus den zwei Buttons rechts wird ein Burger Menü. Es geht auf
+und dort ist ein schönes Menü (animationen zum auf und zu gehen etc.), hier
+kommen noch mehr Buttons rein, aber erst Mal die Zwei nur und eine
+Versionsanzeige+build des aktuellen Clients"* (19.09.2026).
+`hud::ledge::menu` is the panel; the burger is a `BUTTON_H` square standing in
+the shelf's **right column**, where the two labels used to be.
+
+That column and not the tray's strip, which was the one decision in it. The
+shelf's left column already holds the hand's sorting buttons and the two
+strips hold the game's own state — so a column is where a *player's* controls
+live, a strip is a door to something the game is holding, and the middle is
+the engine's question. Hanging the burger off a strip would have made the two
+strips asymmetric in kind on the day they were made symmetric in shape, and
+it is the further of the two readings of *"die zwei Buttons rechts"*.
+
+What it is worth is `RIGHT_RESERVED`, **222 px down to 40**. The old number
+was "Remis anbieten" beside "Aufgeben" — measured, and paid on every window at
+every question, because §2.3 reserves what the neighbours take whether or not
+they are drawn. An armed concession is wider than both buttons together and
+was drawn alone for exactly that reason; that knot is not smaller now, it is
+**gone**, because a 28-pixel square is the same width whatever it is about to
+say. The corresponding rung in `client-core`'s own `arrange` tests keeps 222
+as a historical worst case, the way `LEFT` kept the mana pool's 365.
+
+**It grows out of the corner its own button is in**, which is `grow_the_menu`
+and `motion::from_bottom_right` — the mirror that file predicted when the
+pool needed `from_bottom_left`, written out under its own name rather than as
+a signed parameter, because a caller gets a sign backwards and does not get a
+name backwards. `MenuZoom` is `StripZoom` one level down again and `sync_menu`
+never despawns the panel: it writes `closing` and lets the fold finish.
+
+The panel is retained for an argument **neither strip has**. The concession
+takes two presses, the arming press changes `LedgeRevision` and rebuilds the
+shelf's columns — so a panel that lived among them would be despawned between
+the two presses of the one decision in this client that has no undo. The
+second press would land on a button built half a frame earlier, at a position
+nothing guaranteed was the same.
+
+The version line is `baylee_build::short()`, the same string the lobby draws,
+and it is what fixes `MENU_W`. The first draft was sized against the widest
+row label and was six pixels too narrow: a label is bounded by the phrase
+table and a build string is not — `0.1.0+build.1042 (d17af60d08)` grows a
+digit per thousand builds and seven characters when the tree is dirty — so
+the test bounds the panel over the worst shape that string can take, and then
+asserts the real one is no longer than that shape.
+
+`Esc` gained a rung between the preview and the zone browser, and a press
+anywhere outside puts the menu away (`close_the_menu_on_a_press_outside_it`).
+That system spares the panel's lineage *and* the burger, and the burger is
+why it needs a list at all: a press and a click land on different frames, so
+the press would shut the panel and `menu_click` would re-open it a frame
+later, leaving a button that looked busy and did nothing.
+
+**Writing it found that the sweep's exemptions were held by nothing.**
+`sync_overlay` spares six markers under `HudRoot`, and taking the tray's, the
+pool's or the menu's condition out left all 27 tests in `hud::overlay`
+passing. The reason is that the sweep leaves no hole behind it: a strip
+despawned there is spawned again by the branch that rebuilds the root, on the
+same frame, so the count is one either way and the picture is right on the
+next frame. What is actually lost is the `StripZoom` or `MenuZoom` that was on
+the **old entity** — a movement stopping dead mid-flight, not a node
+disappearing, which is the one symptom a count can never see. The test that
+reads as though it covered this checked the shelf and the drawer by identity
+and the three strips not at all; it is
+`the_shelf_and_its_attachments_outlive_a_rebuild_and_nothing_else_does` now,
+checks all five, and fails for each of the three exemptions taken out.
+
 The strip's icon is an archive box and deliberately not the layer-group a
 seat bar draws for a library: two identical icons on one screen meaning two
 things is worse than a less obvious one meaning its own, and what this dialog

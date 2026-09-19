@@ -23,7 +23,7 @@ Two consequences worth knowing before changing anything here:
 |---|---|---|
 | The click (a sheet holding the question → card under cursor → phase toggle → pass) | `Enter` | implemented |
 | Confirm / pass (ticks a row on a sheet holding the question, and toggles nothing else) | `Space` | implemented |
-| Cancel: armed deed, then preview, then the zone browser *if the player may put it away*, then phase selection, then half-built answer | `Esc` | implemented |
+| Cancel: armed deed, then preview, then the game menu, then the zone browser *if the player may put it away*, then phase selection, then half-built answer | `Esc` | implemented |
 | Send what is armed (a second tap on the card does the same) | `Enter` / `Space` / `E` | implemented |
 | Move the card cursor (hand → own board → opponents) | `W A S D` | implemented |
 | Activate the card under the cursor (play / select) | `E` | implemented |

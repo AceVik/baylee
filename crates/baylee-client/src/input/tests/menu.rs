@@ -284,3 +284,145 @@ fn the_prompt_bar_can_ask_for_a_hold_as_well() {
     menu_click(&mut running, MenuAction::HoldForStack, false);
     assert!(running.outbox().is_empty());
 }
+
+/// `Esc` walks the screen from the top down, and the game menu is a rung on
+/// that ladder rather than something only its own button can shut.
+///
+/// It stands **above** the zone browser and below the preview, which is the
+/// only part of the order that had to be decided: both can be up at once, and
+/// the browser is the one that can stand open for a whole turn while nobody
+/// opens the menu and then forgets it. The counter-test is the same press
+/// with no menu open — "Escape now closes nothing" would pass the first half
+/// on its own.
+#[test]
+fn escape_puts_the_game_menu_away_before_it_reaches_the_browser() {
+    use crate::keys::Fired;
+    use baylee_client_core::prefs::Keymap;
+
+    let keymap = Keymap::standard();
+    let escape = Fired::of(&press(bevy::prelude::KeyCode::Escape), &keymap);
+    let mut prefs = crate::prefs::Prefs::default();
+
+    let mut duel = crate::Duel::default();
+    duel.browser.open();
+    duel.game_menu = true;
+
+    answer_the_question(escape, &mut duel, &mut prefs);
+    assert!(!duel.game_menu, "the menu was the top thing on the screen");
+    assert!(
+        duel.browser.is_open(),
+        "and the press stopped there: a panel and the sheet behind it must \
+         not both go on one key"
+    );
+
+    answer_the_question(escape, &mut duel, &mut prefs);
+    assert!(
+        !duel.browser.is_open(),
+        "the next press reaches the browser"
+    );
+
+    // The counter-test.
+    let mut duel = crate::Duel::default();
+    duel.browser.open();
+    answer_the_question(escape, &mut duel, &mut prefs);
+    assert!(
+        !duel.browser.is_open(),
+        "with no menu up the browser is what the first press closes, which is \
+         what this test asserts the menu got in front of"
+    );
+}
+
+/// A press anywhere else puts the menu away, and a press on the panel, on a
+/// row inside it or on the burger does not.
+///
+/// The burger is the whole reason the system has an exclusion list at all. A
+/// press and a click land on **different frames** — picking turns a press and
+/// a release over one entity into a `Pointer<Click>` — so this system sees
+/// the press first and would shut the panel, and `menu_click` would read the
+/// toggle a frame later and open it again. The burger would have stopped
+/// working while still looking like it was doing something.
+///
+/// Three spares and not one, because they are spared for two different
+/// reasons — the row by its **lineage** and the burger by its **action** —
+/// and either of them working alone would hide the other being broken.
+#[test]
+fn a_press_outside_the_panel_puts_it_away_and_three_presses_do_not() {
+    use crate::hud::{MenuAction, MenuButton, MenuPanel};
+    use bevy::input::ButtonInput;
+    use bevy::picking::backend::HitData;
+    use bevy::picking::hover::HoverMap;
+    use bevy::picking::pointer::PointerId;
+    use bevy::prelude::*;
+
+    /// Which of the four things the press landed on.
+    enum Aim {
+        Table,
+        Panel,
+        Row,
+        Burger,
+    }
+
+    let pressed_on = |aim: &Aim| {
+        let mut app = App::new();
+        app.insert_resource(crate::Duel {
+            game_menu: true,
+            ..Default::default()
+        })
+        .add_systems(Update, crate::input::close_the_menu_on_a_press_outside_it);
+
+        let panel = app.world_mut().spawn(MenuPanel).id();
+        let row = app
+            .world_mut()
+            .spawn((
+                MenuButton {
+                    action: MenuAction::Concede,
+                },
+                ChildOf(panel),
+            ))
+            .id();
+        let burger = app
+            .world_mut()
+            .spawn(MenuButton {
+                action: MenuAction::ToggleGameMenu,
+            })
+            .id();
+        let table = app.world_mut().spawn_empty().id();
+        let camera = app.world_mut().spawn_empty().id();
+
+        let mut mouse = ButtonInput::<MouseButton>::default();
+        mouse.press(MouseButton::Left);
+        app.insert_resource(mouse);
+
+        let target = match aim {
+            Aim::Table => table,
+            Aim::Panel => panel,
+            Aim::Row => row,
+            Aim::Burger => burger,
+        };
+        let mut hovers = HoverMap::default();
+        hovers.insert(
+            PointerId::Mouse,
+            [(target, HitData::new(camera, 0.0, None, None))]
+                .into_iter()
+                .collect(),
+        );
+        app.insert_resource(hovers);
+        app.update();
+        app.world().resource::<crate::Duel>().game_menu
+    };
+
+    assert!(
+        !pressed_on(&Aim::Table),
+        "a press on the table puts the menu away"
+    );
+    for (aim, what) in [
+        (Aim::Panel, "the panel"),
+        (Aim::Row, "a row inside the panel"),
+        (Aim::Burger, "the burger"),
+    ] {
+        assert!(
+            pressed_on(&aim),
+            "a press on {what} closed the menu, and it must not"
+        );
+    }
+}

@@ -351,6 +351,7 @@ pub fn sync_overlay(
                 && !tree.panel.contains(*child)
                 && !tree.tray.contains(*child)
                 && !tree.pool.contains(*child)
+                && !tree.menu.contains(*child)
             {
                 commands.entity(*child).despawn();
             }
@@ -399,6 +400,13 @@ pub fn sync_overlay(
         // See [`ledge::pool`].
         let pool = ledge::pool::spawn_pool_strip(&mut commands);
         commands.entity(root).add_child(pool);
+        // And the game menu's panel, which is the fifth and the only one that
+        // is usually not on the screen at all. What it has to outlive is not
+        // this rebuild but the *shelf's*: arming a concession changes
+        // `LedgeRevision`, which despawns the shelf's columns, and the panel
+        // is where the second press has to be made. See [`ledge::menu`].
+        let menu = ledge::menu::spawn_menu_panel(&mut commands);
+        commands.entity(root).add_child(menu);
         root
     };
 
@@ -1313,17 +1321,19 @@ mod tests {
             .init_resource::<ledge::LedgeLayout>()
             .init_resource::<ledge::drawer::DrawerRevision>()
             .init_resource::<ledge::pool::PoolRevision>()
+            .init_resource::<ledge::menu::MenuRevision>()
             .init_resource::<tray::TrayRevision>()
             .init_resource::<tray::TrayReveal>()
-            // All seven, chained, in the order the app runs them: the first
-            // spawns the shelf, the pool's retained column and the drawer's
-            // node, the second writes the shelf and records where its middle
-            // ended up, then the drawer is filled over that middle and opened
-            // or shut, and the pool's row is reconciled and moved. A harness
-            // that ran only the rebuild would be reading a bar with no words
-            // on it and calling that an answer.
+            // All of them, chained, in the order the app runs them: the
+            // first spawns the shelf, the three retained attachments and the
+            // drawer's node, the second writes the shelf and records where
+            // its middle ended up, then the drawer is filled over that middle
+            // and opened or shut, the pool's row is reconciled and moved, and
+            // the game menu's panel is filled and moved. A harness that ran
+            // only the rebuild would be reading a bar with no words on it and
+            // calling that an answer.
             //
-            // The zone dialog is the seventh and hangs off the same root on a
+            // The zone dialog is the last and hangs off the same root on a
             // gate of its own, which is a thing a harness running only
             // `sync_overlay` could no longer see at all.
             .add_systems(
@@ -1336,6 +1346,8 @@ mod tests {
                     ledge::pool::sync_pool,
                     ledge::pool::zoom_the_pool,
                     ledge::pool::grow_the_pool,
+                    ledge::menu::sync_menu,
+                    ledge::menu::grow_the_menu,
                     tray::sync_tray,
                     tray::reveal_tray,
                 )
@@ -1615,6 +1627,31 @@ mod tests {
             lines.iter().any(|l| l.contains(REFUSED)),
             "an answer the engine turned down has to be readable: {lines:?}"
         );
+        // The two ways out are behind the burger now, so the shelf carries
+        // the mark and not the words. Both halves are asserted: a door that
+        // is drawn, and nothing of what is behind it spelled out beside it.
+        assert!(
+            lines.contains(&glyph::BARS.to_string()),
+            "a game still being played has a way out to reach for: {lines:?}"
+        );
+        for pill in [Phrase::OfferADraw, Phrase::Concede] {
+            let label = pill.text(Lang::En).to_string();
+            assert!(
+                !lines.contains(&label),
+                "a shut menu says nothing of what is in it: {lines:?}"
+            );
+        }
+        // And opened, it says both. Through the same `MenuAction` a click
+        // sends, rather than by writing the flag, so the test cannot pass on
+        // a panel no button can reach — [[client-tests-must-answer-like-a-
+        // player]], one level down from a `PlayerAction`.
+        crate::input::menu_click(
+            &mut reachable.world_mut().resource_mut::<Duel>(),
+            MenuAction::ToggleGameMenu,
+            false,
+        );
+        reachable.update();
+        let lines = said(&mut reachable);
         for pill in [Phrase::OfferADraw, Phrase::Concede] {
             let label = pill.text(Lang::En).to_string();
             assert!(
@@ -1622,6 +1659,259 @@ mod tests {
                 "every game still being played offers both of these: {lines:?}"
             );
         }
+        assert!(
+            lines.iter().any(|l| l.contains(baylee_build::short())),
+            "and says which baylee it is: {lines:?}"
+        );
+    }
+
+    /// The panel, its entity and whether it is on the screen.
+    fn menu_panel(app: &mut App) -> Option<(Entity, bool, usize)> {
+        let mut q = app
+            .world_mut()
+            .query_filtered::<(Entity, &Visibility, Option<&Children>), With<ledge::menu::MenuPanel>>(
+            );
+        q.iter(app.world()).next().map(|(e, seen, kids)| {
+            (
+                e,
+                *seen != Visibility::Hidden,
+                kids.map_or(0, bevy::ecs::hierarchy::Children::len),
+            )
+        })
+    }
+
+    /// The scale the panel is drawn at, and where that scale is anchored.
+    fn menu_pose(app: &mut App) -> (Vec2, Val2) {
+        let mut q = app
+            .world_mut()
+            .query_filtered::<&UiTransform, With<ledge::menu::MenuPanel>>();
+        let at = q.single(app.world()).expect("one panel");
+        (at.scale, at.translation)
+    }
+
+    /// **The whole reason the panel is not a child of the shelf.**
+    ///
+    /// Arming the concession writes `LedgeRevision::concede_armed`, which
+    /// despawns and rebuilds the shelf's columns. The second press has to be
+    /// made in the panel, so the panel has to be the *same entity* on the
+    /// other side of that rebuild — and it has to still be up, with its rows
+    /// redrawn to the confirm wording rather than left saying what they said
+    /// before.
+    ///
+    /// Three claims and the first is the one a design that got this wrong
+    /// would fail: same entity, still shown, and the confirm wording drawn.
+    #[test]
+    fn the_panel_survives_the_rebuild_the_arming_press_causes() {
+        let mut app = bar_of(duel_with(false));
+        crate::input::menu_click(
+            &mut app.world_mut().resource_mut::<Duel>(),
+            MenuAction::ToggleGameMenu,
+            false,
+        );
+        app.update();
+        let (panel, shown, rows) = menu_panel(&mut app).expect("a panel");
+        assert!(shown, "the menu is open");
+        assert_eq!(rows, 4, "two ways out, a rule and the version");
+        // The shelf's own children, less the two casts: those are spawned
+        // with the shelf and exempt from its rebuild, so counting them would
+        // make "everything was rebuilt" false on a shelf that rebuilt
+        // everything it rebuilds.
+        let columns = |app: &mut App| {
+            let casts = {
+                let mut q = app
+                    .world_mut()
+                    .query_filtered::<Entity, With<ledge::LedgeCast>>();
+                q.iter(app.world()).collect::<Vec<_>>()
+            };
+            let mut q = app
+                .world_mut()
+                .query_filtered::<&Children, With<ledge::LedgeShelf>>();
+            q.iter(app.world())
+                .flat_map(|c| c.iter().collect::<Vec<_>>())
+                .filter(|e| !casts.contains(e))
+                .collect::<Vec<_>>()
+        };
+        let before = columns(&mut app);
+
+        // The arming press, through the same door a click uses.
+        crate::input::menu_click(
+            &mut app.world_mut().resource_mut::<Duel>(),
+            MenuAction::Concede,
+            false,
+        );
+        assert!(app.world().resource::<Duel>().concede_armed, "armed");
+        app.update();
+
+        // The premise, proved rather than assumed: this test says nothing at
+        // all if the shelf did not in fact rebuild, and a shelf that stopped
+        // rebuilding would let every claim below pass for the wrong reason.
+        let after = columns(&mut app);
+        assert!(
+            after.iter().all(|e| !before.contains(e)),
+            "the arming press did not rebuild the shelf, so this test is not \
+             about anything: {before:?} then {after:?}"
+        );
+
+        let (again, still, rows_now) = menu_panel(&mut app).expect("still a panel");
+        assert_eq!(
+            panel, again,
+            "the panel the second press has to be made in was despawned by the \
+             first press"
+        );
+        assert!(still, "and it is still on the screen");
+        assert_eq!(
+            rows_now, rows,
+            "and nothing left the column, so the confirm row did not move up \
+             under the pointer that is about to press it"
+        );
+        let lines = said(&mut app);
+        let confirm = Phrase::ConcedeConfirm.text(Lang::En).to_string();
+        assert!(
+            lines.contains(&confirm),
+            "and it now asks for the second press: {lines:?}"
+        );
+        // The draw offer keeps its place and loses its handle, which is what
+        // `Weight::Dead` is: drawn, and not a control.
+        let offered = {
+            let mut q = app.world_mut().query::<&MenuButton>();
+            q.iter(app.world())
+                .filter(|b| b.action == MenuAction::OfferDraw)
+                .count()
+        };
+        assert_eq!(
+            offered, 0,
+            "a draw cannot be offered in the middle of conceding, and a row \
+             that answers nothing must not be pressable"
+        );
+    }
+
+    /// The panel grows out of the shelf's right corner rather than appearing.
+    ///
+    /// Three claims, and the corner is the one a plain [`motion::from_bottom`]
+    /// would break: on the frame the menu opens the panel is drawn at
+    /// [`motion::ZOOM_FROM`], pinned at its **bottom-right** — because a node
+    /// fixed at the right margin that shrinks toward its own middle slides
+    /// left as it grows, away from the button that opened it. Then the
+    /// movement ends at full size.
+    ///
+    /// With `reduce_motion` it is at full size on that same first frame,
+    /// which is the counter-test for the first claim on its own terms.
+    #[test]
+    fn the_panel_grows_out_of_the_corner_its_button_is_in() {
+        for (still, want) in [(false, motion::ZOOM_FROM), (true, 1.0)] {
+            let mut app = bar_of(duel_with(false));
+            app.world_mut()
+                .resource_mut::<crate::prefs::Prefs>()
+                .edit()
+                .reduce_motion = still;
+            assert!(
+                !menu_panel(&mut app).expect("a panel").1,
+                "a menu nobody opened is not on the screen"
+            );
+
+            crate::input::menu_click(
+                &mut app.world_mut().resource_mut::<Duel>(),
+                MenuAction::ToggleGameMenu,
+                false,
+            );
+            app.update();
+
+            assert!(menu_panel(&mut app).expect("a panel").1, "and now it is");
+            let (scale, shift) = menu_pose(&mut app);
+            assert!(
+                (scale.x - want).abs() < 0.001 && (scale.y - want).abs() < 0.001,
+                "reduce_motion {still}: drawn at {scale:?}, {want} wanted"
+            );
+            if !still {
+                assert_eq!(
+                    shift,
+                    motion::from_bottom_right(want),
+                    "the panel grows out of the corner its button is in"
+                );
+                tick(&mut app, motion::ZOOM_IN + 0.01);
+                let (scale, shift) = menu_pose(&mut app);
+                assert!(
+                    (scale.x - 1.0).abs() < 0.001,
+                    "and the arrival ends at full size, not at {scale:?}"
+                );
+                assert_eq!(shift, motion::from_bottom_right(1.0));
+            }
+        }
+    }
+
+    /// And it folds back into the shelf rather than being taken off it.
+    ///
+    /// The clock is driven for the reason
+    /// `the_strip_folds_back_into_the_shelf_rather_than_being_taken_off_it`
+    /// records: `bar_of` has no running time, so a test written against the
+    /// still clock would read the frame the fold *starts* as the frame it
+    /// ends and would pass against a `grow_the_menu` that hid the panel
+    /// outright.
+    #[test]
+    fn the_panel_folds_away_rather_than_being_taken_away() {
+        let mut app = bar_of(duel_with(false));
+        app.world_mut()
+            .resource_mut::<crate::prefs::Prefs>()
+            .edit()
+            .reduce_motion = false;
+        crate::input::menu_click(
+            &mut app.world_mut().resource_mut::<Duel>(),
+            MenuAction::ToggleGameMenu,
+            false,
+        );
+        app.update();
+        assert!(menu_panel(&mut app).expect("a panel").1, "open");
+
+        crate::input::menu_click(
+            &mut app.world_mut().resource_mut::<Duel>(),
+            MenuAction::ToggleGameMenu,
+            false,
+        );
+        tick(&mut app, 0.0);
+        assert!(
+            menu_panel(&mut app).expect("a panel").1,
+            "the panel folds away rather than being taken away"
+        );
+        let (scale, _) = menu_pose(&mut app);
+        assert!(
+            (scale.x - 1.0).abs() < 0.001,
+            "and the fold begins at full size, not at {scale:?}"
+        );
+
+        tick(&mut app, motion::ZOOM_OUT + 0.01);
+        assert!(
+            !menu_panel(&mut app).expect("a panel").1,
+            "and once the fold is over it is away"
+        );
+    }
+
+    /// And a game that has ended offers neither, even asked directly.
+    ///
+    /// `nothing_the_overlay_offers_outlives_the_game`'s other half now that
+    /// the pair is behind a door: that test reads what is *drawn*, and a shut
+    /// menu draws nothing either way, so on its own it would pass over a
+    /// panel that still filled itself with two unanswerable buttons. This one
+    /// opens it. `DuelSet::Input` does not run in `Finished`, so anything
+    /// drawn in there would warm under the pointer and answer nothing —
+    /// exactly what the pair used to do in the corner.
+    #[test]
+    fn the_menu_offers_no_way_out_of_a_game_that_has_ended() {
+        let mut app = bar_of(duel_with(true));
+        app.world_mut().resource_mut::<Duel>().game_menu = true;
+        app.update();
+        let lines = said(&mut app);
+        for pill in [Phrase::OfferADraw, Phrase::Concede, Phrase::ConcedeConfirm] {
+            let label = pill.text(Lang::En).to_string();
+            assert!(
+                !lines.contains(&label),
+                "a way to end a game that has ended, opened and unanswerable: \
+                 {lines:?}"
+            );
+        }
+        assert!(
+            !lines.contains(&glyph::BARS.to_string()),
+            "and the door itself is gone with the column it stood in: {lines:?}"
+        );
     }
 
     /// A running hold says so in the middle, where the question would be.
@@ -1692,6 +1982,7 @@ mod tests {
                 With<TrayBand>,
                 With<ledge::tray::TrayStrip>,
                 With<ledge::pool::PoolStrip>,
+                With<ledge::menu::MenuPanel>,
             )>>();
             q.iter(app.world()).collect::<Vec<_>>()
         };
@@ -1718,7 +2009,8 @@ mod tests {
     /// much worse bug of the two: a bar that never redraws says the wrong
     /// thing about the game for as long as the game lasts.
     #[test]
-    fn the_shelf_and_the_drawer_outlive_a_rebuild_and_nothing_else_does() {
+    #[allow(clippy::too_many_lines)] // five queries, each read twice
+    fn the_shelf_and_its_attachments_outlive_a_rebuild_and_nothing_else_does() {
         // A print table, because the counter-half needs something the overlay
         // *does* draw under the root, and everything it draws there asks for
         // one. The two ways out of a game were the exception — spawned with
@@ -1766,11 +2058,41 @@ mod tests {
                 .query_filtered::<Entity, With<ledge::drawer::DrawerRoot>>();
             q.iter(app.world()).collect::<Vec<_>>()
         };
+        // The three strips beside them, each surviving for an argument of
+        // its own — `OverlayTree`'s own fields say which. They are read as
+        // one list because the *claim* is identical for all three and the
+        // sweep is one condition per strip, so a fourth attachment costs one
+        // line here rather than a paragraph, and the message still names
+        // which of them went.
+        //
+        // They are checked by **identity** because the sweep does not leave a
+        // hole behind it: a strip despawned here is spawned again on the same
+        // frame, by the branch below that builds the root. So the count is
+        // one either way, the picture is right on the next frame, and what is
+        // actually lost is the `MenuZoom` or the `PoolReveal` that was on the
+        // old entity — which is why removing any one of those three
+        // conditions from the sweep passed every test in this file.
+        let strips = |app: &mut App| {
+            let mut tray = app
+                .world_mut()
+                .query_filtered::<Entity, With<ledge::tray::TrayStrip>>();
+            let tray = tray.iter(app.world()).collect::<Vec<_>>();
+            let mut pool = app
+                .world_mut()
+                .query_filtered::<Entity, With<ledge::pool::PoolStrip>>();
+            let pool = pool.iter(app.world()).collect::<Vec<_>>();
+            let mut menu = app
+                .world_mut()
+                .query_filtered::<Entity, With<ledge::menu::MenuPanel>>();
+            let menu = menu.iter(app.world()).collect::<Vec<_>>();
+            [("tray", tray), ("mana pool", pool), ("game menu", menu)]
+        };
 
         let was_shelf = shelf(&mut app);
         let was_drawer = drawer(&mut app);
         let was_root = roots(&mut app);
         let was_standing = standing(&mut app);
+        let was_strips = strips(&mut app);
         let was_redrawn = nodes_the_rebuild_rebuilds(&mut app);
         assert_eq!(was_shelf.len(), 1, "one shelf, and it was built");
         assert_eq!(was_drawer.len(), 1, "and one drawer beside it");
@@ -1785,6 +2107,9 @@ mod tests {
             !was_redrawn.is_empty(),
             "the overlay drew something of its own beside the two"
         );
+        for (name, found) in &was_strips {
+            assert_eq!(found.len(), 1, "one {name}, and it was built");
+        }
 
         // The pointer moves onto a card. Nothing about the game changed.
         app.world_mut().resource_mut::<Duel>().hovered = Some(ObjectId::new(1, 0));
@@ -1798,6 +2123,13 @@ mod tests {
              pointer would have gone with it"
         );
         assert_eq!(roots(&mut app), was_root, "and so was the root under it");
+        let now_strips = strips(&mut app);
+        for ((name, was), (_, now)) in was_strips.iter().zip(now_strips.iter()) {
+            assert_eq!(
+                was, now,
+                "the {name} was taken off the root and built again. Nothing                  else can do that — it is spawned once, with the root — so                  the sweep above has stopped sparing it, and whatever the                  strip was in the middle of has been thrown away with the                  entity that was doing it"
+            );
+        }
         assert_eq!(
             standing(&mut app),
             was_standing,
