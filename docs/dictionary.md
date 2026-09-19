@@ -286,3 +286,26 @@ Short sentences this team uses as shorthand. Each one is a rule.
 - **"A doc-only commit rides with the next substantive one."** Every merge
   costs the other branches a rebase and a re-gate, plus whatever that rebase
   disturbs. Twenty-nine lines of prose is a bad trade for that.
+- **"Waiting is free" is about tokens, not about time.** Measured on 19.09:
+  three gates waited 364 s / 240 s / 180 s in front of the lock against
+  142 s / 136 s / 81 s of work. The wait has been longer than the work every
+  time anybody has timed it, and it is invisible in any per-run number. #100.
+- **"A narrow run is not a short run."** `-p <crate> --lib <filter>` narrows
+  what *runs*, never what *builds*: after a rebase it is a full compile of
+  that crate's graph. So nothing on a command line predicts what a run will
+  cost, and a "quick filtered test" is how a four-minute lock wait happens.
+  Hold the lock around the narrowest command and never across a rebase, an
+  edit, or a pause to think.
+- **"The lock protects tests from load, not the CPU from waste."** Its reason
+  is in its own header: three `baylee-engine-server` e2e tests died on 18.09
+  because a second run sat beside them. So exempting cheap runs removes
+  protection from whoever is gating — and the failure lands in *their* suite,
+  looking like their bug.
+- **"Verify the peer, then repeat it."** Twice on 19.09 a correct finding
+  arrived with an incomplete list behind it, and once a grep of my own was
+  spent on a claim it did not support. A finding is repeatable when you have
+  run the search yourself; until then it is theirs, not yours.
+- **"Does anything read this?" is a question per function, not per field.**
+  Three hashes wear two names here, and two of them are live. A no-caller
+  result spread over 66 fields reads as a blanket reprieve while the sibling
+  is running in every game.
