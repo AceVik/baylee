@@ -3683,8 +3683,49 @@ out of the brightness ladder. And where there is no turn light at all — a held
 seat simply waiting — the two applications are **identical**, at 0.68 contrast.
 That is precisely the case `tabletop::seat_mat` models and the pixel tests
 measure, so the suite is silent on the one configuration the choice was made
-for. It is settled by a photograph rather than by a test, and that is a debt
-rather than a conclusion.
+for. It was settled by a photograph instead, and the photograph is below.
+
+##### What the shader actually draws
+
+Taken through `dev-control` against an offline duel, with a throwaway probe
+holding the far chair — once idle, once forced on turn **and** being asked so
+the rim saturates. Read as the **periodic component at the dash's own
+frequency** and not as a row's peak-to-peak, which is the trap here: the felt
+under a mat carries lava veins that swing any row's min and max by more than
+the mark does, so a naive contrast number measures the table rather than the
+rim. Six dash periods fall across the sampled span of the far mat's edge.
+
+- an **unheld** rim is flat at *every* frequency — amplitude 0.00, which is a
+  zero that could have been otherwise and is what makes the rest a comparison;
+- **held and idle**: k=6, amplitude 19.6 levels on a mean of 89, 3.2× the next
+  strongest component;
+- **held, on turn and asked**: the same k=6, amplitude 7.0 on a mean of 148,
+  2.2× the next.
+
+Two things the picture settled that the arithmetic only predicted. It survives
+the size it is for: resampled to the seventh an eight-seat ring projects, the
+ridge keeps its swing almost exactly (66 → 64 peak-to-peak idle, 24 → 24
+saturated), so twenty-four dashes do not alias into a grey. And the mark is
+**weakest at the rim's outer contour** — 33 levels across the outermost bright
+row against about 62 two rows in — so where the rim saturates it reads as a
+scalloping of the glow rather than as breaks in the silhouette, and the
+silhouette is what is read from across the table.
+
+The cause of that is the **clamp and not `MAT_RIM_FALL`**, which was the wrong
+diagnosis offered before the photograph: at the outer edge the crest is cut
+off at 1 while the trough is not, so only half the gain survives there.
+
+It is left as it is, and that is a deferral rather than a settlement — **#95**
+holds it. Seven levels of modulation is under the twenty a still mark on this
+table already swings from its own ink, so in the saturated case the contour is
+at or below the noise floor and only the coherence of the pattern carries it.
+Whether that is good enough is a thing to be *looked at* by whoever is sitting
+at an eight-seat table, not decided from a duel's screenshot. Deepening the gain would clip the *base* rim too and cost the
+mean-one property, which is the thing keeping the mark out of the brightness
+ladder; dashing `running` harder than `border` is the change that would buy
+the contour back, and it is a second constant nobody has needed yet. The
+saturated case is also the rarer one for a held chair, because the house
+answers the moment it is asked.
 
 Measured on a 512 × 196 mat: along a straight run of rim an ordinary mat is
 flat to the last bit, and a held one swings 0.141 to 0.475 about the 0.310 the
