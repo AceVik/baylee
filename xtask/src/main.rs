@@ -1682,11 +1682,39 @@ fn knob<'a>(content: &'a str, field: &str) -> Option<&'a str> {
     Some(content[at + field.len() + 2..].trim_start())
 }
 
-fn quoted_value<'a>(content: &'a str, key: &str) -> Option<&'a str> {
+/// The Rust string literal that follows `key`, with its escapes undone.
+///
+/// It walks `\\` rather than stopping at the first quote, because a card is
+/// allowed a quotation mark in its own **name**: the ledger holds seven of
+/// them — `Kongming, "Sleeping Dragon"`, `Henzie "Toolbox" Torre`,
+/// `"Name Sticker" Goblin` — and the pool reached the first one in §E8's
+/// third batch. Stopping at the first quote read Kongming's code name as
+/// `Kongming, \\` and reported the header it agrees with as a mismatch,
+/// which is the twelfth textual reader of this pool caught answering a
+/// question it could not see.
+fn quoted_value(content: &str, key: &str) -> Option<String> {
     let start = content.find(key)? + key.len();
-    let rest = &content[start..];
-    let end = rest.find('"')?;
-    Some(&rest[..end])
+    let mut out = String::new();
+    let mut escaped = false;
+    for c in content[start..].chars() {
+        if escaped {
+            out.push(match c {
+                'n' => '\n',
+                't' => '\t',
+                'r' => '\r',
+                '0' => '\0',
+                other => other,
+            });
+            escaped = false;
+        } else if c == '\\' {
+            escaped = true;
+        } else if c == '"' {
+            return Some(out);
+        } else {
+            out.push(c);
+        }
+    }
+    None
 }
 
 /// All `mana_cost` literals in the file (one per face), normalized:
@@ -3227,7 +3255,9 @@ fn check_header_matches_code(
         .and_then(|pos| knob(&content[pos..], "name"))
         .and_then(|v| quoted_value(v, "\""));
     if let Some(code_name) = code_name {
-        let matches = head_name.split(" // ").any(|side| side == code_name);
+        let matches = head_name
+            .split(" // ")
+            .any(|side| side == code_name.as_str());
         if !matches {
             println!("{slug}: header name {head_name:?} != code name {code_name:?}");
             *problems += 1;
@@ -5510,8 +5540,8 @@ fn cross_read(root: &Path, scripts_dir: &Path, samples: usize) -> anyhow::Result
 #[cfg(test)]
 mod tests {
     use super::{
-        PrintedMana, header_scryfall_id, one_row_per_token, printed_mana_offered, printed_subtypes,
-        refuse_twin_names, script_for,
+        PrintedMana, header_scryfall_id, knob, one_row_per_token, printed_mana_offered,
+        printed_subtypes, quoted_value, refuse_twin_names, script_for,
     };
     use baylee_cards_codegen::{tokengen, tokenledger};
     use baylee_core::generated::subtypes;
@@ -5552,6 +5582,30 @@ mod tests {
             printed_mana_offered("{t}: draw a card."),
             PrintedMana::Nothing
         ));
+    }
+
+    /// A card is allowed a quotation mark in its own name, and the reader
+    /// that stops at the first one reports the header it agrees with as a
+    /// mismatch.
+    ///
+    /// Both directions, because the repair is only a repair if the ordinary
+    /// name still comes back the same: seven ledger names carry an escape
+    /// and 33 687 do not.
+    #[test]
+    fn a_name_that_prints_a_quotation_mark_is_read_whole() {
+        let line = r#"        name = "Kongming, \"Sleeping Dragon\"","#;
+        assert_eq!(
+            knob(line, "name").and_then(|v| quoted_value(v, "\"")),
+            Some("Kongming, \"Sleeping Dragon\"".to_string())
+        );
+        let line = r#"        name = "Lightning Bolt","#;
+        assert_eq!(
+            knob(line, "name").and_then(|v| quoted_value(v, "\"")),
+            Some("Lightning Bolt".to_string())
+        );
+        // A literal that never closes is not a name; the old reader would
+        // have answered with whatever came after it.
+        assert_eq!(quoted_value("name = \"unterminated", "\""), None);
     }
 
     /// `reach-list` looks a script up under two spellings of one card, and a
