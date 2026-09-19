@@ -50,15 +50,7 @@ async fn a_seat_socket_that_arrives_after_its_engine_still_gets_the_game() {
     tokio::time::sleep(std::time::Duration::from_secs(3)).await;
 
     let url = format!("ws://127.0.0.1:{port}/games/{game_id}/ws?token={seat_token}");
-    let mut ws = None;
-    for _ in 0..50 {
-        if let Ok((stream, _)) = tokio_tungstenite::connect_async(&url).await {
-            ws = Some(stream);
-            break;
-        }
-        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
-    }
-    let mut ws = ws.expect("seat socket");
+    let mut ws = common::dial_seat(&url).await;
 
     // A working gateway answers at once. The broken one accepted the socket,
     // said nothing, and closed it half a minute later — so a generous

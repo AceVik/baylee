@@ -14,7 +14,7 @@ mod common;
 
 use baylee_engine::choice::PlayerAction;
 use baylee_protocol::v1::{self, Envelope};
-use common::{attach_agent, http, json_field, login, spawn_gateway};
+use common::{Socket, attach_agent, http, json_field, login, spawn_gateway};
 use futures_util::{SinkExt, StreamExt};
 use prost::Message;
 
@@ -43,31 +43,24 @@ fn press_rematch(port: u16, token: &str, game: &str) -> (u16, String) {
 /// and a test that pressed once would be racing that. A `409` is the honest
 /// "not yet"; anything else is the failure this loop must not hide.
 async fn rematch_when_over(port: u16, token: &str, game: &str) -> String {
-    for _ in 0..100 {
+    for _ in 0..common::WAIT_TRIES {
         let (status, body) = press_rematch(port, token, game);
         if status == 200 {
             return body;
         }
         assert_eq!(status, 409, "the rematch was refused: {body}");
-        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+        tokio::time::sleep(common::WAIT_STEP).await;
     }
-    panic!("the game never ended");
+    panic!("the game never ended within {:?}", common::WAIT_BUDGET);
 }
 
 /// Opens a seat socket, waiting for the engine to attach behind it.
 async fn seat_socket(port: u16, game: &str, token: &str) -> Socket {
-    let url = format!("ws://127.0.0.1:{port}/games/{game}/ws?token={token}");
-    for _ in 0..50 {
-        if let Ok((stream, _)) = tokio_tungstenite::connect_async(&url).await {
-            return stream;
-        }
-        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
-    }
-    panic!("the seat socket never opened");
+    common::dial_seat(&format!(
+        "ws://127.0.0.1:{port}/games/{game}/ws?token={token}"
+    ))
+    .await
 }
-
-type Socket =
-    tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>;
 
 /// Waits for the opening payload, which is the first thing any seat is sent.
 async fn opening(ws: &mut Socket) -> baylee_view::GameStatic {

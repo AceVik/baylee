@@ -287,8 +287,31 @@ pub fn login(port: u16, email: &str, name: &str) -> String {
 }
 
 /// A live websocket to something on the gateway.
-type Socket =
+pub type Socket =
     tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>;
+
+/// How long anything in this suite waits for something that is merely slow.
+///
+/// One constant rather than a number per loop, because every one of those
+/// numbers was chosen against an idle machine and they were all wrong in the
+/// same way. **A test that assumes an idle box is asserting something about
+/// the machine rather than about the code**: five worktrees share one CPU
+/// here, and on 18.09.2026 a full gate in a neighbouring tree took three e2e
+/// tests down at load ~4 — not because anything was broken, but because a
+/// five-second budget does not cover a server starting beside a compile.
+///
+/// Thirty seconds is not a margin for a hang. Nothing here waits out the
+/// budget on the happy path: every loop below exits on its first success, so
+/// a raised ceiling costs a passing run nothing at all and only changes which
+/// failures are real. A genuine hang still fails, thirty seconds later, with
+/// the same message.
+pub const WAIT_BUDGET: std::time::Duration = std::time::Duration::from_secs(30);
+
+/// How many 100 ms attempts fit in [`WAIT_BUDGET`].
+pub const WAIT_TRIES: u32 = 300;
+
+/// One poll interval, so a loop states its budget instead of its arithmetic.
+pub const WAIT_STEP: std::time::Duration = std::time::Duration::from_millis(100);
 
 /// Connects an agent and waits until the gateway has registered it.
 ///
@@ -354,14 +377,27 @@ async fn run_engine(start: v1::StartEngine) {
 }
 
 /// Dials a websocket, retrying while the listener comes up.
-async fn dial(url: &str) -> Option<Socket> {
-    for _ in 0..50 {
+pub async fn dial(url: &str) -> Option<Socket> {
+    for _ in 0..WAIT_TRIES {
         if let Ok((socket, _)) = tokio_tungstenite::connect_async(url).await {
             return Some(socket);
         }
-        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+        tokio::time::sleep(WAIT_STEP).await;
     }
     None
+}
+
+/// The same, for a seat socket that is refused until the engine is behind it.
+///
+/// Three test files had written this loop out by hand with three different
+/// spellings and the same five-second budget. One of them is the reason it is
+/// here: a seat socket is opened *while* the engine is still being started by
+/// an agent, so this waits on two processes rather than one, and it is the
+/// loop with the least reason of any of them to assume an idle machine.
+pub async fn dial_seat(url: &str) -> Socket {
+    dial(url)
+        .await
+        .unwrap_or_else(|| panic!("the seat socket never opened within {WAIT_BUDGET:?}: {url}"))
 }
 
 async fn send(ws: &mut Socket, envelope: &Envelope) {

@@ -78,22 +78,29 @@ async fn a_real_agent_starts_a_real_engine_for_a_real_seat() {
     // run a game and the gateway rightly says so.
     let create = format!("{{\"deck_id\":\"{deck_id}\",\"mode\":\"ai\"}}");
     let mut answer = None;
-    for _ in 0..50 {
+    for _ in 0..common::WAIT_TRIES {
         let (status, body) = http(port, "POST", "/lobby/games", Some(&token), &create);
         if status == 200 {
             answer = Some(body);
             break;
         }
-        tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+        tokio::time::sleep(common::WAIT_STEP).await;
     }
-    let answer = answer.expect("no agent ever registered");
+    // The longest wait in the suite has the best reason for it: this is the
+    // only test that starts the agent and the engine as real processes, so it
+    // is waiting on two cold binaries rather than on one in-process runner.
+    let answer =
+        answer.unwrap_or_else(|| panic!("no agent registered within {:?}", common::WAIT_BUDGET));
     let game_id = json_field(&answer, "game_id").to_string();
     let seat_token = json_field(&answer, "seat_token").to_string();
 
+    // Retried, unlike every other dial in this file's history: the gateway
+    // has only just ordered the engine, and here that order means an agent
+    // spawning a *process*. A bare `connect_async` raced it — it happened to
+    // win on an idle machine, which is the same assumption the wait budgets
+    // above were raised for.
     let url = format!("ws://127.0.0.1:{port}/games/{game_id}/ws?token={seat_token}");
-    let (mut ws, _) = tokio_tungstenite::connect_async(&url)
-        .await
-        .expect("seat socket");
+    let mut ws = common::dial_seat(&url).await;
 
     // The seat's first frame is the roster and the print table — and it came
     // out of a process the gateway started through an agent and cannot read.

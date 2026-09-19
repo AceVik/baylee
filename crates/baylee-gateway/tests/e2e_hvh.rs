@@ -123,27 +123,13 @@ async fn human_vs_human_both_seats_receive_updates() {
     assert_eq!(status, 200, "start: {body}");
 
     // Connect both seat sockets.
+    // Sequentially, which is the same end state as the interleaved retry loop
+    // this replaces: both seats have to open before anything below runs, and
+    // neither one's opening is what unblocks the other — the engine attaching
+    // is.
     let url = |token: &str| format!("ws://127.0.0.1:{port}/games/{game_id}/ws?token={token}");
-    let mut ws_a = None;
-    let mut ws_b = None;
-    for _ in 0..50 {
-        if ws_a.is_none()
-            && let Ok((stream, _)) = tokio_tungstenite::connect_async(url(&seat_token_a)).await
-        {
-            ws_a = Some(stream);
-        }
-        if ws_b.is_none()
-            && let Ok((stream, _)) = tokio_tungstenite::connect_async(url(&seat_token_b)).await
-        {
-            ws_b = Some(stream);
-        }
-        if ws_a.is_some() && ws_b.is_some() {
-            break;
-        }
-        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
-    }
-    let mut ws_a = ws_a.expect("seat A socket");
-    let mut ws_b = ws_b.expect("seat B socket");
+    let mut ws_a = common::dial_seat(&url(&seat_token_a)).await;
+    let mut ws_b = common::dial_seat(&url(&seat_token_b)).await;
 
     // The very first thing a seat is sent is the roster and the print table.
     // A client has no preset to build them from, and without the print table
