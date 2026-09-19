@@ -6375,6 +6375,23 @@ const PAYS_BY_RETURNING_A_LAND: &[(&str, &str)] = &[
     ("7b2c7758-2b89-49ff-8838-8dc9880c7209", "Plains"), // Treva's Ruins
 ];
 
+/// The cards that pay the same way and are **not** lands.
+///
+/// The transcoder writes `PlayerMayPayCostOr { cost: ReturnToHand(…) }`
+/// wherever the reference writes an `UnlessCost$` that returns a permanent,
+/// and nothing in that rule is about lands — which is why the sweep below
+/// asks the whole pool and not `cards/lands/`. Waterspout Djinn prints the
+/// Karoo clause on an **upkeep** trigger, so the driver above, which plays a
+/// land and waits for it to arrive, could never reach it.
+///
+/// A row here carries the same promise a row in the table above does — that
+/// some test plays the card — and differs only in which test that is.
+const PAYS_BY_RETURNING_A_LAND_ELSEWHERE: &[(&str, &str)] = &[(
+    "050dac46-9ba0-4b8a-b61b-1c7ec6f3723a",
+    // played by `creatures::a_djinn_that_costs_a_bounce_pays_it_or_is_sacrificed`
+    "Waterspout Djinn",
+)];
+
 /// The basic the row names, as a handle.
 fn basic(name: &str) -> CardIndex {
     match name {
@@ -6661,12 +6678,13 @@ fn a_land_that_costs_mana_is_kept_by_making_it_inside_the_window() {
     }
 }
 
-/// The table above is the whole family, asked of the compiled pool.
+/// The two tables above are the whole family, asked of the compiled pool.
 ///
-/// [`PAYS_BY_RETURNING_A_LAND`] claims to be every land that escapes its
-/// sacrifice by bouncing one, and a claim about a population is worth what a
-/// test says it is: a fifteenth of these written by a later codegen run would
-/// otherwise pass every gate in this file while never being played once. The
+/// [`PAYS_BY_RETURNING_A_LAND`] and [`PAYS_BY_RETURNING_A_LAND_ELSEWHERE`]
+/// claim between them to be every card that escapes an effect by bouncing a
+/// land, and a claim about a population is worth what a test says it is: a
+/// fifteenth of these written by a later codegen run would otherwise pass
+/// every gate in this file while never being played once. The
 /// same argument as `lints::every_layer_in_the_pool_is_the_one_its_modifier_derives`
 /// and the reason `no_card_claims_a_keyword_the_engine_ignores` is a test.
 ///
@@ -6691,13 +6709,18 @@ fn every_land_that_pays_by_returning_one_is_in_the_table() {
     }
     pool.sort_unstable();
     pool.dedup();
-    let mut table: Vec<&str> = PAYS_BY_RETURNING_A_LAND.iter().map(|(id, _)| *id).collect();
+    let mut table: Vec<&str> = PAYS_BY_RETURNING_A_LAND
+        .iter()
+        .chain(PAYS_BY_RETURNING_A_LAND_ELSEWHERE)
+        .map(|(id, _)| *id)
+        .collect();
     table.sort_unstable();
 
     assert!(
-        pool.len() >= 10,
-        "only {} lands in the pool escape a sacrifice by bouncing, against \
-         the ten that carried it when this was written — the probe broke",
+        pool.len() >= 11,
+        "only {} cards in the pool escape a sacrifice by bouncing a land, \
+         against the eleven that carried it when this was written — the \
+         probe broke",
         pool.len()
     );
     assert_eq!(

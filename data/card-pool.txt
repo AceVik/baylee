@@ -1571,3 +1571,412 @@ Flash Counter
 Ghosts of the Damned
 Giant Strength
 Gravity Sphere
+
+# §E8 step 1, batch 2 — the next four hundred, same rule and same order.
+# The list was re-measured after the reader learned to refuse a spell's
+# additional cost: 3946 names read in full where the run before the fix said
+# 4112, and 66 of that difference is the fix rather than the hundred cards
+# batch 1 took out of the pool. Four hundred rather than a hundred because
+# batch 1 answered the question a hundred was there to ask — 100 of 100 came
+# out of codegen as cards — so what this one measures is whether the rate
+# holds at four times the size.
+Great Defender
+Greed
+Hornet Cobra
+Immolation
+Killer Bees
+Kobold Drill Sergeant
+Kobold Overlord
+Kobold Taskmaster
+Living Plane
+Pavel Maliki
+Pixie Queen
+Pradesh Gypsies
+Princess Lucrezia
+Ramirez DePietro
+Relic Barrier
+Remove Soul
+Riven Turnbull
+Spectral Cloak
+Sunastian Falconer
+Thunder Spirit
+Tuknir Deathlock
+Tundra Wolves
+Untamed Wilds
+Wall of Earth
+Wall of Heat
+Xira Arien
+Zephyr Falcon
+Apprentice Wizard
+Bog Imp
+Book of Rass
+Carnivorous Plant
+Coal Golem
+Dark Heart of the Wood
+Electric Eel
+Elves of Deep Shadow
+Fire Drake
+Fissure
+Fountain of Youth
+Goblin Digging Team
+Land Leeches
+Scavenger Folk
+Sisters of the Flame
+Standing Stones
+Aeolipile
+Armor Thrull
+Basal Thrull
+Dwarven Armorer
+Dwarven Lieutenant
+Elven Lyre
+Goblin War Drums
+Icatian Lieutenant
+Icatian Priest
+Icatian Scout
+Icatian Town
+Implements of Sacrifice
+Windseeker Centaur
+Adarkar Sentinel
+Arenson's Aura
+Aurochs
+Brine Shaman
+Despotic Scepter
+Fanatical Fever
+Flame Spirit
+Folk of the Pines
+Fyndhorn Bow
+Fyndhorn Brownie
+Fyndhorn Elder
+Fyndhorn Elves
+Glacial Wall
+Hoar Shade
+Hyalopterous Lemure
+Imposing Visage
+Juniper Order Druid
+Karplusan Giant
+Orcish Lumberjack
+Sabretooth Tiger
+Silver Erne
+Skull Catapult
+Storm Spirit
+War Chariot
+Wind Spirit
+Wings of Aesthir
+Zuran Orb
+Zuran Spellcaster
+Abbey Matron
+Ambush Party
+Anaba Ancestor
+Anaba Bodyguard
+Anaba Shaman
+Anaba Spirit Crafter
+Ebony Rhino
+Feast of the Unicorn
+Grandmother Sengir
+Joven
+Leaping Lizard
+Shrink
+Wall of Kelp
+Willow Faerie
+Agent of Stromgald
+Deadly Insect
+Noble Steeds
+Pillage
+Sol Grail
+Storm Crow
+Storm Shaman
+Wild Aesthir
+Armorer Guildmage
+Azimaet Drake
+Bay Falcon
+Blighted Shaman
+Blistering Barrier
+Breathstealer
+Charcoal Diamond
+Crash of Rhinos
+Dwarven Miner
+Ekundu Griffin
+Elixir of Vitality
+Enfeeblement
+Feral Shadow
+Fetid Horror
+Fire Diamond
+Foratog
+Giant Mantis
+Granger Guildmage
+Harmattan Efreet
+Igneous Golem
+Iron Tusk Elephant
+Mana Prism
+Marble Diamond
+Moss Diamond
+Nettletooth Djinn
+Patagia Golem
+Phyrexian Vault
+Quirion Elves
+Sacred Mesa
+Sea Scryer
+Sewer Rats
+Shaper Guildmage
+Sky Diamond
+Talruum Minotaur
+Uktabi Faerie
+Unyaro Bee Sting
+Volcanic Dragon
+Volcanic Geyser
+Wild Elephant
+Zuberi, Golden Feather
+King Cheetah
+Archangel
+Army Ants
+Blanket of Night
+Creeping Mold
+Diamond Kaleidoscope
+Femeref Enchantress
+Infantry Veteran
+Inspiration
+Longbow Archer
+Man-o'-War
+Sisay's Ring
+Tempest Drake
+Uktabi Orangutan
+Waterspout Djinn
+Angelic Blessing
+Ardent Militia
+Armored Pegasus
+Arrogant Vampire
+Bee Sting
+Blaze
+Charging Bandits
+Charging Paladin
+Cloak of Feathers
+Desert Drake
+Djinn of the Lamp
+Dread Reaper
+Fire Imp
+Fire Snake
+Howling Fury
+Keen-Eyed Archers
+Lava Flow
+Mercenary Knight
+Monstrous Growth
+Moon Sprite
+Mystic Denial
+Natural Spring
+Plant Elemental
+Raging Cougar
+Raging Goblin
+Raging Minotaur
+Rain of Tears
+Sacred Nectar
+Scorching Spear
+Seasoned Marshal
+Serpent Warrior
+Snapping Drake
+Spiritual Guardian
+Spotted Griffin
+Starlit Angel
+Symbol of Unsummoning
+Thing from the Deep
+Thundering Wurm
+Touch of Brilliance
+Vampiric Feast
+Venerable Monk
+Vengeance
+Volcanic Hammer
+Wall of Granite
+Wind Drake
+Winter's Grasp
+Wood Elves
+Benalish Knight
+Bogardan Firefiend
+Fallow Wurm
+Fervor
+Fit of Rage
+Fledgling Djinn
+Guided Strike
+Hidden Horror
+Infernal Tribute
+Lava Hounds
+Rogue Elephant
+Serra's Blessing
+Straw Golem
+Striped Bears
+Tolarian Serpent
+Advance Scout
+Aftershock
+Auratog
+Blood Pet
+Bottle Gnomes
+Canopy Spider
+Choke
+Cloudchaser Eagle
+Coiled Tinviper
+Dismiss
+Energizer
+Field of Souls
+Fighting Drake
+Firefly
+Flowstone Giant
+Flowstone Wyvern
+Frog Tongue
+Giant Crab
+Goblin Bombardment
+Hanna's Custody
+Heart Sliver
+Hero's Resolve
+Horned Sliver
+Lightning Blast
+Lightning Elemental
+Manakin
+Manta Riders
+Master Decoy
+Mawcor
+Mogg Fanatic
+Mogg Raider
+Muscle Sliver
+Nature's Revolt
+Pegasus Refuge
+Pincher Beetles
+Rats of Rath
+Rootbreaker Wurm
+Rootwalla
+Rootwater Hunter
+Seeker of Skybreak
+Sky Spirit
+Skyshroud Elf
+Souldrinker
+Staunch Defenders
+Talon Sliver
+Telethopter
+Verdant Force
+Verdigris
+Wind Dancer
+Winged Sliver
+Contemplation
+Crystalline Sliver
+Death Stroke
+Dungeon Shade
+Flowstone Hellion
+Flowstone Mauler
+Flowstone Shambler
+Foul Imp
+Furnace Spirit
+Honor Guard
+Leap
+Morgue Thrull
+Primal Rage
+Shifting Wall
+Shock
+Skyshroud Falcon
+Skyshroud Troopers
+Sliver Queen
+Sword of the Chosen
+Torment
+Wall of Blossoms
+Wall of Razors
+Youthful Knight
+Elven Palisade
+Ertai, Wizard Adept
+Killer Whale
+Onslaught
+Peace of Mind
+Plated Rootwalla
+Ravenous Baboons
+Robe of Mirrors
+Sabertooth Wyvern
+Seismic Assault
+Shield Mate
+Soul Warden
+Standing Troops
+Treasure Trove
+Whiptongue Frog
+Alaborn Cavalier
+Alaborn Grenadier
+Alaborn Musketeer
+Ancient Craving
+Angel of Mercy
+Angelic Wall
+Armored Griffin
+Bargain
+Bloodcurdling Scream
+Brimstone Dragon
+Dakmor Bat
+Extinguish
+False Summoning
+Lurking Nightstalker
+Moaning Spirit
+Norwood Archers
+Ogre Arsonist
+Ogre Berserker
+Talas Air Ship
+Talas Scout
+Temple Acolyte
+Tree Monkey
+Vampiric Spirit
+Wild Griffin
+Annul
+Argothian Enchantress
+Argothian Swine
+Back to Basics
+Barrin, Master Wizard
+Blood Vassal
+Cathodion
+Claws of Gix
+Clear
+Crazed Skirge
+Darkest Hour
+Dragon Blood
+Elvish Herder
+Elvish Lyrist
+Endless Wurm
+Glorious Anthem
+Goblin Offensive
+Hawkeater Moth
+Heat Ray
+Hollow Dogs
+Hopping Automaton
+Horseshoe Crab
+Lay Waste
+Monk Realist
+Morphling
+Pegasus Charger
+Pendrell Drake
+Priest of Gix
+Priest of Titania
+Ravenous Skirge
+Reclusive Wight
+Reflexes
+Rejuvenate
+Rescind
+Sandbar Merfolk
+Sandbar Serpent
+Scrap
+Serra Zealot
+Serra's Embrace
+Shimmering Barrier
+Shivan Hellkite
+Sicken
+Silent Attendant
+Skirge Familiar
+Skittering Skirge
+Stern Proctor
+Thundering Giant
+Viashino Runner
+Voltaic Key
+Whetstone
+Worn Powerstone
+Zephid
+Zephid's Embrace
+Archivist
+Burst of Energy
+Erase
+Ghitu War Cry
+Goblin Medics
+Iron Will
+Knighthood
+Levitation
+Might of Oaks
+Opportunity
+Phyrexian Broodlings
+Phyrexian Debaser

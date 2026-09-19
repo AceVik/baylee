@@ -623,6 +623,51 @@ pub static WASP_ARTIFACT_1_1_FLYING: TokenDef = TokenDef {
     ..TokenDef::DEFAULT
 };
 
+/// 0/1 colorless artifact Prism.
+pub static PRISM_ARTIFACT_0_1: TokenDef = TokenDef {
+    name: "Prism",
+    types: TypeSet::ARTIFACT.union(TypeSet::CREATURE),
+    subtypes: &[creature::PRISM],
+    power: Some(0),
+    toughness: Some(1),
+    ..TokenDef::DEFAULT
+};
+
+/// 0/1 blue Kelp with defender.
+pub static KELP_0_1_BLUE_DEFENDER: TokenDef = TokenDef {
+    name: "Kelp",
+    colors: ColorSet::from_slice(&[Color::Blue]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::PLANT, creature::WALL],
+    power: Some(0),
+    toughness: Some(1),
+    keywords: KeywordSet::DEFENDER,
+    ..TokenDef::DEFAULT
+};
+
+/// 1/1 white Citizen.
+pub static CITIZEN_1_1_WHITE: TokenDef = TokenDef {
+    name: "Citizen",
+    colors: ColorSet::from_slice(&[Color::White]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::CITIZEN],
+    power: Some(1),
+    toughness: Some(1),
+    ..TokenDef::DEFAULT
+};
+
+/// 1/1 white Pegasus with flying.
+pub static PEGASUS_1_1_WHITE_FLYING: TokenDef = TokenDef {
+    name: "Pegasus",
+    colors: ColorSet::from_slice(&[Color::White]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::PEGASUS],
+    power: Some(1),
+    toughness: Some(1),
+    keywords: KeywordSet::FLYING,
+    ..TokenDef::DEFAULT
+};
+
 /// Every token there is, in the order ids were assigned.
 pub static ALL: &[&TokenDef] = &[
     &tokens::ALLY_1_1_WHITE,
@@ -690,6 +735,10 @@ pub static ALL: &[&TokenDef] = &[
     &ELEMENTAL_5_5_RED_GREEN,
     &MINOR_DEMON_1_1_BLACK_RED,
     &WASP_ARTIFACT_1_1_FLYING,
+    &PRISM_ARTIFACT_0_1,
+    &KELP_0_1_BLUE_DEFENDER,
+    &CITIZEN_1_1_WHITE,
+    &PEGASUS_1_1_WHITE_FLYING,
 ];
 
 /// The entries a reader wrote, as a subset of [`ALL`] — never a second
@@ -746,4 +795,8 @@ pub static GENERATED: &[&TokenDef] = &[
     &ELEMENTAL_5_5_RED_GREEN,
     &MINOR_DEMON_1_1_BLACK_RED,
     &WASP_ARTIFACT_1_1_FLYING,
+    &PRISM_ARTIFACT_0_1,
+    &KELP_0_1_BLUE_DEFENDER,
+    &CITIZEN_1_1_WHITE,
+    &PEGASUS_1_1_WHITE_FLYING,
 ];

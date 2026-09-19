@@ -46,13 +46,22 @@
 //! What survives is the bug actually worth catching at this price: an
 //! off-by-one, a sign, a count read from the wrong field.
 //!
-//! **A card with one button does what its own sentence promises.** Where the
-//! engine offered exactly one thing to press, whatever happened belongs to
-//! that one thing, so an *unconditional* sentence on that card has to leave
-//! its mark: "Destroy target creature." with no permanent in a graveyard
-//! afterwards is a finding and not a skip. The single-button restriction is
-//! what makes that safe, and the button count is read off [`LegalActions`]
-//! rather than off the card.
+//! **A card with one button, and that button the cast, does what its own
+//! sentence promises.** Where the engine offered exactly one thing to press,
+//! whatever happened belongs to that one thing, so an *unconditional*
+//! sentence on that card has to leave its mark: "Destroy target creature."
+//! with no permanent in a graveyard afterwards is a finding and not a skip.
+//! The restriction is what makes that safe, and both halves of it are read
+//! off [`LegalActions`] rather than off the card.
+//!
+//! The second half was paid for by cycling (CR 702.29a), which is an
+//! activated ability a card offers *from hand*: Clear is an instant printing
+//! "Destroy target enchantment", and on a probe board with no enchantment on
+//! it the spell is not castable, so the one button the engine offers is
+//! "{2}, discard this: draw a card". One button, a resolution, a
+//! non-permanent — and the sentence held against it belonged to a press
+//! nobody made. Counting buttons says how many things there were; only the
+//! [`Deed`] says which one.
 //!
 //! # What it is allowed to read off the card
 //!
@@ -95,7 +104,7 @@
 //! one either. Its claims are counted and reported, and closing that is a
 //! change to [`crate::event::GameEvent`], not to this module.
 
-use super::testkit::{Rest, arena, drive_to_rest, presses};
+use super::testkit::{Deed, Rest, arena, drive_to_rest, presses};
 use super::*;
 use crate::event::{GameEvent, JournalEntry};
 use crate::zone::Zone;
@@ -625,8 +634,11 @@ struct Played {
     /// Everything the journal recorded across every press, in the claims'
     /// own vocabulary.
     seen: Vec<(Kind, Option<u16>)>,
-    /// How many things the engine offered to press.
-    buttons: usize,
+    /// Whether the engine offered exactly one thing to press *and* that
+    /// thing was casting the card. An activated ability offered from hand —
+    /// cycling is the whole of this pool's population — is one button that
+    /// is not the spell.
+    only_the_cast: bool,
     /// Whether any of them actually resolved off the stack.
     resolved: bool,
     /// What the driving cost in skips.
@@ -683,7 +695,7 @@ fn watch(card: CardIndex) -> Option<Played> {
     }
     Some(Played {
         seen,
-        buttons: all.len(),
+        only_the_cast: matches!(all.as_slice(), [(_, Deed::Cast)]),
         resolved,
         tally,
     })
@@ -772,7 +784,7 @@ fn examine(card: CardIndex, blob: &str) -> (Vec<String>, Tally) {
     // enchantment to a token nothing could have made. A permanent's printed
     // text is a description of what it will be able to do; a spell's is what
     // happens now.
-    let one_button = played.buttons == 1
+    let one_button = played.only_the_cast
         && played.resolved
         && baylee_cards::by_index(card).is_some_and(|def| !super::testkit::is_permanent(def));
     if one_button {
