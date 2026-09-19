@@ -6695,10 +6695,47 @@ fn ability_lines(root: &Path) -> anyhow::Result<()> {
 /// would build a table about a different set of strings than the one being
 /// looked up. Two-phase like stage 4, and `codegen --check` is the guard.
 fn render_name_table() -> anyhow::Result<String> {
+    use anyhow::Context as _;
+
     let entries: Vec<(&str, u32)> = baylee_cards::all()
         .map(|def| (def.name(), def.index.get()))
         .collect();
-    Ok(names::render(&entries)?)
+
+    // The second spelling, and the pool cannot supply it. Joining a card's
+    // own face names reproduces Scryfall's whole name for 120 of the 121
+    // that need one — and the 121st is Emeritus of Woe, which this build
+    // implements with a single face while the printing has two, so the join
+    // would silently write `Emeritus of Woe` and the whole spelling would
+    // still miss. The ledger has every card's whole name whatever this pool
+    // did with it, so the ledger is the source.
+    let mut whole: Vec<(&str, u32)> = Vec::new();
+    for def in baylee_cards::all() {
+        let index = def.index.get();
+        let row = baylee_cards_index::ROWS
+            .get(index as usize)
+            .filter(|row| row.index == def.index)
+            .with_context(|| format!("{} sits at no ledger row {index}", def.name()))?;
+        if row.name == def.name() {
+            continue;
+        }
+        // The only difference a second spelling may be is a face split. A
+        // ledger rename would otherwise walk into this table as a key that
+        // resolves a name this build does not have, which is the opposite
+        // of what the table is for — so it stops the run with the card
+        // named instead.
+        anyhow::ensure!(
+            row.name
+                .strip_prefix(def.name())
+                .is_some_and(|rest| rest.starts_with(" // ")),
+            "{} is called {:?} in the ledger, which is not {:?} plus a \
+             second face — a rename, and this table may not guess at it",
+            index,
+            row.name,
+            def.name()
+        );
+        whole.push((row.name, index));
+    }
+    Ok(names::render(&entries, &whole)?)
 }
 
 /// Renders `crates/baylee-cards/src/generated_tokens.rs`: the token ledger.

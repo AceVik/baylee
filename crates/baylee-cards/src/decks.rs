@@ -111,9 +111,41 @@ pub struct LoadedDeck {
 /// `CardDef`; and the corpus names are not compiled into this crate, which
 /// the engine links. Telling a player *which* of the two a name is needs a
 /// second lookup, not a wider table.
+///
+/// # Two spellings
+///
+/// A card has two printed names and this answers to both. `Sheoldred` is
+/// what the pool calls it, because a `FaceDef` is one face; `Sheoldred // The
+/// True Scriptures` is what Scryfall calls it, which is what a deck site
+/// exports and what `data/card-pool.txt` writes on 106 of its own lines. The
+/// second used to miss, so this repo's own pool file was written in a
+/// spelling its own lookup rejected.
+///
+/// Two tables rather than one, mirroring
+/// `baylee_cards_index::row_by_name`: whole name first, then the pool's own.
+/// A reader who learns one side knows the other. In *this* table the
+/// precedence is unobservable — no pool spelling contains a ` // ` and every
+/// whole name does, so the two key sets are disjoint and neither order could
+/// answer differently, which
+/// [`the_two_name_tables_cannot_collide`](self) is what keeps true. The
+/// ledger's tiers really can overlap, and there the order is load-bearing.
+///
+/// What it does **not** do is split the name it was given. `Lightning Bolt //
+/// Anything` is not a card and answers `None`; a tier only ever resolves a
+/// spelling somebody printed, while a split would invent one — and a deck
+/// import is exactly where an invented name arrives.
 #[must_use]
 pub fn by_name(name: &str) -> Option<CardIndex> {
-    use crate::generated_names::{EMPTY, NAMES, SLOTS, TABLE};
+    use crate::generated_names::{
+        EMPTY, NAMES, SLOTS, TABLE, WHOLE_NAMES, WHOLE_SLOTS, WHOLE_TABLE,
+    };
+    let at = WHOLE_SLOTS[WHOLE_TABLE.slot(name.as_bytes())];
+    if at != EMPTY {
+        let (spelling, index) = WHOLE_NAMES[at as usize];
+        if spelling == name {
+            return Some(index);
+        }
+    }
     let at = SLOTS[TABLE.slot(name.as_bytes())];
     if at == EMPTY {
         return None;
@@ -784,8 +816,114 @@ mod tests {
 #[cfg(test)]
 mod name_table_tests {
     use super::by_name;
-    use crate::generated_names::NAMES;
+    use crate::generated_names::{NAMES, WHOLE_NAMES};
     use std::collections::HashMap;
+
+    /// The two tables are searched one after the other, and the order is
+    /// allowed to be a matter of taste only because the key sets are
+    /// disjoint: a pool name is one face, a whole name is two joined by
+    /// ` // `, and no string is both. Neither half is a law of Magic — a
+    /// card printed with a ` // ` in a single face name would break the
+    /// first — so both are checked rather than believed, and the day one
+    /// fails is the day the order starts to matter and has to be decided on
+    /// purpose.
+    #[test]
+    fn the_two_name_tables_cannot_collide() {
+        let joined: Vec<&str> = NAMES
+            .iter()
+            .map(|(n, _)| *n)
+            .filter(|n| n.contains(" // "))
+            .collect();
+        assert!(
+            joined.is_empty(),
+            "a pool name holds the face separator, so the tables overlap: {joined:?}"
+        );
+        let plain: Vec<&str> = WHOLE_NAMES
+            .iter()
+            .map(|(n, _)| *n)
+            .filter(|n| !n.contains(" // "))
+            .collect();
+        assert!(
+            plain.is_empty(),
+            "a whole name has no second face and belongs in the other table: {plain:?}"
+        );
+        assert!(
+            WHOLE_NAMES.len() > 100,
+            "only {} whole names — a generator that writes none passes every \
+             other test in this module",
+            WHOLE_NAMES.len()
+        );
+    }
+
+    /// Both spellings of a two-faced card reach the same card. The front
+    /// face already did; the whole name is what 106 lines of this repo's own
+    /// `data/card-pool.txt` are written in and what a deck site exports.
+    #[test]
+    fn a_two_faced_card_answers_to_either_spelling() {
+        for (whole, index) in WHOLE_NAMES {
+            assert_eq!(by_name(whole), Some(index), "{whole} does not resolve");
+            let front = whole.split(" // ").next().expect("a first face");
+            assert_eq!(
+                by_name(front),
+                Some(index),
+                "{front} and {whole} are the same card and must answer alike"
+            );
+        }
+    }
+
+    /// Every name this repo writes in its own pool file resolves. The file
+    /// is the population the lookup exists for, so it is walked rather than
+    /// sampled — and it is where the defect was found, because 106 of its
+    /// lines were written in a spelling `by_name` rejected.
+    #[test]
+    fn every_name_the_pool_file_writes_resolves() {
+        let text = include_str!("../../../data/card-pool.txt");
+        let names = baylee_core::acceptance::pool_names(text);
+        assert!(names.len() > 2000, "only {} names read", names.len());
+        let two_faced = names.iter().filter(|n| n.contains(" // ")).count();
+        assert!(
+            two_faced > 100,
+            "only {two_faced} names written with both faces — this test's \
+             point is that those resolve"
+        );
+        for name in &names {
+            assert!(by_name(name).is_some(), "{name} does not resolve");
+        }
+    }
+
+    /// A back face is **not** a spelling a card answers to, and this is the
+    /// pair that says why. `Demonic Tutor` is a card of its own and also the
+    /// back of `Emeritus of Woe`; a lookup that accepted a back face would
+    /// have to choose, and the choice it would get wrong is the famous card.
+    /// The ledger's own counter-test is `Lightning Bolt`, for the same
+    /// reason and against the same temptation.
+    #[test]
+    fn a_back_face_is_not_a_spelling_of_the_card_in_front_of_it() {
+        let tutor = by_name("Demonic Tutor").expect("Demonic Tutor is in the pool");
+        let emeritus =
+            by_name("Emeritus of Woe // Demonic Tutor").expect("and so is the card behind it");
+        assert_ne!(
+            tutor, emeritus,
+            "a back face resolved to the card it is the back of"
+        );
+        assert_eq!(by_name("Emeritus of Woe"), Some(emeritus), "front face");
+    }
+
+    /// The lookup resolves spellings somebody printed and never invents one.
+    /// Splitting the query at the separator would make every
+    /// `<real card> // <anything>` resolve, and a deck import is precisely
+    /// where a made-up name arrives.
+    #[test]
+    fn a_name_nobody_prints_is_not_reached_by_splitting_it() {
+        for made_up in [
+            "Lightning Bolt // Anything",
+            "Demonic Tutor // ",
+            " // Demonic Tutor",
+            "Emeritus of Woe // Not A Real Card",
+        ] {
+            assert!(by_name(made_up).is_none(), "{made_up} resolved to a card");
+        }
+    }
 
     #[test]
     fn every_card_in_the_pool_finds_itself_by_name() {

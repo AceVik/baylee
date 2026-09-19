@@ -173,13 +173,35 @@ const HEADER: &str = "\
 // linked by the generator and by the reader, because two copies of a hash
 // function drift and a drifted one answers `None` for every card.
 //
-// Source: the compiled pool, `baylee_cards::all()`.
+// Two tables, because a card has two printed spellings and only one of them
+// is what this pool calls it. `NAMES` is the pool's own — a two-faced card
+// is its front face there, `Sheoldred`. `WHOLE_NAMES` is Scryfall's, the
+// spelling a deck site exports and `data/card-pool.txt` itself writes,
+// `Sheoldred // The True Scriptures`. They cannot collide: no key in the
+// first holds a ` // ` and every key in the second does, which
+// `the_two_name_tables_cannot_collide` is what keeps true.
+//
+// Source: the compiled pool, `baylee_cards::all()`, joined to the ledger
+// `baylee_cards_index::ROWS` for the whole spelling — the pool knows what it
+// calls a card and only the ledger knows what Scryfall calls it.
 #![allow(missing_docs, clippy::all, clippy::pedantic)]
 
 use baylee_core::ids::CardIndex;
 use baylee_core::phf;
 
 ";
+
+/// What one emitted table is called and what its doc comments say.
+///
+/// Two tables of identical shape and different meaning, so the shape is
+/// written once: a second copy of this emitter is how the two would come to
+/// disagree about the hash they were built with.
+struct Emitted {
+    /// Prefix on every static, empty for the primary table.
+    prefix: &'static str,
+    /// What the `NAMES` array holds, for its doc comment.
+    holds: &'static str,
+}
 
 /// Renders `crates/baylee-cards/src/generated_names.rs`.
 ///
@@ -189,20 +211,54 @@ use baylee_core::phf;
 /// # Errors
 /// Whatever [`place`] refuses: a name twice, or a key set it could not
 /// place.
-pub fn render(entries: &[(&str, u32)]) -> Result<String, CodegenError> {
+pub fn render(entries: &[(&str, u32)], whole: &[(&str, u32)]) -> Result<String, CodegenError> {
+    let mut out = String::with_capacity(entries.len() * 48 + whole.len() * 64);
+    out.push_str(HEADER);
+    emit(
+        &mut out,
+        entries,
+        &Emitted {
+            prefix: "",
+            holds: "Every name in the pool and the card it names, in name \
+                    order.\n///\n/// This is the pool's own spelling, which \
+                    for a two-faced card is its\n/// front face alone \
+                    (`Sheoldred`); `WHOLE_NAMES` carries the other.",
+        },
+    )?;
+    out.push('\n');
+    emit(
+        &mut out,
+        whole,
+        &Emitted {
+            prefix: "WHOLE_",
+            holds: "Scryfall's whole spelling of every card whose pool name \
+                    differs\n/// from it, in name order — `Sheoldred // The \
+                    True Scriptures`.\n///\n/// One row per card with more \
+                    than one face, plus any the pool\n/// implements with a \
+                    single face while the printing has two. A card\n/// the \
+                    two tables agree about has no row here at all, so this \
+                    is\n/// short where `NAMES` is long.",
+        },
+    )?;
+    Ok(out)
+}
+
+/// Emits one table: the hash, its displacements, its slots and its names.
+///
+/// # Errors
+/// Whatever [`place`] refuses.
+fn emit(out: &mut String, entries: &[(&str, u32)], what: &Emitted) -> Result<(), CodegenError> {
     let mut sorted: Vec<(&str, u32)> = entries.to_vec();
     sorted.sort_unstable();
     let keys: Vec<&str> = sorted.iter().map(|(name, _)| *name).collect();
     let placed = place(&keys)?;
-
-    let mut out = String::with_capacity(sorted.len() * 48 + placed.slots.len() * 8);
-    out.push_str(HEADER);
+    let p = what.prefix;
 
     let _ = write!(
         out,
-        "/// The perfect hash over `NAMES`.\n\
-         pub static TABLE: phf::Table = phf::Table {{\n    \
-             displacements: &DISPLACEMENTS,\n    \
+        "/// The perfect hash over `{p}NAMES`.\n\
+         pub static {p}TABLE: phf::Table = phf::Table {{\n    \
+             displacements: &{p}DISPLACEMENTS,\n    \
              slots: {},\n    \
              seed: {:#018x},\n\
          }};\n\n",
@@ -214,43 +270,46 @@ pub fn render(entries: &[(&str, u32)]) -> Result<String, CodegenError> {
         out,
         "/// One displacement per bucket, in bucket order.\n\
          #[rustfmt::skip]\n\
-         static DISPLACEMENTS: [u32; {}] = [\n",
+         static {p}DISPLACEMENTS: [u32; {}] = [\n",
         placed.displacements.len()
     );
-    push_numbers(&mut out, &placed.displacements);
+    push_numbers(out, &placed.displacements);
     out.push_str("];\n\n");
 
+    if p.is_empty() {
+        out.push_str("/// The slot no name landed in.\npub const EMPTY: u16 = u16::MAX;\n\n");
+    }
     let _ = write!(
         out,
-        "/// The slot no name landed in.\n\
-         pub const EMPTY: u16 = u16::MAX;\n\n\
-         /// Slot → position in `NAMES`. [`EMPTY`] is a slot no name landed\n\
-         /// in — every string hashes to *some* slot, so a name the pool does\n\
-         /// not have arrives here too and this is where most of them stop.\n\
+        "/// Slot → position in `{p}NAMES`. [`EMPTY`] is a slot no name\n\
+         /// landed in — every string hashes to *some* slot, so a name the\n\
+         /// pool does not have arrives here too and this is where most of\n\
+         /// them stop.\n\
          #[rustfmt::skip]\n\
-         pub static SLOTS: [u16; {}] = [\n",
+         pub static {p}SLOTS: [u16; {}] = [\n",
         placed.slots.len()
     );
-    push_numbers(&mut out, &placed.slots);
+    push_numbers(out, &placed.slots);
     out.push_str("];\n\n");
 
     let _ = write!(
         out,
-        "/// Every name in the pool and the card it names, in name order.\n\
+        "/// {}\n\
          ///\n\
          /// The spelling is kept beside the answer because a perfect hash is\n\
          /// perfect only over the keys it was built from: any other string\n\
          /// lands in some slot as well, and comparing what is written there\n\
          /// is the whole difference between `None` and the wrong card.\n\
          #[rustfmt::skip]\n\
-         pub static NAMES: [(&str, CardIndex); {}] = [\n",
+         pub static {p}NAMES: [(&str, CardIndex); {}] = [\n",
+        what.holds,
         sorted.len()
     );
     for (name, index) in &sorted {
         let _ = writeln!(out, "    ({name:?}, CardIndex::new({index})),");
     }
     out.push_str("];\n");
-    Ok(out)
+    Ok(())
 }
 
 /// Sixteen to a line: long enough that the file stays short, short enough
@@ -269,6 +328,11 @@ fn push_numbers<T: std::fmt::Display>(out: &mut String, values: &[T]) {
 mod tests {
     use super::{EMPTY, place, render};
     use crate::error::CodegenError;
+
+    /// The whole-name half, where a test is about the primary table
+    /// alone. Not empty: a table of nought keys is a different shape to
+    /// place, and these tests are about the shape the pool produces.
+    const WHOLE: [(&str, u32); 2] = [("Fire // Ice", 5), ("There // They're // Their", 6)];
 
     /// Every key finds its own slot back, and no two share one. That is the
     /// entire promise of the structure, so it is asserted over a set big
@@ -311,8 +375,8 @@ mod tests {
     fn the_same_names_render_the_same_bytes() {
         let entries = [("Birds of Paradise", 7u32), ("Forest", 3), ("Mox Opal", 11)];
         assert_eq!(
-            render(&entries).expect("rendered"),
-            render(&entries).expect("rendered")
+            render(&entries, &WHOLE).expect("rendered"),
+            render(&entries, &WHOLE).expect("rendered")
         );
     }
 
@@ -322,14 +386,15 @@ mod tests {
         let forwards = [("Birds of Paradise", 7u32), ("Forest", 3), ("Mox Opal", 11)];
         let backwards = [("Mox Opal", 11u32), ("Forest", 3), ("Birds of Paradise", 7)];
         assert_eq!(
-            render(&forwards).expect("rendered"),
-            render(&backwards).expect("rendered")
+            render(&forwards, &WHOLE).expect("rendered"),
+            render(&backwards, &WHOLE).expect("rendered")
         );
     }
 
     #[test]
     fn a_name_with_a_quote_in_it_comes_out_as_valid_rust() {
-        let out = render(&[("Ach! Hans, Run!", 1), ("Yawgmoth's Will", 2)]).expect("rendered");
+        let out =
+            render(&[("Ach! Hans, Run!", 1), ("Yawgmoth's Will", 2)], &WHOLE).expect("rendered");
         assert!(
             out.contains(r#"("Yawgmoth's Will", CardIndex::new(2))"#),
             "{out}"

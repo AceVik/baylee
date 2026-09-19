@@ -54,11 +54,27 @@ uses, which is why it is the one a deck is stored under.
 
 It also has **two spellings** here, and they are different strings. The ledger
 keeps a card's whole name — `Row::name` for 17140 is `Conqueror's Galleon //
-Conqueror's Foothold` — and the name table keeps the front face alone, one row
-per card, because that is what a deck line says. So a deck line typed the way
-the ledger spells it does not resolve. Back faces and the `A // B` form are a
-widening of `by_name` nobody has asked for yet, and they are worth knowing
-about before someone imports a decklist from a source that writes them.
+Conqueror's Foothold` — while a `FaceDef` is one face, so the pool calls that
+card `Conqueror's Galleon`. **`by_name` answers to both**, through two tables:
+the pool's own names, and the 121 whole spellings of the cards where the two
+differ. It did not, and the cost of that was not hypothetical — 106 lines of
+`data/card-pool.txt` are written in Scryfall's spelling, so this repo's own
+pool file used a spelling its own lookup rejected, and a decklist exported by
+any ordinary deck site did too.
+
+A **back face** is not a third spelling and must not become one. 21 of the
+874 two-faced cards have a back that is a card in its own right — the
+ledger's example is `Emeritus of Conflict // Lightning Bolt` and this pool's
+is `Emeritus of Woe // Demonic Tutor` — so accepting one would make
+`Lightning Bolt` ambiguous between the card everybody means and a modal DFC.
+Four more backs are claimed by two cards each. Both pools carry a test named
+after that case, so widening the lookup later fails loudly instead of
+quietly.
+
+Nor does either lookup **split** the name it is given. `Lightning Bolt //
+Anything` resolves to nothing: a tier only ever answers a spelling somebody
+printed, while a split would invent one, and a deck import is exactly where
+an invented name arrives.
 
 ## Stored by name, played by index, lived by object
 
@@ -117,7 +133,7 @@ one name would otherwise hand one of them the other's index.
 | Lookup | Cost | Answers `None` when |
 |---|---|---|
 | `baylee_cards::by_index(i)` | O(1), a sparse array | no `CardDef` is compiled at that index (usually: the corpus has the card, this repo does not) |
-| `baylee_cards::decks::by_name(s)` | O(1), a perfect hash | no card **in the pool** prints that front-face name |
+| `baylee_cards::decks::by_name(s)` | O(1), two perfect hashes | no card **in the pool** prints that name, as either its front face or its whole `A // B` |
 | `generated::by_oracle_id(s)` | O(log n), a binary search over `ALL` | same as `by_index` |
 
 `by_name` is `crates/baylee-cards/src/generated_names.rs`, a compile-time

@@ -879,6 +879,15 @@ takes `Authorization: Bearer <token>`. A refusal is `{"error":"…"}` with a
 status, and the string is written to be shown to a player as-is — the lobby
 does.
 
+**A card row may be written either way a card is printed.** `1 Sheoldred` and
+`1 Sheoldred // The True Scriptures` are the same row: the first is what this
+pool calls the card, the second is Scryfall's spelling and what a deck site
+exports. A **back** face is not accepted and deliberately so — 21 of the 874
+two-faced cards have a back that is a card of its own, so `Demonic Tutor`
+must keep meaning Demonic Tutor and not the modal DFC behind it. Nor is the
+name split: `Lightning Bolt // Anything` is not a card and is refused like
+any other name nobody prints.
+
 **A refused card row says which of two things went wrong.** A name is
 resolved against the compiled pool, and a miss used to be `unknown card`
 whether the name was a typo or Black Lotus. This build compiles 2716 of the

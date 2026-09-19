@@ -674,3 +674,53 @@ fn a_real_card_this_build_cannot_play_is_not_called_unknown() {
         "a name that is no card at all is still unknown: {answer}"
     );
 }
+
+/// A deck row may be written either way the card is printed.
+///
+/// `data/card-pool.txt` writes 106 of its own names as `A // B`, which is
+/// what Scryfall prints and what a deck site exports — and that spelling was
+/// refused by the route that stores decks. Asserted through `POST /decks`
+/// rather than against `by_name`, because the import path runs the name
+/// through `deckrow::parse` first and a row is what a player actually sends.
+///
+/// The card is derived: the first pool card whose whole name differs from
+/// what the pool calls it. Naming one would make this test a statement about
+/// that card rather than about the spelling.
+#[test]
+fn a_deck_row_may_name_a_card_by_either_of_its_printed_spellings() {
+    let gateway = spawn_gateway("two-spellings");
+    let token = login(gateway.port, "importer2@example.test", "Importer");
+
+    let (whole, index) = baylee_cards::generated_names::WHOLE_NAMES
+        .iter()
+        .copied()
+        .find(|(_, index)| baylee_cards::by_index(*index).is_some())
+        .expect("the pool holds a card with two faces");
+    let front = baylee_cards::by_index(index).expect("compiled").name();
+    assert_ne!(
+        front, whole,
+        "the two spellings differ, or this proves nothing"
+    );
+
+    for (why, spelling) in [("the pool's own", front), ("Scryfall's whole", whole)] {
+        let body = format!(
+            r#"{{"name":"D","cards":["1 {spelling}","20 Forest"],"sideboard":[],"commander":null}}"#
+        );
+        let (status, answer) = http(gateway.port, "POST", "/decks", Some(&token), &body);
+        assert_eq!(
+            status, 200,
+            "{why} spelling {spelling:?} was refused: {answer}"
+        );
+    }
+
+    // A name nobody prints is still refused, or the two above would pass on
+    // a route that had simply stopped checking.
+    let body = format!(
+        r#"{{"name":"D","cards":["1 {front} // Not A Real Face","20 Forest"],"sideboard":[],"commander":null}}"#
+    );
+    let (status, answer) = http(gateway.port, "POST", "/decks", Some(&token), &body);
+    assert_eq!(
+        status, 400,
+        "an invented second face was accepted: {answer}"
+    );
+}

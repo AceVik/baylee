@@ -6,7 +6,17 @@
 // linked by the generator and by the reader, because two copies of a hash
 // function drift and a drifted one answers `None` for every card.
 //
-// Source: the compiled pool, `baylee_cards::all()`.
+// Two tables, because a card has two printed spellings and only one of them
+// is what this pool calls it. `NAMES` is the pool's own — a two-faced card
+// is its front face there, `Sheoldred`. `WHOLE_NAMES` is Scryfall's, the
+// spelling a deck site exports and `data/card-pool.txt` itself writes,
+// `Sheoldred // The True Scriptures`. They cannot collide: no key in the
+// first holds a ` // ` and every key in the second does, which
+// `the_two_name_tables_cannot_collide` is what keeps true.
+//
+// Source: the compiled pool, `baylee_cards::all()`, joined to the ledger
+// `baylee_cards_index::ROWS` for the whole spelling — the pool knows what it
+// calls a card and only the ledger knows what Scryfall calls it.
 #![allow(missing_docs, clippy::all, clippy::pedantic)]
 
 use baylee_core::ids::CardIndex;
@@ -91,9 +101,10 @@ static DISPLACEMENTS: [u32; 1024] = [
 /// The slot no name landed in.
 pub const EMPTY: u16 = u16::MAX;
 
-/// Slot → position in `NAMES`. [`EMPTY`] is a slot no name landed
-/// in — every string hashes to *some* slot, so a name the pool does
-/// not have arrives here too and this is where most of them stop.
+/// Slot → position in `NAMES`. [`EMPTY`] is a slot no name
+/// landed in — every string hashes to *some* slot, so a name the
+/// pool does not have arrives here too and this is where most of
+/// them stop.
 #[rustfmt::skip]
 pub static SLOTS: [u16; 4096] = [
     121, 65535, 1877, 65535, 582, 178, 2531, 65535, 2199, 1842, 266, 196, 1457, 1973, 65535, 65535,
@@ -355,6 +366,9 @@ pub static SLOTS: [u16; 4096] = [
 ];
 
 /// Every name in the pool and the card it names, in name order.
+///
+/// This is the pool's own spelling, which for a two-faced card is its
+/// front face alone (`Sheoldred`); `WHOLE_NAMES` carries the other.
 ///
 /// The spelling is kept beside the answer because a perfect hash is
 /// perfect only over the keys it was built from: any other string
@@ -3078,4 +3092,171 @@ pub static NAMES: [(&str, CardIndex); 2716] = [
     ("Zulaport Cutthroat", CardIndex::new(15335)),
     ("Zuran Orb", CardIndex::new(1335)),
     ("Zuran Spellcaster", CardIndex::new(1336)),
+];
+
+/// The perfect hash over `WHOLE_NAMES`.
+pub static WHOLE_TABLE: phf::Table = phf::Table {
+    displacements: &WHOLE_DISPLACEMENTS,
+    slots: 128,
+    seed: 0x5178c1b727220ab5,
+};
+
+/// One displacement per bucket, in bucket order.
+#[rustfmt::skip]
+static WHOLE_DISPLACEMENTS: [u32; 32] = [
+    0, 14, 41, 9, 20, 16, 11, 0, 15, 0, 39, 2, 18, 50, 0, 97,
+    1, 3, 105, 10, 7, 14, 0, 77, 4, 29, 60, 33, 28, 11, 2, 83,
+];
+
+/// Slot → position in `WHOLE_NAMES`. [`EMPTY`] is a slot no name
+/// landed in — every string hashes to *some* slot, so a name the
+/// pool does not have arrives here too and this is where most of
+/// them stop.
+#[rustfmt::skip]
+pub static WHOLE_SLOTS: [u16; 128] = [
+    2, 119, 47, 114, 73, 56, 24, 100, 72, 61, 28, 108, 54, 10, 77, 66,
+    65535, 29, 102, 14, 38, 53, 65, 26, 84, 34, 30, 62, 85, 103, 74, 97,
+    41, 107, 11, 51, 58, 50, 87, 15, 42, 21, 31, 105, 91, 67, 19, 65535,
+    8, 104, 45, 106, 36, 86, 109, 7, 55, 18, 69, 3, 6, 59, 5, 98,
+    79, 93, 65535, 68, 37, 118, 80, 65535, 44, 101, 0, 1, 65535, 16, 64, 63,
+    20, 60, 81, 22, 17, 23, 90, 117, 49, 92, 111, 57, 95, 4, 99, 48,
+    13, 116, 88, 25, 65535, 40, 43, 83, 12, 46, 52, 9, 120, 115, 35, 112,
+    94, 33, 78, 76, 39, 110, 70, 82, 113, 75, 96, 71, 89, 32, 65535, 27,
+];
+
+/// Scryfall's whole spelling of every card whose pool name differs
+/// from it, in name order — `Sheoldred // The True Scriptures`.
+///
+/// One row per card with more than one face, plus any the pool
+/// implements with a single face while the printing has two. A card
+/// the two tables agree about has no row here at all, so this is
+/// short where `NAMES` is long.
+///
+/// The spelling is kept beside the answer because a perfect hash is
+/// perfect only over the keys it was built from: any other string
+/// lands in some slot as well, and comparing what is written there
+/// is the whole difference between `None` and the wrong card.
+#[rustfmt::skip]
+pub static WHOLE_NAMES: [(&str, CardIndex); 121] = [
+    ("Aclazotz, Deepest Betrayal // Temple of the Dead", CardIndex::new(26816)),
+    ("Agadeem's Awakening // Agadeem, the Undercrypt", CardIndex::new(20355)),
+    ("Akoum Warrior // Akoum Teeth", CardIndex::new(20358)),
+    ("Arguel's Blood Fast // Temple of Aclazotz", CardIndex::new(17113)),
+    ("Azor's Gateway // Sanctum of the Sun", CardIndex::new(17365)),
+    ("Bala Ged Recovery // Bala Ged Sanctuary", CardIndex::new(20370)),
+    ("Balamb Garden, SeeD Academy // Balamb Garden, Airborne", CardIndex::new(30231)),
+    ("Barkchannel Pathway // Tidechannel Pathway", CardIndex::new(20808)),
+    ("Beyeen Veil // Beyeen Coast", CardIndex::new(20372)),
+    ("Bird Admirer // Wing Shredder", CardIndex::new(22070)),
+    ("Birgi, God of Storytelling // Harnfel, Horn of Bounty", CardIndex::new(20821)),
+    ("Blackbloom Rogue // Blackbloom Bog", CardIndex::new(20373)),
+    ("Blightstep Pathway // Searstep Pathway", CardIndex::new(20823)),
+    ("Bloodsoaked Insight // Sanguine Morass", CardIndex::new(28153)),
+    ("Boggart Trawler // Boggart Bog", CardIndex::new(28154)),
+    ("Braided Net // Braided Quipu", CardIndex::new(26843)),
+    ("Branchloft Pathway // Boulderloft Pathway", CardIndex::new(20377)),
+    ("Brass's Tunnel-Grinder // Tecutlan, the Searing Rift", CardIndex::new(26844)),
+    ("Brazen Borrower // Petty Theft", CardIndex::new(19328)),
+    ("Bridgeworks Battle // Tanglespan Bridgeworks", CardIndex::new(28159)),
+    ("Brightclimb Pathway // Grimclimb Pathway", CardIndex::new(20378)),
+    ("Clearwater Pathway // Murkwater Pathway", CardIndex::new(20389)),
+    ("Conqueror's Galleon // Conqueror's Foothold", CardIndex::new(17140)),
+    ("Cragcrown Pathway // Timbercrown Pathway", CardIndex::new(20398)),
+    ("Darkbore Pathway // Slitherbore Pathway", CardIndex::new(20851)),
+    ("Disciple of Freyalise // Garden of Freyalise", CardIndex::new(28187)),
+    ("Dowsing Dagger // Lost Vale", CardIndex::new(17164)),
+    ("Dowsing Device // Geode Grotto", CardIndex::new(26907)),
+    ("Drowner of Truth // Drowned Jungle", CardIndex::new(28194)),
+    ("Emeria's Call // Emeria, Shattered Skyclave", CardIndex::new(20411)),
+    ("Emeritus of Woe // Demonic Tutor", CardIndex::new(32230)),
+    ("Fable of the Mirror-Breaker // Reflection of Kiki-Jiki", CardIndex::new(22794)),
+    ("Fatehold Chronologist // Peer Review", CardIndex::new(33408)),
+    ("Fearful Villager // Fearsome Werewolf", CardIndex::new(22446)),
+    ("Fell the Profane // Fell Mire", CardIndex::new(28221)),
+    ("Fire // Ice", CardIndex::new(4985)),
+    ("Glasspool Mimic // Glasspool Shore", CardIndex::new(20428)),
+    ("Glasswing Grace // Age-Graced Chapel", CardIndex::new(28239)),
+    ("Golden Guardian // Gold-Forge Garrison", CardIndex::new(17419)),
+    ("Grasping Shadows // Shadows' Lair", CardIndex::new(26940)),
+    ("Growing Rites of Itlimoc // Itlimoc, Cradle of the Sun", CardIndex::new(17192)),
+    ("Hadana's Climb // Winged Temple of Orazca", CardIndex::new(17422)),
+    ("Hagra Mauling // Hagra Broodpit", CardIndex::new(20436)),
+    ("Harvesttide Infiltrator // Harvesttide Assailant", CardIndex::new(22178)),
+    ("Havengul Laboratory // Havengul Mystery", CardIndex::new(22347)),
+    ("Hengegate Pathway // Mistgate Pathway", CardIndex::new(20927)),
+    ("Hostile Hostel // Creeping Inn", CardIndex::new(22187)),
+    ("Hydroelectric Specimen // Hydroelectric Laboratory", CardIndex::new(28259)),
+    ("Invasion of Ikoria // Zilortha, Apex of Ikoria", CardIndex::new(25578)),
+    ("Ishgard, the Holy See // Faith & Grief", CardIndex::new(30362)),
+    ("Jidoor, Aristocratic Capital // Overture", CardIndex::new(30366)),
+    ("Journey to Eternity // Atzal, Cave of Eternity", CardIndex::new(17432)),
+    ("Jwari Disruption // Jwari Ruins", CardIndex::new(20446)),
+    ("Kabira Takedown // Kabira Plateau", CardIndex::new(20448)),
+    ("Kazandu Mammoth // Kazandu Valley", CardIndex::new(20452)),
+    ("Kazuul's Fury // Kazuul's Cliffs", CardIndex::new(20455)),
+    ("Khalni Ambush // Khalni Territory", CardIndex::new(20456)),
+    ("Legion Leadership // Legion Stronghold", CardIndex::new(28279)),
+    ("Legion's Landing // Adanto, the First Fort", CardIndex::new(17221)),
+    ("Lindblum, Industrial Regency // Mage Siege", CardIndex::new(30383)),
+    ("Makindi Stampede // Makindi Mesas", CardIndex::new(20472)),
+    ("Malakir Rebirth // Malakir Mire", CardIndex::new(20474)),
+    ("Malevolent Hermit // Benevolent Geist", CardIndex::new(22214)),
+    ("Matzalantli, the Great Door // The Core", CardIndex::new(26998)),
+    ("Midgar, City of Mako // Reactor Raid", CardIndex::new(30403)),
+    ("Mirrorhall Mimic // Ghastly Mimicry", CardIndex::new(22522)),
+    ("Murderous Rider // Swift End", CardIndex::new(19451)),
+    ("Needleverge Pathway // Pillarverge Pathway", CardIndex::new(20494)),
+    ("Ojer Axonil, Deepest Might // Temple of Power", CardIndex::new(27010)),
+    ("Ojer Kaslem, Deepest Growth // Temple of Cultivation", CardIndex::new(27011)),
+    ("Ojer Pakpatiq, Deepest Epoch // Temple of Cyclical Time", CardIndex::new(27012)),
+    ("Ojer Taq, Deepest Foundation // Temple of Civilization", CardIndex::new(27013)),
+    ("Ondu Inversion // Ondu Skyruins", CardIndex::new(20505)),
+    ("Path of Mettle // Metzali, Tower of Triumph", CardIndex::new(17459)),
+    ("Pelakka Predation // Pelakka Caverns", CardIndex::new(20509)),
+    ("Pinnacle Monk // Mystic Peak", CardIndex::new(28316)),
+    ("Primal Amulet // Primal Wellspring", CardIndex::new(17246)),
+    ("Profane Procession // Tomb of the Dusk Rose", CardIndex::new(17464)),
+    ("Razorgrass Ambush // Razorgrass Field", CardIndex::new(28332)),
+    ("Revitalizing Repast // Old-Growth Grove", CardIndex::new(28337)),
+    ("Riverglide Pathway // Lavaglide Pathway", CardIndex::new(20523)),
+    ("Rush of Inspiration // Crackling Falls", CardIndex::new(28343)),
+    ("Sea Gate Restoration // Sea Gate, Reborn", CardIndex::new(20538)),
+    ("Search for Azcanta // Azcanta, the Sunken Ruin", CardIndex::new(17279)),
+    ("Sejiri Shelter // Sejiri Glacier", CardIndex::new(20541)),
+    ("Shatterskull Smashing // Shatterskull, the Hammer Pass", CardIndex::new(20546)),
+    ("Sheoldred // The True Scriptures", CardIndex::new(25710)),
+    ("Sidequest: Catch a Fish // Cooking Campsite", CardIndex::new(30483)),
+    ("Silundi Vision // Silundi Isle", CardIndex::new(20549)),
+    ("Sink into Stupor // Soporific Springs", CardIndex::new(28364)),
+    ("Skyclave Cleric // Skyclave Basilica", CardIndex::new(20552)),
+    ("Song-Mad Treachery // Song-Mad Ruins", CardIndex::new(20563)),
+    ("Spikefield Hazard // Spikefield Cave", CardIndex::new(20566)),
+    ("Storm the Vault // Vault of Catlacan", CardIndex::new(17499)),
+    ("Strength of the Harvest // Haven of the Harvest", CardIndex::new(28383)),
+    ("Stump Stomp // Burnwillow Clearing", CardIndex::new(28385)),
+    ("Sundering Eruption // Volcanic Fissure", CardIndex::new(28386)),
+    ("Suppression Ray // Orderly Plaza", CardIndex::new(28388)),
+    ("Tangled Florahedron // Tangled Vale", CardIndex::new(20580)),
+    ("Tarrian's Journal // The Tomb of Aclazotz", CardIndex::new(27104)),
+    ("Tavern Ruffian // Tavern Smasher", CardIndex::new(22310)),
+    ("Thaumatic Compass // Spires of Orazca", CardIndex::new(17321)),
+    ("The Everflowing Well // The Myriad Pools", CardIndex::new(27113)),
+    ("Thousand Moons Smithy // Barracks of the Thousand", CardIndex::new(27121)),
+    ("Tireless Hauler // Dire-Strain Brawler", CardIndex::new(22315)),
+    ("Treasure Map // Treasure Cove", CardIndex::new(17329)),
+    ("Turntimber Symbiosis // Turntimber, Serpentine Wood", CardIndex::new(20595)),
+    ("Twining Twins // Swift Spiral", CardIndex::new(26496)),
+    ("Twists and Turns // Mycoid Maze", CardIndex::new(27131)),
+    ("Umara Wizard // Umara Skyfalls", CardIndex::new(20597)),
+    ("Valakut Awakening // Valakut Stoneforge", CardIndex::new(20599)),
+    ("Vance's Blasting Cannons // Spitfire Bastion", CardIndex::new(17334)),
+    ("Vastwood Fortification // Vastwood Thicket", CardIndex::new(20601)),
+    ("Virtue of Knowledge // Vantress Visions", CardIndex::new(26507)),
+    ("Walk-In Closet // Forgotten Cellar", CardIndex::new(29314)),
+    ("Waterlogged Teachings // Inundated Archive", CardIndex::new(28428)),
+    ("Welcome to . . . // Jurassic Park", CardIndex::new(27149)),
+    ("Westvale Abbey // Ormendahl, Profane Prince", CardIndex::new(15830)),
+    ("Witch Enchanter // Witch-Blessed Meadow", CardIndex::new(28434)),
+    ("Zanarkand, Ancient Metropolis // Lasting Fayth", CardIndex::new(30605)),
+    ("Zof Consumption // Zof Bloodbog", CardIndex::new(20612)),
 ];
