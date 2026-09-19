@@ -4790,10 +4790,16 @@ fn pool_additions(pool: &str, names: &[&str]) -> Vec<String> {
 
 /// Refuses to start a batch on a tree that already has changes in it.
 ///
-/// A batch rewrites hundreds of card files, and the only cheap way back from
-/// one that goes wrong is `git restore`. That is a safe thing to reach for
-/// exactly when nothing else in the tree is uncommitted, so the guard is what
-/// makes the recovery instruction true rather than hopeful.
+/// A batch rewrites hundreds of card files and writes new ones, and the only
+/// cheap way back from one that goes wrong is `git restore` plus `git clean`.
+/// Those are safe things to reach for exactly when nothing else in the tree is
+/// uncommitted, so the guard is what makes the recovery instruction true
+/// rather than hopeful.
+///
+/// Both halves, because the first run of this command proved one is not
+/// enough: `git restore .` put the ten rewritten files back and left the new
+/// card behind as an untracked file, and an orphan under `cards/` that no
+/// pool line claims is what `refuse_orphans` stops the *next* run on.
 fn refuse_a_dirty_tree(root: &Path) -> anyhow::Result<()> {
     let out = std::process::Command::new("git")
         .args(["status", "--porcelain"])
@@ -4807,7 +4813,8 @@ fn refuse_a_dirty_tree(root: &Path) -> anyhow::Result<()> {
     let dirty = dirty.trim();
     anyhow::ensure!(
         dirty.is_empty(),
-        "the tree has uncommitted changes, and a batch's way back is `git restore`:\n{dirty}"
+        "the tree has uncommitted changes, and a batch's way back is `git restore` \
+         plus `git clean`:\n{dirty}"
     );
     Ok(())
 }
@@ -4830,8 +4837,8 @@ fn batch_step(root: &Path, what: &str, args: &[&str]) -> anyhow::Result<()> {
         .status()?;
     anyhow::ensure!(
         status.success(),
-        "batch stopped at `{what}` — the tree was clean before this, so \
-         `git restore .` puts it back"
+        "batch stopped at `{what}` — the tree was clean before this, so this puts \
+         it back:\n    git restore . && git clean -f crates/baylee-cards/src/cards"
     );
     Ok(())
 }
@@ -4957,7 +4964,9 @@ fn batch(
         "\nbatch: {} card(s) added. What is left is the gate, which this does not run:\n\
          \n    BAYLEE_SESSION=<session> /Users/viktor/.baylee-locks/with-cargo-lock.sh \\\n\
          \x20       cargo test --workspace --all-targets\n\
-         \nThe pool-wide engine sweeps are in it, and they are what actually play the new cards.",
+         \nThe pool-wide engine sweeps are in it, and they are what actually play the\n\
+         new cards. The way back, if it is red:\n\
+         \n    git restore . && git clean -f crates/baylee-cards/src/cards\n",
         additions.len()
     );
     Ok(())
