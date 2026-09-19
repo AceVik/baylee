@@ -811,7 +811,7 @@ fn caret(
     width: f32,
     height: f32,
 ) -> Entity {
-    let holding = view.priority == Some(seat.player);
+    let holding = view.awaiting == Some(seat.player);
     commands
         .spawn((
             SeatInk {

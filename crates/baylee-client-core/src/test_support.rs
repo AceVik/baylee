@@ -76,7 +76,7 @@ impl ViewBuilder {
                 phase: Phase::FirstMain,
                 step: Step::Main,
                 active: PlayerId::new(0),
-                priority: Some(PlayerId::new(0)),
+                awaiting: Some(PlayerId::new(0)),
                 priority_held: false,
                 monarch: None,
                 day_night: None,
@@ -211,10 +211,10 @@ impl ViewBuilder {
         self
     }
 
-    /// Overrides who holds priority.
+    /// Overrides the seat the table is waiting for.
     #[must_use]
-    pub fn with_priority(mut self, player: Option<u8>) -> Self {
-        self.view.priority = player.map(PlayerId::new);
+    pub fn with_awaiting(mut self, player: Option<u8>) -> Self {
+        self.view.awaiting = player.map(PlayerId::new);
         self
     }
 

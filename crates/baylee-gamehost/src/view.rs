@@ -551,8 +551,13 @@ fn looking_at(state: &GameState, seat: PlayerId, pending: Option<&Pending>) -> V
 
 /// Builds the hidden-information-filtered view of `state` for `seat`.
 ///
-/// `priority` is the seat that currently holds priority, which the engine
-/// tracks in its pending choice rather than in the state itself.
+/// `awaiting` is the seat the table is waiting for — whoever owes an answer,
+/// whatever the question is. It is a parameter because the engine keeps it in
+/// the pending choice rather than in the state, and it is the *pending* seat
+/// rather than the priority holder because every reader of it means "waiting
+/// on them": a seat picking blockers or discarding to hand size holds no
+/// priority (CR 117) and is just as much the seat being waited for. Pass
+/// `pending_player(engine.pending())`.
 ///
 /// `pending` is the outstanding choice, and it is here for one reason:
 /// [`PlayerView::looking_at`]. A tutor, a scry and a revealed hand all ask a
@@ -561,7 +566,7 @@ fn looking_at(state: &GameState, seat: PlayerId, pending: Option<&Pending>) -> V
 /// and the view is exactly what it was before — nothing else reads it.
 ///
 /// `held` is whether this seat's own standing order is currently withholding
-/// its priority, and it is a parameter for the same reason `priority` is: a
+/// its priority, and it is a parameter for the same reason `awaiting` is: a
 /// hold lives in the engine's `SeatAutomation`, not in the `GameState` this
 /// function is handed, so only the caller can read it. Pass
 /// `engine.automation(seat).hold.suppresses()`.
@@ -569,7 +574,7 @@ fn looking_at(state: &GameState, seat: PlayerId, pending: Option<&Pending>) -> V
 pub fn player_view(
     state: &GameState,
     seat: PlayerId,
-    priority: Option<PlayerId>,
+    awaiting: Option<PlayerId>,
     seq: u64,
     pending: Option<&Pending>,
     held: bool,
@@ -605,7 +610,7 @@ pub fn player_view(
         phase: phase(state.turn.phase),
         step: step(state.turn.step),
         active: state.turn.active,
-        priority,
+        awaiting,
         priority_held: held,
         monarch: state.monarch,
         day_night: state.day_night.map(day_night),

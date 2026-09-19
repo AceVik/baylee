@@ -41,6 +41,12 @@ use serde::{Deserialize, Serialize};
 /// Protocol version of the view payload. Bumped on any breaking change so a
 /// client can refuse a host it cannot render rather than mis-rendering it.
 ///
+/// 23 renamed `PlayerView::priority` to [`PlayerView::awaiting`] and fed it
+/// from the pending question rather than from priority, and deleted
+/// `is_my_priority`, which had no caller in the tree (#90). The three readers
+/// of the old field all already meant "who are we waiting for", so the rename
+/// is what makes them right — no logic moved with it.
+///
 /// 22 widened [`SubtypeSet`] from 512 bits to 1024 (#43). The widening is the
 /// half this constant can defend: the array on the wire grows from eight
 /// numbers to sixteen, and a client reading the old shape is turned away.
@@ -49,7 +55,7 @@ use serde::{Deserialize, Serialize};
 /// and disagree on what a number means. That is why subtype ids became
 /// append-only in the same commit rather than trusting this number to carry
 /// it.
-pub const VIEW_VERSION: u32 = 22;
+pub const VIEW_VERSION: u32 = 23;
 
 // ---------------------------------------------------------------- turn shape
 
@@ -1085,8 +1091,21 @@ pub struct PlayerView {
     pub step: Step,
     /// The active player (whose turn it is).
     pub active: PlayerId,
-    /// Who currently holds priority, when anyone does.
-    pub priority: Option<PlayerId>,
+    /// The seat the table is waiting for: whoever the pending question is
+    /// addressed to, whatever kind of question it is.
+    ///
+    /// **Not "who holds priority"**, which is what this field was until
+    /// `VIEW_VERSION` 23 and which is a narrower question than any of its
+    /// readers were asking. Priority (CR 117) exists only while the engine is
+    /// offering it, so a seat picking blockers, discarding to hand size or
+    /// naming a card held priority in nobody's view — and a caret, a seat bar
+    /// and a stack panel all went dark on every question that was not a
+    /// priority pass, each of them written to mean "waiting on them".
+    ///
+    /// A client cannot work it out for itself: a session sends the pending
+    /// question only to the seat it is addressed to, so a seat that is not
+    /// being asked never sees one at all.
+    pub awaiting: Option<PlayerId>,
     /// Whether *this* seat has a standing order that is withholding its own
     /// priority — "let the stack resolve", "not this turn", and so on.
     ///
@@ -1237,12 +1256,6 @@ impl PlayerView {
         self.stack.last()
     }
 
-    /// Whether the viewing seat is the one holding priority.
-    #[must_use]
-    pub fn is_my_priority(&self) -> bool {
-        self.priority == Some(self.seat)
-    }
-
     /// Seats still in the game, in turn order starting after the viewing seat.
     ///
     /// This is the order a client seats opponents around the table, so that the
@@ -1301,7 +1314,7 @@ mod tests {
             phase: Phase::FirstMain,
             step: Step::Main,
             active: PlayerId::new(0),
-            priority: Some(PlayerId::new(0)),
+            awaiting: Some(PlayerId::new(0)),
             priority_held: false,
             monarch: None,
             day_night: None,

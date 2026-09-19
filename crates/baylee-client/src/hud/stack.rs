@@ -806,9 +806,9 @@ pub(super) fn spawn_stack_panel(
     // Whose answer the table is waiting for. It is the one thing about the
     // stack the prompt slip cannot say — the slip speaks to *this* seat, and
     // between two of an opponent's spells there is nothing on it at all —
-    // and it costs one lookup. Nothing while the stack is resolving, which is
-    // when nobody holds priority.
-    if let Some(holder) = view.priority {
+    // and it costs one lookup. Nothing once the game is over, which is the
+    // only question the engine asks nobody.
+    if let Some(holder) = view.awaiting {
         let waiting = commands
             .spawn((
                 Text::new(waiting_line(

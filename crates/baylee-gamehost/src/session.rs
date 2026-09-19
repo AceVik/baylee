@@ -398,11 +398,11 @@ impl Session {
     ///
     /// The order matters: the entry has to be there before the object that
     /// points at it, or the client draws a card it cannot key an image on.
-    fn view_envelopes(&mut self, seat: PlayerId, priority: Option<PlayerId>) -> Vec<Envelope> {
+    fn view_envelopes(&mut self, seat: PlayerId, awaiting: Option<PlayerId>) -> Vec<Envelope> {
         let view = crate::view::player_view(
             self.engine.state(),
             seat,
-            priority,
+            awaiting,
             self.seq,
             Some(self.engine.pending()),
             self.engine.automation(seat).hold.suppresses(),
@@ -458,9 +458,9 @@ impl Session {
                 .get(player.get() as usize)
                 .is_some_and(SeatKind::answers_over_socket);
             if is_human {
-                let priority = priority_holder(&pending);
+                let awaiting = pending_player(&pending);
                 for seat in self.human_seats() {
-                    let envelopes = self.view_envelopes(seat, priority);
+                    let envelopes = self.view_envelopes(seat, awaiting);
                     out.extend(envelopes.into_iter().map(|env| (seat, env)));
                 }
                 out.push((player, choice_envelope(self.seq, &pending)));
@@ -473,7 +473,7 @@ impl Session {
                     let view = crate::view::player_view(
                         self.engine.state(),
                         player,
-                        priority_holder(&pending),
+                        pending_player(&pending),
                         self.seq,
                         Some(&pending),
                         self.engine.automation(player).hold.suppresses(),
@@ -560,7 +560,7 @@ impl Session {
         let view = crate::view::player_view(
             self.engine.state(),
             player,
-            priority_holder(pending),
+            pending_player(pending),
             self.seq,
             Some(pending),
             self.engine.automation(player).hold.suppresses(),
@@ -605,7 +605,7 @@ impl Session {
         let view = crate::view::player_view(
             self.engine.state(),
             seat,
-            priority_holder(&pending),
+            pending_player(&pending),
             self.seq,
             Some(&pending),
             self.engine.automation(seat).hold.suppresses(),
@@ -679,17 +679,6 @@ fn own_prints(spec: &baylee_core::preset::SeatSpec, len: usize) -> Vec<bool> {
         }
     }
     shown
-}
-
-/// The seat holding priority, if the game is currently offering it.
-///
-/// Priority is not stored on the state; it only exists as the pending choice,
-/// so a view has to be told about it rather than deriving it.
-pub(crate) fn priority_holder(pending: &Pending) -> Option<PlayerId> {
-    match pending {
-        Pending::Priority { player, .. } => Some(*player),
-        _ => None,
-    }
 }
 
 fn view_envelope(seq: u64, view: &baylee_view::PlayerView) -> Envelope {
@@ -1217,6 +1206,85 @@ mod tests {
         assert!(
             !routed_view(&routed, PlayerId::new(1)).priority_held,
             "one seat's standing order is not the other's to read"
+        );
+    }
+
+    /// The view names the seat the table is waiting for, which is a wider
+    /// question than who holds priority — and the field answered the narrow
+    /// one until `VIEW_VERSION` 23.
+    ///
+    /// Priority (CR 117) exists only while the engine is offering it, so a
+    /// seat taking a mulligan, picking blockers or discarding to hand size
+    /// holds none and was reported as nobody. Its three readers — the stack
+    /// head's "waiting for", the seat caret and the board model's pod — all
+    /// mean "waiting on them", so all three went blank on every question that
+    /// was not a priority pass. `pending_player` is the question they were
+    /// asking.
+    ///
+    /// The opponent's copy is the half that cannot be worked out client-side:
+    /// a session sends the pending question only to the seat it is addressed
+    /// to, so seat 1 has nothing else to read it off.
+    #[test]
+    fn a_seat_that_holds_no_priority_is_still_the_seat_being_waited_for() {
+        // Both seats human, so the seat that is not being asked is sent a
+        // view and the second assertion has something to read.
+        let mut preset = test_preset();
+        preset.seats[1].controller = SeatController::Open;
+        let mut session = Session::new(&preset).expect("session builds");
+        let asked = PlayerId::new(0);
+        let bystander = PlayerId::new(1);
+
+        assert!(
+            matches!(session.pending(), Pending::Mulligan { .. }),
+            "the game opens on a question nobody holds priority for"
+        );
+        assert_eq!(session.awaiting_seat(), Some(asked));
+        assert_eq!(
+            seat_view(&session, asked).awaiting,
+            Some(asked),
+            "the seat being asked is told the table is waiting for it"
+        );
+        assert_eq!(
+            seat_view(&session, bystander).awaiting,
+            Some(asked),
+            "and so is the seat that is not being asked, which has no other \
+             way to know"
+        );
+
+        // Play the game out with the house agent answering both chairs, and
+        // hold every view against the seat that actually owes an answer.
+        // Bounded on the questions seen rather than on the loop, because a
+        // run that stopped after the mulligans would assert almost nothing.
+        let agent = HeuristicAgent::new(AIProfile::default());
+        let mut priority_questions = 0usize;
+        let mut other_questions = 0usize;
+        for _ in 0..600 {
+            let Some(seat) = session.awaiting_seat() else {
+                break;
+            };
+            if matches!(session.pending(), Pending::Priority { .. }) {
+                priority_questions += 1;
+            } else {
+                other_questions += 1;
+            }
+            assert_eq!(
+                seat_view(&session, bystander).awaiting,
+                Some(seat),
+                "every question names the seat that owes the answer"
+            );
+            let view = seat_view(&session, seat);
+            let action = agent.act(&view, session.pending());
+            if session.act(seat, action).is_err() {
+                break;
+            }
+        }
+        assert!(
+            priority_questions > 10,
+            "the game reached priority repeatedly: {priority_questions}"
+        );
+        assert!(
+            other_questions > 1,
+            "and asked questions that were not priority: {other_questions}"
         );
     }
 

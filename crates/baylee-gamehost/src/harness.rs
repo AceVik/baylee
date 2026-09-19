@@ -5,7 +5,6 @@
 //! its construction and authorization of private AI scouting. The soak test below is the acceptance-deck smoke test: it is the
 //! one place where every card in the decks is actually played.
 
-use crate::session::priority_holder;
 use baylee_ai::{HeuristicAgent, pending_player};
 use baylee_core::ids::PlayerId;
 use baylee_core::preset::GamePreset;
@@ -286,7 +285,7 @@ pub fn play_report<L: CardLookup>(
         let view = crate::view::player_view(
             engine.state(),
             player,
-            priority_holder(&pending),
+            pending_player(&pending),
             i as u64,
             Some(&pending),
             engine.automation(player).hold.suppresses(),
@@ -479,7 +478,7 @@ mod tests {
             crate::view::player_view(
                 engine.state(),
                 me,
-                priority_holder(engine.pending()),
+                pending_player(engine.pending()),
                 7,
                 Some(engine.pending()),
                 false,
@@ -854,7 +853,7 @@ mod tests {
             let view = crate::view::player_view(
                 engine.state(),
                 player,
-                priority_holder(&pending),
+                pending_player(&pending),
                 i,
                 Some(&pending),
                 engine.automation(player).hold.suppresses(),

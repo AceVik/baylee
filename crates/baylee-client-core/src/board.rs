@@ -1389,7 +1389,7 @@ fn build_pod(
         has_lost: seat.is_some_and(|s| s.has_lost),
         is_local: player == view.seat,
         is_active: player == view.active,
-        has_priority: view.priority == Some(player),
+        has_priority: view.awaiting == Some(player),
         lanes,
         piles: zone_piles(view, player),
         tokens: token_chips(&permanents),

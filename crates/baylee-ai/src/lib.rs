@@ -1687,7 +1687,7 @@ mod tests {
             phase: baylee_view::Phase::Combat,
             step: baylee_view::Step::DeclareAttackers,
             active: PlayerId::new(seat),
-            priority: None,
+            awaiting: None,
             priority_held: false,
             monarch: None,
             day_night: None,

@@ -974,8 +974,11 @@ with nothing to say it was — and a stack of ten is an ordinary storm turn. One
 full row and six compact ones fit the same space, and what still does not fit
 is *counted* on a last line (`+3 more`). Under the title sits one more line
 the prompt slip cannot carry: whose answer the table is waiting for, from
-`PlayerView::priority`, and nothing at all while the stack is resolving and
-nobody holds it.
+`PlayerView::awaiting`, and nothing at all once the game is over. It read
+`PlayerView::priority` until `VIEW_VERSION` 23, which answered a narrower
+question than the line asks — a seat picking blockers or discarding to hand
+size holds no priority, so the line went blank on exactly the questions
+between two of an opponent's spells that it exists for.
 
 **The panel is 352 px wide because 296 was not wide enough for the names.**
 The name column of a queued row is the panel less the padding either side, the
