@@ -85,6 +85,20 @@ Never write "the agent" in a commit message about a session.
 Always a **git worktree**, never a data structure. There are five; see
 *Territories* below.
 
+### bar, ledge, drawer, tray
+
+Four panels in the client, and German has one word for two of the pairs. Say
+the precise one even when speaking German.
+
+- **bar** — the **seat** bar, `hud/seatbar.rs`, gated by `BarRevision`. Never
+  anything else.
+- **ledge** (*Leiste*) — the merged hand-and-question bar, `hud/ledge.rs`.
+  #10's title says "action bar" and means the ledge; the title is what is
+  wrong, not the crate.
+- **drawer** (*Lade*) — what grows out of the ledge, `hud/ledge/drawer.rs`.
+- **tray** — the put-down dialog, `hud/tray.rs`, gated by `TrayRevision`. A
+  different panel from the drawer, and the German for both is one word away.
+
 ---
 
 ## Terms of art you are expected to know
@@ -158,7 +172,7 @@ in both directions.
 
 | Session | Tree | Branch | Owns |
 |---|---|---|---|
-| PM | `/Users/viktor/Projects/baylee` | `main` | board, integration, this file, `docs/` |
+| PM | `/Users/viktor/Projects/baylee` | `main` | board, integration, this file, the cross-cutting `docs/` |
 | engine | `…/baylee-engine` | `engine` | `baylee-engine`, `baylee-core`, `baylee-cards`, `-cards-dsl`, `-cards-codegen`, `-cards-index`, `baylee-gamehost`, `baylee-engine-server`, `xtask` |
 | client | `…/baylee-client` | `client` | `baylee-client`, `baylee-client-core`, `baylee-client-android`, `scripts/mobile` |
 | gateway | `…/baylee-gateway` | `gateway` | `baylee-gateway`, `baylee-agent`, `baylee-protocol`, `baylee-db`, `baylee-catalog` |
@@ -169,6 +183,16 @@ Two crates belong to nobody and are **announced before they are changed**:
 - **`baylee-view`** — `VIEW_VERSION` is asserted in gamehost *and* client tests,
   so a breaking change reaches engine, client and gateway at once.
 - **`baylee-build`** — the compile-time build stamp every binary reads.
+
+**A document follows its subject, not this table.** `docs/` as a whole is the
+PM's, but a file that is normative for one Revier belongs to that Revier's
+session and is committed on its branch with the change it describes —
+`docs/client.md` with the client, `docs/house-ai.md` with the AI,
+`docs/protocol.md` with the gateway, `docs/engine-internals.md` and
+`docs/card-dsl.md` with the engine. Prose written in one branch and committed
+in another drifts from the code between the two commits, and this repo has
+paid for that. What stays the PM's is what belongs to no Revier: this file,
+the roadmap, and anything that describes how the team works.
 
 `scripts/llm/` is card volume and belongs to the engine session, which plans it
 in cards (DeepSeek, billed per token) and in minutes (Gemini, a time quota).
