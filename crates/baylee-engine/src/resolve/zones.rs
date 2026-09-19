@@ -423,33 +423,9 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             None
         }
         Effect::DestroyChosenForPlayers { who, filter } => {
-            // Same per-player choice chain as SacrificeFilter, destroying
-            // instead (The True Scriptures I).
             let mut players = players_of(who, state, you, res);
-            players.retain(|p| {
-                state
-                    .zones
-                    .list(ZoneLocation::Battlefield)
-                    .iter()
-                    .any(|id| {
-                        state.object(*id).is_some_and(|o| {
-                            o.controller == *p && eval::matches(filter, state, o, you, res.source)
-                        })
-                    })
-            });
-            let player = players.first().copied()?;
-            players.remove(0);
-            let options: Vec<ObjectId> = state
-                .zones
-                .list(ZoneLocation::Battlefield)
-                .iter()
-                .filter(|id| {
-                    state.object(**id).is_some_and(|o| {
-                        o.controller == player && eval::matches(filter, state, o, you, res.source)
-                    })
-                })
-                .copied()
-                .collect();
+            let (player, options) =
+                chosen::next_asked(state, &mut players, filter, you, res.source)?;
             res.awaiting = Some(AwaitingOp::DestroyChosen {
                 filter,
                 remaining: players,
@@ -464,30 +440,8 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
         }
         Effect::SacrificeFilter { who, filter } => {
             let mut players = players_of(who, state, you, res);
-            players.retain(|p| {
-                state
-                    .zones
-                    .list(ZoneLocation::Battlefield)
-                    .iter()
-                    .any(|id| {
-                        state.object(*id).is_some_and(|o| {
-                            o.controller == *p && eval::matches(filter, state, o, you, res.source)
-                        })
-                    })
-            });
-            let player = players.first().copied()?;
-            players.remove(0);
-            let options: Vec<ObjectId> = state
-                .zones
-                .list(ZoneLocation::Battlefield)
-                .iter()
-                .filter(|id| {
-                    state.object(**id).is_some_and(|o| {
-                        o.controller == player && eval::matches(filter, state, o, you, res.source)
-                    })
-                })
-                .copied()
-                .collect();
+            let (player, options) =
+                chosen::next_asked(state, &mut players, filter, you, res.source)?;
             res.awaiting = Some(AwaitingOp::SacrificeFilter {
                 filter,
                 remaining: players,

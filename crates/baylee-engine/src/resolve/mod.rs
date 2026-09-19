@@ -21,6 +21,7 @@ use baylee_core::ids::{ObjectId, PlayerId};
 use baylee_core::mana::ManaColor;
 use smallvec::SmallVec;
 
+mod chosen;
 mod control;
 mod counters;
 mod life;
@@ -992,30 +993,17 @@ pub fn resume(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]) 
                 crate::sba::destroy(state, victim);
             }
             let mut remaining = remaining;
-            while let Some(player) = remaining.first().copied() {
-                remaining.remove(0);
-                let options: Vec<ObjectId> = state
-                    .zones
-                    .list(ZoneLocation::Battlefield)
-                    .iter()
-                    .filter(|id| {
-                        state.object(**id).is_some_and(|o| {
-                            o.controller == player
-                                && eval::matches(filter, state, o, res.controller, res.source)
-                        })
-                    })
-                    .copied()
-                    .collect();
-                if !options.is_empty() {
-                    res.awaiting = Some(AwaitingOp::DestroyChosen { filter, remaining });
-                    return Flow::Wait(Pending::ChooseCards {
-                        player,
-                        options,
-                        min: 0,
-                        max: 1,
-                        prompt: ChoicePrompt::Generic,
-                    });
-                }
+            if let Some((player, options)) =
+                chosen::next_asked(state, &mut remaining, filter, res.controller, res.source)
+            {
+                res.awaiting = Some(AwaitingOp::DestroyChosen { filter, remaining });
+                return Flow::Wait(Pending::ChooseCards {
+                    player,
+                    options,
+                    min: 0,
+                    max: 1,
+                    prompt: ChoicePrompt::Generic,
+                });
             }
         }
         AwaitingOp::SacrificeFilter { filter, remaining } => {
@@ -1033,30 +1021,17 @@ pub fn resume(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]) 
             }
             // Ask the next player who still has a legal sacrifice.
             let mut remaining = remaining;
-            while let Some(player) = remaining.first().copied() {
-                remaining.remove(0);
-                let options: Vec<ObjectId> = state
-                    .zones
-                    .list(ZoneLocation::Battlefield)
-                    .iter()
-                    .filter(|id| {
-                        state.object(**id).is_some_and(|o| {
-                            o.controller == player
-                                && eval::matches(filter, state, o, res.controller, res.source)
-                        })
-                    })
-                    .copied()
-                    .collect();
-                if !options.is_empty() {
-                    res.awaiting = Some(AwaitingOp::SacrificeFilter { filter, remaining });
-                    return Flow::Wait(Pending::ChooseCards {
-                        player,
-                        options,
-                        min: 1,
-                        max: 1,
-                        prompt: ChoicePrompt::Generic,
-                    });
-                }
+            if let Some((player, options)) =
+                chosen::next_asked(state, &mut remaining, filter, res.controller, res.source)
+            {
+                res.awaiting = Some(AwaitingOp::SacrificeFilter { filter, remaining });
+                return Flow::Wait(Pending::ChooseCards {
+                    player,
+                    options,
+                    min: 1,
+                    max: 1,
+                    prompt: ChoicePrompt::Generic,
+                });
             }
         }
         AwaitingOp::ReorderTopLibrary => {
