@@ -1,5 +1,4 @@
-//! Ward across the real engine boundary, and the half of it the view cannot
-//! carry yet.
+//! Ward across the real engine boundary, and the payment window behind it.
 //!
 //! The unit test beside `policy::pays_tax` builds ward's question; this one
 //! earns it. Ward is synthesised as a trigger on the **caster**
@@ -7,25 +6,36 @@
 //! and its target is chosen, so nothing short of a game proves that the
 //! agent casts into it, is asked, reads the alternative and answers.
 //!
-//! It answers *yes* — where the old arm declined every tax beside a kicker —
-//! and the spell is **still** countered, which is the second assertion and
-//! the point of this file. Saying yes with an empty pool is handed a mana
-//! window (CR 605.3a, `actions.rs`), and in that window the agent holds
-//! priority over two untapped Plains with nothing castable and no reason to
-//! tap them: `PlayerView` carries no outstanding payment. It cannot, today —
-//! there is no field for it and nothing projects the engine's `mana_window`.
+//! Saying yes with an empty pool is handed a mana window (CR 605.3a,
+//! `actions.rs`), and the window is an ordinary priority round — which is
+//! what hid it. The agent held priority over two untapped Plains with
+//! nothing castable and passed, so it paid for a spell it then lost.
+//! `policy::pay_owed` reads `PlayerView::owed` and taps toward the price,
+//! and this file is where that is proved end to end rather than against a
+//! constructed view.
 //!
-//! So the limitation is pinned rather than described. The day the view says
-//! what a seat owes, the second assertion fails, and what replaces it is the
-//! game this file was standing in for: Swords to Plowshares resolving and
-//! the Throne gone.
-
+//! **This test used to pin the opposite outcome, and the pin was wired to
+//! the wrong end.** Its header said the view "carries no outstanding
+//! payment. It cannot, today — there is no field for it and nothing
+//! projects the engine's `mana_window`", and it promised that "the day the
+//! view says what a seat owes, the second assertion fails". That day was
+//! `VIEW_VERSION` 24, under #92. `session.rs` has filled `owed` at four
+//! sites since, through `view::owed_payment`, and the client has read it at
+//! five with a test file of its own — and nothing here moved, because the
+//! assertion measured the last **consumer** while the prose claimed a
+//! **capability**. A pin is only a pin if the thing that lifts the
+//! limitation is the thing that turns it red.
+//!
+//! The cost of that is invisible as a test result and is the reason this is
+//! written out rather than quietly deleted: for as long as it stood, anyone
+//! reading this file was told the view could not express an outstanding
+//! payment, and was talked out of the field they had come looking for.
 use baylee_ai::{AIProfile, HeuristicAgent, pending_player};
 use baylee_core::ids::PlayerId;
 use baylee_core::preset::{DeckEntry, GamePreset};
 use baylee_engine::choice::{Pending, PlayerAction, YesNoPrompt};
 use baylee_engine::engine::Engine;
-use baylee_gamehost::{RegistryLookup, SeatContext, player_view};
+use baylee_gamehost::{RegistryLookup, SeatContext, owed_payment, player_view};
 
 fn entry(name: &str) -> DeckEntry {
     DeckEntry {
@@ -50,7 +60,7 @@ fn table(hand: &[&str], mine: &[&str], theirs: &[&str]) -> GamePreset {
 }
 
 #[test]
-fn the_agent_pays_ward_and_then_cannot_find_the_window_it_was_handed() {
+fn the_agent_pays_ward_and_its_removal_resolves() {
     // Three Plains: one casts Swords to Plowshares, two answer the Roaming
     // Throne's ward {2}. A seat that could not pay at all would be answering
     // a different question.
@@ -69,15 +79,14 @@ fn the_agent_pays_ward_and_then_cannot_find_the_window_it_was_handed() {
         let Some(seat) = pending_player(pending) else {
             break;
         };
-        // `awaiting` is carried over from the six-argument call this test was
-        // written against: it named this seat as the awaited one, and
-        // `SeatContext::default()` would quietly make it `None`. The agent
-        // here answers the tax from `decision_context` rather than from the
-        // view, so nothing observable turns on it today — which is the reason
-        // to preserve it rather than to drop it, because a field nothing reads
-        // is exactly the one a default silently changes.
+        // Both fields are load-bearing now and neither may be defaulted.
+        // `owed` is the price the engine is waiting for, and `awaiting` is
+        // what says the price is *this* seat's: `policy::pay_owed` refuses
+        // to pay unless the two agree, so a `SeatContext::default()` here
+        // would silently restore the behaviour this test exists to catch.
         let ctx = SeatContext {
             awaiting: Some(seat),
+            owed: owed_payment(&engine),
             ..Default::default()
         };
         let view = player_view(engine.state(), seat, seq, Some(pending), &ctx);
@@ -116,10 +125,12 @@ fn the_agent_pays_ward_and_then_cannot_find_the_window_it_was_handed() {
         .filter_map(|id| state.object(id))
         .any(|object| object.card.is_some_and(|card| card.index == throne));
     assert!(
-        survived,
-        "the Roaming Throne is gone, so the mana window after ward's question \
-         was answered and Swords to Plowshares resolved. That is the outcome \
-         this test is waiting for: `PlayerView` has learnt to say what a seat \
-         owes. Delete this assertion and assert the resolution instead."
+        !survived,
+        "the Roaming Throne is still on the battlefield, so Swords to \
+         Plowshares never resolved: the agent agreed to ward's tax and then \
+         passed in the payment window it was handed, which is worse than \
+         having refused. `policy::pay_owed` reads `PlayerView::owed` and taps \
+         toward the price — check that `SeatContext::owed` is fed here, \
+         because a `None` there looks exactly like an agent that cannot pay."
     );
 }

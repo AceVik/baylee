@@ -151,6 +151,15 @@ impl HeuristicAgent {
         view: &PlayerView,
         legal: &baylee_engine::choice::LegalActions,
     ) -> PlayerAction {
+        // 0. Finish a payment the seat has already agreed to (CR 605.3a).
+        //
+        //    Before everything else because the window is not a turn: the
+        //    spell is on the stack and waiting for the price, and every step
+        //    below this one is about developing a board. An agent that
+        //    played a land here would be answering a different question.
+        if let Some(action) = policy::pay_owed(view, legal) {
+            return action;
+        }
         // 1. Play a land.
         if let Some(&card) = legal.lands.first() {
             return PlayerAction::PlayLand { card };
@@ -2714,6 +2723,84 @@ mod tests {
         assert_eq!(read(&OR_TRUE), Some(true), "a true disjunct settles it");
         assert_eq!(read(&OR_FALSE), None, "a false one leaves the unknown");
         assert_eq!(read(&Filter::Not(&UNREADABLE)), None);
+    }
+
+    /// A seat that agreed to a price pays it (CR 605.3a).
+    ///
+    /// The mana window is an ordinary priority round, which is what hid it:
+    /// nothing is castable inside one, so every path in `priority` below the
+    /// new first step passed, and the agent lost a spell it had already
+    /// agreed to pay for. Three questions, because the failure was that the
+    /// first one was never asked and the other two are what stop the answer
+    /// being reckless.
+    #[test]
+    fn a_payment_window_is_answered_by_tapping_toward_the_price() {
+        use baylee_core::generated::subtypes::land;
+        let mut lands = Vec::new();
+        for i in 0..2u32 {
+            let mut source = permanent(obj(i + 1), PlayerId::new(0), 0);
+            source.types = TypeSet::LAND;
+            source.subtypes.insert(land::PLAINS);
+            lands.push(source);
+        }
+        let legal = || {
+            Box::new(baylee_engine::choice::LegalActions {
+                can_pass: true,
+                mana_abilities: (1..=2).map(obj).collect(),
+                ..Default::default()
+            })
+        };
+        let base = view(0, &[20, 20], lands);
+
+        // Owed {2} with two Plains offered: one tap, and the next round
+        // plans one fewer because `plan` spends the pool first.
+        let mut v = base.clone();
+        v.awaiting = Some(v.seat);
+        v.owed = Some(baylee_core::mana::ManaCost::from_symbol_generic(2));
+        let pending = Pending::Priority {
+            player: v.seat,
+            legal: legal(),
+        };
+        assert!(
+            matches!(
+                agent().act(&v, &pending),
+                PlayerAction::ActivateManaAbility { .. }
+            ),
+            "the seat agreed to pay {{2}} and was handed priority over two \
+             untapped Plains; passing there is how the spell was lost"
+        );
+
+        // Owed {3} with two Plains: the price cannot be reached, so nothing
+        // is tapped. A seat that taps two of the three lands it needs has
+        // lost the mana and the spell both.
+        let mut v = base.clone();
+        v.awaiting = Some(v.seat);
+        v.owed = Some(baylee_core::mana::ManaCost::from_symbol_generic(3));
+        let pending = Pending::Priority {
+            player: v.seat,
+            legal: legal(),
+        };
+        assert_eq!(
+            agent().act(&v, &pending),
+            PlayerAction::PassPriority,
+            "a window the seat cannot afford must cost it nothing more"
+        );
+
+        // The same price, owed by somebody else. Both fields ride in every
+        // view, so a reader taking `owed` without `awaiting` would have this
+        // seat paying for an opponent's window.
+        let mut v = base;
+        v.awaiting = Some(PlayerId::new(1));
+        v.owed = Some(baylee_core::mana::ManaCost::from_symbol_generic(2));
+        let pending = Pending::Priority {
+            player: v.seat,
+            legal: legal(),
+        };
+        assert_eq!(
+            agent().act(&v, &pending),
+            PlayerAction::PassPriority,
+            "this seat is not the one being asked for the payment"
+        );
     }
 
     /// A counterspell printed behind "unless you pay" is a counterspell.
