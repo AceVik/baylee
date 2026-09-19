@@ -662,7 +662,7 @@ fn pool_row(card: &baylee_cards::pool::PoolCard) -> client_core::deckbuilder::Po
         two_faced: card.two_faced,
         scryfall_id: card.scryfall_id.to_string(),
         oracle_id: card.oracle_id.to_string(),
-        alt_names: Vec::new(),
+        alt_names: card.alt_names.clone(),
     }
 }
 
