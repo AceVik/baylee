@@ -31,8 +31,16 @@
 //! would take every click aimed at the table under it. What differs is what
 //! the owner named: the drawer is **centred** and grows as wide as its
 //! sentence, the tray is **right-aligned** and does not grow at all, and the
-//! tray is shorter — [`TRAY_H`] against a drawer that is as tall as what is
+//! tray is shorter — [`STRIP_H`] against a drawer that is as tall as what is
 //! in it.
+//!
+//! There are two of these strips now. [`super::pool`] is the same node with
+//! `left` where this one has `right`, because the owner asked for the mana
+//! pool *as* this — *"Es soll symetrisch zum Tray aussehen nur auf der
+//! linken Seite"* — so [`super::strip_node`] is what both of them spawn and
+//! the four numbers that decide a strip's shape live one level up. This file
+//! keeps only what is the tray's own: the gap between its buttons, the
+//! button's own side, and the icon in it.
 //!
 //! And it differs in one rung of the z-ladder, which is the only place the
 //! likeness had to be broken. The drawer sits at [`Z_LEDGE`], under the
@@ -66,35 +74,6 @@
 #[allow(clippy::wildcard_imports)] // the HUD's own vocabulary
 use super::*;
 
-/// The strip's height.
-///
-/// *"kleiner von der Höhe her"* than the shelf, and this is what that means
-/// arithmetically: a [`BUTTON_H`] button loses the four pixels the shelf
-/// spends on breathing room above and below its own row, and the strip is
-/// that button plus a pixel of padding on each side. It comes out shorter
-/// than [`hand::LEDGE_H`], which is the assertion
-/// `the_tray_is_shorter_than_the_shelf_it_hangs_on` holds.
-const TRAY_H: f32 = BUTTON_H - 4.0 + 2.0 * TRAY_PAD;
-
-/// The strip's own padding, inside its border.
-const TRAY_PAD: f32 = 3.0;
-
-/// How far the strip hangs *into* the shelf below it.
-///
-/// One pixel, so the strip's bottom border and the shelf's lip are one line
-/// rather than two — the drawer overlaps by exactly the same amount and for
-/// the same reason. It is a constant rather than a literal because
-/// [`zones_button_centre`] has to count it: the sheet flies to a point this
-/// far below the band's own bottom edge, and a `- 1.0` written twice is a
-/// point that is right until somebody changes one of them.
-const TRAY_LIP: f32 = 1.0;
-
-/// How far in from the window's right edge the strip stands.
-///
-/// [`EDGE`], the same inset the shelf gives its own two columns, so the tray
-/// and the buttons under it stand on one line down the right of the window.
-const TRAY_RIGHT: f32 = EDGE;
-
 /// The gap between two buttons in the strip.
 ///
 /// There is one button today. The owner has already named the second —
@@ -127,14 +106,6 @@ const FREE_INK: Color = palette::DIALOG_SOFT;
 /// deliberate to anyone who did not take the picture.
 const HELD_INK: Color = palette::LEDGE_DEAD;
 
-/// The strip's corner.
-///
-/// Rounded on the **top two** corners only and square at the bottom, which is
-/// the rule the drawer's panel and the shelf itself already obey: a thing
-/// growing out of the shelf is continuous with it at the join and finished
-/// everywhere else.
-const TRAY_R: f32 = 4.0;
-
 /// The retained strip.
 #[derive(Component)]
 pub struct TrayStrip;
@@ -163,20 +134,8 @@ pub struct StripRevision {
 /// [`super::drawer::root_node`] has for the same reason.
 pub(in crate::hud) fn root_node() -> Node {
     Node {
-        position_type: PositionType::Absolute,
-        // The drawer's overlap, and it has to be the drawer's exactly: the
-        // two hang off one edge and a pixel between them would draw as a step
-        // in the shelf's lip.
-        bottom: px(hand::HAND_ZONE_H - TRAY_LIP),
-        right: px(TRAY_RIGHT),
-        flex_direction: FlexDirection::Row,
-        align_items: AlignItems::Center,
         column_gap: px(TRAY_GAP),
-        height: px(TRAY_H),
-        padding: UiRect::all(px(TRAY_PAD)),
-        border: UiRect::new(px(1), px(1), px(1), px(0)),
-        border_radius: BorderRadius::top(px(TRAY_R)),
-        ..default()
+        ..strip_node(StripSide::Right)
     }
 }
 
@@ -185,19 +144,19 @@ pub(in crate::hud) fn root_node() -> Node {
 /// This is where the dialog goes when it is put away and where it comes back
 /// from — see `hud::tray::reveal_tray`. It is derived from [`root_node`]'s
 /// own numbers rather than stated again, because the two have to agree about
-/// one point on the screen and a second copy of `TRAY_PAD` is exactly how
+/// one point on the screen and a second copy of `STRIP_PAD` is exactly how
 /// they would stop agreeing.
 ///
 /// The band is the rectangle `hud::band_of` returns: the window, less
 /// [`EDGE`] at the top and the hand zone at the bottom. So the strip's height
 /// is measured **up from the band's bottom edge**, which is the same edge the
 /// shelf's lip stands on — the strip overlaps it by a pixel and the button
-/// sits [`TRAY_PAD`] inside that. Horizontally the band *is* the window, so
+/// sits [`STRIP_PAD`] inside that. Horizontally the band *is* the window, so
 /// the button's centre is its own inset from the right.
 ///
 /// It is the button's middle and not the strip's, because the strip is a row
 /// that will grow more buttons and the sheet belongs to this one. With one
-/// button today the two happen to differ by [`TRAY_PAD`], which is a
+/// button today the two happen to differ by [`STRIP_PAD`], which is a
 /// coincidence and not a shortcut worth taking.
 ///
 /// The one place it is wrong is a window too short for `Placement::MIN_H`,
@@ -207,8 +166,8 @@ pub(in crate::hud) fn root_node() -> Node {
 /// slightly crooked flight and nothing else.
 pub(in crate::hud) fn zones_button_centre(band: (f32, f32)) -> Vec2 {
     Vec2::new(
-        band.0 - TRAY_RIGHT - TRAY_PAD - TRAY_BTN / 2.0,
-        band.1 - (TRAY_H - TRAY_LIP) + TRAY_PAD + TRAY_BTN / 2.0,
+        band.0 - EDGE - STRIP_PAD - TRAY_BTN / 2.0,
+        band.1 - (STRIP_H - STRIP_LIP) + STRIP_PAD + TRAY_BTN / 2.0,
     )
 }
 
@@ -376,7 +335,7 @@ mod tests {
         // strip is drawn *around* a control, so the bound is two-sided for
         // the reason every measurement in this client is.
         assert!(
-            h >= TRAY_BTN + 2.0 * TRAY_PAD,
+            h >= TRAY_BTN + 2.0 * STRIP_PAD,
             "a {TRAY_BTN}px button does not fit in {h}px of strip"
         );
     }
@@ -469,12 +428,12 @@ mod tests {
         };
 
         // Where the layout puts the button, from the window's own edges.
-        let want_x = BAND.0 - right - TRAY_PAD - TRAY_BTN / 2.0;
+        let want_x = BAND.0 - right - STRIP_PAD - TRAY_BTN / 2.0;
         // `bottom` is measured up from the window's bottom edge and the band
         // stops `hand::HAND_ZONE_H` above it, so the strip's own top is this
         // far down the band.
         let strip_top = BAND.1 - (bottom - hand::HAND_ZONE_H) - height;
-        let want_y = strip_top + TRAY_PAD + TRAY_BTN / 2.0;
+        let want_y = strip_top + STRIP_PAD + TRAY_BTN / 2.0;
 
         let got = zones_button_centre(BAND);
         assert!(
@@ -488,7 +447,7 @@ mod tests {
         // zero: the button is inside the band, near its bottom-right corner,
         // and not at the origin a defaulted `Vec2` would give.
         assert!(
-            got.x > BAND.0 * 0.9 && got.y > BAND.1 - TRAY_H,
+            got.x > BAND.0 * 0.9 && got.y > BAND.1 - STRIP_H,
             "the tray is bottom-right and this is {got:?} in a {BAND:?} band"
         );
     }

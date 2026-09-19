@@ -207,7 +207,13 @@ pub(super) fn spawn_ledge(
 }
 
 /// What [`sync_ledge`] leaves alone: everything the shelf was spawned with.
-type Retained = Or<(With<pool::PoolColumn>, With<LedgeCast>)>;
+///
+/// One marker rather than two since the mana pool left this node for a strip
+/// of its own ([`pool`]). It stays an alias, and stays a one-armed `Or`,
+/// because the shelf has spawned something a rebuild must not touch twice
+/// already and the next one should be a name added here rather than a filter
+/// rewritten at the query.
+type Retained = Or<(With<LedgeCast>,)>;
 
 /// One of the shelf's two casts, so the rebuild leaves them where they are.
 ///
@@ -375,6 +381,93 @@ pub(super) const BUTTON_H: f32 = 28.0;
 /// The shelf's arithmetic, as one statement rather than four comments.
 const _: () = assert!(LEDGE_PAD_Y * 2.0 + BUTTON_H == hand::LEDGE_H);
 
+// ------------------------------------------------------ the two attachments
+//
+// [`tray`] hangs off the shelf's right end and [`pool`] off its left, and the
+// owner asked for the second in terms of the first: *"Es soll symetrisch zum
+// Tray aussehen nur auf der linken Seite"* (19.09.2026). Symmetry is a
+// property of two things, so the four numbers that decide the shape of a
+// strip are here rather than in either of them — a copy in the second file
+// would be symmetric on the day it was typed and only then. They were
+// [`tray`]'s own until the second strip existed, which is why their reasons
+// are written in the tray's terms.
+
+/// A strip's height.
+///
+/// *"kleiner von der Höhe her"* than the shelf, and this is what that means
+/// arithmetically: a [`BUTTON_H`] button loses the four pixels the shelf
+/// spends on breathing room above and below its own row, and the strip is
+/// that button plus a pixel of padding on each side. It comes out shorter
+/// than [`hand::LEDGE_H`], which is the assertion
+/// `the_tray_is_shorter_than_the_shelf_it_hangs_on` holds.
+const STRIP_H: f32 = BUTTON_H - 4.0 + 2.0 * STRIP_PAD;
+
+/// A strip's own padding, inside its border.
+const STRIP_PAD: f32 = 3.0;
+
+/// How far a strip hangs *into* the shelf below it.
+///
+/// One pixel, so the strip's bottom border and the shelf's lip are one line
+/// rather than two — the drawer overlaps by exactly the same amount and for
+/// the same reason. It is a constant rather than a literal because
+/// [`tray::zones_button_centre`] has to count it: the sheet flies to a point
+/// this far below the band's own bottom edge, and a `- 1.0` written twice is
+/// a point that is right until somebody changes one of them.
+const STRIP_LIP: f32 = 1.0;
+
+/// A strip's corner.
+///
+/// Rounded on the **top two** corners only and square at the bottom, which is
+/// the rule the drawer's panel and the shelf itself already obey: a thing
+/// growing out of the shelf is continuous with it at the join and finished
+/// everywhere else.
+const STRIP_R: f32 = 4.0;
+
+/// Which end of the shelf a strip hangs off.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+enum StripSide {
+    /// The mana pool's.
+    Left,
+    /// The tray's.
+    Right,
+}
+
+/// Where a strip hangs off the shelf, and how far in from the window's edge.
+///
+/// The one node both attachments spawn, so the two cannot drift apart in the
+/// four ways that would be visible: a different height, a different overlap
+/// with the lip, a different corner, or a different inset. The inset is
+/// [`EDGE`] on **both** sides and is therefore not a parameter — that is the
+/// whole of the symmetry, and a strip that could be given its own would be a
+/// strip that could stop being symmetric without anybody editing this line.
+fn strip_node(side: StripSide) -> Node {
+    let inset = px(EDGE);
+    Node {
+        position_type: PositionType::Absolute,
+        // The drawer's overlap, and it has to be the drawer's exactly: the
+        // three hang off one edge and a pixel between them would draw as a
+        // step in the shelf's lip.
+        bottom: px(hand::HAND_ZONE_H - STRIP_LIP),
+        left: if side == StripSide::Left {
+            inset
+        } else {
+            Val::Auto
+        },
+        right: if side == StripSide::Right {
+            inset
+        } else {
+            Val::Auto
+        },
+        flex_direction: FlexDirection::Row,
+        align_items: AlignItems::Center,
+        height: px(STRIP_H),
+        padding: UiRect::all(px(STRIP_PAD)),
+        border: UiRect::new(px(1), px(1), px(1), px(0)),
+        border_radius: BorderRadius::top(px(STRIP_R)),
+        ..default()
+    }
+}
+
 // ------------------------------------------------------- what stands on it
 //
 // Three absolutely positioned children rather than one flex row with
@@ -505,51 +598,103 @@ const BUTTON_PAD_X: f32 = 10.0;
 /// and this is what a 13-point line is given of it.
 const BUTTON_PAD_Y: f32 = 4.0;
 
-/// What the left column takes: the mana pool at its widest.
+/// What the left of the shelf takes: the hand's sorting buttons, at the
+/// window's own edge.
 ///
-/// **Reserved rather than followed**, and at the *worst* case: the label, six
-/// entries and the gaps between them, plus [`EDGE`]. §2.3 refuses to centre
-/// the question between its neighbours precisely so that it does not move
-/// when a mana pip arrives, and a reservation that followed the pool would be
-/// that refusal undone one level down: the question would hold still against
-/// its neighbour's *edge* and wander with its contents instead.
+/// It was the mana pool's worst case, 365 px of label and six entries, until
+/// the owner moved the pool off this shelf and put these in its place —
+/// *"Dafür verschiebe die Hand Sorting Buttons in der Actions-Bar ganz nach
+/// links und mache sie etwas kleiner"* (19.09.2026). The tools used to stand
+/// at `LEFT_RESERVED` with their own measured width added on top of it; now
+/// they start at [`EDGE`] and this is the whole of the left column.
 ///
-/// The number is **measured**, which is §10.1 item 3's acceptance and is the
-/// one place it changed something. §2.3 estimated 325 from `0.52 × pt` per
-/// character; the shipped face and this row's own padding give
+/// **Reserved rather than followed**, still, and that is not the same
+/// argument it was. §2.3 refuses to centre the question between its
+/// neighbours so that it does not move when a mana pip arrives; the pool's
+/// contents changed *inside* one question and a reservation that followed
+/// them would have been that refusal undone one level down. These do not.
+/// What changes this row's width is the interface language and whether the
+/// window is wide enough for all five buttons, neither of which can move
+/// while a question stands — so reserving the wider language is caution and
+/// no longer a requirement.
 ///
-/// ```text
-///   EDGE                                        12.0
-///   "Manavorrat", Medium 11 × UI_SCALE          60.5   (estimated 57)
-///   label gap                                   10.0
-///   6 entries: 1 + 3 + 16 + 4 + 14.0 + 3 + 1   252.1   (estimated 6 × 36)
-///   5 gaps between them                         30.0
-///                                              ─────
-///                                              364.6
-/// ```
+/// The number is **measured**, as its predecessor was, because
+/// [`super::text_width`] is an estimator that was four pixels low on the
+/// pool's own label — and it is measured in two halves, because the client
+/// draws one language at a time. The German row was photographed at 1728 and
+/// runs from [`EDGE`] to 281.0, so it is **269.0** wide; the five labels'
+/// own widths came out of the shipped `AlegreyaSans-Bold` at the pixel size
+/// this row sets it (`TOOL_PT` × [`super::UI_SCALE`]), where English is 14.5
+/// wider than German across the five. 269.0 + 14.5 is 283.5 and this rounds
+/// up.
 ///
-/// The estimator was four pixels low on the label and the design's per-entry
-/// figure had left out the restriction rim's own padding. Under-reserving is
-/// the one direction that costs something: `arrange` slides the question to
-/// clear *this* number, so a column wider than it says crowds the question by
-/// the difference. The German label is the wider of the two languages (the
-/// English "Mana pool" is 54.7) and a two-digit count is not covered — `×12`
-/// is 6.8 px wider than `×8`, and six kinds of mana in double figures is
-/// past what a duel does.
+/// English is the wider of the two here, which is the opposite way round from
+/// [`RIGHT_RESERVED`]: "Draw order" is 10.6 px wider than "Zugfolge" and
+/// "Type" 5.6 wider than "Typ", against "Color" saving 1.8 on "Farbe".
+const TOOLS_WIDE: f32 = 284.0;
+
+/// The same row when the window is too narrow for all five, and one button
+/// cycles through the orders instead.
 ///
-/// Six is §2.3's worst case and it is the count of mana *colours*, colourless
-/// included. [`baylee_client_core::manapool::row`] lists restricted mana as
-/// entries of its own after the plain ones (CR 106.6), so a seat floating
-/// both kinds of one colour has more than six, and the column then grows past
-/// its reservation and under the question instead of being clipped. Noted
-/// rather than solved: reaching it takes seven sources of mana in one window,
-/// one of them restricted, with none of it spent.
-const LEFT_RESERVED: f32 = 365.0;
+/// Its label is the longest of the five wearing `Hand: … ›`, so it is wider
+/// than any single button of the wide row and narrower than two of them.
+/// `Hand: Draw order ›` sets 89.8 wide in the same face at the same size, and
+/// what a button puts around its label — two borders, the air either side,
+/// the step to the mark and the mark itself — measured 23.2 to 25.7 across
+/// the five photographed buttons, the spread being the marks' own advances.
+/// The widest of those is the one to reserve: 89.8 + 25.7, rounded up.
+const TOOLS_NARROW: f32 = 116.0;
+
+/// What the left column takes at this width, [`EDGE`] included.
+///
+/// The threshold is [`sync_ledge`]'s own — a window at least 1400 px wide is
+/// given all five buttons — and it is written in both places rather than
+/// passed, because the row is *built* there and *reserved* here and a
+/// parameter would only make it look as though one of them decided.
+fn tools_reserved(window_w: i32) -> f32 {
+    EDGE + if window_w >= WIDE_ENOUGH_FOR_FIVE {
+        TOOLS_WIDE
+    } else {
+        TOOLS_NARROW
+    }
+}
+
+/// How wide a window has to be before the hand is sorted by five buttons
+/// rather than by one that cycles.
+const WIDE_ENOUGH_FOR_FIVE: i32 = 1400;
+
+/// How tall one of those buttons is.
+///
+/// *"und mache sie etwas kleiner"*, which is a comparison and needs the thing
+/// it is smaller **than**: [`BUTTON_H`], the height of anything a player
+/// presses on this shelf. These are the one row here that is not an answer to
+/// the question — a standing preference, set once and read at a glance — so
+/// they are the one row allowed under that height. Eight pixels of it, which
+/// is twice what a strip's own button gives up ([`STRIP_H`] takes four) — the
+/// strip is still a control the player presses and this row is a label they
+/// read, so the two are smaller than a button for different amounts and for
+/// different reasons.
+const TOOL_H: f32 = BUTTON_H - 8.0;
+
+/// A sorting button's own air, left and right of its contents.
+const TOOL_PAD_X: f32 = 5.0;
+
+/// Between the mark and the word it belongs to.
+const TOOL_MARK_GAP: f32 = 3.0;
+
+/// And between two of the buttons.
+const TOOL_GAP: f32 = 3.0;
+
+/// The size a sorting button's word is set at.
+const TOOL_PT: f32 = 10.0;
+
+/// And its mark, which is a picture and carries the smaller of the two.
+const TOOL_MARK_PT: f32 = 9.0;
 
 /// The same for the right column: two buttons, the gap between them and the
 /// edge.
 ///
-/// **Measured** like [`LEFT_RESERVED`] and for the same reason — `arrange`
+/// **Measured** like [`TOOLS_WIDE`] and for the same reason — `arrange`
 /// slides the question to clear what it is told the neighbours take, so a
 /// column wider than it says crowds the question by the difference. §2.3
 /// estimated 214; the shipped Bold at 13 points gives
@@ -694,12 +839,13 @@ pub fn sync_ledge(
     *revision = next;
 
     for child in standing.into_iter().flatten() {
-        // Everything the shelf was not spawned with. `ledge/pool.rs` says why
-        // the pool's column is exempt: mana arrives and is spent *inside* one
-        // question, and §4.1 wants that drawn arriving, which takes an entity
-        // that outlives this rebuild. The two casts are exempt because they
-        // are the shelf's own elevation and answer to nothing this system
-        // knows about.
+        // Everything the shelf was not spawned with. The two casts are
+        // exempt because they are the shelf's own elevation and answer to
+        // nothing this system knows about. The mana pool used to be the third
+        // and is no longer a child of this node at all — see `ledge/pool.rs`,
+        // which says why it had to outlive this rebuild long before it became
+        // a strip: mana arrives and is spent *inside* one question, and §4.1
+        // wants that drawn arriving.
         if retained.get(*child).is_err() {
             commands.entity(*child).despawn();
         }
@@ -709,9 +855,9 @@ pub fn sync_ledge(
         .spawn((
             Node {
                 position_type: PositionType::Absolute,
-                left: px(LEFT_RESERVED),
+                left: px(EDGE),
                 top: px(LEDGE_PAD_Y - LIP + 2.0),
-                column_gap: px(4),
+                column_gap: px(TOOL_GAP),
                 align_items: AlignItems::Center,
                 ..default()
             },
@@ -719,13 +865,13 @@ pub fn sync_ledge(
         ))
         .id();
     commands.entity(shelf).add_child(tools);
-    let orders = if window_w >= 1400 {
+    let orders = if window_w >= WIDE_ENOUGH_FOR_FIVE {
         crate::hand_order::HandOrder::ALL.to_vec()
     } else {
         vec![duel.hand_order]
     };
     for order in orders {
-        let label = if window_w >= 1400 {
+        let label = if window_w >= WIDE_ENOUGH_FOR_FIVE {
             order.label(lang).to_string()
         } else {
             format!("Hand: {} ›", order.label(lang))
@@ -737,7 +883,7 @@ pub fn sync_ledge(
         };
         let button = hand_tool(&mut commands, &fonts, &label, order, weight);
         commands.entity(button).insert(MenuButton {
-            action: MenuAction::SortHand(if window_w >= 1400 {
+            action: MenuAction::SortHand(if window_w >= WIDE_ENOUGH_FOR_FIVE {
                 order
             } else {
                 order.next()
@@ -783,7 +929,7 @@ pub fn sync_ledge(
     let arrangement = baylee_client_core::ledge::arrange(
         window_w as f32,
         baylee_client_core::ledge::Columns {
-            left: LEFT_RESERVED + if window_w >= 1400 { 310.0 } else { 145.0 },
+            left: tools_reserved(window_w),
             mid,
             right: RIGHT_RESERVED,
         },
@@ -796,10 +942,9 @@ pub fn sync_ledge(
     layout.mid_x = arrangement.mid_x;
     layout.window_w = window_w;
 
-    // Two, not three. The left column is `pool::PoolColumn` and is retained:
-    // it was spawned with the shelf, the despawn above skipped it, and it
-    // fills itself against a revision of its own so an arriving mana can be
-    // drawn arriving. See `ledge/pool.rs`.
+    // Two, not three. The left column is gone: the mana pool hangs off the
+    // shelf's left end as a strip of its own now, a child of the overlay's
+    // root rather than of this node. See `ledge/pool.rs`.
     let columns = [
         column_node(Side::Mid(arrangement.mid_x, window_w)),
         column_node(Side::Right),
@@ -902,10 +1047,10 @@ fn hand_tool(
     let button = commands
         .spawn((
             Node {
-                height: px(24),
+                height: px(TOOL_H),
                 align_items: AlignItems::Center,
-                column_gap: px(4),
-                padding: UiRect::axes(px(6), px(2)),
+                column_gap: px(TOOL_MARK_GAP),
+                padding: UiRect::axes(px(TOOL_PAD_X), px(1)),
                 border: UiRect::all(px(1)),
                 border_radius: BorderRadius::all(px(3)),
                 ..default()
@@ -920,7 +1065,7 @@ fn hand_tool(
     let icon = commands
         .spawn((
             Text::new(mark.to_string()),
-            table_icon_tf(fonts, mark, 10.0),
+            table_icon_tf(fonts, mark, TOOL_MARK_PT),
             TextColor(ink),
             Pickable::IGNORE,
         ))
@@ -928,7 +1073,7 @@ fn hand_tool(
     let label = commands
         .spawn((
             Text::new(label),
-            tf_bold(fonts, 11.0),
+            tf_bold(fonts, TOOL_PT),
             TextLayout::no_wrap(),
             TextColor(ink),
             Pickable::IGNORE,
@@ -1157,7 +1302,6 @@ fn keys_for(
 
 /// Which of the three columns a node is, and where its centre goes.
 enum Side {
-    Left,
     /// The middle, with the centre [`baylee_client_core::ledge::arrange`] put
     /// it on and the width of the window it was measured against.
     Mid(f32, i32),
@@ -1182,13 +1326,6 @@ fn column_node(side: Side) -> impl Bundle {
         ..default()
     };
     match side {
-        Side::Left => {
-            node.left = px(EDGE);
-            node.justify_content = JustifyContent::Start;
-            // The pool's own step, not the sentence's: these are entries in
-            // one row rather than two things standing next to each other.
-            node.column_gap = px(POOL_ENTRY_GAP);
-        }
         Side::Right => {
             node.right = px(EDGE);
             node.justify_content = JustifyContent::End;
@@ -1977,5 +2114,111 @@ mod tests {
             vec![None],
             "no key ends the autopilot, so the same button wears no cap"
         );
+    }
+
+    /// The two attachments are one shape, and the *only* thing that differs
+    /// is which end they hang off.
+    ///
+    /// The owner asked for the mana pool as the tray — *"Es soll symetrisch
+    /// zum Tray aussehen nur auf der linken Seite"* — and symmetry is the
+    /// kind of claim that is true on the day it is typed and quietly stops
+    /// being true afterwards: a strip a pixel taller or a corner rounder than
+    /// its twin reads as a mistake and fails nothing. Both sides of the
+    /// assertion are needed and they are different assertions. That the four
+    /// shared numbers agree is what a copied constant would break; that each
+    /// strip's *own* side is at [`EDGE`] and its other side is `Auto` is what
+    /// a strip drawn from the wrong variant would break, and the first would
+    /// pass right through it.
+    #[test]
+    fn the_two_strips_are_one_shape_hung_off_two_ends() {
+        let left = strip_node(StripSide::Left);
+        let right = strip_node(StripSide::Right);
+
+        assert_eq!(left.height, right.height, "one strip is taller");
+        assert_eq!(left.bottom, right.bottom, "one strip sits deeper");
+        assert_eq!(left.padding, right.padding, "one strip is packed tighter");
+        assert_eq!(left.border, right.border, "one strip is outlined harder");
+        assert_eq!(
+            left.border_radius, right.border_radius,
+            "one strip is rounder"
+        );
+
+        assert_eq!(left.left, px(EDGE), "the pool is not against its margin");
+        assert_eq!(left.right, Val::Auto, "the pool is pinned at both ends");
+        assert_eq!(right.right, px(EDGE), "the tray is not against its margin");
+        assert_eq!(right.left, Val::Auto, "the tray is pinned at both ends");
+    }
+
+    /// The left column reserves at least what it draws, in either language.
+    ///
+    /// [`TOOLS_WIDE`] and [`TOOLS_NARROW`] are measured in the running client
+    /// and a measurement cannot be re-taken here, so this is the bound either
+    /// side of it: a **floor** from the row's own arithmetic, because
+    /// under-reserving is the direction that costs something — `arrange`
+    /// slides the question to clear what it is told the neighbours take, so a
+    /// row wider than it says crowds the question by the difference — and a
+    /// ceiling, because a floor alone is passed by any number large enough
+    /// and the whole point of this change was that the left column got
+    /// smaller.
+    ///
+    /// The floor deliberately leaves the mark out. [`super::text_width`] is
+    /// an estimator for the *text* faces and knows nothing about the icon
+    /// font's advances, so counting a guess at them would put a guess on the
+    /// strict side of an assertion. What is left is still the larger half and
+    /// still moves with every edit that matters: another button, a longer
+    /// label, a bigger [`TOOL_PT`].
+    #[test]
+    #[allow(clippy::cast_precision_loss)] // five buttons, counted
+    fn the_hand_tools_reserve_at_least_the_row_they_draw() {
+        use crate::hand_order::HandOrder;
+        use baylee_client_core::i18n::Lang;
+
+        // What one button costs before its mark and its word: two borders,
+        // the air either side, and the step from the mark to the word.
+        let furniture = 2.0 + 2.0 * TOOL_PAD_X + TOOL_MARK_GAP;
+
+        for lang in [Lang::De, Lang::En] {
+            let wide: f32 = HandOrder::ALL
+                .iter()
+                .map(|order| furniture + super::text_width(order.label(lang), TOOL_PT, true))
+                .sum::<f32>()
+                + TOOL_GAP * (HandOrder::ALL.len() - 1) as f32;
+            assert!(
+                TOOLS_WIDE >= wide,
+                "{lang:?}: five sorting buttons draw at least {wide:.1} and \
+                 {TOOLS_WIDE} is reserved for them, so the question is \
+                 crowded by the difference"
+            );
+            assert!(
+                TOOLS_WIDE <= wide * 1.7,
+                "{lang:?}: {TOOLS_WIDE} is reserved against a row of at most \
+                 {wide:.1} plus its marks — a reservation that generous is \
+                 not a measurement any more"
+            );
+
+            // And the narrow row, whose one button wears the longest of the
+            // five labels inside `Hand: … ›`.
+            let narrow = HandOrder::ALL
+                .iter()
+                .map(|order| {
+                    furniture
+                        + super::text_width(
+                            &format!("Hand: {} \u{203a}", order.label(lang)),
+                            TOOL_PT,
+                            true,
+                        )
+                })
+                .fold(0.0_f32, f32::max);
+            assert!(
+                TOOLS_NARROW >= narrow,
+                "{lang:?}: the cycling button draws at least {narrow:.1} and \
+                 {TOOLS_NARROW} is reserved for it"
+            );
+            assert!(
+                TOOLS_NARROW <= narrow * 1.7,
+                "{lang:?}: {TOOLS_NARROW} is reserved against a button of at \
+                 most {narrow:.1} plus its mark"
+            );
+        }
     }
 }

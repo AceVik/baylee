@@ -1834,7 +1834,7 @@ pub struct CardMotion<'w> {
 /// stands at bevy's sixteen-parameter ceiling and a seventeenth fails at
 /// every `.before()` that names it rather than where it is written.
 ///
-/// The pair exists because a rebuild is no longer a clean sweep.
+/// The set exists because a rebuild is no longer a clean sweep.
 /// [`HudRevision`] counts the hover, so the tree is torn down whenever the
 /// pointer moves; [`ledge::LedgeShelf`] is the one node that must not be, and
 /// its doc comment has the whole reason. So the root is kept, its children
@@ -1865,9 +1865,16 @@ pub struct OverlayTree<'w, 's> {
     /// The tray, kept for the drawer's argument exactly: it is spawned once
     /// beside the shelf and its whole job is to be there whether or not
     /// anything else is. A fifth query and not an `Or`, for this struct's
-    /// standing reason — five things survive the sweep for five arguments,
-    /// and a reader should have to see each one.
+    /// standing reason — six things survive the sweep for six arguments, and
+    /// a reader should have to see each one.
     pub(crate) tray: Query<'w, 's, Entity, With<ledge::tray::TrayStrip>>,
+    /// The mana pool's strip, which is the tray's mirror on the left. A sixth
+    /// query for an argument that is *older* than the tray's and was simply
+    /// made one level down before: it held a place among the shelf's own
+    /// children, and moving it out here to be symmetric moved which sweep it
+    /// has to survive. A mana that arrives is drawn arriving, which takes an
+    /// entity that outlives the question it arrived during.
+    pub(crate) pool: Query<'w, 's, Entity, With<ledge::pool::PoolStrip>>,
 }
 
 /// The zone dialog's own nodes, and the root they hang from.

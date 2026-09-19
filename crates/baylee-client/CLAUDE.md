@@ -656,11 +656,21 @@ on the stack is independent of its source (CR 113.7a).
 `hud::ledge` despawns every child of the Actions Bar on each sentence, so
 anything that has to survive a change of question hangs beside it rather than
 in it: the **drawer** (`ledge::drawer`, centred, grows upward, carries the
-pick hint and the stepper), the **mana pool** (`ledge::pool`, retained so a
-pip that arrives can be seen arriving), and the **tray** (`ledge::tray`,
-right-aligned, shorter, one button today and room for more). Each has a
-revision counter of its own for the same reason: two things change on
-different clocks and one counter would have to lie about one of them.
+pick hint and the stepper), the **tray** (`ledge::tray`, right-aligned,
+shorter, one button today and room for more) and the **mana pool**
+(`ledge::pool`, the tray's mirror on the left — retained so a pip that
+arrives can be seen arriving). Each has a revision counter of its own for the
+same reason: two things change on different clocks and one counter would have
+to lie about one of them.
+
+The two strips are one node: `ledge::strip_node` decides the height, the
+pixel of overlap with the shelf's lip, the corner and the `EDGE` inset, and
+each side supplies only which end it hangs off. The owner asked for the pool
+*as* the tray — *"Es soll symetrisch zum Tray aussehen nur auf der linken
+Seite"* — and a second copy of those four numbers would be symmetric only on
+the day it was typed. What is left on the shelf's left is the hand's sorting
+buttons, moved to `EDGE` and shrunk to `TOOL_H`; `LEFT_RESERVED` is gone and
+`tools_reserved(window_w)` is what `arrange` is fed.
 
 The tray is the zone dialog's door, and `hud::tray` is **not** the tray —
 that module is the dialog itself and its name predates the owner's word.

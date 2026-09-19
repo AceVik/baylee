@@ -350,6 +350,7 @@ pub fn sync_overlay(
                 && !tree.veil.contains(*child)
                 && !tree.panel.contains(*child)
                 && !tree.tray.contains(*child)
+                && !tree.pool.contains(*child)
             {
                 commands.entity(*child).despawn();
             }
@@ -379,12 +380,7 @@ pub fn sync_overlay(
         // is that the zone's height never changes.
         let ledge = ledge::spawn_ledge(&mut commands, rail);
         commands.entity(root).add_child(ledge);
-        // The pool's column is the shelf's one retained child — it is where a
-        // mana arriving is drawn arriving, and `sync_ledge` despawns the
-        // other two on every rebuild. See [`ledge::pool`].
-        let pool = ledge::pool::spawn_pool_column(&mut commands);
-        commands.entity(ledge).add_child(pool);
-        // And the drawer's node, for the same two reasons: it outlives every
+        // The drawer's node, which outlives every
         // rebuild this system does, and what fills it is not any of this
         // system's business. See [`ledge::drawer`].
         let drawer = ledge::drawer::spawn_drawer_root(&mut commands);
@@ -395,6 +391,14 @@ pub fn sync_overlay(
         // owner asked for a button that is always there. See [`ledge::tray`].
         let tray = ledge::tray::spawn_tray_strip(&mut commands);
         commands.entity(root).add_child(tray);
+        // And the mana pool, which is the tray's mirror down to the node the
+        // two of them spawn — it hangs off the shelf's left end instead. It
+        // was a retained *column on* the shelf until the owner asked for the
+        // symmetry; it has always had to outlive this rebuild, because a mana
+        // arriving is drawn arriving and a question changes under it.
+        // See [`ledge::pool`].
+        let pool = ledge::pool::spawn_pool_strip(&mut commands);
+        commands.entity(root).add_child(pool);
         root
     };
 
@@ -1686,6 +1690,7 @@ mod tests {
                 With<TableVeil>,
                 With<TrayBand>,
                 With<ledge::tray::TrayStrip>,
+                With<ledge::pool::PoolStrip>,
             )>>();
             q.iter(app.world()).collect::<Vec<_>>()
         };
@@ -1771,8 +1776,9 @@ mod tests {
         assert_eq!(was_root.len(), 1, "and one root to hang them off");
         assert_eq!(
             was_standing.len(),
-            4,
-            "mana, hand tools, answers, and game controls"
+            3,
+            "hand tools, answers, and game controls — the mana pool left this \
+             node for a strip of its own"
         );
         assert!(
             !was_redrawn.is_empty(),
@@ -2273,34 +2279,39 @@ mod tests {
         duel
     }
 
-    /// The mana pool is a place on the shelf, not a badge that comes and goes.
+    /// The mana pool is a badge again, and this time on purpose.
     ///
-    /// Three claims in one, and the first is the one that changed. The chip
-    /// this replaces was drawn only "while the seat has something to answer",
-    /// so at every opponent's priority the label blinked out — movement in
-    /// the corner of the eye carrying no information at all. AX §4.1 keeps it
-    /// standing, because a reserved column costs nothing to leave occupied
-    /// where a floating box cost the table a piece of itself.
+    /// The turn is the point of the test, so it is written down rather than
+    /// swapped out. The chip this began as was drawn "while the seat has
+    /// something to answer" and blinked out at every opponent's priority,
+    /// which AX §4.1 called movement carrying no information; the column that
+    /// replaced it stood always, on the argument that the shelf's left edge
+    /// was reserved whatever was on it. Off the shelf that argument has
+    /// nothing left to rest on, and the owner asked for the other rule back
+    /// on its own terms — *"Es ist hidden, wenn kein Mana im Mana Pool ist
+    /// und ist nur dann sichtbar, wenn dort Mana drin ist"*. What is not the
+    /// chip's rule is the **condition**: it comes and goes with the *mana*
+    /// and not with whose priority it is, so a watching seat holding mana
+    /// still sees it, which is the case this test opens with.
     ///
-    /// Then: an empty pool is an em dash and not six zeroes, and mana in it
-    /// is a numeral beside a disc rather than a row of discs to count.
+    /// Then the two claims that did not turn: mana in it is a numeral beside
+    /// a disc rather than a row of discs to count, and a restricted mana is
+    /// an entry of its own (CR 106.6).
     #[test]
-    fn the_mana_pool_is_a_place_and_not_a_badge() {
+    fn the_mana_pool_is_drawn_only_while_something_is_floating() {
         let label = Phrase::ManaPool.text(Lang::En).to_string();
-        let dash = "\u{2014}".to_string();
 
         let mut watching = bar_of(duel_watching());
-        let lines = said(&mut watching);
         assert!(
-            lines.contains(&label),
-            "the pool keeps its place while this seat waits: {lines:?}"
+            !strip_is_shown(&mut watching),
+            "nothing is floating, so there is no strip to read"
         );
         assert!(
-            lines.contains(&dash),
-            "nothing floating is one fact, written once: {lines:?}"
+            !said(&mut watching).contains(&"\u{2014}".to_string()),
+            "the em dash the strip replaces is gone, not merely hidden"
         );
 
-        // And with mana in it the dash is gone and the count is a numeral.
+        // And with mana in it the strip is up and the count is a numeral.
         let mut duel = duel_watching();
         {
             let view = duel.view.as_mut().expect("the seat has a view");
@@ -2316,16 +2327,28 @@ mod tests {
         }
         crate::rebuild_board(&mut duel);
         let mut floating = bar_of(duel);
+        assert!(
+            strip_is_shown(&mut floating),
+            "this seat is still only watching, and it is holding mana: the \
+             strip follows the pool and not the priority"
+        );
         let lines = said(&mut floating);
+        assert!(
+            lines.contains(&label),
+            "the strip says what it is once it is up: {lines:?}"
+        );
         assert!(
             lines.contains(&"\u{00d7}3".to_string()) && lines.contains(&"\u{00d7}1".to_string()),
             "three green and one restricted white, as numerals: {lines:?}"
         );
-        assert!(
-            !lines.contains(&dash),
-            "the dash stands *instead of* the entries, not beside them: \
-             {lines:?}"
-        );
+    }
+
+    /// Whether the mana pool's strip is drawn at all.
+    fn strip_is_shown(app: &mut App) -> bool {
+        let mut q = app
+            .world_mut()
+            .query_filtered::<&Visibility, With<ledge::pool::PoolStrip>>();
+        q.iter(app.world()).any(|seen| *seen != Visibility::Hidden)
     }
 
     /// The shelf stands off the table above it and off the hand below it, and
@@ -2468,12 +2491,65 @@ mod tests {
             pool_entries(&mut app).is_empty(),
             "a spent mana leaves, rather than being left behind"
         );
-        // And the em dash waits for it: one more frame, because the row can
-        // only say "nothing floating" once nothing is on it saying otherwise.
+        // And the strip waits for it: one more frame, because it can only go
+        // away once nothing is standing on it.
         app.update();
         assert!(
-            said(&mut app).contains(&"\u{2014}".to_string()),
-            "the empty pool says so again once the last pip has gone"
+            !strip_is_shown(&mut app),
+            "the strip goes with the last pip, rather than standing empty"
+        );
+    }
+
+    /// And it survives the *other* rebuild, which is the one the strip moved
+    /// under.
+    ///
+    /// The test above changes the sentence, which rebuilds the shelf; this
+    /// one moves the pointer, which is what [`HudRevision`] counts and what
+    /// tears down every child of the root. While the pool was a column on the
+    /// shelf those were the same claim made twice, and the exemption that
+    /// mattered was `sync_ledge`'s. The strip hangs off the root now, so the
+    /// exemption that matters is `sync_overlay`'s own sweep — a different
+    /// list, in a different file, that nothing else here would notice the
+    /// absence of: a pool rebuilt on every pointer move still *draws*, and
+    /// only the pop and the fade are lost, which no test that reads the row
+    /// can see.
+    ///
+    /// The second assertion is the counter-test, and it is the same one the
+    /// sweep's own test makes: the root really did rebuild between the two
+    /// readings, so an entry that came through came through something.
+    #[test]
+    fn a_floating_mana_survives_the_pointer_crossing_a_card() {
+        let mut app = bar_of(pool_of(1, "one"));
+        let first = pool_entries(&mut app);
+        assert_eq!(first.len(), 1, "one colour is floating, so one entry");
+
+        // The counter-test, hung under the root by hand. A watching seat with
+        // one mana and nothing else draws *nothing* of its own up there — the
+        // hand, the stack and the preview are all absent — so "the nodes that
+        // were rebuilt" is an empty list on both sides of the update and
+        // proves nothing at all. A node the sweep has never been told about
+        // is the witness instead: it is gone afterwards exactly when the
+        // sweep ran, which is the premise, and the strip beside it came
+        // through the same sweep, which is the claim.
+        let root = {
+            let mut q = app.world_mut().query_filtered::<Entity, With<HudRoot>>();
+            q.single(app.world()).expect("one overlay root")
+        };
+        let decoy = app.world_mut().spawn(Node::default()).id();
+        app.world_mut().entity_mut(root).add_child(decoy);
+
+        app.world_mut().resource_mut::<Duel>().hovered = Some(ObjectId::new(1, 0));
+        app.update();
+
+        assert!(
+            app.world().get_entity(decoy).is_err(),
+            "this test's premise is that the root was swept under it"
+        );
+        assert_eq!(
+            pool_entries(&mut app),
+            first,
+            "the pointer moved and the mana was rebuilt with the overlay, so \
+             the pop and the fade have nothing left to animate"
         );
     }
 
@@ -2482,7 +2558,7 @@ mod tests {
     ///
     /// The sentence is a parameter because the pool's tests all need to be
     /// able to rebuild the shelf *without* touching the pool, which is the
-    /// premise the retained column exists to survive.
+    /// premise the retained strip exists to survive.
     fn pool_of(green: u16, prompt: &str) -> Duel {
         let mut duel = duel_watching();
         duel.last_error = Some(prompt.to_string());
@@ -2505,25 +2581,29 @@ mod tests {
         q.iter(app.world()).map(|(e, _)| e).collect::<Vec<_>>()
     }
 
-    /// The em dash never stands over a pip that is still on the row.
+    /// The strip never goes away around a pip that is still on it.
     ///
-    /// §4.1 forbids movement that carries no information, and the em dash
-    /// appearing for one frame at the moment of spending and leaving again is
-    /// exactly that. The bug it guards is one missing clause: on the spend
-    /// frame the pool names nothing and nothing is *yet* marked closing, so a
-    /// reading that asks only "is anything fading" answers "the row is empty"
-    /// on the one frame where the row is at its fullest.
+    /// The same claim this made about the em dash, on the thing that replaced
+    /// it — and it got *sharper* in the substitution, which is why the test
+    /// stayed. A dash drawn over a fading pip was a second reading of the row
+    /// beside the first; a strip taken away over one deletes the fade
+    /// outright, so the pip the player spent vanishes instead of leaving.
+    ///
+    /// The bug it guards is one missing clause. On the spend frame the pool
+    /// names nothing and nothing is *yet* marked closing, so a reading that
+    /// asks only "is anything fading" answers "the row is empty" on the one
+    /// frame where the row is at its fullest.
     ///
     /// It needs the movement **on**, which is why it is a second test rather
     /// than two more lines in the one above. With `reduce_motion` the spent
-    /// pip is despawned before the frame ends, so a dash beside it is right by
-    /// accident; here the harness clock never advances, so the fading entry
-    /// sits at the start of its fade for as long as the test looks at it. The
-    /// first assertion is the counter-test: the pip really is still there, so
-    /// the absent dash is the dash *waiting* rather than a row that has
-    /// already been emptied.
+    /// pip is despawned before the frame ends, so a strip gone beside it is
+    /// right by accident; here the harness clock never advances, so the
+    /// fading entry sits at the start of its fade for as long as the test
+    /// looks at it. The first assertion is the counter-test: the pip really
+    /// is still there, so the strip that stayed up is the strip *waiting*
+    /// rather than a row that was never emptied.
     #[test]
-    fn the_row_does_not_say_it_is_empty_over_a_pip_that_is_still_fading() {
+    fn the_strip_does_not_go_away_over_a_pip_that_is_still_fading() {
         let mut app = bar_of(pool_of(1, "one"));
         app.world_mut()
             .resource_mut::<crate::prefs::Prefs>()
@@ -2538,8 +2618,8 @@ mod tests {
             "the spent mana is still on the row, fading"
         );
         assert!(
-            !said(&mut app).contains(&"\u{2014}".to_string()),
-            "so the row must not say it is empty over the top of it"
+            strip_is_shown(&mut app),
+            "so the strip must not be taken out from under it"
         );
     }
 

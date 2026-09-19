@@ -4329,6 +4329,52 @@ title row handed 30 px of chrome back and the sheet spent them on the row it
 had just given up, which is the opposite of what both paragraphs said. In
 every case the *constant* was right and the test read the constant.
 
+**The mana pool is the same strip on the other side.** *"Der Manavorrat soll
+auch ein repositioneng bekommen. Es soll symetrisch zum Tray aussehen nur auf
+der linken Seite"* (19.09.2026), so `ledge::strip_node` is now one function
+and both attachments spawn it — the four numbers that decide a strip's shape
+(height, the pixel of overlap with the lip, the corner and the inset) live one
+level up from either, and the whole of the difference is which side is
+`EDGE` and which is `Val::Auto`. A copy in the second file would have been
+symmetric on the day it was typed and only then; a strip one pixel taller than
+its twin is visible at a glance, which is exactly the kind of drift a shared
+constant is cheap insurance against.
+
+What moved is *which* sweep it has to survive, and that is the half worth
+writing down. The pool has always been retained — a mana that arrives is drawn
+arriving, and the shelf's own children are despawned on every sentence, so an
+entry that came and went with the question could never be seen to pop. It was
+a retained child **of the shelf**, exempted from `sync_ledge`'s rebuild by
+marker; it is now a child of `HudRoot`, exempted from `sync_overlay`'s sweep
+by marker, which is the bargain the drawer and the tray already had. The
+argument did not change and the node it hangs from did.
+
+It stands at `Z_TRAY` with the tray rather than at `Z_LEDGE` with the drawer.
+That is a judgment by symmetry with an argument of its own: a maximised sheet
+reaches across the whole band, and the mana a player is holding is most worth
+reading exactly while they are spending it — which is when a zone dialog may
+well be open in front of them.
+
+**The hand's sorting buttons took the shelf's left column, and got smaller.**
+*"Dafür verschiebe die Hand Sorting Buttons in der Actions-Bar ganz nach links
+und mache sie etwas kleiner"*, which is the other half of the same request:
+the pool's 365 px of reservation left the shelf with it, the tools moved from
+`LEFT_RESERVED` to `EDGE`, and `TOOL_H` is `BUTTON_H` less the eight pixels
+that make a row of standing preferences read as quieter than a row of answers.
+`LEFT_RESERVED` is gone and `tools_reserved(window_w)` is what `arrange` is
+fed — 296 at a window wide enough for all five buttons and 128 at one that
+cycles through them, against 675 and 510 before. The left neighbour is a third
+of what it was, and every pixel of that goes to the question in the middle.
+
+The reservation stayed a reservation and stopped being a refusal. §2.3 will
+not centre the question between its neighbours, so that it does not move when
+a mana pip arrives; the pool's contents changed *inside* one question and a
+reservation that followed them would have undone that one level down. The
+tools' width changes with the interface language and with whether the window
+is wide enough for five buttons, neither of which can move while a question
+stands — so reserving the wider language is caution here rather than a
+requirement.
+
 The strip's icon is an archive box and deliberately not the layer-group a
 seat bar draws for a library: two identical icons on one screen meaning two
 things is worse than a less obvious one meaning its own, and what this dialog

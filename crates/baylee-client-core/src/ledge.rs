@@ -292,6 +292,15 @@ mod tests {
     /// both buttons together and is drawn alone for exactly that reason; the
     /// renderer's own `RIGHT_RESERVED` carries the measurement and the
     /// argument.
+    ///
+    /// `LEFT` is the **historical** worst case and is kept at it deliberately.
+    /// The renderer moved the mana pool off this shelf in September 2026 and
+    /// the left column is now the hand's sorting buttons, which reserve 294 at
+    /// their widest — so the rungs below are stated against a neighbour wider
+    /// than any the client draws today. That is the right way for a test of
+    /// `arrange` to be stale: the arithmetic it pins is the function's, the
+    /// number is one caller's, and a rule checked at a harder number than it
+    /// meets keeps holding when a column grows back.
     const LEFT: f32 = 365.0;
     const RIGHT: f32 = 222.0;
     /// A priority window's middle: the sentence, three answers, three caps.

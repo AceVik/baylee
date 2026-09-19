@@ -1,4 +1,19 @@
-//! The mana pool: the one row on this shelf whose contents arrive and leave.
+//! The mana pool: the strip on the shelf's left end, and the one row here
+//! whose contents arrive and leave.
+//!
+//! It is [`super::tray`]'s mirror — the same [`super::strip_node`] with its
+//! own end of the shelf — and it is **hidden while nothing is floating**:
+//! *"Es ist hidden, wenn kein Mana im Mana Pool ist und ist nur dann
+//! sichtbar, wenn dort Mana drin ist"* (the owner, 19.09.2026). That
+//! overturns this file's own rule for the second time, and the turn is worth
+//! recording rather than quietly deleting. The chip this began as was drawn
+//! "while the seat has something to answer" and blinked out at every
+//! opponent's priority; the column that replaced it stood always, on the
+//! argument that the shelf's left edge was *reserved* whatever was on it, so
+//! leaving it occupied cost nothing. Off the shelf that argument is gone with
+//! the reservation — a strip over the table is a floating box again, and a
+//! floating box with nothing in it is the piece of table the chip's rule was
+//! written about.
 //!
 //! §4.1 gives it a movement — "a new entry pops in 160 ms ease-out-back from
 //! 0.88, one that is spent fades out in 100 ms, and a number that changes
@@ -9,7 +24,7 @@
 //! again on the next sentence, and a pip that was spent would simply be
 //! absent on the next frame.
 //!
-//! So the left column is **retained**. It is spawned once with the shelf,
+//! So the strip is **retained**. It is spawned once beside the shelf,
 //! skipped by the rebuild, and filled by [`sync_pool`] against a
 //! [`PoolRevision`] of its own — the fourth time this client has reached for
 //! that answer, after `HudRevision`, `BarRevision` and `DrawerRevision`, and
@@ -37,13 +52,13 @@ use super::*;
 use baylee_client_core::manapool::Floating;
 use baylee_core::mana::ManaColor;
 
-/// The retained left column.
+/// The retained left strip.
 ///
-/// A marker on the column and not on the row inside it, because there is no
-/// row inside it: the label, the em dash and the entries are all children of
-/// this one node, laid out by its own `column_gap`.
+/// A marker on the strip and not on a row inside it, because there is no row
+/// inside it: the label and the entries are both children of this one node,
+/// laid out by its own `column_gap`.
 #[derive(Component)]
-pub struct PoolColumn;
+pub struct PoolStrip;
 
 /// Which mana an entry is about.
 ///
@@ -75,10 +90,6 @@ impl PoolEntry {
 /// §4.1: a number that changes jumps. Numbers are read, not watched.
 #[derive(Component)]
 pub struct PoolCount;
-
-/// The em dash of an empty pool.
-#[derive(Component)]
-pub struct PoolDash;
 
 /// The label the row opens with.
 #[derive(Component)]
@@ -129,40 +140,72 @@ pub struct PoolRevision {
     lang: Option<Lang>,
 }
 
-/// Spawns the column, once, with the shelf.
+/// Spawns the strip, once, beside the shelf.
 ///
-/// The left column: what this seat has floating, on the shelf's left edge.
+/// What this seat has floating, hanging off the shelf's **left** end — the
+/// mirror of [`super::tray`], which the owner asked for in those words:
+/// *"Der Manavorrat soll auch ein repositioneng bekommen. Es soll symetrisch
+/// zum Tray aussehen nur auf der linken Seite"* (19.09.2026). Both strips
+/// spawn [`super::strip_node`], so the symmetry is one function rather than
+/// two files that agree today.
 ///
-/// The one zone with no card in it, and until the chip it stood in there was
-/// nowhere on screen for it at all. That absence hid a defect rather than
-/// merely being untidy: a land with two mana abilities taps for whichever one
-/// the client's planner can read, and with nothing drawn there was no way to
-/// see which had fired — Jasmine Dragon Tea Shop made `{C}` every time and
-/// looked exactly like a land making the Ally mana it had been tapped for.
+/// It was a *column on* the shelf before that, and the one zone with no card
+/// in it before that. That first absence hid a defect rather than merely
+/// being untidy: a land with two mana abilities taps for whichever one the
+/// client's planner can read, and with nothing drawn there was no way to see
+/// which had fired — Jasmine Dragon Tea Shop made `{C}` every time and looked
+/// exactly like a land making the Ally mana it had been tapped for.
 ///
-/// **The label always stands**, empty pool or not, watching seat or not, and
-/// that overturns the chip's own documented rule ("drawn while the seat has
-/// something to answer, hidden when it is only watching"). The rule was right
-/// for a box floating over the table, where an empty pool cost the board a
-/// piece of itself; the shelf is a *place*, its left edge is reserved whatever
-/// stands on it ([`super::LEFT_RESERVED`]), and a label that blinked in and
-/// out at every priority would be movement carrying no information. What the
-/// chip decided and this keeps: the count is a **numeral** beside the disc and
-/// never a row of repeated discs — colour alone must not carry meaning, and
-/// six discs is a number a player has to stop and count.
-pub(in crate::hud) fn spawn_pool_column(commands: &mut Commands) -> Entity {
-    commands.spawn((PoolColumn, column_node(Side::Left))).id()
+/// It stands at [`Z_TRAY`] and not at [`Z_LEDGE`], which is a judgment by
+/// symmetry with one argument of its own: a maximised sheet reaches over the
+/// whole band, and the mana a player is holding is most worth reading while
+/// they are spending it — which is exactly when a zone dialog may be open.
+///
+/// What the chip decided and this keeps: the count is a **numeral** beside
+/// the disc and never a row of repeated discs — colour alone must not carry
+/// meaning, and six discs is a number a player has to stop and count.
+pub(in crate::hud) fn spawn_pool_strip(commands: &mut Commands) -> Entity {
+    commands
+        .spawn((
+            PoolStrip,
+            Node {
+                column_gap: px(POOL_ENTRY_GAP),
+                ..strip_node(StripSide::Left)
+            },
+            BackgroundColor(palette::DIALOG_LIT),
+            BorderColor::all(palette::DIALOG_LINE),
+            ZIndex(Z_TRAY),
+            // Spawned **hidden**, because the first frame of a game has an
+            // empty pool and a strip that appeared and went away again
+            // before anything was floating is exactly the movement carrying
+            // no information §4.1 forbids. `sync_pool` shows it on the frame
+            // the first mana arrives.
+            Visibility::Hidden,
+            // Nothing in here is a control, so the whole strip is passed
+            // over by the pointer — the tray's root is ignored for the
+            // sharper version of the same reason, that the button inside it
+            // is the control and the padding around it is not.
+            Pickable::IGNORE,
+        ))
+        .id()
 }
 
-/// Fills the pool row, and starts every arrival and departure in it.
+/// Fills the pool row, shows and hides the strip, and starts every arrival
+/// and departure in it.
 ///
-/// The em dash is the only thing here that is spawned and despawned. The
-/// entries are reconciled by [`PoolEntry`], which is the part that has to
-/// survive a fade, and the label is kept for a plainer reason: it says the
-/// same word on almost every call, and a text node respawned that often is a
-/// blank frame waiting for the day a glyph takes a frame to shape. It is
-/// rebuilt only when the interface changes language, which is the one thing
-/// that can change what it says.
+/// Nothing here is spawned and despawned any more. The entries are reconciled
+/// by [`PoolEntry`], which is the part that has to survive a fade; the label
+/// is kept for a plainer reason — it says the same word on almost every call,
+/// and a text node respawned that often is a blank frame waiting for the day
+/// a glyph takes a frame to shape — and it is rebuilt only when the interface
+/// changes language, which is the one thing that can change what it says.
+///
+/// The em dash that used to stand for an empty pool is gone, and the strip's
+/// own `Visibility` took its job: *"Es ist hidden, wenn kein Mana im Mana
+/// Pool ist und ist nur dann sichtbar, wenn dort Mana drin ist"* (the owner,
+/// 19.09.2026). The two are one substitution rather than two changes — the
+/// dash appeared under exactly the condition the strip now hides under, so a
+/// dash drawn inside a hidden strip would be a node nothing could ever see.
 #[allow(clippy::too_many_arguments)] // one retained row, like the shelf's own
 pub fn sync_pool(
     mut commands: Commands,
@@ -170,15 +213,14 @@ pub fn sync_pool(
     fonts: Res<UiFonts>,
     settings: Res<crate::settings::ClientSettings>,
     mut revision: ResMut<PoolRevision>,
-    column: Query<(Entity, Option<&Children>), With<PoolColumn>>,
+    mut strip: Query<(Entity, Option<&Children>, &mut Visibility), With<PoolStrip>>,
     mut entries: Query<(&PoolEntry, &mut PipZoom)>,
     kids: Query<&Children>,
     mut counts: Query<&mut Text, With<PoolCount>>,
     labels: Query<(), With<PoolLabel>>,
-    dashes: Query<(), With<PoolDash>>,
     painted: Painted,
 ) {
-    let Ok((column, standing)) = column.single() else {
+    let Ok((column, standing, mut seen)) = strip.single_mut() else {
         return;
     };
     let lang = Lang::of(&settings.lang);
@@ -217,30 +259,32 @@ pub fn sync_pool(
         })
         .collect();
     let shown: Vec<PoolEntry> = live.iter().map(|(_, key)| *key).collect();
-    // The dash waits for the last fade, so "nothing floating" is never said
-    // over a pip that is still on screen saying otherwise — and `live` is the
-    // third of those three, the one that is easy to leave out. When the pool
-    // names nothing, every live entry is about to be marked closing *by this
-    // very call*, so reading `leaving` alone answers "is the row empty" on the
-    // one frame where the row is at its fullest. Left out, it put the dash on
-    // screen for a single frame at the moment of spending and took it away
-    // again, which is the movement carrying no information that §4.1 forbids.
-    let dash_wanted = wanted.is_empty() && leaving.is_empty() && live.is_empty();
-    let dashed = children.iter().any(|c| dashes.get(*c).is_ok());
+    // The strip waits for the last fade, so it is never taken off the screen
+    // around a pip that is still on it — and `live` is the third of those
+    // three, the one that is easy to leave out. When the pool names nothing,
+    // every live entry is about to be marked closing *by this very call*, so
+    // reading `leaving` alone answers "is the row empty" on the one frame
+    // where the row is at its fullest. Left out of the em dash this replaces,
+    // it put the dash on screen for a single frame at the moment of spending
+    // and took it away again, which is the movement carrying no information
+    // that §4.1 forbids — and left out here it would take the whole strip
+    // away over a pip in the middle of its fade.
+    let empty = wanted.is_empty() && leaving.is_empty() && live.is_empty();
+    let hidden = *seen == Visibility::Hidden;
     // The second half is the tree, as everywhere on this shelf: an entry that
     // has finished fading is despawned by `zoom_the_pool` and leaves a
     // reading that is still true and a row that is no longer what it says.
-    if *revision == next && shown == wanted && dashed == dash_wanted {
+    if *revision == next && shown == wanted && hidden == empty {
         return;
     }
     let relabel = revision.lang != next.lang;
     *revision = next;
 
-    for &child in &children {
-        if dashes.get(child).is_ok() {
-            commands.entity(child).despawn();
-        }
-    }
+    *seen = if empty {
+        Visibility::Hidden
+    } else {
+        Visibility::Inherited
+    };
     let head = head(&mut commands, &children, &labels, &fonts, lang, relabel);
 
     let mut ordered: Vec<(usize, Entity)> = Vec::new();
@@ -289,9 +333,6 @@ pub fn sync_pool(
     ordered.sort_by_key(|(rank, _)| *rank);
 
     let mut row = vec![head];
-    if dash_wanted {
-        row.push(dash(&mut commands, &fonts));
-    }
     row.extend(ordered.into_iter().map(|(_, entry)| entry));
     commands.entity(column).replace_children(&row);
 }
@@ -417,10 +458,16 @@ fn label(commands: &mut Commands, fonts: &UiFonts, lang: Lang) -> Entity {
             PoolLabel,
             Text::new(Phrase::ManaPool.text(lang).to_string()),
             tf(fonts, POOL_LABEL_PT),
-            // On the shelf's own ground, which is no longer opaque — see
-            // `palette::LEDGE_SOFT`. The restricted rim further down stays
-            // `DIALOG_SOFT`: it is a mark rather than prose, and 4.07 : 1
-            // clears the 3.0 a mark is held to.
+            // The ink stayed and the **ground** moved out from under it, so
+            // the pair was measured again rather than carried over: this used
+            // to be `palette::LEDGE_SOFT` on the shelf's own translucent
+            // ground, and it is the same ink on the strip's opaque
+            // `DIALOG_LIT`, where it reads 5.45 : 1 and clears the 4.5 prose
+            // is held to. `DIALOG_SOFT` would be the register-consistent
+            // choice beside the tray's icon and is 4.28 : 1 — under that
+            // bound, because the tray's glyph is a *mark* held to 3.0 and
+            // this is a word. The restricted rim further down stays
+            // `DIALOG_SOFT` for exactly that reason: it is a mark too.
             TextColor(palette::LEDGE_SOFT),
             Node {
                 // The column's own gap is the step between entries; the label
@@ -428,21 +475,6 @@ fn label(commands: &mut Commands, fonts: &UiFonts, lang: Lang) -> Entity {
                 margin: UiRect::right(px(POOL_LABEL_GAP - POOL_ENTRY_GAP)),
                 ..default()
             },
-            Pickable::IGNORE,
-        ))
-        .id()
-}
-
-/// An em dash rather than a row of zeroes: "nothing floating" is one fact, not
-/// six. Set at the numerals' size because it stands where a numeral would, and
-/// in the one ink on this shelf that means absence.
-fn dash(commands: &mut Commands, fonts: &UiFonts) -> Entity {
-    commands
-        .spawn((
-            PoolDash,
-            Text::new("\u{2014}".to_string()),
-            tf(fonts, POOL_COUNT_PT),
-            TextColor(palette::LEDGE_DEAD),
             Pickable::IGNORE,
         ))
         .id()
