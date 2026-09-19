@@ -11,6 +11,7 @@
 
 mod activate;
 pub mod combat;
+mod filter;
 pub mod intelligence;
 mod policy;
 pub mod search;
@@ -419,12 +420,9 @@ impl HeuristicAgent {
             Pending::ChoosePlayer { options, .. } => {
                 PlayerAction::ChoosePlayer(self.player_target(view, &options, context))
             }
-            Pending::ChooseCastMode { options, .. } => PlayerAction::ChooseMode(
-                options
-                    .iter()
-                    .position(|o| matches!(o.kind, baylee_engine::choice::CastModeKind::Normal))
-                    .unwrap_or(0),
-            ),
+            Pending::ChooseCastMode {
+                object, options, ..
+            } => PlayerAction::ChooseMode(self.cast_mode(view, object, &options)),
             Pending::OrderObjects { objects, .. } => PlayerAction::OrderObjects { objects },
             Pending::YesNo { prompt, .. } => match prompt {
                 YesNoPrompt::PayLifeOrEnterTapped { amount } => PlayerAction::YesNo(
@@ -2482,5 +2480,238 @@ mod tests {
             panic!("expected a card choice")
         };
         assert_eq!(objects.len(), 1, "a short menu is otherwise taken whole");
+    }
+
+    /// The three modes of Sheoldred's Edict, as the engine offers them.
+    ///
+    /// No `Normal` option, because every effect the card has sits under a
+    /// mode and the wizard refuses a mode-less cast for such a card
+    /// (CR 700.2). That is what made the old answer — the position of
+    /// `Normal`, else nought — take the first printed mode at every table.
+    fn edict_modes() -> Vec<baylee_engine::choice::CastModeDesc> {
+        use baylee_engine::choice::{CastModeDesc, CastModeKind};
+        (0..3)
+            .map(|i| CastModeDesc {
+                index: u8::try_from(i).unwrap(),
+                kind: CastModeKind::Mode(i),
+                cost: baylee_core::mana::ManaCost::ZERO,
+            })
+            .collect()
+    }
+
+    /// A view with Sheoldred's Edict on the stack and `theirs` opposite it.
+    fn edict_table(theirs: Vec<PublicObject>) -> PlayerView {
+        let mut v = view(0, &[20, 20], theirs);
+        v.stack = vec![carded(
+            permanent(obj(9), PlayerId::new(0), 0),
+            "Sheoldred's Edict",
+            TypeSet::INSTANT,
+        )];
+        v
+    }
+
+    fn token_creature(id: ObjectId, controller: PlayerId) -> PublicObject {
+        let mut o = permanent(id, controller, 2);
+        o.token = Some(1);
+        o
+    }
+
+    /// "Choose one —" is chosen by what the mode reaches, not by where it is
+    /// printed.
+    ///
+    /// Sheoldred's Edict is the pool's clearest case: all three modes are
+    /// always offered, because none of them targets — an edict names no
+    /// target at all (CR 115.1) — so the engine's own "a mode that cannot
+    /// find its targets is not offered" filter says nothing about any of
+    /// them. Against a lone planeswalker the printed first mode asks for a
+    /// nontoken creature and does nothing whatsoever, and that is what this
+    /// agent used to choose every time.
+    ///
+    /// The nontoken case is the control: it is the answer the old code gave
+    /// as well, so a test containing only it would pass against the defect.
+    /// It is a *carded* creature rather than the bare fixture, because
+    /// `IsToken` is only readable of an object that carries one of the two
+    /// handles — a bare permanent is the pair the view cannot tell apart, and
+    /// the control would then agree by falling back instead of by reading.
+    #[test]
+    fn a_modal_spell_takes_the_mode_that_reaches_something() {
+        let them = PlayerId::new(1);
+        let theirs = carded(
+            permanent(obj(1), them, 2),
+            "Baleful Strix",
+            TypeSet::CREATURE,
+        );
+        for (what, board, expected) in [
+            ("a lone planeswalker", vec![walker(obj(1), them, 4)], 2),
+            ("a lone token", vec![token_creature(obj(1), them)], 1),
+            ("a nontoken creature", vec![theirs.clone()], 0),
+        ] {
+            let v = edict_table(board);
+            assert_eq!(
+                agent().act(
+                    &v,
+                    &Pending::ChooseCastMode {
+                        player: v.seat,
+                        object: obj(9),
+                        options: edict_modes(),
+                    }
+                ),
+                PlayerAction::ChooseMode(expected),
+                "against {what}, only mode {expected} of Sheoldred's Edict does anything"
+            );
+        }
+    }
+
+    /// An empty board is read, and the reading is that nothing is reached.
+    ///
+    /// Every mode scores nought, so the printed order is all that is left and
+    /// the answer is the old one. Worth pinning because the tie-break is the
+    /// half that keeps this change invisible everywhere it has nothing to
+    /// say: `max_by_key` returns the *last* maximum, so without the
+    /// `Reverse(position)` in the key an empty table would answer 2.
+    #[test]
+    fn a_modal_spell_with_nothing_to_reach_keeps_its_printed_order() {
+        let v = edict_table(vec![]);
+        assert_eq!(
+            agent().act(
+                &v,
+                &Pending::ChooseCastMode {
+                    player: v.seat,
+                    object: obj(9),
+                    options: edict_modes(),
+                }
+            ),
+            PlayerAction::ChooseMode(0)
+        );
+    }
+
+    /// A card that can also be cast normally still is.
+    ///
+    /// The ranking decides between modes and never between a mode and the
+    /// printed cast: a mode is offered exactly when it is affordable, and
+    /// overload is the shape that makes "a mode" and "the expensive one" the
+    /// same thing. So a `Normal` option ends the question wherever there is
+    /// one.
+    ///
+    /// The options are built by hand because no card in the pool offers this
+    /// pair today. All four `ModalSpell` cards here — Sheoldred's Edict,
+    /// Heliod's Intervention, Cyclonic Rift, Damn — put *every* effect under
+    /// a mode, so the wizard refuses them a `Normal` option (CR 700.2a) and
+    /// the two overload cards write their printed cast as `Mode(0)` beside
+    /// the overloaded `Mode(1)`. The guard exists for the card that does not,
+    /// and a fixture that cannot be printed yet is the only way to hold it
+    /// before one is.
+    #[test]
+    fn a_normal_cast_is_not_traded_for_a_mode() {
+        use baylee_engine::choice::{CastModeDesc, CastModeKind};
+        let v = edict_table(vec![walker(obj(1), PlayerId::new(1), 4)]);
+        let options = vec![
+            CastModeDesc {
+                index: 0,
+                kind: CastModeKind::Mode(0),
+                cost: baylee_core::mana::ManaCost::ZERO,
+            },
+            CastModeDesc {
+                index: 1,
+                kind: CastModeKind::Normal,
+                cost: baylee_core::mana::ManaCost::ZERO,
+            },
+        ];
+        assert_eq!(
+            agent().act(
+                &v,
+                &Pending::ChooseCastMode {
+                    player: v.seat,
+                    object: obj(9),
+                    options,
+                }
+            ),
+            PlayerAction::ChooseMode(1),
+            "the printed cast is the answer even when a mode outscores it"
+        );
+    }
+
+    /// What the view cannot see, the reader says it cannot see.
+    ///
+    /// Each of the three refusals is a `Filter` whose answer lives in a
+    /// `GameState` field the projection has no counterpart for, and the
+    /// reason each one is a refusal rather than a gap is in this module's
+    /// documentation. `Some(false)` here would be the fault the three-valued
+    /// answer exists to prevent: a caller cannot tell a read "no" from an
+    /// unread one, so it would act on a guess wearing a reading's clothes.
+    ///
+    /// `This` and `Another` join them when the caller has no source object,
+    /// which is a different kind of unknown with the same honest answer.
+    #[test]
+    fn a_filter_the_view_cannot_answer_is_not_answered_no() {
+        use baylee_cards_dsl::{Filter, ZoneRef};
+        let me = PlayerId::new(0);
+        let a = agent();
+        let mine = permanent(obj(1), me, 2);
+        let v = view(0, &[20, 20], vec![mine.clone()]);
+        let read = |f: &Filter, this| a.filter_matches(f, &v, &mine, ZoneRef::Battlefield, this);
+
+        for filter in [
+            Filter::MatchesChosenTypeOfSource,
+            Filter::AttachedToBySource,
+            Filter::SharesSubtypeWithCommander,
+        ] {
+            assert_eq!(
+                read(&filter, Some(obj(1))),
+                None,
+                "{filter:?} reads a field no view carries, and saying `false` \
+                 would look exactly like a read answer"
+            );
+        }
+        // `IsToken` is the fourth, and only for the object that carries
+        // neither handle: a face-down permanent and a token copying a card
+        // are one shape in a view and opposite answers in the rules.
+        assert_eq!(read(&Filter::IsToken, Some(obj(1))), None);
+        let mut registry = mine.clone();
+        registry.token = Some(1);
+        assert_eq!(
+            a.filter_matches(&Filter::IsToken, &v, &registry, ZoneRef::Battlefield, None),
+            Some(true)
+        );
+        let seen = carded(mine.clone(), "Baleful Strix", TypeSet::CREATURE);
+        assert_eq!(
+            a.filter_matches(&Filter::IsToken, &v, &seen, ZoneRef::Battlefield, None),
+            Some(false)
+        );
+
+        assert_eq!(read(&Filter::This, None), None);
+        assert_eq!(read(&Filter::Another, None), None);
+        assert_eq!(read(&Filter::This, Some(obj(1))), Some(true));
+        assert_eq!(read(&Filter::Another, Some(obj(1))), Some(false));
+        assert_eq!(read(&Filter::CREATURE, None), Some(true));
+    }
+
+    /// An unknown part does not settle a question the rest of it settles.
+    ///
+    /// Kleene's three-valued `and`/`or`, which is the only combination rule
+    /// that keeps a `None` honest: a false conjunct makes an `And` false
+    /// however much of the rest is unreadable, a true disjunct makes an `Or`
+    /// true the same way, and an unknown wins everywhere else. Reading the
+    /// unknown as `false` would answer "nontoken creature that shares a
+    /// subtype with your commander" with a confident no on every board.
+    #[test]
+    fn an_unreadable_part_settles_a_filter_only_where_it_decides_it() {
+        use baylee_cards_dsl::{Filter, ZoneRef};
+        static UNREADABLE: Filter = Filter::SharesSubtypeWithCommander;
+        static AND_FALSE: Filter = Filter::And(&[UNREADABLE, Filter::PLANESWALKER]);
+        static AND_TRUE: Filter = Filter::And(&[UNREADABLE, Filter::CREATURE]);
+        static OR_TRUE: Filter = Filter::Or(&[UNREADABLE, Filter::CREATURE]);
+        static OR_FALSE: Filter = Filter::Or(&[UNREADABLE, Filter::PLANESWALKER]);
+
+        let a = agent();
+        let mine = permanent(obj(1), PlayerId::new(0), 2);
+        let v = view(0, &[20, 20], vec![mine.clone()]);
+        let read = |f: &Filter| a.filter_matches(f, &v, &mine, ZoneRef::Battlefield, Some(obj(1)));
+
+        assert_eq!(read(&AND_FALSE), Some(false), "a false conjunct settles it");
+        assert_eq!(read(&AND_TRUE), None, "a true one leaves the unknown");
+        assert_eq!(read(&OR_TRUE), Some(true), "a true disjunct settles it");
+        assert_eq!(read(&OR_FALSE), None, "a false one leaves the unknown");
+        assert_eq!(read(&Filter::Not(&UNREADABLE)), None);
     }
 }

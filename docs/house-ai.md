@@ -42,6 +42,28 @@ than described, and the pin fails on the day the view learns to say it. Searches
 and surveils at the skilled levels evaluate only identities actually visible
 in `PlayerView`, including `looking_at` while a search is open.
 
+**A mode is chosen by what it reaches, not by where it is printed.** A modal
+spell whose every effect sits under a mode is offered no normal cast
+(CR 700.2a), and the answer to a cast question used to be the position of a
+`Normal` option — which for such a spell is not there, so the first printed
+mode was taken at every table. What is left to read is narrow, because the
+engine has already dropped every mode whose targets cannot be chosen
+(CR 700.2a for a spell, CR 700.2b for a trigger): what it does not decide is
+the mode that targets nothing and reaches nothing anyway, Sheoldred's Edict
+asking an opponent who controls only a planeswalker to sacrifice a nontoken
+creature. That is read from the `PlayerView` by the crate's own `Filter`
+reader, and the reader is three-valued on purpose — `MatchesChosenTypeOfSource`,
+`AttachedToBySource` and `SharesSubtypeWithCommander` name `GameState` fields
+a projection has no counterpart for, and `IsToken` joins them for an object
+carrying neither a printing nor a token handle, because a token copying a card
+and a permanent the seat may not look at are one shape in a view and opposite
+answers in the rules. Answering `false` for "cannot see" would make a guess
+look like a reading. A mode that reaches something beats
+one that reaches nothing, an unreadable mode sits between them, and the
+printed order breaks every tie, so a table the agent cannot read is answered
+exactly as before. A card that also offers a normal cast keeps it: overload
+prints a mode that costs more than the card does.
+
 `act(&PlayerView, &Pending)` remains available and needs no hidden information.
 Hosted AI seats additionally receive the selected spell/ability effects from
 `Engine::decision_context`, covering cast modes and triggered or copied abilities.

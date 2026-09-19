@@ -303,3 +303,101 @@ fn no_pool_card_puts_a_lore_or_time_counter_on_anything() {
          `baylee-ai` unit tests, and delete this test."
     );
 }
+
+/// A face states at most one *list* of modes.
+///
+/// The question the agent answers names no ability: a modal trigger asks
+/// through the permanent and a mode number, and which of its abilities is on
+/// the stack lives in the engine's trigger queue. So a face with two modal
+/// abilities over two different mode lists is two lists and one number, and
+/// `baylee_ai::filter::modal_modes` refuses it and falls back to the printed
+/// order rather than picking a list.
+///
+/// What the pool prints is the harmless half of that, and it is why the rule
+/// is about lists and not abilities: Derevi, Empyrial Tactician is one
+/// printed sentence with two trigger conditions ("when this enters **and**
+/// whenever a creature you control deals combat damage to a player"), written
+/// as two `modal_triggered!` over the same `TAP_OR_UNTAP` modes. Naming that
+/// shared list is unambiguous however the trigger arrived.
+///
+/// It asks through `abilities_for_face`, which is the lookup the agent uses
+/// and not the union `abilities` builds: face 0 falls back to the card-level
+/// list only when it states none of its own, and a probe reading both at once
+/// would find two lists where the card has one.
+///
+/// Two injected findings, because the assertion is an emptiness. `modal`
+/// proves the walk reaches modal abilities at all; `shared` proves it reaches
+/// the two-abilities-one-list case, which is the case the assertion is a
+/// statement about and would otherwise be indistinguishable from a pool where
+/// every face has exactly one.
+#[test]
+fn no_pool_face_states_two_mode_lists() {
+    let mut faces = 0;
+    let mut modal = 0;
+    let mut shared = 0;
+    let mut split: Vec<&'static str> = Vec::new();
+    for def in baylee_cards::all() {
+        for (index, face) in def.faces.iter().enumerate() {
+            faces += 1;
+            let mut lists: Vec<&'static [baylee_cards::dsl::SpellMode]> = Vec::new();
+            let mut here = 0;
+            for ability in def.abilities_for_face(index) {
+                let (AbilityDef::ModalSpell { modes } | AbilityDef::ModalTriggered { modes, .. }) =
+                    ability
+                else {
+                    continue;
+                };
+                here += 1;
+                if !lists.iter().any(|seen| std::ptr::eq(*seen, *modes)) {
+                    lists.push(modes);
+                }
+            }
+            if here > 0 {
+                modal += 1;
+            }
+            if here > lists.len() {
+                shared += 1;
+            }
+            if lists.len() > 1 {
+                split.push(face.name);
+            }
+        }
+    }
+
+    // 2836 faces over 2716 cards on 19.09.2026, 10 of them modal and one —
+    // Derevi — stating one list twice. The floor is the population and not
+    // the number: a card added or removed is not news, a walk that stopped
+    // descending into faces is.
+    //
+    // The 10 is also why the walk is compiled rather than textual, and it is
+    // wrong in both directions. Grepping the card files for `ModalSpell` and
+    // `ModalTriggered` finds **four**, because seven more are written with
+    // the `modal_triggered!` macro and never spell a variant at all — and
+    // grepping for the macro as well finds **eleven**, because Marionette
+    // Apprentice names it in a `// NOT SUPPORTED:` comment about the
+    // fabricate clause it does *not* have.
+    assert!(
+        faces > 2_500,
+        "the walk visited {faces} faces, which is too few to have read this \
+         pool: it has stopped descending into the cards it is given"
+    );
+    assert!(
+        modal > 0,
+        "the walk found no modal ability in the whole pool, so it is not \
+         reaching `ModalSpell` at all and the emptiness below is empty"
+    );
+    assert!(
+        shared > 0,
+        "no face in the pool states one mode list twice, so this test no \
+         longer distinguishes `modal_modes`'s rule from the stricter one it \
+         replaced: check that Derevi still writes its two triggers over one \
+         `TAP_OR_UNTAP` before weakening this"
+    );
+    assert!(
+        split.is_empty(),
+        "{split:?} state two different mode lists on one face. \
+         `baylee_ai::filter::modal_modes` refuses such a face and the agent \
+         takes the printed order there: give the mode list an ability handle, \
+         or record here why the printed order is the right answer for it."
+    );
+}
