@@ -375,6 +375,34 @@ pub(crate) mod glyph {
     /// drawer already uses for taking one off a number, and a control that
     /// means two things in one window means neither.
     pub const MINIMISE: char = '\u{f2d1}';
+    /// A filled window with a title bar: the sheet out to the whole band.
+    ///
+    /// `window-maximize`, the neighbour of [`MINIMISE`] in the same font and
+    /// read out of the same cmap — glyph 833 against 834, which is what says
+    /// the pair was drawn as a pair. Not [`EXPAND`], which is the four arrows
+    /// the resize corner used to wear: those say "this can be made bigger",
+    /// where this one says "as big as it goes", and the corner is still there
+    /// saying the first thing.
+    pub const MAXIMISE: char = '\u{f2d0}';
+    /// Two overlapping frames: the sheet back to the size it was.
+    ///
+    /// `window-restore`, glyph 835, the third of that run. It is a separate
+    /// mark rather than the same button meaning both, because a control
+    /// offering to maximise a sheet that already fills the band is the lie
+    /// this file already refuses to tell with a lit tab or an unlit Confirm.
+    pub const RESTORE: char = '\u{f2d2}';
+    /// A double-headed diagonal arrow: the sheet's resize corner.
+    ///
+    /// It was [`EXPAND`] there, and that mark had to go the moment the sheet
+    /// grew a maximise button — four corner brackets say "out to the frame",
+    /// which is now the button's sentence and not the corner's. This says
+    /// "drag me and I get bigger or smaller", which is the only thing the
+    /// corner does now that its hidden second job is gone.
+    ///
+    /// The font ships this diagonal and not the other one, so the arrows run
+    /// across the corner rather than along it. Two heads pointing apart is
+    /// what carries the meaning; which way the line leans is not read.
+    pub const RESIZE: char = '\u{f424}';
     /// An archive box: the zone dialog, as a door on the tray.
     ///
     /// Deliberately not [`LIBRARY`]'s layer-group, which is the obvious
@@ -603,6 +631,24 @@ pub struct TrayTab {
 #[derive(Component)]
 pub struct TrayMinimise;
 
+/// The sheet's other size button: out to the whole band, and back again.
+///
+/// It stands beside [`TrayMinimise`] because the owner asked for it there —
+/// *"Der maximieren Button wandert neben den minimieren Button"* (19.09.2026)
+/// — and *wandert* is the word: this is a move, not a new control. The
+/// gesture existed, hidden, as the resize corner's second job, fired by a
+/// press and release that travelled less than `input::tray_drag`'s `TAP_SLOP`
+/// between them. Nothing on the sheet said so, and the corner's own comment
+/// argued from a mark ("the corner draws a ⤢ — so it is read as a maximise
+/// button and has to be one") that has now moved onto a button that *is* one.
+///
+/// Unlike its neighbour it needs no `Pointer<Click>` workaround. The corner
+/// could not use one because a resize ends over the corner — the corner
+/// travels under the hand — so every drag would have fired it; a button in
+/// the head does not move.
+#[derive(Component)]
+pub struct TrayMaximise;
+
 /// The browser's sheet itself — the node a drag or a resize writes to.
 ///
 /// Marked so that `crate::input::tray_drag` can find one node per frame and
@@ -625,6 +671,23 @@ pub struct TrayPanel;
 /// test run.
 #[derive(Component)]
 pub struct TrayBand;
+
+/// The zone dialog's own veil, as opposed to any other.
+///
+/// [`TableVeil`] is what `tray::dim_the_table` paints and there are two
+/// surfaces wearing it: this dialog's, and the one `hud::finish` puts under
+/// the end screen. They are painted by one system on purpose — two fades over
+/// one table could disagree — but they are *owned* by two, and until this
+/// marker existed the dialog's teardown could not tell them apart. It
+/// despawned every `TableVeil` there was, which is a finished game losing its
+/// darkening to a rebuild of a dialog nobody had open.
+///
+/// It became load-bearing rather than merely tidy when the sheet gained a way
+/// out: the veil now has to *outlive* the browser being shut, so that it can
+/// fade while the sheet flies to the tray, and "the one to keep standing" and
+/// "every veil on the screen" must not be the same query.
+#[derive(Component)]
+pub struct TrayVeil;
 
 /// The sheet's title row: what a drag takes hold of.
 ///
@@ -937,12 +1000,62 @@ pub(super) fn grouped_hand_layout(
 /// It sat in [`HudRevision`] until the dialog got a retained tree of its own;
 /// it is [`tray::TrayRevision`]'s now, and the browser reaches `sync_overlay`
 /// nowhere else at all.
-#[derive(Default, Clone, PartialEq, Eq)]
-struct BrowserGate {
-    /// Whether the panel stands at all. Opened by a choice arriving and by a
+/// Who the zone sheet belongs to, which is one question and not two bools.
+///
+/// `open` and `for_choice` were separate fields here, and that made
+/// `(open: false, for_choice: true)` a value the gate could hold and compare:
+/// a shut sheet that a question owns, which is not a state a [`Browser`] can
+/// be in. It was merely *unreachable* rather than impossible — `for_choice`
+/// answers false while the browser is shut — and a revision gate is exactly
+/// where an unreachable value survives longest, because nothing draws it and
+/// so nothing would ever have said so.
+///
+/// [`Browser`]: baylee_client_core::browser::Browser
+#[derive(Default, Clone, Copy, PartialEq, Eq)]
+enum SheetOwner {
+    /// Nobody: the sheet is not on screen.
+    #[default]
+    Shut,
+    /// The player, who opened it and may move it, resize it and put it away.
+    ByHand,
+    /// A question, which owns it until it is answered. The two window buttons
+    /// and the resize corner are not drawn for it — a sheet that changed
+    /// hands without this in the gate would keep controls that fire and
+    /// change nothing.
+    ForChoice,
+}
+
+impl SheetOwner {
+    /// Read off the model, which is the only place the answer lives.
+    fn of(browser: &baylee_client_core::browser::Browser) -> Self {
+        if !browser.is_open() {
+            Self::Shut
+        } else if browser.for_choice() {
+            Self::ForChoice
+        } else {
+            Self::ByHand
+        }
+    }
+
+    /// Whether the sheet stands at all. Opened by a choice arriving and by a
     /// tap on the top card of a pile, neither of which need be a new
     /// snapshot.
-    open: bool,
+    const fn open(self) -> bool {
+        !matches!(self, Self::Shut)
+    }
+
+    /// Whether a **question** owns the sheet rather than the player. A
+    /// `ByHand` sheet becoming a `ForChoice` one moves no other field in the
+    /// gate: the ticks and the filter are kept on purpose.
+    const fn for_choice(self) -> bool {
+        matches!(self, Self::ForChoice)
+    }
+}
+
+#[derive(Default, Clone, PartialEq, Eq)]
+struct BrowserGate {
+    /// Whose the sheet is, which carries whether it stands at all.
+    sheet: SheetOwner,
     /// Which zone boxes are ticked, empty being "Alle".
     ///
     /// The whole set and not one zone, because ticking a second pile merges
@@ -1768,8 +1881,10 @@ pub struct OverlayTree<'w, 's> {
 pub struct TrayTree<'w, 's> {
     /// The overlay's root, which both nodes are children of.
     pub(crate) root: Query<'w, 's, Entity, With<HudRoot>>,
-    /// The veil, at [`Z_VEIL`].
-    pub(crate) veil: Query<'w, 's, Entity, With<TableVeil>>,
+    /// The veil, at [`Z_VEIL`] — **this dialog's**, and not the end screen's.
+    /// [`TrayVeil`] carries the whole of why that distinction has to be in
+    /// the query rather than in a comment.
+    pub(crate) veil: Query<'w, 's, Entity, With<TrayVeil>>,
     /// The panel, at [`Z_SHEET`].
     pub(crate) panel: Query<'w, 's, Entity, With<TrayBand>>,
 }

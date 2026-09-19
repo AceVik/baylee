@@ -257,6 +257,11 @@ fn every_mark_the_overlay_names_is_in_the_icon_face() {
         ("VIEW_GRID", glyph::VIEW_GRID),
         ("EYE", glyph::EYE),
         ("EYE_SLASH", glyph::EYE_SLASH),
+        ("MINIMISE", glyph::MINIMISE),
+        ("MAXIMISE", glyph::MAXIMISE),
+        ("RESTORE", glyph::RESTORE),
+        ("RESIZE", glyph::RESIZE),
+        ("ZONES", glyph::ZONES),
     ];
     for (name, mark) in named {
         assert!(

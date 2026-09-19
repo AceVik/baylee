@@ -500,8 +500,30 @@ impl Placement {
     /// else: the owner asked for a bigger picture on each row, and a column
     /// ten pixels wider is ten pixels of row. [`Self::MIN_W`] moved with it,
     /// both being the same row with a different amount of name left in it.
-    pub const DEFAULT_W: f32 = 900.0;
-    /// The chrome, and seven rows and a **half**.
+    ///
+    /// **The first line above stopped being true after that.** The number
+    /// went 702 → 900 with nothing written down, and `TRAY_PANEL_W` is 702
+    /// to this day: the sheet has been 198 px wider than one row for as long
+    /// as it has been 900, and the seam those two constants exist to keep
+    /// honest was held by a **floor** — `the_default_width_is_one_whole_row`
+    /// asserts `DEFAULT_W >= TRAY_PANEL_W`, which 900 passes by not being
+    /// the number the doc says it is. A one-sided bound is the right shape
+    /// here, because the slack goes to the columns that flex and more of it
+    /// is more name; what was wrong was a sentence claiming an equality the
+    /// test never asked for.
+    ///
+    /// 900 → 1020 on 19.09.2026, the owner asking for the dialog to be
+    /// *"etwas größer"*, and it is the **width** that grew for the reason the
+    /// second paragraph gives turned the other way up. Measured on the
+    /// machine this was asked on, at a 1728 × 1052 window: the band is 1728
+    /// wide and 837 tall, so the sheet was taking 52% of the one and 88% of
+    /// the other. Height had nowhere left to go — the next stop is a ninth
+    /// and a half row at 808, which is 96% of that band and the very thing
+    /// [`Self::DEFAULT_H`] refuses — and the width had 800 px of room. 1020
+    /// is 59% of it, and all 120 of the new pixels reach the two columns
+    /// carrying words.
+    pub const DEFAULT_W: f32 = 1020.0;
+    /// The chrome, and eight rows and a **half**.
     ///
     /// The half row is the point. A grid was cut to four whole rows because
     /// most of a fifth was space nothing could ever be put in; a list is the
@@ -521,15 +543,26 @@ impl Placement {
     ///
     /// It was 649 and eight and a half rows. The owner asked for taller rows
     /// on 14.09.2026, which raises a row from 55.9 to 69.9 — so the count came
-    /// down half a row with it and the sheet opens 49 px taller rather than
-    /// 119. Spending the whole of a taller row on more sheet would have put
-    /// this at 768 against the 850 the band has on the screen it was measured
-    /// on, which is a dialog that reads as a screen.
+    /// down half a row with it and the sheet opened 49 px taller rather than
+    /// 119, at 698.
     ///
     /// It was 698 until the zone tabs moved into the title bar later the same
-    /// day. That is one row of chrome and one gap — 30 px — and the sheet
-    /// gives them back rather than keeping them as an eighth row: the count
-    /// of rows is what the owner chose, the chrome is what it costs.
+    /// day. That is one row of chrome and one gap — 30 px — and **the sheet
+    /// spent them on a row** rather than giving them back: 144 of chrome and
+    /// eight and a half rows of 69.87 is 737.9, which is this number. The two
+    /// paragraphs above said "seven and a half" for four days and so did
+    /// `TRAY_ROWS`' own doc beside the constant, while `TRAY_ROWS` itself read
+    /// 8.5 and `the_default_height_shows_half_a_row` held the arithmetic
+    /// green the whole time. The count of rows is what the owner chose and
+    /// the chrome is what it costs; what the prose got wrong was which way
+    /// the 30 px went.
+    ///
+    /// It did **not** move on 19.09.2026 when the owner asked for a bigger
+    /// dialog, and that is a measurement rather than an omission.
+    /// [`Self::DEFAULT_W`] carries it: at the window this was asked on the
+    /// band is 837 tall and this sheet already takes 88% of it, the next stop
+    /// up is 96%, and a list has no size between two halves of a row. The
+    /// width is where the room was, so the width is what grew.
     pub const DEFAULT_H: f32 = 738.0;
     /// The clear the sheet keeps between itself and the band's edge.
     const MARGIN: f32 = 12.0;
@@ -606,6 +639,31 @@ impl Placement {
             && (self.top - full.top).abs() < 2.0
             && (self.width - full.width).abs() < 2.0
             && (self.height - full.height).abs() < 2.0
+    }
+
+    /// A rectangle `t` of the way from this one to another.
+    ///
+    /// All four numbers travel together, which is what makes a maximise read
+    /// as the sheet *growing into* the band rather than as a jump: a corner
+    /// moving and an edge moving are one movement, and interpolating the
+    /// stored rectangle is the only way to say that without the renderer
+    /// having to know which of the four changed.
+    ///
+    /// It is deliberately **not** clamped with [`Self::fit`]. Both ends are
+    /// already inside the band — a placement is never handed out otherwise —
+    /// and a convex combination of two rectangles inside a box stays inside
+    /// it, so a clamp here could only pull the intermediate frames off the
+    /// line between them. A `t` outside `0..=1` is the caller's business;
+    /// nothing here extrapolates on its own.
+    #[must_use]
+    pub fn lerp(self, to: Self, t: f32) -> Self {
+        let at = |a: f32, b: f32| (b - a).mul_add(t, a);
+        Self {
+            left: at(self.left, to.left),
+            top: at(self.top, to.top),
+            width: at(self.width, to.width),
+            height: at(self.height, to.height),
+        }
     }
 
     /// The same rectangle moved by a pointer delta, still inside the band.

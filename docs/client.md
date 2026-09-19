@@ -4252,6 +4252,83 @@ strip that stands at one end of it. It stays under the preview because a
 preview describes what is under the pointer and the button is something a
 pointer can be over.
 
+**Putting the sheet down is a movement, and so is bringing it back.** The
+owner asked for it with the strip — *"Mit minimize Animation (und reverse
+Animation)"* — and the shape it needed is the one `sync_drawer` and
+`zoom_the_drawer` already use one panel along: `sync_tray` does not despawn a
+sheet whose browser has shut, it sets `TrayReveal::closing` and returns, and
+`reveal_tray` flies the sheet into the tray and takes it off the tree at the
+end. Two details are load-bearing. The gate is on `showing = drawn &&
+!closing` rather than on `drawn`, or a standing sheet beside a shut browser
+fails the early return on every frame and the body despawns the thing that is
+still moving. And the despawn is in `reveal_tray` and not in `sync_tray`,
+`.after` it, because a sheet reopened on the frame its `t` reaches 1 would
+otherwise be despawned by one system and rebuilt by the other in the same
+frame.
+
+What travels is a `UiTransform`, and where it travels to is arithmetic rather
+than a guess: `ledge::tray::zones_button_centre` derives the button's middle
+from `root_node`'s own numbers, the panel's middle is read off its `Node`, and
+the scale falls to 8% — not the button's own 2.4%, at which the last third of
+the movement is a dot sliding along the shelf rather than a sheet arriving.
+`the_sheet_is_aimed_at_the_button_the_layout_actually_draws` reads the layout
+back out of the node instead of restating it, because nothing in a running
+client would notice the two disagreeing.
+
+The veil goes with it, and that is what made `TrayVeil` necessary. `TableVeil`
+is worn by two surfaces — this dialog's and the end screen's — painted by one
+system on purpose, and the dialog's teardown used to despawn every one of
+them. It could not tell them apart, so a game that ended while anything about
+the dialog changed lost its darkening and `dim_the_table` had no node left to
+paint. Now the dialog owns a marked veil, tears down only that, and the veil
+outlives the browser being shut so that it can fade while the sheet is in the
+air.
+
+**The maximise button moved into the head, and it is a move rather than a new
+control.** *"Der maximieren Button wandert neben den minimieren Button"*, and
+the gesture it names already existed: a press and a release on the resize
+corner that travelled less than four pixels between them. It could not be a
+`Pointer<Click>` — a resize *ends* over the corner, because the corner travels
+under the hand, so every drag would have fired one — and it existed at all
+because the corner drew a `⤢`, which is an argument from a mark rather than
+from a control. The mark and the gesture both moved; the corner now wears a
+double-headed diagonal arrow and does one thing. The button joined
+`tray_drag`'s press-exclusion list beside the minimise button and the zone
+tabs, which is the third time that list has grown with the header.
+
+It is animated as well — *"Das Maximiere und reverse soll auch schön animiert
+sein"* — and what travels there is the **rectangle**, not a transform.
+`Placement::lerp` is written into the `Node` on every frame by
+`input::glide_the_sheet`, so the sheet is re-laid-out the whole way across and
+its rows stay rows; a `UiTransform` stretched from 1020×738 to the band's
+shape would carry the type column, the thumbnails and the row heights with it
+and arrive as a distorted picture that snapped straight at the end. The store
+holds the **target** from the first frame, which is the same split
+`input::tray_drag` already keeps and the reason `write_placement` exists: a
+rebuild mid-flight has to land where the sheet is going.
+
+**The sheet opens wider, and the height is what did not move.** *"Der Zonen
+Dialog bleibt wie er ist, er soll nur etwas größer werden"*, and the
+arithmetic decided which axis. Measured at the 1728 × 1052 window this was
+asked on, the band is 1728 wide and 837 tall: the sheet was taking 52% of the
+one and 88% of the other, and a list has no size between two halves of a row
+— the next stop up is a ninth and a half at 808, which is 96% of that band and
+the dialog-reads-as-a-screen that `DEFAULT_H` has refused twice. So
+`DEFAULT_W` went 900 → 1020 and `DEFAULT_H` stayed, with all 120 new pixels
+reaching the two columns that carry words.
+
+Reading those two constants side by side found three sentences that had gone
+stale without a test noticing, which is worth recording because each was
+invisible in the same way. `DEFAULT_W`'s doc opened "One row wide — what
+`TRAY_PANEL_W` in the renderer computes", and the sheet had been 198 px wider
+than a row since it went 702 → 900 with nothing written down; the seam's test
+is a **floor**, and 900 passed it by not being the number the prose claimed.
+`DEFAULT_H`'s said "seven rows and a half" and so did `TRAY_ROWS`' own doc,
+with `8.5` written directly underneath it — the zone tabs moving into the
+title row handed 30 px of chrome back and the sheet spent them on the row it
+had just given up, which is the opposite of what both paragraphs said. In
+every case the *constant* was right and the test read the constant.
+
 The strip's icon is an archive box and deliberately not the layer-group a
 seat bar draws for a library: two identical icons on one screen meaning two
 things is worse than a less obvious one meaning its own, and what this dialog

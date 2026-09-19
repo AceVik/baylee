@@ -118,6 +118,11 @@ fn hand_app() -> bevy::app::App {
         .add_message::<Pointer<Release>>()
         .add_message::<Pointer<Click>>()
         .insert_resource(duel)
+        // `browser_click` reaches `TrayWidgets`, which holds the maximise
+        // button's flight as a `ResMut`. A resource that is not there is a
+        // panic on the first click at anything, so it is the harness's
+        // business and not one test's.
+        .init_resource::<crate::input::TrayGlide>()
         .add_systems(Update, (crate::touch::watch_the_finger, pointer).chain());
     let mut window = Window::default();
     window.resolution.set(1728.0, 1052.0);
@@ -219,6 +224,7 @@ fn menu_app(duel: crate::Duel) -> (bevy::app::App, bevy::prelude::Entity, bevy::
         .init_resource::<crate::settings::ClientSettings>()
         .add_message::<bevy::picking::events::Pointer<bevy::picking::events::Click>>()
         .insert_resource(duel)
+        .init_resource::<crate::input::TrayGlide>()
         .add_systems(Update, pointer);
     let draw = app
         .world_mut()

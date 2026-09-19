@@ -79,6 +79,14 @@ fn every_field_of_the_revision_is_both_compared_and_assigned() {
 /// every field cannot forget one and still compile — so what is left to
 /// guard is the escape hatch: `..Default::default()` would put the hole
 /// straight back, with the compiler content.
+///
+/// Still seven, and not by having stood still. The sheet gaining a way out
+/// on 19.09.2026 wanted an eighth — whether a *question* owns it, which
+/// decides whether the two window buttons and the resize corner are drawn
+/// at all — and `open` and that answer are one question wearing two bools:
+/// `(open: false, for_choice: true)` is a shut sheet a question owns, which
+/// no `Browser` is ever in. They are `hud::SheetOwner` now, so
+/// the count below is a parse check and the honesty is in the type.
 #[test]
 fn the_browsers_gate_is_filled_field_by_field() {
     let hud = include_str!("../../hud.rs");

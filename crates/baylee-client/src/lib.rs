@@ -914,7 +914,8 @@ pub struct DuelPlugin {
 /// it is drawn once at full strength before its arrival is ever applied.
 fn add_present_systems(app: &mut App) {
     app.init_resource::<hud::StackFold>()
-        .init_resource::<hud::TrayReveal>();
+        .init_resource::<hud::TrayReveal>()
+        .init_resource::<input::TrayGlide>();
     app.add_systems(
         Update,
         (
@@ -1098,9 +1099,69 @@ fn add_present_systems(app: &mut App) {
     );
 }
 
+/// Everything a hand does, in the order the frame has to read it in.
+///
+/// Lifted out of [`DuelPlugin::build`] for [`add_present_systems`]'s
+/// reason and no other: this one tuple carries five ordering constraints
+/// and about as many paragraphs saying why, and a `build` that holds it
+/// inline is a function nobody can read the shape of. Registration order
+/// says nothing in Bevy — every order that matters here is written as a
+/// `before` or an `after` — so where the call stands does not either.
+fn add_input_systems(app: &mut App) {
+    app.add_systems(
+        Update,
+        (
+            // Before the key path, and for the reason the lobby's
+            // sits there too: on a platform that owns the typing the
+            // client must not also read raw keys, or a character is
+            // entered twice.
+            input::browser_softkeys,
+            // Before the key path, so the frame the sheet opens on is
+            // already one the filter box owns. A letter that reached
+            // `look_around` instead is a display toggle or an engine
+            // answer fired out of somebody's search term.
+            input::browser_takes_the_keyboard.before(input::keyboard),
+            input::keyboard,
+            // Before the click, and it has to be: a press and the
+            // click it turns into arrive on the same frame, so a
+            // finger put down *after* its own tap had been answered
+            // would leave the card pressed with nothing to lift it.
+            touch::watch_the_finger.before(input::pointer),
+            // Before `pointer`, and on the *press* rather than the
+            // click it becomes: a click on another card has to close
+            // this sheet and then open that one, which is two things
+            // in that order and not one thing twice.
+            input::close_the_sheet_on_a_press_outside_it.before(input::pointer),
+            input::pointer,
+            input::pointer_hover,
+            // `input::camera_controls` used to stand here, and its
+            // absence is the point: the owner asked for the general
+            // camera movement to go on 14.09.2026, keyboard included,
+            // so nothing a hand does reaches the rig any more.
+            // `hud::scrolls` no longer shares the wheel with anything
+            // and there is no order left to get wrong.
+            hud::scrolls,
+            input::preview_resize,
+            input::tray_drag,
+            // After the drag, for the reason `glide_the_sheet`'s own
+            // doc gives: both write the sheet's `Node` outside the
+            // revision, and a frame in which the two disagreed would
+            // be a frame the later one wins by accident rather than
+            // by a stated order. They cannot both be running — the
+            // maximise button is excluded from `tray_drag`'s press —
+            // so the order costs nothing and says so.
+            input::glide_the_sheet.after(input::tray_drag),
+            face::track_modifier,
+        )
+            .in_set(DuelSet::Input)
+            .run_if(in_state(DuelPhase::Playing)),
+    );
+}
+
 impl Plugin for DuelPlugin {
     fn build(&self, app: &mut App) {
         add_present_systems(app);
+        add_input_systems(app);
         // Shared with the lobby, which is a separate plugin and may already
         // have installed it.
         prefs::install(app);
@@ -1215,46 +1276,6 @@ impl Plugin for DuelPlugin {
                 )
                     .chain()
                     .in_set(DuelSet::Sync),
-            )
-            .add_systems(
-                Update,
-                (
-                    // Before the key path, and for the reason the lobby's
-                    // sits there too: on a platform that owns the typing the
-                    // client must not also read raw keys, or a character is
-                    // entered twice.
-                    input::browser_softkeys,
-                    // Before the key path, so the frame the sheet opens on is
-                    // already one the filter box owns. A letter that reached
-                    // `look_around` instead is a display toggle or an engine
-                    // answer fired out of somebody's search term.
-                    input::browser_takes_the_keyboard.before(input::keyboard),
-                    input::keyboard,
-                    // Before the click, and it has to be: a press and the
-                    // click it turns into arrive on the same frame, so a
-                    // finger put down *after* its own tap had been answered
-                    // would leave the card pressed with nothing to lift it.
-                    touch::watch_the_finger.before(input::pointer),
-                    // Before `pointer`, and on the *press* rather than the
-                    // click it becomes: a click on another card has to close
-                    // this sheet and then open that one, which is two things
-                    // in that order and not one thing twice.
-                    input::close_the_sheet_on_a_press_outside_it.before(input::pointer),
-                    input::pointer,
-                    input::pointer_hover,
-                    // `input::camera_controls` used to stand here, and its
-                    // absence is the point: the owner asked for the general
-                    // camera movement to go on 14.09.2026, keyboard included,
-                    // so nothing a hand does reaches the rig any more.
-                    // `hud::scrolls` no longer shares the wheel with anything
-                    // and there is no order left to get wrong.
-                    hud::scrolls,
-                    input::preview_resize,
-                    input::tray_drag,
-                    face::track_modifier,
-                )
-                    .in_set(DuelSet::Input)
-                    .run_if(in_state(DuelPhase::Playing)),
             )
             .add_systems(OnEnter(DuelPhase::Opening), table::spawn_stage)
             // The end screen. Built on the edge because a result never

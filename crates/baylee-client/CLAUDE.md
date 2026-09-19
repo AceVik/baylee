@@ -673,6 +673,25 @@ predicate all four doors ask — `G`, `Escape`, the sheet's own head button and
 the tray's — after two of them had spent their whole existence closing a
 question's sheet that `Browser::follow` re-opened a frame later.
 
+**Putting it down is a movement, so `sync_tray` does not despawn it.** It
+writes `TrayReveal::closing` and returns; `reveal_tray` flies the sheet to
+`ledge::tray::zones_button_centre` and takes it off the tree at the end,
+`.after(sync_tray)` so a sheet reopened on the last frame of a flight is not
+despawned by one system and rebuilt by the other. The gate is on `showing =
+drawn && !closing`, or the body tears down the thing that is still moving on
+the very next frame. The dialog's veil is marked `TrayVeil` for the same
+handover — `TableVeil` is worn by the end screen too, and tearing down every
+one of them is a finished game losing its darkening.
+
+The head carries **both** size buttons now (`TrayMinimise`, `TrayMaximise`);
+the resize corner kept the drag and lost its hidden maximise-on-tap, which had
+been a four-pixel `TAP_SLOP` justified only by the `⤢` it wore. A maximise
+travels the **rectangle** (`Placement::lerp` through `input::glide_the_sheet`)
+and never a `UiTransform`: a stretched transform carries the type column and
+the row heights with it and snaps straight at the end. Any control added to
+the head has to join `tray_drag`'s press-exclusion list, or pressing it nudges
+the sheet first and saves that.
+
 The question itself is a **sheet**, and two things about sheets are easy to
 get wrong twice. `hud::sheet()` on a panel paints that panel's *content box*,
 so any padding shows as a ring of flat `PARCHMENT` around the grain with the

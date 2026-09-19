@@ -74,6 +74,67 @@ pub struct TrayWidgets<'w, 's> {
     done: Query<'w, 's, &'static crate::filterui::FilterDone>,
     cancel: Query<'w, 's, &'static TrayNone>,
     settings: ResMut<'w, crate::settings::ClientSettings>,
+    /// The sheet's other size button, and the two things it takes to answer
+    /// it. A placement is only meaningful against the band it was measured
+    /// in, so the window comes with the button rather than being fetched by
+    /// whoever happens to need it — `Placement::maximised`, `is_maximised`
+    /// and `fit` all take one, and a band read from somewhere else is a sheet
+    /// that maximises to the wrong rectangle.
+    grow: Query<'w, 's, &'static crate::hud::TrayMaximise>,
+    windows: Query<'w, 's, &'static Window>,
+    glide: ResMut<'w, TrayGlide>,
+}
+
+/// The sheet on its way between two rectangles.
+///
+/// Maximising and restoring used to be one assignment — `settings.zone_browser
+/// = Some(next)` and the sheet was simply *there* on the next frame. The owner
+/// asked for the movement on 19.09.2026: *"Das Maximiere und reverse soll auch
+/// schön animiert sein"*.
+///
+/// What travels is the **rectangle**, not a `UiTransform`. A transform scales
+/// what is already laid out, so a sheet stretched from 900×738 to the band's
+/// shape would carry its type, its thumbnails and its row heights with it and
+/// arrive as a distorted picture that snaps straight at the end. Writing
+/// `Placement::lerp` into the `Node` re-lays the sheet out on every frame,
+/// which is what makes the rows stay rows the whole way across.
+///
+/// The target is written to the store on the **first** frame, not the last:
+/// `settings.zone_browser` is where a rebuild reads the sheet's rectangle
+/// from, and a store that still held the old one would put the sheet back
+/// where it started if a card arrived mid-flight. So the store says where the
+/// sheet is going and this says where it is — the same split `tray_drag`
+/// already keeps, and the reason `write_placement` exists at all.
+/// It is one `Option` and not three fields with a flag among them, because
+/// "nothing is moving" has no *from* and no *to* — a resting glide holding
+/// two rectangles would need a zero `Placement` that is not a rectangle any
+/// sheet could be at, and `Placement` deliberately has no `Default` for that
+/// reason.
+#[derive(Resource, Default)]
+pub struct TrayGlide(Option<Flight>);
+
+impl TrayGlide {
+    /// Whether the sheet is between two rectangles right now.
+    ///
+    /// The one thing about this resource anybody outside needs to ask, and
+    /// the reason it is asked at all: "the store holds the band" and "the
+    /// sheet is on its way to the band" are two different claims, and a test
+    /// that only checked the first would pass on the jump this movement
+    /// replaced.
+    #[must_use]
+    pub fn is_flying(&self) -> bool {
+        self.0.is_some()
+    }
+}
+
+/// One movement between two rectangles.
+struct Flight {
+    /// Where the sheet set off from.
+    from: Placement,
+    /// Where it is going, which is also what the store already holds.
+    to: Placement,
+    /// 0 at the start of the movement, 1 at its end.
+    t: f32,
 }
 
 /// Everything on the ability sheet a pointer can land on, bundled for the
@@ -1823,20 +1884,16 @@ pub fn tray_drag(
     grips: Query<&crate::hud::TrayGrip>,
     corners: Query<&crate::hud::TrayResize>,
     closes: Query<&TrayMinimise>,
+    grows: Query<&crate::hud::TrayMaximise>,
     tabs: Query<&TrayTab>,
     parents: Query<&ChildOf>,
     windows: Query<&Window>,
     mut panels: Query<&mut Node, With<crate::hud::TrayPanel>>,
     mut duel: ResMut<Duel>,
     mut settings: ResMut<ClientSettings>,
+    mut revision: ResMut<crate::hud::TrayRevision>,
 ) {
     use crate::hud::{TrayDrag, TrayDragKind};
-
-    /// How far the pointer may wander and still have *clicked* the corner.
-    ///
-    /// A hand on a button moves a pixel or two between the press and the
-    /// release; a resize that only moved four is a resize nobody meant.
-    const TAP_SLOP: f32 = 4.0;
 
     // A sheet a *question* opened is not furniture the player arranged: it is
     // centred on whatever window it meets and reads no stored rectangle at all
@@ -1861,8 +1918,13 @@ pub fn tray_drag(
         // 14.09.2026. It is the bargain the minimise button already had, and
         // it is the reason the tabs could move at all: a chip that started a
         // drag would carry the whole sheet sideways every time a pile was
-        // ticked.
+        // ticked. The maximise button joined on 19.09.2026 when it moved up
+        // out of the corner and into the row beside its neighbour — which is
+        // the third time this list has had to grow with the header, and the
+        // reason it is one condition over three queries rather than a rule
+        // about where a control happens to sit.
         if find_in_lineage(down.entity, &closes, &parents).is_some()
+            || find_in_lineage(down.entity, &grows, &parents).is_some()
             || find_in_lineage(down.entity, &tabs, &parents).is_some()
         {
             continue;
@@ -1885,10 +1947,14 @@ pub fn tray_drag(
             });
         }
     }
-    let mut released = None;
+    // Whether a drag *ended* this frame, which is not the same as whether the
+    // button came up: a release with no drag under it is a click somewhere
+    // else on the sheet and has nothing to write. The drag itself is no
+    // longer wanted — it was read for how far it had travelled, back when the
+    // corner had a second job.
+    let mut ended = None;
     for _up in ups.read() {
-        released = released.or_else(|| duel.tray_drag.take());
-        duel.tray_drag = None;
+        ended = ended.or_else(|| duel.tray_drag.take());
     }
 
     if let (Some(drag), Some(at)) = (duel.tray_drag, cursor) {
@@ -1908,29 +1974,84 @@ pub fn tray_drag(
         duel.tray_drag = Some(TrayDrag { last: at, ..drag });
     }
 
-    // A press and a release on the corner with nothing between them is a
-    // *click*, and the corner draws a ⤢ — so it is read as a maximise button
-    // and has to be one. It could not be found by asking Bevy for a
-    // `Pointer<Click>`: a resize ends over the corner too, because the corner
-    // travels under the hand, so every drag would fire it.
-    if let Some(drag) = released {
-        if drag.kind == TrayDragKind::Resize && drag.last.distance(drag.origin) < TAP_SLOP {
-            let band = crate::hud::band_of(&windows);
-            let now = settings
-                .zone_browser
-                .map_or_else(|| Placement::centred(band), |p| p.fit(band));
-            let next = if now.is_maximised(band) {
-                duel.tray_restore
-                    .take()
-                    .map_or_else(|| Placement::centred(band), |p| p.fit(band))
-            } else {
-                duel.tray_restore = Some(now);
-                Placement::maximised(band)
-            };
-            settings.zone_browser = Some(next);
-            write_placement(&mut panels, next);
-        }
+    // The corner used to maximise as well, on a press and release that
+    // travelled less than a `TAP_SLOP` of 4 px between them. It was found
+    // this way rather than through a `Pointer<Click>` because a resize *ends*
+    // over the corner — the corner travels under the hand — so every drag
+    // would have fired one; and it existed at all because the corner drew a
+    // ⤢, which is an argument from a mark rather than from a control. The
+    // mark and the gesture both moved into the head on 19.09.2026
+    // (`hud::TrayMaximise`), where a click is a click and nothing has to be
+    // inferred from how far a hand wandered. The corner resizes.
+    if let Some(drag) = ended {
         settings.save();
+        // A *resize* ends with the sheet a different size than the one it was
+        // built at, so the sheet is rebuilt once — the grid's tiles are
+        // packed from the width and a stretched sheet keeps the packing it
+        // had. A move is not asked for: nothing about the sheet's contents
+        // depends on where in the band it stands.
+        if drag.kind == TrayDragKind::Resize {
+            revision.relayout();
+        }
+    }
+}
+
+/// Flies the sheet between two rectangles, and stops.
+///
+/// The counterpart of `hud::reveal_tray`: that one carries the sheet in and
+/// out of the tray, this one carries it between two sizes. They are two
+/// systems because they move two different things — a `UiTransform` there, a
+/// `Node` here — and [`TrayGlide`]'s own docs carry why this one cannot be a
+/// transform.
+///
+/// It is in `input` rather than in `hud` for one reason and it is a good one:
+/// [`write_placement`] is here, because a drag is the other thing that moves
+/// the sheet without going through the revision, and two writers of one
+/// `Node` in two modules is how they come to disagree about which of them
+/// owns it. A drag and a glide never run together — `tray_drag` takes the
+/// press, and the maximise button is excluded from it.
+///
+/// `reduce_motion` is honoured the way everything else here honours it: the
+/// movement still happens, it is simply already over on the frame it started.
+pub fn glide_the_sheet(
+    time: Res<Time>,
+    prefs: Option<Res<crate::prefs::Prefs>>,
+    mut glide: ResMut<TrayGlide>,
+    mut revision: ResMut<crate::hud::TrayRevision>,
+    mut panels: Query<&mut Node, With<crate::hud::TrayPanel>>,
+) {
+    /// How long the sheet takes to change size.
+    ///
+    /// The ability sheet's own span (`hud::motion::ZOOM_IN`), because this is
+    /// the same claim about the same interface: §7 measures everything
+    /// against "160 ms ease-out-back", and a panel resizing is no more
+    /// important than a panel arriving.
+    const GLIDE: f32 = 0.16;
+
+    let Some(flight) = glide.0.as_mut() else {
+        return;
+    };
+    let still = prefs.is_some_and(|p| p.all().reduce_motion);
+    flight.t = if still {
+        1.0
+    } else {
+        (flight.t + time.delta_secs() / GLIDE).min(1.0)
+    };
+    // Ease-out, with no overshoot at all. A rectangle that overshot would put
+    // an edge of the sheet outside the band for two frames — `lerp` does not
+    // clamp, on purpose — and the one place this movement ends is exactly the
+    // rectangle the store already holds.
+    let eased = 1.0 - (1.0 - flight.t).powi(3);
+    let at = flight.from.lerp(flight.to, eased);
+    write_placement(&mut panels, at);
+    if flight.t >= 1.0 {
+        glide.0 = None;
+        // And one rebuild, now that the sheet has stopped. The head's
+        // maximise button is drawn from `is_maximised` and the grid's tiles
+        // are packed from the sheet's width, and both were decided the last
+        // time `sync_tray` ran — which was before any of this moved. Without
+        // it a maximised sheet still offers to maximise.
+        revision.relayout();
     }
 }
 
@@ -2466,6 +2587,39 @@ fn browser_click(
     // makes "minimised" a true word for the state `close` writes.
     if find_in_lineage(entity, &tray.zones, parents).is_some() {
         duel.browser.toggle_by_hand();
+        return true;
+    }
+    // Out to the band, or back to where it was. It is a toggle over one
+    // question — `is_maximised` — rather than a remembered flag, because the
+    // window can be resized under a maximised sheet and a flag would then be
+    // saying something the rectangle does not.
+    //
+    // `duel.tray_restore` is the other half and is *not* the store: what the
+    // sheet goes back to is the last rectangle the player arranged, and the
+    // store now holds the band. Nothing restores to a placement nobody chose,
+    // which is why an empty `tray_restore` restores to centred rather than to
+    // whatever `settings.zone_browser` last was.
+    if find_in_lineage(entity, &tray.grow, parents).is_some() {
+        let band = crate::hud::band_of(&tray.windows);
+        let now = tray
+            .settings
+            .zone_browser
+            .map_or_else(|| Placement::centred(band), |p| p.fit(band));
+        let next = if now.is_maximised(band) {
+            duel.tray_restore
+                .take()
+                .map_or_else(|| Placement::centred(band), |p| p.fit(band))
+        } else {
+            duel.tray_restore = Some(now);
+            Placement::maximised(band)
+        };
+        tray.settings.zone_browser = Some(next);
+        tray.settings.save();
+        *tray.glide = TrayGlide(Some(Flight {
+            from: now,
+            to: next,
+            t: 0.0,
+        }));
         return true;
     }
     // The dialog's way out, which exists only when the question's minimum is

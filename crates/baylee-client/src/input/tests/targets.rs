@@ -57,6 +57,7 @@ fn a_click_on_a_stack_row_answers_the_question_it_was_asked() {
             )),
             ..default()
         })
+        .init_resource::<crate::input::TrayGlide>()
         .add_systems(Update, pointer);
 
     // The row as `spawn_stack_entry` builds it: the object it draws, and
@@ -169,6 +170,7 @@ fn player_summary_children_target_the_seat_without_moving_the_camera() {
             )),
             ..default()
         })
+        .init_resource::<crate::input::TrayGlide>()
         .add_systems(Update, pointer);
     let summary = app
         .world_mut()

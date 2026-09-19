@@ -16,6 +16,9 @@ fn harness() -> (App, Entity, Entity, Entity) {
         .add_message::<Pointer<Release>>()
         .init_resource::<Duel>()
         .init_resource::<ClientSettings>()
+        // A drag of the corner ends with one rebuild asked for, which is
+        // what re-tiles a grid packed at the old width.
+        .init_resource::<crate::hud::TrayRevision>()
         .add_systems(Update, tray_drag);
     let mut window = Window::default();
     window.resolution.set(1728.0, 1052.0);
@@ -159,38 +162,51 @@ fn dragging_the_corner_stretches_the_sheet() {
     assert_eq!(after.left, before.left, "the corner moved the sheet");
 }
 
-/// Clicking the corner fills the band, and clicking it again puts the
-/// sheet back where it was.
+/// A click on the corner does nothing at all, and that is the change.
 ///
-/// The corner draws a ⤢ and is read as a maximise button, and it was a
-/// drag handle and nothing else — a click on it did nothing at all, which
-/// is what the owner reported. The two gestures share one control, so the
-/// third case is the one that matters: a *drag* must not maximise.
+/// This test used to assert the opposite, and it failing against the old
+/// code is the whole of what it is for. The corner used to fill the band on
+/// a press and a release less than four pixels apart — a `Pointer<Click>`
+/// was unusable, because a resize *ends* over the corner (the corner
+/// travels under the hand), so every drag would have fired one. The gesture
+/// existed because the corner drew a ⤢, which is an argument from a mark
+/// rather than from a control.
+///
+/// The owner asked for the button on 19.09.2026 — *"Der maximieren Button
+/// wandert neben den minimieren Button"* — so the mark and the gesture both
+/// moved, and `hud::TrayMaximise` is where a click is a click.
+/// `input::tests::tray::the_maximise_button_fills_the_band_and_gives_it_back`
+/// is the half that says the band still gets filled; this one says it is no
+/// longer filled from here.
 #[test]
-fn clicking_the_corner_maximises_and_restores_the_sheet() {
+fn clicking_the_corner_no_longer_maximises_the_sheet() {
     let (mut app, panel, _, corner) = harness();
-    let band = (1728.0, 1052.0 - crate::hud::EDGE - crate::hud::HAND_ZONE_H);
     let home = node_of(&app, panel);
 
     press(&mut app, corner);
     app.update();
     release(&mut app, corner);
     app.update();
-    let full = node_of(&app, panel);
-    assert_ne!(full.width, home.width, "the click did nothing");
-    assert_eq!(full.width, px(Placement::maximised(band).width));
-    assert_eq!(full.height, px(Placement::maximised(band).height));
 
-    press(&mut app, corner);
-    app.update();
-    release(&mut app, corner);
-    app.update();
-    let back = node_of(&app, panel);
-    assert_eq!(back.width, home.width, "it did not go back");
-    assert_eq!(back.left, home.left, "it went back somewhere else");
+    let after = node_of(&app, panel);
+    assert_eq!(after.width, home.width, "a click on the corner resized it");
+    assert_eq!(after.left, home.left, "a click on the corner moved it");
+    assert!(
+        app.world()
+            .resource::<ClientSettings>()
+            .zone_browser
+            .is_none(),
+        "a click that changed nothing on screen still saved a rectangle"
+    );
 }
 
-/// And a drag on the corner is a resize, never a maximise.
+/// And letting go of a resize does not reach for one either.
+///
+/// Kept after the gesture moved, because what it pins is the
+/// *release*: the corner's drag ends with `settings.save()` and one
+/// asked-for rebuild, and a release that also snapped to the band
+/// would be invisible in the test above, which never moves the
+/// cursor at all.
 #[test]
 fn dragging_the_corner_does_not_maximise_it() {
     let (mut app, panel, _, corner) = harness();
@@ -237,6 +253,35 @@ fn pressing_the_minimise_button_does_not_start_a_drag() {
             .zone_browser
             .is_none(),
         "putting the sheet down wrote a place nobody chose"
+    );
+}
+
+/// And neither does the maximise button, the third control on that row.
+///
+/// It joined the press-exclusion list on 19.09.2026, and it is the one of
+/// the three whose absence would have been hardest to see: this button is
+/// *supposed* to change the sheet's rectangle, so a nudge saved on the way
+/// to pressing it is a change hiding inside a change.
+#[test]
+fn pressing_the_maximise_button_does_not_start_a_drag() {
+    let (mut app, panel, grip, _) = harness();
+    let grow = app
+        .world_mut()
+        .spawn((crate::hud::TrayMaximise, Node::default()))
+        .id();
+    app.world_mut().entity_mut(grip).add_children(&[grow]);
+
+    press(&mut app, grow);
+    app.update();
+    let before = node_of(&app, panel);
+    cursor_to(&mut app, Vec2::new(1000.0, 600.0));
+    assert_eq!(node_of(&app, panel).left, before.left);
+    assert!(
+        app.world()
+            .resource::<ClientSettings>()
+            .zone_browser
+            .is_none(),
+        "reaching for the maximise button moved the sheet and saved it"
     );
 }
 

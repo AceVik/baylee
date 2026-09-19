@@ -53,32 +53,224 @@
 use super::*;
 use baylee_client_core::browser::{BrowseRow, BrowseZone, Browser, Names, ViewMode, grid_across};
 
-/// Opening progress survives filter, tab and card-art rebuilds.
-#[derive(Resource, Default)]
-pub struct TrayReveal(f32);
+/// How long the sheet takes to arrive.
+///
+/// It was the only number here when the sheet had no way out, and it stays
+/// what it was: long enough to be a movement, over before a player has
+/// finished looking down at it.
+const REVEAL_IN: f32 = 0.20;
 
-/// A restrained entrance, with readable text and no animation on filtering.
+/// And to be put away.
+///
+/// Shorter than the way in, which is [`super::motion::ZOOM_OUT`]'s rule — an
+/// answer arriving and an answer being dismissed are not the same event, and
+/// a dismissal that takes as long as the answer reads as reluctance. It is
+/// nonetheless half as long again as that constant, because this sheet does
+/// not shrink where it stands: it **travels**, the width of the window, and a
+/// journey that is over in a tenth of a second is a jump.
+const REVEAL_OUT: f32 = 0.16;
+
+/// How small the sheet is by the time it reaches the tray.
+///
+/// Not the button's own size. A 1020-pixel sheet folded into a 24-pixel
+/// button is a ratio of 0.024, at which the last third of the movement is a dot
+/// sliding along the shelf — the *sheet* has already stopped being legible as
+/// one. This is the size at which it still reads as the panel that was there
+/// a moment ago, arriving at the button rather than replaced by it.
+const REVEAL_FOLD: f32 = 0.08;
+
+/// How far below its place the sheet starts, and rises through.
+///
+/// **Below**, not above: `bevy_ui`'s y runs downward, so the entrance writes
+/// a *positive* offset that shrinks to nothing and the sheet comes up into
+/// its place. A page being laid down would fall, which is the wrong reading
+/// of a dialog that is being handed to the player rather than dropped in
+/// front of them.
+///
+/// Neither way out has a use for it. Being put away is a journey and the
+/// journey is the whole of its direction; being answered is a dismissal in
+/// place, which is the one movement here that goes nowhere at all.
+const REVEAL_RISE: f32 = 12.0;
+
+/// Where the sheet is in its own opening, and which way it is going.
+///
+/// A resource and not a component on the panel, which is where [`DrawerZoom`]
+/// and [`SheetZoom`] keep the same two fields. The difference is how often
+/// the thing underneath is rebuilt: this panel is despawned and written again
+/// on every keystroke in its filter box, and progress kept on it would restart
+/// the entrance on each one. The drawer solves that by refilling a panel it
+/// keeps ([`super::ledge::drawer::sync_drawer`]'s "an open panel is kept and
+/// refilled"); this sheet is a hundred rows deep and is rebuilt whole, so the
+/// state is kept beside it instead.
+///
+/// `t` is reset rather than reversed when the direction changes, for
+/// `DrawerZoom`'s reason: the two spans are different and so are the two
+/// curves.
+///
+/// [`DrawerZoom`]: super::ledge::drawer::DrawerZoom
+/// [`SheetZoom`]: super::sheet::SheetZoom
+#[derive(Resource, Default)]
+pub struct TrayReveal {
+    /// 0 at the start of the movement, 1 at its end.
+    t: f32,
+    /// Whether this is the way out — the movement at the end of which this
+    /// system takes the sheet off the tree.
+    closing: bool,
+    /// Whether the way out is the **tray**, recorded while the sheet is up.
+    ///
+    /// A sheet the player opened is *put away*, and where it goes is the
+    /// button that brings it back. A sheet a **question** opened is
+    /// *answered*: it has no button — the tray's is held for exactly as long
+    /// as the question owns the sheet — so a flight to it would be a
+    /// movement towards a door the player was not allowed through, and
+    /// `hud::motion`'s own rule says a dismissal is not a journey.
+    ///
+    /// Recorded when the sheet is built and not when it closes, because by
+    /// then the browser is shut and a shut browser answers `for_choice` with
+    /// false. It is the sheet's provenance, and the sheet is what is moving.
+    to_tray: bool,
+}
+
+impl TrayReveal {
+    /// Sends a standing sheet on its way out.
+    ///
+    /// Takes `showing` rather than reading the sheet itself, because the one
+    /// thing this must not do is start a second flight on a sheet that is
+    /// already in the air: the browser is shut for every frame of the way
+    /// out, so a `closing` written unconditionally would hold `t` at nought
+    /// and the sheet would hang over the tray for ever.
+    fn send_away(&mut self, showing: bool) {
+        if showing {
+            self.closing = true;
+            self.t = 0.0;
+        }
+    }
+
+    /// Starts, or keeps, the entrance of a sheet that is being built.
+    ///
+    /// A sheet that was on its way out cannot be caught and turned round: its
+    /// `t` runs on the closing span and against the closing curve. So it goes,
+    /// and a fresh one opens in its place on the same frame — from the
+    /// beginning, because what the player asked for is the sheet arriving and
+    /// not the last two frames of it. A rebuild of a sheet that is simply
+    /// *standing* keeps its `t`, which is what stops every keystroke in the
+    /// filter box replaying the entrance.
+    fn arrives(&mut self, fresh: bool, to_tray: bool) {
+        if self.closing || fresh {
+            self.t = 0.0;
+        }
+        self.closing = false;
+        self.to_tray = to_tray;
+    }
+}
+
+/// The sheet's entrance, its flight into the tray, and the despawn at the end
+/// of one.
+///
+/// After [`sync_tray`] deliberately. `sync_tray` is what decides that the
+/// sheet is leaving — it writes [`TrayReveal::closing`] instead of despawning
+/// — and if this ran first, a sheet reopened on the frame its `t` reached 1
+/// would be despawned here and rebuilt there, both of them acting on the same
+/// entity in one frame. The despawn is here and not there for
+/// [`super::ledge::drawer::zoom_the_drawer`]'s reason: a sheet on its way out
+/// has outlived the question it was about, and `sync_tray` has already
+/// written the reading that says so.
+///
+/// The flight is one interpolation of two things at once. The panel's centre
+/// travels to [`super::ledge::tray::zones_button_centre`] and its scale falls
+/// to [`REVEAL_FOLD`] — a `UiTransform` scales about the node's own centre, so
+/// moving that centre onto the button's is the whole of "it went in there".
+/// Both are read off the panel's own `Node`, which is where a drag has just
+/// written the sheet's position; nothing here asks a `ComputedNode`, so there
+/// is no logical-versus-physical question to get wrong.
 pub fn reveal_tray(
+    mut commands: Commands,
     time: Res<Time>,
-    duel: Res<Duel>,
     prefs: Res<crate::prefs::Prefs>,
+    windows: Query<&Window>,
     mut reveal: ResMut<TrayReveal>,
-    mut panels: Query<&mut UiTransform, With<TrayPanel>>,
+    mut panels: Query<(&Node, &mut UiTransform), With<TrayPanel>>,
+    // The same two queries [`sync_tray`] tears the sheet down with, and
+    // deliberately the same handle: what this despawns at the end of a
+    // flight is exactly what that despawns on a rebuild, and two signatures
+    // naming the same pair of nodes differently is how one of them comes to
+    // be missing a node. `Or<(With<TrayBand>, With<TrayVeil>)>` says it in
+    // one query and is `clippy::type_complexity`; two bare queries say it in
+    // two and are an eighth argument. This says it in none of its own.
+    tree: TrayTree,
 ) {
-    if !duel.browser.is_open() {
-        reveal.0 = 0.0;
+    if panels.is_empty() {
         return;
     }
-    reveal.0 = if prefs.all().reduce_motion {
-        1.0
+    let still = prefs.all().reduce_motion;
+    let span = if reveal.closing {
+        REVEAL_OUT
     } else {
-        (reveal.0 + time.delta_secs() / 0.20).min(1.0)
+        REVEAL_IN
     };
-    let eased = 1.0 - (1.0 - reveal.0).powi(3);
-    for mut transform in &mut panels {
-        transform.scale = Vec2::splat(0.965 + 0.035 * eased);
-        transform.translation.y = px((1.0 - eased) * 12.0);
+    reveal.t = super::motion::step(reveal.t, span, time.delta_secs(), still);
+    if reveal.closing && reveal.t >= 1.0 {
+        for entity in tree.panel.iter().chain(tree.veil.iter()) {
+            commands.entity(entity).despawn();
+        }
+        return;
     }
+
+    let band = band_of(&windows);
+    let target = super::ledge::tray::zones_button_centre(band);
+    // Ease-out on the way in, ease-*in* on the way out: a thing arriving
+    // slows into place and a thing leaving gathers speed, which is the same
+    // pair `motion::opening` and `motion::shutting` are.
+    let eased = if reveal.closing {
+        reveal.t * reveal.t
+    } else {
+        1.0 - (1.0 - reveal.t).powi(3)
+    };
+    for (node, mut transform) in &mut panels {
+        let (scale, travel, drop) = match (reveal.closing, reveal.to_tray) {
+            // Put away: it folds down to [`REVEAL_FOLD`] and its middle
+            // travels onto the tray button's.
+            (true, true) => {
+                let here = centre_of(node, band);
+                (
+                    1.0 - (1.0 - REVEAL_FOLD) * eased,
+                    (target - here) * eased,
+                    0.0,
+                )
+            }
+            // Answered: it goes where it stands. `motion::shutting`'s range
+            // exactly, because this *is* a dismissal and the drawer's is the
+            // movement it should read like.
+            (true, false) => (super::motion::shutting(reveal.t), Vec2::ZERO, 0.0),
+            // Arriving, either way. One entrance, because a sheet is a sheet
+            // however it was asked for, and a player who saw two would be
+            // learning a distinction the interface does not otherwise make.
+            (false, _) => (
+                0.965 + 0.035 * eased,
+                Vec2::ZERO,
+                (1.0 - eased) * REVEAL_RISE,
+            ),
+        };
+        transform.scale = Vec2::splat(scale);
+        transform.translation = Val2::new(px(travel.x), px(travel.y + drop));
+    }
+}
+
+/// The middle of the sheet, in the same coordinates the tray's button is
+/// measured in.
+///
+/// The `Node`'s four numbers are `Val::Px` because `Placement` is written
+/// there in pixels; anything else means the sheet has not been placed yet,
+/// and falling back to the middle of the band is a flight that starts from
+/// where a sheet with no placement would be drawn.
+fn centre_of(node: &Node, band: (f32, f32)) -> Vec2 {
+    let px_of = |v: Val, or: f32| if let Val::Px(n) = v { n } else { or };
+    let width = px_of(node.width, Placement::DEFAULT_W);
+    let height = px_of(node.height, Placement::DEFAULT_H);
+    Vec2::new(
+        px_of(node.left, (band.0 - width) / 2.0) + width / 2.0,
+        px_of(node.top, (band.1 - height) / 2.0) + height / 2.0,
+    )
 }
 
 /// The thumbnail on a row.
@@ -261,6 +453,22 @@ const TRAY_CTRL_H: f32 = 28.0;
 const TRAY_FOOT_H: f32 = 34.0;
 /// The air between the head's three rows.
 const TRAY_HEAD_GAP: f32 = 8.0;
+
+/// A window button in the head: square, so its mark has a centre to sit over.
+///
+/// Two pixels inside [`TRAY_TITLE_H`], which is what keeps the pair from
+/// touching the rule under the row while still being the tallest thing in it.
+const HEAD_BTN: f32 = TRAY_TITLE_H - 2.0;
+
+/// The gap between the two of them.
+///
+/// Tighter than [`TRAY_GAP`]: they are one control in two halves — both
+/// change the sheet's size — and a pair set at the row's own spacing reads as
+/// two unrelated buttons that happen to be adjacent.
+const HEAD_BTN_GAP: f32 = 4.0;
+
+/// The mark in one, at the size the rest of the sheet's icons are set.
+const HEAD_BTN_PT: f32 = 12.0;
 /// The head band's own padding, above and below.
 const TRAY_HEAD_PAD: f32 = 12.0;
 /// The box at the start of a zone tab's name.
@@ -303,11 +511,15 @@ const TRAY_CHROME_H: f32 =
 /// four *whole* rows for the opposite reason — most of a fifth row of cards
 /// was space nothing could ever be put in.
 ///
-/// Eight and a half until the rows grew on 14.09.2026 (see [`TRAY_THUMB_W`]).
-/// Seven and a half is what keeps the sheet close to the height it opened at
-/// before: a taller row spent entirely on more sheet would have put the
-/// default at 768 of the 850 the band has at 1738, which is a dialog that
-/// reads as a screen.
+/// Eight and a half, and it has been eight and a half throughout. The rows
+/// grew on 14.09.2026 (see [`TRAY_THUMB_W`]) and the count came down to seven
+/// and a half with them — and then the zone tabs moved into the title row
+/// later the same day, handed 30 px of chrome back, and the sheet spent them
+/// on the row it had just given up. This comment said "seven and a half" for
+/// four days with `8.5` written directly underneath it, and so did
+/// [`Placement::DEFAULT_H`]'s. Neither could be caught by a test, because
+/// `the_default_height_shows_half_a_row` reads the **constant** and the
+/// constant was right the whole time.
 #[cfg(test)]
 const TRAY_ROWS: f32 = 8.5;
 
@@ -357,6 +569,34 @@ pub struct TrayRevision {
     texts: usize,
     /// The window, rounded to whole pixels — a band a sheet is re-fitted to.
     window: (i32, i32),
+    /// Set by whatever has just finished changing the sheet's **size**.
+    ///
+    /// The rectangle is deliberately not one of the fields above: a drag
+    /// writes it on every frame and rebuilding two hundred nodes per pixel
+    /// would make the sheet unusable, which is why `input::write_placement`
+    /// exists at all. But a sheet built at one size and then resized *behind*
+    /// the gate is drawn from numbers that are no longer true — the grid's
+    /// tiles keep the width they were packed at, and the head's maximise
+    /// button keeps the mark it was given. So the movement writes this when
+    /// it stops, and exactly one rebuild follows.
+    ///
+    /// A flag rather than the rectangle itself, because what is being said is
+    /// "something ended", not "here is a new value to compare": the value is
+    /// already in `settings.zone_browser`, which is where the rebuild reads
+    /// it from.
+    stale: bool,
+}
+
+impl TrayRevision {
+    /// Asks for one rebuild, at the end of a movement that resized the sheet.
+    ///
+    /// Called by `input::glide_the_sheet` when a maximise or a restore lands,
+    /// and by `input::tray_drag` when a drag of the corner is let go of. Not
+    /// during either: that is the whole point of keeping the rectangle out of
+    /// the gate.
+    pub fn relayout(&mut self) {
+        self.stale = true;
+    }
 }
 
 /// Draws the zone dialog, and only when the dialog has changed.
@@ -380,6 +620,7 @@ pub fn sync_tray(
     mut commands: Commands,
     duel: Res<crate::Duel>,
     mut revision: ResMut<TrayRevision>,
+    mut reveal: ResMut<TrayReveal>,
     tree: TrayTree,
     mut textures: ResMut<CardTextures>,
     assets: Res<AssetServer>,
@@ -398,7 +639,7 @@ pub fn sync_tray(
         return;
     };
     let browser = super::BrowserGate {
-        open: duel.browser.is_open(),
+        sheet: super::SheetOwner::of(&duel.browser),
         ticked: duel.browser.ticked().clone(),
         filter: duel.browser.filter_field().clone(),
         typing: duel.browser.is_typing(),
@@ -435,6 +676,14 @@ pub fn sync_tray(
     // drawn" would leave the dialog missing until something else about it
     // changed.
     let drawn = !tree.panel.is_empty();
+    // And whether what is drawn is a sheet that is *up*. A sheet flying into
+    // the tray is not: the reading it belonged to is already gone and it is
+    // on screen only because the owner asked for a way out as well as a way
+    // in. This is the drawer's `open` one dialog along, and it is what stops
+    // the close animation dying on its second frame — with `drawn` alone, a
+    // standing sheet beside a shut browser fails this gate on every frame,
+    // and the body below despawns the thing that is still moving.
+    let showing = drawn && !reveal.closing;
     if revision.browser == browser
         && revision.seq == seq
         && revision.selected == selected
@@ -443,10 +692,12 @@ pub fn sync_tray(
         && revision.faces == faces_always
         && revision.texts == texts.len()
         && revision.window == canvas
-        && drawn == browser.open
+        && showing == browser.sheet.open()
+        && !revision.stale
     {
         return;
     }
+    revision.stale = false;
     revision.browser = browser.clone();
     revision.seq = seq;
     revision.selected.clone_from(&selected);
@@ -456,16 +707,24 @@ pub fn sync_tray(
     revision.texts = texts.len();
     revision.window = canvas;
 
+    // Sent away rather than despawned, which is `sync_drawer`'s word for the
+    // same handover: [`reveal_tray`] flies the sheet into the tray and takes
+    // it off the tree at the end of that. Until then its rows are still
+    // pickable, which is safe for the drawer's reason — every click is
+    // re-resolved against the *current* interaction, and there is none.
+    if !browser.sheet.open() {
+        reveal.send_away(showing);
+        return;
+    }
+
     for entity in tree.panel.iter().chain(tree.veil.iter()) {
         commands.entity(entity).despawn();
     }
+    reveal.arrives(!drawn, !browser.sheet.for_choice());
 
     let (Some(view), Some(statics)) = (duel.view.as_ref(), duel.statics.as_ref()) else {
         return;
     };
-    if !browser.open {
-        return;
-    }
 
     let mut cards = match (ui_materials, material_assets) {
         (Some(cache), Some(assets)) => Some((cache, assets)),
@@ -487,8 +746,7 @@ pub fn sync_tray(
     // gone, and a veil that was spawned on the lock would vanish there
     // instead of lifting. Clear, it is one node painting nothing and
     // answering nothing.
-    let veil = spawn_veil(&mut commands);
-    commands.entity(root).add_child(veil);
+    spawn_tray_veil(&mut commands, root);
     // Where the sheet stands, decided by the browser so that the tray takes a
     // rectangle rather than the window and the store. `fit` is applied on
     // every build and never written back: a window briefly dragged narrow
@@ -496,9 +754,8 @@ pub fn sync_tray(
     // play on. A sheet a *question* opened reads no store at all and is
     // centred — `Browser::placement` carries the measurement that says why a
     // clamp was not enough.
-    let place = duel
-        .browser
-        .placement(band_of(&windows), settings.zone_browser);
+    let band = band_of(&windows);
+    let place = duel.browser.placement(band, settings.zone_browser);
     let tray = spawn_tray(
         &mut commands,
         lang,
@@ -512,6 +769,7 @@ pub fn sync_tray(
         &faces,
         cards.as_mut(),
         place,
+        place.is_maximised(band),
         settings.zone_view,
     );
     commands.entity(root).add_child(tray);
@@ -541,11 +799,35 @@ pub(crate) fn band_of(windows: &Query<&Window>) -> (f32, f32) {
 /// finished reading the dialog's title, and anything past a third of a second
 /// is the player waiting.
 ///
-/// It rises and never falls on screen: the dialog is a retained tree and goes
-/// the instant it is answered, so the veil goes with it. The number still eases
-/// back down with nothing to draw, which is what makes the *next* question fade
-/// in from nothing rather than snapping from wherever the last one stopped.
+/// It used to rise and never fall **on screen**: the dialog was a retained
+/// tree that went the instant it was answered and took the veil with it, so
+/// the number eased back down with nothing to draw — which was still worth
+/// doing, because it is what makes the *next* question fade in from nothing
+/// rather than snapping from wherever the last one stopped.
+///
+/// It falls on screen now. A sheet that is put away or answered outlives the
+/// browser being shut, and so does its veil — [`super::TrayVeil`] is what
+/// lets the dialog's teardown tell its own from the end screen's — so the
+/// table lightens under a sheet that is still leaving instead of at the
+/// instant it stops existing. The number did not change; what changed is
+/// that there is something on screen to paint with it.
 const VEIL_RATE: f32 = 9.0;
+
+/// This dialog's veil, hung under the overlay's root.
+///
+/// One function and not three statements, because the marker is the whole
+/// point of it. [`spawn_veil`] is called by `hud::finish` as well, so the
+/// node it makes is not owned by anybody in particular; [`TrayVeil`] is what
+/// says this one is the zone sheet's, and a build that spawned the veil and
+/// forgot the marker would hand the end screen's darkening to this dialog's
+/// teardown — which is the defect that made the marker necessary. Marking it
+/// here rather than inside `spawn_veil` keeps `hud::finish` able to make one
+/// that is nobody's.
+fn spawn_tray_veil(commands: &mut Commands, root: Entity) {
+    let veil = spawn_veil(commands);
+    commands.entity(veil).insert(TrayVeil);
+    commands.entity(root).add_child(veil);
+}
 
 /// The veil over the table, and the number behind it.
 ///
@@ -815,6 +1097,44 @@ fn clipped(commands: &mut Commands, line: Entity, box_node: Node) -> Entity {
     clip
 }
 
+/// One of the head's window buttons.
+///
+/// Both of them differ by exactly two things — the marker component that says
+/// which click this is, and the mark drawn in it — so they are one function
+/// rather than two literals that agree for now. The marker is inserted by the
+/// caller because it is the only part a shared body cannot carry, and writing
+/// the pair out twice is how a `Feel`, a radius or an ink ends up on one of
+/// them and not the other.
+///
+/// The mark comes out of the **icon font**, not the text face: Alegreya Sans
+/// carries neither a window rule nor a frame, which is why the minimise
+/// button drew as a thin bar for one build when it was still a `✕`.
+fn head_button(commands: &mut Commands, fonts: &UiFonts, mark: char) -> Entity {
+    commands
+        .spawn((
+            Button,
+            Node {
+                width: px(HEAD_BTN),
+                height: px(HEAD_BTN),
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+                border: UiRect::all(px(1)),
+                border_radius: btn_radius(),
+                ..default()
+            },
+            BackgroundColor(palette::DIALOG),
+            BorderColor::all(palette::DIALOG_LINE),
+            Feel::new(palette::DIALOG),
+            children![(
+                Text::new(mark.to_string()),
+                icon_tf(fonts, HEAD_BTN_PT),
+                TextColor(palette::DIALOG_SOFT),
+                Pickable::IGNORE,
+            )],
+        ))
+        .id()
+}
+
 /// The zone browser: a dialog over the table, in the middle of it.
 ///
 /// Centred rather than pinned to a corner, because that is where a stack of
@@ -835,6 +1155,7 @@ pub(super) fn spawn_tray(
     faces: &FaceCtx<'_>,
     mut cards: Option<&mut UiCards<'_>>,
     place: Placement,
+    maximised: bool,
     mode: ViewMode,
 ) -> Entity {
     // The catalog reaching the panel's own decisions, which is the half
@@ -973,43 +1294,57 @@ pub(super) fn spawn_tray(
             },
         ))
         .id();
-    // The way down. Square, so the rule has a centre to sit over, and with a
-    // `Feel`, because every other button in this client breathes.
+    // The two ways the sheet changes size, in the order every window on this
+    // player's desktop puts them: down into the tray, then out to full.
     //
     // Drawn only on a sheet the player opened by hand, which is the corner's
     // rule one control along and is there for the same measurement: on a
-    // sheet a *question* opened this fired, `Browser::follow` put the sheet
-    // straight back, and the button was a control that lit under the pointer
-    // and left the screen exactly as it was.
+    // sheet a *question* opened the minimise button fired, `Browser::follow`
+    // put the sheet straight back, and it was a control that lit under the
+    // pointer and left the screen exactly as it was. The maximise button
+    // inherits the rule for a different reason with the same shape — a sheet
+    // a question opened reads no stored rectangle, so there is nothing for it
+    // to write and nothing to come back to.
+    //
+    // The owner asked for the pair on 19.09.2026: *"Der maximieren Button
+    // wandert neben den minimieren Button"*. It used to be the resize
+    // corner's second job, found by a click that travelled less than
+    // `input::tray_drag`'s `TAP_SLOP` — which is a gesture nothing on the
+    // sheet said was there.
     let close = (!browser.for_choice()).then(|| {
-        commands
+        let row = commands
             .spawn((
-                TrayMinimise,
-                Button,
                 Node {
-                    width: px(22),
-                    height: px(22),
+                    flex_direction: FlexDirection::Row,
                     align_items: AlignItems::Center,
-                    justify_content: JustifyContent::Center,
-                    border: UiRect::all(px(1)),
-                    border_radius: btn_radius(),
+                    column_gap: px(HEAD_BTN_GAP),
+                    flex_shrink: 0.0,
                     ..default()
                 },
-                BackgroundColor(palette::DIALOG),
-                BorderColor::all(palette::DIALOG_LINE),
-                Feel::new(palette::DIALOG),
-                children![(
-                    // A window's bottom rule, out of the icon font: the text face
-                    // has neither this nor the `✕` it replaces — it was Inter and
-                    // is Alegreya Sans, and neither carries U+2715 — which is why
-                    // the button drew as a thin bar for one build.
-                    Text::new(glyph::MINIMISE.to_string()),
-                    icon_tf(fonts, 12.0),
-                    TextColor(palette::DIALOG_SOFT),
-                    Pickable::IGNORE,
-                )],
+                // The row is furniture; the two buttons in it are the
+                // controls. A press on the gap between them is a press on the
+                // title bar, which is what starts a drag.
+                Pickable::IGNORE,
             ))
-            .id()
+            .id();
+        let down = head_button(commands, fonts, glyph::MINIMISE);
+        commands.entity(down).insert(TrayMinimise);
+        // Two marks, not one that means both: a button offering to maximise a
+        // sheet that already fills the band is the same lie as a lit control
+        // that refuses its gesture. `window-restore` is the pair's other half
+        // in the shipped icon font and draws as two overlapping frames.
+        let out = head_button(
+            commands,
+            fonts,
+            if maximised {
+                glyph::RESTORE
+            } else {
+                glyph::MAXIMISE
+            },
+        );
+        commands.entity(out).insert(TrayMaximise);
+        commands.entity(row).add_children(&[down, out]);
+        row
     });
     // ---- the zone tabs, "All" first ----
     //
@@ -1405,6 +1740,15 @@ pub(super) fn spawn_tray(
     // one handle, bottom right, both axes. A second handle on every edge is
     // eight more hit targets for a gesture nobody makes on a dialog.
     //
+    // It **resizes, and only that**. It used to maximise as well, on a press
+    // and release that travelled less than `TAP_SLOP` between them — an
+    // unwritten gesture whose whole justification was the mark it wore
+    // ("the corner draws a ⤢ — so it is read as a maximise button and has to
+    // be one"). The mark moved to a button in the head that says it out loud,
+    // so the gesture went with it and the corner wears [`glyph::RESIZE`]
+    // instead: two arrowheads pointing apart, which is the one thing left
+    // that it does.
+    //
     // Drawn only on a sheet the player arranged. A sheet a *question* opened
     // is centred and reads no stored rectangle, so `input::tray_drag` returns
     // before it ever reaches this handle — and then the rule the pinned tabs
@@ -1434,7 +1778,7 @@ pub(super) fn spawn_tray(
                 // for exactly the reason [`Feel::hot`] exists.
                 Feel::rising_to(Color::NONE, palette::DIALOG_LIT),
                 children![(
-                    Text::new(glyph::EXPAND.to_string()),
+                    Text::new(glyph::RESIZE.to_string()),
                     icon_tf(fonts, 10.0),
                     TextColor(palette::DIALOG_SOFT),
                     Pickable::IGNORE,

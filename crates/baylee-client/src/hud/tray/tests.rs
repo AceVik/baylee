@@ -19,13 +19,20 @@ fn statics() -> GameStatic {
     }
 }
 
-/// The sheet a player has never moved is exactly one row wide.
+/// The sheet a player has never moved is at least one whole row wide.
 ///
 /// `Placement::DEFAULT_W` is a number in the renderer-free half, where it
 /// can be tested but where a row's columns do not exist; the arithmetic
 /// that produced it lives here. This is the seam between them, so a column
 /// widened on one side cannot silently leave the other with a name that
 /// no longer has its measure.
+///
+/// A **floor** and not an equality, and this doc said "exactly" until the
+/// two numbers were read side by side: a row is 702 and the sheet opens at
+/// 1020, because the slack past a row goes to the columns that flex and more
+/// of it is more name. What the seam has to stop is the sheet opening
+/// *narrower* than the row it holds, which is a name column with nothing left
+/// in it — and that is exactly what a floor says.
 #[test]
 fn the_default_width_is_one_whole_row() {
     let off = Placement::DEFAULT_W - TRAY_PANEL_W;

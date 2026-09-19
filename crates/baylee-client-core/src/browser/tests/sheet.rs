@@ -229,3 +229,64 @@ fn a_maximised_sheet_fills_the_band_and_says_so() {
     assert!(full.left + full.width <= band.0);
     assert!(full.top + full.height <= band.1);
 }
+
+/// A rectangle on its way from one place to another is at both ends when it
+/// gets there, and inside the band all the way.
+///
+/// The ends are the cheap half and are here because `lerp` is what a
+/// maximise is *drawn* from: a movement that did not finish exactly on the
+/// stored rectangle would leave the sheet a pixel out until the next rebuild
+/// put it right, which is the kind of drift nobody reports and everybody
+/// sees.
+///
+/// The middle is the half worth writing. `lerp` deliberately does not clamp,
+/// and this is the argument for that: both ends are inside the band, so every
+/// point between them is too — a rectangle's four numbers are each a convex
+/// combination, and a box is convex. It is asserted rather than reasoned
+/// about because the claim is about `left + width`, not about `left`, and two
+/// numbers that are each in range can still add up to one that is not.
+#[test]
+fn a_sheet_changing_size_stays_inside_the_band_the_whole_way() {
+    let band = (1400.0, 900.0);
+    let small = Placement::centred(band);
+    let full = Placement::maximised(band);
+
+    // A bound and not an equality: `mul_add` at `t = 1` computes
+    // `(b - a) * 1 + a`, which is `b` only when the subtraction and the
+    // addition both land exactly — true for these two rectangles on this
+    // band and not a property of the arithmetic.
+    let same = |a: Placement, b: Placement| {
+        (a.left - b.left).abs() < 1e-4
+            && (a.top - b.top).abs() < 1e-4
+            && (a.width - b.width).abs() < 1e-4
+            && (a.height - b.height).abs() < 1e-4
+    };
+    assert!(
+        same(small.lerp(full, 0.0), small),
+        "it starts where it starts"
+    );
+    assert!(same(small.lerp(full, 1.0), full), "and ends where it ends");
+
+    for step in 0..=20u8 {
+        let t = f32::from(step) / 20.0;
+        for (what, at) in [("out", small.lerp(full, t)), ("back", full.lerp(small, t))] {
+            assert!(
+                at.left >= 0.0 && at.top >= 0.0,
+                "on the way {what} at {t} the sheet left the band's top left: {at:?}"
+            );
+            assert!(
+                at.left + at.width <= band.0 + 0.01 && at.top + at.height <= band.1 + 0.01,
+                "on the way {what} at {t} the sheet reached past the band: {at:?}"
+            );
+        }
+    }
+
+    // The counter-test: the two ends are genuinely different rectangles, so
+    // the loop above is not twenty readings of one place.
+    assert!(
+        (full.width - small.width).abs() > 100.0,
+        "this test's premise is that a maximised sheet is much bigger than a \
+         centred one, and the two differ by {}",
+        (full.width - small.width).abs()
+    );
+}

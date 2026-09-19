@@ -1285,6 +1285,13 @@ mod tests {
         // dismissed panel would sit at `t = 0` for ever and anything counting
         // panels would be counting one the question had already left. It is
         // the end of the movement and not its absence: see `hud::motion`.
+        //
+        // The zone dialog joined that on 19.09.2026, when it gained a flight
+        // into the tray. Its despawn is `reveal_tray`'s, at the end of the
+        // movement, so a harness without both of these would count a sheet
+        // for ever after the browser was shut — and with `reduce_motion` the
+        // flight is over on the frame it starts, which is what keeps every
+        // test written before it meaning what it meant.
         let mut prefs = crate::prefs::Prefs::default();
         prefs.edit().reduce_motion = true;
         app.insert_resource(textures)
@@ -1303,6 +1310,7 @@ mod tests {
             .init_resource::<ledge::drawer::DrawerRevision>()
             .init_resource::<ledge::pool::PoolRevision>()
             .init_resource::<tray::TrayRevision>()
+            .init_resource::<tray::TrayReveal>()
             // All seven, chained, in the order the app runs them: the first
             // spawns the shelf, the pool's retained column and the drawer's
             // node, the second writes the shelf and records where its middle
@@ -1324,6 +1332,7 @@ mod tests {
                     ledge::pool::sync_pool,
                     ledge::pool::zoom_the_pool,
                     tray::sync_tray,
+                    tray::reveal_tray,
                 )
                     .chain(),
             );
@@ -1879,6 +1888,224 @@ mod tests {
             panel(&mut app).iter().all(|e| !was_panel.contains(e)),
             "the search narrowed nothing: the dialog is showing the list it \
              built before the letter was typed"
+        );
+    }
+
+    /// A sheet put away stands for as long as its flight into the tray, and
+    /// then it is gone.
+    ///
+    /// Both halves, and the second is what makes the first mean anything: a
+    /// dialog that simply stopped being despawned would pass "still standing"
+    /// for ever, and the whole reason `sync_tray` hands the sheet to
+    /// `reveal_tray` rather than tearing it down is that something else takes
+    /// it off the tree at the end.
+    ///
+    /// Motion is turned back **on** for this test. The harness runs with
+    /// `reduce_motion`, where the flight is over on the frame it starts —
+    /// which is what keeps every test written before it meaning what it
+    /// meant, and which would make this one unable to see the movement at
+    /// all.
+    #[test]
+    fn a_sheet_put_away_flies_to_the_tray_before_it_stops_existing() {
+        use std::time::Duration;
+
+        let mut duel = duel_with(false);
+        duel.statics = Some(baylee_client_core::test_support::statics(8));
+        duel.browser.open();
+        let mut app = bar_of(duel);
+        app.world_mut()
+            .resource_mut::<crate::prefs::Prefs>()
+            .edit()
+            .reduce_motion = false;
+
+        let bands = |app: &mut App| {
+            let mut q = app.world_mut().query_filtered::<Entity, With<TrayBand>>();
+            q.iter(app.world()).count()
+        };
+        assert_eq!(bands(&mut app), 1, "the sheet was opened and is drawn");
+
+        // The player presses the tray button. The browser is shut on this
+        // very frame; the sheet is not.
+        app.world_mut().resource_mut::<Duel>().browser.close();
+        app.update();
+        assert_eq!(
+            bands(&mut app),
+            1,
+            "the sheet was despawned on the frame the browser shut, so there \
+             is nothing left for the flight to move"
+        );
+
+        // A frame that is not long enough, so that "it went" is about the
+        // span and not about the next `update` whenever it happens.
+        app.world_mut()
+            .resource_mut::<Time>()
+            .advance_by(Duration::from_millis(40));
+        app.update();
+        assert_eq!(bands(&mut app), 1, "it left before its flight was over");
+
+        // And past the end of it.
+        app.world_mut()
+            .resource_mut::<Time>()
+            .advance_by(Duration::from_millis(400));
+        app.update();
+        assert_eq!(
+            bands(&mut app),
+            0,
+            "the sheet is still on the tree with nothing left to move it"
+        );
+    }
+
+    /// A sheet caught on its way out is not turned round: it goes, and a
+    /// fresh one opens in its place. Either way there is exactly **one**.
+    ///
+    /// The count is the assertion. A flight runs on its own span and against
+    /// its own curve, so `sync_tray` despawns whatever is leaving rather than
+    /// reversing it — and the failure that shape is guarding against is two
+    /// sheets on the tree at once, one of them shrinking towards the tray
+    /// while the other one draws the rows.
+    #[test]
+    fn a_sheet_reopened_mid_flight_is_one_sheet_and_not_two() {
+        let mut duel = duel_with(false);
+        duel.statics = Some(baylee_client_core::test_support::statics(8));
+        duel.browser.open();
+        let mut app = bar_of(duel);
+        app.world_mut()
+            .resource_mut::<crate::prefs::Prefs>()
+            .edit()
+            .reduce_motion = false;
+
+        let bands = |app: &mut App| {
+            let mut q = app.world_mut().query_filtered::<Entity, With<TrayBand>>();
+            q.iter(app.world()).collect::<Vec<_>>()
+        };
+        let was = bands(&mut app);
+        assert_eq!(was.len(), 1, "one sheet to begin with");
+
+        app.world_mut().resource_mut::<Duel>().browser.close();
+        app.update();
+        app.world_mut().resource_mut::<Duel>().browser.open();
+        app.update();
+
+        let now = bands(&mut app);
+        assert_eq!(now.len(), 1, "a sheet was caught and turned round: {now:?}");
+        assert!(
+            now[0] != was[0],
+            "the leaving sheet was kept and refilled, so it is still running \
+             the closing curve with the rows of a question that came back"
+        );
+    }
+
+    /// A maximised sheet offers to **restore**, and a normal one to maximise.
+    ///
+    /// The mark is chosen at build time from `place.is_maximised(band)`, and
+    /// the placement is deliberately not one of `TrayRevision`'s fields — a
+    /// drag writes it every frame and rebuilding the sheet per pixel would
+    /// make it unusable. So resizing the sheet leaves the head drawn from a
+    /// rectangle that is no longer true, and a maximised sheet went on
+    /// offering to maximise until something unrelated caused a rebuild.
+    /// `TrayRevision::relayout` is the one word that says "the size stopped
+    /// changing", and this is the assertion it exists for: without the
+    /// `!stale` term in the gate the second half of this test reads the first
+    /// half's tree.
+    ///
+    /// Two marks and not one toggled ink, because a control offering what it
+    /// cannot do is the lie this dialog already refuses to tell with a lit
+    /// tab or an unlit Confirm.
+    #[test]
+    fn a_maximised_sheet_offers_to_put_itself_back() {
+        use baylee_client_core::browser::Placement;
+
+        let mut duel = duel_with(false);
+        duel.statics = Some(baylee_client_core::test_support::statics(8));
+        duel.browser.open();
+        let mut app = bar_of(duel);
+
+        let marks = |app: &mut App| {
+            let said = said(app);
+            (
+                said.iter().any(|t| t.contains(glyph::MAXIMISE)),
+                said.iter().any(|t| t.contains(glyph::RESTORE)),
+            )
+        };
+        assert_eq!(
+            marks(&mut app),
+            (true, false),
+            "a sheet at its opening size offers the wrong thing"
+        );
+
+        // The sheet is maximised the way the button maximises it: the store
+        // gets the band, and the movement that wrote it says it has stopped.
+        // `band_of` has no window here and answers with its own fallback,
+        // which is the band this app is laid out in.
+        let band = (1280.0, 720.0 - EDGE - hand::HAND_ZONE_H);
+        app.world_mut()
+            .resource_mut::<crate::settings::ClientSettings>()
+            .zone_browser = Some(Placement::maximised(band));
+        app.world_mut()
+            .resource_mut::<tray::TrayRevision>()
+            .relayout();
+        app.update();
+        assert_eq!(
+            marks(&mut app),
+            (false, true),
+            "the sheet fills the band and its head still offers to fill it"
+        );
+    }
+
+    /// The end screen's veil is not the zone dialog's, and a rebuild of the
+    /// one does not take the other.
+    ///
+    /// `hud::finish` spawns a `TableVeil` of its own under its own root, and
+    /// `sync_tray` used to tear down every `TableVeil` there was — so a game
+    /// that ended while anything about the dialog changed lost its
+    /// darkening, and `dim_the_table` then had no node to paint. It was never
+    /// observed, which is the reason to pin it: the two surfaces are painted
+    /// by one system on purpose and owned by two, and only a marker can say
+    /// which is which.
+    #[test]
+    fn the_end_screens_veil_is_not_torn_down_with_the_dialogs() {
+        let mut duel = duel_with(false);
+        duel.statics = Some(baylee_client_core::test_support::statics(8));
+        let mut app = bar_of(duel);
+
+        // Exactly as `hud::finish` does it: the shared constructor, and no
+        // `TrayVeil` on top of it.
+        let theirs = {
+            let mut queue = bevy::ecs::world::CommandQueue::default();
+            let id = {
+                let mut commands = Commands::new(&mut queue, app.world());
+                tray::spawn_veil(&mut commands)
+            };
+            queue.apply(app.world_mut());
+            id
+        };
+
+        // Something about the dialog changes, which is what makes `sync_tray`
+        // run its teardown at all.
+        app.world_mut().resource_mut::<Duel>().browser.open();
+        app.update();
+        assert!(
+            app.world().get_entity(theirs).is_ok(),
+            "opening the zone dialog despawned the end screen's veil"
+        );
+
+        // And the counter-test: the dialog's own veil *is* torn down, so the
+        // assertion above is about the marker and not about a teardown that
+        // has quietly stopped happening.
+        let mut ours = app.world_mut().query_filtered::<Entity, With<TrayVeil>>();
+        let ours: Vec<Entity> = ours.iter(app.world()).collect();
+        assert_eq!(ours.len(), 1, "the dialog drew a veil of its own");
+        app.world_mut()
+            .resource_mut::<Duel>()
+            .browser
+            .push_filter('a');
+        app.update();
+        let mut now = app.world_mut().query_filtered::<Entity, With<TrayVeil>>();
+        let now: Vec<Entity> = now.iter(app.world()).collect();
+        assert!(
+            now.len() == 1 && now[0] != ours[0],
+            "the dialog's own veil survived its rebuild, so this test would \
+             pass on a teardown that despawns nothing at all"
         );
     }
 

@@ -503,3 +503,71 @@ fn the_sheets_own_button_is_the_same_door() {
         "the sheet's minimise button did not put it down"
     );
 }
+
+/// The maximise button fills the band, and a second press puts the sheet
+/// back where the player had it.
+///
+/// It is a *move* rather than a new control — the gesture was the resize
+/// corner's hidden second job, a press and release that travelled less than
+/// four pixels — so what this test is really pinning is that the move kept
+/// the behaviour: the same toggle, the same restore, and the same refusal to
+/// restore to a rectangle nobody chose.
+///
+/// Through `click`, which is the picking backend's own message, because a
+/// handler called directly proves the handler and not the button. This
+/// client has shipped a decision function no button reached.
+#[test]
+fn the_maximise_button_fills_the_band_and_gives_it_back() {
+    use crate::settings::ClientSettings;
+    use baylee_client_core::browser::Placement;
+
+    let (mut app, _, _) = menu_app(crate::Duel::default());
+    let grow = app.world_mut().spawn(crate::hud::TrayMaximise).id();
+
+    assert!(
+        app.world()
+            .resource::<ClientSettings>()
+            .zone_browser
+            .is_none(),
+        "a player who has never moved the sheet has no stored rectangle"
+    );
+
+    click(&mut app, grow);
+    let full = app
+        .world()
+        .resource::<ClientSettings>()
+        .zone_browser
+        .expect("maximising writes where the sheet is");
+    // The band the harness measures against is whatever `click` spawned a
+    // window for, so the claim is the *relation* and not a number: this is
+    // the band filled, and it is bigger than the sheet that was there.
+    assert!(
+        full.width > Placement::DEFAULT_W,
+        "the sheet was maximised to {}, which is no wider than it opens",
+        full.width
+    );
+
+    click(&mut app, grow);
+    let back = app
+        .world()
+        .resource::<ClientSettings>()
+        .zone_browser
+        .expect("restoring writes where the sheet went back to");
+    assert!(
+        (back.width - Placement::DEFAULT_W).abs() < 1.0,
+        "a sheet nobody had arranged came back at {} instead of the size it \
+         opens at",
+        back.width
+    );
+
+    // And the movement itself: the sheet does not simply appear at the new
+    // rectangle, which is the whole of what the owner asked for. The glide
+    // is left running by the click and cleared by `glide_the_sheet` at the
+    // end of it; nothing else in this app clears it.
+    assert!(
+        app.world()
+            .resource::<crate::input::TrayGlide>()
+            .is_flying(),
+        "the sheet jumped: the click wrote the store and started no movement"
+    );
+}
