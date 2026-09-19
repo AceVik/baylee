@@ -87,3 +87,29 @@ fn the_edge_the_doors_depend_on_runs_one_way_only() {
         stored_as(sheen::watch_for_arrivals),
     ));
 }
+
+/// The countdown is written into a cell the shelf spawns, so it runs after
+/// the shelf.
+///
+/// Ordered the other way it would write into the tree the *previous* frame
+/// left behind: the frame a question enters its last minute is the frame
+/// `sync_ledge` first builds the cell, and a writer running before it would
+/// find nothing to write into and leave the number blank for that frame. It
+/// is one frame, which is exactly why nothing else would ever catch it.
+#[test]
+fn the_clock_is_written_after_the_shelf_that_holds_it() {
+    assert!(runs_before(
+        stored_as(hud::sync_ledge),
+        stored_as(hud::count_down_the_decision),
+    ));
+}
+
+/// The counter-test: a reader that answered "yes" to any pair would pass the
+/// assertion above however the two were ordered.
+#[test]
+fn the_edge_the_clock_depends_on_runs_one_way_only() {
+    assert!(!runs_before(
+        stored_as(hud::count_down_the_decision),
+        stored_as(hud::sync_ledge),
+    ));
+}

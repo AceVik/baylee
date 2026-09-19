@@ -93,6 +93,15 @@ pub enum Cue {
     /// four life cues and not two: they are two different sounds, and a
     /// `bool` in the middle of a match arm is a thing to get backwards.
     CreatureShrank,
+    /// This seat is running out of time to answer.
+    ///
+    /// Made twice on one question, at
+    /// [`crate::decisionclock::DecisionClock::SHOW_AT`] and again at
+    /// `LAST_CALL`, and never for somebody else's clock — the number is
+    /// drawn for every seat, the sound is not. One name for both thresholds
+    /// rather than two, because they are the same thing said twice and a
+    /// player who has heard the first knows the second.
+    ClockLow,
 }
 
 impl Cue {
@@ -103,7 +112,7 @@ impl Cue {
     /// test. `every_cue_is_in_all` holds the two together by counting the
     /// arms of [`Cue::name`], which the compiler already forces to be
     /// exhaustive.
-    pub const ALL: [Self; 14] = [
+    pub const ALL: [Self; 15] = [
         Self::FirstStrike,
         Self::CombatStrike,
         Self::MyLifeLost,
@@ -118,6 +127,7 @@ impl Cue {
         Self::CardDrawn,
         Self::CreatureGrew,
         Self::CreatureShrank,
+        Self::ClockLow,
     ];
 
     /// Its own name, for `/state` and for whatever ends up playing it.
@@ -141,6 +151,7 @@ impl Cue {
             Self::CardDrawn => "CardDrawn",
             Self::CreatureGrew => "CreatureGrew",
             Self::CreatureShrank => "CreatureShrank",
+            Self::ClockLow => "ClockLow",
         }
     }
 

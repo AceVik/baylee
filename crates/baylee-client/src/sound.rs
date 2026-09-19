@@ -959,7 +959,7 @@ fn burst(cue: Cue, count: u8) -> Vec<Recipe> {
 /// D has been struck first — the ear has heard the whole chord. The length it
 /// was buying comes from the compound decay, the beat between the paired
 /// fundamentals and the room instead.
-const RECIPES: [(Cue, Recipe); 10] = [
+const RECIPES: [(Cue, Recipe); 11] = [
     (
         Cue::FirstStrike,
         Recipe {
@@ -1005,6 +1005,33 @@ const RECIPES: [(Cue, Recipe); 10] = [
             thuds: &[],
             len: 1.7,
             peak: 0.80,
+            room: Where::Here,
+        },
+    ),
+    (
+        Cue::ClockLow,
+        Recipe {
+            // Two blows on **one** bar, and that is the whole of what makes
+            // it a clock rather than a gesture: every life cue here is two
+            // *different* pitches, so a second pitch would borrow a colour
+            // this does not mean. What it knocks on is `D3` — this seat's
+            // wait, [`Cue::YourMove`]'s own note — because the wait is
+            // exactly what is running out, with the wait's own yarn. Same
+            // note, same mallet, twice: a player who knows what being asked
+            // sounds like hears this as that sound getting impatient.
+            //
+            // The two land on different spots, which is what keeps them two
+            // blows and not one buffer played twice; see [`Spot`].
+            strikes: &[
+                blow(0.0, note::D3, 0.55, mallet::YARN, 0.15, 1.0),
+                blow(0.185, note::D3, 0.55, mallet::YARN, 0.42, 0.85),
+            ],
+            thuds: &[],
+            len: 1.6,
+            // Under every life cue and well under an ending. It is twice a
+            // question and never the thing that has just happened, so it is
+            // the quietest thing in the set that is still a bar being struck.
+            peak: 0.30,
             room: Where::Here,
         },
     ),
@@ -1648,7 +1675,7 @@ mod tests {
     ///
     /// Run against the real startup system in a real asset world, because
     /// what can go wrong here is a missing *arm* rather than wrong
-    /// arithmetic: [`RECIPES`] is eight entries and [`Cue::ALL`] is twelve,
+    /// arithmetic: [`RECIPES`] is eleven entries and [`Cue::ALL`] is fifteen,
     /// three of which are several buffers each. A count with no buffer is a
     /// draw of four that plays nothing at all — silent at runtime and loud in
     /// no test.

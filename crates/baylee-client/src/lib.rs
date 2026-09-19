@@ -539,6 +539,15 @@ pub struct Duel {
     /// [`crate::sound::play_the_cues`]. Nothing about audio is in it; see
     /// [`baylee_client_core::cue`].
     pub cues: baylee_client_core::cue::Cues,
+    /// How long the awaited seat has left, counted between views.
+    ///
+    /// Kept here beside [`Duel::cues`] and [`Duel::tally`] because it is the
+    /// same kind of thing: a reading of the view that only a *sequence* of
+    /// views can produce. `decision_remaining_ms` is relative to the moment
+    /// its view was built, so somebody has to hold the number and count, and
+    /// the counting is what makes it a second of arc rather than a figure
+    /// that changes when the table does.
+    pub clock: baylee_client_core::decisionclock::DecisionClock,
     /// Strikes waiting for their visual presentation, read at snapshot edges.
     pub strikes: Vec<baylee_client_core::strike::Strike>,
     /// What has been typed into the creature-type filter.
@@ -677,6 +686,13 @@ impl Duel {
         // nowhere else.
         let flow = self.tally.read(&view);
         self.cues.note_flow(&flow);
+        // The third reading on the same edge, and the one that is a *reset*
+        // rather than a difference: the clock is restarted from what this
+        // view says, and whether the sounds are re-armed is its own question
+        // — see `DecisionClock::RESTART`, which tells a new question from a
+        // correction by size, because the view carries no question identity.
+        self.clock
+            .sync(view.decision_remaining_ms, view.awaiting == Some(view.seat));
         self.view = Some(view);
         if let Some(v) = self.view.as_ref() {
             self.browser.saw_reveal(v);
@@ -1074,7 +1090,18 @@ fn add_present_systems(app: &mut App) {
                 // hangs beside — and its two movements after that, for the
                 // drawer's reason: a spent mana has to be able to leave, and
                 // so does the strip it was the last thing on.
-                hud::sync_pool.after(hud::sync_ledge),
+                // Nested, and it has to stay nested: `add_systems` takes a
+                // tuple and a tuple of systems is implemented up to twenty.
+                // This set was at twenty, so the pair goes in together rather
+                // than the next system to be added failing to compile for a
+                // reason that has nothing to do with it.
+                (
+                    hud::sync_pool.after(hud::sync_ledge),
+                    // After the shelf, because the cell it writes into is one
+                    // `sync_ledge` spawns: ordered the other way, a countdown
+                    // appearing would show an empty cell for its first frame.
+                    hud::count_down_the_decision.after(hud::sync_ledge),
+                ),
                 // The two of them nested as one element on purpose: bevy
                 // implements `IntoScheduleConfigs` for tuples up to twenty,
                 // and this tuple was at nineteen. A nested tuple is a tuple

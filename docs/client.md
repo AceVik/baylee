@@ -2180,6 +2180,59 @@ outage, so both arms take their sentence from one `link_note` helper: the
 `Connecting` arm named `LinkLost` outright, which on a capped schedule would
 have flipped the bar between two accounts of one outage every fifteen seconds.
 
+### The clock a player is on
+
+A seat was given no clock at all: on the default preset a player saw nothing
+for ten minutes and then lost a decision in silence. `PlayerView`
+`decision_remaining_ms` is the number (`VIEW_VERSION` 25), **relative**
+milliseconds from the moment its view was built, so the client counts down
+from it and takes the next view as the correction — an absolute deadline
+would make this machine's clock a rules question.
+
+The owner's question on #69 was not "how many seconds" but **"does the player
+ever see the clock, and from when"**: a countdown visible the whole time turns
+every decision into a timed test, one that appears at the end is a warning.
+This is the warning. `DecisionClock::SHOW_AT` is 60 s, flat rather than a
+fraction of the table's limit — which is what makes `blitz` (30 s to decide)
+right by construction rather than an edge, because at that table every
+question *is* the last minute and the number is on from the moment it
+arrives. `Cue::ClockLow` sounds at 60 s and again at 10 s.
+
+Three decisions worth keeping.
+
+**The sound is latched per question, and a question is told from a correction
+by size.** The view carries no question identity and `Pending` has no
+equality, so `DecisionClock::RESTART` is the rule: a rise of more than a
+second is a new question, because a correction is this client's count against
+the engine's and differs by a network hop, while a new question restarts at
+the table's limit, which `clock::resolve` will not let below ten seconds.
+Without it `blitz` would ring on every view of the same question — and the
+acting seat is re-sent its own question every time anybody at the table says
+anything.
+
+**The number is drawn for every seat and rung only for this one.** The view
+publishes the awaited seat's remainder to the whole table deliberately, so
+that a long pause reads as a clock rather than as rudeness. A *sound* every
+time an opponent thinks for a minute would be a metronome, landing exactly
+when this player is reading the board — the same rule that makes
+`Cue::YourMove` a flank rather than a state.
+
+**The cell's presence is gated on the revision; its value never is.** A
+`LedgeRevision` field holding the seconds would rebuild the whole shelf once a
+second for the last minute of every question, taking every `Feel` on it back
+to rest; so the revision carries a `bool`, the tree changes twice per question,
+and `count_down_the_decision` writes the digits in place. It touches no
+`Node` — the cell is given `clock_width()` when it is spawned, reserved for
+the widest number it can hold, because a cell that resized as the digits
+changed would shove the sentence sideways once a second. The write is guarded
+on the string having moved: assigning an equal `Text` still marks it changed,
+and `bevy_text` re-lays every glyph of a component it is told moved.
+
+What is **not** here is the other half of #69 — stating the limit once, in the
+room and on the seat sheet. That needs the limit to reach a client at all, and
+it does not: see the section above for why a client cannot be told a window
+while it is inside one. It is gateway's #98, at `VIEW_VERSION` 26.
+
 Running out reports `DuelReport::Unreachable`, once rather than once a frame.
 Its own variant, because the gateway's `Error` envelope carries the engine's
 refusal of a *single action* through `DuelReport::Failed` — a shell that

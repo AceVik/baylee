@@ -530,6 +530,15 @@ pub struct LedgeRevision {
     /// Whether this seat is being asked at all — the sentence's weight, and
     /// whether there are answers under it.
     pub(super) waiting: bool,
+    /// Whether a decision countdown is standing beside the sentence.
+    ///
+    /// The **presence** of the number and never its value. A revision
+    /// carrying the seconds would rebuild this whole tree once a second for
+    /// the last minute of every question; what is gated here is the cell
+    /// appearing and going away, which happens twice per question, and
+    /// `count_down_the_decision` writes the digits into it without touching
+    /// a `Node`.
+    pub(super) clock: bool,
     /// Whether the zone browser's dialog is holding the answer, which is what
     /// keeps a second Confirm off the shelf.
     pub(super) elsewhere: bool,
@@ -816,6 +825,7 @@ pub fn sync_ledge(
         prompt,
         error: duel.last_error.clone().filter(|_| !over),
         link_note: duel.link_note.filter(|_| !over),
+        clock: duel.clock.shown().is_some() && !over,
         waiting,
         elsewhere,
         selected: duel
@@ -932,7 +942,12 @@ pub fn sync_ledge(
 
     let caps = keys_for(&prefs, &answers, armed.is_some(), duel.priority_held());
     let caps_w: f32 = caps.iter().flatten().map(|c| cap_width(c) + CAP_GAP).sum();
-    let mid = mid_width(sentence.as_ref().map(|(t, _)| t.as_str()), &answers, &caps);
+    let mid = mid_width(
+        sentence.as_ref().map(|(t, _)| t.as_str()),
+        revision.clock,
+        &answers,
+        &caps,
+    );
     #[allow(clippy::cast_precision_loss)]
     let arrangement = baylee_client_core::ledge::arrange(
         window_w as f32,
@@ -969,6 +984,33 @@ pub fn sync_ledge(
     // question the player has already read is worth less than the buttons,
     // which is exactly why `Split` gives it up — but dropping it on the floor
     // instead of putting it somewhere is not the same trade.
+    // Left of the sentence, because a clock is read before the words it is
+    // about. It is built here and written by `count_down_the_decision`, which
+    // is why it starts empty: one frame with no digits is invisible, and a
+    // revision that carried the digits would rebuild the shelf once a second.
+    if revision.clock {
+        let cell = commands
+            .spawn((
+                DecisionClockLabel,
+                Text::default(),
+                // A readout and not prose, so the shelf's own bold rather
+                // than the slant the question is written in. Flat: one ink at
+                // sixty seconds and the same ink at one. What marks the two
+                // moments is `Cue::ClockLow`, which is a sound and does not
+                // have to compete with a board for the eye.
+                super::tf_bold(&fonts, SENTENCE_PT),
+                TextColor(palette::LEDGE_SOFT),
+                Node {
+                    width: px(clock_width()),
+                    flex_shrink: 0.0,
+                    ..default()
+                },
+                Pickable::IGNORE,
+            ))
+            .id();
+        commands.entity(middle).add_child(cell);
+    }
+
     let shows_sentence = arrangement.density.shows_sentence()
         || arrangement.density == baylee_client_core::ledge::Density::Split;
     if let Some((text, alarming)) = sentence.filter(|_| shows_sentence) {
@@ -1692,7 +1734,12 @@ fn cap_width(legend: &str) -> f32 {
 /// The estimate [`baylee_client_core::ledge::arrange`] is fed, and the reason
 /// [`super::text_width`] exists — `bevy_ui` measures text during layout, and
 /// this is a decision the layout depends on.
-fn mid_width(sentence: Option<&str>, answers: &[(Says, String)], caps: &[Option<String>]) -> f32 {
+fn mid_width(
+    sentence: Option<&str>,
+    clock: bool,
+    answers: &[(Says, String)],
+    caps: &[Option<String>],
+) -> f32 {
     let buttons: f32 = answers
         .iter()
         .enumerate()
@@ -1709,7 +1756,62 @@ fn mid_width(sentence: Option<&str>, answers: &[(Says, String)], caps: &[Option<
     let words = sentence.map_or(0.0, |text| {
         super::text_width(text, SENTENCE_PT, false) + baylee_client_core::ledge::SENTENCE_GAP
     });
-    words + buttons + gaps
+    let clock = if clock { clock_width() } else { 0.0 };
+    clock + words + buttons + gaps
+}
+
+/// The countdown's cell, so the seconds can be written in place.
+///
+/// The same reason [`pool::PoolCount`] exists one file over: a
+/// number that changes is read, not watched, and a tree rebuilt to carry it
+/// would take every `Feel` on the shelf back to rest once a second.
+#[derive(Component)]
+pub struct DecisionClockLabel;
+
+/// Counts the awaited seat's clock down and writes it where it stands.
+///
+/// The whole of the per-frame work, and it touches no `Node`: the cell was
+/// given its width when it was spawned, and this only ever assigns a
+/// `String`. The assignment is guarded on the text having actually changed,
+/// which matters more than it looks — writing an equal `Text` still marks it
+/// changed, and `bevy_text` re-lays every glyph of a component it is told
+/// moved. Guarded, that happens about once a second instead of once a frame.
+///
+/// It also pushes the sound, because the threshold is crossed by *time* and
+/// not by a view: at a table with a long limit no view arrives at the moment
+/// sixty seconds are left, so a client that only listened to views would
+/// never make the sound at all.
+pub fn count_down_the_decision(
+    time: Res<Time>,
+    mut duel: ResMut<crate::Duel>,
+    mut label: Query<&mut Text, With<DecisionClockLabel>>,
+) {
+    duel.clock.advance(time.delta_secs());
+    if let Some(cue) = duel.clock.claim() {
+        duel.cues.push(cue);
+    }
+    let Ok(mut text) = label.single_mut() else {
+        return;
+    };
+    let says = duel
+        .clock
+        .shown()
+        .map_or_else(String::new, |left| left.to_string());
+    if text.0 != says {
+        text.0 = says;
+    }
+}
+
+/// The room the countdown takes, reserved for the widest number it holds.
+///
+/// `shown()` never exceeds `SHOW_AT`, so the cell is two digits wide and is
+/// given that width **explicitly** rather than sized to its content. A cell
+/// that resized as the digits changed would shove the sentence beside it
+/// sideways once a second, which is the one thing a clock on a shelf must not
+/// do — and it would do it through `Node`, which is exactly what the writing
+/// system is kept away from.
+fn clock_width() -> f32 {
+    super::text_width("60", SENTENCE_PT, true) + baylee_client_core::ledge::SENTENCE_GAP
 }
 
 #[cfg(test)]
@@ -1967,6 +2069,110 @@ mod tests {
                  is the one thing this counter exists to keep it out of"
             );
         }
+    }
+
+    /// The seconds are written into the cell, and only when they change.
+    ///
+    /// Two claims in one run, and the second is the one worth the harness.
+    /// Writing an equal `Text` still marks it changed and `bevy_text` re-lays
+    /// every glyph of a component it is told moved, so an unguarded writer
+    /// would re-shape the digits sixty times a second for the last minute of
+    /// every question. The guard turns that into about once a second, and
+    /// `Ref::is_changed` is read *in the same frame* because a change tick is
+    /// only visible against the run it happened in.
+    #[test]
+    fn the_seconds_are_written_in_place_and_only_when_they_move() {
+        use bevy::ecs::change_detection::Ref;
+
+        #[derive(Resource, Default)]
+        struct Wrote(bool);
+
+        fn watch(cell: Query<Ref<Text>, With<DecisionClockLabel>>, mut wrote: ResMut<Wrote>) {
+            wrote.0 = cell.iter().any(|text| text.is_changed());
+        }
+
+        let mut app = App::new();
+        app.init_resource::<crate::Duel>()
+            .init_resource::<Wrote>()
+            .insert_resource(Time::<()>::default())
+            .add_systems(Update, (count_down_the_decision, watch).chain());
+        let cell = app
+            .world_mut()
+            .spawn((DecisionClockLabel, Text::default()))
+            .id();
+        let says = |app: &App| app.world().entity(cell).get::<Text>().unwrap().0.clone();
+        let advance = |app: &mut App, secs: f32| {
+            app.world_mut()
+                .resource_mut::<Time<()>>()
+                .advance_by(std::time::Duration::from_secs_f32(secs));
+            app.update();
+        };
+
+        app.world_mut()
+            .resource_mut::<crate::Duel>()
+            .clock
+            .sync(Some(12_000), true);
+        advance(&mut app, 0.0);
+        assert_eq!(says(&app), "12", "the cell was never written");
+        assert!(
+            app.world().resource::<Wrote>().0,
+            "and the write is a write"
+        );
+
+        // Two frames inside the same second: the string does not move, so
+        // nothing is assigned and no glyph is re-shaped.
+        advance(&mut app, 0.1);
+        assert_eq!(says(&app), "12");
+        assert!(
+            !app.world().resource::<Wrote>().0,
+            "an unchanged number was written again, which re-lays every glyph"
+        );
+        advance(&mut app, 0.5);
+        assert!(!app.world().resource::<Wrote>().0);
+
+        // And over the boundary it does move.
+        advance(&mut app, 0.5);
+        assert_eq!(says(&app), "11");
+        assert!(app.world().resource::<Wrote>().0, "the second never turned");
+
+        // A question that ends takes the number away rather than leaving the
+        // last one it had standing under the next sentence.
+        app.world_mut()
+            .resource_mut::<crate::Duel>()
+            .clock
+            .sync(None, true);
+        advance(&mut app, 0.0);
+        assert_eq!(says(&app), "", "a countdown outlived its question");
+    }
+
+    /// The revision carries *whether* there is a countdown and never *what
+    /// it says*.
+    ///
+    /// Read out of the source, the way `the_shelf_does_not_follow_the_pointer`
+    /// reads it, because nothing about the difference is visible at the call
+    /// site: a field holding the seconds would be compared and assigned like
+    /// any other, and would rebuild this entire tree once a second for the
+    /// last minute of every question — taking every `Feel` on the shelf back
+    /// to rest as it went. That is the whole reason the cell is written in
+    /// place instead.
+    #[test]
+    fn the_shelf_is_not_rebuilt_once_a_second() {
+        let source = include_str!("ledge.rs");
+        let body = source
+            .split_once("pub struct LedgeRevision {")
+            .expect("the struct is still called that")
+            .1;
+        let body = body.split_once("\n}").expect("and still closes").0;
+        let clock = body
+            .lines()
+            .find_map(|line| line.trim().strip_prefix("pub(super) clock:"))
+            .expect("the revision still carries the countdown");
+        assert_eq!(
+            clock.trim(),
+            "bool,",
+            "the revision carries the seconds themselves, so the shelf is \
+             rebuilt once a second"
+        );
     }
 
     /// A question that has to give something up gives up its keycaps before

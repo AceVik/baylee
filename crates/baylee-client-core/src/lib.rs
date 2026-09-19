@@ -49,6 +49,7 @@ pub mod cardrail;
 pub mod combat;
 pub mod commanderdamage;
 pub mod cue;
+pub mod decisionclock;
 pub mod deckbuilder;
 pub mod depart;
 pub mod filterdialog;

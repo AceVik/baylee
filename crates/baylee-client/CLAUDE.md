@@ -44,7 +44,17 @@ takes the chair. The bar turns to a second sentence at `Retry::PATIENCE`, in
 the future tense, because the window is a per-table 10 s–3600 s that no
 client is ever told and could not count down anyway — it is disconnected for
 exactly that span. `docs/client.md` §"What the banner may claim, and why it
-cannot count". Giving up reports `DuelReport::Unreachable`, which is a
+cannot count".
+
+The **decision** clock is the other one and is now drawn: `PlayerView`
+`decision_remaining_ms` is relative milliseconds, so `DecisionClock`
+(`baylee-client-core/src/decisionclock.rs`) counts down between views and
+takes each view as the correction. It appears at 60 s flat — which makes
+`blitz`'s 30 s table right by construction, the number being on from the
+first question — and sounds `Cue::ClockLow` at 60 s and 10 s, latched per
+question, rung only for this seat although the number is drawn for every one.
+The cell's *presence* is in `LedgeRevision`; its *value* never is, or the
+shelf would rebuild once a second. Giving up reports `DuelReport::Unreachable`, which is a
 variant rather than another `Failed(String)` because the gateway's `Error`
 envelope carries the engine's refusal of a *single action* through `Failed`,
 and a shell that returned to the lobby on every one of those would eject a
