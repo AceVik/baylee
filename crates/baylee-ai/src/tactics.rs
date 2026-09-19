@@ -228,6 +228,61 @@ impl HeuristicAgent {
             .unwrap_or(options[0])
     }
 
+    /// What targeting this permanent costs on top of the spell, because it
+    /// has ward (CR 702.21).
+    ///
+    /// Ward triggers on a spell an **opponent** controls, so it is only ever
+    /// asked of a candidate on the other side of the table, and it is asked
+    /// here rather than left to the tax question because by then the spell is
+    /// already on the stack: a target chosen into a ward the seat cannot pay
+    /// is the whole card, and choosing the other creature costs nothing.
+    ///
+    /// The two answers are a toll and a refusal. A payable ward is priced —
+    /// `mana` against the material scale, so a bigger threat is still worth
+    /// the tax and an equal one is not — while an unpayable ward sinks the
+    /// candidate below everything on offer without sending it past the band
+    /// that holds a wrong-side target, because aiming removal at the agent's
+    /// own creature to dodge a ward is not an improvement.
+    ///
+    /// Both halves of the price are read together: CR 601.2 chooses targets
+    /// before mana is paid, so the seat has to cover the spell **and** the
+    /// tax out of what is untapped now, and `DecisionContext` carries the
+    /// spell's own cost at exactly this moment.
+    fn ward_priced(
+        view: &PlayerView,
+        object: &PublicObject,
+        context: &DecisionContext<'_>,
+        score: i64,
+    ) -> i64 {
+        let ward = object
+            .card
+            .and_then(|c| baylee_cards::by_index(c.index))
+            .and_then(|def| {
+                def.abilities
+                    .iter()
+                    .chain(def.faces.iter().flat_map(|face| face.abilities.iter()))
+                    .find_map(|ability| match ability {
+                        AbilityDef::Ward { mana } => Some(*mana),
+                        _ => None,
+                    })
+            });
+        let Some(mana) = ward else {
+            return score;
+        };
+        let whole = context
+            .cost
+            .unwrap_or(baylee_core::mana::ManaCost::ZERO)
+            .with_more_generic(u32::from(mana));
+        if crate::policy::can_pay(view, &whole) {
+            score - i64::from(mana) * 60
+        } else {
+            // A floor rather than a penalty: every untaxed candidate
+            // outranks this one, and it still outranks the -10_000 band a
+            // wrong-side target sits in.
+            -5_000
+        }
+    }
+
     /// What a counter with no sign of its own is worth on one candidate.
     ///
     /// The sign comes off the card underneath. A lore counter advances the
@@ -333,11 +388,15 @@ impl HeuristicAgent {
                     {
                         score /= 8;
                     }
-                    if friendly == beneficial {
-                        score
-                    } else {
-                        -score - 10_000
+                    if friendly != beneficial {
+                        return -score - 10_000;
                     }
+                    if friendly {
+                        // Ward is an opponent's toll (CR 702.21) and never
+                        // this seat's own.
+                        return score;
+                    }
+                    Self::ward_priced(view, o, context, score)
                 });
                 (value, Some(*id), None)
             })

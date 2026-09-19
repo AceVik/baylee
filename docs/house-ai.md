@@ -21,7 +21,24 @@ remaining visible sources; an expensive, uncastable card cannot drown out the
 colour needed for an affordable play.
 Counterspells need an opposing stack entry, removal needs something opposing
 on the battlefield, and a deferred pay-or-lose obligation is declined: the
-current stateless policy cannot plan its future payment. Searches, bottoming,
+current stateless policy cannot plan its future payment.
+
+**A tax is answered by what refusing it does, not by what it costs.** Ward
+(CR 702.21) refuses into countering the spell the seat has just cast; a
+Rhystic tax refuses into one card for an opponent. Same price, opposite
+decisions, and a policy reading the price could never tell them apart. So a
+ward tax is paid whenever the mana can be found and the other stays declined,
+because spare mana and mana the curve needs look alike to a stateless policy
+while a card is the cheaper thing to give up. The same ward is read a second
+time at target choice, since CR 601.2 picks targets before mana is paid: a
+warded creature is priced against the material scale when the seat can cover
+the spell and the tax together, and sinks below every other candidate when it
+cannot — going around a ward costs nothing, walking into one it cannot pay
+costs the card. What is still missing is the window that follows a yes: the
+engine hands the seat priority to make the mana (CR 605.3a) and `PlayerView`
+does not yet say what it owes, so the agent passes and the spell is countered
+after all. That is pinned in `crates/baylee-gamehost/tests/ai_ward.rs` rather
+than described, and the pin fails on the day the view learns to say it. Searches, bottoming,
 and surveils at the skilled levels evaluate only identities actually visible
 in `PlayerView`, including `looking_at` while a search is open.
 
