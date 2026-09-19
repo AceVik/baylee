@@ -215,7 +215,14 @@ pub(super) fn apply_copy_mod(base: &mut Characteristics, m: &baylee_cards_dsl::C
         baylee_cards_dsl::CopyMod::AddKeyword(k) => {
             base.keywords = base.keywords.union(*k);
         }
-        baylee_cards_dsl::CopyMod::AddCounter(_, _) => {}
+        // Both of these are about the object rather than about the
+        // characteristics this function is handed. A counter is put on by
+        // the caller (CR 614.1c), and an ability is not a `Characteristics`
+        // field at all — `progress::apply_copy_choice` keeps the copier's
+        // statics by registering them as the copy's own continuous effects,
+        // and this token door reaches no effect table.
+        baylee_cards_dsl::CopyMod::AddCounter(_, _)
+        | baylee_cards_dsl::CopyMod::KeepOtherAbilities => {}
     }
 }
 

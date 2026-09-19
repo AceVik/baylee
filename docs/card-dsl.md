@@ -467,7 +467,16 @@ has built.
 - `AbilityDef::Replacement(ReplacementRule)` — trigger multipliers/suppressors,
   token/counter doubling
 - `AbilityDef::Loyalty { cost: i8, effects, target }`
-- `AbilityDef::CopyOnEnter { target, mods: &[CopyMod] }`
+- `AbilityDef::CopyOnEnter { target, mods: &[CopyMod] }` — the `mods` are the
+  card's "except …" clauses (CR 707.9). Types, supertypes, subtypes, keywords
+  and entry counters are all sayable, and so is "except it has its **other**
+  abilities" (`CopyMod::KeepOtherAbilities`, CR 707.9a) — with one limit worth
+  knowing before writing a card on it: the kept abilities are registered as
+  the copy's own continuous effects, so a **static** survives and a triggered
+  or activated one does not. A card that needs the second keeps a
+  `Coverage::Partial`, and the test
+  `combo_tests::every_copy_that_keeps_its_own_abilities_keeps_only_statics`
+  will say so rather than letting it through
 - `AbilityDef::ModalSpell { modes: &[SpellMode] }` — overload & friends
 - `AbilityDef::ModalTriggered { trigger, modes, once_per_turn }` — "choose
   one/up to one" ETB triggers (decline = an empty mode)

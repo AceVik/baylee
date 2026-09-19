@@ -285,6 +285,20 @@ enum PlanKind {
     CopyOnEnter {
         /// The entering permanent.
         object: ObjectId,
+        /// Whether the permanent is still on its way in.
+        ///
+        /// CR 614.12a makes this choice one that is taken **before** the
+        /// permanent enters, so a permanent *spell* is asked while it is
+        /// still on the stack and the answer owes it the move onto the
+        /// battlefield. Every other door — reanimation, a search, a token
+        /// copy — is still asked one step after it arrived, and there the
+        /// move has already happened.
+        ///
+        /// It is a field on the plan rather than a second variant because
+        /// the question, its options and its answer are the same in both
+        /// cases; only who performs the move differs, and a reader of the
+        /// answer should have to see which it is.
+        before_entry: bool,
     },
     /// Choosing a creature type as a permanent enters (Roaming Throne).
     ChooseSubtype {

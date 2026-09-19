@@ -643,7 +643,23 @@ impl<L: CardLookup> Engine<L> {
                     PlanKind::ModalTrigger { .. } => {
                         unreachable!("modal-trigger plans are answered via ChooseMode")
                     }
-                    PlanKind::CopyOnEnter { object } => {
+                    PlanKind::CopyOnEnter {
+                        object,
+                        before_entry,
+                    } => {
+                        // The move first, and unconditionally: declining is a
+                        // legal answer (`min: 0`) and a permanent that was
+                        // not copied still enters. Ordering matters the other
+                        // way too — `apply_copy_choice` writes the copied
+                        // base onto a permanent, and it has to be one.
+                        if before_entry {
+                            let _ = self.state.move_object(
+                                object,
+                                crate::zone::ZoneLocation::Battlefield,
+                                crate::zone::ZonePosition::Top,
+                                crate::event::Cause::Spell,
+                            );
+                        }
                         if let Some(&target) = targets.first() {
                             self.apply_copy_choice(object, target);
                         }

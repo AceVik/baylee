@@ -636,9 +636,16 @@ impl<L: CardLookup> Engine<L> {
                 );
                 changed = true;
             }
-            // Clone-on-enter: offer the copy choice before anything else
-            // for this permanent (CR 616.1c).
-            if self.check_copy_on_enter(id) {
+            // Clone-on-enter, for every door that is not a permanent spell.
+            //
+            // A spell asks in `finalize_spell`, before the move, which is
+            // what CR 614.12a requires — so by the time that arrival reaches
+            // this scan the question has been answered and asking again would
+            // ask it twice. `from_zone` is what separates the two and is
+            // already in hand: a permanent spell resolves off the **stack**,
+            // a token is created `from: OutsideGame`, and everything else
+            // comes out of a graveyard, a library, exile or a hand.
+            if from_zone != Zone::Stack && self.check_copy_on_enter(id) {
                 return true;
             }
             let Some((card, face_index)) = self
@@ -914,44 +921,47 @@ impl<L: CardLookup> Engine<L> {
     /// Checks a newly entered permanent for a clone-on-enter clause and
     /// presents the copy choice when valid targets exist. Returns `true`
     /// when a pending choice was produced.
-    pub(crate) fn check_copy_on_enter(&mut self, id: ObjectId) -> bool {
-        let (spec, controller) = {
-            let Some(obj) = self.state.object(id) else {
-                return false;
-            };
-            let Some(spec) = obj.abilities(&self.lookup).iter().find_map(|a| match a {
-                AbilityDef::CopyOnEnter { target, .. }
-                | AbilityDef::CopyOnEnterUntilEot { target, .. } => Some(*target),
-                _ => None,
-            }) else {
-                return false;
-            };
-            (spec, obj.controller)
-        };
-        let mut options = eval::target_options(&spec, &self.state, controller, id);
-        // Never itself, whatever the filter says. The rules make this choice
-        // *as* the permanent enters, so the permanent is not there yet to be
-        // chosen; Glasspool Mimic's own ruling spells the consequence out —
-        // "You may choose only a creature that's already on the
-        // battlefield." This function runs from `apply_enter_modifiers`, one
-        // step after the object has arrived, so what the rules exclude by
-        // timing has to be excluded by name here.
-        //
-        // The Mimic is the one that reaches it: its errata'd filter is "a
-        // creature you control", and the permanent asking the question is
-        // one. Answering with itself made it a copy of a 0/0 Shapeshifter
-        // Rogue, which is the printed face and dies to the state-based
-        // action that follows. Cursed Mirror cannot: it asks as an artifact
-        // and its filter wants a creature.
-        //
-        // The other half of that ruling — a creature entering at the same
-        // time is not a legal choice either — needs nothing, because
-        // permanents arrive here one at a time.
-        options.retain(|&o| o != id);
+    /// The clone choice's two halves that do not depend on when it is asked:
+    /// which ability is on the object, and what the battlefield offers it.
+    ///
+    /// Split out because the question is asked from **two** places now and
+    /// the difference between them is only the timing — a shared body is what
+    /// stops the two from drifting into offering different lists.
+    fn copy_on_enter_question(&self, id: ObjectId) -> Option<(Vec<ObjectId>, PlayerId)> {
+        let obj = self.state.object(id)?;
+        let spec = obj.abilities(&self.lookup).iter().find_map(|a| match a {
+            AbilityDef::CopyOnEnter { target, .. }
+            | AbilityDef::CopyOnEnterUntilEot { target, .. } => Some(*target),
+            _ => None,
+        })?;
+        let controller = obj.controller;
+        Some((
+            eval::target_options(&spec, &self.state, controller, id),
+            controller,
+        ))
+    }
+
+    /// Publishes the clone choice and says whether it was published.
+    ///
+    /// `before_entry` is the rule, not a convenience. CR 614.12a: *"If a
+    /// replacement effect that modifies how a permanent enters the
+    /// battlefield requires a choice, that choice is made before the
+    /// permanent enters the battlefield."* The answer carries it back so the
+    /// handler knows whether it still owes the move.
+    fn offer_copy_on_enter(
+        &mut self,
+        id: ObjectId,
+        options: Vec<ObjectId>,
+        controller: PlayerId,
+        before_entry: bool,
+    ) -> bool {
         if options.is_empty() {
             return false; // optional: simply doesn't copy
         }
-        self.pending_plan = Some(PlanKind::CopyOnEnter { object: id });
+        self.pending_plan = Some(PlanKind::CopyOnEnter {
+            object: id,
+            before_entry,
+        });
         self.pending = Pending::ChooseTargets {
             player: controller,
             options,
@@ -964,6 +974,54 @@ impl<L: CardLookup> Engine<L> {
         true
     }
 
+    /// The clone choice for a permanent **spell**, asked while it is still on
+    /// the stack.
+    ///
+    /// This is CR 614.12a done rather than worked around. The permanent is
+    /// not on the battlefield when the list is built, so it cannot be in it —
+    /// which is also Glasspool Mimic's own ruling ("You may choose only a
+    /// creature that's already on the battlefield") falling out of the timing
+    /// instead of being spelled out by name. The `options.retain` that used
+    /// to carry that ruling is gone from this path, and the test that
+    /// replaced it asks where the Mimic *is* while the question stands, not
+    /// whether it is in the list: a list it cannot be in is the stronger
+    /// claim.
+    ///
+    /// The other half of the ruling — a creature entering at the same time is
+    /// not a legal choice either — needs nothing here for the same reason it
+    /// needed nothing before: permanents arrive one at a time.
+    pub(crate) fn ask_copy_before_entry(&mut self, spell: ObjectId) -> bool {
+        let Some((options, controller)) = self.copy_on_enter_question(spell) else {
+            return false;
+        };
+        self.offer_copy_on_enter(spell, options, controller, true)
+    }
+
+    /// The same choice for a permanent that arrived by some **other** door.
+    ///
+    /// Reanimation, a search that puts a card onto the battlefield, a token
+    /// copy of a clone — none of those go through `finalize_spell`, and this
+    /// scan is the only place that sees them. They are still asked one step
+    /// after the arrival, so the by-name exclusion below is still doing the
+    /// work the timing does on the spell path, and it is still wrong in the
+    /// same way the rules say it is: measured against the pool, every card
+    /// carrying `CopyOnEnter` is a permanent spell, so the residue is a card
+    /// put onto the battlefield by *another* card's effect.
+    ///
+    /// The Mimic is the one that reaches it: its errata'd filter is "a
+    /// creature you control", and the permanent asking the question is one.
+    /// Answering with itself made it a copy of a 0/0 Shapeshifter Rogue,
+    /// which is the printed face and dies to the state-based action that
+    /// follows. Cursed Mirror cannot: it asks as an artifact and its filter
+    /// wants a creature.
+    pub(crate) fn check_copy_on_enter(&mut self, id: ObjectId) -> bool {
+        let Some((mut options, controller)) = self.copy_on_enter_question(id) else {
+            return false;
+        };
+        options.retain(|&o| o != id);
+        self.offer_copy_on_enter(id, options, controller, false)
+    }
+
     /// Applies the clone-on-enter choice: the permanent's copiable base is
     /// replaced by the target's base, with the card's modifications. For
     /// `CopyOnEnterUntilEot` (Cursed Mirror), that half is a layer-1
@@ -974,48 +1032,66 @@ impl<L: CardLookup> Engine<L> {
     /// the temporary branch flags the write so [`Self::cleanup_step`] knows
     /// to take it back.
     ///
-    /// One thing neither branch does: a permanent with a *printed* static
-    /// ability that becomes a copy keeps that static registered, because
-    /// `sync_static_effects` registered it at step 0a of the pass this runs
-    /// in at 0b, and only a departure un-registers one.
+    /// One thing neither branch does on its own: a permanent with a
+    /// *printed* static ability that becomes a copy keeps that static
+    /// registered, because `sync_static_effects` registered it at step 0a of
+    /// the pass this runs in at 0b, and only a departure un-registers one.
     ///
-    /// This used to say no card in the pool could reach that, and named the
-    /// three permanents it had in mind. Ten cards carry an enters-as-a-copy
-    /// ability, and one of them — **Sakashima of a Thousand Faces** — prints
-    /// exactly such a static: "the legend rule doesn't apply to permanents
-    /// you control". It reaches this on every cast.
+    /// That was for a long time an accident with a card standing on it.
+    /// **Sakashima of a Thousand Faces** prints exactly such a static — "the
+    /// legend rule doesn't apply to permanents you control" — and says
+    /// "…except it has Sakashima's other abilities", which no [`CopyMod`]
+    /// could express. The clause that could not be said and the effect that
+    /// was never un-registered cancelled out, and the card was right for a
+    /// reason that had nothing to do with what it prints.
     ///
-    /// It is nonetheless still recorded rather than fixed, because for that
-    /// one card the two errors cancel *exactly*. The card says "…except it
-    /// has Sakashima's other abilities", which no [`CopyMod`] can express —
-    /// its `mods` list is empty — and the static nothing un-registers is
-    /// precisely the ability that clause keeps. So copy your own legend with
-    /// a Sakashima and you keep both, which is what the card does. A card
-    /// wanting the opposite would be wrong here, and the pool has none.
-    ///
-    /// Both halves are held by tests rather than by this paragraph:
-    /// `combo_tests::a_sakashima_copying_my_own_legend_keeps_the_legend_rule_off`
-    /// plays it out and asserts the mechanism (the copy no longer *has* the
-    /// static; the effect is still in the table), and
+    /// [`CopyMod::KeepOtherAbilities`] says it now, and
+    /// [`Self::keep_own_statics`] pays it — so the outcome is the same and
+    /// arrives by rule. The accident is gone from the spell door outright:
+    /// CR 614.12a moved that choice in front of the permanent's arrival, so
+    /// there is no 0a pass between the two for a static to be registered in.
+    /// It survives only at the doors that copy *after* arrival —
+    /// reanimation, a search to the battlefield, a token copy — where it is
+    /// still reachable by a card that does **not** carry the mod, and
     /// `combo_tests::no_card_becomes_a_copy_carrying_a_printed_static_unnoticed`
-    /// is the pool-wide claim this comment used to make on its own.
+    /// is what holds the pool to none.
+    ///
+    /// What is kept is the first half of CR 707.9a and not the second: the
+    /// statics apply, and they do not join the copy's *copiable* values, so
+    /// a second clone copying this one does not get them. The reason is a
+    /// type — see [`CopyMod::KeepOtherAbilities`], which carries it.
     ///
     /// [`CopyMod`]: baylee_cards_dsl::CopyMod
+    /// [`CopyMod::KeepOtherAbilities`]: baylee_cards_dsl::CopyMod::KeepOtherAbilities
     #[allow(clippy::too_many_lines)]
     pub(crate) fn apply_copy_choice(&mut self, id: ObjectId, target: ObjectId) {
-        let (mods, until_eot): (Vec<baylee_cards_dsl::CopyMod>, bool) = {
+        // The copier's own printed list is read *here* and not where it is
+        // used, because both branches below overwrite `own_abilities` with
+        // the copied one — after which `abilities` answers with the
+        // target's text and the copier's own is no longer reachable from
+        // the object at all.
+        let (mods, until_eot, own_printed): (
+            Vec<baylee_cards_dsl::CopyMod>,
+            bool,
+            &'static [AbilityDef],
+        ) = {
             let Some(obj) = self.state.object(id) else {
                 return;
             };
-            obj.abilities(&self.lookup)
+            let own = obj.abilities(&self.lookup);
+            let (mods, until_eot) = own
                 .iter()
                 .find_map(|a| match a {
                     AbilityDef::CopyOnEnter { mods, .. } => Some((mods.to_vec(), false)),
                     AbilityDef::CopyOnEnterUntilEot { mods, .. } => Some((mods.to_vec(), true)),
                     _ => None,
                 })
-                .unwrap_or_default()
+                .unwrap_or_default();
+            (mods, until_eot, own)
         };
+        let keeps_its_own = mods
+            .iter()
+            .any(|m| matches!(m, baylee_cards_dsl::CopyMod::KeepOtherAbilities));
         if until_eot {
             // Temporary copy: layer-1 effect + mods as their own effects.
             let controller = self
@@ -1056,6 +1132,9 @@ impl<L: CardLookup> Engine<L> {
                 // the copy that cannot expire on its own.
                 obj.own_abilities_until_eot = true;
             }
+            if keeps_its_own {
+                self.keep_own_statics(id, own_printed);
+            }
             for m in mods {
                 let (layer, modifier) = match m {
                     baylee_cards_dsl::CopyMod::AddKeyword(k) => (
@@ -1088,7 +1167,14 @@ impl<L: CardLookup> Engine<L> {
                         crate::replacement::put_counters(&mut self.state, id, kind, n);
                         continue;
                     }
-                    baylee_cards_dsl::CopyMod::RemoveSupertype(_) => continue, // no modifier form
+                    // Two different reasons for one empty arm. There is no
+                    // `Modifier` that takes a supertype away; and keeping
+                    // the copier's own abilities is not a modification of
+                    // what was copied at all but an addition beside it
+                    // (CR 707.9a), already paid above and before this loop,
+                    // while the copier's own list is still reachable.
+                    baylee_cards_dsl::CopyMod::RemoveSupertype(_)
+                    | baylee_cards_dsl::CopyMod::KeepOtherAbilities => continue,
                 };
                 let ts = self.state.next_timestamp();
                 self.state
@@ -1136,6 +1222,9 @@ impl<L: CardLookup> Engine<L> {
             // with the right name and P/T and no rules text at all.
             obj.own_abilities = Some(target_abilities);
         }
+        if keeps_its_own {
+            self.keep_own_statics(id, own_printed);
+        }
         for m in mods {
             let obj = self.state.object_mut(id).expect("copy target exists");
             match m {
@@ -1167,9 +1256,59 @@ impl<L: CardLookup> Engine<L> {
                     // two of whichever it can hold.
                     crate::replacement::put_counters(&mut self.state, id, kind, n);
                 }
+                // Paid before this loop, for the reason the temporary
+                // branch's twin gives.
+                baylee_cards_dsl::CopyMod::KeepOtherAbilities => {}
             }
         }
         self.state.invalidate_projections();
+    }
+
+    /// CR 707.9a: the copier keeps its own printed statics beside what it
+    /// copied — "except it has Sakashima's other abilities".
+    ///
+    /// What it writes is the effect [`Self::sync_static_effects`] would have
+    /// built, field for field, at the one moment the copier's own list is
+    /// still reachable: once `own_abilities` holds the copied text, the
+    /// printed one is gone from the object. So `has_source_ability` keeps
+    /// that scan from registering a second copy of any of these, and the
+    /// departure sweep at the top of it takes them away again — this
+    /// function adds a moment, not a mechanism.
+    ///
+    /// The copy ability itself is excluded by the filter rather than by a
+    /// test for it: it is not an [`AbilityDef::Static`], so "other" falls
+    /// out of "static" for every card that can reach this. What does *not*
+    /// fall out is a triggered or activated other ability, which has no
+    /// continuous effect to live in and would be lost in silence —
+    /// `combo_tests::every_copy_that_keeps_its_own_abilities_keeps_only_statics`
+    /// is the bound that stops one arriving unnoticed.
+    fn keep_own_statics(&mut self, id: ObjectId, printed: &'static [AbilityDef]) {
+        let Some(obj) = self.state.object(id) else {
+            return;
+        };
+        let (controller, timestamp) = (obj.controller, obj.timestamp);
+        let mut to_register = Vec::new();
+        for ability in printed {
+            let AbilityDef::Static(sa) = ability else {
+                continue;
+            };
+            if self.state.effects.has_source_ability(id, sa.modifier) {
+                continue;
+            }
+            to_register.push(crate::effects::ContinuousEffect {
+                id: baylee_core::ids::EffectId::new(0),
+                source: Some(id),
+                controller,
+                layer: sa.layer,
+                timestamp,
+                duration: baylee_cards_dsl::Duration::WhileSourceOnBattlefield,
+                filter: crate::effects::EffectFilter::Dsl(&sa.filter),
+                modifier: sa.modifier,
+            });
+        }
+        for fx in to_register {
+            self.state.effects.register(fx);
+        }
     }
 
     /// Keeps the effect table in sync with the battlefield: registers
@@ -1212,19 +1351,31 @@ impl<L: CardLookup> Engine<L> {
         // face instead registered the Mimic's own statics, of which it has
         // none.
         //
-        // A Mimic is registered on the pass after the one it arrived on,
-        // because `check_copy_on_enter` runs inside `apply_enter_modifiers`,
-        // one step *after* this one: the pass it arrives on scans it before
-        // it is a copy of anything, and the next pass picks it up — the
+        // A Mimic reanimated or searched onto the battlefield is registered
+        // on the pass after the one it arrived on, because
+        // `check_copy_on_enter` runs inside `apply_enter_modifiers`, one
+        // step *after* this one: the pass it arrives on scans it before it
+        // is a copy of anything, and the next pass picks it up — the
         // question below being whether the effect is already registered and
         // not whether the permanent has been looked at.
         //
-        // Nothing happens in between, which is the part worth knowing and
-        // is not luck. `check_copy_on_enter` asks the controller which
-        // creature to copy, so it sets a pending and the machine returns on
-        // `awaiting_answer` two lines later; the pass that applies the
-        // answer begins again at step 0 and reaches this scan and the one at
-        // the bottom before `collect_triggers` at step 3. So a Mirror that
+        // A Mimic that was *cast* no longer reaches that window at all.
+        // CR 614.12a puts the choice in front of the arrival, so
+        // `finalize_spell` asks while the card is still on the stack and the
+        // permanent enters already a copy — there is no pass on which this
+        // scan sees it as itself. That is the half of the ordering the spell
+        // door stopped needing, and the reason a permanent's own printed
+        // statics have to be kept deliberately now
+        // ([`Self::keep_own_statics`]) rather than by being registered
+        // before the copy caught up.
+        //
+        // For the doors that are left, nothing happens in between, which is
+        // the part worth knowing and is not luck. `check_copy_on_enter`
+        // asks the controller which creature to copy, so it sets a pending
+        // and the machine returns on `awaiting_answer` two lines later; the
+        // pass that applies the answer begins again at step 0 and reaches
+        // this scan and the one at the bottom before `collect_triggers` at
+        // step 3. So a Mirror that
         // entered as a Katara *does* multiply the trigger its own arrival
         // caused, and no player is ever offered priority on a board where a
         // copy is missing half its rules text.
@@ -2254,6 +2405,10 @@ impl<L: CardLookup> Engine<L> {
         }
     }
 
+    // Adventure, the permanent door with the copy question in front of it,
+    // rebound, flashback and the graveyard — five endings for one spell, and
+    // each carries the rule that picks it.
+    #[allow(clippy::too_many_lines)]
     pub(crate) fn finalize_spell(&mut self, spell: ObjectId) {
         let (is_permanent, owner) = {
             let Some(obj) = self.state.object(spell) else {
@@ -2317,6 +2472,14 @@ impl<L: CardLookup> Engine<L> {
             if let Some(obj) = self.state.object_mut(spell) {
                 obj.kind = ObjectKind::Permanent;
                 obj.status.remove(Status::TAPPED);
+            }
+            // CR 614.12a: a choice a replacement effect needs is made
+            // *before* the permanent enters. Publishing a `Pending` returns
+            // from here and the move is owed to the answer — see
+            // `PlanKind::CopyOnEnter::before_entry`, which is where it is
+            // paid.
+            if self.ask_copy_before_entry(spell) {
+                return;
             }
             let _ = self.state.move_object(
                 spell,

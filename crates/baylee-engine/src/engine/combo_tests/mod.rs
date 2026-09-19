@@ -1149,14 +1149,18 @@ fn a_spark_double_copying_an_elf(seed: u64, season: bool) -> ((i16, i16), u16) {
 /// the sentence excusing it: nobody grows this list without writing down
 /// what they are excusing, and both halves are checked below, so an entry
 /// that stops being true fails as loudly as a card that stops being listed.
-const COPIES_KEEPING_A_PRINTED_STATIC: &[(&str, &str)] = &[(
-    "Sakashima of a Thousand Faces",
-    "\"…except it has Sakashima's other abilities\" is a clause no `CopyMod` \
-     can say, and the static that is never un-registered supplies exactly it \
-     — the legend rule stays off for its controller, which is what the card \
-     prints. Played out in \
-     `a_sakashima_copying_my_own_legend_keeps_the_legend_rule_off`",
-)];
+///
+/// It is **empty**, and it held one card until `CopyMod::KeepOtherAbilities`
+/// existed. Sakashima of a Thousand Faces prints "the legend rule doesn't
+/// apply to permanents you control" and says "…except it has Sakashima's
+/// other abilities"; with no word for that clause it was excused here,
+/// because the static nothing un-registered supplied exactly what the
+/// clause keeps. The card carries the mod now and the check below skips
+/// cards that do, so the excuse went with the accident.
+///
+/// An entry belongs here again only for a card that prints a static, becomes
+/// a copy, does **not** carry the mod, and is right anyway. Write down why.
+const COPIES_KEEPING_A_PRINTED_STATIC: &[(&str, &str)] = &[];
 
 fn elspeth_storm_slayer() -> baylee_core::ids::CardIndex {
     card_index("f78af825-023a-42e9-8374-5c52303a1417")

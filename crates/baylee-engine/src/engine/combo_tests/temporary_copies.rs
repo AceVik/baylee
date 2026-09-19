@@ -384,11 +384,19 @@ fn the_mirror_gives_back_the_protection_it_borrowed() {
 /// A token copy is handed its rules text by `settle_copied_rules_text` at
 /// step 0 of the pass, ahead of everything, which is what makes the token
 /// answer ([`super::copied_abilities::the_copy_registers_the_replacement_rule_it_copied`]) say
-/// nothing about ordering. `check_copy_on_enter` runs at 0b, one step
-/// *after* the scan that registers what a permanent can do — and what saves
-/// it is that it asks the controller a question: the machine returns on
+/// nothing about ordering.
+///
+/// A **cast** copy no longer raises it either, and that is a change rather
+/// than a fact about this test. `check_copy_on_enter` ran at 0b, one step
+/// *after* the scan that registers what a permanent can do, and what saved
+/// it was that it asks the controller a question: the machine returns on
 /// `awaiting_answer`, and the pass that applies the answer starts again at
-/// step 0, so the rule is registered before step 3 collects a trigger.
+/// step 0, so the rule was registered before step 3 collected a trigger.
+/// CR 614.12a moved the question in front of the arrival, so the Mirror
+/// below is already a copy on the pass it enters on and the scan at 0a is
+/// the first thing to see it. The saving grace is gone because what it was
+/// saving is gone; what this test now holds is the *outcome* either
+/// ordering owes, which is why it is worth keeping unchanged.
 ///
 /// Cursed Mirror rather than a Glasspool Mimic, because a Mimic may copy
 /// only a creature you control and would need a Katara of mine standing

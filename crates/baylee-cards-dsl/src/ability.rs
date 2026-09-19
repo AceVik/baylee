@@ -387,6 +387,35 @@ pub enum CopyMod {
     AddKeyword(crate::KeywordSet),
     /// Enters with counters of a kind.
     AddCounter(crate::CounterKind, u16),
+    /// Keeps the copier's own printed **static** abilities beside the
+    /// copied ones ("except it has Sakashima's other abilities").
+    ///
+    /// CR 707.9a is the rule, and only half of it is reachable here. It
+    /// says a copy effect may cause the copy to gain an ability as part of
+    /// the copying process, **and** that the ability joins the copy's
+    /// *copiable* values — so a second clone copying this one would copy it
+    /// too. What the engine does is register the kept statics as the copy's
+    /// own continuous effects, which delivers the first half and not the
+    /// second: a Spark Double copying a Sakashima-that-became-a-Padeem gets
+    /// Padeem's list.
+    ///
+    /// That limit is a type and not an oversight.
+    /// `GameObject::own_abilities` is a `&'static [AbilityDef]`, so the
+    /// concatenation of "what I copied" and "what I keep" is a list no
+    /// object can hold; the copiable half waits on that field growing an
+    /// owned form, and nothing in the pool can see the difference today.
+    ///
+    /// Only statics survive the trip, because a continuous effect is what
+    /// the engine has to put them in.
+    /// `combo_tests::every_copy_that_keeps_its_own_abilities_keeps_only_statics`
+    /// is the bound, so a card whose other abilities are triggered or
+    /// activated stops the build rather than losing them in silence.
+    ///
+    /// "Other" is the rest of the arithmetic: what is kept is every
+    /// printed ability of the copier **except the copy ability itself**,
+    /// or a Sakashima would arrive holding a second offer to copy
+    /// something, having already taken one.
+    KeepOtherAbilities,
 }
 
 /// One mode of a [`crate::AbilityDef::ModalSpell`].

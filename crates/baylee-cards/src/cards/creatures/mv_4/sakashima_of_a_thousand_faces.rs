@@ -28,7 +28,10 @@ card!(
     abilities = &[
         AbilityDef::CopyOnEnter {
             target: TargetSpec::Object(&Filter::ANOTHER_CREATURE_YOU_CONTROL),
-            mods: &[],
+            // "…except it has Sakashima's other abilities" — the static
+            // below, which a copy would otherwise lose with the rest of the
+            // printed text (CR 707.2a, CR 707.9a).
+            mods: &[CopyMod::KeepOtherAbilities],
         },
         static_ability!(Filter::Any, Modifier::LegendRuleOff),
     ],

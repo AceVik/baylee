@@ -413,6 +413,35 @@ pub fn in_graveyard(
         })
 }
 
+/// Whether `card` is on the stack.
+///
+/// The fourth reader, and the one the other three cannot stand in for. A
+/// permanent spell that asks a question on its way in is asked it *before*
+/// it enters (CR 614.12a), so while that question is pending the card is in
+/// none of the three zones above — and a test that could only look at the
+/// battlefield had to word its claim as "it is not among the options",
+/// which is satisfied just as well by a card that is not anywhere.
+///
+/// No `seat`, because the stack is one shared zone (CR 405.1).
+#[must_use]
+pub fn on_stack(
+    engine: &Engine<RegistryLookup>,
+    card: CardIndex,
+) -> Option<baylee_core::ids::ObjectId> {
+    engine
+        .state()
+        .zones
+        .list(crate::zone::ZoneLocation::Stack)
+        .iter()
+        .copied()
+        .find(|id| {
+            engine
+                .state()
+                .object(*id)
+                .is_some_and(|o| o.card.is_some_and(|c| c.index == card))
+        })
+}
+
 /// Taps everything that makes mana for `seat` except `keep`.
 ///
 /// The exception is the point: a land whose *other* ability the test is
