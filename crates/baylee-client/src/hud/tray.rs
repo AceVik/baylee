@@ -957,7 +957,7 @@ pub(super) fn spawn_tray(
     // and a title bar with nothing but a title in it is a row of air. They
     // were deliberately *out* of this row before, because dragging a tab
     // sideways would have carried the sheet with it; that is now settled
-    // where the `✕` already settles it — `tray_drag` lets the specific
+    // where the minimise button already settles it — `tray_drag` lets the
     // control claim the press before the row it stands on does.
     let title_row = commands
         .spawn((
@@ -973,42 +973,52 @@ pub(super) fn spawn_tray(
             },
         ))
         .id();
-    // The way out. Square, so the cross has a centre to sit in, and with a
+    // The way down. Square, so the rule has a centre to sit over, and with a
     // `Feel`, because every other button in this client breathes.
-    let close = commands
-        .spawn((
-            TrayClose,
-            Button,
-            Node {
-                width: px(22),
-                height: px(22),
-                align_items: AlignItems::Center,
-                justify_content: JustifyContent::Center,
-                border: UiRect::all(px(1)),
-                border_radius: btn_radius(),
-                ..default()
-            },
-            BackgroundColor(palette::DIALOG),
-            BorderColor::all(palette::DIALOG_LINE),
-            Feel::new(palette::DIALOG),
-            children![(
-                // The icon font's own cross. The text face has no U+2715 —
-                // it was Inter and is Alegreya Sans, and neither does — which
-                // is why the button drew as a thin bar for one build.
-                Text::new(glyph::CLOSE.to_string()),
-                icon_tf(fonts, 12.0),
-                TextColor(palette::DIALOG_SOFT),
-                Pickable::IGNORE,
-            )],
-        ))
-        .id();
+    //
+    // Drawn only on a sheet the player opened by hand, which is the corner's
+    // rule one control along and is there for the same measurement: on a
+    // sheet a *question* opened this fired, `Browser::follow` put the sheet
+    // straight back, and the button was a control that lit under the pointer
+    // and left the screen exactly as it was.
+    let close = (!browser.for_choice()).then(|| {
+        commands
+            .spawn((
+                TrayMinimise,
+                Button,
+                Node {
+                    width: px(22),
+                    height: px(22),
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::Center,
+                    border: UiRect::all(px(1)),
+                    border_radius: btn_radius(),
+                    ..default()
+                },
+                BackgroundColor(palette::DIALOG),
+                BorderColor::all(palette::DIALOG_LINE),
+                Feel::new(palette::DIALOG),
+                children![(
+                    // A window's bottom rule, out of the icon font: the text face
+                    // has neither this nor the `✕` it replaces — it was Inter and
+                    // is Alegreya Sans, and neither carries U+2715 — which is why
+                    // the button drew as a thin bar for one build.
+                    Text::new(glyph::MINIMISE.to_string()),
+                    icon_tf(fonts, 12.0),
+                    TextColor(palette::DIALOG_SOFT),
+                    Pickable::IGNORE,
+                )],
+            ))
+            .id()
+    });
     // ---- the zone tabs, "All" first ----
     //
-    // They take the row's slack and the `✕` keeps its 22 px, which is why the
-    // tabs grow and the close button does not. `min_width` of zero is the
+    // They take the row's slack and the minimise button keeps its 22 px,
+    // which is why the tabs grow and it does not. `min_width` of zero is the
     // half a flex row always needs: without it a row of eight piles refuses
-    // to shrink below the width of its own chips and pushes the `✕` off the
-    // sheet.
+    // to shrink below the width of its own chips and pushes the button off
+    // the sheet. On a question's sheet there is no button and the tabs have
+    // the row to themselves, which is the one case where that slack is free.
     let tabs = commands
         .spawn((
             Node {
@@ -1053,7 +1063,10 @@ pub(super) fn spawn_tray(
         ));
     }
     commands.entity(tabs).add_children(&chips);
-    commands.entity(title_row).add_children(&[tabs, close]);
+    commands.entity(title_row).add_child(tabs);
+    if let Some(close) = close {
+        commands.entity(title_row).add_child(close);
+    }
 
     // ---- what is typed, how it is sorted, and how much is answered ----
     //

@@ -20,6 +20,10 @@ use super::*;
 
 pub(super) mod drawer;
 pub(super) mod pool;
+// Not `hud::tray`, which is the zone dialog. This is the strip the
+// dialog is put away into; the collision and why it stands are in the
+// module's own doc.
+pub(super) mod tray;
 
 /// Where the shelf put the middle of itself, for the drawer to stand over.
 ///

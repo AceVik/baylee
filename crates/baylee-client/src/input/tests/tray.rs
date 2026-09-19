@@ -449,3 +449,57 @@ fn a_tap_in_the_box_shuts_the_builder() {
     assert!(duel.browser.builder().is_none(), "the builder is shut");
     assert!(duel.browser.is_typing(), "and the box has the caret");
 }
+
+/// The tray's button is a door in both directions, and the sheet comes back
+/// as it was left.
+///
+/// The whole of what "minimised rather than closed" means, as a click and a
+/// click back: `Browser::close` has always kept the filter and the ticks, and
+/// what was missing was anything that let a player reach the state again.
+/// Asserting on the filter and not merely on `is_open` is the point — a
+/// toggle that reopened an empty sheet would pass a test that only counted
+/// the sheet.
+#[test]
+fn the_trays_button_puts_the_sheet_down_and_brings_it_back_as_it_was() {
+    let mut duel = crate::Duel::default();
+    duel.browser.open();
+    duel.browser.set_filter("t:land");
+    let (mut app, _, _) = menu_app(duel);
+
+    let button = app.world_mut().spawn(crate::hud::TrayZones).id();
+    click(&mut app, button);
+    assert!(
+        !app.world().resource::<crate::Duel>().browser.is_open(),
+        "the tray's button did not put the sheet down"
+    );
+
+    click(&mut app, button);
+    let duel = app.world().resource::<crate::Duel>();
+    assert!(duel.browser.is_open(), "and did not bring it back");
+    assert_eq!(
+        duel.browser.filter(),
+        "t:land",
+        "the sheet came back with the search the player had typed thrown away"
+    );
+}
+
+/// The sheet's own button says the same thing from the other end.
+///
+/// It used to say `close`, which was the same call — so this is not a change
+/// of behaviour but the assertion that the two doors are one door. The
+/// renamed component is what makes it worth writing down: a rename that
+/// silently landed on a second handler would leave this green and the button
+/// dead.
+#[test]
+fn the_sheets_own_button_is_the_same_door() {
+    let mut duel = crate::Duel::default();
+    duel.browser.open();
+    let (mut app, _, _) = menu_app(duel);
+
+    let button = app.world_mut().spawn(crate::hud::TrayMinimise).id();
+    click(&mut app, button);
+    assert!(
+        !app.world().resource::<crate::Duel>().browser.is_open(),
+        "the sheet's minimise button did not put it down"
+    );
+}

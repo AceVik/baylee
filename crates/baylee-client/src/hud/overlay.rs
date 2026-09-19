@@ -349,6 +349,7 @@ pub fn sync_overlay(
                 && !tree.drawer.contains(*child)
                 && !tree.veil.contains(*child)
                 && !tree.panel.contains(*child)
+                && !tree.tray.contains(*child)
             {
                 commands.entity(*child).despawn();
             }
@@ -388,6 +389,12 @@ pub fn sync_overlay(
         // system's business. See [`ledge::drawer`].
         let drawer = ledge::drawer::spawn_drawer_root(&mut commands);
         commands.entity(root).add_child(drawer);
+        // And the tray, for the third time and the same two reasons. It is
+        // the one of the three whose *whole point* is outliving this rebuild:
+        // the shelf's own children come and go with every sentence, and the
+        // owner asked for a button that is always there. See [`ledge::tray`].
+        let tray = ledge::tray::spawn_tray_strip(&mut commands);
+        commands.entity(root).add_child(tray);
         root
     };
 
@@ -1644,6 +1651,42 @@ mod tests {
         );
     }
 
+    /// Everything the root carries **except** the nodes the sweep is told to
+    /// pass over.
+    ///
+    /// Naming the entities is the honest way to say "what the rebuild
+    /// rebuilds": it means the nodes it lists rather than resting on a
+    /// component that happens to be drawn in one place — `MenuButton` was
+    /// that component and stopped being it the moment the ways out of a game
+    /// moved to the shelf.
+    ///
+    /// Five now, not two: the zone dialog's veil and panel joined the list
+    /// when the dialog got a revision of its own, and the tray strip when the
+    /// dialog gained somewhere to be put down.
+    ///
+    /// This list and `sync_overlay`'s are hand-kept and separate, which is a
+    /// drift waiting to happen — and it did, on the commit that added the
+    /// strip. Catching it is the point; that the failure arrives *here* and
+    /// not at the sweep is why the caller's assertion has to say both things
+    /// it can mean.
+    fn nodes_the_rebuild_rebuilds(app: &mut App) -> Vec<Entity> {
+        let kept = {
+            let mut q = app.world_mut().query_filtered::<Entity, Or<(
+                With<ledge::LedgeShelf>,
+                With<ledge::drawer::DrawerRoot>,
+                With<TableVeil>,
+                With<TrayBand>,
+                With<ledge::tray::TrayStrip>,
+            )>>();
+            q.iter(app.world()).collect::<Vec<_>>()
+        };
+        let mut q = app.world_mut().query_filtered::<&Children, With<HudRoot>>();
+        q.iter(app.world())
+            .flat_map(|c| c.iter().collect::<Vec<_>>())
+            .filter(|e| !kept.contains(e))
+            .collect::<Vec<_>>()
+    }
+
     /// The shelf is built once and stands; everything else on the overlay is
     /// a picture of the snapshot and is drawn again.
     ///
@@ -1708,37 +1751,12 @@ mod tests {
                 .query_filtered::<Entity, With<ledge::drawer::DrawerRoot>>();
             q.iter(app.world()).collect::<Vec<_>>()
         };
-        // Everything the root carries **except** the nodes the sweep is told
-        // to pass over, which is the honest way to name "what the rebuild
-        // rebuilds": it says which entities it means rather than resting on a
-        // component that happens to be drawn in one place — `MenuButton` was
-        // that component and stopped being it the moment the ways out of a
-        // game moved to the shelf.
-        //
-        // Four now, not two: the zone dialog's veil and panel joined the list
-        // when the dialog got a revision of its own.
-        let redrawn = |app: &mut App| {
-            let kept = {
-                let mut q = app.world_mut().query_filtered::<Entity, Or<(
-                    With<ledge::LedgeShelf>,
-                    With<ledge::drawer::DrawerRoot>,
-                    With<TableVeil>,
-                    With<TrayBand>,
-                )>>();
-                q.iter(app.world()).collect::<Vec<_>>()
-            };
-            let mut q = app.world_mut().query_filtered::<&Children, With<HudRoot>>();
-            q.iter(app.world())
-                .flat_map(|c| c.iter().collect::<Vec<_>>())
-                .filter(|e| !kept.contains(e))
-                .collect::<Vec<_>>()
-        };
 
         let was_shelf = shelf(&mut app);
         let was_drawer = drawer(&mut app);
         let was_root = roots(&mut app);
         let was_standing = standing(&mut app);
-        let was_redrawn = redrawn(&mut app);
+        let was_redrawn = nodes_the_rebuild_rebuilds(&mut app);
         assert_eq!(was_shelf.len(), 1, "one shelf, and it was built");
         assert_eq!(was_drawer.len(), 1, "and one drawer beside it");
         assert_eq!(was_root.len(), 1, "and one root to hang them off");
@@ -1771,12 +1789,25 @@ mod tests {
              same loss one level down: a `Feel` under the pointer goes back \
              to rest"
         );
-        let now_redrawn = redrawn(&mut app);
+        let now_redrawn = nodes_the_rebuild_rebuilds(&mut app);
         assert!(!now_redrawn.is_empty(), "the overlay still draws it");
+        // The count is what separates the two things this can mean, so it is
+        // in the message: *all* of them surviving is a rebuild that stopped,
+        // and one of them is a new attachment beside the shelf that `kept`
+        // above has not been told about.
+        let stale = now_redrawn
+            .iter()
+            .filter(|e| was_redrawn.contains(e))
+            .count();
         assert!(
-            now_redrawn.iter().all(|e| !was_redrawn.contains(e)),
-            "the overlay stopped rebuilding: it is still showing the tree it \
-             built for a different frame"
+            stale == 0,
+            "{stale} of {} nodes under the root came through the rebuild \
+             unchanged. All of them means the overlay stopped rebuilding and \
+             is showing the tree it built for a different frame; one or two \
+             means something new stands beside the shelf and this test's \
+             `kept` list has not been told — `sync_overlay`'s own sweep is \
+             the list to hold it against.",
+            now_redrawn.len()
         );
     }
 

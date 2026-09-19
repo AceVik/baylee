@@ -366,6 +366,24 @@ pub(crate) mod glyph {
     pub const BACKSPACE: char = '\u{f55a}';
     /// An `i` in a circle: the line under a panel that qualifies it.
     pub const INFO: char = '\u{f05a}';
+    /// A window's bottom rule: put this sheet down into the tray.
+    ///
+    /// Read out of the shipped font's own cmap and rasterised before it was
+    /// written here, like the view buttons and the magnifier above it. It
+    /// draws as a single horizontal bar and nothing else, which is why it is
+    /// this and not [`MINUS`]: a minus sign is an arithmetic operator the
+    /// drawer already uses for taking one off a number, and a control that
+    /// means two things in one window means neither.
+    pub const MINIMISE: char = '\u{f2d1}';
+    /// An archive box: the zone dialog, as a door on the tray.
+    ///
+    /// Deliberately not [`LIBRARY`]'s layer-group, which is the obvious
+    /// picture of "a pile of cards" and is taken — a seat bar draws it for
+    /// the library, and two identical icons on one screen meaning two things
+    /// is worse than a less obvious one meaning its own. What this dialog
+    /// shows is the cards a game has put *away*: graveyards, exile, the
+    /// command zone, the stack. The box is the more exact of the two.
+    pub const ZONES: char = '\u{f187}';
 }
 
 /// Root of the overlay.
@@ -568,9 +586,22 @@ pub struct TrayTab {
     pub zone: Option<baylee_client_core::browser::BrowseZone>,
 }
 
-/// The browser's close button.
+/// The browser's minimise button: the sheet goes down into the tray.
+///
+/// It was `TrayMinimise` and drew a `✕` until the owner reversed the meaning on
+/// 19.09.2026 — *"Er wird aber nicht mehr geschlossen sondern in den Tray
+/// minimiert"*. The state it writes has not changed at all: [`Browser::close`]
+/// has always kept the ticks, the filter and the placement. What changed is
+/// that something now says so, which is [`ledge::tray`]'s whole argument.
+///
+/// It is drawn only on a sheet the player opened by hand, exactly as the
+/// resize corner beside it already was. On a sheet a *question* opened it
+/// fired, `Browser::follow` re-opened the sheet on the next frame, and the
+/// button was indistinguishable from an unwired one.
+///
+/// [`Browser::close`]: baylee_client_core::browser::Browser::close
 #[derive(Component)]
-pub struct TrayClose;
+pub struct TrayMinimise;
 
 /// The browser's sheet itself — the node a drag or a resize writes to.
 ///
@@ -1578,6 +1609,21 @@ pub(crate) const Z_LEDGE: i32 = 4;
 /// The zone browser's dialog — and the end screen's sheet, which is over a
 /// veil of its own under a different root and wants the same answer.
 pub(crate) const Z_SHEET: i32 = 5;
+/// The tray, which stands over the sheet it puts away.
+///
+/// The one rung that is a *requirement* rather than a reading of the scene.
+/// The band a sheet is placed in stops [`EDGE`] above the hand zone, which
+/// is twelve pixels and was exactly enough while the shelf was the only
+/// thing on that edge; the tray is taller than that gap by seventeen, so a
+/// **maximised** sheet covers more than half of its button. The owner asked
+/// for the opposite in the same breath as the strip itself — *"Demnach ist
+/// der Button im Tray immer sichtbar"* — so the strip is lifted over the
+/// sheet rather than the band being shortened for every sheet by the height
+/// of a strip that stands at one end of it.
+///
+/// It is still under [`Z_PREVIEW`], because a preview describes what is
+/// under the pointer and the button is something a pointer can be over.
+pub(crate) const Z_TRAY: i32 = 6;
 /// The hover preview, which describes whatever is under the pointer and so has
 /// to stand over all of it — including a row of the dialog.
 pub(crate) const Z_PREVIEW: i32 = 10;
@@ -1703,6 +1749,12 @@ pub struct OverlayTree<'w, 's> {
     /// the veil — and the shelf is where the question the dialog is answering
     /// is written.
     pub(crate) panel: Query<'w, 's, Entity, With<TrayBand>>,
+    /// The tray, kept for the drawer's argument exactly: it is spawned once
+    /// beside the shelf and its whole job is to be there whether or not
+    /// anything else is. A fifth query and not an `Or`, for this struct's
+    /// standing reason — five things survive the sweep for five arguments,
+    /// and a reader should have to see each one.
+    pub(crate) tray: Query<'w, 's, Entity, With<ledge::tray::TrayStrip>>,
 }
 
 /// The zone dialog's own nodes, and the root they hang from.
@@ -1757,6 +1809,7 @@ pub use hand::{ARMED_RAISE, HAND_ZONE_H, LEDGE_H, OVERLAY_CARD_H, OVERLAY_CARD_W
 pub(crate) use ledge::LIP as LEDGE_LIP;
 pub use ledge::drawer::{DrawerRevision, DrawerRoot, sync_drawer, zoom_the_drawer};
 pub use ledge::pool::{PoolRevision, sync_pool, zoom_the_pool};
+pub use ledge::tray::{StripRevision, TrayZones, sync_tray_strip};
 pub use ledge::{LedgeLayout, LedgeRevision, LedgeShelf, sync_ledge};
 pub(crate) use overlay::answer_button;
 pub use overlay::{despawn_overlay, sync_overlay};

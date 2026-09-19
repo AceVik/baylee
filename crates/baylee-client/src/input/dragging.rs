@@ -213,16 +213,17 @@ fn dragging_the_corner_does_not_maximise_it() {
     );
 }
 
-/// The ✕ stands *on* the header, and pressing it must not start a move.
+/// The minimise button stands *on* the header, and pressing it must not
+/// start a move.
 ///
 /// It would be a slow leak rather than a visible bug: a hand that wobbles
 /// a pixel between the press and the release moves the sheet a pixel, the
 /// release saves it, and the sheet creeps a little further from where it
-/// was put with every close.
+/// was put every time it is put away.
 #[test]
-fn pressing_the_close_button_does_not_start_a_drag() {
+fn pressing_the_minimise_button_does_not_start_a_drag() {
     let (mut app, panel, grip, _) = harness();
-    let close = app.world_mut().spawn((TrayClose, Node::default())).id();
+    let close = app.world_mut().spawn((TrayMinimise, Node::default())).id();
     app.world_mut().entity_mut(grip).add_children(&[close]);
 
     press(&mut app, close);
@@ -235,7 +236,7 @@ fn pressing_the_close_button_does_not_start_a_drag() {
             .resource::<ClientSettings>()
             .zone_browser
             .is_none(),
-        "closing the sheet wrote a place nobody chose"
+        "putting the sheet down wrote a place nobody chose"
     );
 }
 
@@ -245,8 +246,8 @@ fn pressing_the_close_button_does_not_start_a_drag() {
 /// pile could not drag the sheet sideways. They went in on 14.09.2026 —
 /// the owner asked for it, and the chips say what the panel is far better
 /// than the word "Zonen" did — so the guarantee has to come from the same
-/// place the ✕'s does: the specific control claims the press before the
-/// row it stands on. A chip is pressed at every merge, so this is the
+/// place the minimise button's does: the specific control claims the press
+/// before the row it stands on. A chip is pressed at every merge, so this is the
 /// noisier half of the pair rather than the quieter one.
 #[test]
 fn pressing_a_zone_tab_does_not_start_a_drag() {

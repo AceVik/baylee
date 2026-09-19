@@ -18,7 +18,7 @@
 
 use crate::hud::{
     AbilityButton, ChoiceButton, HandCardVisual, MenuAction, MenuButton, PlayerTab, PreviewResize,
-    PromptAction, PromptButton, TrayCard, TrayClose, TrayFilter, TrayNone, TraySort, TrayTab,
+    PromptAction, PromptButton, TrayCard, TrayFilter, TrayMinimise, TrayNone, TraySort, TrayTab,
 };
 use crate::keys::Fired;
 use crate::settings::ClientSettings;
@@ -51,7 +51,13 @@ use bevy::prelude::*;
 pub struct TrayWidgets<'w, 's> {
     cards: Query<'w, 's, &'static TrayCard>,
     tabs: Query<'w, 's, &'static TrayTab>,
-    close: Query<'w, 's, &'static TrayClose>,
+    close: Query<'w, 's, &'static TrayMinimise>,
+    /// The tray's own button, which is not on the sheet at all — it
+    /// stands on the ledge whether the sheet is up or down. It is in
+    /// this bundle rather than beside it because what it operates is
+    /// this panel, and a reader looking for who opens the browser
+    /// should find every door in one place.
+    zones: Query<'w, 's, &'static crate::hud::TrayZones>,
     sort: Query<'w, 's, &'static TraySort>,
     views: Query<'w, 's, &'static crate::hud::TrayView>,
     filter: Query<'w, 's, &'static TrayFilter>,
@@ -819,11 +825,7 @@ fn look_around(
         // opens one: reading a graveyard is not a glance, and a held key is
         // not a gesture a phone has. The tab it was last left on is kept, so
         // a player checking their own yard twice does not re-pick it.
-        if duel.browser.is_open() {
-            duel.browser.close();
-        } else {
-            duel.browser.open();
-        }
+        duel.browser.toggle_by_hand();
     }
     // Here rather than beside the other answers, because a hold is the one
     // thing a seat says while it is *not* being asked: the engine takes a
@@ -1726,11 +1728,18 @@ fn answer_the_question(fired: Fired, duel: &mut Duel, prefs: &mut crate::prefs::
     // and is gone the moment the pointer moves, while the sheet stays until
     // it is put away. Its filter box comes earlier still, in `browser_keys` —
     // a box that has the keyboard answers Escape itself.
+    //
+    // It also has to be *puttable* away, and a sheet a question opened is
+    // not: this branch used to close one, `Browser::follow` re-opened it on
+    // the next frame, and Escape looked like a key nothing had wired. Now the
+    // branch is not taken and Escape falls through to the answer the question
+    // is holding — clearing a half-built selection, which is the thing a
+    // player pressing Escape in front of a question actually means.
     if fired.has(Action::Cancel) {
         if duel.hovered.is_some() {
             duel.hovered = None;
             duel.hovered_at = None;
-        } else if duel.browser.is_open() {
+        } else if duel.browser.is_open() && duel.browser.may_be_put_away() {
             duel.browser.close();
         } else if prefs.orders().selected().is_some() {
             prefs.rail_cursor().clear_selection();
@@ -1813,7 +1822,7 @@ pub fn tray_drag(
     mut ups: MessageReader<Pointer<Release>>,
     grips: Query<&crate::hud::TrayGrip>,
     corners: Query<&crate::hud::TrayResize>,
-    closes: Query<&TrayClose>,
+    closes: Query<&TrayMinimise>,
     tabs: Query<&TrayTab>,
     parents: Query<&ChildOf>,
     windows: Query<&Window>,
@@ -1842,16 +1851,17 @@ pub fn tray_drag(
 
     let cursor = windows.single().ok().and_then(Window::cursor_position);
     for down in downs.read() {
-        // The ✕ and the zone tabs sit *on* the header, so their lineage
-        // carries the grip. The specific control claims the press before the
-        // row it stands on does, or every close would first nudge the sheet by
-        // whatever the hand wobbled between the press and the release — and
-        // then save it.
+        // The minimise button and the zone tabs sit *on* the header, so
+        // their lineage carries the grip. The specific control claims the
+        // press before the row it stands on does, or putting the sheet away
+        // would first nudge it by whatever the hand wobbled between the press
+        // and the release — and then save that.
         //
         // The tabs joined that list when they moved into the title row on
-        // 14.09.2026. It is the same bargain the ✕ already had, and it is the
-        // reason the tabs could move at all: a chip that started a drag would
-        // carry the whole sheet sideways every time a pile was ticked.
+        // 14.09.2026. It is the bargain the minimise button already had, and
+        // it is the reason the tabs could move at all: a chip that started a
+        // drag would carry the whole sheet sideways every time a pile was
+        // ticked.
         if find_in_lineage(down.entity, &closes, &parents).is_some()
             || find_in_lineage(down.entity, &tabs, &parents).is_some()
         {
@@ -2448,7 +2458,14 @@ fn browser_click(
         return true;
     }
     if find_in_lineage(entity, &tray.close, parents).is_some() {
-        duel.browser.close();
+        duel.browser.toggle_by_hand();
+        return true;
+    }
+    // The same call from the other end. The button on the ledge is the only
+    // one of the two that is drawn while the sheet is *down*, which is what
+    // makes "minimised" a true word for the state `close` writes.
+    if find_in_lineage(entity, &tray.zones, parents).is_some() {
+        duel.browser.toggle_by_hand();
         return true;
     }
     // The dialog's way out, which exists only when the question's minimum is

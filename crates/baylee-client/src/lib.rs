@@ -1050,6 +1050,13 @@ fn add_present_systems(app: &mut App) {
                 // the drawer's reason: a spent mana has to be able to leave.
                 hud::sync_pool.after(hud::sync_ledge),
                 hud::zoom_the_pool.after(hud::sync_pool),
+                // The tray hangs off the shelf's edge and not out of its
+                // layout, so it needs nothing the shelf worked out — but it
+                // is ordered after it anyway, because it is spawned by the
+                // same rebuild the shelf is and a frame where the strip
+                // exists and the shelf does not would draw a button standing
+                // on air.
+                hud::sync_tray_strip.after(hud::sync_ledge),
                 // The zone dialog, on a revision of its own for the same
                 // reason as the shelf and with a louder symptom: the dialog
                 // is a hundred rows, and a tree rebuilt on every pointer move
@@ -1156,6 +1163,7 @@ impl Plugin for DuelPlugin {
             .init_resource::<hud::LedgeLayout>()
             .init_resource::<hud::DrawerRevision>()
             .init_resource::<hud::PoolRevision>()
+            .init_resource::<hud::StripRevision>()
             .init_resource::<hud::TrayRevision>()
             .init_resource::<hud::SheetRevision>()
             .init_resource::<hud::Veil>()

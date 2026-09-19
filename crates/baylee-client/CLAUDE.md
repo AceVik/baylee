@@ -652,6 +652,27 @@ one sentence shorter would be. The borrowed picture comes from the face the
 sentence came from and not the face the source is showing, because an ability
 on the stack is independent of its source (CR 113.7a).
 
+**The shelf has three attachments, and all three outlive its rebuild.**
+`hud::ledge` despawns every child of the Actions Bar on each sentence, so
+anything that has to survive a change of question hangs beside it rather than
+in it: the **drawer** (`ledge::drawer`, centred, grows upward, carries the
+pick hint and the stepper), the **mana pool** (`ledge::pool`, retained so a
+pip that arrives can be seen arriving), and the **tray** (`ledge::tray`,
+right-aligned, shorter, one button today and room for more). Each has a
+revision counter of its own for the same reason: two things change on
+different clocks and one counter would have to lie about one of them.
+
+The tray is the zone dialog's door, and `hud::tray` is **not** the tray —
+that module is the dialog itself and its name predates the owner's word.
+Renaming it to `hud::zones` is 409 occurrences and has not been asked for; the
+map is in `ledge::tray`'s own module doc. What the tray changed is the
+vocabulary and not the state: `Browser::close` always kept the ticks, the
+filter and the placement, and a button standing on the shelf is what makes
+"minimised" the honest word for it. `Browser::may_be_put_away` is the single
+predicate all four doors ask — `G`, `Escape`, the sheet's own head button and
+the tray's — after two of them had spent their whole existence closing a
+question's sheet that `Browser::follow` re-opened a frame later.
+
 The question itself is a **sheet**, and two things about sheets are easy to
 get wrong twice. `hud::sheet()` on a panel paints that panel's *content box*,
 so any padding shows as a ring of flat `PARCHMENT` around the grain with the

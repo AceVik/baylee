@@ -4156,6 +4156,62 @@ The marker on the outer one is `TrayBand` rather than `TrayPanel`: the sheet
 is the rectangle a drag writes and has to stay the inner node, and a sweep
 told to keep the inner one despawns the band and takes the sheet with it.
 
+**The sheet is minimised into a tray, and is not closed at all.** The owner
+asked for the strip on 19.09.2026 — *"Baue den Tray ein. Die Actions Bar ist
+voll, aber an der Actions Bar hängt manchmal so ein Info text. Auf eine
+ähnliche Art und Weise ist der Tray so ein Attachement an die Actions Bar nur
+rechtsbündig und kleiner von der Höhe her"*, and then the rule that gives it
+its job: *"Er wird aber nicht mehr geschlossen sondern in den Tray minimiert.
+Demnach ist der Button im Tray immer sichtbar und öffnet beim Klick den Zonen
+Dialog."* `hud::ledge::tray` is that strip — the **third** retained
+attachment on this ledge after the drawer and the mana pool, hanging off the
+same top edge with the same one pixel of overlap, right-aligned where the
+drawer is centred, and shorter than the shelf by the four pixels the shelf
+spends on breathing room around its own button row.
+
+What changed to make "minimised" true is **nothing about the state**.
+`Browser::close` has always kept the ticks, the filter and the placement; the
+sheet has always come back exactly as it was left. What it never had was
+anything that said so. A window with an `✕` and no taskbar entry has been
+dismissed, and the same window with a button still standing on the shelf has
+been put down — so the button is the whole difference, and
+`Browser::toggle_by_hand` is one method rather than two because there is no
+third state to name.
+
+**Four doors, and two of them had been lying.** `G`, `Escape`, the button on
+the sheet's own head and now the tray's each decided for themselves whether
+the sheet could be put away, and the head's button and `Escape` decided it
+wrong: on a sheet a *question* opened they closed it, `Browser::follow`
+re-opened it on the very next frame, and both were indistinguishable from
+controls nobody had wired — which is what they had looked like for as long as
+they had existed. `Browser::may_be_put_away` is the one predicate now. The
+head's button is drawn only on a hand-opened sheet, exactly as the resize
+corner beside it already was; the tray's is drawn always and **held** on a
+question, because a button that is there and does nothing is worse than one
+that is visibly not now; and `Escape` falls through to clearing a half-built
+selection, which is what a player pressing it in front of a question means.
+
+**The strip is over the sheet, and that rung is a requirement.** A sheet is
+placed in a band that stops `EDGE` — twelve pixels — above the hand zone,
+which was exactly enough while the shelf was the only thing on that edge. The
+tray is seventeen pixels taller than that gap, so a **maximised** sheet covers
+more than half of its button, and *"Demnach ist der Button im Tray immer
+sichtbar"* was asked in the same breath as the strip itself. So `Z_TRAY` is a
+new rung between `Z_SHEET` and `Z_PREVIEW`: the strip is lifted over the
+sheet, rather than the band being shortened for every sheet by the height of a
+strip that stands at one end of it. It stays under the preview because a
+preview describes what is under the pointer and the button is something a
+pointer can be over.
+
+The strip's icon is an archive box and deliberately not the layer-group a
+seat bar draws for a library: two identical icons on one screen meaning two
+things is worse than a less obvious one meaning its own, and what this dialog
+shows is the cards a game has put *away* — graveyards, exile, the command
+zone, the stack. The head's button draws a window's bottom rule rather than
+the `-` the drawer's stepper spends on arithmetic. Both codepoints were read
+out of the shipped icon font's own cmap and rasterised before they were
+written down.
+
 **A place you work in is a place the keyboard is already in.** The filter box
 takes the keyboard as the panel opens (`input::browser_takes_the_keyboard`)
 and gives it back on `Esc` or `Enter`, after which the sheet can stand open
@@ -4197,8 +4253,8 @@ tap on a pile and a reveal **replace** the ticks rather than joining them — a
 reveal merged into a graveyard is a reveal nobody can find — and a tick does
 not outlive its pile, so a graveyard that empties takes its own tick with it.
 Tabs in the title row means the row is also the drag grip, which is settled
-the way the `✕` already settles it: `input::tray_drag` lets the specific
-control claim the press before the row it stands on.
+the way the minimise button already settles it: `input::tray_drag` lets the
+specific control claim the press before the row it stands on.
 
 Every zone tab says how many cards are in it, in brackets, which is not
 decoration: `bracketed` is what greys a run, so `Graveyard (12)` draws as a

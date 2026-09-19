@@ -23,7 +23,7 @@ Two consequences worth knowing before changing anything here:
 |---|---|---|
 | The click (a sheet holding the question → card under cursor → phase toggle → pass) | `Enter` | implemented |
 | Confirm / pass (ticks a row on a sheet holding the question, and toggles nothing else) | `Space` | implemented |
-| Cancel: armed deed, then preview, then the zone browser, then phase selection, then half-built answer | `Esc` | implemented |
+| Cancel: armed deed, then preview, then the zone browser *if the player may put it away*, then phase selection, then half-built answer | `Esc` | implemented |
 | Send what is armed (a second tap on the card does the same) | `Enter` / `Space` / `E` | implemented |
 | Move the card cursor (hand → own board → opponents) | `W A S D` | implemented |
 | Activate the card under the cursor (play / select) | `E` | implemented |
@@ -33,8 +33,9 @@ Two consequences worth knowing before changing anything here:
 | Declare nothing — no attackers, or no blockers | `O` | implemented |
 | Show a card's text instead of its art (while held) | `Cmd` / `Alt` | implemented |
 | Keep the card text on (latch, persisted) | `T` | implemented |
-| Open the zone browser (graveyards, exile, the stack) | `G`, or a tap on the top card of a pile | implemented |
-| Move the zone browser / resize it (remembered per client; a sheet a *question* opened is centred, stays put and draws no corner) | drag its title row / its bottom-right corner | implemented |
+| Open the zone browser (graveyards, exile, the stack) | `G`, a tap on the top card of a pile, or the tray's button | implemented |
+| Minimise the zone browser into the tray (the same three doors, and the button on its own head) | `G` / `Esc` / the button | implemented |
+| Move the zone browser / resize it (remembered per client; a sheet a *question* opened is centred, stays put, and draws neither corner nor minimise button) | drag its title row / its bottom-right corner | implemented |
 | Battlefield camera: pan / zoom / rotate / tilt | — (deliberately none) | removed |
 | Select a step tile (the seat bars' keyboard cursor) | `⇧W` / `⇧S` | implemented |
 | Fast-forward to next phase (decisions still yours) | `Tab` | implemented |

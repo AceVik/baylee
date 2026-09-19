@@ -217,3 +217,71 @@ fn a_tap_on_a_pile_still_opens_that_pile() {
     assert!(b.is_open());
     assert_eq!(ticks(&b), vec![BrowseZone::Graveyard(PlayerId::new(0))]);
 }
+
+/// The tray's button is a toggle, and what it toggles keeps everything.
+///
+/// "Minimised" and "closed" are one state here, which is the whole reason
+/// the button exists: what makes the word honest is not a fourth
+/// [`Opening`] but the fact that the button is on the ledge either way, so
+/// a sheet that is down is one click from being up again with the ticks
+/// and the filter the player left in it. This is the test that the click
+/// actually returns those and does not hand back a fresh panel.
+#[test]
+fn the_tray_button_puts_the_sheet_away_and_brings_it_back_as_it_was() {
+    let mut b = Browser::new();
+    b.open_at(BrowseZone::Graveyard(me()));
+    b.set_filter("t:land");
+    assert!(b.is_open());
+
+    assert!(b.toggle_by_hand(), "the button refused a sheet it owns");
+    assert!(!b.is_open(), "the sheet did not go away");
+
+    assert!(b.toggle_by_hand(), "the button refused to bring it back");
+    assert!(b.is_open(), "the sheet did not come back");
+    assert_eq!(
+        ticks(&b),
+        vec![BrowseZone::Graveyard(me())],
+        "it came back showing a different zone"
+    );
+    assert_eq!(
+        b.filter().trim(),
+        "t:land",
+        "it came back with the filter thrown away"
+    );
+}
+
+/// And it refuses while a question owns the sheet.
+///
+/// A question opens this panel because one of its answers is somewhere the
+/// table cannot show. A tray button that put that away would leave the
+/// player holding a question, no way to answer it and no sign of where it
+/// went — which is exactly the shape of the fault
+/// `a_tap_on_a_pile_does_not_take_the_sheet_from_a_question` records from
+/// the other door.
+#[test]
+fn the_tray_button_does_not_take_a_question_off_the_screen() {
+    let view = ViewBuilder::new(2)
+        .with_looking_at(vec![printed(4, 0, "Forest", 3)])
+        .build();
+    let it = Interaction::new(
+        Pending::ChooseCards {
+            player: me(),
+            options: vec![ObjectId::new(4, 0)],
+            min: 1,
+            max: 1,
+            prompt: ChoicePrompt::Generic,
+        },
+        me(),
+    );
+    let mut b = Browser::new();
+    b.follow(&view, Some(&it));
+    assert!(b.answers_here(Some(&it)), "the sheet holds the question");
+
+    assert!(
+        !b.may_be_put_away(),
+        "the sheet claims it may be put away while a question owns it"
+    );
+    assert!(!b.toggle_by_hand(), "the button claimed it did something");
+    assert!(b.is_open(), "the question was taken off the screen");
+    assert!(b.answers_here(Some(&it)), "and its keys stopped working");
+}

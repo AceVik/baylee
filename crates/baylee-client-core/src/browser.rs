@@ -888,6 +888,55 @@ impl Browser {
         self.tabs = std::iter::once(zone).collect();
     }
 
+    /// What the tray's own button does: puts the sheet up, or puts it away.
+    ///
+    /// The sheet is **minimised**, not closed, and the two words name the
+    /// same state on purpose — there is no third one to remember. What makes
+    /// "minimised" the honest word is the button: it is on the ledge whether
+    /// or not the sheet is up, so a sheet that is down is a sheet one click
+    /// from being up again, with its ticks, its filter and its placement
+    /// where the player left them. That is what [`Self::close`] already kept
+    /// and what nothing until now advertised.
+    ///
+    /// It refuses while a **question** owns the sheet ([`Opening::ForChoice`])
+    /// and says so by answering `false`. A question opens this panel because
+    /// one of its answers is somewhere the table cannot show, so a tray
+    /// button that put it away would leave the player holding a question with
+    /// no way to answer it and no sign of where it went. The question's own
+    /// way out is its own — the sheet's corner, or answering it.
+    pub fn toggle_by_hand(&mut self) -> bool {
+        match self.open {
+            Opening::ForChoice => false,
+            Opening::ByHand => {
+                self.close();
+                true
+            }
+            Opening::Shut => {
+                self.open();
+                true
+            }
+        }
+    }
+
+    /// Whether the player may put this sheet away at all.
+    ///
+    /// The predicate behind [`Self::toggle_by_hand`], and the one the *other*
+    /// three doors ask as well: the tray's button, the minimise button on the
+    /// sheet's own head, and `Escape`. All four used to decide it for
+    /// themselves, and two of them decided it wrong — the head's button and
+    /// `Escape` both closed a question's sheet, which [`Self::follow`] then
+    /// re-opened on the very next frame. A control that lights, fires and
+    /// leaves the screen exactly as it was is indistinguishable from one that
+    /// is unwired, which is what that pair had looked like for as long as
+    /// they had existed.
+    ///
+    /// It is also what the tray's button is *drawn* from, because a button
+    /// that is there and does nothing is worse than one that is visibly held.
+    #[must_use]
+    pub fn may_be_put_away(&self) -> bool {
+        self.open != Opening::ForChoice
+    }
+
     /// Closes the panel, keeping the tab and filter for the next time.
     pub fn close(&mut self) {
         self.open = Opening::Shut;
