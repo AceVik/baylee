@@ -75,6 +75,41 @@ impl Drop for Server {
     }
 }
 
+/// How long anything here waits for something that **must** arrive.
+///
+/// One constant rather than a number per loop, because every one of those
+/// numbers was chosen against an idle machine and they were all wrong in the
+/// same way. This file had its own copy of the five-second budget #78 raised
+/// in the gateway suite, and it went down the same way: gateway's full gate
+/// took `a_socket_can_take_an_ai_chair_and_hand_it_back` with it at the dial,
+/// before a line of the code under test had run. Alone the same test passes
+/// in 1.57 s.
+///
+/// Thirty seconds is not a margin for a hang. Every loop that uses it exits on
+/// the frame it was waiting for, so a raised ceiling costs a passing run
+/// nothing and only changes which failures are real; a genuine hang still
+/// fails, thirty seconds later, with the same message.
+const WAIT_BUDGET: std::time::Duration = std::time::Duration::from_secs(30);
+
+/// How many [`WAIT_STEP`]s fit in [`WAIT_BUDGET`].
+const WAIT_TRIES: u32 = 300;
+
+/// One poll interval, so a dial loop states its budget instead of its
+/// arithmetic.
+const WAIT_STEP: std::time::Duration = std::time::Duration::from_millis(100);
+
+/// How long a socket is given to stay **quiet**, which is the opposite
+/// question and does not take [`WAIT_BUDGET`].
+///
+/// A loop proving that nothing more arrives pays its whole budget on every
+/// passing run, so thirty seconds here would be thirty seconds added to the
+/// suite for each one. The trade is real and is stated rather than hidden:
+/// this budget's failure mode is a false **pass** — a frame that should not
+/// exist arriving late is never seen — where every other budget in this file
+/// fails red. It is only ever used after the thing the test is actually
+/// waiting for has already arrived.
+const QUIET: u64 = 500;
+
 #[tokio::test]
 #[allow(clippy::too_many_lines)] // e2e scenario script
 async fn create_game_and_answer_first_choice() {
@@ -83,13 +118,13 @@ async fn create_game_and_answer_first_choice() {
     // Wait for the port to accept.
     let url = server.url.clone();
     let mut ws = None;
-    for _ in 0..50 {
+    for _ in 0..WAIT_TRIES {
         match tokio_tungstenite::connect_async(&url).await {
             Ok((stream, _)) => {
                 ws = Some(stream);
                 break;
             }
-            Err(_) => tokio::time::sleep(std::time::Duration::from_millis(100)).await,
+            Err(_) => tokio::time::sleep(WAIT_STEP).await,
         }
     }
     let mut ws = ws.expect("server accepts the websocket");
@@ -270,7 +305,15 @@ async fn a_socket_can_take_an_ai_chair_and_hand_it_back() {
     let mut driver_saw_view = false;
     let mut driver_asked = false;
     for _ in 0..10 {
-        let Some(env) = next_within(&mut driver, 500).await else {
+        // The full budget until the view this asserts on has arrived, and
+        // `QUIET` only afterwards: the 500 ms this used to spend waiting for
+        // it was a statement about the machine.
+        let budget = if driver_saw_view {
+            QUIET
+        } else {
+            WAIT_BUDGET.as_millis() as u64
+        };
+        let Some(env) = next_within(&mut driver, budget).await else {
             break;
         };
         match env.msg {
@@ -307,7 +350,14 @@ async fn a_socket_can_take_an_ai_chair_and_hand_it_back() {
     .await;
     let mut second_refused = false;
     for _ in 0..10 {
-        let Some(env) = next_within(&mut queue_jumper, 500).await else {
+        // Same split: the refusal is what this asserts on, so it is waited
+        // for with the full budget and only the tail is quiet.
+        let budget = if second_refused {
+            QUIET
+        } else {
+            WAIT_BUDGET.as_millis() as u64
+        };
+        let Some(env) = next_within(&mut queue_jumper, budget).await else {
             break;
         };
         match env.msg {
@@ -357,7 +407,7 @@ async fn a_socket_can_take_an_ai_chair_and_hand_it_back() {
     // a fan that copied every frame to every socket would hand seat 0 the
     // driven seat's view of its own hand, and every take-over test above
     // would still pass.
-    while let Some(env) = next_within(&mut human, 300).await {
+    while let Some(env) = next_within(&mut human, QUIET).await {
         if let Some(v1::envelope::Msg::StateDelta(delta)) = env.msg {
             assert_eq!(
                 view_seat(&delta),
@@ -447,11 +497,11 @@ type Client =
     tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>;
 
 async fn dial(url: &str) -> Client {
-    for _ in 0..50 {
+    for _ in 0..WAIT_TRIES {
         if let Ok((stream, _)) = tokio_tungstenite::connect_async(url).await {
             return stream;
         }
-        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+        tokio::time::sleep(WAIT_STEP).await;
     }
     panic!("server accepts the websocket");
 }
@@ -469,7 +519,7 @@ async fn send(ws: &mut Client, envelope: &Envelope) {
 /// Quiet is an answer here, not a hang: several of the assertions above are
 /// about a frame *arriving*, so the wait has to end on its own.
 async fn next(ws: &mut Client) -> Option<Envelope> {
-    next_within(ws, 5_000).await
+    next_within(ws, WAIT_BUDGET.as_millis() as u64).await
 }
 
 /// The same, with the wait spelled out — short when the point is that the
