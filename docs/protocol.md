@@ -650,6 +650,13 @@ trying a log-in that is going to be refused. The mail itself is written in
 the `lang` the account registered with — kept on the account, so a resend
 months later still lands in the language the player signed up in.
 
+**A new key here is safe in one direction only.** A client's config struct
+deserializes the keys it names and ignores the rest, so a key it has never
+heard of — `clocks`, below — reaches an old client as nothing at all. That is
+a property of that struct and not a promise this route makes: a field a
+client is *required* to read breaks every client that predates it while the
+same sentence stays true, and is a version bump rather than a new key.
+
 ## A name is not a claim: `Alice#af03`
 
 A display name is **not** unique. Two players may both register as Alice, and
