@@ -607,27 +607,31 @@ pub struct SeatContext {
     /// What the awaited seat owes inside a CR 605.3a payment window. Pass
     /// [`owed_payment`].
     pub owed: Option<ManaCost>,
+    /// How long the awaited seat has left to answer, in milliseconds. Pass
+    /// [`Session::decision_remaining_ms`](crate::Session::decision_remaining_ms).
+    ///
+    /// The odd one out in this struct, and deliberately so. Its three
+    /// neighbours are read off the `Engine` by whoever builds the context;
+    /// this one cannot be, because **this crate is forbidden a wall clock** —
+    /// a session that timed itself would replay differently on every machine.
+    /// So it is measured outside and handed in.
+    ///
+    /// That also makes it the one field here that must not reach a rules
+    /// decision. A view sent to a socket carries it; a view built for an
+    /// agent to answer from leaves it `None`, because elapsed machine time is
+    /// not an authorized input to a decision and an agent that read it would
+    /// play the same position differently on a slow machine. Same invariant
+    /// as #87 and the same reason.
+    pub decision_remaining_ms: Option<u32>,
 }
 
-/// Builds the hidden-information-filtered view of `state` for `seat`.
+/// This seat's own hand, which is the one hand a view spells out.
 ///
-/// `ctx` carries the three facts that are on the `Engine` rather than in the
-/// state; see [`SeatContext`].
-///
-/// `pending` is the outstanding choice, and it is here for one reason:
-/// [`PlayerView::looking_at`]. A tutor, a scry and a revealed hand all ask a
-/// seat about objects that are in no zone the view carries, so the choice
-/// itself is what decides which hidden objects this seat may see. Pass `None`
-/// and the view is exactly what it was before — nothing else reads it.
-#[must_use]
-pub fn player_view(
-    state: &GameState,
-    seat: PlayerId,
-    seq: u64,
-    pending: Option<&Pending>,
-    ctx: &SeatContext,
-) -> PlayerView {
-    let hand = state
+/// Lifted out of [`player_view`] only for its length; it is the same walk it
+/// always was. Every *other* seat's hand is a count, and that asymmetry is
+/// the point — see the crate docs on hidden information.
+fn own_hand(state: &GameState, seat: PlayerId) -> Vec<HandObject> {
+    state
         .zones
         .list(ZoneLocation::Hand(seat))
         .iter()
@@ -649,7 +653,28 @@ pub fn player_view(
                 commander: is_commander(state, *id),
             })
         })
-        .collect();
+        .collect()
+}
+
+/// Builds the hidden-information-filtered view of `state` for `seat`.
+///
+/// `ctx` carries the three facts that are on the `Engine` rather than in the
+/// state; see [`SeatContext`].
+///
+/// `pending` is the outstanding choice, and it is here for one reason:
+/// [`PlayerView::looking_at`]. A tutor, a scry and a revealed hand all ask a
+/// seat about objects that are in no zone the view carries, so the choice
+/// itself is what decides which hidden objects this seat may see. Pass `None`
+/// and the view is exactly what it was before — nothing else reads it.
+#[must_use]
+pub fn player_view(
+    state: &GameState,
+    seat: PlayerId,
+    seq: u64,
+    pending: Option<&Pending>,
+    ctx: &SeatContext,
+) -> PlayerView {
+    let hand = own_hand(state, seat);
 
     PlayerView {
         seq,
@@ -659,6 +684,7 @@ pub fn player_view(
         step: step(state.turn.step),
         active: state.turn.active,
         awaiting: ctx.awaiting,
+        decision_remaining_ms: ctx.decision_remaining_ms,
         priority_held: ctx.held,
         owed: ctx.owed,
         monarch: state.monarch,

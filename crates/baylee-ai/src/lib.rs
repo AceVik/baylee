@@ -1688,6 +1688,7 @@ mod tests {
             step: baylee_view::Step::DeclareAttackers,
             active: PlayerId::new(seat),
             awaiting: None,
+            decision_remaining_ms: None,
             priority_held: false,
             monarch: None,
             day_night: None,

@@ -77,6 +77,7 @@ impl ViewBuilder {
                 step: Step::Main,
                 active: PlayerId::new(0),
                 awaiting: Some(PlayerId::new(0)),
+                decision_remaining_ms: None,
                 priority_held: false,
                 monarch: None,
                 day_night: None,

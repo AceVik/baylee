@@ -291,6 +291,7 @@ pub fn play_report<L: CardLookup>(
                 awaiting: pending_player(&pending),
                 held: engine.automation(player).hold.suppresses(),
                 owed: crate::view::owed_payment(&engine),
+                decision_remaining_ms: None,
             },
         );
         let crate::SeatKind::Ai(agent) = &seats[usize::from(player.get())] else {
@@ -865,6 +866,7 @@ mod tests {
                     awaiting: pending_player(&pending),
                     held: engine.automation(player).hold.suppresses(),
                     owed: crate::view::owed_payment(&engine),
+                    decision_remaining_ms: None,
                 },
             );
             let action = agent.act(&view, &pending);

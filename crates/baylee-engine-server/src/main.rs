@@ -571,7 +571,19 @@ mod attached {
                         continue;
                     }
                     let envelope = Envelope::decode(frame.into_data())?;
-                    for out in runner.handle(envelope) {
+                    // Read the clock before handing the frame over: this
+                    // frame may move the game, and after it has, the number
+                    // belongs to a question nobody is being asked any more.
+                    // Saturating rather than clamped-signed — a deadline
+                    // already past is nought left, not a negative countdown.
+                    let remaining_ms = armed.map(|(_, at)| {
+                        u32::try_from(
+                            at.saturating_duration_since(tokio::time::Instant::now())
+                                .as_millis(),
+                        )
+                        .unwrap_or(u32::MAX)
+                    });
+                    for out in runner.handle(envelope, remaining_ms) {
                         send(&mut ws, &out).await?;
                     }
                 }

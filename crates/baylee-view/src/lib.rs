@@ -42,6 +42,13 @@ use serde::{Deserialize, Serialize};
 /// Protocol version of the view payload. Bumped on any breaking change so a
 /// client can refuse a host it cannot render rather than mis-rendering it.
 ///
+/// 25 added [`PlayerView::decision_remaining_ms`] (#68). The decision clock
+/// has run since the engine moved into a process of its own and reached no
+/// seat at all, so a player saw nothing for ten minutes and then lost a
+/// decision in silence. Nothing else moved: the number is computed by
+/// whoever owns the wall clock and handed in, because the host that builds
+/// this view is forbidden one.
+///
 /// 24 added [`PlayerView::owed`] (#92): what the seat named by
 /// [`PlayerView::awaiting`] still has to pay, when the engine has opened a
 /// CR 605.3a mana window for it. The window is an ordinary priority round by
@@ -63,7 +70,7 @@ use serde::{Deserialize, Serialize};
 /// and disagree on what a number means. That is why subtype ids became
 /// append-only in the same commit rather than trusting this number to carry
 /// it.
-pub const VIEW_VERSION: u32 = 24;
+pub const VIEW_VERSION: u32 = 25;
 
 // ---------------------------------------------------------------- turn shape
 
@@ -1114,6 +1121,35 @@ pub struct PlayerView {
     /// question only to the seat it is addressed to, so a seat that is not
     /// being asked never sees one at all.
     pub awaiting: Option<PlayerId>,
+    /// How long [`PlayerView::awaiting`] has left to answer, in milliseconds
+    /// from the moment this view was built.
+    ///
+    /// **Relative, not a deadline.** An absolute instant would make the
+    /// client's own clock a rules question — a seat whose machine runs a
+    /// minute fast would draw a minute it does not have, or lose one it does.
+    /// A client counts down from this number and takes the next view as the
+    /// correction.
+    ///
+    /// **Public.** Every seat is told the awaited seat's remainder, not only
+    /// the seat on the clock. A table where one player is running out of time
+    /// and nobody else can see it is a table where the pause reads as
+    /// rudeness rather than as a clock.
+    ///
+    /// `None` means *no decision clock is running*, which is four situations
+    /// wearing one answer: nobody is being asked, the table set
+    /// `decision_timeout_secs` to zero (`untimed`, where there is no number
+    /// because there is no limit), the awaited seat is an AI chair, or the
+    /// awaited seat is on the **stand-in** clock instead — its socket is
+    /// gone, so it is not deciding at all and a countdown against it would
+    /// name the wrong thing happening. Zero would be a seat with no time
+    /// left, which is why this is an `Option` and not a sentinel.
+    ///
+    /// It is also the one field here made of *elapsed wall time*, and so the
+    /// one that must never reach a rules decision: a host builds it into the
+    /// views it sends to sockets and leaves it `None` in the views it hands
+    /// its own agents, because an agent that read it would answer the same
+    /// position differently on a slow machine.
+    pub decision_remaining_ms: Option<u32>,
     /// Whether *this* seat has a standing order that is withholding its own
     /// priority — "let the stack resolve", "not this turn", and so on.
     ///
@@ -1365,6 +1401,7 @@ mod tests {
             step: Step::Main,
             active: PlayerId::new(0),
             awaiting: Some(PlayerId::new(0)),
+            decision_remaining_ms: None,
             priority_held: false,
             monarch: None,
             day_night: None,

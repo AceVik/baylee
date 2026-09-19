@@ -97,6 +97,25 @@ pub struct Session {
     decisions: u64,
     /// Kept for the decision clock; the engine has its own copy for rules.
     house_rules: HouseRules,
+    /// The last decision-clock reading the caller took, and the question it
+    /// was taken for.
+    ///
+    /// A reading rather than a clock: this crate may not own one, so the
+    /// number arrives from outside and is stored with the `decision_seq` it
+    /// was true of. That anchor is what makes a stale value harmless —
+    /// [`Session::decision_remaining_ms`] discards it once the question has
+    /// moved on, rather than letting the previous question's leftovers run
+    /// against this one.
+    ///
+    /// Two nested `Option`s, and they are not the same question. The outer
+    /// one is *whether anybody has said anything about this question yet*;
+    /// the inner one is the caller saying **no clock is running** — an
+    /// untimed table, an AI chair, or a seat waiting out its reconnect
+    /// window. One `Option` conflated them, and the cost was exact: nothing
+    /// has been read when a game starts, so the opening question of every
+    /// game came out as "no clock" and was the one decision nobody was shown
+    /// a countdown for.
+    clock: Option<(u64, Option<u32>)>,
     /// The print table the game was built from.
     ///
     /// The rules kernel has no use for it; a client has nothing without it.
@@ -154,6 +173,7 @@ impl Session {
             seq: 0,
             decisions: 0,
             house_rules: preset.house_rules.clone(),
+            clock: None,
             prints: preset.prints.clone(),
             revealed: preset
                 .seats
@@ -408,6 +428,7 @@ impl Session {
                 awaiting,
                 held: self.engine.automation(seat).hold.suppresses(),
                 owed: crate::view::owed_payment(&self.engine),
+                decision_remaining_ms: self.decision_remaining_ms(),
             },
         );
         let mut out = Vec::new();
@@ -482,6 +503,13 @@ impl Session {
                             awaiting: pending_player(&pending),
                             held: self.engine.automation(player).hold.suppresses(),
                             owed: crate::view::owed_payment(&self.engine),
+                            // No clock in a view an agent answers from. This
+                            // number is made of elapsed wall time, and
+                            // machine speed is not an authorized input to a
+                            // decision: an agent that read it would play the
+                            // same position differently on a slow machine,
+                            // legally and invisibly. Same invariant as #87.
+                            decision_remaining_ms: None,
                         },
                     );
                     let context = self.engine.decision_context();
@@ -545,6 +573,60 @@ impl Session {
         self.house_rules.reconnect_window_secs
     }
 
+    /// Tell this session how much of the awaited seat's decision clock is
+    /// left, as read by whoever owns the clock.
+    ///
+    /// `seq` is the [`Session::decision_seq`] the reading was taken against,
+    /// and passing it is not ceremony: the caller reads its clock *before*
+    /// handing a frame in, and handling that frame may move the game, so by
+    /// the time a view is built the number can already belong to a question
+    /// nobody is being asked any more.
+    ///
+    /// `remaining_ms` of `None` states that **no decision clock is running** —
+    /// an untimed table, an AI chair, or a seat waiting out its reconnect
+    /// window rather than deciding. That is a different statement from never
+    /// having called this at all, and [`Session::decision_remaining_ms`]
+    /// treats them differently.
+    pub const fn set_decision_remaining(&mut self, seq: u64, remaining_ms: Option<u32>) {
+        self.clock = Some((seq, remaining_ms));
+    }
+
+    /// How long the awaited seat has left, in milliseconds, or `None` when no
+    /// decision clock is running.
+    ///
+    /// Almost all of this is the anchor check. A reading is only true of the
+    /// question it was taken for, so once [`Session::decision_seq`] has moved
+    /// past it the reading is discarded and the seat is given the table's
+    /// whole allowance instead — which is exactly right, because a question
+    /// that has only just been asked has had no time taken off it. Without
+    /// that branch the first view of every new question would carry the
+    /// *previous* question's leftovers, and a seat would be shown four
+    /// seconds to answer something it was asked a moment ago.
+    ///
+    /// The allowance is refused for a chair the clock does not run for. An AI
+    /// chair is on no clock, and a chair the house is holding is waiting on a
+    /// player rather than deciding, so neither inherits an allowance merely
+    /// because the seat asked before them had one.
+    #[must_use]
+    pub fn decision_remaining_ms(&self) -> Option<u32> {
+        if let Some((seq, reading)) = self.clock
+            && seq == self.decisions
+        {
+            return reading;
+        }
+        let seat = self.awaiting_seat()?;
+        if !self
+            .seat_kind(seat)
+            .is_some_and(SeatKind::answers_over_socket)
+        {
+            return None;
+        }
+        match self.house_rules.decision_timeout_secs {
+            0 => None,
+            secs => Some(secs.saturating_mul(1_000)),
+        }
+    }
+
     /// The seat that currently owes an answer, if any.
     #[must_use]
     pub fn awaiting_seat(&self) -> Option<PlayerId> {
@@ -572,6 +654,10 @@ impl Session {
                 awaiting: pending_player(pending),
                 held: self.engine.automation(player).hold.suppresses(),
                 owed: crate::view::owed_payment(&self.engine),
+                // As in `pump`, and pointedly so here: this view exists
+                // because a clock ran out, so it is the one place the
+                // expired number could reach a rules decision.
+                decision_remaining_ms: None,
             },
         );
         Some((player, agent.act(&view, pending)))
@@ -620,6 +706,7 @@ impl Session {
                 awaiting: pending_player(&pending),
                 held: self.engine.automation(seat).hold.suppresses(),
                 owed: crate::view::owed_payment(&self.engine),
+                decision_remaining_ms: self.decision_remaining_ms(),
             },
         );
         let mut out = vec![view_envelope(self.seq, &view)];

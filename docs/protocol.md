@@ -319,6 +319,112 @@ asserts the two answers against each other. Both walks stop at
 ninth grant projected as slot 8 would come back as `PREPARED_CAST`, an index
 in the same space that means something else entirely.
 
+## What a seat owes (view version 24)
+
+A player who agrees to pay ward's tax is handed a mana window (CR 605.3a) so
+they can make the mana. The window is deliberately shaped like nothing: an
+ordinary `Pending::Priority` offering mana abilities and no new question
+type, which is what lets a client draw it and an agent answer it with what
+they already have. That is also why neither could tell it apart from a quiet
+priority pass with no plays — the house agent said yes, saw two untapped
+Plains and nothing castable, passed, and its own spell was countered.
+
+`PlayerView::owed` is `Option<ManaCost>`, the **total** that was asked, and
+is read with `PlayerView::awaiting`, which already names who owes it: the
+payer holds priority inside its own window, so the two fields are one
+sentence. It must not be inferred — deducing "I owe something" from an offer
+of mana abilities with nothing castable would tap lands in every other quiet
+window too.
+
+A cost and not a number, on two measurements. The engine's `u16` is generic
+because `Effect::PlayerMayPayOr` carries an `Amount`, a tax being allowed to
+be its own source's power — a statement about *when* the number is known, not
+about what it may hold — and by the time a window is open it has been
+evaluated, so the view inherits none of that. And both readers on the far
+side already take a cost: `manapip::cost` draws one, `manaplan::plan` solves
+one, so a number would be converted at each of them on the way in.
+
+Mana-only by construction rather than by omission. The other payment this
+engine can ask for — a Karoo's "return an untapped Plains you control",
+`AwaitingOp::PlayerMayPayCost` — is answered by naming an object from a list
+the pending choice already carries, and opens no window at all.
+
+One projection, `view::owed_payment`, for the same reason `granted_activated`
+is one lookup: an offer and a projection that disagreed would be a window the
+player is told to use and a price the engine does not charge. It is gated on
+the window and not on the suspended resolution, which holds the price for the
+whole of the yes-or-no question too — reading the operation alone reports a
+debt while the seat is still deciding whether to take one.
+
+## How long a seat has left (view version 25)
+
+The decision clock has run since the engine moved into a process of its own,
+and until now it reached no seat at all. On the default preset that means a
+player saw nothing for ten minutes and then lost a decision in silence.
+`PlayerView::decision_remaining_ms` is the number, and three decisions about
+it are worth more than the field is.
+
+**Relative milliseconds, not a deadline.** An absolute instant would make the
+client's own clock a rules question: a seat whose machine runs a minute fast
+would draw a minute it does not have, or lose one it does. A client counts
+down from the number and takes the next view as the correction, so the only
+thing that has to be right is the host's own arithmetic.
+
+**Public.** Every seat is told the awaited seat's remainder, not only the
+seat on the clock. A table where one player is running out of time and nobody
+else can see it is a table where the pause reads as rudeness rather than as a
+clock. It is read with `PlayerView::awaiting`, which names whose remainder it
+is, exactly as `owed` is above.
+
+**`None` is four situations wearing one answer**: nobody is being asked, the
+table is `untimed` (`decision_timeout_secs` at zero — no number because there
+is no limit), the awaited seat is an AI chair, or the awaited seat is on the
+**stand-in** clock rather than the decision clock. That last one is the one
+worth stating: its socket is gone, so it is not deciding at all, and a
+countdown drawn against it on everybody else's screen would name the wrong
+thing happening. Zero would be a seat with no time left, which is why the
+field is an `Option` and not a sentinel.
+
+### Why the number is handed in rather than read
+
+`baylee-gamehost` may not read a wall clock. The rules kernel is
+deterministic and a session that timed itself would replay differently on
+every machine, so the one value here made of elapsed time arrives from
+outside: `EngineRunner` resolves it and `Session::set_decision_remaining`
+stores it **with the `decision_seq` it was true of**.
+
+That anchor is the whole of `Session::decision_remaining_ms`. A reading only
+describes the question it was taken for, so once the question has moved the
+reading is discarded and the seat is given the table's whole allowance — a
+question just asked has had no time taken off it. Without that branch the
+first view of every new question would carry the previous question's
+leftovers, and a seat would be shown four seconds to answer something it was
+asked a moment ago. It is anchored to `decision_seq` and not to a timestamp
+for the reason that counter exists at all: it counts *questions asked* rather
+than frames sent, so an opponent's priority hold cannot wind it.
+
+The resolution happens twice per frame, and the second time is not
+redundant. Registering a socket moves the awaited seat off the reconnect
+window and onto the decision clock, and that happens after the frame has
+arrived and before any view is built — including the snapshot a resyncing
+player is sent, which is the one view in the system whose whole job is to
+tell a returning seat where it stands.
+
+### A clock-shaped field must not reach a rules decision
+
+The host builds this number into the views it sends to sockets and leaves it
+`None` in the views it hands its own agents. `HeuristicAgent::act` takes a
+`PlayerView`, so an agent that read a remainder would answer the same
+position differently on a slow machine than on a fast one — legally, and
+invisibly, because nothing about the resulting play looks wrong. Machine
+speed is not an authorized input to a decision; the invariant is that with
+identical authorized inputs an agent's answer cannot change, and it is the
+same invariant as the house AI drawing from the game's own seed.
+
+Anyone adding another field of this shape to `PlayerView` inherits the rule:
+if it is made of wall time, it belongs in the views that go to sockets and
+nowhere else.
+
 ## Commanders (view version 13)
 
 `SeatView` used to carry `commander_casts: Vec<u32>`, and it was two things

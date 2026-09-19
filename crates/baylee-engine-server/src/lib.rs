@@ -79,6 +79,13 @@ pub struct EngineRunner {
     attached: Vec<u8>,
     /// Whether `GameEnded` has already been reported.
     ended: bool,
+    /// The decision-clock remainder the caller last read off its own timer.
+    ///
+    /// Kept rather than passed straight through because it is read once per
+    /// frame but resolved more than once: registering a socket can move the
+    /// awaited seat from the reconnect window onto the decision clock, and
+    /// that happens after the frame has arrived and before any view is built.
+    reading: Option<u32>,
 }
 
 impl EngineRunner {
@@ -184,8 +191,53 @@ impl EngineRunner {
         }
     }
 
+    /// Hands the session the decision clock's remainder, so the views it is
+    /// about to build can carry it.
+    ///
+    /// This is where the four cases that have no clock are decided, and it is
+    /// here rather than in the session because three of the four are things
+    /// only this side knows. [`EngineRunner::clock`] already answers all of
+    /// them — nobody being asked, a zero allowance, an AI chair — and the
+    /// fourth is the one this function adds: a [`Deadline::StandIn`] is not a
+    /// decision clock. The seat it belongs to has no socket and is being
+    /// waited *for* rather than deciding, and a countdown drawn against it on
+    /// everyone else's screen would name the wrong thing happening.
+    ///
+    /// With nothing read, the seat gets the allowance whole, which is what a
+    /// question nobody has spent time on is worth.
+    fn absorb_clock(&mut self) {
+        let resolved = match self.clock() {
+            Some(clock) if clock.what == Deadline::Decide => Some(
+                self.reading
+                    .unwrap_or_else(|| clock.secs.saturating_mul(1_000)),
+            ),
+            _ => None,
+        };
+        if let Some(session) = self.session.as_mut() {
+            let seq = session.decision_seq();
+            session.set_decision_remaining(seq, resolved);
+        }
+    }
+
     /// Applies one frame from the gateway and returns what to send back.
-    pub fn handle(&mut self, envelope: Envelope) -> Vec<Envelope> {
+    ///
+    /// `remaining_ms` is how much of the **currently armed** deadline is
+    /// left, read from the caller's clock a moment ago, or `None` if the
+    /// caller has nothing armed. It is a parameter rather than something the
+    /// runner reads for itself because the `Instant` lives with whoever runs
+    /// the timer, and it is a parameter rather than an optional setter
+    /// because a caller that forgot it would produce views whose countdown
+    /// silently restarts on every frame.
+    ///
+    /// It matters for exactly one shape, and that shape is the point of the
+    /// ticket: a seat that **reconnects** in the middle of a question is sent
+    /// a fresh snapshot, and must be shown the twenty seconds it has left
+    /// rather than the ten minutes it started with. Every other frame either
+    /// moves the game — in which case the question is new and the allowance
+    /// is whole — or is answered the same way by both.
+    pub fn handle(&mut self, envelope: Envelope, remaining_ms: Option<u32>) -> Vec<Envelope> {
+        self.reading = remaining_ms;
+        self.absorb_clock();
         match envelope.msg {
             Some(v1::envelope::Msg::GameSetup(setup)) => self.setup(&setup),
             Some(v1::envelope::Msg::SeatAttached(attached)) => self.attach(&attached),
@@ -222,12 +274,22 @@ impl EngineRunner {
             return Vec::new();
         };
         let player = PlayerId::new(seat);
-        let Some(session) = self.session.as_mut() else {
+        if self.session.is_none() {
             return Vec::new();
-        };
+        }
         if !self.attached.contains(&seat) {
             self.attached.push(seat);
         }
+        // Once more, now that the socket is registered. A seat that was on
+        // the reconnect window a line ago is on the decision clock as of
+        // this moment, and every view below is built after it — including
+        // the snapshot a resyncing player is about to be sent, which is the
+        // one view in the whole system that exists to tell a returning seat
+        // where it stands.
+        self.absorb_clock();
+        let Some(session) = self.session.as_mut() else {
+            return Vec::new();
+        };
         // The player is back, so the chair is theirs again — before the
         // roster below is built, or the payload that says who is at the table
         // would be the one payload still saying they are not. It comes first
@@ -458,13 +520,16 @@ mod tests {
     }
 
     fn setup(runner: &mut EngineRunner, preset: &GamePreset) -> Vec<Envelope> {
-        runner.handle(Envelope {
-            msg: Some(v1::envelope::Msg::GameSetup(v1::GameSetup {
-                game_id: "g1".to_string(),
-                preset_json: serde_json::to_vec(preset).expect("preset serializes"),
-                seat_names: vec!["You".to_string(), "House".to_string()],
-            })),
-        })
+        runner.handle(
+            Envelope {
+                msg: Some(v1::envelope::Msg::GameSetup(v1::GameSetup {
+                    game_id: "g1".to_string(),
+                    preset_json: serde_json::to_vec(preset).expect("preset serializes"),
+                    seat_names: vec!["You".to_string(), "House".to_string()],
+                })),
+            },
+            None,
+        )
     }
 
     /// The same duel with a reconnect window a test can point at.
@@ -475,19 +540,25 @@ mod tests {
     }
 
     fn detach(runner: &mut EngineRunner, seat: u32) -> Vec<Envelope> {
-        runner.handle(Envelope {
-            msg: Some(v1::envelope::Msg::SeatDetached(v1::SeatDetached { seat })),
-        })
+        runner.handle(
+            Envelope {
+                msg: Some(v1::envelope::Msg::SeatDetached(v1::SeatDetached { seat })),
+            },
+            None,
+        )
     }
 
     fn attach(runner: &mut EngineRunner, seat: u32) -> Vec<Envelope> {
-        runner.handle(Envelope {
-            msg: Some(v1::envelope::Msg::SeatAttached(v1::SeatAttached {
-                seat,
-                standing_json: b"[]".to_vec(),
-                resync: false,
-            })),
-        })
+        runner.handle(
+            Envelope {
+                msg: Some(v1::envelope::Msg::SeatAttached(v1::SeatAttached {
+                    seat,
+                    standing_json: b"[]".to_vec(),
+                    resync: false,
+                })),
+            },
+            None,
+        )
     }
 
     /// One seat's answer, wrapped the way its socket would deliver it.
@@ -499,12 +570,15 @@ mod tests {
                 action_json: serde_json::to_vec(action).expect("action serializes"),
             })),
         };
-        runner.handle(Envelope {
-            msg: Some(v1::envelope::Msg::SeatFrame(v1::SeatFrame {
-                seat,
-                envelope: prost::Message::encode_to_vec(&inner),
-            })),
-        })
+        runner.handle(
+            Envelope {
+                msg: Some(v1::envelope::Msg::SeatFrame(v1::SeatFrame {
+                    seat,
+                    envelope: prost::Message::encode_to_vec(&inner),
+                })),
+            },
+            None,
+        )
     }
 
     /// The `(seat, inner message)` of each frame, which is all a test cares
@@ -855,13 +929,16 @@ mod tests {
     #[test]
     fn a_game_that_cannot_start_says_so_rather_than_hanging() {
         let mut runner = EngineRunner::new();
-        let out = runner.handle(Envelope {
-            msg: Some(v1::envelope::Msg::GameSetup(v1::GameSetup {
-                game_id: "g1".to_string(),
-                preset_json: b"not a preset".to_vec(),
-                seat_names: Vec::new(),
-            })),
-        });
+        let out = runner.handle(
+            Envelope {
+                msg: Some(v1::envelope::Msg::GameSetup(v1::GameSetup {
+                    game_id: "g1".to_string(),
+                    preset_json: b"not a preset".to_vec(),
+                    seat_names: Vec::new(),
+                })),
+            },
+            None,
+        );
         assert!(
             matches!(
                 out.first().map(|e| &e.msg),
@@ -881,12 +958,15 @@ mod tests {
         assert!(attach(&mut runner, 0).is_empty());
         assert!(
             runner
-                .handle(Envelope {
-                    msg: Some(v1::envelope::Msg::SeatFrame(v1::SeatFrame {
-                        seat: 0,
-                        envelope: Vec::new(),
-                    })),
-                })
+                .handle(
+                    Envelope {
+                        msg: Some(v1::envelope::Msg::SeatFrame(v1::SeatFrame {
+                            seat: 0,
+                            envelope: Vec::new(),
+                        })),
+                    },
+                    None
+                )
                 .is_empty()
         );
         assert!(!runner.finished());
@@ -903,6 +983,182 @@ mod tests {
         assert_eq!(
             runner.session().expect("still the same game").seq(),
             seq_before
+        );
+    }
+    // ------------------------------------------------- the decision clock
+
+    /// The last view `seat` was sent.
+    ///
+    /// The view rather than the field, so that "was sent no view at all" and
+    /// "was sent a view carrying no clock" stay two different answers: the
+    /// first is a missing `Option`, the second is a present view whose field
+    /// is `None`, and a test that conflated them would pass on silence.
+    fn last_view(envelopes: &[Envelope], seat: u32) -> Option<baylee_gamehost::PlayerView> {
+        frames(envelopes)
+            .into_iter()
+            .filter_map(|(s, msg)| match msg {
+                v1::envelope::Msg::StateDelta(delta) if s == seat => {
+                    serde_json::from_slice::<baylee_gamehost::PlayerView>(&delta.view_json).ok()
+                }
+                _ => None,
+            })
+            .next_back()
+    }
+
+    /// A question nobody has spent time on is worth the whole allowance, and
+    /// `blitz` is what proves the threshold is flat: at thirty seconds the
+    /// number is on from the very first question rather than appearing part
+    /// way through.
+    #[test]
+    fn a_question_just_asked_is_shown_the_whole_allowance() {
+        let mut runner = EngineRunner::new();
+        setup(&mut runner, &duel(30));
+        let out = attach(&mut runner, 0);
+        assert_eq!(
+            last_view(&out, 0)
+                .expect("seat 0 was sent a view")
+                .decision_remaining_ms,
+            Some(30_000),
+            "the opening question of a blitz table showed no clock"
+        );
+    }
+
+    /// The reading the caller took is what the seat is shown — the case the
+    /// parameter exists for, and the one a reconnecting player depends on.
+    #[test]
+    fn a_reading_taken_for_this_question_is_what_the_seat_is_shown() {
+        let mut runner = EngineRunner::new();
+        setup(&mut runner, &duel(600));
+        attach(&mut runner, 0);
+        // A socket returning mid-question: the game has not moved, so this
+        // is the same question with four seconds left on it.
+        let out = runner.handle(
+            Envelope {
+                msg: Some(v1::envelope::Msg::SeatAttached(v1::SeatAttached {
+                    seat: 0,
+                    standing_json: b"[]".to_vec(),
+                    resync: true,
+                })),
+            },
+            Some(4_000),
+        );
+        assert_eq!(
+            last_view(&out, 0)
+                .expect("seat 0 was sent a view")
+                .decision_remaining_ms,
+            Some(4_000),
+            "a seat that reconnected was shown the allowance it started with, \
+             not the time it has left"
+        );
+    }
+
+    /// The anchor check, and the one that will silently regress if someone
+    /// later simplifies the `decision_seq` comparison away: once the question
+    /// has moved, the previous question's leftovers must not run against it.
+    #[test]
+    fn a_view_built_after_the_question_moved_shows_the_whole_allowance() {
+        let mut runner = EngineRunner::new();
+        setup(&mut runner, &duel(600));
+        attach(&mut runner, 0);
+        let before = runner.session().expect("a game").decision_seq();
+        // Four seconds left on *this* question, and then an answer that
+        // moves the game on to the next one. The reading has to be a partial
+        // one or the test proves nothing: with the whole allowance on both
+        // sides, a stale value and a correct one are the same number.
+        let inner = Envelope {
+            msg: Some(v1::envelope::Msg::PlayerAction(v1::PlayerActionMsg {
+                game_id: "g1".to_string(),
+                seat_token: String::new(),
+                action_json: serde_json::to_vec(&PlayerAction::MulliganKeep)
+                    .expect("action serializes"),
+            })),
+        };
+        let out = runner.handle(
+            Envelope {
+                msg: Some(v1::envelope::Msg::SeatFrame(v1::SeatFrame {
+                    seat: 0,
+                    envelope: prost::Message::encode_to_vec(&inner),
+                })),
+            },
+            Some(4_000),
+        );
+        assert_ne!(
+            runner.session().expect("a game").decision_seq(),
+            before,
+            "this test needs an action that actually asks a new question"
+        );
+        let seen = last_view(&out, 0).expect("seat 0 was sent a view");
+        assert_eq!(
+            seen.decision_remaining_ms,
+            Some(600_000),
+            "the new question inherited the old one's remainder"
+        );
+    }
+
+    /// An untimed table has no number, and `0` would be a seat with no time
+    /// left rather than a seat with no limit.
+    #[test]
+    fn an_untimed_table_shows_no_number_at_all() {
+        let mut runner = EngineRunner::new();
+        setup(&mut runner, &duel(0));
+        let out = attach(&mut runner, 0);
+        assert_eq!(
+            last_view(&out, 0)
+                .expect("seat 0 was sent a view")
+                .decision_remaining_ms,
+            None,
+            "an untimed table drew a countdown"
+        );
+    }
+
+    /// A seat whose socket is gone is on the stand-in clock, which is not a
+    /// decision clock: the other seat must not be shown a countdown against
+    /// a player who is not deciding.
+    #[test]
+    fn a_seat_waiting_out_its_reconnect_window_is_on_no_decision_clock() {
+        let mut runner = EngineRunner::new();
+        setup(&mut runner, &two_humans(600));
+        attach(&mut runner, 0);
+        attach(&mut runner, 1);
+        detach(&mut runner, 0);
+        // Seat 1 is still here and still being sent views; seat 0, which the
+        // table is waiting on, is on the reconnect window instead.
+        let out = attach(&mut runner, 1);
+        assert_eq!(
+            runner.clock().map(|c| c.what),
+            Some(Deadline::StandIn),
+            "this test needs seat 0 to be on the reconnect window"
+        );
+        assert_eq!(
+            last_view(&out, 1)
+                .expect("seat 1 was sent a view")
+                .decision_remaining_ms,
+            None,
+            "a seat with no socket was drawn a decision countdown"
+        );
+    }
+
+    /// The clock is public: the seat that is *not* being asked is told how
+    /// long the seat that is has left. A table where one player is running
+    /// out of time and nobody else can see it reads the pause as rudeness.
+    #[test]
+    fn the_other_seat_is_told_the_awaited_seats_remainder() {
+        let mut runner = EngineRunner::new();
+        setup(&mut runner, &two_humans(600));
+        attach(&mut runner, 0);
+        let out = attach(&mut runner, 1);
+        let awaited = runner.session().expect("a game").awaiting_seat();
+        assert_eq!(
+            awaited.map(PlayerId::get),
+            Some(0),
+            "this test needs seat 0 to be the one being asked"
+        );
+        assert_eq!(
+            last_view(&out, 1)
+                .expect("seat 1 was sent a view")
+                .decision_remaining_ms,
+            Some(600_000),
+            "seat 1 was not told the clock seat 0 is on"
         );
     }
 }

@@ -400,7 +400,11 @@ async fn run_engine(
         {
             let _ = presets.send(preset);
         }
-        for out in runner.handle(Envelope { msg: Some(msg) }) {
+        // This harness runs no timer, so it never has a deadline armed and
+        // has nothing to read off one. Every question therefore reaches a
+        // seat with its allowance whole, which is what an untimed in-process
+        // runner should show.
+        for out in runner.handle(Envelope { msg: Some(msg) }, None) {
             send(&mut ws, &out).await;
         }
         if runner.finished() {
