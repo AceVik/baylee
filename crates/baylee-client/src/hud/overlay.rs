@@ -1285,6 +1285,11 @@ mod tests {
     /// branch a machine with no GPU takes, and it is the branch that draws
     /// the prose this test reads.
     fn bar_of(duel: Duel) -> App {
+        // The stack panel asks for pictures, and an `AssetServer::load`
+        // spawns on the IO pool and panics without it. Idempotent, so this
+        // and `overlay_with` may both ask; here because a duel with a stack
+        // reaches that panel from this harness too.
+        bevy::tasks::IoTaskPool::get_or_init(Default::default);
         let mut app = App::new();
         app.add_plugins(bevy::asset::AssetPlugin::default())
             .init_asset::<Image>();
@@ -1424,10 +1429,24 @@ mod tests {
 
     /// A priority with something on the stack to let go of, and no hold
     /// running.
+    /// A seat with one spell on the stack, and a table for it to be on.
+    ///
+    /// The roster is not decoration and was missing: `sync_overlay` draws the
+    /// stack panel only for a duel whose `statics` have arrived, so this
+    /// helper promised a stack in its name and drew the shelf's hold button
+    /// and nothing else. Nothing was asserting vacuously because of it — the
+    /// two tests on it claim about the shelf — but the next negative claim
+    /// about the panel would have been, which is the shape that counts a
+    /// green test that checks nothing.
+    ///
+    /// `statics` gates the **hand zone** as well, and no other `duel_*`
+    /// builder here carries one either. Those are sound today for the same
+    /// reason and for no better one.
     fn duel_with_a_stack() -> Duel {
         let mut duel = duel_saying(false, false);
         let view = duel.view.as_mut().expect("the seat has a view");
         view.stack = vec![baylee_client_core::test_support::token(9, 1, "Shock", 0, 0)];
+        duel.statics = Some(baylee_client_core::test_support::statics(8));
         crate::rebuild_board(&mut duel);
         duel
     }
@@ -3581,9 +3600,8 @@ mod tests {
             let mut duel = duel_with_a_stack();
             let view = duel.view.as_mut().expect("the seat has a view");
             view.awaiting = awaiting.map(PlayerId::new);
-            // The panel is drawn only for a table with a roster, and
-            // `duel_with_a_stack` has none — so until now that helper's
-            // stack reached the shelf's hold button and never the panel.
+            // The default roster seats only the viewing player, and the
+            // line under test names somebody else.
             let mut statics = baylee_client_core::test_support::statics(8);
             statics.seats.push(baylee_view::SeatIdentity {
                 player: PlayerId::new(1),
