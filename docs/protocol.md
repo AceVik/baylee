@@ -3,6 +3,70 @@
 Binary WebSocket protocol (protobuf, `baylee-protocol`, wasm-safe).
 Schema: `crates/baylee-protocol/proto/baylee/v1/transport.proto`.
 
+## Is it up? (`GET /health`)
+
+Unauthenticated, and it has to be: a monitor that needs a token is a monitor
+nobody wires up. There is nothing in the answer to protect — no token, no
+account name, no store path, no configured URL — and the e2e suite asserts
+that by *value*, not by field name, so a field added later cannot smuggle a
+secret back in under another spelling.
+
+```json
+{
+  "ok": true,
+  "database": true,
+  "catalog": { "state": "ready", "cards": true, "projection": true },
+  "agents": { "connected": 1, "games": 2 },
+  "games": { "running": 2, "waiting": 0, "seats_awaiting_engine": 0 },
+  "version": "0.1.0+build.1057 (257eed7a28)",
+  "commit": "257eed7a28df650934f50d4ff2557933d25ad713",
+  "built_at": "2026-09-19T15:58:27Z",
+  "dirty": false
+}
+```
+
+**The status code carries exactly one question: the database.** `200` when
+`ping` succeeds, `503` when it does not, and nothing else moves it.
+`DATABASE_URL` is required, so a gateway whose database has gone away keeps
+its port open and its log quiet while answering every route that matters with
+a 503 — that is the one state this process cannot work around, and the one
+this route exists for. Measured against a live gateway with Postgres paused:
+`200`, `503`, `200` again on unpause.
+
+Everything else is a field and never a code. **A gateway with no agent
+connected is not unhealthy** — it hosts no games (`POST /lobby/games` answers
+`503`, see *The gateway runs no rules*) and is otherwise correct, which is a
+legitimate thing to be running and is what the e2e suite spawns three dozen
+of. So `agents.connected: 0` is reported rather than escalated.
+
+`catalog.state` is four values because they want four different things done
+about them, and collapsing them to a bit hides the third:
+
+| state | what it means | what to do |
+| --- | --- | --- |
+| `off` | the catalog's own schema could not be applied — most often a `unaccent` extension the role may not create | fix the grant; games still run |
+| `empty` | reachable, nobody has ingested | `baylee-catalog ingest` |
+| `projection_missing` | a full `cards` beside an empty `card_search` — **answers every search with nothing and errors at nobody** | `baylee-catalog project` |
+| `ready` | both present | nothing |
+
+Every probe is bounded at two seconds, because a health route that hangs is
+worse than one that says "down": a monitor blocked on a socket reports
+nothing, and nothing is indistinguishable from not-yet-scraped. The catalog
+half is two `EXISTS` rather than `count(*)` — 0.61 ms against 7.47 ms on an
+118 609-printing catalog, and only the count grows with the table.
+
+`version`, `commit`, `built_at` and `dirty` are the same `baylee_build`
+constants `GET /source` serves, and a test pins the two routes equal so a
+second spelling cannot be introduced and drift.
+
+**Wait on this route, not on the port.** An open port only says that `bind`
+succeeded. It happens to be a sound readiness signal for this process — `main`
+binds last, after the database and the catalog — but that is an accident of
+ordering, and it stops being true the day somebody binds earlier to shorten
+startup. Note also what it is *not*: a slow start is a slow start, and the
+e2e harness waits 30 s rather than 5 s because five worktrees share one CPU
+here and a gateway starting beside a compile needs longer than five seconds.
+
 ## Printings (which art the client draws)
 
 Rules identity and *presentation* identity are two different things, and a
