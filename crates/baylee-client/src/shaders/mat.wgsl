@@ -42,6 +42,9 @@ struct MatParams {
     on_turn: f32,
     /// 1 while this is the seat the engine is waiting on an answer from.
     awaited: f32,
+    /// 1 while nobody is sitting in this chair — the house is answering for a
+    /// player who has gone. `board::SeatRole::Away`.
+    held: f32,
     /// The clock the travelling light runs on: `MOVING` or `STILL`, the same
     /// two values the cards, the felt and the sky use.
     motion: f32,
@@ -116,6 +119,16 @@ const RIM_LIGHT: f32 = 0.62;
 /// seat colours separate.
 const RIM_FALL: f32 = 1.3;
 const HUE_FALL: f32 = 0.55;
+
+/// How many dashes a held chair's rim is broken into, and how far the gain
+/// swings either side of 1. `tabletop::MAT_DASH_COUNT`,
+/// `tabletop::MAT_DASH_DEPTH`; `tabletop::rim_dash` is this arithmetic in
+/// Rust, where its mean is measured.
+///
+/// A whole number, so the pattern closes across the seam `atan2` leaves at
+/// the mat's right-hand edge.
+const DASH_COUNT: f32 = 24.0;
+const DASH_DEPTH: f32 = 0.55;
 
 /// The light that says whose turn it is: how bright it burns, how long a
 /// swell takes to travel once round the mat, and how much of the rim that
@@ -262,6 +275,22 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     let running = params.on_turn * (0.58 + 0.42 * flow * breath) * halo * 0.95
         + params.awaited * (0.30 + 0.10 * breath) * halo;
 
+    // And the mark for a chair nobody is sitting in: the rim broken into
+    // dashes. A gain of mean 1, so a held chair is not a *dimmer* chair —
+    // `zone_brightness` already spends the whole range 0.22..1.0 on standing,
+    // and a mark that borrowed brightness would be read as one of those.
+    //
+    // It takes the running light down with the seat's own rim, and that is
+    // deliberate twice over. It says the right thing: a held chair's turn and
+    // a held chair's question are the house's, so the whole rim is
+    // provisional, while the *hue* is untouched and still says which seat
+    // this is. And it is the only application that survives: `value` is
+    // clamped at 1, and an on-turn seat being asked runs the rim past 1
+    // through its whole width, so a gain on `border` alone would flatten
+    // against the clamp and draw nothing at all on exactly the chairs the
+    // house most often holds.
+    let dash = mix(1.0, 1.0 + DASH_DEPTH * cos(turn * DASH_COUNT * TAU), params.held);
+
 
     // Brightness scales the alpha, not the colour, which is the one thing
     // that changed meaning when the mat stopped being a white texture under a
@@ -276,7 +305,8 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     let grain = fract(sin(dot(floor(p * 95.0), vec2<f32>(12.9898, 78.233))) * 43758.5453);
     let resolved = 1.0 - smoothstep(0.2, 0.6, max(footprint.x, footprint.y) * 95.0);
     let surface = lane * (0.86 + 0.14 * cos(p.y * 1.4)) + (grain - 0.5) * 0.002 * resolved;
-    let value = (surface + seam + border * RIM_LIGHT + running + tooling * 0.085) * params.accent.w;
+    let value = (surface + seam + (border * RIM_LIGHT + running) * dash + tooling * 0.085)
+        * params.accent.w;
     let base_colour = mix(vec3<f32>(1.0), params.accent.rgb, hue);
     let signal_colour = mix(params.accent.rgb, vec3<f32>(0.25, 0.72, 0.82), params.awaited * 0.20);
     let colour = mix(mix(base_colour, signal_colour, clamp(running * 12.0, 0.0, 1.0)), FRAME_INK, tooling * 0.5);

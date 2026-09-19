@@ -781,6 +781,9 @@ fn the_shader_and_the_generator_agree_about_the_mat() {
         ("RIM_LIGHT", tabletop::MAT_RIM_LIGHT),
         ("RIM_FALL", tabletop::MAT_RIM_FALL),
         ("HUE_FALL", tabletop::MAT_HUE_FALL),
+        ("DASH_DEPTH", tabletop::MAT_DASH_DEPTH),
+        #[expect(clippy::cast_precision_loss, reason = "24 is exact in f32")]
+        ("DASH_COUNT", tabletop::MAT_DASH_COUNT as f32),
     ] {
         let theirs = read(name);
         assert!(

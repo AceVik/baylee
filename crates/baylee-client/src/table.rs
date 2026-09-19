@@ -1610,7 +1610,7 @@ struct Zone {
 /// The rim of a seat's mat is the cheapest place to answer "whose turn is
 /// it?" and "who is holding everyone up?" — questions a player asks on every
 /// single priority pass, and that otherwise cost a trip to the overlay.
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 struct Mood {
     /// Whether this is the viewing seat.
     local: bool,
@@ -1627,6 +1627,16 @@ struct Mood {
     /// answers — so a rim light driven off the rank would leave the active
     /// seat and follow the response, which is precisely backwards.
     on_turn: bool,
+    /// Whether nobody is sitting in this chair — the house is answering for a
+    /// player who has gone ([`SeatRole::Away`]).
+    ///
+    /// On the `Mood` and not passed beside it, which is the whole reason it
+    /// is here: `sync_zones` skips a seat whose `mood` and `accent` are both
+    /// unchanged, so a flag outside this struct would be written once when
+    /// the mat was built and never again. A chair handed to the house
+    /// mid-game would keep a solid rim until something else about the seat
+    /// happened to move.
+    held: bool,
 }
 
 /// What a seat is doing, in the order the zone cares about it.
@@ -1669,6 +1679,10 @@ impl Mood {
             // A seat that is out of the game is not taking a turn, whatever
             // the view last said about the active player.
             on_turn: pod.is_active && !pod.has_lost,
+            // `Away` and not `answered_by_the_house`: an AI chair was always
+            // an AI chair and there is nothing provisional about it, while
+            // this one is a player's seat being covered until they come back.
+            held: pod.role == baylee_client_core::board::SeatRole::Away,
         }
     }
 }
@@ -2290,6 +2304,7 @@ fn mat_params(
         } else {
             0.0
         },
+        held: if mood.held { 1.0 } else { 0.0 },
         motion: if moving {
             crate::cardmat::MOVING
         } else {

@@ -277,7 +277,15 @@ lap and is now a **breath**: the whole rim of the active seat glows
 falls together every 7, two periods with no common multiple worth noticing, so
 it never repeats a pose. Measured live: the active rim swings 4.3/3.6/2.9 per
 channel over eight seconds while the opponent's — same shader, same material,
-`on_turn` at zero — and the bare felt beside it both move 0.0. Everything down there is `unlit`
+`on_turn` at zero — and the bare felt beside it both move 0.0. A **third**
+thing the rim says is that nobody is sitting in this chair
+(`SeatRole::Away`), and it says it by being broken into dashes rather than by
+being drawn quieter — the opacity is spent on `Standing` down to 0.22, so a
+held chair that borrowed brightness would be read as a seat losing interest.
+`tabletop::rim_dash` is a gain of mean exactly one over the whole rim signal,
+which is the only application that survives the shader's clamp on the chairs
+the house most often holds; `docs/client.md` §"The rim says it where the bar
+cannot" has the measurement. Everything down there is `unlit`
 deliberately: scene lighting on card art would make colour identity
 unreadable. The stage therefore has no light in it at all, and the camera
 carries `Tonemapping::None` so a future Bevy default cannot quietly treat

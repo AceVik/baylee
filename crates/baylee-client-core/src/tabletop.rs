@@ -555,6 +555,59 @@ pub const MAT_RIM_FALL: f32 = 1.3;
 /// together instead.
 pub const MAT_HUE_FALL: f32 = 0.55;
 
+/// How many dashes a held chair's rim is broken into, once round.
+///
+/// An integer, and that is the whole reason it is a `u32`: [`rim_dash`] is a
+/// cosine of `turn`, `turn` wraps at 1, and a fractional count would leave a
+/// step in the rim where the two ends of the pattern meet — at the mat's
+/// right-hand edge, which is where `atan2` puts its seam.
+///
+/// Twenty-four is a length rather than a taste. The mats a table draws run
+/// from about 2800 screen pixels round at a duel to about 400 on an
+/// eight-seat ring, so this is a dash every 117 px at the near end and every
+/// 17 at the far one — coarse enough to read as dashes across the table, and
+/// still four times the two pixels below which a pattern is just a grey.
+pub const MAT_DASH_COUNT: u32 = 24;
+
+/// How far [`rim_dash`] swings either side of 1.
+///
+/// The swing is the signal and the **mean is not**: a rim that was merely
+/// dimmer would land inside the ladder `zone_brightness` already spends on
+/// standing (a seat that has lost draws at 0.22, one waiting at 0.62), so a
+/// held chair would read as a seat losing interest rather than as a seat
+/// nobody is sitting in. A gain that averages exactly 1 says *different*
+/// without saying *quieter*, which is the one thing this mark has to do.
+///
+/// The ceiling is the clamp: `value` is clamped at 1, so a rim already at
+/// [`MAT_RIM_LIGHT`] may be multiplied by at most `1 / 0.62` before its peaks
+/// flatten and the gain stops averaging what it says it averages. The
+/// assertion below is that bound, and 0.55 sits under it with room.
+pub const MAT_DASH_DEPTH: f32 = 0.55;
+
+const _: () = assert!(MAT_RIM_LIGHT * (1.0 + MAT_DASH_DEPTH) <= 1.0);
+
+/// The gain on a held chair's rim at `turn`, which runs 0..1 once round.
+///
+/// A cosine and not a square wave, for two reasons that point the same way.
+/// It resolves: a hard edge on a mat 17 pixels per dash away is an aliasing
+/// pattern that crawls as the camera settles, and a cosine is band-limited by
+/// construction. And it integrates: the mean of `1 + d·cos` over a whole
+/// number of periods is exactly 1, with no tolerance to argue about, which is
+/// what makes "the same brightness, differently spent" a thing a test can
+/// hold rather than a thing a comment claims.
+///
+/// **A gain and not a term.** The rim already carries a seat's colour, the
+/// light that says whose turn it is and the signal that says who is being
+/// asked; multiplying takes all three down together, which is what "this
+/// chair is being answered by the house" means about them, while adding would
+/// have been a fourth thing on a rim that has three.
+#[must_use]
+pub fn rim_dash(turn: f32) -> f32 {
+    #[expect(clippy::cast_precision_loss, reason = "24 is exact in f32")]
+    let count = MAT_DASH_COUNT as f32;
+    MAT_DASH_DEPTH.mul_add((turn * count * TAU).cos(), 1.0)
+}
+
 /// A seat's mat: the rounded rectangle its permanents are played on.
 ///
 /// **Nothing draws with this any more.** The renderer stopped stretching an
@@ -603,6 +656,7 @@ pub fn seat_mat(
     rim: f32,
     accent: [f32; 3],
     ledge_outer: bool,
+    held: bool,
 ) -> Texture {
     let mut texture = Texture::blank(width, height);
     let (w, h) = (width as f32, height as f32);
@@ -705,7 +759,24 @@ pub fn seat_mat(
             // And a soft feather so the mat has no jaggies.
             let coverage = (0.5 - outside).clamp(0.0, 1.0);
 
-            let value = base + seam + border * MAT_RIM_LIGHT;
+            // A chair nobody is sitting in has its rim broken into dashes.
+            // The angle is normalised by the mat's own aspect, exactly as the
+            // shader normalises it, so the dashes are spaced along the
+            // perimeter rather than bunched at the short ends.
+            //
+            // This is the shader's expression with its turn light at zero —
+            // there is none here, and that is what makes this the half where
+            // the gain's mean is measurable at all. `rim_dash` says what the
+            // gain costs where the rim is already bright.
+            let dash = if held {
+                let turn =
+                    ((py - h * 0.5) * (w * 0.5)).atan2((px - w * 0.5) * (h * 0.5)) / TAU + 0.5;
+                rim_dash(turn)
+            } else {
+                1.0
+            };
+
+            let value = base + seam + border * MAT_RIM_LIGHT * dash;
             // White where the mat is felt, the seat's colour where it is rim.
             //
             // The crossfade is deliberately *not* `border`. Reusing the
@@ -1626,7 +1697,7 @@ mod tests {
     fn lane_seams_are_fine_but_visible() {
         for height in [256, 512] {
             for ledge_outer in [false, true] {
-                let mat = seat_mat(64, height, 0.02, 0.01, [1.0; 3], ledge_outer);
+                let mat = seat_mat(64, height, 0.02, 0.01, [1.0; 3], ledge_outer, false);
                 let first = if ledge_outer { MARGIN_FRAC } else { LEDGE_FRAC };
                 for lane in [1.0, 2.0] {
                     let centre = ((first + COMBAT_FRAC + LANE_FRAC * lane) * height as f32) as u32;
@@ -1813,7 +1884,7 @@ mod tests {
 
     #[test]
     fn only_the_rim_of_a_mat_carries_the_seats_colour() {
-        let mat = seat_mat(128, 64, 0.18, 0.05, ACCENT, false);
+        let mat = seat_mat(128, 64, 0.18, 0.05, ACCENT, false, false);
         // The field is the seat's *ground*, not the seat's colour: it stays
         // white so the material's neutral brightness leaves it felt, and a
         // player reads a coloured border around their board rather than a
@@ -1851,7 +1922,7 @@ mod tests {
 
     #[test]
     fn a_seat_mat_is_a_rounded_rectangle_with_a_rim() {
-        let mat = seat_mat(128, 64, 0.18, 0.05, ACCENT, false);
+        let mat = seat_mat(128, 64, 0.18, 0.05, ACCENT, false, false);
         // Corners are cut away, so a mat never reads as a plain box.
         assert!(mat.pixel(0, 0)[3] < 1e-6, "the corner is rounded off");
         assert!(mat.pixel(127, 63)[3] < 1e-6, "and so is the opposite one");
@@ -1877,7 +1948,7 @@ mod tests {
         // measurement had stopped being able to see it, which is worth one
         // line of comment because the first instinct was to loosen the claim.
         const H: u32 = 512;
-        let mat = seat_mat(256, H, 0.1, 0.03, ACCENT, false);
+        let mat = seat_mat(256, H, 0.1, 0.03, ACCENT, false, false);
         // The seam belongs *on* the boundary between two lanes, not in the
         // middle of one. Drawn mid-lane it splits every row down its own
         // centre and tells a player the opposite of the truth about where
@@ -1934,8 +2005,8 @@ mod tests {
     #[test]
     fn a_flipped_shelf_takes_the_other_end_and_leaves_the_lanes_alone() {
         const H: u32 = 96;
-        let inner = seat_mat(256, H, 0.1, 0.03, ACCENT, false);
-        let outer = seat_mat(256, H, 0.1, 0.03, ACCENT, true);
+        let inner = seat_mat(256, H, 0.1, 0.03, ACCENT, false, false);
+        let outer = seat_mat(256, H, 0.1, 0.03, ACCENT, true, false);
         #[expect(clippy::cast_possible_truncation, reason = "a row of a texture")]
         let row = |v: f32| (v * H as f32) as u32;
         let span = 1.0 - LEDGE_FRAC;
@@ -2023,7 +2094,7 @@ mod tests {
         // plain `LEDGE_FRAC`-or-zero is algebraically right on the near mat,
         // so it is exactly the one a single-mat test lets through.
         for ledge_outer in [false, true] {
-            let mat = seat_mat(256, H, 0.1, 0.02, ACCENT, ledge_outer);
+            let mat = seat_mat(256, H, 0.1, 0.02, ACCENT, ledge_outer, false);
             let lanes = MAT_MARGIN + if ledge_outer { 0.0 } else { MAT_LEDGE };
             let fence = if ledge_outer {
                 lanes + crate::layout::STAGE_STEP + lane * 3.0
@@ -2330,5 +2401,118 @@ mod tests {
             "only {moved} of 56 steps across the sheet moved"
         );
         assert!(most < 0.06, "the grain jumps {most:.3} between neighbours");
+    }
+
+    /// The gain a held chair's rim is drawn with averages **exactly** one.
+    ///
+    /// That is the whole design of the mark and not a nicety. A rim drawn
+    /// quieter would land inside the ladder `table::zone_brightness` already
+    /// spends on standing — 0.22 for a seat that has lost, 0.62 for one
+    /// waiting — so "nobody is sitting here" would be read as "this seat is
+    /// losing interest". Spending the same light differently is the one way
+    /// to say *different* without saying *quieter*.
+    ///
+    /// The exactness is what picking a cosine bought: a whole number of
+    /// periods of `cos` sums to zero, so this needs no tolerance to argue
+    /// about. Sampled at cell centres, which is where a texel is.
+    #[test]
+    fn the_gain_on_a_held_rim_averages_one() {
+        const N: u32 = 2400;
+        let gains: Vec<f32> = (0..N)
+            .map(|k| rim_dash((f32::from(u16::try_from(k).expect("small")) + 0.5) / N as f32))
+            .collect();
+        let mean = gains.iter().sum::<f32>() / N as f32;
+        assert!(
+            (mean - 1.0).abs() < 1e-4,
+            "a held rim is spending {mean} of the light an unheld one spends"
+        );
+
+        // And it is a swing rather than a wobble: the depth is what makes it
+        // legible at all, and a gain that averaged one by never leaving it
+        // would pass the assertion above and draw nothing.
+        let lo = gains.iter().copied().fold(f32::MAX, f32::min);
+        let hi = gains.iter().copied().fold(f32::MIN, f32::max);
+        assert!(
+            lo < 1.0 - MAT_DASH_DEPTH * 0.99 && hi > 1.0 + MAT_DASH_DEPTH * 0.99,
+            "the gain runs {lo}..{hi}, not the {MAT_DASH_DEPTH} either side it claims"
+        );
+
+        // The pattern closes. `turn` wraps at 1 and `atan2` puts that seam on
+        // the mat's right-hand edge, so a fractional `MAT_DASH_COUNT` would
+        // leave one dash cut short there — visible, and on the one part of
+        // the rim two seats' mats are nearest each other.
+        assert!(
+            (rim_dash(0.0) - rim_dash(1.0)).abs() < 1e-5,
+            "the dashes do not meet where the rim's ends do"
+        );
+    }
+
+    /// A held chair's rim is dashed, and the dashes cost it no brightness.
+    ///
+    /// Two halves, and each is the other's counter. Along a straight run of
+    /// rim an ordinary mat is **flat to the last bit** — that is the "where
+    /// the other has none" half, and it is a zero that could perfectly well
+    /// have been something else. The held mat swings across the same run,
+    /// symmetrically about the value the plain one holds, which is the "same
+    /// brightness" half where it is measurable pixel against pixel.
+    ///
+    /// Over the whole mat the net comes to 1.3% of the light the gain moves
+    /// about, not 0%, and that is geometry rather than slop: `turn` is an
+    /// angle normalised by the mat's aspect and not an arc length, so the
+    /// corners weigh a little differently from the sides. The bound is that
+    /// measurement with room, and it is far under the depth — a gain that had
+    /// stopped averaging one would show here as tens of percent.
+    #[test]
+    fn a_held_chair_s_rim_is_dashed_rather_than_dimmed() {
+        const W: u32 = 512;
+        const H: u32 = 196;
+        let plain = seat_mat(W, H, 0.1, 0.03, ACCENT, false, false);
+        let held = seat_mat(W, H, 0.1, 0.03, ACCENT, false, true);
+
+        let (mut net, mut swing) = (0.0f64, 0.0f64);
+        for (x, y, _) in pixels(&plain) {
+            let d = f64::from(held.pixel(x, y)[3] - plain.pixel(x, y)[3]);
+            net += d;
+            swing += d.abs();
+        }
+        assert!(
+            swing > 100.0,
+            "the mark moves almost no light at all: {swing}"
+        );
+        assert!(
+            (net / swing).abs() < 0.03,
+            "the dash spends {net} net of the {swing} it moves, which is a dimmer"
+        );
+
+        // A run along the top edge with no corner in it, two rows in from the
+        // outside so the feather is not what is being measured.
+        let along = |t: &Texture| {
+            let v: Vec<f32> = (60..(W - 60)).map(|x| t.pixel(x, 2)[3]).collect();
+            (
+                v.iter().copied().fold(f32::MAX, f32::min),
+                v.iter().copied().fold(f32::MIN, f32::max),
+            )
+        };
+        let (plain_lo, plain_hi) = along(&plain);
+        let (held_lo, held_hi) = along(&held);
+        assert!(
+            (plain_hi - plain_lo) < 1e-6,
+            "an ordinary rim already varies by {} along a straight edge, so a \
+             dash cannot be told from it",
+            plain_hi - plain_lo
+        );
+        assert!(
+            held_lo < plain_lo * (1.0 - MAT_DASH_DEPTH * 0.5),
+            "the deepest gap draws {held_lo} against the {plain_lo} beside it"
+        );
+        // Symmetric about the rim it replaces: this is the same claim as the
+        // net above, made where one pixel can be held against one pixel. Not
+        // exact, because the sampled columns do not land on the cosine's own
+        // extremes.
+        let midpoint = f64::from(held_hi + held_lo) / f64::from(2.0 * plain_lo);
+        assert!(
+            (midpoint - 1.0).abs() < 0.02,
+            "the gain is centred at {midpoint} of the rim, not on it"
+        );
     }
 }

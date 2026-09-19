@@ -3635,6 +3635,76 @@ telling the table something untrue. The revision is now compared and assigned
 added to it a compile error instead of a gate that quietly stops watching one
 of seven things.
 
+#### The rim says it where the bar cannot
+
+`Density::Mark` is 151 projected pixels of shelf and has no name cell in it, so
+the mark above has nowhere to stand — and that is the density an eight-seat
+ring puts every chair at, which is exactly the table where a player is most
+likely to have gone. The mat's rim is the surface left. `MatParams::held` is
+the flag, `Mood::held` carries it, and `SeatRole::Away` is what sets it:
+`House` does not, because an AI chair was always an AI chair and there is
+nothing provisional about it.
+
+**It is a dash and not a dimmer**, and that is forced rather than chosen.
+`table::zone_brightness` already spends the whole range 0.22 to 1.0 on what a
+seat is *doing* — 0.22 for a seat that has lost, 0.62 for one waiting, 1.0 for
+the seat being asked — so a held chair drawn quieter would land inside that
+ladder and be read as a seat losing interest. `tabletop::rim_dash` is a gain
+of mean **exactly** one instead: `1 + 0.55·cos(24·2π·turn)`, a whole number of
+periods so the pattern closes across the seam `atan2` leaves at the mat's
+right-hand edge, and a cosine rather than a square wave because a hard edge 17
+pixels away aliases and crawls as the camera settles. The exactness is what
+picking a cosine bought — the mean needs no tolerance argued about, and the
+test is an integral rather than a threshold. Twenty-four is a length: the mats
+this table draws run about 2800 screen pixels round at a duel and about 400 on
+an eight-seat ring, so a dash every 117 px at the near end and every 17 at the
+far one.
+
+**The gain multiplies the whole rim signal — `border·RIM_LIGHT + running` —
+and not the border alone**, which is a measurement and not a preference. Both
+were built, and the second draws *nothing*. `value` is clamped at 1, and for a
+seat on turn **and** being asked the undashed rim already reaches 1.98 at its
+outer edge and is still at 1.16 half way in. Modelled over the rim's width at
+the swell's crest, the contrast a gain on the border alone produces is
+**0.000 across three quarters of it** — the crest and the trough both flatten
+against the same ceiling — against 0.10 at the outer edge rising to 0.62
+deeper in for the whole signal. A held chair is often exactly that chair,
+because the house answers the moment it is asked. Taking the running light
+down with the seat's own rim also says the right thing: a held chair's turn
+and a held chair's question are the house's, so the whole rim is provisional.
+The **hue** is untouched, so the mat still says which seat it is.
+
+Two consequences of that ceiling are worth having in writing, because neither
+is visible from the tests. Where the rim saturates the gain has **no crests**,
+only troughs: the mark is read entirely as gaps cut into a rim that is already
+at full, and the "mean exactly one" property is what the *base* rim gets —
+which is all it has to be, since what that property is for is keeping the mark
+out of the brightness ladder. And where there is no turn light at all — a held
+seat simply waiting — the two applications are **identical**, at 0.68 contrast.
+That is precisely the case `tabletop::seat_mat` models and the pixel tests
+measure, so the suite is silent on the one configuration the choice was made
+for. It is settled by a photograph rather than by a test, and that is a debt
+rather than a conclusion.
+
+Measured on a 512 × 196 mat: along a straight run of rim an ordinary mat is
+flat to the last bit, and a held one swings 0.141 to 0.475 about the 0.310 the
+plain one holds. Over the whole mat the net comes to 1.3% of the light the
+gain moves about rather than 0%, and that is geometry — `turn` is an angle
+normalised by the mat's aspect, not an arc length, so the corners weigh a
+little differently from the sides. `tabletop::rim_dash` is the arithmetic in
+Rust and `mat.wgsl` spells the same one; `camera_tests::the_shader_and_the_
+generator_agree_about_the_mat` carries both constants, and
+`the_mat_shader_compiles` is what stops a typo in it becoming a mat that
+simply does not draw.
+
+`held` rides on `Mood` and is not passed beside it, which is the half that
+would have been easy to lose. `sync_zones` skips a seat whose `mood` and
+`accent` are both unchanged, so a flag outside that struct is written once
+when the mat is built and never again — a chair going to the house would keep
+a solid rim until something else about the seat happened to move. That is
+`BarRevision`'s finding one layer down, and it is asserted as two moods that
+differ rather than taken on the reading.
+
 One trap found on the way, and it is #91: `PlayerView::object` answers for the
 battlefield, the stack, graveyards, exile, the command zone and `looking_at` —
 and **not** the hand, which is a `Vec<HandObject>` of a different type

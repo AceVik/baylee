@@ -55,6 +55,14 @@ pub struct MatParams {
     pub on_turn: f32,
     /// Secondary cyan signal while this is the seat being asked.
     pub awaited: f32,
+    /// 1 while nobody is sitting in this chair and the house is answering for
+    /// them: [`SeatRole::Away`](baylee_client_core::board::SeatRole::Away).
+    ///
+    /// It breaks the rim into dashes rather than dimming it, because
+    /// `table::zone_brightness` already spends the whole 0.22..1.0 range on
+    /// what a seat is *doing* — a held chair drawn quieter would be read as a
+    /// seat that is merely waiting, or as one that has lost.
+    pub held: f32,
     /// The clock the travelling light runs on: [`MOVING`](crate::cardmat::MOVING)
     /// or [`STILL`](crate::cardmat::STILL).
     pub motion: f32,
