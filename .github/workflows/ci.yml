@@ -75,7 +75,21 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           cache-on-failure: true
-      - run: cargo test --workspace --all-targets
+      - uses: taiki-e/install-action@nextest
+      # nextest rather than `cargo test`: 48 s against 104 s for the same 2828
+      # tests on the developer's machine, and it reports per *test* instead of
+      # per binary, which is how the next outlier is found before it costs a
+      # minute. It also runs each test in its own process and fans them wider,
+      # which is not free honesty — it is how a three-second deadline in an
+      # xtask test was found to be a scheduling assumption (#55). There are no
+      # doctests in this workspace (`cargo test --doc` finds zero), so nextest
+      # not running them costs nothing that `--all-targets` was not already
+      # skipping.
+      #
+      # `--no-fail-fast` because a CI run that stops at the first failure hides
+      # how much else is broken, and a second push to find out is the expensive
+      # way to learn it.
+      - run: cargo nextest run --workspace --all-targets --no-fail-fast
 
   # Debug-only behavior has bitten before (a `debug_assert!` hid the mana
   # payment from every release build), so the suite also runs in release.
@@ -104,7 +118,8 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           cache-on-failure: true
-      - run: cargo test --workspace --all-targets --release
+      - uses: taiki-e/install-action@nextest
+      - run: cargo nextest run --workspace --all-targets --no-fail-fast --release
 
   # Every platform this is meant to run on, on its own architecture.
   #
