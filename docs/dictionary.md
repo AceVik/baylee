@@ -104,6 +104,28 @@ the precise one even when speaking German.
 - **tray** — the put-down dialog, `hud/tray.rs`, gated by `TrayRevision`. A
   different panel from the drawer, and the German for both is one word away.
 
+**shelf, and why "ledge" names two things on purpose.** `docs/client.md` uses
+*shelf* 79 times and *ledge* 34, and each names two different surfaces — the
+disambiguator is the section heading, which is exactly what a reader grepping
+for the word does not have. It looks like a collision to clean up. It is not:
+
+- `tabletop::MAT_LEDGE` is the **mat's** shoulder, the band a seat bar is
+  written along, and **the shelf** is the defined sum `MAT_MARGIN + MAT_LEDGE`
+  (`LEDGE_FRAC`, `tabletop.rs:506`) — geometry, with a measured depth.
+- `hud::ledge` took that name **deliberately**: "It is named for
+  `tabletop::MAT_LEDGE`… The hand zone gets the same shoulder, at its top"
+  (`hud/ledge.rs:1-13`), and its own doc says it "holds the shelf and the
+  middle of it".
+
+So one word names one *feature* on two surfaces, which is the design saying
+something true. Renaming either half would delete an analogy the code states
+in two places.
+
+**The rule is therefore a qualifier, not a rename: never a bare "shelf" or
+"ledge" where both surfaces are in play.** Write *the mat's shelf* and *the
+hand's shelf*, *the mat ledge* and *the HUD ledge*. A sentence that needs its
+section heading to be read correctly is a sentence missing a word.
+
 ---
 
 ## Terms of art you are expected to know

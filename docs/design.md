@@ -1200,15 +1200,15 @@ Ordered by damage, not by area. Sizes are rough.
 | 1 | Lock A: refusal keeps the question (client + one engine-server function) | client + engine-server | 1–2 d |
 | 2 | Lock B: the zone browser, and the "every offered option is drawn" invariant | client | 3–5 d |
 | 3 | Stack and graveyard entries clickable as targets | client | 1–2 d |
-| 4 | Reconnect — `NetworkHost::reconnect()` is called only from a test and `DuelReport::Failed` has no reader at all | client | 1 d |
-| 5 | Disconnected-seat policy: an unattached seat stops the clock and stalls the table forever; `Playing` games are never reaped; engine death is silent to seats | engine-server + gateway | 3–4 d |
+| ~~4~~ | ~~Reconnect — `NetworkHost::reconnect()` is called only from a test and `DuelReport::Failed` has no reader at all~~ **Closed by #82.** | client | — |
+| ~~5~~ | ~~an unattached seat stops the clock and stalls the table forever~~ **Closed by the stand-in clock** (`Deadline::StandIn`, `SeatKind::StandIn`): the awaited seat is on one of two clocks and a reconnect timeout hands the chair to the house. The other two halves of this row — `Playing` games never reaped, engine death silent to seats — are **open**. | engine-server + gateway | 1–2 d |
 | 6 | Legal strings — the fan-content disclaimer and Scryfall attribution are required by `docs/legal.md` §2–§3 and appear nowhere in the client | client + gateway | 1 d |
 | 7 | ~~Combat drawn at all; P/T, damage and counters on cards showing art~~ **done** — §5, third tranche | client | 3–4 d |
 | 8 | Commander end to end | core→engine→gateway→client, **bump** | 2–3 w |
 | 9 | Opponents' command zones, graveyard/exile browsers, monarch badge, saga/level counters — all already in the view | client | 2–3 d |
 | 10 | `ChooseNumber` visible; concede confirmation; Offer-a-Draw only with priority | client | 1 d |
 | 11 | `layout` carried through `CardDef` — fixes adventure faces requesting a nonexistent back image, and the MDFC back that cannot be previewed from hand | dsl + codegen + gateway + client | 2–3 d |
-| 12 | Decision clock on screen; game log; results and replays | view **bump** | 1–2 w |
+| 12 | ~~Decision clock on screen~~ **shipped (#69, #98)**; game log; results and replays | view **bump** | 1 w |
 | 13 | Accessibility: colourblind-safe seat and team palettes, UI scale, an aria-live headline on wasm | client | 3–4 d |
 
 **Commander deserves its own note**, because the gap is much deeper than the
