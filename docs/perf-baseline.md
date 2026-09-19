@@ -145,3 +145,43 @@ Two things the table does not say:
 section above: the 7.80 µs reference was not comparable, and 11.4 µs was the
 real cost of the old layout. Measured fresh, in a worktree with no criterion
 history, minutes before the 8.66 µs.
+
+## `SubtypeSet` widened to 1024 bits (2026-09-19, #43)
+
+507 of the old 512 bits were assigned, so the map had to grow before a set
+forced it. Both columns are `cargo bench -p baylee-engine --bench basics --
+--quick` on this machine minutes apart, the same tree with only
+`SUBTYPE_WORDS` flipped, so they measure the width and nothing else.
+
+| Bench | 8 words | 16 words | Change |
+|---|---|---|---|
+| `setup/from_preset` | 9.39 µs | 9.41 µs | +0.2 % |
+| `state/clone` | 5.47 µs | 5.43 µs | −0.8 % |
+| `state/clone_3k_tokens` | 124.1 µs | 124.0 µs | −0.1 % |
+| `state/snapshot_hash` | 6.39 µs | 7.10 µs | **+11 %** |
+| `engine/priority_pass_x4` | 2.17 µs | 2.06 µs | −5 % |
+| `layers/refresh_x1` | 5.59 µs | 5.73 µs | +2.5 % |
+| `layers/refresh_x8` | 7.10 µs | 7.75 µs | +9 % |
+| `layers/refresh_x32` | 13.17 µs | 13.85 µs | +5 % |
+| `layers/refresh_3k_tokens` | 207.1 µs | 249.0 µs | **+20 %** |
+
+Sizes, measured the same way: `Characteristics` 256 → 320 B (the budget in
+`tests/footprint.rs` was raised to match, deliberately), `PublicObject`
+304 → 368 B, and a 25-object view's serialized payload 10 531 → 10 851
+bytes — 16 JSON bytes per object that carries a set. **`GameObject` did not
+move** (272 B), because it holds its characteristics behind an `Arc`, which
+is why `state/clone` is flat in both columns including at 3 000 tokens.
+
+What the numbers say:
+
+- **The cost is proportional to the width and lands on whatever copies or
+  reads a whole set**: the snapshot hash walks every word per object, and the
+  layer refresh writes a projected `Characteristics` per object. Clone does
+  not, because it copies a pointer.
+- **It is paid once.** Nine words would have cost a fraction of this and
+  bought 69 ids, and then a second widening — which is a second
+  `VIEW_VERSION` break. The break is the expensive part, not the bytes.
+- **Where to look if it ever bites**: not a narrower set, but the projection
+  copying a whole `Characteristics` per object per refresh. The bitmap is its
+  largest field, and the base is already shared behind an `Arc` until
+  something writes to it.

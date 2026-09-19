@@ -683,16 +683,32 @@ mod tests {
         assert_eq!(pt, [2, 5], "each bucket is timestamp-ordered on its own");
     }
 
-    /// Changeling is a whole-range mask, not a scan: every creature type
-    /// is set and nothing outside the creature block is.
+    /// Changeling is a whole-kind mask, not a scan: every creature type is
+    /// set and nothing of another kind is.
+    ///
+    /// The count is asked of `kind()` rather than of a range end, because ids
+    /// are appended now (#43) and a creature type printed tomorrow will sit
+    /// past every other kind's block. A mask holding one id too many would
+    /// make a changeling a Saga.
     #[test]
-    fn changeling_sets_exactly_the_creature_block() {
+    fn changeling_sets_exactly_the_creature_types() {
         use baylee_core::generated::subtypes;
+        use baylee_core::types::SubtypeKind;
         let all = SubtypeSet::ALL_CREATURE;
         assert!(all.contains(subtypes::creature::WIZARD));
         assert!(all.contains(subtypes::creature::ALLY));
         assert!(!all.contains(subtypes::land::FOREST));
         assert!(!all.contains(subtypes::spell::ADVENTURE));
-        assert_eq!(all.len(), u32::from(subtypes::CREATURE_END));
+        let creatures = (0..subtypes::COUNT)
+            .map(baylee_core::ids::SubtypeId::new)
+            .filter(|id| subtypes::kind(*id) == Some(SubtypeKind::Creature))
+            .count();
+        assert_eq!(all.len() as usize, creatures);
+        assert!(
+            (0..subtypes::COUNT)
+                .map(baylee_core::ids::SubtypeId::new)
+                .all(|id| all.contains(id) == (subtypes::kind(id) == Some(SubtypeKind::Creature))),
+            "the mask and kind() are the same list read two ways"
+        );
     }
 }

@@ -24,8 +24,11 @@ apply matching `ContinuousEffect`s by layer (1 copy, 2 control, 3 text,
 dependency topological order within a layer. Cache validity = one
 `u64` generation compare. Durations: `WhileSourceOnBattlefield`
 (deregistered structurally on the source's zone change), `UntilEndOfTurn`,
-`Indefinitely`, conditions. Subtypes are a 512-bit bitmap (changeling =
-set-all in O(1)).
+`Indefinitely`, conditions. Subtypes are a 1024-bit bitmap (changeling =
+one mask OR, not a scan), and the ids in it are **append-only** since #43:
+`ALL_CREATURE_TYPES` is the mask a changeling gets and it is a generated
+list rather than a range, because a new creature type no longer sits next to
+the old ones. `docs/card-identity.md` §"`SubtypeId`" is normative.
 
 **A `Pending` is published from a settled board, and the machine is what
 settles it — including after an action.** The invalidation half has always

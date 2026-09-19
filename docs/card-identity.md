@@ -246,16 +246,37 @@ has:
   says so, because two ids for one token is a card wearing whichever picture
   it happened to name.
 
-And one that is stored and is **not** stable, which is worth saying plainly:
+And one that was stored and unstable until 2026-09-19, which is worth saying
+plainly because the fix is what makes the sentence above true of it:
 
-- **`SubtypeId`** — generated from Scryfall's catalogs, **sorted
-  alphabetically and numbered sequentially per kind**. A subtype landing
-  before an existing one therefore renumbers every subtype after it, and a
-  `SubtypeSet` is serialized on the wire, in `PublicObject::subtypes`. Today
-  that is survivable because both ends are built together and `VIEW_VERSION`
-  guards the shape, not because the numbers are safe. Giving subtypes a
-  first-appearance ledger of their own, the way cards have one, is a queued
-  change.
+- **`SubtypeId`** — generated from Scryfall's catalogs, and **append-only**
+  since #43. It was sorted alphabetically and numbered sequentially per kind,
+  so a subtype landing before an existing one renumbered every subtype after
+  it — and because ids ran in one range partitioned by kind, a single new
+  *creature* type moved all 157 ids of every other kind. A `SubtypeSet` is
+  serialized on the wire in `PublicObject::subtypes`, so the two ends of a
+  renumbering do not disagree about the *shape* of anything: they agree, and
+  read different subtypes out of the same bits. `VIEW_VERSION` cannot see
+  that, which is the whole reason a version number was not enough.
+
+  The generated table is now its own ledger, the way `baylee-cards-index` is
+  the card ledger: `cargo xtask codegen` reads the assignment it compiled
+  against, keeps every id a name already has, and gives a new name the next
+  free number wherever it sorts. A subtype Scryfall stops printing keeps its
+  id and its row rather than closing the gap, because `NAMES` is indexed by
+  id. Two tests hold it —
+  `the_committed_table_is_what_the_emitter_writes_for_it` (rendering the
+  committed table again is byte-identical, so a run that changes nothing
+  renumbers nothing) and `a_new_subtype_appends_and_renumbers_nothing`, which
+  adds an alphabetically-first creature type to the *real* 507-name table and
+  checks that not one id moved.
+
+  What is still asymmetric is the direction of time, and it now fails the
+  right way round: a build reading ids from an **older** one is exactly
+  right, and one reading an id from a **newer** one gets `None` from both
+  `subtypes::kind` and `subtypes::name` instead of a plausible wrong answer.
+  `SubtypeSet::contains` says `false` for an id past its bitmap rather than
+  panicking, for the same reason.
 
 Beyond the rules there is a fourth world that shares none of this: accounts,
 decks and games are UUID strings in the gateway's database, minted by

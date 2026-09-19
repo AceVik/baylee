@@ -421,7 +421,11 @@ fn subtype_words(types: TypeSet, subtypes: SubtypeSet) -> Vec<String> {
             continue;
         }
         for id in subtypes.iter() {
-            if subtypes::kind(id) == kind
+            // `Some(kind)`, because an id this build has no name for has no
+            // kind either (#43): a host written later assigns numbers past
+            // this table, and the old `kind()` answered those with the last
+            // kind in the list rather than with nothing.
+            if subtypes::kind(id) == Some(kind)
                 && let Some(name) = subtypes::name(id)
             {
                 out.push(name.to_string());

@@ -1026,11 +1026,16 @@ fn codegen(
     // below are built from the compiled pool alone.
     if !tables_only {
         // 1. Subtype catalogs → generated subtypes.rs.
+        //
+        // The table is its own ledger (#43): what this binary compiled against
+        // *is* the committed assignment, so a name keeps its id and a new one
+        // takes the next free number. Nothing here renumbers anything, which
+        // is what a `SubtypeSet` on the wire requires.
         let cats = scryfall::fetch_subtype_catalogs(&agent, &cache)?;
         write_or_check(
             check,
             &root.join("crates/baylee-core/src/generated/subtypes.rs"),
-            &catalog::render_subtypes_rs(&cats),
+            &catalog::render_subtypes_rs(&cats, &catalog::PriorSubtypes::from_compiled_table()),
             &mut changed,
         )?;
 

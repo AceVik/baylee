@@ -334,37 +334,86 @@ pub enum SubtypeKind {
     Battle,
 }
 
-/// 512-bit subtype bitmap.
+/// Words in a [`SubtypeSet`], and therefore how many subtypes there is room
+/// for: 16 × 64 = 1024.
+///
+/// Doubled from 8 on 2026-09-19 (#43) while 507 of the old 512 were assigned.
+/// The width is not what breaks first — a `SubtypeSet::from_slice` past the
+/// end is a `const` index and so a compile error — but it had to move before
+/// a set forced it, because the *renumbering* that a full table would also
+/// force is silent and this one is not. Sixteen words rather than nine: the
+/// cost is paid once and a second widening would cost it again.
+///
+/// Measured on a 25-object view (20 permanents), before against after: the
+/// serialized payload 10 531 → 10 851 bytes, which is eight JSON zeros — 16
+/// bytes — per object that carries a set; `Characteristics` 256 → 320 and
+/// `PublicObject` 304 → 368, both one set wider; `GameObject` unchanged at
+/// 272, because it holds its characteristics behind an indirection.
+const SUBTYPE_WORDS: usize = 16;
+
+/// 1024-bit subtype bitmap.
 ///
 /// Fixed-size so "has all creature types" (changeling, Maskwood Nexus) is a
 /// single `set_all` and membership tests are one bitmask operation.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
-pub struct SubtypeSet([u64; 8]);
+pub struct SubtypeSet([u64; SUBTYPE_WORDS]);
 
 impl SubtypeSet {
+    /// Words per set; [`Self::CAPACITY`] is this times 64.
+    pub const WORDS: usize = SUBTYPE_WORDS;
+    /// How many subtypes fit. The generated table asserts `COUNT` against it,
+    /// so outgrowing the map is a compile error and never a panic.
+    pub const CAPACITY: u16 = (SUBTYPE_WORDS * 64) as u16;
+
     /// No subtypes.
-    pub const EMPTY: Self = Self([0; 8]);
-    /// All 512 possible subtypes set.
-    pub const ALL: Self = Self([u64::MAX; 8]);
+    pub const EMPTY: Self = Self([0; SUBTYPE_WORDS]);
+    /// Every bit set — all [`Self::CAPACITY`] *possible* subtypes, which is
+    /// more than the table assigns. "Every creature type" is
+    /// [`Self::ALL_CREATURE`], and that is the one a card ever means.
+    pub const ALL: Self = Self([u64::MAX; SUBTYPE_WORDS]);
 
     /// Whether the subtype is present.
+    ///
+    /// An id past the end answers `false` rather than panicking, and that is
+    /// not defensive tidiness: a host built after this one assigns ids this
+    /// build has no name for, and a client asking "is this object a Wizard"
+    /// about a number it has never heard of is asking a question with a true
+    /// answer.
     #[inline]
     #[must_use]
     pub const fn contains(self, id: SubtypeId) -> bool {
+        if id.get() >= Self::CAPACITY {
+            return false;
+        }
         let word = (id.get() / 64) as usize;
         let bit = id.get() % 64;
         (self.0[word] >> bit) & 1 == 1
     }
 
     /// Adds a subtype.
+    ///
+    /// # Panics
+    ///
+    /// If the id is past [`Self::CAPACITY`]. Every id the engine puts in a set
+    /// comes from the generated table, which is asserted against the capacity
+    /// at compile time, and an id off the wire is validated against the
+    /// enumeration that offered it before it ever reaches here — so this
+    /// panicking is a bug in this crate and not a reachable state.
     pub const fn insert(&mut self, id: SubtypeId) {
+        assert!(id.get() < Self::CAPACITY, "subtype id past the bitmap");
         let word = (id.get() / 64) as usize;
         let bit = id.get() % 64;
         self.0[word] |= 1 << bit;
     }
 
     /// Removes a subtype.
+    ///
+    /// An id past the end removes nothing, for the reason [`Self::contains`]
+    /// answers `false`: it was never in the set to begin with.
     pub const fn remove(&mut self, id: SubtypeId) {
+        if id.get() >= Self::CAPACITY {
+            return;
+        }
         let word = (id.get() / 64) as usize;
         let bit = id.get() % 64;
         self.0[word] &= !(1 << bit);
@@ -373,7 +422,7 @@ impl SubtypeSet {
     /// Adds all subtypes of `other`.
     pub const fn union_with(&mut self, other: Self) {
         let mut i = 0;
-        while i < 8 {
+        while i < SUBTYPE_WORDS {
             self.0[i] |= other.0[i];
             i += 1;
         }
@@ -383,7 +432,7 @@ impl SubtypeSet {
     #[must_use]
     pub const fn is_empty(self) -> bool {
         let mut i = 0;
-        while i < 8 {
+        while i < SUBTYPE_WORDS {
             if self.0[i] != 0 {
                 return false;
             }
@@ -408,9 +457,9 @@ impl SubtypeSet {
     #[inline]
     #[must_use]
     pub const fn union(self, other: Self) -> Self {
-        let mut out = [0u64; 8];
+        let mut out = [0u64; SUBTYPE_WORDS];
         let mut i = 0;
-        while i < 8 {
+        while i < SUBTYPE_WORDS {
             out[i] = self.0[i] | other.0[i];
             i += 1;
         }
@@ -426,7 +475,7 @@ impl SubtypeSet {
     #[must_use]
     pub const fn intersects(self, other: Self) -> bool {
         let mut i = 0;
-        while i < 8 {
+        while i < SUBTYPE_WORDS {
             if self.0[i] & other.0[i] != 0 {
                 return true;
             }
@@ -435,28 +484,12 @@ impl SubtypeSet {
         false
     }
 
-    /// The set of all subtype ids in `start..end`.
-    ///
-    /// Subtype ids are range-partitioned per kind by codegen, so "every
-    /// creature type" (changeling, CR 702.73) is one contiguous range and
-    /// therefore a compile-time constant rather than a runtime scan.
-    #[must_use]
-    pub const fn range(start: u16, end: u16) -> Self {
-        let mut set = Self::EMPTY;
-        let mut i = start;
-        while i < end {
-            set.insert(SubtypeId::new(i));
-            i += 1;
-        }
-        set
-    }
-
     /// Number of subtypes in the set.
     #[must_use]
     pub const fn len(self) -> u32 {
         let mut n = 0;
         let mut i = 0;
-        while i < 8 {
+        while i < SUBTYPE_WORDS {
             n += self.0[i].count_ones();
             i += 1;
         }
@@ -465,7 +498,7 @@ impl SubtypeSet {
 
     /// Raw 64-bit words (snapshot hashing).
     #[must_use]
-    pub const fn words(&self) -> &[u64; 8] {
+    pub const fn words(&self) -> &[u64; SUBTYPE_WORDS] {
         &self.0
     }
 
@@ -473,7 +506,7 @@ impl SubtypeSet {
     #[must_use]
     pub const fn contains_all(self, other: Self) -> bool {
         let mut i = 0;
-        while i < 8 {
+        while i < SUBTYPE_WORDS {
             if self.0[i] & other.0[i] != other.0[i] {
                 return false;
             }
@@ -484,12 +517,19 @@ impl SubtypeSet {
 
     /// The subtypes in the set, in ascending id order.
     ///
-    /// Ascending id order is also kind order (creature types, then artifact,
-    /// then …), which is what a type line wants: ids are assigned per kind by
-    /// codegen. Iteration walks set bits rather than all 512 slots, so a card
-    /// with two subtypes costs two steps, not five hundred.
+    /// Ascending id order was also kind order (every creature type, then
+    /// every artifact type, then …) while ids were one sorted range
+    /// partitioned by kind. Since #43 they are **appended**, so a subtype
+    /// printed after that day sits past every kind's block and ascending id
+    /// order is no longer kind order. Anything building a type line asks
+    /// [`kind`](crate::generated::subtypes::kind) per id — which is what the
+    /// client already did, because a type line is grouped by card type rather
+    /// than sorted.
+    ///
+    /// Iteration walks set bits rather than all [`Self::CAPACITY`] slots, so a
+    /// card with two subtypes costs two steps, not a thousand.
     pub fn iter(self) -> impl Iterator<Item = SubtypeId> {
-        (0..8).flat_map(move |word| {
+        (0..SUBTYPE_WORDS).flat_map(move |word| {
             let mut bits = self.0[word];
             core::iter::from_fn(move || {
                 if bits == 0 {
@@ -590,6 +630,20 @@ mod tests {
         assert!(!set.contains(id));
         set.insert(id);
         assert!(set.contains(id));
-        assert!(SubtypeSet::ALL.contains(SubtypeId::new(511)));
+        assert!(SubtypeSet::ALL.contains(SubtypeId::new(SubtypeSet::CAPACITY - 1)));
+    }
+
+    /// An id past the end is what a host built *after* this one sends, and
+    /// the whole of #43 is that such a number must not be answered wrongly.
+    /// `contains` says no, `remove` does nothing, and neither touches a word
+    /// that is not there.
+    #[test]
+    fn an_id_past_the_bitmap_is_absent_rather_than_a_panic() {
+        let mut set = SubtypeSet::ALL;
+        let future = SubtypeId::new(SubtypeSet::CAPACITY);
+        assert!(!set.contains(future));
+        set.remove(future);
+        assert_eq!(set, SubtypeSet::ALL);
+        assert_eq!(SubtypeSet::CAPACITY as usize, SubtypeSet::WORDS * 64);
     }
 }

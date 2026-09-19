@@ -192,7 +192,7 @@ pub struct FaceDef {
     pub types: TypeSet,
     /// Supertypes.
     pub supertypes: SupertypeSet,
-    /// Subtypes (definition-side list; instances use the 512-bit bitmap).
+    /// Subtypes (definition-side list; instances use the 1024-bit bitmap).
     pub subtypes: &'static [SubtypeId],
     /// Power (creatures).
     pub power: Option<i16>,

@@ -14,11 +14,17 @@
 use baylee_engine::object::{CachedChar, Characteristics, GameObject};
 use baylee_engine::state::GameState;
 
-/// Every characteristic set carries a 512-bit subtype bitmap and a 16-slot
+/// Every characteristic set carries a 1024-bit subtype bitmap and a 16-slot
 /// mana cost; those two dominate it and are what makes storing a second
 /// copy per object expensive. Objects hold it behind an `Arc`, so this
 /// number is paid once per *distinct* base, not once per object.
-const CHARACTERISTICS_BUDGET: usize = 256;
+///
+/// Raised 256 → 320 on 2026-09-19 by #43, which doubled the bitmap: 507 of
+/// its 512 bits were assigned, and the widening had to happen before a set
+/// forced it. The 64 bytes are deliberate and they are the reason the
+/// `Arc` matters — measured on the same day, `GameObject` did not move at
+/// all (272 B), so the AI's per-ply `GameState::clone` pays nothing for it.
+const CHARACTERISTICS_BUDGET: usize = 320;
 
 /// The projection cache holds a generation, an optional boxed projection
 /// and an optional layer-2 controller — not a second `Characteristics`.

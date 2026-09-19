@@ -78,7 +78,7 @@ pub struct Characteristics {
     pub types: TypeSet,
     /// Supertypes.
     pub supertypes: SupertypeSet,
-    /// Subtypes (512-bit bitmap; changeling = all).
+    /// Subtypes (1024-bit bitmap; changeling = one mask OR).
     pub subtypes: SubtypeSet,
     /// Simple keywords.
     pub keywords: KeywordSet,

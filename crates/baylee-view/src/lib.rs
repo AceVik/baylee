@@ -40,7 +40,16 @@ use serde::{Deserialize, Serialize};
 
 /// Protocol version of the view payload. Bumped on any breaking change so a
 /// client can refuse a host it cannot render rather than mis-rendering it.
-pub const VIEW_VERSION: u32 = 21;
+///
+/// 22 widened [`SubtypeSet`] from 512 bits to 1024 (#43). The widening is the
+/// half this constant can defend: the array on the wire grows from eight
+/// numbers to sixteen, and a client reading the old shape is turned away.
+/// What it cannot defend is the other half of that ticket — a *renumbered*
+/// table leaves the struct exactly as it was, so two builds agree on the shape
+/// and disagree on what a number means. That is why subtype ids became
+/// append-only in the same commit rather than trusting this number to carry
+/// it.
+pub const VIEW_VERSION: u32 = 22;
 
 // ---------------------------------------------------------------- turn shape
 
