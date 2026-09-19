@@ -89,6 +89,14 @@ impl Retry {
     /// this crate does not link the gateway and must not — so the assertion
     /// below pins the bound and this names where the other half lives.
     ///
+    /// **It is the gateway's floor and not the engine's**, which matters for
+    /// exactly one kind of table: the engine accepts a zero window and the
+    /// gateway refuses it, so a local harness may seat a shorter one than any
+    /// room can. There the second sentence can appear after a chair has
+    /// already gone to the house — still true, only no longer early. A
+    /// limit enforced in one layer says nothing about the layer under it, and
+    /// this one is worth saying rather than guarding.
+    ///
     /// A fixed number is the best a client can do here, and that is the
     /// finding rather than a shortcut. `reconnect_window_secs` is a
     /// per-table value between ten seconds and an hour; it reaches no client

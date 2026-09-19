@@ -63,6 +63,15 @@ impl DecisionClock {
     /// will not let below ten seconds. So a rise of more than a second is a
     /// new question and nothing else, and that is what re-arms the sounds
     /// without needing a question identity the view does not carry.
+    ///
+    /// **That floor is the gateway's and not the engine's.** A room cannot
+    /// ask for a shorter decision clock; a local harness can, because nothing
+    /// below the gateway enforces it. At a table seated by `dev-table` with a
+    /// one-second limit this re-arms on every view and the sound becomes a
+    /// tick. It is left that way deliberately rather than guarded — the
+    /// alternative is a question identity the wire does not carry — but the
+    /// bound is named here, because a limit enforced in one layer says
+    /// nothing about the layer under it.
     pub const RESTART: f32 = 1.0;
 
     /// Takes what a view says, and re-arms the sounds on a new question.

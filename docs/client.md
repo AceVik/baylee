@@ -2208,7 +2208,12 @@ the engine's and differs by a network hop, while a new question restarts at
 the table's limit, which `clock::resolve` will not let below ten seconds.
 Without it `blitz` would ring on every view of the same question — and the
 acting seat is re-sent its own question every time anybody at the table says
-anything.
+anything. That floor is the **gateway's**: a room cannot ask for less, a
+local harness can, and at a one-second table seated by `dev-table` the sound
+becomes a tick. Named rather than guarded, because the alternative is a
+question identity the wire does not carry — and because a limit enforced in
+one layer says nothing about the layer beneath it, which is the same mistake
+`PATIENCE` one section up is written against.
 
 **The number is drawn for every seat and rung only for this one.** The view
 publishes the awaited seat's remainder to the whole table deliberately, so
