@@ -39,7 +39,7 @@
 //! test over the pool would assert zero against a population that can never
 //! be anything else.
 
-use baylee_cards::dsl::{AbilityDef, CardDef, KeywordSet, PartnerKind};
+use baylee_cards::dsl::{AbilityDef, CardDef, CounterKind, Effect, KeywordSet, PartnerKind};
 
 /// Every ability a card carries, card-level and on either face.
 ///
@@ -54,6 +54,73 @@ fn abilities(def: &'static CardDef) -> impl Iterator<Item = &'static AbilityDef>
 
 fn count(probe: impl Fn(&'static CardDef) -> bool) -> usize {
     baylee_cards::all().filter(|def| probe(def)).count()
+}
+
+/// Every effect list an ability resolves through.
+///
+/// Exhaustive with no wildcard arm, for the reason `baylee_cards`'s own
+/// lints give about `branches`: a new [`AbilityDef`] variant dropping into
+/// `_ => Vec::new()` would leave the probe below reading nothing about it
+/// and still reporting a number.
+fn ability_effects(ability: &'static AbilityDef) -> Vec<&'static [Effect]> {
+    match ability {
+        AbilityDef::Spell { effects, .. }
+        | AbilityDef::Triggered { effects, .. }
+        | AbilityDef::Activated { effects, .. }
+        | AbilityDef::ActivatedConditional { effects, .. }
+        | AbilityDef::SagaChapter { effects, .. }
+        | AbilityDef::Loyalty { effects, .. } => vec![effects],
+        AbilityDef::ModalSpell { modes } | AbilityDef::ModalTriggered { modes, .. } => {
+            modes.iter().map(|mode| mode.effects).collect()
+        }
+        AbilityDef::Unimplemented
+        | AbilityDef::Ward { .. }
+        | AbilityDef::Prepared { .. }
+        | AbilityDef::Echo { .. }
+        | AbilityDef::Static(_)
+        | AbilityDef::Replacement(_)
+        | AbilityDef::Suspend { .. }
+        | AbilityDef::CopyOnEnterUntilEot { .. }
+        | AbilityDef::CopyOnEnter { .. } => Vec::new(),
+    }
+}
+
+/// Every counter an effect list puts on anything, following the nine shapes
+/// the DSL nests an effect list inside.
+///
+/// This one **does** end in a wildcard, because `Effect` has 154 variants and
+/// listing them here would be a second copy of that enum rather than a
+/// reading of it. That is exactly why the test below counts the effects it
+/// visited and holds the count against a floor: a wildcard that quietly
+/// swallowed the nesting shapes would report zero counters over a pool full
+/// of them, and a number with nothing underneath it is the failure this file
+/// exists to prevent.
+fn counters_put(effects: &'static [Effect], seen: &mut usize, found: &mut Vec<CounterKind>) {
+    for effect in effects {
+        *seen += 1;
+        match effect {
+            Effect::AddCounter { kind, .. } | Effect::AddCounterFilter { kind, .. } => {
+                found.push(*kind);
+            }
+            Effect::Sequence(inner) | Effect::MayDo { effects: inner } => {
+                counters_put(inner, seen, found);
+            }
+            Effect::IfControlGreatestCmc { then, .. }
+            | Effect::IfCreaturesDiedAtLeast { then, .. }
+            | Effect::IfNoCountersOnSelf { then, .. }
+            | Effect::IfNotLostLifeThisTurn { then, .. } => counters_put(then, seen, found),
+            Effect::IfEventPowerAtLeast {
+                then, otherwise, ..
+            }
+            | Effect::IfKicked {
+                then, otherwise, ..
+            } => {
+                counters_put(then, seen, found);
+                counters_put(otherwise, seen, found);
+            }
+            _ => {}
+        }
+    }
 }
 
 /// The pool prints none of these, so the AI test each one would need cannot
@@ -145,6 +212,10 @@ fn a_mechanic_the_pool_already_prints_is_owed_now_and_not_later() {
             count(|def| def.faces.iter().any(|face| face.convoke || face.delve)),
         ),
         (
+            // Paid, #73: `a_lore_counter_goes_on_my_own_saga_and_never_the_\
+            // opponents` in `baylee-ai`. The probe stays because the test
+            // needs a Saga in the pool to be about anything — if Urza's Saga
+            // leaves, that test starts proving nothing and this row says so.
             "Contextual counters (the lore half)",
             count(|def| abilities(def).any(|a| matches!(a, AbilityDef::SagaChapter { .. }))),
         ),
@@ -152,6 +223,11 @@ fn a_mechanic_the_pool_already_prints_is_owed_now_and_not_later() {
             // Suspend is the half of that row the pool can already test:
             // a time counter on a suspended card is a clock the AI wants to
             // run down, and the same counter on vanishing is one it does not.
+            //
+            // Paid, #73: `a_time_counter_delays_the_suspended_card_that_is_\
+            // about_to_cast`. Vanishing is still owed and cannot be written:
+            // no card here prints it, and `clock_score` scores that case 0
+            // rather than guessing at it.
             "Contextual counters (the suspend half)",
             count(|def| abilities(def).any(|a| matches!(a, AbilityDef::Suspend { .. }))),
         ),
@@ -171,4 +247,59 @@ fn a_mechanic_the_pool_already_prints_is_owed_now_and_not_later() {
              the compiled pool is read for."
         );
     }
+}
+
+/// The counter-clock rows of #73 are answered by two `baylee-ai` unit tests
+/// and by no game, because no card in this pool can be *made* to put a lore
+/// or a time counter anywhere: both clocks are advanced by the engine itself
+/// (`progress.rs`), never by an effect a player targets.
+///
+/// So the agent's rule is proven against a constructed view, and this is the
+/// tripwire for the day that stops being the whole story: when a card arrives
+/// that prints "put a lore counter on target Saga" or "put a time counter on
+/// target suspended card", the same decision becomes reachable in a real
+/// game and that game is owed as a test.
+///
+/// The two assertions above the count are what make the zero mean something.
+/// `signed` proves the walk reaches real `AddCounter` effects at all — the
+/// pool is full of +1/+1 — and `seen` is the population it read, so a walker
+/// blinded by a refactor fails here instead of reporting a quiet nought.
+#[test]
+fn no_pool_card_puts_a_lore_or_time_counter_on_anything() {
+    let mut seen = 0;
+    let mut kinds = Vec::new();
+    for def in baylee_cards::all() {
+        for effects in abilities(def).flat_map(ability_effects) {
+            counters_put(effects, &mut seen, &mut kinds);
+        }
+    }
+    let clocks = kinds
+        .iter()
+        .filter(|kind| matches!(kind, CounterKind::Lore | CounterKind::Time))
+        .count();
+    let signed = kinds
+        .iter()
+        .filter(|kind| matches!(kind, CounterKind::Plus { .. } | CounterKind::Minus { .. }))
+        .count();
+
+    // 2696 on 19.09.2026. The floor is the population and not the number,
+    // so a card added or removed is not news and a walker that stopped
+    // descending is.
+    assert!(
+        seen > 2_000,
+        "the effect walk visited {seen} effects, which is too few to have \
+         read this pool: the nesting shapes it follows have gone stale"
+    );
+    assert!(
+        signed > 0,
+        "the walk found no +1/+1 or -1/-1 counter in the whole pool, so it \
+         is not reaching `AddCounter` at all and the zero below is empty"
+    );
+    assert_eq!(
+        clocks, 0,
+        "{clocks} effect(s) in the pool now put a lore or time counter on \
+         something. The counter-clock rule in `tactics::clock_score` is \
+         reachable in a real game: write the game, put it beside the two \
+         `baylee-ai` unit tests, and delete this test."
+    );
 }

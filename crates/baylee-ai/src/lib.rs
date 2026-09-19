@@ -739,6 +739,98 @@ mod tests {
         }
     }
 
+    /// Urza's Saga at chapter I, one on each side of the table.
+    ///
+    /// A lore counter carries no sign of its own: it advances whichever Saga
+    /// it lands on, so the seat that wants it is that Saga's controller and
+    /// the opponent's copy is the one place it must not go. Before this,
+    /// `Time`, `Lore` and `Custom` all scored zero, `targets` declined to
+    /// express any preference, and the fallback — an opponent's permanents
+    /// first, which is right for almost every other spell — handed the
+    /// opponent their next chapter.
+    #[test]
+    fn a_lore_counter_goes_on_my_own_saga_and_never_the_opponents() {
+        use baylee_cards_dsl::{Amount, CounterKind as Counter, Effect};
+        use baylee_engine::engine::DecisionContext;
+        let v = view(
+            0,
+            &[20, 20],
+            vec![
+                saga(obj(1), PlayerId::new(1), 1),
+                saga(obj(2), PlayerId::new(0), 1),
+            ],
+        );
+        let pending = Pending::ChooseTargets {
+            player: v.seat,
+            options: vec![obj(1), obj(2)],
+            player_options: vec![],
+            min: 1,
+            max: 1,
+            reason: baylee_engine::choice::TargetPrompt::Targets,
+        };
+        let effects = [Effect::AddCounter {
+            kind: Counter::Lore,
+            amount: Amount::Fixed(1),
+        }];
+        let context = DecisionContext {
+            effects: &effects,
+            ..Default::default()
+        };
+
+        assert_eq!(
+            HeuristicAgent::new(AIProfile::EXPERT).act_with_context(&v, &pending, &context),
+            PlayerAction::ChooseTargets {
+                objects: vec![obj(2)],
+                players: vec![]
+            },
+            "a lore counter advances the Saga it lands on, so it belongs on my own"
+        );
+    }
+
+    /// Two of the opponent's suspended cards, one of them a single upkeep
+    /// from casting itself for nothing.
+    ///
+    /// A time counter delays whatever it sits on, so every suspended card is
+    /// a hostile target — but they are not equally hostile, and the fallback
+    /// could not tell them apart because it never ranked them: it took the
+    /// first enemy object it was offered. The clock about to run out is the
+    /// one worth another turn.
+    #[test]
+    fn a_time_counter_delays_the_suspended_card_that_is_about_to_cast() {
+        use baylee_cards_dsl::{Amount, CounterKind as Counter, Effect};
+        use baylee_engine::engine::DecisionContext;
+        let mut v = view(0, &[20, 20], vec![]);
+        v.exile[1] = vec![
+            suspended(obj(1), PlayerId::new(1), 4),
+            suspended(obj(2), PlayerId::new(1), 1),
+        ];
+        let pending = Pending::ChooseTargets {
+            player: v.seat,
+            options: vec![obj(1), obj(2)],
+            player_options: vec![],
+            min: 1,
+            max: 1,
+            reason: baylee_engine::choice::TargetPrompt::Targets,
+        };
+        let effects = [Effect::AddCounter {
+            kind: Counter::Time,
+            amount: Amount::Fixed(1),
+        }];
+        let context = DecisionContext {
+            effects: &effects,
+            ..Default::default()
+        };
+
+        assert_eq!(
+            HeuristicAgent::new(AIProfile::EXPERT).act_with_context(&v, &pending, &context),
+            PlayerAction::ChooseTargets {
+                objects: vec![obj(2)],
+                players: vec![]
+            },
+            "one time counter left is one upkeep from a free cast; four is not"
+        );
+    }
+
     #[test]
     fn third_iteration_burn_finishes_the_player_before_killing_a_creature() {
         use baylee_cards_dsl::{Amount, Effect, TargetSpec};
@@ -1659,6 +1751,45 @@ mod tests {
             }],
             ..permanent(id, controller, 0)
         }
+    }
+
+    /// Urza's Saga with `lore` lore counters on it, which is chapter `lore`.
+    ///
+    /// A real registry card, for the reason [`carded`] gives and one more:
+    /// how many chapters a Saga has is printed on the card and nowhere in
+    /// the view, so the agent reads it back out of the pool.
+    fn saga(id: ObjectId, controller: PlayerId, lore: u16) -> PublicObject {
+        let mut object = carded(
+            permanent(id, controller, 0),
+            "Urza's Saga",
+            TypeSet::LAND.union(TypeSet::ENCHANTMENT),
+        );
+        object.name = "Urza's Saga".into();
+        object.power = None;
+        object.toughness = None;
+        object.counters = vec![CounterEntry {
+            kind: CounterKind::Lore,
+            count: lore,
+        }];
+        object
+    }
+
+    /// Ancestral Vision in exile with `time` time counters left on it —
+    /// suspend 4, and a free three-card draw when the last one comes off.
+    fn suspended(id: ObjectId, owner: PlayerId, time: u16) -> PublicObject {
+        let mut object = carded(
+            permanent(id, owner, 0),
+            "Ancestral Vision",
+            TypeSet::SORCERY,
+        );
+        object.name = "Ancestral Vision".into();
+        object.power = None;
+        object.toughness = None;
+        object.counters = vec![CounterEntry {
+            kind: CounterKind::Time,
+            count: time,
+        }];
+        object
     }
 
     /// A view of `seats` (life totals) with `battlefield` on the table.

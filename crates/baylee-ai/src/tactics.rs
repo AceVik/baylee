@@ -1,12 +1,12 @@
 //! Effect-based choices, shared by targeting, planeswalkers and deck analysis.
 //! Unknown effects retain the general policy; new cards need no name table.
 
-use baylee_cards_dsl::{Amount, CounterKind, Effect, Modifier};
+use baylee_cards_dsl::{AbilityDef, Amount, CounterKind, Effect, Modifier};
 use baylee_core::ids::{ObjectId, PlayerId, SubtypeId};
 use baylee_core::types::TypeSet;
 use baylee_engine::choice::PlayerAction;
 use baylee_engine::engine::DecisionContext;
-use baylee_view::{PlayerView, PublicObject};
+use baylee_view::{CounterKind as ViewCounter, PlayerView, PublicObject};
 
 use crate::HeuristicAgent;
 
@@ -20,6 +20,10 @@ pub(crate) struct Meaning {
     pub draw: u32,
     commander_draws: u32,
     pub value: i64,
+    /// A counter kind whose sign is not its own: see [`meaning`]'s
+    /// `AddCounter` arm. Scored per candidate object by
+    /// [`HeuristicAgent::clock_score`] instead of by `benefit`.
+    pub clock: Option<CounterKind>,
 }
 
 impl Meaning {
@@ -52,18 +56,31 @@ pub(crate) fn meaning(effects: &[Effect], x: u32) -> Meaning {
         let mut m = Meaning::default();
         match effect {
             Effect::Sequence(inner) | Effect::MayDo { effects: inner } => m = meaning(inner, x),
-            Effect::AddCounter { kind, .. } => {
-                m.benefit = match kind {
-                    CounterKind::Minus { .. } | CounterKind::Poison | CounterKind::Rad => -1,
-                    CounterKind::Plus { .. }
-                    | CounterKind::Loyalty
-                    | CounterKind::Lifelink
-                    | CounterKind::Energy
-                    | CounterKind::Charge
-                    | CounterKind::Level => 1,
-                    CounterKind::Time | CounterKind::Lore | CounterKind::Custom(_) => 0,
+            Effect::AddCounter { kind, .. } => match kind {
+                CounterKind::Minus { .. } | CounterKind::Poison | CounterKind::Rad => {
+                    m.benefit = -1;
                 }
-            }
+                CounterKind::Plus { .. }
+                | CounterKind::Loyalty
+                | CounterKind::Lifelink
+                | CounterKind::Energy
+                | CounterKind::Charge
+                | CounterKind::Level => m.benefit = 1,
+                // These two have no sign of their own. A lore counter
+                // advances whatever Saga it lands on and a time counter
+                // delays whatever is counting down, so both are good for one
+                // seat and bad for another depending on the card underneath —
+                // which `meaning` cannot see, because it is handed an effect
+                // list and no object. Saying 0 here is what made the agent
+                // decline to express a preference at all: `targets` bailed on
+                // a zero benefit and the fallback aimed at an opponent, which
+                // is right for almost every other spell and hands an opponent
+                // their next chapter.
+                CounterKind::Time | CounterKind::Lore => m.clock = Some(*kind),
+                // A custom counter is named by the card that prints it and
+                // means whatever that card says; there is no rule to read.
+                CounterKind::Custom(_) => {}
+            },
             Effect::PumpTarget {
                 power,
                 toughness,
@@ -152,6 +169,10 @@ pub(crate) fn meaning(effects: &[Effect], x: u32) -> Meaning {
         result.removal |= m.removal;
         result.destroy |= m.destroy;
         result.counter |= m.counter;
+        // The first clock in the list wins. A spell that both advances a Saga
+        // and delays a suspended card prints two sentences and would need two
+        // target choices; one effect list answering one prompt has one.
+        result.clock = result.clock.or(m.clock);
     }
     result
 }
@@ -207,6 +228,76 @@ impl HeuristicAgent {
             .unwrap_or(options[0])
     }
 
+    /// What a counter with no sign of its own is worth on one candidate.
+    ///
+    /// The sign comes off the card underneath. A lore counter advances the
+    /// Saga it lands on, which is what that Saga's controller wants; a time
+    /// counter is one more upkeep before a suspended card casts itself for
+    /// nothing, which is what its owner does not. Positive means "aim here",
+    /// and the scale is the one the ranking beside it uses: the count is
+    /// taken while the score is above zero, so a negative score is a
+    /// candidate the agent names only because the spell requires a target.
+    ///
+    /// Two shapes are refused rather than guessed, and both are scored 0.
+    /// A lore counter that would reach the Saga's final chapter is that
+    /// chapter *and* the Saga's death in one — the controller gets the last
+    /// ability and loses the permanent, and which of those is worth more is
+    /// not a judgment this table can make. And vanishing, the other user of
+    /// time counters, runs the opposite way from suspend: a counter added
+    /// there buys the permanent another turn. No card in this pool prints
+    /// vanishing, so the case is left unscored instead of modelled blind.
+    fn clock_score(&self, view: &PlayerView, object: &PublicObject, kind: CounterKind) -> i64 {
+        let friendly = !self.hostile(object.controller, view.seat);
+        let def = object.card.and_then(|c| baylee_cards::by_index(c.index));
+        let mut abilities = def.into_iter().flat_map(|d| {
+            d.abilities
+                .iter()
+                .chain(d.faces.iter().flat_map(|face| face.abilities.iter()))
+        });
+        let on_it = |want: ViewCounter| {
+            object
+                .counters
+                .iter()
+                .find(|c| c.kind == want)
+                .map_or(0, |c| c.count)
+        };
+        match kind {
+            CounterKind::Lore => {
+                let last = abilities
+                    .filter_map(|a| match a {
+                        AbilityDef::SagaChapter { chapter, .. } => Some(u16::from(*chapter)),
+                        _ => None,
+                    })
+                    .max();
+                match last {
+                    // Not a Saga at all: a lore counter on it is a sentence
+                    // no rule in this pool finishes.
+                    None => 0,
+                    Some(last) if on_it(ViewCounter::Lore).saturating_add(1) >= last => 0,
+                    Some(_) if friendly => 800,
+                    Some(_) => -800,
+                }
+            }
+            CounterKind::Time => {
+                let suspended = abilities.any(|a| matches!(a, AbilityDef::Suspend { .. }));
+                let left = on_it(ViewCounter::Time);
+                if !suspended || left == 0 {
+                    return 0;
+                }
+                if friendly {
+                    // Delaying my own free spell is never the play.
+                    -800
+                } else {
+                    // Every candidate here is hostile, so what ranks them is
+                    // how soon the card would otherwise cast itself: one
+                    // counter left is one upkeep away, four is four.
+                    1000 - 100 * i64::from(left.min(9))
+                }
+            }
+            _ => 0,
+        }
+    }
+
     #[allow(clippy::too_many_arguments)] // the engine's target offer, plus its explanation
     pub(crate) fn targets(
         &self,
@@ -218,7 +309,7 @@ impl HeuristicAgent {
         context: &DecisionContext<'_>,
     ) -> Option<PlayerAction> {
         let m = meaning(context.effects, context.x);
-        if m.benefit == 0 && m.damage == 0 {
+        if m.benefit == 0 && m.damage == 0 && m.clock.is_none() {
             return None;
         }
         let beneficial = m.benefit > 0;
@@ -226,6 +317,9 @@ impl HeuristicAgent {
             .iter()
             .map(|id| {
                 let value = view.object(*id).map_or(0, |o| {
+                    if let Some(kind) = m.clock {
+                        return self.clock_score(view, o, kind);
+                    }
                     let friendly = !self.hostile(o.controller, view.seat);
                     let mut score = material(o);
                     if m.destroy
