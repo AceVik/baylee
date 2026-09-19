@@ -1351,7 +1351,12 @@ fn pool_flags(card: &PoolCard) -> Vec<Flag> {
     if card.basic_land {
         flags.push(Flag::Basic);
     }
-    if card.two_faced {
+    // The rules question, not the picture one: this filter is printed to the
+    // player as "double-faced" and reached by the alias `transform`, and
+    // CR 715.1 makes an adventurer card a two-part frame rather than a second
+    // side. It asked `two_faced` — the compiled face count — until #115, and
+    // answered with nine Adventures and two Splits.
+    if card.double_faced {
         flags.push(Flag::Dfc);
     }
     flags

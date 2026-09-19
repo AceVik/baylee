@@ -682,7 +682,7 @@ pub fn sync_overlay(
                 face_node(img_w, img_h),
             ));
             commands.entity(frame).add_child(visual);
-            let (art, look) = match far_face(key, two_faced(view, hovered)) {
+            let (art, look) = match far_face(key, has_back_image(view, hovered)) {
                 Some(back) => (
                     textures.get(back, statics, &assets),
                     CardLook::art(back, finish_of(statics, Some(back)), 0),
@@ -1223,13 +1223,13 @@ pub(super) fn spawn_commander_track(
 /// gesture did nothing on nine cards out of ten and read as broken rather
 /// than as inapplicable.
 ///
-/// `two_faced` is asked separately because having a *key* says nothing about
-/// how many faces the card has: every printing has one, and a card the seat
-/// may not see has none while still being turnable — over to the back, which
-/// is exactly what everyone else at the table is looking at.
-pub(super) const fn far_face(key: Option<ImageKey>, two_faced: bool) -> Option<ImageKey> {
+/// `has_back` is asked separately because having a *key* says nothing about
+/// whether the printing has a second picture: every printing has one key, and
+/// a card the seat may not see has none while still being turnable — over to
+/// the back, which is exactly what everyone else at the table is looking at.
+pub(super) const fn far_face(key: Option<ImageKey>, has_back: bool) -> Option<ImageKey> {
     match key {
-        Some(key) if two_faced => Some(ImageKey {
+        Some(key) if has_back => Some(ImageKey {
             face: baylee_client_core::images::Face::Back,
             ..key
         }),
@@ -1259,23 +1259,30 @@ pub(super) fn face_node(width: f32, height: f32) -> Node {
     }
 }
 
-/// Whether the hovered object is a card printed on both sides.
+/// Whether the hovered object has a second picture to turn over to.
 ///
-/// The view says which face is up, not how many there are, so the answer
-/// comes from the registry the client already links for ability labels and
-/// mana sources. A token or a face-down permanent has no card and therefore
-/// no back.
+/// The view says which face is up, not whether there is another one, so the
+/// answer comes from the registry the client already links for ability labels
+/// and mana sources. A token or a face-down permanent has no card and
+/// therefore no back.
+///
+/// It used to count the card's *compiled* faces, which is a third question
+/// and answered neither (#115): an Adventure prints two names on one piece of
+/// card, so this returned `true` for nine of them and the overlay then asked
+/// Scryfall's `back` shelf for a picture that answers 404. The registry's
+/// `sides` table is read off the printing instead, and the same table serves
+/// the deck builder — one answer, computed once, rather than this predicate
+/// and `PoolCard`'s disagreeing in two crates.
 ///
 /// This doc had been sitting six items further up, above a `pick_hint` that
 /// had its own, since whichever splice put it there — the shape
 /// `doc-comment-splice-beheads-the-next-item` is named for. It came back when
 /// `pick_hint` went to the drawer and left it standing over nothing.
-fn two_faced(view: &PlayerView, hovered: Option<ObjectId>) -> bool {
+fn has_back_image(view: &PlayerView, hovered: Option<ObjectId>) -> bool {
     hovered
         .and_then(|id| view.object(id))
         .and_then(|object| object.card.as_ref())
-        .and_then(|card| baylee_cards::by_index(card.index))
-        .is_some_and(|def| def.faces.len() > 1)
+        .is_some_and(|card| baylee_cards::sides::has_back_image(card.index))
 }
 
 #[cfg(test)]
@@ -1299,6 +1306,65 @@ mod tests {
             icons: Handle::default(),
             mana: Handle::default(),
         }
+    }
+
+    /// A view holding one permanent, which is the named card.
+    ///
+    /// `test_support::printed` keys the identity off a `u16` print number;
+    /// the registry index is written over it afterwards, because what this
+    /// asks about is the *card* and a made-up index would answer `false`
+    /// however the predicate was written.
+    fn hovering(name: &str) -> (PlayerView, Option<ObjectId>) {
+        let index = baylee_cards::decks::by_name(name).expect("in the pool");
+        let mut object = baylee_client_core::test_support::printed(1, 0, name, 1);
+        object.card.as_mut().expect("printed gives it a card").index = index;
+        let id = object.id;
+        let view = baylee_client_core::test_support::ViewBuilder::new(2)
+            .with_battlefield(0, [object])
+            .build();
+        (view, Some(id))
+    }
+
+    /// The overlay offers a back only for a card that has a second picture.
+    ///
+    /// This predicate is the **second** implementation of a question
+    /// `PoolCard` also answers, and it counted the card's compiled faces
+    /// until #115 — so an Adventure, which prints two names on one piece of
+    /// card, was handed a back `ImageKey` and the shelf it points at answers
+    /// 404. Both now read one table in `baylee_cards::sides`; asking both
+    /// directions here is what would catch them coming apart again.
+    #[test]
+    fn only_a_card_with_a_second_picture_is_turned_over() {
+        let (view, id) = hovering("Agadeem's Awakening");
+        assert!(
+            has_back_image(&view, id),
+            "a modal double-faced card has a back to turn to"
+        );
+        let (view, id) = hovering("Murderous Rider");
+        let adventure = baylee_cards::decks::by_name("Murderous Rider").expect("in the pool");
+        assert!(
+            baylee_cards::by_index(adventure).is_some_and(|def| def.faces.len() > 1),
+            "the premise: this card compiles two faces, which is what used to decide"
+        );
+        assert!(
+            !has_back_image(&view, id),
+            "an Adventure prints both halves on one side"
+        );
+        let (view, id) = hovering("Lightning Bolt");
+        assert!(!has_back_image(&view, id), "an ordinary card has no back");
+    }
+
+    /// Nothing hovered, and a token, are both "no back" rather than a panic.
+    #[test]
+    fn a_token_and_an_empty_hover_have_no_back() {
+        let (view, _) = hovering("Agadeem's Awakening");
+        assert!(!has_back_image(&view, None), "nothing is hovered");
+        let token = baylee_client_core::test_support::token(7, 0, "Goblin", 1, 1);
+        let id = token.id;
+        let view = baylee_client_core::test_support::ViewBuilder::new(2)
+            .with_battlefield(0, [token])
+            .build();
+        assert!(!has_back_image(&view, Some(id)), "a token has no card");
     }
 
     /// A headless app that really runs [`sync_overlay`].

@@ -92,6 +92,13 @@ impl Coverage {
 
 /// One card in the playable pool, as `GET /pool` sends it.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+// Five flags, and clippy would rather have a state machine. They are not
+// states: a pool row is a *wire record* of independent printed facts, and
+// `commander`, `basic_land`, `has_back_image` and `double_faced` are true
+// and false in every combination there is. Folding them into an enum would
+// invent a taxonomy the cards do not have — and #115 is what happens when
+// two of these are folded into one.
+#[allow(clippy::struct_excessive_bools)]
 pub struct PoolCard {
     /// Registry index: the rules identity.
     pub index: u32,
@@ -128,10 +135,19 @@ pub struct PoolCard {
     /// Basic lands are the one card a deck may hold any number of.
     #[serde(default)]
     pub basic_land: bool,
-    /// Whether the card is printed on both sides, and so has a back to turn
-    /// over in the preview.
+    /// Whether there is a second picture to turn over to in the preview.
+    ///
+    /// Not the same question as [`Self::double_faced`], and they were one bit
+    /// until #115: a meld card is double-faced with no back image, an
+    /// Adventure prints two names on one piece of card and has neither.
     #[serde(default)]
-    pub two_faced: bool,
+    pub has_back_image: bool,
+    /// Whether the card is a double-faced card under CR 712.1.
+    ///
+    /// What the `double-faced` search filter means — a claim about the
+    /// printed card, not about what this client can draw.
+    #[serde(default)]
+    pub double_faced: bool,
     /// The printing the registry names: the art key, and what a row that
     /// picks nothing is served as.
     #[serde(default)]

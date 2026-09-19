@@ -26,6 +26,13 @@ use std::sync::OnceLock;
 
 /// One card, as a deck builder needs to see it.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+// Five flags, and clippy would rather have a state machine. They are not
+// states: a pool row is a *wire record* of independent printed facts, and
+// `commander`, `basic_land`, `has_back_image` and `double_faced` are true
+// and false in every combination there is. Folding them into an enum would
+// invent a taxonomy the cards do not have — and #115 is what happens when
+// two of these are folded into one.
+#[allow(clippy::struct_excessive_bools)]
 pub struct PoolCard {
     /// Registry index — the rules identity, and what a saved deck names.
     pub index: u32,
@@ -67,13 +74,28 @@ pub struct PoolCard {
     pub commander: bool,
     /// Basic lands are the one card a deck may hold any number of.
     pub basic_land: bool,
-    /// Whether the card is printed on both sides.
+    /// Whether there is a second picture to show.
     ///
     /// The client cannot work this out for itself: a back-face image URL can
     /// be *built* for any printing, and Scryfall answers 404 for the ones
-    /// that have no back. Sending the bit is one byte and saves the builder
-    /// from offering to turn a card that has nothing on the other side.
-    pub two_faced: bool,
+    /// that have no back. Sending the bit saves the builder from offering to
+    /// turn a card that has nothing on the other side.
+    ///
+    /// Deliberately **not** the same field as [`Self::double_faced`], and the
+    /// two were one bit until #115. A meld card is double-faced and has no
+    /// back image; an Adventure prints two names on one piece of card and has
+    /// neither. Omitted from the wire when false, like `alt_names` when
+    /// empty: it is true for about one card in twenty-five.
+    #[serde(skip_serializing_if = "is_false")]
+    pub has_back_image: bool,
+    /// Whether the card is a double-faced card under CR 712.1.
+    ///
+    /// What the builder's `double-faced` filter means — a claim about the
+    /// printed card rather than about what this client can draw. CR 715.1
+    /// makes an adventurer card a two-part *frame* and CR 709.1 says the back
+    /// of a split card is the normal Magic card back, so neither is one.
+    #[serde(skip_serializing_if = "is_false")]
+    pub double_faced: bool,
     /// The printing codegen referenced, for art and for the catalog.
     pub scryfall_id: &'static str,
     /// Rules identity, shared by every printing and every language.
@@ -100,6 +122,15 @@ pub struct PoolCard {
     /// largest field in the answer.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub alt_names: Vec<String>,
+}
+
+/// `serde`'s `skip_serializing_if` wants a predicate, and `bool` has none.
+///
+/// By reference because that is the signature serde calls it with, not
+/// because a `bool` is expensive to copy.
+#[allow(clippy::trivially_copy_pass_by_ref)]
+fn is_false(flag: &bool) -> bool {
+    !*flag
 }
 
 /// The registry as builder rows, built once.
@@ -142,7 +173,11 @@ pub fn row(def: &'static CardDef) -> PoolCard {
         basic_land: face.is_some_and(|f| {
             f.supertypes.contains(SupertypeSet::BASIC) && f.types.contains(TypeSet::LAND)
         }),
-        two_faced: def.faces.len() > 1,
+        // Both off the printing, never off `def.faces.len()`: the compiled
+        // face count is a fact about this build and neither of these is
+        // (#115). See `crate::sides`.
+        has_back_image: crate::sides::has_back_image(def.index),
+        double_faced: crate::sides::double_faced(def.index),
         scryfall_id: def.scryfall_id,
         oracle_id: def.oracle_id,
         // Scryfall's whole spelling, where the pool's own is one face of it.

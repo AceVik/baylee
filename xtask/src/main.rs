@@ -392,6 +392,17 @@ enum Cmd {
         /// Directory for cached Scryfall responses.
         #[arg(long, default_value = "data/scryfall-cache")]
         cache: PathBuf,
+        /// Write every payload again, held or not.
+        ///
+        /// The cache is a **typed projection** of Scryfall's rows rather than
+        /// a copy of them: what lands on disk is whatever
+        /// `scryfall::ScryfallCard` declares, so teaching that struct a new
+        /// field leaves every held file without it. A plain run cannot see
+        /// that — it fills what is *missing*, and nothing is missing — so a
+        /// generator that needs the new field would refuse over a cache no
+        /// command could repair. One bulk download, the same as a cold start.
+        #[arg(long)]
+        refetch: bool,
     },
     /// Validate card-file conventions (header, coverage, tests).
     Validate,
@@ -527,7 +538,7 @@ fn main() -> anyhow::Result<()> {
             scripts,
             cache,
         } => card_batch(&root, cards.as_deref(), &out, &scripts, &cache),
-        Cmd::ScryfallCache { cache } => scryfall_cache(&root, &cache),
+        Cmd::ScryfallCache { cache, refetch } => scryfall_cache(&root, &cache, refetch),
         Cmd::Validate => validate(&root),
         Cmd::Adopt { name } => adopt(&root, &name),
         Cmd::RefreshOracle { dry_run } => refresh_oracle(&root, dry_run),
@@ -731,7 +742,7 @@ fn cards(
     // limiter's 60-second backoffs come from. It writes what it can and
     // returns; whatever the feed did not carry is fetched one at a time below,
     // which is what makes the pair self-healing.
-    scryfall::fill_from_bulk(names, agent, cache);
+    scryfall::fill_from_bulk(names, agent, cache, false);
 
     let mut stubs = Vec::with_capacity(names.len());
     for name in names {
@@ -1139,6 +1150,20 @@ fn codegen(
         check,
         &root.join("crates/baylee-cards/src/generated_names.rs"),
         &render_name_table()?,
+        &mut changed,
+    )?;
+
+    // 7. Which cards have a back, and which are double-faced → generated_sides.rs.
+    //    Beside stages 5 and 6 because it is the same pair of sources as
+    //    stage 5 — the compiled pool read against the cached printings — and
+    //    two-phase for the same reason. It is here rather than on `CardDef`
+    //    because both answers are facts about the *printing*, which is what
+    //    `def.faces.len() > 1` was standing in for and getting wrong in both
+    //    directions (#115).
+    write_or_check(
+        check,
+        &root.join("crates/baylee-cards/src/generated_sides.rs"),
+        &render_sides_table(root)?,
         &mut changed,
     )?;
 
@@ -3787,7 +3812,7 @@ fn strip_reminders(text: &str) -> String {
 /// a scheduled job can keep the cache warm without the card-script corpus,
 /// and without failing on the stale files a pool change legitimately leaves
 /// behind.
-fn scryfall_cache(root: &Path, cache: &Path) -> anyhow::Result<()> {
+fn scryfall_cache(root: &Path, cache: &Path, refetch: bool) -> anyhow::Result<()> {
     let decks_text = fs::read_to_string(root.join("data/acceptance-decks.txt"))?;
     let rows = acceptance::parse_decks(&decks_text)?;
     let pool_text = fs::read_to_string(root.join("data/card-pool.txt")).unwrap_or_default();
@@ -3810,7 +3835,7 @@ fn scryfall_cache(root: &Path, cache: &Path) -> anyhow::Result<()> {
         cache.display()
     );
     let agent = ureq::Agent::new_with_defaults();
-    scryfall::fill_from_bulk(&names, &agent, &cache);
+    scryfall::fill_from_bulk(&names, &agent, &cache, refetch);
     // Whatever the bulk feed did not carry, one at a time — the same call
     // codegen makes, so a card fetched here is byte-identical to one fetched
     // there. A card Scryfall does not know is fatal, as it is in codegen: a
@@ -6736,6 +6761,134 @@ fn render_name_table() -> anyhow::Result<String> {
         whole.push((row.name, index));
     }
     Ok(names::render(&entries, &whole)?)
+}
+
+/// Renders `crates/baylee-cards/src/generated_sides.rs`: which cards have a
+/// back to show, and which are double-faced in the sense CR 712.1 gives it.
+///
+/// # Why a table and not a field
+///
+/// Both answers are facts about the **printing**, and the compiled pool does
+/// not carry them — which is how `PoolCard::two_faced` came to be
+/// `def.faces.len() > 1`, a count of what this build happened to compile,
+/// standing in for two different questions and answering neither (#115). A
+/// field on `CardDef` or `FaceDef` would reach the 328 hand-written cards
+/// only through `..DEFAULT`, so a default of "no back" on a hand-written
+/// transform card would be wrong in the direction nothing catches. A table
+/// keyed by index is written for every card whoever owns the file.
+///
+/// A per-face property could not say it either: `Emeritus of Woe` prints two
+/// faces and compiles one, so a fact about the second face has nowhere to
+/// live on a card that has no second face here.
+///
+/// # Two-phase, and it refuses rather than skips
+///
+/// Built from the pool **compiled into this binary** read against the cached
+/// printings, like stages 5 and 6, so a card added by this run gets its row
+/// from the next one and `codegen --check` is the guard. Unlike stage 5 it
+/// treats a missing payload as fatal: a skipped card here is not a card with
+/// no ability line, it is a card silently recorded as having no back.
+fn render_sides_table(root: &Path) -> anyhow::Result<String> {
+    use anyhow::Context as _;
+    use std::fmt::Write as _;
+
+    let decks_text = fs::read_to_string(root.join("data/acceptance-decks.txt"))?;
+    let rows = acceptance::parse_decks(&decks_text)?;
+    let pool_text = fs::read_to_string(root.join("data/card-pool.txt")).unwrap_or_default();
+    // The pool's own spelling, because that is what the printing is cached
+    // under — the same key stage 5 reads by.
+    let names = acceptance::all_names(&rows, &pool_text);
+    let by_name: BTreeMap<&str, &'static baylee_cards::dsl::CardDef> =
+        baylee_cards::all().map(|def| (def.name(), def)).collect();
+
+    let mut back = Vec::new();
+    let mut dfc = Vec::new();
+    let mut walked = 0usize;
+    for name in &names {
+        let Some(def) = by_name.get(name.split(" // ").next().unwrap_or(name)) else {
+            // Not compiled yet: the two-phase gap, and the next run closes it.
+            continue;
+        };
+        let payload = cached_printing(root, name)
+            .with_context(|| format!("{name}: no cached printing, so its sides cannot be read"))?;
+        let card: scryfall::ScryfallCard = serde_json::from_value(payload)
+            .with_context(|| format!("{name}: cached printing unreadable"))?;
+        let sides = card.sides().map_err(anyhow::Error::msg)?;
+        walked += 1;
+        if sides.back_image {
+            back.push(def.index.get());
+        }
+        if sides.double_faced {
+            dfc.push(def.index.get());
+        }
+    }
+    // The bound that makes this a reader rather than a green run over
+    // nothing: eleven textual readers of this pool have been found answering
+    // a question they could not see, and the one that said so was the one
+    // carrying a floor. A pool that has shrunk below this has a bigger
+    // problem than the table.
+    anyhow::ensure!(
+        walked > 2000,
+        "read only {walked} printings out of {} — this table would be written from almost nothing",
+        names.len()
+    );
+    // Both are strict subsets of a set the pool already knows, and the
+    // arithmetic is the whole finding of #115: a back is not a second name.
+    anyhow::ensure!(
+        !back.is_empty() && !dfc.is_empty(),
+        "no card has a back image ({}) or is double-faced ({}) — the reader has stopped reading",
+        back.len(),
+        dfc.len()
+    );
+    back.sort_unstable();
+    dfc.sort_unstable();
+
+    let mut out = String::new();
+    out.push_str(
+        "// GENERATED by `cargo xtask codegen` \u{2014} do not edit by hand.\n\
+         //\n\
+         // Two questions a client asks about a card's sides, and they are not\n\
+         // the same question. `BACK_IMAGE` is whether Scryfall serves a second\n\
+         // picture for the printing this pool pinned, read off `image_uris` \u{2014}\n\
+         // which Scryfall puts at exactly one of two levels, on the card for one\n\
+         // piece of cardboard and on each face for two. `DOUBLE_FACED` is\n\
+         // CR 712.1: a card with a face on each side and no Magic card back,\n\
+         // in three kinds — nonmodal, modal, and meld.\n\
+         //\n\
+         // They differ, and the difference is why there are two tables: a meld\n\
+         // card is double-faced and has no back image, because Scryfall models\n\
+         // a meld back as a card of its own rather than as a face. Neither is\n\
+         // `faces.len() > 1`, which is a count of what this build compiled and\n\
+         // is the bug this table replaces (#115).\n\
+         //\n\
+         // Sorted, so the reader in `baylee_cards::sides` can binary-search.\n\
+         //\n\
+         // Source: the compiled pool, `baylee_cards::all()`, read against the\n\
+         // cached Scryfall printings — the pool knows which cards exist and\n\
+         // only the printing knows what is on the back of one.\n\
+         #![allow(missing_docs, clippy::all, clippy::pedantic)]\n\n\
+         use baylee_core::ids::CardIndex;\n\n",
+    );
+    for (name, doc, rows) in [
+        (
+            "BACK_IMAGE",
+            "/// Cards whose pinned printing has a second picture.\n",
+            &back,
+        ),
+        (
+            "DOUBLE_FACED",
+            "/// Cards that are double-faced cards under CR 712.1.\n",
+            &dfc,
+        ),
+    ] {
+        out.push_str(doc);
+        let _ = writeln!(out, "pub static {name}: [CardIndex; {}] = [", rows.len());
+        for index in rows {
+            let _ = writeln!(out, "    CardIndex::new({index}),");
+        }
+        out.push_str("];\n\n");
+    }
+    Ok(out)
 }
 
 /// Renders `crates/baylee-cards/src/generated_tokens.rs`: the token ledger.

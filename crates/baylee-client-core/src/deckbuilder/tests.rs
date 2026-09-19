@@ -522,7 +522,8 @@ fn a_two_faced_card_is_found_by_either_of_its_faces() {
             english_name: "Agadeem's Awakening".to_string(),
             alt_names: vec!["Agadeem's Awakening // Agadeem, the Undercrypt".to_string()],
             kinds: vec!["Sorcery".to_string()],
-            two_faced: true,
+            has_back_image: true,
+            double_faced: true,
             ..PoolCard::default()
         }],
         false,
@@ -546,6 +547,66 @@ fn a_two_faced_card_is_found_by_either_of_its_faces() {
     builder.set_text("Agadeem, the Overcrypt");
     assert!(builder.results().is_empty(), "an invented face matched");
 }
+/// `is:dfc` is a claim about the printed card, not about our asset store.
+///
+/// The filter is drawn to the player as "double-faced" and is reached by the
+/// alias `transform`, so it means CR 712.1 — and CR 715.1 makes an adventurer
+/// card a two-part *frame* while CR 709.1 says the back of a split card is
+/// the normal Magic card back. Neither is one.
+///
+/// Both directions are asked, because one field answered both questions
+/// until #115 and every assertion in one direction passed the whole time. A
+/// meld card is double-faced with no second picture; a printing with a second
+/// picture that the rules do not call double-faced is the mirror. If this
+/// filter ever read `has_back_image` again, exactly one of these two lines
+/// goes red.
+#[test]
+fn the_double_faced_filter_follows_the_rules_and_not_the_pictures() {
+    let mut builder = DeckBuilder::default();
+    builder.toggle_playable_only();
+    builder.set_pool(
+        vec![
+            PoolCard {
+                index: 1,
+                name: "Hanweir Battlements".to_string(),
+                english_name: "Hanweir Battlements".to_string(),
+                kinds: vec!["Land".to_string()],
+                has_back_image: false,
+                double_faced: true,
+                ..PoolCard::default()
+            },
+            PoolCard {
+                index: 2,
+                name: "Murderous Rider".to_string(),
+                english_name: "Murderous Rider".to_string(),
+                kinds: vec!["Creature".to_string()],
+                has_back_image: false,
+                double_faced: false,
+                ..PoolCard::default()
+            },
+            PoolCard {
+                index: 3,
+                name: "Only A Picture".to_string(),
+                english_name: "Only A Picture".to_string(),
+                kinds: vec!["Creature".to_string()],
+                has_back_image: true,
+                double_faced: false,
+                ..PoolCard::default()
+            },
+        ],
+        false,
+    );
+
+    // `results` answers positions in the pool it was given, so the meld card
+    // is row 0 and the other two are the counter-examples on either side.
+    builder.set_text("is:dfc");
+    assert_eq!(
+        builder.results(),
+        [0],
+        "the filter should find the meld card and neither of the others"
+    );
+}
+
 /// A printing, as the picker's tests need one.
 fn printing(set: &str, number: &str, lang: &str, finishes: &[&str]) -> Printing {
     Printing {

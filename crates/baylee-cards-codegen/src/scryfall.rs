@@ -63,6 +63,28 @@ pub struct ScryfallCard {
     pub loyalty: Option<String>,
     /// Faces for multi-face layouts.
     pub card_faces: Option<Vec<ScryfallFace>>,
+    /// Art for the card as a whole, when the printing is one piece of card.
+    ///
+    /// Scryfall puts the art at **exactly one** of two levels and never both:
+    /// here for a printing with one physical face, and on each
+    /// [`ScryfallFace`] for one with two. That is the only authoritative
+    /// answer to "does this printing have a back", and it is per *printing* —
+    /// the layout is not, because an Adventure can be printed double-faced
+    /// (`is:dfc layout:adventure` finds three) and would then have a back
+    /// while every other Adventure does not.
+    #[serde(default)]
+    pub image_uris: Option<ScryfallImages>,
+    /// How far along Scryfall's scan of this printing is.
+    ///
+    /// Kept because it is the one thing that tells "Scryfall has published no
+    /// picture yet" apart from "this cache file was written before the
+    /// pictures were read". Both look like art at neither level, and they
+    /// want opposite answers: the first is an honest *no back* and the second
+    /// has to stop the run. Measured: 75 printings answering
+    /// `image_status: missing` carry `image_uris` on no face and none at the
+    /// top either, while every `placeholder` and `lowres` one does.
+    #[serde(default)]
+    pub image_status: Option<String>,
 }
 
 /// One face of a multi-face Scryfall card.
@@ -82,6 +104,136 @@ pub struct ScryfallFace {
     pub toughness: Option<String>,
     /// Loyalty.
     pub loyalty: Option<String>,
+    /// Art for this face alone, when the printing has a face on each side.
+    ///
+    /// Present on both faces of a `transform` or `modal_dfc` printing and on
+    /// neither face of an `adventure`, `split` or `prepare` one, where the two
+    /// faces share a single piece of card. See [`ScryfallCard::image_uris`].
+    #[serde(default)]
+    pub image_uris: Option<ScryfallImages>,
+}
+
+/// The art URLs Scryfall serves for one face, or for a whole one-faced card.
+///
+/// Only `normal` is kept, of the six sizes Scryfall offers: nothing here
+/// fetches art — the client and the gateway's mirror both *construct* a URL
+/// from the printing id — so this is stored to be **asked a question**, not
+/// to be followed. It earns the bytes twice over as the thing a refusal can
+/// print, so a person reading a bail can open the picture the generator was
+/// arguing about.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ScryfallImages {
+    /// The `normal`-size art, if Scryfall named one at this level.
+    pub normal: Option<String>,
+}
+
+/// The three layouts CR 712.1 calls a double-faced card.
+///
+/// "A double-faced card has a Magic card face on one side and either a Magic
+/// card face or half of an oversized card face on the other. (It does not
+/// have a Magic card back.) There are three kinds of double-faced cards:
+/// nonmodal double-faced cards (previously called 'transforming double-faced
+/// cards'), modal double-faced cards, and meld cards." Scryfall's three
+/// layout names for those three kinds, in that order.
+const DOUBLE_FACED_LAYOUTS: [&str; 3] = ["transform", "modal_dfc", "meld"];
+
+/// What a printing says about its own two sides.
+///
+/// Two questions rather than one, answered from different places because they
+/// *are* different: one is a rule about the card, the other a fact about
+/// Scryfall's asset store. In this pool they differ by the two meld cards,
+/// which CR 712.1 calls double-faced and which Scryfall serves no back for —
+/// a meld back is half of an oversized face and lives as a card of its own
+/// rather than as a face of the component.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Sides {
+    /// Scryfall serves a second picture for this printing.
+    ///
+    /// The question a client is really asking when it offers to turn a card
+    /// over, because the URL it would build is Scryfall's `back` shelf.
+    pub back_image: bool,
+    /// A double-faced card in the sense CR 712.1 gives the words.
+    ///
+    /// What the deck builder's "double-faced" filter means, which is a claim
+    /// about the printed card and not about what this client can draw.
+    pub double_faced: bool,
+}
+
+impl ScryfallCard {
+    /// Reads both sides questions off the payload, or says why it cannot.
+    ///
+    /// The back is read from **`image_uris`** and not from the layout, because
+    /// the layout is not the printing: `is:dfc layout:adventure` finds three,
+    /// so a list of layouts that have a back is correct until one of those is
+    /// the printing a card pins, and then it is silently wrong. Scryfall puts
+    /// the art at exactly one of two levels — on the card for one piece of
+    /// cardboard, on each face for two — which is the same question asked of
+    /// the authority instead of of a proxy.
+    ///
+    /// Art at *neither* level has two causes that want opposite answers, and
+    /// `image_status` is what tells them apart. Scryfall omits `image_uris`
+    /// entirely while a scan is unpublished — measured: 75 printings at
+    /// `missing` carry none at either level, every `placeholder` and `lowres`
+    /// one carries them — and that is an honest "no back", because there is no
+    /// picture on either side to draw. A payload with no `image_status` at all
+    /// was written before this generator read these fields, and answering it
+    /// would write "no back" for every double-faced card in the pool, so it
+    /// stops the run instead.
+    ///
+    /// # Errors
+    ///
+    /// A cache file too old to answer, a card whose art is absent for a reason
+    /// Scryfall does not give, and a printing that has a back the rules do not
+    /// account for — see [`DOUBLE_FACED_LAYOUTS`].
+    pub fn sides(&self) -> Result<Sides, String> {
+        let layout = self.layout.as_deref().unwrap_or("normal");
+        let double_faced = DOUBLE_FACED_LAYOUTS.contains(&layout);
+        let faces = self.card_faces.as_deref().unwrap_or_default();
+        let per_face = faces.iter().any(|face| face.image_uris.is_some());
+        let back_image = if per_face {
+            true
+        } else if self.image_uris.is_some() {
+            false
+        } else {
+            match self.image_status.as_deref() {
+                // No scan published, so no back — and no front either. Correct
+                // rather than merely safe: a client that built a back key here
+                // would be asking for a picture nobody has.
+                Some("missing") => false,
+                Some(other) => {
+                    return Err(format!(
+                        "{}: art at neither level with image_status {other:?}, and Scryfall \
+                         omits image_uris only at \"missing\"",
+                        self.name
+                    ));
+                }
+                None => {
+                    return Err(format!(
+                        "{}: this cache file predates image_uris and image_status. Answering it \
+                         would write \"no back\" for every double-faced card in the pool, so run \
+                         `cargo run -p xtask -- scryfall-cache` to refill the cache first.",
+                        self.name
+                    ));
+                }
+            }
+        };
+        if back_image && !double_faced {
+            let art = faces
+                .iter()
+                .find_map(|face| face.image_uris.as_ref()?.normal.as_deref())
+                .unwrap_or("(no normal-size art named)");
+            return Err(format!(
+                "{}: layout {layout:?} has a face on each side ({art}), and CR 712.1 names three \
+                 kinds of double-faced card, none of them that one. Read the printing, then \
+                 either add the layout to DOUBLE_FACED_LAYOUTS or say why it is not one.",
+                self.name
+            ));
+        }
+        Ok(Sides {
+            back_image,
+            double_faced,
+        })
+    }
 }
 
 fn get_json<T: for<'de> Deserialize<'de>>(agent: &ureq::Agent, url: &str) -> Result<T, FetchError> {
@@ -327,10 +479,22 @@ const BULK_THRESHOLD: usize = 50;
 /// goes wrong is reported and leaves the per-card path behind it to fill what
 /// is still missing, which is what makes the pair self-healing. A stream that
 /// dies halfway leaves the cards it did write, and they are correct.
-pub fn fill_from_bulk(names: &[String], agent: &ureq::Agent, cache_dir: &Path) -> usize {
+pub fn fill_from_bulk(
+    names: &[String],
+    agent: &ureq::Agent,
+    cache_dir: &Path,
+    refetch: bool,
+) -> usize {
+    // `refetch` is for a change to *this* struct rather than to Scryfall's
+    // rows: the cache holds whatever `ScryfallCard` declares, so a new field
+    // leaves every held file without it and a run that fills only what is
+    // missing fills nothing at all. Non-destructive on purpose — the files
+    // are replaced one at a time as the stream arrives, so a download that
+    // dies halfway leaves a cache that is older than it should be rather
+    // than one that is empty.
     let missing: Vec<&String> = names
         .iter()
-        .filter(|n| !cache_dir.join(format!("{}.json", slug(n))).exists())
+        .filter(|n| refetch || !cache_dir.join(format!("{}.json", slug(n))).exists())
         .collect();
     if missing.len() < BULK_THRESHOLD {
         return 0;
@@ -366,8 +530,9 @@ pub fn fill_from_bulk(names: &[String], agent: &ureq::Agent, cache_dir: &Path) -
         return 0;
     }
     eprintln!(
-        "scryfall: {} payloads missing, one {BULK_FEED} download instead of {} requests",
+        "scryfall: {} payloads {}, one {BULK_FEED} download instead of {} requests",
         missing.len(),
+        if refetch { "to rewrite" } else { "missing" },
         missing.len()
     );
 

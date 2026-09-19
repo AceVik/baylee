@@ -20,10 +20,11 @@ pub struct HoverCard {
     pub url: Option<String>,
     /// The back face's art, for a card that is printed on both sides.
     ///
-    /// `None` for a single-faced card, and that is the whole check: a URL for
-    /// the back can be built for any printing and Scryfall answers 404 for
-    /// the ones that have no back, so what decides is the registry's face
-    /// count, which arrives on the pool row.
+    /// `None` for a card with one picture, and that is the whole check: a URL
+    /// for the back can be built for any printing and Scryfall answers 404 for
+    /// the ones that have no back, so what decides is `has_back_image` on the
+    /// pool row — read off the printing, never off the registry's compiled
+    /// face count, which said yes to nine Adventures and two Splits (#115).
     pub back_url: Option<String>,
     /// How the printing is finished, so a foil previews as one.
     pub finish: FinishTreatment,
@@ -214,7 +215,7 @@ pub(crate) fn hover_of_card(card: &baylee_client_core::deckbuilder::PoolCard) ->
             baylee_client_core::images::ArtSize::Normal,
         ),
         back_url: card
-            .two_faced
+            .has_back_image
             .then(|| {
                 baylee_client_core::images::image_url(
                     &entry,
@@ -255,7 +256,7 @@ pub(crate) fn hover_of_entry(
             baylee_client_core::images::ArtSize::Normal,
         ),
         back_url: card
-            .two_faced
+            .has_back_image
             .then(|| {
                 baylee_client_core::images::image_url(
                     &entry,
@@ -278,4 +279,64 @@ pub(super) fn starter_rows() -> Vec<String> {
         .filter(|row| row.deck == STARTER && row.zone == Zone::Main)
         .map(|row| format!("{} {}", row.count, row.name))
         .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::hover_of_card;
+    use baylee_client_core::deckbuilder::PoolCard;
+
+    /// A pool row with one printing id and whichever sides flags a test wants.
+    fn row(has_back_image: bool, double_faced: bool) -> PoolCard {
+        PoolCard {
+            // A well-formed Scryfall id, or `image_url` refuses before the
+            // question this test is asking is ever reached.
+            scryfall_id: "2f40613b-1bde-4939-86ad-6bd40f9db0d6".to_string(),
+            has_back_image,
+            double_faced,
+            ..PoolCard::default()
+        }
+    }
+
+    /// The preview offers a back only for a card that has one.
+    ///
+    /// Both directions, because the front URL is built either way and a
+    /// preview that offered a flip on everything would look identical here
+    /// to one that offered it on nothing.
+    #[test]
+    fn only_a_card_with_a_second_picture_is_offered_a_back() {
+        assert!(
+            hover_of_card(&row(true, true)).back_url.is_some(),
+            "a double-faced card has a back to preview"
+        );
+        assert!(
+            hover_of_card(&row(false, false)).back_url.is_none(),
+            "an ordinary card has none"
+        );
+        assert!(
+            hover_of_card(&row(true, true)).url.is_some(),
+            "the front is built either way, so the back is what this measures"
+        );
+    }
+
+    /// The **rules** answer does not reach this preview, and must not.
+    ///
+    /// A meld card is double-faced under CR 712.1 and Scryfall serves no
+    /// second picture for it, so a preview keyed on `double_faced` would
+    /// build a URL that answers 404 — which is exactly the failure #115 was
+    /// about, one field standing in for two questions. Injected from the
+    /// other side too: a printing with a back that the rules do not call
+    /// double-faced still gets its back, because what the preview needs is a
+    /// picture and not a classification.
+    #[test]
+    fn the_preview_asks_for_a_picture_and_not_for_a_classification() {
+        assert!(
+            hover_of_card(&row(false, true)).back_url.is_none(),
+            "a meld card is double-faced with nothing at the back shelf"
+        );
+        assert!(
+            hover_of_card(&row(true, false)).back_url.is_some(),
+            "a printing with a second picture has one whatever it is called"
+        );
+    }
 }

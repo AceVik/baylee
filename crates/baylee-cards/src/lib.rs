@@ -21,6 +21,8 @@ pub mod generated;
 pub mod generated_lines;
 /// Generated: the name table — which card a printed English name is.
 pub mod generated_names;
+/// Generated: which cards have a back, and which are double-faced.
+pub mod generated_sides;
 /// Generated: the token ledger — which id every token there is was assigned.
 pub mod generated_tokens;
 /// Which printed sentence an ability came from (the reader of
@@ -31,6 +33,8 @@ pub mod lines;
 mod lints;
 /// The registry as deck-builder rows — what a deck may be built from.
 pub mod pool;
+/// Whether a card has a back to show, and whether it is double-faced.
+pub mod sides;
 /// Central named token definitions (referenced by card files).
 pub mod tokens;
 

@@ -758,3 +758,54 @@ fn the_pool_carries_the_spelling_a_deck_row_may_use() {
         "{front} should carry exactly its whole spelling with no catalog"
     );
 }
+
+/// `/pool` answers "has a back" and "is double-faced" as two fields.
+///
+/// They were one bit — `two_faced`, computed as `def.faces.len() > 1` — and
+/// it was wrong in both directions: twelve cards were offered a back they do
+/// not have, and the count is what this build compiled rather than what the
+/// printing shows (#115). The fields are checked against the registry's own
+/// tables rather than against a card named here, so the test measures the
+/// route and not a fact it restates.
+#[test]
+fn the_pool_says_which_cards_have_a_back_and_which_are_double_faced() {
+    use baylee_cards::sides::{double_faced, has_back_image};
+
+    let gateway = spawn_gateway("pool-sides");
+    let (status, body) = http(gateway.port, "GET", "/pool", None, "");
+    assert_eq!(status, 200, "{body}");
+    let rows: serde_json::Value = serde_json::from_str(&body).expect("pool is json");
+    let rows = rows["cards"].as_array().expect("cards is a list").clone();
+    assert!(rows.len() > 2000, "only {} rows in the pool", rows.len());
+
+    let mut with_back = 0;
+    let mut dfc = 0;
+    let mut only_dfc = Vec::new();
+    for row in &rows {
+        let index = baylee_core::ids::CardIndex::new(
+            u32::try_from(row["index"].as_u64().expect("an index")).expect("a u32"),
+        );
+        // `skip_serializing_if` means the field is simply absent when false,
+        // which is a `false` the client's `#[serde(default)]` restores.
+        let back = row["has_back_image"].as_bool().unwrap_or(false);
+        let both = row["double_faced"].as_bool().unwrap_or(false);
+        assert_eq!(back, has_back_image(index), "back of {}", row["name"]);
+        assert_eq!(both, double_faced(index), "sides of {}", row["name"]);
+        with_back += usize::from(back);
+        dfc += usize::from(both);
+        if both && !back {
+            only_dfc.push(row["english_name"].as_str().unwrap_or("?").to_string());
+        }
+    }
+    assert!(
+        with_back > 50 && dfc > 50,
+        "only {with_back} with a back and {dfc} double-faced — the route is serving neither"
+    );
+    // The finding the two fields exist for: a meld card is double-faced under
+    // CR 712.1 and Scryfall serves no back for it. One field could not have
+    // said both, and a test that only counted would pass with them equal.
+    assert!(
+        !only_dfc.is_empty(),
+        "every double-faced card is served a back, so the two fields are one field again"
+    );
+}

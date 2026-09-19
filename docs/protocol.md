@@ -992,6 +992,25 @@ card, so `Demonic Tutor` stays Demonic Tutor there (`docs/card-identity.md`),
 while a search *offers*, and showing every card that prints a name is what a
 search is for.
 
+Two more flags say what is on a card's **sides**, and they are two because
+they are two questions. `has_back_image` is whether Scryfall serves a second
+picture for the printing this pool pinned — what the preview and the hover
+overlay need, because the URL they would otherwise build answers 404.
+`double_faced` is CR 712.1, "a Magic card face on one side and either a Magic
+card face or half of an oversized card face on the other. (It does not have a
+Magic card back.)", in three kinds: nonmodal, modal and meld. That is what the
+builder's `is:dfc` filter means, and it is a claim about the printed card
+rather than about what a client can draw. Both are omitted when false.
+
+They differ by the **meld** cards, which are double-faced and have no back
+image, because Scryfall keeps a meld back as a card of its own rather than as
+a face — 110 against 108 in this pool. One field answered both until it was
+found to be neither: it was `def.faces.len() > 1`, a count of what the build
+compiled, and it said yes to nine Adventures and two Splits, which print both
+halves on one piece of card. Read off the printing's `image_uris` now, and not
+off the layout, because an Adventure *can* be printed double-faced and the
+layout would then be wrong in the other direction.
+
 `GET /printings?card=<registry index>` is the other half of that trade: the
 list stays short by naming cards, and a player who wants a particular piece of
 cardboard asks for it. The answer is every printing of that card the catalog

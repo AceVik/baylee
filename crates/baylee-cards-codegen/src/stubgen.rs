@@ -1173,6 +1173,8 @@ mod tests {
             toughness: None,
             loyalty: None,
             card_faces: None,
+            image_uris: None,
+            image_status: None,
         }
     }
 
@@ -1241,6 +1243,7 @@ mod tests {
             power: None,
             toughness: None,
             loyalty: None,
+            image_uris: None,
         };
         let front = back("Land", None);
 
