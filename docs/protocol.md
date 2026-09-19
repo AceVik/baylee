@@ -863,6 +863,56 @@ which already knows every seat's deck — with the seat token it is already
 holding. `VIEW_VERSION` is untouched by any of this, and a client that does
 not ask simply plays with generated backs.
 
+### Which clock a table plays at
+
+Every game this gateway hosted ran the same clock — 600 s to decide and 60 s
+to reconnect — because nothing between a room and a `GamePreset` ever wrote
+`HouseRules`. **The wire was never the missing part:** the gateway sends the
+whole preset to the engine as JSON, house rules included, and gamehost has
+always decoded them. What was missing was a way to say which one.
+
+`POST /lobby/games` takes `clock` (a name) and, overriding it,
+`decision_timeout_secs` and `reconnect_window_secs`. Nothing said is `casual`,
+which is exactly what every table played at before, so no existing caller
+changes behaviour. There is no `custom` sentinel: a name picks a row and a
+number replaces one field of it, so "blitz but longer to come back" needs no
+fifth preset.
+
+| name | decide | reconnect | |
+| --- | --- | --- | --- |
+| `casual` | 600 | 60 | the default, and the old behaviour |
+| `standard` | 120 | 60 | |
+| `blitz` | 30 | 30 | |
+| `untimed` | 0 | 60 | no decision clock at all |
+
+`GET /auth/config` publishes this table with a one-line blurb each, so a
+client builds its picker from what the gateway accepts rather than from a
+copy that goes stale.
+
+**Zero is not symmetric, and that is deliberate.** A `decision_timeout_secs`
+of zero is a *choice*: the engine reads it as no deadline (`clock()` returns
+`None`), which is the only way to play a game that cannot be lost on time. A
+`reconnect_window_secs` of zero is **refused**, although the engine would
+accept it — with no stand-in clock a seat whose player closed their laptop is
+on no clock at all and the whole table waits on them forever, which is the
+exact failure `reconnect_window_secs` was added to end. That is a gateway
+policy about hosting strangers, not a rules one; a local harness may still
+choose it. Anything between 1 and 9 seconds is refused on both, and an hour is
+the ceiling: under ten seconds is not a fast game, it is one nobody can read a
+board in.
+
+**The limit is in the listing and not in the game.** Every lobby row carries
+`clock: { decide_secs, reconnect_secs }`, because a player choosing a table is
+choosing a pace and finding out by losing a decision is not a choice. It is
+deliberately *not* sent to a seat during play: the in-game warning is drawn
+from the remaining time alone, so a thirty-second table does not get a clock
+for three seconds. A room has no preset until it starts, which is why the
+number lives on the lobby model rather than being read back off one.
+
+A rematch inherits the clock. Pressing *play again* at a blitz table is a
+request for another blitz game, and there is no screen between the button and
+the new room on which anyone could have said otherwise.
+
 ### Rooms
 
 A table with more than two chairs is a **room**, and the whole of it is

@@ -181,6 +181,12 @@ pub struct LobbyGame {
     /// The preset the engine is asked to build the game from (present once
     /// both seats are decided).
     pub preset: Option<GamePreset>,
+    /// The clock this table plays at, chosen when the room was opened.
+    ///
+    /// Kept on the room rather than only in the preset because a room has no
+    /// preset until it starts — the listing has to be able to say what pace a
+    /// table plays at while a player is still deciding whether to sit down.
+    pub house_rules: baylee_core::preset::HouseRules,
     /// SHA-256 of the token the engine proves itself with. One game's worth
     /// of authority: it is issued when the engine is ordered and is useless
     /// for anything but attaching to this game.
@@ -331,6 +337,7 @@ impl LobbyGame {
             name: String::new(),
             seats: Vec::new(),
             preset: None,
+            house_rules: baylee_core::preset::HouseRules::default(),
             engine_token_hash: None,
             agent_id: None,
             engine: None,
@@ -373,6 +380,11 @@ impl LobbyGame {
             }),
             name: parent.name.clone(),
             seats: parent.seats.iter().map(LobbySeat::again).collect(),
+            // The clock travels with the arrangement. Pressing *play again*
+            // at a blitz table is a request for another blitz game, and
+            // there is no screen between the button and the new room on
+            // which anybody could have said otherwise.
+            house_rules: parent.house_rules.clone(),
             password_hash: parent.password_hash.clone(),
             next_seq: parent.next_seq,
             parent: Some(parent.id.clone()),
@@ -621,6 +633,19 @@ impl Lobby {
                     // `200`, and leave the player looking at a chair that
                     // still says it is not ready.
                     "rematch": g.parent.is_some(),
+                    // What pace this table plays at, stated once, here.
+                    //
+                    // The limit is *not* sent to a seat during a game — see
+                    // `#69`, which draws its warning from the remaining time
+                    // alone so that a thirty-second table does not get a
+                    // clock for three seconds. But the same design asks for
+                    // the limit to be said once in the room, and this is the
+                    // room: a player choosing a table is choosing a pace,
+                    // and finding out by losing a decision is not a choice.
+                    "clock": {
+                        "decide_secs": g.house_rules.decision_timeout_secs,
+                        "reconnect_secs": g.house_rules.reconnect_window_secs,
+                    },
                     // Everything a player needs to decide whether to sit
                     // down: how many chairs, which are people, which are the
                     // AI and how hard, and what everyone brought. A room is

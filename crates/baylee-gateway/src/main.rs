@@ -8,6 +8,7 @@
 
 mod art;
 mod auth;
+mod clock;
 mod cosmetics;
 mod engine;
 mod handle;
@@ -398,11 +399,35 @@ struct Credentials {
 
 #[derive(Serialize)]
 struct ErrorBody {
-    error: &'static str,
+    /// Borrowed for the constant messages, owned for the few that have to
+    /// name a value back to the caller.
+    ///
+    /// `Cow` rather than `String` everywhere: almost every refusal in this
+    /// file is a fixed sentence, and making them all allocate to serve the
+    /// handful that cannot would be paying for the exception on every path.
+    error: std::borrow::Cow<'static, str>,
 }
 
 fn err(status: StatusCode, message: &'static str) -> (StatusCode, Json<ErrorBody>) {
-    (status, Json(ErrorBody { error: message }))
+    (
+        status,
+        Json(ErrorBody {
+            error: std::borrow::Cow::Borrowed(message),
+        }),
+    )
+}
+
+/// The same, for a refusal that has to quote what the caller sent.
+///
+/// A message that says only "bad clock" makes the caller guess; one that
+/// names the clocks there are answers the request and the next one.
+fn err_saying(status: StatusCode, message: String) -> (StatusCode, Json<ErrorBody>) {
+    (
+        status,
+        Json(ErrorBody {
+            error: std::borrow::Cow::Owned(message),
+        }),
+    )
 }
 
 /// The IP a rate limit is keyed on: the real peer address, unless the
@@ -594,6 +619,16 @@ async fn auth_config(State(state): State<Shared>) -> Json<serde_json::Value> {
         // rather than discovering it one blank card at a time.
         "art_cache": state.art.enabled(),
         "deck_images": state.deck_images.enabled(),
+        // The clocks a room may be opened at, so a client builds its picker
+        // from what this gateway actually accepts instead of hard-coding a
+        // list that goes stale the day one is added. The first is the
+        // default, which is what a room gets by saying nothing.
+        "clocks": clock::PRESETS.iter().map(|preset| serde_json::json!({
+            "name": preset.name,
+            "decide_secs": preset.decision_timeout_secs,
+            "reconnect_secs": preset.reconnect_window_secs,
+            "blurb": preset.blurb,
+        })).collect::<Vec<_>>(),
     }))
 }
 
@@ -1783,6 +1818,15 @@ struct CreateGameBody {
     /// A password for the room. Empty or absent leaves it open.
     #[serde(default)]
     password: String,
+    /// Which clock this table plays at, by name. See `clock::PRESETS`.
+    #[serde(default)]
+    clock: Option<String>,
+    /// Seconds to answer one question, overriding whatever `clock` gave.
+    #[serde(default)]
+    decision_timeout_secs: Option<u32>,
+    /// Seconds a seat may be gone before the house answers for it, same.
+    #[serde(default)]
+    reconnect_window_secs: Option<u32>,
 }
 
 /// The most seats a room may have.
@@ -2113,7 +2157,13 @@ fn try_start(state: &Shared, id: &str) -> Result<bool, (StatusCode, Json<ErrorBo
         if game.state != LobbyState::Waiting || !game.seats.iter().all(lobby::LobbySeat::ready) {
             return Ok(false);
         }
-        let preset = room_preset(&game.seats, auth::new_game_seed())?;
+        let mut preset = room_preset(&game.seats, auth::new_game_seed())?;
+        // The room's clock, onto the preset the engine is about to be given.
+        // This is the one line the whole ticket was missing: the wire already
+        // carried `HouseRules` — the gateway sends the preset as JSON and
+        // gamehost has always decoded it — so every table ran the default
+        // purely because nothing here ever wrote to this field.
+        preset.house_rules = game.house_rules.clone();
         prints = table_prints(&preset);
         game.preset = Some(preset);
         game.state = LobbyState::Playing;
@@ -2143,12 +2193,21 @@ async fn create_game(
     let (deck_name, deck) = own_deck(&state, &account_id, &body.deck_id).await?;
     let game_id = auth::new_id();
     let seat_token = auth::new_token();
+    // Before anything is built, because a room refused for its clock should
+    // cost nothing and leave nothing behind.
+    let house_rules = clock::resolve(
+        body.clock.as_deref(),
+        body.decision_timeout_secs,
+        body.reconnect_window_secs,
+    )
+    .map_err(|reason| err_saying(StatusCode::BAD_REQUEST, reason))?;
 
     // The one-tap game against the house AI keeps its own path: it is a whole
     // table decided in one request, and nobody is going to configure it.
     if body.mode == "ai" {
         {
             let mut preset = ai_preset(&deck, auth::new_game_seed())?;
+            preset.house_rules = house_rules.clone();
             preset.seats[0].controller = baylee_core::preset::SeatController::Open;
             state.art.warm(table_prints(&preset));
             let mut seats = vec![lobby::LobbySeat::open(0), lobby::LobbySeat::open(1)];
@@ -2159,7 +2218,8 @@ async fn create_game(
             seats[1].kind = lobby::SeatKind::Ai;
             seats[1].ai = Some("steady".to_string());
             seats[1].deck_name = "house AI".to_string();
-            let game = LobbyGame::playing(game_id.clone(), seats, preset, auth::now_secs());
+            let mut game = LobbyGame::playing(game_id.clone(), seats, preset, auth::now_secs());
+            game.house_rules = house_rules;
             state.lobby.lock().games.insert(game_id.clone(), game);
         }
         if let Err(reason) = engine::start_engine(&state, &game_id) {
@@ -2194,6 +2254,7 @@ async fn create_game(
             auth::now_secs(),
         );
         game.seats[0].seat_token_hash = Some(auth::token_hash(&seat_token));
+        game.house_rules = house_rules;
         if !body.password.is_empty() {
             game.password_hash = Some(auth::token_hash(&body.password));
         }

@@ -319,6 +319,31 @@ pub const WAIT_STEP: std::time::Duration = std::time::Duration::from_millis(100)
 /// is registered is refused, which is correct and is not what a test about
 /// something else wants to discover.
 pub async fn attach_agent(gateway: &Gateway) -> tokio::task::JoinHandle<()> {
+    attach_agent_watching(gateway).await.0
+}
+
+/// The same agent, plus every `GamePreset` the gateway hands an engine.
+///
+/// The preset is the one thing in this circle that a test cannot otherwise
+/// see: it travels gateway → engine as JSON on a socket no player holds, so
+/// a test asking "did the room's choice actually reach the rules" has to
+/// stand where the engine stands. Dropping the receiver is fine — the send
+/// is unbounded and its error is ignored — which is why [`attach_agent`] can
+/// be this function with the channel thrown away.
+pub async fn attach_agent_watching(
+    gateway: &Gateway,
+) -> (
+    tokio::task::JoinHandle<()>,
+    tokio::sync::mpsc::UnboundedReceiver<baylee_core::preset::GamePreset>,
+) {
+    let (presets, seen) = tokio::sync::mpsc::unbounded_channel();
+    (attach_agent_inner(gateway, presets).await, seen)
+}
+
+async fn attach_agent_inner(
+    gateway: &Gateway,
+    presets: tokio::sync::mpsc::UnboundedSender<baylee_core::preset::GamePreset>,
+) -> tokio::task::JoinHandle<()> {
     let url = format!("ws://127.0.0.1:{}/agent/ws", gateway.port);
     let mut ws = dial(&url).await.expect("agent socket");
     send(
@@ -340,7 +365,7 @@ pub async fn attach_agent(gateway: &Gateway) -> tokio::task::JoinHandle<()> {
     tokio::spawn(async move {
         while let Some(msg) = next_msg(&mut ws).await {
             if let v1::envelope::Msg::StartEngine(start) = msg {
-                tokio::spawn(run_engine(start));
+                tokio::spawn(run_engine(start, presets.clone()));
             }
         }
     })
@@ -351,7 +376,10 @@ pub async fn attach_agent(gateway: &Gateway) -> tokio::task::JoinHandle<()> {
 /// No decision clock: a test that wants a seat to run out of time can say so
 /// itself, and a clock running under every other test would only add a way for
 /// them to fail on a slow machine.
-async fn run_engine(start: v1::StartEngine) {
+async fn run_engine(
+    start: v1::StartEngine,
+    presets: tokio::sync::mpsc::UnboundedSender<baylee_core::preset::GamePreset>,
+) {
     let Some(mut ws) = dial(&start.gateway_url).await else {
         return;
     };
@@ -367,6 +395,11 @@ async fn run_engine(start: v1::StartEngine) {
     .await;
     let mut runner = EngineRunner::new();
     while let Some(msg) = next_msg(&mut ws).await {
+        if let v1::envelope::Msg::GameSetup(setup) = &msg
+            && let Ok(preset) = serde_json::from_slice(&setup.preset_json)
+        {
+            let _ = presets.send(preset);
+        }
         for out in runner.handle(Envelope { msg: Some(msg) }) {
             send(&mut ws, &out).await;
         }
