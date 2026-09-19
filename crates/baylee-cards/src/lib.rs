@@ -389,6 +389,13 @@ mod tests {
                     AbilityDef::Activated { cost, .. }
                     | AbilityDef::ActivatedConditional { cost, .. } => add(&cost.mana),
                     AbilityDef::Echo { cost } => add(cost),
+                    // `ModalTriggered` carries `SpellMode`s too and is not
+                    // read here, which is a statement rather than the
+                    // forgotten twin it looks like: a triggered ability is
+                    // never cast, so it has no printed cost for a mode to
+                    // override, and `no_modal_trigger_overrides_a_cost`
+                    // below is what holds that — and is what would fail
+                    // first if a card ever put a cost there.
                     AbilityDef::ModalSpell { modes } => {
                         for mode in *modes {
                             if let Some(cost) = mode.cost_override {
@@ -408,6 +415,52 @@ mod tests {
         assert!(
             offenders.is_empty(),
             "color identity narrower than the card's own costs: {offenders:?}"
+        );
+    }
+
+    /// A mode of a modal **trigger** never overrides a cost.
+    ///
+    /// `SpellMode` is one struct serving both modal variants, so a modal
+    /// trigger's mode structurally carries a `cost_override` — and there
+    /// is nothing for it to override: a triggered ability is put on the
+    /// stack by the game and is never cast, so it has no printed cost
+    /// (CR 603.3) and nobody pays for a mode of it. The field is overload's
+    /// (`AbilityDef::ModalSpell`), and this is what says the six modal
+    /// triggers in the pool leave it alone.
+    ///
+    /// It is here because the lint is cheaper than the arm it replaces.
+    /// `no_card_costs_a_colour_its_identity_leaves_out` reads
+    /// `ModalSpell`'s modes and not `ModalTriggered`'s, which in a repo
+    /// that has just been through `ActivatedConditional` reads exactly
+    /// like the same omission — so the reason it is *not* one is written
+    /// as a test rather than as a claim, and the day a card disagrees this
+    /// fails first and names it.
+    #[test]
+    fn no_modal_trigger_overrides_a_cost() {
+        use baylee_cards_dsl::AbilityDef;
+
+        let mut seen = 0usize;
+        for (_, def) in generated::ALL {
+            for face in 0..def.faces.len() {
+                for ability in def.abilities_for_face(face) {
+                    let AbilityDef::ModalTriggered { modes, .. } = ability else {
+                        continue;
+                    };
+                    seen += 1;
+                    for (at, mode) in modes.iter().enumerate() {
+                        assert!(
+                            mode.cost_override.is_none(),
+                            "{} face {face} mode {at} is a trigger's and prices itself",
+                            def.name()
+                        );
+                    }
+                }
+            }
+        }
+        assert!(
+            seen >= 7,
+            "only {seen} modal triggers in the pool, so this proves nothing; \
+             six cards print seven of them"
         );
     }
 

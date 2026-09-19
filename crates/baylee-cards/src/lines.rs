@@ -64,18 +64,25 @@ pub struct FaceLines {
     /// entry, and for one no sentence fits — a keyword-printed echo or
     /// evoke trigger has no sentence of its own to point at.
     pub lines: &'static [Option<u8>],
-    /// Per mode of this face's modal spell, in `SpellMode` order: which
-    /// printed sentence the mode is.
+    /// Per mode this face offers, in `SpellMode` order: which printed
+    /// sentence the mode is.
     ///
-    /// A mode is not an ability and has no row in `lines`: the whole card
-    /// is the `AbilityDef::ModalSpell`'s text, and what a player picks
-    /// between are the sentences *inside* it. The engine names one as
-    /// `CastModeKind::Mode(i)` and says nothing else about it, so without
-    /// this a chooser can only offer two numbers.
+    /// A mode is not an ability and has no row in `lines`: the whole
+    /// ability is one sentence or one block of them, and what a player
+    /// picks between are the sentences *inside* it. The engine names one
+    /// as `CastModeKind::Mode(i)` and says nothing else about it, so
+    /// without this a chooser can only offer two numbers.
     ///
-    /// Empty for a face with no modal spell, and all `None` for one whose
+    /// Both kinds of modal ability, which [`face_modes`] is the reading
+    /// of: a modal **spell** (Cyclonic Rift's overload) and a modal
+    /// **trigger** (Charming Prince's "choose one" on entering). Reading
+    /// the spell alone is how every one of the pool's six modal triggers
+    /// arrived here with no row — see #54.
+    ///
+    /// Empty for a face with no modal ability, and `None` per mode whose
     /// printing `baylee_cards_codegen::lines::map_modes` could not read
-    /// whole.
+    /// whole — including, by construction, the effect-less mode a player
+    /// declines "choose up to one" with, which a card prints nowhere.
     pub modes: &'static [Option<u8>],
     /// Per alternative cost of this face, in `alternative_costs` order:
     /// which printed sentence states it.
@@ -117,19 +124,68 @@ pub fn ability_line(card: CardIndex, face: usize, index: u32) -> Option<AbilityL
     })
 }
 
-/// Which printed sentence one **mode** of a modal spell is, if it is known.
+/// The modes one face offers, whichever kind of modal ability offers them.
+///
+/// Both variants, and that is the whole of the fix this function exists
+/// for. [`baylee_cards_dsl::AbilityDef::ModalTriggered`] is `ModalSpell`'s
+/// forgotten twin — the same shape as `Activated`/`ActivatedConditional`,
+/// the same kind of miss — and reading only the spell left every modal
+/// *trigger* in the pool with an empty [`FaceLines::modes`] row — six
+/// cards, whose chooser drew "Mode 1 / Mode 2" over a card that prints the
+/// sentences: Charming Prince; Aether Channeler; Ertai Resurrected;
+/// Primaris Eliminator; Derevi, Empyrial Tactician; and Inspirit, Flagship
+/// Vessel. Nothing said so, because an empty row is also what a card with
+/// no modal ability at all has. See #54.
+///
+/// It takes the **first** modal ability's modes and is right to, but only
+/// because a lint says so. `CastModeKind::Mode(i)` names a mode and not
+/// the ability it belongs to — the engine's `ChooseCastMode` carries an
+/// `ObjectId` and nothing else — so a face whose modal abilities offered
+/// *different* modes could not be labelled at all, whatever this table
+/// held. Derevi is the pool's face with two of them: one printed sentence,
+/// two trigger conditions, two `modal_triggered!` abilities over one set
+/// of modes. `a_face_offers_one_set_of_modes` is what keeps that true as
+/// cards are added, rather than this paragraph.
+///
+/// It lives here rather than in `xtask` because both ends need the same
+/// reading: the walk that *writes* the table, and the tests that hold the
+/// table against the pool. Two spellings of it is how the first one went
+/// unnoticed.
+#[must_use]
+pub fn face_modes(
+    abilities: &[baylee_cards_dsl::AbilityDef],
+) -> &'static [baylee_cards_dsl::SpellMode] {
+    use baylee_cards_dsl::AbilityDef;
+
+    abilities
+        .iter()
+        .find_map(|a| match a {
+            AbilityDef::ModalSpell { modes } | AbilityDef::ModalTriggered { modes, .. } => {
+                Some(*modes)
+            }
+            _ => None,
+        })
+        .unwrap_or(&[])
+}
+
+/// Which printed sentence one **mode** is, if it is known.
 ///
 /// The twin of [`ability_line`] for `CastModeKind::Mode(i)`, and every
 /// bound is checked here for the same reason: a cast chooser builds its
 /// rows from whatever the engine has just offered, so a card that has
 /// since changed face, a mode index from a pool the client does not have,
-/// and a card with no modal spell at all must all answer `None` rather
+/// and a card with no modal ability at all must all answer `None` rather
 /// than take the game down over a label.
 ///
-/// The face is **0** for every caller there is today — the engine reads
-/// `def.abilities_for_face(0)` when it enumerates modes, so `Mode(i)` is
-/// always about the front — but it is asked for rather than assumed,
-/// because that is a fact about `cast_wizard` and not about this table.
+/// A mode of a modal **trigger** is asked for through here too — the
+/// engine asks both with one `Pending::ChooseCastMode` — which is what
+/// [`face_modes`] is the reading of.
+///
+/// The face is **0** for every caller there is today — `cast_wizard` reads
+/// `def.abilities_for_face(0)` when it enumerates modes, and every modal
+/// trigger in the pool is on a front face — but it is asked for rather
+/// than assumed, because that is a fact about the callers and not about
+/// this table.
 #[must_use]
 pub fn mode_line(card: CardIndex, face: usize, mode: usize) -> Option<AbilityLine> {
     let face = crate::generated_lines::ABILITY_LINES
@@ -332,14 +388,12 @@ mod tests {
                     def.abilities_for_face(face).len(),
                     lines.lines.len()
                 );
-                let modes = def
-                    .abilities_for_face(face)
-                    .iter()
-                    .find_map(|a| match a {
-                        baylee_cards_dsl::AbilityDef::ModalSpell { modes } => Some(modes.len()),
-                        _ => None,
-                    })
-                    .unwrap_or(0);
+                // Both modal variants, which is what this line was missing:
+                // counted over `ModalSpell` alone it agreed with a table
+                // that had no row for a single modal *trigger* in the
+                // pool, and said so for as long as both were wrong
+                // together. See #54.
+                let modes = super::face_modes(def.abilities_for_face(face)).len();
                 assert!(
                     lines.modes.len() == modes,
                     "{} face {face} prints {modes} modes and {} rows",
@@ -357,32 +411,83 @@ mod tests {
         }
     }
 
-    /// Every mode and every alternative cost in the pool knows which
-    /// sentence it is.
+    /// The pool's modal abilities whose choice is printed **inside** one
+    /// sentence instead of as a bulleted list.
     ///
-    /// An **equality** rather than a floor, which is what separates it from
-    /// `nearly_every_stack_ability_knows_its_printed_sentence` above. An
-    /// ability is allowed to have no sentence of its own — a static is
+    /// Derevi prints "you may tap or untap target permanent" and Inspirit
+    /// "put your choice of a +1/+1 counter or two charge counters" — one
+    /// sentence carrying both modes, so neither mode *is* a sentence and
+    /// the number a chooser falls back to is the honest label. A named
+    /// list rather than a tolerance, so that a modal card added tomorrow
+    /// that reads as unknown stops a build and is looked at, rather than
+    /// joining these two in silence.
+    const MODES_PRINTED_INLINE: &[&str] =
+        &["Derevi, Empyrial Tactician", "Inspirit, Flagship Vessel"];
+
+    /// Every mode and every alternative cost in the pool knows which
+    /// sentence it is, or there is a printed reason it cannot.
+    ///
+    /// An alternative cost is an **equality**, which is what separates it
+    /// from `nearly_every_stack_ability_knows_its_printed_sentence` above.
+    /// An ability is allowed to have no sentence of its own — a static is
     /// many-to-one with the printing, and evoke's trigger is printed as a
-    /// keyword line — while a mode and an alternative cost *are* printed
-    /// sentences by construction: a card states what you may do instead, or
-    /// it does not offer the option at all. A miss here is therefore the
-    /// reader needing work rather than a fact about the pool, and what it
-    /// costs is the thing this table exists to remove — a chooser row
-    /// reading "Mode 2".
+    /// keyword line — while an alternative cost *is* a printed sentence by
+    /// construction: a card states what you may do instead, or it does not
+    /// offer the option at all. A miss there is the reader needing work
+    /// rather than a fact about the pool, and what it costs is the thing
+    /// this table exists to remove — a chooser row reading "Mode 2".
+    ///
+    /// A **mode** was the same equality until modal triggers reached this
+    /// table at all (#54), and the wider population is what showed the
+    /// claim to be a fact about modal *spells* rather than about modes.
+    /// Two printings answer to nothing this table can hold: a mode that
+    /// does nothing, which is how a player declines "choose up to one" and
+    /// which is printed nowhere (Ertai Resurrected's third), and a choice
+    /// stated inside one sentence ([`MODES_PRINTED_INLINE`]). Both are
+    /// asserted from the side that says which — an effect-less mode must
+    /// know *no* sentence, and the inline ones are named — so the
+    /// exception cannot quietly widen.
     #[test]
     fn every_mode_and_alternative_cost_knows_its_printed_sentence() {
-        let mut seen = 0usize;
+        use baylee_cards_dsl::AbilityDef;
+
+        let mut modes_known = 0usize;
+        let mut modal_faces = 0usize;
+        let mut alternatives_known = 0usize;
+        let mut inline: Vec<&str> = Vec::new();
         for (def, card) in crate::generated::BY_INDEX.iter().zip(ABILITY_LINES) {
             let Some(def) = def else { continue };
             for (face, lines) in card.iter().enumerate() {
+                let abilities = def.abilities_for_face(face);
+                let modes = super::face_modes(abilities);
+                let is_spell = abilities
+                    .iter()
+                    .any(|a| matches!(a, AbilityDef::ModalSpell { .. }));
+                if !modes.is_empty() {
+                    modal_faces += 1;
+                }
                 for (at, line) in lines.modes.iter().enumerate() {
-                    assert!(
-                        line.is_some(),
-                        "{} face {face} mode {at} knows no sentence",
-                        def.name()
-                    );
-                    seen += 1;
+                    let mode = modes.get(at).unwrap_or_else(|| {
+                        panic!("{} face {face} has a row for no mode {at}", def.name())
+                    });
+                    if mode.effects.is_empty() {
+                        assert!(
+                            line.is_none(),
+                            "{} face {face} mode {at} does nothing, and a card prints no sentence for declining",
+                            def.name()
+                        );
+                        continue;
+                    }
+                    if line.is_some() {
+                        modes_known += 1;
+                    } else {
+                        assert!(
+                            !is_spell,
+                            "{} face {face} mode {at} knows no sentence",
+                            def.name()
+                        );
+                        inline.push(def.name());
+                    }
                 }
                 for (at, line) in lines.alternatives.iter().enumerate() {
                     assert!(
@@ -390,41 +495,90 @@ mod tests {
                         "{} face {face} alternative cost {at} knows no sentence",
                         def.name()
                     );
-                    seen += 1;
+                    alternatives_known += 1;
                 }
             }
         }
+        inline.sort_unstable();
+        inline.dedup();
+        assert_eq!(
+            inline, MODES_PRINTED_INLINE,
+            "a modal trigger whose modes have no printed sentence is named here or it is a defect"
+        );
         assert!(
-            seen >= 17,
-            "the pool prints only {seen} cast options with a sentence; it printed 17"
+            modal_faces >= 10,
+            "only {modal_faces} faces carry a row of modes; the pool has 10 \
+             (four modal spells and six modal triggers)"
+        );
+        assert!(
+            modes_known >= 19,
+            "only {modes_known} modes know their sentence; the pool printed 19"
+        );
+        assert!(
+            alternatives_known >= 8,
+            "only {alternatives_known} alternative costs know their sentence; the pool printed 8"
         );
     }
 
-    /// A mode index counts the modes of **one** modal spell.
+    /// A mode index counts the modes of **one** set.
     ///
     /// `cast_wizard` walks every `AbilityDef::ModalSpell` on the face and
     /// enumerates each one's modes from zero, so a face carrying two of
     /// them would offer two different modes under the same
     /// `CastModeKind::Mode(0)`. That is an ambiguity in the engine's own
-    /// handle before it is one in this table — which reads the first modal
-    /// spell and would be describing whichever the engine's walk reached
-    /// first. The pool has never printed such a card; this is what says so
-    /// rather than the comment that used to.
+    /// handle before it is one in this table. The pool has never printed
+    /// such a card; this is what says so rather than the comment that used
+    /// to.
+    ///
+    /// The second half is the same argument for *modes* rather than for
+    /// abilities, and it is what makes [`super::face_modes`] — which takes
+    /// the first modal ability's — a contract instead of a guess. A modal
+    /// trigger is not cast, so two of them on one face is a shape the
+    /// engine allows and Derevi prints: one sentence, two trigger
+    /// conditions, two `modal_triggered!` abilities. They may sit there
+    /// because they offer the *same* modes; two that differed would put
+    /// one ability's sentence on the other's mode, and nothing downstream
+    /// could tell, because `Mode(i)` names no ability.
     #[test]
-    fn a_face_prints_at_most_one_modal_spell() {
+    fn a_face_offers_one_set_of_modes() {
+        use baylee_cards_dsl::AbilityDef;
+
+        let mut seen = 0usize;
         for def in crate::all() {
             for face in 0..def.faces.len() {
-                let modal = def
-                    .abilities_for_face(face)
+                let abilities = def.abilities_for_face(face);
+                let spells = abilities
                     .iter()
-                    .filter(|a| matches!(a, baylee_cards_dsl::AbilityDef::ModalSpell { .. }))
+                    .filter(|a| matches!(a, AbilityDef::ModalSpell { .. }))
                     .count();
                 assert!(
-                    modal <= 1,
-                    "{} face {face} prints {modal} modal spells, and `Mode(i)` names one",
+                    spells <= 1,
+                    "{} face {face} prints {spells} modal spells, and `Mode(i)` names one",
                     def.name()
+                );
+                let sets: Vec<&'static [baylee_cards_dsl::SpellMode]> = abilities
+                    .iter()
+                    .filter_map(|a| match a {
+                        AbilityDef::ModalSpell { modes }
+                        | AbilityDef::ModalTriggered { modes, .. } => Some(*modes),
+                        _ => None,
+                    })
+                    .collect();
+                let Some(first) = sets.first() else { continue };
+                seen += 1;
+                assert!(
+                    sets.iter().all(|modes| modes == first),
+                    "{} face {face} carries {} modal abilities offering different modes, \
+                     and `Mode(i)` names no ability",
+                    def.name(),
+                    sets.len()
                 );
             }
         }
+        assert!(
+            seen >= 10,
+            "only {seen} faces carry a modal ability at all, so this proves nothing; \
+             the pool has 10"
+        );
     }
 }

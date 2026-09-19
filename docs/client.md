@@ -838,38 +838,82 @@ one card.
 
 **The same table answers a question that is not about the stack at all.** A
 *mode* and an *alternative cost* are printed sentences too, and neither is an
-ability: the whole card is the `AbilityDef::ModalSpell`'s text, and what a
-player picks between are the sentences inside it, while an alternative cost is
-a field on the face. The engine names them `CastModeKind::Mode(i)` and
-`Alternative(i)` and says nothing else — there is no label in the protocol and
-there could not be — so the cast chooser drew "Mode 2" while the ability sheet
-beside it had been drawing the card's own sentence since it existed.
-`FaceLines` therefore carries two more arrays, `modes` and `alternatives`,
-read by `lines::mode_line` and `lines::alternative_line`, and they are two
-arrays rather than one because they index two different lists exactly as the
-two kinds do. Both are about **face 0**, which is a fact about `cast_wizard`
+ability: the whole modal ability is one block of text and what a player picks
+between are the sentences inside it, while an alternative cost is a field on
+the face. The engine names them `CastModeKind::Mode(i)` and `Alternative(i)`
+and says nothing else — there is no label in the protocol and there could not
+be — so the cast chooser drew "Mode 2" while the ability sheet beside it had
+been drawing the card's own sentence since it existed. `FaceLines` therefore
+carries two more arrays, `modes` and `alternatives`, read by
+`lines::mode_line` and `lines::alternative_line`, and they are two arrays
+rather than one because they index two different lists exactly as the two
+kinds do. Both are about **face 0**, which is a fact about `cast_wizard`
 (it enumerates modes out of `abilities_for_face(0)` and alternative costs out
 of `def.faces[0]`) rather than about the table, so the caller states it.
+
+**A mode is not only a spell's**, and reading it as one was the whole of a
+defect. `AbilityDef::ModalTriggered` is a triggered ability whose controller
+picks a mode as it goes on the stack (CR 603.3c), it asks with the same
+`Pending::ChooseCastMode` and the same `CastModeKind::Mode(i)`, and it carries
+the same `&'static [SpellMode]` — and the walk that writes this table matched
+`ModalSpell` alone, so every one of the pool's six modal triggers arrived with
+an **empty** row and drew "Mode 1 / Mode 2" over a card that prints the
+sentences. Nothing said so, because an empty row is also what a card with no
+modal ability has. `lines::face_modes` is the one reading of both, shared by
+the walk that writes the table and the tests that hold it against the pool,
+because two spellings of it is how the first one went unnoticed.
+
+It takes the **first** modal ability on the face, and that is a contract
+rather than a shortcut: `Mode(i)` names a mode and not the ability it belongs
+to (the pending carries an `ObjectId` and nothing else), so a face whose modal
+abilities offered *different* modes could not be labelled at all, whatever
+this table held. Derevi, Empyrial Tactician is the pool's face with two of
+them — one printed sentence, two trigger conditions, two `modal_triggered!`
+abilities over one set of modes — and `a_face_offers_one_set_of_modes` is what
+keeps that true as cards are added. The trigger's face is assumed to be 0 for
+the same reason the cast options' is, and with the same latency: every modal
+trigger in the pool is on a front face.
 
 The reader is `codegen::lines::map_modes` and `map_alternatives`, and both
 obey the transcoder's honesty rule — one unread clause and the card is refused
 whole, because a row carrying the card's own words on the *wrong* mode is
-worse than the number it replaced. A modal card prints its modes one of two
+worse than the number it replaced. A modal card prints its modes one of three
 ways: as **bullets** under a "Choose one —" header, where the bullet count has
-to equal the mode count or nothing is claimed, or as **overload**, where the
+to equal the mode count or nothing is claimed; as **overload**, where the
 card prints its body and a keyword line and a mode with a `cost_override`
-finds the line printing that cost. An alternative cost is printed either as a
-sentence — and the two templates are themselves the discriminator, "without
+finds the line printing that cost; or under "**choose up to one** —", which
+prints one bullet *fewer* than it has modes, because the mode a player
+declines with is printed nowhere at all. That third one is Ertai Resurrected,
+whose declining mode is `mode!(&[])`, and it was worth a rule rather than an
+exception: read as an ordinary bullet count the card is one short, and
+refusing it cost its two perfectly good sentences their rows as well. Both
+halves are asked for — the printing says "choose up to" *and* exactly one mode
+does nothing — because either alone is a guess.
+
+What no printing of these three covers is a choice stated **inside** one
+sentence: "you may tap or untap target permanent", "put your choice of a
++1/+1 counter or two charge counters". There neither mode *is* a sentence, so
+the number is the honest label and the reader refuses. Derevi and Inspirit,
+Flagship Vessel are the two, and they are named in a list
+(`MODES_PRINTED_INLINE`) rather than tolerated as a count, so that the next
+card reading as unknown stops a build instead of joining them in silence.
+
+An alternative cost is printed either as a sentence — and the two
+templates are themselves the discriminator, "without
 paying its mana cost" being the cost of nothing and "rather than pay" one that
 was substituted — or as a keyword line (`Evoke {2}{U}`,
 `Evoke—Exile a white card from your hand.`), held to the single word in front
 of it so that an ordinary sentence cannot fit a cost with no symbols. Every
 non-mana part has to be named in the printed words (`parts_fit`), and a
 sentence fitting two options, or two sentences fitting one, is refused rather
-than guessed at. All 9 modes and all 8 alternative costs in the pool map, and
-`every_mode_and_alternative_cost_knows_its_printed_sentence` is an equality
-rather than a floor: an ability may honestly have no sentence, a mode never
-can.
+than guessed at. All 9 modal-*spell* modes and all 8 alternative costs in the
+pool map, and `every_mode_and_alternative_cost_knows_its_printed_sentence`
+holds both as an equality: an ability may honestly have no sentence, a mode
+of a spell never can. Of the 15 modes the six modal *triggers* carry, 10 map
+— the other five being Ertai's decline and the four Derevi and Inspirit print
+inside a sentence — and those two shapes are asserted from the side that says
+which, an effect-less mode having to know *no* sentence and the inline cards
+being named, so the exception cannot quietly widen.
 
 ### Combat and table panels (September 2026)
 
@@ -2715,7 +2759,12 @@ inches away had been drawing printed sentences since it existed. Both kinds
 now read their sentence out of the generated line table (§"Which ability is on
 the stack"), in the printing and language the player chose: Sheoldred's Edict
 offers its three bullets, Solitude offers "Evoke—Exile a white card from your
-hand". Reminder text is dropped — it is the card explaining itself, which is
+hand". The same chooser asks a modal **trigger** — `Pending::ChooseCastMode`
+is the one question for both — so Charming Prince and Aether Channeler read
+theirs too, once the table stopped being silent about a trigger's modes.
+Where it cannot, the number stays and is the right answer: Derevi prints one
+sentence for two modes, and no row could draw words that tell them apart.
+Reminder text is dropped — it is the card explaining itself, which is
 worth a line on a card and is not what a button says — and the bullet a modal
 card lists its modes under goes with it, the row already being one of several.
 Four marks, and they are read off the catalog rather than guessed: `•` in

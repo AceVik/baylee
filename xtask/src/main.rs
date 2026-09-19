@@ -2564,6 +2564,32 @@ fn face_texts(payload: &serde_json::Value) -> Vec<String> {
     vec![text(payload.get("oracle_text"))]
 }
 
+/// One ability in `AMBIGUITY_ONE_IN` may fit two printed sentences equally
+/// well before [`render_ability_lines`] refuses to write the table.
+///
+/// Measured on 19.09.2026 over the 2716-card pool: **67 of 2532** abilities
+/// walked, which is one in 37.8. The bound is set at one in 25, and the
+/// gap is deliberate — a batch of cards adds abilities this reader has
+/// never seen, so a bound with no headroom would fire on growth rather
+/// than on a regression. What it is there to catch is the reader getting
+/// *worse*, which is a jump and not a drift.
+///
+/// It is a **ratio** rather than a count for the same reason: the count
+/// grows with the pool, so a ceiling spelled as a count would have to be
+/// raised after every batch, and a ceiling that is routinely raised is not
+/// one. What this bounds is the reader — how often, per ability walked, it
+/// could not tell two sentences apart — and that is a property the pool
+/// growing does not change.
+const AMBIGUITY_ONE_IN: usize = 25;
+
+/// How few abilities the walk may reach before its ambiguity ratio means
+/// nothing. A ratio over an empty population is satisfied by anything, and
+/// the cache this walk reads is **not in the repository**, so "no printings
+/// found" is a thing that happens rather than a thing that cannot. Set well
+/// under the 2532 measured, because this is the difference between a
+/// reading and no reading at all rather than a second ceiling.
+const ABILITIES_WALKED_FLOOR: usize = 2000;
+
 /// Renders `crates/baylee-cards/src/generated_lines.rs`: per card, per
 /// face, which printed sentence each ability came from.
 ///
@@ -2586,6 +2612,8 @@ fn face_texts(payload: &serde_json::Value) -> Vec<String> {
 /// build failure rather than a card whose stack entry silently says
 /// nothing.
 fn render_ability_lines(root: &Path) -> anyhow::Result<String> {
+    use baylee_cards::lines::face_modes;
+
     let decks_text = fs::read_to_string(root.join("data/acceptance-decks.txt"))?;
     let rows = acceptance::parse_decks(&decks_text)?;
     let pool_text = fs::read_to_string(root.join("data/card-pool.txt")).unwrap_or_default();
@@ -2598,6 +2626,14 @@ fn render_ability_lines(root: &Path) -> anyhow::Result<String> {
 
     let mut table: Vec<String> =
         vec![String::from("&[],"); baylee_cards::generated::BY_INDEX.len()];
+    // `Mapping::ambiguous` is the one number in this walk that says the
+    // *reader* needs work rather than the pool — an ability that fitted two
+    // sentences equally well, where whichever was taken is a coin toss
+    // drawn to the player as the card's own words. It was computed on
+    // every card and read by nobody, which is a green run with a defect in
+    // it. Summed here and bounded below.
+    let mut ambiguous = 0usize;
+    let mut walked = 0usize;
     for name in &names {
         let Some(def) = by_name.get(name.split(" // ").next().unwrap_or(name)) else {
             continue;
@@ -2610,13 +2646,7 @@ fn render_ability_lines(root: &Path) -> anyhow::Result<String> {
         let mut any = false;
         for face in 0..def.faces.len() {
             let abilities = def.abilities_for_face(face);
-            let modes: &[baylee_cards::dsl::SpellMode] = abilities
-                .iter()
-                .find_map(|a| match a {
-                    baylee_cards::dsl::AbilityDef::ModalSpell { modes } => Some(*modes),
-                    _ => None,
-                })
-                .unwrap_or(&[]);
+            let modes = face_modes(abilities);
             let alternatives = def.faces[face].alternative_costs;
             // An alternative cost is not an ability, so a face that prints
             // one and nothing else — none today — would be dropped by the
@@ -2626,6 +2656,8 @@ fn render_ability_lines(root: &Path) -> anyhow::Result<String> {
             any |= !abilities.is_empty() || !alternatives.is_empty();
             let printed = texts.get(face).map_or("", String::as_str);
             let mapping = lines::map(abilities, printed);
+            ambiguous += mapping.ambiguous;
+            walked += abilities.len();
             let stackable = abilities
                 .iter()
                 .map(lines::ability_shape)
@@ -2662,6 +2694,24 @@ fn render_ability_lines(root: &Path) -> anyhow::Result<String> {
         };
         *slot = format!("// {}\n&[{}],", def.name(), faces.join(", "));
     }
+
+    // A ratio and not a count, because the count grows with the pool and a
+    // ceiling that has to be edited after every batch of cards is a ceiling
+    // nobody reads. What it bounds is the *reader*: how often, per ability
+    // walked, it could not tell two sentences apart.
+    println!("note: {ambiguous} of {walked} abilities fit more than one sentence");
+    anyhow::ensure!(
+        walked >= ABILITIES_WALKED_FLOOR,
+        "the walk reached only {walked} abilities, so the ambiguity ratio \
+         below says nothing; is `data/scryfall-cache` filled?"
+    );
+    anyhow::ensure!(
+        ambiguous * AMBIGUITY_ONE_IN <= walked,
+        "{ambiguous} of {walked} abilities fit more than one printed sentence \
+         equally well, which is worse than 1 in {AMBIGUITY_ONE_IN}; whichever \
+         sentence each of them was given is a coin toss drawn to a player as \
+         the card's own words"
+    );
 
     // The two-phase gap, said out loud where it happens rather than found
     // in CI a day later: cards this run added to the registry are not in

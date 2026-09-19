@@ -728,12 +728,21 @@ const BULLET: char = '\u{2022}';
 /// this cannot read whole answers `None` for every mode of the face.
 ///
 /// Two printings, and the text says which. A card that prints `Choose one —`
-/// lists its modes as bullets, one per mode, in order — three of the pool's
-/// four modal cards. The fourth shape is **overload**, which prints no
+/// — or `choose up to one —`, where one mode does nothing and is how a
+/// player declines — lists its modes as bullets, one per mode that does
+/// something, in order. The other shape is **overload**, which prints no
 /// bullet at all: the card's body, and a keyword line naming the other
 /// cost. There, a mode with a `cost_override` finds the keyword line
 /// printing that cost and a mode without one is the body, and both halves
 /// have to come out to exactly the right count or the card is refused.
+///
+/// A modal **trigger** is read by the same two, and most of the pool's are
+/// bulleted (Charming Prince, Aether Channeler, Ertai Resurrected,
+/// Primaris Eliminator). Two are neither, and refuse: Derevi and Inspirit,
+/// Flagship Vessel print their choice *inside* one sentence — "you may tap
+/// or untap target permanent", "your choice of a +1/+1 counter or two
+/// charge counters" — which is a mode with no sentence of its own, and a
+/// number is the better label for it.
 ///
 /// It reads modes and not abilities, so it is not part of [`map`]: an
 /// `AbilityDef::ModalSpell` is [`LineShape::Other`] there, which is the
@@ -750,13 +759,41 @@ pub fn map_modes(modes: &[SpellMode], oracle: &str) -> Vec<Option<u8>> {
         .map(|(at, _)| at)
         .collect();
     if !bullets.is_empty() {
+        // A mode that does nothing is the one a player declines with, and
+        // it is printed nowhere: "choose up to one —" states the
+        // permission in the header and then lists only the things there
+        // are to choose. Ertai Resurrected is the pool's card, its third
+        // mode is `mode!(&[])`, and read as a bullet's owner it cost the
+        // other two theirs — three `None`s for a card that prints two
+        // perfectly good sentences.
+        //
+        // Both halves are asked for, because either alone is a guess. The
+        // printing has to say "choose up to", and the modes have to hold
+        // exactly one that does nothing; a bullet count one short on its
+        // own is the ordinary disagreement below, where the honest answer
+        // is still to refuse the card whole.
+        let declining = |m: &SpellMode| {
+            m.effects.is_empty() && m.targets.is_none() && m.cost_override.is_none()
+        };
+        let spoken: Vec<usize> = modes
+            .iter()
+            .enumerate()
+            .filter(|(_, m)| !declining(m))
+            .map(|(at, _)| at)
+            .collect();
+        let declines = modes.len() - spoken.len();
+        let optional = oracle.to_lowercase().contains("choose up to");
         // A bullet count that disagrees with the mode count is the printing
         // and the code describing different cards, which is exactly the
         // case where walking them in step is confidently wrong.
-        if bullets.len() != modes.len() {
+        if bullets.len() != spoken.len() || (declines > 0 && !(optional && declines == 1)) {
             return refuse();
         }
-        return bullets.iter().map(|at| u8::try_from(*at).ok()).collect();
+        let mut found = vec![None; modes.len()];
+        for (at, line) in spoken.iter().zip(&bullets) {
+            found[*at] = u8::try_from(*line).ok();
+        }
+        return found;
     }
     let mut found = vec![None; modes.len()];
     let mut spoken: Vec<usize> = Vec::new();
@@ -1260,6 +1297,56 @@ mod tests {
         assert_eq!(map_modes(&modes, text), vec![None, None, None]);
     }
 
+    /// "Choose up to one" prints one bullet fewer than it has modes.
+    ///
+    /// Ertai Resurrected's shape: two things to choose and a third mode
+    /// that does nothing, which is how a player declines. Read as an
+    /// ordinary bullet count it is one short, and refusing it cost the two
+    /// printed sentences their rows as well.
+    #[test]
+    fn a_mode_a_player_declines_with_is_printed_nowhere_and_takes_no_bullet() {
+        let text = "Flash\n\
+                    When this creature enters, choose up to one —\n\
+                    • Counter target spell, activated ability, or triggered \
+                    ability. Its controller draws a card.\n\
+                    • Destroy another target creature or planeswalker. Its \
+                    controller draws a card.";
+        let modes = [mode(None), mode(None), decline()];
+        assert_eq!(
+            map_modes(&modes, text),
+            vec![Some(2), Some(3), None],
+            "the decline is not a bullet, and the two that are keep theirs"
+        );
+    }
+
+    /// The counter-test for the clause above, in both directions.
+    ///
+    /// The reading needs the printing to say "choose up to" *and* exactly
+    /// one mode that does nothing. A card one bullet short without the
+    /// words is the ordinary disagreement and is refused whole; a card
+    /// that says the words while every mode does something is read
+    /// bullet-for-mode as any other, with nothing to spare.
+    #[test]
+    fn a_short_bullet_list_without_the_words_is_still_refused() {
+        let silent = "Choose one —\n\
+                      • Destroy target artifact.\n\
+                      • Destroy target enchantment.";
+        assert_eq!(
+            map_modes(&[mode(None), mode(None), decline()], silent),
+            vec![None, None, None],
+            "nothing here says a mode may be declined"
+        );
+
+        let spoken = "Choose up to one —\n\
+                      • Destroy target artifact.\n\
+                      • Destroy target enchantment.";
+        assert_eq!(
+            map_modes(&[mode(None), mode(None)], spoken),
+            vec![Some(1), Some(2)],
+            "the words alone invent no decline"
+        );
+    }
+
     /// Overload prints no bullet: a body and a keyword line.
     #[test]
     fn an_overloaded_card_finds_its_body_and_its_keyword_line() {
@@ -1385,11 +1472,26 @@ mod tests {
     }
 
     /// One mode with no `cost_override` and no sentence at all.
+    ///
+    /// It carries an effect, and that is not decoration: [`map_modes`]
+    /// reads an **effect-less** mode as the one a player declines with,
+    /// so a stand-in that did nothing would be every test's card printing
+    /// "choose up to". [`decline`] is the mode that means it.
     fn mode(cost_override: Option<baylee_core::mana::ManaCost>) -> SpellMode {
+        SpellMode {
+            effects: draw(1),
+            targets: None,
+            cost_override,
+        }
+    }
+
+    /// The mode "choose up to one" gives a player to decline with: no
+    /// effects, nothing to target, nothing to pay (Ertai Resurrected).
+    fn decline() -> SpellMode {
         SpellMode {
             effects: &[],
             targets: None,
-            cost_override,
+            cost_override: None,
         }
     }
 
