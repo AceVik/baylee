@@ -1049,14 +1049,26 @@ pub fn resume(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]) 
                 if let Some(obj) = state.object_mut(returned) {
                     obj.kind = ObjectKind::Card;
                 }
-                // No `ask_commander_replace` here, and that is the sibling's
-                // answer rather than a decision of this arm: a commander
-                // replacement re-runs its operation *from the top*, which a
-                // start block can do and a continuation cannot — re-entering
-                // here would ask the same player to choose again. Both
-                // per-player chains have the same hole, and closing it is one
-                // piece of work for all three (a commander is never one of
-                // the twelve lands this arm was written for).
+                // No `ask_commander_replace` here, and this arm is the only
+                // one of the three that would ever want it: CR 903.9b is a
+                // replacement for a hand or a library, while a commander
+                // reaching a *graveyard* is CR 903.9a, a state-based action
+                // — so the two siblings, which both end in a graveyard, have
+                // nothing to ask.
+                //
+                // What stops it is the shape rather than the rule. The
+                // question re-enters its operation at the same program
+                // counter with nothing yet mutated (`resume_yes_no` returns
+                // `run` with no `pc += 1`), which a start block can survive
+                // and a continuation cannot: the operation here is the whole
+                // per-player chain, so the re-run would ask the first player
+                // to choose all over again. Unreachable today — the only
+                // filter the pool writes for this effect is `Land.YouCtrl`
+                // and no commander is a land — and listed in
+                // `docs/engine-internals.md` beside the other paths the rule
+                // does not reach, so the day a card writes
+                // `Creature.YouCtrl` here it is a known gap rather than a
+                // surprise.
                 let _ = state.move_object(
                     returned,
                     ZoneLocation::Hand(owner),

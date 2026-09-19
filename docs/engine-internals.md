@@ -211,9 +211,23 @@ Where it does **not** reach yet, all of them paths where the move happens
 inside a choice that has already been answered or outside a resolution
 altogether: the turn-based and effect draws (`GameState::draw_cards`), a
 search or wish that finds a commander in a library, the hand-to-library
-put-backs (`AwaitingOp::PutBackOnTop`, `BottomFromHand`), and
-`CostPart::ReturnSelfToHand`. Each fails safe — no entry in
-`commander_redirect` means the printed move stands and no question is asked.
+put-backs (`AwaitingOp::PutBackOnTop`, `BottomFromHand`),
+`CostPart::ReturnSelfToHand`, and `AwaitingOp::ReturnChosen` (the bounce
+land's "return a land you control to its owner's hand"). Each fails safe — no
+entry in `commander_redirect` means the printed move stands and no question is
+asked.
+
+The last of those is the one with a reason rather than an oversight, and it
+is the reason the list is worth reading before adding a call. Asking from a
+**continuation** arm does not work at all: the re-entry above is what makes
+the rule a replacement, and the operation a continuation would re-enter is
+the whole per-player chain — so the first player would be asked to choose
+their permanent a second time. Its two siblings never want the call
+(`SacrificeFilter` and `DestroyChosenForPlayers` both end in a graveyard,
+which is CR 903.9a, a state-based action, and not this replacement at all),
+so closing it means giving that one chain a way to ask before it moves
+anything. Nothing reaches it today: the only filter the pool writes for that
+effect is `Land.YouCtrl`.
 
 ### The replacements that multiply, and their three doors
 Doubling Season and its kin do not rewrite an event; they multiply what an
