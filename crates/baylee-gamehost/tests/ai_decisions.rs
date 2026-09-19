@@ -5,7 +5,19 @@ use baylee_core::ids::PlayerId;
 use baylee_core::preset::{DeckEntry, GamePreset};
 use baylee_engine::choice::{Pending, PlayerAction};
 use baylee_engine::engine::Engine;
-use baylee_gamehost::{RegistryLookup, player_view};
+use baylee_gamehost::{PlayerView, RegistryLookup, player_view};
+
+/// The view a seat gets at a decision point, as every fixture in this file
+/// wants it: the seat being asked is the seat the table is waiting for, and
+/// none of these tables ever opens a payment window.
+fn asked_view(
+    state: &baylee_engine::state::GameState,
+    seat: PlayerId,
+    seq: u64,
+    pending: &Pending,
+) -> PlayerView {
+    player_view(state, seat, Some(seat), seq, Some(pending), false, None)
+}
 
 fn entry(name: &str) -> DeckEntry {
     DeckEntry {
@@ -45,14 +57,7 @@ fn a_planned_multicolour_cast_survives_the_mana_choice_round_trip() {
             let Some(seat) = pending_player(engine.pending()) else {
                 break;
             };
-            let view = player_view(
-                engine.state(),
-                seat,
-                Some(seat),
-                seq,
-                Some(engine.pending()),
-                false,
-            );
+            let view = asked_view(engine.state(), seat, seq, engine.pending());
             if view.turn > 1 {
                 break;
             }
@@ -95,7 +100,7 @@ fn the_ai_casts_both_commanders_with_independent_cast_counts() {
     for seq in 0..150 {
         let pending = engine.pending();
         let seat = pending_player(pending).expect("fixture remains live");
-        let view = player_view(engine.state(), seat, Some(seat), seq, Some(pending), false);
+        let view = asked_view(engine.state(), seat, seq, pending);
         if view
             .battlefield
             .iter()
@@ -136,7 +141,7 @@ fn an_x_draw_spell_pays_for_x_and_draws_for_its_caster() {
     for seq in 0..100 {
         let pending = engine.pending();
         let seat = pending_player(pending).unwrap();
-        let view = player_view(engine.state(), seat, Some(seat), seq, Some(pending), false);
+        let view = asked_view(engine.state(), seat, seq, pending);
         if chosen_x && view.hand.len() == 2 && seat == PlayerId::new(0) {
             assert_eq!(view.seats[1].hand_count, 0);
             return;
@@ -175,7 +180,7 @@ fn x_cannot_demand_more_graveyard_targets_than_exist() {
     for seq in 0..80 {
         let pending = engine.pending();
         let seat = pending_player(pending).unwrap();
-        let view = player_view(engine.state(), seat, Some(seat), seq, Some(pending), false);
+        let view = asked_view(engine.state(), seat, seq, pending);
         if view.turn > 1 {
             return;
         }
@@ -309,7 +314,7 @@ fn selected_effect_context_routes_positive_and_negative_counters_in_the_engine()
         for seq in 0..80 {
             let pending = engine.pending();
             let seat = pending_player(pending).expect("fixture stays live");
-            let view = player_view(engine.state(), seat, Some(seat), seq, Some(pending), false);
+            let view = asked_view(engine.state(), seat, seq, pending);
             if view
                 .battlefield
                 .iter()
@@ -378,14 +383,7 @@ fn combat_after_expert_blocks(
         let Some(seat) = pending_player(engine.pending()) else {
             break;
         };
-        let view = player_view(
-            engine.state(),
-            seat,
-            Some(seat),
-            seq,
-            Some(engine.pending()),
-            false,
-        );
+        let view = asked_view(engine.state(), seat, seq, engine.pending());
         if blocked && view.step == baylee_view::Step::CombatEnd {
             break;
         }

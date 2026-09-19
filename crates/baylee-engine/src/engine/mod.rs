@@ -116,7 +116,12 @@ pub struct Engine<L: CardLookup> {
     /// payment question opens one, and it is an ordinary `Pending::Priority`
     /// rather than a request of its own — the client draws it and the agent
     /// answers it already, and a question shaped like every other question
-    /// needs no `VIEW_VERSION`. What makes it a window and not priority is
+    /// needs no `VIEW_VERSION`. The *price* did, in the end
+    /// ([`Self::payment_window`], `VIEW_VERSION` 24): a question that looks
+    /// like every other question is exactly one nothing can tell apart from
+    /// an empty priority, and the agent read it as one — it said yes to
+    /// ward's tax, was handed the window, saw nothing castable and passed.
+    /// What makes it a window and not priority is
     /// this field: `compute_legal` reads it and offers mana and nothing
     /// else, and passing closes the window instead of counting toward the
     /// round.
@@ -465,6 +470,39 @@ impl<L: CardLookup> Engine<L> {
     #[must_use]
     pub fn state(&self) -> &GameState {
         &self.state
+    }
+
+    /// The seat inside a CR 605.3a payment window and the generic mana it was
+    /// asked for, if such a window is open.
+    ///
+    /// The window is an ordinary `Pending::Priority` — that is what lets the
+    /// client draw it and the agent answer it with no new question shape — so
+    /// nothing about the offer says *why* the seat is holding priority with
+    /// nothing castable. This is the why, and it exists to be projected:
+    /// a seat that has just said it will pay is owed the number it said yes
+    /// to, and without it the only readings available are "there is nothing
+    /// to do here" and a guess.
+    ///
+    /// Gated on the window and not on the suspended operation, which is the
+    /// half that is easy to get wrong: the resolution is suspended with
+    /// `PlayerMayPay` for the whole of the yes-or-no question too, before any
+    /// window exists, so reading the operation alone would report a debt
+    /// while the seat is still being asked whether it wants one.
+    ///
+    /// The price is read back out of that operation rather than stored beside
+    /// [`Self::mana_window`], for the reason written there: a second copy is a
+    /// number that can disagree with the one actually charged.
+    #[must_use]
+    pub fn payment_window(&self) -> Option<(PlayerId, u16)> {
+        let player = self.mana_window?;
+        match self.resolution.as_ref()?.awaiting {
+            Some(crate::resolve::AwaitingOp::PlayerMayPay {
+                player: payer,
+                mana,
+                ..
+            }) if payer == player => Some((player, mana)),
+            _ => None,
+        }
     }
 
     /// Mutable state access for a seat that may rewrite the board.

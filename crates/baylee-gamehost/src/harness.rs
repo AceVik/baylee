@@ -289,6 +289,7 @@ pub fn play_report<L: CardLookup>(
             i as u64,
             Some(&pending),
             engine.automation(player).hold.suppresses(),
+            crate::view::owed_payment(&engine),
         );
         let crate::SeatKind::Ai(agent) = &seats[usize::from(player.get())] else {
             unreachable!()
@@ -482,6 +483,7 @@ mod tests {
                 7,
                 Some(engine.pending()),
                 false,
+                crate::view::owed_payment(engine),
             )
         };
         let va = view(&a);
@@ -857,6 +859,7 @@ mod tests {
                 i,
                 Some(&pending),
                 engine.automation(player).hold.suppresses(),
+                crate::view::owed_payment(&engine),
             );
             let action = agent.act(&view, &pending);
             let activating = player == me

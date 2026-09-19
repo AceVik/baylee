@@ -35,11 +35,19 @@ use std::borrow::Cow;
 
 use baylee_core::color::ColorSet;
 use baylee_core::ids::{AbilityRef, CardIndex, Defender, ObjectId, PlayerId, PrintRef};
+use baylee_core::mana::ManaCost;
 use baylee_core::types::{SubtypeSet, SupertypeSet, TypeSet};
 use serde::{Deserialize, Serialize};
 
 /// Protocol version of the view payload. Bumped on any breaking change so a
 /// client can refuse a host it cannot render rather than mis-rendering it.
+///
+/// 24 added [`PlayerView::owed`] (#92): what the seat named by
+/// [`PlayerView::awaiting`] still has to pay, when the engine has opened a
+/// CR 605.3a mana window for it. The window is an ordinary priority round by
+/// design, which is what made it invisible — a seat that had just agreed to
+/// pay ward's tax was handed priority over two untapped Plains with nothing
+/// castable and no stated reason to tap them, and passed.
 ///
 /// 23 renamed `PlayerView::priority` to [`PlayerView::awaiting`] and fed it
 /// from the pending question rather than from priority, and deleted
@@ -55,7 +63,7 @@ use serde::{Deserialize, Serialize};
 /// and disagree on what a number means. That is why subtype ids became
 /// append-only in the same commit rather than trusting this number to carry
 /// it.
-pub const VIEW_VERSION: u32 = 23;
+pub const VIEW_VERSION: u32 = 24;
 
 // ---------------------------------------------------------------- turn shape
 
@@ -1119,6 +1127,48 @@ pub struct PlayerView {
     /// owner intends to respond to, and telling the table would hand out
     /// exactly the read a player is entitled to keep.
     pub priority_held: bool,
+    /// What the awaited seat still owes, while the engine is holding a
+    /// CR 605.3a payment window open for it.
+    ///
+    /// Read it with [`Self::awaiting`], which names who owes it: the payer is
+    /// the seat holding priority inside its own window, so the pair is one
+    /// sentence and this field does not repeat the seat. `None` is the
+    /// ordinary case and says the table is not waiting on a payment.
+    ///
+    /// **It is here because the window is deliberately shaped like nothing.**
+    /// A payment window is an ordinary `Pending::Priority` offering mana
+    /// abilities and nothing else, which is what lets a client draw it and an
+    /// agent answer it with no new question shape — and is exactly why
+    /// neither could tell it apart from a quiet priority pass with no plays.
+    /// The house agent said yes to ward's tax, was handed the window, found
+    /// nothing castable and passed, and its own spell was countered.
+    ///
+    /// **Not derivable, and it must not be derived.** Reading "I owe
+    /// something" off an offer of mana abilities with nothing castable would
+    /// tap lands in every other quiet window too. The information was
+    /// missing, not merely hard to reach.
+    ///
+    /// **A cost and not a number**, although the engine charges generic mana
+    /// and nothing else today (`Effect::PlayerMayPayOr` carries an `Amount`
+    /// because Esper Sentinel's tax is its own power, which is a statement
+    /// about *when* the number is known and not about what it may contain).
+    /// By the time a window is open the amount has been evaluated, so the
+    /// view is under no such constraint, and both readers on the other side
+    /// already take a `ManaCost`: `manapip::cost` draws one and
+    /// `manaplan::plan` solves one. A `u16` would be converted at both call
+    /// sites on the way in.
+    ///
+    /// **Mana only, by construction rather than by omission.** The other
+    /// payment the engine can ask for — a Karoo's "return an untapped Plains
+    /// you control" — is answered by naming an object, from a list the
+    /// pending choice already carries, and opens no window at all. There is
+    /// no unreachable arm here waiting to be filled in.
+    ///
+    /// The *total* that was asked, not the remainder: the pool is in this
+    /// same view, so a reader that wants the difference can take it, and a
+    /// number that shrank as lands tapped would be a second thing to keep in
+    /// step with the pool.
+    pub owed: Option<ManaCost>,
     /// The monarch, if the game has one.
     pub monarch: Option<PlayerId>,
     /// The day/night designation, if the game has one (CR 731).
@@ -1341,6 +1391,7 @@ mod tests {
             command: vec![vec![]; seats as usize],
             combat: CombatView::default(),
             looking_at: Vec::new(),
+            owed: None,
             sorcery_lock: None,
         }
     }

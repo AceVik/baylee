@@ -406,6 +406,7 @@ impl Session {
             self.seq,
             Some(self.engine.pending()),
             self.engine.automation(seat).hold.suppresses(),
+            crate::view::owed_payment(&self.engine),
         );
         let mut out = Vec::new();
         // Two separate `let`s: `reveal` marks printings as shown, so folding
@@ -477,6 +478,7 @@ impl Session {
                         self.seq,
                         Some(&pending),
                         self.engine.automation(player).hold.suppresses(),
+                        crate::view::owed_payment(&self.engine),
                     );
                     let context = self.engine.decision_context();
                     let scouting = agent.scouting_request(&pending).and_then(|request| {
@@ -564,6 +566,7 @@ impl Session {
             self.seq,
             Some(pending),
             self.engine.automation(player).hold.suppresses(),
+            crate::view::owed_payment(&self.engine),
         );
         Some((player, agent.act(&view, pending)))
     }
@@ -609,6 +612,7 @@ impl Session {
             self.seq,
             Some(&pending),
             self.engine.automation(seat).hold.suppresses(),
+            crate::view::owed_payment(&self.engine),
         );
         let mut out = vec![view_envelope(self.seq, &view)];
         if pending_player(&pending) == Some(seat) || matches!(pending, Pending::GameOver(_)) {
@@ -1309,6 +1313,185 @@ mod tests {
         );
     }
 
+    /// A table where seat 0 can cast Swords to Plowshares at seat 1's Roaming
+    /// Throne, which prints ward {2}, and has two Plains left over to pay it.
+    fn a_table_with_a_warded_creature() -> GamePreset {
+        let named = |name: &str| DeckEntry {
+            card: baylee_cards::decks::by_name(name).expect("a card this pool compiles"),
+            print: PrintRef::new(0),
+        };
+        let mut preset = test_preset();
+        preset.seats[1].controller = SeatController::Open;
+        // Three Plains: one pays for the spell, two answer the tax. A seat
+        // that could not pay at all would be inside a different question.
+        preset.seats[0].starting_hand = Some(vec![named("Swords to Plowshares")]);
+        preset.seats[0].starting_battlefield = vec![named("Plains"); 3];
+        preset.seats[1].starting_hand = Some(vec![]);
+        preset.seats[1].starting_battlefield = vec![named("Roaming Throne")];
+        preset
+    }
+
+    /// Plays the table into ward's CR 605.3a window: cast the removal at the
+    /// warded creature and agree to pay. Answers whether the tax was ever
+    /// offered, so a fixture that stopped somewhere else cannot pass quietly.
+    fn drive_into_ward_s_payment_window(session: &mut Session, payer: PlayerId) -> bool {
+        // Cast the removal at the warded creature and agree to pay the tax,
+        // taking every answer from the engine's own offer. The tap before the
+        // cast is not scene-setting: `can_cast` probes the *pool* and not the
+        // untapped lands (`casting::affordable`), so a spell is castable only
+        // once its mana is floating — which is the same rule the payment
+        // window exists to serve.
+        let mut agreed = false;
+        let mut cast = false;
+        for _ in 0..200 {
+            if session.engine.payment_window().is_some() {
+                break;
+            }
+            let Some(seat) = session.awaiting_seat() else {
+                break;
+            };
+            let action = match session.pending() {
+                Pending::Mulligan { .. } => PlayerAction::MulliganKeep,
+                // The Throne's own "as this enters, choose a creature type",
+                // which seat 1 answers before anything else can happen.
+                Pending::ChooseSubtype { options, .. } => PlayerAction::ChooseSubtype(options[0]),
+                Pending::ChooseTargets { options, .. } => PlayerAction::ChooseTargets {
+                    objects: options.first().copied().into_iter().collect(),
+                    players: vec![],
+                },
+                Pending::YesNo { .. } => {
+                    // The resolution is already suspended with the price
+                    // while this question is being asked, and no window is
+                    // open yet. A seat being asked whether it *wants* a debt
+                    // does not have one, so nothing is owed here.
+                    assert_eq!(
+                        seat_view(session, payer).owed,
+                        None,
+                        "a seat still deciding whether to pay owes nothing yet"
+                    );
+                    agreed = true;
+                    PlayerAction::YesNo(true)
+                }
+                // Exactly one Plains is tapped, and only to make the spell
+                // castable. Tapping the other two here would settle the tax
+                // out of the pool and open no window at all, which is the
+                // engine's own "nothing to press" branch and a different
+                // game from this one.
+                Pending::Priority { legal, .. } if seat == payer && !cast => {
+                    if let Some(&card) = legal.castable.first() {
+                        cast = true;
+                        PlayerAction::CastSpell { card }
+                    } else if let Some(&source) = legal.mana_abilities.first() {
+                        PlayerAction::ActivateManaAbility { source }
+                    } else {
+                        PlayerAction::PassPriority
+                    }
+                }
+                _ => PlayerAction::PassPriority,
+            };
+            if session.act(seat, action).is_err() {
+                break;
+            }
+        }
+        agreed
+    }
+
+    /// The seat inside a CR 605.3a payment window is told what it owes, and
+    /// so is the seat watching it.
+    ///
+    /// The window is an ordinary `Pending::Priority` offering mana abilities
+    /// and nothing else — deliberately, so that a client draws it and an
+    /// agent answers it with no new question shape — which is exactly why
+    /// nothing could tell it apart from a quiet priority pass with no plays.
+    /// The house agent said yes to ward's tax, was handed the window, saw
+    /// nothing castable over two untapped Plains, passed, and lost its own
+    /// spell. `crates/baylee-gamehost/tests/ai_ward.rs` on the `ai` branch
+    /// pins that from the agent's side; this is the half the view owes it.
+    ///
+    /// Asserted from the **bystander's** view as well as the payer's,
+    /// because that is the vantage point where a missing field is visible:
+    /// the pending question is sent only to the seat it is addressed to, so
+    /// seat 1 has nothing else to read it off.
+    #[test]
+    fn a_seat_in_a_payment_window_is_told_what_it_owes() {
+        use baylee_core::mana::ManaCost;
+
+        let payer = PlayerId::new(0);
+        let bystander = PlayerId::new(1);
+        let mut session = Session::new(&a_table_with_a_warded_creature()).expect("preset builds");
+
+        assert!(
+            drive_into_ward_s_payment_window(&mut session, payer),
+            "the removal was never cast at the warded creature"
+        );
+
+        let owed = ManaCost::from_symbol_generic(2);
+        assert_eq!(
+            session.awaiting_seat(),
+            Some(payer),
+            "the payer is the seat holding priority inside its own window"
+        );
+        assert_eq!(
+            seat_view(&session, payer).owed,
+            Some(owed),
+            "a seat that has just agreed to pay is owed the number it agreed to"
+        );
+        assert_eq!(
+            seat_view(&session, bystander).owed,
+            Some(owed),
+            "and so is the seat watching, which has no question to read it off"
+        );
+
+        // The number is usable, which is the whole claim: two taps and a pass
+        // settle the tax, the window closes and the spell resolves.
+        for _ in 0..4 {
+            let Pending::Priority { player, legal } = session.pending().clone() else {
+                break;
+            };
+            let Some(&source) = legal.mana_abilities.first() else {
+                break;
+            };
+            session
+                .act(player, PlayerAction::ActivateManaAbility { source })
+                .expect("the window offers these and nothing else");
+        }
+        assert_eq!(
+            seat_view(&session, payer).owed,
+            Some(owed),
+            "the total that was asked, not a remainder that shrinks as lands tap"
+        );
+        let _ = session.act(payer, PlayerAction::PassPriority);
+        assert_eq!(
+            seat_view(&session, bystander).owed,
+            None,
+            "a closed window owes nothing"
+        );
+
+        // Closing the window settles the tax; the spell under it is still on
+        // the stack and resolves on the next round of passes.
+        let throne = baylee_cards::decks::by_name("Roaming Throne").expect("compiled");
+        for _ in 0..8 {
+            let Some(seat) = session.awaiting_seat() else {
+                break;
+            };
+            if !matches!(session.pending(), Pending::Priority { .. }) {
+                break;
+            }
+            if session.act(seat, PlayerAction::PassPriority).is_err() {
+                break;
+            }
+        }
+        let state = session.state();
+        assert!(
+            !state
+                .battlefield_view()
+                .into_iter()
+                .filter_map(|id| state.object(id))
+                .any(|o| o.card.is_some_and(|c| c.index == throne)),
+            "the tax was paid, so Swords to Plowshares resolved"
+        );
+    }
+
     /// Plays a couple of steps so the session has a sequence number to be
     /// behind or current on.
     fn started_session() -> (Session, PlayerId) {
@@ -1559,6 +1742,7 @@ mod tests {
             0,
             None,
             false,
+            None,
         );
         let report = crate::scouting::request(
             &session.seats,
@@ -1602,7 +1786,8 @@ mod tests {
                 None,
                 0,
                 None,
-                false
+                false,
+                None,
             )
         );
     }
