@@ -414,3 +414,54 @@ Short sentences this team uses as shorthand. Each one is a rule.
   green and the filter said nothing happened — which is the same shape as a
   reader answering a question it cannot see, in the one place it is easiest
   to mistake for a result.
+- **"It could not have said yes, so its no was worth nothing."** Before
+  running an instrument, ask whether it can in principle produce the
+  positive result; if it cannot, its negative is not evidence, and a
+  green-looking zero is the most expensive kind. Measured on #23: the
+  brick wall was first read spectrally, Hann-windowed at its own spatial
+  frequency with the neighbouring bin as counter-reading — the shape that
+  worked on #81's mat edge — and returned 0.68–1.45 with the neighbour
+  consistently *larger* than the signal, on candidates whose courses are
+  plainly visible in the sheet. The precondition had not travelled: felt
+  is a **stationary texture**, where a spatial frequency means something,
+  while a card face is a **layout**, and four hard horizontal steps put a
+  large component in every low bin including the wall's own.
+- **"An instrument belongs to the signal, not to the ticket."** The same
+  measurement changed twice and said so both times. A row-mean was the
+  wash's instrument; when the signal moved into joints about a pixel wide,
+  a row-mean averaged it away, so the old column had to go rather than be
+  carried forward looking comparable. Changing instrument is correct and
+  silent continuity is the failure — but the two columns must be marked
+  as not comparable, or somebody puts them in one table.
+- **"Pick the geometry that survives the shader, not the one that
+  scores."** A joint 0.51 px wide made point-sampled and antialiased
+  readings disagree by 30%: a third of the number was where the sample
+  happened to land. A 7×18 wall measured better and was rejected for a
+  5×13 with a 1.8 px joint, where the two agree to 3%. A measurement that
+  depends on pixel-centre luck is not a measurement of the effect.
+- **"A census whose parts do not sum to its whole has a card in it nobody
+  looked at."** Add the breakdown up before relaying it. Observed 19.09:
+  a 35-effect census was relayed as 28 + 3 + 2 + 1, and the missing one
+  was a real row. The check costs nothing and catches the one shape that
+  survives three retellings — a wrong part beside a right total. The
+  cheaper half of the same lesson: the census was caught because the test
+  interpolates its own counts into the assertion message, so an
+  impossible floor made the pool state its figure out loud.
+- **"A cut can overstate a positive; it cannot overstate a zero."** When
+  a blocker is measured by cutting it out and re-running, the cause reads
+  as *nothing* rather than as something implemented, so a real rule would
+  still have to claim that line's parameters. The count that comes back
+  is therefore a **floor**. The zeros are the sturdier half of the same
+  run. Measured on #72: `effect Effect` 22 listed → 12 read, the whole
+  `ChangeZone` family 22 listed → 0, and the two cut together → still 12,
+  which is what settles it — a family that adds nothing beside the cause
+  that works has something else waiting behind every script.
+- **"A register may be the sole carrier of a claim only with margin."**
+  Redundancy between two registers is the tidiness fault the face rule
+  names — *unless* the single register is marginal, in which case it is
+  the correct answer and the rule yields to the measurement. What makes
+  the difference measurable rather than arguable: a face register's
+  strength varies with what it is composited over, where a border
+  sheath's does not. And a double register kept for that reason is
+  **pinned**, not permanent: a test asserting the margin is still thin
+  goes red the day the single register grows up.

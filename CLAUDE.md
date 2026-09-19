@@ -405,6 +405,11 @@ so `--tables` brings those back in step after a card is edited by hand or
 after `baylee_cards_codegen::lines` learns to read something new, and needs no
 corpus at all. A machine that has one runs the whole thing and never needs it.
 
+It still needs the **payload cache**, though, which is the one thing a fresh
+worktree does not have: `data/scryfall-cache` is gitignored, so a new
+checkout refuses at the lines stage until it is filled or copied from a tree
+that has one (12 MB — copying costs nothing and beats refetching the feed).
+
 **Codegen is a developer's tool and does not run in CI.** It reads the
 card-script reference, which is GPL and deliberately not vendored, so a runner
 has none of it and the generator writes different files there than on the
