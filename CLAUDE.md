@@ -214,6 +214,14 @@ cargo run -p baylee-catalog -- mine-types                 # rewrite data/type-na
 cargo run -p baylee-catalog -- corpus                     # the cards an index is assigned over, for `xtask ledger`
 ```
 
+That works from **any** worktree, because `compose.yaml` pins `name: baylee`
+rather than letting Compose derive a project from the directory. This
+repository is checked out five times, so the derived name gave each tree a
+container and a volume of its own and then collided on 5432 — three volumes
+were found that way, one of them 1.3 GB and one an empty cluster. The pin
+survives forgetting; `COMPOSE_PROJECT_NAME` and `-p` still override it, which
+is the precedence the spec defines and the one worth keeping.
+
 **Every language is the default and English is the opt-out**, which is the
 opposite way round from Scryfall's two feeds. A card's printed text is the one
 thing a player reads in their own language — the client asks `/catalog/text`

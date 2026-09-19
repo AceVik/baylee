@@ -14,6 +14,30 @@
 #   export DATABASE_URL=postgres://baylee:baylee@127.0.0.1:5432/baylee
 #   cargo run -p baylee-catalog -- ingest                  # every language
 #   cargo run -p baylee-catalog -- ingest --english-only   # ~118k printings
+
+# The project name is **pinned**, and that is what makes five worktrees one
+# database. Compose otherwise derives it from the *directory*, and this
+# repository is checked out five times — so `baylee-gateway/` and
+# `baylee-client/` each built a container and a volume of their own and then
+# collided on 5432. That is not a slower setup, it is a **different**
+# database: an ingest into one is invisible in the other, and a search
+# answers nothing while somebody next door is looking at a full catalog.
+# Observed on 19.09.2026 as three volumes — `baylee_catalog-data` at 1.3 GB,
+# `baylee-gateway_catalog-data` at 604 MB and `baylee-client_catalog-data`
+# at 46.7 MB, the last of which is an initialised cluster and no catalog at
+# all.
+#
+# A `-p baylee` on the command line fixes it for whoever remembers, which is
+# the same as not fixing it. This key is read by the command itself, so
+# forgetting is no longer a way to get it wrong. `COMPOSE_PROJECT_NAME` and
+# `-p` still win, and that precedence is the right way round: the pin
+# survives being forgotten, not being overruled on purpose.
+#
+# The two volumes named after a directory are orphans from before this and
+# are deleted by hand or not at all — Compose will not touch a volume it no
+# longer knows about, which is the safe direction for the 1.3 GB one.
+name: baylee
+
 services:
   postgres:
     image: postgres:18-alpine
