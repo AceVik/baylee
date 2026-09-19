@@ -620,6 +620,8 @@ mod tests {
 
     fn statics() -> GameStatic {
         GameStatic {
+            decision_secs: None,
+            reconnect_secs: None,
             view_version: baylee_view::VIEW_VERSION,
             game_id: "g".into(),
             your_seat: PlayerId::new(0),
@@ -730,6 +732,8 @@ mod tests {
         let key = ImageKey::card_back(ArtSize::Normal);
         assert_eq!(key.printing(), None);
         let empty = GameStatic {
+            decision_secs: None,
+            reconnect_secs: None,
             prints: vec![],
             ..statics()
         };

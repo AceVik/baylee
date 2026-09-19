@@ -469,6 +469,8 @@ mod tests {
 
     fn statics(team: Option<u8>) -> baylee_view::GameStatic {
         baylee_view::GameStatic {
+            decision_secs: None,
+            reconnect_secs: None,
             view_version: baylee_view::VIEW_VERSION,
             game_id: "g".into(),
             your_seat: PlayerId::new(0),

@@ -760,6 +760,16 @@ pub fn player_view(
     }
 }
 
+/// Reads the house rules' spelling of *no limit* into the view's.
+///
+/// `HouseRules` says it with zero and the view says it with `None`, and the
+/// translation belongs here rather than at each reader: zero drawn on a seat
+/// sheet is a table with no time at all, which is the opposite of what it
+/// means.
+const fn no_limit_is_none(secs: u32) -> Option<u32> {
+    if secs == 0 { None } else { Some(secs) }
+}
+
 /// Builds the once-per-game static payload a client needs before it can render
 /// anything: who sits where, and the print table its images are keyed by.
 ///
@@ -776,12 +786,15 @@ pub fn game_static(
     seats: Vec<baylee_view::SeatIdentity>,
     prints: &[baylee_core::preset::PrintInfo],
     shown: &[bool],
+    house_rules: &baylee_core::preset::HouseRules,
 ) -> GameStatic {
     GameStatic {
         view_version: baylee_view::VIEW_VERSION,
         game_id,
         your_seat,
         seats,
+        decision_secs: no_limit_is_none(house_rules.decision_timeout_secs),
+        reconnect_secs: no_limit_is_none(house_rules.reconnect_window_secs),
         prints: prints
             .iter()
             .enumerate()
@@ -1021,6 +1034,7 @@ mod tests {
             vec![],
             &preset.prints,
             &shown,
+            &preset.house_rules,
         );
         assert_eq!(statics.prints.len(), 3);
         let entry = |i: u16| statics.print(PrintRef::new(i)).expect("shown");
@@ -1028,6 +1042,48 @@ mod tests {
         assert!(matches!(entry(1).finish, baylee_view::Finish::Foil));
         assert!(matches!(entry(2).finish, baylee_view::Finish::Etched));
         assert_eq!(statics.view_version, baylee_view::VIEW_VERSION);
+    }
+
+    /// The house rules spell *no limit* as zero and the payload spells it as
+    /// `None`, because zero on a seat sheet reads as the opposite: a table
+    /// with no time at all rather than one with all the time there is.
+    ///
+    /// Unreachable through the gateway, which refuses a zero reconnect
+    /// window (`clock::MIN_RECONNECT_SECS` is 10) — but a local harness may
+    /// choose either, and this payload has to be honest about a table the
+    /// gateway did not make.
+    #[test]
+    fn a_table_with_no_limit_says_none_rather_than_nought() {
+        let mut preset = mixed_print_preset();
+        preset.house_rules.decision_timeout_secs = 0;
+        preset.house_rules.reconnect_window_secs = 0;
+        let statics = game_static(
+            "g1".into(),
+            PlayerId::new(0),
+            vec![],
+            &preset.prints,
+            &[true, true, true],
+            &preset.house_rules,
+        );
+        assert_eq!(statics.decision_secs, None);
+        assert_eq!(statics.reconnect_secs, None);
+
+        preset.house_rules.decision_timeout_secs = 30;
+        preset.house_rules.reconnect_window_secs = 45;
+        let statics = game_static(
+            "g1".into(),
+            PlayerId::new(0),
+            vec![],
+            &preset.prints,
+            &[true, true, true],
+            &preset.house_rules,
+        );
+        assert_eq!(statics.decision_secs, Some(30));
+        assert_eq!(
+            statics.reconnect_secs,
+            Some(45),
+            "the two limits are separate numbers and must not be read from one field"
+        );
     }
 
     /// A printing this seat has not been shown is a hole in the table, not a
@@ -1041,6 +1097,7 @@ mod tests {
             vec![],
             &preset.prints,
             &[true, false, true],
+            &preset.house_rules,
         );
         assert_eq!(statics.prints.len(), 3, "the indices do not move");
         assert!(statics.print(PrintRef::new(0)).is_some());

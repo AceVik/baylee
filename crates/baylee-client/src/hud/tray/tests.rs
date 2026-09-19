@@ -5,6 +5,8 @@ use baylee_core::ids::PlayerId;
 
 fn statics() -> GameStatic {
     GameStatic {
+        decision_secs: None,
+        reconnect_secs: None,
         view_version: baylee_view::VIEW_VERSION,
         game_id: "g".into(),
         your_seat: PlayerId::new(0),

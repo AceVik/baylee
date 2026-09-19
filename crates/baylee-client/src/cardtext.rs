@@ -631,6 +631,8 @@ mod tests {
 
     fn statics(ids: &[&str]) -> GameStatic {
         GameStatic {
+            decision_secs: None,
+            reconnect_secs: None,
             view_version: baylee_view::VIEW_VERSION,
             game_id: "test".to_string(),
             your_seat: baylee_core::ids::PlayerId::new(0),

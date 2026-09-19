@@ -425,6 +425,42 @@ Anyone adding another field of this shape to `PlayerView` inherits the rule:
 if it is made of wall time, it belongs in the views that go to sockets and
 nowhere else.
 
+### The two limits, stated at join (view version 26)
+
+The remainder above is what moves; `GameStatic::decision_secs` and
+`GameStatic::reconnect_secs` are what it starts from. Since a room picks its
+own clock they are per table, and until version 26 a client was told neither.
+
+**Join is the only moment for the reconnect window.** A client is
+disconnected for exactly the window it would be counting, so no in-game
+payload can reach it while the number matters. That alone puts it on
+`GameStatic` rather than on a view.
+
+**And the lobby row is not enough for either.** `GET /lobby/games` has
+carried `clock: { decide_secs, reconnect_secs }` since the room learned to
+pick a clock, but three ways into a game read no lobby row at all:
+`xtask dev-table`, a rematch, and taking over an AI chair. A seat sheet fed
+from the listing would be right for a lobby game and blank for the rest,
+which is the kind of half-working that is noticed by the first player to
+take a rematch.
+
+So they ride the payload every seat gets on every socket, beside the roster
+and the print table — the same shelf as everything else that is known at
+join and constant for the game.
+
+**Both are `Option<u32>` because the house rules spell *no limit* as zero,**
+and zero on a screen reads as the opposite: a seat with no time at all. A
+gateway room cannot choose either zero for the window
+(`clock::MIN_RECONNECT_SECS` is 10) but a local harness can, and the payload
+has to be honest about a table this gateway did not make. One reading,
+`view::no_limit_is_none`, does the translation, so no client has to know that
+the rules and the wire disagree about how to say "never".
+
+These are the *room's* numbers and `PlayerView::decision_remaining_ms` is the
+*question's*; they are deliberately not one field. A fraction of the limit
+would show a thirty-second table its clock for three seconds, which is why
+the limit is stated once here and the warning threshold is flat.
+
 ## Commanders (view version 13)
 
 `SeatView` used to carry `commander_casts: Vec<u32>`, and it was two things

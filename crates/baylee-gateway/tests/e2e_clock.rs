@@ -196,3 +196,54 @@ async fn the_gateway_publishes_the_clocks_it_will_accept() {
         "the default clock is not in the menu: {body}"
     );
 }
+
+/// The room's clock reaches the *seat*, not only the engine — the whole
+/// point of #98.
+///
+/// A client is disconnected for exactly the reconnect window it would be
+/// counting, so join is the only moment it can be told; and three ways into
+/// a game read no lobby row at all. This asserts the end of that chain: a
+/// room picks `blitz`, and the first payload a seat's socket receives says
+/// 30 and 30.
+#[tokio::test(flavor = "multi_thread")]
+async fn a_seat_is_told_the_two_limits_its_table_plays_at() {
+    let gw = spawn_gateway("clock-static");
+    let port = gw.port;
+    let _agent = common::attach_agent(&gw).await;
+
+    let token = login(port, "sheet@example.com", "clock_sheet");
+    let deck = a_deck(port, &token);
+    let (status, body) = ai_game(port, &token, &deck, ",\"clock\":\"blitz\"");
+    assert_eq!(status, 200, "blitz game: {body}");
+    let game_id = json_field(&body, "game_id").to_string();
+    let seat_token = json_field(&body, "seat_token").to_string();
+
+    let url = format!("ws://127.0.0.1:{port}/games/{game_id}/ws?token={seat_token}");
+    let mut ws = common::dial_seat(&url).await;
+    let frame = tokio::time::timeout(std::time::Duration::from_secs(10), {
+        use futures_util::StreamExt as _;
+        ws.next()
+    })
+    .await
+    .expect("the table said nothing")
+    .expect("the socket was closed")
+    .expect("frame ok");
+    let env = <baylee_protocol::v1::Envelope as prost::Message>::decode(frame.into_data())
+        .expect("decode envelope");
+    let Some(baylee_protocol::v1::envelope::Msg::GameStatic(msg)) = env.msg else {
+        panic!("a seat's first frame is the opening payload");
+    };
+    let statics: baylee_view::GameStatic =
+        serde_json::from_slice(&msg.static_json).expect("static json");
+
+    assert_eq!(
+        statics.decision_secs,
+        Some(30),
+        "the seat was not told how long it has to answer"
+    );
+    assert_eq!(
+        statics.reconnect_secs,
+        Some(30),
+        "the seat was not told how long it may be gone"
+    );
+}

@@ -366,7 +366,14 @@ impl Session {
             .revealed
             .get(seat.get() as usize)
             .map_or(&[][..], Vec::as_slice);
-        crate::view::game_static(self.game_id.clone(), seat, seats, &self.prints, shown)
+        crate::view::game_static(
+            self.game_id.clone(),
+            seat,
+            seats,
+            &self.prints,
+            shown,
+            &self.house_rules,
+        )
     }
 
     /// [`Session::game_static`] as the envelope a socket sends.

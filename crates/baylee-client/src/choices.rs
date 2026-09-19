@@ -351,6 +351,8 @@ mod tests {
     #[test]
     fn a_seat_row_says_the_name_the_table_shows() {
         let statics = GameStatic {
+            decision_secs: None,
+            reconnect_secs: None,
             view_version: baylee_view::VIEW_VERSION,
             game_id: "g".into(),
             your_seat: PlayerId::new(0),

@@ -231,6 +231,8 @@ impl ViewBuilder {
 #[must_use]
 pub fn statics(count: u16) -> GameStatic {
     GameStatic {
+        decision_secs: None,
+        reconnect_secs: None,
         view_version: baylee_view::VIEW_VERSION,
         game_id: "test-game".to_string(),
         your_seat: PlayerId::new(0),

@@ -42,6 +42,17 @@ use serde::{Deserialize, Serialize};
 /// Protocol version of the view payload. Bumped on any breaking change so a
 /// client can refuse a host it cannot render rather than mis-rendering it.
 ///
+/// 26 added [`GameStatic::decision_secs`] and [`GameStatic::reconnect_secs`]
+/// (#98) — the two limits the table plays at. Since #85 a room picks its own
+/// clock, so both are per table, and a client was told neither.
+///
+/// They are on this payload rather than on a view because they are known at
+/// join and constant for the game, and because the reconnect window is the
+/// one number a client cannot be sent when it needs it: it is disconnected
+/// for exactly the window it would be counting. Three ways into a game have
+/// no lobby row to read them from at all — `dev-table`, a rematch, and
+/// taking over an AI chair — which is why the lobby listing is not enough.
+///
 /// 25 added [`PlayerView::decision_remaining_ms`] (#68). The decision clock
 /// has run since the engine moved into a process of its own and reached no
 /// seat at all, so a player saw nothing for ten minutes and then lost a
@@ -70,7 +81,7 @@ use serde::{Deserialize, Serialize};
 /// and disagree on what a number means. That is why subtype ids became
 /// append-only in the same commit rather than trusting this number to carry
 /// it.
-pub const VIEW_VERSION: u32 = 25;
+pub const VIEW_VERSION: u32 = 26;
 
 // ---------------------------------------------------------------- turn shape
 
@@ -417,6 +428,29 @@ pub struct GameStatic {
     /// is entitled to its own deck's printings from the start and earns the
     /// rest by seeing the cards; a host re-sends this payload when it does.
     pub prints: Vec<Option<PrintEntry>>,
+    /// How long a seat has to answer one question, in seconds, or `None` at a
+    /// table with no decision clock.
+    ///
+    /// The **limit**, not a countdown: [`PlayerView::decision_remaining_ms`]
+    /// is the number that moves, and this is the one it starts from. A player
+    /// choosing a table is choosing a pace, and stating it once here is what
+    /// lets a seat sheet say so without a per-question warning claiming a
+    /// three-second table is nearly over.
+    pub decision_secs: Option<u32>,
+    /// How long a seat may be gone before the house answers for it, in
+    /// seconds, or `None` at a table that waits forever.
+    ///
+    /// Known at join or never: a client is disconnected for exactly the
+    /// window it would be counting, so no in-game payload can reach it while
+    /// the number matters.
+    ///
+    /// Both of these are an `Option` rather than a bare number because the
+    /// house rules spell *no limit* as zero, and zero on a screen reads as
+    /// the opposite — a seat with no time at all. A gateway room cannot
+    /// choose it (`clock::MIN_RECONNECT_SECS` is 10) but a local harness can,
+    /// and this payload has to be honest about a table the gateway did not
+    /// make.
+    pub reconnect_secs: Option<u32>,
 }
 
 impl GameStatic {
