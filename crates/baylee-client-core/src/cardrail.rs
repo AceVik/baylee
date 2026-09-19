@@ -56,8 +56,27 @@ pub const MARK_ORDER: [KeywordBadge; 12] = [
     KeywordBadge::Trample,
     KeywordBadge::Vigilance,
     KeywordBadge::Defender,
-    // Appended, never inserted: a slot that moved would move the mark under
-    // it on every card in every screenshot ever taken of this client.
+    // **Appended, never inserted, and retired in place.**
+    //
+    // The reason is not that a mark would move on screen — `marks` packs, so
+    // a creature with one keyword draws one mark at the left end whatever
+    // else is in this table. It is that **a badge's index here *is* its wire
+    // format**: the renderer's `cardmat::glow_bits` zips this array with
+    // `glow::MARK_SHIFT` to make the bit the GPU reads, and its
+    // `markatlas::MARK_CELLS` makes the same index the atlas cell the glyph
+    // was baked into. Neither lives in this crate, which is the point: this
+    // array is read from above and cannot see who is counting on it. Moving one renumbers a value that
+    // crosses to the GPU, and the failure it produces is a card drawing
+    // *another keyword's* glyph — a picture that lies while every round trip
+    // stays green and nothing in the suite can see it.
+    //
+    // So nothing is ever removed from this array. A badge the rail stops
+    // drawing retires as a `None` in its own slot — which costs no visible
+    // space at all, again because `marks` packs — and the array becomes
+    // `[Option<KeywordBadge>; N]` on the day that first happens. Nothing has
+    // retired yet, so it is still a plain array; the rule is written down now
+    // because the moment it is needed is the moment somebody reaches for
+    // `remove` instead.
     KeywordBadge::Prowess,
 ];
 

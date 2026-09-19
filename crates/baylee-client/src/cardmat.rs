@@ -28,6 +28,7 @@
 //! nothing here is written per frame: a material is created once and never
 //! touched again while it is on screen.
 
+use baylee_client_core::board::KeywordBadge;
 use baylee_client_core::cardrail;
 use baylee_client_core::images::{FinishTreatment, ImageKey};
 use baylee_core::ids::ObjectId;
@@ -135,6 +136,23 @@ pub mod glow {
     /// original to go and look at — and that is settled in the model rather
     /// than here.
     pub const COPY: u32 = 1 << 21;
+
+    /// This creature has defender (CR 702.3): it does not attack, ever.
+    ///
+    /// Drawn on the **face**, as a translucent brick wall crossing the card,
+    /// and it is the first *permanent* occupant of that register — the only
+    /// other one, summoning sickness, is a fact about this turn. That the two
+    /// share a surface is why the wall travels across the card at an angle
+    /// and the sickness blanket lies along it: a summoning-sick defender
+    /// wears both at once, one of them true until end of turn and the other
+    /// true for the creature's whole life, and they have to stay two things a
+    /// player can read separately.
+    ///
+    /// It is a keyword, so unlike [`SUMMONING_SICK`] it comes off the card —
+    /// but it does not ride [`super::KEYWORD_BITS`], because that table is
+    /// the three the *border* is a material for and this is not a border
+    /// treatment.
+    pub const DEFENDER: u32 = 1 << 22;
 }
 
 /// The engine's keyword bit for each glow, from `baylee-cards-dsl`.
@@ -182,6 +200,16 @@ pub fn glow_bits(keywords: u128) -> u32 {
         if keywords & badge.bit() != 0 {
             bits |= 1 << slot;
         }
+    }
+    // Defender is asked for a second time and on its own, because it is drawn
+    // in two registers at once: a mark on the rail and a wall over the face.
+    // That is deliberately *not* the hexproof arrangement, where the border's
+    // material is the only drawing and the rail slot was dropped — dropping
+    // this one would move the mark beside it on every card, which
+    // `cardrail::MARK_ORDER` forbids in as many words. Which of the two the
+    // card should keep is a question about the rail and not about this bit.
+    if keywords & KeywordBadge::Defender.bit() != 0 {
+        bits |= glow::DEFENDER;
     }
     bits
 }
@@ -1172,6 +1200,61 @@ pub(crate) mod tests {
         );
     }
 
+    /// A defender wears a wall, and a summoning-sick defender wears both.
+    ///
+    /// The pair is the point rather than either bit alone. They are the only
+    /// two things drawn on the card's *face*, and they are two different
+    /// kinds of fact: sickness expires at end of turn, defender is true for
+    /// as long as the creature is. If they were ever drawn as one gesture a
+    /// player would have no way to tell which of the two would still be there
+    /// next turn — which is why the wall travels off-axis from the blanket's
+    /// hem, held by
+    /// `the_wall_travels_on_its_own_axis_and_not_the_blanket_s`.
+    ///
+    /// The rail bit is asserted here too, and deliberately. Defender is drawn
+    /// in **two** registers, which no other fact about a card is — and that
+    /// is required rather than tolerated: measured over twelve phases of a
+    /// full sweep on four constructed cards, the wall is worth **20.9**
+    /// display levels on a basic Plains' text box against a floor of 20, so
+    /// it cannot be the sole carrier of the claim. See
+    /// `the_wall_is_too_faint_to_carry_defender_on_its_own`, which is what
+    /// goes red if that stops being true. A test that only looked at
+    /// `glow::DEFENDER` would let the rail slot disappear without anything
+    /// noticing.
+    #[test]
+    fn a_defender_wears_a_wall_and_a_sick_one_wears_the_night_as_well() {
+        use baylee_cards_dsl::KeywordSet;
+        use baylee_core::types::TypeSet;
+        let slot = cardrail::slot_of(KeywordBadge::Defender).expect("defender rides the rail");
+        let rail =
+            1u32 << (glow::MARK_SHIFT + u32::try_from(slot).expect("twelve slots fit in a u32"));
+
+        let mut wall = permanent(TypeSet::CREATURE);
+        wall.keywords = KeywordSet::DEFENDER.bits();
+        assert_eq!(
+            glow_of(Some(&wall), Offer::NONE),
+            glow::DEFENDER | rail,
+            "a defender is drawn as a wall on its face and a mark on its rail"
+        );
+
+        wall.summoning_sick = true;
+        assert_eq!(
+            glow_of(Some(&wall), Offer::NONE),
+            glow::DEFENDER | rail | glow::SUMMONING_SICK,
+            "and a creature that arrived this turn wears the night over it"
+        );
+
+        // The bit comes off the card, so a creature without the keyword has
+        // no wall however else it is drawn.
+        let mut plain = permanent(TypeSet::CREATURE);
+        plain.summoning_sick = true;
+        assert_eq!(
+            glow_of(Some(&plain), Offer::NONE) & glow::DEFENDER,
+            0,
+            "a creature that merely cannot attack *this turn* is not a wall"
+        );
+    }
+
     /// The three claims are three bits, and a card that is all three wears
     /// all three: they are drawn in three different places on purpose.
     #[test]
@@ -1684,6 +1767,7 @@ pub(crate) mod tests {
             ("GLOW_COMMANDER", glow::COMMANDER),
             ("GLOW_TOKEN", glow::TOKEN),
             ("GLOW_COPY", glow::COPY),
+            ("GLOW_DEFENDER", glow::DEFENDER),
         ] {
             for (which, src) in [("card.wgsl", table), ("card_ui.wgsl", ui)] {
                 let theirs = wgsl_const(src, name);
@@ -1695,6 +1779,238 @@ pub(crate) mod tests {
             // And none of them may reach into the rail, which would draw a
             // keyword mark for something that is not a keyword.
             assert_eq!(ours & glow::MARK_MASK, 0, "{name} overlaps the rail");
+        }
+    }
+
+    /// The wall is too faint to carry defender on its own, and that is what
+    /// keeps the rail mark.
+    ///
+    /// **This test is meant to fail one day.** The rail's defender mark and
+    /// the wall say the same thing in two registers, which the face rule
+    /// forbids — and the exemption is a *measurement*, not a preference: a
+    /// register may be the sole carrier of a claim only with margin, and over
+    /// twelve phases on four constructed cards the wall's weakest reading is
+    /// 20.9 display levels on a basic Plains' text box, against a floor of
+    /// 20. Nine tenths of a level is the floor with a rounding error on top.
+    ///
+    /// The danger is not that the number is wrong. It is that somebody later
+    /// strengthens the joint, widens it, or re-geometries the bond, the wall
+    /// becomes comfortably legible on its own, and nobody goes back to ask
+    /// whether the rail still needs its mark — so a drawing that was right
+    /// once stays as a duplicate forever. This holds the *reason* rather than
+    /// the outcome: it reads the constants the wall is actually drawn with
+    /// and refuses the day they are strong enough to stand alone.
+    ///
+    /// **What it asserts is that the measurement still covers the drawing**,
+    /// which is the only thing a test in this file can honestly say. The 20.9
+    /// is a contrast measured on rendered pixels; `WALL_JOINT` is the
+    /// coefficient that produced it, and the two are not proportional —
+    /// clipping near white, the brick face's own term and the band's weight
+    /// all sit between them. So this does not compute a contrast from a
+    /// constant and pretend the answer means something. It pins the
+    /// **input** the 20.9 was measured at, with enough room for a tweak and
+    /// not enough for a redesign: past this the reading is extrapolation, and
+    /// the honest response is to render the four cards again rather than to
+    /// argue from the constant.
+    #[test]
+    fn the_wall_is_too_faint_to_carry_defender_on_its_own() {
+        // The joint coefficient the sole-carrier reading of 20.9 was measured
+        // at. Half again as strong is where the measurement stops applying:
+        // the lever was sampled at 0.30, 0.36, 0.42, 0.50 and 0.60, and 0.42
+        // already moves the worst text box to 25.1.
+        const MEASURED_AT: f32 = 0.30;
+        let table = include_str!("shaders/card.wgsl");
+        let joint = wgsl_const(table, "WALL_JOINT");
+        assert!(
+            joint <= MEASURED_AT * 1.5,
+            "the joint is {joint} where the sole-carrier reading of 20.9 \
+             display levels was measured at {MEASURED_AT}. That reading is \
+             what justifies drawing defender twice, and it no longer covers \
+             this wall: render the four cards again and either re-pin this \
+             number or reconsider the rail's defender mark. Do not raise the \
+             bound to make it pass"
+        );
+    }
+
+    /// A joint narrower than a pixel is not a joint, it is a coin toss.
+    ///
+    /// The wall's whole contrast lives in its mortar, and the mortar is thin.
+    /// Measured on the composites: at seven bricks across a card the table
+    /// draws 90 px wide the joints are **0.51 px**, and a point-sampled
+    /// render of that bond reported a joint contrast of 36.9 where an
+    /// antialiased one reports 25.7 — a third of the number was where the
+    /// sample happened to land. At five across they are 1.8 px and the two
+    /// readings agree to 3%.
+    ///
+    /// This is here because 7x18 is exactly what a later change reaches for.
+    /// It scores better on a contact sheet, it looks more like masonry at
+    /// preview size, and it would shimmer on the table as the band travelled
+    /// over it — a failure nobody would connect to the number that justified
+    /// it. So the bond is held to a joint of at least one physical pixel on
+    /// the smallest card this client draws, and a bond that stops clearing
+    /// that is a bond that has to be measured again rather than merely
+    /// looked at.
+    #[test]
+    fn the_wall_s_joints_are_at_least_a_pixel_wide_on_the_smallest_card() {
+        // The three widths `docs/client.md` records the face register being
+        // previewed against; the rings were chosen against the same set.
+        const PREVIEWED_AT: [f32; 3] = [60.0, 106.0, 220.0];
+        let table = include_str!("shaders/card.wgsl");
+        let cols = wgsl_const(table, "WALL_COLS");
+        let mortar = wgsl_const(table, "WALL_MORTAR");
+
+        let smallest = PREVIEWED_AT[0];
+        // A card is 63 mm wide by 88 mm tall and the mesh keeps that ratio,
+        // so a height in pixels follows from a width.
+        let tall = smallest * 88.0 / 63.0;
+        // Both joints are `WALL_MORTAR / WALL_COLS` of the card, which is
+        // what the shader's `WALL_ROWS / WALL_COLS` scaling on the bed joint
+        // is *for*: a course is 1/rows of the height, so multiplying the
+        // fraction by rows/cols cancels the rows and leaves the two joints
+        // the same thickness in the card's own units. Writing `/ rows` here
+        // would measure the joint against one course rather than the card and
+        // report 0.64 px where the drawing has 1.68.
+        let head = mortar * smallest / cols;
+        let bed = mortar * tall / cols;
+        assert!(
+            head >= 1.0,
+            "head joint is {head:.2} px at {smallest} px wide: below a pixel, \
+             so its contrast is where the sample landed"
+        );
+        assert!(bed >= 1.0, "bed joint is {bed:.2} px at {smallest} px wide");
+    }
+
+    /// The wall never travels the way the blanket lies.
+    ///
+    /// `glow::SUMMONING_SICK` draws a hem that runs across the card and moves
+    /// along `uv.y`; `glow::DEFENDER` draws a band travelling at
+    /// `WALL_ANGLE`. A summoning-sick defender wears both, and one of them is
+    /// true until end of turn while the other is true for the creature's
+    /// whole life — so if the two moved on the same axis a player would read
+    /// one gesture where there are two facts with very different lifetimes.
+    ///
+    /// Bounded on both sides rather than merely "not vertical": a band a few
+    /// degrees off the hem is worse than one exactly on it, because it looks
+    /// like the hem drawn badly.
+    #[test]
+    fn the_wall_travels_on_its_own_axis_and_not_the_blanket_s() {
+        let table = include_str!("shaders/card.wgsl");
+        let angle = wgsl_const(table, "WALL_ANGLE").to_degrees();
+        assert!(
+            (10.0..=45.0).contains(&angle),
+            "the band travels at {angle:.1} degrees: at 0 it is the hem's own \
+             axis reversed, at 90 it is the hem, and near either it reads as \
+             the hem drawn badly"
+        );
+    }
+
+    /// The wall's whole block is the same text in both shaders.
+    ///
+    /// Stronger than comparing the constants, and it exists because comparing
+    /// the constants was not enough: the numbers were pinned by a test while
+    /// the **prose** beside them was copied by hand, and a measured range in
+    /// one file was corrected while the same sentence in the other kept the
+    /// old figure. A reader then gets two answers about one drawing and no
+    /// way to tell which is current.
+    ///
+    /// Comparing the text rather than re-deriving it also means the block can
+    /// only ever be moved between the files whole, which is the property that
+    /// keeps the explanation attached to the thing it explains.
+    #[test]
+    fn the_wall_is_the_same_block_of_text_in_both_shaders() {
+        let block = |src: &str| {
+            let from = src
+                .find("// ---- defender: a wall, drawn over the face")
+                .expect("the wall's constants");
+            let to = src.find("const WALL_SECONDS").expect("the last of them");
+            src[from..to].to_owned()
+        };
+        assert_eq!(
+            block(include_str!("shaders/card.wgsl")),
+            block(include_str!("shaders/card_ui.wgsl")),
+            "the wall's constants and the reasons for them have drifted \
+             between the table and the hand"
+        );
+    }
+
+    /// Every number the wall is drawn with is the same number in both
+    /// shaders.
+    ///
+    /// The same argument as the flags above, one register over: the table and
+    /// the hand draw the same card, and a wall that travelled at one angle on
+    /// the felt and another in the preview would be two different claims
+    /// about one creature.
+    #[test]
+    fn the_wall_is_drawn_with_the_same_numbers_in_both_shaders() {
+        let table = include_str!("shaders/card.wgsl");
+        let ui = include_str!("shaders/card_ui.wgsl");
+        // The colours first, because they are the ones a person edits.
+        // `WALL_LIME` in particular is the constant the owner picked off a
+        // contact sheet, and picking it again is a one-line change to *two*
+        // files.
+        //
+        // `wgsl_vec3` already existed for the identity slips, but it had only
+        // ever been pointed at a Rust constant — it compared one shader
+        // against this file and never the two shaders against each other. So
+        // `SLEEP_MOON`, which `docs/client.md` describes as "written out in
+        // both card shaders and compared by a test", was compared by nothing;
+        // the reader was there and nobody had asked it this question.
+        // Every colour both files declare. `EDGE_INK` and `LAMP` are the
+        // table's alone — the hand draws no cut corner and stands in for the
+        // view angle — so they have nothing to disagree with.
+        for name in [
+            "WALL_WASH",
+            "WALL_LIME",
+            "SLEEP_MOON",
+            "SLEEP_LIFT",
+            "METAL_TONE",
+        ] {
+            let (a, b) = (wgsl_vec3(table, name), wgsl_vec3(ui, name));
+            assert!(
+                a.iter().zip(b).all(|(x, y)| (x - y).abs() < f32::EPSILON),
+                "{name}: {a:?} on the table, {b:?} in the hand"
+            );
+        }
+        for name in [
+            "WALL_FACE",
+            "WALL_JOINT",
+            "WALL_COLS",
+            "WALL_ROWS",
+            "WALL_MORTAR",
+            "WALL_ANGLE",
+            "WALL_BAND",
+            "WALL_HEAD",
+            "WALL_SECONDS",
+        ] {
+            let (a, b) = (wgsl_const(table, name), wgsl_const(ui, name));
+            assert!(
+                (a - b).abs() < f32::EPSILON,
+                "{name}: {a} on the table, {b} in the hand"
+            );
+        }
+    }
+
+    /// The wall's own clock is clear of every other clock a card wears.
+    ///
+    /// A card can be asleep, warded, armed and a defender at once, and four
+    /// periods that beat against each other read as one irregular thing
+    /// rather than as four. The sleep breath and its rings were chosen the
+    /// same way; this is the third number in that set and the first one that
+    /// could have collided.
+    #[test]
+    fn the_wall_s_period_is_clear_of_the_others_on_the_same_card() {
+        let table = include_str!("shaders/card.wgsl");
+        let wall = wgsl_const(table, "WALL_SECONDS");
+        for (what, other) in [
+            ("the sleep breath", wgsl_const(table, "SLEEP_SECONDS")),
+            ("the sleep rings", wgsl_const(table, "SLEEP_RING_SECONDS")),
+        ] {
+            let ratio = wall / other;
+            assert!(
+                (ratio - ratio.round()).abs() > 0.1,
+                "the wall's {wall}s is {ratio:.2}x {what}'s {other}s, close \
+                 enough to a whole multiple that the two would keep meeting"
+            );
         }
     }
 
@@ -1718,6 +2034,7 @@ pub(crate) mod tests {
             | glow::ARMED
             | glow::WILL_TAP
             | glow::COMMANDER
+            | glow::DEFENDER
             | glow::MARK_MASK;
         assert_eq!(glow::TOKEN & others, 0, "the token bit is somebody else's");
         assert_eq!(glow::COPY & others, 0, "the copy bit is somebody else's");
@@ -1980,7 +2297,13 @@ pub(crate) mod tests {
     #[test]
     fn the_rail_carries_the_keywords_it_says_it_does() {
         use baylee_cards_dsl::KeywordSet;
-        let slot = |set: KeywordSet| glow_bits(set.bits()) >> glow::MARK_SHIFT;
+        // Masked, not merely shifted. This helper used to shift the whole
+        // word right by `MARK_SHIFT` and compare, which was the same thing
+        // only for as long as `glow_bits` set nothing above the rail's field
+        // — `glow::DEFENDER` is the first bit that does, and it arrived as
+        // `1 << 14` in a number this test reads as slots. A shift is not a
+        // mask, and a helper that names a field has to cut it out.
+        let slot = |set: KeywordSet| (glow_bits(set.bits()) & glow::MARK_MASK) >> glow::MARK_SHIFT;
         assert_eq!(slot(KeywordSet::FLYING), 1 << 0);
         assert_eq!(slot(KeywordSet::DEATHTOUCH), 1 << 3);
         assert_eq!(slot(KeywordSet::DEFENDER), 1 << 10);

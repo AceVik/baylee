@@ -73,6 +73,7 @@ const GLOW_WILL_TAP: u32 = 64u;
 const GLOW_COMMANDER: u32 = 128u;
 const GLOW_TOKEN: u32 = 1048576u;
 const GLOW_COPY: u32 = 2097152u;
+const GLOW_DEFENDER: u32 = 4194304u;
 
 /// How far in from the edge the border treatment reaches, in UV.
 const BORDER: f32 = 0.055;
@@ -237,10 +238,181 @@ const SLEEP_RING_FADE: f32 = 0.62;
 const SLEEP_RING_FLOOR: f32 = 0.16;
 const SLEEP_RING_LIGHT: f32 = 0.13;
 
+// ---- defender: a wall, drawn over the face
+//
+// Defender is not a thing a creature *does*, it is a thing it is: it stands
+// there. So it is drawn as a wall crossing the card, translucent enough that
+// the card is still read through it — which is the whole brief, and the
+// reason every number below is held to two measured floors: a joint has to be
+// worth twenty display levels beside the brick next to it, and the art's
+// colour must not move.
+//
+// **The term is added in display space, not in linear, and that is the one
+// line here that must not be "simplified".** The sRGB transfer compresses a
+// constant linear add in proportion to how bright the pixel already is: the
+// same term measured **72 display levels over dark art and 1.5 over a white
+// card's title bar** — fifty to one within one card. A floor stated in
+// display levels cannot be met that way, and the failure is invisible where
+// anyone would look for it, because the art box is the bright end of the
+// spread and the text box is the dark one. After the transfer the same term
+// holds 18 to 29 across a pale frame, dark art, saturated blue and warm gold.
+// It costs one transfer pair per fragment and nothing else: no second sample,
+// no storage buffer, no texture array — inside the budget that keeps the
+// WebGL2 fallback one word away.
+//
+// **The wall is drawn by its joints, not by its wash.** Five candidates put
+// the strength in the brick face, and both the eye and the instrument said
+// the same thing about all five: no wall, only a warm diagonal haze. That
+// agreement is worth recording because it is rare — usually one of the two
+// catches what the other misses — and because a haze is what a later edit
+// reaches for when it wants the effect "softer". Moving the term into the
+// mortar is what makes courses appear. Measured on the constants below,
+// over twelve phases of a full sweep and both regions of four cards: **20.9
+// to 48.5** display levels, against a control with `WALL_JOINT` at zero that
+// reads -0.3 to 0.6. The bottom of that range is the number the rail's
+// defender mark still exists because of; see
+// `the_wall_is_too_faint_to_carry_defender_on_its_own`.
+const WALL_FACE: f32 = 0.08;
+const WALL_JOINT: f32 = 0.30;
+
+/// The bond: bricks across the card, and courses down it.
+///
+/// **Chosen because the joint survives a shader, not because it measured
+/// best.** A 7x18 bond scored higher on a contact sheet and its joints are
+/// **0.51 px** wide on a card the table draws 90 px across — so a
+/// point-sampled render reported 36.9 where an antialiased one reports 25.7,
+/// and a third of the number was where the sample happened to land. At 5x13
+/// the joints are 1.8 px and the two agree to 3%. 7x18 is exactly what a
+/// later optimisation reaches for; it would shimmer as the band travelled,
+/// and the sheet it shimmered off would still look right.
+const WALL_COLS: f32 = 5.0;
+const WALL_ROWS: f32 = 13.0;
+/// How much of a brick the joint takes. 0.10 of 90/5 px is 1.8 px across.
+const WALL_MORTAR: f32 = 0.10;
+
+/// What the wash and the joints are tinted with.
+///
+/// Two colours rather than one, and the split is measured. The card this is
+/// hardest on is a pale, near-neutral frame, where the art's mean colour
+/// shifts **38.2 degrees** when the whole band is yellow and **3.8 degrees**
+/// when only the joints are. Those two numbers travel together or not at all:
+/// the mean says the wall reads warm, the per-pixel figure — restricted to
+/// pixels with real saturation — says colour identity survived. Either alone
+/// is a different claim, and a test that asserted only the second would pass
+/// a candidate that shifted every neutral pixel on the card.
+const WALL_WASH: vec3<f32> = vec3<f32>(1.00, 0.94, 0.78);
+const WALL_LIME: vec3<f32> = vec3<f32>(1.00, 0.86, 0.38);
+
+/// The travelling band: how wide, how fast, and at what angle.
+///
+/// **The angle is not decoration.** The sickness blanket's hem runs across
+/// the card and rises and falls along `uv.y`, so a wall travelling down the
+/// card would be the same gesture as the hem — and the case that has to stay
+/// two readable things is a **summoning-sick defender**, where sickness is
+/// this turn's fact and defender is the creature's whole life. Twenty-two
+/// degrees off horizontal is far enough from the hem's axis to read as its
+/// own movement and shallow enough to cross the face rather than a corner.
+const WALL_ANGLE: f32 = 0.3839724;
+const WALL_BAND: f32 = 0.55;
+/// Where in the band the head peaks, as a fraction of it. The rest is tail:
+/// the "fading" half of the brief, so the wall arrives as an edge and leaves
+/// as a wash rather than switching on and off.
+const WALL_HEAD: f32 = 0.35;
+/// Seconds for one pass. Clear of every other clock a card wears — the
+/// sleep breath at 5 s, its rings at 3.4 s, the border's travelling light.
+const WALL_SECONDS: f32 = 7.3;
+
 /// What a card's corner is inked with once the scan's white is cut away: the
 /// same near-black as the slab's edge wall, so the corner reads as the card
 /// turning away rather than as a mark printed on it.
 const EDGE_INK: vec3<f32> = vec3<f32>(0.035, 0.038, 0.045);
+
+/// The sRGB transfer, both ways.
+///
+/// Everything else in this file works in linear, which is right for light:
+/// two lamps are twice one lamp. The wall is the exception and deliberately
+/// so — see `WALL_FACE` for the fifty-to-one measurement that forces it —
+/// because it is not light, it is a mark that has to be worth the same number
+/// of *display* levels wherever it lands.
+fn to_display(c: vec3<f32>) -> vec3<f32> {
+    let lo = c * 12.92;
+    let hi = 1.055 * pow(max(c, vec3<f32>(0.0)), vec3<f32>(1.0 / 2.4)) - 0.055;
+    return select(hi, lo, c <= vec3<f32>(0.0031308));
+}
+
+fn to_linear(c: vec3<f32>) -> vec3<f32> {
+    let lo = c / 12.92;
+    let hi = pow(max((c + 0.055) / 1.055, vec3<f32>(0.0)), vec3<f32>(2.4));
+    return select(hi, lo, c <= vec3<f32>(0.04045));
+}
+
+/// How much brick a fragment is on: 1 on a brick's face, 0 in a joint.
+///
+/// Running bond — every other course offset by half a brick — and the edge is
+/// widened to a pixel with `fwidth` rather than left hard. That is not
+/// softness for its own sake: at the size this card is drawn the joint is
+/// about one pixel across, and a hard edge on a feature that narrow appears
+/// and disappears as the band travels over it, which reads as a dashed line
+/// crawling rather than as a wall standing still.
+fn wall_bond(uv: vec2<f32>) -> f32 {
+    let course = uv.y * WALL_ROWS;
+    let row = floor(course);
+    let fv = course - row;
+    // Offset every other course by half a brick. `row * 0.5` fracts to 0 or
+    // 0.5 without a branch and without an integer modulo.
+    let col = uv.x * WALL_COLS + fract(row * 0.5);
+    let fu = col - floor(col);
+
+    // The joint is `WALL_MORTAR` of a brick on both axes, which is the same
+    // fraction of different lengths: a brick is wider than it is tall, so the
+    // bed joint is scaled by the aspect to come out the same thickness as the
+    // head joint.
+    let head = WALL_MORTAR;
+    let bed = WALL_MORTAR * WALL_ROWS / WALL_COLS;
+    // One pixel, in the units each axis is measured in — and taken from the
+    // *smooth* term, never from `col`. `col` carries the bond's half-brick
+    // offset, which jumps by 0.5 at every course boundary, so `fwidth(col)`
+    // in a quad straddling one reports about half a brick instead of about a
+    // pixel. That would smear `eu` across the whole brick face on one pixel
+    // row along all thirteen courses, and it would read as strong bed joints
+    // rather than as the defect it is.
+    let au = max(fwidth(uv.x) * WALL_COLS, 1e-5);
+    let av = max(fwidth(course), 1e-5);
+    // A **floor**, not an addend. The bond was chosen so that the joints are
+    // at least a pixel wide at the smallest size this client draws a card —
+    // that is what `WALL_COLS` is for and what the joint-width test holds —
+    // so on the table the ramp is exactly the one the composites measured,
+    // and the derivative only takes over on a card too small for it. Adding
+    // the two would widen the ramp by half again at table size, spreading the
+    // joint term over more pixels and lowering the very contrast the numbers
+    // in `WALL_FACE` are about.
+    let eu = min(
+        smoothstep(0.0, max(head, au), fu),
+        smoothstep(0.0, max(head, au), 1.0 - fu),
+    );
+    let ev = min(
+        smoothstep(0.0, max(bed, av), fv),
+        smoothstep(0.0, max(bed, av), 1.0 - fv),
+    );
+    return min(eu, ev);
+}
+
+/// Where in the travelling band a fragment is: 0 outside it, peaking at
+/// `WALL_HEAD` through it.
+///
+/// A soft head and a long tail, so the wall arrives as an edge and leaves as
+/// a wash. The band runs at `WALL_ANGLE` off horizontal — never down the
+/// card, which is the sickness blanket's axis.
+fn wall_band(uv: vec2<f32>, t: f32) -> f32 {
+    let along = uv.x * cos(WALL_ANGLE) + uv.y * sin(WALL_ANGLE);
+    let s = fract(along - t / WALL_SECONDS);
+    if s >= WALL_BAND {
+        return 0.0;
+    }
+    let head = smoothstep(0.0, WALL_BAND * WALL_HEAD, s);
+    let tail = 1.0 - smoothstep(WALL_BAND * WALL_HEAD, WALL_BAND, s);
+    return head * tail;
+}
 
 /// A cheap value-noise hash. Deterministic, and the same on every backend —
 /// two clients looking at the same foil see the same foil.
@@ -398,6 +570,42 @@ fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
     // is, the face says what it can do, and a player can read both at once
     // only while they stay in different places. `SLEEP_*` above says what the
     // drawing is and why every number in it is the number it is.
+    // ---- defender: the wall, over the art and under the night
+    //
+    // Before the sleep block on purpose. A summoning-sick defender wears both
+    // — that is the case the angle was chosen for — and the order says which
+    // is which: the wall is a fact about the creature, so the night falls over
+    // it the way it falls over the art. Drawn after would put this turn's
+    // weather *under* the creature's own masonry, and the blanket would stop
+    // reading as something laid on top.
+    if (params.glow & GLOW_DEFENDER) != 0u {
+        // `wall_bond` takes a screen-space derivative to widen the joint to a
+        // pixel, and a derivative is only defined where neighbouring
+        // fragments took the same branch. `params.glow` is a uniform, so this
+        // `if` is uniform; `band > 0.0` would **not** be — the band's own
+        // edge is exactly where neighbours disagree, which is exactly where
+        // the widening matters. So the bond is asked for unconditionally and
+        // the band is a multiplier, not a gate.
+        let band = wall_band(uv, t);
+        let bond = wall_bond(uv);
+        let face = WALL_FACE * band;
+        let joint = WALL_JOINT * band * (1.0 - bond);
+        // In display space, and back. See `WALL_FACE`: in linear this same
+        // pair of numbers is worth 72 levels over dark art and 1.5 over a
+        // white title bar, and the floor is stated in levels.
+        let lit = to_display(color.rgb) + face * WALL_WASH + joint * WALL_LIME;
+        let walled = to_linear(clamp(lit, vec3<f32>(0.0), vec3<f32>(1.0)));
+        // Where the band has not reached, the card is left exactly as it was
+        // — not merely added to by zero. The round trip has a `clamp` in it,
+        // because a display-space add can overshoot white, and the foil block
+        // above this one is allowed to put a highlight past 1.0. Running the
+        // clamp over the whole card would quietly cost every foil defender
+        // its glint on the three quarters of the face the wall is not on.
+        // `select` rather than an `if`, so the derivative above stays in
+        // uniform control flow.
+        color = vec4<f32>(select(walled, color.rgb, band <= 0.0), color.a);
+    }
+
     if (params.glow & GLOW_SUMMONING_SICK) != 0u {
         // `uv.y` is 0 at the head of the card and 1 at its foot, so the hem
         // rises up the card as `breath` falls and the veil pools downwards.
